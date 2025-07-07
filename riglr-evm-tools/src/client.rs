@@ -1,374 +1,229 @@
-//! EVM client for interacting with EVM-based blockchains
+//! EVM client for interacting with EVM-based blockchains using alloy-rs
 //!
 //! This module provides a production-grade client for interacting with
-//! Ethereum and EVM-compatible blockchains.
+//! Ethereum and EVM-compatible blockchains using the alloy framework.
 
 use crate::error::{EvmToolError, Result};
-use reqwest::Client;
-use serde_json::{json, Value};
-use std::collections::HashMap;
+use alloy::network::{Ethereum, EthereumWallet};
+use alloy::primitives::{Address, U256};
+use alloy::providers::{Provider, ProviderBuilder, RootProvider};
+use alloy::rpc::client::RpcClient;
+use alloy::transports::http::{Client as HttpClient, Http};
+use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
-use tracing::{debug, error, info, warn};
-
-/// Configuration for EVM client
-#[derive(Debug, Clone)]
-pub struct EvmConfig {
-    /// Request timeout
-    pub timeout: Duration,
-    /// Maximum number of retries for failed requests
-    pub max_retries: usize,
-    /// Retry delay
-    pub retry_delay: Duration,
-    /// Custom headers for RPC requests
-    pub headers: HashMap<String, String>,
-}
-
-impl Default for EvmConfig {
-    fn default() -> Self {
-        Self {
-            timeout: Duration::from_secs(30),
-            max_retries: 3,
-            retry_delay: Duration::from_millis(1000),
-            headers: HashMap::new(),
-        }
-    }
-}
+use tracing::{debug, info, warn};
 
 /// A production-grade client for interacting with EVM-based blockchains
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct EvmClient {
-    /// HTTP client for JSON-RPC calls
-    pub http_client: Arc<Client>,
+    /// Alloy provider for blockchain interactions
+    provider: Arc<RootProvider<Http<HttpClient>>>,
+    /// RPC URL for the blockchain
     pub rpc_url: String,
     /// Chain ID for the target blockchain
     pub chain_id: u64,
-    /// Client configuration
-    pub config: EvmConfig,
 }
 
 impl EvmClient {
-    /// Create a new EVM client with the given RPC URL and chain ID
-    pub async fn new(rpc_url: String, chain_id: u64) -> Result<Self> {
-        Self::with_config(rpc_url, chain_id, EvmConfig::default()).await
-    }
+    /// Create a new EVM client with the given RPC URL
+    pub async fn new(rpc_url: String) -> Result<Self> {
+        debug!("Connecting to EVM RPC: {}", rpc_url);
 
-    /// Create a new EVM client with custom configuration
-    pub async fn with_config(rpc_url: String, chain_id: u64, config: EvmConfig) -> Result<Self> {
-        debug!(
-            "Connecting to EVM RPC: {} (chain_id: {})",
-            rpc_url, chain_id
-        );
+        // Create HTTP transport
+        let http = Http::<HttpClient>::new(rpc_url.parse().map_err(|e| {
+            EvmToolError::Generic(format!("Invalid RPC URL: {}", e))
+        })?);
 
-        // Build HTTP client with custom configuration
-        let mut client_builder = reqwest::Client::builder()
-            .timeout(config.timeout)
-            .user_agent("riglr-evm-tools/0.1.0");
-
-        // Add custom headers
-        let mut headers = reqwest::header::HeaderMap::new();
-        for (key, value) in &config.headers {
-            let header_name = reqwest::header::HeaderName::from_bytes(key.as_bytes())
-                .map_err(|e| EvmToolError::Generic(format!("Invalid header name: {}", e)))?;
-            let header_value = reqwest::header::HeaderValue::from_str(value)
-                .map_err(|e| EvmToolError::Generic(format!("Invalid header value: {}", e)))?;
-            headers.insert(header_name, header_value);
-        }
-
-        if !headers.is_empty() {
-            client_builder = client_builder.default_headers(headers);
-        }
-
-        let http_client =
-            Arc::new(client_builder.build().map_err(|e| {
-                EvmToolError::Generic(format!("Failed to build HTTP client: {}", e))
+        // Build provider
+        let provider = ProviderBuilder::new()
+            .on_http(rpc_url.parse().map_err(|e| {
+                EvmToolError::Generic(format!("Invalid RPC URL: {}", e))
             })?);
 
-        // Verify connection by getting chain ID
-        let client = Self {
-            http_client: http_client.clone(),
-            rpc_url: rpc_url.clone(),
-            chain_id,
-            config: config.clone(),
-        };
-
-        let actual_chain_id = client
+        // Get chain ID
+        let chain_id = provider
             .get_chain_id()
             .await
             .map_err(|e| EvmToolError::Rpc(format!("Failed to get chain ID: {}", e)))?;
 
-        if actual_chain_id != chain_id {
-            warn!(
-                "Chain ID mismatch: expected {}, got {}",
-                chain_id, actual_chain_id
-            );
-        }
-
         info!(
             "Connected to EVM blockchain: {} (chain_id: {})",
-            rpc_url, actual_chain_id
+            rpc_url, chain_id
         );
 
         Ok(Self {
-            http_client,
-            rpc_url,
-            chain_id: actual_chain_id,
-            config,
+            provider: Arc::new(provider),
+            rpc_url: rpc_url.clone(),
+            chain_id,
         })
     }
 
     /// Create a new EVM client for Ethereum mainnet
-    pub async fn ethereum() -> Result<Self> {
-        Self::new("https://eth-mainnet.g.alchemy.com/v2/demo".to_string(), 1).await
+    pub async fn mainnet() -> Result<Self> {
+        Self::new("https://eth-mainnet.g.alchemy.com/v2/demo".to_string()).await
     }
 
     /// Create a new EVM client for Ethereum mainnet with API key
-    pub async fn ethereum_with_api_key(api_key: &str) -> Result<Self> {
+    pub async fn mainnet_with_api_key(api_key: &str) -> Result<Self> {
         let rpc_url = format!("https://eth-mainnet.g.alchemy.com/v2/{}", api_key);
-        Self::new(rpc_url, 1).await
+        Self::new(rpc_url).await
     }
 
     /// Create a new EVM client for Polygon
     pub async fn polygon() -> Result<Self> {
-        Self::new("https://polygon-rpc.com".to_string(), 137).await
+        Self::new("https://polygon-rpc.com".to_string()).await
     }
 
     /// Create a new EVM client for Polygon with API key
     pub async fn polygon_with_api_key(api_key: &str) -> Result<Self> {
         let rpc_url = format!("https://polygon-mainnet.g.alchemy.com/v2/{}", api_key);
-        Self::new(rpc_url, 137).await
+        Self::new(rpc_url).await
     }
 
     /// Create a new EVM client for Arbitrum One
     pub async fn arbitrum() -> Result<Self> {
-        Self::new("https://arb1.arbitrum.io/rpc".to_string(), 42161).await
+        Self::new("https://arb1.arbitrum.io/rpc".to_string()).await
     }
 
     /// Create a new EVM client for Optimism
     pub async fn optimism() -> Result<Self> {
-        Self::new("https://mainnet.optimism.io".to_string(), 10).await
+        Self::new("https://mainnet.optimism.io".to_string()).await
     }
 
     /// Create a new EVM client for Base
     pub async fn base() -> Result<Self> {
-        Self::new("https://mainnet.base.org".to_string(), 8453).await
+        Self::new("https://mainnet.base.org".to_string()).await
     }
 
-    /// Create a client with custom RPC URL (auto-detect chain ID)
-    pub async fn with_rpc_url(rpc_url: String) -> Result<Self> {
-        // Create temporary client to detect chain ID
-        let temp_config = EvmConfig::default();
-        let temp_client = Arc::new(
-            reqwest::Client::builder()
-                .timeout(temp_config.timeout)
-                .build()
-                .map_err(|e| {
-                    EvmToolError::Generic(format!("Failed to build HTTP client: {}", e))
-                })?,
-        );
-
-        let chain_id_hex =
-            Self::rpc_call(&temp_client, &rpc_url, "eth_chainId", &json!([])).await?;
-
-        let chain_id = u64::from_str_radix(
-            chain_id_hex
-                .as_str()
-                .unwrap_or("0x1")
-                .trim_start_matches("0x"),
-            16,
-        )
-        .unwrap_or(1);
-
-        Self::new(rpc_url, chain_id).await
-    }
-
-    /// Make a JSON-RPC call
-    async fn rpc_call(
-        client: &Client,
-        rpc_url: &str,
-        method: &str,
-        params: &Value,
-    ) -> Result<Value> {
-        let request_body = json!({
-            "jsonrpc": "2.0",
-            "method": method,
-            "params": params,
-            "id": 1
-        });
-
-        let response = client
-            .post(rpc_url)
-            .header("Content-Type", "application/json")
-            .json(&request_body)
-            .send()
-            .await
-            .map_err(|e| EvmToolError::Http(e))?;
-
-        if !response.status().is_success() {
-            return Err(EvmToolError::Rpc(format!(
-                "RPC request failed with status: {}",
-                response.status()
-            )));
-        }
-
-        let rpc_response: Value = response.json().await.map_err(|e| EvmToolError::Http(e))?;
-
-        if let Some(error) = rpc_response.get("error") {
-            return Err(EvmToolError::Rpc(format!(
-                "RPC error: {}",
-                error.get("message").unwrap_or(&json!("Unknown error"))
-            )));
-        }
-
-        rpc_response
-            .get("result")
-            .cloned()
-            .ok_or_else(|| EvmToolError::Rpc("Missing result in RPC response".to_string()))
-    }
-
-    /// Make an RPC call using this client's HTTP client
-    pub async fn call_rpc(&self, method: &str, params: &Value) -> Result<Value> {
-        Self::rpc_call(&self.http_client, &self.rpc_url, method, params).await
-    }
-
-    /// Get the chain ID
-    pub async fn get_chain_id(&self) -> Result<u64> {
-        let result = self.call_rpc("eth_chainId", &json!([])).await?;
-        let chain_id_hex = result
-            .as_str()
-            .ok_or_else(|| EvmToolError::Rpc("Invalid chain ID format".to_string()))?;
-
-        u64::from_str_radix(chain_id_hex.trim_start_matches("0x"), 16)
-            .map_err(|e| EvmToolError::Rpc(format!("Failed to parse chain ID: {}", e)))
+    /// Get the provider reference
+    pub fn provider(&self) -> &Arc<RootProvider<Http<HttpClient>>> {
+        &self.provider
     }
 
     /// Get the current block number
     pub async fn get_block_number(&self) -> Result<u64> {
-        let result = self.call_rpc("eth_blockNumber", &json!([])).await?;
-        let block_hex = result
-            .as_str()
-            .ok_or_else(|| EvmToolError::Rpc("Invalid block number format".to_string()))?;
-
-        u64::from_str_radix(block_hex.trim_start_matches("0x"), 16)
-            .map_err(|e| EvmToolError::Rpc(format!("Failed to parse block number: {}", e)))
+        self.provider
+            .get_block_number()
+            .await
+            .map_err(|e| EvmToolError::Rpc(format!("Failed to get block number: {}", e)))
     }
 
-    /// Get the current gas price
-    pub async fn get_gas_price(&self) -> Result<u64> {
-        let result = self.call_rpc("eth_gasPrice", &json!([])).await?;
-        let gas_price_hex = result
-            .as_str()
-            .ok_or_else(|| EvmToolError::Rpc("Invalid gas price format".to_string()))?;
-
-        u64::from_str_radix(gas_price_hex.trim_start_matches("0x"), 16)
-            .map_err(|e| EvmToolError::Rpc(format!("Failed to parse gas price: {}", e)))
+    /// Get the current gas price in wei
+    pub async fn get_gas_price(&self) -> Result<U256> {
+        self.provider
+            .get_gas_price()
+            .await
+            .map_err(|e| EvmToolError::Rpc(format!("Failed to get gas price: {}", e)))
     }
 
     /// Get ETH balance for an address
-    pub async fn get_balance(&self, address: &str) -> Result<String> {
-        let result = self
-            .call_rpc("eth_getBalance", &json!([address, "latest"]))
-            .await?;
+    pub async fn get_balance(&self, address: &str) -> Result<U256> {
+        let addr = Address::from_str(address)
+            .map_err(|e| EvmToolError::InvalidAddress(format!("Invalid address: {}", e)))?;
 
-        result
-            .as_str()
-            .ok_or_else(|| EvmToolError::Rpc("Invalid balance format".to_string()))
-            .map(|s| s.to_string())
+        self.provider
+            .get_balance(addr)
+            .await
+            .map_err(|e| EvmToolError::Rpc(format!("Failed to get balance: {}", e)))
     }
 
     /// Get transaction count (nonce) for an address
     pub async fn get_transaction_count(&self, address: &str) -> Result<u64> {
-        let result = self
-            .call_rpc("eth_getTransactionCount", &json!([address, "latest"]))
-            .await?;
+        let addr = Address::from_str(address)
+            .map_err(|e| EvmToolError::InvalidAddress(format!("Invalid address: {}", e)))?;
 
-        let nonce_hex = result
-            .as_str()
-            .ok_or_else(|| EvmToolError::Rpc("Invalid transaction count format".to_string()))?;
-
-        u64::from_str_radix(nonce_hex.trim_start_matches("0x"), 16)
-            .map_err(|e| EvmToolError::Rpc(format!("Failed to parse transaction count: {}", e)))
+        self.provider
+            .get_transaction_count(addr)
+            .await
+            .map_err(|e| EvmToolError::Rpc(format!("Failed to get transaction count: {}", e)))
     }
 
-    /// Make a contract call
-    pub async fn call_contract(&self, to: &str, data: &str) -> Result<String> {
-        let result = self
-            .call_rpc(
-                "eth_call",
-                &json!([{
-                "to": to,
-                "data": data
-            }, "latest"]),
-            )
-            .await?;
+    /// Get transaction receipt by hash
+    pub async fn get_transaction_receipt(&self, tx_hash: &str) -> Result<Option<alloy::rpc::types::TransactionReceipt>> {
+        let hash = tx_hash.parse()
+            .map_err(|e| EvmToolError::Generic(format!("Invalid transaction hash: {}", e)))?;
 
-        result
-            .as_str()
-            .ok_or_else(|| EvmToolError::Contract("Invalid call result format".to_string()))
-            .map(|s| s.to_string())
+        self.provider
+            .get_transaction_receipt(hash)
+            .await
+            .map_err(|e| EvmToolError::Rpc(format!("Failed to get transaction receipt: {}", e)))
     }
 
-    /// Send a raw transaction
-    pub async fn send_raw_transaction(&self, tx_data: &str) -> Result<String> {
-        let result = self
-            .call_rpc("eth_sendRawTransaction", &json!([tx_data]))
-            .await?;
+    /// Estimate gas for a transaction
+    pub async fn estimate_gas(
+        &self,
+        from: &str,
+        to: &str,
+        value: Option<U256>,
+        data: Option<Vec<u8>>,
+    ) -> Result<u128> {
+        let from_addr = Address::from_str(from)
+            .map_err(|e| EvmToolError::InvalidAddress(format!("Invalid from address: {}", e)))?;
+        let to_addr = Address::from_str(to)
+            .map_err(|e| EvmToolError::InvalidAddress(format!("Invalid to address: {}", e)))?;
 
-        result
-            .as_str()
-            .ok_or_else(|| EvmToolError::Transaction("Invalid transaction hash format".to_string()))
-            .map(|s| s.to_string())
+        let mut tx = alloy::rpc::types::TransactionRequest::default()
+            .from(from_addr)
+            .to(to_addr);
+
+        if let Some(val) = value {
+            tx = tx.value(val);
+        }
+
+        if let Some(d) = data {
+            tx = tx.input(d.into());
+        }
+
+        self.provider
+            .estimate_gas(&tx)
+            .await
+            .map_err(|e| EvmToolError::Rpc(format!("Failed to estimate gas: {}", e)))
+    }
+
+    /// Call a smart contract (read-only)
+    pub async fn call_contract(
+        &self,
+        to: &str,
+        data: Vec<u8>,
+    ) -> Result<Vec<u8>> {
+        let to_addr = Address::from_str(to)
+            .map_err(|e| EvmToolError::InvalidAddress(format!("Invalid contract address: {}", e)))?;
+
+        let tx = alloy::rpc::types::TransactionRequest::default()
+            .to(to_addr)
+            .input(data.into());
+
+        let result = self.provider
+            .call(&tx)
+            .await
+            .map_err(|e| EvmToolError::Contract(format!("Contract call failed: {}", e)))?;
+
+        Ok(result.to_vec())
     }
 }
 
 /// Helper function to validate Ethereum address format
-pub fn validate_address(address_str: &str) -> Result<String> {
-    // Basic validation: must be 42 chars, start with 0x, and be valid hex
-    if address_str.len() != 42 {
-        return Err(EvmToolError::InvalidAddress(format!(
-            "Address must be 42 characters long, got {}",
-            address_str.len()
-        )));
-    }
-
-    if !address_str.starts_with("0x") {
-        return Err(EvmToolError::InvalidAddress(
-            "Address must start with '0x'".to_string(),
-        ));
-    }
-
-    // Check if hex is valid
-    if !address_str[2..].chars().all(|c| c.is_ascii_hexdigit()) {
-        return Err(EvmToolError::InvalidAddress(
-            "Address contains invalid hex characters".to_string(),
-        ));
-    }
-
-    Ok(address_str.to_lowercase())
+pub fn validate_address(address_str: &str) -> Result<Address> {
+    Address::from_str(address_str)
+        .map_err(|e| EvmToolError::InvalidAddress(format!("Invalid address: {}", e)))
 }
 
 /// Helper function to validate transaction hash format  
-pub fn validate_tx_hash(hash_str: &str) -> Result<String> {
-    if hash_str.len() != 66 {
-        return Err(EvmToolError::Generic(format!(
-            "Transaction hash must be 66 characters long, got {}",
-            hash_str.len()
-        )));
-    }
+pub fn validate_tx_hash(hash_str: &str) -> Result<alloy::primitives::TxHash> {
+    hash_str.parse()
+        .map_err(|e| EvmToolError::Generic(format!("Invalid transaction hash: {}", e)))
+}
 
-    if !hash_str.starts_with("0x") {
-        return Err(EvmToolError::Generic(
-            "Transaction hash must start with '0x'".to_string(),
-        ));
-    }
+/// Helper function to format wei as ETH
+pub fn wei_to_eth(wei: U256) -> f64 {
+    let eth = wei.to_string().parse::<f64>().unwrap_or(0.0) / 1e18;
+    eth
+}
 
-    if !hash_str[2..].chars().all(|c| c.is_ascii_hexdigit()) {
-        return Err(EvmToolError::Generic(
-            "Transaction hash contains invalid hex characters".to_string(),
-        ));
-    }
-
-    Ok(hash_str.to_lowercase())
+/// Helper function to format ETH as wei
+pub fn eth_to_wei(eth: f64) -> U256 {
+    U256::from((eth * 1e18) as u128)
 }
 
 #[cfg(test)]
@@ -380,7 +235,6 @@ mod tests {
         let addr_str = "0x742d35Cc6634C0532925a3b8D8e41E5d3e4F8123";
         let result = validate_address(addr_str);
         assert!(result.is_ok());
-        assert_eq!(result.unwrap(), addr_str.to_lowercase());
     }
 
     #[test]
@@ -402,9 +256,16 @@ mod tests {
     }
 
     #[test]
-    fn test_config_defaults() {
-        let config = EvmConfig::default();
-        assert_eq!(config.timeout, Duration::from_secs(30));
-        assert_eq!(config.max_retries, 3);
+    fn test_wei_to_eth_conversion() {
+        let wei = U256::from(1_000_000_000_000_000_000u128); // 1 ETH
+        let eth = wei_to_eth(wei);
+        assert!((eth - 1.0).abs() < 0.000001);
+    }
+
+    #[test]
+    fn test_eth_to_wei_conversion() {
+        let eth = 1.5;
+        let wei = eth_to_wei(eth);
+        assert_eq!(wei, U256::from(1_500_000_000_000_000_000u128));
     }
 }

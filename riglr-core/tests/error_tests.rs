@@ -1,6 +1,6 @@
 //! Comprehensive tests for error module
 
-use riglr_core::error::{CoreError, Result};
+use riglr_core::error::{CoreError, Result, ToolError};
 
 #[test]
 fn test_queue_error() {
@@ -99,4 +99,61 @@ fn test_error_serialization_from_json_error() {
         let core_error = CoreError::from(e);
         assert!(core_error.to_string().contains("Serialization error"));
     }
+}
+
+#[test]
+fn test_tool_error_retriable() {
+    let error = ToolError::Retriable("Connection timeout".to_string());
+    assert_eq!(error.to_string(), "Retriable error: Connection timeout");
+    assert!(error.is_retriable());
+    
+    let error2 = ToolError::retriable("Network issue");
+    assert_eq!(error2.to_string(), "Retriable error: Network issue");
+    assert!(error2.is_retriable());
+}
+
+#[test]
+fn test_tool_error_permanent() {
+    let error = ToolError::Permanent("Invalid address".to_string());
+    assert_eq!(error.to_string(), "Permanent error: Invalid address");
+    assert!(!error.is_retriable());
+    
+    let error2 = ToolError::permanent("Insufficient permissions");
+    assert_eq!(error2.to_string(), "Permanent error: Insufficient permissions");
+    assert!(!error2.is_retriable());
+}
+
+#[test]
+fn test_tool_error_constructors() {
+    // Test retriable constructor
+    let retriable = ToolError::retriable("Temporary failure");
+    assert!(matches!(retriable, ToolError::Retriable(_)));
+    assert!(retriable.is_retriable());
+    
+    // Test permanent constructor  
+    let permanent = ToolError::permanent("Configuration error");
+    assert!(matches!(permanent, ToolError::Permanent(_)));
+    assert!(!permanent.is_retriable());
+}
+
+#[test]
+fn test_tool_error_debug_format() {
+    let error = ToolError::Retriable("Debug test".to_string());
+    let debug_str = format!("{:?}", error);
+    assert!(debug_str.contains("Retriable"));
+    assert!(debug_str.contains("Debug test"));
+    
+    let error2 = ToolError::Permanent("Permanent debug".to_string());
+    let debug_str2 = format!("{:?}", error2);
+    assert!(debug_str2.contains("Permanent"));
+    assert!(debug_str2.contains("Permanent debug"));
+}
+
+#[test]
+fn test_tool_error_display() {
+    let retriable = ToolError::Retriable("Rate limited".to_string());
+    assert_eq!(retriable.to_string(), "Retriable error: Rate limited");
+    
+    let permanent = ToolError::Permanent("Invalid API key".to_string());
+    assert_eq!(permanent.to_string(), "Permanent error: Invalid API key");
 }
