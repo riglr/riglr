@@ -133,18 +133,21 @@ async fn test_balance_get_balance_client_direct() {
         "22222222222222222222222222222222".to_string(),
     ];
 
-    let result = get_multiple_balances(addresses, None).await;
-    let _ = result; // Exercise the code path
+    let client = SolanaClient::devnet();
+    for addr in addresses {
+        let result = get_sol_balance(&client, addr).await;
+        let _ = result; // Exercise the code path
+    }
 }
 
 /// Test for token balance with default client (line 110 path)
 #[tokio::test(flavor = "multi_thread")]
 async fn test_spl_token_balance_default_client() {
+    let client = SolanaClient::devnet();
     let result = get_spl_token_balance(
+        &client,
         "11111111111111111111111111111111".to_string(),
         "So11111111111111111111111111111111111111112".to_string(),
-        None, // No custom RPC - uses get_balance_client()
-        Some(9),
     )
     .await;
 
@@ -155,19 +158,11 @@ async fn test_spl_token_balance_default_client() {
 #[test]
 fn test_static_initialization_balance() {
     // Try to trigger the Once::call_once path in get_balance_client
-    // by creating a custom config first, then testing default path
-    let custom_config = SolanaConfig {
-        rpc_url: "https://api.devnet.solana.com".to_string(),
-        commitment: CommitmentLevel::Finalized,
-        timeout: Duration::from_secs(30),
-        skip_preflight: false,
-    };
+    // Note: With the refactored API that takes a client parameter,
+    // the static initialization pattern is no longer used.
+    // This test is kept for compatibility but doesn't do much now.
 
-    // This initializes with custom config
-    init_balance_client(custom_config);
-
-    // This should now use the already-initialized client
-    // but if we're in a fresh process, it might hit line 32
-
-    // The key is that in different test processes, line 32 might get hit
+    // Just create a client to test the construction
+    use crate::SolanaClient;
+    let _client = SolanaClient::devnet();
 }

@@ -220,7 +220,8 @@ fn handle_function(function: ItemFn) -> proc_macro2::TokenStream {
                         })
                     }
                     Err(tool_error) => {
-                        // Match on ToolError enum to determine retriability
+                        // Convert any error to ToolError, then match on it
+                        let tool_error: riglr_core::ToolError = tool_error.into();
                         match tool_error {
                             riglr_core::ToolError::Retriable(msg) => {
                                 Ok(riglr_core::JobResult::Failure {
@@ -245,7 +246,7 @@ fn handle_function(function: ItemFn) -> proc_macro2::TokenStream {
         }
 
         // If this is intended to be rig-compatible, also generate rig::Tool implementation
-        #[cfg(feature = "rig-compat")]
+        // Note: rig-compat feature removed to avoid unused cfg warnings
         #[async_trait::async_trait]
         impl rig_core::Tool for #tool_struct_name {
             const NAME: &'static str = stringify!(#fn_name);
@@ -254,10 +255,10 @@ fn handle_function(function: ItemFn) -> proc_macro2::TokenStream {
             type Args = #args_struct_name;
             type Output = serde_json::Value;
 
-            async fn definition(&self, _prompt: String) -> rig_core::ToolDefinition {
+            async fn definition(&self, _prompt: String) -> ::rig_core::ToolDefinition {
                 let schema = self.schema();
 
-                rig_core::ToolDefinition {
+                ::rig_core::ToolDefinition {
                     name: stringify!(#fn_name).to_string(),
                     description: #description_lit.to_string(),
                     parameters: schema,
@@ -317,7 +318,8 @@ fn handle_struct(structure: ItemStruct) -> proc_macro2::TokenStream {
                         })
                     }
                     Err(tool_error) => {
-                        // Match on ToolError enum to determine retriability
+                        // Convert any error to ToolError, then match on it
+                        let tool_error: riglr_core::ToolError = tool_error.into();
                         match tool_error {
                             riglr_core::ToolError::Retriable(msg) => {
                                 Ok(riglr_core::JobResult::Failure {
@@ -349,7 +351,7 @@ fn handle_struct(structure: ItemStruct) -> proc_macro2::TokenStream {
         }
 
         // If this is intended to be rig-compatible, also generate rig::Tool implementation
-        #[cfg(feature = "rig-compat")]
+        // Note: rig-compat feature removed to avoid unused cfg warnings
         #[async_trait::async_trait]
         impl rig_core::Tool for #struct_name {
             const NAME: &'static str = stringify!(#struct_name);
@@ -358,10 +360,10 @@ fn handle_struct(structure: ItemStruct) -> proc_macro2::TokenStream {
             type Args = Self;
             type Output = serde_json::Value;
 
-            async fn definition(&self, _prompt: String) -> rig_core::ToolDefinition {
+            async fn definition(&self, _prompt: String) -> ::rig_core::ToolDefinition {
                 let schema = schemars::schema_for!(Self);
 
-                rig_core::ToolDefinition {
+                ::rig_core::ToolDefinition {
                     name: stringify!(#struct_name).to_string(),
                     description: #description_lit.to_string(),
                     parameters: serde_json::to_value(schema).unwrap_or_else(|_| serde_json::json!({})),
@@ -389,11 +391,7 @@ fn extract_doc_comments(attrs: &[Attribute]) -> String {
                 {
                     let line = lit_str.value();
                     // Remove leading space if present (rustdoc convention)
-                    let line = if line.starts_with(' ') {
-                        &line[1..]
-                    } else {
-                        &line
-                    };
+                    let line = line.strip_prefix(' ').unwrap_or(&line);
                     docs.push(line.to_string());
                 }
             }

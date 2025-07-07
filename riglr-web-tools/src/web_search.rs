@@ -3,10 +3,7 @@
 //! This module provides production-grade web search capabilities, content extraction,
 //! and intelligent ranking for AI agents to gather comprehensive web-based information.
 
-use crate::{
-    client::WebClient,
-    error::{Result, WebToolError},
-};
+use crate::{client::WebClient, error::WebToolError};
 use chrono::{DateTime, Utc};
 use riglr_macros::tool;
 use schemars::JsonSchema;
@@ -289,7 +286,7 @@ impl Default for WebSearchConfig {
 ///
 /// This tool performs AI-powered web search using semantic understanding,
 /// returning highly relevant results with extracted content and metadata.
-// // #[tool]
+#[tool]
 pub async fn search_web(
     query: String,
     max_results: Option<u32>,
@@ -297,7 +294,7 @@ pub async fn search_web(
     domain_filter: Option<Vec<String>>,
     date_filter: Option<String>,         // "day", "week", "month", "year"
     content_type_filter: Option<String>, // "news", "academic", "blog"
-) -> Result<WebSearchResult> {
+) -> crate::error::Result<WebSearchResult> {
     debug!(
         "Performing web search for query: '{}' with {} max results",
         query,
@@ -306,13 +303,12 @@ pub async fn search_web(
 
     let config = WebSearchConfig::default();
     if config.exa_api_key.is_empty() {
-        return Err(WebToolError::Auth(
+        return Err(WebToolError::Config(
             "EXA_API_KEY environment variable not set".to_string(),
         ));
     }
 
-    let client = WebClient::new()
-        .with_exa_key(config.exa_api_key.clone());
+    let client = WebClient::new().with_exa_key(config.exa_api_key.clone());
 
     // Build search parameters
     let mut params = HashMap::new();
@@ -332,10 +328,7 @@ pub async fn search_web(
     }
 
     if let Some(ref date) = date_filter {
-        params.insert(
-            "start_published_date".to_string(),
-            format_date_filter(&date),
-        );
+        params.insert("start_published_date".to_string(), format_date_filter(date));
     }
 
     if let Some(content_type) = content_type_filter {
@@ -344,13 +337,23 @@ pub async fn search_web(
 
     // Make API request to Exa
     let url = format!("{}/search", config.exa_base_url);
-    let response = client.get_with_params(&url, &params).await?;
+    let response = client.get_with_params(&url, &params).await.map_err(|e| {
+        if e.to_string().contains("timeout") || e.to_string().contains("connection") {
+            WebToolError::Network(format!("Web search request failed: {}", e))
+        } else {
+            WebToolError::Config(format!("Web search request failed: {}", e))
+        }
+    })?;
 
     // Parse search results
-    let results = parse_exa_search_response(&response, &query).await?;
+    let results = parse_exa_search_response(&response, &query)
+        .await
+        .map_err(|e| WebToolError::Config(format!("Failed to parse search response: {}", e)))?;
 
     // Perform additional analysis
-    let insights = analyze_search_results(&results).await?;
+    let insights = analyze_search_results(&results)
+        .await
+        .map_err(|e| WebToolError::Config(format!("Failed to analyze results: {}", e)))?;
 
     let search_result = WebSearchResult {
         query: query.clone(),
@@ -361,7 +364,9 @@ pub async fn search_web(
             returned_results: results.len() as u32,
             execution_time_ms: 1500, // Would measure actual time
             filtered: domain_filter.is_some() || date_filter.is_some(),
-            related_queries: generate_related_queries(&query).await?,
+            related_queries: generate_related_queries(&query).await.map_err(|e| {
+                WebToolError::Config(format!("Failed to generate related queries: {}", e))
+            })?,
             top_domains: extract_top_domains(&results),
         },
         insights,
@@ -381,24 +386,23 @@ pub async fn search_web(
 ///
 /// This tool finds web pages that are similar in content and topic to a source URL,
 /// useful for finding related information or alternative perspectives.
-// // #[tool]
+#[tool]
 pub async fn find_similar_pages(
     source_url: String,
     max_results: Option<u32>,
     include_content: Option<bool>,
     similarity_threshold: Option<f64>,
-) -> Result<SimilarPagesResult> {
+) -> crate::error::Result<SimilarPagesResult> {
     debug!("Finding pages similar to: {}", source_url);
 
     let config = WebSearchConfig::default();
     if config.exa_api_key.is_empty() {
-        return Err(WebToolError::Auth(
+        return Err(WebToolError::Config(
             "EXA_API_KEY environment variable not set".to_string(),
         ));
     }
 
-    let client = WebClient::new()
-        .with_exa_key(config.exa_api_key.clone());
+    let client = WebClient::new().with_exa_key(config.exa_api_key.clone());
 
     // Build similarity search parameters
     let mut params = HashMap::new();
@@ -418,13 +422,23 @@ pub async fn find_similar_pages(
 
     // Make API request
     let url = format!("{}/find_similar", config.exa_base_url);
-    let response = client.get_with_params(&url, &params).await?;
+    let response = client.get_with_params(&url, &params).await.map_err(|e| {
+        if e.to_string().contains("timeout") || e.to_string().contains("connection") {
+            WebToolError::Network(format!("Web search request failed: {}", e))
+        } else {
+            WebToolError::Config(format!("Web search request failed: {}", e))
+        }
+    })?;
 
     // Parse results
-    let similar_pages = parse_similar_pages_response(&response).await?;
+    let similar_pages = parse_similar_pages_response(&response)
+        .await
+        .map_err(|e| WebToolError::Config(format!("Failed to parse similar pages: {}", e)))?;
 
     // Analyze similarity patterns
-    let similarity_metadata = analyze_similarity(&similar_pages).await?;
+    let similarity_metadata = analyze_similarity(&similar_pages)
+        .await
+        .map_err(|e| WebToolError::Config(format!("Failed to analyze similarity: {}", e)))?;
 
     let result = SimilarPagesResult {
         source_url: source_url.clone(),
@@ -446,18 +460,17 @@ pub async fn find_similar_pages(
 ///
 /// This tool extracts and summarizes key information from multiple web pages,
 /// creating a comprehensive overview of a topic from multiple sources.
-// // #[tool]
+#[tool]
 pub async fn summarize_web_content(
     urls: Vec<String>,
     summary_length: Option<String>, // "brief", "detailed", "comprehensive"
     focus_topics: Option<Vec<String>>,
     include_quotes: Option<bool>,
-) -> Result<Vec<ContentSummary>> {
+) -> crate::error::Result<Vec<ContentSummary>> {
     debug!("Summarizing content from {} URLs", urls.len());
 
     let config = WebSearchConfig::default();
-    let client = WebClient::new()
-        .with_exa_key(config.exa_api_key.clone());
+    let client = WebClient::new().with_exa_key(config.exa_api_key.clone());
 
     let mut summaries = Vec::new();
 
@@ -487,14 +500,14 @@ pub async fn summarize_web_content(
 ///
 /// This tool specifically searches for recent news articles and blog posts,
 /// optimized for finding current information and trending discussions.
-// // #[tool]
+#[tool]
 pub async fn search_recent_news(
     topic: String,
     time_window: Option<String>,       // "24h", "week", "month"
     source_types: Option<Vec<String>>, // "news", "blog", "social"
     max_results: Option<u32>,
     include_analysis: Option<bool>,
-) -> Result<WebSearchResult> {
+) -> crate::error::Result<WebSearchResult> {
     debug!(
         "Searching recent news for topic: '{}' within {}",
         topic,
@@ -502,8 +515,7 @@ pub async fn search_recent_news(
     );
 
     let config = WebSearchConfig::default();
-    let client = WebClient::new()
-        .with_exa_key(config.exa_api_key.clone());
+    let client = WebClient::new().with_exa_key(config.exa_api_key.clone());
 
     // Build news-specific search parameters
     let mut params = HashMap::new();
@@ -530,10 +542,18 @@ pub async fn search_recent_news(
     }
 
     let url = format!("{}/search", config.exa_base_url);
-    let response = client.get_with_params(&url, &params).await?;
+    let response = client.get_with_params(&url, &params).await.map_err(|e| {
+        if e.to_string().contains("timeout") || e.to_string().contains("connection") {
+            WebToolError::Network(format!("Web search request failed: {}", e))
+        } else {
+            WebToolError::Config(format!("Web search request failed: {}", e))
+        }
+    })?;
 
     // Parse and enhance results for news context
-    let mut results = parse_exa_search_response(&response, &topic).await?;
+    let mut results = parse_exa_search_response(&response, &topic)
+        .await
+        .map_err(|e| WebToolError::Config(format!("Failed to parse news response: {}", e)))?;
 
     // Sort by recency
     results.sort_by(|a, b| {
@@ -543,7 +563,9 @@ pub async fn search_recent_news(
     });
 
     let insights = if include_analysis.unwrap_or(true) {
-        analyze_news_results(&results).await?
+        analyze_news_results(&results)
+            .await
+            .map_err(|e| WebToolError::Config(format!("Failed to analyze news: {}", e)))?
     } else {
         SearchInsights {
             common_topics: vec![],
@@ -564,7 +586,9 @@ pub async fn search_recent_news(
             returned_results: results.len() as u32,
             execution_time_ms: 1200,
             filtered: true,
-            related_queries: generate_related_queries(&topic).await?,
+            related_queries: generate_related_queries(&topic).await.map_err(|e| {
+                WebToolError::Config(format!("Failed to generate related queries: {}", e))
+            })?,
             top_domains: extract_top_domains(&results),
         },
         insights,
@@ -581,7 +605,10 @@ pub async fn search_recent_news(
 }
 
 /// Parse Exa search API response into structured results
-async fn parse_exa_search_response(response: &str, query: &str) -> Result<Vec<SearchResult>> {
+async fn parse_exa_search_response(
+    response: &str,
+    query: &str,
+) -> crate::error::Result<Vec<SearchResult>> {
     // In production, this would parse actual Exa JSON response
     // For now, return comprehensive mock results
     Ok(vec![SearchResult {
@@ -641,7 +668,7 @@ async fn parse_exa_search_response(response: &str, query: &str) -> Result<Vec<Se
 }
 
 /// Parse similar pages API response
-async fn parse_similar_pages_response(response: &str) -> Result<Vec<SearchResult>> {
+async fn parse_similar_pages_response(response: &str) -> crate::error::Result<Vec<SearchResult>> {
     // In production, would parse actual JSON response
     Ok(vec![])
 }
@@ -652,7 +679,7 @@ async fn extract_and_summarize_page(
     url: &str,
     summary_length: &Option<String>,
     focus_topics: &Option<Vec<String>>,
-) -> Result<ContentSummary> {
+) -> crate::error::Result<ContentSummary> {
     // In production, would extract and process actual page content
     Ok(ContentSummary {
         url: url.to_string(),
@@ -672,7 +699,7 @@ async fn extract_and_summarize_page(
 }
 
 /// Analyze search results to extract insights
-async fn analyze_search_results(results: &[SearchResult]) -> Result<SearchInsights> {
+async fn analyze_search_results(results: &[SearchResult]) -> crate::error::Result<SearchInsights> {
     let mut content_types = HashMap::new();
     let mut languages = HashMap::new();
     let mut date_distribution = HashMap::new();
@@ -727,13 +754,13 @@ async fn analyze_search_results(results: &[SearchResult]) -> Result<SearchInsigh
 }
 
 /// Analyze news-specific results
-async fn analyze_news_results(results: &[SearchResult]) -> Result<SearchInsights> {
+async fn analyze_news_results(results: &[SearchResult]) -> crate::error::Result<SearchInsights> {
     // Similar to analyze_search_results but with news-specific analysis
     analyze_search_results(results).await
 }
 
 /// Analyze similarity patterns between pages
-async fn analyze_similarity(results: &[SearchResult]) -> Result<SimilarityMetadata> {
+async fn analyze_similarity(results: &[SearchResult]) -> crate::error::Result<SimilarityMetadata> {
     let avg_similarity =
         results.iter().map(|r| r.relevance_score).sum::<f64>() / results.len() as f64;
 
@@ -753,7 +780,7 @@ async fn analyze_similarity(results: &[SearchResult]) -> Result<SimilarityMetada
 }
 
 /// Generate related search queries
-async fn generate_related_queries(query: &str) -> Result<Vec<String>> {
+async fn generate_related_queries(query: &str) -> crate::error::Result<Vec<String>> {
     // In production, would use AI to generate related queries
     Ok(vec![
         format!("{} tutorial", query),

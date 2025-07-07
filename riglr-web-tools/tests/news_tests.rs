@@ -22,7 +22,7 @@ async fn test_get_crypto_news_basic() {
     assert_eq!(news_result.topic, "Bitcoin");
     assert!(news_result.articles.len() >= 1); // Should have sample articles from mocked sources
     assert!(news_result.metadata.sources_queried.len() >= 1);
-    
+
     // Clean up
     std::env::remove_var("NEWSAPI_KEY");
     std::env::remove_var("CRYPTOPANIC_KEY");
@@ -34,23 +34,16 @@ async fn test_get_crypto_news_no_api_keys() {
     // Store current environment vars if they exist
     let newsapi_key = std::env::var("NEWSAPI_KEY").ok();
     let cryptopanic_key = std::env::var("CRYPTOPANIC_KEY").ok();
-    
+
     // Ensure no API keys are set
     std::env::remove_var("NEWSAPI_KEY");
     std::env::remove_var("CRYPTOPANIC_KEY");
 
-    let result = get_crypto_news(
-        "Ethereum".to_string(),
-        None,
-        None,
-        None,
-        None,
-    )
-    .await;
+    let result = get_crypto_news("Ethereum".to_string(), None, None, None, None).await;
 
     assert!(result.is_err());
     // Should return auth error when no API keys are configured
-    
+
     // Restore environment vars if they existed
     if let Some(key) = newsapi_key {
         std::env::set_var("NEWSAPI_KEY", key);
@@ -79,7 +72,7 @@ async fn test_get_crypto_news_with_only_newsapi() {
     assert_eq!(news_result.topic, "DeFi");
     // Since this is a mock implementation, just verify we got some sources
     assert!(!news_result.metadata.sources_queried.is_empty());
-    
+
     std::env::remove_var("NEWSAPI_KEY");
 }
 
@@ -102,7 +95,7 @@ async fn test_get_crypto_news_with_only_cryptopanic() {
     assert_eq!(news_result.topic, "NFT");
     // Since this is a mock implementation, just verify we got some sources
     assert!(!news_result.metadata.sources_queried.is_empty());
-    
+
     std::env::remove_var("CRYPTOPANIC_KEY");
 }
 
@@ -127,8 +120,7 @@ async fn test_get_trending_news_basic() {
 async fn test_get_trending_news_defaults() {
     let result = get_trending_news(
         None, // Should default to "6h"
-        None,
-        None, // Should default to 60
+        None, None, // Should default to 60
         None, // Should default to 30
     )
     .await;
@@ -183,7 +175,10 @@ async fn test_analyze_market_sentiment_with_assets() {
     assert!(result.is_ok());
     let insights = result.unwrap();
     // Sentiment could be NaN if no news was found, so check for valid range or NaN
-    assert!(insights.overall_sentiment >= -1.0 && insights.overall_sentiment <= 1.0 || insights.overall_sentiment.is_nan());
+    assert!(
+        insights.overall_sentiment >= -1.0 && insights.overall_sentiment <= 1.0
+            || insights.overall_sentiment.is_nan()
+    );
     assert!(["Improving", "Declining", "Stable"].contains(&insights.sentiment_trend.as_str()));
 }
 
@@ -200,7 +195,10 @@ async fn test_analyze_market_sentiment_general() {
     assert!(result.is_ok());
     let insights = result.unwrap();
     // Sentiment could be NaN if no news was found, so check for valid range or NaN
-    assert!(insights.overall_sentiment >= -1.0 && insights.overall_sentiment <= 1.0 || insights.overall_sentiment.is_nan());
+    assert!(
+        insights.overall_sentiment >= -1.0 && insights.overall_sentiment <= 1.0
+            || insights.overall_sentiment.is_nan()
+    );
 }
 
 #[test]
@@ -384,7 +382,10 @@ fn test_market_impact_comprehensive() {
         affected_sectors: vec!["DeFi".to_string(), "NFT".to_string(), "Gaming".to_string()],
         potential_price_impact: Some(2.3),
         historical_correlation: Some(0.45),
-        risk_factors: vec!["Regulatory uncertainty".to_string(), "Market volatility".to_string()],
+        risk_factors: vec![
+            "Regulatory uncertainty".to_string(),
+            "Market volatility".to_string(),
+        ],
     };
 
     assert_eq!(impact.impact_level, "Medium");
@@ -404,7 +405,10 @@ fn test_news_entity_comprehensive() {
         relevance_score: 0.85,
         sentiment: Some(0.6),
         mention_count: 5,
-        contexts: vec!["Ethereum development".to_string(), "Conference speech".to_string()],
+        contexts: vec![
+            "Ethereum development".to_string(),
+            "Conference speech".to_string(),
+        ],
     };
 
     assert_eq!(entity.name, "Vitalik Buterin");
@@ -455,9 +459,12 @@ fn test_social_metrics_comprehensive() {
     assert_eq!(social.social_sentiment, 0.35);
     assert_eq!(social.viral_score, 78);
     assert_eq!(social.influencer_mentions, 25);
-    
+
     // Verify total matches sum of individual platforms
-    assert_eq!(social.total_shares, social.twitter_shares + social.reddit_mentions + social.linkedin_shares);
+    assert_eq!(
+        social.total_shares,
+        social.twitter_shares + social.reddit_mentions + social.linkedin_shares
+    );
 }
 
 #[test]
@@ -465,7 +472,11 @@ fn test_aggregation_metadata() {
     let metadata = AggregationMetadata {
         total_articles: 150,
         returned_articles: 50,
-        sources_queried: vec!["NewsAPI".to_string(), "CryptoPanic".to_string(), "CoinDesk".to_string()],
+        sources_queried: vec![
+            "NewsAPI".to_string(),
+            "CryptoPanic".to_string(),
+            "CoinDesk".to_string(),
+        ],
         avg_credibility: 82.5,
         time_range_hours: 24,
         duplicates_removed: 25,
@@ -545,7 +556,10 @@ fn test_breaking_news_alert() {
     assert_eq!(alert.id, "alert_123");
     assert_eq!(alert.severity, "Critical");
     assert_eq!(alert.estimated_impact.impact_level, "Extreme");
-    assert_eq!(alert.estimated_impact.potential_price_impact.unwrap(), -15.0);
+    assert_eq!(
+        alert.estimated_impact.potential_price_impact.unwrap(),
+        -15.0
+    );
     assert!(alert.expires_at.is_some());
 }
 
@@ -553,11 +567,11 @@ fn test_breaking_news_alert() {
 fn test_time_window_parsing_logic() {
     // Test the logic we know exists based on the function signature
     // Since parse_time_window is private, we test through the public interface
-    
+
     // This test verifies that different time windows work via the public API calls
     // The actual parsing is tested indirectly through the async functions
     let valid_windows = vec!["1h", "6h", "24h", "week"];
-    
+
     for window in valid_windows {
         // Just verify the string is valid - actual parsing tested via API calls
         assert!(!window.is_empty());
@@ -569,7 +583,7 @@ fn test_time_window_parsing_logic() {
 fn test_severity_levels() {
     // Test severity level ordering logic that we know exists
     let severity_levels = vec!["Low", "Medium", "High", "Critical"];
-    
+
     for (i, level) in severity_levels.iter().enumerate() {
         assert!(!level.is_empty());
         if i > 0 {
@@ -577,7 +591,7 @@ fn test_severity_levels() {
             assert_ne!(*level, severity_levels[i - 1]);
         }
     }
-    
+
     // Test that we have all expected severity levels
     assert!(severity_levels.contains(&"Low"));
     assert!(severity_levels.contains(&"Medium"));
@@ -600,7 +614,7 @@ fn test_trending_topic_serialization() {
     assert!(json.contains("Layer 2"));
     assert!(json.contains("18"));
     assert!(json.contains("0.75"));
-    
+
     // Test round-trip serialization
     let deserialized: TrendingTopic = serde_json::from_str(&json).unwrap();
     assert_eq!(deserialized.topic, "Layer 2");
@@ -618,7 +632,7 @@ fn test_sentiment_phrase() {
     assert_eq!(phrase.phrase, "unprecedented growth");
     assert_eq!(phrase.sentiment_contribution, 0.7);
     assert_eq!(phrase.confidence, 0.95);
-    
+
     // Test that confidence and sentiment_contribution are in valid ranges
     assert!(phrase.confidence >= 0.0 && phrase.confidence <= 1.0);
     assert!(phrase.sentiment_contribution >= -1.0 && phrase.sentiment_contribution <= 1.0);
@@ -724,12 +738,12 @@ fn test_news_article_serialization_custom() {
         },
         social_metrics: None,
     };
-    
+
     let json = serde_json::to_string(&article).unwrap();
     assert!(json.contains("Solana"));
     assert!(json.contains("TestSource"));
     assert!(json.contains("Breaking"));
-    
+
     // Test deserialization
     let deserialized: NewsArticle = serde_json::from_str(&json).unwrap();
     assert!(deserialized.title.contains("Solana"));

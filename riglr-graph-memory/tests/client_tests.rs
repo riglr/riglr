@@ -2,8 +2,8 @@
 
 use riglr_graph_memory::client::Neo4jClient;
 use riglr_graph_memory::error::GraphMemoryError;
-use std::collections::HashMap;
 use serde_json::json;
+use std::collections::HashMap;
 
 #[tokio::test]
 async fn test_neo4j_client_creation_fails_without_connection() {
@@ -13,21 +13,17 @@ async fn test_neo4j_client_creation_fails_without_connection() {
         Some("neo4j".to_string()),
         Some("password".to_string()),
         Some("neo4j".to_string()),
-    ).await;
-    
+    )
+    .await;
+
     // Should fail when Neo4j is not available
     assert!(result.is_err());
 }
 
 #[tokio::test]
 async fn test_neo4j_client_creation_with_invalid_url() {
-    let result = Neo4jClient::new(
-        "not_a_valid_url",
-        None,
-        None,
-        None,
-    ).await;
-    
+    let result = Neo4jClient::new("not_a_valid_url", None, None, None).await;
+
     assert!(result.is_err());
 }
 
@@ -35,16 +31,17 @@ async fn test_neo4j_client_creation_with_invalid_url() {
 async fn test_neo4j_client_debug() {
     // Even though we can't connect, we can test Debug implementation
     // by creating a mock scenario
-    
-    // Since we can't create a client without a connection, 
+
+    // Since we can't create a client without a connection,
     // we'll test that the error is properly formatted
     let result = Neo4jClient::new(
         "http://localhost:7474",
         Some("test".to_string()),
         Some("pass".to_string()),
         None,
-    ).await;
-    
+    )
+    .await;
+
     if let Err(e) = result {
         let debug_str = format!("{:?}", e);
         assert!(!debug_str.is_empty());
@@ -55,11 +52,16 @@ async fn test_neo4j_client_debug() {
 fn test_neo4j_connection_parameters() {
     // Test various parameter combinations for client creation
     let test_cases = vec![
-        ("http://localhost:7474", Some("user"), Some("pass"), Some("mydb")),
+        (
+            "http://localhost:7474",
+            Some("user"),
+            Some("pass"),
+            Some("mydb"),
+        ),
         ("https://remote:7473", None, None, None),
         ("http://127.0.0.1:7474", Some("admin"), Some("secret"), None),
     ];
-    
+
     for (url, user, pass, db) in test_cases {
         // Just verify the parameters are valid strings
         assert!(!url.is_empty());
@@ -81,11 +83,11 @@ fn test_neo4j_connection_parameters() {
 async fn test_execute_query_mock() {
     // This would be an integration test with actual Neo4j
     // For unit testing, we verify query structure
-    
+
     let query = "MATCH (n) RETURN n LIMIT 10";
     let mut params = HashMap::new();
     params.insert("limit".to_string(), json!(10));
-    
+
     // Verify query and parameters are valid
     assert!(query.contains("MATCH"));
     assert!(query.contains("RETURN"));
@@ -102,7 +104,7 @@ async fn test_create_indexes_query() {
         "CREATE INDEX IF NOT EXISTS FOR (n:Protocol) ON (n.canonical)",
         "CREATE VECTOR INDEX IF NOT EXISTS document_embeddings FOR (n:Document) ON (n.embedding)",
     ];
-    
+
     for query in index_queries {
         assert!(query.contains("CREATE"));
         assert!(query.contains("INDEX"));
@@ -130,7 +132,7 @@ async fn test_get_stats_query() {
             protocol_count: count(p)
         } as stats
     "#;
-    
+
     assert!(stats_query.contains("node_count"));
     assert!(stats_query.contains("relationship_count"));
     assert!(stats_query.contains("wallet_count"));
@@ -143,11 +145,11 @@ fn test_query_parameters() {
     params.insert("canonical".to_string(), json!("0xabc"));
     params.insert("confidence".to_string(), json!(0.95));
     params.insert("properties".to_string(), json!({"key": "value"}));
-    
+
     assert_eq!(params.get("id"), Some(&json!("doc123")));
     assert_eq!(params.get("canonical"), Some(&json!("0xabc")));
     assert_eq!(params.get("confidence"), Some(&json!(0.95)));
-    
+
     let props = params.get("properties").unwrap();
     assert!(props.is_object());
 }
@@ -155,23 +157,23 @@ fn test_query_parameters() {
 #[test]
 fn test_cypher_query_building() {
     // Test various Cypher query patterns
-    
+
     // Node creation
     let create_node = "CREATE (n:Label {prop: $value})";
     assert!(create_node.contains("CREATE"));
     assert!(create_node.contains(":Label"));
-    
+
     // Relationship creation
     let create_rel = "MATCH (a), (b) WHERE a.id = $id1 AND b.id = $id2 CREATE (a)-[:RELATES]->(b)";
     assert!(create_rel.contains("MATCH"));
     assert!(create_rel.contains("CREATE"));
     assert!(create_rel.contains("-[:RELATES]->"));
-    
+
     // Merge pattern
     let merge = "MERGE (n:Entity {id: $id}) ON CREATE SET n.created = timestamp()";
     assert!(merge.contains("MERGE"));
     assert!(merge.contains("ON CREATE SET"));
-    
+
     // Vector search
     let vector_search = "CALL db.index.vector.queryNodes('index', 10, $embedding)";
     assert!(vector_search.contains("vector.queryNodes"));
@@ -180,13 +182,13 @@ fn test_cypher_query_building() {
 #[test]
 fn test_error_handling() {
     // Test error conversion and handling
-    
+
     let db_error = GraphMemoryError::Database("Connection failed".to_string());
     assert!(matches!(db_error, GraphMemoryError::Database(_)));
-    
+
     let error_msg = db_error.to_string();
     assert!(error_msg.contains("Connection failed"));
-    
+
     let query_error = GraphMemoryError::Database("Query execution failed".to_string());
     assert!(matches!(query_error, GraphMemoryError::Database(_)));
 }
@@ -195,15 +197,16 @@ fn test_error_handling() {
 async fn test_connection_with_different_databases() {
     // Test different database configurations
     let databases = vec!["neo4j", "system", "custom"];
-    
+
     for db in databases {
         let result = Neo4jClient::new(
             "http://localhost:7474",
             Some("neo4j".to_string()),
             Some("password".to_string()),
             Some(db.to_string()),
-        ).await;
-        
+        )
+        .await;
+
         // All should fail if Neo4j is not running
         assert!(result.is_err());
     }
@@ -213,19 +216,19 @@ async fn test_connection_with_different_databases() {
 async fn test_authentication_combinations() {
     // Test various authentication scenarios
     let auth_scenarios = vec![
-        (Some("user"), Some("pass"), true),  // Both provided
-        (Some("user"), None, false),          // Missing password
-        (None, Some("pass"), false),          // Missing username
-        (None, None, true),                   // No auth (anonymous)
+        (Some("user"), Some("pass"), true), // Both provided
+        (Some("user"), None, false),        // Missing password
+        (None, Some("pass"), false),        // Missing username
+        (None, None, true),                 // No auth (anonymous)
     ];
-    
+
     for (user, pass, should_be_valid) in auth_scenarios {
         let has_complete_auth = match (user, pass) {
             (Some(_), Some(_)) => true,
             (None, None) => true,
             _ => false,
         };
-        
+
         assert_eq!(has_complete_auth, should_be_valid);
     }
 }
@@ -243,7 +246,7 @@ fn test_query_response_parsing() {
         }],
         "errors": []
     });
-    
+
     assert!(response_json["results"].is_array());
     assert!(response_json["errors"].is_array());
     assert_eq!(response_json["results"][0]["columns"][0], "n");
@@ -258,9 +261,12 @@ fn test_error_response_parsing() {
             "message": "Invalid syntax"
         }]
     });
-    
+
     assert!(error_response["errors"].is_array());
-    assert_eq!(error_response["errors"][0]["code"], "Neo.ClientError.Statement.SyntaxError");
+    assert_eq!(
+        error_response["errors"][0]["code"],
+        "Neo.ClientError.Statement.SyntaxError"
+    );
     assert_eq!(error_response["errors"][0]["message"], "Invalid syntax");
 }
 
@@ -269,7 +275,7 @@ fn test_http_client_configuration() {
     // Test HTTP client timeout and settings
     let timeout_duration = std::time::Duration::from_secs(30);
     assert_eq!(timeout_duration.as_secs(), 30);
-    
+
     let timeout_short = std::time::Duration::from_secs(5);
     assert_eq!(timeout_short.as_secs(), 5);
 }
@@ -283,19 +289,14 @@ fn test_base_url_formats() {
         "https://neo4j.example.com:7474",
         "http://192.168.1.100:7474",
     ];
-    
+
     for url in valid_urls {
         assert!(url.starts_with("http://") || url.starts_with("https://"));
         assert!(url.contains(":"));
     }
-    
-    let invalid_urls = vec![
-        "localhost:7474",
-        "ftp://localhost:7474",
-        "7474",
-        "",
-    ];
-    
+
+    let invalid_urls = vec!["localhost:7474", "ftp://localhost:7474", "7474", ""];
+
     for url in invalid_urls {
         let is_valid = url.starts_with("http://") || url.starts_with("https://");
         assert!(!is_valid);
@@ -310,7 +311,7 @@ async fn test_batch_operations() {
         "CREATE (n:Node {id: 2})",
         "CREATE (n:Node {id: 3})",
     ];
-    
+
     assert_eq!(batch_queries.len(), 3);
     for query in batch_queries {
         assert!(query.starts_with("CREATE"));
@@ -323,7 +324,7 @@ fn test_connection_pooling() {
     let max_connections = 10;
     let min_connections = 2;
     let connection_timeout_ms = 5000;
-    
+
     assert!(max_connections > min_connections);
     assert!(connection_timeout_ms > 0);
 }
@@ -333,7 +334,7 @@ fn test_transaction_queries() {
     let begin_tx = "BEGIN";
     let commit_tx = "COMMIT";
     let rollback_tx = "ROLLBACK";
-    
+
     assert_eq!(begin_tx, "BEGIN");
     assert_eq!(commit_tx, "COMMIT");
     assert_eq!(rollback_tx, "ROLLBACK");
@@ -343,14 +344,14 @@ fn test_transaction_queries() {
 fn test_graph_patterns() {
     // Test various graph patterns
     let patterns = vec![
-        "(n)",                           // Node
-        "(n:Label)",                     // Labeled node
-        "(n {prop: value})",            // Node with properties
-        "()-[r]-()",                    // Undirected relationship
-        "()-[r:TYPE]->()",              // Directed typed relationship
+        "(n)",                         // Node
+        "(n:Label)",                   // Labeled node
+        "(n {prop: value})",           // Node with properties
+        "()-[r]-()",                   // Undirected relationship
+        "()-[r:TYPE]->()",             // Directed typed relationship
         "(a)-[:REL]->(b)<-[:REL]-(c)", // Complex pattern
     ];
-    
+
     for pattern in patterns {
         assert!(pattern.contains("(") && pattern.contains(")"));
     }
@@ -362,7 +363,7 @@ fn test_graph_patterns() {
 async fn test_client_creation_with_http_client_builder_failure() {
     // Test case where HTTP client builder might fail
     // This tests line 79-81 in client.rs (HTTP client creation error)
-    
+
     // We can't easily force reqwest::Client::builder() to fail in a unit test,
     // but we can test the error path by checking error handling logic
     let result = Neo4jClient::new(
@@ -370,8 +371,9 @@ async fn test_client_creation_with_http_client_builder_failure() {
         Some("user".to_string()),
         Some("pass".to_string()),
         None,
-    ).await;
-    
+    )
+    .await;
+
     // Should fail due to invalid URL or connection
     assert!(result.is_err());
     if let Err(e) = result {
@@ -386,32 +388,35 @@ async fn test_client_creation_without_credentials() {
     // Test auth handling with no credentials (lines 84-87)
     let result = Neo4jClient::new(
         "http://localhost:7474",
-        None,  // No username
-        None,  // No password
+        None, // No username
+        None, // No password
         Some("neo4j".to_string()),
-    ).await;
-    
+    )
+    .await;
+
     // Should fail when Neo4j is not running, but tests auth logic
     assert!(result.is_err());
 }
 
-#[tokio::test] 
+#[tokio::test]
 async fn test_client_creation_with_partial_credentials() {
     // Test auth handling with partial credentials (lines 84-87)
     let result1 = Neo4jClient::new(
         "http://localhost:7474",
         Some("user".to_string()),
-        None,  // Missing password
+        None, // Missing password
         None,
-    ).await;
+    )
+    .await;
     assert!(result1.is_err());
 
     let result2 = Neo4jClient::new(
         "http://localhost:7474",
-        None,  // Missing username
+        None, // Missing username
         Some("pass".to_string()),
         None,
-    ).await;
+    )
+    .await;
     assert!(result2.is_err());
 }
 
@@ -422,9 +427,10 @@ async fn test_database_name_defaulting() {
         "http://localhost:7474",
         Some("neo4j".to_string()),
         Some("password".to_string()),
-        None,  // No database specified - should default to "neo4j"
-    ).await;
-    
+        None, // No database specified - should default to "neo4j"
+    )
+    .await;
+
     // Should fail when Neo4j is not running, but tests defaulting logic
     assert!(result.is_err());
 }
@@ -438,8 +444,9 @@ async fn test_connection_test_failure() {
         Some("neo4j".to_string()),
         Some("password".to_string()),
         Some("neo4j".to_string()),
-    ).await;
-    
+    )
+    .await;
+
     // Should fail during connection test
     assert!(result.is_err());
     if let Err(GraphMemoryError::Database(msg)) = result {
@@ -451,7 +458,7 @@ async fn test_connection_test_failure() {
 #[test]
 fn test_query_response_structure_validation() {
     // Test response parsing logic (lines 189-209)
-    
+
     // Valid response structure
     let valid_response = json!({
         "results": [{
@@ -463,12 +470,12 @@ fn test_query_response_structure_validation() {
         }],
         "errors": []
     });
-    
+
     // Verify response structure
     assert!(valid_response["results"].is_array());
     assert!(valid_response["errors"].is_array());
     assert_eq!(valid_response["errors"].as_array().unwrap().len(), 0);
-    
+
     // Error response structure
     let error_response = json!({
         "results": [],
@@ -477,14 +484,14 @@ fn test_query_response_structure_validation() {
             "message": "Invalid syntax in query"
         }]
     });
-    
+
     assert!(error_response["errors"].as_array().unwrap().len() > 0);
 }
 
 #[test]
 fn test_simple_query_response_parsing() {
     // Test simple_query result parsing (lines 213-232)
-    
+
     // Response with multiple rows and columns
     let response = json!({
         "results": [{
@@ -497,7 +504,7 @@ fn test_simple_query_response_parsing() {
         }],
         "errors": []
     });
-    
+
     // Verify we can extract first column values
     if let Some(results) = response["results"].as_array() {
         for result in results {
@@ -514,7 +521,7 @@ fn test_simple_query_response_parsing() {
     }
 }
 
-#[test] 
+#[test]
 fn test_create_indexes_query_variations() {
     // Test all index creation queries (lines 256-267)
     let index_types = vec![
@@ -527,7 +534,7 @@ fn test_create_indexes_query_variations() {
         ("composite1", "CREATE INDEX IF NOT EXISTS wallet_token_index FOR (n:Wallet) ON (n.address, n.chain)"),
         ("composite2", "CREATE INDEX IF NOT EXISTS transaction_block_index FOR (n:Transaction) ON (n.block_number, n.chain)"),
     ];
-    
+
     for (_name, query) in index_types {
         assert!(query.contains("CREATE"));
         assert!(query.contains("INDEX"));
@@ -540,13 +547,22 @@ fn test_stats_query_variations() {
     // Test all stats queries (lines 274-290, 294-309)
     let stat_queries = vec![
         ("node_count", "MATCH (n) RETURN count(n) as count"),
-        ("relationship_count", "MATCH ()-[r]->() RETURN count(r) as count"),
+        (
+            "relationship_count",
+            "MATCH ()-[r]->() RETURN count(r) as count",
+        ),
         ("wallet_count", "MATCH (n:Wallet) RETURN count(n) as count"),
         ("token_count", "MATCH (n:Token) RETURN count(n) as count"),
-        ("transaction_count", "MATCH (n:Transaction) RETURN count(n) as count"),
-        ("protocol_count", "MATCH (n:Protocol) RETURN count(n) as count"),
+        (
+            "transaction_count",
+            "MATCH (n:Transaction) RETURN count(n) as count",
+        ),
+        (
+            "protocol_count",
+            "MATCH (n:Protocol) RETURN count(n) as count",
+        ),
     ];
-    
+
     for (stat_name, query) in stat_queries {
         assert!(query.contains("MATCH"));
         assert!(query.contains("RETURN"));
@@ -559,12 +575,24 @@ fn test_stats_query_variations() {
 fn test_error_message_formatting() {
     // Test various error message formats
     let test_cases = vec![
-        ("HTTP request failed: Connection refused", GraphMemoryError::Database("HTTP request failed: Connection refused".to_string())),
-        ("Query failed with status 500", GraphMemoryError::Query("Query failed with status 500".to_string())),
-        ("Failed to read response: Timeout", GraphMemoryError::Database("Failed to read response: Timeout".to_string())),
-        ("Neo4j errors: Syntax error", GraphMemoryError::Query("Neo4j errors: Syntax error".to_string())),
+        (
+            "HTTP request failed: Connection refused",
+            GraphMemoryError::Database("HTTP request failed: Connection refused".to_string()),
+        ),
+        (
+            "Query failed with status 500",
+            GraphMemoryError::Query("Query failed with status 500".to_string()),
+        ),
+        (
+            "Failed to read response: Timeout",
+            GraphMemoryError::Database("Failed to read response: Timeout".to_string()),
+        ),
+        (
+            "Neo4j errors: Syntax error",
+            GraphMemoryError::Query("Neo4j errors: Syntax error".to_string()),
+        ),
     ];
-    
+
     for (expected_msg, error) in test_cases {
         let error_str = error.to_string();
         assert!(error_str.contains(expected_msg) || !error_str.is_empty());
@@ -575,16 +603,16 @@ fn test_error_message_formatting() {
 fn test_http_status_codes() {
     // Test HTTP status code handling (line 178)
     let status_codes = vec![
-        (200, true),   // Success
-        (201, true),   // Created
-        (400, false),  // Bad Request
-        (401, false),  // Unauthorized
-        (403, false),  // Forbidden
-        (404, false),  // Not Found
-        (500, false),  // Internal Server Error
-        (503, false),  // Service Unavailable
+        (200, true),  // Success
+        (201, true),  // Created
+        (400, false), // Bad Request
+        (401, false), // Unauthorized
+        (403, false), // Forbidden
+        (404, false), // Not Found
+        (500, false), // Internal Server Error
+        (503, false), // Service Unavailable
     ];
-    
+
     for (code, should_be_success) in status_codes {
         // We can't easily test the actual HTTP status handling without a mock server,
         // but we can verify our understanding of success/failure codes
@@ -598,10 +626,10 @@ fn test_json_serialization_error_handling() {
     // Test JSON serialization error paths (line 190)
     let invalid_json = "{ invalid json content }";
     let parse_result = serde_json::from_str::<serde_json::Value>(invalid_json);
-    
+
     // Should fail to parse
     assert!(parse_result.is_err());
-    
+
     if let Err(e) = parse_result {
         // Test conversion to GraphMemoryError
         let graph_error = GraphMemoryError::Serialization(e);
@@ -617,7 +645,7 @@ fn test_auth_header_combinations() {
         (Some(("user".to_string(), "pass".to_string())), true),
         (None, false),
     ];
-    
+
     for (auth, should_have_auth) in auth_combinations {
         match auth {
             Some((username, password)) => {
@@ -644,12 +672,18 @@ fn test_cypher_parameter_serialization() {
         ("object_param".to_string(), json!({"key": "value"})),
         ("null_param".to_string(), json!(null)),
     ]);
-    
+
     // Verify all parameter types are handled
     for (key, value) in params {
         assert!(!key.is_empty());
-        assert!(value.is_string() || value.is_number() || value.is_boolean() || 
-               value.is_array() || value.is_object() || value.is_null());
+        assert!(
+            value.is_string()
+                || value.is_number()
+                || value.is_boolean()
+                || value.is_array()
+                || value.is_object()
+                || value.is_null()
+        );
     }
 }
 
@@ -661,14 +695,14 @@ async fn test_url_construction() {
         "https://remote-host:7473",
         "http://127.0.0.1:7474",
     ];
-    
+
     let databases = vec!["neo4j", "system", "custom_db"];
-    
+
     for base_url in base_urls {
         for database in &databases {
             // Test URL construction logic (line 140)
             let expected_url = format!("{}/db/{}/tx/commit", base_url, database);
-            
+
             assert!(expected_url.contains(base_url));
             assert!(expected_url.contains(database));
             assert!(expected_url.contains("/db/"));
@@ -682,10 +716,10 @@ fn test_request_builder_configuration() {
     // Test request builder configuration (lines 150-155)
     let content_type = "application/json";
     let accept = "application/json";
-    
+
     assert_eq!(content_type, "application/json");
     assert_eq!(accept, "application/json");
-    
+
     // Test request body structure
     let query_request = json!({
         "statements": [{
@@ -695,7 +729,7 @@ fn test_request_builder_configuration() {
             }
         }]
     });
-    
+
     assert!(query_request["statements"].is_array());
     assert_eq!(query_request["statements"].as_array().unwrap().len(), 1);
 }
@@ -705,7 +739,7 @@ fn test_client_timeout_configuration() {
     // Test client timeout configuration (line 77)
     let timeout_duration = std::time::Duration::from_secs(30);
     assert_eq!(timeout_duration.as_secs(), 30);
-    
+
     // Test different timeout values
     let timeouts = vec![5, 10, 30, 60, 120];
     for timeout_secs in timeouts {
@@ -715,7 +749,7 @@ fn test_client_timeout_configuration() {
     }
 }
 
-#[test] 
+#[test]
 fn test_multiple_error_handling() {
     // Test multiple Neo4j errors in response (lines 193-204)
     let multi_error_response = json!({
@@ -726,25 +760,25 @@ fn test_multiple_error_handling() {
                 "message": "Invalid syntax"
             },
             {
-                "code": "Neo.ClientError.Security.Unauthorized", 
+                "code": "Neo.ClientError.Security.Unauthorized",
                 "message": "Authentication failed"
             }
         ]
     });
-    
+
     if let Some(errors) = multi_error_response["errors"].as_array() {
         assert!(!errors.is_empty());
-        
+
         let error_messages: Vec<String> = errors
             .iter()
             .filter_map(|e| e["message"].as_str())
             .map(|s| s.to_string())
             .collect();
-        
+
         assert_eq!(error_messages.len(), 2);
         assert_eq!(error_messages[0], "Invalid syntax");
         assert_eq!(error_messages[1], "Authentication failed");
-        
+
         let combined = error_messages.join(", ");
         assert!(combined.contains("Invalid syntax"));
         assert!(combined.contains("Authentication failed"));
@@ -758,7 +792,7 @@ fn test_empty_result_sets() {
         "results": [],
         "errors": []
     });
-    
+
     let mut results = Vec::new();
     if let Some(query_results) = empty_response["results"].as_array() {
         for result in query_results {
@@ -773,7 +807,7 @@ fn test_empty_result_sets() {
             }
         }
     }
-    
+
     assert!(results.is_empty());
 }
 
@@ -781,11 +815,11 @@ fn test_empty_result_sets() {
 fn test_stats_error_handling() {
     // Test stats collection error handling (lines 294-309)
     let mut stats = HashMap::new();
-    
+
     // Simulate error case by inserting null values
     let stat_name = "failed_stat";
     stats.insert(stat_name.to_string(), serde_json::Value::Null);
-    
+
     assert_eq!(stats.get(stat_name), Some(&serde_json::Value::Null));
     assert_eq!(stats.len(), 1);
 }
@@ -796,9 +830,9 @@ fn test_index_creation_error_scenarios() {
     let failing_indexes = vec![
         "CREATE VECTOR INDEX invalid_syntax",
         "CREATE INDEX missing_for_clause",
-        "",  // Empty query
+        "", // Empty query
     ];
-    
+
     for query in failing_indexes {
         // These would fail in actual execution, but we test the query structure
         if query.is_empty() {

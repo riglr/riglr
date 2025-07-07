@@ -1,7 +1,7 @@
 //! Comprehensive tests for transaction module
 
-use riglr_solana_tools::transaction::*;
 use riglr_solana_tools::client::SolanaClient;
+use riglr_solana_tools::transaction::*;
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::signature::{Keypair, Signer};
 
@@ -514,7 +514,7 @@ async fn test_transfer_sol_invalid_amount() {
         -1.0, // Invalid negative amount
         None,
         None,
-        None
+        None,
     )
     .await;
 
@@ -533,7 +533,7 @@ async fn test_transfer_sol_zero_amount() {
         0.0, // Invalid zero amount
         None,
         None,
-        None
+        None,
     )
     .await;
 
@@ -552,7 +552,7 @@ async fn test_transfer_sol_invalid_recipient() {
         1.0,
         None,
         None,
-        None
+        None,
     )
     .await;
 
@@ -573,7 +573,7 @@ async fn test_transfer_sol_no_signer_context() {
         1.0,
         None,
         None,
-        None
+        None,
     )
     .await;
 
@@ -706,7 +706,8 @@ async fn test_transfer_sol_with_memo() {
         1.0,
         None,
         Some("Test memo".to_string()),
-        None)
+        None,
+    )
     .await;
 
     // Will fail due to no signer context
@@ -740,7 +741,8 @@ async fn test_transfer_sol_with_custom_signer() {
         Some("custom_signer".to_string()),
         // Custom signer
         None,
-        None)
+        None,
+    )
     .await;
 
     // Will fail because custom_signer doesn't exist
@@ -757,7 +759,8 @@ async fn test_transfer_sol_default_client() {
         None,
         None,
         // Use default client
-        None)
+        None,
+    )
     .await;
 
     // Will fail due to no signer context
@@ -774,7 +777,8 @@ async fn test_transfer_sol_large_amount() {
         // Very large amount
         None,
         Some("Large transfer".to_string()),
-        None)
+        None,
+    )
     .await;
 
     // Will fail due to no signer context
@@ -840,14 +844,10 @@ async fn test_transfer_spl_token_zero_decimals() {
 #[tokio::test(flavor = "multi_thread")]
 async fn test_create_spl_token_mint_with_freeze() {
     let result = create_spl_token_mint(
-        9,
-        // 9 decimals like SOL
-        1000000000,
-        // Initial supply
-        true,
-        // Freezable
-        None,
-        None
+        9,          // 9 decimals like SOL
+        1000000000, // Initial supply
+        true,       // Freezable
+        None, None,
     )
     .await;
 
@@ -879,7 +879,7 @@ async fn test_create_spl_token_mint_18_decimals() {
         // 1 token with 18 decimals
         false,
         None,
-        None
+        None,
     )
     .await;
 
@@ -1029,13 +1029,11 @@ fn test_signer_context_rwlock_operations() {
 async fn test_transfer_sol_with_all_options() {
     let client = SolanaClient::devnet();
     let result = transfer_sol(
-        &client,
         "55555555555555555555555555555555".to_string(),
         0.001,
-        // Small amount
         Some("special_signer".to_string()),
         Some("Test transfer with all options".to_string()),
-        Some(Some(5000), // High priority fee
+        Some(5000), // High priority fee
     )
     .await;
 
@@ -1308,6 +1306,7 @@ async fn test_transfer_sol_with_named_signer_error() {
     context.add_signer("main", keypair).unwrap();
     init_signer_context(context);
 
+    let client = SolanaClient::devnet();
     let result = transfer_sol(
         &client,
         "11111111111111111111111111111111".to_string(),
@@ -1315,7 +1314,8 @@ async fn test_transfer_sol_with_named_signer_error() {
         Some("nonexistent_signer".to_string()),
         // This signer doesn't exist
         None,
-        None)
+        None,
+    )
     .await;
 
     // Should fail because the named signer doesn't exist
@@ -1332,6 +1332,7 @@ async fn test_transfer_sol_with_default_client_path() {
     context.add_signer("test", keypair).unwrap();
     init_signer_context(context);
 
+    let client = SolanaClient::devnet();
     let result = transfer_sol(
         &client,
         "11111111111111111111111111111111".to_string(),
@@ -1339,7 +1340,8 @@ async fn test_transfer_sol_with_default_client_path() {
         None,
         None,
         // This should trigger the default client creation at line 179
-        None)
+        None,
+    )
     .await;
 
     // Will fail due to network issues but tests the default client path
@@ -1357,12 +1359,11 @@ async fn test_transfer_sol_complete_success_paths() {
     init_signer_context(context);
 
     let result = transfer_sol(
-        &client,
         Pubkey::new_unique().to_string(),
         0.5,
         Some("sender".to_string()),
         Some("Test transaction".to_string()),
-        Some(Some(5000),
+        Some(5000),
     )
     .await;
 
@@ -1380,6 +1381,7 @@ async fn test_transfer_spl_token_with_named_signer_error() {
     context.add_signer("main", keypair).unwrap();
     init_signer_context(context);
 
+    let client = SolanaClient::devnet();
     let result = transfer_spl_token(
         &client,
         "11111111111111111111111111111111".to_string(),
@@ -1404,6 +1406,7 @@ async fn test_transfer_spl_token_default_client_path() {
     context.add_signer("test", keypair).unwrap();
     init_signer_context(context);
 
+    let client = SolanaClient::devnet();
     let result = transfer_spl_token(
         &client,
         "22222222222222222222222222222222".to_string(),
@@ -1411,7 +1414,8 @@ async fn test_transfer_spl_token_default_client_path() {
         1000000000,
         9,
         None,
-        false)
+        false,
+    )
     .await;
 
     assert!(result.is_err());
@@ -1425,14 +1429,13 @@ async fn test_transfer_spl_token_ui_amount_calculation() {
     init_signer_context(context);
 
     let result = transfer_spl_token(
-        &client,
         "33333333333333333333333333333333".to_string(),
         "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v".to_string(),
         1000000,
         // 1 token with 6 decimals
         6,
         None,
-        true),
+        true,
     )
     .await;
 
@@ -1524,7 +1527,7 @@ async fn test_create_spl_token_mint_zero_initial_supply() {
         false,
         // Not freezable
         Some("simple_auth".to_string()),
-        None
+        None,
     )
     .await;
 
@@ -1614,7 +1617,8 @@ async fn test_transfer_sol_all_error_paths() {
         1.0,
         None,
         None,
-        None)
+        None,
+    )
     .await;
     assert!(result.is_err());
 
@@ -1631,7 +1635,8 @@ async fn test_transfer_sol_all_error_paths() {
         1.0,
         None,
         None,
-        None)
+        None,
+    )
     .await;
     assert!(result.is_err());
     assert!(result
@@ -1649,6 +1654,7 @@ async fn test_transfer_spl_token_comprehensive_error_paths() {
     context.add_signer("token_sender", keypair).unwrap();
     init_signer_context(context);
 
+    let client = SolanaClient::devnet();
     // Test invalid mint address
     let result = transfer_spl_token(
         &client,
@@ -1657,7 +1663,8 @@ async fn test_transfer_spl_token_comprehensive_error_paths() {
         1000000,
         6,
         None,
-        true)
+        true,
+    )
     .await;
     assert!(result.is_err());
     assert!(result
@@ -1673,7 +1680,8 @@ async fn test_transfer_spl_token_comprehensive_error_paths() {
         1000000,
         6,
         None,
-        false)
+        false,
+    )
     .await;
     assert!(result.is_err());
     assert!(result
@@ -1700,7 +1708,7 @@ async fn test_create_spl_token_mint_comprehensive_paths() {
         true,
         // Freezable
         Some("mint_creator".to_string()),
-        None
+        None,
     )
     .await;
     // Will fail due to network, but exercises the code paths
@@ -1731,12 +1739,11 @@ async fn test_transaction_result_structures_comprehensive() {
 
     // Test SOL transfer result creation paths
     let result = transfer_sol(
-        &client,
         Pubkey::new_unique().to_string(),
         1.234567,
         Some("result_tester".to_string()),
         Some("Test memo for result".to_string()),
-        Some(Some(10000),
+        Some(10000),
     )
     .await;
     // This should exercise TransactionResult creation (lines 234-242)
@@ -1744,7 +1751,6 @@ async fn test_transaction_result_structures_comprehensive() {
 
     // Test SPL token transfer result creation paths
     let result = transfer_spl_token(
-        &client,
         Pubkey::new_unique().to_string(),
         Pubkey::new_unique().to_string(),
         9876543210,
@@ -1752,7 +1758,7 @@ async fn test_transaction_result_structures_comprehensive() {
         9,
         // 9 decimals
         Some("result_tester".to_string()),
-        true),
+        true,
     )
     .await;
     // This should exercise TokenTransferResult creation (lines 357-367)
@@ -1766,7 +1772,7 @@ async fn test_transaction_result_structures_comprehensive() {
         // Large initial supply
         true,
         Some("result_tester".to_string()),
-        None
+        None,
     )
     .await;
     // This should exercise CreateMintResult creation (lines 501-507)
@@ -1932,15 +1938,17 @@ async fn test_spl_transfer_instruction_creation_error_paths() {
         (1000000000, 9), // SOL-like (9 decimals)
     ];
 
+    let client = SolanaClient::devnet();
     for (amount, decimals) in test_configs {
         let result = transfer_spl_token(
-        &client,
-        Pubkey::new_unique().to_string(),
-        Pubkey::new_unique().to_string(),
-        amount,
-        decimals,
-        Some("spl_tester".to_string()),
-        true)
+            &client,
+            Pubkey::new_unique().to_string(),
+            Pubkey::new_unique().to_string(),
+            amount,
+            decimals,
+            Some("spl_tester".to_string()),
+            true,
+        )
         .await;
 
         // This exercises the SPL transfer instruction creation paths
@@ -1965,14 +1973,16 @@ async fn test_memo_instruction_creation() {
         Some(String::new()),                         // Empty memo
     ];
 
+    let client = SolanaClient::devnet();
     for memo in memo_tests {
         let result = transfer_sol(
-        &client,
-        Pubkey::new_unique().to_string(),
-        0.001,
-        Some("memo_tester".to_string()),
-        memo,
-        None)
+            &client,
+            Pubkey::new_unique().to_string(),
+            0.001,
+            Some("memo_tester".to_string()),
+            memo,
+            None,
+        )
         .await;
 
         // This exercises memo instruction creation (lines 204-211)
@@ -1991,14 +2001,15 @@ async fn test_priority_fee_instruction_creation() {
     // Test different priority fee values
     let priority_fees = vec![1, 1000, 10000, u64::MAX];
 
+    let client = SolanaClient::devnet();
     for fee in priority_fees {
         let result = transfer_sol(
-        &client,
-        Pubkey::new_unique().to_string(),
-        0.001,
-        Some("priority_tester".to_string()),
-        None,
-        None),
+            &client,
+            Pubkey::new_unique().to_string(),
+            0.001,
+            Some("priority_tester".to_string()),
+            None,
+            Some(fee),
         )
         .await;
 
@@ -2109,7 +2120,8 @@ async fn test_error_message_formatting() {
         -5.0,
         None,
         None,
-        None)
+        None,
+    )
     .await;
 
     assert!(result.is_err());
@@ -2129,7 +2141,8 @@ async fn test_error_message_formatting() {
         1.0,
         None,
         None,
-        None)
+        None,
+    )
     .await;
 
     assert!(result.is_err());
@@ -2146,6 +2159,8 @@ async fn test_comprehensive_function_coverage() {
     let keypair = Keypair::new();
     context.add_signer("comprehensive", keypair).unwrap();
     init_signer_context(context);
+
+    let client = SolanaClient::devnet();
 
     // Test all three main async functions with various parameter combinations
     // to ensure maximum code coverage
@@ -2164,12 +2179,11 @@ async fn test_comprehensive_function_coverage() {
 
     for (i, (signer, memo, priority_fee)) in sol_test_cases.into_iter().enumerate() {
         let result = transfer_sol(
-        &client,
-        Pubkey::new_unique().to_string(),
-        0.001,
-        signer,
-        memo,
-        None,
+            &client,
+            Pubkey::new_unique().to_string(),
+            0.001,
+            signer,
+            memo,
             priority_fee,
         )
         .await;
@@ -2179,13 +2193,12 @@ async fn test_comprehensive_function_coverage() {
     // Transfer SPL with different ATA creation settings
     for (i, create_ata) in [true, false].into_iter().enumerate() {
         let result = transfer_spl_token(
-        &client,
-        Pubkey::new_unique().to_string(),
-        Pubkey::new_unique().to_string(),
-        1000000,
-        6,
-        Some("comprehensive".to_string()),
-        create_ata)),
+            Pubkey::new_unique().to_string(),
+            Pubkey::new_unique().to_string(),
+            1000000,
+            6,
+            Some("comprehensive".to_string()),
+            create_ata,
         )
         .await;
         assert!(result.is_err()); // Expected due to network
@@ -2198,7 +2211,7 @@ async fn test_comprehensive_function_coverage() {
             supply,
             freezable,
             Some("comprehensive".to_string()),
-            None
+            None,
         )
         .await;
         assert!(result.is_err()); // Expected due to network

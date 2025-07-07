@@ -187,7 +187,7 @@ impl Neo4jClient {
         }
 
         let json_response: Value =
-            serde_json::from_str(&response_text).map_err(|e| GraphMemoryError::Serialization(e))?;
+            serde_json::from_str(&response_text).map_err(GraphMemoryError::Serialization)?;
 
         // Check for Neo4j errors
         if let Some(errors) = json_response["errors"].as_array() {

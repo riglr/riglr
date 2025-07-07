@@ -26,7 +26,7 @@ pub struct RawTextDocument {
 }
 
 /// Metadata associated with a document
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, Default)]
 pub struct DocumentMetadata {
     /// Title or summary of the document
     pub title: Option<String>,
@@ -285,22 +285,5 @@ impl DocumentMetadata {
     /// Add a protocol name mention
     pub fn add_protocol(&mut self, name: impl Into<String>) {
         self.protocols.push(name.into());
-    }
-}
-
-impl Default for DocumentMetadata {
-    fn default() -> Self {
-        Self {
-            title: None,
-            tags: Vec::new(),
-            chain: None,
-            block_number: None,
-            transaction_hash: None,
-            wallet_addresses: Vec::new(),
-            token_addresses: Vec::new(),
-            protocols: Vec::new(),
-            extraction_confidence: None,
-            custom_fields: HashMap::new(),
-        }
     }
 }

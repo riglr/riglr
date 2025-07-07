@@ -7,9 +7,15 @@ use serde_json::json;
 #[test]
 fn test_uniswap_config_ethereum() {
     let config = UniswapConfig::ethereum();
-    
-    assert_eq!(config.router_address, "0xE592427A0AEce92De3Edee1F18E0157C05861564");
-    assert_eq!(config.quoter_address, "0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6");
+
+    assert_eq!(
+        config.router_address,
+        "0xE592427A0AEce92De3Edee1F18E0157C05861564"
+    );
+    assert_eq!(
+        config.quoter_address,
+        "0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6"
+    );
     assert_eq!(config.slippage_bps, 50);
     assert_eq!(config.deadline_seconds, 300);
 }
@@ -17,9 +23,15 @@ fn test_uniswap_config_ethereum() {
 #[test]
 fn test_uniswap_config_polygon() {
     let config = UniswapConfig::polygon();
-    
-    assert_eq!(config.router_address, "0xE592427A0AEce92De3Edee1F18E0157C05861564");
-    assert_eq!(config.quoter_address, "0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6");
+
+    assert_eq!(
+        config.router_address,
+        "0xE592427A0AEce92De3Edee1F18E0157C05861564"
+    );
+    assert_eq!(
+        config.quoter_address,
+        "0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6"
+    );
     assert_eq!(config.slippage_bps, 50);
     assert_eq!(config.deadline_seconds, 300);
 }
@@ -27,9 +39,15 @@ fn test_uniswap_config_polygon() {
 #[test]
 fn test_uniswap_config_arbitrum() {
     let config = UniswapConfig::arbitrum();
-    
-    assert_eq!(config.router_address, "0xE592427A0AEce92De3Edee1F18E0157C05861564");
-    assert_eq!(config.quoter_address, "0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6");
+
+    assert_eq!(
+        config.router_address,
+        "0xE592427A0AEce92De3Edee1F18E0157C05861564"
+    );
+    assert_eq!(
+        config.quoter_address,
+        "0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6"
+    );
     assert_eq!(config.slippage_bps, 50);
     assert_eq!(config.deadline_seconds, 300);
 }
@@ -38,7 +56,7 @@ fn test_uniswap_config_arbitrum() {
 fn test_uniswap_config_default() {
     let config = UniswapConfig::default();
     let ethereum_config = UniswapConfig::ethereum();
-    
+
     assert_eq!(config.router_address, ethereum_config.router_address);
     assert_eq!(config.quoter_address, ethereum_config.quoter_address);
     assert_eq!(config.slippage_bps, ethereum_config.slippage_bps);
@@ -49,7 +67,7 @@ fn test_uniswap_config_default() {
 fn test_uniswap_config_clone() {
     let config = UniswapConfig::ethereum();
     let cloned = config.clone();
-    
+
     assert_eq!(cloned.router_address, config.router_address);
     assert_eq!(cloned.quoter_address, config.quoter_address);
     assert_eq!(cloned.slippage_bps, config.slippage_bps);
@@ -60,7 +78,7 @@ fn test_uniswap_config_clone() {
 fn test_uniswap_config_debug() {
     let config = UniswapConfig::ethereum();
     let debug_str = format!("{:?}", config);
-    
+
     assert!(debug_str.contains("UniswapConfig"));
     assert!(debug_str.contains("router_address"));
     assert!(debug_str.contains("quoter_address"));
@@ -83,7 +101,7 @@ fn test_swap_quote_creation() {
         router_address: "0xE592427A0AEce92De3Edee1F18E0157C05861564".to_string(),
         network: "Ethereum".to_string(),
     };
-    
+
     assert_eq!(quote.amount_in, 1000000);
     assert_eq!(quote.amount_out, 950000);
     assert_eq!(quote.fee_tier, 3000);
@@ -102,13 +120,13 @@ fn test_swap_quote_serialization() {
         router_address: "0xrouter".to_string(),
         network: "TestNet".to_string(),
     };
-    
+
     let json = serde_json::to_string(&quote).unwrap();
     assert!(json.contains("\"token_in\":\"0xtoken_in\""));
     assert!(json.contains("\"amount_in\":123456"));
     assert!(json.contains("\"fee_tier\":500"));
     assert!(json.contains("\"price_impact_pct\":0.37"));
-    
+
     // Test deserialization
     let deserialized: SwapQuote = serde_json::from_str(&json).unwrap();
     assert_eq!(deserialized.token_in, quote.token_in);
@@ -128,7 +146,7 @@ fn test_swap_quote_clone() {
         router_address: "0x3".to_string(),
         network: "Test".to_string(),
     };
-    
+
     let cloned = quote.clone();
     assert_eq!(cloned.token_in, quote.token_in);
     assert_eq!(cloned.amount_in, quote.amount_in);
@@ -147,7 +165,7 @@ fn test_swap_quote_debug() {
         router_address: "0xrouter".to_string(),
         network: "Debug".to_string(),
     };
-    
+
     let debug_str = format!("{:?}", quote);
     assert!(debug_str.contains("SwapQuote"));
     assert!(debug_str.contains("0xin"));
@@ -169,7 +187,7 @@ fn test_swap_result_creation() {
         gas_price: 30000000000,
         idempotency_key: Some("swap_123".to_string()),
     };
-    
+
     assert_eq!(result.tx_hash, "0x1234567890abcdef");
     assert_eq!(result.amount_in, 1000000);
     assert_eq!(result.amount_out_minimum, 950000);
@@ -190,14 +208,14 @@ fn test_swap_result_serialization() {
         gas_price: 50000000000,
         idempotency_key: None,
     };
-    
+
     let json = serde_json::to_string(&result).unwrap();
     assert!(json.contains("\"tx_hash\":\"0xhash\""));
     assert!(json.contains("\"amount_in\":1000"));
     assert!(json.contains("\"fee_tier\":500"));
     assert!(json.contains("\"status\":\"Confirmed\""));
     assert!(json.contains("\"network\":\"Polygon\""));
-    
+
     // Test deserialization
     let deserialized: SwapResult = serde_json::from_str(&json).unwrap();
     assert_eq!(deserialized.tx_hash, result.tx_hash);
@@ -219,7 +237,7 @@ fn test_swap_result_clone() {
         gas_price: 100000000,
         idempotency_key: Some("key".to_string()),
     };
-    
+
     let cloned = result.clone();
     assert_eq!(cloned.tx_hash, result.tx_hash);
     assert_eq!(cloned.amount_in, result.amount_in);
@@ -240,7 +258,7 @@ fn test_swap_result_debug() {
         gas_price: 1,
         idempotency_key: None,
     };
-    
+
     let debug_str = format!("{:?}", result);
     assert!(debug_str.contains("SwapResult"));
     assert!(debug_str.contains("0xdbg"));
@@ -257,7 +275,7 @@ fn test_token_price_info_creation() {
         price_impact_pct: 0.1,
         network: "Ethereum".to_string(),
     };
-    
+
     assert_eq!(info.base_token, "0xbase");
     assert_eq!(info.quote_token, "0xquote");
     assert_eq!(info.price, 1.5);
@@ -274,13 +292,13 @@ fn test_token_price_info_serialization() {
         price_impact_pct: 0.05,
         network: "Optimism".to_string(),
     };
-    
+
     let json = serde_json::to_string(&info).unwrap();
     assert!(json.contains("\"base_token\":\"0xAAA\""));
     assert!(json.contains("\"quote_token\":\"0xBBB\""));
     assert!(json.contains("\"price\":0.95"));
     assert!(json.contains("\"fee_tier\":500"));
-    
+
     // Test deserialization
     let deserialized: TokenPriceInfo = serde_json::from_str(&json).unwrap();
     assert_eq!(deserialized.base_token, info.base_token);
@@ -297,7 +315,7 @@ fn test_token_price_info_clone() {
         price_impact_pct: 0.25,
         network: "Test".to_string(),
     };
-    
+
     let cloned = info.clone();
     assert_eq!(cloned.base_token, info.base_token);
     assert_eq!(cloned.price, info.price);
@@ -314,7 +332,7 @@ fn test_token_price_info_debug() {
         price_impact_pct: 0.01,
         network: "DebugNet".to_string(),
     };
-    
+
     let debug_str = format!("{:?}", info);
     assert!(debug_str.contains("TokenPriceInfo"));
     assert!(debug_str.contains("0xDBG1"));
@@ -330,11 +348,15 @@ async fn test_get_uniswap_quote_invalid_addresses() {
         3000,
         None,
         None,
-    ).await;
-    
+    )
+    .await;
+
     assert!(result.is_err());
-    assert!(result.unwrap_err().to_string().contains("Invalid input token"));
-    
+    assert!(result
+        .unwrap_err()
+        .to_string()
+        .contains("Invalid input token"));
+
     let result2 = get_uniswap_quote(
         "0xA0b86a33E6441c68e1A7e97c82B6BAba4d45A9e3".to_string(),
         "invalid_token_out".to_string(),
@@ -342,10 +364,14 @@ async fn test_get_uniswap_quote_invalid_addresses() {
         3000,
         None,
         None,
-    ).await;
-    
+    )
+    .await;
+
     assert!(result2.is_err());
-    assert!(result2.unwrap_err().to_string().contains("Invalid output token"));
+    assert!(result2
+        .unwrap_err()
+        .to_string()
+        .contains("Invalid output token"));
 }
 
 #[tokio::test]
@@ -357,8 +383,9 @@ async fn test_get_uniswap_quote_invalid_amount() {
         3000,
         None,
         None,
-    ).await;
-    
+    )
+    .await;
+
     assert!(result.is_err());
     assert!(result.unwrap_err().to_string().contains("Invalid amount"));
 }
@@ -377,10 +404,14 @@ async fn test_perform_uniswap_swap_invalid_addresses() {
         None,
         None,
         None,
-    ).await;
-    
+    )
+    .await;
+
     assert!(result.is_err());
-    assert!(result.unwrap_err().to_string().contains("Invalid input token"));
+    assert!(result
+        .unwrap_err()
+        .to_string()
+        .contains("Invalid input token"));
 }
 
 #[tokio::test]
@@ -397,11 +428,15 @@ async fn test_perform_uniswap_swap_invalid_amounts() {
         None,
         None,
         None,
-    ).await;
-    
+    )
+    .await;
+
     assert!(result.is_err());
-    assert!(result.unwrap_err().to_string().contains("Invalid input amount"));
-    
+    assert!(result
+        .unwrap_err()
+        .to_string()
+        .contains("Invalid input amount"));
+
     let result2 = perform_uniswap_swap(
         "0xA0b86a33E6441c68e1A7e97c82B6BAba4d45A9e3".to_string(),
         "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2".to_string(),
@@ -414,37 +449,45 @@ async fn test_perform_uniswap_swap_invalid_amounts() {
         None,
         None,
         None,
-    ).await;
-    
+    )
+    .await;
+
     assert!(result2.is_err());
-    assert!(result2.unwrap_err().to_string().contains("Invalid minimum output amount"));
+    assert!(result2
+        .unwrap_err()
+        .to_string()
+        .contains("Invalid minimum output amount"));
 }
 
 #[tokio::test]
 async fn test_get_uniswap_quote_network_configurations() {
     let mut server = mockito::Server::new_async().await;
     let url = server.url();
-    
+
     // Test different network configurations
     let test_cases = vec![
         (137, Some("polygon"), "polygon"),
-        (42161, Some("arbitrum"), "arbitrum"),  
+        (42161, Some("arbitrum"), "arbitrum"),
         (1, None, "ethereum"),
-        (137, None, "polygon"), // Auto-detect based on chain ID
+        (137, None, "polygon"),    // Auto-detect based on chain ID
         (42161, None, "arbitrum"), // Auto-detect based on chain ID
-        (999, None, "ethereum"), // Unknown chain falls back to ethereum
+        (999, None, "ethereum"),   // Unknown chain falls back to ethereum
     ];
-    
+
     for (chain_id, network_config, expected_config_type) in test_cases {
-        let _m1 = server.mock("POST", "/")
+        let _m1 = server
+            .mock("POST", "/")
             .match_body(mockito::Matcher::PartialJson(json!({
                 "method": "eth_chainId"
             })))
-            .with_body(&format!(r#"{{"jsonrpc":"2.0","id":1,"result":"0x{:x}"}}"#, chain_id))
+            .with_body(&format!(
+                r#"{{"jsonrpc":"2.0","id":1,"result":"0x{:x}"}}"#,
+                chain_id
+            ))
             .expect(1)
             .create_async()
             .await;
-        
+
         let _m2 = server.mock("POST", "/")
             .match_body(mockito::Matcher::PartialJson(json!({
                 "method": "eth_call"
@@ -453,7 +496,7 @@ async fn test_get_uniswap_quote_network_configurations() {
             .expect(1)
             .create_async()
             .await;
-        
+
         let result = get_uniswap_quote(
             "0xA0b86a33E6441c68e1A7e97c82B6BAba4d45A9e3".to_string(),
             "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2".to_string(),
@@ -461,14 +504,22 @@ async fn test_get_uniswap_quote_network_configurations() {
             3000,
             Some(url.clone()),
             network_config.map(|s| s.to_string()),
-        ).await;
-        
-        assert!(result.is_ok(), "Failed for config: {:?}", expected_config_type);
+        )
+        .await;
+
+        assert!(
+            result.is_ok(),
+            "Failed for config: {:?}",
+            expected_config_type
+        );
         let quote = result.unwrap();
-        
+
         // Verify the quote was created properly
         assert_eq!(quote.token_in, "0xa0b86a33e6441c68e1a7e97c82b6baba4d45a9e3");
-        assert_eq!(quote.token_out, "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2");
+        assert_eq!(
+            quote.token_out,
+            "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"
+        );
         assert_eq!(quote.amount_in, 1000000);
         assert_eq!(quote.fee_tier, 3000);
     }
@@ -478,7 +529,7 @@ async fn test_get_uniswap_quote_network_configurations() {
 async fn test_get_uniswap_quote_network_name_generation() {
     let mut server = mockito::Server::new_async().await;
     let url = server.url();
-    
+
     // Test network name generation for different chain IDs - covers lines 150-157
     let test_cases = vec![
         (1, "Ethereum"),
@@ -488,17 +539,21 @@ async fn test_get_uniswap_quote_network_name_generation() {
         (8453, "Base"),
         (123456, "Chain 123456"), // Unknown chain
     ];
-    
+
     for (chain_id, expected_network) in test_cases {
-        let _m1 = server.mock("POST", "/")
+        let _m1 = server
+            .mock("POST", "/")
             .match_body(mockito::Matcher::PartialJson(json!({
                 "method": "eth_chainId"
             })))
-            .with_body(&format!(r#"{{"jsonrpc":"2.0","id":1,"result":"0x{:x}"}}"#, chain_id))
+            .with_body(&format!(
+                r#"{{"jsonrpc":"2.0","id":1,"result":"0x{:x}"}}"#,
+                chain_id
+            ))
             .expect(1)
             .create_async()
             .await;
-        
+
         let _m2 = server.mock("POST", "/")
             .match_body(mockito::Matcher::PartialJson(json!({
                 "method": "eth_call"
@@ -507,7 +562,7 @@ async fn test_get_uniswap_quote_network_name_generation() {
             .expect(1)
             .create_async()
             .await;
-        
+
         let result = get_uniswap_quote(
             "0xA0b86a33E6441c68e1A7e97c82B6BAba4d45A9e3".to_string(),
             "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2".to_string(),
@@ -515,8 +570,9 @@ async fn test_get_uniswap_quote_network_name_generation() {
             500,
             Some(url.clone()),
             None,
-        ).await;
-        
+        )
+        .await;
+
         assert!(result.is_ok());
         let quote = result.unwrap();
         assert_eq!(quote.network, expected_network);
@@ -526,21 +582,21 @@ async fn test_get_uniswap_quote_network_name_generation() {
 #[test]
 fn test_calculate_price_impact_edge_cases() {
     // Test the calculate_price_impact function - covers lines 455-469
-    
+
     // Test zero amounts
     assert_eq!(calculate_price_impact(0, 1000), 0.0);
     assert_eq!(calculate_price_impact(1000, 0), 0.0);
     assert_eq!(calculate_price_impact(0, 0), 0.0);
-    
+
     // Test high ratio (minimal impact)
     let minimal_impact = calculate_price_impact(1000000, 999500);
     assert!(minimal_impact >= 0.01); // Should be at least minimum impact
-    
+
     // Test low ratio (high impact)
     let high_impact = calculate_price_impact(1000000, 900000);
     assert!(high_impact > 0.01);
     assert!(high_impact < 100.0);
-    
+
     // Test equal amounts
     let equal_impact = calculate_price_impact(1000000, 1000000);
     assert_eq!(equal_impact, 0.01); // Should be minimum impact
@@ -549,23 +605,27 @@ fn test_calculate_price_impact_edge_cases() {
 #[test]
 fn test_build_quote_call_data_comprehensive() {
     // Test the build_quote_call_data function - covers lines 376-400
-    
+
     let token_in = "0xA0b86a33E6441c68e1A7e97c82B6BAba4d45A9e3";
     let token_out = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2";
-    
+
     let result = build_quote_call_data(token_in, token_out, 3000, 1000000, 0).unwrap();
-    
+
     // Should start with quoteExactInputSingle selector
     assert!(result.starts_with("0xf7729d43"));
-    
+
     // Should contain token addresses (without 0x prefix, padded to 64 chars)
     let result_lower = result.to_lowercase();
-    assert!(result_lower.contains("000000000000000000000000a0b86a33e6441c68e1a7e97c82b6baba4d45a9e3"));
-    assert!(result_lower.contains("000000000000000000000000c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"));
-    
+    assert!(
+        result_lower.contains("000000000000000000000000a0b86a33e6441c68e1a7e97c82b6baba4d45a9e3")
+    );
+    assert!(
+        result_lower.contains("000000000000000000000000c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2")
+    );
+
     // Should contain fee tier as hex
     assert!(result.contains("0000000000000000000000000000000000000000000000000000000000000bb8")); // 3000 in hex
-    
+
     // Test different parameters
     let result2 = build_quote_call_data(token_in, token_out, 500, 2000000, 100).unwrap();
     assert!(result2.starts_with("0xf7729d43"));
@@ -575,44 +635,40 @@ fn test_build_quote_call_data_comprehensive() {
 #[test]
 fn test_build_swap_call_data_comprehensive() {
     // Test the build_swap_call_data function - covers lines 402-452
-    
+
     let token_in = "0xA0b86a33E6441c68e1A7e97c82B6BAba4d45A9e3";
     let token_out = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2";
     let recipient = "0x742d35Cc6634C0532925a3b8D8e41E5d3e4F8123";
-    
+
     let result = build_swap_call_data(
-        token_in,
-        token_out,
-        3000,
-        recipient,
-        1000000,
-        950000,
-        1700000000,
-    ).unwrap();
-    
+        token_in, token_out, 3000, recipient, 1000000, 950000, 1700000000,
+    )
+    .unwrap();
+
     // Should start with exactInputSingle selector
     assert!(result.starts_with("0x414bf389"));
-    
+
     // Should contain struct offset
     assert!(result.contains("0000000000000000000000000000000000000000000000000000000000000020"));
-    
+
     // Should contain all the parameters
     let result_lower = result.to_lowercase();
-    assert!(result_lower.contains("000000000000000000000000a0b86a33e6441c68e1a7e97c82b6baba4d45a9e3")); // token_in
-    assert!(result_lower.contains("000000000000000000000000c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2")); // token_out
-    assert!(result_lower.contains("000000000000000000000000742d35cc6634c0532925a3b8d8e41e5d3e4f8123")); // recipient
-    
+    assert!(
+        result_lower.contains("000000000000000000000000a0b86a33e6441c68e1a7e97c82b6baba4d45a9e3")
+    ); // token_in
+    assert!(
+        result_lower.contains("000000000000000000000000c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2")
+    ); // token_out
+    assert!(
+        result_lower.contains("000000000000000000000000742d35cc6634c0532925a3b8d8e41e5d3e4f8123")
+    ); // recipient
+
     // Test with different parameters
     let result2 = build_swap_call_data(
-        token_in,
-        token_out,
-        500,
-        recipient,
-        2000000,
-        1900000,
-        1800000000,
-    ).unwrap();
-    
+        token_in, token_out, 500, recipient, 2000000, 1900000, 1800000000,
+    )
+    .unwrap();
+
     assert!(result2.starts_with("0x414bf389"));
     assert_ne!(result, result2); // Should be different
 }
@@ -621,9 +677,10 @@ fn test_build_swap_call_data_comprehensive() {
 async fn test_get_token_price_functionality() {
     let mut server = mockito::Server::new_async().await;
     let url = server.url();
-    
+
     // Mock the chain ID and quote response
-    let _m1 = server.mock("POST", "/")
+    let _m1 = server
+        .mock("POST", "/")
         .match_body(mockito::Matcher::PartialJson(json!({
             "method": "eth_chainId"
         })))
@@ -631,7 +688,7 @@ async fn test_get_token_price_functionality() {
         .expect(1)
         .create_async()
         .await;
-    
+
     let _m2 = server.mock("POST", "/")
         .match_body(mockito::Matcher::PartialJson(json!({
             "method": "eth_call"
@@ -640,18 +697,25 @@ async fn test_get_token_price_functionality() {
         .expect(1)
         .create_async()
         .await;
-    
+
     let result = get_token_price(
         "0xA0b86a33E6441c68e1A7e97c82B6BAba4d45A9e3".to_string(),
         "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2".to_string(),
         Some(500),
         Some(url.clone()),
-    ).await;
-    
+    )
+    .await;
+
     assert!(result.is_ok());
     let price_info = result.unwrap();
-    assert_eq!(price_info.base_token.to_lowercase(), "0xa0b86a33e6441c68e1a7e97c82b6baba4d45a9e3");
-    assert_eq!(price_info.quote_token.to_lowercase(), "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2");
+    assert_eq!(
+        price_info.base_token.to_lowercase(),
+        "0xa0b86a33e6441c68e1a7e97c82b6baba4d45a9e3"
+    );
+    assert_eq!(
+        price_info.quote_token.to_lowercase(),
+        "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"
+    );
     assert_eq!(price_info.fee_tier, 500);
     assert!(price_info.price > 0.0);
 }
@@ -660,9 +724,10 @@ async fn test_get_token_price_functionality() {
 async fn test_get_token_price_default_fee_tier() {
     let mut server = mockito::Server::new_async().await;
     let url = server.url();
-    
+
     // Test default fee tier (3000) - covers line 356
-    let _m1 = server.mock("POST", "/")
+    let _m1 = server
+        .mock("POST", "/")
         .match_body(mockito::Matcher::PartialJson(json!({
             "method": "eth_chainId"
         })))
@@ -670,7 +735,7 @@ async fn test_get_token_price_default_fee_tier() {
         .expect(1)
         .create_async()
         .await;
-    
+
     let _m2 = server.mock("POST", "/")
         .match_body(mockito::Matcher::PartialJson(json!({
             "method": "eth_call"
@@ -679,14 +744,15 @@ async fn test_get_token_price_default_fee_tier() {
         .expect(1)
         .create_async()
         .await;
-    
+
     let result = get_token_price(
         "0xA0b86a33E6441c68e1A7e97c82B6BAba4d45A9e3".to_string(),
         "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2".to_string(),
         None, // Should default to 3000
         Some(url.clone()),
-    ).await;
-    
+    )
+    .await;
+
     assert!(result.is_ok());
     let price_info = result.unwrap();
     assert_eq!(price_info.fee_tier, 3000); // Should use default

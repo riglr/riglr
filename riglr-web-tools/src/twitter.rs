@@ -3,16 +3,13 @@
 //! This module provides production-grade tools for accessing Twitter/X data,
 //! analyzing social sentiment, and tracking crypto-related discussions.
 
-use crate::{
-    client::WebClient,
-    error::{Result, WebToolError},
-};
+use crate::{client::WebClient, error::WebToolError};
 use chrono::{DateTime, Utc};
 use riglr_macros::tool;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use tracing::{debug, info, warn};
+use tracing::{debug, info};
 
 /// Configuration for Twitter API access
 #[derive(Debug, Clone)]
@@ -212,7 +209,7 @@ impl Default for TwitterConfig {
 ///
 /// This tool searches Twitter/X for tweets matching the given query,
 /// with support for advanced filters and sentiment analysis.
-// // #[tool]
+#[tool]
 pub async fn search_tweets(
     query: String,
     max_results: Option<u32>,
@@ -220,7 +217,7 @@ pub async fn search_tweets(
     language: Option<String>,
     start_time: Option<String>,
     end_time: Option<String>,
-) -> Result<TwitterSearchResult> {
+) -> crate::error::Result<TwitterSearchResult> {
     debug!(
         "Searching Twitter for: '{}' (max: {})",
         query,
@@ -229,13 +226,12 @@ pub async fn search_tweets(
 
     let config = TwitterConfig::default();
     if config.bearer_token.is_empty() {
-        return Err(WebToolError::Auth(
+        return Err(WebToolError::Api(
             "TWITTER_BEARER_TOKEN environment variable not set".to_string(),
         ));
     }
 
-    let client = WebClient::new()
-        .with_twitter_token(config.bearer_token.clone());
+    let client = WebClient::new().with_twitter_token(config.bearer_token.clone());
 
     // Build search parameters
     let mut params = HashMap::new();
@@ -271,14 +267,24 @@ pub async fn search_tweets(
 
     // Make API request
     let url = format!("{}/tweets/search/recent", config.base_url);
-    let response = client.get_with_params(&url, &params).await?;
+    let response = client.get_with_params(&url, &params).await.map_err(|e| {
+        if e.to_string().contains("timeout") || e.to_string().contains("connection") {
+            WebToolError::Network(format!("Twitter API request failed: {}", e))
+        } else {
+            WebToolError::Api(format!("Twitter API request failed: {}", e))
+        }
+    })?;
 
     // Parse response (simplified - would need full Twitter API response parsing)
-    let tweets = parse_twitter_response(&response).await?;
+    let tweets = parse_twitter_response(&response)
+        .await
+        .map_err(|e| WebToolError::Api(format!("Failed to parse Twitter response: {}", e)))?;
 
     // Perform sentiment analysis if requested
     let analyzed_tweets = if include_sentiment.unwrap_or(false) {
-        analyze_tweet_sentiment(&tweets).await?
+        analyze_tweet_sentiment(&tweets)
+            .await
+            .map_err(|e| WebToolError::Api(format!("Sentiment analysis failed: {}", e)))?
     } else {
         tweets
     };
@@ -310,13 +316,13 @@ pub async fn search_tweets(
 /// Get recent tweets from a specific user
 ///
 /// This tool fetches recent tweets from a specified Twitter/X user account.
-// // #[tool]
+#[tool]
 pub async fn get_user_tweets(
     username: String,
     max_results: Option<u32>,
     include_replies: Option<bool>,
     include_retweets: Option<bool>,
-) -> Result<Vec<TwitterPost>> {
+) -> crate::error::Result<Vec<TwitterPost>> {
     debug!(
         "Fetching tweets from user: @{} (max: {})",
         username,
@@ -325,17 +331,24 @@ pub async fn get_user_tweets(
 
     let config = TwitterConfig::default();
     if config.bearer_token.is_empty() {
-        return Err(WebToolError::Auth(
+        return Err(WebToolError::Api(
             "TWITTER_BEARER_TOKEN environment variable not set".to_string(),
         ));
     }
 
-    let client = WebClient::new()
-        .with_twitter_token(config.bearer_token.clone());
+    let client = WebClient::new().with_twitter_token(config.bearer_token.clone());
 
     // First, get user ID from username
     let user_url = format!("{}/users/by/username/{}", config.base_url, username);
-    let user_response = client.get(&user_url).await?;
+    let user_response = client.get(&user_url).await.map_err(|e| {
+        if e.to_string().contains("404") {
+            WebToolError::Api(format!("User @{} not found", username))
+        } else if e.to_string().contains("timeout") {
+            WebToolError::Network(format!("Failed to get user info: {}", e))
+        } else {
+            WebToolError::Api(format!("Failed to get user info: {}", e))
+        }
+    })?;
 
     // Parse user ID (simplified)
     let user_id = "123456789"; // Would extract from actual response
@@ -362,7 +375,9 @@ pub async fn get_user_tweets(
     let tweets_url = format!("{}/users/{}/tweets", config.base_url, user_id);
     let response = client.get_with_params(&tweets_url, &params).await?;
 
-    let tweets = parse_twitter_response(&response).await?;
+    let tweets = parse_twitter_response(&response)
+        .await
+        .map_err(|e| WebToolError::Api(format!("Failed to parse Twitter response: {}", e)))?;
 
     info!("Retrieved {} tweets from @{}", tweets.len(), username);
 
@@ -373,12 +388,12 @@ pub async fn get_user_tweets(
 ///
 /// This tool performs comprehensive sentiment analysis on cryptocurrency-related tweets,
 /// providing insights into market mood and social trends.
-// // #[tool]
+#[tool]
 pub async fn analyze_crypto_sentiment(
     token_symbol: String,
     time_window_hours: Option<u32>,
     min_engagement: Option<u32>,
-) -> Result<SentimentAnalysis> {
+) -> crate::error::Result<SentimentAnalysis> {
     debug!(
         "Analyzing sentiment for ${} over {} hours",
         token_symbol,
@@ -414,7 +429,9 @@ pub async fn analyze_crypto_sentiment(
         .collect();
 
     // Perform sentiment analysis (simplified implementation)
-    let sentiment_scores = analyze_tweet_sentiment_scores(&filtered_tweets).await?;
+    let sentiment_scores = analyze_tweet_sentiment_scores(&filtered_tweets)
+        .await
+        .map_err(|e| WebToolError::Api(format!("Failed to analyze sentiment: {}", e)))?;
 
     let overall_sentiment = sentiment_scores.iter().sum::<f64>() / sentiment_scores.len() as f64;
 
@@ -482,7 +499,7 @@ pub async fn analyze_crypto_sentiment(
 }
 
 /// Parse Twitter API response into structured tweets
-async fn parse_twitter_response(response: &str) -> Result<Vec<TwitterPost>> {
+async fn parse_twitter_response(response: &str) -> crate::error::Result<Vec<TwitterPost>> {
     // In production, this would parse the actual Twitter API JSON response
     // For now, returning a mock tweet
     let mock_tweet = TwitterPost {
@@ -523,14 +540,14 @@ async fn parse_twitter_response(response: &str) -> Result<Vec<TwitterPost>> {
 }
 
 /// Analyze sentiment of tweets (simplified implementation)
-async fn analyze_tweet_sentiment(tweets: &[TwitterPost]) -> Result<Vec<TwitterPost>> {
+async fn analyze_tweet_sentiment(tweets: &[TwitterPost]) -> crate::error::Result<Vec<TwitterPost>> {
     // In production, this would use a proper sentiment analysis service
     // For now, just return the tweets unchanged
     Ok(tweets.to_vec())
 }
 
 /// Calculate sentiment scores for tweets
-async fn analyze_tweet_sentiment_scores(tweets: &[TwitterPost]) -> Result<Vec<f64>> {
+async fn analyze_tweet_sentiment_scores(tweets: &[TwitterPost]) -> crate::error::Result<Vec<f64>> {
     // In production, this would analyze actual tweet content
     // For now, return random sentiment scores for demo
     let scores: Vec<f64> = tweets

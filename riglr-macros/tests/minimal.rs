@@ -4,5 +4,6 @@
 #[test]
 fn test_minimal() {
     // Placeholder test to ensure the test suite runs
-    assert!(true);
+    // Test runs successfully if it compiles
+    assert_eq!(1, 1);
 }
