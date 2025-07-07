@@ -1,0 +1,45 @@
+[package]
+name = "riglr-solana-tools"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "A suite of rig-compatible tools for interacting with the Solana blockchain"
+readme = "README.md"
+keywords = ["solana", "ai", "agent", "blockchain", "rig"]
+categories = ["cryptography::cryptocurrencies", "web-programming::api-bindings"]
+documentation = "https://docs.rs/riglr-solana-tools"
+
+[dependencies]
+# Core riglr and rig dependencies
+rig-core = { workspace = true }
+riglr-core = { workspace = true }
+riglr-macros = { workspace = true }
+
+# Async and Error Handling
+tokio = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+async-trait = { workspace = true }
+
+# Serialization and Schema
+serde = { workspace = true }
+serde_json = { workspace = true }
+schemars = { workspace = true }
+
+# Solana Dependencies
+solana-sdk = { workspace = true }
+solana-client = { workspace = true }
+spl-token = { workspace = true }
+
+# HTTP client for Jupiter
+reqwest = { workspace = true }
+
+# Logging
+tracing = { workspace = true }
+
+[dev-dependencies]
+tokio-test = { workspace = true }
+tracing-subscriber = { workspace = true }
