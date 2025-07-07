@@ -355,7 +355,7 @@ impl Default for NewsConfig {
 ///
 /// This tool aggregates news from multiple sources, performs sentiment analysis,
 /// and assesses market impact for cryptocurrency-related topics.
-// #[tool]
+// // #[tool]
 pub async fn get_crypto_news(
     topic: String,
     time_window: Option<String>,       // "1h", "6h", "24h", "week"
@@ -371,12 +371,12 @@ pub async fn get_crypto_news(
 
     let config = NewsConfig::default();
     if config.newsapi_key.is_empty() && config.cryptopanic_key.is_empty() {
-        return Err(WebToolError::Authentication(
+        return Err(WebToolError::Auth(
             "No news API keys configured".to_string(),
         ));
     }
 
-    let client = WebClient::new("");
+    let client = WebClient::new();
 
     // Query multiple news sources
     let mut all_articles = Vec::new();
@@ -468,7 +468,7 @@ pub async fn get_crypto_news(
 ///
 /// This tool identifies currently trending news and topics in the cryptocurrency space,
 /// useful for staying updated on breaking developments and market movements.
-// #[tool]
+// // #[tool]
 pub async fn get_trending_news(
     time_window: Option<String>,     // "1h", "6h", "24h"
     categories: Option<Vec<String>>, // "defi", "nft", "regulation", "tech"
@@ -481,7 +481,7 @@ pub async fn get_trending_news(
     );
 
     let config = NewsConfig::default();
-    let client = WebClient::new("");
+    let client = WebClient::new();
 
     // Get trending articles from multiple sources
     let trending_articles = fetch_trending_articles(
@@ -530,7 +530,7 @@ pub async fn get_trending_news(
 ///
 /// This tool continuously monitors news sources for breaking news
 /// and generates alerts based on severity and market impact criteria.
-// #[tool]
+// // #[tool]
 pub async fn monitor_breaking_news(
     keywords: Vec<String>,
     severity_threshold: Option<String>, // "Critical", "High", "Medium"
@@ -540,7 +540,7 @@ pub async fn monitor_breaking_news(
     debug!("Monitoring breaking news for keywords: {:?}", keywords);
 
     let config = NewsConfig::default();
-    let client = WebClient::new("");
+    let client = WebClient::new();
 
     let mut alerts = Vec::new();
 
@@ -577,7 +577,7 @@ pub async fn monitor_breaking_news(
 ///
 /// This tool provides comprehensive sentiment analysis across recent news articles,
 /// helping to gauge overall market mood and potential price impact.
-// #[tool]
+// // #[tool]
 pub async fn analyze_market_sentiment(
     time_window: Option<String>,                  // "1h", "6h", "24h", "week"
     asset_filter: Option<Vec<String>>,            // Specific cryptocurrencies to focus on
@@ -590,7 +590,7 @@ pub async fn analyze_market_sentiment(
     );
 
     let config = NewsConfig::default();
-    let client = WebClient::new("");
+    let client = WebClient::new();
 
     // Gather recent news for sentiment analysis
     let recent_news = if let Some(assets) = &asset_filter {

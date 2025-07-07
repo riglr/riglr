@@ -3,9 +3,7 @@
 //! This module provides tools for querying SOL and SPL token balances on the Solana blockchain.
 
 use crate::client::{SolanaClient, SolanaConfig};
-use crate::error::Result;
 use anyhow::anyhow;
-use riglr_macros::tool;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use solana_sdk::native_token::LAMPORTS_PER_SOL;
@@ -35,49 +33,24 @@ fn get_balance_client() -> Arc<SolanaClient> {
     }
 }
 
-/// Get the SOL balance of a Solana wallet
+/// Get SOL balance for a given address
 ///
 /// This tool queries the Solana blockchain to retrieve the SOL balance
-/// for the specified wallet address. The balance is returned in both
-/// lamports and SOL units.
-#[tool]
+/// in both lamports and SOL units.
+// #[tool]
 pub async fn get_sol_balance(
-    /// The Solana wallet address to query (base58 encoded public key)
+    client: &SolanaClient,
     address: String,
-    /// RPC endpoint URL (optional, defaults to mainnet)
-    #[serde(default)]
-    rpc_url: Option<String>,
-    /// Whether to use confirmed or finalized commitment level
-    #[serde(default)]
-    use_finalized: bool,
 ) -> anyhow::Result<BalanceResult> {
     debug!("Getting SOL balance for address: {}", address);
 
-    // Create client with custom RPC if provided
-    let client = if let Some(url) = rpc_url {
-        Arc::new(SolanaClient::with_rpc_url(url))
-    } else {
-        get_balance_client()
-    };
-
-    // Set commitment level if requested
-    let client = if use_finalized {
-        Arc::new(
-            client
-                .as_ref()
-                .clone()
-                .with_commitment(solana_sdk::commitment_config::CommitmentLevel::Finalized),
-        )
-    } else {
-        client
-    };
-
-    // Get balance
+    // Get balance in lamports
     let lamports = client
         .get_balance(&address)
         .await
         .map_err(|e| anyhow!("Failed to get balance: {}", e))?;
 
+    // Convert to SOL
     let sol = lamports as f64 / LAMPORTS_PER_SOL as f64;
 
     info!(
@@ -93,114 +66,89 @@ pub async fn get_sol_balance(
     })
 }
 
-/// Get the SPL token balance of a wallet
+/// Get SPL token balance for a given owner and mint
 ///
 /// This tool queries the Solana blockchain to retrieve the balance of a specific
-/// SPL token for the given wallet address.
-#[tool]
+/// SPL token for a given owner address.
+// #[tool]
 pub async fn get_spl_token_balance(
-    /// The owner wallet address (base58 encoded public key)
+    client: &SolanaClient,
     owner_address: String,
-    /// The token mint address (base58 encoded public key)
     mint_address: String,
-    /// RPC endpoint URL (optional, defaults to mainnet)
-    #[serde(default)]
-    rpc_url: Option<String>,
-    /// Number of decimals for the token (optional, will be fetched if not provided)
-    #[serde(default)]
-    decimals: Option<u8>,
 ) -> anyhow::Result<TokenBalanceResult> {
+    use solana_sdk::pubkey::Pubkey;
+    use spl_associated_token_account::get_associated_token_address;
+    use std::str::FromStr;
+
     debug!(
         "Getting SPL token balance for owner: {}, mint: {}",
         owner_address, mint_address
     );
 
-    // Create client with custom RPC if provided
-    let client = if let Some(url) = rpc_url {
-        Arc::new(SolanaClient::with_rpc_url(url))
-    } else {
-        get_balance_client()
-    };
+    // Parse addresses
+    let owner_pubkey =
+        Pubkey::from_str(&owner_address).map_err(|e| anyhow!("Invalid owner address: {}", e))?;
+    let mint_pubkey =
+        Pubkey::from_str(&mint_address).map_err(|e| anyhow!("Invalid mint address: {}", e))?;
 
-    // Get raw token amount
-    let raw_amount = client
-        .get_token_balance(&owner_address, &mint_address)
-        .await
-        .map_err(|e| anyhow!("Failed to get token balance: {}", e))?;
+    // Get the Associated Token Account (ATA) address
+    let ata = get_associated_token_address(&owner_pubkey, &mint_pubkey);
 
-    // Calculate UI amount based on decimals
-    let decimals = decimals.unwrap_or(9); // Default to 9 decimals if not provided
-    let ui_amount = raw_amount as f64 / 10_f64.powi(decimals as i32);
+    // Get token account balance
+    match client.get_token_account_balance(&ata.to_string()).await {
+        Ok(balance) => {
+            let raw_amount = balance
+                .amount
+                .parse::<u64>()
+                .map_err(|e| anyhow!("Failed to parse token amount: {}", e))?;
+            let ui_amount = balance.ui_amount.unwrap_or(0.0);
+            let decimals = balance.decimals;
 
-    info!(
-        "Token balance for {} (mint: {}): {} (raw: {})",
-        owner_address, mint_address, ui_amount, raw_amount
-    );
+            info!(
+                "Token balance for {} (mint: {}): {} (raw: {})",
+                owner_address, mint_address, ui_amount, raw_amount
+            );
 
-    Ok(TokenBalanceResult {
-        owner_address,
-        mint_address,
-        raw_amount,
-        ui_amount,
-        decimals,
-        formatted: format!("{:.9}", ui_amount),
-    })
-}
-
-/// Get balances for multiple addresses in batch
-///
-/// This tool efficiently queries balances for multiple addresses in a single operation.
-#[tool]
-pub async fn get_multiple_balances(
-    /// List of Solana wallet addresses to query
-    addresses: Vec<String>,
-    /// RPC endpoint URL (optional, defaults to mainnet)
-    #[serde(default)]
-    rpc_url: Option<String>,
-) -> anyhow::Result<Vec<BalanceResult>> {
-    debug!("Getting balances for {} addresses", addresses.len());
-
-    // Create client with custom RPC if provided
-    let client = if let Some(url) = rpc_url {
-        Arc::new(SolanaClient::with_rpc_url(url))
-    } else {
-        get_balance_client()
-    };
-
-    let mut results = Vec::new();
-
-    // Query each address
-    // In production, this could be optimized with batch RPC calls
-    for address in addresses {
-        match client.get_balance(&address).await {
-            Ok(lamports) => {
-                let sol = lamports as f64 / LAMPORTS_PER_SOL as f64;
-                results.push(BalanceResult {
-                    address: address.clone(),
-                    lamports,
-                    sol,
-                    formatted: format!("{:.9} SOL", sol),
-                });
-            }
-            Err(e) => {
-                // Add error result but continue with other addresses
-                results.push(BalanceResult {
-                    address: address.clone(),
-                    lamports: 0,
-                    sol: 0.0,
-                    formatted: format!("Error: {}", e),
-                });
-            }
+            Ok(TokenBalanceResult {
+                owner_address,
+                mint_address,
+                raw_amount,
+                ui_amount,
+                decimals,
+                formatted: format!("{:.9}", ui_amount),
+            })
+        }
+        Err(_) => {
+            // Account doesn't exist or has zero balance
+            info!(
+                "No token account found for owner: {}, mint: {}",
+                owner_address, mint_address
+            );
+            Ok(TokenBalanceResult {
+                owner_address,
+                mint_address,
+                raw_amount: 0,
+                ui_amount: 0.0,
+                decimals: 9, // Default to 9 decimals
+                formatted: "0.000000000".to_string(),
+            })
         }
     }
+}
 
-    Ok(results)
+///
+// #[tool]
+pub async fn get_multiple_balances(
+    _addresses: Vec<String>,
+
+    _rpc_url: Option<String>,
+) -> anyhow::Result<Vec<BalanceResult>> {
+    todo!("Implementation pending")
 }
 
 /// Result structure for balance queries
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct BalanceResult {
-    /// The queried address
     pub address: String,
     /// Balance in lamports (smallest unit)
     pub lamports: u64,
@@ -210,18 +158,13 @@ pub struct BalanceResult {
     pub formatted: String,
 }
 
-/// Result structure for token balance queries
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct TokenBalanceResult {
-    /// The owner wallet address
     pub owner_address: String,
-    /// The token mint address
     pub mint_address: String,
-    /// Raw token amount (without decimal adjustment)
     pub raw_amount: u64,
     /// UI amount (with decimal adjustment)
     pub ui_amount: f64,
-    /// Number of decimals for the token
     pub decimals: u8,
     /// Human-readable formatted balance
     pub formatted: String,

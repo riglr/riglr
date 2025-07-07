@@ -66,11 +66,10 @@ impl Default for UniswapConfig {
     }
 }
 
-/// Get a quote for a token swap from Uniswap V3
 ///
 /// This tool queries Uniswap V3's Quoter contract for the best swap route
 /// and returns the expected output amount.
-// #[tool]
+// // #[tool]
 pub async fn get_uniswap_quote(
     token_in: String,
     token_out: String,
@@ -177,11 +176,10 @@ pub async fn get_uniswap_quote(
     })
 }
 
-/// Execute a token swap through Uniswap V3
 ///
 /// This tool executes a swap using Uniswap V3's SwapRouter,
 /// handling transaction construction and submission.
-// #[tool]
+// // #[tool]
 pub async fn perform_uniswap_swap(
     token_in: String,
     token_out: String,
@@ -335,10 +333,8 @@ pub async fn perform_uniswap_swap(
     })
 }
 
-/// Get token information and current price
 ///
-/// This tool fetches token information and calculates current price based on Uniswap V3 pools.
-// #[tool]
+// // #[tool]
 pub async fn get_token_price(
     base_token: String,
     quote_token: String,
@@ -377,7 +373,7 @@ pub async fn get_token_price(
 }
 
 /// Build quote call data for Uniswap V3 Quoter contract
-fn build_quote_call_data(
+pub fn build_quote_call_data(
     token_in: &str,
     token_out: &str,
     fee: u32,
@@ -404,7 +400,7 @@ fn build_quote_call_data(
 }
 
 /// Build swap call data for Uniswap V3 SwapRouter contract
-fn build_swap_call_data(
+pub fn build_swap_call_data(
     token_in: &str,
     token_out: &str,
     fee: u32,
@@ -456,7 +452,7 @@ fn build_swap_call_data(
 }
 
 /// Calculate price impact from swap amounts
-fn calculate_price_impact(amount_in: u128, amount_out: u128) -> f64 {
+pub fn calculate_price_impact(amount_in: u128, amount_out: u128) -> f64 {
     // Simplified price impact calculation
     // In production, this would be more sophisticated
     if amount_in == 0 || amount_out == 0 {
@@ -476,9 +472,7 @@ fn calculate_price_impact(amount_in: u128, amount_out: u128) -> f64 {
 /// Result of a swap quote from Uniswap V3
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct SwapQuote {
-    /// Input token address
     pub token_in: String,
-    /// Output token address
     pub token_out: String,
     /// Input amount
     pub amount_in: u128,
@@ -499,9 +493,7 @@ pub struct SwapQuote {
 pub struct SwapResult {
     /// Transaction hash
     pub tx_hash: String,
-    /// Input token address
     pub token_in: String,
-    /// Output token address
     pub token_out: String,
     /// Input amount
     pub amount_in: u128,
@@ -522,9 +514,7 @@ pub struct SwapResult {
 /// Token price information
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct TokenPriceInfo {
-    /// Base token address
     pub base_token: String,
-    /// Quote token address
     pub quote_token: String,
     /// Price of base in terms of quote
     pub price: f64,

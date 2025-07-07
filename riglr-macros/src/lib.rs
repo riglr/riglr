@@ -22,25 +22,21 @@ pub async fn get_sol_balance(
     /// The Solana wallet address to query
     address: String,
     /// Whether to use confirmed or finalized commitment
-    #[serde(default)]
+
     confirmed: bool,
 ) -> Result<u64, anyhow::Error> {
     // Implementation here
     Ok(1000000)
 }
 
-/// Configuration for token swap
 #[derive(Serialize, Deserialize, JsonSchema)]
 struct SwapConfig {
-    /// Input token mint address
     input_mint: String,
-    /// Output token mint address
     output_mint: String,
     /// Amount to swap in lamports
     amount: u64,
 }
 
-/// A token swap tool
 #[derive(Serialize, Deserialize, JsonSchema)]
 #[tool]
 struct TokenSwapper {
@@ -123,7 +119,7 @@ fn handle_function(function: ItemFn) -> proc_macro2::TokenStream {
 
                 if has_default {
                     param_fields.push(quote! {
-                        #[serde(default)]
+
                         #(#attrs)*
                         pub #param_name: #param_type
                     });
@@ -143,6 +139,7 @@ fn handle_function(function: ItemFn) -> proc_macro2::TokenStream {
         fn_name.span(),
     );
     let args_struct_name = syn::Ident::new(&format!("{}Args", tool_struct_name), fn_name.span());
+    let tool_fn_name = syn::Ident::new(&format!("{}_tool", fn_name), fn_name.span());
 
     // Generate field assignments for function call
     let field_assignments = param_names.iter().map(|name| {
@@ -272,7 +269,7 @@ fn handle_function(function: ItemFn) -> proc_macro2::TokenStream {
         #function
 
         // Optionally, create a convenience function to create an Arc<dyn Tool>
-        #fn_vis fn #fn_name _tool() -> std::sync::Arc<dyn riglr_core::Tool> {
+        #fn_vis fn #tool_fn_name() -> std::sync::Arc<dyn riglr_core::Tool> {
             std::sync::Arc::new(#tool_struct_name::new())
         }
     }

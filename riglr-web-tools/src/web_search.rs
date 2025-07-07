@@ -289,7 +289,7 @@ impl Default for WebSearchConfig {
 ///
 /// This tool performs AI-powered web search using semantic understanding,
 /// returning highly relevant results with extracted content and metadata.
-// #[tool]
+// // #[tool]
 pub async fn search_web(
     query: String,
     max_results: Option<u32>,
@@ -306,12 +306,13 @@ pub async fn search_web(
 
     let config = WebSearchConfig::default();
     if config.exa_api_key.is_empty() {
-        return Err(WebToolError::Authentication(
+        return Err(WebToolError::Auth(
             "EXA_API_KEY environment variable not set".to_string(),
         ));
     }
 
-    let client = WebClient::new(&config.exa_api_key);
+    let client = WebClient::new()
+        .with_exa_key(config.exa_api_key.clone());
 
     // Build search parameters
     let mut params = HashMap::new();
@@ -326,11 +327,11 @@ pub async fn search_web(
     );
     params.insert("search_type".to_string(), "semantic".to_string());
 
-    if let Some(domains) = domain_filter {
+    if let Some(ref domains) = domain_filter {
         params.insert("include_domains".to_string(), domains.join(","));
     }
 
-    if let Some(date) = date_filter {
+    if let Some(ref date) = date_filter {
         params.insert(
             "start_published_date".to_string(),
             format_date_filter(&date),
@@ -380,7 +381,7 @@ pub async fn search_web(
 ///
 /// This tool finds web pages that are similar in content and topic to a source URL,
 /// useful for finding related information or alternative perspectives.
-// #[tool]
+// // #[tool]
 pub async fn find_similar_pages(
     source_url: String,
     max_results: Option<u32>,
@@ -391,12 +392,13 @@ pub async fn find_similar_pages(
 
     let config = WebSearchConfig::default();
     if config.exa_api_key.is_empty() {
-        return Err(WebToolError::Authentication(
+        return Err(WebToolError::Auth(
             "EXA_API_KEY environment variable not set".to_string(),
         ));
     }
 
-    let client = WebClient::new(&config.exa_api_key);
+    let client = WebClient::new()
+        .with_exa_key(config.exa_api_key.clone());
 
     // Build similarity search parameters
     let mut params = HashMap::new();
@@ -444,7 +446,7 @@ pub async fn find_similar_pages(
 ///
 /// This tool extracts and summarizes key information from multiple web pages,
 /// creating a comprehensive overview of a topic from multiple sources.
-// #[tool]
+// // #[tool]
 pub async fn summarize_web_content(
     urls: Vec<String>,
     summary_length: Option<String>, // "brief", "detailed", "comprehensive"
@@ -454,7 +456,8 @@ pub async fn summarize_web_content(
     debug!("Summarizing content from {} URLs", urls.len());
 
     let config = WebSearchConfig::default();
-    let client = WebClient::new(&config.exa_api_key);
+    let client = WebClient::new()
+        .with_exa_key(config.exa_api_key.clone());
 
     let mut summaries = Vec::new();
 
@@ -484,7 +487,7 @@ pub async fn summarize_web_content(
 ///
 /// This tool specifically searches for recent news articles and blog posts,
 /// optimized for finding current information and trending discussions.
-// #[tool]
+// // #[tool]
 pub async fn search_recent_news(
     topic: String,
     time_window: Option<String>,       // "24h", "week", "month"
@@ -499,7 +502,8 @@ pub async fn search_recent_news(
     );
 
     let config = WebSearchConfig::default();
-    let client = WebClient::new(&config.exa_api_key);
+    let client = WebClient::new()
+        .with_exa_key(config.exa_api_key.clone());
 
     // Build news-specific search parameters
     let mut params = HashMap::new();
@@ -554,7 +558,7 @@ pub async fn search_recent_news(
     let search_result = WebSearchResult {
         query: topic.clone(),
         search_type: "news".to_string(),
-        results,
+        results: results.clone(),
         metadata: WebSearchMetadata {
             total_results: results.len() as u32,
             returned_results: results.len() as u32,

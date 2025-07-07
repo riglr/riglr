@@ -64,6 +64,7 @@ proc-macro2 = "1.0"
 # Testing
 tokio-test = "0.4"
 trybuild = "1.0"
+criterion = { version = "0.5", features = ["html_reports", "async_tokio"] }
 
 # CLI and config
 clap = { version = "4.0", features = ["derive"] }

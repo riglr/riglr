@@ -40,7 +40,6 @@ impl Default for EvmConfig {
 pub struct EvmClient {
     /// HTTP client for JSON-RPC calls
     pub http_client: Arc<Client>,
-    /// RPC endpoint URL
     pub rpc_url: String,
     /// Chain ID for the target blockchain
     pub chain_id: u64,

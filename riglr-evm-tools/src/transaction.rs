@@ -18,7 +18,7 @@ use tracing::{debug, info};
 ///
 /// This context ensures that private keys are never exposed to the agent's
 /// reasoning context, following the same security requirements as Solana tools.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct EvmSignerContext {
     /// Map of signer names to private keys (32 bytes)
     signers: Arc<RwLock<HashMap<String, [u8; 32]>>>,
@@ -129,7 +129,7 @@ pub fn get_evm_signer_context() -> Result<Arc<EvmSignerContext>> {
 ///
 /// This tool creates and executes an ETH transfer transaction.
 /// The transaction is queued for execution with automatic retry and idempotency.
-// #[tool]
+// // #[tool]
 pub async fn transfer_eth(
     to_address: String,
     amount_eth: f64,
@@ -240,10 +240,8 @@ pub async fn transfer_eth(
     })
 }
 
-/// Transfer ERC20 tokens from one account to another
 ///
-/// This tool creates and executes an ERC20 token transfer transaction.
-// #[tool]
+// // #[tool]
 pub async fn transfer_erc20(
     to_address: String,
     token_address: String,
@@ -366,7 +364,7 @@ pub fn derive_address_from_key(_private_key: &[u8; 32]) -> anyhow::Result<String
 }
 
 /// Build ETH transfer transaction data
-fn build_eth_transfer_tx(
+pub fn build_eth_transfer_tx(
     to: &str,
     amount: u128,
     _nonce: u64,
@@ -380,7 +378,7 @@ fn build_eth_transfer_tx(
 }
 
 /// Build ERC20 transfer call data
-fn build_erc20_transfer_data(to: &str, amount: u128) -> anyhow::Result<String> {
+pub fn build_erc20_transfer_data(to: &str, amount: u128) -> anyhow::Result<String> {
     // ERC20 transfer function: transfer(address,uint256)
     // Function selector: 0xa9059cbb
     let selector = "a9059cbb";
@@ -433,7 +431,6 @@ pub struct TransactionResult {
     pub idempotency_key: Option<String>,
 }
 
-/// Result of an ERC20 token transfer
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct TokenTransferResult {
     /// Transaction hash
@@ -510,5 +507,150 @@ mod tests {
         let status = TransactionStatus::Failed("error".to_string());
         let json = serde_json::to_string(&status).unwrap();
         assert!(json.contains("Failed"));
+        
+        let status = TransactionStatus::Confirmed;
+        let json = serde_json::to_string(&status).unwrap();
+        assert_eq!(json, "\"Confirmed\"");
+    }
+
+    #[test]
+    fn test_signer_context_comprehensive() {
+        let mut context = EvmSignerContext::new();
+        let private_key1 = [1u8; 32];
+        let private_key2 = [2u8; 32];
+
+        // Test first signer becomes default
+        context.add_signer("signer1", private_key1).unwrap();
+        assert_eq!(context.get_default_signer().unwrap(), private_key1);
+
+        // Test second signer doesn't override default
+        context.add_signer("signer2", private_key2).unwrap();
+        assert_eq!(context.get_default_signer().unwrap(), private_key1); // Still first signer
+
+        // Test getting specific signers
+        assert_eq!(context.get_signer("signer1").unwrap(), private_key1);
+        assert_eq!(context.get_signer("signer2").unwrap(), private_key2);
+
+        // Test error for non-existent signer
+        assert!(context.get_signer("nonexistent").is_err());
+    }
+
+    #[test]
+    fn test_signer_context_empty() {
+        let context = EvmSignerContext::new();
+        
+        // Test error when no default signer configured
+        assert!(context.get_default_signer().is_err());
+        
+        // Test error when getting non-existent signer
+        assert!(context.get_signer("nonexistent").is_err());
+    }
+
+    #[test]
+    fn test_signer_context_default() {
+        let context = EvmSignerContext::default();
+        assert!(context.get_default_signer().is_err());
+    }
+
+    #[test]
+    fn test_signer_context_get_address() {
+        let mut context = EvmSignerContext::new();
+        let private_key = [1u8; 32];
+        context.add_signer("test", private_key).unwrap();
+        
+        let address = context.get_address("test").unwrap();
+        assert!(address.starts_with("0x"));
+    }
+
+    #[test]
+    fn test_derive_address_from_key() {
+        let private_key = [1u8; 32];
+        let address = derive_address_from_key(&private_key).unwrap();
+        assert!(address.starts_with("0x"));
+    }
+
+    #[test]
+    fn test_build_eth_transfer_tx() {
+        let result = build_eth_transfer_tx("0x123", 1000, 1, 2000, 21000, 1);
+        assert!(result.is_ok());
+        let data = result.unwrap();
+        assert_eq!(data.len(), 32); // Placeholder returns 32 bytes
+    }
+
+    #[test]
+    fn test_build_contract_call_tx() {
+        let result = build_contract_call_tx("0x123", "0xabcd", 1, 2000, 60000, 1);
+        assert!(result.is_ok());
+        let data = result.unwrap();
+        assert_eq!(data.len(), 32); // Placeholder returns 32 bytes
+    }
+
+    #[test]
+    fn test_sign_transaction() {
+        let tx_data = vec![1, 2, 3, 4];
+        let private_key = [1u8; 32];
+        let result = sign_transaction(tx_data, &private_key);
+        assert!(result.is_ok());
+        let signed = result.unwrap();
+        assert!(signed.starts_with("0x"));
+    }
+
+    #[test]
+    fn test_build_erc20_transfer_data_comprehensive() {
+        let to = "0x742d35Cc6634C0532925a3b8D8e41E5d3e4F8123";
+        let amount = 1000000u128;
+
+        let data = build_erc20_transfer_data(to, amount).unwrap();
+        
+        // Should start with transfer function selector
+        assert!(data.starts_with("0xa9059cbb"));
+        
+        // Should have correct length: 0x + selector(8) + address(64) + amount(64)
+        assert_eq!(data.len(), 2 + 8 + 64 + 64);
+        
+        // Test with different values
+        let data2 = build_erc20_transfer_data("0x1234", 500u128).unwrap();
+        assert!(data2.starts_with("0xa9059cbb"));
+        assert_ne!(data, data2); // Should be different
+    }
+
+    #[test]
+    fn test_transaction_result_creation() {
+        let result = TransactionResult {
+            tx_hash: "0xhash".to_string(),
+            from: "0xfrom".to_string(),
+            to: "0xto".to_string(),
+            amount: "1000".to_string(),
+            amount_display: "1.0 ETH".to_string(),
+            status: TransactionStatus::Pending,
+            gas_price: 20000000000,
+            gas_used: Some(21000),
+            idempotency_key: Some("key123".to_string()),
+        };
+        
+        assert_eq!(result.tx_hash, "0xhash");
+        assert_eq!(result.gas_used, Some(21000));
+    }
+
+    #[test]
+    fn test_token_transfer_result_creation() {
+        let result = TokenTransferResult {
+            tx_hash: "0xhash".to_string(),
+            from: "0xfrom".to_string(),
+            to: "0xto".to_string(),
+            token_address: "0xtoken".to_string(),
+            amount: "1000000".to_string(),
+            ui_amount: 1.0,
+            decimals: 18,
+            amount_display: "1.000000000".to_string(),
+            status: TransactionStatus::Confirmed,
+            gas_price: 20000000000,
+            gas_used: None,
+            idempotency_key: None,
+        };
+        
+        assert_eq!(result.token_address, "0xtoken");
+        assert_eq!(result.decimals, 18);
+        assert_eq!(result.ui_amount, 1.0);
     }
 }

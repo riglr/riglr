@@ -172,7 +172,6 @@ pub enum RelationshipType {
     Transferred,
     /// Wallet interacted with protocol
     Interacted,
-    /// Wallet holds token
     Holds,
     /// Token is part of protocol
     PartOf,
@@ -279,7 +278,6 @@ impl DocumentMetadata {
         self.wallet_addresses.push(address.into());
     }
 
-    /// Add a token address mention
     pub fn add_token(&mut self, address: impl Into<String>) {
         self.token_addresses.push(address.into());
     }
