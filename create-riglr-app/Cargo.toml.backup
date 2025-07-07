@@ -10,27 +10,27 @@ readme = "README.md"
 [dependencies]
 # Core riglr framework
 rig-core = "0.2.0"
-riglr-core = { path = "../riglr-core" }
-riglr-macros = { path = "../riglr-macros" }
+riglr-core = { git = "https://github.com/riglr-project/riglr", branch = "main" }
+riglr-macros = { git = "https://github.com/riglr-project/riglr", branch = "main" }
 
 {% if primary-chain == "solana" or primary-chain == "both" -%}
 # Solana blockchain tools
-riglr-solana-tools = { path = "../riglr-solana-tools" }
+riglr-solana-tools = { git = "https://github.com/riglr-project/riglr", branch = "main" }
 {% endif %}
 
 {% if primary-chain == "ethereum" or primary-chain == "both" -%}
 # Ethereum/EVM blockchain tools
-riglr-evm-tools = { path = "../riglr-evm-tools" }
+riglr-evm-tools = { git = "https://github.com/riglr-project/riglr", branch = "main" }
 {% endif %}
 
 {% if include-web-tools -%}
 # Web data tools (Twitter, DexScreener, news, web search)
-riglr-web-tools = { path = "../riglr-web-tools" }
+riglr-web-tools = { git = "https://github.com/riglr-project/riglr", branch = "main" }
 {% endif %}
 
 {% if include-graph-memory -%}
 # Graph-based knowledge storage
-riglr-graph-memory = { path = "../riglr-graph-memory" }
+riglr-graph-memory = { git = "https://github.com/riglr-project/riglr", branch = "main" }
 {% endif %}
 
 # Async runtime and utilities
