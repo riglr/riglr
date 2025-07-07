@@ -47,6 +47,7 @@ redis = { version = "0.24", features = ["tokio-comp"] }
 
 # HTTP client
 reqwest = { version = "0.11", features = ["json"] }
+url = "2.5"
 
 # UUID generation
 uuid = { version = "1.0", features = ["v4", "serde"] }
@@ -67,9 +68,6 @@ trybuild = "1.0"
 # CLI and config
 clap = { version = "4.0", features = ["derive"] }
 dotenvy = "0.15"
-
-# URL parsing
-url = "2.5"
 
 # Neo4j (commented out as it may not be available)
 # neo4rs = "0.7"

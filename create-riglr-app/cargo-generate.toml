@@ -1,0 +1,73 @@
+[template]
+cargo_generate_version = ">=0.20.0"
+
+[placeholders.project-name]
+type = "string"
+prompt = "What is the name of your riglr project?"
+regex = "^[a-zA-Z][a-zA-Z0-9_-]*$"
+
+[placeholders.agent-name]
+type = "string"
+prompt = "What should your AI agent be called?"
+default = "{{ project-name | kebab_case | title_case }}"
+
+[placeholders.author-name]
+type = "string"
+prompt = "What is your name?"
+default = "Anonymous"
+
+[placeholders.author-email]
+type = "string"
+prompt = "What is your email address?"
+default = "user@example.com"
+
+[placeholders.primary-chain]
+type = "string"
+prompt = "Which blockchain will be your primary focus?"
+choices = ["solana", "ethereum", "both"]
+default = "solana"
+
+[placeholders.include-web-tools]
+type = "bool"
+prompt = "Include web data tools (Twitter, DexScreener, news)?"
+default = true
+
+[placeholders.include-graph-memory]
+type = "bool"
+prompt = "Include graph memory for knowledge storage?"
+default = true
+
+[placeholders.agent-type]
+type = "string"
+prompt = "What type of agent are you building?"
+choices = ["trading-bot", "market-analyst", "dex-arbitrage", "news-monitor", "portfolio-tracker", "custom"]
+default = "trading-bot"
+
+[placeholders.description]
+type = "string"
+prompt = "Brief description of your project:"
+default = "A powerful on-chain AI agent built with riglr"
+
+[conditional.'primary-chain == "solana"'.placeholders.solana-rpc-url]
+type = "string"
+prompt = "Solana RPC endpoint URL:"
+default = "https://api.mainnet-beta.solana.com"
+
+[conditional.'primary-chain == "ethereum" || primary-chain == "both"'.placeholders.ethereum-rpc-url]
+type = "string"
+prompt = "Ethereum RPC endpoint URL:"
+default = "https://eth-mainnet.g.alchemy.com/v2/your-api-key"
+
+[hooks]
+pre = ["pre-script.rhai"]
+post = ["post-script.rhai"]
+
+[ignore]
+# Files/directories to exclude from the template
+exclude = [
+    "target/",
+    ".git/",
+    "Cargo.lock",
+    "pre-script.rhai",
+    "post-script.rhai"
+]

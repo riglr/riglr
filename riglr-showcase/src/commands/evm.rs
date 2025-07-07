@@ -1,7 +1,7 @@
 //! EVM tools demonstration commands.
 
-use anyhow::Result;
 use crate::config::Config;
+use anyhow::Result;
 
 /// Run the EVM tools demo.
 pub async fn run_demo(_config: Config, _address: Option<String>, _chain_id: u64) -> Result<()> {

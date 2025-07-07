@@ -10,16 +10,16 @@ use std::time::Duration;
 pub trait JobQueue: Send + Sync {
     /// Add a job to the queue
     async fn enqueue(&self, job: Job) -> Result<()>;
-    
+
     /// Get the next job from the queue, blocks until a job is available or timeout
     async fn dequeue(&self) -> Result<Option<Job>>;
-    
+
     /// Get the next job from the queue with timeout
     async fn dequeue_with_timeout(&self, timeout: Duration) -> Result<Option<Job>>;
-    
+
     /// Get queue length
     async fn len(&self) -> Result<usize>;
-    
+
     /// Check if queue is empty
     async fn is_empty(&self) -> Result<bool> {
         Ok(self.len().await? == 0)
@@ -56,7 +56,7 @@ impl JobQueue for InMemoryJobQueue {
         self.notify.notify_one();
         Ok(())
     }
-    
+
     async fn dequeue(&self) -> Result<Option<Job>> {
         loop {
             {
@@ -68,7 +68,7 @@ impl JobQueue for InMemoryJobQueue {
             self.notify.notified().await;
         }
     }
-    
+
     async fn dequeue_with_timeout(&self, timeout: Duration) -> Result<Option<Job>> {
         tokio::select! {
             _ = tokio::time::sleep(timeout) => Ok(None),
@@ -78,7 +78,7 @@ impl JobQueue for InMemoryJobQueue {
             }
         }
     }
-    
+
     async fn len(&self) -> Result<usize> {
         let queue = self.queue.lock().await;
         Ok(queue.len())
@@ -96,7 +96,7 @@ pub struct RedisJobQueue {
 #[cfg(feature = "redis")]
 impl RedisJobQueue {
     /// Create a new Redis job queue
-    /// 
+    ///
     /// # Arguments
     /// * `redis_url` - Redis connection URL (e.g., "redis://127.0.0.1:6379")
     /// * `queue_name` - Name of the queue (will be prefixed with "riglr:queue:")
@@ -108,7 +108,7 @@ impl RedisJobQueue {
             timeout_seconds: 5,
         })
     }
-    
+
     /// Set the blocking timeout for dequeue operations
     pub fn with_timeout(mut self, timeout_seconds: u64) -> Self {
         self.timeout_seconds = timeout_seconds;
@@ -129,17 +129,17 @@ impl JobQueue for RedisJobQueue {
             .await?;
         Ok(())
     }
-    
+
     async fn dequeue(&self) -> Result<Option<Job>> {
         let mut conn = self.client.get_async_connection().await?;
-        
+
         // BRPOP blocks until an item is available or timeout
         let result: Option<(String, String)> = redis::cmd("BRPOP")
             .arg(&self.queue_key)
             .arg(self.timeout_seconds)
             .query_async(&mut conn)
             .await?;
-        
+
         match result {
             Some((_, job_str)) => {
                 let job: Job = serde_json::from_str(&job_str)?;
@@ -148,17 +148,17 @@ impl JobQueue for RedisJobQueue {
             None => Ok(None),
         }
     }
-    
+
     async fn dequeue_with_timeout(&self, timeout: Duration) -> Result<Option<Job>> {
         let mut conn = self.client.get_async_connection().await?;
         let timeout_seconds = timeout.as_secs().max(1);
-        
+
         let result: Option<(String, String)> = redis::cmd("BRPOP")
             .arg(&self.queue_key)
             .arg(timeout_seconds)
             .query_async(&mut conn)
             .await?;
-        
+
         match result {
             Some((_, job_str)) => {
                 let job: Job = serde_json::from_str(&job_str)?;
@@ -167,7 +167,7 @@ impl JobQueue for RedisJobQueue {
             None => Ok(None),
         }
     }
-    
+
     async fn len(&self) -> Result<usize> {
         let mut conn = self.client.get_async_connection().await?;
         let len: usize = redis::cmd("LLEN")
@@ -181,34 +181,40 @@ impl JobQueue for RedisJobQueue {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[tokio::test]
     async fn test_in_memory_queue() {
         let queue = InMemoryJobQueue::new();
-        
+
         // Test enqueue and dequeue
         let job = Job::new("test_tool", &serde_json::json!({}), 3).unwrap();
         let job_id = job.job_id;
-        
+
         queue.enqueue(job).await.unwrap();
         assert_eq!(queue.len().await.unwrap(), 1);
         assert!(!queue.is_empty().await.unwrap());
-        
+
         // Use timeout to avoid blocking forever in tests
-        let dequeued = queue.dequeue_with_timeout(Duration::from_secs(1)).await.unwrap();
+        let dequeued = queue
+            .dequeue_with_timeout(Duration::from_secs(1))
+            .await
+            .unwrap();
         assert!(dequeued.is_some());
         assert_eq!(dequeued.unwrap().job_id, job_id);
-        
+
         assert_eq!(queue.len().await.unwrap(), 0);
         assert!(queue.is_empty().await.unwrap());
     }
-    
+
     #[tokio::test]
     async fn test_queue_timeout() {
         let queue = InMemoryJobQueue::new();
-        
+
         // Dequeue with timeout should return None when queue is empty
-        let result = queue.dequeue_with_timeout(Duration::from_millis(100)).await.unwrap();
+        let result = queue
+            .dequeue_with_timeout(Duration::from_millis(100))
+            .await
+            .unwrap();
         assert!(result.is_none());
     }
 }

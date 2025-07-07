@@ -1,7 +1,7 @@
 //! # riglr-showcase
-//! 
+//!
 //! Showcase application demonstrating the capabilities of the riglr ecosystem.
-//! 
+//!
 //! This application serves as both a working example and a testing ground for
 //! all riglr components, showing how to build sophisticated AI agents that
 //! can interact with multiple blockchains, analyze market data, and maintain
@@ -21,11 +21,11 @@ mod config;
 struct Cli {
     #[command(subcommand)]
     command: Commands,
-    
+
     /// Enable verbose logging
     #[arg(short, long)]
     verbose: bool,
-    
+
     /// Configuration file path
     #[arg(short, long, default_value = ".env")]
     config: String,
@@ -44,7 +44,7 @@ enum Commands {
         /// Wallet address to analyze
         #[arg(short, long)]
         address: Option<String>,
-        
+
         /// Chain ID (1 for Ethereum, 137 for Polygon, etc.)
         #[arg(short, long, default_value = "1")]
         chain_id: u64,
@@ -60,7 +60,7 @@ enum Commands {
         /// Initialize with sample data
         #[arg(long)]
         init: bool,
-        
+
         /// Query to run against the graph
         #[arg(short, long)]
         query: Option<String>,
@@ -78,16 +78,16 @@ enum Commands {
 #[tokio::main]
 async fn main() -> Result<()> {
     let cli = Cli::parse();
-    
+
     // Initialize logging
     init_logging(cli.verbose);
-    
+
     // Load configuration
     dotenvy::from_filename(&cli.config).ok();
     let config = config::Config::from_env()?;
-    
+
     info!("Starting riglr-showcase v{}", env!("CARGO_PKG_VERSION"));
-    
+
     // Run the appropriate command
     match cli.command {
         Commands::Solana { address } => {
@@ -109,15 +109,15 @@ async fn main() -> Result<()> {
             commands::interactive::run_chat(config).await?;
         }
     }
-    
+
     Ok(())
 }
 
 fn init_logging(verbose: bool) {
     use tracing_subscriber::{fmt, EnvFilter};
-    
+
     let level = if verbose { "debug" } else { "info" };
-    
+
     fmt()
         .with_env_filter(
             EnvFilter::try_from_default_env()

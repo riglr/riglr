@@ -128,7 +128,13 @@ impl JobResult {
 
     /// Check if this result is a retriable failure
     pub fn is_retriable(&self) -> bool {
-        matches!(self, JobResult::Failure { retriable: true, .. })
+        matches!(
+            self,
+            JobResult::Failure {
+                retriable: true,
+                ..
+            }
+        )
     }
 }
 

@@ -29,11 +29,15 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 schemars = { workspace = true }
 
-# EVM Dependencies (temporarily commented out for initial build)
-# ethers = "2.0"
+# EVM Dependencies (temporarily using direct RPC to avoid conflicts)
+# ethers = { version = "2.0", features = ["ws", "rustls", "abigen"] }
+
 
 # HTTP client
 reqwest = { workspace = true }
+
+# Utility
+uuid = { version = "1.0", features = ["v4"] }
 
 # Logging
 tracing = { workspace = true }
