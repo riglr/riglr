@@ -82,29 +82,29 @@ impl WebClient {
     }
 
     /// Set API key for a service
-    pub fn with_api_key<S: Into<String>>(mut self, service: S, api_key: S) -> Self {
+    pub fn with_api_key<S1: Into<String>, S2: Into<String>>(mut self, service: S1, api_key: S2) -> Self {
         self.api_keys.insert(service.into(), api_key.into());
         self
     }
 
     /// Set Twitter/X Bearer Token
     pub fn with_twitter_token<S: Into<String>>(self, token: S) -> Self {
-        self.with_api_key("twitter", token.into())
+        self.with_api_key("twitter", token)
     }
 
     /// Set Exa API key
     pub fn with_exa_key<S: Into<String>>(self, key: S) -> Self {
-        self.with_api_key("exa", key.into())
+        self.with_api_key("exa", key)
     }
 
     /// Set DexScreener API key (if required)
     pub fn with_dexscreener_key<S: Into<String>>(self, key: S) -> Self {
-        self.with_api_key("dexscreener", key.into())
+        self.with_api_key("dexscreener", key)
     }
 
     /// Set News API key
     pub fn with_news_api_key<S: Into<String>>(self, key: S) -> Self {
-        self.with_api_key("newsapi", key.into())
+        self.with_api_key("newsapi", key)
     }
 
     /// Set configuration option
