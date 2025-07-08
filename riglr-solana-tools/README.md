@@ -44,25 +44,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 ### Secure Transaction Signing
 
-The library uses a secure `SignerContext` pattern to protect private keys:
+The library uses a client-first pattern with signers configured per-client:
 
 ```rust
-use riglr_solana_tools::transaction::{SignerContext, init_signer_context, transfer_sol};
+use riglr_solana_tools::client::SolanaClient;
+use riglr_solana_tools::transaction::transfer_sol;
 use solana_sdk::signature::Keypair;
 
-// Initialize signer context (do this once at startup)
-let mut context = SignerContext::new();
+// Create a client with signer for transactions
 let keypair = Keypair::new(); // In production, load from secure storage
-context.add_signer("main", keypair)?;
-init_signer_context(context);
+let client = SolanaClient::mainnet()
+    .with_signer(keypair);
 
 // Transfer SOL
-let client = SolanaClient::mainnet();
 let result = transfer_sol(
     &client,
     "recipient_address".to_string(),
     1.0, // Amount in SOL
-    Some("main".to_string()), // Signer name
     Some("Payment for services".to_string()), // Optional memo
     None, // Optional priority fee
 ).await?;
@@ -114,11 +112,14 @@ let status = get_transaction_status(&client, signature).await?;
 Transfer SOL between accounts.
 
 ```rust
+// Client must have a signer configured
+let client = SolanaClient::mainnet()
+    .with_signer(keypair);
+
 let result = transfer_sol(
     &client,
     to_address,
     amount_sol,
-    from_signer,
     memo,
     priority_fee,
 ).await?;
@@ -128,13 +129,16 @@ let result = transfer_sol(
 Transfer SPL tokens between accounts.
 
 ```rust
+// Client must have a signer configured
+let client = SolanaClient::mainnet()
+    .with_signer(keypair);
+
 let result = transfer_spl_token(
     &client,
     to_address,
     mint_address,
     amount,
     decimals,
-    from_signer,
     create_ata_if_needed,
 ).await?;
 ```
@@ -159,13 +163,16 @@ let quote = get_jupiter_quote(
 Execute a token swap via Jupiter.
 
 ```rust
+// Client must have a signer configured
+let client = SolanaClient::mainnet()
+    .with_signer(keypair);
+
 let result = perform_jupiter_swap(
     &client,
     input_mint,
     output_mint,
     amount,
     slippage_bps,
-    signer_name,
     jupiter_api_url,
     use_versioned_transaction,
 ).await?;
@@ -186,8 +193,9 @@ let price = get_token_price(
 
 ### Private Key Management
 - **Never** expose private keys in code
-- Use the `SignerContext` pattern to isolate key management
+- Configure signers per-client instance, not globally
 - Load keys from secure storage (environment variables, HSM, etc.)
+- Client instances with signers can be cloned safely
 
 ### Transaction Safety
 - All transactions require explicit signer authorization
@@ -195,10 +203,11 @@ let price = get_token_price(
 - Comprehensive error handling for network issues
 
 ### Best Practices
-1. Initialize `SignerContext` once at application startup
+1. Create client instances with signers as needed
 2. Use appropriate commitment levels for your use case
 3. Implement proper error handling and retries
 4. Monitor transaction status after submission
+5. Clone client instances to share across threads safely
 
 ## Network Configuration
 

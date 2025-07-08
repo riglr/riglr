@@ -3,13 +3,13 @@
 //! This module provides tools for interacting with the Jupiter aggregator,
 //! enabling token swaps with optimal routing across multiple DEXs.
 
-use crate::client::SolanaClient;
-use crate::transaction::{get_signer_context, TransactionStatus};
-use anyhow::anyhow;
+use crate::transaction::TransactionStatus;
+use riglr_core::{ToolError, SignerContext};
+use riglr_macros::tool;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use solana_sdk::{pubkey::Pubkey, signature::Signer, transaction::Transaction};
+use solana_sdk::{pubkey::Pubkey, transaction::Transaction};
 use std::str::FromStr;
 use tracing::{debug, info};
 
@@ -39,7 +39,7 @@ impl Default for JupiterConfig {
 ///
 /// This tool queries the Jupiter aggregator for the best swap route
 /// and returns the expected output amount.
-// #[tool]
+#[tool]
 pub async fn get_jupiter_quote(
     input_mint: String,
     output_mint: String,
@@ -47,17 +47,17 @@ pub async fn get_jupiter_quote(
     slippage_bps: u16,
     only_direct_routes: bool,
     jupiter_api_url: Option<String>,
-) -> anyhow::Result<SwapQuote> {
+) -> Result<SwapQuote, ToolError> {
     debug!(
         "Getting Jupiter quote for {} -> {} (amount: {})",
         input_mint, output_mint, amount
     );
 
     // Validate mint addresses
-    let _input_pubkey =
-        Pubkey::from_str(&input_mint).map_err(|e| anyhow!("Invalid input mint: {}", e))?;
-    let _output_pubkey =
-        Pubkey::from_str(&output_mint).map_err(|e| anyhow!("Invalid output mint: {}", e))?;
+    let _input_pubkey = Pubkey::from_str(&input_mint)
+        .map_err(|e| ToolError::permanent(format!("Invalid input mint: {}", e)))?;
+    let _output_pubkey = Pubkey::from_str(&output_mint)
+        .map_err(|e| ToolError::permanent(format!("Invalid output mint: {}", e)))?;
 
     let api_url = jupiter_api_url.unwrap_or_else(|| JupiterConfig::default().api_url);
 
@@ -84,20 +84,20 @@ pub async fn get_jupiter_quote(
         .get(&url)
         .send()
         .await
-        .map_err(|e| anyhow!("Failed to request quote: {}", e))?;
+        .map_err(|e| ToolError::retriable(format!("Failed to request quote: {}", e)))?;
 
     if !response.status().is_success() {
         let error_text = response
             .text()
             .await
             .unwrap_or_else(|_| "Unknown error".to_string());
-        return Err(anyhow!("Jupiter API error: {}", error_text));
+        return Err(ToolError::permanent(format!("Jupiter API error: {}", error_text)));
     }
 
     let quote_response: JupiterQuoteResponse = response
         .json()
         .await
-        .map_err(|e| anyhow!("Failed to parse quote response: {}", e))?;
+        .map_err(|e| ToolError::permanent(format!("Failed to parse quote response: {}", e)))?;
 
     // Calculate price impact
     let price_impact = calculate_price_impact(&quote_response);
@@ -128,35 +128,26 @@ pub async fn get_jupiter_quote(
 ///
 /// This tool executes a swap using the Jupiter aggregator,
 /// handling transaction construction and submission.
-// #[tool]
+#[tool]
 pub async fn perform_jupiter_swap(
-    client: &SolanaClient,
     input_mint: String,
     output_mint: String,
     amount: u64,
     slippage_bps: u16,
-    signer_name: Option<String>,
     jupiter_api_url: Option<String>,
     use_versioned_transaction: bool,
-) -> anyhow::Result<SwapResult> {
+) -> Result<SwapResult, ToolError> {
     debug!(
         "Executing Jupiter swap: {} {} -> {}",
         amount, input_mint, output_mint
     );
 
-    // Get signer
-    let signer_context =
-        get_signer_context().map_err(|e| anyhow!("Failed to get signer context: {}", e))?;
-
-    let signer = if let Some(name) = signer_name {
-        signer_context
-            .get_signer(&name)
-            .map_err(|e| anyhow!("Failed to get signer '{}': {}", name, e))?
-    } else {
-        signer_context
-            .get_default_signer()
-            .map_err(|e| anyhow!("Failed to get default signer: {}", e))?
-    };
+    // Get signer from context
+    let signer_context = SignerContext::current().await
+        .map_err(|e| ToolError::permanent(format!("No signer context: {}", e)))?;
+    
+    let signer_pubkey = signer_context.pubkey()
+        .ok_or_else(|| ToolError::permanent("Signer has no public key"))?;
 
     let api_url = jupiter_api_url.unwrap_or_else(|| JupiterConfig::default().api_url);
 
@@ -173,7 +164,7 @@ pub async fn perform_jupiter_swap(
 
     // Build swap request
     let swap_request = json!({
-        "userPublicKey": signer.pubkey().to_string(),
+        "userPublicKey": signer_pubkey,
         "quoteResponse": {
             "inputMint": quote.input_mint,
             "outputMint": quote.output_mint,
@@ -198,48 +189,41 @@ pub async fn perform_jupiter_swap(
         .json(&swap_request)
         .send()
         .await
-        .map_err(|e| anyhow!("Failed to request swap transaction: {}", e))?;
+        .map_err(|e| ToolError::retriable(format!("Failed to request swap transaction: {}", e)))?;
 
     if !response.status().is_success() {
         let error_text = response
             .text()
             .await
             .unwrap_or_else(|_| "Unknown error".to_string());
-        return Err(anyhow!("Jupiter swap API error: {}", error_text));
+        return Err(ToolError::permanent(format!("Jupiter swap API error: {}", error_text)));
     }
 
     let swap_response: JupiterSwapResponse = response
         .json()
         .await
-        .map_err(|e| anyhow!("Failed to parse swap response: {}", e))?;
+        .map_err(|e| ToolError::permanent(format!("Failed to parse swap response: {}", e)))?;
 
     // Deserialize and sign the transaction
     use base64::{engine::general_purpose, Engine as _};
     let transaction_bytes = general_purpose::STANDARD
         .decode(&swap_response.swap_transaction)
-        .map_err(|e| anyhow!("Failed to decode transaction: {}", e))?;
+        .map_err(|e| ToolError::permanent(format!("Failed to decode transaction: {}", e)))?;
 
     let mut transaction: Transaction = bincode::deserialize(&transaction_bytes)
-        .map_err(|e| anyhow!("Failed to deserialize transaction: {}", e))?;
+        .map_err(|e| ToolError::permanent(format!("Failed to deserialize transaction: {}", e)))?;
 
-    // Sign the transaction
-    let blockhash = transaction.message.recent_blockhash;
-    transaction.partial_sign(&[signer.as_ref()], blockhash);
+    // Sign and send through the signer context
+    let signature = signer_context.sign_and_send_solana_transaction(&mut transaction).await
+        .map_err(|e| ToolError::permanent(format!("Failed to send swap transaction: {}", e)))?;
 
-    // Send transaction
-    let signature = client
-        .send_and_confirm_transaction(&transaction)
-        .await
-        .map_err(|e| anyhow!("Failed to send swap transaction: {}", e))?;
-
-    let sig_str = signature.to_string();
     info!(
         "Jupiter swap executed: {} {} -> {} {} (expected), signature: {}",
-        quote.in_amount, input_mint, quote.out_amount, output_mint, sig_str
+        quote.in_amount, input_mint, quote.out_amount, output_mint, signature
     );
 
     Ok(SwapResult {
-        signature: sig_str,
+        signature,
         input_mint,
         output_mint,
         in_amount: quote.in_amount,
@@ -253,12 +237,12 @@ pub async fn perform_jupiter_swap(
 /// Get the current price of a token pair
 ///
 /// This tool fetches the current price and liquidity information
-// #[tool]
+#[tool]
 pub async fn get_token_price(
     base_mint: String,
     quote_mint: String,
     jupiter_api_url: Option<String>,
-) -> anyhow::Result<PriceInfo> {
+) -> Result<PriceInfo, ToolError> {
     debug!("Getting price for {} in terms of {}", base_mint, quote_mint);
 
     let api_url = jupiter_api_url.unwrap_or_else(|| JupiterConfig::default().api_url);

@@ -63,8 +63,8 @@ pub struct TransactionResult {
 /// Transfer ETH to another address
 ///
 /// This tool transfers ETH from the signer's address to another address.
+#[tool]
 pub async fn transfer_eth(
-    client: &EvmClient,
     to_address: String,
     amount_eth: f64,
     gas_price_gwei: Option<u64>,
@@ -72,15 +72,23 @@ pub async fn transfer_eth(
 ) -> std::result::Result<TransactionResult, ToolError> {
     debug!("Transferring {} ETH to {}", amount_eth, to_address);
 
+    // Get signer context
+    let signer_context = riglr_core::SignerContext::current().await
+        .map_err(|e| ToolError::permanent(format!("No signer context: {}", e)))?;
+    
+    // Create EVM client (temporary - should come from signer context)
+    let client = EvmClient::mainnet().await
+        .map_err(|e| ToolError::permanent(format!("Failed to create EVM client: {}", e)))?;
+
     // Validate destination address
     let to_addr = validate_address(&to_address)
         .map_err(|e| ToolError::permanent(format!("Invalid address: {}", e)))?;
 
-    // Get signer from client (replaces global state access)
-    let signer = client.require_signer()
-        .map_err(|e| ToolError::permanent(format!("Client requires signer configuration: {}", e)))?;
-    
-    let from_addr = signer.address();
+    // For now, we'll use a placeholder address since proper EVM signer integration is complex
+    let from_addr_str = signer_context.address()
+        .ok_or_else(|| ToolError::permanent("Signer has no address"))?;
+    let from_addr = validate_address(&from_addr_str)
+        .map_err(|e| ToolError::permanent(format!("Invalid signer address: {}", e)))?;
 
     // Convert ETH to wei
     let value_wei = eth_to_wei(amount_eth);
@@ -163,8 +171,8 @@ pub async fn transfer_eth(
 /// Transfer ERC20 tokens to another address
 ///
 /// This tool transfers ERC20 tokens from the signer's address to another address.
+#[tool]
 pub async fn transfer_erc20(
-    client: &EvmClient,
     token_address: String,
     to_address: String,
     amount: String,
@@ -176,17 +184,24 @@ pub async fn transfer_erc20(
         amount, to_address, token_address
     );
 
+    // Get signer context
+    let signer_context = riglr_core::SignerContext::current().await
+        .map_err(|e| ToolError::permanent(format!("No signer context: {}", e)))?;
+    
+    // Create EVM client (temporary - should come from signer context)
+    let client = EvmClient::mainnet().await
+        .map_err(|e| ToolError::permanent(format!("Failed to create EVM client: {}", e)))?;
+
     // Validate addresses
     let token_addr = validate_address(&token_address)
         .map_err(|e| ToolError::permanent(format!("Invalid token address: {}", e)))?;
     let to_addr = validate_address(&to_address)
         .map_err(|e| ToolError::permanent(format!("Invalid to address: {}", e)))?;
 
-    // Get signer from client (replaces global state access)
-    let signer = client.require_signer()
-        .map_err(|e| ToolError::permanent(format!("Client requires signer configuration: {}", e)))?;
-    
-    let from_addr = signer.address();
+    let from_addr_str = signer_context.address()
+        .ok_or_else(|| ToolError::permanent("Signer has no address"))?;
+    let from_addr = validate_address(&from_addr_str)
+        .map_err(|e| ToolError::permanent(format!("Invalid signer address: {}", e)))?;
 
     // Parse amount with decimals
     let amount_wei = parse_token_amount(&amount, decimals)
@@ -263,11 +278,19 @@ pub async fn transfer_erc20(
 /// Get transaction receipt
 ///
 /// This tool retrieves the receipt for a transaction hash.
+#[tool]
 pub async fn get_transaction_receipt(
-    client: &EvmClient,
     tx_hash: String,
 ) -> std::result::Result<TransactionResult, ToolError> {
     debug!("Getting transaction receipt for {}", tx_hash);
+
+    // Get signer context and create client
+    let _signer_context = riglr_core::SignerContext::current().await
+        .map_err(|e| ToolError::permanent(format!("No signer context: {}", e)))?;
+    
+    // Create EVM client (temporary - should come from signer context)
+    let client = EvmClient::mainnet().await
+        .map_err(|e| ToolError::permanent(format!("Failed to create EVM client: {}", e)))?;
 
     // Parse transaction hash
     let hash = tx_hash

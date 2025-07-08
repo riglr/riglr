@@ -309,3 +309,14 @@ impl Neo4jClient {
         Ok(stats)
     }
 }
+
+impl Default for Neo4jClient {
+    fn default() -> Self {
+        Self {
+            client: Client::new(),
+            base_url: "http://localhost:7474".to_string(),
+            database: "neo4j".to_string(),
+            auth: None,
+        }
+    }
+}

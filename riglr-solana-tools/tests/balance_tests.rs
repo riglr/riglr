@@ -1,7 +1,7 @@
 //! Comprehensive tests for balance module
 
 use riglr_solana_tools::balance::*;
-use riglr_solana_tools::client::{SolanaClient, SolanaConfig};
+use riglr_solana_tools::client::SolanaClient;
 use solana_sdk::native_token::LAMPORTS_PER_SOL;
 
 #[test]
@@ -244,31 +244,6 @@ fn test_lamports_to_sol_conversion() {
     }
 }
 
-#[test]
-fn test_init_balance_client() {
-    let config = SolanaConfig {
-        rpc_url: "https://api.testnet.solana.com".to_string(),
-        commitment: solana_sdk::commitment_config::CommitmentLevel::Confirmed,
-        timeout: std::time::Duration::from_secs(30),
-        skip_preflight: false,
-    };
-
-    // Initialize the balance client - this will execute line 23 if not already called
-    init_balance_client(config.clone());
-
-    // Try to initialize again with different config - should be no-op due to call_once
-    let config2 = SolanaConfig {
-        rpc_url: "https://api.devnet.solana.com".to_string(),
-        commitment: solana_sdk::commitment_config::CommitmentLevel::Finalized,
-        timeout: std::time::Duration::from_secs(60),
-        skip_preflight: true,
-    };
-    init_balance_client(config2);
-
-    // This just tests that the config can be created
-    assert_eq!(config.rpc_url, "https://api.testnet.solana.com");
-    assert_eq!(config.timeout.as_secs(), 30);
-}
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_get_sol_balance_invalid_address() {
@@ -412,47 +387,6 @@ fn test_precision_in_formatting() {
     assert!(result.formatted.contains("0.123456789"));
 }
 
-#[test]
-fn test_init_balance_client_initialization() {
-    // Create a new unique config to ensure this test exercises the initialization
-    let config = SolanaConfig {
-        rpc_url: "https://api.mainnet-beta.solana.com".to_string(),
-        commitment: solana_sdk::commitment_config::CommitmentLevel::Finalized,
-        timeout: std::time::Duration::from_secs(60),
-        skip_preflight: true,
-    };
-
-    // This should exercise line 23 in the init_balance_client function
-    init_balance_client(config);
-}
-
-#[tokio::test(flavor = "multi_thread")]
-async fn test_get_sol_balance_with_finalized() {
-    // Test with finalized commitment (covers lines 60-63)
-    let result = get_sol_balance(
-        "11111111111111111111111111111111".to_string(),
-        Some("https://api.devnet.solana.com".to_string()),
-        true, // use_finalized = true
-    )
-    .await;
-
-    // May succeed or fail depending on network, but should exercise finalized path
-    let _ = result;
-}
-
-#[tokio::test(flavor = "multi_thread")]
-async fn test_get_sol_balance_without_rpc_url() {
-    // Test using default balance client (covers lines 54 and get_balance_client)
-    let result = get_sol_balance(
-        "11111111111111111111111111111111".to_string(),
-        None, // No custom RPC URL - uses default client
-        false,
-    )
-    .await;
-
-    // This tests the get_balance_client function path
-    let _ = result;
-}
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_get_spl_token_balance_without_rpc_url() {
@@ -470,187 +404,20 @@ async fn test_get_spl_token_balance_without_rpc_url() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn test_get_spl_token_balance_with_custom_decimals() {
-    // Test with custom decimals (covers lines where decimals is provided)
-    let result = get_spl_token_balance(
-        "11111111111111111111111111111111".to_string(),
-        "So11111111111111111111111111111111111111112".to_string(),
-        Some("https://api.devnet.solana.com".to_string()),
-        Some(6), // Custom decimals
-    )
-    .await;
-
-    let _ = result;
-}
-
-#[tokio::test(flavor = "multi_thread")]
-async fn test_get_multiple_balances_without_rpc_url() {
-    // Test using default balance client (covers line 151)
-    let addresses = vec![
-        "11111111111111111111111111111111".to_string(),
-        "22222222222222222222222222222222".to_string(),
-    ];
-
-    let result = get_multiple_balances(
-        addresses, None, // No custom RPC URL - uses default client
-    )
-    .await;
-
-    // This tests the get_balance_client function path
-    if let Ok(results) = result {
-        assert_eq!(results.len(), 2);
-    }
-}
-
-#[tokio::test(flavor = "multi_thread")]
-async fn test_get_sol_balance_coverage_all_paths() {
-    // Test with custom RPC URL and finalized commitment
-    let result = get_sol_balance(
-        "11111111111111111111111111111111".to_string(),
-        Some("https://api.mainnet-beta.solana.com".to_string()),
-        true,
-    )
-    .await;
-    let _ = result;
-
-    // Test with custom RPC URL and confirmed commitment
-    let result = get_sol_balance(
-        "22222222222222222222222222222222".to_string(),
-        Some("https://api.devnet.solana.com".to_string()),
-        false,
-    )
-    .await;
-    let _ = result;
-
-    // Test with default client and finalized
-    let result = get_sol_balance("33333333333333333333333333333333".to_string(), None, true).await;
-    let _ = result;
-
-    // Test with default client and confirmed
-    let result = get_sol_balance("44444444444444444444444444444444".to_string(), None, false).await;
-    let _ = result;
-}
-
-#[tokio::test(flavor = "multi_thread")]
-async fn test_get_spl_token_balance_all_paths() {
-    // Test with custom RPC and custom decimals
-    let result = get_spl_token_balance(
-        "11111111111111111111111111111111".to_string(),
-        "So11111111111111111111111111111111111111112".to_string(),
-        Some("https://api.mainnet-beta.solana.com".to_string()),
-        Some(9),
-    )
-    .await;
-    let _ = result;
-
-    // Test with custom RPC and default decimals
-    let result = get_spl_token_balance(
-        "22222222222222222222222222222222".to_string(),
-        "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v".to_string(),
-        Some("https://api.devnet.solana.com".to_string()),
-        None,
-    )
-    .await;
-    let _ = result;
-
-    // Test with default client and custom decimals
-    let result = get_spl_token_balance(
-        "33333333333333333333333333333333".to_string(),
-        "mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So".to_string(),
-        None,
-        Some(6),
-    )
-    .await;
-    let _ = result;
-
-    // Test with default client and default decimals
-    let result = get_spl_token_balance(
-        "44444444444444444444444444444444".to_string(),
-        "7vfCXTUXx5WJV5JADk17DUJ4ksgau7utNKj4b963voxs".to_string(),
-        None,
-        None,
-    )
-    .await;
-    let _ = result;
-}
-
-#[tokio::test(flavor = "multi_thread")]
-async fn test_get_multiple_balances_all_paths() {
-    // Test with custom RPC URL
-    let addresses = vec![
-        "11111111111111111111111111111111".to_string(),
-        "22222222222222222222222222222222".to_string(),
-        "33333333333333333333333333333333".to_string(),
-    ];
-
-    let result = get_multiple_balances(
-        addresses.clone(),
-        Some("https://api.mainnet-beta.solana.com".to_string()),
-    )
-    .await;
-
-    if let Ok(results) = result {
-        assert_eq!(results.len(), addresses.len());
-        for (i, result) in results.iter().enumerate() {
-            assert_eq!(result.address, addresses[i]);
-        }
-    }
-
-    // Test with default client
-    let addresses2 = vec![
-        "44444444444444444444444444444444".to_string(),
-        "55555555555555555555555555555555".to_string(),
-    ];
-
-    let result = get_multiple_balances(addresses2.clone(), None).await;
-
-    if let Ok(results) = result {
-        assert_eq!(results.len(), addresses2.len());
-    }
-}
-
-#[test]
-fn test_balance_client_initialization_race() {
-    use std::sync::Arc;
-    use std::thread;
-
-    // Test that multiple threads trying to initialize doesn't cause issues
-    let handles: Vec<_> = (0..10)
-        .map(|i| {
-            thread::spawn(move || {
-                let config = SolanaConfig {
-                    rpc_url: format!("https://thread{}.solana.com", i),
-                    commitment: solana_sdk::commitment_config::CommitmentLevel::Confirmed,
-                    timeout: std::time::Duration::from_secs(30),
-                    skip_preflight: false,
-                };
-                init_balance_client(config);
-            })
-        })
-        .collect();
-
-    for handle in handles {
-        handle.join().unwrap();
-    }
-}
-
-#[tokio::test(flavor = "multi_thread")]
-async fn test_default_balance_client_initialization() {
-    // This test forces the default client initialization path (line 32)
-    // by calling get_balance_client without first calling init_balance_client
-
-    // Reset the static by creating a new test process
-    // Since we can't reset static in same process, we test the path where
-    // get_sol_balance is called without custom RPC URL, which will trigger get_balance_client
-    // and if init hasn't been called yet, will initialize with default
-
+async fn test_get_multiple_balances() {
+    // Test get_multiple_balances with client-first pattern
     let client = SolanaClient::devnet();
-    let result = get_sol_balance(&client, "11111111111111111111111111111111".to_string()).await;
+    let addresses = vec![
+        "11111111111111111111111111111111".to_string(),
+        "22222222222222222222222222222222".to_string(),
+    ];
 
-    // This will exercise the get_balance_client function and line 32 if not already initialized
-    // The result doesn't matter as much as the code path execution
+    let result = get_multiple_balances(&client, addresses.clone()).await;
+
+    // The actual network call may fail but we're testing the function signature
     let _ = result;
 }
+
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_balance_formatted_strings() {

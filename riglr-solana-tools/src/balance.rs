@@ -2,50 +2,35 @@
 //!
 //! This module provides tools for querying SOL and SPL token balances on the Solana blockchain.
 
-use crate::client::{SolanaClient, SolanaConfig};
-use riglr_core::ToolError;
+use riglr_core::{ToolError, SignerContext};
+use riglr_macros::tool;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use solana_sdk::native_token::LAMPORTS_PER_SOL;
-use std::sync::Arc;
+use solana_sdk::{native_token::LAMPORTS_PER_SOL, pubkey::Pubkey};
+use std::str::FromStr;
 use tracing::{debug, info};
-
-/// Global client instance for balance operations
-static mut BALANCE_CLIENT: Option<Arc<SolanaClient>> = None;
-static INIT: std::sync::Once = std::sync::Once::new();
-
-/// Initialize the balance client with a custom configuration
-pub fn init_balance_client(config: SolanaConfig) {
-    unsafe {
-        INIT.call_once(|| {
-            BALANCE_CLIENT = Some(Arc::new(SolanaClient::new(config)));
-        });
-    }
-}
-
-/// Get the balance client, initializing with default if needed
-fn get_balance_client() -> Arc<SolanaClient> {
-    unsafe {
-        INIT.call_once(|| {
-            BALANCE_CLIENT = Some(Arc::new(SolanaClient::default()));
-        });
-        BALANCE_CLIENT.as_ref().unwrap().clone()
-    }
-}
 
 /// Get SOL balance for a given address
 ///
 /// This tool queries the Solana blockchain to retrieve the SOL balance
 /// in both lamports and SOL units.
-// #[tool]
+#[tool]
 pub async fn get_sol_balance(
-    client: &SolanaClient,
     address: String,
 ) -> Result<BalanceResult, ToolError> {
     debug!("Getting SOL balance for address: {}", address);
 
+    // Get signer context and client
+    let signer = SignerContext::current().await
+        .map_err(|e| ToolError::permanent(format!("No signer context: {}", e)))?;
+    let client = signer.solana_client();
+
+    // Parse address
+    let pubkey = Pubkey::from_str(&address)
+        .map_err(|e| ToolError::permanent(format!("Invalid address: {}", e)))?;
+
     // Get balance in lamports
-    let lamports = client.get_balance(&address).await.map_err(|e| {
+    let lamports = client.get_balance(&pubkey).map_err(|e| {
         // Network and connection errors are retriable
         let error_str = e.to_string();
         if error_str.contains("timeout")
@@ -79,20 +64,22 @@ pub async fn get_sol_balance(
 ///
 /// This tool queries the Solana blockchain to retrieve the balance of a specific
 /// SPL token for a given owner address.
-// #[tool]
+#[tool]
 pub async fn get_spl_token_balance(
-    client: &SolanaClient,
     owner_address: String,
     mint_address: String,
 ) -> Result<TokenBalanceResult, ToolError> {
-    use solana_sdk::pubkey::Pubkey;
     use spl_associated_token_account::get_associated_token_address;
-    use std::str::FromStr;
 
     debug!(
         "Getting SPL token balance for owner: {}, mint: {}",
         owner_address, mint_address
     );
+
+    // Get signer context and client
+    let signer = SignerContext::current().await
+        .map_err(|e| ToolError::permanent(format!("No signer context: {}", e)))?;
+    let client = signer.solana_client();
 
     // Parse addresses - invalid addresses are permanent errors
     let owner_pubkey = Pubkey::from_str(&owner_address)
@@ -104,7 +91,7 @@ pub async fn get_spl_token_balance(
     let ata = get_associated_token_address(&owner_pubkey, &mint_pubkey);
 
     // Get token account balance
-    match client.get_token_account_balance(&ata.to_string()).await {
+    match client.get_token_account_balance(&ata).map_err(|e| ToolError::permanent(format!("Failed to get token balance: {}", e))) {
         Ok(balance) => {
             let raw_amount = balance.amount.parse::<u64>().map_err(|e| {
                 ToolError::permanent(format!("Failed to parse token amount: {}", e))
@@ -144,16 +131,27 @@ pub async fn get_spl_token_balance(
     }
 }
 
+/// Get SOL balances for multiple addresses
 ///
-// #[tool]
+/// This tool queries the Solana blockchain to retrieve SOL balances for multiple addresses.
+#[tool]
 pub async fn get_multiple_balances(
-    _addresses: Vec<String>,
-
-    _rpc_url: Option<String>,
+    addresses: Vec<String>,
 ) -> Result<Vec<BalanceResult>, ToolError> {
-    Err(ToolError::permanent(
-        "get_multiple_balances not yet implemented",
-    ))
+    let mut results = Vec::new();
+    
+    for address in addresses {
+        match get_sol_balance(address.clone()).await {
+            Ok(balance) => results.push(balance),
+            Err(e) => {
+                // For individual address failures, return error with partial results
+                // This is a design choice - could also continue and mark failed addresses
+                return Err(e);
+            }
+        }
+    }
+    
+    Ok(results)
 }
 
 /// Result structure for balance queries

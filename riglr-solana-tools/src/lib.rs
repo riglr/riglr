@@ -7,6 +7,7 @@
 //! - **Balance Tools**: Check SOL and SPL token balances
 //! - **Transaction Tools**: Send SOL and token transfers
 //! - **DeFi Tools**: Interact with Jupiter for swaps and quotes
+//! - **Pump.fun Tools**: Deploy, buy, and sell tokens on Pump.fun
 //! - **Network Tools**: Query blockchain state and transaction details
 //!
 //! All tools are built with the `#[tool]` macro for seamless integration with rig agents
@@ -44,24 +45,30 @@
 //! - [`balance`] - Balance checking tools for SOL and SPL tokens
 //! - [`transaction`] - Transaction creation and execution tools  
 //! - [`swap`] - Jupiter DEX integration for token swaps
+//! - [`pump`] - Pump.fun integration for meme token deployment and trading
 //! - [`network`] - Network state and blockchain query tools
 
 pub mod balance;
 pub mod client;
 pub mod error;
 pub mod network;
+pub mod pump;
 pub mod swap;
 pub mod transaction;
 
 // Re-export commonly used tools
 pub use balance::*;
 pub use network::*;
+pub use pump::*;
 pub use swap::*;
 pub use transaction::*;
 
 // Re-export client and error types
 pub use client::SolanaClient;
 pub use error::{Result, SolanaToolError};
+
+// Re-export signer types for convenience
+pub use riglr_core::{SignerContext, signer::{TransactionSigner, LocalSolanaSigner}};
 
 /// Current version of riglr-solana-tools
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

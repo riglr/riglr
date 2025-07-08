@@ -201,6 +201,17 @@ impl EvmClient {
         self.signer.as_ref()
             .ok_or_else(|| EvmToolError::Generic("Client requires signer configuration".to_string()))
     }
+
+    /// Create an EvmClient from a TransactionSigner
+    pub async fn from_signer(signer: &dyn riglr_core::signer::TransactionSigner) -> Result<Self> {
+        // Get the EVM client from the signer context
+        let _client_any = signer.evm_client()
+            .map_err(|e| EvmToolError::Generic(format!("Failed to get EVM client: {}", e)))?;
+        
+        // For now, create a basic mainnet client
+        // In a real implementation, we'd extract the proper configuration from the signer
+        Self::mainnet().await
+    }
 }
 
 /// Validate an Ethereum address

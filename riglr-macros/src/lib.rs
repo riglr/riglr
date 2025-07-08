@@ -90,34 +90,23 @@ fn handle_function(function: ItemFn) -> proc_macro2::TokenStream {
 
     // Extract documentation from function
     let description = extract_doc_comments(&function.attrs);
-    let _description_lit = if description.is_empty() {
+    let description_lit = if description.is_empty() {
         quote! { concat!("Tool: ", stringify!(#fn_name)) }
     } else {
         quote! { #description }
     };
 
-    // Extract parameter info and check if we need lifetime annotations
+    // Extract parameter info 
     let mut param_fields = Vec::new();
     let mut param_names = Vec::new();
     let mut param_docs = Vec::new();
-    let mut _has_references = false;
-    let mut skip_params = Vec::new();  // Parameters to skip in the generated struct
 
-    for (idx, input) in function.sig.inputs.iter().enumerate() {
+    for input in function.sig.inputs.iter() {
         if let FnArg::Typed(PatType { pat, ty, attrs, .. }) = input {
             if let syn::Pat::Ident(ident) = pat.as_ref() {
                 let param_name = &ident.ident;
                 let param_type = ty.as_ref();
                 let param_doc = extract_doc_comments(attrs);
-
-                // Check if this is a reference type that should be skipped
-                let type_str = quote!(#param_type).to_string();
-                if type_str.starts_with("& ") && (type_str.contains("EvmClient") || type_str.contains("SolanaClient")) {
-                    // Skip client references in the args struct - they'll be passed separately
-                    skip_params.push(idx);
-                    _has_references = true;
-                    continue;
-                }
 
                 param_names.push(param_name.clone());
                 param_docs.push(param_doc);
@@ -130,7 +119,6 @@ fn handle_function(function: ItemFn) -> proc_macro2::TokenStream {
 
                 if has_default {
                     param_fields.push(quote! {
-
                         #(#attrs)*
                         pub #param_name: #param_type
                     });
@@ -153,24 +141,9 @@ fn handle_function(function: ItemFn) -> proc_macro2::TokenStream {
     let tool_fn_name = syn::Ident::new(&format!("{}_tool", fn_name), fn_name.span());
 
     // Generate field assignments for function call
-    // Handle client references separately
-    let mut field_assignments = Vec::new();
-    for (_idx, input) in function.sig.inputs.iter().enumerate() {
-        if let FnArg::Typed(PatType { pat, ty, .. }) = input {
-            if let syn::Pat::Ident(ident) = pat.as_ref() {
-                let param_name = &ident.ident;
-                let type_str = quote!(#ty).to_string();
-                
-                if type_str.starts_with("& ") && (type_str.contains("EvmClient") || type_str.contains("SolanaClient")) {
-                    // Pass client reference directly (not from args)
-                    field_assignments.push(quote! { client });
-                } else {
-                    // Pass from args struct
-                    field_assignments.push(quote! { args.#param_name });
-                }
-            }
-        }
-    }
+    let field_assignments: Vec<_> = param_names.iter()
+        .map(|name| quote! { args.#name })
+        .collect();
 
     // Check if function is async
     let is_async = function.sig.asyncness.is_some();
@@ -180,24 +153,6 @@ fn handle_function(function: ItemFn) -> proc_macro2::TokenStream {
         quote! {}
     };
 
-    // Generate the JSON schema function
-    let _schema_gen = if !param_fields.is_empty() {
-        quote! {
-            fn schema(&self) -> serde_json::Value {
-                let schema = schemars::schema_for!(#args_struct_name);
-                serde_json::to_value(schema).unwrap_or_else(|_| serde_json::json!({}))
-            }
-        }
-    } else {
-        quote! {
-            fn schema(&self) -> serde_json::Value {
-                serde_json::json!({
-                    "type": "object",
-                    "properties": {}
-                })
-            }
-        }
-    };
 
     // Generate the tool implementation
     quote! {
@@ -277,34 +232,46 @@ fn handle_function(function: ItemFn) -> proc_macro2::TokenStream {
             }
         }
 
-        // If this is intended to be rig-compatible, also generate rig::Tool implementation
-        // Currently disabled due to crate naming issues (rig-core vs rig_core)
-        // TODO: Re-enable when we have a better solution for the crate name mismatch
-        /*
-        #[async_trait::async_trait]
-        impl rig_core::Tool for #tool_struct_name {
+        // Generate rig::tool::Tool implementation (NEW) - conditional on rig feature
+        #[cfg(feature = "rig")]
+        impl rig_core::tool::Tool for #tool_struct_name {
             const NAME: &'static str = stringify!(#fn_name);
-
-            type Error = Box<dyn std::error::Error + Send + Sync>;
-            type Args = #args_struct_name;
-            type Output = serde_json::Value;
-
-            async fn definition(&self, _prompt: String) -> rig_core::ToolDefinition {
-                let schema = self.schema();
-
-                rig_core::ToolDefinition {
-                    name: stringify!(#fn_name).to_string(),
-                    description: #description_lit.to_string(),
+            const DESCRIPTION: &'static str = #description_lit;
+            
+            fn definition() -> rig_core::tool::ToolDefinition {
+                let schema = {
+                    let args_schema = schemars::schema_for!(#args_struct_name);
+                    serde_json::to_value(args_schema).unwrap_or_else(|_| serde_json::json!({}))
+                };
+                
+                rig_core::tool::ToolDefinition {
+                    name: Self::NAME.to_string(),
+                    description: Self::DESCRIPTION.to_string(),
                     parameters: schema,
                 }
             }
+            
+            async fn call(&self, input: serde_json::Value) -> Result<serde_json::Value, rig_core::tool::ToolError> {
+                // Parse the parameters
+                let args: #args_struct_name = serde_json::from_value(input)
+                    .map_err(|e| rig_core::tool::ToolError::InvalidInput(format!("Failed to parse parameters: {}", e)))?;
 
-            async fn call(&self, args: Self::Args) -> Result<Self::Output, Self::Error> {
-                let result = #fn_name(#(args.#param_names),*)#await_token?;
-                Ok(serde_json::to_value(result)?)
+                // Call the original function
+                let result = #fn_name(#(#field_assignments),*)#await_token;
+
+                // Convert the result
+                match result {
+                    Ok(value) => {
+                        let json_value = serde_json::to_value(value)
+                            .map_err(|e| rig_core::tool::ToolError::RuntimeError(format!("Failed to serialize result: {}", e)))?;
+                        Ok(json_value)
+                    }
+                    Err(error) => {
+                        Err(rig_core::tool::ToolError::RuntimeError(error.to_string()))
+                    }
+                }
             }
         }
-        */
 
         // Keep the original function
         #function
@@ -322,7 +289,7 @@ fn handle_struct(structure: ItemStruct) -> proc_macro2::TokenStream {
 
     // Extract documentation from struct
     let description = extract_doc_comments(&structure.attrs);
-    let _description_lit = if description.is_empty() {
+    let description_lit = if description.is_empty() {
         quote! { concat!("Tool: ", stringify!(#struct_name)) }
     } else {
         quote! { #description }
@@ -391,34 +358,43 @@ fn handle_struct(structure: ItemStruct) -> proc_macro2::TokenStream {
             }
         }
 
-        // If this is intended to be rig-compatible, also generate rig::Tool implementation
-        // Currently disabled due to crate naming issues (rig-core vs rig_core)
-        // TODO: Re-enable when we have a better solution for the crate name mismatch
-        /*
-        #[async_trait::async_trait]
-        impl rig_core::Tool for #struct_name {
+        // Generate rig::tool::Tool implementation (NEW) - conditional on rig feature
+        #[cfg(feature = "rig")]
+        impl rig_core::tool::Tool for #struct_name {
             const NAME: &'static str = stringify!(#struct_name);
-
-            type Error = Box<dyn std::error::Error + Send + Sync>;
-            type Args = Self;
-            type Output = serde_json::Value;
-
-            async fn definition(&self, _prompt: String) -> rig_core::ToolDefinition {
+            const DESCRIPTION: &'static str = #description_lit;
+            
+            fn definition() -> rig_core::tool::ToolDefinition {
                 let schema = schemars::schema_for!(Self);
-
-                rig_core::ToolDefinition {
-                    name: stringify!(#struct_name).to_string(),
-                    description: #description_lit.to_string(),
+                
+                rig_core::tool::ToolDefinition {
+                    name: Self::NAME.to_string(),
+                    description: Self::DESCRIPTION.to_string(),
                     parameters: serde_json::to_value(schema).unwrap_or_else(|_| serde_json::json!({})),
                 }
             }
+            
+            async fn call(&self, input: serde_json::Value) -> Result<serde_json::Value, rig_core::tool::ToolError> {
+                // Parse parameters into the struct
+                let args: Self = serde_json::from_value(input)
+                    .map_err(|e| rig_core::tool::ToolError::InvalidInput(format!("Failed to parse parameters: {}", e)))?;
 
-            async fn call(&self, args: Self::Args) -> Result<Self::Output, Self::Error> {
-                let result = args.execute().await?;
-                Ok(serde_json::to_value(result)?)
+                // Call the execute method
+                let result = args.execute().await;
+
+                // Convert the result
+                match result {
+                    Ok(value) => {
+                        let json_value = serde_json::to_value(value)
+                            .map_err(|e| rig_core::tool::ToolError::RuntimeError(format!("Failed to serialize result: {}", e)))?;
+                        Ok(json_value)
+                    }
+                    Err(error) => {
+                        Err(rig_core::tool::ToolError::RuntimeError(error.to_string()))
+                    }
+                }
             }
         }
-        */
     }
 }
 

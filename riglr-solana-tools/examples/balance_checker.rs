@@ -27,7 +27,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Check SOL balances
     println!("SOL Balances:");
-    println!("-".repeat(50));
+    println!("{}", "-".repeat(50));
 
     for address in &addresses {
         match get_sol_balance(&client, address.to_string()).await {
@@ -48,7 +48,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Check SPL token balance (example with USDC on devnet)
     println!("\nSPL Token Balances:");
-    println!("-".repeat(50));
+    println!("{}", "-".repeat(50));
 
     // Example: Check USDC balance for an address
     let owner_address = "11111111111111111111111111111111".to_string();

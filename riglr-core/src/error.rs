@@ -72,3 +72,28 @@ impl ToolError {
         matches!(self, ToolError::RateLimited(_))
     }
 }
+
+// Common error conversions for tool usage
+impl From<anyhow::Error> for ToolError {
+    fn from(err: anyhow::Error) -> Self {
+        ToolError::Permanent(err.to_string())
+    }
+}
+
+impl From<Box<dyn std::error::Error + Send + Sync>> for ToolError {
+    fn from(err: Box<dyn std::error::Error + Send + Sync>) -> Self {
+        ToolError::Permanent(err.to_string())
+    }
+}
+
+impl From<String> for ToolError {
+    fn from(err: String) -> Self {
+        ToolError::Permanent(err)
+    }
+}
+
+impl From<&str> for ToolError {
+    fn from(err: &str) -> Self {
+        ToolError::Permanent(err.to_string())
+    }
+}

@@ -2,6 +2,137 @@
 //!
 //! This module provides the core abstractions for executing tools in a resilient,
 //! asynchronous manner with support for retries, timeouts, and job queuing.
+//!
+//! ## Overview
+//!
+//! The tool execution system is designed around several key components:
+//!
+//! - **[`Tool`]** - The core trait defining executable tools
+//! - **[`ToolWorker`]** - The execution engine that processes jobs using registered tools
+//! - **[`ExecutionConfig`]** - Configuration for retry behavior, timeouts, and resource limits
+//! - **[`ResourceLimits`]** - Fine-grained control over resource usage per tool type
+//! - **[`WorkerMetrics`]** - Performance and operational metrics for monitoring
+//!
+//! ## Key Features
+//!
+//! ### Resilient Execution
+//! - **Exponential backoff** retry logic with configurable delays
+//! - **Timeout protection** to prevent hanging operations
+//! - **Error classification** to distinguish retriable vs permanent failures
+//! - **Idempotency support** to safely retry operations
+//!
+//! ### Resource Management
+//! - **Semaphore-based limits** for different resource types (RPC calls, HTTP requests)
+//! - **Concurrent execution** with configurable limits per resource
+//! - **Tool-specific resource mapping** based on naming patterns
+//!
+//! ### Monitoring and Observability
+//! - **Comprehensive metrics** tracking success/failure rates
+//! - **Structured logging** with correlation IDs
+//! - **Performance monitoring** with execution timings
+//!
+//! ## Examples
+//!
+//! ### Basic Tool Implementation
+//!
+//! ```rust
+//! use riglr_core::{Tool, JobResult};
+//! use async_trait::async_trait;
+//! use serde_json::Value;
+//!
+//! struct SimpleCalculator;
+//!
+//! #[async_trait]
+//! impl Tool for SimpleCalculator {
+//!     async fn execute(&self, params: Value) -> Result<JobResult, Box<dyn std::error::Error + Send + Sync>> {
+//!         let a = params["a"].as_f64().ok_or("Missing parameter 'a'")?;
+//!         let b = params["b"].as_f64().ok_or("Missing parameter 'b'")?;
+//!         let operation = params["op"].as_str().unwrap_or("add");
+//!
+//!         let result = match operation {
+//!             "add" => a + b,
+//!             "multiply" => a * b,
+//!             "divide" => {
+//!                 if b == 0.0 {
+//!                     return Ok(JobResult::permanent_failure("Division by zero"));
+//!                 }
+//!                 a / b
+//!             }
+//!             _ => return Ok(JobResult::permanent_failure("Unknown operation")),
+//!         };
+//!
+//!         Ok(JobResult::success(&result)?)
+//!     }
+//!
+//!     fn name(&self) -> &str {
+//!         "calculator"
+//!     }
+//! }
+//! ```
+//!
+//! ### Worker Setup and Execution
+//!
+//! ```rust
+//! use riglr_core::{
+//!     ToolWorker, ExecutionConfig, ResourceLimits, Job,
+//!     idempotency::InMemoryIdempotencyStore
+//! };
+//! use std::{sync::Arc, time::Duration};
+//!
+//! # async fn example() -> anyhow::Result<()> {
+//! // Configure execution behavior
+//! let config = ExecutionConfig {
+//!     max_concurrency: 20,
+//!     default_timeout: Duration::from_secs(60),
+//!     max_retries: 3,
+//!     initial_retry_delay: Duration::from_millis(100),
+//!     max_retry_delay: Duration::from_secs(30),
+//!     enable_idempotency: true,
+//!     ..Default::default()
+//! };
+//!
+//! // Set up resource limits
+//! let limits = ResourceLimits::new()
+//!     .with_limit("solana_rpc", 5)   // Limit Solana RPC calls
+//!     .with_limit("evm_rpc", 10)     // Limit EVM RPC calls
+//!     .with_limit("http_api", 20);   // Limit HTTP API calls
+//!
+//! // Create worker with idempotency store
+//! let store = Arc::new(InMemoryIdempotencyStore::new());
+//! let worker = ToolWorker::new(config)
+//!     .with_idempotency_store(store)
+//!     .with_resource_limits(limits);
+//!
+//! // Register tools
+//! # use riglr_core::{Tool, JobResult};
+//! # use async_trait::async_trait;
+//! # struct SimpleCalculator;
+//! # #[async_trait]
+//! # impl Tool for SimpleCalculator {
+//! #     async fn execute(&self, _: serde_json::Value) -> Result<JobResult, Box<dyn std::error::Error + Send + Sync>> {
+//! #         Ok(JobResult::success(&42)?)
+//! #     }
+//! #     fn name(&self) -> &str { "calculator" }
+//! # }
+//! worker.register_tool(Arc::new(SimpleCalculator)).await;
+//!
+//! // Process a job
+//! let job = Job::new_idempotent(
+//!     "calculator",
+//!     &serde_json::json!({"a": 10, "b": 5, "op": "add"}),
+//!     3, // max retries
+//!     "calc_10_plus_5" // idempotency key
+//! )?;
+//!
+//! let result = worker.process_job(job).await?;
+//! println!("Result: {:?}", result);
+//!
+//! // Get metrics
+//! let metrics = worker.metrics();
+//! println!("Jobs processed: {}", metrics.jobs_processed.load(std::sync::atomic::Ordering::Relaxed));
+//! # Ok(())
+//! # }
+//! ```
 
 use async_trait::async_trait;
 use backoff::{backoff::Backoff, ExponentialBackoffBuilder};
@@ -18,37 +149,386 @@ use crate::queue::JobQueue;
 /// A trait defining the execution interface for tools.
 ///
 /// This is compatible with `rig::Tool` and provides the foundation
-/// for executing tools within the riglr ecosystem.
+/// for executing tools within the riglr ecosystem. Tools represent
+/// individual operations that can be executed by the [`ToolWorker`].
+///
+/// ## Design Principles
+///
+/// - **Stateless**: Tools should not maintain internal state between executions
+/// - **Idempotent**: When possible, tools should be safe to retry
+/// - **Error-aware**: Tools should classify errors as retriable or permanent
+/// - **Resource-conscious**: Tools should handle rate limits and timeouts gracefully
+///
+/// ## Error Handling
+///
+/// Tools should carefully distinguish between different types of errors:
+///
+/// - **Retriable errors**: Network timeouts, rate limits, temporary service unavailability
+/// - **Permanent errors**: Invalid parameters, insufficient funds, authorization failures
+/// - **System errors**: Internal configuration issues, unexpected state
+///
+/// ## Examples
+///
+/// ### Basic Tool Implementation
+///
+/// ```rust
+/// use riglr_core::{Tool, JobResult};
+/// use async_trait::async_trait;
+/// use serde_json::Value;
+///
+/// struct HttpFetcher;
+///
+/// #[async_trait]
+/// impl Tool for HttpFetcher {
+///     async fn execute(&self, params: Value) -> Result<JobResult, Box<dyn std::error::Error + Send + Sync>> {
+///         let url = params["url"].as_str()
+///             .ok_or("Missing required parameter: url")?;
+///
+///         let client = reqwest::Client::new();
+///         match client.get(url).send().await {
+///             Ok(response) => {
+///                 if response.status().is_success() {
+///                     let body = response.text().await?;
+///                     Ok(JobResult::success(&body)?)
+///                 } else if response.status().is_client_error() {
+///                     // 4xx errors are permanent - don't retry
+///                     Ok(JobResult::permanent_failure(
+///                         format!("Client error: {}", response.status())
+///                     ))
+///                 } else {
+///                     // 5xx errors are retriable
+///                     Ok(JobResult::retriable_failure(
+///                         format!("Server error: {}", response.status())
+///                     ))
+///                 }
+///             }
+///             Err(e) if e.is_timeout() => {
+///                 // Timeouts are retriable
+///                 Ok(JobResult::retriable_failure(format!("Request timeout: {}", e)))
+///             }
+///             Err(e) => {
+///                 // Other network errors are typically retriable
+///                 Ok(JobResult::retriable_failure(format!("Network error: {}", e)))
+///             }
+///         }
+///     }
+///
+///     fn name(&self) -> &str {
+///         "http_fetcher"
+///     }
+/// }
+/// ```
+///
+/// ### Tool with Resource-Aware Naming
+///
+/// ```rust
+/// use riglr_core::{Tool, JobResult};
+/// use async_trait::async_trait;
+/// use serde_json::Value;
+///
+/// // The name starts with "solana_" which will use the solana_rpc resource limit
+/// struct SolanaBalanceChecker;
+///
+/// #[async_trait]
+/// impl Tool for SolanaBalanceChecker {
+///     async fn execute(&self, params: Value) -> Result<JobResult, Box<dyn std::error::Error + Send + Sync>> {
+///         let address = params["address"].as_str()
+///             .ok_or("Missing required parameter: address")?;
+///
+///         // This tool will be rate-limited by the "solana_rpc" resource limit
+///         // because its name starts with "solana_"
+///
+///         // Implementation would use Solana RPC client here...
+///         let balance = 1.5; // Mock balance
+///
+///         Ok(JobResult::success(&serde_json::json!({
+///             "address": address,
+///             "balance": balance,
+///             "unit": "SOL"
+///         }))?)
+///     }
+///
+///     fn name(&self) -> &str {
+///         "solana_balance_check"  // Name prefix determines resource pool
+///     }
+/// }
+/// ```
+///
+/// ### Tool Using Signer Context
+///
+/// ```rust
+/// use riglr_core::{Tool, JobResult, SignerContext};
+/// use async_trait::async_trait;
+/// use serde_json::Value;
+///
+/// struct TransferTool;
+///
+/// #[async_trait]
+/// impl Tool for TransferTool {
+///     async fn execute(&self, params: Value) -> Result<JobResult, Box<dyn std::error::Error + Send + Sync>> {
+///         // Check if we have a signer context
+///         if !SignerContext::is_available().await {
+///             return Ok(JobResult::permanent_failure(
+///                 "Transfer operations require a signer context"
+///             ));
+///         }
+///
+///         let signer = SignerContext::current().await
+///             .map_err(|_| "Failed to get signer context")?;
+///
+///         let recipient = params["recipient"].as_str()
+///             .ok_or("Missing required parameter: recipient")?;
+///         let amount = params["amount"].as_f64()
+///             .ok_or("Missing required parameter: amount")?;
+///
+///         // Use the signer to perform the transfer...
+///         // This is just a mock implementation
+///         Ok(JobResult::success_with_tx(
+///             &serde_json::json!({
+///                 "recipient": recipient,
+///                 "amount": amount,
+///                 "status": "completed"
+///             }),
+///             "mock_tx_hash_12345"
+///         )?)
+///     }
+///
+///     fn name(&self) -> &str {
+///         "transfer"
+///     }
+/// }
+/// ```
 #[async_trait]
 pub trait Tool: Send + Sync {
     /// Execute the tool with the given parameters.
     ///
-    /// Returns a `JobResult` indicating success or failure.
+    /// This method performs the core work of the tool. It receives parameters
+    /// as a JSON value and should return a [`JobResult`] indicating success or failure.
+    ///
+    /// # Parameters
+    /// * `params` - JSON parameters passed to the tool. Tools should validate
+    ///              and extract required parameters, returning appropriate errors
+    ///              for missing or invalid data.
+    ///
+    /// # Returns
+    /// * `Ok(JobResult::Success)` - Tool executed successfully with result data
+    /// * `Ok(JobResult::Failure { retriable: true })` - Tool failed but can be retried
+    /// * `Ok(JobResult::Failure { retriable: false })` - Tool failed permanently
+    /// * `Err(Box<dyn Error>)` - Unexpected system error occurred
+    ///
+    /// # Error Classification Guidelines
+    ///
+    /// Return retriable failures (`JobResult::retriable_failure`) for:
+    /// - Network timeouts or connection errors
+    /// - Rate limiting (HTTP 429, RPC rate limits)
+    /// - Temporary service unavailability (HTTP 503)
+    /// - Blockchain congestion or temporary RPC failures
+    ///
+    /// Return permanent failures (`JobResult::permanent_failure`) for:
+    /// - Invalid parameters or malformed requests
+    /// - Authentication/authorization failures
+    /// - Insufficient funds or balance
+    /// - Invalid blockchain addresses or transaction data
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use riglr_core::{Tool, JobResult};
+    /// use async_trait::async_trait;
+    /// use serde_json::Value;
+    ///
+    /// struct WeatherTool;
+    ///
+    /// #[async_trait]
+    /// impl Tool for WeatherTool {
+    ///     async fn execute(&self, params: Value) -> Result<JobResult, Box<dyn std::error::Error + Send + Sync>> {
+    ///         // Validate parameters
+    ///         let city = params["city"].as_str()
+    ///             .ok_or("Missing required parameter: city")?;
+    ///
+    ///         if city.is_empty() {
+    ///             return Ok(JobResult::permanent_failure("City name cannot be empty"));
+    ///         }
+    ///
+    ///         // Simulate API call
+    ///         let weather_data = match fetch_weather(city).await {
+    ///             Ok(data) => data,
+    ///             Err(e) if e.is_network_error() => {
+    ///                 return Ok(JobResult::retriable_failure(
+    ///                     format!("Network error: {}", e)
+    ///                 ));
+    ///             }
+    ///             Err(e) if e.is_not_found() => {
+    ///                 return Ok(JobResult::permanent_failure(
+    ///                     format!("City not found: {}", city)
+    ///                 ));
+    ///             }
+    ///             Err(e) => return Err(e.into()),
+    ///         };
+    ///
+    ///         Ok(JobResult::success(&weather_data)?)
+    ///     }
+    ///
+    ///     fn name(&self) -> &str {
+    ///         "weather"
+    ///     }
+    /// }
+    ///
+    /// # struct WeatherError;
+    /// # impl WeatherError {
+    /// #     fn is_network_error(&self) -> bool { false }
+    /// #     fn is_not_found(&self) -> bool { false }
+    /// # }
+    /// # impl std::fmt::Display for WeatherError {
+    /// #     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result { Ok(()) }
+    /// # }
+    /// # impl std::error::Error for WeatherError {}
+    /// # async fn fetch_weather(_: &str) -> Result<serde_json::Value, WeatherError> {
+    /// #     Ok(serde_json::json!({"temp": 22, "condition": "sunny"}))
+    /// # }
+    /// ```
     async fn execute(
         &self,
         params: serde_json::Value,
     ) -> Result<JobResult, Box<dyn std::error::Error + Send + Sync>>;
 
     /// Get the name of this tool.
+    ///
+    /// The tool name is used for:
+    /// - Tool registration and lookup in the worker
+    /// - Job identification and logging
+    /// - Resource limit mapping (based on name prefixes)
+    /// - Metrics and monitoring
+    ///
+    /// # Naming Conventions
+    ///
+    /// Tool names should follow these patterns for automatic resource management:
+    ///
+    /// - `solana_*` - Uses "solana_rpc" resource pool (e.g., "solana_balance", "solana_transfer")
+    /// - `evm_*` - Uses "evm_rpc" resource pool (e.g., "evm_balance", "evm_swap")
+    /// - `web_*` - Uses "http_api" resource pool (e.g., "web_fetch", "web_scrape")
+    /// - Others - Use default resource pool
+    ///
+    /// # Returns
+    /// A string identifier for this tool that must be unique within a worker.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use riglr_core::Tool;
+    /// # use async_trait::async_trait;
+    /// # use riglr_core::JobResult;
+    ///
+    /// struct BitcoinPriceChecker;
+    ///
+    /// # #[async_trait]
+    /// # impl Tool for BitcoinPriceChecker {
+    /// #     async fn execute(&self, _: serde_json::Value) -> Result<JobResult, Box<dyn std::error::Error + Send + Sync>> {
+    /// #         Ok(JobResult::success(&42)?)
+    /// #     }
+    /// #
+    /// fn name(&self) -> &str {
+    ///     "web_bitcoin_price"  // Will use "http_api" resource pool
+    /// }
+    /// # }
+    /// ```
     fn name(&self) -> &str;
 }
 
 /// Configuration for tool execution behavior.
+///
+/// This struct controls all aspects of how tools are executed by the [`ToolWorker`],
+/// including retry behavior, timeouts, concurrency limits, and idempotency settings.
+///
+/// # Examples
+///
+/// ```rust
+/// use riglr_core::ExecutionConfig;
+/// use std::time::Duration;
+///
+/// // Default configuration
+/// let config = ExecutionConfig::default();
+///
+/// // Custom configuration for high-throughput scenario
+/// let high_throughput_config = ExecutionConfig {
+///     max_concurrency: 50,
+///     default_timeout: Duration::from_secs(120),
+///     max_retries: 5,
+///     initial_retry_delay: Duration::from_millis(200),
+///     max_retry_delay: Duration::from_secs(60),
+///     enable_idempotency: true,
+///     ..Default::default()
+/// };
+///
+/// // Conservative configuration for sensitive operations
+/// let conservative_config = ExecutionConfig {
+///     max_concurrency: 5,
+///     default_timeout: Duration::from_secs(300),
+///     max_retries: 1,
+///     initial_retry_delay: Duration::from_secs(5),
+///     max_retry_delay: Duration::from_secs(30),
+///     enable_idempotency: true,
+///     ..Default::default()
+/// };
+/// ```
 #[derive(Debug, Clone)]
 pub struct ExecutionConfig {
-    /// Maximum number of concurrent executions per resource type
+    /// Maximum number of concurrent executions per resource type.
+    ///
+    /// This controls the default concurrency limit when no specific resource
+    /// limit is configured. Individual resource types can have their own
+    /// limits configured via [`ResourceLimits`].
+    ///
+    /// **Default**: 10
     pub max_concurrency: usize,
-    /// Default timeout for tool execution
+
+    /// Default timeout for tool execution.
+    ///
+    /// Individual tool executions will be cancelled if they exceed this duration.
+    /// Tools should be designed to complete within reasonable time bounds.
+    ///
+    /// **Default**: 30 seconds
     pub default_timeout: Duration,
-    /// Maximum number of retry attempts
+
+    /// Maximum number of retry attempts for failed operations.
+    ///
+    /// This applies only to retriable failures. Permanent failures are never retried.
+    /// The total number of execution attempts will be `max_retries + 1`.
+    ///
+    /// **Default**: 3 retries (4 total attempts)
     pub max_retries: u32,
-    /// Initial retry delay for exponential backoff
+
+    /// Initial retry delay for exponential backoff.
+    ///
+    /// The first retry will wait this long after the initial failure.
+    /// Subsequent retries will use exponentially increasing delays.
+    ///
+    /// **Default**: 100 milliseconds
     pub initial_retry_delay: Duration,
-    /// Maximum retry delay for exponential backoff
+
+    /// Maximum retry delay for exponential backoff.
+    ///
+    /// Retry delays will not exceed this value, even with exponential backoff.
+    /// This prevents excessive wait times for highly retried operations.
+    ///
+    /// **Default**: 10 seconds
     pub max_retry_delay: Duration,
-    /// TTL for idempotency cache entries
+
+    /// TTL for idempotency cache entries.
+    ///
+    /// Completed operations with idempotency keys will be cached for this duration.
+    /// Subsequent requests with the same key will return the cached result.
+    ///
+    /// **Default**: 1 hour
     pub idempotency_ttl: Duration,
-    /// Whether to enable idempotency checking
+
+    /// Whether to enable idempotency checking.
+    ///
+    /// When enabled, jobs with idempotency keys will have their results cached
+    /// and subsequent identical requests will return cached results instead of
+    /// re-executing the tool.
+    ///
+    /// **Default**: true
     pub enable_idempotency: bool,
 }
 
@@ -66,29 +546,127 @@ impl Default for ExecutionConfig {
     }
 }
 
-/// Resource limits configuration
+/// Resource limits configuration for fine-grained concurrency control.
+///
+/// This struct allows you to set different concurrency limits for different
+/// types of operations, preventing any single resource type from overwhelming
+/// external services or consuming too many system resources.
+///
+/// Resource limits are applied based on tool name prefixes:
+/// - Tools starting with `solana_` use the "solana_rpc" resource pool
+/// - Tools starting with `evm_` use the "evm_rpc" resource pool  
+/// - Tools starting with `web_` use the "http_api" resource pool
+/// - All other tools use the default concurrency limit
+///
+/// # Examples
+///
+/// ```rust
+/// use riglr_core::ResourceLimits;
+///
+/// // Create limits for different resource types
+/// let limits = ResourceLimits::new()
+///     .with_limit("solana_rpc", 3)     // Max 3 concurrent Solana RPC calls
+///     .with_limit("evm_rpc", 8)        // Max 8 concurrent EVM RPC calls  
+///     .with_limit("http_api", 15)      // Max 15 concurrent HTTP requests
+///     .with_limit("database", 5);      // Max 5 concurrent database operations
+///
+/// // Use default limits (solana_rpc: 5, evm_rpc: 10, http_api: 20)
+/// let default_limits = ResourceLimits::default();
+/// ```
+///
+/// # Resource Pool Mapping
+///
+/// The system automatically maps tool names to resource pools:
+///
+/// ```text
+/// Tool Name              → Resource Pool    → Limit
+/// "solana_balance"       → "solana_rpc"     → configured limit
+/// "evm_swap"             → "evm_rpc"        → configured limit  
+/// "web_fetch"            → "http_api"       → configured limit
+/// "custom_tool"          → default          → ExecutionConfig.max_concurrency
+/// ```
 #[derive(Debug, Clone)]
 pub struct ResourceLimits {
-    /// Resource name to semaphore mapping
+    /// Resource name to semaphore mapping.
+    ///
+    /// Each semaphore controls the maximum number of concurrent operations
+    /// for its associated resource type.
     semaphores: Arc<HashMap<String, Arc<Semaphore>>>,
 }
 
 impl ResourceLimits {
-    /// Create new resource limits
+    /// Create new empty resource limits configuration.
+    ///
+    /// Use [`ResourceLimits::with_limit()`] to add resource limits,
+    /// or use [`ResourceLimits::default()`] for pre-configured defaults.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use riglr_core::ResourceLimits;
+    ///
+    /// let limits = ResourceLimits::new()
+    ///     .with_limit("custom_resource", 5);
+    /// ```
     pub fn new() -> Self {
         Self {
             semaphores: Arc::new(HashMap::new()),
         }
     }
 
-    /// Add a resource limit
+    /// Add a resource limit for the specified resource type.
+    ///
+    /// This creates a semaphore that will limit concurrent access to the
+    /// specified resource. Tools with names matching the resource mapping
+    /// will be subject to this limit.
+    ///
+    /// # Parameters
+    /// * `resource` - The resource identifier (e.g., "solana_rpc", "evm_rpc")
+    /// * `limit` - Maximum number of concurrent operations for this resource
+    ///
+    /// # Returns
+    /// Self, for method chaining
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use riglr_core::ResourceLimits;
+    ///
+    /// let limits = ResourceLimits::new()
+    ///     .with_limit("solana_rpc", 3)     // Limit Solana RPC calls
+    ///     .with_limit("database", 10)      // Limit database connections
+    ///     .with_limit("external_api", 5);  // Limit external API calls
+    /// ```
     pub fn with_limit(mut self, resource: impl Into<String>, limit: usize) -> Self {
         let semaphores = Arc::make_mut(&mut self.semaphores);
         semaphores.insert(resource.into(), Arc::new(Semaphore::new(limit)));
         self
     }
 
-    /// Get semaphore for a resource
+    /// Get the semaphore for a specific resource type.
+    ///
+    /// This is used internally by the [`ToolWorker`] to acquire permits
+    /// before executing tools. Returns `None` if no limit is configured
+    /// for the specified resource.
+    ///
+    /// # Parameters
+    /// * `resource` - The resource identifier to look up
+    ///
+    /// # Returns
+    /// * `Some(Arc<Semaphore>)` - If a limit is configured for this resource
+    /// * `None` - If no limit is configured (will use default limit)
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use riglr_core::ResourceLimits;
+    ///
+    /// let limits = ResourceLimits::new()
+    ///     .with_limit("test_resource", 5);
+    ///
+    /// assert!(limits.get_semaphore("test_resource").is_some());
+    /// assert!(limits.get_semaphore("unknown_resource").is_none());
+    /// ```
     pub fn get_semaphore(&self, resource: &str) -> Option<Arc<Semaphore>> {
         self.semaphores.get(resource).cloned()
     }
@@ -104,26 +682,196 @@ impl Default for ResourceLimits {
 }
 
 /// A worker that processes jobs from a queue using registered tools.
+///
+/// The `ToolWorker` is the core execution engine of the riglr system. It manages
+/// registered tools, processes jobs with resilience features, and provides
+/// comprehensive monitoring and observability.
+///
+/// ## Key Features
+///
+/// - **Resilient execution**: Automatic retries with exponential backoff
+/// - **Resource management**: Configurable limits per resource type
+/// - **Idempotency support**: Cached results for safe retries
+/// - **Comprehensive monitoring**: Built-in metrics and structured logging
+/// - **Concurrent processing**: Efficient parallel job execution
+///
+/// ## Architecture
+///
+/// The worker operates on a job-based model where:
+/// 1. Jobs are dequeued from a [`JobQueue`]
+/// 2. Tools are looked up by name and executed
+/// 3. Results are processed with retry logic for failures
+/// 4. Successful results are optionally cached for idempotency
+/// 5. Metrics are updated for monitoring
+///
+/// ## Examples
+///
+/// ### Basic Setup
+///
+/// ```rust
+/// use riglr_core::{
+///     ToolWorker, ExecutionConfig, ResourceLimits,
+///     idempotency::InMemoryIdempotencyStore
+/// };
+/// use std::sync::Arc;
+///
+/// # async fn example() -> anyhow::Result<()> {
+/// // Create worker with default configuration
+/// let worker = ToolWorker::<InMemoryIdempotencyStore>::new(
+///     ExecutionConfig::default()
+/// );
+///
+/// // Add idempotency store for safe retries
+/// let store = Arc::new(InMemoryIdempotencyStore::new());
+/// let worker = worker.with_idempotency_store(store);
+///
+/// // Configure resource limits
+/// let limits = ResourceLimits::new()
+///     .with_limit("solana_rpc", 3)
+///     .with_limit("evm_rpc", 5);
+/// let worker = worker.with_resource_limits(limits);
+/// # Ok(())
+/// # }
+/// ```
+///
+/// ### Processing Jobs
+///
+/// ```rust
+/// use riglr_core::{ToolWorker, Job, Tool, JobResult, ExecutionConfig};
+/// use riglr_core::idempotency::InMemoryIdempotencyStore;
+/// use async_trait::async_trait;
+/// use std::sync::Arc;
+///
+/// # struct ExampleTool;
+/// # #[async_trait]
+/// # impl Tool for ExampleTool {
+/// #     async fn execute(&self, _: serde_json::Value) -> Result<JobResult, Box<dyn std::error::Error + Send + Sync>> {
+/// #         Ok(JobResult::success(&"example result")?)
+/// #     }
+/// #     fn name(&self) -> &str { "example" }
+/// # }
+/// # async fn example() -> anyhow::Result<()> {
+/// let worker = ToolWorker::<InMemoryIdempotencyStore>::new(
+///     ExecutionConfig::default()
+/// );
+///
+/// // Register tools
+/// worker.register_tool(Arc::new(ExampleTool)).await;
+///
+/// // Process a job
+/// let job = Job::new("example", &serde_json::json!({}), 3)?;
+/// let result = worker.process_job(job).await?;
+///
+/// println!("Job result: {:?}", result);
+///
+/// // Check metrics
+/// let metrics = worker.metrics();
+/// println!("Jobs processed: {}", 
+///     metrics.jobs_processed.load(std::sync::atomic::Ordering::Relaxed));
+/// # Ok(())
+/// # }
+/// ```
 pub struct ToolWorker<I: IdempotencyStore + 'static> {
+    /// Registered tools, indexed by name for fast lookup
     tools: Arc<RwLock<HashMap<String, Arc<dyn Tool>>>>,
+    
+    /// Default semaphore for general concurrency control
     default_semaphore: Arc<Semaphore>,
+    
+    /// Resource-specific limits for fine-grained control
     resource_limits: ResourceLimits,
+    
+    /// Configuration for retry behavior, timeouts, etc.
     config: ExecutionConfig,
+    
+    /// Optional idempotency store for caching results
     idempotency_store: Option<Arc<I>>,
+    
+    /// Performance and operational metrics
     metrics: Arc<WorkerMetrics>,
 }
 
-/// Metrics for worker performance
+/// Performance and operational metrics for monitoring worker health.
+///
+/// These metrics provide insight into worker performance and can be used
+/// for monitoring, alerting, and performance optimization.
+///
+/// All metrics use atomic integers for thread-safe updates and reads.
+///
+/// ## Metrics Tracked
+///
+/// - **jobs_processed**: Total number of jobs dequeued and processed
+/// - **jobs_succeeded**: Number of jobs that completed successfully
+/// - **jobs_failed**: Number of jobs that failed permanently (after all retries)
+/// - **jobs_retried**: Total number of retry attempts across all jobs
+///
+/// ## Examples
+///
+/// ```rust
+/// use riglr_core::{ToolWorker, ExecutionConfig, idempotency::InMemoryIdempotencyStore};
+/// use std::sync::atomic::Ordering;
+///
+/// # async fn example() {
+/// let worker = ToolWorker::<InMemoryIdempotencyStore>::new(
+///     ExecutionConfig::default()
+/// );
+///
+/// let metrics = worker.metrics();
+///
+/// // Read current metrics
+/// let processed = metrics.jobs_processed.load(Ordering::Relaxed);
+/// let succeeded = metrics.jobs_succeeded.load(Ordering::Relaxed);
+/// let failed = metrics.jobs_failed.load(Ordering::Relaxed);
+/// let retried = metrics.jobs_retried.load(Ordering::Relaxed);
+///
+/// println!("Worker Stats:");
+/// println!("  Processed: {}", processed);
+/// println!("  Succeeded: {}", succeeded);
+/// println!("  Failed: {}", failed);
+/// println!("  Retried: {}", retried);
+/// println!("  Success Rate: {:.2}%", 
+///     if processed > 0 { (succeeded as f64 / processed as f64) * 100.0 } else { 0.0 });
+/// # }
+/// ```
 #[derive(Debug, Default)]
 pub struct WorkerMetrics {
+    /// Total number of jobs processed (dequeued and executed)
     pub jobs_processed: std::sync::atomic::AtomicU64,
+    
+    /// Number of jobs that completed successfully
     pub jobs_succeeded: std::sync::atomic::AtomicU64,
+    
+    /// Number of jobs that failed permanently (after all retries)
     pub jobs_failed: std::sync::atomic::AtomicU64,
+    
+    /// Total number of retry attempts across all jobs
     pub jobs_retried: std::sync::atomic::AtomicU64,
 }
 
 impl<I: IdempotencyStore + 'static> ToolWorker<I> {
     /// Create a new tool worker with the given configuration.
+    ///
+    /// This creates a worker ready to process jobs, but no tools are registered yet.
+    /// Use [`register_tool()`](Self::register_tool) to add tools before processing jobs.
+    ///
+    /// # Parameters
+    /// * `config` - Execution configuration controlling retry behavior, timeouts, etc.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use riglr_core::{ToolWorker, ExecutionConfig, idempotency::InMemoryIdempotencyStore};
+    /// use std::time::Duration;
+    ///
+    /// let config = ExecutionConfig {
+    ///     max_concurrency: 20,
+    ///     default_timeout: Duration::from_secs(60),
+    ///     max_retries: 5,
+    ///     ..Default::default()
+    /// };
+    ///
+    /// let worker = ToolWorker::<InMemoryIdempotencyStore>::new(config);
+    /// ```
     pub fn new(config: ExecutionConfig) -> Self {
         Self {
             tools: Arc::new(RwLock::new(HashMap::new())),
@@ -135,25 +883,133 @@ impl<I: IdempotencyStore + 'static> ToolWorker<I> {
         }
     }
 
-    /// Set the idempotency store
+    /// Configure an idempotency store for result caching.
+    ///
+    /// When an idempotency store is configured, jobs with idempotency keys
+    /// will have their results cached. Subsequent executions with the same
+    /// idempotency key will return the cached result instead of re-executing.
+    ///
+    /// # Parameters
+    /// * `store` - The idempotency store implementation to use
+    ///
+    /// # Returns
+    /// Self, for method chaining
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use riglr_core::{ToolWorker, ExecutionConfig, idempotency::InMemoryIdempotencyStore};
+    /// use std::sync::Arc;
+    ///
+    /// let store = Arc::new(InMemoryIdempotencyStore::new());
+    /// let worker = ToolWorker::new(ExecutionConfig::default())
+    ///     .with_idempotency_store(store);
+    /// ```
     pub fn with_idempotency_store(mut self, store: Arc<I>) -> Self {
         self.idempotency_store = Some(store);
         self
     }
 
-    /// Set custom resource limits
+    /// Configure custom resource limits.
+    ///
+    /// Resource limits control how many concurrent operations can run
+    /// for each resource type. This prevents overwhelming external
+    /// services and provides fine-grained control over resource usage.
+    ///
+    /// # Parameters
+    /// * `limits` - The resource limits configuration to use
+    ///
+    /// # Returns
+    /// Self, for method chaining
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use riglr_core::{ToolWorker, ExecutionConfig, ResourceLimits, idempotency::InMemoryIdempotencyStore};
+    ///
+    /// let limits = ResourceLimits::new()
+    ///     .with_limit("solana_rpc", 3)
+    ///     .with_limit("evm_rpc", 8)
+    ///     .with_limit("http_api", 15);
+    ///
+    /// let worker = ToolWorker::<InMemoryIdempotencyStore>::new(ExecutionConfig::default())
+    ///     .with_resource_limits(limits);
+    /// ```
     pub fn with_resource_limits(mut self, limits: ResourceLimits) -> Self {
         self.resource_limits = limits;
         self
     }
 
     /// Register a tool with this worker.
+    ///
+    /// Tools must be registered before they can be executed by jobs.
+    /// Each tool is indexed by its name, so tool names must be unique
+    /// within a single worker.
+    ///
+    /// # Parameters
+    /// * `tool` - The tool implementation to register
+    ///
+    /// # Panics
+    /// This method does not panic, but if a tool with the same name
+    /// is already registered, it will be replaced.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use riglr_core::{ToolWorker, ExecutionConfig, Tool, JobResult, idempotency::InMemoryIdempotencyStore};
+    /// use async_trait::async_trait;
+    /// use std::sync::Arc;
+    ///
+    /// struct CalculatorTool;
+    ///
+    /// #[async_trait]
+    /// impl Tool for CalculatorTool {
+    ///     async fn execute(&self, params: serde_json::Value) -> Result<JobResult, Box<dyn std::error::Error + Send + Sync>> {
+    ///         let a = params["a"].as_f64().unwrap_or(0.0);
+    ///         let b = params["b"].as_f64().unwrap_or(0.0);
+    ///         Ok(JobResult::success(&(a + b))?)
+    ///     }
+    ///
+    ///     fn name(&self) -> &str {
+    ///         "calculator"
+    ///     }
+    /// }
+    ///
+    /// # async fn example() {
+    /// let worker = ToolWorker::<InMemoryIdempotencyStore>::new(ExecutionConfig::default());
+    /// worker.register_tool(Arc::new(CalculatorTool)).await;
+    /// # }
+    /// ```
     pub async fn register_tool(&self, tool: Arc<dyn Tool>) {
         let mut tools = self.tools.write().await;
         tools.insert(tool.name().to_string(), tool);
     }
 
-    /// Get metrics
+    /// Get access to worker metrics.
+    ///
+    /// The returned metrics can be used for monitoring worker performance
+    /// and health. All metrics are thread-safe and can be read at any time.
+    ///
+    /// # Returns
+    /// A reference to the worker's metrics
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use riglr_core::{ToolWorker, ExecutionConfig, idempotency::InMemoryIdempotencyStore};
+    /// use std::sync::atomic::Ordering;
+    ///
+    /// let worker = ToolWorker::<InMemoryIdempotencyStore>::new(ExecutionConfig::default());
+    /// let metrics = worker.metrics();
+    ///
+    /// println!("Jobs processed: {}", 
+    ///     metrics.jobs_processed.load(Ordering::Relaxed));
+    /// println!("Success rate: {:.2}%", {
+    ///     let processed = metrics.jobs_processed.load(Ordering::Relaxed);
+    ///     let succeeded = metrics.jobs_succeeded.load(Ordering::Relaxed);
+    ///     if processed > 0 { (succeeded as f64 / processed as f64) * 100.0 } else { 0.0 }
+    /// });
+    /// ```
     pub fn metrics(&self) -> &WorkerMetrics {
         &self.metrics
     }
@@ -449,8 +1305,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_tool_worker_with_retries() {
-        let mut config = ExecutionConfig::default();
-        config.initial_retry_delay = Duration::from_millis(10);
+        let config = ExecutionConfig {
+            initial_retry_delay: Duration::from_millis(10),
+            ..Default::default()
+        };
 
         let worker = ToolWorker::<InMemoryIdempotencyStore>::new(config);
         let tool = Arc::new(MockTool {
@@ -500,8 +1358,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_tool_worker_timeout() {
-        let mut config = ExecutionConfig::default();
-        config.default_timeout = Duration::from_millis(10); // Very short timeout
+        let config = ExecutionConfig {
+            default_timeout: Duration::from_millis(10), // Very short timeout
+            ..Default::default()
+        };
 
         let worker = ToolWorker::<InMemoryIdempotencyStore>::new(config);
         let tool = Arc::new(SlowMockTool {
@@ -606,8 +1466,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_tool_worker_idempotency_disabled() {
-        let mut config = ExecutionConfig::default();
-        config.enable_idempotency = false;
+        let config = ExecutionConfig {
+            enable_idempotency: false,
+            ..Default::default()
+        };
 
         let store = Arc::new(InMemoryIdempotencyStore::new());
         let worker = ToolWorker::new(config).with_idempotency_store(store.clone());
@@ -1080,8 +1942,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_debug_logging_in_retries() {
-        let mut config = ExecutionConfig::default();
-        config.initial_retry_delay = Duration::from_millis(1);
+        let config = ExecutionConfig {
+            initial_retry_delay: Duration::from_millis(1),
+            ..Default::default()
+        };
 
         let worker = ToolWorker::<InMemoryIdempotencyStore>::new(config);
         let tool = Arc::new(MockTool {
@@ -1131,8 +1995,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_timeout_specific_error() {
-        let mut config = ExecutionConfig::default();
-        config.default_timeout = Duration::from_millis(1); // Very short timeout
+        let config = ExecutionConfig {
+            default_timeout: Duration::from_millis(1), // Very short timeout
+            ..Default::default()
+        };
 
         let worker = ToolWorker::<InMemoryIdempotencyStore>::new(config);
         let tool = Arc::new(SlowMockTool {

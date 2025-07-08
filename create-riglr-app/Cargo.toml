@@ -10,27 +10,27 @@ readme = "README.md"
 [dependencies]
 # Core riglr framework
 rig-core = "0.17.1"
-riglr-core = { path = "../riglr-core" }
-riglr-macros = { path = "../riglr-macros" }
+riglr-core = "0.1.0"
+riglr-macros = "0.1.0"
 
 {% if primary-chain == "solana" or primary-chain == "both" -%}
 # Solana blockchain tools
-riglr-solana-tools = { path = "../riglr-solana-tools" }
+riglr-solana-tools = "0.1.0"
 {% endif %}
 
 {% if primary-chain == "ethereum" or primary-chain == "both" -%}
 # Ethereum/EVM blockchain tools
-riglr-evm-tools = { path = "../riglr-evm-tools" }
+riglr-evm-tools = "0.1.0"
 {% endif %}
 
 {% if include-web-tools -%}
 # Web data tools (Twitter, DexScreener, news, web search)
-riglr-web-tools = { path = "../riglr-web-tools" }
+riglr-web-tools = "0.1.0"
 {% endif %}
 
 {% if include-graph-memory -%}
 # Graph-based knowledge storage
-riglr-graph-memory = { path = "../riglr-graph-memory" }
+riglr-graph-memory = "0.1.0"
 {% endif %}
 
 # Async runtime and utilities

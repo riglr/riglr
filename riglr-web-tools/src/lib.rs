@@ -40,6 +40,8 @@
 //! - `TWITTER_BEARER_TOKEN` - For Twitter API access
 //! - `EXA_API_KEY` - For Exa web search
 //! - `DEXSCREENER_API_KEY` - For DexScreener (if required)
+//! - `LUNARCRUSH_API_KEY` - For LunarCrush social analytics
+//! - `FASTER100X_API_KEY` - For Faster100x holder analysis
 //!
 //! ## Tool Categories
 //!
@@ -47,10 +49,14 @@
 //! - [`dexscreener`] - Token market data and trading metrics
 //! - [`web_search`] - Intelligent web search capabilities
 //! - [`news`] - Cryptocurrency news aggregation
+//! - [`lunarcrush`] - LunarCrush social analytics and sentiment tracking
+//! - [`faster100x`] - Token holder analysis and whale activity tracking
 
 pub mod client;
 pub mod dexscreener;
 pub mod error;
+pub mod faster100x;
+pub mod lunarcrush;
 pub mod news;
 pub mod twitter;
 pub mod web_search;
@@ -78,6 +84,18 @@ pub use twitter::{
 pub use web_search::{
     search_web, find_similar_pages, summarize_web_content, search_recent_news,
     WebSearchResult, SearchResult, ContentSummary,
+};
+
+// From lunarcrush
+pub use lunarcrush::{
+    get_social_sentiment, get_trending_cryptos, get_influencer_mentions,
+    SentimentData, TrendingCrypto, InfluencerMention, InfluencerMentionsResult,
+};
+
+// From faster100x
+pub use faster100x::{
+    analyze_token_holders, get_whale_activity, get_holder_trends,
+    TokenHolderAnalysis, WhaleActivity, HolderTrends, WalletHolding, ConcentrationRisk,
 };
 
 // Re-export client and error types

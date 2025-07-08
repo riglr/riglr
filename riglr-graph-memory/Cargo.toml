@@ -14,7 +14,7 @@ documentation = "https://docs.rs/riglr-graph-memory"
 
 [dependencies]
 # Core riglr and rig dependencies
-rig-core = { workspace = true }
+rig-core = { workspace = true, optional = true }
 riglr-core = { workspace = true }
 riglr-macros = { workspace = true }
 
@@ -43,6 +43,7 @@ once_cell = "1.19"
 
 # Logging
 tracing = { workspace = true }
+rig-neo4j = { version = "0.3.1", optional = true }
 
 [dev-dependencies]
 tokio-test = { workspace = true }
@@ -52,8 +53,9 @@ testcontainers = "0.24.0"
 mockito = "1.0"
 
 [features]
-default = ["rig"]
-rig = []
+default = []
+rig = ["rig-core", "rig-neo4j"]
+rig-neo4j = ["dep:rig-neo4j"]
 
 [[bench]]
 name = "graph_benchmarks"

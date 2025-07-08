@@ -72,9 +72,8 @@ pub mod extractor;
 pub mod graph;
 pub mod vector_store;
 
-// Note: rig integration will be added once rig-core 0.3+ is available with stable VectorStore API
-// #[cfg(feature = "rig")]
-// pub mod rig_integration;
+// rig integration - experimental implementation
+pub mod rig_vector_store;
 
 // Re-export main types
 pub use client::Neo4jClient;
@@ -84,8 +83,8 @@ pub use extractor::EntityExtractor;
 pub use graph::GraphMemory;
 pub use vector_store::GraphRetriever;
 
-// #[cfg(feature = "rig")]
-// pub use rig_integration::GraphVectorStore;
+// Export rig integration components when feature is enabled
+pub use rig_vector_store::{GraphVectorStore, RigDocument};
 
 /// Current version of riglr-graph-memory  
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
