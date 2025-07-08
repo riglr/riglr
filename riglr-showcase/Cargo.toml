@@ -21,7 +21,7 @@ path = "src/main.rs"
 rig-core = { workspace = true }
 riglr-core = { workspace = true }
 riglr-solana-tools = { path = "../riglr-solana-tools" }
-# riglr-evm-tools = { path = "../riglr-evm-tools" } # Temporarily disabled due to dependency conflicts
+riglr-evm-tools = { path = "../riglr-evm-tools" }
 # riglr-web-tools = { path = "../riglr-web-tools" } # Temporarily disabled due to compilation issues
 riglr-graph-memory = { path = "../riglr-graph-memory" }
 
@@ -45,15 +45,15 @@ tracing-subscriber = { workspace = true, features = ["env-filter"] }
 
 # Console interaction and formatting
 dialoguer = "0.11"
-console = "0.15"
-indicatif = "0.17"
-colored = "2.0"
+console = "0.16.0"
+indicatif = "0.18.0"
+colored = "3.0.0"
 
 # Date and time
 chrono = { workspace = true }
 
 # Solana SDK
-solana-sdk = "1.18"
+solana-sdk = "2.3.1"
 
 [dev-dependencies]
 tokio-test = { workspace = true }
