@@ -6,7 +6,7 @@
 use crate::{
     client::{eth_to_wei, validate_address, wei_to_eth, EvmClient},
     error::{EvmToolError, Result},
-    transaction::{get_evm_signer_context, TransactionResult},
+    transaction::TransactionResult,
 };
 use alloy::{
     network::EthereumWallet,
@@ -178,6 +178,7 @@ pub struct UniswapSwapResult {
 /// This tool queries Uniswap V3 to get a quote for swapping tokens.
 #[tool]
 pub async fn get_uniswap_quote(
+    client: &EvmClient,
     token_in: String,
     token_out: String,
     amount_in: String,
@@ -185,8 +186,7 @@ pub async fn get_uniswap_quote(
     decimals_out: u8,
     fee_tier: Option<u32>,
     slippage_bps: Option<u16>,
-    rpc_url: Option<String>,
-) -> Result<UniswapQuote, ToolError> {
+) -> std::result::Result<UniswapQuote, ToolError> {
     debug!(
         "Getting Uniswap quote for {} {} to {}",
         amount_in, token_in, token_out
@@ -198,13 +198,6 @@ pub async fn get_uniswap_quote(
     let token_out_addr = validate_address(&token_out)
         .map_err(|e| ToolError::permanent(format!("Invalid token_out address: {}", e)))?;
 
-    // Create client
-    let client = if let Some(url) = rpc_url {
-        EvmClient::new(url).await
-    } else {
-        EvmClient::mainnet().await
-    }
-    .map_err(|e| ToolError::retriable(format!("Failed to create client: {}", e)))?;
 
     // Get Uniswap config for this chain
     let config = UniswapConfig::for_chain(client.chain_id);
@@ -276,6 +269,7 @@ pub async fn get_uniswap_quote(
 /// This tool executes a token swap on Uniswap V3.
 #[tool]
 pub async fn perform_uniswap_swap(
+    client: &EvmClient,
     token_in: String,
     token_out: String,
     amount_in: String,
@@ -283,8 +277,7 @@ pub async fn perform_uniswap_swap(
     amount_out_minimum: String,
     fee_tier: Option<u32>,
     deadline_seconds: Option<u64>,
-    rpc_url: Option<String>,
-) -> Result<UniswapSwapResult, ToolError> {
+) -> std::result::Result<UniswapSwapResult, ToolError> {
     debug!(
         "Performing Uniswap swap: {} {} to {}",
         amount_in, token_in, token_out
@@ -296,26 +289,11 @@ pub async fn perform_uniswap_swap(
     let token_out_addr = validate_address(&token_out)
         .map_err(|e| ToolError::permanent(format!("Invalid token_out address: {}", e)))?;
 
-    // Get signer context
-    let signer_context = get_evm_signer_context()
-        .await
-        .map_err(|e| ToolError::permanent(format!("Signer not initialized: {}", e)))?;
-
-    let context = signer_context.read().await;
-    let wallet = context
-        .wallet()
-        .ok_or_else(|| ToolError::permanent("No wallet configured"))?;
-    let from_addr = context
-        .address()
-        .ok_or_else(|| ToolError::permanent("No address configured"))?;
-
-    // Create client
-    let client = if let Some(url) = rpc_url {
-        EvmClient::new(url).await
-    } else {
-        EvmClient::mainnet().await
-    }
-    .map_err(|e| ToolError::retriable(format!("Failed to create client: {}", e)))?;
+    // Get signer from client (replaces global state access)
+    let signer = client.require_signer()
+        .map_err(|e| ToolError::permanent(format!("Client requires signer configuration: {}", e)))?;
+    
+    let from_addr = signer.address();
 
     // Get Uniswap config
     let config = UniswapConfig::for_chain(client.chain_id);
@@ -361,7 +339,7 @@ pub async fn perform_uniswap_swap(
         .gas_limit(300000); // Uniswap swaps typically need more gas
 
     // Create wallet for signing
-    let ethereum_wallet = EthereumWallet::from(wallet.clone());
+    let ethereum_wallet = EthereumWallet::from(signer.clone());
 
     // Send transaction
     let provider_with_wallet = client.provider().with_wallet(ethereum_wallet);

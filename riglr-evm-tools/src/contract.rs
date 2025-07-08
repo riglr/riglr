@@ -1,6 +1,6 @@
 //! Generic smart contract interaction tools
 
-use crate::{client::EvmClient, error::{EvmToolError, Result}, transaction::get_evm_signer_context};
+use crate::{client::EvmClient, error::{EvmToolError, Result}};
 use alloy::contract::{ContractInstance, Interface};
 use alloy::dyn_abi::{DynSolType, DynSolValue};
 use alloy::json_abi::{Function, JsonAbi};
@@ -217,9 +217,8 @@ pub async fn call_contract_write(
         function, contract_address, params
     );
 
-    // Get signer from context
-    let signer_context = get_evm_signer_context()?;
-    let signer = signer_context.get_signer()?;
+    // Get signer from client
+    let signer = client.require_signer()?;
     
     // Parse contract address
     let address = Address::from_str(contract_address)
