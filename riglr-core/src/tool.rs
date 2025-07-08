@@ -124,7 +124,7 @@
 //!     "calc_10_plus_5" // idempotency key
 //! )?;
 //!
-//! let result = worker.process_job(job).await?;
+//! let result = worker.process_job(job).await.unwrap();
 //! println!("Result: {:?}", result);
 //!
 //! // Get metrics
@@ -184,32 +184,19 @@ use crate::queue::JobQueue;
 ///         let url = params["url"].as_str()
 ///             .ok_or("Missing required parameter: url")?;
 ///
-///         let client = reqwest::Client::new();
-///         match client.get(url).send().await {
-///             Ok(response) => {
-///                 if response.status().is_success() {
-///                     let body = response.text().await?;
-///                     Ok(JobResult::success(&body)?)
-///                 } else if response.status().is_client_error() {
-///                     // 4xx errors are permanent - don't retry
-///                     Ok(JobResult::permanent_failure(
-///                         format!("Client error: {}", response.status())
-///                     ))
-///                 } else {
-///                     // 5xx errors are retriable
-///                     Ok(JobResult::retriable_failure(
-///                         format!("Server error: {}", response.status())
-///                     ))
-///                 }
-///             }
-///             Err(e) if e.is_timeout() => {
-///                 // Timeouts are retriable
-///                 Ok(JobResult::retriable_failure(format!("Request timeout: {}", e)))
-///             }
-///             Err(e) => {
-///                 // Other network errors are typically retriable
-///                 Ok(JobResult::retriable_failure(format!("Network error: {}", e)))
-///             }
+///         // Mock HTTP client behavior for this example
+///         if url.starts_with("https://") {
+///             let body = r#"{"data": "success"}"#;
+///             Ok(JobResult::success(&serde_json::json!({"body": body}))?)
+///         } else if url.contains("error") {
+///             // Simulate client error
+///             Ok(JobResult::permanent_failure("Client error: Invalid URL"))
+///         } else if url.contains("timeout") {
+///             // Simulate timeout
+///             Ok(JobResult::retriable_failure("Request timeout: Connection timed out"))
+///         } else {
+///             // Simulate server error
+///             Ok(JobResult::retriable_failure("Server error: HTTP 503"))
 ///         }
 ///     }
 ///
@@ -350,20 +337,19 @@ pub trait Tool: Send + Sync {
     ///             return Ok(JobResult::permanent_failure("City name cannot be empty"));
     ///         }
     ///
-    ///         // Simulate API call
-    ///         let weather_data = match fetch_weather(city).await {
-    ///             Ok(data) => data,
-    ///             Err(e) if e.is_network_error() => {
-    ///                 return Ok(JobResult::retriable_failure(
-    ///                     format!("Network error: {}", e)
-    ///                 ));
-    ///             }
-    ///             Err(e) if e.is_not_found() => {
-    ///                 return Ok(JobResult::permanent_failure(
-    ///                     format!("City not found: {}", city)
-    ///                 ));
-    ///             }
-    ///             Err(e) => return Err(e.into()),
+    ///         // Simulate API call with mock weather service
+    ///         let weather_data = if city == "InvalidCity" {
+    ///             return Ok(JobResult::permanent_failure(
+    ///                 format!("City not found: {}", city)
+    ///             ));
+    ///         } else if city == "TimeoutCity" {
+    ///             return Ok(JobResult::retriable_failure("Network timeout"));
+    ///         } else {
+    ///             serde_json::json!({
+    ///                 "city": city,
+    ///                 "temperature": 22,
+    ///                 "condition": "sunny"
+    ///             })
     ///         };
     ///
     ///         Ok(JobResult::success(&weather_data)?)
@@ -373,19 +359,6 @@ pub trait Tool: Send + Sync {
     ///         "weather"
     ///     }
     /// }
-    ///
-    /// # struct WeatherError;
-    /// # impl WeatherError {
-    /// #     fn is_network_error(&self) -> bool { false }
-    /// #     fn is_not_found(&self) -> bool { false }
-    /// # }
-    /// # impl std::fmt::Display for WeatherError {
-    /// #     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result { Ok(()) }
-    /// # }
-    /// # impl std::error::Error for WeatherError {}
-    /// # async fn fetch_weather(_: &str) -> Result<serde_json::Value, WeatherError> {
-    /// #     Ok(serde_json::json!({"temp": 22, "condition": "sunny"}))
-    /// # }
     /// ```
     async fn execute(
         &self,
@@ -760,7 +733,7 @@ impl Default for ResourceLimits {
 ///
 /// // Process a job
 /// let job = Job::new("example", &serde_json::json!({}), 3)?;
-/// let result = worker.process_job(job).await?;
+/// let result = worker.process_job(job).await.unwrap();
 ///
 /// println!("Job result: {:?}", result);
 ///

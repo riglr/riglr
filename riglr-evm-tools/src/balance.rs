@@ -75,7 +75,50 @@ pub struct TokenBalanceResult {
 
 /// Get ETH balance for an address
 ///
-/// This tool retrieves the ETH balance for a given address on the specified chain.
+/// This tool retrieves the native ETH balance for any Ethereum wallet address on the current
+/// EVM chain. The balance is returned in both wei (smallest unit) and ETH (human-readable format).
+/// 
+/// # Arguments
+/// 
+/// * `address` - The Ethereum wallet address to check (0x-prefixed hex string)
+/// * `block_number` - Optional specific block number to query (uses latest if None)
+/// 
+/// # Returns
+/// 
+/// Returns `BalanceResult` containing:
+/// - `address`: The queried wallet address
+/// - `balance_raw`: Balance in wei (1 ETH = 10^18 wei)
+/// - `balance_formatted`: Balance in ETH with 6 decimal places  
+/// - `unit`: "ETH" currency identifier
+/// - `chain_id`: EVM chain identifier (1 for Ethereum mainnet)
+/// - `chain_name`: Human-readable chain name
+/// - `block_number`: Block number at which balance was fetched
+/// 
+/// # Errors
+/// 
+/// * `EvmToolError::InvalidAddress` - When the address format is invalid
+/// * `EvmToolError::Rpc` - When network connection issues occur
+/// * `EvmToolError::Generic` - When no signer context is available
+/// 
+/// # Examples
+/// 
+/// ```rust,ignore
+/// use riglr_evm_tools::balance::get_eth_balance;
+/// use riglr_core::SignerContext;
+/// 
+/// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+/// // Check ETH balance for Vitalik's address
+/// let balance = get_eth_balance(
+///     "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045".to_string(),
+///     None, // Use latest block
+/// ).await?;
+/// 
+/// println!("Address: {}", balance.address);
+/// println!("Balance: {} ETH ({} wei)", balance.balance_formatted, balance.balance_raw);
+/// println!("Chain: {} (ID: {})", balance.chain_name, balance.chain_id);
+/// # Ok(())
+/// # }
+/// ```
 #[tool]
 pub async fn get_eth_balance(
     address: String,
@@ -150,7 +193,52 @@ pub async fn get_eth_balance(
 
 /// Get ERC20 token balance for an address
 ///
-/// This tool retrieves the balance of an ERC20 token for a given address.
+/// This tool retrieves the balance of any ERC20 token for a given Ethereum wallet address.
+/// It automatically fetches token metadata (symbol, name, decimals) and formats the balance
+/// appropriately. Works with any standard ERC20 token contract.
+/// 
+/// # Arguments
+/// 
+/// * `address` - The Ethereum wallet address to check token balance for
+/// * `token_address` - The ERC20 token contract address
+/// * `fetch_metadata` - Whether to fetch token metadata (symbol, name) - defaults to true
+/// 
+/// # Returns
+/// 
+/// Returns `TokenBalanceResult` containing:
+/// - `address`: The wallet address queried
+/// - `token_address`: The token contract address
+/// - `token_symbol`, `token_name`: Token metadata (if fetched)
+/// - `decimals`: Number of decimal places for the token
+/// - `balance_raw`: Balance in token's smallest unit
+/// - `balance_formatted`: Human-readable balance with decimal adjustment
+/// - `chain_id`, `chain_name`: Network information
+/// 
+/// # Errors
+/// 
+/// * `EvmToolError::InvalidAddress` - When wallet or token address is invalid
+/// * `EvmToolError::Rpc` - When network issues occur or token contract doesn't respond
+/// * `EvmToolError::Generic` - When no signer context is available
+/// 
+/// # Examples
+/// 
+/// ```rust,ignore
+/// use riglr_evm_tools::balance::get_erc20_balance;
+/// 
+/// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+/// // Check USDC balance
+/// let balance = get_erc20_balance(
+///     "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045".to_string(),
+///     "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48".to_string(), // USDC contract
+///     Some(true), // Fetch metadata
+/// ).await?;
+/// 
+/// println!("Token: {} ({})", balance.token_symbol.unwrap_or_default(), balance.token_name.unwrap_or_default());
+/// println!("Balance: {} (decimals: {})", balance.balance_formatted, balance.decimals);
+/// println!("Raw balance: {}", balance.balance_raw);
+/// # Ok(())
+/// # }
+/// ```
 #[tool]
 pub async fn get_erc20_balance(
     address: String,

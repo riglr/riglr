@@ -37,8 +37,55 @@ impl Default for JupiterConfig {
 
 /// Get a quote from Jupiter for swapping tokens
 ///
-/// This tool queries the Jupiter aggregator for the best swap route
-/// and returns the expected output amount.
+/// This tool queries the Jupiter aggregator to find the best swap route between two SPL tokens
+/// and returns detailed pricing information without executing any transaction. Jupiter aggregates
+/// liquidity from multiple DEXs to provide optimal pricing.
+/// 
+/// # Arguments
+/// 
+/// * `input_mint` - Source token mint address to swap from
+/// * `output_mint` - Destination token mint address to swap to
+/// * `amount` - Input amount in token's smallest unit (e.g., lamports for SOL)
+/// * `slippage_bps` - Maximum acceptable slippage in basis points (e.g., 50 = 0.5%)
+/// * `only_direct_routes` - If true, only consider direct swap routes (no intermediate tokens)
+/// * `jupiter_api_url` - Optional custom Jupiter API endpoint URL
+/// 
+/// # Returns
+/// 
+/// Returns `SwapQuote` containing:
+/// - `input_mint` and `output_mint`: Token addresses
+/// - `in_amount` and `out_amount`: Expected input and output amounts
+/// - `other_amount_threshold`: Minimum output after slippage
+/// - `price_impact_pct`: Price impact as percentage
+/// - `route_plan`: Detailed routing through DEXs
+/// - `context_slot` and `time_taken`: Quote freshness metadata
+/// 
+/// # Errors
+/// 
+/// * `ToolError::Permanent` - When token addresses are invalid or no routes exist
+/// * `ToolError::Retriable` - When Jupiter API is temporarily unavailable
+/// 
+/// # Examples
+/// 
+/// ```rust,ignore
+/// use riglr_solana_tools::swap::get_jupiter_quote;
+/// 
+/// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+/// // Get quote for swapping 1 SOL to USDC
+/// let quote = get_jupiter_quote(
+///     "So11111111111111111111111111111111111111112".to_string(), // SOL mint
+///     "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v".to_string(), // USDC mint
+///     1_000_000_000, // 1 SOL in lamports
+///     50, // 0.5% slippage
+///     false, // Allow multi-hop routes
+///     None, // Use default Jupiter API
+/// ).await?;
+/// 
+/// println!("Quote: {} SOL -> {} USDC", quote.in_amount, quote.out_amount);
+/// println!("Price impact: {:.2}%", quote.price_impact_pct);
+/// # Ok(())
+/// # }
+/// ```
 #[tool]
 pub async fn get_jupiter_quote(
     input_mint: String,
@@ -126,8 +173,55 @@ pub async fn get_jupiter_quote(
 
 /// Execute a token swap using Jupiter
 ///
-/// This tool executes a swap using the Jupiter aggregator,
-/// handling transaction construction and submission.
+/// This tool executes an actual token swap using the Jupiter aggregator. It automatically
+/// gets a fresh quote, constructs the swap transaction, signs it with the current signer context,
+/// and submits it to the Solana network. The swap uses optimal routing across multiple DEXs.
+/// 
+/// # Arguments
+/// 
+/// * `input_mint` - Source token mint address to swap from
+/// * `output_mint` - Destination token mint address to swap to  
+/// * `amount` - Input amount in token's smallest unit
+/// * `slippage_bps` - Maximum acceptable slippage in basis points (e.g., 50 = 0.5%)
+/// * `jupiter_api_url` - Optional custom Jupiter API endpoint URL
+/// * `use_versioned_transaction` - Whether to use versioned transactions (recommended for lower fees)
+/// 
+/// # Returns
+/// 
+/// Returns `SwapResult` containing:
+/// - `signature`: Transaction signature for tracking
+/// - `input_mint` and `output_mint`: Token addresses involved
+/// - `in_amount` and `out_amount`: Actual swap amounts
+/// - `price_impact_pct`: Price impact percentage experienced
+/// - `status`: Current transaction status (initially Pending)
+/// 
+/// # Errors
+/// 
+/// * `ToolError::Permanent` - When addresses invalid, signer unavailable, or swap construction fails
+/// * `ToolError::Retriable` - When Jupiter API unavailable or network issues occur
+/// 
+/// # Examples
+/// 
+/// ```rust,ignore
+/// use riglr_solana_tools::swap::perform_jupiter_swap;
+/// use riglr_core::SignerContext;
+/// 
+/// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+/// // Swap 0.1 SOL to USDC
+/// let result = perform_jupiter_swap(
+///     "So11111111111111111111111111111111111111112".to_string(), // SOL mint
+///     "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v".to_string(), // USDC mint  
+///     100_000_000, // 0.1 SOL in lamports
+///     100, // 1% slippage tolerance
+///     None, // Use default Jupiter API
+///     true, // Use versioned transactions
+/// ).await?;
+/// 
+/// println!("Swap executed! Signature: {}", result.signature);
+/// println!("Swapped {} for {} tokens", result.in_amount, result.out_amount);
+/// # Ok(())
+/// # }
+/// ```
 #[tool]
 pub async fn perform_jupiter_swap(
     input_mint: String,
@@ -236,7 +330,45 @@ pub async fn perform_jupiter_swap(
 
 /// Get the current price of a token pair
 ///
-/// This tool fetches the current price and liquidity information
+/// This tool fetches the current exchange rate between two SPL tokens by requesting
+/// a small test quote from Jupiter. This provides real-time pricing without executing trades.
+/// 
+/// # Arguments
+/// 
+/// * `base_mint` - Token address to price (the token being quoted)
+/// * `quote_mint` - Token address to price against (usually USDC or SOL)
+/// * `jupiter_api_url` - Optional custom Jupiter API endpoint URL
+/// 
+/// # Returns
+/// 
+/// Returns `PriceInfo` containing:
+/// - `base_mint` and `quote_mint`: Token addresses used
+/// - `price`: Exchange rate (how much quote_mint per 1 base_mint)
+/// - `price_impact_pct`: Price impact for small test trade
+/// 
+/// # Errors
+/// 
+/// * `ToolError::Permanent` - When tokens are invalid or no liquidity exists
+/// * `ToolError::Retriable` - When Jupiter API is temporarily unavailable
+/// 
+/// # Examples
+/// 
+/// ```rust,ignore
+/// use riglr_solana_tools::swap::get_token_price;
+/// 
+/// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+/// // Get SOL price in USDC
+/// let price_info = get_token_price(
+///     "So11111111111111111111111111111111111111112".to_string(), // SOL mint
+///     "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v".to_string(), // USDC mint
+///     None, // Use default Jupiter API
+/// ).await?;
+/// 
+/// println!("1 SOL = {} USDC", price_info.price);
+/// println!("Price impact: {:.3}%", price_info.price_impact_pct);
+/// # Ok(())
+/// # }
+/// ```
 #[tool]
 pub async fn get_token_price(
     base_mint: String,
