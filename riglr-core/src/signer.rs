@@ -124,9 +124,9 @@ impl SignerContext {
     /// 
     /// # Arguments
     /// * `signer` - The signer to make available in the context. This signer will be
-    ///              accessible to all code executed within the future scope.
+    ///   accessible to all code executed within the future scope.
     /// * `future` - The async code to execute with the signer context. All async
-    ///              operations within this future can access the signer.
+    ///   operations within this future can access the signer.
     /// 
     /// # Returns
     /// The result of executing the future. If the future succeeds, returns its result.

@@ -90,7 +90,7 @@ fn handle_function(function: ItemFn) -> proc_macro2::TokenStream {
 
     // Extract documentation from function
     let description = extract_doc_comments(&function.attrs);
-    let description_lit = if description.is_empty() {
+    let _description_lit = if description.is_empty() {
         quote! { concat!("Tool: ", stringify!(#fn_name)) }
     } else {
         quote! { #description }
@@ -232,46 +232,6 @@ fn handle_function(function: ItemFn) -> proc_macro2::TokenStream {
             }
         }
 
-        // Generate rig::tool::Tool implementation (NEW) - conditional on rig feature
-        #[cfg(feature = "rig")]
-        impl rig_core::tool::Tool for #tool_struct_name {
-            const NAME: &'static str = stringify!(#fn_name);
-            const DESCRIPTION: &'static str = #description_lit;
-            
-            fn definition() -> rig_core::tool::ToolDefinition {
-                let schema = {
-                    let args_schema = schemars::schema_for!(#args_struct_name);
-                    serde_json::to_value(args_schema).unwrap_or_else(|_| serde_json::json!({}))
-                };
-                
-                rig_core::tool::ToolDefinition {
-                    name: Self::NAME.to_string(),
-                    description: Self::DESCRIPTION.to_string(),
-                    parameters: schema,
-                }
-            }
-            
-            async fn call(&self, input: serde_json::Value) -> Result<serde_json::Value, rig_core::tool::ToolError> {
-                // Parse the parameters
-                let args: #args_struct_name = serde_json::from_value(input)
-                    .map_err(|e| rig_core::tool::ToolError::InvalidInput(format!("Failed to parse parameters: {}", e)))?;
-
-                // Call the original function
-                let result = #fn_name(#(#field_assignments),*)#await_token;
-
-                // Convert the result
-                match result {
-                    Ok(value) => {
-                        let json_value = serde_json::to_value(value)
-                            .map_err(|e| rig_core::tool::ToolError::RuntimeError(format!("Failed to serialize result: {}", e)))?;
-                        Ok(json_value)
-                    }
-                    Err(error) => {
-                        Err(rig_core::tool::ToolError::RuntimeError(error.to_string()))
-                    }
-                }
-            }
-        }
 
         // Keep the original function
         #function
@@ -289,7 +249,7 @@ fn handle_struct(structure: ItemStruct) -> proc_macro2::TokenStream {
 
     // Extract documentation from struct
     let description = extract_doc_comments(&structure.attrs);
-    let description_lit = if description.is_empty() {
+    let _description_lit = if description.is_empty() {
         quote! { concat!("Tool: ", stringify!(#struct_name)) }
     } else {
         quote! { #description }
@@ -358,43 +318,6 @@ fn handle_struct(structure: ItemStruct) -> proc_macro2::TokenStream {
             }
         }
 
-        // Generate rig::tool::Tool implementation (NEW) - conditional on rig feature
-        #[cfg(feature = "rig")]
-        impl rig_core::tool::Tool for #struct_name {
-            const NAME: &'static str = stringify!(#struct_name);
-            const DESCRIPTION: &'static str = #description_lit;
-            
-            fn definition() -> rig_core::tool::ToolDefinition {
-                let schema = schemars::schema_for!(Self);
-                
-                rig_core::tool::ToolDefinition {
-                    name: Self::NAME.to_string(),
-                    description: Self::DESCRIPTION.to_string(),
-                    parameters: serde_json::to_value(schema).unwrap_or_else(|_| serde_json::json!({})),
-                }
-            }
-            
-            async fn call(&self, input: serde_json::Value) -> Result<serde_json::Value, rig_core::tool::ToolError> {
-                // Parse parameters into the struct
-                let args: Self = serde_json::from_value(input)
-                    .map_err(|e| rig_core::tool::ToolError::InvalidInput(format!("Failed to parse parameters: {}", e)))?;
-
-                // Call the execute method
-                let result = args.execute().await;
-
-                // Convert the result
-                match result {
-                    Ok(value) => {
-                        let json_value = serde_json::to_value(value)
-                            .map_err(|e| rig_core::tool::ToolError::RuntimeError(format!("Failed to serialize result: {}", e)))?;
-                        Ok(json_value)
-                    }
-                    Err(error) => {
-                        Err(rig_core::tool::ToolError::RuntimeError(error.to_string()))
-                    }
-                }
-            }
-        }
     }
 }
 

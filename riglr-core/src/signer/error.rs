@@ -6,7 +6,7 @@ pub enum SignerError {
     NoSignerContext,
     
     #[error("Solana transaction error: {0}")]
-    SolanaTransaction(#[from] solana_client::client_error::ClientError),
+    SolanaTransaction(#[from] Box<solana_client::client_error::ClientError>),
     
     #[error("EVM transaction error: {0}")]
     EvmTransaction(String),

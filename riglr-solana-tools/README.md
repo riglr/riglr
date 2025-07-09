@@ -256,13 +256,13 @@ match transfer_sol(...).await {
 
 See the `examples/` directory for complete working examples:
 
-- `balance_checker.rs` - Query balances across multiple addresses
+- `solana_balance_checker.rs` - Query balances across multiple addresses
 - `simple_swapper.rs` - Perform token swaps via Jupiter
 
 Run examples with:
 
 ```bash
-cargo run --example balance_checker
+cargo run --example solana_balance_checker
 cargo run --example simple_swapper
 ```
 

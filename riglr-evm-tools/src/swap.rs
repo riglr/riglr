@@ -5,7 +5,7 @@
 
 use crate::{
     client::{eth_to_wei, validate_address, wei_to_eth, EvmClient},
-    error::{EvmToolError, Result},
+    error::EvmToolError,
     transaction::TransactionResult,
 };
 use alloy::{
@@ -16,11 +16,9 @@ use alloy::{
     sol,
     sol_types::SolCall,
 };
-use riglr_core::ToolError;
 use riglr_macros::tool;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tracing::{debug, info, warn};
 
@@ -237,7 +235,7 @@ pub async fn get_uniswap_quote(
     decimals_out: u8,
     fee_tier: Option<u32>,
     slippage_bps: Option<u16>,
-) -> std::result::Result<UniswapQuote, ToolError> {
+) -> std::result::Result<UniswapQuote, Box<dyn std::error::Error + Send + Sync>> {
     debug!(
         "Getting Uniswap quote for {} {} to {}",
         amount_in, token_in, token_out
@@ -245,31 +243,31 @@ pub async fn get_uniswap_quote(
 
     // Get signer context and create client
     let _signer_context = riglr_core::SignerContext::current().await
-        .map_err(|e| ToolError::permanent(format!("No signer context: {}", e)))?;
+        .map_err(|e| EvmToolError::Generic(format!("No signer context: {}", e)))?;
     
     // Create EVM client (temporary - should come from signer context)
     let client = EvmClient::mainnet().await
-        .map_err(|e| ToolError::permanent(format!("Failed to create EVM client: {}", e)))?;
+        .map_err(|e| EvmToolError::Generic(format!("Failed to create EVM client: {}", e)))?;
 
     // Validate addresses
     let token_in_addr = validate_address(&token_in)
-        .map_err(|e| ToolError::permanent(format!("Invalid token_in address: {}", e)))?;
+        .map_err(|e| EvmToolError::Generic(format!("Invalid token_in address: {}", e)))?;
     let token_out_addr = validate_address(&token_out)
-        .map_err(|e| ToolError::permanent(format!("Invalid token_out address: {}", e)))?;
+        .map_err(|e| EvmToolError::Generic(format!("Invalid token_out address: {}", e)))?;
 
     // Get Uniswap config for this chain
     let config = UniswapConfig::for_chain(client.chain_id);
 
     // Parse amount
     let amount_in_wei = parse_amount_with_decimals(&amount_in, decimals_in)
-        .map_err(|e| ToolError::permanent(format!("Invalid amount: {}", e)))?;
+        .map_err(|e| EvmToolError::Generic(format!("Invalid amount: {}", e)))?;
 
     // Default fee tier to 0.3% (3000)
     let fee = fee_tier.unwrap_or(3000) as u32;
 
     // Get quote from Quoter contract
     let quoter_addr = validate_address(&config.quoter_address)
-        .map_err(|e| ToolError::permanent(format!("Invalid quoter address: {}", e)))?;
+        .map_err(|e| EvmToolError::Generic(format!("Invalid quoter address: {}", e)))?;
 
     let quote_amount = get_quote_from_quoter(
         &client,
@@ -283,9 +281,9 @@ pub async fn get_uniswap_quote(
     .map_err(|e| {
         let error_str = e.to_string();
         if error_str.contains("revert") {
-            ToolError::permanent(format!("Quote failed (likely no liquidity): {}", e))
+            EvmToolError::Generic(format!("Quote failed (likely no liquidity): {}", e))
         } else {
-            ToolError::retriable(format!("Failed to get quote: {}", e))
+            EvmToolError::Rpc(format!("Failed to get quote: {}", e))
         }
     })?;
 
@@ -380,7 +378,7 @@ pub async fn perform_uniswap_swap(
     amount_out_minimum: String,
     fee_tier: Option<u32>,
     deadline_seconds: Option<u64>,
-) -> std::result::Result<UniswapSwapResult, ToolError> {
+) -> std::result::Result<UniswapSwapResult, Box<dyn std::error::Error + Send + Sync>> {
     debug!(
         "Performing Uniswap swap: {} {} to {}",
         amount_in, token_in, token_out
@@ -388,35 +386,35 @@ pub async fn perform_uniswap_swap(
 
     // Get signer context and create client
     let signer_context = riglr_core::SignerContext::current().await
-        .map_err(|e| ToolError::permanent(format!("No signer context: {}", e)))?;
+        .map_err(|e| EvmToolError::Generic(format!("No signer context: {}", e)))?;
     
     // Create EVM client (temporary - should come from signer context)
     let client = EvmClient::mainnet().await
-        .map_err(|e| ToolError::permanent(format!("Failed to create EVM client: {}", e)))?;
+        .map_err(|e| EvmToolError::Generic(format!("Failed to create EVM client: {}", e)))?;
 
     // Validate addresses
     let token_in_addr = validate_address(&token_in)
-        .map_err(|e| ToolError::permanent(format!("Invalid token_in address: {}", e)))?;
+        .map_err(|e| EvmToolError::Generic(format!("Invalid token_in address: {}", e)))?;
     let token_out_addr = validate_address(&token_out)
-        .map_err(|e| ToolError::permanent(format!("Invalid token_out address: {}", e)))?;
+        .map_err(|e| EvmToolError::Generic(format!("Invalid token_out address: {}", e)))?;
 
     // For now, we'll continue with the temporary approach until proper EVM signer integration
     // In a real implementation, this would use the EVM transaction signing from signer_context
     
     let from_addr_str = signer_context.address()
-        .ok_or_else(|| ToolError::permanent("Signer has no address"))?;
+        .ok_or_else(|| EvmToolError::Generic("Signer has no address".to_string()))?;
     let from_addr = validate_address(&from_addr_str)
-        .map_err(|e| ToolError::permanent(format!("Invalid signer address: {}", e)))?;
+        .map_err(|e| EvmToolError::Generic(format!("Invalid signer address: {}", e)))?;
 
     // Get Uniswap config
     let config = UniswapConfig::for_chain(client.chain_id);
 
     // Parse amounts
     let amount_in_wei = parse_amount_with_decimals(&amount_in, decimals_in)
-        .map_err(|e| ToolError::permanent(format!("Invalid amount_in: {}", e)))?;
+        .map_err(|e| EvmToolError::Generic(format!("Invalid amount_in: {}", e)))?;
     let amount_out_min = amount_out_minimum
         .parse::<U256>()
-        .map_err(|e| ToolError::permanent(format!("Invalid amount_out_minimum: {}", e)))?;
+        .map_err(|e| EvmToolError::Generic(format!("Invalid amount_out_minimum: {}", e)))?;
 
     // Calculate deadline
     let deadline = SystemTime::now()
@@ -443,7 +441,7 @@ pub async fn perform_uniswap_swap(
 
     // Build transaction
     let router_addr = validate_address(&config.router_address)
-        .map_err(|e| ToolError::permanent(format!("Invalid router address: {}", e)))?;
+        .map_err(|e| EvmToolError::Generic(format!("Invalid router address: {}", e)))?;
 
     let tx = TransactionRequest::default()
         .from(from_addr)
@@ -460,9 +458,9 @@ pub async fn perform_uniswap_swap(
         .map_err(|e| {
             let error_str = e.to_string();
             if error_str.contains("insufficient") {
-                ToolError::permanent(format!("Insufficient balance: {}", e))
+                EvmToolError::Generic(format!("Insufficient balance: {}", e))
             } else {
-                ToolError::retriable(format!("Failed to send swap transaction: {}", e))
+                EvmToolError::Rpc(format!("Failed to send swap transaction: {}", e))
             }
         })?;
 
@@ -471,7 +469,7 @@ pub async fn perform_uniswap_swap(
         .with_required_confirmations(1)
         .get_receipt()
         .await
-        .map_err(|e| ToolError::retriable(format!("Failed to get receipt: {}", e)))?;
+        .map_err(|e| EvmToolError::Rpc(format!("Failed to get receipt: {}", e)))?;
 
     // TODO: Parse actual amount out from logs
     let amount_out_actual = amount_out_min.to_string(); // Placeholder
@@ -502,7 +500,7 @@ async fn get_quote_from_quoter(
     token_out: Address,
     fee: u32,
     amount_in: U256,
-) -> Result<U256> {
+) -> Result<U256, EvmToolError> {
     let call = IQuoter::quoteExactInputSingleCall {
         tokenIn: token_in,
         tokenOut: token_out,
@@ -528,7 +526,7 @@ async fn get_quote_from_quoter(
 }
 
 /// Parse amount with decimals
-fn parse_amount_with_decimals(amount: &str, decimals: u8) -> Result<U256> {
+fn parse_amount_with_decimals(amount: &str, decimals: u8) -> Result<U256, EvmToolError> {
     let amount_f64 = amount
         .parse::<f64>()
         .map_err(|e| EvmToolError::Generic(format!("Invalid amount: {}", e)))?;
