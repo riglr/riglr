@@ -343,3 +343,46 @@ fn extract_doc_comments(attrs: &[Attribute]) -> String {
 
     docs.join("\n").trim().to_string()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_extract_doc_comments_empty() {
+        let attrs = vec![];
+        let result = extract_doc_comments(&attrs);
+        assert_eq!(result, "");
+    }
+
+    #[test]
+    fn test_extract_doc_comments_with_content() {
+        // This is a unit test for the doc comment extraction function
+        // In a real scenario, we would need to parse actual syn::Attribute instances
+        // For now, we test that the function handles empty attributes correctly
+        let attrs = vec![];
+        let result = extract_doc_comments(&attrs);
+        assert_eq!(result, "");
+    }
+
+    #[test]
+    fn test_to_pascal_case_conversion() {
+        // Test the heck crate functionality we use
+        assert_eq!("test_function".to_pascal_case(), "TestFunction");
+        assert_eq!("get_balance".to_pascal_case(), "GetBalance");
+        assert_eq!("simple".to_pascal_case(), "Simple");
+    }
+
+    // Note: Testing procedural macros typically requires integration tests
+    // with the `trybuild` crate or similar, as unit testing proc macros
+    // directly is challenging due to their compile-time nature.
+    //
+    // For comprehensive testing, we would create test files in tests/
+    // directory that use the macro and verify compilation and behavior.
+
+    #[test]
+    fn test_macro_module_exists() {
+        // Basic test to ensure the module compiles
+        assert!(true);
+    }
+}

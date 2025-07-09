@@ -248,8 +248,7 @@ fn test_lamports_to_sol_conversion() {
 #[tokio::test(flavor = "multi_thread")]
 async fn test_get_sol_balance_invalid_address() {
     // Test with invalid address format
-    let client = SolanaClient::devnet();
-    let result = get_sol_balance(&client, "invalid_address".to_string()).await;
+    let result = get_sol_balance("invalid_address".to_string()).await;
 
     // Should fail with invalid address
     assert!(result.is_err());
@@ -258,8 +257,7 @@ async fn test_get_sol_balance_invalid_address() {
 #[tokio::test(flavor = "multi_thread")]
 async fn test_get_sol_balance_valid_format() {
     // Test with valid address format (but may not exist on network)
-    let client = SolanaClient::devnet();
-    let result = get_sol_balance(&client, "11111111111111111111111111111111".to_string()).await;
+    let result = get_sol_balance("11111111111111111111111111111111".to_string()).await;
 
     // May succeed or fail depending on network, but address format is valid
     // Just verify it doesn't panic

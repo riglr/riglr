@@ -60,7 +60,7 @@ pub async fn run_demo(config: Config, address: Option<String>, chain_id: u64) ->
     // Demo 1: Get native token balance (ETH)
     pb.set_message("Fetching native token balance...");
     
-    match get_eth_balance(&client, wallet_address.clone(), None).await {
+    match get_eth_balance(wallet_address.clone(), None).await {
         Ok(balance) => {
             println!("\n{}", format!("💰 {} Balance", chain_info.native_token).green().bold());
             println!("   Address: {}", balance.address);
@@ -98,7 +98,7 @@ pub async fn run_demo(config: Config, address: Option<String>, chain_id: u64) ->
         
         pb.set_message(format!("Fetching {} balance...", symbol));
         
-        match get_erc20_balance(&client, wallet_address.clone(), contract_address.clone(), Some(true)).await {
+        match get_erc20_balance(wallet_address.clone(), contract_address.clone(), Some(true)).await {
             Ok(balance) => {
                 println!("\n{}", format!("🪙 {} Balance", symbol).green().bold());
                 println!("   Balance: {} {}", balance.balance_formatted.bright_green(), 
@@ -124,7 +124,6 @@ pub async fn run_demo(config: Config, address: Option<String>, chain_id: u64) ->
         let usdc = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48";
         
         match get_uniswap_quote(
-            &client,
             weth.to_string(),
             usdc.to_string(),
             "1".to_string(),  // 1 WETH

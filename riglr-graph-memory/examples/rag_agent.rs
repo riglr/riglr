@@ -138,9 +138,9 @@ async fn build_transaction_knowledge_graph(memory: &mut GraphMemory) -> anyhow::
 
         let doc = RawTextDocument::with_metadata(content, metadata);
         
-        match memory.add_document(doc).await {
-            Ok(doc_id) => {
-                println!("  ✅ Added transaction {}: {}", idx + 1, doc_id);
+        match memory.add_documents(vec![doc]).await {
+            Ok(doc_ids) => {
+                println!("  ✅ Added transaction {}: {:?}", idx + 1, doc_ids);
             }
             Err(e) => {
                 println!("  ⚠️ Failed to add transaction {}: {}", idx + 1, e);
@@ -286,10 +286,10 @@ async fn simulate_rag_agent(memory: &GraphMemory) -> anyhow::Result<()> {
         };
         
         // Retrieve relevant context from graph memory
-        match memory.find_related_documents(search_term, Some(10)).await {
-            Ok(context_docs) => {
+        match memory.search(search_term, Some(10)).await {
+            Ok(search_results) => {
                 // Simulate RAG response generation
-                let response = generate_rag_response(query, &context_docs);
+                let response = generate_rag_response(query, &search_results.documents);
                 println!("Agent: {}\n", response);
             }
             Err(e) => {
@@ -399,12 +399,11 @@ async fn display_graph_stats(memory: &GraphMemory) {
             println!("  Total entities: {}", stats.entity_count);
             println!("  Total relationships: {}", stats.relationship_count);
             
-            if stats.node_counts.len() > 0 {
-                println!("  Node breakdown:");
-                for (node_type, count) in &stats.node_counts {
-                    println!("    - {}: {}", node_type, count);
-                }
-            }
+            println!("  Node breakdown:");
+            println!("    - Wallets: {}", stats.wallet_count);
+            println!("    - Tokens: {}", stats.token_count);
+            println!("    - Protocols: {}", stats.protocol_count);
+            println!("    - Transactions: {}", stats.transaction_count);
         }
         Err(e) => {
             println!("  ⚠️ Could not fetch statistics: {}", e);

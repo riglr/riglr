@@ -30,7 +30,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("{}", "-".repeat(50));
 
     for address in &addresses {
-        match get_sol_balance(&client, address.to_string()).await {
+        match get_sol_balance(address.to_string()).await {
             Ok(balance) => {
                 println!("Address: {}...", &address[..8]);
                 println!(

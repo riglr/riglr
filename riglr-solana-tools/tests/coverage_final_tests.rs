@@ -18,11 +18,9 @@ use solana_sdk::{
 /// Test to cover the client functionality
 #[tokio::test(flavor = "multi_thread")]
 async fn test_balance_with_client() {
-    // Test the new client-first pattern
-    let client = SolanaClient::devnet();
+    // Test the new API pattern
     
     let result = get_sol_balance(
-        &client,
         "11111111111111111111111111111111".to_string(),
     )
     .await;
@@ -130,9 +128,8 @@ async fn test_balance_get_balance_client_direct() {
         "22222222222222222222222222222222".to_string(),
     ];
 
-    let client = SolanaClient::devnet();
     for addr in addresses {
-        let result = get_sol_balance(&client, addr).await;
+        let result = get_sol_balance(addr).await;
         let _ = result; // Exercise the code path
     }
 }
@@ -140,9 +137,7 @@ async fn test_balance_get_balance_client_direct() {
 /// Test for token balance with default client (line 110 path)
 #[tokio::test(flavor = "multi_thread")]
 async fn test_spl_token_balance_default_client() {
-    let client = SolanaClient::devnet();
     let result = get_spl_token_balance(
-        &client,
         "11111111111111111111111111111111".to_string(),
         "So11111111111111111111111111111111111111112".to_string(),
     )

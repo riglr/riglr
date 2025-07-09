@@ -389,7 +389,7 @@ async fn test_complete_workflow_architecture() {
             
             // Test concurrent read operations
             let (result1, result2) = tokio::join!(
-                get_eth_balance(&client1, "0x0000000000000000000000000000000000000000".to_string(), None),
+                get_eth_balance("0x0000000000000000000000000000000000000000".to_string(), None),
                 client2.get_block_number()
             );
             
