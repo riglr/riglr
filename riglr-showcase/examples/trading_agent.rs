@@ -1,27 +1,6 @@
-/// Trading Agent Example
-/// 
-/// This example demonstrates how to create a sophisticated Solana trading agent using riglr with rig.
-/// The agent can check balances, perform Jupiter swaps, trade on Pump.fun, and conduct risk analysis.
-/// 
-/// Key Features:
-/// - Solana balance checking and token operations
-/// - Jupiter DEX integration for token swaps
-/// - Pump.fun integration for meme token trading
-/// - Risk analysis and position sizing
-/// - Proper SignerContext setup for secure operations
-/// 
-/// Usage:
-///   cargo run --example trading_agent
-/// 
-/// Architecture Notes:
-/// - Uses rig::agent::AgentBuilder to compose tools
-/// - Demonstrates proper SignerContext setup for blockchain operations
-/// - Shows error handling patterns for DeFi operations
-/// - Educational example showcasing riglr integration patterns
-
-use rig::agent::AgentBuilder;
 use riglr_core::signer::{SignerContext, LocalSolanaSigner};
-use riglr_solana_tools::{GetSolBalance, GetTokenBalance, TransferSol};
+// TODO: Re-enable when rig tools are updated
+// use riglr_solana_tools::{get_sol_balance, get_spl_token_balance};
 use anyhow::Result;
 use solana_sdk::signature::Keypair;
 use solana_sdk::signer::Signer;
@@ -30,7 +9,7 @@ use std::sync::Arc;
 #[tokio::main]
 async fn main() -> Result<()> {
     // Initialize logging
-    tracing_subscriber::init();
+    tracing_subscriber::fmt().init();
     
     println!("🚀 Starting Riglr Trading Agent Example");
     println!("========================================");
@@ -46,28 +25,29 @@ async fn main() -> Result<()> {
     ));
     
     // Build trading agent with comprehensive tool suite
-    let agent = AgentBuilder::new("gpt-4")
-        .preamble(
-            "You are a sophisticated Solana trading agent specialized in DeFi operations. \
-             You have access to balance checking, token swaps via Jupiter, and risk analysis capabilities. \
-             \n\nKey responsibilities:\
-             \n- Analyze token opportunities with risk assessment\
-             \n- Execute swaps with appropriate slippage protection\
-             \n- Maintain portfolio balance and risk management\
-             \n- Provide clear explanations of trading decisions\
-             \n\nAlways consider:\
-             \n- Market volatility and slippage\
-             \n- Portfolio diversification\
-             \n- Risk-reward ratios\
-             \n- Gas fees and transaction costs"
-        )
-        .tool(GetSolBalance)      // Check SOL balance
-        .tool(GetTokenBalance)    // Check SPL token balances  
-        .tool(TransferSol)        // SOL transfers
-        .build();
+    // TODO: Re-enable when rig provider API is updated
+    // let agent = AgentBuilder::new("gpt-4")
+    //     .preamble(
+    //         "You are a sophisticated Solana trading agent specialized in DeFi operations. \
+    //          You have access to balance checking, token swaps via Jupiter, and risk analysis capabilities. \
+    //          \n\nKey responsibilities:\
+    //          \n- Analyze token opportunities with risk assessment\
+    //          \n- Execute swaps with appropriate slippage protection\
+    //          \n- Maintain portfolio balance and risk management\
+    //          \n- Provide clear explanations of trading decisions\
+    //          \n\nAlways consider:\
+    //          \n- Market volatility and slippage\
+    //          \n- Portfolio diversification\
+    //          \n- Risk-reward ratios\
+    //          \n- Gas fees and transaction costs"
+    //     )
+    //     .tool(get_sol_balance)      // Check SOL balance
+    //     .tool(get_spl_token_balance)    // Check SPL token balances  
+    //     .max_tokens(3000)
+    //     .build();
     
     // Execute trading operations within signer context
-    let result = SignerContext::with_signer(signer.clone(), async {
+    SignerContext::with_signer(signer.clone(), async {
         println!("\n💬 Interacting with trading agent...");
         
         // Example trading conversation (simulated for demo)
@@ -84,10 +64,8 @@ async fn main() -> Result<()> {
         println!("\n🤖 Agent Follow-up:");
         println!("{}", follow_up);
         
-        Ok::<(), anyhow::Error>(())
+        Ok::<(), riglr_core::SignerError>(())
     }).await?;
-    
-    result?;
     
     println!("\n✅ Trading agent demo completed successfully!");
     println!("\n📚 Key Learning Points:");

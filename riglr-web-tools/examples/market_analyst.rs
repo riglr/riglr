@@ -1,14 +1,14 @@
 //! Example: Market Analyst Agent
 //!
-//! This example demonstrates how to combine riglr-web-tools with riglr-solana-tools
-//! to create a comprehensive market analysis agent that can gather data from multiple
-//! sources and provide actionable insights.
+//! This example demonstrates how to use riglr-web-tools to create a comprehensive 
+//! market analysis agent that can gather data from multiple sources and provide 
+//! actionable insights.
 
 use riglr_web_tools::{
-    analyze_crypto_sentiment, get_token_info, get_trending_tokens, search_tweets, search_web,
-    get_crypto_news, analyze_market_sentiment,
+    analyze_crypto_sentiment, get_token_info, get_trending_tokens, search_tweets,
+    analyze_market_sentiment,
 };
-use riglr_solana_tools::{get_jupiter_quote, get_sol_balance, get_token_balance};
+use riglr_web_tools::dexscreener::{SecurityInfo, ChainInfo};
 use std::env;
 
 /// Market analysis results combining multiple data sources
@@ -67,7 +67,7 @@ async fn perform_full_analysis(symbol: &str) -> anyhow::Result<MarketAnalysis> {
     println!("1️⃣ Fetching token information from DexScreener...");
     
     // Get token info from DexScreener
-    let token_info = match get_token_info(symbol.to_string(), None).await {
+    let token_info = match get_token_info(symbol.to_string(), None, None, None).await {
         Ok(info) => info,
         Err(e) => {
             println!("   ⚠️ Could not fetch from DexScreener: {}", e);
@@ -76,18 +76,38 @@ async fn perform_full_analysis(symbol: &str) -> anyhow::Result<MarketAnalysis> {
                 address: "mock".to_string(),
                 symbol: symbol.to_string(),
                 name: format!("{} Token", symbol),
-                price_usd: 100.0,
+                decimals: 9,
+                price_usd: Some(100.0),
                 market_cap: Some(1_000_000_000.0),
                 volume_24h: Some(50_000_000.0),
-                liquidity_usd: Some(10_000_000.0),
                 price_change_24h: Some(5.5),
-                holders: Some(100000),
-                chain: "solana".to_string(),
+                price_change_1h: Some(1.2),
+                price_change_5m: Some(0.3),
+                circulating_supply: Some(10_000_000.0),
+                total_supply: Some(21_000_000.0),
+                pair_count: 5,
+                pairs: vec![],
+                chain: ChainInfo {
+                    id: "solana".to_string(),
+                    name: "Solana".to_string(),
+                    logo: None,
+                    native_token: "SOL".to_string(),
+                },
+                security: SecurityInfo {
+                    is_verified: true,
+                    liquidity_locked: Some(true),
+                    audit_status: Some("Passed".to_string()),
+                    honeypot_status: Some("Safe".to_string()),
+                    ownership_status: Some("Renounced".to_string()),
+                    risk_score: Some(15),
+                },
+                socials: vec![],
+                updated_at: chrono::Utc::now(),
             }
         }
     };
 
-    println!("   ✅ Price: ${:.4}", token_info.price_usd);
+    println!("   ✅ Price: ${:.4}", token_info.price_usd.unwrap_or(0.0));
     println!("   ✅ Market Cap: ${:.0}", token_info.market_cap.unwrap_or(0.0));
 
     println!("\n2️⃣ Analyzing social sentiment on Twitter...");
@@ -127,8 +147,10 @@ async fn perform_full_analysis(symbol: &str) -> anyhow::Result<MarketAnalysis> {
     
     // Get news sentiment
     let news_sentiment = match analyze_market_sentiment(
-        Some(symbol.to_string()),
-        Some(48),  // Last 48 hours
+        Some("48h".to_string()),  // Time window
+        Some(vec![symbol.to_string()]),  // Asset filter
+        None,  // Source weights
+        None,  // Include social
     ).await {
         Ok(s) => s.overall_sentiment,
         Err(e) => {
@@ -139,31 +161,20 @@ async fn perform_full_analysis(symbol: &str) -> anyhow::Result<MarketAnalysis> {
 
     println!("   ✅ News Sentiment: {:.2}", news_sentiment);
 
-    println!("\n4️⃣ Checking DEX liquidity on Solana...");
+    println!("\n4️⃣ Checking DEX liquidity from token info...");
     
-    // Check Jupiter (Solana DEX) for liquidity
-    let jupiter_quote = if symbol == "SOL" || symbol.to_lowercase().contains("sol") {
-        match get_jupiter_quote(
-            "So11111111111111111111111111111111111112".to_string(), // SOL
-            "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v".to_string(), // USDC
-            1_000_000_000, // 1 SOL in lamports
-            Some(50),      // 0.5% slippage
-        ).await {
-            Ok(quote) => Some(quote),
-            Err(e) => {
-                println!("   ⚠️ Could not fetch Jupiter quote: {}", e);
-                None
-            }
+    // Use token info to estimate liquidity
+    let dex_liquidity = if let Some(volume) = token_info.volume_24h {
+        if volume > 1_000_000.0 {
+            0.8 // High liquidity
+        } else if volume > 100_000.0 {
+            0.6 // Medium liquidity
+        } else {
+            0.3 // Low liquidity
         }
     } else {
-        None
+        0.5 // Unknown
     };
-
-    let dex_liquidity = jupiter_quote
-        .as_ref()
-        .and_then(|q| q.price_impact_pct)
-        .map(|impact| (100.0 - impact.abs()) / 100.0) // Convert impact to liquidity score
-        .unwrap_or(0.5);
 
     println!("   ✅ DEX Liquidity Score: {:.2}", dex_liquidity);
 
@@ -171,11 +182,13 @@ async fn perform_full_analysis(symbol: &str) -> anyhow::Result<MarketAnalysis> {
     
     // Check if token is trending
     let trending_rank = match get_trending_tokens(
-        Some("solana".to_string()),
-        Some(100),
+        Some("1h".to_string()),  // Time window
+        Some("solana".to_string()),  // Chain filter
+        None,  // Min volume
+        Some(100),  // Limit
     ).await {
         Ok(trending) => {
-            trending.tokens
+            trending
                 .iter()
                 .position(|t| t.symbol.to_lowercase() == symbol.to_lowercase())
                 .map(|pos| (pos + 1) as u32)
@@ -206,7 +219,7 @@ async fn perform_full_analysis(symbol: &str) -> anyhow::Result<MarketAnalysis> {
 
     Ok(MarketAnalysis {
         token_symbol: symbol.to_string(),
-        price_usd: token_info.price_usd,
+        price_usd: token_info.price_usd.unwrap_or(0.0),
         market_cap: token_info.market_cap.unwrap_or(0.0),
         volume_24h: token_info.volume_24h.unwrap_or(0.0),
         social_sentiment: sentiment.overall_sentiment,
@@ -222,7 +235,9 @@ async fn perform_full_analysis(symbol: &str) -> anyhow::Result<MarketAnalysis> {
 async fn find_trending_opportunities() -> anyhow::Result<()> {
     // Get trending tokens from DexScreener
     let trending = match get_trending_tokens(
+        Some("1h".to_string()),  // Time window
         None,      // All chains
+        None,      // Min volume
         Some(10),  // Top 10
     ).await {
         Ok(t) => t,
@@ -232,9 +247,9 @@ async fn find_trending_opportunities() -> anyhow::Result<()> {
         }
     };
 
-    for (idx, token) in trending.tokens.iter().take(5).enumerate() {
-        println!("{}. {} ({})", idx + 1, token.symbol, token.chain);
-        println!("   Price: ${:.6}", token.price_usd);
+    for (idx, token) in trending.iter().take(5).enumerate() {
+        println!("{}. {} ({})", idx + 1, token.symbol, token.chain.id);
+        println!("   Price: ${:.6}", token.price_usd.unwrap_or(0.0));
         println!("   24h Change: {:.1}%", token.price_change_24h.unwrap_or(0.0));
         println!("   Volume: ${:.0}", token.volume_24h.unwrap_or(0.0));
         
@@ -313,16 +328,20 @@ async fn scan_arbitrage_opportunities() -> anyhow::Result<()> {
         if let Ok(eth_info) = get_token_info(
             address.to_string(),
             Some("ethereum".to_string()),
+            None,
+            None,
         ).await {
-            println!("  Ethereum: ${:.4}", eth_info.price_usd);
+            println!("  Ethereum: ${:.4}", eth_info.price_usd.unwrap_or(0.0));
         }
         
         // Get price on other chains (would need different addresses in reality)
         if let Ok(bsc_info) = get_token_info(
             address.to_string(),
             Some("bsc".to_string()),
+            None,
+            None,
         ).await {
-            println!("  BSC: ${:.4}", bsc_info.price_usd);
+            println!("  BSC: ${:.4}", bsc_info.price_usd.unwrap_or(0.0));
             
             // Calculate potential arbitrage
             // In reality, would need to account for gas fees, slippage, etc.
@@ -353,7 +372,7 @@ fn calculate_risk_score(
     // Higher volatility = higher risk
     let risk = 1.0 - (sentiment_score * 0.4 + liquidity * 0.4 - volatility_risk * 0.2);
     
-    (risk * 100.0).max(0.0).min(100.0)
+    (risk * 100.0).clamp(0.0, 100.0)
 }
 
 /// Generate trading recommendation based on analysis
