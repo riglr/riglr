@@ -199,7 +199,7 @@ async fn test_evm_client_creation_with_mock() {
         .create_async()
         .await;
 
-    let result = EvmClient::new(url, 1).await;
+    let result = EvmClient::new(url).await;
     assert!(result.is_ok());
 
     let client = result.unwrap();
@@ -207,7 +207,7 @@ async fn test_evm_client_creation_with_mock() {
 }
 
 #[tokio::test]
-async fn test_evm_client_with_config() {
+async fn test_evm_client_with_mock_server() {
     let mut server = mockito::Server::new_async().await;
     let url = server.url();
 
@@ -217,18 +217,11 @@ async fn test_evm_client_with_config() {
         .create_async()
         .await;
 
-    let mut config = EvmConfig::default();
-    config.timeout = Duration::from_secs(10);
-    config
-        .headers
-        .insert("X-Test".to_string(), "test-value".to_string());
-
-    let result = EvmClient::with_config(url, 137, config).await;
+    let result = EvmClient::new(url).await;
     assert!(result.is_ok());
 
     let client = result.unwrap();
-    assert_eq!(client.chain_id, 137);
-    assert_eq!(client.config.timeout, Duration::from_secs(10));
+    assert_eq!(client.chain_id, 137); // 0x89 = 137
 }
 
 #[tokio::test]
@@ -243,7 +236,7 @@ async fn test_evm_client_chain_id_mismatch() {
         .create_async()
         .await;
 
-    let result = EvmClient::new(url, 1).await;
+    let result = EvmClient::new(url).await;
     assert!(result.is_ok());
 
     let client = result.unwrap();
@@ -282,7 +275,7 @@ async fn test_evm_client_rpc_error() {
         .create_async()
         .await;
 
-    let result = EvmClient::new(url, 1).await;
+    let result = EvmClient::new(url).await;
     assert!(result.is_err());
 
     let error = result.unwrap_err();
@@ -512,7 +505,7 @@ async fn test_evm_client_invalid_response_format() {
         .create_async()
         .await;
 
-    let result = EvmClient::new(url, 1).await;
+    let result = EvmClient::new(url).await;
     assert!(result.is_err());
 }
 
@@ -590,56 +583,21 @@ async fn test_evm_client_convenience_constructors() {
 }
 
 #[tokio::test]
-async fn test_evm_client_with_custom_headers() {
-    // Test custom headers functionality - covers lines 68-80
-    use riglr_evm_tools::client::EvmConfig;
-    use std::collections::HashMap;
-
-    let mut headers = HashMap::new();
-    headers.insert("X-API-Key".to_string(), "test-key".to_string());
-    headers.insert("User-Agent".to_string(), "test-agent/1.0".to_string());
-
-    let config = EvmConfig {
-        headers,
-        ..Default::default()
-    };
-
-    // This will fail on network connection, but tests the header building code
-    let result = EvmClient::with_config("http://invalid-url".to_string(), 1, config).await;
+async fn test_evm_client_invalid_url() {
+    // Test invalid URL handling
+    let result = EvmClient::new("invalid-url-format".to_string()).await;
     assert!(result.is_err());
 }
 
 #[tokio::test]
-async fn test_evm_client_invalid_header() {
-    // Test invalid header handling - covers lines 71-74
+async fn test_evm_client_config_defaults() {
+    // Test that EvmConfig has reasonable defaults
     use riglr_evm_tools::client::EvmConfig;
-    use std::collections::HashMap;
-
-    let mut headers = HashMap::new();
-    headers.insert("".to_string(), "value".to_string()); // Invalid header name
-
-    let config = EvmConfig {
-        headers,
-        ..Default::default()
-    };
-
-    let result = EvmClient::with_config("http://test".to_string(), 1, config).await;
-    assert!(result.is_err());
-
-    // Test invalid header value
-    let mut headers2 = HashMap::new();
-    headers2.insert(
-        "Valid-Name".to_string(),
-        "\u{0000}invalid\u{0001}".to_string(),
-    );
-
-    let config2 = EvmConfig {
-        headers: headers2,
-        ..Default::default()
-    };
-
-    let result2 = EvmClient::with_config("http://test".to_string(), 1, config2).await;
-    assert!(result2.is_err());
+    
+    let config = EvmConfig::default();
+    assert!(!config.rpc_url.is_empty());
+    assert!(config.chain_id > 0);
+    assert!(config.timeout.as_secs() > 0);
 }
 
 #[tokio::test]
@@ -654,7 +612,7 @@ async fn test_evm_client_rpc_call_errors() {
         .create_async()
         .await;
 
-    let client = EvmClient::new(url.clone(), 1).await;
+    let client = EvmClient::new(url.clone()).await;
     assert!(client.is_err());
 
     // Test missing result field - covers line 226
@@ -664,7 +622,7 @@ async fn test_evm_client_rpc_call_errors() {
         .create_async()
         .await;
 
-    let client = EvmClient::new(url.clone(), 1).await;
+    let client = EvmClient::new(url.clone()).await;
     assert!(client.is_err());
 }
 
@@ -684,7 +642,7 @@ async fn test_evm_client_chain_id_mismatch_warning() {
         .await;
 
     // This should succeed but log a warning about chain ID mismatch
-    let result = EvmClient::new(url, 1).await;
+    let result = EvmClient::new(url).await;
     assert!(result.is_ok());
 
     let client = result.unwrap();

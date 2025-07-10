@@ -532,15 +532,14 @@ fn parse_swap_amount_from_logs(receipt: &alloy::rpc::types::TransactionReceipt) 
     // Look for Swap event logs to extract actual amount out
     // Uniswap V3 Swap event signature: Swap(address,address,int256,int256,uint160,uint128,int24)
     for log in receipt.logs() {
-        if !log.topics.is_empty() {
+        if !log.topics().is_empty() {
             // Check if this is a Swap event (simplified parsing)
             // In a production implementation, we would decode the log data properly
-            if let Some(data) = log.data.as_ref() {
-                if data.len() >= 32 {
-                    // For now, return None to use the minimum amount as fallback
-                    // A full implementation would decode the log data to extract amount1
-                    return None;
-                }
+            let data = log.data();
+            if data.data.len() >= 32 {
+                // For now, return None to use the minimum amount as fallback
+                // A full implementation would decode the log data to extract amount1
+                return None;
             }
         }
     }

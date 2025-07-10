@@ -3,12 +3,13 @@
 //! This module provides a client for the Hyperliquid protocol, which operates
 //! its own L1 blockchain for perpetual futures trading.
 
-use anyhow::Result;
 use reqwest::{Client, Response};
-use riglr_core::{ToolError, signer::TransactionSigner};
+use riglr_core::signer::TransactionSigner;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tracing::{debug, error, warn};
+
+use crate::error::{HyperliquidToolError, Result};
 
 /// Hyperliquid API client
 #[derive(Clone, Debug)]
@@ -20,35 +21,35 @@ pub struct HyperliquidClient {
 
 impl HyperliquidClient {
     /// Create a new Hyperliquid client
-    pub fn new(signer: Arc<dyn TransactionSigner>) -> Self {
+    pub fn new(signer: Arc<dyn TransactionSigner>) -> Result<Self> {
         let client = Client::builder()
             .timeout(std::time::Duration::from_secs(30))
             .build()
-            .expect("Failed to create HTTP client");
+            .map_err(|e| HyperliquidToolError::NetworkError(format!("Failed to create HTTP client: {}", e)))?;
 
-        Self {
+        Ok(Self {
             client,
             base_url: "https://api.hyperliquid.xyz".to_string(),
             signer,
-        }
+        })
     }
 
     /// Create a new Hyperliquid client with custom base URL (for testing)
-    pub fn with_base_url(signer: Arc<dyn TransactionSigner>, base_url: String) -> Self {
+    pub fn with_base_url(signer: Arc<dyn TransactionSigner>, base_url: String) -> Result<Self> {
         let client = Client::builder()
             .timeout(std::time::Duration::from_secs(30))
             .build()
-            .expect("Failed to create HTTP client");
+            .map_err(|e| HyperliquidToolError::NetworkError(format!("Failed to create HTTP client with custom URL: {}", e)))?;
 
-        Self {
+        Ok(Self {
             client,
             base_url,
             signer,
-        }
+        })
     }
 
     /// Make a GET request to the Hyperliquid API
-    pub async fn get(&self, endpoint: &str) -> Result<Response, ToolError> {
+    pub async fn get(&self, endpoint: &str) -> Result<Response> {
         let url = format!("{}/{}", self.base_url.trim_end_matches('/'), endpoint.trim_start_matches('/'));
         
         debug!("Making GET request to: {}", url);
@@ -62,28 +63,30 @@ impl HyperliquidClient {
                     let error_body = response.text().await.unwrap_or_default();
                     error!("GET request failed with status {}: {}", status, error_body);
                     
-                    if status.is_server_error() || status == 429 {
-                        Err(ToolError::retriable(format!("HTTP {} error: {}", status, error_body)))
+                    if status == 429 {
+                        Err(HyperliquidToolError::RateLimit(format!("Rate limit exceeded: {}", error_body)))
+                    } else if status.is_server_error() {
+                        Err(HyperliquidToolError::NetworkError(format!("Server error {}: {}", status, error_body)))
                     } else {
-                        Err(ToolError::permanent(format!("HTTP {} error: {}", status, error_body)))
+                        Err(HyperliquidToolError::ApiError(format!("API error {}: {}", status, error_body)))
                     }
                 }
             }
             Err(e) => {
                 error!("Network error during GET request: {}", e);
-                Err(ToolError::retriable(format!("Network error: {}", e)))
+                Err(HyperliquidToolError::NetworkError(format!("Network error during GET request: {}", e)))
             }
         }
     }
 
     /// Make a POST request to the Hyperliquid API
-    pub async fn post<T: Serialize>(&self, endpoint: &str, payload: &T) -> Result<Response, ToolError> {
+    pub async fn post<T: Serialize>(&self, endpoint: &str, payload: &T) -> Result<Response> {
         let url = format!("{}/{}", self.base_url.trim_end_matches('/'), endpoint.trim_start_matches('/'));
         
         debug!("Making POST request to: {}", url);
 
         let json_payload = serde_json::to_string(payload)
-            .map_err(|e| ToolError::permanent(format!("Failed to serialize payload: {}", e)))?;
+            .map_err(|e| HyperliquidToolError::ApiError(format!("Failed to serialize request payload: {}", e)))?;
 
         match self.client
             .post(&url)
@@ -100,58 +103,60 @@ impl HyperliquidClient {
                     let error_body = response.text().await.unwrap_or_default();
                     error!("POST request failed with status {}: {}", status, error_body);
                     
-                    if status.is_server_error() || status == 429 {
-                        Err(ToolError::retriable(format!("HTTP {} error: {}", status, error_body)))
+                    if status == 429 {
+                        Err(HyperliquidToolError::RateLimit(format!("Rate limit exceeded on POST: {}", error_body)))
+                    } else if status.is_server_error() {
+                        Err(HyperliquidToolError::NetworkError(format!("Server error {} on POST: {}", status, error_body)))
                     } else {
-                        Err(ToolError::permanent(format!("HTTP {} error: {}", status, error_body)))
+                        Err(HyperliquidToolError::ApiError(format!("API error {} on POST: {}", status, error_body)))
                     }
                 }
             }
             Err(e) => {
                 error!("Network error during POST request: {}", e);
-                Err(ToolError::retriable(format!("Network error: {}", e)))
+                Err(HyperliquidToolError::NetworkError(format!("Network error during POST request: {}", e)))
             }
         }
     }
 
     /// Get account information
-    pub async fn get_account_info(&self, user_address: &str) -> Result<AccountInfo, ToolError> {
+    pub async fn get_account_info(&self, user_address: &str) -> Result<AccountInfo> {
         let response = self.get(&format!("info?type=clearinghouseState&user={}", user_address)).await?;
         let text = response.text().await
-            .map_err(|e| ToolError::retriable(format!("Failed to read response: {}", e)))?;
+            .map_err(|e| HyperliquidToolError::NetworkError(format!("Failed to read account info response: {}", e)))?;
         
         let account_info: AccountInfo = serde_json::from_str(&text)
-            .map_err(|e| ToolError::permanent(format!("Failed to parse account info: {}", e)))?;
+            .map_err(|e| HyperliquidToolError::ApiError(format!("Failed to parse account info response: {}", e)))?;
         
         Ok(account_info)
     }
 
     /// Get current positions for a user
-    pub async fn get_positions(&self, user_address: &str) -> Result<Vec<Position>, ToolError> {
+    pub async fn get_positions(&self, user_address: &str) -> Result<Vec<Position>> {
         let response = self.get(&format!("info?type=clearinghouseState&user={}", user_address)).await?;
         let text = response.text().await
-            .map_err(|e| ToolError::retriable(format!("Failed to read response: {}", e)))?;
+            .map_err(|e| HyperliquidToolError::NetworkError(format!("Failed to read positions response: {}", e)))?;
         
         let state: ClearinghouseState = serde_json::from_str(&text)
-            .map_err(|e| ToolError::permanent(format!("Failed to parse clearinghouse state: {}", e)))?;
+            .map_err(|e| HyperliquidToolError::ApiError(format!("Failed to parse clearinghouse state: {}", e)))?;
         
         Ok(state.asset_positions.unwrap_or_default())
     }
 
     /// Get market information
-    pub async fn get_meta(&self) -> Result<Meta, ToolError> {
+    pub async fn get_meta(&self) -> Result<Meta> {
         let response = self.get("info?type=meta").await?;
         let text = response.text().await
-            .map_err(|e| ToolError::retriable(format!("Failed to read response: {}", e)))?;
+            .map_err(|e| HyperliquidToolError::NetworkError(format!("Failed to read meta response: {}", e)))?;
         
         let meta: Meta = serde_json::from_str(&text)
-            .map_err(|e| ToolError::permanent(format!("Failed to parse meta info: {}", e)))?;
+            .map_err(|e| HyperliquidToolError::ApiError(format!("Failed to parse market meta information: {}", e)))?;
         
         Ok(meta)
     }
 
     /// Place an order
-    pub async fn place_order(&self, order: &OrderRequest) -> Result<OrderResponse, ToolError> {
+    pub async fn place_order(&self, order: &OrderRequest) -> Result<OrderResponse> {
         // For now, we'll simulate order placement since actual order signing requires
         // Hyperliquid-specific cryptographic operations
         warn!("Order placement simulation - would place order: {:?}", order);
@@ -180,7 +185,7 @@ impl HyperliquidClient {
     }
 
     /// Cancel an order
-    pub async fn cancel_order(&self, order_id: u64, asset: u32) -> Result<CancelResponse, ToolError> {
+    pub async fn cancel_order(&self, order_id: u64, asset: u32) -> Result<CancelResponse> {
         warn!("Order cancellation simulation - would cancel order {} for asset {}", order_id, asset);
         
         Ok(CancelResponse {
@@ -192,9 +197,9 @@ impl HyperliquidClient {
     }
 
     /// Get the user's address from the signer
-    pub fn get_user_address(&self) -> Result<String, ToolError> {
+    pub fn get_user_address(&self) -> Result<String> {
         self.signer.address()
-            .ok_or_else(|| ToolError::permanent("No address available from signer".to_string()))
+            .ok_or_else(|| HyperliquidToolError::AuthError("No address available from signer".to_string()))
     }
 }
 

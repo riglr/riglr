@@ -60,7 +60,7 @@ pub async fn get_hyperliquid_positions() -> Result<Vec<HyperliquidPosition>, Too
         .map_err(|e| ToolError::permanent(format!("No signer context: {}", e)))?;
     
     // Create client
-    let client = HyperliquidClient::new(signer);
+    let client = HyperliquidClient::new(signer)?;
 
     // Get user address
     let user_address = client.get_user_address()?;

@@ -24,6 +24,9 @@ pub enum HyperliquidToolError {
     OrderError(String),
 }
 
+/// Result type alias for Hyperliquid tool operations.
+pub type Result<T> = std::result::Result<T, HyperliquidToolError>;
+
 impl From<HyperliquidToolError> for riglr_core::error::ToolError {
     fn from(err: HyperliquidToolError) -> Self {
         match err {
