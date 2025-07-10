@@ -49,8 +49,6 @@ impl From<SolanaToolError> for riglr_core::error::ToolError {
             SolanaToolError::Rpc(msg) => {
                 if msg.contains("429") || msg.contains("rate limit") || msg.contains("too many requests") {
                     riglr_core::error::ToolError::rate_limited(msg)
-                } else if msg.contains("timeout") || msg.contains("connection") || msg.contains("network") {
-                    riglr_core::error::ToolError::retriable(msg)
                 } else {
                     riglr_core::error::ToolError::retriable(msg)
                 }

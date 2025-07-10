@@ -94,7 +94,7 @@ pub struct SearchMetrics {
 
 impl GraphRetrieverConfig {
     /// Create default configuration
-    pub fn default() -> Self {
+    pub fn new_default() -> Self {
         Self {
             similarity_threshold: 0.7,
             max_graph_hops: 2,
@@ -130,7 +130,7 @@ impl GraphRetriever {
         client: Arc<Neo4jClient>,
         config: Option<GraphRetrieverConfig>,
     ) -> Result<Self> {
-        let config = config.unwrap_or_else(GraphRetrieverConfig::default);
+        let config = config.unwrap_or_else(GraphRetrieverConfig::new_default);
 
         let retriever = Self {
             client,

@@ -9,13 +9,13 @@ use std::sync::Arc;
 
 #[derive(Clone)]
 struct MockAgent {
-    name: String,
+    _name: String,
 }
 
 impl MockAgent {
     fn new(name: &str) -> Self {
         Self {
-            name: name.to_string(),
+            _name: name.to_string(),
         }
     }
 }

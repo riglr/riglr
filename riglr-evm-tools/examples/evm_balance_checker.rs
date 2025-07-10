@@ -4,7 +4,7 @@
 //! across different EVM-compatible chains.
 
 use riglr_evm_tools::{
-    get_eth_balance, get_erc20_balance, EvmClient, BalanceResult, TokenBalanceResult,
+    get_eth_balance, get_erc20_balance, BalanceResult, TokenBalanceResult,
 };
 use std::env;
 
@@ -56,14 +56,10 @@ async fn main() -> anyhow::Result<()> {
 }
 
 async fn check_eth_balance(address: &str, rpc_url: Option<String>) -> anyhow::Result<()> {
-    // Create client with the provided RPC URL or use mainnet
-    let client = if let Some(url) = rpc_url {
-        EvmClient::new(url).await?
-    } else {
-        EvmClient::mainnet().await?
-    };
+    // Note: The functions create their own clients internally based on the signer context
+    let _rpc_url = rpc_url; // Keeping for potential future use
     
-    match get_eth_balance(&client, address.to_string(), None).await {
+    match get_eth_balance(address.to_string(), None).await {
         Ok(balance) => {
             print_eth_balance(&balance);
         }
@@ -78,18 +74,13 @@ async fn check_erc20_balance(
     address: &str,
     token_address: &str,
     token_name: &str,
-    decimals: u8,
+    _decimals: u8,
     rpc_url: Option<String>,
 ) -> anyhow::Result<()> {
-    // Create client with the provided RPC URL or use mainnet
-    let client = if let Some(url) = rpc_url {
-        EvmClient::new(url).await?
-    } else {
-        EvmClient::mainnet().await?
-    };
+    // Note: The functions create their own clients internally based on the signer context
+    let _rpc_url = rpc_url; // Keeping for potential future use
     
     match get_erc20_balance(
-        &client,
         address.to_string(),
         token_address.to_string(),
         Some(true), // Fetch metadata
@@ -125,27 +116,4 @@ fn print_token_balance(balance: &TokenBalanceResult, token_name: &str) {
     println!("  💰 Balance: {}", balance.balance_formatted);
     println!("  🔢 Decimals: {}", balance.decimals);
     println!("  🌐 Chain: {} (ID: {})", balance.chain_name, balance.chain_id);
-}
-
-// Helper function to demonstrate balance monitoring
-async fn monitor_balance_changes(address: &str, interval_secs: u64) -> anyhow::Result<()> {
-    println!("📡 Monitoring balance changes for {}", address);
-    
-    // Create client once for monitoring
-    let client = EvmClient::mainnet().await?;
-    let mut last_balance: Option<String> = None;
-    
-    loop {
-        let balance = get_eth_balance(&client, address.to_string(), None).await?;
-        
-        if let Some(ref last) = last_balance {
-            if last != &balance.balance_formatted {
-                println!("🔄 Balance changed: {} -> {} ETH", last, balance.balance_formatted);
-            }
-        }
-        
-        last_balance = Some(balance.balance_formatted.clone());
-        
-        tokio::time::sleep(tokio::time::Duration::from_secs(interval_secs)).await;
-    }
 }

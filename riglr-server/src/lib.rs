@@ -57,7 +57,7 @@ mod tests {
 
     #[derive(Clone)]
     struct MockAgent {
-        name: String,
+        _name: String,
     }
 
     #[tokio::test]
@@ -78,19 +78,19 @@ mod tests {
     #[tokio::test]
     async fn test_server_creation() {
         let agent = MockAgent {
-            name: "Test Agent".to_string(),
+            _name: "Test Agent".to_string(),
         };
         
-        let server = AgentServer::new(agent, "127.0.0.1:8080".to_string());
+        let _server = AgentServer::new(agent, "127.0.0.1:8080".to_string());
         
         // Test that server was created successfully
-        assert!(true); // Server creation itself is the test
+        // Server creation itself validates the AgentServer::new function
     }
 
     #[tokio::test]
     async fn test_health_endpoint() {
         let agent = MockAgent {
-            name: "Test Agent".to_string(),
+            _name: "Test Agent".to_string(),
         };
 
         let app = test::init_service(
@@ -116,7 +116,7 @@ mod tests {
     #[tokio::test]
     async fn test_info_endpoint() {
         let agent = MockAgent {
-            name: "Test Agent".to_string(),
+            _name: "Test Agent".to_string(),
         };
 
         let app = test::init_service(

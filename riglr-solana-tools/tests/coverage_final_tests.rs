@@ -11,7 +11,6 @@ use solana_sdk::{
     message::Message,
     pubkey::Pubkey,
     signature::{Keypair, Signer},
-    system_instruction,
     transaction::Transaction,
 };
 
@@ -45,8 +44,8 @@ async fn test_client_lines_154_158_empty_token_accounts() {
 
     // For the mock implementation, this should return the mock value
     // but the important thing is exercising the empty accounts path
-    if let Ok(balance) = result {
-        assert!(balance >= 0);
+    if let Ok(_balance) = result {
+        // Balance is u64, so it's always >= 0
     } else {
         // Network error is also acceptable - the code path was exercised
     }
@@ -86,7 +85,7 @@ async fn test_client_lines_213_215_send_transaction_success() {
     let to_pubkey = Pubkey::new_unique();
     let lamports = 1000;
 
-    let instruction = system_instruction::transfer(&from_keypair.pubkey(), &to_pubkey, lamports);
+    let instruction = solana_sdk::system_instruction::transfer(&from_keypair.pubkey(), &to_pubkey, lamports);
 
     let message = Message::new(&[instruction], Some(&from_keypair.pubkey()));
 
@@ -155,6 +154,6 @@ fn test_static_initialization_balance() {
     // This test is kept for compatibility but doesn't do much now.
 
     // Just create a client to test the construction
-    use crate::SolanaClient;
+    use riglr_solana_tools::client::SolanaClient;
     let _client = SolanaClient::devnet();
 }

@@ -223,11 +223,7 @@ async fn test_authentication_combinations() {
     ];
 
     for (user, pass, should_be_valid) in auth_scenarios {
-        let has_complete_auth = match (user, pass) {
-            (Some(_), Some(_)) => true,
-            (None, None) => true,
-            _ => false,
-        };
+        let has_complete_auth = matches!((user, pass), (Some(_), Some(_)) | (None, None));
 
         assert_eq!(has_complete_auth, should_be_valid);
     }
@@ -485,7 +481,7 @@ fn test_query_response_structure_validation() {
         }]
     });
 
-    assert!(error_response["errors"].as_array().unwrap().len() > 0);
+    assert!(!error_response["errors"].as_array().unwrap().is_empty());
 }
 
 #[test]
@@ -616,7 +612,7 @@ fn test_http_status_codes() {
     for (code, should_be_success) in status_codes {
         // We can't easily test the actual HTTP status handling without a mock server,
         // but we can verify our understanding of success/failure codes
-        let is_success = code >= 200 && code < 300;
+        let is_success = (200..300).contains(&code);
         assert_eq!(is_success, should_be_success);
     }
 }
@@ -666,7 +662,7 @@ fn test_cypher_parameter_serialization() {
     let params = HashMap::from([
         ("string_param".to_string(), json!("test_value")),
         ("number_param".to_string(), json!(42)),
-        ("float_param".to_string(), json!(3.14)),
+        ("float_param".to_string(), json!(std::f64::consts::PI)),
         ("boolean_param".to_string(), json!(true)),
         ("array_param".to_string(), json!([1, 2, 3])),
         ("object_param".to_string(), json!({"key": "value"})),
@@ -744,7 +740,7 @@ fn test_client_timeout_configuration() {
     let timeouts = vec![5, 10, 30, 60, 120];
     for timeout_secs in timeouts {
         let timeout = std::time::Duration::from_secs(timeout_secs);
-        assert_eq!(timeout.as_secs(), timeout_secs as u64);
+        assert_eq!(timeout.as_secs(), timeout_secs);
         assert!(timeout.as_secs() > 0);
     }
 }

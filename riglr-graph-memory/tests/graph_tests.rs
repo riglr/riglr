@@ -27,7 +27,7 @@ fn test_graph_memory_config_custom() {
         username: Some("admin".to_string()),
         password: Some("secret".to_string()),
         database: Some("custom".to_string()),
-        retriever_config: GraphRetrieverConfig::default(),
+        retriever_config: GraphRetrieverConfig::new_default(),
         auto_extract_entities: false,
         auto_generate_embeddings: false,
         batch_size: 50,
@@ -178,7 +178,7 @@ fn test_config_with_no_auth() {
         username: None,
         password: None,
         database: None,
-        retriever_config: GraphRetrieverConfig::default(),
+        retriever_config: GraphRetrieverConfig::new_default(),
         auto_extract_entities: true,
         auto_generate_embeddings: true,
         batch_size: 100,
@@ -199,7 +199,7 @@ fn test_config_batch_sizes() {
             username: None,
             password: None,
             database: None,
-            retriever_config: GraphRetrieverConfig::default(),
+            retriever_config: GraphRetrieverConfig::new_default(),
             auto_extract_entities: true,
             auto_generate_embeddings: true,
             batch_size: size,
@@ -419,7 +419,7 @@ fn test_entity_extraction_flags() {
         username: None,
         password: None,
         database: None,
-        retriever_config: GraphRetrieverConfig::default(),
+        retriever_config: GraphRetrieverConfig::new_default(),
         auto_extract_entities: true,
         auto_generate_embeddings: true,
         batch_size: 100,
@@ -434,7 +434,7 @@ fn test_entity_extraction_flags() {
         username: None,
         password: None,
         database: None,
-        retriever_config: GraphRetrieverConfig::default(),
+        retriever_config: GraphRetrieverConfig::new_default(),
         auto_extract_entities: false,
         auto_generate_embeddings: false,
         batch_size: 100,
@@ -528,7 +528,7 @@ async fn test_graph_memory_new_with_custom_config() {
         username: Some("custom_user".to_string()),
         password: Some("custom_pass".to_string()),
         database: Some("custom_db".to_string()),
-        retriever_config: GraphRetrieverConfig::default(),
+        retriever_config: GraphRetrieverConfig::new_default(),
         auto_extract_entities: true,
         auto_generate_embeddings: false, // Test with embeddings disabled
         batch_size: 25,
@@ -561,6 +561,7 @@ fn test_document_batching_edge_cases() {
         if doc_count == 0 {
             assert!(chunks.is_empty());
         } else {
+            #[allow(clippy::manual_div_ceil)]
             let expected_chunks = (doc_count + batch_size - 1) / batch_size;
             assert_eq!(chunks.len(), expected_chunks);
         }
@@ -630,7 +631,7 @@ fn test_process_single_document_logic() {
         username: None,
         password: None,
         database: None,
-        retriever_config: GraphRetrieverConfig::default(),
+        retriever_config: GraphRetrieverConfig::new_default(),
         auto_extract_entities: true,
         auto_generate_embeddings: true,
         batch_size: 100,
@@ -641,7 +642,7 @@ fn test_process_single_document_logic() {
         username: None,
         password: None,
         database: None,
-        retriever_config: GraphRetrieverConfig::default(),
+        retriever_config: GraphRetrieverConfig::new_default(),
         auto_extract_entities: false,
         auto_generate_embeddings: false,
         batch_size: 100,
@@ -758,7 +759,7 @@ fn test_document_processing_metadata_updates() {
     let mut document = RawTextDocument::new("Test content mentioning Ethereum and Uniswap");
 
     // Simulate the metadata update process
-    let mut metadata = document.metadata.unwrap_or_else(DocumentMetadata::default);
+    let mut metadata = document.metadata.unwrap_or_default();
 
     // Simulate extracted entities
     let wallets = vec!["0x1234567890abcdef", "0xfedcba0987654321"];

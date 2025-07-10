@@ -409,19 +409,6 @@ fn calculate_price_impact(quote: &JupiterQuoteResponse) -> f64 {
     quote.price_impact_pct.unwrap_or(0.0)
 }
 
-fn default_slippage() -> u16 {
-    50 // 0.5%
-}
-
-/// Default USDC mint address
-fn default_usdc_mint() -> String {
-    "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v".to_string()
-}
-
-/// Default true value
-fn default_true() -> bool {
-    true
-}
 
 /// Jupiter quote response
 #[derive(Debug, Clone, Serialize, Deserialize)]

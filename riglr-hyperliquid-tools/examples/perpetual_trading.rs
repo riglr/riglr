@@ -37,7 +37,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     ));
 
     // Execute trading operations within signer context
-    let result = SignerContext::with_signer(signer, async {
+    SignerContext::with_signer(signer, async {
         // Example 1: Get account information
         info!("=== Getting Account Information ===");
         match get_hyperliquid_account_info().await {
@@ -168,7 +168,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 // Example of how to use with rig::agent::AgentBuilder
-#[cfg(feature = "rig-integration")]
+// Note: This example requires the rig crate to be added as a dependency
+// Commented out due to compilation issues - this is just for demonstration
+/*
+#[allow(dead_code)]
 mod rig_example {
     use super::*;
     use rig::agent::AgentBuilder;
@@ -192,3 +195,4 @@ mod rig_example {
         Ok(())
     }
 }
+*/

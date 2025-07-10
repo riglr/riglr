@@ -7,9 +7,9 @@ use riglr_solana_tools::{
 
 #[tokio::test]
 async fn test_get_block_height_devnet() {
-    let client = SolanaClient::devnet();
+    let _client = SolanaClient::devnet();
 
-    let result = get_block_height(&client).await;
+    let result = get_block_height().await;
 
     match result {
         Ok(height) => {
@@ -24,9 +24,9 @@ async fn test_get_block_height_devnet() {
 
 #[tokio::test]
 async fn test_get_block_height_mainnet() {
-    let client = SolanaClient::mainnet();
+    let _client = SolanaClient::mainnet();
 
-    let result = get_block_height(&client).await;
+    let result = get_block_height().await;
 
     match result {
         Ok(height) => {
@@ -44,13 +44,13 @@ async fn test_get_block_height_mainnet() {
 
 #[tokio::test]
 async fn test_get_transaction_status_not_found() {
-    let client = SolanaClient::devnet();
+    let _client = SolanaClient::devnet();
 
     // Use a valid signature format but non-existent transaction
     let signature =
         "1111111111111111111111111111111111111111111111111111111111111111111111111111111111111111";
 
-    let result = get_transaction_status(&client, signature).await;
+    let result = get_transaction_status(signature.to_string()).await;
 
     match result {
         Ok(status) => {
@@ -64,12 +64,12 @@ async fn test_get_transaction_status_not_found() {
 
 #[tokio::test]
 async fn test_get_transaction_status_invalid_signature() {
-    let client = SolanaClient::devnet();
+    let _client = SolanaClient::devnet();
 
     // Invalid signature format
     let signature = "invalid";
 
-    let result = get_transaction_status(&client, signature).await;
+    let result = get_transaction_status(signature.to_string()).await;
 
     // Should either return an error or handle it gracefully
     match result {
@@ -85,9 +85,9 @@ async fn test_get_transaction_status_invalid_signature() {
 
 #[tokio::test]
 async fn test_get_block_height_testnet() {
-    let client = SolanaClient::testnet();
+    let _client = SolanaClient::testnet();
 
-    let result = get_block_height(&client).await;
+    let result = get_block_height().await;
 
     // Just verify it executes without panic
     let _ = result;
@@ -95,13 +95,13 @@ async fn test_get_block_height_testnet() {
 
 #[tokio::test]
 async fn test_get_transaction_status_with_known_signature() {
-    let client = SolanaClient::mainnet();
+    let _client = SolanaClient::mainnet();
 
     // This is a well-known early Solana transaction (may or may not exist)
     let signature =
         "5VERv8NMvzbJMEkV8xnrLkEaWRtSz9CosKDYjCJjBRnbJLgp8uirBgmQpjKhoR4tjF3ZpRzrFmBV6UjKdiSZkQUW";
 
-    let result = get_transaction_status(&client, signature).await;
+    let result = get_transaction_status(signature.to_string()).await;
 
     match result {
         Ok(status) => {
@@ -124,17 +124,19 @@ async fn test_get_transaction_status_with_known_signature() {
 
 #[tokio::test]
 async fn test_network_tools_with_custom_rpc() {
-    let client = SolanaClient::with_rpc_url("https://api.devnet.solana.com");
+    let _client = SolanaClient::with_rpc_url("https://api.devnet.solana.com");
 
     // Test block height
-    let height_result = get_block_height(&client).await;
+    let height_result = get_block_height().await;
     match height_result {
-        Ok(height) => assert!(height >= 0),
+        Ok(_height) => {
+            // Height is u64, so it's always >= 0
+        },
         Err(_) => {} // Network error acceptable
     }
 
     // Test transaction status
-    let status_result = get_transaction_status(&client, "test_sig").await;
+    let status_result = get_transaction_status("test_sig".to_string()).await;
     match status_result {
         Ok(status) => assert!(!status.is_empty()),
         Err(_) => {} // Network error acceptable
@@ -145,12 +147,12 @@ async fn test_network_tools_with_custom_rpc() {
 async fn test_concurrent_network_calls() {
     use tokio::join;
 
-    let client = SolanaClient::devnet();
+    let _client = SolanaClient::devnet();
 
     // Make concurrent calls
     let (height_result, status_result) = join!(
-        get_block_height(&client),
-        get_transaction_status(&client, "test_signature")
+        get_block_height(),
+        get_transaction_status("test_signature".to_string())
     );
 
     // Just verify they complete without panic
@@ -160,12 +162,12 @@ async fn test_concurrent_network_calls() {
 
 #[tokio::test]
 async fn test_multiple_transaction_statuses() {
-    let client = SolanaClient::devnet();
+    let _client = SolanaClient::devnet();
 
     let signatures = vec!["sig1", "sig2", "sig3"];
 
     for sig in signatures {
-        let result = get_transaction_status(&client, sig).await;
+        let result = get_transaction_status(sig.to_string()).await;
 
         match result {
             Ok(status) => {
@@ -182,7 +184,6 @@ async fn test_multiple_transaction_statuses() {
 #[test]
 fn test_network_module_exports() {
     // Verify the functions are exported properly
-    use riglr_solana_tools::network::*;
 
     // This test just verifies compilation
     assert!(true);

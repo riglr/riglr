@@ -15,7 +15,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("=== Solana Balance Checker Example ===\n");
 
     // Create a client for devnet
-    let client = SolanaClient::devnet();
+    let _client = SolanaClient::devnet();
     println!("Connected to Solana Devnet\n");
 
     // Example addresses (replace with your own)
@@ -54,7 +54,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let owner_address = "11111111111111111111111111111111".to_string();
     let usdc_mint = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v".to_string(); // USDC mint
 
-    match get_spl_token_balance(&client, owner_address.clone(), usdc_mint.clone()).await {
+    match get_spl_token_balance(owner_address.clone(), usdc_mint.clone()).await {
         Ok(balance) => {
             println!("Owner: {}...", &owner_address[..8]);
             println!("Token: USDC");

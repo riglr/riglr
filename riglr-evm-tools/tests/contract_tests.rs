@@ -1,8 +1,7 @@
 //! Comprehensive tests for contract module
 
-use mockito;
 use riglr_evm_tools::client::EvmClient;
-use riglr_evm_tools::contract::{call_contract_read, call_contract_write};
+use riglr_evm_tools::{call_contract_read, call_contract_write};
 use serde_json::json;
 
 #[tokio::test]
@@ -17,12 +16,13 @@ async fn test_call_contract_read_placeholder() {
         .create_async()
         .await;
 
-    let client = EvmClient::new(url, 1).await.unwrap();
+    let client = EvmClient::new(url).await.unwrap();
     let result = call_contract_read(
         &client,
         "0x742d35Cc6634C0532925a3b8D8e41E5d3e4F8123",
         "balanceOf",
         vec!["0x0000000000000000000000000000000000000000".to_string()],
+        None,
     )
     .await;
 
@@ -42,7 +42,7 @@ async fn test_call_contract_write_placeholder() {
         .create_async()
         .await;
 
-    let client = EvmClient::new(url, 1).await.unwrap();
+    let client = EvmClient::new(url).await.unwrap();
     let result = call_contract_write(
         &client,
         "0x742d35Cc6634C0532925a3b8D8e41E5d3e4F8123",
@@ -51,6 +51,8 @@ async fn test_call_contract_write_placeholder() {
             "0x0000000000000000000000000000000000000001".to_string(),
             "1000000000000000000".to_string(),
         ],
+        None,
+        None,
     )
     .await;
 
@@ -69,7 +71,7 @@ async fn test_call_contract_read_various_functions() {
         .create_async()
         .await;
 
-    let client = EvmClient::new(url, 1).await.unwrap();
+    let client = EvmClient::new(url).await.unwrap();
 
     // Test various function names
     let functions = vec![
@@ -88,6 +90,7 @@ async fn test_call_contract_read_various_functions() {
             "0x742d35Cc6634C0532925a3b8D8e41E5d3e4F8123",
             func,
             vec![],
+            None,
         )
         .await;
         assert!(result.is_ok());
@@ -106,7 +109,7 @@ async fn test_call_contract_write_various_functions() {
         .create_async()
         .await;
 
-    let client = EvmClient::new(url, 1).await.unwrap();
+    let client = EvmClient::new(url).await.unwrap();
 
     // Test various function names
     let functions = vec![
@@ -126,6 +129,8 @@ async fn test_call_contract_write_various_functions() {
             "0x742d35Cc6634C0532925a3b8D8e41E5d3e4F8123",
             func,
             params,
+            None,
+            None,
         )
         .await;
         assert!(result.is_ok());
@@ -144,12 +149,13 @@ async fn test_call_contract_read_empty_params() {
         .create_async()
         .await;
 
-    let client = EvmClient::new(url, 1).await.unwrap();
+    let client = EvmClient::new(url).await.unwrap();
     let result = call_contract_read(
         &client,
         "0x742d35Cc6634C0532925a3b8D8e41E5d3e4F8123",
         "totalSupply",
         vec![],
+        None,
     )
     .await;
 
@@ -168,12 +174,14 @@ async fn test_call_contract_write_empty_params() {
         .create_async()
         .await;
 
-    let client = EvmClient::new(url, 1).await.unwrap();
+    let client = EvmClient::new(url).await.unwrap();
     let result = call_contract_write(
         &client,
         "0x742d35Cc6634C0532925a3b8D8e41E5d3e4F8123",
         "pause",
         vec![],
+        None,
+        None,
     )
     .await;
 
@@ -192,7 +200,7 @@ async fn test_call_contract_read_many_params() {
         .create_async()
         .await;
 
-    let client = EvmClient::new(url, 1).await.unwrap();
+    let client = EvmClient::new(url).await.unwrap();
 
     // Test with many parameters
     let params: Vec<String> = (0..10).map(|i| format!("param_{}", i)).collect();
@@ -201,6 +209,7 @@ async fn test_call_contract_read_many_params() {
         "0x742d35Cc6634C0532925a3b8D8e41E5d3e4F8123",
         "complexFunction",
         params,
+        None,
     )
     .await;
 
@@ -219,7 +228,7 @@ async fn test_call_contract_with_different_addresses() {
         .create_async()
         .await;
 
-    let client = EvmClient::new(url, 1).await.unwrap();
+    let client = EvmClient::new(url).await.unwrap();
 
     let addresses = vec![
         "0x0000000000000000000000000000000000000000",
@@ -229,19 +238,16 @@ async fn test_call_contract_with_different_addresses() {
     ];
 
     for addr in addresses {
-        let read_result = call_contract_read(&client, addr, "test", vec![]).await;
+        let read_result = call_contract_read(&client, addr, "test", vec![], None).await;
         assert!(read_result.is_ok());
 
-        let write_result = call_contract_write(&client, addr, "test", vec![]).await;
+        let write_result = call_contract_write(&client, addr, "test", vec![], None, None).await;
         assert!(write_result.is_ok());
     }
 }
 
 #[tokio::test]
-async fn test_contract_functions_with_custom_config() {
-    use riglr_evm_tools::client::EvmConfig;
-    use std::time::Duration;
-
+async fn test_contract_functions_with_client() {
     let mut server = mockito::Server::new_async().await;
     let url = server.url();
 
@@ -251,19 +257,12 @@ async fn test_contract_functions_with_custom_config() {
         .create_async()
         .await;
 
-    let config = EvmConfig {
-        timeout: Duration::from_secs(5),
-        max_retries: 2,
-        retry_delay: Duration::from_millis(500),
-        headers: Default::default(),
-    };
+    let client = EvmClient::new(url).await.unwrap();
 
-    let client = EvmClient::with_config(url, 1, config).await.unwrap();
-
-    // Both functions should work with custom config client
-    let read_result = call_contract_read(&client, "0x123", "test", vec![]).await;
+    // Both functions should work with client
+    let read_result = call_contract_read(&client, "0x123", "test", vec![], None).await;
     assert!(read_result.is_ok());
 
-    let write_result = call_contract_write(&client, "0x456", "test", vec![]).await;
+    let write_result = call_contract_write(&client, "0x456", "test", vec![], None, None).await;
     assert!(write_result.is_ok());
 }

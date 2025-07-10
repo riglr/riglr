@@ -30,6 +30,7 @@ struct QueryRequest {
     parameters: Option<HashMap<String, Value>>,
 }
 
+#[allow(dead_code)]
 /// Neo4j query response structure
 #[derive(Debug, Deserialize)]
 struct QueryResponse {
@@ -37,6 +38,7 @@ struct QueryResponse {
     errors: Vec<QueryError>,
 }
 
+#[allow(dead_code)]
 /// Individual query result
 #[derive(Debug, Deserialize)]
 struct QueryResult {
@@ -44,6 +46,7 @@ struct QueryResult {
     data: Vec<QueryRow>,
 }
 
+#[allow(dead_code)]
 /// Query result row
 #[derive(Debug, Deserialize)]
 struct QueryRow {
@@ -51,6 +54,7 @@ struct QueryRow {
     meta: Option<Value>,
 }
 
+#[allow(dead_code)]
 /// Query error structure
 #[derive(Debug, Deserialize)]
 struct QueryError {

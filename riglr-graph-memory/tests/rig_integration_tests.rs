@@ -16,17 +16,17 @@ mod tests {
 
     /// Generate a mock embedding for testing
     fn mock_embedding() -> Vec<f32> {
-        (0..384).map(|i| (i as f32 / 384.0)).collect()
+        (0..384).map(|i| i as f32 / 384.0).collect()
     }
 
     #[tokio::test]
     async fn test_graph_vector_store_creation() {
         let client = create_mock_client();
-        let vector_store = GraphVectorStore::new(client, "test_index".to_string());
+        let _vector_store = GraphVectorStore::new(client, "test_index".to_string());
         
         // Just ensure the store can be created without panicking
         // Note: index_name is private, but we can test that construction succeeds
-        assert!(true); // Successfully created
+        // Vector store created successfully
     }
 
     #[tokio::test]
@@ -49,7 +49,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_document_conversion() {
-        use riglr_graph_memory::document::{RawTextDocument, DocumentSource, DocumentMetadata};
+        use riglr_graph_memory::document::{RawTextDocument, DocumentMetadata, DocumentSource};
         
         // Test RigDocument -> RawTextDocument conversion
         let mut rig_metadata = HashMap::new();
@@ -74,9 +74,11 @@ mod tests {
         }
 
         // Test RawTextDocument -> RigDocument conversion
-        let mut doc_metadata = DocumentMetadata::default();
-        doc_metadata.title = Some("Another Test".to_string());
-        doc_metadata.tags = vec!["defi".to_string(), "nft".to_string()];
+        let doc_metadata = DocumentMetadata {
+            title: Some("Another Test".to_string()),
+            tags: vec!["defi".to_string(), "nft".to_string()],
+            ..Default::default()
+        };
         
         let raw_doc2 = RawTextDocument {
             id: "raw_456".to_string(),

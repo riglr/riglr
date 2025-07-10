@@ -232,9 +232,11 @@ impl RawTextDocument {
             transaction_hash: tx_hash.clone(),
         };
 
-        let mut metadata = DocumentMetadata::default();
-        metadata.chain = Some(chain);
-        metadata.transaction_hash = Some(tx_hash);
+        let metadata = DocumentMetadata {
+            chain: Some(chain),
+            transaction_hash: Some(tx_hash),
+            ..Default::default()
+        };
 
         Self {
             id: Uuid::new_v4().to_string(),

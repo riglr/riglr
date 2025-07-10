@@ -319,7 +319,7 @@ pub async fn get_token_info(
     token_address: String,
     chain_id: Option<String>,
     include_pairs: Option<bool>,
-    include_security: Option<bool>,
+    _include_security: Option<bool>,
 ) -> crate::error::Result<TokenInfo> {
     debug!(
         "Fetching token info for address: {} on chain: {:?}",
@@ -489,7 +489,7 @@ pub async fn get_trending_tokens(
 pub async fn analyze_token_market(
     token_address: String,
     chain_id: Option<String>,
-    include_technical: Option<bool>,
+    _include_technical: Option<bool>,
     include_risk: Option<bool>,
 ) -> crate::error::Result<MarketAnalysis> {
     debug!("Performing market analysis for token: {}", token_address);
@@ -607,7 +607,7 @@ pub async fn get_top_pairs(
 }
 
 async fn parse_token_response(
-    response: &str,
+    _response: &str,
     token_address: &str,
     chain: &str,
 ) -> crate::error::Result<TokenInfo> {
@@ -698,18 +698,18 @@ async fn parse_token_response(
 }
 
 /// Parse search results from DexScreener API
-async fn parse_search_results(response: &str) -> crate::error::Result<Vec<TokenInfo>> {
+async fn parse_search_results(_response: &str) -> crate::error::Result<Vec<TokenInfo>> {
     // In production, would parse actual JSON response
     Ok(vec![])
 }
 
-async fn parse_trending_response(response: &str) -> crate::error::Result<Vec<TokenInfo>> {
+async fn parse_trending_response(_response: &str) -> crate::error::Result<Vec<TokenInfo>> {
     // In production, would parse actual JSON response
     Ok(vec![])
 }
 
 /// Parse trading pairs response
-async fn parse_pairs_response(response: &str) -> crate::error::Result<Vec<TokenPair>> {
+async fn parse_pairs_response(_response: &str) -> crate::error::Result<Vec<TokenPair>> {
     // In production, would parse actual JSON response
     Ok(vec![])
 }
@@ -727,7 +727,7 @@ async fn analyze_price_trends(token: &TokenInfo) -> crate::error::Result<TrendAn
     }
     .to_string();
 
-    let strength = ((price_change_24h.abs() / 10.0).min(10.0).max(1.0)) as u32;
+    let strength = ((price_change_24h.abs() / 10.0).clamp(1.0, 10.0)) as u32;
 
     Ok(TrendAnalysis {
         direction,
