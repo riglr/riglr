@@ -32,8 +32,6 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 mod tests {
     #[test]
     fn test_version() {
-        #[allow(clippy::const_is_empty)]
-        assert!(!super::VERSION.is_empty());
         assert_eq!(super::VERSION, "0.1.0");
     }
 }

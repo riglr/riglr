@@ -274,8 +274,7 @@ mod tests {
             ExecutionConfig::default()
         );
         
-        // Verify worker was created successfully
-        assert!(true); // Worker creation itself is the test
+        // Verify worker was created successfully - creation itself is the test
     }
 
     #[tokio::test]

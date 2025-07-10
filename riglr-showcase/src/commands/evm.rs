@@ -37,7 +37,7 @@ pub async fn run_demo(config: Config, address: Option<String>, chain_id: u64) ->
     };
 
     // Create EVM client
-    let client = match chain_id {
+    let _client = match chain_id {
         1 => EvmClient::mainnet().await?,
         137 => EvmClient::new("https://polygon-rpc.com".to_string()).await?,
         42161 => EvmClient::new("https://arb1.arbitrum.io/rpc".to_string()).await?,
@@ -88,13 +88,11 @@ pub async fn run_demo(config: Config, address: Option<String>, chain_id: u64) ->
     
     // Check first two tokens
     let token_limit = 2;
-    let mut token_count = 0;
     
-    for (symbol, contract_address) in popular_tokens.iter() {
+    for (token_count, (symbol, contract_address)) in popular_tokens.iter().enumerate() {
         if token_count >= token_limit {
             break;
         }
-        token_count += 1;
         
         pb.set_message(format!("Fetching {} balance...", symbol));
         

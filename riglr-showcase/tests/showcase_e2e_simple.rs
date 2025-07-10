@@ -48,9 +48,9 @@ fn test_all_crates_accessible() {
     use riglr_graph_memory as _;
     
     // Optional crates would need feature flags
-    #[cfg(feature = "hyperliquid")]
+    #[cfg(feature = "riglr-hyperliquid-tools")]
     use riglr_hyperliquid_tools as _;
     
-    #[cfg(feature = "cross-chain")]
+    #[cfg(feature = "riglr-cross-chain-tools")]
     use riglr_cross_chain_tools as _;
 }

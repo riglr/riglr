@@ -3,7 +3,6 @@
 //! These tests validate the complete workflow from agent setup through tool execution.
 
 use riglr_core::signer::{SignerContext, LocalSolanaSigner};
-use riglr_core::error::ToolError;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::time::timeout;
@@ -88,14 +87,15 @@ async fn test_tool_error_classification() {
     assert!(matches!(rate_limited_err, ToolError::RateLimited { .. }));
 }
 
-#[cfg(feature = "cross-chain")]
+#[cfg(feature = "riglr-cross-chain-tools")]
 #[tokio::test]
 async fn test_cross_chain_workflow() {
-    #[cfg(feature = "cross-chain")]
+    #[cfg(feature = "riglr-cross-chain-tools")]
     use riglr_cross_chain_tools::error::CrossChainToolError;
+    #[cfg(feature = "riglr-cross-chain-tools")]
     use riglr_core::error::ToolError;
     
-    #[cfg(feature = "cross-chain")]
+    #[cfg(feature = "riglr-cross-chain-tools")]
     {
         // Test error conversion from cross-chain tools
         let bridge_error = CrossChainToolError::BridgeError("Bridge unavailable".to_string());
@@ -117,8 +117,10 @@ async fn test_cross_chain_workflow() {
 }
 
 /// Helper for managing test keys safely
+#[allow(dead_code)]
 struct TestKeyManager;
 
+#[allow(dead_code)]
 impl TestKeyManager {
     fn get_test_keys() -> std::collections::HashMap<String, String> {
         // Use deterministic test keys that don't hold real funds
@@ -149,9 +151,10 @@ mod integration_tests {
     
         SignerContext::with_signer(signer.clone(), async move {
             // 2. Error handling works across crates
-            #[cfg(feature = "hyperliquid")]
+            #[cfg(feature = "riglr-hyperliquid-tools")]
             {
                 use riglr_hyperliquid_tools::error::HyperliquidToolError;
+                use riglr_core::error::ToolError;
                 let hl_error = HyperliquidToolError::RateLimit("Too many requests".to_string());
                 let tool_error: ToolError = hl_error.into();
                 assert!(matches!(tool_error, ToolError::RateLimited { .. }));
@@ -162,9 +165,9 @@ mod integration_tests {
             use riglr_solana_tools as _;
             use riglr_evm_tools as _;
             use riglr_web_tools as _;
-            #[cfg(feature = "hyperliquid")]
+            #[cfg(feature = "riglr-hyperliquid-tools")]
             use riglr_hyperliquid_tools as _;
-            #[cfg(feature = "cross-chain")]
+            #[cfg(feature = "riglr-cross-chain-tools")]
             use riglr_cross_chain_tools as _;
             
             // Test passes if everything compiles and basic operations work

@@ -309,7 +309,7 @@ fn test_token_ui_amount_calculation() {
     ];
 
     for (raw_amount, decimals, expected_ui) in test_cases {
-        let ui_amount = raw_amount as f64 / 10_f64.powi(decimals as i32);
+        let ui_amount = raw_amount as f64 / 10_f64.powi(decimals);
         assert!((ui_amount - expected_ui).abs() < 0.000001);
     }
 }
@@ -329,7 +329,7 @@ fn test_balance_result_error_formatting() {
 
 #[test]
 fn test_multiple_balance_results() {
-    let results = vec![
+    let results = [
         BalanceResult {
             address: "addr1".to_string(),
             lamports: 1_000_000_000,

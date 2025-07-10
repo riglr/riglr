@@ -355,7 +355,6 @@ async fn test_parallel_resource_cleanup() {
     let _final_client = EvmClient::mainnet().await;
     
     // Test passes if we reach here without memory leaks or panics
-    assert!(true);
 }
 
 /// Test error isolation between concurrent operations

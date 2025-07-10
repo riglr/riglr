@@ -8,7 +8,6 @@ fn test_http_error() {
     // We can't directly create reqwest errors in tests,
     // so we'll skip this test for now
     // The HTTP error variant is tested through integration tests
-    assert!(true);
 }
 
 #[test]

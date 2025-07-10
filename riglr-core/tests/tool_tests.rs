@@ -304,8 +304,10 @@ async fn test_tool_worker_process_job_failure() {
 
 #[tokio::test]
 async fn test_tool_worker_process_job_with_retries() {
-    let mut config = ExecutionConfig::default();
-    config.initial_retry_delay = Duration::from_millis(10);
+    let config = ExecutionConfig {
+        initial_retry_delay: Duration::from_millis(10),
+        ..Default::default()
+    };
 
     let worker = ToolWorker::<InMemoryIdempotencyStore>::new(config);
 
@@ -332,9 +334,11 @@ async fn test_tool_worker_process_job_timeout() {
         return;
     }
 
-    let mut config = ExecutionConfig::default();
-    config.default_timeout = Duration::from_millis(100);
-    config.initial_retry_delay = Duration::from_millis(10);
+    let config = ExecutionConfig {
+        default_timeout: Duration::from_millis(100),
+        initial_retry_delay: Duration::from_millis(10),
+        ..Default::default()
+    };
 
     let worker = ToolWorker::<InMemoryIdempotencyStore>::new(config);
 
@@ -399,8 +403,10 @@ async fn test_tool_worker_idempotency() {
 
 #[tokio::test]
 async fn test_tool_worker_idempotency_disabled() {
-    let mut config = ExecutionConfig::default();
-    config.enable_idempotency = false;
+    let config = ExecutionConfig {
+        enable_idempotency: false,
+        ..Default::default()
+    };
 
     let store = Arc::new(InMemoryIdempotencyStore::new());
     let worker = ToolWorker::new(config).with_idempotency_store(store);
@@ -556,8 +562,10 @@ async fn test_tool_worker_run_with_queue() {
 
 #[tokio::test]
 async fn test_tool_worker_concurrent_processing() {
-    let mut config = ExecutionConfig::default();
-    config.max_concurrency = 2; // Limit concurrency
+    let config = ExecutionConfig {
+        max_concurrency: 2, // Limit concurrency
+        ..Default::default()
+    };
 
     let worker = ToolWorker::<InMemoryIdempotencyStore>::new(config);
 
@@ -824,9 +832,11 @@ async fn test_tool_worker_idempotency_set_error() {
 #[tokio::test]
 async fn test_tool_worker_backoff_exhausted() {
     // Test when all retries are exhausted and backoff returns None
-    let mut config = ExecutionConfig::default();
-    config.initial_retry_delay = Duration::from_millis(1);
-    config.max_retry_delay = Duration::from_millis(2);
+    let config = ExecutionConfig {
+        initial_retry_delay: Duration::from_millis(1),
+        max_retry_delay: Duration::from_millis(2),
+        ..Default::default()
+    };
 
     let worker = ToolWorker::<InMemoryIdempotencyStore>::new(config);
 
@@ -855,8 +865,10 @@ async fn test_tool_worker_unknown_error_fallback() {
     // This is tricky to test directly since it requires a specific error condition
     // where attempts > max_retries but last_error is None
     // This test focuses on getting that code path
-    let mut config = ExecutionConfig::default();
-    config.initial_retry_delay = Duration::from_millis(1);
+    let config = ExecutionConfig {
+        initial_retry_delay: Duration::from_millis(1),
+        ..Default::default()
+    };
 
     let worker = ToolWorker::<InMemoryIdempotencyStore>::new(config);
 

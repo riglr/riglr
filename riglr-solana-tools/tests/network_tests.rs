@@ -128,18 +128,14 @@ async fn test_network_tools_with_custom_rpc() {
 
     // Test block height
     let height_result = get_block_height().await;
-    match height_result {
-        Ok(_height) => {
-            // Height is u64, so it's always >= 0
-        },
-        Err(_) => {} // Network error acceptable
+    if let Ok(_height) = height_result {
+        // Height is u64, so it's always >= 0
     }
 
     // Test transaction status
     let status_result = get_transaction_status("test_sig".to_string()).await;
-    match status_result {
-        Ok(status) => assert!(!status.is_empty()),
-        Err(_) => {} // Network error acceptable
+    if let Ok(status) = status_result {
+        assert!(!status.is_empty())
     }
 }
 
@@ -186,5 +182,4 @@ fn test_network_module_exports() {
     // Verify the functions are exported properly
 
     // This test just verifies compilation
-    assert!(true);
 }

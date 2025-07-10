@@ -147,7 +147,7 @@ async fn test_redis_queue_concurrent_operations() {
     for i in 0..10 {
         let queue_clone = Arc::clone(&queue);
         let handle = tokio::spawn(async move {
-            let job = Job::new(&format!("tool_{}", i), &serde_json::json!({"id": i}), 0).unwrap();
+            let job = Job::new(format!("tool_{}", i), &serde_json::json!({"id": i}), 0).unwrap();
             queue_clone.enqueue(job).await.unwrap();
         });
         handles.push(handle);
@@ -160,7 +160,7 @@ async fn test_redis_queue_concurrent_operations() {
 
     // Dequeue all jobs
     let mut count = 0;
-    while let Some(_) = queue.dequeue().await.unwrap() {
+    while queue.dequeue().await.unwrap().is_some() {
         count += 1;
     }
 

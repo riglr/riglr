@@ -16,6 +16,7 @@ pub struct DistillationProcessor {
     model: String,
     max_tokens: Option<u32>,
     temperature: Option<f32>,
+    #[allow(dead_code)]
     system_prompt: String,
 }
 

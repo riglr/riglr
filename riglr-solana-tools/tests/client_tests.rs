@@ -397,8 +397,8 @@ async fn test_is_connected() {
     let connected = client.is_connected().await;
 
     // Should return true for mainnet (if network is accessible)
-    // or false if network is not accessible
-    assert!(connected || !connected); // Always passes but exercises the code
+    // or false if network is not accessible - just test that function executes
+    let _ = connected;
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -605,7 +605,7 @@ async fn test_client_network_methods() {
     for client in clients {
         // Test is_connected
         let connected = client.is_connected().await;
-        assert!(connected || !connected); // Always true, just testing execution
+        let _ = connected; // Just testing execution
 
         // Test get_cluster_info
         let _ = client.get_cluster_info().await;

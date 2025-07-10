@@ -344,16 +344,14 @@ mod redis_idempotency_tests {
     async fn test_redis_idempotency_store_creation() {
         // Test basic construction
         let result = RedisIdempotencyStore::new("redis://127.0.0.1:6379", None);
-        match result {
-            Ok(_) => {}  // Success
-            Err(_) => {} // Expected when Redis is not available
+        if result.is_ok() {
+            // Success
         }
 
         // Test with custom prefix
         let result = RedisIdempotencyStore::new("redis://127.0.0.1:6379", Some("custom:prefix:"));
-        match result {
-            Ok(_) => {}  // Success
-            Err(_) => {} // Expected when Redis is not available
+        if result.is_ok() {
+            // Success
         }
     }
 

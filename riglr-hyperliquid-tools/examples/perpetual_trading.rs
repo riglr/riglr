@@ -14,10 +14,7 @@ use riglr_hyperliquid_tools::{
     get_hyperliquid_portfolio_risk,
 };
 use std::sync::Arc;
-use tokio;
 use tracing::{info, Level};
-use tracing_subscriber;
-use solana_sdk;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {

@@ -14,8 +14,7 @@
 use anyhow::Result;
 use rig::agent::AgentBuilder;
 use serde_json::json;
-use tokio;
-use tracing::{info, warn};
+use tracing::warn;
 
 /// Demo: Multi-Step Portfolio Analysis Through Reasoning
 /// 
