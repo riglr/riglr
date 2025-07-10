@@ -4,13 +4,11 @@
 //! enabling token swaps with optimal routing across multiple pools.
 
 use crate::{
-    client::{eth_to_wei, validate_address, wei_to_eth, EvmClient},
+    client::{validate_address, EvmClient},
     error::EvmToolError,
-    transaction::TransactionResult,
 };
 use alloy::{
-    network::EthereumWallet,
-    primitives::{Address, Bytes, U256, aliases::{U24, U160}},
+    primitives::{Address, U256, aliases::{U24, U160}},
     providers::Provider,
     rpc::types::TransactionRequest,
     sol,
@@ -20,7 +18,7 @@ use riglr_macros::tool;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::time::{SystemTime, UNIX_EPOCH};
-use tracing::{debug, info, warn};
+use tracing::{debug, info};
 
 // Define Uniswap V3 interfaces
 sol! {
@@ -263,7 +261,7 @@ pub async fn get_uniswap_quote(
         .map_err(|e| EvmToolError::Generic(format!("Invalid amount: {}", e)))?;
 
     // Default fee tier to 0.3% (3000)
-    let fee = fee_tier.unwrap_or(3000) as u32;
+    let fee = fee_tier.unwrap_or(3000);
 
     // Get quote from Quoter contract
     let quoter_addr = validate_address(&config.quoter_address)

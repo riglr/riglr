@@ -61,7 +61,7 @@ pub async fn run_demo(_config: Config, init: bool, query: Option<String>) -> Res
         
         if graph_memory.is_some() {
             pb.set_message("Adding sample data to graph...");
-            for (_i, data) in sample_data.iter().enumerate() {
+            for data in sample_data.iter() {
                 let _doc = RawTextDocument::new(data.clone());
                 // Note: In simulation mode, we just show what would be added
                 println!("   ✅ Would add: {}", truncate_text(data, 80));
@@ -106,11 +106,11 @@ pub async fn run_demo(_config: Config, init: bool, query: Option<String>) -> Res
     } else {
         // Show simulated entity extraction
         println!("\n   Simulated Entity Extraction:");
-        println!("   • {} ({})", "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045".bright_cyan(), "Wallet");
-        println!("   • {} ({})", "SOL".bright_cyan(), "Token");
-        println!("   • {} ({})", "USDC".bright_cyan(), "Token");
-        println!("   • {} ({})", "Jupiter".bright_cyan(), "Protocol");
-        println!("   • {} ({})", "100".bright_cyan(), "Amount");
+        println!("   • {} (Wallet)", "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045".bright_cyan());
+        println!("   • {} (Token)", "SOL".bright_cyan());
+        println!("   • {} (Token)", "USDC".bright_cyan());
+        println!("   • {} (Protocol)", "Jupiter".bright_cyan());
+        println!("   • {} (Amount)", "100".bright_cyan());
     }
 
     // Demo 3: Graph queries

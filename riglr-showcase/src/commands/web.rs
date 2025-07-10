@@ -48,11 +48,9 @@ pub async fn run_demo(config: Config, query: String) -> Result<()> {
     tokio::time::sleep(std::time::Duration::from_millis(800)).await;
     
     println!("\n{}", "🔎 Web Search Results (Simulated)".green().bold());
-    let simulated_results = vec![
-        ("Bitcoin Price Surge Continues Amid ETF Speculation", "https://example.com/bitcoin-news", "Bitcoin reaches new highs as institutional investors pile into cryptocurrency markets..."),
+    let simulated_results = [("Bitcoin Price Surge Continues Amid ETF Speculation", "https://example.com/bitcoin-news", "Bitcoin reaches new highs as institutional investors pile into cryptocurrency markets..."),
         ("DeFi Protocol Announces Major Upgrade", "https://example.com/defi-update", "Leading decentralized exchange announces new features to improve user experience..."),
-        ("Solana Network Shows Strong Growth", "https://example.com/sol-growth", "Transaction volume on Solana increases 45% month-over-month as developers build..."),
-    ];
+        ("Solana Network Shows Strong Growth", "https://example.com/sol-growth", "Transaction volume on Solana increases 45% month-over-month as developers build...")];
     
     for (i, (title, url, summary)) in simulated_results.iter().enumerate() {
         println!("   {}. {}", i + 1, title.bright_cyan());
@@ -67,11 +65,9 @@ pub async fn run_demo(config: Config, query: String) -> Result<()> {
     tokio::time::sleep(std::time::Duration::from_millis(600)).await;
     
     println!("\n{}", "📰 Crypto News (Simulated)".green().bold());
-    let news_articles = vec![
-        ("Bitcoin ETF Approval Drives Market Rally", "CryptoNews", "SEC approves multiple Bitcoin ETFs, leading to significant price increases across crypto markets"),
+    let news_articles = [("Bitcoin ETF Approval Drives Market Rally", "CryptoNews", "SEC approves multiple Bitcoin ETFs, leading to significant price increases across crypto markets"),
         ("Ethereum Layer 2 Solutions Gain Traction", "BlockchainDaily", "Polygon and Arbitrum see record transaction volumes as users seek lower fees"),
-        ("DeFi Total Value Locked Reaches New High", "DeFiPulse", "Decentralized finance protocols now hold over $200 billion in total value locked"),
-    ];
+        ("DeFi Total Value Locked Reaches New High", "DeFiPulse", "Decentralized finance protocols now hold over $200 billion in total value locked")];
     
     for (i, (title, source, description)) in news_articles.iter().enumerate() {
         println!("   {}. {}", i + 1, title.bright_cyan());
@@ -124,11 +120,9 @@ pub async fn run_demo(config: Config, query: String) -> Result<()> {
     println!("      Negative: 21.5%");
     
     println!("\n   Recent Tweets:");
-    let sample_tweets = vec![
-        ("Just bought more $BTC! This dip is a gift 🚀 #Bitcoin #HODL", "@cryptotrader123", 156, 43),
+    let sample_tweets = [("Just bought more $BTC! This dip is a gift 🚀 #Bitcoin #HODL", "@cryptotrader123", 156, 43),
         ("DeFi protocols are revolutionizing finance. The future is here! #DeFi #Ethereum", "@blockchaindev", 89, 27),
-        ("Solana's speed and low fees make it perfect for NFTs and gaming #SOL", "@nftcollector", 234, 78),
-    ];
+        ("Solana's speed and low fees make it perfect for NFTs and gaming #SOL", "@nftcollector", 234, 78)];
     
     for (i, (text, username, likes, retweets)) in sample_tweets.iter().enumerate() {
         println!("   {}. {}", i + 1, text);

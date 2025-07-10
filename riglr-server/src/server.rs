@@ -98,7 +98,7 @@ where
         });
         
         server = server.bind(&self.bind_address)
-            .map_err(|e| crate::error::ServerError::Bind(e))?;
+            .map_err(crate::error::ServerError::Bind)?;
         
         tracing::info!("Server running on http://{}", self.bind_address);
         tracing::info!("Endpoints:");

@@ -4,24 +4,23 @@
 //! with support for both legacy and EIP-1559 transactions.
 
 use crate::{
-    client::{eth_to_wei, validate_address, wei_to_eth, EvmClient},
+    client::{eth_to_wei, validate_address, EvmClient},
     error::EvmToolError,
 };
 use alloy::{
     consensus::Transaction as TransactionTrait,
-    network::{EthereumWallet, TransactionBuilder},
-    primitives::{Address, Bytes, TxKind, U256},
-    providers::{Provider, PendingTransactionConfig},
-    rpc::types::{Transaction, TransactionRequest},
-    signers::{local::PrivateKeySigner, Signer},
+    network::TransactionBuilder,
+    primitives::U256,
+    providers::Provider,
+    rpc::types::TransactionRequest,
+    signers::Signer,
     sol,
     sol_types::SolCall,
 };
-use riglr_core::ToolError;
 use riglr_macros::tool;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use tracing::{debug, info, warn};
+use tracing::{debug, info};
 
 // Define ERC20 interface for transfers
 sol! {
@@ -446,7 +445,7 @@ pub async fn get_transaction_receipt(
         value_wei: "0".to_string(),
         value_eth: 0.0,
         gas_used: Some(receipt.gas_used as u128),
-        gas_price: _tx.effective_gas_price.map(|price| price as u128),
+        gas_price: _tx.effective_gas_price.map(|price| price),
         block_number: receipt.block_number,
         chain_id: client.chain_id,
         status: receipt.status(),

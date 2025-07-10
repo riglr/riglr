@@ -10,7 +10,7 @@ use riglr_macros::tool;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use tracing::{debug, info, warn};
+use tracing::{debug, info};
 
 /// Faster100x API configuration
 #[derive(Debug, Clone)]
