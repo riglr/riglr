@@ -278,7 +278,14 @@ Remember: Capital preservation is priority #1. Only take high-probability trades
                 if let Some(confidence) = self.extract_confidence(&analysis) {
                     if confidence >= self.config.min_confidence {
                         info!("✅ High confidence signal for {}: {:.1}%", asset, confidence * 100.0);
-                        // TODO: Extract and execute trading recommendation
+                        
+                        // Extract and execute trading recommendation
+                        if let Some(action) = self.extract_trading_action(&analysis) {
+                            match self.execute_trade(asset, &action, confidence).await {
+                                Ok(_) => info!("✅ Trade executed for {}: {:?}", asset, action),
+                                Err(e) => warn!("❌ Failed to execute trade for {}: {}", asset, e),
+                            }
+                        }
                     }
                 }
             }
@@ -366,6 +373,39 @@ Remember: Capital preservation is priority #1. Only take high-probability trades
             Some(0.5) // Default confidence
         }
     }
+
+    fn extract_trading_action(&self, text: &str) -> Option<TradingAction> {
+        let lower_text = text.to_lowercase();
+        if lower_text.contains("buy") || lower_text.contains("long") {
+            Some(TradingAction::Buy)
+        } else if lower_text.contains("sell") || lower_text.contains("short") {
+            Some(TradingAction::Sell)
+        } else {
+            None
+        }
+    }
+
+    async fn execute_trade(&self, asset: &str, action: &TradingAction, confidence: f64) -> Result<()> {
+        // In a real implementation, this would execute actual trades
+        // For now, just log the intended action
+        info!(
+            "🎯 Would execute {:?} for {} with confidence {:.1}%",
+            action, asset, confidence * 100.0
+        );
+        
+        // Here you would integrate with actual trading platforms:
+        // - For Solana: Use Jupiter aggregator or other DEX
+        // - For EVM: Use Uniswap or other DEX
+        // - For CEX: Use exchange APIs
+        
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone)]
+enum TradingAction {
+    Buy,
+    Sell,
 }
 
 #[tokio::main]

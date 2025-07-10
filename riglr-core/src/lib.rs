@@ -1,14 +1,63 @@
 //! # riglr-core
 //!
-//! Core abstractions and job execution engine for riglr.
+//! The foundational crate for the riglr ecosystem, providing core abstractions for
+//! multi-chain tool orchestration and execution within the rig framework.
 //!
 //! This crate provides the foundational components for building resilient AI agents,
 //! including job queues, execution engines, and core data structures.
 //!
 //! ## Architecture Overview
 //!
-//! The `riglr-core` crate is built around several key abstractions that work together
-//! to provide a robust foundation for AI agent systems:
+//! The riglr-core crate provides three main components:
+//!
+//! ### 1. SignerContext Pattern
+//!
+//! Thread-local storage for multi-tenant blockchain client management:
+//!
+//! ```rust
+//! use riglr_core::signer::{SignerContext, LocalSigner};
+//! 
+//! # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+//! // Set context for current operation
+//! let signer = LocalSigner::new_from_env()?;
+//! SignerContext::set(Arc::new(signer)).await;
+//!
+//! // Tools automatically use the context
+//! // No need to pass clients as parameters
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! ### 2. ToolWorker Lifecycle
+//!
+//! Orchestrates tool execution with proper error handling:
+//!
+//! ```rust
+//! use riglr_core::{ToolWorker, ExecutionConfig};
+//! use riglr_core::idempotency::InMemoryIdempotencyStore;
+//!
+//! # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+//! let worker = ToolWorker::<InMemoryIdempotencyStore>::new(
+//!     ExecutionConfig::default()
+//! );
+//! 
+//! // Execute tools with automatic retry logic
+//! let result = worker.execute_job(job).await?;
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! ### 3. ToolError Classification Philosophy
+//!
+//! Errors are classified for intelligent retry logic:
+//! - `Permanent`: Requires human intervention (invalid parameters, auth failures)
+//! - `Retriable`: Temporary issues (network timeouts, service unavailable)
+//! - `RateLimited`: Specific rate limiting with backoff strategies
+//!
+//! ## Integration with rig
+//!
+//! riglr-core extends rig's agent capabilities with blockchain-specific tooling
+//! while maintaining compatibility with rig's execution model.
 //!
 //! ### Key Components
 //!

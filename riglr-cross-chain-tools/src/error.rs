@@ -1,45 +1,61 @@
-use std::fmt;
+use thiserror::Error;
 
-#[derive(Debug, Clone)]
+#[derive(Error, Debug)]
 pub enum CrossChainToolError {
-    Network(String),
-    UnsupportedChain(String),
+    #[error("Bridge error: {0}")]
     BridgeError(String),
-    InsufficientBalance(String),
-    InvalidAddress(String),
-    TransactionFailed(String),
-    ConfigurationError(String),
+    
+    #[error("Unsupported chain: {0}")]
+    UnsupportedChain(String),
+    
+    #[error("Route not found: {0}")]
+    RouteNotFound(String),
+    
+    #[error("Insufficient liquidity: {0}")]
+    InsufficientLiquidity(String),
+    
+    #[error("Network error: {0}")]
+    NetworkError(String),
+    
+    #[error("Rate limited: {0}")]
+    RateLimit(String),
+    
+    #[error("Transaction error: {0}")]
+    TransactionError(String),
 }
 
-impl fmt::Display for CrossChainToolError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            CrossChainToolError::Network(msg) => write!(f, "Network error: {}", msg),
-            CrossChainToolError::UnsupportedChain(msg) => write!(f, "Unsupported chain: {}", msg),
-            CrossChainToolError::BridgeError(msg) => write!(f, "Bridge error: {}", msg),
-            CrossChainToolError::InsufficientBalance(msg) => write!(f, "Insufficient balance: {}", msg),
-            CrossChainToolError::InvalidAddress(msg) => write!(f, "Invalid address: {}", msg),
-            CrossChainToolError::TransactionFailed(msg) => write!(f, "Transaction failed: {}", msg),
-            CrossChainToolError::ConfigurationError(msg) => write!(f, "Configuration error: {}", msg),
+impl From<CrossChainToolError> for riglr_core::error::ToolError {
+    fn from(err: CrossChainToolError) -> Self {
+        match err {
+            CrossChainToolError::RateLimit(msg) => {
+                riglr_core::error::ToolError::rate_limited(msg)
+            }
+            CrossChainToolError::NetworkError(msg) => {
+                if msg.contains("timeout") || msg.contains("connection") {
+                    riglr_core::error::ToolError::retriable(msg)
+                } else {
+                    riglr_core::error::ToolError::permanent(msg)
+                }
+            }
+            CrossChainToolError::BridgeError(msg) => {
+                if msg.contains("503") || msg.contains("maintenance") {
+                    riglr_core::error::ToolError::retriable(msg)
+                } else {
+                    riglr_core::error::ToolError::permanent(msg)
+                }
+            }
+            CrossChainToolError::UnsupportedChain(msg) => {
+                riglr_core::error::ToolError::permanent(msg)
+            }
+            CrossChainToolError::RouteNotFound(msg) => {
+                riglr_core::error::ToolError::retriable(msg)
+            }
+            CrossChainToolError::InsufficientLiquidity(msg) => {
+                riglr_core::error::ToolError::retriable(msg)
+            }
+            CrossChainToolError::TransactionError(msg) => {
+                riglr_core::error::ToolError::retriable(msg)
+            }
         }
     }
 }
-
-impl std::error::Error for CrossChainToolError {}
-
-impl From<CrossChainToolError> for riglr_core::ToolError {
-    fn from(error: CrossChainToolError) -> Self {
-        match error {
-            CrossChainToolError::Network(_) | CrossChainToolError::InsufficientBalance(_) => {
-                riglr_core::ToolError::Retriable(error.to_string())
-            }
-            CrossChainToolError::UnsupportedChain(_) | CrossChainToolError::BridgeError(_)
-            | CrossChainToolError::InvalidAddress(_) | CrossChainToolError::TransactionFailed(_)
-            | CrossChainToolError::ConfigurationError(_) => {
-                riglr_core::ToolError::Permanent(error.to_string())
-            }
-        }
-    }
-}
-
-pub type Result<T> = std::result::Result<T, CrossChainToolError>;

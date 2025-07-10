@@ -7,7 +7,9 @@ members = [
     "riglr-web-tools",
     "riglr-graph-memory",
     "riglr-server",
-    "riglr-showcase"
+    "riglr-showcase",
+    "riglr-hyperliquid-tools",
+    "riglr-cross-chain-tools"
 ]
 resolver = "2"
 

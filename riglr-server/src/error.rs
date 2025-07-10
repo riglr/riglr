@@ -28,6 +28,9 @@ pub enum ServerError {
     
     #[error("Internal server error: {0}")]
     Internal(String),
+    
+    #[error("Validation error: {0}")]
+    Validation(String),
 }
 
 impl ServerError {
@@ -66,6 +69,7 @@ impl actix_web::ResponseError for ServerError {
             ServerError::InvalidRequest(_) => (actix_web::http::StatusCode::BAD_REQUEST, "invalid_request", self.to_string()),
             ServerError::Configuration(_) => (actix_web::http::StatusCode::INTERNAL_SERVER_ERROR, "configuration_error", self.to_string()),
             ServerError::Internal(_) => (actix_web::http::StatusCode::INTERNAL_SERVER_ERROR, "internal_error", self.to_string()),
+            ServerError::Validation(_) => (actix_web::http::StatusCode::BAD_REQUEST, "validation_error", self.to_string()),
         };
         
         HttpResponse::build(status).json(json!({
@@ -74,5 +78,17 @@ impl actix_web::ResponseError for ServerError {
                 "message": message,
             }
         }))
+    }
+}
+
+impl From<String> for ServerError {
+    fn from(msg: String) -> Self {
+        Self::Internal(msg)
+    }
+}
+
+impl From<&str> for ServerError {
+    fn from(msg: &str) -> Self {
+        Self::Internal(msg.to_string())
     }
 }

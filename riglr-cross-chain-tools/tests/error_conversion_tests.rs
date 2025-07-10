@@ -1,71 +1,101 @@
-#[cfg(test)]
-mod tests {
-    use riglr_cross_chain_tools::error::CrossChainToolError;
-    use riglr_core::ToolError;
+use riglr_cross_chain_tools::error::CrossChainToolError;
+use riglr_core::error::ToolError;
 
-    #[test]
-    fn test_network_error_conversion() {
-        let cc_error = CrossChainToolError::Network("Connection timeout".to_string());
-        let tool_error: ToolError = cc_error.into();
-        
-        match tool_error {
-            ToolError::Retriable(msg) => assert!(msg.contains("Connection timeout")),
-            _ => panic!("Expected Retriable error"),
-        }
+#[test]
+fn test_rate_limit_error_conversion() {
+    let err = CrossChainToolError::RateLimit("Bridge API rate limited".to_string());
+    let tool_err: ToolError = err.into();
+    
+    match tool_err {
+        ToolError::RateLimited { .. } => {},
+        _ => panic!("Expected RateLimited variant"),
     }
+}
 
-    #[test]
-    fn test_insufficient_balance_conversion() {
-        let cc_error = CrossChainToolError::InsufficientBalance("Not enough funds".to_string());
-        let tool_error: ToolError = cc_error.into();
-        
-        match tool_error {
-            ToolError::Retriable(msg) => assert!(msg.contains("Not enough funds")),
-            _ => panic!("Expected Retriable error"),
-        }
+#[test]
+fn test_network_error_conversion_retriable() {
+    let err = CrossChainToolError::NetworkError("connection timeout".to_string());
+    let tool_err: ToolError = err.into();
+    
+    match tool_err {
+        ToolError::Retriable { .. } => {},
+        _ => panic!("Expected Retriable variant"),
     }
+}
 
-    #[test]
-    fn test_unsupported_chain_conversion() {
-        let cc_error = CrossChainToolError::UnsupportedChain("Unknown chain".to_string());
-        let tool_error: ToolError = cc_error.into();
-        
-        match tool_error {
-            ToolError::Permanent(msg) => assert!(msg.contains("Unknown chain")),
-            _ => panic!("Expected Permanent error"),
-        }
+#[test]
+fn test_network_error_conversion_permanent() {
+    let err = CrossChainToolError::NetworkError("invalid endpoint".to_string());
+    let tool_err: ToolError = err.into();
+    
+    match tool_err {
+        ToolError::Permanent { .. } => {},
+        _ => panic!("Expected Permanent variant"),
     }
+}
 
-    #[test]
-    fn test_bridge_error_conversion() {
-        let cc_error = CrossChainToolError::BridgeError("Bridge protocol failed".to_string());
-        let tool_error: ToolError = cc_error.into();
-        
-        match tool_error {
-            ToolError::Permanent(msg) => assert!(msg.contains("Bridge protocol failed")),
-            _ => panic!("Expected Permanent error"),
-        }
+#[test]
+fn test_bridge_error_conversion_retriable() {
+    let err = CrossChainToolError::BridgeError("Error 503: bridge maintenance".to_string());
+    let tool_err: ToolError = err.into();
+    
+    match tool_err {
+        ToolError::Retriable { .. } => {},
+        _ => panic!("Expected Retriable variant"),
     }
+}
 
-    #[test]
-    fn test_invalid_address_conversion() {
-        let cc_error = CrossChainToolError::InvalidAddress("Bad address format".to_string());
-        let tool_error: ToolError = cc_error.into();
-        
-        match tool_error {
-            ToolError::Permanent(msg) => assert!(msg.contains("Bad address format")),
-            _ => panic!("Expected Permanent error"),
-        }
+#[test]
+fn test_bridge_error_conversion_permanent() {
+    let err = CrossChainToolError::BridgeError("Error 400: invalid parameters".to_string());
+    let tool_err: ToolError = err.into();
+    
+    match tool_err {
+        ToolError::Permanent { .. } => {},
+        _ => panic!("Expected Permanent variant"),
     }
+}
 
-    #[test]
-    fn test_transaction_failed_conversion() {
-        let cc_error = CrossChainToolError::TransactionFailed("Tx reverted".to_string());
-        let tool_error: ToolError = cc_error.into();
-        
-        match tool_error {
-            ToolError::Permanent(msg) => assert!(msg.contains("Tx reverted")),
-            _ => panic!("Expected Permanent error"),
-        }
+#[test]
+fn test_unsupported_chain_conversion() {
+    let err = CrossChainToolError::UnsupportedChain("UNKNOWN_CHAIN".to_string());
+    let tool_err: ToolError = err.into();
+    
+    match tool_err {
+        ToolError::Permanent { .. } => {},
+        _ => panic!("Expected Permanent variant"),
+    }
+}
+
+#[test]
+fn test_route_not_found_conversion() {
+    let err = CrossChainToolError::RouteNotFound("No route from ETH to SOL".to_string());
+    let tool_err: ToolError = err.into();
+    
+    match tool_err {
+        ToolError::Retriable { .. } => {},
+        _ => panic!("Expected Retriable variant"),
+    }
+}
+
+#[test]
+fn test_insufficient_liquidity_conversion() {
+    let err = CrossChainToolError::InsufficientLiquidity("Need 1000 USDC liquidity".to_string());
+    let tool_err: ToolError = err.into();
+    
+    match tool_err {
+        ToolError::Retriable { .. } => {},
+        _ => panic!("Expected Retriable variant"),
+    }
+}
+
+#[test]
+fn test_transaction_error_conversion() {
+    let err = CrossChainToolError::TransactionError("Transaction failed".to_string());
+    let tool_err: ToolError = err.into();
+    
+    match tool_err {
+        ToolError::Retriable { .. } => {},
+        _ => panic!("Expected Retriable variant"),
     }
 }
