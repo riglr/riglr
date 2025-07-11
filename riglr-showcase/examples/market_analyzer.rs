@@ -13,7 +13,8 @@
 //! 5. Complex workflow orchestration through natural conversation
 
 use anyhow::Result;
-use riglr_core::signer::{SignerContext, LocalSolanaSigner};
+use riglr_core::signer::SignerContext;
+use riglr_solana_tools::LocalSolanaSigner;
 // use riglr_solana_tools::{get_sol_balance, get_spl_token_balance, perform_jupiter_swap};
 // use rig::agent::AgentBuilder;
 use serde::{Deserialize, Serialize};

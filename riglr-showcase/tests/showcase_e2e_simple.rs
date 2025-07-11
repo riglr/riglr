@@ -2,7 +2,8 @@
 //!
 //! This test validates that the core components compile and integrate properly.
 
-use riglr_core::signer::{SignerContext, LocalSolanaSigner};
+use riglr_core::signer::SignerContext;
+use riglr_solana_tools::LocalSolanaSigner;
 use riglr_core::error::ToolError;
 use std::sync::Arc;
 

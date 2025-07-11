@@ -13,6 +13,7 @@ categories = ["web-programming", "api-bindings"]
 [dependencies]
 riglr-core = { workspace = true }
 riglr-macros = { workspace = true }
+riglr-solana-tools = { workspace = true }
 rig-core = { workspace = true }
 reqwest = { workspace = true }
 serde = { workspace = true }

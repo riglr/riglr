@@ -3,8 +3,7 @@ use solana_client::rpc_client::RpcClient;
 use async_trait::async_trait;
 use std::sync::Arc;
 
-use super::traits::TransactionSigner;
-use super::error::SignerError;
+use riglr_core::signer::{TransactionSigner, SignerError};
 
 /// A local Solana signer implementation that holds a keypair and RPC client.
 /// This implementation is suitable for development, testing, and scenarios where
