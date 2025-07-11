@@ -556,7 +556,6 @@ async fn interactive_reasoning_session(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     
     /// Test that demonstrates rig-native multi-turn capabilities
     #[tokio::test]

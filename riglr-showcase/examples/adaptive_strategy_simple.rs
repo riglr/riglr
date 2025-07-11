@@ -553,7 +553,7 @@ async fn main() -> Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use serde_json::json;
 
     #[tokio::test]
     async fn test_adaptation_patterns() {
