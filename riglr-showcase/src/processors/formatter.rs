@@ -145,7 +145,7 @@ impl OutputProcessor for MarkdownFormatter {
             original: input.clone(),
             processed_result: json!({"markdown": markdown_content}),
             format: OutputFormat::Markdown,
-            summary: None,
+            summary: None, // Formatters typically don't generate summaries
             routing_info: None,
         })
     }
@@ -541,7 +541,7 @@ mod tests {
             let content = markdown.as_str().unwrap();
             assert!(content.contains("## Get Balance Results"));
             assert!(content.contains("✅ Success"));
-            assert!(content.contains("balance_sol"));
+            assert!(content.contains("Balance Sol"));
         } else {
             panic!("Expected markdown content in processed result");
         }

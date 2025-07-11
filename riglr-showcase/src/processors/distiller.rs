@@ -263,6 +263,10 @@ impl MockDistiller {
             "error".to_string(),
             "An error occurred while processing the request.".to_string(),
         );
+        responses.insert(
+            "test_tool".to_string(),
+            "Test tool executed successfully.".to_string(),
+        );
         
         Self { responses }
     }
