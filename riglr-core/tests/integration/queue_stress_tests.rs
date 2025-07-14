@@ -13,12 +13,8 @@ use std::collections::HashMap;
 
 /// Test high-volume producer-consumer patterns
 #[tokio::test]
+#[ignore] // Long-running stress test
 async fn test_high_volume_producer_consumer() {
-    // Skip this test when running under tarpaulin to avoid timeout
-    if std::env::var("TARPAULIN_RUN").is_ok() || std::env::var("SKIP_SLOW_TESTS").is_ok() {
-        println!("Skipping high volume test in coverage run");
-        return;
-    }
 
     let queue = Arc::new(InMemoryJobQueue::new());
     let jobs_to_produce = 10000;
@@ -119,6 +115,7 @@ async fn test_high_volume_producer_consumer() {
 
 /// Test concurrent access patterns with mixed operations
 #[tokio::test]
+#[ignore] // Long-running stress test
 async fn test_concurrent_mixed_operations() {
     let queue = Arc::new(InMemoryJobQueue::new());
     let num_threads = 20;
@@ -198,6 +195,7 @@ async fn test_concurrent_mixed_operations() {
 
 /// Test queue behavior under memory pressure
 #[tokio::test]
+#[ignore] // Long-running stress test
 async fn test_memory_pressure_handling() {
     let queue = Arc::new(InMemoryJobQueue::new());
     let num_large_jobs = 1000;
@@ -270,6 +268,7 @@ async fn test_memory_pressure_handling() {
 
 /// Test queue ordering under high concurrency
 #[tokio::test]
+#[ignore] // Long-running stress test
 async fn test_fifo_ordering_under_concurrency() {
     let queue = Arc::new(InMemoryJobQueue::new());
     let num_producers = 5;
@@ -355,6 +354,7 @@ async fn test_fifo_ordering_under_concurrency() {
 
 /// Test timeout behavior under various load conditions
 #[tokio::test]
+#[ignore] // Long-running stress test
 async fn test_timeout_behavior_under_load() {
     let queue = Arc::new(InMemoryJobQueue::new());
     
@@ -408,6 +408,7 @@ async fn test_timeout_behavior_under_load() {
 
 /// Test queue recovery after errors
 #[tokio::test]
+#[ignore] // Long-running stress test
 async fn test_error_recovery() {
     let queue = Arc::new(InMemoryJobQueue::new());
     let error_count = Arc::new(AtomicU64::new(0));
@@ -475,6 +476,7 @@ async fn test_error_recovery() {
 
 /// Test queue behavior with rapid size changes
 #[tokio::test]
+#[ignore] // Long-running stress test
 async fn test_rapid_size_changes() {
     let queue = Arc::new(InMemoryJobQueue::new());
     let size_samples = Arc::new(tokio::sync::Mutex::new(Vec::new()));
@@ -543,6 +545,7 @@ async fn test_rapid_size_changes() {
 
 /// Test queue consistency under cancellation scenarios
 #[tokio::test]
+#[ignore] // Long-running stress test
 async fn test_cancellation_consistency() {
     let queue = Arc::new(InMemoryJobQueue::new());
     let jobs_enqueued = Arc::new(AtomicU64::new(0));

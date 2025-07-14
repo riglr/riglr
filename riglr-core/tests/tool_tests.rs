@@ -327,12 +327,8 @@ async fn test_tool_worker_process_job_with_retries() {
 }
 
 #[tokio::test]
+#[ignore] // Long-running timeout test
 async fn test_tool_worker_process_job_timeout() {
-    // Skip this test when running under tarpaulin to avoid timeout
-    if std::env::var("TARPAULIN_RUN").is_ok() || std::env::var("SKIP_SLOW_TESTS").is_ok() {
-        println!("Skipping timeout test in coverage run");
-        return;
-    }
 
     let config = ExecutionConfig {
         default_timeout: Duration::from_millis(100),

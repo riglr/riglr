@@ -140,6 +140,32 @@ Before starting work, please:
 
 ## 🧪 Testing Guidelines
 
+### Testing Strategy
+
+This project uses a two-tiered testing approach:
+
+#### Fast Tests (Default)
+Run locally with: `cargo test`
+- Executes in 2-5 minutes
+- Provides quick feedback during development
+- Runs in main CI for every PR
+
+#### Slow Tests (Integration)  
+Run locally with: `cargo test -- --ignored`
+- Includes stress, timeout, and integration tests
+- Executes in 15-30 minutes
+- Runs in dedicated integration CI (nightly/scheduled)
+
+#### All Tests
+Run locally with: `cargo test -- --include-ignored`
+- Executes all tests (fast + slow)
+- Use before submitting significant changes
+
+#### Adding New Tests
+- Mark long-running tests (>5 seconds) with `#[ignore]` attribute
+- Do NOT use environment variables to skip tests
+- Follow existing patterns in the codebase
+
 ### Unit Tests
 
 Place unit tests in the same file as the code being tested:

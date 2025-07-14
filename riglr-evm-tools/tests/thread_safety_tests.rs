@@ -62,6 +62,7 @@ async fn test_multi_threaded_client_creation() {
 
 /// Test concurrent balance checking operations
 #[tokio::test]
+#[ignore] // Long-running concurrent test
 async fn test_concurrent_balance_operations() {
     // Skip this test if we can't connect to networks  
     // This test is primarily about architecture, not network connectivity
@@ -257,6 +258,7 @@ async fn test_thread_safe_signer_isolation() {
 
 /// Test timeout handling in concurrent scenarios
 #[tokio::test]
+#[ignore] // Long-running timeout test
 async fn test_concurrent_timeout_handling() {
     let base_client = match EvmClient::mainnet().await {
         Ok(client) => client,
@@ -359,6 +361,7 @@ async fn test_parallel_resource_cleanup() {
 
 /// Test error isolation between concurrent operations
 #[tokio::test]
+#[ignore] // Long-running concurrent test
 async fn test_concurrent_error_isolation() {
     // Mix of valid and invalid operations
     let operations = vec![
@@ -433,6 +436,7 @@ async fn test_concurrent_error_isolation() {
 
 /// Load test with many concurrent operations
 #[tokio::test]
+#[ignore] // Long-running load test
 async fn test_high_concurrency_load() {
     let base_client = match EvmClient::mainnet().await {
         Ok(client) => client,
