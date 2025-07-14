@@ -177,3 +177,79 @@ async fn test_index_endpoint() {
     let endpoints = response_body["endpoints"].as_array().unwrap();
     assert_eq!(endpoints.len(), 4); // /, /chat, /stream, /health
 }
+
+#[actix_web::test]
+async fn test_multi_tenant_signer_contexts() {
+    let agent = Arc::new(MockAgent::new("Multi-Tenant Agent"));
+    
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(agent))
+            .route("/chat", web::post().to(riglr_server::handlers::chat::<MockAgent>)),
+    ).await;
+
+    // Test multiple requests with different user configurations
+    let user1_request = ChatRequest {
+        message: "Check balance for user 1".to_string(),
+        signer_config: Some(riglr_server::server::SignerConfig {
+            solana_rpc_url: Some("https://api.devnet.solana.com".to_string()),
+            evm_rpc_url: None,
+            user_id: Some("user-1".to_string()),
+            locale: Some("en".to_string()),
+        }),
+        conversation_id: Some("conv-user1".to_string()),
+        request_id: Some("req-user1".to_string()),
+    };
+
+    let user2_request = ChatRequest {
+        message: "Check balance for user 2".to_string(),
+        signer_config: Some(riglr_server::server::SignerConfig {
+            solana_rpc_url: Some("https://api.mainnet-beta.solana.com".to_string()),
+            evm_rpc_url: Some("https://mainnet.infura.io/v3/test".to_string()),
+            user_id: Some("user-2".to_string()),
+            locale: Some("es".to_string()),
+        }),
+        conversation_id: Some("conv-user2".to_string()),
+        request_id: Some("req-user2".to_string()),
+    };
+
+    // Send both requests to verify they get isolated signer contexts
+    let req1 = test::TestRequest::post()
+        .uri("/chat")
+        .set_json(&user1_request)
+        .to_request();
+
+    let req2 = test::TestRequest::post()
+        .uri("/chat")
+        .set_json(&user2_request)
+        .to_request();
+
+    let resp1 = test::call_service(&app, req1).await;
+    let resp2 = test::call_service(&app, req2).await;
+
+    assert!(resp1.status().is_success());
+    assert!(resp2.status().is_success());
+
+    let response1: serde_json::Value = test::read_body_json(resp1).await;
+    let response2: serde_json::Value = test::read_body_json(resp2).await;
+
+    // Verify both responses show successful SignerContext integration
+    let response1_text = response1["response"].as_str().unwrap();
+    let response2_text = response2["response"].as_str().unwrap();
+    
+    assert!(response1_text.contains("SignerContext enabled"));
+    assert!(response2_text.contains("SignerContext enabled"));
+    
+    // Verify proper conversation isolation
+    assert_eq!(response1["conversation_id"], "conv-user1");
+    assert_eq!(response2["conversation_id"], "conv-user2");
+    assert_eq!(response1["request_id"], "req-user1");
+    assert_eq!(response2["request_id"], "req-user2");
+    
+    // Both should have tool calls demonstrating signer access
+    let tool_calls1 = response1["tool_calls"].as_array().unwrap();
+    let tool_calls2 = response2["tool_calls"].as_array().unwrap();
+    
+    assert!(!tool_calls1.is_empty());
+    assert!(!tool_calls2.is_empty());
+}

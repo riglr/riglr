@@ -6,7 +6,7 @@ use std::sync::Arc;
 use crate::{handlers, Result};
 
 /// Configuration for creating a signer from request data
-/// This will be extended once SignerContext is implemented
+/// Used by the server to create SignerContext instances for multi-tenant scenarios
 #[derive(serde::Deserialize, serde::Serialize, Clone, Debug)]
 pub struct SignerConfig {
     /// Solana RPC URL

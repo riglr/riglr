@@ -8,29 +8,46 @@ license = "MIT"
 readme = "README.md"
 
 [dependencies]
-# Core riglr framework
+# Core riglr framework - always included
 rig-core = "0.17.1"
 riglr-core = "0.1.0"
 riglr-macros = "0.1.0"
 
-{% if primary-chain == "solana" or primary-chain == "both" -%}
+{% if include-solana-tools or blockchain-selection == "solana-only" or blockchain-selection == "multi-chain-basic" or blockchain-selection == "multi-chain-advanced" -%}
 # Solana blockchain tools
 riglr-solana-tools = "0.1.0"
 {% endif %}
 
-{% if primary-chain == "ethereum" or primary-chain == "both" -%}
+{% if include-evm-tools or blockchain-selection == "ethereum-only" or blockchain-selection == "multi-chain-basic" or blockchain-selection == "multi-chain-advanced" -%}
 # Ethereum/EVM blockchain tools
 riglr-evm-tools = "0.1.0"
 {% endif %}
 
-{% if include-web-tools -%}
+{% if include-web-tools or tool-bundle == "analytics-focused" or tool-bundle == "complete" -%}
 # Web data tools (Twitter, DexScreener, news, web search)
 riglr-web-tools = "0.1.0"
 {% endif %}
 
-{% if include-graph-memory -%}
-# Graph-based knowledge storage
+{% if include-graph-memory or tool-bundle == "analytics-focused" or tool-bundle == "complete" -%}
+# Graph-based knowledge storage and RAG capabilities
 riglr-graph-memory = "0.1.0"
+{% endif %}
+
+{% if include-cross-chain-tools or blockchain-selection == "multi-chain-advanced" or tool-bundle == "cross-chain" or tool-bundle == "complete" -%}
+# Cross-chain bridge and swap tools
+riglr-cross-chain-tools = "0.1.0"
+{% endif %}
+
+{% if include-hyperliquid-tools or tool-bundle == "complete" -%}
+# Hyperliquid derivatives trading tools
+riglr-hyperliquid-tools = "0.1.0"
+{% endif %}
+
+{% if include-server -%}
+# HTTP server for API endpoints
+riglr-server = "0.1.0"
+actix-web = "4.0"
+actix-web-lab = "0.20"
 {% endif %}
 
 # Async runtime and utilities
