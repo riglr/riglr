@@ -10,6 +10,7 @@ pub mod error;
 pub mod network;
 pub mod swap;
 pub mod transaction;
+pub mod util;
 
 pub use balance::{get_eth_balance, get_erc20_balance, BalanceResult, TokenBalanceResult};
 pub use client::{EvmClient, EvmConfig, validate_address, wei_to_eth, eth_to_wei};
@@ -21,6 +22,7 @@ pub use transaction::{
     transfer_eth, transfer_erc20, get_transaction_receipt,
     TransactionResult
 };
+pub use util::{chain_id_to_rpc_url, is_supported_chain};
 
 // Re-export signer types for convenience
 pub use riglr_core::{SignerContext, signer::TransactionSigner};

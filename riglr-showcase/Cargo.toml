@@ -27,6 +27,7 @@ riglr-cross-chain-tools = { path = "../riglr-cross-chain-tools", optional = true
 riglr-hyperliquid-tools = { path = "../riglr-hyperliquid-tools", optional = true }
 riglr-server = { path = "../riglr-server", optional = true }
 riglr-graph-memory = { path = "../riglr-graph-memory" }
+riglr-web-adapters = { path = "../riglr-web-adapters", optional = true }
 
 # Async and Error Handling
 tokio = { workspace = true }
@@ -61,6 +62,18 @@ solana-sdk = "2.3.1"
 # Additional dependencies for processors module
 async-trait = "0.1"
 reqwest = { version = "0.11", features = ["json"], optional = true }
+
+# Web server dependencies for examples
+actix-web = { version = "4", optional = true }
+actix-cors = { version = "0.7", optional = true }
+futures-util = { version = "0.3", optional = true }
+
+[features]
+default = []
+web-server = ["riglr-web-adapters", "actix-web", "actix-cors", "futures-util"]
+cross-chain = ["riglr-cross-chain-tools"]
+hyperliquid = ["riglr-hyperliquid-tools"]
+server = ["riglr-server"]
 
 [dev-dependencies]
 tokio-test = { workspace = true }

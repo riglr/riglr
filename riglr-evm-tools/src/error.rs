@@ -1,29 +1,38 @@
 //! Error types for riglr-evm-tools.
 
 use thiserror::Error;
+use riglr_core::error::{ToolError, SignerError};
 
 /// Main error type for EVM tool operations.
 #[derive(Error, Debug)]
 pub enum EvmToolError {
-    /// RPC client error
-    #[error("RPC error: {0}")]
-    Rpc(String),
-
+    /// Core tool error
+    #[error("Core tool error: {0}")]
+    ToolError(#[from] ToolError),
+    
+    /// Signer context error
+    #[error("Signer context error: {0}")]
+    SignerError(#[from] SignerError),
+    
+    /// Provider error
+    #[error("Provider error: {0}")]
+    ProviderError(String),
+    
+    /// Transaction build error
+    #[error("Transaction build error: {0}")]
+    TransactionBuildError(String),
+    
     /// Invalid address format
-    #[error("Invalid address: {0}")]
+    #[error("Invalid address format: {0}")]
     InvalidAddress(String),
-
-    /// Invalid private key
-    #[error("Invalid key: {0}")]
-    InvalidKey(String),
-
-    /// Contract interaction failed
-    #[error("Contract error: {0}")]
-    Contract(String),
-
-    /// Transaction failed
-    #[error("Transaction error: {0}")]
-    Transaction(String),
+    
+    /// Insufficient balance for operation
+    #[error("Insufficient balance for operation")]
+    InsufficientBalance,
+    
+    /// Unsupported chain ID
+    #[error("Unsupported chain ID: {0}")]
+    UnsupportedChain(u64),
 
     /// Serialization error
     #[error("Serialization error: {0}")]
@@ -37,6 +46,22 @@ pub enum EvmToolError {
     #[error("Core error: {0}")]
     Core(#[from] riglr_core::CoreError),
 
+    /// RPC client error
+    #[error("RPC error: {0}")]
+    Rpc(String),
+
+    /// Contract interaction failed
+    #[error("Contract error: {0}")]
+    Contract(String),
+
+    /// Invalid private key
+    #[error("Invalid key: {0}")]
+    InvalidKey(String),
+
+    /// Transaction failed
+    #[error("Transaction error: {0}")]
+    Transaction(String),
+
     /// Generic error
     #[error("EVM tool error: {0}")]
     Generic(String),
@@ -45,31 +70,22 @@ pub enum EvmToolError {
 /// Result type alias for EVM tool operations.
 pub type Result<T> = std::result::Result<T, EvmToolError>;
 
-// Additional From implementations for error conversion
-impl From<String> for EvmToolError {
-    fn from(err: String) -> Self {
-        EvmToolError::Generic(err)
-    }
-}
 
-impl From<&str> for EvmToolError {
-    fn from(err: &str) -> Self {
-        EvmToolError::Generic(err.to_string())
-    }
-}
 
-impl From<EvmToolError> for riglr_core::ToolError {
-    fn from(error: EvmToolError) -> Self {
-        match error {
-            EvmToolError::Rpc(_) | EvmToolError::Http(_) => {
-                riglr_core::ToolError::Retriable(error.to_string())
-            }
-            EvmToolError::InvalidAddress(_) | EvmToolError::InvalidKey(_) 
-            | EvmToolError::Contract(_) | EvmToolError::Transaction(_) 
-            | EvmToolError::Serialization(_) | EvmToolError::Core(_) 
-            | EvmToolError::Generic(_) => {
-                riglr_core::ToolError::Permanent(error.to_string())
-            }
+impl From<EvmToolError> for ToolError {
+    fn from(err: EvmToolError) -> Self {
+        match err {
+            EvmToolError::ProviderError(_) => ToolError::retriable(err.to_string()),
+            EvmToolError::InsufficientBalance => ToolError::permanent(err.to_string()),
+            EvmToolError::InvalidAddress(_) => ToolError::invalid_input(err.to_string()),
+            EvmToolError::UnsupportedChain(_) => ToolError::invalid_input(err.to_string()),
+            EvmToolError::Http(_) => ToolError::retriable(err.to_string()),
+            EvmToolError::Rpc(_) => ToolError::retriable(err.to_string()),
+            EvmToolError::Contract(_) => ToolError::permanent(err.to_string()),
+            EvmToolError::InvalidKey(_) => ToolError::invalid_input(err.to_string()),
+            EvmToolError::Transaction(_) => ToolError::retriable(err.to_string()),
+            EvmToolError::Generic(_) => ToolError::permanent(err.to_string()),
+            _ => ToolError::permanent(err.to_string()),
         }
     }
 }

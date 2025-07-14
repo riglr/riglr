@@ -58,6 +58,7 @@ pub mod error;
 pub mod faster100x;
 pub mod lunarcrush;
 pub mod news;
+pub mod price;
 pub mod twitter;
 pub mod web_search;
 
@@ -96,6 +97,12 @@ pub use lunarcrush::{
 pub use faster100x::{
     analyze_token_holders, get_whale_activity, get_holder_trends,
     TokenHolderAnalysis, WhaleActivity, HolderTrends, WalletHolding, ConcentrationRisk,
+};
+
+// From price
+pub use price::{
+    get_token_price, get_token_prices_batch,
+    TokenPriceResult,
 };
 
 // Re-export client and error types

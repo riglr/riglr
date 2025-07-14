@@ -105,24 +105,24 @@ fn test_error_serialization_from_json_error() {
 #[test]
 fn test_tool_error_retriable() {
     let error = ToolError::Retriable("Connection timeout".to_string());
-    assert_eq!(error.to_string(), "Retriable error: Connection timeout");
+    assert_eq!(error.to_string(), "Operation can be retried: Connection timeout");
     assert!(error.is_retriable());
 
     let error2 = ToolError::retriable("Network issue");
-    assert_eq!(error2.to_string(), "Retriable error: Network issue");
+    assert_eq!(error2.to_string(), "Operation can be retried: Network issue");
     assert!(error2.is_retriable());
 }
 
 #[test]
 fn test_tool_error_permanent() {
     let error = ToolError::Permanent("Invalid address".to_string());
-    assert_eq!(error.to_string(), "Permanent error: Invalid address");
+    assert_eq!(error.to_string(), "Permanent error, do not retry: Invalid address");
     assert!(!error.is_retriable());
 
     let error2 = ToolError::permanent("Insufficient permissions");
     assert_eq!(
         error2.to_string(),
-        "Permanent error: Insufficient permissions"
+        "Permanent error, do not retry: Insufficient permissions"
     );
     assert!(!error2.is_retriable());
 }
@@ -156,8 +156,8 @@ fn test_tool_error_debug_format() {
 #[test]
 fn test_tool_error_display() {
     let retriable = ToolError::Retriable("Rate limited".to_string());
-    assert_eq!(retriable.to_string(), "Retriable error: Rate limited");
+    assert_eq!(retriable.to_string(), "Operation can be retried: Rate limited");
 
     let permanent = ToolError::Permanent("Invalid API key".to_string());
-    assert_eq!(permanent.to_string(), "Permanent error: Invalid API key");
+    assert_eq!(permanent.to_string(), "Permanent error, do not retry: Invalid API key");
 }
