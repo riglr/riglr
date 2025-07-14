@@ -25,7 +25,6 @@ riglr-evm-tools = { path = "../riglr-evm-tools" }
 riglr-web-tools = { path = "../riglr-web-tools" }
 riglr-cross-chain-tools = { path = "../riglr-cross-chain-tools", optional = true }
 riglr-hyperliquid-tools = { path = "../riglr-hyperliquid-tools", optional = true }
-riglr-server = { path = "../riglr-server", optional = true }
 riglr-graph-memory = { path = "../riglr-graph-memory" }
 riglr-web-adapters = { path = "../riglr-web-adapters", optional = true }
 
@@ -73,7 +72,6 @@ default = []
 web-server = ["riglr-web-adapters", "actix-web", "actix-cors", "futures-util"]
 cross-chain = ["riglr-cross-chain-tools"]
 hyperliquid = ["riglr-hyperliquid-tools"]
-server = ["riglr-server"]
 
 [dev-dependencies]
 tokio-test = { workspace = true }

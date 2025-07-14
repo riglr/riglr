@@ -126,11 +126,12 @@ mod workspace_validation {
     }
 
     #[test]
-    fn validate_server_types_exist() {
-        // Verify that server types can be referenced
-        use riglr_server::{AgentServer, ServerError};
+    fn validate_web_adapters_exist() {
+        // Verify that web adapter types can be referenced
+        use riglr_web_adapters::core::{Agent, AgentEvent};
         
-        let _error = ServerError::Internal("test".to_string());
+        // Test that we can create event types
+        let _event = AgentEvent::Start;
         
         // This test succeeds if it compiles
         assert!(true);
