@@ -337,9 +337,12 @@ pub async fn search_web(
         params.insert("category".to_string(), content_type);
     }
 
-    // Make API request to Exa
+    // Make API request to Exa with API key header
     let url = format!("{}/search", config.exa_base_url);
-    let response = client.get_with_params(&url, &params).await.map_err(|e| {
+    let mut headers = HashMap::new();
+    headers.insert("x-api-key".to_string(), config.exa_api_key.clone());
+    headers.insert("accept".to_string(), "application/json".to_string());
+    let response = client.get_with_params_and_headers(&url, &params, headers).await.map_err(|e| {
         if e.to_string().contains("timeout") || e.to_string().contains("connection") {
             WebToolError::Network(format!("Web search request failed: {}", e))
         } else {
@@ -424,9 +427,12 @@ pub async fn find_similar_pages(
         params.insert("similarity_threshold".to_string(), threshold.to_string());
     }
 
-    // Make API request
+    // Make API request with API key header
     let url = format!("{}/find_similar", config.exa_base_url);
-    let response = client.get_with_params(&url, &params).await.map_err(|e| {
+    let mut headers = HashMap::new();
+    headers.insert("x-api-key".to_string(), config.exa_api_key.clone());
+    headers.insert("accept".to_string(), "application/json".to_string());
+    let response = client.get_with_params_and_headers(&url, &params, headers).await.map_err(|e| {
         if e.to_string().contains("timeout") || e.to_string().contains("connection") {
             WebToolError::Network(format!("Web search request failed: {}", e))
         } else {
@@ -550,7 +556,10 @@ pub async fn search_recent_news(
     }
 
     let url = format!("{}/search", config.exa_base_url);
-    let response = client.get_with_params(&url, &params).await.map_err(|e| {
+    let mut headers = HashMap::new();
+    headers.insert("x-api-key".to_string(), config.exa_api_key.clone());
+    headers.insert("accept".to_string(), "application/json".to_string());
+    let response = client.get_with_params_and_headers(&url, &params, headers).await.map_err(|e| {
         if e.to_string().contains("timeout") || e.to_string().contains("connection") {
             WebToolError::Network(format!("Web search request failed: {}", e))
         } else {
@@ -614,94 +623,153 @@ pub async fn search_recent_news(
 
 /// Parse Exa search API response into structured results
 async fn parse_exa_search_response(
-    _response: &str,
+    response: &str,
     query: &str,
 ) -> crate::error::Result<Vec<SearchResult>> {
-    // In production, this would parse actual Exa JSON response
-    // For now, return comprehensive mock results
-    Ok(vec![SearchResult {
-        id: "1".to_string(),
-        title: format!("Comprehensive guide to {}", query),
-        url: "https://example.com/guide".to_string(),
-        description: Some(format!(
-            "A detailed overview of {} with practical examples and insights",
-            query
-        )),
-        content: Some(format!(
-            "This comprehensive guide covers all aspects of {}...",
-            query
-        )),
-        summary: Some(format!(
-            "Key insights about {}: implementation, best practices, and future trends.",
-            query
-        )),
-        published_date: Some(Utc::now()),
-        domain: DomainInfo {
-            name: "example.com".to_string(),
-            reputation_score: Some(85),
-            category: Some("Educational".to_string()),
-            is_trusted: true,
-            authority_score: Some(75),
-        },
-        metadata: PageMetadata {
-            author: Some("Expert Author".to_string()),
-            tags: vec![query.to_lowercase()],
-            social_meta: SocialMetadata {
-                og_title: Some(format!("Guide to {}", query)),
-                og_description: Some("Comprehensive guide".to_string()),
-                og_image: Some("https://example.com/og-image.jpg".to_string()),
-                twitter_card: Some("summary_large_image".to_string()),
-                twitter_site: Some("@example".to_string()),
-            },
-            seo_meta: SeoMetadata {
-                meta_description: Some("Comprehensive guide description".to_string()),
-                meta_keywords: vec![query.to_lowercase()],
-                robots: Some("index,follow".to_string()),
-                schema_types: vec!["Article".to_string()],
-            },
-            canonical_url: None,
-            last_modified: Some(Utc::now()),
-        },
-        relevance_score: 0.95,
-        content_type: ContentType {
+    let json: serde_json::Value = serde_json::from_str(response)
+        .map_err(|e| WebToolError::Parsing(format!("Invalid Exa JSON: {}", e)))?;
+
+    let mut out = Vec::new();
+    let results = json.get("results").and_then(|v| v.as_array()).cloned().unwrap_or_default();
+    for r in results {
+        let title = r.get("title").and_then(|v| v.as_str()).unwrap_or("").to_string();
+        let url = r.get("url").and_then(|v| v.as_str()).unwrap_or("").to_string();
+        if url.is_empty() { continue; }
+        let id = r.get("id").and_then(|v| v.as_str()).unwrap_or_else(|| url.as_str()).to_string();
+        let description = r.get("description").or_else(|| r.get("snippet")).and_then(|v| v.as_str()).map(|s| s.to_string());
+        let content = r.get("text").and_then(|v| v.as_str()).map(|s| s.to_string());
+        let published_date = r.get("publishedDate").or_else(|| r.get("published_date")).and_then(|v| v.as_str())
+            .and_then(|s| DateTime::parse_from_rfc3339(s).ok()).map(|dt| dt.with_timezone(&Utc));
+        let domain_name = url::Url::parse(&url).ok().and_then(|u| u.host_str().map(|h| h.to_string())).unwrap_or_default();
+        let score = r.get("score").and_then(|v| v.as_f64()).unwrap_or(0.8);
+        let language = r.get("language").and_then(|v| v.as_str()).map(|s| s.to_string());
+        let author = r.get("author").and_then(|v| v.as_str()).map(|s| s.to_string());
+
+        let words = content.as_ref().map(|c| c.split_whitespace().count() as u32).unwrap_or(0);
+        let reading_time = if words > 0 { Some((words as f64 / 200.0).ceil() as u32) } else { None };
+        let length_category = match words {
+            0..=200 => "Short",
+            201..=800 => "Medium",
+            801..=2000 => "Long",
+            _ => "Very Long",
+        }.to_string();
+
+        let content_type = ContentType {
             primary: "Article".to_string(),
-            format: "HTML".to_string(),
-            is_paywalled: Some(false),
-            quality_score: Some(90),
-            length_category: "Long".to_string(),
-        },
-        language: Some("en".to_string()),
-        reading_time_minutes: Some(12),
-    }])
+            format: if url.to_lowercase().ends_with(".pdf") { "PDF".to_string() } else { "HTML".to_string() },
+            is_paywalled: None,
+            quality_score: Some(((score * 100.0) as u32).min(100)),
+            length_category,
+        };
+
+        let metadata = PageMetadata {
+            author,
+            tags: vec![query.to_lowercase()],
+            social_meta: SocialMetadata { og_title: None, og_description: None, og_image: None, twitter_card: None, twitter_site: None },
+            seo_meta: SeoMetadata { meta_description: description.clone(), meta_keywords: vec![], robots: None, schema_types: vec![] },
+            canonical_url: None,
+            last_modified: None,
+        };
+
+        let domain = DomainInfo { name: domain_name, reputation_score: None, category: None, is_trusted: true, authority_score: None };
+
+        out.push(SearchResult {
+            id,
+            title,
+            url,
+            description,
+            content,
+            summary: None,
+            published_date,
+            domain,
+            metadata,
+            relevance_score: score,
+            content_type,
+            language,
+            reading_time_minutes: reading_time,
+        });
+    }
+    Ok(out)
 }
 
 /// Parse similar pages API response
-async fn parse_similar_pages_response(_response: &str) -> crate::error::Result<Vec<SearchResult>> {
-    // In production, would parse actual JSON response
-    Ok(vec![])
+async fn parse_similar_pages_response(response: &str) -> crate::error::Result<Vec<SearchResult>> {
+    // Reuse the general Exa parser without query context
+    parse_exa_search_response(response, "").await
 }
 
 /// Extract and summarize content from a single page
 async fn extract_and_summarize_page(
-    _client: &WebClient,
+    client: &WebClient,
     url: &str,
-    _summary_length: &Option<String>,
-    _focus_topics: &Option<Vec<String>>,
+    summary_length: &Option<String>,
+    focus_topics: &Option<Vec<String>>,
 ) -> crate::error::Result<ContentSummary> {
-    // In production, would extract and process actual page content
+    let html = client.get(url).await.map_err(|e| WebToolError::Request(format!("Failed to fetch {}: {}", url, e)))?;
+
+    // Extract <title>
+    let title = regex::Regex::new(r"(?is)<title>(.*?)</title>")
+        .ok()
+        .and_then(|re| re.captures(&html).and_then(|cap| cap.get(1).map(|m| m.as_str().trim().to_string())))
+        .unwrap_or_else(|| url.to_string());
+
+    // Remove scripts/styles and tags to get text
+    let script_re = regex::Regex::new(r"(?is)<script.*?>.*?</script>").unwrap();
+    let style_re = regex::Regex::new(r"(?is)<style.*?>.*?</style>").unwrap();
+    let tag_re = regex::Regex::new(r"(?is)<[^>]+>").unwrap();
+    let mut text = script_re.replace_all(&html, " ").to_string();
+    text = style_re.replace_all(&text, " ").to_string();
+    text = tag_re.replace_all(&text, " ").to_string();
+    let text = html_escape::decode_html_entities(&text).to_string();
+
+    // Normalize whitespace
+    let whitespace_re = regex::Regex::new(r"\s+").unwrap();
+    let clean = whitespace_re.replace_all(&text, " ").trim().to_string();
+
+    // Determine summary sentence count
+    let sentences: Vec<&str> = clean.split_terminator(|c| c == '.' || c == '!' || c == '?').collect();
+    let n = match summary_length.as_deref() {
+        Some("comprehensive") => 8,
+        Some("detailed") => 5,
+        _ => 3,
+    };
+    let executive_summary = sentences.iter().take(n).map(|s| s.trim()).filter(|s| !s.is_empty()).collect::<Vec<_>>().join(". ") + ".";
+
+    // Key points: take first few longer sentences
+    let mut key_points: Vec<String> = sentences
+        .iter()
+        .map(|s| s.trim().to_string())
+        .filter(|s| s.split_whitespace().count() >= 6)
+        .take(5)
+        .collect();
+
+    // Topics: from focus_topics or extract top frequent words
+    let topics = if let Some(topics) = focus_topics { topics.clone() } else { extract_topics_from_text(&clean) };
+
+    // Entities: naive extraction of Capitalized Words sequences
+    let entity_re = regex::Regex::new(r"\b([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)*)\b").unwrap();
+    let mut entities: Vec<ContentEntity> = entity_re
+        .captures_iter(&clean)
+        .take(5)
+        .map(|cap| ContentEntity { name: cap[1].to_string(), entity_type: "Unknown".to_string(), confidence: 0.6, context: "".to_string() })
+        .collect();
+    entities.dedup_by(|a,b| a.name.eq_ignore_ascii_case(&b.name));
+
+    // Confidence: crude heuristic based on content length
+    let confidence = ((clean.len().min(5000) as f64) / 5000.0 * 0.5 + 0.5).min(0.95);
+
+    if key_points.is_empty() {
+        key_points.push(executive_summary.clone());
+    }
+
     Ok(ContentSummary {
         url: url.to_string(),
-        title: "Page Title".to_string(),
-        executive_summary: "Brief summary of the page content.".to_string(),
-        key_points: vec!["Key point 1".to_string(), "Key point 2".to_string()],
-        entities: vec![ContentEntity {
-            name: "Example Entity".to_string(),
-            entity_type: "Organization".to_string(),
-            confidence: 0.9,
-            context: "Mentioned in the context of...".to_string(),
-        }],
-        topics: vec!["Topic 1".to_string(), "Topic 2".to_string()],
-        confidence: 0.85,
+        title,
+        executive_summary,
+        key_points,
+        entities,
+        topics,
+        confidence,
         generated_at: Utc::now(),
     })
 }
@@ -789,14 +857,21 @@ async fn analyze_similarity(results: &[SearchResult]) -> crate::error::Result<Si
 
 /// Generate related search queries
 async fn generate_related_queries(query: &str) -> crate::error::Result<Vec<String>> {
-    // In production, would use AI to generate related queries
-    Ok(vec![
+    // Heuristic expansion of the query into related intents
+    let mut variants = vec![
+        format!("{} news", query),
+        format!("{} latest", query),
+        format!("{} guide", query),
         format!("{} tutorial", query),
         format!("{} best practices", query),
         format!("{} examples", query),
         format!("how to {}", query),
         format!("{} vs alternatives", query),
-    ])
+        format!("{} 2025 trends", query),
+    ];
+    variants.sort();
+    variants.dedup();
+    Ok(variants)
 }
 
 /// Extract top domains from search results
@@ -829,6 +904,21 @@ fn format_date_filter(window: &str) -> String {
 
     let date = Utc::now() - chrono::Duration::days(days_ago);
     date.format("%Y-%m-%d").to_string()
+}
+
+// Simple keyword topic extraction from text
+fn extract_topics_from_text(text: &str) -> Vec<String> {
+    let stopwords = ["the","and","for","with","that","this","from","have","your","you","are","was","were","has","had","not","but","all","any","can","will","just","into","about","over","more","than","when","what","how","why","where","then","them","they","their","its","it's","as","of","in","on","to","by","at","or","an","be"];    
+    let mut counts: HashMap<String, u32> = HashMap::new();
+    for w in text.split(|c: char| !c.is_alphanumeric()) {
+        let w = w.to_lowercase();
+        if w.len() < 4 { continue; }
+        if stopwords.contains(&w.as_str()) { continue; }
+        *counts.entry(w).or_insert(0) += 1;
+    }
+    let mut v: Vec<(String,u32)> = counts.into_iter().collect();
+    v.sort_by(|a,b| b.1.cmp(&a.1));
+    v.into_iter().take(5).map(|(k,_)| k).collect()
 }
 
 #[cfg(test)]

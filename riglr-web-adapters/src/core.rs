@@ -4,7 +4,7 @@
 //! isolated from any specific web framework. The handlers in this module
 //! work with generic types and return framework-agnostic streams and responses.
 
-use futures_util::Stream;
+use futures_util::{Stream, StreamExt};
 // Note: Agent trait abstracted to allow any implementation
 use riglr_core::signer::{SignerContext, TransactionSigner};
 use serde::{Deserialize, Serialize};
@@ -124,40 +124,77 @@ where
         "Starting agent stream"
     );
 
-    // Set signer context for the request and just get the response from the agent
-    let response_result = SignerContext::with_signer(signer, async move {
-        agent.prompt(&prompt.text).await
+    // Clone values for use in async block
+    let conv_id = conversation_id.clone();
+    let req_id = request_id.clone();
+    let prompt_text = prompt.text.clone();
+    
+    // Execute the streaming request within SignerContext
+    let stream_future = SignerContext::with_signer(signer, async move {
+        // Get the streaming response from the agent
+        agent.prompt_stream(&prompt_text).await
             .map_err(|e| riglr_core::signer::SignerError::Configuration(e.to_string()))
-    }).await.map_err(|e| Box::new(e) as Box<dyn StdError + Send + Sync>)?;
+    });
     
-    // Create mock streaming response for demonstration
-    let events = vec![
-        AgentEvent::Start {
-            conversation_id: conversation_id.clone(),
-            request_id: request_id.clone(),
+    // Create the stream with proper event formatting
+    let stream = async_stream::stream! {
+        // Send start event
+        let start_event = AgentEvent::Start {
+            conversation_id: conv_id.clone(),
+            request_id: req_id.clone(),
             timestamp: chrono::Utc::now(),
-        },
-        AgentEvent::Content {
-            content: response_result,
-            conversation_id: conversation_id.clone(),
-            request_id: request_id.clone(),
-        },
-        AgentEvent::Complete {
-            conversation_id: conversation_id.clone(),
-            request_id: request_id.clone(),
-            timestamp: chrono::Utc::now(),
-        },
-    ];
+        };
+        yield Ok(serde_json::to_string(&start_event).unwrap_or_default());
+        
+        // Execute the streaming request
+        match stream_future.await {
+            Ok(mut stream) => {
+                // Forward all chunks from the real stream
+                while let Some(chunk_result) = stream.next().await {
+                    match chunk_result {
+                        Ok(chunk) => {
+                            let content_event = AgentEvent::Content {
+                                content: chunk,
+                                conversation_id: conv_id.clone(),
+                                request_id: req_id.clone(),
+                            };
+                            yield Ok(serde_json::to_string(&content_event).unwrap_or_default());
+                        }
+                        Err(e) => {
+                            let error_event = AgentEvent::Error {
+                                error: e.to_string(),
+                                conversation_id: conv_id.clone(),
+                                request_id: req_id.clone(),
+                                timestamp: chrono::Utc::now(),
+                            };
+                            yield Ok(serde_json::to_string(&error_event).unwrap_or_default());
+                            return;
+                        }
+                    }
+                }
+                
+                // Send complete event
+                let complete_event = AgentEvent::Complete {
+                    conversation_id: conv_id.clone(),
+                    request_id: req_id.clone(),
+                    timestamp: chrono::Utc::now(),
+                };
+                yield Ok(serde_json::to_string(&complete_event).unwrap_or_default());
+            }
+            Err(e) => {
+                // Send error event
+                let error_event = AgentEvent::Error {
+                    error: e.to_string(),
+                    conversation_id: conv_id.clone(),
+                    request_id: req_id.clone(),
+                    timestamp: chrono::Utc::now(),
+                };
+                yield Ok(serde_json::to_string(&error_event).unwrap_or_default());
+            }
+        }
+    };
     
-    let events_json: Vec<_> = events.into_iter()
-        .map(|event| serde_json::to_string(&event))
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(|e| Box::new(e) as Box<dyn StdError + Send + Sync>)?;
-    
-    let stream_result = futures_util::stream::iter(events_json.into_iter().map(Ok));
-    let stream_result: AgentStream = Box::pin(stream_result);
-
-    Ok(stream_result)
+    Ok(Box::pin(stream))
 }
 
 /// Framework-agnostic handler for one-shot agent completion
@@ -218,7 +255,6 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use futures_util::StreamExt;
     use riglr_solana_tools::signer::LocalSolanaSigner;
     use solana_sdk::signature::Keypair;
 

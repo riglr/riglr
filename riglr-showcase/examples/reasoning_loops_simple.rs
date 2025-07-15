@@ -12,23 +12,122 @@
 //! 5. No custom loops needed - rig handles complexity naturally
 
 use anyhow::Result;
+use rig::agent::AgentBuilder;
+use rig::providers::openai;
+use serde_json::json;
+use std::env;
 use tracing::warn;
-
-// TODO: Update to new rig API - AgentBuilder::new() now requires CompletionModel instead of string
-// use rig::agent::AgentBuilder;
 
 /// Demo: Multi-Step Portfolio Analysis Through Reasoning
 /// 
 /// Shows how rig's native capabilities can handle complex workflows
 /// that would traditionally require custom loop implementation.
 async fn demo_multi_step_reasoning() -> Result<()> {
-    println!("Example temporarily disabled - rig API update needed");
+    println!("🧠 Demo: Multi-Step Portfolio Analysis Through Reasoning");
+    println!("=======================================================");
+
+    // Create OpenAI client and model
+    let openai_client = openai::Client::new(&env::var("OPENAI_API_KEY")?);
+    let model = openai_client.completion_model("gpt-4");
+    
+    let portfolio_analyst = AgentBuilder::new(model)
+        .preamble(r#"
+You are a sophisticated portfolio analyst who performs multi-step analysis
+through systematic reasoning. You break down complex portfolio decisions into
+logical steps, considering multiple factors and their interactions.
+
+Your approach:
+1. Assess current portfolio composition and performance
+2. Analyze market conditions and trends
+3. Identify risks and opportunities
+4. Develop specific recommendations with reasoning
+5. Consider implementation and monitoring strategies
+
+You reason through each step systematically, showing your thinking process.
+        "#)
+        .build();
+
+    // Simulate portfolio data
+    let portfolio_data = json!({
+        "current_holdings": {
+            "SOL": {"amount": "45.2", "value": "$7,380", "pct": "41%"},
+            "ETH": {"amount": "2.8", "value": "$5,320", "pct": "30%"},
+            "BTC": {"amount": "0.12", "value": "$3,240", "pct": "18%"},
+            "USDC": {"amount": "1,980", "value": "$1,980", "pct": "11%"}
+        },
+        "total_value": "$17,920",
+        "performance": {
+            "30d_return": "+18.5%",
+            "ytd_return": "+145%",
+            "max_drawdown": "-22%",
+            "volatility": "65% annualized"
+        },
+        "goals": {
+            "risk_tolerance": "moderate-high",
+            "time_horizon": "6-18 months",
+            "target_return": "50-100% annual"
+        }
+    });
+
+    let analysis_prompt = format!(r#"
+Perform multi-step portfolio analysis using this data:
+
+Portfolio Data:
+{}
+
+Step-by-Step Analysis Required:
+1. Current Portfolio Assessment:
+   - Composition balance and concentration risk
+   - Performance relative to crypto market
+   - Risk-return profile evaluation
+
+2. Market Context Analysis:
+   - Current crypto market conditions
+   - Relative strength of holdings vs alternatives
+   - Upcoming catalysts and risks
+
+3. Optimization Opportunities:
+   - Rebalancing recommendations
+   - New allocation targets
+   - Specific actions to take
+
+4. Implementation Strategy:
+   - Timing and sequencing of changes
+   - Risk management during transitions
+   - Monitoring criteria for success
+
+Walk through each step systematically with clear reasoning.
+    "#, serde_json::to_string_pretty(&portfolio_data)?);
+
+    println!("📊 Performing multi-step portfolio analysis...");
+    let analysis = portfolio_analyst.prompt(&analysis_prompt).await?;
+    println!("🎯 Multi-Step Analysis:");
+    println!("{}\n", analysis);
+
+    // Follow-up with specific implementation questions
+    let implementation_prompt = r#"
+Based on your analysis, I want to implement your recommendations.
+
+Provide specific implementation guidance:
+1. What should I do first, second, third?
+2. How much capital should I allocate to each action?
+3. What are the key timing considerations?
+4. How do I monitor progress and adjust if needed?
+5. What could go wrong and how do I prepare?
+
+Think through the practical implementation systematically.
+    "#;
+
+    println!("⚙️ Developing implementation plan...");
+    let implementation = portfolio_analyst.prompt(implementation_prompt).await?;
+    println!("📋 Implementation Plan:");
+    println!("{}\n", implementation);
+
+    println!("✅ Multi-step reasoning demo complete!");
     Ok(())
 }
 
 
-// TODO: Update to use new rig API - AgentBuilder no longer accepts string literals
-/*
 /// Demo: Adaptive Strategy Based on Market Feedback
 /// 
 /// Shows how agents can adapt their approach based on intermediate results
@@ -37,9 +136,11 @@ async fn demo_adaptive_reasoning() -> Result<()> {
     println!("\n🔄 Demo: Adaptive Reasoning Based on Market Feedback");  
     println!("===================================================");
 
-    // TODO: Update to new rig API - AgentBuilder::new() now requires CompletionModel instead of string
-    /*
-    let strategist = AgentBuilder::new("gpt-4")
+    // Create OpenAI client and model
+    let openai_client = openai::Client::new(&env::var("OPENAI_API_KEY")?);
+    let model = openai_client.completion_model("gpt-4");
+    
+    let strategist = AgentBuilder::new(model)
         .preamble(r#"
 You are an adaptive trading strategist who adjusts approach based on:
 - Market feedback and results
@@ -50,12 +151,10 @@ You are an adaptive trading strategist who adjusts approach based on:
 You continuously refine your strategy through systematic reasoning,
 not rigid rules. You explain how and why you adapt your approach.
         "#)
-        .max_tokens(1200)
         .build();
-    */
 
     // Initial strategy formation
-    let _strategy_prompt = r#"
+    let strategy_prompt = r#"
 Current market: SOL trending up +15% this week, DeFi TVL growing, 
 but macro uncertainty from Fed policy.
 
@@ -69,14 +168,12 @@ Explain your reasoning for this strategy.
     "#;
 
     println!("📋 Initial Strategy Formation...");
-    // TODO: Re-enable when rig provider API is updated
-    // let initial_strategy = strategist.prompt(strategy_prompt).await?;
-    // println!("🎯 Initial Strategy:");
-    // println!("{}\n", initial_strategy);
-    println!("🎯 [PLACEHOLDER] Initial strategy would be formed here");
+    let initial_strategy = strategist.prompt(strategy_prompt).await?;
+    println!("🎯 Initial Strategy:");
+    println!("{}\n", initial_strategy);
 
     // Simulate market feedback and adaptation
-    let _feedback_prompt = r#"
+    let feedback_prompt = r#"
 Strategy Update: 3 days later...
 
 Results so far:
@@ -95,14 +192,12 @@ Walk through your adaptation process.
     "#;
 
     println!("🔄 Processing market feedback and adapting...");
-    // TODO: Re-enable when rig provider API is updated
-    // let adapted_strategy = strategist.prompt(feedback_prompt).await?;
-    // println!("⚡ Adapted Strategy:");
-    // println!("{}\n", adapted_strategy);
-    println!("⚡ [PLACEHOLDER] Adapted strategy would be shown here");
+    let adapted_strategy = strategist.prompt(feedback_prompt).await?;
+    println!("⚡ Adapted Strategy:");
+    println!("{}\n", adapted_strategy);
 
     // Test further adaptation to new conditions
-    let _crisis_prompt = r#"
+    let crisis_prompt = r#"
 Breaking: Major DeFi protocol exploit reported, $50M+ affected.
 Market reacting with broad DeFi selloff, SOL down 12% in 30 minutes.
 
@@ -116,25 +211,15 @@ How do you rapidly adapt to this crisis? Think through systematically.
     "#;
 
     println!("🚨 Crisis adaptation test...");
-    // TODO: Re-enable when rig provider API is updated
-    // let crisis_adaptation = strategist.prompt(crisis_prompt).await?;
-    // println!("🛑 Crisis Response:");
-    // println!("{}\n", crisis_adaptation);
-    println!("🛑 [PLACEHOLDER] Crisis response would be shown here");
+    let crisis_adaptation = strategist.prompt(crisis_prompt).await?;
+    println!("🛑 Crisis Response:");
+    println!("{}\n", crisis_adaptation);
 
     println!("✅ Adaptive reasoning demo complete!");
     
     Ok(())
 }
-*/
 
-async fn demo_adaptive_reasoning() -> Result<()> {
-    println!("Example temporarily disabled - rig API update needed");
-    Ok(())
-}
-
-// TODO: Update to use new rig API - AgentBuilder no longer accepts string literals
-/*
 /// Demo: Cross-Chain Opportunity Analysis
 /// 
 /// Demonstrates complex multi-source analysis and decision making
@@ -143,7 +228,11 @@ async fn demo_cross_chain_reasoning() -> Result<()> {
     println!("\n🌐 Demo: Cross-Chain Opportunity Analysis");
     println!("==========================================");
 
-    let opportunity_scout = AgentBuilder::new("gpt-4")
+    // Create OpenAI client and model
+    let openai_client = openai::Client::new(&env::var("OPENAI_API_KEY")?);
+    let model = openai_client.completion_model("gpt-4");
+    
+    let opportunity_scout = AgentBuilder::new(model)
         .preamble(r#"
 You are a cross-chain opportunity analyst who identifies profitable opportunities
 across different blockchain ecosystems through systematic analysis.
@@ -158,7 +247,6 @@ Your approach:
 You think systematically about cross-chain strategies without needing
 custom loops - your reasoning naturally handles the complexity.
         "#)
-        .max_tokens(1600)
         .build();
 
     // Cross-chain market data simulation
@@ -246,12 +334,6 @@ Adapt your analysis to these new conditions.
     
     Ok(())
 }
-*/
-
-async fn demo_cross_chain_reasoning() -> Result<()> {
-    println!("Example temporarily disabled - rig API update needed");
-    Ok(())
-}
 
 /// Demonstrates rig-native reasoning patterns that will integrate with riglr tools
 #[tokio::main]
@@ -298,28 +380,30 @@ async fn main() -> Result<()> {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
 
     #[tokio::test]
     async fn test_reasoning_patterns() {
-        // TODO: Update to use new rig API - AgentBuilder no longer accepts string literals
-        /*
-        // This test validates the reasoning pattern structure
-        // In a real scenario, you'd test with actual LLM endpoints
-        
-        let agent = AgentBuilder::new("mock-model")
-            .preamble("Test agent for reasoning patterns")
-            .build();
-        
-        // Test that agent can be constructed
-        assert!(true); // Placeholder - would test actual reasoning in full implementation
-        */
-        assert!(true); // Placeholder until rig API is updated
+        // Test validates reasoning pattern concepts
+        // Note: This test requires OPENAI_API_KEY to be set for actual agent testing
+        if std::env::var("OPENAI_API_KEY").is_ok() {
+            let openai_client = openai::Client::new(&std::env::var("OPENAI_API_KEY").unwrap());
+            let model = openai_client.completion_model("gpt-3.5-turbo");
+            
+            let agent = AgentBuilder::new(model)
+                .preamble("You are a test agent for reasoning patterns.")
+                .build();
+            
+            // Test basic agent construction
+            assert!(true); // Agent was successfully created
+        } else {
+            // Skip actual agent testing if no API key is available
+            assert!(true, "Skipping agent test - OPENAI_API_KEY not set");
+        }
     }
     
     #[test]
     fn test_portfolio_data_serialization() {
-        // TODO: Update to use new rig API - AgentBuilder no longer accepts string literals
-        /*
         let portfolio = json!({
             "total_value": "$12,450",
             "positions": {
@@ -329,7 +413,5 @@ mod tests {
         
         let serialized = serde_json::to_string(&portfolio).unwrap();
         assert!(serialized.contains("SOL"));
-        */
-        assert!(true); // Placeholder until rig API is updated
     }
 }

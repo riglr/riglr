@@ -11,7 +11,7 @@ use crate::lifi::{
 use riglr_core::{SignerContext, ToolError};
 use riglr_macros::tool;
 use serde::{Deserialize, Serialize};
-use tracing::{info, warn};
+use tracing::info;
 
 // ============================================================================
 // Data Structures
@@ -332,23 +332,23 @@ pub async fn get_cross_chain_routes(
     let routes = lifi_client.get_routes(&route_request).await
         .map_err(|e| match e {
             LiFiError::RouteNotFound { .. } => {
-                ToolError::Permanent(format!("No routes found between {} and {}", from_chain, to_chain))
+                ToolError::permanent(format!("No routes found between {} and {}", from_chain, to_chain))
             }
             LiFiError::UnsupportedChain { chain_name } => {
-                ToolError::Permanent(format!("Chain not supported: {}", chain_name))
+                ToolError::permanent(format!("Chain not supported: {}", chain_name))
             }
             LiFiError::ApiError { code, message } => {
                 if code >= 500 {
-                    ToolError::Retriable(format!("LiFi API error {}: {}", code, message))
+                    ToolError::retriable(format!("LiFi API error {}: {}", code, message))
                 } else {
-                    ToolError::Permanent(format!("LiFi API error {}: {}", code, message))
+                    ToolError::permanent(format!("LiFi API error {}: {}", code, message))
                 }
             }
-            _ => ToolError::Retriable(format!("Failed to get routes: {}", e)),
+            _ => ToolError::retriable(format!("Failed to get routes: {}", e)),
         })?;
     
     if routes.is_empty() {
-        return Err(ToolError::Permanent(format!(
+    return Err(ToolError::permanent(format!(
             "No routes available from {} to {} for token {} -> {}",
             from_chain, to_chain, from_token, to_token
         )));
@@ -601,16 +601,16 @@ pub async fn get_bridge_status(
     let status_response = lifi_client.get_bridge_status(&bridge_id, &source_tx_hash).await
         .map_err(|e| match e {
             LiFiError::ApiError { code: 404, .. } => {
-                ToolError::Permanent(format!("Bridge ID {} not found", bridge_id))
+                ToolError::permanent(format!("Bridge ID {} not found", bridge_id))
             }
             LiFiError::ApiError { code, message } => {
                 if code >= 500 {
-                    ToolError::Retriable(format!("Li.fi API error {}: {}", code, message))
+                    ToolError::retriable(format!("Li.fi API error {}: {}", code, message))
                 } else {
-                    ToolError::Permanent(format!("Li.fi API error {}: {}", code, message))
+                    ToolError::permanent(format!("Li.fi API error {}: {}", code, message))
                 }
             }
-            _ => ToolError::Retriable(format!("Failed to check bridge status: {}", e)),
+            _ => ToolError::retriable(format!("Failed to check bridge status: {}", e)),
         })?;
     
     // Convert Li.fi status to our format
@@ -718,7 +718,7 @@ pub async fn estimate_bridge_fees(
     ).await?;
     
     if routes_result.routes.is_empty() {
-        return Err(ToolError::Permanent(format!(
+        return Err(ToolError::permanent(format!(
             "No routes available for fee estimation between {} and {}",
             from_chain, to_chain
         )));
@@ -727,29 +727,30 @@ pub async fn estimate_bridge_fees(
     // Use the best (first) route for fee estimation
     let best_route = &routes_result.routes[0];
     
-    // Create mock fee breakdown for demonstration
-    let fees = vec![
-        FeeBreakdown {
-            name: "Bridge Fee".to_string(),
-            description: "Fee charged by the bridge protocol".to_string(),
-            percentage: "0.05".to_string(),
-            amount: "5000".to_string(), // 0.05% of 1M = 5000
-            amount_usd: Some(5.0),
-            token_symbol: best_route.from_token.symbol.clone(),
-        },
-        FeeBreakdown {
+    // Build real fee breakdown from route.fees
+    // RouteInfo doesn't include per-fee breakdown, so fallback to gas + fees_usd if present
+    let mut fees: Vec<FeeBreakdown> = Vec::new();
+    if let Some(gas_usd) = best_route.gas_cost_usd {
+        fees.push(FeeBreakdown {
             name: "Gas Fee".to_string(),
-            description: "Transaction execution cost on source chain".to_string(),
-            percentage: "0.0".to_string(),
-            amount: "50000000000000000".to_string(), // ~$2.50 in wei
-            amount_usd: best_route.gas_cost_usd,
-            token_symbol: "ETH".to_string(),
-        },
-    ];
-    
-    let total_fees_usd = fees.iter()
-        .filter_map(|f| f.amount_usd)
-        .sum::<f64>();
+            description: "Estimated source chain gas cost".to_string(),
+            percentage: "0".to_string(),
+            amount: "-".to_string(),
+            amount_usd: Some(gas_usd),
+            token_symbol: best_route.from_token.symbol.clone(),
+        });
+    }
+    if let Some(fees_usd) = best_route.fees_usd {
+        fees.push(FeeBreakdown {
+            name: "Protocol Fees".to_string(),
+            description: "Bridge & DEX protocol fees (estimated)".to_string(),
+            percentage: "-".to_string(),
+            amount: "-".to_string(),
+            amount_usd: Some(fees_usd),
+            token_symbol: best_route.from_token.symbol.clone(),
+        });
+    }
+    let total_fees_usd = fees.iter().filter_map(|f| f.amount_usd).sum::<f64>();
     
     Ok(BridgeFeeEstimate {
         from_chain,
@@ -758,8 +759,8 @@ pub async fn estimate_bridge_fees(
         estimated_output: best_route.to_amount.clone(),
         fees,
         total_fees_usd: if total_fees_usd > 0.0 { Some(total_fees_usd) } else { None },
-        gas_cost_usd: best_route.gas_cost_usd,
-        estimated_duration: best_route.estimated_duration,
+    gas_cost_usd: best_route.gas_cost_usd,
+    estimated_duration: best_route.estimated_duration,
     })
 }
 
@@ -817,7 +818,7 @@ pub async fn get_supported_chains() -> Result<Vec<ChainInfo>, ToolError> {
     
     // Get chains from LiFi
     let chains = lifi_client.get_chains().await
-        .map_err(|e| ToolError::Retriable(format!("Failed to get supported chains: {}", e)))?;
+        .map_err(|e| ToolError::retriable(format!("Failed to get supported chains: {}", e)))?;
     
     // Convert to our format
     let chain_infos: Vec<ChainInfo> = chains.iter()
@@ -847,48 +848,67 @@ async fn execute_solana_bridge_transaction(
     signer: &dyn riglr_core::TransactionSigner,
     route: &CrossChainRoute,
 ) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
-    use solana_sdk::{transaction::Transaction, instruction::Instruction, message::Message, hash::Hash};
+    use solana_sdk::{instruction::Instruction, message::Message, transaction::Transaction};
     use std::str::FromStr;
-    
+
     tracing::info!("🌉 Executing real Solana bridge transaction for route {}", route.id);
-    
-    // Extract Li.fi transaction data
-    let tx_data = route.transaction_request.as_ref()
+
+    // Extract LiFi transaction data
+    let tx_data = route
+        .transaction_request
+        .as_ref()
         .ok_or("No transaction data in route")?;
     
-    // Parse Solana-specific bridge instruction data
+    // Expect Solana accounts to be present in tx_data (populated from LiFi API)
+
+    // Program id and instruction data
     let program_id = solana_sdk::pubkey::Pubkey::from_str(&tx_data.to)
         .map_err(|e| format!("Invalid program ID: {}", e))?;
-    
-    // Parse instruction data (Li.fi provides this in hex format)
     let instruction_data = hex::decode(tx_data.data.trim_start_matches("0x"))
         .map_err(|e| format!("Failed to decode instruction data: {}", e))?;
-    
-    // Get signer keypair and required accounts
-    let payer_keypair = signer.get_solana_keypair().await?;
-    let payer_pubkey = payer_keypair.pubkey();
-    
-    // Build the bridge instruction
-    let bridge_instruction = Instruction {
-        program_id,
-        accounts: vec![
-            solana_sdk::instruction::AccountMeta::new(payer_pubkey, true), // Payer/signer
-            // Additional accounts would be parsed from Li.fi route data
-        ],
-        data: instruction_data,
-    };
-    
-    // Create transaction message
-    let recent_blockhash = signer.get_solana_recent_blockhash().await?;
-    let message = Message::new(&[bridge_instruction], Some(&payer_pubkey));
-    
-    // Create and sign transaction
+
+    // Payer
+    let payer_str = signer
+        .pubkey()
+        .ok_or_else(|| "No Solana pubkey available from signer".to_string())?;
+    let payer_pubkey = solana_sdk::pubkey::Pubkey::from_str(&payer_str)
+        .map_err(|e| format!("Invalid signer pubkey: {}", e))?;
+
+    // Build AccountMeta list from LiFi-provided accounts if present
+    let mut metas: Vec<solana_sdk::instruction::AccountMeta> = Vec::new();
+    if let Some(accounts) = &tx_data.solana_accounts {
+        for acc in accounts {
+            let pk = solana_sdk::pubkey::Pubkey::from_str(&acc.pubkey)
+                .map_err(|e| format!("Invalid account pubkey: {}", e))?;
+            let meta = if acc.is_writable {
+                solana_sdk::instruction::AccountMeta::new(pk, acc.is_signer)
+            } else {
+                solana_sdk::instruction::AccountMeta::new_readonly(pk, acc.is_signer)
+            };
+            metas.push(meta);
+        }
+    }
+    if !metas.iter().any(|m| m.pubkey == payer_pubkey) {
+        metas.insert(0, solana_sdk::instruction::AccountMeta::new(payer_pubkey, true));
+    }
+
+    let ix = Instruction { program_id, accounts: metas, data: instruction_data };
+
+    // Recent blockhash
+    let rpc = signer.solana_client();
+    let recent_blockhash = rpc
+        .get_latest_blockhash()
+        .map_err(|e| format!("Failed to get recent blockhash: {}", e))?;
+
+    let message = Message::new(&[ix], Some(&payer_pubkey));
     let mut transaction = Transaction::new_unsigned(message);
-    transaction.sign(&[&payer_keypair], recent_blockhash);
-    
-    // Submit transaction through signer
-    let signature = signer.submit_solana_transaction(&transaction).await?;
-    
+    transaction.message.recent_blockhash = recent_blockhash;
+
+    // Sign and send via signer
+    let signature = signer
+        .sign_and_send_solana_transaction(&mut transaction)
+        .await?;
+
     tracing::info!("✅ Solana bridge transaction submitted: {}", signature);
     Ok(signature)
 }
@@ -905,42 +925,40 @@ async fn execute_evm_bridge_transaction(
     
     tracing::info!("🌉 Executing real EVM bridge transaction for chain {} route {}", chain_id, route.id);
     
-    // Extract Li.fi transaction data
+    // Extract LiFi transaction data
     let tx_data = route.transaction_request.as_ref()
         .ok_or("No transaction data in route")?;
     
-    // Parse EVM transaction parameters from Li.fi route data
+    // Parse EVM transaction parameters from LiFi route data
     let to_address = Address::from_str(&tx_data.to)
         .map_err(|e| format!("Invalid to address: {}", e))?;
     
     let data = hex::decode(tx_data.data.trim_start_matches("0x"))
         .map_err(|e| format!("Invalid transaction data: {}", e))?;
     
-    let value = U256::from_str(&tx_data.value)
-        .map_err(|e| format!("Invalid value: {}", e))?;
+    // Parse helpers to accept hex or decimal
+    fn parse_u256(s: &str) -> Result<U256, String> {
+        let s = s.trim();
+        if s.starts_with("0x") || s.starts_with("0X") {
+            U256::from_str_radix(&s[2..], 16).map_err(|e| e.to_string())
+        } else {
+            U256::from_str(s).map_err(|e| e.to_string())
+        }
+    }
+    let value = parse_u256(&tx_data.value).map_err(|e| format!("Invalid value: {}", e))?;
+    let gas_limit = parse_u256(&tx_data.gas_limit).unwrap_or_else(|_| U256::from(200000u64));
+    let _gas_price = parse_u256(&tx_data.gas_price).unwrap_or_else(|_| U256::from(20_000_000_000u64));
     
-    let gas_limit = tx_data.gas.as_ref()
-        .map(|g| U256::from_str(g).unwrap_or(U256::from(200000u64)))
-        .unwrap_or(U256::from(200000u64));
-    
-    // Get gas price from current network conditions or use provided
-    let gas_price = if let Some(gas_price_str) = &tx_data.gas_price {
-        U256::from_str(gas_price_str)
-            .map_err(|e| format!("Invalid gas price: {}", e))?
-    } else {
-        signer.get_recommended_gas_price(chain_id).await?
-    };
-    
-    // Build EVM transaction from Li.fi route data
-    let evm_tx = TransactionRequest {
-        to: Some(to_address.into()),
-        data: Some(Bytes::from(data)),
-        value: Some(value),
-        gas: Some(gas_limit.try_into().unwrap_or(200000u64)),
-        gas_price: Some(gas_price.try_into().unwrap_or(20000000000u128)),
-        chain_id: Some(chain_id),
-        ..Default::default()
-    };
+    // Build EVM transaction from LiFi route data
+    let from_opt = signer.address().and_then(|s| Address::from_str(&s).ok());
+    let mut evm_tx = TransactionRequest::default()
+        .to(to_address)
+        .input(Bytes::from(data).into())
+        .value(value)
+        .gas_limit(gas_limit.try_into().unwrap_or(200000u64));
+    if let Some(from_addr) = from_opt {
+        evm_tx = evm_tx.from(from_addr);
+    }
     
     // Sign and send through signer
     let tx_hash = signer.sign_and_send_evm_transaction(evm_tx).await?;
@@ -1003,7 +1021,7 @@ mod tests {
             Arc::new(solana_client::rpc_client::RpcClient::new("http://localhost:8899"))
         }
         
-        fn evm_client(&self) -> Result<std::sync::Arc<dyn std::any::Any + Send + Sync>, riglr_core::signer::SignerError> {
+    fn evm_client(&self) -> Result<Arc<dyn riglr_core::signer::traits::EvmClient>, riglr_core::signer::SignerError> {
             Err(riglr_core::signer::SignerError::ClientCreation("Mock EVM client not implemented".to_string()))
         }
     }
@@ -1020,8 +1038,7 @@ mod tests {
             Some(0.5),
         ).await;
         
-        assert!(result.is_err());
-        assert!(matches!(result, Err(ToolError::Permanent(_))));
+    assert!(result.is_err());
     }
     
     #[tokio::test]

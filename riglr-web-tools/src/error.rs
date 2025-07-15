@@ -75,29 +75,31 @@ impl From<WebToolError> for ToolError {
     fn from(err: WebToolError) -> Self {
         match err {
             WebToolError::Http(e) => {
-                if e.is_timeout() || e.is_connect() {
-                    ToolError::Retriable(format!("HTTP error: {}", e))
+                if e.status() == Some(reqwest::StatusCode::TOO_MANY_REQUESTS) {
+                    ToolError::rate_limited(format!("HTTP 429: {}", e))
+                } else if e.is_timeout() || e.is_connect() {
+                    ToolError::retriable(format!("HTTP error: {}", e))
                 } else {
-                    ToolError::Permanent(format!("HTTP error: {}", e))
+                    ToolError::permanent(format!("HTTP error: {}", e))
                 }
             }
-            WebToolError::Network(msg) => ToolError::Retriable(msg),
-            WebToolError::RateLimit(msg) => ToolError::Retriable(msg),
-            WebToolError::Auth(msg) => ToolError::Permanent(msg),
-            WebToolError::InvalidResponse(msg) => ToolError::Permanent(msg),
-            WebToolError::Config(msg) => ToolError::Permanent(msg),
-            WebToolError::Api(msg) => ToolError::Permanent(msg),
-            WebToolError::Parsing(msg) => ToolError::Permanent(msg),
-            WebToolError::Request(msg) => ToolError::Retriable(msg),
-            WebToolError::Parse(msg) => ToolError::Permanent(msg),
-            WebToolError::JsonParseError(msg) => ToolError::Permanent(msg),
-            WebToolError::Url(e) => ToolError::Permanent(format!("URL error: {}", e)),
+            WebToolError::Network(msg) => ToolError::retriable(msg),
+            WebToolError::RateLimit(msg) => ToolError::rate_limited(msg),
+            WebToolError::Auth(msg) => ToolError::permanent(msg),
+            WebToolError::InvalidResponse(msg) => ToolError::permanent(msg),
+            WebToolError::Config(msg) => ToolError::permanent(msg),
+            WebToolError::Api(msg) => ToolError::permanent(msg),
+            WebToolError::Parsing(msg) => ToolError::permanent(msg),
+            WebToolError::Request(msg) => ToolError::retriable(msg),
+            WebToolError::Parse(msg) => ToolError::permanent(msg),
+            WebToolError::JsonParseError(msg) => ToolError::permanent(msg),
+            WebToolError::Url(e) => ToolError::permanent(format!("URL error: {}", e)),
             WebToolError::Serialization(e) => {
-                ToolError::Permanent(format!("Serialization error: {}", e))
+                ToolError::permanent(format!("Serialization error: {}", e))
             }
-            WebToolError::Core(e) => ToolError::Permanent(format!("Core error: {}", e)),
-            WebToolError::Client(msg) => ToolError::Permanent(msg),
-            WebToolError::Generic(msg) => ToolError::Permanent(msg),
+            WebToolError::Core(e) => ToolError::permanent(format!("Core error: {}", e)),
+            WebToolError::Client(msg) => ToolError::permanent(msg),
+            WebToolError::Generic(msg) => ToolError::permanent(msg),
         }
     }
 }

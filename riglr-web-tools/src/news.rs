@@ -10,6 +10,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use tracing::{debug, info, warn};
+use std::hash::{Hash, Hasher};
 
 /// Configuration for news aggregation services
 #[derive(Debug, Clone)]
@@ -628,24 +629,175 @@ pub async fn analyze_market_sentiment(
 
 /// Query NewsAPI for articles
 async fn query_newsapi(
-    _client: &WebClient,
-    _config: &NewsConfig,
+    client: &WebClient,
+    config: &NewsConfig,
     topic: &str,
-    _time_window: &Option<String>,
+    time_window: &Option<String>,
 ) -> crate::error::Result<Vec<NewsArticle>> {
-    // In production, would make actual NewsAPI requests
-    Ok(vec![create_sample_article(topic, "NewsAPI Source", 85)])
+    // Build URL and params for NewsAPI /v2/everything
+    let url = format!("{}/everything", config.base_url);
+    let window = time_window.clone().unwrap_or_else(|| format!("{}h", config.freshness_hours));
+    let hours = parse_time_window(&window) as i64;
+    let from = (Utc::now() - chrono::Duration::hours(hours)).to_rfc3339();
+
+    let mut params = std::collections::HashMap::new();
+    params.insert("q".to_string(), topic.to_string());
+    params.insert("language".to_string(), "en".to_string());
+    params.insert("sortBy".to_string(), "publishedAt".to_string());
+    params.insert("from".to_string(), from);
+    params.insert("pageSize".to_string(), config.max_articles.to_string());
+
+    // NewsAPI supports header X-Api-Key or apiKey parameter; prefer header
+    let mut headers = std::collections::HashMap::new();
+    headers.insert("X-Api-Key".to_string(), config.newsapi_key.clone());
+
+    let resp_text = client
+        .get_with_params_and_headers(&url, &params, headers)
+        .await
+        .map_err(|e| WebToolError::Request(format!("NewsAPI request failed: {}", e)))?;
+
+    // Parse JSON and map to NewsArticle
+    let json: serde_json::Value = serde_json::from_str(&resp_text)
+        .map_err(|e| WebToolError::JsonParseError(format!("NewsAPI parse error: {}", e)))?;
+
+    if let Some(status) = json.get("status").and_then(|s| s.as_str()) {
+        if status != "ok" {
+            let msg = json.get("message").and_then(|m| m.as_str()).unwrap_or("unknown error");
+            return Err(WebToolError::Api(format!("NewsAPI error: {}", msg)));
+        }
+    }
+
+    let mut articles_out: Vec<NewsArticle> = Vec::new();
+    if let Some(arr) = json.get("articles").and_then(|a| a.as_array()) {
+        for a in arr {
+            let title = a.get("title").and_then(|v| v.as_str()).unwrap_or("").to_string();
+            let url = a.get("url").and_then(|v| v.as_str()).unwrap_or("").to_string();
+            if url.is_empty() || title.is_empty() { continue; }
+            let published_at = a
+                .get("publishedAt")
+                .and_then(|v| v.as_str())
+                .and_then(|s| DateTime::parse_from_rfc3339(s).ok())
+                .map(|dt| dt.with_timezone(&Utc))
+                .unwrap_or_else(Utc::now);
+            let description = a.get("description").and_then(|v| v.as_str()).map(|s| s.to_string());
+            let content = a.get("content").and_then(|v| v.as_str()).map(|s| s.to_string());
+            let source_obj = a.get("source").cloned().unwrap_or_default();
+            let source = NewsSource {
+                id: source_obj.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+                name: source_obj.get("name").and_then(|v| v.as_str()).unwrap_or("NewsAPI").to_string(),
+                url: url.clone(),
+                category: "Mainstream".to_string(),
+                credibility_score: 75,
+                accuracy_rating: None,
+                bias_score: None,
+                is_verified: true,
+                logo_url: None,
+            };
+            // Basic classification heuristics
+            let category = NewsCategory { 
+                primary: "News".to_string(),
+                sub_category: None,
+                tags: vec![topic.to_lowercase()],
+                geographic_scope: vec!["Global".to_string()],
+                target_audience: "Retail".to_string(),
+            };
+            let sentiment = NewsSentiment { overall_score: 0.0, confidence: 0.5, classification: "Neutral".to_string(), topic_sentiments: HashMap::new(), emotions: EmotionalIndicators { fear: 0.2, greed: 0.2, excitement: 0.2, uncertainty: 0.2, urgency: 0.2 }, key_phrases: vec![] };
+            let market_impact = MarketImpact { impact_level: "Low".to_string(), impact_score: 40, time_horizon: "Short-term".to_string(), affected_sectors: vec![], potential_price_impact: None, historical_correlation: None, risk_factors: vec![] };
+            let entities = vec![NewsEntity { name: topic.to_string(), entity_type: "Topic".to_string(), relevance_score: 0.8, sentiment: None, mention_count: 1, contexts: vec![] }];
+            let article = NewsArticle {
+                id: format!("newsapi_{}_{}", published_at.timestamp(), hash64(&url)),
+                title,
+                url,
+                description,
+                content,
+                published_at,
+                source,
+                category,
+                sentiment,
+                market_impact,
+                entities,
+                related_assets: vec![topic.to_lowercase()],
+                quality_metrics: QualityMetrics { overall_score: 70, depth_score: 60, factual_accuracy: 75, writing_quality: 70, citation_quality: 60, uniqueness_score: 50, reading_difficulty: 5 },
+                social_metrics: None,
+            };
+            articles_out.push(article);
+        }
+    }
+    Ok(articles_out)
 }
 
 /// Query CryptoPanic for crypto-specific news
 async fn query_cryptopanic(
-    _client: &WebClient,
-    _config: &NewsConfig,
+    client: &WebClient,
+    config: &NewsConfig,
     topic: &str,
-    _time_window: &Option<String>,
+    time_window: &Option<String>,
 ) -> crate::error::Result<Vec<NewsArticle>> {
-    // In production, would make actual CryptoPanic API requests
-    Ok(vec![create_sample_article(topic, "CryptoPanic Source", 78)])
+    let base = "https://cryptopanic.com/api/v1/posts";
+    let window = time_window.clone().unwrap_or_else(|| "24h".to_string());
+    let _hours = parse_time_window(&window);
+
+    let mut params = std::collections::HashMap::new();
+    params.insert("auth_token".to_string(), config.cryptopanic_key.clone());
+    params.insert("kind".to_string(), "news".to_string());
+    params.insert("currencies".to_string(), topic.to_string());
+    params.insert("public".to_string(), "true".to_string());
+    params.insert("filter".to_string(), "rising".to_string());
+
+    let resp_text = client
+        .get_with_params(base, &params)
+        .await
+        .map_err(|e| WebToolError::Request(format!("CryptoPanic request failed: {}", e)))?;
+
+    let json: serde_json::Value = serde_json::from_str(&resp_text)
+        .map_err(|e| WebToolError::JsonParseError(format!("CryptoPanic parse error: {}", e)))?;
+
+    let mut articles_out = Vec::new();
+    if let Some(results) = json.get("results").and_then(|v| v.as_array()) {
+        for item in results {
+            let title = item.get("title").and_then(|v| v.as_str()).unwrap_or("").to_string();
+            let url = item.get("url").and_then(|v| v.as_str()).unwrap_or("").to_string();
+            if url.is_empty() || title.is_empty() { continue; }
+            let published_at = item
+                .get("published_at")
+                .and_then(|v| v.as_str())
+                .and_then(|s| DateTime::parse_from_rfc3339(s).ok())
+                .map(|dt| dt.with_timezone(&Utc))
+                .unwrap_or_else(Utc::now);
+            let domain = item.get("domain").and_then(|v| v.as_str()).unwrap_or("");
+            let source_obj = item.get("source").cloned().unwrap_or_default();
+            let source = NewsSource {
+                id: source_obj.get("domain").and_then(|v| v.as_str()).unwrap_or(domain).to_string(),
+                name: source_obj.get("title").and_then(|v| v.as_str()).unwrap_or("CryptoPanic").to_string(),
+                url: url.clone(),
+                category: "Crypto".to_string(),
+                credibility_score: 70,
+                accuracy_rating: None,
+                bias_score: None,
+                is_verified: true,
+                logo_url: None,
+            };
+            let category = NewsCategory { primary: "News".to_string(), sub_category: None, tags: vec![topic.to_lowercase()], geographic_scope: vec!["Global".to_string()], target_audience: "Crypto".to_string() };
+            let article = NewsArticle {
+                id: format!("cryptopanic_{}_{}", published_at.timestamp(), hash64(&url)),
+                title,
+                url,
+                description: None,
+                content: None,
+                published_at,
+                source,
+                category,
+                sentiment: NewsSentiment { overall_score: 0.0, confidence: 0.5, classification: "Neutral".to_string(), topic_sentiments: HashMap::new(), emotions: EmotionalIndicators { fear: 0.2, greed: 0.2, excitement: 0.2, uncertainty: 0.2, urgency: 0.2 }, key_phrases: vec![] },
+                market_impact: MarketImpact { impact_level: "Low".to_string(), impact_score: 45, time_horizon: "Short-term".to_string(), affected_sectors: vec![], potential_price_impact: None, historical_correlation: None, risk_factors: vec![] },
+                entities: vec![NewsEntity { name: topic.to_string(), entity_type: "Cryptocurrency".to_string(), relevance_score: 0.8, sentiment: None, mention_count: 1, contexts: vec![] }],
+                related_assets: vec![topic.to_lowercase()],
+                quality_metrics: QualityMetrics { overall_score: 68, depth_score: 55, factual_accuracy: 70, writing_quality: 65, citation_quality: 55, uniqueness_score: 50, reading_difficulty: 5 },
+                social_metrics: None,
+            };
+            articles_out.push(article);
+        }
+    }
+    Ok(articles_out)
 }
 
 /// Create a sample news article for testing
@@ -883,17 +1035,96 @@ fn determine_sentiment_trend(articles: &[NewsArticle]) -> String {
 }
 
 async fn fetch_trending_articles(
-    _client: &WebClient,
-    _config: &NewsConfig,
-    _time_window: &Option<String>,
+    client: &WebClient,
+    config: &NewsConfig,
+    time_window: &Option<String>,
     _categories: &Option<Vec<String>>,
     _min_impact_score: u32,
 ) -> crate::error::Result<Vec<NewsArticle>> {
-    // In production, would query multiple sources for trending articles
-    Ok(vec![
-        create_sample_article("Bitcoin", "TrendingSource", 88),
-        create_sample_article("Ethereum", "TrendingSource", 85),
-    ])
+    // Prefer CryptoPanic trending (rising) plus NewsAPI top-headlines as fallback
+    let mut out: Vec<NewsArticle> = Vec::new();
+
+    if !config.cryptopanic_key.is_empty() {
+        let mut params = std::collections::HashMap::new();
+        params.insert("auth_token".to_string(), config.cryptopanic_key.clone());
+        params.insert("filter".to_string(), "rising".to_string());
+        params.insert("kind".to_string(), "news".to_string());
+        params.insert("public".to_string(), "true".to_string());
+        if let Some(window) = time_window.as_ref() {
+            let _ = window; // not directly supported
+        }
+        if let Ok(resp) = client.get_with_params("https://cryptopanic.com/api/v1/posts", &params).await {
+            if let Ok(json) = serde_json::from_str::<serde_json::Value>(&resp) {
+                if let Some(results) = json.get("results").and_then(|v| v.as_array()) {
+                    for item in results {
+                        let title = item.get("title").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                        let url = item.get("url").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                        if title.is_empty() || url.is_empty() { continue; }
+                        let published_at = item
+                            .get("published_at").and_then(|v| v.as_str())
+                            .and_then(|s| DateTime::parse_from_rfc3339(s).ok())
+                            .map(|dt| dt.with_timezone(&Utc)).unwrap_or_else(Utc::now);
+                        out.push(NewsArticle {
+                            id: format!("cp_trending_{}_{}", published_at.timestamp(), hash64(&url)),
+                            title,
+                            url: url.clone(),
+                            description: None,
+                            content: None,
+                            published_at,
+                            source: NewsSource { id: "cryptopanic".to_string(), name: "CryptoPanic".to_string(), url, category: "Crypto".to_string(), credibility_score: 70, accuracy_rating: None, bias_score: None, is_verified: true, logo_url: None },
+                            category: NewsCategory { primary: "Trending".to_string(), sub_category: None, tags: vec![], geographic_scope: vec!["Global".to_string()], target_audience: "Crypto".to_string() },
+                            sentiment: NewsSentiment { overall_score: 0.0, confidence: 0.5, classification: "Neutral".to_string(), topic_sentiments: HashMap::new(), emotions: EmotionalIndicators { fear: 0.2, greed: 0.2, excitement: 0.2, uncertainty: 0.2, urgency: 0.2 }, key_phrases: vec![] },
+                            market_impact: MarketImpact { impact_level: "Medium".to_string(), impact_score: 60, time_horizon: "Short-term".to_string(), affected_sectors: vec![], potential_price_impact: None, historical_correlation: None, risk_factors: vec![] },
+                            entities: vec![],
+                            related_assets: vec![],
+                            quality_metrics: QualityMetrics { overall_score: 65, depth_score: 55, factual_accuracy: 70, writing_quality: 65, citation_quality: 55, uniqueness_score: 50, reading_difficulty: 5 },
+                            social_metrics: None,
+                        });
+                    }
+                }
+            }
+        }
+    }
+
+    // Fallback to NewsAPI top-headlines about crypto
+    if out.is_empty() && !config.newsapi_key.is_empty() {
+        let url = format!("{}/top-headlines", config.base_url);
+        let mut params = std::collections::HashMap::new();
+        params.insert("q".to_string(), "crypto OR bitcoin OR ethereum".to_string());
+        params.insert("language".to_string(), "en".to_string());
+        params.insert("pageSize".to_string(), "20".to_string());
+        let mut headers = std::collections::HashMap::new();
+        headers.insert("X-Api-Key".to_string(), config.newsapi_key.clone());
+        if let Ok(resp) = client.get_with_params_and_headers(&url, &params, headers).await {
+            if let Ok(json) = serde_json::from_str::<serde_json::Value>(&resp) {
+                if let Some(arts) = json.get("articles").and_then(|v| v.as_array()) {
+                    for a in arts {
+                        let title = a.get("title").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                        let url = a.get("url").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                        if title.is_empty() || url.is_empty() { continue; }
+                        let published_at = a.get("publishedAt").and_then(|v| v.as_str())
+                            .and_then(|s| DateTime::parse_from_rfc3339(s).ok())
+                            .map(|dt| dt.with_timezone(&Utc)).unwrap_or_else(Utc::now);
+                        out.push(create_sample_article("Crypto", "NewsAPI", 75));
+                        if let Some(last) = out.last_mut() {
+                            last.title = title;
+                            last.url = url;
+                            last.published_at = published_at;
+                            last.category.primary = "Trending".to_string();
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(out)
+}
+
+fn hash64(s: &str) -> u64 {
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    s.hash(&mut hasher);
+    hasher.finish()
 }
 
 async fn analyze_trending_patterns(articles: &[NewsArticle]) -> crate::error::Result<NewsInsights> {
@@ -902,12 +1133,57 @@ async fn analyze_trending_patterns(articles: &[NewsArticle]) -> crate::error::Re
 }
 
 async fn detect_breaking_news(
-    _client: &WebClient,
-    _config: &NewsConfig,
-    _keyword: &str,
+    client: &WebClient,
+    config: &NewsConfig,
+    keyword: &str,
 ) -> crate::error::Result<Vec<BreakingNewsAlert>> {
-    // In production, would implement real-time breaking news detection
-    Ok(vec![])
+    // Heuristic: fetch very recent items and detect urgency keywords
+    let mut alerts: Vec<BreakingNewsAlert> = Vec::new();
+
+    let mut articles: Vec<NewsArticle> = Vec::new();
+    if !config.newsapi_key.is_empty() {
+        if let Ok(mut a) = query_newsapi(client, config, keyword, &Some("1h".to_string())).await {
+            articles.append(&mut a);
+        }
+    }
+    if !config.cryptopanic_key.is_empty() {
+        if let Ok(mut a) = query_cryptopanic(client, config, keyword, &Some("1h".to_string())).await {
+            articles.append(&mut a);
+        }
+    }
+
+    // Filter very recent (<= 2h) and containing strong terms
+    let urgent_terms = [
+        "breaking", "urgent", "exploit", "hack", "outage", "halt", "SEC", "lawsuit", "bankrupt",
+        "halted", "paused", "breach", "attack", "flash loan", "rug",
+    ];
+    let now = Utc::now();
+    let mut grouped: Vec<NewsArticle> = Vec::new();
+    for a in articles.into_iter() {
+        if (now - a.published_at) <= chrono::Duration::hours(2) {
+            let hay = format!("{} {} {}", a.title, a.description.clone().unwrap_or_default(), a.url);
+            if urgent_terms.iter().any(|t| hay.to_lowercase().contains(&t.to_lowercase())) {
+                grouped.push(a);
+            }
+        }
+    }
+
+    if !grouped.is_empty() {
+        let est_impact = MarketImpact { impact_level: "High".to_string(), impact_score: 80, time_horizon: "Immediate".to_string(), affected_sectors: vec!["Crypto".to_string()], potential_price_impact: Some(5.0), historical_correlation: None, risk_factors: vec!["Volatility".to_string()] };
+        let alert = BreakingNewsAlert {
+            id: format!("breaking_{}_{}", keyword.to_lowercase(), now.timestamp()),
+            severity: "High".to_string(),
+            title: format!("Breaking: {} - {} items", keyword, grouped.len()),
+            description: format!("Detected urgent developments related to '{}'.", keyword),
+            articles: grouped,
+            estimated_impact: est_impact,
+            created_at: now,
+            expires_at: Some(now + chrono::Duration::hours(4)),
+        };
+        alerts.push(alert);
+    }
+
+    Ok(alerts)
 }
 
 fn is_above_severity_threshold(current_severity: &str, threshold: &str) -> bool {

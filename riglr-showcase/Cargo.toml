@@ -61,7 +61,10 @@ solana-sdk = "2.3.1"
 
 # Additional dependencies for processors module
 async-trait = "0.1"
-reqwest = { version = "0.11", features = ["json"], optional = true }
+reqwest = { version = "0.11", features = ["json"] }
+
+# Authentication dependencies
+jsonwebtoken = "9.0"
 
 # Web server dependencies for examples
 actix-web = { version = "4", optional = true }

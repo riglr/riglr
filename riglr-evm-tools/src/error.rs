@@ -77,42 +77,42 @@ impl From<EvmToolError> for ToolError {
         match err {
             // Classify errors explicitly with context preservation
             EvmToolError::ProviderError(provider_err) => {
-                ToolError::retriable_with_source(err, format!("EVM provider error: {}", provider_err))
+                ToolError::retriable_with_source(EvmToolError::ProviderError(provider_err.clone()), format!("EVM provider error: {}", provider_err))
             },
             EvmToolError::InsufficientBalance => {
-                ToolError::permanent_with_source(err, "Insufficient balance for transaction")
+                ToolError::permanent_with_source(EvmToolError::InsufficientBalance, "Insufficient balance for transaction")
             },
             EvmToolError::InvalidAddress(addr) => {
-                ToolError::invalid_input_with_source(err, format!("Invalid Ethereum address: {}", addr))
+                ToolError::invalid_input_with_source(EvmToolError::InvalidAddress(addr.clone()), format!("Invalid Ethereum address: {}", addr))
             },
             EvmToolError::UnsupportedChain(chain_id) => {
-                ToolError::invalid_input_with_source(err, format!("Unsupported chain ID: {}", chain_id))
+                ToolError::invalid_input_with_source(EvmToolError::UnsupportedChain(chain_id), format!("Unsupported chain ID: {}", chain_id))
             },
             EvmToolError::Http(http_err) => {
-                ToolError::retriable_with_source(err, format!("HTTP error: {}", http_err))
+                ToolError::retriable(format!("HTTP error: {}", http_err))
             },
             EvmToolError::Rpc(rpc_err) => {
-                ToolError::retriable_with_source(err, format!("RPC error: {}", rpc_err))
+                ToolError::retriable(format!("RPC error: {}", rpc_err))
             },
             EvmToolError::Contract(contract_err) => {
-                ToolError::permanent_with_source(err, format!("Contract error: {}", contract_err))
+                ToolError::permanent(format!("Contract error: {}", contract_err))
             },
             EvmToolError::InvalidKey(key_err) => {
-                ToolError::invalid_input_with_source(err, format!("Invalid key: {}", key_err))
+                ToolError::invalid_input(format!("Invalid key: {}", key_err))
             },
             EvmToolError::Transaction(tx_err) => {
-                ToolError::retriable_with_source(err, format!("Transaction error: {}", tx_err))
+                ToolError::retriable(format!("Transaction error: {}", tx_err))
             },
             EvmToolError::Generic(generic_err) => {
-                ToolError::permanent_with_source(err, format!("Generic error: {}", generic_err))
+                ToolError::permanent(format!("Generic error: {}", generic_err))
             },
             EvmToolError::TransactionBuildError(details) => {
-                ToolError::permanent_with_source(err, format!("Failed to build transaction: {}", details))
+                ToolError::permanent(format!("Failed to build transaction: {}", details))
             },
             EvmToolError::ToolError(tool_err) => tool_err, // Pass through
             EvmToolError::SignerError(signer_err) => ToolError::SignerContext(signer_err),
-            EvmToolError::Serialization(err) => ToolError::permanent_with_source(EvmToolError::Serialization(err), "Serialization error"),
-            EvmToolError::Core(err) => ToolError::permanent_with_source(EvmToolError::Core(err), "Core error"),
+            EvmToolError::Serialization(_) => ToolError::permanent("Serialization error"),
+            EvmToolError::Core(_) => ToolError::permanent("Core error"),
             // No catch-all pattern - compiler enforces exhaustive matching
         }
     }

@@ -200,6 +200,18 @@ pub struct TransactionRequest {
     pub gas_price: String,
     /// Chain ID for the transaction
     pub chain_id: u64,
+    /// Solana specific account metas if applicable
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub solana_accounts: Option<Vec<SolanaAccountMeta>>,
+}
+
+/// Solana account metadata for building instructions
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SolanaAccountMeta {
+    pub pubkey: String,
+    pub is_signer: bool,
+    pub is_writable: bool,
 }
 
 /// LiFi Protocol API client
@@ -387,14 +399,33 @@ impl LiFiClient {
         
         // Parse the transaction request from LiFi API response
         // Note: This is a simplified implementation - actual LiFi API response format may vary
-        let tx_request = TransactionRequest {
-            to: tx_data["to"].as_str().unwrap_or_default().to_string(),
-            data: tx_data["data"].as_str().unwrap_or_default().to_string(),
-            value: tx_data["value"].as_str().unwrap_or("0").to_string(),
-            gas_limit: tx_data["gasLimit"].as_str().unwrap_or("200000").to_string(),
-            gas_price: tx_data["gasPrice"].as_str().unwrap_or("20000000000").to_string(),
-            chain_id: tx_data["chainId"].as_u64().unwrap_or(1),
+        let to = tx_data["to"].as_str()
+            .or_else(|| tx_data["programId"].as_str())
+            .unwrap_or_default()
+            .to_string();
+        let data = tx_data["data"].as_str().unwrap_or_default().to_string();
+        let value = tx_data["value"].as_str().unwrap_or("0").to_string();
+        let gas_limit = tx_data["gasLimit"].as_str().unwrap_or("200000").to_string();
+        let gas_price = tx_data["gasPrice"].as_str().unwrap_or("20000000000").to_string();
+        let chain_id = tx_data["chainId"].as_u64().unwrap_or(1);
+
+        // Attempt to parse Solana accounts if present
+        let solana_accounts = if let Some(accounts) = tx_data.get("accounts").and_then(|a| a.as_array()) {
+            let mut metas: Vec<SolanaAccountMeta> = Vec::with_capacity(accounts.len());
+            for acc in accounts {
+                let pubkey = acc["pubkey"].as_str().unwrap_or_default().to_string();
+                let is_signer = acc["isSigner"].as_bool().unwrap_or(false);
+                let is_writable = acc["isWritable"].as_bool().unwrap_or(false);
+                if !pubkey.is_empty() {
+                    metas.push(SolanaAccountMeta { pubkey, is_signer, is_writable });
+                }
+            }
+            if metas.is_empty() { None } else { Some(metas) }
+        } else {
+            None
         };
+
+        let tx_request = TransactionRequest { to, data, value, gas_limit, gas_price, chain_id, solana_accounts };
         
         Ok(tx_request)
     }
