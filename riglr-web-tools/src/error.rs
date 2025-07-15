@@ -65,6 +65,10 @@ pub enum WebToolError {
     /// Parse error (alias for Parsing)
     #[error("Parse error: {0}")]
     Parse(String),
+    
+    /// JSON parsing error
+    #[error("JSON parse error: {0}")]
+    JsonParseError(String),
 }
 
 impl From<WebToolError> for ToolError {
@@ -86,6 +90,7 @@ impl From<WebToolError> for ToolError {
             WebToolError::Parsing(msg) => ToolError::Permanent(msg),
             WebToolError::Request(msg) => ToolError::Retriable(msg),
             WebToolError::Parse(msg) => ToolError::Permanent(msg),
+            WebToolError::JsonParseError(msg) => ToolError::Permanent(msg),
             WebToolError::Url(e) => ToolError::Permanent(format!("URL error: {}", e)),
             WebToolError::Serialization(e) => {
                 ToolError::Permanent(format!("Serialization error: {}", e))

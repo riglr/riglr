@@ -54,6 +54,7 @@
 
 pub mod client;
 pub mod dexscreener;
+pub mod dexscreener_api;
 pub mod error;
 pub mod faster100x;
 pub mod lunarcrush;

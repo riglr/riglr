@@ -114,6 +114,12 @@ impl From<crate::signer::SignerError> for SignerError {
             crate::signer::SignerError::SolanaTransaction(err) => SignerError::TransactionFailed(err.to_string()),
             crate::signer::SignerError::EvmTransaction(msg) => SignerError::TransactionFailed(msg),
             crate::signer::SignerError::ClientCreation(msg) => SignerError::NetworkError(msg),
+            crate::signer::SignerError::InvalidPrivateKey(msg) => SignerError::InvalidPrivateKey(msg),
+            crate::signer::SignerError::ProviderError(msg) => SignerError::NetworkError(msg),
+            crate::signer::SignerError::TransactionFailed(msg) => SignerError::TransactionFailed(msg),
+            crate::signer::SignerError::UnsupportedOperation(msg) => SignerError::TransactionFailed(msg),
+            crate::signer::SignerError::BlockhashError(msg) => SignerError::NetworkError(msg),
+            crate::signer::SignerError::SigningError(msg) => SignerError::InvalidSignature(msg),
         }
     }
 }

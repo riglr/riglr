@@ -698,20 +698,82 @@ async fn parse_token_response(
 }
 
 /// Parse search results from DexScreener API
-async fn parse_search_results(_response: &str) -> crate::error::Result<Vec<TokenInfo>> {
-    // In production, would parse actual JSON response
-    Ok(vec![])
+async fn parse_search_results(response: &str) -> crate::error::Result<Vec<TokenInfo>> {
+    let dex_response: crate::dexscreener_api::DexScreenerResponse = serde_json::from_str(response)
+        .map_err(|e| crate::error::WebToolError::JsonParseError(e.to_string()))?;
+    
+    // Group pairs by token and aggregate data
+    let mut tokens_map = std::collections::HashMap::new();
+    
+    for pair in dex_response.pairs {
+        let token_address = pair.base_token.address.clone();
+        let entry = tokens_map.entry(token_address.clone()).or_insert(TokenInfo {
+            address: token_address,
+            name: pair.base_token.name.clone(),
+            symbol: pair.base_token.symbol.clone(),
+            decimals: 18, // Default, as DexScreener doesn't provide this
+            price_usd: pair.price_usd.and_then(|p| p.parse().ok()),
+            market_cap: pair.market_cap,
+            volume_24h: pair.volume.as_ref().and_then(|v| v.h24),
+            price_change_24h: pair.price_change.as_ref().and_then(|pc| pc.h24),
+            price_change_1h: pair.price_change.as_ref().and_then(|pc| pc.h1),
+            price_change_5m: pair.price_change.as_ref().and_then(|pc| pc.m5),
+            circulating_supply: None,
+            total_supply: None,
+            pair_count: 0,
+            pairs: vec![],
+            chain: pair.chain_id.clone(),
+            chain_id: None,
+            holders: None,
+            dex_id: Some(pair.dex_id.clone()),
+            pair_address: Some(pair.pair_address.clone()),
+            verified: pair.labels.as_ref().map(|labels| labels.contains(&"verified".to_string())).unwrap_or(false),
+            url: Some(pair.url.clone()),
+        });
+        
+        // Add this pair to the token's pairs list
+        entry.pairs.push(TokenPair {
+            pair_address: pair.pair_address,
+            base_token: pair.base_token.symbol,
+            quote_token: pair.quote_token.symbol,
+            price_native: pair.price_native,
+            price_usd: pair.price_usd,
+            liquidity_usd: pair.liquidity.and_then(|l| l.usd),
+            volume_24h: pair.volume.and_then(|v| v.h24),
+            dex_id: pair.dex_id,
+            chain_id: pair.chain_id,
+        });
+        entry.pair_count += 1;
+    }
+    
+    Ok(tokens_map.into_values().collect())
 }
 
-async fn parse_trending_response(_response: &str) -> crate::error::Result<Vec<TokenInfo>> {
-    // In production, would parse actual JSON response
-    Ok(vec![])
+async fn parse_trending_response(response: &str) -> crate::error::Result<Vec<TokenInfo>> {
+    // Same as search results for now
+    parse_search_results(response).await
 }
 
 /// Parse trading pairs response
-async fn parse_pairs_response(_response: &str) -> crate::error::Result<Vec<TokenPair>> {
-    // In production, would parse actual JSON response
-    Ok(vec![])
+async fn parse_pairs_response(response: &str) -> crate::error::Result<Vec<TokenPair>> {
+    let dex_response: crate::dexscreener_api::DexScreenerResponse = serde_json::from_str(response)
+        .map_err(|e| crate::error::WebToolError::JsonParseError(e.to_string()))?;
+    
+    let pairs: Vec<TokenPair> = dex_response.pairs.into_iter().map(|pair| {
+        TokenPair {
+            pair_address: pair.pair_address,
+            base_token: pair.base_token.symbol.clone(),
+            quote_token: pair.quote_token.symbol.clone(),
+            price_native: pair.price_native,
+            price_usd: pair.price_usd,
+            liquidity_usd: pair.liquidity.and_then(|l| l.usd),
+            volume_24h: pair.volume.and_then(|v| v.h24),
+            dex_id: pair.dex_id,
+            chain_id: pair.chain_id,
+        }
+    }).collect();
+    
+    Ok(pairs)
 }
 
 async fn analyze_price_trends(token: &TokenInfo) -> crate::error::Result<TrendAnalysis> {
