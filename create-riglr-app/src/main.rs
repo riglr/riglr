@@ -9,7 +9,10 @@ use anyhow::Result;
 use clap::Parser;
 use rig_core::{Agent, Provider};
 use std::env;
-use tracing::{info, warn};
+use tracing::{info, warn, error};
+
+mod config;
+use config::Config as EnvConfig;
 
 // Import riglr tools based on template configuration
 {% if primary-chain == "solana" or primary-chain == "both" -%}
@@ -35,12 +38,12 @@ use riglr_graph_memory::GraphMemory;
 
 use riglr_core::{Job, JobQueue, ToolWorker};
 
-/// Configuration for the {{agent-name}} agent
+/// Command-line configuration for the {{agent-name}} agent
 #[derive(Debug, Parser)]
 #[command(name = "{{project-name}}")]
 #[command(about = "{{description}}")]
 #[command(version)]
-pub struct Config {
+pub struct CliConfig {
     /// Run in interactive mode
     #[arg(short, long)]
     interactive: bool,
@@ -68,7 +71,8 @@ pub struct Config {
 
 /// Main application state
 pub struct {{agent-name | snake_case | title_case}}Agent {
-    config: Config,
+    cli_config: CliConfig,
+    env_config: EnvConfig,
     agent: Agent<Provider>,
     {% if include-graph-memory -%}
     memory: GraphMemory,
@@ -79,7 +83,7 @@ pub struct {{agent-name | snake_case | title_case}}Agent {
 
 impl {{agent-name | snake_case | title_case}}Agent {
     /// Initialize the agent with all configured tools and services
-    pub async fn new(config: Config) -> Result<Self> {
+    pub async fn new(cli_config: CliConfig, env_config: EnvConfig) -> Result<Self> {
         info!("Initializing {{agent-name}} agent...");
 
         // Initialize the AI provider (you'll need to set up your preferred LLM provider)
@@ -122,12 +126,12 @@ impl {{agent-name | snake_case | title_case}}Agent {
         {% endif %}
 
         // Initialize job queue and worker for async task execution
-        let redis_url = env::var("REDIS_URL").unwrap_or_else(|_| "redis://localhost:6379".to_string());
-        let job_queue = riglr_core::create_redis_queue(&redis_url).await?;
+        let job_queue = riglr_core::create_redis_queue(&env_config.redis_url).await?;
         let tool_worker = ToolWorker::new(job_queue.clone()).await?;
 
         Ok(Self {
-            config,
+            cli_config,
+            env_config,
             agent,
             {% if include-graph-memory -%}
             memory,
@@ -391,11 +395,11 @@ async fn main() -> Result<()> {
     dotenvy::dotenv().ok();
 
     // Parse command line arguments
-    let config = Config::parse();
+    let cli_config = CliConfig::parse();
 
     // Initialize logging
     tracing_subscriber::fmt()
-        .with_env_filter(&config.log_level)
+        .with_env_filter(&cli_config.log_level)
         .with_target(false)
         .with_thread_ids(true)
         .with_file(true)
@@ -404,13 +408,18 @@ async fn main() -> Result<()> {
 
     info!("Starting {{project-name}} v{}", env!("CARGO_PKG_VERSION"));
 
+    // Load and validate environment configuration
+    info!("Loading and validating environment configuration...");
+    let env_config = EnvConfig::from_env();
+    info!("✅ Configuration validated successfully");
+
     // Initialize the agent
-    let mut agent = {{agent-name | snake_case | title_case}}Agent::new(config).await?;
+    let mut agent = {{agent-name | snake_case | title_case}}Agent::new(cli_config, env_config).await?;
 
     // Run the agent
-    if agent.config.interactive {
+    if agent.cli_config.interactive {
         agent.run_interactive().await?;
-    } else if let Some(task) = &agent.config.task {
+    } else if let Some(task) = &agent.cli_config.task {
         agent.execute_task(task).await?;
     } else {
         // Default behavior

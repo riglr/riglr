@@ -41,6 +41,7 @@ clap = { workspace = true }
 
 # Environment variables
 dotenvy = { workspace = true }
+envy = "0.4"
 
 # Logging
 tracing = { workspace = true }

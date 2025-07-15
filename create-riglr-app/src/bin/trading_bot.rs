@@ -324,22 +324,11 @@ Remember: Capital preservation is priority #1. Only take high-probability trades
                     }
                 }
                 
-                // Fallback to mock prices if parsing fails
-                Ok(match asset {
-                    "SOL" => 23.45,
-                    "ETH" => 1650.30,
-                    "BTC" => 26800.50,
-                    _ => 1.0,
-                })
+                Err(anyhow::anyhow!("Failed to parse price data for {}: invalid price format", asset))
             }
-            Err(_) => {
-                // Fallback to mock prices if API call fails
-                Ok(match asset {
-                    "SOL" => 23.45,
-                    "ETH" => 1650.30,
-                    "BTC" => 26800.50,
-                    _ => 1.0,
-                })
+            Err(e) => {
+                // Fail fast on API errors instead of using mock data
+                Err(anyhow::anyhow!("Failed to fetch price for {}: {}", asset, e))
             }
         }
     }

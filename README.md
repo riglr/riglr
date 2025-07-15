@@ -1,15 +1,22 @@
-# riglr 🦀⚡
+# RIGLR 🦀⚡ - Production-Ready AI Agent Framework for Blockchain
 
 [![CI](https://github.com/riglr-project/riglr/workflows/CI/badge.svg)](https://github.com/riglr-project/riglr/actions)
 [![Crates.io](https://img.shields.io/crates/v/riglr-core.svg)](https://crates.io/crates/riglr-core)
 [![Documentation](https://docs.rs/riglr-core/badge.svg)](https://docs.rs/riglr-core)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-> **The premier Rust ecosystem for building high-performance, resilient on-chain AI agents** 
+> **Production-ready Rust ecosystem for building enterprise-grade on-chain AI agents**
 
-riglr (pronounced "riggler") is a suite of modular, production-ready Rust crates that make it easy to build sophisticated AI agents that interact with blockchains. Built on top of the [rig](https://github.com/0xPlaygrounds/rig) framework, riglr provides everything you need to create powerful crypto-native applications.
+RIGLR (pronounced "riggler") provides a comprehensive, production-ready toolkit for building AI-powered blockchain agents. After extensive refactoring, RIGLR now offers enterprise-grade security, reliability, and maintainability with zero mock implementations and fail-fast configuration patterns.
 
-## 🚀 Features
+## 🚀 Production Features
+
+### Enterprise-Grade Reliability
+- **Fail-Fast Configuration**: Centralized environment variable management with startup validation
+- **Extensible Chain Support**: Add new EVM chains without code changes using `RPC_URL_{CHAIN_ID}` convention  
+- **Rich Error Handling**: Structured error types with source preservation for better debugging
+- **Real Blockchain Integration**: No mock implementations - all operations use real blockchain APIs
+- **Framework Agnostic**: Web adapters support multiple frameworks (Actix Web, Axum)
 
 ### Core Infrastructure
 - **🔧 Declarative Tool System**: Define tools with the `#[tool]` macro - automatic trait implementation and error handling
@@ -17,6 +24,38 @@ riglr (pronounced "riggler") is a suite of modular, production-ready Rust crates
 - **🔄 Smart Error Handling**: Distinguishes between retriable and permanent errors
 - **📊 Job Queue**: Redis-backed job processing with automatic retries and dead letter queues
 - **📝 Comprehensive Logging**: Structured logging with tracing
+
+## 🔧 Quick Start
+
+### 1. Environment Setup
+```bash
+cp .env.example .env
+# Edit .env with your API keys and RPC URLs
+```
+
+### 2. Production Configuration
+```rust
+use riglr_showcase::config::Config;
+
+let config = Config::from_env(); // Panics if required vars missing
+config.validate()?; // Validates format and values
+```
+
+### 3. Add New Chains
+```bash
+# Add any EVM chain by setting RPC_URL_{CHAIN_ID}
+export RPC_URL_10=https://optimism-mainnet.alchemyapi.io/v2/your-key
+# Chain ID 10 (Optimism) is now supported automatically
+```
+
+### 4. Framework-Agnostic Web Server
+```rust
+use riglr_web_adapters::core::{handle_agent_completion, Agent};
+use riglr_web_adapters::actix::create_app;
+
+// Works with Actix Web, Axum, or any web framework
+let app = create_app(your_agent);
+```
 
 ### Blockchain Support
 - **⚡ Solana**: Complete SPL token support, Jupiter DEX integration, transaction building
@@ -37,72 +76,107 @@ riglr (pronounced "riggler") is a suite of modular, production-ready Rust crates
 - **🏷️ Entity Recognition**: Blockchain entity extraction and classification
 - **🔗 Contextual Retrieval**: Graph relationships enhance vector search
 
-## 🏗️ Architecture Overview
+## 📦 Architecture
 
-```mermaid
-graph TD
-    subgraph "rig Framework"
-        A[rig Agent] --> B[Tool Registry]
-        B --> C[Tool Execution]
-    end
-    
-    subgraph "riglr Ecosystem"
-        D[riglr-core]
-        E[riglr-macros]
-        F[SignerContext]
-        G[ToolWorker]
-    end
-    
-    subgraph "Blockchain Tools"
-        H[riglr-solana-tools]
-        I[riglr-evm-tools]
-        J[riglr-hyperliquid-tools]
-        K[riglr-cross-chain-tools]
-    end
-    
-    subgraph "Supporting Tools"
-        L[riglr-web-tools]
-        M[riglr-graph-memory]
-    end
-    
-    subgraph "Application Layer"
-        N[riglr-server]
-        O[riglr-showcase]
-    end
-    
-    %% Integration flow
-    C --> D
-    D --> F
-    D --> G
-    E --> H
-    E --> I
-    E --> J
-    E --> K
-    F --> H
-    F --> I
-    F --> J
-    F --> K
-    
-    %% Application usage
-    N --> D
-    O --> D
-    
-    classDef core fill:#ff9999
-    classDef tools fill:#99ccff
-    classDef apps fill:#99ff99
-    
-    class D,E,F,G core
-    class H,I,J,K,L,M tools
-    class N,O apps
+```
+riglr/
+├── riglr-core/             # Core utilities, error types, signer traits
+├── riglr-evm-tools/        # Ethereum and EVM-compatible chain tools
+├── riglr-solana-tools/     # Solana blockchain tools  
+├── riglr-cross-chain-tools/ # Li.fi bridge integration
+├── riglr-web-tools/        # Price feeds and web APIs
+├── riglr-web-adapters/     # Framework-agnostic web server adapters
+├── create-riglr-app/       # Application template and CLI
+└── riglr-showcase/         # Examples and demonstrations
 ```
 
-The riglr ecosystem extends rig with blockchain-specific capabilities through a layered architecture:
+### Production-Ready Patterns
 
-- **riglr-core**: Foundational abstractions (SignerContext, ToolWorker, ToolError)
-- **riglr-macros**: Procedural macros for tool definitions and rig integration
-- **Tool Crates**: Blockchain-specific implementations (Solana, EVM, Hyperliquid, Cross-chain)
-- **Supporting Tools**: Web scraping, graph memory, and utility functions
-- **Applications**: Server and showcase implementations
+#### Centralized Configuration
+```rust
+use riglr_showcase::config::Config;
+
+// Fail-fast configuration loading
+let config = Config::from_env(); // Panics if env vars missing
+config.validate()?;              // Validates URL formats, etc.
+```
+
+#### Extensible Chain Support
+```bash
+# Convention-based RPC URLs - add any chain without code changes
+RPC_URL_1=https://eth-mainnet.alchemyapi.io/v2/key      # Ethereum
+RPC_URL_137=https://polygon-mainnet.alchemyapi.io/v2/key # Polygon  
+RPC_URL_42161=https://arb-mainnet.alchemyapi.io/v2/key   # Arbitrum
+RPC_URL_8453=https://base-mainnet.alchemyapi.io/v2/key   # Base
+```
+
+#### Rich Error Handling
+```rust
+use riglr_core::error::ToolError;
+
+// Errors preserve source context and classification
+let result = some_operation().await;
+match result {
+    Err(ToolError::Retriable { source, context, .. }) => {
+        // Can retry with backoff
+        println!("Retriable error: {}, source: {:?}", context, source);
+    }
+    Err(ToolError::Permanent { source, context, .. }) => {
+        // Don't retry, log and handle  
+        println!("Permanent error: {}, source: {:?}", context, source);
+    }
+    _ => {}
+}
+## 🔒 Security
+
+- **No Hardcoded Fallbacks**: All configuration must be explicitly provided
+- **Error Context Preservation**: Rich error information without sensitive data leaks  
+- **Real Transaction Validation**: No mock implementations that could cause fund loss
+- **Comprehensive Testing**: 2,331+ tests including security and integration tests
+- **Fail-Fast Validation**: Configuration errors caught at startup
+
+## 📋 Migration from Development Version
+
+### Breaking Changes
+1. **Environment Variables**: EVM chains now use `RPC_URL_{CHAIN_ID}` format
+2. **Configuration**: Must use centralized Config struct
+3. **Error Handling**: Errors now preserve source context
+4. **Bridge Operations**: No more mock transaction hashes
+
+### Migration Steps
+```bash
+# 1. Update environment variables
+export RPC_URL_1=$ETHEREUM_RPC_URL      # Chain ID 1 = Ethereum
+export RPC_URL_137=$POLYGON_RPC_URL     # Chain ID 137 = Polygon
+export RPC_URL_42161=$ARBITRUM_RPC_URL  # Chain ID 42161 = Arbitrum
+
+# 2. Update application initialization
+# OLD: let redis_url = env::var("REDIS_URL").unwrap_or_else(|_| "redis://localhost:6379".to_string());
+# NEW: let config = Config::from_env(); let redis_url = config.redis_url;
+
+# 3. Ensure real signers are configured for all operations
+```
+
+## 🧪 Testing
+
+RIGLR includes comprehensive testing with 2,331+ tests covering:
+
+```bash
+# Run all tests
+cargo test --workspace
+
+# Run integration tests (requires API keys)
+cargo test --workspace --ignored
+
+# Run security tests  
+cargo test security
+
+# Run production readiness tests
+cargo test production_readiness
+
+# Check for mock implementations
+cargo test test_no_mock_implementations
+```
 
 ## 📦 Crates
 

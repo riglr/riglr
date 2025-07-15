@@ -13,20 +13,61 @@ use std::sync::Arc;
 
 pub type EvmProvider = Arc<dyn Provider<Ethereum>>;
 
-/// Maps chain IDs to RPC URLs from environment variables
+/// Maps chain IDs to RPC URLs using convention-based environment variable lookup.
+/// Uses format: RPC_URL_{CHAIN_ID}
+/// Examples: RPC_URL_1 (Ethereum), RPC_URL_137 (Polygon), RPC_URL_42161 (Arbitrum)
 pub fn chain_id_to_rpc_url(chain_id: u64) -> Result<String> {
-    match chain_id {
-        1 => Ok(riglr_core::util::must_get_env("ETHEREUM_RPC_URL")),
-        42161 => Ok(riglr_core::util::must_get_env("ARBITRUM_RPC_URL")), 
-        137 => Ok(riglr_core::util::must_get_env("POLYGON_RPC_URL")),
-        8453 => Ok(riglr_core::util::must_get_env("BASE_RPC_URL")),
-        _ => Err(anyhow!("Unsupported chain ID: {}", chain_id)),
+    let env_var = format!("RPC_URL_{}", chain_id);
+    
+    match std::env::var(&env_var) {
+        Ok(url) => {
+            if url.trim().is_empty() {
+                return Err(anyhow!(
+                    "RPC URL for chain {} is empty. Set {} environment variable.", 
+                    chain_id, env_var
+                ));
+            }
+            
+            // Validate URL format
+            if !url.starts_with("http://") && !url.starts_with("https://") && !url.starts_with("wss://") {
+                return Err(anyhow!(
+                    "Invalid RPC URL format for chain {}: {}. Must start with http://, https://, or wss://", 
+                    chain_id, url
+                ));
+            }
+            
+            tracing::debug!("✅ Found RPC URL for chain {}: {}", chain_id, &url[..std::cmp::min(50, url.len())]);
+            Ok(url)
+        }
+        Err(_) => {
+            Err(anyhow!(
+                "No RPC URL configured for chain ID {}. Set {} environment variable.\n\
+                 Supported chains require RPC_URL_{{CHAIN_ID}} format.\n\
+                 Example: RPC_URL_1=https://eth-mainnet.alchemyapi.io/v2/your-key", 
+                chain_id, env_var
+            ))
+        }
     }
 }
 
-/// Validates if a chain ID is supported
+/// Helper function to check if a chain is supported (has RPC URL configured)
 pub fn is_supported_chain(chain_id: u64) -> bool {
-    matches!(chain_id, 1 | 42161 | 137 | 8453)
+    let env_var = format!("RPC_URL_{}", chain_id);
+    std::env::var(&env_var).is_ok()
+}
+
+/// Returns a list of all configured chain IDs by scanning environment variables
+pub fn get_supported_chains() -> Vec<u64> {
+    std::env::vars()
+        .filter_map(|(key, _value)| {
+            if key.starts_with("RPC_URL_") {
+                key.strip_prefix("RPC_URL_")
+                    .and_then(|chain_id_str| chain_id_str.parse::<u64>().ok())
+            } else {
+                None
+            }
+        })
+        .collect()
 }
 
 /// Factory function for creating EVM providers
@@ -82,37 +123,98 @@ mod tests {
     use std::env;
 
     #[test]
-    fn test_chain_id_to_rpc_url_supported() {
-        env::set_var("ETHEREUM_RPC_URL", "https://eth.example.com");
-        env::set_var("ARBITRUM_RPC_URL", "https://arb.example.com");
-        env::set_var("POLYGON_RPC_URL", "https://polygon.example.com");
-        env::set_var("BASE_RPC_URL", "https://base.example.com");
-
-        assert!(chain_id_to_rpc_url(1).is_ok());
-        assert!(chain_id_to_rpc_url(42161).is_ok());
-        assert!(chain_id_to_rpc_url(137).is_ok());
-        assert!(chain_id_to_rpc_url(8453).is_ok());
-
+    fn test_convention_based_chain_lookup() {
+        // Test successful lookup
+        env::set_var("RPC_URL_999", "https://test-rpc.example.com");
+        let result = chain_id_to_rpc_url(999);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "https://test-rpc.example.com");
+        
         // Clean up
-        env::remove_var("ETHEREUM_RPC_URL");
-        env::remove_var("ARBITRUM_RPC_URL");
-        env::remove_var("POLYGON_RPC_URL");
-        env::remove_var("BASE_RPC_URL");
+        env::remove_var("RPC_URL_999");
     }
 
     #[test]
-    fn test_chain_id_to_rpc_url_unsupported() {
-        let result = chain_id_to_rpc_url(999999);
+    fn test_missing_chain_error() {
+        let result = chain_id_to_rpc_url(99999);
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("Unsupported chain ID"));
+        assert!(result.unwrap_err().to_string().contains("No RPC URL configured"));
+    }
+
+    #[test]
+    fn test_invalid_url_format() {
+        env::set_var("RPC_URL_998", "invalid-url");
+        let result = chain_id_to_rpc_url(998);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("Invalid RPC URL format"));
+        
+        env::remove_var("RPC_URL_998");
+    }
+
+    #[test]
+    fn test_get_supported_chains() {
+        env::set_var("RPC_URL_1", "https://eth.example.com");
+        env::set_var("RPC_URL_137", "https://polygon.example.com");
+        
+        let chains = get_supported_chains();
+        assert!(chains.contains(&1));
+        assert!(chains.contains(&137));
+        
+        env::remove_var("RPC_URL_1");
+        env::remove_var("RPC_URL_137");
+    }
+
+    #[test]
+    fn test_chain_id_to_rpc_url_supported() {
+        // Test each chain individually to avoid interference
+        env::set_var("RPC_URL_1", "https://eth.example.com");
+        let result1 = chain_id_to_rpc_url(1);
+        assert!(result1.is_ok());
+        env::remove_var("RPC_URL_1");
+
+        env::set_var("RPC_URL_42161", "https://arb.example.com");
+        let result2 = chain_id_to_rpc_url(42161);
+        assert!(result2.is_ok());
+        env::remove_var("RPC_URL_42161");
+
+        env::set_var("RPC_URL_137", "https://polygon.example.com");
+        let result3 = chain_id_to_rpc_url(137);
+        assert!(result3.is_ok());
+        env::remove_var("RPC_URL_137");
+
+        env::set_var("RPC_URL_8453", "https://base.example.com");
+        let result4 = chain_id_to_rpc_url(8453);
+        assert!(result4.is_ok());
+        env::remove_var("RPC_URL_8453");
     }
 
     #[test]
     fn test_is_supported_chain() {
-        assert!(is_supported_chain(1));     // Ethereum
-        assert!(is_supported_chain(42161)); // Arbitrum
-        assert!(is_supported_chain(137));   // Polygon
-        assert!(is_supported_chain(8453));  // Base
-        assert!(!is_supported_chain(999999)); // Unsupported
+        // Clean state first
+        env::remove_var("RPC_URL_1");
+        env::remove_var("RPC_URL_42161");
+        env::remove_var("RPC_URL_137");
+        env::remove_var("RPC_URL_8453");
+        env::remove_var("RPC_URL_999999");
+
+        // Test unsupported first
+        assert!(!is_supported_chain(999999));
+        
+        // Test supported chains individually
+        env::set_var("RPC_URL_1", "https://eth.example.com");
+        assert!(is_supported_chain(1));
+        env::remove_var("RPC_URL_1");
+        
+        env::set_var("RPC_URL_42161", "https://arb.example.com");
+        assert!(is_supported_chain(42161));
+        env::remove_var("RPC_URL_42161");
+        
+        env::set_var("RPC_URL_137", "https://polygon.example.com");
+        assert!(is_supported_chain(137));
+        env::remove_var("RPC_URL_137");
+        
+        env::set_var("RPC_URL_8453", "https://base.example.com");
+        assert!(is_supported_chain(8453));
+        env::remove_var("RPC_URL_8453");
     }
 }

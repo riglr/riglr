@@ -84,7 +84,14 @@ async fn main() -> Result<()> {
 
     // Load configuration
     dotenvy::from_filename(&cli.config).ok();
-    let config = config::Config::from_env()?;
+    
+    tracing::info!("🚀 Initializing riglr-showcase with production-ready configuration...");
+    
+    // Load and validate all configuration at startup
+    let config = config::Config::from_env();
+    config.validate().map_err(|e| anyhow::anyhow!("Configuration validation failed: {}", e))?;
+    
+    tracing::info!("✅ Configuration validated successfully");
 
     info!("Starting riglr-showcase v{}", env!("CARGO_PKG_VERSION"));
 
