@@ -151,7 +151,6 @@ async fn test_idempotency_store_expiry_detailed() {
 }
 
 #[tokio::test]
-#[ignore] // Long-running concurrent test
 async fn test_idempotency_store_concurrent_access() {
     let store = Arc::new(InMemoryIdempotencyStore::new());
 
@@ -260,7 +259,7 @@ async fn test_idempotency_store_expired_entry_not_returned() {
 }
 
 #[tokio::test]
-#[ignore] // Long-running stress test
+#[ignore] // Long-running stress test - enable only for comprehensive testing
 async fn test_idempotency_store_stress_test() {
     let store = Arc::new(InMemoryIdempotencyStore::new());
     let mut handles = vec![];

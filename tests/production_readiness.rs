@@ -88,7 +88,7 @@ async fn test_no_mock_implementations() {
 }
 
 #[tokio::test]
-#[ignore] // Requires real API keys
+#[ignore] // Requires real API keys - enable in CI with proper API key setup
 async fn test_real_api_integration() {
     // Test that real APIs work correctly
     

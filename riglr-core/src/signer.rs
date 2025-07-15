@@ -29,7 +29,7 @@ pub mod error;
 pub mod evm;
 pub mod solana;
 
-pub use traits::TransactionSigner;
+pub use traits::{TransactionSigner, EvmClient, SolanaClient};
 pub use error::SignerError;
 pub use evm::LocalEvmSigner;
 pub use solana::LocalSolanaSigner;
@@ -402,7 +402,7 @@ mod tests {
             Arc::new(solana_client::rpc_client::RpcClient::new("http://localhost:8899"))
         }
         
-        fn evm_client(&self) -> Result<std::sync::Arc<dyn std::any::Any + Send + Sync>, SignerError> {
+        fn evm_client(&self) -> Result<Arc<dyn EvmClient>, SignerError> {
             Err(SignerError::Configuration("Mock EVM client not implemented".to_string()))
         }
     }

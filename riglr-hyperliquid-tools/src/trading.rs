@@ -81,7 +81,7 @@ pub async fn place_hyperliquid_order(
         .map_err(|e| ToolError::permanent(format!("No signer context: {}", e)))?;
     
     // Create client
-    let client = HyperliquidClient::new(signer)?;
+    let mut client = HyperliquidClient::new(signer)?;
 
     // Validate side
     let is_buy = match side.to_lowercase().as_str() {
@@ -214,7 +214,7 @@ pub async fn cancel_hyperliquid_order(
         .map_err(|e| ToolError::permanent(format!("No signer context: {}", e)))?;
     
     // Create client
-    let client = HyperliquidClient::new(signer)?;
+    let mut client = HyperliquidClient::new(signer)?;
 
     // Parse order ID
     let oid = order_id.parse::<u64>()
@@ -280,7 +280,7 @@ pub async fn get_hyperliquid_account_info() -> Result<HyperliquidAccountResult, 
         .map_err(|e| ToolError::permanent(format!("No signer context: {}", e)))?;
     
     // Create client
-    let client = HyperliquidClient::new(signer)?;
+    let mut client = HyperliquidClient::new(signer)?;
 
     // Get user address
     let user_address = client.get_user_address()?;
@@ -318,7 +318,7 @@ pub async fn set_leverage(
         .map_err(|e| ToolError::permanent(format!("No signer context: {}", e)))?;
     
     // Create client  
-    let client = HyperliquidClient::new(signer)?;
+    let mut client = HyperliquidClient::new(signer)?;
 
     // Get market metadata to validate symbol
     let meta = client.get_meta().await?;

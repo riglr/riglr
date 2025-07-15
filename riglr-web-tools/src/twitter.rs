@@ -503,44 +503,191 @@ pub async fn analyze_crypto_sentiment(
 }
 
 /// Parse Twitter API response into structured tweets
-async fn parse_twitter_response(_response: &str) -> crate::error::Result<Vec<TwitterPost>> {
-    // In production, this would parse the actual Twitter API JSON response
-    // For now, returning a mock tweet
-    let mock_tweet = TwitterPost {
-        id: "1234567890".to_string(),
-        text: "Sample tweet content for testing".to_string(),
-        author: TwitterUser {
-            id: "user123".to_string(),
-            username: "cryptotrader".to_string(),
-            name: "Crypto Trader".to_string(),
-            description: Some("Professional crypto trader and analyst".to_string()),
-            followers_count: 50000,
-            following_count: 1000,
-            tweet_count: 25000,
-            verified: false,
-            created_at: Utc::now(),
-        },
-        created_at: Utc::now(),
-        metrics: TweetMetrics {
-            retweet_count: 150,
-            like_count: 500,
-            reply_count: 75,
-            quote_count: 25,
-            impression_count: Some(10000),
-        },
-        entities: TweetEntities {
-            hashtags: vec!["crypto".to_string(), "bitcoin".to_string()],
-            mentions: vec!["@coinbase".to_string()],
-            urls: vec![],
-            cashtags: vec!["$BTC".to_string()],
-        },
-        lang: Some("en".to_string()),
-        is_reply: false,
-        is_retweet: false,
-        context_annotations: vec![],
-    };
+/// CRITICAL: This now parses REAL Twitter API v2 responses - NO MORE MOCK DATA
+async fn parse_twitter_response(response: &str) -> crate::error::Result<Vec<TwitterPost>> {
+    info!("Parsing REAL Twitter API v2 response (length: {})", response.len());
+    
+    // Parse the Twitter API v2 JSON response
+    let api_response: serde_json::Value = serde_json::from_str(response)
+        .map_err(|e| crate::error::WebToolError::Api(format!("Failed to parse Twitter API response: {}", e)))?;
 
-    Ok(vec![mock_tweet])
+    let mut tweets = Vec::new();
+    
+    // Extract tweets from the 'data' field
+    if let Some(data) = api_response["data"].as_array() {
+        let users = api_response["includes"]["users"].as_array().unwrap_or(&vec![]);
+        
+        for tweet_data in data {
+            // Parse tweet
+            let tweet = parse_single_tweet(tweet_data, users)?;
+            tweets.push(tweet);
+        }
+    }
+    
+    if tweets.is_empty() {
+        info!("No tweets found in Twitter API response");
+    } else {
+        info!("Successfully parsed {} real tweets from Twitter API", tweets.len());
+    }
+    
+    Ok(tweets)
+}
+
+/// Parse a single tweet from Twitter API v2 data
+fn parse_single_tweet(tweet_data: &serde_json::Value, users: &[serde_json::Value]) -> crate::error::Result<TwitterPost> {
+    let id = tweet_data["id"].as_str().unwrap_or_default().to_string();
+    let text = tweet_data["text"].as_str().unwrap_or_default().to_string();
+    let author_id = tweet_data["author_id"].as_str().unwrap_or_default();
+    
+    // Find author information from includes.users
+    let author = find_user_by_id(author_id, users)?;
+    
+    // Parse creation time
+    let created_at = if let Some(created_str) = tweet_data["created_at"].as_str() {
+        DateTime::parse_from_rfc3339(created_str)
+            .map(|dt| dt.with_timezone(&Utc))
+            .unwrap_or_else(|_| Utc::now())
+    } else {
+        Utc::now()
+    };
+    
+    // Parse metrics
+    let metrics = if let Some(public_metrics) = tweet_data["public_metrics"].as_object() {
+        TweetMetrics {
+            retweet_count: public_metrics.get("retweet_count").and_then(|v| v.as_u64()).unwrap_or(0) as u32,
+            like_count: public_metrics.get("like_count").and_then(|v| v.as_u64()).unwrap_or(0) as u32,
+            reply_count: public_metrics.get("reply_count").and_then(|v| v.as_u64()).unwrap_or(0) as u32,
+            quote_count: public_metrics.get("quote_count").and_then(|v| v.as_u64()).unwrap_or(0) as u32,
+            impression_count: public_metrics.get("impression_count").and_then(|v| v.as_u64()).map(|v| v as u32),
+        }
+    } else {
+        TweetMetrics::default()
+    };
+    
+    // Parse entities
+    let entities = parse_tweet_entities(&tweet_data["entities"]);
+    
+    // Parse context annotations
+    let context_annotations = if let Some(contexts) = tweet_data["context_annotations"].as_array() {
+        contexts.iter().filter_map(|ctx| {
+            Some(ContextAnnotation {
+                domain_id: ctx["domain"]["id"].as_str()?.to_string(),
+                domain_name: ctx["domain"]["name"].as_str()?.to_string(),
+                entity_id: ctx["entity"]["id"].as_str()?.to_string(),
+                entity_name: ctx["entity"]["name"].as_str()?.to_string(),
+            })
+        }).collect()
+    } else {
+        vec![]
+    };
+    
+    let is_retweet = text.starts_with("RT @");
+    
+    Ok(TwitterPost {
+        id,
+        text,
+        author,
+        created_at,
+        metrics,
+        entities,
+        lang: tweet_data["lang"].as_str().map(|s| s.to_string()),
+        is_reply: tweet_data["in_reply_to_user_id"].is_string(),
+        is_retweet,
+        context_annotations,
+    })
+}
+
+/// Find user by ID in the users array
+fn find_user_by_id(author_id: &str, users: &[serde_json::Value]) -> crate::error::Result<TwitterUser> {
+    for user in users {
+        if user["id"].as_str() == Some(author_id) {
+            return parse_user_data(user);
+        }
+    }
+    
+    // Fallback if user not found in includes
+    Ok(TwitterUser {
+        id: author_id.to_string(),
+        username: "unknown".to_string(),
+        name: "Unknown User".to_string(),
+        description: None,
+        followers_count: 0,
+        following_count: 0,
+        tweet_count: 0,
+        verified: false,
+        created_at: Utc::now(),
+    })
+}
+
+/// Parse user data from Twitter API v2 response
+fn parse_user_data(user_data: &serde_json::Value) -> crate::error::Result<TwitterUser> {
+    let created_at = if let Some(created_str) = user_data["created_at"].as_str() {
+        DateTime::parse_from_rfc3339(created_str)
+            .map(|dt| dt.with_timezone(&Utc))
+            .unwrap_or_else(|_| Utc::now())
+    } else {
+        Utc::now()
+    };
+    
+    let public_metrics = user_data["public_metrics"].as_object();
+    
+    Ok(TwitterUser {
+        id: user_data["id"].as_str().unwrap_or_default().to_string(),
+        username: user_data["username"].as_str().unwrap_or_default().to_string(),
+        name: user_data["name"].as_str().unwrap_or_default().to_string(),
+        description: user_data["description"].as_str().map(|s| s.to_string()),
+        followers_count: public_metrics.and_then(|m| m.get("followers_count")).and_then(|v| v.as_u64()).unwrap_or(0) as u32,
+        following_count: public_metrics.and_then(|m| m.get("following_count")).and_then(|v| v.as_u64()).unwrap_or(0) as u32,
+        tweet_count: public_metrics.and_then(|m| m.get("tweet_count")).and_then(|v| v.as_u64()).unwrap_or(0) as u32,
+        verified: user_data["verified"].as_bool().unwrap_or(false),
+        created_at,
+    })
+}
+
+/// Parse tweet entities from Twitter API v2 response
+fn parse_tweet_entities(entities_data: &serde_json::Value) -> TweetEntities {
+    let hashtags = if let Some(tags) = entities_data["hashtags"].as_array() {
+        tags.iter().filter_map(|tag| tag["tag"].as_str().map(|s| s.to_string())).collect()
+    } else {
+        vec![]
+    };
+    
+    let mentions = if let Some(mentions_array) = entities_data["mentions"].as_array() {
+        mentions_array.iter().filter_map(|mention| mention["username"].as_str().map(|s| format!("@{}", s))).collect()
+    } else {
+        vec![]
+    };
+    
+    let urls = if let Some(urls_array) = entities_data["urls"].as_array() {
+        urls_array.iter().filter_map(|url| url["expanded_url"].as_str().map(|s| s.to_string())).collect()
+    } else {
+        vec![]
+    };
+    
+    let cashtags = if let Some(cashtags_array) = entities_data["cashtags"].as_array() {
+        cashtags_array.iter().filter_map(|tag| tag["tag"].as_str().map(|s| format!("${}", s))).collect()
+    } else {
+        vec![]
+    };
+    
+    TweetEntities {
+        hashtags,
+        mentions,
+        urls,
+        cashtags,
+    }
+}
+
+impl Default for TweetMetrics {
+    fn default() -> Self {
+        Self {
+            retweet_count: 0,
+            like_count: 0,
+            reply_count: 0,
+            quote_count: 0,
+            impression_count: None,
+        }
+    }
 }
 
 /// Analyze sentiment of tweets (simplified implementation)

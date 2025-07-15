@@ -10,12 +10,15 @@ use solana_sdk::{
     signature::Keypair,
     signer::Signer,
     transaction::Transaction,
+    pubkey::Pubkey,
+    signature::Signature,
 };
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use std::time::{Duration, Instant};
 
-use crate::signer::{SignerError, TransactionSigner};
+use crate::signer::{SignerError, TransactionSigner, SolanaClient};
+use crate::config::{RpcConfig, SolanaNetworkConfig};
 
 /// Cache for recent blockhashes to improve performance
 struct BlockhashCache {
@@ -55,15 +58,16 @@ pub struct LocalSolanaSigner {
     keypair: Arc<Keypair>,
     client: Arc<RpcClient>,
     blockhash_cache: Arc<RwLock<BlockhashCache>>,
+    config: SolanaNetworkConfig,
 }
 
 impl LocalSolanaSigner {
-    /// Create a new Solana signer from a base58-encoded private key
-    pub fn new(private_key: String, rpc_url: String) -> Result<Self, SignerError> {
+    /// Create a new Solana signer from a base58-encoded private key and network configuration
+    pub fn new(private_key: String, network_config: SolanaNetworkConfig) -> Result<Self, SignerError> {
         let keypair = Keypair::from_base58_string(&private_key);
         
         let client = Arc::new(RpcClient::new_with_commitment(
-            rpc_url,
+            &network_config.rpc_url,
             CommitmentConfig::confirmed(),
         ));
         
@@ -73,13 +77,21 @@ impl LocalSolanaSigner {
             keypair: Arc::new(keypair),
             client,
             blockhash_cache,
+            config: network_config,
         })
     }
     
+    /// Create a new Solana signer from RPC configuration and network name
+    pub fn from_config(private_key: String, config: &RpcConfig, network: &str) -> Result<Self, SignerError> {
+        let network_config = config.solana_networks.get(network)
+            .ok_or_else(|| SignerError::UnsupportedNetwork(network.to_string()))?;
+        Self::new(private_key, network_config.clone())
+    }
+    
     /// Create a new Solana signer from a Keypair (for testing)
-    pub fn from_keypair(keypair: Keypair, rpc_url: String) -> Self {
+    pub fn from_keypair(keypair: Keypair, network_config: SolanaNetworkConfig) -> Self {
         let client = Arc::new(RpcClient::new_with_commitment(
-            rpc_url,
+            &network_config.rpc_url,
             CommitmentConfig::confirmed(),
         ));
         
@@ -89,6 +101,7 @@ impl LocalSolanaSigner {
             keypair: Arc::new(keypair),
             client,
             blockhash_cache,
+            config: network_config,
         }
     }
     
@@ -161,10 +174,44 @@ impl TransactionSigner for LocalSolanaSigner {
         self.client.clone()
     }
     
-    fn evm_client(&self) -> Result<Arc<dyn std::any::Any + Send + Sync>, SignerError> {
+    fn evm_client(&self) -> Result<Arc<dyn crate::signer::EvmClient>, SignerError> {
         Err(SignerError::UnsupportedOperation(
             "EVM client not available for Solana signer".to_string()
         ))
+    }
+}
+
+/// Implementation of SolanaClient trait for LocalSolanaSigner
+struct SolanaClientImpl {
+    client: Arc<RpcClient>,
+}
+
+#[async_trait]
+impl SolanaClient for SolanaClientImpl {
+    async fn get_balance(&self, pubkey: &Pubkey) -> Result<u64, SignerError> {
+        let balance = tokio::task::spawn_blocking({
+            let client = self.client.clone();
+            let pubkey = *pubkey;
+            move || client.get_balance(&pubkey)
+        })
+        .await
+        .map_err(|e| SignerError::ProviderError(format!("Failed to get balance: {}", e)))?
+        .map_err(|e| SignerError::ProviderError(format!("RPC error getting balance: {}", e)))?;
+        
+        Ok(balance)
+    }
+    
+    async fn send_transaction(&self, tx: &Transaction) -> Result<Signature, SignerError> {
+        let signature = tokio::task::spawn_blocking({
+            let client = self.client.clone();
+            let tx = tx.clone();
+            move || client.send_and_confirm_transaction(&tx)
+        })
+        .await
+        .map_err(|e| SignerError::TransactionFailed(format!("Failed to send transaction: {}", e)))?
+        .map_err(|e| SignerError::TransactionFailed(format!("RPC error sending transaction: {}", e)))?;
+        
+        Ok(signature)
     }
 }
 
@@ -177,9 +224,13 @@ mod tests {
         // Test keypair (DO NOT USE IN PRODUCTION)
         let keypair = Keypair::new();
         let private_key = keypair.to_base58_string();
-        let rpc_url = "https://api.mainnet-beta.solana.com".to_string();
+        let network_config = SolanaNetworkConfig {
+            name: "Solana Mainnet".to_string(),
+            rpc_url: "https://api.mainnet-beta.solana.com".to_string(),
+            explorer_url: Some("https://explorer.solana.com".to_string()),
+        };
         
-        let signer = LocalSolanaSigner::new(private_key, rpc_url);
+        let signer = LocalSolanaSigner::new(private_key, network_config);
         assert!(signer.is_ok());
         
         let signer = signer.unwrap();

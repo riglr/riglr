@@ -36,6 +36,10 @@ solana-client = { workspace = true }
 alloy = { workspace = true }
 bincode = "1.3"
 
+# Config loading dependencies
+dotenvy = { workspace = true }
+envy = "0.4"
+
 # For testing
 [dev-dependencies]
 tokio-test = { workspace = true }

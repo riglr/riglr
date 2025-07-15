@@ -327,7 +327,6 @@ async fn test_tool_worker_process_job_with_retries() {
 }
 
 #[tokio::test]
-#[ignore] // Long-running timeout test
 async fn test_tool_worker_process_job_timeout() {
 
     let config = ExecutionConfig {

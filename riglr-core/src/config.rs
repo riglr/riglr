@@ -6,7 +6,7 @@
 //! - Provides type-safe access to configuration
 //! - Supports multiple environments
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::collections::HashMap;
 
@@ -203,6 +203,63 @@ impl fmt::Display for ConfigError {
 }
 
 impl std::error::Error for ConfigError {}
+
+/// Type-safe RPC configuration for blockchain networks
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RpcConfig {
+    pub evm_networks: HashMap<String, EvmNetworkConfig>,
+    pub solana_networks: HashMap<String, SolanaNetworkConfig>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EvmNetworkConfig {
+    pub name: String,
+    pub chain_id: u64,
+    pub rpc_url: String,
+    pub explorer_url: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SolanaNetworkConfig {
+    pub name: String,
+    pub rpc_url: String,
+    pub explorer_url: Option<String>,
+}
+
+impl Default for RpcConfig {
+    fn default() -> Self {
+        let mut evm_networks = HashMap::new();
+        evm_networks.insert("ethereum".to_string(), EvmNetworkConfig {
+            name: "Ethereum Mainnet".to_string(),
+            chain_id: 1,
+            rpc_url: "https://eth.llamarpc.com".to_string(),
+            explorer_url: Some("https://etherscan.io".to_string()),
+        });
+        evm_networks.insert("polygon".to_string(), EvmNetworkConfig {
+            name: "Polygon".to_string(),
+            chain_id: 137,
+            rpc_url: "https://polygon.llamarpc.com".to_string(),
+            explorer_url: Some("https://polygonscan.com".to_string()),
+        });
+
+        let mut solana_networks = HashMap::new();
+        solana_networks.insert("mainnet".to_string(), SolanaNetworkConfig {
+            name: "Solana Mainnet".to_string(),
+            rpc_url: "https://api.mainnet-beta.solana.com".to_string(),
+            explorer_url: Some("https://explorer.solana.com".to_string()),
+        });
+        solana_networks.insert("devnet".to_string(), SolanaNetworkConfig {
+            name: "Solana Devnet".to_string(),
+            rpc_url: "https://api.devnet.solana.com".to_string(),
+            explorer_url: Some("https://explorer.solana.com".to_string()),
+        });
+
+        RpcConfig {
+            evm_networks,
+            solana_networks,
+        }
+    }
+}
 
 /// Default configuration for development
 impl Default for Config {
