@@ -40,7 +40,7 @@ struct LiquidityInfo {
 /// Token information
 #[derive(Debug, Deserialize)]
 struct TokenInfo {
-    address: String,
+    _address: String,
     symbol: String,
 }
 
@@ -122,7 +122,7 @@ pub async fn get_token_price(
 
     // Validate token address format
     if token_address.is_empty() {
-        return Err(ToolError::InvalidInput("Token address cannot be empty".to_string()));
+        return Err(ToolError::invalid_input("Token address cannot be empty"));
     }
 
     // Build query string
@@ -143,10 +143,10 @@ pub async fn get_token_price(
         .header("User-Agent", "riglr-web-tools/1.0")
         .send()
         .await
-        .map_err(|e| ToolError::Retriable(format!("DexScreener request failed: {}", e)))?;
+        .map_err(|e| ToolError::retriable(format!("DexScreener request failed: {}", e)))?;
     
     if !response.status().is_success() {
-        return Err(ToolError::Retriable(
+        return Err(ToolError::retriable(
             format!("DexScreener API returned status: {}", response.status())
         ));
     }
@@ -154,7 +154,7 @@ pub async fn get_token_price(
     let data: DexScreenerResponse = response
         .json()
         .await
-        .map_err(|e| ToolError::Retriable(format!("Failed to parse response: {}", e)))?;
+        .map_err(|e| ToolError::retriable(format!("Failed to parse response: {}", e)))?;
     
     // Find pair with highest liquidity for most reliable price
     let best_pair = data
@@ -180,11 +180,11 @@ pub async fn get_token_price(
                     })
             }
         })
-        .ok_or_else(|| ToolError::Permanent("No trading pairs found for token".to_string()))?;
+        .ok_or_else(|| ToolError::permanent("No trading pairs found for token"))?;
     
     let price = best_pair
         .price_usd
-        .ok_or_else(|| ToolError::Permanent("No price data available".to_string()))?;
+        .ok_or_else(|| ToolError::permanent("No price data available"))?;
     
     let result = TokenPriceResult {
         token_address: token_address.clone(),
@@ -254,7 +254,7 @@ pub async fn get_token_prices_batch(
     chain: Option<String>,
 ) -> Result<Vec<TokenPriceResult>, ToolError> {
     if token_addresses.is_empty() {
-        return Err(ToolError::InvalidInput("Token addresses list cannot be empty".to_string()));
+        return Err(ToolError::invalid_input("Token addresses list cannot be empty"));
     }
 
     debug!("Getting batch prices for {} tokens", token_addresses.len());
@@ -310,13 +310,13 @@ mod tests {
     async fn test_empty_token_address_validation() {
         let result = get_token_price("".to_string(), None).await;
         assert!(result.is_err());
-        assert!(matches!(result, Err(ToolError::InvalidInput(_))));
+        assert!(matches!(result, Err(ToolError::InvalidInput { .. })));
     }
 
     #[tokio::test]
     async fn test_batch_empty_addresses() {
         let result = get_token_prices_batch(vec![], None).await;
         assert!(result.is_err());
-        assert!(matches!(result, Err(ToolError::InvalidInput(_))));
+        assert!(matches!(result, Err(ToolError::InvalidInput { .. })));
     }
 }

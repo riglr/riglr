@@ -10,6 +10,7 @@ use std::sync::Arc;
 use solana_sdk::transaction::Transaction;
 
 /// Mock signer for testing bridge operations
+#[derive(Clone)]
 struct MockBridgeSigner {
     chain_type: String,
     pubkey: Option<String>,
@@ -56,8 +57,8 @@ impl TransactionSigner for MockBridgeSigner {
         Arc::new(solana_client::rpc_client::RpcClient::new("https://api.devnet.solana.com".to_string()))
     }
 
-    fn evm_client(&self) -> Result<Arc<dyn std::any::Any + Send + Sync>, SignerError> {
-        Ok(Arc::new("mock_evm_client"))
+    fn evm_client(&self) -> Result<Arc<dyn riglr_core::signer::EvmClient>, SignerError> {
+        Err(SignerError::UnsupportedOperation("Mock bridge signer does not provide EVM client".to_string()))
     }
 }
 
@@ -78,7 +79,7 @@ async fn test_bridge_quote_fetching_mock() {
     
     let signer = MockBridgeSigner::new_evm("0x742d35Cc2F5f8a89A0D2EAd5a53c97c49444E34F".to_string());
     
-    let result = SignerContext::with_signer(signer, async {
+    let result = SignerContext::with_signer(Arc::new(signer), async {
         // In a real implementation, this would call Li.fi quote endpoint
         // For testing, we validate input parameters and return mock quote
         let quote_result = mock_fetch_bridge_quote(
@@ -90,7 +91,7 @@ async fn test_bridge_quote_fetching_mock() {
             "0x742d35Cc2F5f8a89A0D2EAd5a53c97c49444E34F",
         ).await;
         
-        quote_result
+        quote_result.map_err(|e| SignerError::UnsupportedOperation(e.to_string()))
     }).await;
     
     assert!(result.is_ok());
@@ -102,53 +103,53 @@ async fn test_bridge_quote_fetching_mock() {
 
 #[tokio::test]
 async fn test_bridge_error_handling_scenarios() {
-    let signer = MockBridgeSigner::new_evm("0x742d35Cc2F5f8a89A0D2EAd5a53c97c49444E34F".to_string());
-    
     // Test unsupported chain pair
-    let result = SignerContext::with_signer(signer.clone(), async {
+    let signer1 = MockBridgeSigner::new_evm("0x742d35Cc2F5f8a89A0D2EAd5a53c97c49444E34F".to_string());
+    let result = SignerContext::with_signer(Arc::new(signer1), async {
         execute_cross_chain_bridge(
+            "route_id_123".to_string(),
             "unsupported_chain".to_string(),
             "ethereum".to_string(),
-            "0xA0b86a33E6441E20e7F4e7eC5F3e07f42B7B6E4B".to_string(),
-            "0xA0b86a33E6441E20e7F4e7eC5F3e07f42B7B6E4B".to_string(),
             "1000000".to_string(),
-            None,
-        ).await
+        ).await.map_err(|e| SignerError::UnsupportedOperation(e.to_string()))
     }).await;
     
     assert!(result.is_err());
     match result.unwrap_err() {
-        CrossChainError::UnsupportedChainPair { from_chain, to_chain } => {
-            assert_eq!(from_chain, "unsupported_chain");
-            assert_eq!(to_chain, "ethereum");
+        SignerError::UnsupportedOperation(msg) => {
+            assert!(msg.contains("unsupported_chain"));
         }
-        _ => panic!("Expected UnsupportedChainPair error"),
+        _ => panic!("Expected UnsupportedOperation error"),
     }
     
     // Test insufficient liquidity scenario
-    let result = SignerContext::with_signer(signer.clone(), async {
+    let signer2 = MockBridgeSigner::new_evm("0x742d35Cc2F5f8a89A0D2EAd5a53c97c49444E34F".to_string());
+    let result = SignerContext::with_signer(Arc::new(signer2), async {
         mock_bridge_with_insufficient_liquidity().await
+            .map_err(|e| SignerError::UnsupportedOperation(e.to_string()))
     }).await;
     
     assert!(result.is_err());
     match result.unwrap_err() {
-        CrossChainError::InsufficientLiquidity { amount } => {
-            assert_eq!(amount, "999999999999");
+        SignerError::UnsupportedOperation(msg) => {
+            assert!(msg.contains("999999999999"));
         }
-        _ => panic!("Expected InsufficientLiquidity error"),
+        _ => panic!("Expected UnsupportedOperation error"),
     }
     
     // Test API error scenario
-    let result = SignerContext::with_signer(signer, async {
+    let signer3 = MockBridgeSigner::new_evm("0x742d35Cc2F5f8a89A0D2EAd5a53c97c49444E34F".to_string());
+    let result = SignerContext::with_signer(Arc::new(signer3), async {
         mock_bridge_with_api_error().await
+            .map_err(|e| SignerError::UnsupportedOperation(e.to_string()))
     }).await;
     
     assert!(result.is_err());
     match result.unwrap_err() {
-        CrossChainError::LifiApiError(msg) => {
+        SignerError::UnsupportedOperation(msg) => {
             assert!(msg.contains("API temporarily unavailable"));
         }
-        _ => panic!("Expected LifiApiError error"),
+        _ => panic!("Expected UnsupportedOperation error"),
     }
 }
 
@@ -178,13 +179,13 @@ async fn test_cross_chain_signer_context_bridge() {
     // Test Solana to EVM bridge
     let solana_signer = MockBridgeSigner::new_solana("11111111111111111111111111111112".to_string());
     
-    let result = SignerContext::with_signer(solana_signer, async {
+    let result = SignerContext::with_signer(Arc::new(solana_signer), async {
         // Mock a bridge from Solana to Ethereum
         mock_bridge_transaction(
             "solana",
             "ethereum", 
             true // should use Solana pubkey as from_address
-        ).await
+        ).await.map_err(|e| SignerError::UnsupportedOperation(e.to_string()))
     }).await;
     
     assert!(result.is_ok());
@@ -192,13 +193,13 @@ async fn test_cross_chain_signer_context_bridge() {
     // Test EVM to Solana bridge
     let evm_signer = MockBridgeSigner::new_evm("0x742d35Cc2F5f8a89A0D2EAd5a53c97c49444E34F".to_string());
     
-    let result = SignerContext::with_signer(evm_signer, async {
+    let result = SignerContext::with_signer(Arc::new(evm_signer), async {
         // Mock a bridge from Ethereum to Solana
         mock_bridge_transaction(
             "ethereum",
             "solana",
             false // should use EVM address as from_address
-        ).await
+        ).await.map_err(|e| SignerError::UnsupportedOperation(e.to_string()))
     }).await;
     
     assert!(result.is_ok());
@@ -208,9 +209,10 @@ async fn test_cross_chain_signer_context_bridge() {
 async fn test_bridge_transaction_monitoring() {
     let signer = MockBridgeSigner::new_evm("0x742d35Cc2F5f8a89A0D2EAd5a53c97c49444E34F".to_string());
     
-    let result = SignerContext::with_signer(signer, async {
+    let result = SignerContext::with_signer(Arc::new(signer), async {
         // Mock bridge execution that returns transaction hash
-        let tx_hash = mock_execute_bridge_with_monitoring().await?;
+        let tx_hash = mock_execute_bridge_with_monitoring().await
+            .map_err(|e| SignerError::UnsupportedOperation(e.to_string()))?;
         
         // Verify transaction hash format
         if tx_hash.starts_with("0x") {
@@ -219,7 +221,7 @@ async fn test_bridge_transaction_monitoring() {
             assert_eq!(tx_hash.len(), 64); // 64 chars for Solana
         }
         
-        Ok::<String, CrossChainError>(tx_hash)
+        Ok::<String, SignerError>(tx_hash)
     }).await;
     
     assert!(result.is_ok());
@@ -236,8 +238,8 @@ struct BridgeQuote {
 async fn mock_fetch_bridge_quote(
     from_chain: &str,
     to_chain: &str,
-    from_token: &str,
-    to_token: &str,
+    _from_token: &str,
+    _to_token: &str,
     amount: &str,
     from_address: &str,
 ) -> Result<BridgeQuote, CrossChainError> {
@@ -279,7 +281,7 @@ async fn mock_bridge_with_api_error() -> Result<String, CrossChainError> {
 
 async fn mock_bridge_transaction(
     from_chain: &str,
-    to_chain: &str,
+    _to_chain: &str,
     is_solana_source: bool,
 ) -> Result<String, CrossChainError> {
     let signer = SignerContext::current().await
@@ -294,8 +296,8 @@ async fn mock_bridge_transaction(
     
     // Mock transaction execution
     if from_chain == "solana" {
-        let tx_data = vec![1, 2, 3, 4]; // Mock transaction data
-        signer.sign_and_send_solana_transaction(tx_data).await
+        let mut tx = Transaction::default(); // Mock transaction data
+        signer.sign_and_send_solana_transaction(&mut tx).await
             .map_err(|e| CrossChainError::BridgeExecutionError(e.to_string()))
     } else {
         let tx_request = alloy::rpc::types::TransactionRequest::default();

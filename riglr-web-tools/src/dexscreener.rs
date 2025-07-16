@@ -712,7 +712,7 @@ async fn parse_search_results(response: &str) -> crate::error::Result<Vec<TokenI
             name: pair.base_token.name.clone(),
             symbol: pair.base_token.symbol.clone(),
             decimals: 18, // Default, as DexScreener doesn't provide this
-            price_usd: pair.price_usd.and_then(|p| p.parse().ok()),
+            price_usd: pair.price_usd.as_ref().and_then(|p| p.parse().ok()),
             market_cap: pair.market_cap,
             volume_24h: pair.volume.as_ref().and_then(|v| v.h24),
             price_change_24h: pair.price_change.as_ref().and_then(|pc| pc.h24),
@@ -722,26 +722,59 @@ async fn parse_search_results(response: &str) -> crate::error::Result<Vec<TokenI
             total_supply: None,
             pair_count: 0,
             pairs: vec![],
-            chain: pair.chain_id.clone(),
-            chain_id: None,
-            holders: None,
-            dex_id: Some(pair.dex_id.clone()),
-            pair_address: Some(pair.pair_address.clone()),
-            verified: pair.labels.as_ref().map(|labels| labels.contains(&"verified".to_string())).unwrap_or(false),
-            url: Some(pair.url.clone()),
+            chain: ChainInfo {
+                id: pair.chain_id.clone(),
+                name: pair.chain_id.clone(), // Using chain_id as name for simplicity
+                logo: None,
+                native_token: "ETH".to_string(), // Default to ETH for simplicity
+            },
+            security: SecurityInfo {
+                is_verified: false,
+                liquidity_locked: None,
+                audit_status: None,
+                honeypot_status: None,
+                ownership_status: None,
+                risk_score: None,
+            },
+            socials: vec![],
+            updated_at: chrono::Utc::now(),
         });
         
         // Add this pair to the token's pairs list
         entry.pairs.push(TokenPair {
-            pair_address: pair.pair_address,
-            base_token: pair.base_token.symbol,
-            quote_token: pair.quote_token.symbol,
-            price_native: pair.price_native,
-            price_usd: pair.price_usd,
+            pair_id: pair.pair_address.clone(),
+            dex: DexInfo {
+                id: pair.dex_id.clone(),
+                name: pair.dex_id.clone(), // Using dex_id as name for simplicity
+                url: Some(pair.url.clone()),
+                logo: None,
+            },
+            base_token: PairToken {
+                address: pair.base_token.address.clone(),
+                name: pair.base_token.name.clone(),
+                symbol: pair.base_token.symbol.clone(),
+            },
+            quote_token: PairToken {
+                address: pair.quote_token.address.clone(),
+                name: pair.quote_token.name.clone(),
+                symbol: pair.quote_token.symbol.clone(),
+            },
+            price_usd: pair.price_usd.and_then(|p| p.parse().ok()).unwrap_or(0.0),
+            price_native: pair.price_native.parse().unwrap_or(0.0),
+            volume_24h: pair.volume.and_then(|v| v.h24).unwrap_or(0.0),
+            price_change_24h: pair.price_change.and_then(|pc| pc.h24).unwrap_or(0.0),
             liquidity_usd: pair.liquidity.and_then(|l| l.usd),
-            volume_24h: pair.volume.and_then(|v| v.h24),
-            dex_id: pair.dex_id,
-            chain_id: pair.chain_id,
+            fdv: pair.fdv,
+            created_at: None,
+            last_trade_at: chrono::Utc::now(),
+            txns_24h: TransactionStats {
+                buys: pair.txns.as_ref().and_then(|t| t.h24.as_ref().and_then(|h| h.buys.map(|b| b as u32))).unwrap_or(0),
+                sells: pair.txns.as_ref().and_then(|t| t.h24.as_ref().and_then(|h| h.sells.map(|s| s as u32))).unwrap_or(0),
+                total: 0,
+                buy_volume_usd: 0.0,
+                sell_volume_usd: 0.0,
+            },
+            url: pair.url,
         });
         entry.pair_count += 1;
     }
@@ -761,15 +794,39 @@ async fn parse_pairs_response(response: &str) -> crate::error::Result<Vec<TokenP
     
     let pairs: Vec<TokenPair> = dex_response.pairs.into_iter().map(|pair| {
         TokenPair {
-            pair_address: pair.pair_address,
-            base_token: pair.base_token.symbol.clone(),
-            quote_token: pair.quote_token.symbol.clone(),
-            price_native: pair.price_native,
-            price_usd: pair.price_usd,
+            pair_id: pair.pair_address.clone(),
+            dex: DexInfo {
+                id: pair.dex_id.clone(),
+                name: pair.dex_id.clone(),
+                url: Some(pair.url.clone()),
+                logo: None,
+            },
+            base_token: PairToken {
+                address: pair.base_token.address.clone(),
+                name: pair.base_token.name.clone(),
+                symbol: pair.base_token.symbol.clone(),
+            },
+            quote_token: PairToken {
+                address: pair.quote_token.address.clone(),
+                name: pair.quote_token.name.clone(),
+                symbol: pair.quote_token.symbol.clone(),
+            },
+            price_usd: pair.price_usd.and_then(|p| p.parse().ok()).unwrap_or(0.0),
+            price_native: pair.price_native.parse().unwrap_or(0.0),
+            volume_24h: pair.volume.and_then(|v| v.h24).unwrap_or(0.0),
+            price_change_24h: pair.price_change.and_then(|pc| pc.h24).unwrap_or(0.0),
             liquidity_usd: pair.liquidity.and_then(|l| l.usd),
-            volume_24h: pair.volume.and_then(|v| v.h24),
-            dex_id: pair.dex_id,
-            chain_id: pair.chain_id,
+            fdv: pair.fdv,
+            created_at: None,
+            last_trade_at: chrono::Utc::now(),
+            txns_24h: TransactionStats {
+                buys: pair.txns.as_ref().and_then(|t| t.h24.as_ref().and_then(|h| h.buys.map(|b| b as u32))).unwrap_or(0),
+                sells: pair.txns.as_ref().and_then(|t| t.h24.as_ref().and_then(|h| h.sells.map(|s| s as u32))).unwrap_or(0),
+                total: 0,
+                buy_volume_usd: 0.0,
+                sell_volume_usd: 0.0,
+            },
+            url: pair.url,
         }
     }).collect();
     

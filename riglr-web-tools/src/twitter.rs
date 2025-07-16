@@ -74,7 +74,7 @@ pub struct TwitterUser {
 }
 
 /// Tweet engagement metrics
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, Default)]
 pub struct TweetMetrics {
     /// Number of retweets
     pub retweet_count: u32,
@@ -515,7 +515,8 @@ async fn parse_twitter_response(response: &str) -> crate::error::Result<Vec<Twit
     
     // Extract tweets from the 'data' field
     if let Some(data) = api_response["data"].as_array() {
-        let users = api_response["includes"]["users"].as_array().unwrap_or(&vec![]);
+        let empty_users = vec![];
+        let users = api_response["includes"]["users"].as_array().unwrap_or(&empty_users);
         
         for tweet_data in data {
             // Parse tweet
@@ -678,17 +679,6 @@ fn parse_tweet_entities(entities_data: &serde_json::Value) -> TweetEntities {
     }
 }
 
-impl Default for TweetMetrics {
-    fn default() -> Self {
-        Self {
-            retweet_count: 0,
-            like_count: 0,
-            reply_count: 0,
-            quote_count: 0,
-            impression_count: None,
-        }
-    }
-}
 
 /// Analyze sentiment of tweets with real sentiment analysis
 async fn analyze_tweet_sentiment(tweets: &[TwitterPost]) -> crate::error::Result<Vec<TwitterPost>> {
@@ -699,10 +689,10 @@ async fn analyze_tweet_sentiment(tweets: &[TwitterPost]) -> crate::error::Result
     
     for tweet in tweets {
         // Perform sentiment analysis on the tweet text
-        let sentiment_score = calculate_text_sentiment(&tweet.text);
+        let _sentiment_score = calculate_text_sentiment(&tweet.text);
         
         // Create a new tweet with sentiment metadata added
-        let mut analyzed_tweet = tweet.clone();
+        let analyzed_tweet = tweet.clone();
         
         // Store sentiment score in a way that preserves the tweet structure
         // In production, you might want to extend the TwitterPost struct
@@ -775,7 +765,7 @@ fn calculate_text_sentiment(text: &str) -> f64 {
             word_score = 1.0 * intensity_multiplier;
             word_count += 1;
         } else if negative_words.iter().any(|&nw| word.contains(nw)) {
-            word_score = -1.0 * intensity_multiplier;
+            word_score = -intensity_multiplier;
             word_count += 1;
         }
         
@@ -812,7 +802,7 @@ fn calculate_text_sentiment(text: &str) -> f64 {
     if word_count > 0 {
         let normalized_score = score / word_count as f64;
         // Clamp to [-1.0, 1.0]
-        normalized_score.max(-1.0).min(1.0)
+        normalized_score.clamp(-1.0, 1.0)
     } else {
         0.0 // Neutral if no sentiment words found
     }

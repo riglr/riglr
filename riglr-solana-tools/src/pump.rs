@@ -730,20 +730,20 @@ async fn parse_pump_trade_details(
             let owner_matches = matches!(&tb.owner, OptionSerializer::Some(owner) if owner == &owner_str);
             if owner_matches && tb.mint == mint.to_string() {
                 if let Ok(v) = tb.ui_token_amount.amount.parse::<i128>() { pre_amount = v; }
-                decimals_opt = Some(tb.ui_token_amount.decimals as u8);
+                decimals_opt = Some(tb.ui_token_amount.decimals);
             }
         }
         for tb in post_tb.iter() {
             let owner_matches = matches!(&tb.owner, OptionSerializer::Some(owner) if owner == &owner_str);
             if owner_matches && tb.mint == mint.to_string() {
                 if let Ok(v) = tb.ui_token_amount.amount.parse::<i128>() { post_amount = v; }
-                if decimals_opt.is_none() { decimals_opt = Some(tb.ui_token_amount.decimals as u8); }
+                if decimals_opt.is_none() { decimals_opt = Some(tb.ui_token_amount.decimals); }
             }
         }
     let token_delta_raw: Option<i128> = Some(post_amount - pre_amount);
 
         // Convert to outputs and compute price
-        let token_delta_opt_u64 = token_delta_raw.and_then(|v| if v == 0 { None } else { Some(v.abs() as u64) });
+        let token_delta_opt_u64 = token_delta_raw.and_then(|v| if v == 0 { None } else { Some(v.unsigned_abs() as u64) });
         let mut price_opt: Option<f64> = None;
         if let (Some(token_delta), Some(sol_delta), Some(decimals)) = (token_delta_opt_u64, sol_delta_ui, decimals_opt) {
             let token_ui = (token_delta as f64) / 10u64.pow(decimals as u32) as f64;

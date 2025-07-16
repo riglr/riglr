@@ -11,7 +11,7 @@
 //! The example uses riglr's SignerContext pattern for secure multi-tenant operation.
 
 use riglr_core::SignerContext;
-use riglr_solana_tools::LocalSolanaSigner;
+use riglr_solana_core::LocalSolanaSigner;
 use riglr_cross_chain_tools::{
     get_cross_chain_routes, estimate_bridge_fees, execute_cross_chain_bridge, 
     get_bridge_status, get_supported_chains,
@@ -51,7 +51,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-async fn demonstrate_cross_chain_operations() -> Result<(), riglr_core::SignerError> {
+async fn demonstrate_cross_chain_operations() -> Result<(), riglr_core::signer::SignerError> {
     // Step 1: Get supported chains
     info!("\n=== Step 1: Discovering supported chains ===");
     match get_supported_chains().await {

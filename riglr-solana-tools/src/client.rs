@@ -221,12 +221,19 @@ impl SolanaClient {
             .get_account(&token_account_pubkey)
             .map_err(|e| SolanaToolError::Rpc(format!("Failed to get token account: {}", e)))?;
 
-        // Parse the token account data using spl_token
-        let token_account = spl_token::state::unpack::<spl_token::state::Account>(&account_info.data)
-            .map_err(|e| SolanaToolError::Generic(format!("Failed to parse token account data: {}", e)))?;
+        // Simple parsing - just return the amount directly as u64 from the raw bytes
+        // This is a simplified implementation for basic functionality
+        if account_info.data.len() < 72 { // SPL token account should be at least 72 bytes
+            return Err(SolanaToolError::Generic("Invalid token account data size".to_string()));
+        }
+        
+        // The amount is stored at offset 64 as a little-endian u64
+        let amount_bytes = account_info.data[64..72].try_into()
+            .map_err(|_| SolanaToolError::Generic("Failed to read amount from token account".to_string()))?;
+        let amount = u64::from_le_bytes(amount_bytes);
 
-        info!("Token balance for {} (mint: {}): {}", address, mint, token_account.amount);
-        Ok(token_account.amount)
+        info!("Token balance for {} (mint: {}): {}", address, mint, amount);
+        Ok(amount)
     }
 
     /// Get latest blockhash
@@ -454,7 +461,7 @@ impl SolanaClient {
         signature: &str,
     ) -> Result<EncodedConfirmedTransactionWithStatusMeta> {
         let sig = Signature::from_str(signature)
-            .map_err(|e| SolanaToolError::InvalidSignature(signature.to_string()))?;
+            .map_err(|_e| SolanaToolError::InvalidSignature(signature.to_string()))?;
 
         let transaction = self
             .rpc_client

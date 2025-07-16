@@ -9,8 +9,7 @@
 use borsh::BorshDeserialize;
 use solana_sdk::pubkey::Pubkey;
 
-use crate::events::common::{EventMetadata, read_u64_le, read_u8_le, read_u128_le, read_i32_le};
-use crate::events::core::traits::UnifiedEvent;
+use crate::events::common::{read_u64_le, read_u8_le, read_u128_le, read_i32_le};
 
 /// Common validation for instruction data and accounts
 pub struct InstructionValidator;

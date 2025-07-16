@@ -9,8 +9,7 @@
 use borsh::BorshDeserialize;
 use hex;
 
-use crate::events::common::{EventMetadata, utils::discriminator_matches};
-use crate::events::core::traits::UnifiedEvent;
+use crate::events::common::utils::discriminator_matches;
 
 /// Common log event parsing utilities
 pub struct LogEventParser;
@@ -27,8 +26,8 @@ impl LogEventParser {
         }
         
         // Remove discriminator prefix and convert from hex
-        if log_data.starts_with("0x") {
-            let hex_data = &log_data[2..]; // Remove "0x" prefix
+        if let Some(hex_data) = log_data.strip_prefix("0x") {
+            // Remove "0x" prefix
             if let Ok(decoded) = hex::decode(hex_data) {
                 if decoded.len() > skip_bytes {
                     return Some(decoded[skip_bytes..].to_vec());
@@ -178,13 +177,12 @@ impl LogEventMerger {
         }
         
         // Check if they're in the same instruction group
-        if !parts1.is_empty() && !parts2.is_empty() && parts1[0] == parts2[0] {
-            if parts1.len() >= 2 && parts2.len() >= 2 {
+        if !parts1.is_empty() && !parts2.is_empty() && parts1[0] == parts2[0]
+            && parts1.len() >= 2 && parts2.len() >= 2 {
                 if let (Ok(idx1), Ok(idx2)) = (parts1[1].parse::<u32>(), parts2[1].parse::<u32>()) {
                     return idx2 > idx1;
                 }
             }
-        }
         
         false
     }
