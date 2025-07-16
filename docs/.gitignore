@@ -1,0 +1,20 @@
+# mdbook build output
+book/
+target/
+
+# Auto-generated files
+parse_tools.py
+*.pyc
+__pycache__/
+
+# Temporary files
+*.tmp
+*.bak
+.DS_Store
+
+# IDE files
+.idea/
+.vscode/
+
+# Generated rustdoc JSON
+target/doc/*.json

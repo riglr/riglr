@@ -1,0 +1,46 @@
+[package]
+name = "riglr-server"
+version = "0.1.0"
+edition = "2021"
+authors = ["riglr project contributors"]
+license = "MIT"
+description = "Turnkey, production-ready HTTP server for riglr agents with Axum/Actix adapters, auth, logging, and metrics"
+repository = "https://github.com/riglr-project/riglr"
+homepage = "https://github.com/riglr-project/riglr"
+
+[features]
+default = ["axum"]
+axum = ["dep:axum", "dep:tower", "riglr-web-adapters/axum"]
+actix = ["dep:actix-web", "dep:actix-web-lab", "riglr-web-adapters/actix"]
+
+[dependencies]
+# riglr ecosystem
+riglr-core = { path = "../riglr-core" }
+riglr-web-adapters = { path = "../riglr-web-adapters" }
+rig-core = { workspace = true }
+
+# web frameworks
+axum = { version = "0.8.4", optional = true, features = ["macros", "json"] }
+actix-web = { version = "4", optional = true }
+actix-web-lab = { version = "0.24.2", optional = true }
+tower = { version = "0.5", optional = true, features = ["timeout", "limit"] }
+hyper = { workspace = true }
+
+# telemetry
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true, features = ["env-filter", "fmt"] }
+
+# utils
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+chrono = { workspace = true }
+anyhow = { workspace = true }
+uuid = { workspace = true }
+futures-util = "0.3"
+async-trait = { workspace = true }
+solana-sdk = { workspace = true }
+
+[dev-dependencies]
+reqwest = { workspace = true, features = ["json"] }

@@ -115,22 +115,16 @@ impl UniswapConfig {
         }
     }
 
-    /// Get configuration for a specific chain ID using external configuration
-    pub fn for_chain(chain_id: u64) -> Result<Self, EvmToolError> {
-        use riglr_core::config::Config;
-        
-        let config = Config::from_env()
-            .map_err(|e| EvmToolError::Generic(format!("Failed to load configuration: {}", e)))?;
-        
-        let chain_config = config.get_chain_config(chain_id)
-            .map_err(|e| EvmToolError::Generic(format!("Chain configuration error: {}", e)))?;
-            
-        Ok(Self {
-            router_address: chain_config.router,
-            quoter_address: chain_config.quoter,
-            slippage_bps: 50,      // Default 0.5% slippage
-            deadline_seconds: 300, // Default 5 minutes
-        })
+    /// Get configuration for a specific chain ID
+    pub fn for_chain(chain_id: u64) -> Result<Self, String> {
+        match chain_id {
+            1 => Ok(Self::ethereum()),
+            137 => Ok(Self::polygon()),
+            42161 => Ok(Self::arbitrum()),
+            10 => Ok(Self::optimism()),
+            8453 => Ok(Self::base()),
+            _ => Err(format!("Unsupported chain ID: {}. Uniswap V3 is not available on this chain.", chain_id)),
+        }
     }
 }
 
@@ -282,12 +276,10 @@ pub async fn get_uniswap_quote(
     )
     .await
     .map_err(|e| {
-        let error_str = e.to_string();
-        if error_str.contains("revert") {
-            EvmToolError::Generic(format!("Quote failed (likely no liquidity): {}", e))
-        } else {
-            EvmToolError::Rpc(format!("Failed to get quote: {}", e))
-        }
+        // Categorize error based on the type of failure
+        // Reverts typically indicate business logic failures (no liquidity, invalid pair, etc.)
+        // which are permanent errors that won't succeed on retry
+        EvmToolError::Generic(format!("Failed to get quote (likely no liquidity or invalid pair): {}", e))
     })?;
 
     // Calculate price

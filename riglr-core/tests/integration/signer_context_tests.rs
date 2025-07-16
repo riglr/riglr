@@ -135,6 +135,10 @@ impl Tool for SignerAwareTool {
     fn name(&self) -> &str {
         &self.name
     }
+
+    fn description(&self) -> &str {
+        ""
+    }
 }
 
 #[tokio::test]
@@ -537,6 +541,10 @@ async fn test_signer_context_error_propagation() {
 
         fn name(&self) -> &str {
             "failing_tool"
+        }
+
+        fn description(&self) -> &str {
+            ""
         }
     }
 

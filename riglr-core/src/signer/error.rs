@@ -35,9 +35,6 @@ pub enum SignerError {
     #[error("Blockhash error: {0}")]
     BlockhashError(String),
     
-    #[error("Signing error: {0}")]
-    SigningError(String),
-    
     #[error("Unsupported network: {0}")]
     UnsupportedNetwork(String),
     

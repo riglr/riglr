@@ -146,7 +146,7 @@ impl TransactionSigner for LocalSolanaSigner {
         
         // Sign the transaction
         tx.try_sign(&[&*self.keypair], recent_blockhash)
-            .map_err(|e| SignerError::SigningError(format!("Failed to sign transaction: {}", e)))?;
+            .map_err(|e| SignerError::Signing(format!("Failed to sign transaction: {}", e)))?;
         
         // Send the transaction
         let signature = tokio::task::spawn_blocking({

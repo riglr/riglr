@@ -31,6 +31,10 @@ impl Tool for SuccessTool {
     fn name(&self) -> &str {
         &self.name
     }
+
+    fn description(&self) -> &str {
+        ""
+    }
 }
 
 struct FailureTool {
@@ -56,6 +60,10 @@ impl Tool for FailureTool {
     fn name(&self) -> &str {
         &self.name
     }
+
+    fn description(&self) -> &str {
+        ""
+    }
 }
 
 struct TimeoutTool {
@@ -74,6 +82,10 @@ impl Tool for TimeoutTool {
 
     fn name(&self) -> &str {
         &self.name
+    }
+
+    fn description(&self) -> &str {
+        ""
     }
 }
 
@@ -693,6 +705,10 @@ async fn test_tool_execution_with_transaction_hash() {
         fn name(&self) -> &str {
             "tx_tool"
         }
+
+        fn description(&self) -> &str {
+            ""
+        }
     }
 
     let worker = ToolWorker::<InMemoryIdempotencyStore>::new(ExecutionConfig::default());
@@ -950,6 +966,10 @@ async fn test_tool_worker_run_loop_job_processing_error() {
 
         fn name(&self) -> &str {
             "processing_error_tool"
+        }
+
+        fn description(&self) -> &str {
+            ""
         }
     }
 
