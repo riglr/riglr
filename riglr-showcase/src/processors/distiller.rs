@@ -7,6 +7,8 @@ use super::{OutputProcessor, ToolOutput, ProcessedOutput, OutputFormat};
 use anyhow::{Result, anyhow};
 use async_trait::async_trait;
 use serde_json::json;
+use rig::providers::{openai, anthropic, gemini};
+use rig::completion::Prompt;
 
 /// LLM-based output distiller
 ///
@@ -89,59 +91,91 @@ Please provide a concise summary of this tool output:"#,
         }
     }
     
-    /// Call OpenAI API (example implementation)
+    /// Call OpenAI API (real implementation)
     async fn call_openai(&self, prompt: &str) -> Result<String> {
-        // This is a placeholder - in a real implementation, you would:
-        // 1. Use the openai crate or reqwest to call the API
-        // 2. Handle authentication with API keys
-        // 3. Parse the response properly
+        // Get OpenAI client from environment variable OPENAI_API_KEY
+        let client = openai::Client::from_env();
         
-        // Example with reqwest:
-        /*
-        let client = reqwest::Client::new();
-        let response = client
-            .post("https://api.openai.com/v1/chat/completions")
-            .header("Authorization", format!("Bearer {}", api_key))
-            .json(&json!({
-                "model": self.model,
-                "messages": [
-                    {"role": "system", "content": self.system_prompt},
-                    {"role": "user", "content": prompt}
-                ],
-                "max_tokens": self.max_tokens,
-                "temperature": self.temperature
-            }))
-            .send()
-            .await?;
-            
-        let result: serde_json::Value = response.json().await?;
-        let summary = result["choices"][0]["message"]["content"]
-            .as_str()
-            .ok_or_else(|| anyhow!("Invalid response format"))?;
-            
-        Ok(summary.to_string())
-        */
+        // Build the agent with configuration
+        let mut builder = client.agent(&self.model)
+            .preamble(&self.system_prompt);
         
-        // For demo purposes, return a mock summary
-        Ok(self.mock_distill(prompt))
+        if let Some(max_tokens) = self.max_tokens {
+            builder = builder.max_tokens(max_tokens);
+        }
+        
+        if let Some(temperature) = self.temperature {
+            builder = builder.temperature(temperature);
+        }
+        
+        let agent = builder.build();
+        
+        // Make the completion request
+        match agent.prompt(prompt).await {
+            Ok(response) => Ok(response.content),
+            Err(e) => Err(anyhow!("OpenAI API error: {}", e))
+        }
     }
     
-    /// Call Anthropic Claude API (example implementation)
+    /// Call Anthropic Claude API (real implementation)
     async fn call_anthropic(&self, prompt: &str) -> Result<String> {
-        // Placeholder for Claude API call
-        // Similar pattern to OpenAI but with Claude's API format
-        Ok(self.mock_distill(prompt))
+        // Get Anthropic client from environment variable ANTHROPIC_API_KEY
+        let client = anthropic::Client::from_env();
+        
+        // Map model names to Anthropic's model constants
+        let model = match self.model.as_str() {
+            "claude-3-5-sonnet" => anthropic::CLAUDE_3_5_SONNET,
+            "claude-3-5-haiku" => anthropic::CLAUDE_3_5_HAIKU,
+            "claude-3-haiku" => anthropic::CLAUDE_3_HAIKU,
+            "claude-3-opus" => anthropic::CLAUDE_3_OPUS,
+            model => model, // Pass through other model names
+        };
+        
+        // Build the agent with configuration
+        let mut builder = client.agent(model)
+            .preamble(&self.system_prompt);
+        
+        if let Some(max_tokens) = self.max_tokens {
+            builder = builder.max_tokens(max_tokens);
+        }
+        
+        if let Some(temperature) = self.temperature {
+            builder = builder.temperature(temperature);
+        }
+        
+        let agent = builder.build();
+        
+        // Make the completion request
+        match agent.prompt(prompt).await {
+            Ok(response) => Ok(response.content),
+            Err(e) => Err(anyhow!("Anthropic API error: {}", e))
+        }
     }
     
-    /// Call Google Gemini API (example implementation)
+    /// Call Google Gemini API (real implementation)
     async fn call_google(&self, prompt: &str) -> Result<String> {
-        // Placeholder for Gemini API call
-        Ok(self.mock_distill(prompt))
-    }
-    
-    /// Mock distillation for testing and demonstration
-    fn mock_distill(&self, _prompt: &str) -> String {
-        "This is a mock summary of the tool output for demonstration purposes.".to_string()
+        // Get Gemini client from environment variable GEMINI_API_KEY
+        let client = gemini::Client::from_env();
+        
+        // Build the agent with configuration
+        let mut builder = client.agent(&self.model)
+            .preamble(&self.system_prompt);
+        
+        if let Some(max_tokens) = self.max_tokens {
+            builder = builder.max_tokens(max_tokens);
+        }
+        
+        if let Some(temperature) = self.temperature {
+            builder = builder.temperature(temperature);
+        }
+        
+        let agent = builder.build();
+        
+        // Make the completion request
+        match agent.prompt(prompt).await {
+            Ok(response) => Ok(response.content),
+            Err(e) => Err(anyhow!("Gemini API error: {}", e))
+        }
     }
 }
 
@@ -206,7 +240,7 @@ impl SmartDistiller {
         Self {
             processors: vec![
                 DistillationProcessor::new("gpt-4o-mini"), // Fast for simple summaries
-                DistillationProcessor::new("claude-3-haiku"), // Good for technical content
+                DistillationProcessor::new("claude-3-5-haiku"), // Good for technical content
                 DistillationProcessor::new("gemini-1.5-flash"), // Cost-effective option
             ],
         }

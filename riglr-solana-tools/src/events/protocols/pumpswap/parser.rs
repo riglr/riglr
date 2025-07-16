@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use borsh::BorshDeserialize;
 use solana_sdk::{instruction::CompiledInstruction, pubkey::Pubkey};
 use solana_transaction_status::UiCompiledInstruction;
 
@@ -89,7 +90,7 @@ impl PumpSwapEventParser {
         metadata: EventMetadata,
     ) -> Option<Box<dyn UnifiedEvent>> {
         // Parse the buy event using borsh deserialization
-        if let Ok(event) = borsh::from_slice::<PumpSwapBuyEvent>(data) {
+        if let Ok(event) = PumpSwapBuyEvent::try_from_slice(data) {
             let mut metadata = metadata;
             metadata.set_id(format!("{}-{}-buy", metadata.signature, event.pool_state));
             Some(Box::new(PumpSwapBuyEvent { metadata, ..event }))
@@ -104,7 +105,7 @@ impl PumpSwapEventParser {
         metadata: EventMetadata,
     ) -> Option<Box<dyn UnifiedEvent>> {
         // Parse the sell event using borsh deserialization
-        if let Ok(event) = borsh::from_slice::<PumpSwapSellEvent>(data) {
+        if let Ok(event) = PumpSwapSellEvent::try_from_slice(data) {
             let mut metadata = metadata;
             metadata.set_id(format!("{}-{}-sell", metadata.signature, event.pool_state));
             Some(Box::new(PumpSwapSellEvent { metadata, ..event }))
@@ -119,7 +120,7 @@ impl PumpSwapEventParser {
         metadata: EventMetadata,
     ) -> Option<Box<dyn UnifiedEvent>> {
         // Parse the create pool event using borsh deserialization
-        if let Ok(event) = borsh::from_slice::<PumpSwapCreatePoolEvent>(data) {
+        if let Ok(event) = PumpSwapCreatePoolEvent::try_from_slice(data) {
             let mut metadata = metadata;
             metadata.set_id(format!("{}-{}-create", metadata.signature, event.pool_state));
             Some(Box::new(PumpSwapCreatePoolEvent { metadata, ..event }))
@@ -134,7 +135,7 @@ impl PumpSwapEventParser {
         metadata: EventMetadata,
     ) -> Option<Box<dyn UnifiedEvent>> {
         // Parse the deposit event using borsh deserialization
-        if let Ok(event) = borsh::from_slice::<PumpSwapDepositEvent>(data) {
+        if let Ok(event) = PumpSwapDepositEvent::try_from_slice(data) {
             let mut metadata = metadata;
             metadata.set_id(format!("{}-{}-deposit", metadata.signature, event.pool_state));
             Some(Box::new(PumpSwapDepositEvent { metadata, ..event }))
@@ -149,7 +150,7 @@ impl PumpSwapEventParser {
         metadata: EventMetadata,
     ) -> Option<Box<dyn UnifiedEvent>> {
         // Parse the withdraw event using borsh deserialization
-        if let Ok(event) = borsh::from_slice::<PumpSwapWithdrawEvent>(data) {
+        if let Ok(event) = PumpSwapWithdrawEvent::try_from_slice(data) {
             let mut metadata = metadata;
             metadata.set_id(format!("{}-{}-withdraw", metadata.signature, event.pool_state));
             Some(Box::new(PumpSwapWithdrawEvent { metadata, ..event }))

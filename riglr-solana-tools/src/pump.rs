@@ -10,6 +10,7 @@ use riglr_macros::tool;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use solana_client::rpc_client::RpcClient;
 use solana_sdk::{
     pubkey::Pubkey, 
     native_token::LAMPORTS_PER_SOL,
@@ -19,6 +20,9 @@ use solana_sdk::{
 };
 #[allow(deprecated)]
 use solana_sdk::transaction::Transaction;
+use solana_transaction_status::UiTransactionEncoding;
+use solana_transaction_status::option_serializer::OptionSerializer;
+use solana_sdk::signature::Signature;
 use std::str::FromStr;
 use tracing::{debug, info, warn};
 
@@ -161,7 +165,7 @@ pub async fn deploy_pump_token(
         .decode(&tx_data)
         .map_err(|e| ToolError::permanent(format!("Failed to decode creation transaction: {}", e)))?;
 
-    let mut transaction: Transaction = bincode::deserialize(&transaction_bytes)
+    let transaction: Transaction = bincode::deserialize(&transaction_bytes)
         .map_err(|e| ToolError::permanent(format!("Failed to deserialize creation transaction: {}", e)))?;
 
     // For now, we'll directly use the signer context to sign and send the transaction
@@ -298,15 +302,36 @@ pub async fn buy_pump_token(
         sol_amount, token_mint, signature
     );
 
+    // Attempt to parse executed tx for actual token amount and price
+    let mut parsed_token_amount: Option<u64> = None;
+    let mut parsed_price: Option<f64> = None;
+    let mut actual_sol_spent: Option<f64> = None;
+
+    if let Ok(signer) = SignerContext::current().await {
+        let rpc = signer.solana_client();
+        let mint_pubkey = Pubkey::from_str(&token_mint).ok();
+        let user_pubkey = signer.pubkey().and_then(|s| Pubkey::from_str(&s).ok());
+        if let (Some(mint_pk), Some(user_pk)) = (mint_pubkey, user_pubkey) {
+            match parse_pump_trade_details(&rpc, &signature, &user_pk, &mint_pk).await {
+                Ok((token_delta, sol_delta, price)) => {
+                    parsed_token_amount = token_delta;
+                    actual_sol_spent = sol_delta;
+                    parsed_price = price;
+                }
+                Err(e) => warn!("Failed to parse buy tx details: {}", e),
+            }
+        }
+    }
+
     Ok(PumpTradeResult {
         signature,
         token_mint,
-        sol_amount,
-        token_amount: None, // Would be parsed from transaction logs in full implementation
+        sol_amount: actual_sol_spent.unwrap_or(sol_amount),
+        token_amount: parsed_token_amount,
         trade_type: PumpTradeType::Buy,
         slippage_percent: slippage,
         status: TransactionStatus::Pending,
-        price_per_token: None,
+        price_per_token: parsed_price,
     })
 }
 
@@ -393,18 +418,33 @@ pub async fn sell_pump_token(
         token_amount, signature
     );
 
-    // Calculate estimated SOL amount based on current price (simplified)
-    let estimated_sol = token_amount as f64 / 1_000_000.0; // Placeholder calculation
+    // Attempt to parse executed tx for actual SOL amount received and price
+    let mut actual_sol_received: Option<f64> = None;
+    let mut parsed_price: Option<f64> = None;
+    if let Ok(signer) = SignerContext::current().await {
+        let rpc = signer.solana_client();
+        let mint_pubkey = Pubkey::from_str(&token_mint).ok();
+        let user_pubkey = signer.pubkey().and_then(|s| Pubkey::from_str(&s).ok());
+        if let (Some(mint_pk), Some(user_pk)) = (mint_pubkey, user_pubkey) {
+            match parse_pump_trade_details(&rpc, &signature, &user_pk, &mint_pk).await {
+                Ok((_token_delta, sol_delta, price)) => {
+                    actual_sol_received = sol_delta;
+                    parsed_price = price;
+                }
+                Err(e) => warn!("Failed to parse sell tx details: {}", e),
+            }
+        }
+    }
 
     Ok(PumpTradeResult {
         signature,
         token_mint,
-        sol_amount: estimated_sol,
+        sol_amount: actual_sol_received.unwrap_or(0.0),
         token_amount: Some(token_amount),
         trade_type: PumpTradeType::Sell,
         slippage_percent: slippage,
         status: TransactionStatus::Pending,
-        price_per_token: None,
+        price_per_token: parsed_price,
     })
 }
 
@@ -598,21 +638,20 @@ pub fn generate_mint_keypair() -> Keypair {
 /// Creates properly signed Solana transaction with mint keypair
 pub async fn create_token_with_mint_keypair(
     instructions: Vec<Instruction>,
-    mint_keypair: &Keypair,
+    _mint_keypair: &Keypair,
 ) -> Result<String, ToolError> {
     let signer = SignerContext::current().await
         .map_err(|e| ToolError::permanent(format!("No signer context: {}", e)))?;
     
-    // Get the payer keypair from the signer context
-    let payer_keypair = signer.solana_keypair()
-        .map_err(|e| ToolError::permanent(format!("Failed to get Solana keypair from signer: {}", e)))?;
+    // Get the payer pubkey from the signer context
+    let payer_pubkey = signer.pubkey()
+        .and_then(|s| Pubkey::from_str(&s).ok())
+        .ok_or_else(|| ToolError::permanent("Failed to get payer pubkey from signer".to_string()))?;
     
-    let mut transaction = Transaction::new_with_payer(&instructions, Some(&payer_keypair.pubkey()));
+    let mut transaction = Transaction::new_with_payer(&instructions, Some(&payer_pubkey));
     
     // Get recent blockhash
-    let rpc_client = signer.solana_client();
-    let recent_blockhash = rpc_client.get_latest_blockhash()
-        .map_err(|e| ToolError::retriable(format!("Failed to get recent blockhash: {}", e)))?;
+    let _rpc_client = signer.solana_client();
     
     // In a real implementation, we would sign with both the payer and mint keypair
     // For now, we'll use the signer context to sign and send the transaction
@@ -620,6 +659,103 @@ pub async fn create_token_with_mint_keypair(
         .map_err(|e| ToolError::retriable(format!("Failed to sign and send transaction: {}", e)))?;
     
     Ok(signature.to_string())
+}
+
+// ============================================================================
+// Helpers: Parse executed transactions to extract token/SOL deltas and price
+// ============================================================================
+
+// (no direct mint decimals helper needed; we'll use UiTokenAmount.decimals when available)
+
+/// Parse a confirmed transaction to compute token delta for the user for the given mint,
+/// the SOL delta (spent or received), and the price per token (SOL per whole token).
+async fn parse_pump_trade_details(
+    rpc: &RpcClient,
+    signature: &str,
+    user: &Pubkey,
+    mint: &Pubkey,
+) -> Result<(Option<u64>, Option<f64>, Option<f64>), ToolError> {
+    use solana_client::rpc_config::RpcTransactionConfig;
+
+    // Try a couple of times in case the node hasn't indexed the tx yet
+    let mut last_err: Option<String> = None;
+    let mut tx_opt = None;
+    for _ in 0..3 {
+        match rpc.get_transaction_with_config(
+            &signature.parse::<Signature>().map_err(|e| ToolError::permanent(format!("Invalid signature: {}", e)))?,
+            RpcTransactionConfig {
+                encoding: Some(UiTransactionEncoding::JsonParsed),
+                commitment: None,
+                max_supported_transaction_version: Some(0),
+            },
+        ) {
+            Ok(tx) => { tx_opt = Some(tx); break; }
+            Err(e) => {
+                last_err = Some(e.to_string());
+                // small backoff
+                tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+            }
+        }
+    }
+
+    let tx = tx_opt.ok_or_else(|| ToolError::retriable(format!(
+        "Transaction not available yet: {}",
+        last_err.unwrap_or_else(|| "unknown".to_string())
+    )))?;
+
+    let meta = tx.transaction.meta.ok_or_else(|| ToolError::permanent("Missing transaction meta".to_string()))?;
+
+    // Compute SOL delta for the user
+    let (pre_balances, post_balances) = (meta.pre_balances, meta.post_balances);
+    // Assume signer is fee payer and first account key (index 0)
+    let mut sol_delta_ui: Option<f64> = None;
+    if !pre_balances.is_empty() && !post_balances.is_empty() {
+        let pre = pre_balances[0] as i128;
+        let post = post_balances[0] as i128;
+        let delta_lamports = post - pre; // positive means received
+        let fee = meta.fee as i128;
+        let adjusted = if delta_lamports >= 0 { delta_lamports } else { delta_lamports + fee };
+        sol_delta_ui = Some((adjusted as f64) / LAMPORTS_PER_SOL as f64);
+    }
+
+    // Compute token delta from token balances
+    let owner_str = user.to_string();
+
+    // Find matching pre/post token balances for this owner+mint
+    if let (OptionSerializer::Some(pre_tb), OptionSerializer::Some(post_tb)) = (&meta.pre_token_balances, &meta.post_token_balances) {
+        let mut pre_amount: i128 = 0;
+        let mut post_amount: i128 = 0;
+        let mut decimals_opt: Option<u8> = None;
+        for tb in pre_tb.iter() {
+            let owner_matches = matches!(&tb.owner, OptionSerializer::Some(owner) if owner == &owner_str);
+            if owner_matches && tb.mint == mint.to_string() {
+                if let Ok(v) = tb.ui_token_amount.amount.parse::<i128>() { pre_amount = v; }
+                decimals_opt = Some(tb.ui_token_amount.decimals as u8);
+            }
+        }
+        for tb in post_tb.iter() {
+            let owner_matches = matches!(&tb.owner, OptionSerializer::Some(owner) if owner == &owner_str);
+            if owner_matches && tb.mint == mint.to_string() {
+                if let Ok(v) = tb.ui_token_amount.amount.parse::<i128>() { post_amount = v; }
+                if decimals_opt.is_none() { decimals_opt = Some(tb.ui_token_amount.decimals as u8); }
+            }
+        }
+    let token_delta_raw: Option<i128> = Some(post_amount - pre_amount);
+
+        // Convert to outputs and compute price
+        let token_delta_opt_u64 = token_delta_raw.and_then(|v| if v == 0 { None } else { Some(v.abs() as u64) });
+        let mut price_opt: Option<f64> = None;
+        if let (Some(token_delta), Some(sol_delta), Some(decimals)) = (token_delta_opt_u64, sol_delta_ui, decimals_opt) {
+            let token_ui = (token_delta as f64) / 10u64.pow(decimals as u32) as f64;
+            if token_ui > 0.0 {
+                price_opt = Some((sol_delta.abs()) / token_ui);
+            }
+        }
+        return Ok((token_delta_opt_u64, sol_delta_ui, price_opt));
+    }
+
+    // Fallback if token balances absent
+    Ok((None, sol_delta_ui, None))
 }
 
 #[cfg(test)]

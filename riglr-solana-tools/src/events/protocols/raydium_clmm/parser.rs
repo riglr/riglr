@@ -29,6 +29,35 @@ impl Default for RaydiumClmmEventParser {
 }
 
 impl RaydiumClmmEventParser {
+    /// Convert sqrt price X64 to tick
+    /// Based on Uniswap V3 math: tick = log1.0001(price) * 2
+    /// Since sqrt_price_x64 = sqrt(price) * 2^64, we need to:
+    /// 1. Convert from X64 fixed point to f64
+    /// 2. Square to get price
+    /// 3. Calculate tick
+    fn sqrt_price_to_tick(sqrt_price_x64: u128) -> i32 {
+        if sqrt_price_x64 == 0 {
+            return 0;
+        }
+        
+        // Convert from X64 fixed point to f64
+        // Use 2^64 as f64 to avoid overflow
+        let two_pow_64 = 18446744073709551616.0_f64; // 2^64
+        let sqrt_price = (sqrt_price_x64 as f64) / two_pow_64;
+        
+        // Square to get actual price
+        let price = sqrt_price * sqrt_price;
+        
+        // Calculate tick = log1.0001(price)
+        // Using change of base: log1.0001(price) = ln(price) / ln(1.0001)
+        if price > 0.0 {
+            let tick = (price.ln() / 1.0001_f64.ln()).round() as i32;
+            tick
+        } else {
+            0
+        }
+    }
+    
     pub fn new() -> Self {
         let configs = vec![
             GenericEventParseConfig {
@@ -109,6 +138,16 @@ impl RaydiumClmmEventParser {
         Self { inner }
     }
 
+    /// Empty parser for inner instructions
+    /// 
+    /// Raydium CLMM does not emit events through inner instructions or program logs.
+    /// All event data is encoded directly in the instruction data itself, which is
+    /// parsed by the instruction_parser functions below. This is intentional and
+    /// follows the protocol's design where all necessary information is available
+    /// in the instruction parameters and accounts.
+    /// 
+    /// This differs from protocols like Raydium CPMM which emit events through logs
+    /// that need to be parsed from inner instructions.
     fn empty_parse(_data: &[u8], _metadata: EventMetadata) -> Option<Box<dyn UnifiedEvent>> {
         None
     }
@@ -133,11 +172,11 @@ impl RaydiumClmmEventParser {
 
         Some(Box::new(RaydiumClmmSwapEvent {
             metadata,
-            amount0: if is_base_input { amount } else { 0 },
-            amount1: if !is_base_input { amount } else { 0 },
+            amount0: if is_base_input { amount } else { other_amount_threshold },
+            amount1: if !is_base_input { amount } else { other_amount_threshold },
             sqrt_price_x64: sqrt_price_limit_x64,
-            liquidity: 0, // Will be filled by log parsing
-            tick_current: 0, // Will be filled by log parsing
+            liquidity: 0, // Dynamic liquidity not available in instruction data
+            tick_current: Self::sqrt_price_to_tick(sqrt_price_limit_x64), // Calculate from price
             payer: accounts[0],
             pool_state: accounts[1],
             input_token_account: accounts[2],
@@ -169,11 +208,11 @@ impl RaydiumClmmEventParser {
 
         Some(Box::new(RaydiumClmmSwapV2Event {
             metadata,
-            amount0: if is_base_input { amount } else { 0 },
-            amount1: if !is_base_input { amount } else { 0 },
+            amount0: if is_base_input { amount } else { other_amount_threshold },
+            amount1: if !is_base_input { amount } else { other_amount_threshold },
             sqrt_price_x64: sqrt_price_limit_x64,
-            liquidity: 0, // Will be filled by log parsing
-            tick_current: 0, // Will be filled by log parsing
+            liquidity: 0, // Dynamic liquidity not available in instruction data
+            tick_current: Self::sqrt_price_to_tick(sqrt_price_limit_x64), // Calculate from price
             is_base_input,
             payer: accounts[0],
             pool_state: accounts[1],
@@ -205,7 +244,7 @@ impl RaydiumClmmEventParser {
         Some(Box::new(RaydiumClmmCreatePoolEvent {
             metadata,
             sqrt_price_x64,
-            tick_current: 0, // Will be calculated from sqrt_price
+            tick_current: Self::sqrt_price_to_tick(sqrt_price_x64), // Calculate from sqrt_price
             observation_index: 0,
             pool_creator: accounts[0],
             pool_state: accounts[1],
@@ -363,25 +402,59 @@ impl RaydiumClmmEventParser {
 }
 
 impl EventParser for RaydiumClmmEventParser {
-    fn parse_instruction(
+    fn inner_instruction_configs(&self) -> HashMap<&'static str, Vec<GenericEventParseConfig>> {
+        self.inner.inner_instruction_configs()
+    }
+    
+    fn instruction_configs(&self) -> HashMap<Vec<u8>, Vec<GenericEventParseConfig>> {
+        self.inner.instruction_configs()
+    }
+    
+    fn parse_events_from_inner_instruction(
+        &self,
+        inner_instruction: &UiCompiledInstruction,
+        signature: &str,
+        slot: u64,
+        block_time: Option<i64>,
+        program_received_time_ms: i64,
+        index: String,
+    ) -> Vec<Box<dyn UnifiedEvent>> {
+        self.inner.parse_events_from_inner_instruction(
+            inner_instruction,
+            signature,
+            slot,
+            block_time,
+            program_received_time_ms,
+            index,
+        )
+    }
+
+    fn parse_events_from_instruction(
         &self,
         instruction: &CompiledInstruction,
         accounts: &[Pubkey],
-        metadata: EventMetadata,
-    ) -> Option<Box<dyn UnifiedEvent>> {
-        self.inner.parse_instruction(instruction, accounts, metadata)
+        signature: &str,
+        slot: u64,
+        block_time: Option<i64>,
+        program_received_time_ms: i64,
+        index: String,
+    ) -> Vec<Box<dyn UnifiedEvent>> {
+        self.inner.parse_events_from_instruction(
+            instruction,
+            accounts,
+            signature,
+            slot,
+            block_time,
+            program_received_time_ms,
+            index,
+        )
     }
 
-    fn parse_ui_instruction(
-        &self,
-        instruction: &UiCompiledInstruction,
-        accounts: &[Pubkey],
-        metadata: EventMetadata,
-    ) -> Option<Box<dyn UnifiedEvent>> {
-        self.inner.parse_ui_instruction(instruction, accounts, metadata)
+    fn should_handle(&self, program_id: &Pubkey) -> bool {
+        self.inner.should_handle(program_id)
     }
 
-    fn parse_logs(&self, logs: &[String]) -> Vec<Box<dyn UnifiedEvent>> {
-        self.inner.parse_logs(logs)
+    fn supported_program_ids(&self) -> Vec<Pubkey> {
+        self.inner.supported_program_ids()
     }
 }

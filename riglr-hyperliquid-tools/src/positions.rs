@@ -21,7 +21,7 @@ use tracing::{debug, info};
 /// - `symbol`: Trading pair (e.g., "ETH-PERP")
 /// - `size`: Position size in contracts (positive for long, negative for short)
 /// - `entry_price`: Average entry price of the position
-/// - `mark_price`: Current mark price (may be "0.0" placeholder)
+/// - `mark_price`: Current market price fetched from Hyperliquid API
 /// - `unrealized_pnl`: Unrealized profit/loss in USD
 /// - `position_value`: Total position value in USD
 /// - `leverage`: Current leverage multiplier
@@ -68,6 +68,9 @@ pub async fn get_hyperliquid_positions() -> Result<Vec<HyperliquidPosition>, Too
     // Get positions
     let positions = client.get_positions(&user_address).await?;
 
+    // Get current market prices for all assets
+    let all_mids = client.get_all_mids().await?;
+
     // Convert to our result format
     let mut result_positions = Vec::new();
     for position in positions {
@@ -75,11 +78,25 @@ pub async fn get_hyperliquid_positions() -> Result<Vec<HyperliquidPosition>, Too
         // Only include positions with non-zero size
         let size = pos_data.szi.parse::<f64>().unwrap_or(0.0);
         if size != 0.0 {
+            // Extract mark price from the all_mids response
+            // The response format is typically an object with coin symbols as keys and prices as values
+            let mark_price = if let Some(mids_obj) = all_mids.as_object() {
+                // Try to find the price for this coin
+                let coin_key = pos_data.coin.trim_end_matches("-PERP");
+                mids_obj.get(coin_key)
+                    .or_else(|| mids_obj.get(&pos_data.coin))
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("0.0")
+                    .to_string()
+            } else {
+                "0.0".to_string()
+            };
+            
             result_positions.push(HyperliquidPosition {
                 symbol: pos_data.coin,
                 size: pos_data.szi,
                 entry_price: pos_data.entry_px.unwrap_or_default(),
-                mark_price: "0.0".to_string(), // Would need separate API call to get current price
+                mark_price,
                 unrealized_pnl: pos_data.unrealized_pnl,
                 position_value: pos_data.position_value,
                 leverage: pos_data.leverage.value,

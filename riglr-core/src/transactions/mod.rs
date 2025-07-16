@@ -137,9 +137,11 @@ impl TransactionProcessor for GenericTransactionProcessor {
         }
     }
     
-    async fn get_status(&self, _tx_hash: &str) -> Result<TransactionStatus, crate::error::ToolError> {
-        // Default implementation - should be overridden by specific implementations
-        Ok(TransactionStatus::Pending)
+    async fn get_status(&self, tx_hash: &str) -> Result<TransactionStatus, crate::error::ToolError> {
+        // This method must be overridden by chain-specific implementations
+        Err(crate::error::ToolError::permanent(
+            format!("Transaction status checking not implemented for this chain. Hash: {}", tx_hash)
+        ))
     }
     
     async fn wait_for_confirmation(
