@@ -3,6 +3,7 @@ members = [
     "riglr-core",
     "riglr-macros",
     "riglr-solana-common",
+    "riglr-solana-events",
     "riglr-solana-tools",
     "riglr-evm-tools",
     "riglr-web-tools",
@@ -12,7 +13,8 @@ members = [
     "riglr-server",
     "riglr-showcase",
     "riglr-hyperliquid-tools",
-    "riglr-cross-chain-tools"
+    "riglr-cross-chain-tools",
+    "create-riglr-app-cli"
 ]
 resolver = "2"
 
@@ -30,6 +32,7 @@ rig-core = "0.17.1"
 riglr-core = { path = "riglr-core" }
 riglr-macros = { path = "riglr-macros" }
 riglr-solana-common = { path = "riglr-solana-common" }
+riglr-solana-events = { path = "riglr-solana-events" }
 riglr-solana-tools = { path = "riglr-solana-tools" }
 riglr-evm-tools = { path = "riglr-evm-tools" }
 riglr-web-tools = { path = "riglr-web-tools" }

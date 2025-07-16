@@ -1,0 +1,65 @@
+[package]
+name = "create-riglr-app-cli"
+version = "0.2.0"
+edition = "2021"
+authors = ["RIGLR Team"]
+description = "Interactive CLI for scaffolding RIGLR-powered blockchain AI agents"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/yourusername/riglr"
+keywords = ["blockchain", "ai", "scaffolding", "cli", "template"]
+categories = ["command-line-utilities", "development-tools"]
+
+[[bin]]
+name = "create-riglr-app"
+path = "src/main.rs"
+
+[dependencies]
+# CLI and user interaction
+clap = { version = "4", features = ["derive"] }
+dialoguer = "0.11"
+indicatif = "0.17"
+console = "0.15"
+colored = "2"
+
+# Template processing
+handlebars = "6"
+liquid = "0.26"
+include_dir = "0.7"
+
+# File system operations
+walkdir = "2"
+tempfile = "3"
+fs_extra = "1"
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "0.8"
+
+# Error handling
+anyhow = "1"
+thiserror = "2"
+
+# HTTP client for fetching templates
+reqwest = { version = "0.12", features = ["json", "blocking"] }
+
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+
+# Utilities
+regex = "1"
+semver = "1"
+chrono = "0.4"
+uuid = { version = "1", features = ["v4"] }
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+[dev-dependencies]
+tempdir = "0.3"
+assert_cmd = "2"
+predicates = "3"
+
+[build-dependencies]
+include_dir_macros = "0.7"
