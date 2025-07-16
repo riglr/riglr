@@ -354,21 +354,82 @@ impl HyperliquidClient {
     }
     
     async fn sign_leverage_request(&self, mut request: LeverageRequest) -> Result<LeverageRequest> {
-        // Create the message to sign
-        let message = serde_json::json!({
-            "action": request.action,
-            "nonce": request.nonce,
-            "vault_address": null
+        info!("Signing leverage request with EIP-712");
+        
+        // Get private key from environment variable
+        let private_key = std::env::var("HYPERLIQUID_PRIVATE_KEY")
+            .map_err(|_| HyperliquidToolError::Configuration(
+                "HYPERLIQUID_PRIVATE_KEY environment variable required for signing leverage requests.".to_string()
+            ))?;
+        
+        // Parse the private key
+        let wallet = private_key.parse::<LocalWallet>()
+            .map_err(|e| HyperliquidToolError::Configuration(format!("Invalid private key: {}", e)))?;
+        
+        // Create the EIP-712 domain
+        let domain = serde_json::json!({
+            "name": "HyperliquidSignTransaction",
+            "version": "1",
+            "chainId": 42161,  // Arbitrum mainnet
+            "verifyingContract": "0x0000000000000000000000000000000000000000"
         });
         
-        let _message_str = serde_json::to_string(&message)
-            .map_err(|e| HyperliquidToolError::ApiError(format!("Failed to serialize message for signing: {}", e)))?;
+        // Create the message to sign
+        let message = serde_json::json!({
+            "a": request.action.asset,  // asset
+            "isCross": request.action.is_cross, // is cross margin
+            "leverage": request.action.leverage, // leverage value
+        });
         
-        // Sign the message using the signer
-        // TODO: Implement proper message signing for Hyperliquid protocol
-        // For now, use a placeholder signature
-        let signature = "0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000".to_string();
-        request.signature = Some(signature);
+        // Create the types definition
+        let types = serde_json::json!({
+            "EIP712Domain": [
+                {"name": "name", "type": "string"},
+                {"name": "version", "type": "string"},
+                {"name": "chainId", "type": "uint256"},
+                {"name": "verifyingContract", "type": "address"}
+            ],
+            "UpdateLeverage": [
+                {"name": "a", "type": "uint32"},
+                {"name": "isCross", "type": "bool"},
+                {"name": "leverage", "type": "uint32"}
+            ]
+        });
+        
+        // Create the typed data
+        let typed_data = serde_json::json!({
+            "types": types,
+            "primaryType": "UpdateLeverage",
+            "domain": domain,
+            "message": message
+        });
+        
+        // Convert to TypedData struct
+        let typed_data: TypedData = serde_json::from_value(typed_data)
+            .map_err(|e| HyperliquidToolError::Configuration(format!("Failed to create typed data: {}", e)))?;
+        
+        // Encode the typed data
+        let encoded = typed_data.encode_eip712()
+            .map_err(|e| HyperliquidToolError::Configuration(format!("Failed to encode EIP-712: {}", e)))?;
+        
+        // Sign the encoded data
+        let signature = wallet.sign_hash(H256::from(encoded))
+            .map_err(|e| HyperliquidToolError::Configuration(format!("Failed to sign: {}", e)))?;
+        
+        // Convert signature to the expected format
+        let r = signature.r;
+        let s = signature.s;
+        let v = signature.v;
+        
+        // Hyperliquid expects the signature as r + s + v (65 bytes total)
+        let mut sig_bytes = vec![0u8; 65];
+        r.to_big_endian(&mut sig_bytes[0..32]);
+        s.to_big_endian(&mut sig_bytes[32..64]);
+        sig_bytes[64] = v as u8;
+        
+        let signature_hex = format!("0x{}", hex::encode(sig_bytes));
+        info!("Leverage request signed successfully");
+        request.signature = Some(signature_hex);
         
         Ok(request)
     }
@@ -680,4 +741,63 @@ pub struct LeverageResponse {
 pub struct LeverageResult {
     pub leverage: u32,
     pub asset: String,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    
+    #[test]
+    fn test_leverage_request_structure() {
+        let request = LeverageRequest {
+            action: LeverageAction {
+                type_: "updateLeverage".to_string(),
+                asset: 0,
+                is_cross: true,
+                leverage: 10,
+            },
+            nonce: 1234567890,
+            signature: None,
+        };
+        
+        assert_eq!(request.action.type_, "updateLeverage");
+        assert_eq!(request.action.leverage, 10);
+        assert!(request.action.is_cross);
+        assert!(request.signature.is_none());
+    }
+    
+    #[test]
+    fn test_leverage_response_parsing() {
+        let json_response = r#"{
+            "status": "success",
+            "data": {
+                "leverage": 10,
+                "asset": "BTC"
+            }
+        }"#;
+        
+        let response: LeverageResponse = serde_json::from_str(json_response).unwrap();
+        assert_eq!(response.status, "success");
+        assert!(response.data.is_some());
+        
+        let data = response.data.unwrap();
+        assert_eq!(data.leverage, 10);
+        assert_eq!(data.asset, "BTC");
+    }
+    
+    #[test]
+    fn test_leverage_action_serialization() {
+        let action = LeverageAction {
+            type_: "updateLeverage".to_string(),
+            asset: 42,
+            is_cross: true,
+            leverage: 20,
+        };
+        
+        let json = serde_json::to_string(&action).unwrap();
+        assert!(json.contains("\"type\":\"updateLeverage\""));
+        assert!(json.contains("\"asset\":42"));
+        assert!(json.contains("\"isCross\":true")); // Note the camelCase due to serde rename
+        assert!(json.contains("\"leverage\":20"));
+    }
 }
