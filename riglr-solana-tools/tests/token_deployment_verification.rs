@@ -80,9 +80,9 @@ mod token_deployment_tests {
             assert_ne!(mint_keypair.pubkey(), signer_pubkey, "Mint keypair should be different from signer");
 
             // Create token metadata (using individual parameters)
-            let name = "Test Token".to_string();
-            let symbol = "TEST".to_string();
-            let description = "Test token for verification".to_string();
+            let _name = "Test Token".to_string();
+            let _symbol = "TEST".to_string();
+            let _description = "Test token for verification".to_string();
 
             // Note: Actual deployment would require network connection
             // This test verifies the structure is correct

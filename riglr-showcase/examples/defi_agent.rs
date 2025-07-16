@@ -102,8 +102,8 @@ async fn main() -> Result<()> {
         
         println!("Advanced Strategies: {}", truncate_response(advanced_strategies, 400));
         
-        Ok::<(), riglr_core::SignerError>(())
-    }).await?;
+        Ok::<(), riglr_core::signer::SignerError>(())
+    }).await.map_err(|e| anyhow::anyhow!(e))?;
     
     // Demonstrate DeFi patterns and best practices
     demonstrate_defi_patterns().await?;

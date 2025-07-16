@@ -2,7 +2,7 @@
 use serde::Deserialize;
 use std::fmt;
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct Config {
     pub openai_api_key: String,
     pub redis_url: String,

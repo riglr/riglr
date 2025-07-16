@@ -10,8 +10,8 @@
 //!
 //! The example uses riglr's SignerContext pattern for secure multi-tenant operation.
 
-use riglr_core::SignerContext;
-use riglr_solana_core::LocalSolanaSigner;
+use riglr_core::{SignerContext, config::SolanaNetworkConfig};
+use riglr_core::signer::LocalSolanaSigner;
 use riglr_cross_chain_tools::{
     get_cross_chain_routes, estimate_bridge_fees, execute_cross_chain_bridge, 
     get_bridge_status, get_supported_chains,
@@ -29,13 +29,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     
     // Create a Solana signer (in production, load from secure storage)
     let keypair = Keypair::new();
-    let signer = Arc::new(LocalSolanaSigner::new(
-        keypair,
-        "https://api.devnet.solana.com".to_string()
-    ));
+    let network_config = SolanaNetworkConfig {
+        name: "devnet".to_string(),
+        rpc_url: "https://api.devnet.solana.com".to_string(),
+        explorer_url: Some("https://explorer.solana.com".to_string()),
+    };
+    let signer = Arc::new(LocalSolanaSigner::from_keypair(keypair, network_config));
     
     // Execute all operations within a signer context
-    let result = SignerContext::with_signer(signer.clone(), async {
+    let result = SignerContext::with_signer(signer, async {
         demonstrate_cross_chain_operations().await
     }).await;
     

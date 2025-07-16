@@ -17,22 +17,12 @@ use std::str::FromStr;
 #[derive(Clone)]
 struct MockEvmSigner {
     address: String,
-    chain_configs: std::collections::HashMap<u64, String>,
 }
 
 impl MockEvmSigner {
     fn new(address: String) -> Self {
-        let mut chain_configs = std::collections::HashMap::new();
-        
-        // Set up mock RPC URLs for testing
-        chain_configs.insert(1, "https://eth.llamarpc.com".to_string());
-        chain_configs.insert(42161, "https://arb1.arbitrum.io/rpc".to_string());
-        chain_configs.insert(137, "https://polygon-rpc.com".to_string());
-        chain_configs.insert(8453, "https://mainnet.base.org".to_string());
-        
         Self {
             address,
-            chain_configs,
         }
     }
 }
@@ -47,7 +37,7 @@ impl TransactionSigner for MockEvmSigner {
         Some(self.address.clone())
     }
 
-    async fn sign_and_send_solana_transaction(&self, _tx: &mut Transaction) -> Result<String, SignerError> {
+    async fn sign_and_send_solana_transaction(&self, _tx: &mut solana_sdk::transaction::Transaction) -> Result<String, SignerError> {
         Err(SignerError::UnsupportedOperation("EVM signer cannot sign Solana transactions".to_string()))
     }
 
@@ -55,8 +45,11 @@ impl TransactionSigner for MockEvmSigner {
         // Mock transaction signing - in real implementation this would sign with private key
         let tx_hash = format!(
             "0x{:064x}",
-            tx.to.as_ref().map(|addr| addr.to_string()).unwrap_or_default().len() + 
-            tx.value.unwrap_or_default().to::<u64>()
+            tx.to.as_ref().map(|addr| match addr {
+                alloy::primitives::TxKind::Call(address) => address.to_string(),
+                alloy::primitives::TxKind::Create => String::new(),
+            }).unwrap_or_default().len() + 
+            tx.value.unwrap_or_default().to::<u64>() as usize
         );
         Ok(tx_hash)
     }
@@ -101,17 +94,17 @@ async fn test_provider_factory_with_different_chains() {
         let provider = result.unwrap();
         // Basic provider validation - in real tests you might call get_chain_id()
         // For mock tests, we just verify the provider was created
-        assert!(format!("{:?}", provider).contains("RootProvider"));
+        // Provider doesn't implement Debug, just verify it was created
+        let _ = provider;
     }
     
     // Test unsupported chain
     let unsupported_result = make_provider(999999);
-    assert!(unsupported_result.is_err());
-    match unsupported_result.unwrap_err() {
-        EvmToolError::ToolError(ToolError::InvalidInput(msg)) => {
-            assert!(msg.contains("Unsupported chain ID: 999999"));
+    match unsupported_result {
+        Err(EvmToolError::UnsupportedChain(chain_id)) => {
+            assert_eq!(chain_id, 999999);
         }
-        _ => panic!("Expected InvalidInput error for unsupported chain"),
+        _ => panic!("Expected UnsupportedChain error for unsupported chain"),
     }
     
     // Clean up
@@ -135,10 +128,10 @@ async fn test_transaction_execution_helper() {
             
             // Create a mock transaction
             let tx = TransactionRequest {
-                to: Some(Address::from_str("0x1234567890123456789012345678901234567890").unwrap()),
+                to: Some(alloy::primitives::TxKind::Call(Address::from_str("0x1234567890123456789012345678901234567890").unwrap())),
                 value: Some(U256::from(1000000000000000000u64)), // 1 ETH
                 gas: Some(21000),
-                gas_price: Some(U256::from(20000000000u64)), // 20 gwei
+                gas_price: Some(20000000000u128), // 20 gwei
                 ..Default::default()
             };
             
@@ -229,7 +222,8 @@ async fn test_concurrent_provider_creation() {
         tokio::spawn(async { make_provider(42161) }),
     ];
     
-    let results = futures::future::join_all(handles).await;
+    use futures::future::join_all;
+    let results = join_all(handles).await;
     
     for result in results {
         let provider_result = result.unwrap();
@@ -260,7 +254,7 @@ async fn test_transaction_execution_with_different_addresses() {
                 assert_eq!(address.to_string().to_lowercase(), addr.to_lowercase());
                 
                 Ok::<TransactionRequest, EvmToolError>(TransactionRequest {
-                    to: Some(address),
+                    to: Some(alloy::primitives::TxKind::Call(address)),
                     value: Some(U256::from(1000)),
                     ..Default::default()
                 })

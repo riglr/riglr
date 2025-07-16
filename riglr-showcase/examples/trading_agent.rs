@@ -65,8 +65,8 @@ async fn main() -> Result<()> {
         println!("\n🤖 Agent Follow-up:");
         println!("{}", follow_up);
         
-        Ok::<(), riglr_core::SignerError>(())
-    }).await?;
+        Ok::<(), riglr_core::signer::SignerError>(())
+    }).await.map_err(|e| anyhow::anyhow!(e))?;
     
     println!("\n✅ Trading agent demo completed successfully!");
     println!("\n📚 Key Learning Points:");

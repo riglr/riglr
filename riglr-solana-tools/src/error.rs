@@ -280,6 +280,12 @@ impl From<SolanaToolError> for ToolError {
     }
 }
 
+impl From<ClientError> for SolanaToolError {
+    fn from(error: ClientError) -> Self {
+        SolanaToolError::SolanaClient(Box::new(error))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -441,11 +447,5 @@ mod tests {
 
         let result = classify_transaction_error(&client_error);
         assert!(matches!(result, TransactionErrorType::Unknown(_)));
-    }
-}
-
-impl From<ClientError> for SolanaToolError {
-    fn from(error: ClientError) -> Self {
-        SolanaToolError::SolanaClient(Box::new(error))
     }
 }

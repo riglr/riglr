@@ -1,7 +1,6 @@
 //! Comprehensive tests for contract module
 
 use riglr_evm_tools::{call_contract_read, call_contract_write, read_erc20_info};
-use riglr_core::SignerContext;
 use riglr_showcase::config::Config;
 
 #[tokio::test]

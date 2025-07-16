@@ -225,9 +225,9 @@ async fn complete_pipeline() -> Result<()> {
     println!("==========================================");
     // Create a comprehensive processing pipeline
     let pipeline = ProcessorPipeline::new()
-        .add(DistillationProcessor::new("gpt-4o-mini")) // First, distill the output
-        .add(MarkdownFormatter::new()) // Then format as markdown
-        .add(NotificationRouter::new() // Finally, send notifications
+        .add_processor(DistillationProcessor::new("gpt-4o-mini")) // First, distill the output
+        .add_processor(MarkdownFormatter::new()) // Then format as markdown
+        .add_processor(NotificationRouter::new() // Finally, send notifications
             .add_channel("console", ConsoleChannel::new())
             .set_default_channel("console")
         );
@@ -279,9 +279,9 @@ async fn error_handling() -> Result<()> {
 
     // Create an error-aware processor pipeline
     let error_pipeline = ProcessorPipeline::new()
-        .add(DistillationProcessor::new("gpt-4o-mini"))
-        .add(MarkdownFormatter::new())
-        .add(NotificationRouter::new()
+        .add_processor(DistillationProcessor::new("gpt-4o-mini"))
+        .add_processor(MarkdownFormatter::new())
+        .add_processor(NotificationRouter::new()
             .add_channel("console", ConsoleChannel::new())
             .set_default_channel("console")
             .add_routing_rule(
@@ -372,16 +372,6 @@ async fn multi_format() -> Result<()> {
 }
 
 // Helper function to create realistic timing
-fn create_timed_output(tool_name: &str, result: serde_json::Value, ms: u64) -> ToolOutput {
-    ToolOutput {
-        tool_name: tool_name.to_string(),
-        success: true,
-        result,
-        error: None,
-        execution_time_ms: ms,
-        metadata: std::collections::HashMap::new(),
-    }
-}
 
 #[cfg(test)]
 mod integration_tests {
@@ -391,9 +381,9 @@ mod integration_tests {
     async fn test_complete_workflow() {
         // Test that all processors work together
         let pipeline = ProcessorPipeline::new()
-            .add(DistillationProcessor::new("gpt-4o-mini"))
-            .add(MarkdownFormatter::new())
-            .add(NotificationRouter::new()
+            .add_processor(DistillationProcessor::new("gpt-4o-mini"))
+            .add_processor(MarkdownFormatter::new())
+            .add_processor(NotificationRouter::new()
                 .add_channel("console", ConsoleChannel::new())
                 .set_default_channel("console")
             );
@@ -415,8 +405,8 @@ mod integration_tests {
     async fn test_error_propagation() {
         // Test that errors are handled gracefully throughout the pipeline
         let pipeline = ProcessorPipeline::new()
-            .add(DistillationProcessor::new("gpt-4o-mini"))
-            .add(MarkdownFormatter::new());
+            .add_processor(DistillationProcessor::new("gpt-4o-mini"))
+            .add_processor(MarkdownFormatter::new());
 
         let error_output = utils::error_output("test_error", "Simulated failure");
         let result = pipeline.process(error_output).await.unwrap();
@@ -424,3 +414,4 @@ mod integration_tests {
         assert!(result.summary.is_some()); // Should have error summary
         assert!(!result.original.success); // Original error state preserved
     }
+}
