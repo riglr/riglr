@@ -23,10 +23,26 @@ pub trait Agent: Clone + Send + Sync + 'static {
 
     /// Execute a prompt and return a streaming response
     async fn prompt_stream(&self, prompt: &str) -> Result<futures_util::stream::BoxStream<'_, Result<String, Self::Error>>, Self::Error>;
+
+    /// Get the model name used by this agent (optional)
+    fn model_name(&self) -> Option<String> {
+        None
+    }
 }
 
 /// Type alias for agent streaming responses
 pub type AgentStream = Pin<Box<dyn Stream<Item = Result<String, Box<dyn StdError + Send + Sync>>> + Send>>;
+
+/// Get model name from agent or environment variable
+fn get_model_name<A: Agent>(agent: &A) -> Option<String> {
+    // First try to get from agent
+    if let Some(model) = agent.model_name() {
+        return Some(model);
+    }
+    
+    // Fall back to environment variable
+    std::env::var("RIGLR_DEFAULT_MODEL").ok()
+}
 
 /// Generic prompt request structure
 #[derive(Deserialize, Serialize, Debug, Clone)]
@@ -235,7 +251,7 @@ where
         
         Ok::<CompletionResponse, riglr_core::signer::SignerError>(CompletionResponse {
             response,
-            model: "claude-3-5-sonnet".to_string(), // TODO: Get from agent
+            model: get_model_name(&agent).unwrap_or_else(|| "claude-3-5-sonnet".to_string()),
             conversation_id,
             request_id,
             timestamp: chrono::Utc::now(),

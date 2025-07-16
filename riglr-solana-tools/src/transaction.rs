@@ -19,6 +19,7 @@ use solana_sdk::{
 use spl_associated_token_account::get_associated_token_address;
 use spl_token;
 use std::str::FromStr;
+use std::str::FromStr;
 use tracing::{debug, info};
 
 
@@ -353,8 +354,10 @@ pub async fn create_spl_token_mint(
     let signer_context = SignerContext::current().await
         .map_err(|e| ToolError::permanent(format!("No signer context: {}", e)))?;
     
-    let payer_pubkey = signer_context.pubkey()
-        .map_err(|e| ToolError::permanent(format!("Failed to get signer pubkey: {}", e)))?;
+    let payer_pubkey_str = signer_context.pubkey()
+        .ok_or_else(|| ToolError::permanent("Failed to get signer pubkey".to_string()))?;
+    let payer_pubkey = Pubkey::from_str(&payer_pubkey_str)
+        .map_err(|e| ToolError::permanent(format!("Invalid pubkey format: {}", e)))?;
 
     // Generate a new mint keypair
     let mint_keypair = solana_sdk::signature::Keypair::new();
@@ -449,7 +452,7 @@ pub async fn create_spl_token_mint(
         .map_err(|e| ToolError::permanent(format!("Failed to sign transaction: {}", e)))?;
 
     // Send transaction
-    let signature = send_transaction(&client, &signed_tx).await?;
+    let signature = send_transaction(&mut signed_tx, "Create SPL Token Mint").await?;
 
     info!(
         "Created SPL token mint {} with signature {}",
@@ -457,13 +460,12 @@ pub async fn create_spl_token_mint(
     );
 
     Ok(CreateMintResult {
+        signature: signature.to_string(),
         mint_address: mint_pubkey.to_string(),
+        authority: payer_pubkey.to_string(),
         decimals,
         initial_supply,
         freezable,
-        transaction_signature: signature.to_string(),
-        mint_authority: payer_pubkey.to_string(),
-        freeze_authority: freeze_authority.map(|a| a.to_string()),
     })
 }
 

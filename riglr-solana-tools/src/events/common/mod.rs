@@ -1,5 +1,7 @@
 pub mod types;
 pub mod utils;
+pub mod instruction_parser;
+pub mod log_parser;
 
 /// Automatically generate UnifiedEvent trait implementation macro
 #[macro_export]
@@ -132,3 +134,5 @@ macro_rules! impl_unified_event {
 
 pub use types::*;
 pub use utils::*;
+pub use instruction_parser::*;
+pub use log_parser::*;

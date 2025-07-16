@@ -157,3 +157,101 @@ fn test_trading_bot_mock_removal() {
     
     assert!(mock_prices.is_empty(), "Found mock prices in trading bot: {:#?}", mock_prices);
 }
+
+#[test]
+fn test_no_placeholder_responses() {
+    // Scan for placeholder JSON responses and TODO markers in production code
+    use std::process::Command;
+    
+    let output = Command::new("rg")
+        .args(&[
+            r#"json!\(\{\}\)|// Placeholder|TODO.*Update"#,
+            "--type", "rust",
+            "--glob", "!tests/*",
+            "--glob", "!examples/*", 
+            "--glob", "!**/target/*",
+            "src/"
+        ])
+        .current_dir("/mnt/storage/projects/riglr")
+        .output()
+        .expect("Failed to run ripgrep");
+    
+    let results = String::from_utf8_lossy(&output.stdout);
+    
+    // Filter out acceptable patterns
+    let concerning_placeholders: Vec<&str> = results
+        .lines()
+        .filter(|line| {
+            // Skip test-related files and acceptable patterns
+            !line.contains("test_") && 
+            !line.contains("#[cfg(test)]") &&
+            !line.contains("// TODO: Implement when") && // Implementation notes are OK
+            !line.contains("// TODO: Consider") && // Architecture notes are OK
+            // Focus on actual placeholder implementations
+            (line.contains("json!({})") || 
+             line.contains("// Placeholder") || 
+             line.contains("TODO: Update"))
+        })
+        .collect();
+    
+    if !concerning_placeholders.is_empty() {
+        panic!("Found placeholder implementations in production code:\n{:#?}", concerning_placeholders);
+    }
+}
+
+#[tokio::test]
+async fn test_all_examples_compile() {
+    // Validate all showcase examples compile with current APIs
+    use std::process::Command;
+    
+    let output = Command::new("cargo")
+        .args(&["check", "--examples"])
+        .current_dir("/mnt/storage/projects/riglr/riglr-showcase")
+        .output()
+        .expect("Failed to run cargo check");
+    
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        panic!("Examples failed to compile:\n{}", stderr);
+    }
+}
+
+#[test]
+fn test_signer_context_usage() {
+    // Verify that blockchain tools use SignerContext pattern correctly
+    use std::process::Command;
+    
+    let output = Command::new("rg")
+        .args(&[
+            r#"\.sign_transaction\(|\.evm_client\(|\.solana_client\("#,
+            "--type", "rust",
+            "src/"
+        ])
+        .current_dir("/mnt/storage/projects/riglr")
+        .output()
+        .expect("Failed to run ripgrep");
+    
+    let results = String::from_utf8_lossy(&output.stdout);
+    
+    // All blockchain operations should go through SignerContext
+    let direct_signer_usage: Vec<&str> = results
+        .lines()
+        .filter(|line| {
+            // Look for direct signer usage outside of SignerContext
+            !line.contains("SignerContext::") &&
+            !line.contains("signer.") &&
+            !line.contains("// ") && // Skip comments
+            (line.contains(".sign_transaction(") || 
+             line.contains(".evm_client(") ||
+             line.contains(".solana_client("))
+        })
+        .collect();
+    
+    // This is informational rather than failing - just warn about patterns
+    if !direct_signer_usage.is_empty() {
+        println!("INFO: Found potential direct signer usage (review for SignerContext pattern):");
+        for usage in direct_signer_usage {
+            println!("  {}", usage);
+        }
+    }
+}

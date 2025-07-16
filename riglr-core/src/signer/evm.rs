@@ -74,6 +74,10 @@ impl std::fmt::Debug for LocalEvmSigner {
 
 #[async_trait]
 impl TransactionSigner for LocalEvmSigner {
+    fn chain_id(&self) -> Option<u64> {
+        Some(self.chain_id)
+    }
+    
     fn address(&self) -> Option<String> {
         Some(self.get_address().to_string())
     }

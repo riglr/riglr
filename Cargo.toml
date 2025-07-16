@@ -2,6 +2,7 @@
 members = [
     "riglr-core",
     "riglr-macros",
+    "riglr-solana-common",
     "riglr-solana-tools",
     "riglr-evm-tools",
     "riglr-web-tools",
@@ -26,6 +27,7 @@ homepage = "https://github.com/riglr-project/riglr"
 rig-core = "0.17.1"
 riglr-core = { path = "riglr-core" }
 riglr-macros = { path = "riglr-macros" }
+riglr-solana-common = { path = "riglr-solana-common" }
 riglr-solana-tools = { path = "riglr-solana-tools" }
 riglr-evm-tools = { path = "riglr-evm-tools" }
 riglr-web-tools = { path = "riglr-web-tools" }
