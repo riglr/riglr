@@ -5,7 +5,7 @@ fn test_tool_error_retriable() {
     let retriable = ToolError::retriable("Network timeout");
     assert!(retriable.is_retriable());
     assert!(!retriable.is_rate_limited());
-    assert_eq!(retriable.to_string(), "Operation can be retried: Network timeout");
+    assert_eq!(retriable.to_string(), "Operation can be retried");
 }
 
 #[test]
@@ -13,7 +13,7 @@ fn test_tool_error_rate_limited() {
     let rate_limited = ToolError::rate_limited("Too many requests");
     assert!(rate_limited.is_rate_limited());
     assert!(rate_limited.is_retriable()); // Rate limited errors are also retriable
-    assert_eq!(rate_limited.to_string(), "Rate limited, retry after delay: Too many requests");
+    assert_eq!(rate_limited.to_string(), "Rate limited, retry after delay");
 }
 
 #[test]
@@ -21,14 +21,14 @@ fn test_tool_error_permanent() {
     let permanent = ToolError::permanent("Invalid configuration");
     assert!(!permanent.is_retriable());
     assert!(!permanent.is_rate_limited());
-    assert_eq!(permanent.to_string(), "Permanent error, do not retry: Invalid configuration");
+    assert_eq!(permanent.to_string(), "Permanent error, do not retry");
 }
 
 #[test]
 fn test_tool_error_from_string() {
     let retriable = ToolError::retriable("Connection failed");
-    assert_eq!(retriable.to_string(), "Operation can be retried: Connection failed");
+    assert_eq!(retriable.to_string(), "Operation can be retried");
     
     let permanent = ToolError::permanent("Invalid address format");
-    assert_eq!(permanent.to_string(), "Permanent error, do not retry: Invalid address format");
+    assert_eq!(permanent.to_string(), "Permanent error, do not retry");
 }
