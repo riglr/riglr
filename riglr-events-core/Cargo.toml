@@ -1,0 +1,60 @@
+[package]
+name = "riglr-events-core"
+version = "0.1.0"
+edition = "2021"
+authors = ["riglr project contributors"]
+description = "Core event processing abstractions and traits for riglr blockchain agents"
+license = "MIT"
+repository = "https://github.com/riglr-project/riglr"
+homepage = "https://github.com/riglr-project/riglr"
+keywords = ["rig", "ai", "agent", "events", "blockchain"]
+categories = ["asynchronous", "web-programming::api-bindings", "cryptography::cryptocurrencies"]
+documentation = "https://docs.rs/riglr-events-core"
+
+[lib]
+name = "riglr_events_core"
+path = "src/lib.rs"
+
+[dependencies]
+# Core riglr dependencies
+riglr-core = { path = "../riglr-core" }
+
+# Async and concurrency
+tokio = { workspace = true, features = ["full"] }
+tokio-stream = "0.1"
+futures = "0.3"
+async-trait = { workspace = true }
+
+# Error handling
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+
+# Serialization
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+
+# Utilities
+uuid = { workspace = true, features = ["v4", "serde"] }
+chrono = { workspace = true, features = ["serde"] }
+tracing = { workspace = true }
+hex = "0.4"
+
+# Optional blockchain-specific dependencies
+solana-sdk = { workspace = true, optional = true }
+alloy = { workspace = true, optional = true }
+
+[dev-dependencies]
+tokio-test = { workspace = true }
+criterion = { workspace = true }
+proptest = "1.0"
+mockall = "0.13"
+
+[[bench]]
+name = "event_benchmarks"
+harness = false
+
+[features]
+default = []
+solana = ["dep:solana-sdk"]
+evm = ["dep:alloy"]
+full = ["solana", "evm"]
