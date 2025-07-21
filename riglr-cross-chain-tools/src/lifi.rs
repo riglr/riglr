@@ -477,34 +477,28 @@ impl Default for LiFiClient {
 /// Helper function to convert chain name to chain ID
 pub fn chain_name_to_id(name: &str) -> Result<u64, LiFiError> {
     match name.to_lowercase().as_str() {
-        "ethereum" | "eth" => Ok(1),
-        "polygon" | "matic" => Ok(137),
-        "binance" | "bsc" => Ok(56),
-        "avalanche" | "avax" => Ok(43114),
-        "arbitrum" | "arb" => Ok(42161),
-        "optimism" | "op" => Ok(10),
-        "base" => Ok(8453),
         "solana" | "sol" => Ok(1151111081099710), // Solana chain ID in LiFi
-        _ => Err(LiFiError::UnsupportedChain {
-            chain_name: name.to_string(),
-        }),
+        _ => {
+            // Use riglr-evm-common for EVM chain mapping
+            riglr_evm_common::chain_name_to_id(name)
+                .map_err(|_| LiFiError::UnsupportedChain {
+                    chain_name: name.to_string(),
+                })
+        }
     }
 }
 
 /// Helper function to convert chain ID to chain name
 pub fn chain_id_to_name(id: u64) -> Result<String, LiFiError> {
     match id {
-        1 => Ok("ethereum".to_string()),
-        137 => Ok("polygon".to_string()),
-        56 => Ok("binance".to_string()),
-        43114 => Ok("avalanche".to_string()),
-        42161 => Ok("arbitrum".to_string()),
-        10 => Ok("optimism".to_string()),
-        8453 => Ok("base".to_string()),
         1151111081099710 => Ok("solana".to_string()),
-        _ => Err(LiFiError::UnsupportedChain {
-            chain_name: format!("Chain ID {}", id),
-        }),
+        _ => {
+            // Use riglr-evm-common for EVM chain mapping
+            riglr_evm_common::chain_id_to_name(id)
+                .map_err(|_| LiFiError::UnsupportedChain {
+                    chain_name: format!("Chain ID {}", id),
+                })
+        }
     }
 }
 
