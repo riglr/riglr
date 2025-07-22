@@ -2,13 +2,19 @@
 //!
 //! This module provides centralized transaction sending functionality with
 //! robust retry logic, exponential backoff, and comprehensive error handling.
+//! 
+//! All transaction utilities follow the SignerContext pattern for secure multi-tenant operation.
 
 use riglr_core::{ToolError, SignerContext, signer::SignerError};
-use crate::error::{classify_transaction_error, TransactionErrorType, RetryableError, PermanentError};
-use solana_sdk::transaction::Transaction;
+use crate::error::{classify_transaction_error, TransactionErrorType, RetryableError, PermanentError, SolanaToolError};
+use solana_sdk::{transaction::Transaction, signature::Keypair, instruction::Instruction, pubkey::Pubkey};
 use std::time::Duration;
+use std::future::Future;
+use std::sync::Arc;
+use std::str::FromStr;
 use tokio::time::sleep;
 use tracing::{debug, info, warn, error};
+use solana_client::rpc_client::RpcClient;
 
 /// Configuration for transaction retry behavior
 #[derive(Debug, Clone)]
@@ -49,8 +55,6 @@ pub struct TransactionSubmissionResult {
     /// Whether transaction was confirmed (false for non-blocking sending)
     pub confirmed: bool,
 }
-
-// Error classification is now handled by structured types in crate::error module
 
 /// Helper function to classify SignerError into TransactionErrorType
 fn classify_signer_error(signer_error: &SignerError) -> TransactionErrorType {
@@ -102,6 +106,8 @@ fn calculate_retry_delay(
 /// This function centralizes all Solana transaction sending logic with robust
 /// error handling, retry logic, and comprehensive logging. It automatically
 /// classifies errors and applies appropriate retry strategies.
+/// 
+/// Uses SignerContext for secure multi-tenant operation.
 ///
 /// # Arguments
 ///
@@ -129,7 +135,7 @@ fn calculate_retry_delay(
 /// # Examples
 ///
 /// ```rust,ignore
-/// use riglr_solana_tools::utils::{send_transaction_with_retry, TransactionConfig};
+/// use riglr_solana_tools::utils::transaction::{send_transaction_with_retry, TransactionConfig};
 /// use solana_sdk::{transaction::Transaction, system_instruction};
 /// use riglr_core::SignerContext;
 ///
@@ -157,7 +163,7 @@ pub async fn send_transaction_with_retry(
     transaction: &mut Transaction,
     config: &TransactionConfig,
     operation_name: &str,
-) -> Result<TransactionSubmissionResult, ToolError> {
+) -> std::result::Result<TransactionSubmissionResult, ToolError> {
     let start_time = std::time::Instant::now();
     
     debug!(
@@ -167,7 +173,7 @@ pub async fn send_transaction_with_retry(
 
     // Get signer context
     let signer_context = SignerContext::current().await
-        .map_err(|e| ToolError::permanent(format!("No signer context: {}", e)))?;
+        .map_err(|e| ToolError::permanent_from_msg(format!("No signer context: {}", e)))?;
 
     let mut last_error: Option<String> = None;
     
@@ -208,7 +214,7 @@ pub async fn send_transaction_with_retry(
                         "Permanent transaction error for '{}' (attempt {}): {}",
                         operation_name, attempt + 1, error_msg
                     );
-                    return Err(ToolError::permanent(format!(
+                    return Err(ToolError::permanent_from_msg(format!(
                         "Transaction failed for '{}': {}", operation_name, error_msg
                     )));
                 }
@@ -253,7 +259,7 @@ pub async fn send_transaction_with_retry(
         operation_name, config.max_retries + 1, total_duration, final_error
     );
     
-    Err(ToolError::permanent(format!(
+    Err(ToolError::permanent_from_msg(format!(
         "Transaction failed for '{}' after {} attempts: {}", 
         operation_name, config.max_retries + 1, final_error
     )))
@@ -276,7 +282,7 @@ pub async fn send_transaction_with_retry(
 /// # Examples
 ///
 /// ```rust,ignore
-/// use riglr_solana_tools::utils::send_transaction;
+/// use riglr_solana_tools::utils::transaction::send_transaction;
 /// use solana_sdk::{transaction::Transaction, system_instruction};
 /// use riglr_core::SignerContext;
 ///
@@ -296,18 +302,142 @@ pub async fn send_transaction_with_retry(
 pub async fn send_transaction(
     transaction: &mut Transaction,
     operation_name: &str,
-) -> Result<String, ToolError> {
+) -> std::result::Result<String, ToolError> {
     let config = TransactionConfig::default();
     let result = send_transaction_with_retry(transaction, &config, operation_name).await?;
     Ok(result.signature)
 }
 
+/// Higher-order function to execute Solana transactions
+/// 
+/// Abstracts signer context retrieval and transaction signing, following the established
+/// riglr pattern of using SignerContext for multi-tenant operation.
+/// 
+/// # Arguments
+/// 
+/// * `tx_creator` - Function that creates the transaction given a pubkey and RPC client
+/// 
+/// # Returns
+/// 
+/// Returns the transaction signature on success
+/// 
+/// # Examples
+/// 
+/// ```rust,ignore
+/// use riglr_solana_tools::utils::transaction::execute_solana_transaction;
+/// use solana_sdk::{transaction::Transaction, system_instruction};
+/// 
+/// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+/// let signature = execute_solana_transaction(|pubkey, client| async move {
+///     let to = "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM".parse()?;
+///     let instruction = system_instruction::transfer(&pubkey, &to, 1000000);
+///     
+///     let recent_blockhash = client.get_latest_blockhash()?;
+///     let mut tx = Transaction::new_with_payer(&[instruction], Some(&pubkey));
+///     tx.sign(&[], recent_blockhash);
+///     
+///     Ok(tx)
+/// }).await?;
+/// 
+/// println!("Transaction sent: {}", signature);
+/// # Ok(())
+/// # }
+/// ```
+pub async fn execute_solana_transaction<F, Fut>(
+    tx_creator: F,
+) -> std::result::Result<String, SolanaToolError>
+where
+    F: FnOnce(Pubkey, Arc<RpcClient>) -> Fut + Send + 'static,
+    Fut: Future<Output = std::result::Result<Transaction, SolanaToolError>> + Send + 'static,
+{
+    // Get signer from context
+    let signer = SignerContext::current()
+        .await
+        .map_err(|e| SolanaToolError::SignerError(e))?;
+    
+    // Get Solana pubkey
+    let pubkey_str = signer
+        .pubkey()
+        .ok_or_else(|| SolanaToolError::Generic("No Solana pubkey in signer context".to_string()))?;
+    let pubkey = Pubkey::from_str(&pubkey_str)
+        .map_err(|e| SolanaToolError::InvalidAddress(format!("Invalid pubkey format: {}", e)))?;
+    
+    // Get client from SignerContext
+    let client = signer.solana_client()
+        .ok_or_else(|| SolanaToolError::Generic("No Solana client available in signer context".to_string()))?;
+    
+    // Execute transaction creator
+    let mut tx = tx_creator(pubkey, client).await?;
+    
+    // Sign and send via signer context
+    signer
+        .sign_and_send_solana_transaction(&mut tx)
+        .await
+        .map_err(|e| SolanaToolError::SignerError(e))
+}
+
+/// Creates properly signed Solana transaction with mint keypair
+/// 
+/// This function handles the complex case where a transaction needs to be signed by both
+/// the signer context (for fees) and a mint keypair (for token creation).
+/// 
+/// # Arguments
+/// 
+/// * `instructions` - The instructions to include in the transaction
+/// * `mint_keypair` - The keypair for the mint account (must sign the transaction)
+/// 
+/// # Returns
+/// 
+/// Returns the transaction signature on success
+/// 
+/// # Examples
+/// 
+/// ```rust,ignore
+/// use riglr_solana_tools::utils::transaction::create_token_with_mint_keypair;
+/// use solana_sdk::{instruction::Instruction, signature::Keypair};
+/// 
+/// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+/// let mint_keypair = Keypair::new();
+/// let instructions = vec![
+///     // Token creation instructions here
+/// ];
+/// 
+/// let signature = create_token_with_mint_keypair(instructions, &mint_keypair).await?;
+/// println!("Token created with signature: {}", signature);
+/// # Ok(())
+/// # }
+/// ```
+pub async fn create_token_with_mint_keypair(
+    instructions: Vec<Instruction>,
+    mint_keypair: &Keypair,
+) -> std::result::Result<String, SolanaToolError> {
+    let signer = SignerContext::current().await
+        .map_err(|e| SolanaToolError::SignerError(e.into()))?;
+    let payer_pubkey = signer.pubkey()
+        .ok_or_else(|| SolanaToolError::InvalidKey("No Solana pubkey in signer context".to_string()))?
+        .parse()
+        .map_err(|e| SolanaToolError::InvalidKey(format!("Invalid pubkey format: {}", e)))?;
+    
+    let mut tx = Transaction::new_with_payer(&instructions, Some(&payer_pubkey));
+    
+    // Get recent blockhash from SignerContext
+    let client = signer.solana_client()
+        .ok_or_else(|| SolanaToolError::Generic("No Solana client available in signer context".to_string()))?;
+    let recent_blockhash = client.get_latest_blockhash()
+        .map_err(|e| SolanaToolError::SolanaClient(Box::new(e)))?;
+    
+    tx.partial_sign(&[mint_keypair], recent_blockhash);
+    
+    // Sign and send transaction via signer context
+    let signature = signer.sign_and_send_solana_transaction(&mut tx).await
+        .map_err(|e| SolanaToolError::SignerError(e.into()))?;
+    
+    Ok(signature)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    
-    // Note: Error classification tests moved to error.rs module with structured error types
-    // The old string-based classification has been replaced with structured ClientError classification
     
     #[test]
     fn test_retry_delay_calculation() {

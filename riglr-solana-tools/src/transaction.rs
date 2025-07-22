@@ -364,7 +364,8 @@ pub async fn create_spl_token_mint(
     let mint_pubkey = mint_keypair.pubkey();
 
     // Get client to check account size and rent
-    let client = signer_context.solana_client();
+    let client = signer_context.solana_client()
+        .ok_or_else(|| ToolError::permanent("No Solana client available in signer".to_string()))?;
     
     // Calculate rent for mint account
     let mint_account_size = std::mem::size_of::<spl_token::state::Mint>();

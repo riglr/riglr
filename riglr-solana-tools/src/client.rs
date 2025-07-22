@@ -153,7 +153,8 @@ impl SolanaClient {
 
     /// Create a SolanaClient from a TransactionSigner
     pub fn from_signer(signer: &dyn riglr_core::signer::TransactionSigner) -> Result<Self> {
-        let client = signer.solana_client();
+        let client = signer.solana_client()
+            .ok_or_else(|| SolanaToolError::Generic("No Solana client available in signer".to_string()))?;
         
         // Extract configuration from the RPC client
         // This is a simplified approach - in practice you might want to store config in the signer
