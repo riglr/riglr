@@ -11,6 +11,10 @@ name = "riglr_solana_events"
 path = "src/lib.rs"
 
 [dependencies]
+# Core riglr dependencies
+riglr-events-core = { path = "../riglr-events-core", features = ["solana"] }
+
+# Legacy dependencies (gradually remove these)
 anyhow = { workspace = true }
 thiserror = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
@@ -22,8 +26,23 @@ bs58 = "0.5"
 borsh = { version = "1", features = ["derive"] }
 async-trait = { workspace = true }
 tokio = { workspace = true }
+tokio-stream = "0.1"
 solana-sdk = { workspace = true }
+solana-client = { workspace = true }
 solana-transaction-status = "2.3.7"
+uuid = { version = "1.0", features = ["v4"] }
+reqwest = { version = "0.12", features = ["json"] }
+
+# High-performance parsing dependencies
+memmap2 = "0.9"
+
+[dev-dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }
+tokio-test = "0.4"
+
+[[bench]]
+name = "parsing_benchmarks"
+harness = false
 
 [features]
 default = []

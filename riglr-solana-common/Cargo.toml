@@ -9,3 +9,4 @@ solana-client = { workspace = true }
 riglr-core = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }
+base64 = "0.22.1"
