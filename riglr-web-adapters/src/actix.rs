@@ -29,6 +29,24 @@ impl ActixRiglrAdapter {
         }
     }
     
+    /// Detect authentication type from request headers
+    fn detect_auth_type(&self, req: &HttpRequest) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+        // First check for explicit auth type header
+        if let Some(auth_type) = req.headers().get("x-auth-type") {
+            return Ok(auth_type.to_str()?.to_string());
+        }
+        
+        // Fall back to registered auth types - use first one as default
+        let supported_types = self.signer_factory.supported_auth_types();
+        if supported_types.is_empty() {
+            return Err("No authentication providers registered".into());
+        }
+        
+        // For now, return the first registered type
+        // In the future, this could inspect the JWT to determine the issuer
+        Ok(supported_types[0].clone())
+    }
+    
     /// Extract authentication data from request headers
     fn extract_auth_data(&self, req: &HttpRequest) -> Result<AuthenticationData, Box<dyn std::error::Error + Send + Sync>> {
         let auth_header = req.headers()
@@ -39,9 +57,10 @@ impl ActixRiglrAdapter {
         // Parse auth header to determine type and extract credentials
         if auth_header.starts_with("Bearer ") {
             let token = auth_header.strip_prefix("Bearer ").unwrap();
+            let auth_type = self.detect_auth_type(req)?;
             
             Ok(AuthenticationData {
-                auth_type: "privy".to_string(), // Could be detected from token format
+                auth_type,
                 credentials: [("token".to_string(), token.to_string())].into(),
                 network: req.headers()
                     .get("x-network")

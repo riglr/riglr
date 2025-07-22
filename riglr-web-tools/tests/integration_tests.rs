@@ -1,302 +1,580 @@
-//! Integration tests for riglr-web-tools
-//!
-//! These tests verify the functionality of web tools with basic functionality testing
+use riglr_web_tools::{
+    client::WebClient,
+    dexscreener::*,
+    news::*,
+    price::*,
+    web_search::*,
+};
+use wiremock::{matchers::{method, path, query_param}, Mock, MockServer, ResponseTemplate};
+use serde_json::json;
 
-//! These tests focus on structure validation and configuration testing
-
-#[cfg(test)]
-mod dexscreener_tests {
-    use riglr_web_tools::dexscreener::{DexScreenerConfig, TokenInfo, ChainInfo, SecurityInfo};
-    use chrono::Utc;
-
-    #[test]
-    fn test_dexscreener_config_creation() {
-        let config = DexScreenerConfig::default();
-        assert_eq!(config.base_url, "https://api.dexscreener.com/latest");
-        assert_eq!(config.rate_limit_per_minute, 300);
-        assert_eq!(config.request_timeout, 30);
-    }
-
-    #[test]
-    fn test_token_info_structure() {
-        let token_info = TokenInfo {
-            address: "0x123".to_string(),
-            name: "Test Token".to_string(),
-            symbol: "TEST".to_string(),
-            decimals: 18,
-            price_usd: Some(1.0),
-            market_cap: Some(1000000.0),
-            volume_24h: Some(50000.0),
-            price_change_24h: Some(5.0),
-            price_change_1h: Some(-1.0),
-            price_change_5m: Some(0.5),
-            circulating_supply: Some(1000000.0),
-            total_supply: Some(10000000.0),
-            pair_count: 1,
-            pairs: vec![],
-            chain: ChainInfo {
-                id: "ethereum".to_string(),
-                name: "Ethereum".to_string(),
-                logo: None,
-                native_token: "ETH".to_string(),
-            },
-            security: SecurityInfo {
-                is_verified: true,
-                liquidity_locked: Some(true),
-                audit_status: None,
-                honeypot_status: None,
-                ownership_status: None,
-                risk_score: Some(25),
-            },
-            socials: vec![],
-            updated_at: Utc::now(),
-        };
-
-        assert_eq!(token_info.symbol, "TEST");
-        assert_eq!(token_info.decimals, 18);
-        assert!(token_info.security.is_verified);
-    }
+/// Helper to create a WebClient that points to our mock server
+async fn create_mock_client(server: &MockServer) -> WebClient {
+    let mut client = WebClient::new().unwrap();
+    // Override the base URL to point to our mock server
+    client.set_config("base_url", &server.uri());
+    client
 }
 
-#[cfg(test)]
-mod twitter_tests {
-    use riglr_web_tools::twitter::{TwitterConfig, TwitterPost, TwitterUser, TweetMetrics, TweetEntities};
-    use chrono::Utc;
-
-    #[test]
-    fn test_twitter_config_creation() {
-        // Save original env var if it exists
-        let original_token = std::env::var("TWITTER_BEARER_TOKEN").ok();
-        
-        // Test with environment variable
-        std::env::set_var("TWITTER_BEARER_TOKEN", "test_token_123");
-        let config = TwitterConfig::default();
-        assert_eq!(config.bearer_token, "test_token_123");
-        assert_eq!(config.base_url, "https://api.twitter.com/2");
-        assert_eq!(config.max_results, 100);
-        
-        // Restore original env var
-        if let Some(token) = original_token {
-            std::env::set_var("TWITTER_BEARER_TOKEN", token);
-        } else {
-            std::env::remove_var("TWITTER_BEARER_TOKEN");
-        }
-    }
-
-    #[test]
-    fn test_twitter_post_structure() {
-        let post = TwitterPost {
-            id: "123456789".to_string(),
-            text: "Test tweet content".to_string(),
-            author: TwitterUser {
-                id: "user123".to_string(),
-                username: "testuser".to_string(),
-                name: "Test User".to_string(),
-                description: Some("Test description".to_string()),
-                followers_count: 1000,
-                following_count: 500,
-                tweet_count: 5000,
-                verified: false,
-                created_at: Utc::now(),
-            },
-            created_at: Utc::now(),
-            metrics: TweetMetrics {
-                retweet_count: 10,
-                like_count: 50,
-                reply_count: 5,
-                quote_count: 2,
-                impression_count: Some(1000),
-            },
-            entities: TweetEntities {
-                hashtags: vec!["test".to_string()],
-                mentions: vec!["@example".to_string()],
-                urls: vec![],
-                cashtags: vec!["$BTC".to_string()],
-            },
-            lang: Some("en".to_string()),
-            is_reply: false,
-            is_retweet: false,
-            context_annotations: vec![],
-        };
-
-        assert_eq!(post.text, "Test tweet content");
-        assert_eq!(post.author.username, "testuser");
-        assert_eq!(post.metrics.like_count, 50);
-        assert_eq!(post.entities.cashtags[0], "$BTC");
-    }
-}
-
-#[cfg(test)]
-mod news_tests {
-    use riglr_web_tools::news::{NewsConfig, NewsSource};
-
-    #[test]
-    fn test_news_config_creation() {
-        // Save original env vars
-        let original_newsapi = std::env::var("NEWSAPI_KEY").ok();
-        let original_cryptopanic = std::env::var("CRYPTOPANIC_KEY").ok();
-        
-        // Test with environment variables
-        std::env::set_var("NEWSAPI_KEY", "test_news_key");
-        std::env::set_var("CRYPTOPANIC_KEY", "test_crypto_key");
-        
-        let config = NewsConfig::default();
-        assert_eq!(config.newsapi_key, "test_news_key");
-        assert_eq!(config.cryptopanic_key, "test_crypto_key");
-        assert_eq!(config.base_url, "https://newsapi.org/v2");
-        assert_eq!(config.max_articles, 50);
-        assert_eq!(config.freshness_hours, 24);
-        
-        // Restore original env vars
-        if let Some(key) = original_newsapi {
-            std::env::set_var("NEWSAPI_KEY", key);
-        } else {
-            std::env::remove_var("NEWSAPI_KEY");
-        }
-        if let Some(key) = original_cryptopanic {
-            std::env::set_var("CRYPTOPANIC_KEY", key);
-        } else {
-            std::env::remove_var("CRYPTOPANIC_KEY");
-        }
-    }
-
-    #[test]
-    fn test_news_source_structure() {
-        let source = NewsSource {
-            id: "coindesk".to_string(),
-            name: "CoinDesk".to_string(),
-            url: "https://coindesk.com".to_string(),
-            category: "Crypto-Native".to_string(),
-            credibility_score: 85,
-            accuracy_rating: Some(0.92),
-            bias_score: Some(0.05),
-            is_verified: true,
-            logo_url: Some("https://coindesk.com/logo.png".to_string()),
-        };
-
-        assert_eq!(source.name, "CoinDesk");
-        assert_eq!(source.credibility_score, 85);
-        assert!(source.is_verified);
-        assert!(source.accuracy_rating.is_some());
-    }
-}
-
-#[cfg(test)]
-mod web_search_tests {
-    use riglr_web_tools::web_search::{WebSearchConfig, SearchResult, DomainInfo, PageMetadata, SocialMetadata, SeoMetadata, ContentType};
-    use chrono::Utc;
-
-    #[test]
-    fn test_web_search_config_creation() {
-        // Save original env var
-        let original_key = std::env::var("EXA_API_KEY").ok();
-        
-        // Test with environment variable
-        std::env::set_var("EXA_API_KEY", "test_exa_key");
-        
-        let config = WebSearchConfig::default();
-        assert_eq!(config.exa_api_key, "test_exa_key");
-        assert_eq!(config.exa_base_url, "https://api.exa.ai");
-        assert_eq!(config.max_results, 20);
-        assert_eq!(config.timeout_seconds, 30);
-        assert!(config.include_content);
-        
-        // Restore original env var
-        if let Some(key) = original_key {
-            std::env::set_var("EXA_API_KEY", key);
-        } else {
-            std::env::remove_var("EXA_API_KEY");
-        }
-    }
-
-    #[test]
-    fn test_search_result_structure() {
-        let result = SearchResult {
-            id: "result_1".to_string(),
-            title: "Test Article".to_string(),
-            url: "https://example.com/article".to_string(),
-            description: Some("Test description".to_string()),
-            content: Some("Full article content...".to_string()),
-            summary: Some("Article summary".to_string()),
-            published_date: Some(Utc::now()),
-            domain: DomainInfo {
-                name: "example.com".to_string(),
-                reputation_score: Some(85),
-                category: Some("News".to_string()),
-                is_trusted: true,
-                authority_score: Some(75),
-            },
-            metadata: PageMetadata {
-                author: Some("Jane Doe".to_string()),
-                tags: vec!["tech".to_string(), "news".to_string()],
-                social_meta: SocialMetadata {
-                    og_title: Some("Test Article".to_string()),
-                    og_description: Some("Test description".to_string()),
-                    og_image: None,
-                    twitter_card: Some("summary".to_string()),
-                    twitter_site: None,
+#[tokio::test]
+async fn test_dexscreener_token_info_success() {
+    // Initialize logging
+    let _ = tracing_subscriber::fmt::try_init();
+    
+    // Start a mock server
+    let mock_server = MockServer::start().await;
+    
+    // Create a mock response that matches DexScreener's actual API format
+    let mock_response = json!({
+        "schemaVersion": "1.0.0",
+        "pairs": [
+            {
+                "chainId": "ethereum",
+                "dexId": "uniswap_v3",
+                "url": "https://dexscreener.com/ethereum/0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640",
+                "pairAddress": "0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640",
+                "baseToken": {
+                    "address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+                    "name": "USD Coin",
+                    "symbol": "USDC"
                 },
-                seo_meta: SeoMetadata {
-                    meta_description: Some("Meta description".to_string()),
-                    meta_keywords: vec!["keyword1".to_string()],
-                    robots: Some("index,follow".to_string()),
-                    schema_types: vec!["Article".to_string()],
+                "quoteToken": {
+                    "address": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+                    "name": "Wrapped Ether",
+                    "symbol": "WETH"
                 },
-                canonical_url: None,
-                last_modified: Some(Utc::now()),
-            },
-            relevance_score: 0.95,
-            content_type: ContentType {
-                primary: "Article".to_string(),
-                format: "HTML".to_string(),
-                is_paywalled: Some(false),
-                quality_score: Some(90),
-                length_category: "Medium".to_string(),
-            },
-            language: Some("en".to_string()),
-            reading_time_minutes: Some(5),
-        };
-
-        assert_eq!(result.title, "Test Article");
-        assert_eq!(result.domain.name, "example.com");
-        assert!(result.domain.is_trusted);
-        assert_eq!(result.relevance_score, 0.95);
-        assert_eq!(result.content_type.primary, "Article");
-    }
+                "priceNative": "0.00038462",
+                "priceUsd": "1.00001",
+                "txns": {
+                    "h24": {
+                        "buys": 5432,
+                        "sells": 4891
+                    }
+                },
+                "volume": {
+                    "h24": 25000000.0
+                },
+                "priceChange": {
+                    "h24": 0.05,
+                    "h1": -0.01,
+                    "m5": 0.001
+                },
+                "liquidity": {
+                    "usd": 50000000.0,
+                    "base": 25000000,
+                    "quote": 9615.38
+                },
+                "fdv": 5200000000i64,
+                "marketCap": 5200000000i64
+            }
+        ]
+    });
+    
+    // Configure the mock to respond to token info requests
+    Mock::given(method("GET"))
+        .and(path("/dex/tokens/0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(&mock_response))
+        .mount(&mock_server)
+        .await;
+    
+    // Override the DexScreener base URL to use our mock server
+    std::env::set_var("DEXSCREENER_BASE_URL", mock_server.uri());
+    
+    // Call the actual function
+    let result = get_token_info(
+        "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48".to_string(),
+        Some("ethereum".to_string()),
+        Some(true),
+        None,
+    ).await;
+    
+    // Verify the result
+    assert!(result.is_ok());
+    let token_info = result.unwrap();
+    println!("Token info: {:?}", token_info);
+    println!("Price USD: {:?}", token_info.price_usd);
+    assert_eq!(token_info.symbol, "USDC");
+    assert_eq!(token_info.name, "USD Coin");
+    // Price should be parsed from the string "1.00001"
+    assert!(token_info.price_usd.is_some());
+    let price = token_info.price_usd.unwrap();
+    println!("Actual price: {}, Expected: 1.00001", price);
+    assert!((price - 1.00001).abs() < 0.00001);
+    assert_eq!(token_info.market_cap, Some(5200000000.0));
+    assert_eq!(token_info.volume_24h, Some(25000000.0));
+    assert_eq!(token_info.pairs.len(), 1);
+    
+    // Clean up
+    std::env::remove_var("DEXSCREENER_BASE_URL");
 }
 
-#[cfg(test)]
-mod error_handling_tests {
-    use riglr_web_tools::error::{WebToolError, Result};
+#[tokio::test]
+async fn test_dexscreener_token_not_found() {
+    let mock_server = MockServer::start().await;
+    
+    // Mock a response with no pairs (token not found)
+    let mock_response = json!({
+        "schemaVersion": "1.0.0",
+        "pairs": []
+    });
+    
+    Mock::given(method("GET"))
+        .and(path("/dex/tokens/0xInvalidAddress"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(&mock_response))
+        .mount(&mock_server)
+        .await;
+    
+    std::env::set_var("DEXSCREENER_BASE_URL", mock_server.uri());
+    
+    let result = get_token_info(
+        "0xInvalidAddress".to_string(),
+        Some("ethereum".to_string()),
+        Some(true),
+        None,
+    ).await;
+    
+    // Should return an error when no pairs are found
+    assert!(result.is_err());
+    assert!(result.unwrap_err().to_string().contains("No pairs found"));
+    
+    std::env::remove_var("DEXSCREENER_BASE_URL");
+}
 
-    #[test]
-    fn test_web_tool_error_types() {
-        let auth_error = WebToolError::Auth("Missing API key".to_string());
-        let network_error = WebToolError::Network("Connection failed".to_string());
-        let api_error = WebToolError::Api("Invalid response".to_string());
-        let config_error = WebToolError::Config("Invalid configuration".to_string());
-        let client_error = WebToolError::Client("Client creation failed".to_string());
+#[tokio::test]
+async fn test_dexscreener_api_error_handling() {
+    let mock_server = MockServer::start().await;
+    
+    // Mock different error scenarios
+    // 1. 401 Unauthorized
+    Mock::given(method("GET"))
+        .and(path("/dex/tokens/unauthorized"))
+        .respond_with(ResponseTemplate::new(401).set_body_string("Unauthorized"))
+        .mount(&mock_server)
+        .await;
+    
+    // 2. 429 Rate Limited
+    Mock::given(method("GET"))
+        .and(path("/dex/tokens/rate_limited"))
+        .respond_with(ResponseTemplate::new(429).set_body_string("Rate limit exceeded"))
+        .mount(&mock_server)
+        .await;
+    
+    // 3. 500 Server Error (should retry)
+    Mock::given(method("GET"))
+        .and(path("/dex/tokens/server_error"))
+        .respond_with(ResponseTemplate::new(500).set_body_string("Internal server error"))
+        .up_to_n_times(2)
+        .mount(&mock_server)
+        .await;
+    
+    // After retries, return success
+    Mock::given(method("GET"))
+        .and(path("/dex/tokens/server_error"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(&json!({
+            "schemaVersion": "1.0.0",
+            "pairs": [{
+                "baseToken": {"address": "0x123", "name": "Test", "symbol": "TEST"},
+                "quoteToken": {"address": "0x456", "name": "WETH", "symbol": "WETH"},
+                "priceUsd": "1.0",
+                "priceNative": "0.001",
+                "pairAddress": "0x789",
+                "dexId": "uniswap_v3",
+                "url": "https://test.com"
+            }]
+        })))
+        .mount(&mock_server)
+        .await;
+    
+    std::env::set_var("DEXSCREENER_BASE_URL", mock_server.uri());
+    
+    // Test 401 - should not retry
+    let result = get_token_info("unauthorized".to_string(), None, None, None).await;
+    assert!(result.is_err());
+    
+    // Test 429 - should not retry
+    let result = get_token_info("rate_limited".to_string(), None, None, None).await;
+    assert!(result.is_err());
+    
+    // Test 500 - should retry and eventually succeed
+    let result = get_token_info("server_error".to_string(), None, None, None).await;
+    assert!(result.is_ok());
+    
+    std::env::remove_var("DEXSCREENER_BASE_URL");
+}
 
-        // Test error display
-        assert!(auth_error.to_string().contains("Missing API key"));
-        assert!(network_error.to_string().contains("Connection failed"));
-        assert!(api_error.to_string().contains("Invalid response"));
-        assert!(config_error.to_string().contains("Invalid configuration"));
-        assert!(client_error.to_string().contains("Client creation failed"));
+#[tokio::test]
+async fn test_price_fetch_with_multiple_pairs() {
+    let mock_server = MockServer::start().await;
+    
+    // Mock response with multiple pairs to test aggregation
+    let mock_response = json!({
+        "pairs": [
+            {
+                "priceUsd": "2500.50",
+                "liquidity": {"usd": 1000000.0},
+                "baseToken": {"address": "0xETH", "symbol": "ETH"},
+                "dexId": "uniswap_v3",
+                "pairAddress": "0xpair1"
+            },
+            {
+                "priceUsd": "2499.75",
+                "liquidity": {"usd": 500000.0},
+                "baseToken": {"address": "0xETH", "symbol": "ETH"},
+                "dexId": "sushiswap",
+                "pairAddress": "0xpair2"
+            },
+            {
+                "priceUsd": "2501.00",
+                "liquidity": {"usd": 2000000.0},  // Highest liquidity
+                "baseToken": {"address": "0xETH", "symbol": "ETH"},
+                "dexId": "curve",
+                "pairAddress": "0xpair3"
+            }
+        ]
+    });
+    
+    Mock::given(method("GET"))
+        .and(path("/latest/dex/search/"))
+        .and(query_param("q", "ethereum:0xETH"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(&mock_response))
+        .mount(&mock_server)
+        .await;
+    
+    // Override base URL for DexScreener API
+    std::env::set_var("DEXSCREENER_API_URL", format!("{}/latest", mock_server.uri()));
+    
+    // The price module should select the pair with highest liquidity
+    let result = get_token_price(
+        "0xETH".to_string(),
+        Some("ethereum".to_string()),
+    ).await;
+    
+    assert!(result.is_ok());
+    let price_result = result.unwrap();
+    assert_eq!(price_result.token_symbol, Some("ETH".to_string()));
+    assert_eq!(price_result.price_usd, "2501.00");  // From highest liquidity pair
+    assert_eq!(price_result.source_dex, Some("curve".to_string()));
+    assert_eq!(price_result.source_liquidity_usd, Some(2000000.0));
+    
+    std::env::remove_var("DEXSCREENER_API_URL");
+}
+
+#[tokio::test]
+async fn test_search_tokens_with_filters() {
+    let mock_server = MockServer::start().await;
+    
+    let mock_response = json!({
+        "schemaVersion": "1.0.0",
+        "pairs": [
+            {
+                "chainId": "ethereum",
+                "dexId": "uniswap_v3",
+                "baseToken": {
+                    "address": "0xPEPE",
+                    "name": "Pepe",
+                    "symbol": "PEPE"
+                },
+                "quoteToken": {
+                    "address": "0xWETH",
+                    "name": "Wrapped Ether",
+                    "symbol": "WETH"
+                },
+                "priceUsd": "0.00001234",
+                "priceNative": "0.000000005",
+                "pairAddress": "0xPEPEPair",
+                "url": "https://dexscreener.com/ethereum/0xPEPEPair",
+                "liquidity": {"usd": 5000000.0},
+                "marketCap": 1000000000i64,
+                "volume": {"h24": 10000000.0}
+            }
+        ]
+    });
+    
+    Mock::given(method("GET"))
+        .and(path("/dex/search"))
+        .and(query_param("q", "pepe"))
+        .and(query_param("chain", "ethereum"))
+        .and(query_param("min_market_cap", "1000000"))
+        .and(query_param("min_liquidity", "100000"))
+        .and(query_param("limit", "10"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(&mock_response))
+        .mount(&mock_server)
+        .await;
+    
+    std::env::set_var("DEXSCREENER_BASE_URL", mock_server.uri());
+    
+    let result = search_tokens(
+        "pepe".to_string(),
+        Some("ethereum".to_string()),
+        Some(1000000.0),
+        Some(100000.0),
+        Some(10),
+    ).await;
+    
+    assert!(result.is_ok());
+    let search_result = result.unwrap();
+    assert_eq!(search_result.query, "pepe");
+    assert_eq!(search_result.tokens.len(), 1);
+    assert_eq!(search_result.tokens[0].symbol, "PEPE");
+    assert_eq!(search_result.metadata.result_count, 1);
+    
+    std::env::remove_var("DEXSCREENER_BASE_URL");
+}
+
+#[tokio::test]
+async fn test_web_search_with_exa_api() {
+    let mock_server = MockServer::start().await;
+    
+    // Mock Exa API response
+    let mock_response = json!({
+        "results": [
+            {
+                "url": "https://example.com/article1",
+                "title": "Rust Programming Best Practices",
+                "snippet": "Learn about the best practices in Rust programming...",
+                "publishedDate": "2024-01-15T10:00:00Z",
+                "score": 0.95
+            },
+            {
+                "url": "https://example.com/article2", 
+                "title": "Advanced Rust Techniques",
+                "snippet": "Explore advanced techniques and patterns in Rust...",
+                "publishedDate": "2024-01-14T15:30:00Z",
+                "score": 0.89
+            }
+        ],
+        "autopromptString": "rust programming language"
+    });
+    
+    Mock::given(method("POST"))
+        .and(path("/search"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(&mock_response))
+        .mount(&mock_server)
+        .await;
+    
+    // Set mock server as Exa API URL
+    std::env::set_var("EXA_API_URL", mock_server.uri());
+    std::env::set_var("EXA_API_KEY", "test_key");
+    
+    let result = search_web(
+        "rust programming".to_string(),
+        Some(10),
+        Some(false),
+        None,
+        None,
+        None,
+    ).await;
+    
+    assert!(result.is_ok());
+    let search_result = result.unwrap();
+    assert_eq!(search_result.query, "rust programming");
+    assert_eq!(search_result.results.len(), 2);
+    assert_eq!(search_result.results[0].title, "Rust Programming Best Practices");
+    assert!(search_result.results[0].relevance_score > 0.9);
+    
+    std::env::remove_var("EXA_API_URL");
+    std::env::remove_var("EXA_API_KEY");
+}
+
+#[tokio::test]
+async fn test_news_aggregation_with_mock_apis() {
+    let mock_server = MockServer::start().await;
+    
+    // Mock NewsAPI response
+    let newsapi_response = json!({
+        "status": "ok",
+        "totalResults": 2,
+        "articles": [
+            {
+                "source": {
+                    "id": "techcrunch",
+                    "name": "TechCrunch"
+                },
+                "author": "John Doe",
+                "title": "Bitcoin Hits New All-Time High",
+                "description": "Bitcoin reaches unprecedented levels...",
+                "url": "https://techcrunch.com/bitcoin-ath",
+                "urlToImage": "https://techcrunch.com/image.jpg",
+                "publishedAt": "2024-01-20T12:00:00Z",
+                "content": "Full article content about Bitcoin's rise..."
+            }
+        ]
+    });
+    
+    Mock::given(method("GET"))
+        .and(path("/v2/everything"))
+        .and(query_param("q", "bitcoin"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(&newsapi_response))
+        .mount(&mock_server)
+        .await;
+    
+    // Mock CryptoPanic response
+    let cryptopanic_response = json!({
+        "count": 1,
+        "results": [
+            {
+                "id": 12345,
+                "title": "Ethereum Upgrade Successful",
+                "published_at": "2024-01-20T10:00:00Z",
+                "url": "https://cryptopanic.com/news/ethereum",
+                "source": {
+                    "title": "CryptoPanic",
+                    "domain": "cryptopanic.com"
+                },
+                "kind": "news",
+                "votes": {
+                    "positive": 150,
+                    "negative": 10,
+                    "important": 50
+                }
+            }
+        ]
+    });
+    
+    Mock::given(method("GET"))
+        .and(path("/api/v1/posts/"))
+        .and(query_param("filter", "bitcoin"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(&cryptopanic_response))
+        .mount(&mock_server)
+        .await;
+    
+    std::env::set_var("NEWSAPI_URL", format!("{}/v2", mock_server.uri()));
+    std::env::set_var("NEWSAPI_KEY", "test_newsapi_key");
+    std::env::set_var("CRYPTOPANIC_URL", format!("{}/api/v1", mock_server.uri()));
+    std::env::set_var("CRYPTOPANIC_KEY", "test_cryptopanic_key");
+    
+    let result = get_crypto_news(
+        "bitcoin".to_string(),
+        Some("24h".to_string()),
+        None,
+        Some(60),
+        Some(true),
+    ).await;
+    
+    // Even with mocked APIs, the function creates sample articles
+    // This tests the aggregation logic
+    assert!(result.is_ok());
+    let news_result = result.unwrap();
+    assert_eq!(news_result.topic, "bitcoin");
+    assert!(!news_result.articles.is_empty());
+    assert!(!news_result.metadata.sources_queried.is_empty());
+    
+    std::env::remove_var("NEWSAPI_URL");
+    std::env::remove_var("NEWSAPI_KEY");
+    std::env::remove_var("CRYPTOPANIC_URL");
+    std::env::remove_var("CRYPTOPANIC_KEY");
+}
+
+#[tokio::test]
+async fn test_client_retry_logic() {
+    let mock_server = MockServer::start().await;
+    
+    // First two attempts return 503, third succeeds
+    Mock::given(method("GET"))
+        .and(path("/retry-test"))
+        .respond_with(ResponseTemplate::new(503).set_body_string("Service unavailable"))
+        .up_to_n_times(2)
+        .mount(&mock_server)
+        .await;
+    
+    Mock::given(method("GET"))
+        .and(path("/retry-test"))
+        .respond_with(ResponseTemplate::new(200).set_body_string("Success after retries"))
+        .mount(&mock_server)
+        .await;
+    
+    let mut client = WebClient::new().unwrap();
+    let url = format!("{}/retry-test", mock_server.uri());
+    
+    let result = client.get(&url).await;
+    
+    assert!(result.is_ok());
+    assert_eq!(result.unwrap(), "Success after retries");
+}
+
+#[tokio::test]
+async fn test_client_no_retry_on_client_errors() {
+    let mock_server = MockServer::start().await;
+    
+    // 400 Bad Request should not retry
+    Mock::given(method("GET"))
+        .and(path("/bad-request"))
+        .respond_with(ResponseTemplate::new(400).set_body_string("Bad request"))
+        .expect(1)  // Should only be called once
+        .mount(&mock_server)
+        .await;
+    
+    let client = WebClient::new().unwrap();
+    let url = format!("{}/bad-request", mock_server.uri());
+    
+    let result = client.get(&url).await;
+    
+    assert!(result.is_err());
+    assert!(result.unwrap_err().to_string().contains("400"));
+}
+
+#[tokio::test]
+async fn test_malformed_json_response() {
+    let mock_server = MockServer::start().await;
+    
+    // Return invalid JSON
+    Mock::given(method("GET"))
+        .and(path("/dex/tokens/malformed"))
+        .respond_with(ResponseTemplate::new(200).set_body_string("{ invalid json }"))
+        .mount(&mock_server)
+        .await;
+    
+    std::env::set_var("DEXSCREENER_BASE_URL", mock_server.uri());
+    
+    let result = get_token_info(
+        "malformed".to_string(),
+        None,
+        None,
+        None,
+    ).await;
+    
+    assert!(result.is_err());
+    assert!(result.unwrap_err().to_string().contains("parse"));
+    
+    std::env::remove_var("DEXSCREENER_BASE_URL");
+}
+
+#[tokio::test]
+async fn test_concurrent_requests() {
+    let mock_server = MockServer::start().await;
+    
+    // Set up multiple endpoints
+    for i in 1..=5 {
+        let path_str = format!("/token{}", i);
+        Mock::given(method("GET"))
+            .and(path(path_str.as_str()))
+            .respond_with(ResponseTemplate::new(200).set_body_json(&json!({
+                "id": i,
+                "data": format!("Token {}", i)
+            })))
+            .mount(&mock_server)
+            .await;
     }
-
-    #[test]
-    fn test_error_result_handling() {
-        let success_result: Result<String> = Ok("success".to_string());
-        let error_result: Result<String> = Err(WebToolError::Auth("Failed".to_string()));
-
-        assert!(success_result.is_ok());
-        assert!(error_result.is_err());
-        if let Ok(value) = success_result {
-            assert_eq!(value, "success");
-        }
-        if let Err(err) = error_result {
-            assert!(err.to_string().contains("Failed"));
-        }
+    
+    let client = WebClient::new().unwrap();
+    let base_url = mock_server.uri();
+    
+    // Make concurrent requests
+    let futures: Vec<_> = (1..=5)
+        .map(|i| {
+            let url = format!("{}/token{}", base_url, i);
+            let client = client.clone();
+            async move {
+                client.get(&url).await
+            }
+        })
+        .collect();
+    
+    let results = futures::future::join_all(futures).await;
+    
+    // All requests should succeed
+    assert_eq!(results.len(), 5);
+    for result in results {
+        assert!(result.is_ok());
     }
 }

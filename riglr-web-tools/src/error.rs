@@ -6,84 +6,65 @@ use thiserror::Error;
 /// Main error type for web tool operations.
 /// 
 /// The IntoToolError derive macro automatically classifies errors:
-/// - Retriable: Http, Network, RateLimit, Api, Request
-/// - Permanent: Auth, Invalid*, Config, Parsing, Client, etc.
+/// - Retriable: Network (includes HTTP), Api (includes request errors), RateLimit
+/// - Permanent: Auth, Parsing (includes JSON), Config, Client, InvalidInput
 #[derive(Error, Debug, IntoToolError)]
 pub enum WebToolError {
-    /// HTTP request error - automatically retriable
+    /// Network error (includes HTTP) - automatically retriable
+    #[error("Network error: {0}")]
+    Network(String),
+
+    /// HTTP request error - automatically retriable (converted to Network)
     #[error("HTTP error: {0}")]
     Http(#[from] reqwest::Error),
 
-    /// API authentication failed - permanent
-    #[error("Authentication error: {0}")]
-    #[tool_error(permanent)]
-    Auth(String),
+    /// API error (includes general API issues) - automatically retriable
+    #[error("API error: {0}")]
+    Api(String),
 
     /// API rate limit exceeded - automatically handled as rate_limited
     #[error("Rate limit exceeded: {0}")]
     #[tool_error(rate_limited)]
     RateLimit(String),
 
-    /// Invalid API response - automatically permanent
-    #[error("Invalid response: {0}")]
-    InvalidResponse(String),
+    /// API authentication failed - permanent
+    #[error("Authentication error: {0}")]
+    #[tool_error(permanent)]
+    Auth(String),
+
+    /// Parsing error (includes JSON and response parsing) - permanent
+    #[error("Parsing error: {0}")]
+    #[tool_error(permanent)]
+    Parsing(String),
+
+    /// Serialization error - automatically permanent
+    #[error("Serialization error: {0}")]
+    Serialization(#[from] serde_json::Error),
 
     /// URL parsing error - permanent
     #[error("URL error: {0}")]
     #[tool_error(permanent)]
     Url(#[from] url::ParseError),
 
-    /// Serialization error - automatically permanent
-    #[error("Serialization error: {0}")]
-    Serialization(#[from] serde_json::Error),
-
-    /// Core riglr error
-    #[error("Core error: {0}")]
-    #[tool_error(permanent)]
-    Core(#[from] riglr_core::CoreError),
-
     /// Configuration error - permanent
     #[error("Configuration error: {0}")]
     #[tool_error(permanent)]
     Config(String),
-
-    /// Network error - automatically retriable
-    #[error("Network error: {0}")]
-    Network(String),
-
-    /// API error - automatically retriable
-    #[error("API error: {0}")]
-    Api(String),
 
     /// Client creation error - permanent
     #[error("Client error: {0}")]
     #[tool_error(permanent)]
     Client(String),
 
-    /// Parsing error - permanent
-    #[error("Parsing error: {0}")]
+    /// Invalid input provided - permanent
+    #[error("Invalid input: {0}")]
     #[tool_error(permanent)]
-    Parsing(String),
+    InvalidInput(String),
 
-    /// Request error - retriable
-    #[error("Request error: {0}")]
-    #[tool_error(retriable)]
-    Request(String),
-
-    /// Generic error - permanent by default
-    #[error("Error: {0}")]
+    /// Core riglr error
+    #[error("Core error: {0}")]
     #[tool_error(permanent)]
-    Generic(String),
-
-    /// Parse error - permanent
-    #[error("Parse error: {0}")]
-    #[tool_error(permanent)]
-    Parse(String),
-    
-    /// JSON parsing error - permanent
-    #[error("JSON parse error: {0}")]
-    #[tool_error(permanent)]
-    JsonParseError(String),
+    Core(#[from] riglr_core::CoreError),
 }
 
 // The From<WebToolError> for ToolError implementation is now automatically

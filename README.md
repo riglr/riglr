@@ -9,6 +9,19 @@
 
 RIGLR (pronounced "riggler") provides a comprehensive, production-ready toolkit for building AI-powered blockchain agents. After extensive refactoring, RIGLR now offers enterprise-grade security, reliability, and maintainability with zero mock implementations and fail-fast configuration patterns.
 
+## 🗺️ Quick Navigation
+
+> **New to RIGLR?** Check out our comprehensive [Architecture Guide](./ARCHITECTURE.md) for a detailed map of all crates and how they fit together.
+
+### What is RIGLR?
+RIGLR is a modular framework organized into specialized crates:
+- **Core Layer**: Foundation (`riglr-core`) and code generation (`riglr-macros`)
+- **Blockchain Layer**: Solana, EVM chains, cross-chain bridges, and DeFi trading
+- **Data Layer**: Web APIs, knowledge graphs, real-time streams
+- **Application Layer**: Production server, pre-built agents, authentication
+
+See the [Architecture Guide](./ARCHITECTURE.md) for the complete crate dependency graph and detailed explanations.
+
 ## 🚀 Production Features
 
 ### Enterprise-Grade Reliability
@@ -76,19 +89,26 @@ let app = create_app(your_agent);
 - **🏷️ Entity Recognition**: Blockchain entity extraction and classification
 - **🔗 Contextual Retrieval**: Graph relationships enhance vector search
 
-## 📦 Architecture
+## 📦 Architecture Overview
 
+For a comprehensive understanding of the project structure, see the [Architecture Guide](./ARCHITECTURE.md).
+
+**Quick Reference - Main Crates:**
 ```
 riglr/
 ├── riglr-core/             # Core utilities, error types, signer traits
-├── riglr-evm-tools/        # Ethereum and EVM-compatible chain tools
+├── riglr-macros/           # Tool generation procedural macros
 ├── riglr-solana-tools/     # Solana blockchain tools  
+├── riglr-evm-tools/        # Ethereum and EVM-compatible chain tools
 ├── riglr-cross-chain-tools/ # Li.fi bridge integration
 ├── riglr-web-tools/        # Price feeds and web APIs
+├── riglr-graph-memory/     # Neo4j knowledge graph
 ├── riglr-web-adapters/     # Framework-agnostic web server adapters
-├── create-riglr-app/       # Application template and CLI
-└── riglr-showcase/         # Examples and demonstrations
+├── riglr-showcase/         # Examples and demonstrations
+└── create-riglr-app-cli/   # Project scaffolding CLI
 ```
+
+📚 **[View Complete Crate Map →](./ARCHITECTURE.md#-crate-dependency-graph)**
 
 ### Production-Ready Patterns
 
@@ -451,11 +471,11 @@ NEO4J_PASSWORD=password
 
 ## 📚 Documentation
 
-- [API Documentation](https://docs.rs/riglr-core)
-- [Getting Started Guide](./docs/getting-started.md)
-- [Tool Development](./docs/tool-development.md)
-- [Error Handling](./docs/error-handling.md)
-- [Testing Guide](./docs/testing.md)
+- **[Architecture Guide](./ARCHITECTURE.md)** - Complete crate map and how everything fits together
+- [API Documentation](https://docs.rs/riglr-core) - Generated API docs
+- [CLAUDE.md](./CLAUDE.md) - AI assistant instructions and build commands
+- Getting Started Examples - See `riglr-showcase/examples/`
+- Integration Tests - See `*/tests/` directories in each crate
 
 ## 🤝 Contributing
 
