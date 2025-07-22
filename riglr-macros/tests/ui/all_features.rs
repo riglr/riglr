@@ -111,17 +111,13 @@ pub async fn permanent_error() -> Result<String> {
     Err(anyhow::anyhow!("Invalid input"))
 }
 
-// Test function with complex parameter patterns
+// Test function with simple parameter (complex patterns moved to compile_fail tests)
 #[tool]
-pub async fn complex_patterns(
+pub async fn simple_pattern(
     /// Simple pattern
     simple: String,
-    /// Tuple pattern
-    (first, second): (String, i32),
-    /// Reference pattern
-    reference: &str,
 ) -> Result<String> {
-    Ok(format!("{}-{}-{}-{}", simple, first, second, reference))
+    Ok(format!("{}", simple))
 }
 
 // Test visibility modifiers
@@ -165,21 +161,8 @@ pub async fn nested_generics(
     Ok(data.into_iter().flatten().collect())
 }
 
-// Test with lifetime parameters (edge case)
-#[tool]
-pub async fn with_lifetime<'a>(
-    text: &'a str
-) -> Result<&'a str> {
-    Ok(text)
-}
-
-// Test with impl Trait
-#[tool]
-pub async fn impl_trait(
-    displayable: impl std::fmt::Display
-) -> Result<String> {
-    Ok(displayable.to_string())
-}
+// Note: Lifetime parameters and impl Trait tests moved to compile_fail tests
+// as they are not supported by the macro
 
 // Test with where clause
 #[tool]
