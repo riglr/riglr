@@ -1,9 +1,8 @@
 //! Template management and storage
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use include_dir::{include_dir, Dir};
-use std::path::{Path, PathBuf};
-use std::fs;
+use std::path::PathBuf;
 
 use crate::config::{Template, TemplateInfo};
 

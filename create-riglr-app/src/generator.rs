@@ -1,13 +1,13 @@
 //! Project generation logic
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use handlebars::Handlebars;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::collections::HashMap;
 
 use crate::config::{ProjectConfig, ServerFramework, Template};
-use crate::templates::{TemplateManager, TemplateContent};
+use crate::templates::TemplateManager;
 
 /// Project generator for creating new RIGLR projects
 pub struct ProjectGenerator {
@@ -79,7 +79,7 @@ impl ProjectGenerator {
         let template_content = manager.get_template_content(&self.config.template)?;
         
         // Prepare template data
-        let mut data = self.prepare_template_data();
+        let data = self.prepare_template_data();
         
         // Generate main.rs
         let main_content = self.handlebars.render_template(&template_content.main_rs, &data)?;
