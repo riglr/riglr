@@ -3,13 +3,20 @@ use serde::{Deserialize, Serialize};
 use solana_sdk::pubkey::Pubkey;
 
 use crate::events::common::EventMetadata;
-use crate::impl_unified_event;
+// UnifiedEvent trait removed - events now implement Event trait directly
+
+// Import new Event trait from riglr-events-core
+use riglr_events_core::{Event, EventKind, EventMetadata as CoreEventMetadata};
+use std::any::Any;
 
 /// Buy event
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, BorshDeserialize)]
 pub struct PumpSwapBuyEvent {
     #[serde(skip)]
     pub metadata: EventMetadata,
+    #[serde(skip)]
+    #[borsh(skip)]
+    pub core_metadata: Option<CoreEventMetadata>,
     pub timestamp: i64,
     pub base_amount_out: u64,
     pub max_quote_amount_in: u64,
@@ -53,13 +60,63 @@ pub struct PumpSwapBuyEvent {
 }
 
 // Use macro to generate UnifiedEvent implementation
-impl_unified_event!(PumpSwapBuyEvent);
+
+// New Event trait implementation
+impl Event for PumpSwapBuyEvent {
+    fn id(&self) -> &str {
+        &self.metadata.id
+    }
+
+    fn kind(&self) -> &EventKind {
+        if let Some(ref core_metadata) = self.core_metadata {
+            &core_metadata.kind
+        } else {
+            &EventKind::Swap // PumpSwap buy is a swap
+        }
+    }
+
+    fn metadata(&self) -> &CoreEventMetadata {
+        self.core_metadata.as_ref().unwrap_or_else(|| {
+            panic!("Core metadata not initialized for PumpSwapBuyEvent")
+        })
+    }
+
+    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
+        if self.core_metadata.is_none() {
+            self.core_metadata = Some(self.metadata.to_core_metadata(
+                self.metadata.event_type.to_event_kind(),
+                "pumpswap".to_string(),
+            ));
+        }
+        self.core_metadata.as_mut().unwrap()
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
+    fn clone_boxed(&self) -> Box<dyn Event> {
+        Box::new(self.clone())
+    }
+
+    fn to_json(&self) -> riglr_events_core::error::EventResult<serde_json::Value> {
+        serde_json::to_value(self)
+            .map_err(riglr_events_core::error::EventError::Serialization)
+    }
+}
 
 /// Sell event
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, BorshDeserialize)]
 pub struct PumpSwapSellEvent {
     #[serde(skip)]
     pub metadata: EventMetadata,
+    #[serde(skip)]
+    #[borsh(skip)]
+    pub core_metadata: Option<CoreEventMetadata>,
     pub timestamp: i64,
     pub base_amount_in: u64,
     pub min_quote_amount_out: u64,
@@ -98,13 +155,63 @@ pub struct PumpSwapSellEvent {
 }
 
 // Use macro to generate UnifiedEvent implementation
-impl_unified_event!(PumpSwapSellEvent);
+
+// New Event trait implementation
+impl Event for PumpSwapSellEvent {
+    fn id(&self) -> &str {
+        &self.metadata.id
+    }
+
+    fn kind(&self) -> &EventKind {
+        if let Some(ref core_metadata) = self.core_metadata {
+            &core_metadata.kind
+        } else {
+            &EventKind::Swap // PumpSwap sell is a swap
+        }
+    }
+
+    fn metadata(&self) -> &CoreEventMetadata {
+        self.core_metadata.as_ref().unwrap_or_else(|| {
+            panic!("Core metadata not initialized for PumpSwapSellEvent")
+        })
+    }
+
+    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
+        if self.core_metadata.is_none() {
+            self.core_metadata = Some(self.metadata.to_core_metadata(
+                self.metadata.event_type.to_event_kind(),
+                "pumpswap".to_string(),
+            ));
+        }
+        self.core_metadata.as_mut().unwrap()
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
+    fn clone_boxed(&self) -> Box<dyn Event> {
+        Box::new(self.clone())
+    }
+
+    fn to_json(&self) -> riglr_events_core::error::EventResult<serde_json::Value> {
+        serde_json::to_value(self)
+            .map_err(riglr_events_core::error::EventError::Serialization)
+    }
+}
 
 /// Create pool event
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, BorshDeserialize)]
 pub struct PumpSwapCreatePoolEvent {
     #[serde(skip)]
     pub metadata: EventMetadata,
+    #[serde(skip)]
+    #[borsh(skip)]
+    pub core_metadata: Option<CoreEventMetadata>,
     pub timestamp: i64,
     pub index: u16,
     pub creator: Pubkey,
@@ -133,13 +240,63 @@ pub struct PumpSwapCreatePoolEvent {
     pub pool_quote_token_account: Pubkey,
 }
 
-impl_unified_event!(PumpSwapCreatePoolEvent);
+
+// New Event trait implementation
+impl Event for PumpSwapCreatePoolEvent {
+    fn id(&self) -> &str {
+        &self.metadata.id
+    }
+
+    fn kind(&self) -> &EventKind {
+        if let Some(ref core_metadata) = self.core_metadata {
+            &core_metadata.kind
+        } else {
+            &EventKind::Liquidity // Pool creation is liquidity-related
+        }
+    }
+
+    fn metadata(&self) -> &CoreEventMetadata {
+        self.core_metadata.as_ref().unwrap_or_else(|| {
+            panic!("Core metadata not initialized for PumpSwapCreatePoolEvent")
+        })
+    }
+
+    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
+        if self.core_metadata.is_none() {
+            self.core_metadata = Some(self.metadata.to_core_metadata(
+                self.metadata.event_type.to_event_kind(),
+                "pumpswap".to_string(),
+            ));
+        }
+        self.core_metadata.as_mut().unwrap()
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
+    fn clone_boxed(&self) -> Box<dyn Event> {
+        Box::new(self.clone())
+    }
+
+    fn to_json(&self) -> riglr_events_core::error::EventResult<serde_json::Value> {
+        serde_json::to_value(self)
+            .map_err(riglr_events_core::error::EventError::Serialization)
+    }
+}
 
 /// Deposit event
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, BorshDeserialize)]
 pub struct PumpSwapDepositEvent {
     #[serde(skip)]
     pub metadata: EventMetadata,
+    #[serde(skip)]
+    #[borsh(skip)]
+    pub core_metadata: Option<CoreEventMetadata>,
     pub timestamp: i64,
     pub lp_token_amount_out: u64,
     pub max_base_amount_in: u64,
@@ -166,13 +323,63 @@ pub struct PumpSwapDepositEvent {
     pub pool_quote_token_account: Pubkey,
 }
 
-impl_unified_event!(PumpSwapDepositEvent);
+
+// New Event trait implementation
+impl Event for PumpSwapDepositEvent {
+    fn id(&self) -> &str {
+        &self.metadata.id
+    }
+
+    fn kind(&self) -> &EventKind {
+        if let Some(ref core_metadata) = self.core_metadata {
+            &core_metadata.kind
+        } else {
+            &EventKind::Liquidity // Deposit is liquidity-related
+        }
+    }
+
+    fn metadata(&self) -> &CoreEventMetadata {
+        self.core_metadata.as_ref().unwrap_or_else(|| {
+            panic!("Core metadata not initialized for PumpSwapDepositEvent")
+        })
+    }
+
+    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
+        if self.core_metadata.is_none() {
+            self.core_metadata = Some(self.metadata.to_core_metadata(
+                self.metadata.event_type.to_event_kind(),
+                "pumpswap".to_string(),
+            ));
+        }
+        self.core_metadata.as_mut().unwrap()
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
+    fn clone_boxed(&self) -> Box<dyn Event> {
+        Box::new(self.clone())
+    }
+
+    fn to_json(&self) -> riglr_events_core::error::EventResult<serde_json::Value> {
+        serde_json::to_value(self)
+            .map_err(riglr_events_core::error::EventError::Serialization)
+    }
+}
 
 /// Withdraw event
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, BorshDeserialize)]
 pub struct PumpSwapWithdrawEvent {
     #[serde(skip)]
     pub metadata: EventMetadata,
+    #[serde(skip)]
+    #[borsh(skip)]
+    pub core_metadata: Option<CoreEventMetadata>,
     pub timestamp: i64,
     pub lp_token_amount_in: u64,
     pub min_base_amount_out: u64,
@@ -199,7 +406,54 @@ pub struct PumpSwapWithdrawEvent {
     pub pool_quote_token_account: Pubkey,
 }
 
-impl_unified_event!(PumpSwapWithdrawEvent);
+
+// New Event trait implementation
+impl Event for PumpSwapWithdrawEvent {
+    fn id(&self) -> &str {
+        &self.metadata.id
+    }
+
+    fn kind(&self) -> &EventKind {
+        if let Some(ref core_metadata) = self.core_metadata {
+            &core_metadata.kind
+        } else {
+            &EventKind::Liquidity // Withdraw is liquidity-related
+        }
+    }
+
+    fn metadata(&self) -> &CoreEventMetadata {
+        self.core_metadata.as_ref().unwrap_or_else(|| {
+            panic!("Core metadata not initialized for PumpSwapWithdrawEvent")
+        })
+    }
+
+    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
+        if self.core_metadata.is_none() {
+            self.core_metadata = Some(self.metadata.to_core_metadata(
+                self.metadata.event_type.to_event_kind(),
+                "pumpswap".to_string(),
+            ));
+        }
+        self.core_metadata.as_mut().unwrap()
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
+    fn clone_boxed(&self) -> Box<dyn Event> {
+        Box::new(self.clone())
+    }
+
+    fn to_json(&self) -> riglr_events_core::error::EventResult<serde_json::Value> {
+        serde_json::to_value(self)
+            .map_err(riglr_events_core::error::EventError::Serialization)
+    }
+}
 
 /// Event discriminator constants
 pub mod discriminators {

@@ -9,8 +9,8 @@ use solana_sdk::pubkey::Pubkey;
 use solana_transaction_status::UiCompiledInstruction;
 
 use riglr_events_core::prelude::*;
-use crate::events::core::traits::{EventParser as LegacyEventParser, UnifiedEvent};
-use crate::events::factory::{MultiEventParser, EventParserFactory, Protocol};
+use crate::events::core::traits::{EventParser as LegacyEventParser};
+use crate::events::factory::{EventParserRegistry, Protocol};
 use crate::solana_events::SolanaEvent;
 
 /// Input type for Solana transaction parsing
@@ -52,7 +52,7 @@ pub struct SolanaInnerInstructionInput {
 /// Solana event parser that bridges between legacy and new parsers
 pub struct SolanaEventParser {
     /// Legacy multi-parser for actual parsing logic
-    legacy_parser: MultiEventParser,
+    legacy_parser: EventParserRegistry,
     /// Parser information
     info: ParserInfo,
     /// Supported program IDs
@@ -62,7 +62,7 @@ pub struct SolanaEventParser {
 impl SolanaEventParser {
     /// Create a new Solana event parser
     pub fn new() -> Self {
-        let legacy_parser = EventParserFactory::with_all_parsers().build();
+        let legacy_parser = EventParserRegistry::new();
         let supported_programs = legacy_parser.supported_program_ids();
 
         Self {
@@ -79,7 +79,7 @@ impl SolanaEventParser {
     }
 
     /// Create with specific legacy parser
-    pub fn with_legacy_parser(legacy_parser: MultiEventParser) -> Self {
+    pub fn with_legacy_parser(legacy_parser: EventParserRegistry) -> Self {
         let supported_programs = legacy_parser.supported_program_ids();
 
         Self {
@@ -148,45 +148,39 @@ impl SolanaEventParser {
         Ok(solana_events)
     }
 
-    /// Convert a legacy UnifiedEvent to a SolanaEvent
-    fn convert_legacy_event(&self, event: Box<dyn UnifiedEvent>, input: &SolanaTransactionInput) -> EventResult<SolanaEvent> {
+    /// Convert a legacy Event to a SolanaEvent
+    fn convert_legacy_event(&self, event: Box<dyn riglr_events_core::Event>, input: &SolanaTransactionInput) -> EventResult<SolanaEvent> {
         // Extract data using the event's as_any method for downcasting
         let event_data = serde_json::json!({
-            "event_type": event.event_type().to_string(),
-            "protocol_type": event.protocol_type().to_string(),
-            "signature": event.signature(),
-            "slot": event.slot(),
-            "index": event.index(),
-            "program_received_time_ms": event.program_received_time_ms(),
+            "kind": event.kind().to_string(),
+            "signature": input.signature.clone(),
+            "slot": input.slot,
             "timestamp": input.received_time.timestamp_millis(),
         });
 
         // Create metadata for the new event system
         let legacy_metadata = crate::types::EventMetadata::new(
             event.id().to_string(),
-            event.signature().to_string(),
-            event.slot(),
+            input.signature.clone(),
+            input.slot,
             input.block_time.unwrap_or(0),
             input.block_time.unwrap_or(0) * 1000,
-            event.protocol_type(),
-            event.event_type(),
+            crate::types::ProtocolType::Other("Solana".to_string()),
+            crate::types::EventType::Swap,
             self.extract_program_id(&input.accounts, &input.instruction)?,
-            event.index(),
-            event.program_received_time_ms(),
+            input.instruction_index.to_string(),
+            input.received_time.timestamp_millis(),
         );
 
         Ok(SolanaEvent::new(legacy_metadata, event_data))
     }
 
-    /// Convert a legacy UnifiedEvent from inner instruction to a SolanaEvent
-    fn convert_legacy_inner_event(&self, event: Box<dyn UnifiedEvent>, input: &SolanaInnerInstructionInput) -> EventResult<SolanaEvent> {
+    /// Convert a legacy Event from inner instruction to a SolanaEvent
+    fn convert_legacy_inner_event(&self, event: Box<dyn riglr_events_core::Event>, input: &SolanaInnerInstructionInput) -> EventResult<SolanaEvent> {
         let event_data = serde_json::json!({
-            "event_type": event.event_type().to_string(),
-            "protocol_type": event.protocol_type().to_string(),
-            "signature": event.signature(),
-            "slot": event.slot(),
-            "index": event.index(),
-            "program_received_time_ms": event.program_received_time_ms(),
+            "kind": event.kind().to_string(),
+            "signature": input.signature.clone(),
+            "slot": input.slot,
             "timestamp": input.received_time.timestamp_millis(),
             "is_inner_instruction": true,
         });
@@ -197,15 +191,15 @@ impl SolanaEventParser {
 
         let legacy_metadata = crate::types::EventMetadata::new(
             event.id().to_string(),
-            event.signature().to_string(),
-            event.slot(),
+            input.signature.clone(),
+            input.slot,
             input.block_time.unwrap_or(0),
             input.block_time.unwrap_or(0) * 1000,
-            event.protocol_type(),
-            event.event_type(),
+            crate::types::ProtocolType::Other("Solana".to_string()),
+            crate::types::EventType::Swap,
             program_id,
-            event.index(),
-            event.program_received_time_ms(),
+            input.instruction_index.clone(),
+            input.received_time.timestamp_millis(),
         );
 
         Ok(SolanaEvent::new(legacy_metadata, event_data))

@@ -4,11 +4,12 @@
 //! and provide expected functionality.
 
 use riglr_solana_events::prelude::*;
-use riglr_solana_events::zero_copy::{BatchEventParser, MemoryMappedParser};
-use riglr_solana_events::parsers::*;
-use riglr_solana_events::pipelines::*;
+use riglr_solana_events::zero_copy::{BatchEventParser};
+use riglr_solana_events::pipelines::{
+    ParsingPipeline, ParsingPipelineBuilder, EventEnricher, 
+    validation::{ValidationPipeline, ValidationConfig}
+};
 use riglr_solana_events::types::{EventMetadata, EventType, ProtocolType};
-use std::sync::Arc;
 use tokio_stream::iter;
 
 #[tokio::test]
@@ -103,7 +104,7 @@ async fn test_end_to_end_parsing_pipeline() {
         assert!(output.metrics.events_parsed > 0);
         
         // Check that we parsed different protocol types
-        let protocol_types: std::collections::HashSet<_> = output.events.iter()
+        let _protocol_types: std::collections::HashSet<_> = output.events.iter()
             .map(|e| e.protocol_type())
             .collect();
         
@@ -271,7 +272,7 @@ fn test_batch_parser_with_mixed_protocols() {
 
         // Parse batch
         let batch_refs: Vec<&[u8]> = batch_data.iter().map(|d| d.as_slice()).collect();
-        let events = batch_parser.parse_batch(&batch_refs, metadata_vec).await.unwrap();
+        let events = batch_parser.parse_batch(&batch_refs, metadata_vec).unwrap();
 
         // Validate results
         assert_eq!(events.len(), 3);

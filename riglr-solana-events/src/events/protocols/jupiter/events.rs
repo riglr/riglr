@@ -3,12 +3,17 @@ use borsh::BorshDeserialize;
 use serde::{Deserialize, Serialize};
 use solana_sdk::pubkey::Pubkey;
 use crate::{
-    events::core::UnifiedEvent,
+    // UnifiedEvent removed - using Event trait from riglr_events_core
     events::common::EventMetadata,
-    types::{EventType, ProtocolType, TransferData, SwapData},
-    impl_unified_event,
+    types::TransferData,
+    // UnifiedEvent removed - events now implement Event trait directly
 };
 use super::types::JupiterSwapData;
+
+// Import new Event trait from riglr-events-core
+use riglr_events_core::{Event, EventKind, EventMetadata as CoreEventMetadata};
+use chrono::{DateTime, Utc};
+use std::collections::HashMap;
 
 /// Jupiter swap event
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -56,66 +61,7 @@ impl JupiterSwapEvent {
     }
 }
 
-impl UnifiedEvent for JupiterSwapEvent {
-    fn id(&self) -> &str {
-        &self.id
-    }
-
-    fn event_type(&self) -> EventType {
-        EventType::Swap
-    }
-
-    fn signature(&self) -> &str {
-        &self.signature
-    }
-
-    fn slot(&self) -> u64 {
-        self.slot
-    }
-
-    fn program_received_time_ms(&self) -> i64 {
-        self.program_received_time_ms
-    }
-
-    fn program_handle_time_consuming_ms(&self) -> i64 {
-        self.program_handle_time_consuming_ms
-    }
-
-    fn set_program_handle_time_consuming_ms(&mut self, program_handle_time_consuming_ms: i64) {
-        self.program_handle_time_consuming_ms = program_handle_time_consuming_ms;
-    }
-
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    fn as_any_mut(&mut self) -> &mut dyn Any {
-        self
-    }
-
-    fn clone_boxed(&self) -> Box<dyn UnifiedEvent> {
-        Box::new(self.clone())
-    }
-
-    fn set_transfer_data(&mut self, transfer_data: Vec<TransferData>, swap_data: Option<SwapData>) {
-        self.transfer_data = transfer_data;
-        if let Some(swap_data) = swap_data {
-            self.swap_data.input_mint = swap_data.input_mint;
-            self.swap_data.output_mint = swap_data.output_mint;
-            self.swap_data.input_amount = swap_data.amount_in;
-            self.swap_data.output_amount = swap_data.amount_out;
-        }
-    }
-
-    fn index(&self) -> String {
-        self.index.clone()
-    }
-
-    fn protocol_type(&self) -> ProtocolType {
-        ProtocolType::Other("Jupiter".to_string())
-    }
-
-}
+// UnifiedEvent implementation removed - now using Event trait
 
 /// Jupiter liquidity provision event
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -138,64 +84,7 @@ pub struct JupiterLiquidityEvent {
     pub transfer_data: Vec<TransferData>,
 }
 
-impl UnifiedEvent for JupiterLiquidityEvent {
-    fn id(&self) -> &str {
-        &self.id
-    }
-
-    fn event_type(&self) -> EventType {
-        if self.is_remove {
-            EventType::RemoveLiquidity
-        } else {
-            EventType::AddLiquidity
-        }
-    }
-
-    fn signature(&self) -> &str {
-        &self.signature
-    }
-
-    fn slot(&self) -> u64 {
-        self.slot
-    }
-
-    fn program_received_time_ms(&self) -> i64 {
-        self.program_received_time_ms
-    }
-
-    fn program_handle_time_consuming_ms(&self) -> i64 {
-        self.program_handle_time_consuming_ms
-    }
-
-    fn set_program_handle_time_consuming_ms(&mut self, program_handle_time_consuming_ms: i64) {
-        self.program_handle_time_consuming_ms = program_handle_time_consuming_ms;
-    }
-
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    fn as_any_mut(&mut self) -> &mut dyn Any {
-        self
-    }
-
-    fn clone_boxed(&self) -> Box<dyn UnifiedEvent> {
-        Box::new(self.clone())
-    }
-
-    fn set_transfer_data(&mut self, transfer_data: Vec<TransferData>, _swap_data: Option<SwapData>) {
-        self.transfer_data = transfer_data;
-    }
-
-    fn index(&self) -> String {
-        self.index.clone()
-    }
-
-    fn protocol_type(&self) -> ProtocolType {
-        ProtocolType::Other("Jupiter".to_string())
-    }
-
-}
+// UnifiedEvent implementation removed - now using Event trait
 
 /// Jupiter swap event with borsh (for simple events)
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, BorshDeserialize)]
@@ -211,5 +100,142 @@ pub struct JupiterSwapBorshEvent {
     pub platform_fee_bps: u8,
 }
 
-// Implement UnifiedEvent for the borsh event
-impl_unified_event!(JupiterSwapBorshEvent);
+// JupiterSwapBorshEvent uses Event trait
+
+// New Event trait implementation for JupiterSwapEvent
+impl Event for JupiterSwapEvent {
+    fn id(&self) -> &str {
+        &self.id
+    }
+
+    fn kind(&self) -> &EventKind {
+        &EventKind::Swap
+    }
+
+    fn metadata(&self) -> &CoreEventMetadata {
+        use once_cell::sync::Lazy;
+        static DEFAULT_METADATA: Lazy<CoreEventMetadata> = Lazy::new(|| {
+            CoreEventMetadata {
+                id: String::new(),
+                kind: EventKind::Swap,
+                timestamp: DateTime::<Utc>::MIN_UTC,
+                received_at: DateTime::<Utc>::MIN_UTC,
+                source: String::from("solana"),
+                chain_data: None,
+                custom: HashMap::new(),
+            }
+        });
+        &DEFAULT_METADATA
+    }
+
+    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
+        // This would need proper implementation with actual mutable metadata storage
+        unimplemented!("Mutable metadata not yet implemented")
+    }
+
+
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
+    fn clone_boxed(&self) -> Box<dyn Event> {
+        Box::new(self.clone())
+    }
+}
+
+// New Event trait implementation for JupiterLiquidityEvent
+impl Event for JupiterLiquidityEvent {
+    fn id(&self) -> &str {
+        &self.id
+    }
+
+    fn kind(&self) -> &EventKind {
+        &EventKind::Liquidity
+    }
+
+    fn metadata(&self) -> &CoreEventMetadata {
+        use once_cell::sync::Lazy;
+        static DEFAULT_METADATA: Lazy<CoreEventMetadata> = Lazy::new(|| {
+            CoreEventMetadata {
+                id: String::new(),
+                kind: EventKind::Liquidity,
+                timestamp: DateTime::<Utc>::MIN_UTC,
+                received_at: DateTime::<Utc>::MIN_UTC,
+                source: String::from("solana"),
+                chain_data: None,
+                custom: HashMap::new(),
+            }
+        });
+        &DEFAULT_METADATA
+    }
+
+    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
+        // This would need proper implementation with actual mutable metadata storage
+        unimplemented!("Mutable metadata not yet implemented")
+    }
+
+
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
+    fn clone_boxed(&self) -> Box<dyn Event> {
+        Box::new(self.clone())
+    }
+}
+
+// New Event trait implementation for JupiterSwapBorshEvent
+impl Event for JupiterSwapBorshEvent {
+    fn id(&self) -> &str {
+        &self.metadata.id
+    }
+
+    fn kind(&self) -> &EventKind {
+        &EventKind::Swap
+    }
+
+    fn metadata(&self) -> &CoreEventMetadata {
+        use once_cell::sync::Lazy;
+        static DEFAULT_METADATA: Lazy<CoreEventMetadata> = Lazy::new(|| {
+            CoreEventMetadata {
+                id: String::new(),
+                kind: EventKind::Swap,
+                timestamp: DateTime::<Utc>::MIN_UTC,
+                received_at: DateTime::<Utc>::MIN_UTC,
+                source: String::from("solana"),
+                chain_data: None,
+                custom: HashMap::new(),
+            }
+        });
+        &DEFAULT_METADATA
+    }
+
+    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
+        // This would need proper implementation with actual mutable metadata storage
+        unimplemented!("Mutable metadata not yet implemented")
+    }
+
+
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
+    fn clone_boxed(&self) -> Box<dyn Event> {
+        Box::new(self.clone())
+    }
+}

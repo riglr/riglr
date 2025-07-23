@@ -121,74 +121,60 @@
 //! The migration maintains 100% backward compatibility while providing access to enhanced
 //! functionality from riglr-events-core.
 
-/// Macro to implement UnifiedEvent trait for event types
+// UnifiedEvent macro has been removed. Use riglr_events_core::Event trait directly.
+
+/// Macro to implement Event trait for event types
 #[macro_export]
-macro_rules! impl_unified_event {
+macro_rules! impl_event {
     ($event_type:ty) => {
-        impl $crate::core::UnifiedEvent for $event_type {
-            fn id(&self) -> &str {
-                &self.metadata.id
+        impl riglr_events_core::Event for $event_type {
+            fn kind(&self) -> riglr_events_core::EventKind {
+                match self.metadata.event_type {
+                    $crate::types::EventType::Swap => riglr_events_core::EventKind::Swap,
+                    $crate::types::EventType::Transfer => riglr_events_core::EventKind::Transfer,
+                    $crate::types::EventType::Liquidation => riglr_events_core::EventKind::Other("liquidation".to_string()),
+                    $crate::types::EventType::Deposit => riglr_events_core::EventKind::Other("deposit".to_string()),
+                    $crate::types::EventType::Withdraw => riglr_events_core::EventKind::Other("withdraw".to_string()),
+                    $crate::types::EventType::Borrow => riglr_events_core::EventKind::Other("borrow".to_string()),
+                    $crate::types::EventType::Repay => riglr_events_core::EventKind::Other("repay".to_string()),
+                    $crate::types::EventType::CreatePool => riglr_events_core::EventKind::Other("create_pool".to_string()),
+                    $crate::types::EventType::AddLiquidity => riglr_events_core::EventKind::Other("add_liquidity".to_string()),
+                    $crate::types::EventType::RemoveLiquidity => riglr_events_core::EventKind::Other("remove_liquidity".to_string()),
+                    $crate::types::EventType::Unknown => riglr_events_core::EventKind::Other("unknown".to_string()),
+                }
             }
 
-            fn event_type(&self) -> $crate::types::EventType {
-                self.metadata.event_type.clone()
+            fn metadata(&self) -> &riglr_events_core::EventMetadata {
+                // Create compatible metadata if needed
+                self.core_metadata.as_ref().unwrap_or_else(|| {
+                    panic!("Event must have core_metadata initialized")
+                })
             }
 
             fn signature(&self) -> &str {
                 &self.metadata.signature
             }
 
-            fn slot(&self) -> u64 {
-                self.metadata.slot
-            }
-
-            fn program_received_time_ms(&self) -> i64 {
-                self.metadata.program_received_time_ms
-            }
-
-            fn program_handle_time_consuming_ms(&self) -> i64 {
-                self.metadata.program_handle_time_consuming_ms
-            }
-
-            fn set_program_handle_time_consuming_ms(&mut self, time: i64) {
-                self.metadata.program_handle_time_consuming_ms = time;
+            fn slot(&self) -> Option<u64> {
+                Some(self.metadata.slot)
             }
 
             fn as_any(&self) -> &dyn std::any::Any {
                 self
             }
 
-            fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
-                self
-            }
-
-            fn clone_boxed(&self) -> Box<dyn $crate::core::UnifiedEvent> {
+            fn clone_boxed(&self) -> Box<dyn riglr_events_core::Event> {
                 Box::new(self.clone())
-            }
-
-            fn set_transfer_data(
-                &mut self,
-                _transfer_data: Vec<$crate::types::TransferData>,
-                _swap_data: Option<$crate::types::SwapData>,
-            ) {
-                // Default implementation - events can override if needed
-            }
-
-            fn index(&self) -> String {
-                self.metadata.index.clone()
-            }
-
-            fn protocol_type(&self) -> $crate::types::ProtocolType {
-                self.metadata.protocol_type.clone()
             }
         }
     };
 }
 
 pub mod prelude {
-    pub use crate::events::core::traits::{EventParser, UnifiedEvent, GenericEventParser, GenericEventParseConfig};
-    pub use crate::types::*;
-    pub use crate::events::factory::{EventParserFactory, Protocol, MultiEventParser};
+    pub use crate::events::core::traits::{EventParser, GenericEventParser, GenericEventParseConfig};
+    // Re-export types but exclude EventMetadata as it conflicts with riglr_events_core
+    pub use crate::types::{EventType, TransferData, SwapData, ProtocolType};
+    pub use crate::events::factory::{Protocol, EventParserRegistry};
     pub use crate::events::core::traits::*;
     pub use crate::solana_events::{SolanaEvent, ToSolanaEvent};
     pub use crate::solana_parser::{SolanaEventParser, SolanaInnerInstructionParser, SolanaTransactionInput, SolanaInnerInstructionInput};
@@ -218,10 +204,10 @@ pub mod core {
     pub use crate::events::core::traits::*;
 }
 
-// Re-export key types at crate root for backward compatibility
-pub use events::core::traits::{UnifiedEvent, EventParser, GenericEventParser, GenericEventParseConfig};
+// Re-export key types at crate root
+pub use events::core::traits::{EventParser, GenericEventParser, GenericEventParseConfig};
 pub use types::{EventType, ProtocolType, EventMetadata, StreamMetadata, TransferData, SwapData};
-pub use events::factory::{EventParserFactory, Protocol, MultiEventParser};
+pub use events::factory::{Protocol, EventParserRegistry};
 
 // New riglr-events-core integration
 pub use solana_events::{SolanaEvent, ToSolanaEvent};

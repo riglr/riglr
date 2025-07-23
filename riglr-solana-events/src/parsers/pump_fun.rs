@@ -8,7 +8,7 @@ use borsh::{BorshDeserialize, BorshSerialize};
 use solana_sdk::pubkey::Pubkey;
 use crate::zero_copy::{ByteSliceEventParser, ParseError, CustomDeserializer, ZeroCopyEvent};
 use crate::types::{EventMetadata, EventType, ProtocolType};
-use crate::events::core::traits::UnifiedEvent;
+// UnifiedEvent trait has been removed
 
 /// PumpFun program ID
 pub const PUMP_FUN_PROGRAM_ID: &str = "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P";
@@ -111,9 +111,16 @@ pub struct PumpWithdrawInstruction {
 /// High-performance PumpFun parser
 pub struct PumpFunParser {
     /// Program ID for validation
+    #[allow(dead_code)]
     program_id: Pubkey,
     /// Enable zero-copy parsing
     zero_copy: bool,
+}
+
+impl Default for PumpFunParser {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl PumpFunParser {

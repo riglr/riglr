@@ -8,7 +8,7 @@ use borsh::{BorshDeserialize, BorshSerialize};
 use solana_sdk::pubkey::Pubkey;
 use crate::zero_copy::{ByteSliceEventParser, ParseError, CustomDeserializer, ZeroCopyEvent};
 use crate::types::{EventMetadata, EventType, ProtocolType};
-use crate::events::core::traits::UnifiedEvent;
+// UnifiedEvent trait has been removed
 
 /// Metaplex Token Metadata program ID
 pub const METAPLEX_TOKEN_METADATA_PROGRAM_ID: &str = "metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s";
@@ -168,13 +168,21 @@ pub struct MetaplexEventAnalysis {
 /// High-performance Metaplex parser
 pub struct MetaplexParser {
     /// Token Metadata program ID
+    #[allow(dead_code)]
     token_metadata_program_id: Pubkey,
     /// Auction House program ID
+    #[allow(dead_code)]
     auction_house_program_id: Pubkey,
     /// Enable zero-copy parsing
     zero_copy: bool,
     /// Enable detailed metadata parsing
     detailed_metadata: bool,
+}
+
+impl Default for MetaplexParser {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl MetaplexParser {

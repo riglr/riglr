@@ -8,7 +8,7 @@ use borsh::{BorshDeserialize, BorshSerialize};
 use solana_sdk::pubkey::Pubkey;
 use crate::zero_copy::{ByteSliceEventParser, ParseError, CustomDeserializer, ZeroCopyEvent};
 use crate::types::{EventMetadata, EventType, ProtocolType};
-use crate::events::core::traits::UnifiedEvent;
+// UnifiedEvent trait has been removed
 
 /// Jupiter aggregator program ID
 pub const JUPITER_PROGRAM_ID: &str = "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4";
@@ -123,11 +123,18 @@ pub struct JupiterRouteAnalysis {
 /// High-performance Jupiter parser
 pub struct JupiterParser {
     /// Program ID for validation
+    #[allow(dead_code)]
     program_id: Pubkey,
     /// Enable zero-copy parsing
     zero_copy: bool,
     /// Enable detailed route analysis
     detailed_analysis: bool,
+}
+
+impl Default for JupiterParser {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl JupiterParser {
