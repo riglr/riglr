@@ -225,58 +225,58 @@ impl From<SolanaToolError> for ToolError {
             // RPC and HTTP errors are often retriable
             SolanaToolError::Rpc(msg) => {
                 if msg.contains("429") || msg.contains("rate limit") || msg.contains("too many requests") {
-                    ToolError::rate_limited(msg)
+                    ToolError::rate_limited_string(msg)
                 } else {
-                    ToolError::retriable(msg)
+                    ToolError::retriable_string(msg)
                 }
             }
             
             SolanaToolError::SolanaClient(ref client_err) => {
                 let error_type = classify_transaction_error(client_err);
                 match error_type {
-                    TransactionErrorType::Retryable(_) => ToolError::retriable(err.to_string()),
-                    TransactionErrorType::RateLimited(_) => ToolError::rate_limited(err.to_string()),
-                    TransactionErrorType::Permanent(_) => ToolError::permanent(err.to_string()),
-                    TransactionErrorType::Unknown(_) => ToolError::retriable(err.to_string()),
+                    TransactionErrorType::Retryable(_) => ToolError::retriable_string(err.to_string()),
+                    TransactionErrorType::RateLimited(_) => ToolError::rate_limited_string(err.to_string()),
+                    TransactionErrorType::Permanent(_) => ToolError::permanent_string(err.to_string()),
+                    TransactionErrorType::Unknown(_) => ToolError::retriable_string(err.to_string()),
                 }
             }
             
             SolanaToolError::Http(ref http_err) => {
                 if http_err.status() == Some(reqwest::StatusCode::TOO_MANY_REQUESTS) {
-                    ToolError::rate_limited(err.to_string())
+                    ToolError::rate_limited_string(err.to_string())
                 } else if http_err.is_timeout() || http_err.is_connect() {
-                    ToolError::retriable(err.to_string())
+                    ToolError::retriable_string(err.to_string())
                 } else {
-                    ToolError::permanent(err.to_string())
+                    ToolError::permanent_string(err.to_string())
                 }
             }
 
             // Address and key validation errors are permanent
-            SolanaToolError::InvalidAddress(_) => ToolError::invalid_input(err.to_string()),
-            SolanaToolError::InvalidKey(_) => ToolError::invalid_input(err.to_string()),
-            SolanaToolError::InvalidSignature(_) => ToolError::invalid_input(err.to_string()),
-            SolanaToolError::InvalidTokenMint(_) => ToolError::invalid_input(err.to_string()),
+            SolanaToolError::InvalidAddress(_) => ToolError::invalid_input_string(err.to_string()),
+            SolanaToolError::InvalidKey(_) => ToolError::invalid_input_string(err.to_string()),
+            SolanaToolError::InvalidSignature(_) => ToolError::invalid_input_string(err.to_string()),
+            SolanaToolError::InvalidTokenMint(_) => ToolError::invalid_input_string(err.to_string()),
             
             // Insufficient funds is permanent
-            SolanaToolError::InsufficientFunds => ToolError::permanent(err.to_string()),
+            SolanaToolError::InsufficientFunds => ToolError::permanent_string(err.to_string()),
             
             // Transaction errors could be retriable if they're network related
             SolanaToolError::Transaction(msg) => {
                 if msg.contains("insufficient funds") || msg.contains("invalid") {
-                    ToolError::permanent(msg)
+                    ToolError::permanent_string(msg)
                 } else {
-                    ToolError::retriable(msg)
+                    ToolError::retriable_string(msg)
                 }
             }
             
             // Serialization errors are permanent
-            SolanaToolError::Serialization(_) => ToolError::permanent(err.to_string()),
+            SolanaToolError::Serialization(_) => ToolError::permanent_string(err.to_string()),
             
             // Core errors inherit their retriable nature
-            SolanaToolError::Core(_) => ToolError::retriable(err.to_string()),
+            SolanaToolError::Core(_) => ToolError::retriable_string(err.to_string()),
             
             // Generic errors default to retriable
-            SolanaToolError::Generic(msg) => ToolError::retriable(msg),
+            SolanaToolError::Generic(msg) => ToolError::retriable_string(msg),
         }
     }
 }

@@ -173,7 +173,7 @@ pub async fn send_transaction_with_retry(
 
     // Get signer context
     let signer_context = SignerContext::current().await
-        .map_err(|e| ToolError::permanent_from_msg(format!("No signer context: {}", e)))?;
+        .map_err(|e| ToolError::permanent_string(format!("No signer context: {}", e)))?;
 
     let mut last_error: Option<String> = None;
     
@@ -214,7 +214,7 @@ pub async fn send_transaction_with_retry(
                         "Permanent transaction error for '{}' (attempt {}): {}",
                         operation_name, attempt + 1, error_msg
                     );
-                    return Err(ToolError::permanent_from_msg(format!(
+                    return Err(ToolError::permanent_string(format!(
                         "Transaction failed for '{}': {}", operation_name, error_msg
                     )));
                 }
@@ -259,7 +259,7 @@ pub async fn send_transaction_with_retry(
         operation_name, config.max_retries + 1, total_duration, final_error
     );
     
-    Err(ToolError::permanent_from_msg(format!(
+    Err(ToolError::permanent_string(format!(
         "Transaction failed for '{}' after {} attempts: {}", 
         operation_name, config.max_retries + 1, final_error
     )))
@@ -353,7 +353,7 @@ where
     // Get signer from context
     let signer = SignerContext::current()
         .await
-        .map_err(|e| SolanaToolError::SignerError(e))?;
+        .map_err(SolanaToolError::SignerError)?;
     
     // Get Solana pubkey
     let pubkey_str = signer
@@ -373,7 +373,7 @@ where
     signer
         .sign_and_send_solana_transaction(&mut tx)
         .await
-        .map_err(|e| SolanaToolError::SignerError(e))
+        .map_err(SolanaToolError::SignerError)
 }
 
 /// Creates properly signed Solana transaction with mint keypair
@@ -412,7 +412,7 @@ pub async fn create_token_with_mint_keypair(
     mint_keypair: &Keypair,
 ) -> std::result::Result<String, SolanaToolError> {
     let signer = SignerContext::current().await
-        .map_err(|e| SolanaToolError::SignerError(e.into()))?;
+        .map_err(SolanaToolError::SignerError)?;
     let payer_pubkey = signer.pubkey()
         .ok_or_else(|| SolanaToolError::InvalidKey("No Solana pubkey in signer context".to_string()))?
         .parse()
@@ -430,7 +430,7 @@ pub async fn create_token_with_mint_keypair(
     
     // Sign and send transaction via signer context
     let signature = signer.sign_and_send_solana_transaction(&mut tx).await
-        .map_err(|e| SolanaToolError::SignerError(e.into()))?;
+        .map_err(SolanaToolError::SignerError)?;
     
     Ok(signature)
 }

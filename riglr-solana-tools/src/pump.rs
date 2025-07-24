@@ -66,10 +66,10 @@ pub async fn deploy_pump_token(
 
     // Get signer from context
     let signer_context = SignerContext::current().await
-        .map_err(|e| ToolError::permanent(format!("No signer context: {}", e)))?;
+        .map_err(|e| ToolError::permanent_string(format!("No signer context: {}", e)))?;
     
     let signer_pubkey = signer_context.pubkey()
-        .ok_or_else(|| ToolError::permanent("Signer has no public key"))?;
+        .ok_or_else(|| ToolError::permanent_string("Signer has no public key"))?;
     
     // Generate new mint keypair BEFORE transaction creation for deterministic addressing
     let mint_keypair = generate_mint_keypair();
@@ -77,13 +77,13 @@ pub async fn deploy_pump_token(
 
     // Validate inputs
     if name.is_empty() || name.len() > 32 {
-        return Err(ToolError::permanent("Token name must be 1-32 characters".to_string()));
+        return Err(ToolError::permanent_string("Token name must be 1-32 characters".to_string()));
     }
     if symbol.is_empty() || symbol.len() > 10 {
-        return Err(ToolError::permanent("Token symbol must be 1-10 characters".to_string()));
+        return Err(ToolError::permanent_string("Token symbol must be 1-10 characters".to_string()));
     }
     if description.len() > 1000 {
-        return Err(ToolError::permanent("Description must be under 1000 characters".to_string()));
+        return Err(ToolError::permanent_string("Description must be under 1000 characters".to_string()));
     }
 
     let config = PumpConfig::default();
@@ -107,20 +107,20 @@ pub async fn deploy_pump_token(
         .json(&deploy_request)
         .send()
         .await
-        .map_err(|e| ToolError::retriable(format!("Failed to request deployment: {}", e)))?;
+        .map_err(|e| ToolError::retriable_string(format!("Failed to request deployment: {}", e)))?;
 
     if !response.status().is_success() {
         let error_text = response
             .text()
             .await
             .unwrap_or_else(|_| "Unknown error".to_string());
-        return Err(ToolError::permanent(format!("Pump.fun deployment API error: {}", error_text)));
+        return Err(ToolError::permanent_string(format!("Pump.fun deployment API error: {}", error_text)));
     }
 
     let deployment_response: PumpDeploymentResponse = response
         .json()
         .await
-        .map_err(|e| ToolError::permanent(format!("Failed to parse deployment response: {}", e)))?;
+        .map_err(|e| ToolError::permanent_string(format!("Failed to parse deployment response: {}", e)))?;
 
     info!(
         "Token metadata uploaded to IPFS: {}",
@@ -144,35 +144,35 @@ pub async fn deploy_pump_token(
         .json(&create_tx_request)
         .send()
         .await
-        .map_err(|e| ToolError::retriable(format!("Failed to get creation transaction: {}", e)))?;
+        .map_err(|e| ToolError::retriable_string(format!("Failed to get creation transaction: {}", e)))?;
 
     if !tx_response.status().is_success() {
         let error_text = tx_response
             .text()
             .await
             .unwrap_or_else(|_| "Unknown error".to_string());
-        return Err(ToolError::permanent(format!("Pump.fun transaction API error: {}", error_text)));
+        return Err(ToolError::permanent_string(format!("Pump.fun transaction API error: {}", error_text)));
     }
 
     let tx_data: String = tx_response
         .text()
         .await
-        .map_err(|e| ToolError::permanent(format!("Failed to get transaction data: {}", e)))?;
+        .map_err(|e| ToolError::permanent_string(format!("Failed to get transaction data: {}", e)))?;
 
     // Deserialize and sign the creation transaction
     use base64::{engine::general_purpose, Engine as _};
     let transaction_bytes = general_purpose::STANDARD
         .decode(&tx_data)
-        .map_err(|e| ToolError::permanent(format!("Failed to decode creation transaction: {}", e)))?;
+        .map_err(|e| ToolError::permanent_string(format!("Failed to decode creation transaction: {}", e)))?;
 
     let transaction: Transaction = bincode::deserialize(&transaction_bytes)
-        .map_err(|e| ToolError::permanent(format!("Failed to deserialize creation transaction: {}", e)))?;
+        .map_err(|e| ToolError::permanent_string(format!("Failed to deserialize creation transaction: {}", e)))?;
 
     // For now, we'll directly use the signer context to sign and send the transaction
     // In a real implementation, we would properly integrate the mint keypair signing
     let mut tx = transaction;
     let creation_signature = signer_context.sign_and_send_solana_transaction(&mut tx).await
-        .map_err(|e| ToolError::retriable(format!("Failed to sign and send transaction: {}", e)))?;
+        .map_err(|e| ToolError::retriable_string(format!("Failed to sign and send transaction: {}", e)))?;
 
     info!("Token creation transaction sent: {}", creation_signature);
 
@@ -234,18 +234,18 @@ pub async fn buy_pump_token(
     );
 
     if sol_amount <= 0.0 {
-        return Err(ToolError::permanent("SOL amount must be positive".to_string()));
+        return Err(ToolError::permanent_string("SOL amount must be positive".to_string()));
     }
 
     // Validate mint address
     let _mint_pubkey = Pubkey::from_str(&token_mint)
-        .map_err(|e| ToolError::permanent(format!("Invalid token mint: {}", e)))?;
+        .map_err(|e| ToolError::permanent_string(format!("Invalid token mint: {}", e)))?;
 
     let signer_context = SignerContext::current().await
-        .map_err(|e| ToolError::permanent(format!("No signer context: {}", e)))?;
+        .map_err(|e| ToolError::permanent_string(format!("No signer context: {}", e)))?;
     
     let signer_pubkey = signer_context.pubkey()
-        .ok_or_else(|| ToolError::permanent("Signer has no public key"))?;
+        .ok_or_else(|| ToolError::permanent_string("Signer has no public key"))?;
 
     let config = PumpConfig::default();
     let slippage = slippage_percent.unwrap_or(config.default_slippage_bps as f64 / 100.0);
@@ -270,29 +270,29 @@ pub async fn buy_pump_token(
         .json(&buy_request)
         .send()
         .await
-        .map_err(|e| ToolError::retriable(format!("Failed to request buy transaction: {}", e)))?;
+        .map_err(|e| ToolError::retriable_string(format!("Failed to request buy transaction: {}", e)))?;
 
     if !response.status().is_success() {
         let error_text = response
             .text()
             .await
             .unwrap_or_else(|_| "Unknown error".to_string());
-        return Err(ToolError::permanent(format!("Pump.fun buy API error: {}", error_text)));
+        return Err(ToolError::permanent_string(format!("Pump.fun buy API error: {}", error_text)));
     }
 
     let tx_data: String = response
         .text()
         .await
-        .map_err(|e| ToolError::permanent(format!("Failed to get buy transaction data: {}", e)))?;
+        .map_err(|e| ToolError::permanent_string(format!("Failed to get buy transaction data: {}", e)))?;
 
     // Deserialize and sign the buy transaction
     use base64::{engine::general_purpose, Engine as _};
     let transaction_bytes = general_purpose::STANDARD
         .decode(&tx_data)
-        .map_err(|e| ToolError::permanent(format!("Failed to decode buy transaction: {}", e)))?;
+        .map_err(|e| ToolError::permanent_string(format!("Failed to decode buy transaction: {}", e)))?;
 
     let mut transaction: Transaction = bincode::deserialize(&transaction_bytes)
-        .map_err(|e| ToolError::permanent(format!("Failed to deserialize buy transaction: {}", e)))?;
+        .map_err(|e| ToolError::permanent_string(format!("Failed to deserialize buy transaction: {}", e)))?;
 
     // Send buy transaction with retry logic
     let signature = send_transaction(&mut transaction, &format!("Buy Pump Token ({} SOL)", sol_amount)).await?;
@@ -333,18 +333,18 @@ pub async fn sell_pump_token(
     );
 
     if token_amount == 0 {
-        return Err(ToolError::permanent("Token amount must be positive".to_string()));
+        return Err(ToolError::permanent_string("Token amount must be positive".to_string()));
     }
 
     // Validate mint address
     let _mint_pubkey = Pubkey::from_str(&token_mint)
-        .map_err(|e| ToolError::permanent(format!("Invalid token mint: {}", e)))?;
+        .map_err(|e| ToolError::permanent_string(format!("Invalid token mint: {}", e)))?;
 
     let signer_context = SignerContext::current().await
-        .map_err(|e| ToolError::permanent(format!("No signer context: {}", e)))?;
+        .map_err(|e| ToolError::permanent_string(format!("No signer context: {}", e)))?;
     
     let signer_pubkey = signer_context.pubkey()
-        .ok_or_else(|| ToolError::permanent("Signer has no public key"))?;
+        .ok_or_else(|| ToolError::permanent_string("Signer has no public key"))?;
 
     let config = PumpConfig::default();
     let slippage = slippage_percent.unwrap_or(config.default_slippage_bps as f64 / 100.0);
@@ -368,29 +368,29 @@ pub async fn sell_pump_token(
         .json(&sell_request)
         .send()
         .await
-        .map_err(|e| ToolError::retriable(format!("Failed to request sell transaction: {}", e)))?;
+        .map_err(|e| ToolError::retriable_string(format!("Failed to request sell transaction: {}", e)))?;
 
     if !response.status().is_success() {
         let error_text = response
             .text()
             .await
             .unwrap_or_else(|_| "Unknown error".to_string());
-        return Err(ToolError::permanent(format!("Pump.fun sell API error: {}", error_text)));
+        return Err(ToolError::permanent_string(format!("Pump.fun sell API error: {}", error_text)));
     }
 
     let tx_data: String = response
         .text()
         .await
-        .map_err(|e| ToolError::permanent(format!("Failed to get sell transaction data: {}", e)))?;
+        .map_err(|e| ToolError::permanent_string(format!("Failed to get sell transaction data: {}", e)))?;
 
     // Deserialize and sign the sell transaction
     use base64::{engine::general_purpose, Engine as _};
     let transaction_bytes = general_purpose::STANDARD
         .decode(&tx_data)
-        .map_err(|e| ToolError::permanent(format!("Failed to decode sell transaction: {}", e)))?;
+        .map_err(|e| ToolError::permanent_string(format!("Failed to decode sell transaction: {}", e)))?;
 
     let mut transaction: Transaction = bincode::deserialize(&transaction_bytes)
-        .map_err(|e| ToolError::permanent(format!("Failed to deserialize sell transaction: {}", e)))?;
+        .map_err(|e| ToolError::permanent_string(format!("Failed to deserialize sell transaction: {}", e)))?;
 
     // Send sell transaction with retry logic
     let signature = send_transaction(&mut transaction, &format!("Sell Pump Token ({} tokens)", token_amount)).await?;
@@ -427,7 +427,7 @@ pub async fn get_pump_token_info(
 
     // Validate mint address
     let _mint_pubkey = Pubkey::from_str(&token_mint)
-        .map_err(|e| ToolError::permanent(format!("Invalid token mint: {}", e)))?;
+        .map_err(|e| ToolError::permanent_string(format!("Invalid token mint: {}", e)))?;
 
     let config = PumpConfig::default();
 
@@ -437,10 +437,10 @@ pub async fn get_pump_token_info(
         .get(format!("{}/token/{}", config.api_url, token_mint))
         .send()
         .await
-        .map_err(|e| ToolError::retriable(format!("Failed to get token info: {}", e)))?;
+        .map_err(|e| ToolError::retriable_string(format!("Failed to get token info: {}", e)))?;
 
     if response.status().as_u16() == 404 {
-        return Err(ToolError::permanent(format!("Token {} not found on Pump.fun", token_mint)));
+        return Err(ToolError::permanent_string(format!("Token {} not found on Pump.fun", token_mint)));
     }
 
     if !response.status().is_success() {
@@ -448,13 +448,13 @@ pub async fn get_pump_token_info(
             .text()
             .await
             .unwrap_or_else(|_| "Unknown error".to_string());
-        return Err(ToolError::retriable(format!("Pump.fun API error: {}", error_text)));
+        return Err(ToolError::retriable_string(format!("Pump.fun API error: {}", error_text)));
     }
 
     let token_response: PumpTokenResponse = response
         .json()
         .await
-        .map_err(|e| ToolError::permanent(format!("Failed to parse token info: {}", e)))?;
+        .map_err(|e| ToolError::permanent_string(format!("Failed to parse token info: {}", e)))?;
 
     info!(
         "Retrieved token info for {}: {} ({})",
@@ -493,15 +493,15 @@ pub async fn analyze_pump_transaction(
 
     // Validate inputs
     let user_pubkey = Pubkey::from_str(&user_address)
-        .map_err(|e| ToolError::permanent(format!("Invalid user address: {}", e)))?;
+        .map_err(|e| ToolError::permanent_string(format!("Invalid user address: {}", e)))?;
     let mint_pubkey = Pubkey::from_str(&token_mint)
-        .map_err(|e| ToolError::permanent(format!("Invalid token mint: {}", e)))?;
+        .map_err(|e| ToolError::permanent_string(format!("Invalid token mint: {}", e)))?;
 
     // Get client from SignerContext
     let signer = SignerContext::current().await
-        .map_err(|e| ToolError::permanent(format!("No signer context: {}", e)))?;
+        .map_err(|e| ToolError::permanent_string(format!("No signer context: {}", e)))?;
     let client = signer.solana_client()
-        .ok_or_else(|| ToolError::permanent("No Solana client available in signer context".to_string()))?;
+        .ok_or_else(|| ToolError::permanent_string("No Solana client available in signer context".to_string()))?;
 
     // Parse transaction details
     let (token_amount, sol_amount, price_per_token) = parse_pump_trade_details(
@@ -541,20 +541,20 @@ pub async fn get_trending_pump_tokens(
         .get(format!("{}/trending?limit={}", config.api_url, limit))
         .send()
         .await
-        .map_err(|e| ToolError::retriable(format!("Failed to get trending tokens: {}", e)))?;
+        .map_err(|e| ToolError::retriable_string(format!("Failed to get trending tokens: {}", e)))?;
 
     if !response.status().is_success() {
         let error_text = response
             .text()
             .await
             .unwrap_or_else(|_| "Unknown error".to_string());
-        return Err(ToolError::retriable(format!("Pump.fun trending API error: {}", error_text)));
+        return Err(ToolError::retriable_string(format!("Pump.fun trending API error: {}", error_text)));
     }
 
     let trending_response: Vec<PumpTokenResponse> = response
         .json()
         .await
-        .map_err(|e| ToolError::permanent(format!("Failed to parse trending tokens: {}", e)))?;
+        .map_err(|e| ToolError::permanent_string(format!("Failed to parse trending tokens: {}", e)))?;
 
     let trending_tokens: Vec<PumpTokenInfo> = trending_response
         .into_iter()
@@ -673,12 +673,12 @@ pub async fn create_token_with_mint_keypair(
     _mint_keypair: &Keypair,
 ) -> Result<String, ToolError> {
     let signer = SignerContext::current().await
-        .map_err(|e| ToolError::permanent(format!("No signer context: {}", e)))?;
+        .map_err(|e| ToolError::permanent_string(format!("No signer context: {}", e)))?;
     
     // Get the payer pubkey from the signer context
     let payer_pubkey = signer.pubkey()
         .and_then(|s| Pubkey::from_str(&s).ok())
-        .ok_or_else(|| ToolError::permanent("Failed to get payer pubkey from signer".to_string()))?;
+        .ok_or_else(|| ToolError::permanent_string("Failed to get payer pubkey from signer".to_string()))?;
     
     let mut transaction = Transaction::new_with_payer(&instructions, Some(&payer_pubkey));
     
@@ -688,7 +688,7 @@ pub async fn create_token_with_mint_keypair(
     // In a real implementation, we would sign with both the payer and mint keypair
     // For now, we'll use the signer context to sign and send the transaction
     let signature = signer.sign_and_send_solana_transaction(&mut transaction).await
-        .map_err(|e| ToolError::retriable(format!("Failed to sign and send transaction: {}", e)))?;
+        .map_err(|e| ToolError::retriable_string(format!("Failed to sign and send transaction: {}", e)))?;
     
     Ok(signature.to_string())
 }
@@ -714,7 +714,7 @@ async fn parse_pump_trade_details(
     let mut tx_opt = None;
     for _ in 0..3 {
         match rpc.get_transaction_with_config(
-            &signature.parse::<Signature>().map_err(|e| ToolError::permanent(format!("Invalid signature: {}", e)))?,
+            &signature.parse::<Signature>().map_err(|e| ToolError::permanent_string(format!("Invalid signature: {}", e)))?,
             RpcTransactionConfig {
                 encoding: Some(UiTransactionEncoding::JsonParsed),
                 commitment: None,
@@ -730,12 +730,12 @@ async fn parse_pump_trade_details(
         }
     }
 
-    let tx = tx_opt.ok_or_else(|| ToolError::retriable(format!(
+    let tx = tx_opt.ok_or_else(|| ToolError::retriable_string(format!(
         "Transaction not available yet: {}",
         last_err.unwrap_or_else(|| "unknown".to_string())
     )))?;
 
-    let meta = tx.transaction.meta.ok_or_else(|| ToolError::permanent("Missing transaction meta".to_string()))?;
+    let meta = tx.transaction.meta.ok_or_else(|| ToolError::permanent_string("Missing transaction meta".to_string()))?;
 
     // Compute SOL delta for the user
     let (pre_balances, post_balances) = (meta.pre_balances, meta.post_balances);

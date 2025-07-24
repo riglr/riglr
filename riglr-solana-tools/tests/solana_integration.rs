@@ -1,6 +1,4 @@
-use riglr_solana_tools::{
-    util::{create_token_with_mint_keypair, generate_mint_keypair},
-};
+use riglr_solana_tools::utils::{create_token_with_mint_keypair, generate_mint_keypair};
 use riglr_core::{
     signer::{SignerContext, TransactionSigner, SignerError},
 };
@@ -50,8 +48,8 @@ impl TransactionSigner for MockSolanaSigner {
         Err(SignerError::UnsupportedOperation("Solana signer cannot sign EVM transactions".to_string()))
     }
 
-    fn solana_client(&self) -> Arc<solana_client::rpc_client::RpcClient> {
-        Arc::new(solana_client::rpc_client::RpcClient::new(self.rpc_url.clone()))
+    fn solana_client(&self) -> Option<Arc<solana_client::rpc_client::RpcClient>> {
+        Some(Arc::new(solana_client::rpc_client::RpcClient::new(self.rpc_url.clone())))
     }
 
     fn evm_client(&self) -> Result<Arc<dyn riglr_core::signer::EvmClient>, SignerError> {

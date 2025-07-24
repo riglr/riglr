@@ -43,13 +43,13 @@ pub async fn get_block_height() -> Result<u64, ToolError> {
 
     // Get signer context and client
     let signer = SignerContext::current().await
-        .map_err(|e| ToolError::permanent(format!("No signer context: {}", e)))?;
+        .map_err(|e| ToolError::permanent_string(format!("No signer context: {}", e)))?;
     let client = signer.solana_client()
-        .ok_or_else(|| ToolError::permanent("No Solana client available in signer".to_string()))?;
+        .ok_or_else(|| ToolError::permanent_string("No Solana client available in signer".to_string()))?;
 
     let height = client
         .get_block_height()
-        .map_err(|e| ToolError::retriable(format!("Failed to get block height: {}", e)))?;
+        .map_err(|e| ToolError::retriable_string(format!("Failed to get block height: {}", e)))?;
 
     info!("Current block height: {}", height);
     Ok(height)
@@ -106,14 +106,14 @@ pub async fn get_transaction_status(signature: String) -> Result<String, ToolErr
 
     // Get signer context and client
     let signer_context = SignerContext::current().await
-        .map_err(|e| ToolError::permanent(format!("No signer context: {}", e)))?;
+        .map_err(|e| ToolError::permanent_string(format!("No signer context: {}", e)))?;
     let client = signer_context.solana_client()
-        .ok_or_else(|| ToolError::permanent("No Solana client available in signer".to_string()))?;
+        .ok_or_else(|| ToolError::permanent_string("No Solana client available in signer".to_string()))?;
 
-    let signatures = vec![signature.parse().map_err(|e| ToolError::permanent(format!("Invalid signature: {}", e)))?];
+    let signatures = vec![signature.parse().map_err(|e| ToolError::permanent_string(format!("Invalid signature: {}", e)))?];
     let statuses = client
         .get_signature_statuses(&signatures)
-        .map_err(|e| ToolError::retriable(format!("Failed to get transaction status: {}", e)))?;
+        .map_err(|e| ToolError::retriable_string(format!("Failed to get transaction status: {}", e)))?;
 
     if let Some(Some(status)) = statuses.value.first() {
         let status_str = if status.err.is_some() {
