@@ -403,6 +403,7 @@ mod tests {
     use serde_json::json;
 
     // Mock implementations for testing
+    #[allow(dead_code)]
     struct MockHandler {
         info: HandlerInfo,
     }
