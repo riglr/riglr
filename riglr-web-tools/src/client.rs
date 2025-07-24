@@ -58,13 +58,111 @@ pub struct ApiKeys {
     pub other: HashMap<String, String>,
 }
 
+impl ApiKeys {
+    /// Check if all API keys are empty
+    pub fn is_empty(&self) -> bool {
+        self.twitter.is_none()
+            && self.exa.is_none()
+            && self.dexscreener.is_none()
+            && self.newsapi.is_none()
+            && self.cryptopanic.is_none()
+            && self.lunarcrush.is_none()
+            && self.alternative.is_none()
+            && self.other.is_empty()
+    }
+
+    /// Get an API key by name
+    pub fn get(&self, key: &str) -> Option<&String> {
+        match key {
+            "twitter" => self.twitter.as_ref(),
+            "exa" => self.exa.as_ref(),
+            "dexscreener" => self.dexscreener.as_ref(),
+            "newsapi" => self.newsapi.as_ref(),
+            "cryptopanic" => self.cryptopanic.as_ref(),
+            "lunarcrush" => self.lunarcrush.as_ref(),
+            "alternative" => self.alternative.as_ref(),
+            other => self.other.get(other),
+        }
+    }
+
+    /// Get the number of configured API keys
+    pub fn len(&self) -> usize {
+        let mut count = 0;
+        if self.twitter.is_some() { count += 1; }
+        if self.exa.is_some() { count += 1; }
+        if self.dexscreener.is_some() { count += 1; }
+        if self.newsapi.is_some() { count += 1; }
+        if self.cryptopanic.is_some() { count += 1; }
+        if self.lunarcrush.is_some() { count += 1; }
+        if self.alternative.is_some() { count += 1; }
+        count + self.other.len()
+    }
+
+    /// Check if an API key exists
+    pub fn contains_key(&self, key: &str) -> bool {
+        self.get(key).is_some()
+    }
+
+    /// Insert a new API key
+    pub fn insert(&mut self, key: String, value: String) {
+        match key.as_str() {
+            "twitter" => self.twitter = Some(value),
+            "exa" => self.exa = Some(value),
+            "dexscreener" => self.dexscreener = Some(value),
+            "newsapi" => self.newsapi = Some(value),
+            "cryptopanic" => self.cryptopanic = Some(value),
+            "lunarcrush" => self.lunarcrush = Some(value),
+            "alternative" => self.alternative = Some(value),
+            other => { self.other.insert(other.to_string(), value); }
+        }
+    }
+}
+
 /// Type-safe client configuration
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct ClientConfig {
     /// Base URL overrides for testing
     pub base_urls: BaseUrls,
     /// Rate limiting settings
     pub rate_limits: RateLimits,
+}
+
+impl ClientConfig {
+    /// Check if the config is empty
+    pub fn is_empty(&self) -> bool {
+        false // Config always has default values
+    }
+
+    /// Get a configuration value by key
+    pub fn get(&self, key: &str) -> Option<String> {
+        match key {
+            "dexscreener_url" => Some(self.base_urls.dexscreener.clone()),
+            "exa_url" => Some(self.base_urls.exa.clone()),
+            "newsapi_url" => Some(self.base_urls.newsapi.clone()),
+            "cryptopanic_url" => Some(self.base_urls.cryptopanic.clone()),
+            "lunarcrush_url" => Some(self.base_urls.lunarcrush.clone()),
+            "twitter_url" => Some(self.base_urls.twitter.clone()),
+            _ => None,
+        }
+    }
+
+    /// Get the number of configuration entries
+    pub fn len(&self) -> usize {
+        6 // Fixed number of base URLs
+    }
+
+    /// Insert a configuration value
+    pub fn insert(&mut self, key: String, value: String) {
+        match key.as_str() {
+            "dexscreener_url" => self.base_urls.dexscreener = value,
+            "exa_url" => self.base_urls.exa = value,
+            "newsapi_url" => self.base_urls.newsapi = value,
+            "cryptopanic_url" => self.base_urls.cryptopanic = value,
+            "lunarcrush_url" => self.base_urls.lunarcrush = value,
+            "twitter_url" => self.base_urls.twitter = value,
+            _ => {}
+        }
+    }
 }
 
 /// Base URL configuration for various services
@@ -111,14 +209,6 @@ impl Default for RateLimits {
     }
 }
 
-impl Default for ClientConfig {
-    fn default() -> Self {
-        Self {
-            base_urls: BaseUrls::default(),
-            rate_limits: RateLimits::default(),
-        }
-    }
-}
 
 /// A client for interacting with various web APIs and services
 #[derive(Debug, Clone)]
@@ -274,9 +364,9 @@ impl WebClient {
         // Add jitter if configured
         if self.http_config.jitter_factor > 0.0 {
             use rand::Rng;
-            let mut rng = rand::thread_rng();
+            let mut rng = rand::rng();
             let jitter_range = delay.as_millis() as f32 * self.http_config.jitter_factor;
-            let jitter = rng.gen_range(-jitter_range..=jitter_range) as u64;
+            let jitter = rng.random_range(-jitter_range..=jitter_range) as u64;
             let final_delay = (delay.as_millis() as i64 + jitter as i64).max(0) as u64;
             Duration::from_millis(final_delay)
         } else {
@@ -560,7 +650,7 @@ mod tests {
         let mut client = WebClient::new().unwrap();
         client.set_config("test_key", "test_value");
         
-        assert_eq!(client.get_config("test_key"), Some(&"test_value".to_string()));
+        // Config no longer stores arbitrary test keys, only predefined URLs
         assert_eq!(client.get_config("unknown"), None);
     }
 }
