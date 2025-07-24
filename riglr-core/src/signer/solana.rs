@@ -313,7 +313,7 @@ mod tests {
         assert!(signer.is_ok());
         
         let signer = signer.unwrap();
-        let pubkey = signer.pubkey();
+        let pubkey = TransactionSigner::pubkey(&signer);
         assert!(pubkey.is_some());
         assert_eq!(pubkey.unwrap(), keypair.pubkey().to_string());
     }

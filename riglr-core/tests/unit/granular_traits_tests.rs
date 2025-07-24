@@ -1,10 +1,11 @@
 use async_trait::async_trait;
 use riglr_core::signer::granular_traits::{
-    AsGranularSigner, Chain, EvmSigner, MultiChainSigner, SignerBase, SolanaSigner,
-    TransactionSignerAdapter,
+    Chain, EvmSigner, MultiChainSigner, SignerBase, SolanaSigner,
+    UnifiedSigner, LegacySignerAdapter,
 };
 use riglr_core::signer::{SignerError, TransactionSigner};
 use std::sync::Arc;
+use std::any::Any;
 use alloy::rpc::types::TransactionRequest;
 use solana_sdk::transaction::Transaction;
 
@@ -21,6 +22,10 @@ impl SignerBase for MockSolanaSigner {
     
     fn user_id(&self) -> Option<String> {
         Some("user123".to_string())
+    }
+    
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }
 
@@ -60,6 +65,10 @@ impl SignerBase for MockEvmSigner {
     fn user_id(&self) -> Option<String> {
         None
     }
+    
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
 }
 
 #[async_trait]
@@ -92,6 +101,10 @@ struct MockMultiChainSigner {
 impl SignerBase for MockMultiChainSigner {
     fn locale(&self) -> String {
         "ja".to_string()
+    }
+    
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }
 
@@ -151,6 +164,22 @@ impl MultiChainSigner for MockMultiChainSigner {
             Chain::Evm { chain_id } => *chain_id == 1,
         }
     }
+    
+    fn as_solana(&self) -> Option<&dyn SolanaSigner> {
+        if matches!(self.primary, Chain::Solana) {
+            Some(self)
+        } else {
+            None
+        }
+    }
+    
+    fn as_evm(&self) -> Option<&dyn EvmSigner> {
+        if matches!(self.primary, Chain::Evm { .. }) {
+            Some(self)
+        } else {
+            None
+        }
+    }
 }
 
 // Mock TransactionSigner for adapter testing
@@ -183,6 +212,10 @@ impl TransactionSigner for MockTransactionSigner {
     
     fn pubkey(&self) -> Option<String> {
         Some("MockPubkey".to_string())
+    }
+    
+    fn chain_id(&self) -> Option<u64> {
+        None
     }
 }
 
@@ -313,9 +346,9 @@ fn test_chain_enum() {
 }
 
 #[test]
-fn test_transaction_signer_adapter() {
+fn test_legacy_signer_adapter() {
     let mock_signer = Arc::new(MockTransactionSigner);
-    let adapter = TransactionSignerAdapter::new(mock_signer.clone());
+    let adapter = LegacySignerAdapter::new(mock_signer.clone());
     
     // Test SignerBase implementation
     assert_eq!(adapter.locale(), "en");
@@ -327,19 +360,20 @@ fn test_transaction_signer_adapter() {
 }
 
 #[test]
-fn test_as_granular_signer_trait() {
-    let signer = MockTransactionSigner;
+fn test_unified_signer_with_legacy_adapter() {
+    let signer = Arc::new(MockTransactionSigner);
+    let adapter = LegacySignerAdapter::new(signer);
     
-    // Test default implementations
-    // The default implementation always returns None due to trait object limitations,
-    // so supports_solana() and supports_evm() will always return false
-    assert!(!signer.supports_solana());
-    assert!(!signer.supports_evm());
+    // Test UnifiedSigner implementation
+    // MockTransactionSigner has pubkey() returning Some, so it supports Solana
+    assert!(adapter.supports_solana());
+    // MockTransactionSigner has no chain_id, so it doesn't support EVM  
+    assert!(!adapter.supports_evm());
     
-    // Test as_solana_signer and as_evm_signer
-    // These return None in the default implementation due to trait object limitations
-    assert!(signer.as_solana_signer().is_none());
-    assert!(signer.as_evm_signer().is_none());
+    // Test as_solana and as_evm
+    // Legacy adapters return None for these (as they don't implement granular traits directly)
+    assert!(adapter.as_solana().is_none());
+    assert!(adapter.as_evm().is_none());
 }
 
 #[test]
@@ -361,7 +395,11 @@ async fn test_solana_signer_with_retry() {
         retry_count: std::sync::atomic::AtomicUsize,
     }
     
-    impl SignerBase for RetrySolanaSigner {}
+    impl SignerBase for RetrySolanaSigner {
+        fn as_any(&self) -> &dyn Any {
+            self
+        }
+    }
     
     #[async_trait]
     impl SolanaSigner for RetrySolanaSigner {
@@ -416,7 +454,11 @@ async fn test_evm_signer_with_retry() {
         attempt_count: std::sync::atomic::AtomicUsize,
     }
     
-    impl SignerBase for RetryEvmSigner {}
+    impl SignerBase for RetryEvmSigner {
+        fn as_any(&self) -> &dyn Any {
+            self
+        }
+    }
     
     #[async_trait]
     impl EvmSigner for RetryEvmSigner {

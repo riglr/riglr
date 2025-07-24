@@ -55,28 +55,6 @@ pub fn get_env_or_default(key: &str, default: &str) -> String {
     env::var(key).unwrap_or_else(|_| default.to_string())
 }
 
-/// Legacy function that panics if environment variable is not set.
-/// 
-/// **Deprecated**: This function panics on missing variables, which is inflexible
-/// for library code. Use [`get_required_env`] instead, which returns a `Result`
-/// allowing the application to handle the error appropriately.
-/// 
-/// This function is retained for backward compatibility but should not be used
-/// in new code.
-/// 
-/// # Panics
-/// 
-/// Panics if the environment variable is not set.
-#[deprecated(
-    since = "0.2.0",
-    note = "Use `get_required_env` which returns a Result instead of panicking"
-)]
-pub fn must_get_env(key: &str) -> String {
-    env::var(key).unwrap_or_else(|_| {
-        panic!("FATAL: Environment variable '{}' is required but not set", key)
-    })
-}
-
 /// Validates that all required environment variables are set.
 /// 
 /// This is useful during application initialization to fail fast if
@@ -144,12 +122,8 @@ pub fn get_env_vars(keys: &[&str]) -> std::collections::HashMap<String, String> 
 /// ```
 pub fn init_env_from_file(path: &str) -> std::io::Result<()> {
     if std::path::Path::new(path).exists() {
-        dotenv::from_filename(path).map_err(|e| {
-            std::io::Error::new(
-                std::io::ErrorKind::Other,
-                format!("Failed to load .env file: {}", e),
-            )
-        })?;
+        dotenv::from_filename(path)
+            .map_err(|e| std::io::Error::other(format!("Failed to load .env file: {}", e)))?;
     }
     Ok(())
 }
@@ -232,22 +206,5 @@ mod tests {
         
         env::remove_var("TEST_MULTI_1");
         env::remove_var("TEST_MULTI_2");
-    }
-
-    #[test]
-    #[allow(deprecated)]
-    fn test_must_get_env_with_existing_var() {
-        env::set_var("TEST_MUST_VAR", "required_value");
-        let result = must_get_env("TEST_MUST_VAR");
-        assert_eq!(result, "required_value");
-        env::remove_var("TEST_MUST_VAR");
-    }
-
-    #[test]
-    #[should_panic(expected = "FATAL: Environment variable 'TEST_MISSING_REQUIRED' is required but not set")]
-    #[allow(deprecated)]
-    fn test_must_get_env_with_missing_var() {
-        env::remove_var("TEST_MISSING_REQUIRED");
-        must_get_env("TEST_MISSING_REQUIRED");
     }
 }
