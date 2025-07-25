@@ -3,6 +3,9 @@
 use std::env;
 use crate::{ConfigError, ConfigResult};
 
+/// Type alias for custom environment source
+type CustomEnvSource = dyn Fn(&str) -> Option<String>;
+
 /// Source for loading environment variables
 pub enum EnvironmentSource {
     /// Load from system environment
@@ -10,7 +13,7 @@ pub enum EnvironmentSource {
     /// Load from .env file
     DotEnv(String),
     /// Load from custom source
-    Custom(Box<dyn Fn(&str) -> Option<String>>),
+    Custom(Box<CustomEnvSource>),
 }
 
 impl EnvironmentSource {
@@ -45,6 +48,7 @@ impl EnvironmentSource {
 }
 
 /// Helper to extract values by prefix
+#[allow(dead_code)]
 pub fn extract_by_prefix(prefix: &str) -> Vec<(String, String)> {
     env::vars()
         .filter(|(k, _)| k.starts_with(prefix))
@@ -52,6 +56,7 @@ pub fn extract_by_prefix(prefix: &str) -> Vec<(String, String)> {
 }
 
 /// Helper to extract and parse chain IDs from RPC_URL_{CHAIN_ID} pattern
+#[allow(dead_code)]
 pub fn extract_chain_rpc_urls() -> Vec<(u64, String)> {
     extract_by_prefix("RPC_URL_")
         .into_iter()
@@ -64,6 +69,7 @@ pub fn extract_chain_rpc_urls() -> Vec<(u64, String)> {
 }
 
 /// Helper to extract and parse contract addresses
+#[allow(dead_code)]
 pub fn extract_contract_overrides(chain_id: u64) -> Vec<(String, String)> {
     let prefixes = ["ROUTER_", "QUOTER_", "FACTORY_", "WETH_", "USDC_", "USDT_"];
     
