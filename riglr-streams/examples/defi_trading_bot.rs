@@ -7,15 +7,15 @@ use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 use std::any::Any;
 use riglr_streams::core::{
-    StreamManagerBuilder, HandlerExecutionMode,
-    ComposableStream, FinancialStreamExt, BufferStrategy,
-    combinators, Stream, operators::BatchEvent,
+    ComposableStream,
+    Stream, operators::BatchEvent,
     financial_operators::AsNumeric
 };
 // use riglr_streams::solana::geyser::{SolanaGeyserStream, GeyserConfig};
 // use riglr_streams::external::binance::{BinanceStream, BinanceConfig};
-use riglr_solana_events::{EventType, ProtocolType, UnifiedEvent};
-use tracing::{info, warn, error, Level};
+use riglr_solana_events::ProtocolType;
+use riglr_events_core::{Event, EventKind, EventMetadata};
+use tracing::{info, Level};
 use tracing_subscriber;
 use async_trait::async_trait;
 
@@ -72,26 +72,30 @@ impl Stream for DummyStream {
 }
 
 #[derive(Clone, Debug)]
-struct DummyEvent;
+struct DummyEvent {
+    metadata: EventMetadata,
+}
 
-impl UnifiedEvent for DummyEvent {
+impl DummyEvent {
+    fn new() -> Self {
+        Self {
+            metadata: EventMetadata::new(
+                "dummy".to_string(),
+                EventKind::Custom("dummy".to_string()),
+                "dummy".to_string(),
+            ),
+        }
+    }
+}
+
+impl Event for DummyEvent {
     fn id(&self) -> &str { "dummy" }
-    fn event_type(&self) -> EventType { EventType::Unknown }
-    fn signature(&self) -> &str { "dummy" }
-    fn slot(&self) -> u64 { 0 }
-    fn program_received_time_ms(&self) -> i64 { 0 }
-    fn program_handle_time_consuming_ms(&self) -> i64 { 0 }
-    fn set_program_handle_time_consuming_ms(&mut self, _time: i64) {}
+    fn kind(&self) -> &EventKind { &self.metadata.kind }
+    fn metadata(&self) -> &EventMetadata { &self.metadata }
+    fn metadata_mut(&mut self) -> &mut EventMetadata { &mut self.metadata }
     fn as_any(&self) -> &dyn Any { self }
     fn as_any_mut(&mut self) -> &mut dyn Any { self }
-    fn clone_boxed(&self) -> Box<dyn UnifiedEvent> { Box::new(self.clone()) }
-    fn set_transfer_datas(&mut self, _transfer_datas: Vec<riglr_solana_events::TransferData>, _swap_data: Option<riglr_solana_events::SwapData>) {}
-    fn index(&self) -> String { "dummy".to_string() }
-    fn protocol_type(&self) -> ProtocolType { ProtocolType::Other("dummy".to_string()) }
-    fn timestamp(&self) -> SystemTime { SystemTime::now() }
-    fn transaction_hash(&self) -> Option<String> { None }
-    fn block_number(&self) -> Option<u64> { None }
-    fn stream_metadata(&self) -> Option<&riglr_solana_events::StreamMetadata> { None }
+    fn clone_boxed(&self) -> Box<dyn Event> { Box::new(self.clone()) }
 }
 
 /// Build the complete trading pipeline  
@@ -104,25 +108,23 @@ async fn build_trading_pipeline() -> Result<TradingPipeline, Box<dyn std::error:
     
     // 2. Create a basic composed stream with technical indicators
     let price_feed = dummy_stream
-        .map(|_event| PriceData {
-            symbol: "SOL/USDT".to_string(),
-            price: 100.0,
-            volume: 1000000.0,
-            timestamp: SystemTime::now(),
-        })
+        .map(|_event| PriceData::new(
+            "SOL/USDT".to_string(),
+            100.0,
+            1000000.0,
+        ))
         .throttle(Duration::from_secs(1))  // Throttle to 1 update per second
         .batch(5, Duration::from_secs(10)); // Batch 5 events or 10 seconds
     
     // 3. Create a simple DEX monitor stream  
     let dex_monitor = DummyStream
         .filter(|_event| true)  // Filter for relevant events
-        .map(|_event| DexTrade {
-            protocol: ProtocolType::Other("Jupiter".to_string()),
-            pair: "SOL/USDC".to_string(),
-            price: 99.5,
-            volume: 10000.0,
-            timestamp: SystemTime::now(),
-        })
+        .map(|_event| DexTrade::new(
+            ProtocolType::Other("Jupiter".to_string()),
+            "SOL/USDC".to_string(),
+            99.5,
+            10000.0,
+        ))
         .debounce(Duration::from_millis(500)); // Debounce events
     
     // 4. Create execution pipeline with batching
@@ -256,26 +258,22 @@ struct Transaction {
     deadline: SystemTime,
 }
 
-impl UnifiedEvent for Transaction {
+impl Event for Transaction {
     fn id(&self) -> &str { &self.from }
-    fn event_type(&self) -> EventType { EventType::Transaction }
-    fn signature(&self) -> &str { &self.from }
-    fn slot(&self) -> u64 { 0 }
-    fn program_received_time_ms(&self) -> i64 { 
-        self.deadline.duration_since(SystemTime::UNIX_EPOCH).unwrap_or_default().as_millis() as i64
+    fn kind(&self) -> &EventKind { 
+        static KIND: EventKind = EventKind::Transaction;
+        &KIND
     }
-    fn program_handle_time_consuming_ms(&self) -> i64 { 0 }
-    fn set_program_handle_time_consuming_ms(&mut self, _time: i64) {}
+    fn metadata(&self) -> &EventMetadata { 
+        // Return a dummy metadata - this should ideally be stored in the struct
+        panic!("Transaction metadata not implemented")
+    }
+    fn metadata_mut(&mut self) -> &mut EventMetadata { 
+        panic!("Transaction metadata not implemented")
+    }
     fn as_any(&self) -> &dyn Any { self }
     fn as_any_mut(&mut self) -> &mut dyn Any { self }
-    fn clone_boxed(&self) -> Box<dyn UnifiedEvent> { Box::new(self.clone()) }
-    fn set_transfer_datas(&mut self, _transfer_datas: Vec<riglr_solana_events::TransferData>, _swap_data: Option<riglr_solana_events::SwapData>) {}
-    fn index(&self) -> String { self.from.clone() }
-    fn protocol_type(&self) -> ProtocolType { ProtocolType::Other("Transaction".to_string()) }
-    fn timestamp(&self) -> SystemTime { self.deadline }
-    fn transaction_hash(&self) -> Option<String> { None }
-    fn block_number(&self) -> Option<u64> { None }
-    fn stream_metadata(&self) -> Option<&riglr_solana_events::StreamMetadata> { None }
+    fn clone_boxed(&self) -> Box<dyn Event> { Box::new(self.clone()) }
 }
 
 impl AsNumeric for Transaction {
@@ -322,7 +320,7 @@ impl AsNumeric for Transaction {
 //     Ok(stream)
 // }
 
-fn is_relevant_price_update(event: &dyn Any) -> bool {
+fn is_relevant_price_update(_event: &dyn Any) -> bool {
     // Check if it's a SOL/USDT price update
     true
 }
@@ -334,23 +332,21 @@ fn is_major_dex(protocol: ProtocolType) -> bool {
     )
 }
 
-fn extract_price_data(event: Arc<dyn Any>) -> PriceData {
-    PriceData {
-        symbol: "SOL/USDT".to_string(),
-        price: 100.0,  // Would extract from event
-        volume: 1000000.0,
-        timestamp: SystemTime::now(),
-    }
+fn extract_price_data(_event: Arc<dyn Any>) -> PriceData {
+    PriceData::new(
+        "SOL/USDT".to_string(),
+        100.0,  // Would extract from event
+        1000000.0,
+    )
 }
 
-fn extract_dex_trade(event: Arc<dyn Any>) -> DexTrade {
-    DexTrade {
-        protocol: ProtocolType::Other("Jupiter".to_string()),
-        pair: "SOL/USDC".to_string(),
-        price: 99.5,
-        volume: 10000.0,
-        timestamp: SystemTime::now(),
-    }
+fn extract_dex_trade(_event: Arc<dyn Any>) -> DexTrade {
+    DexTrade::new(
+        ProtocolType::Other("Jupiter".to_string()),
+        "SOL/USDC".to_string(),
+        99.5,
+        10000.0,
+    )
 }
 
 fn calculate_arbitrage_opportunity(cex: PriceWithIndicators, dex: DexData) -> ArbitrageOpportunity {
@@ -401,28 +397,33 @@ struct PriceData {
     price: f64,
     volume: f64,
     timestamp: SystemTime,
+    metadata: EventMetadata,
 }
 
-impl UnifiedEvent for PriceData {
-    fn id(&self) -> &str { &self.symbol }
-    fn event_type(&self) -> EventType { EventType::PriceUpdate }
-    fn signature(&self) -> &str { &self.symbol }
-    fn slot(&self) -> u64 { 0 }
-    fn program_received_time_ms(&self) -> i64 { 
-        self.timestamp.duration_since(SystemTime::UNIX_EPOCH).unwrap_or_default().as_millis() as i64
+impl PriceData {
+    fn new(symbol: String, price: f64, volume: f64) -> Self {
+        Self {
+            symbol: symbol.clone(),
+            price,
+            volume,
+            timestamp: SystemTime::now(),
+            metadata: EventMetadata::new(
+                symbol,
+                EventKind::Custom("price_data".to_string()),
+                "price_stream".to_string(),
+            ),
+        }
     }
-    fn program_handle_time_consuming_ms(&self) -> i64 { 0 }
-    fn set_program_handle_time_consuming_ms(&mut self, _time: i64) {}
+}
+
+impl Event for PriceData {
+    fn id(&self) -> &str { &self.symbol }
+    fn kind(&self) -> &EventKind { &self.metadata.kind }
+    fn metadata(&self) -> &EventMetadata { &self.metadata }
+    fn metadata_mut(&mut self) -> &mut EventMetadata { &mut self.metadata }
     fn as_any(&self) -> &dyn Any { self }
     fn as_any_mut(&mut self) -> &mut dyn Any { self }
-    fn clone_boxed(&self) -> Box<dyn UnifiedEvent> { Box::new(self.clone()) }
-    fn set_transfer_datas(&mut self, _transfer_datas: Vec<riglr_solana_events::TransferData>, _swap_data: Option<riglr_solana_events::SwapData>) {}
-    fn index(&self) -> String { self.symbol.clone() }
-    fn protocol_type(&self) -> ProtocolType { ProtocolType::Other("Price".to_string()) }
-    fn timestamp(&self) -> SystemTime { self.timestamp }
-    fn transaction_hash(&self) -> Option<String> { None }
-    fn block_number(&self) -> Option<u64> { None }
-    fn stream_metadata(&self) -> Option<&riglr_solana_events::StreamMetadata> { None }
+    fn clone_boxed(&self) -> Box<dyn Event> { Box::new(self.clone()) }
 }
 
 impl AsNumeric for PriceData {
@@ -458,29 +459,36 @@ struct DexTrade {
     price: f64,
     volume: f64,
     timestamp: SystemTime,
+    metadata: EventMetadata,
 }
 
-impl UnifiedEvent for DexTrade {
-    fn id(&self) -> &str { &self.pair }
-    fn event_type(&self) -> EventType { EventType::Trade }
-    fn signature(&self) -> &str { &self.pair }
-    fn slot(&self) -> u64 { 0 }
-    fn program_received_time_ms(&self) -> i64 { 
-        self.timestamp.duration_since(SystemTime::UNIX_EPOCH).unwrap_or_default().as_millis() as i64
+impl DexTrade {
+    fn new(protocol: ProtocolType, pair: String, price: f64, volume: f64) -> Self {
+        Self {
+            protocol: protocol.clone(),
+            pair: pair.clone(),
+            price,
+            volume,
+            timestamp: SystemTime::now(),
+            metadata: EventMetadata::new(
+                pair,
+                EventKind::Swap,
+                format!("{:?}", protocol),
+            ),
+        }
     }
-    fn program_handle_time_consuming_ms(&self) -> i64 { 0 }
-    fn set_program_handle_time_consuming_ms(&mut self, _time: i64) {}
+}
+
+impl Event for DexTrade {
+    fn id(&self) -> &str { &self.pair }
+    fn kind(&self) -> &EventKind { &self.metadata.kind }
+    fn metadata(&self) -> &EventMetadata { &self.metadata }
+    fn metadata_mut(&mut self) -> &mut EventMetadata { &mut self.metadata }
     fn as_any(&self) -> &dyn Any { self }
     fn as_any_mut(&mut self) -> &mut dyn Any { self }
-    fn clone_boxed(&self) -> Box<dyn UnifiedEvent> { Box::new(self.clone()) }
-    fn set_transfer_datas(&mut self, _transfer_datas: Vec<riglr_solana_events::TransferData>, _swap_data: Option<riglr_solana_events::SwapData>) {}
-    fn index(&self) -> String { self.pair.clone() }
-    fn protocol_type(&self) -> ProtocolType { self.protocol.clone() }
-    fn timestamp(&self) -> SystemTime { self.timestamp }
-    fn transaction_hash(&self) -> Option<String> { None }
-    fn block_number(&self) -> Option<u64> { None }
-    fn stream_metadata(&self) -> Option<&riglr_solana_events::StreamMetadata> { None }
+    fn clone_boxed(&self) -> Box<dyn Event> { Box::new(self.clone()) }
 }
+// impl Event for DexTrade { ... }
 
 impl AsNumeric for DexTrade {
     fn as_price(&self) -> Option<f64> {

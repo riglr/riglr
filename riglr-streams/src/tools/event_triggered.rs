@@ -2,18 +2,18 @@ use std::sync::Arc;
 use std::any::Any;
 use tokio::sync::RwLock;
 use async_trait::async_trait;
-use riglr_solana_events::UnifiedEvent;
-use tracing::{info, debug, warn};
+use riglr_events_core::prelude::Event;
+use tracing::{info, debug};
 
 use crate::core::{EventHandler, StreamManager};
 use super::condition::{EventCondition, ConditionCombinator};
-use super::event_utils::as_unified_event;
+use super::event_utils::as_event;
 
 /// Generic tool trait for event-triggered execution
 #[async_trait]
 pub trait StreamingTool: Send + Sync {
     /// Execute the tool
-    async fn execute(&self, event: &dyn UnifiedEvent) -> Result<(), Box<dyn std::error::Error + Send + Sync>>;
+    async fn execute(&self, event: &dyn Event) -> Result<(), Box<dyn std::error::Error + Send + Sync>>;
     
     /// Get tool name
     fn name(&self) -> &str;
@@ -93,14 +93,12 @@ impl<T: StreamingTool + 'static> EventTriggeredTool<T> {
     
     /// Execute the tool with event context
     async fn execute_with_event(&self, event: Arc<dyn Any + Send + Sync>) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        // Use centralized helper to get UnifiedEvent
-        let unified_event = as_unified_event(event.as_ref());
-        
-        if let Some(unified_event) = unified_event {
+        // Try to downcast to specific event types that implement Event
+        if let Some(event_ref) = as_event(event.as_ref()) {
             info!(
-                "Executing tool {} triggered by event type {:?}",
+                "Executing tool {} triggered by event kind {:?}",
                 self.name,
-                unified_event.event_type()
+                event_ref.kind()
             );
             
             // Increment execution count
@@ -110,9 +108,9 @@ impl<T: StreamingTool + 'static> EventTriggeredTool<T> {
             }
             
             // Execute the underlying tool
-            self.tool.execute(unified_event).await?;
+            self.tool.execute(event_ref).await?;
         } else {
-            debug!("Event is not a UnifiedEvent, skipping tool execution");
+            debug!("Event is not an Event, skipping tool execution");
         }
         
         Ok(())

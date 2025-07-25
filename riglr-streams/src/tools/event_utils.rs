@@ -1,12 +1,9 @@
 use std::any::Any;
-use riglr_solana_events::UnifiedEvent;
+use riglr_events_core::prelude::Event;
 
-/// Helper to convert Any to UnifiedEvent by trying all known event types
-pub fn as_unified_event(event: &(dyn Any + Send + Sync)) -> Option<&dyn UnifiedEvent> {
-    // Try to downcast to various event types that implement UnifiedEvent
-    if let Some(solana_event) = event.downcast_ref::<crate::solana::SolanaStreamEvent>() {
-        return Some(solana_event);
-    }
+/// Helper to convert Any to Event by trying all known event types
+pub fn as_event(event: &(dyn Any + Send + Sync)) -> Option<&dyn Event> {
+    // Try to downcast to various event types that implement Event
     if let Some(evm_event) = event.downcast_ref::<crate::evm::EvmStreamEvent>() {
         return Some(evm_event);
     }
@@ -24,10 +21,10 @@ pub fn as_unified_event(event: &(dyn Any + Send + Sync)) -> Option<&dyn UnifiedE
 #[macro_export]
 macro_rules! register_event_types {
     ($($event_type:ty),*) => {
-        pub fn as_unified_event_extended(event: &(dyn Any + Send + Sync)) -> Option<&dyn UnifiedEvent> {
+        pub fn as_event_extended(event: &(dyn Any + Send + Sync)) -> Option<&dyn Event> {
             // First try the built-in types
-            if let Some(unified) = as_unified_event(event) {
-                return Some(unified);
+            if let Some(event_ref) = as_event(event) {
+                return Some(event_ref);
             }
             
             // Then try the extended types

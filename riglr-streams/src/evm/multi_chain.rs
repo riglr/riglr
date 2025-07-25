@@ -49,7 +49,7 @@ impl MultiChainEvmManager {
         self.streams.write().await.insert(chain_id, stream);
         
         // If we have a stream manager, register with it
-        if let Some(manager) = &self.stream_manager {
+        if let Some(_manager) = &self.stream_manager {
             // Note: This would require the stream to be wrapped as DynamicStream
             // For now, we'll just log
             info!("Added EVM stream for chain: {}", chain_id);
