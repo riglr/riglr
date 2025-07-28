@@ -210,9 +210,42 @@ fn encode_function_call_with_types(
 ) -> Result<(Bytes, Vec<String>), Box<dyn std::error::Error + Send + Sync>> {
     // Check if it's a 4-byte selector
     if function_or_selector.starts_with("0x") && function_or_selector.len() == 10 {
-        // Legacy selector-based encoding for backward compatibility
-        let bytes = encode_selector_and_params(function_or_selector, params)?;
-        return Ok((bytes, vec!["bytes".to_string()])); // Unknown output type
+        // Handle selector-based encoding directly
+        let mut data: Vec<u8> = Vec::new();
+        let sel = function_or_selector.strip_prefix("0x").unwrap_or(function_or_selector);
+        let selector_bytes = primitives::hex::decode(sel)
+            .map_err(|e| format!("Invalid function selector: {}", e))?;
+        if selector_bytes.len() != 4 {
+            return Err(format!("Function selector must be 4 bytes (8 hex chars), got {} bytes", selector_bytes.len()).into());
+        }
+        data.extend_from_slice(&selector_bytes);
+        
+        // Encode parameters as 32-byte words (basic ABI encoding)
+        for p in params {
+            // Try to determine type and encode appropriately
+            let encoded = if p.starts_with("0x") && p.len() == 42 {
+                // Likely an address
+                let val = parse_param_to_dyn_sol_value(p, "address")?;
+                val.abi_encode()
+            } else if p.starts_with("0x") && p.len() == 66 {
+                // Likely bytes32
+                let val = parse_param_to_dyn_sol_value(p, "bytes32")?;
+                val.abi_encode()
+            } else if p.starts_with("0x") {
+                // Other hex data - treat as bytes
+                let val = parse_param_to_dyn_sol_value(p, "bytes")?;
+                val.abi_encode()
+            } else if p.chars().all(|c| c.is_ascii_digit() || c == '-') {
+                // Numeric - treat as uint256
+                let val = parse_param_to_dyn_sol_value(p, "uint256")?;
+                val.abi_encode()
+            } else {
+                return Err(format!("Unsupported param format: {}. Use 0x-prefixed hex or decimal number.", p).into());
+            };
+            data.extend_from_slice(&encoded);
+        }
+        
+        return Ok((Bytes::from(data), vec!["bytes".to_string()])); // Unknown output type
     }
     
     // Parse as function signature
@@ -247,38 +280,6 @@ fn encode_function_call_with_types(
         .collect();
     
     Ok((Bytes::from(encoded), output_types))
-}
-
-/// Legacy wrapper for backward compatibility
-#[allow(dead_code)]
-fn encode_function_call(
-    function_or_selector: &str,
-    params: &[String],
-) -> Result<Bytes, Box<dyn std::error::Error + Send + Sync>> {
-    let (bytes, _) = encode_function_call_with_types(function_or_selector, params)?;
-    Ok(bytes)
-}
-
-/// Legacy selector-based encoding for backward compatibility
-fn encode_selector_and_params(
-    selector_hex: &str,
-    params: &[String],
-) -> Result<Bytes, Box<dyn std::error::Error + Send + Sync>> {
-    let mut data: Vec<u8> = Vec::new();
-    let sel = selector_hex.strip_prefix("0x").unwrap_or(selector_hex);
-    let selector_bytes = primitives::hex::decode(sel)
-        .map_err(|e| format!("Invalid function selector: {}", e))?;
-    if selector_bytes.len() != 4 {
-        return Err(format!("Function selector must be 4 bytes (8 hex chars), got {} bytes", selector_bytes.len()).into());
-    }
-    data.extend_from_slice(&selector_bytes);
-
-    for p in params {
-        let encoded = encode_param_word(p)?;
-        data.extend_from_slice(&encoded);
-    }
-
-    Ok(Bytes::from(data))
 }
 
 /// Parse a string parameter into a DynSolValue based on the expected type.
@@ -445,35 +446,6 @@ fn parse_param_to_dyn_sol_value(
             Err(format!("Unsupported type: {}", expected_type).into())
         }
     }
-}
-
-/// Legacy function for backward compatibility - encodes a single word
-fn encode_param_word(p: &str) -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>> {
-    // Try to parse as address
-    if p.starts_with("0x") && p.len() == 42 {
-        let val = parse_param_to_dyn_sol_value(p, "address")?;
-        return Ok(val.abi_encode());
-    }
-
-    // Try to parse as bytes32
-    if p.starts_with("0x") && p.len() == 66 {
-        let val = parse_param_to_dyn_sol_value(p, "bytes32")?;
-        return Ok(val.abi_encode());
-    }
-
-    // Try to parse as hex bytes
-    if p.starts_with("0x") {
-        let val = parse_param_to_dyn_sol_value(p, "bytes")?;
-        return Ok(val.abi_encode());
-    }
-
-    // Try to parse as uint256
-    if p.chars().all(|c| c.is_ascii_digit() || c == '-') {
-        let val = parse_param_to_dyn_sol_value(p, "uint256")?;
-        return Ok(val.abi_encode());
-    }
-
-    Err(format!("Unsupported param format: {}. Use 0x-prefixed hex or decimal number.", p).into())
 }
 
 /// Decode contract call result based on expected output types

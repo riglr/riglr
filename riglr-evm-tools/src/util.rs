@@ -98,7 +98,7 @@ where
 {
     // Get signer from context
     let signer = SignerContext::current().await
-        .map_err(|e| EvmToolError::SignerError(e.into()))?;
+        .map_err(EvmToolError::SignerError)?;
     
     // Get EVM address
     let address_str = signer.address()
@@ -114,7 +114,7 @@ where
     
     // Sign and send via signer context
     signer.sign_and_send_evm_transaction(tx).await
-        .map_err(|e| EvmToolError::SignerError(e.into()))
+        .map_err(EvmToolError::SignerError)
 }
 
 #[cfg(test)]
