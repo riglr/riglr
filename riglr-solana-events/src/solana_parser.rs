@@ -10,7 +10,7 @@ use solana_transaction_status::UiCompiledInstruction;
 
 use riglr_events_core::prelude::*;
 use crate::events::core::traits::{EventParser as LegacyEventParser};
-use crate::events::factory::{EventParserRegistry, Protocol};
+use crate::events::factory::{EventParserRegistry, Protocol, InstructionParseParams, InnerInstructionParseParams};
 use crate::solana_events::SolanaEvent;
 
 /// Input type for Solana transaction parsing
@@ -112,13 +112,15 @@ impl SolanaEventParser {
     /// Parse events from a Solana instruction
     pub async fn parse_instruction(&self, input: SolanaTransactionInput) -> EventResult<Vec<SolanaEvent>> {
         let legacy_events = self.legacy_parser.parse_events_from_instruction(
-            &input.instruction,
-            &input.accounts,
-            &input.signature,
-            input.slot,
-            input.block_time,
-            input.received_time.timestamp_millis(),
-            input.instruction_index.to_string(),
+            InstructionParseParams {
+                instruction: &input.instruction,
+                accounts: &input.accounts,
+                signature: &input.signature,
+                slot: input.slot,
+                block_time: input.block_time,
+                program_received_time_ms: input.received_time.timestamp_millis(),
+                index: input.instruction_index.to_string(),
+            }
         );
 
         let solana_events = legacy_events
@@ -132,12 +134,14 @@ impl SolanaEventParser {
     /// Parse events from a Solana inner instruction
     pub async fn parse_inner_instruction(&self, input: SolanaInnerInstructionInput) -> EventResult<Vec<SolanaEvent>> {
         let legacy_events = self.legacy_parser.parse_events_from_inner_instruction(
-            &input.inner_instruction,
-            &input.signature,
-            input.slot,
-            input.block_time,
-            input.received_time.timestamp_millis(),
-            input.instruction_index.clone(),
+            InnerInstructionParseParams {
+                inner_instruction: &input.inner_instruction,
+                signature: &input.signature,
+                slot: input.slot,
+                block_time: input.block_time,
+                program_received_time_ms: input.received_time.timestamp_millis(),
+                index: input.instruction_index.clone(),
+            }
         );
 
         let solana_events = legacy_events
@@ -358,7 +362,7 @@ mod tests {
         
         assert_eq!(parser.info.name, "solana-event-parser");
         assert_eq!(parser.info.version, "1.0.0");
-        assert!(parser.info.supported_kinds.len() > 0);
+        assert!(!parser.info.supported_kinds.is_empty());
         assert!(parser.info.supported_formats.contains(&"solana-instruction".to_string()));
     }
 
@@ -434,7 +438,7 @@ mod tests {
         );
 
         // This should be false because we don't have any parsers configured for random program IDs
-        assert_eq!(parser.can_parse(&input), false);
+        assert!(!parser.can_parse(&input));
     }
 
     #[tokio::test]

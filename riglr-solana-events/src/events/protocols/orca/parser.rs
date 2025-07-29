@@ -7,7 +7,7 @@ use crate::{
     events::common::utils::{has_discriminator, parse_u64_le, parse_u128_le, parse_u32_le},
 };
 use super::{
-    events::{OrcaSwapEvent, OrcaPositionEvent, OrcaLiquidityEvent},
+    events::{OrcaSwapEvent, OrcaPositionEvent, OrcaLiquidityEvent, EventParameters},
     types::{
         orca_whirlpool_program_id, OrcaSwapData, OrcaPositionData, OrcaLiquidityData,
         SWAP_DISCRIMINATOR, OPEN_POSITION_DISCRIMINATOR, CLOSE_POSITION_DISCRIMINATOR,
@@ -208,13 +208,15 @@ fn parse_orca_swap_inner_instruction(
 ) -> Option<Box<dyn Event>> {
     parse_orca_swap_data(data).map(|swap_data| {
         Box::new(OrcaSwapEvent::new(
-            metadata.id,
-            metadata.signature,
-            metadata.slot,
-            metadata.block_time,
-            metadata.block_time_ms,
-            metadata.program_received_time_ms,
-            metadata.index,
+            EventParameters::new(
+                metadata.id,
+                metadata.signature,
+                metadata.slot,
+                metadata.block_time,
+                metadata.block_time_ms,
+                metadata.program_received_time_ms,
+                metadata.index,
+            ),
             swap_data,
         )) as Box<dyn Event>
     })
@@ -227,13 +229,15 @@ fn parse_orca_swap_instruction(
 ) -> Option<Box<dyn Event>> {
     parse_orca_swap_data_from_instruction(data, accounts).map(|swap_data| {
         Box::new(OrcaSwapEvent::new(
-            metadata.id,
-            metadata.signature,
-            metadata.slot,
-            metadata.block_time,
-            metadata.block_time_ms,
-            metadata.program_received_time_ms,
-            metadata.index,
+            EventParameters::new(
+                metadata.id,
+                metadata.signature,
+                metadata.slot,
+                metadata.block_time,
+                metadata.block_time_ms,
+                metadata.program_received_time_ms,
+                metadata.index,
+            ),
             swap_data,
         )) as Box<dyn Event>
     })
@@ -566,11 +570,3 @@ fn parse_orca_liquidity_data_from_instruction(data: &[u8], accounts: &[Pubkey], 
     Some(liquidity_data)
 }
 
-impl Default for PositionRewardInfo {
-    fn default() -> Self {
-        Self {
-            growth_inside_checkpoint: 0,
-            amount_owed: 0,
-        }
-    }
-}

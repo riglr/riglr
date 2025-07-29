@@ -4,6 +4,29 @@ use crate::events::core::EventParser;
 use crate::types::ProtocolType;
 use riglr_events_core::Event;
 
+/// Parameters for parsing events from instructions, reducing function parameter count
+#[derive(Debug)]
+pub struct InstructionParseParams<'a> {
+    pub instruction: &'a solana_sdk::instruction::CompiledInstruction,
+    pub accounts: &'a [solana_sdk::pubkey::Pubkey],
+    pub signature: &'a str,
+    pub slot: u64,
+    pub block_time: Option<i64>,
+    pub program_received_time_ms: i64,
+    pub index: String,
+}
+
+/// Parameters for parsing events from inner instructions, reducing function parameter count
+#[derive(Debug)]
+pub struct InnerInstructionParseParams<'a> {
+    pub inner_instruction: &'a solana_transaction_status::UiCompiledInstruction,
+    pub signature: &'a str,
+    pub slot: u64,
+    pub block_time: Option<i64>,
+    pub program_received_time_ms: i64,
+    pub index: String,
+}
+
 /// Protocol enum for supported protocols
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Protocol {
@@ -99,24 +122,16 @@ impl EventParserRegistry {
     }
 
     /// Parse events from inner instruction using the appropriate parser
-    pub fn parse_events_from_inner_instruction(
-        &self,
-        inner_instruction: &solana_transaction_status::UiCompiledInstruction,
-        signature: &str,
-        slot: u64,
-        block_time: Option<i64>,
-        program_received_time_ms: i64,
-        index: String,
-    ) -> Vec<Box<dyn Event>> {
+    pub fn parse_events_from_inner_instruction(&self, params: InnerInstructionParseParams) -> Vec<Box<dyn Event>> {
         // Try to identify the program and use the appropriate parser
         for parser in self.parsers.values() {
             let events = parser.parse_events_from_inner_instruction(
-                inner_instruction,
-                signature,
-                slot,
-                block_time,
-                program_received_time_ms,
-                index.clone(),
+                params.inner_instruction,
+                params.signature,
+                params.slot,
+                params.block_time,
+                params.program_received_time_ms,
+                params.index.clone(),
             );
             if !events.is_empty() {
                 return events;
@@ -126,28 +141,18 @@ impl EventParserRegistry {
     }
 
     /// Parse events from instruction using the appropriate parser
-    #[allow(clippy::too_many_arguments)]
-    pub fn parse_events_from_instruction(
-        &self,
-        instruction: &solana_sdk::instruction::CompiledInstruction,
-        accounts: &[solana_sdk::pubkey::Pubkey],
-        signature: &str,
-        slot: u64,
-        block_time: Option<i64>,
-        program_received_time_ms: i64,
-        index: String,
-    ) -> Vec<Box<dyn Event>> {
+    pub fn parse_events_from_instruction(&self, params: InstructionParseParams) -> Vec<Box<dyn Event>> {
         // Get the program ID from the instruction
-        if let Some(program_id) = accounts.get(instruction.program_id_index as usize) {
+        if let Some(program_id) = params.accounts.get(params.instruction.program_id_index as usize) {
             if let Some(parser) = self.get_parser_for_program(program_id) {
                 return parser.parse_events_from_instruction(
-                    instruction,
-                    accounts,
-                    signature,
-                    slot,
-                    block_time,
-                    program_received_time_ms,
-                    index,
+                    params.instruction,
+                    params.accounts,
+                    params.signature,
+                    params.slot,
+                    params.block_time,
+                    params.program_received_time_ms,
+                    params.index,
                 );
             }
         }
@@ -166,12 +171,10 @@ impl EventParserRegistry {
 
     /// Create a registry with all available parsers
     pub fn with_all_parsers() -> Self {
-        let mut registry = Self::new();
-        
         // Add parsers for all supported protocols
         // Note: Specific protocol parsers will be added here once they're updated
         
-        registry
+        Self::new()
     }
 }
 

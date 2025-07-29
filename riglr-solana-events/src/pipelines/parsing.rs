@@ -383,7 +383,6 @@ impl Default for ParsingPipelineBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tokio_stream::iter;
     use crate::parsers::{RaydiumV4ParserFactory, JupiterParserFactory};
 
     #[tokio::test]

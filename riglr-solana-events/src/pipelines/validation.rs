@@ -634,10 +634,12 @@ mod tests {
         };
         let pipeline = ValidationPipeline::new(config);
         
-        let mut metadata = EventMetadata::default();
-        metadata.id = "test-event-1".to_string();
-        metadata.signature = "test-signature".to_string();
-        metadata.index = "0".to_string();
+        let metadata = EventMetadata {
+            id: "test-event-1".to_string(),
+            signature: "test-signature".to_string(),
+            index: "0".to_string(),
+            ..Default::default()
+        };
         
         let event = ZeroCopyEvent::new_owned(metadata.clone(), vec![]);
         
