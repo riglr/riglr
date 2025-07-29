@@ -95,3 +95,5 @@ neo4j/
 
 # Example .env (this should be tracked)
 !.env.example
+
+*.xml
