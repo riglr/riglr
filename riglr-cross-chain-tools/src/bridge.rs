@@ -183,9 +183,9 @@ fn convert_token(token: &Token) -> TokenInfo {
 /// Convert LiFi CrossChainRoute to our RouteInfo
 fn convert_route(route: &CrossChainRoute) -> Result<RouteInfo, ToolError> {
     let from_chain = chain_id_to_name(route.from_chain_id)
-        .map_err(|e| ToolError::permanent(format!("Invalid from chain ID: {}", e)))?;
+        .map_err(|e| ToolError::permanent_string(format!("Invalid from chain ID: {}", e)))?;
     let to_chain = chain_id_to_name(route.to_chain_id)
-        .map_err(|e| ToolError::permanent(format!("Invalid to chain ID: {}", e)))?;
+        .map_err(|e| ToolError::permanent_string(format!("Invalid to chain ID: {}", e)))?;
         
     let protocols: Vec<String> = route.steps.iter()
         .map(|step| step.tool.clone())
@@ -216,7 +216,7 @@ fn convert_route(route: &CrossChainRoute) -> Result<RouteInfo, ToolError> {
 async fn create_lifi_client() -> Result<LiFiClient, ToolError> {
     // In a production environment, you might want to get API key from environment
     let client = LiFiClient::new()
-        .map_err(|e| ToolError::permanent(format!("Failed to create LiFi client: {}", e)))?;
+        .map_err(|e| ToolError::permanent_string(format!("Failed to create LiFi client: {}", e)))?;
         
     // Optionally set API key from environment
     if let Ok(api_key) = std::env::var("LIFI_API_KEY") {
@@ -303,7 +303,7 @@ pub async fn get_cross_chain_routes(
     
     // Get signer to determine user's address
     let signer = SignerContext::current().await
-        .map_err(|e| ToolError::permanent(format!("No signer context available: {}", e)))?;
+        .map_err(|e| ToolError::permanent_string(format!("No signer context available: {}", e)))?;
     
     let from_address = signer.address();
     
@@ -312,9 +312,9 @@ pub async fn get_cross_chain_routes(
     
     // Convert chain names to IDs
     let from_chain_id = chain_name_to_id(&from_chain)
-        .map_err(|e| ToolError::permanent(format!("Unsupported from_chain '{}': {}", from_chain, e)))?;
+        .map_err(|e| ToolError::permanent_string(format!("Unsupported from_chain '{}': {}", from_chain, e)))?;
     let to_chain_id = chain_name_to_id(&to_chain)
-        .map_err(|e| ToolError::permanent(format!("Unsupported to_chain '{}': {}", to_chain, e)))?;
+        .map_err(|e| ToolError::permanent_string(format!("Unsupported to_chain '{}': {}", to_chain, e)))?;
     
     // Prepare route request
     let route_request = RouteRequest {
@@ -332,23 +332,23 @@ pub async fn get_cross_chain_routes(
     let routes = lifi_client.get_routes(&route_request).await
         .map_err(|e| match e {
             LiFiError::RouteNotFound { .. } => {
-                ToolError::permanent(format!("No routes found between {} and {}", from_chain, to_chain))
+                ToolError::permanent_string(format!("No routes found between {} and {}", from_chain, to_chain))
             }
             LiFiError::UnsupportedChain { chain_name } => {
-                ToolError::permanent(format!("Chain not supported: {}", chain_name))
+                ToolError::permanent_string(format!("Chain not supported: {}", chain_name))
             }
             LiFiError::ApiError { code, message } => {
                 if code >= 500 {
-                    ToolError::retriable(format!("LiFi API error {}: {}", code, message))
+                    ToolError::retriable_string(format!("LiFi API error {}: {}", code, message))
                 } else {
-                    ToolError::permanent(format!("LiFi API error {}: {}", code, message))
+                    ToolError::permanent_string(format!("LiFi API error {}: {}", code, message))
                 }
             }
-            _ => ToolError::retriable(format!("Failed to get routes: {}", e)),
+            _ => ToolError::retriable_string(format!("Failed to get routes: {}", e)),
         })?;
     
     if routes.is_empty() {
-    return Err(ToolError::permanent(format!(
+    return Err(ToolError::permanent_string(format!(
             "No routes available from {} to {} for token {} -> {}",
             from_chain, to_chain, from_token, to_token
         )));
@@ -461,24 +461,24 @@ pub async fn execute_cross_chain_bridge(
     
     // Get current signer
     let signer = SignerContext::current().await
-        .map_err(|e| ToolError::permanent(format!("No signer context available: {}", e)))?;
+        .map_err(|e| ToolError::permanent_string(format!("No signer context available: {}", e)))?;
     
     // Create LiFi client
     let lifi_client = create_lifi_client().await?;
     
     // Determine addresses based on chain types
     let from_address = if from_chain == "solana" {
-        signer.pubkey().ok_or_else(|| ToolError::permanent("No Solana pubkey available".to_string()))?
+        signer.pubkey().ok_or_else(|| ToolError::permanent_string("No Solana pubkey available".to_string()))?
     } else {
-        signer.address().ok_or_else(|| ToolError::permanent("No EVM address available".to_string()))?
+        signer.address().ok_or_else(|| ToolError::permanent_string("No EVM address available".to_string()))?
     };
 
     // First, get the route to construct the transaction
     let route_request = RouteRequest {
         from_chain: chain_name_to_id(&from_chain)
-            .map_err(|e| ToolError::permanent(format!("Unsupported from_chain '{}': {}", from_chain, e)))?,
+            .map_err(|e| ToolError::permanent_string(format!("Unsupported from_chain '{}': {}", from_chain, e)))?,
         to_chain: chain_name_to_id(&to_chain)
-            .map_err(|e| ToolError::permanent(format!("Unsupported to_chain '{}': {}", to_chain, e)))?,
+            .map_err(|e| ToolError::permanent_string(format!("Unsupported to_chain '{}': {}", to_chain, e)))?,
         from_token: "0x0000000000000000000000000000000000000000".to_string(), // Native token for simplicity
         to_token: "0x0000000000000000000000000000000000000000".to_string(), // Native token for simplicity
         from_amount: amount.clone(),
@@ -489,24 +489,24 @@ pub async fn execute_cross_chain_bridge(
     
     // Get routes to find the specific route
     let routes = lifi_client.get_routes(&route_request).await
-        .map_err(|e| ToolError::retriable(format!("Failed to get routes: {}", e)))?;
+        .map_err(|e| ToolError::retriable_string(format!("Failed to get routes: {}", e)))?;
     
     // Find the route with matching ID
     let route = routes.iter()
         .find(|r| r.id == route_id)
-        .ok_or_else(|| ToolError::permanent(format!("Route ID {} not found", route_id)))?;
+        .ok_or_else(|| ToolError::permanent_string(format!("Route ID {} not found", route_id)))?;
     
     // Execute the transaction based on source chain type
     let tx_hash = if from_chain == "solana" {
         // For Solana transactions, construct and sign using Solana client
         execute_solana_bridge_transaction(signer.as_ref(), route).await
-            .map_err(|e| ToolError::permanent(format!("Solana bridge execution failed: {}", e)))?
+            .map_err(|e| ToolError::permanent_string(format!("Solana bridge execution failed: {}", e)))?
     } else {
         // For EVM transactions, construct and sign using EVM client
         let chain_id = chain_name_to_id(&from_chain)
-            .map_err(|e| ToolError::permanent(format!("Unsupported from_chain '{}': {}", from_chain, e)))?;
+            .map_err(|e| ToolError::permanent_string(format!("Unsupported from_chain '{}': {}", from_chain, e)))?;
         execute_evm_bridge_transaction(signer.as_ref(), route, chain_id).await
-            .map_err(|e| ToolError::permanent(format!("EVM bridge execution failed: {}", e)))?
+            .map_err(|e| ToolError::permanent_string(format!("EVM bridge execution failed: {}", e)))?
     };
     
     info!("Bridge transaction submitted: {}", tx_hash);
@@ -601,16 +601,16 @@ pub async fn get_bridge_status(
     let status_response = lifi_client.get_bridge_status(&bridge_id, &source_tx_hash).await
         .map_err(|e| match e {
             LiFiError::ApiError { code: 404, .. } => {
-                ToolError::permanent(format!("Bridge ID {} not found", bridge_id))
+                ToolError::permanent_string(format!("Bridge ID {} not found", bridge_id))
             }
             LiFiError::ApiError { code, message } => {
                 if code >= 500 {
-                    ToolError::retriable(format!("Li.fi API error {}: {}", code, message))
+                    ToolError::retriable_string(format!("Li.fi API error {}: {}", code, message))
                 } else {
-                    ToolError::permanent(format!("Li.fi API error {}: {}", code, message))
+                    ToolError::permanent_string(format!("Li.fi API error {}: {}", code, message))
                 }
             }
-            _ => ToolError::retriable(format!("Failed to check bridge status: {}", e)),
+            _ => ToolError::retriable_string(format!("Failed to check bridge status: {}", e)),
         })?;
     
     // Convert Li.fi status to our format
@@ -718,7 +718,7 @@ pub async fn estimate_bridge_fees(
     ).await?;
     
     if routes_result.routes.is_empty() {
-        return Err(ToolError::permanent(format!(
+        return Err(ToolError::permanent_string(format!(
             "No routes available for fee estimation between {} and {}",
             from_chain, to_chain
         )));
@@ -818,7 +818,7 @@ pub async fn get_supported_chains() -> Result<Vec<ChainInfo>, ToolError> {
     
     // Get chains from LiFi
     let chains = lifi_client.get_chains().await
-        .map_err(|e| ToolError::retriable(format!("Failed to get supported chains: {}", e)))?;
+        .map_err(|e| ToolError::retriable_string(format!("Failed to get supported chains: {}", e)))?;
     
     // Convert to our format
     let chain_infos: Vec<ChainInfo> = chains.iter()
@@ -921,7 +921,7 @@ async fn execute_evm_bridge_transaction(
     chain_id: u64,
 ) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
     use alloy::rpc::types::TransactionRequest;
-    use alloy::primitives::{Address, U256, Bytes};
+    use alloy::primitives::{U256, Bytes};
     use riglr_evm_common::address::parse_evm_address;
     use std::str::FromStr;
     
@@ -1019,8 +1019,8 @@ mod tests {
             Ok("0xmock_evm_signature".to_string())
         }
         
-        fn solana_client(&self) -> Arc<solana_client::rpc_client::RpcClient> {
-            Arc::new(solana_client::rpc_client::RpcClient::new("http://localhost:8899"))
+        fn solana_client(&self) -> Option<Arc<solana_client::rpc_client::RpcClient>> {
+            Some(Arc::new(solana_client::rpc_client::RpcClient::new("http://localhost:8899")))
         }
         
     fn evm_client(&self) -> Result<Arc<dyn riglr_core::signer::traits::EvmClient>, riglr_core::signer::SignerError> {
