@@ -48,7 +48,7 @@ impl riglr_web_adapters::core::Agent for MockAgent {
     }
     
     async fn prompt_stream(&self, _prompt: &str) -> Result<futures_util::stream::BoxStream<'_, Result<String, Self::Error>>, Self::Error> {
-        let stream = futures_util::stream::iter(self.responses.clone().into_iter().map(|s| Ok::<_, TestError>(s)));
+        let stream = futures_util::stream::iter(self.responses.clone().into_iter().map(Ok::<_, TestError>));
         Ok(Box::pin(stream))
     }
 }

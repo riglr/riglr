@@ -166,7 +166,7 @@ where
                         chunks.push(chunk_result);
                     }
                     Ok::<Vec<Result<String, _>>, riglr_core::signer::SignerError>(chunks)
-                }).await.map(|chunks| futures_util::stream::iter(chunks))
+                }).await.map(futures_util::stream::iter)
             }
             Err(e) => Err(riglr_core::signer::SignerError::Configuration(e.to_string()))
         };

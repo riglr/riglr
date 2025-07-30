@@ -230,15 +230,16 @@ mod tests {
     use super::*;
     use axum::{routing::get, Router};
     use tower::ServiceExt;
-    use std::error::Error as StdError;
 
     // Mock agent for testing
     #[derive(Clone)]
+    #[allow(dead_code)]
     struct MockAgent {
         response: String,
     }
 
     impl MockAgent {
+        #[allow(dead_code)]
         fn new(response: String) -> Self {
             Self { response }
         }
