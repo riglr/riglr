@@ -24,6 +24,11 @@
 - [The SignerContext Pattern](concepts/signer-context.md)
 - [Error Handling Philosophy](concepts/error-handling.md)
 - [Event Parsing System](concepts/event-parsing.md)
+- [Agent Coordination](concepts/agents.md)
+- [Real-Time Streaming](concepts/streams.md)
+- [Data Indexing](concepts/indexer.md)
+- [Unified Configuration](concepts/configuration.md)
+
 
 ---
 
