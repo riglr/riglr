@@ -115,7 +115,7 @@ pub async fn start_actix<A: Agent + Clone + Send + Sync + 'static>(
                  req: actix_web::HttpRequest,
                  agent: web::Data<A>,
                  prompt: web::Json<PromptRequest>| async move {
-                    adapter.sse_handler(&req, &agent, prompt.into_inner()).await
+                    adapter.sse_handler(&req, agent.as_ref(), prompt.into_inner()).await
                 },
             ))
             .route("/v1/completion", web::post().to(
@@ -123,7 +123,7 @@ pub async fn start_actix<A: Agent + Clone + Send + Sync + 'static>(
                  req: actix_web::HttpRequest,
                  agent: web::Data<A>,
                  prompt: web::Json<PromptRequest>| async move {
-                    adapter.completion_handler(&req, &agent, prompt.into_inner()).await
+                    adapter.completion_handler(&req, agent.as_ref(), prompt.into_inner()).await
                 },
             ))
             .route("/health", web::get().to(actix_adapters::health_handler))

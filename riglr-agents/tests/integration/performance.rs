@@ -747,7 +747,7 @@ async fn test_dispatcher_statistics_accuracy() {
     assert!(success_count >= num_tasks * 90 / 100);
     
     // Load should be reasonable (tasks completed, so load might be low)
-    assert!(stats.average_agent_load >= 0.0 && stats.average_agent_load <= 1.0);
+    assert!((0.0..=1.0).contains(&stats.average_agent_load));
 }
 
 /// Benchmark different routing strategies.

@@ -14,10 +14,17 @@ pub struct ValidationStage {
 }
 
 impl ValidationStage {
+    /// Create a new validation stage
     pub fn new() -> Self {
         Self {
             name: "validation".to_string(),
         }
+    }
+}
+
+impl Default for ValidationStage {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -47,10 +54,17 @@ pub struct EnrichmentStage {
 }
 
 impl EnrichmentStage {
+    /// Create a new enrichment stage
     pub fn new() -> Self {
         Self {
             name: "enrichment".to_string(),
         }
+    }
+}
+
+impl Default for EnrichmentStage {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

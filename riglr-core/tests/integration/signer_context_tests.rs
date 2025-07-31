@@ -77,8 +77,8 @@ impl TransactionSigner for MockSigner {
         }
     }
 
-    fn solana_client(&self) -> Arc<RpcClient> {
-        Arc::new(RpcClient::new("https://api.devnet.solana.com"))
+    fn solana_client(&self) -> Option<Arc<solana_client::rpc_client::RpcClient>> {
+        Some(Arc::new(RpcClient::new("https://api.devnet.solana.com")))
     }
 
     fn evm_client(&self) -> Result<Arc<dyn std::any::Any + Send + Sync>, SignerError> {

@@ -190,10 +190,9 @@ impl SolanaTransactionProcessor {
                         return Err(ToolError::permanent_string(
                             format!("Insufficient funds: {}", e)
                         ));
-                    } else {
-                        // Other errors might be retriable
-                        tokio::time::sleep(config.initial_delay).await;
                     }
+                    // Other errors might be retriable
+                    tokio::time::sleep(config.initial_delay).await;
                 }
                 Err(e) => {
                     return Err(ToolError::permanent_string(

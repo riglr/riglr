@@ -2,7 +2,6 @@
 
 use clap::{Parser, Subcommand};
 use riglr_indexer::prelude::*;
-use std::collections::HashMap;
 use tracing::{info, error};
 
 #[derive(Parser)]

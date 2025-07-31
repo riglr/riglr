@@ -522,7 +522,7 @@ async fn test_error_rate_monitoring() {
              error_rate * 100.0, failure_count, total);
 
     // Should be roughly 30% error rate (allowing for randomness)
-    assert!(error_rate >= 0.15 && error_rate <= 0.45);
+    assert!((0.15..=0.45).contains(&error_rate));
     
     // Verify agent recorded the attempts
     let agent_successes = flaky_agent.get_success_count();

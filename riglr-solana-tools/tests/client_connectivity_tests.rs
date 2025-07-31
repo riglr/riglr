@@ -102,7 +102,7 @@ async fn test_solana_health_check() {
     let health = client.rpc_client.get_health();
     
     // Note: Health check might return an error if node is behind, but connection should work
-    if let Ok(_) = health {
+    if health.is_ok() {
         println!("✅ Solana health check passed");
     } else if let Err(e) = health {
         // Check if it's just a health status issue (node behind) vs connection issue

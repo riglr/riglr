@@ -1,6 +1,5 @@
 //! PostgreSQL storage implementation
 
-use std::collections::HashMap;
 use std::time::{Duration, Instant};
 use sqlx::{PgPool, Row};
 use tracing::{info, error, debug, warn};
@@ -32,7 +31,7 @@ impl PostgresStore {
     /// Create a new PostgreSQL store
     pub async fn new(config: &StorageBackendConfig) -> IndexerResult<Self> {
         info!("Connecting to PostgreSQL at {}", 
-              config.url.split('@').last().unwrap_or(&config.url));
+              config.url.split('@').next_back().unwrap_or(&config.url));
 
         let pool = sqlx::PgPool::connect(&config.url)
             .await
@@ -96,7 +95,7 @@ impl PostgresStore {
         if let Some(tx_hash) = &filter.transaction_hash {
             conditions.push(format!("transaction_hash = ${}", param_count));
             params.push(Box::new(tx_hash.clone()));
-            param_count += 1;
+            // param_count += 1; // This would be the last parameter, so increment is not needed
         }
 
         let where_clause = if conditions.is_empty() {
@@ -147,7 +146,7 @@ impl DataStore for PostgresStore {
         )
         .execute(&self.pool)
         .await
-        .map_err(|e| IndexerError::Storage(StorageError::QueryFailed {
+        .map_err(|_e| IndexerError::Storage(StorageError::QueryFailed {
             query: "CREATE TABLE events".to_string(),
         }))?;
 
@@ -233,7 +232,7 @@ impl DataStore for PostgresStore {
         info!("Batch inserting {} events", events.len());
 
         // Use a transaction for batch insert
-        let mut tx = self.pool.begin().await.map_err(|e| {
+        let mut tx = self.pool.begin().await.map_err(|_e| {
             IndexerError::Storage(StorageError::TransactionFailed {
                 operation: "begin batch insert".to_string(),
             })
@@ -439,7 +438,7 @@ impl DataStore for PostgresStore {
         )
         .fetch_one(&self.pool)
         .await
-        .map_err(|e| IndexerError::Storage(StorageError::QueryFailed {
+        .map_err(|_e| IndexerError::Storage(StorageError::QueryFailed {
             query: "get_stats".to_string(),
         }))?;
 

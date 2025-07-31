@@ -128,7 +128,7 @@ async fn test_geyser_stream_with_batch() {
     match timeout(Duration::from_secs(10), rx.recv()).await {
         Ok(Ok(batch)) => {
             println!("Received batch with {} events", batch.events.len());
-            assert!(batch.events.len() > 0, "Batch should not be empty");
+            assert!(!batch.events.is_empty(), "Batch should not be empty");
             assert!(batch.events.len() <= 5, "Batch should not exceed size limit");
             
             // Check that all events in batch have metadata
@@ -249,7 +249,7 @@ async fn test_geyser_stream_chain_operators() {
             // Verify all events match filter criteria
             for event in &batch.events {
                 // In real implementation, would get protocol type
-                let protocol = "unknown";
+                let _protocol = "unknown";
                 // In real implementation, would verify filter criteria
                 println!("Event in batch: {}", event.id());
             }

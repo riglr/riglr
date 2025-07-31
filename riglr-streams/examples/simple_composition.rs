@@ -1,10 +1,6 @@
 //! Simple example demonstrating stream composition basics
 
-use std::sync::Arc;
-use std::time::Duration;
-use riglr_streams::core::{ComposableStream, Stream};
 use tracing::{info, Level};
-use tracing_subscriber;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {

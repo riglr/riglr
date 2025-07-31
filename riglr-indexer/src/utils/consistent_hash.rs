@@ -16,8 +16,11 @@ pub struct ConsistentHash {
 /// Information about a node
 #[derive(Debug, Clone)]
 pub struct NodeInfo {
+    /// Unique node identifier
     pub id: String,
+    /// Node weight for virtual node allocation
     pub weight: u32,
+    /// Additional node metadata
     pub metadata: HashMap<String, String>,
 }
 

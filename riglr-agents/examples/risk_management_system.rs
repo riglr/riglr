@@ -17,7 +17,7 @@
 use riglr_agents::{
     Agent, AgentDispatcher, AgentRegistry, LocalAgentRegistry,
     Task, TaskResult, TaskType, Priority, AgentId, AgentMessage,
-    DispatchConfig, RoutingStrategy, ChannelCommunication
+    DispatchConfig, RoutingStrategy, ChannelCommunication, AgentCommunication
 };
 use async_trait::async_trait;
 use std::sync::{Arc, Mutex};
@@ -182,8 +182,8 @@ impl Agent for PositionRiskAgent {
     async fn execute_task(&self, task: Task) -> riglr_agents::Result<TaskResult> {
         println!("🎯 Position Risk Agent {} analyzing position", self.id);
         
-        let position_data = task.input.get("position")
-            .ok_or_else(|| riglr_agents::AgentError::InvalidTask("Missing position data".to_string()))?;
+        let position_data = task.parameters.get("position")
+            .ok_or_else(|| riglr_agents::AgentError::task_execution("Missing position data"))?;
         
         let risk_analysis = self.analyze_position_risk(position_data).await;
         
@@ -196,7 +196,31 @@ impl Agent for PositionRiskAgent {
             let risk_score = risk_analysis.get("risk_score")
                 .and_then(|r| r.as_f64())
                 .unwrap_or(0.0);
+            let position_percent = risk_analysis.get("position_percent")
+                .and_then(|p| p.as_f64())
+                .unwrap_or(0.0);
+                
             risk_state.position_risks.insert(symbol.to_string(), risk_score);
+            
+            // Update sector exposures if sector information is available
+            if let Some(sector) = position_data.get("sector").and_then(|s| s.as_str()) {
+                let current_sector_exposure = risk_state.sector_exposures.get(sector).copied().unwrap_or(0.0);
+                risk_state.sector_exposures.insert(sector.to_string(), current_sector_exposure + position_percent);
+            }
+            
+            // Update correlation matrix with simple correlation assumptions
+            // In practice, this would use real correlation data
+            if symbol.contains("BTC") || symbol.contains("ETH") {
+                let existing_symbols: Vec<String> = risk_state.position_risks.keys().cloned().collect();
+                for existing_symbol in existing_symbols {
+                    if existing_symbol != symbol && (existing_symbol.contains("BTC") || existing_symbol.contains("ETH")) {
+                        risk_state.correlation_matrix
+                            .entry(symbol.to_string())
+                            .or_default()
+                            .insert(existing_symbol, 0.8); // High correlation for crypto
+                    }
+                }
+            }
         }
         
         // Broadcast risk analysis to other agents
@@ -207,12 +231,12 @@ impl Agent for PositionRiskAgent {
             risk_analysis.clone()
         );
         
-        self.communication.broadcast(message).await
-            .map_err(|e| riglr_agents::AgentError::Communication(e.to_string()))?;
+        self.communication.broadcast_message(message).await
+            .map_err(|e| riglr_agents::AgentError::communication(e.to_string()))?;
         
         Ok(TaskResult::success(
             risk_analysis,
-            Some(Duration::from_millis(150)),
+            None,
             Duration::from_millis(150)
         ))
     }
@@ -223,7 +247,7 @@ impl Agent for PositionRiskAgent {
 
     fn capabilities(&self) -> Vec<String> {
         vec![
-            "risk_analysis".to_string(),
+            "position_risk_analysis".to_string(),
             "position_analysis".to_string(),
             "volatility_analysis".to_string(),
             "var_calculation".to_string(),
@@ -263,6 +287,12 @@ impl PortfolioRiskMonitor {
         let correlation_adjustment = 0.85; // Account for correlations
         risk_state.current_var = total_var * correlation_adjustment;
         
+        // Check correlation exposure limits
+        let correlation_exposure = self.calculate_correlation_exposure(&risk_state);
+        
+        // Check sector limits
+        let sector_violations = self.check_sector_limits(&risk_state);
+        
         // Calculate alert level
         let new_alert_level = if risk_state.current_var > self.risk_limits.max_portfolio_var {
             AlertLevel::Red
@@ -278,7 +308,7 @@ impl PortfolioRiskMonitor {
         risk_state.alert_level = new_alert_level.clone();
         
         // Check various risk limits
-        let limit_breaches = vec![
+        let mut limit_breaches = vec![
             if risk_state.current_var > self.risk_limits.max_portfolio_var {
                 Some("PORTFOLIO_VAR_EXCEEDED")
             } else { None },
@@ -288,22 +318,31 @@ impl PortfolioRiskMonitor {
             if risk_state.leverage_ratio > self.risk_limits.max_leverage {
                 Some("LEVERAGE_LIMIT_EXCEEDED")
             } else { None },
+            if correlation_exposure > self.risk_limits.max_correlation_exposure {
+                Some("CORRELATION_EXPOSURE_EXCEEDED")
+            } else { None },
         ].into_iter().flatten().collect::<Vec<_>>();
+        
+        // Add sector limit violations
+        limit_breaches.extend(sector_violations.iter().map(|s| s.as_str()));
         
         let risk_summary = json!({
             "portfolio_var": risk_state.current_var,
             "daily_pnl": risk_state.daily_pnl,
             "total_exposure": risk_state.total_exposure,
             "leverage_ratio": risk_state.leverage_ratio,
+            "correlation_exposure": correlation_exposure,
             "alert_level": format!("{:?}", risk_state.alert_level),
             "alert_changed": alert_changed,
             "limit_breaches": limit_breaches,
             "risk_limits": {
                 "max_var": self.risk_limits.max_portfolio_var,
                 "max_daily_loss": self.risk_limits.max_daily_loss,
-                "max_leverage": self.risk_limits.max_leverage
+                "max_leverage": self.risk_limits.max_leverage,
+                "max_correlation_exposure": self.risk_limits.max_correlation_exposure
             },
             "sector_exposures": risk_state.sector_exposures,
+            "sector_limits": self.risk_limits.sector_limits,
             "position_count": risk_state.position_risks.len(),
             "recommendations": match risk_state.alert_level {
                 AlertLevel::Red => vec!["REDUCE_EXPOSURE", "HEDGE_PORTFOLIO", "CLOSE_HIGH_RISK_POSITIONS"],
@@ -317,11 +356,47 @@ impl PortfolioRiskMonitor {
         
         risk_summary
     }
+    
+    fn calculate_correlation_exposure(&self, risk_state: &RiskState) -> f64 {
+        // Simulate correlation exposure calculation
+        // In a real system, this would use the correlation matrix to calculate
+        // the exposure to highly correlated assets
+        let mut correlated_exposure = 0.0;
+        
+        // Simple simulation: assume crypto assets are highly correlated
+        for (symbol, risk) in &risk_state.position_risks {
+            if symbol.contains("BTC") || symbol.contains("ETH") || symbol.contains("crypto") {
+                correlated_exposure += risk;
+            }
+        }
+        
+        // Also use correlation matrix if available
+        if !risk_state.correlation_matrix.is_empty() {
+            // In practice, this would compute portfolio correlation exposure
+            // using the correlation matrix and position weights
+        }
+        
+        correlated_exposure.min(1.0) // Cap at 100%
+    }
+    
+    fn check_sector_limits(&self, risk_state: &RiskState) -> Vec<String> {
+        let mut violations = Vec::new();
+        
+        for (sector, current_exposure) in &risk_state.sector_exposures {
+            if let Some(limit) = self.risk_limits.sector_limits.get(sector) {
+                if current_exposure > limit {
+                    violations.push(format!("SECTOR_LIMIT_EXCEEDED_{}", sector.to_uppercase()));
+                }
+            }
+        }
+        
+        violations
+    }
 }
 
 #[async_trait]
 impl Agent for PortfolioRiskMonitor {
-    async fn execute_task(&self, task: Task) -> riglr_agents::Result<TaskResult> {
+    async fn execute_task(&self, _task: Task) -> riglr_agents::Result<TaskResult> {
         println!("📊 Portfolio Risk Monitor {} calculating portfolio risk", self.id);
         
         let risk_summary = self.calculate_portfolio_risk().await;
@@ -344,8 +419,8 @@ impl Agent for PortfolioRiskMonitor {
                 risk_summary.clone()
             );
             
-            self.communication.broadcast(alert_message).await
-                .map_err(|e| riglr_agents::AgentError::Communication(e.to_string()))?;
+            self.communication.broadcast_message(alert_message).await
+                .map_err(|e| riglr_agents::AgentError::communication(e.to_string()))?;
         }
         
         // Regular portfolio status update
@@ -356,12 +431,12 @@ impl Agent for PortfolioRiskMonitor {
             risk_summary.clone()
         );
         
-        self.communication.broadcast(status_message).await
-            .map_err(|e| riglr_agents::AgentError::Communication(e.to_string()))?;
+        self.communication.broadcast_message(status_message).await
+            .map_err(|e| riglr_agents::AgentError::communication(e.to_string()))?;
         
         Ok(TaskResult::success(
             risk_summary,
-            Some(Duration::from_millis(100)),
+            None,
             Duration::from_millis(200)
         ))
     }
@@ -471,8 +546,8 @@ impl Agent for ComplianceAgent {
     async fn execute_task(&self, task: Task) -> riglr_agents::Result<TaskResult> {
         println!("⚖️ Compliance Agent {} checking regulatory compliance", self.id);
         
-        let trade_data = task.input.get("trade_data")
-            .ok_or_else(|| riglr_agents::AgentError::InvalidTask("Missing trade data".to_string()))?;
+        let trade_data = task.parameters.get("trade_data")
+            .ok_or_else(|| riglr_agents::AgentError::task_execution("Missing trade data"))?;
         
         let compliance_result = self.check_compliance(trade_data).await;
         
@@ -490,13 +565,13 @@ impl Agent for ComplianceAgent {
                 compliance_result.clone()
             );
             
-            self.communication.broadcast(alert_message).await
-                .map_err(|e| riglr_agents::AgentError::Communication(e.to_string()))?;
+            self.communication.broadcast_message(alert_message).await
+                .map_err(|e| riglr_agents::AgentError::communication(e.to_string()))?;
         }
         
         Ok(TaskResult::success(
             compliance_result,
-            Some(Duration::from_millis(50)),
+            None,
             Duration::from_millis(50)
         ))
     }
@@ -507,7 +582,7 @@ impl Agent for ComplianceAgent {
 
     fn capabilities(&self) -> Vec<String> {
         vec![
-            "risk_analysis".to_string(),
+            "compliance_risk_analysis".to_string(),
             "compliance".to_string(),
             "regulatory_check".to_string(),
             "legal_validation".to_string(),
@@ -541,9 +616,10 @@ impl EmergencyResponseAgent {
             .and_then(|l| l.as_str())
             .unwrap_or("Green");
         
+        let default_breaches = vec![];
         let limit_breaches = alert_data.get("limit_breaches")
             .and_then(|b| b.as_array())
-            .unwrap_or(&vec![])
+            .unwrap_or(&default_breaches)
             .iter()
             .filter_map(|v| v.as_str())
             .collect::<Vec<_>>();
@@ -608,6 +684,14 @@ impl EmergencyResponseAgent {
                 "LEVERAGE_LIMIT_EXCEEDED" => {
                     actions_taken.push("DELEVERAGING_POSITIONS");
                 }
+                "CORRELATION_EXPOSURE_EXCEEDED" => {
+                    actions_taken.push("CORRELATION_LIMIT_BREACH_RESPONSE");
+                    actions_taken.push("DIVERSIFIED_CORRELATED_POSITIONS");
+                }
+                breach_type if breach_type.starts_with("SECTOR_LIMIT_EXCEEDED_") => {
+                    actions_taken.push("SECTOR_LIMIT_BREACH_RESPONSE");
+                    actions_taken.push("REDUCED_SECTOR_CONCENTRATION");
+                }
                 _ => {}
             }
         }
@@ -631,8 +715,8 @@ impl Agent for EmergencyResponseAgent {
     async fn execute_task(&self, task: Task) -> riglr_agents::Result<TaskResult> {
         println!("🚨 Emergency Response Agent {} handling risk alert", self.id);
         
-        let alert_data = task.input.get("alert_data")
-            .ok_or_else(|| riglr_agents::AgentError::InvalidTask("Missing alert data".to_string()))?;
+        let alert_data = task.parameters.get("alert_data")
+            .ok_or_else(|| riglr_agents::AgentError::task_execution("Missing alert data"))?;
         
         let response = self.execute_emergency_response(alert_data).await;
         
@@ -644,12 +728,12 @@ impl Agent for EmergencyResponseAgent {
             response.clone()
         );
         
-        self.communication.broadcast(message).await
-            .map_err(|e| riglr_agents::AgentError::Communication(e.to_string()))?;
+        self.communication.broadcast_message(message).await
+            .map_err(|e| riglr_agents::AgentError::communication(e.to_string()))?;
         
         Ok(TaskResult::success(
             response,
-            Some(Duration::from_millis(200)),
+            None,
             Duration::from_millis(200)
         ))
     }
@@ -708,13 +792,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     registry.register_agent(compliance_agent.clone()).await?;
     registry.register_agent(emergency_agent.clone()).await?;
     
-    println!("✅ Registered {} risk management agents", registry.count().await);
+    let agents = registry.list_agents().await?;
+    println!("✅ Registered {} risk management agents", agents.len());
     
     // Create dispatcher optimized for risk workflows
     let dispatch_config = DispatchConfig {
-        routing_strategy: RoutingStrategy::CapabilityBased,
+        routing_strategy: RoutingStrategy::Capability,
         max_retries: 1, // Risk decisions should be fast
-        timeout: Duration::from_secs(15),
+        default_task_timeout: Duration::from_secs(15),
+        retry_delay: Duration::from_millis(500),
+        max_concurrent_tasks_per_agent: 5,
         enable_load_balancing: false,
     };
     
@@ -727,14 +814,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         // Scenario 1: Normal position risk analysis
         println!("\n1️⃣ Scenario 1: Normal Position Risk Analysis");
         let position_task = Task::new(
-            TaskType::RiskAnalysis,
+            TaskType::Custom("position_risk_analysis".to_string()),
             json!({
                 "position": {
                     "symbol": "BTC",
                     "size": 2.5,
                     "current_price": 50000.0,
                     "volatility": 0.18,
-                    "sector": "cryptocurrency",
+                    "sector": "defi",
                     "liquidity_score": 0.95
                 }
             })
@@ -773,7 +860,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         // Scenario 3: Compliance checking
         println!("\n3️⃣ Scenario 3: Regulatory Compliance Check");
         let compliance_task = Task::new(
-            TaskType::RiskAnalysis,
+            TaskType::Custom("compliance_risk_analysis".to_string()),
             json!({
                 "trade_data": {
                     "symbol": "ETH",

@@ -2,7 +2,7 @@
 
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use tokio::sync::{mpsc, RwLock, Semaphore};
+use tokio::sync::{RwLock, Semaphore};
 use tokio::time::sleep;
 use tracing::{info, error, debug, warn};
 use backoff::{ExponentialBackoff, backoff::Backoff};
@@ -38,12 +38,13 @@ pub struct EventProcessor {
     /// Active workers counter
     active_workers: Arc<RwLock<usize>>,
     /// Batch processor
+    #[allow(dead_code)]
     batch_processor: Arc<BatchProcessor<Box<dyn Event>>>,
 }
 
 /// Internal processor statistics
 #[derive(Debug, Clone, Default)]
-struct ProcessorStats {
+pub struct ProcessorStats {
     /// Total events processed
     total_processed: u64,
     /// Total errors encountered
@@ -53,6 +54,7 @@ struct ProcessorStats {
     /// Average processing latency in milliseconds
     avg_latency_ms: f64,
     /// Current batch size
+    #[allow(dead_code)]
     current_batch_size: usize,
     /// Last processing time
     last_processing_time: Option<Instant>,
@@ -248,7 +250,7 @@ impl EventProcessor {
 
         // Convert event to JSON for storage
         let event_json = event.to_json()
-            .map_err(|e| IndexerError::Processing(ProcessingError::SerializationFailed {
+            .map_err(|_e| IndexerError::Processing(ProcessingError::SerializationFailed {
                 event_id: event.id().to_string(),
             }))?;
 
@@ -258,10 +260,10 @@ impl EventProcessor {
             event_type: format!("{:?}", event.kind()),
             source: event.source().to_string(),
             data: event_json,
-            timestamp: event.timestamp(),
-            block_height: event.metadata().get("block_height")
+            timestamp: chrono::DateTime::from(event.timestamp()),
+            block_height: event.metadata().custom.get("block_height")
                 .and_then(|v| v.as_u64()),
-            transaction_hash: event.metadata().get("transaction_hash")
+            transaction_hash: event.metadata().custom.get("transaction_hash")
                 .and_then(|v| v.as_str())
                 .map(|s| s.to_string()),
         };
@@ -466,6 +468,12 @@ impl EventProcessing for EventProcessor {
 /// Processing pipeline stage for complex event processing
 pub struct ProcessingPipeline {
     stages: Vec<Box<dyn PipelineStage + Send + Sync>>,
+}
+
+impl Default for ProcessingPipeline {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl ProcessingPipeline {

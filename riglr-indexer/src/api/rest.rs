@@ -6,7 +6,7 @@ use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
     response::Json,
-    routing::{get, post},
+    routing::get,
     Router,
 };
 use chrono::{DateTime, Utc};
@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 use tracing::{info, error, debug};
 
 use crate::core::ServiceContext;
-use crate::error::{IndexerError, IndexerResult};
+use crate::error::IndexerResult;
 use crate::storage::{EventQuery, EventFilter, StoredEvent};
 
 /// REST API handler
@@ -25,13 +25,18 @@ pub struct RestHandler {
 /// API response wrapper
 #[derive(Serialize)]
 pub struct ApiResponse<T> {
+    /// Whether the request was successful
     pub success: bool,
+    /// Response data if successful
     pub data: Option<T>,
+    /// Error message if unsuccessful
     pub error: Option<String>,
+    /// Response timestamp
     pub timestamp: DateTime<Utc>,
 }
 
 impl<T> ApiResponse<T> {
+    /// Create a successful response
     pub fn success(data: T) -> Self {
         Self {
             success: true,
@@ -41,8 +46,9 @@ impl<T> ApiResponse<T> {
         }
     }
 
-    pub fn error(message: String) -> ApiResponse<()> {
-        ApiResponse {
+    /// Create an error response
+    pub fn error(message: String) -> Self {
+        Self {
             success: false,
             data: None,
             error: Some(message),
@@ -81,27 +87,39 @@ pub struct EventsQueryParams {
 /// Event statistics response
 #[derive(Serialize)]
 pub struct EventStatsResponse {
+    /// Total number of events indexed
     pub total_events: u64,
+    /// Event counts grouped by type
     pub events_by_type: HashMap<String, u64>,
+    /// Event counts grouped by source
     pub events_by_source: HashMap<String, u64>,
+    /// Storage layer statistics
     pub storage_stats: crate::storage::StorageStats,
 }
 
 /// Service health response
 #[derive(Serialize)]
 pub struct HealthResponse {
+    /// Overall health status (healthy/unhealthy/degraded)
     pub status: String,
+    /// Health check timestamp
     pub timestamp: DateTime<Utc>,
+    /// Individual component health statuses
     pub components: HashMap<String, ComponentStatus>,
+    /// Service uptime in seconds
     pub uptime_seconds: u64,
+    /// Service version
     pub version: String,
 }
 
 /// Component status
 #[derive(Serialize)]
 pub struct ComponentStatus {
+    /// Whether the component is healthy
     pub healthy: bool,
+    /// Status message describing component state
     pub message: String,
+    /// Timestamp of last successful operation
     pub last_success: Option<DateTime<Utc>>,
 }
 
@@ -112,7 +130,7 @@ impl RestHandler {
     }
 
     /// Create the router for REST endpoints
-    pub fn create_router(&self) -> Router {
+    pub fn create_router(&self) -> Router<Arc<ServiceContext>> {
         Router::new()
             .route("/api/v1/events", get(get_events))
             .route("/api/v1/events/:id", get(get_event))

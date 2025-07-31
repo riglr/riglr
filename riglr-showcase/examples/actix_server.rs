@@ -32,7 +32,7 @@ use actix_web::{web, App, HttpServer, middleware::Logger, HttpRequest, HttpRespo
 #[cfg(feature = "web-server")]
 use riglr_web_adapters::actix::ActixRiglrAdapter;
 #[cfg(feature = "web-server")]
-use riglr_core::util::must_get_env;
+use riglr_core::util::get_required_env;
 #[cfg(feature = "web-server")]
 use std::error::Error as StdError;
 #[cfg(feature = "web-server")]
@@ -44,20 +44,13 @@ use riglr_core::config::RpcConfig;
 #[cfg(feature = "web-server")]
 use riglr_showcase::auth::privy::PrivySignerFactory;
 #[cfg(feature = "web-server")]
-use rig::providers::anthropic::{self, CLAUDE_3_5_SONNET};
-#[cfg(feature = "web-server")]
-use rig::completion::{Prompt, PromptError};
-#[cfg(feature = "web-server")]
-use riglr_web_adapters::Agent as RiglrAgentTrait;
-#[cfg(feature = "web-server")]
-use rig::client::CompletionClient;
-#[cfg(feature = "web-server")]
-use futures_util::StreamExt;
+use rig::providers::anthropic::{self};
 
 /// Real rig agent implementation using Anthropic Claude
 #[cfg(feature = "web-server")]
 #[derive(Clone)]
 struct RiglrAgent {
+    #[allow(dead_code)] // TODO: Use this client once rig API is stable
     client: anthropic::Client,
 }
 
@@ -109,9 +102,11 @@ async fn main() -> std::io::Result<()> {
     // Initialize tracing
     tracing_subscriber::fmt::init();
 
-    // Fail fast on missing configuration using must_get_env
-    let anthropic_key = must_get_env("ANTHROPIC_API_KEY");
-    let port = must_get_env("PORT")
+    // Fail fast on missing configuration using get_required_env
+    let anthropic_key = get_required_env("ANTHROPIC_API_KEY")
+        .unwrap_or_else(|e| panic!("Failed to get ANTHROPIC_API_KEY: {}", e));
+    let port = get_required_env("PORT")
+        .unwrap_or_else(|e| panic!("Failed to get PORT: {}", e))
         .parse::<u16>()
         .unwrap_or_else(|_| panic!("PORT must be a valid number"));
 
@@ -124,8 +119,10 @@ async fn main() -> std::io::Result<()> {
     let agent = RiglrAgent::new(anthropic_key);
 
     // Build signer factory (Privy)
-    let privy_app_id = must_get_env("PRIVY_APP_ID");
-    let privy_app_secret = must_get_env("PRIVY_APP_SECRET");
+    let privy_app_id = get_required_env("PRIVY_APP_ID")
+        .unwrap_or_else(|e| panic!("Failed to get PRIVY_APP_ID: {}", e));
+    let privy_app_secret = get_required_env("PRIVY_APP_SECRET")
+        .unwrap_or_else(|e| panic!("Failed to get PRIVY_APP_SECRET: {}", e));
     let rpc_config = RpcConfig::default();
     let mut composite = CompositeSignerFactory::default();
     composite.add_factory("privy".to_string(), std::sync::Arc::new(PrivySignerFactory::new(privy_app_id, privy_app_secret)));

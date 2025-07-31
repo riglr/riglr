@@ -286,7 +286,7 @@ impl Job {
         params: &T,
         max_retries: u32,
     ) -> Result<Self, serde_json::Error> {
-        Ok(Job {
+        Ok(Self {
             job_id: Uuid::new_v4(),
             tool_name: tool_name.into(),
             params: serde_json::to_value(params)?,
@@ -357,7 +357,7 @@ impl Job {
         max_retries: u32,
         idempotency_key: impl Into<String>,
     ) -> Result<Self, serde_json::Error> {
-        Ok(Job {
+        Ok(Self {
             job_id: Uuid::new_v4(),
             tool_name: tool_name.into(),
             params: serde_json::to_value(params)?,

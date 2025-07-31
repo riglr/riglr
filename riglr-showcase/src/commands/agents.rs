@@ -7,12 +7,12 @@
 //! - Cross-chain agent coordination
 
 use riglr_config::Config;
-#[allow(unused_imports)]
-use crate::agents::trading_coordination;
 use std::sync::Arc;
 use anyhow::Result;
 #[allow(unused_imports)]
 use riglr_core::SignerContext;
+#[allow(unused_imports)]
+use riglr_agents::AgentCommunication;
 
 pub async fn run_demo(config: Arc<Config>, scenario: String) -> Result<()> {
     println!("🤖 Starting Multi-Agent Coordination Demo");
@@ -30,7 +30,7 @@ pub async fn run_demo(config: Arc<Config>, scenario: String) -> Result<()> {
     }
 }
 
-async fn run_trading_coordination_demo(config: Arc<Config>) -> Result<()> {
+async fn run_trading_coordination_demo(_config: Arc<Config>) -> Result<()> {
     println!("\n🔄 Running Real-World Trading Coordination Demo");
     println!("This demo shows agents working together for actual blockchain operations");
     
@@ -64,6 +64,8 @@ async fn run_risk_management_demo(_config: Arc<Config>) -> Result<()> {
         Task, TaskResult, TaskType, Priority, AgentId, ChannelCommunication,
         DispatchConfig, RoutingStrategy
     };
+    #[allow(unused_imports)]
+    use riglr_agents::AgentCommunication;
     use async_trait::async_trait;
     use std::sync::Arc;
     use std::time::Duration;
@@ -79,7 +81,7 @@ async fn run_risk_management_demo(_config: Arc<Config>) -> Result<()> {
         async fn execute_task(&self, task: Task) -> riglr_agents::Result<TaskResult> {
             println!("⚖️ Risk agent {} assessing trade risk", self.id);
             
-            let amount = task.input.get("amount")
+            let amount = task.parameters.get("amount")
                 .and_then(|a| a.as_f64())
                 .unwrap_or(0.0);
             
@@ -110,7 +112,7 @@ async fn run_risk_management_demo(_config: Arc<Config>) -> Result<()> {
     
     // TODO: Re-enable when proper signer factory is available
     // SignerContext::new(&signer_factory).execute(async {
-        let communication = Arc::new(ChannelCommunication::new());
+        let _communication = Arc::new(ChannelCommunication::new());
         let risk_agent = Arc::new(SimpleRiskAgent {
             id: AgentId::new("risk-demo-1")
         });
@@ -136,7 +138,8 @@ async fn run_risk_management_demo(_config: Arc<Config>) -> Result<()> {
             ).with_priority(Priority::High);
             
             let result = dispatcher.dispatch_task(task).await?;
-            let decision = result.data().unwrap_or(&serde_json::json!({})).get("recommendation")
+            let default_json = serde_json::json!({});
+            let decision = result.data().unwrap_or(&default_json).get("recommendation")
                 .and_then(|r| r.as_str())
                 .unwrap_or("UNKNOWN");
             
@@ -178,15 +181,15 @@ async fn run_basic_coordination_demo(_config: Arc<Config>) -> Result<()> {
     #[derive(Clone)]
     struct WorkerAgent {
         id: AgentId,
-        communication: Arc<ChannelCommunication>,
+        _communication: Arc<ChannelCommunication>,
     }
 
     #[async_trait]
     impl Agent for CoordinatorAgent {
-        async fn execute_task(&self, task: Task) -> riglr_agents::Result<TaskResult> {
+        async fn execute_task(&self, _task: Task) -> riglr_agents::Result<TaskResult> {
             println!("👑 Coordinator {} orchestrating workflow", self.id);
             
-            let workflow_steps = vec![
+            let workflow_steps = [
                 "data_collection",
                 "analysis", 
                 "decision_making",
@@ -204,8 +207,8 @@ async fn run_basic_coordination_demo(_config: Arc<Config>) -> Result<()> {
                     json!({"step": step, "sequence": i + 1})
                 );
                 
-                self.communication.broadcast(message).await
-                    .map_err(|e| riglr_agents::AgentError::Communication(e.to_string()))?;
+                self.communication.broadcast_message(message).await
+                    .map_err(|e| riglr_agents::AgentError::generic(e.to_string()))?;
                 
                 sleep(Duration::from_millis(100)).await;
             }
@@ -231,7 +234,7 @@ async fn run_basic_coordination_demo(_config: Arc<Config>) -> Result<()> {
         async fn execute_task(&self, task: Task) -> riglr_agents::Result<TaskResult> {
             println!("🔧 Worker {} processing task", self.id);
             
-            let work_type = task.input.get("type")
+            let work_type = task.parameters.get("type")
                 .and_then(|t| t.as_str())
                 .unwrap_or("general");
             
@@ -259,10 +262,10 @@ async fn run_basic_coordination_demo(_config: Arc<Config>) -> Result<()> {
 
         async fn handle_message(&self, message: AgentMessage) -> riglr_agents::Result<()> {
             if message.message_type == "workflow_step" {
-                let step = message.data.get("step")
+                let step = message.payload.get("step")
                     .and_then(|s| s.as_str())
                     .unwrap_or("unknown");
-                let sequence = message.data.get("sequence")
+                let sequence = message.payload.get("sequence")
                     .and_then(|s| s.as_u64())
                     .unwrap_or(0);
                     
@@ -286,12 +289,12 @@ async fn run_basic_coordination_demo(_config: Arc<Config>) -> Result<()> {
         
         let worker1 = Arc::new(WorkerAgent {
             id: AgentId::new("worker-1"),
-            communication: communication.clone(),
+            _communication: communication.clone(),
         });
         
         let worker2 = Arc::new(WorkerAgent {
             id: AgentId::new("worker-2"),
-            communication: communication.clone(),
+            _communication: communication.clone(),
         });
         
         let registry = Arc::new(LocalAgentRegistry::new());
@@ -299,7 +302,8 @@ async fn run_basic_coordination_demo(_config: Arc<Config>) -> Result<()> {
         registry.register_agent(worker1).await?;
         registry.register_agent(worker2).await?;
         
-        println!("✅ Registered {} agents for coordination demo", registry.agent_count().await);
+        let agent_count = registry.list_agents().await?.len();
+        println!("✅ Registered {} agents for coordination demo", agent_count);
         
         let dispatcher = AgentDispatcher::with_config(registry, DispatchConfig {
             routing_strategy: RoutingStrategy::Capability,

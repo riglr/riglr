@@ -298,35 +298,30 @@ impl ShutdownCoordinator {
     pub async fn shutdown_all(&mut self) -> IndexerResult<()> {
         info!("Starting graceful shutdown of {} services", self.services.len());
         
-        let shutdown_tasks: Vec<_> = self.services
-            .iter_mut()
-            .enumerate()
-            .map(|(i, service)| {
-                Box::pin(async move {
-                    match tokio::time::timeout(self.timeout, service.stop()).await {
-                        Ok(result) => {
-                            match result {
-                                Ok(_) => info!("Service {} shut down successfully", i),
-                                Err(e) => error!("Service {} shutdown error: {}", i, e),
-                            }
-                            result
-                        }
-                        Err(_) => {
-                            error!("Service {} shutdown timeout", i);
-                            Err(IndexerError::Service(crate::error::ServiceError::ShutdownTimeout {
-                                seconds: self.timeout.as_secs(),
-                            }))
-                        }
+        let mut results = Vec::new();
+        let timeout = self.timeout;
+        
+        for (i, service) in self.services.iter_mut().enumerate() {
+            let result = match tokio::time::timeout(timeout, service.stop()).await {
+                Ok(result) => {
+                    match &result {
+                        Ok(_) => info!("Service {} shut down successfully", i),
+                        Err(ref e) => error!("Service {} shutdown error: {}", i, e),
                     }
-                })
-            })
-            .collect();
-
-        // Wait for all services to shut down
-        let results = futures::future::join_all(shutdown_tasks).await;
+                    result
+                }
+                Err(_) => {
+                    error!("Service {} shutdown timeout", i);
+                    Err(IndexerError::Service(crate::error::ServiceError::ShutdownTimeout {
+                        seconds: timeout.as_secs(),
+                    }))
+                }
+            };
+            results.push((i, result));
+        }
         
         let mut errors = Vec::new();
-        for (i, result) in results.into_iter().enumerate() {
+        for (i, result) in results.into_iter() {
             if let Err(e) = result {
                 errors.push((i, e));
             }

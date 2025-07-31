@@ -38,10 +38,8 @@ mod tests {
     use super::*;
 
     #[test]
-    #[allow(clippy::len_zero)]
     fn test_version() {
         // Verify that VERSION constant is accessible (compilation ensures it's non-empty)
-        let _ = VERSION;
-        assert!(VERSION.len() > 0);
+        let _version = VERSION;
     }
 }

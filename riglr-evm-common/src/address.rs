@@ -88,7 +88,8 @@ pub fn parse_evm_address(address: &str) -> EvmResult<Address> {
 /// assert_eq!(formatted, "0x742d35Cc67A5b747bE4C506C5e8b0A146d7b2E9e");
 /// ```
 pub fn format_address(address: &Address) -> String {
-    format!("0x{:x}", address)
+    // Use Display implementation which provides EIP-55 checksummed format
+    format!("{}", address)
 }
 
 /// Format an address string with EIP-55 checksumming

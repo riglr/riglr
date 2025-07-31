@@ -149,18 +149,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         explorer_url: Some("https://explorer.solana.com".to_string()),
     };
     // Create a test keypair for the example
-    let test_private_key = "5J1F7GHadZqcsLLuK1EeZ2UfzqyFJyW2EHGJhfDmzwCm2c1xJGjzq3K9t5Z4y7M8xR5B4A9Sd3FfhYfJgPuWmN9X"; // Test key - don't use in production
-    let signer = Arc::new(LocalSolanaSigner::new(
-        test_private_key.to_string(),
+    let signer = Arc::new(LocalSolanaSigner::from_keypair(
+        solana_sdk::signer::keypair::Keypair::new(),
         solana_config
-    ).unwrap_or_else(|_| {
-        // Fallback to using a generated keypair if the test key fails
-        use solana_sdk::signer::{keypair::Keypair, Signer};
-        let keypair = Keypair::new();
-        let private_key_bytes = keypair.to_bytes();
-        let private_key_base58 = bs58::encode(private_key_bytes).into_string();
-        LocalSolanaSigner::new(private_key_base58, solana_config.clone()).expect("Failed to create signer")
-    })) as Arc<dyn TransactionSigner>;
+    )) as Arc<dyn TransactionSigner>;
     
     // Execute within signer context
     SignerContext::with_signer(signer, async {

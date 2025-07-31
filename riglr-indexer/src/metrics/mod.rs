@@ -17,37 +17,54 @@ pub use collector::MetricsCollector;
 /// Metric types
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub enum MetricType {
+    /// Counter metric that only increases
     Counter,
+    /// Gauge metric that can go up or down
     Gauge,
+    /// Histogram for observing value distributions
     Histogram,
+    /// Summary for calculating quantiles
     Summary,
 }
 
 /// Metric value
 #[derive(Debug, Clone, Serialize)]
 pub enum MetricValue {
+    /// Counter value
     Counter(u64),
+    /// Gauge value
     Gauge(f64),
+    /// Histogram observations
     Histogram(Vec<f64>),
+    /// Summary statistics
     Summary(SummaryValue),
 }
 
 /// Summary metric value
 #[derive(Debug, Clone, Serialize)]
 pub struct SummaryValue {
+    /// Number of observations
     pub count: u64,
+    /// Sum of all observations
     pub sum: f64,
+    /// Quantile values (e.g., 0.5 -> median)
     pub quantiles: HashMap<f64, f64>,
 }
 
 /// Individual metric data
 #[derive(Debug, Clone, Serialize)]
 pub struct Metric {
+    /// Metric name
     pub name: String,
+    /// Type of metric
     pub metric_type: MetricType,
+    /// Current metric value
     pub value: MetricValue,
+    /// Metric labels for dimensional data
     pub labels: HashMap<String, String>,
+    /// Timestamp when metric was recorded
     pub timestamp: DateTime<Utc>,
+    /// Help text describing the metric
     pub help: String,
 }
 
@@ -146,6 +163,7 @@ pub struct MetricsRegistry {
     /// Stored metrics
     metrics: Arc<RwLock<HashMap<String, Metric>>>,
     /// Configuration
+    #[allow(dead_code)]
     config: MetricsConfig,
 }
 

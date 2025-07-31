@@ -10,7 +10,7 @@
 //!
 //! The riglr-core crate provides three main components:
 //!
-//! ### 1. SignerContext Pattern
+//! ### 1. `SignerContext` Pattern
 //!
 //! Thread-local storage for multi-tenant blockchain client management:
 //!
@@ -28,7 +28,7 @@
 //! # }
 //! ```
 //!
-//! ### 2. ToolWorker Lifecycle
+//! ### 2. `ToolWorker` Lifecycle
 //!
 //! Orchestrates tool execution with proper error handling:
 //!
@@ -47,7 +47,7 @@
 //! # }
 //! ```
 //!
-//! ### 3. ToolError Classification Philosophy
+//! ### 3. `ToolError` Classification Philosophy
 //!
 //! Errors are classified for intelligent retry logic:
 //! - `Permanent`: Requires human intervention (invalid parameters, auth failures)

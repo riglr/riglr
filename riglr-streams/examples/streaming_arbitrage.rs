@@ -108,7 +108,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
     
     // Create event trigger with conditions using the library's EventKindMatcher
-    let trigger = EventTriggerBuilder::new(arb_bot, "arbitrage-trigger")
+    let _trigger = EventTriggerBuilder::new(arb_bot, "arbitrage-trigger")
         .condition(Box::new(EventKindMatcher::new(vec![
             EventKind::Swap,
             EventKind::Custom("trade".to_string()),

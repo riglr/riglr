@@ -55,6 +55,8 @@ mockito = "1"
 wiremock = "0.6"
 tokio-test = "0.4"
 proptest = "1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+axum = "0.7"
 
 [features]
 default = ["privy", "web3auth", "magic", "solana", "evm"]

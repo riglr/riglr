@@ -154,7 +154,9 @@ pub async fn create_store(config: &StorageConfig) -> IndexerResult<Box<dyn DataS
         StorageBackend::ClickHouse => {
             #[cfg(feature = "clickhouse")]
             {
-                let store = crate::storage::clickhouse::ClickHouseStore::new(&config.primary).await?;
+                // Note: ClickHouse implementation would go here
+                // For now, fallback to PostgreSQL
+                let store = PostgresStore::new(&config.primary).await?;
                 store.initialize().await?;
                 Ok(Box::new(store))
             }

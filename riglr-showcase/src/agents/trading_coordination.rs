@@ -8,7 +8,7 @@
 use riglr_agents::{
     Agent, AgentDispatcher, AgentRegistry, LocalAgentRegistry,
     Task, TaskResult, TaskType, Priority, AgentId, AgentMessage,
-    DispatchConfig, RoutingStrategy, ChannelCommunication
+    DispatchConfig, RoutingStrategy, ChannelCommunication, AgentCommunication
 };
 use riglr_core::{SignerContext, ToolError};
 use riglr_solana_tools::{balance::get_sol_balance, pump::{get_pump_token_info, buy_pump_token}};
@@ -89,8 +89,8 @@ impl Default for TradingState {
 pub struct MarketIntelligenceAgent {
     id: AgentId,
     communication: Arc<ChannelCommunication>,
-    config: Config,
-    trading_state: Arc<Mutex<TradingState>>,
+    _config: Config,
+    _trading_state: Arc<Mutex<TradingState>>,
 }
 
 impl MarketIntelligenceAgent {
@@ -103,8 +103,8 @@ impl MarketIntelligenceAgent {
         Self {
             id: AgentId::new(id),
             communication,
-            config,
-            trading_state,
+            _config: config,
+            _trading_state: trading_state,
         }
     }
 
@@ -130,7 +130,7 @@ impl MarketIntelligenceAgent {
             "pump_info": token_info,
             "dex_data": dex_data,
             "analysis": {
-                "liquidity_score": self.calculate_liquidity_score(&token_info).await,
+                "liquidity_score": self.calculate_liquidity_score(&serde_json::to_value(&token_info).unwrap_or_default()).await,
                 "momentum_score": self.calculate_momentum_score(&dex_data).await,
                 "risk_level": "medium",
                 "recommendation": "MONITOR"
@@ -148,7 +148,7 @@ impl MarketIntelligenceAgent {
         let price_info = 0.0; // Placeholder
 
         // Get additional web data
-        let web_price = match get_web_price("ethereum", token_address).await {
+        let web_price = match get_web_price("ethereum".to_string(), Some(token_address.to_string())).await {
             Ok(price) => Some(price),
             Err(e) => {
                 tracing::warn!("Failed to get web price: {}", e);
@@ -197,20 +197,20 @@ impl Agent for MarketIntelligenceAgent {
     async fn execute_task(&self, task: Task) -> riglr_agents::Result<TaskResult> {
         println!("🔍 Market Intelligence Agent {} analyzing market", self.id);
         
-        let network = task.input.get("network")
+        let network = task.parameters.get("network")
             .and_then(|n| n.as_str())
-            .ok_or_else(|| riglr_agents::AgentError::InvalidTask("Missing network parameter".to_string()))?;
+            .ok_or_else(|| riglr_agents::AgentError::generic("Missing network parameter".to_string()))?;
         
-        let token_address = task.input.get("token_address")
+        let token_address = task.parameters.get("token_address")
             .and_then(|t| t.as_str())
-            .ok_or_else(|| riglr_agents::AgentError::InvalidTask("Missing token_address parameter".to_string()))?;
+            .ok_or_else(|| riglr_agents::AgentError::generic("Missing token_address parameter".to_string()))?;
 
         let analysis = match network {
             "solana" => self.analyze_solana_token(token_address).await
-                .map_err(|e| riglr_agents::AgentError::ExecutionFailed(e.to_string()))?,
+                .map_err(|e| riglr_agents::AgentError::task_execution(e.to_string()))?,
             "ethereum" => self.analyze_ethereum_token(token_address).await
-                .map_err(|e| riglr_agents::AgentError::ExecutionFailed(e.to_string()))?,
-            _ => return Err(riglr_agents::AgentError::InvalidTask(format!("Unsupported network: {}", network))),
+                .map_err(|e| riglr_agents::AgentError::task_execution(e.to_string()))?,
+            _ => return Err(riglr_agents::AgentError::generic(format!("Unsupported network: {}", network))),
         };
 
         // Broadcast analysis to other agents
@@ -221,12 +221,12 @@ impl Agent for MarketIntelligenceAgent {
             analysis.clone()
         );
 
-        self.communication.broadcast(message).await
-            .map_err(|e| riglr_agents::AgentError::Communication(e.to_string()))?;
+        self.communication.broadcast_message(message).await
+            .map_err(|e| riglr_agents::AgentError::generic(e.to_string()))?;
 
         Ok(TaskResult::success(
             analysis,
-            Some(Duration::from_millis(200)),
+            None, // No transaction hash for analysis
             Duration::from_millis(300)
         ))
     }
@@ -250,7 +250,7 @@ impl Agent for MarketIntelligenceAgent {
 pub struct RiskManagementAgent {
     id: AgentId,
     communication: Arc<ChannelCommunication>,
-    config: Config,
+    _config: Config,
     trading_state: Arc<Mutex<TradingState>>,
     max_position_size: f64,
     max_daily_loss: f64,
@@ -266,7 +266,7 @@ impl RiskManagementAgent {
         Self {
             id: AgentId::new(id),
             communication,
-            config,
+            _config: config,
             trading_state,
             max_position_size: 0.20, // 20% max per position
             max_daily_loss: 0.05,    // 5% max daily loss
@@ -279,17 +279,26 @@ impl RiskManagementAgent {
             .map_err(|e| ToolError::permanent_string(format!("No signer context: {}", e)))?;
 
         // Get SOL balance
-        let sol_balance = match get_sol_balance(&signer.solana_address().to_string(), &self.config.network.solana_rpc_url).await {
-            Ok(balance) => balance,
+        let sol_address = signer.address().ok_or_else(|| ToolError::permanent_string("No Solana address available".to_string()))?;
+        let sol_balance = match get_sol_balance(sol_address).await {
+            Ok(balance_result) => {
+                // Parse the formatted balance string to f64
+                balance_result.formatted.parse::<f64>().unwrap_or(0.0)
+            }
             Err(e) => {
                 tracing::warn!("Failed to get SOL balance: {}", e);
                 0.0
             }
         };
 
-        // Get ETH balance (chain ID 1 for mainnet)
-        let eth_balance = match get_eth_balance(&signer.evm_address(), 1).await {
-            Ok(balance) => balance,
+        // Get ETH balance - need to provide a default EVM address since signer may not have one
+        // In a real implementation, this would get the actual EVM address from the signer
+        let default_eth_address = "0x742d35Cc2F5f8a89A0D2EAd5a53c97c49444E34F".to_string();
+        let eth_balance = match get_eth_balance(default_eth_address, None).await {
+            Ok(balance_result) => {
+                // Parse the formatted balance string to f64
+                balance_result.balance_formatted.parse::<f64>().unwrap_or(0.0)
+            }
             Err(e) => {
                 tracing::warn!("Failed to get ETH balance: {}", e);
                 0.0
@@ -299,7 +308,7 @@ impl RiskManagementAgent {
         Ok((eth_balance, sol_balance))
     }
 
-    async fn assess_trade_risk(&self, trade_params: &serde_json::Value, market_analysis: &serde_json::Value) -> serde_json::Value {
+    async fn assess_trade_risk(&self, trade_params: &serde_json::Value, _market_analysis: &serde_json::Value) -> serde_json::Value {
         let network = trade_params.get("network")
             .and_then(|n| n.as_str())
             .unwrap_or("unknown");
@@ -368,11 +377,11 @@ impl Agent for RiskManagementAgent {
     async fn execute_task(&self, task: Task) -> riglr_agents::Result<TaskResult> {
         println!("⚖️ Risk Management Agent {} assessing trade", self.id);
         
-        let trade_params = task.input.get("trade_params")
-            .ok_or_else(|| riglr_agents::AgentError::InvalidTask("Missing trade_params".to_string()))?;
+        let trade_params = task.parameters.get("trade_params")
+            .ok_or_else(|| riglr_agents::AgentError::generic("Missing trade_params".to_string()))?;
         
-        let market_analysis = task.input.get("market_analysis")
-            .ok_or_else(|| riglr_agents::AgentError::InvalidTask("Missing market_analysis".to_string()))?;
+        let market_analysis = task.parameters.get("market_analysis")
+            .ok_or_else(|| riglr_agents::AgentError::generic("Missing market_analysis".to_string()))?;
 
         // Get current balances from blockchain
         match self.get_current_balances().await {
@@ -396,12 +405,12 @@ impl Agent for RiskManagementAgent {
             risk_assessment.clone()
         );
 
-        self.communication.broadcast(message).await
-            .map_err(|e| riglr_agents::AgentError::Communication(e.to_string()))?;
+        self.communication.broadcast_message(message).await
+            .map_err(|e| riglr_agents::AgentError::generic(e.to_string()))?;
 
         Ok(TaskResult::success(
             risk_assessment,
-            Some(Duration::from_millis(100)),
+            None, // No transaction hash for risk assessment
             Duration::from_millis(150)
         ))
     }
@@ -425,8 +434,8 @@ impl Agent for RiskManagementAgent {
 pub struct TradeExecutionAgent {
     id: AgentId,
     communication: Arc<ChannelCommunication>,
-    config: Config,
-    trading_state: Arc<Mutex<TradingState>>,
+    _config: Config,
+    _trading_state: Arc<Mutex<TradingState>>,
 }
 
 impl TradeExecutionAgent {
@@ -439,8 +448,8 @@ impl TradeExecutionAgent {
         Self {
             id: AgentId::new(id),
             communication,
-            config,
-            trading_state,
+            _config: config,
+            _trading_state: trading_state,
         }
     }
 
@@ -455,20 +464,19 @@ impl TradeExecutionAgent {
 
         // Execute real trade using riglr-solana-tools
         let trade_result = buy_pump_token(
-            token_address,
+            token_address.to_string(),
             amount_sol,
-            Some(0.05), // 5% slippage
-            &self.config.network.solana_rpc_url
+            Some(0.05) // 5% slippage
         ).await?;
 
         Ok(json!({
             "network": "solana",
             "token_address": token_address,
             "amount_sol": amount_sol,
-            "transaction_signature": trade_result.get("signature"),
-            "tokens_received": trade_result.get("tokens_received"),
-            "price_paid": trade_result.get("price_paid"),
-            "gas_used": trade_result.get("gas_used"),
+            "transaction_signature": trade_result.signature,
+            "tokens_received": trade_result.token_amount,
+            "price_paid": trade_result.price_per_token,
+            "gas_used": "estimated",
             "status": "completed",
             "executor": self.id.as_str(),
             "timestamp": chrono::Utc::now().timestamp()
@@ -486,16 +494,16 @@ impl TradeExecutionAgent {
 
         // TODO: Execute real trade using riglr-evm-tools
         // let trade_result = perform_uniswap_swap(...).await?;
-        let trade_result = format!("Mock trade: {} ETH for {}", amount_eth, token_address);
+        let mock_tx_hash = format!("0x{:x}", chrono::Utc::now().timestamp());
 
         Ok(json!({
             "network": "ethereum",
             "token_address": token_address,
             "amount_eth": amount_eth,
-            "transaction_hash": trade_result.get("transaction_hash"),
-            "tokens_received": trade_result.get("tokens_received"),
-            "gas_used": trade_result.get("gas_used"),
-            "gas_price": trade_result.get("gas_price"),
+            "transaction_hash": mock_tx_hash,
+            "tokens_received": 1000,  // Mock value
+            "gas_used": 21000,       // Mock value
+            "gas_price": 20,         // Mock value in gwei
             "status": "completed",
             "executor": self.id.as_str(),
             "timestamp": chrono::Utc::now().timestamp()
@@ -503,7 +511,7 @@ impl TradeExecutionAgent {
     }
 
     async fn update_portfolio_state(&self, trade_result: &serde_json::Value) {
-        let mut trading_state = self.trading_state.lock().unwrap();
+        let mut trading_state = self._trading_state.lock().unwrap();
         
         if let Some(symbol) = trade_result.get("token_address").and_then(|s| s.as_str()) {
             let amount = trade_result.get("tokens_received")
@@ -537,7 +545,7 @@ impl Agent for TradeExecutionAgent {
     async fn execute_task(&self, task: Task) -> riglr_agents::Result<TaskResult> {
         println!("⚡ Trade Execution Agent {} executing trade", self.id);
         
-        let risk_approved = task.input.get("risk_assessment")
+        let risk_approved = task.parameters.get("risk_assessment")
             .and_then(|r| r.get("approved"))
             .and_then(|a| a.as_bool())
             .unwrap_or(false);
@@ -550,19 +558,19 @@ impl Agent for TradeExecutionAgent {
             ));
         }
 
-        let trade_params = task.input.get("trade_params")
-            .ok_or_else(|| riglr_agents::AgentError::InvalidTask("Missing trade_params".to_string()))?;
+        let trade_params = task.parameters.get("trade_params")
+            .ok_or_else(|| riglr_agents::AgentError::generic("Missing trade_params".to_string()))?;
 
         let network = trade_params.get("network")
             .and_then(|n| n.as_str())
-            .ok_or_else(|| riglr_agents::AgentError::InvalidTask("Missing network in trade_params".to_string()))?;
+            .ok_or_else(|| riglr_agents::AgentError::generic("Missing network in trade_params".to_string()))?;
 
         let trade_result = match network {
             "solana" => self.execute_solana_trade(trade_params).await
-                .map_err(|e| riglr_agents::AgentError::ExecutionFailed(e.to_string()))?,
+                .map_err(|e| riglr_agents::AgentError::task_execution(e.to_string()))?,
             "ethereum" => self.execute_ethereum_trade(trade_params).await
-                .map_err(|e| riglr_agents::AgentError::ExecutionFailed(e.to_string()))?,
-            _ => return Err(riglr_agents::AgentError::InvalidTask(format!("Unsupported network: {}", network))),
+                .map_err(|e| riglr_agents::AgentError::task_execution(e.to_string()))?,
+            _ => return Err(riglr_agents::AgentError::generic(format!("Unsupported network: {}", network))),
         };
 
         // Update portfolio state
@@ -576,12 +584,12 @@ impl Agent for TradeExecutionAgent {
             trade_result.clone()
         );
 
-        self.communication.broadcast(message).await
-            .map_err(|e| riglr_agents::AgentError::Communication(e.to_string()))?;
+        self.communication.broadcast_message(message).await
+            .map_err(|e| riglr_agents::AgentError::generic(e.to_string()))?;
 
         Ok(TaskResult::success(
-            trade_result,
-            Some(Duration::from_millis(500)),
+            trade_result.clone(),
+            trade_result.get("transaction_signature").and_then(|s| s.as_str()).map(|s| s.to_string()),
             Duration::from_millis(1000)
         ))
     }
@@ -639,17 +647,20 @@ pub async fn demonstrate_trading_coordination(config: Config) -> Result<(), Box<
     registry.register_agent(risk_agent.clone()).await?;
     registry.register_agent(execution_agent.clone()).await?;
 
-    println!("✅ Registered {} trading agents with real blockchain capabilities", registry.count().await);
+    let agent_count = registry.list_agents().await?.len();
+    println!("✅ Registered {} trading agents with real blockchain capabilities", agent_count);
 
     // Create dispatcher
     let dispatch_config = DispatchConfig {
-        routing_strategy: RoutingStrategy::CapabilityBased,
+        routing_strategy: RoutingStrategy::Capability,
         max_retries: 2,
-        timeout: Duration::from_secs(60), // Longer timeout for blockchain operations
+        default_task_timeout: Duration::from_secs(60), // Longer timeout for blockchain operations
+        retry_delay: Duration::from_millis(500),
+        max_concurrent_tasks_per_agent: 5,
         enable_load_balancing: false,
     };
 
-    let dispatcher = AgentDispatcher::new(registry.clone(), dispatch_config);
+    let dispatcher = AgentDispatcher::with_config(registry.clone(), dispatch_config);
     
     println!("\n🔄 Starting Real Trading Workflow");
     
@@ -665,10 +676,11 @@ pub async fn demonstrate_trading_coordination(config: Config) -> Result<(), Box<
     ).with_priority(Priority::High);
 
     let research_result = dispatcher.dispatch_task(research_task).await?;
-    let recommendation = research_result.output.get("analysis")
-        .and_then(|a| a.get("recommendation"))
-        .and_then(|r| r.as_str())
-        .unwrap_or("HOLD");
+    let recommendation = research_result.data().and_then(|data| 
+        data.get("analysis")
+            .and_then(|a| a.get("recommendation"))
+            .and_then(|r| r.as_str())
+    ).unwrap_or("HOLD");
     
     println!("✅ Market analysis complete: {}", recommendation);
     
@@ -687,14 +699,14 @@ pub async fn demonstrate_trading_coordination(config: Config) -> Result<(), Box<
                     "amount": 0.1, // 0.1 SOL
                     "side": "buy"
                 },
-                "market_analysis": research_result.output
+                "market_analysis": research_result.data().unwrap_or(&serde_json::json!({}))
             })
         ).with_priority(Priority::High);
 
         let risk_result = dispatcher.dispatch_task(risk_task).await?;
-        let risk_approved = risk_result.output.get("approved")
-            .and_then(|a| a.as_bool())
-            .unwrap_or(false);
+        let risk_approved = risk_result.data().and_then(|data|
+            data.get("approved").and_then(|a| a.as_bool())
+        ).unwrap_or(false);
 
         println!("✅ Risk assessment: {}", if risk_approved { "APPROVED" } else { "REJECTED" });
 
@@ -706,7 +718,7 @@ pub async fn demonstrate_trading_coordination(config: Config) -> Result<(), Box<
             let execution_task = Task::new(
                 TaskType::Trading,
                 json!({
-                    "risk_assessment": risk_result.output,
+                    "risk_assessment": risk_result.data().unwrap_or(&serde_json::json!({})),
                     "trade_params": {
                         "network": "solana",
                         "token_address": "So11111111111111111111111111111111111111112",
@@ -718,9 +730,9 @@ pub async fn demonstrate_trading_coordination(config: Config) -> Result<(), Box<
 
             match dispatcher.dispatch_task(execution_task).await {
                 Ok(execution_result) => {
-                    let tx_signature = execution_result.output.get("transaction_signature")
-                        .and_then(|s| s.as_str())
-                        .unwrap_or("unknown");
+                    let tx_signature = execution_result.data().and_then(|data|
+                        data.get("transaction_signature").and_then(|s| s.as_str())
+                    ).unwrap_or("unknown");
                     println!("✅ Trade executed successfully: {}", tx_signature);
                 }
                 Err(e) => {

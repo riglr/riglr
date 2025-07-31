@@ -232,7 +232,6 @@ impl IntoDynamicStreamedEvent for Box<dyn Event> {
 mod tests {
     use super::*;
     use riglr_events_core::prelude::{EventKind, EventMetadata};
-    use chrono::Utc;
     
     // Mock event for testing
     #[derive(Debug, Clone)]

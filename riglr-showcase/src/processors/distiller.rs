@@ -364,6 +364,12 @@ mod tests {
     
     #[tokio::test]
     async fn test_distillation_processor() {
+        // Skip test if OPENAI_API_KEY is not set
+        if std::env::var("OPENAI_API_KEY").is_err() {
+            eprintln!("Skipping test: OPENAI_API_KEY not set");
+            return;
+        }
+        
         let processor = DistillationProcessor::new("gpt-4o-mini");
         let output = utils::success_output(
             "get_sol_balance",
@@ -387,6 +393,12 @@ mod tests {
     
     #[tokio::test]
     async fn test_smart_distiller() {
+        // Skip test if ANTHROPIC_API_KEY is not set
+        if std::env::var("ANTHROPIC_API_KEY").is_err() {
+            eprintln!("Skipping test: ANTHROPIC_API_KEY not set");
+            return;
+        }
+        
         let processor = SmartDistiller::new();
         let output = utils::success_output("trading_tool", json!({"profit": 100}));
         
@@ -408,7 +420,7 @@ mod tests {
         let general_processor = distiller.choose_processor(&general_output);
         
         // They should potentially be different (though our mock implementation returns the same)
-        assert_eq!(trading_processor.model, "claude-3-haiku");
+        assert_eq!(trading_processor.model, "claude-3-5-haiku");
         assert_eq!(balance_processor.model, "gemini-1.5-flash");
         assert_eq!(general_processor.model, "gpt-4o-mini");
     }
