@@ -7,7 +7,7 @@ use riglr_core::config::RpcConfig;
 use riglr_core::signer::TransactionSigner;
 use riglr_web_adapters::factory::{AuthenticationData, SignerFactory};
 use serde::{Deserialize, Serialize};
-use crate::error::{AuthError, AuthResult};
+use crate::error::AuthError;
 use crate::config::ProviderConfig;
 
 /// Web3Auth configuration
@@ -75,6 +75,7 @@ impl ProviderConfig for Web3AuthConfig {
 }
 
 /// Web3Auth provider implementation
+#[allow(dead_code)]
 pub struct Web3AuthProvider {
     config: Web3AuthConfig,
     client: reqwest::Client,

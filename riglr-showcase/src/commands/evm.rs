@@ -1,6 +1,7 @@
 //! EVM tools demonstration commands.
 
-use crate::config::Config;
+use riglr_config::Config;
+use std::sync::Arc;
 use anyhow::Result;
 use colored::Colorize;
 use dialoguer::{Input, Select};
@@ -15,7 +16,7 @@ use std::collections::HashMap;
 // use tracing::{info, warn}; // Temporarily disabled
 
 /// Run the EVM tools demo.
-pub async fn run_demo(config: Config, address: Option<String>, chain_id: u64) -> Result<()> {
+pub async fn run_demo(config: Arc<Config>, address: Option<String>, chain_id: u64) -> Result<()> {
     println!("{}", "⚡ EVM Tools Demo".bright_blue().bold());
     println!("{}", "=".repeat(50).blue());
     

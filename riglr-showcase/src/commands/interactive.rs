@@ -1,6 +1,7 @@
 //! Interactive chat mode commands.
 
-use crate::config::Config;
+use riglr_config::Config;
+use std::sync::Arc;
 use anyhow::Result;
 use colored::Colorize;
 use dialoguer::{Input, Select};
@@ -40,7 +41,7 @@ impl ChatContext {
 }
 
 /// Run interactive chat mode.
-pub async fn run_chat(config: Config) -> Result<()> {
+pub async fn run_chat(config: Arc<Config>) -> Result<()> {
     println!("{}", "🤖 Interactive Riglr Agent Chat".bright_blue().bold());
     println!("{}", "=".repeat(50).blue());
     
@@ -230,7 +231,7 @@ async fn handle_news_query(_config: &Config, input: &str) -> Result<String> {
 }
 
 async fn handle_social_query(config: &Config, _input: &str) -> Result<String> {
-    if config.twitter_bearer_token.is_some() {
+    if config.providers.twitter_bearer_token.is_some() {
         Ok("🐦 Social Sentiment Analysis Available!\n\n\
             I can analyze Twitter sentiment for:\n\
             • Specific cryptocurrencies\n\
@@ -406,11 +407,11 @@ fn create_agent_description(config: &Config) -> String {
     capabilities.push("⚡ EVM-compatible chains (Ethereum, Polygon, etc.)".to_string());
     capabilities.push("🌐 Web intelligence and market data".to_string());
     
-    if config.twitter_bearer_token.is_some() {
+    if config.providers.twitter_bearer_token.is_some() {
         capabilities.push("🐦 Twitter sentiment analysis".to_string());
     }
     
-    if config.exa_api_key.is_some() {
+    if config.providers.exa_api_key.is_some() {
         capabilities.push("🔍 Advanced web search".to_string());
     }
     

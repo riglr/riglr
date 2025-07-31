@@ -1,4 +1,5 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{criterion_group, criterion_main, Criterion};
+use std::hint::black_box;
 use riglr_agents::*;
 use std::sync::Arc;
 use std::time::Duration;
@@ -47,7 +48,7 @@ fn benchmark_agent_registration(c: &mut Criterion) {
                 
                 for i in 0..black_box(100) {
                     let agent = Arc::new(BenchmarkAgent {
-                        id: AgentId::new(&format!("agent-{}", i)),
+                        id: AgentId::new(format!("agent-{}", i)),
                         capabilities: vec!["trading".to_string()],
                         execution_delay: Duration::from_millis(0),
                     });
@@ -102,7 +103,8 @@ fn benchmark_message_passing(c: &mut Criterion) {
                 serde_json::json!({"data": "test"}),
             );
             
-            black_box(comm.send_message(message).await.unwrap());
+            comm.send_message(message).await.unwrap();
+            black_box(());
         });
     });
 }

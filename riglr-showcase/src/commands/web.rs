@@ -1,6 +1,7 @@
 //! Web tools demonstration commands.
 
-use crate::config::Config;
+use riglr_config::Config;
+use std::sync::Arc;
 use anyhow::Result;
 use colored::Colorize;
 use dialoguer::{Input, Select};
@@ -25,7 +26,7 @@ impl WebClient {
 // use tracing::{info, warn}; // Temporarily disabled
 
 /// Run the web tools demo.
-pub async fn run_demo(config: Config, query: String) -> Result<()> {
+pub async fn run_demo(config: Arc<Config>, query: String) -> Result<()> {
     println!("{}", "🌐 Web Tools Demo".bright_blue().bold());
     println!("{}", "=".repeat(50).blue());
     

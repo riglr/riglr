@@ -190,19 +190,19 @@ impl EvmTransactionData {
     
     /// Parse value as U256
     pub fn value_u256(&self) -> Result<U256, crate::EvmCommonError> {
-        U256::from_str_radix(&self.value.strip_prefix("0x").unwrap_or(&self.value), 16)
+        U256::from_str_radix(self.value.strip_prefix("0x").unwrap_or(&self.value), 16)
             .map_err(|e| crate::EvmCommonError::InvalidData(format!("Invalid value format: {}", e)))
     }
     
     /// Parse gas limit as u64
     pub fn gas_limit_u64(&self) -> Result<u64, crate::EvmCommonError> {
-        u64::from_str_radix(&self.gas_limit.strip_prefix("0x").unwrap_or(&self.gas_limit), 16)
+        u64::from_str_radix(self.gas_limit.strip_prefix("0x").unwrap_or(&self.gas_limit), 16)
             .map_err(|e| crate::EvmCommonError::InvalidData(format!("Invalid gas limit format: {}", e)))
     }
     
     /// Parse gas price as U256
     pub fn gas_price_u256(&self) -> Result<U256, crate::EvmCommonError> {
-        U256::from_str_radix(&self.gas_price.strip_prefix("0x").unwrap_or(&self.gas_price), 16)
+        U256::from_str_radix(self.gas_price.strip_prefix("0x").unwrap_or(&self.gas_price), 16)
             .map_err(|e| crate::EvmCommonError::InvalidData(format!("Invalid gas price format: {}", e)))
     }
 }

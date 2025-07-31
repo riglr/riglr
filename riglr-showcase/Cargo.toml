@@ -20,6 +20,8 @@ path = "src/main.rs"
 # Core riglr and rig dependencies
 rig-core = { workspace = true }
 riglr-core = { workspace = true }
+riglr-config = { workspace = true }
+riglr-agents = { path = "../riglr-agents" }
 riglr-solana-tools = { path = "../riglr-solana-tools" }
 riglr-evm-tools = { path = "../riglr-evm-tools" }
 riglr-web-tools = { path = "../riglr-web-tools" }

@@ -349,6 +349,7 @@ where
 }
 
 /// Connection pool for managing multiple connections
+#[allow(dead_code)]
 pub struct ConnectionPool<T> {
     connections: Vec<ConnectionManager<T>>,
     config: ConnectionConfig,
