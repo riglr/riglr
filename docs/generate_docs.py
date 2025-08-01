@@ -1,22 +1,3 @@
-#!/bin/bash
-set -e
-
-echo "🚀 Starting riglr documentation build..."
-
-# Define paths
-DOCS_DIR=$(pwd)
-REPO_ROOT=$(git rev-parse --show-toplevel)
-TOOL_REF_DIR="$DOCS_DIR/src/tool-reference"
-
-# Colors for output
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
-
-echo "📦 Generating comprehensive API documentation..."
-
-# Create Python script for generating documentation from source
-cat > "$DOCS_DIR/generate_docs.py" << 'EOF'
 #!/usr/bin/env python3
 """
 Generate tool documentation by scanning Rust source files.
@@ -261,49 +242,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-EOF
-
-chmod +x "$DOCS_DIR/generate_docs.py"
-
-# Run the documentation generators
-if command -v python3 &> /dev/null; then
-    echo "  Generating tool reference documentation..."
-    python3 "$DOCS_DIR/generate_docs.py" "$REPO_ROOT" "$TOOL_REF_DIR"
-    
-    echo "  Generating comprehensive API documentation..."
-    mkdir -p "$DOCS_DIR/src/api-reference"
-    python3 "$DOCS_DIR/generate_comprehensive_docs.py" "$REPO_ROOT" "$DOCS_DIR/src/api-reference"
-else
-    echo -e "${YELLOW}Python not found - skipping documentation generation${NC}"
-fi
-
-echo "📚 Building mdbook..."
-
-# Check if mdbook is installed
-if ! command -v mdbook &> /dev/null; then
-    echo -e "${YELLOW}Installing mdbook...${NC}"
-    cargo install mdbook
-fi
-
-# Build the book
-cd "$DOCS_DIR"
-mdbook build
-
-echo -e "${GREEN}✅ Documentation build complete!${NC}"
-echo ""
-echo "📖 To view the documentation locally, run:"
-echo "   cd docs && mdbook serve --open"
-echo ""
-echo "🌐 To deploy to production:"
-echo "   1. The 'book' directory contains the static site"
-echo "   2. Deploy to your hosting service (GitHub Pages, Netlify, etc.)"
-echo ""
-
-# Optional: Run tests on code examples in documentation
-echo "🧪 Testing code examples in documentation..."
-cd "$REPO_ROOT"
-cargo test --doc --workspace || {
-    echo -e "${YELLOW}Warning: Some doc tests failed${NC}"
-}
-
-echo -e "${GREEN}🎉 Documentation pipeline complete!${NC}"
