@@ -37,10 +37,10 @@ thiserror = { workspace = true }
 # Serialization
 serde = { workspace = true }
 serde_json = { workspace = true }
-toml = "0.8"
+toml = "0.9.5"
 
 # Database
-sqlx = { version = "0.7", features = [
+sqlx = { version = "0.8.6", features = [
     "runtime-tokio-rustls",
     "postgres",
     "chrono",
@@ -49,28 +49,28 @@ sqlx = { version = "0.7", features = [
     "macros",
     "migrate"
 ] }
-clickhouse = "0.12"
+clickhouse = "0.13.3"
 
 # Caching and messaging
 redis = { workspace = true, features = ["tokio-comp", "connection-manager"] }
-bb8 = "0.8"
-bb8-redis = "0.13"
+bb8 = "0.9.0"
+bb8-redis = "0.24.0"
 
 # HTTP server
-axum = { version = "0.7", features = ["ws", "tracing"] }
+axum = { version = "0.8.4", features = ["ws", "tracing"] }
 tower = { workspace = true, features = ["util", "timeout", "load-shed", "limit"] }
-tower-http = { version = "0.5", features = ["trace", "cors"] }
+tower-http = { version = "0.6.6", features = ["trace", "cors"] }
 hyper = { workspace = true }
 reqwest = { workspace = true }
 
 # WebSocket
-tokio-tungstenite = "0.21"
+tokio-tungstenite = "0.27.0"
 tokio-stream = { workspace = true }
 
 # Metrics and monitoring
-prometheus = "0.13"
-metrics = "0.22"
-metrics-prometheus = "0.7"
+prometheus = "0.14.0"
+metrics = "0.24.2"
+metrics-prometheus = "0.11.0"
 
 # Logging
 tracing = { workspace = true }
@@ -93,11 +93,11 @@ clap = { workspace = true }
 
 # Retry and rate limiting
 backoff = "0.4"
-governor = "0.6"
+governor = "0.10.1"
 
 # Memory and performance
 parking_lot = "0.12"
-dashmap = "5.5"
+dashmap = "6.1.0"
 
 # Crypto and hashing
 blake3 = "1.5"
@@ -107,7 +107,7 @@ zstd = "0.13"
 
 # Utilities
 humantime = "2.1"
-bytesize = "1.3"
+bytesize = "2.0.1"
 regex = "1.10"
 url = { workspace = true }
 
