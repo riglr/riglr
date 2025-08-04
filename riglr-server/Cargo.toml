@@ -5,8 +5,8 @@ edition = "2021"
 authors = ["riglr project contributors"]
 license = "MIT"
 description = "Turnkey, production-ready HTTP server for riglr agents with Axum/Actix adapters, auth, logging, and metrics"
-repository = "https://github.com/riglr-project/riglr"
-homepage = "https://github.com/riglr-project/riglr"
+repository = "https://github.com/riglr/riglr"
+homepage = "https://github.com/riglr/riglr"
 
 [features]
 default = ["axum"]
