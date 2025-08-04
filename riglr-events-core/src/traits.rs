@@ -47,9 +47,7 @@ pub trait Event: Debug + Send + Sync {
 
     /// Serialize the event to JSON
     fn to_json(&self) -> EventResult<serde_json::Value> {
-        Err(EventError::generic(
-            "Event serialization not implemented",
-        ))
+        Err(EventError::generic("Event serialization not implemented"))
     }
 
     /// Check if this event matches a given filter criteria
@@ -131,7 +129,9 @@ impl ParserInfo {
 #[async_trait]
 pub trait EventStream: Send + Sync {
     /// Start the stream and return a stream of events
-    async fn start(&mut self) -> EventResult<Pin<Box<dyn Stream<Item = EventResult<Box<dyn Event>>> + Send>>>;
+    async fn start(
+        &mut self,
+    ) -> EventResult<Pin<Box<dyn Stream<Item = EventResult<Box<dyn Event>>> + Send>>>;
 
     /// Stop the stream
     async fn stop(&mut self) -> EventResult<()>;
@@ -146,7 +146,9 @@ pub trait EventStream: Send + Sync {
     fn info_mut(&mut self) -> &mut StreamInfo;
 
     /// Restart the stream (stop then start)
-    async fn restart(&mut self) -> EventResult<Pin<Box<dyn Stream<Item = EventResult<Box<dyn Event>>> + Send>>> {
+    async fn restart(
+        &mut self,
+    ) -> EventResult<Pin<Box<dyn Stream<Item = EventResult<Box<dyn Event>>> + Send>>> {
         if self.is_active() {
             self.stop().await?;
         }
@@ -234,7 +236,8 @@ impl HandlerInfo {
 #[async_trait]
 pub trait EventBatchProcessor: Send + Sync {
     /// Process a batch of events
-    async fn process_batch(&self, events: Vec<Box<dyn Event>>) -> EventResult<Vec<EventResult<()>>>;
+    async fn process_batch(&self, events: Vec<Box<dyn Event>>)
+        -> EventResult<Vec<EventResult<()>>>;
 
     /// Get the optimal batch size for this processor
     fn optimal_batch_size(&self) -> usize {
@@ -427,19 +430,11 @@ mod tests {
     async fn test_kind_filter() {
         let filter = KindFilter::single(EventKind::Transaction);
 
-        let event = GenericEvent::new(
-            "test".to_string(),
-            EventKind::Transaction,
-            json!({}),
-        );
+        let event = GenericEvent::new("test".to_string(), EventKind::Transaction, json!({}));
 
         assert!(filter.matches(&event));
 
-        let event2 = GenericEvent::new(
-            "test2".to_string(),
-            EventKind::Block,
-            json!({}),
-        );
+        let event2 = GenericEvent::new("test2".to_string(), EventKind::Block, json!({}));
 
         assert!(!filter.matches(&event2));
     }
@@ -448,11 +443,7 @@ mod tests {
     async fn test_source_filter() {
         let filter = SourceFilter::single("test-source".to_string());
 
-        let mut event = GenericEvent::new(
-            "test".to_string(),
-            EventKind::Transaction,
-            json!({}),
-        );
+        let mut event = GenericEvent::new("test".to_string(), EventKind::Transaction, json!({}));
         event.metadata.source = "test-source".to_string();
 
         assert!(filter.matches(&event));
@@ -467,11 +458,7 @@ mod tests {
         let source_filter = Box::new(SourceFilter::single("test-source".to_string()));
         let and_filter = AndFilter::new(vec![kind_filter, source_filter]);
 
-        let mut event = GenericEvent::new(
-            "test".to_string(),
-            EventKind::Transaction,
-            json!({}),
-        );
+        let mut event = GenericEvent::new("test".to_string(), EventKind::Transaction, json!({}));
         event.metadata.source = "test-source".to_string();
 
         assert!(and_filter.matches(&event));
@@ -494,28 +481,16 @@ mod tests {
         let or_filter = OrFilter::new(vec![kind_filter, source_filter]);
 
         // Event matches kind but not source
-        let event1 = GenericEvent::new(
-            "test1".to_string(),
-            EventKind::Transaction,
-            json!({}),
-        );
+        let event1 = GenericEvent::new("test1".to_string(), EventKind::Transaction, json!({}));
         assert!(or_filter.matches(&event1));
 
         // Event matches source but not kind
-        let mut event2 = GenericEvent::new(
-            "test2".to_string(),
-            EventKind::Block,
-            json!({}),
-        );
+        let mut event2 = GenericEvent::new("test2".to_string(), EventKind::Block, json!({}));
         event2.metadata.source = "test-source".to_string();
         assert!(or_filter.matches(&event2));
 
         // Event matches neither
-        let event3 = GenericEvent::new(
-            "test3".to_string(),
-            EventKind::Block,
-            json!({}),
-        );
+        let event3 = GenericEvent::new("test3".to_string(), EventKind::Block, json!({}));
         assert!(!or_filter.matches(&event3));
     }
 

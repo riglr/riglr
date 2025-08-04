@@ -5,8 +5,8 @@ use riglr_core::{
     JobResult, Tool, ToolWorker,
 };
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
 use std::hint::black_box;
+use std::sync::Arc;
 use std::time::Duration;
 use tokio::runtime::Runtime;
 
@@ -374,12 +374,14 @@ fn redis_queue_benchmarks(c: &mut Criterion) {
     let redis_url = std::env::var("REDIS_URL").unwrap_or_else(|_| "redis://127.0.0.1/".to_string());
 
     // Check if Redis is available before running benchmarks
-    let redis_available = rt.block_on(async {
-        RedisJobQueue::new(&redis_url, "test_connection").is_ok()
-    });
+    let redis_available =
+        rt.block_on(async { RedisJobQueue::new(&redis_url, "test_connection").is_ok() });
 
     if !redis_available {
-        println!("Redis not available at {}, skipping Redis benchmarks", redis_url);
+        println!(
+            "Redis not available at {}, skipping Redis benchmarks",
+            redis_url
+        );
         group.finish();
         return;
     }
@@ -411,7 +413,7 @@ fn redis_queue_benchmarks(c: &mut Criterion) {
 
         if let Some(queue) = queue {
             let queue = Arc::new(queue);
-            
+
             // Pre-populate queue with error handling
             rt.block_on(async {
                 for _ in 0..1000 {
@@ -426,11 +428,8 @@ fn redis_queue_benchmarks(c: &mut Criterion) {
             b.iter(|| {
                 rt.block_on(async {
                     // Handle Redis dequeue gracefully
-                    match queue
-                        .dequeue_with_timeout(Duration::from_millis(100))
-                        .await
-                    {
-                        Ok(_) => {},
+                    match queue.dequeue_with_timeout(Duration::from_millis(100)).await {
+                        Ok(_) => {}
                         Err(e) => {
                             eprintln!("Redis dequeue failed: {}", e);
                         }

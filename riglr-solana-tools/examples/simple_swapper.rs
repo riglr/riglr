@@ -104,15 +104,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let _client_with_signer = client.with_signer(keypair);
 
             // Attempt swap
-            match perform_jupiter_swap(
-                sol_mint.clone(),
-                usdc_mint.clone(),
-                amount,
-                50,
-                None,
-                false,
-            )
-            .await
+            match perform_jupiter_swap(sol_mint.clone(), usdc_mint.clone(), amount, 50, None, false)
+                .await
             {
                 Ok(result) => {
                     println!("Swap successful!");

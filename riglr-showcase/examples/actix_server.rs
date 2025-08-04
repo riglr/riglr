@@ -23,28 +23,28 @@
 //! ## Endpoints
 //!
 //! - `POST /api/v1/sse` - Server-Sent Events streaming with agent
-//! - `POST /api/v1/completion` - One-shot completion with agent  
+//! - `POST /api/v1/completion` - One-shot completion with agent
 //! - `GET /health` - Health check
 //! - `GET /` - Server information
 
 #[cfg(feature = "web-server")]
-use actix_web::{web, App, HttpServer, middleware::Logger, HttpRequest, HttpResponse};
+use actix_web::{middleware::Logger, web, App, HttpRequest, HttpResponse, HttpServer};
 #[cfg(feature = "web-server")]
-use riglr_web_adapters::actix::ActixRiglrAdapter;
+use rig::providers::anthropic::{self};
+#[cfg(feature = "web-server")]
+use riglr_core::config::RpcConfig;
 #[cfg(feature = "web-server")]
 use riglr_core::util::get_required_env;
 #[cfg(feature = "web-server")]
-use std::error::Error as StdError;
+use riglr_showcase::auth::privy::PrivySignerFactory;
+#[cfg(feature = "web-server")]
+use riglr_web_adapters::actix::ActixRiglrAdapter;
 #[cfg(feature = "web-server")]
 use riglr_web_adapters::core::PromptRequest;
 #[cfg(feature = "web-server")]
 use riglr_web_adapters::factory::CompositeSignerFactory;
 #[cfg(feature = "web-server")]
-use riglr_core::config::RpcConfig;
-#[cfg(feature = "web-server")]
-use riglr_showcase::auth::privy::PrivySignerFactory;
-#[cfg(feature = "web-server")]
-use rig::providers::anthropic::{self};
+use std::error::Error as StdError;
 
 /// Real rig agent implementation using Anthropic Claude
 #[cfg(feature = "web-server")]
@@ -86,12 +86,13 @@ impl riglr_web_adapters::Agent for RiglrAgent {
         Ok(format!("Mock response to: {}", prompt))
     }
 
-    async fn prompt_stream(&self, prompt: &str) -> Result<futures_util::stream::BoxStream<'_, Result<String, Self::Error>>, Self::Error> {
+    async fn prompt_stream(
+        &self,
+        prompt: &str,
+    ) -> Result<futures_util::stream::BoxStream<'_, Result<String, Self::Error>>, Self::Error> {
         // Return a mock stream for now
         let response = format!("Mock streaming response to: {}", prompt);
-        let stream = futures_util::stream::once(async move {
-            Ok(response)
-        });
+        let stream = futures_util::stream::once(async move { Ok(response) });
         Ok(Box::pin(stream))
     }
 }
@@ -125,8 +126,14 @@ async fn main() -> std::io::Result<()> {
         .unwrap_or_else(|e| panic!("Failed to get PRIVY_APP_SECRET: {}", e));
     let rpc_config = RpcConfig::default();
     let mut composite = CompositeSignerFactory::default();
-    composite.add_factory("privy".to_string(), std::sync::Arc::new(PrivySignerFactory::new(privy_app_id, privy_app_secret)));
-    let adapter = std::sync::Arc::new(ActixRiglrAdapter::new(std::sync::Arc::new(composite), rpc_config));
+    composite.add_factory(
+        "privy".to_string(),
+        std::sync::Arc::new(PrivySignerFactory::new(privy_app_id, privy_app_secret)),
+    );
+    let adapter = std::sync::Arc::new(ActixRiglrAdapter::new(
+        std::sync::Arc::new(composite),
+        rpc_config,
+    ));
 
     tracing::info!("Actix adapter initialized with Privy authentication");
 
@@ -141,36 +148,60 @@ async fn main() -> std::io::Result<()> {
                     .allow_any_origin()
                     .allowed_methods(vec!["GET", "POST", "OPTIONS"])
                     .allowed_headers(vec!["Content-Type", "Authorization", "x-network"])
-                    .max_age(3600)
+                    .max_age(3600),
             )
             // riglr-web-adapters endpoints via adapter
-            .route("/api/v1/sse", web::post().to({
-                let adapter = adapter.clone();
-                move |req: HttpRequest, agent: web::Data<RiglrAgent>, prompt: web::Json<PromptRequest>| {
+            .route(
+                "/api/v1/sse",
+                web::post().to({
                     let adapter = adapter.clone();
-                    let agent = agent.get_ref().clone();
-                    async move { adapter.sse_handler(&req, &agent, prompt.into_inner()).await }
-                }
-            }))
-            .route("/api/v1/completion", web::post().to({
-                let adapter = adapter.clone();
-                move |req: HttpRequest, agent: web::Data<RiglrAgent>, prompt: web::Json<PromptRequest>| {
+                    move |req: HttpRequest,
+                          agent: web::Data<RiglrAgent>,
+                          prompt: web::Json<PromptRequest>| {
+                        let adapter = adapter.clone();
+                        let agent = agent.get_ref().clone();
+                        async move { adapter.sse_handler(&req, &agent, prompt.into_inner()).await }
+                    }
+                }),
+            )
+            .route(
+                "/api/v1/completion",
+                web::post().to({
                     let adapter = adapter.clone();
-                    let agent = agent.get_ref().clone();
-                    async move { adapter.completion_handler(&req, &agent, prompt.into_inner()).await }
-                }
-            }))
-            .route("/health", web::get().to(|| async {
-                Ok::<HttpResponse, actix_web::Error>(HttpResponse::Ok().json(serde_json::json!({
-                    "status": "healthy"
-                })))
-            }))
-            .route("/", web::get().to(|| async {
-                Ok::<HttpResponse, actix_web::Error>(HttpResponse::Ok().json(serde_json::json!({
-                    "service": "riglr-showcase",
-                    "version": env!("CARGO_PKG_VERSION")
-                })))
-            }))
+                    move |req: HttpRequest,
+                          agent: web::Data<RiglrAgent>,
+                          prompt: web::Json<PromptRequest>| {
+                        let adapter = adapter.clone();
+                        let agent = agent.get_ref().clone();
+                        async move {
+                            adapter
+                                .completion_handler(&req, &agent, prompt.into_inner())
+                                .await
+                        }
+                    }
+                }),
+            )
+            .route(
+                "/health",
+                web::get().to(|| async {
+                    Ok::<HttpResponse, actix_web::Error>(HttpResponse::Ok().json(
+                        serde_json::json!({
+                            "status": "healthy"
+                        }),
+                    ))
+                }),
+            )
+            .route(
+                "/",
+                web::get().to(|| async {
+                    Ok::<HttpResponse, actix_web::Error>(HttpResponse::Ok().json(
+                        serde_json::json!({
+                            "service": "riglr-showcase",
+                            "version": env!("CARGO_PKG_VERSION")
+                        }),
+                    ))
+                }),
+            )
     })
     .bind(("0.0.0.0", port))?
     .run()
@@ -200,20 +231,18 @@ mod tests {
     #[actix_web::test]
     async fn test_health_endpoint_integration() {
         let agent = RiglrAgent::new("test-api-key".to_string());
-        
-        let app = test::init_service(
-            App::new()
-                .app_data(web::Data::new(agent))
-                .route("/health", web::get().to(|| async {
-                    Ok::<HttpResponse, actix_web::Error>(HttpResponse::Ok().json(serde_json::json!({
-                        "status": "healthy"
-                    })))
-                }))
-        ).await;
 
-        let req = test::TestRequest::get()
-            .uri("/health")
-            .to_request();
+        let app = test::init_service(App::new().app_data(web::Data::new(agent)).route(
+            "/health",
+            web::get().to(|| async {
+                Ok::<HttpResponse, actix_web::Error>(HttpResponse::Ok().json(serde_json::json!({
+                    "status": "healthy"
+                })))
+            }),
+        ))
+        .await;
+
+        let req = test::TestRequest::get().uri("/health").to_request();
 
         let resp = test::call_service(&app, req).await;
         assert!(resp.status().is_success());

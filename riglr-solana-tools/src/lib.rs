@@ -43,7 +43,7 @@
 //! ## Tool Categories
 //!
 //! - [`balance`] - Balance checking tools for SOL and SPL tokens
-//! - [`transaction`] - Transaction creation and execution tools  
+//! - [`transaction`] - Transaction creation and execution tools
 //! - [`swap`] - Jupiter DEX integration for token swaps
 //! - [`pump`] - Pump.fun integration for meme token deployment and trading
 //! - [`network`] - Network state and blockchain query tools
@@ -68,11 +68,10 @@ pub use transaction::*;
 
 // Re-export specific utilities to avoid ambiguous glob conflicts
 pub use utils::{
-    validate_address, send_transaction, send_transaction_with_retry,
-    execute_solana_transaction, TransactionConfig, TransactionSubmissionResult,
-    get_rpc_url
+    execute_solana_transaction, get_rpc_url, send_transaction, send_transaction_with_retry,
+    validate_address, TransactionConfig, TransactionSubmissionResult,
 };
-// Note: generate_mint_keypair and create_token_with_mint_keypair are not re-exported 
+// Note: generate_mint_keypair and create_token_with_mint_keypair are not re-exported
 // at the top level to avoid conflicts. Use utils::generate_mint_keypair directly.
 
 // Re-export client and error types
@@ -80,7 +79,7 @@ pub use client::SolanaClient;
 pub use error::SolanaToolError;
 
 // Re-export signer types for convenience
-pub use riglr_core::{SignerContext, signer::TransactionSigner};
+pub use riglr_core::{signer::TransactionSigner, SignerContext};
 
 /// Current version of riglr-solana-tools
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

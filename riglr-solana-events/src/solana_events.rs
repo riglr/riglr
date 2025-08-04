@@ -3,10 +3,10 @@
 //! This module provides event types that implement both the legacy UnifiedEvent trait
 //! and the new riglr-events-core Event trait for seamless migration.
 
+use chrono::Utc;
+use serde::{Deserialize, Serialize};
 use std::any::Any;
 use std::time::SystemTime;
-use serde::{Deserialize, Serialize};
-use chrono::Utc;
 // UnifiedEvent trait has been removed
 use crate::types::{EventMetadata, EventType, ProtocolType, TransferData};
 use riglr_events_core::prelude::*;
@@ -42,7 +42,7 @@ pub struct LiquidityEventParams {
     pub amount_b: u64,
 }
 
-/// Parameters for creating protocol events, reducing function parameter count  
+/// Parameters for creating protocol events, reducing function parameter count
 #[derive(Debug, Clone)]
 pub struct ProtocolEventParams {
     pub id: String,
@@ -60,7 +60,7 @@ pub struct ProtocolEventParams {
 pub struct SolanaEvent {
     /// Legacy metadata for compatibility
     pub legacy_metadata: EventMetadata,
-    /// Core metadata for new functionality  
+    /// Core metadata for new functionality
     pub core_metadata: riglr_events_core::types::EventMetadata,
     /// Event data payload
     pub data: serde_json::Value,
@@ -73,7 +73,7 @@ impl SolanaEvent {
     pub fn new(legacy_metadata: EventMetadata, data: serde_json::Value) -> Self {
         let core_metadata = legacy_metadata.to_core_metadata(
             legacy_metadata.event_type.to_event_kind(),
-            format!("solana-{}", legacy_metadata.protocol_type)
+            format!("solana-{}", legacy_metadata.protocol_type),
         );
 
         Self {
@@ -86,7 +86,7 @@ impl SolanaEvent {
 
     /// Create from both legacy and core metadata (for precise control)
     pub fn with_metadata(
-        legacy_metadata: EventMetadata, 
+        legacy_metadata: EventMetadata,
         core_metadata: riglr_events_core::types::EventMetadata,
         data: serde_json::Value,
     ) -> Self {
@@ -118,7 +118,6 @@ impl SolanaEvent {
         serde_json::from_value(self.data.clone())
     }
 }
-
 
 // Implement the new Event trait from riglr-events-core
 impl riglr_events_core::traits::Event for SolanaEvent {
@@ -216,8 +215,12 @@ impl SolanaEvent {
 
     /// Create a liquidity event
     pub fn liquidity(params: LiquidityEventParams) -> Self {
-        let event_type = if params.is_add { EventType::AddLiquidity } else { EventType::RemoveLiquidity };
-        
+        let event_type = if params.is_add {
+            EventType::AddLiquidity
+        } else {
+            EventType::RemoveLiquidity
+        };
+
         let legacy_metadata = EventMetadata::new(
             params.id.clone(),
             params.signature,
@@ -297,7 +300,7 @@ mod tests {
         assert_eq!(event.legacy_metadata.signature, "signature123");
         assert_eq!(event.legacy_metadata.slot, 12345);
 
-        // Test Event interface  
+        // Test Event interface
         assert_eq!(riglr_events_core::traits::Event::id(&event), "test-event");
         assert_eq!(event.kind(), &riglr_events_core::types::EventKind::Swap);
         assert_eq!(event.source(), "solana-Jupiter");
@@ -330,7 +333,10 @@ mod tests {
         assert_eq!(event.legacy_metadata.event_type, EventType::Swap);
         assert_eq!(event.legacy_metadata.signature, "sig456");
         assert_eq!(event.legacy_metadata.slot, 67890);
-        assert_eq!(event.legacy_metadata.protocol_type, ProtocolType::RaydiumAmmV4);
+        assert_eq!(
+            event.legacy_metadata.protocol_type,
+            ProtocolType::RaydiumAmmV4
+        );
 
         let swap_data = event.extract_data::<serde_json::Value>().unwrap();
         assert_eq!(swap_data["amount_in"], 1000000);
@@ -384,14 +390,12 @@ mod tests {
             amount_out: 900000,
         });
 
-        let transfer_data = vec![
-            TransferData {
-                source: solana_sdk::pubkey::Pubkey::new_unique(),
-                destination: solana_sdk::pubkey::Pubkey::new_unique(),
-                mint: Some(solana_sdk::pubkey::Pubkey::new_unique()),
-                amount: 1000000,
-            }
-        ];
+        let transfer_data = vec![TransferData {
+            source: solana_sdk::pubkey::Pubkey::new_unique(),
+            destination: solana_sdk::pubkey::Pubkey::new_unique(),
+            mint: Some(solana_sdk::pubkey::Pubkey::new_unique()),
+            amount: 1000000,
+        }];
 
         let _swap_data = crate::SwapData {
             input_mint: solana_sdk::pubkey::Pubkey::new_unique(),

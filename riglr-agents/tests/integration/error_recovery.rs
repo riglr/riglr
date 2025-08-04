@@ -69,7 +69,7 @@ impl Agent for FaultInjectingAgent {
         let mode = self.failure_mode.lock().await.clone();
         let current_failures = self.failure_count.load(Ordering::Relaxed);
         let current_successes = self.success_count.load(Ordering::Relaxed);
-        
+
         let should_fail = match mode {
             FailureMode::Success => false,
             FailureMode::RetriableFailure | FailureMode::PermanentFailure => true,
@@ -87,7 +87,7 @@ impl Agent for FaultInjectingAgent {
 
         if should_fail {
             self.failure_count.fetch_add(1, Ordering::Relaxed);
-            
+
             let (error_msg, retriable) = match mode {
                 FailureMode::RetriableFailure => ("Simulated retriable failure", true),
                 FailureMode::PermanentFailure => ("Simulated permanent failure", false),
@@ -104,10 +104,10 @@ impl Agent for FaultInjectingAgent {
             ))
         } else {
             self.success_count.fetch_add(1, Ordering::Relaxed);
-            
+
             // Simulate some work
             tokio::time::sleep(Duration::from_millis(50)).await;
-            
+
             Ok(TaskResult::success(
                 json!({
                     "agent_id": self.id.as_str(),
@@ -159,7 +159,7 @@ impl HealthTrackingAgent {
 impl Agent for HealthTrackingAgent {
     async fn execute_task(&self, task: Task) -> Result<TaskResult> {
         self.task_count.fetch_add(1, Ordering::Relaxed);
-        
+
         if !self.is_healthy.load(Ordering::Relaxed) {
             return Ok(TaskResult::failure(
                 "Agent is unhealthy".to_string(),
@@ -210,7 +210,7 @@ async fn test_basic_retry_mechanism() {
         "retry-agent",
         FailureMode::FailThenSucceed(2)
     ));
-    
+
     registry.register_agent(agent.clone()).await.unwrap();
 
     let task = Task::new(
@@ -219,7 +219,7 @@ async fn test_basic_retry_mechanism() {
     );
 
     let result = dispatcher.dispatch_task(task).await.unwrap();
-    
+
     // Should eventually succeed after retries
     assert!(result.is_success());
     assert_eq!(agent.get_failure_count(), 2);
@@ -241,7 +241,7 @@ async fn test_permanent_failure_no_retry() {
         "permanent-fail-agent",
         FailureMode::PermanentFailure
     ));
-    
+
     registry.register_agent(agent.clone()).await.unwrap();
 
     let task = Task::new(
@@ -250,7 +250,7 @@ async fn test_permanent_failure_no_retry() {
     );
 
     let result = dispatcher.dispatch_task(task).await.unwrap();
-    
+
     // Should fail immediately without retries
     assert!(!result.is_success());
     assert!(!result.is_retriable());
@@ -274,7 +274,7 @@ async fn test_retry_exhaustion() {
         "always-fail-agent",
         FailureMode::RetriableFailure
     ));
-    
+
     registry.register_agent(agent.clone()).await.unwrap();
 
     let task = Task::new(
@@ -283,11 +283,11 @@ async fn test_retry_exhaustion() {
     );
 
     let result = dispatcher.dispatch_task(task).await.unwrap();
-    
+
     // Should fail after exhausting retries, but return the last failure result
     assert!(!result.is_success());
     assert!(result.is_retriable());
-    
+
     // Should have attempted max_retries + 1 times (initial + retries)
     assert_eq!(agent.get_failure_count(), 3);
     assert_eq!(agent.get_success_count(), 0);
@@ -310,12 +310,12 @@ async fn test_timeout_handling() {
         "fast-agent",
         FailureMode::Success
     ));
-    
+
     let slow_agent = Arc::new(FaultInjectingAgent::new(
         "slow-agent",
         FailureMode::Timeout
     ));
-    
+
     registry.register_agent(fast_agent.clone()).await.unwrap();
     registry.register_agent(slow_agent.clone()).await.unwrap();
 
@@ -350,7 +350,7 @@ async fn test_error_propagation_in_workflows() {
 
     // Stage 3: Recovery agent
     let recovery_agent = Arc::new(FaultInjectingAgent::new(
-        "recovery-agent", 
+        "recovery-agent",
         FailureMode::Success
     ));
 
@@ -518,12 +518,12 @@ async fn test_error_rate_monitoring() {
     let total = success_count + failure_count;
     let error_rate = failure_count as f64 / total as f64;
 
-    println!("Error rate: {:.2}% ({}/{} failures)", 
+    println!("Error rate: {:.2}% ({}/{} failures)",
              error_rate * 100.0, failure_count, total);
 
     // Should be roughly 30% error rate (allowing for randomness)
     assert!((0.15..=0.45).contains(&error_rate));
-    
+
     // Verify agent recorded the attempts
     let agent_successes = flaky_agent.get_success_count();
     let agent_failures = flaky_agent.get_failure_count();
@@ -572,7 +572,7 @@ async fn test_agent_restart_recovery() {
 
     let result2 = dispatcher.dispatch_task(task2).await.unwrap();
     assert!(result2.is_success());
-    
+
     // Old agent should not have additional executions
     assert_eq!(agent_v1.get_success_count(), 1);
     // New agent should have recorded the execution
@@ -613,18 +613,18 @@ async fn test_concurrent_error_handling() {
         .collect();
 
     let results = dispatcher.dispatch_tasks(tasks).await;
-    
+
     // All tasks should eventually succeed due to retries
     assert_eq!(results.len(), 10);
     let success_count = results.iter().filter(|r| r.is_ok() && r.as_ref().unwrap().is_success()).count();
-    
+
     // Should have high success rate despite some initial failures
     assert!(success_count >= 8);
-    
+
     // Verify both agents handled some tasks
     let total_reliable = reliable_agent.get_success_count();
     let total_flaky = flaky_agent.get_success_count() + flaky_agent.get_failure_count();
-    
+
     assert!(total_reliable > 0);
     assert!(total_flaky > 0);
 }
@@ -647,7 +647,7 @@ async fn test_system_wide_error_recovery() {
     ));
 
     let database_agent = Arc::new(FaultInjectingAgent::new(
-        "database-agent", 
+        "database-agent",
         FailureMode::RandomFailure(0.2) // Intermittent DB issues
     ));
 
@@ -682,9 +682,9 @@ async fn test_system_wide_error_recovery() {
 
     // Verify that the system recovered from transient failures
     let success_rate = results.iter().filter(|(_, success)| *success).count() as f64 / results.len() as f64;
-    
+
     println!("Workflow success rate: {:.2}%", success_rate * 100.0);
-    
+
     // Should have high success rate due to retry mechanisms
     assert!(success_rate >= 0.8);
 
@@ -728,7 +728,7 @@ async fn test_resource_exhaustion_handling() {
 
     // First 3 should succeed, rest should fail
     assert!(results[0]); // Success
-    assert!(results[1]); // Success  
+    assert!(results[1]); // Success
     assert!(results[2]); // Success
     assert!(!results[3]); // Failure (resource exhausted)
     assert!(!results[4]); // Failure
@@ -777,14 +777,14 @@ async fn test_error_handling_performance() {
     let elapsed = start_time.elapsed();
 
     let success_count = results.iter().filter(|r| r.is_ok()).count();
-    
-    println!("Processed {} tasks in {:?}, {} successful", 
+
+    println!("Processed {} tasks in {:?}, {} successful",
              task_count, elapsed, success_count);
-    
+
     // Should handle errors efficiently
     assert!(elapsed < Duration::from_secs(10));
     assert!(success_count > task_count * 90 / 100); // At least 90% success
-    
+
     // Verify retry mechanisms were used
     assert!(retry_agent.get_failure_count() > 0);
     assert!(retry_agent.get_success_count() > 0);

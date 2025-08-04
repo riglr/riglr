@@ -1,5 +1,5 @@
-pub mod websocket;
 pub mod multi_chain;
+pub mod websocket;
 
-pub use websocket::{EvmWebSocketStream, EvmStreamConfig, EvmStreamEvent, EvmEventType, ChainId};
 pub use multi_chain::MultiChainEvmManager;
+pub use websocket::{ChainId, EvmEventType, EvmStreamConfig, EvmStreamEvent, EvmWebSocketStream};

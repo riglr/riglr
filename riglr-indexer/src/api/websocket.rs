@@ -1,16 +1,19 @@
 //! WebSocket streaming API
 
-use std::sync::Arc;
 use axum::{
-    extract::{ws::{Message, WebSocket, WebSocketUpgrade}, State},
+    extract::{
+        ws::{Message, WebSocket, WebSocketUpgrade},
+        State,
+    },
     response::Response,
     routing::get,
     Router,
 };
 use futures::{sink::SinkExt, stream::StreamExt};
-use tokio::sync::broadcast;
-use tracing::{info, error, debug, warn};
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
+use tokio::sync::broadcast;
+use tracing::{debug, error, info, warn};
 
 use crate::core::ServiceContext;
 use crate::error::IndexerResult;
@@ -88,7 +91,7 @@ impl WebSocketStreamer {
     /// Create a new WebSocket streamer
     pub fn new(context: Arc<ServiceContext>) -> IndexerResult<Self> {
         let (event_broadcaster, _) = broadcast::channel(1000);
-        
+
         Ok(Self {
             context,
             event_broadcaster,
@@ -97,8 +100,7 @@ impl WebSocketStreamer {
 
     /// Create WebSocket router
     pub fn create_router(&self) -> Router<Arc<ServiceContext>> {
-        Router::new()
-            .route("/api/v1/ws", get(websocket_handler))
+        Router::new().route("/api/v1/ws", get(websocket_handler))
     }
 
     /// Broadcast a message to all connected clients
@@ -117,8 +119,15 @@ impl WebSocketStreamer {
     }
 
     /// Broadcast health update
-    pub fn broadcast_health(&self, healthy: bool, components: std::collections::HashMap<String, bool>) {
-        self.broadcast_message(StreamMessage::Health { healthy, components });
+    pub fn broadcast_health(
+        &self,
+        healthy: bool,
+        components: std::collections::HashMap<String, bool>,
+    ) {
+        self.broadcast_message(StreamMessage::Health {
+            healthy,
+            components,
+        });
     }
 
     /// Broadcast metrics update
@@ -147,16 +156,16 @@ async fn handle_websocket(socket: WebSocket, context: Arc<ServiceContext>) {
     let client_id = uuid::Uuid::new_v4().to_string();
     let client_id_send = client_id.clone();
     let client_id_recv = client_id.clone();
-    
+
     info!("WebSocket client {} connected", client_id);
 
     // Subscribe to events (this is a simplified approach)
     // In a real implementation, you'd integrate this with the WebSocketStreamer
     let mut message_rx = context.shutdown_receiver();
-    
+
     let send_task = tokio::spawn(async move {
         let mut heartbeat_interval = tokio::time::interval(std::time::Duration::from_secs(30));
-        
+
         loop {
             tokio::select! {
                 _ = heartbeat_interval.tick() => {
@@ -168,14 +177,14 @@ async fn handle_websocket(socket: WebSocket, context: Arc<ServiceContext>) {
                         }
                     }
                 }
-                
+
                 _ = message_rx.recv() => {
                     debug!("Shutdown signal received, closing WebSocket");
                     break;
                 }
             }
         }
-        
+
         debug!("Send task for client {} ended", client_id_send);
     });
 
@@ -184,11 +193,14 @@ async fn handle_websocket(socket: WebSocket, context: Arc<ServiceContext>) {
             match msg {
                 Ok(Message::Text(text)) => {
                     debug!("Received text message from {}: {}", client_id_recv, text);
-                    
+
                     // Try to parse as subscription request
                     match serde_json::from_str::<SubscriptionRequest>(&text) {
                         Ok(sub_req) => {
-                            info!("Client {} subscribed to: {:?}", client_id_recv, sub_req.message_types);
+                            info!(
+                                "Client {} subscribed to: {:?}",
+                                client_id_recv, sub_req.message_types
+                            );
                             // In a real implementation, you'd store the subscription preferences
                         }
                         Err(_) => {
@@ -208,7 +220,11 @@ async fn handle_websocket(socket: WebSocket, context: Arc<ServiceContext>) {
                     }
                 }
                 Ok(Message::Binary(data)) => {
-                    debug!("Received binary message from {}: {} bytes", client_id_recv, data.len());
+                    debug!(
+                        "Received binary message from {}: {} bytes",
+                        client_id_recv,
+                        data.len()
+                    );
                 }
                 Ok(Message::Close(_)) => {
                     info!("Client {} closed connection", client_id_recv);
@@ -227,7 +243,7 @@ async fn handle_websocket(socket: WebSocket, context: Arc<ServiceContext>) {
                 }
             }
         }
-        
+
         debug!("Receive task for client {} ended", client_id_recv);
     });
 
@@ -262,9 +278,9 @@ mod tests {
 
         let message = StreamMessage::Event { event };
         let json = serde_json::to_string(&message).unwrap();
-        
+
         let deserialized: StreamMessage = serde_json::from_str(&json).unwrap();
-        
+
         match deserialized {
             StreamMessage::Event { event } => {
                 assert_eq!(event.id, "test-1");

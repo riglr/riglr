@@ -3,9 +3,7 @@
 //! This example demonstrates how to check ETH and ERC20 token balances
 //! across different EVM-compatible chains.
 
-use riglr_evm_tools::{
-    get_eth_balance, get_erc20_balance, BalanceResult, TokenBalanceResult,
-};
+use riglr_evm_tools::{get_erc20_balance, get_eth_balance, BalanceResult, TokenBalanceResult};
 use std::env;
 
 #[tokio::main]
@@ -58,7 +56,7 @@ async fn main() -> anyhow::Result<()> {
 async fn check_eth_balance(address: &str, rpc_url: Option<String>) -> anyhow::Result<()> {
     // Note: The functions create their own clients internally based on the signer context
     let _rpc_url = rpc_url; // Keeping for potential future use
-    
+
     match get_eth_balance(address.to_string(), None).await {
         Ok(balance) => {
             print_eth_balance(&balance);
@@ -79,7 +77,7 @@ async fn check_erc20_balance(
 ) -> anyhow::Result<()> {
     // Note: The functions create their own clients internally based on the signer context
     let _rpc_url = rpc_url; // Keeping for potential future use
-    
+
     match get_erc20_balance(
         address.to_string(),
         token_address.to_string(),
@@ -99,8 +97,14 @@ async fn check_erc20_balance(
 
 fn print_eth_balance(balance: &BalanceResult) {
     println!("  📍 Address: {}", balance.address);
-    println!("  🌐 Chain: {} (ID: {})", balance.chain_name, balance.chain_id);
-    println!("  💰 Balance: {} {}", balance.balance_formatted, balance.unit);
+    println!(
+        "  🌐 Chain: {} (ID: {})",
+        balance.chain_name, balance.chain_id
+    );
+    println!(
+        "  💰 Balance: {} {}",
+        balance.balance_formatted, balance.unit
+    );
     println!("  🔢 Raw: {} wei", balance.balance_raw);
     if let Some(block) = balance.block_number {
         println!("  📦 Block: #{}", block);
@@ -115,5 +119,8 @@ fn print_token_balance(balance: &TokenBalanceResult, token_name: &str) {
     }
     println!("  💰 Balance: {}", balance.balance_formatted);
     println!("  🔢 Decimals: {}", balance.decimals);
-    println!("  🌐 Chain: {} (ID: {})", balance.chain_name, balance.chain_id);
+    println!(
+        "  🌐 Chain: {} (ID: {})",
+        balance.chain_name, balance.chain_id
+    );
 }

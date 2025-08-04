@@ -5,30 +5,29 @@
 //! library-first philosophy.
 
 pub mod core;
-pub mod solana;
 pub mod evm;
 pub mod external;
-pub mod tools;
 pub mod production;
+pub mod solana;
+pub mod tools;
 
 /// Prelude module for convenient imports
 pub mod prelude {
     // Core streaming abstractions
     pub use crate::core::{
-        Stream, StreamEvent, StreamHealth, StreamError, StreamManager, HandlerExecutionMode,
-        StreamedEvent, DynamicStreamedEvent, IntoStreamedEvent,
-        ComposableStream, FinancialStreamExt, BufferStrategy, combinators,
-        MetricsCollector, StreamManagerBuilder,
+        combinators, BufferStrategy, ComposableStream, DynamicStreamedEvent, FinancialStreamExt,
+        HandlerExecutionMode, IntoStreamedEvent, MetricsCollector, Stream, StreamError,
+        StreamEvent, StreamHealth, StreamManager, StreamManagerBuilder, StreamedEvent,
     };
-    
+
     // Enhanced operators with events-core integration
     pub use crate::core::enhanced_operators::{
         BatchEvent, BatchedStream, EnhancedStream, EnhancedStreamExt,
     };
-    
+
     // Event-triggered tools
-    pub use crate::tools::{EventTriggeredTool, EventTriggerBuilder, ConditionCombinator};
-    
+    pub use crate::tools::{ConditionCombinator, EventTriggerBuilder, EventTriggeredTool};
+
     // Re-export events-core utilities for enhanced streaming capabilities
     pub use riglr_events_core::prelude::*;
 }

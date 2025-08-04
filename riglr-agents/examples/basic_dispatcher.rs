@@ -9,20 +9,20 @@
 //!
 //! Run with: cargo run --example basic_dispatcher
 
+use async_trait::async_trait;
 use riglr_agents::{
-    Agent, AgentDispatcher, AgentRegistry, LocalAgentRegistry,
-    Task, TaskResult, TaskType, Priority, AgentId, AgentMessage,
-    DispatchConfig, RoutingStrategy, ChannelCommunication, AgentCommunication
+    Agent, AgentCommunication, AgentDispatcher, AgentId, AgentMessage, AgentRegistry,
+    ChannelCommunication, DispatchConfig, LocalAgentRegistry, Priority, RoutingStrategy, Task,
+    TaskResult, TaskType,
 };
 use riglr_core::{
-    SignerContext, 
+    config::SolanaNetworkConfig,
     signer::{LocalSolanaSigner, TransactionSigner},
-    config::SolanaNetworkConfig
+    SignerContext,
 };
-use async_trait::async_trait;
+use serde_json::json;
 use std::sync::Arc;
 use std::time::Duration;
-use serde_json::json;
 use tokio::time::sleep;
 
 /// A simple research agent that simulates market research
@@ -43,7 +43,7 @@ impl ResearchAgent {
     async fn analyze_market(&self, symbol: &str) -> serde_json::Value {
         // Simulate research work
         sleep(Duration::from_millis(100)).await;
-        
+
         json!({
             "symbol": symbol,
             "price": 50000,
@@ -60,26 +60,28 @@ impl ResearchAgent {
 impl Agent for ResearchAgent {
     async fn execute_task(&self, task: Task) -> riglr_agents::Result<TaskResult> {
         println!("🔬 Research Agent {} executing task: {}", self.id, task.id);
-        
-        let symbol = task.parameters.get("symbol")
+
+        let symbol = task
+            .parameters
+            .get("symbol")
             .and_then(|s| s.as_str())
             .unwrap_or("BTC");
-            
+
         // Perform market analysis
         let analysis = self.analyze_market(symbol).await;
-        
+
         // Broadcast research results to other agents
         let message = AgentMessage::new(
             self.id.clone(),
             None, // Broadcast to all
             "market_analysis".to_string(),
-            analysis.clone()
+            analysis.clone(),
         );
-        
+
         if let Err(e) = self.communication.broadcast_message(message).await {
             eprintln!("Failed to broadcast research results: {}", e);
         }
-        
+
         Ok(TaskResult::success(
             json!({
                 "analysis": analysis,
@@ -87,7 +89,7 @@ impl Agent for ResearchAgent {
                 "confidence": 0.85
             }),
             None, // No transaction hash for research
-            Duration::from_millis(100)
+            Duration::from_millis(100),
         ))
     }
 
@@ -104,7 +106,10 @@ impl Agent for ResearchAgent {
     }
 
     async fn handle_message(&self, message: AgentMessage) -> riglr_agents::Result<()> {
-        println!("🔬 Research Agent {} received message: {}", self.id, message.message_type);
+        println!(
+            "🔬 Research Agent {} received message: {}",
+            self.id, message.message_type
+        );
         Ok(())
     }
 }
@@ -127,11 +132,11 @@ impl TradingAgent {
     async fn execute_trade(&self, action: &str, symbol: &str, amount: f64) -> serde_json::Value {
         // Simulate trade execution
         sleep(Duration::from_millis(200)).await;
-        
+
         // In a real implementation, this would use SignerContext::current()
         // to access blockchain signers and execute actual trades
         println!("💰 Executing {} trade: {} {} units", action, symbol, amount);
-        
+
         json!({
             "trade_id": uuid::Uuid::new_v4().to_string(),
             "symbol": symbol,
@@ -149,38 +154,44 @@ impl TradingAgent {
 impl Agent for TradingAgent {
     async fn execute_task(&self, task: Task) -> riglr_agents::Result<TaskResult> {
         println!("💰 Trading Agent {} executing task: {}", self.id, task.id);
-        
-        let symbol = task.parameters.get("symbol")
+
+        let symbol = task
+            .parameters
+            .get("symbol")
             .and_then(|s| s.as_str())
             .unwrap_or("BTC");
-            
-        let action = task.parameters.get("action")
+
+        let action = task
+            .parameters
+            .get("action")
             .and_then(|s| s.as_str())
             .unwrap_or("buy");
-            
-        let amount = task.parameters.get("amount")
+
+        let amount = task
+            .parameters
+            .get("amount")
             .and_then(|s| s.as_f64())
             .unwrap_or(1.0);
-        
+
         // Execute the trade
         let trade_result = self.execute_trade(action, symbol, amount).await;
-        
+
         // Notify other agents of the trade execution
         let message = AgentMessage::new(
             self.id.clone(),
             None, // Broadcast to all
             "trade_executed".to_string(),
-            trade_result.clone()
+            trade_result.clone(),
         );
-        
+
         if let Err(e) = self.communication.broadcast_message(message).await {
             eprintln!("Failed to broadcast trade execution: {}", e);
         }
-        
+
         Ok(TaskResult::success(
             trade_result,
             None, // Transaction hash would be included here in real implementation
-            Duration::from_millis(200)
+            Duration::from_millis(200),
         ))
     }
 
@@ -199,12 +210,17 @@ impl Agent for TradingAgent {
     async fn handle_message(&self, message: AgentMessage) -> riglr_agents::Result<()> {
         match message.message_type.as_str() {
             "market_analysis" => {
-                println!("💰 Trading Agent {} received market analysis from {}", 
-                    self.id, message.from);
+                println!(
+                    "💰 Trading Agent {} received market analysis from {}",
+                    self.id, message.from
+                );
                 // Could use this analysis to adjust trading strategy
             }
             _ => {
-                println!("💰 Trading Agent {} received message: {}", self.id, message.message_type);
+                println!(
+                    "💰 Trading Agent {} received message: {}",
+                    self.id, message.message_type
+                );
             }
         }
         Ok(())
@@ -231,10 +247,14 @@ impl RiskAgent {
     async fn assess_risk(&self, symbol: &str, amount: f64) -> serde_json::Value {
         // Simulate risk assessment
         sleep(Duration::from_millis(50)).await;
-        
-        let risk_score = if amount > self.max_position_size { 0.9 } else { 0.3 };
+
+        let risk_score = if amount > self.max_position_size {
+            0.9
+        } else {
+            0.3
+        };
         let approved = risk_score < 0.8;
-        
+
         json!({
             "symbol": symbol,
             "amount": amount,
@@ -252,34 +272,38 @@ impl RiskAgent {
 impl Agent for RiskAgent {
     async fn execute_task(&self, task: Task) -> riglr_agents::Result<TaskResult> {
         println!("⚖️ Risk Agent {} executing task: {}", self.id, task.id);
-        
-        let symbol = task.parameters.get("symbol")
+
+        let symbol = task
+            .parameters
+            .get("symbol")
             .and_then(|s| s.as_str())
             .unwrap_or("BTC");
-            
-        let amount = task.parameters.get("amount")
+
+        let amount = task
+            .parameters
+            .get("amount")
             .and_then(|s| s.as_f64())
             .unwrap_or(1.0);
-        
+
         // Assess risk
         let risk_assessment = self.assess_risk(symbol, amount).await;
-        
+
         // Broadcast risk assessment
         let message = AgentMessage::new(
             self.id.clone(),
             None, // Broadcast to all
             "risk_assessment".to_string(),
-            risk_assessment.clone()
+            risk_assessment.clone(),
         );
-        
+
         if let Err(e) = self.communication.broadcast_message(message).await {
             eprintln!("Failed to broadcast risk assessment: {}", e);
         }
-        
+
         Ok(TaskResult::success(
             risk_assessment,
             None,
-            Duration::from_millis(50)
+            Duration::from_millis(50),
         ))
     }
 
@@ -298,12 +322,17 @@ impl Agent for RiskAgent {
     async fn handle_message(&self, message: AgentMessage) -> riglr_agents::Result<()> {
         match message.message_type.as_str() {
             "trade_executed" => {
-                println!("⚖️ Risk Agent {} monitoring trade execution from {}", 
-                    self.id, message.from);
+                println!(
+                    "⚖️ Risk Agent {} monitoring trade execution from {}",
+                    self.id, message.from
+                );
                 // Could trigger post-trade risk checks
             }
             _ => {
-                println!("⚖️ Risk Agent {} received message: {}", self.id, message.message_type);
+                println!(
+                    "⚖️ Risk Agent {} received message: {}",
+                    self.id, message.message_type
+                );
             }
         }
         Ok(())
@@ -313,23 +342,23 @@ impl Agent for RiskAgent {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     println!("🚀 Starting Basic Agent Dispatcher Example");
-    
+
     // Initialize communication system
     let communication = Arc::new(ChannelCommunication::new());
-    
+
     // Create agents with different capabilities
     let research_agent = Arc::new(ResearchAgent::new("research-001", communication.clone()));
     let trading_agent = Arc::new(TradingAgent::new("trader-001", communication.clone()));
     let risk_agent = Arc::new(RiskAgent::new("risk-001", communication.clone()));
-    
+
     // Create agent registry and register agents
     let registry = Arc::new(LocalAgentRegistry::new());
     registry.register_agent(research_agent.clone()).await?;
     registry.register_agent(trading_agent.clone()).await?;
     registry.register_agent(risk_agent.clone()).await?;
-    
+
     println!("✅ Registered {} agents", registry.agent_count().await?);
-    
+
     // Create dispatcher with capability-based routing
     let dispatch_config = DispatchConfig {
         routing_strategy: RoutingStrategy::Capability,
@@ -339,9 +368,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         max_concurrent_tasks_per_agent: 5,
         enable_load_balancing: true,
     };
-    
+
     let dispatcher = AgentDispatcher::with_config(registry.clone(), dispatch_config);
-    
+
     // Setup a Solana signer for blockchain operations
     let solana_config = SolanaNetworkConfig {
         name: "devnet".to_string(),
@@ -350,9 +379,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     };
     let signer = Arc::new(LocalSolanaSigner::from_keypair(
         solana_sdk::signer::keypair::Keypair::new(),
-        solana_config
+        solana_config,
     )) as Arc<dyn TransactionSigner>;
-    
+
     // Execute within signer context to demonstrate SignerContext pattern
     SignerContext::with_signer(signer, async {
         println!("\n🔬 Dispatching Research Task");
@@ -362,14 +391,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 "symbol": "BTC",
                 "depth": "comprehensive",
                 "timeframe": "1h"
-            })
-        ).with_priority(Priority::High);
-        
+            }),
+        )
+        .with_priority(Priority::High);
+
         match dispatcher.dispatch_task(research_task).await {
             Ok(result) => {
                 let default_json = serde_json::json!({});
                 let data = result.data().unwrap_or(&default_json);
-                let trend = data.get("analysis")
+                let trend = data
+                    .get("analysis")
                     .and_then(|a| a.get("trend"))
                     .and_then(|t| t.as_str())
                     .unwrap_or("unknown");
@@ -377,10 +408,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             }
             Err(e) => eprintln!("❌ Research failed: {}", e),
         }
-        
+
         // Wait for messages to propagate
         sleep(Duration::from_millis(100)).await;
-        
+
         println!("\n⚖️ Dispatching Risk Analysis Task");
         let risk_task = Task::new(
             TaskType::RiskAnalysis,
@@ -388,25 +419,29 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 "symbol": "BTC",
                 "amount": 5000.0,
                 "action": "buy"
-            })
-        ).with_priority(Priority::High);
-        
+            }),
+        )
+        .with_priority(Priority::High);
+
         match dispatcher.dispatch_task(risk_task).await {
             Ok(result) => {
                 let default_json = serde_json::json!({});
                 let data = result.data().unwrap_or(&default_json);
-                let approved = data.get("approved")
+                let approved = data
+                    .get("approved")
                     .and_then(|a| a.as_bool())
                     .unwrap_or(false);
-                println!("✅ Risk analysis completed: {}", 
-                    if approved { "APPROVED" } else { "REJECTED" });
+                println!(
+                    "✅ Risk analysis completed: {}",
+                    if approved { "APPROVED" } else { "REJECTED" }
+                );
             }
             Err(e) => eprintln!("❌ Risk analysis failed: {}", e),
         }
-        
+
         // Wait for messages to propagate
         sleep(Duration::from_millis(100)).await;
-        
+
         println!("\n💰 Dispatching Trading Task");
         let trading_task = Task::new(
             TaskType::Trading,
@@ -414,39 +449,43 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 "symbol": "BTC",
                 "action": "buy",
                 "amount": 2.5
-            })
-        ).with_priority(Priority::Critical);
-        
+            }),
+        )
+        .with_priority(Priority::Critical);
+
         match dispatcher.dispatch_task(trading_task).await {
             Ok(result) => {
                 let default_json = serde_json::json!({});
                 let data = result.data().unwrap_or(&default_json);
-                let trade_id = data.get("trade_id")
+                let trade_id = data
+                    .get("trade_id")
                     .and_then(|id| id.as_str())
                     .unwrap_or("unknown");
                 println!("✅ Trade executed: {}", trade_id);
             }
             Err(e) => eprintln!("❌ Trade failed: {}", e),
         }
-        
+
         // Wait for final message propagation
         sleep(Duration::from_millis(200)).await;
-        
+
         Ok::<(), riglr_core::signer::SignerError>(())
-    }).await?;
-    
+    })
+    .await?;
+
     // Display final agent statuses
     println!("\n📊 Final Agent Status:");
     let agents = registry.list_agents().await?;
     for agent in agents {
         let status = agent.status();
-        println!("  {} - {} (Load: {:.2})", 
-            status.agent_id, 
+        println!(
+            "  {} - {} (Load: {:.2})",
+            status.agent_id,
             format!("{:?}", status.status).to_uppercase(),
             status.load
         );
     }
-    
+
     println!("\n🎉 Basic dispatcher example completed successfully!");
     Ok(())
 }

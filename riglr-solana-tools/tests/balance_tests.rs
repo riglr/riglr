@@ -244,7 +244,6 @@ fn test_lamports_to_sol_conversion() {
     }
 }
 
-
 #[tokio::test(flavor = "multi_thread")]
 async fn test_get_sol_balance_invalid_address() {
     // Test with invalid address format
@@ -267,11 +266,8 @@ async fn test_get_sol_balance_valid_format() {
 #[tokio::test(flavor = "multi_thread")]
 async fn test_get_spl_token_balance_invalid_addresses() {
     let _client = SolanaClient::devnet();
-    let result = get_spl_token_balance(
-        "invalid_owner".to_string(),
-        "invalid_mint".to_string(),
-    )
-    .await;
+    let result =
+        get_spl_token_balance("invalid_owner".to_string(), "invalid_mint".to_string()).await;
 
     // Should fail with invalid address
     assert!(result.is_err());
@@ -384,7 +380,6 @@ fn test_precision_in_formatting() {
     assert!(result.formatted.contains("0.123456789"));
 }
 
-
 #[tokio::test(flavor = "multi_thread")]
 async fn test_get_spl_token_balance_without_rpc_url() {
     // Test using default balance client (covers line 110)
@@ -413,7 +408,6 @@ async fn test_get_multiple_balances() {
     // The actual network call may fail but we're testing the function signature
     let _ = result;
 }
-
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_balance_formatted_strings() {

@@ -3,9 +3,9 @@
 //! This module provides production-ready integration with the DexScreener API
 //! for fetching token prices, liquidity, and market data.
 
+use anyhow::Result;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
-use anyhow::Result;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct DexScreenerResponse {
@@ -164,7 +164,8 @@ pub async fn get_pair_by_address(pair_address: &str) -> Result<PairInfo> {
     let data: serde_json::Value = response.json().await?;
     let pair_response: DexScreenerResponse = serde_json::from_value(data)?;
 
-    pair_response.pairs
+    pair_response
+        .pairs
         .into_iter()
         .next()
         .ok_or_else(|| anyhow::anyhow!("No pair found for address: {}", pair_address))
@@ -172,19 +173,19 @@ pub async fn get_pair_by_address(pair_address: &str) -> Result<PairInfo> {
 
 /// Find the best liquidity pair for a token
 pub fn find_best_liquidity_pair(pairs: Vec<PairInfo>) -> Option<PairInfo> {
-    pairs.into_iter()
-        .max_by_key(|p| {
-            p.liquidity
-                .as_ref()
-                .and_then(|l| l.usd)
-                .map(|usd| (usd * 1000.0) as u64)
-                .unwrap_or(0)
-        })
+    pairs.into_iter().max_by_key(|p| {
+        p.liquidity
+            .as_ref()
+            .and_then(|l| l.usd)
+            .map(|usd| (usd * 1000.0) as u64)
+            .unwrap_or(0)
+    })
 }
 
 /// Extract token price from the best pair
 pub fn get_token_price(pairs: &[PairInfo], token_address: &str) -> Option<String> {
-    pairs.iter()
+    pairs
+        .iter()
         .filter(|p| p.base_token.address.eq_ignore_ascii_case(token_address))
         .max_by_key(|p| {
             p.liquidity
@@ -210,7 +211,7 @@ mod tests {
     #[tokio::test]
     async fn test_search_by_mint() {
         let response = search_ticker(
-            "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263".to_string() // BONK token
+            "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263".to_string(), // BONK token
         )
         .await
         .unwrap();

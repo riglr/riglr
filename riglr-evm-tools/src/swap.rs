@@ -3,12 +3,12 @@
 //! This module provides production-grade tools for interacting with Uniswap V3,
 //! enabling token swaps with optimal routing across multiple pools.
 
-use crate::{
-    client::validate_address,
-    error::EvmToolError,
-};
+use crate::{client::validate_address, error::EvmToolError};
 use alloy::{
-    primitives::{Address, U256, aliases::{U24, U160}},
+    primitives::{
+        aliases::{U160, U24},
+        Address, U256,
+    },
     rpc::types::TransactionRequest,
     sol,
     sol_types::SolCall,
@@ -123,7 +123,10 @@ impl UniswapConfig {
             42161 => Ok(Self::arbitrum()),
             10 => Ok(Self::optimism()),
             8453 => Ok(Self::base()),
-            _ => Err(format!("Unsupported chain ID: {}. Uniswap V3 is not available on this chain.", chain_id)),
+            _ => Err(format!(
+                "Unsupported chain ID: {}. Uniswap V3 is not available on this chain.",
+                chain_id
+            )),
         }
     }
 }
@@ -173,9 +176,9 @@ pub struct UniswapSwapResult {
 /// This tool queries Uniswap V3 to get a quote for swapping ERC20 tokens without executing
 /// any transaction. It uses the Quoter contract to estimate output amounts and price impact.
 /// Supports all EVM chains where Uniswap V3 is deployed.
-/// 
+///
 /// # Arguments
-/// 
+///
 /// * `token_in` - Input token contract address (ERC20)
 /// * `token_out` - Output token contract address (ERC20)
 /// * `amount_in` - Input amount as string (e.g., "1.5" for human-readable amount)
@@ -183,9 +186,9 @@ pub struct UniswapSwapResult {
 /// * `decimals_out` - Number of decimals for output token
 /// * `fee_tier` - Uniswap pool fee tier (100=0.01%, 500=0.05%, 3000=0.3%, 10000=1%)
 /// * `slippage_bps` - Slippage tolerance in basis points (50 = 0.5%)
-/// 
+///
 /// # Returns
-/// 
+///
 /// Returns `UniswapQuote` containing:
 /// - `token_in`, `token_out`: Token addresses
 /// - `amount_in`, `amount_out`: Input and expected output amounts
@@ -193,18 +196,18 @@ pub struct UniswapSwapResult {
 /// - `fee_tier`: Pool fee used for the quote
 /// - `slippage_bps`: Slippage tolerance applied
 /// - `amount_out_minimum`: Minimum output after slippage
-/// 
+///
 /// # Errors
-/// 
+///
 /// * `EvmToolError::InvalidAddress` - When token addresses are invalid
 /// * `EvmToolError::Rpc` - When Quoter contract call fails (often due to no liquidity)
 /// * `EvmToolError::Generic` - When amount parsing fails
-/// 
+///
 /// # Examples
-/// 
+///
 /// ```rust,ignore
 /// use riglr_evm_tools::swap::get_uniswap_quote;
-/// 
+///
 /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
 /// // Get quote for swapping 1 WETH to USDC
 /// let quote = get_uniswap_quote(
@@ -216,7 +219,7 @@ pub struct UniswapSwapResult {
 ///     Some(3000), // 0.3% fee tier
 ///     Some(50),   // 0.5% slippage
 /// ).await?;
-/// 
+///
 /// println!("Quote: {} WETH -> {} USDC", quote.amount_in, quote.amount_out);
 /// println!("Price: {} USDC per WETH", quote.price);
 /// println!("Minimum output: {}", quote.amount_out_minimum);
@@ -239,9 +242,11 @@ pub async fn get_uniswap_quote(
     );
 
     // Get signer context and EVM client
-    let signer = riglr_core::SignerContext::current().await
+    let signer = riglr_core::SignerContext::current()
+        .await
         .map_err(|e| EvmToolError::Generic(format!("No signer context: {}", e)))?;
-    let client = signer.evm_client()
+    let client = signer
+        .evm_client()
         .map_err(|e| EvmToolError::Generic(format!("Failed to get EVM client: {}", e)))?;
 
     // Validate addresses
@@ -279,7 +284,10 @@ pub async fn get_uniswap_quote(
         // Categorize error based on the type of failure
         // Reverts typically indicate business logic failures (no liquidity, invalid pair, etc.)
         // which are permanent errors that won't succeed on retry
-        EvmToolError::Generic(format!("Failed to get quote (likely no liquidity or invalid pair): {}", e))
+        EvmToolError::Generic(format!(
+            "Failed to get quote (likely no liquidity or invalid pair): {}",
+            e
+        ))
     })?;
 
     // Calculate price
@@ -320,9 +328,9 @@ pub async fn get_uniswap_quote(
 /// This tool executes an actual token swap on Uniswap V3 by calling the SwapRouter contract.
 /// It constructs the appropriate transaction with slippage protection and deadline management.
 /// Requires token approvals to be set beforehand for the SwapRouter contract.
-/// 
+///
 /// # Arguments
-/// 
+///
 /// * `token_in` - Input token contract address
 /// * `token_out` - Output token contract address
 /// * `amount_in` - Input amount as string (human-readable)
@@ -330,23 +338,23 @@ pub async fn get_uniswap_quote(
 /// * `amount_out_minimum` - Minimum acceptable output amount (for slippage protection)
 /// * `fee_tier` - Uniswap pool fee tier to use
 /// * `deadline_seconds` - Transaction deadline in seconds from now
-/// 
+///
 /// # Returns
-/// 
+///
 /// Returns `UniswapSwapResult` containing transaction details and actual amounts.
-/// 
+///
 /// # Errors
-/// 
+///
 /// * `EvmToolError::InvalidAddress` - When token addresses are invalid
 /// * `EvmToolError::Transaction` - When insufficient token balance or allowance
 /// * `EvmToolError::Rpc` - When transaction fails or network issues occur
-/// 
+///
 /// # Examples
-/// 
+///
 /// ```rust,ignore
 /// use riglr_evm_tools::swap::perform_uniswap_swap;
 /// use riglr_core::SignerContext;
-/// 
+///
 /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
 /// // Note: Token approval for SwapRouter must be done first
 /// let result = perform_uniswap_swap(
@@ -358,7 +366,7 @@ pub async fn get_uniswap_quote(
 ///     Some(3000), // 0.3% fee tier
 ///     Some(300),  // 5 minute deadline
 /// ).await?;
-/// 
+///
 /// println!("Swap completed! Hash: {}", result.tx_hash);
 /// println!("Swapped {} for {} tokens", result.amount_in, result.amount_out);
 /// # Ok(())
@@ -379,10 +387,12 @@ pub async fn perform_uniswap_swap(
         amount_in, token_in, token_out
     );
 
-    // Get signer context and EVM client  
-    let signer = riglr_core::SignerContext::current().await
+    // Get signer context and EVM client
+    let signer = riglr_core::SignerContext::current()
+        .await
         .map_err(|e| EvmToolError::Generic(format!("No signer context: {}", e)))?;
-    let _client = signer.evm_client()
+    let _client = signer
+        .evm_client()
         .map_err(|e| EvmToolError::Generic(format!("Failed to get EVM client: {}", e)))?;
 
     // Validate addresses
@@ -392,7 +402,8 @@ pub async fn perform_uniswap_swap(
         .map_err(|e| EvmToolError::Generic(format!("Invalid token_out address: {}", e)))?;
 
     // Get the signer address
-    let from_addr_str = signer.address()
+    let from_addr_str = signer
+        .address()
         .ok_or_else(|| EvmToolError::Generic("Signer has no address".to_string()))?;
     let from_addr = validate_address(&from_addr_str)
         .map_err(|e| EvmToolError::Generic(format!("Invalid signer address: {}", e)))?;
@@ -443,7 +454,9 @@ pub async fn perform_uniswap_swap(
         .gas_limit(300000); // Uniswap swaps typically need more gas
 
     // Sign and send transaction using the signer
-    let tx_hash = signer.sign_and_send_evm_transaction(tx).await
+    let tx_hash = signer
+        .sign_and_send_evm_transaction(tx)
+        .await
         .map_err(|e| EvmToolError::Generic(format!("Failed to send swap transaction: {}", e)))?;
 
     let result = UniswapSwapResult {
@@ -452,8 +465,8 @@ pub async fn perform_uniswap_swap(
         token_out: token_out.clone(),
         amount_in: amount_in_wei.to_string(),
         amount_out: amount_out_min.to_string(), // Use minimum for now since we can't parse logs easily
-        gas_used: None, // Not available from abstracted client
-        status: true, // Assume success since transaction was sent
+        gas_used: None,                         // Not available from abstracted client
+        status: true,                           // Assume success since transaction was sent
     };
 
     info!(
@@ -558,7 +571,7 @@ mod tests {
         std::env::set_var("MAX_RETRY_ATTEMPTS", "3");
         std::env::set_var("RETRY_DELAY_MS", "1000");
         std::env::set_var("RETRY_BACKOFF_MULTIPLIER", "2.0");
-        
+
         let eth_config = UniswapConfig::ethereum();
         assert_eq!(
             eth_config.router_address,

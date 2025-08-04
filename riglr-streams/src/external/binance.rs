@@ -1,15 +1,15 @@
-use std::sync::Arc;
+use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use std::time::SystemTime;
 use tokio::sync::{broadcast, RwLock};
 use tokio_tungstenite::connect_async;
-use serde::{Deserialize, Serialize};
 use tracing::info;
 
-use riglr_events_core::prelude::{Event, EventKind, EventMetadata};
-use chrono::Utc;
 use crate::core::StreamMetadata;
 use crate::core::{Stream, StreamError, StreamEvent, StreamHealth};
+use chrono::Utc;
+use riglr_events_core::prelude::{Event, EventKind, EventMetadata};
 
 /// Binance WebSocket stream implementation
 pub struct BinanceStream {
@@ -146,31 +146,31 @@ impl Event for BinanceStreamEvent {
     fn id(&self) -> &str {
         &self.metadata.id
     }
-    
+
     fn kind(&self) -> &EventKind {
         &self.metadata.kind
     }
-    
+
     fn metadata(&self) -> &EventMetadata {
         &self.metadata
     }
-    
+
     fn metadata_mut(&mut self) -> &mut EventMetadata {
         &mut self.metadata
     }
-    
+
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
-    
+
     fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
         self
     }
-    
+
     fn clone_boxed(&self) -> Box<dyn Event> {
         Box::new(self.clone())
     }
-    
+
     fn to_json(&self) -> riglr_events_core::EventResult<serde_json::Value> {
         Ok(serde_json::json!({
             "metadata": self.metadata,
@@ -184,62 +184,62 @@ impl Event for BinanceStreamEvent {
 impl Stream for BinanceStream {
     type Event = BinanceStreamEvent;
     type Config = BinanceConfig;
-    
+
     async fn start(&mut self, config: Self::Config) -> Result<(), StreamError> {
         if self.running.load(Ordering::Relaxed) {
-            return Err(StreamError::AlreadyRunning { 
-                name: self.name.clone() 
+            return Err(StreamError::AlreadyRunning {
+                name: self.name.clone(),
             });
         }
-        
+
         info!("Starting Binance WebSocket stream");
-        
+
         self.config = config;
         self.running.store(true, Ordering::Relaxed);
-        
+
         // Update health status
         {
             let mut health = self.health.write().await;
             health.is_connected = true;
             health.last_event_time = Some(SystemTime::now());
         }
-        
+
         // Start WebSocket connection
         self.start_websocket().await?;
-        
+
         Ok(())
     }
-    
+
     async fn stop(&mut self) -> Result<(), StreamError> {
         if !self.running.load(Ordering::Relaxed) {
             return Ok(());
         }
-        
+
         info!("Stopping Binance WebSocket stream");
         self.running.store(false, Ordering::Relaxed);
-        
+
         // Update health status
         {
             let mut health = self.health.write().await;
             health.is_connected = false;
         }
-        
+
         Ok(())
     }
-    
+
     fn subscribe(&self) -> broadcast::Receiver<Arc<Self::Event>> {
         self.event_tx.subscribe()
     }
-    
+
     fn is_running(&self) -> bool {
         self.running.load(Ordering::Relaxed)
     }
-    
+
     async fn health(&self) -> StreamHealth {
         let health = self.health.read().await;
         health.clone()
     }
-    
+
     fn name(&self) -> &str {
         &self.name
     }
@@ -249,7 +249,7 @@ impl BinanceStream {
     /// Create a new Binance stream
     pub fn new(name: impl Into<String>) -> Self {
         let (event_tx, _) = broadcast::channel(10000);
-        
+
         Self {
             config: BinanceConfig::default(),
             event_tx,
@@ -258,7 +258,7 @@ impl BinanceStream {
             name: name.into(),
         }
     }
-    
+
     /// Start the WebSocket connection with resilience
     async fn start_websocket(&self) -> Result<(), StreamError> {
         let base_url = if self.config.testnet {
@@ -266,20 +266,20 @@ impl BinanceStream {
         } else {
             "wss://stream.binance.com:9443/ws"
         };
-        
+
         let streams_param = self.config.streams.join("/");
         let url = if streams_param.is_empty() {
             base_url.to_string()
         } else {
             format!("{}/{}", base_url, streams_param)
         };
-        
+
         let event_tx = self.event_tx.clone();
         let running = self.running.clone();
         let health = self.health.clone();
         let stream_name = self.name.clone();
         let config = self.config.clone();
-        
+
         tokio::spawn(async move {
             crate::impl_resilient_websocket!(
                 stream_name,
@@ -292,7 +292,8 @@ impl BinanceStream {
                 || {
                     let url = url.clone();
                     async move {
-                        connect_async(&url).await
+                        connect_async(&url)
+                            .await
                             .map(|(ws, _)| ws)
                             .map_err(|e| format!("Failed to connect to Binance: {}", e))
                     }
@@ -314,15 +315,15 @@ impl BinanceStream {
                 }
             );
         });
-        
+
         Ok(())
     }
-    
+
     /// Parse a Binance message into an event
     fn parse_message(json: serde_json::Value, sequence_number: u64) -> Option<BinanceStreamEvent> {
         // Check event type
         let event_type = json.get("e")?.as_str()?;
-        
+
         let data = match event_type {
             "24hrTicker" => {
                 let ticker: TickerData = serde_json::from_value(json.clone()).ok()?;
@@ -342,7 +343,7 @@ impl BinanceStream {
             }
             _ => BinanceEventData::Unknown(json.clone()),
         };
-        
+
         // Extract symbol for ID
         let symbol = match &data {
             BinanceEventData::Ticker(t) => &t.symbol,
@@ -351,10 +352,10 @@ impl BinanceStream {
             BinanceEventData::Kline(k) => &k.symbol,
             BinanceEventData::Unknown(_) => "unknown",
         };
-        
+
         // Create unique ID
         let id = format!("{}-{}-{}", symbol, event_type, sequence_number);
-        
+
         // Determine event kind
         let kind = match event_type {
             "24hrTicker" | "kline" => EventKind::Price,
@@ -362,7 +363,7 @@ impl BinanceStream {
             "trade" => EventKind::Transaction,
             _ => EventKind::External,
         };
-        
+
         // Create event metadata
         let now = Utc::now();
         let metadata = EventMetadata {
@@ -374,7 +375,7 @@ impl BinanceStream {
             chain_data: None,
             custom: std::collections::HashMap::new(),
         };
-        
+
         // Create stream metadata (legacy)
         let stream_meta = StreamMetadata {
             stream_source: "binance".to_string(),
@@ -382,7 +383,7 @@ impl BinanceStream {
             sequence_number: Some(sequence_number),
             custom_data: Some(json.clone()),
         };
-        
+
         Some(BinanceStreamEvent {
             metadata,
             data,

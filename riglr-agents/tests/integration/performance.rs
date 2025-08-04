@@ -52,14 +52,14 @@ impl BenchmarkAgent {
 impl Agent for BenchmarkAgent {
     async fn execute_task(&self, task: Task) -> Result<TaskResult> {
         let start = Instant::now();
-        
+
         // Simulate processing work
         if self.processing_time > Duration::ZERO {
             tokio::time::sleep(self.processing_time).await;
         }
 
         let elapsed = start.elapsed();
-        
+
         // Update metrics
         self.task_counter.fetch_add(1, Ordering::Relaxed);
         self.total_processing_time.fetch_add(elapsed.as_nanos() as u64, Ordering::Relaxed);
@@ -111,18 +111,18 @@ impl MemoryIntensiveAgent {
 impl Agent for MemoryIntensiveAgent {
     async fn execute_task(&self, task: Task) -> Result<TaskResult> {
         let start = Instant::now();
-        
+
         // Allocate and use memory
         let mut data = vec![0u8; self.memory_allocation_size];
-        
+
         // Simulate some work with the memory
         for i in (0..data.len()).step_by(4096) {
             data[i] = (i % 256) as u8;
         }
-        
+
         // Small delay to simulate processing
         tokio::time::sleep(Duration::from_millis(10)).await;
-        
+
         let checksum: u64 = data.iter().map(|&x| x as u64).sum();
         let elapsed = start.elapsed();
 
@@ -168,7 +168,7 @@ impl CpuIntensiveAgent {
 impl Agent for CpuIntensiveAgent {
     async fn execute_task(&self, task: Task) -> Result<TaskResult> {
         let start = Instant::now();
-        
+
         // CPU-intensive work
         let mut result = 0u64;
         for i in 0..self.work_iterations {
@@ -178,7 +178,7 @@ impl Agent for CpuIntensiveAgent {
                 tokio::task::yield_now().await;
             }
         }
-        
+
         let elapsed = start.elapsed();
 
         Ok(TaskResult::success(
@@ -212,7 +212,7 @@ async fn test_basic_throughput() {
     // Create multiple fast agents
     let num_agents = 4;
     let mut agents = Vec::new();
-    
+
     for i in 0..num_agents {
         let agent = Arc::new(BenchmarkAgent::new(
             format!("throughput-agent-{}", i),
@@ -237,18 +237,18 @@ async fn test_basic_throughput() {
     // Verify results
     assert_eq!(results.len(), num_tasks);
     let success_count = results.iter().filter(|r| r.is_ok()).count();
-    
+
     // Calculate throughput
     let throughput = success_count as f64 / elapsed.as_secs_f64();
-    
+
     println!("Throughput: {:.2} tasks/second", throughput);
     println!("Total time: {:?}", elapsed);
     println!("Success rate: {:.2}%", (success_count as f64 / num_tasks as f64) * 100.0);
-    
+
     // Should achieve reasonable throughput
     assert!(throughput > 100.0); // At least 100 tasks per second
     assert!(success_count >= num_tasks * 95 / 100); // At least 95% success rate
-    
+
     // Verify load distribution across agents
     let total_tasks_processed: u64 = agents.iter().map(|a| a.get_task_count()).sum();
     assert!(total_tasks_processed >= success_count as u64);
@@ -259,7 +259,7 @@ async fn test_basic_throughput() {
 async fn test_agent_scalability() {
     let agent_counts = vec![1, 2, 4, 8];
     let tasks_per_test = 200;
-    
+
     for &num_agents in &agent_counts {
         let registry = Arc::new(LocalAgentRegistry::new());
         let dispatcher = Arc::new(AgentDispatcher::new(registry.clone()));
@@ -288,11 +288,11 @@ async fn test_agent_scalability() {
         let success_count = results.iter().filter(|r| r.is_ok()).count();
         let throughput = success_count as f64 / elapsed.as_secs_f64();
 
-        println!("Agents: {}, Throughput: {:.2} tasks/sec, Time: {:?}", 
+        println!("Agents: {}, Throughput: {:.2} tasks/sec, Time: {:?}",
                  num_agents, throughput, elapsed);
-        
+
         assert!(success_count >= tasks_per_test * 90 / 100); // 90% success rate
-        
+
         // With more agents, we expect better throughput (up to a point)
         if num_agents > 1 {
             assert!(throughput > 10.0); // Should scale reasonably
@@ -313,7 +313,7 @@ async fn test_load_balancing_performance() {
 
     let num_agents = 6;
     let mut agents = Vec::new();
-    
+
     // Create agents with different processing speeds
     for i in 0..num_agents {
         let processing_time = Duration::from_millis(10 + (i * 5) as u64);
@@ -338,8 +338,8 @@ async fn test_load_balancing_performance() {
     let elapsed = start_time.elapsed();
 
     let success_count = results.iter().filter(|r| r.is_ok()).count();
-    
-    println!("Load balancing test - Time: {:?}, Success: {}/{}", 
+
+    println!("Load balancing test - Time: {:?}, Success: {}/{}",
              elapsed, success_count, num_tasks);
 
     // Verify task distribution
@@ -349,14 +349,14 @@ async fn test_load_balancing_performance() {
     // Check that tasks were distributed (not all on one agent)
     let max_tasks = task_counts.iter().max().unwrap_or(&0);
     let min_tasks = task_counts.iter().min().unwrap_or(&0);
-    let distribution_ratio = if *max_tasks > 0 { 
-        *min_tasks as f64 / *max_tasks as f64 
-    } else { 
-        0.0 
+    let distribution_ratio = if *max_tasks > 0 {
+        *min_tasks as f64 / *max_tasks as f64
+    } else {
+        0.0
     };
 
     println!("Distribution ratio (min/max): {:.2}", distribution_ratio);
-    
+
     // Should have reasonable distribution (not perfect due to load balancing heuristics)
     assert!(distribution_ratio > 0.3); // At least some distribution
     assert!(success_count >= num_tasks * 95 / 100);
@@ -372,7 +372,7 @@ async fn test_memory_usage() {
     // Create memory-intensive agents
     let num_agents = 3;
     let memory_per_agent_mb = 10; // 10MB per agent
-    
+
     for i in 0..num_agents {
         let agent = Arc::new(MemoryIntensiveAgent::new(
             format!("memory-agent-{}", i),
@@ -390,23 +390,23 @@ async fn test_memory_usage() {
         .collect();
 
     let start_time = Instant::now();
-    
+
     // Monitor memory usage (simplified)
     let initial_memory = get_process_memory_mb().unwrap_or(0);
-    
+
     let results = dispatcher.dispatch_tasks(tasks).await;
-    
+
     let final_memory = get_process_memory_mb().unwrap_or(0);
     let elapsed = start_time.elapsed();
 
     let success_count = results.iter().filter(|r| r.is_ok()).count();
     let memory_increase = final_memory.saturating_sub(initial_memory);
 
-    println!("Memory test - Time: {:?}, Success: {}/{}", 
+    println!("Memory test - Time: {:?}, Success: {}/{}",
              elapsed, success_count, num_tasks);
-    println!("Memory usage: {} MB -> {} MB (+{} MB)", 
+    println!("Memory usage: {} MB -> {} MB (+{} MB)",
              initial_memory, final_memory, memory_increase);
-    
+
     assert!(success_count >= num_tasks * 90 / 100);
     // Memory usage should be reasonable (not excessive leaks)
     assert!(memory_increase < 1000); // Less than 1GB increase
@@ -420,7 +420,7 @@ async fn test_cpu_intensive_performance() {
 
     let num_agents = 2;
     let work_iterations = 100_000;
-    
+
     for i in 0..num_agents {
         let agent = Arc::new(CpuIntensiveAgent::new(
             format!("cpu-agent-{}", i),
@@ -442,14 +442,14 @@ async fn test_cpu_intensive_performance() {
     let elapsed = start_time.elapsed();
 
     let success_count = results.iter().filter(|r| r.is_ok()).count();
-    
-    println!("CPU intensive test - Time: {:?}, Success: {}/{}", 
+
+    println!("CPU intensive test - Time: {:?}, Success: {}/{}",
              elapsed, success_count, num_tasks);
-    
+
     // Calculate average processing time
     let mut total_processing_time = Duration::ZERO;
     let mut processed_results = 0;
-    
+
     for result in &results {
         if let Ok(task_result) = result {
             if let Some(data) = task_result.data() {
@@ -460,15 +460,15 @@ async fn test_cpu_intensive_performance() {
             }
         }
     }
-    
+
     let avg_processing_time = if processed_results > 0 {
         total_processing_time / processed_results
     } else {
         Duration::ZERO
     };
-    
+
     println!("Average processing time: {:?}", avg_processing_time);
-    
+
     assert!(success_count >= num_tasks * 90 / 100);
     assert!(avg_processing_time < Duration::from_secs(5)); // Should complete within reasonable time
 }
@@ -503,10 +503,10 @@ async fn test_concurrency_limits() {
     let elapsed = start_time.elapsed();
 
     let success_count = results.iter().filter(|r| r.is_ok()).count();
-    
-    println!("Concurrency test - Time: {:?}, Success: {}/{}", 
+
+    println!("Concurrency test - Time: {:?}, Success: {}/{}",
              elapsed, success_count, num_tasks);
-    
+
     // With concurrency limits, tasks should be processed in batches
     // The total time should reflect this batching
     let expected_min_time = Duration::from_millis(100 * 4); // At least 4 batches
@@ -546,9 +546,9 @@ async fn test_burst_load_performance() {
     let success_count = results.iter().filter(|r| r.is_ok()).count();
     let throughput = success_count as f64 / elapsed.as_secs_f64();
 
-    println!("Burst load test - Time: {:?}, Throughput: {:.2} tasks/sec", 
+    println!("Burst load test - Time: {:?}, Throughput: {:.2} tasks/sec",
              elapsed, throughput);
-    
+
     assert!(success_count >= burst_size * 95 / 100);
     assert!(throughput > 50.0); // Should handle burst efficiently
 }
@@ -566,7 +566,7 @@ async fn test_latency_characteristics() {
     registry.register_agent(agent).await.unwrap();
 
     let mut latencies = Vec::new();
-    
+
     // Measure individual task latencies
     for i in 0..50 {
         let task = Task::new(
@@ -580,7 +580,7 @@ async fn test_latency_characteristics() {
 
         latencies.push(latency);
         assert!(result.is_success());
-        
+
         // Small delay between tasks to avoid overwhelming
         tokio::time::sleep(Duration::from_millis(1)).await;
     }
@@ -616,7 +616,7 @@ async fn test_sustained_load_performance() {
     // Create moderate number of agents
     let num_agents = 4;
     let mut agents = Vec::new();
-    
+
     for i in 0..num_agents {
         let agent = Arc::new(BenchmarkAgent::new(
             format!("sustained-agent-{}", i),
@@ -628,7 +628,7 @@ async fn test_sustained_load_performance() {
 
     let test_duration = Duration::from_secs(30); // 30 seconds of sustained load
     let task_interval = Duration::from_millis(100); // New task every 100ms
-    
+
     let start_time = Instant::now();
     let mut task_count = 0;
     let mut results = Vec::new();
@@ -675,7 +675,7 @@ async fn test_sustained_load_performance() {
     assert!(success_count >= task_count * 95 / 100); // 95% success rate
     assert!(avg_throughput > 5.0); // Maintain reasonable throughput
     assert!(p95_latency < Duration::from_secs(2)); // Reasonable P95 latency
-    
+
     // Verify agents handled tasks
     let total_agent_tasks: u64 = agents.iter().map(|a| a.get_task_count()).sum();
     assert!(total_agent_tasks >= success_count as u64);
@@ -698,7 +698,7 @@ fn get_process_memory_mb() -> Option<usize> {
         }
         None
     }
-    
+
     #[cfg(not(target_os = "linux"))]
     {
         // Simplified fallback - return a dummy value
@@ -735,7 +735,7 @@ async fn test_dispatcher_statistics_accuracy() {
 
     // Get dispatcher statistics
     let stats = dispatcher.stats().await.unwrap();
-    
+
     println!("Dispatcher statistics:");
     println!("  Registered agents: {}", stats.registered_agents);
     println!("  Total active tasks: {}", stats.total_active_tasks);
@@ -745,7 +745,7 @@ async fn test_dispatcher_statistics_accuracy() {
     // Verify statistics accuracy
     assert_eq!(stats.registered_agents, num_agents);
     assert!(success_count >= num_tasks * 90 / 100);
-    
+
     // Load should be reasonable (tasks completed, so load might be low)
     assert!((0.0..=1.0).contains(&stats.average_agent_load));
 }
@@ -794,7 +794,7 @@ async fn test_routing_strategy_performance() {
         let success_count = results.iter().filter(|r| r.is_ok()).count();
         let throughput = success_count as f64 / elapsed.as_secs_f64();
 
-        println!("Strategy {:?}: {:.2} tasks/sec, {:?}", 
+        println!("Strategy {:?}: {:.2} tasks/sec, {:?}",
                  strategy, throughput, elapsed);
 
         assert!(success_count >= num_tasks * 90 / 100);

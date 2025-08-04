@@ -3,7 +3,7 @@
 //! This module provides tools for managing and monitoring trading positions.
 
 use crate::client::{HyperliquidClient, Position};
-use riglr_core::{ToolError, SignerContext};
+use riglr_core::{SignerContext, ToolError};
 use riglr_macros::tool;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -14,9 +14,9 @@ use tracing::{debug, info};
 /// This tool retrieves all active perpetual futures positions for the user's account.
 /// Returns comprehensive position data including unrealized PnL, leverage, liquidation prices,
 /// and margin requirements. Only returns positions with non-zero size.
-/// 
+///
 /// # Returns
-/// 
+///
 /// Returns `Vec<HyperliquidPosition>` where each position contains:
 /// - `symbol`: Trading pair (e.g., "ETH-PERP")
 /// - `size`: Position size in contracts (positive for long, negative for short)
@@ -29,20 +29,20 @@ use tracing::{debug, info};
 /// - `margin_used`: Amount of margin allocated to this position
 /// - `return_on_equity`: ROE percentage
 /// - `position_type`: Position mode (e.g., "oneWay")
-/// 
+///
 /// # Errors
-/// 
+///
 /// * `HyperliquidToolError::NetworkError` - When API connection fails
 /// * `HyperliquidToolError::Generic` - When signer context unavailable or address parsing fails
-/// 
+///
 /// # Examples
-/// 
+///
 /// ```rust,ignore
 /// use riglr_hyperliquid_tools::positions::get_hyperliquid_positions;
-/// 
+///
 /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
 /// let positions = get_hyperliquid_positions().await?;
-/// 
+///
 /// for position in positions {
 ///     println!("Position: {} {} contracts", position.symbol, position.size);
 ///     println!("Entry: ${}, PnL: ${}", position.entry_price, position.unrealized_pnl);
@@ -56,9 +56,10 @@ pub async fn get_hyperliquid_positions() -> Result<Vec<HyperliquidPosition>, Too
     debug!("Getting Hyperliquid positions");
 
     // Get signer context
-    let signer = SignerContext::current().await
+    let signer = SignerContext::current()
+        .await
         .map_err(|e| ToolError::permanent_string(format!("No signer context: {}", e)))?;
-    
+
     // Create client
     let client = HyperliquidClient::new(signer)?;
 
@@ -74,7 +75,10 @@ pub async fn get_hyperliquid_positions() -> Result<Vec<HyperliquidPosition>, Too
     // Convert to our result format
     let mut result_positions = Vec::new();
     for position in positions {
-        let Position { position: pos_data, type_field } = position;
+        let Position {
+            position: pos_data,
+            type_field,
+        } = position;
         // Only include positions with non-zero size
         let size = pos_data.szi.parse::<f64>().unwrap_or(0.0);
         if size != 0.0 {
@@ -83,7 +87,8 @@ pub async fn get_hyperliquid_positions() -> Result<Vec<HyperliquidPosition>, Too
             let mark_price = if let Some(mids_obj) = all_mids.as_object() {
                 // Try to find the price for this coin
                 let coin_key = pos_data.coin.trim_end_matches("-PERP");
-                mids_obj.get(coin_key)
+                mids_obj
+                    .get(coin_key)
                     .or_else(|| mids_obj.get(&pos_data.coin))
                     .and_then(|v| v.as_str())
                     .unwrap_or("0.0")
@@ -91,7 +96,7 @@ pub async fn get_hyperliquid_positions() -> Result<Vec<HyperliquidPosition>, Too
             } else {
                 "0.0".to_string()
             };
-            
+
             result_positions.push(HyperliquidPosition {
                 symbol: pos_data.coin,
                 size: pos_data.szi,
@@ -117,14 +122,14 @@ pub async fn get_hyperliquid_positions() -> Result<Vec<HyperliquidPosition>, Too
 /// This tool automatically closes an existing perpetual futures position by placing a market order
 /// in the opposite direction. It can close the entire position or a partial amount, with automatic
 /// side detection (sells long positions, buys short positions).
-/// 
+///
 /// # Arguments
-/// 
+///
 /// * `symbol` - Trading pair symbol of the position to close
 /// * `size` - Optional specific amount to close (closes entire position if None)
-/// 
+///
 /// # Returns
-/// 
+///
 /// Returns `HyperliquidCloseResult` containing:
 /// - `symbol`: The trading pair that was closed
 /// - `closed_size`: Amount of the position that was closed
@@ -132,28 +137,28 @@ pub async fn get_hyperliquid_positions() -> Result<Vec<HyperliquidPosition>, Too
 /// - `order_id`: Order ID for the closing transaction
 /// - `status`: Order status from the API
 /// - `message`: Human-readable confirmation message
-/// 
+///
 /// # Errors
-/// 
+///
 /// * `HyperliquidToolError::InvalidInput` - When no position exists or size is invalid
 /// * `HyperliquidToolError::ApiError` - When the closing order fails
 /// * `HyperliquidToolError::NetworkError` - When connection issues occur
-/// 
+///
 /// # Examples
-/// 
+///
 /// ```rust,ignore
 /// use riglr_hyperliquid_tools::positions::close_hyperliquid_position;
-/// 
+///
 /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
 /// // Close entire position
 /// let result = close_hyperliquid_position(
 ///     "ETH-PERP".to_string(),
 ///     None, // Close entire position
 /// ).await?;
-/// 
+///
 /// println!("Closed {} {} position", result.closed_size, result.symbol);
 /// println!("Order ID: {:?}", result.order_id);
-/// 
+///
 /// // Close partial position
 /// let partial = close_hyperliquid_position(
 ///     "BTC-PERP".to_string(),
@@ -171,28 +176,40 @@ pub async fn close_hyperliquid_position(
 
     // Get current positions to determine position direction and size
     let positions = get_hyperliquid_positions().await?;
-    
-    let position = positions.iter()
-        .find(|p| p.symbol.eq_ignore_ascii_case(&symbol) || 
-                  p.symbol.eq_ignore_ascii_case(&format!("{}-PERP", symbol)))
-        .ok_or_else(|| ToolError::permanent_string(format!("No open position found for {}", symbol)))?;
 
-    let current_size = position.size.parse::<f64>()
+    let position = positions
+        .iter()
+        .find(|p| {
+            p.symbol.eq_ignore_ascii_case(&symbol)
+                || p.symbol.eq_ignore_ascii_case(&format!("{}-PERP", symbol))
+        })
+        .ok_or_else(|| {
+            ToolError::permanent_string(format!("No open position found for {}", symbol))
+        })?;
+
+    let current_size = position
+        .size
+        .parse::<f64>()
         .map_err(|e| ToolError::permanent_string(format!("Invalid position size: {}", e)))?;
 
     if current_size == 0.0 {
-        return Err(ToolError::permanent_string(format!("No open position for {}", symbol)));
+        return Err(ToolError::permanent_string(format!(
+            "No open position for {}",
+            symbol
+        )));
     }
 
     // Determine close size
     let close_size = if let Some(size_str) = size {
-        let requested_size = size_str.parse::<f64>()
-            .map_err(|e| ToolError::permanent_string(format!("Invalid size '{}': {}", size_str, e)))?;
-        
+        let requested_size = size_str.parse::<f64>().map_err(|e| {
+            ToolError::permanent_string(format!("Invalid size '{}': {}", size_str, e))
+        })?;
+
         if requested_size > current_size.abs() {
             return Err(ToolError::permanent_string(format!(
-                "Requested close size {} exceeds position size {}", 
-                requested_size, current_size.abs()
+                "Requested close size {} exceeds position size {}",
+                requested_size,
+                current_size.abs()
             )));
         }
         requested_size
@@ -209,10 +226,11 @@ pub async fn close_hyperliquid_position(
         order_side.to_string(),
         close_size.to_string(),
         "market".to_string(),
-        None, // No price for market order
+        None,       // No price for market order
         Some(true), // Reduce only
-        None, // No time in force needed for market orders
-    ).await?;
+        None,       // No time in force needed for market orders
+    )
+    .await?;
 
     info!("Successfully placed close order for {} position", symbol);
 
@@ -231,17 +249,17 @@ pub async fn close_hyperliquid_position(
 /// This tool retrieves detailed information about a position for a specific trading pair
 /// on Hyperliquid. It performs flexible symbol matching, supporting both base symbols
 /// (e.g., "ETH") and full perpetual contract names (e.g., "ETH-PERP").
-/// 
+///
 /// # Arguments
-/// 
+///
 /// * `symbol` - Trading pair symbol to query (e.g., "ETH", "BTC", "ETH-PERP")
-/// 
+///
 /// # Returns
-/// 
+///
 /// Returns `Option<HyperliquidPosition>`:
 /// - `Some(position)` - If an active position exists for the symbol
 /// - `None` - If no position is found for the symbol
-/// 
+///
 /// When a position is found, it contains:
 /// - `symbol`: Full trading pair name (e.g., "ETH-PERP")
 /// - `size`: Position size (positive for long, negative for short)
@@ -250,21 +268,21 @@ pub async fn close_hyperliquid_position(
 /// - `leverage`: Current leverage multiplier
 /// - `liquidation_price`: Price level where position gets liquidated
 /// - Additional margin and return metrics
-/// 
+///
 /// # Errors
-/// 
+///
 /// * `HyperliquidToolError::NetworkError` - When API connection fails
 /// * `HyperliquidToolError::Generic` - When signer context unavailable
-/// 
+///
 /// # Examples
-/// 
+///
 /// ```rust,ignore
 /// use riglr_hyperliquid_tools::positions::get_hyperliquid_position_details;
-/// 
+///
 /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
 /// // Check if we have an ETH position
 /// let position = get_hyperliquid_position_details("ETH".to_string()).await?;
-/// 
+///
 /// match position {
 ///     Some(pos) => {
 ///         println!("ETH Position Found:");
@@ -278,7 +296,7 @@ pub async fn close_hyperliquid_position(
 ///         println!("No ETH position found");
 ///     }
 /// }
-/// 
+///
 /// // Also works with full symbol names
 /// let btc_position = get_hyperliquid_position_details("BTC-PERP".to_string()).await?;
 /// # Ok(())
@@ -291,16 +309,17 @@ pub async fn get_hyperliquid_position_details(
     debug!("Getting position details for {}", symbol);
 
     let positions = get_hyperliquid_positions().await?;
-    
-    let position = positions.into_iter()
-        .find(|p| p.symbol.eq_ignore_ascii_case(&symbol) || 
-                  p.symbol.eq_ignore_ascii_case(&format!("{}-PERP", symbol)));
+
+    let position = positions.into_iter().find(|p| {
+        p.symbol.eq_ignore_ascii_case(&symbol)
+            || p.symbol.eq_ignore_ascii_case(&format!("{}-PERP", symbol))
+    });
 
     match position {
         Some(pos) => {
             info!("Found position for {}: size = {}", symbol, pos.size);
             Ok(Some(pos))
-        },
+        }
         None => {
             info!("No position found for {}", symbol);
             Ok(None)
@@ -313,9 +332,9 @@ pub async fn get_hyperliquid_position_details(
 /// This tool performs comprehensive risk analysis of the entire Hyperliquid portfolio,
 /// calculating exposure metrics, margin utilization, and identifying positions at risk.
 /// Essential for risk management and portfolio monitoring in leveraged trading.
-/// 
+///
 /// # Returns
-/// 
+///
 /// Returns `HyperliquidRiskMetrics` containing:
 /// - `total_positions`: Number of active positions
 /// - `total_position_value`: Combined value of all positions in USD
@@ -324,27 +343,27 @@ pub async fn get_hyperliquid_position_details(
 /// - `max_leverage`: Highest leverage across all positions
 /// - `positions_at_risk`: Number of positions with high leverage or negative P&L
 /// - `risk_level`: Overall risk assessment ("LOW", "MEDIUM", "HIGH")
-/// 
+///
 /// # Risk Level Calculation
-/// 
+///
 /// Risk level is determined by:
 /// - **HIGH**: >80% margin utilization, >50x max leverage, or >75% positions at risk
 /// - **MEDIUM**: >50% margin utilization, >20x max leverage, or >50% positions at risk
 /// - **LOW**: All other scenarios
-/// 
+///
 /// # Errors
-/// 
+///
 /// * `HyperliquidToolError::NetworkError` - When API connection fails
 /// * `HyperliquidToolError::Generic` - When signer context unavailable
-/// 
+///
 /// # Examples
-/// 
+///
 /// ```rust,ignore
 /// use riglr_hyperliquid_tools::positions::get_hyperliquid_portfolio_risk;
-/// 
+///
 /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
 /// let risk = get_hyperliquid_portfolio_risk().await?;
-/// 
+///
 /// println!("Portfolio Risk Analysis:");
 /// println!("  Risk Level: {}", risk.risk_level);
 /// println!("  Total Positions: {}", risk.total_positions);
@@ -353,7 +372,7 @@ pub async fn get_hyperliquid_position_details(
 /// println!("  Margin Utilization: {:.1}%", risk.margin_utilization_percent);
 /// println!("  Max Leverage: {}x", risk.max_leverage);
 /// println!("  Positions at Risk: {}", risk.positions_at_risk);
-/// 
+///
 /// // Risk management alerts
 /// match risk.risk_level.as_str() {
 ///     "HIGH" => println!("⚠️  HIGH RISK: Consider reducing positions"),
@@ -361,7 +380,7 @@ pub async fn get_hyperliquid_position_details(
 ///     "LOW" => println!("✅ LOW RISK: Portfolio within safe parameters"),
 ///     _ => {}
 /// }
-/// 
+///
 /// // Margin utilization warning
 /// if risk.margin_utilization_percent > 70.0 {
 ///     println!("💡 Consider adding more margin or reducing position sizes");
@@ -375,7 +394,7 @@ pub async fn get_hyperliquid_portfolio_risk() -> Result<HyperliquidRiskMetrics, 
 
     // Get all positions
     let positions = get_hyperliquid_positions().await?;
-    
+
     // Get account info for margin data
     let account_info = crate::trading::get_hyperliquid_account_info().await?;
 
@@ -389,7 +408,7 @@ pub async fn get_hyperliquid_portfolio_risk() -> Result<HyperliquidRiskMetrics, 
         if let Ok(position_value) = position.position_value.parse::<f64>() {
             total_position_value += position_value.abs();
         }
-        
+
         if let Ok(pnl) = position.unrealized_pnl.parse::<f64>() {
             total_unrealized_pnl += pnl;
         }
@@ -404,17 +423,26 @@ pub async fn get_hyperliquid_portfolio_risk() -> Result<HyperliquidRiskMetrics, 
         }
     }
 
-    let margin_utilization = if let Ok(withdrawable) = account_info.withdrawable_balance.parse::<f64>() {
-        if let Ok(margin_used) = account_info.cross_margin_used.parse::<f64>() {
-            if withdrawable + margin_used > 0.0 {
-                (margin_used / (withdrawable + margin_used)) * 100.0
+    let margin_utilization =
+        if let Ok(withdrawable) = account_info.withdrawable_balance.parse::<f64>() {
+            if let Ok(margin_used) = account_info.cross_margin_used.parse::<f64>() {
+                if withdrawable + margin_used > 0.0 {
+                    (margin_used / (withdrawable + margin_used)) * 100.0
+                } else {
+                    0.0
+                }
             } else {
                 0.0
             }
-        } else { 0.0 }
-    } else { 0.0 };
+        } else {
+            0.0
+        };
 
-    info!("Calculated risk metrics: {} positions, {}% margin utilization", positions.len(), margin_utilization);
+    info!(
+        "Calculated risk metrics: {} positions, {}% margin utilization",
+        positions.len(),
+        margin_utilization
+    );
 
     Ok(HyperliquidRiskMetrics {
         total_positions: positions.len(),
@@ -423,14 +451,23 @@ pub async fn get_hyperliquid_portfolio_risk() -> Result<HyperliquidRiskMetrics, 
         margin_utilization_percent: margin_utilization,
         max_leverage,
         positions_at_risk,
-        risk_level: calculate_risk_level(margin_utilization, max_leverage, positions_at_risk, positions.len()),
+        risk_level: calculate_risk_level(
+            margin_utilization,
+            max_leverage,
+            positions_at_risk,
+            positions.len(),
+        ),
     })
 }
 
 /// Helper function to calculate overall risk level
 fn calculate_risk_level(margin_util: f64, max_lev: u32, at_risk: usize, total: usize) -> String {
-    let at_risk_ratio = if total > 0 { (at_risk as f64 / total as f64) * 100.0 } else { 0.0 };
-    
+    let at_risk_ratio = if total > 0 {
+        (at_risk as f64 / total as f64) * 100.0
+    } else {
+        0.0
+    };
+
     if margin_util > 80.0 || max_lev > 50 || at_risk_ratio > 75.0 {
         "HIGH".to_string()
     } else if margin_util > 50.0 || max_lev > 20 || at_risk_ratio > 50.0 {

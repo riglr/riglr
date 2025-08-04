@@ -340,7 +340,8 @@ async fn test_send_transaction() {
     let to_pubkey = Pubkey::new_unique();
     let lamports = 1000;
 
-    let instruction = solana_sdk::system_instruction::transfer(&from_keypair.pubkey(), &to_pubkey, lamports);
+    let instruction =
+        solana_sdk::system_instruction::transfer(&from_keypair.pubkey(), &to_pubkey, lamports);
 
     let message = Message::new(&[instruction], Some(&from_keypair.pubkey()));
     let transaction = Transaction::new_unsigned(message);
@@ -551,7 +552,8 @@ async fn test_send_transaction_with_invalid_transaction() {
     let to_pubkey = Pubkey::new_unique();
     let lamports = 1000;
 
-    let instruction = solana_sdk::system_instruction::transfer(&from_keypair.pubkey(), &to_pubkey, lamports);
+    let instruction =
+        solana_sdk::system_instruction::transfer(&from_keypair.pubkey(), &to_pubkey, lamports);
 
     let message = Message::new(&[instruction], Some(&from_keypair.pubkey()));
 
@@ -718,7 +720,8 @@ async fn test_send_transaction_success_path() {
     let to_pubkey = Pubkey::new_unique();
     let lamports = 1;
 
-    let instruction = solana_sdk::system_instruction::transfer(&from_keypair.pubkey(), &to_pubkey, lamports);
+    let instruction =
+        solana_sdk::system_instruction::transfer(&from_keypair.pubkey(), &to_pubkey, lamports);
 
     let message = Message::new(&[instruction], Some(&from_keypair.pubkey()));
 

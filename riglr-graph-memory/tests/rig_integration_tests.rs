@@ -1,11 +1,11 @@
 //! Integration tests for rig VectorStore implementation
-//! 
+//!
 //! These tests verify that the GraphVectorStore can properly handle
 //! document storage, retrieval, and vector similarity search operations.
 
 #[cfg(test)]
 mod tests {
-    use riglr_graph_memory::{Neo4jClient, GraphVectorStore, RigDocument};
+    use riglr_graph_memory::{GraphVectorStore, Neo4jClient, RigDocument};
     use serde_json::json;
     use std::{collections::HashMap, sync::Arc};
 
@@ -23,7 +23,7 @@ mod tests {
     async fn test_graph_vector_store_creation() {
         let client = create_mock_client();
         let _vector_store = GraphVectorStore::new(client, "test_index".to_string());
-        
+
         // Just ensure the store can be created without panicking
         // Note: index_name is private, but we can test that construction succeeds
         // Vector store created successfully
@@ -49,13 +49,13 @@ mod tests {
 
     #[tokio::test]
     async fn test_document_conversion() {
-        use riglr_graph_memory::document::{RawTextDocument, DocumentMetadata, DocumentSource};
-        
+        use riglr_graph_memory::document::{DocumentMetadata, DocumentSource, RawTextDocument};
+
         // Test RigDocument -> RawTextDocument conversion
         let mut rig_metadata = HashMap::new();
         rig_metadata.insert("title".to_string(), json!("Test Title"));
         rig_metadata.insert("chain".to_string(), json!("solana"));
-        
+
         let rig_doc = RigDocument {
             id: "test_123".to_string(),
             content: "Test content".to_string(),
@@ -67,7 +67,7 @@ mod tests {
         assert_eq!(raw_doc.id, "test_123");
         assert_eq!(raw_doc.content, "Test content");
         assert!(raw_doc.metadata.is_some());
-        
+
         if let Some(meta) = raw_doc.metadata {
             assert_eq!(meta.title, Some("Test Title".to_string()));
             assert_eq!(meta.chain, Some("solana".to_string()));
@@ -79,7 +79,7 @@ mod tests {
             tags: vec!["defi".to_string(), "nft".to_string()],
             ..Default::default()
         };
-        
+
         let raw_doc2 = RawTextDocument {
             id: "raw_456".to_string(),
             content: "Raw document content".to_string(),
@@ -133,8 +133,11 @@ mod tests {
         // These assertions verify the API exists and compiles correctly
         // In a real test with Neo4j, these would actually perform operations
         assert!(vector_store.add_documents(documents).await.is_err()); // Mock client will fail
-        assert!(vector_store.get_documents(doc_ids).await.is_err()); // Mock client will fail  
+        assert!(vector_store.get_documents(doc_ids).await.is_err()); // Mock client will fail
         assert!(vector_store.search(query_embedding, 5).await.is_err()); // Mock client will fail
-        assert!(vector_store.delete_documents(vec!["doc1".to_string()]).await.is_err()); // Mock client will fail
+        assert!(vector_store
+            .delete_documents(vec!["doc1".to_string()])
+            .await
+            .is_err()); // Mock client will fail
     }
 }

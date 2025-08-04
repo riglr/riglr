@@ -1,8 +1,8 @@
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
-use std::sync::atomic::{AtomicU64, AtomicBool, Ordering};
 use std::time::{Duration, SystemTime};
 use tokio::sync::RwLock;
-use tracing::{info, warn, error};
+use tracing::{error, info, warn};
 
 /// Circuit breaker for stream connections
 pub struct CircuitBreaker {
@@ -16,7 +16,7 @@ pub struct CircuitBreaker {
     timeout: Duration,
     /// Current failure count
     failure_count: Arc<AtomicU64>,
-    /// Current success count  
+    /// Current success count
     success_count: Arc<AtomicU64>,
     /// Is open
     is_open: Arc<AtomicBool>,
@@ -38,58 +38,63 @@ impl CircuitBreaker {
             last_failure_time: Arc::new(RwLock::new(None)),
         }
     }
-    
+
     /// Set failure threshold
     pub fn with_failure_threshold(mut self, threshold: u64) -> Self {
         self.failure_threshold = threshold;
         self
     }
-    
+
     /// Set success threshold
     pub fn with_success_threshold(mut self, threshold: u64) -> Self {
         self.success_threshold = threshold;
         self
     }
-    
+
     /// Set timeout
     pub fn with_timeout(mut self, timeout: Duration) -> Self {
         self.timeout = timeout;
         self
     }
-    
+
     /// Check if circuit is open
     pub async fn is_open(&self) -> bool {
         if !self.is_open.load(Ordering::Relaxed) {
             return false;
         }
-        
+
         // Check if timeout has passed
         if let Some(last_failure) = *self.last_failure_time.read().await {
             let elapsed = SystemTime::now()
                 .duration_since(last_failure)
                 .unwrap_or(Duration::ZERO);
-            
+
             if elapsed > self.timeout {
-                info!("Circuit breaker {} timeout expired, attempting reset", self.name);
+                info!(
+                    "Circuit breaker {} timeout expired, attempting reset",
+                    self.name
+                );
                 self.is_open.store(false, Ordering::Relaxed);
                 self.failure_count.store(0, Ordering::Relaxed);
                 return false;
             }
         }
-        
+
         true
     }
-    
+
     /// Record success
     pub async fn record_success(&self) {
         self.success_count.fetch_add(1, Ordering::Relaxed);
-        
+
         if self.is_open.load(Ordering::Relaxed) {
             let success_count = self.success_count.load(Ordering::Relaxed);
-            
+
             if success_count >= self.success_threshold {
-                info!("Circuit breaker {} closed after {} successes", 
-                    self.name, success_count);
+                info!(
+                    "Circuit breaker {} closed after {} successes",
+                    self.name, success_count
+                );
                 self.is_open.store(false, Ordering::Relaxed);
                 self.failure_count.store(0, Ordering::Relaxed);
                 self.success_count.store(0, Ordering::Relaxed);
@@ -99,15 +104,17 @@ impl CircuitBreaker {
             self.failure_count.store(0, Ordering::Relaxed);
         }
     }
-    
+
     /// Record failure
     pub async fn record_failure(&self) {
         let count = self.failure_count.fetch_add(1, Ordering::Relaxed) + 1;
         *self.last_failure_time.write().await = Some(SystemTime::now());
-        
+
         if count >= self.failure_threshold && !self.is_open.load(Ordering::Relaxed) {
-            error!("Circuit breaker {} opened after {} failures", 
-                self.name, count);
+            error!(
+                "Circuit breaker {} opened after {} failures",
+                self.name, count
+            );
             self.is_open.store(true, Ordering::Relaxed);
             self.success_count.store(0, Ordering::Relaxed);
         }
@@ -164,12 +171,12 @@ impl RetryPolicy {
                 self.initial_delay.mul_f64(factor.powi(attempt as i32))
             }
         };
-        
+
         // Apply max delay
         if delay > self.max_delay {
             delay = self.max_delay;
         }
-        
+
         // Apply jitter
         if self.jitter {
             use rand::Rng;
@@ -177,10 +184,10 @@ impl RetryPolicy {
             let jitter_factor = rng.random_range(0.8..1.2);
             delay = delay.mul_f64(jitter_factor);
         }
-        
+
         delay
     }
-    
+
     /// Execute with retry
     pub async fn execute<F, T, E>(&self, mut operation: F) -> Result<T, E>
     where
@@ -188,7 +195,7 @@ impl RetryPolicy {
         E: std::fmt::Display,
     {
         let mut attempt = 0;
-        
+
         loop {
             match operation().await {
                 Ok(result) => return Ok(result),
@@ -198,8 +205,12 @@ impl RetryPolicy {
                 }
                 Err(e) => {
                     let delay = self.calculate_delay(attempt);
-                    warn!("Operation failed (attempt {}), retrying in {:?}: {}", 
-                        attempt + 1, delay, e);
+                    warn!(
+                        "Operation failed (attempt {}), retrying in {:?}: {}",
+                        attempt + 1,
+                        delay,
+                        e
+                    );
                     tokio::time::sleep(delay).await;
                     attempt += 1;
                 }

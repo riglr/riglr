@@ -1,10 +1,10 @@
 //! Example: rig Agent with GraphVectorStore Memory
-//! 
+//!
 //! This example demonstrates how to use riglr-graph-memory as a vector store
 //! for rig agents, providing graph-based persistent memory capabilities.
 
-use std::sync::Arc;
 use std::collections::HashMap;
+use std::sync::Arc;
 use tracing::{info, warn};
 
 #[tokio::main]
@@ -19,23 +19,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         use riglr_graph_memory::{GraphVectorStore, RigDocument};
         use serde_json::json;
         // Setup Neo4j connection
-        let neo4j_url = std::env::var("NEO4J_URL").unwrap_or_else(|_| "bolt://localhost:7687".to_string());
+        let neo4j_url =
+            std::env::var("NEO4J_URL").unwrap_or_else(|_| "bolt://localhost:7687".to_string());
         let _neo4j_user = std::env::var("NEO4J_USER").unwrap_or_else(|_| "neo4j".to_string());
-        let _neo4j_password = std::env::var("NEO4J_PASSWORD").unwrap_or_else(|_| "password".to_string());
+        let _neo4j_password =
+            std::env::var("NEO4J_PASSWORD").unwrap_or_else(|_| "password".to_string());
 
         info!("Connecting to Neo4j at {}", neo4j_url);
-        
-        // For now, we'll create a mock Neo4j client since the actual implementation 
+
+        // For now, we'll create a mock Neo4j client since the actual implementation
         // would require a working Neo4j connection
         let neo4j_client = create_mock_neo4j_client().await?;
         let graph_vector_store = Arc::new(GraphVectorStore::new(
             neo4j_client,
-            "agent_memory".to_string()
+            "agent_memory".to_string(),
         ));
 
         // Demonstrate adding documents to the vector store
         info!("Adding sample documents to graph memory");
-        
+
         let sample_documents = vec![
             RigDocument {
                 id: "crypto_001".to_string(),
@@ -83,7 +85,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         // Demonstrate vector search
         info!("Performing vector search for DeFi-related content");
         let query_embedding = generate_mock_embedding(); // In real usage, this would be from an embedding model
-        
+
         match graph_vector_store.search(query_embedding, 2).await {
             Ok(results) => {
                 info!("Vector search returned {} results:", results.len());
@@ -94,33 +96,33 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         info!("     Topic: {}", topic);
                     }
                 }
-            },
+            }
             Err(e) => warn!("Vector search failed: {}", e),
         }
 
         // Demonstrate document retrieval
         info!("Retrieving specific documents by ID");
         let doc_ids = vec!["crypto_001".to_string(), "defi_001".to_string()];
-        
+
         match graph_vector_store.get_documents(doc_ids).await {
             Ok(docs) => {
                 info!("Retrieved {} documents:", docs.len());
                 for doc in docs {
                     info!("  📄 {}: {}", doc.id, truncate_string(&doc.content, 80));
                 }
-            },
+            }
             Err(e) => warn!("Document retrieval failed: {}", e),
         }
 
         // Note: In a real application, you would now create a rig agent like this:
         /*
         use rig::agent::AgentBuilder;
-        
+
         let agent = AgentBuilder::new("gpt-4")
             .preamble("You are a cryptocurrency and DeFi expert with access to a graph-based knowledge store.")
             .vector_store(graph_vector_store)
             .build();
-            
+
         let response = agent.prompt("What are the latest trends in DeFi?").await?;
         info!("Agent response: {}", response);
         */
@@ -133,14 +135,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 // Mock Neo4j client for demonstration purposes
-async fn create_mock_neo4j_client() -> Result<Arc<riglr_graph_memory::Neo4jClient>, Box<dyn std::error::Error>> {
+async fn create_mock_neo4j_client(
+) -> Result<Arc<riglr_graph_memory::Neo4jClient>, Box<dyn std::error::Error>> {
     // In a real implementation, this would connect to Neo4j:
     // let client = Neo4jClient::new(&neo4j_url, &neo4j_user, &neo4j_password).await?;
-    
+
     // For the example, we'll create a mock client that simulates Neo4j responses
     info!("ℹ️  Using mock Neo4j client for demonstration");
     info!("   In production, ensure Neo4j is running and accessible");
-    
+
     // This is a placeholder - the actual implementation would use the real Neo4j client
     let mock_client = riglr_graph_memory::Neo4jClient::default();
     Ok(Arc::new(mock_client))
@@ -175,8 +178,9 @@ mod tests {
     #[test]
     fn test_string_truncation() {
         let short_text = "Short text";
-        let long_text = "This is a very long text that should be truncated when it exceeds the maximum length";
-        
+        let long_text =
+            "This is a very long text that should be truncated when it exceeds the maximum length";
+
         assert_eq!(truncate_string(short_text, 50), short_text);
         assert_eq!(truncate_string(long_text, 20), "This is a very long ...");
     }

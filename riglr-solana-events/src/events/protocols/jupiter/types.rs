@@ -12,9 +12,11 @@ pub const EXACT_OUT_ROUTE_DISCRIMINATOR: [u8; 8] = [0x41, 0xd8, 0xfa, 0x8d, 0xac
 
 // Alternative discriminators for other Jupiter instruction types
 pub const LEGACY_ROUTE_DISCRIMINATOR: [u8; 8] = [0xe5, 0x17, 0xcb, 0x97, 0x7a, 0xe3, 0xad, 0x2a]; // route
-pub const LEGACY_EXACT_OUT_DISCRIMINATOR: [u8; 8] = [0x7e, 0x2c, 0x8e, 0xa1, 0xd9, 0xa6, 0x5b, 0xc6]; // exactOutRoute
+pub const LEGACY_EXACT_OUT_DISCRIMINATOR: [u8; 8] =
+    [0x7e, 0x2c, 0x8e, 0xa1, 0xd9, 0xa6, 0x5b, 0xc6]; // exactOutRoute
 pub const SWAP_DISCRIMINATOR: [u8; 8] = [0xf8, 0xc6, 0x9e, 0x91, 0xe1, 0x75, 0x87, 0xc8]; // swap
-pub const ROUTE_WITH_TOKEN_LEDGER_DISCRIMINATOR: [u8; 8] = [0x34, 0x65, 0x0f, 0x14, 0x74, 0x5e, 0x8d, 0xe8]; // routeWithTokenLedger
+pub const ROUTE_WITH_TOKEN_LEDGER_DISCRIMINATOR: [u8; 8] =
+    [0x34, 0x65, 0x0f, 0x14, 0x74, 0x5e, 0x8d, 0xe8]; // routeWithTokenLedger
 
 /// Jupiter shared accounts route instruction data (after discriminator)
 #[derive(Debug, Clone, BorshSerialize, BorshDeserialize)]
@@ -85,7 +87,6 @@ pub struct RoutePlan {
     pub amount_out: u64,
     pub dex_label: String,
 }
-
 
 /// Jupiter program account layout
 #[derive(Debug, Clone, Serialize, Deserialize)]

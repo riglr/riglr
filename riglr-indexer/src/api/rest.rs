@@ -1,7 +1,5 @@
 //! REST API handlers
 
-use std::collections::HashMap;
-use std::sync::Arc;
 use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
@@ -11,11 +9,13 @@ use axum::{
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use tracing::{info, error, debug};
+use std::collections::HashMap;
+use std::sync::Arc;
+use tracing::{debug, error, info};
 
 use crate::core::ServiceContext;
 use crate::error::IndexerResult;
-use crate::storage::{EventQuery, EventFilter, StoredEvent};
+use crate::storage::{EventFilter, EventQuery, StoredEvent};
 
 /// REST API handler
 pub struct RestHandler {
@@ -153,14 +153,15 @@ pub async fn get_events(
 
     if let Some(event_types) = params.event_types {
         filter.event_types = Some(
-            event_types.split(',').map(|s| s.trim().to_string()).collect()
+            event_types
+                .split(',')
+                .map(|s| s.trim().to_string())
+                .collect(),
         );
     }
 
     if let Some(sources) = params.sources {
-        filter.sources = Some(
-            sources.split(',').map(|s| s.trim().to_string()).collect()
-        );
+        filter.sources = Some(sources.split(',').map(|s| s.trim().to_string()).collect());
     }
 
     if let (Some(start), Some(end)) = (params.start_time, params.end_time) {
@@ -181,7 +182,8 @@ pub async fn get_events(
         limit: params.limit.or(Some(100)), // Default limit
         offset: params.offset,
         sort: params.sort_by.map(|field| {
-            let ascending = params.sort_dir
+            let ascending = params
+                .sort_dir
                 .as_deref()
                 .unwrap_or("desc")
                 .eq_ignore_ascii_case("asc");
@@ -220,7 +222,9 @@ pub async fn get_event(
         }
         Err(e) => {
             error!("Failed to get event {}: {}", id, e);
-            Ok(Json(ApiResponse::<Option<StoredEvent>>::error(e.to_string())))
+            Ok(Json(ApiResponse::<Option<StoredEvent>>::error(
+                e.to_string(),
+            )))
         }
     }
 }
@@ -236,7 +240,9 @@ pub async fn get_event_stats(
         Ok(count) => count,
         Err(e) => {
             error!("Failed to get event count: {}", e);
-            return Ok(Json(ApiResponse::<EventStatsResponse>::error(e.to_string())));
+            return Ok(Json(ApiResponse::<EventStatsResponse>::error(
+                e.to_string(),
+            )));
         }
     };
 
@@ -244,7 +250,9 @@ pub async fn get_event_stats(
     let events_by_type = match crate::storage::EventAggregator::aggregate_by_type(
         context.store.as_ref(),
         &EventFilter::default(),
-    ).await {
+    )
+    .await
+    {
         Ok(stats) => stats,
         Err(e) => {
             error!("Failed to get events by type: {}", e);
@@ -255,7 +263,9 @@ pub async fn get_event_stats(
     let events_by_source = match crate::storage::EventAggregator::aggregate_by_source(
         context.store.as_ref(),
         &EventFilter::default(),
-    ).await {
+    )
+    .await
+    {
         Ok(stats) => stats,
         Err(e) => {
             error!("Failed to get events by source: {}", e);
@@ -268,7 +278,9 @@ pub async fn get_event_stats(
         Ok(stats) => stats,
         Err(e) => {
             error!("Failed to get storage stats: {}", e);
-            return Ok(Json(ApiResponse::<EventStatsResponse>::error(e.to_string())));
+            return Ok(Json(ApiResponse::<EventStatsResponse>::error(
+                e.to_string(),
+            )));
         }
     };
 
@@ -291,17 +303,24 @@ pub async fn get_health(
     match context.health_check().await {
         Ok(health_status) => {
             let mut components = HashMap::new();
-            
+
             for (name, component_health) in health_status.components {
-                components.insert(name, ComponentStatus {
-                    healthy: component_health.healthy,
-                    message: component_health.message,
-                    last_success: component_health.last_success,
-                });
+                components.insert(
+                    name,
+                    ComponentStatus {
+                        healthy: component_health.healthy,
+                        message: component_health.message,
+                        last_success: component_health.last_success,
+                    },
+                );
             }
 
             let response = HealthResponse {
-                status: if health_status.healthy { "healthy".to_string() } else { "unhealthy".to_string() },
+                status: if health_status.healthy {
+                    "healthy".to_string()
+                } else {
+                    "unhealthy".to_string()
+                },
                 timestamp: health_status.timestamp,
                 components,
                 uptime_seconds: 0, // Would need to track service start time
@@ -324,9 +343,7 @@ pub async fn get_metrics(
     debug!("GET /api/v1/metrics");
 
     match context.metrics.export_json() {
-        Ok(metrics) => {
-            Ok(Json(ApiResponse::success(metrics)))
-        }
+        Ok(metrics) => Ok(Json(ApiResponse::success(metrics))),
         Err(e) => {
             error!("Failed to export metrics: {}", e);
             Ok(Json(ApiResponse::<serde_json::Value>::error(e.to_string())))

@@ -1,36 +1,36 @@
 //! Financial and blockchain-specific stream operators
-//! 
+//!
 //! Specialized operators for common DeFi and trading patterns
 
-use std::sync::Arc;
-use std::collections::{HashMap, VecDeque};
-use std::time::{Duration, SystemTime};
-use std::any::Any;
-use tokio::sync::{RwLock, broadcast};
 use async_trait::async_trait;
+use std::any::Any;
+use std::collections::{HashMap, VecDeque};
+use std::sync::Arc;
+use std::time::{Duration, SystemTime};
+use tokio::sync::{broadcast, RwLock};
 
-use crate::core::{Stream, StreamHealth, StreamError};
 use crate::core::operators::ComposableStream;
+use crate::core::{Stream, StreamError, StreamHealth};
 use riglr_events_core::prelude::{Event, EventKind};
 
 /// Trait for extracting numeric data from events for financial analysis
 pub trait AsNumeric {
     /// Extract price data from the event
     fn as_price(&self) -> Option<f64>;
-    
+
     /// Extract volume data from the event
     fn as_volume(&self) -> Option<f64>;
-    
+
     /// Extract market cap or total value if available
     fn as_market_cap(&self) -> Option<f64> {
         None
     }
-    
+
     /// Extract timestamp as Unix milliseconds for time-series analysis
     fn as_timestamp_ms(&self) -> Option<i64> {
         None
     }
-    
+
     /// Extract custom numeric field by name (for extensibility)
     fn as_custom_numeric(&self, _field: &str) -> Option<f64> {
         None
@@ -55,31 +55,31 @@ where
     fn id(&self) -> &str {
         &self.metadata.id
     }
-    
+
     fn kind(&self) -> &riglr_events_core::EventKind {
         &self.metadata.kind
     }
-    
+
     fn metadata(&self) -> &riglr_events_core::EventMetadata {
         &self.metadata
     }
-    
+
     fn metadata_mut(&mut self) -> &mut riglr_events_core::EventMetadata {
         &mut self.metadata
     }
-    
+
     fn as_any(&self) -> &dyn Any {
         self
     }
-    
+
     fn as_any_mut(&mut self) -> &mut dyn Any {
         self
     }
-    
+
     fn clone_boxed(&self) -> Box<dyn Event> {
         Box::new(self.clone())
     }
-    
+
     fn to_json(&self) -> riglr_events_core::EventResult<serde_json::Value> {
         Ok(serde_json::json!({
             "metadata": self.metadata,
@@ -111,30 +111,29 @@ impl<S: Stream> VwapStream<S> {
             name,
         }
     }
-    
+
     #[allow(dead_code)]
     async fn calculate_vwap(&self) -> f64 {
         let mut pairs = self.price_volume_pairs.write().await;
         let now = SystemTime::now();
-        
+
         // Remove old entries
-        pairs.retain(|(_, _, time)| {
-            now.duration_since(*time).unwrap_or_default() < self.window
-        });
-        
+        pairs.retain(|(_, _, time)| now.duration_since(*time).unwrap_or_default() < self.window);
+
         // Calculate VWAP
-        let (total_value, total_volume) = pairs.iter()
+        let (total_value, total_volume) = pairs
+            .iter()
             .fold((0.0, 0.0), |(val, vol), (price, volume, _)| {
                 (val + price * volume, vol + volume)
             });
-        
+
         if total_volume > 0.0 {
             total_value / total_volume
         } else {
             0.0
         }
     }
-    
+
     // Extract price/volume using AsNumeric trait
     fn extract_price_volume(event: &S::Event) -> Option<(f64, f64)>
     where
@@ -155,21 +154,21 @@ where
 {
     type Event = FinancialEvent<f64, S::Event>;
     type Config = S::Config;
-    
+
     async fn start(&mut self, config: Self::Config) -> Result<(), StreamError> {
         self.inner.start(config).await
     }
-    
+
     async fn stop(&mut self) -> Result<(), StreamError> {
         self.inner.stop().await
     }
-    
+
     fn subscribe(&self) -> broadcast::Receiver<Arc<Self::Event>> {
         let (tx, rx) = broadcast::channel(10000);
         let mut inner_rx = self.inner.subscribe();
         let price_volume_pairs = self.price_volume_pairs.clone();
         let window = self.window;
-        
+
         tokio::spawn(async move {
             while let Ok(event) = inner_rx.recv().await {
                 if let Some((price, volume)) = Self::extract_price_volume(&event) {
@@ -178,36 +177,37 @@ where
                         let mut pairs = price_volume_pairs.write().await;
                         pairs.push_back((price, volume, SystemTime::now()));
                     }
-                    
+
                     // Calculate VWAP
                     let vwap = {
                         let mut pairs = price_volume_pairs.write().await;
                         let now = SystemTime::now();
-                        
+
                         // Remove old entries
                         pairs.retain(|(_, _, time)| {
                             now.duration_since(*time).unwrap_or_default() < window
                         });
-                        
+
                         // Calculate VWAP
-                        let (total_value, total_volume) = pairs.iter()
+                        let (total_value, total_volume) = pairs
+                            .iter()
                             .fold((0.0, 0.0), |(val, vol), (price, volume, _)| {
                                 (val + price * volume, vol + volume)
                             });
-                        
+
                         if total_volume > 0.0 {
                             total_value / total_volume
                         } else {
                             0.0
                         }
                     };
-                    
+
                     let metadata = riglr_events_core::EventMetadata::new(
                         format!("vwap-{}", event.id()),
                         riglr_events_core::EventKind::Price,
                         "financial-vwap".to_string(),
                     );
-                    
+
                     let financial_event = FinancialEvent {
                         metadata,
                         indicator_value: vwap,
@@ -215,23 +215,23 @@ where
                         indicator_type: "VWAP".to_string(),
                         timestamp: SystemTime::now(),
                     };
-                    
+
                     let _ = tx.send(Arc::new(financial_event));
                 }
             }
         });
-        
+
         rx
     }
-    
+
     fn is_running(&self) -> bool {
         self.inner.is_running()
     }
-    
+
     async fn health(&self) -> StreamHealth {
         self.inner.health().await
     }
-    
+
     fn name(&self) -> &str {
         &self.name
     }
@@ -253,16 +253,16 @@ impl<S: Stream> MovingAverageStream<S> {
             values: Arc::new(RwLock::new(VecDeque::with_capacity(window_size))),
         }
     }
-    
+
     #[allow(dead_code)]
     async fn add_value(&self, value: f64) -> f64 {
         let mut values = self.values.write().await;
-        
+
         values.push_back(value);
         if values.len() > self.window_size {
             values.pop_front();
         }
-        
+
         let sum: f64 = values.iter().sum();
         sum / values.len() as f64
     }
@@ -285,16 +285,16 @@ impl<S: Stream> EmaStream<S> {
             current_ema: Arc::new(RwLock::new(None)),
         }
     }
-    
+
     #[allow(dead_code)]
     async fn update(&self, value: f64) -> f64 {
         let mut ema = self.current_ema.write().await;
-        
+
         let new_ema = match *ema {
             Some(prev) => self.alpha * value + (1.0 - self.alpha) * prev,
             None => value,
         };
-        
+
         *ema = Some(new_ema);
         new_ema
     }
@@ -318,22 +318,21 @@ impl<S: Stream> BollingerBandsStream<S> {
             values: Arc::new(RwLock::new(VecDeque::with_capacity(window))),
         }
     }
-    
+
     #[allow(dead_code)]
     async fn calculate_bands(&self, value: f64) -> BollingerBands {
         let mut values = self.values.write().await;
-        
+
         values.push_back(value);
         if values.len() > self.window {
             values.pop_front();
         }
-        
+
         let mean: f64 = values.iter().sum::<f64>() / values.len() as f64;
-        let variance: f64 = values.iter()
-            .map(|v| (v - mean).powi(2))
-            .sum::<f64>() / values.len() as f64;
+        let variance: f64 =
+            values.iter().map(|v| (v - mean).powi(2)).sum::<f64>() / values.len() as f64;
         let std_dev = variance.sqrt();
-        
+
         BollingerBands {
             upper: mean + self.std_dev_multiplier * std_dev,
             middle: mean,
@@ -371,31 +370,31 @@ impl<S: Stream> RsiStream<S> {
             last_value: Arc::new(RwLock::new(None)),
         }
     }
-    
+
     #[allow(dead_code)]
     async fn calculate_rsi(&self, value: f64) -> Option<f64> {
         let mut last = self.last_value.write().await;
-        
+
         if let Some(prev) = *last {
             let change = value - prev;
             let gain = if change > 0.0 { change } else { 0.0 };
             let loss = if change < 0.0 { -change } else { 0.0 };
-            
+
             let mut gains = self.gains.write().await;
             let mut losses = self.losses.write().await;
-            
+
             gains.push_back(gain);
             losses.push_back(loss);
-            
+
             if gains.len() > self.period {
                 gains.pop_front();
                 losses.pop_front();
             }
-            
+
             if gains.len() == self.period {
                 let avg_gain = gains.iter().sum::<f64>() / self.period as f64;
                 let avg_loss = losses.iter().sum::<f64>() / self.period as f64;
-                
+
                 if avg_loss == 0.0 {
                     Some(100.0)
                 } else {
@@ -421,13 +420,16 @@ pub struct OrderBookImbalanceStream<S> {
 
 impl<S: Stream> OrderBookImbalanceStream<S> {
     pub fn new(inner: S, depth_levels: usize) -> Self {
-        Self { inner, depth_levels }
+        Self {
+            inner,
+            depth_levels,
+        }
     }
-    
+
     pub fn calculate_imbalance(bids: &[(f64, f64)], asks: &[(f64, f64)]) -> f64 {
         let bid_volume: f64 = bids.iter().take(5).map(|(_, vol)| vol).sum();
         let ask_volume: f64 = asks.iter().take(5).map(|(_, vol)| vol).sum();
-        
+
         if bid_volume + ask_volume > 0.0 {
             (bid_volume - ask_volume) / (bid_volume + ask_volume)
         } else {
@@ -452,16 +454,16 @@ impl<S: Stream> MomentumStream<S> {
             price_history: Arc::new(RwLock::new(VecDeque::with_capacity(lookback_period + 1))),
         }
     }
-    
+
     #[allow(dead_code)]
     async fn calculate_momentum(&self, current_price: f64) -> Option<f64> {
         let mut history = self.price_history.write().await;
-        
+
         history.push_back(current_price);
         if history.len() > self.lookback_period + 1 {
             history.pop_front();
         }
-        
+
         if history.len() > self.lookback_period {
             let old_price = history[0];
             Some(((current_price - old_price) / old_price) * 100.0)
@@ -493,18 +495,21 @@ impl<S: Stream> LiquidityPoolStream<S> {
             pools: Arc::new(RwLock::new(HashMap::new())),
         }
     }
-    
+
     #[allow(dead_code)]
     async fn update_pool(&self, pool_id: String, token_a: f64, token_b: f64) {
         let mut pools = self.pools.write().await;
-        pools.insert(pool_id, PoolState {
-            token_a_reserve: token_a,
-            token_b_reserve: token_b,
-            k_constant: token_a * token_b,
-            last_updated: SystemTime::now(),
-        });
+        pools.insert(
+            pool_id,
+            PoolState {
+                token_a_reserve: token_a,
+                token_b_reserve: token_b,
+                k_constant: token_a * token_b,
+                last_updated: SystemTime::now(),
+            },
+        );
     }
-    
+
     #[allow(dead_code)]
     async fn calculate_price_impact(&self, pool_id: &str, trade_amount: f64) -> Option<f64> {
         let pools = self.pools.read().await;
@@ -552,30 +557,29 @@ impl<S: Stream> MevDetectionStream<S> {
             transactions: Arc::new(RwLock::new(VecDeque::new())),
         }
     }
-    
+
     #[allow(dead_code)]
     async fn detect_mev(&self, event: &dyn Event) -> Option<MevType> {
         // Simplified MEV detection logic
         let mut txs = self.transactions.write().await;
         let now = SystemTime::now();
-        
+
         // Clean old transactions
-        txs.retain(|tx| {
-            now.duration_since(tx.timestamp).unwrap_or_default() < self.window
-        });
-        
+        txs.retain(|tx| now.duration_since(tx.timestamp).unwrap_or_default() < self.window);
+
         // Look for patterns
         if matches!(event.kind(), EventKind::Swap) {
             // Check for sandwich attacks (simplified)
-            let recent_swaps: Vec<_> = txs.iter()
+            let recent_swaps: Vec<_> = txs
+                .iter()
                 .filter(|tx| matches!(tx.pattern_type, MevType::Sandwich))
                 .collect();
-            
+
             if recent_swaps.len() >= 2 {
                 return Some(MevType::Sandwich);
             }
         }
-        
+
         None
     }
 }
@@ -598,19 +602,19 @@ impl<S: Stream> GasPriceOracleStream<S> {
             window_size,
         }
     }
-    
+
     #[allow(dead_code)]
     async fn update_gas_price(&self, gas_price: f64) -> GasPriceEstimate {
         let mut prices = self.gas_prices.write().await;
-        
+
         prices.push_back(gas_price);
         if prices.len() > self.window_size {
             prices.pop_front();
         }
-        
+
         let mut sorted: Vec<f64> = prices.iter().copied().collect();
         sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
-        
+
         GasPriceEstimate {
             slow: sorted[sorted.len() * 25 / 100],
             standard: sorted[sorted.len() * 50 / 100],
@@ -638,7 +642,7 @@ pub trait FinancialStreamExt: ComposableStream {
     {
         VwapStream::new(self, window)
     }
-    
+
     /// Calculate moving average
     fn moving_average(self, window_size: usize) -> MovingAverageStream<Self>
     where
@@ -646,7 +650,7 @@ pub trait FinancialStreamExt: ComposableStream {
     {
         MovingAverageStream::new(self, window_size)
     }
-    
+
     /// Calculate exponential moving average
     fn ema(self, periods: usize) -> EmaStream<Self>
     where
@@ -654,7 +658,7 @@ pub trait FinancialStreamExt: ComposableStream {
     {
         EmaStream::new(self, periods)
     }
-    
+
     /// Calculate Bollinger Bands
     fn bollinger_bands(self, window: usize, std_dev: f64) -> BollingerBandsStream<Self>
     where
@@ -662,7 +666,7 @@ pub trait FinancialStreamExt: ComposableStream {
     {
         BollingerBandsStream::new(self, window, std_dev)
     }
-    
+
     /// Calculate RSI
     fn rsi(self, period: usize) -> RsiStream<Self>
     where
@@ -670,7 +674,7 @@ pub trait FinancialStreamExt: ComposableStream {
     {
         RsiStream::new(self, period)
     }
-    
+
     /// Calculate momentum
     fn momentum(self, lookback: usize) -> MomentumStream<Self>
     where
@@ -678,7 +682,7 @@ pub trait FinancialStreamExt: ComposableStream {
     {
         MomentumStream::new(self, lookback)
     }
-    
+
     /// Track liquidity pools
     fn liquidity_pools(self) -> LiquidityPoolStream<Self>
     where
@@ -686,7 +690,7 @@ pub trait FinancialStreamExt: ComposableStream {
     {
         LiquidityPoolStream::new(self)
     }
-    
+
     /// Detect MEV
     fn mev_detection(self, window: Duration) -> MevDetectionStream<Self>
     where
@@ -694,7 +698,7 @@ pub trait FinancialStreamExt: ComposableStream {
     {
         MevDetectionStream::new(self, window)
     }
-    
+
     /// Track gas prices
     fn gas_oracle(self, window_size: usize) -> GasPriceOracleStream<Self>
     where

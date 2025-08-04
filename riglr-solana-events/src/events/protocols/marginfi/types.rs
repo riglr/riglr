@@ -8,11 +8,14 @@ pub const MARGINFI_PROGRAM_ID: &str = "MFv2hWf31Z9kbCa1snEPYctwafyhdvnV7FZnsebVa
 pub const MARGINFI_BANK_PROGRAM_ID: &str = "4Be9aW2D8f3G2b3ZP8uo5kd9z8zwJ3FYD1tNKmQ9c9x";
 
 /// MarginFi instruction discriminators
-pub const MARGINFI_DEPOSIT_DISCRIMINATOR: [u8; 8] = [0x13, 0x65, 0x32, 0x1f, 0x7a, 0x43, 0x2a, 0x9f];
-pub const MARGINFI_WITHDRAW_DISCRIMINATOR: [u8; 8] = [0x4c, 0x1c, 0x9b, 0x2d, 0xe3, 0x7a, 0x8b, 0x12];
+pub const MARGINFI_DEPOSIT_DISCRIMINATOR: [u8; 8] =
+    [0x13, 0x65, 0x32, 0x1f, 0x7a, 0x43, 0x2a, 0x9f];
+pub const MARGINFI_WITHDRAW_DISCRIMINATOR: [u8; 8] =
+    [0x4c, 0x1c, 0x9b, 0x2d, 0xe3, 0x7a, 0x8b, 0x12];
 pub const MARGINFI_BORROW_DISCRIMINATOR: [u8; 8] = [0xa2, 0xfd, 0x67, 0xe3, 0x45, 0x1b, 0x8c, 0x9a];
 pub const MARGINFI_REPAY_DISCRIMINATOR: [u8; 8] = [0x85, 0x72, 0x1a, 0x5f, 0x9d, 0x4e, 0x23, 0x7c];
-pub const MARGINFI_LIQUIDATE_DISCRIMINATOR: [u8; 8] = [0x6a, 0x8b, 0x47, 0x2e, 0x1c, 0x93, 0x5f, 0x4d];
+pub const MARGINFI_LIQUIDATE_DISCRIMINATOR: [u8; 8] =
+    [0x6a, 0x8b, 0x47, 0x2e, 0x1c, 0x93, 0x5f, 0x4d];
 
 /// MarginFi account types
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -188,19 +191,16 @@ pub fn calculate_health_ratio(
     if total_liability_value == 0 {
         return f64::INFINITY;
     }
-    
+
     let asset_value = total_asset_value as f64;
     let liability_value = total_liability_value as f64;
     let margin_factor = maintenance_margin as f64 / 10000.0; // Basis points to decimal
-    
+
     (asset_value * margin_factor) / liability_value
 }
 
 /// Calculate liquidation threshold
-pub fn calculate_liquidation_threshold(
-    total_asset_value: u128,
-    liquidation_ltv: u64,
-) -> u128 {
+pub fn calculate_liquidation_threshold(total_asset_value: u128, liquidation_ltv: u64) -> u128 {
     let ltv_factor = liquidation_ltv as u128;
     (total_asset_value * ltv_factor) / 10000 // Convert from basis points
 }

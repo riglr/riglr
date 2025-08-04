@@ -3,9 +3,9 @@
 //! This module provides a production-grade client for EVM operations using alloy-rs.
 
 use crate::error::{EvmToolError, Result};
+use alloy::network::Ethereum;
 use alloy::node_bindings::Anvil;
 use alloy::primitives::{Address, U256};
-use alloy::network::Ethereum;
 use alloy::providers::{Provider, ProviderBuilder};
 use alloy::signers::local::PrivateKeySigner;
 use serde::{Deserialize, Serialize};
@@ -35,7 +35,7 @@ impl Default for EvmConfig {
 #[derive(Clone)]
 pub struct EvmClient {
     provider: Arc<dyn Provider<Ethereum>>,
-    signer: Option<PrivateKeySigner>,  // Add signer field
+    signer: Option<PrivateKeySigner>, // Add signer field
     config: EvmConfig,
     pub rpc_url: String,
     pub chain_id: u64,
@@ -52,8 +52,7 @@ impl EvmClient {
             .map_err(|e| EvmToolError::Generic(format!("Invalid RPC URL: {}", e)))?;
 
         // Create provider
-        let provider = ProviderBuilder::new()
-            .connect_http(url);
+        let provider = ProviderBuilder::new().connect_http(url);
 
         // Get chain ID
         let chain_id = provider
@@ -75,7 +74,7 @@ impl EvmClient {
 
         Ok(Self {
             provider: Arc::new(provider) as Arc<dyn Provider<Ethereum>>,
-            signer: None,  // Initialize as None
+            signer: None, // Initialize as None
             config,
             rpc_url,
             chain_id,
@@ -135,7 +134,8 @@ impl EvmClient {
     pub async fn get_block_number(&self) -> Result<u64> {
         debug!("Getting current block number");
 
-        let block_number = self.provider
+        let block_number = self
+            .provider
             .get_block_number()
             .await
             .map_err(|e| EvmToolError::Rpc(format!("Failed to get block number: {}", e)))?;
@@ -147,7 +147,8 @@ impl EvmClient {
     pub async fn get_balance(&self, address: Address) -> Result<U256> {
         debug!("Getting balance for address: {}", address);
 
-        let balance = self.provider
+        let balance = self
+            .provider
             .get_balance(address)
             .await
             .map_err(|e| EvmToolError::Rpc(format!("Failed to get balance: {}", e)))?;
@@ -159,7 +160,8 @@ impl EvmClient {
     pub async fn get_gas_price(&self) -> Result<u128> {
         debug!("Getting current gas price");
 
-        let gas_price = self.provider
+        let gas_price = self
+            .provider
             .get_gas_price()
             .await
             .map_err(|e| EvmToolError::Rpc(format!("Failed to get gas price: {}", e)))?;
@@ -179,34 +181,37 @@ impl EvmClient {
 
     /// Configure client with a private key signer
     pub fn with_signer(mut self, private_key: &str) -> Result<Self> {
-        let signer = private_key.parse::<PrivateKeySigner>()
+        let signer = private_key
+            .parse::<PrivateKeySigner>()
             .map_err(|e| EvmToolError::InvalidKey(format!("Invalid private key: {}", e)))?;
         self.signer = Some(signer);
         Ok(self)
     }
-    
+
     /// Get reference to the signer if configured
     pub fn signer(&self) -> Option<&PrivateKeySigner> {
         self.signer.as_ref()
     }
-    
+
     /// Check if client has a signer configured
     pub fn has_signer(&self) -> bool {
         self.signer.is_some()
     }
-    
+
     /// Get signer or return error if not configured
     pub fn require_signer(&self) -> Result<&PrivateKeySigner> {
-        self.signer.as_ref()
-            .ok_or_else(|| EvmToolError::Generic("Client requires signer configuration".to_string()))
+        self.signer.as_ref().ok_or_else(|| {
+            EvmToolError::Generic("Client requires signer configuration".to_string())
+        })
     }
 
     /// Create an EvmClient from a TransactionSigner
     pub async fn from_signer(signer: &dyn riglr_core::signer::TransactionSigner) -> Result<Self> {
         // Get the EVM client from the signer context
-        let _client_any = signer.evm_client()
+        let _client_any = signer
+            .evm_client()
             .map_err(|e| EvmToolError::Generic(format!("Failed to get EVM client: {}", e)))?;
-        
+
         // For now, create a basic mainnet client
         // In a real implementation, we'd extract the proper configuration from the signer
         Self::mainnet().await

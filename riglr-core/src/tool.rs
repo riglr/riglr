@@ -544,7 +544,7 @@ impl Default for ExecutionConfig {
 ///
 /// Resource limits are applied based on tool name prefixes:
 /// - Tools starting with `solana_` use the "solana_rpc" resource pool
-/// - Tools starting with `evm_` use the "evm_rpc" resource pool  
+/// - Tools starting with `evm_` use the "evm_rpc" resource pool
 /// - Tools starting with `web_` use the "http_api" resource pool
 /// - All other tools use the default concurrency limit
 ///
@@ -556,7 +556,7 @@ impl Default for ExecutionConfig {
 /// // Create limits for different resource types
 /// let limits = ResourceLimits::new()
 ///     .with_limit("solana_rpc", 3)     // Max 3 concurrent Solana RPC calls
-///     .with_limit("evm_rpc", 8)        // Max 8 concurrent EVM RPC calls  
+///     .with_limit("evm_rpc", 8)        // Max 8 concurrent EVM RPC calls
 ///     .with_limit("http_api", 15)      // Max 15 concurrent HTTP requests
 ///     .with_limit("database", 5);      // Max 5 concurrent database operations
 ///
@@ -571,7 +571,7 @@ impl Default for ExecutionConfig {
 /// ```text
 /// Tool Name              → Resource Pool    → Limit
 /// "solana_balance"       → "solana_rpc"     → configured limit
-/// "evm_swap"             → "evm_rpc"        → configured limit  
+/// "evm_swap"             → "evm_rpc"        → configured limit
 /// "web_fetch"            → "http_api"       → configured limit
 /// "custom_tool"          → default          → ExecutionConfig.max_concurrency
 /// ```
@@ -756,7 +756,7 @@ impl Default for ResourceLimits {
 ///
 /// // Check metrics
 /// let metrics = worker.metrics();
-/// println!("Jobs processed: {}", 
+/// println!("Jobs processed: {}",
 ///     metrics.jobs_processed.load(std::sync::atomic::Ordering::Relaxed));
 /// # Ok(())
 /// # }
@@ -764,19 +764,19 @@ impl Default for ResourceLimits {
 pub struct ToolWorker<I: IdempotencyStore + 'static> {
     /// Registered tools, indexed by name for fast lookup
     tools: Arc<RwLock<HashMap<String, Arc<dyn Tool>>>>,
-    
+
     /// Default semaphore for general concurrency control
     default_semaphore: Arc<Semaphore>,
-    
+
     /// Resource-specific limits for fine-grained control
     resource_limits: ResourceLimits,
-    
+
     /// Configuration for retry behavior, timeouts, etc.
     config: ExecutionConfig,
-    
+
     /// Optional idempotency store for caching results
     idempotency_store: Option<Arc<I>>,
-    
+
     /// Performance and operational metrics
     metrics: Arc<WorkerMetrics>,
 }
@@ -819,7 +819,7 @@ pub struct ToolWorker<I: IdempotencyStore + 'static> {
 /// println!("  Succeeded: {}", succeeded);
 /// println!("  Failed: {}", failed);
 /// println!("  Retried: {}", retried);
-/// println!("  Success Rate: {:.2}%", 
+/// println!("  Success Rate: {:.2}%",
 ///     if processed > 0 { (succeeded as f64 / processed as f64) * 100.0 } else { 0.0 });
 /// # }
 /// ```
@@ -827,13 +827,13 @@ pub struct ToolWorker<I: IdempotencyStore + 'static> {
 pub struct WorkerMetrics {
     /// Total number of jobs processed (dequeued and executed)
     pub jobs_processed: std::sync::atomic::AtomicU64,
-    
+
     /// Number of jobs that completed successfully
     pub jobs_succeeded: std::sync::atomic::AtomicU64,
-    
+
     /// Number of jobs that failed permanently (after all retries)
     pub jobs_failed: std::sync::atomic::AtomicU64,
-    
+
     /// Total number of retry attempts across all jobs
     pub jobs_retried: std::sync::atomic::AtomicU64,
 }
@@ -992,7 +992,7 @@ impl<I: IdempotencyStore + 'static> ToolWorker<I> {
     /// let worker = ToolWorker::<InMemoryIdempotencyStore>::new(ExecutionConfig::default());
     /// let metrics = worker.metrics();
     ///
-    /// println!("Jobs processed: {}", 
+    /// println!("Jobs processed: {}",
     ///     metrics.jobs_processed.load(Ordering::Relaxed));
     /// println!("Success rate: {:.2}%", {
     ///     let processed = metrics.jobs_processed.load(Ordering::Relaxed);
@@ -1005,40 +1005,38 @@ impl<I: IdempotencyStore + 'static> ToolWorker<I> {
     }
 
     /// Process a single job with all resilience features.
-    /// 
+    ///
     /// Returns:
     /// - `Ok(JobResult)` - The job was processed (successfully or with business logic failure)
     /// - `Err(WorkerError)` - System-level worker failure (tool not found, semaphore issues, etc.)
-    pub async fn process_job(
-        &self,
-        mut job: Job,
-    ) -> Result<JobResult, WorkerError> {
+    pub async fn process_job(&self, mut job: Job) -> Result<JobResult, WorkerError> {
         // Check idempotency cache first
         if let Some(cached_result) = self.check_idempotency_cache(&job).await? {
             return Ok(cached_result);
         }
 
         // Acquire appropriate semaphore
-        let _permit = self.acquire_semaphore(&job.tool_name).await
-            .map_err(|e| WorkerError::SemaphoreAcquisition {
+        let _permit = self.acquire_semaphore(&job.tool_name).await.map_err(|e| {
+            WorkerError::SemaphoreAcquisition {
                 tool_name: job.tool_name.clone(),
                 source: e,
-            })?;
+            }
+        })?;
 
         // Get the tool for this job
         let tool = self.get_tool(&job.tool_name).await?;
 
         // Execute with retries
         let result = self.execute_with_retries(tool, &mut job).await;
-        
+
         // Cache successful results
         if let Ok(ref job_result) = result {
             self.cache_result(&job, job_result).await;
         }
-        
+
         result
     }
-    
+
     /// Check if there's a cached result for this job
     async fn check_idempotency_cache(&self, job: &Job) -> Result<Option<JobResult>, WorkerError> {
         if let Some(ref idempotency_key) = job.idempotency_key {
@@ -1054,9 +1052,7 @@ impl<I: IdempotencyStore + 'static> ToolWorker<I> {
                         }
                         Ok(None) => {} // No cached result
                         Err(e) => {
-                            return Err(WorkerError::IdempotencyStore {
-                                source: e.into(),
-                            });
+                            return Err(WorkerError::IdempotencyStore { source: e.into() });
                         }
                     }
                 }
@@ -1064,7 +1060,7 @@ impl<I: IdempotencyStore + 'static> ToolWorker<I> {
         }
         Ok(None)
     }
-    
+
     /// Get a tool from the registry
     async fn get_tool(&self, tool_name: &str) -> Result<Arc<dyn Tool>, WorkerError> {
         let tools = self.tools.read().await;
@@ -1077,7 +1073,7 @@ impl<I: IdempotencyStore + 'static> ToolWorker<I> {
         drop(tools); // Release read lock early
         Ok(tool)
     }
-    
+
     /// Execute a tool with retry logic
     async fn execute_with_retries(
         &self,
@@ -1107,7 +1103,7 @@ impl<I: IdempotencyStore + 'static> ToolWorker<I> {
                 }
                 Err(error_msg) => {
                     last_error = Some(error_msg);
-                    
+
                     // Check if we should retry
                     if attempts <= job.max_retries {
                         job.increment_retry();
@@ -1131,7 +1127,7 @@ impl<I: IdempotencyStore + 'static> ToolWorker<I> {
             retriable: false,
         })
     }
-    
+
     /// Execute a single attempt of a tool
     async fn execute_single_attempt(
         &self,
@@ -1139,11 +1135,8 @@ impl<I: IdempotencyStore + 'static> ToolWorker<I> {
         params: &serde_json::Value,
     ) -> Result<JobResult, String> {
         // Execute with timeout
-        let result = tokio::time::timeout(
-            self.config.default_timeout,
-            tool.execute(params.clone()),
-        )
-        .await;
+        let result =
+            tokio::time::timeout(self.config.default_timeout, tool.execute(params.clone())).await;
 
         match result {
             Ok(Ok(job_result)) => Ok(job_result),
@@ -1153,13 +1146,16 @@ impl<I: IdempotencyStore + 'static> ToolWorker<I> {
                 Err(error_msg)
             }
             Err(_) => {
-                let error_msg = format!("Tool execution timed out after {:?}", self.config.default_timeout);
+                let error_msg = format!(
+                    "Tool execution timed out after {:?}",
+                    self.config.default_timeout
+                );
                 warn!("{}", error_msg);
                 Err(error_msg)
             }
         }
     }
-    
+
     /// Create exponential backoff strategy
     fn create_backoff_strategy(&self) -> ExponentialBackoff {
         ExponentialBackoffBuilder::new()
@@ -1168,7 +1164,7 @@ impl<I: IdempotencyStore + 'static> ToolWorker<I> {
             .with_max_elapsed_time(Some(Duration::from_secs(300)))
             .build()
     }
-    
+
     /// Wait with exponential backoff
     async fn wait_with_backoff(&self, mut backoff: ExponentialBackoff, job_id: &Uuid) {
         if let Some(delay) = backoff.next_backoff() {
@@ -1176,7 +1172,7 @@ impl<I: IdempotencyStore + 'static> ToolWorker<I> {
             tokio::time::sleep(delay).await;
         }
     }
-    
+
     /// Cache a successful result
     async fn cache_result(&self, job: &Job, job_result: &JobResult) {
         if let Some(ref idempotency_key) = job.idempotency_key {
@@ -1214,34 +1210,34 @@ impl<I: IdempotencyStore + 'static> ToolWorker<I> {
     }
 
     /// Start the worker loop, processing jobs from the given queue.
-    /// 
+    ///
     /// The worker will continue processing jobs until the provided cancellation token
     /// is cancelled. This allows for graceful shutdown where in-flight jobs can complete
     /// before the worker stops.
-    /// 
+    ///
     /// # Parameters
     /// * `queue` - The job queue to process jobs from
     /// * `cancellation_token` - Token to signal when the worker should stop
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// ```rust
     /// use riglr_core::{ToolWorker, ExecutionConfig, idempotency::InMemoryIdempotencyStore};
     /// use riglr_core::queue::InMemoryJobQueue;
     /// use tokio_util::sync::CancellationToken;
     /// use std::sync::Arc;
-    /// 
+    ///
     /// # async fn example() -> anyhow::Result<()> {
     /// let worker = ToolWorker::<InMemoryIdempotencyStore>::new(ExecutionConfig::default());
     /// let queue = Arc::new(InMemoryJobQueue::new());
     /// let cancellation_token = CancellationToken::new();
-    /// 
+    ///
     /// // Start worker in background
     /// let token_clone = cancellation_token.clone();
     /// let worker_handle = tokio::spawn(async move {
     ///     worker.run(queue, token_clone).await
     /// });
-    /// 
+    ///
     /// // Later, signal shutdown
     /// cancellation_token.cancel();
     /// // Await the task and ignore the inner result for simplicity in docs
@@ -1266,7 +1262,7 @@ impl<I: IdempotencyStore + 'static> ToolWorker<I> {
                     info!("Worker shutdown requested, stopping job processing");
                     break;
                 }
-                
+
                 // Try to dequeue and process jobs
                 result = queue.dequeue_with_timeout(Duration::from_secs(5)) => {
                     match result {
@@ -1310,7 +1306,7 @@ impl<I: IdempotencyStore + 'static> ToolWorker<I> {
                 }
             }
         }
-        
+
         info!("ToolWorker shutdown completed");
         Ok(())
     }
@@ -1819,14 +1815,12 @@ mod tests {
         let queue_clone = queue.clone();
         let cancellation_token = tokio_util::sync::CancellationToken::new();
         let token_clone = cancellation_token.clone();
-        
-        let handle = tokio::spawn(async move {
-            worker_clone.run(queue_clone, token_clone).await
-        });
+
+        let handle = tokio::spawn(async move { worker_clone.run(queue_clone, token_clone).await });
 
         // Give it time to process the job
         tokio::time::sleep(Duration::from_millis(50)).await;
-        
+
         // Signal shutdown
         cancellation_token.cancel();
 
@@ -1919,14 +1913,12 @@ mod tests {
         let queue_clone = error_queue.clone();
         let cancellation_token = tokio_util::sync::CancellationToken::new();
         let token_clone = cancellation_token.clone();
-        
-        let handle = tokio::spawn(async move {
-            worker_clone.run(queue_clone, token_clone).await
-        });
+
+        let handle = tokio::spawn(async move { worker_clone.run(queue_clone, token_clone).await });
 
         // Give it time to encounter the error
         tokio::time::sleep(Duration::from_millis(50)).await;
-        
+
         // Signal shutdown
         cancellation_token.cancel();
         handle.await.unwrap().unwrap();
@@ -1944,14 +1936,12 @@ mod tests {
         let queue_clone = queue.clone();
         let cancellation_token = tokio_util::sync::CancellationToken::new();
         let token_clone = cancellation_token.clone();
-        
-        let handle = tokio::spawn(async move {
-            worker_clone.run(queue_clone, token_clone).await
-        });
+
+        let handle = tokio::spawn(async move { worker_clone.run(queue_clone, token_clone).await });
 
         // Give it time to process
         tokio::time::sleep(Duration::from_millis(50)).await;
-        
+
         // Signal shutdown
         cancellation_token.cancel();
         handle.await.unwrap().unwrap();
@@ -1986,14 +1976,12 @@ mod tests {
         let queue_clone = queue.clone();
         let cancellation_token = tokio_util::sync::CancellationToken::new();
         let token_clone = cancellation_token.clone();
-        
-        let handle = tokio::spawn(async move {
-            worker_clone.run(queue_clone, token_clone).await
-        });
+
+        let handle = tokio::spawn(async move { worker_clone.run(queue_clone, token_clone).await });
 
         // Give it time to process the failing job
         tokio::time::sleep(Duration::from_millis(50)).await;
-        
+
         // Signal shutdown
         cancellation_token.cancel();
         handle.await.unwrap().unwrap();
@@ -2118,14 +2106,12 @@ mod tests {
         let queue_clone = queue.clone();
         let cancellation_token = tokio_util::sync::CancellationToken::new();
         let token_clone = cancellation_token.clone();
-        
-        let handle = tokio::spawn(async move {
-            worker_clone.run(queue_clone, token_clone).await
-        });
+
+        let handle = tokio::spawn(async move { worker_clone.run(queue_clone, token_clone).await });
 
         // Give it time to start up
         tokio::time::sleep(Duration::from_millis(10)).await;
-        
+
         // Signal shutdown
         cancellation_token.cancel();
         handle.await.unwrap().unwrap();

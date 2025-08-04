@@ -1,19 +1,18 @@
-use std::collections::HashMap;
-use riglr_events_core::Event;
-use borsh::BorshDeserialize;
-use solana_sdk::pubkey::Pubkey;
+use super::{
+    events::{EventParameters, JupiterSwapEvent},
+    types::{
+        jupiter_v6_program_id, JupiterSwapData, RoutePlan, SharedAccountsExactOutRouteData,
+        SharedAccountsRouteData, EXACT_OUT_ROUTE_DISCRIMINATOR, ROUTE_DISCRIMINATOR,
+    },
+};
 use crate::{
     events::core::{EventParser, GenericEventParseConfig},
     types::{EventMetadata, EventType, ProtocolType},
 };
-use super::{
-    events::{JupiterSwapEvent, EventParameters},
-    types::{
-        jupiter_v6_program_id, JupiterSwapData, RoutePlan,
-        SharedAccountsRouteData, SharedAccountsExactOutRouteData,
-        ROUTE_DISCRIMINATOR, EXACT_OUT_ROUTE_DISCRIMINATOR,
-    },
-};
+use borsh::BorshDeserialize;
+use riglr_events_core::Event;
+use solana_sdk::pubkey::Pubkey;
+use std::collections::HashMap;
 
 /// Jupiter event parser
 pub struct JupiterEventParser {
@@ -25,7 +24,7 @@ pub struct JupiterEventParser {
 impl JupiterEventParser {
     pub fn new() -> Self {
         let program_ids = vec![jupiter_v6_program_id()];
-        
+
         let configs = vec![
             GenericEventParseConfig {
                 program_id: jupiter_v6_program_id(),
@@ -89,7 +88,7 @@ impl EventParser for JupiterEventParser {
         index: String,
     ) -> Vec<Box<dyn Event>> {
         let mut events = Vec::new();
-        
+
         // For inner instructions, we'll use the data to identify the instruction type
         // since the program field isn't available in all Solana SDK versions
         if let Ok(data) = bs58::decode(&inner_instruction.data).into_vec() {
@@ -107,14 +106,14 @@ impl EventParser for JupiterEventParser {
                         index.clone(),
                         program_received_time_ms,
                     );
-                    
+
                     if let Some(event) = (config.inner_instruction_parser)(&data, metadata) {
                         events.push(event);
                     }
                 }
             }
         }
-        
+
         events
     }
 
@@ -129,7 +128,7 @@ impl EventParser for JupiterEventParser {
         index: String,
     ) -> Vec<Box<dyn Event>> {
         let mut events = Vec::new();
-        
+
         if let Some(configs) = self.instruction_configs.get(&instruction.data) {
             for config in configs {
                 let metadata = EventMetadata::new(
@@ -144,13 +143,15 @@ impl EventParser for JupiterEventParser {
                     index.clone(),
                     program_received_time_ms,
                 );
-                
-                if let Some(event) = (config.instruction_parser)(&instruction.data, accounts, metadata) {
+
+                if let Some(event) =
+                    (config.instruction_parser)(&instruction.data, accounts, metadata)
+                {
                     events.push(event);
                 }
             }
         }
-        
+
         events
     }
 
@@ -161,7 +162,6 @@ impl EventParser for JupiterEventParser {
     fn supported_program_ids(&self) -> Vec<Pubkey> {
         self.program_ids.clone()
     }
-
 }
 
 impl Default for JupiterEventParser {
@@ -262,9 +262,9 @@ fn parse_jupiter_swap_with_borsh(data: &[u8]) -> Option<JupiterSwapData> {
     if data.len() < 8 {
         return None;
     }
-    
+
     let instruction_data = &data[8..];
-    
+
     // Try to deserialize as SharedAccountsRouteData
     if let Ok(route_data) = SharedAccountsRouteData::try_from_slice(instruction_data) {
         // Extract first and last swap info for simplified event data
@@ -278,18 +278,22 @@ fn parse_jupiter_swap_with_borsh(data: &[u8]) -> Option<JupiterSwapData> {
                     output_amount: route_data.quoted_out_amount,
                     price_impact_pct: None,
                     platform_fee_bps: Some(route_data.platform_fee_bps as u32),
-                    route_plan: route_data.route_plan.into_iter().map(|step| RoutePlan {
-                        input_mint: step.swap.source_token,
-                        output_mint: step.swap.destination_token,
-                        amount_in: 0, // Not available in this format
-                        amount_out: 0, // Not available in this format
-                        dex_label: format!("DEX {}", step.percent),
-                    }).collect(),
+                    route_plan: route_data
+                        .route_plan
+                        .into_iter()
+                        .map(|step| RoutePlan {
+                            input_mint: step.swap.source_token,
+                            output_mint: step.swap.destination_token,
+                            amount_in: 0,  // Not available in this format
+                            amount_out: 0, // Not available in this format
+                            dex_label: format!("DEX {}", step.percent),
+                        })
+                        .collect(),
                 });
             }
         }
     }
-    
+
     None
 }
 
@@ -299,9 +303,9 @@ fn parse_jupiter_exact_out_with_borsh(data: &[u8]) -> Option<JupiterSwapData> {
     if data.len() < 8 {
         return None;
     }
-    
+
     let instruction_data = &data[8..];
-    
+
     // Try to deserialize as SharedAccountsExactOutRouteData
     if let Ok(route_data) = SharedAccountsExactOutRouteData::try_from_slice(instruction_data) {
         // Extract first and last swap info for simplified event data
@@ -315,19 +319,21 @@ fn parse_jupiter_exact_out_with_borsh(data: &[u8]) -> Option<JupiterSwapData> {
                     output_amount: route_data.out_amount,
                     price_impact_pct: None,
                     platform_fee_bps: Some(route_data.platform_fee_bps as u32),
-                    route_plan: route_data.route_plan.into_iter().map(|step| RoutePlan {
-                        input_mint: step.swap.source_token,
-                        output_mint: step.swap.destination_token,
-                        amount_in: 0, // Not available in this format
-                        amount_out: 0, // Not available in this format
-                        dex_label: format!("DEX {}", step.percent),
-                    }).collect(),
+                    route_plan: route_data
+                        .route_plan
+                        .into_iter()
+                        .map(|step| RoutePlan {
+                            input_mint: step.swap.source_token,
+                            output_mint: step.swap.destination_token,
+                            amount_in: 0,  // Not available in this format
+                            amount_out: 0, // Not available in this format
+                            dex_label: format!("DEX {}", step.percent),
+                        })
+                        .collect(),
                 });
             }
         }
     }
-    
+
     None
 }
-
-

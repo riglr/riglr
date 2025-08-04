@@ -1,12 +1,12 @@
 //! PostgreSQL storage implementation
 
-use std::time::{Duration, Instant};
 use sqlx::{PgPool, Row};
-use tracing::{info, error, debug, warn};
+use std::time::{Duration, Instant};
+use tracing::{debug, error, info, warn};
 
 use crate::config::StorageBackendConfig;
 use crate::error::{IndexerError, IndexerResult, StorageError};
-use crate::storage::{DataStore, StoredEvent, EventQuery, EventFilter, StorageStats};
+use crate::storage::{DataStore, EventFilter, EventQuery, StorageStats, StoredEvent};
 
 /// PostgreSQL storage implementation
 pub struct PostgresStore {
@@ -30,22 +30,23 @@ struct InternalStats {
 impl PostgresStore {
     /// Create a new PostgreSQL store
     pub async fn new(config: &StorageBackendConfig) -> IndexerResult<Self> {
-        info!("Connecting to PostgreSQL at {}", 
-              config.url.split('@').next_back().unwrap_or(&config.url));
+        info!(
+            "Connecting to PostgreSQL at {}",
+            config.url.split('@').next_back().unwrap_or(&config.url)
+        );
 
-        let pool = sqlx::PgPool::connect(&config.url)
-            .await
-            .map_err(|e| IndexerError::Storage(StorageError::ConnectionFailed {
+        let pool = sqlx::PgPool::connect(&config.url).await.map_err(|e| {
+            IndexerError::Storage(StorageError::ConnectionFailed {
                 message: e.to_string(),
-            }))?;
+            })
+        })?;
 
         // Test connection
-        sqlx::query("SELECT 1")
-            .execute(&pool)
-            .await
-            .map_err(|e| IndexerError::Storage(StorageError::ConnectionFailed {
+        sqlx::query("SELECT 1").execute(&pool).await.map_err(|e| {
+            IndexerError::Storage(StorageError::ConnectionFailed {
                 message: format!("Connection test failed: {}", e),
-            }))?;
+            })
+        })?;
 
         info!("PostgreSQL connection established successfully");
 
@@ -57,9 +58,16 @@ impl PostgresStore {
     }
 
     /// Build WHERE clause from filter
-    fn build_where_clause(filter: &EventFilter) -> (String, Vec<Box<dyn sqlx::Encode<'static, sqlx::Postgres> + Send + Sync + 'static>>) {
+    fn build_where_clause(
+        filter: &EventFilter,
+    ) -> (
+        String,
+        Vec<Box<dyn sqlx::Encode<'static, sqlx::Postgres> + Send + Sync + 'static>>,
+    ) {
         let mut conditions = Vec::new();
-        let mut params: Vec<Box<dyn sqlx::Encode<'static, sqlx::Postgres> + Send + Sync + 'static>> = Vec::new();
+        let mut params: Vec<
+            Box<dyn sqlx::Encode<'static, sqlx::Postgres> + Send + Sync + 'static>,
+        > = Vec::new();
         let mut param_count = 1;
 
         if let Some(event_types) = &filter.event_types {
@@ -79,14 +87,22 @@ impl PostgresStore {
         }
 
         if let Some((start, end)) = &filter.time_range {
-            conditions.push(format!("timestamp >= ${} AND timestamp <= ${}", param_count, param_count + 1));
+            conditions.push(format!(
+                "timestamp >= ${} AND timestamp <= ${}",
+                param_count,
+                param_count + 1
+            ));
             params.push(Box::new(*start));
             params.push(Box::new(*end));
             param_count += 2;
         }
 
         if let Some((min_height, max_height)) = &filter.block_height_range {
-            conditions.push(format!("block_height >= ${} AND block_height <= ${}", param_count, param_count + 1));
+            conditions.push(format!(
+                "block_height >= ${} AND block_height <= ${}",
+                param_count,
+                param_count + 1
+            ));
             params.push(Box::new(*min_height as i64));
             params.push(Box::new(*max_height as i64));
             param_count += 2;
@@ -146,9 +162,11 @@ impl DataStore for PostgresStore {
         )
         .execute(&self.pool)
         .await
-        .map_err(|_e| IndexerError::Storage(StorageError::QueryFailed {
-            query: "CREATE TABLE events".to_string(),
-        }))?;
+        .map_err(|_e| {
+            IndexerError::Storage(StorageError::QueryFailed {
+                query: "CREATE TABLE events".to_string(),
+            })
+        })?;
 
         // Create indexes for better query performance
         let indexes = [
@@ -169,9 +187,15 @@ impl DataStore for PostgresStore {
         }
 
         // Create partitioning for large datasets (optional)
-        if self.config.settings.get("enable_partitioning").and_then(|v| v.as_bool()).unwrap_or(false) {
+        if self
+            .config
+            .settings
+            .get("enable_partitioning")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false)
+        {
             info!("Setting up table partitioning");
-            
+
             // This would require more complex setup for production use
             // For now, just log that partitioning is requested
             info!("Partitioning setup would be implemented here for production");
@@ -282,7 +306,11 @@ impl DataStore for PostgresStore {
             stats.total_events += events.len() as u64;
         }
 
-        info!("Batch insert of {} events completed in {:?}", events.len(), start_time.elapsed());
+        info!(
+            "Batch insert of {} events completed in {:?}",
+            events.len(),
+            start_time.elapsed()
+        );
         Ok(())
     }
 
@@ -290,7 +318,7 @@ impl DataStore for PostgresStore {
         let start_time = Instant::now();
 
         let (where_clause, _params) = Self::build_where_clause(&query.filter);
-        
+
         // Build the complete query
         let mut sql = format!(
             r#"
@@ -319,15 +347,10 @@ impl DataStore for PostgresStore {
 
         // For now, we'll use a simpler approach without dynamic parameters
         // In production, you'd want to properly bind the parameters
-        let rows = sqlx::query(&sql)
-            .fetch_all(&self.pool)
-            .await
-            .map_err(|e| {
-                error!("Query failed: {}", e);
-                IndexerError::Storage(StorageError::QueryFailed {
-                    query: sql,
-                })
-            })?;
+        let rows = sqlx::query(&sql).fetch_all(&self.pool).await.map_err(|e| {
+            error!("Query failed: {}", e);
+            IndexerError::Storage(StorageError::QueryFailed { query: sql })
+        })?;
 
         let mut events = Vec::new();
         for row in rows {
@@ -345,7 +368,11 @@ impl DataStore for PostgresStore {
 
         self.record_read_latency(start_time.elapsed());
 
-        debug!("Query returned {} events in {:?}", events.len(), start_time.elapsed());
+        debug!(
+            "Query returned {} events in {:?}",
+            events.len(),
+            start_time.elapsed()
+        );
         Ok(events)
     }
 
@@ -388,40 +415,32 @@ impl DataStore for PostgresStore {
 
     async fn delete_events(&self, filter: &EventFilter) -> IndexerResult<u64> {
         let (where_clause, _params) = Self::build_where_clause(filter);
-        
+
         if where_clause.is_empty() {
-            return Err(IndexerError::validation("Cannot delete all events without filter"));
+            return Err(IndexerError::validation(
+                "Cannot delete all events without filter",
+            ));
         }
 
         let sql = format!("DELETE FROM events {}", where_clause);
-        
-        let result = sqlx::query(&sql)
-            .execute(&self.pool)
-            .await
-            .map_err(|e| {
-                error!("Delete failed: {}", e);
-                IndexerError::Storage(StorageError::QueryFailed {
-                    query: sql,
-                })
-            })?;
+
+        let result = sqlx::query(&sql).execute(&self.pool).await.map_err(|e| {
+            error!("Delete failed: {}", e);
+            IndexerError::Storage(StorageError::QueryFailed { query: sql })
+        })?;
 
         Ok(result.rows_affected())
     }
 
     async fn count_events(&self, filter: &EventFilter) -> IndexerResult<u64> {
         let (where_clause, _params) = Self::build_where_clause(filter);
-        
+
         let sql = format!("SELECT COUNT(*) as count FROM events {}", where_clause);
-        
-        let row = sqlx::query(&sql)
-            .fetch_one(&self.pool)
-            .await
-            .map_err(|e| {
-                error!("Count query failed: {}", e);
-                IndexerError::Storage(StorageError::QueryFailed {
-                    query: sql,
-                })
-            })?;
+
+        let row = sqlx::query(&sql).fetch_one(&self.pool).await.map_err(|e| {
+            error!("Count query failed: {}", e);
+            IndexerError::Storage(StorageError::QueryFailed { query: sql })
+        })?;
 
         let count: i64 = row.get("count");
         Ok(count as u64)
@@ -438,9 +457,11 @@ impl DataStore for PostgresStore {
         )
         .fetch_one(&self.pool)
         .await
-        .map_err(|_e| IndexerError::Storage(StorageError::QueryFailed {
-            query: "get_stats".to_string(),
-        }))?;
+        .map_err(|_e| {
+            IndexerError::Storage(StorageError::QueryFailed {
+                query: "get_stats".to_string(),
+            })
+        })?;
 
         let storage_size_bytes: i64 = size_row.get("size_bytes");
         let total_events: i64 = size_row.get("total_events");
@@ -448,8 +469,11 @@ impl DataStore for PostgresStore {
         // Get connection stats
         let pool_state = self.pool.options().get_max_connections();
 
-        let stats = self.stats.read().map_err(|_| IndexerError::internal("Failed to read stats"))?;
-        
+        let stats = self
+            .stats
+            .read()
+            .map_err(|_| IndexerError::internal("Failed to read stats"))?;
+
         let avg_write_latency_ms = if stats.total_writes > 0 {
             stats.write_latency_sum / stats.total_writes as f64
         } else {
@@ -476,9 +500,11 @@ impl DataStore for PostgresStore {
         sqlx::query("SELECT 1")
             .execute(&self.pool)
             .await
-            .map_err(|e| IndexerError::Storage(StorageError::ConnectionFailed {
-                message: format!("Health check failed: {}", e),
-            }))?;
+            .map_err(|e| {
+                IndexerError::Storage(StorageError::ConnectionFailed {
+                    message: format!("Health check failed: {}", e),
+                })
+            })?;
 
         Ok(())
     }

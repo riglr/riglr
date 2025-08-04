@@ -13,10 +13,10 @@ use std::str::FromStr;
 pub enum SolanaCommonError {
     #[error("Invalid public key: {0}")]
     InvalidPubkey(String),
-    
+
     #[error("Client error: {0}")]
     ClientError(String),
-    
+
     #[error("Parse error: {0}")]
     ParseError(String),
 }
@@ -48,18 +48,22 @@ pub struct SolanaAccount {
 }
 
 impl SolanaAccount {
-    pub fn new(pubkey: &str, is_signer: bool, is_writable: bool) -> Result<Self, SolanaCommonError> {
+    pub fn new(
+        pubkey: &str,
+        is_signer: bool,
+        is_writable: bool,
+    ) -> Result<Self, SolanaCommonError> {
         // Validate pubkey format
         Pubkey::from_str(pubkey)
             .map_err(|_| SolanaCommonError::InvalidPubkey(pubkey.to_string()))?;
-        
+
         Ok(Self {
             pubkey: pubkey.to_string(),
             is_signer,
             is_writable,
         })
     }
-    
+
     pub fn to_pubkey(&self) -> Result<Pubkey, SolanaCommonError> {
         Pubkey::from_str(&self.pubkey)
             .map_err(|_| SolanaCommonError::InvalidPubkey(self.pubkey.clone()))
@@ -93,7 +97,7 @@ impl SolanaTransactionData {
     ) -> Result<Self, SolanaCommonError> {
         // Validate fee payer address
         validate_solana_address(&fee_payer)?;
-        
+
         Ok(Self {
             recent_blockhash,
             fee_payer,
@@ -103,38 +107,40 @@ impl SolanaTransactionData {
             compute_unit_price: None,
         })
     }
-    
+
     /// Add compute unit configuration
     pub fn with_compute_units(mut self, limit: u32, price: u64) -> Self {
         self.compute_unit_limit = Some(limit);
         self.compute_unit_price = Some(price);
         self
     }
-    
+
     /// Get fee payer as Pubkey
     pub fn fee_payer_pubkey(&self) -> Result<Pubkey, SolanaCommonError> {
         validate_solana_address(&self.fee_payer)
     }
-    
+
     /// Decode instructions data from base64
     pub fn decode_instructions(&self) -> Result<Vec<u8>, SolanaCommonError> {
         use base64::{engine::general_purpose, Engine as _};
         general_purpose::STANDARD
             .decode(&self.instructions_data)
-            .map_err(|e| SolanaCommonError::ParseError(format!("Failed to decode instructions: {}", e)))
+            .map_err(|e| {
+                SolanaCommonError::ParseError(format!("Failed to decode instructions: {}", e))
+            })
     }
-    
+
     /// Get total number of accounts
     pub fn account_count(&self) -> usize {
         self.accounts.len()
     }
-    
+
     /// Get signer accounts
     pub fn signers(&self) -> Vec<&SolanaAccount> {
         self.accounts.iter().filter(|acc| acc.is_signer).collect()
     }
-    
-    /// Get writable accounts  
+
+    /// Get writable accounts
     pub fn writable_accounts(&self) -> Vec<&SolanaAccount> {
         self.accounts.iter().filter(|acc| acc.is_writable).collect()
     }
@@ -142,8 +148,7 @@ impl SolanaTransactionData {
 
 /// Helper function to validate Solana addresses
 pub fn validate_solana_address(address: &str) -> Result<Pubkey, SolanaCommonError> {
-    Pubkey::from_str(address)
-        .map_err(|_| SolanaCommonError::InvalidPubkey(address.to_string()))
+    Pubkey::from_str(address).map_err(|_| SolanaCommonError::InvalidPubkey(address.to_string()))
 }
 
 /// Format a Solana address for display

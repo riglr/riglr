@@ -1,5 +1,4 @@
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
-use std::hint::black_box;
 use riglr_solana_tools::{
     client::{SolanaClient, SolanaConfig},
     error::SolanaToolError,
@@ -7,12 +6,13 @@ use riglr_solana_tools::{
 };
 use serde_json::json;
 use solana_sdk::{
+    bs58,
+    commitment_config::CommitmentLevel,
     pubkey::Pubkey,
     signature::{Keypair, Signature, Signer},
     transaction::Transaction,
-    commitment_config::CommitmentLevel,
-    bs58,
 };
+use std::hint::black_box;
 use std::str::FromStr;
 use std::time::Duration;
 use tokio::runtime::Runtime;
@@ -95,26 +95,22 @@ fn balance_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("balance_operations");
 
     group.bench_function("balance_result_creation", |b| {
-        b.iter(|| {
-            BalanceResult {
-                address: black_box("11111111111111111111111111111111".to_string()),
-                lamports: black_box(1_500_000_000),
-                sol: black_box(1.5),
-                formatted: black_box("1.5 SOL".to_string()),
-            }
+        b.iter(|| BalanceResult {
+            address: black_box("11111111111111111111111111111111".to_string()),
+            lamports: black_box(1_500_000_000),
+            sol: black_box(1.5),
+            formatted: black_box("1.5 SOL".to_string()),
         })
     });
 
     group.bench_function("token_balance_result_creation", |b| {
-        b.iter(|| {
-            TokenBalanceResult {
-                owner_address: black_box("11111111111111111111111111111111".to_string()),
-                mint_address: black_box("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v".to_string()),
-                raw_amount: black_box(1000000000),
-                ui_amount: black_box(1000.0),
-                decimals: black_box(6),
-                formatted: black_box("1,000.0 USDC".to_string()),
-            }
+        b.iter(|| TokenBalanceResult {
+            owner_address: black_box("11111111111111111111111111111111".to_string()),
+            mint_address: black_box("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v".to_string()),
+            raw_amount: black_box(1000000000),
+            ui_amount: black_box(1000.0),
+            decimals: black_box(6),
+            formatted: black_box("1,000.0 USDC".to_string()),
         })
     });
 
@@ -187,7 +183,8 @@ fn transaction_benchmarks(c: &mut Criterion) {
         let lamports = 1_000_000_000;
 
         b.iter(|| {
-            let instruction = solana_sdk::system_instruction::transfer(&from.pubkey(), &to, lamports);
+            let instruction =
+                solana_sdk::system_instruction::transfer(&from.pubkey(), &to, lamports);
             Transaction::new_with_payer(&[instruction], Some(&from.pubkey()))
         })
     });

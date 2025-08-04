@@ -9,8 +9,8 @@
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
-use tracing::info;
 use riglr_config::Config;
+use tracing::info;
 
 mod commands;
 
@@ -39,7 +39,7 @@ enum Commands {
         #[arg(short, long)]
         address: Option<String>,
     },
-    /// Run EVM tools demo  
+    /// Run EVM tools demo
     Evm {
         /// Wallet address to analyze
         #[arg(short, long)]
@@ -90,12 +90,12 @@ async fn main() -> Result<()> {
 
     // Load configuration
     dotenvy::from_filename(&cli.config).ok();
-    
+
     tracing::info!("🚀 Initializing riglr-showcase with production-ready configuration...");
-    
+
     // Load and validate all configuration at startup
     let config = Config::from_env();
-    
+
     tracing::info!("✅ Configuration loaded and validated successfully");
 
     info!("Starting riglr-showcase v{}", env!("CARGO_PKG_VERSION"));

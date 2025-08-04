@@ -73,7 +73,7 @@ impl Agent for ContextAwareAgent {
                 // Verify we got the expected signer
                 if signer.id != self.expected_signer_id {
                     return Ok(TaskResult::failure(
-                        format!("Signer mismatch: expected {}, got {}", 
+                        format!("Signer mismatch: expected {}, got {}",
                                self.expected_signer_id, signer.id),
                         false,
                         Duration::from_millis(1),
@@ -124,7 +124,7 @@ struct MaliciousAgent {
 impl Agent for MaliciousAgent {
     async fn execute_task(&self, _task: Task) -> Result<TaskResult> {
         let mut operations = self.attempted_operations.lock().await;
-        
+
         // Attempt to access signer context (should fail if no context set)
         match SignerContext::current::<TestSigner>().await {
             Ok(signer) => {
@@ -132,7 +132,7 @@ impl Agent for MaliciousAgent {
                 // Attempt unauthorized operation
                 let _ = signer.sign(b"malicious_operation").await;
                 operations.push("performed_malicious_operation".to_string());
-                
+
                 Ok(TaskResult::success(
                     json!({"status": "unauthorized_access_succeeded"}),
                     None,
@@ -220,7 +220,7 @@ async fn test_basic_signer_context_isolation() {
     // Verify signers recorded separate operations
     let ops_a = signer_a.get_operations().await;
     let ops_b = signer_b.get_operations().await;
-    
+
     assert!(!ops_a.is_empty());
     assert!(!ops_b.is_empty());
     assert_ne!(ops_a, ops_b);
@@ -309,7 +309,7 @@ async fn test_concurrent_signer_context_isolation() {
     for (i, result) in results.into_iter().enumerate() {
         let task_result = result.unwrap().unwrap();
         assert!(task_result.is_success());
-        
+
         let data = task_result.data().unwrap();
         let signer_id = data.get("signer_id").unwrap().as_str().unwrap();
         assert_eq!(signer_id, format!("signer_{}", i));
@@ -323,12 +323,12 @@ async fn test_signer_context_inheritance() {
     let dispatcher = Arc::new(AgentDispatcher::new(registry.clone()));
 
     let parent_signer = Arc::new(TestSigner::new("parent_signer"));
-    
+
     let agent = Arc::new(ContextAwareAgent {
         id: AgentId::new("inheritance_agent"),
         expected_signer_id: "parent_signer".to_string(),
     });
-    
+
     registry.register_agent(agent).await.unwrap();
 
     // Create nested async operation
@@ -339,7 +339,7 @@ async fn test_signer_context_inheritance() {
                 TaskType::Trading,
                 json!({"symbol": "BTC/USD", "nested": true}),
             );
-            
+
             dispatcher.dispatch_task(task).await
         })
         .await
@@ -442,7 +442,7 @@ async fn test_multiple_signer_contexts_non_interference() {
             );
             dispatcher.dispatch_task(task).await
         }),
-        
+
         SignerContext::new(user_b_signer.clone()).execute(async {
             let task = Task::new(
                 TaskType::Trading,
@@ -505,7 +505,7 @@ async fn test_signer_context_with_task_failures() {
 
     // Task should complete but report failure due to signer mismatch
     assert!(!result.is_success());
-    
+
     if let Some(error) = result.error() {
         assert!(error.contains("Signer mismatch"));
     }
@@ -543,7 +543,7 @@ async fn test_signer_context_with_custom_tasks() {
         .unwrap();
 
     assert!(result.is_success());
-    
+
     let data = result.data().unwrap();
     assert_eq!(data.get("signer_id").unwrap().as_str().unwrap(), "custom_signer");
     assert!(data.get("signature").unwrap().as_str().unwrap().contains("custom"));
@@ -581,7 +581,7 @@ async fn test_signer_context_switching_performance() {
     for i in 0..iterations {
         let signer_idx = i % signers.len();
         let signer = signers[signer_idx].clone();
-        
+
         let _result = SignerContext::new(signer)
             .execute(async {
                 let task = Task::new(
@@ -595,12 +595,12 @@ async fn test_signer_context_switching_performance() {
     }
 
     let elapsed = start_time.elapsed();
-    
+
     println!("Executed {} context switches in {:?}", iterations, elapsed);
-    
+
     // Should handle context switching efficiently
     assert!(elapsed < Duration::from_secs(5));
-    
+
     // Verify operations were recorded correctly
     for signer in &signers {
         let ops = signer.get_operations().await;

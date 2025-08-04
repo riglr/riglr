@@ -1,9 +1,6 @@
-use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
-use riglr_evm_tools::{
-    client::EvmClient,
-    error::EvmToolError,
-};
 use alloy::primitives::U256;
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
+use riglr_evm_tools::{client::EvmClient, error::EvmToolError};
 use serde_json::json;
 use std::hint::black_box;
 use tokio::runtime::Runtime;
@@ -68,7 +65,7 @@ fn balance_tool_benchmarks(c: &mut Criterion) {
             "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
             "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045",
         ];
-        
+
         b.iter(|| {
             for addr in &addresses {
                 let _valid = riglr_evm_tools::validate_address(black_box(addr));
@@ -101,7 +98,7 @@ fn balance_tool_benchmarks(c: &mut Criterion) {
             U256::from(1u128),                   // 1 wei
             U256::from(999999999999999999u128),  // almost 1 ETH
         ];
-        
+
         b.iter(|| {
             for wei in &wei_amounts {
                 let _eth = riglr_evm_tools::wei_to_eth(*wei);
@@ -122,7 +119,7 @@ fn network_tool_benchmarks(c: &mut Criterion) {
             "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
             "0x0000000000000000000000000000000000000000000000000000000000000001",
         ];
-        
+
         b.iter(|| {
             for hash in &tx_hashes {
                 let _valid = hash.starts_with("0x") && hash.len() == 66;
@@ -161,7 +158,13 @@ fn transaction_tool_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("transaction_tool");
 
     group.bench_function("eth_amount_conversion", |b| {
-        let amounts = vec!["0.1", "1.0", "123.456789", "0.000000000000000001", "1000000"];
+        let amounts = vec![
+            "0.1",
+            "1.0",
+            "123.456789",
+            "0.000000000000000001",
+            "1000000",
+        ];
 
         b.iter(|| {
             for amount in &amounts {
@@ -176,7 +179,7 @@ fn transaction_tool_benchmarks(c: &mut Criterion) {
     group.bench_function("amount_parsing", |b| {
         let amounts = vec![
             "0.1",
-            "1.0", 
+            "1.0",
             "123.456789",
             "0.000000000000000001",
             "1000000",
@@ -196,7 +199,7 @@ fn transaction_tool_benchmarks(c: &mut Criterion) {
             "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
             "0x0000000000000000000000000000000000000000000000000000000000000001",
         ];
-        
+
         b.iter(|| {
             for key in &keys {
                 let _valid = key.starts_with("0x") && key.len() == 66;

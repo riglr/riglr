@@ -214,7 +214,6 @@ async fn test_queue_with_large_jobs() {
 #[tokio::test]
 #[ignore] // Long-running stress test
 async fn test_queue_stress_test() {
-
     let queue = Arc::new(InMemoryJobQueue::new());
     let mut producer_handles = vec![];
 
@@ -517,7 +516,7 @@ async fn test_queue_trait_default_is_empty() {
     struct MockQueue {
         size: tokio::sync::Mutex<usize>,
     }
-    
+
     #[async_trait]
     impl JobQueue for MockQueue {
         async fn enqueue(&self, _job: Job) -> Result<()> {
@@ -525,7 +524,7 @@ async fn test_queue_trait_default_is_empty() {
             *size += 1;
             Ok(())
         }
-        
+
         async fn dequeue(&self) -> Result<Option<Job>> {
             let mut size = self.size.lock().await;
             if *size > 0 {
@@ -535,37 +534,37 @@ async fn test_queue_trait_default_is_empty() {
                 Ok(None)
             }
         }
-        
+
         async fn dequeue_with_timeout(&self, _timeout: Duration) -> Result<Option<Job>> {
             self.dequeue().await
         }
-        
+
         async fn len(&self) -> Result<usize> {
             Ok(*self.size.lock().await)
         }
-        
+
         // Uses the default is_empty implementation from the trait
     }
-    
+
     let mock_queue = MockQueue {
         size: tokio::sync::Mutex::new(0),
     };
-    
+
     // Test the default is_empty implementation
     assert!(mock_queue.is_empty().await.unwrap());
     assert_eq!(mock_queue.len().await.unwrap(), 0);
-    
+
     // Add a job
     let job = Job::new("test", &json!({}), 0).unwrap();
     mock_queue.enqueue(job).await.unwrap();
-    
+
     // Now should not be empty
     assert!(!mock_queue.is_empty().await.unwrap());
     assert_eq!(mock_queue.len().await.unwrap(), 1);
-    
+
     // Remove the job
     mock_queue.dequeue().await.unwrap();
-    
+
     // Should be empty again
     assert!(mock_queue.is_empty().await.unwrap());
     assert_eq!(mock_queue.len().await.unwrap(), 0);
@@ -575,12 +574,12 @@ async fn test_queue_trait_default_is_empty() {
 async fn test_dequeue_immediate_return_when_item_available() {
     // Test that dequeue_with_timeout returns immediately when an item is available
     let queue = InMemoryJobQueue::new();
-    
+
     // Add a job first
     let job = Job::new("immediate", &json!({}), 0).unwrap();
     let job_id = job.job_id;
     queue.enqueue(job).await.unwrap();
-    
+
     // Time the dequeue with a long timeout
     let start = std::time::Instant::now();
     let dequeued = queue
@@ -588,7 +587,7 @@ async fn test_dequeue_immediate_return_when_item_available() {
         .await
         .unwrap();
     let elapsed = start.elapsed();
-    
+
     // Should return immediately, not wait for timeout
     assert!(dequeued.is_some());
     assert_eq!(dequeued.unwrap().job_id, job_id);

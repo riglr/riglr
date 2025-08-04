@@ -5,9 +5,9 @@
 //! are properly protected.
 
 use riglr_agents::*;
+use serde_json::json;
 use std::sync::Arc;
 use std::time::Duration;
-use serde_json::json;
 
 /// Malicious agent that attempts unauthorized operations.
 #[derive(Clone)]
@@ -56,7 +56,7 @@ impl Agent for MaliciousAgent {
                     Duration::from_millis(10),
                 ))
             }
-            
+
             AttackType::ConfigModification => {
                 // Attempt to modify dispatcher configuration
                 // This should not be possible from agent context
@@ -70,14 +70,14 @@ impl Agent for MaliciousAgent {
                     Duration::from_millis(10),
                 ))
             }
-            
+
             AttackType::ResourceExhaustion => {
                 // Attempt to consume excessive resources
                 tokio::time::sleep(Duration::from_millis(50)).await;
-                
+
                 // Try to allocate large amount of memory
                 let _large_vec: Vec<u8> = vec![0; 1024 * 1024]; // 1MB
-                
+
                 Ok(TaskResult::success(
                     json!({
                         "attack": "resource_exhaustion",
@@ -88,7 +88,7 @@ impl Agent for MaliciousAgent {
                     Duration::from_millis(50),
                 ))
             }
-            
+
             AttackType::DataInjection => {
                 // Attempt to inject malicious data into results
                 let malicious_payload = json!({
@@ -97,10 +97,14 @@ impl Agent for MaliciousAgent {
                     "command": "rm -rf /",
                     "status": "injected"
                 });
-                
-                Ok(TaskResult::success(malicious_payload, None, Duration::from_millis(10)))
+
+                Ok(TaskResult::success(
+                    malicious_payload,
+                    None,
+                    Duration::from_millis(10),
+                ))
             }
-            
+
             AttackType::AccessBypass => {
                 // Attempt to bypass normal agent lifecycle
                 Ok(TaskResult::failure(
@@ -150,7 +154,8 @@ impl SecureAgent {
                 if !self.allowed_operations.contains(&op_str.to_string()) {
                     return Err(AgentError::task_execution(format!(
                         "Operation '{}' not allowed for agent '{}'",
-                        op_str, self.id.as_str()
+                        op_str,
+                        self.id.as_str()
                     )));
                 }
             }
@@ -160,7 +165,7 @@ impl SecureAgent {
         if let Some(timeout) = task.timeout {
             if timeout > self.max_execution_time {
                 return Err(AgentError::task_execution(
-                    "Task timeout exceeds maximum allowed duration".to_string()
+                    "Task timeout exceeds maximum allowed duration".to_string(),
                 ));
             }
         }
@@ -169,7 +174,7 @@ impl SecureAgent {
         let params_str = task.parameters.to_string();
         if params_str.contains("<script>") || params_str.contains("DROP TABLE") {
             return Err(AgentError::task_execution(
-                "Malicious content detected in task parameters".to_string()
+                "Malicious content detected in task parameters".to_string(),
             ));
         }
 
@@ -235,14 +240,20 @@ async fn test_task_stealing_prevention() {
     );
 
     let result = dispatcher.dispatch_task(task).await.unwrap();
-    
+
     // Task should be executed by the appropriate agent
     assert!(result.is_success());
-    
+
     // Verify the legitimate agent handled the task
     let data = result.data().unwrap();
-    assert_eq!(data.get("agent_id").unwrap().as_str().unwrap(), "legitimate_agent");
-    assert_eq!(data.get("security_status").unwrap().as_str().unwrap(), "validated");
+    assert_eq!(
+        data.get("agent_id").unwrap().as_str().unwrap(),
+        "legitimate_agent"
+    );
+    assert_eq!(
+        data.get("security_status").unwrap().as_str().unwrap(),
+        "validated"
+    );
 }
 
 /// Test that agents cannot modify system configuration.
@@ -251,8 +262,8 @@ async fn test_configuration_modification_prevention() {
     let registry = Arc::new(LocalAgentRegistry::new());
     let original_config = DispatchConfig::default();
     let dispatcher = Arc::new(AgentDispatcher::with_config(
-        registry.clone(), 
-        original_config.clone()
+        registry.clone(),
+        original_config.clone(),
     ));
 
     let malicious_agent = Arc::new(MaliciousAgent::new(
@@ -274,8 +285,14 @@ async fn test_configuration_modification_prevention() {
     // Verify configuration hasn't changed
     let current_config = dispatcher.config();
     assert_eq!(current_config.max_retries, original_config.max_retries);
-    assert_eq!(current_config.routing_strategy, original_config.routing_strategy);
-    assert_eq!(current_config.enable_load_balancing, original_config.enable_load_balancing);
+    assert_eq!(
+        current_config.routing_strategy,
+        original_config.routing_strategy
+    );
+    assert_eq!(
+        current_config.enable_load_balancing,
+        original_config.enable_load_balancing
+    );
 }
 
 /// Test resource exhaustion protection.
@@ -294,18 +311,23 @@ async fn test_resource_exhaustion_protection() {
         AttackType::ResourceExhaustion,
     ));
 
-    registry.register_agent(resource_exhausting_agent).await.unwrap();
+    registry
+        .register_agent(resource_exhausting_agent)
+        .await
+        .unwrap();
 
     // Execute multiple resource-intensive tasks
     let tasks: Vec<Task> = (0..5)
-        .map(|i| Task::new(
-            TaskType::Custom("malicious".to_string()),
-            json!({"attack": "resource_exhaustion", "index": i}),
-        ))
+        .map(|i| {
+            Task::new(
+                TaskType::Custom("malicious".to_string()),
+                json!({"attack": "resource_exhaustion", "index": i}),
+            )
+        })
         .collect();
 
     let results = dispatcher.dispatch_tasks(tasks).await;
-    
+
     // All tasks should complete within timeout limits
     for result in results {
         assert!(result.is_ok());
@@ -341,7 +363,7 @@ async fn test_data_injection_prevention() {
     );
 
     let result = dispatcher.dispatch_task(malicious_task).await;
-    
+
     // Task should fail due to security validation
     match result {
         Ok(task_result) => {
@@ -368,7 +390,7 @@ async fn test_agent_isolation_boundaries() {
     ));
 
     let agent_b = Arc::new(SecureAgent::new(
-        "domain_b_agent", 
+        "domain_b_agent",
         vec!["process_b".to_string()],
     ));
 
@@ -403,8 +425,14 @@ async fn test_agent_isolation_boundaries() {
     let data_a = result_a.data().unwrap();
     let data_b = result_b.data().unwrap();
 
-    assert_eq!(data_a.get("agent_id").unwrap().as_str().unwrap(), "domain_a_agent");
-    assert_eq!(data_b.get("agent_id").unwrap().as_str().unwrap(), "domain_b_agent");
+    assert_eq!(
+        data_a.get("agent_id").unwrap().as_str().unwrap(),
+        "domain_a_agent"
+    );
+    assert_eq!(
+        data_b.get("agent_id").unwrap().as_str().unwrap(),
+        "domain_b_agent"
+    );
 }
 
 /// Test unauthorized agent registration prevention.
@@ -423,7 +451,7 @@ async fn test_unauthorized_registration_prevention() {
     ));
 
     let agent2 = Arc::new(SecureAgent::new(
-        "legitimate_2", 
+        "legitimate_2",
         vec!["legitimate".to_string()],
     ));
 
@@ -437,11 +465,11 @@ async fn test_unauthorized_registration_prevention() {
     ));
 
     let result = registry.register_agent(unauthorized_agent).await;
-    
+
     // Registration should fail due to capacity limit
     assert!(result.is_err());
     assert!(result.unwrap_err().to_string().contains("capacity"));
-    
+
     // Verify count is still at limit
     assert_eq!(registry.agent_count().await.unwrap(), 2);
 }
@@ -468,11 +496,11 @@ async fn test_message_tampering_detection() {
     // Receive and verify message integrity
     let received_message = receiver.receive().await;
     assert!(received_message.is_some());
-    
+
     let received = received_message.unwrap();
     assert_eq!(received.id, original_id);
     assert_eq!(received.message_type, "secure_message");
-    
+
     // In a real system, you would verify the checksum
     let checksum = received.payload.get("checksum").unwrap().as_str().unwrap();
     assert_eq!(checksum, "abc123");
@@ -485,10 +513,7 @@ async fn test_privilege_escalation_prevention() {
     let dispatcher = Arc::new(AgentDispatcher::new(registry.clone()));
 
     // Register low-privilege agent
-    let low_privilege_agent = Arc::new(SecureAgent::new(
-        "low_privilege",
-        vec!["read".to_string()],
-    ));
+    let low_privilege_agent = Arc::new(SecureAgent::new("low_privilege", vec!["read".to_string()]));
 
     registry.register_agent(low_privilege_agent).await.unwrap();
 
@@ -502,7 +527,7 @@ async fn test_privilege_escalation_prevention() {
     );
 
     let result = dispatcher.dispatch_task(privileged_task).await;
-    
+
     // Task should fail due to insufficient privileges
     match result {
         Ok(task_result) => {
@@ -521,10 +546,7 @@ async fn test_secure_task_parameter_validation() {
     let registry = Arc::new(LocalAgentRegistry::new());
     let dispatcher = Arc::new(AgentDispatcher::new(registry.clone()));
 
-    let secure_agent = Arc::new(SecureAgent::new(
-        "validator",
-        vec!["validate".to_string()],
-    ));
+    let secure_agent = Arc::new(SecureAgent::new("validator", vec!["validate".to_string()]));
 
     registry.register_agent(secure_agent).await.unwrap();
 
@@ -543,7 +565,7 @@ async fn test_secure_task_parameter_validation() {
         );
 
         let result = dispatcher.dispatch_task(task).await;
-        
+
         // All malicious inputs should be rejected
         match result {
             Ok(task_result) => {
@@ -586,10 +608,12 @@ async fn test_dos_protection() {
 
     // Attempt DoS attack with many slow tasks
     let dos_tasks: Vec<Task> = (0..10)
-        .map(|i| Task::new(
-            TaskType::Custom("malicious".to_string()),
-            json!({"attack": "dos", "index": i}),
-        ))
+        .map(|i| {
+            Task::new(
+                TaskType::Custom("malicious".to_string()),
+                json!({"attack": "dos", "index": i}),
+            )
+        })
         .collect();
 
     let start_time = std::time::Instant::now();
@@ -598,12 +622,10 @@ async fn test_dos_protection() {
 
     // System should not hang despite malicious agent
     assert!(elapsed < Duration::from_secs(5)); // Should complete reasonably fast
-    
+
     // Some tasks may timeout, but system remains responsive
-    let completed_count = results.iter()
-        .filter(|r| r.is_ok())
-        .count();
-    
+    let completed_count = results.iter().filter(|r| r.is_ok()).count();
+
     // At least some tasks should complete (even if they timeout)
     assert!(completed_count > 0);
 }
@@ -628,15 +650,15 @@ async fn test_security_audit_logging() {
     );
 
     let result = dispatcher.dispatch_task(suspicious_task).await.unwrap();
-    
+
     // Task execution should be logged (in a real system, this would go to audit log)
     assert!(result.is_success() || !result.is_retriable());
-    
+
     // In a production system, you would verify that:
     // 1. The suspicious activity was logged
     // 2. Alerts were generated if necessary
     // 3. Security metrics were updated
-    
+
     // For this test, we just verify the system handled it without crashing
     let stats = dispatcher.stats().await.unwrap();
     assert_eq!(stats.registered_agents, 1);

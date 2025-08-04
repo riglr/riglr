@@ -6,22 +6,22 @@
 //!
 //! Key Concepts:
 //! 1. Multi-turn conversations with persistent context
-//! 2. Complex decision trees through natural reasoning  
+//! 2. Complex decision trees through natural reasoning
 //! 3. Tool chaining via agent conversation (pattern shown)
 //! 4. Adaptive behavior based on intermediate results
 //! 5. No custom loops needed - rig handles complexity naturally
 
 use anyhow::Result;
 use rig::agent::AgentBuilder;
-use rig::providers::openai;
 use rig::client::CompletionClient;
 use rig::completion::Prompt;
+use rig::providers::openai;
 use serde_json::json;
 use std::env;
 use tracing::warn;
 
 /// Demo: Multi-Step Portfolio Analysis Through Reasoning
-/// 
+///
 /// Shows how rig's native capabilities can handle complex workflows
 /// that would traditionally require custom loop implementation.
 async fn demo_multi_step_reasoning() -> Result<()> {
@@ -31,9 +31,10 @@ async fn demo_multi_step_reasoning() -> Result<()> {
     // Create OpenAI client and model
     let openai_client = openai::Client::new(&env::var("OPENAI_API_KEY")?);
     let model = openai_client.completion_model("gpt-4");
-    
+
     let portfolio_analyst = AgentBuilder::new(model)
-        .preamble(r#"
+        .preamble(
+            r#"
 You are a sophisticated portfolio analyst who performs multi-step analysis
 through systematic reasoning. You break down complex portfolio decisions into
 logical steps, considering multiple factors and their interactions.
@@ -46,7 +47,8 @@ Your approach:
 5. Consider implementation and monitoring strategies
 
 You reason through each step systematically, showing your thinking process.
-        "#)
+        "#,
+        )
         .build();
 
     // Simulate portfolio data
@@ -71,7 +73,8 @@ You reason through each step systematically, showing your thinking process.
         }
     });
 
-    let analysis_prompt = format!(r#"
+    let analysis_prompt = format!(
+        r#"
 Perform multi-step portfolio analysis using this data:
 
 Portfolio Data:
@@ -99,7 +102,9 @@ Step-by-Step Analysis Required:
    - Monitoring criteria for success
 
 Walk through each step systematically with clear reasoning.
-    "#, serde_json::to_string_pretty(&portfolio_data)?);
+    "#,
+        serde_json::to_string_pretty(&portfolio_data)?
+    );
 
     println!("📊 Performing multi-step portfolio analysis...");
     let analysis = portfolio_analyst.prompt(&analysis_prompt).await?;
@@ -129,35 +134,36 @@ Think through the practical implementation systematically.
     Ok(())
 }
 
-
 /// Demo: Adaptive Strategy Based on Market Feedback
-/// 
+///
 /// Shows how agents can adapt their approach based on intermediate results
 /// and changing conditions, using rig's natural conversation flow.
 async fn demo_adaptive_reasoning() -> Result<()> {
-    println!("\n🔄 Demo: Adaptive Reasoning Based on Market Feedback");  
+    println!("\n🔄 Demo: Adaptive Reasoning Based on Market Feedback");
     println!("===================================================");
 
     // Create OpenAI client and model
     let openai_client = openai::Client::new(&env::var("OPENAI_API_KEY")?);
     let model = openai_client.completion_model("gpt-4");
-    
+
     let strategist = AgentBuilder::new(model)
-        .preamble(r#"
+        .preamble(
+            r#"
 You are an adaptive trading strategist who adjusts approach based on:
 - Market feedback and results
-- Changing conditions and new information  
+- Changing conditions and new information
 - Success/failure of previous recommendations
 - Real-time market dynamics
 
 You continuously refine your strategy through systematic reasoning,
 not rigid rules. You explain how and why you adapt your approach.
-        "#)
+        "#,
+        )
         .build();
 
     // Initial strategy formation
     let strategy_prompt = r#"
-Current market: SOL trending up +15% this week, DeFi TVL growing, 
+Current market: SOL trending up +15% this week, DeFi TVL growing,
 but macro uncertainty from Fed policy.
 
 Develop an initial trading strategy for the next 2 weeks:
@@ -187,7 +193,7 @@ Results so far:
 How do you adapt your strategy? What changes to:
 1. Your market thesis
 2. Position sizing and allocation
-3. Risk parameters  
+3. Risk parameters
 4. Timeline and monitoring
 
 Walk through your adaptation process.
@@ -205,7 +211,7 @@ Market reacting with broad DeFi selloff, SOL down 12% in 30 minutes.
 
 Crisis adaptation needed:
 1. Immediate risk assessment for current positions
-2. Whether to cut losses or hold through volatility  
+2. Whether to cut losses or hold through volatility
 3. Opportunities this crisis might create
 4. Updated strategy for next 48 hours
 
@@ -218,12 +224,12 @@ How do you rapidly adapt to this crisis? Think through systematically.
     println!("{}\n", crisis_adaptation);
 
     println!("✅ Adaptive reasoning demo complete!");
-    
+
     Ok(())
 }
 
 /// Demo: Cross-Chain Opportunity Analysis
-/// 
+///
 /// Demonstrates complex multi-source analysis and decision making
 /// across different blockchain ecosystems.
 async fn demo_cross_chain_reasoning() -> Result<()> {
@@ -233,22 +239,24 @@ async fn demo_cross_chain_reasoning() -> Result<()> {
     // Create OpenAI client and model
     let openai_client = openai::Client::new(&env::var("OPENAI_API_KEY")?);
     let model = openai_client.completion_model("gpt-4");
-    
+
     let opportunity_scout = AgentBuilder::new(model)
-        .preamble(r#"
+        .preamble(
+            r#"
 You are a cross-chain opportunity analyst who identifies profitable opportunities
 across different blockchain ecosystems through systematic analysis.
 
 Your approach:
 1. Analyze opportunities across multiple chains simultaneously
 2. Consider execution complexity, risks, and capital requirements
-3. Factor in timing, competition, and market conditions  
+3. Factor in timing, competition, and market conditions
 4. Provide ranked recommendations with clear reasoning
 5. Adapt analysis based on changing cross-chain conditions
 
 You think systematically about cross-chain strategies without needing
 custom loops - your reasoning naturally handles the complexity.
-        "#)
+        "#,
+        )
         .build();
 
     // Cross-chain market data simulation
@@ -260,7 +268,7 @@ custom loops - your reasoning naturally handles the complexity.
             "speed": "400ms blocks"
         },
         "ethereum": {
-            "native_yield": "4.1% (staking)", 
+            "native_yield": "4.1% (staking)",
             "defi_opportunities": "Uniswap LPs 8-15%, Aave lending 3-8%",
             "transaction_cost": "$15-40 per tx",
             "speed": "12s blocks"
@@ -276,7 +284,8 @@ custom loops - your reasoning naturally handles the complexity.
         }
     });
 
-    let opportunity_prompt = format!(r#"
+    let opportunity_prompt = format!(
+        r#"
 Analyze cross-chain opportunities systematically using this market data:
 
 {}
@@ -288,7 +297,9 @@ Find and rank the top 3 opportunities considering:
 4. Competition and sustainability factors
 
 Think through each opportunity step-by-step. What's your systematic analysis?
-    "#, serde_json::to_string_pretty(&cross_chain_data)?);
+    "#,
+        serde_json::to_string_pretty(&cross_chain_data)?
+    );
 
     println!("🔍 Analyzing cross-chain opportunities...");
     let opportunities = opportunity_scout.prompt(&opportunity_prompt).await?;
@@ -301,7 +312,7 @@ For your #1 recommended opportunity, provide a detailed execution plan:
 
 1. Step-by-step execution sequence with timing
 2. Capital allocation and risk management
-3. Monitoring criteria and exit conditions  
+3. Monitoring criteria and exit conditions
 4. Contingency plans for common failure scenarios
 5. Expected timeline and profit targets
 
@@ -333,7 +344,7 @@ Adapt your analysis to these new conditions.
     println!("{}\n", adaptation);
 
     println!("✅ Cross-chain reasoning demo complete!");
-    
+
     Ok(())
 }
 
@@ -341,9 +352,7 @@ Adapt your analysis to these new conditions.
 #[tokio::main]
 async fn main() -> Result<()> {
     // Initialize logging
-    tracing_subscriber::fmt()
-        .with_env_filter("info")
-        .init();
+    tracing_subscriber::fmt().with_env_filter("info").init();
 
     println!("🚀 Rig-Native Reasoning Loops with riglr Integration Patterns");
     println!("=============================================================");
@@ -366,7 +375,7 @@ async fn main() -> Result<()> {
     println!("================");
     println!("✅ Rig's multi-turn capabilities handle complex workflows naturally");
     println!("✅ No custom reasoning loops needed - agents think systematically");
-    println!("✅ Context persists across conversation turns automatically"); 
+    println!("✅ Context persists across conversation turns automatically");
     println!("✅ Agents adapt behavior based on intermediate results");
     println!("✅ Complex decision trees emerge through natural conversation");
     println!("✅ Tool chaining will happen seamlessly via agent reasoning");
@@ -391,11 +400,11 @@ mod tests {
         if std::env::var("OPENAI_API_KEY").is_ok() {
             let openai_client = openai::Client::new(&std::env::var("OPENAI_API_KEY").unwrap());
             let model = openai_client.completion_model("gpt-3.5-turbo");
-            
+
             let agent = AgentBuilder::new(model)
                 .preamble("You are a test agent for reasoning patterns.")
                 .build();
-            
+
             // Test basic agent construction
             assert!(true); // Agent was successfully created
         } else {
@@ -403,7 +412,7 @@ mod tests {
             assert!(true, "Skipping agent test - OPENAI_API_KEY not set");
         }
     }
-    
+
     #[test]
     fn test_portfolio_data_serialization() {
         let portfolio = json!({
@@ -412,7 +421,7 @@ mod tests {
                 "SOL": {"amount": "38.5", "value": "$5,775"},
             }
         });
-        
+
         let serialized = serde_json::to_string(&portfolio).unwrap();
         assert!(serialized.contains("SOL"));
     }

@@ -28,7 +28,7 @@ pub use trading::*;
 pub use client::HyperliquidClient;
 
 // Re-export signer types for convenience
-pub use riglr_core::{SignerContext, ToolError, signer::TransactionSigner};
+pub use riglr_core::{signer::TransactionSigner, SignerContext, ToolError};
 
 /// Current version of riglr-hyperliquid-tools
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

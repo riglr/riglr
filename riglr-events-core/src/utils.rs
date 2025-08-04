@@ -13,7 +13,7 @@ use tokio::sync::RwLock;
 /// Type alias for event streams to reduce complexity
 pub type EventStream = Pin<Box<dyn Stream<Item = EventResult<Box<dyn Event>>> + Send>>;
 
-/// Type alias for event batch streams 
+/// Type alias for event batch streams
 pub type EventBatchStream = Pin<Box<dyn Stream<Item = EventResult<Vec<Box<dyn Event>>>> + Send>>;
 
 /// Utility for generating unique event IDs.
@@ -35,16 +35,25 @@ impl EventIdGenerator {
     /// Generate a new unique ID
     pub fn next(&self) -> String {
         let count = self.counter.fetch_add(1, Ordering::SeqCst);
-        format!("{}_{:016x}_{:016x}", 
+        format!(
+            "{}_{:016x}_{:016x}",
             self.prefix,
-            SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_micros() as u64,
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_micros() as u64,
             count
         )
     }
 
     /// Generate an ID with additional context
     pub fn next_with_context(&self, context: &str) -> String {
-        format!("{}_{}_{}", self.next(), context, uuid::Uuid::new_v4().simple())
+        format!(
+            "{}_{}_{}",
+            self.next(),
+            context,
+            uuid::Uuid::new_v4().simple()
+        )
     }
 }
 
@@ -128,7 +137,7 @@ impl EventDeduplicator {
     pub async fn is_duplicate(&self, event: &dyn Event) -> bool {
         let event_id = event.id();
         let seen_events = self.seen_events.read().await;
-        
+
         if let Some(seen_at) = seen_events.get(event_id) {
             // Check if the event is still within TTL
             seen_at.elapsed().unwrap_or_default() < self.ttl
@@ -148,10 +157,9 @@ impl EventDeduplicator {
     pub async fn cleanup(&self) {
         let mut seen_events = self.seen_events.write().await;
         let now = SystemTime::now();
-        
-        seen_events.retain(|_, seen_at| {
-            now.duration_since(*seen_at).unwrap_or_default() < self.ttl
-        });
+
+        seen_events
+            .retain(|_, seen_at| now.duration_since(*seen_at).unwrap_or_default() < self.ttl);
     }
 
     /// Start automatic cleanup task
@@ -162,16 +170,15 @@ impl EventDeduplicator {
 
         tokio::spawn(async move {
             let mut interval = tokio::time::interval(cleanup_interval);
-            
+
             loop {
                 interval.tick().await;
-                
+
                 let mut seen_events = seen_events.write().await;
                 let now = SystemTime::now();
-                
-                seen_events.retain(|_, seen_at| {
-                    now.duration_since(*seen_at).unwrap_or_default() < ttl
-                });
+
+                seen_events
+                    .retain(|_, seen_at| now.duration_since(*seen_at).unwrap_or_default() < ttl);
             }
         })
     }
@@ -199,12 +206,10 @@ impl RateLimiter {
     pub async fn can_process(&self) -> bool {
         let mut events = self.events_in_window.write().await;
         let now = SystemTime::now();
-        
+
         // Remove old events outside the window
-        events.retain(|timestamp| {
-            now.duration_since(*timestamp).unwrap_or_default() < self.window
-        });
-        
+        events.retain(|timestamp| now.duration_since(*timestamp).unwrap_or_default() < self.window);
+
         events.len() < self.max_rate as usize
     }
 
@@ -225,13 +230,12 @@ impl RateLimiter {
     pub async fn current_rate(&self) -> f64 {
         let events = self.events_in_window.read().await;
         let now = SystemTime::now();
-        
-        let recent_events = events.iter()
-            .filter(|timestamp| {
-                now.duration_since(**timestamp).unwrap_or_default() < self.window
-            })
+
+        let recent_events = events
+            .iter()
+            .filter(|timestamp| now.duration_since(**timestamp).unwrap_or_default() < self.window)
             .count();
-            
+
         recent_events as f64 / self.window.as_secs_f64()
     }
 }
@@ -249,16 +253,11 @@ impl StreamUtils {
         F: Fn(Box<dyn Event>) -> EventResult<T> + Send + 'static,
         T: Send + 'static,
     {
-        Box::pin(stream.map(move |result| {
-            result.and_then(&mapper)
-        }))
+        Box::pin(stream.map(move |result| result.and_then(&mapper)))
     }
 
     /// Filter events based on a predicate
-    pub fn filter_events<F>(
-        stream: EventStream,
-        predicate: F,
-    ) -> EventStream
+    pub fn filter_events<F>(stream: EventStream, predicate: F) -> EventStream
     where
         F: Fn(&dyn Event) -> bool + Send + Sync + Clone + 'static,
     {
@@ -281,10 +280,7 @@ impl StreamUtils {
     }
 
     /// Batch events into groups of specified size
-    pub fn batch_events(
-        stream: EventStream,
-        batch_size: usize,
-    ) -> EventBatchStream {
+    pub fn batch_events(stream: EventStream, batch_size: usize) -> EventBatchStream {
         Box::pin(stream.chunks(batch_size).map(|batch| {
             let mut events = Vec::with_capacity(batch.len());
             for result in batch {
@@ -298,10 +294,7 @@ impl StreamUtils {
     }
 
     /// Add rate limiting to an event stream
-    pub fn rate_limit(
-        stream: EventStream,
-        rate_limiter: Arc<RateLimiter>,
-    ) -> EventStream {
+    pub fn rate_limit(stream: EventStream, rate_limiter: Arc<RateLimiter>) -> EventStream {
         Box::pin(stream.then(move |result| {
             let rate_limiter = Arc::clone(&rate_limiter);
             async move {
@@ -318,10 +311,7 @@ impl StreamUtils {
     }
 
     /// Deduplicate events in a stream
-    pub fn deduplicate(
-        stream: EventStream,
-        deduplicator: Arc<EventDeduplicator>,
-    ) -> EventStream {
+    pub fn deduplicate(stream: EventStream, deduplicator: Arc<EventDeduplicator>) -> EventStream {
         Box::pin(stream.filter_map(move |result| {
             let deduplicator = Arc::clone(&deduplicator);
             async move {
@@ -366,7 +356,7 @@ impl EventPerformanceMetrics {
         self.total_events.fetch_add(1, Ordering::SeqCst);
         let mut times = self.processing_times.write().await;
         times.push(duration);
-        
+
         // Keep only the last 10,000 measurements to prevent memory bloat
         if times.len() > 10_000 {
             let new_len = times.len() - 10_000;
@@ -393,7 +383,7 @@ impl EventPerformanceMetrics {
     pub fn error_rate(&self) -> f64 {
         let total = self.total_events();
         let errors = self.total_errors();
-        
+
         if total == 0 {
             0.0
         } else {
@@ -418,13 +408,16 @@ impl EventPerformanceMetrics {
         if times.is_empty() {
             return vec![Duration::ZERO; percentiles.len()];
         }
-        
+
         times.sort();
-        
-        percentiles.iter().map(|&p| {
-            let index = ((times.len() as f64 * p / 100.0) as usize).min(times.len() - 1);
-            times[index]
-        }).collect()
+
+        percentiles
+            .iter()
+            .map(|&p| {
+                let index = ((times.len() as f64 * p / 100.0) as usize).min(times.len() - 1);
+                times[index]
+            })
+            .collect()
     }
 
     /// Reset all metrics
@@ -443,17 +436,17 @@ impl EventPerformanceMetrics {
         };
         let total_events = self.total_events();
         let total_errors = self.total_errors();
-        
+
         let (avg_time, p95_time, p99_time) = if times_clone.is_empty() {
             (Duration::ZERO, Duration::ZERO, Duration::ZERO)
         } else {
             let mut sorted_times = times_clone.clone();
             sorted_times.sort();
-            
+
             let avg = sorted_times.iter().sum::<Duration>() / sorted_times.len() as u32;
             let p95_idx = ((sorted_times.len() as f64 * 0.95) as usize).min(sorted_times.len() - 1);
             let p99_idx = ((sorted_times.len() as f64 * 0.99) as usize).min(sorted_times.len() - 1);
-            
+
             (avg, sorted_times[p95_idx], sorted_times[p99_idx])
         };
 
@@ -503,10 +496,10 @@ mod tests {
     #[test]
     fn test_event_id_generator() {
         let generator = EventIdGenerator::new("test".to_string());
-        
+
         let id1 = generator.next();
         let id2 = generator.next();
-        
+
         assert_ne!(id1, id2);
         assert!(id1.starts_with("test_"));
         assert!(id2.starts_with("test_"));
@@ -515,15 +508,27 @@ mod tests {
     #[test]
     fn test_event_batcher() {
         let mut batcher = EventBatcher::new(3, Duration::from_secs(10));
-        
-        let event1 = Box::new(GenericEvent::new("1".to_string(), EventKind::Transaction, json!({})));
-        let event2 = Box::new(GenericEvent::new("2".to_string(), EventKind::Transaction, json!({})));
-        let event3 = Box::new(GenericEvent::new("3".to_string(), EventKind::Transaction, json!({})));
-        
+
+        let event1 = Box::new(GenericEvent::new(
+            "1".to_string(),
+            EventKind::Transaction,
+            json!({}),
+        ));
+        let event2 = Box::new(GenericEvent::new(
+            "2".to_string(),
+            EventKind::Transaction,
+            json!({}),
+        ));
+        let event3 = Box::new(GenericEvent::new(
+            "3".to_string(),
+            EventKind::Transaction,
+            json!({}),
+        ));
+
         assert!(batcher.add(event1).is_none());
         assert!(batcher.add(event2).is_none());
         assert_eq!(batcher.current_size(), 2);
-        
+
         let batch = batcher.add(event3);
         assert!(batch.is_some());
         assert_eq!(batch.unwrap().len(), 3);
@@ -532,13 +537,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_event_deduplicator() {
-        let deduplicator = EventDeduplicator::new(
-            Duration::from_secs(60),
-            Duration::from_secs(30)
-        );
-        
+        let deduplicator = EventDeduplicator::new(Duration::from_secs(60), Duration::from_secs(30));
+
         let event = GenericEvent::new("test-event".to_string(), EventKind::Transaction, json!({}));
-        
+
         assert!(!deduplicator.is_duplicate(&event).await);
         deduplicator.mark_seen(&event).await;
         assert!(deduplicator.is_duplicate(&event).await);
@@ -547,15 +549,15 @@ mod tests {
     #[tokio::test]
     async fn test_rate_limiter() {
         let rate_limiter = RateLimiter::new(2, Duration::from_secs(1));
-        
+
         assert!(rate_limiter.can_process().await);
         rate_limiter.record_event().await;
-        
+
         assert!(rate_limiter.can_process().await);
         rate_limiter.record_event().await;
-        
+
         assert!(!rate_limiter.can_process().await);
-        
+
         let rate = rate_limiter.current_rate().await;
         assert!(rate > 0.0);
     }
@@ -563,18 +565,22 @@ mod tests {
     #[tokio::test]
     async fn test_performance_metrics() {
         let metrics = EventPerformanceMetrics::new();
-        
-        metrics.record_processing_time(Duration::from_millis(10)).await;
-        metrics.record_processing_time(Duration::from_millis(20)).await;
+
+        metrics
+            .record_processing_time(Duration::from_millis(10))
+            .await;
+        metrics
+            .record_processing_time(Duration::from_millis(20))
+            .await;
         metrics.record_error();
-        
+
         assert_eq!(metrics.total_events(), 2);
         assert_eq!(metrics.total_errors(), 1);
         assert_eq!(metrics.error_rate(), 50.0);
-        
+
         let avg = metrics.avg_processing_time().await;
         assert_eq!(avg, Duration::from_millis(15));
-        
+
         let summary = metrics.summary().await;
         assert_eq!(summary.total_events, 2);
         assert_eq!(summary.total_errors, 1);
@@ -584,23 +590,27 @@ mod tests {
     #[tokio::test]
     async fn test_performance_metrics_percentiles() {
         let metrics = EventPerformanceMetrics::new();
-        
+
         // Add some processing times
         for i in 1..=100 {
-            metrics.record_processing_time(Duration::from_millis(i)).await;
+            metrics
+                .record_processing_time(Duration::from_millis(i))
+                .await;
         }
-        
-        let percentiles = metrics.processing_time_percentiles(&[50.0, 95.0, 99.0]).await;
+
+        let percentiles = metrics
+            .processing_time_percentiles(&[50.0, 95.0, 99.0])
+            .await;
         assert_eq!(percentiles.len(), 3);
-        
+
         // P50 should be around 50ms
         assert!(percentiles[0] >= Duration::from_millis(49));
         assert!(percentiles[0] <= Duration::from_millis(51));
-        
+
         // P95 should be around 95ms
         assert!(percentiles[1] >= Duration::from_millis(94));
         assert!(percentiles[1] <= Duration::from_millis(96));
-        
+
         // P99 should be around 99ms
         assert!(percentiles[2] >= Duration::from_millis(98));
         assert!(percentiles[2] <= Duration::from_millis(100));

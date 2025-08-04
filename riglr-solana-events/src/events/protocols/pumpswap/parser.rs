@@ -1,5 +1,5 @@
-use std::collections::HashMap;
 use riglr_events_core::Event;
+use std::collections::HashMap;
 
 use borsh::BorshDeserialize;
 use solana_sdk::{instruction::CompiledInstruction, pubkey::Pubkey};
@@ -86,10 +86,7 @@ impl PumpSwapEventParser {
     }
 
     /// Parse buy log event
-    fn parse_buy_inner_instruction(
-        data: &[u8],
-        metadata: EventMetadata,
-    ) -> Option<Box<dyn Event>> {
+    fn parse_buy_inner_instruction(data: &[u8], metadata: EventMetadata) -> Option<Box<dyn Event>> {
         // Parse the buy event using borsh deserialization
         if let Ok(event) = PumpSwapBuyEvent::try_from_slice(data) {
             let mut metadata = metadata;

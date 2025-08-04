@@ -315,7 +315,10 @@ async fn test_get_uniswap_quote_invalid_amount() {
     .await;
 
     assert!(result.is_err());
-    assert!(result.unwrap_err().to_string().contains("No signer context"));
+    assert!(result
+        .unwrap_err()
+        .to_string()
+        .contains("No signer context"));
 }
 
 #[tokio::test]
@@ -325,7 +328,7 @@ async fn test_perform_uniswap_swap_requires_signer_context() {
         "invalid".to_string(),
         "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2".to_string(),
         "1.0".to_string(),
-        18, // decimals_in
+        18,                               // decimals_in
         "950000000000000000".to_string(), // amount_out_minimum
         Some(3000),
         None,
@@ -346,7 +349,7 @@ async fn test_perform_uniswap_swap_also_requires_signer_context() {
         "0xA0b86a33E6441c68e1A7e97c82B6BAba4d45A9e3".to_string(),
         "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2".to_string(),
         "invalid_amount".to_string(),
-        18, // decimals_in
+        18,                               // decimals_in
         "950000000000000000".to_string(), // amount_out_minimum
         Some(3000),
         None,
@@ -363,7 +366,7 @@ async fn test_perform_uniswap_swap_also_requires_signer_context() {
         "0xA0b86a33E6441c68e1A7e97c82B6BAba4d45A9e3".to_string(),
         "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2".to_string(),
         "1.0".to_string(),
-        18, // decimals_in
+        18,                        // decimals_in
         "invalid_min".to_string(), // amount_out_minimum
         Some(3000),
         None,

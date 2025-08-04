@@ -1,16 +1,20 @@
-use std::collections::HashMap;
 use riglr_events_core::Event;
+use std::collections::HashMap;
 
 use solana_sdk::{instruction::CompiledInstruction, pubkey::Pubkey};
 use solana_transaction_status::UiCompiledInstruction;
 
 use crate::events::{
-    common::{EventMetadata, EventType, ProtocolType, read_i32_le, read_u64_le, read_u128_le, read_u8_le, read_option_bool},
+    common::{
+        read_i32_le, read_option_bool, read_u128_le, read_u64_le, read_u8_le, EventMetadata,
+        EventType, ProtocolType,
+    },
     core::traits::{EventParser, GenericEventParseConfig, GenericEventParser},
     protocols::raydium_clmm::{
-        discriminators, RaydiumClmmSwapEvent, RaydiumClmmSwapV2Event, RaydiumClmmCreatePoolEvent,
-        RaydiumClmmOpenPositionV2Event, RaydiumClmmClosePositionEvent, RaydiumClmmIncreaseLiquidityV2Event,
-        RaydiumClmmDecreaseLiquidityV2Event, RaydiumClmmOpenPositionWithToken22NftEvent,
+        discriminators, RaydiumClmmClosePositionEvent, RaydiumClmmCreatePoolEvent,
+        RaydiumClmmDecreaseLiquidityV2Event, RaydiumClmmIncreaseLiquidityV2Event,
+        RaydiumClmmOpenPositionV2Event, RaydiumClmmOpenPositionWithToken22NftEvent,
+        RaydiumClmmSwapEvent, RaydiumClmmSwapV2Event,
     },
 };
 
@@ -40,25 +44,24 @@ impl RaydiumClmmEventParser {
         if sqrt_price_x64 == 0 {
             return 0;
         }
-        
+
         // Convert from X64 fixed point to f64
         // Use 2^64 as f64 to avoid overflow
         let two_pow_64 = 18446744073709551616.0_f64; // 2^64
         let sqrt_price = (sqrt_price_x64 as f64) / two_pow_64;
-        
+
         // Square to get actual price
         let price = sqrt_price * sqrt_price;
-        
+
         // Calculate tick = log1.0001(price)
         // Using change of base: log1.0001(price) = ln(price) / ln(1.0001)
         if price > 0.0 {
-            
             (price.ln() / 1.0001_f64.ln()).round() as i32
         } else {
             0
         }
     }
-    
+
     pub fn new() -> Self {
         let configs = vec![
             GenericEventParseConfig {
@@ -140,13 +143,13 @@ impl RaydiumClmmEventParser {
     }
 
     /// Empty parser for inner instructions
-    /// 
+    ///
     /// Raydium CLMM does not emit events through inner instructions or program logs.
     /// All event data is encoded directly in the instruction data itself, which is
     /// parsed by the instruction_parser functions below. This is intentional and
     /// follows the protocol's design where all necessary information is available
     /// in the instruction parameters and accounts.
-    /// 
+    ///
     /// This differs from protocols like Raydium CPMM which emit events through logs
     /// that need to be parsed from inner instructions.
     fn empty_parse(_data: &[u8], _metadata: EventMetadata) -> Option<Box<dyn Event>> {
@@ -169,12 +172,23 @@ impl RaydiumClmmEventParser {
         let is_base_input = read_u8_le(data, 32).ok()? == 1;
 
         let mut metadata = metadata;
-        metadata.set_id(format!("{}-{}-swap-{}", metadata.signature, accounts[1], amount));
+        metadata.set_id(format!(
+            "{}-{}-swap-{}",
+            metadata.signature, accounts[1], amount
+        ));
 
         Some(Box::new(RaydiumClmmSwapEvent {
             metadata,
-            amount0: if is_base_input { amount } else { other_amount_threshold },
-            amount1: if !is_base_input { amount } else { other_amount_threshold },
+            amount0: if is_base_input {
+                amount
+            } else {
+                other_amount_threshold
+            },
+            amount1: if !is_base_input {
+                amount
+            } else {
+                other_amount_threshold
+            },
             sqrt_price_x64: sqrt_price_limit_x64,
             liquidity: 0, // Dynamic liquidity not available in instruction data
             tick_current: Self::sqrt_price_to_tick(sqrt_price_limit_x64), // Calculate from price
@@ -205,12 +219,23 @@ impl RaydiumClmmEventParser {
         let is_base_input = read_u8_le(data, 32).ok()? == 1;
 
         let mut metadata = metadata;
-        metadata.set_id(format!("{}-{}-swap-v2-{}", metadata.signature, accounts[1], amount));
+        metadata.set_id(format!(
+            "{}-{}-swap-v2-{}",
+            metadata.signature, accounts[1], amount
+        ));
 
         Some(Box::new(RaydiumClmmSwapV2Event {
             metadata,
-            amount0: if is_base_input { amount } else { other_amount_threshold },
-            amount1: if !is_base_input { amount } else { other_amount_threshold },
+            amount0: if is_base_input {
+                amount
+            } else {
+                other_amount_threshold
+            },
+            amount1: if !is_base_input {
+                amount
+            } else {
+                other_amount_threshold
+            },
             sqrt_price_x64: sqrt_price_limit_x64,
             liquidity: 0, // Dynamic liquidity not available in instruction data
             tick_current: Self::sqrt_price_to_tick(sqrt_price_limit_x64), // Calculate from price
@@ -240,7 +265,10 @@ impl RaydiumClmmEventParser {
         let _open_time = read_u64_le(data, 16).ok()?; // Not used in event
 
         let mut metadata = metadata;
-        metadata.set_id(format!("{}-{}-create-pool", metadata.signature, accounts[0]));
+        metadata.set_id(format!(
+            "{}-{}-create-pool",
+            metadata.signature, accounts[0]
+        ));
 
         Some(Box::new(RaydiumClmmCreatePoolEvent {
             metadata,
@@ -267,7 +295,10 @@ impl RaydiumClmmEventParser {
         }
 
         let mut metadata = metadata;
-        metadata.set_id(format!("{}-{}-{}", metadata.signature, accounts[0], accounts[1]));
+        metadata.set_id(format!(
+            "{}-{}-{}",
+            metadata.signature, accounts[0], accounts[1]
+        ));
 
         Some(Box::new(RaydiumClmmOpenPositionV2Event {
             metadata,
@@ -327,7 +358,10 @@ impl RaydiumClmmEventParser {
         let base_flag = read_option_bool(data, &mut 32).ok()?;
 
         let mut metadata = metadata;
-        metadata.set_id(format!("{}-{}-increase-{}", metadata.signature, accounts[1], liquidity));
+        metadata.set_id(format!(
+            "{}-{}-increase-{}",
+            metadata.signature, accounts[1], liquidity
+        ));
 
         Some(Box::new(RaydiumClmmIncreaseLiquidityV2Event {
             metadata,
@@ -356,7 +390,10 @@ impl RaydiumClmmEventParser {
         let amount1_min = read_u64_le(data, 24).ok()?;
 
         let mut metadata = metadata;
-        metadata.set_id(format!("{}-{}-decrease-{}", metadata.signature, accounts[1], liquidity));
+        metadata.set_id(format!(
+            "{}-{}-decrease-{}",
+            metadata.signature, accounts[1], liquidity
+        ));
 
         Some(Box::new(RaydiumClmmDecreaseLiquidityV2Event {
             metadata,
@@ -380,7 +417,10 @@ impl RaydiumClmmEventParser {
         }
 
         let mut metadata = metadata;
-        metadata.set_id(format!("{}-{}-{}-token22", metadata.signature, accounts[0], accounts[1]));
+        metadata.set_id(format!(
+            "{}-{}-{}-token22",
+            metadata.signature, accounts[0], accounts[1]
+        ));
 
         Some(Box::new(RaydiumClmmOpenPositionWithToken22NftEvent {
             metadata,
@@ -406,11 +446,11 @@ impl EventParser for RaydiumClmmEventParser {
     fn inner_instruction_configs(&self) -> HashMap<&'static str, Vec<GenericEventParseConfig>> {
         self.inner.inner_instruction_configs()
     }
-    
+
     fn instruction_configs(&self) -> HashMap<Vec<u8>, Vec<GenericEventParseConfig>> {
         self.inner.instruction_configs()
     }
-    
+
     fn parse_events_from_inner_instruction(
         &self,
         inner_instruction: &UiCompiledInstruction,

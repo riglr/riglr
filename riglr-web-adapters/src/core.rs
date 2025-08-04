@@ -8,8 +8,8 @@ use futures_util::{Stream, StreamExt};
 // Note: Agent trait abstracted to allow any implementation
 use riglr_core::signer::{SignerContext, TransactionSigner};
 use serde::{Deserialize, Serialize};
-use std::pin::Pin;
 use std::error::Error as StdError;
+use std::pin::Pin;
 
 /// Agent trait for framework-agnostic agent interactions
 /// This trait allows any type to be used as an agent as long as it can
@@ -22,7 +22,10 @@ pub trait Agent: Clone + Send + Sync + 'static {
     async fn prompt(&self, prompt: &str) -> Result<String, Self::Error>;
 
     /// Execute a prompt and return a streaming response
-    async fn prompt_stream(&self, prompt: &str) -> Result<futures_util::stream::BoxStream<'_, Result<String, Self::Error>>, Self::Error>;
+    async fn prompt_stream(
+        &self,
+        prompt: &str,
+    ) -> Result<futures_util::stream::BoxStream<'_, Result<String, Self::Error>>, Self::Error>;
 
     /// Get the model name used by this agent (optional)
     fn model_name(&self) -> Option<String> {
@@ -31,7 +34,8 @@ pub trait Agent: Clone + Send + Sync + 'static {
 }
 
 /// Type alias for agent streaming responses
-pub type AgentStream = Pin<Box<dyn Stream<Item = Result<String, Box<dyn StdError + Send + Sync>>> + Send>>;
+pub type AgentStream =
+    Pin<Box<dyn Stream<Item = Result<String, Box<dyn StdError + Send + Sync>>> + Send>>;
 
 /// Get model name from agent or environment variable
 fn get_model_name<A: Agent>(agent: &A) -> Option<String> {
@@ -39,7 +43,7 @@ fn get_model_name<A: Agent>(agent: &A) -> Option<String> {
     if let Some(model) = agent.model_name() {
         return Some(model);
     }
-    
+
     // Fall back to environment variable
     std::env::var("RIGLR_DEFAULT_MODEL").ok()
 }
@@ -81,7 +85,7 @@ pub enum AgentEvent {
         request_id: String,
         timestamp: chrono::DateTime<chrono::Utc>,
     },
-    
+
     /// Streaming content chunk
     #[serde(rename = "content")]
     Content {
@@ -89,7 +93,7 @@ pub enum AgentEvent {
         conversation_id: String,
         request_id: String,
     },
-    
+
     /// Agent finished processing
     #[serde(rename = "complete")]
     Complete {
@@ -97,7 +101,7 @@ pub enum AgentEvent {
         request_id: String,
         timestamp: chrono::DateTime<chrono::Utc>,
     },
-    
+
     /// Error occurred
     #[serde(rename = "error")]
     Error {
@@ -128,9 +132,11 @@ pub async fn handle_agent_stream<A>(
 where
     A: Agent + Send + Sync + 'static,
 {
-    let conversation_id = prompt.conversation_id
+    let conversation_id = prompt
+        .conversation_id
         .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
-    let request_id = prompt.request_id
+    let request_id = prompt
+        .request_id
         .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
 
     tracing::info!(
@@ -143,7 +149,7 @@ where
     // Clone values for use in async block
     let conv_id = conversation_id.clone();
     let req_id = request_id.clone();
-    
+
     // Create the stream with proper event formatting
     let stream = async_stream::stream! {
         // Send start event
@@ -153,10 +159,10 @@ where
             timestamp: chrono::Utc::now(),
         };
         yield Ok(serde_json::to_string(&start_event).unwrap_or_default());
-        
+
         // Get agent stream first, then process within signer context
         let agent_stream_result = agent.prompt_stream(&prompt.text).await;
-        
+
         let stream_result = match agent_stream_result {
             Ok(mut agent_stream) => {
                 // Process each chunk within signer context
@@ -170,7 +176,7 @@ where
             }
             Err(e) => Err(riglr_core::signer::SignerError::Configuration(e.to_string()))
         };
-        
+
         match stream_result {
             Ok(mut stream) => {
                 // Forward all chunks from the real stream
@@ -196,7 +202,7 @@ where
                         }
                     }
                 }
-                
+
                 // Send complete event
                 let complete_event = AgentEvent::Complete {
                     conversation_id: conv_id.clone(),
@@ -217,7 +223,7 @@ where
             }
         }
     };
-    
+
     Ok(Box::pin(stream))
 }
 
@@ -241,9 +247,11 @@ pub async fn handle_agent_completion<A>(
 where
     A: Agent + Send + Sync + 'static,
 {
-    let conversation_id = prompt.conversation_id
+    let conversation_id = prompt
+        .conversation_id
         .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
-    let request_id = prompt.request_id
+    let request_id = prompt
+        .request_id
         .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
 
     tracing::info!(
@@ -254,9 +262,11 @@ where
     );
 
     let response = SignerContext::with_signer(signer, async move {
-        let response = agent.prompt(&prompt.text).await
+        let response = agent
+            .prompt(&prompt.text)
+            .await
             .map_err(|e| riglr_core::signer::SignerError::Configuration(e.to_string()))?;
-        
+
         Ok::<CompletionResponse, riglr_core::signer::SignerError>(CompletionResponse {
             response,
             model: get_model_name(&agent).unwrap_or_else(|| "claude-3-5-sonnet".to_string()),
@@ -264,7 +274,9 @@ where
             request_id,
             timestamp: chrono::Utc::now(),
         })
-    }).await.map_err(|e| Box::new(e) as Box<dyn StdError + Send + Sync>)?;
+    })
+    .await
+    .map_err(|e| Box::new(e) as Box<dyn StdError + Send + Sync>)?;
 
     tracing::info!(
         conversation_id = %response.conversation_id,
@@ -302,10 +314,13 @@ mod tests {
             Ok(self.response.clone())
         }
 
-        async fn prompt_stream(&self, _prompt: &str) -> Result<futures_util::stream::BoxStream<'_, Result<String, Self::Error>>, Self::Error> {
+        async fn prompt_stream(
+            &self,
+            _prompt: &str,
+        ) -> Result<futures_util::stream::BoxStream<'_, Result<String, Self::Error>>, Self::Error>
+        {
             let chunks = vec!["Hello", " ", "world", "!"];
-            let stream = futures_util::stream::iter(chunks)
-                .map(|chunk| Ok(chunk.to_string()));
+            let stream = futures_util::stream::iter(chunks).map(|chunk| Ok(chunk.to_string()));
             Ok(Box::pin(stream))
         }
     }
@@ -314,17 +329,20 @@ mod tests {
     async fn test_handle_agent_completion() {
         let agent = MockAgent::new("Test response".to_string());
         let keypair = Keypair::new();
-        let signer = std::sync::Arc::new(LocalSolanaSigner::new(keypair, "https://api.devnet.solana.com".to_string()));
-        
+        let signer = std::sync::Arc::new(LocalSolanaSigner::new(
+            keypair,
+            "https://api.devnet.solana.com".to_string(),
+        ));
+
         let prompt = PromptRequest {
             text: "Test prompt".to_string(),
             conversation_id: Some("test-conv".to_string()),
             request_id: Some("test-req".to_string()),
         };
-        
+
         let result = handle_agent_completion(agent, signer, prompt).await;
         assert!(result.is_ok());
-        
+
         let response = result.unwrap();
         assert_eq!(response.response, "Test response");
         assert_eq!(response.conversation_id, "test-conv");
@@ -335,32 +353,35 @@ mod tests {
     async fn test_handle_agent_stream() {
         let agent = MockAgent::new("Test response".to_string());
         let keypair = Keypair::new();
-        let signer = std::sync::Arc::new(LocalSolanaSigner::new(keypair, "https://api.devnet.solana.com".to_string()));
-        
+        let signer = std::sync::Arc::new(LocalSolanaSigner::new(
+            keypair,
+            "https://api.devnet.solana.com".to_string(),
+        ));
+
         let prompt = PromptRequest {
             text: "Test prompt".to_string(),
             conversation_id: Some("test-conv".to_string()),
             request_id: Some("test-req".to_string()),
         };
-        
+
         let result = handle_agent_stream(agent, signer, prompt).await;
         assert!(result.is_ok());
-        
+
         let mut stream = result.unwrap();
         let mut events = Vec::new();
-        
+
         while let Some(event_result) = stream.next().await {
             let event_json = event_result.unwrap();
             events.push(event_json);
         }
-        
+
         // Should have start + content chunks + complete events
         assert!(events.len() >= 3); // At least start, some content, complete
-        
+
         // First event should be start
         let first_event: AgentEvent = serde_json::from_str(&events[0]).unwrap();
         assert!(matches!(first_event, AgentEvent::Start { .. }));
-        
+
         // Last event should be complete
         let last_event: AgentEvent = serde_json::from_str(events.last().unwrap()).unwrap();
         assert!(matches!(last_event, AgentEvent::Complete { .. }));
@@ -373,10 +394,10 @@ mod tests {
             request_id: "test-req".to_string(),
             timestamp: chrono::Utc::now(),
         };
-        
+
         let json = serde_json::to_string(&event).unwrap();
         let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
-        
+
         assert_eq!(parsed["type"], "start");
         assert_eq!(parsed["conversation_id"], "test-conv");
         assert_eq!(parsed["request_id"], "test-req");

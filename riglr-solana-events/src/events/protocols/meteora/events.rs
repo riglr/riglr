@@ -1,10 +1,10 @@
-use std::any::Any;
-use serde::{Deserialize, Serialize};
+use super::types::{MeteoraDynamicLiquidityData, MeteoraLiquidityData, MeteoraSwapData};
 use crate::{
     // UnifiedEvent removed - using Event trait from riglr_events_core
-    types::{TransferData},
+    types::TransferData,
 };
-use super::types::{MeteoraSwapData, MeteoraLiquidityData, MeteoraDynamicLiquidityData};
+use serde::{Deserialize, Serialize};
+use std::any::Any;
 
 // Import new Event trait from riglr-events-core
 use riglr_events_core::{Event, EventKind, EventMetadata as CoreEventMetadata};
@@ -83,7 +83,6 @@ impl MeteoraSwapEvent {
     }
 }
 
-
 // New Event trait implementation
 impl Event for MeteoraSwapEvent {
     fn id(&self) -> &str {
@@ -99,9 +98,9 @@ impl Event for MeteoraSwapEvent {
     }
 
     fn metadata(&self) -> &CoreEventMetadata {
-        self.core_metadata.as_ref().unwrap_or_else(|| {
-            panic!("Core metadata not initialized for MeteoraSwapEvent")
-        })
+        self.core_metadata
+            .as_ref()
+            .unwrap_or_else(|| panic!("Core metadata not initialized for MeteoraSwapEvent"))
     }
 
     fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
@@ -114,13 +113,16 @@ impl Event for MeteoraSwapEvent {
                 instruction_index: self.index.parse::<usize>().ok(),
             };
 
-            self.core_metadata = Some(CoreEventMetadata::with_timestamp(
-                self.id.clone(),
-                EventKind::Swap,
-                "meteora".to_string(),
-                chrono::DateTime::from_timestamp(self.block_time, 0)
-                    .unwrap_or_else(chrono::Utc::now),
-            ).with_chain_data(chain_data));
+            self.core_metadata = Some(
+                CoreEventMetadata::with_timestamp(
+                    self.id.clone(),
+                    EventKind::Swap,
+                    "meteora".to_string(),
+                    chrono::DateTime::from_timestamp(self.block_time, 0)
+                        .unwrap_or_else(chrono::Utc::now),
+                )
+                .with_chain_data(chain_data),
+            );
         }
         self.core_metadata.as_mut().unwrap()
     }
@@ -138,8 +140,7 @@ impl Event for MeteoraSwapEvent {
     }
 
     fn to_json(&self) -> riglr_events_core::error::EventResult<serde_json::Value> {
-        serde_json::to_value(self)
-            .map_err(riglr_events_core::error::EventError::Serialization)
+        serde_json::to_value(self).map_err(riglr_events_core::error::EventError::Serialization)
     }
 }
 
@@ -160,7 +161,6 @@ pub struct MeteoraLiquidityEvent {
     pub core_metadata: Option<CoreEventMetadata>,
 }
 
-
 // New Event trait implementation for MeteoraLiquidityEvent
 impl Event for MeteoraLiquidityEvent {
     fn id(&self) -> &str {
@@ -176,9 +176,9 @@ impl Event for MeteoraLiquidityEvent {
     }
 
     fn metadata(&self) -> &CoreEventMetadata {
-        self.core_metadata.as_ref().unwrap_or_else(|| {
-            panic!("Core metadata not initialized for MeteoraLiquidityEvent")
-        })
+        self.core_metadata
+            .as_ref()
+            .unwrap_or_else(|| panic!("Core metadata not initialized for MeteoraLiquidityEvent"))
     }
 
     fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
@@ -193,13 +193,16 @@ impl Event for MeteoraLiquidityEvent {
 
             let event_kind = EventKind::Liquidity;
 
-            self.core_metadata = Some(CoreEventMetadata::with_timestamp(
-                self.id.clone(),
-                event_kind,
-                "meteora".to_string(),
-                chrono::DateTime::from_timestamp(self.block_time, 0)
-                    .unwrap_or_else(chrono::Utc::now),
-            ).with_chain_data(chain_data));
+            self.core_metadata = Some(
+                CoreEventMetadata::with_timestamp(
+                    self.id.clone(),
+                    event_kind,
+                    "meteora".to_string(),
+                    chrono::DateTime::from_timestamp(self.block_time, 0)
+                        .unwrap_or_else(chrono::Utc::now),
+                )
+                .with_chain_data(chain_data),
+            );
         }
         self.core_metadata.as_mut().unwrap()
     }
@@ -217,8 +220,7 @@ impl Event for MeteoraLiquidityEvent {
     }
 
     fn to_json(&self) -> riglr_events_core::error::EventResult<serde_json::Value> {
-        serde_json::to_value(self)
-            .map_err(riglr_events_core::error::EventError::Serialization)
+        serde_json::to_value(self).map_err(riglr_events_core::error::EventError::Serialization)
     }
 }
 
@@ -238,7 +240,6 @@ pub struct MeteoraDynamicLiquidityEvent {
     #[serde(skip)]
     pub core_metadata: Option<CoreEventMetadata>,
 }
-
 
 // New Event trait implementation for MeteoraDynamicLiquidityEvent
 impl Event for MeteoraDynamicLiquidityEvent {
@@ -272,13 +273,16 @@ impl Event for MeteoraDynamicLiquidityEvent {
 
             let event_kind = EventKind::Liquidity;
 
-            self.core_metadata = Some(CoreEventMetadata::with_timestamp(
-                self.id.clone(),
-                event_kind,
-                "meteora".to_string(),
-                chrono::DateTime::from_timestamp(self.block_time, 0)
-                    .unwrap_or_else(chrono::Utc::now),
-            ).with_chain_data(chain_data));
+            self.core_metadata = Some(
+                CoreEventMetadata::with_timestamp(
+                    self.id.clone(),
+                    event_kind,
+                    "meteora".to_string(),
+                    chrono::DateTime::from_timestamp(self.block_time, 0)
+                        .unwrap_or_else(chrono::Utc::now),
+                )
+                .with_chain_data(chain_data),
+            );
         }
         self.core_metadata.as_mut().unwrap()
     }
@@ -296,7 +300,6 @@ impl Event for MeteoraDynamicLiquidityEvent {
     }
 
     fn to_json(&self) -> riglr_events_core::error::EventResult<serde_json::Value> {
-        serde_json::to_value(self)
-            .map_err(riglr_events_core::error::EventError::Serialization)
+        serde_json::to_value(self).map_err(riglr_events_core::error::EventError::Serialization)
     }
 }

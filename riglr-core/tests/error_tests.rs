@@ -121,10 +121,7 @@ fn test_tool_error_permanent() {
     assert!(!error.is_retriable());
 
     let error2 = ToolError::permanent_string("Insufficient permissions");
-    assert_eq!(
-        error2.to_string(),
-        "Permanent error, do not retry"
-    );
+    assert_eq!(error2.to_string(), "Permanent error, do not retry");
     assert!(!error2.is_retriable());
 }
 
@@ -178,39 +175,46 @@ fn test_core_error_redis() {
 fn test_worker_error_display() {
     use riglr_core::error::WorkerError;
     use std::io;
-    
+
     // Test ToolNotFound
-    let err = WorkerError::ToolNotFound { tool_name: "my_tool".to_string() };
-    assert_eq!(err.to_string(), "Tool 'my_tool' not found in worker registry");
-    
+    let err = WorkerError::ToolNotFound {
+        tool_name: "my_tool".to_string(),
+    };
+    assert_eq!(
+        err.to_string(),
+        "Tool 'my_tool' not found in worker registry"
+    );
+
     // Test SemaphoreAcquisition
     let io_err = io::Error::other("semaphore error");
     let err = WorkerError::SemaphoreAcquisition {
         tool_name: "test_tool".to_string(),
         source: Box::new(io_err),
     };
-    assert!(err.to_string().contains("Failed to acquire semaphore for tool 'test_tool'"));
-    
+    assert!(err
+        .to_string()
+        .contains("Failed to acquire semaphore for tool 'test_tool'"));
+
     // Test IdempotencyStore
     let io_err = io::Error::other("store error");
     let err = WorkerError::IdempotencyStore {
         source: Box::new(io_err),
     };
-    assert!(err.to_string().contains("Idempotency store operation failed"));
-    
+    assert!(err
+        .to_string()
+        .contains("Idempotency store operation failed"));
+
     // Test JobSerialization
     let json_err = serde_json::from_str::<serde_json::Value>("invalid").unwrap_err();
-    let err = WorkerError::JobSerialization {
-        source: json_err,
-    };
+    let err = WorkerError::JobSerialization { source: json_err };
     assert!(err.to_string().contains("Job serialization error"));
-    
+
     // Test ExecutionTimeout
     let err = WorkerError::ExecutionTimeout {
         timeout: std::time::Duration::from_secs(30),
     };
     assert!(err.to_string().contains("Tool execution timed out after"));
-    
+
     // Test Internal
     let err = WorkerError::Internal {
         message: "internal failure".to_string(),
@@ -221,21 +225,21 @@ fn test_worker_error_display() {
 #[test]
 fn test_tool_error_with_source_variants() {
     use std::io;
-    
+
     // Test retriable_with_source
     let io_err = io::Error::new(io::ErrorKind::TimedOut, "connection timeout");
     let tool_err = ToolError::retriable_with_source(io_err, "Failed to connect");
     assert!(tool_err.is_retriable());
     assert!(!tool_err.is_rate_limited());
     assert!(tool_err.source().is_some());
-    
+
     // Test permanent_with_source
     let io_err = io::Error::new(io::ErrorKind::PermissionDenied, "access denied");
     let tool_err = ToolError::permanent_with_source(io_err, "Insufficient permissions");
     assert!(!tool_err.is_retriable());
     assert!(!tool_err.is_rate_limited());
     assert!(tool_err.source().is_some());
-    
+
     // Test rate_limited_with_source with retry_after
     let io_err = io::Error::other("rate limit exceeded");
     let retry_duration = Some(std::time::Duration::from_secs(120));
@@ -244,12 +248,12 @@ fn test_tool_error_with_source_variants() {
     assert!(tool_err.is_rate_limited());
     assert_eq!(tool_err.retry_after(), retry_duration);
     assert!(tool_err.source().is_some());
-    
+
     // Test rate_limited_with_source without retry_after
     let io_err = io::Error::other("rate limit");
     let tool_err = ToolError::rate_limited_with_source(io_err, "Rate limited", None);
     assert!(tool_err.retry_after().is_none());
-    
+
     // Test invalid_input_with_source
     let io_err = io::Error::new(io::ErrorKind::InvalidInput, "bad format");
     let tool_err = ToolError::invalid_input_with_source(io_err, "Invalid address format");
@@ -265,19 +269,19 @@ fn test_tool_error_from_msg_variants() {
     let err = ToolError::retriable_string("Network error");
     assert!(err.is_retriable());
     assert!(err.source().is_some()); // SimpleError is used as source
-    
+
     // Test permanent_string
     let err = ToolError::permanent_string("Config error");
     assert!(!err.is_retriable());
     assert!(err.source().is_some());
-    
+
     // Test rate_limited_string
     let err = ToolError::rate_limited_string("Too many requests");
     assert!(err.is_retriable());
     assert!(err.is_rate_limited());
     assert!(err.retry_after().is_none());
     assert!(err.source().is_some());
-    
+
     // Test invalid_input_string
     let err = ToolError::invalid_input_string("Bad input");
     assert!(!err.is_retriable());
@@ -291,18 +295,18 @@ fn test_tool_error_from_conversions() {
     let anyhow_err = anyhow::anyhow!("Anyhow error");
     let tool_err: ToolError = anyhow_err.into();
     assert!(!tool_err.is_retriable());
-    
+
     // Test From<Box<dyn Error>>
-    let boxed_err: Box<dyn std::error::Error + Send + Sync> = 
+    let boxed_err: Box<dyn std::error::Error + Send + Sync> =
         Box::new(std::io::Error::other("boxed error"));
     let tool_err: ToolError = boxed_err.into();
     assert!(!tool_err.is_retriable());
-    
+
     // Test From<String>
     let string_err = "String error".to_string();
     let tool_err: ToolError = string_err.into();
     assert!(!tool_err.is_retriable());
-    
+
     // Test From<&str>
     let str_err = "Static str error";
     let tool_err: ToolError = str_err.into();
@@ -312,7 +316,7 @@ fn test_tool_error_from_conversions() {
 #[test]
 fn test_tool_error_signer_context() {
     use riglr_core::signer::SignerError;
-    
+
     let signer_err = SignerError::NoSignerContext;
     let tool_err: ToolError = signer_err.into();
     assert_eq!(tool_err.to_string(), "Signer context error");
@@ -326,13 +330,13 @@ fn test_deprecated_constructors() {
     {
         let err = ToolError::retriable_string("Old style");
         assert!(err.is_retriable());
-        
+
         let err = ToolError::rate_limited_string("Old rate limit");
         assert!(err.is_rate_limited());
-        
+
         let err = ToolError::permanent_string("Old permanent");
         assert!(!err.is_retriable());
-        
+
         let err = ToolError::invalid_input_string("Old invalid");
         assert!(!err.is_retriable());
     }

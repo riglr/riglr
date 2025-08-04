@@ -2,10 +2,7 @@
 //!
 //! This example demonstrates how to get quotes and execute swaps on Uniswap.
 
-use riglr_evm_tools::{
-    get_uniswap_quote, EvmClient,
-    UniswapQuote,
-};
+use riglr_evm_tools::{get_uniswap_quote, EvmClient, UniswapQuote};
 use std::env;
 
 #[tokio::main]
@@ -16,12 +13,11 @@ async fn main() -> anyhow::Result<()> {
     println!("🦄 Uniswap V3 Trading Example\n");
 
     // Get private key from environment (required for swaps)
-    let private_key = env::var("EVM_PRIVATE_KEY")
-        .unwrap_or_else(|_| {
-            println!("⚠️  Warning: EVM_PRIVATE_KEY not set. Running in read-only mode.");
-            println!("   Set EVM_PRIVATE_KEY to execute actual swaps.\n");
-            String::new()
-        });
+    let private_key = env::var("EVM_PRIVATE_KEY").unwrap_or_else(|_| {
+        println!("⚠️  Warning: EVM_PRIVATE_KEY not set. Running in read-only mode.");
+        println!("   Set EVM_PRIVATE_KEY to execute actual swaps.\n");
+        String::new()
+    });
 
     // Create EVM client (with optional signer for transactions)
     let _client = if !private_key.is_empty() {
@@ -38,7 +34,7 @@ async fn main() -> anyhow::Result<()> {
     // Example 1: Get a quote for swapping USDC to ETH
     println!("📊 Getting quote for 1000 USDC -> WETH swap...");
     let quote = get_quote_example(USDC, WETH, "1000", 6, 18).await?;
-    
+
     // Example 2: Get quotes for different fee tiers
     println!("\n📊 Comparing quotes across fee tiers...");
     compare_fee_tiers(WETH, USDC, "1", 18, 6).await?;
@@ -100,7 +96,7 @@ async fn compare_fee_tiers(
     ];
 
     println!("  Comparing fee tiers for {} {} swap:", amount, token_in);
-    
+
     for (fee, description) in fee_tiers {
         match get_uniswap_quote(
             token_in.to_string(),
@@ -114,10 +110,9 @@ async fn compare_fee_tiers(
         .await
         {
             Ok(quote) => {
-                println!("  • {} tier: {} output (price: {:.6})",
-                    description,
-                    quote.amount_out,
-                    quote.price
+                println!(
+                    "  • {} tier: {} output (price: {:.6})",
+                    description, quote.amount_out, quote.price
                 );
             }
             Err(_) => {
@@ -143,11 +138,11 @@ async fn simulate_swap(
     println!("    • Min Amount Out: {}", amount_out_min);
     println!("    • Fee Tier: 0.3%");
     println!("    • Deadline: 5 minutes");
-    
+
     // In a real scenario, you would call perform_uniswap_swap here
     // For this example, we're just simulating
     println!("  ✅ Swap simulation complete (not executed)");
-    
+
     Ok(())
 }
 
@@ -158,11 +153,14 @@ async fn analyze_price_impact(
     decimals_out: u8,
 ) -> anyhow::Result<()> {
     let amounts = ["0.1", "1", "10", "100"];
-    
-    println!("  Analyzing price impact for {} -> {} swaps:", token_in, token_out);
-    
+
+    println!(
+        "  Analyzing price impact for {} -> {} swaps:",
+        token_in, token_out
+    );
+
     let mut base_price = 0.0;
-    
+
     for (i, amount) in amounts.iter().enumerate() {
         match get_uniswap_quote(
             token_in.to_string(),
@@ -179,17 +177,16 @@ async fn analyze_price_impact(
                 if i == 0 {
                     base_price = quote.price;
                 }
-                
+
                 let impact = if base_price > 0.0 {
                     ((quote.price - base_price) / base_price * 100.0).abs()
                 } else {
                     0.0
                 };
-                
-                println!("    • {} tokens: Price {:.6}, Impact: {:.2}%",
-                    amount,
-                    quote.price,
-                    impact
+
+                println!(
+                    "    • {} tokens: Price {:.6}, Impact: {:.2}%",
+                    amount, quote.price, impact
                 );
             }
             Err(_) => {
@@ -197,7 +194,7 @@ async fn analyze_price_impact(
             }
         }
     }
-    
+
     Ok(())
 }
 

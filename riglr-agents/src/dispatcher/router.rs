@@ -1,9 +1,9 @@
 //! Routing engine for selecting agents based on different strategies.
 
-use crate::{Agent, AgentError, Task, Result};
 use super::RoutingStrategy;
-use std::sync::Arc;
+use crate::{Agent, AgentError, Result, Task};
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
 use tracing::debug;
 
 /// Router for selecting agents based on routing strategies.
@@ -48,8 +48,11 @@ impl Router {
             RoutingStrategy::Direct => self.select_direct(agents, task).await?,
         };
 
-        debug!("Router selected agent {} using strategy {:?}", 
-               selected.id(), self.strategy);
+        debug!(
+            "Router selected agent {} using strategy {:?}",
+            selected.id(),
+            self.strategy
+        );
 
         Ok(selected)
     }
@@ -80,7 +83,9 @@ impl Router {
         agents
             .iter()
             .min_by(|a, b| {
-                a.load().partial_cmp(&b.load()).unwrap_or(std::cmp::Ordering::Equal)
+                a.load()
+                    .partial_cmp(&b.load())
+                    .unwrap_or(std::cmp::Ordering::Equal)
             })
             .unwrap()
             .clone()
@@ -90,7 +95,7 @@ impl Router {
     fn select_random(&self, agents: &[Arc<dyn Agent>]) -> Arc<dyn Agent> {
         use std::collections::hash_map::DefaultHasher;
         use std::hash::{Hash, Hasher};
-        
+
         // Use current time as seed for pseudo-randomness
         let mut hasher = DefaultHasher::new();
         std::time::SystemTime::now()
@@ -98,7 +103,7 @@ impl Router {
             .unwrap()
             .as_nanos()
             .hash(&mut hasher);
-        
+
         let index = (hasher.finish() as usize) % agents.len();
         agents[index].clone()
     }
@@ -175,7 +180,7 @@ mod tests {
     #[tokio::test]
     async fn test_router_capability_strategy() {
         let router = Router::new(RoutingStrategy::Capability);
-        
+
         let agents = vec![
             Arc::new(MockAgent {
                 id: AgentId::new("agent1"),
@@ -201,7 +206,7 @@ mod tests {
     #[tokio::test]
     async fn test_router_round_robin_strategy() {
         let router = Router::new(RoutingStrategy::RoundRobin);
-        
+
         let agents = vec![
             Arc::new(MockAgent {
                 id: AgentId::new("agent1"),
@@ -220,14 +225,14 @@ mod tests {
         // Should alternate between agents
         let selected1 = router.select_agent(&agents, &task).await.unwrap();
         let selected2 = router.select_agent(&agents, &task).await.unwrap();
-        
+
         assert_ne!(selected1.id(), selected2.id());
     }
 
     #[tokio::test]
     async fn test_router_least_loaded_strategy() {
         let router = Router::new(RoutingStrategy::LeastLoaded);
-        
+
         let agents = vec![
             Arc::new(MockAgent {
                 id: AgentId::new("high-load"),
@@ -243,7 +248,7 @@ mod tests {
 
         let task = Task::new(TaskType::Trading, serde_json::json!({}));
         let selected = router.select_agent(&agents, &task).await.unwrap();
-        
+
         // Should select the least loaded agent
         assert_eq!(selected.id().as_str(), "low-load");
     }
@@ -251,7 +256,7 @@ mod tests {
     #[tokio::test]
     async fn test_router_direct_strategy() {
         let router = Router::new(RoutingStrategy::Direct);
-        
+
         let agents = vec![
             Arc::new(MockAgent {
                 id: AgentId::new("agent1"),
@@ -268,7 +273,7 @@ mod tests {
         // Task with direct agent targeting
         let task = Task::new(TaskType::Trading, serde_json::json!({}))
             .with_metadata("target_agent_id", serde_json::json!("agent2"));
-        
+
         let selected = router.select_agent(&agents, &task).await.unwrap();
         assert_eq!(selected.id().as_str(), "agent2");
 
@@ -281,7 +286,7 @@ mod tests {
     #[tokio::test]
     async fn test_router_random_strategy() {
         let router = Router::new(RoutingStrategy::Random);
-        
+
         let agents = vec![
             Arc::new(MockAgent {
                 id: AgentId::new("agent1"),
@@ -296,7 +301,7 @@ mod tests {
         ];
 
         let task = Task::new(TaskType::Trading, serde_json::json!({}));
-        
+
         // Should always select a valid agent
         let selected = router.select_agent(&agents, &task).await.unwrap();
         assert!(agents.iter().any(|a| a.id() == selected.id()));
@@ -307,7 +312,7 @@ mod tests {
         let router = Router::new(RoutingStrategy::Capability);
         let agents: Vec<Arc<dyn Agent>> = vec![];
         let task = Task::new(TaskType::Trading, serde_json::json!({}));
-        
+
         let result = router.select_agent(&agents, &task).await;
         assert!(result.is_err());
     }
@@ -316,7 +321,7 @@ mod tests {
     fn test_router_strategy_change() {
         let mut router = Router::new(RoutingStrategy::Capability);
         assert_eq!(router.strategy(), RoutingStrategy::Capability);
-        
+
         router.set_strategy(RoutingStrategy::LeastLoaded);
         assert_eq!(router.strategy(), RoutingStrategy::LeastLoaded);
     }

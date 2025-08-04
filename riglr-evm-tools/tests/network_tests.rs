@@ -34,7 +34,7 @@ async fn test_get_transaction_receipt_placeholder() {
         .await;
 
     let client = EvmClient::new(url).await.unwrap();
-    
+
     // Note: The get_transaction_receipt function requires a signer context
     // This test needs to be restructured or this function needs to be tested differently
     // For now, just testing that the client can be created
@@ -77,7 +77,7 @@ async fn test_get_transaction_receipt_various_hashes() {
     // Test that client can be created and get block number
     // The get_transaction_receipt function requires a signer context, so we test client functionality
     assert!(client.get_block_number().await.is_ok());
-    
+
     // Test that gas price can be retrieved
     assert!(client.get_gas_price().await.is_ok());
 }

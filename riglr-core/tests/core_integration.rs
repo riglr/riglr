@@ -1,12 +1,12 @@
+use futures::future;
 use riglr_core::{
-    signer::{SignerContext, TransactionSigner, SignerError, EvmClient},
     error::ToolError,
-    util::{get_required_env, get_env_or_default},
+    signer::{EvmClient, SignerContext, SignerError, TransactionSigner},
+    util::{get_env_or_default, get_required_env},
 };
+use solana_sdk::transaction::Transaction;
 use std::sync::Arc;
 use tokio::task;
-use solana_sdk::transaction::Transaction;
-use futures::future;
 
 /// Mock signer for testing signer context isolation
 struct MockSigner {
@@ -43,20 +43,30 @@ impl TransactionSigner for MockSigner {
         self.address.clone()
     }
 
-    async fn sign_and_send_solana_transaction(&self, _tx: &mut Transaction) -> Result<String, SignerError> {
+    async fn sign_and_send_solana_transaction(
+        &self,
+        _tx: &mut Transaction,
+    ) -> Result<String, SignerError> {
         Ok(format!("solana_tx_{}", self.id))
     }
 
-    async fn sign_and_send_evm_transaction(&self, _tx: alloy::rpc::types::TransactionRequest) -> Result<String, SignerError> {
+    async fn sign_and_send_evm_transaction(
+        &self,
+        _tx: alloy::rpc::types::TransactionRequest,
+    ) -> Result<String, SignerError> {
         Ok(format!("evm_tx_{}", self.id))
     }
 
     fn solana_client(&self) -> Option<Arc<solana_client::rpc_client::RpcClient>> {
-        Some(Arc::new(solana_client::rpc_client::RpcClient::new("https://api.devnet.solana.com".to_string())))
+        Some(Arc::new(solana_client::rpc_client::RpcClient::new(
+            "https://api.devnet.solana.com".to_string(),
+        )))
     }
 
     fn evm_client(&self) -> Result<Arc<dyn EvmClient>, SignerError> {
-        Err(SignerError::UnsupportedOperation("Mock signer does not provide EVM client".to_string()))
+        Err(SignerError::UnsupportedOperation(
+            "Mock signer does not provide EVM client".to_string(),
+        ))
     }
 }
 
@@ -73,28 +83,36 @@ impl std::fmt::Debug for MockSigner {
 #[tokio::test]
 async fn test_signer_context_isolation_between_tasks() {
     // Create different signers for different tasks
-    let signer1 = MockSigner::new_solana("task1".to_string(), "11111111111111111111111111111112".to_string());
-    let signer2 = MockSigner::new_solana("task2".to_string(), "11111111111111111111111111111113".to_string());
+    let signer1 = MockSigner::new_solana(
+        "task1".to_string(),
+        "11111111111111111111111111111112".to_string(),
+    );
+    let signer2 = MockSigner::new_solana(
+        "task2".to_string(),
+        "11111111111111111111111111111113".to_string(),
+    );
 
     // Spawn concurrent tasks with different signer contexts
     let handle1 = task::spawn(async move {
         SignerContext::with_signer(Arc::new(signer1), async {
             // Wait a bit to ensure concurrency
             tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
-            
+
             let current = SignerContext::current().await?;
             Ok::<String, SignerError>(current.pubkey().unwrap())
-        }).await
+        })
+        .await
     });
 
     let handle2 = task::spawn(async move {
         SignerContext::with_signer(Arc::new(signer2), async {
             // Wait a bit to ensure concurrency
             tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
-            
+
             let current = SignerContext::current().await?;
             Ok::<String, SignerError>(current.pubkey().unwrap())
-        }).await
+        })
+        .await
     });
 
     // Verify each task gets its own signer context
@@ -113,25 +131,29 @@ async fn test_cross_chain_signer_context() {
 
     // Test Solana signer context
     let solana_signer = MockSigner::new_solana("solana".to_string(), solana_pubkey.to_string());
-    
+
     SignerContext::with_signer(Arc::new(solana_signer), async {
         let current = SignerContext::current().await?;
         assert!(current.pubkey().is_some());
         assert!(current.address().is_none());
         assert_eq!(current.pubkey().unwrap(), solana_pubkey);
         Ok::<(), SignerError>(())
-    }).await.unwrap();
+    })
+    .await
+    .unwrap();
 
     // Test EVM signer context
     let evm_signer = MockSigner::new_evm("evm".to_string(), evm_address.to_string());
-    
+
     SignerContext::with_signer(Arc::new(evm_signer), async {
         let current = SignerContext::current().await?;
         assert!(current.pubkey().is_none());
         assert!(current.address().is_some());
         assert_eq!(current.address().unwrap(), evm_address);
         Ok::<(), SignerError>(())
-    }).await.unwrap();
+    })
+    .await
+    .unwrap();
 }
 
 #[tokio::test]
@@ -160,7 +182,9 @@ async fn test_tool_error_classification() {
     // Test invalid input error
     let invalid_input = ToolError::invalid_input_string("Missing required parameter");
     match invalid_input {
-        ToolError::InvalidInput { context, .. } => assert_eq!(context, "Missing required parameter"),
+        ToolError::InvalidInput { context, .. } => {
+            assert_eq!(context, "Missing required parameter")
+        }
         _ => panic!("Expected invalid input error"),
     }
 }
@@ -196,56 +220,63 @@ fn test_get_required_env_errors_on_missing_var() {
 #[tokio::test]
 async fn test_concurrent_signer_contexts() {
     let mut handles = Vec::new();
-    
+
     // Spawn multiple concurrent tasks with different signers
     for i in 0..10 {
         let signer = MockSigner::new_solana(
-            format!("task_{}", i), 
-            format!("1111111111111111111111111111111{}", i)
+            format!("task_{}", i),
+            format!("1111111111111111111111111111111{}", i),
         );
-        
+
         let handle = task::spawn(async move {
             SignerContext::with_signer(Arc::new(signer), async move {
                 // Simulate some work
                 tokio::time::sleep(tokio::time::Duration::from_millis(5)).await;
-                
+
                 let current = SignerContext::current().await?;
                 let pubkey = current.pubkey().unwrap();
-                
+
                 // Verify the pubkey matches what we expect for this task
                 Ok::<String, SignerError>(pubkey)
-            }).await
+            })
+            .await
         });
-        
+
         handles.push(handle);
     }
-    
+
     // Collect results and verify isolation
     let results = future::join_all(handles).await;
     let mut pubkeys = std::collections::HashSet::new();
-    
+
     for (i, result) in results.into_iter().enumerate() {
         let pubkey = result.unwrap().unwrap();
         let expected = format!("1111111111111111111111111111111{}", i);
         assert_eq!(pubkey, expected);
         assert!(pubkeys.insert(pubkey), "Duplicate pubkey found");
     }
-    
+
     assert_eq!(pubkeys.len(), 10);
 }
 
 #[tokio::test]
 async fn test_nested_signer_contexts() {
-    let outer_signer = MockSigner::new_solana("outer".to_string(), "11111111111111111111111111111112".to_string());
-    let inner_signer = MockSigner::new_evm("inner".to_string(), "0x742d35Cc2F5f8a89A0D2EAd5a53c97c49444E34F".to_string());
-    
+    let outer_signer = MockSigner::new_solana(
+        "outer".to_string(),
+        "11111111111111111111111111111112".to_string(),
+    );
+    let inner_signer = MockSigner::new_evm(
+        "inner".to_string(),
+        "0x742d35Cc2F5f8a89A0D2EAd5a53c97c49444E34F".to_string(),
+    );
+
     SignerContext::with_signer(Arc::new(outer_signer), async {
         // Verify outer context
         let outer_current = SignerContext::current().await?;
         assert!(outer_current.pubkey().is_some());
         assert!(outer_current.address().is_none());
         let outer_pubkey = outer_current.pubkey().unwrap();
-        
+
         // Create nested context
         SignerContext::with_signer(Arc::new(inner_signer), async {
             // Verify inner context overrides outer
@@ -253,18 +284,21 @@ async fn test_nested_signer_contexts() {
             assert!(inner_current.pubkey().is_none());
             assert!(inner_current.address().is_some());
             let inner_address = inner_current.address().unwrap();
-            
+
             assert_eq!(inner_address, "0x742d35Cc2F5f8a89A0D2EAd5a53c97c49444E34F");
-            
+
             Ok::<(), SignerError>(())
-        }).await?;
-        
+        })
+        .await?;
+
         // Verify outer context is restored
         let restored_current = SignerContext::current().await?;
         assert!(restored_current.pubkey().is_some());
         assert!(restored_current.address().is_none());
         assert_eq!(restored_current.pubkey().unwrap(), outer_pubkey);
-        
+
         Ok::<(), SignerError>(())
-    }).await.unwrap();
+    })
+    .await
+    .unwrap();
 }

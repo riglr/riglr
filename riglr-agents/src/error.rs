@@ -23,7 +23,7 @@ pub enum AgentError {
 
     /// Task execution failed
     #[error("Task execution failed: {message}")]
-    TaskExecution { 
+    TaskExecution {
         message: String,
         #[source]
         source: Option<Box<dyn std::error::Error + Send + Sync>>,
@@ -31,17 +31,14 @@ pub enum AgentError {
 
     /// Task timeout
     #[error("Task '{task_id}' timed out after {duration:?}")]
-    TaskTimeout { 
-        task_id: String, 
-        duration: std::time::Duration 
+    TaskTimeout {
+        task_id: String,
+        duration: std::time::Duration,
     },
 
     /// Task cancelled
     #[error("Task '{task_id}' was cancelled: {reason}")]
-    TaskCancelled { 
-        task_id: String, 
-        reason: String 
-    },
+    TaskCancelled { task_id: String, reason: String },
 
     /// Invalid routing rule
     #[error("Invalid routing rule: {rule}")]
@@ -165,9 +162,7 @@ impl AgentError {
 
     /// Create an invalid routing rule error.
     pub fn invalid_routing_rule(rule: impl Into<String>) -> Self {
-        Self::InvalidRoutingRule {
-            rule: rule.into(),
-        }
+        Self::InvalidRoutingRule { rule: rule.into() }
     }
 
     /// Create a communication error.
@@ -272,22 +267,22 @@ impl AgentError {
             // Network/communication issues are typically retriable
             AgentError::Communication { .. } => true,
             AgentError::MessageDeliveryFailed { .. } => true,
-            
+
             // Agent availability might change
             AgentError::AgentUnavailable { .. } => true,
-            
+
             // Task timeouts might succeed with more time
             AgentError::TaskTimeout { .. } => true,
-            
+
             // Registry operations might succeed on retry
             AgentError::Registry { .. } => true,
-            
+
             // Some dispatcher errors might be retriable
             AgentError::Dispatcher { .. } => false, // Generally configuration issues
-            
+
             // Tool errors delegate to ToolError's retriable logic
             AgentError::Tool { source } => source.is_retriable(),
-            
+
             // These are permanent failures
             AgentError::AgentNotFound { .. } => false,
             AgentError::NoSuitableAgent { .. } => false,
@@ -295,10 +290,10 @@ impl AgentError {
             AgentError::InvalidRoutingRule { .. } => false,
             AgentError::Configuration { .. } => false,
             AgentError::Serialization { .. } => false,
-            
+
             // Task execution and generic errors depend on context
             AgentError::TaskExecution { .. } => false, // Generally permanent
-            AgentError::Generic { .. } => false, // Conservative default
+            AgentError::Generic { .. } => false,       // Conservative default
         }
     }
 
@@ -373,7 +368,9 @@ mod tests {
         // Retriable errors
         assert!(AgentError::communication("timeout").is_retriable());
         assert!(AgentError::agent_unavailable("agent", "busy").is_retriable());
-        assert!(AgentError::task_timeout("task", std::time::Duration::from_secs(30)).is_retriable());
+        assert!(
+            AgentError::task_timeout("task", std::time::Duration::from_secs(30)).is_retriable()
+        );
 
         // Non-retriable errors
         assert!(!AgentError::agent_not_found("agent").is_retriable());
@@ -401,7 +398,11 @@ mod tests {
 
         let error = AgentError::task_execution_with_source("Task failed", SourceError);
         assert!(error.source().is_some());
-        assert!(error.source().unwrap().downcast_ref::<SourceError>().is_some());
+        assert!(error
+            .source()
+            .unwrap()
+            .downcast_ref::<SourceError>()
+            .is_some());
     }
 
     #[test]

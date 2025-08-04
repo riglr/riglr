@@ -38,14 +38,14 @@ impl<T: Send + Sync + 'static> BatchProcessor<T> {
     pub async fn add_item(&self, item: T) -> Result<(), BatchProcessorError> {
         let mut batch = self.current_batch.write().await;
         let now = Instant::now();
-        
+
         batch.push_back((item, now));
-        
+
         // Check if we should flush due to size
         if batch.len() >= self.max_size {
             self.flush_batch(&mut batch).await?;
         }
-        
+
         Ok(())
     }
 
@@ -61,7 +61,7 @@ impl<T: Send + Sync + 'static> BatchProcessor<T> {
 
             loop {
                 interval.tick().await;
-                
+
                 let should_flush = {
                     let batch = current_batch.read().await;
                     if let Some((_, oldest_time)) = batch.front() {
@@ -115,15 +115,19 @@ impl<T: Send + Sync + 'static> BatchProcessor<T> {
     }
 
     /// Internal method to flush a batch
-    async fn flush_batch(&self, batch: &mut VecDeque<(T, Instant)>) -> Result<(), BatchProcessorError> {
+    async fn flush_batch(
+        &self,
+        batch: &mut VecDeque<(T, Instant)>,
+    ) -> Result<(), BatchProcessorError> {
         if batch.is_empty() {
             return Ok(());
         }
 
         let items: Vec<T> = batch.drain(..).map(|(item, _)| item).collect();
         debug!("Flushing batch of {} items", items.len());
-        
-        self.batch_sender.send(items)
+
+        self.batch_sender
+            .send(items)
             .map_err(|_| BatchProcessorError::SendFailed)?;
 
         Ok(())
@@ -162,26 +166,26 @@ mod tests {
     #[tokio::test]
     async fn test_batch_processor_size_based_flush() {
         let processor = BatchProcessor::new(3, Duration::from_secs(10));
-        
+
         // Add items one by one
         processor.add_item("item1".to_string()).await.unwrap();
         processor.add_item("item2".to_string()).await.unwrap();
-        
+
         // Should not have flushed yet
         assert_eq!(processor.current_batch_size().await, 2);
-        
+
         // This should trigger a flush
         processor.add_item("item3".to_string()).await.unwrap();
-        
+
         // Batch should be empty now
         assert_eq!(processor.current_batch_size().await, 0);
-        
+
         // Should receive the batch
         let batch = timeout(Duration::from_millis(100), processor.next_batch())
             .await
             .unwrap()
             .unwrap();
-        
+
         assert_eq!(batch.len(), 3);
         assert_eq!(batch, vec!["item1", "item2", "item3"]);
     }
@@ -190,16 +194,16 @@ mod tests {
     async fn test_batch_processor_age_based_flush() {
         let processor = BatchProcessor::new(10, Duration::from_millis(100));
         processor.start_age_flusher();
-        
+
         // Add an item
         processor.add_item("item1".to_string()).await.unwrap();
-        
+
         // Wait for age-based flush
         let batch = timeout(Duration::from_millis(200), processor.next_batch())
             .await
             .unwrap()
             .unwrap();
-        
+
         assert_eq!(batch.len(), 1);
         assert_eq!(batch, vec!["item1"]);
     }
@@ -207,20 +211,20 @@ mod tests {
     #[tokio::test]
     async fn test_batch_processor_manual_flush() {
         let processor = BatchProcessor::new(10, Duration::from_secs(10));
-        
+
         // Add items
         processor.add_item("item1".to_string()).await.unwrap();
         processor.add_item("item2".to_string()).await.unwrap();
-        
+
         // Manual flush
         processor.flush().await.unwrap();
-        
+
         // Should receive the batch
         let batch = timeout(Duration::from_millis(100), processor.next_batch())
             .await
             .unwrap()
             .unwrap();
-        
+
         assert_eq!(batch.len(), 2);
         assert_eq!(batch, vec!["item1", "item2"]);
     }

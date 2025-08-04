@@ -4,18 +4,18 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::RwLock;
 use tokio::time::interval;
-use tracing::{info, error, debug};
+use tracing::{debug, error, info};
 
 use riglr_events_core::prelude::*;
 
 use crate::config::IndexerConfig;
 use crate::core::{
-    ServiceContext, ServiceState, ServiceLifecycle, EventProcessing, ProcessingStats,
-    HealthStatus, ComponentHealth
+    ComponentHealth, EventProcessing, HealthStatus, ProcessingStats, ServiceContext,
+    ServiceLifecycle, ServiceState,
 };
+use crate::core::{EventIngester, EventProcessor};
 use crate::error::{IndexerError, IndexerResult};
 use crate::metrics::MetricsCollector;
-use crate::core::{EventIngester, EventProcessor};
 
 /// Main indexer service that orchestrates all components
 pub struct IndexerService {
@@ -34,17 +34,24 @@ pub struct IndexerService {
 impl IndexerService {
     /// Create a new indexer service
     pub async fn new(config: IndexerConfig) -> IndexerResult<Self> {
-        info!("Initializing RIGLR Indexer Service v{}", config.service.version);
-        
+        info!(
+            "Initializing RIGLR Indexer Service v{}",
+            config.service.version
+        );
+
         // Initialize data store
         let store = crate::storage::create_store(&config.storage).await?;
-        
+
         // Initialize metrics collector
         let metrics = MetricsCollector::new(&config.metrics)?;
-        
+
         // Create service context
-        let context = Arc::new(ServiceContext::new(config, Arc::from(store), Arc::new(metrics)));
-        
+        let context = Arc::new(ServiceContext::new(
+            config,
+            Arc::from(store),
+            Arc::new(metrics),
+        ));
+
         let service = Self {
             context,
             ingester: None,
@@ -67,11 +74,8 @@ impl IndexerService {
             batch_size: self.context.config.processing.batch.max_size,
             queue_capacity: self.context.config.processing.queue.capacity,
         };
-        
-        self.ingester = Some(EventIngester::new(
-            ingester_config,
-            self.context.clone(),
-        ).await?);
+
+        self.ingester = Some(EventIngester::new(ingester_config, self.context.clone()).await?);
 
         // Initialize processor
         let processor_config = crate::core::ProcessorConfig {
@@ -79,11 +83,8 @@ impl IndexerService {
             batch_config: self.context.config.processing.batch.clone(),
             retry_config: self.context.config.processing.retry.clone(),
         };
-        
-        self.processor = Some(EventProcessor::new(
-            processor_config,
-            self.context.clone(),
-        ).await?);
+
+        self.processor = Some(EventProcessor::new(processor_config, self.context.clone()).await?);
 
         info!("All service components initialized");
         Ok(())
@@ -93,41 +94,49 @@ impl IndexerService {
     fn start_health_monitoring(&mut self) {
         let context = self.context.clone();
         let interval_duration = self.context.config.service.health_check_interval;
-        
+
         self.health_task = Some(tokio::spawn(async move {
             let mut interval = interval(interval_duration);
-            
+
             loop {
                 interval.tick().await;
-                
+
                 match context.health_check().await {
                     Ok(status) => {
-                        debug!("Health check completed: {} components", status.components.len());
-                        
-                        // Record metrics
-                        let healthy_components = status.components.values().filter(|c| c.healthy).count();
-                        context.metrics.record_gauge(
-                            "indexer_healthy_components",
-                            healthy_components as f64,
+                        debug!(
+                            "Health check completed: {} components",
+                            status.components.len()
                         );
-                        
+
+                        // Record metrics
+                        let healthy_components =
+                            status.components.values().filter(|c| c.healthy).count();
+                        context
+                            .metrics
+                            .record_gauge("indexer_healthy_components", healthy_components as f64);
+
                         context.metrics.record_gauge(
-                            "indexer_total_components", 
+                            "indexer_total_components",
                             status.components.len() as f64,
                         );
                     }
                     Err(e) => {
                         error!("Health check failed: {}", e);
-                        context.metrics.increment_counter("indexer_health_check_errors");
+                        context
+                            .metrics
+                            .increment_counter("indexer_health_check_errors");
                     }
                 }
-                
+
                 // Check if we should stop
-                if matches!(context.state().await, ServiceState::Stopping | ServiceState::Stopped) {
+                if matches!(
+                    context.state().await,
+                    ServiceState::Stopping | ServiceState::Stopped
+                ) {
                     break;
                 }
             }
-            
+
             info!("Health monitoring task stopped");
         }));
     }
@@ -135,14 +144,18 @@ impl IndexerService {
     /// Process events from the ingester
     #[allow(dead_code)]
     async fn process_events(&self) -> IndexerResult<()> {
-        let ingester = self.ingester.as_ref()
+        let ingester = self
+            .ingester
+            .as_ref()
             .ok_or_else(|| IndexerError::internal("Ingester not initialized"))?;
-        let processor = self.processor.as_ref()
+        let processor = self
+            .processor
+            .as_ref()
             .ok_or_else(|| IndexerError::internal("Processor not initialized"))?;
 
         info!("Starting event processing loop");
         let mut shutdown_rx = self.context.shutdown_receiver();
-        
+
         loop {
             tokio::select! {
                 // Process events from ingester
@@ -170,7 +183,7 @@ impl IndexerService {
                                     Err(e) => {
                                         error!("Batch processing failed: {}", e);
                                         self.context.metrics.increment_counter("indexer_processing_errors");
-                                        
+
                                         // Update component health
                                         self.context.update_component_health(
                                             "processor",
@@ -183,7 +196,7 @@ impl IndexerService {
                         Err(e) => {
                             error!("Failed to receive events: {}", e);
                             self.context.metrics.increment_counter("indexer_ingestion_errors");
-                            
+
                             // Update component health
                             self.context.update_component_health(
                                 "ingester",
@@ -192,7 +205,7 @@ impl IndexerService {
                         }
                     }
                 }
-                
+
                 // Handle shutdown
                 _ = shutdown_rx.recv() => {
                     info!("Shutdown signal received in processing loop");
@@ -209,12 +222,12 @@ impl IndexerService {
     #[allow(dead_code)]
     async fn update_processing_stats(&self) {
         let mut stats = self.stats.write().await;
-        
+
         // Calculate events per second (simple moving average)
         let now = std::time::Instant::now();
         static mut LAST_UPDATE: Option<std::time::Instant> = None;
         static mut LAST_COUNT: u64 = 0;
-        
+
         unsafe {
             if let Some(last_time) = LAST_UPDATE {
                 let elapsed = now.duration_since(last_time).as_secs_f64();
@@ -238,9 +251,15 @@ impl IndexerService {
         }
 
         // Record metrics
-        self.context.metrics.record_gauge("indexer_events_per_second", stats.events_per_second);
-        self.context.metrics.record_gauge("indexer_queue_depth", stats.queue_depth as f64);
-        self.context.metrics.record_gauge("indexer_active_workers", stats.active_workers as f64);
+        self.context
+            .metrics
+            .record_gauge("indexer_events_per_second", stats.events_per_second);
+        self.context
+            .metrics
+            .record_gauge("indexer_queue_depth", stats.queue_depth as f64);
+        self.context
+            .metrics
+            .record_gauge("indexer_active_workers", stats.active_workers as f64);
     }
 
     /// Get current configuration
@@ -258,7 +277,7 @@ impl IndexerService {
 impl ServiceLifecycle for IndexerService {
     async fn start(&mut self) -> IndexerResult<()> {
         info!("Starting RIGLR Indexer Service");
-        
+
         // Set state to starting
         self.context.set_state(ServiceState::Starting).await;
 
@@ -271,30 +290,43 @@ impl ServiceLifecycle for IndexerService {
         // Start ingester
         if let Some(ingester) = &mut self.ingester {
             ingester.start().await?;
-            self.context.update_component_health(
-                "ingester",
-                ComponentHealth::healthy("Ingester started successfully"),
-            ).await;
+            self.context
+                .update_component_health(
+                    "ingester",
+                    ComponentHealth::healthy("Ingester started successfully"),
+                )
+                .await;
         }
 
         // Start processor
         if let Some(processor) = &mut self.processor {
             processor.start().await?;
-            self.context.update_component_health(
-                "processor", 
-                ComponentHealth::healthy("Processor started successfully"),
-            ).await;
+            self.context
+                .update_component_health(
+                    "processor",
+                    ComponentHealth::healthy("Processor started successfully"),
+                )
+                .await;
         }
 
         // Set state to running
         self.context.set_state(ServiceState::Running).await;
-        
+
         info!("RIGLR Indexer Service started successfully");
         info!("Service configuration:");
         info!("  - Workers: {}", self.context.config.processing.workers);
-        info!("  - Batch size: {}", self.context.config.processing.batch.max_size);
-        info!("  - Queue capacity: {}", self.context.config.processing.queue.capacity);
-        info!("  - Storage backend: {:?}", self.context.config.storage.primary.backend);
+        info!(
+            "  - Batch size: {}",
+            self.context.config.processing.batch.max_size
+        );
+        info!(
+            "  - Queue capacity: {}",
+            self.context.config.processing.queue.capacity
+        );
+        info!(
+            "  - Storage backend: {:?}",
+            self.context.config.storage.primary.backend
+        );
 
         // Start main processing loop
         let context_clone = self.context.clone();
@@ -314,7 +346,7 @@ impl ServiceLifecycle for IndexerService {
                         // But we need access to self which is not available in this context
                         // This will be handled by the processor itself
                     }
-                    
+
                     // Handle shutdown
                     _ = shutdown_rx.recv() => {
                         info!("Main processing loop received shutdown signal");
@@ -329,7 +361,7 @@ impl ServiceLifecycle for IndexerService {
 
     async fn stop(&mut self) -> IndexerResult<()> {
         info!("Stopping RIGLR Indexer Service gracefully");
-        
+
         // Set state to stopping
         self.context.set_state(ServiceState::Stopping).await;
 
@@ -364,7 +396,7 @@ impl ServiceLifecycle for IndexerService {
 
         // Set state to stopped
         self.context.set_state(ServiceState::Stopped).await;
-        
+
         info!("RIGLR Indexer Service stopped");
         Ok(())
     }
@@ -383,16 +415,20 @@ impl ServiceLifecycle for IndexerService {
 #[async_trait::async_trait]
 impl EventProcessing for IndexerService {
     async fn process_event(&self, event: Box<dyn Event>) -> IndexerResult<()> {
-        let processor = self.processor.as_ref()
+        let processor = self
+            .processor
+            .as_ref()
             .ok_or_else(|| IndexerError::internal("Processor not initialized"))?;
-        
+
         processor.process_event(event).await
     }
 
     async fn process_batch(&self, events: Vec<Box<dyn Event>>) -> IndexerResult<()> {
-        let processor = self.processor.as_ref()
+        let processor = self
+            .processor
+            .as_ref()
             .ok_or_else(|| IndexerError::internal("Processor not initialized"))?;
-        
+
         processor.process_batch(events).await
     }
 

@@ -197,9 +197,7 @@ impl ChainData {
             ChainData::Evm {
                 transaction_hash, ..
             } => transaction_hash.clone(),
-            ChainData::Generic {
-                transaction_id, ..
-            } => transaction_id.clone(),
+            ChainData::Generic { transaction_id, .. } => transaction_id.clone(),
         }
     }
 }
@@ -397,7 +395,10 @@ mod tests {
     #[test]
     fn test_event_kind_display() {
         assert_eq!(EventKind::Transaction.to_string(), "transaction");
-        assert_eq!(EventKind::Custom("my-event".to_string()).to_string(), "my-event");
+        assert_eq!(
+            EventKind::Custom("my-event".to_string()).to_string(),
+            "my-event"
+        );
     }
 
     #[test]
@@ -424,7 +425,10 @@ mod tests {
         .with_custom("priority".to_string(), "high")
         .with_custom("retry_count".to_string(), 3);
 
-        assert_eq!(metadata.get_custom::<String>("priority"), Some("high".to_string()));
+        assert_eq!(
+            metadata.get_custom::<String>("priority"),
+            Some("high".to_string())
+        );
         assert_eq!(metadata.get_custom::<i32>("retry_count"), Some(3));
         assert_eq!(metadata.get_custom::<String>("missing"), None);
     }
@@ -493,10 +497,10 @@ mod tests {
 
     #[test]
     fn test_stream_metrics_error_rate() {
-        let metrics = StreamMetrics { 
-            event_count: 100, 
+        let metrics = StreamMetrics {
+            event_count: 100,
             error_count: 5,
-            ..Default::default() 
+            ..Default::default()
         };
 
         assert_eq!(metrics.error_rate(), 5.0);

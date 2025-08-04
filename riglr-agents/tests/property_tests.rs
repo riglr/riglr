@@ -3,12 +3,12 @@
 //! These tests verify system invariants and properties that should hold
 //! across a wide range of inputs and scenarios.
 
+use quickcheck::{quickcheck, TestResult};
 use riglr_agents::*;
+use serde_json::json;
+use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::Duration;
-use std::collections::HashSet;
-use serde_json::json;
-use quickcheck::{quickcheck, TestResult};
 
 /// Simple agent for property testing.
 #[derive(Clone)]
@@ -125,10 +125,7 @@ async fn test_all_tasks_get_response_property() {
 
             // Create tasks
             let tasks: Vec<Task> = (0..task_count)
-                .map(|i| Task::new(
-                    TaskType::Custom("test".to_string()),
-                    json!({"index": i}),
-                ))
+                .map(|i| Task::new(TaskType::Custom("test".to_string()), json!({"index": i})))
                 .collect();
 
             // Dispatch tasks
@@ -136,7 +133,7 @@ async fn test_all_tasks_get_response_property() {
 
             // Property: Every task gets exactly one response
             assert_eq!(results.len(), task_count as usize);
-            
+
             // Property: All responses are valid (Ok or Err)
             for result in results {
                 assert!(result.is_ok() || result.is_err());
@@ -182,7 +179,10 @@ async fn test_agent_capabilities_preserved_property() {
             registry.register_agent(agent.clone()).await.unwrap();
 
             // Retrieve agent and verify capabilities
-            let retrieved = registry.get_agent(&AgentId::new("capability_agent")).await.unwrap();
+            let retrieved = registry
+                .get_agent(&AgentId::new("capability_agent"))
+                .await
+                .unwrap();
             assert!(retrieved.is_some());
 
             let retrieved_agent = retrieved.unwrap();
@@ -293,7 +293,7 @@ async fn test_registry_query_idempotency_property() {
         let rt = tokio::runtime::Runtime::new().unwrap();
         rt.block_on(async {
             let registry = LocalAgentRegistry::new();
-            
+
             // Register an agent
             let agent = Arc::new(PropertyTestAgent {
                 id: AgentId::new("idempotent_agent"),
@@ -303,14 +303,14 @@ async fn test_registry_query_idempotency_property() {
             registry.register_agent(agent).await.unwrap();
 
             let agent_id = AgentId::new("idempotent_agent");
-            
+
             // Property: Multiple queries return the same result
             let mut results = Vec::new();
             for _ in 0..query_count {
                 let exists = registry.is_agent_registered(&agent_id).await.unwrap();
                 let agent_opt = registry.get_agent(&agent_id).await.unwrap();
                 let count = registry.agent_count().await.unwrap();
-                
+
                 results.push((exists, agent_opt.is_some(), count));
             }
 
@@ -323,7 +323,7 @@ async fn test_registry_query_idempotency_property() {
             // Property: Queries don't modify state
             assert!(first_result.0); // Agent exists
             assert!(first_result.1); // Agent can be retrieved
-            assert_eq!(first_result.2, 1);    // Count is correct
+            assert_eq!(first_result.2, 1); // Count is correct
 
             TestResult::passed()
         })
@@ -371,7 +371,7 @@ async fn test_message_delivery_reliability_property() {
 
             // Property: All sent messages are received exactly once
             assert_eq!(received_messages.len(), sent_messages.len());
-            
+
             // Property: Message IDs match (order may differ)
             let mut sent_sorted = sent_messages.clone();
             let mut received_sorted = received_messages.clone();
@@ -435,7 +435,7 @@ async fn test_routing_rule_consistency_property() {
         rt.block_on(async {
             let agent_id = AgentId::new("test_agent");
             let capabilities = vec!["trading".to_string(), "analysis".to_string()];
-            
+
             // Create different types of routing rules
             let rule = match rule_type % 4 {
                 0 => RoutingRule::TaskType(TaskType::Trading),
@@ -447,9 +447,7 @@ async fn test_routing_rule_consistency_property() {
 
             // Create tasks that should match the rule
             let matching_task = match rule {
-                RoutingRule::TaskType(TaskType::Trading) => {
-                    Task::new(TaskType::Trading, json!({}))
-                }
+                RoutingRule::TaskType(TaskType::Trading) => Task::new(TaskType::Trading, json!({})),
                 RoutingRule::Capability(_) => {
                     Task::new(TaskType::Trading, json!({})) // Trading agents have trading capability
                 }
@@ -469,7 +467,9 @@ async fn test_routing_rule_consistency_property() {
 
             // Property: Rule should match when expected
             let should_match = match rule {
-                RoutingRule::TaskType(TaskType::Trading) => matching_task.task_type == TaskType::Trading,
+                RoutingRule::TaskType(TaskType::Trading) => {
+                    matching_task.task_type == TaskType::Trading
+                }
                 RoutingRule::Capability(ref cap) => capabilities.contains(cap),
                 RoutingRule::Agent(ref target) => target == &agent_id,
                 RoutingRule::Priority(pri) => matching_task.priority >= pri,
@@ -512,10 +512,10 @@ async fn test_agent_status_atomicity_property() {
             for i in 0..update_count {
                 let status = AgentStatus {
                     agent_id: agent_id.clone(),
-                    status: if i % 2 == 0 { 
-                        crate::types::AgentState::Active 
-                    } else { 
-                        crate::types::AgentState::Busy 
+                    status: if i % 2 == 0 {
+                        crate::types::AgentState::Active
+                    } else {
+                        crate::types::AgentState::Busy
                     },
                     active_tasks: i as u32,
                     load: (i as f64) / 10.0,
@@ -577,7 +577,7 @@ async fn test_communication_subscription_uniqueness_property() {
             for i in 0..agent_count {
                 let sender = AgentId::new("broadcaster");
                 let target = AgentId::new(format!("sub_agent_{}", i));
-                
+
                 let message = AgentMessage::new(
                     sender,
                     Some(target),
@@ -591,7 +591,9 @@ async fn test_communication_subscription_uniqueness_property() {
             // Verify each receiver gets exactly one message
             for (i, receiver) in receivers.iter_mut().enumerate() {
                 if let Some(msg) = receiver.receive().await {
-                    let agent_index = msg.payload.get("for_agent")
+                    let agent_index = msg
+                        .payload
+                        .get("for_agent")
                         .and_then(|v| v.as_u64())
                         .unwrap();
                     assert_eq!(agent_index, i as u64);

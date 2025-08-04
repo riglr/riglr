@@ -3,15 +3,17 @@
 //! This module provides event parsers that implement the riglr-events-core EventParser trait
 //! while leveraging the existing Solana parsing logic.
 
-use std::sync::Arc;
 use async_trait::async_trait;
 use solana_sdk::pubkey::Pubkey;
 use solana_transaction_status::UiCompiledInstruction;
+use std::sync::Arc;
 
-use riglr_events_core::prelude::*;
-use crate::events::core::traits::{EventParser as LegacyEventParser};
-use crate::events::factory::{EventParserRegistry, Protocol, InstructionParseParams, InnerInstructionParseParams};
+use crate::events::core::traits::EventParser as LegacyEventParser;
+use crate::events::factory::{
+    EventParserRegistry, InnerInstructionParseParams, InstructionParseParams, Protocol,
+};
 use crate::solana_events::SolanaEvent;
+use riglr_events_core::prelude::*;
 
 /// Input type for Solana transaction parsing
 #[derive(Debug, Clone)]
@@ -96,8 +98,11 @@ impl SolanaEventParser {
     }
 
     /// Add a protocol parser
-    pub fn add_protocol_parser<P>(&mut self, _protocol: Protocol, _parser: Arc<dyn LegacyEventParser>)
-    where
+    pub fn add_protocol_parser<P>(
+        &mut self,
+        _protocol: Protocol,
+        _parser: Arc<dyn LegacyEventParser>,
+    ) where
         P: LegacyEventParser + 'static,
     {
         // Note: This would require modifying MultiEventParser to be mutable
@@ -110,18 +115,21 @@ impl SolanaEventParser {
     }
 
     /// Parse events from a Solana instruction
-    pub async fn parse_instruction(&self, input: SolanaTransactionInput) -> EventResult<Vec<SolanaEvent>> {
-        let legacy_events = self.legacy_parser.parse_events_from_instruction(
-            InstructionParseParams {
-                instruction: &input.instruction,
-                accounts: &input.accounts,
-                signature: &input.signature,
-                slot: input.slot,
-                block_time: input.block_time,
-                program_received_time_ms: input.received_time.timestamp_millis(),
-                index: input.instruction_index.to_string(),
-            }
-        );
+    pub async fn parse_instruction(
+        &self,
+        input: SolanaTransactionInput,
+    ) -> EventResult<Vec<SolanaEvent>> {
+        let legacy_events =
+            self.legacy_parser
+                .parse_events_from_instruction(InstructionParseParams {
+                    instruction: &input.instruction,
+                    accounts: &input.accounts,
+                    signature: &input.signature,
+                    slot: input.slot,
+                    block_time: input.block_time,
+                    program_received_time_ms: input.received_time.timestamp_millis(),
+                    index: input.instruction_index.to_string(),
+                });
 
         let solana_events = legacy_events
             .into_iter()
@@ -132,17 +140,20 @@ impl SolanaEventParser {
     }
 
     /// Parse events from a Solana inner instruction
-    pub async fn parse_inner_instruction(&self, input: SolanaInnerInstructionInput) -> EventResult<Vec<SolanaEvent>> {
-        let legacy_events = self.legacy_parser.parse_events_from_inner_instruction(
-            InnerInstructionParseParams {
-                inner_instruction: &input.inner_instruction,
-                signature: &input.signature,
-                slot: input.slot,
-                block_time: input.block_time,
-                program_received_time_ms: input.received_time.timestamp_millis(),
-                index: input.instruction_index.clone(),
-            }
-        );
+    pub async fn parse_inner_instruction(
+        &self,
+        input: SolanaInnerInstructionInput,
+    ) -> EventResult<Vec<SolanaEvent>> {
+        let legacy_events =
+            self.legacy_parser
+                .parse_events_from_inner_instruction(InnerInstructionParseParams {
+                    inner_instruction: &input.inner_instruction,
+                    signature: &input.signature,
+                    slot: input.slot,
+                    block_time: input.block_time,
+                    program_received_time_ms: input.received_time.timestamp_millis(),
+                    index: input.instruction_index.clone(),
+                });
 
         let solana_events = legacy_events
             .into_iter()
@@ -153,7 +164,11 @@ impl SolanaEventParser {
     }
 
     /// Convert a legacy Event to a SolanaEvent
-    fn convert_legacy_event(&self, event: Box<dyn riglr_events_core::Event>, input: &SolanaTransactionInput) -> EventResult<SolanaEvent> {
+    fn convert_legacy_event(
+        &self,
+        event: Box<dyn riglr_events_core::Event>,
+        input: &SolanaTransactionInput,
+    ) -> EventResult<SolanaEvent> {
         // Extract data using the event's as_any method for downcasting
         let event_data = serde_json::json!({
             "kind": event.kind().to_string(),
@@ -180,7 +195,11 @@ impl SolanaEventParser {
     }
 
     /// Convert a legacy Event from inner instruction to a SolanaEvent
-    fn convert_legacy_inner_event(&self, event: Box<dyn riglr_events_core::Event>, input: &SolanaInnerInstructionInput) -> EventResult<SolanaEvent> {
+    fn convert_legacy_inner_event(
+        &self,
+        event: Box<dyn riglr_events_core::Event>,
+        input: &SolanaInnerInstructionInput,
+    ) -> EventResult<SolanaEvent> {
         let event_data = serde_json::json!({
             "kind": event.kind().to_string(),
             "signature": input.signature.clone(),
@@ -210,14 +229,23 @@ impl SolanaEventParser {
     }
 
     /// Extract program ID from instruction
-    fn extract_program_id(&self, accounts: &[Pubkey], instruction: &solana_sdk::instruction::CompiledInstruction) -> EventResult<Pubkey> {
+    fn extract_program_id(
+        &self,
+        accounts: &[Pubkey],
+        instruction: &solana_sdk::instruction::CompiledInstruction,
+    ) -> EventResult<Pubkey> {
         accounts
             .get(instruction.program_id_index as usize)
             .copied()
-            .ok_or_else(|| EventError::parse_error(
-                std::io::Error::new(std::io::ErrorKind::InvalidData, "Invalid program ID index"),
-                "Failed to extract program ID from instruction"
-            ))
+            .ok_or_else(|| {
+                EventError::parse_error(
+                    std::io::Error::new(
+                        std::io::ErrorKind::InvalidData,
+                        "Invalid program ID index",
+                    ),
+                    "Failed to extract program ID from instruction",
+                )
+            })
     }
 }
 
@@ -233,7 +261,7 @@ impl EventParser for SolanaEventParser {
 
     async fn parse(&self, input: Self::Input) -> EventResult<Vec<Box<dyn Event>>> {
         let solana_events = self.parse_instruction(input).await?;
-        
+
         Ok(solana_events
             .into_iter()
             .map(|event| Box::new(event) as Box<dyn Event>)
@@ -242,7 +270,10 @@ impl EventParser for SolanaEventParser {
 
     fn can_parse(&self, input: &Self::Input) -> bool {
         // Check if we have a supported program ID
-        if let Some(program_id) = input.accounts.get(input.instruction.program_id_index as usize) {
+        if let Some(program_id) = input
+            .accounts
+            .get(input.instruction.program_id_index as usize)
+        {
             self.supports_program(program_id)
         } else {
             false
@@ -273,7 +304,7 @@ impl EventParser for SolanaInnerInstructionParser {
 
     async fn parse(&self, input: Self::Input) -> EventResult<Vec<Box<dyn Event>>> {
         let solana_events = self.solana_parser.parse_inner_instruction(input).await?;
-        
+
         Ok(solana_events
             .into_iter()
             .map(|event| Box::new(event) as Box<dyn Event>)
@@ -287,12 +318,15 @@ impl EventParser for SolanaInnerInstructionParser {
     }
 
     fn info(&self) -> ParserInfo {
-        ParserInfo::new("solana-inner-instruction-parser".to_string(), "1.0.0".to_string())
-            .with_kind(riglr_events_core::types::EventKind::Transaction)
-            .with_kind(riglr_events_core::types::EventKind::Swap)
-            .with_kind(riglr_events_core::types::EventKind::Liquidity)
-            .with_kind(riglr_events_core::types::EventKind::Transfer)
-            .with_format("solana-inner-instruction".to_string())
+        ParserInfo::new(
+            "solana-inner-instruction-parser".to_string(),
+            "1.0.0".to_string(),
+        )
+        .with_kind(riglr_events_core::types::EventKind::Transaction)
+        .with_kind(riglr_events_core::types::EventKind::Swap)
+        .with_kind(riglr_events_core::types::EventKind::Liquidity)
+        .with_kind(riglr_events_core::types::EventKind::Transfer)
+        .with_format("solana-inner-instruction".to_string())
     }
 }
 
@@ -359,11 +393,14 @@ mod tests {
     #[tokio::test]
     async fn test_solana_parser_creation() {
         let parser = SolanaEventParser::new();
-        
+
         assert_eq!(parser.info.name, "solana-event-parser");
         assert_eq!(parser.info.version, "1.0.0");
         assert!(!parser.info.supported_kinds.is_empty());
-        assert!(parser.info.supported_formats.contains(&"solana-instruction".to_string()));
+        assert!(parser
+            .info
+            .supported_formats
+            .contains(&"solana-instruction".to_string()));
     }
 
     #[tokio::test]
@@ -419,7 +456,7 @@ mod tests {
     #[tokio::test]
     async fn test_parser_can_parse() {
         let parser = SolanaEventParser::new();
-        
+
         // Test with a random program ID (should return false since we don't have parsers set up)
         let accounts = vec![Pubkey::new_unique()];
         let instruction = CompiledInstruction {
@@ -446,7 +483,7 @@ mod tests {
         let parser = SolanaEventParser::new();
         let program_id = Pubkey::new_unique();
         let accounts = vec![program_id, Pubkey::new_unique()];
-        
+
         let instruction = CompiledInstruction {
             program_id_index: 0,
             accounts: vec![0, 1],
@@ -462,7 +499,7 @@ mod tests {
     async fn test_extract_program_id_invalid_index() {
         let parser = SolanaEventParser::new();
         let accounts = vec![Pubkey::new_unique()];
-        
+
         let instruction = CompiledInstruction {
             program_id_index: 5, // Out of bounds
             accounts: vec![0],

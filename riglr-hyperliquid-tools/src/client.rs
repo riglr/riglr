@@ -6,14 +6,14 @@
 use reqwest::{Client, Response};
 use riglr_core::signer::TransactionSigner;
 use serde::{Deserialize, Serialize};
+use serde_json;
 use std::sync::Arc;
 use tracing::{debug, error, info};
-use serde_json;
 // Note: Using direct HTTP API instead of SDK
 
 // EIP-712 signing dependencies
-use ethers_core::types::H256;
 use ethers_core::types::transaction::eip712::{Eip712, TypedData};
+use ethers_core::types::H256;
 use ethers_signers::LocalWallet;
 use hex;
 
@@ -38,7 +38,12 @@ impl HyperliquidClient {
         let client = Client::builder()
             .timeout(std::time::Duration::from_secs(30))
             .build()
-            .map_err(|e| HyperliquidToolError::NetworkError(format!("Failed to create HTTP client with custom URL: {}", e)))?;
+            .map_err(|e| {
+                HyperliquidToolError::NetworkError(format!(
+                    "Failed to create HTTP client with custom URL: {}",
+                    e
+                ))
+            })?;
 
         Ok(Self {
             client,
@@ -47,11 +52,14 @@ impl HyperliquidClient {
         })
     }
 
-
     /// Make a GET request to the Hyperliquid API
     pub async fn get(&self, endpoint: &str) -> Result<Response> {
-        let url = format!("{}/{}", self.base_url.trim_end_matches('/'), endpoint.trim_start_matches('/'));
-        
+        let url = format!(
+            "{}/{}",
+            self.base_url.trim_end_matches('/'),
+            endpoint.trim_start_matches('/')
+        );
+
         debug!("Making GET request to: {}", url);
 
         match self.client.get(&url).send().await {
@@ -62,33 +70,51 @@ impl HyperliquidClient {
                     let status = response.status();
                     let error_body = response.text().await.unwrap_or_default();
                     error!("GET request failed with status {}: {}", status, error_body);
-                    
+
                     if status == 429 {
-                        Err(HyperliquidToolError::RateLimit(format!("Rate limit exceeded: {}", error_body)))
+                        Err(HyperliquidToolError::RateLimit(format!(
+                            "Rate limit exceeded: {}",
+                            error_body
+                        )))
                     } else if status.is_server_error() {
-                        Err(HyperliquidToolError::NetworkError(format!("Server error {}: {}", status, error_body)))
+                        Err(HyperliquidToolError::NetworkError(format!(
+                            "Server error {}: {}",
+                            status, error_body
+                        )))
                     } else {
-                        Err(HyperliquidToolError::ApiError(format!("API error {}: {}", status, error_body)))
+                        Err(HyperliquidToolError::ApiError(format!(
+                            "API error {}: {}",
+                            status, error_body
+                        )))
                     }
                 }
             }
             Err(e) => {
                 error!("Network error during GET request: {}", e);
-                Err(HyperliquidToolError::NetworkError(format!("Network error during GET request: {}", e)))
+                Err(HyperliquidToolError::NetworkError(format!(
+                    "Network error during GET request: {}",
+                    e
+                )))
             }
         }
     }
 
     /// Make a POST request to the Hyperliquid API
     pub async fn post<T: Serialize>(&self, endpoint: &str, payload: &T) -> Result<Response> {
-        let url = format!("{}/{}", self.base_url.trim_end_matches('/'), endpoint.trim_start_matches('/'));
-        
+        let url = format!(
+            "{}/{}",
+            self.base_url.trim_end_matches('/'),
+            endpoint.trim_start_matches('/')
+        );
+
         debug!("Making POST request to: {}", url);
 
-        let json_payload = serde_json::to_string(payload)
-            .map_err(|e| HyperliquidToolError::ApiError(format!("Failed to serialize request payload: {}", e)))?;
+        let json_payload = serde_json::to_string(payload).map_err(|e| {
+            HyperliquidToolError::ApiError(format!("Failed to serialize request payload: {}", e))
+        })?;
 
-        match self.client
+        match self
+            .client
             .post(&url)
             .header("Content-Type", "application/json")
             .body(json_payload)
@@ -102,68 +128,104 @@ impl HyperliquidClient {
                     let status = response.status();
                     let error_body = response.text().await.unwrap_or_default();
                     error!("POST request failed with status {}: {}", status, error_body);
-                    
+
                     if status == 429 {
-                        Err(HyperliquidToolError::RateLimit(format!("Rate limit exceeded on POST: {}", error_body)))
+                        Err(HyperliquidToolError::RateLimit(format!(
+                            "Rate limit exceeded on POST: {}",
+                            error_body
+                        )))
                     } else if status.is_server_error() {
-                        Err(HyperliquidToolError::NetworkError(format!("Server error {} on POST: {}", status, error_body)))
+                        Err(HyperliquidToolError::NetworkError(format!(
+                            "Server error {} on POST: {}",
+                            status, error_body
+                        )))
                     } else {
-                        Err(HyperliquidToolError::ApiError(format!("API error {} on POST: {}", status, error_body)))
+                        Err(HyperliquidToolError::ApiError(format!(
+                            "API error {} on POST: {}",
+                            status, error_body
+                        )))
                     }
                 }
             }
             Err(e) => {
                 error!("Network error during POST request: {}", e);
-                Err(HyperliquidToolError::NetworkError(format!("Network error during POST request: {}", e)))
+                Err(HyperliquidToolError::NetworkError(format!(
+                    "Network error during POST request: {}",
+                    e
+                )))
             }
         }
     }
 
     /// Get account information
     pub async fn get_account_info(&self, user_address: &str) -> Result<AccountInfo> {
-        let response = self.get(&format!("info?type=clearinghouseState&user={}", user_address)).await?;
-        let text = response.text().await
-            .map_err(|e| HyperliquidToolError::NetworkError(format!("Failed to read account info response: {}", e)))?;
-        
-        let account_info: AccountInfo = serde_json::from_str(&text)
-            .map_err(|e| HyperliquidToolError::ApiError(format!("Failed to parse account info response: {}", e)))?;
-        
+        let response = self
+            .get(&format!(
+                "info?type=clearinghouseState&user={}",
+                user_address
+            ))
+            .await?;
+        let text = response.text().await.map_err(|e| {
+            HyperliquidToolError::NetworkError(format!(
+                "Failed to read account info response: {}",
+                e
+            ))
+        })?;
+
+        let account_info: AccountInfo = serde_json::from_str(&text).map_err(|e| {
+            HyperliquidToolError::ApiError(format!("Failed to parse account info response: {}", e))
+        })?;
+
         Ok(account_info)
     }
 
     /// Get current positions for a user
     pub async fn get_positions(&self, user_address: &str) -> Result<Vec<Position>> {
-        let response = self.get(&format!("info?type=clearinghouseState&user={}", user_address)).await?;
-        let text = response.text().await
-            .map_err(|e| HyperliquidToolError::NetworkError(format!("Failed to read positions response: {}", e)))?;
-        
-        let state: ClearinghouseState = serde_json::from_str(&text)
-            .map_err(|e| HyperliquidToolError::ApiError(format!("Failed to parse clearinghouse state: {}", e)))?;
-        
+        let response = self
+            .get(&format!(
+                "info?type=clearinghouseState&user={}",
+                user_address
+            ))
+            .await?;
+        let text = response.text().await.map_err(|e| {
+            HyperliquidToolError::NetworkError(format!("Failed to read positions response: {}", e))
+        })?;
+
+        let state: ClearinghouseState = serde_json::from_str(&text).map_err(|e| {
+            HyperliquidToolError::ApiError(format!("Failed to parse clearinghouse state: {}", e))
+        })?;
+
         Ok(state.asset_positions.unwrap_or_default())
     }
 
     /// Get market information
     pub async fn get_meta(&self) -> Result<Meta> {
         let response = self.get("info?type=meta").await?;
-        let text = response.text().await
-            .map_err(|e| HyperliquidToolError::NetworkError(format!("Failed to read meta response: {}", e)))?;
-        
-        let meta: Meta = serde_json::from_str(&text)
-            .map_err(|e| HyperliquidToolError::ApiError(format!("Failed to parse market meta information: {}", e)))?;
-        
+        let text = response.text().await.map_err(|e| {
+            HyperliquidToolError::NetworkError(format!("Failed to read meta response: {}", e))
+        })?;
+
+        let meta: Meta = serde_json::from_str(&text).map_err(|e| {
+            HyperliquidToolError::ApiError(format!(
+                "Failed to parse market meta information: {}",
+                e
+            ))
+        })?;
+
         Ok(meta)
     }
 
     /// Get all market mid prices (current market prices)
     pub async fn get_all_mids(&self) -> Result<serde_json::Value> {
         let response = self.get("info?type=allMids").await?;
-        let text = response.text().await
-            .map_err(|e| HyperliquidToolError::NetworkError(format!("Failed to read mids response: {}", e)))?;
-        
-        let mids: serde_json::Value = serde_json::from_str(&text)
-            .map_err(|e| HyperliquidToolError::ApiError(format!("Failed to parse market mids: {}", e)))?;
-        
+        let text = response.text().await.map_err(|e| {
+            HyperliquidToolError::NetworkError(format!("Failed to read mids response: {}", e))
+        })?;
+
+        let mids: serde_json::Value = serde_json::from_str(&text).map_err(|e| {
+            HyperliquidToolError::ApiError(format!("Failed to parse market mids: {}", e))
+        })?;
+
         Ok(mids)
     }
 
@@ -171,18 +233,23 @@ impl HyperliquidClient {
     /// CRITICAL: This is REAL order placement - NO SIMULATION
     pub async fn place_order(&self, order: &OrderRequest) -> Result<OrderResponse> {
         error!("CRITICAL: REAL ORDER PLACEMENT - This will place actual trades!");
-        info!("Placing REAL order: asset={}, side={}, size={}, price={}", 
-              order.asset, if order.is_buy { "buy" } else { "sell" }, order.sz, order.limit_px);
-        
+        info!(
+            "Placing REAL order: asset={}, side={}, size={}, price={}",
+            order.asset,
+            if order.is_buy { "buy" } else { "sell" },
+            order.sz,
+            order.limit_px
+        );
+
         // Require explicit configuration to prevent accidental trades
         let private_key = std::env::var("HYPERLIQUID_PRIVATE_KEY")
             .map_err(|_| HyperliquidToolError::Configuration(
                 "HYPERLIQUID_PRIVATE_KEY environment variable required. REAL trading disabled for safety.".to_string()
             ))?;
-            
-        let trading_enabled = std::env::var("ENABLE_REAL_HYPERLIQUID_TRADING")
-            .unwrap_or_default() == "true";
-            
+
+        let trading_enabled =
+            std::env::var("ENABLE_REAL_HYPERLIQUID_TRADING").unwrap_or_default() == "true";
+
         if !trading_enabled {
             return Err(HyperliquidToolError::Configuration(
                 "Real trading disabled. Set ENABLE_REAL_HYPERLIQUID_TRADING=true to enable REAL orders.".to_string()
@@ -216,25 +283,31 @@ impl HyperliquidClient {
 
         // Make real API call to Hyperliquid
         let response = self.post("exchange", &order_payload).await?;
-        let response_text = response.text().await
-            .map_err(|e| HyperliquidToolError::NetworkError(format!("Failed to read order response: {}", e)))?;
+        let response_text = response.text().await.map_err(|e| {
+            HyperliquidToolError::NetworkError(format!("Failed to read order response: {}", e))
+        })?;
 
         // Parse the real response
-        let order_response: OrderResponse = serde_json::from_str(&response_text)
-            .map_err(|e| HyperliquidToolError::ApiError(format!("Failed to parse order response: {} - Body: {}", e, response_text)))?;
+        let order_response: OrderResponse = serde_json::from_str(&response_text).map_err(|e| {
+            HyperliquidToolError::ApiError(format!(
+                "Failed to parse order response: {} - Body: {}",
+                e, response_text
+            ))
+        })?;
 
         info!("REAL order placed successfully: {:?}", order_response);
         Ok(order_response)
     }
-    
+
     /// Sign order payload for Hyperliquid using EIP-712
     async fn sign_order_payload(&self, private_key: &str, order: &OrderRequest) -> Result<String> {
         info!("Signing order payload with EIP-712");
-        
+
         // Parse the private key
-        let wallet = private_key.parse::<LocalWallet>()
-            .map_err(|e| HyperliquidToolError::Configuration(format!("Invalid private key: {}", e)))?;
-        
+        let wallet = private_key.parse::<LocalWallet>().map_err(|e| {
+            HyperliquidToolError::Configuration(format!("Invalid private key: {}", e))
+        })?;
+
         // Create the EIP-712 domain
         let domain = serde_json::json!({
             "name": "HyperliquidSignTransaction",
@@ -242,7 +315,7 @@ impl HyperliquidClient {
             "chainId": 42161,  // Arbitrum mainnet
             "verifyingContract": "0x0000000000000000000000000000000000000000"
         });
-        
+
         // Create the message to sign
         let message = serde_json::json!({
             "a": order.asset,  // asset
@@ -258,7 +331,7 @@ impl HyperliquidClient {
                 }
             }
         });
-        
+
         // Create the types definition
         let types = serde_json::json!({
             "EIP712Domain": [
@@ -282,7 +355,7 @@ impl HyperliquidClient {
                 {"name": "tif", "type": "string"}
             ]
         });
-        
+
         // Create the typed data
         let typed_data = serde_json::json!({
             "types": types,
@@ -290,30 +363,33 @@ impl HyperliquidClient {
             "domain": domain,
             "message": message
         });
-        
+
         // Convert to TypedData struct
-        let typed_data: TypedData = serde_json::from_value(typed_data)
-            .map_err(|e| HyperliquidToolError::Configuration(format!("Failed to create typed data: {}", e)))?;
-        
+        let typed_data: TypedData = serde_json::from_value(typed_data).map_err(|e| {
+            HyperliquidToolError::Configuration(format!("Failed to create typed data: {}", e))
+        })?;
+
         // Encode the typed data
-        let encoded = typed_data.encode_eip712()
-            .map_err(|e| HyperliquidToolError::Configuration(format!("Failed to encode EIP-712: {}", e)))?;
-        
+        let encoded = typed_data.encode_eip712().map_err(|e| {
+            HyperliquidToolError::Configuration(format!("Failed to encode EIP-712: {}", e))
+        })?;
+
         // Sign the encoded data
-        let signature = wallet.sign_hash(H256::from(encoded))
+        let signature = wallet
+            .sign_hash(H256::from(encoded))
             .map_err(|e| HyperliquidToolError::Configuration(format!("Failed to sign: {}", e)))?;
-        
+
         // Convert signature to the expected format
         let r = signature.r;
         let s = signature.s;
         let v = signature.v;
-        
+
         // Hyperliquid expects the signature as r + s + v (65 bytes total)
         let mut sig_bytes = vec![0u8; 65];
         r.to_big_endian(&mut sig_bytes[0..32]);
         s.to_big_endian(&mut sig_bytes[32..64]);
         sig_bytes[64] = v as u8;
-        
+
         let signature_hex = format!("0x{}", hex::encode(sig_bytes));
         info!("Order signed successfully");
         Ok(signature_hex)
@@ -321,12 +397,21 @@ impl HyperliquidClient {
 
     /// Cancel an order using real Hyperliquid API
     /// CRITICAL: This is REAL order cancellation - NO SIMULATION
-    pub async fn update_leverage(&self, leverage: u32, coin: &str, is_cross: bool, asset_id: Option<u32>) -> Result<LeverageResponse> {
-        debug!("Updating leverage for {} to {}x (cross: {})", coin, leverage, is_cross);
-        
+    pub async fn update_leverage(
+        &self,
+        leverage: u32,
+        coin: &str,
+        is_cross: bool,
+        asset_id: Option<u32>,
+    ) -> Result<LeverageResponse> {
+        debug!(
+            "Updating leverage for {} to {}x (cross: {})",
+            coin, leverage, is_cross
+        );
+
         // Get user address for signing
         let _user_address = self.get_user_address()?;
-        
+
         // Create the leverage update request
         let leverage_req = LeverageRequest {
             action: LeverageAction {
@@ -338,34 +423,39 @@ impl HyperliquidClient {
             nonce: chrono::Utc::now().timestamp_millis(),
             signature: None, // Will be set after signing
         };
-        
+
         // Sign the request
         let signed_req = self.sign_leverage_request(leverage_req).await?;
-        
+
         // Make the API call
         let endpoint = "exchange";
         let response = self.post(endpoint, &signed_req).await?;
-        
-        let leverage_response: LeverageResponse = response.json().await
-            .map_err(|e| HyperliquidToolError::ApiError(format!("Failed to parse leverage response: {}", e)))?;
-        
-        info!("Successfully updated leverage for {} to {}x", coin, leverage);
+
+        let leverage_response: LeverageResponse = response.json().await.map_err(|e| {
+            HyperliquidToolError::ApiError(format!("Failed to parse leverage response: {}", e))
+        })?;
+
+        info!(
+            "Successfully updated leverage for {} to {}x",
+            coin, leverage
+        );
         Ok(leverage_response)
     }
-    
+
     async fn sign_leverage_request(&self, mut request: LeverageRequest) -> Result<LeverageRequest> {
         info!("Signing leverage request with EIP-712");
-        
+
         // Get private key from environment variable
         let private_key = std::env::var("HYPERLIQUID_PRIVATE_KEY")
             .map_err(|_| HyperliquidToolError::Configuration(
                 "HYPERLIQUID_PRIVATE_KEY environment variable required for signing leverage requests.".to_string()
             ))?;
-        
+
         // Parse the private key
-        let wallet = private_key.parse::<LocalWallet>()
-            .map_err(|e| HyperliquidToolError::Configuration(format!("Invalid private key: {}", e)))?;
-        
+        let wallet = private_key.parse::<LocalWallet>().map_err(|e| {
+            HyperliquidToolError::Configuration(format!("Invalid private key: {}", e))
+        })?;
+
         // Create the EIP-712 domain
         let domain = serde_json::json!({
             "name": "HyperliquidSignTransaction",
@@ -373,14 +463,14 @@ impl HyperliquidClient {
             "chainId": 42161,  // Arbitrum mainnet
             "verifyingContract": "0x0000000000000000000000000000000000000000"
         });
-        
+
         // Create the message to sign
         let message = serde_json::json!({
             "a": request.action.asset,  // asset
             "isCross": request.action.is_cross, // is cross margin
             "leverage": request.action.leverage, // leverage value
         });
-        
+
         // Create the types definition
         let types = serde_json::json!({
             "EIP712Domain": [
@@ -395,7 +485,7 @@ impl HyperliquidClient {
                 {"name": "leverage", "type": "uint32"}
             ]
         });
-        
+
         // Create the typed data
         let typed_data = serde_json::json!({
             "types": types,
@@ -403,50 +493,56 @@ impl HyperliquidClient {
             "domain": domain,
             "message": message
         });
-        
+
         // Convert to TypedData struct
-        let typed_data: TypedData = serde_json::from_value(typed_data)
-            .map_err(|e| HyperliquidToolError::Configuration(format!("Failed to create typed data: {}", e)))?;
-        
+        let typed_data: TypedData = serde_json::from_value(typed_data).map_err(|e| {
+            HyperliquidToolError::Configuration(format!("Failed to create typed data: {}", e))
+        })?;
+
         // Encode the typed data
-        let encoded = typed_data.encode_eip712()
-            .map_err(|e| HyperliquidToolError::Configuration(format!("Failed to encode EIP-712: {}", e)))?;
-        
+        let encoded = typed_data.encode_eip712().map_err(|e| {
+            HyperliquidToolError::Configuration(format!("Failed to encode EIP-712: {}", e))
+        })?;
+
         // Sign the encoded data
-        let signature = wallet.sign_hash(H256::from(encoded))
+        let signature = wallet
+            .sign_hash(H256::from(encoded))
             .map_err(|e| HyperliquidToolError::Configuration(format!("Failed to sign: {}", e)))?;
-        
+
         // Convert signature to the expected format
         let r = signature.r;
         let s = signature.s;
         let v = signature.v;
-        
+
         // Hyperliquid expects the signature as r + s + v (65 bytes total)
         let mut sig_bytes = vec![0u8; 65];
         r.to_big_endian(&mut sig_bytes[0..32]);
         s.to_big_endian(&mut sig_bytes[32..64]);
         sig_bytes[64] = v as u8;
-        
+
         let signature_hex = format!("0x{}", hex::encode(sig_bytes));
         info!("Leverage request signed successfully");
         request.signature = Some(signature_hex);
-        
+
         Ok(request)
     }
 
     pub async fn cancel_order(&self, order_id: u64, asset: u32) -> Result<CancelResponse> {
         error!("CRITICAL: REAL ORDER CANCELLATION - This will cancel actual trades!");
-        info!("Cancelling REAL order: order_id={}, asset={}", order_id, asset);
-        
+        info!(
+            "Cancelling REAL order: order_id={}, asset={}",
+            order_id, asset
+        );
+
         // Require explicit configuration to prevent accidental operations
         let private_key = std::env::var("HYPERLIQUID_PRIVATE_KEY")
             .map_err(|_| HyperliquidToolError::Configuration(
                 "HYPERLIQUID_PRIVATE_KEY environment variable required. REAL trading disabled for safety.".to_string()
             ))?;
-            
-        let trading_enabled = std::env::var("ENABLE_REAL_HYPERLIQUID_TRADING")
-            .unwrap_or_default() == "true";
-            
+
+        let trading_enabled =
+            std::env::var("ENABLE_REAL_HYPERLIQUID_TRADING").unwrap_or_default() == "true";
+
         if !trading_enabled {
             return Err(HyperliquidToolError::Configuration(
                 "Real trading disabled. Set ENABLE_REAL_HYPERLIQUID_TRADING=true to enable REAL operations.".to_string()
@@ -470,25 +566,37 @@ impl HyperliquidClient {
 
         // Make real API call to Hyperliquid
         let response = self.post("exchange", &cancel_payload).await?;
-        let response_text = response.text().await
-            .map_err(|e| HyperliquidToolError::NetworkError(format!("Failed to read cancel response: {}", e)))?;
+        let response_text = response.text().await.map_err(|e| {
+            HyperliquidToolError::NetworkError(format!("Failed to read cancel response: {}", e))
+        })?;
 
         // Parse the real response
-        let cancel_response: CancelResponse = serde_json::from_str(&response_text)
-            .map_err(|e| HyperliquidToolError::ApiError(format!("Failed to parse cancel response: {} - Body: {}", e, response_text)))?;
+        let cancel_response: CancelResponse =
+            serde_json::from_str(&response_text).map_err(|e| {
+                HyperliquidToolError::ApiError(format!(
+                    "Failed to parse cancel response: {} - Body: {}",
+                    e, response_text
+                ))
+            })?;
 
         info!("REAL order cancelled successfully: {:?}", cancel_response);
         Ok(cancel_response)
     }
-    
+
     /// Sign cancel payload for Hyperliquid using EIP-712
-    async fn sign_cancel_payload(&self, private_key: &str, order_id: u64, asset: u32) -> Result<String> {
+    async fn sign_cancel_payload(
+        &self,
+        private_key: &str,
+        order_id: u64,
+        asset: u32,
+    ) -> Result<String> {
         info!("Signing cancel payload with EIP-712");
-        
+
         // Parse the private key
-        let wallet = private_key.parse::<LocalWallet>()
-            .map_err(|e| HyperliquidToolError::Configuration(format!("Invalid private key: {}", e)))?;
-        
+        let wallet = private_key.parse::<LocalWallet>().map_err(|e| {
+            HyperliquidToolError::Configuration(format!("Invalid private key: {}", e))
+        })?;
+
         // Create the EIP-712 domain
         let domain = serde_json::json!({
             "name": "HyperliquidSignTransaction",
@@ -496,13 +604,13 @@ impl HyperliquidClient {
             "chainId": 42161,  // Arbitrum mainnet
             "verifyingContract": "0x0000000000000000000000000000000000000000"
         });
-        
+
         // Create the message to sign
         let message = serde_json::json!({
             "a": asset,   // asset
             "o": order_id // order ID
         });
-        
+
         // Create the types definition
         let types = serde_json::json!({
             "EIP712Domain": [
@@ -516,7 +624,7 @@ impl HyperliquidClient {
                 {"name": "o", "type": "uint64"}
             ]
         });
-        
+
         // Create the typed data
         let typed_data = serde_json::json!({
             "types": types,
@@ -524,30 +632,33 @@ impl HyperliquidClient {
             "domain": domain,
             "message": message
         });
-        
+
         // Convert to TypedData struct
-        let typed_data: TypedData = serde_json::from_value(typed_data)
-            .map_err(|e| HyperliquidToolError::Configuration(format!("Failed to create typed data: {}", e)))?;
-        
+        let typed_data: TypedData = serde_json::from_value(typed_data).map_err(|e| {
+            HyperliquidToolError::Configuration(format!("Failed to create typed data: {}", e))
+        })?;
+
         // Encode the typed data
-        let encoded = typed_data.encode_eip712()
-            .map_err(|e| HyperliquidToolError::Configuration(format!("Failed to encode EIP-712: {}", e)))?;
-        
+        let encoded = typed_data.encode_eip712().map_err(|e| {
+            HyperliquidToolError::Configuration(format!("Failed to encode EIP-712: {}", e))
+        })?;
+
         // Sign the encoded data
-        let signature = wallet.sign_hash(H256::from(encoded))
+        let signature = wallet
+            .sign_hash(H256::from(encoded))
             .map_err(|e| HyperliquidToolError::Configuration(format!("Failed to sign: {}", e)))?;
-        
+
         // Convert signature to the expected format
         let r = signature.r;
         let s = signature.s;
         let v = signature.v;
-        
+
         // Hyperliquid expects the signature as r + s + v (65 bytes total)
         let mut sig_bytes = vec![0u8; 65];
         r.to_big_endian(&mut sig_bytes[0..32]);
         s.to_big_endian(&mut sig_bytes[32..64]);
         sig_bytes[64] = v as u8;
-        
+
         let signature_hex = format!("0x{}", hex::encode(sig_bytes));
         info!("Cancel order signed successfully");
         Ok(signature_hex)
@@ -555,8 +666,9 @@ impl HyperliquidClient {
 
     /// Get the user's address from the signer
     pub fn get_user_address(&self) -> Result<String> {
-        self.signer.address()
-            .ok_or_else(|| HyperliquidToolError::AuthError("No address available from signer".to_string()))
+        self.signer.address().ok_or_else(|| {
+            HyperliquidToolError::AuthError("No address available from signer".to_string())
+        })
     }
 }
 
@@ -746,7 +858,7 @@ pub struct LeverageResult {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_leverage_request_structure() {
         let request = LeverageRequest {
@@ -759,13 +871,13 @@ mod tests {
             nonce: 1234567890,
             signature: None,
         };
-        
+
         assert_eq!(request.action.type_, "updateLeverage");
         assert_eq!(request.action.leverage, 10);
         assert!(request.action.is_cross);
         assert!(request.signature.is_none());
     }
-    
+
     #[test]
     fn test_leverage_response_parsing() {
         let json_response = r#"{
@@ -775,16 +887,16 @@ mod tests {
                 "asset": "BTC"
             }
         }"#;
-        
+
         let response: LeverageResponse = serde_json::from_str(json_response).unwrap();
         assert_eq!(response.status, "success");
         assert!(response.data.is_some());
-        
+
         let data = response.data.unwrap();
         assert_eq!(data.leverage, 10);
         assert_eq!(data.asset, "BTC");
     }
-    
+
     #[test]
     fn test_leverage_action_serialization() {
         let action = LeverageAction {
@@ -793,7 +905,7 @@ mod tests {
             is_cross: true,
             leverage: 20,
         };
-        
+
         let json = serde_json::to_string(&action).unwrap();
         assert!(json.contains("\"type\":\"updateLeverage\""));
         assert!(json.contains("\"asset\":42"));

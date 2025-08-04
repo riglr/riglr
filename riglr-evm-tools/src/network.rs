@@ -29,13 +29,9 @@ pub async fn get_transaction_receipt(
 
     // Query provider for receipt
     let provider = _client.provider();
-    let receipt_opt = provider
-        .get_transaction_receipt(hash)
-        .await
-        .map_err(|e| crate::error::EvmToolError::Rpc(format!(
-            "Failed to get transaction receipt: {}",
-            e
-        )))?;
+    let receipt_opt = provider.get_transaction_receipt(hash).await.map_err(|e| {
+        crate::error::EvmToolError::Rpc(format!("Failed to get transaction receipt: {}", e))
+    })?;
 
     let json = match receipt_opt {
         Some(receipt) => {

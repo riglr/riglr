@@ -1,7 +1,7 @@
-pub mod parsing;
 pub mod enrichment;
+pub mod parsing;
 pub mod validation;
 
-pub use parsing::*;
 pub use enrichment::*;
+pub use parsing::*;
 pub use validation::*;

@@ -156,7 +156,7 @@ impl GraphRetriever {
         debug!("Ensuring vector index '{}' exists", self.index_name);
 
         let create_index_query = format!(
-            "CREATE VECTOR INDEX IF NOT EXISTS {} FOR (d:Document) ON (d.embedding) 
+            "CREATE VECTOR INDEX IF NOT EXISTS {} FOR (d:Document) ON (d.embedding)
              OPTIONS {{indexConfig: {{`vector.dimensions`: {}, `vector.similarity_function`: 'cosine'}}}}",
             self.index_name, self.embedding_dimension
         );
@@ -192,7 +192,7 @@ impl GraphRetriever {
         let vector_start = std::time::Instant::now();
 
         let vector_search_query = format!(
-            "CALL db.index.vector.queryNodes('{}', {}, $embedding) 
+            "CALL db.index.vector.queryNodes('{}', {}, $embedding)
              YIELD node, score
              RETURN node.id as id, node.content as content, node.metadata as metadata,
                     node.entities as entities, node.embedding as embedding, score
@@ -247,7 +247,7 @@ impl GraphRetriever {
                                                 .collect()
                                         })
                                         .unwrap_or_default();
-                                    
+
                                     // Extract the actual embedding from the database
                                     let actual_embedding: Vec<f32> = row_data[4]
                                         .as_array()

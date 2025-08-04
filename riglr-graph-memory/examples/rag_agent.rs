@@ -5,7 +5,9 @@
 //! and blockchain activities stored in a Neo4j knowledge graph.
 
 use riglr_graph_memory::{
-    GraphMemory, graph::GraphMemoryConfig, RawTextDocument, document::{DocumentMetadata, DocumentSource},
+    document::{DocumentMetadata, DocumentSource},
+    graph::GraphMemoryConfig,
+    GraphMemory, RawTextDocument,
 };
 use std::env;
 
@@ -138,7 +140,7 @@ async fn build_transaction_knowledge_graph(memory: &mut GraphMemory) -> anyhow::
             chain: "ethereum".to_string(),
             transaction_hash: format!("0x{:064x}", idx + 1),
         };
-        
+
         match memory.add_documents(vec![doc]).await {
             Ok(doc_ids) => {
                 println!("  ✅ Added transaction {}: {:?}", idx + 1, doc_ids);
@@ -149,7 +151,10 @@ async fn build_transaction_knowledge_graph(memory: &mut GraphMemory) -> anyhow::
         }
     }
 
-    println!("\n📊 Knowledge graph built with {} transactions", transactions.len());
+    println!(
+        "\n📊 Knowledge graph built with {} transactions",
+        transactions.len()
+    );
 
     // Get statistics
     match memory.get_stats().await {
@@ -169,14 +174,17 @@ async fn build_transaction_knowledge_graph(memory: &mut GraphMemory) -> anyhow::
 /// Answer questions about wallet activity
 async fn answer_wallet_questions(memory: &GraphMemory) -> anyhow::Result<()> {
     let questions = vec![
-        ("What protocols has wallet 0x742d35Cc used?", "0x742d35Cc6634C0532925a3b844Bc9e7595f0eA4B"),
+        (
+            "What protocols has wallet 0x742d35Cc used?",
+            "0x742d35Cc6634C0532925a3b844Bc9e7595f0eA4B",
+        ),
         ("What DeFi activities happened on Uniswap?", "Uniswap"),
         ("Which wallets have borrowed tokens?", "borrowed"),
     ];
 
     for (question, _query) in questions {
         println!("Q: {}", question);
-        
+
         match memory.search(&vec![0.1; 384], 5).await {
             Ok(docs) => {
                 if docs.documents.is_empty() {
@@ -202,15 +210,16 @@ async fn answer_wallet_questions(memory: &GraphMemory) -> anyhow::Result<()> {
 async fn analyze_transaction_patterns(memory: &GraphMemory) -> anyhow::Result<()> {
     // Analyze wallet activity patterns
     let wallet_address = "0x742d35Cc6634C0532925a3b844Bc9e7595f0eA4B";
-    
+
     println!("Analyzing wallet: {}", wallet_address);
-    
+
     match memory.search(&vec![0.1; 384], 10).await {
         Ok(history) => {
             println!("  Transaction count: {}", history.documents.len());
-            
+
             // Extract unique protocols
-            let protocols: Vec<String> = history.documents
+            let protocols: Vec<String> = history
+                .documents
                 .iter()
                 .filter_map(|doc| {
                     if doc.content.contains("Uniswap") {
@@ -226,14 +235,14 @@ async fn analyze_transaction_patterns(memory: &GraphMemory) -> anyhow::Result<()
                     }
                 })
                 .collect();
-            
+
             println!("  Protocols used: {:?}", protocols);
-            
+
             // Analyze activity types
             let mut swaps = 0;
             let mut liquidity = 0;
             let mut staking = 0;
-            
+
             for doc in &history.documents {
                 if doc.content.contains("swapped") {
                     swaps += 1;
@@ -245,7 +254,7 @@ async fn analyze_transaction_patterns(memory: &GraphMemory) -> anyhow::Result<()
                     staking += 1;
                 }
             }
-            
+
             println!("  Activity breakdown:");
             println!("    - Swaps: {}", swaps);
             println!("    - Liquidity provisions: {}", liquidity);
@@ -262,7 +271,7 @@ async fn analyze_transaction_patterns(memory: &GraphMemory) -> anyhow::Result<()
 /// Simulate a RAG agent answering complex queries
 async fn simulate_rag_agent(memory: &GraphMemory) -> anyhow::Result<()> {
     println!("🤖 RAG Agent Simulation\n");
-    
+
     let queries = vec![
         "What is the total DeFi activity for wallet 0x742d35Cc?",
         "Which protocols are most commonly used for borrowing?",
@@ -272,7 +281,7 @@ async fn simulate_rag_agent(memory: &GraphMemory) -> anyhow::Result<()> {
 
     for query in queries {
         println!("User: {}", query);
-        
+
         // Extract key terms from query (simplified - in production use NLP)
         let _search_term = if query.contains("0x742d35Cc") {
             "0x742d35Cc"
@@ -285,7 +294,7 @@ async fn simulate_rag_agent(memory: &GraphMemory) -> anyhow::Result<()> {
         } else {
             "DeFi"
         };
-        
+
         // Retrieve relevant context from graph memory
         let query_embedding = vec![0.1; 384];
         match memory.search(&query_embedding, 10).await {
@@ -295,7 +304,10 @@ async fn simulate_rag_agent(memory: &GraphMemory) -> anyhow::Result<()> {
                 println!("Agent: {}\n", response);
             }
             Err(e) => {
-                println!("Agent: I encountered an error retrieving information: {}\n", e);
+                println!(
+                    "Agent: I encountered an error retrieving information: {}\n",
+                    e
+                );
             }
         }
     }
@@ -304,7 +316,10 @@ async fn simulate_rag_agent(memory: &GraphMemory) -> anyhow::Result<()> {
 }
 
 /// Generate a simulated RAG response based on retrieved context
-fn generate_rag_response(query: &str, context_docs: &[riglr_graph_memory::vector_store::GraphDocument]) -> String {
+fn generate_rag_response(
+    query: &str,
+    context_docs: &[riglr_graph_memory::vector_store::GraphDocument],
+) -> String {
     if context_docs.is_empty() {
         return "I don't have any relevant information to answer that question.".to_string();
     }
@@ -328,7 +343,7 @@ fn generate_rag_response(query: &str, context_docs: &[riglr_graph_memory::vector
                 }
             })
             .collect();
-        
+
         format!(
             "Based on the knowledge graph, I found {} DeFi activities. The wallet has interacted with protocols including: {}. Recent activities include: {}",
             count,
@@ -344,13 +359,13 @@ fn generate_rag_response(query: &str, context_docs: &[riglr_graph_memory::vector
                 }
             }
         }
-        
+
         let most_common = protocol_counts
             .iter()
             .max_by_key(|(_, count)| *count)
             .map(|(protocol, _)| *protocol)
             .unwrap_or("Unknown");
-        
+
         format!(
             "Based on the transaction history, {} appears to be the most commonly used protocol for this type of activity. I found {} relevant transactions in the knowledge graph.",
             most_common,
@@ -370,7 +385,7 @@ fn generate_rag_response(query: &str, context_docs: &[riglr_graph_memory::vector
                 }
             })
             .collect();
-        
+
         format!(
             "Here are the recent activities from the knowledge graph:\n{}",
             recent_activities.join("\n")
@@ -383,7 +398,7 @@ fn generate_rag_response(query: &str, context_docs: &[riglr_graph_memory::vector
             .enumerate()
             .map(|(i, doc)| format!("{}. {}", i + 1, doc.content))
             .collect();
-        
+
         format!(
             "Based on the knowledge graph, here's what I found:\n{}",
             summary.join("\n")
@@ -395,18 +410,17 @@ fn generate_rag_response(query: &str, context_docs: &[riglr_graph_memory::vector
 #[allow(dead_code)]
 async fn display_graph_stats(memory: &GraphMemory) {
     println!("\n📊 Graph Statistics:");
-    
+
     match memory.get_stats().await {
         Ok(stats) => {
             println!("  Total documents: {}", stats.document_count);
             println!("  Total entities: {}", stats.entity_count);
             println!("  Total relationships: {}", stats.relationship_count);
-            
+
             println!("  Node breakdown:");
             println!("    - Wallets: {}", stats.wallet_count);
             println!("    - Tokens: {}", stats.token_count);
             println!("    - Protocols: {}", stats.protocol_count);
-            
         }
         Err(e) => {
             println!("  ⚠️ Could not fetch statistics: {}", e);

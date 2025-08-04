@@ -12,7 +12,8 @@ fn test_web_client_new() {
 
 #[test]
 fn test_web_client_with_api_key() {
-    let client = WebClient::new().expect("Failed to create client")
+    let client = WebClient::new()
+        .expect("Failed to create client")
         .with_api_key("service1", "key1")
         .with_api_key("service2", "key2");
 
@@ -22,7 +23,9 @@ fn test_web_client_with_api_key() {
 
 #[test]
 fn test_web_client_with_twitter_token() {
-    let client = WebClient::new().expect("Failed to create client").with_twitter_token("bearer_token_123");
+    let client = WebClient::new()
+        .expect("Failed to create client")
+        .with_twitter_token("bearer_token_123");
 
     assert_eq!(
         client.api_keys.get("twitter"),
@@ -32,7 +35,9 @@ fn test_web_client_with_twitter_token() {
 
 #[test]
 fn test_web_client_with_exa_key() {
-    let client = WebClient::new().expect("Failed to create client").with_exa_key("exa_api_key_456");
+    let client = WebClient::new()
+        .expect("Failed to create client")
+        .with_exa_key("exa_api_key_456");
 
     assert_eq!(
         client.api_keys.get("exa"),
@@ -42,7 +47,9 @@ fn test_web_client_with_exa_key() {
 
 #[test]
 fn test_web_client_with_dexscreener_key() {
-    let client = WebClient::new().expect("Failed to create client").with_dexscreener_key("dex_key_789");
+    let client = WebClient::new()
+        .expect("Failed to create client")
+        .with_dexscreener_key("dex_key_789");
 
     assert_eq!(
         client.api_keys.get("dexscreener"),
@@ -62,7 +69,8 @@ fn test_web_client_with_config() {
 
 #[test]
 fn test_web_client_chaining() {
-    let mut client = WebClient::new().expect("Failed to create client")
+    let mut client = WebClient::new()
+        .expect("Failed to create client")
         .with_api_key("service1", "key1")
         .with_twitter_token("twitter_token")
         .with_exa_key("exa_key")
@@ -76,7 +84,8 @@ fn test_web_client_chaining() {
 
 #[test]
 fn test_web_client_overwrite_api_key() {
-    let client = WebClient::new().expect("Failed to create client")
+    let client = WebClient::new()
+        .expect("Failed to create client")
         .with_api_key("service", "old_key")
         .with_api_key("service", "new_key");
 
@@ -85,7 +94,9 @@ fn test_web_client_overwrite_api_key() {
 
 #[test]
 fn test_web_client_get_api_key() {
-    let client = WebClient::new().expect("Failed to create client").with_api_key("test", "test_key");
+    let client = WebClient::new()
+        .expect("Failed to create client")
+        .with_api_key("test", "test_key");
 
     let key = client.get_api_key("test");
     assert!(key.is_some());
@@ -108,7 +119,8 @@ fn test_web_client_get_config() {
 
 #[test]
 fn test_web_client_clone() {
-    let mut client = WebClient::new().expect("Failed to create client")
+    let mut client = WebClient::new()
+        .expect("Failed to create client")
         .with_api_key("service", "key");
     client.set_config("option", "value");
 
@@ -120,7 +132,9 @@ fn test_web_client_clone() {
 
 #[test]
 fn test_web_client_debug() {
-    let client = WebClient::new().expect("Failed to create client").with_api_key("test", "key");
+    let client = WebClient::new()
+        .expect("Failed to create client")
+        .with_api_key("test", "key");
 
     let debug_str = format!("{:?}", client);
     assert!(debug_str.contains("WebClient"));
@@ -137,14 +151,17 @@ fn test_web_client_default() {
 
 #[test]
 fn test_web_client_empty_strings() {
-    let client = WebClient::new().expect("Failed to create client").with_api_key("", "");
+    let client = WebClient::new()
+        .expect("Failed to create client")
+        .with_api_key("", "");
 
     assert_eq!(client.api_keys.get(""), Some(&"".to_string()));
 }
 
 #[test]
 fn test_web_client_special_characters() {
-    let mut client = WebClient::new().expect("Failed to create client")
+    let mut client = WebClient::new()
+        .expect("Failed to create client")
         .with_api_key("service@123", "key!@#$%");
     client.set_config("config-key", "value/with/slashes");
 
@@ -157,7 +174,8 @@ fn test_web_client_special_characters() {
 
 #[test]
 fn test_web_client_multiple_services() {
-    let client = WebClient::new().expect("Failed to create client")
+    let client = WebClient::new()
+        .expect("Failed to create client")
         .with_twitter_token("twitter_token")
         .with_exa_key("exa_key")
         .with_dexscreener_key("dex_key")

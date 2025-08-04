@@ -2,8 +2,8 @@
 //!
 //! This module provides tools for placing, canceling, and managing orders on Hyperliquid.
 
-use crate::client::{HyperliquidClient, OrderRequest, OrderType, LimitOrderType, Meta};
-use riglr_core::{ToolError, SignerContext};
+use crate::client::{HyperliquidClient, LimitOrderType, Meta, OrderRequest, OrderType};
+use riglr_core::{SignerContext, ToolError};
 use riglr_macros::tool;
 use rust_decimal::Decimal;
 use schemars::JsonSchema;
@@ -16,9 +16,9 @@ use tracing::{debug, info};
 /// This tool places market or limit orders for perpetual futures on the Hyperliquid DEX.
 /// It supports both long and short positions with configurable leverage, time-in-force options,
 /// and risk management features like reduce-only orders.
-/// 
+///
 /// # Arguments
-/// 
+///
 /// * `symbol` - Trading pair symbol (e.g., "ETH-PERP", "BTC", "SOL-PERP")
 /// * `side` - Order side: "buy"/"long" or "sell"/"short"
 /// * `size` - Position size as decimal string (e.g., "0.1" for 0.1 contracts)
@@ -26,27 +26,27 @@ use tracing::{debug, info};
 /// * `price` - Limit price (required for limit orders, ignored for market orders)
 /// * `reduce_only` - If true, order can only reduce existing position size
 /// * `time_in_force` - "gtc" (good-till-cancel), "ioc" (immediate-or-cancel), or "alo" (add-liquidity-only)
-/// 
+///
 /// # Returns
-/// 
+///
 /// Returns `HyperliquidOrderResult` containing:
 /// - Order details (symbol, side, size, type, price)
 /// - `status`: API response status
 /// - `order_id`: Unique order identifier for tracking
 /// - `message`: Human-readable result description
-/// 
+///
 /// # Errors
-/// 
+///
 /// * `HyperliquidToolError::InvalidInput` - When parameters are invalid (negative size, unknown symbol)
 /// * `HyperliquidToolError::ApiError` - When Hyperliquid API rejects the order
 /// * `HyperliquidToolError::NetworkError` - When connection issues occur
-/// 
+///
 /// # Examples
-/// 
+///
 /// ```rust,ignore
 /// use riglr_hyperliquid_tools::trading::place_hyperliquid_order;
 /// use riglr_core::SignerContext;
-/// 
+///
 /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
 /// // Place a limit buy order for 0.1 ETH-PERP at $2000
 /// let result = place_hyperliquid_order(
@@ -58,7 +58,7 @@ use tracing::{debug, info};
 ///     Some(false), // Not reduce-only
 ///     Some("gtc".to_string()), // Good till cancel
 /// ).await?;
-/// 
+///
 /// println!("Order placed! ID: {:?}", result.order_id);
 /// println!("Status: {}", result.status);
 /// # Ok(())
@@ -74,12 +74,16 @@ pub async fn place_hyperliquid_order(
     reduce_only: Option<bool>,
     time_in_force: Option<String>,
 ) -> Result<HyperliquidOrderResult, ToolError> {
-    debug!("Placing Hyperliquid order: {} {} {} {}", side, size, symbol, order_type);
+    debug!(
+        "Placing Hyperliquid order: {} {} {} {}",
+        side, size, symbol, order_type
+    );
 
     // Get signer context
-    let signer = SignerContext::current().await
+    let signer = SignerContext::current()
+        .await
         .map_err(|e| ToolError::permanent_string(format!("No signer context: {}", e)))?;
-    
+
     // Create client
     let client = HyperliquidClient::new(signer)?;
 
@@ -87,14 +91,21 @@ pub async fn place_hyperliquid_order(
     let is_buy = match side.to_lowercase().as_str() {
         "buy" | "long" => true,
         "sell" | "short" => false,
-        _ => return Err(ToolError::permanent_string(format!("Invalid side '{}'. Must be 'buy', 'sell', 'long', or 'short'", side))),
+        _ => {
+            return Err(ToolError::permanent_string(format!(
+                "Invalid side '{}'. Must be 'buy', 'sell', 'long', or 'short'",
+                side
+            )))
+        }
     };
 
     // Parse size
     let size_decimal = Decimal::from_str(&size)
         .map_err(|e| ToolError::permanent_string(format!("Invalid size '{}': {}", size, e)))?;
     if size_decimal <= Decimal::ZERO {
-        return Err(ToolError::permanent_string("Size must be greater than 0".to_string()));
+        return Err(ToolError::permanent_string(
+            "Size must be greater than 0".to_string(),
+        ));
     }
 
     // Get market metadata to find asset ID
@@ -106,36 +117,64 @@ pub async fn place_hyperliquid_order(
         "market" => {
             // For market orders, we use a very high/low price to ensure execution
             let market_price = if is_buy { "999999999" } else { "0.000001" };
-            (market_price.to_string(), OrderType {
-                limit: Some(LimitOrderType {
-                    tif: "Ioc".to_string(), // Immediate or Cancel for market orders
-                }),
-            })
-        },
+            (
+                market_price.to_string(),
+                OrderType {
+                    limit: Some(LimitOrderType {
+                        tif: "Ioc".to_string(), // Immediate or Cancel for market orders
+                    }),
+                },
+            )
+        }
         "limit" => {
-            let price_str = price.as_ref().ok_or_else(|| 
-                ToolError::permanent_string("Price is required for limit orders".to_string()))?.clone();
-            
-            let price_decimal = Decimal::from_str(&price_str)
-                .map_err(|e| ToolError::permanent_string(format!("Invalid price '{}': {}", price_str, e)))?;
+            let price_str = price
+                .as_ref()
+                .ok_or_else(|| {
+                    ToolError::permanent_string("Price is required for limit orders".to_string())
+                })?
+                .clone();
+
+            let price_decimal = Decimal::from_str(&price_str).map_err(|e| {
+                ToolError::permanent_string(format!("Invalid price '{}': {}", price_str, e))
+            })?;
             if price_decimal <= Decimal::ZERO {
-                return Err(ToolError::permanent_string("Price must be greater than 0".to_string()));
+                return Err(ToolError::permanent_string(
+                    "Price must be greater than 0".to_string(),
+                ));
             }
 
-            let tif = match time_in_force.as_deref().unwrap_or("gtc").to_lowercase().as_str() {
+            let tif = match time_in_force
+                .as_deref()
+                .unwrap_or("gtc")
+                .to_lowercase()
+                .as_str()
+            {
                 "gtc" | "good_till_cancel" => "Gtc",
-                "ioc" | "immediate_or_cancel" => "Ioc", 
+                "ioc" | "immediate_or_cancel" => "Ioc",
                 "alo" | "add_liquidity_only" => "Alo",
-                other => return Err(ToolError::permanent_string(format!("Invalid time in force '{}'. Must be 'gtc', 'ioc', or 'alo'", other))),
+                other => {
+                    return Err(ToolError::permanent_string(format!(
+                        "Invalid time in force '{}'. Must be 'gtc', 'ioc', or 'alo'",
+                        other
+                    )))
+                }
             };
 
-            (price_str, OrderType {
-                limit: Some(LimitOrderType {
-                    tif: tif.to_string(),
-                }),
-            })
-        },
-        _ => return Err(ToolError::permanent_string(format!("Invalid order type '{}'. Must be 'market' or 'limit'", order_type))),
+            (
+                price_str,
+                OrderType {
+                    limit: Some(LimitOrderType {
+                        tif: tif.to_string(),
+                    }),
+                },
+            )
+        }
+        _ => {
+            return Err(ToolError::permanent_string(format!(
+                "Invalid order type '{}'. Must be 'market' or 'limit'",
+                order_type
+            )))
+        }
     };
 
     // Create order request
@@ -160,7 +199,10 @@ pub async fn place_hyperliquid_order(
         order_type,
         price,
         status: response.status,
-        order_id: response.data.response.data
+        order_id: response
+            .data
+            .response
+            .data
             .and_then(|d| d.statuses.first().map(|s| s.resting.oid))
             .map(|id| id.to_string()),
         message: "Order placed successfully".to_string(),
@@ -171,33 +213,33 @@ pub async fn place_hyperliquid_order(
 ///
 /// This tool cancels a previously placed order that is still active (not filled or expired).
 /// Both the symbol and order ID are required to ensure the correct order is canceled.
-/// 
+///
 /// # Arguments
-/// 
+///
 /// * `symbol` - Trading pair symbol that the order belongs to
 /// * `order_id` - Unique order identifier returned from place_hyperliquid_order
-/// 
+///
 /// # Returns
-/// 
+///
 /// Returns `HyperliquidCancelResult` containing cancellation confirmation details.
-/// 
+///
 /// # Errors
-/// 
+///
 /// * `HyperliquidToolError::InvalidInput` - When order_id format is invalid or symbol unknown
 /// * `HyperliquidToolError::ApiError` - When order doesn't exist or already filled
 /// * `HyperliquidToolError::NetworkError` - When connection issues occur
-/// 
+///
 /// # Examples
-/// 
+///
 /// ```rust,ignore
 /// use riglr_hyperliquid_tools::trading::cancel_hyperliquid_order;
-/// 
+///
 /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
 /// let result = cancel_hyperliquid_order(
 ///     "ETH-PERP".to_string(),
 ///     "12345678".to_string(), // Order ID from previous order
 /// ).await?;
-/// 
+///
 /// println!("Order canceled: {}", result.message);
 /// # Ok(())
 /// # }
@@ -210,15 +252,17 @@ pub async fn cancel_hyperliquid_order(
     debug!("Canceling Hyperliquid order: {} for {}", order_id, symbol);
 
     // Get signer context
-    let signer = SignerContext::current().await
+    let signer = SignerContext::current()
+        .await
         .map_err(|e| ToolError::permanent_string(format!("No signer context: {}", e)))?;
-    
+
     // Create client
     let client = HyperliquidClient::new(signer)?;
 
     // Parse order ID
-    let oid = order_id.parse::<u64>()
-        .map_err(|e| ToolError::permanent_string(format!("Invalid order ID '{}': {}", order_id, e)))?;
+    let oid = order_id.parse::<u64>().map_err(|e| {
+        ToolError::permanent_string(format!("Invalid order ID '{}': {}", order_id, e))
+    })?;
 
     // Get market metadata to find asset ID
     let meta = client.get_meta().await?;
@@ -241,29 +285,29 @@ pub async fn cancel_hyperliquid_order(
 ///
 /// This tool retrieves comprehensive account information including balance, margin usage,
 /// and position counts. Essential for monitoring account health and available trading capital.
-/// 
+///
 /// # Returns
-/// 
+///
 /// Returns `HyperliquidAccountResult` containing:
 /// - `user_address`: The account's Ethereum address
 /// - `withdrawable_balance`: Available balance that can be withdrawn
 /// - `cross_margin_used`: Amount of balance used for cross-margin positions
 /// - `cross_maintenance_margin_used`: Maintenance margin requirements
 /// - `positions_count`: Number of active positions
-/// 
+///
 /// # Errors
-/// 
+///
 /// * `HyperliquidToolError::NetworkError` - When API connection fails
 /// * `HyperliquidToolError::Generic` - When signer context is unavailable
-/// 
+///
 /// # Examples
-/// 
+///
 /// ```rust,ignore
 /// use riglr_hyperliquid_tools::trading::get_hyperliquid_account_info;
-/// 
+///
 /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
 /// let account = get_hyperliquid_account_info().await?;
-/// 
+///
 /// println!("Account: {}", account.user_address);
 /// println!("Withdrawable: ${}", account.withdrawable_balance);
 /// println!("Margin used: ${}", account.cross_margin_used);
@@ -276,9 +320,10 @@ pub async fn get_hyperliquid_account_info() -> Result<HyperliquidAccountResult, 
     debug!("Getting Hyperliquid account info");
 
     // Get signer context
-    let signer = SignerContext::current().await
+    let signer = SignerContext::current()
+        .await
         .map_err(|e| ToolError::permanent_string(format!("No signer context: {}", e)))?;
-    
+
     // Create client
     let client = HyperliquidClient::new(signer)?;
 
@@ -292,8 +337,14 @@ pub async fn get_hyperliquid_account_info() -> Result<HyperliquidAccountResult, 
         user_address,
         withdrawable_balance: account_info.withdrawable.unwrap_or_default(),
         cross_margin_used: account_info.cross_margin_used.unwrap_or_default(),
-        cross_maintenance_margin_used: account_info.cross_maintenance_margin_used.unwrap_or_default(),
-        positions_count: account_info.asset_positions.as_ref().map(|p| p.len()).unwrap_or(0),
+        cross_maintenance_margin_used: account_info
+            .cross_maintenance_margin_used
+            .unwrap_or_default(),
+        positions_count: account_info
+            .asset_positions
+            .as_ref()
+            .map(|p| p.len())
+            .unwrap_or(0),
     })
 }
 
@@ -301,33 +352,33 @@ pub async fn get_hyperliquid_account_info() -> Result<HyperliquidAccountResult, 
 ///
 /// This tool sets the leverage multiplier for a specific asset on Hyperliquid.
 /// The leverage determines the maximum position size relative to your margin.
-/// 
+///
 /// # Arguments
-/// 
+///
 /// * `symbol` - Trading pair symbol (e.g., "ETH", "BTC", "SOL")
 /// * `leverage` - Leverage multiplier (1-100x)
-/// 
+///
 /// # Returns
-/// 
+///
 /// Returns `HyperliquidLeverageResult` containing the updated leverage settings.
-/// 
+///
 /// # Errors
-/// 
+///
 /// * `ToolError::permanent` - Invalid leverage value or symbol
 /// * `ToolError::retriable` - Network or API errors
-/// 
+///
 /// # Examples
-/// 
+///
 /// ```rust,ignore
 /// use riglr_hyperliquid_tools::trading::set_leverage;
-/// 
+///
 /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
 /// // Set 10x leverage for ETH perpetual futures
 /// let result = set_leverage(
 ///     "ETH".to_string(),
 ///     10,
 /// ).await?;
-/// 
+///
 /// println!("Leverage updated: {}", result.message);
 /// # Ok(())
 /// # }
@@ -341,14 +392,18 @@ pub async fn set_leverage(
 
     // Validate leverage range (typical range for perpetual futures)
     if !(1..=100).contains(&leverage) {
-        return Err(ToolError::permanent_string(format!("Invalid leverage {}. Must be between 1 and 100", leverage)));
+        return Err(ToolError::permanent_string(format!(
+            "Invalid leverage {}. Must be between 1 and 100",
+            leverage
+        )));
     }
 
     // Get signer context
-    let signer = SignerContext::current().await
+    let signer = SignerContext::current()
+        .await
         .map_err(|e| ToolError::permanent_string(format!("No signer context: {}", e)))?;
-    
-    // Create client  
+
+    // Create client
     let client = HyperliquidClient::new(signer)?;
 
     // Get market metadata to validate symbol and get asset ID
@@ -356,7 +411,9 @@ pub async fn set_leverage(
     let asset_id = find_asset_id(&meta, &symbol)?;
 
     // Update leverage using the real API
-    let response = client.update_leverage(leverage, &symbol, true, Some(asset_id)).await?;
+    let response = client
+        .update_leverage(leverage, &symbol, true, Some(asset_id))
+        .await?;
 
     info!("Successfully set {}x leverage for {}", leverage, symbol);
 
@@ -372,18 +429,26 @@ pub async fn set_leverage(
 fn find_asset_id(meta: &Meta, symbol: &str) -> Result<u32, ToolError> {
     // Normalize symbol (remove -PERP suffix if present)
     let normalized_symbol = symbol.trim_end_matches("-PERP").trim_end_matches("-perp");
-    
+
     for (index, asset) in meta.universe.iter().enumerate() {
-        if asset.name.eq_ignore_ascii_case(symbol) || 
-           asset.name.eq_ignore_ascii_case(normalized_symbol) ||
-           asset.name.eq_ignore_ascii_case(&format!("{}-PERP", normalized_symbol)) {
+        if asset.name.eq_ignore_ascii_case(symbol)
+            || asset.name.eq_ignore_ascii_case(normalized_symbol)
+            || asset
+                .name
+                .eq_ignore_ascii_case(&format!("{}-PERP", normalized_symbol))
+        {
             return Ok(index as u32);
         }
     }
-    
-    Err(ToolError::permanent_string(format!("Asset '{}' not found. Available assets: {}", 
-        symbol, 
-        meta.universe.iter().map(|a| a.name.as_str()).collect::<Vec<_>>().join(", ")
+
+    Err(ToolError::permanent_string(format!(
+        "Asset '{}' not found. Available assets: {}",
+        symbol,
+        meta.universe
+            .iter()
+            .map(|a| a.name.as_str())
+            .collect::<Vec<_>>()
+            .join(", ")
     )))
 }
 

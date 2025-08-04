@@ -79,22 +79,22 @@ impl Default for RiskLimits {
 pub struct HFTBot {
     /// Position tracking with stateful processor
     position_processor: StatefulProcessor<String, Position>,
-    
+
     /// Price data window manager for technical analysis
     price_windows: WindowManager<PriceUpdate>,
-    
+
     /// Flow controller for handling high-frequency data
     flow_controller: FlowController,
-    
+
     /// Trading strategies
     strategies: Vec<Box<dyn TradingStrategy>>,
-    
+
     /// Risk management system
     risk_manager: RiskManager,
-    
+
     /// Performance metrics
     metrics: Arc<RwLock<TradingMetrics>>,
-    
+
     /// Configuration
     config: HFTConfig,
 }
@@ -187,7 +187,7 @@ impl MeanReversionStrategy {
         let variance: f64 = recent_prices.iter()
             .map(|price| (price - mean).powi(2))
             .sum::<f64>() / recent_prices.len() as f64;
-        
+
         let std_dev = variance.sqrt();
         if std_dev == 0.0 {
             return None;
@@ -256,7 +256,7 @@ impl TradingStrategy for MeanReversionStrategy {
             self.z_score_threshold = (self.z_score_threshold * 0.95).max(1.5);
         }
 
-        debug!("🔧 {} strategy updated: threshold={:.2}, win_rate={:.2}%", 
+        debug!("🔧 {} strategy updated: threshold={:.2}, win_rate={:.2}%",
                self.name(), self.z_score_threshold, performance.win_rate * 100.0);
     }
 }
@@ -377,7 +377,7 @@ impl HFTBot {
                 continue;
             }
 
-            debug!("📊 Processing price window for {} with {} data points", 
+            debug!("📊 Processing price window for {} with {} data points",
                    price_event.symbol, window.events.len());
 
             // Get current positions
@@ -387,7 +387,7 @@ impl HFTBot {
             for strategy in &self.strategies {
                 if let Some(signal) = strategy.generate_signal(&window.events, &current_positions) {
                     info!("⚡ Generated signal: {:?}", signal);
-                    
+
                     // Validate signal through risk management
                     if self.risk_manager.validate_trade(&signal, &current_positions).await {
                         // Execute trade (or simulate in paper trading mode)
@@ -432,7 +432,7 @@ impl HFTBot {
 
             position.current_price = price;
             position.last_update = Instant::now();
-            
+
             // Calculate unrealized PnL
             if position.size != 0.0 {
                 position.unrealized_pnl = (price - position.entry_price) * position.size;
@@ -447,7 +447,7 @@ impl HFTBot {
     async fn execute_trade(&mut self, signal: TradingSignal) -> ToolResult<()> {
         if self.config.enable_paper_trading {
             info!("📝 Paper trade executed: {:?}", signal);
-            
+
             // Update position in paper trading mode
             self.position_processor.update_state(signal.symbol.clone(), |current_position| {
                 let mut position = current_position.cloned().unwrap_or(Position {
@@ -477,10 +477,10 @@ impl HFTBot {
             let mut metrics = self.metrics.write().await;
             metrics.total_trades += 1;
 
-            info!("✅ Trade executed: {} {} {:.2} @ {:.6}", 
-                 signal.symbol, 
+            info!("✅ Trade executed: {} {} {:.2} @ {:.6}",
+                 signal.symbol,
                  match signal.action { TradeAction::Buy => "BUY", TradeAction::Sell => "SELL", TradeAction::Hold => "HOLD" },
-                 signal.size, 
+                 signal.size,
                  signal.price);
         } else {
             // Real trading would integrate with exchange APIs
@@ -492,7 +492,7 @@ impl HFTBot {
 
     async fn update_latency_metrics(&self, latency_ms: f64) {
         let mut metrics = self.metrics.write().await;
-        
+
         // Simple latency tracking (in production, you'd use proper percentile calculation)
         if metrics.latency_stats.min_latency_ms == 0.0 || latency_ms < metrics.latency_stats.min_latency_ms {
             metrics.latency_stats.min_latency_ms = latency_ms;
@@ -500,10 +500,10 @@ impl HFTBot {
         if latency_ms > metrics.latency_stats.max_latency_ms {
             metrics.latency_stats.max_latency_ms = latency_ms;
         }
-        
+
         // Update running average
         let total_events = metrics.processed_events as f64;
-        metrics.latency_stats.avg_latency_ms = 
+        metrics.latency_stats.avg_latency_ms =
             (metrics.latency_stats.avg_latency_ms * (total_events - 1.0) + latency_ms) / total_events;
     }
 
@@ -564,35 +564,35 @@ async fn main() -> Result<()> {
             _ = metrics_interval.tick() => {
                 let metrics = hft_bot.get_metrics().await;
                 let (queue_size, drops) = hft_bot.get_flow_stats().await;
-                
+
                 info!("📊 Performance Metrics:");
                 info!("   Events processed: {} (queue: {}, drops: {})", metrics.processed_events, queue_size, drops);
                 info!("   Total trades: {} (win rate: {:.1}%)", metrics.total_trades, metrics.win_rate * 100.0);
-                info!("   Latency: avg={:.2}ms, min={:.2}ms, max={:.2}ms", 
+                info!("   Latency: avg={:.2}ms, min={:.2}ms, max={:.2}ms",
                      metrics.latency_stats.avg_latency_ms,
                      metrics.latency_stats.min_latency_ms,
                      metrics.latency_stats.max_latency_ms);
-                
+
                 let elapsed = start_time.elapsed();
                 let rate = total_events as f64 / elapsed.as_secs_f64();
                 info!("   Processing rate: {:.0} events/sec", rate);
             }
-            
+
             _ = strategy_update_interval.tick() => {
                 let metrics = hft_bot.get_metrics().await;
                 info!("🔧 Updating strategy parameters based on performance");
-                
+
                 // In a real implementation, you'd update strategy parameters
                 // based on recent performance metrics
             }
-            
+
             // Generate price updates at high frequency
             _ = tokio::time::sleep(Duration::from_millis(1)) => {
                 // Generate price updates for random symbols
                 let symbol = &symbols[fastrand::usize(0..symbols.len())];
                 if let Some(generator) = price_generators.get_mut(symbol) {
                     let price_update = generator.next_price();
-                    
+
                     if let Err(e) = hft_bot.process_price_event(price_update).await {
                         if !matches!(e, ToolError::Retriable(_)) {
                             error!("Failed to process price event: {}", e);
@@ -645,10 +645,10 @@ impl PriceGenerator {
 
         let random_change = (fastrand::f64() - 0.5) * 2.0; // -1 to 1
         let price_change = self.current_price * (drift * dt + volatility * random_change * dt.sqrt());
-        
+
         self.current_price += price_change;
         self.current_price = self.current_price.max(0.01); // Prevent negative prices
-        
+
         let now = Instant::now();
         self.last_update = now;
 
@@ -677,7 +677,7 @@ mod tests {
     async fn test_hft_bot_creation() {
         let config = HFTConfig::default();
         let bot = HFTBot::new(config);
-        
+
         let metrics = bot.get_metrics().await;
         assert_eq!(metrics.processed_events, 0);
         assert_eq!(metrics.total_trades, 0);
@@ -695,7 +695,7 @@ mod tests {
 
         let positions = HashMap::new();
         let signal = strategy.generate_signal(&prices, &positions);
-        
+
         // Should generate a sell signal due to high price
         if let Some(signal) = signal {
             matches!(signal.action, TradeAction::Sell);
@@ -706,7 +706,7 @@ mod tests {
     async fn test_risk_manager() {
         let limits = RiskLimits::default();
         let risk_manager = RiskManager::new(limits);
-        
+
         let signal = TradingSignal {
             symbol: "TEST".to_string(),
             action: TradeAction::Buy,
@@ -716,7 +716,7 @@ mod tests {
             strategy: "test".to_string(),
             timestamp: Instant::now(),
         };
-        
+
         let positions = HashMap::new();
         let is_valid = risk_manager.validate_trade(&signal, &positions).await;
         assert!(is_valid);
@@ -727,7 +727,7 @@ mod tests {
         let mut generator = PriceGenerator::new("BTC/USD", 50000.0);
         let price1 = generator.next_price();
         let price2 = generator.next_price();
-        
+
         assert_eq!(price1.symbol, "BTC/USD");
         assert!(price1.price > 0.0);
         assert!(price1.bid.is_some());

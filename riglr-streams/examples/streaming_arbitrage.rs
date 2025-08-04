@@ -6,15 +6,15 @@
 //! - React to price changes across chains
 //! - Execute arbitrage opportunities
 
-use std::sync::Arc;
-use riglr_streams::prelude::*;
-use riglr_streams::solana::{SolanaGeyserStream, GeyserConfig};
-use riglr_streams::evm::{EvmWebSocketStream, EvmStreamConfig, ChainId};
-use riglr_streams::external::{BinanceStream, BinanceConfig};
-use riglr_streams::tools::{EventTriggerBuilder, StreamingTool, ConditionCombinator};
-use riglr_streams::tools::condition::EventKindMatcher;
-use riglr_events_core::{Event, EventKind};
 use async_trait::async_trait;
+use riglr_events_core::{Event, EventKind};
+use riglr_streams::evm::{ChainId, EvmStreamConfig, EvmWebSocketStream};
+use riglr_streams::external::{BinanceConfig, BinanceStream};
+use riglr_streams::prelude::*;
+use riglr_streams::solana::{GeyserConfig, SolanaGeyserStream};
+use riglr_streams::tools::condition::EventKindMatcher;
+use riglr_streams::tools::{ConditionCombinator, EventTriggerBuilder, StreamingTool};
+use std::sync::Arc;
 use tracing::info;
 
 /// Example arbitrage tool
@@ -24,19 +24,22 @@ struct ArbitrageBot {
 
 #[async_trait]
 impl StreamingTool for ArbitrageBot {
-    async fn execute(&self, event: &dyn Event) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    async fn execute(
+        &self,
+        event: &dyn Event,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         info!("Arbitrage opportunity detected!");
         info!("Event kind: {:?}", event.kind());
         info!("Event ID: {}", event.id());
-        
+
         // Here you would:
         // 1. Parse the event data
         // 2. Calculate profitability
         // 3. Execute trades if profitable
-        
+
         Ok(())
     }
-    
+
     fn name(&self) -> &str {
         &self.name
     }
@@ -46,20 +49,20 @@ impl StreamingTool for ArbitrageBot {
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Initialize tracing
     tracing_subscriber::fmt::init();
-    
+
     info!("Starting streaming arbitrage bot");
-    
+
     // Create stream manager with concurrent handler execution for better throughput
     // You can choose between:
     // - HandlerExecutionMode::Sequential - preserves order but slower
     // - HandlerExecutionMode::Concurrent - fastest but no ordering guarantees
     // - HandlerExecutionMode::ConcurrentBounded(n) - limited parallelism
     let stream_manager = Arc::new(StreamManager::with_execution_mode(
-        HandlerExecutionMode::ConcurrentBounded(5)
+        HandlerExecutionMode::ConcurrentBounded(5),
     ));
-    
+
     info!("Stream manager configured with bounded concurrent execution (max 5 parallel handlers)");
-    
+
     // Configure and start Solana stream
     let mut solana_stream = SolanaGeyserStream::new("solana-mainnet");
     let solana_config = GeyserConfig {
@@ -71,8 +74,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         buffer_size: 10000,
     };
     solana_stream.start(solana_config).await?;
-    stream_manager.add_stream("solana".to_string(), solana_stream).await?;
-    
+    stream_manager
+        .add_stream("solana".to_string(), solana_stream)
+        .await?;
+
     // Configure and start EVM stream
     let mut evm_stream = EvmWebSocketStream::new("ethereum-mainnet");
     let evm_config = EvmStreamConfig {
@@ -86,8 +91,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         buffer_size: 10000,
     };
     evm_stream.start(evm_config).await?;
-    stream_manager.add_stream("ethereum".to_string(), evm_stream).await?;
-    
+    stream_manager
+        .add_stream("ethereum".to_string(), evm_stream)
+        .await?;
+
     // Configure and start Binance stream
     let mut binance_stream = BinanceStream::new("binance");
     let binance_config = BinanceConfig {
@@ -100,13 +107,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         buffer_size: 10000,
     };
     binance_stream.start(binance_config).await?;
-    stream_manager.add_stream("binance".to_string(), binance_stream).await?;
-    
+    stream_manager
+        .add_stream("binance".to_string(), binance_stream)
+        .await?;
+
     // Create arbitrage bot
     let arb_bot = ArbitrageBot {
         name: "ArbitrageBot".to_string(),
     };
-    
+
     // Create event trigger with conditions using the library's EventKindMatcher
     let _trigger = EventTriggerBuilder::new(arb_bot, "arbitrage-trigger")
         .condition(Box::new(EventKindMatcher::new(vec![
@@ -117,11 +126,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .combinator(ConditionCombinator::Any)
         .register(&stream_manager)
         .await;
-    
+
     info!("Arbitrage bot is running. Press Ctrl+C to stop.");
-    
+
     // Process events (streams are already running)
     stream_manager.process_events().await?;
-    
+
     Ok(())
 }

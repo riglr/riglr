@@ -1,13 +1,13 @@
-use std::any::Any;
-use serde::{Deserialize, Serialize};
+use super::types::{
+    MarginFiBorrowData, MarginFiDepositData, MarginFiLiquidationData, MarginFiRepayData,
+    MarginFiWithdrawData,
+};
 use crate::{
     // UnifiedEvent removed - using Event trait from riglr_events_core
-    types::{TransferData},
+    types::TransferData,
 };
-use super::types::{
-    MarginFiDepositData, MarginFiWithdrawData, MarginFiBorrowData, 
-    MarginFiRepayData, MarginFiLiquidationData
-};
+use serde::{Deserialize, Serialize};
+use std::any::Any;
 
 // Import new Event trait from riglr-events-core
 use riglr_events_core::{Event, EventKind, EventMetadata as CoreEventMetadata};
@@ -86,7 +86,6 @@ impl MarginFiDepositEvent {
     }
 }
 
-
 // New Event trait implementation for MarginFiDepositEvent
 impl Event for MarginFiDepositEvent {
     fn id(&self) -> &str {
@@ -102,9 +101,9 @@ impl Event for MarginFiDepositEvent {
     }
 
     fn metadata(&self) -> &CoreEventMetadata {
-        self.core_metadata.as_ref().unwrap_or_else(|| {
-            panic!("Core metadata not initialized for MarginFiDepositEvent")
-        })
+        self.core_metadata
+            .as_ref()
+            .unwrap_or_else(|| panic!("Core metadata not initialized for MarginFiDepositEvent"))
     }
 
     fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
@@ -117,13 +116,16 @@ impl Event for MarginFiDepositEvent {
                 instruction_index: self.index.parse::<usize>().ok(),
             };
 
-            self.core_metadata = Some(CoreEventMetadata::with_timestamp(
-                self.id.clone(),
-                EventKind::Transfer,
-                "marginfi".to_string(),
-                chrono::DateTime::from_timestamp(self.block_time, 0)
-                    .unwrap_or_else(chrono::Utc::now),
-            ).with_chain_data(chain_data));
+            self.core_metadata = Some(
+                CoreEventMetadata::with_timestamp(
+                    self.id.clone(),
+                    EventKind::Transfer,
+                    "marginfi".to_string(),
+                    chrono::DateTime::from_timestamp(self.block_time, 0)
+                        .unwrap_or_else(chrono::Utc::now),
+                )
+                .with_chain_data(chain_data),
+            );
         }
         self.core_metadata.as_mut().unwrap()
     }
@@ -141,8 +143,7 @@ impl Event for MarginFiDepositEvent {
     }
 
     fn to_json(&self) -> riglr_events_core::error::EventResult<serde_json::Value> {
-        serde_json::to_value(self)
-            .map_err(riglr_events_core::error::EventError::Serialization)
+        serde_json::to_value(self).map_err(riglr_events_core::error::EventError::Serialization)
     }
 }
 
@@ -163,7 +164,6 @@ pub struct MarginFiWithdrawEvent {
     pub core_metadata: Option<CoreEventMetadata>,
 }
 
-
 // New Event trait implementation for MarginFiWithdrawEvent
 impl Event for MarginFiWithdrawEvent {
     fn id(&self) -> &str {
@@ -179,9 +179,9 @@ impl Event for MarginFiWithdrawEvent {
     }
 
     fn metadata(&self) -> &CoreEventMetadata {
-        self.core_metadata.as_ref().unwrap_or_else(|| {
-            panic!("Core metadata not initialized for MarginFiWithdrawEvent")
-        })
+        self.core_metadata
+            .as_ref()
+            .unwrap_or_else(|| panic!("Core metadata not initialized for MarginFiWithdrawEvent"))
     }
 
     fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
@@ -193,13 +193,16 @@ impl Event for MarginFiWithdrawEvent {
                 instruction_index: self.index.parse::<usize>().ok(),
             };
 
-            self.core_metadata = Some(CoreEventMetadata::with_timestamp(
-                self.id.clone(),
-                EventKind::Transfer,
-                "marginfi".to_string(),
-                chrono::DateTime::from_timestamp(self.block_time, 0)
-                    .unwrap_or_else(chrono::Utc::now),
-            ).with_chain_data(chain_data));
+            self.core_metadata = Some(
+                CoreEventMetadata::with_timestamp(
+                    self.id.clone(),
+                    EventKind::Transfer,
+                    "marginfi".to_string(),
+                    chrono::DateTime::from_timestamp(self.block_time, 0)
+                        .unwrap_or_else(chrono::Utc::now),
+                )
+                .with_chain_data(chain_data),
+            );
         }
         self.core_metadata.as_mut().unwrap()
     }
@@ -217,8 +220,7 @@ impl Event for MarginFiWithdrawEvent {
     }
 
     fn to_json(&self) -> riglr_events_core::error::EventResult<serde_json::Value> {
-        serde_json::to_value(self)
-            .map_err(riglr_events_core::error::EventError::Serialization)
+        serde_json::to_value(self).map_err(riglr_events_core::error::EventError::Serialization)
     }
 }
 
@@ -239,7 +241,6 @@ pub struct MarginFiBorrowEvent {
     pub core_metadata: Option<CoreEventMetadata>,
 }
 
-
 /// MarginFi repay event
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MarginFiRepayEvent {
@@ -256,7 +257,6 @@ pub struct MarginFiRepayEvent {
     #[serde(skip)]
     pub core_metadata: Option<CoreEventMetadata>,
 }
-
 
 /// MarginFi liquidation event
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -290,9 +290,9 @@ impl Event for MarginFiBorrowEvent {
     }
 
     fn metadata(&self) -> &CoreEventMetadata {
-        self.core_metadata.as_ref().unwrap_or_else(|| {
-            panic!("Core metadata not initialized for MarginFiBorrowEvent")
-        })
+        self.core_metadata
+            .as_ref()
+            .unwrap_or_else(|| panic!("Core metadata not initialized for MarginFiBorrowEvent"))
     }
 
     fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
@@ -304,13 +304,16 @@ impl Event for MarginFiBorrowEvent {
                 instruction_index: self.index.parse::<usize>().ok(),
             };
 
-            self.core_metadata = Some(CoreEventMetadata::with_timestamp(
-                self.id.clone(),
-                EventKind::Transfer,
-                "marginfi".to_string(),
-                chrono::DateTime::from_timestamp(self.block_time, 0)
-                    .unwrap_or_else(chrono::Utc::now),
-            ).with_chain_data(chain_data));
+            self.core_metadata = Some(
+                CoreEventMetadata::with_timestamp(
+                    self.id.clone(),
+                    EventKind::Transfer,
+                    "marginfi".to_string(),
+                    chrono::DateTime::from_timestamp(self.block_time, 0)
+                        .unwrap_or_else(chrono::Utc::now),
+                )
+                .with_chain_data(chain_data),
+            );
         }
         self.core_metadata.as_mut().unwrap()
     }
@@ -328,8 +331,7 @@ impl Event for MarginFiBorrowEvent {
     }
 
     fn to_json(&self) -> riglr_events_core::error::EventResult<serde_json::Value> {
-        serde_json::to_value(self)
-            .map_err(riglr_events_core::error::EventError::Serialization)
+        serde_json::to_value(self).map_err(riglr_events_core::error::EventError::Serialization)
     }
 }
 
@@ -348,9 +350,9 @@ impl Event for MarginFiRepayEvent {
     }
 
     fn metadata(&self) -> &CoreEventMetadata {
-        self.core_metadata.as_ref().unwrap_or_else(|| {
-            panic!("Core metadata not initialized for MarginFiRepayEvent")
-        })
+        self.core_metadata
+            .as_ref()
+            .unwrap_or_else(|| panic!("Core metadata not initialized for MarginFiRepayEvent"))
     }
 
     fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
@@ -362,13 +364,16 @@ impl Event for MarginFiRepayEvent {
                 instruction_index: self.index.parse::<usize>().ok(),
             };
 
-            self.core_metadata = Some(CoreEventMetadata::with_timestamp(
-                self.id.clone(),
-                EventKind::Transfer,
-                "marginfi".to_string(),
-                chrono::DateTime::from_timestamp(self.block_time, 0)
-                    .unwrap_or_else(chrono::Utc::now),
-            ).with_chain_data(chain_data));
+            self.core_metadata = Some(
+                CoreEventMetadata::with_timestamp(
+                    self.id.clone(),
+                    EventKind::Transfer,
+                    "marginfi".to_string(),
+                    chrono::DateTime::from_timestamp(self.block_time, 0)
+                        .unwrap_or_else(chrono::Utc::now),
+                )
+                .with_chain_data(chain_data),
+            );
         }
         self.core_metadata.as_mut().unwrap()
     }
@@ -386,8 +391,7 @@ impl Event for MarginFiRepayEvent {
     }
 
     fn to_json(&self) -> riglr_events_core::error::EventResult<serde_json::Value> {
-        serde_json::to_value(self)
-            .map_err(riglr_events_core::error::EventError::Serialization)
+        serde_json::to_value(self).map_err(riglr_events_core::error::EventError::Serialization)
     }
 }
 
@@ -406,9 +410,9 @@ impl Event for MarginFiLiquidationEvent {
     }
 
     fn metadata(&self) -> &CoreEventMetadata {
-        self.core_metadata.as_ref().unwrap_or_else(|| {
-            panic!("Core metadata not initialized for MarginFiLiquidationEvent")
-        })
+        self.core_metadata
+            .as_ref()
+            .unwrap_or_else(|| panic!("Core metadata not initialized for MarginFiLiquidationEvent"))
     }
 
     fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
@@ -420,13 +424,16 @@ impl Event for MarginFiLiquidationEvent {
                 instruction_index: self.index.parse::<usize>().ok(),
             };
 
-            self.core_metadata = Some(CoreEventMetadata::with_timestamp(
-                self.id.clone(),
-                EventKind::Transfer,
-                "marginfi".to_string(),
-                chrono::DateTime::from_timestamp(self.block_time, 0)
-                    .unwrap_or_else(chrono::Utc::now),
-            ).with_chain_data(chain_data));
+            self.core_metadata = Some(
+                CoreEventMetadata::with_timestamp(
+                    self.id.clone(),
+                    EventKind::Transfer,
+                    "marginfi".to_string(),
+                    chrono::DateTime::from_timestamp(self.block_time, 0)
+                        .unwrap_or_else(chrono::Utc::now),
+                )
+                .with_chain_data(chain_data),
+            );
         }
         self.core_metadata.as_mut().unwrap()
     }
@@ -444,7 +451,6 @@ impl Event for MarginFiLiquidationEvent {
     }
 
     fn to_json(&self) -> riglr_events_core::error::EventResult<serde_json::Value> {
-        serde_json::to_value(self)
-            .map_err(riglr_events_core::error::EventError::Serialization)
+        serde_json::to_value(self).map_err(riglr_events_core::error::EventError::Serialization)
     }
 }

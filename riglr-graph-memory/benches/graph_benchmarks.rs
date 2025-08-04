@@ -48,7 +48,9 @@ fn document_benchmarks(c: &mut Criterion) {
                 extraction_confidence: Some(0.9),
                 custom_fields: std::collections::HashMap::new(),
             };
-            metadata.custom_fields.insert("key1".to_string(), json!("value1"));
+            metadata
+                .custom_fields
+                .insert("key1".to_string(), json!("value1"));
             metadata.custom_fields.insert("key2".to_string(), json!(42));
             black_box(metadata)
         })
@@ -69,14 +71,14 @@ fn entity_extractor_benchmarks(c: &mut Criterion) {
 
     group.bench_function("pattern_matching", |b| {
         let text = "0x742d35Cc6634C0532925a3b844Bc9e7595f0eA4B swapped 100 USDC for ETH on Uniswap";
-        
+
         b.iter(|| {
             let patterns = vec![
-                r"0x[a-fA-F0-9]{40}",  // Ethereum addresses
-                r"\b\d+\.\d+\b",       // Decimal numbers
-                r"\b[A-Z]{2,5}\b",     // Token symbols
+                r"0x[a-fA-F0-9]{40}", // Ethereum addresses
+                r"\b\d+\.\d+\b",      // Decimal numbers
+                r"\b[A-Z]{2,5}\b",    // Token symbols
             ];
-            
+
             for pattern in &patterns {
                 let regex = regex::Regex::new(pattern).unwrap();
                 let matches: Vec<_> = regex.find_iter(black_box(text)).collect();

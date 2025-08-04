@@ -13,8 +13,14 @@ use testcontainers_modules::redis::Redis;
 #[tokio::test]
 async fn test_redis_idempotency_store_operations() {
     let redis_image = Redis::default();
-    let container = redis_image.start().await.expect("Failed to start Redis container");
-    let port = container.get_host_port_ipv4(6379).await.expect("Failed to get port");
+    let container = redis_image
+        .start()
+        .await
+        .expect("Failed to start Redis container");
+    let port = container
+        .get_host_port_ipv4(6379)
+        .await
+        .expect("Failed to get port");
     let redis_url = format!("redis://127.0.0.1:{}", port);
 
     // Create Redis idempotency store
@@ -47,8 +53,14 @@ async fn test_redis_idempotency_store_operations() {
 #[tokio::test]
 async fn test_redis_idempotency_store_expiry() {
     let redis_image = Redis::default();
-    let container = redis_image.start().await.expect("Failed to start Redis container");
-    let port = container.get_host_port_ipv4(6379).await.expect("Failed to get port");
+    let container = redis_image
+        .start()
+        .await
+        .expect("Failed to start Redis container");
+    let port = container
+        .get_host_port_ipv4(6379)
+        .await
+        .expect("Failed to get port");
     let redis_url = format!("redis://127.0.0.1:{}", port);
 
     let store = RedisIdempotencyStore::new(&redis_url, None)
@@ -76,8 +88,14 @@ async fn test_redis_idempotency_store_expiry() {
 #[tokio::test]
 async fn test_redis_queue_operations() {
     let redis_image = Redis::default();
-    let container = redis_image.start().await.expect("Failed to start Redis container");
-    let port = container.get_host_port_ipv4(6379).await.expect("Failed to get port");
+    let container = redis_image
+        .start()
+        .await
+        .expect("Failed to start Redis container");
+    let port = container
+        .get_host_port_ipv4(6379)
+        .await
+        .expect("Failed to get port");
     let redis_url = format!("redis://127.0.0.1:{}", port);
 
     // Create Redis job queue
@@ -103,8 +121,14 @@ async fn test_redis_queue_operations() {
 #[tokio::test]
 async fn test_redis_queue_fifo_order() {
     let redis_image = Redis::default();
-    let container = redis_image.start().await.expect("Failed to start Redis container");
-    let port = container.get_host_port_ipv4(6379).await.expect("Failed to get port");
+    let container = redis_image
+        .start()
+        .await
+        .expect("Failed to start Redis container");
+    let port = container
+        .get_host_port_ipv4(6379)
+        .await
+        .expect("Failed to get port");
     let redis_url = format!("redis://127.0.0.1:{}", port);
 
     let queue =
@@ -134,8 +158,14 @@ async fn test_redis_queue_fifo_order() {
 #[ignore] // Long-running concurrent test
 async fn test_redis_queue_concurrent_operations() {
     let redis_image = Redis::default();
-    let container = redis_image.start().await.expect("Failed to start Redis container");
-    let port = container.get_host_port_ipv4(6379).await.expect("Failed to get port");
+    let container = redis_image
+        .start()
+        .await
+        .expect("Failed to start Redis container");
+    let port = container
+        .get_host_port_ipv4(6379)
+        .await
+        .expect("Failed to get port");
     let redis_url = format!("redis://127.0.0.1:{}", port);
 
     let queue = Arc::new(
@@ -172,8 +202,14 @@ async fn test_redis_queue_concurrent_operations() {
 #[ignore] // Long-running concurrent test
 async fn test_redis_idempotency_concurrent_access() {
     let redis_image = Redis::default();
-    let container = redis_image.start().await.expect("Failed to start Redis container");
-    let port = container.get_host_port_ipv4(6379).await.expect("Failed to get port");
+    let container = redis_image
+        .start()
+        .await
+        .expect("Failed to start Redis container");
+    let port = container
+        .get_host_port_ipv4(6379)
+        .await
+        .expect("Failed to get port");
     let redis_url = format!("redis://127.0.0.1:{}", port);
 
     let store = Arc::new(
@@ -232,8 +268,14 @@ async fn test_redis_error_handling() {
 #[tokio::test]
 async fn test_redis_custom_prefix() {
     let redis_image = Redis::default();
-    let container = redis_image.start().await.expect("Failed to start Redis container");
-    let port = container.get_host_port_ipv4(6379).await.expect("Failed to get port");
+    let container = redis_image
+        .start()
+        .await
+        .expect("Failed to start Redis container");
+    let port = container
+        .get_host_port_ipv4(6379)
+        .await
+        .expect("Failed to get port");
     let redis_url = format!("redis://127.0.0.1:{}", port);
 
     // Test with custom prefix

@@ -1,15 +1,15 @@
 //! Parsing pipeline orchestration for high-throughput event processing
-//! 
+//!
 //! This module provides a configurable pipeline for parsing Solana transaction data
 //! with support for batching, parallel processing, and backpressure handling.
 
+use crate::types::{EventMetadata, ProtocolType};
+use crate::zero_copy::{BatchEventParser, ByteSliceEventParser, ParseError, ZeroCopyEvent};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::{mpsc, Semaphore};
 use tokio_stream::{Stream, StreamExt};
-use crate::zero_copy::{ByteSliceEventParser, BatchEventParser, ZeroCopyEvent, ParseError};
-use crate::types::{EventMetadata, ProtocolType};
 
 /// Configuration for the parsing pipeline
 #[derive(Debug, Clone)]
@@ -152,7 +152,7 @@ impl ParsingPipeline {
     {
         let mut batch = Vec::new();
         let mut batch_timer = tokio::time::interval(self.config.batch_timeout);
-        
+
         loop {
             tokio::select! {
                 // Collect inputs into batches
@@ -160,7 +160,7 @@ impl ParsingPipeline {
                     match input_opt {
                         Some(input) => {
                             batch.push(input);
-                            
+
                             // Process batch if it reaches max size
                             if batch.len() >= self.config.max_batch_size {
                                 self.process_batch(std::mem::take(&mut batch)).await?;
@@ -175,7 +175,7 @@ impl ParsingPipeline {
                         }
                     }
                 }
-                
+
                 // Process batch on timeout
                 _ = batch_timer.tick() => {
                     if !batch.is_empty() {
@@ -195,7 +195,11 @@ impl ParsingPipeline {
         }
 
         // Acquire semaphore permit for concurrency control
-        let _permit = self.semaphore.acquire().await.map_err(|_| PipelineError::SemaphoreError(()))?;
+        let _permit = self
+            .semaphore
+            .acquire()
+            .await
+            .map_err(|_| PipelineError::SemaphoreError(()))?;
 
         let start_time = Instant::now();
         let mut total_bytes = 0;
@@ -204,12 +208,16 @@ impl ParsingPipeline {
         let mut parser_metrics = HashMap::new();
 
         // Prepare batch data for parsing
-        let batch_data: Vec<&[u8]> = batch.iter().map(|input| {
-            total_bytes += input.data.len();
-            input.data.as_slice()
-        }).collect();
+        let batch_data: Vec<&[u8]> = batch
+            .iter()
+            .map(|input| {
+                total_bytes += input.data.len();
+                input.data.as_slice()
+            })
+            .collect();
 
-        let batch_metadata: Vec<EventMetadata> = batch.iter().map(|input| input.metadata.clone()).collect();
+        let batch_metadata: Vec<EventMetadata> =
+            batch.iter().map(|input| input.metadata.clone()).collect();
 
         // Parse the batch
         match self.batch_parser.parse_batch(&batch_data, batch_metadata) {
@@ -226,20 +234,28 @@ impl ParsingPipeline {
 
         // Calculate metrics
         let processing_time = start_time.elapsed();
-        
+
         if self.config.enable_metrics {
             // Collect parser-specific metrics
-            for protocol in [ProtocolType::RaydiumAmmV4, ProtocolType::Jupiter, ProtocolType::PumpSwap] {
-                let events_count = all_events.iter()
+            for protocol in [
+                ProtocolType::RaydiumAmmV4,
+                ProtocolType::Jupiter,
+                ProtocolType::PumpSwap,
+            ] {
+                let events_count = all_events
+                    .iter()
                     .filter(|e| e.protocol_type() == protocol)
                     .count();
-                
+
                 if events_count > 0 {
-                    parser_metrics.insert(protocol, ParserMetrics {
-                        parse_time: processing_time / events_count as u32,
-                        events_count,
-                        success_rate: if all_errors.is_empty() { 1.0 } else { 0.8 }, // Simplified calculation
-                    });
+                    parser_metrics.insert(
+                        protocol,
+                        ParserMetrics {
+                            parse_time: processing_time / events_count as u32,
+                            events_count,
+                            success_rate: if all_errors.is_empty() { 1.0 } else { 0.8 }, // Simplified calculation
+                        },
+                    );
                 }
             }
         }
@@ -259,7 +275,9 @@ impl ParsingPipeline {
             errors: all_errors,
         };
 
-        self.output_sender.send(output).map_err(|_| PipelineError::ChannelError)?;
+        self.output_sender
+            .send(output)
+            .map_err(|_| PipelineError::ChannelError)?;
 
         Ok(())
     }
@@ -275,7 +293,7 @@ impl ParsingPipeline {
     /// Get pipeline statistics
     pub fn get_stats(&self) -> PipelineStats {
         let batch_stats = self.batch_parser.get_stats();
-        
+
         PipelineStats {
             max_batch_size: self.config.max_batch_size,
             max_concurrent_tasks: self.config.max_concurrent_tasks,
@@ -299,13 +317,13 @@ pub struct PipelineStats {
 pub enum PipelineError {
     #[error("Semaphore error")]
     SemaphoreError(()),
-    
+
     #[error("Channel error")]
     ChannelError,
-    
+
     #[error("Parse error: {0}")]
     ParseError(#[from] ParseError),
-    
+
     #[error("Configuration error: {0}")]
     ConfigError(String),
 }
@@ -364,12 +382,12 @@ impl ParsingPipelineBuilder {
     /// Build the parsing pipeline
     pub fn build(self) -> ParsingPipeline {
         let mut pipeline = ParsingPipeline::new(self.config);
-        
+
         // Add all parsers
         for parser in self.parsers {
             pipeline.add_parser(parser);
         }
-        
+
         pipeline
     }
 }
@@ -383,7 +401,7 @@ impl Default for ParsingPipelineBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::parsers::{RaydiumV4ParserFactory, JupiterParserFactory};
+    use crate::parsers::{JupiterParserFactory, RaydiumV4ParserFactory};
 
     #[tokio::test]
     async fn test_pipeline_builder() {

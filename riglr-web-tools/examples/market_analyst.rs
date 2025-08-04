@@ -1,14 +1,14 @@
 //! Example: Market Analyst Agent
 //!
-//! This example demonstrates how to use riglr-web-tools to create a comprehensive 
-//! market analysis agent that can gather data from multiple sources and provide 
+//! This example demonstrates how to use riglr-web-tools to create a comprehensive
+//! market analysis agent that can gather data from multiple sources and provide
 //! actionable insights.
 
+use riglr_web_tools::dexscreener::{ChainInfo, SecurityInfo};
 use riglr_web_tools::{
-    analyze_crypto_sentiment, get_token_info, get_trending_tokens, search_tweets,
-    analyze_market_sentiment,
+    analyze_crypto_sentiment, analyze_market_sentiment, get_token_info, get_trending_tokens,
+    search_tweets,
 };
-use riglr_web_tools::dexscreener::{SecurityInfo, ChainInfo};
 use std::env;
 
 /// Market analysis results combining multiple data sources
@@ -35,9 +35,7 @@ async fn main() -> anyhow::Result<()> {
     println!("Combining Web Tools and Solana Tools for comprehensive analysis\n");
 
     // Get token to analyze from command line or use default
-    let token = env::args()
-        .nth(1)
-        .unwrap_or_else(|| "SOL".to_string());
+    let token = env::args().nth(1).unwrap_or_else(|| "SOL".to_string());
 
     println!("📊 Analyzing token: {}\n", token);
 
@@ -65,7 +63,7 @@ async fn main() -> anyhow::Result<()> {
 /// Perform comprehensive analysis of a token
 async fn perform_full_analysis(symbol: &str) -> anyhow::Result<MarketAnalysis> {
     println!("1️⃣ Fetching token information from DexScreener...");
-    
+
     // Get token info from DexScreener
     let token_info = match get_token_info(symbol.to_string(), None, None, None).await {
         Ok(info) => info,
@@ -108,16 +106,21 @@ async fn perform_full_analysis(symbol: &str) -> anyhow::Result<MarketAnalysis> {
     };
 
     println!("   ✅ Price: ${:.4}", token_info.price_usd.unwrap_or(0.0));
-    println!("   ✅ Market Cap: ${:.0}", token_info.market_cap.unwrap_or(0.0));
+    println!(
+        "   ✅ Market Cap: ${:.0}",
+        token_info.market_cap.unwrap_or(0.0)
+    );
 
     println!("\n2️⃣ Analyzing social sentiment on Twitter...");
-    
+
     // Analyze Twitter sentiment
     let sentiment = match analyze_crypto_sentiment(
         symbol.to_string(),
-        Some(24),  // Last 24 hours
-        Some(50),  // Min engagement threshold
-    ).await {
+        Some(24), // Last 24 hours
+        Some(50), // Min engagement threshold
+    )
+    .await
+    {
         Ok(s) => s,
         Err(e) => {
             println!("   ⚠️ Could not analyze Twitter sentiment: {}", e);
@@ -140,18 +143,26 @@ async fn perform_full_analysis(symbol: &str) -> anyhow::Result<MarketAnalysis> {
         }
     };
 
-    println!("   ✅ Overall Sentiment: {:.2}", sentiment.overall_sentiment);
-    println!("   ✅ Positive: {:.1}%", sentiment.sentiment_breakdown.positive_pct);
+    println!(
+        "   ✅ Overall Sentiment: {:.2}",
+        sentiment.overall_sentiment
+    );
+    println!(
+        "   ✅ Positive: {:.1}%",
+        sentiment.sentiment_breakdown.positive_pct
+    );
 
     println!("\n3️⃣ Checking news sentiment...");
-    
+
     // Get news sentiment
     let news_sentiment = match analyze_market_sentiment(
-        Some("48h".to_string()),  // Time window
-        Some(vec![symbol.to_string()]),  // Asset filter
-        None,  // Source weights
-        None,  // Include social
-    ).await {
+        Some("48h".to_string()),        // Time window
+        Some(vec![symbol.to_string()]), // Asset filter
+        None,                           // Source weights
+        None,                           // Include social
+    )
+    .await
+    {
         Ok(s) => s.overall_sentiment,
         Err(e) => {
             println!("   ⚠️ Could not analyze news sentiment: {}", e);
@@ -162,7 +173,7 @@ async fn perform_full_analysis(symbol: &str) -> anyhow::Result<MarketAnalysis> {
     println!("   ✅ News Sentiment: {:.2}", news_sentiment);
 
     println!("\n4️⃣ Checking DEX liquidity from token info...");
-    
+
     // Use token info to estimate liquidity
     let dex_liquidity = if let Some(volume) = token_info.volume_24h {
         if volume > 1_000_000.0 {
@@ -179,20 +190,20 @@ async fn perform_full_analysis(symbol: &str) -> anyhow::Result<MarketAnalysis> {
     println!("   ✅ DEX Liquidity Score: {:.2}", dex_liquidity);
 
     println!("\n5️⃣ Checking if token is trending...");
-    
+
     // Check if token is trending
     let trending_rank = match get_trending_tokens(
-        Some("1h".to_string()),  // Time window
-        Some("solana".to_string()),  // Chain filter
-        None,  // Min volume
-        Some(100),  // Limit
-    ).await {
-        Ok(trending) => {
-            trending
-                .iter()
-                .position(|t| t.symbol.to_lowercase() == symbol.to_lowercase())
-                .map(|pos| (pos + 1) as u32)
-        }
+        Some("1h".to_string()),     // Time window
+        Some("solana".to_string()), // Chain filter
+        None,                       // Min volume
+        Some(100),                  // Limit
+    )
+    .await
+    {
+        Ok(trending) => trending
+            .iter()
+            .position(|t| t.symbol.to_lowercase() == symbol.to_lowercase())
+            .map(|pos| (pos + 1) as u32),
         Err(_) => None,
     };
 
@@ -235,11 +246,13 @@ async fn perform_full_analysis(symbol: &str) -> anyhow::Result<MarketAnalysis> {
 async fn find_trending_opportunities() -> anyhow::Result<()> {
     // Get trending tokens from DexScreener
     let trending = match get_trending_tokens(
-        Some("1h".to_string()),  // Time window
-        None,      // All chains
-        None,      // Min volume
-        Some(10),  // Top 10
-    ).await {
+        Some("1h".to_string()), // Time window
+        None,                   // All chains
+        None,                   // Min volume
+        Some(10),               // Top 10
+    )
+    .await
+    {
         Ok(t) => t,
         Err(e) => {
             println!("Could not fetch trending tokens: {}", e);
@@ -250,9 +263,12 @@ async fn find_trending_opportunities() -> anyhow::Result<()> {
     for (idx, token) in trending.iter().take(5).enumerate() {
         println!("{}. {} ({})", idx + 1, token.symbol, token.chain.id);
         println!("   Price: ${:.6}", token.price_usd.unwrap_or(0.0));
-        println!("   24h Change: {:.1}%", token.price_change_24h.unwrap_or(0.0));
+        println!(
+            "   24h Change: {:.1}%",
+            token.price_change_24h.unwrap_or(0.0)
+        );
         println!("   Volume: ${:.0}", token.volume_24h.unwrap_or(0.0));
-        
+
         // Quick sentiment check
         if let Ok(tweets) = search_tweets(
             format!("${}", token.symbol),
@@ -261,10 +277,12 @@ async fn find_trending_opportunities() -> anyhow::Result<()> {
             None,
             None,
             None,
-        ).await {
+        )
+        .await
+        {
             println!("   Twitter mentions: {}", tweets.tweets.len());
         }
-        
+
         println!();
     }
 
@@ -274,16 +292,18 @@ async fn find_trending_opportunities() -> anyhow::Result<()> {
 /// Monitor sentiment shifts across multiple tokens
 async fn monitor_sentiment_shifts() -> anyhow::Result<()> {
     let tokens = vec!["BTC", "ETH", "SOL"];
-    
+
     for token in tokens {
         println!("Analyzing sentiment for {}...", token);
-        
+
         // Get current sentiment
         match analyze_crypto_sentiment(
             token.to_string(),
-            Some(6),   // Last 6 hours
-            Some(20),  // Lower threshold for faster results
-        ).await {
+            Some(6),  // Last 6 hours
+            Some(20), // Lower threshold for faster results
+        )
+        .await
+        {
             Ok(sentiment) => {
                 let sentiment_emoji = if sentiment.overall_sentiment > 0.6 {
                     "🟢"
@@ -292,8 +312,9 @@ async fn monitor_sentiment_shifts() -> anyhow::Result<()> {
                 } else {
                     "🔴"
                 };
-                
-                println!("  {} {} Sentiment: {:.2} ({:.0}% positive)",
+
+                println!(
+                    "  {} {} Sentiment: {:.2} ({:.0}% positive)",
                     sentiment_emoji,
                     token,
                     sentiment.overall_sentiment,
@@ -312,49 +333,48 @@ async fn monitor_sentiment_shifts() -> anyhow::Result<()> {
 /// Scan for potential arbitrage opportunities
 async fn scan_arbitrage_opportunities() -> anyhow::Result<()> {
     println!("Scanning DEX prices across chains...\n");
-    
+
     // In a real implementation, this would compare prices across multiple DEXs
     // For demo purposes, we'll show the concept
-    
+
     let tokens = vec![
         ("USDC", "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"),
         ("USDT", "0xdAC17F958D2ee523a2206206994597C13D831ec7"),
     ];
-    
+
     for (symbol, address) in tokens {
         println!("Checking {} arbitrage opportunities:", symbol);
-        
+
         // Get price on Ethereum
         if let Ok(eth_info) = get_token_info(
             address.to_string(),
             Some("ethereum".to_string()),
             None,
             None,
-        ).await {
+        )
+        .await
+        {
             println!("  Ethereum: ${:.4}", eth_info.price_usd.unwrap_or(0.0));
         }
-        
+
         // Get price on other chains (would need different addresses in reality)
-        if let Ok(bsc_info) = get_token_info(
-            address.to_string(),
-            Some("bsc".to_string()),
-            None,
-            None,
-        ).await {
+        if let Ok(bsc_info) =
+            get_token_info(address.to_string(), Some("bsc".to_string()), None, None).await
+        {
             println!("  BSC: ${:.4}", bsc_info.price_usd.unwrap_or(0.0));
-            
+
             // Calculate potential arbitrage
             // In reality, would need to account for gas fees, slippage, etc.
         }
-        
+
         println!();
     }
-    
+
     println!("ℹ️ Note: Real arbitrage detection requires accounting for:");
     println!("  - Gas fees on each chain");
     println!("  - Slippage and liquidity");
     println!("  - Bridge fees and time");
-    
+
     Ok(())
 }
 
@@ -367,11 +387,11 @@ fn calculate_risk_score(
 ) -> f64 {
     let sentiment_score = (social_sentiment + news_sentiment) / 2.0;
     let volatility_risk = (price_change_24h.abs() / 100.0).min(1.0);
-    
+
     // Higher sentiment and liquidity = lower risk
     // Higher volatility = higher risk
     let risk = 1.0 - (sentiment_score * 0.4 + liquidity * 0.4 - volatility_risk * 0.2);
-    
+
     (risk * 100.0).clamp(0.0, 100.0)
 }
 
@@ -383,7 +403,7 @@ fn generate_recommendation(
     price_change: f64,
 ) -> String {
     let mut recommendation = String::new();
-    
+
     if risk_score < 30.0 && sentiment > 0.7 {
         recommendation.push_str("🟢 STRONG BUY - ");
         recommendation.push_str("Low risk with very positive sentiment. ");
@@ -397,17 +417,17 @@ fn generate_recommendation(
         recommendation.push_str("🟡 HOLD/WATCH - ");
         recommendation.push_str("Mixed signals, monitor closely. ");
     }
-    
+
     if let Some(rank) = trending_rank {
         if rank <= 10 {
             recommendation.push_str(&format!("Currently trending (#{})! ", rank));
         }
     }
-    
+
     if price_change.abs() > 20.0 {
         recommendation.push_str("High volatility detected. ");
     }
-    
+
     recommendation
 }
 
@@ -416,37 +436,47 @@ fn print_analysis_report(analysis: &MarketAnalysis) {
     println!("\n{}", "=".repeat(60));
     println!("📊 MARKET ANALYSIS REPORT: {}", analysis.token_symbol);
     println!("{}", "=".repeat(60));
-    
+
     println!("\n💵 PRICE METRICS:");
     println!("  • Current Price: ${:.4}", analysis.price_usd);
     println!("  • Market Cap: ${:.0}", analysis.market_cap);
     println!("  • 24h Volume: ${:.0}", analysis.volume_24h);
-    
+
     println!("\n🎭 SENTIMENT ANALYSIS:");
-    println!("  • Social Sentiment: {:.2} ({})",
+    println!(
+        "  • Social Sentiment: {:.2} ({})",
         analysis.social_sentiment,
-        if analysis.social_sentiment > 0.6 { "Positive" } 
-        else if analysis.social_sentiment > 0.4 { "Neutral" }
-        else { "Negative" }
+        if analysis.social_sentiment > 0.6 {
+            "Positive"
+        } else if analysis.social_sentiment > 0.4 {
+            "Neutral"
+        } else {
+            "Negative"
+        }
     );
     println!("  • News Sentiment: {:.2}", analysis.news_sentiment);
-    
+
     println!("\n📈 MARKET POSITION:");
     println!("  • DEX Liquidity Score: {:.2}", analysis.dex_liquidity);
     if let Some(rank) = analysis.trending_rank {
         println!("  • Trending Rank: #{}", rank);
     }
-    
+
     println!("\n⚠️ RISK ASSESSMENT:");
     println!("  • Risk Score: {:.0}/100", analysis.risk_score);
-    println!("  • Risk Level: {}",
-        if analysis.risk_score < 30.0 { "Low" }
-        else if analysis.risk_score < 60.0 { "Medium" }
-        else { "High" }
+    println!(
+        "  • Risk Level: {}",
+        if analysis.risk_score < 30.0 {
+            "Low"
+        } else if analysis.risk_score < 60.0 {
+            "Medium"
+        } else {
+            "High"
+        }
     );
-    
+
     println!("\n💡 RECOMMENDATION:");
     println!("  {}", analysis.recommendation);
-    
+
     println!("\n{}", "=".repeat(60));
 }

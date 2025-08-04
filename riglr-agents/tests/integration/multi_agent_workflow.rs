@@ -185,14 +185,14 @@ async fn test_basic_multi_agent_workflow() {
     // Execute workflow: risk analysis first, then trading
     let risk_result = dispatcher.dispatch_task(risk_task).await.unwrap();
     assert!(risk_result.is_success());
-    
+
     let risk_data = risk_result.data().unwrap();
     let approved = risk_data.get("approved").and_then(|v| v.as_bool()).unwrap_or(false);
-    
+
     if approved {
         let trade_result = dispatcher.dispatch_task(trading_task).await.unwrap();
         assert!(trade_result.is_success());
-        
+
         let trade_data = trade_result.data().unwrap();
         assert_eq!(trade_data.get("status").and_then(|v| v.as_str()).unwrap(), "completed");
     }
@@ -287,7 +287,7 @@ async fn test_dependent_task_workflow() {
 
     let research_result = dispatcher.dispatch_task(research_task).await.unwrap();
     assert!(research_result.is_success());
-    
+
     let research_data = research_result.data().unwrap();
     let recommendation = research_data.get("data")
         .and_then(|d| d.get("recommendation"))
@@ -303,7 +303,7 @@ async fn test_dependent_task_workflow() {
 
         let risk_result = dispatcher.dispatch_task(risk_task).await.unwrap();
         assert!(risk_result.is_success());
-        
+
         let risk_data = risk_result.data().unwrap();
         let approved = risk_data.get("approved").and_then(|v| v.as_bool()).unwrap();
 
@@ -320,7 +320,7 @@ async fn test_dependent_task_workflow() {
 
             let trade_result = dispatcher.dispatch_task(trade_task).await.unwrap();
             assert!(trade_result.is_success());
-            
+
             let trade_data = trade_result.data().unwrap();
             assert!(trade_data.get("tx_hash").is_some());
         }
@@ -451,7 +451,7 @@ async fn test_complex_multi_stage_workflow() {
 
         let trade_result = dispatcher.dispatch_task(trade_task).await.unwrap();
         assert!(trade_result.is_success());
-        
+
         // Verify trade execution
         let trade_data = trade_result.data().unwrap();
         assert_eq!(trade_data.get("symbol").unwrap().as_str().unwrap(), "ETH/USD");
@@ -498,7 +498,7 @@ async fn test_workflow_load_balancing() {
         .collect();
 
     let results = dispatcher.dispatch_tasks(tasks).await;
-    
+
     // All tasks should complete successfully
     assert_eq!(results.len(), 4);
     assert!(results.iter().all(|r| r.is_ok()));
@@ -648,10 +648,10 @@ async fn test_high_throughput_workflow() {
     // Verify results
     assert_eq!(results.len(), task_count);
     let success_count = results.iter().filter(|r| r.is_ok()).count();
-    
-    println!("Executed {} tasks in {:?}, {} successful", 
+
+    println!("Executed {} tasks in {:?}, {} successful",
              task_count, execution_time, success_count);
-    
+
     // Should handle high throughput efficiently
     assert!(execution_time < Duration::from_secs(5));
     assert!(success_count > task_count * 95 / 100); // At least 95% success rate

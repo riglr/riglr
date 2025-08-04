@@ -1,15 +1,15 @@
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use std::time::SystemTime;
 use tokio::sync::{broadcast, RwLock};
 use tokio_tungstenite::connect_async;
 use tracing::info;
 
-use riglr_events_core::prelude::{Event, EventKind, EventMetadata};
-use chrono::Utc;
-use serde::Serialize;
 use crate::core::StreamMetadata;
 use crate::core::{Stream, StreamError, StreamEvent, StreamHealth};
+use chrono::Utc;
+use riglr_events_core::prelude::{Event, EventKind, EventMetadata};
+use serde::Serialize;
 
 /// EVM Chain ID enumeration
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Deserialize, serde::Serialize)]
@@ -119,31 +119,31 @@ impl Event for EvmStreamEvent {
     fn id(&self) -> &str {
         &self.metadata.id
     }
-    
+
     fn kind(&self) -> &EventKind {
         &self.metadata.kind
     }
-    
+
     fn metadata(&self) -> &EventMetadata {
         &self.metadata
     }
-    
+
     fn metadata_mut(&mut self) -> &mut EventMetadata {
         &mut self.metadata
     }
-    
+
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
-    
+
     fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
         self
     }
-    
+
     fn clone_boxed(&self) -> Box<dyn Event> {
         Box::new(self.clone())
     }
-    
+
     fn to_json(&self) -> riglr_events_core::EventResult<serde_json::Value> {
         Ok(serde_json::json!({
             "metadata": self.metadata,
@@ -161,62 +161,65 @@ impl Event for EvmStreamEvent {
 impl Stream for EvmWebSocketStream {
     type Event = EvmStreamEvent;
     type Config = EvmStreamConfig;
-    
+
     async fn start(&mut self, config: Self::Config) -> Result<(), StreamError> {
         if self.running.load(Ordering::Relaxed) {
-            return Err(StreamError::AlreadyRunning { 
-                name: self.name.clone() 
+            return Err(StreamError::AlreadyRunning {
+                name: self.name.clone(),
             });
         }
-        
-        info!("Starting EVM WebSocket stream for chain {}: {}", config.chain_id, config.ws_url);
-        
+
+        info!(
+            "Starting EVM WebSocket stream for chain {}: {}",
+            config.chain_id, config.ws_url
+        );
+
         self.config = config;
         self.running.store(true, Ordering::Relaxed);
-        
+
         // Update health status
         {
             let mut health = self.health.write().await;
             health.is_connected = true;
             health.last_event_time = Some(SystemTime::now());
         }
-        
+
         // Start WebSocket connection
         self.start_websocket().await?;
-        
+
         Ok(())
     }
-    
+
     async fn stop(&mut self) -> Result<(), StreamError> {
         if !self.running.load(Ordering::Relaxed) {
             return Ok(());
         }
-        
+
         info!("Stopping EVM WebSocket stream");
         self.running.store(false, Ordering::Relaxed);
-        
+
         // Update health status
         {
             let mut health = self.health.write().await;
             health.is_connected = false;
         }
-        
+
         Ok(())
     }
-    
+
     fn subscribe(&self) -> broadcast::Receiver<Arc<Self::Event>> {
         self.event_tx.subscribe()
     }
-    
+
     fn is_running(&self) -> bool {
         self.running.load(Ordering::Relaxed)
     }
-    
+
     async fn health(&self) -> StreamHealth {
         let health = self.health.read().await;
         health.clone()
     }
-    
+
     fn name(&self) -> &str {
         &self.name
     }
@@ -226,7 +229,7 @@ impl EvmWebSocketStream {
     /// Create a new EVM WebSocket stream
     pub fn new(name: impl Into<String>) -> Self {
         let (event_tx, _) = broadcast::channel(10000);
-        
+
         Self {
             config: EvmStreamConfig::default(),
             event_tx,
@@ -235,7 +238,7 @@ impl EvmWebSocketStream {
             name: name.into(),
         }
     }
-    
+
     /// Start the WebSocket connection with resilience
     async fn start_websocket(&self) -> Result<(), StreamError> {
         let url = self.config.ws_url.clone();
@@ -245,7 +248,7 @@ impl EvmWebSocketStream {
         let stream_name = self.name.clone();
         let chain_id = self.config.chain_id;
         let config = self.config.clone();
-        
+
         tokio::spawn(async move {
             crate::impl_resilient_websocket!(
                 stream_name,
@@ -258,7 +261,8 @@ impl EvmWebSocketStream {
                 || {
                     let url = url.clone();
                     async move {
-                        connect_async(&url).await
+                        connect_async(&url)
+                            .await
                             .map(|(ws, _)| ws)
                             .map_err(|e| format!("Failed to connect: {}", e))
                     }
@@ -280,56 +284,61 @@ impl EvmWebSocketStream {
                 }
             );
         });
-        
+
         Ok(())
     }
-    
+
     /// Parse a WebSocket message into an event
-    fn parse_websocket_message(json: serde_json::Value, sequence_number: u64, chain_id: ChainId) -> Option<EvmStreamEvent> {
+    fn parse_websocket_message(
+        json: serde_json::Value,
+        sequence_number: u64,
+        chain_id: ChainId,
+    ) -> Option<EvmStreamEvent> {
         // Check if this is a subscription notification
         let params = json.get("params")?;
         let subscription = params.get("subscription")?.as_str()?;
         let result = params.get("result")?;
-        
+
         // Determine event type based on the result structure
         let (event_type, block_number, transaction_hash) = if result.get("number").is_some() {
             // New block
-            let block_num = result.get("number")?
-                .as_str()?
-                .strip_prefix("0x")?;
+            let block_num = result.get("number")?.as_str()?.strip_prefix("0x")?;
             let block_number = u64::from_str_radix(block_num, 16).ok()?;
-            
+
             (EvmEventType::NewBlock, Some(block_number), None)
         } else if result.get("transactionHash").is_some() {
             // Contract event
             let tx_hash = result.get("transactionHash")?.as_str()?.to_string();
-            let block_num = result.get("blockNumber")?
-                .as_str()?
-                .strip_prefix("0x")?;
+            let block_num = result.get("blockNumber")?.as_str()?.strip_prefix("0x")?;
             let block_number = u64::from_str_radix(block_num, 16).ok()?;
-            
-            (EvmEventType::ContractEvent, Some(block_number), Some(tx_hash))
+
+            (
+                EvmEventType::ContractEvent,
+                Some(block_number),
+                Some(tx_hash),
+            )
         } else if result.is_string() {
             // Pending transaction (just a hash)
             let tx_hash = result.as_str()?.to_string();
-            
+
             (EvmEventType::PendingTransaction, None, Some(tx_hash))
         } else {
             return None;
         };
-        
+
         // Create unique ID
-        let id = transaction_hash.as_ref()
+        let id = transaction_hash
+            .as_ref()
             .unwrap_or(&subscription.to_string())
             .clone();
-        
+
         // Determine event kind
         let kind = match event_type {
             EvmEventType::PendingTransaction => EventKind::Transaction,
             EvmEventType::NewBlock => EventKind::Block,
             EvmEventType::ContractEvent => EventKind::Contract,
         };
-        
+
         // Create event metadata
         let now = Utc::now();
         let metadata = EventMetadata {
@@ -341,7 +350,7 @@ impl EvmWebSocketStream {
             chain_data: None,
             custom: std::collections::HashMap::new(),
         };
-        
+
         // Create stream metadata (legacy)
         let stream_meta = StreamMetadata {
             stream_source: format!("evm-ws-{}", chain_id),
@@ -349,7 +358,7 @@ impl EvmWebSocketStream {
             sequence_number: Some(sequence_number),
             custom_data: Some(json.clone()),
         };
-        
+
         Some(EvmStreamEvent {
             metadata,
             event_type,

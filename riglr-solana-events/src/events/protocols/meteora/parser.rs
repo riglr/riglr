@@ -1,20 +1,22 @@
-use std::collections::HashMap;
-use riglr_events_core::Event;
-use solana_sdk::pubkey::Pubkey;
-use crate::{
-    events::core::{EventParser, GenericEventParseConfig},
-    types::{EventMetadata, EventType, ProtocolType},
-    events::common::utils::{has_discriminator, parse_u64_le, parse_u32_le},
-};
 use super::{
-    events::{MeteoraSwapEvent, MeteoraLiquidityEvent, MeteoraDynamicLiquidityEvent, EventParameters},
+    events::{
+        EventParameters, MeteoraDynamicLiquidityEvent, MeteoraLiquidityEvent, MeteoraSwapEvent,
+    },
     types::{
-        meteora_dlmm_program_id, meteora_dynamic_program_id, MeteoraSwapData, MeteoraLiquidityData,
-        MeteoraDynamicLiquidityData,
-        DLMM_SWAP_DISCRIMINATOR, DLMM_ADD_LIQUIDITY_DISCRIMINATOR, DLMM_REMOVE_LIQUIDITY_DISCRIMINATOR,
+        meteora_dlmm_program_id, meteora_dynamic_program_id, MeteoraDynamicLiquidityData,
+        MeteoraLiquidityData, MeteoraSwapData, DLMM_ADD_LIQUIDITY_DISCRIMINATOR,
+        DLMM_REMOVE_LIQUIDITY_DISCRIMINATOR, DLMM_SWAP_DISCRIMINATOR,
         DYNAMIC_ADD_LIQUIDITY_DISCRIMINATOR, DYNAMIC_REMOVE_LIQUIDITY_DISCRIMINATOR,
     },
 };
+use crate::{
+    events::common::utils::{has_discriminator, parse_u32_le, parse_u64_le},
+    events::core::{EventParser, GenericEventParseConfig},
+    types::{EventMetadata, EventType, ProtocolType},
+};
+use riglr_events_core::Event;
+use solana_sdk::pubkey::Pubkey;
+use std::collections::HashMap;
 
 /// Meteora event parser
 pub struct MeteoraEventParser {
@@ -26,7 +28,7 @@ pub struct MeteoraEventParser {
 impl MeteoraEventParser {
     pub fn new() -> Self {
         let program_ids = vec![meteora_dlmm_program_id(), meteora_dynamic_program_id()];
-        
+
         let configs = vec![
             // DLMM configs
             GenericEventParseConfig {
@@ -119,7 +121,7 @@ impl EventParser for MeteoraEventParser {
         index: String,
     ) -> Vec<Box<dyn Event>> {
         let mut events = Vec::new();
-        
+
         // For inner instructions, we'll use the data to identify the instruction type
         if let Ok(data) = bs58::decode(&inner_instruction.data).into_vec() {
             for configs in self.inner_instruction_configs.values() {
@@ -136,14 +138,14 @@ impl EventParser for MeteoraEventParser {
                         index.clone(),
                         program_received_time_ms,
                     );
-                    
+
                     if let Some(event) = (config.inner_instruction_parser)(&data, metadata) {
                         events.push(event);
                     }
                 }
             }
         }
-        
+
         events
     }
 
@@ -158,7 +160,7 @@ impl EventParser for MeteoraEventParser {
         index: String,
     ) -> Vec<Box<dyn Event>> {
         let mut events = Vec::new();
-        
+
         // Check each discriminator
         for (discriminator, configs) in &self.instruction_configs {
             if has_discriminator(&instruction.data, discriminator) {
@@ -175,14 +177,16 @@ impl EventParser for MeteoraEventParser {
                         index.clone(),
                         program_received_time_ms,
                     );
-                    
-                    if let Some(event) = (config.instruction_parser)(&instruction.data, accounts, metadata) {
+
+                    if let Some(event) =
+                        (config.instruction_parser)(&instruction.data, accounts, metadata)
+                    {
                         events.push(event);
                     }
                 }
             }
         }
-        
+
         events
     }
 
@@ -193,7 +197,6 @@ impl EventParser for MeteoraEventParser {
     fn supported_program_ids(&self) -> Vec<Pubkey> {
         self.program_ids.clone()
     }
-
 }
 
 impl Default for MeteoraEventParser {
@@ -314,21 +317,23 @@ fn parse_meteora_dlmm_remove_liquidity_instruction(
     accounts: &[Pubkey],
     metadata: EventMetadata,
 ) -> Option<Box<dyn Event>> {
-    parse_meteora_dlmm_liquidity_data_from_instruction(data, accounts, false).map(|liquidity_data| {
-        Box::new(MeteoraLiquidityEvent {
-            id: metadata.id,
-            signature: metadata.signature,
-            slot: metadata.slot,
-            block_time: metadata.block_time,
-            block_time_ms: metadata.block_time_ms,
-            program_received_time_ms: metadata.program_received_time_ms,
-            program_handle_time_consuming_ms: 0,
-            index: metadata.index,
-            liquidity_data,
-            transfer_data: Vec::new(),
-            core_metadata: None,
-        }) as Box<dyn Event>
-    })
+    parse_meteora_dlmm_liquidity_data_from_instruction(data, accounts, false).map(
+        |liquidity_data| {
+            Box::new(MeteoraLiquidityEvent {
+                id: metadata.id,
+                signature: metadata.signature,
+                slot: metadata.slot,
+                block_time: metadata.block_time,
+                block_time_ms: metadata.block_time_ms,
+                program_received_time_ms: metadata.program_received_time_ms,
+                program_handle_time_consuming_ms: 0,
+                index: metadata.index,
+                liquidity_data,
+                transfer_data: Vec::new(),
+                core_metadata: None,
+            }) as Box<dyn Event>
+        },
+    )
 }
 
 // Parser functions for Dynamic AMM instructions
@@ -359,21 +364,23 @@ fn parse_meteora_dynamic_add_liquidity_instruction(
     accounts: &[Pubkey],
     metadata: EventMetadata,
 ) -> Option<Box<dyn Event>> {
-    parse_meteora_dynamic_liquidity_data_from_instruction(data, accounts, true).map(|liquidity_data| {
-        Box::new(MeteoraDynamicLiquidityEvent {
-            id: metadata.id,
-            signature: metadata.signature,
-            slot: metadata.slot,
-            block_time: metadata.block_time,
-            block_time_ms: metadata.block_time_ms,
-            program_received_time_ms: metadata.program_received_time_ms,
-            program_handle_time_consuming_ms: 0,
-            index: metadata.index,
-            liquidity_data,
-            transfer_data: Vec::new(),
-            core_metadata: None,
-        }) as Box<dyn Event>
-    })
+    parse_meteora_dynamic_liquidity_data_from_instruction(data, accounts, true).map(
+        |liquidity_data| {
+            Box::new(MeteoraDynamicLiquidityEvent {
+                id: metadata.id,
+                signature: metadata.signature,
+                slot: metadata.slot,
+                block_time: metadata.block_time,
+                block_time_ms: metadata.block_time_ms,
+                program_received_time_ms: metadata.program_received_time_ms,
+                program_handle_time_consuming_ms: 0,
+                index: metadata.index,
+                liquidity_data,
+                transfer_data: Vec::new(),
+                core_metadata: None,
+            }) as Box<dyn Event>
+        },
+    )
 }
 
 fn parse_meteora_dynamic_remove_liquidity_inner_instruction(
@@ -402,21 +409,23 @@ fn parse_meteora_dynamic_remove_liquidity_instruction(
     accounts: &[Pubkey],
     metadata: EventMetadata,
 ) -> Option<Box<dyn Event>> {
-    parse_meteora_dynamic_liquidity_data_from_instruction(data, accounts, false).map(|liquidity_data| {
-        Box::new(MeteoraDynamicLiquidityEvent {
-            id: metadata.id,
-            signature: metadata.signature,
-            slot: metadata.slot,
-            block_time: metadata.block_time,
-            block_time_ms: metadata.block_time_ms,
-            program_received_time_ms: metadata.program_received_time_ms,
-            program_handle_time_consuming_ms: 0,
-            index: metadata.index,
-            liquidity_data,
-            transfer_data: Vec::new(),
-            core_metadata: None,
-        }) as Box<dyn Event>
-    })
+    parse_meteora_dynamic_liquidity_data_from_instruction(data, accounts, false).map(
+        |liquidity_data| {
+            Box::new(MeteoraDynamicLiquidityEvent {
+                id: metadata.id,
+                signature: metadata.signature,
+                slot: metadata.slot,
+                block_time: metadata.block_time,
+                block_time_ms: metadata.block_time_ms,
+                program_received_time_ms: metadata.program_received_time_ms,
+                program_handle_time_consuming_ms: 0,
+                index: metadata.index,
+                liquidity_data,
+                transfer_data: Vec::new(),
+                core_metadata: None,
+            }) as Box<dyn Event>
+        },
+    )
 }
 
 // Data parsing helpers
@@ -430,34 +439,37 @@ fn parse_meteora_dlmm_swap_data(data: &[u8]) -> Option<MeteoraSwapData> {
 
     let amount_in = parse_u64_le(&data[offset..offset + 8]).ok()?;
     offset += 8;
-    
+
     let min_amount_out = parse_u64_le(&data[offset..offset + 8]).ok()?;
     offset += 8;
-    
+
     let swap_for_y = data.get(offset)? != &0;
-    
+
     Some(MeteoraSwapData {
-        pair: Pubkey::default(), // Would need to extract from accounts
-        user: Pubkey::default(), // Would need to extract from accounts
+        pair: Pubkey::default(),         // Would need to extract from accounts
+        user: Pubkey::default(),         // Would need to extract from accounts
         token_mint_x: Pubkey::default(), // Would need to extract from accounts
         token_mint_y: Pubkey::default(), // Would need to extract from accounts
-        reserve_x: Pubkey::default(), // Would need to extract from accounts
-        reserve_y: Pubkey::default(), // Would need to extract from accounts
+        reserve_x: Pubkey::default(),    // Would need to extract from accounts
+        reserve_y: Pubkey::default(),    // Would need to extract from accounts
         amount_in,
         min_amount_out,
         actual_amount_out: min_amount_out, // Simplified
         swap_for_y,
-        active_id_before: 0, // Would need pool state
-        active_id_after: 0, // Would need pool state
-        fee_amount: 0, // Would need to calculate
-        protocol_fee: 0, // Would need to calculate
+        active_id_before: 0,        // Would need pool state
+        active_id_after: 0,         // Would need pool state
+        fee_amount: 0,              // Would need to calculate
+        protocol_fee: 0,            // Would need to calculate
         bins_traversed: Vec::new(), // Would need to parse from logs
     })
 }
 
-fn parse_meteora_dlmm_swap_data_from_instruction(data: &[u8], accounts: &[Pubkey]) -> Option<MeteoraSwapData> {
+fn parse_meteora_dlmm_swap_data_from_instruction(
+    data: &[u8],
+    accounts: &[Pubkey],
+) -> Option<MeteoraSwapData> {
     let mut swap_data = parse_meteora_dlmm_swap_data(data)?;
-    
+
     // Extract accounts (typical Meteora DLMM swap instruction layout)
     if accounts.len() >= 8 {
         swap_data.pair = accounts[1];
@@ -466,7 +478,7 @@ fn parse_meteora_dlmm_swap_data_from_instruction(data: &[u8], accounts: &[Pubkey
         swap_data.reserve_y = accounts[3];
         // More account parsing would be done here
     }
-    
+
     Some(swap_data)
 }
 
@@ -479,18 +491,18 @@ fn parse_meteora_dlmm_liquidity_data(data: &[u8], is_add: bool) -> Option<Meteor
 
     let bin_id_from = parse_u32_le(&data[offset..offset + 4]).ok()?;
     offset += 4;
-    
+
     let bin_id_to = parse_u32_le(&data[offset..offset + 4]).ok()?;
     offset += 4;
-    
+
     let amount_x = parse_u64_le(&data[offset..offset + 8]).ok()?;
     offset += 8;
-    
+
     let amount_y = parse_u64_le(&data[offset..offset + 8]).ok()?;
     offset += 8;
-    
+
     let active_id = parse_u32_le(&data[offset..offset + 4]).ok()?;
-    
+
     Some(MeteoraLiquidityData {
         pair: Pubkey::default(),
         user: Pubkey::default(),
@@ -510,9 +522,13 @@ fn parse_meteora_dlmm_liquidity_data(data: &[u8], is_add: bool) -> Option<Meteor
     })
 }
 
-fn parse_meteora_dlmm_liquidity_data_from_instruction(data: &[u8], accounts: &[Pubkey], is_add: bool) -> Option<MeteoraLiquidityData> {
+fn parse_meteora_dlmm_liquidity_data_from_instruction(
+    data: &[u8],
+    accounts: &[Pubkey],
+    is_add: bool,
+) -> Option<MeteoraLiquidityData> {
     let mut liquidity_data = parse_meteora_dlmm_liquidity_data(data, is_add)?;
-    
+
     // Extract accounts from instruction
     if accounts.len() >= 10 {
         liquidity_data.pair = accounts[1];
@@ -521,11 +537,14 @@ fn parse_meteora_dlmm_liquidity_data_from_instruction(data: &[u8], accounts: &[P
         liquidity_data.reserve_x = accounts[5];
         liquidity_data.reserve_y = accounts[6];
     }
-    
+
     Some(liquidity_data)
 }
 
-fn parse_meteora_dynamic_liquidity_data(data: &[u8], is_deposit: bool) -> Option<MeteoraDynamicLiquidityData> {
+fn parse_meteora_dynamic_liquidity_data(
+    data: &[u8],
+    is_deposit: bool,
+) -> Option<MeteoraDynamicLiquidityData> {
     if data.len() < 48 {
         return None;
     }
@@ -534,12 +553,12 @@ fn parse_meteora_dynamic_liquidity_data(data: &[u8], is_deposit: bool) -> Option
 
     let pool_token_amount = parse_u64_le(&data[offset..offset + 8]).ok()?;
     offset += 8;
-    
+
     let maximum_token_a_amount = parse_u64_le(&data[offset..offset + 8]).ok()?;
     offset += 8;
-    
+
     let maximum_token_b_amount = parse_u64_le(&data[offset..offset + 8]).ok()?;
-    
+
     Some(MeteoraDynamicLiquidityData {
         pool: Pubkey::default(),
         user: Pubkey::default(),
@@ -558,9 +577,13 @@ fn parse_meteora_dynamic_liquidity_data(data: &[u8], is_deposit: bool) -> Option
     })
 }
 
-fn parse_meteora_dynamic_liquidity_data_from_instruction(data: &[u8], accounts: &[Pubkey], is_deposit: bool) -> Option<MeteoraDynamicLiquidityData> {
+fn parse_meteora_dynamic_liquidity_data_from_instruction(
+    data: &[u8],
+    accounts: &[Pubkey],
+    is_deposit: bool,
+) -> Option<MeteoraDynamicLiquidityData> {
     let mut liquidity_data = parse_meteora_dynamic_liquidity_data(data, is_deposit)?;
-    
+
     // Extract accounts from instruction
     if accounts.len() >= 10 {
         liquidity_data.pool = accounts[1];
@@ -569,7 +592,6 @@ fn parse_meteora_dynamic_liquidity_data_from_instruction(data: &[u8], accounts: 
         liquidity_data.vault_b = accounts[5];
         liquidity_data.lp_mint = accounts[6];
     }
-    
+
     Some(liquidity_data)
 }
-

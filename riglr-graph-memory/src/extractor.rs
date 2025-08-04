@@ -4,8 +4,8 @@
 //! identifying wallets, tokens, protocols, amounts, and relationships between entities.
 
 use crate::document::{
-    AmountMention, AmountType, EntityMention, EntityType, ExtractedEntities,
-    RelationshipMention, RelationshipType,
+    AmountMention, AmountType, EntityMention, EntityType, ExtractedEntities, RelationshipMention,
+    RelationshipType,
 };
 use once_cell::sync::Lazy;
 use regex::Regex;
@@ -183,8 +183,7 @@ impl EntityExtractor {
         let protocols = self.extract_protocols(&text_lower);
         let chains = self.extract_chains(&text_lower);
         let amounts = self.extract_amounts(text);
-        let relationships = self
-            .extract_relationships(text, &wallets, &tokens, &protocols);
+        let relationships = self.extract_relationships(text, &wallets, &tokens, &protocols);
 
         info!("Extracted {} wallets, {} tokens, {} protocols, {} chains, {} amounts, {} relationships",
               wallets.len(), tokens.len(), protocols.len(), chains.len(), amounts.len(), relationships.len());

@@ -1,14 +1,14 @@
 //! Zero-copy parsing utilities for high-performance instruction and log processing
-//! 
+//!
 //! This module provides utilities for parsing Solana transaction data with minimal
 //! memory allocations through zero-copy techniques and efficient byte slice operations.
 
-use std::collections::HashMap;
-use std::sync::Arc;
-use memmap2::MmapOptions;
-use std::fs::File;
-use crate::zero_copy::events::ZeroCopyEvent;
 use crate::types::{EventMetadata, ProtocolType};
+use crate::zero_copy::events::ZeroCopyEvent;
+use memmap2::MmapOptions;
+use std::collections::HashMap;
+use std::fs::File;
+use std::sync::Arc;
 
 /// Trait for zero-copy byte slice parsing
 pub trait ByteSliceEventParser: Send + Sync {
@@ -31,16 +31,16 @@ pub trait ByteSliceEventParser: Send + Sync {
 pub enum ParseError {
     #[error("Invalid instruction data: {0}")]
     InvalidInstructionData(String),
-    
+
     #[error("Insufficient data length: expected {expected}, got {actual}")]
     InsufficientData { expected: usize, actual: usize },
-    
+
     #[error("Unknown discriminator: {discriminator:?}")]
     UnknownDiscriminator { discriminator: Vec<u8> },
-    
+
     #[error("Deserialization error: {0}")]
     DeserializationError(#[from] borsh::io::Error),
-    
+
     #[error("Memory map error: {0}")]
     MemoryMapError(String),
 }
@@ -58,7 +58,7 @@ impl MemoryMappedParser {
     pub fn from_file(file_path: &str) -> Result<Self, ParseError> {
         let file = File::open(file_path)?;
         let mmap = unsafe { MmapOptions::new().map(&file)? };
-        
+
         Ok(Self {
             mmap,
             parsers: HashMap::new(),
@@ -74,7 +74,7 @@ impl MemoryMappedParser {
     pub fn parse_all(&self) -> Result<Vec<ZeroCopyEvent<'_>>, ParseError> {
         let mut events = Vec::new();
         let data = &self.mmap[..];
-        
+
         // Simple parsing - in real implementation, this would have more sophisticated
         // transaction boundary detection
         for parser in self.parsers.values() {
@@ -86,7 +86,7 @@ impl MemoryMappedParser {
                 }
             }
         }
-        
+
         Ok(events)
     }
 
@@ -129,12 +129,12 @@ impl SIMDPatternMatcher {
     }
 
     /// Find matching patterns in data
-    /// 
+    ///
     /// In a real implementation, this would use SIMD instructions for parallel matching
     /// For now, we provide a basic implementation
     pub fn find_matches(&self, data: &[u8]) -> Vec<(usize, ProtocolType)> {
         let mut matches = Vec::new();
-        
+
         for (pattern, protocol) in self.patterns.iter().zip(&self.protocols) {
             if data.len() >= pattern.len() {
                 for pos in 0..=data.len() - pattern.len() {
@@ -144,7 +144,7 @@ impl SIMDPatternMatcher {
                 }
             }
         }
-        
+
         matches
     }
 
@@ -187,7 +187,7 @@ impl<'a> CustomDeserializer<'a> {
                 actual: self.data.len() - self.pos,
             });
         }
-        
+
         let value = self.data[self.pos];
         self.pos += 1;
         Ok(value)
@@ -201,7 +201,7 @@ impl<'a> CustomDeserializer<'a> {
                 actual: self.data.len() - self.pos,
             });
         }
-        
+
         let bytes = &self.data[self.pos..self.pos + 4];
         let value = u32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]);
         self.pos += 4;
@@ -216,7 +216,7 @@ impl<'a> CustomDeserializer<'a> {
                 actual: self.data.len() - self.pos,
             });
         }
-        
+
         let bytes = &self.data[self.pos..self.pos + 8];
         let mut array = [0u8; 8];
         array.copy_from_slice(bytes);
@@ -233,12 +233,11 @@ impl<'a> CustomDeserializer<'a> {
                 actual: self.data.len() - self.pos,
             });
         }
-        
+
         let bytes = &self.data[self.pos..self.pos + 32];
         self.pos += 32;
-        solana_sdk::pubkey::Pubkey::try_from(bytes).map_err(|e| {
-            ParseError::InvalidInstructionData(format!("Invalid pubkey: {}", e))
-        })
+        solana_sdk::pubkey::Pubkey::try_from(bytes)
+            .map_err(|e| ParseError::InvalidInstructionData(format!("Invalid pubkey: {}", e)))
     }
 
     /// Read a byte array of fixed size
@@ -249,7 +248,7 @@ impl<'a> CustomDeserializer<'a> {
                 actual: self.data.len() - self.pos,
             });
         }
-        
+
         let bytes = &self.data[self.pos..self.pos + len];
         self.pos += len;
         Ok(bytes)
@@ -263,7 +262,7 @@ impl<'a> CustomDeserializer<'a> {
                 actual: self.data.len() - self.pos,
             });
         }
-        
+
         self.pos += len;
         Ok(())
     }
@@ -307,18 +306,21 @@ impl BatchEventParser {
     /// Add a parser for a specific protocol
     pub fn add_parser(&mut self, parser: Arc<dyn ByteSliceEventParser>) {
         let protocol = parser.protocol_type();
-        
+
         // Add to parsers map
         self.parsers.insert(protocol.clone(), parser);
-        
+
         // Add discriminator pattern for fast detection
         match protocol {
             ProtocolType::RaydiumAmmV4 => {
                 self.pattern_matcher.add_pattern(vec![0x09], protocol); // SwapBaseIn discriminator
-            },
+            }
             ProtocolType::Jupiter => {
-                self.pattern_matcher.add_pattern(vec![0xe4, 0x45, 0xa5, 0x2e, 0x51, 0xcb, 0x9a, 0x8b], protocol); // Route discriminator
-            },
+                self.pattern_matcher.add_pattern(
+                    vec![0xe4, 0x45, 0xa5, 0x2e, 0x51, 0xcb, 0x9a, 0x8b],
+                    protocol,
+                ); // Route discriminator
+            }
             _ => {
                 // Add default pattern
                 self.pattern_matcher.add_pattern(vec![0x00], protocol);
@@ -333,9 +335,11 @@ impl BatchEventParser {
         metadatas: Vec<EventMetadata>,
     ) -> Result<Vec<ZeroCopyEvent<'a>>, ParseError> {
         if batch.len() > self.max_batch_size {
-            return Err(ParseError::InvalidInstructionData(
-                format!("Batch size {} exceeds maximum {}", batch.len(), self.max_batch_size)
-            ));
+            return Err(ParseError::InvalidInstructionData(format!(
+                "Batch size {} exceeds maximum {}",
+                batch.len(),
+                self.max_batch_size
+            )));
         }
 
         let mut all_events = Vec::new();
@@ -382,7 +386,8 @@ pub struct RpcConnectionPool {
 impl RpcConnectionPool {
     /// Create a new connection pool
     pub fn new(urls: Vec<String>) -> Self {
-        let clients = urls.into_iter()
+        let clients = urls
+            .into_iter()
             .map(|url| Arc::new(solana_client::rpc_client::RpcClient::new(url)))
             .collect();
 
@@ -398,7 +403,10 @@ impl RpcConnectionPool {
             panic!("No RPC clients in pool");
         }
 
-        let index = self.current.fetch_add(1, std::sync::atomic::Ordering::Relaxed) % self.clients.len();
+        let index = self
+            .current
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+            % self.clients.len();
         self.clients[index].clone()
     }
 
@@ -416,7 +424,7 @@ mod tests {
     fn test_custom_deserializer() {
         let data = vec![0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08];
         let mut deserializer = CustomDeserializer::new(&data);
-        
+
         assert_eq!(deserializer.read_u8().unwrap(), 0x01);
         assert_eq!(deserializer.read_u32_le().unwrap(), 0x05040302);
         assert_eq!(deserializer.remaining(), 3);
@@ -426,10 +434,13 @@ mod tests {
     fn test_simd_pattern_matcher() {
         let mut matcher = SIMDPatternMatcher::new();
         matcher.add_pattern(vec![0x09], ProtocolType::RaydiumAmmV4);
-        
+
         let data = vec![0x09, 0x01, 0x02, 0x03];
-        assert_eq!(matcher.match_discriminator(&data), Some(ProtocolType::RaydiumAmmV4));
-        
+        assert_eq!(
+            matcher.match_discriminator(&data),
+            Some(ProtocolType::RaydiumAmmV4)
+        );
+
         let no_match_data = vec![0x08, 0x01, 0x02, 0x03];
         assert_eq!(matcher.match_discriminator(&no_match_data), None);
     }

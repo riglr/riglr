@@ -9,7 +9,7 @@
 //! - Real-time streaming via WebSocket
 //! - Comprehensive metrics and health monitoring
 //! - Horizontal scaling with consistent hashing
-//! 
+//!
 //! ## Architecture
 //!
 //! The indexer follows a modular, event-driven architecture:
@@ -80,35 +80,35 @@
 #![warn(clippy::all)]
 #![allow(clippy::module_inception)]
 
+pub mod api;
 pub mod config;
 pub mod core;
-pub mod storage;
-pub mod api;
-pub mod metrics;
 pub mod error;
+pub mod metrics;
+pub mod storage;
 pub mod utils;
 
 /// Prelude module with commonly used types and traits
 pub mod prelude {
-    pub use crate::config::{IndexerConfig, StorageConfig, ApiConfig, MetricsConfig};
-    pub use crate::core::{IndexerService, EventIngester, EventProcessor, ProcessingPipeline};
-    pub use crate::storage::{DataStore, PostgresStore, EventQuery, EventFilter};
-    pub use crate::api::{ApiServer, WebSocketStreamer, RestHandler};
-    pub use crate::metrics::{MetricsCollector, IndexerMetrics, PerformanceMetrics};
+    pub use crate::api::{ApiServer, RestHandler, WebSocketStreamer};
+    pub use crate::config::{ApiConfig, IndexerConfig, MetricsConfig, StorageConfig};
+    pub use crate::core::{EventIngester, EventProcessor, IndexerService, ProcessingPipeline};
     pub use crate::error::{IndexerError, IndexerResult};
-    pub use crate::utils::{ConsistentHash, BatchProcessor, HealthCheck};
-    
+    pub use crate::metrics::{IndexerMetrics, MetricsCollector, PerformanceMetrics};
+    pub use crate::storage::{DataStore, EventFilter, EventQuery, PostgresStore};
+    pub use crate::utils::{BatchProcessor, ConsistentHash, HealthCheck};
+
     // Re-export key dependencies - avoid conflicts by being more specific
     pub use riglr_events_core::{Event, EventKind, EventMetadata};
     pub use riglr_solana_events::events::*;
     pub use riglr_streams::core::{Stream, StreamedEvent};
-    
+
     // Re-export common types
-    pub use tokio;
     pub use anyhow;
-    pub use serde_json;
-    pub use uuid::Uuid;
     pub use chrono::{DateTime, Utc};
+    pub use serde_json;
+    pub use tokio;
+    pub use uuid::Uuid;
 }
 
 // Re-export key types at crate root

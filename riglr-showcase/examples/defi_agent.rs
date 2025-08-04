@@ -3,30 +3,30 @@ use riglr_solana_tools::LocalSolanaSigner;
 // TODO: Re-enable when rig tools are updated
 // use riglr_solana_tools::{get_sol_balance, get_spl_token_balance};
 use anyhow::Result;
+use serde::{Deserialize, Serialize};
 use solana_sdk::signature::Keypair;
 use solana_sdk::signer::Signer;
-use std::sync::Arc;
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::sync::Arc;
 
 #[tokio::main]
 async fn main() -> Result<()> {
     // Initialize logging
     tracing_subscriber::fmt().init();
-    
+
     println!("🏦 Starting Riglr DeFi Agent Example");
     println!("====================================");
-    
+
     // Setup DeFi-focused signer
     let keypair = Keypair::new();
     let signer = Arc::new(LocalSolanaSigner::new(
         keypair.insecure_clone(),
-        "https://api.mainnet-beta.solana.com".to_string()
+        "https://api.mainnet-beta.solana.com".to_string(),
     ));
-    
+
     println!("💼 DeFi Portfolio Manager initialized");
     println!("🔐 Wallet: {}", keypair.pubkey());
-    
+
     // Build sophisticated DeFi agent
     // TODO: Re-enable when rig provider API is updated
     // let agent = AgentBuilder::new("gpt-4")
@@ -70,46 +70,46 @@ async fn main() -> Result<()> {
     //     .tool(get_spl_token_balance)
     //     .max_tokens(3000)
     //     .build();
-    
+
     // Execute comprehensive DeFi strategy workflow
     SignerContext::with_signer(signer.clone(), async {
-        
+
         // Step 1: Portfolio Assessment & Analysis
         println!("\n📊 Step 1: Portfolio Analysis & Current Positions");
         // TODO: Re-enable when agent is restored
         let portfolio_analysis = "DeFi Portfolio Analysis: Current SOL balance 2.8 SOL (~$95 USD). Detected SPL tokens: 200 USDC, 50 RAY. Market conditions favor liquid staking (6.2% APY) and stable farming (8-12% APY). Recommended strategy: 40% Marinade liquid staking, 30% USDC-SOL LP on Raydium (14% APY), 20% Solend lending (5.8% APY), 10% emergency reserves.";
-        
+
         println!("Portfolio Analysis: {}", truncate_response(portfolio_analysis, 400));
-        
+
         // Step 2: Yield Optimization Strategy
         println!("\n🌾 Step 2: Yield Optimization Strategy");
         // TODO: Re-enable when agent is restored
         let yield_strategy = "Comprehensive Yield Strategy: 1) Marinade liquid staking: 1.12 SOL (40%, 6.2% APY, low risk), 2) USDC-SOL LP on Raydium: 150 USDC + 0.84 SOL (30%, 14% APY, medium risk), 3) Solend USDC lending: 50 USDC (20%, 5.8% APY, low risk), 4) Emergency reserve: 0.84 SOL (10%). Expected blended APY: 8.9%. Rebalance monthly. Monitor impermanent loss on LP positions.";
-        
+
         println!("Yield Strategy: {}", truncate_response(yield_strategy, 400));
-        
+
         // Step 3: Risk Assessment & Management
         println!("\n⚠️  Step 3: Risk Assessment & Mitigation");
         // TODO: Re-enable when agent is restored
         let risk_assessment = "Risk Assessment: Marinade (Risk: 3/10, audited, insurance fund), USDC-SOL LP (Risk: 6/10, impermanent loss up to 8% in volatile markets), Solend (Risk: 4/10, overcollateralized, liquidation buffer). Mitigation: Diversify across 3+ protocols, monitor positions daily, set 5% stop-loss on LP positions, maintain 15% cash buffer for opportunities. Overall portfolio risk: 4.2/10 (moderate).";
-        
+
         println!("Risk Assessment: {}", truncate_response(risk_assessment, 400));
-        
+
         // Step 4: Advanced DeFi Strategies
         println!("\n🧠 Step 4: Advanced Strategy Implementation");
         // TODO: Re-enable when agent is restored
         let advanced_strategies = "Advanced DeFi Strategies: 1) Delta-neutral: Long SOL spot + Short SOL-PERP on Mango (market-neutral yield), 2) Cross-protocol arb: Monitor USDC rates across Solend/Tulip (0.2-0.5% spreads), 3) Leveraged farming: Borrow USDC on Solend, farm USDC-SOL LP (leverage 1.5x max), 4) Auto-compound: Raydium rewards → swap 50% to USDC → re-LP weekly, 5) MEV protection: Use private mempool via Jito for large swaps.";
-        
+
         println!("Advanced Strategies: {}", truncate_response(advanced_strategies, 400));
-        
+
         Ok::<(), riglr_core::signer::SignerError>(())
     }).await.map_err(|e| anyhow::anyhow!(e))?;
-    
+
     // Demonstrate DeFi patterns and best practices
     demonstrate_defi_patterns().await?;
     demonstrate_yield_optimization().await?;
     demonstrate_risk_management().await?;
-    
+
     println!("\n✅ DeFi agent demo completed successfully!");
     println!("\n📚 Key Learning Points:");
     println!("  • DeFi agents can orchestrate complex multi-protocol strategies");
@@ -117,7 +117,7 @@ async fn main() -> Result<()> {
     println!("  • Yield optimization requires continuous monitoring and rebalancing");
     println!("  • MEV protection and gas optimization are essential for profitability");
     println!("  • Diversification across protocols reduces smart contract risk");
-    
+
     Ok(())
 }
 
@@ -125,35 +125,35 @@ async fn main() -> Result<()> {
 async fn demonstrate_defi_patterns() -> Result<()> {
     println!("\n💡 Core DeFi Patterns:");
     println!("======================");
-    
+
     // Yield Farming Pattern
     println!("🌾 Pattern 1: Yield Farming");
     println!("   Strategy: Provide liquidity to earn farming rewards");
     println!("   Implementation: LP tokens → farming contract → rewards");
     println!("   Risks: Impermanent loss, farming token price volatility");
     println!("   Example: Raydium USDC-SOL LP farming");
-    
+
     // Lending/Borrowing Pattern
     println!("\n🏦 Pattern 2: Lending & Borrowing");
     println!("   Strategy: Lend assets for interest, borrow for leverage");
     println!("   Implementation: Deposit collateral → borrow → reinvest");
     println!("   Risks: Liquidation, interest rate volatility");
     println!("   Example: Solend SOL collateral → borrow USDC → buy more SOL");
-    
+
     // Liquid Staking Pattern
     println!("\n💧 Pattern 3: Liquid Staking");
     println!("   Strategy: Stake native tokens while maintaining liquidity");
     println!("   Implementation: SOL → mSOL/stSOL → use in DeFi");
     println!("   Risks: Slashing, liquid staking token depeg");
     println!("   Example: Marinade mSOL in Solend as collateral");
-    
+
     // Delta-Neutral Pattern
     println!("\n⚖️  Pattern 4: Delta-Neutral Farming");
     println!("   Strategy: Farm yield without directional price exposure");
     println!("   Implementation: LP position + short hedge");
     println!("   Risks: Basis risk, funding costs");
     println!("   Example: SOL-USDC LP + SOL perp short on Mango");
-    
+
     Ok(())
 }
 
@@ -161,31 +161,31 @@ async fn demonstrate_defi_patterns() -> Result<()> {
 async fn demonstrate_yield_optimization() -> Result<()> {
     println!("\n📈 Yield Optimization Strategies:");
     println!("=================================");
-    
+
     // Strategy 1: Auto-Compounding
     println!("🔄 Strategy 1: Auto-Compounding");
     println!("   Mechanism: Automatically reinvest rewards to maximize returns");
     println!("   Frequency: Optimal based on gas costs vs reward value");
     println!("   Example: Harvest TULIP rewards → swap to underlying → re-deposit");
-    
+
     // Strategy 2: Yield Laddering
     println!("\n🪜 Strategy 2: Yield Laddering");
     println!("   Mechanism: Stagger positions across different lockup periods");
     println!("   Benefit: Balance between yield and liquidity");
     println!("   Example: Split SOL across 1-week, 1-month, 3-month stakes");
-    
+
     // Strategy 3: Protocol Rotation
     println!("\n🔄 Strategy 3: Protocol Rotation");
     println!("   Mechanism: Move capital to highest-yielding protocols");
     println!("   Frequency: Weekly rebalancing based on yield changes");
     println!("   Example: Migrate between Solend, Tulip, Francium based on APY");
-    
+
     // Strategy 4: Risk-Adjusted Optimization
     println!("\n📊 Strategy 4: Risk-Adjusted Yield");
     println!("   Mechanism: Optimize for Sharpe ratio, not just APY");
     println!("   Formula: (Expected Return - Risk-Free Rate) / Volatility");
     println!("   Example: 15% APY with 5% volatility > 25% APY with 40% volatility");
-    
+
     Ok(())
 }
 
@@ -193,42 +193,45 @@ async fn demonstrate_yield_optimization() -> Result<()> {
 async fn demonstrate_risk_management() -> Result<()> {
     println!("\n🛡️  Risk Management Techniques:");
     println!("===============================");
-    
+
     // Risk 1: Smart Contract Risk
     println!("🔒 Smart Contract Risk Mitigation:");
     println!("   • Diversify across multiple audited protocols");
     println!("   • Monitor TVL and protocol maturity");
     println!("   • Set maximum exposure limits per protocol");
     println!("   • Use time-locks and multi-sig where possible");
-    
+
     // Risk 2: Impermanent Loss
     println!("\n📉 Impermanent Loss Protection:");
     println!("   • Choose correlated token pairs (e.g., ETH-stETH)");
     println!("   • Monitor price divergence actively");
     println!("   • Use impermanent loss insurance when available");
     println!("   • Calculate break-even farming duration");
-    
+
     // Risk 3: Liquidation Risk
     println!("\n💥 Liquidation Risk Management:");
     println!("   • Maintain healthy collateralization ratios (>150%)");
     println!("   • Set up automated collateral top-ups");
     println!("   • Monitor liquidation prices actively");
     println!("   • Use stop-loss mechanisms for leveraged positions");
-    
+
     // Risk 4: Market Risk
     println!("\n📊 Market Risk Hedging:");
     println!("   • Use delta-neutral strategies");
     println!("   • Implement position sizing based on volatility");
     println!("   • Maintain emergency exit strategies");
     println!("   • Hedge with derivatives when appropriate");
-    
+
     Ok(())
 }
 
 /// Utility function for response truncation
 fn truncate_response(response: &str, max_length: usize) -> String {
     if response.len() > max_length {
-        format!("{}... [View full response in production]", &response[..max_length])
+        format!(
+            "{}... [View full response in production]",
+            &response[..max_length]
+        )
     } else {
         response.to_string()
     }
@@ -293,7 +296,7 @@ struct YieldSummary {
 struct YieldOptimizer {
     strategies: Vec<YieldStrategy>,
     rebalance_threshold: f64, // % difference to trigger rebalance
-    max_gas_ratio: f64, // Max gas as % of position value
+    max_gas_ratio: f64,       // Max gas as % of position value
 }
 
 #[allow(dead_code)]
@@ -310,7 +313,11 @@ struct YieldStrategy {
 
 impl YieldOptimizer {
     #[allow(dead_code)]
-    fn find_optimal_strategy(&self, amount_usd: f64, risk_tolerance: f64) -> Option<&YieldStrategy> {
+    fn find_optimal_strategy(
+        &self,
+        amount_usd: f64,
+        risk_tolerance: f64,
+    ) -> Option<&YieldStrategy> {
         self.strategies
             .iter()
             .filter(|s| s.risk_score <= risk_tolerance && s.min_amount_usd <= amount_usd)

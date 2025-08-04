@@ -1,7 +1,7 @@
 //! Market Analysis with Reasoning Examples
 //!
 //! This example demonstrates sophisticated market analysis workflows using rig's
-//! native reasoning capabilities. Shows how agents can perform complex multi-step 
+//! native reasoning capabilities. Shows how agents can perform complex multi-step
 //! analysis, synthesize information from multiple sources, and generate actionable
 //! insights without custom analysis loops.
 //!
@@ -14,15 +14,15 @@
 
 use anyhow::Result;
 use rig::agent::AgentBuilder;
-use rig::providers::openai;
 use rig::client::CompletionClient;
 use rig::completion::Prompt;
+use rig::providers::openai;
 use serde_json::json;
 use std::env;
 use tracing::warn;
 
 /// Demo: Comprehensive Token Analysis Through Systematic Reasoning
-/// 
+///
 /// Shows how agents can perform multi-methodology analysis combining technical,
 /// fundamental, and sentiment analysis without custom analysis frameworks.
 async fn demo_comprehensive_token_analysis() -> Result<()> {
@@ -32,9 +32,10 @@ async fn demo_comprehensive_token_analysis() -> Result<()> {
     // Create OpenAI client and model
     let openai_client = openai::Client::new(&env::var("OPENAI_API_KEY")?);
     let model = openai_client.completion_model("gpt-4");
-    
+
     let market_analyst = AgentBuilder::new(model)
-        .preamble(r#"
+        .preamble(
+            r#"
 You are a comprehensive cryptocurrency market analyst who performs systematic
 multi-methodology analysis combining multiple approaches.
 
@@ -53,7 +54,8 @@ Your approach is systematic and thorough:
 - Adapt analysis based on market conditions
 
 You reason through analysis naturally without needing custom frameworks.
-        "#)
+        "#,
+        )
         .build();
 
     // Comprehensive market data simulation (would come from riglr tools)
@@ -71,7 +73,7 @@ You reason through analysis naturally without needing custom frameworks.
         },
         "fundamental_data": {
             "tps_capability": "65,000+",
-            "active_developers": "2,500+", 
+            "active_developers": "2,500+",
             "defi_tvl": "$5.8B",
             "nft_volume": "$85M monthly",
             "validator_count": "3,200+",
@@ -87,14 +89,15 @@ You reason through analysis naturally without needing custom frameworks.
         },
         "onchain_data": {
             "daily_active_addresses": "1.35M",
-            "transaction_volume": "$3.2B daily", 
+            "transaction_volume": "$3.2B daily",
             "whale_accumulation": "+2.1M SOL last 7d",
             "exchange_flows": "-890K SOL (net outflow)",
             "new_wallet_creation": "52K daily"
         }
     });
 
-    let _analysis_prompt = format!(r#"
+    let _analysis_prompt = format!(
+        r#"
 Perform comprehensive analysis of SOL using systematic multi-methodology approach:
 
 Market Data:
@@ -110,7 +113,9 @@ Comprehensive Analysis Required:
 7. Actionable Recommendations: Entry levels, targets, stops
 
 Walk through each methodology systematically and synthesize into clear conclusions.
-    "#, serde_json::to_string_pretty(&market_data)?);
+    "#,
+        serde_json::to_string_pretty(&market_data)?
+    );
 
     println!("📊 Requesting comprehensive multi-methodology analysis...");
     let comprehensive_analysis = market_analyst.prompt(&_analysis_prompt).await?;
@@ -123,14 +128,14 @@ Now perform comparative analysis against key competitors:
 
 Compare SOL vs:
 1. ETH - Established smart contract leader
-2. AVAX - Similar high-performance architecture  
+2. AVAX - Similar high-performance architecture
 3. MATIC - Ethereum scaling solution
 4. ADA - Academic approach to blockchain
 
 For each comparison:
 - Technology advantages/disadvantages
 - Market positioning and adoption
-- Valuation metrics and growth potential  
+- Valuation metrics and growth potential
 - Competitive moats and threats
 - Risk/reward profiles
 
@@ -151,7 +156,7 @@ Provide systematic comparative evaluation.
     let _breaking_news_prompt = r#"
 Breaking Market Update: Federal Reserve announces crypto-supportive framework:
 - Clear DeFi regulatory guidelines
-- Staking rewards classified as utility (not securities)  
+- Staking rewards classified as utility (not securities)
 - Institutional custody solutions approved
 - Major compliance barriers removed
 
@@ -183,7 +188,7 @@ Show systematic adaptation to major fundamental changes.
 }
 
 /// Demo: Cross-Chain Opportunity Discovery and Analysis
-/// 
+///
 /// Shows sophisticated analysis across multiple blockchain ecosystems to identify
 /// and evaluate arbitrage, yield, and strategic opportunities.
 async fn demo_cross_chain_opportunity_analysis() -> Result<()> {
@@ -193,9 +198,10 @@ async fn demo_cross_chain_opportunity_analysis() -> Result<()> {
     // Create OpenAI client and model
     let openai_client = openai::Client::new(&env::var("OPENAI_API_KEY")?);
     let model = openai_client.completion_model("gpt-4");
-    
+
     let opportunity_analyst = AgentBuilder::new(model)
-        .preamble(r#"
+        .preamble(
+            r#"
 You are a cross-chain opportunity analyst specializing in identifying and
 evaluating profit opportunities across different blockchain ecosystems.
 
@@ -214,7 +220,8 @@ Cross-Chain Considerations:
 - Regulatory differences between ecosystems
 
 You systematically evaluate opportunities without needing custom discovery loops.
-        "#)
+        "#,
+        )
         .build();
 
     // Cross-chain market conditions
@@ -223,7 +230,7 @@ You systematically evaluate opportunities without needing custom discovery loops
             "native_yield": "5.8% (staking SOL)",
             "defi_yields": {
                 "jupiter_lp": "14-22%",
-                "orca_farms": "18-28%", 
+                "orca_farms": "18-28%",
                 "marinade_liquid_staking": "6.2%"
             },
             "transaction_cost": "$0.0025 avg",
@@ -254,19 +261,20 @@ You systematically evaluate opportunities without needing custom discovery loops
                 "aave_polygon": "5-12%",
                 "curve_polygon": "8-20%"
             },
-            "transaction_cost": "$0.01-0.05 per tx", 
+            "transaction_cost": "$0.01-0.05 per tx",
             "bridge_activity": "High USDC/USDT flows",
             "current_opportunities": "MATIC staking rewards increased"
         },
         "bridge_conditions": {
             "wormhole": "0.1% fee + gas, 15min avg time",
-            "multichain": "0.05-0.1% fee, 10-20min", 
+            "multichain": "0.05-0.1% fee, 10-20min",
             "layerzero": "Variable fees, 5-15min",
             "current_status": "Normal congestion, fees stable"
         }
     });
 
-    let _opportunity_prompt = format!(r#"
+    let _opportunity_prompt = format!(
+        r#"
 Systematically analyze cross-chain opportunities using current market data:
 
 Cross-Chain Data:
@@ -285,7 +293,9 @@ Opportunity Discovery Required:
 4. Consider portfolio allocation across multiple opportunities
 
 Think through each ecosystem systematically and identify the best opportunities.
-    "#, serde_json::to_string_pretty(&cross_chain_data)?);
+    "#,
+        serde_json::to_string_pretty(&cross_chain_data)?
+    );
 
     println!("🔍 Discovering cross-chain opportunities...");
     let opportunities = opportunity_analyst.prompt(&_opportunity_prompt).await?;
@@ -298,7 +308,7 @@ For your top recommended opportunity, provide detailed execution framework:
 
 Execution Plan Required:
 1. Step-by-step implementation sequence with timing
-2. Capital allocation strategy and risk management  
+2. Capital allocation strategy and risk management
 3. Monitoring criteria and performance tracking
 4. Exit conditions and profit-taking strategy
 5. Contingency plans for common failure scenarios
@@ -349,7 +359,7 @@ Systematically adapt your opportunity analysis to these changed conditions.
 }
 
 /// Demo: Multi-Source Intelligence Synthesis
-/// 
+///
 /// Shows how agents can synthesize information from multiple disparate sources
 /// to create comprehensive market intelligence and resolve conflicting signals.
 async fn demo_intelligence_synthesis() -> Result<()> {
@@ -359,15 +369,16 @@ async fn demo_intelligence_synthesis() -> Result<()> {
     // Create OpenAI client and model
     let openai_client = openai::Client::new(&env::var("OPENAI_API_KEY")?);
     let model = openai_client.completion_model("gpt-4");
-    
+
     let intelligence_synthesizer = AgentBuilder::new(model)
-        .preamble(r#"
+        .preamble(
+            r#"
 You are a market intelligence synthesizer who combines information from multiple
 sources to generate high-conviction investment insights.
 
 Intelligence Sources:
 1. On-Chain Data: Transaction flows, whale behavior, network metrics
-2. Market Data: Price action, volume, derivatives, cross-exchange analysis  
+2. Market Data: Price action, volume, derivatives, cross-exchange analysis
 3. Social Intelligence: Sentiment, influencer opinions, community activity
 4. Fundamental Data: Development progress, partnerships, competitive position
 5. Macro Environment: Regulations, institutions, traditional market correlations
@@ -380,7 +391,8 @@ Synthesis Methodology:
 - Provide specific, actionable recommendations with risk assessment
 
 You synthesize complex, contradictory information systematically without rigid rules.
-        "#)
+        "#,
+        )
         .build();
 
     // Multi-source intelligence data
@@ -403,7 +415,7 @@ You synthesize complex, contradictory information systematically without rigid r
         },
         "social_intelligence": {
             "twitter_sentiment": "78% positive, trending upward",
-            "reddit_activity": "High engagement, optimistic discussions", 
+            "reddit_activity": "High engagement, optimistic discussions",
             "influencer_opinions": "Mixed - some very bullish, others cautious",
             "google_trends": "Search interest +22% vs last month",
             "news_sentiment": "80% positive coverage, regulatory optimism",
@@ -427,13 +439,14 @@ You synthesize complex, contradictory information systematically without rigid r
         },
         "conflicting_signals": [
             "On-chain: Whale behavior mixed vs exchange outflows positive",
-            "Market: Strong structure vs recent volume decline", 
+            "Market: Strong structure vs recent volume decline",
             "Social: High sentiment vs some influencer caution",
             "Timing: Strong fundamentals vs potential short-term consolidation"
         ]
     });
 
-    let _synthesis_prompt = format!(r#"
+    let _synthesis_prompt = format!(
+        r#"
 Synthesize this multi-source intelligence into actionable investment thesis:
 
 Intelligence Sources:
@@ -449,12 +462,14 @@ Synthesis Required:
    - Base case most likely outcome
 5. Specific recommendations:
    - Optimal entry strategy and position sizing
-   - Key monitoring criteria and decision triggers  
+   - Key monitoring criteria and decision triggers
    - Risk management and stop-loss levels
    - Timeline expectations and milestone targets
 
 Show your systematic approach to synthesizing contradictory information.
-    "#, serde_json::to_string_pretty(&intelligence_data)?);
+    "#,
+        serde_json::to_string_pretty(&intelligence_data)?
+    );
 
     println!("🔍 Synthesizing multi-source intelligence...");
     let synthesis = intelligence_synthesizer.prompt(&_synthesis_prompt).await?;
@@ -492,7 +507,9 @@ Show systematic approach to handling contradictory intelligence.
     "#;
 
     println!("❓ Processing contradictory intelligence updates...");
-    let contradiction_handling = intelligence_synthesizer.prompt(_contradictory_update).await?;
+    let contradiction_handling = intelligence_synthesizer
+        .prompt(_contradictory_update)
+        .await?;
     println!("🔄 Contradiction Resolution:");
     println!("{}\n", contradiction_handling);
 
@@ -501,7 +518,7 @@ Show systematic approach to handling contradictory intelligence.
 }
 
 /// Demo: Risk-Adjusted Portfolio Construction Through Systematic Analysis
-/// 
+///
 /// Shows sophisticated portfolio analysis including correlation analysis, scenario
 /// testing, and quantitative risk management through agent reasoning.
 async fn demo_portfolio_risk_analysis() -> Result<()> {
@@ -511,9 +528,10 @@ async fn demo_portfolio_risk_analysis() -> Result<()> {
     // Create OpenAI client and model
     let openai_client = openai::Client::new(&env::var("OPENAI_API_KEY")?);
     let model = openai_client.completion_model("gpt-4");
-    
+
     let portfolio_analyst = AgentBuilder::new(model)
-        .preamble(r#"
+        .preamble(
+            r#"
 You are a quantitative portfolio analyst specializing in risk-adjusted optimization
 for cryptocurrency portfolios using systematic analysis.
 
@@ -532,7 +550,8 @@ Portfolio Optimization Approach:
 - Adapt to changing market conditions systematically
 
 You perform sophisticated quantitative analysis through systematic reasoning.
-        "#)
+        "#,
+        )
         .build();
 
     // Portfolio and market data
@@ -550,7 +569,7 @@ You perform sophisticated quantitative analysis through systematic reasoning.
             },
             "performance_metrics": {
                 "6m_total_return": "+35%",
-                "max_drawdown": "-28% (during May crash)", 
+                "max_drawdown": "-28% (during May crash)",
                 "volatility": "68% annualized",
                 "sharpe_ratio": 1.1,
                 "correlation_with_btc": "0.85 average"
@@ -558,7 +577,7 @@ You perform sophisticated quantitative analysis through systematic reasoning.
         },
         "correlation_matrix": {
             "btc_eth": 0.82,
-            "btc_sol": 0.78, 
+            "btc_sol": 0.78,
             "btc_avax": 0.85,
             "eth_sol": 0.88,
             "sol_avax": 0.91,
@@ -574,7 +593,8 @@ You perform sophisticated quantitative analysis through systematic reasoning.
         }
     });
 
-    let _risk_analysis_prompt = format!(r#"
+    let _risk_analysis_prompt = format!(
+        r#"
 Perform comprehensive risk-adjusted portfolio analysis:
 
 Portfolio Data:
@@ -589,7 +609,7 @@ Risk Analysis Required:
 
 2. Scenario Analysis:
    - Bull case: +100% crypto market scenario
-   - Bear case: -70% crypto crash scenario  
+   - Bear case: -70% crypto crash scenario
    - Crisis case: Correlation breakdown, liquidity crisis
    - Probability-weighted expected outcomes
 
@@ -606,7 +626,9 @@ Risk Analysis Required:
    - Liquidity management for different market phases
 
 Provide systematic quantitative analysis with specific recommendations.
-    "#, serde_json::to_string_pretty(&portfolio_data)?);
+    "#,
+        serde_json::to_string_pretty(&portfolio_data)?
+    );
 
     println!("📈 Performing quantitative risk analysis...");
     let risk_analysis = portfolio_analyst.prompt(&_risk_analysis_prompt).await?;
@@ -626,7 +648,7 @@ Crisis Parameters:
 
 Expected Impact on Holdings:
 - BTC: -50% (becomes "safe haven" within crypto)
-- ETH: -70% (DeFi ecosystem under attack)  
+- ETH: -70% (DeFi ecosystem under attack)
 - SOL: -85% (high DeFi exposure, exchange risk)
 - AVAX: -80% (similar risk profile to SOL)
 - MATIC: -75% (Ethereum scaling concerns)
@@ -661,9 +683,7 @@ Show systematic crisis management framework.
 #[tokio::main]
 async fn main() -> Result<()> {
     // Initialize logging
-    tracing_subscriber::fmt()
-        .with_env_filter("info")
-        .init();
+    tracing_subscriber::fmt().with_env_filter("info").init();
 
     println!("🎯 Market Analysis with Reasoning - Rig-Native Intelligence");
     println!("============================================================");
@@ -716,11 +736,11 @@ mod tests {
         if std::env::var("OPENAI_API_KEY").is_ok() {
             let openai_client = openai::Client::new(&std::env::var("OPENAI_API_KEY").unwrap());
             let model = openai_client.completion_model("gpt-3.5-turbo");
-            
+
             let analyst = AgentBuilder::new(model)
                 .preamble("You are a market analysis testing assistant.")
                 .build();
-            
+
             // Test basic agent construction
             assert!(true); // Agent was successfully created
         } else {
@@ -735,7 +755,7 @@ mod tests {
             "technical_data": {"price": "$163.50", "rsi": 58},
             "fundamental_data": {"tps_capability": "65,000+"}
         });
-        
+
         assert!(data.get("technical_data").is_some());
         assert!(data.get("fundamental_data").is_some());
     }
@@ -746,12 +766,12 @@ mod tests {
             "solana_ecosystem": {"native_yield": "5.8%"},
             "ethereum_ecosystem": {"native_yield": "4.3%"}
         });
-        
+
         assert!(cross_chain.get("solana_ecosystem").is_some());
         assert!(cross_chain.get("ethereum_ecosystem").is_some());
     }
 
-    #[test] 
+    #[test]
     fn test_portfolio_data_structure() {
         let portfolio = json!({
             "total_value": "$125,000",
@@ -759,7 +779,7 @@ mod tests {
                 "BTC": {"value": "$37,500", "pct": "30%"}
             }
         });
-        
+
         assert_eq!(portfolio["total_value"], "$125,000");
         assert!(portfolio["positions"].get("BTC").is_some());
     }

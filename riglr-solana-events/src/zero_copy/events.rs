@@ -1,13 +1,13 @@
 //! Zero-copy event implementations that reference source data directly
-//! 
+//!
 //! These event types avoid allocations by keeping references to the original data
 //! where possible, providing significant performance improvements for high-throughput
 //! parsing scenarios.
 
+use crate::types::{EventMetadata, EventType, ProtocolType};
+use solana_sdk::pubkey::Pubkey;
 use std::borrow::Cow;
 use std::sync::Arc;
-use solana_sdk::pubkey::Pubkey;
-use crate::types::{EventType, ProtocolType, EventMetadata};
 // UnifiedEvent trait has been removed - using Event trait from riglr_events_core
 
 /// Zero-copy base event that holds references to source data
@@ -25,10 +25,7 @@ pub struct ZeroCopyEvent<'a> {
 
 impl<'a> ZeroCopyEvent<'a> {
     /// Create a new zero-copy event with borrowed data
-    pub fn new_borrowed(
-        metadata: EventMetadata,
-        raw_data: &'a [u8],
-    ) -> Self {
+    pub fn new_borrowed(metadata: EventMetadata, raw_data: &'a [u8]) -> Self {
         Self {
             metadata,
             raw_data: Cow::Borrowed(raw_data),
@@ -38,10 +35,7 @@ impl<'a> ZeroCopyEvent<'a> {
     }
 
     /// Create a new zero-copy event with owned data
-    pub fn new_owned(
-        metadata: EventMetadata,
-        raw_data: Vec<u8>,
-    ) -> Self {
+    pub fn new_owned(metadata: EventMetadata, raw_data: Vec<u8>) -> Self {
         Self {
             metadata,
             raw_data: Cow::Owned(raw_data),
@@ -86,7 +80,6 @@ impl<'a> ZeroCopyEvent<'a> {
     }
 }
 
-
 // Helper methods for any lifetime
 impl<'a> ZeroCopyEvent<'a> {
     /// Get id for any lifetime
@@ -121,7 +114,8 @@ impl<'a> ZeroCopyEvent<'a> {
 
     /// Get timestamp for any lifetime
     pub fn timestamp(&self) -> std::time::SystemTime {
-        std::time::UNIX_EPOCH + std::time::Duration::from_millis(self.metadata.program_received_time_ms as u64)
+        std::time::UNIX_EPOCH
+            + std::time::Duration::from_millis(self.metadata.program_received_time_ms as u64)
     }
 
     /// Get block number for any lifetime
@@ -213,7 +207,6 @@ impl<'a> ZeroCopySwapEvent<'a> {
     }
 }
 
-
 /// Zero-copy liquidity event
 #[derive(Debug, Clone)]
 pub struct ZeroCopyLiquidityEvent<'a> {
@@ -290,4 +283,3 @@ impl<'a> ZeroCopyLiquidityEvent<'a> {
         None
     }
 }
-

@@ -2,6 +2,6 @@ pub mod health;
 pub mod monitoring;
 pub mod resilience;
 
-pub use health::{HealthMonitor, HealthStatus, ComponentHealth};
-pub use monitoring::{StreamMetrics, MetricsCollector, PerformanceStats};
-pub use resilience::{CircuitBreaker, RetryPolicy, BackoffStrategy};
+pub use health::{ComponentHealth, HealthMonitor, HealthStatus};
+pub use monitoring::{MetricsCollector, PerformanceStats, StreamMetrics};
+pub use resilience::{BackoffStrategy, CircuitBreaker, RetryPolicy};

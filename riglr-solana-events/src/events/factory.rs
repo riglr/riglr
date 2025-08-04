@@ -1,8 +1,8 @@
-use std::collections::HashMap;
-use std::sync::Arc;
 use crate::events::core::EventParser;
 use crate::types::ProtocolType;
 use riglr_events_core::Event;
+use std::collections::HashMap;
+use std::sync::Arc;
 
 /// Parameters for parsing events from instructions, reducing function parameter count
 #[derive(Debug)]
@@ -117,12 +117,18 @@ impl EventParserRegistry {
     }
 
     /// Get parser for a specific program ID
-    pub fn get_parser_for_program(&self, program_id: &solana_sdk::pubkey::Pubkey) -> Option<&Arc<dyn EventParser>> {
+    pub fn get_parser_for_program(
+        &self,
+        program_id: &solana_sdk::pubkey::Pubkey,
+    ) -> Option<&Arc<dyn EventParser>> {
         self.program_id_to_parser.get(program_id)
     }
 
     /// Parse events from inner instruction using the appropriate parser
-    pub fn parse_events_from_inner_instruction(&self, params: InnerInstructionParseParams) -> Vec<Box<dyn Event>> {
+    pub fn parse_events_from_inner_instruction(
+        &self,
+        params: InnerInstructionParseParams,
+    ) -> Vec<Box<dyn Event>> {
         // Try to identify the program and use the appropriate parser
         for parser in self.parsers.values() {
             let events = parser.parse_events_from_inner_instruction(
@@ -141,9 +147,15 @@ impl EventParserRegistry {
     }
 
     /// Parse events from instruction using the appropriate parser
-    pub fn parse_events_from_instruction(&self, params: InstructionParseParams) -> Vec<Box<dyn Event>> {
+    pub fn parse_events_from_instruction(
+        &self,
+        params: InstructionParseParams,
+    ) -> Vec<Box<dyn Event>> {
         // Get the program ID from the instruction
-        if let Some(program_id) = params.accounts.get(params.instruction.program_id_index as usize) {
+        if let Some(program_id) = params
+            .accounts
+            .get(params.instruction.program_id_index as usize)
+        {
             if let Some(parser) = self.get_parser_for_program(program_id) {
                 return parser.parse_events_from_instruction(
                     params.instruction,
@@ -173,7 +185,7 @@ impl EventParserRegistry {
     pub fn with_all_parsers() -> Self {
         // Add parsers for all supported protocols
         // Note: Specific protocol parsers will be added here once they're updated
-        
+
         Self::new()
     }
 }

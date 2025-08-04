@@ -1,13 +1,13 @@
 //! Comprehensive tests for the #[derive(IntoToolError)] macro
-//! 
+//!
 //! This test suite covers:
 //! - Automatic classification based on variant names
 //! - Explicit classification via attributes
 //! - All variant field types (unit, tuple, struct)
 //! - Override scenarios
 
-use riglr_macros::IntoToolError;
 use riglr_core::ToolError;
+use riglr_macros::IntoToolError;
 use thiserror::Error;
 
 /// Test automatic classification based on naming conventions
@@ -16,54 +16,54 @@ enum AutomaticError {
     // Should be classified as Retriable
     #[error("RPC connection failed")]
     RpcConnectionFailed,
-    
+
     #[error("Network timeout")]
     NetworkTimeout,
-    
+
     #[error("Connection lost")]
     ConnectionLost,
-    
+
     #[error("Request timeout")]
     RequestTimeout,
-    
+
     #[error("Too many requests")]
     TooManyRequests,
-    
+
     #[error("Rate limit exceeded")]
     RateLimitExceeded,
-    
+
     #[error("API error")]
     ApiError,
-    
+
     #[error("HTTP error")]
     HttpError,
-    
+
     // Should be classified as Permanent
     #[error("Invalid address")]
     InvalidAddress,
-    
+
     #[error("Parse error")]
     ParseError,
-    
+
     #[error("Serialization failed")]
     SerializationFailed,
-    
+
     #[error("User not found")]
     UserNotFound,
-    
+
     #[error("Unauthorized access")]
     UnauthorizedAccess,
-    
+
     #[error("Insufficient balance")]
     InsufficientBalance,
-    
+
     #[error("Insufficient funds")]
     InsufficientFunds,
-    
+
     // Should default to Permanent (unmatched)
     #[error("Unknown error")]
     UnknownError,
-    
+
     #[error("Custom failure")]
     CustomFailure,
 }
@@ -74,19 +74,19 @@ enum ExplicitError {
     #[tool_error(retriable)]
     #[error("Custom error that should be retriable")]
     CustomRetriable,
-    
+
     #[tool_error(permanent)]
     #[error("Network error that should be permanent")]
     NetworkPermanent, // Override default network = retriable
-    
+
     #[tool_error(rate_limited)]
     #[error("API quota exceeded")]
     ApiQuotaExceeded,
-    
+
     #[tool_error(permanent)]
     #[error("Invalid state: {state}")]
     InvalidState { state: String },
-    
+
     #[tool_error(retriable)]
     #[error("Temporary failure with code: {0}")]
     TemporaryFailure(i32),
@@ -98,26 +98,26 @@ enum FieldTypesError {
     // Unit variant
     #[error("Simple unit error")]
     UnitVariant,
-    
+
     // Tuple variant
     #[error("Tuple error: {0}")]
     TupleVariant(String),
-    
+
     #[error("Multiple tuple error: {0}, {1}")]
     MultipleTupleVariant(String, i32),
-    
+
     // Struct variant
     #[error("Struct error: {message}")]
     StructVariant { message: String },
-    
+
     #[error("Complex struct error: {msg}, code: {code}")]
     ComplexStructVariant { msg: String, code: i32 },
-    
+
     // Mixed with explicit classification
     #[tool_error(retriable)]
     #[error("Retriable tuple: {0}")]
     RetriableTuple(String),
-    
+
     #[tool_error(permanent)]
     #[error("Permanent struct: {reason}")]
     PermanentStruct { reason: String },
@@ -141,7 +141,7 @@ mod tests {
             AutomaticError::ApiError,
             AutomaticError::HttpError,
         ];
-        
+
         for error in retriable_errors {
             let tool_error: ToolError = error.into();
             match tool_error {
@@ -167,7 +167,7 @@ mod tests {
             AutomaticError::UnknownError,
             AutomaticError::CustomFailure,
         ];
-        
+
         for error in permanent_errors {
             let tool_error: ToolError = error.into();
             match tool_error {
@@ -186,7 +186,7 @@ mod tests {
     fn test_explicit_retriable_classification() {
         let error = ExplicitError::CustomRetriable;
         let tool_error: ToolError = error.into();
-        
+
         match tool_error {
             ToolError::Retriable { context, .. } => {
                 assert!(context.contains("Custom error that should be retriable"));
@@ -200,12 +200,15 @@ mod tests {
         // Test that explicit permanent attribute overrides automatic retriable classification
         let error = ExplicitError::NetworkPermanent;
         let tool_error: ToolError = error.into();
-        
+
         match tool_error {
             ToolError::Permanent { context, .. } => {
                 assert!(context.contains("Network error that should be permanent"));
             }
-            _ => panic!("Expected Permanent error (overriding network default), got {:?}", tool_error),
+            _ => panic!(
+                "Expected Permanent error (overriding network default), got {:?}",
+                tool_error
+            ),
         }
     }
 
@@ -213,7 +216,7 @@ mod tests {
     fn test_explicit_rate_limited_classification() {
         let error = ExplicitError::ApiQuotaExceeded;
         let tool_error: ToolError = error.into();
-        
+
         match tool_error {
             ToolError::RateLimited { context, .. } => {
                 assert!(context.contains("API quota exceeded"));
@@ -225,22 +228,22 @@ mod tests {
     #[test]
     fn test_explicit_classification_with_fields() {
         // Test struct variant with explicit permanent
-        let error = ExplicitError::InvalidState { 
-            state: "corrupted".to_string() 
+        let error = ExplicitError::InvalidState {
+            state: "corrupted".to_string(),
         };
         let tool_error: ToolError = error.into();
-        
+
         match tool_error {
             ToolError::Permanent { context, .. } => {
                 assert!(context.contains("Invalid state: corrupted"));
             }
             _ => panic!("Expected Permanent error, got {:?}", tool_error),
         }
-        
+
         // Test tuple variant with explicit retriable
         let error = ExplicitError::TemporaryFailure(500);
         let tool_error: ToolError = error.into();
-        
+
         match tool_error {
             ToolError::Retriable { context, .. } => {
                 assert!(context.contains("Temporary failure with code: 500"));
@@ -255,7 +258,7 @@ mod tests {
     fn test_unit_variant_conversion() {
         let error = FieldTypesError::UnitVariant;
         let tool_error: ToolError = error.into();
-        
+
         match tool_error {
             ToolError::Permanent { context, .. } => {
                 assert!(context.contains("Simple unit error"));
@@ -268,17 +271,17 @@ mod tests {
     fn test_tuple_variant_conversion() {
         let error = FieldTypesError::TupleVariant("test message".to_string());
         let tool_error: ToolError = error.into();
-        
+
         match tool_error {
             ToolError::Permanent { context, .. } => {
                 assert!(context.contains("Tuple error: test message"));
             }
             _ => panic!("Expected Permanent error, got {:?}", tool_error),
         }
-        
+
         let error = FieldTypesError::MultipleTupleVariant("error".to_string(), 404);
         let tool_error: ToolError = error.into();
-        
+
         match tool_error {
             ToolError::Permanent { context, .. } => {
                 assert!(context.contains("Multiple tuple error: error, 404"));
@@ -289,24 +292,24 @@ mod tests {
 
     #[test]
     fn test_struct_variant_conversion() {
-        let error = FieldTypesError::StructVariant { 
-            message: "test struct".to_string() 
+        let error = FieldTypesError::StructVariant {
+            message: "test struct".to_string(),
         };
         let tool_error: ToolError = error.into();
-        
+
         match tool_error {
             ToolError::Permanent { context, .. } => {
                 assert!(context.contains("Struct error: test struct"));
             }
             _ => panic!("Expected Permanent error, got {:?}", tool_error),
         }
-        
-        let error = FieldTypesError::ComplexStructVariant { 
+
+        let error = FieldTypesError::ComplexStructVariant {
             msg: "complex".to_string(),
             code: 500,
         };
         let tool_error: ToolError = error.into();
-        
+
         match tool_error {
             ToolError::Permanent { context, .. } => {
                 assert!(context.contains("Complex struct error: complex, code: 500"));
@@ -320,20 +323,20 @@ mod tests {
         // Test tuple with explicit retriable
         let error = FieldTypesError::RetriableTuple("should retry".to_string());
         let tool_error: ToolError = error.into();
-        
+
         match tool_error {
             ToolError::Retriable { context, .. } => {
                 assert!(context.contains("Retriable tuple: should retry"));
             }
             _ => panic!("Expected Retriable error, got {:?}", tool_error),
         }
-        
+
         // Test struct with explicit permanent
-        let error = FieldTypesError::PermanentStruct { 
-            reason: "bad data".to_string() 
+        let error = FieldTypesError::PermanentStruct {
+            reason: "bad data".to_string(),
         };
         let tool_error: ToolError = error.into();
-        
+
         match tool_error {
             ToolError::Permanent { context, .. } => {
                 assert!(context.contains("Permanent struct: bad data"));
@@ -349,7 +352,7 @@ mod tests {
             (AutomaticError::NetworkTimeout, "Network timeout"),
             (AutomaticError::InvalidAddress, "Invalid address"),
         ];
-        
+
         for (error, expected_message) in test_cases {
             let tool_error: ToolError = error.into();
             let context = match tool_error {
@@ -359,9 +362,13 @@ mod tests {
                 ToolError::InvalidInput { context, .. } => context,
                 ToolError::SignerContext(_) => panic!("Unexpected SignerContext error"),
             };
-            
-            assert!(context.contains(expected_message), 
-                   "Expected '{}' to be found in '{}'", expected_message, context);
+
+            assert!(
+                context.contains(expected_message),
+                "Expected '{}' to be found in '{}'",
+                expected_message,
+                context
+            );
         }
     }
 }

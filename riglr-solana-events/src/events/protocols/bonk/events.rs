@@ -88,10 +88,10 @@ impl Event for BonkTradeEvent {
     fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
         if self.core_metadata.is_none() {
             // Initialize core metadata from legacy metadata if needed
-            self.core_metadata = Some(self.metadata.to_core_metadata(
-                self.metadata.event_type.to_event_kind(),
-                "bonk".to_string(),
-            ));
+            self.core_metadata = Some(
+                self.metadata
+                    .to_core_metadata(self.metadata.event_type.to_event_kind(), "bonk".to_string()),
+            );
         }
         self.core_metadata.as_mut().unwrap()
     }
@@ -109,8 +109,7 @@ impl Event for BonkTradeEvent {
     }
 
     fn to_json(&self) -> riglr_events_core::error::EventResult<serde_json::Value> {
-        serde_json::to_value(self)
-            .map_err(riglr_events_core::error::EventError::Serialization)
+        serde_json::to_value(self).map_err(riglr_events_core::error::EventError::Serialization)
     }
 }
 
@@ -145,7 +144,6 @@ pub struct BonkPoolCreateEvent {
     pub platform_config: Pubkey,
 }
 
-
 // New Event trait implementation
 impl Event for BonkPoolCreateEvent {
     fn id(&self) -> &str {
@@ -171,10 +169,10 @@ impl Event for BonkPoolCreateEvent {
     fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
         if self.core_metadata.is_none() {
             // Initialize core metadata from legacy metadata if needed
-            self.core_metadata = Some(self.metadata.to_core_metadata(
-                self.metadata.event_type.to_event_kind(),
-                "bonk".to_string(),
-            ));
+            self.core_metadata = Some(
+                self.metadata
+                    .to_core_metadata(self.metadata.event_type.to_event_kind(), "bonk".to_string()),
+            );
         }
         self.core_metadata.as_mut().unwrap()
     }
@@ -192,8 +190,7 @@ impl Event for BonkPoolCreateEvent {
     }
 
     fn to_json(&self) -> riglr_events_core::error::EventResult<serde_json::Value> {
-        serde_json::to_value(self)
-            .map_err(riglr_events_core::error::EventError::Serialization)
+        serde_json::to_value(self).map_err(riglr_events_core::error::EventError::Serialization)
     }
 }
 
@@ -202,12 +199,18 @@ pub mod discriminators {
     // Event discriminators - more efficient byte arrays for comparison
     pub const TRADE_EVENT: &str = "bonk_trade_event";
     pub const POOL_CREATE_EVENT: &str = "bonk_pool_create_event";
-    
-    // Raw event discriminators as byte arrays for efficient parsing
-    pub const TRADE_EVENT_BYTES: &[u8] = &[0xe4, 0x45, 0xa5, 0x2e, 0x51, 0xcb, 0x9a, 0x1d, 0x0e, 0x11, 0xa9, 0xd2, 0xbe, 0x8b, 0x72, 0xb4];
-    pub const POOL_CREATE_EVENT_BYTES: &[u8] = &[0xe4, 0x45, 0xa5, 0x2e, 0x51, 0xcb, 0x9a, 0x1d, 0x1a, 0x11, 0xa9, 0xd2, 0xbe, 0x8b, 0x72, 0x00];
 
-    // Instruction discriminators  
+    // Raw event discriminators as byte arrays for efficient parsing
+    pub const TRADE_EVENT_BYTES: &[u8] = &[
+        0xe4, 0x45, 0xa5, 0x2e, 0x51, 0xcb, 0x9a, 0x1d, 0x0e, 0x11, 0xa9, 0xd2, 0xbe, 0x8b, 0x72,
+        0xb4,
+    ];
+    pub const POOL_CREATE_EVENT_BYTES: &[u8] = &[
+        0xe4, 0x45, 0xa5, 0x2e, 0x51, 0xcb, 0x9a, 0x1d, 0x1a, 0x11, 0xa9, 0xd2, 0xbe, 0x8b, 0x72,
+        0x00,
+    ];
+
+    // Instruction discriminators
     pub const BUY_EXACT_IN_IX: &[u8] = &[64, 198, 72, 0, 130, 84, 226, 13];
     pub const BUY_EXACT_OUT_IX: &[u8] = &[121, 45, 19, 239, 92, 248, 10, 80];
     pub const SELL_EXACT_IN_IX: &[u8] = &[155, 233, 77, 24, 217, 193, 201, 60];

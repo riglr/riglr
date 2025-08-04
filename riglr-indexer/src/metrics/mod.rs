@@ -1,10 +1,10 @@
 //! Metrics collection and monitoring
 
+use chrono::{DateTime, Utc};
+use parking_lot::RwLock;
+use serde::Serialize;
 use std::collections::HashMap;
 use std::sync::Arc;
-use parking_lot::RwLock;
-use chrono::{DateTime, Utc};
-use serde::Serialize;
 
 use crate::config::MetricsConfig;
 use crate::error::{IndexerError, IndexerResult, MetricsError};
@@ -198,7 +198,7 @@ impl MetricsRegistry {
     /// Update counter metric
     pub fn increment_counter(&self, name: &str, value: u64) -> IndexerResult<()> {
         let mut metrics = self.metrics.write();
-        
+
         match metrics.get_mut(name) {
             Some(metric) => {
                 if let MetricValue::Counter(ref mut counter) = metric.value {
@@ -230,7 +230,7 @@ impl MetricsRegistry {
     /// Update gauge metric
     pub fn set_gauge(&self, name: &str, value: f64) -> IndexerResult<()> {
         let mut metrics = self.metrics.write();
-        
+
         let metric = Metric {
             name: name.to_string(),
             metric_type: MetricType::Gauge,
@@ -239,7 +239,7 @@ impl MetricsRegistry {
             timestamp: Utc::now(),
             help: format!("Gauge metric: {}", name),
         };
-        
+
         metrics.insert(name.to_string(), metric);
         Ok(())
     }
@@ -247,7 +247,7 @@ impl MetricsRegistry {
     /// Record histogram value
     pub fn record_histogram(&self, name: &str, value: f64) -> IndexerResult<()> {
         let mut metrics = self.metrics.write();
-        
+
         match metrics.get_mut(name) {
             Some(metric) => {
                 if let MetricValue::Histogram(ref mut values) = metric.value {
@@ -293,13 +293,16 @@ impl MetricsRegistry {
 
         for metric in metrics.values() {
             output.push_str(&format!("# HELP {} {}\n", metric.name, metric.help));
-            output.push_str(&format!("# TYPE {} {}\n", metric.name, 
+            output.push_str(&format!(
+                "# TYPE {} {}\n",
+                metric.name,
                 match metric.metric_type {
                     MetricType::Counter => "counter",
                     MetricType::Gauge => "gauge",
                     MetricType::Histogram => "histogram",
                     MetricType::Summary => "summary",
-                }));
+                }
+            ));
 
             match &metric.value {
                 MetricValue::Counter(value) => {
@@ -310,7 +313,20 @@ impl MetricsRegistry {
                 }
                 MetricValue::Histogram(values) => {
                     // Simple histogram implementation
-                    let buckets = &[0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, f64::INFINITY];
+                    let buckets = &[
+                        0.005,
+                        0.01,
+                        0.025,
+                        0.05,
+                        0.1,
+                        0.25,
+                        0.5,
+                        1.0,
+                        2.5,
+                        5.0,
+                        10.0,
+                        f64::INFINITY,
+                    ];
                     let mut bucket_counts = vec![0; buckets.len()];
                     let mut sum = 0.0;
 
@@ -324,9 +340,15 @@ impl MetricsRegistry {
                     }
 
                     for (i, &bucket) in buckets.iter().enumerate() {
-                        let le = if bucket == f64::INFINITY { "+Inf" } else { &bucket.to_string() };
-                        output.push_str(&format!("{}_bucket{{le=\"{}\"}} {}\n", 
-                                                metric.name, le, bucket_counts[i]));
+                        let le = if bucket == f64::INFINITY {
+                            "+Inf"
+                        } else {
+                            &bucket.to_string()
+                        };
+                        output.push_str(&format!(
+                            "{}_bucket{{le=\"{}\"}} {}\n",
+                            metric.name, le, bucket_counts[i]
+                        ));
                     }
                     output.push_str(&format!("{}_count {}\n", metric.name, values.len()));
                     output.push_str(&format!("{}_sum {}\n", metric.name, sum));

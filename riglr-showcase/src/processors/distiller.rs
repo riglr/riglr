@@ -3,13 +3,13 @@
 //! This module demonstrates how to use separate LLM calls to summarize and distill
 //! complex tool outputs into concise, user-friendly summaries.
 
-use super::{OutputProcessor, ToolOutput, ProcessedOutput, OutputFormat};
-use anyhow::{Result, anyhow};
+use super::{OutputFormat, OutputProcessor, ProcessedOutput, ToolOutput};
+use anyhow::{anyhow, Result};
 use async_trait::async_trait;
-use serde_json::json;
-use rig::providers::{openai, anthropic, gemini};
+use rig::client::{CompletionClient, ProviderClient};
 use rig::completion::Prompt;
-use rig::client::{ProviderClient, CompletionClient};
+use rig::providers::{anthropic, gemini, openai};
+use serde_json::json;
 
 /// LLM-based output distiller
 ///
@@ -33,7 +33,7 @@ impl DistillationProcessor {
             system_prompt: Self::default_system_prompt(),
         }
     }
-    
+
     /// Create a processor with custom settings
     pub fn with_config(
         model: &str,
@@ -48,20 +48,21 @@ impl DistillationProcessor {
             system_prompt: system_prompt.unwrap_or_else(Self::default_system_prompt),
         }
     }
-    
+
     /// Default system prompt for distillation
     fn default_system_prompt() -> String {
         r#"You are an expert at summarizing technical tool outputs into clear, concise summaries.
-        
+
 Your job is to:
 1. Extract the key information from tool outputs
 2. Present it in a user-friendly way
 3. Highlight any important warnings or errors
 4. Keep the summary under 2-3 sentences
 
-Focus on what the user needs to know, not technical implementation details."#.to_string()
+Focus on what the user needs to know, not technical implementation details."#
+            .to_string()
     }
-    
+
     /// Call the LLM to distill the output
     async fn call_llm(&self, tool_output: &ToolOutput) -> Result<String> {
         // Create a prompt that includes the tool output
@@ -81,7 +82,7 @@ Please provide a concise summary of this tool output:"#,
                 String::new()
             }
         );
-        
+
         // Here you would call your preferred LLM API
         // For this example, we'll show the pattern with different providers
         match self.model.as_str() {
@@ -91,38 +92,37 @@ Please provide a concise summary of this tool output:"#,
             _ => Err(anyhow!("Unsupported model: {}", self.model)),
         }
     }
-    
+
     /// Call OpenAI API (real implementation)
     async fn call_openai(&self, prompt: &str) -> Result<String> {
         // Get OpenAI client from environment variable OPENAI_API_KEY
         let client = openai::Client::from_env();
-        
+
         // Build the agent with configuration
-        let mut builder = client.agent(&self.model)
-            .preamble(&self.system_prompt);
-        
+        let mut builder = client.agent(&self.model).preamble(&self.system_prompt);
+
         if let Some(max_tokens) = self.max_tokens {
             builder = builder.max_tokens(max_tokens.into());
         }
-        
+
         if let Some(temperature) = self.temperature {
             builder = builder.temperature(temperature.into());
         }
-        
+
         let agent = builder.build();
-        
+
         // Make the completion request
         match agent.prompt(prompt).await {
             Ok(response) => Ok(response),
-            Err(e) => Err(anyhow!("OpenAI API error: {}", e))
+            Err(e) => Err(anyhow!("OpenAI API error: {}", e)),
         }
     }
-    
+
     /// Call Anthropic Claude API (real implementation)
     async fn call_anthropic(&self, prompt: &str) -> Result<String> {
         // Get Anthropic client from environment variable ANTHROPIC_API_KEY
         let client = anthropic::Client::from_env();
-        
+
         // Map model names to Anthropic's model constants
         let model = match self.model.as_str() {
             "claude-3-5-sonnet" => anthropic::CLAUDE_3_5_SONNET,
@@ -131,51 +131,49 @@ Please provide a concise summary of this tool output:"#,
             "claude-3-opus" => anthropic::CLAUDE_3_OPUS,
             model => model, // Pass through other model names
         };
-        
+
         // Build the agent with configuration
-        let mut builder = client.agent(model)
-            .preamble(&self.system_prompt);
-        
+        let mut builder = client.agent(model).preamble(&self.system_prompt);
+
         if let Some(max_tokens) = self.max_tokens {
             builder = builder.max_tokens(max_tokens.into());
         }
-        
+
         if let Some(temperature) = self.temperature {
             builder = builder.temperature(temperature.into());
         }
-        
+
         let agent = builder.build();
-        
+
         // Make the completion request
         match agent.prompt(prompt).await {
             Ok(response) => Ok(response),
-            Err(e) => Err(anyhow!("Anthropic API error: {}", e))
+            Err(e) => Err(anyhow!("Anthropic API error: {}", e)),
         }
     }
-    
+
     /// Call Google Gemini API (real implementation)
     async fn call_google(&self, prompt: &str) -> Result<String> {
         // Get Gemini client from environment variable GEMINI_API_KEY
         let client = gemini::Client::from_env();
-        
+
         // Build the agent with configuration
-        let mut builder = client.agent(&self.model)
-            .preamble(&self.system_prompt);
-        
+        let mut builder = client.agent(&self.model).preamble(&self.system_prompt);
+
         if let Some(max_tokens) = self.max_tokens {
             builder = builder.max_tokens(max_tokens.into());
         }
-        
+
         if let Some(temperature) = self.temperature {
             builder = builder.temperature(temperature.into());
         }
-        
+
         let agent = builder.build();
-        
+
         // Make the completion request
         match agent.prompt(prompt).await {
             Ok(response) => Ok(response),
-            Err(e) => Err(anyhow!("Gemini API error: {}", e))
+            Err(e) => Err(anyhow!("Gemini API error: {}", e)),
         }
     }
 }
@@ -201,7 +199,7 @@ impl OutputProcessor for DistillationProcessor {
                 super::utils::user_friendly_error(&input)
             ))
         };
-        
+
         Ok(ProcessedOutput {
             original: input.clone(),
             processed_result: input.result,
@@ -210,16 +208,16 @@ impl OutputProcessor for DistillationProcessor {
             routing_info: None,
         })
     }
-    
+
     fn name(&self) -> &str {
         "DistillationProcessor"
     }
-    
+
     fn can_process(&self, output: &ToolOutput) -> bool {
         // Can process any output, but more valuable for complex results
         !output.result.is_null() || output.error.is_some()
     }
-    
+
     fn config(&self) -> serde_json::Value {
         json!({
             "name": self.name(),
@@ -246,7 +244,7 @@ impl SmartDistiller {
             ],
         }
     }
-    
+
     /// Choose the best processor for the given output
     fn choose_processor(&self, output: &ToolOutput) -> &DistillationProcessor {
         // Simple heuristic - in practice, you might have more sophisticated logic
@@ -264,11 +262,11 @@ impl OutputProcessor for SmartDistiller {
         let processor = self.choose_processor(&input);
         processor.process(input).await
     }
-    
+
     fn name(&self) -> &str {
         "SmartDistiller"
     }
-    
+
     fn config(&self) -> serde_json::Value {
         json!({
             "name": self.name(),
@@ -302,12 +300,13 @@ impl MockDistiller {
             "test_tool".to_string(),
             "Test tool executed successfully.".to_string(),
         );
-        
+
         Self { responses }
     }
-    
+
     pub fn with_response(mut self, tool_name: &str, response: &str) -> Self {
-        self.responses.insert(tool_name.to_string(), response.to_string());
+        self.responses
+            .insert(tool_name.to_string(), response.to_string());
         self
     }
 }
@@ -316,13 +315,14 @@ impl MockDistiller {
 impl OutputProcessor for MockDistiller {
     async fn process(&self, input: ToolOutput) -> Result<ProcessedOutput> {
         let summary = if input.success {
-            self.responses.get(&input.tool_name)
+            self.responses
+                .get(&input.tool_name)
                 .or(self.responses.get("default"))
                 .cloned()
         } else {
             self.responses.get("error").cloned()
         };
-        
+
         Ok(ProcessedOutput {
             original: input.clone(),
             processed_result: input.result,
@@ -331,11 +331,11 @@ impl OutputProcessor for MockDistiller {
             routing_info: None,
         })
     }
-    
+
     fn name(&self) -> &str {
         "MockDistiller"
     }
-    
+
     fn config(&self) -> serde_json::Value {
         json!({
             "name": self.name(),
@@ -361,7 +361,7 @@ impl Default for MockDistiller {
 mod tests {
     use super::*;
     use crate::processors::utils;
-    
+
     #[tokio::test]
     async fn test_distillation_processor() {
         // Skip test if OPENAI_API_KEY is not set
@@ -369,28 +369,30 @@ mod tests {
             eprintln!("Skipping test: OPENAI_API_KEY not set");
             return;
         }
-        
+
         let processor = DistillationProcessor::new("gpt-4o-mini");
         let output = utils::success_output(
             "get_sol_balance",
-            json!({"balance_sol": 1.5, "address": "11111111111111111111111111111112"})
+            json!({"balance_sol": 1.5, "address": "11111111111111111111111111111112"}),
         );
-        
+
         let processed = processor.process(output).await.unwrap();
         assert!(processed.summary.is_some());
     }
-    
+
     #[tokio::test]
     async fn test_mock_distiller() {
-        let processor = MockDistiller::new()
-            .with_response("test_tool", "This is a test summary");
-            
+        let processor = MockDistiller::new().with_response("test_tool", "This is a test summary");
+
         let output = utils::success_output("test_tool", json!({"result": "success"}));
         let processed = processor.process(output).await.unwrap();
-        
-        assert_eq!(processed.summary, Some("This is a test summary".to_string()));
+
+        assert_eq!(
+            processed.summary,
+            Some("This is a test summary".to_string())
+        );
     }
-    
+
     #[tokio::test]
     async fn test_smart_distiller() {
         // Skip test if ANTHROPIC_API_KEY is not set
@@ -398,27 +400,27 @@ mod tests {
             eprintln!("Skipping test: ANTHROPIC_API_KEY not set");
             return;
         }
-        
+
         let processor = SmartDistiller::new();
         let output = utils::success_output("trading_tool", json!({"profit": 100}));
-        
+
         let processed = processor.process(output).await.unwrap();
         assert!(processed.summary.is_some());
     }
-    
+
     #[test]
     fn test_processor_selection() {
         let distiller = SmartDistiller::new();
-        
+
         let trading_output = utils::success_output("swap_tokens", json!({}));
         let balance_output = utils::success_output("get_balance", json!({}));
         let general_output = utils::success_output("general_tool", json!({}));
-        
+
         // Test that different tools get routed to different processors
         let trading_processor = distiller.choose_processor(&trading_output);
         let balance_processor = distiller.choose_processor(&balance_output);
         let general_processor = distiller.choose_processor(&general_output);
-        
+
         // They should potentially be different (though our mock implementation returns the same)
         assert_eq!(trading_processor.model, "claude-3-5-haiku");
         assert_eq!(balance_processor.model, "gemini-1.5-flash");

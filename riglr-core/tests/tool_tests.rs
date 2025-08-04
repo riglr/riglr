@@ -340,7 +340,6 @@ async fn test_tool_worker_process_job_with_retries() {
 
 #[tokio::test]
 async fn test_tool_worker_process_job_timeout() {
-
     let config = ExecutionConfig {
         default_timeout: Duration::from_millis(100),
         initial_retry_delay: Duration::from_millis(10),
