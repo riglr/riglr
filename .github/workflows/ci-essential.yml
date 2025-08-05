@@ -94,16 +94,16 @@ jobs:
 
   # MSRV check
   msrv:
-    name: MSRV (1.75)
+    name: MSRV (1.82)
     needs: quick-checks
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       
-      - name: Install Rust 1.75
+      - name: Install Rust 1.82
         uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: "1.75"
+          toolchain: "1.82"
       
       - name: Cache dependencies
         uses: Swatinem/rust-cache@v2
