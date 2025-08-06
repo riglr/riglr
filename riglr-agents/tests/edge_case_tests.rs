@@ -151,6 +151,7 @@ impl Agent for EdgeCaseAgent {
                     "risk_analysis".to_string(),
                     "portfolio".to_string(),
                     "monitoring".to_string(),
+                    "edge_case".to_string(),  // Also include edge_case for test tasks
                 ]
             }
             _ => vec!["edge_case".to_string()],
