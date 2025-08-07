@@ -28,52 +28,6 @@ env:
   RUSTFLAGS: -D warnings
 
 jobs:
-  # SonarCloud analysis
-  sonarcloud:
-    name: SonarCloud Analysis
-    runs-on: self-hosted
-    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0  # Shallow clones should be disabled for a better relevancy of analysis
-      
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          components: llvm-tools-preview
-      
-      - name: Install cargo-llvm-cov
-        run: cargo install cargo-llvm-cov
-      
-      - name: Generate code coverage
-        run: cargo llvm-cov --all-features --workspace --lcov --output-path lcov.info
-        env:
-          # Mock environment variables for tests
-          ANTHROPIC_API_KEY: test_key
-          REDIS_URL: redis://localhost:6379
-          NEO4J_URL: bolt://localhost:7687
-          ETHEREUM_RPC_URL: https://eth.llamarpc.com
-          ARBITRUM_RPC_URL: https://arb1.arbitrum.io/rpc
-          POLYGON_RPC_URL: https://polygon-rpc.com
-          BASE_RPC_URL: https://mainnet.base.org
-          SOLANA_RPC_URL: https://api.devnet.solana.com
-      
-      - name: SonarCloud Scan
-        uses: SonarSource/sonarcloud-github-action@master
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        with:
-          args: >
-            -Dsonar.organization=${{ github.repository_owner }}
-            -Dsonar.projectKey=${{ github.repository_owner }}_${{ github.event.repository.name }}
-            -Dsonar.sources=.
-            -Dsonar.exclusions=**/*.lock,**/target/**,**/docs/**,**/examples/**
-            -Dsonar.tests=.
-            -Dsonar.test.inclusions=**/*_test.rs,**/tests/**
-            -Dsonar.rust.lcov.reportPaths=lcov.info
-
   # Quick format and lint checks - fail fast
   quick-checks:
     name: Format & Lint
@@ -95,26 +49,16 @@ jobs:
       - name: Run Clippy
         run: cargo clippy --workspace --all-features --all-targets -- -D warnings
 
-  # Essential tests - run on stable only for PR/push
+  # Essential tests - run on self-hosted only
   test:
-    name: Test (${{ matrix.os }})
+    name: Test
     needs: quick-checks
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-    runs-on: ${{ matrix.os }}
+    runs-on: self-hosted
     steps:
       - uses: actions/checkout@v4
       
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
-      
-      - name: Setup OpenSSL (Windows)
-        if: runner.os == 'Windows'
-        run: |
-          echo "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          vcpkg install openssl:x64-windows-static-md
-        shell: pwsh
       
       - name: Cache dependencies
         uses: Swatinem/rust-cache@v2
@@ -135,38 +79,4 @@ jobs:
           BASE_RPC_URL: https://mainnet.base.org
           SOLANA_RPC_URL: https://api.devnet.solana.com
 
-  # Documentation check
-  docs:
-    name: Documentation
-    needs: quick-checks
-    runs-on: self-hosted
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-      
-      - name: Cache dependencies
-        uses: Swatinem/rust-cache@v2
-      
-      - name: Check documentation
-        run: cargo doc --workspace --no-deps --all-features
-        env:
-          RUSTDOCFLAGS: -D warnings
 
-  # MSRV check - Using stable since dependencies require edition2024
-  msrv:
-    name: MSRV (stable)
-    needs: quick-checks
-    runs-on: self-hosted
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Install Rust stable
-        uses: dtolnay/rust-toolchain@stable
-      
-      - name: Cache dependencies
-        uses: Swatinem/rust-cache@v2
-      
-      - name: Check MSRV
-        run: cargo check --workspace

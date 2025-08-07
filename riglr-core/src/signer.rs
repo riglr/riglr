@@ -374,7 +374,7 @@ impl SignerContext {
 
     /// Execute a future with a unified signer context.
     ///
-    /// Similar to [`with_signer`] but uses the new granular trait system.
+    /// Similar to `with_signer` but uses the new granular trait system.
     /// This is the preferred method for new code.
     ///
     /// # Examples

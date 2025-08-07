@@ -96,7 +96,6 @@
 //!     fn description(&self) -> &str {
 //!         "Greets a user by name with a friendly message."
 //!     }
-//!     }
 //! }
 //!
 //! # async fn example() -> anyhow::Result<()> {
