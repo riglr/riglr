@@ -3,6 +3,12 @@ name: Benchmarks
 on:
   pull_request:
     branches: [ main ]
+    paths-ignore:
+      - 'docs/**'
+      - 'website/**'
+      - '**.md'
+      - 'LICENSE'
+      - '.github/workflows/deploy-docs.yml'
   workflow_dispatch:
 
 concurrency:
