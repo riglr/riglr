@@ -8,13 +8,6 @@ on:
       - 'docs/**'
       - 'website/**'
       - '.github/workflows/deploy-docs.yml'
-  pull_request:
-    branches:
-      - main
-    paths:
-      - 'docs/**'
-      - 'website/**'
-      - '.github/workflows/deploy-docs.yml'
   workflow_dispatch:
 
 permissions:
@@ -23,8 +16,8 @@ permissions:
   id-token: write
 
 concurrency:
-  group: "pages"
-  cancel-in-progress: false
+  group: "pages-${{ github.ref }}"
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -59,17 +52,14 @@ jobs:
           cp docs/book/index.html deploy/docs.html 2>/dev/null || true
 
       - name: Setup Pages
-        if: github.event_name != 'pull_request'
         uses: actions/configure-pages@v5
 
       - name: Upload artifact
-        if: github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@v3
         with:
           path: ./deploy
 
   deploy:
-    if: github.event_name != 'pull_request'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
