@@ -1,0 +1,1511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>riglr - Build Blazing-Fast, Secure On-Chain AI Agents in Rust</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #50fa7b;
+            --primary-dark: #3dd660;
+            --primary-light: #7ffc9a;
+            --primary-glow: rgba(80, 250, 123, 0.4);
+            --secondary: #00ff88;
+            --accent: #40e0d0;
+            --bg-dark: #0a0a0b;
+            --bg-darker: #050506;
+            --bg-card: #16161a;
+            --text-primary: #f9fafb;
+            --text-secondary: #9ca3af;
+            --text-muted: #6b7280;
+            --border: #2d2d30;
+            --success: #50fa7b;
+            --warning: #f59e0b;
+            --error: #ef4444;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-primary);
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        /* Smooth Scrolling */
+        html {
+            scroll-behavior: smooth;
+        }
+
+        /* Navigation */
+        nav {
+            position: fixed;
+            top: 0;
+            width: 100%;
+            background: rgba(10, 10, 11, 0.8);
+            backdrop-filter: blur(20px);
+            z-index: 1000;
+            padding: 1rem 0;
+            transition: all 0.3s ease;
+            border-bottom: 1px solid var(--border);
+        }
+
+        nav.scrolled {
+            padding: 0.75rem 0;
+            background: rgba(10, 10, 11, 0.95);
+        }
+
+        .nav-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            text-decoration: none;
+        }
+
+        .logo img {
+            height: 32px;
+            width: auto;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+            list-style: none;
+        }
+
+        .nav-links a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            transition: color 0.3s ease;
+            font-weight: 500;
+        }
+
+        .nav-links a:hover {
+            color: var(--primary);
+        }
+
+        /* Hero Section */
+        .hero {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 6rem 2rem 4rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: radial-gradient(circle at 20% 50%, rgba(80, 250, 123, 0.1) 0%, transparent 50%),
+                        radial-gradient(circle at 80% 80%, rgba(0, 255, 136, 0.1) 0%, transparent 50%),
+                        radial-gradient(circle at 40% 20%, rgba(64, 224, 208, 0.05) 0%, transparent 50%);
+            animation: float 20s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translate(0, 0) rotate(0deg); }
+            33% { transform: translate(-20px, -20px) rotate(1deg); }
+            66% { transform: translate(20px, -10px) rotate(-1deg); }
+        }
+
+        .hero-content {
+            max-width: 1200px;
+            width: 100%;
+            z-index: 1;
+            position: relative;
+        }
+
+
+        .hero h1 {
+            font-size: clamp(2.5rem, 5vw, 4rem);
+            font-weight: 900;
+            margin-bottom: 1.5rem;
+            line-height: 1.1;
+            background: linear-gradient(135deg, var(--text-primary) 0%, var(--primary) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: fadeInUp 0.8s ease;
+        }
+
+        .hero .subtitle {
+            font-size: 1.3rem;
+            color: var(--text-secondary);
+            margin-bottom: 2rem;
+            animation: fadeInUp 0.8s ease 0.2s both;
+        }
+
+        .hero .subtitle code {
+            color: var(--primary);
+            background: rgba(80, 250, 123, 0.1);
+            padding: 0.2rem 0.4rem;
+            border-radius: 0.25rem;
+            font-weight: 600;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .cta-buttons {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 3rem;
+            animation: fadeInUp 0.8s ease 0.4s both;
+        }
+
+        .btn {
+            padding: 0.875rem 2rem;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            cursor: pointer;
+            border: none;
+            font-size: 1rem;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: var(--bg-dark);
+            box-shadow: 0 4px 20px var(--primary-glow);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 30px var(--primary-glow);
+            background: var(--primary-light);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            color: var(--text-primary);
+            border: 2px solid var(--primary);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(80, 250, 123, 0.1);
+            border-color: var(--primary-light);
+            color: var(--primary);
+        }
+
+        /* Code Showcase */
+        .code-showcase {
+            background: var(--bg-card);
+            border-radius: 1rem;
+            padding: 1.5rem;
+            border: 1px solid var(--border);
+            animation: fadeInUp 0.8s ease 0.6s both;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 0 40px rgba(80, 250, 123, 0.05);
+        }
+
+        .code-showcase:hover {
+            border-color: var(--primary);
+            box-shadow: 0 0 60px rgba(80, 250, 123, 0.1);
+        }
+
+        .code-header {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .code-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+
+        .code-dot:nth-child(1) { background: #ef4444; }
+        .code-dot:nth-child(2) { background: #f59e0b; }
+        .code-dot:nth-child(3) { background: var(--primary); }
+
+        pre {
+            overflow-x: auto;
+            margin: 0;
+        }
+
+        pre code {
+            font-family: 'Fira Code', 'Consolas', monospace;
+            font-size: 0.9rem;
+            line-height: 1.6;
+        }
+
+        /* Typing Animation for Code */
+        .typing-code {
+            display: inline-block;
+            border-right: 3px solid var(--primary);
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+            0%, 50% { border-right-color: var(--primary); }
+            51%, 100% { border-right-color: transparent; }
+        }
+
+        /* Section Styles */
+        section {
+            padding: 5rem 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .section-header {
+            text-align: center;
+            margin-bottom: 4rem;
+        }
+
+        .section-header h2 {
+            font-size: clamp(2rem, 4vw, 3rem);
+            font-weight: 800;
+            margin-bottom: 1rem;
+            background: linear-gradient(135deg, var(--text-primary), var(--primary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .section-header p {
+            font-size: 1.2rem;
+            color: var(--text-secondary);
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        /* Feature Cards */
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 2rem;
+            margin-top: 3rem;
+        }
+
+        .feature-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 1rem;
+            padding: 2rem;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .feature-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+            transform: translateX(-100%);
+            transition: transform 0.3s ease;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-5px);
+            border-color: var(--primary);
+            box-shadow: 0 10px 40px rgba(80, 250, 123, 0.1);
+        }
+
+        .feature-card:hover::before {
+            transform: translateX(0);
+        }
+
+        .feature-icon {
+            width: 48px;
+            height: 48px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            border-radius: 0.75rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 1.5rem;
+            font-size: 1.5rem;
+            color: var(--bg-dark);
+        }
+
+        .feature-card h3 {
+            font-size: 1.3rem;
+            margin-bottom: 1rem;
+            color: var(--text-primary);
+        }
+
+        .feature-card p {
+            color: var(--text-secondary);
+            line-height: 1.8;
+        }
+
+        /* Architecture Section */
+        .architecture-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 3rem;
+            align-items: center;
+        }
+
+        .architecture-text h3 {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+            color: var(--primary);
+        }
+
+        .architecture-text p {
+            color: var(--text-secondary);
+            margin-bottom: 1.5rem;
+            line-height: 1.8;
+        }
+
+        .architecture-diagram {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 1rem;
+            padding: 2rem;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .architecture-diagram::after {
+            content: '';
+            position: absolute;
+            inset: -1px;
+            border-radius: 1rem;
+            padding: 1px;
+            background: linear-gradient(135deg, var(--primary), transparent, var(--secondary));
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            mask-composite: exclude;
+            opacity: 0.5;
+        }
+
+        /* Why Section */
+        .why-grid {
+            display: grid;
+            gap: 3rem;
+        }
+
+        .why-item {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 2rem;
+            align-items: start;
+            padding: 2rem;
+            background: var(--bg-card);
+            border-radius: 1rem;
+            border: 1px solid var(--border);
+            transition: all 0.3s ease;
+        }
+
+        .why-item:hover {
+            border-color: var(--primary);
+            transform: translateX(5px);
+            box-shadow: 0 5px 20px rgba(80, 250, 123, 0.1);
+        }
+
+        .why-number {
+            width: 48px;
+            height: 48px;
+            background: var(--primary);
+            color: var(--bg-dark);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+
+        .why-content h3 {
+            font-size: 1.5rem;
+            margin-bottom: 0.5rem;
+            color: var(--text-primary);
+        }
+
+        .why-content .tagline {
+            color: var(--primary);
+            font-style: italic;
+            margin-bottom: 1rem;
+        }
+
+        .why-content code {
+            color: var(--primary);
+            background: rgba(80, 250, 123, 0.1);
+            padding: 0.1rem 0.3rem;
+            border-radius: 0.25rem;
+        }
+
+        /* Code Comparison */
+        .code-comparison {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+
+        .code-block {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 1rem;
+            overflow: hidden;
+        }
+
+        .code-block-header {
+            padding: 1rem 1.5rem;
+            background: var(--bg-darker);
+            border-bottom: 1px solid var(--border);
+            font-weight: 600;
+        }
+
+        .code-block.before .code-block-header {
+            color: var(--error);
+        }
+
+        .code-block.after .code-block-header {
+            color: var(--primary);
+        }
+
+        .code-block pre {
+            padding: 1.5rem;
+            margin: 0;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        /* Footer */
+        footer {
+            background: var(--bg-darker);
+            border-top: 1px solid var(--border);
+            padding: 3rem 2rem;
+            text-align: center;
+        }
+
+        .footer-content {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+
+        .social-links {
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .social-links a {
+            color: var(--text-secondary);
+            font-size: 1.5rem;
+            transition: color 0.3s ease;
+        }
+
+        .social-links a:hover {
+            color: var(--primary);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .nav-links {
+                display: none;
+            }
+
+            .architecture-content {
+                grid-template-columns: 1fr;
+            }
+
+            .code-comparison {
+                grid-template-columns: 1fr;
+            }
+
+            .cta-buttons {
+                flex-direction: column;
+            }
+
+            .btn {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+
+        /* Scroll Reveal Animation */
+        .reveal {
+            opacity: 0;
+            transform: translateY(30px);
+            transition: all 0.8s ease;
+        }
+
+        .reveal.active {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* Gradient Text Animation */
+        @keyframes gradient {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        .animated-gradient {
+            background: linear-gradient(-45deg, var(--primary), var(--secondary), var(--accent), var(--primary));
+            background-size: 300% 300%;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: gradient 6s ease infinite;
+        }
+
+        /* Tool Cards */
+        .tools-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-top: 3rem;
+        }
+
+        .tool-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            transition: all 0.3s ease;
+        }
+
+        .tool-card:hover {
+            border-color: var(--primary);
+            transform: translateY(-3px);
+            box-shadow: 0 5px 20px rgba(80, 250, 123, 0.1);
+        }
+
+        .tool-card h4 {
+            color: var(--primary);
+            margin-bottom: 0.75rem;
+            font-size: 1.1rem;
+        }
+
+        .tool-list {
+            list-style: none;
+            color: var(--text-secondary);
+        }
+
+        .tool-list li {
+            padding: 0.25rem 0;
+            padding-left: 1.5rem;
+            position: relative;
+        }
+
+        .tool-list li::before {
+            content: '→';
+            position: absolute;
+            left: 0;
+            color: var(--primary);
+        }
+
+        /* Getting Started Steps */
+        .steps {
+            display: grid;
+            gap: 2rem;
+            margin-top: 3rem;
+        }
+
+        .step {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 1.5rem;
+            align-items: start;
+        }
+
+        .step-number {
+            width: 40px;
+            height: 40px;
+            background: var(--primary);
+            color: var(--bg-dark);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 1.2rem;
+        }
+
+        .step-content h4 {
+            margin-bottom: 0.75rem;
+            color: var(--text-primary);
+        }
+
+        .step-content pre {
+            background: var(--bg-darker);
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-top: 0.75rem;
+        }
+
+        /* Network Animation */
+        .network-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0.05;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav id="navbar">
+        <div class="nav-container">
+            <a href="#home" class="logo">
+                <img src="logo-h.png" alt="riglr">
+            </a>
+            <ul class="nav-links">
+                <li><a href="#home">Home</a></li>
+                <li><a href="#why">Why riglr?</a></li>
+                <li><a href="#architecture">Architecture</a></li>
+                <li><a href="#features">Features</a></li>
+                <li><a href="#getting-started">Get Started</a></li>
+                <li><a href="https://github.com/riglr/riglr" target="_blank"><i class="fab fa-github"></i> GitHub</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero" id="home">
+        <div class="hero-content">
+            <h1>Build Blazing-Fast, Secure<br>On-Chain AI Agents in Rust.</h1>
+            
+            <!-- Status Badges -->
+            <div style="display: flex; gap: 0.5rem; justify-content: center; margin-bottom: 1.5rem; flex-wrap: wrap;">
+                <img src="https://img.shields.io/badge/version-0.2.0-50fa7b?style=flat-square" alt="Version">
+                <img src="https://img.shields.io/badge/rust-1.82%2B-orange?style=flat-square" alt="Rust">
+                <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="License">
+                <img src="https://img.shields.io/badge/crates-23-purple?style=flat-square" alt="Crates">
+                <img src="https://img.shields.io/badge/tools-50%2B-green?style=flat-square" alt="Tools">
+            </div>
+            <p class="subtitle">
+                <code>riglr</code> extends the <code>rig</code> framework with production-ready blockchain capabilities. 
+                With 23 specialized crates, 50+ verified blockchain tools, and the innovative SignerContext pattern 
+                for secure multi-tenant operations, riglr seamlessly adds cross-chain automation to rig agents.
+            </p>
+            
+            <div class="cta-buttons">
+                <a href="#getting-started" class="btn btn-primary">
+                    <i class="fas fa-rocket"></i> Get Started
+                </a>
+                <a href="https://github.com/riglr/riglr" class="btn btn-secondary" target="_blank">
+                    <i class="fab fa-github"></i> View on GitHub
+                </a>
+            </div>
+            
+            <!-- Active Development Notice -->
+            <div style="background: rgba(245, 158, 11, 0.1); border: 1px solid #f59e0b; border-radius: 0.5rem; padding: 0.75rem 1.5rem; margin-bottom: 2rem; text-align: center;">
+                <i class="fas fa-exclamation-triangle" style="color: #f59e0b; margin-right: 0.5rem;"></i>
+                <span style="color: var(--text-secondary);">
+                    <strong>Active Development:</strong> This project is under heavy development with frequent updates. 
+                    APIs may change. Watch the repo for updates!
+                </span>
+            </div>
+
+            <div class="code-showcase">
+                <div class="code-header">
+                    <div class="code-dot"></div>
+                    <div class="code-dot"></div>
+                    <div class="code-dot"></div>
+                </div>
+                <pre><code class="language-rust">use riglr_solana_tools::{GetJupiterQuote, PerformJupiterSwap, DeployPumpToken};
+use riglr_web_tools::{GetTokenInfo, AnalyzeCryptoSentiment};
+use riglr_graph_memory::GraphMemory;
+use rig::agent::AgentBuilder;
+
+// Multi-chain trading agent with graph memory
+let trading_agent = AgentBuilder::new(model)
+    .preamble("Expert DeFi trader with cross-chain capabilities")
+    .tool(GetJupiterQuote)      // Routes through 30+ Solana DEXs
+    .tool(PerformJupiterSwap)   // Optimal swap execution
+    .tool(GetTokenInfo)         // Real-time market data from DexScreener
+    .dynamic_context(GraphMemory::new().await?) // Neo4j knowledge graph
+    .build();
+
+// Pump.fun token launcher with sentiment analysis  
+let meme_launcher = AgentBuilder::new(model)
+    .preamble("Analyzes social sentiment and launches trending tokens")
+    .tool(AnalyzeCryptoSentiment)  // Twitter/X sentiment via LunarCrush
+    .tool(DeployPumpToken)         // Full token deployment on Pump.fun
+    .build();
+
+// Example: AI-driven token analysis and potential launch
+let sentiment = trading_agent
+    .prompt("Analyze current sentiment for dog-themed memecoins")
+    .await?;
+
+// SignerContext automatically isolates user operations
+// No manual key management - production-ready security</code></pre>
+            </div>
+        </div>
+    </section>
+
+    <!-- Why riglr Section -->
+    <section id="why" class="reveal">
+        <div class="section-header">
+            <h2>The Unfair Advantage for Building On-Chain AI</h2>
+            <p>Building AI agents that can safely and reliably interact with blockchains is hard. 
+               riglr provides the foundational toolkit to do it right.</p>
+        </div>
+
+        <div class="why-grid">
+            <div class="why-item">
+                <div class="why-number">1</div>
+                <div class="why-content">
+                    <h3>A Library, Not a Framework</h3>
+                    <p class="tagline">Alternatives give you a restrictive application. riglr gives you a powerful, unopinionated library.</p>
+                    <p>Our core philosophy is to empower, not constrain. riglr is architected as a collection of modular crates. 
+                       Need only Solana tools? Just import <code>riglr-solana-tools</code>. Building an EVM-only agent? 
+                       Use <code>riglr-evm-tools</code>. This modularity ensures your application remains lean, flexible, 
+                       and free from the technical debt of monolithic frameworks.</p>
+                </div>
+            </div>
+
+            <div class="why-item">
+                <div class="why-number">2</div>
+                <div class="why-content">
+                    <h3>Production-Grade Security & Concurrency by Design</h3>
+                    <p class="tagline">Stop worrying about private key management and race conditions. Start building secure, multi-tenant services from day one.</p>
+                    <p>riglr is built around the <strong>SignerContext</strong>, a battle-tested pattern for secure, multi-tenant blockchain operations. 
+                       It uses thread-local storage to ensure that every user request is handled in a cryptographically isolated context. 
+                       This makes building complex, concurrent applications that handle multiple user wallets simultaneously not just possible, 
+                       but simple and safe.</p>
+                </div>
+            </div>
+
+            <div class="why-item">
+                <div class="why-number">3</div>
+                <div class="why-content">
+                    <h3>Native rig Integration, Not Reinvention</h3>
+                    <p class="tagline">riglr extends the rig framework, it doesn't replace it. Leverage the full power of rig's reasoning, not a custom-built alternative.</p>
+                    <p>We believe in the power of the rig agent model. riglr is designed to be a pure extension, providing the on-chain tools 
+                       and context that rig agents need to operate. We don't reinvent the reasoning loop or the agent lifecycle. 
+                       This means your riglr-powered agent benefits directly from every improvement and feature added to the core rig framework.</p>
+                </div>
+            </div>
+
+            <div class="why-item">
+                <div class="why-number">4</div>
+                <div class="why-content">
+                    <h3>Unmatched Developer Experience</h3>
+                    <p class="tagline">Write business logic, not boilerplate. The #[tool] macro is your superpower.</p>
+                    <p>Defining a new on-chain tool in riglr is as simple as writing a single async function. Our powerful <code>#[tool]</code> macro handles everything else:
+                       automatic Tool trait implementation, JSON schema generation, structured error handling, and seamless SignerContext access.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Rig Integration Section -->
+    <section class="reveal">
+        <div class="section-header">
+            <h2>Built for rig: Seamless Framework Extension</h2>
+            <p>riglr is designed from the ground up to extend rig's powerful agent framework with blockchain superpowers</p>
+        </div>
+        
+        <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 1rem; padding: 2rem; margin-bottom: 2rem;">
+            <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 2rem; align-items: center;">
+                <div style="text-align: center;">
+                    <div style="font-size: 3rem; color: var(--primary); margin-bottom: 1rem;">
+                        <i class="fas fa-puzzle-piece"></i>
+                    </div>
+                    <h3 style="color: var(--text-primary);">rig provides the brain</h3>
+                    <p style="color: var(--text-secondary);">LLM orchestration, agent framework, and reasoning capabilities</p>
+                </div>
+                <div style="background: var(--bg-darker); border-radius: 0.5rem; padding: 1.5rem;">
+                    <pre><code class="language-rust">use rig::agent::AgentBuilder;
+use riglr_solana_tools::{TransferSol, GetSolBalance};
+use riglr_evm_tools::{UniswapV3Swap};
+
+// rig's AgentBuilder + riglr's blockchain tools
+let defi_agent = AgentBuilder::new(model)
+    .preamble("You are a DeFi expert")
+    .tool(TransferSol)      // riglr adds Solana
+    .tool(GetSolBalance)    // riglr adds queries
+    .tool(UniswapV3Swap)    // riglr adds EVM
+    .build();
+
+// Natural language -> Blockchain actions
+let result = defi_agent
+    .prompt("Send 1 SOL to alice.sol")
+    .await?;</code></pre>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Architecture Section -->
+    <section id="architecture" class="reveal">
+        <div class="section-header">
+            <h2>An Architecture for Resilience and Scale</h2>
+            <p>riglr isn't just a collection of functions; it's a thoughtfully designed system for building robust on-chain applications.</p>
+        </div>
+
+        <div class="architecture-content">
+            <div class="architecture-text">
+                <h3>The SignerContext Pattern</h3>
+                <p>At the heart of riglr is the SignerContext. It provides a secure, thread-local container for the current user's cryptographic signer. 
+                   This allows your tools to be completely stateless—they simply ask the context for the current signer when they need to perform a transaction.</p>
+                
+                <h3>Modular Crates</h3>
+                <p>riglr is organized into a workspace of independent crates. This design means you only compile and depend on the functionality you need. 
+                   Building a Solana-only agent? You don't need to pull in any EVM dependencies.</p>
+                
+                <h3>Intelligent Error Handling</h3>
+                <p>Network calls fail. Transactions get reverted. riglr is built for the real world. Our ToolError enum classifies failures into 
+                   Permanent, Retriable, and RateLimited, allowing intelligent decisions about whether to retry failed operations.</p>
+            </div>
+            
+            <div class="architecture-diagram">
+                <svg width="100%" height="400" viewBox="0 0 500 400" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" style="stop-color:#50fa7b;stop-opacity:1" />
+                            <stop offset="100%" style="stop-color:#00ff88;stop-opacity:1" />
+                        </linearGradient>
+                    </defs>
+                    
+                    <!-- rig Framework -->
+                    <g transform="translate(200, 30)">
+                        <rect width="100" height="50" fill="#2d2d30" rx="5"/>
+                        <text x="50" y="30" text-anchor="middle" fill="#f9fafb" font-size="14" font-weight="bold">rig Agent</text>
+                    </g>
+                    
+                    <!-- riglr-core -->
+                    <g transform="translate(50, 120)">
+                        <rect width="140" height="80" fill="url(#grad1)" opacity="0.2" rx="5"/>
+                        <text x="70" y="25" text-anchor="middle" fill="#f9fafb" font-size="12" font-weight="bold">riglr-core</text>
+                        <text x="70" y="45" text-anchor="middle" fill="#9ca3af" font-size="10">SignerContext</text>
+                        <text x="70" y="60" text-anchor="middle" fill="#9ca3af" font-size="10">ToolError</text>
+                        <text x="70" y="75" text-anchor="middle" fill="#9ca3af" font-size="10">#[tool] Macro</text>
+                    </g>
+                    
+                    <!-- Tool Crates -->
+                    <g transform="translate(310, 120)">
+                        <rect width="140" height="80" fill="url(#grad1)" opacity="0.2" rx="5"/>
+                        <text x="70" y="25" text-anchor="middle" fill="#f9fafb" font-size="12" font-weight="bold">Tool Crates</text>
+                        <text x="70" y="45" text-anchor="middle" fill="#9ca3af" font-size="10">riglr-solana-tools</text>
+                        <text x="70" y="60" text-anchor="middle" fill="#9ca3af" font-size="10">riglr-evm-tools</text>
+                        <text x="70" y="75" text-anchor="middle" fill="#9ca3af" font-size="10">riglr-web-tools</text>
+                    </g>
+                    
+                    <!-- Your App -->
+                    <g transform="translate(180, 250)">
+                        <rect width="140" height="80" fill="#50fa7b" opacity="0.2" rx="5"/>
+                        <text x="70" y="25" text-anchor="middle" fill="#f9fafb" font-size="12" font-weight="bold">Your Application</text>
+                        <text x="70" y="45" text-anchor="middle" fill="#9ca3af" font-size="10">Agent Logic</text>
+                        <text x="70" y="60" text-anchor="middle" fill="#9ca3af" font-size="10">Web Server</text>
+                    </g>
+                    
+                    <!-- Connections -->
+                    <line x1="250" y1="80" x2="250" y2="250" stroke="#50fa7b" stroke-width="2" stroke-dasharray="5,5" opacity="0.5"/>
+                    <line x1="250" y1="80" x2="380" y2="120" stroke="#50fa7b" stroke-width="2" stroke-dasharray="5,5" opacity="0.5"/>
+                    <line x1="120" y1="200" x2="180" y2="250" stroke="#50fa7b" stroke-width="2" opacity="0.5"/>
+                    <line x1="380" y1="200" x2="320" y2="250" stroke="#50fa7b" stroke-width="2" opacity="0.5"/>
+                </svg>
+            </div>
+        </div>
+        
+        <!-- Enhanced SignerContext Section -->
+        <div style="background: var(--bg-card); border: 1px solid var(--primary); border-radius: 1rem; padding: 2rem; margin: 2rem 0;">
+            <h3 style="color: var(--primary); margin-bottom: 1.5rem; text-align: center;">
+                <i class="fas fa-shield-alt"></i> SignerContext: Multi-Tenant Security Innovation
+            </h3>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; align-items: center;">
+                <div>
+                    <h4 style="color: var(--text-primary); margin-bottom: 1rem;">The Problem</h4>
+                    <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">
+                        Traditional blockchain applications struggle with secure multi-tenant operations. 
+                        Managing multiple user wallets safely while preventing cross-user access is complex and error-prone.
+                    </p>
+                    <h4 style="color: var(--text-primary); margin-bottom: 1rem;">riglr's Solution</h4>
+                    <p style="color: var(--text-secondary);">
+                        The SignerContext pattern uses thread-local storage to ensure cryptographic isolation. 
+                        Every blockchain operation automatically uses the correct user's credentials without manual key management.
+                    </p>
+                </div>
+                <div style="background: var(--bg-darker); border-radius: 0.5rem; padding: 1.5rem;">
+                    <pre><code class="language-rust">// Tools are completely stateless
+#[tool]
+async fn transfer_sol(
+    to: String,
+    amount: f64,
+) -> Result<String, ToolError> {
+    // SignerContext automatically provides
+    // the correct user's signer
+    let signer = get_signer_from_context()?;
+    let tx = create_transfer(&signer, &to, amount).await?;
+    Ok(tx.signature.to_string())
+}
+
+// No manual key management needed!
+// Each user request runs in isolated context</code></pre>
+                </div>
+            </div>
+        </div>
+
+        <!-- Graph Memory System Section -->
+        <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 1rem; padding: 2rem; margin: 2rem 0;">
+            <h3 style="color: var(--secondary); margin-bottom: 1.5rem; text-align: center;">
+                <i class="fas fa-brain"></i> Advanced Graph Memory System
+            </h3>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
+                <div>
+                    <h4 style="color: var(--text-primary); margin-bottom: 1rem;">Hybrid Vector + Graph Search</h4>
+                    <ul style="color: var(--text-secondary); list-style: none; padding-left: 0;">
+                        <li style="margin-bottom: 0.5rem;"><i class="fas fa-check" style="color: var(--primary); margin-right: 0.5rem;"></i>Neo4j knowledge graph backend</li>
+                        <li style="margin-bottom: 0.5rem;"><i class="fas fa-check" style="color: var(--primary); margin-right: 0.5rem;"></i>Automatic blockchain entity extraction</li>
+                        <li style="margin-bottom: 0.5rem;"><i class="fas fa-check" style="color: var(--primary); margin-right: 0.5rem;"></i>Semantic similarity search</li>
+                        <li style="margin-bottom: 0.5rem;"><i class="fas fa-check" style="color: var(--primary); margin-right: 0.5rem;"></i>rig::VectorStore compatibility</li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 style="color: var(--text-primary); margin-bottom: 1rem;">Relationship Modeling</h4>
+                    <p style="color: var(--text-secondary); font-size: 0.9rem;">
+                        <strong>Entities:</strong> Wallets, Tokens, Protocols, Transactions, Blocks<br>
+                        <strong>Relationships:</strong> PERFORMED, INVOLVED, USED, HOLDS<br>
+                        <strong>Queries:</strong> "Find wallets that traded BONK and also hold SOL"
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Multi-Agent Framework Section -->
+        <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 1rem; padding: 2rem; margin: 2rem 0;">
+            <h3 style="color: var(--accent); margin-bottom: 1.5rem; text-align: center;">
+                <i class="fas fa-users"></i> Production Multi-Agent Architecture
+            </h3>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem;">
+                <div style="text-align: center;">
+                    <div style="color: var(--primary); font-size: 1.5rem; margin-bottom: 0.5rem;"><i class="fas fa-sitemap"></i></div>
+                    <h4 style="margin-bottom: 0.5rem;">Agent Registry</h4>
+                    <p style="color: var(--text-secondary); font-size: 0.9rem;">Discovery and lifecycle management</p>
+                </div>
+                <div style="text-align: center;">
+                    <div style="color: var(--primary); font-size: 1.5rem; margin-bottom: 0.5rem;"><i class="fas fa-route"></i></div>
+                    <h4 style="margin-bottom: 0.5rem;">Task Dispatcher</h4>
+                    <p style="color: var(--text-secondary); font-size: 0.9rem;">Load balancing and routing</p>
+                </div>
+                <div style="text-align: center;">
+                    <div style="color: var(--primary); font-size: 1.5rem; margin-bottom: 0.5rem;"><i class="fas fa-comments"></i></div>
+                    <h4 style="margin-bottom: 0.5rem;">Inter-Agent Communication</h4>
+                    <p style="color: var(--text-secondary); font-size: 0.9rem;">Message passing system</p>
+                </div>
+                <div style="text-align: center;">
+                    <div style="color: var(--primary); font-size: 1.5rem; margin-bottom: 0.5rem;"><i class="fas fa-tasks"></i></div>
+                    <h4 style="margin-bottom: 0.5rem;">Task Management</h4>
+                    <p style="color: var(--text-secondary); font-size: 0.9rem;">Priority queues and tracking</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+
+    <!-- Features Section -->
+    <section id="features" class="reveal">
+        <div class="section-header">
+            <h2>A Comprehensive Toolkit for On-Chain Operations</h2>
+            <p>riglr provides 50+ production-ready tools across multiple blockchains, with new integrations added weekly.</p>
+        </div>
+
+        <div class="tools-grid">
+            <div class="tool-card">
+                <h4><i class="fas fa-coins"></i> riglr-solana-tools</h4>
+                <ul class="tool-list">
+                    <li><strong>AMMs:</strong> Jupiter, Raydium, Meteora, Orca</li>
+                    <li><strong>Launchpads:</strong> Pump.fun, Moonshot, BonkBot</li>
+                    <li><strong>Trading:</strong> Swaps, Quotes, Liquidity</li>
+                    <li>SOL & SPL Token Transfers</li>
+                    <li>Balance & Portfolio Queries</li>
+                </ul>
+            </div>
+
+            <div class="tool-card">
+                <h4><i class="fab fa-ethereum"></i> riglr-evm-tools</h4>
+                <ul class="tool-list">
+                    <li>Uniswap V3 Swaps & Quotes</li>
+                    <li>ETH & ERC20 Transfers</li>
+                    <li>Multi-Chain Support</li>
+                    <li>Gas Estimation & Nonce Management</li>
+                </ul>
+            </div>
+
+            <div class="tool-card">
+                <h4><i class="fas fa-globe"></i> riglr-web-tools</h4>
+                <ul class="tool-list">
+                    <li>DexScreener Market Data</li>
+                    <li>Twitter/X Sentiment Analysis</li>
+                    <li>Exa Semantic Web Search</li>
+                    <li>Crypto News Aggregation</li>
+                </ul>
+            </div>
+
+            <div class="tool-card">
+                <h4><i class="fas fa-bridge"></i> riglr-cross-chain</h4>
+                <ul class="tool-list">
+                    <li>Li.fi Bridge Aggregation</li>
+                    <li>Cross-Chain Route Discovery</li>
+                    <li>Fee & Time Estimation</li>
+                    <li>Secure Transaction Execution</li>
+                </ul>
+            </div>
+
+            <div class="tool-card">
+                <h4><i class="fas fa-brain"></i> riglr-graph-memory</h4>
+                <ul class="tool-list">
+                    <li>Neo4j Knowledge Graph Backend</li>
+                    <li>Hybrid Vector + Graph Search</li>
+                    <li>Blockchain Entity Extraction</li>
+                    <li>rig::VectorStore Implementation</li>
+                </ul>
+            </div>
+
+            <div class="tool-card">
+                <h4><i class="fas fa-chart-line"></i> riglr-hyperliquid-tools</h4>
+                <ul class="tool-list">
+                    <li>Perpetuals Trading on Hyperliquid</li>
+                    <li>Market Orders & Limit Orders</li>
+                    <li>Position Management</li>
+                    <li>Account Info & Portfolio Tracking</li>
+                </ul>
+            </div>
+
+            <div class="tool-card">
+                <h4><i class="fas fa-stream"></i> riglr-streams & riglr-indexer</h4>
+                <ul class="tool-list">
+                    <li>Real-Time Event Streaming</li>
+                    <li>Multi-Protocol Support</li>
+                    <li>High-Performance Data Indexing</li>
+                    <li>Custom Event Parsing</li>
+                </ul>
+            </div>
+        </div>
+    </section>
+
+    <!-- Developer Experience Section -->
+    <section class="reveal">
+        <div class="section-header">
+            <h2>From 30 Lines to 1: The Power of #[tool]</h2>
+            <p>We believe developers should spend their time on what makes their application unique.</p>
+        </div>
+
+        <div class="code-comparison">
+            <div class="code-block before">
+                <div class="code-block-header">❌ Before riglr</div>
+                <pre><code class="language-rust">// Manual, verbose, and error-prone implementation
+pub struct GetSolBalance;
+
+#[async_trait]
+impl Tool for GetSolBalance {
+    fn name(&self) -> &str { "get_sol_balance" }
+    fn description(&self) -> &str { 
+        "Get the SOL balance for a wallet." 
+    }
+    
+    fn parameters(&self) -> serde_json::Value {
+        json!({
+            "type": "object",
+            "properties": {
+                "address": {
+                    "type": "string",
+                    "description": "The wallet address."
+                }
+            },
+            "required": ["address"]
+        })
+    }
+
+    async fn call(&self, params: serde_json::Value) 
+        -> Result&lt;serde_json::Value, ToolError&gt; {
+        let address = params["address"]
+            .as_str()
+            .ok_or(...)?
+            .to_string();
+        // ... actual logic ...
+        // ... manual error conversion ...
+        // ... manual result serialization ...
+    }
+}</code></pre>
+            </div>
+
+            <div class="code-block after">
+                <div class="code-block-header">✅ After riglr</div>
+                <pre><code class="language-rust">/// Get the SOL balance for a given wallet address.
+#[tool]
+async fn get_sol_balance(
+    /// The Solana wallet address (base58 encoded).
+    address: String,
+) -> Result&lt;f64, ToolError&gt; {
+    // Your logic here. That's it.
+    // The macro handles the rest.
+    let client = get_client_from_context()?;
+    let lamports = client.get_balance(&address).await?;
+    Ok(lamports as f64 / 1_000_000_000.0)
+}</code></pre>
+            </div>
+        </div>
+    </section>
+
+    <!-- Event Streaming Section -->
+    <section class="reveal">
+        <div class="section-header">
+            <h2>Real-Time Event Streaming & Indexing</h2>
+            <p>Production-grade event streaming with riglr-streams and high-performance indexing with riglr-indexer</p>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 3rem; margin-bottom: 3rem;">
+            <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 1rem; padding: 2rem;">
+                <h3 style="color: var(--primary); margin-bottom: 1.5rem;">
+                    <i class="fas fa-stream"></i> riglr-streams
+                </h3>
+                <ul style="color: var(--text-secondary); list-style: none; padding-left: 0;">
+                    <li style="margin-bottom: 0.5rem;"><i class="fas fa-check" style="color: var(--primary); margin-right: 0.5rem;"></i>Composable event streams</li>
+                    <li style="margin-bottom: 0.5rem;"><i class="fas fa-check" style="color: var(--primary); margin-right: 0.5rem;"></i>Financial operators for trading data</li>
+                    <li style="margin-bottom: 0.5rem;"><i class="fas fa-check" style="color: var(--primary); margin-right: 0.5rem;"></i>Multi-chain event normalization</li>
+                    <li style="margin-bottom: 0.5rem;"><i class="fas fa-check" style="color: var(--primary); margin-right: 0.5rem;"></i>Health monitoring & resilience</li>
+                </ul>
+            </div>
+            
+            <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 1rem; padding: 2rem;">
+                <h3 style="color: var(--secondary); margin-bottom: 1.5rem;">
+                    <i class="fas fa-database"></i> riglr-indexer
+                </h3>
+                <ul style="color: var(--text-secondary); list-style: none; padding-left: 0;">
+                    <li style="margin-bottom: 0.5rem;"><i class="fas fa-check" style="color: var(--primary); margin-right: 0.5rem;"></i>High-performance data indexing</li>
+                    <li style="margin-bottom: 0.5rem;"><i class="fas fa-check" style="color: var(--primary); margin-right: 0.5rem;"></i>Custom event parsing</li>
+                    <li style="margin-bottom: 0.5rem;"><i class="fas fa-check" style="color: var(--primary); margin-right: 0.5rem;"></i>Multi-protocol support</li>
+                    <li style="margin-bottom: 0.5rem;"><i class="fas fa-check" style="color: var(--primary); margin-right: 0.5rem;"></i>Seamless streams integration</li>
+                </ul>
+            </div>
+        </div>
+
+        <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 1rem; padding: 2rem;">
+            <h4 style="color: var(--text-primary); margin-bottom: 1rem;">Supported Event Sources</h4>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+                <div style="text-align: center; padding: 1rem;">
+                    <div style="color: var(--primary); font-size: 1.5rem; margin-bottom: 0.5rem;"><i class="fab fa-solana"></i></div>
+                    <h5 style="margin-bottom: 0.5rem;">Solana Geyser</h5>
+                    <p style="color: var(--text-secondary); font-size: 0.9rem;">Real-time transaction streaming</p>
+                </div>
+                <div style="text-align: center; padding: 1rem;">
+                    <div style="color: var(--primary); font-size: 1.5rem; margin-bottom: 0.5rem;"><i class="fab fa-ethereum"></i></div>
+                    <h5 style="margin-bottom: 0.5rem;">EVM WebSocket</h5>
+                    <p style="color: var(--text-secondary); font-size: 0.9rem;">Multi-chain event monitoring</p>
+                </div>
+                <div style="text-align: center; padding: 1rem;">
+                    <div style="color: var(--primary); font-size: 1.5rem; margin-bottom: 0.5rem;"><i class="fas fa-chart-line"></i></div>
+                    <h5 style="margin-bottom: 0.5rem;">External APIs</h5>
+                    <p style="color: var(--text-secondary); font-size: 0.9rem;">Binance, mempool services</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Getting Started Section -->
+    <section id="getting-started" class="reveal">
+        <div class="section-header">
+            <h2 class="animated-gradient">Get Started in 60 Seconds</h2>
+            <p>Use our official CLI to scaffold a production-ready riglr agent instantly.</p>
+        </div>
+
+        <div class="steps">
+            <div class="step">
+                <div class="step-number">1</div>
+                <div class="step-content">
+                    <h4>Install create-riglr-app</h4>
+                    <p style="color: var(--text-secondary); margin-bottom: 1rem;">Our official project generator helps you start with best practices from day one.</p>
+                    <pre><code class="language-bash">cargo install create-riglr-app</code></pre>
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-number">2</div>
+                <div class="step-content">
+                    <h4>Create Your Project</h4>
+                    <p style="color: var(--text-secondary); margin-bottom: 1rem;">Interactive CLI guides you through selecting templates, blockchains, and features.</p>
+                    <pre><code class="language-bash"># Create a new trading bot, web API server, or custom agent
+create-riglr-app my-agent
+
+# Or use a specific template directly
+create-riglr-app my-bot --template trading-bot</code></pre>
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-number">3</div>
+                <div class="step-content">
+                    <h4>Configure & Run</h4>
+                    <p style="color: var(--text-secondary); margin-bottom: 1rem;">Set your API keys and you're ready to go!</p>
+                    <pre><code class="language-bash">cd my-agent
+cp .env.example .env
+# Edit .env with your API keys and RPC URLs
+cargo run</code></pre>
+                </div>
+            </div>
+        </div>
+
+        <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 1rem; padding: 2rem; margin-top: 3rem;">
+            <h3 style="color: var(--primary); margin-bottom: 1.5rem; text-align: center;">What You Get Out of the Box</h3>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; text-align: center;">
+                <div>
+                    <div style="color: var(--primary); font-size: 2rem; margin-bottom: 0.5rem;">🏗️</div>
+                    <h4 style="margin-bottom: 0.5rem;">Project Structure</h4>
+                    <p style="color: var(--text-secondary); font-size: 0.9rem;">Production-ready layout with proper separation of concerns</p>
+                </div>
+                <div>
+                    <div style="color: var(--primary); font-size: 2rem; margin-bottom: 0.5rem;">🔧</div>
+                    <h4 style="margin-bottom: 0.5rem;">Pre-configured Tools</h4>
+                    <p style="color: var(--text-secondary); font-size: 0.9rem;">Blockchain tools ready to use based on your selection</p>
+                </div>
+                <div>
+                    <div style="color: var(--primary); font-size: 2rem; margin-bottom: 0.5rem;">🔐</div>
+                    <h4 style="margin-bottom: 0.5rem;">Security Best Practices</h4>
+                    <p style="color: var(--text-secondary); font-size: 0.9rem;">SignerContext pattern and secure key management built-in</p>
+                </div>
+                <div>
+                    <div style="color: var(--primary); font-size: 2rem; margin-bottom: 0.5rem;">📝</div>
+                    <h4 style="margin-bottom: 0.5rem;">Example Code</h4>
+                    <p style="color: var(--text-secondary); font-size: 0.9rem;">Working examples showing how to use riglr effectively</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="section-header" style="margin-top: 4rem;">
+            <h3>Manual Setup (Advanced)</h3>
+            <p>Want more control? You can also add riglr to an existing project:</p>
+        </div>
+
+        <div class="code-showcase" style="max-width: 800px; margin: 2rem auto;">
+            <div class="code-header">
+                <div class="code-dot"></div>
+                <div class="code-dot"></div>
+                <div class="code-dot"></div>
+            </div>
+            <pre><code class="language-toml"># Add to your Cargo.toml
+[dependencies]
+rig-core = "0.17.1"
+riglr-core = "0.2.0"
+riglr-macros = "0.2.0"
+riglr-solana-tools = "0.2.0"  # Or riglr-evm-tools, riglr-web-tools, etc.</code></pre>
+        </div>
+    </section>
+
+    <!-- Recent Updates Section -->
+    <section class="reveal">
+        <div class="section-header">
+            <h2>Latest Updates & Improvements</h2>
+            <p>riglr is evolving rapidly with continuous enhancements and new features</p>
+        </div>
+
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fas fa-shield-alt"></i>
+                </div>
+                <h3>Enhanced Security</h3>
+                <p>Added comprehensive security testing suite with SonarCloud integration, improved authentication patterns, and secure environment variable handling with PrivyConfig updates.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fas fa-cogs"></i>
+                </div>
+                <h3>CI/CD Improvements</h3>
+                <p>Streamlined GitHub Actions workflow with Rust caching, automated security scanning with DeepSource, and dependency management through Renovate.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fas fa-rocket"></i>
+                </div>
+                <h3>Developer Experience</h3>
+                <p>Updated to Rust 1.82 MSRV, improved error messages, better documentation with mdBook deployment, and enhanced create-riglr-app scaffolding tool.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fas fa-users"></i>
+                </div>
+                <h3>Multi-Agent Systems</h3>
+                <p>Production-ready riglr-agents crate for building complex multi-agent coordination with dispatch patterns and registry management.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fas fa-database"></i>
+                </div>
+                <h3>Real-Time Indexing</h3>
+                <p>High-performance riglr-indexer with custom event parsing, multi-protocol support, and seamless integration with riglr-streams for real-time data processing.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fas fa-plug"></i>
+                </div>
+                <h3>New Integrations</h3>
+                <p>Added Hyperliquid perpetuals trading, enhanced cross-chain bridging with Li.Fi, and expanded web tools for market data and sentiment analysis.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Resources Section -->
+    <section class="reveal">
+        <div class="section-header">
+            <h2>Start Building Today</h2>
+            <p>Everything you need to create powerful on-chain AI agents with riglr.</p>
+        </div>
+
+        <div class="cta-buttons" style="justify-content: center; margin-top: 3rem;">
+            <a href="/docs/" class="btn btn-primary">
+                <i class="fas fa-book"></i> Read the Docs
+            </a>
+            <a href="https://github.com/riglr/riglr" class="btn btn-secondary" target="_blank">
+                <i class="fab fa-github"></i> View Source Code
+            </a>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <div class="footer-content">
+            <div class="social-links">
+                <a href="https://github.com/riglr" target="_blank"><i class="fab fa-github"></i></a>
+            </div>
+            <p style="color: var(--text-muted);">
+                © 2025 riglr Project. Open source under MIT License.
+            </p>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-rust.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-toml.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+    <script>
+        // Navbar scroll effect
+        window.addEventListener('scroll', function() {
+            const navbar = document.getElementById('navbar');
+            if (window.scrollY > 50) {
+                navbar.classList.add('scrolled');
+            } else {
+                navbar.classList.remove('scrolled');
+            }
+        });
+
+        // Scroll reveal animation
+        function reveal() {
+            const reveals = document.querySelectorAll('.reveal');
+            
+            for (let i = 0; i < reveals.length; i++) {
+                const windowHeight = window.innerHeight;
+                const elementTop = reveals[i].getBoundingClientRect().top;
+                const elementVisible = 150;
+                
+                if (elementTop < windowHeight - elementVisible) {
+                    reveals[i].classList.add('active');
+                }
+            }
+        }
+
+        window.addEventListener('scroll', reveal);
+        reveal(); // Check on load
+
+        // Smooth scroll for navigation links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }
+            });
+        });
+
+        // Add typing animation to code showcase
+        const codeElement = document.querySelector('.code-showcase pre code');
+        if (codeElement) {
+            const originalText = codeElement.textContent;
+            codeElement.textContent = '';
+            let index = 0;
+            
+            function typeCode() {
+                if (index < originalText.length) {
+                    codeElement.textContent += originalText.charAt(index);
+                    index++;
+                    setTimeout(typeCode, 10);
+                }
+            }
+            
+            // Start typing animation when element is in view
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        typeCode();
+                        observer.unobserve(entry.target);
+                    }
+                });
+            });
+            
+            observer.observe(codeElement);
+        }
+
+        // Parallax effect for hero background
+        window.addEventListener('scroll', () => {
+            const scrolled = window.pageYOffset;
+            const hero = document.querySelector('.hero::before');
+            if (hero) {
+                const speed = scrolled * -0.5;
+                hero.style.transform = `translateY(${speed}px)`;
+            }
+        });
+    </script>
+</body>
+</html>
