@@ -1,0 +1,14 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/task_prep_hook/target/release/task_prep_hook"
+          }
+        ]
+      }
+    ]
+  }
+}

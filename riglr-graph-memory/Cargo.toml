@@ -1,0 +1,43 @@
+[package]
+name = "riglr-graph-memory"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Graph-based memory system for riglr agents with rig::VectorStore implementation"
+readme = "README.md"
+keywords = ["graph", "memory", "neo4j", "ai", "agent", "rig"]
+categories = ["database"]
+documentation = "https://docs.rs/riglr-graph-memory"
+
+[dependencies]
+# Core riglr and rig dependencies
+rig-core = { workspace = true }
+riglr-core = { workspace = true }
+riglr-macros = { workspace = true }
+
+# Async and Error Handling
+tokio = { workspace = true }
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+thiserror = { workspace = true }
+
+# Serialization and Schema
+serde = { workspace = true }
+serde_json = { workspace = true }
+schemars = { workspace = true }
+
+# Graph database (temporarily commented out for initial build)
+# neo4rs = "0.7"
+
+# HTTP client
+reqwest = { workspace = true }
+
+# Logging
+tracing = { workspace = true }
+
+[dev-dependencies]
+tokio-test = { workspace = true }
+tracing-subscriber = { workspace = true }
