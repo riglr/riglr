@@ -37,6 +37,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
+      - name: Install dependencies (Arch Linux)
+        run: |
+          # Install necessary packages for Arch Linux
+          if command -v pacman &> /dev/null; then
+            echo "Installing build dependencies for Arch Linux..."
+            sudo pacman -Syu --noconfirm --needed base-devel clang lld pkg-config openssl || true
+          fi
+      
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -62,14 +70,12 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
       
-      - name: Install efficient linker
+      - name: Install dependencies (Arch Linux)
         run: |
-          # Try to use lld linker if available (much more memory efficient)
-          if command -v lld &> /dev/null; then
-            echo "lld already installed"
-          else
-            echo "Installing lld for more efficient linking..."
-            sudo apt-get update && sudo apt-get install -y lld || true
+          # Install necessary packages for Arch Linux
+          if command -v pacman &> /dev/null; then
+            echo "Installing build dependencies for Arch Linux..."
+            sudo pacman -Syu --noconfirm --needed base-devel clang lld pkg-config openssl || true
           fi
       
       - name: Cache dependencies
