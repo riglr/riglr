@@ -1,0 +1,43 @@
+[package]
+name = "riglr-evm-tools"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "A suite of rig-compatible tools for interacting with EVM-based blockchains"
+readme = "README.md"
+keywords = ["ethereum", "evm", "ai", "agent", "blockchain", "rig"]
+categories = ["cryptography::cryptocurrencies", "web-programming::api-bindings"]
+documentation = "https://docs.rs/riglr-evm-tools"
+
+[dependencies]
+# Core riglr and rig dependencies
+rig-core = { workspace = true }
+riglr-core = { workspace = true }
+riglr-macros = { workspace = true }
+
+# Async and Error Handling
+tokio = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+async-trait = { workspace = true }
+
+# Serialization and Schema
+serde = { workspace = true }
+serde_json = { workspace = true }
+schemars = { workspace = true }
+
+# EVM Dependencies (temporarily commented out for initial build)
+# ethers = "2.0"
+
+# HTTP client
+reqwest = { workspace = true }
+
+# Logging
+tracing = { workspace = true }
+
+[dev-dependencies]
+tokio-test = { workspace = true }
+tracing-subscriber = { workspace = true }

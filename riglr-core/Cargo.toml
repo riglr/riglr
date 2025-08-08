@@ -1,0 +1,39 @@
+[package]
+name = "riglr-core"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "Core abstractions and job execution engine for riglr - building resilient AI agents."
+repository = "https://github.com/riglr-project/riglr"
+readme = "README.md"
+keywords = ["rig", "ai", "agent", "job-queue", "blockchain"]
+categories = ["asynchronous", "web-programming::api-bindings"]
+documentation = "https://docs.rs/riglr-core"
+
+[dependencies]
+# Core dependencies
+tokio = { workspace = true }
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+uuid = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+
+# Queue backends
+redis = { workspace = true, optional = true }
+
+# Retry logic
+tokio-retry = { workspace = true }
+
+# Exponential backoff
+backoff = "0.4"
+
+# For testing
+[dev-dependencies]
+tokio-test = { workspace = true }
+
+[features]
+default = ["redis"]
+redis = ["dep:redis"]
