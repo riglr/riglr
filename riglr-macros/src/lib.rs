@@ -14,7 +14,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 /// Get the balance of a Solana wallet
-/// 
+///
 /// This tool queries the Solana blockchain to retrieve the SOL balance
 /// for a given wallet address.
 #[tool]
@@ -34,7 +34,7 @@ pub async fn get_sol_balance(
 struct SwapConfig {
     /// Input token mint address
     input_mint: String,
-    /// Output token mint address  
+    /// Output token mint address
     output_mint: String,
     /// Amount to swap in lamports
     amount: u64,
@@ -72,7 +72,7 @@ use syn::{Attribute, FnArg, ItemFn, ItemStruct, PatType};
 #[proc_macro_attribute]
 pub fn tool(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let input = item.clone();
-    
+
     // Try to parse as function first, then as struct
     if let Ok(function) = syn::parse::<ItemFn>(input.clone()) {
         handle_function(function).into()
@@ -81,7 +81,7 @@ pub fn tool(_attr: TokenStream, item: TokenStream) -> TokenStream {
     } else {
         syn::Error::new_spanned(
             proc_macro2::TokenStream::from(item),
-            "#[tool] can only be applied to async functions or structs"
+            "#[tool] can only be applied to async functions or structs",
         )
         .to_compile_error()
         .into()
@@ -91,7 +91,7 @@ pub fn tool(_attr: TokenStream, item: TokenStream) -> TokenStream {
 fn handle_function(function: ItemFn) -> proc_macro2::TokenStream {
     let fn_name = &function.sig.ident;
     let fn_vis = &function.vis;
-    
+
     // Extract documentation from function
     let description = extract_doc_comments(&function.attrs);
     let description_lit = if description.is_empty() {
@@ -99,28 +99,28 @@ fn handle_function(function: ItemFn) -> proc_macro2::TokenStream {
     } else {
         quote! { #description }
     };
-    
+
     // Extract parameter info
     let mut param_fields = Vec::new();
     let mut param_names = Vec::new();
     let mut param_docs = Vec::new();
-    
+
     for input in function.sig.inputs.iter() {
         if let FnArg::Typed(PatType { pat, ty, attrs, .. }) = input {
             if let syn::Pat::Ident(ident) = pat.as_ref() {
                 let param_name = &ident.ident;
                 let param_type = ty.as_ref();
                 let param_doc = extract_doc_comments(attrs);
-                
+
                 param_names.push(param_name.clone());
                 param_docs.push(param_doc);
-                
+
                 // Check if the type has serde attributes
                 let has_default = attrs.iter().any(|attr| {
-                    attr.path().is_ident("serde") && 
-                    attr.to_token_stream().to_string().contains("default")
+                    attr.path().is_ident("serde")
+                        && attr.to_token_stream().to_string().contains("default")
                 });
-                
+
                 if has_default {
                     param_fields.push(quote! {
                         #[serde(default)]
@@ -136,22 +136,19 @@ fn handle_function(function: ItemFn) -> proc_macro2::TokenStream {
             }
         }
     }
-    
+
     // Generate the struct names
     let tool_struct_name = syn::Ident::new(
         &format!("{}Tool", fn_name.to_string().to_pascal_case()),
         fn_name.span(),
     );
-    let args_struct_name = syn::Ident::new(
-        &format!("{}Args", tool_struct_name),
-        fn_name.span(),
-    );
-    
+    let args_struct_name = syn::Ident::new(&format!("{}Args", tool_struct_name), fn_name.span());
+
     // Generate field assignments for function call
     let field_assignments = param_names.iter().map(|name| {
         quote! { args.#name }
     });
-    
+
     // Check if function is async
     let is_async = function.sig.asyncness.is_some();
     let await_token = if is_async {
@@ -159,7 +156,7 @@ fn handle_function(function: ItemFn) -> proc_macro2::TokenStream {
     } else {
         quote! {}
     };
-    
+
     // Generate the JSON schema function
     let _schema_gen = if !param_fields.is_empty() {
         quote! {
@@ -178,7 +175,7 @@ fn handle_function(function: ItemFn) -> proc_macro2::TokenStream {
             }
         }
     };
-    
+
     // Generate the tool implementation
     quote! {
         // Generate the args struct if there are parameters
@@ -187,24 +184,24 @@ fn handle_function(function: ItemFn) -> proc_macro2::TokenStream {
         pub struct #args_struct_name {
             #(#param_fields),*
         }
-        
+
         // Generate the tool struct
         #[derive(Clone)]
         #fn_vis struct #tool_struct_name;
-        
+
         impl #tool_struct_name {
             /// Create a new instance of this tool
             pub fn new() -> Self {
                 Self
             }
         }
-        
+
         impl Default for #tool_struct_name {
             fn default() -> Self {
                 Self::new()
             }
         }
-        
+
         // Implement the Tool trait
         #[async_trait::async_trait]
         impl riglr_core::Tool for #tool_struct_name {
@@ -212,10 +209,10 @@ fn handle_function(function: ItemFn) -> proc_macro2::TokenStream {
                 // Parse the parameters
                 let args: #args_struct_name = serde_json::from_value(params)
                     .map_err(|e| format!("Failed to parse parameters: {}", e))?;
-                
+
                 // Call the original function
                 let result = #fn_name(#(#field_assignments),*)#await_token;
-                
+
                 // Convert the result to JobResult
                 match result {
                     Ok(value) => {
@@ -228,10 +225,10 @@ fn handle_function(function: ItemFn) -> proc_macro2::TokenStream {
                     Err(e) => {
                         // Check if error message indicates it's retriable
                         let error_str = e.to_string();
-                        let retriable = error_str.contains("timeout") || 
+                        let retriable = error_str.contains("timeout") ||
                                       error_str.contains("connection") ||
                                       error_str.contains("temporarily");
-                        
+
                         Ok(riglr_core::JobResult::Failure {
                             error: error_str,
                             retriable,
@@ -239,41 +236,41 @@ fn handle_function(function: ItemFn) -> proc_macro2::TokenStream {
                     }
                 }
             }
-            
+
             fn name(&self) -> &str {
                 stringify!(#fn_name)
             }
         }
-        
+
         // If this is intended to be rig-compatible, also generate rig::Tool implementation
         #[cfg(feature = "rig-compat")]
         #[async_trait::async_trait]
         impl rig_core::Tool for #tool_struct_name {
             const NAME: &'static str = stringify!(#fn_name);
-            
+
             type Error = Box<dyn std::error::Error + Send + Sync>;
             type Args = #args_struct_name;
             type Output = serde_json::Value;
-            
+
             async fn definition(&self, _prompt: String) -> rig_core::ToolDefinition {
                 let schema = self.schema();
-                
+
                 rig_core::ToolDefinition {
                     name: stringify!(#fn_name).to_string(),
                     description: #description_lit.to_string(),
                     parameters: schema,
                 }
             }
-            
+
             async fn call(&self, args: Self::Args) -> Result<Self::Output, Self::Error> {
                 let result = #fn_name(#(args.#param_names),*)#await_token?;
                 Ok(serde_json::to_value(result)?)
             }
         }
-        
+
         // Keep the original function
         #function
-        
+
         // Optionally, create a convenience function to create an Arc<dyn Tool>
         #fn_vis fn #fn_name _tool() -> std::sync::Arc<dyn riglr_core::Tool> {
             std::sync::Arc::new(#tool_struct_name::new())
@@ -284,7 +281,7 @@ fn handle_function(function: ItemFn) -> proc_macro2::TokenStream {
 fn handle_struct(structure: ItemStruct) -> proc_macro2::TokenStream {
     let struct_name = &structure.ident;
     let struct_vis = &structure.vis;
-    
+
     // Extract documentation from struct
     let description = extract_doc_comments(&structure.attrs);
     let description_lit = if description.is_empty() {
@@ -292,11 +289,11 @@ fn handle_struct(structure: ItemStruct) -> proc_macro2::TokenStream {
     } else {
         quote! { #description }
     };
-    
+
     quote! {
         // Keep the original struct
         #structure
-        
+
         // Implement the Tool trait
         #[async_trait::async_trait]
         impl riglr_core::Tool for #struct_name {
@@ -304,10 +301,10 @@ fn handle_struct(structure: ItemStruct) -> proc_macro2::TokenStream {
                 // Parse parameters into the struct
                 let args: Self = serde_json::from_value(params)
                     .map_err(|e| format!("Failed to parse parameters: {}", e))?;
-                
+
                 // Call the execute method
                 let result = args.execute().await;
-                
+
                 // Convert the result to JobResult
                 match result {
                     Ok(value) => {
@@ -319,10 +316,10 @@ fn handle_struct(structure: ItemStruct) -> proc_macro2::TokenStream {
                     }
                     Err(e) => {
                         let error_str = e.to_string();
-                        let retriable = error_str.contains("timeout") || 
+                        let retriable = error_str.contains("timeout") ||
                                       error_str.contains("connection") ||
                                       error_str.contains("temporarily");
-                        
+
                         Ok(riglr_core::JobResult::Failure {
                             error: error_str,
                             retriable,
@@ -330,39 +327,39 @@ fn handle_struct(structure: ItemStruct) -> proc_macro2::TokenStream {
                     }
                 }
             }
-            
+
             fn name(&self) -> &str {
                 stringify!(#struct_name)
             }
         }
-        
+
         // Convenience function to create the tool
         impl #struct_name {
             #struct_vis fn as_tool(self) -> std::sync::Arc<dyn riglr_core::Tool> {
                 std::sync::Arc::new(self)
             }
         }
-        
+
         // If this is intended to be rig-compatible, also generate rig::Tool implementation
         #[cfg(feature = "rig-compat")]
         #[async_trait::async_trait]
         impl rig_core::Tool for #struct_name {
             const NAME: &'static str = stringify!(#struct_name);
-            
+
             type Error = Box<dyn std::error::Error + Send + Sync>;
             type Args = Self;
             type Output = serde_json::Value;
-            
+
             async fn definition(&self, _prompt: String) -> rig_core::ToolDefinition {
                 let schema = schemars::schema_for!(Self);
-                
+
                 rig_core::ToolDefinition {
                     name: stringify!(#struct_name).to_string(),
                     description: #description_lit.to_string(),
                     parameters: serde_json::to_value(schema).unwrap_or_else(|_| serde_json::json!({})),
                 }
             }
-            
+
             async fn call(&self, args: Self::Args) -> Result<Self::Output, Self::Error> {
                 let result = args.execute().await?;
                 Ok(serde_json::to_value(result)?)
@@ -373,7 +370,7 @@ fn handle_struct(structure: ItemStruct) -> proc_macro2::TokenStream {
 
 fn extract_doc_comments(attrs: &[Attribute]) -> String {
     let mut docs = Vec::new();
-    
+
     for attr in attrs {
         if attr.path().is_ident("doc") {
             if let syn::Meta::NameValue(meta) = &attr.meta {
@@ -394,6 +391,6 @@ fn extract_doc_comments(attrs: &[Attribute]) -> String {
             }
         }
     }
-    
+
     docs.join("\n").trim().to_string()
 }

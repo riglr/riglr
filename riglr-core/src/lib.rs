@@ -1,5 +1,5 @@
 //! # riglr-core
-//! 
+//!
 //! Core abstractions and job execution engine for riglr.
 //!
 //! This crate provides the foundational components for building resilient AI agents,

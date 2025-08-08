@@ -13,10 +13,10 @@ use crate::jobs::JobResult;
 pub trait IdempotencyStore: Send + Sync {
     /// Check if a result exists for the given idempotency key
     async fn get(&self, key: &str) -> anyhow::Result<Option<JobResult>>;
-    
+
     /// Store a result with the given idempotency key and TTL
     async fn set(&self, key: &str, result: &JobResult, ttl: Duration) -> anyhow::Result<()>;
-    
+
     /// Remove an entry by key
     async fn remove(&self, key: &str) -> anyhow::Result<()>;
 }
@@ -40,7 +40,7 @@ impl InMemoryIdempotencyStore {
             store: Arc::new(RwLock::new(HashMap::new())),
         }
     }
-    
+
     /// Clean up expired entries
     async fn cleanup_expired(&self) {
         let now = SystemTime::now();
@@ -60,7 +60,7 @@ impl IdempotencyStore for InMemoryIdempotencyStore {
     async fn get(&self, key: &str) -> anyhow::Result<Option<JobResult>> {
         // Clean up expired entries periodically
         self.cleanup_expired().await;
-        
+
         let store = self.store.read().await;
         match store.get(key) {
             Some(entry) => {
@@ -73,7 +73,7 @@ impl IdempotencyStore for InMemoryIdempotencyStore {
             None => Ok(None),
         }
     }
-    
+
     async fn set(&self, key: &str, result: &JobResult, ttl: Duration) -> anyhow::Result<()> {
         let mut store = self.store.write().await;
         let expires_at = SystemTime::now() + ttl;
@@ -86,7 +86,7 @@ impl IdempotencyStore for InMemoryIdempotencyStore {
         );
         Ok(())
     }
-    
+
     async fn remove(&self, key: &str) -> anyhow::Result<()> {
         let mut store = self.store.write().await;
         store.remove(key);
@@ -104,7 +104,7 @@ pub struct RedisIdempotencyStore {
 #[cfg(feature = "redis")]
 impl RedisIdempotencyStore {
     /// Create a new Redis idempotency store
-    /// 
+    ///
     /// # Arguments
     /// * `redis_url` - Redis connection URL (e.g., "redis://127.0.0.1:6379")
     /// * `key_prefix` - Prefix for idempotency keys (default: "riglr:idempotency:")
@@ -112,12 +112,10 @@ impl RedisIdempotencyStore {
         let client = redis::Client::open(redis_url)?;
         Ok(Self {
             client,
-            key_prefix: key_prefix
-                .unwrap_or("riglr:idempotency:")
-                .to_string(),
+            key_prefix: key_prefix.unwrap_or("riglr:idempotency:").to_string(),
         })
     }
-    
+
     fn make_key(&self, key: &str) -> String {
         format!("{}{}", self.key_prefix, key)
     }
@@ -129,12 +127,12 @@ impl IdempotencyStore for RedisIdempotencyStore {
     async fn get(&self, key: &str) -> anyhow::Result<Option<JobResult>> {
         let mut conn = self.client.get_async_connection().await?;
         let redis_key = self.make_key(key);
-        
+
         let result: Option<String> = redis::cmd("GET")
             .arg(&redis_key)
             .query_async(&mut conn)
             .await?;
-        
+
         match result {
             Some(json_str) => {
                 let result: JobResult = serde_json::from_str(&json_str)?;
@@ -143,32 +141,32 @@ impl IdempotencyStore for RedisIdempotencyStore {
             None => Ok(None),
         }
     }
-    
+
     async fn set(&self, key: &str, result: &JobResult, ttl: Duration) -> anyhow::Result<()> {
         let mut conn = self.client.get_async_connection().await?;
         let redis_key = self.make_key(key);
         let json_str = serde_json::to_string(result)?;
         let ttl_seconds = ttl.as_secs() as usize;
-        
+
         redis::cmd("SETEX")
             .arg(&redis_key)
             .arg(ttl_seconds)
             .arg(json_str)
             .query_async(&mut conn)
             .await?;
-        
+
         Ok(())
     }
-    
+
     async fn remove(&self, key: &str) -> anyhow::Result<()> {
         let mut conn = self.client.get_async_connection().await?;
         let redis_key = self.make_key(key);
-        
+
         redis::cmd("DEL")
             .arg(&redis_key)
             .query_async(&mut conn)
             .await?;
-        
+
         Ok(())
     }
 }
@@ -176,46 +174,52 @@ impl IdempotencyStore for RedisIdempotencyStore {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[tokio::test]
     async fn test_in_memory_idempotency_store() {
         let store = InMemoryIdempotencyStore::new();
-        
+
         let result = JobResult::success(&"test_value").unwrap();
         let key = "test_key";
-        
+
         // Initially, key should not exist
         assert!(store.get(key).await.unwrap().is_none());
-        
+
         // Store a result
-        store.set(key, &result, Duration::from_secs(60)).await.unwrap();
-        
+        store
+            .set(key, &result, Duration::from_secs(60))
+            .await
+            .unwrap();
+
         // Should be able to retrieve it
         let retrieved = store.get(key).await.unwrap();
         assert!(retrieved.is_some());
         assert!(retrieved.unwrap().is_success());
-        
+
         // Remove the entry
         store.remove(key).await.unwrap();
         assert!(store.get(key).await.unwrap().is_none());
     }
-    
+
     #[tokio::test]
     async fn test_idempotency_expiry() {
         let store = InMemoryIdempotencyStore::new();
-        
+
         let result = JobResult::success(&"test_value").unwrap();
         let key = "test_key";
-        
+
         // Store with very short TTL
-        store.set(key, &result, Duration::from_millis(10)).await.unwrap();
-        
+        store
+            .set(key, &result, Duration::from_millis(10))
+            .await
+            .unwrap();
+
         // Should exist initially
         assert!(store.get(key).await.unwrap().is_some());
-        
+
         // Wait for expiry
         tokio::time::sleep(Duration::from_millis(20)).await;
-        
+
         // Should be expired now
         assert!(store.get(key).await.unwrap().is_none());
     }
