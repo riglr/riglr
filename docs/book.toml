@@ -13,7 +13,7 @@ theme = "theme"
 git-repository-url = "https://github.com/riglr/riglr"
 edit-url-template = "https://github.com/riglr/riglr/edit/main/docs/{path}"
 site-url = "/docs/"
-cname = "riglr.com"
+cname = "docs.riglr.com"
 additional-css = [
 	"src/css/riglr.css",
 ]
