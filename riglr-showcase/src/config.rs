@@ -8,22 +8,22 @@ use std::env;
 pub struct Config {
     /// Solana RPC URL
     pub solana_rpc_url: String,
-    
+
     /// Ethereum RPC URL  
     pub ethereum_rpc_url: String,
-    
+
     /// Twitter Bearer Token
     pub twitter_bearer_token: Option<String>,
-    
+
     /// Exa API Key
     pub exa_api_key: Option<String>,
-    
+
     /// Neo4j connection string
     pub neo4j_url: String,
-    
+
     /// Redis connection string
     pub redis_url: String,
-    
+
     /// OpenAI API key for LLM
     pub openai_api_key: String,
 }

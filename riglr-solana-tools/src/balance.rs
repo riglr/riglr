@@ -52,31 +52,39 @@ pub async fn get_sol_balance(
     use_finalized: bool,
 ) -> anyhow::Result<BalanceResult> {
     debug!("Getting SOL balance for address: {}", address);
-    
+
     // Create client with custom RPC if provided
     let client = if let Some(url) = rpc_url {
         Arc::new(SolanaClient::with_rpc_url(url))
     } else {
         get_balance_client()
     };
-    
+
     // Set commitment level if requested
     let client = if use_finalized {
-        Arc::new(client.as_ref().clone().with_commitment(
-            solana_sdk::commitment_config::CommitmentLevel::Finalized
-        ))
+        Arc::new(
+            client
+                .as_ref()
+                .clone()
+                .with_commitment(solana_sdk::commitment_config::CommitmentLevel::Finalized),
+        )
     } else {
         client
     };
-    
+
     // Get balance
-    let lamports = client.get_balance(&address).await
+    let lamports = client
+        .get_balance(&address)
+        .await
         .map_err(|e| anyhow!("Failed to get balance: {}", e))?;
-    
+
     let sol = lamports as f64 / LAMPORTS_PER_SOL as f64;
-    
-    info!("Balance for {}: {} SOL ({} lamports)", address, sol, lamports);
-    
+
+    info!(
+        "Balance for {}: {} SOL ({} lamports)",
+        address, sol, lamports
+    );
+
     Ok(BalanceResult {
         address,
         lamports,
@@ -102,26 +110,33 @@ pub async fn get_spl_token_balance(
     #[serde(default)]
     decimals: Option<u8>,
 ) -> anyhow::Result<TokenBalanceResult> {
-    debug!("Getting SPL token balance for owner: {}, mint: {}", owner_address, mint_address);
-    
+    debug!(
+        "Getting SPL token balance for owner: {}, mint: {}",
+        owner_address, mint_address
+    );
+
     // Create client with custom RPC if provided
     let client = if let Some(url) = rpc_url {
         Arc::new(SolanaClient::with_rpc_url(url))
     } else {
         get_balance_client()
     };
-    
+
     // Get raw token amount
-    let raw_amount = client.get_token_balance(&owner_address, &mint_address).await
+    let raw_amount = client
+        .get_token_balance(&owner_address, &mint_address)
+        .await
         .map_err(|e| anyhow!("Failed to get token balance: {}", e))?;
-    
+
     // Calculate UI amount based on decimals
     let decimals = decimals.unwrap_or(9); // Default to 9 decimals if not provided
     let ui_amount = raw_amount as f64 / 10_f64.powi(decimals as i32);
-    
-    info!("Token balance for {} (mint: {}): {} (raw: {})", 
-        owner_address, mint_address, ui_amount, raw_amount);
-    
+
+    info!(
+        "Token balance for {} (mint: {}): {} (raw: {})",
+        owner_address, mint_address, ui_amount, raw_amount
+    );
+
     Ok(TokenBalanceResult {
         owner_address,
         mint_address,
@@ -144,16 +159,16 @@ pub async fn get_multiple_balances(
     rpc_url: Option<String>,
 ) -> anyhow::Result<Vec<BalanceResult>> {
     debug!("Getting balances for {} addresses", addresses.len());
-    
+
     // Create client with custom RPC if provided
     let client = if let Some(url) = rpc_url {
         Arc::new(SolanaClient::with_rpc_url(url))
     } else {
         get_balance_client()
     };
-    
+
     let mut results = Vec::new();
-    
+
     // Query each address
     // In production, this could be optimized with batch RPC calls
     for address in addresses {
@@ -178,7 +193,7 @@ pub async fn get_multiple_balances(
             }
         }
     }
-    
+
     Ok(results)
 }
 
@@ -215,7 +230,7 @@ pub struct TokenBalanceResult {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[tokio::test]
     async fn test_balance_result_creation() {
         let result = BalanceResult {
@@ -224,11 +239,11 @@ mod tests {
             sol: 1.0,
             formatted: "1.000000000 SOL".to_string(),
         };
-        
+
         assert_eq!(result.lamports, 1_000_000_000);
         assert_eq!(result.sol, 1.0);
     }
-    
+
     #[tokio::test]
     async fn test_token_balance_result() {
         let result = TokenBalanceResult {
@@ -239,7 +254,7 @@ mod tests {
             decimals: 6,
             formatted: "1.0".to_string(),
         };
-        
+
         assert_eq!(result.raw_amount, 1_000_000);
         assert_eq!(result.decimals, 6);
     }

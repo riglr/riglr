@@ -8,31 +8,31 @@ pub enum GraphMemoryError {
     /// Database connection error
     #[error("Database error: {0}")]
     Database(String),
-    
+
     /// Query execution failed
     #[error("Query error: {0}")]
     Query(String),
-    
+
     /// Entity extraction failed
     #[error("Entity extraction error: {0}")]
     EntityExtraction(String),
-    
+
     /// Vector embedding failed
     #[error("Embedding error: {0}")]
     Embedding(String),
-    
+
     /// HTTP request error
     #[error("HTTP error: {0}")]
     Http(#[from] reqwest::Error),
-    
+
     /// Serialization error
     #[error("Serialization error: {0}")]
     Serialization(#[from] serde_json::Error),
-    
+
     /// Core riglr error
     #[error("Core error: {0}")]
     Core(#[from] riglr_core::CoreError),
-    
+
     /// Generic error
     #[error("Graph memory error: {0}")]
     Generic(String),

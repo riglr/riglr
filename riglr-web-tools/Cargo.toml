@@ -35,6 +35,10 @@ reqwest = { workspace = true }
 # URL handling
 url = { workspace = true }
 
+# Time and random
+chrono = { version = "0.4", features = ["serde"] }
+rand = "0.8"
+
 # Logging
 tracing = { workspace = true }
 

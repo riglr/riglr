@@ -1,7 +1,7 @@
 //! Interactive chat mode commands.
 
-use anyhow::Result;
 use crate::config::Config;
+use anyhow::Result;
 
 /// Run interactive chat mode.
 pub async fn run_chat(_config: Config) -> Result<()> {
