@@ -1944,7 +1944,7 @@ Metaplex instruction discriminators for Token Metadata program
 ```
 
 ```rust
-pub enum ParseError { /// Not enough bytes available for the requested operation #[error("Not enough bytes: expected {expected}, got {found} at offset {offset}")] NotEnoughBytes { expected: usize, found: usize, offset: usize, }, /// Invalid discriminator for the instruction #[error("Invalid discriminator: expected {expected:?}, got {found:?}")] InvalidDiscriminator { expected: Vec<u8>, found: Vec<u8>, }, /// Invalid account index #[error("Account index {index} out of bounds (max: {max})")] InvalidAccountIndex { index: usize, max: usize, }, /// Invalid public key format #[error("Invalid public key: {0}")] InvalidPubkey(String), /// UTF-8 decoding error #[error("UTF-8 decoding error: {0}")] Utf8Error(#[from] std::str::Utf8Error), /// Borsh deserialization error #[error("Borsh deserialization error: {0}")] BorshError(String), /// Invalid enum variant #[error("Invalid enum variant {variant} for type {type_name}")] InvalidEnumVariant { variant: u8, type_name: String, }, /// Invalid instruction type #[error("Invalid instruction type: {0}")] InvalidInstructionType(String), /// Missing required field #[error("Missing required field: {0}")] MissingField(String), /// Invalid data format #[error("Invalid data format: {0}")] InvalidDataFormat(String), /// Overflow error #[error("Arithmetic overflow: {0}")] Overflow(String), /// Generic parsing error #[error("Parse error: {0}")] Generic(String), /// Network error (for streaming) #[error("Network error: {0}")] Network(String), /// Timeout error #[error("Operation timed out: {0}")] Timeout(String), }
+pub enum ParseError { /// Not enough bytes available for the requested operation #[error("Not enough bytes: expected {expected}, got {found} at offset {offset}")] NotEnoughBytes { expected: usize, found: usize, offset: usize, }, /// Invalid discriminator for the instruction #[error("Invalid discriminator: expected {expected:?}, got {found:?}")] InvalidDiscriminator { expected: Vec<u8>, found: Vec<u8> }, /// Invalid account index #[error("Account index {index} out of bounds (max: {max})")] InvalidAccountIndex { index: usize, max: usize }, /// Invalid public key format #[error("Invalid public key: {0}")] InvalidPubkey(String), /// UTF-8 decoding error #[error("UTF-8 decoding error: {0}")] Utf8Error(#[from] std::str::Utf8Error), /// Borsh deserialization error #[error("Borsh deserialization error: {0}")] BorshError(String), /// Invalid enum variant #[error("Invalid enum variant {variant} for type {type_name}")] InvalidEnumVariant { variant: u8, type_name: String }, /// Invalid instruction type #[error("Invalid instruction type: {0}")] InvalidInstructionType(String), /// Missing required field #[error("Missing required field: {0}")] MissingField(String), /// Invalid data format #[error("Invalid data format: {0}")] InvalidDataFormat(String), /// Overflow error #[error("Arithmetic overflow: {0}")] Overflow(String), /// Generic parsing error #[error("Parse error: {0}")] Generic(String), /// Network error (for streaming) #[error("Network error: {0}")] Network(String), /// Timeout error #[error("Operation timed out: {0}")] Timeout(String), }
 ```
 
 Custom error type for event parsing operations
@@ -1958,17 +1958,11 @@ NOTE: This will be gradually replaced with EventError from riglr-events-core
 - `found`
 - `offset`
 - `InvalidDiscriminator`
-- `expected`
-- `found`
 - `InvalidAccountIndex`
-- `index`
-- `max`
 - `InvalidPubkey(String)`
 - `Utf8Error(#[from] std::str::Utf8Error)`
 - `BorshError(String)`
 - `InvalidEnumVariant`
-- `variant`
-- `type_name`
 - `InvalidInstructionType(String)`
 - `MissingField(String)`
 - `InvalidDataFormat(String)`
@@ -2352,7 +2346,7 @@ Add a pattern to match
 **Source**: `src/solana_parser.rs`
 
 ```rust
-pub fn add_protocol_parser<P>(&mut self, _protocol: Protocol, _parser: Arc<dyn LegacyEventParser>) where P: LegacyEventParser + 'static,
+pub fn add_protocol_parser<P>( &mut self, _protocol: Protocol, _parser: Arc<dyn LegacyEventParser>, ) where P: LegacyEventParser + 'static,
 ```
 
 Add a protocol parser
@@ -2496,7 +2490,7 @@ Calculate interest rate based on utilization
 **Source**: `marginfi/types.rs`
 
 ```rust
-pub fn calculate_liquidation_threshold( total_asset_value: u128, liquidation_ltv: u64, ) -> u128
+pub fn calculate_liquidation_threshold(total_asset_value: u128, liquidation_ltv: u64) -> u128
 ```
 
 Calculate liquidation threshold
@@ -2686,7 +2680,7 @@ Encode bytes to base58 string
 **Source**: `pipelines/enrichment.rs`
 
 ```rust
-pub async fn enrich_event(&self, mut event: ZeroCopyEvent<'static>) -> Result<ZeroCopyEvent<'static>, EnrichmentError>
+pub async fn enrich_event( &self, mut event: ZeroCopyEvent<'static>, ) -> Result<ZeroCopyEvent<'static>, EnrichmentError>
 ```
 
 Enrich a single event with additional metadata
@@ -2698,7 +2692,7 @@ Enrich a single event with additional metadata
 **Source**: `pipelines/enrichment.rs`
 
 ```rust
-pub async fn enrich_events(&self, events: Vec<ZeroCopyEvent<'static>>) -> Result<Vec<ZeroCopyEvent<'static>>, EnrichmentError>
+pub async fn enrich_events( &self, events: Vec<ZeroCopyEvent<'static>>, ) -> Result<Vec<ZeroCopyEvent<'static>>, EnrichmentError>
 ```
 
 Enrich multiple events in parallel
@@ -2869,7 +2863,7 @@ Parse discriminator from first 8 bytes
 **Source**: `src/types.rs`
 
 ```rust
-pub fn from_core_metadata(core_metadata: &riglr_events_core::types::EventMetadata, protocol_type: ProtocolType, event_type: EventType, program_id: Pubkey, index: String) -> Self
+pub fn from_core_metadata( core_metadata: &riglr_events_core::types::EventMetadata, protocol_type: ProtocolType, event_type: EventType, program_id: Pubkey, index: String, ) -> Self
 ```
 
 Convert from riglr-events-core EventMetadata to local EventMetadata
@@ -2977,7 +2971,7 @@ Get parser for a specific protocol
 **Source**: `events/factory.rs`
 
 ```rust
-pub fn get_parser_for_program(&self, program_id: &solana_sdk::pubkey::Pubkey) -> Option<&Arc<dyn EventParser>>
+pub fn get_parser_for_program( &self, program_id: &solana_sdk::pubkey::Pubkey, ) -> Option<&Arc<dyn EventParser>>
 ```
 
 Get parser for a specific program ID
@@ -3520,7 +3514,7 @@ Create a new connection pool
 **Source**: `core/traits.rs`
 
 ```rust
-pub fn new(program_ids: Vec<solana_sdk::pubkey::Pubkey>, configs: Vec<GenericEventParseConfig>) -> Self
+pub fn new( program_ids: Vec<solana_sdk::pubkey::Pubkey>, configs: Vec<GenericEventParseConfig>, ) -> Self
 ```
 
 Create new generic event parser
@@ -3702,7 +3696,7 @@ pub fn new() -> Self
 **Source**: `zero_copy/events.rs`
 
 ```rust
-pub fn new_borrowed( metadata: EventMetadata, raw_data: &'a [u8], ) -> Self
+pub fn new_borrowed(metadata: EventMetadata, raw_data: &'a [u8]) -> Self
 ```
 
 Create a new zero-copy event with borrowed data
@@ -3738,7 +3732,7 @@ Create parser with minimal metadata parsing (faster)
 **Source**: `zero_copy/events.rs`
 
 ```rust
-pub fn new_owned( metadata: EventMetadata, raw_data: Vec<u8>, ) -> Self
+pub fn new_owned(metadata: EventMetadata, raw_data: Vec<u8>) -> Self
 ```
 
 Create a new zero-copy event with owned data
@@ -3846,7 +3840,7 @@ Parse a batch of transaction data
 **Source**: `events/factory.rs`
 
 ```rust
-pub fn parse_events_from_inner_instruction(&self, params: InnerInstructionParseParams) -> Vec<Box<dyn Event>>
+pub fn parse_events_from_inner_instruction( &self, params: InnerInstructionParseParams, ) -> Vec<Box<dyn Event>>
 ```
 
 Parse events from inner instruction using the appropriate parser
@@ -3858,7 +3852,7 @@ Parse events from inner instruction using the appropriate parser
 **Source**: `events/factory.rs`
 
 ```rust
-pub fn parse_events_from_instruction(&self, params: InstructionParseParams) -> Vec<Box<dyn Event>>
+pub fn parse_events_from_instruction( &self, params: InstructionParseParams, ) -> Vec<Box<dyn Event>>
 ```
 
 Parse events from instruction using the appropriate parser
@@ -3870,7 +3864,7 @@ Parse events from instruction using the appropriate parser
 **Source**: `src/solana_parser.rs`
 
 ```rust
-pub async fn parse_inner_instruction(&self, input: SolanaInnerInstructionInput) -> EventResult<Vec<SolanaEvent>>
+pub async fn parse_inner_instruction( &self, input: SolanaInnerInstructionInput, ) -> EventResult<Vec<SolanaEvent>>
 ```
 
 Parse events from a Solana inner instruction
@@ -3882,7 +3876,7 @@ Parse events from a Solana inner instruction
 **Source**: `src/solana_parser.rs`
 
 ```rust
-pub async fn parse_instruction(&self, input: SolanaTransactionInput) -> EventResult<Vec<SolanaEvent>>
+pub async fn parse_instruction( &self, input: SolanaTransactionInput, ) -> EventResult<Vec<SolanaEvent>>
 ```
 
 Parse events from a Solana instruction
@@ -4398,7 +4392,7 @@ Get timestamp for any lifetime
 **Source**: `src/types.rs`
 
 ```rust
-pub fn to_core_metadata(&self, kind: riglr_events_core::types::EventKind, source: String) -> riglr_events_core::types::EventMetadata
+pub fn to_core_metadata( &self, kind: riglr_events_core::types::EventKind, source: String, ) -> riglr_events_core::types::EventMetadata
 ```
 
 Convert to riglr-events-core EventMetadata
@@ -4482,7 +4476,7 @@ Validate a single event
 **Source**: `pipelines/validation.rs`
 
 ```rust
-pub async fn validate_events(&self, events: &[ZeroCopyEvent<'static>]) -> Vec<ValidationResult>
+pub async fn validate_events( &self, events: &[ZeroCopyEvent<'static>], ) -> Vec<ValidationResult>
 ```
 
 Validate multiple events
@@ -7248,13 +7242,13 @@ This now returns Event trait objects instead of UnifiedEvent
 #### `inner_instruction_configs`
 
 ```rust
-fn inner_instruction_configs(&self) -> std::collections::HashMap<&'static str, Vec<GenericEventParseConfig>>;
+fn inner_instruction_configs( &self, ) -> std::collections::HashMap<&'static str, Vec<GenericEventParseConfig>>;
 ```
 
 #### `instruction_configs`
 
 ```rust
-fn instruction_configs(&self) -> std::collections::HashMap<Vec<u8>, Vec<GenericEventParseConfig>>;
+fn instruction_configs( &self, ) -> std::collections::HashMap<Vec<u8>, Vec<GenericEventParseConfig>>;
 ```
 
 #### `parse_events_from_inner_instruction`

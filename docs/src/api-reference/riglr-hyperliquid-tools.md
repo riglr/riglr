@@ -647,7 +647,7 @@ Make a POST request to the Hyperliquid API
 **Source**: `src/client.rs`
 
 ```rust
-pub async fn update_leverage(&self, leverage: u32, coin: &str, is_cross: bool, asset_id: Option<u32>) -> Result<LeverageResponse>
+pub async fn update_leverage( &self, leverage: u32, coin: &str, is_cross: bool, asset_id: Option<u32>, ) -> Result<LeverageResponse>
 ```
 
 Cancel an order using real Hyperliquid API

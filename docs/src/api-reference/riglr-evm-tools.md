@@ -845,7 +845,7 @@ Default configuration for Ethereum mainnet
 **Source**: `src/util.rs`
 
 ```rust
-pub async fn execute_evm_transaction<F, Fut>( chain_id: u64, tx_creator: F ) -> Result<String, EvmToolError> where F: FnOnce(Address, EvmProvider) -> Fut + Send + 'static, Fut: Future<Output = Result<TransactionRequest, EvmToolError>> + Send + 'static,
+pub async fn execute_evm_transaction<F, Fut>( chain_id: u64, tx_creator: F, ) -> Result<String, EvmToolError> where F: FnOnce(Address, EvmProvider) -> Fut + Send + 'static, Fut: Future<Output = Result<TransactionRequest, EvmToolError>> + Send + 'static,
 ```
 
 Higher-order function to execute EVM transactions

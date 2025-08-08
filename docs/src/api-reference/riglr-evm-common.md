@@ -827,7 +827,7 @@ Parse value as U256
 **Source**: `src/types.rs`
 
 ```rust
-pub fn with_name(address: &str, chain_id: u64, name: String) -> Result<Self, crate::EvmCommonError>
+pub fn with_name( address: &str, chain_id: u64, name: String, ) -> Result<Self, crate::EvmCommonError>
 ```
 
 Create new EVM account with name
