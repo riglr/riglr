@@ -33,6 +33,11 @@ backoff = "0.4"
 # For testing
 [dev-dependencies]
 tokio-test = { workspace = true }
+criterion = { workspace = true }
+
+[[bench]]
+name = "core_benchmarks"
+harness = false
 
 [features]
 default = ["redis"]

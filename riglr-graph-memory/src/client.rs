@@ -239,7 +239,7 @@ impl Neo4jClient {
         let indexes = vec![
             // Vector similarity index for embeddings
             "CREATE VECTOR INDEX IF NOT EXISTS embedding_index FOR (n:Document) ON (n.embedding) OPTIONS {indexConfig: {`vector.dimensions`: 1536, `vector.similarity_function`: 'cosine'}}",
-            
+
             // Standard indexes for common lookups
             "CREATE INDEX IF NOT EXISTS wallet_address_index FOR (n:Wallet) ON (n.address)",
             "CREATE INDEX IF NOT EXISTS token_address_index FOR (n:Token) ON (n.address)",
@@ -247,7 +247,7 @@ impl Neo4jClient {
             "CREATE INDEX IF NOT EXISTS protocol_name_index FOR (n:Protocol) ON (n.name)",
             "CREATE INDEX IF NOT EXISTS transaction_hash_index FOR (n:Transaction) ON (n.hash)",
             "CREATE INDEX IF NOT EXISTS block_number_index FOR (n:Block) ON (n.number)",
-            
+
             // Composite indexes for common query patterns
             "CREATE INDEX IF NOT EXISTS wallet_token_index FOR (n:Wallet) ON (n.address, n.chain)",
             "CREATE INDEX IF NOT EXISTS transaction_block_index FOR (n:Transaction) ON (n.block_number, n.chain)",

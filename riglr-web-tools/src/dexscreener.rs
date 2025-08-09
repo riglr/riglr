@@ -25,7 +25,6 @@ pub struct DexScreenerConfig {
     pub request_timeout: u64,
 }
 
-/// Complete token information from DexScreener
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct TokenInfo {
     /// Token contract address
@@ -73,13 +72,10 @@ pub struct TokenPair {
     pub pair_id: String,
     /// DEX name (e.g., "Uniswap V3", "PancakeSwap")
     pub dex: DexInfo,
-    /// Base token info
     pub base_token: PairToken,
-    /// Quote token info (usually WETH, USDC, etc.)
     pub quote_token: PairToken,
     /// Current price
     pub price_usd: f64,
-    /// Native price (in quote token)
     pub price_native: f64,
     /// 24h trading volume in USD
     pub volume_24h: f64,
@@ -147,14 +143,12 @@ pub struct ChainInfo {
     pub name: String,
     /// Chain logo URL
     pub logo: Option<String>,
-    /// Native token symbol (e.g., "ETH", "BNB")
     pub native_token: String,
 }
 
 /// Token security and verification information
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct SecurityInfo {
-    /// Whether the token contract is verified
     pub is_verified: bool,
     /// Whether liquidity is locked
     pub liquidity_locked: Option<bool>,
@@ -198,7 +192,6 @@ pub struct MarketAnalysis {
     pub analyzed_at: DateTime<Utc>,
 }
 
-/// Trend analysis for a token
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct TrendAnalysis {
     /// Overall trend direction (Bullish, Bearish, Neutral)
@@ -215,10 +208,8 @@ pub struct TrendAnalysis {
     pub resistance_levels: Vec<f64>,
 }
 
-/// Volume analysis for a token
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct VolumeAnalysis {
-    /// Current 24h volume rank among all tokens
     pub volume_rank: Option<u32>,
     /// Volume trend (Increasing, Decreasing, Stable)
     pub volume_trend: String,
@@ -230,7 +221,6 @@ pub struct VolumeAnalysis {
     pub spike_factor: Option<f64>,
 }
 
-/// Liquidity analysis for a token
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct LiquidityAnalysis {
     /// Total liquidity across all pairs
@@ -262,7 +252,6 @@ pub struct PriceLevelAnalysis {
     pub range_position: Option<f64>,
 }
 
-/// Risk assessment for a token
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct RiskAssessment {
     /// Overall risk level (Low, Medium, High, Extreme)
@@ -290,12 +279,10 @@ pub struct RiskFactor {
     pub impact: u32,
 }
 
-/// Search result for tokens
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct TokenSearchResult {
     /// Search query used
     pub query: String,
-    /// Found tokens
     pub tokens: Vec<TokenInfo>,
     /// Search metadata
     pub metadata: SearchMetadata,
@@ -326,11 +313,9 @@ impl Default for DexScreenerConfig {
     }
 }
 
-/// Get comprehensive token information by address
 ///
-/// This tool retrieves detailed information about a token including price,
 /// market cap, trading pairs, and security analysis.
-// #[tool]
+// // #[tool]
 pub async fn get_token_info(
     token_address: String,
     chain_id: Option<String>,
@@ -344,7 +329,7 @@ pub async fn get_token_info(
     );
 
     let config = DexScreenerConfig::default();
-    let client = WebClient::new("");
+    let client = WebClient::new();
 
     // Build API endpoint
     let chain = chain_id.unwrap_or_else(|| "ethereum".to_string());
@@ -373,11 +358,9 @@ pub async fn get_token_info(
     Ok(token_info)
 }
 
-/// Search for tokens by name, symbol, or address
 ///
-/// This tool searches DexScreener for tokens matching the query,
 /// with support for filtering by chain and market cap.
-// #[tool]
+// // #[tool]
 pub async fn search_tokens(
     query: String,
     chain_filter: Option<String>,
@@ -388,7 +371,7 @@ pub async fn search_tokens(
     debug!("Searching tokens for query: '{}' with filters", query);
 
     let config = DexScreenerConfig::default();
-    let client = WebClient::new("");
+    let client = WebClient::new();
 
     // Build search parameters
     let mut params = HashMap::new();
@@ -436,11 +419,9 @@ pub async fn search_tokens(
     Ok(result)
 }
 
-/// Get trending tokens across all supported chains
 ///
-/// This tool retrieves currently trending tokens based on volume,
 /// price changes, and social activity.
-// #[tool]
+// // #[tool]
 pub async fn get_trending_tokens(
     time_window: Option<String>, // "5m", "1h", "24h"
     chain_filter: Option<String>,
@@ -453,7 +434,7 @@ pub async fn get_trending_tokens(
     );
 
     let config = DexScreenerConfig::default();
-    let client = WebClient::new("");
+    let client = WebClient::new();
 
     // Build trending endpoint
     let window = time_window.unwrap_or_else(|| "1h".to_string());
@@ -479,11 +460,10 @@ pub async fn get_trending_tokens(
     Ok(trending_tokens)
 }
 
-/// Perform comprehensive market analysis on a token
 ///
 /// This tool provides deep market analysis including trend analysis,
 /// volume patterns, liquidity assessment, and risk evaluation.
-// #[tool]
+// // #[tool]
 pub async fn analyze_token_market(
     token_address: String,
     chain_id: Option<String>,
@@ -543,7 +523,7 @@ pub async fn analyze_token_market(
 ///
 /// This tool retrieves the highest volume trading pairs,
 /// useful for identifying active markets and arbitrage opportunities.
-// #[tool]
+// // #[tool]
 pub async fn get_top_pairs(
     time_window: Option<String>, // "5m", "1h", "24h"
     chain_filter: Option<String>,
@@ -557,7 +537,7 @@ pub async fn get_top_pairs(
     );
 
     let config = DexScreenerConfig::default();
-    let client = WebClient::new("");
+    let client = WebClient::new();
 
     let mut params = HashMap::new();
     params.insert("sort".to_string(), "volume".to_string());
@@ -589,7 +569,6 @@ pub async fn get_top_pairs(
     Ok(pairs)
 }
 
-/// Parse DexScreener token response into structured data
 async fn parse_token_response(
     response: &str,
     token_address: &str,
@@ -687,7 +666,6 @@ async fn parse_search_results(response: &str) -> Result<Vec<TokenInfo>> {
     Ok(vec![])
 }
 
-/// Parse trending tokens response
 async fn parse_trending_response(response: &str) -> Result<Vec<TokenInfo>> {
     // In production, would parse actual JSON response
     Ok(vec![])
@@ -699,7 +677,6 @@ async fn parse_pairs_response(response: &str) -> Result<Vec<TokenPair>> {
     Ok(vec![])
 }
 
-/// Analyze price trends for a token
 async fn analyze_price_trends(token: &TokenInfo) -> Result<TrendAnalysis> {
     let price_change_24h = token.price_change_24h.unwrap_or(0.0);
     let price_change_1h = token.price_change_1h.unwrap_or(0.0);
@@ -725,7 +702,6 @@ async fn analyze_price_trends(token: &TokenInfo) -> Result<TrendAnalysis> {
     })
 }
 
-/// Analyze volume patterns for a token
 async fn analyze_volume_patterns(token: &TokenInfo) -> Result<VolumeAnalysis> {
     let volume_24h = token.volume_24h.unwrap_or(0.0);
     let market_cap = token.market_cap.unwrap_or(1.0);
@@ -739,7 +715,6 @@ async fn analyze_volume_patterns(token: &TokenInfo) -> Result<VolumeAnalysis> {
     })
 }
 
-/// Analyze liquidity for a token
 async fn analyze_liquidity(token: &TokenInfo) -> Result<LiquidityAnalysis> {
     let total_liquidity = token
         .pairs
@@ -773,7 +748,6 @@ async fn analyze_liquidity(token: &TokenInfo) -> Result<LiquidityAnalysis> {
     })
 }
 
-/// Analyze price levels for a token
 async fn analyze_price_levels(token: &TokenInfo) -> Result<PriceLevelAnalysis> {
     let current_price = token.price_usd.unwrap_or(0.0);
 
@@ -788,7 +762,6 @@ async fn analyze_price_levels(token: &TokenInfo) -> Result<PriceLevelAnalysis> {
     })
 }
 
-/// Assess risks for a token
 async fn assess_token_risks(token: &TokenInfo) -> Result<RiskAssessment> {
     let mut risk_factors = vec![];
     let mut total_risk = 0;

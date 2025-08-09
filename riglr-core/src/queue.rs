@@ -70,6 +70,15 @@ impl JobQueue for InMemoryJobQueue {
     }
 
     async fn dequeue_with_timeout(&self, timeout: Duration) -> Result<Option<Job>> {
+        // First check if there are any items immediately available
+        {
+            let mut queue = self.queue.lock().await;
+            if let Some(job) = queue.pop_front() {
+                return Ok(Some(job));
+            }
+        }
+        
+        // If no items available, wait for notification or timeout
         tokio::select! {
             _ = tokio::time::sleep(timeout) => Ok(None),
             _ = self.notify.notified() => {

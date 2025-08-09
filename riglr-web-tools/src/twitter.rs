@@ -17,7 +17,6 @@ use tracing::{debug, info, warn};
 /// Configuration for Twitter API access
 #[derive(Debug, Clone)]
 pub struct TwitterConfig {
-    /// Bearer token for Twitter API v2
     pub bearer_token: String,
     /// API base URL (default: https://api.twitter.com/2)
     pub base_url: String,
@@ -136,7 +135,6 @@ pub struct SearchMetadata {
     pub result_count: u32,
     /// Search query used
     pub query: String,
-    /// Next pagination token
     pub next_token: Option<String>,
     /// Search timestamp
     pub searched_at: DateTime<Utc>,
@@ -214,7 +212,7 @@ impl Default for TwitterConfig {
 ///
 /// This tool searches Twitter/X for tweets matching the given query,
 /// with support for advanced filters and sentiment analysis.
-// #[tool]
+// // #[tool]
 pub async fn search_tweets(
     query: String,
     max_results: Option<u32>,
@@ -231,12 +229,13 @@ pub async fn search_tweets(
 
     let config = TwitterConfig::default();
     if config.bearer_token.is_empty() {
-        return Err(WebToolError::Authentication(
+        return Err(WebToolError::Auth(
             "TWITTER_BEARER_TOKEN environment variable not set".to_string(),
         ));
     }
 
-    let client = WebClient::new(&config.bearer_token);
+    let client = WebClient::new()
+        .with_twitter_token(config.bearer_token.clone());
 
     // Build search parameters
     let mut params = HashMap::new();
@@ -275,7 +274,7 @@ pub async fn search_tweets(
     let response = client.get_with_params(&url, &params).await?;
 
     // Parse response (simplified - would need full Twitter API response parsing)
-    let tweets = parse_twitter_response(&response)?;
+    let tweets = parse_twitter_response(&response).await?;
 
     // Perform sentiment analysis if requested
     let analyzed_tweets = if include_sentiment.unwrap_or(false) {
@@ -311,7 +310,7 @@ pub async fn search_tweets(
 /// Get recent tweets from a specific user
 ///
 /// This tool fetches recent tweets from a specified Twitter/X user account.
-// #[tool]
+// // #[tool]
 pub async fn get_user_tweets(
     username: String,
     max_results: Option<u32>,
@@ -326,12 +325,13 @@ pub async fn get_user_tweets(
 
     let config = TwitterConfig::default();
     if config.bearer_token.is_empty() {
-        return Err(WebToolError::Authentication(
+        return Err(WebToolError::Auth(
             "TWITTER_BEARER_TOKEN environment variable not set".to_string(),
         ));
     }
 
-    let client = WebClient::new(&config.bearer_token);
+    let client = WebClient::new()
+        .with_twitter_token(config.bearer_token.clone());
 
     // First, get user ID from username
     let user_url = format!("{}/users/by/username/{}", config.base_url, username);
@@ -362,7 +362,7 @@ pub async fn get_user_tweets(
     let tweets_url = format!("{}/users/{}/tweets", config.base_url, user_id);
     let response = client.get_with_params(&tweets_url, &params).await?;
 
-    let tweets = parse_twitter_response(&response)?;
+    let tweets = parse_twitter_response(&response).await?;
 
     info!("Retrieved {} tweets from @{}", tweets.len(), username);
 
@@ -373,7 +373,7 @@ pub async fn get_user_tweets(
 ///
 /// This tool performs comprehensive sentiment analysis on cryptocurrency-related tweets,
 /// providing insights into market mood and social trends.
-// #[tool]
+// // #[tool]
 pub async fn analyze_crypto_sentiment(
     token_symbol: String,
     time_window_hours: Option<u32>,

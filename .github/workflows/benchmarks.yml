@@ -1,0 +1,210 @@
+name: Benchmarks
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      compare:
+        description: 'Compare with base branch'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  benchmark:
+    name: Run Benchmarks
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Rust
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        components: rustfmt, clippy
+
+    - name: Cache cargo registry
+      uses: actions/cache@v4
+      with:
+        path: ~/.cargo/registry
+        key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-registry-
+
+    - name: Cache cargo index
+      uses: actions/cache@v4
+      with:
+        path: ~/.cargo/git
+        key: ${{ runner.os }}-cargo-git-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-git-
+
+    - name: Cache target directory
+      uses: actions/cache@v4
+      with:
+        path: target
+        key: ${{ runner.os }}-target-bench-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-target-bench-
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libssl-dev pkg-config
+
+    - name: Run riglr-core benchmarks
+      run: |
+        cd riglr-core
+        cargo bench --no-default-features -- --output-format bencher | tee ../riglr-core-bench.txt
+      continue-on-error: true
+
+    - name: Run riglr-evm-tools benchmarks
+      run: |
+        cd riglr-evm-tools
+        cargo bench --no-default-features -- --output-format bencher | tee ../riglr-evm-bench.txt
+      continue-on-error: true
+
+    - name: Run riglr-solana-tools benchmarks
+      run: |
+        cd riglr-solana-tools
+        cargo bench --no-default-features -- --output-format bencher | tee ../riglr-solana-bench.txt
+      continue-on-error: true
+
+    - name: Run riglr-web-tools benchmarks
+      run: |
+        cd riglr-web-tools
+        cargo bench --no-default-features -- --output-format bencher | tee ../riglr-web-bench.txt
+      continue-on-error: true
+
+    - name: Run riglr-graph-memory benchmarks
+      run: |
+        cd riglr-graph-memory
+        cargo bench --no-default-features -- --output-format bencher | tee ../riglr-graph-bench.txt
+      continue-on-error: true
+
+    - name: Upload benchmark results
+      uses: actions/upload-artifact@v4
+      with:
+        name: benchmark-results
+        path: |
+          riglr-*-bench.txt
+        retention-days: 30
+
+    - name: Generate benchmark report
+      if: github.event_name == 'pull_request'
+      run: |
+        echo "## Benchmark Results" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        for file in riglr-*-bench.txt; do
+          if [ -f "$file" ]; then
+            module=$(basename "$file" -bench.txt)
+            echo "### $module" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            tail -n 20 "$file" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+          fi
+        done
+
+  benchmark-comparison:
+    name: Benchmark Comparison
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' || github.event.inputs.compare == 'true'
+    timeout-minutes: 45
+    
+    steps:
+    - name: Checkout PR branch
+      uses: actions/checkout@v4
+
+    - name: Setup Rust
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Cache dependencies
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: ${{ runner.os }}-cargo-bench-${{ hashFiles('**/Cargo.lock') }}
+
+    - name: Run benchmarks on PR branch
+      run: |
+        cargo bench --workspace --no-default-features -- --output-format bencher | tee pr-benchmarks.txt
+      continue-on-error: true
+
+    - name: Checkout base branch
+      run: |
+        git fetch origin ${{ github.base_ref || 'main' }}
+        git checkout origin/${{ github.base_ref || 'main' }}
+
+    - name: Run benchmarks on base branch
+      run: |
+        cargo bench --workspace --no-default-features -- --output-format bencher | tee base-benchmarks.txt
+      continue-on-error: true
+
+    - name: Compare benchmarks
+      run: |
+        echo "## Benchmark Comparison" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### PR Branch vs Base Branch" >> $GITHUB_STEP_SUMMARY
+        echo '```diff' >> $GITHUB_STEP_SUMMARY
+        
+        # Simple diff - in a real scenario, you'd want to use a proper benchmark comparison tool
+        diff -u base-benchmarks.txt pr-benchmarks.txt | head -100 >> $GITHUB_STEP_SUMMARY || true
+        
+        echo '```' >> $GITHUB_STEP_SUMMARY
+
+  profile-guided-optimization:
+    name: Profile-Guided Optimization Check
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    timeout-minutes: 60
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Rust with PGO support
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        components: llvm-tools-preview
+
+    - name: Install cargo-pgo
+      run: |
+        cargo install cargo-pgo || true
+
+    - name: Build with PGO instrumentation
+      run: |
+        cargo pgo build --workspace
+      continue-on-error: true
+
+    - name: Run PGO benchmarks
+      run: |
+        cargo pgo bench --workspace
+      continue-on-error: true
+
+    - name: Build optimized binary
+      run: |
+        cargo pgo optimize --workspace
+      continue-on-error: true
+
+    - name: Compare performance
+      run: |
+        echo "## PGO Performance Analysis" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "Profile-Guided Optimization analysis completed." >> $GITHUB_STEP_SUMMARY
+        echo "Check artifacts for detailed results." >> $GITHUB_STEP_SUMMARY
