@@ -207,7 +207,7 @@ fn handle_function(function: ItemFn) -> proc_macro2::TokenStream {
                 let args: #args_struct_name = serde_json::from_value(params)
                     .map_err(|e| format!("Failed to parse parameters: {}", e))?;
 
-                // Call the original function
+                // Call the original function (expecting Result<T, ToolError>)
                 let result = #fn_name(#(#field_assignments),*)#await_token;
 
                 // Convert the result to JobResult
@@ -219,17 +219,22 @@ fn handle_function(function: ItemFn) -> proc_macro2::TokenStream {
                             tx_hash: None,
                         })
                     }
-                    Err(e) => {
-                        // Check if error message indicates it's retriable
-                        let error_str = e.to_string();
-                        let retriable = error_str.contains("timeout") ||
-                                      error_str.contains("connection") ||
-                                      error_str.contains("temporarily");
-
-                        Ok(riglr_core::JobResult::Failure {
-                            error: error_str,
-                            retriable,
-                        })
+                    Err(tool_error) => {
+                        // Match on ToolError enum to determine retriability
+                        match tool_error {
+                            riglr_core::ToolError::Retriable(msg) => {
+                                Ok(riglr_core::JobResult::Failure {
+                                    error: msg,
+                                    retriable: true,
+                                })
+                            }
+                            riglr_core::ToolError::Permanent(msg) => {
+                                Ok(riglr_core::JobResult::Failure {
+                                    error: msg,
+                                    retriable: false,
+                                })
+                            }
+                        }
                     }
                 }
             }
@@ -299,7 +304,7 @@ fn handle_struct(structure: ItemStruct) -> proc_macro2::TokenStream {
                 let args: Self = serde_json::from_value(params)
                     .map_err(|e| format!("Failed to parse parameters: {}", e))?;
 
-                // Call the execute method
+                // Call the execute method (expecting Result<T, ToolError>)
                 let result = args.execute().await;
 
                 // Convert the result to JobResult
@@ -311,16 +316,22 @@ fn handle_struct(structure: ItemStruct) -> proc_macro2::TokenStream {
                             tx_hash: None,
                         })
                     }
-                    Err(e) => {
-                        let error_str = e.to_string();
-                        let retriable = error_str.contains("timeout") ||
-                                      error_str.contains("connection") ||
-                                      error_str.contains("temporarily");
-
-                        Ok(riglr_core::JobResult::Failure {
-                            error: error_str,
-                            retriable,
-                        })
+                    Err(tool_error) => {
+                        // Match on ToolError enum to determine retriability
+                        match tool_error {
+                            riglr_core::ToolError::Retriable(msg) => {
+                                Ok(riglr_core::JobResult::Failure {
+                                    error: msg,
+                                    retriable: true,
+                                })
+                            }
+                            riglr_core::ToolError::Permanent(msg) => {
+                                Ok(riglr_core::JobResult::Failure {
+                                    error: msg,
+                                    retriable: false,
+                                })
+                            }
+                        }
                     }
                 }
             }
