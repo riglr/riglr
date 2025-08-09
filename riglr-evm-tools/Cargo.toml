@@ -29,9 +29,11 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 schemars = { workspace = true }
 
-# EVM Dependencies (temporarily using direct RPC to avoid conflicts)
-# ethers = { version = "2.0", features = ["ws", "rustls", "abigen"] }
-
+# EVM Dependencies
+alloy = { version = "0.7", features = ["full", "node-bindings"] }
+alloy-primitives = "0.7"
+alloy-signer = "0.7"
+alloy-signer-local = "0.7"
 
 # HTTP client
 reqwest = { workspace = true }

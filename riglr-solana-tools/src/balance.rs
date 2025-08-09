@@ -3,7 +3,7 @@
 //! This module provides tools for querying SOL and SPL token balances on the Solana blockchain.
 
 use crate::client::{SolanaClient, SolanaConfig};
-use anyhow::anyhow;
+use riglr_core::ToolError;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use solana_sdk::native_token::LAMPORTS_PER_SOL;
@@ -41,14 +41,25 @@ fn get_balance_client() -> Arc<SolanaClient> {
 pub async fn get_sol_balance(
     client: &SolanaClient,
     address: String,
-) -> anyhow::Result<BalanceResult> {
+) -> Result<BalanceResult, ToolError> {
     debug!("Getting SOL balance for address: {}", address);
 
     // Get balance in lamports
     let lamports = client
         .get_balance(&address)
         .await
-        .map_err(|e| anyhow!("Failed to get balance: {}", e))?;
+        .map_err(|e| {
+            // Network and connection errors are retriable
+            let error_str = e.to_string();
+            if error_str.contains("timeout") || 
+               error_str.contains("connection") || 
+               error_str.contains("temporarily") ||
+               error_str.contains("network") {
+                ToolError::retriable(format!("Failed to get balance: {}", e))
+            } else {
+                ToolError::permanent(format!("Failed to get balance: {}", e))
+            }
+        })?;
 
     // Convert to SOL
     let sol = lamports as f64 / LAMPORTS_PER_SOL as f64;
@@ -75,7 +86,7 @@ pub async fn get_spl_token_balance(
     client: &SolanaClient,
     owner_address: String,
     mint_address: String,
-) -> anyhow::Result<TokenBalanceResult> {
+) -> Result<TokenBalanceResult, ToolError> {
     use solana_sdk::pubkey::Pubkey;
     use spl_associated_token_account::get_associated_token_address;
     use std::str::FromStr;
@@ -85,11 +96,11 @@ pub async fn get_spl_token_balance(
         owner_address, mint_address
     );
 
-    // Parse addresses
-    let owner_pubkey =
-        Pubkey::from_str(&owner_address).map_err(|e| anyhow!("Invalid owner address: {}", e))?;
-    let mint_pubkey =
-        Pubkey::from_str(&mint_address).map_err(|e| anyhow!("Invalid mint address: {}", e))?;
+    // Parse addresses - invalid addresses are permanent errors
+    let owner_pubkey = Pubkey::from_str(&owner_address)
+        .map_err(|e| ToolError::permanent(format!("Invalid owner address: {}", e)))?;
+    let mint_pubkey = Pubkey::from_str(&mint_address)
+        .map_err(|e| ToolError::permanent(format!("Invalid mint address: {}", e)))?;
 
     // Get the Associated Token Account (ATA) address
     let ata = get_associated_token_address(&owner_pubkey, &mint_pubkey);
@@ -100,7 +111,7 @@ pub async fn get_spl_token_balance(
             let raw_amount = balance
                 .amount
                 .parse::<u64>()
-                .map_err(|e| anyhow!("Failed to parse token amount: {}", e))?;
+                .map_err(|e| ToolError::permanent(format!("Failed to parse token amount: {}", e)))?;
             let ui_amount = balance.ui_amount.unwrap_or(0.0);
             let decimals = balance.decimals;
 
@@ -142,8 +153,8 @@ pub async fn get_multiple_balances(
     _addresses: Vec<String>,
 
     _rpc_url: Option<String>,
-) -> anyhow::Result<Vec<BalanceResult>> {
-    todo!("Implementation pending")
+) -> Result<Vec<BalanceResult>, ToolError> {
+    Err(ToolError::permanent("get_multiple_balances not yet implemented"))
 }
 
 /// Result structure for balance queries

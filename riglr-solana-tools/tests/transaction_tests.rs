@@ -583,6 +583,7 @@ async fn test_transfer_sol_no_signer_context() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_transfer_spl_token_invalid_addresses() {
+    let client = SolanaClient::devnet();
     let result = transfer_spl_token(
         &client,
         "invalid_recipient".to_string(),
@@ -592,7 +593,8 @@ async fn test_transfer_spl_token_invalid_addresses() {
         1000000,
         6,
         None,
-        true)
+        true,
+    )
     .await;
 
     // Should fail with invalid addresses
@@ -720,7 +722,7 @@ async fn test_transfer_sol_with_priority_fee() {
         0.5,
         None,
         None,
-        Some(Some(1000), // With priority fee
+        Some(1000), // With priority fee
     )
     .await;
 
@@ -781,6 +783,7 @@ async fn test_transfer_sol_large_amount() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_transfer_spl_token_create_ata() {
+    let client = SolanaClient::devnet();
     let result = transfer_spl_token(
         &client,
         "11111111111111111111111111111111".to_string(),
@@ -788,7 +791,7 @@ async fn test_transfer_spl_token_create_ata() {
         1000000,
         6,
         None,
-        true),
+        true,
     )
     .await;
 
@@ -798,6 +801,7 @@ async fn test_transfer_spl_token_create_ata() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_transfer_spl_token_no_create_ata() {
+    let client = SolanaClient::devnet();
     let result = transfer_spl_token(
         &client,
         "22222222222222222222222222222222".to_string(),
@@ -805,7 +809,8 @@ async fn test_transfer_spl_token_no_create_ata() {
         1000000000,
         9,
         Some("my_signer".to_string()),
-        false)
+        false,
+    )
     .await;
 
     // Will fail due to no signer context
@@ -814,6 +819,7 @@ async fn test_transfer_spl_token_no_create_ata() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_transfer_spl_token_zero_decimals() {
+    let client = SolanaClient::devnet();
     let result = transfer_spl_token(
         &client,
         "33333333333333333333333333333333".to_string(),
@@ -823,7 +829,8 @@ async fn test_transfer_spl_token_zero_decimals() {
         0,
         // Zero decimals
         None,
-        true)
+        true,
+    )
     .await;
 
     // Will fail due to no signer context
@@ -1038,6 +1045,7 @@ async fn test_transfer_sol_with_all_options() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_transfer_spl_token_large_amount() {
+    let client = SolanaClient::devnet();
     let result = transfer_spl_token(
         &client,
         "66666666666666666666666666666666".to_string(),
@@ -1046,7 +1054,7 @@ async fn test_transfer_spl_token_large_amount() {
         // Maximum amount
         6,
         None,
-        true),
+        true,
     )
     .await;
 
@@ -1380,7 +1388,8 @@ async fn test_transfer_spl_token_with_named_signer_error() {
         6,
         Some("nonexistent_signer".to_string()),
         // This tests lines 279-281
-        true)
+        true,
+    )
     .await;
 
     assert!(result.is_err());
