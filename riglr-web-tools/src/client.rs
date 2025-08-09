@@ -56,11 +56,22 @@ impl WebClient {
     pub fn get_api_key(&self, service: &str) -> Option<&String> {
         self.api_keys.get(service)
     }
+    
+    /// Get config value
+    pub fn get_config(&self, key: &str) -> Option<&String> {
+        self.config.get(key)
+    }
 
     /// Placeholder method for making HTTP requests
-    pub async fn get(&self, _url: &str) -> Result<serde_json::Value> {
+    pub async fn get(&self, _url: &str) -> Result<String> {
         // TODO: Implement actual HTTP request logic
-        Ok(serde_json::json!({}))
+        Ok(String::new())
+    }
+    
+    /// Make GET request with query parameters
+    pub async fn get_with_params(&self, _url: &str, _params: &HashMap<String, String>) -> Result<String> {
+        // TODO: Implement actual HTTP request logic with params
+        Ok(String::new())
     }
 
     /// Placeholder method for making POST requests

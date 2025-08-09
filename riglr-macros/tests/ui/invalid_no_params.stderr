@@ -1,0 +1,7 @@
+error: #[tool] can only be applied to async functions or structs
+ --> tests/ui/invalid_no_params.rs:3:1
+  |
+3 | / /// This should fail because tool is applied to something that's not a function or struct
+4 | | #[tool]
+5 | | const INVALID: i32 = 42;
+  | |________________________^

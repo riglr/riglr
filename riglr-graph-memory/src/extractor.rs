@@ -28,17 +28,17 @@ pub struct EntityExtractor {
     regex_cache: HashMap<String, Regex>,
 }
 
-/// Ethereum address regex pattern
+/// Ethereum address regex pattern (exactly 40 hex chars, not part of longer hash)
 static ETH_ADDRESS_REGEX: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"0x[a-fA-F0-9]{40}").expect("Invalid Ethereum address regex"));
+    Lazy::new(|| Regex::new(r"0x[a-fA-F0-9]{40}\b").expect("Invalid Ethereum address regex"));
 
 /// Solana address regex pattern
 static SOL_ADDRESS_REGEX: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"[1-9A-HJ-NP-Za-km-z]{32,44}").expect("Invalid Solana address regex"));
 
-/// Amount pattern (e.g., "123.45 ETH", "$1,234.56", "1K USDC")
+/// Amount pattern (e.g., "123.45 ETH", "$1,234.56", "1K USDC", "$1.2B")
 static AMOUNT_REGEX: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r"(\$?[0-9]+(?:[.,][0-9]+)*(?:[KMB])?)\s*([A-Z]{2,10}|\$)?")
+    Regex::new(r"\$?[0-9]+(?:[.,][0-9]+)*[KMBkmb]?(?:\s+[A-Z]{2,10})?")
         .expect("Invalid amount regex")
 });
 
@@ -251,7 +251,6 @@ impl EntityExtractor {
         Ok(wallets)
     }
 
-    /// Extract token mentions from text
     async fn extract_tokens(&self, text: &str) -> Result<Vec<EntityMention>> {
         let mut tokens = Vec::new();
         let mut seen = HashSet::new();
@@ -456,10 +455,12 @@ impl EntityExtractor {
 
     /// Parse amount text into value and unit
     fn parse_amount_match(&self, text: &str) -> (String, Option<String>) {
+        // Check if there's a space separating value and unit
         let parts: Vec<&str> = text.split_whitespace().collect();
         if parts.len() >= 2 {
             (parts[0].to_string(), Some(parts[1].to_string()))
         } else {
+            // No space, so the whole thing is the value (e.g., "$1.2B")
             (text.to_string(), None)
         }
     }
@@ -493,19 +494,20 @@ impl EntityExtractor {
         let context_lower = context.to_lowercase();
         let amount_lower = amount_text.to_lowercase();
 
+        // Check context-specific keywords first, before generic $ check
         if context_lower.contains("balance") || context_lower.contains("holds") {
             AmountType::Balance
-        } else if context_lower.contains("price")
-            || context_lower.contains("worth")
-            || amount_lower.contains("$")
-        {
-            AmountType::Price
         } else if context_lower.contains("fee") || context_lower.contains("gas") {
             AmountType::Fee
         } else if context_lower.contains("volume") || context_lower.contains("trading") {
             AmountType::Volume
         } else if context_lower.contains("market cap") || context_lower.contains("mcap") {
             AmountType::MarketCap
+        } else if context_lower.contains("price")
+            || context_lower.contains("worth")
+            || amount_lower.contains("$")
+        {
+            AmountType::Price
         } else {
             AmountType::Other("unknown".to_string())
         }

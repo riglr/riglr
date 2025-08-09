@@ -208,17 +208,17 @@ mod tests {
         let result = JobResult::success(&"test_value").unwrap();
         let key = "test_key";
 
-        // Store with very short TTL
+        // Store with short TTL (very generous for instrumented runs)
         store
-            .set(key, &result, Duration::from_millis(10))
+            .set(key, &result, Duration::from_millis(200))
             .await
             .unwrap();
 
         // Should exist initially
         assert!(store.get(key).await.unwrap().is_some());
 
-        // Wait for expiry
-        tokio::time::sleep(Duration::from_millis(20)).await;
+        // Wait for expiry (very generous timeout for instrumented runs)
+        tokio::time::sleep(Duration::from_millis(500)).await;
 
         // Should be expired now
         assert!(store.get(key).await.unwrap().is_none());

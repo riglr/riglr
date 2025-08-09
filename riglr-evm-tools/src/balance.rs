@@ -26,7 +26,6 @@ const ERC20_NAME_SELECTOR: &str = "0x06fdde03";
 pub struct BalanceResult {
     /// The wallet address that was queried
     pub address: String,
-    /// The raw balance in wei (for ETH) or smallest unit (for tokens)
     pub balance_raw: String,
     /// The formatted balance for display
     pub balance_formatted: String,
@@ -38,22 +37,18 @@ pub struct BalanceResult {
     pub block_number: u64,
 }
 
-/// Result of ERC20 token balance checking
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct TokenBalanceResult {
     /// The wallet address that was queried
     pub address: String,
-    /// The token contract address
     pub token_address: String,
     /// Token symbol (if available)
     pub symbol: Option<String>,
     /// Token name (if available)
     pub name: Option<String>,
-    /// The raw balance in token's smallest unit
     pub balance_raw: String,
     /// The formatted balance for display
     pub balance_formatted: String,
-    /// Number of decimals for the token
     pub decimals: u8,
     /// The blockchain network
     pub network: String,
@@ -64,7 +59,7 @@ pub struct TokenBalanceResult {
 /// Get ETH balance for an address
 ///
 /// This tool queries the ETH balance for a given address on the specified network.
-// #[tool]
+// // #[tool]
 pub async fn get_eth_balance(
     address: String,
     rpc_url: Option<String>,
@@ -133,10 +128,8 @@ pub async fn get_eth_balance(
     })
 }
 
-/// Get ERC20 token balance for an address
 ///
-/// This tool queries the ERC20 token balance for a given address and token contract.
-// #[tool]
+// // #[tool]
 pub async fn get_erc20_balance(
     address: String,
     token_address: String,
@@ -231,10 +224,8 @@ pub async fn get_erc20_balance(
     })
 }
 
-/// Get multiple token balances for an address
 ///
-/// This tool efficiently queries multiple ERC20 token balances for a single address.
-// #[tool]
+// // #[tool]
 pub async fn get_multi_token_balances(
     address: String,
     token_addresses: Vec<String>,
