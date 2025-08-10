@@ -1,10 +1,10 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId, Throughput};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use riglr_evm_tools::{
-    client::{EvmClient, ChainConfig},
-    balance::{BalanceTool, GetEthBalanceInput, GetErc20BalanceInput},
-    network::{NetworkTool, GetBlockNumberInput, GetGasPriceInput, GetTransactionInput},
-    transaction::{TransactionTool, SendEthInput, SendErc20Input},
+    balance::{BalanceTool, GetErc20BalanceInput, GetEthBalanceInput},
+    client::{ChainConfig, EvmClient},
     error::EvmToolError,
+    network::{GetBlockNumberInput, GetGasPriceInput, GetTransactionInput, NetworkTool},
+    transaction::{SendErc20Input, SendEthInput, TransactionTool},
 };
 use serde_json::json;
 use std::sync::Arc;
@@ -13,37 +13,25 @@ use tokio::runtime::Runtime;
 fn client_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("evm_client");
     let rt = Runtime::new().unwrap();
-    
+
     group.bench_function("client_creation", |b| {
-        b.iter(|| {
-            ChainConfig::ethereum_mainnet()
-        })
+        b.iter(|| ChainConfig::ethereum_mainnet())
     });
-    
+
     group.bench_function("chain_config_polygon", |b| {
-        b.iter(|| {
-            ChainConfig::polygon()
-        })
+        b.iter(|| ChainConfig::polygon())
     });
-    
+
     group.bench_function("chain_config_arbitrum", |b| {
-        b.iter(|| {
-            ChainConfig::arbitrum_one()
-        })
+        b.iter(|| ChainConfig::arbitrum_one())
     });
-    
+
     group.bench_function("chain_config_optimism", |b| {
-        b.iter(|| {
-            ChainConfig::optimism()
-        })
+        b.iter(|| ChainConfig::optimism())
     });
-    
-    group.bench_function("chain_config_base", |b| {
-        b.iter(|| {
-            ChainConfig::base()
-        })
-    });
-    
+
+    group.bench_function("chain_config_base", |b| b.iter(|| ChainConfig::base()));
+
     group.bench_function("custom_chain_config", |b| {
         b.iter(|| {
             ChainConfig::custom(
@@ -54,14 +42,14 @@ fn client_benchmarks(c: &mut Criterion) {
             )
         })
     });
-    
+
     group.finish();
 }
 
 fn balance_tool_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("balance_tool");
     let rt = Runtime::new().unwrap();
-    
+
     group.bench_function("eth_balance_input_parsing", |b| {
         b.iter(|| {
             let input = json!({
@@ -71,7 +59,7 @@ fn balance_tool_benchmarks(c: &mut Criterion) {
             serde_json::from_value::<GetEthBalanceInput>(black_box(input))
         })
     });
-    
+
     group.bench_function("erc20_balance_input_parsing", |b| {
         b.iter(|| {
             let input = json!({
@@ -82,13 +70,9 @@ fn balance_tool_benchmarks(c: &mut Criterion) {
             serde_json::from_value::<GetErc20BalanceInput>(black_box(input))
         })
     });
-    
-    group.bench_function("balance_tool_creation", |b| {
-        b.iter(|| {
-            BalanceTool::new()
-        })
-    });
-    
+
+    group.bench_function("balance_tool_creation", |b| b.iter(|| BalanceTool::new()));
+
     group.bench_function("balance_formatting", |b| {
         let amounts = vec![
             "1000000000000000000",
@@ -97,7 +81,7 @@ fn balance_tool_benchmarks(c: &mut Criterion) {
             "1",
             "999999999999999999",
         ];
-        
+
         b.iter(|| {
             for amount in &amounts {
                 let wei = amount.parse::<u128>().unwrap();
@@ -106,13 +90,13 @@ fn balance_tool_benchmarks(c: &mut Criterion) {
             }
         })
     });
-    
+
     group.finish();
 }
 
 fn network_tool_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("network_tool");
-    
+
     group.bench_function("block_number_input_parsing", |b| {
         b.iter(|| {
             let input = json!({
@@ -121,7 +105,7 @@ fn network_tool_benchmarks(c: &mut Criterion) {
             serde_json::from_value::<GetBlockNumberInput>(black_box(input))
         })
     });
-    
+
     group.bench_function("gas_price_input_parsing", |b| {
         b.iter(|| {
             let input = json!({
@@ -130,7 +114,7 @@ fn network_tool_benchmarks(c: &mut Criterion) {
             serde_json::from_value::<GetGasPriceInput>(black_box(input))
         })
     });
-    
+
     group.bench_function("transaction_input_parsing", |b| {
         b.iter(|| {
             let input = json!({
@@ -140,21 +124,12 @@ fn network_tool_benchmarks(c: &mut Criterion) {
             serde_json::from_value::<GetTransactionInput>(black_box(input))
         })
     });
-    
-    group.bench_function("network_tool_creation", |b| {
-        b.iter(|| {
-            NetworkTool::new()
-        })
-    });
-    
+
+    group.bench_function("network_tool_creation", |b| b.iter(|| NetworkTool::new()));
+
     group.bench_function("hex_parsing", |b| {
-        let hex_values = vec![
-            "0x1234567890abcdef",
-            "0xffffffffffffffff",
-            "0x0",
-            "0x1",
-        ];
-        
+        let hex_values = vec!["0x1234567890abcdef", "0xffffffffffffffff", "0x0", "0x1"];
+
         b.iter(|| {
             for hex in &hex_values {
                 let _parsed = u64::from_str_radix(&hex[2..], 16);
@@ -162,13 +137,13 @@ fn network_tool_benchmarks(c: &mut Criterion) {
             }
         })
     });
-    
+
     group.finish();
 }
 
 fn transaction_tool_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("transaction_tool");
-    
+
     group.bench_function("send_eth_input_parsing", |b| {
         b.iter(|| {
             let input = json!({
@@ -180,7 +155,7 @@ fn transaction_tool_benchmarks(c: &mut Criterion) {
             serde_json::from_value::<SendEthInput>(black_box(input))
         })
     });
-    
+
     group.bench_function("send_erc20_input_parsing", |b| {
         b.iter(|| {
             let input = json!({
@@ -193,13 +168,11 @@ fn transaction_tool_benchmarks(c: &mut Criterion) {
             serde_json::from_value::<SendErc20Input>(black_box(input))
         })
     });
-    
+
     group.bench_function("transaction_tool_creation", |b| {
-        b.iter(|| {
-            TransactionTool::new()
-        })
+        b.iter(|| TransactionTool::new())
     });
-    
+
     group.bench_function("amount_parsing", |b| {
         let amounts = vec![
             "0.1",
@@ -208,7 +181,7 @@ fn transaction_tool_benchmarks(c: &mut Criterion) {
             "0.000000000000000001",
             "1000000",
         ];
-        
+
         b.iter(|| {
             for amount in &amounts {
                 let _parsed: Result<f64, _> = amount.parse();
@@ -216,51 +189,43 @@ fn transaction_tool_benchmarks(c: &mut Criterion) {
             }
         })
     });
-    
+
     group.finish();
 }
 
 fn error_handling_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("error_handling");
-    
+
     group.bench_function("error_creation", |b| {
-        b.iter(|| {
-            EvmToolError::InvalidAddress(black_box("invalid_address".to_string()))
-        })
+        b.iter(|| EvmToolError::InvalidAddress(black_box("invalid_address".to_string())))
     });
-    
+
     group.bench_function("error_chain_not_supported", |b| {
-        b.iter(|| {
-            EvmToolError::ChainNotSupported(black_box("unknown_chain".to_string()))
-        })
+        b.iter(|| EvmToolError::ChainNotSupported(black_box("unknown_chain".to_string())))
     });
-    
+
     group.bench_function("error_transaction_failed", |b| {
-        b.iter(|| {
-            EvmToolError::TransactionFailed(black_box("gas too low".to_string()))
-        })
+        b.iter(|| EvmToolError::TransactionFailed(black_box("gas too low".to_string())))
     });
-    
+
     group.bench_function("error_display", |b| {
         let error = EvmToolError::InvalidAddress("test".to_string());
-        b.iter(|| {
-            format!("{}", black_box(&error))
-        })
+        b.iter(|| format!("{}", black_box(&error)))
     });
-    
+
     group.finish();
 }
 
 fn serialization_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("serialization");
-    
+
     let test_data = vec![
         json!({"address": "0x742d35Cc6634C0532925a3b844B9450581d11340"}),
         json!({"chain": "ethereum", "block_number": 18000000}),
         json!({"amount": "1.5", "gas_price": "30000000000"}),
         json!({"tokens": ["USDC", "USDT", "DAI", "WETH"]}),
     ];
-    
+
     group.bench_function("json_serialize", |b| {
         b.iter(|| {
             for data in &test_data {
@@ -268,20 +233,21 @@ fn serialization_benchmarks(c: &mut Criterion) {
             }
         })
     });
-    
+
     group.bench_function("json_deserialize", |b| {
         let json_strings: Vec<String> = test_data
             .iter()
             .map(|d| serde_json::to_string(d).unwrap())
             .collect();
-        
+
         b.iter(|| {
             for json_str in &json_strings {
-                let _deserialized: serde_json::Value = serde_json::from_str(black_box(json_str)).unwrap();
+                let _deserialized: serde_json::Value =
+                    serde_json::from_str(black_box(json_str)).unwrap();
             }
         })
     });
-    
+
     group.bench_function("json_pretty_print", |b| {
         b.iter(|| {
             for data in &test_data {
@@ -289,24 +255,22 @@ fn serialization_benchmarks(c: &mut Criterion) {
             }
         })
     });
-    
+
     group.finish();
 }
 
 fn throughput_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("throughput");
-    
+
     for size in [10, 100, 1000].iter() {
         group.throughput(Throughput::Elements(*size as u64));
-        
+
         group.bench_with_input(
             BenchmarkId::new("parse_addresses", size),
             size,
             |b, &size| {
-                let addresses: Vec<String> = (0..size)
-                    .map(|i| format!("0x{:040x}", i))
-                    .collect();
-                
+                let addresses: Vec<String> = (0..size).map(|i| format!("0x{:040x}", i)).collect();
+
                 b.iter(|| {
                     for addr in &addresses {
                         let _validated = addr.starts_with("0x") && addr.len() == 42;
@@ -315,7 +279,7 @@ fn throughput_benchmarks(c: &mut Criterion) {
                 })
             },
         );
-        
+
         group.bench_with_input(
             BenchmarkId::new("format_balances", size),
             size,
@@ -323,7 +287,7 @@ fn throughput_benchmarks(c: &mut Criterion) {
                 let balances: Vec<u128> = (0..size)
                     .map(|i| (i as u128) * 1000000000000000000)
                     .collect();
-                
+
                 b.iter(|| {
                     for balance in &balances {
                         let _formatted = format!("{:.6} ETH", *balance as f64 / 1e18);
@@ -332,15 +296,13 @@ fn throughput_benchmarks(c: &mut Criterion) {
                 })
             },
         );
-        
+
         group.bench_with_input(
             BenchmarkId::new("validate_tx_hashes", size),
             size,
             |b, &size| {
-                let tx_hashes: Vec<String> = (0..size)
-                    .map(|i| format!("0x{:064x}", i))
-                    .collect();
-                
+                let tx_hashes: Vec<String> = (0..size).map(|i| format!("0x{:064x}", i)).collect();
+
                 b.iter(|| {
                     for hash in &tx_hashes {
                         let _validated = hash.starts_with("0x") && hash.len() == 66;
@@ -350,14 +312,14 @@ fn throughput_benchmarks(c: &mut Criterion) {
             },
         );
     }
-    
+
     group.finish();
 }
 
 fn concurrent_operations_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("concurrent_operations");
     let rt = Runtime::new().unwrap();
-    
+
     for num_tasks in [1, 2, 4, 8].iter() {
         group.bench_with_input(
             BenchmarkId::from_parameter(num_tasks),
@@ -366,7 +328,7 @@ fn concurrent_operations_benchmarks(c: &mut Criterion) {
                 b.iter(|| {
                     rt.block_on(async {
                         let mut handles = vec![];
-                        
+
                         for _ in 0..num_tasks {
                             let handle = tokio::spawn(async move {
                                 for i in 0..100 {
@@ -377,7 +339,7 @@ fn concurrent_operations_benchmarks(c: &mut Criterion) {
                             });
                             handles.push(handle);
                         }
-                        
+
                         for handle in handles {
                             handle.await.unwrap();
                         }
@@ -386,7 +348,7 @@ fn concurrent_operations_benchmarks(c: &mut Criterion) {
             },
         );
     }
-    
+
     group.finish();
 }
 

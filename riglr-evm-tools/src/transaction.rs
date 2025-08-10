@@ -1,473 +1,434 @@
-//! Transaction creation and execution tools for EVM chains
+//! Transaction management and signing for EVM chains
 //!
-//! This module provides production-grade tools for creating and executing transactions on EVM blockchains.
-//! All state-mutating operations follow secure patterns with proper key management.
+//! This module provides secure transaction creation, signing, and broadcasting
+//! with support for both legacy and EIP-1559 transactions.
 
 use crate::{
-    client::{validate_address, EvmClient},
+    client::{eth_to_wei, validate_address, EvmClient},
     error::{EvmToolError, Result},
 };
+use alloy::{
+    network::{EthereumWallet, TransactionBuilder},
+    primitives::{Address, Bytes, TxKind, U256},
+    providers::{Provider, PendingTransactionConfig},
+    rpc::types::TransactionRequest,
+    signers::{local::PrivateKeySigner, Signer},
+    sol,
+};
+use riglr_core::ToolError;
 use riglr_macros::tool;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::sync::{Arc, RwLock};
-use tracing::{debug, info};
+use std::sync::{Arc, OnceLock};
+use tokio::sync::RwLock;
+use tracing::{debug, info, warn};
 
-/// Secure signer context for managing private keys in EVM transactions
-///
-/// This context ensures that private keys are never exposed to the agent's
-/// reasoning context, following the same security requirements as Solana tools.
-#[derive(Clone, Debug)]
+// Define ERC20 interface for transfers
+sol! {
+    #[allow(missing_docs)]
+    interface IERC20 {
+        function transfer(address to, uint256 amount) external returns (bool);
+        function approve(address spender, uint256 amount) external returns (bool);
+        function allowance(address owner, address spender) external view returns (uint256);
+    }
+}
+
+/// Global signer context for EVM operations
+static EVM_SIGNER_CONTEXT: OnceLock<Arc<RwLock<EvmSignerContext>>> = OnceLock::new();
+
+/// Context for managing EVM signing keys
 pub struct EvmSignerContext {
-    /// Map of signer names to private keys (32 bytes)
-    signers: Arc<RwLock<HashMap<String, [u8; 32]>>>,
-    /// Default signer name
-    default_signer: Option<String>,
+    /// The wallet containing the signing key
+    wallet: Option<PrivateKeySigner>,
+    /// The signer's address
+    address: Option<Address>,
 }
 
 impl EvmSignerContext {
     /// Create a new empty signer context
     pub fn new() -> Self {
         Self {
-            signers: Arc::new(RwLock::new(HashMap::new())),
-            default_signer: None,
+            wallet: None,
+            address: None,
         }
     }
 
-    /// Add a signer from private key bytes
-    pub fn add_signer(&mut self, name: impl Into<String>, private_key: [u8; 32]) -> Result<()> {
-        let name = name.into();
-        let mut signers = self
-            .signers
-            .write()
-            .map_err(|e| EvmToolError::Generic(format!("Lock error: {}", e)))?;
+    /// Initialize with a private key
+    pub fn with_private_key(private_key: &str) -> Result<Self> {
+        let wallet = private_key
+            .parse::<PrivateKeySigner>()
+            .map_err(|e| EvmToolError::InvalidKey(format!("Invalid private key: {}", e)))?;
 
-        if self.default_signer.is_none() {
-            self.default_signer = Some(name.clone());
-        }
+        let address = wallet.address();
 
-        signers.insert(name, private_key);
-        Ok(())
+        Ok(Self {
+            wallet: Some(wallet),
+            address: Some(address),
+        })
     }
 
-    /// Get a signer's private key by name
-    pub fn get_signer(&self, name: &str) -> Result<[u8; 32]> {
-        let signers = self
-            .signers
-            .read()
-            .map_err(|e| EvmToolError::Generic(format!("Lock error: {}", e)))?;
-
-        signers
-            .get(name)
-            .copied()
-            .ok_or_else(|| EvmToolError::Generic(format!("Signer '{}' not found", name)))
+    /// Get the signer's address
+    pub fn address(&self) -> Option<Address> {
+        self.address
     }
 
-    /// Get the default signer's private key
-    pub fn get_default_signer(&self) -> Result<[u8; 32]> {
-        let name = self
-            .default_signer
-            .as_ref()
-            .ok_or_else(|| EvmToolError::Generic("No default signer configured".to_string()))?;
-        self.get_signer(name)
-    }
-
-    /// Get public address for a signer
-    pub fn get_address(&self, name: &str) -> Result<String> {
-        let private_key = self.get_signer(name)?;
-        // In production, we'd derive the address from the private key
-        // For now, return a placeholder
-        Ok(format!(
-            "0x{:x}",
-            u64::from_be_bytes([
-                private_key[0],
-                private_key[1],
-                private_key[2],
-                private_key[3],
-                private_key[4],
-                private_key[5],
-                private_key[6],
-                private_key[7]
-            ])
-        ))
+    /// Get the wallet
+    pub fn wallet(&self) -> Option<&PrivateKeySigner> {
+        self.wallet.as_ref()
     }
 }
 
-impl Default for EvmSignerContext {
-    fn default() -> Self {
-        Self::new()
-    }
-}
+/// Initialize the global EVM signer context with a private key
+pub async fn init_evm_signer_context(private_key: &str) -> Result<()> {
+    let context = EvmSignerContext::with_private_key(private_key)?;
 
-/// Global signer context
-static mut EVM_SIGNER_CONTEXT: Option<Arc<EvmSignerContext>> = None;
-static EVM_SIGNER_INIT: std::sync::Once = std::sync::Once::new();
+    EVM_SIGNER_CONTEXT
+        .set(Arc::new(RwLock::new(context)))
+        .map_err(|_| EvmToolError::Generic("Signer context already initialized".to_string()))?;
 
-/// Initialize the global EVM signer context
-pub fn init_evm_signer_context(context: EvmSignerContext) {
-    unsafe {
-        EVM_SIGNER_INIT.call_once(|| {
-            EVM_SIGNER_CONTEXT = Some(Arc::new(context));
-        });
-    }
+    Ok(())
 }
 
 /// Get the global EVM signer context
-pub fn get_evm_signer_context() -> Result<Arc<EvmSignerContext>> {
-    unsafe {
-        EVM_SIGNER_CONTEXT.as_ref().cloned().ok_or_else(|| {
-            EvmToolError::Generic(
-                "EVM signer context not initialized. Call init_evm_signer_context() first."
-                    .to_string(),
-            )
-        })
-    }
+pub async fn get_evm_signer_context() -> Result<Arc<RwLock<EvmSignerContext>>> {
+    EVM_SIGNER_CONTEXT
+        .get()
+        .ok_or_else(|| EvmToolError::Generic("Signer context not initialized".to_string()))
+        .map(Arc::clone)
 }
 
-/// Transfer ETH from one account to another
-///
-/// This tool creates and executes an ETH transfer transaction.
-/// The transaction is queued for execution with automatic retry and idempotency.
-// // #[tool]
-pub async fn transfer_eth(
-    to_address: String,
-    amount_eth: f64,
-    from_signer: Option<String>,
-    gas_price: Option<u64>,
-    gas_limit: Option<u64>,
-    rpc_url: Option<String>,
-    idempotency_key: Option<String>,
-) -> anyhow::Result<TransactionResult> {
-    debug!(
-        "Initiating ETH transfer of {} ETH to {}",
-        amount_eth, to_address
-    );
-
-    // Validate inputs
-    if amount_eth <= 0.0 {
-        return Err(anyhow::anyhow!("Amount must be positive"));
-    }
-
-    let validated_to = validate_address(&to_address)
-        .map_err(|e| anyhow::anyhow!("Invalid recipient address: {}", e))?;
-
-    // Get signer context
-    let signer_context = get_evm_signer_context()
-        .map_err(|e| anyhow::anyhow!("Failed to get signer context: {}", e))?;
-
-    let signer_key = if let Some(name) = from_signer {
-        signer_context
-            .get_signer(&name)
-            .map_err(|e| anyhow::anyhow!("Failed to get signer '{}': {}", name, e))?
-    } else {
-        signer_context
-            .get_default_signer()
-            .map_err(|e| anyhow::anyhow!("Failed to get default signer: {}", e))?
-    };
-
-    // Create client
-    let client = if let Some(url) = rpc_url {
-        Arc::new(
-            EvmClient::with_rpc_url(url)
-                .await
-                .map_err(|e| anyhow::anyhow!("Failed to create client: {}", e))?,
-        )
-    } else {
-        Arc::new(
-            EvmClient::ethereum()
-                .await
-                .map_err(|e| anyhow::anyhow!("Failed to create Ethereum client: {}", e))?,
-        )
-    };
-
-    // Convert ETH to wei (18 decimals)
-    let amount_wei = (amount_eth * 1e18) as u128;
-
-    // Get from address (derived from private key)
-    let from_address = derive_address_from_key(&signer_key)?;
-
-    // Get nonce for sender
-    let nonce = client
-        .get_transaction_count(&from_address)
-        .await
-        .map_err(|e| anyhow::anyhow!("Failed to get nonce: {}", e))?;
-
-    // Use provided gas price or get current price
-    let gas_price = if let Some(price) = gas_price {
-        price
-    } else {
-        client
-            .get_gas_price()
-            .await
-            .map_err(|e| anyhow::anyhow!("Failed to get gas price: {}", e))?
-    };
-
-    // Build transaction data
-    let transaction_data = build_eth_transfer_tx(
-        &validated_to,
-        amount_wei,
-        nonce,
-        gas_price,
-        gas_limit.unwrap_or(21000), // Standard ETH transfer gas limit
-        client.chain_id,
-    )?;
-
-    // Sign transaction
-    let signed_tx = sign_transaction(transaction_data, &signer_key)?;
-
-    // Send transaction
-    let tx_hash = client
-        .send_raw_transaction(&signed_tx)
-        .await
-        .map_err(|e| anyhow::anyhow!("Failed to send transaction: {}", e))?;
-
-    info!(
-        "ETH transfer initiated: {} -> {} ({} ETH), tx: {}",
-        from_address, validated_to, amount_eth, tx_hash
-    );
-
-    Ok(TransactionResult {
-        tx_hash,
-        from: from_address,
-        to: validated_to,
-        amount: amount_wei.to_string(),
-        amount_display: format!("{} ETH", amount_eth),
-        status: TransactionStatus::Pending,
-        gas_price,
-        gas_used: None,
-        idempotency_key,
-    })
-}
-
-///
-// // #[tool]
-pub async fn transfer_erc20(
-    to_address: String,
-    token_address: String,
-    amount: String,
-    decimals: u8,
-    from_signer: Option<String>,
-    gas_price: Option<u64>,
-    gas_limit: Option<u64>,
-    rpc_url: Option<String>,
-    idempotency_key: Option<String>,
-) -> anyhow::Result<TokenTransferResult> {
-    debug!(
-        "Initiating ERC20 transfer to {} (token: {})",
-        to_address, token_address
-    );
-
-    // Validate addresses
-    let validated_to = validate_address(&to_address)
-        .map_err(|e| anyhow::anyhow!("Invalid recipient address: {}", e))?;
-    let validated_token = validate_address(&token_address)
-        .map_err(|e| anyhow::anyhow!("Invalid token address: {}", e))?;
-
-    // Parse amount
-    let amount_raw: u128 = amount
-        .parse()
-        .map_err(|e| anyhow::anyhow!("Invalid amount: {}", e))?;
-
-    // Get signer context
-    let signer_context = get_evm_signer_context()
-        .map_err(|e| anyhow::anyhow!("Failed to get signer context: {}", e))?;
-
-    let signer_key = if let Some(name) = from_signer {
-        signer_context
-            .get_signer(&name)
-            .map_err(|e| anyhow::anyhow!("Failed to get signer '{}': {}", name, e))?
-    } else {
-        signer_context
-            .get_default_signer()
-            .map_err(|e| anyhow::anyhow!("Failed to get default signer: {}", e))?
-    };
-
-    // Create client
-    let client = if let Some(url) = rpc_url {
-        Arc::new(
-            EvmClient::with_rpc_url(url)
-                .await
-                .map_err(|e| anyhow::anyhow!("Failed to create client: {}", e))?,
-        )
-    } else {
-        Arc::new(
-            EvmClient::ethereum()
-                .await
-                .map_err(|e| anyhow::anyhow!("Failed to create Ethereum client: {}", e))?,
-        )
-    };
-
-    let from_address = derive_address_from_key(&signer_key)?;
-    let nonce = client
-        .get_transaction_count(&from_address)
-        .await
-        .map_err(|e| anyhow::anyhow!("Failed to get nonce: {}", e))?;
-
-    let gas_price = if let Some(price) = gas_price {
-        price
-    } else {
-        client
-            .get_gas_price()
-            .await
-            .map_err(|e| anyhow::anyhow!("Failed to get gas price: {}", e))?
-    };
-
-    // Build ERC20 transfer call data
-    let call_data = build_erc20_transfer_data(&validated_to, amount_raw)?;
-
-    // Build transaction
-    let transaction_data = build_contract_call_tx(
-        &validated_token,
-        &call_data,
-        nonce,
-        gas_price,
-        gas_limit.unwrap_or(60000), // ERC20 transfer gas limit
-        client.chain_id,
-    )?;
-
-    // Sign and send
-    let signed_tx = sign_transaction(transaction_data, &signer_key)?;
-    let tx_hash = client
-        .send_raw_transaction(&signed_tx)
-        .await
-        .map_err(|e| anyhow::anyhow!("Failed to send transaction: {}", e))?;
-
-    let ui_amount = amount_raw as f64 / 10_f64.powi(decimals as i32);
-
-    info!(
-        "ERC20 transfer initiated: {} -> {} ({} tokens), tx: {}",
-        from_address, validated_to, ui_amount, tx_hash
-    );
-
-    Ok(TokenTransferResult {
-        tx_hash,
-        from: from_address,
-        to: validated_to,
-        token_address: validated_token,
-        amount: amount_raw.to_string(),
-        ui_amount,
-        decimals,
-        amount_display: format!("{:.9}", ui_amount),
-        status: TransactionStatus::Pending,
-        gas_price,
-        gas_used: None,
-        idempotency_key,
-    })
-}
-
-/// Helper function to derive Ethereum address from private key
-pub fn derive_address_from_key(_private_key: &[u8; 32]) -> anyhow::Result<String> {
-    // In production, this would derive the actual address from the private key
-    // For now, return a placeholder
-    Ok("0x742d35Cc6634C0532925a3b8D8e41E5d3e4F8123".to_string())
-}
-
-/// Build ETH transfer transaction data
-pub fn build_eth_transfer_tx(
-    to: &str,
-    amount: u128,
-    _nonce: u64,
-    _gas_price: u64,
-    _gas_limit: u64,
-    _chain_id: u64,
-) -> anyhow::Result<Vec<u8>> {
-    // In production, this would build the actual transaction data
-    debug!("Building ETH transfer: {} wei to {}", amount, to);
-    Ok(vec![0u8; 32]) // Placeholder
-}
-
-/// Build ERC20 transfer call data
-pub fn build_erc20_transfer_data(to: &str, amount: u128) -> anyhow::Result<String> {
-    // ERC20 transfer function: transfer(address,uint256)
-    // Function selector: 0xa9059cbb
-    let selector = "a9059cbb";
-    let to_padded = format!("{:0>64}", to.trim_start_matches("0x"));
-    let amount_padded = format!("{:0>64x}", amount);
-    Ok(format!("0x{}{}{}", selector, to_padded, amount_padded))
-}
-
-/// Build contract call transaction data
-pub fn build_contract_call_tx(
-    to: &str,
-    data: &str,
-    _nonce: u64,
-    _gas_price: u64,
-    _gas_limit: u64,
-    _chain_id: u64,
-) -> anyhow::Result<Vec<u8>> {
-    // In production, this would build the actual transaction data
-    debug!("Building contract call to {} with data: {}", to, data);
-    Ok(vec![0u8; 32]) // Placeholder
-}
-
-/// Sign transaction data
-pub fn sign_transaction(tx_data: Vec<u8>, _private_key: &[u8; 32]) -> anyhow::Result<String> {
-    // In production, this would actually sign the transaction
-    debug!("Signing transaction data: {} bytes", tx_data.len());
-    Ok("0x1234567890abcdef".to_string()) // Placeholder signed transaction
-}
-
-/// Result of an ETH transfer transaction
+/// Result of a transaction
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct TransactionResult {
     /// Transaction hash
     pub tx_hash: String,
-    /// Sender address
+    /// From address
     pub from: String,
-    /// Recipient address
+    /// To address
     pub to: String,
-    /// Amount transferred in wei
-    pub amount: String,
-    /// Human-readable amount display
-    pub amount_display: String,
-    /// Transaction status
-    pub status: TransactionStatus,
-    /// Gas price used
-    pub gas_price: u64,
-    /// Gas used (if known)
-    pub gas_used: Option<u64>,
-    /// Idempotency key if provided
-    pub idempotency_key: Option<String>,
+    /// Value transferred in wei
+    pub value_wei: String,
+    /// Value transferred in ETH
+    pub value_eth: f64,
+    /// Gas used
+    pub gas_used: Option<u128>,
+    /// Gas price in wei
+    pub gas_price: Option<u128>,
+    /// Block number
+    pub block_number: Option<u64>,
+    /// Chain ID
+    pub chain_id: u64,
+    /// Status (success/failure)
+    pub status: bool,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-pub struct TokenTransferResult {
-    /// Transaction hash
-    pub tx_hash: String,
-    /// Sender address
-    pub from: String,
-    /// Recipient address
-    pub to: String,
-    /// Token contract address
-    pub token_address: String,
-    /// Raw amount transferred
-    pub amount: String,
-    /// UI amount (with decimals)
-    pub ui_amount: f64,
-    /// Token decimals
-    pub decimals: u8,
-    /// Human-readable amount display
-    pub amount_display: String,
-    /// Transaction status
-    pub status: TransactionStatus,
-    /// Gas price used
-    pub gas_price: u64,
-    /// Gas used (if known)
-    pub gas_used: Option<u64>,
-    /// Idempotency key if provided
-    pub idempotency_key: Option<String>,
+/// Transfer ETH to another address
+///
+/// This tool transfers ETH from the signer's address to another address.
+#[tool]
+pub async fn transfer_eth(
+    to_address: String,
+    amount_eth: f64,
+    rpc_url: Option<String>,
+    gas_price_gwei: Option<u64>,
+    nonce: Option<u64>,
+) -> Result<TransactionResult, ToolError> {
+    debug!("Transferring {} ETH to {}", amount_eth, to_address);
+
+    // Validate destination address
+    let to_addr = validate_address(&to_address)
+        .map_err(|e| ToolError::permanent(format!("Invalid address: {}", e)))?;
+
+    // Get signer context
+    let signer_context = get_evm_signer_context()
+        .await
+        .map_err(|e| ToolError::permanent(format!("Signer not initialized: {}", e)))?;
+
+    let context = signer_context.read().await;
+    let wallet = context
+        .wallet()
+        .ok_or_else(|| ToolError::permanent("No wallet configured"))?;
+
+    let from_addr = context
+        .address()
+        .ok_or_else(|| ToolError::permanent("No address configured"))?;
+
+    // Create client
+    let client = if let Some(url) = rpc_url {
+        EvmClient::new(url).await
+    } else {
+        EvmClient::mainnet().await
+    }
+    .map_err(|e| ToolError::retriable(format!("Failed to create client: {}", e)))?;
+
+    // Convert ETH to wei
+    let value_wei = eth_to_wei(amount_eth);
+
+    // Get nonce if not provided
+    let tx_nonce = if let Some(n) = nonce {
+        n
+    } else {
+        client
+            .provider()
+            .get_transaction_count(from_addr)
+            .await
+            .map_err(|e| ToolError::retriable(format!("Failed to get nonce: {}", e)))?
+    };
+
+    // Get gas price if not provided
+    let gas_price = if let Some(gwei) = gas_price_gwei {
+        gwei as u128 * 1_000_000_000 // Convert gwei to wei
+    } else {
+        client
+            .get_gas_price()
+            .await
+            .map_err(|e| ToolError::retriable(format!("Failed to get gas price: {}", e)))?
+    };
+
+    // Build transaction
+    let tx = TransactionRequest::default()
+        .from(from_addr)
+        .to(to_addr)
+        .value(value_wei)
+        .nonce(tx_nonce)
+        .gas_price(gas_price)
+        .gas_limit(21000); // Standard ETH transfer gas limit
+
+    // Create a wallet for signing
+    let ethereum_wallet = EthereumWallet::from(wallet.clone());
+
+    // Send transaction with the wallet
+    let provider_with_wallet = client.provider().with_wallet(ethereum_wallet);
+
+    let pending_tx = provider_with_wallet
+        .send_transaction(tx)
+        .await
+        .map_err(|e| {
+            let error_str = e.to_string();
+            if error_str.contains("insufficient funds") {
+                ToolError::permanent(format!("Insufficient funds: {}", e))
+            } else if error_str.contains("nonce") {
+                ToolError::permanent(format!("Nonce error: {}", e))
+            } else {
+                ToolError::retriable(format!("Failed to send transaction: {}", e))
+            }
+        })?;
+
+    // Wait for confirmation
+    let receipt = pending_tx
+        .with_required_confirmations(1)
+        .get_receipt()
+        .await
+        .map_err(|e| ToolError::retriable(format!("Failed to get receipt: {}", e)))?;
+
+    let result = TransactionResult {
+        tx_hash: format!("0x{:x}", receipt.transaction_hash),
+        from: format!("0x{:x}", from_addr),
+        to: to_address.clone(),
+        value_wei: value_wei.to_string(),
+        value_eth: amount_eth,
+        gas_used: receipt.gas_used,
+        gas_price: Some(gas_price),
+        block_number: receipt.block_number,
+        chain_id: client.chain_id,
+        status: receipt.status(),
+    };
+
+    info!(
+        "ETH transfer complete: {} ETH to {} (tx: {})",
+        amount_eth, to_address, result.tx_hash
+    );
+
+    Ok(result)
 }
 
-/// Transaction status
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-pub enum TransactionStatus {
-    /// Transaction is pending confirmation
-    Pending,
-    /// Transaction is confirmed
-    Confirmed,
-    /// Transaction failed
-    Failed(String),
+/// Transfer ERC20 tokens to another address
+///
+/// This tool transfers ERC20 tokens from the signer's address to another address.
+#[tool]
+pub async fn transfer_erc20(
+    token_address: String,
+    to_address: String,
+    amount: String,
+    decimals: u8,
+    rpc_url: Option<String>,
+    gas_price_gwei: Option<u64>,
+) -> Result<TransactionResult, ToolError> {
+    debug!(
+        "Transferring {} tokens to {} (token: {})",
+        amount, to_address, token_address
+    );
+
+    // Validate addresses
+    let token_addr = validate_address(&token_address)
+        .map_err(|e| ToolError::permanent(format!("Invalid token address: {}", e)))?;
+    let to_addr = validate_address(&to_address)
+        .map_err(|e| ToolError::permanent(format!("Invalid to address: {}", e)))?;
+
+    // Get signer context
+    let signer_context = get_evm_signer_context()
+        .await
+        .map_err(|e| ToolError::permanent(format!("Signer not initialized: {}", e)))?;
+
+    let context = signer_context.read().await;
+    let wallet = context
+        .wallet()
+        .ok_or_else(|| ToolError::permanent("No wallet configured"))?;
+
+    let from_addr = context
+        .address()
+        .ok_or_else(|| ToolError::permanent("No address configured"))?;
+
+    // Create client
+    let client = if let Some(url) = rpc_url {
+        EvmClient::new(url).await
+    } else {
+        EvmClient::mainnet().await
+    }
+    .map_err(|e| ToolError::retriable(format!("Failed to create client: {}", e)))?;
+
+    // Parse amount with decimals
+    let amount_wei = parse_token_amount(&amount, decimals)
+        .map_err(|e| ToolError::permanent(format!("Invalid amount: {}", e)))?;
+
+    // Create transfer call
+    let call = IERC20::transferCall {
+        to: to_addr,
+        amount: amount_wei,
+    };
+    let call_data = call.abi_encode();
+
+    // Get gas price if not provided
+    let gas_price = if let Some(gwei) = gas_price_gwei {
+        gwei as u128 * 1_000_000_000
+    } else {
+        client
+            .get_gas_price()
+            .await
+            .map_err(|e| ToolError::retriable(format!("Failed to get gas price: {}", e)))?
+    };
+
+    // Build transaction
+    let tx = TransactionRequest::default()
+        .from(from_addr)
+        .to(token_addr)
+        .input(call_data.into())
+        .gas_price(gas_price)
+        .gas_limit(100000); // Standard ERC20 transfer gas limit
+
+    // Create a wallet for signing
+    let ethereum_wallet = EthereumWallet::from(wallet.clone());
+
+    // Send transaction with the wallet
+    let provider_with_wallet = client.provider().with_wallet(ethereum_wallet);
+
+    let pending_tx = provider_with_wallet
+        .send_transaction(tx)
+        .await
+        .map_err(|e| {
+            let error_str = e.to_string();
+            if error_str.contains("insufficient") {
+                ToolError::permanent(format!("Insufficient balance: {}", e))
+            } else {
+                ToolError::retriable(format!("Failed to send transaction: {}", e))
+            }
+        })?;
+
+    // Wait for confirmation
+    let receipt = pending_tx
+        .with_required_confirmations(1)
+        .get_receipt()
+        .await
+        .map_err(|e| ToolError::retriable(format!("Failed to get receipt: {}", e)))?;
+
+    let result = TransactionResult {
+        tx_hash: format!("0x{:x}", receipt.transaction_hash),
+        from: format!("0x{:x}", from_addr),
+        to: to_address.clone(),
+        value_wei: amount_wei.to_string(),
+        value_eth: 0.0, // Not ETH
+        gas_used: receipt.gas_used,
+        gas_price: Some(gas_price),
+        block_number: receipt.block_number,
+        chain_id: client.chain_id,
+        status: receipt.status(),
+    };
+
+    info!(
+        "Token transfer complete: {} to {} (tx: {})",
+        amount, to_address, result.tx_hash
+    );
+
+    Ok(result)
+}
+
+/// Get transaction receipt
+///
+/// This tool retrieves the receipt for a transaction hash.
+#[tool]
+pub async fn get_transaction_receipt(
+    tx_hash: String,
+    rpc_url: Option<String>,
+) -> Result<TransactionResult, ToolError> {
+    debug!("Getting transaction receipt for {}", tx_hash);
+
+    // Parse transaction hash
+    let hash = tx_hash
+        .parse()
+        .map_err(|e| ToolError::permanent(format!("Invalid transaction hash: {}", e)))?;
+
+    // Create client
+    let client = if let Some(url) = rpc_url {
+        EvmClient::new(url).await
+    } else {
+        EvmClient::mainnet().await
+    }
+    .map_err(|e| ToolError::retriable(format!("Failed to create client: {}", e)))?;
+
+    // Get receipt
+    let receipt = client
+        .provider()
+        .get_transaction_receipt(hash)
+        .await
+        .map_err(|e| ToolError::retriable(format!("Failed to get receipt: {}", e)))?
+        .ok_or_else(|| ToolError::permanent("Transaction not found"))?;
+
+    // Get transaction details
+    let tx = client
+        .provider()
+        .get_transaction_by_hash(hash)
+        .await
+        .map_err(|e| ToolError::retriable(format!("Failed to get transaction: {}", e)))?
+        .ok_or_else(|| ToolError::permanent("Transaction not found"))?;
+
+    let result = TransactionResult {
+        tx_hash: tx_hash.clone(),
+        from: format!("0x{:x}", tx.from),
+        to: tx.to.map(|a| format!("0x{:x}", a)).unwrap_or_default(),
+        value_wei: tx.value.to_string(),
+        value_eth: crate::client::wei_to_eth(tx.value),
+        gas_used: receipt.gas_used,
+        gas_price: tx.gas_price,
+        block_number: receipt.block_number,
+        chain_id: client.chain_id,
+        status: receipt.status(),
+    };
+
+    info!("Transaction receipt retrieved: {}", tx_hash);
+
+    Ok(result)
+}
+
+/// Parse token amount with decimals
+fn parse_token_amount(amount: &str, decimals: u8) -> Result<U256> {
+    let amount_f64 = amount
+        .parse::<f64>()
+        .map_err(|e| EvmToolError::Generic(format!("Invalid amount: {}", e)))?;
+
+    let multiplier = 10_f64.powi(decimals as i32);
+    let amount_wei = (amount_f64 * multiplier) as u128;
+
+    Ok(U256::from(amount_wei))
 }
 
 #[cfg(test)]
@@ -475,182 +436,37 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_signer_context() {
-        let mut context = EvmSignerContext::new();
-        let private_key = [1u8; 32];
+    fn test_parse_token_amount() {
+        // Test with 18 decimals
+        let amount = parse_token_amount("1.0", 18).unwrap();
+        assert_eq!(amount, U256::from(1_000_000_000_000_000_000u128));
 
-        context.add_signer("test", private_key).unwrap();
+        // Test with 6 decimals (USDC)
+        let amount = parse_token_amount("100.5", 6).unwrap();
+        assert_eq!(amount, U256::from(100_500_000u128));
 
-        let retrieved = context.get_signer("test").unwrap();
-        assert_eq!(retrieved, private_key);
-
-        let default = context.get_default_signer().unwrap();
-        assert_eq!(default, private_key);
-    }
-
-    #[test]
-    fn test_erc20_transfer_data() {
-        let to = "0x742d35Cc6634C0532925a3b8D8e41E5d3e4F8123";
-        let amount = 1000000u128;
-
-        let data = build_erc20_transfer_data(to, amount).unwrap();
-        assert!(data.starts_with("0xa9059cbb")); // transfer function selector
-        assert!(data.len() > 10); // Should have selector + parameters
-    }
-
-    #[test]
-    fn test_transaction_status() {
-        let status = TransactionStatus::Pending;
-        let json = serde_json::to_string(&status).unwrap();
-        assert_eq!(json, "\"Pending\"");
-
-        let status = TransactionStatus::Failed("error".to_string());
-        let json = serde_json::to_string(&status).unwrap();
-        assert!(json.contains("Failed"));
-        
-        let status = TransactionStatus::Confirmed;
-        let json = serde_json::to_string(&status).unwrap();
-        assert_eq!(json, "\"Confirmed\"");
-    }
-
-    #[test]
-    fn test_signer_context_comprehensive() {
-        let mut context = EvmSignerContext::new();
-        let private_key1 = [1u8; 32];
-        let private_key2 = [2u8; 32];
-
-        // Test first signer becomes default
-        context.add_signer("signer1", private_key1).unwrap();
-        assert_eq!(context.get_default_signer().unwrap(), private_key1);
-
-        // Test second signer doesn't override default
-        context.add_signer("signer2", private_key2).unwrap();
-        assert_eq!(context.get_default_signer().unwrap(), private_key1); // Still first signer
-
-        // Test getting specific signers
-        assert_eq!(context.get_signer("signer1").unwrap(), private_key1);
-        assert_eq!(context.get_signer("signer2").unwrap(), private_key2);
-
-        // Test error for non-existent signer
-        assert!(context.get_signer("nonexistent").is_err());
-    }
-
-    #[test]
-    fn test_signer_context_empty() {
-        let context = EvmSignerContext::new();
-        
-        // Test error when no default signer configured
-        assert!(context.get_default_signer().is_err());
-        
-        // Test error when getting non-existent signer
-        assert!(context.get_signer("nonexistent").is_err());
-    }
-
-    #[test]
-    fn test_signer_context_default() {
-        let context = EvmSignerContext::default();
-        assert!(context.get_default_signer().is_err());
-    }
-
-    #[test]
-    fn test_signer_context_get_address() {
-        let mut context = EvmSignerContext::new();
-        let private_key = [1u8; 32];
-        context.add_signer("test", private_key).unwrap();
-        
-        let address = context.get_address("test").unwrap();
-        assert!(address.starts_with("0x"));
-    }
-
-    #[test]
-    fn test_derive_address_from_key() {
-        let private_key = [1u8; 32];
-        let address = derive_address_from_key(&private_key).unwrap();
-        assert!(address.starts_with("0x"));
-    }
-
-    #[test]
-    fn test_build_eth_transfer_tx() {
-        let result = build_eth_transfer_tx("0x123", 1000, 1, 2000, 21000, 1);
-        assert!(result.is_ok());
-        let data = result.unwrap();
-        assert_eq!(data.len(), 32); // Placeholder returns 32 bytes
-    }
-
-    #[test]
-    fn test_build_contract_call_tx() {
-        let result = build_contract_call_tx("0x123", "0xabcd", 1, 2000, 60000, 1);
-        assert!(result.is_ok());
-        let data = result.unwrap();
-        assert_eq!(data.len(), 32); // Placeholder returns 32 bytes
-    }
-
-    #[test]
-    fn test_sign_transaction() {
-        let tx_data = vec![1, 2, 3, 4];
-        let private_key = [1u8; 32];
-        let result = sign_transaction(tx_data, &private_key);
-        assert!(result.is_ok());
-        let signed = result.unwrap();
-        assert!(signed.starts_with("0x"));
-    }
-
-    #[test]
-    fn test_build_erc20_transfer_data_comprehensive() {
-        let to = "0x742d35Cc6634C0532925a3b8D8e41E5d3e4F8123";
-        let amount = 1000000u128;
-
-        let data = build_erc20_transfer_data(to, amount).unwrap();
-        
-        // Should start with transfer function selector
-        assert!(data.starts_with("0xa9059cbb"));
-        
-        // Should have correct length: 0x + selector(8) + address(64) + amount(64)
-        assert_eq!(data.len(), 2 + 8 + 64 + 64);
-        
-        // Test with different values
-        let data2 = build_erc20_transfer_data("0x1234", 500u128).unwrap();
-        assert!(data2.starts_with("0xa9059cbb"));
-        assert_ne!(data, data2); // Should be different
+        // Test with 0 decimals
+        let amount = parse_token_amount("1000", 0).unwrap();
+        assert_eq!(amount, U256::from(1000u128));
     }
 
     #[test]
     fn test_transaction_result_creation() {
         let result = TransactionResult {
-            tx_hash: "0xhash".to_string(),
-            from: "0xfrom".to_string(),
-            to: "0xto".to_string(),
-            amount: "1000".to_string(),
-            amount_display: "1.0 ETH".to_string(),
-            status: TransactionStatus::Pending,
-            gas_price: 20000000000,
+            tx_hash: "0x123".to_string(),
+            from: "0xabc".to_string(),
+            to: "0xdef".to_string(),
+            value_wei: "1000000000000000000".to_string(),
+            value_eth: 1.0,
             gas_used: Some(21000),
-            idempotency_key: Some("key123".to_string()),
+            gas_price: Some(20_000_000_000),
+            block_number: Some(18000000),
+            chain_id: 1,
+            status: true,
         };
-        
-        assert_eq!(result.tx_hash, "0xhash");
-        assert_eq!(result.gas_used, Some(21000));
-    }
 
-    #[test]
-    fn test_token_transfer_result_creation() {
-        let result = TokenTransferResult {
-            tx_hash: "0xhash".to_string(),
-            from: "0xfrom".to_string(),
-            to: "0xto".to_string(),
-            token_address: "0xtoken".to_string(),
-            amount: "1000000".to_string(),
-            ui_amount: 1.0,
-            decimals: 18,
-            amount_display: "1.000000000".to_string(),
-            status: TransactionStatus::Confirmed,
-            gas_price: 20000000000,
-            gas_used: None,
-            idempotency_key: None,
-        };
-        
-        assert_eq!(result.token_address, "0xtoken");
-        assert_eq!(result.decimals, 18);
-        assert_eq!(result.ui_amount, 1.0);
+        assert_eq!(result.tx_hash, "0x123");
+        assert!(result.status);
+        assert_eq!(result.value_eth, 1.0);
     }
 }

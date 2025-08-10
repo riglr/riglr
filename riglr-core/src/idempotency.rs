@@ -152,7 +152,7 @@ impl IdempotencyStore for RedisIdempotencyStore {
             .arg(&redis_key)
             .arg(ttl_seconds)
             .arg(json_str)
-            .query_async(&mut conn)
+            .query_async::<_, ()>(&mut conn)
             .await?;
 
         Ok(())
@@ -164,7 +164,7 @@ impl IdempotencyStore for RedisIdempotencyStore {
 
         redis::cmd("DEL")
             .arg(&redis_key)
-            .query_async(&mut conn)
+            .query_async::<_, ()>(&mut conn)
             .await?;
 
         Ok(())

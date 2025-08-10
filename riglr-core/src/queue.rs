@@ -77,7 +77,7 @@ impl JobQueue for InMemoryJobQueue {
                 return Ok(Some(job));
             }
         }
-        
+
         // If no items available, wait for notification or timeout
         tokio::select! {
             _ = tokio::time::sleep(timeout) => Ok(None),
@@ -131,7 +131,7 @@ impl JobQueue for RedisJobQueue {
     async fn enqueue(&self, job: Job) -> Result<()> {
         let mut conn = self.client.get_async_connection().await?;
         let serialized = serde_json::to_string(&job)?;
-        redis::cmd("LPUSH")
+        let _: () = redis::cmd("LPUSH")
             .arg(&self.queue_key)
             .arg(serialized)
             .query_async(&mut conn)

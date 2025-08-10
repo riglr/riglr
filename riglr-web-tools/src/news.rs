@@ -3,10 +3,7 @@
 //! This module provides production-grade news aggregation, sentiment analysis,
 //! and market impact assessment for AI agents to stay informed about market developments.
 
-use crate::{
-    client::WebClient,
-    error::{Result, WebToolError},
-};
+use crate::{client::WebClient, error::WebToolError};
 use chrono::{DateTime, Utc};
 use riglr_macros::tool;
 use schemars::JsonSchema;
@@ -355,14 +352,14 @@ impl Default for NewsConfig {
 ///
 /// This tool aggregates news from multiple sources, performs sentiment analysis,
 /// and assesses market impact for cryptocurrency-related topics.
-// // #[tool]
+#[tool]
 pub async fn get_crypto_news(
     topic: String,
     time_window: Option<String>,       // "1h", "6h", "24h", "week"
     source_types: Option<Vec<String>>, // "mainstream", "crypto", "analysis"
     min_credibility: Option<u32>,
     include_analysis: Option<bool>,
-) -> Result<NewsAggregationResult> {
+) -> crate::error::Result<NewsAggregationResult> {
     debug!(
         "Aggregating crypto news for topic: '{}' within {}",
         topic,
@@ -468,13 +465,13 @@ pub async fn get_crypto_news(
 ///
 /// This tool identifies currently trending news and topics in the cryptocurrency space,
 /// useful for staying updated on breaking developments and market movements.
-// // #[tool]
+#[tool]
 pub async fn get_trending_news(
     time_window: Option<String>,     // "1h", "6h", "24h"
     categories: Option<Vec<String>>, // "defi", "nft", "regulation", "tech"
     min_impact_score: Option<u32>,
     limit: Option<u32>,
-) -> Result<NewsAggregationResult> {
+) -> crate::error::Result<NewsAggregationResult> {
     debug!(
         "Fetching trending crypto news within {}",
         time_window.as_deref().unwrap_or("6h")
@@ -530,13 +527,13 @@ pub async fn get_trending_news(
 ///
 /// This tool continuously monitors news sources for breaking news
 /// and generates alerts based on severity and market impact criteria.
-// // #[tool]
+#[tool]
 pub async fn monitor_breaking_news(
     keywords: Vec<String>,
     severity_threshold: Option<String>, // "Critical", "High", "Medium"
     impact_threshold: Option<u32>,      // 0-100
     alert_channels: Option<Vec<String>>, // "webhook", "email", "slack"
-) -> Result<Vec<BreakingNewsAlert>> {
+) -> crate::error::Result<Vec<BreakingNewsAlert>> {
     debug!("Monitoring breaking news for keywords: {:?}", keywords);
 
     let config = NewsConfig::default();
@@ -577,13 +574,13 @@ pub async fn monitor_breaking_news(
 ///
 /// This tool provides comprehensive sentiment analysis across recent news articles,
 /// helping to gauge overall market mood and potential price impact.
-// // #[tool]
+#[tool]
 pub async fn analyze_market_sentiment(
     time_window: Option<String>,                  // "1h", "6h", "24h", "week"
     asset_filter: Option<Vec<String>>,            // Specific cryptocurrencies to focus on
     source_weights: Option<HashMap<String, f64>>, // Weight different sources
     include_social: Option<bool>,
-) -> Result<NewsInsights> {
+) -> crate::error::Result<NewsInsights> {
     debug!(
         "Analyzing market sentiment from news over {}",
         time_window.as_deref().unwrap_or("24h")
@@ -635,7 +632,7 @@ async fn query_newsapi(
     config: &NewsConfig,
     topic: &str,
     time_window: &Option<String>,
-) -> Result<Vec<NewsArticle>> {
+) -> crate::error::Result<Vec<NewsArticle>> {
     // In production, would make actual NewsAPI requests
     Ok(vec![create_sample_article(topic, "NewsAPI Source", 85)])
 }
@@ -646,7 +643,7 @@ async fn query_cryptopanic(
     config: &NewsConfig,
     topic: &str,
     time_window: &Option<String>,
-) -> Result<Vec<NewsArticle>> {
+) -> crate::error::Result<Vec<NewsArticle>> {
     // In production, would make actual CryptoPanic API requests
     Ok(vec![create_sample_article(topic, "CryptoPanic Source", 78)])
 }
@@ -750,7 +747,7 @@ fn deduplicate_articles(articles: Vec<NewsArticle>) -> Vec<NewsArticle> {
 }
 
 /// Analyze a collection of news articles for insights
-async fn analyze_news_collection(articles: &[NewsArticle]) -> Result<NewsInsights> {
+async fn analyze_news_collection(articles: &[NewsArticle]) -> crate::error::Result<NewsInsights> {
     let overall_sentiment = articles
         .iter()
         .map(|a| a.sentiment.overall_score)
@@ -817,7 +814,9 @@ async fn analyze_news_collection(articles: &[NewsArticle]) -> Result<NewsInsight
 }
 
 /// Extract trending topics from articles
-async fn extract_trending_topics(articles: &[NewsArticle]) -> Result<Vec<TrendingTopic>> {
+async fn extract_trending_topics(
+    articles: &[NewsArticle],
+) -> crate::error::Result<Vec<TrendingTopic>> {
     let mut topic_counts: HashMap<String, u32> = HashMap::new();
     let mut topic_sentiments: HashMap<String, f64> = HashMap::new();
 
@@ -889,7 +888,7 @@ async fn fetch_trending_articles(
     time_window: &Option<String>,
     categories: &Option<Vec<String>>,
     min_impact_score: u32,
-) -> Result<Vec<NewsArticle>> {
+) -> crate::error::Result<Vec<NewsArticle>> {
     // In production, would query multiple sources for trending articles
     Ok(vec![
         create_sample_article("Bitcoin", "TrendingSource", 88),
@@ -897,7 +896,7 @@ async fn fetch_trending_articles(
     ])
 }
 
-async fn analyze_trending_patterns(articles: &[NewsArticle]) -> Result<NewsInsights> {
+async fn analyze_trending_patterns(articles: &[NewsArticle]) -> crate::error::Result<NewsInsights> {
     // Similar to analyze_news_collection but with trending-specific logic
     analyze_news_collection(articles).await
 }
@@ -906,7 +905,7 @@ async fn detect_breaking_news(
     client: &WebClient,
     config: &NewsConfig,
     keyword: &str,
-) -> Result<Vec<BreakingNewsAlert>> {
+) -> crate::error::Result<Vec<BreakingNewsAlert>> {
     // In production, would implement real-time breaking news detection
     Ok(vec![])
 }

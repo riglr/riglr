@@ -55,11 +55,30 @@ pub mod news;
 pub mod twitter;
 pub mod web_search;
 
-// Re-export commonly used tools
-pub use dexscreener::*;
-pub use news::*;
-pub use twitter::*;
-pub use web_search::*;
+// Re-export commonly used tools - be selective to avoid name conflicts
+// From dexscreener
+pub use dexscreener::{
+    get_token_info, search_tokens, get_trending_tokens, analyze_token_market, get_top_pairs,
+    TokenInfo, TokenPair, ChainInfo, MarketAnalysis,
+};
+
+// From news
+pub use news::{
+    get_crypto_news, get_trending_news, monitor_breaking_news, analyze_market_sentiment,
+    NewsArticle, NewsSource, NewsAggregationResult,
+};
+
+// From twitter
+pub use twitter::{
+    search_tweets, get_user_tweets, analyze_crypto_sentiment,
+    TwitterPost, TwitterUser, TwitterSearchResult, SentimentAnalysis, SentimentBreakdown,
+};
+
+// From web_search
+pub use web_search::{
+    search_web, find_similar_pages, summarize_web_content, search_recent_news,
+    WebSearchResult, SearchResult, ContentSummary,
+};
 
 // Re-export client and error types
 pub use client::WebClient;

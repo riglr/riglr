@@ -290,11 +290,7 @@ pub async fn get_token_price(
 fn calculate_price_impact(quote: &JupiterQuoteResponse) -> f64 {
     // Jupiter provides price impact in the response
     // This is a simplified calculation
-    if let Some(price_impact) = quote.price_impact_pct {
-        price_impact
-    } else {
-        0.0
-    }
+    quote.price_impact_pct.unwrap_or(0.0)
 }
 
 fn default_slippage() -> u16 {

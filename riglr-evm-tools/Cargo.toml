@@ -30,10 +30,8 @@ serde_json = { workspace = true }
 schemars = { workspace = true }
 
 # EVM Dependencies
-alloy = { version = "0.7", features = ["full", "node-bindings"] }
-alloy-primitives = "0.7"
-alloy-signer = "0.7"
-alloy-signer-local = "0.7"
+ethers = { version = "2.0", default-features = false, features = ["ws", "rustls"] }
+hex = "0.4"
 
 # HTTP client
 reqwest = { workspace = true }

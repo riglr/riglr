@@ -7,7 +7,7 @@ fn test_balance_module_exists() {
     assert!(true);
 }
 
-// Tests for network module  
+// Tests for network module
 #[test]
 fn test_network_module_exists() {
     // Placeholder module exists

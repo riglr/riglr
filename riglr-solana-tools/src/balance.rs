@@ -45,21 +45,19 @@ pub async fn get_sol_balance(
     debug!("Getting SOL balance for address: {}", address);
 
     // Get balance in lamports
-    let lamports = client
-        .get_balance(&address)
-        .await
-        .map_err(|e| {
-            // Network and connection errors are retriable
-            let error_str = e.to_string();
-            if error_str.contains("timeout") || 
-               error_str.contains("connection") || 
-               error_str.contains("temporarily") ||
-               error_str.contains("network") {
-                ToolError::retriable(format!("Failed to get balance: {}", e))
-            } else {
-                ToolError::permanent(format!("Failed to get balance: {}", e))
-            }
-        })?;
+    let lamports = client.get_balance(&address).await.map_err(|e| {
+        // Network and connection errors are retriable
+        let error_str = e.to_string();
+        if error_str.contains("timeout")
+            || error_str.contains("connection")
+            || error_str.contains("temporarily")
+            || error_str.contains("network")
+        {
+            ToolError::retriable(format!("Failed to get balance: {}", e))
+        } else {
+            ToolError::permanent(format!("Failed to get balance: {}", e))
+        }
+    })?;
 
     // Convert to SOL
     let sol = lamports as f64 / LAMPORTS_PER_SOL as f64;
@@ -108,10 +106,9 @@ pub async fn get_spl_token_balance(
     // Get token account balance
     match client.get_token_account_balance(&ata.to_string()).await {
         Ok(balance) => {
-            let raw_amount = balance
-                .amount
-                .parse::<u64>()
-                .map_err(|e| ToolError::permanent(format!("Failed to parse token amount: {}", e)))?;
+            let raw_amount = balance.amount.parse::<u64>().map_err(|e| {
+                ToolError::permanent(format!("Failed to parse token amount: {}", e))
+            })?;
             let ui_amount = balance.ui_amount.unwrap_or(0.0);
             let decimals = balance.decimals;
 
@@ -154,7 +151,9 @@ pub async fn get_multiple_balances(
 
     _rpc_url: Option<String>,
 ) -> Result<Vec<BalanceResult>, ToolError> {
-    Err(ToolError::permanent("get_multiple_balances not yet implemented"))
+    Err(ToolError::permanent(
+        "get_multiple_balances not yet implemented",
+    ))
 }
 
 /// Result structure for balance queries
