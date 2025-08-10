@@ -1,35 +1,43 @@
 //! Network state and blockchain query tools
 
-use crate::{
-    client::SolanaClient,
-    error::{Result, SolanaToolError},
-};
+use riglr_core::{ToolError, SignerContext};
+use riglr_macros::tool;
 use tracing::{debug, info};
 
 /// Get the current block height from the Solana blockchain
-pub async fn get_block_height(client: &SolanaClient) -> Result<u64> {
+#[tool]
+pub async fn get_block_height() -> Result<u64, ToolError> {
     debug!("Getting current block height");
+
+    // Get signer context and client
+    let signer = SignerContext::current().await
+        .map_err(|e| ToolError::permanent(format!("No signer context: {}", e)))?;
+    let client = signer.solana_client();
 
     let height = client
         .get_block_height()
-        .await
-        .map_err(|e| SolanaToolError::Rpc(format!("Failed to get block height: {}", e)))?;
+        .map_err(|e| ToolError::retriable(format!("Failed to get block height: {}", e)))?;
 
     info!("Current block height: {}", height);
     Ok(height)
 }
 
 /// Get transaction status by signature
-pub async fn get_transaction_status(client: &SolanaClient, signature: &str) -> Result<String> {
+#[tool]
+pub async fn get_transaction_status(signature: String) -> Result<String, ToolError> {
     debug!("Getting transaction status for signature: {}", signature);
 
-    let signatures = vec![signature.to_string()];
+    // Get signer context and client
+    let signer_context = SignerContext::current().await
+        .map_err(|e| ToolError::permanent(format!("No signer context: {}", e)))?;
+    let client = signer_context.solana_client();
+
+    let signatures = vec![signature.parse().map_err(|e| ToolError::permanent(format!("Invalid signature: {}", e)))?];
     let statuses = client
         .get_signature_statuses(&signatures)
-        .await
-        .map_err(|e| SolanaToolError::Rpc(format!("Failed to get transaction status: {}", e)))?;
+        .map_err(|e| ToolError::retriable(format!("Failed to get transaction status: {}", e)))?;
 
-    if let Some(Some(status)) = statuses.first() {
+    if let Some(Some(status)) = statuses.value.first() {
         let status_str = if status.err.is_some() {
             "failed"
         } else if status.confirmations.is_some() {

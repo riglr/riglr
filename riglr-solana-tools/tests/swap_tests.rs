@@ -5,7 +5,6 @@ use riglr_solana_tools::{
     swap::{
         get_jupiter_quote, get_token_price, perform_jupiter_swap, PriceInfo, SwapQuote, SwapResult,
     },
-    transaction::{get_signer_context, init_signer_context, SignerContext},
 };
 use solana_sdk::signature::Keypair;
 
@@ -105,24 +104,19 @@ async fn test_perform_jupiter_swap_no_signer() {
         1_000_000_000,
         50,
         None,
-        None,
         false,
     )
     .await;
 
-    // Should fail due to no signer context
+    // Should fail due to no signer configured
     assert!(result.is_err());
 }
 
 #[tokio::test]
 async fn test_perform_jupiter_swap_with_signer() {
-    // Initialize signer context
-    let mut context = SignerContext::new();
+    // Configure client with signer
     let keypair = Keypair::new();
-    context.add_signer("swapper", keypair).unwrap();
-    init_signer_context(context);
-
-    let client = SolanaClient::mainnet();
+    let client = SolanaClient::mainnet().with_signer(keypair);
 
     let result = perform_jupiter_swap(
         &client,
@@ -130,7 +124,6 @@ async fn test_perform_jupiter_swap_with_signer() {
         "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v".to_string(),
         1_000_000,
         50,
-        Some("swapper".to_string()),
         None,
         false,
     )
@@ -193,12 +186,9 @@ async fn test_get_token_price_custom_api_url() {
 
 #[tokio::test]
 async fn test_perform_jupiter_swap_versioned_transaction() {
-    let mut context = SignerContext::new();
+    // Configure client with signer
     let keypair = Keypair::new();
-    context.add_signer("versioned_swapper", keypair).unwrap();
-    init_signer_context(context);
-
-    let client = SolanaClient::mainnet();
+    let client = SolanaClient::mainnet().with_signer(keypair);
 
     let result = perform_jupiter_swap(
         &client,
@@ -206,7 +196,6 @@ async fn test_perform_jupiter_swap_versioned_transaction() {
         "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v".to_string(),
         1_000_000_000,
         50,
-        None,
         None,
         true, // Use versioned transaction
     )

@@ -107,29 +107,34 @@ async fn get_token_price(
 
 ```rust
 use riglr_solana_tools::{
+    client::SolanaClient,
     balance::get_sol_balance,
-    transaction::{transfer_sol, SolanaSignerContext},
+    transaction::transfer_sol,
 };
+use solana_sdk::signature::Keypair;
 
-// Initialize signer context
-let mut context = SolanaSignerContext::new();
-context.add_signer("main", keypair_bytes)?;
-riglr_solana_tools::transaction::init_solana_signer_context(context);
+// Create client for Solana mainnet
+let client = SolanaClient::mainnet();
 
 // Check balance
 let balance = get_sol_balance(
+    &client,
     "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM".to_string(),
-    None,
 ).await?;
-println!("Balance: {} SOL", balance.balance);
+println!("Balance: {} SOL", balance.sol);
+
+// Create client with signer for transactions
+let keypair = Keypair::new(); // In production, load from secure storage
+let client_with_signer = SolanaClient::mainnet()
+    .with_signer(keypair);
 
 // Transfer SOL
 let result = transfer_sol(
+    &client_with_signer,
     "recipient_address".to_string(),
     0.5,
-    None,
-    None,
-    Some("transfer-001".to_string()), // Idempotency key
+    Some("Payment memo".to_string()),
+    None, // Priority fee
 ).await?;
 println!("Transaction: {}", result.signature);
 ```
@@ -138,23 +143,28 @@ println!("Transaction: {}", result.signature);
 
 ```rust
 use riglr_evm_tools::{
+    client::EvmClient,
     balance::get_eth_balance,
     swap::{get_uniswap_quote, perform_uniswap_swap},
 };
 
-// Initialize signer for transactions
-riglr_evm_tools::init_evm_signer_context("YOUR_PRIVATE_KEY").await?;
+// Create client for Ethereum mainnet
+let client = EvmClient::mainnet().await?;
 
 // Get ETH balance
 let balance = get_eth_balance(
+    &client,
     "0x742d35Cc6634C0532925a3b844Bc9e7595f0eA4B".to_string(),
-    None, // Use default RPC
     None, // Latest block
 ).await?;
 println!("Balance: {} ETH", balance.balance_formatted);
 
+// Create client with signer for swaps
+let client_with_signer = client.with_signer("YOUR_PRIVATE_KEY");
+
 // Get Uniswap quote
 let quote = get_uniswap_quote(
+    &client_with_signer,
     "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48".to_string(), // USDC
     "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2".to_string(), // WETH  
     "1000".to_string(), // Amount
@@ -162,7 +172,6 @@ let quote = get_uniswap_quote(
     18,   // WETH decimals
     Some(3000), // 0.3% fee tier
     Some(50),   // 0.5% slippage
-    None, // Use default RPC
 ).await?;
 println!("Expected output: {} WETH", quote.amount_out);
 ```
@@ -342,7 +351,7 @@ This project is licensed under the MIT License - see the [LICENSE](./LICENSE) fi
 - Solana tools with Jupiter integration
 - EVM tools with Uniswap V3 support
 - Multi-chain support (Ethereum, Polygon, Arbitrum, Optimism, Base)
-- Secure key management with SignerContext pattern
+- Secure key management with per-client signer configuration
 
 ### ✅ Phase 3: Data & Memory (Complete)
 - Web API integrations (Twitter/X, DexScreener, News)

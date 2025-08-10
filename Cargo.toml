@@ -6,6 +6,7 @@ members = [
     "riglr-evm-tools",
     "riglr-web-tools",
     "riglr-graph-memory",
+    "riglr-server",
     "riglr-showcase"
 ]
 resolver = "2"

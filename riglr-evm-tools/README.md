@@ -26,18 +26,18 @@ riglr-evm-tools = "0.1.0"
 ### Setting up the Client
 
 ```rust
-use riglr_evm_tools::{EvmClient, init_evm_signer_context};
+use riglr_evm_tools::EvmClient;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    // Initialize signer context (do this once at startup)
-    init_evm_signer_context("YOUR_PRIVATE_KEY").await?;
-    
     // Create a client for Ethereum mainnet
     let client = EvmClient::mainnet().await?;
     
     // Or use a custom RPC endpoint
     let client = EvmClient::new("https://your-rpc-endpoint.com".to_string()).await?;
+    
+    // Add a signer for transactions (optional, only needed for sending transactions)
+    let client_with_signer = client.with_signer("YOUR_PRIVATE_KEY");
     
     Ok(())
 }
@@ -46,12 +46,15 @@ async fn main() -> anyhow::Result<()> {
 ### Checking Balances
 
 ```rust
-use riglr_evm_tools::get_eth_balance;
+use riglr_evm_tools::{EvmClient, get_eth_balance};
+
+// Create client
+let client = EvmClient::mainnet().await?;
 
 // Get ETH balance
 let balance = get_eth_balance(
+    &client,
     "0x742d35Cc6634C0532925a3b844Bc9e7595f0eA4B".to_string(),
-    None, // Use default RPC
     None, // Latest block
 ).await?;
 
@@ -61,13 +64,17 @@ println!("Balance: {} ETH", balance.balance_formatted);
 ### Transferring Tokens
 
 ```rust
-use riglr_evm_tools::{transfer_eth, transfer_erc20};
+use riglr_evm_tools::{EvmClient, transfer_eth, transfer_erc20};
+
+// Create client with signer for transactions
+let client = EvmClient::mainnet().await?
+    .with_signer("YOUR_PRIVATE_KEY");
 
 // Transfer ETH
 let tx = transfer_eth(
+    &client,
     "0xRecipientAddress".to_string(),
     0.1, // Amount in ETH
-    None, // Use default RPC
     None, // Auto gas price
     None, // Auto nonce
 ).await?;
@@ -76,11 +83,11 @@ println!("Transaction hash: {}", tx.tx_hash);
 
 // Transfer ERC20 tokens
 let tx = transfer_erc20(
+    &client,
     "0xUSDC_CONTRACT".to_string(),
     "0xRecipientAddress".to_string(),
     "100".to_string(), // Amount
     6, // USDC has 6 decimals
-    None, // Use default RPC
     None, // Auto gas price
 ).await?;
 ```
@@ -88,10 +95,15 @@ let tx = transfer_erc20(
 ### DeFi Operations (Uniswap)
 
 ```rust
-use riglr_evm_tools::{get_uniswap_quote, perform_uniswap_swap};
+use riglr_evm_tools::{EvmClient, get_uniswap_quote, perform_uniswap_swap};
+
+// Create client with signer for swaps
+let client = EvmClient::mainnet().await?
+    .with_signer("YOUR_PRIVATE_KEY");
 
 // Get a swap quote
 let quote = get_uniswap_quote(
+    &client,
     "0xUSDC".to_string(),     // Token in
     "0xWETH".to_string(),     // Token out
     "1000".to_string(),       // Amount in
@@ -99,13 +111,13 @@ let quote = get_uniswap_quote(
     18,                       // WETH decimals
     Some(3000),              // 0.3% fee tier
     Some(50),                // 0.5% slippage
-    None,                    // Use default RPC
 ).await?;
 
 println!("Expected output: {} WETH", quote.amount_out);
 
 // Execute the swap
 let swap = perform_uniswap_swap(
+    &client,
     "0xUSDC".to_string(),
     "0xWETH".to_string(),
     "1000".to_string(),
@@ -113,7 +125,6 @@ let swap = perform_uniswap_swap(
     quote.amount_out_minimum,
     Some(3000),
     Some(300), // 5 minute deadline
-    None,
 ).await?;
 ```
 
@@ -162,7 +173,9 @@ EVM_PRIVATE_KEY=0x...
 All tools use the `ToolError` pattern to distinguish between retriable and permanent failures:
 
 ```rust
-match get_eth_balance(address, None, None).await {
+let client = EvmClient::mainnet().await?;
+
+match get_eth_balance(&client, address, None).await {
     Ok(balance) => println!("Success: {}", balance.balance_formatted),
     Err(ToolError::Retriable(msg)) => {
         // Network issues, can retry
@@ -191,11 +204,12 @@ let agent = Agent::builder()
 
 ## Safety and Security
 
-- Private keys are stored in a secure global context
+- Private keys are managed per-client instance, not globally
 - All addresses are validated before use
 - Automatic nonce management prevents transaction conflicts
 - Gas estimation with configurable limits
 - Slippage protection for DeFi operations
+- Thread-safe client instances can be cloned and shared
 
 ## License
 

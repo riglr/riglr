@@ -32,8 +32,8 @@ fn test_tool_error_display() {
     assert_eq!(permanent.to_string(), "Permanent error: Invalid address format");
 }
 
-#[cfg(feature = "solana_tools_integration")]
-mod solana_integration_tests {
+// #[cfg(feature = "solana_tools_integration")]
+// mod solana_integration_tests {
     use super::*;
     use riglr_solana_tools::error::SolanaToolError;
     
@@ -67,4 +67,4 @@ mod solana_integration_tests {
         let tool_error: ToolError = tx_error.into();
         assert!(tool_error.is_retriable());
     }
-}
+// }

@@ -21,8 +21,11 @@ path = "src/main.rs"
 rig-core = { workspace = true }
 riglr-core = { workspace = true }
 riglr-solana-tools = { path = "../riglr-solana-tools" }
-riglr-evm-tools = { path = "../riglr-evm-tools" }
+# riglr-evm-tools = { path = "../riglr-evm-tools" } # Temporarily disabled due to compilation issues
 # riglr-web-tools = { path = "../riglr-web-tools" } # Temporarily disabled due to compilation issues
+riglr-cross-chain-tools = { path = "../riglr-cross-chain-tools", optional = true }
+riglr-hyperliquid-tools = { path = "../riglr-hyperliquid-tools", optional = true }
+riglr-server = { path = "../riglr-server", optional = true }
 riglr-graph-memory = { path = "../riglr-graph-memory" }
 
 # Async and Error Handling
@@ -54,6 +57,10 @@ chrono = { workspace = true }
 
 # Solana SDK
 solana-sdk = "2.3.1"
+
+# Additional dependencies for processors module
+async-trait = "0.1"
+reqwest = { version = "0.11", features = ["json"], optional = true }
 
 [dev-dependencies]
 tokio-test = { workspace = true }

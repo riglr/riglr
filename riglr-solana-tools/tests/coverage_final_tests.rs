@@ -3,11 +3,10 @@
 
 use riglr_solana_tools::{
     balance::*,
-    client::{SolanaClient, SolanaConfig},
+    client::SolanaClient,
     error::SolanaToolError,
 };
 use solana_sdk::{
-    commitment_config::CommitmentLevel,
     hash::Hash,
     message::Message,
     pubkey::Pubkey,
@@ -15,22 +14,20 @@ use solana_sdk::{
     system_instruction,
     transaction::Transaction,
 };
-use std::time::Duration;
 
-/// Test to cover line 32 in balance.rs - the default client initialization
+/// Test to cover the client functionality
 #[tokio::test(flavor = "multi_thread")]
-async fn test_balance_line_32_default_client_init() {
-    // This test specifically targets line 32 in balance.rs
-    // We need to call a function that uses get_balance_client() without custom RPC
-
+async fn test_balance_with_client() {
+    // Test the new client-first pattern
+    let client = SolanaClient::devnet();
+    
     let result = get_sol_balance(
-        "11111111111111111111111111111111".to_string(), // Valid format
-        None, // This will trigger get_balance_client() and line 32 if not already init
-        false,
+        &client,
+        "11111111111111111111111111111111".to_string(),
     )
     .await;
 
-    // The result doesn't matter as much as exercising line 32
+    // The result doesn't matter as much as testing the function signature
     let _ = result;
 }
 

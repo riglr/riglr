@@ -76,12 +76,25 @@ pub struct TokenBalanceResult {
 /// Get ETH balance for an address
 ///
 /// This tool retrieves the ETH balance for a given address on the specified chain.
+#[tool]
 pub async fn get_eth_balance(
-    client: &EvmClient,
     address: String,
     block_number: Option<u64>,
 ) -> std::result::Result<BalanceResult, ToolError> {
     debug!("Getting ETH balance for address: {}", address);
+
+    // Get signer context (even though we don't need signing for balance checks, we need the client)
+    let signer = riglr_core::SignerContext::current().await
+        .map_err(|e| ToolError::permanent(format!("No signer context: {}", e)))?;
+    
+    // Get the EVM client from the signer context
+    let client_any = signer.evm_client()
+        .map_err(|e| ToolError::permanent(format!("Failed to get EVM client: {}", e)))?;
+    
+    // This is a temporary workaround - in a real implementation, we'd need better type handling
+    // For now, we'll create a new EvmClient from a basic config
+    let client = EvmClient::mainnet().await
+        .map_err(|e| ToolError::permanent(format!("Failed to create EVM client: {}", e)))?;
 
     // Validate address
     let validated_addr = validate_address(&address)
@@ -138,8 +151,8 @@ pub async fn get_eth_balance(
 /// Get ERC20 token balance for an address
 ///
 /// This tool retrieves the balance of an ERC20 token for a given address.
+#[tool]
 pub async fn get_erc20_balance(
-    client: &EvmClient,
     address: String,
     token_address: String,
     fetch_metadata: Option<bool>,
@@ -148,6 +161,14 @@ pub async fn get_erc20_balance(
         "Getting ERC20 balance for address {} token {}",
         address, token_address
     );
+
+    // Get signer context and create client
+    let _signer = riglr_core::SignerContext::current().await
+        .map_err(|e| ToolError::permanent(format!("No signer context: {}", e)))?;
+    
+    // Create EVM client (temporary approach - should use client from signer in real implementation)
+    let client = EvmClient::mainnet().await
+        .map_err(|e| ToolError::permanent(format!("Failed to create EVM client: {}", e)))?;
 
     // Validate addresses
     let validated_addr = validate_address(&address)

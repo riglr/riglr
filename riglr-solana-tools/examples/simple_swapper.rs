@@ -5,7 +5,6 @@
 use riglr_solana_tools::{
     client::SolanaClient,
     swap::{get_jupiter_quote, get_token_price, perform_jupiter_swap},
-    transaction::{init_signer_context, SignerContext},
 };
 use solana_sdk::signature::Keypair;
 use std::env;
@@ -101,19 +100,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         if key_bytes.len() == 64 {
             let keypair = Keypair::from_bytes(&key_bytes)?;
 
-            // Initialize signer context
-            let mut context = SignerContext::new();
-            context.add_signer("swapper", keypair)?;
-            init_signer_context(context);
+            // Configure client with signer
+            let client_with_signer = client.with_signer(keypair);
 
             // Attempt swap
             match perform_jupiter_swap(
-                &client,
+                &client_with_signer,
                 sol_mint.clone(),
                 usdc_mint.clone(),
                 amount,
                 50,
-                Some("swapper".to_string()),
                 None,
                 false,
             )

@@ -7,7 +7,7 @@ use solana_client::rpc_client::RpcClient;
 use solana_sdk::{
     commitment_config::{CommitmentConfig, CommitmentLevel},
     pubkey::Pubkey,
-    signature::Signature,
+    signature::{Keypair, Signature},
     transaction::Transaction,
 };
 use std::str::FromStr;
@@ -47,6 +47,8 @@ pub struct SolanaClient {
     pub http_client: Client,
     /// Configuration
     pub config: SolanaConfig,
+    /// Optional signer for transactions
+    pub signer: Option<Arc<Keypair>>,
 }
 
 impl SolanaClient {
@@ -67,6 +69,7 @@ impl SolanaClient {
                 .build()
                 .unwrap_or_else(|_| Client::new()),
             config,
+            signer: None,
         }
     }
 
@@ -109,6 +112,55 @@ impl SolanaClient {
             CommitmentConfig { commitment },
         ));
         self
+    }
+
+    /// Configure client with a keypair signer for transactions
+    pub fn with_signer(mut self, keypair: Keypair) -> Self {
+        self.signer = Some(Arc::new(keypair));
+        self
+    }
+
+    /// Configure client with a signer from private key bytes
+    pub fn with_signer_from_bytes(self, private_key_bytes: &[u8]) -> Result<Self> {
+        if private_key_bytes.len() != 64 {
+            return Err(SolanaToolError::InvalidKey(
+                "Private key must be 64 bytes".to_string(),
+            ));
+        }
+        let keypair = Keypair::try_from(private_key_bytes)
+            .map_err(|e| SolanaToolError::InvalidKey(format!("Invalid private key: {}", e)))?;
+        Ok(self.with_signer(keypair))
+    }
+
+    /// Get reference to the signer if configured
+    pub fn signer(&self) -> Option<&Arc<Keypair>> {
+        self.signer.as_ref()
+    }
+
+    /// Check if client has a signer configured
+    pub fn has_signer(&self) -> bool {
+        self.signer.is_some()
+    }
+
+    /// Get signer or return error if not configured
+    pub fn require_signer(&self) -> Result<&Arc<Keypair>> {
+        self.signer
+            .as_ref()
+            .ok_or_else(|| SolanaToolError::Generic("Client requires signer configuration".to_string()))
+    }
+
+    /// Create a SolanaClient from a TransactionSigner
+    pub fn from_signer(signer: &dyn riglr_core::signer::TransactionSigner) -> Result<Self> {
+        let client = signer.solana_client();
+        
+        // Extract configuration from the RPC client
+        // This is a simplified approach - in practice you might want to store config in the signer
+        Ok(SolanaClient {
+            rpc_client: client,
+            http_client: reqwest::Client::new(),
+            config: SolanaConfig::default(), // Use default config for now
+            signer: None, // The signer is managed by the context
+        })
     }
 
     /// Get SOL balance for an address
