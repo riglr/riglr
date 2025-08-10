@@ -72,11 +72,11 @@ impl TransactionSigner for LocalSolanaSigner {
         tx: &mut solana_sdk::transaction::Transaction,
     ) -> Result<String, SignerError> {
         // Sign the transaction with our keypair
-        tx.try_sign(&[&self.keypair], self.client.get_latest_blockhash()?)
+        tx.try_sign(&[&self.keypair], self.client.get_latest_blockhash().map_err(|e| SignerError::SolanaTransaction(Box::new(e)))?)
             .map_err(|e| SignerError::Signing(e.to_string()))?;
         
         // Send and confirm the transaction
-        let signature = self.client.send_and_confirm_transaction(tx)?;
+        let signature = self.client.send_and_confirm_transaction(tx).map_err(|e| SignerError::SolanaTransaction(Box::new(e)))?;
         Ok(signature.to_string())
     }
     

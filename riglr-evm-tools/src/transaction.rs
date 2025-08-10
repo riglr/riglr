@@ -5,7 +5,7 @@
 
 use crate::{
     client::{eth_to_wei, validate_address, EvmClient},
-    error::{EvmToolError, Result},
+    error::EvmToolError,
 };
 use alloy::{
     network::{EthereumWallet, TransactionBuilder},
@@ -117,26 +117,26 @@ pub async fn transfer_eth(
     amount_eth: f64,
     gas_price_gwei: Option<u64>,
     nonce: Option<u64>,
-) -> std::result::Result<TransactionResult, ToolError> {
+) -> std::result::Result<TransactionResult, Box<dyn std::error::Error + Send + Sync>> {
     debug!("Transferring {} ETH to {}", amount_eth, to_address);
 
     // Get signer context
     let signer_context = riglr_core::SignerContext::current().await
-        .map_err(|e| ToolError::permanent(format!("No signer context: {}", e)))?;
+        .map_err(|e| EvmToolError::Generic(format!("No signer context: {}", e)))?;
     
     // Create EVM client (temporary - should come from signer context)
     let client = EvmClient::mainnet().await
-        .map_err(|e| ToolError::permanent(format!("Failed to create EVM client: {}", e)))?;
+        .map_err(|e| EvmToolError::Generic(format!("Failed to create EVM client: {}", e)))?;
 
     // Validate destination address
     let to_addr = validate_address(&to_address)
-        .map_err(|e| ToolError::permanent(format!("Invalid address: {}", e)))?;
+        .map_err(|e| EvmToolError::Generic(format!("Invalid address: {}", e)))?;
 
     // For now, we'll use a placeholder address since proper EVM signer integration is complex
     let from_addr_str = signer_context.address()
-        .ok_or_else(|| ToolError::permanent("Signer has no address"))?;
+        .ok_or_else(|| EvmToolError::Generic("Signer has no address".to_string()))?;
     let from_addr = validate_address(&from_addr_str)
-        .map_err(|e| ToolError::permanent(format!("Invalid signer address: {}", e)))?;
+        .map_err(|e| EvmToolError::Generic(format!("Invalid signer address: {}", e)))?;
 
     // Convert ETH to wei
     let value_wei = eth_to_wei(amount_eth);
@@ -149,7 +149,7 @@ pub async fn transfer_eth(
             .provider()
             .get_transaction_count(from_addr)
             .await
-            .map_err(|e| ToolError::retriable(format!("Failed to get nonce: {}", e)))?
+            .map_err(|e| EvmToolError::Rpc(format!("Failed to get nonce: {}", e)))?
     };
 
     // Get gas price if not provided
@@ -159,7 +159,7 @@ pub async fn transfer_eth(
         client
             .get_gas_price()
             .await
-            .map_err(|e| ToolError::retriable(format!("Failed to get gas price: {}", e)))?
+            .map_err(|e| EvmToolError::Rpc(format!("Failed to get gas price: {}", e)))?
     };
 
     // Build transaction
@@ -180,11 +180,11 @@ pub async fn transfer_eth(
         .map_err(|e| {
             let error_str = e.to_string();
             if error_str.contains("insufficient funds") {
-                ToolError::permanent(format!("Insufficient funds: {}", e))
+                EvmToolError::Generic(format!("Insufficient funds: {}", e))
             } else if error_str.contains("nonce") {
-                ToolError::permanent(format!("Nonce error: {}", e))
+                EvmToolError::Generic(format!("Nonce error: {}", e))
             } else {
-                ToolError::retriable(format!("Failed to send transaction: {}", e))
+                EvmToolError::Rpc(format!("Failed to send transaction: {}", e))
             }
         })?;
 
@@ -193,7 +193,7 @@ pub async fn transfer_eth(
         .with_required_confirmations(1)
         .get_receipt()
         .await
-        .map_err(|e| ToolError::retriable(format!("Failed to get receipt: {}", e)))?;
+        .map_err(|e| EvmToolError::Rpc(format!("Failed to get receipt: {}", e)))?;
 
     let result = TransactionResult {
         tx_hash: format!("0x{:x}", receipt.transaction_hash),
@@ -267,7 +267,7 @@ pub async fn transfer_erc20(
     amount: String,
     decimals: u8,
     gas_price_gwei: Option<u64>,
-) -> std::result::Result<TransactionResult, ToolError> {
+) -> std::result::Result<TransactionResult, Box<dyn std::error::Error + Send + Sync>> {
     debug!(
         "Transferring {} tokens to {} (token: {})",
         amount, to_address, token_address
@@ -275,26 +275,26 @@ pub async fn transfer_erc20(
 
     // Get signer context
     let signer_context = riglr_core::SignerContext::current().await
-        .map_err(|e| ToolError::permanent(format!("No signer context: {}", e)))?;
+        .map_err(|e| EvmToolError::Generic(format!("No signer context: {}", e)))?;
     
     // Create EVM client (temporary - should come from signer context)
     let client = EvmClient::mainnet().await
-        .map_err(|e| ToolError::permanent(format!("Failed to create EVM client: {}", e)))?;
+        .map_err(|e| EvmToolError::Generic(format!("Failed to create EVM client: {}", e)))?;
 
     // Validate addresses
     let token_addr = validate_address(&token_address)
-        .map_err(|e| ToolError::permanent(format!("Invalid token address: {}", e)))?;
+        .map_err(|e| EvmToolError::Generic(format!("Invalid token address: {}", e)))?;
     let to_addr = validate_address(&to_address)
-        .map_err(|e| ToolError::permanent(format!("Invalid to address: {}", e)))?;
+        .map_err(|e| EvmToolError::Generic(format!("Invalid to address: {}", e)))?;
 
     let from_addr_str = signer_context.address()
-        .ok_or_else(|| ToolError::permanent("Signer has no address"))?;
+        .ok_or_else(|| EvmToolError::Generic("Signer has no address".to_string()))?;
     let from_addr = validate_address(&from_addr_str)
-        .map_err(|e| ToolError::permanent(format!("Invalid signer address: {}", e)))?;
+        .map_err(|e| EvmToolError::Generic(format!("Invalid signer address: {}", e)))?;
 
     // Parse amount with decimals
     let amount_wei = parse_token_amount(&amount, decimals)
-        .map_err(|e| ToolError::permanent(format!("Invalid amount: {}", e)))?;
+        .map_err(|e| EvmToolError::Generic(format!("Invalid amount: {}", e)))?;
 
     // Create transfer call
     let call = IERC20::transferCall {
@@ -310,7 +310,7 @@ pub async fn transfer_erc20(
         client
             .get_gas_price()
             .await
-            .map_err(|e| ToolError::retriable(format!("Failed to get gas price: {}", e)))?
+            .map_err(|e| EvmToolError::Rpc(format!("Failed to get gas price: {}", e)))?
     };
 
     // Build transaction
@@ -330,9 +330,9 @@ pub async fn transfer_erc20(
         .map_err(|e| {
             let error_str = e.to_string();
             if error_str.contains("insufficient") {
-                ToolError::permanent(format!("Insufficient balance: {}", e))
+                EvmToolError::Generic(format!("Insufficient balance: {}", e))
             } else {
-                ToolError::retriable(format!("Failed to send transaction: {}", e))
+                EvmToolError::Rpc(format!("Failed to send transaction: {}", e))
             }
         })?;
 
@@ -341,7 +341,7 @@ pub async fn transfer_erc20(
         .with_required_confirmations(1)
         .get_receipt()
         .await
-        .map_err(|e| ToolError::retriable(format!("Failed to get receipt: {}", e)))?;
+        .map_err(|e| EvmToolError::Rpc(format!("Failed to get receipt: {}", e)))?;
 
     let result = TransactionResult {
         tx_hash: format!("0x{:x}", receipt.transaction_hash),
@@ -403,37 +403,37 @@ pub async fn transfer_erc20(
 #[tool]
 pub async fn get_transaction_receipt(
     tx_hash: String,
-) -> std::result::Result<TransactionResult, ToolError> {
+) -> std::result::Result<TransactionResult, Box<dyn std::error::Error + Send + Sync>> {
     debug!("Getting transaction receipt for {}", tx_hash);
 
     // Get signer context and create client
     let _signer_context = riglr_core::SignerContext::current().await
-        .map_err(|e| ToolError::permanent(format!("No signer context: {}", e)))?;
+        .map_err(|e| EvmToolError::Generic(format!("No signer context: {}", e)))?;
     
     // Create EVM client (temporary - should come from signer context)
     let client = EvmClient::mainnet().await
-        .map_err(|e| ToolError::permanent(format!("Failed to create EVM client: {}", e)))?;
+        .map_err(|e| EvmToolError::Generic(format!("Failed to create EVM client: {}", e)))?;
 
     // Parse transaction hash
     let hash = tx_hash
         .parse()
-        .map_err(|e| ToolError::permanent(format!("Invalid transaction hash: {}", e)))?;
+        .map_err(|e| EvmToolError::Generic(format!("Invalid transaction hash: {}", e)))?;
 
     // Get receipt
     let receipt = client
         .provider()
         .get_transaction_receipt(hash)
         .await
-        .map_err(|e| ToolError::retriable(format!("Failed to get receipt: {}", e)))?
-        .ok_or_else(|| ToolError::permanent("Transaction not found"))?;
+        .map_err(|e| EvmToolError::Rpc(format!("Failed to get receipt: {}", e)))?
+        .ok_or_else(|| EvmToolError::Generic("Transaction not found".to_string()))?;
 
     // Get transaction details (currently not fully extracting due to type access issues)
     let _tx = client
         .provider()
         .get_transaction_by_hash(hash)
         .await
-        .map_err(|e| ToolError::retriable(format!("Failed to get transaction: {}", e)))?
-        .ok_or_else(|| ToolError::permanent("Transaction not found"))?;
+        .map_err(|e| EvmToolError::Rpc(format!("Failed to get transaction: {}", e)))?
+        .ok_or_else(|| EvmToolError::Generic("Transaction not found".to_string()))?;
 
     // TODO: Fix transaction field access to properly extract transaction details
     // For now, create a minimal result without extracting all transaction details
@@ -456,7 +456,7 @@ pub async fn get_transaction_receipt(
 }
 
 /// Parse token amount with decimals
-fn parse_token_amount(amount: &str, decimals: u8) -> Result<U256> {
+fn parse_token_amount(amount: &str, decimals: u8) -> Result<U256, EvmToolError> {
     let amount_f64 = amount
         .parse::<f64>()
         .map_err(|e| EvmToolError::Generic(format!("Invalid amount: {}", e)))?;

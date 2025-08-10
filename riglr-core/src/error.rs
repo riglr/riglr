@@ -97,3 +97,4 @@ impl From<&str> for ToolError {
         ToolError::Permanent(err.to_string())
     }
 }
+
