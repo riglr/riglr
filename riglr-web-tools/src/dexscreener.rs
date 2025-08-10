@@ -328,7 +328,7 @@ pub async fn get_token_info(
     );
 
     let config = DexScreenerConfig::default();
-    let client = WebClient::new();
+    let client = WebClient::new().map_err(|e| WebToolError::Client(format!("Failed to create client: {}", e)))?;
 
     // Build API endpoint
     let chain = chain_id.unwrap_or_else(|| "ethereum".to_string());
@@ -380,7 +380,7 @@ pub async fn search_tokens(
     debug!("Searching tokens for query: '{}' with filters", query);
 
     let config = DexScreenerConfig::default();
-    let client = WebClient::new();
+    let client = WebClient::new().map_err(|e| WebToolError::Client(format!("Failed to create client: {}", e)))?;
 
     // Build search parameters
     let mut params = HashMap::new();
@@ -450,7 +450,7 @@ pub async fn get_trending_tokens(
     );
 
     let config = DexScreenerConfig::default();
-    let client = WebClient::new();
+    let client = WebClient::new().map_err(|e| WebToolError::Client(format!("Failed to create client: {}", e)))?;
 
     // Build trending endpoint
     let window = time_window.unwrap_or_else(|| "1h".to_string());
@@ -569,7 +569,7 @@ pub async fn get_top_pairs(
     );
 
     let config = DexScreenerConfig::default();
-    let client = WebClient::new();
+    let client = WebClient::new().map_err(|e| WebToolError::Client(format!("Failed to create client: {}", e)))?;
 
     let mut params = HashMap::new();
     params.insert("sort".to_string(), "volume".to_string());

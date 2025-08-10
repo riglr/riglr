@@ -4,7 +4,7 @@ members = [
     "riglr-macros", 
     "riglr-solana-tools",
     "riglr-evm-tools",
-    # "riglr-web-tools", # Temporarily disabled due to rig_core dependency issues
+    "riglr-web-tools",
     "riglr-graph-memory",
     "riglr-showcase"
 ]

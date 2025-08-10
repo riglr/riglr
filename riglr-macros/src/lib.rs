@@ -90,23 +90,34 @@ fn handle_function(function: ItemFn) -> proc_macro2::TokenStream {
 
     // Extract documentation from function
     let description = extract_doc_comments(&function.attrs);
-    let description_lit = if description.is_empty() {
+    let _description_lit = if description.is_empty() {
         quote! { concat!("Tool: ", stringify!(#fn_name)) }
     } else {
         quote! { #description }
     };
 
-    // Extract parameter info
+    // Extract parameter info and check if we need lifetime annotations
     let mut param_fields = Vec::new();
     let mut param_names = Vec::new();
     let mut param_docs = Vec::new();
+    let mut _has_references = false;
+    let mut skip_params = Vec::new();  // Parameters to skip in the generated struct
 
-    for input in function.sig.inputs.iter() {
+    for (idx, input) in function.sig.inputs.iter().enumerate() {
         if let FnArg::Typed(PatType { pat, ty, attrs, .. }) = input {
             if let syn::Pat::Ident(ident) = pat.as_ref() {
                 let param_name = &ident.ident;
                 let param_type = ty.as_ref();
                 let param_doc = extract_doc_comments(attrs);
+
+                // Check if this is a reference type that should be skipped
+                let type_str = quote!(#param_type).to_string();
+                if type_str.starts_with("& ") && (type_str.contains("EvmClient") || type_str.contains("SolanaClient")) {
+                    // Skip client references in the args struct - they'll be passed separately
+                    skip_params.push(idx);
+                    _has_references = true;
+                    continue;
+                }
 
                 param_names.push(param_name.clone());
                 param_docs.push(param_doc);
@@ -142,9 +153,24 @@ fn handle_function(function: ItemFn) -> proc_macro2::TokenStream {
     let tool_fn_name = syn::Ident::new(&format!("{}_tool", fn_name), fn_name.span());
 
     // Generate field assignments for function call
-    let field_assignments = param_names.iter().map(|name| {
-        quote! { args.#name }
-    });
+    // Handle client references separately
+    let mut field_assignments = Vec::new();
+    for (_idx, input) in function.sig.inputs.iter().enumerate() {
+        if let FnArg::Typed(PatType { pat, ty, .. }) = input {
+            if let syn::Pat::Ident(ident) = pat.as_ref() {
+                let param_name = &ident.ident;
+                let type_str = quote!(#ty).to_string();
+                
+                if type_str.starts_with("& ") && (type_str.contains("EvmClient") || type_str.contains("SolanaClient")) {
+                    // Pass client reference directly (not from args)
+                    field_assignments.push(quote! { client });
+                } else {
+                    // Pass from args struct
+                    field_assignments.push(quote! { args.#param_name });
+                }
+            }
+        }
+    }
 
     // Check if function is async
     let is_async = function.sig.asyncness.is_some();
@@ -235,6 +261,12 @@ fn handle_function(function: ItemFn) -> proc_macro2::TokenStream {
                                     retriable: false,
                                 })
                             }
+                            riglr_core::ToolError::RateLimited(msg) => {
+                                Ok(riglr_core::JobResult::Failure {
+                                    error: format!("Rate limited: {}", msg),
+                                    retriable: true,
+                                })
+                            }
                         }
                     }
                 }
@@ -246,7 +278,9 @@ fn handle_function(function: ItemFn) -> proc_macro2::TokenStream {
         }
 
         // If this is intended to be rig-compatible, also generate rig::Tool implementation
-        // Note: rig-compat feature removed to avoid unused cfg warnings
+        // Currently disabled due to crate naming issues (rig-core vs rig_core)
+        // TODO: Re-enable when we have a better solution for the crate name mismatch
+        /*
         #[async_trait::async_trait]
         impl rig_core::Tool for #tool_struct_name {
             const NAME: &'static str = stringify!(#fn_name);
@@ -255,10 +289,10 @@ fn handle_function(function: ItemFn) -> proc_macro2::TokenStream {
             type Args = #args_struct_name;
             type Output = serde_json::Value;
 
-            async fn definition(&self, _prompt: String) -> ::rig_core::ToolDefinition {
+            async fn definition(&self, _prompt: String) -> rig_core::ToolDefinition {
                 let schema = self.schema();
 
-                ::rig_core::ToolDefinition {
+                rig_core::ToolDefinition {
                     name: stringify!(#fn_name).to_string(),
                     description: #description_lit.to_string(),
                     parameters: schema,
@@ -270,6 +304,7 @@ fn handle_function(function: ItemFn) -> proc_macro2::TokenStream {
                 Ok(serde_json::to_value(result)?)
             }
         }
+        */
 
         // Keep the original function
         #function
@@ -287,7 +322,7 @@ fn handle_struct(structure: ItemStruct) -> proc_macro2::TokenStream {
 
     // Extract documentation from struct
     let description = extract_doc_comments(&structure.attrs);
-    let description_lit = if description.is_empty() {
+    let _description_lit = if description.is_empty() {
         quote! { concat!("Tool: ", stringify!(#struct_name)) }
     } else {
         quote! { #description }
@@ -333,6 +368,12 @@ fn handle_struct(structure: ItemStruct) -> proc_macro2::TokenStream {
                                     retriable: false,
                                 })
                             }
+                            riglr_core::ToolError::RateLimited(msg) => {
+                                Ok(riglr_core::JobResult::Failure {
+                                    error: format!("Rate limited: {}", msg),
+                                    retriable: true,
+                                })
+                            }
                         }
                     }
                 }
@@ -351,7 +392,9 @@ fn handle_struct(structure: ItemStruct) -> proc_macro2::TokenStream {
         }
 
         // If this is intended to be rig-compatible, also generate rig::Tool implementation
-        // Note: rig-compat feature removed to avoid unused cfg warnings
+        // Currently disabled due to crate naming issues (rig-core vs rig_core)
+        // TODO: Re-enable when we have a better solution for the crate name mismatch
+        /*
         #[async_trait::async_trait]
         impl rig_core::Tool for #struct_name {
             const NAME: &'static str = stringify!(#struct_name);
@@ -360,10 +403,10 @@ fn handle_struct(structure: ItemStruct) -> proc_macro2::TokenStream {
             type Args = Self;
             type Output = serde_json::Value;
 
-            async fn definition(&self, _prompt: String) -> ::rig_core::ToolDefinition {
+            async fn definition(&self, _prompt: String) -> rig_core::ToolDefinition {
                 let schema = schemars::schema_for!(Self);
 
-                ::rig_core::ToolDefinition {
+                rig_core::ToolDefinition {
                     name: stringify!(#struct_name).to_string(),
                     description: #description_lit.to_string(),
                     parameters: serde_json::to_value(schema).unwrap_or_else(|_| serde_json::json!({})),
@@ -375,6 +418,7 @@ fn handle_struct(structure: ItemStruct) -> proc_macro2::TokenStream {
                 Ok(serde_json::to_value(result)?)
             }
         }
+        */
     }
 }
 

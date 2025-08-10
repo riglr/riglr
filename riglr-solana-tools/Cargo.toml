@@ -43,8 +43,8 @@ uuid = "1.0"
 # Base64 encoding
 base64 = "0.22.1"
 
-# Binary encoding
-bincode = "2.0.1"
+# Binary encoding (using 1.3.3 for Solana SDK compatibility)
+bincode = "1.3.3"
 
 # HTTP client for Jupiter
 reqwest = { workspace = true }

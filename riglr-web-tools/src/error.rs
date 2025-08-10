@@ -46,13 +46,25 @@ pub enum WebToolError {
     #[error("API error: {0}")]
     Api(String),
 
+    /// Client creation error
+    #[error("Client error: {0}")]
+    Client(String),
+
     /// Parsing error
     #[error("Parsing error: {0}")]
     Parsing(String),
 
+    /// Request error
+    #[error("Request error: {0}")]
+    Request(String),
+
     /// Generic error
-    #[error("Web tool error: {0}")]
+    #[error("Error: {0}")]
     Generic(String),
+
+    /// Parse error (alias for Parsing)
+    #[error("Parse error: {0}")]
+    Parse(String),
 }
 
 impl From<WebToolError> for ToolError {
@@ -72,11 +84,14 @@ impl From<WebToolError> for ToolError {
             WebToolError::Config(msg) => ToolError::Permanent(msg),
             WebToolError::Api(msg) => ToolError::Permanent(msg),
             WebToolError::Parsing(msg) => ToolError::Permanent(msg),
+            WebToolError::Request(msg) => ToolError::Retriable(msg),
+            WebToolError::Parse(msg) => ToolError::Permanent(msg),
             WebToolError::Url(e) => ToolError::Permanent(format!("URL error: {}", e)),
             WebToolError::Serialization(e) => {
                 ToolError::Permanent(format!("Serialization error: {}", e))
             }
             WebToolError::Core(e) => ToolError::Permanent(format!("Core error: {}", e)),
+            WebToolError::Client(msg) => ToolError::Permanent(msg),
             WebToolError::Generic(msg) => ToolError::Permanent(msg),
         }
     }

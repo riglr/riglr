@@ -125,7 +125,7 @@ impl RedisIdempotencyStore {
 #[async_trait]
 impl IdempotencyStore for RedisIdempotencyStore {
     async fn get(&self, key: &str) -> anyhow::Result<Option<JobResult>> {
-        let mut conn = self.client.get_async_connection().await?;
+        let mut conn = self.client.get_multiplexed_async_connection().await?;
         let redis_key = self.make_key(key);
 
         let result: Option<String> = redis::cmd("GET")
@@ -143,7 +143,7 @@ impl IdempotencyStore for RedisIdempotencyStore {
     }
 
     async fn set(&self, key: &str, result: &JobResult, ttl: Duration) -> anyhow::Result<()> {
-        let mut conn = self.client.get_async_connection().await?;
+        let mut conn = self.client.get_multiplexed_async_connection().await?;
         let redis_key = self.make_key(key);
         let json_str = serde_json::to_string(result)?;
         let ttl_seconds = ttl.as_secs() as usize;
@@ -152,19 +152,19 @@ impl IdempotencyStore for RedisIdempotencyStore {
             .arg(&redis_key)
             .arg(ttl_seconds)
             .arg(json_str)
-            .query_async::<_, ()>(&mut conn)
+            .query_async::<()>(&mut conn)
             .await?;
 
         Ok(())
     }
 
     async fn remove(&self, key: &str) -> anyhow::Result<()> {
-        let mut conn = self.client.get_async_connection().await?;
+        let mut conn = self.client.get_multiplexed_async_connection().await?;
         let redis_key = self.make_key(key);
 
         redis::cmd("DEL")
             .arg(&redis_key)
-            .query_async::<_, ()>(&mut conn)
+            .query_async::<()>(&mut conn)
             .await?;
 
         Ok(())

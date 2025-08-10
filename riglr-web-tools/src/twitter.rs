@@ -231,7 +231,9 @@ pub async fn search_tweets(
         ));
     }
 
-    let client = WebClient::new().with_twitter_token(config.bearer_token.clone());
+    let client = WebClient::new()
+        .map_err(|e| WebToolError::Client(format!("Failed to create client: {}", e)))?
+        .with_twitter_token(config.bearer_token.clone());
 
     // Build search parameters
     let mut params = HashMap::new();
@@ -336,7 +338,9 @@ pub async fn get_user_tweets(
         ));
     }
 
-    let client = WebClient::new().with_twitter_token(config.bearer_token.clone());
+    let client = WebClient::new()
+        .map_err(|e| WebToolError::Client(format!("Failed to create client: {}", e)))?
+        .with_twitter_token(config.bearer_token.clone());
 
     // First, get user ID from username
     let user_url = format!("{}/users/by/username/{}", config.base_url, username);

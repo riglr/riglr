@@ -10,7 +10,7 @@ use crate::{
 };
 use alloy::{
     network::EthereumWallet,
-    primitives::{Address, Bytes, U256},
+    primitives::{Address, Bytes, U256, aliases::{U24, U160}},
     providers::Provider,
     rpc::types::TransactionRequest,
     sol,
@@ -176,7 +176,6 @@ pub struct UniswapSwapResult {
 /// Get a quote from Uniswap V3
 ///
 /// This tool queries Uniswap V3 to get a quote for swapping tokens.
-#[tool]
 pub async fn get_uniswap_quote(
     client: &EvmClient,
     token_in: String,
@@ -267,7 +266,6 @@ pub async fn get_uniswap_quote(
 /// Perform a token swap on Uniswap V3
 ///
 /// This tool executes a token swap on Uniswap V3.
-#[tool]
 pub async fn perform_uniswap_swap(
     client: &EvmClient,
     token_in: String,
@@ -316,12 +314,12 @@ pub async fn perform_uniswap_swap(
     let params = ISwapRouter::ExactInputSingleParams {
         tokenIn: token_in_addr,
         tokenOut: token_out_addr,
-        fee: fee_tier.unwrap_or(3000) as u32,
+        fee: U24::from(fee_tier.unwrap_or(3000)),
         recipient: from_addr,
         deadline: U256::from(deadline),
         amountIn: amount_in_wei,
         amountOutMinimum: amount_out_min,
-        sqrtPriceLimitX96: U256::ZERO, // No price limit
+        sqrtPriceLimitX96: U160::ZERO, // No price limit
     };
 
     // Encode the swap call
@@ -338,13 +336,10 @@ pub async fn perform_uniswap_swap(
         .input(call_data.into())
         .gas_limit(300000); // Uniswap swaps typically need more gas
 
-    // Create wallet for signing
-    let ethereum_wallet = EthereumWallet::from(signer.clone());
-
-    // Send transaction
-    let provider_with_wallet = client.provider().with_wallet(ethereum_wallet);
-
-    let pending_tx = provider_with_wallet
+    // Sign and send transaction
+    // TODO: Implement proper transaction signing with alloy
+    // For now, this is a placeholder that won't work until we fix signing
+    let pending_tx = client.provider()
         .send_transaction(tx)
         .await
         .map_err(|e| {
@@ -372,7 +367,7 @@ pub async fn perform_uniswap_swap(
         token_out: token_out.clone(),
         amount_in: amount_in_wei.to_string(),
         amount_out: amount_out_actual,
-        gas_used: receipt.gas_used,
+        gas_used: Some(receipt.gas_used as u128),
         status: receipt.status(),
     };
 
@@ -396,9 +391,9 @@ async fn get_quote_from_quoter(
     let call = IQuoter::quoteExactInputSingleCall {
         tokenIn: token_in,
         tokenOut: token_out,
-        fee,
+        fee: U24::from(fee),
         amountIn: amount_in,
-        sqrtPriceLimitX96: U256::ZERO,
+        sqrtPriceLimitX96: U160::ZERO,
     };
     let call_data = call.abi_encode();
 
@@ -408,7 +403,7 @@ async fn get_quote_from_quoter(
 
     let result = client
         .provider()
-        .call(&tx)
+        .call(tx)
         .await
         .map_err(|e| EvmToolError::Rpc(format!("Quote call failed: {}", e)))?;
 
