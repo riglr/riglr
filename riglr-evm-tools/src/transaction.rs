@@ -19,8 +19,6 @@ use riglr_core::ToolError;
 use riglr_macros::tool;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use std::sync::{Arc, OnceLock};
-use tokio::sync::RwLock;
 use tracing::{debug, info, warn};
 
 // Define ERC20 interface for transfers
@@ -33,69 +31,8 @@ sol! {
     }
 }
 
-/// Global signer context for EVM operations
-static EVM_SIGNER_CONTEXT: OnceLock<Arc<RwLock<EvmSignerContext>>> = OnceLock::new();
 
-/// Context for managing EVM signing keys
-pub struct EvmSignerContext {
-    /// The wallet containing the signing key
-    wallet: Option<PrivateKeySigner>,
-    /// The signer's address
-    address: Option<Address>,
-}
 
-impl EvmSignerContext {
-    /// Create a new empty signer context
-    pub fn new() -> Self {
-        Self {
-            wallet: None,
-            address: None,
-        }
-    }
-
-    /// Initialize with a private key
-    pub fn with_private_key(private_key: &str) -> Result<Self> {
-        let wallet = private_key
-            .parse::<PrivateKeySigner>()
-            .map_err(|e| EvmToolError::InvalidKey(format!("Invalid private key: {}", e)))?;
-
-        let address = wallet.address();
-
-        Ok(Self {
-            wallet: Some(wallet),
-            address: Some(address),
-        })
-    }
-
-    /// Get the signer's address
-    pub fn address(&self) -> Option<Address> {
-        self.address
-    }
-
-    /// Get the wallet
-    pub fn wallet(&self) -> Option<&PrivateKeySigner> {
-        self.wallet.as_ref()
-    }
-}
-
-/// Initialize the global EVM signer context with a private key
-pub async fn init_evm_signer_context(private_key: &str) -> Result<()> {
-    let context = EvmSignerContext::with_private_key(private_key)?;
-
-    EVM_SIGNER_CONTEXT
-        .set(Arc::new(RwLock::new(context)))
-        .map_err(|_| EvmToolError::Generic("Signer context already initialized".to_string()))?;
-
-    Ok(())
-}
-
-/// Get the global EVM signer context
-pub async fn get_evm_signer_context() -> Result<Arc<RwLock<EvmSignerContext>>> {
-    EVM_SIGNER_CONTEXT
-        .get()
-        .ok_or_else(|| EvmToolError::Generic("Signer context not initialized".to_string()))
-        .map(Arc::clone)
-}
 
 /// Result of a transaction
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
@@ -127,39 +64,23 @@ pub struct TransactionResult {
 /// This tool transfers ETH from the signer's address to another address.
 #[tool]
 pub async fn transfer_eth(
+    client: &EvmClient,
     to_address: String,
     amount_eth: f64,
-    rpc_url: Option<String>,
     gas_price_gwei: Option<u64>,
     nonce: Option<u64>,
-) -> Result<TransactionResult, ToolError> {
+) -> std::result::Result<TransactionResult, ToolError> {
     debug!("Transferring {} ETH to {}", amount_eth, to_address);
 
     // Validate destination address
     let to_addr = validate_address(&to_address)
         .map_err(|e| ToolError::permanent(format!("Invalid address: {}", e)))?;
 
-    // Get signer context
-    let signer_context = get_evm_signer_context()
-        .await
-        .map_err(|e| ToolError::permanent(format!("Signer not initialized: {}", e)))?;
-
-    let context = signer_context.read().await;
-    let wallet = context
-        .wallet()
-        .ok_or_else(|| ToolError::permanent("No wallet configured"))?;
-
-    let from_addr = context
-        .address()
-        .ok_or_else(|| ToolError::permanent("No address configured"))?;
-
-    // Create client
-    let client = if let Some(url) = rpc_url {
-        EvmClient::new(url).await
-    } else {
-        EvmClient::mainnet().await
-    }
-    .map_err(|e| ToolError::retriable(format!("Failed to create client: {}", e)))?;
+    // Get signer from client (replaces global state access)
+    let signer = client.require_signer()
+        .map_err(|e| ToolError::permanent(format!("Client requires signer configuration: {}", e)))?;
+    
+    let from_addr = signer.address();
 
     // Convert ETH to wei
     let value_wei = eth_to_wei(amount_eth);
@@ -195,7 +116,7 @@ pub async fn transfer_eth(
         .gas_limit(21000); // Standard ETH transfer gas limit
 
     // Create a wallet for signing
-    let ethereum_wallet = EthereumWallet::from(wallet.clone());
+    let ethereum_wallet = EthereumWallet::from(signer.clone());
 
     // Send transaction with the wallet
     let provider_with_wallet = client.provider().with_wallet(ethereum_wallet);
@@ -247,13 +168,13 @@ pub async fn transfer_eth(
 /// This tool transfers ERC20 tokens from the signer's address to another address.
 #[tool]
 pub async fn transfer_erc20(
+    client: &EvmClient,
     token_address: String,
     to_address: String,
     amount: String,
     decimals: u8,
-    rpc_url: Option<String>,
     gas_price_gwei: Option<u64>,
-) -> Result<TransactionResult, ToolError> {
+) -> std::result::Result<TransactionResult, ToolError> {
     debug!(
         "Transferring {} tokens to {} (token: {})",
         amount, to_address, token_address
@@ -265,27 +186,11 @@ pub async fn transfer_erc20(
     let to_addr = validate_address(&to_address)
         .map_err(|e| ToolError::permanent(format!("Invalid to address: {}", e)))?;
 
-    // Get signer context
-    let signer_context = get_evm_signer_context()
-        .await
-        .map_err(|e| ToolError::permanent(format!("Signer not initialized: {}", e)))?;
-
-    let context = signer_context.read().await;
-    let wallet = context
-        .wallet()
-        .ok_or_else(|| ToolError::permanent("No wallet configured"))?;
-
-    let from_addr = context
-        .address()
-        .ok_or_else(|| ToolError::permanent("No address configured"))?;
-
-    // Create client
-    let client = if let Some(url) = rpc_url {
-        EvmClient::new(url).await
-    } else {
-        EvmClient::mainnet().await
-    }
-    .map_err(|e| ToolError::retriable(format!("Failed to create client: {}", e)))?;
+    // Get signer from client (replaces global state access)
+    let signer = client.require_signer()
+        .map_err(|e| ToolError::permanent(format!("Client requires signer configuration: {}", e)))?;
+    
+    let from_addr = signer.address();
 
     // Parse amount with decimals
     let amount_wei = parse_token_amount(&amount, decimals)
@@ -317,7 +222,7 @@ pub async fn transfer_erc20(
         .gas_limit(100000); // Standard ERC20 transfer gas limit
 
     // Create a wallet for signing
-    let ethereum_wallet = EthereumWallet::from(wallet.clone());
+    let ethereum_wallet = EthereumWallet::from(signer.clone());
 
     // Send transaction with the wallet
     let provider_with_wallet = client.provider().with_wallet(ethereum_wallet);
@@ -367,23 +272,15 @@ pub async fn transfer_erc20(
 /// This tool retrieves the receipt for a transaction hash.
 #[tool]
 pub async fn get_transaction_receipt(
+    client: &EvmClient,
     tx_hash: String,
-    rpc_url: Option<String>,
-) -> Result<TransactionResult, ToolError> {
+) -> std::result::Result<TransactionResult, ToolError> {
     debug!("Getting transaction receipt for {}", tx_hash);
 
     // Parse transaction hash
     let hash = tx_hash
         .parse()
         .map_err(|e| ToolError::permanent(format!("Invalid transaction hash: {}", e)))?;
-
-    // Create client
-    let client = if let Some(url) = rpc_url {
-        EvmClient::new(url).await
-    } else {
-        EvmClient::mainnet().await
-    }
-    .map_err(|e| ToolError::retriable(format!("Failed to create client: {}", e)))?;
 
     // Get receipt
     let receipt = client

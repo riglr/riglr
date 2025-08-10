@@ -14,9 +14,8 @@ pub use client::{EvmClient, EvmConfig, validate_address, wei_to_eth, eth_to_wei}
 pub use error::{EvmToolError, Result};
 pub use swap::{get_uniswap_quote, perform_uniswap_swap, UniswapQuote, UniswapSwapResult, UniswapConfig};
 pub use transaction::{
-    init_evm_signer_context, get_evm_signer_context, 
     transfer_eth, transfer_erc20, get_transaction_receipt,
-    EvmSignerContext, TransactionResult
+    TransactionResult
 };
 
 /// Current version

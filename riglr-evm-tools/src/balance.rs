@@ -79,23 +79,15 @@ pub struct TokenBalanceResult {
 /// This tool retrieves the ETH balance for a given address on the specified chain.
 #[tool]
 pub async fn get_eth_balance(
+    client: &EvmClient,
     address: String,
-    rpc_url: Option<String>,
     block_number: Option<u64>,
-) -> Result<BalanceResult, ToolError> {
+) -> std::result::Result<BalanceResult, ToolError> {
     debug!("Getting ETH balance for address: {}", address);
 
     // Validate address
     let validated_addr = validate_address(&address)
         .map_err(|e| ToolError::permanent(format!("Invalid address: {}", e)))?;
-
-    // Create client
-    let client = if let Some(url) = rpc_url {
-        EvmClient::new(url).await
-    } else {
-        EvmClient::mainnet().await
-    }
-    .map_err(|e| ToolError::retriable(format!("Failed to create client: {}", e)))?;
 
     // Get balance
     let balance_wei = client
@@ -150,11 +142,11 @@ pub async fn get_eth_balance(
 /// This tool retrieves the balance of an ERC20 token for a given address.
 #[tool]
 pub async fn get_erc20_balance(
+    client: &EvmClient,
     address: String,
     token_address: String,
-    rpc_url: Option<String>,
     fetch_metadata: Option<bool>,
-) -> Result<TokenBalanceResult, ToolError> {
+) -> std::result::Result<TokenBalanceResult, ToolError> {
     debug!(
         "Getting ERC20 balance for address {} token {}",
         address, token_address
@@ -165,14 +157,6 @@ pub async fn get_erc20_balance(
         .map_err(|e| ToolError::permanent(format!("Invalid wallet address: {}", e)))?;
     let validated_token_addr = validate_address(&token_address)
         .map_err(|e| ToolError::permanent(format!("Invalid token address: {}", e)))?;
-
-    // Create client
-    let client = if let Some(url) = rpc_url {
-        EvmClient::new(url).await
-    } else {
-        EvmClient::mainnet().await
-    }
-    .map_err(|e| ToolError::retriable(format!("Failed to create client: {}", e)))?;
 
     // Get balance using balanceOf function
     let balance = get_token_balance(&client, validated_token_addr, validated_addr)
