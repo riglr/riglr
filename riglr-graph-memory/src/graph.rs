@@ -6,15 +6,15 @@
 
 use crate::{
     client::Neo4jClient,
-    document::{DocumentMetadata, DocumentSource, ExtractedEntities, RawTextDocument},
-    error::{GraphMemoryError, Result},
+    document::{ExtractedEntities, RawTextDocument},
+    error::Result,
     extractor::EntityExtractor,
     vector_store::{GraphRetriever, GraphRetrieverConfig},
 };
-use serde_json::{json, Value};
+use serde_json::json;
 use std::collections::HashMap;
 use std::sync::Arc;
-use tracing::{debug, error, info, warn};
+use tracing::{debug, info, warn};
 
 /// The main graph memory system that provides comprehensive document storage,
 /// entity extraction, and hybrid vector + graph search capabilities.
@@ -179,7 +179,7 @@ impl GraphMemory {
             let extracted = self.extractor.extract(&document.content).await?;
 
             // Update document metadata with extracted entities
-            let mut metadata = document.metadata.unwrap_or_else(DocumentMetadata::default);
+            let mut metadata = document.metadata.unwrap_or_default();
 
             for wallet in &extracted.wallets {
                 metadata.add_wallet(&wallet.canonical);

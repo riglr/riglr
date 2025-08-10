@@ -274,11 +274,7 @@ fn test_init_balance_client() {
 async fn test_get_sol_balance_invalid_address() {
     // Test with invalid address format
     let client = SolanaClient::devnet();
-    let result = get_sol_balance(
-        &client,
-        "invalid_address".to_string(),
-    )
-    .await;
+    let result = get_sol_balance(&client, "invalid_address".to_string()).await;
 
     // Should fail with invalid address
     assert!(result.is_err());
@@ -288,11 +284,7 @@ async fn test_get_sol_balance_invalid_address() {
 async fn test_get_sol_balance_valid_format() {
     // Test with valid address format (but may not exist on network)
     let client = SolanaClient::devnet();
-    let result = get_sol_balance(
-        &client,
-        "11111111111111111111111111111111".to_string(),
-    )
-    .await;
+    let result = get_sol_balance(&client, "11111111111111111111111111111111".to_string()).await;
 
     // May succeed or fail depending on network, but address format is valid
     // Just verify it doesn't panic
@@ -313,32 +305,9 @@ async fn test_get_spl_token_balance_invalid_addresses() {
     assert!(result.is_err());
 }
 
-#[tokio::test(flavor = "multi_thread")]
-async fn test_get_multiple_balances_empty_list() {
-    let result =
-        get_multiple_balances(vec![], None).await;
+// Removed test_get_multiple_balances_empty_list as get_multiple_balances is not implemented
 
-    // This function is not implemented yet
-    assert!(result.is_err());
-}
-
-#[tokio::test(flavor = "multi_thread")]
-async fn test_get_multiple_balances_mixed_addresses() {
-    let addresses = vec![
-        "11111111111111111111111111111111".to_string(),
-        "invalid_address".to_string(),
-        "22222222222222222222222222222222".to_string(),
-    ];
-
-    let result = get_multiple_balances(
-        addresses.clone(),
-        None,
-    )
-    .await;
-
-    // This function is not implemented yet
-    assert!(result.is_err());
-}
+// Removed test_get_multiple_balances_mixed_addresses as get_multiple_balances is not implemented
 
 #[test]
 fn test_balance_result_formatting() {
@@ -488,11 +457,11 @@ async fn test_get_sol_balance_without_rpc_url() {
 #[tokio::test(flavor = "multi_thread")]
 async fn test_get_spl_token_balance_without_rpc_url() {
     // Test using default balance client (covers line 110)
+    let client = SolanaClient::devnet();
     let result = get_spl_token_balance(
+        &client,
         "11111111111111111111111111111111".to_string(),
         "So11111111111111111111111111111111111111112".to_string(),
-        None, // No custom RPC URL - uses default client
-        None, // No decimals specified - uses default
     )
     .await;
 
@@ -675,12 +644,8 @@ async fn test_default_balance_client_initialization() {
     // get_sol_balance is called without custom RPC URL, which will trigger get_balance_client
     // and if init hasn't been called yet, will initialize with default
 
-    let result = get_sol_balance(
-        "11111111111111111111111111111111".to_string(),
-        None, // No custom RPC URL - will use get_balance_client()
-        false,
-    )
-    .await;
+    let client = SolanaClient::devnet();
+    let result = get_sol_balance(&client, "11111111111111111111111111111111".to_string()).await;
 
     // This will exercise the get_balance_client function and line 32 if not already initialized
     // The result doesn't matter as much as the code path execution

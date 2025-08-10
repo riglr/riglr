@@ -191,8 +191,7 @@ impl SolanaClient {
             .map_err(|e| SolanaToolError::Rpc(e.to_string()))?;
 
         // Convert to JSON value
-        let json =
-            serde_json::to_value(transaction).map_err(|e| SolanaToolError::Serialization(e))?;
+        let json = serde_json::to_value(transaction).map_err(SolanaToolError::Serialization)?;
 
         Ok(json)
     }
@@ -348,12 +347,9 @@ impl SolanaClient {
             .json(&request)
             .send()
             .await
-            .map_err(|e| SolanaToolError::Http(e))?;
+            .map_err(SolanaToolError::Http)?;
 
-        let result: serde_json::Value = response
-            .json()
-            .await
-            .map_err(|e| SolanaToolError::Http(e))?;
+        let result: serde_json::Value = response.json().await.map_err(SolanaToolError::Http)?;
 
         if let Some(error) = result.get("error") {
             error!("RPC error: {:?}", error);

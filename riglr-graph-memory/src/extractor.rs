@@ -13,7 +13,7 @@ use crate::{
 use once_cell::sync::Lazy;
 use regex::Regex;
 use std::collections::{HashMap, HashSet};
-use tracing::{debug, info, warn};
+use tracing::{debug, info};
 
 /// Production-grade entity extractor for blockchain text analysis
 #[derive(Debug)]
@@ -352,7 +352,7 @@ impl EntityExtractor {
             let (value_str, unit) = self.parse_amount_match(full_match);
 
             if let Ok(value) = self.parse_numeric_value(&value_str) {
-                let amount_type = self.classify_amount_type(&full_match, text);
+                let amount_type = self.classify_amount_type(full_match, text);
 
                 amounts.push(AmountMention {
                     text: full_match.to_string(),
@@ -522,12 +522,12 @@ impl EntityExtractor {
         alt2: &'a [EntityMention],
     ) -> Option<&'a EntityMention> {
         // Simple implementation - find first entity that appears in context
-        for entity in entities.iter().chain(alt1.iter()).chain(alt2.iter()) {
-            if context.to_lowercase().contains(&entity.canonical) {
-                return Some(entity);
-            }
-        }
-        None
+        entities
+            .iter()
+            .chain(alt1.iter())
+            .chain(alt2.iter())
+            .find(|&entity| context.to_lowercase().contains(&entity.canonical))
+            .map(|v| v as _)
     }
 }
 

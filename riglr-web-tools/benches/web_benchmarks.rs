@@ -1,32 +1,26 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId, Throughput};
+use chrono::{DateTime, Utc};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use riglr_web_tools::{
     client::WebClient,
-    web_search::{WebSearchInput, SearchResult},
-    dexscreener::{DexTokenSearchInput, TokenData, PairData},
-    news::{NewsSearchInput, NewsArticle},
-    twitter::{TwitterSearchInput, Tweet},
+    dexscreener::{DexTokenSearchInput, PairData, TokenData},
     error::WebToolError,
+    news::{NewsArticle, NewsSearchInput},
+    twitter::{Tweet, TwitterSearchInput},
+    web_search::{SearchResult, WebSearchInput},
 };
 use serde_json::json;
 use std::sync::Arc;
 use tokio::runtime::Runtime;
-use chrono::{DateTime, Utc};
 
 fn client_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("web_client");
-    
-    group.bench_function("client_creation", |b| {
-        b.iter(|| {
-            WebClient::new(None)
-        })
-    });
-    
+
+    group.bench_function("client_creation", |b| b.iter(|| WebClient::new(None)));
+
     group.bench_function("client_with_timeout", |b| {
-        b.iter(|| {
-            WebClient::new(Some(black_box(30)))
-        })
+        b.iter(|| WebClient::new(Some(black_box(30))))
     });
-    
+
     group.bench_function("url_parsing", |b| {
         let urls = vec![
             "https://api.example.com/v1/search",
@@ -34,14 +28,14 @@ fn client_benchmarks(c: &mut Criterion) {
             "https://dexscreener.com/api/tokens",
             "https://newsapi.org/v2/everything",
         ];
-        
+
         b.iter(|| {
             for url in &urls {
                 let _parsed = url::Url::parse(black_box(url));
             }
         })
     });
-    
+
     group.bench_function("header_creation", |b| {
         b.iter(|| {
             let mut headers = std::collections::HashMap::new();
@@ -51,13 +45,13 @@ fn client_benchmarks(c: &mut Criterion) {
             black_box(headers)
         })
     });
-    
+
     group.finish();
 }
 
 fn web_search_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("web_search");
-    
+
     group.bench_function("search_input_parsing", |b| {
         b.iter(|| {
             let input = json!({
@@ -68,18 +62,16 @@ fn web_search_benchmarks(c: &mut Criterion) {
             serde_json::from_value::<WebSearchInput>(black_box(input))
         })
     });
-    
+
     group.bench_function("search_result_creation", |b| {
-        b.iter(|| {
-            SearchResult {
-                title: "Example Title".to_string(),
-                url: "https://example.com".to_string(),
-                snippet: "This is an example snippet of search result content".to_string(),
-                source: Some("example.com".to_string()),
-            }
+        b.iter(|| SearchResult {
+            title: "Example Title".to_string(),
+            url: "https://example.com".to_string(),
+            snippet: "This is an example snippet of search result content".to_string(),
+            source: Some("example.com".to_string()),
         })
     });
-    
+
     group.bench_function("query_sanitization", |b| {
         let queries = vec![
             "rust programming",
@@ -88,21 +80,24 @@ fn web_search_benchmarks(c: &mut Criterion) {
             "web3 + defi",
             "special!@#$%^&*()characters",
         ];
-        
+
         b.iter(|| {
             for query in &queries {
-                let _sanitized = query.replace(&['&', '/', '+', '!', '@', '#', '$', '%', '^', '*', '(', ')'][..], " ");
+                let _sanitized = query.replace(
+                    &['&', '/', '+', '!', '@', '#', '$', '%', '^', '*', '(', ')'][..],
+                    " ",
+                );
                 black_box(_sanitized);
             }
         })
     });
-    
+
     group.finish();
 }
 
 fn dexscreener_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("dexscreener");
-    
+
     group.bench_function("token_search_input_parsing", |b| {
         b.iter(|| {
             let input = json!({
@@ -112,88 +107,85 @@ fn dexscreener_benchmarks(c: &mut Criterion) {
             serde_json::from_value::<DexTokenSearchInput>(black_box(input))
         })
     });
-    
+
     group.bench_function("token_data_creation", |b| {
-        b.iter(|| {
-            TokenData {
+        b.iter(|| TokenData {
+            address: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48".to_string(),
+            name: "USD Coin".to_string(),
+            symbol: "USDC".to_string(),
+            decimals: 6,
+            total_supply: Some("1000000000000000".to_string()),
+            price_usd: Some("1.0".to_string()),
+            market_cap: Some("30000000000".to_string()),
+            volume_24h: Some("1000000000".to_string()),
+            price_change_24h: Some("-0.01".to_string()),
+        })
+    });
+
+    group.bench_function("pair_data_creation", |b| {
+        b.iter(|| PairData {
+            chain_id: "ethereum".to_string(),
+            dex_id: "uniswap_v3".to_string(),
+            pair_address: "0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640".to_string(),
+            base_token: TokenData {
                 address: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48".to_string(),
                 name: "USD Coin".to_string(),
                 symbol: "USDC".to_string(),
                 decimals: 6,
-                total_supply: Some("1000000000000000".to_string()),
-                price_usd: Some("1.0".to_string()),
-                market_cap: Some("30000000000".to_string()),
-                volume_24h: Some("1000000000".to_string()),
-                price_change_24h: Some("-0.01".to_string()),
-            }
+                total_supply: None,
+                price_usd: None,
+                market_cap: None,
+                volume_24h: None,
+                price_change_24h: None,
+            },
+            quote_token: TokenData {
+                address: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2".to_string(),
+                name: "Wrapped Ether".to_string(),
+                symbol: "WETH".to_string(),
+                decimals: 18,
+                total_supply: None,
+                price_usd: None,
+                market_cap: None,
+                volume_24h: None,
+                price_change_24h: None,
+            },
+            price_native: "0.0005".to_string(),
+            price_usd: Some("1.0".to_string()),
+            liquidity_usd: "100000000".to_string(),
+            volume_24h: "10000000".to_string(),
+            price_change_24h: "-0.5".to_string(),
+            txns_24h: 1000,
         })
     });
-    
-    group.bench_function("pair_data_creation", |b| {
-        b.iter(|| {
-            PairData {
-                chain_id: "ethereum".to_string(),
-                dex_id: "uniswap_v3".to_string(),
-                pair_address: "0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640".to_string(),
-                base_token: TokenData {
-                    address: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48".to_string(),
-                    name: "USD Coin".to_string(),
-                    symbol: "USDC".to_string(),
-                    decimals: 6,
-                    total_supply: None,
-                    price_usd: None,
-                    market_cap: None,
-                    volume_24h: None,
-                    price_change_24h: None,
-                },
-                quote_token: TokenData {
-                    address: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2".to_string(),
-                    name: "Wrapped Ether".to_string(),
-                    symbol: "WETH".to_string(),
-                    decimals: 18,
-                    total_supply: None,
-                    price_usd: None,
-                    market_cap: None,
-                    volume_24h: None,
-                    price_change_24h: None,
-                },
-                price_native: "0.0005".to_string(),
-                price_usd: Some("1.0".to_string()),
-                liquidity_usd: "100000000".to_string(),
-                volume_24h: "10000000".to_string(),
-                price_change_24h: "-0.5".to_string(),
-                txns_24h: 1000,
-            }
-        })
-    });
-    
+
     group.bench_function("chain_validation", |b| {
         let chains = vec![
-            "ethereum",
-            "polygon",
-            "arbitrum",
-            "optimism",
-            "solana",
-            "bsc",
+            "ethereum", "polygon", "arbitrum", "optimism", "solana", "bsc",
         ];
-        
+
         b.iter(|| {
             for chain in &chains {
-                let _valid = matches!(*chain, 
-                    "ethereum" | "polygon" | "arbitrum" | 
-                    "optimism" | "solana" | "bsc" | "avalanche"
+                let _valid = matches!(
+                    *chain,
+                    "ethereum"
+                        | "polygon"
+                        | "arbitrum"
+                        | "optimism"
+                        | "solana"
+                        | "bsc"
+                        | "avalanche"
                 );
                 black_box(_valid);
             }
         })
     });
-    
+
     group.finish();
 }
 
 fn news_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("news");
-    
+
     group.bench_function("news_search_input_parsing", |b| {
         b.iter(|| {
             let input = json!({
@@ -206,30 +198,23 @@ fn news_benchmarks(c: &mut Criterion) {
             serde_json::from_value::<NewsSearchInput>(black_box(input))
         })
     });
-    
+
     group.bench_function("news_article_creation", |b| {
-        b.iter(|| {
-            NewsArticle {
-                title: "Breaking News: Blockchain Revolution".to_string(),
-                description: Some("A comprehensive look at blockchain technology".to_string()),
-                url: "https://news.example.com/article".to_string(),
-                source: "Example News".to_string(),
-                author: Some("John Doe".to_string()),
-                published_at: Utc::now(),
-                content: Some("Full article content here...".to_string()),
-                url_to_image: Some("https://news.example.com/image.jpg".to_string()),
-            }
+        b.iter(|| NewsArticle {
+            title: "Breaking News: Blockchain Revolution".to_string(),
+            description: Some("A comprehensive look at blockchain technology".to_string()),
+            url: "https://news.example.com/article".to_string(),
+            source: "Example News".to_string(),
+            author: Some("John Doe".to_string()),
+            published_at: Utc::now(),
+            content: Some("Full article content here...".to_string()),
+            url_to_image: Some("https://news.example.com/image.jpg".to_string()),
         })
     });
-    
+
     group.bench_function("date_parsing", |b| {
-        let dates = vec![
-            "2024-01-01",
-            "2024-12-31",
-            "2023-06-15",
-            "2025-03-20",
-        ];
-        
+        let dates = vec!["2024-01-01", "2024-12-31", "2023-06-15", "2025-03-20"];
+
         b.iter(|| {
             for date_str in &dates {
                 let _parsed = DateTime::parse_from_rfc3339(&format!("{}T00:00:00Z", date_str));
@@ -237,10 +222,10 @@ fn news_benchmarks(c: &mut Criterion) {
             }
         })
     });
-    
+
     group.bench_function("language_validation", |b| {
         let languages = vec!["en", "es", "fr", "de", "zh", "ja", "ko", "ru"];
-        
+
         b.iter(|| {
             for lang in &languages {
                 let _valid = lang.len() == 2;
@@ -248,13 +233,13 @@ fn news_benchmarks(c: &mut Criterion) {
             }
         })
     });
-    
+
     group.finish();
 }
 
 fn twitter_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("twitter");
-    
+
     group.bench_function("twitter_search_input_parsing", |b| {
         b.iter(|| {
             let input = json!({
@@ -266,24 +251,22 @@ fn twitter_benchmarks(c: &mut Criterion) {
             serde_json::from_value::<TwitterSearchInput>(black_box(input))
         })
     });
-    
+
     group.bench_function("tweet_creation", |b| {
-        b.iter(|| {
-            Tweet {
-                id: "1234567890123456789".to_string(),
-                text: "This is a sample tweet about #blockchain and #crypto".to_string(),
-                author: "crypto_enthusiast".to_string(),
-                created_at: Utc::now(),
-                retweet_count: 42,
-                like_count: 100,
-                reply_count: 10,
-                quote_count: Some(5),
-                lang: Some("en".to_string()),
-                url: "https://twitter.com/crypto_enthusiast/status/1234567890123456789".to_string(),
-            }
+        b.iter(|| Tweet {
+            id: "1234567890123456789".to_string(),
+            text: "This is a sample tweet about #blockchain and #crypto".to_string(),
+            author: "crypto_enthusiast".to_string(),
+            created_at: Utc::now(),
+            retweet_count: 42,
+            like_count: 100,
+            reply_count: 10,
+            quote_count: Some(5),
+            lang: Some("en".to_string()),
+            url: "https://twitter.com/crypto_enthusiast/status/1234567890123456789".to_string(),
         })
     });
-    
+
     group.bench_function("hashtag_extraction", |b| {
         let tweets = vec![
             "Check out #blockchain and #crypto news",
@@ -291,7 +274,7 @@ fn twitter_benchmarks(c: &mut Criterion) {
             "No hashtags in this tweet",
             "#AI #ML #DataScience #Programming",
         ];
-        
+
         b.iter(|| {
             for tweet in &tweets {
                 let hashtags: Vec<&str> = tweet
@@ -302,51 +285,43 @@ fn twitter_benchmarks(c: &mut Criterion) {
             }
         })
     });
-    
+
     group.finish();
 }
 
 fn error_handling_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("error_handling");
-    
+
     group.bench_function("error_api_error", |b| {
-        b.iter(|| {
-            WebToolError::ApiError(black_box("API rate limit exceeded".to_string()))
-        })
+        b.iter(|| WebToolError::ApiError(black_box("API rate limit exceeded".to_string())))
     });
-    
+
     group.bench_function("error_parse_error", |b| {
-        b.iter(|| {
-            WebToolError::ParseError(black_box("Invalid JSON response".to_string()))
-        })
+        b.iter(|| WebToolError::ParseError(black_box("Invalid JSON response".to_string())))
     });
-    
+
     group.bench_function("error_network_error", |b| {
-        b.iter(|| {
-            WebToolError::NetworkError(black_box("Connection timeout".to_string()))
-        })
+        b.iter(|| WebToolError::NetworkError(black_box("Connection timeout".to_string())))
     });
-    
+
     group.bench_function("error_display", |b| {
         let error = WebToolError::ApiError("test".to_string());
-        b.iter(|| {
-            format!("{}", black_box(&error))
-        })
+        b.iter(|| format!("{}", black_box(&error)))
     });
-    
+
     group.finish();
 }
 
 fn serialization_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("serialization");
-    
+
     let test_data = vec![
         json!({"query": "test", "page": 1}),
         json!({"results": ["item1", "item2", "item3"]}),
         json!({"timestamp": "2024-01-01T00:00:00Z", "value": 123.45}),
         json!({"nested": {"data": {"value": 42}}}),
     ];
-    
+
     group.bench_function("json_serialize", |b| {
         b.iter(|| {
             for data in &test_data {
@@ -354,21 +329,21 @@ fn serialization_benchmarks(c: &mut Criterion) {
             }
         })
     });
-    
+
     group.bench_function("json_deserialize", |b| {
         let json_strings: Vec<String> = test_data
             .iter()
             .map(|d| serde_json::to_string(d).unwrap())
             .collect();
-        
+
         b.iter(|| {
             for json_str in &json_strings {
-                let _deserialized: serde_json::Value = 
+                let _deserialized: serde_json::Value =
                     serde_json::from_str(black_box(json_str)).unwrap();
             }
         })
     });
-    
+
     group.bench_function("json_pretty_print", |b| {
         b.iter(|| {
             for data in &test_data {
@@ -376,16 +351,16 @@ fn serialization_benchmarks(c: &mut Criterion) {
             }
         })
     });
-    
+
     group.finish();
 }
 
 fn throughput_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("throughput");
-    
+
     for size in [10, 100, 1000].iter() {
         group.throughput(Throughput::Elements(*size as u64));
-        
+
         group.bench_with_input(
             BenchmarkId::new("process_search_results", size),
             size,
@@ -398,7 +373,7 @@ fn throughput_benchmarks(c: &mut Criterion) {
                         source: Some("example.com".to_string()),
                     })
                     .collect();
-                
+
                 b.iter(|| {
                     for result in &results {
                         let _processed = format!("{}: {}", result.title, result.url);
@@ -407,37 +382,33 @@ fn throughput_benchmarks(c: &mut Criterion) {
                 })
             },
         );
-        
-        group.bench_with_input(
-            BenchmarkId::new("filter_tweets", size),
-            size,
-            |b, &size| {
-                let tweets: Vec<String> = (0..size)
-                    .map(|i| format!("Tweet {} with #hashtag{}", i, i % 10))
-                    .collect();
-                
-                b.iter(|| {
-                    let filtered: Vec<&String> = tweets
-                        .iter()
-                        .filter(|t| t.contains("#hashtag"))
-                        .collect();
-                    black_box(filtered);
-                })
-            },
-        );
-        
+
+        group.bench_with_input(BenchmarkId::new("filter_tweets", size), size, |b, &size| {
+            let tweets: Vec<String> = (0..size)
+                .map(|i| format!("Tweet {} with #hashtag{}", i, i % 10))
+                .collect();
+
+            b.iter(|| {
+                let filtered: Vec<&String> =
+                    tweets.iter().filter(|t| t.contains("#hashtag")).collect();
+                black_box(filtered);
+            })
+        });
+
         group.bench_with_input(
             BenchmarkId::new("parse_articles", size),
             size,
             |b, &size| {
                 let articles: Vec<serde_json::Value> = (0..size)
-                    .map(|i| json!({
-                        "title": format!("Article {}", i),
-                        "url": format!("https://news.com/{}", i),
-                        "published": "2024-01-01T00:00:00Z"
-                    }))
+                    .map(|i| {
+                        json!({
+                            "title": format!("Article {}", i),
+                            "url": format!("https://news.com/{}", i),
+                            "published": "2024-01-01T00:00:00Z"
+                        })
+                    })
                     .collect();
-                
+
                 b.iter(|| {
                     for article in &articles {
                         let _title = article.get("title");
@@ -448,14 +419,14 @@ fn throughput_benchmarks(c: &mut Criterion) {
             },
         );
     }
-    
+
     group.finish();
 }
 
 fn concurrent_operations_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("concurrent_operations");
     let rt = Runtime::new().unwrap();
-    
+
     for num_tasks in [1, 2, 4, 8].iter() {
         group.bench_with_input(
             BenchmarkId::from_parameter(num_tasks),
@@ -464,7 +435,7 @@ fn concurrent_operations_benchmarks(c: &mut Criterion) {
                 b.iter(|| {
                     rt.block_on(async {
                         let mut handles = vec![];
-                        
+
                         for _ in 0..num_tasks {
                             let handle = tokio::spawn(async move {
                                 for i in 0..100 {
@@ -475,7 +446,7 @@ fn concurrent_operations_benchmarks(c: &mut Criterion) {
                             });
                             handles.push(handle);
                         }
-                        
+
                         for handle in handles {
                             handle.await.unwrap();
                         }
@@ -484,7 +455,7 @@ fn concurrent_operations_benchmarks(c: &mut Criterion) {
             },
         );
     }
-    
+
     group.finish();
 }
 

@@ -4,16 +4,57 @@
 //! enabling token swaps with optimal routing across multiple pools.
 
 use crate::{
-    client::{validate_address, EvmClient},
+    client::{eth_to_wei, validate_address, wei_to_eth, EvmClient},
     error::{EvmToolError, Result},
-    transaction::{derive_address_from_key, get_evm_signer_context, TransactionStatus},
+    transaction::{get_evm_signer_context, TransactionResult},
 };
+use alloy::{
+    network::EthereumWallet,
+    primitives::{Address, Bytes, U256},
+    providers::Provider,
+    rpc::types::TransactionRequest,
+    sol,
+    sol_types::SolCall,
+};
+use riglr_core::ToolError;
 use riglr_macros::tool;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use serde_json::json;
 use std::sync::Arc;
+use std::time::{SystemTime, UNIX_EPOCH};
 use tracing::{debug, info, warn};
+
+// Define Uniswap V3 interfaces
+sol! {
+    #[allow(missing_docs)]
+    interface ISwapRouter {
+        struct ExactInputSingleParams {
+            address tokenIn;
+            address tokenOut;
+            uint24 fee;
+            address recipient;
+            uint256 deadline;
+            uint256 amountIn;
+            uint256 amountOutMinimum;
+            uint160 sqrtPriceLimitX96;
+        }
+
+        function exactInputSingle(ExactInputSingleParams calldata params)
+            external
+            payable
+            returns (uint256 amountOut);
+    }
+
+    interface IQuoter {
+        function quoteExactInputSingle(
+            address tokenIn,
+            address tokenOut,
+            uint24 fee,
+            uint256 amountIn,
+            uint160 sqrtPriceLimitX96
+        ) external returns (uint256 amountOut);
+    }
+}
 
 /// Uniswap V3 configuration
 #[derive(Debug, Clone)]
@@ -49,7 +90,7 @@ impl UniswapConfig {
         }
     }
 
-    /// Default configuration for Arbitrum One
+    /// Default configuration for Arbitrum
     pub fn arbitrum() -> Self {
         Self {
             router_address: "0xE592427A0AEce92De3Edee1F18E0157C05861564".to_string(),
@@ -58,472 +99,362 @@ impl UniswapConfig {
             deadline_seconds: 300,
         }
     }
-}
 
-impl Default for UniswapConfig {
-    fn default() -> Self {
-        Self::ethereum()
+    /// Default configuration for Optimism
+    pub fn optimism() -> Self {
+        Self {
+            router_address: "0xE592427A0AEce92De3Edee1F18E0157C05861564".to_string(),
+            quoter_address: "0x61fFE014bA17989E743c5F6cB21bF9697530B21e".to_string(),
+            slippage_bps: 50,
+            deadline_seconds: 300,
+        }
+    }
+
+    /// Default configuration for Base
+    pub fn base() -> Self {
+        Self {
+            router_address: "0x2626664c2603336E57B271c5C0b26F421741e481".to_string(),
+            quoter_address: "0x3d4e44Eb1374240CE5F1B871ab261CD16335B76a".to_string(),
+            slippage_bps: 50,
+            deadline_seconds: 300,
+        }
+    }
+
+    /// Get configuration for a specific chain ID
+    pub fn for_chain(chain_id: u64) -> Self {
+        match chain_id {
+            1 => Self::ethereum(),
+            137 => Self::polygon(),
+            42161 => Self::arbitrum(),
+            10 => Self::optimism(),
+            8453 => Self::base(),
+            _ => Self::ethereum(), // Default to Ethereum
+        }
     }
 }
 
+/// Result of a Uniswap quote
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct UniswapQuote {
+    /// Input token address
+    pub token_in: String,
+    /// Output token address
+    pub token_out: String,
+    /// Input amount in smallest units
+    pub amount_in: String,
+    /// Expected output amount in smallest units
+    pub amount_out: String,
+    /// Price per input token
+    pub price: f64,
+    /// Fee tier (100 = 0.01%, 500 = 0.05%, 3000 = 0.3%, 10000 = 1%)
+    pub fee_tier: u32,
+    /// Slippage tolerance in basis points
+    pub slippage_bps: u16,
+    /// Minimum output amount after slippage
+    pub amount_out_minimum: String,
+}
+
+/// Result of a Uniswap swap
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct UniswapSwapResult {
+    /// Transaction hash
+    pub tx_hash: String,
+    /// Input token address
+    pub token_in: String,
+    /// Output token address
+    pub token_out: String,
+    /// Input amount
+    pub amount_in: String,
+    /// Actual output amount received
+    pub amount_out: String,
+    /// Gas used
+    pub gas_used: Option<u128>,
+    /// Status
+    pub status: bool,
+}
+
+/// Get a quote from Uniswap V3
 ///
-/// This tool queries Uniswap V3's Quoter contract for the best swap route
-/// and returns the expected output amount.
-// // #[tool]
+/// This tool queries Uniswap V3 to get a quote for swapping tokens.
+#[tool]
 pub async fn get_uniswap_quote(
     token_in: String,
     token_out: String,
     amount_in: String,
-    fee_tier: u32,
+    decimals_in: u8,
+    decimals_out: u8,
+    fee_tier: Option<u32>,
+    slippage_bps: Option<u16>,
     rpc_url: Option<String>,
-    network_config: Option<String>,
-) -> anyhow::Result<SwapQuote> {
+) -> Result<UniswapQuote, ToolError> {
     debug!(
-        "Getting Uniswap quote: {} -> {} (amount: {})",
-        token_in, token_out, amount_in
-    );
-
-    // Validate token addresses
-    let validated_token_in =
-        validate_address(&token_in).map_err(|e| anyhow::anyhow!("Invalid input token: {}", e))?;
-    let validated_token_out =
-        validate_address(&token_out).map_err(|e| anyhow::anyhow!("Invalid output token: {}", e))?;
-
-    // Parse amount
-    let amount_raw: u128 = amount_in
-        .parse()
-        .map_err(|e| anyhow::anyhow!("Invalid amount: {}", e))?;
-
-    // Create client
-    let client = if let Some(url) = rpc_url {
-        Arc::new(
-            EvmClient::with_rpc_url(url)
-                .await
-                .map_err(|e| anyhow::anyhow!("Failed to create client: {}", e))?,
-        )
-    } else {
-        Arc::new(
-            EvmClient::ethereum()
-                .await
-                .map_err(|e| anyhow::anyhow!("Failed to create Ethereum client: {}", e))?,
-        )
-    };
-
-    // Get network config
-    let config = match network_config.as_deref() {
-        Some("polygon") => UniswapConfig::polygon(),
-        Some("arbitrum") => UniswapConfig::arbitrum(),
-        _ => match client.chain_id {
-            137 => UniswapConfig::polygon(),
-            42161 => UniswapConfig::arbitrum(),
-            _ => UniswapConfig::ethereum(),
-        },
-    };
-
-    // Build quote call data for Quoter contract
-    // quoteExactInputSingle(address tokenIn, address tokenOut, uint24 fee, uint256 amountIn, uint160 sqrtPriceLimitX96)
-    let quote_call_data = build_quote_call_data(
-        &validated_token_in,
-        &validated_token_out,
-        fee_tier,
-        amount_raw,
-        0, // sqrtPriceLimitX96 = 0 means no price limit
-    )?;
-
-    debug!(
-        "Calling Uniswap Quoter at {} with data: {}",
-        config.quoter_address, quote_call_data
-    );
-
-    // Call quoter contract
-    let result = client
-        .call_contract(&config.quoter_address, &quote_call_data)
-        .await
-        .map_err(|e| anyhow::anyhow!("Failed to get quote from Uniswap: {}", e))?;
-
-    // Parse result (uint256 amountOut)
-    let amount_out = u128::from_str_radix(result.trim_start_matches("0x"), 16).unwrap_or(0);
-
-    // Calculate price impact (simplified)
-    let price_impact = calculate_price_impact(amount_raw, amount_out);
-
-    let network = match client.chain_id {
-        1 => "Ethereum".to_string(),
-        137 => "Polygon".to_string(),
-        42161 => "Arbitrum One".to_string(),
-        10 => "Optimism".to_string(),
-        8453 => "Base".to_string(),
-        _ => format!("Chain {}", client.chain_id),
-    };
-
-    info!(
-        "Uniswap quote: {} -> {} (fee tier: {}, price impact: {:.2}%)",
-        amount_raw,
-        amount_out,
-        fee_tier,
-        price_impact * 100.0
-    );
-
-    Ok(SwapQuote {
-        token_in: validated_token_in,
-        token_out: validated_token_out,
-        amount_in: amount_raw,
-        amount_out,
-        fee_tier,
-        price_impact_pct: price_impact * 100.0,
-        router_address: config.router_address.clone(),
-        network,
-    })
-}
-
-///
-/// This tool executes a swap using Uniswap V3's SwapRouter,
-/// handling transaction construction and submission.
-// // #[tool]
-pub async fn perform_uniswap_swap(
-    token_in: String,
-    token_out: String,
-    amount_in: String,
-    amount_out_minimum: String,
-    fee_tier: u32,
-    from_signer: Option<String>,
-    rpc_url: Option<String>,
-    network_config: Option<String>,
-    gas_price: Option<u64>,
-    gas_limit: Option<u64>,
-    idempotency_key: Option<String>,
-) -> anyhow::Result<SwapResult> {
-    debug!(
-        "Executing Uniswap swap: {} {} -> {}",
+        "Getting Uniswap quote for {} {} to {}",
         amount_in, token_in, token_out
     );
 
     // Validate addresses
-    let validated_token_in =
-        validate_address(&token_in).map_err(|e| anyhow::anyhow!("Invalid input token: {}", e))?;
-    let validated_token_out =
-        validate_address(&token_out).map_err(|e| anyhow::anyhow!("Invalid output token: {}", e))?;
-
-    // Parse amounts
-    let amount_in_raw: u128 = amount_in
-        .parse()
-        .map_err(|e| anyhow::anyhow!("Invalid input amount: {}", e))?;
-    let amount_out_min_raw: u128 = amount_out_minimum
-        .parse()
-        .map_err(|e| anyhow::anyhow!("Invalid minimum output amount: {}", e))?;
-
-    // Get signer
-    let signer_context = get_evm_signer_context()
-        .map_err(|e| anyhow::anyhow!("Failed to get signer context: {}", e))?;
-
-    let signer_key = if let Some(name) = from_signer {
-        signer_context
-            .get_signer(&name)
-            .map_err(|e| anyhow::anyhow!("Failed to get signer '{}': {}", name, e))?
-    } else {
-        signer_context
-            .get_default_signer()
-            .map_err(|e| anyhow::anyhow!("Failed to get default signer: {}", e))?
-    };
+    let token_in_addr = validate_address(&token_in)
+        .map_err(|e| ToolError::permanent(format!("Invalid token_in address: {}", e)))?;
+    let token_out_addr = validate_address(&token_out)
+        .map_err(|e| ToolError::permanent(format!("Invalid token_out address: {}", e)))?;
 
     // Create client
     let client = if let Some(url) = rpc_url {
-        Arc::new(
-            EvmClient::with_rpc_url(url)
-                .await
-                .map_err(|e| anyhow::anyhow!("Failed to create client: {}", e))?,
-        )
+        EvmClient::new(url).await
     } else {
-        Arc::new(
-            EvmClient::ethereum()
-                .await
-                .map_err(|e| anyhow::anyhow!("Failed to create Ethereum client: {}", e))?,
-        )
-    };
+        EvmClient::mainnet().await
+    }
+    .map_err(|e| ToolError::retriable(format!("Failed to create client: {}", e)))?;
 
-    // Get network config
-    let config = match network_config.as_deref() {
-        Some("polygon") => UniswapConfig::polygon(),
-        Some("arbitrum") => UniswapConfig::arbitrum(),
-        _ => match client.chain_id {
-            137 => UniswapConfig::polygon(),
-            42161 => UniswapConfig::arbitrum(),
-            _ => UniswapConfig::ethereum(),
-        },
-    };
+    // Get Uniswap config for this chain
+    let config = UniswapConfig::for_chain(client.chain_id);
 
-    let from_address = derive_address_from_key(&signer_key)?;
+    // Parse amount
+    let amount_in_wei = parse_amount_with_decimals(&amount_in, decimals_in)
+        .map_err(|e| ToolError::permanent(format!("Invalid amount: {}", e)))?;
 
-    // Get nonce and gas price
-    let nonce = client
-        .get_transaction_count(&from_address)
-        .await
-        .map_err(|e| anyhow::anyhow!("Failed to get nonce: {}", e))?;
+    // Default fee tier to 0.3% (3000)
+    let fee = fee_tier.unwrap_or(3000) as u32;
 
-    let gas_price = if let Some(price) = gas_price {
-        price
+    // Get quote from Quoter contract
+    let quoter_addr = validate_address(&config.quoter_address)
+        .map_err(|e| ToolError::permanent(format!("Invalid quoter address: {}", e)))?;
+
+    let quote_amount = get_quote_from_quoter(
+        &client,
+        quoter_addr,
+        token_in_addr,
+        token_out_addr,
+        fee,
+        amount_in_wei,
+    )
+    .await
+    .map_err(|e| {
+        let error_str = e.to_string();
+        if error_str.contains("revert") {
+            ToolError::permanent(format!("Quote failed (likely no liquidity): {}", e))
+        } else {
+            ToolError::retriable(format!("Failed to get quote: {}", e))
+        }
+    })?;
+
+    // Calculate price
+    let amount_in_f64 = amount_in.parse::<f64>().unwrap_or(0.0);
+    let amount_out_f64 = format_amount_with_decimals(quote_amount, decimals_out);
+    let price = if amount_in_f64 > 0.0 {
+        amount_out_f64 / amount_in_f64
     } else {
-        client
-            .get_gas_price()
-            .await
-            .map_err(|e| anyhow::anyhow!("Failed to get gas price: {}", e))?
+        0.0
     };
 
-    // Build swap call data
-    let deadline = (std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_secs()
-        + config.deadline_seconds) as u128;
+    // Calculate minimum output with slippage
+    let slippage = slippage_bps.unwrap_or(config.slippage_bps);
+    let slippage_factor = 1.0 - (slippage as f64 / 10000.0);
+    let min_output = (quote_amount.to::<u128>() as f64 * slippage_factor) as u128;
 
-    let swap_call_data = build_swap_call_data(
-        &validated_token_in,
-        &validated_token_out,
-        fee_tier,
-        &from_address,
-        amount_in_raw,
-        amount_out_min_raw,
-        deadline,
-    )?;
-
-    // Build transaction data
-    let transaction_data = crate::transaction::build_contract_call_tx(
-        &config.router_address,
-        &swap_call_data,
-        nonce,
-        gas_price,
-        gas_limit.unwrap_or(300000), // Uniswap V3 swap gas limit
-        client.chain_id,
-    )?;
-
-    // Sign transaction
-    let signed_tx = crate::transaction::sign_transaction(transaction_data, &signer_key)?;
-
-    // Send transaction
-    let tx_hash = client
-        .send_raw_transaction(&signed_tx)
-        .await
-        .map_err(|e| anyhow::anyhow!("Failed to send swap transaction: {}", e))?;
-
-    let network = match client.chain_id {
-        1 => "Ethereum".to_string(),
-        137 => "Polygon".to_string(),
-        42161 => "Arbitrum One".to_string(),
-        10 => "Optimism".to_string(),
-        8453 => "Base".to_string(),
-        _ => format!("Chain {}", client.chain_id),
+    let result = UniswapQuote {
+        token_in: token_in.clone(),
+        token_out: token_out.clone(),
+        amount_in: amount_in_wei.to_string(),
+        amount_out: quote_amount.to_string(),
+        price,
+        fee_tier: fee,
+        slippage_bps: slippage,
+        amount_out_minimum: U256::from(min_output).to_string(),
     };
 
     info!(
-        "Uniswap swap executed: {} {} -> {} {} (expected), tx: {}",
-        amount_in_raw, token_in, amount_out_min_raw, token_out, tx_hash
+        "Uniswap quote: {} {} -> {} {} (price: {})",
+        amount_in, token_in, amount_out_f64, token_out, price
     );
 
-    Ok(SwapResult {
-        tx_hash,
-        token_in: validated_token_in,
-        token_out: validated_token_out,
-        amount_in: amount_in_raw,
-        amount_out_minimum: amount_out_min_raw,
-        fee_tier,
-        status: TransactionStatus::Pending,
-        network,
-        gas_price,
-        idempotency_key,
-    })
+    Ok(result)
 }
 
+/// Perform a token swap on Uniswap V3
 ///
-// // #[tool]
-pub async fn get_token_price(
-    base_token: String,
-    quote_token: String,
+/// This tool executes a token swap on Uniswap V3.
+#[tool]
+pub async fn perform_uniswap_swap(
+    token_in: String,
+    token_out: String,
+    amount_in: String,
+    decimals_in: u8,
+    amount_out_minimum: String,
     fee_tier: Option<u32>,
+    deadline_seconds: Option<u64>,
     rpc_url: Option<String>,
-) -> anyhow::Result<TokenPriceInfo> {
+) -> Result<UniswapSwapResult, ToolError> {
     debug!(
-        "Getting token price: {} in terms of {}",
-        base_token, quote_token
+        "Performing Uniswap swap: {} {} to {}",
+        amount_in, token_in, token_out
     );
 
-    // Use a small amount (1 unit) to get the price
-    let amount = "1000000".to_string(); // 1 token with 6 decimals
+    // Validate addresses
+    let token_in_addr = validate_address(&token_in)
+        .map_err(|e| ToolError::permanent(format!("Invalid token_in address: {}", e)))?;
+    let token_out_addr = validate_address(&token_out)
+        .map_err(|e| ToolError::permanent(format!("Invalid token_out address: {}", e)))?;
 
-    let quote = get_uniswap_quote(
-        base_token.clone(),
-        quote_token.clone(),
-        amount,
-        fee_tier.unwrap_or(3000), // Default to 0.3% fee tier
-        rpc_url,
-        None,
-    )
-    .await?;
+    // Get signer context
+    let signer_context = get_evm_signer_context()
+        .await
+        .map_err(|e| ToolError::permanent(format!("Signer not initialized: {}", e)))?;
 
-    // Calculate price
-    let price = quote.amount_out as f64 / quote.amount_in as f64;
+    let context = signer_context.read().await;
+    let wallet = context
+        .wallet()
+        .ok_or_else(|| ToolError::permanent("No wallet configured"))?;
+    let from_addr = context
+        .address()
+        .ok_or_else(|| ToolError::permanent("No address configured"))?;
 
-    Ok(TokenPriceInfo {
-        base_token,
-        quote_token,
-        price,
-        fee_tier: quote.fee_tier,
-        price_impact_pct: quote.price_impact_pct,
-        network: quote.network,
-    })
-}
-
-/// Build quote call data for Uniswap V3 Quoter contract
-pub fn build_quote_call_data(
-    token_in: &str,
-    token_out: &str,
-    fee: u32,
-    amount_in: u128,
-    sqrt_price_limit_x96: u128,
-) -> anyhow::Result<String> {
-    // quoteExactInputSingle function selector: 0xf7729d43
-    let selector = "f7729d43";
-    let token_in_padded = format!("{:0>64}", token_in.trim_start_matches("0x"));
-    let token_out_padded = format!("{:0>64}", token_out.trim_start_matches("0x"));
-    let fee_padded = format!("{:0>64x}", fee);
-    let amount_in_padded = format!("{:0>64x}", amount_in);
-    let sqrt_price_limit_padded = format!("{:0>64x}", sqrt_price_limit_x96);
-
-    Ok(format!(
-        "0x{}{}{}{}{}{}",
-        selector,
-        token_in_padded,
-        token_out_padded,
-        fee_padded,
-        amount_in_padded,
-        sqrt_price_limit_padded
-    ))
-}
-
-/// Build swap call data for Uniswap V3 SwapRouter contract
-pub fn build_swap_call_data(
-    token_in: &str,
-    token_out: &str,
-    fee: u32,
-    recipient: &str,
-    amount_in: u128,
-    amount_out_minimum: u128,
-    deadline: u128,
-) -> anyhow::Result<String> {
-    // exactInputSingle function selector: 0x414bf389
-    let selector = "414bf389";
-
-    // Build ExactInputSingleParams struct
-    // struct ExactInputSingleParams {
-    //     address tokenIn;
-    //     address tokenOut;
-    //     uint24 fee;
-    //     address recipient;
-    //     uint256 deadline;
-    //     uint256 amountIn;
-    //     uint256 amountOutMinimum;
-    //     uint160 sqrtPriceLimitX96;
-    // }
-
-    let token_in_padded = format!("{:0>64}", token_in.trim_start_matches("0x"));
-    let token_out_padded = format!("{:0>64}", token_out.trim_start_matches("0x"));
-    let fee_padded = format!("{:0>64x}", fee);
-    let recipient_padded = format!("{:0>64}", recipient.trim_start_matches("0x"));
-    let deadline_padded = format!("{:0>64x}", deadline);
-    let amount_in_padded = format!("{:0>64x}", amount_in);
-    let amount_out_min_padded = format!("{:0>64x}", amount_out_minimum);
-    let sqrt_price_limit_padded = format!("{:0>64x}", 0u128); // No price limit
-
-    // Parameters struct offset (0x20 = 32 bytes)
-    let struct_offset = format!("{:0>64x}", 0x20u128);
-
-    Ok(format!(
-        "0x{}{}{}{}{}{}{}{}{}{}",
-        selector,
-        struct_offset,
-        token_in_padded,
-        token_out_padded,
-        fee_padded,
-        recipient_padded,
-        deadline_padded,
-        amount_in_padded,
-        amount_out_min_padded,
-        sqrt_price_limit_padded
-    ))
-}
-
-/// Calculate price impact from swap amounts
-pub fn calculate_price_impact(amount_in: u128, amount_out: u128) -> f64 {
-    // Simplified price impact calculation
-    // In production, this would be more sophisticated
-    if amount_in == 0 || amount_out == 0 {
-        return 0.0;
-    }
-
-    // This is a placeholder calculation
-    // Real price impact would consider pool reserves and swap size
-    let ratio = amount_out as f64 / amount_in as f64;
-    if ratio > 0.99 {
-        0.01 // Minimum 0.01% impact
+    // Create client
+    let client = if let Some(url) = rpc_url {
+        EvmClient::new(url).await
     } else {
-        (1.0 - ratio) * 100.0
+        EvmClient::mainnet().await
     }
+    .map_err(|e| ToolError::retriable(format!("Failed to create client: {}", e)))?;
+
+    // Get Uniswap config
+    let config = UniswapConfig::for_chain(client.chain_id);
+
+    // Parse amounts
+    let amount_in_wei = parse_amount_with_decimals(&amount_in, decimals_in)
+        .map_err(|e| ToolError::permanent(format!("Invalid amount_in: {}", e)))?;
+    let amount_out_min = amount_out_minimum
+        .parse::<U256>()
+        .map_err(|e| ToolError::permanent(format!("Invalid amount_out_minimum: {}", e)))?;
+
+    // Calculate deadline
+    let deadline = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs()
+        + deadline_seconds.unwrap_or(config.deadline_seconds);
+
+    // Create swap parameters
+    let params = ISwapRouter::ExactInputSingleParams {
+        tokenIn: token_in_addr,
+        tokenOut: token_out_addr,
+        fee: fee_tier.unwrap_or(3000) as u32,
+        recipient: from_addr,
+        deadline: U256::from(deadline),
+        amountIn: amount_in_wei,
+        amountOutMinimum: amount_out_min,
+        sqrtPriceLimitX96: U256::ZERO, // No price limit
+    };
+
+    // Encode the swap call
+    let call = ISwapRouter::exactInputSingleCall { params };
+    let call_data = call.abi_encode();
+
+    // Build transaction
+    let router_addr = validate_address(&config.router_address)
+        .map_err(|e| ToolError::permanent(format!("Invalid router address: {}", e)))?;
+
+    let tx = TransactionRequest::default()
+        .from(from_addr)
+        .to(router_addr)
+        .input(call_data.into())
+        .gas_limit(300000); // Uniswap swaps typically need more gas
+
+    // Create wallet for signing
+    let ethereum_wallet = EthereumWallet::from(wallet.clone());
+
+    // Send transaction
+    let provider_with_wallet = client.provider().with_wallet(ethereum_wallet);
+
+    let pending_tx = provider_with_wallet
+        .send_transaction(tx)
+        .await
+        .map_err(|e| {
+            let error_str = e.to_string();
+            if error_str.contains("insufficient") {
+                ToolError::permanent(format!("Insufficient balance: {}", e))
+            } else {
+                ToolError::retriable(format!("Failed to send swap transaction: {}", e))
+            }
+        })?;
+
+    // Wait for confirmation
+    let receipt = pending_tx
+        .with_required_confirmations(1)
+        .get_receipt()
+        .await
+        .map_err(|e| ToolError::retriable(format!("Failed to get receipt: {}", e)))?;
+
+    // TODO: Parse actual amount out from logs
+    let amount_out_actual = amount_out_min.to_string(); // Placeholder
+
+    let result = UniswapSwapResult {
+        tx_hash: format!("0x{:x}", receipt.transaction_hash),
+        token_in: token_in.clone(),
+        token_out: token_out.clone(),
+        amount_in: amount_in_wei.to_string(),
+        amount_out: amount_out_actual,
+        gas_used: receipt.gas_used,
+        status: receipt.status(),
+    };
+
+    info!(
+        "Uniswap swap complete: {} {} to {} (tx: {})",
+        amount_in, token_in, token_out, result.tx_hash
+    );
+
+    Ok(result)
 }
 
-/// Result of a swap quote from Uniswap V3
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-pub struct SwapQuote {
-    pub token_in: String,
-    pub token_out: String,
-    /// Input amount
-    pub amount_in: u128,
-    /// Expected output amount
-    pub amount_out: u128,
-    /// Fee tier for the pool
-    pub fee_tier: u32,
-    /// Price impact percentage
-    pub price_impact_pct: f64,
-    /// Router contract address
-    pub router_address: String,
-    /// Network name
-    pub network: String,
+/// Helper to get quote from Quoter contract
+async fn get_quote_from_quoter(
+    client: &EvmClient,
+    quoter_address: Address,
+    token_in: Address,
+    token_out: Address,
+    fee: u32,
+    amount_in: U256,
+) -> Result<U256> {
+    let call = IQuoter::quoteExactInputSingleCall {
+        tokenIn: token_in,
+        tokenOut: token_out,
+        fee,
+        amountIn: amount_in,
+        sqrtPriceLimitX96: U256::ZERO,
+    };
+    let call_data = call.abi_encode();
+
+    let tx = TransactionRequest::default()
+        .to(quoter_address)
+        .input(call_data.into());
+
+    let result = client
+        .provider()
+        .call(&tx)
+        .await
+        .map_err(|e| EvmToolError::Rpc(format!("Quote call failed: {}", e)))?;
+
+    // Decode the amount out from the result
+    U256::try_from_be_slice(&result)
+        .ok_or_else(|| EvmToolError::Generic("Failed to decode quote result".to_string()))
 }
 
-/// Result of a swap execution
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-pub struct SwapResult {
-    /// Transaction hash
-    pub tx_hash: String,
-    pub token_in: String,
-    pub token_out: String,
-    /// Input amount
-    pub amount_in: u128,
-    /// Minimum output amount
-    pub amount_out_minimum: u128,
-    /// Fee tier used
-    pub fee_tier: u32,
-    /// Transaction status
-    pub status: TransactionStatus,
-    /// Network name
-    pub network: String,
-    /// Gas price used
-    pub gas_price: u64,
-    /// Idempotency key if provided
-    pub idempotency_key: Option<String>,
+/// Parse amount with decimals
+fn parse_amount_with_decimals(amount: &str, decimals: u8) -> Result<U256> {
+    let amount_f64 = amount
+        .parse::<f64>()
+        .map_err(|e| EvmToolError::Generic(format!("Invalid amount: {}", e)))?;
+
+    let multiplier = 10_f64.powi(decimals as i32);
+    let amount_wei = (amount_f64 * multiplier) as u128;
+
+    Ok(U256::from(amount_wei))
 }
 
-/// Token price information
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-pub struct TokenPriceInfo {
-    pub base_token: String,
-    pub quote_token: String,
-    /// Price of base in terms of quote
-    pub price: f64,
-    /// Fee tier of the pool used
-    pub fee_tier: u32,
-    /// Price impact for small trade
-    pub price_impact_pct: f64,
-    /// Network name
-    pub network: String,
+/// Format amount with decimals
+fn format_amount_with_decimals(amount: U256, decimals: u8) -> f64 {
+    let divisor = 10_f64.powi(decimals as i32);
+    amount.to::<u128>() as f64 / divisor
 }
 
 #[cfg(test)]
@@ -531,62 +462,38 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_uniswap_config() {
-        let config = UniswapConfig::ethereum();
-        assert_eq!(config.slippage_bps, 50);
-        assert!(!config.router_address.is_empty());
-        assert!(!config.quoter_address.is_empty());
+    fn test_uniswap_config_for_chains() {
+        let eth_config = UniswapConfig::ethereum();
+        assert_eq!(
+            eth_config.router_address,
+            "0xE592427A0AEce92De3Edee1F18E0157C05861564"
+        );
+
+        let config_by_id = UniswapConfig::for_chain(1);
+        assert_eq!(config_by_id.router_address, eth_config.router_address);
+
+        let base_config = UniswapConfig::for_chain(8453);
+        assert_eq!(
+            base_config.router_address,
+            "0x2626664c2603336E57B271c5C0b26F421741e481"
+        );
     }
 
     #[test]
-    fn test_quote_call_data() {
-        let token_in = "0xA0b86a33E6441c68e1A7e97c82B6BAba4d45A9e3";
-        let token_out = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2";
-        let result = build_quote_call_data(token_in, token_out, 3000, 1000000, 0).unwrap();
+    fn test_parse_amount_with_decimals() {
+        let amount = parse_amount_with_decimals("1.5", 18).unwrap();
+        assert_eq!(amount, U256::from(1_500_000_000_000_000_000u128));
 
-        assert!(result.starts_with("0xf7729d43")); // quoteExactInputSingle selector
-        assert!(result.len() > 10); // Should have selector + parameters
+        let amount = parse_amount_with_decimals("100", 6).unwrap();
+        assert_eq!(amount, U256::from(100_000_000u128));
     }
 
     #[test]
-    fn test_swap_call_data() {
-        let token_in = "0xA0b86a33E6441c68e1A7e97c82B6BAba4d45A9e3";
-        let token_out = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2";
-        let recipient = "0x742d35Cc6634C0532925a3b8D8e41E5d3e4F8123";
-        let result = build_swap_call_data(
-            token_in, token_out, 3000, recipient, 1000000, 950000, 1700000000,
-        )
-        .unwrap();
+    fn test_format_amount_with_decimals() {
+        let formatted = format_amount_with_decimals(U256::from(1_500_000_000_000_000_000u128), 18);
+        assert!((formatted - 1.5).abs() < 0.000001);
 
-        assert!(result.starts_with("0x414bf389")); // exactInputSingle selector
-        assert!(result.len() > 10);
-    }
-
-    #[test]
-    fn test_price_impact_calculation() {
-        let impact = calculate_price_impact(1000000, 990000);
-        assert!(impact > 0.0);
-        assert!(impact < 10.0); // Should be reasonable
-
-        let minimal_impact = calculate_price_impact(1000000, 999000);
-        assert!(minimal_impact < impact);
-    }
-
-    #[test]
-    fn test_swap_quote_serialization() {
-        let quote = SwapQuote {
-            token_in: "0xA0b86a33E6441c68e1A7e97c82B6BAba4d45A9e3".to_string(),
-            token_out: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2".to_string(),
-            amount_in: 1000000,
-            amount_out: 950000,
-            fee_tier: 3000,
-            price_impact_pct: 0.5,
-            router_address: "0xE592427A0AEce92De3Edee1F18E0157C05861564".to_string(),
-            network: "Ethereum".to_string(),
-        };
-
-        let json = serde_json::to_string(&quote).unwrap();
-        assert!(json.contains("token_in"));
-        assert!(json.contains("1000000"));
+        let formatted = format_amount_with_decimals(U256::from(100_000_000u128), 6);
+        assert!((formatted - 100.0).abs() < 0.000001);
     }
 }

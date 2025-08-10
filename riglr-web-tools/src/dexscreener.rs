@@ -3,16 +3,13 @@
 //! This module provides production-grade tools for accessing DexScreener data,
 //! analyzing token metrics, tracking price movements, and identifying trading opportunities.
 
-use crate::{
-    client::WebClient,
-    error::{Result, WebToolError},
-};
+use crate::{client::WebClient, error::WebToolError};
 use chrono::{DateTime, Utc};
 use riglr_macros::tool;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use tracing::{debug, info, warn};
+use tracing::{debug, info};
 
 /// Configuration for DexScreener API access
 #[derive(Debug, Clone)]
@@ -313,15 +310,17 @@ impl Default for DexScreenerConfig {
     }
 }
 
+/// Get comprehensive token information from DexScreener
 ///
+/// This tool retrieves detailed token information including price, volume,
 /// market cap, trading pairs, and security analysis.
-// // #[tool]
+#[tool]
 pub async fn get_token_info(
     token_address: String,
     chain_id: Option<String>,
     include_pairs: Option<bool>,
     include_security: Option<bool>,
-) -> Result<TokenInfo> {
+) -> crate::error::Result<TokenInfo> {
     debug!(
         "Fetching token info for address: {} on chain: {:?}",
         token_address,
@@ -343,10 +342,18 @@ pub async fn get_token_info(
     };
 
     // Make API request
-    let response = client.get(&url).await?;
+    let response = client.get(&url).await.map_err(|e| {
+        if e.to_string().contains("timeout") || e.to_string().contains("connection") {
+            WebToolError::Network(format!("Failed to fetch token info: {}", e))
+        } else {
+            WebToolError::Api(format!("Failed to fetch token info: {}", e))
+        }
+    })?;
 
     // Parse response (simplified - would parse actual DexScreener JSON)
-    let token_info = parse_token_response(&response, &token_address, &chain).await?;
+    let token_info = parse_token_response(&response, &token_address, &chain)
+        .await
+        .map_err(|e| WebToolError::Api(format!("Failed to parse token response: {}", e)))?;
 
     info!(
         "Retrieved token info for {} ({}): ${:.6}",
@@ -358,16 +365,18 @@ pub async fn get_token_info(
     Ok(token_info)
 }
 
+/// Search for tokens on DexScreener
 ///
+/// This tool searches for tokens by name, symbol, or address
 /// with support for filtering by chain and market cap.
-// // #[tool]
+#[tool]
 pub async fn search_tokens(
     query: String,
     chain_filter: Option<String>,
     min_market_cap: Option<f64>,
     min_liquidity: Option<f64>,
     limit: Option<u32>,
-) -> Result<TokenSearchResult> {
+) -> crate::error::Result<TokenSearchResult> {
     debug!("Searching tokens for query: '{}' with filters", query);
 
     let config = DexScreenerConfig::default();
@@ -393,10 +402,15 @@ pub async fn search_tokens(
 
     // Make search request
     let url = format!("{}/dex/search", config.base_url);
-    let response = client.get_with_params(&url, &params).await?;
+    let response = client
+        .get_with_params(&url, &params)
+        .await
+        .map_err(|e| WebToolError::Network(format!("Search request failed: {}", e)))?;
 
     // Parse search results
-    let tokens = parse_search_results(&response).await?;
+    let tokens = parse_search_results(&response)
+        .await
+        .map_err(|e| WebToolError::Api(format!("Failed to parse search results: {}", e)))?;
 
     let result = TokenSearchResult {
         query: query.clone(),
@@ -419,15 +433,17 @@ pub async fn search_tokens(
     Ok(result)
 }
 
+/// Get trending tokens from DexScreener
 ///
+/// This tool retrieves trending tokens based on volume,
 /// price changes, and social activity.
-// // #[tool]
+#[tool]
 pub async fn get_trending_tokens(
     time_window: Option<String>, // "5m", "1h", "24h"
     chain_filter: Option<String>,
     min_volume: Option<f64>,
     limit: Option<u32>,
-) -> Result<Vec<TokenInfo>> {
+) -> crate::error::Result<Vec<TokenInfo>> {
     debug!(
         "Fetching trending tokens for window: {:?}",
         time_window.as_deref().unwrap_or("1h")
@@ -451,25 +467,31 @@ pub async fn get_trending_tokens(
     }
 
     let url = format!("{}/dex/tokens/trending", config.base_url);
-    let response = client.get_with_params(&url, &params).await?;
+    let response = client
+        .get_with_params(&url, &params)
+        .await
+        .map_err(|e| WebToolError::Network(format!("Failed to fetch trending tokens: {}", e)))?;
 
-    let trending_tokens = parse_trending_response(&response).await?;
+    let trending_tokens = parse_trending_response(&response)
+        .await
+        .map_err(|e| WebToolError::Api(format!("Failed to parse trending response: {}", e)))?;
 
     info!("Retrieved {} trending tokens", trending_tokens.len());
 
     Ok(trending_tokens)
 }
 
+/// Analyze token market data
 ///
 /// This tool provides deep market analysis including trend analysis,
 /// volume patterns, liquidity assessment, and risk evaluation.
-// // #[tool]
+#[tool]
 pub async fn analyze_token_market(
     token_address: String,
     chain_id: Option<String>,
     include_technical: Option<bool>,
     include_risk: Option<bool>,
-) -> Result<MarketAnalysis> {
+) -> crate::error::Result<MarketAnalysis> {
     debug!("Performing market analysis for token: {}", token_address);
 
     // Get basic token info first
@@ -477,20 +499,30 @@ pub async fn analyze_token_market(
         get_token_info(token_address.clone(), chain_id, Some(true), include_risk).await?;
 
     // Perform trend analysis
-    let trend_analysis = analyze_price_trends(&token_info).await?;
+    let trend_analysis = analyze_price_trends(&token_info)
+        .await
+        .map_err(|e| WebToolError::Api(format!("Trend analysis failed: {}", e)))?;
 
     // Analyze volume patterns
-    let volume_analysis = analyze_volume_patterns(&token_info).await?;
+    let volume_analysis = analyze_volume_patterns(&token_info)
+        .await
+        .map_err(|e| WebToolError::Api(format!("Volume analysis failed: {}", e)))?;
 
     // Assess liquidity
-    let liquidity_analysis = analyze_liquidity(&token_info).await?;
+    let liquidity_analysis = analyze_liquidity(&token_info)
+        .await
+        .map_err(|e| WebToolError::Api(format!("Liquidity analysis failed: {}", e)))?;
 
     // Analyze price levels
-    let price_levels = analyze_price_levels(&token_info).await?;
+    let price_levels = analyze_price_levels(&token_info)
+        .await
+        .map_err(|e| WebToolError::Api(format!("Price level analysis failed: {}", e)))?;
 
     // Perform risk assessment
     let risk_assessment = if include_risk.unwrap_or(true) {
-        assess_token_risks(&token_info).await?
+        assess_token_risks(&token_info)
+            .await
+            .map_err(|e| WebToolError::Api(format!("Risk assessment failed: {}", e)))?
     } else {
         RiskAssessment {
             risk_level: "Unknown".to_string(),
@@ -523,14 +555,14 @@ pub async fn analyze_token_market(
 ///
 /// This tool retrieves the highest volume trading pairs,
 /// useful for identifying active markets and arbitrage opportunities.
-// // #[tool]
+#[tool]
 pub async fn get_top_pairs(
     time_window: Option<String>, // "5m", "1h", "24h"
     chain_filter: Option<String>,
     dex_filter: Option<String>,
     min_liquidity: Option<f64>,
     limit: Option<u32>,
-) -> Result<Vec<TokenPair>> {
+) -> crate::error::Result<Vec<TokenPair>> {
     debug!(
         "Fetching top pairs for window: {:?}",
         time_window.as_deref().unwrap_or("24h")
@@ -560,9 +592,14 @@ pub async fn get_top_pairs(
     }
 
     let url = format!("{}/dex/pairs/top", config.base_url);
-    let response = client.get_with_params(&url, &params).await?;
+    let response = client
+        .get_with_params(&url, &params)
+        .await
+        .map_err(|e| WebToolError::Network(format!("Failed to fetch top pairs: {}", e)))?;
 
-    let pairs = parse_pairs_response(&response).await?;
+    let pairs = parse_pairs_response(&response)
+        .await
+        .map_err(|e| WebToolError::Api(format!("Failed to parse pairs response: {}", e)))?;
 
     info!("Retrieved {} top trading pairs", pairs.len());
 
@@ -573,7 +610,7 @@ async fn parse_token_response(
     response: &str,
     token_address: &str,
     chain: &str,
-) -> Result<TokenInfo> {
+) -> crate::error::Result<TokenInfo> {
     // In production, this would parse actual DexScreener JSON
     // For now, return a comprehensive mock token
     Ok(TokenInfo {
@@ -661,23 +698,23 @@ async fn parse_token_response(
 }
 
 /// Parse search results from DexScreener API
-async fn parse_search_results(response: &str) -> Result<Vec<TokenInfo>> {
+async fn parse_search_results(response: &str) -> crate::error::Result<Vec<TokenInfo>> {
     // In production, would parse actual JSON response
     Ok(vec![])
 }
 
-async fn parse_trending_response(response: &str) -> Result<Vec<TokenInfo>> {
+async fn parse_trending_response(response: &str) -> crate::error::Result<Vec<TokenInfo>> {
     // In production, would parse actual JSON response
     Ok(vec![])
 }
 
 /// Parse trading pairs response
-async fn parse_pairs_response(response: &str) -> Result<Vec<TokenPair>> {
+async fn parse_pairs_response(response: &str) -> crate::error::Result<Vec<TokenPair>> {
     // In production, would parse actual JSON response
     Ok(vec![])
 }
 
-async fn analyze_price_trends(token: &TokenInfo) -> Result<TrendAnalysis> {
+async fn analyze_price_trends(token: &TokenInfo) -> crate::error::Result<TrendAnalysis> {
     let price_change_24h = token.price_change_24h.unwrap_or(0.0);
     let price_change_1h = token.price_change_1h.unwrap_or(0.0);
 
@@ -702,7 +739,7 @@ async fn analyze_price_trends(token: &TokenInfo) -> Result<TrendAnalysis> {
     })
 }
 
-async fn analyze_volume_patterns(token: &TokenInfo) -> Result<VolumeAnalysis> {
+async fn analyze_volume_patterns(token: &TokenInfo) -> crate::error::Result<VolumeAnalysis> {
     let volume_24h = token.volume_24h.unwrap_or(0.0);
     let market_cap = token.market_cap.unwrap_or(1.0);
 
@@ -715,7 +752,7 @@ async fn analyze_volume_patterns(token: &TokenInfo) -> Result<VolumeAnalysis> {
     })
 }
 
-async fn analyze_liquidity(token: &TokenInfo) -> Result<LiquidityAnalysis> {
+async fn analyze_liquidity(token: &TokenInfo) -> crate::error::Result<LiquidityAnalysis> {
     let total_liquidity = token
         .pairs
         .iter()
@@ -748,7 +785,7 @@ async fn analyze_liquidity(token: &TokenInfo) -> Result<LiquidityAnalysis> {
     })
 }
 
-async fn analyze_price_levels(token: &TokenInfo) -> Result<PriceLevelAnalysis> {
+async fn analyze_price_levels(token: &TokenInfo) -> crate::error::Result<PriceLevelAnalysis> {
     let current_price = token.price_usd.unwrap_or(0.0);
 
     Ok(PriceLevelAnalysis {
@@ -762,7 +799,7 @@ async fn analyze_price_levels(token: &TokenInfo) -> Result<PriceLevelAnalysis> {
     })
 }
 
-async fn assess_token_risks(token: &TokenInfo) -> Result<RiskAssessment> {
+async fn assess_token_risks(token: &TokenInfo) -> crate::error::Result<RiskAssessment> {
     let mut risk_factors = vec![];
     let mut total_risk = 0;
 

@@ -13,6 +13,10 @@ pub enum EvmToolError {
     #[error("Invalid address: {0}")]
     InvalidAddress(String),
 
+    /// Invalid private key
+    #[error("Invalid key: {0}")]
+    InvalidKey(String),
+
     /// Contract interaction failed
     #[error("Contract error: {0}")]
     Contract(String),

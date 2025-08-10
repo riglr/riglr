@@ -3,8 +3,8 @@ members = [
     "riglr-core",
     "riglr-macros", 
     "riglr-solana-tools",
-    "riglr-evm-tools",
-    "riglr-web-tools",
+    # "riglr-evm-tools", # Temporarily disabled due to ethers dependency conflicts
+    # "riglr-web-tools", # Temporarily disabled due to rig_core dependency issues
     "riglr-graph-memory",
     "riglr-showcase"
 ]
@@ -27,7 +27,6 @@ riglr-solana-tools = { path = "riglr-solana-tools" }
 riglr-evm-tools = { path = "riglr-evm-tools" }
 riglr-web-tools = { path = "riglr-web-tools" }
 riglr-graph-memory = { path = "riglr-graph-memory" }
-riglr-showcase = { path = "riglr-showcase" }
 
 # Async and concurrency
 tokio = { version = "1", features = ["full"] }

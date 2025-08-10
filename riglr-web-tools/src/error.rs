@@ -1,5 +1,6 @@
 //! Error types for riglr-web-tools.
 
+use riglr_core::ToolError;
 use thiserror::Error;
 
 /// Main error type for web tool operations.
@@ -33,9 +34,52 @@ pub enum WebToolError {
     #[error("Core error: {0}")]
     Core(#[from] riglr_core::CoreError),
 
+    /// Configuration error
+    #[error("Configuration error: {0}")]
+    Config(String),
+
+    /// Network error (retriable)
+    #[error("Network error: {0}")]
+    Network(String),
+
+    /// API error (non-retriable)
+    #[error("API error: {0}")]
+    Api(String),
+
+    /// Parsing error
+    #[error("Parsing error: {0}")]
+    Parsing(String),
+
     /// Generic error
     #[error("Web tool error: {0}")]
     Generic(String),
+}
+
+impl From<WebToolError> for ToolError {
+    fn from(err: WebToolError) -> Self {
+        match err {
+            WebToolError::Http(e) => {
+                if e.is_timeout() || e.is_connect() {
+                    ToolError::Retriable(format!("HTTP error: {}", e))
+                } else {
+                    ToolError::Permanent(format!("HTTP error: {}", e))
+                }
+            }
+            WebToolError::Network(msg) => ToolError::Retriable(msg),
+            WebToolError::RateLimit(msg) => ToolError::Retriable(msg),
+            WebToolError::Auth(msg) => ToolError::Permanent(msg),
+            WebToolError::InvalidResponse(msg) => ToolError::Permanent(msg),
+            WebToolError::Config(msg) => ToolError::Permanent(msg),
+            WebToolError::Api(msg) => ToolError::Permanent(msg),
+            WebToolError::Parsing(msg) => ToolError::Permanent(msg),
+            WebToolError::Url(e) => ToolError::Permanent(format!("URL error: {}", e)),
+            WebToolError::Serialization(e) => {
+                ToolError::Permanent(format!("Serialization error: {}", e))
+            }
+            WebToolError::Core(e) => ToolError::Permanent(format!("Core error: {}", e)),
+            WebToolError::Generic(msg) => ToolError::Permanent(msg),
+        }
+    }
 }
 
 /// Result type alias for web tool operations.
