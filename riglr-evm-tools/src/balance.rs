@@ -7,8 +7,7 @@ use crate::{
     error::EvmToolError,
 };
 use alloy::{
-    contract::{ContractInstance, Interface},
-    primitives::{Address, Bytes, U256},
+    primitives::{Address, U256},
     providers::Provider,
     rpc::types::TransactionRequest,
     sol,
@@ -77,7 +76,6 @@ pub struct TokenBalanceResult {
 /// Get ETH balance for an address
 ///
 /// This tool retrieves the ETH balance for a given address on the specified chain.
-#[tool]
 pub async fn get_eth_balance(
     client: &EvmClient,
     address: String,
@@ -140,7 +138,6 @@ pub async fn get_eth_balance(
 /// Get ERC20 token balance for an address
 ///
 /// This tool retrieves the balance of an ERC20 token for a given address.
-#[tool]
 pub async fn get_erc20_balance(
     client: &EvmClient,
     address: String,
@@ -222,7 +219,7 @@ async fn get_token_balance(
     // Call the contract
     let result = client
         .provider()
-        .call(&tx)
+        .call(tx)
         .await
         .map_err(|e| EvmToolError::Rpc(format!("Failed to get token balance: {}", e)))?;
 
@@ -266,7 +263,7 @@ async fn get_token_decimals(
 
     let result = client
         .provider()
-        .call(&tx)
+        .call(tx)
         .await
         .map_err(|e| EvmToolError::Rpc(format!("Failed to get decimals: {}", e)))?;
 
@@ -292,7 +289,7 @@ async fn get_token_symbol(
 
     let result = client
         .provider()
-        .call(&tx)
+        .call(tx)
         .await
         .map_err(|e| EvmToolError::Rpc(format!("Failed to get symbol: {}", e)))?;
 
@@ -314,7 +311,7 @@ async fn get_token_name(
 
     let result = client
         .provider()
-        .call(&tx)
+        .call(tx)
         .await
         .map_err(|e| EvmToolError::Rpc(format!("Failed to get name: {}", e)))?;
 

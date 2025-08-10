@@ -129,7 +129,7 @@ impl RedisJobQueue {
 #[async_trait]
 impl JobQueue for RedisJobQueue {
     async fn enqueue(&self, job: Job) -> Result<()> {
-        let mut conn = self.client.get_async_connection().await?;
+        let mut conn = self.client.get_multiplexed_async_connection().await?;
         let serialized = serde_json::to_string(&job)?;
         let _: () = redis::cmd("LPUSH")
             .arg(&self.queue_key)
@@ -140,7 +140,7 @@ impl JobQueue for RedisJobQueue {
     }
 
     async fn dequeue(&self) -> Result<Option<Job>> {
-        let mut conn = self.client.get_async_connection().await?;
+        let mut conn = self.client.get_multiplexed_async_connection().await?;
 
         // BRPOP blocks until an item is available or timeout
         let result: Option<(String, String)> = redis::cmd("BRPOP")
@@ -159,7 +159,7 @@ impl JobQueue for RedisJobQueue {
     }
 
     async fn dequeue_with_timeout(&self, timeout: Duration) -> Result<Option<Job>> {
-        let mut conn = self.client.get_async_connection().await?;
+        let mut conn = self.client.get_multiplexed_async_connection().await?;
         let timeout_seconds = timeout.as_secs().max(1);
 
         let result: Option<(String, String)> = redis::cmd("BRPOP")
@@ -178,7 +178,7 @@ impl JobQueue for RedisJobQueue {
     }
 
     async fn len(&self) -> Result<usize> {
-        let mut conn = self.client.get_async_connection().await?;
+        let mut conn = self.client.get_multiplexed_async_connection().await?;
         let len: usize = redis::cmd("LLEN")
             .arg(&self.queue_key)
             .query_async(&mut conn)

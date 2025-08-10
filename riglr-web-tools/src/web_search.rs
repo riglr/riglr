@@ -308,7 +308,9 @@ pub async fn search_web(
         ));
     }
 
-    let client = WebClient::new().with_exa_key(config.exa_api_key.clone());
+    let client = WebClient::new()
+        .map_err(|e| WebToolError::Client(format!("Failed to create client: {}", e)))?
+        .with_exa_key(config.exa_api_key.clone());
 
     // Build search parameters
     let mut params = HashMap::new();
@@ -402,7 +404,9 @@ pub async fn find_similar_pages(
         ));
     }
 
-    let client = WebClient::new().with_exa_key(config.exa_api_key.clone());
+    let client = WebClient::new()
+        .map_err(|e| WebToolError::Client(format!("Failed to create client: {}", e)))?
+        .with_exa_key(config.exa_api_key.clone());
 
     // Build similarity search parameters
     let mut params = HashMap::new();
@@ -470,7 +474,9 @@ pub async fn summarize_web_content(
     debug!("Summarizing content from {} URLs", urls.len());
 
     let config = WebSearchConfig::default();
-    let client = WebClient::new().with_exa_key(config.exa_api_key.clone());
+    let client = WebClient::new()
+        .map_err(|e| WebToolError::Client(format!("Failed to create client: {}", e)))?
+        .with_exa_key(config.exa_api_key.clone());
 
     let mut summaries = Vec::new();
 
@@ -515,7 +521,9 @@ pub async fn search_recent_news(
     );
 
     let config = WebSearchConfig::default();
-    let client = WebClient::new().with_exa_key(config.exa_api_key.clone());
+    let client = WebClient::new()
+        .map_err(|e| WebToolError::Client(format!("Failed to create client: {}", e)))?
+        .with_exa_key(config.exa_api_key.clone());
 
     // Build news-specific search parameters
     let mut params = HashMap::new();

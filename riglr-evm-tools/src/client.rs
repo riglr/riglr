@@ -5,7 +5,8 @@
 use crate::error::{EvmToolError, Result};
 use alloy::node_bindings::Anvil;
 use alloy::primitives::{Address, U256};
-use alloy::providers::{Provider, ProviderBuilder};
+use alloy::network::Ethereum;
+use alloy::providers::{Provider, ProviderBuilder, RootProvider};
 use alloy::signers::local::PrivateKeySigner;
 use alloy::transports::http::{Client, Http};
 use serde::{Deserialize, Serialize};
@@ -34,7 +35,7 @@ impl Default for EvmConfig {
 /// Production-grade EVM client using alloy-rs
 #[derive(Clone)]
 pub struct EvmClient {
-    provider: Arc<dyn Provider<Http<Client>>>,
+    provider: Arc<dyn Provider<Ethereum>>,
     signer: Option<PrivateKeySigner>,  // Add signer field
     config: EvmConfig,
     pub rpc_url: String,
@@ -53,7 +54,7 @@ impl EvmClient {
 
         // Create provider
         let provider = ProviderBuilder::new()
-            .on_http(url);
+            .connect_http(url);
 
         // Get chain ID
         let chain_id = provider
@@ -74,7 +75,7 @@ impl EvmClient {
         };
 
         Ok(Self {
-            provider: Arc::new(provider) as Arc<dyn Provider<Http<Client>>>,
+            provider: Arc::new(provider) as Arc<dyn Provider<Ethereum>>,
             signer: None,  // Initialize as None
             config,
             rpc_url,
@@ -168,7 +169,7 @@ impl EvmClient {
     }
 
     /// Get the provider
-    pub fn provider(&self) -> &Arc<dyn Provider<Http<Client>>> {
+    pub fn provider(&self) -> &Arc<dyn Provider<Ethereum>> {
         &self.provider
     }
 

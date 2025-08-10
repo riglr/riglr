@@ -8,6 +8,7 @@ use crate::error::{Result, SolanaToolError};
 use anyhow::anyhow;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+#[allow(deprecated)]
 use solana_sdk::{
     instruction::{AccountMeta, Instruction},
     message::Message,

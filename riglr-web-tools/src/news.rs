@@ -373,7 +373,7 @@ pub async fn get_crypto_news(
         ));
     }
 
-    let client = WebClient::new();
+    let client = WebClient::new().map_err(|e| WebToolError::Client(format!("Failed to create client: {}", e)))?;
 
     // Query multiple news sources
     let mut all_articles = Vec::new();
@@ -478,7 +478,7 @@ pub async fn get_trending_news(
     );
 
     let config = NewsConfig::default();
-    let client = WebClient::new();
+    let client = WebClient::new().map_err(|e| WebToolError::Client(format!("Failed to create client: {}", e)))?;
 
     // Get trending articles from multiple sources
     let trending_articles = fetch_trending_articles(
@@ -537,7 +537,7 @@ pub async fn monitor_breaking_news(
     debug!("Monitoring breaking news for keywords: {:?}", keywords);
 
     let config = NewsConfig::default();
-    let client = WebClient::new();
+    let client = WebClient::new().map_err(|e| WebToolError::Client(format!("Failed to create client: {}", e)))?;
 
     let mut alerts = Vec::new();
 
@@ -587,7 +587,7 @@ pub async fn analyze_market_sentiment(
     );
 
     let config = NewsConfig::default();
-    let client = WebClient::new();
+    let client = WebClient::new().map_err(|e| WebToolError::Client(format!("Failed to create client: {}", e)))?;
 
     // Gather recent news for sentiment analysis
     let recent_news = if let Some(assets) = &asset_filter {
