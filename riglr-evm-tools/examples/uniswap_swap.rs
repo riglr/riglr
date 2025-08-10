@@ -1,7 +1,6 @@
 //! Example: Get Uniswap quotes and execute swaps
 
-use riglr_evm_tools::swap::{get_token_price, get_uniswap_quote};
-use riglr_evm_tools::transaction::{init_evm_signer_context, EvmSignerContext};
+use riglr_evm_tools::{get_uniswap_quote, EvmClient};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -13,90 +12,117 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let weth = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2".to_string();
     let dai = "0x6B175474E89094C44Da98b954EedeAC495271d0F".to_string();
 
+    // Create EVM client
+    let client = EvmClient::mainnet().await?;
+
     println!("Getting Uniswap V3 quotes...\n");
 
     // Get quote for swapping 1000 USDC to WETH
     println!("Quote: 1000 USDC -> WETH");
     match get_uniswap_quote(
+        &client,
         usdc.clone(),
         weth.clone(),
-        "1000000000".to_string(), // 1000 USDC (6 decimals)
-        3000,                     // 0.3% fee tier
-        None,
-        None,
+        "1000".to_string(), // 1000 USDC
+        6,                  // USDC decimals
+        18,                 // WETH decimals
+        Some(3000),         // 0.3% fee tier
+        Some(50),           // 0.5% slippage
     )
     .await
     {
         Ok(quote) => {
-            let weth_amount = quote.amount_out as f64 / 1e18; // WETH has 18 decimals
-            println!("✓ Input: {} USDC", quote.amount_in as f64 / 1e6);
-            println!("  Output: {:.6} WETH", weth_amount);
-            println!("  Price impact: {:.2}%", quote.price_impact_pct);
-            println!("  Fee tier: {}bps", quote.fee_tier / 100);
-            println!("  Router: {}", quote.router_address);
+            println!("✓ Input: {} {}", quote.amount_in, quote.token_in);
+            println!("  Output: {} {}", quote.amount_out, quote.token_out);
+            println!("  Price: {:.6}", quote.price);
+            println!("  Fee tier: {:.2}%", quote.fee_tier as f64 / 10000.0);
+            println!("  Min output: {}", quote.amount_out_minimum);
         }
         Err(e) => {
             println!("✗ Failed to get quote: {}", e);
         }
     }
 
-    // Get token prices
-    println!("\nToken Prices:");
+    // Get additional quotes
+    println!("\nAdditional Quotes:");
 
-    // USDC price in WETH
-    match get_token_price(usdc.clone(), weth.clone(), Some(3000), None).await {
-        Ok(price_info) => {
-            println!("✓ USDC/WETH: {:.8} WETH per USDC", price_info.price);
-        }
-        Err(e) => {
-            println!("✗ Failed to get USDC price: {}", e);
-        }
-    }
-
-    // DAI price in USDC
-    match get_token_price(
-        dai.clone(),
+    // Quote for 1 WETH to USDC
+    println!("\nQuote: 1 WETH -> USDC");
+    match get_uniswap_quote(
+        &client,
+        weth.clone(),
         usdc.clone(),
-        Some(500), // 0.05% fee tier for stablecoins
-        None,
+        "1".to_string(),   // 1 WETH
+        18,                // WETH decimals
+        6,                 // USDC decimals
+        Some(3000),        // 0.3% fee tier
+        Some(50),          // 0.5% slippage
     )
     .await
     {
-        Ok(price_info) => {
-            println!("✓ DAI/USDC: {:.6} USDC per DAI", price_info.price);
+        Ok(quote) => {
+            println!("✓ Input: {} {}", quote.amount_in, quote.token_in);
+            println!("  Output: {} {}", quote.amount_out, quote.token_out);
+            println!("  Price: {:.2} USDC per WETH", quote.price);
         }
         Err(e) => {
-            println!("✗ Failed to get DAI price: {}", e);
+            println!("✗ Failed to get quote: {}", e);
         }
     }
 
-    // Example of how to execute a swap (requires signer context)
+    // Quote for DAI to USDC (stablecoin pair)
+    println!("\nQuote: 1000 DAI -> USDC");
+    match get_uniswap_quote(
+        &client,
+        dai.clone(),
+        usdc.clone(),
+        "1000".to_string(), // 1000 DAI
+        18,                 // DAI decimals
+        6,                  // USDC decimals
+        Some(500),          // 0.05% fee tier for stablecoins
+        Some(10),           // 0.1% slippage for stablecoins
+    )
+    .await
+    {
+        Ok(quote) => {
+            println!("✓ Input: {} {}", quote.amount_in, quote.token_in);
+            println!("  Output: {} {}", quote.amount_out, quote.token_out);
+            println!("  Price: {:.6} USDC per DAI", quote.price);
+        }
+        Err(e) => {
+            println!("✗ Failed to get quote: {}", e);
+        }
+    }
+
+    // Example of how to execute a swap (requires signer)
     println!("\nTo execute a swap, you would need to:");
-    println!("1. Initialize a signer context with your private key");
+    println!("1. Create a client with a signer (private key)");
     println!("2. Call perform_uniswap_swap with the quote parameters");
     println!("3. Wait for transaction confirmation");
 
     // Example code (DO NOT use real private keys in examples!)
     /*
-    let mut context = EvmSignerContext::new();
-    context.add_signer("main", [0u8; 32])?; // Replace with actual key
-    init_evm_signer_context(context);
+    // Create client with signer
+    let private_key = "your_private_key_here";
+    let client_with_signer = EvmClient::mainnet().await?
+        .with_signer(private_key)?;
 
+    // Execute swap
     let swap_result = perform_uniswap_swap(
+        &client_with_signer,
         usdc,
         weth,
-        "1000000000".to_string(),
-        "500000000000000000".to_string(), // Min 0.5 WETH
-        3000,
-        None,
-        None,
-        None,
-        None,
-        None,
-        Some("swap-example-1".to_string()),
+        "1000".to_string(),  // 1000 USDC
+        6,                    // USDC decimals
+        18,                   // WETH decimals
+        Some(3000),           // 0.3% fee tier
+        Some(50),             // 0.5% slippage
+        None,                 // Default gas price
+        None,                 // Default nonce
     ).await?;
 
-    println!("Swap transaction: {}", swap_result.tx_hash);
+    println!("Swap transaction: {}", swap_result.transaction_hash);
+    println!("Amount out: {}", swap_result.amount_out);
     */
 
     Ok(())

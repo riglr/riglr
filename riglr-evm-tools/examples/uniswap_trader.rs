@@ -3,8 +3,8 @@
 //! This example demonstrates how to get quotes and execute swaps on Uniswap.
 
 use riglr_evm_tools::{
-    get_uniswap_quote, perform_uniswap_swap, init_evm_signer_context,
-    UniswapQuote, UniswapSwapResult,
+    get_uniswap_quote, perform_uniswap_swap, EvmClient,
+    UniswapQuote, SwapResult,
 };
 use std::env;
 
@@ -23,9 +23,12 @@ async fn main() -> anyhow::Result<()> {
             String::new()
         });
 
-    if !private_key.is_empty() {
-        init_evm_signer_context(&private_key).await?;
-    }
+    // Create EVM client (with optional signer for transactions)
+    let client = if !private_key.is_empty() {
+        EvmClient::mainnet().await?.with_signer(&private_key)?
+    } else {
+        EvmClient::mainnet().await?
+    };
 
     // Common token addresses on Ethereum mainnet
     const USDC: &str = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48";
@@ -34,21 +37,21 @@ async fn main() -> anyhow::Result<()> {
 
     // Example 1: Get a quote for swapping USDC to ETH
     println!("📊 Getting quote for 1000 USDC -> WETH swap...");
-    let quote = get_quote_example(USDC, WETH, "1000", 6, 18).await?;
+    let quote = get_quote_example(&client, USDC, WETH, "1000", 6, 18).await?;
     
     // Example 2: Get quotes for different fee tiers
     println!("\n📊 Comparing quotes across fee tiers...");
-    compare_fee_tiers(WETH, USDC, "1", 18, 6).await?;
+    compare_fee_tiers(&client, WETH, USDC, "1", 18, 6).await?;
 
     // Example 3: Simulate a swap (dry run)
-    if !private_key.is_empty() {
+    if client.has_signer() {
         println!("\n🔄 Simulating a swap (not executed)...");
-        simulate_swap(USDC, WETH, "100", 6, quote.amount_out_minimum.clone()).await?;
+        simulate_swap(&client, USDC, WETH, "100", 6, quote.amount_out_minimum.clone()).await?;
     }
 
     // Example 4: Calculate price impact
     println!("\n📈 Analyzing price impact...");
-    analyze_price_impact(WETH, DAI, 18, 18).await?;
+    analyze_price_impact(&client, WETH, DAI, 18, 18).await?;
 
     println!("\n✅ Uniswap example complete!");
 
@@ -56,6 +59,7 @@ async fn main() -> anyhow::Result<()> {
 }
 
 async fn get_quote_example(
+    client: &EvmClient,
     token_in: &str,
     token_out: &str,
     amount: &str,
@@ -63,6 +67,7 @@ async fn get_quote_example(
     decimals_out: u8,
 ) -> anyhow::Result<UniswapQuote> {
     match get_uniswap_quote(
+        client,
         token_in.to_string(),
         token_out.to_string(),
         amount.to_string(),
@@ -70,7 +75,6 @@ async fn get_quote_example(
         decimals_out,
         Some(3000), // 0.3% fee tier
         Some(50),   // 0.5% slippage
-        None,       // Use default RPC
     )
     .await
     {
@@ -86,6 +90,7 @@ async fn get_quote_example(
 }
 
 async fn compare_fee_tiers(
+    client: &EvmClient,
     token_in: &str,
     token_out: &str,
     amount: &str,
@@ -103,6 +108,7 @@ async fn compare_fee_tiers(
     
     for (fee, description) in fee_tiers {
         match get_uniswap_quote(
+            client,
             token_in.to_string(),
             token_out.to_string(),
             amount.to_string(),
@@ -110,7 +116,6 @@ async fn compare_fee_tiers(
             decimals_out,
             Some(fee),
             Some(50),
-            None,
         )
         .await
         {
@@ -131,6 +136,7 @@ async fn compare_fee_tiers(
 }
 
 async fn simulate_swap(
+    client: &EvmClient,
     token_in: &str,
     token_out: &str,
     amount: &str,
@@ -153,6 +159,7 @@ async fn simulate_swap(
 }
 
 async fn analyze_price_impact(
+    client: &EvmClient,
     token_in: &str,
     token_out: &str,
     decimals_in: u8,
@@ -166,6 +173,7 @@ async fn analyze_price_impact(
     
     for (i, amount) in amounts.iter().enumerate() {
         match get_uniswap_quote(
+            client,
             token_in.to_string(),
             token_out.to_string(),
             amount.to_string(),
@@ -173,7 +181,6 @@ async fn analyze_price_impact(
             decimals_out,
             Some(3000),
             Some(50),
-            None,
         )
         .await
         {
@@ -213,13 +220,13 @@ fn print_quote(quote: &UniswapQuote) {
     println!("    • Min Output: {}", quote.amount_out_minimum);
 }
 
-fn print_swap_result(result: &UniswapSwapResult) {
+fn print_swap_result(result: &SwapResult) {
     println!("  🎯 Swap Executed:");
-    println!("    • Transaction: {}", result.tx_hash);
+    println!("    • Transaction: {}", result.transaction_hash);
     println!("    • Input: {} {}", result.amount_in, result.token_in);
     println!("    • Output: {} {}", result.amount_out, result.token_out);
-    if let Some(gas) = result.gas_used {
+    if let Some(gas) = &result.gas_used {
         println!("    • Gas Used: {}", gas);
     }
-    println!("    • Status: {}", if result.status { "✅ Success" } else { "❌ Failed" });
+    println!("    • Block: #{}", result.block_number);
 }

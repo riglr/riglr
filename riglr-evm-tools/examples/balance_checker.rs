@@ -56,7 +56,14 @@ async fn main() -> anyhow::Result<()> {
 }
 
 async fn check_eth_balance(address: &str, rpc_url: Option<String>) -> anyhow::Result<()> {
-    match get_eth_balance(address.to_string(), rpc_url.clone(), None).await {
+    // Create client with the provided RPC URL or use mainnet
+    let client = if let Some(url) = rpc_url {
+        EvmClient::new(url).await?
+    } else {
+        EvmClient::mainnet().await?
+    };
+    
+    match get_eth_balance(&client, address.to_string(), None).await {
         Ok(balance) => {
             print_eth_balance(&balance);
         }
@@ -74,10 +81,17 @@ async fn check_erc20_balance(
     decimals: u8,
     rpc_url: Option<String>,
 ) -> anyhow::Result<()> {
+    // Create client with the provided RPC URL or use mainnet
+    let client = if let Some(url) = rpc_url {
+        EvmClient::new(url).await?
+    } else {
+        EvmClient::mainnet().await?
+    };
+    
     match get_erc20_balance(
+        &client,
         address.to_string(),
         token_address.to_string(),
-        rpc_url,
         Some(true), // Fetch metadata
     )
     .await
@@ -117,10 +131,12 @@ fn print_token_balance(balance: &TokenBalanceResult, token_name: &str) {
 async fn monitor_balance_changes(address: &str, interval_secs: u64) -> anyhow::Result<()> {
     println!("📡 Monitoring balance changes for {}", address);
     
+    // Create client once for monitoring
+    let client = EvmClient::mainnet().await?;
     let mut last_balance: Option<String> = None;
     
     loop {
-        let balance = get_eth_balance(address.to_string(), None, None).await?;
+        let balance = get_eth_balance(&client, address.to_string(), None).await?;
         
         if let Some(ref last) = last_balance {
             if last != &balance.balance_formatted {

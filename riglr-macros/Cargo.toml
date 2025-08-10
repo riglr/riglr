@@ -20,7 +20,7 @@ quote = { workspace = true }
 proc-macro2 = { workspace = true }
 
 # For parsing doc comments
-heck = "0.4"  # For case conversion
+heck = "0.5.0"  # For case conversion
 
 [dev-dependencies]
 riglr-core = { workspace = true }

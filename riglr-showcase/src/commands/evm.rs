@@ -5,12 +5,12 @@ use anyhow::Result;
 use colored::Colorize;
 use dialoguer::{Input, Select};
 use indicatif::{ProgressBar, ProgressStyle};
-// Temporarily using mock functionality due to dependency conflicts
-// use riglr_evm_tools::{
-//     client::{EvmClient, EvmConfig},
-//     balance::{get_eth_balance, get_erc20_balance},
-//     swap::get_uniswap_quote,
-// };
+// EVM tools with new client-first API
+use riglr_evm_tools::{
+    EvmClient,
+    get_eth_balance, get_erc20_balance,
+    get_uniswap_quote,
+};
 use std::collections::HashMap;
 // use tracing::{info, warn}; // Temporarily disabled
 
@@ -36,8 +36,15 @@ pub async fn run_demo(config: Config, address: Option<String>, chain_id: u64) ->
         }
     };
 
-    // EVM client temporarily simulated due to dependency conflicts
-    println!("{}", "⚠️ Note: EVM tools running in simulation mode due to dependency conflicts".yellow());
+    // Create EVM client
+    let client = match chain_id {
+        1 => EvmClient::mainnet().await?,
+        137 => EvmClient::new("https://polygon-rpc.com".to_string()).await?,
+        42161 => EvmClient::new("https://arb1.arbitrum.io/rpc".to_string()).await?,
+        10 => EvmClient::new("https://mainnet.optimism.io".to_string()).await?,
+        8453 => EvmClient::new("https://mainnet.base.org".to_string()).await?,
+        _ => EvmClient::mainnet().await?,
+    };
 
     println!("\n{}", format!("🔍 Analyzing wallet: {}", wallet_address).yellow());
     
@@ -50,47 +57,100 @@ pub async fn run_demo(config: Config, address: Option<String>, chain_id: u64) ->
     );
     pb.set_message("Fetching wallet data...");
 
-    // Demo 1: Get native token balance (ETH) - Simulated
-    pb.set_message("Simulating native token balance check...");
-    tokio::time::sleep(std::time::Duration::from_millis(500)).await; // Simulate API call
+    // Demo 1: Get native token balance (ETH)
+    pb.set_message("Fetching native token balance...");
     
-    println!("\n{}", format!("💰 {} Balance (Simulated)", chain_info.native_token).green().bold());
-    println!("   Address: {}", wallet_address);
-    println!("   Balance: {} {}", "12.5847".bright_green(), chain_info.native_token);
-    println!("   Wei: 12584700000000000000");
-    println!("   Chain: {}", chain_info.name);
-    println!("   Block: #19234567");
-
-    // Demo 2: Check popular ERC20 token balances
-    let _popular_tokens = get_popular_tokens(chain_id);
-    
-    // Simulate some popular token balances
-    let simulated_balances = vec![
-        ("USDC", "5000.25", "0xA0b86a33E6411617D1A03e63BDD7d9F5eF9b6EA9"),
-        ("USDT", "2500.00", "0xdAC17F958D2ee523a2206206994597C13D831ec7"),
-    ];
-    
-    for (symbol, balance, contract_address) in simulated_balances {
-        pb.set_message("Simulating token balance check...");
-        tokio::time::sleep(std::time::Duration::from_millis(300)).await; // Simulate API call
-        
-        println!("\n{}", format!("🪙 {} Balance (Simulated)", symbol).green().bold());
-        println!("   Balance: {} {}", balance.bright_green(), symbol);
-        println!("   Contract: {}", contract_address);
-        println!("   Decimals: 6");
+    match get_eth_balance(&client, wallet_address.clone(), None).await {
+        Ok(balance) => {
+            println!("\n{}", format!("💰 {} Balance", chain_info.native_token).green().bold());
+            println!("   Address: {}", balance.address);
+            println!("   Balance: {} {}", balance.balance_formatted.bright_green(), balance.unit);
+            println!("   Wei: {}", balance.balance_raw);
+            println!("   Chain: {} (ID: {})", balance.chain_name, balance.chain_id);
+            if let Some(block) = balance.block_number {
+                println!("   Block: #{}", block);
+            }
+        }
+        Err(e) => {
+            println!("\n{}", format!("⚠️  Error fetching balance: {}", e).yellow());
+            println!("   Falling back to simulation mode...");
+            println!("\n{}", format!("💰 {} Balance (Simulated)", chain_info.native_token).green().bold());
+            println!("   Address: {}", wallet_address);
+            println!("   Balance: {} {}", "12.5847".bright_green(), chain_info.native_token);
+            println!("   Wei: 12584700000000000000");
+            println!("   Chain: {}", chain_info.name);
+            println!("   Block: #19234567");
+        }
     }
 
-    // Demo 3: Uniswap quote example (only for Ethereum mainnet) - Simulated
-    if chain_id == 1 {
-        pb.set_message("Simulating Uniswap quote...");
-        tokio::time::sleep(std::time::Duration::from_millis(700)).await; // Simulate API call
+    // Demo 2: Check popular ERC20 token balances
+    let popular_tokens = get_popular_tokens(chain_id);
+    
+    // Check first two tokens
+    let token_limit = 2;
+    let mut token_count = 0;
+    
+    for (symbol, contract_address) in popular_tokens.iter() {
+        if token_count >= token_limit {
+            break;
+        }
+        token_count += 1;
         
-        println!("\n{}", "🔄 Uniswap Quote (1 WETH → USDC) - Simulated".green().bold());
-        println!("   Input: 1.0 WETH");
-        println!("   Output: ~{} USDC", "2891.45".bright_green());
-        println!("   Pool Fee: 0.05%");
-        println!("   Route: WETH → USDC");
-        println!("   Price Impact: 0.01%");
+        pb.set_message(format!("Fetching {} balance...", symbol));
+        
+        match get_erc20_balance(&client, wallet_address.clone(), contract_address.clone(), Some(true)).await {
+            Ok(balance) => {
+                println!("\n{}", format!("🪙 {} Balance", symbol).green().bold());
+                println!("   Balance: {} {}", balance.balance_formatted.bright_green(), 
+                    balance.token_symbol.as_ref().unwrap_or(symbol));
+                println!("   Contract: {}", balance.token_address);
+                println!("   Decimals: {}", balance.decimals);
+            }
+            Err(_) => {
+                // Fallback to simulation if real call fails
+                println!("\n{}", format!("🪙 {} Balance (Simulated)", symbol).green().bold());
+                println!("   Balance: {} {}", "1000.00".bright_green(), symbol);
+                println!("   Contract: {}", contract_address);
+                println!("   Decimals: 6");
+            }
+        }
+    }
+
+    // Demo 3: Uniswap quote example (only for Ethereum mainnet)
+    if chain_id == 1 {
+        pb.set_message("Fetching Uniswap quote...");
+        
+        let weth = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2";
+        let usdc = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48";
+        
+        match get_uniswap_quote(
+            &client,
+            weth.to_string(),
+            usdc.to_string(),
+            "1".to_string(),  // 1 WETH
+            18,               // WETH decimals
+            6,                // USDC decimals
+            Some(3000),       // 0.3% fee tier
+            Some(50),         // 0.5% slippage
+        ).await {
+            Ok(quote) => {
+                println!("\n{}", "🔄 Uniswap Quote (1 WETH → USDC)".green().bold());
+                println!("   Input: {} {}", quote.amount_in, quote.token_in);
+                println!("   Output: {} {}", quote.amount_out.bright_green(), quote.token_out);
+                println!("   Price: {:.2} USDC per WETH", quote.price);
+                println!("   Pool Fee: {:.2}%", quote.fee_tier as f64 / 10000.0);
+                println!("   Min Output: {}", quote.amount_out_minimum);
+            }
+            Err(_) => {
+                // Fallback to simulation
+                println!("\n{}", "🔄 Uniswap Quote (1 WETH → USDC) - Simulated".green().bold());
+                println!("   Input: 1.0 WETH");
+                println!("   Output: ~{} USDC", "2891.45".bright_green());
+                println!("   Pool Fee: 0.3%");
+                println!("   Route: WETH → USDC");
+                println!("   Price Impact: 0.01%");
+            }
+        }
     }
 
     pb.finish_and_clear();
