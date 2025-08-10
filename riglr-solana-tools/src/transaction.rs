@@ -23,7 +23,52 @@ use tracing::{debug, info};
 
 /// Transfer SOL from one account to another
 ///
-/// This tool creates and executes a SOL transfer transaction.
+/// This tool creates, signs, and executes a SOL transfer transaction using the current signer context.
+/// The transaction includes optional memo and priority fee support for faster confirmation.
+/// 
+/// # Arguments
+/// 
+/// * `to_address` - Recipient wallet address (base58 encoded public key)
+/// * `amount_sol` - Amount to transfer in SOL (e.g., 0.001 for 1,000,000 lamports)
+/// * `memo` - Optional memo to include in the transaction for record keeping
+/// * `priority_fee` - Optional priority fee in microlamports for faster processing
+/// 
+/// # Returns
+/// 
+/// Returns `TransactionResult` containing:
+/// - `signature`: Transaction signature hash
+/// - `from`: Sender address from signer context
+/// - `to`: Recipient address
+/// - `amount`: Transfer amount in lamports
+/// - `amount_display`: Human-readable amount in SOL
+/// - `status`: Transaction confirmation status
+/// - `memo`: Included memo (if any)
+/// 
+/// # Errors
+/// 
+/// * `ToolError::Permanent` - When amount is non-positive, addresses are invalid, or signer unavailable
+/// * `ToolError::Permanent` - When transaction signing or submission fails
+/// 
+/// # Examples
+/// 
+/// ```rust,ignore
+/// use riglr_solana_tools::transaction::transfer_sol;
+/// use riglr_core::SignerContext;
+/// 
+/// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+/// // Transfer 0.001 SOL with a memo
+/// let result = transfer_sol(
+///     "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM".to_string(),
+///     0.001, // 0.001 SOL
+///     Some("Payment for services".to_string()),
+///     Some(5000), // 5000 microlamports priority fee
+/// ).await?;
+/// 
+/// println!("Transfer completed! Signature: {}", result.signature);
+/// println!("Sent {} from {} to {}", result.amount_display, result.from, result.to);
+/// # Ok(())
+/// # }
+/// ```
 #[tool]
 pub async fn transfer_sol(
     to_address: String,
@@ -109,6 +154,47 @@ pub async fn transfer_sol(
 }
 
 /// Transfer SPL tokens from one account to another
+///
+/// This tool creates, signs, and executes an SPL token transfer transaction. It automatically
+/// handles Associated Token Account (ATA) creation if needed and supports any SPL token.
+/// 
+/// # Arguments
+/// 
+/// * `to_address` - Recipient wallet address (base58 encoded public key)
+/// * `mint_address` - SPL token mint address (contract address)
+/// * `amount` - Amount to transfer in token's smallest unit (before decimal adjustment)
+/// * `decimals` - Number of decimal places for the token (e.g., 6 for USDC, 9 for most tokens)
+/// * `create_ata_if_needed` - Whether to create recipient's ATA if it doesn't exist
+/// 
+/// # Returns
+/// 
+/// Returns `TokenTransferResult` containing transaction details and amount information
+/// in both raw and UI-adjusted formats.
+/// 
+/// # Errors
+/// 
+/// * `ToolError::Permanent` - When addresses are invalid, signer unavailable, or transaction fails
+/// 
+/// # Examples
+/// 
+/// ```rust,ignore
+/// use riglr_solana_tools::transaction::transfer_spl_token;
+/// 
+/// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+/// // Transfer 1 USDC (6 decimals)
+/// let result = transfer_spl_token(
+///     "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM".to_string(),
+///     "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v".to_string(), // USDC mint
+///     1_000_000, // 1 USDC in microunits
+///     6, // USDC has 6 decimals
+///     true, // Create recipient ATA if needed
+/// ).await?;
+/// 
+/// println!("Token transfer completed! Signature: {}", result.signature);
+/// println!("Transferred {} tokens", result.ui_amount);
+/// # Ok(())
+/// # }
+/// ```
 #[tool]
 pub async fn transfer_spl_token(
     to_address: String,

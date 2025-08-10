@@ -12,8 +12,45 @@ use tracing::{debug, info};
 
 /// Get SOL balance for a given address
 ///
-/// This tool queries the Solana blockchain to retrieve the SOL balance
-/// in both lamports and SOL units.
+/// This tool queries the Solana blockchain to retrieve the SOL balance for any wallet address.
+/// The balance is returned in both lamports (smallest unit) and SOL (human-readable format).
+/// 
+/// # Arguments
+/// 
+/// * `address` - The Solana wallet address to check (base58 encoded public key)
+/// 
+/// # Returns
+/// 
+/// Returns `BalanceResult` containing:
+/// - `address`: The queried wallet address
+/// - `lamports`: Balance in lamports (1 SOL = 1,000,000,000 lamports)
+/// - `sol`: Balance in SOL units as a floating-point number
+/// - `formatted`: Human-readable balance string with 9 decimal places
+/// 
+/// # Errors
+/// 
+/// * `ToolError::Permanent` - When the address format is invalid or parsing fails
+/// * `ToolError::Retriable` - When network connection issues occur (timeouts, connection errors)
+/// * `ToolError::Permanent` - When no signer context is available
+/// 
+/// # Examples
+/// 
+/// ```rust,ignore
+/// use riglr_solana_tools::balance::get_sol_balance;
+/// use riglr_core::SignerContext;
+/// 
+/// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+/// // Check SOL balance for a wallet
+/// let balance = get_sol_balance(
+///     "So11111111111111111111111111111111111111112".to_string()
+/// ).await?;
+/// 
+/// println!("Address: {}", balance.address);
+/// println!("Balance: {} SOL ({} lamports)", balance.sol, balance.lamports);
+/// println!("Formatted: {}", balance.formatted);
+/// # Ok(())
+/// # }
+/// ```
 #[tool]
 pub async fn get_sol_balance(
     address: String,
@@ -62,8 +99,47 @@ pub async fn get_sol_balance(
 
 /// Get SPL token balance for a given owner and mint
 ///
-/// This tool queries the Solana blockchain to retrieve the balance of a specific
-/// SPL token for a given owner address.
+/// This tool queries the Solana blockchain to retrieve the balance of a specific SPL token
+/// for a given wallet address. It automatically finds the Associated Token Account (ATA)
+/// and returns both raw and UI-adjusted amounts.
+/// 
+/// # Arguments
+/// 
+/// * `owner_address` - The wallet address that owns the tokens (base58 encoded)
+/// * `mint_address` - The SPL token mint address (contract address)
+/// 
+/// # Returns
+/// 
+/// Returns `TokenBalanceResult` containing:
+/// - `owner_address`: The wallet address queried
+/// - `mint_address`: The token mint address
+/// - `raw_amount`: Balance in token's smallest unit (before decimal adjustment)
+/// - `ui_amount`: Balance adjusted for token decimals
+/// - `decimals`: Number of decimal places for the token
+/// - `formatted`: Human-readable balance string
+/// 
+/// # Errors
+/// 
+/// * `ToolError::Permanent` - When addresses are invalid or context unavailable
+/// * `ToolError::Retriable` - When network issues occur during balance retrieval
+/// 
+/// # Examples
+/// 
+/// ```rust,ignore
+/// use riglr_solana_tools::balance::get_spl_token_balance;
+/// 
+/// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+/// // Check USDC balance for a wallet
+/// let balance = get_spl_token_balance(
+///     "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM".to_string(),
+///     "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v".to_string(), // USDC mint
+/// ).await?;
+/// 
+/// println!("Token balance: {} {}", balance.ui_amount, balance.mint_address);
+/// println!("Raw amount: {} (decimals: {})", balance.raw_amount, balance.decimals);
+/// # Ok(())
+/// # }
+/// ```
 #[tool]
 pub async fn get_spl_token_balance(
     owner_address: String,
@@ -133,7 +209,43 @@ pub async fn get_spl_token_balance(
 
 /// Get SOL balances for multiple addresses
 ///
-/// This tool queries the Solana blockchain to retrieve SOL balances for multiple addresses.
+/// This tool queries the Solana blockchain to retrieve SOL balances for multiple wallet addresses
+/// in a batch operation. Each address is processed individually and results are collected.
+/// 
+/// # Arguments
+/// 
+/// * `addresses` - Vector of Solana wallet addresses to check (base58 encoded public keys)
+/// 
+/// # Returns
+/// 
+/// Returns `Vec<BalanceResult>` with balance information for each address that was successfully queried.
+/// Each result contains the same fields as `get_sol_balance`.
+/// 
+/// # Errors
+/// 
+/// * `ToolError::Permanent` - When any individual address is invalid or signer context unavailable
+/// * `ToolError::Retriable` - When network issues occur during any balance query
+/// 
+/// Note: This function fails fast - if any address query fails, the entire operation returns an error.
+/// 
+/// # Examples
+/// 
+/// ```rust,ignore
+/// use riglr_solana_tools::balance::get_multiple_balances;
+/// 
+/// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+/// let addresses = vec![
+///     "So11111111111111111111111111111111111111112".to_string(),
+///     "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM".to_string(),
+/// ];
+/// 
+/// let balances = get_multiple_balances(addresses).await?;
+/// for balance in balances {
+///     println!("{}: {} SOL", balance.address, balance.sol);
+/// }
+/// # Ok(())
+/// # }
+/// ```
 #[tool]
 pub async fn get_multiple_balances(
     addresses: Vec<String>,

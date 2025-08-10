@@ -72,7 +72,7 @@ task_local! {
 ///         match operation {
 ///             "balance" => check_balance().await,
 ///             "transfer" => perform_transfer().await,
-///             _ => Err("Unknown operation".into())
+///             _ => Err(riglr_core::signer::SignerError::NoSignerContext)
 ///         }
 ///     }).await.map_err(Into::into)
 /// }
@@ -233,7 +233,7 @@ impl SignerContext {
     /// async fn tool_that_needs_signer() -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
     ///     // Get the current signer from context
     ///     let signer = SignerContext::current().await
-    ///         .map_err(|_| "This tool requires a signer context")?;
+    ///         .map_err(|e| -> Box<dyn std::error::Error + Send + Sync> { Box::new(e) })?;
     ///     
     ///     // Use the signer for operations
     ///     match signer.user_id() {
@@ -250,10 +250,10 @@ impl SignerContext {
     /// ));
     /// 
     /// SignerContext::with_signer(signer, async {
-    ///     let result = tool_that_needs_signer().await?;
+    ///     let result = tool_that_needs_signer().await.unwrap();
     ///     println!("{}", result);
     ///     Ok(())
-    /// }).await?;
+    /// }).await.unwrap();
     /// # Ok(())
     /// # }
     /// ```
@@ -295,7 +295,7 @@ impl SignerContext {
     /// use std::sync::Arc;
     /// # use solana_sdk::signer::keypair::Keypair;
     /// 
-    /// async fn flexible_tool() -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+    /// async fn flexible_tool() -> Result<String, riglr_core::signer::SignerError> {
     ///     if SignerContext::is_available().await {
     ///         // We have a signer, can perform transactions
     ///         let signer = SignerContext::current().await?;
@@ -308,7 +308,7 @@ impl SignerContext {
     /// 
     /// # async fn example() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     /// // Test without signer context
-    /// let result1 = flexible_tool().await?;
+    /// let result1 = flexible_tool().await.unwrap();
     /// assert_eq!(result1, "Read-only mode: no signer available");
     /// 
     /// // Test with signer context
@@ -320,7 +320,7 @@ impl SignerContext {
     /// 
     /// let result2 = SignerContext::with_signer(signer, async {
     ///     flexible_tool().await
-    /// }).await??;
+    /// }).await.unwrap();
     /// assert_eq!(result2, "Performing transaction with signer");
     /// 
     /// # Ok(())

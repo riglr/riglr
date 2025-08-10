@@ -175,7 +175,59 @@ pub struct UniswapSwapResult {
 
 /// Get a quote from Uniswap V3
 ///
-/// This tool queries Uniswap V3 to get a quote for swapping tokens.
+/// This tool queries Uniswap V3 to get a quote for swapping ERC20 tokens without executing
+/// any transaction. It uses the Quoter contract to estimate output amounts and price impact.
+/// Supports all EVM chains where Uniswap V3 is deployed.
+/// 
+/// # Arguments
+/// 
+/// * `token_in` - Input token contract address (ERC20)
+/// * `token_out` - Output token contract address (ERC20)
+/// * `amount_in` - Input amount as string (e.g., "1.5" for human-readable amount)
+/// * `decimals_in` - Number of decimals for input token
+/// * `decimals_out` - Number of decimals for output token
+/// * `fee_tier` - Uniswap pool fee tier (100=0.01%, 500=0.05%, 3000=0.3%, 10000=1%)
+/// * `slippage_bps` - Slippage tolerance in basis points (50 = 0.5%)
+/// 
+/// # Returns
+/// 
+/// Returns `UniswapQuote` containing:
+/// - `token_in`, `token_out`: Token addresses
+/// - `amount_in`, `amount_out`: Input and expected output amounts
+/// - `price`: Exchange rate (output tokens per 1 input token)
+/// - `fee_tier`: Pool fee used for the quote
+/// - `slippage_bps`: Slippage tolerance applied
+/// - `amount_out_minimum`: Minimum output after slippage
+/// 
+/// # Errors
+/// 
+/// * `EvmToolError::InvalidAddress` - When token addresses are invalid
+/// * `EvmToolError::Rpc` - When Quoter contract call fails (often due to no liquidity)
+/// * `EvmToolError::Generic` - When amount parsing fails
+/// 
+/// # Examples
+/// 
+/// ```rust,ignore
+/// use riglr_evm_tools::swap::get_uniswap_quote;
+/// 
+/// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+/// // Get quote for swapping 1 WETH to USDC
+/// let quote = get_uniswap_quote(
+///     "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2".to_string(), // WETH
+///     "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48".to_string(), // USDC
+///     "1.0".to_string(), // 1 WETH
+///     18, // WETH decimals
+///     6,  // USDC decimals
+///     Some(3000), // 0.3% fee tier
+///     Some(50),   // 0.5% slippage
+/// ).await?;
+/// 
+/// println!("Quote: {} WETH -> {} USDC", quote.amount_in, quote.amount_out);
+/// println!("Price: {} USDC per WETH", quote.price);
+/// println!("Minimum output: {}", quote.amount_out_minimum);
+/// # Ok(())
+/// # }
+/// ```
 #[tool]
 pub async fn get_uniswap_quote(
     token_in: String,
@@ -272,7 +324,53 @@ pub async fn get_uniswap_quote(
 
 /// Perform a token swap on Uniswap V3
 ///
-/// This tool executes a token swap on Uniswap V3.
+/// This tool executes an actual token swap on Uniswap V3 by calling the SwapRouter contract.
+/// It constructs the appropriate transaction with slippage protection and deadline management.
+/// Requires token approvals to be set beforehand for the SwapRouter contract.
+/// 
+/// # Arguments
+/// 
+/// * `token_in` - Input token contract address
+/// * `token_out` - Output token contract address
+/// * `amount_in` - Input amount as string (human-readable)
+/// * `decimals_in` - Number of decimals for input token
+/// * `amount_out_minimum` - Minimum acceptable output amount (for slippage protection)
+/// * `fee_tier` - Uniswap pool fee tier to use
+/// * `deadline_seconds` - Transaction deadline in seconds from now
+/// 
+/// # Returns
+/// 
+/// Returns `UniswapSwapResult` containing transaction details and actual amounts.
+/// 
+/// # Errors
+/// 
+/// * `EvmToolError::InvalidAddress` - When token addresses are invalid
+/// * `EvmToolError::Transaction` - When insufficient token balance or allowance
+/// * `EvmToolError::Rpc` - When transaction fails or network issues occur
+/// 
+/// # Examples
+/// 
+/// ```rust,ignore
+/// use riglr_evm_tools::swap::perform_uniswap_swap;
+/// use riglr_core::SignerContext;
+/// 
+/// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+/// // Note: Token approval for SwapRouter must be done first
+/// let result = perform_uniswap_swap(
+///     "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2".to_string(), // WETH
+///     "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48".to_string(), // USDC
+///     "0.5".to_string(), // 0.5 WETH
+///     18, // WETH decimals
+///     "900000000".to_string(), // Minimum 900 USDC out (6 decimals)
+///     Some(3000), // 0.3% fee tier
+///     Some(300),  // 5 minute deadline
+/// ).await?;
+/// 
+/// println!("Swap completed! Hash: {}", result.tx_hash);
+/// println!("Swapped {} for {} tokens", result.amount_in, result.amount_out);
+/// # Ok(())
+/// # }
+/// ```
 #[tool]
 pub async fn perform_uniswap_swap(
     token_in: String,

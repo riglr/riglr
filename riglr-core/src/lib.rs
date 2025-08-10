@@ -64,7 +64,7 @@
 //!     3 // max retries
 //! )?;
 //!
-//! let result = worker.process_job(job).await?;
+//! let result = worker.process_job(job).await.unwrap();
 //! println!("Result: {:?}", result);
 //! # Ok(())
 //! # }
