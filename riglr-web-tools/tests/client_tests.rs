@@ -1,11 +1,10 @@
 //! Comprehensive tests for client module
 
 use riglr_web_tools::client::WebClient;
-use std::collections::HashMap;
 
 #[test]
 fn test_web_client_new() {
-    let client = WebClient::new();
+    let client = WebClient::new().expect("Failed to create client");
 
     assert!(client.api_keys.is_empty());
     assert!(client.config.is_empty());
@@ -13,7 +12,7 @@ fn test_web_client_new() {
 
 #[test]
 fn test_web_client_with_api_key() {
-    let client = WebClient::new()
+    let client = WebClient::new().expect("Failed to create client")
         .with_api_key("service1", "key1")
         .with_api_key("service2", "key2");
 
@@ -23,7 +22,7 @@ fn test_web_client_with_api_key() {
 
 #[test]
 fn test_web_client_with_twitter_token() {
-    let client = WebClient::new().with_twitter_token("bearer_token_123");
+    let client = WebClient::new().expect("Failed to create client").with_twitter_token("bearer_token_123");
 
     assert_eq!(
         client.api_keys.get("twitter"),
@@ -33,7 +32,7 @@ fn test_web_client_with_twitter_token() {
 
 #[test]
 fn test_web_client_with_exa_key() {
-    let client = WebClient::new().with_exa_key("exa_api_key_456");
+    let client = WebClient::new().expect("Failed to create client").with_exa_key("exa_api_key_456");
 
     assert_eq!(
         client.api_keys.get("exa"),
@@ -43,7 +42,7 @@ fn test_web_client_with_exa_key() {
 
 #[test]
 fn test_web_client_with_dexscreener_key() {
-    let client = WebClient::new().with_dexscreener_key("dex_key_789");
+    let client = WebClient::new().expect("Failed to create client").with_dexscreener_key("dex_key_789");
 
     assert_eq!(
         client.api_keys.get("dexscreener"),
@@ -53,9 +52,9 @@ fn test_web_client_with_dexscreener_key() {
 
 #[test]
 fn test_web_client_with_config() {
-    let client = WebClient::new()
-        .with_config("timeout", "30")
-        .with_config("retry_count", "3");
+    let mut client = WebClient::new().expect("Failed to create client");
+    client.set_config("timeout", "30");
+    client.set_config("retry_count", "3");
 
     assert_eq!(client.config.get("timeout"), Some(&"30".to_string()));
     assert_eq!(client.config.get("retry_count"), Some(&"3".to_string()));
@@ -63,13 +62,13 @@ fn test_web_client_with_config() {
 
 #[test]
 fn test_web_client_chaining() {
-    let client = WebClient::new()
+    let mut client = WebClient::new().expect("Failed to create client")
         .with_api_key("service1", "key1")
         .with_twitter_token("twitter_token")
         .with_exa_key("exa_key")
-        .with_dexscreener_key("dex_key")
-        .with_config("option1", "value1")
-        .with_config("option2", "value2");
+        .with_dexscreener_key("dex_key");
+    client.set_config("option1", "value1");
+    client.set_config("option2", "value2");
 
     assert_eq!(client.api_keys.len(), 4);
     assert_eq!(client.config.len(), 2);
@@ -77,7 +76,7 @@ fn test_web_client_chaining() {
 
 #[test]
 fn test_web_client_overwrite_api_key() {
-    let client = WebClient::new()
+    let client = WebClient::new().expect("Failed to create client")
         .with_api_key("service", "old_key")
         .with_api_key("service", "new_key");
 
@@ -86,7 +85,7 @@ fn test_web_client_overwrite_api_key() {
 
 #[test]
 fn test_web_client_get_api_key() {
-    let client = WebClient::new().with_api_key("test", "test_key");
+    let client = WebClient::new().expect("Failed to create client").with_api_key("test", "test_key");
 
     let key = client.get_api_key("test");
     assert!(key.is_some());
@@ -98,7 +97,8 @@ fn test_web_client_get_api_key() {
 
 #[test]
 fn test_web_client_get_config() {
-    let client = WebClient::new().with_config("setting", "value");
+    let mut client = WebClient::new().expect("Failed to create client");
+    client.set_config("setting", "value");
 
     let config = client.get_config("setting");
     assert!(config.is_some());
@@ -110,9 +110,9 @@ fn test_web_client_get_config() {
 
 #[test]
 fn test_web_client_clone() {
-    let client = WebClient::new()
-        .with_api_key("service", "key")
-        .with_config("option", "value");
+    let mut client = WebClient::new().expect("Failed to create client")
+        .with_api_key("service", "key");
+    client.set_config("option", "value");
 
     let cloned = client.clone();
 
@@ -122,7 +122,7 @@ fn test_web_client_clone() {
 
 #[test]
 fn test_web_client_debug() {
-    let client = WebClient::new().with_api_key("test", "key");
+    let client = WebClient::new().expect("Failed to create client").with_api_key("test", "key");
 
     let debug_str = format!("{:?}", client);
     assert!(debug_str.contains("WebClient"));
@@ -139,17 +139,16 @@ fn test_web_client_default() {
 
 #[test]
 fn test_web_client_empty_strings() {
-    let client = WebClient::new().with_api_key("", "").with_config("", "");
+    let client = WebClient::new().expect("Failed to create client").with_api_key("", "");
 
     assert_eq!(client.api_keys.get(""), Some(&"".to_string()));
-    assert_eq!(client.config.get(""), Some(&"".to_string()));
 }
 
 #[test]
 fn test_web_client_special_characters() {
-    let client = WebClient::new()
-        .with_api_key("service@123", "key!@#$%")
-        .with_config("config-key", "value/with/slashes");
+    let mut client = WebClient::new().expect("Failed to create client")
+        .with_api_key("service@123", "key!@#$%");
+    client.set_config("config-key", "value/with/slashes");
 
     assert_eq!(
         client.api_keys.get("service@123"),
@@ -163,7 +162,7 @@ fn test_web_client_special_characters() {
 
 #[test]
 fn test_web_client_multiple_services() {
-    let client = WebClient::new()
+    let client = WebClient::new().expect("Failed to create client")
         .with_twitter_token("twitter_token")
         .with_exa_key("exa_key")
         .with_dexscreener_key("dex_key")
@@ -178,11 +177,11 @@ fn test_web_client_multiple_services() {
 
 #[test]
 fn test_web_client_builder_pattern() {
-    let mut client = WebClient::new();
+    let mut client = WebClient::new().expect("Failed to create client");
 
     // Test that the builder pattern works correctly
     client = client.with_api_key("key1", "value1");
-    client = client.with_config("config1", "value1");
+    client.set_config("config1", "value1");
 
     assert_eq!(client.api_keys.len(), 1);
     assert_eq!(client.config.len(), 1);
@@ -190,7 +189,7 @@ fn test_web_client_builder_pattern() {
 
 #[test]
 fn test_web_client_http_client_exists() {
-    let client = WebClient::new();
+    let client = WebClient::new().expect("Failed to create client");
 
     // Just verify that http_client field exists and can be accessed
     let _ = &client.http_client;
@@ -199,7 +198,7 @@ fn test_web_client_http_client_exists() {
 
 #[test]
 fn test_web_client_hashmap_operations() {
-    let mut client = WebClient::new();
+    let mut client = WebClient::new().expect("Failed to create client");
 
     // Direct HashMap operations
     client

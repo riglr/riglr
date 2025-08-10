@@ -8,16 +8,13 @@ use crate::{
 };
 use alloy::{
     primitives::{Address, U256},
-    providers::Provider,
     rpc::types::TransactionRequest,
     sol,
     sol_types::SolCall,
 };
-use riglr_core::ToolError;
 use riglr_macros::tool;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
 use tracing::{debug, info};
 
 // Define ERC20 interface using alloy sol! macro
@@ -123,42 +120,28 @@ pub struct TokenBalanceResult {
 pub async fn get_eth_balance(
     address: String,
     block_number: Option<u64>,
-) -> std::result::Result<BalanceResult, ToolError> {
+) -> std::result::Result<BalanceResult, EvmToolError> {
     debug!("Getting ETH balance for address: {}", address);
 
     // Get signer context (even though we don't need signing for balance checks, we need the client)
     let signer = riglr_core::SignerContext::current().await
-        .map_err(|e| ToolError::permanent(format!("No signer context: {}", e)))?;
+        .map_err(|e| EvmToolError::Generic(format!("No signer context: {}", e)))?;
     
     // Get the EVM client from the signer context
-    let client_any = signer.evm_client()
-        .map_err(|e| ToolError::permanent(format!("Failed to get EVM client: {}", e)))?;
+    let _client_any = signer.evm_client()
+        .map_err(|e| EvmToolError::Generic(format!("Failed to get EVM client: {}", e)))?;
     
     // This is a temporary workaround - in a real implementation, we'd need better type handling
     // For now, we'll create a new EvmClient from a basic config
-    let client = EvmClient::mainnet().await
-        .map_err(|e| ToolError::permanent(format!("Failed to create EVM client: {}", e)))?;
+    let client = EvmClient::mainnet().await?;
 
     // Validate address
-    let validated_addr = validate_address(&address)
-        .map_err(|e| ToolError::permanent(format!("Invalid address: {}", e)))?;
+    let validated_addr = validate_address(&address)?;
 
     // Get balance
     let balance_wei = client
         .get_balance(validated_addr)
-        .await
-        .map_err(|e| {
-            let error_str = e.to_string();
-            if error_str.contains("timeout")
-                || error_str.contains("connection")
-                || error_str.contains("temporarily")
-                || error_str.contains("network")
-            {
-                ToolError::retriable(format!("Failed to get balance: {}", e))
-            } else {
-                ToolError::permanent(format!("Failed to get balance: {}", e))
-            }
-        })?;
+        .await?;
 
     // Get current block number if not specified
     let block_num = if let Some(bn) = block_number {
@@ -166,8 +149,7 @@ pub async fn get_eth_balance(
     } else {
         client
             .get_block_number()
-            .await
-            .map_err(|e| ToolError::retriable(format!("Failed to get block number: {}", e)))?
+            .await?
     };
 
     // Convert to ETH
@@ -244,7 +226,7 @@ pub async fn get_erc20_balance(
     address: String,
     token_address: String,
     fetch_metadata: Option<bool>,
-) -> std::result::Result<TokenBalanceResult, ToolError> {
+) -> std::result::Result<TokenBalanceResult, EvmToolError> {
     debug!(
         "Getting ERC20 balance for address {} token {}",
         address, token_address
@@ -252,29 +234,18 @@ pub async fn get_erc20_balance(
 
     // Get signer context and create client
     let _signer = riglr_core::SignerContext::current().await
-        .map_err(|e| ToolError::permanent(format!("No signer context: {}", e)))?;
+        .map_err(|e| EvmToolError::Generic(format!("No signer context: {}", e)))?;
     
     // Create EVM client (temporary approach - should use client from signer in real implementation)
-    let client = EvmClient::mainnet().await
-        .map_err(|e| ToolError::permanent(format!("Failed to create EVM client: {}", e)))?;
+    let client = EvmClient::mainnet().await?;
 
     // Validate addresses
-    let validated_addr = validate_address(&address)
-        .map_err(|e| ToolError::permanent(format!("Invalid wallet address: {}", e)))?;
-    let validated_token_addr = validate_address(&token_address)
-        .map_err(|e| ToolError::permanent(format!("Invalid token address: {}", e)))?;
+    let validated_addr = validate_address(&address)?;
+    let validated_token_addr = validate_address(&token_address)?;
 
     // Get balance using balanceOf function
     let balance = get_token_balance(&client, validated_token_addr, validated_addr)
-        .await
-        .map_err(|e| {
-            let error_str = e.to_string();
-            if error_str.contains("timeout") || error_str.contains("network") {
-                ToolError::retriable(format!("Failed to get token balance: {}", e))
-            } else {
-                ToolError::permanent(format!("Failed to get token balance: {}", e))
-            }
-        })?;
+        .await?;
 
     // Get token metadata if requested
     let (symbol, name, decimals) = if fetch_metadata.unwrap_or(true) {

@@ -73,3 +73,4 @@ impl From<EvmToolError> for riglr_core::ToolError {
         }
     }
 }
+
