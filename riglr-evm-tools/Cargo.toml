@@ -1,11 +1,11 @@
 [package]
 name = "riglr-evm-tools"
-version.workspace = true
-edition.workspace = true
-license.workspace = true
-authors.workspace = true
-repository.workspace = true
-homepage.workspace = true
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+authors = ["riglr project contributors"]
+repository = "https://github.com/riglr-project/riglr"
+homepage = "https://github.com/riglr-project/riglr"
 description = "A suite of rig-compatible tools for interacting with EVM-based blockchains"
 readme = "README.md"
 keywords = ["ethereum", "evm", "ai", "agent", "blockchain", "rig"]
@@ -14,39 +14,42 @@ documentation = "https://docs.rs/riglr-evm-tools"
 
 [dependencies]
 # Core riglr and rig dependencies
-rig-core = { workspace = true }
-riglr-core = { workspace = true }
-riglr-macros = { workspace = true }
+rig-core = "0.2.0"
+riglr-core = { path = "../riglr-core" }
+riglr-macros = { path = "../riglr-macros" }
 
 # Async and Error Handling
-tokio = { workspace = true }
-anyhow = { workspace = true }
-thiserror = { workspace = true }
-async-trait = { workspace = true }
+tokio = { version = "1", features = ["full"] }
+anyhow = "1.0"
+thiserror = "1.0"
+async-trait = "0.1"
 
 # Serialization and Schema
-serde = { workspace = true }
-serde_json = { workspace = true }
-schemars = { workspace = true }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+schemars = "0.8"
 
 # EVM Dependencies (using alloy-rs)
 alloy = { version = "0.8", features = ["full", "node-bindings"] }
 hex = "0.4"
 
 # HTTP client
-reqwest = { workspace = true }
+reqwest = { version = "0.11", features = ["json"] }
 
 # Utility
 uuid = { version = "1.0", features = ["v4"] }
 
 # Logging
-tracing = { workspace = true }
+tracing = "0.1"
 
 [dev-dependencies]
-tokio-test = { workspace = true }
-tracing-subscriber = { workspace = true }
+tokio-test = "0.4"
+tracing-subscriber = "0.3"
 mockito = "1.0"
-criterion = { workspace = true }
+criterion = { version = "0.5", features = ["html_reports", "async_tokio"] }
+
+[workspace]
+# Empty workspace table to keep it out of the parent workspace
 
 [[bench]]
 name = "evm_benchmarks"
