@@ -176,8 +176,8 @@ pub struct UniswapSwapResult {
 /// Get a quote from Uniswap V3
 ///
 /// This tool queries Uniswap V3 to get a quote for swapping tokens.
+#[tool]
 pub async fn get_uniswap_quote(
-    client: &EvmClient,
     token_in: String,
     token_out: String,
     amount_in: String,
@@ -191,12 +191,19 @@ pub async fn get_uniswap_quote(
         amount_in, token_in, token_out
     );
 
+    // Get signer context and create client
+    let _signer_context = riglr_core::SignerContext::current().await
+        .map_err(|e| ToolError::permanent(format!("No signer context: {}", e)))?;
+    
+    // Create EVM client (temporary - should come from signer context)
+    let client = EvmClient::mainnet().await
+        .map_err(|e| ToolError::permanent(format!("Failed to create EVM client: {}", e)))?;
+
     // Validate addresses
     let token_in_addr = validate_address(&token_in)
         .map_err(|e| ToolError::permanent(format!("Invalid token_in address: {}", e)))?;
     let token_out_addr = validate_address(&token_out)
         .map_err(|e| ToolError::permanent(format!("Invalid token_out address: {}", e)))?;
-
 
     // Get Uniswap config for this chain
     let config = UniswapConfig::for_chain(client.chain_id);
@@ -266,8 +273,8 @@ pub async fn get_uniswap_quote(
 /// Perform a token swap on Uniswap V3
 ///
 /// This tool executes a token swap on Uniswap V3.
+#[tool]
 pub async fn perform_uniswap_swap(
-    client: &EvmClient,
     token_in: String,
     token_out: String,
     amount_in: String,
@@ -281,17 +288,27 @@ pub async fn perform_uniswap_swap(
         amount_in, token_in, token_out
     );
 
+    // Get signer context and create client
+    let signer_context = riglr_core::SignerContext::current().await
+        .map_err(|e| ToolError::permanent(format!("No signer context: {}", e)))?;
+    
+    // Create EVM client (temporary - should come from signer context)
+    let client = EvmClient::mainnet().await
+        .map_err(|e| ToolError::permanent(format!("Failed to create EVM client: {}", e)))?;
+
     // Validate addresses
     let token_in_addr = validate_address(&token_in)
         .map_err(|e| ToolError::permanent(format!("Invalid token_in address: {}", e)))?;
     let token_out_addr = validate_address(&token_out)
         .map_err(|e| ToolError::permanent(format!("Invalid token_out address: {}", e)))?;
 
-    // Get signer from client (replaces global state access)
-    let signer = client.require_signer()
-        .map_err(|e| ToolError::permanent(format!("Client requires signer configuration: {}", e)))?;
+    // For now, we'll continue with the temporary approach until proper EVM signer integration
+    // In a real implementation, this would use the EVM transaction signing from signer_context
     
-    let from_addr = signer.address();
+    let from_addr_str = signer_context.address()
+        .ok_or_else(|| ToolError::permanent("Signer has no address"))?;
+    let from_addr = validate_address(&from_addr_str)
+        .map_err(|e| ToolError::permanent(format!("Invalid signer address: {}", e)))?;
 
     // Get Uniswap config
     let config = UniswapConfig::for_chain(client.chain_id);

@@ -13,6 +13,10 @@ pub enum SolanaToolError {
     #[error("Invalid address: {0}")]
     InvalidAddress(String),
 
+    /// Invalid key format
+    #[error("Invalid key: {0}")]
+    InvalidKey(String),
+
     /// Transaction failed
     #[error("Transaction error: {0}")]
     Transaction(String),
@@ -64,6 +68,9 @@ impl From<SolanaToolError> for riglr_core::error::ToolError {
 
             // Address validation errors are permanent
             SolanaToolError::InvalidAddress(msg) => riglr_core::error::ToolError::permanent(msg),
+            
+            // Key validation errors are permanent
+            SolanaToolError::InvalidKey(msg) => riglr_core::error::ToolError::permanent(msg),
             
             // Transaction errors could be retriable if they're network related
             SolanaToolError::Transaction(msg) => {

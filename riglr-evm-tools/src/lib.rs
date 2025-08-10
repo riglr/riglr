@@ -18,6 +18,9 @@ pub use transaction::{
     TransactionResult
 };
 
+// Re-export signer types for convenience
+pub use riglr_core::{SignerContext, signer::TransactionSigner};
+
 /// Current version
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
