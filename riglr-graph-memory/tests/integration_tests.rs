@@ -9,22 +9,22 @@ use riglr_graph_memory::{
     extractor::EntityExtractor,
     graph::{GraphMemory, GraphMemoryConfig},
 };
-use testcontainers::{clients::Cli, Container, GenericImage};
+use testcontainers::{runners::AsyncRunner, Container, GenericImage};
 
 /// Helper to start a Neo4j test container
-fn start_neo4j_container(docker: &Cli) -> Container<'_, GenericImage> {
+async fn start_neo4j_container() -> Container<GenericImage> {
     let neo4j_image = GenericImage::new("neo4j", "5.13.0")
         .with_env_var("NEO4J_AUTH", "neo4j/testpassword")
         .with_env_var("NEO4JLABS_PLUGINS", "[\"apoc\",\"graph-data-science\"]")
         .with_exposed_port(7474)
         .with_exposed_port(7687);
 
-    docker.run(neo4j_image)
+    neo4j_image.start().await.expect("Failed to start Neo4j container")
 }
 
 /// Helper to create a test Neo4j client
-async fn create_test_client(container: &Container<'_, GenericImage>) -> Neo4jClient {
-    let http_port = container.get_host_port_ipv4(7474);
+async fn create_test_client(container: &Container<GenericImage>) -> Neo4jClient {
+    let http_port = container.get_host_port_ipv4(7474).await.expect("Failed to get port");
     let url = format!("http://localhost:{}", http_port);
 
     // Wait for Neo4j to be ready
@@ -41,8 +41,8 @@ async fn create_test_client(container: &Container<'_, GenericImage>) -> Neo4jCli
 }
 
 /// Helper to create test GraphMemoryConfig
-fn create_test_config(container: &Container<'_, GenericImage>) -> GraphMemoryConfig {
-    let http_port = container.get_host_port_ipv4(7474);
+async fn create_test_config(container: &Container<GenericImage>) -> GraphMemoryConfig {
+    let http_port = container.get_host_port_ipv4(7474).await.expect("Failed to get port");
     let url = format!("http://localhost:{}", http_port);
 
     GraphMemoryConfig {
@@ -61,8 +61,7 @@ mod client_tests {
     #[tokio::test]
     #[ignore] // Requires Docker
     async fn test_neo4j_connection() {
-        let docker = Cli::default();
-        let container = start_neo4j_container(&docker);
+        let container = start_neo4j_container().await;
         let client = create_test_client(&container).await;
 
         // Test basic query
@@ -78,8 +77,7 @@ mod client_tests {
     #[tokio::test]
     #[ignore] // Requires Docker
     async fn test_create_and_query_node() {
-        let docker = Cli::default();
-        let container = start_neo4j_container(&docker);
+        let container = start_neo4j_container().await;
         let client = create_test_client(&container).await;
 
         // Create a test node
@@ -113,8 +111,7 @@ mod client_tests {
     #[tokio::test]
     #[ignore] // Requires Docker
     async fn test_create_relationship() {
-        let docker = Cli::default();
-        let container = start_neo4j_container(&docker);
+        let container = start_neo4j_container().await;
         let client = create_test_client(&container).await;
 
         // Create nodes and relationship
@@ -254,9 +251,8 @@ mod knowledge_graph_tests {
     #[tokio::test]
     #[ignore] // Requires Docker
     async fn test_knowledge_graph_creation() {
-        let docker = Cli::default();
-        let container = start_neo4j_container(&docker);
-        let config = create_test_config(&container);
+        let container = start_neo4j_container().await;
+        let config = create_test_config(&container).await;
 
         // Wait for Neo4j to be ready
         tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
@@ -268,9 +264,8 @@ mod knowledge_graph_tests {
     #[tokio::test]
     #[ignore] // Requires Docker
     async fn test_knowledge_graph_add_document() {
-        let docker = Cli::default();
-        let container = start_neo4j_container(&docker);
-        let config = create_test_config(&container);
+        let container = start_neo4j_container().await;
+        let config = create_test_config(&container).await;
 
         // Wait for Neo4j to be ready
         tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
@@ -281,19 +276,19 @@ mod knowledge_graph_tests {
             "Wallet 0x742d35Cc6634C0532925a3b844Bc9e7595f0eA4B holds 1000 USDC",
         );
 
-        let result = graph.add_document(doc).await;
+        let result = graph.add_documents(vec![doc]).await;
         assert!(result.is_ok());
 
-        let doc_id = result.unwrap();
-        assert!(!doc_id.is_empty());
+        let doc_ids = result.unwrap();
+        assert!(!doc_ids.is_empty());
+        assert!(!doc_ids[0].is_empty());
     }
 
     #[tokio::test]
     #[ignore] // Requires Docker
     async fn test_knowledge_graph_find_related() {
-        let docker = Cli::default();
-        let container = start_neo4j_container(&docker);
-        let config = create_test_config(&container);
+        let container = start_neo4j_container().await;
+        let config = create_test_config(&container).await;
 
         // Wait for Neo4j to be ready
         tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
@@ -308,24 +303,23 @@ mod knowledge_graph_tests {
             "Wallet 0x742d35Cc6634C0532925a3b844Bc9e7595f0eA4B swapped USDC for ETH on Uniswap",
         );
 
-        graph.add_document(doc1).await.unwrap();
-        graph.add_document(doc2).await.unwrap();
+        graph.add_documents(vec![doc1]).await.unwrap();
+        graph.add_documents(vec![doc2]).await.unwrap();
 
-        // Find related documents
+        // Search for related documents
         let related = graph
-            .find_related_documents("0x742d35Cc6634C0532925a3b844Bc9e7595f0eA4B", Some(2))
+            .search("0x742d35Cc6634C0532925a3b844Bc9e7595f0eA4B", Some(2))
             .await
             .unwrap();
 
-        assert!(related.len() >= 1);
+        assert!(related.documents.len() >= 1);
     }
 
     #[tokio::test]
     #[ignore] // Requires Docker
     async fn test_knowledge_graph_wallet_history() {
-        let docker = Cli::default();
-        let container = start_neo4j_container(&docker);
-        let config = create_test_config(&container);
+        let container = start_neo4j_container().await;
+        let config = create_test_config(&container).await;
 
         // Wait for Neo4j to be ready
         tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
@@ -336,10 +330,10 @@ mod knowledge_graph_tests {
             "Wallet 0x742d35Cc6634C0532925a3b844Bc9e7595f0eA4B performed 3 transactions today",
         );
 
-        graph.add_document(doc).await.unwrap();
+        graph.add_documents(vec![doc]).await.unwrap();
 
         let history = graph
-            .get_wallet_history("0x742d35Cc6634C0532925a3b844Bc9e7595f0eA4B")
+            .search("0x742d35Cc6634C0532925a3b844Bc9e7595f0eA4B", None)
             .await
             .unwrap();
 
@@ -349,9 +343,8 @@ mod knowledge_graph_tests {
     #[tokio::test]
     #[ignore] // Requires Docker
     async fn test_knowledge_graph_complex_query() {
-        let docker = Cli::default();
-        let container = start_neo4j_container(&docker);
-        let config = create_test_config(&container);
+        let container = start_neo4j_container().await;
+        let config = create_test_config(&container).await;
 
         // Wait for Neo4j to be ready
         tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
@@ -367,15 +360,13 @@ mod knowledge_graph_tests {
             RawTextDocument::new("Wallet 0xAAA sent 500 USDC to wallet 0xBBB"),
         ];
 
-        for doc in docs {
-            graph.add_document(doc).await.unwrap();
-        }
+        graph.add_documents(docs).await.unwrap();
 
-        let stats = graph.get_statistics().await.unwrap();
+        let stats = graph.get_stats().await.unwrap();
         assert!(stats.document_count >= 3);
         assert!(stats.entity_count > 0);
 
-        let related = graph.find_related_documents("USDC", Some(5)).await.unwrap();
-        assert!(!related.is_empty());
+        let related = graph.search("USDC", Some(5)).await.unwrap();
+        assert!(!related.documents.is_empty());
     }
 }

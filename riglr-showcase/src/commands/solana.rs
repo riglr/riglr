@@ -54,7 +54,7 @@ pub async fn run_demo(config: Config, address: Option<String>) -> Result<()> {
 
     // Demo 1: Get SOL balance
     pb.set_message("Checking SOL balance...");
-    match get_sol_balance(&client, wallet_address.clone()).await {
+    match get_sol_balance(wallet_address.clone()).await {
         Ok(balance) => {
             println!("\n{}", "💰 SOL Balance".green().bold());
             println!("   Address: {}", balance.address);
