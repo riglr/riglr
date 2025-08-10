@@ -34,7 +34,6 @@ fn test_tool_error_display() {
 
 // #[cfg(feature = "solana_tools_integration")]
 // mod solana_integration_tests {
-    use super::*;
     use riglr_solana_tools::error::SolanaToolError;
     
     #[test]

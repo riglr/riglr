@@ -110,7 +110,7 @@ pub async fn run_demo(config: Config, token: String) -> Result<()> {
             "Solana" => {
                 // Check if it's SOL or a token account
                 if token.to_uppercase() == "SOL" {
-                    match get_sol_balance(&solana_client, wallet_address.clone()).await {
+                    match get_sol_balance(wallet_address.clone()).await {
                         Ok(balance) => {
                             println!("   🌟 {}: {} SOL", chain_name, balance.formatted.bright_green());
                         }
