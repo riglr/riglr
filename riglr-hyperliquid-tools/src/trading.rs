@@ -13,8 +13,57 @@ use tracing::{debug, info, warn};
 
 /// Place a perpetual futures order on Hyperliquid
 ///
-/// This tool places a market or limit order for perpetual futures on Hyperliquid.
-/// Supports both buy and sell orders with optional price limits and risk management.
+/// This tool places market or limit orders for perpetual futures on the Hyperliquid DEX.
+/// It supports both long and short positions with configurable leverage, time-in-force options,
+/// and risk management features like reduce-only orders.
+/// 
+/// # Arguments
+/// 
+/// * `symbol` - Trading pair symbol (e.g., "ETH-PERP", "BTC", "SOL-PERP")
+/// * `side` - Order side: "buy"/"long" or "sell"/"short"
+/// * `size` - Position size as decimal string (e.g., "0.1" for 0.1 contracts)
+/// * `order_type` - "market" for immediate execution or "limit" for price-specific order
+/// * `price` - Limit price (required for limit orders, ignored for market orders)
+/// * `reduce_only` - If true, order can only reduce existing position size
+/// * `time_in_force` - "gtc" (good-till-cancel), "ioc" (immediate-or-cancel), or "alo" (add-liquidity-only)
+/// 
+/// # Returns
+/// 
+/// Returns `HyperliquidOrderResult` containing:
+/// - Order details (symbol, side, size, type, price)
+/// - `status`: API response status
+/// - `order_id`: Unique order identifier for tracking
+/// - `message`: Human-readable result description
+/// 
+/// # Errors
+/// 
+/// * `HyperliquidToolError::InvalidInput` - When parameters are invalid (negative size, unknown symbol)
+/// * `HyperliquidToolError::ApiError` - When Hyperliquid API rejects the order
+/// * `HyperliquidToolError::NetworkError` - When connection issues occur
+/// 
+/// # Examples
+/// 
+/// ```rust,ignore
+/// use riglr_hyperliquid_tools::trading::place_hyperliquid_order;
+/// use riglr_core::SignerContext;
+/// 
+/// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+/// // Place a limit buy order for 0.1 ETH-PERP at $2000
+/// let result = place_hyperliquid_order(
+///     "ETH-PERP".to_string(),
+///     "buy".to_string(),
+///     "0.1".to_string(),
+///     "limit".to_string(),
+///     Some("2000.0".to_string()),
+///     Some(false), // Not reduce-only
+///     Some("gtc".to_string()), // Good till cancel
+/// ).await?;
+/// 
+/// println!("Order placed! ID: {:?}", result.order_id);
+/// println!("Status: {}", result.status);
+/// # Ok(())
+/// # }
+/// ```
 #[tool]
 pub async fn place_hyperliquid_order(
     symbol: String,
@@ -120,7 +169,39 @@ pub async fn place_hyperliquid_order(
 
 /// Cancel an existing order on Hyperliquid
 ///
-/// This tool cancels a previously placed order using its order ID.
+/// This tool cancels a previously placed order that is still active (not filled or expired).
+/// Both the symbol and order ID are required to ensure the correct order is canceled.
+/// 
+/// # Arguments
+/// 
+/// * `symbol` - Trading pair symbol that the order belongs to
+/// * `order_id` - Unique order identifier returned from place_hyperliquid_order
+/// 
+/// # Returns
+/// 
+/// Returns `HyperliquidCancelResult` containing cancellation confirmation details.
+/// 
+/// # Errors
+/// 
+/// * `HyperliquidToolError::InvalidInput` - When order_id format is invalid or symbol unknown
+/// * `HyperliquidToolError::ApiError` - When order doesn't exist or already filled
+/// * `HyperliquidToolError::NetworkError` - When connection issues occur
+/// 
+/// # Examples
+/// 
+/// ```rust,ignore
+/// use riglr_hyperliquid_tools::trading::cancel_hyperliquid_order;
+/// 
+/// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+/// let result = cancel_hyperliquid_order(
+///     "ETH-PERP".to_string(),
+///     "12345678".to_string(), // Order ID from previous order
+/// ).await?;
+/// 
+/// println!("Order canceled: {}", result.message);
+/// # Ok(())
+/// # }
+/// ```
 #[tool]
 pub async fn cancel_hyperliquid_order(
     symbol: String,
@@ -158,7 +239,38 @@ pub async fn cancel_hyperliquid_order(
 
 /// Get account information from Hyperliquid
 ///
-/// This tool retrieves account balance, margin usage, and other account details.
+/// This tool retrieves comprehensive account information including balance, margin usage,
+/// and position counts. Essential for monitoring account health and available trading capital.
+/// 
+/// # Returns
+/// 
+/// Returns `HyperliquidAccountResult` containing:
+/// - `user_address`: The account's Ethereum address
+/// - `withdrawable_balance`: Available balance that can be withdrawn
+/// - `cross_margin_used`: Amount of balance used for cross-margin positions
+/// - `cross_maintenance_margin_used`: Maintenance margin requirements
+/// - `positions_count`: Number of active positions
+/// 
+/// # Errors
+/// 
+/// * `HyperliquidToolError::NetworkError` - When API connection fails
+/// * `HyperliquidToolError::Generic` - When signer context is unavailable
+/// 
+/// # Examples
+/// 
+/// ```rust,ignore
+/// use riglr_hyperliquid_tools::trading::get_hyperliquid_account_info;
+/// 
+/// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+/// let account = get_hyperliquid_account_info().await?;
+/// 
+/// println!("Account: {}", account.user_address);
+/// println!("Withdrawable: ${}", account.withdrawable_balance);
+/// println!("Margin used: ${}", account.cross_margin_used);
+/// println!("Active positions: {}", account.positions_count);
+/// # Ok(())
+/// # }
+/// ```
 #[tool]
 pub async fn get_hyperliquid_account_info() -> Result<HyperliquidAccountResult, ToolError> {
     debug!("Getting Hyperliquid account info");

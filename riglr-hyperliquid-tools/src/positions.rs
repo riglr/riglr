@@ -11,8 +11,46 @@ use tracing::{debug, info};
 
 /// Get current positions on Hyperliquid
 ///
-/// This tool retrieves all current positions for the user's account,
-/// including position size, entry price, PnL, and leverage information.
+/// This tool retrieves all active perpetual futures positions for the user's account.
+/// Returns comprehensive position data including unrealized PnL, leverage, liquidation prices,
+/// and margin requirements. Only returns positions with non-zero size.
+/// 
+/// # Returns
+/// 
+/// Returns `Vec<HyperliquidPosition>` where each position contains:
+/// - `symbol`: Trading pair (e.g., "ETH-PERP")
+/// - `size`: Position size in contracts (positive for long, negative for short)
+/// - `entry_price`: Average entry price of the position
+/// - `mark_price`: Current mark price (may be "0.0" placeholder)
+/// - `unrealized_pnl`: Unrealized profit/loss in USD
+/// - `position_value`: Total position value in USD
+/// - `leverage`: Current leverage multiplier
+/// - `liquidation_price`: Price at which position gets liquidated
+/// - `margin_used`: Amount of margin allocated to this position
+/// - `return_on_equity`: ROE percentage
+/// - `position_type`: Position mode (e.g., "oneWay")
+/// 
+/// # Errors
+/// 
+/// * `HyperliquidToolError::NetworkError` - When API connection fails
+/// * `HyperliquidToolError::Generic` - When signer context unavailable or address parsing fails
+/// 
+/// # Examples
+/// 
+/// ```rust,ignore
+/// use riglr_hyperliquid_tools::positions::get_hyperliquid_positions;
+/// 
+/// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+/// let positions = get_hyperliquid_positions().await?;
+/// 
+/// for position in positions {
+///     println!("Position: {} {} contracts", position.symbol, position.size);
+///     println!("Entry: ${}, PnL: ${}", position.entry_price, position.unrealized_pnl);
+///     println!("Leverage: {}x, Margin: ${}", position.leverage, position.margin_used);
+/// }
+/// # Ok(())
+/// # }
+/// ```
 #[tool]
 pub async fn get_hyperliquid_positions() -> Result<Vec<HyperliquidPosition>, ToolError> {
     debug!("Getting Hyperliquid positions");
@@ -59,8 +97,54 @@ pub async fn get_hyperliquid_positions() -> Result<Vec<HyperliquidPosition>, Too
 
 /// Close a position on Hyperliquid
 ///
-/// This tool places a market order to close an existing position.
-/// It automatically determines the order direction based on the current position.
+/// This tool automatically closes an existing perpetual futures position by placing a market order
+/// in the opposite direction. It can close the entire position or a partial amount, with automatic
+/// side detection (sells long positions, buys short positions).
+/// 
+/// # Arguments
+/// 
+/// * `symbol` - Trading pair symbol of the position to close
+/// * `size` - Optional specific amount to close (closes entire position if None)
+/// 
+/// # Returns
+/// 
+/// Returns `HyperliquidCloseResult` containing:
+/// - `symbol`: The trading pair that was closed
+/// - `closed_size`: Amount of the position that was closed
+/// - `order_side`: Direction of the closing order ("buy" or "sell")
+/// - `order_id`: Order ID for the closing transaction
+/// - `status`: Order status from the API
+/// - `message`: Human-readable confirmation message
+/// 
+/// # Errors
+/// 
+/// * `HyperliquidToolError::InvalidInput` - When no position exists or size is invalid
+/// * `HyperliquidToolError::ApiError` - When the closing order fails
+/// * `HyperliquidToolError::NetworkError` - When connection issues occur
+/// 
+/// # Examples
+/// 
+/// ```rust,ignore
+/// use riglr_hyperliquid_tools::positions::close_hyperliquid_position;
+/// 
+/// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+/// // Close entire position
+/// let result = close_hyperliquid_position(
+///     "ETH-PERP".to_string(),
+///     None, // Close entire position
+/// ).await?;
+/// 
+/// println!("Closed {} {} position", result.closed_size, result.symbol);
+/// println!("Order ID: {:?}", result.order_id);
+/// 
+/// // Close partial position
+/// let partial = close_hyperliquid_position(
+///     "BTC-PERP".to_string(),
+///     Some("0.05".to_string()), // Close 0.05 BTC worth
+/// ).await?;
+/// # Ok(())
+/// # }
+/// ```
 #[tool]
 pub async fn close_hyperliquid_position(
     symbol: String,
