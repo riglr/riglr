@@ -37,6 +37,10 @@ pub enum ToolError {
     #[error("Retriable error: {0}")]
     Retriable(String),
 
+    /// A rate-limited error that should be retried with backoff
+    #[error("Rate limited: {0}")]
+    RateLimited(String),
+
     /// A permanent error that should not be retried
     #[error("Permanent error: {0}")]
     Permanent(String),
@@ -48,6 +52,11 @@ impl ToolError {
         ToolError::Retriable(msg.into())
     }
 
+    /// Creates a new rate limited error
+    pub fn rate_limited<S: Into<String>>(msg: S) -> Self {
+        ToolError::RateLimited(msg.into())
+    }
+
     /// Creates a new permanent error
     pub fn permanent<S: Into<String>>(msg: S) -> Self {
         ToolError::Permanent(msg.into())
@@ -55,6 +64,11 @@ impl ToolError {
 
     /// Checks if the error is retriable
     pub fn is_retriable(&self) -> bool {
-        matches!(self, ToolError::Retriable(_))
+        matches!(self, ToolError::Retriable(_) | ToolError::RateLimited(_))
+    }
+
+    /// Checks if the error is rate limited
+    pub fn is_rate_limited(&self) -> bool {
+        matches!(self, ToolError::RateLimited(_))
     }
 }

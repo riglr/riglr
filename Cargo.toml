@@ -3,7 +3,7 @@ members = [
     "riglr-core",
     "riglr-macros", 
     "riglr-solana-tools",
-    # "riglr-evm-tools", # Temporarily disabled due to ethers dependency conflicts
+    # "riglr-evm-tools", # Temporarily disabled due to alloy dependency conflicts
     # "riglr-web-tools", # Temporarily disabled due to rig_core dependency issues
     "riglr-graph-memory",
     "riglr-showcase"
@@ -77,8 +77,8 @@ solana-sdk = "1.18"
 solana-client = "1.18"
 spl-token = "4.0"
 
-# EVM dependencies
-ethers = "2.0"
+# EVM dependencies (using alloy-rs)
+alloy = { version = "0.8", features = ["full", "node-bindings"] }
 
 # Retry logic
 tokio-retry = "0.3"

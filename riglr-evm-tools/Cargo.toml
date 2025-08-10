@@ -29,8 +29,8 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 schemars = { workspace = true }
 
-# EVM Dependencies
-ethers = { version = "2.0", default-features = false, features = ["ws", "rustls"] }
+# EVM Dependencies (using alloy-rs)
+alloy = { version = "0.8", features = ["full", "node-bindings"] }
 hex = "0.4"
 
 # HTTP client
