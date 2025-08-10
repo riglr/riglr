@@ -33,18 +33,18 @@ schemars = { workspace = true }
 solana-sdk = { workspace = true }
 solana-client = { workspace = true }
 spl-token = { workspace = true }
-spl-associated-token-account = "2.3"
-solana-transaction-status = "1.18"
-solana-account-decoder = "1.18"
+spl-associated-token-account = "7.0.0"
+solana-transaction-status = "2.3.7"
+solana-account-decoder = "2.3.7"
 
 # UUID generation
 uuid = "1.0"
 
 # Base64 encoding
-base64 = "0.21"
+base64 = "0.22.1"
 
 # Binary encoding
-bincode = "1.3"
+bincode = "2.0.1"
 
 # HTTP client for Jupiter
 reqwest = { workspace = true }

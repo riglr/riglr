@@ -3,7 +3,7 @@ members = [
     "riglr-core",
     "riglr-macros", 
     "riglr-solana-tools",
-    # "riglr-evm-tools", # Temporarily disabled due to alloy dependency conflicts
+    "riglr-evm-tools",
     # "riglr-web-tools", # Temporarily disabled due to rig_core dependency issues
     "riglr-graph-memory",
     "riglr-showcase"
@@ -20,7 +20,7 @@ homepage = "https://github.com/riglr-project/riglr"
 
 [workspace.dependencies]
 # Core riglr and rig dependencies
-rig-core = "0.2.0"
+rig-core = "0.17.1"
 riglr-core = { path = "riglr-core" }
 riglr-macros = { path = "riglr-macros" }
 riglr-solana-tools = { path = "riglr-solana-tools" }
@@ -34,18 +34,18 @@ async-trait = "0.1"
 
 # Error handling
 anyhow = "1.0"
-thiserror = "1.0"
+thiserror = "2.0.12"
 
 # Serialization and schema
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-schemars = "0.8"
+schemars = "1.0.4"
 
 # Database and caching
-redis = { version = "0.24", features = ["tokio-comp"] }
+redis = { version = "0.32.4", features = ["tokio-comp"] }
 
 # HTTP client
-reqwest = { version = "0.11", features = ["json"] }
+reqwest = { version = "0.12.22", features = ["json"] }
 url = "2.5"
 
 # UUID generation
@@ -63,32 +63,32 @@ proc-macro2 = "1.0"
 # Testing
 tokio-test = "0.4"
 trybuild = "1.0"
-criterion = { version = "0.5", features = ["html_reports", "async_tokio"] }
+criterion = { version = "0.7.0", features = ["html_reports", "async_tokio"] }
 
 # CLI and config
-clap = { version = "4.0", features = ["derive"] }
+clap = { version = "4.5.43", features = ["derive"] }
 dotenvy = "0.15"
 
 # Neo4j (commented out as it may not be available)
 # neo4rs = "0.7"
 
 # Solana dependencies
-solana-sdk = "1.18"
-solana-client = "1.18"
-spl-token = "4.0"
+solana-sdk = "2.3.1"
+solana-client = "2.3.7"
+spl-token = "8.0.0"
 
 # EVM dependencies (using alloy-rs)
-alloy = { version = "0.8", features = ["full", "node-bindings"] }
+alloy = { version = "1.0.24", features = ["full", "node-bindings"] }
 
 # Retry logic
 tokio-retry = "0.3"
 
 # Additional HTTP/networking
-hyper = "0.14"
-tower = "0.4"
+hyper = "1.6.0"
+tower = "0.5.2"
 
 # Time and date
 chrono = { version = "0.4", features = ["serde"] }
 
 # Config and environment
-config = "0.14"
+config = "0.15.13"

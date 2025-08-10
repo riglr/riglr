@@ -34,8 +34,8 @@ backoff = "0.4"
 [dev-dependencies]
 tokio-test = { workspace = true }
 criterion = { workspace = true }
-testcontainers = "0.15"
-testcontainers-modules = { version = "0.1", features = ["redis"] }
+testcontainers = "0.24.0"
+testcontainers-modules = { version = "0.12.1", features = ["redis"] }
 mockito = "1.0"
 
 [[bench]]

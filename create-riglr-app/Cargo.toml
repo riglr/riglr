@@ -9,7 +9,7 @@ readme = "README.md"
 
 [dependencies]
 # Core riglr framework
-rig-core = "0.2.0"
+rig-core = "0.17.1"
 riglr-core = { path = "../riglr-core" }
 riglr-macros = { path = "../riglr-macros" }
 
@@ -39,13 +39,13 @@ tokio-retry = "0.3"
 
 # Error handling
 anyhow = "1.0"
-thiserror = "1.0"
+thiserror = "2.0.12"
 
 # Serialization and configuration
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 dotenvy = "0.15"
-config = "0.14"
+config = "0.15.13"
 
 # Logging
 tracing = "0.1"
@@ -55,10 +55,10 @@ tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 clap = { version = "4.0", features = ["derive"] }
 
 # Database/caching (optional but commonly needed)
-redis = { version = "0.24", features = ["tokio-comp"] }
+redis = { version = "0.32.4", features = ["tokio-comp"] }
 
 # HTTP client for API interactions
-reqwest = { version = "0.11", features = ["json"] }
+reqwest = { version = "0.12.22", features = ["json"] }
 
 # Time handling
 chrono = { version = "0.4", features = ["serde"] }
