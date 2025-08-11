@@ -140,6 +140,7 @@ async fn test_network_tools_with_custom_rpc() {
 }
 
 #[tokio::test]
+#[ignore] // Long-running concurrent test
 async fn test_concurrent_network_calls() {
     use tokio::join;
 

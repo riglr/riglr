@@ -8,14 +8,13 @@ output-dir = "./coverage"
 timeout = "600s"
 
 # Run tests single-threaded to avoid race conditions under instrumentation
-implicit-test-threads = 1
+implicit-test-threads = true
 
 # Exclude files and directories
 exclude-files = [
     "riglr-showcase/*",
     "create-riglr-app/*",
     "target/*",
-    "*/tests/*",  # Optionally exclude all test files from coverage metrics
     "*/benches/*"
 ]
 
@@ -23,11 +22,9 @@ exclude-files = [
 # Skip specific slow or problematic tests
 # Use test name patterns to exclude
 skip-tests = [
-    "test_tool_worker_process_job_timeout",  # Has 60-second timeout
-    "test_queue_stress_test",                # Heavy concurrent operations
-    "test_concurrent_*",                     # All concurrent stress tests
+    "test_macro_compilation",                # Times out under tarpaulin instrumentation
     "*redis*"                                # Skip Redis tests if Redis not available
 ]
 
 # Additional cargo test arguments
-args = ["--lib", "--bins"]  # Focus on library and binary code, not integration tests
+args = ["--", "--skip-ignored"]  # Skip tests marked with #[ignore] for coverage

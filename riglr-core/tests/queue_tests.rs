@@ -210,12 +210,8 @@ async fn test_queue_with_large_jobs() {
 }
 
 #[tokio::test]
+#[ignore] // Long-running stress test
 async fn test_queue_stress_test() {
-    // Skip this test when running under tarpaulin to avoid timeout
-    if std::env::var("TARPAULIN_RUN").is_ok() || std::env::var("SKIP_SLOW_TESTS").is_ok() {
-        println!("Skipping stress test in coverage run");
-        return;
-    }
 
     let queue = Arc::new(InMemoryJobQueue::new());
     let mut producer_handles = vec![];

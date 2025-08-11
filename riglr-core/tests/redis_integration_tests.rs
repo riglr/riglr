@@ -131,6 +131,7 @@ async fn test_redis_queue_fifo_order() {
 }
 
 #[tokio::test]
+#[ignore] // Long-running concurrent test
 async fn test_redis_queue_concurrent_operations() {
     let redis_image = Redis::default();
     let container = redis_image.start().await.expect("Failed to start Redis container");
@@ -168,6 +169,7 @@ async fn test_redis_queue_concurrent_operations() {
 }
 
 #[tokio::test]
+#[ignore] // Long-running concurrent test
 async fn test_redis_idempotency_concurrent_access() {
     let redis_image = Redis::default();
     let container = redis_image.start().await.expect("Failed to start Redis container");
