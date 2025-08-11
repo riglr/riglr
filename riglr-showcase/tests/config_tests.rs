@@ -143,9 +143,9 @@ fn test_config_empty_env_values() {
     
     let config = Config::from_env().unwrap();
     
-    // Empty strings should be treated as Some("")
-    assert_eq!(config.twitter_bearer_token, Some("".to_string()));
-    assert_eq!(config.exa_api_key, Some("".to_string()));
+    // Empty strings should be treated as None
+    assert!(config.twitter_bearer_token.is_none());
+    assert!(config.exa_api_key.is_none());
     assert_eq!(config.openai_api_key, "");
     
     // Clean up
