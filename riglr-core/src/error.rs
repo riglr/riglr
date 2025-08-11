@@ -30,6 +30,12 @@ pub enum CoreError {
 /// Result type alias for riglr-core operations.
 pub type Result<T> = std::result::Result<T, CoreError>;
 
+impl From<&str> for CoreError {
+    fn from(err: &str) -> Self {
+        CoreError::Generic(err.to_string())
+    }
+}
+
 /// Tool-specific error type for distinguishing retriable vs permanent failures.
 #[derive(Error, Debug)]
 pub enum ToolError {

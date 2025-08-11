@@ -142,7 +142,7 @@ pub async fn place_hyperliquid_order(
     let order = OrderRequest {
         asset: asset_id,
         is_buy,
-        limit_px: limit_px,
+        limit_px,
         sz: size.clone(),
         reduce_only: reduce_only.unwrap_or(false),
         order_type: order_type_obj,
@@ -309,7 +309,7 @@ pub async fn set_leverage(
     debug!("Setting leverage for {}: {}x", symbol, leverage);
 
     // Validate leverage range (typical range for perpetual futures)
-    if leverage < 1 || leverage > 100 {
+    if !(1..=100).contains(&leverage) {
         return Err(ToolError::permanent(format!("Invalid leverage {}. Must be between 1 and 100", leverage)));
     }
 

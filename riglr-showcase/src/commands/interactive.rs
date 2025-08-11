@@ -79,7 +79,7 @@ pub async fn run_chat(config: Config) -> Result<()> {
         
         // Get user input
         let user_input: String = Input::new()
-            .with_prompt(&format!("{}", "You".bright_cyan()))
+            .with_prompt(format!("{}", "You".bright_cyan()))
             .interact_text()?;
         
         if user_input.trim().is_empty() {
@@ -179,13 +179,13 @@ async fn handle_balance_query(_config: &Config, input: &str) -> Result<String> {
         // Check Solana if it looks like a Solana address
         if !address.starts_with("0x") {
             // This would use actual Solana client
-            response.push_str(&format!("🌟 Solana: Checking SOL balance...\n"));
+            response.push_str("🌟 Solana: Checking SOL balance...\n");
             response.push_str("   (Would show actual balance here)\n");
         }
         
         // Check Ethereum if it looks like an Ethereum address
         if address.starts_with("0x") {
-            response.push_str(&format!("⚡ Ethereum: Checking ETH balance...\n"));
+            response.push_str("⚡ Ethereum: Checking ETH balance...\n");
             response.push_str("   (Would show actual balance here)\n");
         }
         
@@ -197,14 +197,12 @@ async fn handle_balance_query(_config: &Config, input: &str) -> Result<String> {
 }
 
 async fn handle_swap_query(_config: &Config, _input: &str) -> Result<String> {
-    Ok(format!(
-        "🔄 I can help you with swap information!\n\n\
+    Ok("🔄 I can help you with swap information!\n\n\
         I can provide quotes for:\n\
         • 🌟 Solana: Jupiter DEX quotes\n\
         • ⚡ Ethereum: Uniswap quotes\n\
         • 🌐 Cross-chain: Bridge opportunities\n\n\
-        Try asking: 'Get quote for 1 SOL to USDC' or 'What's the best WETH to USDC rate?'"
-    ))
+        Try asking: 'Get quote for 1 SOL to USDC' or 'What's the best WETH to USDC rate?'".to_string())
 }
 
 async fn handle_news_query(_config: &Config, input: &str) -> Result<String> {
@@ -233,20 +231,16 @@ async fn handle_news_query(_config: &Config, input: &str) -> Result<String> {
 
 async fn handle_social_query(config: &Config, _input: &str) -> Result<String> {
     if config.twitter_bearer_token.is_some() {
-        Ok(format!(
-            "🐦 Social Sentiment Analysis Available!\n\n\
+        Ok("🐦 Social Sentiment Analysis Available!\n\n\
             I can analyze Twitter sentiment for:\n\
             • Specific cryptocurrencies\n\
             • Market trends and events\n\
             • DeFi protocols\n\
             • NFT collections\n\n\
-            Try asking: 'What's the sentiment around Solana?' or 'Twitter buzz about DeFi'"
-        ))
+            Try asking: 'What's the sentiment around Solana?' or 'Twitter buzz about DeFi'".to_string())
     } else {
-        Ok(format!(
-            "🐦 Social sentiment analysis is available but requires Twitter API configuration.\n\
-            Set TWITTER_BEARER_TOKEN to enable sentiment analysis features."
-        ))
+        Ok("🐦 Social sentiment analysis is available but requires Twitter API configuration.\n\
+            Set TWITTER_BEARER_TOKEN to enable sentiment analysis features.".to_string())
     }
 }
 
@@ -256,12 +250,11 @@ async fn handle_token_info_query(_config: &Config, input: &str) -> Result<String
     let mut token_symbol = None;
     
     for (i, word) in words.iter().enumerate() {
-        if word.to_lowercase() == "token" || word.to_lowercase() == "coin" {
-            if i + 1 < words.len() {
+        if (word.to_lowercase() == "token" || word.to_lowercase() == "coin")
+            && i + 1 < words.len() {
                 token_symbol = Some(words[i + 1]);
                 break;
             }
-        }
         // Look for common token patterns
         if word.len() <= 6 && word.chars().all(|c| c.is_alphabetic()) && word.to_uppercase() == *word {
             token_symbol = Some(word);
@@ -290,8 +283,7 @@ async fn handle_token_info_query(_config: &Config, input: &str) -> Result<String
 }
 
 async fn handle_cross_chain_query(_config: &Config, _input: &str) -> Result<String> {
-    Ok(format!(
-        "🌐 Cross-Chain Analysis Available!\n\n\
+    Ok("🌐 Cross-Chain Analysis Available!\n\n\
         I can analyze:\n\
         ⛓️ Multi-chain token presence\n\
         💱 Arbitrage opportunities\n\
@@ -302,16 +294,13 @@ async fn handle_cross_chain_query(_config: &Config, _input: &str) -> Result<Stri
         • 🌟 Solana (Jupiter, Orca, Raydium)\n\
         • ⚡ Ethereum (Uniswap, Compound, Aave)\n\
         • 🔵 Polygon, Arbitrum, Base\n\n\
-        Try: 'Compare USDC liquidity across chains' or 'Find arbitrage opportunities for WETH'"
-    ))
+        Try: 'Compare USDC liquidity across chains' or 'Find arbitrage opportunities for WETH'".to_string())
 }
 
 fn generate_conversational_response(input: &str, context: &ChatContext) -> String {
-    let responses = vec![
-        format!("I understand you're asking about: '{}'\n\nAs a riglr-powered agent, I can help you with blockchain analysis, DeFi operations, and market intelligence. What specific information would you like?", input),
+    let responses = [format!("I understand you're asking about: '{}'\n\nAs a riglr-powered agent, I can help you with blockchain analysis, DeFi operations, and market intelligence. What specific information would you like?", input),
         format!("That's an interesting question! I have access to multi-chain data and can help with:\n• Wallet and token analysis\n• Market sentiment and news\n• Cross-chain opportunities\n• DeFi protocol information\n\nHow can I assist you with '{}'?", input),
-        format!("I'm here to help with blockchain and crypto analysis! For '{}', I can provide:\n• Real-time market data\n• On-chain analytics\n• Social sentiment analysis\n• Cross-chain insights\n\nWhat would you like to explore?", input),
-    ];
+        format!("I'm here to help with blockchain and crypto analysis! For '{}', I can provide:\n• Real-time market data\n• On-chain analytics\n• Social sentiment analysis\n• Cross-chain insights\n\nWhat would you like to explore?", input)];
     
     // Simple selection based on conversation length
     let index = context.conversation_history.len() % responses.len();
