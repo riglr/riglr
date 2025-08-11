@@ -1,6 +1,4 @@
 use riglr_macros::tool;
-use serde::{Deserialize, Serialize};
-use schemars::JsonSchema;
 use anyhow::Result;
 
 /// Calculate the sum of two numbers

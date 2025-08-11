@@ -155,7 +155,15 @@ impl ProcessorPipeline {
             if processor.can_process(&output) {
                 // Update the tool output with the processed result for the next processor
                 output.result = current.processed_result.clone();
-                current = processor.process(output.clone()).await?;
+                let processed = processor.process(output.clone()).await?;
+                
+                // Preserve summary from previous processors if current processor doesn't provide one
+                let summary = processed.summary.or(current.summary.clone());
+                
+                current = ProcessedOutput {
+                    summary,
+                    ..processed
+                };
             }
         }
         

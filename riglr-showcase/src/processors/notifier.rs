@@ -710,7 +710,7 @@ mod tests {
         let formatted = channel.format_for_telegram(&output);
         
         assert!(formatted.contains("❌"));
-        assert!(formatted.contains("trading_bot"));
+        assert!(formatted.contains("trading\\_bot"));
         assert!(formatted.contains("Insufficient balance"));
         assert!(formatted.contains("```"));
     }

@@ -1,5 +1,4 @@
 use riglr_macros::tool;
-use serde::{Deserialize, Serialize};
 use anyhow::Result;
 
 /// A simple tool that greets someone
