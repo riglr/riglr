@@ -95,6 +95,6 @@ mod tests {
 
     #[test]
     fn test_version() {
-        assert!(!VERSION.is_empty());
+        assert!(VERSION.starts_with("0.") || VERSION.starts_with("1."), "VERSION should be a valid semver");
     }
 }

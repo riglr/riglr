@@ -8,14 +8,14 @@ fn test_entity_extractor_new() {
     let _extractor = EntityExtractor::new();
     // Should initialize with patterns
     // Internal state is private, but we can test functionality
-    assert!(true); // Extractor created successfully
+    // Test passes if no panic occurs
 }
 
 #[test]
 fn test_entity_extractor_default() {
     let _extractor = EntityExtractor::default();
     // Should be same as new()
-    assert!(true); // Extractor created successfully
+    // Test passes if no panic occurs
 }
 
 #[tokio::test]
@@ -23,7 +23,7 @@ async fn test_extract_ethereum_addresses() {
     let extractor = EntityExtractor::new();
 
     let text = "Send 1 ETH to 0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb8 from 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48";
-    let entities = extractor.extract(text).await.unwrap();
+    let entities = extractor.extract(text);
 
     assert_eq!(entities.wallets.len(), 2);
 
@@ -52,7 +52,7 @@ async fn test_extract_solana_addresses() {
 
     // Base58 Solana addresses
     let text = "Transfer SOL to 11111111111111111111111111111111 and 5omQJtDUHA3gMFdHEQg1zZSvcBUVzey5WaKWYRmqF1Vj";
-    let entities = extractor.extract(text).await.unwrap();
+    let entities = extractor.extract(text);
 
     // Should extract valid Solana addresses
     assert!(entities
@@ -66,7 +66,7 @@ async fn test_extract_tokens() {
     let extractor = EntityExtractor::new();
 
     let text = "Swap 100 USDC for 0.05 ETH on Uniswap. Also holding some BTC and SOL.";
-    let entities = extractor.extract(text).await.unwrap();
+    let entities = extractor.extract(text);
 
     // Should find multiple tokens
     assert!(entities.tokens.len() >= 3);
@@ -88,7 +88,7 @@ async fn test_extract_protocols() {
     let extractor = EntityExtractor::new();
 
     let text = "Used Uniswap to swap tokens, then deposited into Aave for lending. Also tried Compound and Jupiter.";
-    let entities = extractor.extract(text).await.unwrap();
+    let entities = extractor.extract(text);
 
     assert!(entities.protocols.len() >= 3);
 
@@ -108,7 +108,7 @@ async fn test_extract_chains() {
     let extractor = EntityExtractor::new();
 
     let text = "Deploy on Ethereum mainnet, then bridge to Polygon and Arbitrum. Solana is also supported.";
-    let entities = extractor.extract(text).await.unwrap();
+    let entities = extractor.extract(text);
 
     assert!(entities.chains.len() >= 3);
 
@@ -129,7 +129,7 @@ async fn test_extract_amounts() {
 
     let text =
         "Transfer 100.5 ETH with a fee of 0.001 ETH. Market cap is $1.2B and volume is 500K USDC.";
-    let entities = extractor.extract(text).await.unwrap();
+    let entities = extractor.extract(text);
 
     // Debug print to see what amounts were extracted
     for amount in &entities.amounts {
@@ -162,7 +162,7 @@ async fn test_extract_amounts_with_suffixes() {
     let extractor = EntityExtractor::new();
 
     let text = "TVL is $2.5M, trading volume 10K ETH, market cap $1B";
-    let entities = extractor.extract(text).await.unwrap();
+    let entities = extractor.extract(text);
 
     // Check K, M, B parsing
     let amounts: Vec<f64> = entities.amounts.iter().map(|a| a.value).collect();
@@ -177,7 +177,7 @@ async fn test_extract_relationships_basic() {
     let extractor = EntityExtractor::new();
 
     let text = "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb8 swapped tokens on Uniswap";
-    let entities = extractor.extract(text).await.unwrap();
+    let entities = extractor.extract(text);
 
     // Should find wallet and protocol
     assert!(!entities.wallets.is_empty());
@@ -209,7 +209,7 @@ async fn test_extract_complex_text() {
         Total portfolio value is approximately $15K.
     "#;
 
-    let entities = extractor.extract(text).await.unwrap();
+    let entities = extractor.extract(text);
 
     // Should extract multiple entity types
     assert!(entities.wallets.len() >= 2);
@@ -223,7 +223,7 @@ async fn test_extract_complex_text() {
 async fn test_extract_empty_text() {
     let extractor = EntityExtractor::new();
 
-    let entities = extractor.extract("").await.unwrap();
+    let entities = extractor.extract("");
 
     assert!(entities.wallets.is_empty());
     assert!(entities.tokens.is_empty());
@@ -238,7 +238,7 @@ async fn test_extract_no_entities() {
     let extractor = EntityExtractor::new();
 
     let text = "This is just regular text without any blockchain entities.";
-    let entities = extractor.extract(text).await.unwrap();
+    let entities = extractor.extract(text);
 
     assert!(entities.wallets.is_empty());
     assert!(entities.tokens.is_empty());
@@ -250,7 +250,7 @@ async fn test_extract_case_insensitive() {
     let extractor = EntityExtractor::new();
 
     let text = "UNISWAP uniswap UniSwap Uniswap";
-    let entities = extractor.extract(text).await.unwrap();
+    let entities = extractor.extract(text);
 
     // Should find protocol regardless of case
     assert_eq!(entities.protocols.len(), 1);
@@ -262,7 +262,7 @@ async fn test_extract_duplicate_entities() {
     let extractor = EntityExtractor::new();
 
     let text = "Uniswap is great. I love Uniswap. Everyone uses Uniswap.";
-    let entities = extractor.extract(text).await.unwrap();
+    let entities = extractor.extract(text);
 
     // Should deduplicate
     assert_eq!(entities.protocols.len(), 1);
@@ -274,7 +274,7 @@ async fn test_extract_invalid_addresses() {
 
     // Invalid Ethereum address (wrong length)
     let text = "Send to 0x123 and 0xZZZ";
-    let entities = extractor.extract(text).await.unwrap();
+    let entities = extractor.extract(text);
 
     // Should not extract invalid addresses
     assert!(entities.wallets.is_empty());
@@ -286,7 +286,7 @@ async fn test_extract_transaction_hashes() {
 
     let text =
         "Transaction hash: 0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef";
-    let entities = extractor.extract(text).await.unwrap();
+    let entities = extractor.extract(text);
 
     // Transaction hashes shouldn't be mistaken for wallets
     // (they're 64 chars, wallets are 40)
@@ -298,7 +298,7 @@ async fn test_extract_mixed_chains() {
     let extractor = EntityExtractor::new();
 
     let text = "Bridge from Ethereum (0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb8) to Solana (11111111111111111111111111111111)";
-    let entities = extractor.extract(text).await.unwrap();
+    let entities = extractor.extract(text);
 
     // Should extract both address types
     assert!(entities
@@ -316,7 +316,7 @@ async fn test_entity_properties() {
     let extractor = EntityExtractor::new();
 
     let text = "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb8";
-    let entities = extractor.extract(text).await.unwrap();
+    let entities = extractor.extract(text);
 
     assert_eq!(entities.wallets.len(), 1);
     let wallet = &entities.wallets[0];
@@ -343,7 +343,7 @@ async fn test_amount_types_classification() {
     ];
 
     for (text, expected_type) in tests {
-        let entities = extractor.extract(text).await.unwrap();
+        let entities = extractor.extract(text);
 
         eprintln!("Text: '{}', Amounts: {:?}", text, entities.amounts);
 
@@ -377,7 +377,7 @@ async fn test_confidence_scores() {
     let extractor = EntityExtractor::new();
 
     let text = "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb8 uses Uniswap";
-    let entities = extractor.extract(text).await.unwrap();
+    let entities = extractor.extract(text);
 
     // Ethereum addresses should have high confidence
     if !entities.wallets.is_empty() {
@@ -395,7 +395,7 @@ async fn test_span_positions() {
     let extractor = EntityExtractor::new();
 
     let text = "Send 100 USDC to address";
-    let entities = extractor.extract(text).await.unwrap();
+    let entities = extractor.extract(text);
 
     // Check that spans are correct
     for amount in &entities.amounts {
@@ -420,7 +420,7 @@ async fn test_protocol_variations() {
     let extractor = EntityExtractor::new();
 
     let text = "Use Uniswap V2, Uniswap V3, and regular Uniswap";
-    let entities = extractor.extract(text).await.unwrap();
+    let entities = extractor.extract(text);
 
     // Should recognize all as Uniswap
     assert_eq!(entities.protocols.len(), 1);
@@ -432,7 +432,7 @@ async fn test_token_symbols_and_names() {
     let extractor = EntityExtractor::new();
 
     let text = "Trade ETH (Ethereum) and BTC (Bitcoin) for USDC (USD Coin)";
-    let entities = extractor.extract(text).await.unwrap();
+    let entities = extractor.extract(text);
 
     // Should find tokens by both symbol and name
     let token_names: Vec<String> = entities
@@ -459,7 +459,7 @@ async fn test_very_long_text() {
         ));
     }
 
-    let entities = extractor.extract(&text).await.unwrap();
+    let entities = extractor.extract(&text);
 
     // Should handle long text efficiently
     assert!(!entities.wallets.is_empty());
@@ -473,12 +473,12 @@ async fn test_unicode_text() {
     let extractor = EntityExtractor::new();
 
     let text = "Send 100 USDC 送信 to 0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb8 使用 Uniswap 🚀";
-    let entities = extractor.extract(text).await.unwrap();
+    let entities = extractor.extract(text);
 
     // Should handle unicode correctly
     assert_eq!(entities.wallets.len(), 1);
-    assert!(entities.tokens.len() >= 1);
-    assert!(entities.protocols.len() >= 1);
+    assert!(!entities.tokens.is_empty());
+    assert!(!entities.protocols.is_empty());
 }
 
 #[tokio::test]
@@ -486,7 +486,7 @@ async fn test_special_characters() {
     let extractor = EntityExtractor::new();
 
     let text = "Price: $1,234.56 | Volume: $10,000,000 | Fee: 0.3%";
-    let entities = extractor.extract(text).await.unwrap();
+    let entities = extractor.extract(text);
 
     // Should parse amounts with special formatting
     let has_million = entities.amounts.iter().any(|a| a.value == 10_000_000.0);
@@ -508,7 +508,7 @@ async fn test_tx_hash_regex_coverage() {
     // Test with valid transaction hash (use proper hex to avoid Solana address confusion)
     let text =
         "Transaction confirmed: 0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890";
-    let entities = extractor.extract(text).await.unwrap();
+    let entities = extractor.extract(text);
 
     // Transaction hashes are 64 hex chars (32 bytes)
     // The extractor currently treats all 0x hex strings as potential wallet addresses
@@ -517,7 +517,7 @@ async fn test_tx_hash_regex_coverage() {
 
     // Test with multiple transaction hashes (use proper hex values)
     let text2 = "Tx1: 0xabc123def456789abc123def456789abc123def456789abc123def456789abcd and Tx2: 0xfedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210";
-    let entities2 = extractor.extract(text2).await.unwrap();
+    let entities2 = extractor.extract(text2);
     // Same logic - either behavior is acceptable as implementation may vary
     assert!(!entities2.wallets.is_empty() || entities2.wallets.is_empty());
 }
@@ -529,7 +529,7 @@ async fn test_parse_value_error_cases() {
 
     // Test with malformed numbers that should trigger parse errors
     let text = "Amount: $abc123xyz ETH";
-    let entities = extractor.extract(text).await.unwrap();
+    let entities = extractor.extract(text);
 
     // Malformed amounts should be skipped
     let valid_amounts: Vec<f64> = entities
@@ -548,7 +548,7 @@ async fn test_find_related_entity_none_case() {
 
     // Create text where entities are mentioned but no clear relationships
     let text = "Random text without any clear entity relationships or mentions";
-    let entities = extractor.extract(text).await.unwrap();
+    let entities = extractor.extract(text);
 
     // When no entities match the context, relationships should be minimal or empty
     assert_eq!(entities.relationships.len(), 0);
@@ -570,7 +570,7 @@ async fn test_empty_value_string_error() {
 
     // Test with amounts that might result in empty parsed values
     let text = "Price: $ (empty) and Volume: $";
-    let entities = extractor.extract(text).await.unwrap();
+    let entities = extractor.extract(text);
 
     // Empty or invalid amounts should not be extracted
     for amount in &entities.amounts {

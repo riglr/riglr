@@ -1,12 +1,10 @@
 //! Basic tests for riglr-macros library
 
-use riglr_macros::tool;
-
 #[test]
 fn test_macro_exists() {
     // Test that the tool macro is available
     // This is a basic compilation test - if we can compile this, the macro exists
-    assert!(true);
+    // Compilation success is the test
 }
 
 #[test]
@@ -81,13 +79,16 @@ fn test_serde_json_integration() {
 fn test_async_trait_available() {
     // Test that async_trait is available (used by the macro)
     // This is just a compilation test
+    
     use async_trait::async_trait;
 
     #[async_trait]
+    #[allow(dead_code)]
     trait TestTrait {
         async fn test_method(&self);
     }
 
+    #[allow(dead_code)]
     struct TestStruct;
 
     #[async_trait]
@@ -97,24 +98,25 @@ fn test_async_trait_available() {
         }
     }
 
-    assert!(true);
+    // Compilation success is the test - we can create trait objects
 }
 
 // Comprehensive test of all dependencies the macro uses
 #[test]
 fn test_all_macro_dependencies() {
-    use async_trait::async_trait;
+
     use heck::ToPascalCase;
     use proc_macro2::TokenStream;
-    use quote::{quote, ToTokens};
+    use quote::quote;
     use serde_json::json;
-    use syn::{Attribute, FnArg, ItemFn, ItemStruct, PatType};
-
     // Test that all types and traits are available
-    let _: String = "test".to_pascal_case();
-    let _: TokenStream = quote! { fn test() {} };
-    let _: serde_json::Value = json!({});
+    let pascal_case: String = "test".to_pascal_case();
+    assert_eq!(pascal_case, "Test");
+    let token_stream: TokenStream = quote! { fn test() {} };
+    assert!(!token_stream.is_empty());
+    let json_value: serde_json::Value = json!({});
+    assert!(json_value.is_object());
 
     // If we get here, all dependencies are properly available
-    assert!(true);
+    // If we get here, all dependencies compiled successfully
 }

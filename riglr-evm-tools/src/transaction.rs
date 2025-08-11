@@ -8,12 +8,8 @@ use crate::{
     error::EvmToolError,
 };
 use alloy::{
-    consensus::Transaction as TransactionTrait,
-    network::TransactionBuilder,
     primitives::U256,
-    providers::Provider,
     rpc::types::TransactionRequest,
-    signers::Signer,
     sol,
     sol_types::SolCall,
 };
@@ -445,7 +441,7 @@ pub async fn get_transaction_receipt(
         value_wei: "0".to_string(),
         value_eth: 0.0,
         gas_used: Some(receipt.gas_used as u128),
-        gas_price: _tx.effective_gas_price.map(|price| price),
+        gas_price: _tx.effective_gas_price,
         block_number: receipt.block_number,
         chain_id: client.chain_id,
         status: receipt.status(),

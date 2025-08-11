@@ -266,9 +266,8 @@ async fn test_get_sol_balance_valid_format() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_get_spl_token_balance_invalid_addresses() {
-    let client = SolanaClient::devnet();
+    let _client = SolanaClient::devnet();
     let result = get_spl_token_balance(
-        &client,
         "invalid_owner".to_string(),
         "invalid_mint".to_string(),
     )
@@ -389,9 +388,8 @@ fn test_precision_in_formatting() {
 #[tokio::test(flavor = "multi_thread")]
 async fn test_get_spl_token_balance_without_rpc_url() {
     // Test using default balance client (covers line 110)
-    let client = SolanaClient::devnet();
+    let _client = SolanaClient::devnet();
     let result = get_spl_token_balance(
-        &client,
         "11111111111111111111111111111111".to_string(),
         "So11111111111111111111111111111111111111112".to_string(),
     )
@@ -404,13 +402,13 @@ async fn test_get_spl_token_balance_without_rpc_url() {
 #[tokio::test(flavor = "multi_thread")]
 async fn test_get_multiple_balances() {
     // Test get_multiple_balances with client-first pattern
-    let client = SolanaClient::devnet();
+    let _client = SolanaClient::devnet();
     let addresses = vec![
         "11111111111111111111111111111111".to_string(),
         "22222222222222222222222222222222".to_string(),
     ];
 
-    let result = get_multiple_balances(&client, addresses.clone()).await;
+    let result = get_multiple_balances(addresses.clone()).await;
 
     // The actual network call may fail but we're testing the function signature
     let _ = result;

@@ -95,10 +95,9 @@ async fn test_get_token_price_sol_usdc() {
 
 #[tokio::test]
 async fn test_perform_jupiter_swap_no_signer() {
-    let client = SolanaClient::mainnet();
+    let _client = SolanaClient::mainnet();
 
     let result = perform_jupiter_swap(
-        &client,
         "So11111111111111111111111111111111111111112".to_string(),
         "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v".to_string(),
         1_000_000_000,
@@ -116,10 +115,9 @@ async fn test_perform_jupiter_swap_no_signer() {
 async fn test_perform_jupiter_swap_with_signer() {
     // Configure client with signer
     let keypair = Keypair::new();
-    let client = SolanaClient::mainnet().with_signer(keypair);
+    let _client = SolanaClient::mainnet().with_signer(keypair);
 
     let result = perform_jupiter_swap(
-        &client,
         "So11111111111111111111111111111111111111112".to_string(),
         "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v".to_string(),
         1_000_000,
@@ -188,10 +186,9 @@ async fn test_get_token_price_custom_api_url() {
 async fn test_perform_jupiter_swap_versioned_transaction() {
     // Configure client with signer
     let keypair = Keypair::new();
-    let client = SolanaClient::mainnet().with_signer(keypair);
+    let _client = SolanaClient::mainnet().with_signer(keypair);
 
     let result = perform_jupiter_swap(
-        &client,
         "So11111111111111111111111111111111111111112".to_string(),
         "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v".to_string(),
         1_000_000_000,
@@ -207,7 +204,6 @@ async fn test_perform_jupiter_swap_versioned_transaction() {
 
 #[test]
 fn test_swap_quote_structure() {
-    use riglr_solana_tools::swap::RoutePlanStep;
 
     let quote = SwapQuote {
         input_mint: "mint1".to_string(),

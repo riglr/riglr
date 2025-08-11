@@ -4,12 +4,8 @@
 //! for rig agents, providing graph-based persistent memory capabilities.
 
 use std::sync::Arc;
-use tokio;
+use std::collections::HashMap;
 use tracing::{info, warn};
-
-// This example is only available when both rig and rig-neo4j features are enabled
-#[cfg(all(feature = "rig", feature = "rig-neo4j"))]
-use rig_core::vector_store::VectorStore;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -20,13 +16,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // For this demonstration, we'll show the basic workflow using the GraphVectorStore
     {
-        use riglr_graph_memory::{Neo4jClient, GraphVectorStore, RigDocument};
+        use riglr_graph_memory::{GraphVectorStore, RigDocument};
         use serde_json::json;
-        use std::collections::HashMap;
         // Setup Neo4j connection
         let neo4j_url = std::env::var("NEO4J_URL").unwrap_or_else(|_| "bolt://localhost:7687".to_string());
-        let neo4j_user = std::env::var("NEO4J_USER").unwrap_or_else(|_| "neo4j".to_string());
-        let neo4j_password = std::env::var("NEO4J_PASSWORD").unwrap_or_else(|_| "password".to_string());
+        let _neo4j_user = std::env::var("NEO4J_USER").unwrap_or_else(|_| "neo4j".to_string());
+        let _neo4j_password = std::env::var("NEO4J_PASSWORD").unwrap_or_else(|_| "password".to_string());
 
         info!("Connecting to Neo4j at {}", neo4j_url);
         

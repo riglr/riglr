@@ -1,45 +1,58 @@
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use riglr_evm_tools::{
-    balance::{BalanceTool, GetErc20BalanceInput, GetEthBalanceInput},
-    client::{ChainConfig, EvmClient},
+    client::EvmClient,
     error::EvmToolError,
-    network::{GetBlockNumberInput, GetGasPriceInput, GetTransactionInput, NetworkTool},
-    transaction::{SendErc20Input, SendEthInput, TransactionTool},
 };
+use alloy::primitives::U256;
 use serde_json::json;
-use std::sync::Arc;
+use std::hint::black_box;
 use tokio::runtime::Runtime;
 
 fn client_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("evm_client");
-    let rt = Runtime::new().unwrap();
 
-    group.bench_function("client_creation", |b| {
-        b.iter(|| ChainConfig::ethereum_mainnet())
-    });
-
-    group.bench_function("chain_config_polygon", |b| {
-        b.iter(|| ChainConfig::polygon())
-    });
-
-    group.bench_function("chain_config_arbitrum", |b| {
-        b.iter(|| ChainConfig::arbitrum_one())
-    });
-
-    group.bench_function("chain_config_optimism", |b| {
-        b.iter(|| ChainConfig::optimism())
-    });
-
-    group.bench_function("chain_config_base", |b| b.iter(|| ChainConfig::base()));
-
-    group.bench_function("custom_chain_config", |b| {
+    group.bench_function("client_creation_mainnet", |b| {
         b.iter(|| {
-            ChainConfig::custom(
-                black_box(1337),
-                black_box("Custom Chain"),
-                black_box("http://localhost:8545"),
-                black_box("CUSTOM"),
-            )
+            let rt = tokio::runtime::Runtime::new().unwrap();
+            rt.block_on(async {
+                let _client = EvmClient::mainnet().await;
+            })
+        })
+    });
+
+    group.bench_function("client_creation_polygon", |b| {
+        b.iter(|| {
+            let rt = tokio::runtime::Runtime::new().unwrap();
+            rt.block_on(async {
+                let _client = EvmClient::polygon().await;
+            })
+        })
+    });
+
+    group.bench_function("client_creation_arbitrum", |b| {
+        b.iter(|| {
+            let rt = tokio::runtime::Runtime::new().unwrap();
+            rt.block_on(async {
+                let _client = EvmClient::arbitrum().await;
+            })
+        })
+    });
+
+    group.bench_function("client_creation_optimism", |b| {
+        b.iter(|| {
+            let rt = tokio::runtime::Runtime::new().unwrap();
+            rt.block_on(async {
+                let _client = EvmClient::optimism().await;
+            })
+        })
+    });
+
+    group.bench_function("client_creation_base", |b| {
+        b.iter(|| {
+            let rt = tokio::runtime::Runtime::new().unwrap();
+            rt.block_on(async {
+                let _client = EvmClient::base().await;
+            })
         })
     });
 
@@ -48,30 +61,20 @@ fn client_benchmarks(c: &mut Criterion) {
 
 fn balance_tool_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("balance_tool");
-    let rt = Runtime::new().unwrap();
 
-    group.bench_function("eth_balance_input_parsing", |b| {
+    group.bench_function("address_validation", |b| {
+        let addresses = vec![
+            "0x742d35Cc6634C0532925a3b844B9450581d11340",
+            "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+            "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045",
+        ];
+        
         b.iter(|| {
-            let input = json!({
-                "address": "0x742d35Cc6634C0532925a3b844B9450581d11340",
-                "chain": "ethereum"
-            });
-            serde_json::from_value::<GetEthBalanceInput>(black_box(input))
+            for addr in &addresses {
+                let _valid = riglr_evm_tools::validate_address(black_box(addr));
+            }
         })
     });
-
-    group.bench_function("erc20_balance_input_parsing", |b| {
-        b.iter(|| {
-            let input = json!({
-                "address": "0x742d35Cc6634C0532925a3b844B9450581d11340",
-                "token_address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
-                "chain": "ethereum"
-            });
-            serde_json::from_value::<GetErc20BalanceInput>(black_box(input))
-        })
-    });
-
-    group.bench_function("balance_tool_creation", |b| b.iter(|| BalanceTool::new()));
 
     group.bench_function("balance_formatting", |b| {
         let amounts = vec![
@@ -91,41 +94,42 @@ fn balance_tool_benchmarks(c: &mut Criterion) {
         })
     });
 
+    group.bench_function("wei_to_eth_conversion", |b| {
+        let wei_amounts = vec![
+            U256::from(1000000000000000000u128), // 1 ETH
+            U256::from(500000000000000000u128),  // 0.5 ETH
+            U256::from(1u128),                   // 1 wei
+            U256::from(999999999999999999u128),  // almost 1 ETH
+        ];
+        
+        b.iter(|| {
+            for wei in &wei_amounts {
+                let _eth = riglr_evm_tools::wei_to_eth(*wei);
+                black_box(_eth);
+            }
+        })
+    });
+
     group.finish();
 }
 
 fn network_tool_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("network_tool");
 
-    group.bench_function("block_number_input_parsing", |b| {
+    group.bench_function("transaction_hash_validation", |b| {
+        let tx_hashes = vec![
+            "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+            "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+            "0x0000000000000000000000000000000000000000000000000000000000000001",
+        ];
+        
         b.iter(|| {
-            let input = json!({
-                "chain": "ethereum"
-            });
-            serde_json::from_value::<GetBlockNumberInput>(black_box(input))
+            for hash in &tx_hashes {
+                let _valid = hash.starts_with("0x") && hash.len() == 66;
+                black_box(_valid);
+            }
         })
     });
-
-    group.bench_function("gas_price_input_parsing", |b| {
-        b.iter(|| {
-            let input = json!({
-                "chain": "ethereum"
-            });
-            serde_json::from_value::<GetGasPriceInput>(black_box(input))
-        })
-    });
-
-    group.bench_function("transaction_input_parsing", |b| {
-        b.iter(|| {
-            let input = json!({
-                "tx_hash": "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
-                "chain": "ethereum"
-            });
-            serde_json::from_value::<GetTransactionInput>(black_box(input))
-        })
-    });
-
-    group.bench_function("network_tool_creation", |b| b.iter(|| NetworkTool::new()));
 
     group.bench_function("hex_parsing", |b| {
         let hex_values = vec!["0x1234567890abcdef", "0xffffffffffffffff", "0x0", "0x1"];
@@ -133,8 +137,20 @@ fn network_tool_benchmarks(c: &mut Criterion) {
         b.iter(|| {
             for hex in &hex_values {
                 let _parsed = u64::from_str_radix(&hex[2..], 16);
-                black_box(_parsed);
+                let _ = black_box(_parsed);
             }
+        })
+    });
+
+    group.bench_function("json_structure_creation", |b| {
+        b.iter(|| {
+            let _json = json!({
+                "blockNumber": 18000000u64,
+                "gasPrice": "30000000000",
+                "gasLimit": 21000u64,
+                "chain": "ethereum"
+            });
+            black_box(_json);
         })
     });
 
@@ -144,39 +160,23 @@ fn network_tool_benchmarks(c: &mut Criterion) {
 fn transaction_tool_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("transaction_tool");
 
-    group.bench_function("send_eth_input_parsing", |b| {
-        b.iter(|| {
-            let input = json!({
-                "to": "0x742d35Cc6634C0532925a3b844B9450581d11340",
-                "amount": "0.1",
-                "private_key": "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
-                "chain": "ethereum"
-            });
-            serde_json::from_value::<SendEthInput>(black_box(input))
-        })
-    });
+    group.bench_function("eth_amount_conversion", |b| {
+        let amounts = vec!["0.1", "1.0", "123.456789", "0.000000000000000001", "1000000"];
 
-    group.bench_function("send_erc20_input_parsing", |b| {
         b.iter(|| {
-            let input = json!({
-                "token_address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
-                "to": "0x742d35Cc6634C0532925a3b844B9450581d11340",
-                "amount": "100",
-                "private_key": "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
-                "chain": "ethereum"
-            });
-            serde_json::from_value::<SendErc20Input>(black_box(input))
+            for amount in &amounts {
+                if let Ok(eth_amount) = amount.parse::<f64>() {
+                    let _wei = riglr_evm_tools::eth_to_wei(eth_amount);
+                    black_box(_wei);
+                }
+            }
         })
-    });
-
-    group.bench_function("transaction_tool_creation", |b| {
-        b.iter(|| TransactionTool::new())
     });
 
     group.bench_function("amount_parsing", |b| {
         let amounts = vec![
             "0.1",
-            "1.0",
+            "1.0", 
             "123.456789",
             "0.000000000000000001",
             "1000000",
@@ -185,7 +185,22 @@ fn transaction_tool_benchmarks(c: &mut Criterion) {
         b.iter(|| {
             for amount in &amounts {
                 let _parsed: Result<f64, _> = amount.parse();
-                black_box(_parsed);
+                let _ = black_box(_parsed);
+            }
+        })
+    });
+
+    group.bench_function("private_key_validation", |b| {
+        let keys = vec![
+            "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+            "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+            "0x0000000000000000000000000000000000000000000000000000000000000001",
+        ];
+        
+        b.iter(|| {
+            for key in &keys {
+                let _valid = key.starts_with("0x") && key.len() == 66;
+                black_box(_valid);
             }
         })
     });
@@ -196,21 +211,29 @@ fn transaction_tool_benchmarks(c: &mut Criterion) {
 fn error_handling_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("error_handling");
 
-    group.bench_function("error_creation", |b| {
+    group.bench_function("error_creation_invalid_address", |b| {
         b.iter(|| EvmToolError::InvalidAddress(black_box("invalid_address".to_string())))
     });
 
-    group.bench_function("error_chain_not_supported", |b| {
-        b.iter(|| EvmToolError::ChainNotSupported(black_box("unknown_chain".to_string())))
+    group.bench_function("error_creation_rpc", |b| {
+        b.iter(|| EvmToolError::Rpc(black_box("connection failed".to_string())))
     });
 
-    group.bench_function("error_transaction_failed", |b| {
-        b.iter(|| EvmToolError::TransactionFailed(black_box("gas too low".to_string())))
+    group.bench_function("error_creation_contract", |b| {
+        b.iter(|| EvmToolError::Contract(black_box("call reverted".to_string())))
+    });
+
+    group.bench_function("error_creation_transaction", |b| {
+        b.iter(|| EvmToolError::Transaction(black_box("gas too low".to_string())))
     });
 
     group.bench_function("error_display", |b| {
         let error = EvmToolError::InvalidAddress("test".to_string());
         b.iter(|| format!("{}", black_box(&error)))
+    });
+
+    group.bench_function("error_generic", |b| {
+        b.iter(|| EvmToolError::Generic(black_box("generic error".to_string())))
     });
 
     group.finish();

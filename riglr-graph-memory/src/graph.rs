@@ -79,7 +79,7 @@ impl Default for GraphMemoryConfig {
             username: Some("neo4j".to_string()),
             password: Some("password".to_string()),
             database: Some("neo4j".to_string()),
-            retriever_config: GraphRetrieverConfig::default(),
+            retriever_config: GraphRetrieverConfig::new_default(),
             auto_extract_entities: true,
             auto_generate_embeddings: true,
             batch_size: 100,
@@ -129,8 +129,10 @@ impl GraphMemory {
 
     /// Create a new instance with default configuration.
     pub async fn with_defaults(neo4j_url: impl Into<String>) -> Result<Self> {
-        let mut config = GraphMemoryConfig::default();
-        config.neo4j_url = neo4j_url.into();
+        let config = GraphMemoryConfig {
+            neo4j_url: neo4j_url.into(),
+            ..Default::default()
+        };
         Self::new(config).await
     }
 
@@ -176,7 +178,7 @@ impl GraphMemory {
 
         // Extract entities if enabled
         if self.config.auto_extract_entities {
-            let extracted = self.extractor.extract(&document.content).await?;
+            let extracted = self.extractor.extract(&document.content);
 
             // Update document metadata with extracted entities
             let mut metadata = document.metadata.unwrap_or_default();

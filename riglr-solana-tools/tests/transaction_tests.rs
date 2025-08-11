@@ -44,10 +44,9 @@ fn test_client_with_invalid_signer_bytes() {
 
 #[tokio::test]
 async fn test_transfer_sol_without_signer() {
-    let client = SolanaClient::devnet();
+    let _client = SolanaClient::devnet();
     
     let result = transfer_sol(
-        &client,
         "11111111111111111111111111111111".to_string(),
         0.001,
         None,
@@ -60,10 +59,9 @@ async fn test_transfer_sol_without_signer() {
 
 #[tokio::test]
 async fn test_transfer_spl_token_without_signer() {
-    let client = SolanaClient::devnet();
+    let _client = SolanaClient::devnet();
     
     let result = transfer_spl_token(
-        &client,
         "11111111111111111111111111111111".to_string(),
         "So11111111111111111111111111111111111111112".to_string(),
         1000,

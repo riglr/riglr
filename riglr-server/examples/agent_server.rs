@@ -4,19 +4,18 @@
 //! a rig agent with blockchain tools. The server integrates with SignerContext
 //! to provide secure per-request signer isolation for multi-tenant operation.
 
-use tracing_subscriber;
 
 // Mock agent and tools for demonstration
 // NOTE: Pending integration with rig-core for full AI functionality
 #[derive(Clone)]
 pub struct MockAgent {
-    name: String,
+    _name: String,
 }
 
 impl MockAgent {
     pub fn new(name: &str) -> Self {
         Self {
-            name: name.to_string(),
+            _name: name.to_string(),
         }
     }
 }
@@ -77,7 +76,7 @@ mod tests {
     #[test]
     fn test_mock_agent_creation() {
         let agent = MockAgent::new("Test Agent");
-        assert_eq!(agent.name, "Test Agent");
+        assert_eq!(agent._name, "Test Agent");
     }
     
     #[tokio::test]
@@ -89,6 +88,6 @@ mod tests {
         
         // Server should be created successfully
         // We can't test .run() easily without actually binding to a port
-        assert!(true); // Placeholder assertion
+        // Server creation itself validates the configuration
     }
 }

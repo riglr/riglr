@@ -343,10 +343,6 @@ pub async fn create_spl_token_mint(
     Err(ToolError::permanent("Implementation pending"))
 }
 
-/// Helper function for default true value
-fn default_true() -> bool {
-    true
-}
 
 /// Result of a SOL transfer transaction
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]

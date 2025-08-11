@@ -508,7 +508,7 @@ pub async fn get_holder_trends(
     data_points: Option<u32>,
 ) -> Result<HolderTrends, WebToolError> {
     let period = period.unwrap_or_else(|| "30d".to_string());
-    let data_points = data_points.unwrap_or(30).min(100).max(10);
+    let data_points = data_points.unwrap_or(30).clamp(10, 100);
     let normalized_address = normalize_token_address(&token_address)?;
     
     info!("Analyzing holder trends for {} (period: {}, data points: {})", 

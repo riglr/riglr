@@ -98,14 +98,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .collect();
 
         if key_bytes.len() == 64 {
-            let keypair = Keypair::from_bytes(&key_bytes)?;
+            let keypair = Keypair::try_from(key_bytes.as_slice())?;
 
             // Configure client with signer
-            let client_with_signer = client.with_signer(keypair);
+            let _client_with_signer = client.with_signer(keypair);
 
             // Attempt swap
             match perform_jupiter_swap(
-                &client_with_signer,
                 sol_mint.clone(),
                 usdc_mint.clone(),
                 amount,

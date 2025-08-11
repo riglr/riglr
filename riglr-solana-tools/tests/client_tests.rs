@@ -330,7 +330,6 @@ async fn test_send_transaction() {
         message::Message,
         pubkey::Pubkey,
         signature::{Keypair, Signer},
-        system_instruction,
         transaction::Transaction,
     };
 
@@ -341,10 +340,10 @@ async fn test_send_transaction() {
     let to_pubkey = Pubkey::new_unique();
     let lamports = 1000;
 
-    let instruction = system_instruction::transfer(&from_keypair.pubkey(), &to_pubkey, lamports);
+    let instruction = solana_sdk::system_instruction::transfer(&from_keypair.pubkey(), &to_pubkey, lamports);
 
     let message = Message::new(&[instruction], Some(&from_keypair.pubkey()));
-    let mut transaction = Transaction::new_unsigned(message);
+    let transaction = Transaction::new_unsigned(message);
 
     // This will fail because we don't have a valid blockhash, but it tests the error path
     let result = client.send_transaction(transaction).await;
@@ -472,8 +471,8 @@ async fn test_get_balance_with_valid_address() {
     let result = client.get_balance("11111111111111111111111111111111").await;
 
     // Should succeed for system program
-    if let Ok(balance) = result {
-        assert!(balance >= 0);
+    if let Ok(_balance) = result {
+        // Balance is u64, so it's always >= 0
     }
 }
 
@@ -503,8 +502,8 @@ async fn test_get_token_balance_with_valid_addresses() {
         .await;
 
     // Should execute without panic
-    if let Ok(balance) = result {
-        assert!(balance >= 0);
+    if let Ok(_balance) = result {
+        // Balance is u64, so it's always >= 0
     }
 }
 
@@ -542,7 +541,6 @@ async fn test_send_transaction_with_invalid_transaction() {
         message::Message,
         pubkey::Pubkey,
         signature::{Keypair, Signer},
-        system_instruction,
         transaction::Transaction,
     };
 
@@ -553,7 +551,7 @@ async fn test_send_transaction_with_invalid_transaction() {
     let to_pubkey = Pubkey::new_unique();
     let lamports = 1000;
 
-    let instruction = system_instruction::transfer(&from_keypair.pubkey(), &to_pubkey, lamports);
+    let instruction = solana_sdk::system_instruction::transfer(&from_keypair.pubkey(), &to_pubkey, lamports);
 
     let message = Message::new(&[instruction], Some(&from_keypair.pubkey()));
 
@@ -564,7 +562,7 @@ async fn test_send_transaction_with_invalid_transaction() {
         .unwrap_or_else(|_| Hash::default().to_string());
 
     let blockhash = blockhash.parse::<Hash>().unwrap_or_default();
-    let mut transaction = Transaction::new(&[&from_keypair], message, blockhash);
+    let transaction = Transaction::new(&[&from_keypair], message, blockhash);
 
     // This will fail because account doesn't have funds
     let result = client.send_transaction(transaction).await;
@@ -672,10 +670,10 @@ async fn test_get_token_balance_empty_accounts() {
 
     // Should succeed but return 0 for no accounts found
     // This exercises the "accounts.is_empty()" path (lines 153-158)
-    if let Ok(balance) = result {
+    if let Ok(_balance) = result {
+        // Balance is u64, so it's always >= 0
         // For system program, there should be 0 token balance
         // but our implementation returns a mock amount for testing purposes
-        assert!(balance >= 0);
     }
     // If it fails, that's also acceptable due to network issues
 }
@@ -710,7 +708,6 @@ async fn test_send_transaction_success_path() {
         message::Message,
         pubkey::Pubkey,
         signature::{Keypair, Signer},
-        system_instruction,
         transaction::Transaction,
     };
 
@@ -721,7 +718,7 @@ async fn test_send_transaction_success_path() {
     let to_pubkey = Pubkey::new_unique();
     let lamports = 1;
 
-    let instruction = system_instruction::transfer(&from_keypair.pubkey(), &to_pubkey, lamports);
+    let instruction = solana_sdk::system_instruction::transfer(&from_keypair.pubkey(), &to_pubkey, lamports);
 
     let message = Message::new(&[instruction], Some(&from_keypair.pubkey()));
 

@@ -268,7 +268,7 @@ pub async fn get_trending_cryptos(
     limit: Option<u32>,
     sort_by: Option<String>,
 ) -> Result<Vec<TrendingCrypto>, WebToolError> {
-    let limit = limit.unwrap_or(10).min(50).max(1);
+    let limit = limit.unwrap_or(10).clamp(1, 50);
     let sort_by = sort_by.unwrap_or_else(|| "galaxy_score".to_string());
     
     info!("Fetching top {} trending cryptos sorted by {}", limit, sort_by);
@@ -365,7 +365,7 @@ pub async fn get_influencer_mentions(
     limit: Option<u32>,
     timeframe: Option<String>,
 ) -> Result<InfluencerMentionsResult, WebToolError> {
-    let limit = limit.unwrap_or(20).min(50).max(1);
+    let limit = limit.unwrap_or(20).clamp(1, 50);
     let timeframe = timeframe.unwrap_or_else(|| "24h".to_string());
     
     info!("Fetching influencer mentions for {} (limit: {}, timeframe: {})", 

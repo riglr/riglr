@@ -463,7 +463,7 @@ pub async fn execute_cross_chain_bridge(
     info!("Executing cross-chain bridge with route {}", route_id);
     
     // Get current signer
-    let signer = SignerContext::current().await
+    let _signer = SignerContext::current().await
         .map_err(|e| ToolError::permanent(format!("No signer context available: {}", e)))?;
     
     // For now, we'll simulate the bridge execution since implementing the full
@@ -567,7 +567,7 @@ pub async fn get_bridge_status(
     info!("Checking bridge status for {}", bridge_id);
     
     // Create LiFi client
-    let lifi_client = create_lifi_client().await?;
+    let _lifi_client = create_lifi_client().await?;
     
     // For the simulation, we'll return a mock status
     // In production, this would call lifi_client.get_bridge_status()
@@ -812,11 +812,11 @@ pub struct ChainInfo {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use riglr_core::signer::{LocalSolanaSigner};
     use std::sync::Arc;
     
     // Mock signer for testing
     #[derive(Debug)]
+    #[allow(dead_code)]
     struct MockCrossChainSigner {
         address: String,
     }

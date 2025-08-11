@@ -469,7 +469,7 @@ pub async fn summarize_web_content(
     urls: Vec<String>,
     summary_length: Option<String>, // "brief", "detailed", "comprehensive"
     focus_topics: Option<Vec<String>>,
-    include_quotes: Option<bool>,
+    _include_quotes: Option<bool>,
 ) -> crate::error::Result<Vec<ContentSummary>> {
     debug!("Summarizing content from {} URLs", urls.len());
 
@@ -614,7 +614,7 @@ pub async fn search_recent_news(
 
 /// Parse Exa search API response into structured results
 async fn parse_exa_search_response(
-    response: &str,
+    _response: &str,
     query: &str,
 ) -> crate::error::Result<Vec<SearchResult>> {
     // In production, this would parse actual Exa JSON response
@@ -676,17 +676,17 @@ async fn parse_exa_search_response(
 }
 
 /// Parse similar pages API response
-async fn parse_similar_pages_response(response: &str) -> crate::error::Result<Vec<SearchResult>> {
+async fn parse_similar_pages_response(_response: &str) -> crate::error::Result<Vec<SearchResult>> {
     // In production, would parse actual JSON response
     Ok(vec![])
 }
 
 /// Extract and summarize content from a single page
 async fn extract_and_summarize_page(
-    client: &WebClient,
+    _client: &WebClient,
     url: &str,
-    summary_length: &Option<String>,
-    focus_topics: &Option<Vec<String>>,
+    _summary_length: &Option<String>,
+    _focus_topics: &Option<Vec<String>>,
 ) -> crate::error::Result<ContentSummary> {
     // In production, would extract and process actual page content
     Ok(ContentSummary {

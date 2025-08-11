@@ -13,14 +13,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let dai = "0x6B175474E89094C44Da98b954EedeAC495271d0F".to_string();
 
     // Create EVM client
-    let client = EvmClient::mainnet().await?;
+    let _client = EvmClient::mainnet().await?;
 
     println!("Getting Uniswap V3 quotes...\n");
 
     // Get quote for swapping 1000 USDC to WETH
     println!("Quote: 1000 USDC -> WETH");
     match get_uniswap_quote(
-        &client,
         usdc.clone(),
         weth.clone(),
         "1000".to_string(), // 1000 USDC
@@ -49,7 +48,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Quote for 1 WETH to USDC
     println!("\nQuote: 1 WETH -> USDC");
     match get_uniswap_quote(
-        &client,
         weth.clone(),
         usdc.clone(),
         "1".to_string(),   // 1 WETH
@@ -73,7 +71,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Quote for DAI to USDC (stablecoin pair)
     println!("\nQuote: 1000 DAI -> USDC");
     match get_uniswap_quote(
-        &client,
         dai.clone(),
         usdc.clone(),
         "1000".to_string(), // 1000 DAI
@@ -109,19 +106,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Execute swap
     let swap_result = perform_uniswap_swap(
-        &client_with_signer,
         usdc,
         weth,
         "1000".to_string(),  // 1000 USDC
         6,                    // USDC decimals
-        18,                   // WETH decimals
+        "950000".to_string(), // Amount out minimum (example)
         Some(3000),           // 0.3% fee tier
-        Some(50),             // 0.5% slippage
-        None,                 // Default gas price
-        None,                 // Default nonce
+        Some(300),            // Deadline in seconds
     ).await?;
 
-    println!("Swap transaction: {}", swap_result.transaction_hash);
+    println!("Swap transaction: {}", swap_result.tx_hash);
     println!("Amount out: {}", swap_result.amount_out);
     */
 

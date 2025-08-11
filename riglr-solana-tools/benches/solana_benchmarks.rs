@@ -1,19 +1,20 @@
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
+use std::hint::black_box;
 use riglr_solana_tools::{
-    balance::{GetSolBalanceInput, GetSplTokenBalanceInput},
-    client::{NetworkConfig, SolanaClient},
+    client::{SolanaClient, SolanaConfig},
     error::SolanaToolError,
-    network::{GetBlockHeightInput, GetSlotInput, GetTransactionInput},
-    transaction::{SendSolInput, SendSplTokenInput, TransferResult},
+    BalanceResult, TokenBalanceResult, TransactionResult, TransactionStatus,
 };
 use serde_json::json;
 use solana_sdk::{
     pubkey::Pubkey,
-    signature::{Keypair, Signature},
-    system_instruction,
+    signature::{Keypair, Signature, Signer},
     transaction::Transaction,
+    commitment_config::CommitmentLevel,
+    bs58,
 };
 use std::str::FromStr;
+use std::time::Duration;
 use tokio::runtime::Runtime;
 
 fn pubkey_benchmarks(c: &mut Criterion) {
@@ -51,25 +52,40 @@ fn pubkey_benchmarks(c: &mut Criterion) {
 fn client_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("solana_client");
 
-    group.bench_function("network_config_mainnet", |b| {
-        b.iter(|| NetworkConfig::mainnet())
+    group.bench_function("client_creation_mainnet", |b| {
+        b.iter(|| {
+            let config = SolanaConfig {
+                rpc_url: "https://api.mainnet-beta.solana.com".to_string(),
+                timeout: Duration::from_secs(30),
+                commitment: CommitmentLevel::Confirmed,
+                skip_preflight: false,
+            };
+            SolanaClient::new(config)
+        })
     });
 
-    group.bench_function("network_config_devnet", |b| {
-        b.iter(|| NetworkConfig::devnet())
+    group.bench_function("client_creation_devnet", |b| {
+        b.iter(|| {
+            let config = SolanaConfig {
+                rpc_url: "https://api.devnet.solana.com".to_string(),
+                timeout: Duration::from_secs(30),
+                commitment: CommitmentLevel::Confirmed,
+                skip_preflight: false,
+            };
+            SolanaClient::new(config)
+        })
     });
 
-    group.bench_function("network_config_testnet", |b| {
-        b.iter(|| NetworkConfig::testnet())
-    });
-
-    group.bench_function("network_config_custom", |b| {
-        b.iter(|| NetworkConfig::custom(black_box("http://localhost:8899")))
-    });
-
-    group.bench_function("client_creation", |b| {
-        let config = NetworkConfig::mainnet();
-        b.iter(|| SolanaClient::new(black_box(config.clone())))
+    group.bench_function("client_creation_custom", |b| {
+        b.iter(|| {
+            let config = SolanaConfig {
+                rpc_url: black_box("http://localhost:8899".to_string()),
+                timeout: Duration::from_secs(30),
+                commitment: CommitmentLevel::Confirmed,
+                skip_preflight: false,
+            };
+            SolanaClient::new(config)
+        })
     });
 
     group.finish();
@@ -78,24 +94,27 @@ fn client_benchmarks(c: &mut Criterion) {
 fn balance_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("balance_operations");
 
-    group.bench_function("sol_balance_input_parsing", |b| {
+    group.bench_function("balance_result_creation", |b| {
         b.iter(|| {
-            let input = json!({
-                "address": "11111111111111111111111111111111",
-                "network": "mainnet"
-            });
-            serde_json::from_value::<GetSolBalanceInput>(black_box(input))
+            BalanceResult {
+                address: black_box("11111111111111111111111111111111".to_string()),
+                lamports: black_box(1_500_000_000),
+                sol: black_box(1.5),
+                formatted: black_box("1.5 SOL".to_string()),
+            }
         })
     });
 
-    group.bench_function("spl_token_balance_input_parsing", |b| {
+    group.bench_function("token_balance_result_creation", |b| {
         b.iter(|| {
-            let input = json!({
-                "wallet_address": "11111111111111111111111111111111",
-                "token_mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
-                "network": "mainnet"
-            });
-            serde_json::from_value::<GetSplTokenBalanceInput>(black_box(input))
+            TokenBalanceResult {
+                owner_address: black_box("11111111111111111111111111111111".to_string()),
+                mint_address: black_box("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v".to_string()),
+                raw_amount: black_box(1000000000),
+                ui_amount: black_box(1000.0),
+                decimals: black_box(6),
+                formatted: black_box("1,000.0 USDC".to_string()),
+            }
         })
     });
 
@@ -127,28 +146,29 @@ fn balance_benchmarks(c: &mut Criterion) {
 fn transaction_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("transaction_operations");
 
-    group.bench_function("send_sol_input_parsing", |b| {
+    group.bench_function("transaction_result_creation", |b| {
+        b.iter(|| {
+            TransactionResult {
+                signature: black_box("5VERv8NMvzbJMEkV8xnrLkEaWRtSz9CosKDYjCJjBRnbJLgp8uirBgmQpjKhoR4tjF3ZpRzrFmBV6UjKdiSZkQUW".to_string()),
+                from: black_box("11111111111111111111111111111112".to_string()),
+                to: black_box("11111111111111111111111111111111".to_string()),
+                amount: black_box(100_000_000),
+                amount_display: black_box("0.1 SOL".to_string()),
+                status: black_box(TransactionStatus::Confirmed),
+                memo: black_box(None),
+                idempotency_key: black_box(None),
+            }
+        })
+    });
+
+    group.bench_function("json_parsing", |b| {
         b.iter(|| {
             let input = json!({
                 "to": "11111111111111111111111111111111",
                 "amount": 0.1,
-                "private_key": "[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32]",
                 "network": "mainnet"
             });
-            serde_json::from_value::<SendSolInput>(black_box(input))
-        })
-    });
-
-    group.bench_function("send_spl_token_input_parsing", |b| {
-        b.iter(|| {
-            let input = json!({
-                "token_mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
-                "to": "11111111111111111111111111111111",
-                "amount": 100.0,
-                "private_key": "[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32]",
-                "network": "mainnet"
-            });
-            serde_json::from_value::<SendSplTokenInput>(black_box(input))
+            serde_json::to_string(&input).unwrap()
         })
     });
 
@@ -167,7 +187,7 @@ fn transaction_benchmarks(c: &mut Criterion) {
         let lamports = 1_000_000_000;
 
         b.iter(|| {
-            let instruction = system_instruction::transfer(&from.pubkey(), &to, lamports);
+            let instruction = solana_sdk::system_instruction::transfer(&from.pubkey(), &to, lamports);
             Transaction::new_with_payer(&[instruction], Some(&from.pubkey()))
         })
     });
@@ -178,31 +198,37 @@ fn transaction_benchmarks(c: &mut Criterion) {
 fn network_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("network_operations");
 
-    group.bench_function("block_height_input_parsing", |b| {
+    group.bench_function("network_url_creation", |b| {
         b.iter(|| {
-            let input = json!({
-                "network": "mainnet"
-            });
-            serde_json::from_value::<GetBlockHeightInput>(black_box(input))
+            let _mainnet = black_box("https://api.mainnet-beta.solana.com");
+            let _devnet = black_box("https://api.devnet.solana.com");
+            let _testnet = black_box("https://api.testnet.solana.com");
         })
     });
 
-    group.bench_function("transaction_input_parsing", |b| {
+    group.bench_function("json_rpc_request_format", |b| {
         b.iter(|| {
             let input = json!({
-                "signature": "5VERv8NMvzbJMEkV8xnrLkEaWRtSz9CosKDYjCJjBRnbJLgp8uirBgmQpjKhoR4tjF3ZpRzrFmBV6UjKdiSZkQUW",
-                "network": "mainnet"
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "getAccountInfo",
+                "params": ["11111111111111111111111111111111"]
             });
-            serde_json::from_value::<GetTransactionInput>(black_box(input))
+            serde_json::to_string(&input).unwrap()
         })
     });
 
-    group.bench_function("slot_input_parsing", |b| {
+    group.bench_function("signature_validation", |b| {
+        let signatures = vec![
+            "5VERv8NMvzbJMEkV8xnrLkEaWRtSz9CosKDYjCJjBRnbJLgp8uirBgmQpjKhoR4tjF3ZpRzrFmBV6UjKdiSZkQUW",
+            "2Kzg5s2gJ8xjwk8HkWyZmHQ7aR9fG5LwVtYE3QRhN4vX8cD1P6mS9hB7uT5eK2gQ8wM3nL6vC4sF8hY9jE1dA7pR",
+            "3LwBg8kHhR7tK9mQ5rE2sT6nF8pL3gY4vD9uC1oX7jA5hM2dS8fV6tG9yE4wK8bN5oP7qH3nL9mS6eR1dA2gF8kY",
+        ];
+
         b.iter(|| {
-            let input = json!({
-                "network": "mainnet"
-            });
-            serde_json::from_value::<GetSlotInput>(black_box(input))
+            for sig_str in &signatures {
+                let _sig = Signature::from_str(black_box(sig_str));
+            }
         })
     });
 
@@ -216,15 +242,12 @@ fn error_handling_benchmarks(c: &mut Criterion) {
         b.iter(|| SolanaToolError::InvalidAddress(black_box("invalid".to_string())))
     });
 
-    group.bench_function("error_insufficient_balance", |b| {
-        b.iter(|| SolanaToolError::InsufficientBalance {
-            required: black_box(1000),
-            available: black_box(500),
-        })
+    group.bench_function("error_transaction", |b| {
+        b.iter(|| SolanaToolError::Transaction(black_box("insufficient funds".to_string())))
     });
 
-    group.bench_function("error_transaction_failed", |b| {
-        b.iter(|| SolanaToolError::TransactionFailed(black_box("simulation failed".to_string())))
+    group.bench_function("error_generic", |b| {
+        b.iter(|| SolanaToolError::Generic(black_box("simulation failed".to_string())))
     });
 
     group.bench_function("error_display", |b| {
@@ -374,7 +397,7 @@ fn concurrent_operations_benchmarks(c: &mut Criterion) {
 
                         for _ in 0..num_tasks {
                             let handle = tokio::spawn(async move {
-                                for i in 0..100 {
+                                for _ in 0..100 {
                                     let _pubkey = Pubkey::new_unique();
                                     let _keypair = Keypair::new();
                                     tokio::task::yield_now().await;

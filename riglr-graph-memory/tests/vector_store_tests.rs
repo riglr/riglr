@@ -6,7 +6,7 @@ use std::collections::HashMap;
 
 #[test]
 fn test_graph_retriever_config_default() {
-    let config = GraphRetrieverConfig::default();
+    let config = GraphRetrieverConfig::new_default();
 
     assert_eq!(config.similarity_threshold, 0.7);
     assert_eq!(config.max_graph_hops, 2);
@@ -31,7 +31,7 @@ fn test_graph_retriever_config_custom() {
 
 #[test]
 fn test_graph_retriever_config_clone() {
-    let config = GraphRetrieverConfig::default();
+    let config = GraphRetrieverConfig::new_default();
     let cloned = config.clone();
 
     assert_eq!(cloned.similarity_threshold, config.similarity_threshold);
@@ -42,7 +42,7 @@ fn test_graph_retriever_config_clone() {
 
 #[test]
 fn test_graph_retriever_config_debug() {
-    let config = GraphRetrieverConfig::default();
+    let config = GraphRetrieverConfig::new_default();
     let debug_str = format!("{:?}", config);
 
     assert!(debug_str.contains("GraphRetrieverConfig"));
@@ -546,7 +546,7 @@ fn test_index_name_variations() {
 fn test_graph_retriever_config_presets() {
     // Test all config preset methods (lines 96-125)
 
-    let default_config = GraphRetrieverConfig::default();
+    let default_config = GraphRetrieverConfig::new_default();
     assert_eq!(default_config.similarity_threshold, 0.7);
     assert_eq!(default_config.max_graph_hops, 2);
     assert_eq!(default_config.embedding_dimension, 1536);
@@ -576,7 +576,6 @@ fn test_graph_retriever_config_presets() {
 async fn test_graph_retriever_creation_fails_without_neo4j() {
     // Test GraphRetriever::new without Neo4j (lines 128-152)
     use riglr_graph_memory::client::Neo4jClient;
-    use std::sync::Arc;
 
     // Try to create a Neo4j client (will fail)
     let client_result = Neo4jClient::new(
@@ -840,7 +839,7 @@ fn test_related_entities_parsing() {
 #[test]
 fn test_document_sorting() {
     // Test document sorting by similarity score (lines 295-300)
-    let mut test_docs = vec![("doc1", 0.7), ("doc2", 0.9), ("doc3", 0.8), ("doc4", 0.6)];
+    let mut test_docs = [("doc1", 0.7), ("doc2", 0.9), ("doc3", 0.8), ("doc4", 0.6)];
 
     // Sort by similarity score descending
     test_docs.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
@@ -992,10 +991,10 @@ fn test_max_graph_hops_disabled() {
     // When max_graph_hops is 0, no graph traversal should occur
     if max_graph_hops > 0 && !entity_set.is_empty() {
         // Would perform graph traversal
-        assert!(false, "Should not perform graph traversal when hops = 0");
+        panic!("Should not perform graph traversal when hops = 0");
     } else {
         // Skip graph traversal
-        assert!(true);
+        // Test passes - correct branch taken
     }
 }
 
@@ -1007,10 +1006,7 @@ fn test_empty_entity_set_handling() {
 
     // When entity set is empty, no graph traversal should occur
     if max_graph_hops > 0 && !entity_set.is_empty() {
-        assert!(
-            false,
-            "Should not perform graph traversal with empty entity set"
-        );
+        panic!("Should not perform graph traversal with empty entity set");
     } else {
         // Skip graph traversal
         assert!(entity_set.is_empty());
@@ -1020,11 +1016,9 @@ fn test_empty_entity_set_handling() {
 #[test]
 fn test_relationship_traversal_metrics() {
     // Test relationship traversal metrics (lines 286-291)
-    let related_entities = vec![
-        "related1".to_string(),
+    let related_entities = ["related1".to_string(),
         "related2".to_string(),
-        "related3".to_string(),
-    ];
+        "related3".to_string()];
 
     let relationships_traversed = related_entities.len() as u32;
     assert_eq!(relationships_traversed, 3);
@@ -1184,3 +1178,4 @@ fn test_graph_hops_limit_calculation() {
         assert!(limit <= 250); // Max reasonable limit
     }
 }
+

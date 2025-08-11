@@ -118,12 +118,12 @@ mod tests {
     // Mock agent for testing
     #[derive(Clone)]
     struct MockAgent {
-        name: String,
+        _name: String,
     }
     
     impl MockAgent {
         fn new(name: String) -> Self {
-            Self { name }
+            Self { _name: name }
         }
     }
     
