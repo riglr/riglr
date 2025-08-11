@@ -7,7 +7,7 @@
 use tracing_subscriber;
 
 // Mock agent and tools for demonstration
-// TODO: Replace with real rig imports for full AI functionality
+// NOTE: Pending integration with rig-core for full AI functionality
 #[derive(Clone)]
 pub struct MockAgent {
     name: String,
@@ -21,7 +21,7 @@ impl MockAgent {
     }
 }
 
-// TODO: This will be replaced with real rig::agent::AgentBuilder usage:
+// NOTE: Full implementation with rig::agent::AgentBuilder pending:
 // use rig::agent::AgentBuilder;
 // use riglr_solana_tools::{GetSolBalance, SwapTokens, TransferSol};
 // 

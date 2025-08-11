@@ -433,7 +433,10 @@ pub async fn get_influencer_mentions(
             .unwrap_or("1970-01-01T00:00:00Z");
             
         let timestamp = DateTime::parse_from_rfc3339(timestamp_str)
-            .unwrap_or_else(|_| DateTime::from_timestamp(0, 0).unwrap().into())
+            .unwrap_or_else(|_| DateTime::from_timestamp(0, 0)
+                .map(|dt| dt.into())
+                .unwrap_or_else(|| Utc::now().into())
+            )
             .with_timezone(&Utc);
             
         let platform = post.get("type")

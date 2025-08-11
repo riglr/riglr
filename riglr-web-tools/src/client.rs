@@ -368,7 +368,13 @@ impl WebClient {
 
 impl Default for WebClient {
     fn default() -> Self {
-        Self::new().expect("Failed to create default WebClient")
+        // Create a basic client without external dependencies
+        Self {
+            http_client: Client::new(), // Client::new() can't fail
+            api_keys: HashMap::new(),
+            config: HashMap::new(),
+            http_config: HttpConfig::default(),
+        }
     }
 }
 

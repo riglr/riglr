@@ -319,7 +319,20 @@ impl LiFiClient {
 
 impl Default for LiFiClient {
     fn default() -> Self {
-        Self::new().expect("Failed to create default LiFi client")
+        // Create a minimal client configuration that shouldn't fail
+        let base_url = Url::parse(Self::DEFAULT_BASE_URL)
+            .expect("Default LiFi URL should be valid");
+            
+        let client = reqwest::Client::builder()
+            .timeout(Duration::from_secs(30))
+            .build()
+            .expect("Default HTTP client should build successfully");
+            
+        Self {
+            client,
+            base_url,
+            api_key: None,
+        }
     }
 }
 
