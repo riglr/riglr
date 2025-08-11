@@ -189,7 +189,10 @@ impl MetricsRegistry {
 
     /// Get all metrics
     pub fn get_all_metrics(&self) -> Vec<Metric> {
-        self.metrics.iter().map(|entry| entry.value().clone()).collect()
+        self.metrics
+            .iter()
+            .map(|entry| entry.value().clone())
+            .collect()
     }
 
     /// Update counter metric

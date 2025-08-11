@@ -233,9 +233,10 @@ impl EventIngester {
                             "indexer_ingestion_events_per_second",
                             stats_guard.events_per_second,
                         );
-                        context
-                            .metrics
-                            .record_counter("indexer_ingestion_total_events", stats_guard.total_events);
+                        context.metrics.record_counter(
+                            "indexer_ingestion_total_events",
+                            stats_guard.total_events,
+                        );
                     }
 
                     last_count = stats_guard.total_events;

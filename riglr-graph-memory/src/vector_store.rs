@@ -411,7 +411,7 @@ impl GraphRetriever {
 
             // Store doc.id for use after moving doc fields
             let doc_id = doc.id.clone();
-            
+
             let mut params = HashMap::new();
             params.insert("id".to_string(), json!(doc.id));
             params.insert("content".to_string(), json!(doc.content));

@@ -105,7 +105,7 @@ impl ConsistentHash {
 
         let hash = self.hash_key(key);
         let mut result = Vec::default();
-        let mut seen_nodes = std::collections::HashSet::default();
+        let mut seen_nodes: std::collections::HashSet<String> = std::collections::HashSet::new();
 
         // Start from the primary node and walk the ring
         let start_iter = self.ring.range(hash..);
@@ -116,7 +116,7 @@ impl ConsistentHash {
             if !seen_nodes.contains(node_id) {
                 if let Some(node_info) = self.nodes.get(node_id) {
                     result.push(node_info);
-                    seen_nodes.insert(node_id);
+                    seen_nodes.insert(node_id.clone());
 
                     if result.len() >= count {
                         break;
@@ -163,7 +163,7 @@ impl ConsistentHash {
     /// Hash a key to a position on the ring
     fn hash_key(&self, key: &str) -> u64 {
         use std::collections::hash_map::DefaultHasher;
-        let mut hasher = DefaultHasher::new();
+        let mut hasher = DefaultHasher::default();
         key.hash(&mut hasher);
         hasher.finish()
     }

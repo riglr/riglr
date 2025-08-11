@@ -91,7 +91,9 @@ pub mod utils;
 pub mod prelude {
     pub use crate::api::{ApiServer, RestHandler, WebSocketStreamer};
     pub use crate::config::{ApiConfig, IndexerConfig, MetricsConfig, StorageConfig};
-    pub use crate::core::{EventIngester, EventProcessor, IndexerService, ProcessingPipeline};
+    pub use crate::core::{
+        EventIngester, EventProcessor, IndexerService, ProcessingPipeline, ServiceLifecycle,
+    };
     pub use crate::error::{IndexerError, IndexerResult};
     pub use crate::metrics::{IndexerMetrics, MetricsCollector, PerformanceMetrics};
     pub use crate::storage::{DataStore, EventFilter, EventQuery, PostgresStore};
