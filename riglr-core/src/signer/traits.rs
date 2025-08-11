@@ -47,6 +47,5 @@ pub trait TransactionSigner: Send + Sync + std::fmt::Debug {
     
     /// Get EVM RPC client (derived from signer configuration)  
     /// This client should be configured with the appropriate RPC endpoint and chain ID
-    /// Note: The concrete type will need to be determined based on the actual alloy provider implementation
-    fn evm_client(&self) -> Result<Box<dyn std::any::Any + Send + Sync>, SignerError>;
+    fn evm_client(&self) -> Result<std::sync::Arc<dyn std::any::Any + Send + Sync>, SignerError>;
 }

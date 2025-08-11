@@ -4,6 +4,7 @@
 //! enabling token swaps with optimal routing across multiple DEXs.
 
 use crate::transaction::TransactionStatus;
+use crate::utils::send_transaction;
 use riglr_core::{ToolError, SignerContext};
 use riglr_macros::tool;
 use schemars::JsonSchema;
@@ -307,9 +308,8 @@ pub async fn perform_jupiter_swap(
     let mut transaction: Transaction = bincode::deserialize(&transaction_bytes)
         .map_err(|e| ToolError::permanent(format!("Failed to deserialize transaction: {}", e)))?;
 
-    // Sign and send through the signer context
-    let signature = signer_context.sign_and_send_solana_transaction(&mut transaction).await
-        .map_err(|e| ToolError::permanent(format!("Failed to send swap transaction: {}", e)))?;
+    // Send transaction with retry logic
+    let signature = send_transaction(&mut transaction, &format!("Jupiter Swap ({} -> {})", input_mint, output_mint)).await?;
 
     info!(
         "Jupiter swap executed: {} {} -> {} {} (expected), signature: {}",

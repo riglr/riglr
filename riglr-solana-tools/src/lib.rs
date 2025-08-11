@@ -55,6 +55,7 @@ pub mod network;
 pub mod pump;
 pub mod swap;
 pub mod transaction;
+pub mod utils;
 
 // Re-export commonly used tools
 pub use balance::*;
@@ -62,6 +63,7 @@ pub use network::*;
 pub use pump::*;
 pub use swap::*;
 pub use transaction::*;
+pub use utils::*;
 
 // Re-export client and error types
 pub use client::SolanaClient;

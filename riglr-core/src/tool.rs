@@ -1,4 +1,7 @@
-//! Tool execution and worker infrastructure for riglr.
+//! Tool orchestration and execution framework.
+//!
+//! Provides the ToolWorker abstraction for coordinating tool execution
+//! with proper error handling, logging, and integration with rig agents.
 //!
 //! This module provides the core abstractions for executing tools in a resilient,
 //! asynchronous manner with support for retries, timeouts, and job queuing.

@@ -3,6 +3,7 @@
 //! This module provides tools for creating and executing transactions on the Solana blockchain.
 //! All state-mutating operations are queued through the job system for resilience.
 
+use crate::utils::send_transaction;
 use riglr_core::{ToolError, SignerContext};
 use riglr_macros::tool;
 use schemars::JsonSchema;
@@ -126,12 +127,9 @@ pub async fn transfer_sol(
         instructions.push(memo_ix);
     }
 
-    // Create and sign transaction
+    // Create and send transaction with retry logic
     let mut transaction = Transaction::new_with_payer(&instructions, Some(&from_pubkey));
-
-    // Sign and send through the signer context
-    let signature = signer_context.sign_and_send_solana_transaction(&mut transaction).await
-        .map_err(|e| ToolError::permanent(format!("Failed to send transaction: {}", e)))?;
+    let signature = send_transaction(&mut transaction, &format!("SOL Transfer ({} SOL)", amount_sol)).await?;
 
     info!(
         "SOL transfer initiated: {} -> {} ({} SOL), signature: {}",
@@ -147,7 +145,7 @@ pub async fn transfer_sol(
         to: to_address,
         amount: lamports,
         amount_display: format!("{} SOL", amount_sol),
-        status: TransactionStatus::Confirmed,
+        status: TransactionStatus::Pending,
         memo,
         idempotency_key: None,
     })
@@ -256,13 +254,10 @@ pub async fn transfer_spl_token(
         .map_err(|e| ToolError::permanent(format!("Failed to create transfer instruction: {}", e)))?,
     );
 
-    // Create and sign transaction
+    // Create and send transaction with retry logic
     let mut transaction = Transaction::new_with_payer(&instructions, Some(&from_pubkey));
-
-    // Sign and send through the signer context
-    let signature = signer_context.sign_and_send_solana_transaction(&mut transaction).await
-        .map_err(|e| ToolError::permanent(format!("Failed to send transaction: {}", e)))?;
     let ui_amount = amount as f64 / 10_f64.powi(decimals as i32);
+    let signature = send_transaction(&mut transaction, &format!("SPL Token Transfer ({:.9} tokens)", ui_amount)).await?;
 
     info!(
         "SPL token transfer initiated: {} -> {} ({} tokens), signature: {}",
@@ -281,12 +276,63 @@ pub async fn transfer_spl_token(
         ui_amount,
         decimals,
         amount_display: format!("{:.9}", ui_amount),
-        status: TransactionStatus::Confirmed,
+        status: TransactionStatus::Pending,
         idempotency_key: None,
     })
 }
 
 /// Create a new SPL token mint
+///
+/// This tool creates a new SPL token mint account on the Solana blockchain with specified
+/// configuration parameters. The mint authority is set to the current signer, enabling
+/// future token supply management operations.
+/// 
+/// **Note**: This function is currently a placeholder and will return an implementation
+/// pending error. A full implementation would create the mint account, set authorities,
+/// and optionally mint initial tokens to the creator.
+/// 
+/// # Arguments
+/// 
+/// * `decimals` - Number of decimal places for the token (0-9, commonly 6 or 9)
+/// * `initial_supply` - Initial number of tokens to mint (in smallest unit)
+/// * `freezable` - Whether the token accounts can be frozen by the freeze authority
+/// 
+/// # Returns
+/// 
+/// Returns `CreateMintResult` containing:
+/// - `mint_address`: The newly created token mint address
+/// - `transaction_signature`: Transaction signature of the mint creation
+/// - `initial_supply`: Number of tokens initially minted
+/// - `decimals`: Decimal places configuration
+/// - `authority`: The mint authority address (signer address)
+/// 
+/// # Errors
+/// 
+/// * `ToolError::Permanent` - Currently returns "Implementation pending" error
+/// * Future implementation would include:
+///   - Invalid decimals value (must be 0-9)
+///   - Insufficient SOL balance for rent and fees
+///   - Network connection issues
+/// 
+/// # Examples
+/// 
+/// ```rust,ignore
+/// use riglr_solana_tools::transaction::create_spl_token_mint;
+/// 
+/// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+/// // This would create a USDC-like token with 6 decimals
+/// let result = create_spl_token_mint(
+///     6,             // 6 decimal places
+///     1_000_000_000, // 1,000 tokens initial supply (1000 * 10^6)
+///     true,          // Allow freezing accounts
+/// ).await?;
+/// 
+/// println!("Created token mint: {}", result.mint_address);
+/// println!("Initial supply: {} tokens", result.initial_supply);
+/// println!("Transaction: {}", result.transaction_signature);
+/// # Ok(())
+/// # }
+/// ```
 #[tool]
 pub async fn create_spl_token_mint(
     decimals: u8,

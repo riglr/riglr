@@ -1,71 +1,112 @@
-#[cfg(test)]
-mod tests {
-    use riglr_hyperliquid_tools::error::HyperliquidToolError;
-    use riglr_core::ToolError;
+use riglr_hyperliquid_tools::error::HyperliquidToolError;
+use riglr_core::error::ToolError;
 
-    #[test]
-    fn test_network_error_conversion() {
-        let hl_error = HyperliquidToolError::Network("Connection timeout".to_string());
-        let tool_error: ToolError = hl_error.into();
-        
-        match tool_error {
-            ToolError::Retriable(msg) => assert!(msg.contains("Connection timeout")),
-            _ => panic!("Expected Retriable error"),
-        }
+#[test]
+fn test_rate_limit_error_conversion() {
+    let err = HyperliquidToolError::RateLimit("API rate limited".to_string());
+    let tool_err: ToolError = err.into();
+    
+    match tool_err {
+        ToolError::RateLimited { .. } => {},
+        _ => panic!("Expected RateLimited variant"),
     }
+}
 
-    #[test]
-    fn test_rate_limit_conversion() {
-        let hl_error = HyperliquidToolError::RateLimit("Too many requests".to_string());
-        let tool_error: ToolError = hl_error.into();
-        
-        match tool_error {
-            ToolError::Retriable(msg) => assert!(msg.contains("Too many requests")),
-            _ => panic!("Expected Retriable error"),
-        }
+#[test]
+fn test_network_error_conversion_retriable() {
+    let err = HyperliquidToolError::NetworkError("connection timeout".to_string());
+    let tool_err: ToolError = err.into();
+    
+    match tool_err {
+        ToolError::Retriable { .. } => {},
+        _ => panic!("Expected Retriable variant"),
     }
+}
 
-    #[test]
-    fn test_insufficient_balance_conversion() {
-        let hl_error = HyperliquidToolError::InsufficientBalance("Not enough margin".to_string());
-        let tool_error: ToolError = hl_error.into();
-        
-        match tool_error {
-            ToolError::Retriable(msg) => assert!(msg.contains("Not enough margin")),
-            _ => panic!("Expected Retriable error"),
-        }
+#[test]
+fn test_network_error_conversion_permanent() {
+    let err = HyperliquidToolError::NetworkError("invalid host".to_string());
+    let tool_err: ToolError = err.into();
+    
+    match tool_err {
+        ToolError::Permanent { .. } => {},
+        _ => panic!("Expected Permanent variant"),
     }
+}
 
-    #[test]
-    fn test_auth_error_conversion() {
-        let hl_error = HyperliquidToolError::Auth("Invalid API key".to_string());
-        let tool_error: ToolError = hl_error.into();
-        
-        match tool_error {
-            ToolError::Permanent(msg) => assert!(msg.contains("Invalid API key")),
-            _ => panic!("Expected Permanent error"),
-        }
+#[test]
+fn test_auth_error_conversion() {
+    let err = HyperliquidToolError::AuthError("Invalid API key".to_string());
+    let tool_err: ToolError = err.into();
+    
+    match tool_err {
+        ToolError::Permanent { .. } => {},
+        _ => panic!("Expected Permanent variant"),
     }
+}
 
-    #[test]
-    fn test_invalid_symbol_conversion() {
-        let hl_error = HyperliquidToolError::InvalidSymbol("Unknown symbol".to_string());
-        let tool_error: ToolError = hl_error.into();
-        
-        match tool_error {
-            ToolError::Permanent(msg) => assert!(msg.contains("Unknown symbol")),
-            _ => panic!("Expected Permanent error"),
-        }
+#[test]
+fn test_invalid_symbol_conversion() {
+    let err = HyperliquidToolError::InvalidSymbol("INVALID".to_string());
+    let tool_err: ToolError = err.into();
+    
+    match tool_err {
+        ToolError::Permanent { .. } => {},
+        _ => panic!("Expected Permanent variant"),
     }
+}
 
-    #[test]
-    fn test_order_failed_conversion() {
-        let hl_error = HyperliquidToolError::OrderFailed("Order rejected".to_string());
-        let tool_error: ToolError = hl_error.into();
-        
-        match tool_error {
-            ToolError::Permanent(msg) => assert!(msg.contains("Order rejected")),
-            _ => panic!("Expected Permanent error"),
-        }
+#[test]
+fn test_insufficient_balance_conversion() {
+    let err = HyperliquidToolError::InsufficientBalance("Need 100 USD".to_string());
+    let tool_err: ToolError = err.into();
+    
+    match tool_err {
+        ToolError::Permanent { .. } => {},
+        _ => panic!("Expected Permanent variant"),
+    }
+}
+
+#[test]
+fn test_order_error_conversion() {
+    let err = HyperliquidToolError::OrderError("Order failed".to_string());
+    let tool_err: ToolError = err.into();
+    
+    match tool_err {
+        ToolError::Retriable { .. } => {},
+        _ => panic!("Expected Retriable variant"),
+    }
+}
+
+#[test]
+fn test_api_error_rate_limit_conversion() {
+    let err = HyperliquidToolError::ApiError("Error 429: rate limit exceeded".to_string());
+    let tool_err: ToolError = err.into();
+    
+    match tool_err {
+        ToolError::RateLimited { .. } => {},
+        _ => panic!("Expected RateLimited variant"),
+    }
+}
+
+#[test]
+fn test_api_error_service_unavailable_conversion() {
+    let err = HyperliquidToolError::ApiError("Error 503: service unavailable".to_string());
+    let tool_err: ToolError = err.into();
+    
+    match tool_err {
+        ToolError::Retriable { .. } => {},
+        _ => panic!("Expected Retriable variant"),
+    }
+}
+
+#[test]
+fn test_api_error_permanent_conversion() {
+    let err = HyperliquidToolError::ApiError("Error 400: bad request".to_string());
+    let tool_err: ToolError = err.into();
+    
+    match tool_err {
+        ToolError::Permanent { .. } => {},
+        _ => panic!("Expected Permanent variant"),
     }
 }

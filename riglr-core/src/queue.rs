@@ -1,11 +1,18 @@
 //! Job queue abstractions and implementations.
+//!
+//! This module provides the queue infrastructure for distributed job processing,
+//! supporting both in-memory and Redis-backed implementations for scalability.
 
 use crate::jobs::Job;
 use anyhow::Result;
 use async_trait::async_trait;
 use std::time::Duration;
 
-/// Trait for job queue implementations
+/// Trait for job queue implementations.
+/// 
+/// Provides a common interface for different queue backends, enabling
+/// both local development with in-memory queues and production deployment
+/// with distributed Redis queues.
 #[async_trait]
 pub trait JobQueue: Send + Sync {
     /// Add a job to the queue
