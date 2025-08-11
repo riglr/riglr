@@ -4,6 +4,7 @@
 //! enabling token deployment, trading operations with slippage protection.
 
 use crate::transaction::TransactionStatus;
+use crate::utils::send_transaction;
 use riglr_core::{ToolError, SignerContext};
 use riglr_macros::tool;
 use schemars::JsonSchema;
@@ -152,9 +153,8 @@ pub async fn deploy_pump_token(
     let mut transaction: Transaction = bincode::deserialize(&transaction_bytes)
         .map_err(|e| ToolError::permanent(format!("Failed to deserialize creation transaction: {}", e)))?;
 
-    // Sign and send creation transaction
-    let creation_signature = signer_context.sign_and_send_solana_transaction(&mut transaction).await
-        .map_err(|e| ToolError::permanent(format!("Failed to send token creation transaction: {}", e)))?;
+    // Send creation transaction with retry logic
+    let creation_signature = send_transaction(&mut transaction, &format!("Deploy Pump Token ({})", symbol)).await?;
 
     info!("Token creation transaction sent: {}", creation_signature);
 
@@ -277,9 +277,8 @@ pub async fn buy_pump_token(
     let mut transaction: Transaction = bincode::deserialize(&transaction_bytes)
         .map_err(|e| ToolError::permanent(format!("Failed to deserialize buy transaction: {}", e)))?;
 
-    // Sign and send buy transaction
-    let signature = signer_context.sign_and_send_solana_transaction(&mut transaction).await
-        .map_err(|e| ToolError::permanent(format!("Failed to send buy transaction: {}", e)))?;
+    // Send buy transaction with retry logic
+    let signature = send_transaction(&mut transaction, &format!("Buy Pump Token ({} SOL)", sol_amount)).await?;
 
     info!(
         "Pump.fun buy executed: {} SOL for {} tokens, signature: {}",
@@ -373,9 +372,8 @@ pub async fn sell_pump_token(
     let mut transaction: Transaction = bincode::deserialize(&transaction_bytes)
         .map_err(|e| ToolError::permanent(format!("Failed to deserialize sell transaction: {}", e)))?;
 
-    // Sign and send sell transaction
-    let signature = signer_context.sign_and_send_solana_transaction(&mut transaction).await
-        .map_err(|e| ToolError::permanent(format!("Failed to send sell transaction: {}", e)))?;
+    // Send sell transaction with retry logic
+    let signature = send_transaction(&mut transaction, &format!("Sell Pump Token ({} tokens)", token_amount)).await?;
 
     info!(
         "Pump.fun sell executed: {} tokens for SOL, signature: {}",

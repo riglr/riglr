@@ -846,7 +846,7 @@ mod tests {
             Arc::new(solana_client::rpc_client::RpcClient::new("http://localhost:8899"))
         }
         
-        fn evm_client(&self) -> Result<Box<dyn std::any::Any + Send + Sync>, riglr_core::SignerError> {
+        fn evm_client(&self) -> Result<std::sync::Arc<dyn std::any::Any + Send + Sync>, riglr_core::SignerError> {
             Err(riglr_core::SignerError::Configuration("Mock EVM client not implemented".to_string()))
         }
     }

@@ -75,8 +75,8 @@ impl TransactionSigner for LocalSolanaSigner {
         tx.try_sign(&[&self.keypair], self.client.get_latest_blockhash().map_err(|e| SignerError::SolanaTransaction(Box::new(e)))?)
             .map_err(|e| SignerError::Signing(e.to_string()))?;
         
-        // Send and confirm the transaction
-        let signature = self.client.send_and_confirm_transaction(tx).map_err(|e| SignerError::SolanaTransaction(Box::new(e)))?;
+        // Send transaction without waiting for confirmation (non-blocking)
+        let signature = self.client.send_transaction(tx).map_err(|e| SignerError::SolanaTransaction(Box::new(e)))?;
         Ok(signature.to_string())
     }
     
@@ -94,7 +94,7 @@ impl TransactionSigner for LocalSolanaSigner {
         self.client.clone()
     }
     
-    fn evm_client(&self) -> Result<Box<dyn std::any::Any + Send + Sync>, SignerError> {
+    fn evm_client(&self) -> Result<std::sync::Arc<dyn std::any::Any + Send + Sync>, SignerError> {
         // LocalSolanaSigner doesn't provide EVM client
         Err(SignerError::Configuration(
             "LocalSolanaSigner does not support EVM clients".to_string()

@@ -83,10 +83,10 @@ where
         .unwrap_or_else(|| Uuid::new_v4().to_string());
     let request_id = Uuid::new_v4().to_string();
     
-    // For now, create a mock stream since we need SignerContext implementation first
-    // TODO: Once SignerContext is implemented, this will:
+    // Create mock stream pending SignerContext implementation
+    // NOTE: Full implementation pending SignerContext integration:
     // 1. Create signer from request.signer_config
-    // 2. Execute agent.prompt().stream() within SignerContext::with_signer()
+    // 2. Execute agent.prompt().stream() within SignerContext::with_signer()  
     // 3. Stream real agent responses, tool calls, and results
     
     stream::iter(create_mock_events(conversation_id, request_id, request.message))

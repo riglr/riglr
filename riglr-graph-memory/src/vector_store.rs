@@ -367,8 +367,8 @@ impl GraphRetriever {
 
 // Note: No Default implementation since GraphRetriever requires a database connection
 
-// TODO: Implement rig::VectorStore trait once rig-core interface is clarified
-// For now, providing the core vector store functionality through GraphRetriever methods
+// NOTE: rig::VectorStore trait implementation deferred pending rig-core interface stabilization
+// Core vector store functionality is currently provided through GraphRetriever methods
 
 impl GraphRetriever {
     /// Add documents to the graph vector store

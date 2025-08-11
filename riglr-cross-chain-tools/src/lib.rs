@@ -16,6 +16,7 @@
 //! - **Stateless Design**: Tools work with riglr's SignerContext pattern for secure multi-tenant operation
 
 pub mod error;
+pub use error::CrossChainToolError;
 
 pub mod bridge;
 pub mod lifi;

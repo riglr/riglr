@@ -14,6 +14,7 @@
 //! and include comprehensive error handling and retry logic.
 
 pub mod error;
+pub use error::HyperliquidToolError;
 
 pub mod client;
 pub mod positions;

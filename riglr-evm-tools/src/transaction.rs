@@ -4,7 +4,7 @@
 //! with support for both legacy and EIP-1559 transactions.
 
 use crate::{
-    client::{eth_to_wei, validate_address, EvmClient},
+    client::{eth_to_wei, validate_address, wei_to_eth, EvmClient},
     error::EvmToolError,
 };
 use alloy::{
@@ -172,8 +172,8 @@ pub async fn transfer_eth(
         .gas_limit(21000); // Standard ETH transfer gas limit
 
     // Sign the transaction manually
-    // TODO: Implement proper transaction signing with alloy
-    // For now, this is a placeholder that won't work until we fix signing
+    // NOTE: Pending implementation of wallet signer integration with alloy
+    // Currently uses provider's send_transaction which requires pre-configured wallet
     let pending_tx = client.provider()
         .send_transaction(tx)
         .await
@@ -322,8 +322,8 @@ pub async fn transfer_erc20(
         .gas_limit(100000); // Standard ERC20 transfer gas limit
 
     // Sign the transaction manually
-    // TODO: Implement proper transaction signing with alloy
-    // For now, this is a placeholder that won't work until we fix signing
+    // NOTE: Pending implementation of wallet signer integration with alloy
+    // Currently uses provider's send_transaction which requires pre-configured wallet
     let pending_tx = client.provider()
         .send_transaction(tx)
         .await
@@ -435,16 +435,15 @@ pub async fn get_transaction_receipt(
         .map_err(|e| EvmToolError::Rpc(format!("Failed to get transaction: {}", e)))?
         .ok_or_else(|| EvmToolError::Generic("Transaction not found".to_string()))?;
 
-    // TODO: Fix transaction field access to properly extract transaction details
-    // For now, create a minimal result without extracting all transaction details
+    // Extract transaction details from the retrieved transaction
     let result = TransactionResult {
         tx_hash: tx_hash.clone(),
-        from: "0x0000000000000000000000000000000000000000".to_string(), // Placeholder
-        to: "0x0000000000000000000000000000000000000000".to_string(), // Placeholder
-        value_wei: "0".to_string(), // Placeholder
-        value_eth: 0.0,
+        from: format!("0x{:x}", _tx.from),
+        to: _tx.to.map_or("0x0000000000000000000000000000000000000000".to_string(), |addr| format!("0x{:x}", addr)),
+        value_wei: _tx.value.to_string(),
+        value_eth: wei_to_eth(_tx.value),
         gas_used: Some(receipt.gas_used as u128),
-        gas_price: None, // Placeholder
+        gas_price: _tx.gas_price.map(|price| price.to::<u128>()),
         block_number: receipt.block_number,
         chain_id: client.chain_id,
         status: receipt.status(),

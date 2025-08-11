@@ -1,3 +1,26 @@
+//! Signer context management for multi-tenant blockchain operations.
+//!
+//! The signer module provides thread-local storage for blockchain clients,
+//! enabling stateless tool functions while maintaining security isolation
+//! between different operations or users.
+//!
+//! # Usage
+//!
+//! ```rust
+//! use riglr_core::signer::{SignerContext, LocalSigner};
+//! use std::sync::Arc;
+//!
+//! # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+//! // Setup signer for current thread/operation
+//! let signer = LocalSigner::new_from_env()?;
+//! SignerContext::set(Arc::new(signer)).await;
+//!
+//! // All subsequent tool calls use this signer automatically
+//! // No need to pass clients as parameters
+//! # Ok(())
+//! # }
+//! ```
+
 use std::sync::Arc;
 use tokio::task_local;
 
@@ -372,7 +395,7 @@ mod tests {
             Arc::new(solana_client::rpc_client::RpcClient::new("http://localhost:8899"))
         }
         
-        fn evm_client(&self) -> Result<Box<dyn std::any::Any + Send + Sync>, SignerError> {
+        fn evm_client(&self) -> Result<std::sync::Arc<dyn std::any::Any + Send + Sync>, SignerError> {
             Err(SignerError::Configuration("Mock EVM client not implemented".to_string()))
         }
     }

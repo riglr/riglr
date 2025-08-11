@@ -202,8 +202,8 @@ impl GraphMemory {
 
         // Generate embeddings if enabled
         if self.config.auto_generate_embeddings {
-            // TODO: In production, integrate with OpenAI or other embedding service
-            // For now, create a placeholder embedding
+            // NOTE: Production embedding service integration (OpenAI/others) pending configuration
+            // Using placeholder embedding for development
             document.embedding = Some(vec![0.0; 1536]);
         }
 

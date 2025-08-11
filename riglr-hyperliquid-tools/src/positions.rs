@@ -211,7 +211,62 @@ pub async fn close_hyperliquid_position(
 
 /// Get position details for a specific symbol
 ///
-/// This tool retrieves detailed information about a position for a specific trading pair.
+/// This tool retrieves detailed information about a position for a specific trading pair
+/// on Hyperliquid. It performs flexible symbol matching, supporting both base symbols
+/// (e.g., "ETH") and full perpetual contract names (e.g., "ETH-PERP").
+/// 
+/// # Arguments
+/// 
+/// * `symbol` - Trading pair symbol to query (e.g., "ETH", "BTC", "ETH-PERP")
+/// 
+/// # Returns
+/// 
+/// Returns `Option<HyperliquidPosition>`:
+/// - `Some(position)` - If an active position exists for the symbol
+/// - `None` - If no position is found for the symbol
+/// 
+/// When a position is found, it contains:
+/// - `symbol`: Full trading pair name (e.g., "ETH-PERP")
+/// - `size`: Position size (positive for long, negative for short)
+/// - `entry_price`: Average entry price
+/// - `unrealized_pnl`: Current profit/loss in USD
+/// - `leverage`: Current leverage multiplier
+/// - `liquidation_price`: Price level where position gets liquidated
+/// - Additional margin and return metrics
+/// 
+/// # Errors
+/// 
+/// * `HyperliquidToolError::NetworkError` - When API connection fails
+/// * `HyperliquidToolError::Generic` - When signer context unavailable
+/// 
+/// # Examples
+/// 
+/// ```rust,ignore
+/// use riglr_hyperliquid_tools::positions::get_hyperliquid_position_details;
+/// 
+/// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+/// // Check if we have an ETH position
+/// let position = get_hyperliquid_position_details("ETH".to_string()).await?;
+/// 
+/// match position {
+///     Some(pos) => {
+///         println!("ETH Position Found:");
+///         println!("  Size: {} contracts", pos.size);
+///         println!("  Entry Price: ${}", pos.entry_price);
+///         println!("  PnL: ${}", pos.unrealized_pnl);
+///         println!("  Leverage: {}x", pos.leverage);
+///         println!("  Liquidation: ${}", pos.liquidation_price);
+///     }
+///     None => {
+///         println!("No ETH position found");
+///     }
+/// }
+/// 
+/// // Also works with full symbol names
+/// let btc_position = get_hyperliquid_position_details("BTC-PERP".to_string()).await?;
+/// # Ok(())
+/// # }
+/// ```
 #[tool]
 pub async fn get_hyperliquid_position_details(
     symbol: String,
@@ -238,8 +293,65 @@ pub async fn get_hyperliquid_position_details(
 
 /// Calculate position risk metrics
 ///
-/// This tool calculates risk metrics for current positions including
-/// total exposure, margin utilization, and risk-adjusted returns.
+/// This tool performs comprehensive risk analysis of the entire Hyperliquid portfolio,
+/// calculating exposure metrics, margin utilization, and identifying positions at risk.
+/// Essential for risk management and portfolio monitoring in leveraged trading.
+/// 
+/// # Returns
+/// 
+/// Returns `HyperliquidRiskMetrics` containing:
+/// - `total_positions`: Number of active positions
+/// - `total_position_value`: Combined value of all positions in USD
+/// - `total_unrealized_pnl`: Sum of unrealized P&L across all positions
+/// - `margin_utilization_percent`: Percentage of available margin being used
+/// - `max_leverage`: Highest leverage across all positions
+/// - `positions_at_risk`: Number of positions with high leverage or negative P&L
+/// - `risk_level`: Overall risk assessment ("LOW", "MEDIUM", "HIGH")
+/// 
+/// # Risk Level Calculation
+/// 
+/// Risk level is determined by:
+/// - **HIGH**: >80% margin utilization, >50x max leverage, or >75% positions at risk
+/// - **MEDIUM**: >50% margin utilization, >20x max leverage, or >50% positions at risk
+/// - **LOW**: All other scenarios
+/// 
+/// # Errors
+/// 
+/// * `HyperliquidToolError::NetworkError` - When API connection fails
+/// * `HyperliquidToolError::Generic` - When signer context unavailable
+/// 
+/// # Examples
+/// 
+/// ```rust,ignore
+/// use riglr_hyperliquid_tools::positions::get_hyperliquid_portfolio_risk;
+/// 
+/// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+/// let risk = get_hyperliquid_portfolio_risk().await?;
+/// 
+/// println!("Portfolio Risk Analysis:");
+/// println!("  Risk Level: {}", risk.risk_level);
+/// println!("  Total Positions: {}", risk.total_positions);
+/// println!("  Total Exposure: ${}", risk.total_position_value);
+/// println!("  Unrealized P&L: ${}", risk.total_unrealized_pnl);
+/// println!("  Margin Utilization: {:.1}%", risk.margin_utilization_percent);
+/// println!("  Max Leverage: {}x", risk.max_leverage);
+/// println!("  Positions at Risk: {}", risk.positions_at_risk);
+/// 
+/// // Risk management alerts
+/// match risk.risk_level.as_str() {
+///     "HIGH" => println!("⚠️  HIGH RISK: Consider reducing positions"),
+///     "MEDIUM" => println!("🔶 MEDIUM RISK: Monitor closely"),
+///     "LOW" => println!("✅ LOW RISK: Portfolio within safe parameters"),
+///     _ => {}
+/// }
+/// 
+/// // Margin utilization warning
+/// if risk.margin_utilization_percent > 70.0 {
+///     println!("💡 Consider adding more margin or reducing position sizes");
+/// }
+/// # Ok(())
+/// # }
+/// ```
 #[tool]
 pub async fn get_hyperliquid_portfolio_risk() -> Result<HyperliquidRiskMetrics, ToolError> {
     debug!("Calculating portfolio risk metrics");
