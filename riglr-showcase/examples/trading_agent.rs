@@ -26,7 +26,6 @@ use anyhow::Result;
 use solana_sdk::signature::Keypair;
 use solana_sdk::signer::Signer;
 use std::sync::Arc;
-use tokio;
 
 #[tokio::main]
 async fn main() -> Result<()> {

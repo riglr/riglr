@@ -198,7 +198,7 @@ async fn test_resource_management() {
     let _new_client = EvmClient::mainnet().await;
     
     // Should work fine - no global state pollution
-    assert!(true); // Test that we reach this point without panics
+    // Test that we reach this point without panics
 }
 
 /// Test that different chains can be used simultaneously
@@ -440,12 +440,10 @@ async fn test_complete_workflow_architecture() {
             println!("Block number result: {:?}", result2.is_ok());
             
             // Architecture test passes if we reach here without deadlocks or panics
-            assert!(true);
         }
         Err(e) => {
             println!("Client creation failed (network issue): {:?}", e);
             // Still a successful architectural test - no global state conflicts
-            assert!(true);
         }
     }
 }

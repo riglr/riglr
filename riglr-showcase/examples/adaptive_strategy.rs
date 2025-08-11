@@ -10,17 +10,14 @@
 //! 4. Multi-criteria decision making
 //! 5. Fallback strategies and risk management
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use riglr_core::signer::{SignerContext, LocalSolanaSigner};
 use riglr_solana_tools::{get_sol_balance, get_spl_token_balance, perform_jupiter_swap};
 use rig::agent::AgentBuilder;
 use serde::{Deserialize, Serialize};
-use serde_json::json;
 use solana_sdk::signer::{keypair::Keypair, Signer};
-use std::collections::HashMap;
 use std::sync::Arc;
-use tokio;
-use tracing::{info, warn, debug};
+use tracing::{info, warn};
 
 /// Market condition indicators used for strategy adaptation
 #[derive(Debug, Clone, Serialize, Deserialize)]

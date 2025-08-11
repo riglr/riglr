@@ -193,7 +193,7 @@ fn test_web_client_http_client_exists() {
 
     // Just verify that http_client field exists and can be accessed
     let _ = &client.http_client;
-    assert!(true); // If we get here, the field exists
+    // If we get here without panicking, the field exists and test passes
 }
 
 #[test]

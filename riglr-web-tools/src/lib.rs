@@ -111,9 +111,6 @@ mod tests {
 
     #[test]
     fn test_version() {
-        #[allow(clippy::const_is_empty)]
-        {
-            assert!(!VERSION.is_empty());
-        }
+        assert!(VERSION.starts_with("0.") || VERSION.starts_with("1."), "VERSION should be a valid semver");
     }
 }

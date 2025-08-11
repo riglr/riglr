@@ -12,17 +12,14 @@
 //! 4. Adaptive analysis based on market conditions
 //! 5. Complex workflow orchestration through natural conversation
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use riglr_core::signer::{SignerContext, LocalSolanaSigner};
 use riglr_solana_tools::{get_sol_balance, get_spl_token_balance, perform_jupiter_swap};
 use rig::agent::AgentBuilder;
 use serde::{Deserialize, Serialize};
-use serde_json::json;
 use solana_sdk::signer::{keypair::Keypair, Signer};
-use std::collections::HashMap;
 use std::sync::Arc;
-use tokio;
-use tracing::{info, warn, debug};
+use tracing::{info, warn};
 
 /// Market analysis data structures for comprehensive evaluation
 #[derive(Debug, Clone, Serialize, Deserialize)]

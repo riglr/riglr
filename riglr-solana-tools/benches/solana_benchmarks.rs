@@ -30,7 +30,7 @@ fn pubkey_benchmarks(c: &mut Criterion) {
         b.iter(|| black_box(pubkey.to_string()))
     });
 
-    group.bench_function("pubkey_new_unique", |b| b.iter(|| Pubkey::new_unique()));
+    group.bench_function("pubkey_new_unique", |b| b.iter(Pubkey::new_unique));
 
     group.bench_function("pubkey_validation", |b| {
         let valid_keys = vec![
@@ -172,7 +172,7 @@ fn transaction_benchmarks(c: &mut Criterion) {
         })
     });
 
-    group.bench_function("keypair_generation", |b| b.iter(|| Keypair::new()));
+    group.bench_function("keypair_generation", |b| b.iter(Keypair::new));
 
     group.bench_function("signature_parsing", |b| {
         let sig_str = "5VERv8NMvzbJMEkV8xnrLkEaWRtSz9CosKDYjCJjBRnbJLgp8uirBgmQpjKhoR4tjF3ZpRzrFmBV6UjKdiSZkQUW";

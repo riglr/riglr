@@ -240,6 +240,7 @@ pub trait NotificationChannel: Send + Sync {
 
 /// Discord webhook notification channel
 pub struct DiscordChannel {
+    #[allow(dead_code)]
     webhook_url: String,
     username: Option<String>,
     avatar_url: Option<String>,
@@ -361,7 +362,9 @@ impl NotificationChannel for DiscordChannel {
 
 /// Telegram bot notification channel
 pub struct TelegramChannel {
+    #[allow(dead_code)]
     bot_token: String,
+    #[allow(dead_code)]
     chat_id: String,
     parse_mode: String,
 }
@@ -462,6 +465,7 @@ impl NotificationChannel for TelegramChannel {
 /// Generic webhook notification channel
 pub struct WebhookChannel {
     name: String,
+    #[allow(dead_code)]
     url: String,
     headers: HashMap<String, String>,
     format_template: String,

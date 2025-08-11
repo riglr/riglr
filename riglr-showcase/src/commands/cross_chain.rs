@@ -39,11 +39,11 @@ pub async fn run_demo(config: Config, token: String) -> Result<()> {
     println!("{}", "🌐 Cross-Chain Analysis Demo".bright_blue().bold());
     println!("{}", "=".repeat(50).blue());
     
-    println!("\n{}", format!("🎯 Analyzing token: {}", token.bright_cyan().bold()));
+    println!("\n🎯 Analyzing token: {}", token.bright_cyan().bold());
     println!("{}", "Gathering data across multiple blockchains and sources...".dimmed());
     
     // Initialize all clients
-    let solana_client = SolanaClient::new(SolanaConfig {
+    let _solana_client = SolanaClient::new(SolanaConfig {
         rpc_url: config.solana_rpc_url.clone(),
         commitment: solana_sdk::commitment_config::CommitmentLevel::Confirmed,
         timeout: std::time::Duration::from_secs(30),
