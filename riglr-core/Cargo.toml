@@ -30,7 +30,7 @@ tokio-retry = { workspace = true }
 # Exponential backoff
 backoff = "0.4"
 
-# Signer infrastructure dependencies
+# Signer infrastructure dependencies - needed for TransactionSigner trait
 solana-sdk = { workspace = true }
 solana-client = { workspace = true }
 alloy = { workspace = true }

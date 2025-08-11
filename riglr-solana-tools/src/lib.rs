@@ -53,6 +53,7 @@ pub mod client;
 pub mod error;
 pub mod network;
 pub mod pump;
+pub mod signer;
 pub mod swap;
 pub mod transaction;
 pub mod utils;
@@ -61,6 +62,7 @@ pub mod utils;
 pub use balance::*;
 pub use network::*;
 pub use pump::*;
+pub use signer::*;
 pub use swap::*;
 pub use transaction::*;
 pub use utils::*;
@@ -70,7 +72,7 @@ pub use client::SolanaClient;
 pub use error::{Result, SolanaToolError};
 
 // Re-export signer types for convenience
-pub use riglr_core::{SignerContext, signer::{TransactionSigner, LocalSolanaSigner}};
+pub use riglr_core::{SignerContext, signer::TransactionSigner};
 
 /// Current version of riglr-solana-tools
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

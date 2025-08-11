@@ -4,7 +4,8 @@ use actix_web::{web, HttpResponse, HttpRequest};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use uuid::Uuid;
-use riglr_core::signer::{SignerContext, LocalSolanaSigner, TransactionSigner, SignerError};
+use riglr_core::signer::{SignerContext, TransactionSigner, SignerError};
+use riglr_solana_tools::LocalSolanaSigner;
 use futures_util::{stream, Stream, StreamExt};
 use crate::{server::SignerConfig, sse, Result};
 

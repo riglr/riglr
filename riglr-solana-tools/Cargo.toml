@@ -37,6 +37,9 @@ spl-associated-token-account = "7.0.0"
 solana-transaction-status = "2.3.7"
 solana-account-decoder = "2.3.7"
 
+# For EVM transaction types in TransactionSigner trait
+alloy = { workspace = true }
+
 # UUID generation
 uuid = "1.0"
 

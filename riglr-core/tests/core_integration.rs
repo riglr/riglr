@@ -1,4 +1,5 @@
-use riglr_core::signer::{SignerContext, LocalSolanaSigner, TransactionSigner, SignerError};
+use riglr_core::signer::{SignerContext, TransactionSigner, SignerError};
+use riglr_solana_tools::LocalSolanaSigner;
 use std::sync::Arc;
 use solana_sdk::signature::Keypair;
 

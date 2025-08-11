@@ -2,7 +2,8 @@
 //!
 //! These tests validate the complete workflow from agent setup through tool execution.
 
-use riglr_core::signer::{SignerContext, LocalSolanaSigner};
+use riglr_core::signer::SignerContext;
+use riglr_solana_tools::LocalSolanaSigner;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::time::timeout;

@@ -20,7 +20,8 @@
 /// - Educational showcase of riglr's analytical capabilities
 // TODO: Update to use new rig API - AgentBuilder no longer accepts string literals
 // use rig::agent::AgentBuilder;
-// use riglr_core::signer::{SignerContext, LocalSolanaSigner};
+// use riglr_core::signer::SignerContext;
+// use riglr_solana_tools::LocalSolanaSigner;
 // use riglr_solana_tools::{GetTokenBalance, GetTransactionHistory};
 use anyhow::Result;
 // use solana_sdk::signature::Keypair;

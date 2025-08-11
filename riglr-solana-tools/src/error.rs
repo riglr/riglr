@@ -1,6 +1,8 @@
 //! Error types for riglr-solana-tools.
 
 use thiserror::Error;
+use solana_client::client_error::{ClientError, ClientErrorKind};
+use solana_client::rpc_request::RpcError;
 
 /// Main error type for Solana tool operations.
 #[derive(Error, Debug)]
@@ -40,6 +42,150 @@ pub enum SolanaToolError {
 
 /// Result type alias for Solana tool operations.
 pub type Result<T> = std::result::Result<T, SolanaToolError>;
+
+/// Structured classification of transaction errors for intelligent retry logic
+#[derive(Debug, Clone, PartialEq)]
+pub enum TransactionErrorType {
+    Retryable(RetryableError),
+    Permanent(PermanentError),
+    RateLimited(RateLimitError),
+    Unknown(String),
+}
+
+/// Errors that can be retried with appropriate backoff
+#[derive(Debug, Clone, PartialEq)]
+pub enum RetryableError {
+    /// Network connectivity issues
+    NetworkConnectivity,
+    /// RPC service temporary unavailability 
+    TemporaryRpcFailure,
+    /// Blockchain congestion
+    NetworkCongestion,
+    /// Transaction pool full
+    TransactionPoolFull,
+}
+
+/// Permanent errors that should not be retried
+#[derive(Debug, Clone, PartialEq)]
+pub enum PermanentError {
+    /// Insufficient funds for transaction
+    InsufficientFunds,
+    /// Invalid signature provided
+    InvalidSignature,
+    /// Invalid account referenced
+    InvalidAccount,
+    /// Program execution error
+    InstructionError,
+    /// Invalid transaction structure
+    InvalidTransaction,
+    /// Duplicate transaction
+    DuplicateTransaction,
+}
+
+/// Rate limiting errors with special handling
+#[derive(Debug, Clone, PartialEq)]
+pub enum RateLimitError {
+    /// Standard RPC rate limiting
+    RpcRateLimit,
+    /// Too many requests error
+    TooManyRequests,
+}
+
+impl TransactionErrorType {
+    /// Check if this error type is retryable
+    pub fn is_retryable(&self) -> bool {
+        matches!(self, TransactionErrorType::Retryable(_) | TransactionErrorType::RateLimited(_))
+    }
+    
+    /// Check if this is a rate limiting error (special case of retryable)
+    pub fn is_rate_limited(&self) -> bool {
+        matches!(self, TransactionErrorType::RateLimited(_))
+    }
+}
+
+/// Classify a Solana ClientError into a structured transaction error type
+///
+/// This function provides intelligent error classification based on the actual
+/// error types from the Solana client, rather than brittle string matching.
+/// It handles the most common error scenarios and provides appropriate
+/// retry guidance.
+pub fn classify_transaction_error(error: &ClientError) -> TransactionErrorType {
+    match &error.kind {
+        ClientErrorKind::RpcError(rpc_error) => {
+            classify_rpc_error(rpc_error)
+        },
+        ClientErrorKind::SerdeJson(_) => {
+            TransactionErrorType::Permanent(PermanentError::InvalidTransaction)
+        },
+        ClientErrorKind::Io(_) => {
+            TransactionErrorType::Retryable(RetryableError::NetworkConnectivity)
+        },
+        ClientErrorKind::Reqwest(reqwest_error) => {
+            if reqwest_error.status() == Some(reqwest::StatusCode::TOO_MANY_REQUESTS) {
+                TransactionErrorType::RateLimited(RateLimitError::TooManyRequests)
+            } else if reqwest_error.is_timeout() || reqwest_error.is_connect() {
+                TransactionErrorType::Retryable(RetryableError::NetworkConnectivity)
+            } else {
+                TransactionErrorType::Unknown(error.to_string())
+            }
+        },
+        ClientErrorKind::Custom(msg) => {
+            // Handle custom error messages with more sophisticated logic than string matching
+            if msg.contains("InsufficientFundsForRent") || msg.contains("insufficient funds") {
+                TransactionErrorType::Permanent(PermanentError::InsufficientFunds)
+            } else if msg.contains("InvalidAccountIndex") {
+                TransactionErrorType::Permanent(PermanentError::InvalidAccount)
+            } else if msg.contains("InvalidSignature") {
+                TransactionErrorType::Permanent(PermanentError::InvalidSignature)
+            } else if msg.contains("DuplicateSignature") {
+                TransactionErrorType::Permanent(PermanentError::DuplicateTransaction)
+            } else {
+                TransactionErrorType::Unknown(error.to_string())
+            }
+        },
+        _ => TransactionErrorType::Unknown(error.to_string()),
+    }
+}
+
+/// Classify RPC-specific errors
+fn classify_rpc_error(rpc_error: &RpcError) -> TransactionErrorType {
+    use solana_client::rpc_request::RpcError::*;
+    
+    match rpc_error {
+        RpcRequestError(msg) => {
+            if msg.contains("rate limit") || msg.contains("429") || msg.contains("too many requests") {
+                TransactionErrorType::RateLimited(RateLimitError::RpcRateLimit)
+            } else {
+                TransactionErrorType::Retryable(RetryableError::TemporaryRpcFailure)
+            }
+        },
+        RpcResponseError { code, message, .. } => {
+            // Standard JSON-RPC error codes
+            match *code {
+                429 => TransactionErrorType::RateLimited(RateLimitError::RpcRateLimit),
+                -32603 => TransactionErrorType::Retryable(RetryableError::TemporaryRpcFailure), // Internal error
+                -32002 => TransactionErrorType::Retryable(RetryableError::NetworkCongestion), // Transaction pool full
+                -32005 => TransactionErrorType::Retryable(RetryableError::NetworkCongestion), // Node behind
+                _ => {
+                    // Analyze message for specific transaction errors
+                    if message.contains("InsufficientFundsForRent") {
+                        TransactionErrorType::Permanent(PermanentError::InsufficientFunds)
+                    } else if message.contains("invalid") && message.contains("signature") {
+                        TransactionErrorType::Permanent(PermanentError::InvalidSignature)
+                    } else if message.contains("invalid") && message.contains("account") {
+                        TransactionErrorType::Permanent(PermanentError::InvalidAccount)
+                    } else if message.contains("Instruction") && message.contains("error") {
+                        TransactionErrorType::Permanent(PermanentError::InstructionError)
+                    } else {
+                        TransactionErrorType::Unknown(format!("RPC Error {}: {}", code, message))
+                    }
+                }
+            }
+        },
+        ParseError(_msg) => TransactionErrorType::Permanent(PermanentError::InvalidTransaction),
+        ForUser(msg) => TransactionErrorType::Unknown(msg.clone()),
+    }
+}
 
 // Implement From conversion to riglr_core::ToolError for proper error handling
 impl From<SolanaToolError> for riglr_core::error::ToolError {
@@ -88,5 +234,169 @@ impl From<SolanaToolError> for riglr_core::error::ToolError {
             // Generic errors default to retriable
             SolanaToolError::Generic(msg) => riglr_core::error::ToolError::retriable(msg),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use solana_client::client_error::{ClientError, ClientErrorKind};
+    use solana_client::rpc_request::RpcError;
+
+    #[test]
+    fn test_transaction_error_type_methods() {
+        let retryable = TransactionErrorType::Retryable(RetryableError::NetworkConnectivity);
+        let permanent = TransactionErrorType::Permanent(PermanentError::InsufficientFunds);
+        let rate_limited = TransactionErrorType::RateLimited(RateLimitError::RpcRateLimit);
+        let unknown = TransactionErrorType::Unknown("test error".to_string());
+
+        assert!(retryable.is_retryable());
+        assert!(!retryable.is_rate_limited());
+
+        assert!(!permanent.is_retryable());
+        assert!(!permanent.is_rate_limited());
+
+        assert!(rate_limited.is_retryable());
+        assert!(rate_limited.is_rate_limited());
+
+        assert!(!unknown.is_retryable());
+        assert!(!unknown.is_rate_limited());
+    }
+
+    #[test]
+    fn test_io_error_classification() {
+        let io_error = std::io::Error::new(std::io::ErrorKind::ConnectionRefused, "connection refused");
+        let client_error = ClientError::new_with_request(
+            ClientErrorKind::Io(io_error),
+            solana_client::rpc_request::RpcRequest::GetAccountInfo,
+        );
+
+        let result = classify_transaction_error(&client_error);
+        assert_eq!(result, TransactionErrorType::Retryable(RetryableError::NetworkConnectivity));
+    }
+
+    #[test]
+    fn test_serde_error_classification() {
+        // Create a serde error by trying to parse invalid JSON
+        let serde_error: serde_json::Error = serde_json::from_str::<serde_json::Value>("invalid json").unwrap_err();
+        let client_error = ClientError::new_with_request(
+            ClientErrorKind::SerdeJson(serde_error),
+            solana_client::rpc_request::RpcRequest::GetAccountInfo,
+        );
+
+        let result = classify_transaction_error(&client_error);
+        assert_eq!(result, TransactionErrorType::Permanent(PermanentError::InvalidTransaction));
+    }
+
+    #[test]
+    fn test_custom_error_classification() {
+        // Test insufficient funds
+        let client_error = ClientError::new_with_request(
+            ClientErrorKind::Custom("InsufficientFundsForRent".to_string()),
+            solana_client::rpc_request::RpcRequest::SendTransaction,
+        );
+        let result = classify_transaction_error(&client_error);
+        assert_eq!(result, TransactionErrorType::Permanent(PermanentError::InsufficientFunds));
+
+        // Test invalid signature
+        let client_error = ClientError::new_with_request(
+            ClientErrorKind::Custom("InvalidSignature".to_string()),
+            solana_client::rpc_request::RpcRequest::SendTransaction,
+        );
+        let result = classify_transaction_error(&client_error);
+        assert_eq!(result, TransactionErrorType::Permanent(PermanentError::InvalidSignature));
+
+        // Test invalid account
+        let client_error = ClientError::new_with_request(
+            ClientErrorKind::Custom("InvalidAccountIndex".to_string()),
+            solana_client::rpc_request::RpcRequest::SendTransaction,
+        );
+        let result = classify_transaction_error(&client_error);
+        assert_eq!(result, TransactionErrorType::Permanent(PermanentError::InvalidAccount));
+
+        // Test duplicate signature
+        let client_error = ClientError::new_with_request(
+            ClientErrorKind::Custom("DuplicateSignature".to_string()),
+            solana_client::rpc_request::RpcRequest::SendTransaction,
+        );
+        let result = classify_transaction_error(&client_error);
+        assert_eq!(result, TransactionErrorType::Permanent(PermanentError::DuplicateTransaction));
+    }
+
+    #[cfg(test)]
+    use solana_client::rpc_request::RpcResponseErrorData;
+
+    #[test]
+    fn test_rpc_error_classification() {
+        // Test rate limiting
+        let rpc_error = RpcError::RpcResponseError {
+            code: 429,
+            message: "Too Many Requests".to_string(),
+            data: RpcResponseErrorData::Empty,
+        };
+        let client_error = ClientError::new_with_request(
+            ClientErrorKind::RpcError(rpc_error),
+            solana_client::rpc_request::RpcRequest::SendTransaction,
+        );
+        let result = classify_transaction_error(&client_error);
+        assert_eq!(result, TransactionErrorType::RateLimited(RateLimitError::RpcRateLimit));
+
+        // Test network congestion (transaction pool full)
+        let rpc_error = RpcError::RpcResponseError {
+            code: -32002,
+            message: "Transaction pool is full".to_string(),
+            data: RpcResponseErrorData::Empty,
+        };
+        let client_error = ClientError::new_with_request(
+            ClientErrorKind::RpcError(rpc_error),
+            solana_client::rpc_request::RpcRequest::SendTransaction,
+        );
+        let result = classify_transaction_error(&client_error);
+        assert_eq!(result, TransactionErrorType::Retryable(RetryableError::NetworkCongestion));
+
+        // Test insufficient funds in RPC response
+        let rpc_error = RpcError::RpcResponseError {
+            code: -32602,
+            message: "InsufficientFundsForRent".to_string(),
+            data: RpcResponseErrorData::Empty,
+        };
+        let client_error = ClientError::new_with_request(
+            ClientErrorKind::RpcError(rpc_error),
+            solana_client::rpc_request::RpcRequest::SendTransaction,
+        );
+        let result = classify_transaction_error(&client_error);
+        assert_eq!(result, TransactionErrorType::Permanent(PermanentError::InsufficientFunds));
+    }
+
+    #[test]
+    fn test_rpc_request_error_classification() {
+        // Test rate limit in request error
+        let rpc_error = RpcError::RpcRequestError("rate limit exceeded".to_string());
+        let client_error = ClientError::new_with_request(
+            ClientErrorKind::RpcError(rpc_error),
+            solana_client::rpc_request::RpcRequest::SendTransaction,
+        );
+        let result = classify_transaction_error(&client_error);
+        assert_eq!(result, TransactionErrorType::RateLimited(RateLimitError::RpcRateLimit));
+
+        // Test other RPC request error
+        let rpc_error = RpcError::RpcRequestError("network timeout".to_string());
+        let client_error = ClientError::new_with_request(
+            ClientErrorKind::RpcError(rpc_error),
+            solana_client::rpc_request::RpcRequest::SendTransaction,
+        );
+        let result = classify_transaction_error(&client_error);
+        assert_eq!(result, TransactionErrorType::Retryable(RetryableError::TemporaryRpcFailure));
+    }
+
+    #[test]
+    fn test_unknown_error_fallback() {
+        let client_error = ClientError::new_with_request(
+            ClientErrorKind::Custom("Unknown error type".to_string()),
+            solana_client::rpc_request::RpcRequest::GetAccountInfo,
+        );
+
+        let result = classify_transaction_error(&client_error);
+        assert!(matches!(result, TransactionErrorType::Unknown(_)));
     }
 }

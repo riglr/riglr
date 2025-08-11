@@ -7,13 +7,13 @@
 //! # Usage
 //!
 //! ```rust
-//! use riglr_core::signer::{SignerContext, LocalSigner};
+//! use riglr_core::signer::SignerContext;
 //! use std::sync::Arc;
 //!
 //! # async fn example() -> Result<(), Box<dyn std::error::Error>> {
-//! // Setup signer for current thread/operation
-//! let signer = LocalSigner::new_from_env()?;
-//! SignerContext::set(Arc::new(signer)).await;
+//! // Setup signer for current thread/operation  
+//! // let signer = create_your_signer(); // Use appropriate signer implementation
+//! // SignerContext::with_signer(signer, your_async_code).await;
 //!
 //! // All subsequent tool calls use this signer automatically
 //! // No need to pass clients as parameters
@@ -25,11 +25,9 @@ use std::sync::Arc;
 use tokio::task_local;
 
 pub mod traits;
-pub mod local;
 pub mod error;
 
 pub use traits::TransactionSigner;
-pub use local::LocalSolanaSigner;
 pub use error::SignerError;
 
 
@@ -56,7 +54,8 @@ task_local! {
 /// ### Basic Usage
 /// 
 /// ```rust
-/// use riglr_core::signer::{SignerContext, LocalSolanaSigner};
+/// use riglr_core::signer::SignerContext;
+/// use riglr_solana_tools::LocalSolanaSigner;
 /// use std::sync::Arc;
 /// # use solana_sdk::signer::keypair::Keypair;
 /// 
@@ -158,7 +157,8 @@ impl SignerContext {
     /// # Examples
     /// 
     /// ```rust
-    /// use riglr_core::signer::{SignerContext, LocalSolanaSigner};
+    /// use riglr_core::signer::SignerContext;
+/// use riglr_solana_tools::LocalSolanaSigner;
     /// use std::sync::Arc;
     /// # use solana_sdk::signer::keypair::Keypair;
     /// 
@@ -197,7 +197,8 @@ impl SignerContext {
     /// Multiple tasks can run concurrently with different signer contexts:
     /// 
     /// ```rust
-    /// use riglr_core::signer::{SignerContext, LocalSolanaSigner};
+    /// use riglr_core::signer::SignerContext;
+/// use riglr_solana_tools::LocalSolanaSigner;
     /// use std::sync::Arc;
     /// # use solana_sdk::signer::keypair::Keypair;
     /// 
@@ -249,7 +250,8 @@ impl SignerContext {
     /// # Examples
     /// 
     /// ```rust
-    /// use riglr_core::signer::{SignerContext, LocalSolanaSigner};
+    /// use riglr_core::signer::SignerContext;
+/// use riglr_solana_tools::LocalSolanaSigner;
     /// use std::sync::Arc;
     /// # use solana_sdk::signer::keypair::Keypair;
     /// 
@@ -314,7 +316,8 @@ impl SignerContext {
     /// # Examples
     /// 
     /// ```rust
-    /// use riglr_core::signer::{SignerContext, LocalSolanaSigner};
+    /// use riglr_core::signer::SignerContext;
+/// use riglr_solana_tools::LocalSolanaSigner;
     /// use std::sync::Arc;
     /// # use solana_sdk::signer::keypair::Keypair;
     /// 

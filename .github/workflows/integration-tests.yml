@@ -49,7 +49,6 @@ jobs:
           SOLANA_RPC_URL: https://api.devnet.solana.com
         run: |
           cargo test --package riglr-solana-tools --test '*' -- --test-threads=1 --nocapture
-        continue-on-error: true
       
       - name: Run EVM integration tests  
         env:
@@ -57,7 +56,6 @@ jobs:
           ETHEREUM_RPC_URL: https://ethereum-sepolia-rpc.publicnode.com
         run: |
           cargo test --package riglr-evm-tools --test '*' -- --test-threads=1 --nocapture
-        continue-on-error: true
       
       - name: Run Web Tools integration tests
         env:
@@ -65,7 +63,6 @@ jobs:
           LUNARCRUSH_API_KEY: ${{ secrets.LUNARCRUSH_API_KEY }}
         run: |
           cargo test --package riglr-web-tools --test '*' -- --test-threads=1 --nocapture
-        continue-on-error: true
       
       - name: Run Hyperliquid integration tests
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
@@ -73,7 +70,6 @@ jobs:
           HYPERLIQUID_TEST_PRIVATE_KEY: ${{ secrets.HYPERLIQUID_TEST_PRIVATE_KEY }}
         run: |
           cargo test --package riglr-hyperliquid-tools --test '*' -- --test-threads=1 --nocapture
-        continue-on-error: true
       
       - name: Run Cross-chain integration tests
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
@@ -81,7 +77,6 @@ jobs:
           CROSS_CHAIN_TEST_KEYS: ${{ secrets.CROSS_CHAIN_TEST_KEYS }}
         run: |
           cargo test --package riglr-cross-chain-tools --test '*' -- --test-threads=1 --nocapture
-        continue-on-error: true
       
       - name: Run end-to-end showcase tests
         env:
