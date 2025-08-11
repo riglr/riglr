@@ -3,7 +3,8 @@
 //! This module provides centralized transaction sending functionality with
 //! robust retry logic, exponential backoff, and comprehensive error handling.
 
-use riglr_core::{ToolError, SignerContext};
+use riglr_core::{ToolError, SignerContext, signer::SignerError};
+use crate::error::{classify_transaction_error, TransactionErrorType, RetryableError, PermanentError};
 use solana_sdk::transaction::Transaction;
 use std::time::Duration;
 use tokio::time::sleep;
@@ -49,43 +50,28 @@ pub struct TransactionSubmissionResult {
     pub confirmed: bool,
 }
 
-/// Error classification for retry logic
-#[derive(Debug, Clone, PartialEq)]
-pub enum TransactionErrorType {
-    /// Permanent error - don't retry
-    Permanent,
-    /// Retriable error - can retry with backoff
-    Retriable,
-    /// Rate limited - can retry with longer backoff
-    RateLimited,
-}
+// Error classification is now handled by structured types in crate::error module
 
-/// Classify a transaction error for retry logic
-fn classify_transaction_error(error: &str) -> TransactionErrorType {
-    let error_lower = error.to_lowercase();
-    
-    // Permanent errors that shouldn't be retried
-    if error_lower.contains("insufficient funds")
-        || error_lower.contains("invalid signature")
-        || error_lower.contains("invalid account")
-        || error_lower.contains("invalid instruction")
-        || error_lower.contains("program error")
-        || error_lower.contains("invalid blockhash")
-        || error_lower.contains("duplicate signature")
-    {
-        return TransactionErrorType::Permanent;
+/// Helper function to classify SignerError into TransactionErrorType
+fn classify_signer_error(signer_error: &SignerError) -> TransactionErrorType {
+    match signer_error {
+        SignerError::SolanaTransaction(client_error) => {
+            classify_transaction_error(client_error)
+        },
+        SignerError::NoSignerContext => {
+            TransactionErrorType::Permanent(PermanentError::InvalidTransaction)
+        },
+        SignerError::Configuration(_) => {
+            TransactionErrorType::Permanent(PermanentError::InvalidTransaction)
+        },
+        SignerError::Signing(_) => {
+            TransactionErrorType::Permanent(PermanentError::InvalidSignature)
+        },
+        _ => {
+            // For other error types, default to retriable for safety
+            TransactionErrorType::Retryable(RetryableError::TemporaryRpcFailure)
+        }
     }
-    
-    // Rate limiting errors
-    if error_lower.contains("rate limit")
-        || error_lower.contains("too many requests")
-        || error_lower.contains("429")
-    {
-        return TransactionErrorType::RateLimited;
-    }
-    
-    // Default to retriable for network/temporary issues
-    TransactionErrorType::Retriable
 }
 
 /// Calculate delay for retry with exponential backoff and optional jitter
@@ -209,7 +195,7 @@ pub async fn send_transaction_with_retry(
                 let error_msg = signer_error.to_string();
                 last_error = Some(error_msg.clone());
                 
-                let error_type = classify_transaction_error(&error_msg);
+                let error_type = classify_signer_error(&signer_error);
                 
                 debug!(
                     "Transaction attempt {} failed for '{}': {} (classified as: {:?})",
@@ -217,7 +203,7 @@ pub async fn send_transaction_with_retry(
                 );
                 
                 // Don't retry permanent errors
-                if error_type == TransactionErrorType::Permanent {
+                if matches!(error_type, TransactionErrorType::Permanent(_)) {
                     error!(
                         "Permanent transaction error for '{}' (attempt {}): {}",
                         operation_name, attempt + 1, error_msg
@@ -240,7 +226,7 @@ pub async fn send_transaction_with_retry(
                 let mut delay = calculate_retry_delay(attempt, config);
                 
                 // Use longer delay for rate limiting
-                if error_type == TransactionErrorType::RateLimited {
+                if error_type.is_rate_limited() {
                     delay = Duration::from_millis((delay.as_millis() as u64 * 3).min(config.max_delay_ms));
                     warn!(
                         "Rate limited for '{}', using extended delay: {}ms",
@@ -320,38 +306,8 @@ pub async fn send_transaction(
 mod tests {
     use super::*;
     
-    #[test]
-    fn test_error_classification() {
-        assert_eq!(
-            classify_transaction_error("insufficient funds for rent"),
-            TransactionErrorType::Permanent
-        );
-        
-        assert_eq!(
-            classify_transaction_error("Rate limit exceeded, try again later"),
-            TransactionErrorType::RateLimited
-        );
-        
-        assert_eq!(
-            classify_transaction_error("Connection timeout"),
-            TransactionErrorType::Retriable
-        );
-        
-        assert_eq!(
-            classify_transaction_error("Invalid signature provided"),
-            TransactionErrorType::Permanent
-        );
-        
-        assert_eq!(
-            classify_transaction_error("Too many requests - 429"),
-            TransactionErrorType::RateLimited
-        );
-        
-        assert_eq!(
-            classify_transaction_error("Network error occurred"),
-            TransactionErrorType::Retriable
-        );
-    }
+    // Note: Error classification tests moved to error.rs module with structured error types
+    // The old string-based classification has been replaced with structured ClientError classification
     
     #[test]
     fn test_retry_delay_calculation() {

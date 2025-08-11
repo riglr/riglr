@@ -3,7 +3,8 @@
 //! This example demonstrates how to use riglr-hyperliquid-tools to build
 //! a derivatives trading agent using the rig framework.
 
-use riglr_core::{SignerContext, signer::{LocalSolanaSigner, SignerError}};
+use riglr_core::{SignerContext, signer::SignerError};
+use riglr_solana_tools::LocalSolanaSigner;
 use riglr_hyperliquid_tools::{
     place_hyperliquid_order, 
     cancel_hyperliquid_order,

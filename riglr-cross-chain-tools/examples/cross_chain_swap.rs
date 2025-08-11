@@ -10,7 +10,8 @@
 //!
 //! The example uses riglr's SignerContext pattern for secure multi-tenant operation.
 
-use riglr_core::{SignerContext, signer::LocalSolanaSigner};
+use riglr_core::SignerContext;
+use riglr_solana_tools::LocalSolanaSigner;
 use riglr_cross_chain_tools::{
     get_cross_chain_routes, estimate_bridge_fees, execute_cross_chain_bridge, 
     get_bridge_status, get_supported_chains,

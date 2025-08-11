@@ -129,19 +129,18 @@ jobs:
     - name: Run security audit
       run: cargo audit
 
-  # Uncomment when ready to check licenses and dependencies
-  # deny:
-  #   name: Dependency Analysis
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #   - name: Checkout sources
-  #     uses: actions/checkout@v4
+  deny:
+    name: Dependency Analysis
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout sources
+      uses: actions/checkout@v4
 
-  #   - name: Install Rust
-  #     uses: dtolnay/rust-toolchain@stable
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
 
-  #   - name: Install cargo-deny
-  #     run: cargo install cargo-deny
+    - name: Install cargo-deny
+      run: cargo install cargo-deny
 
-  #   - name: Run cargo-deny
-  #     run: cargo deny check
+    - name: Run cargo-deny
+      run: cargo deny check

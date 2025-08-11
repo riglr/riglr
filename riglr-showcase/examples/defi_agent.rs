@@ -1,4 +1,5 @@
-use riglr_core::signer::{SignerContext, LocalSolanaSigner};
+use riglr_core::signer::SignerContext;
+use riglr_solana_tools::LocalSolanaSigner;
 // TODO: Re-enable when rig tools are updated
 // use riglr_solana_tools::{get_sol_balance, get_spl_token_balance};
 use anyhow::Result;

@@ -8,7 +8,8 @@
 //!
 //! This example uses the SignerContext pattern for secure transaction signing.
 
-use riglr_core::{SignerContext, signer::{LocalSolanaSigner, SignerError}};
+use riglr_core::{SignerContext, signer::SignerError};
+use riglr_solana_tools::LocalSolanaSigner;
 use riglr_solana_tools::{
     // deploy_pump_token, buy_pump_token, sell_pump_token,
     get_pump_token_info, get_trending_pump_tokens

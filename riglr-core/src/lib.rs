@@ -15,12 +15,12 @@
 //! Thread-local storage for multi-tenant blockchain client management:
 //!
 //! ```rust
-//! use riglr_core::signer::{SignerContext, LocalSigner};
+//! use riglr_core::signer::SignerContext;
 //! 
 //! # async fn example() -> Result<(), Box<dyn std::error::Error>> {
 //! // Set context for current operation
-//! let signer = LocalSigner::new_from_env()?;
-//! SignerContext::set(Arc::new(signer)).await;
+//! // Create your signer implementation
+//! // SignerContext::with_signer(signer, async_code).await;
 //!
 //! // Tools automatically use the context
 //! // No need to pass clients as parameters
@@ -42,7 +42,7 @@
 //! );
 //! 
 //! // Execute tools with automatic retry logic
-//! let result = worker.execute_job(job).await?;
+//! // let result = worker.process_job(job).await?;
 //! # Ok(())
 //! # }
 //! ```
@@ -127,7 +127,8 @@
 //! enabling tools to perform blockchain operations without directly handling private keys:
 //!
 //! ```rust
-//! use riglr_core::{SignerContext, signer::LocalSolanaSigner};
+//! use riglr_core::SignerContext;
+//! use riglr_solana_tools::LocalSolanaSigner;
 //! use std::sync::Arc;
 //! # use solana_sdk::signer::keypair::Keypair;
 //!
