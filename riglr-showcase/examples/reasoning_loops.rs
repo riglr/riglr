@@ -14,10 +14,15 @@
 //! Note: This example demonstrates the reasoning patterns. Full tool integration
 //!       requires completion of Phase I migration (SignerContext + dual macro implementation).
 
-use anyhow::{Context, Result};
-use rig::agent::AgentBuilder;
+use anyhow::Result;
 use serde_json::json;
 use tracing::{info, warn};
+// Comment out broken rig code imports for now
+// use rig::agent::AgentBuilder;
+// use std::sync::Arc;
+// use solana_sdk::signature::Keypair;
+// use riglr_solana_tools::{get_sol_balance, get_spl_token_balance, perform_jupiter_swap};
+// use riglr_core::{SignerContext, LocalSolanaSigner};
 
 /// Example 1: Portfolio Analysis with Multi-Step Reasoning
 /// 
@@ -31,6 +36,8 @@ async fn portfolio_analysis_workflow() -> Result<()> {
     info!("Starting portfolio analysis workflow...");
     
     // Create a sophisticated agent with reasoning capabilities
+    // Comment out broken rig code - AgentBuilder needs proper model initialization
+    /*
     let agent = AgentBuilder::new("gpt-4")
         .preamble(r#"
 You are a sophisticated DeFi portfolio analyst. Your goal is to analyze portfolios 
@@ -58,6 +65,7 @@ You think through complex problems systematically without needing custom loops.
         // .tool(PerformJupiterSwap)
         .max_tokens(2000)
         .build();
+    */
     
     println!("🧠 Starting multi-step portfolio analysis...");
     
@@ -80,7 +88,7 @@ You think through complex problems systematically without needing custom loops.
     });
 
     // Start the multi-turn reasoning process
-    let initial_analysis = format!(r#"
+    let _initial_analysis = format!(r#"
 Please analyze this DeFi portfolio and provide comprehensive recommendations.
 
 Portfolio Data:
@@ -97,6 +105,8 @@ What are your initial observations about this portfolio's risk profile?
     "#, serde_json::to_string_pretty(&portfolio_data)?);
 
     // This demonstrates rig's native multi-turn reasoning - no custom loops needed
+    // Comment out broken rig code until proper model initialization is fixed
+    /*
     let response1 = agent.prompt(&initial_analysis).await
         .context("Failed to get initial analysis")?;
     
@@ -139,6 +149,17 @@ Please reason through the implications of this market move on our strategy.
     
     println!("\n⚡ Market Adaptation:");
     println!("{}", response3);
+    */
+
+    // Placeholder demonstration until rig integration is fixed
+    println!("\n📊 Portfolio Analysis:");
+    println!("Demo: Would analyze portfolio composition and risk factors");
+    
+    println!("\n🎯 Detailed Recommendations:");
+    println!("Demo: Would provide specific rebalancing recommendations");
+    
+    println!("\n⚡ Market Adaptation:");
+    println!("Demo: Would adapt strategy based on market changes");
 
     info!("Portfolio analysis workflow completed");
     Ok(())
@@ -154,6 +175,8 @@ Please reason through the implications of this market move on our strategy.
 async fn risk_assessment_reasoning() -> Result<()> {
     info!("Starting risk assessment reasoning...");
     
+    // Comment out broken rig code until proper model initialization is fixed
+    /*
     let agent = AgentBuilder::new("gpt-4")
         .preamble(r#"
 You are a risk management specialist for DeFi portfolios. Your job is to:
@@ -186,7 +209,7 @@ Always explain your risk calculations and reasoning.
 
     let keypair = Keypair::new();
     let signer = Arc::new(LocalSolanaSigner::new(
-        keypair.clone(),
+        keypair.insecure_clone(),
         "https://api.devnet.solana.com".to_string()
     ));
     
@@ -235,6 +258,12 @@ For each scenario, provide:
         
         Ok(())
     }).await?;
+    */
+
+    // Placeholder demonstration until rig integration is fixed
+    println!("📊 Risk Assessment Demo:");
+    println!("Demo: Would analyze portfolio concentration and risk levels");
+    println!("Demo: Would provide scenario-based risk mitigation strategies");
     
     Ok(())
 }
@@ -249,6 +278,8 @@ For each scenario, provide:
 async fn opportunity_discovery_reasoning() -> Result<()> {
     info!("Starting opportunity discovery reasoning...");
     
+    // Comment out broken rig code until proper model initialization is fixed
+    /*
     let agent = AgentBuilder::new("gpt-4")
         .preamble(r#"
 You are an advanced DeFi opportunity analyst. Your role is to:
@@ -277,7 +308,7 @@ Show step-by-step execution plans before taking action.
 
     let keypair = Keypair::new();
     let signer = Arc::new(LocalSolanaSigner::new(
-        keypair.clone(),
+        keypair.insecure_clone(),
         "https://api.devnet.solana.com".to_string()
     ));
     
@@ -331,6 +362,12 @@ Walk me through your reasoning process for selecting this opportunity.
         
         Ok(())
     }).await?;
+    */
+
+    // Placeholder demonstration until rig integration is fixed
+    println!("🎯 Opportunity Discovery Demo:");
+    println!("Demo: Would scan for arbitrage and yield opportunities");
+    println!("Demo: Would provide detailed execution plans with risk analysis");
     
     Ok(())
 }
@@ -345,6 +382,8 @@ Walk me through your reasoning process for selecting this opportunity.
 async fn adaptive_strategy_reasoning() -> Result<()> {
     info!("Starting adaptive strategy reasoning...");
     
+    // Comment out broken rig code until proper model initialization is fixed
+    /*
     let agent = AgentBuilder::new("gpt-4")
         .preamble(r#"
 You are an adaptive trading strategist that adjusts behavior based on market conditions.
@@ -377,7 +416,7 @@ Always explain your market assessment and strategy selection reasoning.
 
     let keypair = Keypair::new();
     let signer = Arc::new(LocalSolanaSigner::new(
-        keypair.clone(),
+        keypair.insecure_clone(),
         "https://api.devnet.solana.com".to_string()
     ));
     
@@ -430,6 +469,12 @@ Show me how you're adapting in real-time to this market change.
         
         Ok(())
     }).await?;
+    */
+
+    // Placeholder demonstration until rig integration is fixed
+    println!("🧠 Adaptive Strategy Demo:");
+    println!("Demo: Would assess market volatility and adapt trading approach");
+    println!("Demo: Would adjust position sizing based on current conditions");
     
     Ok(())
 }
@@ -437,9 +482,7 @@ Show me how you're adapting in real-time to this market change.
 #[tokio::main]
 async fn main() -> Result<()> {
     // Initialize tracing for detailed logging
-    tracing_subscriber::fmt()
-        .with_env_filter("info")
-        .init();
+    tracing_subscriber::fmt::init();
 
     info!("Starting riglr multi-turn reasoning examples...");
     info!("These examples demonstrate rig-native reasoning loops using riglr tools");
@@ -486,6 +529,8 @@ async fn main() -> Result<()> {
 
 /// Helper function to demonstrate programmatic agent interaction
 /// This shows how you can build interactive reasoning systems
+/// Note: Currently commented out due to rig integration issues
+/*
 async fn interactive_reasoning_session(
     agent: &Agent,
     initial_context: &str,
@@ -507,6 +552,7 @@ async fn interactive_reasoning_session(
     
     Ok(responses)
 }
+*/
 
 #[cfg(test)]
 mod tests {
