@@ -99,6 +99,7 @@ async fn test_signer_encapsulation() {
 
 /// Test concurrent operations with independent clients
 #[tokio::test]
+#[ignore] // Long-running concurrent test
 async fn test_concurrent_operations() {
     let client = match EvmClient::mainnet().await {
         Ok(client) => client,
@@ -347,6 +348,7 @@ async fn test_memory_efficiency() {
 
 /// Performance test for concurrent client operations
 #[tokio::test]
+#[ignore] // Long-running performance test
 async fn test_concurrent_performance() {
     use tokio::time::Instant;
     

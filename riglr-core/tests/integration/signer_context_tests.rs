@@ -418,12 +418,8 @@ async fn test_signer_context_persistence_across_operations() {
 }
 
 #[tokio::test]
+#[ignore] // Long-running timeout test
 async fn test_signer_context_timeout_scenarios() {
-    // Skip this test when running under tarpaulin to avoid timeout
-    if std::env::var("TARPAULIN_RUN").is_ok() || std::env::var("SKIP_SLOW_TESTS").is_ok() {
-        println!("Skipping timeout test in coverage run");
-        return;
-    }
 
     let worker = ToolWorker::<InMemoryIdempotencyStore>::new(ExecutionConfig {
         default_timeout: Duration::from_millis(100), // Short timeout

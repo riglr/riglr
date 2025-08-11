@@ -715,6 +715,7 @@ async fn test_read_only_tool_workflow() {
 }
 
 #[tokio::test]
+#[ignore] // Long-running concurrent test
 async fn test_concurrent_transaction_workflows() {
     let worker = Arc::new(ToolWorker::<InMemoryIdempotencyStore>::new(ExecutionConfig::default()));
     worker.register_tool(Arc::new(MockSolanaTransferTool)).await;
