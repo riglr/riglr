@@ -82,7 +82,7 @@ mod tests {
     #[tokio::test]
     async fn test_server_configuration() {
         let agent = MockAgent::new("Test Agent");
-        let server = riglr_server::AgentServer::new(agent, "127.0.0.1:0".to_string())
+        let _server = riglr_server::AgentServer::new(agent, "127.0.0.1:0".to_string())
             .cors_origins(vec!["http://test.com".to_string()])
             .enable_logging(false);
         
