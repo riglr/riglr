@@ -1,11 +1,11 @@
 //! Web client for interacting with various web APIs
 
 use crate::error::{Result, WebToolError};
-use reqwest::{Client, ClientBuilder, StatusCode};
-use serde::{Deserialize, Serialize};
+use reqwest::{Client, ClientBuilder};
+use serde::Serialize;
 use std::collections::HashMap;
 use std::time::Duration;
-use tracing::{debug, error, info, warn};
+use tracing::{debug, info, warn};
 
 /// Configuration for HTTP client
 #[derive(Debug, Clone)]

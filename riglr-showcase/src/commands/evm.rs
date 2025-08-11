@@ -191,7 +191,7 @@ pub async fn run_demo(config: Config, address: Option<String>, chain_id: u64) ->
             // Simulate token balance check
             println!("   Contract: {}", token_address);
             println!("   Symbol: {}", "CUSTOM".bright_cyan());
-            println!("   Name: {}", "Custom Token");
+            println!("   Name: Custom Token");
             println!("   Balance: {} tokens", "1234.567".bright_green());
             println!("   Decimals: 18");
             println!("   {} Note: Running in simulation mode", "💡".yellow());
@@ -221,13 +221,11 @@ pub async fn run_demo(config: Config, address: Option<String>, chain_id: u64) ->
         }
         2 | 3 => {
             println!("\n{}", "🔗 Chain Selection".cyan());
-            let chains = vec![
-                ("Ethereum Mainnet", 1),
+            let chains = [("Ethereum Mainnet", 1),
                 ("Polygon", 137),
                 ("Arbitrum One", 42161),
                 ("Optimism", 10),
-                ("Base", 8453),
-            ];
+                ("Base", 8453)];
             
             let chain_options: Vec<&str> = chains.iter().map(|(name, _)| *name).collect();
             let chain_selection = Select::new()

@@ -5,14 +5,13 @@
 //! signer from the current context without requiring explicit client parameters.
 
 use crate::lifi::{
-    BridgeStatus, BridgeStatusResponse, Chain, CrossChainRoute, LiFiClient, LiFiError, RouteRequest,
+    CrossChainRoute, LiFiClient, LiFiError, RouteRequest,
     Token, chain_name_to_id, chain_id_to_name,
 };
 use riglr_core::{SignerContext, ToolError};
 use riglr_macros::tool;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use tracing::{error, info, warn};
+use tracing::{info, warn};
 
 // ============================================================================
 // Data Structures

@@ -73,11 +73,9 @@ pub async fn run_demo(config: Config, address: Option<String>) -> Result<()> {
     tokio::time::sleep(std::time::Duration::from_millis(500)).await;
     
     println!("\n{}", "🪙 Token Accounts (Simulated)".green().bold());
-    let simulated_tokens = vec![
-        ("USDC", "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", "1,250.50"),
+    let simulated_tokens = [("USDC", "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", "1,250.50"),
         ("USDT", "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB", "850.75"),
-        ("RAY", "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R", "45.25"),
-    ];
+        ("RAY", "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R", "45.25")];
     
     for (i, (symbol, mint, balance)) in simulated_tokens.iter().enumerate() {
         println!("   {}. {} ({})", i + 1, symbol, mint);

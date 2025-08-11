@@ -7,7 +7,7 @@ use super::{
     OutputProcessor, ToolOutput, ProcessedOutput, OutputFormat, 
     NotificationPriority, RoutingInfo
 };
-use anyhow::{Result, anyhow};
+use anyhow::Result;
 use async_trait::async_trait;
 use serde_json::json;
 use std::collections::HashMap;

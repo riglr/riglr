@@ -201,7 +201,6 @@ pub use tool::*;
 mod tests {
     use super::*;
     use std::sync::Arc;
-    use tokio_test;
 
     #[derive(Clone)]
     struct MockTool {
@@ -214,7 +213,7 @@ mod tests {
         async fn execute(
             &self,
             params: serde_json::Value,
-        ) -> Result<JobResult, Box<dyn std::error::Error + Send + Sync>> {
+        ) -> std::result::Result<JobResult, Box<dyn std::error::Error + Send + Sync>> {
             if self.should_fail {
                 return Err("Mock tool failure".into());
             }
@@ -238,7 +237,7 @@ mod tests {
 
         assert_eq!(job.tool_name, "test_tool");
         assert_eq!(job.max_retries, 3);
-        assert_eq!(job.attempts, 0);
+        assert_eq!(job.retry_count, 0);
         Ok(())
     }
 
@@ -258,7 +257,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_job_result_failure() {
-        let result = JobResult::failure("test error", true);
+        let result = JobResult::retriable_failure("test error");
         
         match result {
             JobResult::Failure { error, retriable } => {
@@ -271,7 +270,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_tool_worker_creation() {
-        let worker = ToolWorker::<InMemoryIdempotencyStore>::new(
+        let _worker = ToolWorker::<InMemoryIdempotencyStore>::new(
             ExecutionConfig::default()
         );
         
@@ -378,9 +377,9 @@ mod tests {
     async fn test_execution_config() {
         let config = ExecutionConfig::default();
         
-        assert!(config.timeout.is_some());
-        assert!(config.max_concurrent_jobs > 0);
-        assert!(config.retry_base_delay > std::time::Duration::from_millis(0));
+        assert!(config.default_timeout > std::time::Duration::from_millis(0));
+        assert!(config.max_concurrency > 0);
+        assert!(config.initial_retry_delay > std::time::Duration::from_millis(0));
     }
 
     #[tokio::test]
@@ -393,11 +392,18 @@ mod tests {
         assert!(store.get(key).await?.is_none());
 
         // Store a value
-        store.set(key, &value, std::time::Duration::from_secs(60)).await?;
+        let job_result = JobResult::success(&value)?;
+        store.set(key, &job_result, std::time::Duration::from_secs(60)).await?;
 
         // Retrieve the value
         let retrieved = store.get(key).await?;
-        assert_eq!(retrieved, Some(value.clone()));
+        assert!(retrieved.is_some());
+        // Verify the stored result matches what we expect
+        if let Some(JobResult::Success { value, .. }) = retrieved {
+            assert_eq!(value, serde_json::json!({"test": "value"}));
+        } else {
+            panic!("Expected Success variant");
+        }
 
         Ok(())
     }

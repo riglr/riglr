@@ -181,11 +181,9 @@ pub async fn run_demo(config: Config, token: String) -> Result<()> {
     tokio::time::sleep(Duration::from_millis(600)).await;
     
     println!("   📰 Recent News (Simulated - 3 articles):");
-    let news_headlines = vec![
-        (format!("{} Price Surges 15% Following Partnership Announcement", token), "CryptoDaily"),
+    let news_headlines = [(format!("{} Price Surges 15% Following Partnership Announcement", token), "CryptoDaily"),
         (format!("Major Exchange Lists {} Trading Pairs", token), "CoinTelegraph"),
-        (format!("{} Network Upgrade Improves Transaction Speed", token), "The Block"),
-    ];
+        (format!("{} Network Upgrade Improves Transaction Speed", token), "The Block")];
     
     for (i, (title, source)) in news_headlines.iter().enumerate() {
         println!("   {}. {}", i + 1, title.bright_cyan());
