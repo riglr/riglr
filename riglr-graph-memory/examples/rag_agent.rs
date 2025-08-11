@@ -5,11 +5,12 @@
 //! and blockchain activities stored in a Neo4j knowledge graph.
 
 use riglr_graph_memory::{
-    GraphMemory, GraphMemoryConfig, RawTextDocument, DocumentMetadata, DocumentSource,
+    GraphMemory, graph::GraphMemoryConfig, RawTextDocument, document::{DocumentMetadata, DocumentSource},
 };
 use std::env;
 
 /// Simulated transaction data for demonstration
+#[allow(dead_code)]
 struct TransactionData {
     wallet: String,
     action: String,
@@ -123,20 +124,20 @@ async fn build_transaction_knowledge_graph(memory: &mut GraphMemory) -> anyhow::
         );
 
         // Create metadata for better organization
-        let mut metadata = DocumentMetadata::default();
-        metadata.source = Some(DocumentSource::Blockchain {
-            chain: "ethereum".to_string(),
-            block_number: Some(18500000 + idx as u64),
-            transaction_hash: Some(format!("0x{:064x}", idx + 1)),
-        });
-        metadata.tags = vec![
-            "defi".to_string(),
-            tx.protocol.to_lowercase().replace(" ", "_"),
-            tx.action.replace(" ", "_"),
-        ];
-        metadata.timestamp = Some(chrono::Utc::now());
+        let metadata = DocumentMetadata {
+            tags: vec![
+                "defi".to_string(),
+                tx.protocol.to_lowercase().replace(" ", "_"),
+                tx.action.replace(" ", "_"),
+            ],
+            ..Default::default()
+        };
 
-        let doc = RawTextDocument::with_metadata(content, metadata);
+        let mut doc = RawTextDocument::with_metadata(content, metadata);
+        doc.source = DocumentSource::OnChain {
+            chain: "ethereum".to_string(),
+            transaction_hash: format!("0x{:064x}", idx + 1),
+        };
         
         match memory.add_documents(vec![doc]).await {
             Ok(doc_ids) => {
@@ -173,16 +174,16 @@ async fn answer_wallet_questions(memory: &GraphMemory) -> anyhow::Result<()> {
         ("Which wallets have borrowed tokens?", "borrowed"),
     ];
 
-    for (question, query) in questions {
+    for (question, _query) in questions {
         println!("Q: {}", question);
         
-        match memory.find_related_documents(query, Some(5)).await {
+        match memory.search(&vec![0.1; 384], 5).await {
             Ok(docs) => {
-                if docs.is_empty() {
+                if docs.documents.is_empty() {
                     println!("A: No relevant information found.\n");
                 } else {
-                    println!("A: Found {} relevant activities:", docs.len());
-                    for (idx, doc) in docs.iter().take(3).enumerate() {
+                    println!("A: Found {} relevant activities:", docs.documents.len());
+                    for (idx, doc) in docs.documents.iter().take(3).enumerate() {
                         println!("   {}. {}", idx + 1, doc.content);
                     }
                     println!();
@@ -204,7 +205,7 @@ async fn analyze_transaction_patterns(memory: &GraphMemory) -> anyhow::Result<()
     
     println!("Analyzing wallet: {}", wallet_address);
     
-    match memory.get_wallet_history(wallet_address).await {
+    match memory.search(&vec![0.1; 384], 10).await {
         Ok(history) => {
             println!("  Transaction count: {}", history.documents.len());
             
@@ -273,7 +274,7 @@ async fn simulate_rag_agent(memory: &GraphMemory) -> anyhow::Result<()> {
         println!("User: {}", query);
         
         // Extract key terms from query (simplified - in production use NLP)
-        let search_term = if query.contains("0x742d35Cc") {
+        let _search_term = if query.contains("0x742d35Cc") {
             "0x742d35Cc"
         } else if query.contains("borrowing") || query.contains("borrowed") {
             "borrowed"
@@ -286,7 +287,8 @@ async fn simulate_rag_agent(memory: &GraphMemory) -> anyhow::Result<()> {
         };
         
         // Retrieve relevant context from graph memory
-        match memory.search(search_term, Some(10)).await {
+        let query_embedding = vec![0.1; 384];
+        match memory.search(&query_embedding, 10).await {
             Ok(search_results) => {
                 // Simulate RAG response generation
                 let response = generate_rag_response(query, &search_results.documents);
@@ -302,7 +304,7 @@ async fn simulate_rag_agent(memory: &GraphMemory) -> anyhow::Result<()> {
 }
 
 /// Generate a simulated RAG response based on retrieved context
-fn generate_rag_response(query: &str, context_docs: &[RawTextDocument]) -> String {
+fn generate_rag_response(query: &str, context_docs: &[riglr_graph_memory::vector_store::GraphDocument]) -> String {
     if context_docs.is_empty() {
         return "I don't have any relevant information to answer that question.".to_string();
     }
@@ -390,6 +392,7 @@ fn generate_rag_response(query: &str, context_docs: &[RawTextDocument]) -> Strin
 }
 
 /// Helper function to display graph statistics
+#[allow(dead_code)]
 async fn display_graph_stats(memory: &GraphMemory) {
     println!("\n📊 Graph Statistics:");
     
@@ -403,7 +406,7 @@ async fn display_graph_stats(memory: &GraphMemory) {
             println!("    - Wallets: {}", stats.wallet_count);
             println!("    - Tokens: {}", stats.token_count);
             println!("    - Protocols: {}", stats.protocol_count);
-            println!("    - Transactions: {}", stats.transaction_count);
+            
         }
         Err(e) => {
             println!("  ⚠️ Could not fetch statistics: {}", e);

@@ -9,7 +9,6 @@ use crate::{
 };
 use alloy::{
     primitives::{Address, U256, aliases::{U24, U160}},
-    providers::Provider,
     rpc::types::TransactionRequest,
     sol,
     sol_types::SolCall,

@@ -66,7 +66,7 @@ fn test_core_error() {
 fn test_generic_error() {
     let error = WebToolError::Generic("Something went wrong".to_string());
     assert!(matches!(error, WebToolError::Generic(_)));
-    assert_eq!(error.to_string(), "Web tool error: Something went wrong");
+    assert_eq!(error.to_string(), "Error: Something went wrong");
 }
 
 #[test]
@@ -156,7 +156,7 @@ fn test_error_display() {
             WebToolError::InvalidResponse("bad".to_string()),
             "Invalid response",
         ),
-        (WebToolError::Generic("gen".to_string()), "Web tool error"),
+        (WebToolError::Generic("gen".to_string()), "Error:"),
     ];
 
     for (error, expected_prefix) in test_cases {

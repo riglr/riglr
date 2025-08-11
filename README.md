@@ -37,6 +37,73 @@ riglr (pronounced "riggler") is a suite of modular, production-ready Rust crates
 - **🏷️ Entity Recognition**: Blockchain entity extraction and classification
 - **🔗 Contextual Retrieval**: Graph relationships enhance vector search
 
+## 🏗️ Architecture Overview
+
+```mermaid
+graph TD
+    subgraph "rig Framework"
+        A[rig Agent] --> B[Tool Registry]
+        B --> C[Tool Execution]
+    end
+    
+    subgraph "riglr Ecosystem"
+        D[riglr-core]
+        E[riglr-macros]
+        F[SignerContext]
+        G[ToolWorker]
+    end
+    
+    subgraph "Blockchain Tools"
+        H[riglr-solana-tools]
+        I[riglr-evm-tools]
+        J[riglr-hyperliquid-tools]
+        K[riglr-cross-chain-tools]
+    end
+    
+    subgraph "Supporting Tools"
+        L[riglr-web-tools]
+        M[riglr-graph-memory]
+    end
+    
+    subgraph "Application Layer"
+        N[riglr-server]
+        O[riglr-showcase]
+    end
+    
+    %% Integration flow
+    C --> D
+    D --> F
+    D --> G
+    E --> H
+    E --> I
+    E --> J
+    E --> K
+    F --> H
+    F --> I
+    F --> J
+    F --> K
+    
+    %% Application usage
+    N --> D
+    O --> D
+    
+    classDef core fill:#ff9999
+    classDef tools fill:#99ccff
+    classDef apps fill:#99ff99
+    
+    class D,E,F,G core
+    class H,I,J,K,L,M tools
+    class N,O apps
+```
+
+The riglr ecosystem extends rig with blockchain-specific capabilities through a layered architecture:
+
+- **riglr-core**: Foundational abstractions (SignerContext, ToolWorker, ToolError)
+- **riglr-macros**: Procedural macros for tool definitions and rig integration
+- **Tool Crates**: Blockchain-specific implementations (Solana, EVM, Hyperliquid, Cross-chain)
+- **Supporting Tools**: Web scraping, graph memory, and utility functions
+- **Applications**: Server and showcase implementations
+
 ## 📦 Crates
 
 | Crate | Description | Version |

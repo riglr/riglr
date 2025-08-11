@@ -383,6 +383,6 @@ mod tests {
     #[test]
     fn test_macro_module_exists() {
         // Basic test to ensure the module compiles
-        assert!(true);
+        // Compilation success is the test
     }
 }

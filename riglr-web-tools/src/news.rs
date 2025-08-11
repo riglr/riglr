@@ -532,7 +532,7 @@ pub async fn monitor_breaking_news(
     keywords: Vec<String>,
     severity_threshold: Option<String>, // "Critical", "High", "Medium"
     impact_threshold: Option<u32>,      // 0-100
-    alert_channels: Option<Vec<String>>, // "webhook", "email", "slack"
+    _alert_channels: Option<Vec<String>>, // "webhook", "email", "slack"
 ) -> crate::error::Result<Vec<BreakingNewsAlert>> {
     debug!("Monitoring breaking news for keywords: {:?}", keywords);
 
@@ -578,16 +578,16 @@ pub async fn monitor_breaking_news(
 pub async fn analyze_market_sentiment(
     time_window: Option<String>,                  // "1h", "6h", "24h", "week"
     asset_filter: Option<Vec<String>>,            // Specific cryptocurrencies to focus on
-    source_weights: Option<HashMap<String, f64>>, // Weight different sources
-    include_social: Option<bool>,
+    _source_weights: Option<HashMap<String, f64>>, // Weight different sources
+    _include_social: Option<bool>,
 ) -> crate::error::Result<NewsInsights> {
     debug!(
         "Analyzing market sentiment from news over {}",
         time_window.as_deref().unwrap_or("24h")
     );
 
-    let config = NewsConfig::default();
-    let client = WebClient::new().map_err(|e| WebToolError::Client(format!("Failed to create client: {}", e)))?;
+    let _config = NewsConfig::default();
+    let _client = WebClient::new().map_err(|e| WebToolError::Client(format!("Failed to create client: {}", e)))?;
 
     // Gather recent news for sentiment analysis
     let recent_news = if let Some(assets) = &asset_filter {
@@ -628,10 +628,10 @@ pub async fn analyze_market_sentiment(
 
 /// Query NewsAPI for articles
 async fn query_newsapi(
-    client: &WebClient,
-    config: &NewsConfig,
+    _client: &WebClient,
+    _config: &NewsConfig,
     topic: &str,
-    time_window: &Option<String>,
+    _time_window: &Option<String>,
 ) -> crate::error::Result<Vec<NewsArticle>> {
     // In production, would make actual NewsAPI requests
     Ok(vec![create_sample_article(topic, "NewsAPI Source", 85)])
@@ -639,10 +639,10 @@ async fn query_newsapi(
 
 /// Query CryptoPanic for crypto-specific news
 async fn query_cryptopanic(
-    client: &WebClient,
-    config: &NewsConfig,
+    _client: &WebClient,
+    _config: &NewsConfig,
     topic: &str,
-    time_window: &Option<String>,
+    _time_window: &Option<String>,
 ) -> crate::error::Result<Vec<NewsArticle>> {
     // In production, would make actual CryptoPanic API requests
     Ok(vec![create_sample_article(topic, "CryptoPanic Source", 78)])
@@ -883,11 +883,11 @@ fn determine_sentiment_trend(articles: &[NewsArticle]) -> String {
 }
 
 async fn fetch_trending_articles(
-    client: &WebClient,
-    config: &NewsConfig,
-    time_window: &Option<String>,
-    categories: &Option<Vec<String>>,
-    min_impact_score: u32,
+    _client: &WebClient,
+    _config: &NewsConfig,
+    _time_window: &Option<String>,
+    _categories: &Option<Vec<String>>,
+    _min_impact_score: u32,
 ) -> crate::error::Result<Vec<NewsArticle>> {
     // In production, would query multiple sources for trending articles
     Ok(vec![
@@ -902,9 +902,9 @@ async fn analyze_trending_patterns(articles: &[NewsArticle]) -> crate::error::Re
 }
 
 async fn detect_breaking_news(
-    client: &WebClient,
-    config: &NewsConfig,
-    keyword: &str,
+    _client: &WebClient,
+    _config: &NewsConfig,
+    _keyword: &str,
 ) -> crate::error::Result<Vec<BreakingNewsAlert>> {
     // In production, would implement real-time breaking news detection
     Ok(vec![])
@@ -955,3 +955,4 @@ mod tests {
         assert!(is_above_severity_threshold("Critical", "High"));
     }
 }
+

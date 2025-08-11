@@ -3,12 +3,9 @@
 //! This module provides production-grade entity extraction capabilities for blockchain-related text,
 //! identifying wallets, tokens, protocols, amounts, and relationships between entities.
 
-use crate::{
-    document::{
-        AmountMention, AmountType, EntityMention, EntityType, ExtractedEntities,
-        RelationshipMention, RelationshipType,
-    },
-    error::{GraphMemoryError, Result},
+use crate::document::{
+    AmountMention, AmountType, EntityMention, EntityType, ExtractedEntities,
+    RelationshipMention, RelationshipType,
 };
 use once_cell::sync::Lazy;
 use regex::Regex;
@@ -25,6 +22,7 @@ pub struct EntityExtractor {
     /// Blockchain network patterns
     chain_patterns: HashMap<String, Vec<String>>,
     /// Compiled regex patterns for performance
+    #[allow(dead_code)]
     regex_cache: HashMap<String, Regex>,
 }
 
@@ -43,6 +41,7 @@ static AMOUNT_REGEX: Lazy<Regex> = Lazy::new(|| {
 });
 
 /// Transaction hash patterns
+#[allow(dead_code)]
 static TX_HASH_REGEX: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"0x[a-fA-F0-9]{64}").expect("Invalid transaction hash regex"));
 
@@ -173,36 +172,35 @@ impl EntityExtractor {
     }
 
     /// Extract all entities and relationships from a text document
-    pub async fn extract(&self, text: &str) -> Result<ExtractedEntities> {
+    pub fn extract(&self, text: &str) -> ExtractedEntities {
         debug!("Extracting entities from text ({} chars)", text.len());
 
         let text_lower = text.to_lowercase();
 
         // Extract different entity types
-        let wallets = self.extract_wallet_addresses(text).await?;
-        let tokens = self.extract_tokens(&text_lower).await?;
-        let protocols = self.extract_protocols(&text_lower).await?;
-        let chains = self.extract_chains(&text_lower).await?;
-        let amounts = self.extract_amounts(text).await?;
+        let wallets = self.extract_wallet_addresses(text);
+        let tokens = self.extract_tokens(&text_lower);
+        let protocols = self.extract_protocols(&text_lower);
+        let chains = self.extract_chains(&text_lower);
+        let amounts = self.extract_amounts(text);
         let relationships = self
-            .extract_relationships(text, &wallets, &tokens, &protocols)
-            .await?;
+            .extract_relationships(text, &wallets, &tokens, &protocols);
 
         info!("Extracted {} wallets, {} tokens, {} protocols, {} chains, {} amounts, {} relationships",
               wallets.len(), tokens.len(), protocols.len(), chains.len(), amounts.len(), relationships.len());
 
-        Ok(ExtractedEntities {
+        ExtractedEntities {
             wallets,
             tokens,
             protocols,
             chains,
             amounts,
             relationships,
-        })
+        }
     }
 
     /// Extract wallet addresses from text
-    async fn extract_wallet_addresses(&self, text: &str) -> Result<Vec<EntityMention>> {
+    fn extract_wallet_addresses(&self, text: &str) -> Vec<EntityMention> {
         let mut wallets = Vec::new();
 
         // Extract Ethereum addresses
@@ -248,10 +246,10 @@ impl EntityExtractor {
         }
 
         debug!("Extracted {} wallet addresses", wallets.len());
-        Ok(wallets)
+        wallets
     }
 
-    async fn extract_tokens(&self, text: &str) -> Result<Vec<EntityMention>> {
+    fn extract_tokens(&self, text: &str) -> Vec<EntityMention> {
         let mut tokens = Vec::new();
         let mut seen = HashSet::new();
 
@@ -278,11 +276,11 @@ impl EntityExtractor {
         }
 
         debug!("Extracted {} token mentions", tokens.len());
-        Ok(tokens)
+        tokens
     }
 
     /// Extract protocol mentions from text
-    async fn extract_protocols(&self, text: &str) -> Result<Vec<EntityMention>> {
+    fn extract_protocols(&self, text: &str) -> Vec<EntityMention> {
         let mut protocols = Vec::new();
         let mut seen = HashSet::new();
 
@@ -309,11 +307,11 @@ impl EntityExtractor {
         }
 
         debug!("Extracted {} protocol mentions", protocols.len());
-        Ok(protocols)
+        protocols
     }
 
     /// Extract blockchain network mentions
-    async fn extract_chains(&self, text: &str) -> Result<Vec<EntityMention>> {
+    fn extract_chains(&self, text: &str) -> Vec<EntityMention> {
         let mut chains = Vec::new();
         let mut seen = HashSet::new();
 
@@ -340,18 +338,18 @@ impl EntityExtractor {
         }
 
         debug!("Extracted {} chain mentions", chains.len());
-        Ok(chains)
+        chains
     }
 
     /// Extract numerical amounts and values
-    async fn extract_amounts(&self, text: &str) -> Result<Vec<AmountMention>> {
+    fn extract_amounts(&self, text: &str) -> Vec<AmountMention> {
         let mut amounts = Vec::new();
 
         for mat in AMOUNT_REGEX.find_iter(text) {
             let full_match = mat.as_str();
             let (value_str, unit) = self.parse_amount_match(full_match);
 
-            if let Ok(value) = self.parse_numeric_value(&value_str) {
+            if let Some(value) = self.parse_numeric_value(&value_str) {
                 let amount_type = self.classify_amount_type(full_match, text);
 
                 amounts.push(AmountMention {
@@ -365,17 +363,17 @@ impl EntityExtractor {
         }
 
         debug!("Extracted {} amount mentions", amounts.len());
-        Ok(amounts)
+        amounts
     }
 
     /// Extract relationships between entities
-    async fn extract_relationships(
+    fn extract_relationships(
         &self,
         text: &str,
         wallets: &[EntityMention],
         tokens: &[EntityMention],
         protocols: &[EntityMention],
-    ) -> Result<Vec<RelationshipMention>> {
+    ) -> Vec<RelationshipMention> {
         let mut relationships = Vec::new();
         let text_lower = text.to_lowercase();
 
@@ -423,7 +421,7 @@ impl EntityExtractor {
         }
 
         debug!("Extracted {} relationships", relationships.len());
-        Ok(relationships)
+        relationships
     }
 
     /// Helper function to find pattern positions in text
@@ -466,7 +464,7 @@ impl EntityExtractor {
     }
 
     /// Parse numeric value from text (handling K, M, B suffixes)
-    fn parse_numeric_value(&self, value_str: &str) -> Result<f64> {
+    fn parse_numeric_value(&self, value_str: &str) -> Option<f64> {
         let cleaned = value_str.replace("$", "").replace(",", "");
 
         if let Some(last_char) = cleaned.chars().last() {
@@ -477,15 +475,13 @@ impl EntityExtractor {
                 _ => (cleaned.as_str(), 1.0),
             };
 
-            let base_value: f64 = num_part.parse().map_err(|e| {
-                GraphMemoryError::EntityExtraction(format!("Failed to parse number: {}", e))
-            })?;
-
-            Ok(base_value * multiplier)
+            if let Ok(base_value) = num_part.parse::<f64>() {
+                Some(base_value * multiplier)
+            } else {
+                None
+            }
         } else {
-            Err(GraphMemoryError::EntityExtraction(
-                "Empty value string".to_string(),
-            ))
+            None
         }
     }
 

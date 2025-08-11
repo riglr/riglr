@@ -10,6 +10,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::{collections::HashMap, sync::Arc};
 use tracing::{debug, info, warn};
+#[cfg(feature = "rig")]
+use async_trait::async_trait;
 
 /// Document type that bridges between rig and our graph memory system
 #[derive(Debug, Clone, Serialize, Deserialize)]

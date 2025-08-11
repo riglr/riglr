@@ -344,7 +344,7 @@ pub async fn get_user_tweets(
 
     // First, get user ID from username
     let user_url = format!("{}/users/by/username/{}", config.base_url, username);
-    let user_response = client.get(&user_url).await.map_err(|e| {
+    let _user_response = client.get(&user_url).await.map_err(|e| {
         if e.to_string().contains("404") {
             WebToolError::Api(format!("User @{} not found", username))
         } else if e.to_string().contains("timeout") {
@@ -404,7 +404,7 @@ pub async fn analyze_crypto_sentiment(
         time_window_hours.unwrap_or(24)
     );
 
-    let hours = time_window_hours.unwrap_or(24);
+    let _hours = time_window_hours.unwrap_or(24);
     let min_engagement_threshold = min_engagement.unwrap_or(10);
 
     // Build search query for the token
@@ -503,7 +503,7 @@ pub async fn analyze_crypto_sentiment(
 }
 
 /// Parse Twitter API response into structured tweets
-async fn parse_twitter_response(response: &str) -> crate::error::Result<Vec<TwitterPost>> {
+async fn parse_twitter_response(_response: &str) -> crate::error::Result<Vec<TwitterPost>> {
     // In production, this would parse the actual Twitter API JSON response
     // For now, returning a mock tweet
     let mock_tweet = TwitterPost {

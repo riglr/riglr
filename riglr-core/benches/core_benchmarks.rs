@@ -1,11 +1,12 @@
 use async_trait::async_trait;
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use riglr_core::{
     ExecutionConfig, IdempotencyStore, InMemoryIdempotencyStore, InMemoryJobQueue, Job, JobQueue,
     JobResult, Tool, ToolWorker,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+use std::hint::black_box;
 use std::time::Duration;
 use tokio::runtime::Runtime;
 
