@@ -10,6 +10,12 @@ use riglr_evm_tools::{
 use std::str::FromStr;
 use std::sync::Arc;
 
+// Environment variable names as constants to avoid string literal warnings
+const ETHEREUM_RPC_URL: &str = "ETHEREUM_RPC_URL";
+const ARBITRUM_RPC_URL: &str = "ARBITRUM_RPC_URL";
+const POLYGON_RPC_URL: &str = "POLYGON_RPC_URL";
+const BASE_RPC_URL: &str = "BASE_RPC_URL";
+
 /// Mock EVM signer for testing
 #[derive(Clone)]
 struct MockEvmSigner {
@@ -83,10 +89,13 @@ impl std::fmt::Debug for MockEvmSigner {
 #[tokio::test]
 async fn test_provider_factory_with_different_chains() {
     // Set up environment variables for testing
-    std::env::set_var("ETHEREUM_RPC_URL", "https://eth.llamarpc.com");
-    std::env::set_var("ARBITRUM_RPC_URL", "https://arb1.arbitrum.io/rpc");
-    std::env::set_var("POLYGON_RPC_URL", "https://polygon-rpc.com");
-    std::env::set_var("BASE_RPC_URL", "https://mainnet.base.org");
+    // SAFETY: This is a test that controls its own environment
+    unsafe {
+        std::env::set_var(ETHEREUM_RPC_URL, "https://eth.llamarpc.com");
+        std::env::set_var(ARBITRUM_RPC_URL, "https://arb1.arbitrum.io/rpc");
+        std::env::set_var(POLYGON_RPC_URL, "https://polygon-rpc.com");
+        std::env::set_var(BASE_RPC_URL, "https://mainnet.base.org");
+    }
 
     // Test provider creation for different chains
     let chains_to_test = vec![
@@ -122,16 +131,22 @@ async fn test_provider_factory_with_different_chains() {
     }
 
     // Clean up
-    std::env::remove_var("ETHEREUM_RPC_URL");
-    std::env::remove_var("ARBITRUM_RPC_URL");
-    std::env::remove_var("POLYGON_RPC_URL");
-    std::env::remove_var("BASE_RPC_URL");
+    // SAFETY: This is a test that controls its own environment
+    unsafe {
+        std::env::remove_var(ETHEREUM_RPC_URL);
+        std::env::remove_var(ARBITRUM_RPC_URL);
+        std::env::remove_var(POLYGON_RPC_URL);
+        std::env::remove_var(BASE_RPC_URL);
+    }
 }
 
 #[tokio::test]
 async fn test_transaction_execution_helper() {
     // Set up environment
-    std::env::set_var("ETHEREUM_RPC_URL", "https://eth.llamarpc.com");
+    // SAFETY: This is a test that controls its own environment
+    unsafe {
+        std::env::set_var(ETHEREUM_RPC_URL, "https://eth.llamarpc.com");
+    }
 
     let signer = MockEvmSigner::new("0x742d35Cc2F5f8a89A0D2EAd5a53c97c49444E34F".to_string());
 
@@ -167,7 +182,10 @@ async fn test_transaction_execution_helper() {
     assert_eq!(tx_hash.len(), 66); // 0x + 64 hex chars
 
     // Clean up
-    std::env::remove_var("ETHEREUM_RPC_URL");
+    // SAFETY: This is a test that controls its own environment
+    unsafe {
+        std::env::remove_var(ETHEREUM_RPC_URL);
+    }
 }
 
 #[tokio::test]
@@ -175,7 +193,10 @@ async fn test_evm_error_handling() {
     let signer = MockEvmSigner::new("0x742d35Cc2F5f8a89A0D2EAd5a53c97c49444E34F".to_string());
 
     // Test missing environment variable
-    std::env::remove_var("ETHEREUM_RPC_URL");
+    // SAFETY: This is a test that controls its own environment
+    unsafe {
+        std::env::remove_var(ETHEREUM_RPC_URL);
+    }
 
     let result = SignerContext::with_signer(Arc::new(signer.clone()), async {
         execute_evm_transaction(1, |_address, _provider| async move {
@@ -192,7 +213,10 @@ async fn test_evm_error_handling() {
     let invalid_signer = MockEvmSigner::new("invalid_address".to_string());
 
     // Restore environment for this test
-    std::env::set_var("ETHEREUM_RPC_URL", "https://eth.llamarpc.com");
+    // SAFETY: This is a test that controls its own environment
+    unsafe {
+        std::env::set_var(ETHEREUM_RPC_URL, "https://eth.llamarpc.com");
+    }
 
     let result = SignerContext::with_signer(Arc::new(invalid_signer), async {
         execute_evm_transaction(1, |_address, _provider| async move {
@@ -221,32 +245,47 @@ async fn test_evm_error_handling() {
     // Error is now wrapped in SignerError, so just check it's an error
 
     // Clean up
-    std::env::remove_var("ETHEREUM_RPC_URL");
+    // SAFETY: This is a test that controls its own environment
+    unsafe {
+        std::env::remove_var(ETHEREUM_RPC_URL);
+    }
 }
 
 #[tokio::test]
 async fn test_provider_factory_error_scenarios() {
     // Test missing environment variable for supported chain
-    std::env::remove_var("ETHEREUM_RPC_URL");
+    // SAFETY: This is a test that controls its own environment
+    unsafe {
+        std::env::remove_var(ETHEREUM_RPC_URL);
+    }
 
     let result = make_provider(1);
     assert!(result.is_err());
 
     // Test malformed RPC URL
-    std::env::set_var("ETHEREUM_RPC_URL", "not_a_valid_url");
+    // SAFETY: This is a test that controls its own environment
+    unsafe {
+        std::env::set_var(ETHEREUM_RPC_URL, "not_a_valid_url");
+    }
 
     let result = make_provider(1);
     assert!(result.is_err());
 
     // Clean up
-    std::env::remove_var("ETHEREUM_RPC_URL");
+    // SAFETY: This is a test that controls its own environment
+    unsafe {
+        std::env::remove_var(ETHEREUM_RPC_URL);
+    }
 }
 
 #[tokio::test]
 async fn test_concurrent_provider_creation() {
     // Set up environment
-    std::env::set_var("ETHEREUM_RPC_URL", "https://eth.llamarpc.com");
-    std::env::set_var("ARBITRUM_RPC_URL", "https://arb1.arbitrum.io/rpc");
+    // SAFETY: This is a test that controls its own environment
+    unsafe {
+        std::env::set_var(ETHEREUM_RPC_URL, "https://eth.llamarpc.com");
+        std::env::set_var(ARBITRUM_RPC_URL, "https://arb1.arbitrum.io/rpc");
+    }
 
     let handles = vec![
         tokio::spawn(async { make_provider(1) }),
@@ -268,13 +307,19 @@ async fn test_concurrent_provider_creation() {
     }
 
     // Clean up
-    std::env::remove_var("ETHEREUM_RPC_URL");
-    std::env::remove_var("ARBITRUM_RPC_URL");
+    // SAFETY: This is a test that controls its own environment
+    unsafe {
+        std::env::remove_var(ETHEREUM_RPC_URL);
+        std::env::remove_var(ARBITRUM_RPC_URL);
+    }
 }
 
 #[tokio::test]
 async fn test_transaction_execution_with_different_addresses() {
-    std::env::set_var("ETHEREUM_RPC_URL", "https://eth.llamarpc.com");
+    // SAFETY: This is a test that controls its own environment
+    unsafe {
+        std::env::set_var(ETHEREUM_RPC_URL, "https://eth.llamarpc.com");
+    }
 
     let addresses = vec![
         "0x742d35Cc2F5f8a89A0D2EAd5a53c97c49444E34F",
@@ -310,7 +355,10 @@ async fn test_transaction_execution_with_different_addresses() {
     }
 
     // Clean up
-    std::env::remove_var("ETHEREUM_RPC_URL");
+    // SAFETY: This is a test that controls its own environment
+    unsafe {
+        std::env::remove_var(ETHEREUM_RPC_URL);
+    }
 }
 
 #[tokio::test]
@@ -331,22 +379,13 @@ async fn test_error_conversion_to_tool_error() {
 
         // Verify conversion logic
         match &tool_error {
-            ToolError::Retriable {
-                source: _,
-                context: _,
-            } => {
+            ToolError::Retriable { .. } => {
                 // Provider errors should be retriable
             }
-            ToolError::Permanent {
-                source: _,
-                context: _,
-            } => {
+            ToolError::Permanent { .. } => {
                 // Balance, build errors should be permanent
             }
-            ToolError::InvalidInput {
-                source: _,
-                context: _,
-            } => {
+            ToolError::InvalidInput { .. } => {
                 // Address format, unsupported chain should be invalid input
             }
             _ => panic!("Unexpected ToolError variant: {:?}", tool_error),

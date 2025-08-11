@@ -4,6 +4,10 @@ use clap::{Parser, Subcommand};
 use riglr_indexer::prelude::*;
 use tracing::{error, info};
 
+// Environment variable constants
+const ENV_RUST_LOG: &str = "RUST_LOG";
+const ENV_RIGLR_INDEXER_CONFIG: &str = "RIGLR_INDEXER_CONFIG";
+
 #[derive(Parser)]
 #[command(name = "riglr-indexer-cli")]
 #[command(about = "RIGLR Indexer CLI tool for management and operations")]
@@ -140,13 +144,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     // Initialize logging
     let log_level = if cli.verbose { "debug" } else { "info" };
-    std::env::set_var("RUST_LOG", log_level);
+    // SAFETY: This is safe because we're in main before any threads are spawned
+    unsafe {
+        std::env::set_var(ENV_RUST_LOG, log_level);
+    }
 
     tracing_subscriber::fmt::init();
 
     // Set config file if provided
     if let Some(config_file) = cli.config {
-        std::env::set_var("RIGLR_INDEXER_CONFIG", config_file);
+        // SAFETY: This is safe because we're in main before any threads are spawned
+        unsafe {
+            std::env::set_var(ENV_RIGLR_INDEXER_CONFIG, config_file);
+        }
     }
 
     match cli.command {

@@ -25,15 +25,15 @@ pub struct LocalAgentRegistry {
 impl LocalAgentRegistry {
     /// Create a new local agent registry with default configuration.
     pub fn new() -> Self {
-        Self::with_config(RegistryConfig::default())
+        Self::default()
     }
 
     /// Create a new local agent registry with custom configuration.
     pub fn with_config(config: RegistryConfig) -> Self {
         info!("Creating local agent registry with config: {:?}", config);
         Self {
-            agents: RwLock::new(HashMap::new()),
-            statuses: RwLock::new(HashMap::new()),
+            agents: Default::default(),
+            statuses: Default::default(),
             config,
         }
     }
@@ -72,7 +72,13 @@ impl LocalAgentRegistry {
 
 impl Default for LocalAgentRegistry {
     fn default() -> Self {
-        Self::new()
+        let config = RegistryConfig::default();
+        info!("Creating local agent registry with config: {:?}", config);
+        Self {
+            agents: Default::default(),
+            statuses: Default::default(),
+            config,
+        }
     }
 }
 
@@ -452,7 +458,7 @@ mod tests {
             load: 0.5,
             last_heartbeat: chrono::Utc::now(),
             capabilities: vec![],
-            metadata: std::collections::HashMap::new(),
+            metadata: std::collections::HashMap::default(),
         };
         registry.update_agent_status(status).await.unwrap();
 

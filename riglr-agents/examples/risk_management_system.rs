@@ -329,7 +329,7 @@ impl PortfolioRiskMonitor {
         };
 
         let alert_changed = risk_state.alert_level != new_alert_level;
-        risk_state.alert_level = new_alert_level.clone();
+        risk_state.alert_level = new_alert_level;
 
         // Check various risk limits
         let mut limit_breaches = vec![

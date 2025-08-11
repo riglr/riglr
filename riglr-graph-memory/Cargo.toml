@@ -12,6 +12,9 @@ keywords = ["graph", "memory", "neo4j", "ai", "agent", "rig"]
 categories = ["database"]
 documentation = "https://docs.rs/riglr-graph-memory"
 
+[lints]
+workspace = true
+
 [dependencies]
 # Core riglr and rig dependencies
 rig-core = { workspace = true, optional = true }

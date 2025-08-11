@@ -9,6 +9,9 @@ repository = "https://github.com/riglr/riglr"
 keywords = ["blockchain", "streaming", "events", "solana", "ethereum"]
 categories = ["cryptography::cryptocurrencies", "network-programming", "asynchronous"]
 
+[lints]
+workspace = true
+
 [dependencies]
 riglr-core = { path = "../riglr-core" }
 riglr-events-core = { path = "../riglr-events-core" }

@@ -43,15 +43,15 @@ fn add_evm_network_overwrite_and_lowercase_key() {
 #[test]
 fn env_overrides_update_existing_and_add_new() {
     // Ensure clean env
-    env::remove_var("RPC_URL_8453");
-    env::remove_var("RPC_URL_999999");
-    env::remove_var("RPC_URL_NOTNUM");
+    unsafe { env::remove_var("RPC_URL_8453"); }
+    unsafe { env::remove_var("RPC_URL_999999"); }
+    unsafe { env::remove_var("RPC_URL_NOTNUM"); }
 
     // Override Base (8453) and add a new one 999999
-    env::set_var("RPC_URL_8453", "https://override.base");
-    env::set_var("RPC_URL_999999", "https://new.chain");
+    unsafe { env::set_var("RPC_URL_8453", "https://override.base"); }
+    unsafe { env::set_var("RPC_URL_999999", "https://new.chain"); }
     // Should be ignored
-    env::set_var("RPC_URL_NOTNUM", "https://ignored");
+    unsafe { env::set_var("RPC_URL_NOTNUM", "https://ignored"); }
 
     let cfg = RpcConfig::default().with_env_overrides();
 
@@ -65,9 +65,9 @@ fn env_overrides_update_existing_and_add_new() {
     assert_eq!(added.rpc_url, "https://new.chain");
 
     // Cleanup
-    env::remove_var("RPC_URL_8453");
-    env::remove_var("RPC_URL_999999");
-    env::remove_var("RPC_URL_NOTNUM");
+    unsafe { env::remove_var("RPC_URL_8453"); }
+    unsafe { env::remove_var("RPC_URL_999999"); }
+    unsafe { env::remove_var("RPC_URL_NOTNUM"); }
 }
 
 #[test]
@@ -285,10 +285,10 @@ fn test_clone_trait() {
 #[test]
 fn test_env_override_multiple_chains() {
     // Test overriding multiple existing chains and adding new ones
-    env::set_var("RPC_URL_1", "http://custom-eth");
-    env::set_var("RPC_URL_137", "http://custom-polygon");
-    env::set_var("RPC_URL_42161", "http://custom-arbitrum");
-    env::set_var("RPC_URL_777", "http://new-chain-777");
+    unsafe { env::set_var("RPC_URL_1", "http://custom-eth"); }
+    unsafe { env::set_var("RPC_URL_137", "http://custom-polygon"); }
+    unsafe { env::set_var("RPC_URL_42161", "http://custom-arbitrum"); }
+    unsafe { env::set_var("RPC_URL_777", "http://new-chain-777"); }
 
     let config = RpcConfig::default().with_env_overrides();
 
@@ -303,8 +303,8 @@ fn test_env_override_multiple_chains() {
     assert_eq!(config.evm_networks.get("chain_777").unwrap().rpc_url, "http://new-chain-777");
 
     // Cleanup
-    env::remove_var("RPC_URL_1");
-    env::remove_var("RPC_URL_137");
-    env::remove_var("RPC_URL_42161");
-    env::remove_var("RPC_URL_777");
+    unsafe { env::remove_var("RPC_URL_1"); }
+    unsafe { env::remove_var("RPC_URL_137"); }
+    unsafe { env::remove_var("RPC_URL_42161"); }
+    unsafe { env::remove_var("RPC_URL_777"); }
 }

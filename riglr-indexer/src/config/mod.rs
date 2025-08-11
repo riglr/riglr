@@ -7,6 +7,9 @@ use std::time::Duration;
 
 use crate::error::{ConfigError, IndexerError, IndexerResult};
 
+const RIGLR_INDEXER_CONFIG: &str = "RIGLR_INDEXER_CONFIG";
+const HOSTNAME: &str = "HOSTNAME";
+
 /// Main configuration for the indexer service
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct IndexerConfig {
@@ -633,7 +636,7 @@ impl IndexerConfig {
         dotenvy::dotenv().ok();
 
         // Check for custom config file
-        let config_file = std::env::var("RIGLR_INDEXER_CONFIG").ok();
+        let config_file = std::env::var(RIGLR_INDEXER_CONFIG).ok();
 
         let mut settings = config::Config::builder();
 
@@ -749,7 +752,7 @@ impl IndexerConfig {
 
             let mut hasher = DefaultHasher::new();
             self.service.name.hash(&mut hasher);
-            std::env::var("HOSTNAME")
+            std::env::var(HOSTNAME)
                 .unwrap_or_else(|_| "unknown".to_string())
                 .hash(&mut hasher);
 
@@ -780,7 +783,7 @@ impl Default for IndexerConfig {
                         idle_timeout: Duration::from_secs(300),
                         max_lifetime: Duration::from_secs(1800),
                     },
-                    settings: HashMap::new(),
+                    settings: Default::default(),
                 },
                 secondary: None,
                 cache: CacheConfig {
@@ -798,7 +801,7 @@ impl Default for IndexerConfig {
                 },
                 retention: RetentionConfig {
                     default: Duration::from_secs(30 * 24 * 3600), // 30 days
-                    by_event_type: HashMap::new(),
+                    by_event_type: Default::default(),
                     archive: ArchiveConfig {
                         enabled: false,
                         backend: None,
@@ -871,7 +874,7 @@ impl Default for IndexerConfig {
                 histogram_buckets: vec![
                     0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0,
                 ],
-                custom: HashMap::new(),
+                custom: Default::default(),
             },
             logging: LoggingConfig {
                 level: "info".to_string(),
@@ -881,7 +884,7 @@ impl Default for IndexerConfig {
                     include_location: false,
                     include_thread: true,
                     include_service_metadata: true,
-                    custom_fields: HashMap::new(),
+                    custom_fields: Default::default(),
                 },
             },
             features: FeatureConfig {
@@ -889,7 +892,7 @@ impl Default for IndexerConfig {
                 archival: true,
                 graphql_api: false,
                 experimental: false,
-                custom: HashMap::new(),
+                custom: Default::default(),
             },
         }
     }

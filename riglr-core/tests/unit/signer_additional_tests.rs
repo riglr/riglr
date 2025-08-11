@@ -1,4 +1,4 @@
-use riglr_core::signer::{SignerError};
+use riglr_core::signer::SignerError;
 
 #[test]
 fn signer_error_variants_coverage() {

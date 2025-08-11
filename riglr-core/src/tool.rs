@@ -139,10 +139,11 @@
 
 use async_trait::async_trait;
 use backoff::{backoff::Backoff, ExponentialBackoff, ExponentialBackoffBuilder};
+use dashmap::DashMap;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::sync::{OwnedSemaphorePermit, RwLock, Semaphore};
+use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
@@ -664,10 +665,13 @@ impl ResourceLimits {
 
 impl Default for ResourceLimits {
     fn default() -> Self {
-        Self::new()
-            .with_limit("solana_rpc", 5)
-            .with_limit("evm_rpc", 10)
-            .with_limit("http_api", 20)
+        let mut semaphores = HashMap::new();
+        semaphores.insert("solana_rpc".to_string(), Arc::new(Semaphore::new(5)));
+        semaphores.insert("evm_rpc".to_string(), Arc::new(Semaphore::new(10)));
+        semaphores.insert("http_api".to_string(), Arc::new(Semaphore::new(20)));
+        Self {
+            semaphores: Arc::new(semaphores),
+        }
     }
 }
 
@@ -763,7 +767,7 @@ impl Default for ResourceLimits {
 /// ```
 pub struct ToolWorker<I: IdempotencyStore + 'static> {
     /// Registered tools, indexed by name for fast lookup
-    tools: Arc<RwLock<HashMap<String, Arc<dyn Tool>>>>,
+    tools: Arc<DashMap<String, Arc<dyn Tool>>>,
 
     /// Default semaphore for general concurrency control
     default_semaphore: Arc<Semaphore>,
@@ -864,12 +868,12 @@ impl<I: IdempotencyStore + 'static> ToolWorker<I> {
     /// ```
     pub fn new(config: ExecutionConfig) -> Self {
         Self {
-            tools: Arc::new(RwLock::new(HashMap::new())),
+            tools: Arc::new(DashMap::new()),
             default_semaphore: Arc::new(Semaphore::new(config.max_concurrency)),
             resource_limits: ResourceLimits::default(),
             config,
             idempotency_store: None,
-            metrics: Arc::new(WorkerMetrics::default()),
+            metrics: Arc::default(),
         }
     }
 
@@ -971,8 +975,7 @@ impl<I: IdempotencyStore + 'static> ToolWorker<I> {
     /// # }
     /// ```
     pub async fn register_tool(&self, tool: Arc<dyn Tool>) {
-        let mut tools = self.tools.write().await;
-        tools.insert(tool.name().to_string(), tool);
+        self.tools.insert(tool.name().to_string(), tool);
     }
 
     /// Get access to worker metrics.
@@ -1063,15 +1066,12 @@ impl<I: IdempotencyStore + 'static> ToolWorker<I> {
 
     /// Get a tool from the registry
     async fn get_tool(&self, tool_name: &str) -> Result<Arc<dyn Tool>, WorkerError> {
-        let tools = self.tools.read().await;
-        let tool = tools
+        self.tools
             .get(tool_name)
             .ok_or_else(|| WorkerError::ToolNotFound {
                 tool_name: tool_name.to_string(),
-            })?
-            .clone();
-        drop(tools); // Release read lock early
-        Ok(tool)
+            })
+            .map(|entry| entry.clone())
     }
 
     /// Execute a tool with retry logic
@@ -1252,7 +1252,7 @@ impl<I: IdempotencyStore + 'static> ToolWorker<I> {
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         info!(
             "Starting ToolWorker with {} tools registered",
-            self.tools.read().await.len()
+            self.tools.len()
         );
 
         while !cancellation_token.is_cancelled() {
@@ -1769,8 +1769,8 @@ mod tests {
         let cloned_worker = worker.clone();
 
         // Both workers should have access to the same tools
-        assert_eq!(worker.tools.read().await.len(), 1);
-        assert_eq!(cloned_worker.tools.read().await.len(), 1);
+        assert_eq!(worker.tools.len(), 1);
+        assert_eq!(cloned_worker.tools.len(), 1);
 
         // Test processing with cloned worker
         let job = Job {

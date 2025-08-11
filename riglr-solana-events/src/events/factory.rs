@@ -192,6 +192,9 @@ impl EventParserRegistry {
 
 impl Default for EventParserRegistry {
     fn default() -> Self {
-        Self::new()
+        Self {
+            parsers: HashMap::new(),
+            program_id_to_parser: HashMap::new(),
+        }
     }
 }

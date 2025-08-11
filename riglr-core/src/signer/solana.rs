@@ -31,7 +31,8 @@ impl BlockhashCache {
     fn new(client: Arc<RpcClient>) -> Self {
         Self {
             blockhash: solana_sdk::hash::Hash::default(),
-            timestamp: Instant::now() - Duration::from_secs(60), // Force initial fetch
+            timestamp: Instant::now().checked_sub(Duration::from_secs(60))
+                .unwrap_or_else(Instant::now), // Force initial fetch
             client,
         }
     }

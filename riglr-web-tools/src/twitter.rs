@@ -11,6 +11,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use tracing::{debug, info};
 
+const TWITTER_BEARER_TOKEN: &str = "TWITTER_BEARER_TOKEN";
+
 /// Configuration for Twitter API access
 #[derive(Debug, Clone)]
 pub struct TwitterConfig {
@@ -196,7 +198,7 @@ pub struct EntityMention {
 impl Default for TwitterConfig {
     fn default() -> Self {
         Self {
-            bearer_token: std::env::var("TWITTER_BEARER_TOKEN").unwrap_or_default(),
+            bearer_token: std::env::var(TWITTER_BEARER_TOKEN).unwrap_or_default(),
             base_url: "https://api.twitter.com/2".to_string(),
             max_results: 100,
             rate_limit_window: 900, // 15 minutes

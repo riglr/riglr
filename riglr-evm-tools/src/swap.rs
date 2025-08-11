@@ -556,21 +556,23 @@ mod tests {
     #[ignore] // Skip due to environment dependency
     fn test_uniswap_config_for_chains() {
         // Set required environment variables for config
-        std::env::set_var("REDIS_URL", "redis://localhost:6379");
-        std::env::set_var("SOLANA_RPC_URL", "https://api.devnet.solana.com");
-        std::env::set_var("RPC_URL_1", "https://eth-mainnet.alchemyapi.io/v2/test");
-        std::env::set_var("RPC_URL_8453", "https://base-mainnet.g.alchemy.com/v2/test");
-        std::env::set_var("PORT", "8080");
-        std::env::set_var("ENVIRONMENT", "development");
-        std::env::set_var("LOG_LEVEL", "info");
-        std::env::set_var("ENABLE_TRADING", "true");
-        std::env::set_var("ENABLE_BRIDGING", "true");
-        std::env::set_var("ENABLE_SOCIAL_MONITORING", "true");
-        std::env::set_var("ENABLE_GRAPH_MEMORY", "true");
-        std::env::set_var("USE_TESTNET", "false");
-        std::env::set_var("MAX_RETRY_ATTEMPTS", "3");
-        std::env::set_var("RETRY_DELAY_MS", "1000");
-        std::env::set_var("RETRY_BACKOFF_MULTIPLIER", "2.0");
+        unsafe {
+            std::env::set_var("REDIS_URL", "redis://localhost:6379");
+            std::env::set_var("SOLANA_RPC_URL", "https://api.devnet.solana.com");
+            std::env::set_var("RPC_URL_1", "https://eth-mainnet.alchemyapi.io/v2/test");
+            std::env::set_var("RPC_URL_8453", "https://base-mainnet.g.alchemy.com/v2/test");
+            std::env::set_var("PORT", "8080");
+            std::env::set_var("ENVIRONMENT", "development");
+            std::env::set_var("LOG_LEVEL", "info");
+            std::env::set_var("ENABLE_TRADING", "true");
+            std::env::set_var("ENABLE_BRIDGING", "true");
+            std::env::set_var("ENABLE_SOCIAL_MONITORING", "true");
+            std::env::set_var("ENABLE_GRAPH_MEMORY", "true");
+            std::env::set_var("USE_TESTNET", "false");
+            std::env::set_var("MAX_RETRY_ATTEMPTS", "3");
+            std::env::set_var("RETRY_DELAY_MS", "1000");
+            std::env::set_var("RETRY_BACKOFF_MULTIPLIER", "2.0");
+        }
 
         let eth_config = UniswapConfig::ethereum();
         assert_eq!(
@@ -602,7 +604,9 @@ factory = "0x33128a8fC17869897dcE68Ed026d694621f6FDfD"
         std::fs::write(temp_path, test_config).unwrap();
 
         // Set environment variable to use test config
-        std::env::set_var("RIGLR_CHAINS_CONFIG", temp_path);
+        unsafe {
+            std::env::set_var("RIGLR_CHAINS_CONFIG", temp_path);
+        }
 
         let config_by_id = UniswapConfig::for_chain(1).unwrap();
         assert_eq!(config_by_id.router_address, eth_config.router_address);
@@ -614,7 +618,9 @@ factory = "0x33128a8fC17869897dcE68Ed026d694621f6FDfD"
         );
 
         // Cleanup
-        std::env::remove_var("RIGLR_CHAINS_CONFIG");
+        unsafe {
+            std::env::remove_var("RIGLR_CHAINS_CONFIG");
+        }
         std::fs::remove_file(temp_path).ok();
     }
 

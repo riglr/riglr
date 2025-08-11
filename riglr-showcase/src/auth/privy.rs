@@ -13,6 +13,8 @@ pub mod privy_impl {
     use riglr_web_adapters::factory::{AuthenticationData, SignerFactory};
     use serde::{Deserialize, Serialize};
     use solana_client::rpc_client::RpcClient;
+
+    const PRIVY_VERIFICATION_KEY: &str = "PRIVY_VERIFICATION_KEY";
     use solana_sdk::transaction::Transaction;
     use std::sync::Arc;
 
@@ -71,7 +73,7 @@ pub mod privy_impl {
             validation.set_audience(&[&self.privy_app_id]);
 
             // Get the verification key (this should be fetched from Privy JWKS endpoint in production)
-            let verification_key = std::env::var("PRIVY_VERIFICATION_KEY")
+            let verification_key = std::env::var(PRIVY_VERIFICATION_KEY)
                 .map_err(|_| "Missing PRIVY_VERIFICATION_KEY")?;
 
             // Try to decode and validate the token
@@ -185,7 +187,7 @@ pub mod privy_impl {
                     .solana_networks
                     .get(&auth_data.network)
                     .cloned()
-                    .unwrap_or(SolanaNetworkConfig {
+                    .unwrap_or_else(|| SolanaNetworkConfig {
                         name: "mainnet".into(),
                         rpc_url: "https://api.mainnet-beta.solana.com".into(),
                         explorer_url: None,
@@ -453,7 +455,7 @@ pub mod privy_impl {
             let from = tx
                 .from
                 .map(|a| format!("0x{:x}", a))
-                .unwrap_or(self.address.clone());
+                .unwrap_or_else(|| self.address.clone());
             let to = if let Some(_kind) = tx.to {
                 // TxKind should have Call(Address) or Create variants
                 // Since we can't access the variants directly, let's convert the whole tx to string

@@ -249,7 +249,7 @@ fn test_concurrent_error_handling() {
 
     for i in 0..10 {
         let errors_clone = errors.clone();
-        let handle = thread::spawn(move {
+        let handle = thread::spawn(move || {
             for _ in 0..100 {
                 let error = &errors_clone[i % errors_clone.len()];
 

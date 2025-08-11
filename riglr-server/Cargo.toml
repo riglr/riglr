@@ -13,6 +13,9 @@ default = ["axum"]
 axum = ["dep:axum", "dep:tower", "riglr-web-adapters/axum"]
 actix = ["dep:actix-web", "dep:actix-web-lab", "riglr-web-adapters/actix"]
 
+[lints]
+workspace = true
+
 [dependencies]
 # riglr ecosystem
 riglr-core = { path = "../riglr-core" }

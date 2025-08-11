@@ -12,6 +12,9 @@ keywords = ["solana", "ai", "agent", "blockchain", "rig"]
 categories = ["cryptography::cryptocurrencies", "web-programming::api-bindings"]
 documentation = "https://docs.rs/riglr-solana-tools"
 
+[lints]
+workspace = true
+
 [dependencies]
 # Core riglr and rig dependencies
 rig-core = { workspace = true }

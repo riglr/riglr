@@ -9,6 +9,9 @@ repository = "https://github.com/yourusername/riglr"
 keywords = ["blockchain", "authentication", "web3", "privy", "magic"]
 categories = ["authentication", "cryptography", "web-programming"]
 
+[lints]
+workspace = true
+
 [dependencies]
 # Core dependencies
 riglr-core = { path = "../riglr-core" }

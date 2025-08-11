@@ -71,15 +71,16 @@ impl MarketResearchAgent {
         sleep(Duration::from_millis(300)).await;
 
         // Check current portfolio exposure to this symbol
-        let portfolio = self.portfolio.lock().unwrap();
-        let current_position = portfolio.positions.get(symbol).copied().unwrap_or(0.0);
-        let position_value = current_position * 50000.0; // Simulate price
-        let exposure_ratio = if portfolio.total_value > 0.0 {
-            position_value / portfolio.total_value
-        } else {
-            0.0
-        };
-        drop(portfolio); // Release lock early
+        let exposure_ratio = {
+            let portfolio = self.portfolio.lock().unwrap();
+            let current_position = portfolio.positions.get(symbol).copied().unwrap_or(0.0);
+            let position_value = current_position * 50000.0; // Simulate price
+            if portfolio.total_value > 0.0 {
+                position_value / portfolio.total_value
+            } else {
+                0.0
+            }
+        }; // MutexGuard automatically dropped here
 
         let indicators = json!({
             "rsi": 65.4,

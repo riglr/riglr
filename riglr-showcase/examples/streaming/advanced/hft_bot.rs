@@ -420,7 +420,7 @@ impl HFTBot {
 
     async fn update_position_price(&self, symbol: String, price: f64) -> ToolResult<()> {
         self.position_processor.update_state(symbol, |current_position| {
-            let mut position = current_position.cloned().unwrap_or(Position {
+            let mut position = current_position.clone().unwrap_or_else(|| Position {
                 symbol: "".to_string(),
                 size: 0.0,
                 entry_price: price,
@@ -450,7 +450,7 @@ impl HFTBot {
 
             // Update position in paper trading mode
             self.position_processor.update_state(signal.symbol.clone(), |current_position| {
-                let mut position = current_position.cloned().unwrap_or(Position {
+                let mut position = current_position.clone().unwrap_or_else(|| Position {
                     symbol: signal.symbol.clone(),
                     size: 0.0,
                     entry_price: signal.price,

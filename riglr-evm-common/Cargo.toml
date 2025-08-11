@@ -10,6 +10,9 @@ description = "Shared EVM types and utilities for RIGLR framework - prevents cir
 keywords = ["ethereum", "evm", "blockchain", "types", "common"]
 categories = ["cryptography::cryptocurrencies", "data-structures"]
 
+[lints]
+workspace = true
+
 [dependencies]
 # Core riglr dependencies
 riglr-core = { workspace = true }

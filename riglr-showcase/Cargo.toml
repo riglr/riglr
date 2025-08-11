@@ -16,6 +16,9 @@ documentation = "https://docs.rs/riglr-showcase"
 name = "riglr-showcase"
 path = "src/main.rs"
 
+[lints]
+workspace = true
+
 [dependencies]
 # Core riglr and rig dependencies
 rig-core = { workspace = true }
@@ -29,6 +32,8 @@ riglr-cross-chain-tools = { path = "../riglr-cross-chain-tools", optional = true
 riglr-hyperliquid-tools = { path = "../riglr-hyperliquid-tools", optional = true }
 riglr-graph-memory = { path = "../riglr-graph-memory" }
 riglr-web-adapters = { path = "../riglr-web-adapters", optional = true }
+riglr-streams = { path = "../riglr-streams" }
+riglr-events-core = { path = "../riglr-events-core" }
 
 # Async and Error Handling
 tokio = { workspace = true }
@@ -45,6 +50,12 @@ clap = { workspace = true }
 # Environment variables
 dotenvy = { workspace = true }
 envy = "0.4"
+
+# Concurrent collections
+dashmap = "6.1"
+
+# Random number generation
+fastrand = "2.0"
 
 # Logging
 tracing = { workspace = true }
@@ -91,3 +102,7 @@ hyperliquid = ["riglr-hyperliquid-tools"]
 
 [dev-dependencies]
 tokio-test = { workspace = true }
+
+[[example]]
+name = "yield_monitor"
+path = "examples/streaming/advanced/yield_monitor.rs"

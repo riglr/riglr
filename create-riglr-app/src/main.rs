@@ -136,28 +136,20 @@ fn print_banner() {
     println!();
 }
 
-fn interactive_setup(project_name: Option<String>) -> Result<ProjectConfig> {
-    let theme = ColorfulTheme::default();
-
-    println!(
-        "{}",
-        style("Let's set up your new RIGLR project! 🚀")
-            .green()
-            .bold()
-    );
-    println!();
-
-    // Project name
-    let name = if let Some(name) = project_name {
-        name
+// Helper functions for interactive setup
+fn prompt_project_name(theme: &ColorfulTheme, project_name: Option<String>) -> Result<String> {
+    if let Some(name) = project_name {
+        Ok(name)
     } else {
-        Input::<String>::with_theme(&theme)
+        Input::<String>::with_theme(theme)
             .with_prompt("Project name")
             .validate_with(|input: &String| validation::validate_project_name(input))
-            .interact_text()?
-    };
+            .interact_text()
+            .map_err(Into::into)
+    }
+}
 
-    // Template selection
+fn prompt_template(theme: &ColorfulTheme) -> Result<Template> {
     let templates = vec![
         "🏦 API Service Backend - RESTful API with blockchain integration",
         "📊 Data Analytics Bot - Real-time market analysis and insights",
@@ -176,13 +168,13 @@ fn interactive_setup(project_name: Option<String>) -> Result<ProjectConfig> {
         "🎨 Custom - Start with a minimal template",
     ];
 
-    let template_idx = Select::with_theme(&theme)
+    let template_idx = Select::with_theme(theme)
         .with_prompt("Select a template")
         .items(&templates)
         .default(0)
         .interact()?;
 
-    let template = match template_idx {
+    Ok(match template_idx {
         0 => Template::ApiServiceBackend,
         1 => Template::DataAnalyticsBot,
         2 => Template::EventDrivenTradingEngine,
@@ -199,9 +191,10 @@ fn interactive_setup(project_name: Option<String>) -> Result<ProjectConfig> {
         13 => Template::SocialTradingCopier,
         14 => Template::Custom,
         _ => Template::Custom,
-    };
+    })
+}
 
-    // Blockchain selection
+fn prompt_blockchains(theme: &ColorfulTheme) -> Result<Vec<String>> {
     let blockchains = vec![
         "⛓️ Solana",
         "Ξ Ethereum",
@@ -213,60 +206,54 @@ fn interactive_setup(project_name: Option<String>) -> Result<ProjectConfig> {
         "🌊 Avalanche",
     ];
 
-    let selected_chains = MultiSelect::with_theme(&theme)
+    let selected_chains = MultiSelect::with_theme(theme)
         .with_prompt("Select blockchain(s) to support")
         .items(&blockchains)
         .defaults(&[true, false, false, false, false, false, false, false])
         .interact()?;
 
-    let mut chains = vec![];
-    for &selected_idx in selected_chains.iter() {
-        chains.push(match selected_idx {
-            0 => "solana".to_string(),
-            1 => "ethereum".to_string(),
-            2 => "arbitrum".to_string(),
-            3 => "optimism".to_string(),
-            4 => "polygon".to_string(),
-            5 => "base".to_string(),
-            6 => "bsc".to_string(),
-            7 => "avalanche".to_string(),
-            _ => continue,
-        });
-    }
+    let chain_names = ["solana", "ethereum", "arbitrum", "optimism", "polygon", "base", "bsc", "avalanche"];
+    
+    Ok(selected_chains
+        .into_iter()
+        .filter_map(|idx| chain_names.get(idx).map(|s| s.to_string()))
+        .collect())
+}
 
-    // Server framework selection
-    let include_server = Confirm::with_theme(&theme)
+fn prompt_server_framework(theme: &ColorfulTheme) -> Result<Option<ServerFramework>> {
+    let include_server = Confirm::with_theme(theme)
         .with_prompt("Include a pre-configured HTTP server?")
         .default(true)
         .interact()?;
 
-    let server_framework = if include_server {
-        let frameworks = vec![
-            "🚀 Actix Web - High-performance, actor-based framework",
-            "🗼 Axum - Ergonomic and modular framework by Tokio team",
-            "🚂 Warp - Composable, fast web framework",
-            "🌐 Rocket - Type-safe, intuitive framework",
-            "⚡ None - I'll set up the server myself",
-        ];
+    if !include_server {
+        return Ok(None);
+    }
 
-        let framework_idx = Select::with_theme(&theme)
-            .with_prompt("Select a web framework")
-            .items(&frameworks)
-            .default(0)
-            .interact()?;
+    let frameworks = vec![
+        "🚀 Actix Web - High-performance, actor-based framework",
+        "🗼 Axum - Ergonomic and modular framework by Tokio team",
+        "🚂 Warp - Composable, fast web framework",
+        "🌐 Rocket - Type-safe, intuitive framework",
+        "⚡ None - I'll set up the server myself",
+    ];
 
-        match framework_idx {
-            0 => Some(ServerFramework::Actix),
-            1 => Some(ServerFramework::Axum),
-            2 => Some(ServerFramework::Warp),
-            3 => Some(ServerFramework::Rocket),
-            _ => None,
-        }
-    } else {
-        None
-    };
+    let framework_idx = Select::with_theme(theme)
+        .with_prompt("Select a web framework")
+        .items(&frameworks)
+        .default(0)
+        .interact()?;
 
-    // Features selection
+    Ok(match framework_idx {
+        0 => Some(ServerFramework::Actix),
+        1 => Some(ServerFramework::Axum),
+        2 => Some(ServerFramework::Warp),
+        3 => Some(ServerFramework::Rocket),
+        _ => None,
+    })
+}
+
+fn prompt_features(theme: &ColorfulTheme) -> Result<(Vec<String>, Vec<usize>)> {
     let features = vec![
         "🔍 Web Data Tools (Twitter, DexScreener, News)",
         "🧠 Graph Memory (Neo4j knowledge graph)",
@@ -282,7 +269,7 @@ fn interactive_setup(project_name: Option<String>) -> Result<ProjectConfig> {
         "📚 API Documentation (OpenAPI/Swagger)",
     ];
 
-    let selected_features = MultiSelect::with_theme(&theme)
+    let selected_features = MultiSelect::with_theme(theme)
         .with_prompt("Select additional features")
         .items(&features)
         .defaults(&[
@@ -290,38 +277,52 @@ fn interactive_setup(project_name: Option<String>) -> Result<ProjectConfig> {
         ])
         .interact()?;
 
-    let mut enabled_features = vec![];
-    for &selected_idx in selected_features.iter() {
-        enabled_features.push(
-            match selected_idx {
-                0 => "web_tools",
-                1 => "graph_memory",
-                2 => "cross_chain",
-                3 => "dashboard",
-                4 => "auth",
-                5 => "streaming",
-                6 => "database",
-                7 => "redis",
-                8 => "logging",
-                9 => "testing",
-                10 => "cicd",
-                11 => "api_docs",
-                _ => continue,
-            }
-            .to_string(),
-        );
-    }
+    let feature_names = [
+        "web_tools", "graph_memory", "cross_chain", "dashboard",
+        "auth", "streaming", "database", "redis",
+        "logging", "testing", "cicd", "api_docs"
+    ];
 
-    // Author information
-    let author_name = Input::<String>::with_theme(&theme)
+    let enabled_features = selected_features
+        .iter()
+        .filter_map(|&idx| feature_names.get(idx).map(|s| s.to_string()))
+        .collect();
+
+    Ok((enabled_features, selected_features))
+}
+
+fn prompt_author_info(theme: &ColorfulTheme) -> Result<(String, String)> {
+    let author_name = Input::<String>::with_theme(theme)
         .with_prompt("Author name")
         .default(whoami::realname())
         .interact_text()?;
 
-    let author_email = Input::<String>::with_theme(&theme)
+    let author_email = Input::<String>::with_theme(theme)
         .with_prompt("Author email")
         .validate_with(|input: &String| validation::validate_email(input))
         .interact_text()?;
+
+    Ok((author_name, author_email))
+}
+
+fn interactive_setup(project_name: Option<String>) -> Result<ProjectConfig> {
+    let theme = ColorfulTheme::default();
+
+    println!(
+        "{}",
+        style("Let's set up your new RIGLR project! 🚀")
+            .green()
+            .bold()
+    );
+    println!();
+
+    // Get all the configuration values through helper functions
+    let name = prompt_project_name(&theme, project_name)?;
+    let template = prompt_template(&theme)?;
+    let chains = prompt_blockchains(&theme)?;
+    let server_framework = prompt_server_framework(&theme)?;
+    let (features, selected_indices) = prompt_features(&theme)?;
+    let (author_name, author_email) = prompt_author_info(&theme)?;
 
     // Description
     let description = Input::<String>::with_theme(&theme)
@@ -334,13 +335,13 @@ fn interactive_setup(project_name: Option<String>) -> Result<ProjectConfig> {
         template,
         chains,
         server_framework,
-        features: enabled_features,
+        features,
         author_name,
         author_email,
         description,
         include_examples: true,
-        include_tests: selected_features.contains(&9),
-        include_docs: selected_features.contains(&11),
+        include_tests: selected_indices.contains(&9),
+        include_docs: selected_indices.contains(&11),
     })
 }
 

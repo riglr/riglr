@@ -466,8 +466,7 @@ impl From<RigDocument> for RawTextDocument {
             .get("created_at")
             .and_then(|v| v.as_str())
             .and_then(|s| chrono::DateTime::parse_from_rfc3339(s).ok())
-            .map(|dt| dt.with_timezone(&chrono::Utc))
-            .unwrap_or_else(chrono::Utc::now);
+            .map_or_else(chrono::Utc::now, |dt| dt.with_timezone(&chrono::Utc));
 
         // Convert metadata back to DocumentMetadata format
         let metadata = if rig_doc.metadata.is_empty() {

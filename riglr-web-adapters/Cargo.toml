@@ -8,6 +8,9 @@ repository = "https://github.com/riglr/riglr"
 homepage = "https://github.com/riglr/riglr"
 description = "Framework-agnostic web adapters for riglr agents with library-first approach"
 
+[lints]
+workspace = true
+
 [dependencies]
 # Core dependencies
 riglr-core = { path = "../riglr-core" }

@@ -26,7 +26,9 @@ impl DistributedAgentRegistry {
     ///
     /// **Note**: This is currently a stub implementation.
     pub fn new(_redis_url: String) -> Result<Self> {
-        todo!("Distributed registry implementation pending")
+        Err(AgentError::generic(
+            "Distributed registry not yet implemented. Use LocalAgentRegistry for now.",
+        ))
     }
 
     /// Create a new distributed agent registry with configuration.

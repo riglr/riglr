@@ -30,7 +30,7 @@
 #[cfg(feature = "web-server")]
 use actix_web::{middleware::Logger, web, App, HttpRequest, HttpResponse, HttpServer};
 #[cfg(feature = "web-server")]
-use rig::providers::anthropic::{self};
+use rig::providers::anthropic;
 #[cfg(feature = "web-server")]
 use riglr_core::config::RpcConfig;
 #[cfg(feature = "web-server")]
@@ -225,7 +225,7 @@ mod tests {
         let agent = RiglrAgent::new("test-api-key".to_string());
         // The agent should be created successfully
         // Real API calls would fail with invalid key, but creation should succeed
-        assert!(true); // Agent creation doesn't panic
+        // Agent creation doesn't panic
     }
 
     #[actix_web::test]

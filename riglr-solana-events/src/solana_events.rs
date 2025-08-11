@@ -191,7 +191,7 @@ impl SolanaEvent {
     /// Create a swap event
     pub fn swap(params: SwapEventParams) -> Self {
         let legacy_metadata = EventMetadata::new(
-            params.id.clone(),
+            params.id,
             params.signature,
             params.slot,
             params.block_time,
@@ -222,7 +222,7 @@ impl SolanaEvent {
         };
 
         let legacy_metadata = EventMetadata::new(
-            params.id.clone(),
+            params.id,
             params.signature,
             params.slot,
             params.block_time,
@@ -248,7 +248,7 @@ impl SolanaEvent {
     /// Create a generic protocol event
     pub fn protocol_event(params: ProtocolEventParams) -> Self {
         let legacy_metadata = EventMetadata::new(
-            params.id.clone(),
+            params.id,
             params.signature,
             params.slot,
             params.block_time,
@@ -369,7 +369,7 @@ mod tests {
         assert_eq!(event.legacy_metadata.slot, 11111);
 
         let liq_data = event.extract_data::<serde_json::Value>().unwrap();
-        assert_eq!(liq_data["is_add"], true);
+        assert!(liq_data["is_add"].as_bool().unwrap());
         assert_eq!(liq_data["amount_a"], 500000);
         assert_eq!(liq_data["amount_b"], 250000);
     }
@@ -405,7 +405,7 @@ mod tests {
         };
 
         // Test transfer data assignment
-        event.transfer_data = transfer_data.clone();
+        event.transfer_data = transfer_data;
         assert_eq!(event.transfer_data.len(), 1);
     }
 

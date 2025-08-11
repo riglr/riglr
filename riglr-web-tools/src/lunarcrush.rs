@@ -8,6 +8,8 @@ use crate::{client::WebClient, error::WebToolError};
 use chrono::{DateTime, Utc};
 use riglr_macros::tool;
 use schemars::JsonSchema;
+
+const LUNARCRUSH_API_KEY: &str = "LUNARCRUSH_API_KEY";
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use tracing::{debug, info};
@@ -25,7 +27,7 @@ pub struct LunarCrushConfig {
 impl Default for LunarCrushConfig {
     fn default() -> Self {
         Self {
-            api_key: std::env::var("LUNARCRUSH_API_KEY").unwrap_or_default(),
+            api_key: std::env::var(LUNARCRUSH_API_KEY).unwrap_or_default(),
             base_url: "https://api.lunarcrush.com/v2".to_string(),
             rate_limit_per_minute: 60,
         }

@@ -409,6 +409,9 @@ impl GraphRetriever {
                 RETURN d.id as id
             ";
 
+            // Store doc.id for use after moving doc fields
+            let doc_id = doc.id.clone();
+            
             let mut params = HashMap::new();
             params.insert("id".to_string(), json!(doc.id));
             params.insert("content".to_string(), json!(doc.content));
@@ -421,11 +424,11 @@ impl GraphRetriever {
                 .await
             {
                 Ok(_) => {
-                    document_ids.push(doc.id.clone());
-                    debug!("Added document {} to graph", doc.id);
+                    debug!("Added document {} to graph", doc_id);
+                    document_ids.push(doc_id);
                 }
                 Err(e) => {
-                    warn!("Failed to add document {}: {}", doc.id, e);
+                    warn!("Failed to add document {}: {}", doc_id, e);
                     return Err(GraphMemoryError::Database(format!(
                         "Failed to add document: {}",
                         e

@@ -10,6 +10,11 @@ use riglr_core::signer::TransactionSigner;
 use riglr_web_adapters::factory::{AuthenticationData, SignerFactory};
 use serde::{Deserialize, Serialize};
 
+const MAGIC_PUBLISHABLE_KEY: &str = "MAGIC_PUBLISHABLE_KEY";
+const MAGIC_SECRET_KEY: &str = "MAGIC_SECRET_KEY";
+const MAGIC_API_URL: &str = "MAGIC_API_URL";
+const MAGIC_NETWORK: &str = "MAGIC_NETWORK";
+
 /// Magic.link configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MagicConfig {
@@ -59,17 +64,17 @@ impl ProviderConfig for MagicConfig {
     }
 
     fn from_env() -> Result<Self, AuthError> {
-        let publishable_key = std::env::var("MAGIC_PUBLISHABLE_KEY")
+        let publishable_key = std::env::var(MAGIC_PUBLISHABLE_KEY)
             .map_err(|_| AuthError::ConfigError("MAGIC_PUBLISHABLE_KEY not found".to_string()))?;
-        let secret_key = std::env::var("MAGIC_SECRET_KEY")
+        let secret_key = std::env::var(MAGIC_SECRET_KEY)
             .map_err(|_| AuthError::ConfigError("MAGIC_SECRET_KEY not found".to_string()))?;
 
         let mut config = Self::new(publishable_key, secret_key);
 
-        if let Ok(api_url) = std::env::var("MAGIC_API_URL") {
+        if let Ok(api_url) = std::env::var(MAGIC_API_URL) {
             config.api_url = api_url;
         }
-        if let Ok(network) = std::env::var("MAGIC_NETWORK") {
+        if let Ok(network) = std::env::var(MAGIC_NETWORK) {
             config.network = network;
         }
 
