@@ -17,8 +17,6 @@
 use anyhow::{Context, Result};
 use rig::agent::AgentBuilder;
 use serde_json::json;
-use std::collections::HashMap;
-use tokio;
 use tracing::{info, warn};
 
 /// Example 1: Portfolio Analysis with Multi-Step Reasoning

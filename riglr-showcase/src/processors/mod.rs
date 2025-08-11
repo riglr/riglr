@@ -21,9 +21,9 @@
 //!
 //! // Create a processing pipeline
 //! let pipeline = ProcessorPipeline::new()
-//!     .add(DistillationProcessor::new("gemini-1.5-flash"))
-//!     .add(MarkdownFormatter::new())
-//!     .add(NotificationRouter::new("discord"));
+//!     .add_processor(DistillationProcessor::new("gemini-1.5-flash"))
+//!     .add_processor(MarkdownFormatter::new())
+//!     .add_processor(NotificationRouter::new("discord"));
 //!
 //! // Process tool output
 //! let processed = pipeline.process(tool_output).await?;
@@ -136,7 +136,7 @@ impl ProcessorPipeline {
     }
     
     /// Add a processor to the pipeline
-    pub fn add<P: OutputProcessor + 'static>(mut self, processor: P) -> Self {
+    pub fn add_processor<P: OutputProcessor + 'static>(mut self, processor: P) -> Self {
         self.processors.push(Box::new(processor));
         self
     }
@@ -252,8 +252,8 @@ mod tests {
     #[tokio::test]
     async fn test_pipeline_composition() {
         let pipeline = ProcessorPipeline::new()
-            .add(MockDistiller::new())
-            .add(MarkdownFormatter::new());
+            .add_processor(MockDistiller::new())
+            .add_processor(MarkdownFormatter::new());
         
         let output = utils::success_output(
             "test_tool",
@@ -262,7 +262,7 @@ mod tests {
         
         let processed = pipeline.process(output).await.unwrap();
         
-        assert!(!processed.summary.is_none());
+        assert!(processed.summary.is_some());
         assert!(matches!(processed.format, OutputFormat::Markdown));
     }
     

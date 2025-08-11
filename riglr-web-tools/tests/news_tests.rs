@@ -20,8 +20,8 @@ async fn test_get_crypto_news_basic() {
     assert!(result.is_ok());
     let news_result = result.unwrap();
     assert_eq!(news_result.topic, "Bitcoin");
-    assert!(news_result.articles.len() >= 1); // Should have sample articles from mocked sources
-    assert!(news_result.metadata.sources_queried.len() >= 1);
+    assert!(!news_result.articles.is_empty()); // Should have sample articles from mocked sources
+    assert!(!news_result.metadata.sources_queried.is_empty());
 
     // Clean up
     std::env::remove_var("NEWSAPI_KEY");
@@ -112,7 +112,7 @@ async fn test_get_trending_news_basic() {
     assert!(result.is_ok());
     let news_result = result.unwrap();
     assert_eq!(news_result.topic, "Trending");
-    assert!(news_result.articles.len() >= 1); // Should have mock trending articles
+    assert!(!news_result.articles.is_empty()); // Should have mock trending articles
     assert_eq!(news_result.metadata.time_range_hours, 6);
 }
 
@@ -582,7 +582,7 @@ fn test_time_window_parsing_logic() {
 #[test]
 fn test_severity_levels() {
     // Test severity level ordering logic that we know exists
-    let severity_levels = vec!["Low", "Medium", "High", "Critical"];
+    let severity_levels = ["Low", "Medium", "High", "Critical"];
 
     for (i, level) in severity_levels.iter().enumerate() {
         assert!(!level.is_empty());

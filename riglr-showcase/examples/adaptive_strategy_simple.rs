@@ -14,9 +14,7 @@
 use anyhow::Result;
 use rig::agent::AgentBuilder;
 use serde_json::json;
-use std::collections::HashMap;
-use tokio;
-use tracing::{info, warn};
+use tracing::warn;
 
 /// Demo: Volatility-Based Strategy Adaptation
 /// 

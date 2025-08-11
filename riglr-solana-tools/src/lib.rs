@@ -80,8 +80,10 @@ mod tests {
     use super::*;
 
     #[test]
+    #[allow(clippy::len_zero)]
     fn test_version() {
-        #[allow(clippy::const_is_empty)]
-        assert!(!VERSION.is_empty());
+        // VERSION is a compile-time constant from CARGO_PKG_VERSION
+        // Its existence is guaranteed by successful compilation
+        assert!(VERSION.len() > 0);
     }
 }

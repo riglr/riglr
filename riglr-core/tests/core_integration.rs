@@ -48,12 +48,12 @@ async fn test_signer_context_isolation() {
     
     let result1 = SignerContext::with_signer(signer1.clone(), async {
         let current = SignerContext::current().await?;
-        Ok(current.pubkey().ok_or(SignerError::NoSignerContext)?)
+        current.pubkey().ok_or(SignerError::NoSignerContext)
     }).await.unwrap();
     
     let result2 = SignerContext::with_signer(signer2.clone(), async {
         let current = SignerContext::current().await?;
-        Ok(current.pubkey().ok_or(SignerError::NoSignerContext)?)
+        current.pubkey().ok_or(SignerError::NoSignerContext)
     }).await.unwrap();
     
     assert_ne!(result1, result2);
@@ -146,7 +146,7 @@ async fn test_concurrent_contexts() {
             // Simulate some work
             tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
             let current = SignerContext::current().await?;
-            Ok(current.pubkey().ok_or(SignerError::NoSignerContext)?)
+            current.pubkey().ok_or(SignerError::NoSignerContext)
         }).await
     });
     
@@ -155,7 +155,7 @@ async fn test_concurrent_contexts() {
             // Simulate some work
             tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
             let current = SignerContext::current().await?;
-            Ok(current.pubkey().ok_or(SignerError::NoSignerContext)?)
+            current.pubkey().ok_or(SignerError::NoSignerContext)
         }).await
     });
     

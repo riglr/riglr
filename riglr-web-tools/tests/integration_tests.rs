@@ -292,7 +292,11 @@ mod error_handling_tests {
 
         assert!(success_result.is_ok());
         assert!(error_result.is_err());
-        assert_eq!(success_result.unwrap(), "success");
-        assert!(error_result.unwrap_err().to_string().contains("Failed"));
+        if let Ok(value) = success_result {
+            assert_eq!(value, "success");
+        }
+        if let Err(err) = error_result {
+            assert!(err.to_string().contains("Failed"));
+        }
     }
 }

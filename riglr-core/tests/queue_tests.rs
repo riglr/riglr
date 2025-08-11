@@ -41,7 +41,7 @@ async fn test_queue_fifo_order() {
     // Enqueue multiple jobs
     let mut job_ids = vec![];
     for i in 0..5 {
-        let job = Job::new(&format!("tool{}", i), &json!({"index": i}), 0).unwrap();
+        let job = Job::new(format!("tool{}", i), &json!({"index": i}), 0).unwrap();
         job_ids.push(job.job_id);
         queue.enqueue(job).await.unwrap();
     }
@@ -85,7 +85,7 @@ async fn test_queue_concurrent_enqueue() {
     for i in 0..20 {
         let queue_clone = queue.clone();
         let handle = tokio::spawn(async move {
-            let job = Job::new(&format!("tool{}", i), &json!({"task": i}), 0).unwrap();
+            let job = Job::new(format!("tool{}", i), &json!({"task": i}), 0).unwrap();
             queue_clone.enqueue(job).await.unwrap();
         });
         handles.push(handle);
@@ -106,7 +106,7 @@ async fn test_queue_concurrent_dequeue() {
 
     // Enqueue multiple jobs
     for i in 0..10 {
-        let job = Job::new(&format!("tool{}", i), &json!({"task": i}), 0).unwrap();
+        let job = Job::new(format!("tool{}", i), &json!({"task": i}), 0).unwrap();
         queue.enqueue(job).await.unwrap();
     }
 
@@ -174,7 +174,7 @@ async fn test_queue_multiple_blocking_dequeues() {
 
     // Enqueue jobs one by one
     for i in 0..3 {
-        let job = Job::new(&format!("tool{}", i), &json!({"index": i}), 0).unwrap();
+        let job = Job::new(format!("tool{}", i), &json!({"index": i}), 0).unwrap();
         queue.enqueue(job).await.unwrap();
         tokio::time::sleep(Duration::from_millis(10)).await; // Small delay between enqueues
     }
@@ -226,7 +226,7 @@ async fn test_queue_stress_test() {
         let handle = tokio::spawn(async move {
             for i in 0..20 {
                 let job = Job::new(
-                    &format!("tool_p{}_j{}", producer_id, i),
+                    format!("tool_p{}_j{}", producer_id, i),
                     &json!({"producer": producer_id, "job": i}),
                     0,
                 )
@@ -338,7 +338,7 @@ async fn test_queue_rapid_enqueue_dequeue() {
 
     // First enqueue all jobs, then dequeue them
     for i in 0..100 {
-        let job = Job::new(&format!("rapid{}", i), &json!({"index": i}), 0).unwrap();
+        let job = Job::new(format!("rapid{}", i), &json!({"index": i}), 0).unwrap();
         queue.enqueue(job).await.unwrap();
     }
 
@@ -392,9 +392,8 @@ mod redis_tests {
         for url in valid_urls {
             let result = RedisJobQueue::new(url, "test_queue");
             // Don't require actual Redis connection for this test
-            match result {
-                Ok(_) => {}  // Success
-                Err(_) => {} // Connection error is expected without Redis
+            if result.is_ok() {
+                // Success
             }
         }
     }

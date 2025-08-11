@@ -10,6 +10,7 @@ pub struct Config {
     pub solana_rpc_url: String,
 
     /// Ethereum RPC URL  
+    #[allow(dead_code)]
     pub ethereum_rpc_url: String,
 
     /// Twitter Bearer Token
@@ -19,12 +20,15 @@ pub struct Config {
     pub exa_api_key: Option<String>,
 
     /// Neo4j connection string
+    #[allow(dead_code)]
     pub neo4j_url: String,
 
     /// Redis connection string
+    #[allow(dead_code)]
     pub redis_url: String,
 
     /// OpenAI API key for LLM
+    #[allow(dead_code)]
     pub openai_api_key: String,
 }
 

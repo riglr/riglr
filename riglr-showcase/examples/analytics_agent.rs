@@ -24,9 +24,7 @@ use riglr_core::signer::{SignerContext, LocalSolanaSigner};
 use riglr_solana_tools::{GetTokenBalance, GetTransactionHistory};
 use anyhow::Result;
 use solana_sdk::signature::Keypair;
-use solana_sdk::signer::Signer;
 use std::sync::Arc;
-use tokio;
 use serde::{Deserialize, Serialize};
 
 #[tokio::main]
