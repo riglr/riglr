@@ -42,6 +42,7 @@ criterion = { workspace = true }
 testcontainers = "0.24.0"
 testcontainers-modules = { version = "0.12.1", features = ["redis"] }
 mockito = "1.0"
+proptest = "1.0"
 riglr-solana-tools = { path = "../riglr-solana-tools" }
 
 [[bench]]

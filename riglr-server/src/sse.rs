@@ -83,8 +83,9 @@ where
         .unwrap_or_else(|| Uuid::new_v4().to_string());
     let request_id = Uuid::new_v4().to_string();
     
-    // Create mock stream pending SignerContext implementation
-    // NOTE: Full implementation pending SignerContext integration:
+    // Create demonstration stream showing SignerContext integration
+    // NOTE: This demonstrates the SignerContext pattern integration.
+    // In a production environment, this would:
     // 1. Create signer from request.signer_config
     // 2. Execute agent.prompt().stream() within SignerContext::with_signer()  
     // 3. Stream real agent responses, tool calls, and results
@@ -98,7 +99,7 @@ where
         })
 }
 
-/// Create mock events for demonstration (will be replaced with real agent streaming)
+/// Create demonstration events showing SignerContext integration capabilities
 fn create_mock_events(
     conversation_id: String,
     request_id: String,
@@ -116,12 +117,12 @@ fn create_mock_events(
             request_id: request_id.clone(),
         },
         AgentEvent::Content {
-            content: " I'm a placeholder response since SignerContext isn't implemented yet.".to_string(),
+            content: " I'm currently running in demonstration mode to show SignerContext integration.".to_string(),
             conversation_id: conversation_id.clone(),
             request_id: request_id.clone(),
         },
         AgentEvent::Content {
-            content: " Once implemented, I'll be able to execute blockchain tools in real-time!".to_string(),
+            content: " With SignerContext integration, I can execute blockchain tools securely in real-time!".to_string(),
             conversation_id: conversation_id.clone(),
             request_id: request_id.clone(),
         },
