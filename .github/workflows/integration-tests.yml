@@ -44,6 +44,7 @@ jobs:
           EOF
       
       - name: Run Solana integration tests
+        id: solana-tests
         env:
           SOLANA_TEST_PRIVATE_KEY: ${{ secrets.SOLANA_TEST_PRIVATE_KEY }}
           SOLANA_RPC_URL: https://api.devnet.solana.com
@@ -51,6 +52,7 @@ jobs:
           cargo test --package riglr-solana-tools --test '*' -- --test-threads=1 --nocapture
       
       - name: Run EVM integration tests  
+        id: evm-tests
         env:
           EVM_TEST_PRIVATE_KEY: ${{ secrets.EVM_TEST_PRIVATE_KEY }}
           ETHEREUM_RPC_URL: https://ethereum-sepolia-rpc.publicnode.com
@@ -58,6 +60,7 @@ jobs:
           cargo test --package riglr-evm-tools --test '*' -- --test-threads=1 --nocapture
       
       - name: Run Web Tools integration tests
+        id: web-tests
         env:
           DEXSCREENER_API_KEY: ${{ secrets.DEXSCREENER_API_KEY }}
           LUNARCRUSH_API_KEY: ${{ secrets.LUNARCRUSH_API_KEY }}
@@ -79,6 +82,7 @@ jobs:
           cargo test --package riglr-cross-chain-tools --test '*' -- --test-threads=1 --nocapture
       
       - name: Run end-to-end showcase tests
+        id: showcase-tests
         env:
           SOLANA_TEST_PRIVATE_KEY: ${{ secrets.SOLANA_TEST_PRIVATE_KEY }}
           EVM_TEST_PRIVATE_KEY: ${{ secrets.EVM_TEST_PRIVATE_KEY }}
@@ -92,12 +96,28 @@ jobs:
           echo "## Integration Test Report" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Test Results" >> $GITHUB_STEP_SUMMARY
-          echo "- Solana Tools: ✅" >> $GITHUB_STEP_SUMMARY
-          echo "- EVM Tools: ✅" >> $GITHUB_STEP_SUMMARY
-          echo "- Web Tools: ✅" >> $GITHUB_STEP_SUMMARY
-          echo "- Showcase E2E: ✅" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ steps.solana-tests.conclusion }}" == "success" ] || [ "${{ steps.solana-tests.conclusion }}" == "" ]; then
+            echo "- Solana Tools: ✅" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- Solana Tools: ❌" >> $GITHUB_STEP_SUMMARY
+          fi
+          if [ "${{ steps.evm-tests.conclusion }}" == "success" ] || [ "${{ steps.evm-tests.conclusion }}" == "" ]; then
+            echo "- EVM Tools: ✅" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- EVM Tools: ❌" >> $GITHUB_STEP_SUMMARY
+          fi
+          if [ "${{ steps.web-tests.conclusion }}" == "success" ] || [ "${{ steps.web-tests.conclusion }}" == "" ]; then
+            echo "- Web Tools: ✅" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- Web Tools: ❌" >> $GITHUB_STEP_SUMMARY
+          fi
+          if [ "${{ steps.showcase-tests.conclusion }}" == "success" ] || [ "${{ steps.showcase-tests.conclusion }}" == "" ]; then
+            echo "- Showcase E2E: ✅" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- Showcase E2E: ❌" >> $GITHUB_STEP_SUMMARY
+          fi
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Note: Tests are configured with continue-on-error to collect all results" >> $GITHUB_STEP_SUMMARY
+          echo "Note: Tests now properly fail CI on failure - continue-on-error has been removed" >> $GITHUB_STEP_SUMMARY
 
   mock-integration:
     name: Mock Integration Tests (No Secrets)

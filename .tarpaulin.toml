@@ -5,7 +5,7 @@ output-dir = "./coverage"
 
 [run]
 # Increase timeout to 10 minutes (default is 5 minutes)
-timeout = 600
+timeout = "600s"
 
 # Run tests single-threaded to avoid race conditions under instrumentation
 implicit-test-threads = 1

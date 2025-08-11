@@ -21,11 +21,27 @@ type = "string"
 prompt = "What is your email address?"
 default = "user@example.com"
 
-[placeholders.primary-chain]
+[placeholders.blockchain-selection]
 type = "string"
-prompt = "Which blockchain will be your primary focus?"
-choices = ["solana", "ethereum", "both"]
-default = "solana"
+prompt = "Which blockchain(s) do you want to support?"
+choices = ["solana-only", "ethereum-only", "multi-chain-basic", "multi-chain-advanced"]
+default = "solana-only"
+
+[placeholders.tool-bundle]
+type = "string"
+prompt = "Which tool bundle would you like?"
+choices = ["minimal", "defi-focused", "analytics-focused", "cross-chain", "complete"]
+default = "defi-focused"
+
+[placeholders.include-solana-tools]
+type = "bool"
+prompt = "Include Solana tools (Jupiter, Pump.fun, etc.)?"
+default = true
+
+[placeholders.include-evm-tools]
+type = "bool"
+prompt = "Include EVM tools (Uniswap, 1inch, etc.)?"
+default = false
 
 [placeholders.include-web-tools]
 type = "bool"
@@ -34,8 +50,23 @@ default = true
 
 [placeholders.include-graph-memory]
 type = "bool"
-prompt = "Include graph memory for knowledge storage?"
-default = true
+prompt = "Include graph memory for RAG capabilities?"
+default = false
+
+[placeholders.include-cross-chain-tools]
+type = "bool"
+prompt = "Include cross-chain bridge tools?"
+default = false
+
+[placeholders.include-hyperliquid-tools]
+type = "bool"
+prompt = "Include Hyperliquid derivatives tools?"
+default = false
+
+[placeholders.include-server]
+type = "bool"
+prompt = "Include HTTP server for API endpoints?"
+default = false
 
 [placeholders.agent-type]
 type = "string"
