@@ -629,9 +629,16 @@ fn handle_function(function: ItemFn) -> proc_macro2::TokenStream {
         #[async_trait::async_trait]
         impl riglr_core::Tool for #tool_struct_name {
             async fn execute(&self, params: serde_json::Value) -> Result<riglr_core::JobResult, Box<dyn std::error::Error + Send + Sync>> {
-                // Parse the parameters
-                let args: #args_struct_name = serde_json::from_value(params)
-                    .map_err(|e| format!("Failed to parse parameters: {}", e))?;
+                // Parse the parameters; return a structured JobResult on parse failure
+                let args: #args_struct_name = match serde_json::from_value(params) {
+                    Ok(v) => v,
+                    Err(e) => {
+                        return Ok(riglr_core::JobResult::Failure {
+                            error: format!("Failed to parse parameters: {}", e),
+                            retriable: false,
+                        });
+                    }
+                };
 
                 // Call the original function (expecting Result<T, ToolError>)
                 let result = #fn_name(#(#field_assignments),*)#await_token;
@@ -646,30 +653,30 @@ fn handle_function(function: ItemFn) -> proc_macro2::TokenStream {
                         })
                     }
                     Err(tool_error) => {
-                        // Convert any error to ToolError, then match on it
+            // Convert any error to ToolError, then match on it
                         let tool_error: riglr_core::ToolError = tool_error.into();
                         match tool_error {
-                            riglr_core::ToolError::Retriable(msg) => {
+                riglr_core::ToolError::Retriable { context, .. } => {
                                 Ok(riglr_core::JobResult::Failure {
-                                    error: msg,
+                    error: context,
                                     retriable: true,
                                 })
                             }
-                            riglr_core::ToolError::Permanent(msg) => {
+                riglr_core::ToolError::Permanent { context, .. } => {
                                 Ok(riglr_core::JobResult::Failure {
-                                    error: msg,
+                    error: context,
                                     retriable: false,
                                 })
                             }
-                            riglr_core::ToolError::RateLimited(msg) => {
+                riglr_core::ToolError::RateLimited { context, .. } => {
                                 Ok(riglr_core::JobResult::Failure {
-                                    error: format!("Rate limited: {}", msg),
+                    error: format!("Rate limited: {}", context),
                                     retriable: true,
                                 })
                             }
-                            riglr_core::ToolError::InvalidInput(msg) => {
+                riglr_core::ToolError::InvalidInput { context, .. } => {
                                 Ok(riglr_core::JobResult::Failure {
-                                    error: format!("Invalid input: {}", msg),
+                    error: format!("Invalid input: {}", context),
                                     retriable: false,
                                 })
                             }
@@ -720,9 +727,16 @@ fn handle_struct(structure: ItemStruct) -> proc_macro2::TokenStream {
         #[async_trait::async_trait]
         impl riglr_core::Tool for #struct_name {
             async fn execute(&self, params: serde_json::Value) -> Result<riglr_core::JobResult, Box<dyn std::error::Error + Send + Sync>> {
-                // Parse parameters into the struct
-                let args: Self = serde_json::from_value(params)
-                    .map_err(|e| format!("Failed to parse parameters: {}", e))?;
+                // Parse parameters into the struct; return a structured JobResult on parse failure
+                let args: Self = match serde_json::from_value(params) {
+                    Ok(v) => v,
+                    Err(e) => {
+                        return Ok(riglr_core::JobResult::Failure {
+                            error: format!("Failed to parse parameters: {}", e),
+                            retriable: false,
+                        });
+                    }
+                };
 
                 // Call the execute method (expecting Result<T, ToolError>)
                 let result = args.execute().await;
@@ -737,30 +751,30 @@ fn handle_struct(structure: ItemStruct) -> proc_macro2::TokenStream {
                         })
                     }
                     Err(tool_error) => {
-                        // Convert any error to ToolError, then match on it
+            // Convert any error to ToolError, then match on it
                         let tool_error: riglr_core::ToolError = tool_error.into();
                         match tool_error {
-                            riglr_core::ToolError::Retriable(msg) => {
+                riglr_core::ToolError::Retriable { context, .. } => {
                                 Ok(riglr_core::JobResult::Failure {
-                                    error: msg,
+                    error: context,
                                     retriable: true,
                                 })
                             }
-                            riglr_core::ToolError::Permanent(msg) => {
+                riglr_core::ToolError::Permanent { context, .. } => {
                                 Ok(riglr_core::JobResult::Failure {
-                                    error: msg,
+                    error: context,
                                     retriable: false,
                                 })
                             }
-                            riglr_core::ToolError::RateLimited(msg) => {
+                riglr_core::ToolError::RateLimited { context, .. } => {
                                 Ok(riglr_core::JobResult::Failure {
-                                    error: format!("Rate limited: {}", msg),
+                    error: format!("Rate limited: {}", context),
                                     retriable: true,
                                 })
                             }
-                            riglr_core::ToolError::InvalidInput(msg) => {
+                riglr_core::ToolError::InvalidInput { context, .. } => {
                                 Ok(riglr_core::JobResult::Failure {
-                                    error: format!("Invalid input: {}", msg),
+                    error: format!("Invalid input: {}", context),
                                     retriable: false,
                                 })
                             }

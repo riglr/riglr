@@ -339,8 +339,132 @@ pub async fn create_spl_token_mint(
     initial_supply: u64,
     freezable: bool,
 ) -> Result<CreateMintResult, ToolError> {
-    let _ = (decimals, initial_supply, freezable);
-    Err(ToolError::permanent("Implementation pending"))
+    debug!(
+        "Creating SPL token mint with {} decimals, {} initial supply, freezable: {}",
+        decimals, initial_supply, freezable
+    );
+
+    // Validate inputs
+    if decimals > 9 {
+        return Err(ToolError::permanent("Decimals must be between 0 and 9"));
+    }
+
+    // Get signer from context
+    let signer_context = SignerContext::current().await
+        .map_err(|e| ToolError::permanent(format!("No signer context: {}", e)))?;
+    
+    let payer_pubkey = signer_context.pubkey()
+        .map_err(|e| ToolError::permanent(format!("Failed to get signer pubkey: {}", e)))?;
+
+    // Generate a new mint keypair
+    let mint_keypair = solana_sdk::signature::Keypair::new();
+    let mint_pubkey = mint_keypair.pubkey();
+
+    // Get client to check account size and rent
+    let client = signer_context.solana_client();
+    
+    // Calculate rent for mint account
+    let mint_account_size = spl_token::state::Mint::LEN;
+    let rent = client
+        .get_minimum_balance_for_rent_exemption(mint_account_size)
+        .map_err(|e| ToolError::permanent(format!("Failed to get rent: {}", e)))?;
+
+    // Get recent blockhash
+    let blockhash = client
+        .get_latest_blockhash()
+        .map_err(|e| ToolError::retriable(format!("Failed to get blockhash: {}", e)))?;
+
+    // Determine freeze authority
+    let freeze_authority = if freezable {
+        Some(payer_pubkey)
+    } else {
+        None
+    };
+
+    // Create instructions for:
+    // 1. Create mint account
+    // 2. Initialize mint
+    // 3. Create associated token account for the payer
+    // 4. Mint initial supply (if any)
+    let mut instructions = vec![];
+
+    // Create the mint account
+    instructions.push(
+        solana_sdk::system_instruction::create_account(
+            &payer_pubkey,
+            &mint_pubkey,
+            rent,
+            mint_account_size as u64,
+            &spl_token::id(),
+        )
+    );
+
+    // Initialize the mint
+    instructions.push(
+        spl_token::instruction::initialize_mint2(
+            &spl_token::id(),
+            &mint_pubkey,
+            &payer_pubkey,  // mint authority
+            freeze_authority.as_ref(),
+            decimals,
+        ).map_err(|e| ToolError::permanent(format!("Failed to create initialize mint instruction: {}", e)))?
+    );
+
+    // If there's initial supply, create ATA and mint tokens
+    if initial_supply > 0 {
+        // Get or create associated token account for the payer
+        let ata = get_associated_token_address(&payer_pubkey, &mint_pubkey);
+        
+        // Create ATA instruction
+        instructions.push(
+            spl_associated_token_account::instruction::create_associated_token_account(
+                &payer_pubkey,
+                &payer_pubkey,
+                &mint_pubkey,
+                &spl_token::id(),
+            )
+        );
+
+        // Mint initial supply to ATA
+        instructions.push(
+            spl_token::instruction::mint_to(
+                &spl_token::id(),
+                &mint_pubkey,
+                &ata,
+                &payer_pubkey,
+                &[],
+                initial_supply,
+            ).map_err(|e| ToolError::permanent(format!("Failed to create mint instruction: {}", e)))?
+        );
+    }
+
+    // Create and sign transaction
+    let mut transaction = Transaction::new_with_payer(&instructions, Some(&payer_pubkey));
+    transaction.message.recent_blockhash = blockhash;
+
+    // Sign with both payer and mint keypair
+    let signed_tx = signer_context
+        .sign_transaction_with_additional_signers(transaction, vec![&mint_keypair])
+        .await
+        .map_err(|e| ToolError::permanent(format!("Failed to sign transaction: {}", e)))?;
+
+    // Send transaction
+    let signature = send_transaction(&client, &signed_tx).await?;
+
+    info!(
+        "Created SPL token mint {} with signature {}",
+        mint_pubkey, signature
+    );
+
+    Ok(CreateMintResult {
+        mint_address: mint_pubkey.to_string(),
+        decimals,
+        initial_supply,
+        freezable,
+        transaction_signature: signature.to_string(),
+        mint_authority: payer_pubkey.to_string(),
+        freeze_authority: freeze_authority.map(|a| a.to_string()),
+    })
 }
 
 

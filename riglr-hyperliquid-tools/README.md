@@ -144,12 +144,14 @@ See the `examples/` directory for complete usage examples:
 
 ## Development Status
 
-⚠️ **Note**: This is a development/simulation implementation. The actual order placement and management functions are currently simulated. For production use, you would need to:
+✅ **Production Ready**: This crate now includes full EIP-712 cryptographic signing for Hyperliquid operations:
 
-1. Implement actual Hyperliquid transaction signing
-2. Add proper L1 blockchain interaction
-3. Handle Hyperliquid-specific cryptographic operations
-4. Add production error handling and retry logic
+- **Real Trading**: Actual order placement and cancellation with proper EIP-712 signatures
+- **Secure Signing**: Full implementation of Hyperliquid's signing requirements (Arbitrum chain ID 42161)
+- **Safety Controls**: Requires explicit environment variables to enable real trading:
+  - `HYPERLIQUID_PRIVATE_KEY`: Your private key for signing
+  - `ENABLE_REAL_HYPERLIQUID_TRADING=true`: Must be set to enable real trades
+- **Error Handling**: Comprehensive error types with retriable vs permanent classification
 
 ## Architecture
 

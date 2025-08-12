@@ -4,37 +4,35 @@
 //! to create comprehensive processing pipelines for tool outputs.
 
 use anyhow::Result;
-// TODO: Fix imports when processors module exports are updated
-// use riglr_showcase::processors::{
-//     DistillationProcessor, MarkdownFormatter, HtmlFormatter, JsonFormatter,
-//     NotificationRouter, ProcessorPipeline, ToolOutput, OutputProcessor,
-//     RoutingRule, RoutingCondition, DiscordChannel, TelegramChannel,
-//     ConsoleChannel, MultiFormatProcessor,
-//     utils,
-// };
+use riglr_showcase::processors::{
+    DistillationProcessor, MarkdownFormatter, HtmlFormatter, JsonFormatter,
+    NotificationRouter, ProcessorPipeline, ToolOutput, OutputProcessor,
+    RoutingRule, RoutingCondition, DiscordChannel, TelegramChannel,
+    ConsoleChannel, MultiFormatProcessor,
+    utils,
+};
+use serde_json::json;
+use std::time::SystemTime;
 
 #[tokio::main]
 async fn main() -> Result<()> {
     println!("🚀 riglr Output Processing Examples");
     println!("===================================\n");
 
-    // TODO: Re-enable when processor imports are fixed
-    println!("📄 Example 1: Basic Formatting - [PLACEHOLDER]");
-    println!("🧠 Example 2: LLM Distillation - [PLACEHOLDER]");
-    println!("📢 Example 3: Notification Routing - [PLACEHOLDER]");  
-    println!("🔄 Example 4: Complete Processing Pipeline - [PLACEHOLDER]");
-    println!("❌ Example 5: Error Handling - [PLACEHOLDER]");
-
-    println!("📋 Example 6: Multi-format Output - [PLACEHOLDER]");
+    basic_formatting().await?;
+    llm_distillation().await?;
+    notification_routing().await?;  
+    complete_pipeline().await?;
+    error_handling().await?;
+    multi_format().await?;
 
     println!("✅ All examples completed successfully!");
     Ok(())
 }
 
-// TODO: Re-enable these functions when processor imports are fixed
-/*
-
-async fn await_basic_formatting() -> Result<()> {
+async fn basic_formatting() -> Result<()> {
+    println!("📄 Example 1: Basic Formatting");
+    println!("================================\n");
     // Create some sample tool outputs
     let balance_output = utils::success_output(
         "get_sol_balance",
@@ -94,7 +92,9 @@ async fn await_basic_formatting() -> Result<()> {
     Ok(())
 }
 
-async fn await_llm_distillation() -> Result<()> {
+async fn llm_distillation() -> Result<()> {
+    println!("\n📈 Example 2: LLM Distillation");
+    println!("================================");
     // Create a complex tool output that benefits from distillation
     let complex_output = utils::success_output(
         "analyze_defi_position",
@@ -147,7 +147,9 @@ async fn await_llm_distillation() -> Result<()> {
     Ok(())
 }
 
-async fn await_notification_routing() -> Result<()> {
+async fn notification_routing() -> Result<()> {
+    println!("\n📢 Example 3: Notification Routing");
+    println!("====================================");
     // Set up notification channels
     let discord_channel = DiscordChannel::new("https://discord.com/api/webhooks/dummy")
         .with_identity("RiglrBot", Some("https://example.com/avatar.png"));
@@ -218,7 +220,9 @@ async fn await_notification_routing() -> Result<()> {
     Ok(())
 }
 
-async fn await_complete_pipeline() -> Result<()> {
+async fn complete_pipeline() -> Result<()> {
+    println!("\n🔄 Example 4: Complete Processing Pipeline");
+    println!("==========================================");
     // Create a comprehensive processing pipeline
     let pipeline = ProcessorPipeline::new()
         .add(DistillationProcessor::new("gpt-4o-mini")) // First, distill the output
@@ -263,7 +267,9 @@ async fn await_complete_pipeline() -> Result<()> {
     Ok(())
 }
 
-async fn await_error_handling() -> Result<()> {
+async fn error_handling() -> Result<()> {
+    println!("\n❌ Example 5: Error Handling");
+    println!("===============================");
     // Test error handling with different error types
     let network_error = utils::error_output("get_price", "Connection timeout while fetching price data");
     let auth_error = utils::error_output("place_order", "Unauthorized: Invalid API key");
@@ -309,7 +315,9 @@ async fn await_error_handling() -> Result<()> {
     Ok(())
 }
 
-async fn await_multi_format() -> Result<()> {
+async fn multi_format() -> Result<()> {
+    println!("\n📋 Example 6: Multi-format Output");
+    println!("====================================");
     // Create a processor that outputs multiple formats simultaneously
     let multi_processor = MultiFormatProcessor::standard_formats();
 
@@ -416,5 +424,3 @@ mod integration_tests {
         assert!(result.summary.is_some()); // Should have error summary
         assert!(!result.original.success); // Original error state preserved
     }
-}
-*/

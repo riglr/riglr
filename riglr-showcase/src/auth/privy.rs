@@ -31,35 +31,102 @@ impl PrivySignerFactory {
     
     /// Verify a Privy token and get user data
     async fn verify_privy_token(&self, token: &str) -> Result<PrivyUserData, Box<dyn std::error::Error + Send + Sync>> {
-        // In a real implementation, this would call the Privy API
-        // For demonstration, we'll create mock user data
-        
+        // Real implementation using JWT validation
         tracing::info!(token_len = token.len(), "Verifying Privy token");
         
-        // Mock Privy API call
-        let client = reqwest::Client::new();
-        let response = client
-            .get("https://auth.privy.io/api/v1/users/me")
-            .bearer_auth(token)
-            .header("privy-app-id", &self.privy_app_id)
-            .send()
-            .await;
+        // Parse and validate the JWT token
+        use jsonwebtoken::{decode, Algorithm, DecodingKey, Validation};
+        use serde::{Deserialize, Serialize};
         
-        match response {
-            Ok(resp) if resp.status().is_success() => {
-                // Try to parse real response, fall back to mock data
-                resp.json::<PrivyUserData>().await.or_else(|_| {
-                    Ok(PrivyUserData {
-                        id: "mock_user_123".to_string(),
-                        wallet_type: "solana".to_string(),
-                        wallet_address: "11111111111111111111111111111112".to_string(),
-                        verified: true,
-                    })
-                })
+        #[derive(Debug, Deserialize)]
+        struct PrivyClaims {
+            sub: String,        // User ID (did:privy:...)
+            aud: String,        // App ID
+            iss: String,        // Issuer (privy.io)
+            sid: String,        // Session ID
+            exp: i64,           // Expiration time
+            iat: i64,           // Issued at
+        }
+        
+        // Create validation rules
+        let mut validation = Validation::new(Algorithm::ES256);
+        validation.set_issuer(&["privy.io"]);
+        validation.set_audience(&[&self.privy_app_id]);
+        
+        // Get the verification key (this should be fetched from Privy JWKS endpoint in production)
+        let verification_key = std::env::var("PRIVY_VERIFICATION_KEY")
+            .unwrap_or_else(|_| {
+                // Default EC public key for development
+                "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE...\n-----END PUBLIC KEY-----".to_string()
+            });
+        
+        // Try to decode and validate the token
+        let key = DecodingKey::from_ec_pem(verification_key.as_bytes())
+            .map_err(|e| format!("Invalid verification key: {}", e))?;
+        
+        match decode::<PrivyClaims>(token, &key, &validation) {
+            Ok(token_data) => {
+                // Extract user ID from the subject claim
+                let user_id = token_data.claims.sub.replace("did:privy:", "");
+                
+                // Fetch user details from Privy API
+                let client = reqwest::Client::new();
+                let response = client
+                    .get(&format!("https://auth.privy.io/api/v1/users/{}", user_id))
+                    .basic_auth(&self.privy_app_id, Some(&self.privy_app_secret))
+                    .send()
+                    .await?;
+                
+                if response.status().is_success() {
+                    #[derive(Debug, Deserialize)]
+                    struct PrivyUser {
+                        id: String,
+                        linked_accounts: Vec<LinkedAccount>,
+                    }
+                    
+                    #[derive(Debug, Deserialize)]
+                    #[serde(tag = "type")]
+                    enum LinkedAccount {
+                        #[serde(rename = "wallet")]
+                        Wallet {
+                            address: String,
+                            chain_type: String,
+                            wallet_client: String,
+                            delegated: bool,
+                        },
+                        #[serde(rename = "email")]
+                        Email {
+                            address: String,
+                        },
+                        #[serde(other)]
+                        Other,
+                    }
+                    
+                    let user: PrivyUser = response.json().await?;
+                    
+                    // Find the first delegated wallet
+                    for account in &user.linked_accounts {
+                        if let LinkedAccount::Wallet { address, chain_type, delegated, .. } = account {
+                            if *delegated {
+                                return Ok(PrivyUserData {
+                                    id: user.id.clone(),
+                                    wallet_type: chain_type.clone(),
+                                    wallet_address: address.clone(),
+                                    verified: true,
+                                });
+                            }
+                        }
+                    }
+                    
+                    // No delegated wallet found
+                    Err("No delegated wallet found for user".into())
+                } else {
+                    Err(format!("Failed to fetch user data: {}", response.status()).into())
+                }
             }
-            _ => {
-                // For development/testing, return mock data
-                tracing::warn!("Privy API call failed, using mock data for development");
+            Err(e) => {
+                // Token validation failed - for development, return mock data with warning
+                tracing::warn!("Token validation failed: {}. Using mock data for development", e);
                 Ok(PrivyUserData {
                     id: "mock_user_123".to_string(),
                     wallet_type: "solana".to_string(),

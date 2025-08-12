@@ -39,6 +39,21 @@ pub mod distiller;
 pub mod formatter;
 pub mod notifier;
 
+// Create pipeline alias for easier use
+pub use crate::processors::ProcessorPipeline;
+
+// Re-export notification types as they're named differently in the sub-module
+pub use notifier::{
+    NotificationRouter, RoutingRule, RoutingCondition,
+    DiscordChannel, TelegramChannel, ConsoleChannel
+};
+
+// Re-export formatter types
+pub use formatter::{MarkdownFormatter, HtmlFormatter, JsonFormatter, MultiFormatProcessor};
+
+// Re-export distiller types  
+pub use distiller::{DistillationProcessor};
+
 use anyhow::Result;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};

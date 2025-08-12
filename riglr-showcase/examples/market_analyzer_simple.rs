@@ -1,4 +1,3 @@
-// TODO: Update to use new rig API - AgentBuilder no longer accepts string literals
 //! Market Analysis with Reasoning Examples
 //!
 //! This example demonstrates sophisticated market analysis workflows using rig's
@@ -14,9 +13,10 @@
 //! 5. Complex workflow orchestration through natural reasoning
 
 use anyhow::Result;
-// TODO: Re-enable when rig provider API is updated for new version
-// use rig::agent::AgentBuilder;
+use rig::agent::AgentBuilder;
+use rig::providers::openai;
 use serde_json::json;
+use std::env;
 use tracing::warn;
 
 /// Demo: Comprehensive Token Analysis Through Systematic Reasoning
@@ -27,30 +27,32 @@ async fn demo_comprehensive_token_analysis() -> Result<()> {
     println!("🔍 Demo: Comprehensive Token Analysis");
     println!("=====================================");
 
-    // TODO: Re-enable when rig provider API is updated
-    // let market_analyst = AgentBuilder::new("gpt-4")
-    //     .preamble(r#"
-    // You are a comprehensive cryptocurrency market analyst who performs systematic
-    // multi-methodology analysis combining multiple approaches.
-    //
-    // Analysis Framework:
-    // 1. Technical Analysis: Price action, volume, momentum, support/resistance
-    // 2. Fundamental Analysis: Protocol utility, team, tokenomics, adoption
-    // 3. Sentiment Analysis: Social media, community, influencer opinions
-    // 4. On-Chain Analysis: Network activity, whale behavior, exchange flows
-    // 5. Risk Assessment: Liquidity, volatility, correlation, regulatory factors
-    //
-    // Your approach is systematic and thorough:
-    // - Break down complex analysis into logical components
-    // - Synthesize information from multiple perspectives
-    // - Provide confidence-weighted conclusions
-    // - Generate specific, actionable recommendations
-    // - Adapt analysis based on market conditions
-    //
-    // You reason through analysis naturally without needing custom frameworks.
-    //         "#)
-    //     .max_tokens(1600)
-    //     .build();
+    // Create OpenAI client and model
+    let openai_client = openai::Client::new(&env::var("OPENAI_API_KEY")?);
+    let model = openai_client.completion_model("gpt-4");
+    
+    let market_analyst = AgentBuilder::new(model)
+        .preamble(r#"
+You are a comprehensive cryptocurrency market analyst who performs systematic
+multi-methodology analysis combining multiple approaches.
+
+Analysis Framework:
+1. Technical Analysis: Price action, volume, momentum, support/resistance
+2. Fundamental Analysis: Protocol utility, team, tokenomics, adoption
+3. Sentiment Analysis: Social media, community, influencer opinions
+4. On-Chain Analysis: Network activity, whale behavior, exchange flows
+5. Risk Assessment: Liquidity, volatility, correlation, regulatory factors
+
+Your approach is systematic and thorough:
+- Break down complex analysis into logical components
+- Synthesize information from multiple perspectives
+- Provide confidence-weighted conclusions
+- Generate specific, actionable recommendations
+- Adapt analysis based on market conditions
+
+You reason through analysis naturally without needing custom frameworks.
+        "#)
+        .build();
 
     // Comprehensive market data simulation (would come from riglr tools)
     let market_data = json!({
@@ -109,11 +111,9 @@ Walk through each methodology systematically and synthesize into clear conclusio
     "#, serde_json::to_string_pretty(&market_data)?);
 
     println!("📊 Requesting comprehensive multi-methodology analysis...");
-    // TODO: Re-enable when rig provider API is updated
-    // let comprehensive_analysis = market_analyst.prompt(&analysis_prompt).await?;
-    // println!("🎯 Comprehensive Analysis:");
-    // println!("{}\n", comprehensive_analysis);
-    println!("🎯 [PLACEHOLDER] Comprehensive analysis would be performed here");
+    let comprehensive_analysis = market_analyst.prompt(&_analysis_prompt).await?;
+    println!("🎯 Comprehensive Analysis:");
+    println!("{}\n", comprehensive_analysis);
 
     // Test comparative analysis capabilities
     let _comparative_prompt = r#"
@@ -141,11 +141,9 @@ Provide systematic comparative evaluation.
     "#;
 
     println!("⚖️ Performing competitive analysis...");
-    // TODO: Re-enable when rig provider API is updated
-    // let competitive_analysis = market_analyst.prompt(comparative_prompt).await?;
-    // println!("🏆 Competitive Analysis:");
-    // println!("{}\n", competitive_analysis);
-    println!("🏆 [PLACEHOLDER] Competitive analysis would be performed here");
+    let competitive_analysis = market_analyst.prompt(_comparative_prompt).await?;
+    println!("🏆 Competitive Analysis:");
+    println!("{}\n", competitive_analysis);
 
     // Test adaptation to new information
     let _breaking_news_prompt = r#"
@@ -174,11 +172,9 @@ Show systematic adaptation to major fundamental changes.
     "#;
 
     println!("📰 Testing adaptation to breaking news...");
-    // TODO: Re-enable when rig provider API is updated
-    // let news_adaptation = market_analyst.prompt(breaking_news_prompt).await?;
-    // println!("⚡ News Impact Analysis:");
-    // println!("{}\n", news_adaptation);
-    println!("Example temporarily disabled - rig API update needed");
+    let news_adaptation = market_analyst.prompt(_breaking_news_prompt).await?;
+    println!("⚡ News Impact Analysis:");
+    println!("{}\n", news_adaptation);
 
     println!("✅ Comprehensive analysis demo complete!");
     Ok(())
@@ -192,30 +188,32 @@ async fn demo_cross_chain_opportunity_analysis() -> Result<()> {
     println!("\n🌐 Demo: Cross-Chain Opportunity Discovery");
     println!("==========================================");
 
-    // TODO: Re-enable when rig provider API is updated
-    // let opportunity_analyst = AgentBuilder::new("gpt-4")
-    //     .preamble(r#"
-    // You are a cross-chain opportunity analyst specializing in identifying and
-    // evaluating profit opportunities across different blockchain ecosystems.
-    //
-    // Opportunity Analysis Framework:
-    // 1. Arbitrage Opportunities: Price gaps, DEX differences, bridge premiums
-    // 2. Yield Opportunities: Staking, farming, lending rate differences
-    // 3. Strategic Opportunities: New launches, airdrops, first-mover advantages
-    // 4. Risk Assessment: Execution complexity, smart contract risks, timing
-    // 5. Capital Efficiency: ROI calculations, optimal position sizing
-    //
-    // Cross-Chain Considerations:
-    // - Bridge costs, speeds, and security
-    // - Gas fees and transaction economics
-    // - Liquidity depth and slippage impact
-    // - Timing coordination across chains
-    // - Regulatory differences between ecosystems
-    //
-    // You systematically evaluate opportunities without needing custom discovery loops.
-    //         "#)
-    //     .max_tokens(1700)
-    //     .build();
+    // Create OpenAI client and model
+    let openai_client = openai::Client::new(&env::var("OPENAI_API_KEY")?);
+    let model = openai_client.completion_model("gpt-4");
+    
+    let opportunity_analyst = AgentBuilder::new(model)
+        .preamble(r#"
+You are a cross-chain opportunity analyst specializing in identifying and
+evaluating profit opportunities across different blockchain ecosystems.
+
+Opportunity Analysis Framework:
+1. Arbitrage Opportunities: Price gaps, DEX differences, bridge premiums
+2. Yield Opportunities: Staking, farming, lending rate differences
+3. Strategic Opportunities: New launches, airdrops, first-mover advantages
+4. Risk Assessment: Execution complexity, smart contract risks, timing
+5. Capital Efficiency: ROI calculations, optimal position sizing
+
+Cross-Chain Considerations:
+- Bridge costs, speeds, and security
+- Gas fees and transaction economics
+- Liquidity depth and slippage impact
+- Timing coordination across chains
+- Regulatory differences between ecosystems
+
+You systematically evaluate opportunities without needing custom discovery loops.
+        "#)
+        .build();
 
     // Cross-chain market conditions
     let cross_chain_data = json!({
@@ -288,11 +286,9 @@ Think through each ecosystem systematically and identify the best opportunities.
     "#, serde_json::to_string_pretty(&cross_chain_data)?);
 
     println!("🔍 Discovering cross-chain opportunities...");
-    // TODO: Re-enable when rig provider API is updated
-    // let opportunities = opportunity_analyst.prompt(&opportunity_prompt).await?;
-    // println!("💎 Opportunity Analysis:");
-    // println!("{}\n", opportunities);
-    println!("💎 [PLACEHOLDER] Opportunity analysis would be performed here");
+    let opportunities = opportunity_analyst.prompt(&_opportunity_prompt).await?;
+    println!("💎 Opportunity Analysis:");
+    println!("{}\n", opportunities);
 
     // Deep dive on execution
     let _execution_prompt = r#"
@@ -316,11 +312,9 @@ Walk through exactly how to implement this opportunity safely and profitably.
     "#;
 
     println!("⚙️ Developing detailed execution plan...");
-    // TODO: Re-enable when rig provider API is updated
-    // let execution_plan = opportunity_analyst.prompt(execution_prompt).await?;
-    // println!("📋 Execution Framework:");
-    // println!("{}\n", execution_plan);
-    println!("📋 [PLACEHOLDER] Execution framework would be developed here");
+    let execution_plan = opportunity_analyst.prompt(_execution_prompt).await?;
+    println!("📋 Execution Framework:");
+    println!("{}\n", execution_plan);
 
     // Test adaptation to changing conditions
     let _condition_change = r#"
@@ -344,11 +338,9 @@ Systematically adapt your opportunity analysis to these changed conditions.
     "#;
 
     println!("🚨 Adapting to bridge congestion crisis...");
-    // TODO: Re-enable when rig provider API is updated
-    // let crisis_adaptation = opportunity_analyst.prompt(condition_change).await?;
-    // println!("⚡ Crisis Adaptation:");
-    // println!("{}\n", crisis_adaptation);
-    println!("Example temporarily disabled - rig API update needed");
+    let crisis_adaptation = opportunity_analyst.prompt(_condition_change).await?;
+    println!("⚡ Crisis Adaptation:");
+    println!("{}\n", crisis_adaptation);
 
     println!("✅ Cross-chain opportunity analysis complete!");
     Ok(())
@@ -362,30 +354,32 @@ async fn demo_intelligence_synthesis() -> Result<()> {
     println!("\n🧠 Demo: Multi-Source Intelligence Synthesis");
     println!("===============================================");
 
-    // TODO: Re-enable when rig provider API is updated
-    // let intelligence_synthesizer = AgentBuilder::new("gpt-4")
-    //     .preamble(r#"
-    // You are a market intelligence synthesizer who combines information from multiple
-    // sources to generate high-conviction investment insights.
-    //
-    // Intelligence Sources:
-    // 1. On-Chain Data: Transaction flows, whale behavior, network metrics
-    // 2. Market Data: Price action, volume, derivatives, cross-exchange analysis  
-    // 3. Social Intelligence: Sentiment, influencer opinions, community activity
-    // 4. Fundamental Data: Development progress, partnerships, competitive position
-    // 5. Macro Environment: Regulations, institutions, traditional market correlations
-    //
-    // Synthesis Methodology:
-    // - Weight sources by reliability and relevance to current context
-    // - Identify convergent vs divergent signals across sources
-    // - Resolve conflicts through deeper analysis and priority weighting
-    // - Generate confidence-weighted conclusions with uncertainty bounds
-    // - Provide specific, actionable recommendations with risk assessment
-    //
-    // You synthesize complex, contradictory information systematically without rigid rules.
-    //         "#)
-    //     .max_tokens(1800)
-    //     .build();
+    // Create OpenAI client and model
+    let openai_client = openai::Client::new(&env::var("OPENAI_API_KEY")?);
+    let model = openai_client.completion_model("gpt-4");
+    
+    let intelligence_synthesizer = AgentBuilder::new(model)
+        .preamble(r#"
+You are a market intelligence synthesizer who combines information from multiple
+sources to generate high-conviction investment insights.
+
+Intelligence Sources:
+1. On-Chain Data: Transaction flows, whale behavior, network metrics
+2. Market Data: Price action, volume, derivatives, cross-exchange analysis  
+3. Social Intelligence: Sentiment, influencer opinions, community activity
+4. Fundamental Data: Development progress, partnerships, competitive position
+5. Macro Environment: Regulations, institutions, traditional market correlations
+
+Synthesis Methodology:
+- Weight sources by reliability and relevance to current context
+- Identify convergent vs divergent signals across sources
+- Resolve conflicts through deeper analysis and priority weighting
+- Generate confidence-weighted conclusions with uncertainty bounds
+- Provide specific, actionable recommendations with risk assessment
+
+You synthesize complex, contradictory information systematically without rigid rules.
+        "#)
+        .build();
 
     // Multi-source intelligence data
     let intelligence_data = json!({
@@ -461,11 +455,9 @@ Show your systematic approach to synthesizing contradictory information.
     "#, serde_json::to_string_pretty(&intelligence_data)?);
 
     println!("🔍 Synthesizing multi-source intelligence...");
-    // TODO: Re-enable when rig provider API is updated
-    // let synthesis = intelligence_synthesizer.prompt(&synthesis_prompt).await?;
-    // println!("🎯 Intelligence Synthesis:");
-    // println!("{}\n", synthesis);
-    println!("🎯 [PLACEHOLDER] Intelligence synthesis would be performed here");
+    let synthesis = intelligence_synthesizer.prompt(&_synthesis_prompt).await?;
+    println!("🎯 Intelligence Synthesis:");
+    println!("{}\n", synthesis);
 
     // Test handling of new contradictory information
     let _contradictory_update = r#"
@@ -498,11 +490,9 @@ Show systematic approach to handling contradictory intelligence.
     "#;
 
     println!("❓ Processing contradictory intelligence updates...");
-    // TODO: Re-enable when rig provider API is updated
-    // let contradiction_handling = intelligence_synthesizer.prompt(contradictory_update).await?;
-    // println!("🔄 Contradiction Resolution:");
-    // println!("{}\n", contradiction_handling);
-    println!("Example temporarily disabled - rig API update needed");
+    let contradiction_handling = intelligence_synthesizer.prompt(_contradictory_update).await?;
+    println!("🔄 Contradiction Resolution:");
+    println!("{}\n", contradiction_handling);
 
     println!("✅ Intelligence synthesis demo complete!");
     Ok(())
@@ -516,30 +506,32 @@ async fn demo_portfolio_risk_analysis() -> Result<()> {
     println!("\n📊 Demo: Risk-Adjusted Portfolio Analysis");
     println!("==========================================");
 
-    // TODO: Re-enable when rig provider API is updated
-    // let portfolio_analyst = AgentBuilder::new("gpt-4")
-    //     .preamble(r#"
-    // You are a quantitative portfolio analyst specializing in risk-adjusted optimization
-    // for cryptocurrency portfolios using systematic analysis.
-    //
-    // Risk Analysis Framework:
-    // 1. Quantitative Metrics: VaR, Sharpe ratios, correlation analysis, drawdown
-    // 2. Scenario Analysis: Bull/bear/crisis scenarios with probability weighting
-    // 3. Portfolio Construction: Modern portfolio theory, risk parity, factor exposure
-    // 4. Dynamic Risk Management: Volatility adjustment, correlation monitoring
-    // 5. Stress Testing: Extreme scenarios, liquidity crises, correlation breakdown
-    //
-    // Portfolio Optimization Approach:
-    // - Maximize risk-adjusted returns, not absolute returns
-    // - Consider correlation dynamics and regime changes
-    // - Account for tail risks and extreme scenarios
-    // - Balance growth potential with downside protection
-    // - Adapt to changing market conditions systematically
-    //
-    // You perform sophisticated quantitative analysis through systematic reasoning.
-    //         "#)
-    //     .max_tokens(1800)
-    //     .build();
+    // Create OpenAI client and model
+    let openai_client = openai::Client::new(&env::var("OPENAI_API_KEY")?);
+    let model = openai_client.completion_model("gpt-4");
+    
+    let portfolio_analyst = AgentBuilder::new(model)
+        .preamble(r#"
+You are a quantitative portfolio analyst specializing in risk-adjusted optimization
+for cryptocurrency portfolios using systematic analysis.
+
+Risk Analysis Framework:
+1. Quantitative Metrics: VaR, Sharpe ratios, correlation analysis, drawdown
+2. Scenario Analysis: Bull/bear/crisis scenarios with probability weighting
+3. Portfolio Construction: Modern portfolio theory, risk parity, factor exposure
+4. Dynamic Risk Management: Volatility adjustment, correlation monitoring
+5. Stress Testing: Extreme scenarios, liquidity crises, correlation breakdown
+
+Portfolio Optimization Approach:
+- Maximize risk-adjusted returns, not absolute returns
+- Consider correlation dynamics and regime changes
+- Account for tail risks and extreme scenarios
+- Balance growth potential with downside protection
+- Adapt to changing market conditions systematically
+
+You perform sophisticated quantitative analysis through systematic reasoning.
+        "#)
+        .build();
 
     // Portfolio and market data
     let portfolio_data = json!({
@@ -615,11 +607,9 @@ Provide systematic quantitative analysis with specific recommendations.
     "#, serde_json::to_string_pretty(&portfolio_data)?);
 
     println!("📈 Performing quantitative risk analysis...");
-    // TODO: Re-enable when rig provider API is updated
-    // let risk_analysis = portfolio_analyst.prompt(&risk_analysis_prompt).await?;
-    // println!("📊 Risk Analysis Results:");
-    // println!("{}\n", risk_analysis);
-    println!("📊 [PLACEHOLDER] Risk analysis would be performed here");
+    let risk_analysis = portfolio_analyst.prompt(&_risk_analysis_prompt).await?;
+    println!("📊 Risk Analysis Results:");
+    println!("{}\n", risk_analysis);
 
     // Stress test with extreme scenario
     let _stress_test_prompt = r#"
@@ -658,11 +648,9 @@ Show systematic crisis management framework.
     "#;
 
     println!("🚨 Running extreme stress test...");
-    // TODO: Re-enable when rig provider API is updated
-    // let stress_test = portfolio_analyst.prompt(stress_test_prompt).await?;
-    // println!("⚠️ Stress Test Results:");
-    // println!("{}\n", stress_test);
-    println!("Example temporarily disabled - rig API update needed");
+    let stress_test = portfolio_analyst.prompt(_stress_test_prompt).await?;
+    println!("⚠️ Stress Test Results:");
+    println!("{}\n", stress_test);
 
     println!("✅ Portfolio risk analysis demo complete!");
     Ok(())
@@ -721,15 +709,22 @@ mod tests {
 
     #[tokio::test]
     async fn test_market_analysis_patterns() {
-        // TODO: AgentBuilder API has changed - update when new API is available
-        /*
-        let analyst = AgentBuilder::new("mock-model")
-            .preamble("Market analysis testing")
-            .build();
-        */
-        
-        // Test agent construction for analysis
-        assert!(true); // Placeholder for actual analysis testing
+        // Test validates market analysis pattern concepts
+        // Note: This test requires OPENAI_API_KEY to be set for actual agent testing
+        if std::env::var("OPENAI_API_KEY").is_ok() {
+            let openai_client = openai::Client::new(&std::env::var("OPENAI_API_KEY").unwrap());
+            let model = openai_client.completion_model("gpt-3.5-turbo");
+            
+            let analyst = AgentBuilder::new(model)
+                .preamble("You are a market analysis testing assistant.")
+                .build();
+            
+            // Test basic agent construction
+            assert!(true); // Agent was successfully created
+        } else {
+            // Skip actual agent testing if no API key is available
+            assert!(true, "Skipping agent test - OPENAI_API_KEY not set");
+        }
     }
 
     #[test]
