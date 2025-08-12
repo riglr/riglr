@@ -603,12 +603,11 @@ pub async fn create_token_with_mint_keypair(
     let signer = SignerContext::current().await
         .map_err(|e| ToolError::permanent(format!("No signer context: {}", e)))?;
     
-    // Note: In a real implementation, we would need to extract the keypair
-    // from the signer's private key or use a different signing approach.
-    // For now, we'll create a mock keypair for the transaction structure
-    let payer = Keypair::new(); // Placeholder - should come from signer
+    // Get the payer keypair from the signer context
+    let payer_keypair = signer.solana_keypair()
+        .map_err(|e| ToolError::permanent(format!("Failed to get Solana keypair from signer: {}", e)))?;
     
-    let mut transaction = Transaction::new_with_payer(&instructions, Some(&payer.pubkey()));
+    let mut transaction = Transaction::new_with_payer(&instructions, Some(&payer_keypair.pubkey()));
     
     // Get recent blockhash
     let rpc_client = signer.solana_client();
