@@ -19,6 +19,24 @@ pub enum SignerError {
     
     #[error("Client creation error: {0}")]
     ClientCreation(String),
+    
+    #[error("Invalid private key: {0}")]
+    InvalidPrivateKey(String),
+    
+    #[error("Provider error: {0}")]
+    ProviderError(String),
+    
+    #[error("Transaction failed: {0}")]
+    TransactionFailed(String),
+    
+    #[error("Unsupported operation: {0}")]
+    UnsupportedOperation(String),
+    
+    #[error("Blockhash error: {0}")]
+    BlockhashError(String),
+    
+    #[error("Signing error: {0}")]
+    SigningError(String),
 }
 
 impl From<solana_sdk::signer::SignerError> for SignerError {
