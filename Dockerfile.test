@@ -1,0 +1,24 @@
+# Dockerfile for running tests in a containerized environment
+FROM rust:1.75
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    pkg-config \
+    libssl-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set working directory
+WORKDIR /app
+
+# Copy source code
+COPY . .
+
+# Build dependencies (cache layer)
+RUN cargo build --workspace --all-features
+
+# Set environment variables for testing
+ENV RUST_BACKTRACE=1
+ENV CARGO_TERM_COLOR=always
+
+# Default command
+CMD ["cargo", "test", "--workspace", "--all-features"]
