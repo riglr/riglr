@@ -44,8 +44,8 @@ riglr-hyperliquid-tools = "0.1.0"
 {% endif %}
 
 {% if include-server -%}
-# HTTP server for API endpoints
-riglr-server = "0.1.0"
+# Web adapters for serving agents over HTTP
+riglr-web-adapters = "0.1.0"
 actix-web = "4.0"
 actix-web-lab = "0.20"
 {% endif %}

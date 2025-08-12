@@ -1,12 +1,12 @@
 [workspace]
 members = [
     "riglr-core",
-    "riglr-macros", 
+    "riglr-macros",
     "riglr-solana-tools",
     "riglr-evm-tools",
     "riglr-web-tools",
     "riglr-graph-memory",
-    "riglr-server",
+    "riglr-web-adapters",
     "riglr-showcase",
     "riglr-hyperliquid-tools",
     "riglr-cross-chain-tools"
@@ -30,6 +30,7 @@ riglr-solana-tools = { path = "riglr-solana-tools" }
 riglr-evm-tools = { path = "riglr-evm-tools" }
 riglr-web-tools = { path = "riglr-web-tools" }
 riglr-graph-memory = { path = "riglr-graph-memory" }
+riglr-web-adapters = { path = "riglr-web-adapters" }
 
 # Async and concurrency
 tokio = { version = "1", features = ["full"] }
