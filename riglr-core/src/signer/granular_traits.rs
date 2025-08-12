@@ -96,8 +96,13 @@ pub trait MultiChainSigner: SignerBase {
 /// Enum representing supported blockchain types
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Chain {
+    /// Solana blockchain
     Solana,
-    Evm { chain_id: u64 },
+    /// EVM-compatible blockchain with the specified chain ID
+    Evm { 
+        /// The numeric chain identifier for this EVM network
+        chain_id: u64 
+    },
 }
 
 /// Unified signer trait that can represent any type of signer
@@ -121,10 +126,12 @@ pub trait UnifiedSigner: SignerBase {
 
 /// Adapter to wrap TransactionSigner for use with granular traits
 pub struct LegacySignerAdapter<T: super::traits::TransactionSigner + 'static> {
+    /// The wrapped legacy transaction signer
     inner: Arc<T>,
 }
 
 impl<T: super::traits::TransactionSigner + 'static> LegacySignerAdapter<T> {
+    /// Create a new adapter wrapping the given legacy signer
     pub fn new(inner: Arc<T>) -> Self {
         Self { inner }
     }

@@ -33,21 +33,32 @@ pub enum ConnectionState {
 /// Connection health metrics
 #[derive(Debug, Clone)]
 pub struct ConnectionHealth {
+    /// Current state of the connection
     pub state: ConnectionState,
+    /// Timestamp when the connection was established
     pub connected_at: Option<Instant>,
+    /// Timestamp of the last activity on this connection
     pub last_activity: Option<Instant>,
+    /// Total number of reconnection attempts made
     pub total_reconnects: usize,
+    /// Number of consecutive failures experienced
     pub consecutive_failures: usize,
+    /// Current latency in milliseconds, if available
     pub latency_ms: Option<u64>,
 }
 
 /// Circuit breaker for connection management
 #[derive(Debug)]
 pub struct CircuitBreaker {
+    /// Configuration for connection behavior
     config: ConnectionConfig,
+    /// Current atomic state of the circuit breaker
     state: AtomicConnectionState,
+    /// Atomic counter for consecutive failures
     failure_count: AtomicUsize,
+    /// Timestamp of the last connection failure
     last_failure: Mutex<Option<Instant>>,
+    /// Timestamp of the last successful connection
     last_success: Mutex<Option<Instant>>,
 }
 
@@ -57,12 +68,14 @@ struct AtomicConnectionState {
 }
 
 impl AtomicConnectionState {
+    /// Creates a new atomic connection state with the given initial state
     fn new(state: ConnectionState) -> Self {
         Self {
             state: AtomicUsize::new(state as usize),
         }
     }
 
+    /// Loads the current connection state atomically
     fn load(&self) -> ConnectionState {
         match self.state.load(Ordering::Acquire) {
             0 => ConnectionState::Connected,
@@ -74,10 +87,12 @@ impl AtomicConnectionState {
         }
     }
 
+    /// Stores a new connection state atomically
     fn store(&self, state: ConnectionState) {
         self.state.store(state as usize, Ordering::Release);
     }
 
+    /// Atomically compares and exchanges the connection state
     fn compare_exchange(
         &self,
         current: ConnectionState,
@@ -103,6 +118,7 @@ impl AtomicConnectionState {
 }
 
 impl CircuitBreaker {
+    /// Creates a new circuit breaker with the given configuration
     pub fn new(config: ConnectionConfig) -> Self {
         Self {
             config,
@@ -113,10 +129,14 @@ impl CircuitBreaker {
         }
     }
 
+    /// Returns the current state of the circuit breaker
     pub fn state(&self) -> ConnectionState {
         self.state.load()
     }
 
+    /// Attempts to establish a connection using the provided function
+    /// 
+    /// Respects circuit breaker state and implements backoff logic
     pub async fn attempt_connect<F, Fut, T>(&self, connect_fn: F) -> StreamResult<T>
     where
         F: Fn() -> Fut,
@@ -197,6 +217,7 @@ impl CircuitBreaker {
         }
     }
 
+    /// Marks the connection as explicitly disconnected
     pub fn mark_disconnected(&self) {
         self.state.store(ConnectionState::Disconnected);
     }
@@ -213,9 +234,13 @@ impl CircuitBreaker {
 
 /// Connection manager with automatic reconnection
 pub struct ConnectionManager<T> {
+    /// Circuit breaker for connection failure handling
     circuit_breaker: Arc<CircuitBreaker>,
+    /// The managed connection, if active
     connection: Arc<RwLock<Option<T>>>,
+    /// Health metrics and status of the connection
     health: Arc<RwLock<ConnectionHealth>>,
+    /// Flag indicating if reconnection monitoring is active
     reconnect_task: Arc<AtomicBool>,
 }
 
@@ -223,6 +248,7 @@ impl<T> ConnectionManager<T>
 where
     T: Send + Sync + 'static,
 {
+    /// Creates a new connection manager with the given configuration
     pub fn new(config: ConnectionConfig) -> Self {
         Self {
             circuit_breaker: Arc::new(CircuitBreaker::new(config)),
@@ -239,6 +265,9 @@ where
         }
     }
 
+    /// Establishes a connection using the provided function
+    /// 
+    /// Starts background monitoring for automatic reconnection
     pub async fn connect<F, Fut>(&self, connect_fn: F) -> StreamResult<()>
     where
         F: Fn() -> Fut + Send + Sync + 'static + Clone,
@@ -258,6 +287,7 @@ where
         Ok(())
     }
 
+    /// Returns a clone of the current connection, if available
     pub async fn get_connection(&self) -> Option<T>
     where
         T: Clone,
@@ -266,6 +296,9 @@ where
         connection_guard.as_ref().cloned()
     }
 
+    /// Executes a function with the current connection
+    /// 
+    /// Updates activity tracking when the connection is accessed
     pub async fn with_connection<F, R>(&self, f: F) -> StreamResult<R>
     where
         F: FnOnce(&T) -> R,
@@ -280,10 +313,12 @@ where
         Ok(f(&connection))
     }
 
+    /// Returns the current health status of the connection
     pub async fn health(&self) -> ConnectionHealth {
         self.health.read().await.clone()
     }
 
+    /// Disconnects and stops monitoring the connection
     pub async fn disconnect(&self) {
         *self.connection.write().await = None;
         self.circuit_breaker.mark_disconnected();
@@ -371,8 +406,11 @@ where
 /// Connection pool for managing multiple connections
 #[allow(dead_code)]
 pub struct ConnectionPool<T> {
+    /// Collection of managed connections in the pool
     connections: Vec<ConnectionManager<T>>,
+    /// Configuration applied to all connections in the pool
     config: ConnectionConfig,
+    /// Current index for round-robin connection selection
     current_index: AtomicUsize,
 }
 
@@ -380,6 +418,7 @@ impl<T> ConnectionPool<T>
 where
     T: Send + Sync + 'static + Clone,
 {
+    /// Creates a new connection pool with the specified size and configuration
     pub fn new(config: ConnectionConfig, pool_size: usize) -> Self {
         let connections = (0..pool_size)
             .map(|_| ConnectionManager::new(config.clone()))
@@ -392,6 +431,7 @@ where
         }
     }
 
+    /// Attempts to connect all connections in the pool concurrently
     pub async fn connect_all<F, Fut>(&self, connect_fn: F) -> StreamResult<()>
     where
         F: Fn() -> Fut + Send + Sync + 'static + Clone,
@@ -417,6 +457,7 @@ where
         Ok(())
     }
 
+    /// Returns a healthy connection from the pool using round-robin selection
     pub async fn get_healthy_connection(&self) -> StreamResult<T> {
         let start_index = self.current_index.load(Ordering::Acquire);
 
@@ -440,6 +481,7 @@ where
         ))
     }
 
+    /// Returns health status for all connections in the pool
     pub async fn pool_health(&self) -> Vec<ConnectionHealth> {
         let mut health_reports = Vec::new();
 

@@ -7,14 +7,20 @@ use std::sync::Arc;
 use tracing::debug;
 
 /// Router for selecting agents based on routing strategies.
+#[derive(Default)]
 pub struct Router {
     strategy: RoutingStrategy,
     round_robin_counter: AtomicUsize,
 }
 
 impl Router {
+    /// Create a new router with default strategy.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
     /// Create a new router with the specified strategy.
-    pub fn new(strategy: RoutingStrategy) -> Self {
+    pub fn with_strategy(strategy: RoutingStrategy) -> Self {
         Self {
             strategy,
             round_robin_counter: AtomicUsize::default(),
@@ -97,7 +103,7 @@ impl Router {
         use std::hash::{Hash, Hasher};
 
         // Use current time as seed for pseudo-randomness
-        let mut hasher = DefaultHasher::new();
+        let mut hasher = DefaultHasher::default();
         std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
@@ -179,7 +185,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_router_capability_strategy() {
-        let router = Router::new(RoutingStrategy::Capability);
+        let router = Router::with_strategy(RoutingStrategy::Capability);
 
         let agents = vec![
             Arc::new(MockAgent {
@@ -205,7 +211,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_router_round_robin_strategy() {
-        let router = Router::new(RoutingStrategy::RoundRobin);
+        let router = Router::with_strategy(RoutingStrategy::RoundRobin);
 
         let agents = vec![
             Arc::new(MockAgent {
@@ -231,7 +237,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_router_least_loaded_strategy() {
-        let router = Router::new(RoutingStrategy::LeastLoaded);
+        let router = Router::with_strategy(RoutingStrategy::LeastLoaded);
 
         let agents = vec![
             Arc::new(MockAgent {
@@ -255,7 +261,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_router_direct_strategy() {
-        let router = Router::new(RoutingStrategy::Direct);
+        let router = Router::with_strategy(RoutingStrategy::Direct);
 
         let agents = vec![
             Arc::new(MockAgent {
@@ -285,7 +291,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_router_random_strategy() {
-        let router = Router::new(RoutingStrategy::Random);
+        let router = Router::with_strategy(RoutingStrategy::Random);
 
         let agents = vec![
             Arc::new(MockAgent {
@@ -309,7 +315,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_router_empty_agents() {
-        let router = Router::new(RoutingStrategy::Capability);
+        let router = Router::with_strategy(RoutingStrategy::Capability);
         let agents: Vec<Arc<dyn Agent>> = vec![];
         let task = Task::new(TaskType::Trading, serde_json::json!({}));
 
@@ -319,7 +325,7 @@ mod tests {
 
     #[test]
     fn test_router_strategy_change() {
-        let mut router = Router::new(RoutingStrategy::Capability);
+        let mut router = Router::with_strategy(RoutingStrategy::Capability);
         assert_eq!(router.strategy(), RoutingStrategy::Capability);
 
         router.set_strategy(RoutingStrategy::LeastLoaded);

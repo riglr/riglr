@@ -1,3 +1,11 @@
+//! Performance benchmarks for riglr-core functionality.
+//!
+//! This module contains comprehensive benchmarks for testing the performance
+//! of various core operations including job creation and processing, queue operations,
+//! worker execution, idempotency management, and concurrent processing scenarios.
+
+#![allow(missing_docs)]
+
 use async_trait::async_trait;
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use riglr_core::{
@@ -43,6 +51,8 @@ impl Tool for TestTool {
     }
 }
 
+/// Benchmarks job creation operations including standard jobs, idempotent jobs,
+/// retry checking, and retry increment operations.
 fn job_creation_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("job_creation");
 
@@ -82,6 +92,8 @@ fn job_creation_benchmarks(c: &mut Criterion) {
     group.finish();
 }
 
+/// Benchmarks job result operations including success and failure result creation,
+/// transaction result creation, and result status checking.
 fn job_result_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("job_result");
 
@@ -112,6 +124,8 @@ fn job_result_benchmarks(c: &mut Criterion) {
     group.finish();
 }
 
+/// Benchmarks in-memory queue operations including enqueue, dequeue,
+/// queue length checking, and empty status verification.
 fn queue_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("queue_operations");
     let rt = Runtime::new().unwrap();
@@ -170,6 +184,8 @@ fn queue_benchmarks(c: &mut Criterion) {
     group.finish();
 }
 
+/// Benchmarks worker operations including worker creation, tool registration,
+/// job processing, and idempotent job processing.
 fn worker_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("worker_operations");
     let rt = Runtime::new().unwrap();
@@ -234,6 +250,8 @@ fn worker_benchmarks(c: &mut Criterion) {
     group.finish();
 }
 
+/// Benchmarks idempotency store operations including get, set, and remove
+/// operations on the in-memory idempotency store.
 fn idempotency_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("idempotency");
     let rt = Runtime::new().unwrap();
@@ -275,6 +293,8 @@ fn idempotency_benchmarks(c: &mut Criterion) {
     group.finish();
 }
 
+/// Benchmarks concurrent queue operations with varying numbers of workers
+/// to test performance under concurrent load.
 fn concurrent_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("concurrent_operations");
     let rt = Runtime::new().unwrap();
@@ -325,6 +345,8 @@ fn concurrent_benchmarks(c: &mut Criterion) {
     group.finish();
 }
 
+/// Benchmarks throughput performance with varying batch sizes to measure
+/// how the system scales with increasing job processing loads.
 fn throughput_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("throughput");
     let rt = Runtime::new().unwrap();
@@ -368,6 +390,8 @@ fn throughput_benchmarks(c: &mut Criterion) {
     group.finish();
 }
 
+/// Benchmarks Redis queue operations including enqueue and dequeue
+/// when Redis feature is enabled. Gracefully handles Redis unavailability.
 #[cfg(feature = "redis")]
 fn redis_queue_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("redis_queue");
@@ -444,6 +468,7 @@ fn redis_queue_benchmarks(c: &mut Criterion) {
     group.finish();
 }
 
+// Criterion benchmark group containing all core benchmark functions
 criterion_group!(
     benches,
     job_creation_benchmarks,
@@ -455,6 +480,7 @@ criterion_group!(
     throughput_benchmarks,
 );
 
+// Criterion benchmark group for Redis-specific benchmarks
 #[cfg(feature = "redis")]
 criterion_group!(redis_benches, redis_queue_benchmarks);
 

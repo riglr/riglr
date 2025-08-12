@@ -126,13 +126,13 @@ impl CircuitBreaker {
 pub struct RetryPolicy {
     /// Maximum number of retries
     pub max_retries: u32,
-    /// Initial delay
+    /// Initial delay between retry attempts
     pub initial_delay: Duration,
-    /// Backoff strategy
+    /// Backoff strategy to use for calculating delays
     pub backoff: BackoffStrategy,
-    /// Maximum delay
+    /// Maximum delay between retry attempts
     pub max_delay: Duration,
-    /// Jitter
+    /// Whether to apply random jitter to delays
     pub jitter: bool,
 }
 
@@ -151,12 +151,18 @@ impl Default for RetryPolicy {
 /// Backoff strategy for retries
 #[derive(Clone)]
 pub enum BackoffStrategy {
-    /// Fixed delay
+    /// Fixed delay between all retry attempts
     Fixed,
-    /// Linear backoff
-    Linear { increment: Duration },
-    /// Exponential backoff
-    Exponential { factor: f64 },
+    /// Linear backoff with configurable increment
+    Linear {
+        /// Duration to add per retry attempt
+        increment: Duration,
+    },
+    /// Exponential backoff with configurable factor
+    Exponential {
+        /// Multiplication factor for each retry attempt
+        factor: f64,
+    },
 }
 
 impl RetryPolicy {

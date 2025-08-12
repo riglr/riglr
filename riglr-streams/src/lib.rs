@@ -4,11 +4,17 @@
 //! proactive, event-driven blockchain agents while maintaining RIGLR's
 //! library-first philosophy.
 
+/// Core streaming abstractions, operators, and management utilities
 pub mod core;
+/// EVM blockchain streaming capabilities and multi-chain management
 pub mod evm;
+/// External data source streaming for exchanges and blockchain services
 pub mod external;
+/// Production-ready utilities for stream management and monitoring
 pub mod production;
+/// Solana blockchain streaming capabilities via Geyser
 pub mod solana;
+/// Event-triggered tools and condition matching utilities
 pub mod tools;
 
 /// Prelude module for convenient imports

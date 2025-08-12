@@ -1,6 +1,6 @@
 use std::any::Any;
-use std::collections::HashMap;
 use std::sync::Arc;
+use dashmap::DashMap;
 use tokio::sync::{broadcast, Mutex, RwLock};
 use tokio::task::JoinHandle;
 use tracing::{debug, error, info, warn};
@@ -30,9 +30,9 @@ impl Default for HandlerExecutionMode {
 /// Manages multiple streams and routes events to handlers
 pub struct StreamManager {
     /// Registered streams
-    streams: Arc<RwLock<HashMap<String, Box<dyn DynamicStream>>>>,
+    streams: Arc<DashMap<String, Box<dyn DynamicStream + 'static>>>,
     /// Running stream tasks
-    running_streams: Arc<RwLock<HashMap<String, JoinHandle<()>>>>,
+    running_streams: Arc<DashMap<String, JoinHandle<()>>>,
     /// Event handlers
     event_handlers: Arc<RwLock<Vec<Arc<dyn EventHandler>>>>,
     /// Global event channel for all streams
@@ -49,12 +49,18 @@ pub struct StreamManager {
     metrics_collector: Arc<MetricsCollector>,
 }
 
+/// Represents the current state of the StreamManager
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ManagerState {
+    /// Manager is idle and not processing any streams
     Idle,
+    /// Manager is in the process of starting up
     Starting,
+    /// Manager is actively running and processing streams
     Running,
+    /// Manager is in the process of stopping
     Stopping,
+    /// Manager has stopped and is no longer processing streams
     Stopped,
 }
 
@@ -75,27 +81,14 @@ pub trait EventHandler: Send + Sync {
 }
 
 impl StreamManager {
-    /// Create a new StreamManager
+    /// Create a new StreamManager with default configuration
     pub fn new() -> Self {
-        let (global_event_tx, _) = broadcast::channel(10000);
-        let (shutdown_tx, _) = broadcast::channel(1);
-
-        Self {
-            streams: Arc::new(RwLock::new(HashMap::new())),
-            running_streams: Arc::new(RwLock::new(HashMap::new())),
-            event_handlers: Arc::new(RwLock::new(Vec::new())),
-            global_event_tx,
-            shutdown_tx,
-            state: Arc::new(Mutex::new(ManagerState::Idle)),
-            execution_mode: Arc::new(RwLock::new(HandlerExecutionMode::default())),
-            handler_semaphore: Arc::new(tokio::sync::Semaphore::new(10)),
-            metrics_collector: Arc::new(MetricsCollector::new()),
-        }
+        Self::default()
     }
 
     /// Create a new StreamManager with specified execution mode
     pub fn with_execution_mode(mode: HandlerExecutionMode) -> Self {
-        let mut manager = Self::new();
+        let mut manager = Self::default();
         let permits = match mode {
             HandlerExecutionMode::ConcurrentBounded(n) => n,
             _ => 10,
@@ -123,9 +116,7 @@ impl StreamManager {
         S: Stream + Send + Sync + 'static,
         S::Event: Send + Sync + 'static,
     {
-        let mut streams = self.streams.write().await;
-
-        if streams.contains_key(&name) {
+        if self.streams.contains_key(&name) {
             return Err(StreamError::AlreadyRunning { name });
         }
 
@@ -148,14 +139,11 @@ impl StreamManager {
                 Self::forward_stream_events(stream_rx, global_tx, stream_name, shutdown_rx).await;
             });
 
-            self.running_streams
-                .write()
-                .await
-                .insert(name.clone(), handle);
+            self.running_streams.insert(name.clone(), handle);
         }
 
         let dynamic_stream = Box::new(wrapper);
-        streams.insert(name, dynamic_stream);
+        self.streams.insert(name, dynamic_stream);
         Ok(())
     }
 
@@ -164,8 +152,7 @@ impl StreamManager {
         // Stop the stream if it's running
         self.stop_stream(name).await?;
 
-        let mut streams = self.streams.write().await;
-        streams.remove(name);
+        self.streams.remove(name);
 
         info!("Removed stream: {}", name);
         Ok(())
@@ -180,12 +167,12 @@ impl StreamManager {
 
     /// Start a specific stream (stream should already be configured)
     pub async fn start_stream(&self, name: &str) -> StreamResult<()> {
-        let mut streams = self.streams.write().await;
-        let stream = streams
+        let mut stream_ref = self.streams
             .get_mut(name)
             .ok_or_else(|| StreamError::NotRunning {
                 name: name.to_string(),
             })?;
+        let stream = stream_ref.value_mut();
 
         if stream.is_running_dynamic() {
             return Err(StreamError::AlreadyRunning {
@@ -206,21 +193,18 @@ impl StreamManager {
             Self::forward_stream_events(stream_rx, global_tx, stream_name, shutdown_rx).await;
         });
 
-        self.running_streams
-            .write()
-            .await
-            .insert(name.to_string(), handle);
+        self.running_streams.insert(name.to_string(), handle);
         Ok(())
     }
 
     /// Stop a specific stream
     pub async fn stop_stream(&self, name: &str) -> StreamResult<()> {
-        let mut streams = self.streams.write().await;
-        let stream = streams
+        let mut stream_ref = self.streams
             .get_mut(name)
             .ok_or_else(|| StreamError::NotRunning {
                 name: name.to_string(),
             })?;
+        let stream = stream_ref.value_mut();
 
         if !stream.is_running_dynamic() {
             return Ok(()); // Already stopped
@@ -230,7 +214,7 @@ impl StreamManager {
         stream.stop_dynamic().await?;
 
         // Cancel the forwarding task
-        if let Some(handle) = self.running_streams.write().await.remove(name) {
+        if let Some((_, handle)) = self.running_streams.remove(name) {
             handle.abort();
         }
 
@@ -246,11 +230,10 @@ impl StreamManager {
             });
         }
         *state = ManagerState::Starting;
-        drop(state);
 
         info!("Starting all streams");
 
-        let stream_names: Vec<String> = { self.streams.read().await.keys().cloned().collect() };
+        let stream_names: Vec<String> = self.streams.iter().map(|entry| entry.key().clone()).collect();
 
         let mut errors = Vec::new();
         for name in stream_names {
@@ -286,14 +269,13 @@ impl StreamManager {
             return Ok(());
         }
         *state = ManagerState::Stopping;
-        drop(state);
 
         info!("Stopping all streams");
 
         // Send shutdown signal
         let _ = self.shutdown_tx.send(());
 
-        let stream_names: Vec<String> = { self.streams.read().await.keys().cloned().collect() };
+        let stream_names: Vec<String> = self.streams.iter().map(|entry| entry.key().clone()).collect();
 
         for name in stream_names {
             if let Err(e) = self.stop_stream(&name).await {
@@ -302,10 +284,13 @@ impl StreamManager {
         }
 
         // Wait for all forwarding tasks to complete
-        let mut running = self.running_streams.write().await;
-        for (name, handle) in running.drain() {
-            debug!("Waiting for stream {} to stop", name);
-            handle.abort();
+        let running_keys: Vec<String> = self.running_streams.iter().map(|entry| entry.key().clone()).collect();
+        
+        for name in running_keys {
+            if let Some((_, handle)) = self.running_streams.remove(&name) {
+                debug!("Waiting for stream {} to stop", name);
+                handle.abort();
+            }
         }
 
         *self.state.lock().await = ManagerState::Stopped;
@@ -353,12 +338,13 @@ impl StreamManager {
     }
 
     /// Get health status of all streams
-    pub async fn health(&self) -> HashMap<String, StreamHealth> {
-        let streams = self.streams.read().await;
-        let mut health_map = HashMap::new();
+    pub async fn health(&self) -> std::collections::HashMap<String, StreamHealth> {
+        let mut health_map = std::collections::HashMap::new();
 
-        for (name, stream) in streams.iter() {
-            health_map.insert(name.clone(), stream.health_dynamic().await);
+        for entry in self.streams.iter() {
+            let name = entry.key().clone();
+            let health = entry.value().health_dynamic().await;
+            health_map.insert(name, health);
         }
 
         health_map
@@ -366,13 +352,13 @@ impl StreamManager {
 
     /// Get list of stream names
     pub async fn list_streams(&self) -> Vec<String> {
-        self.streams.read().await.keys().cloned().collect()
+        self.streams.iter().map(|entry| entry.key().clone()).collect()
     }
 
     /// Check if a stream is running
     pub async fn is_stream_running(&self, name: &str) -> bool {
-        if let Some(stream) = self.streams.read().await.get(name) {
-            stream.is_running_dynamic()
+        if let Some(stream) = self.streams.get(name) {
+            stream.value().is_running_dynamic()
         } else {
             false
         }
@@ -538,7 +524,20 @@ impl StreamManager {
 
 impl Default for StreamManager {
     fn default() -> Self {
-        Self::new()
+        let (global_event_tx, _) = broadcast::channel(10000);
+        let (shutdown_tx, _) = broadcast::channel(1);
+
+        Self {
+            streams: Arc::new(DashMap::new()),
+            running_streams: Arc::new(DashMap::new()),
+            event_handlers: Arc::new(RwLock::new(Vec::new())),
+            global_event_tx,
+            shutdown_tx,
+            state: Arc::new(Mutex::new(ManagerState::Idle)),
+            execution_mode: Arc::new(RwLock::new(HandlerExecutionMode::default())),
+            handler_semaphore: Arc::new(tokio::sync::Semaphore::new(10)),
+            metrics_collector: Arc::new(MetricsCollector::default()),
+        }
     }
 }
 
@@ -578,14 +577,14 @@ mod tests {
 
     #[tokio::test]
     async fn test_stream_manager_creation() {
-        let manager = StreamManager::new();
+        let manager = StreamManager::default();
         assert_eq!(manager.state().await, ManagerState::Idle);
         assert_eq!(manager.list_streams().await.len(), 0);
     }
 
     #[tokio::test]
     async fn test_add_event_handler() {
-        let manager = StreamManager::new();
+        let manager = StreamManager::default();
         let handler = Arc::new(LoggingEventHandler::new("test"));
         manager.add_event_handler(handler).await;
 

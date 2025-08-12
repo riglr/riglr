@@ -1,3 +1,7 @@
+//! Performance benchmarks for web tools functionality
+
+#![allow(missing_docs)]
+
 use chrono::{DateTime, Utc};
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use riglr_web_tools::{client::WebClient, error::WebToolError};

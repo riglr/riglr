@@ -1,22 +1,37 @@
-use borsh::BorshDeserialize;
+use borsh::{BorshDeserialize, BorshSerialize};
 use serde::{Deserialize, Serialize};
 use solana_sdk::pubkey::Pubkey;
 
 // Re-export types from riglr-events-core
 pub use riglr_events_core::prelude::*;
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, BorshDeserialize)]
+// Use SolanaEventMetadata as EventMetadata for all Solana events
+pub use crate::solana_metadata::SolanaEventMetadata as EventMetadata;
+
+/// Enumeration of supported Solana DeFi protocols
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, BorshSerialize, BorshDeserialize)]
 pub enum ProtocolType {
+    /// Orca Whirlpool concentrated liquidity pools
     OrcaWhirlpool,
+    /// Meteora Dynamic Liquidity Market Maker
     MeteoraDlmm,
+    /// MarginFi lending protocol
     MarginFi,
+    /// Bonk decentralized exchange
     Bonk,
+    /// PumpSwap automated market maker
     PumpSwap,
+    /// Raydium automated market maker
     RaydiumAmm,
+    /// Raydium AMM V4 implementation
     RaydiumAmmV4,
+    /// Raydium concentrated liquidity market maker
     RaydiumClmm,
+    /// Raydium constant product market maker
     RaydiumCpmm,
+    /// Jupiter aggregator protocol
     Jupiter,
+    /// Other protocol not explicitly supported
     Other(String),
 }
 
@@ -44,68 +59,130 @@ impl std::fmt::Display for ProtocolType {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, BorshDeserialize, Default)]
+/// Enumeration of DeFi event types supported across protocols
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, BorshSerialize, BorshDeserialize, Default)]
 pub enum EventType {
+    /// Token swap transaction
     Swap,
+    /// Add liquidity to a pool
     AddLiquidity,
+    /// Remove liquidity from a pool
     RemoveLiquidity,
+    /// Borrow funds from a lending protocol
     Borrow,
+    /// Repay borrowed funds
     Repay,
+    /// Liquidate an undercollateralized position
     Liquidate,
+    /// Transfer tokens between accounts
     Transfer,
+    /// Mint new tokens
     Mint,
+    /// Burn existing tokens
     Burn,
+    /// Create a new liquidity pool
     CreatePool,
+    /// Update pool parameters
     UpdatePool,
+    /// General transaction event
     Transaction,
+    /// Block-level event
     Block,
+    /// Smart contract execution event
     ContractEvent,
+    /// Price update event
     PriceUpdate,
+    /// Order book update
     OrderBook,
+    /// Trade execution
     Trade,
+    /// Fee structure update
     FeeUpdate,
+    /// Bonk buy with exact input amount
     BonkBuyExactIn,
+    /// Bonk buy with exact output amount
     BonkBuyExactOut,
+    /// Bonk sell with exact input amount
     BonkSellExactIn,
+    /// Bonk sell with exact output amount
     BonkSellExactOut,
+    /// Bonk pool initialization
     BonkInitialize,
+    /// Bonk migration to AMM
     BonkMigrateToAmm,
+    /// Bonk migration to constant product swap
     BonkMigrateToCpswap,
+    /// PumpSwap buy transaction
     PumpSwapBuy,
+    /// PumpSwap sell transaction
     PumpSwapSell,
+    /// PumpSwap pool creation
     PumpSwapCreatePool,
+    /// PumpSwap deposit
     PumpSwapDeposit,
+    /// PumpSwap withdrawal
     PumpSwapWithdraw,
+    /// PumpSwap parameter update
     PumpSwapSetParams,
+    /// Raydium swap transaction
     RaydiumSwap,
+    /// Raydium deposit
     RaydiumDeposit,
+    /// Raydium withdrawal
     RaydiumWithdraw,
+    /// Raydium AMM V4 swap with base token input
     RaydiumAmmV4SwapBaseIn,
+    /// Raydium AMM V4 swap with base token output
     RaydiumAmmV4SwapBaseOut,
+    /// Raydium AMM V4 deposit
     RaydiumAmmV4Deposit,
+    /// Raydium AMM V4 second initialization
     RaydiumAmmV4Initialize2,
+    /// Raydium AMM V4 withdrawal
     RaydiumAmmV4Withdraw,
+    /// Raydium AMM V4 profit and loss withdrawal
     RaydiumAmmV4WithdrawPnl,
+    /// Raydium CLMM swap
     RaydiumClmmSwap,
+    /// Raydium CLMM swap version 2
     RaydiumClmmSwapV2,
+    /// Raydium CLMM pool creation
     RaydiumClmmCreatePool,
+    /// Raydium CLMM open position version 2
     RaydiumClmmOpenPositionV2,
+    /// Raydium CLMM increase liquidity version 2
     RaydiumClmmIncreaseLiquidityV2,
+    /// Raydium CLMM decrease liquidity version 2
     RaydiumClmmDecreaseLiquidityV2,
+    /// Raydium CLMM close position
     RaydiumClmmClosePosition,
+    /// Raydium CLMM open position with Token22 NFT
     RaydiumClmmOpenPositionWithToken22Nft,
+    /// Raydium CPMM swap
     RaydiumCpmmSwap,
+    /// Raydium CPMM swap with base input
     RaydiumCpmmSwapBaseInput,
+    /// Raydium CPMM swap with base output
     RaydiumCpmmSwapBaseOutput,
+    /// Raydium CPMM deposit
     RaydiumCpmmDeposit,
+    /// Raydium CPMM withdrawal
     RaydiumCpmmWithdraw,
+    /// Raydium CPMM pool creation
     RaydiumCpmmCreatePool,
+    /// Open a liquidity position
     OpenPosition,
+    /// Close a liquidity position
     ClosePosition,
+    /// Increase liquidity in position
     IncreaseLiquidity,
+    /// Decrease liquidity in position
     DecreaseLiquidity,
+    /// General deposit operation
     Deposit,
+    /// General withdrawal operation
     Withdraw,
+    /// Unknown or unclassified event type
     #[default]
     Unknown,
 }
@@ -164,68 +241,30 @@ impl EventType {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default, BorshDeserialize)]
-pub struct EventMetadata {
-    pub id: String,
-    pub signature: String,
-    pub slot: u64,
-    pub block_time: i64,
-    pub block_time_ms: i64,
-    pub protocol_type: ProtocolType,
-    pub event_type: EventType,
-    pub program_id: Pubkey,
-    pub index: String,
-    pub program_received_time_ms: i64,
-    pub program_handle_time_consuming_ms: i64,
-}
 
-impl EventMetadata {
-    #[allow(clippy::too_many_arguments)]
-    pub fn new(
-        id: String,
-        signature: String,
-        slot: u64,
-        block_time: i64,
-        block_time_ms: i64,
-        protocol_type: ProtocolType,
-        event_type: EventType,
-        program_id: Pubkey,
-        index: String,
-        program_received_time_ms: i64,
-    ) -> Self {
-        Self {
-            id,
-            signature,
-            slot,
-            block_time,
-            block_time_ms,
-            protocol_type,
-            event_type,
-            program_id,
-            index,
-            program_received_time_ms,
-            program_handle_time_consuming_ms: 0,
-        }
-    }
-
-    pub fn set_id(&mut self, id: String) {
-        self.id = id;
-    }
-}
-
+/// Data structure for token transfer events
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TransferData {
+    /// Source account public key
     pub source: Pubkey,
+    /// Destination account public key
     pub destination: Pubkey,
+    /// Token mint public key (None for SOL transfers)
     pub mint: Option<Pubkey>,
+    /// Amount transferred in token's smallest unit
     pub amount: u64,
 }
 
+/// Data structure for token swap events
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SwapData {
+    /// Input token mint public key
     pub input_mint: Pubkey,
+    /// Output token mint public key
     pub output_mint: Pubkey,
+    /// Amount of input tokens in smallest unit
     pub amount_in: u64,
+    /// Amount of output tokens in smallest unit
     pub amount_out: u64,
 }
 
@@ -242,58 +281,47 @@ pub struct StreamMetadata {
     pub custom_data: Option<serde_json::Value>,
 }
 
-// Bridge functions to migrate between old and new metadata formats
-impl EventMetadata {
-    /// Convert from riglr-events-core EventMetadata to local EventMetadata
-    pub fn from_core_metadata(
-        core_metadata: &riglr_events_core::types::EventMetadata,
+/// Helper functions to create core EventMetadata with Solana-specific data
+pub mod metadata_helpers {
+    use super::*;
+    use riglr_events_core::types::ChainData;
+    
+    /// Create a core EventMetadata with Solana chain data
+    pub fn create_solana_metadata(
+        id: String,
+        signature: String, 
+        slot: u64,
+        block_time: i64,
         protocol_type: ProtocolType,
         event_type: EventType,
         program_id: Pubkey,
         index: String,
-    ) -> Self {
-        Self {
-            id: core_metadata.id.clone(),
-            signature: core_metadata
-                .chain_data
-                .as_ref()
-                .and_then(|cd| cd.transaction_id())
-                .unwrap_or_else(|| "unknown".to_string()),
-            slot: core_metadata
-                .chain_data
-                .as_ref()
-                .map(|cd| cd.block_id().parse::<u64>().unwrap_or(0))
-                .unwrap_or(0),
-            block_time: core_metadata.timestamp.timestamp(),
-            block_time_ms: core_metadata.timestamp.timestamp_millis(),
-            protocol_type,
-            event_type,
-            program_id,
-            index,
-            program_received_time_ms: core_metadata.received_at.timestamp_millis(),
-            program_handle_time_consuming_ms: 0,
-        }
-    }
-
-    /// Convert to riglr-events-core EventMetadata
-    pub fn to_core_metadata(
-        &self,
-        kind: riglr_events_core::types::EventKind,
-        source: String,
-    ) -> riglr_events_core::types::EventMetadata {
-        let chain_data = riglr_events_core::types::ChainData::Solana {
-            slot: self.slot,
-            signature: Some(self.signature.clone()),
-            program_id: Some(self.program_id),
-            instruction_index: self.index.parse::<usize>().ok(),
+        program_received_time_ms: i64,
+    ) -> EventMetadata {
+        let kind = event_type.to_event_kind();
+        let source = format!("solana-{}", protocol_type);
+        
+        let timestamp = chrono::DateTime::from_timestamp(block_time, 0)
+            .unwrap_or_else(chrono::Utc::now);
+        
+        let mut metadata = EventMetadata::with_timestamp(id, kind, source, timestamp);
+            
+        // Add Solana chain data
+        let chain_data = ChainData::Solana {
+            slot,
+            signature: Some(signature),
+            program_id: Some(program_id),
+            instruction_index: index.parse().ok(),
+            block_time: Some(block_time),
+            protocol_data: Some(serde_json::json!({
+                "protocol_type": protocol_type,
+                "event_type": event_type,
+                "program_received_time_ms": program_received_time_ms,
+            })),
         };
-
-        riglr_events_core::types::EventMetadata::with_timestamp(
-            self.id.clone(),
-            kind,
-            source,
-            chrono::DateTime::from_timestamp(self.block_time, 0).unwrap_or_else(chrono::Utc::now),
-        )
-        .with_chain_data(chain_data)
+        
+        metadata = metadata.with_chain_data(chain_data);
+        metadata
     }
 }
+

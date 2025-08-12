@@ -636,21 +636,33 @@ pub async fn get_trending_pump_tokens(limit: Option<u32>) -> Result<Vec<PumpToke
 
 // Response structures for Pump.fun API
 
+/// Response from Pump.fun deployment API
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct PumpDeploymentResponse {
+    /// IPFS URI for the token metadata
     pub metadata_uri: String,
+    /// Whether the deployment was successful
     pub success: bool,
 }
 
+/// Response from Pump.fun token API
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct PumpTokenResponse {
+    /// Token mint address
     pub mint: Option<String>,
+    /// Token name
     pub name: String,
+    /// Token symbol
     pub symbol: String,
+    /// Token description
     pub description: String,
+    /// Optional image URL
     pub image: Option<String>,
+    /// Current market cap in lamports
     pub market_cap: Option<u64>,
+    /// Current price in SOL
     pub price_sol: Option<f64>,
+    /// Creator's public key
     pub creator: String,
 }
 
@@ -659,15 +671,25 @@ struct PumpTokenResponse {
 /// Information about a Pump.fun token
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct PumpTokenInfo {
+    /// Token mint address
     pub mint_address: String,
+    /// Token name
     pub name: String,
+    /// Token symbol
     pub symbol: String,
+    /// Token description
     pub description: String,
+    /// Optional image URL
     pub image_url: Option<String>,
+    /// Current market cap in lamports
     pub market_cap: Option<u64>,
+    /// Current price in SOL
     pub price_sol: Option<f64>,
+    /// Transaction signature for token creation
     pub creation_signature: Option<String>,
+    /// Creator's public key
     pub creator: String,
+    /// Transaction signature for initial buy (if any)
     pub initial_buy_signature: Option<String>,
 }
 
@@ -676,6 +698,7 @@ pub struct PumpTokenInfo {
 pub struct PumpTradeResult {
     /// Transaction signature
     pub signature: String,
+    /// Token mint address
     pub token_mint: String,
     /// SOL amount involved in the trade
     pub sol_amount: f64,
@@ -694,7 +717,9 @@ pub struct PumpTradeResult {
 /// Type of trade on Pump.fun
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub enum PumpTradeType {
+    /// Buy tokens with SOL
     Buy,
+    /// Sell tokens for SOL
     Sell,
 }
 
@@ -720,11 +745,16 @@ pub struct PumpTradeAnalysis {
 // ============================================================================
 
 /// Generates new mint keypair for token creation
+/// 
+/// Returns a fresh keypair that can be used as the mint address for a new token.
 pub fn generate_mint_keypair() -> Keypair {
     Keypair::new()
 }
 
 /// Creates properly signed Solana transaction with mint keypair
+/// 
+/// This function creates a transaction with the given instructions and signs it
+/// using both the payer from signer context and the provided mint keypair.
 pub async fn create_token_with_mint_keypair(
     instructions: Vec<Instruction>,
     _mint_keypair: &Keypair,
@@ -766,6 +796,11 @@ pub async fn create_token_with_mint_keypair(
 
 /// Parse a confirmed transaction to compute token delta for the user for the given mint,
 /// the SOL delta (spent or received), and the price per token (SOL per whole token).
+/// 
+/// Returns a tuple of (token_amount, sol_amount, price_per_token) where:
+/// - token_amount: Number of tokens involved in the trade (raw units)
+/// - sol_amount: SOL amount delta (positive for received, negative for spent)
+/// - price_per_token: Price per token in SOL
 async fn parse_pump_trade_details(
     rpc: &RpcClient,
     signature: &str,
@@ -887,6 +922,7 @@ async fn parse_pump_trade_details(
     Ok((None, sol_delta_ui, None))
 }
 
+/// Tests for Pump.fun integration functionality
 #[cfg(test)]
 mod tests {
     use super::*;

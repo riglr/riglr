@@ -1,3 +1,9 @@
+//! Integration tests for Solana network operations.
+//!
+//! This module contains comprehensive integration tests for Solana blockchain
+//! interactions including transaction creation, token operations, balance checks,
+//! and utility functions.
+
 use riglr_core::signer::{SignerContext, SignerError, TransactionSigner};
 use riglr_solana_tools::utils::{create_token_with_mint_keypair, generate_mint_keypair};
 #[allow(deprecated)]
@@ -9,12 +15,20 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 /// Mock Solana signer for testing
+///
+/// This struct provides a mock implementation of the TransactionSigner trait
+/// specifically for Solana operations. It uses a real keypair but mocks
+/// transaction submission to avoid network calls during testing.
 struct MockSolanaSigner {
     keypair: Keypair,
     rpc_url: String,
 }
 
 impl MockSolanaSigner {
+    /// Creates a new MockSolanaSigner with the given keypair
+    ///
+    /// # Arguments
+    /// * `keypair` - The Solana keypair to use for signing operations
     fn new(keypair: Keypair) -> Self {
         Self {
             keypair,
@@ -311,6 +325,17 @@ async fn test_signer_context_with_solana_operations() {
 
 // Helper functions for testing
 
+/// Creates mock token instructions for testing
+///
+/// Generates a set of instructions needed to create and initialize a token mint.
+/// These instructions include creating the mint account and initializing it.
+///
+/// # Arguments
+/// * `payer` - The public key of the account that will pay for the transaction
+/// * `mint` - The public key of the mint account to be created
+///
+/// # Returns
+/// A vector of instructions for token creation
 fn create_mock_token_instructions(payer: &Pubkey, mint: &Pubkey) -> Vec<Instruction> {
     vec![
         // Create mint account
@@ -333,6 +358,13 @@ fn create_mock_token_instructions(payer: &Pubkey, mint: &Pubkey) -> Vec<Instruct
     ]
 }
 
+/// Creates invalid instructions for testing error handling
+///
+/// Generates a vector containing an instruction with invalid data
+/// to test error handling in transaction processing.
+///
+/// # Returns
+/// A vector containing an invalid instruction
 fn create_invalid_instructions() -> Vec<Instruction> {
     vec![Instruction {
         program_id: Pubkey::new_unique(),
@@ -341,6 +373,16 @@ fn create_invalid_instructions() -> Vec<Instruction> {
     }]
 }
 
+/// Calculates mock rent exemption amount for testing
+///
+/// Simulates the rent exemption calculation for an account of given size.
+/// In real implementation, this would query the RPC for current rent rates.
+///
+/// # Arguments
+/// * `data_size` - The size of the account data in bytes
+///
+/// # Returns
+/// The calculated rent exemption amount in lamports
 fn calculate_mock_rent_exemption(data_size: usize) -> u64 {
     // Mock rent calculation - in real implementation this would query the RPC
     let base_rent = 1_000_000; // ~0.001 SOL
@@ -348,6 +390,16 @@ fn calculate_mock_rent_exemption(data_size: usize) -> u64 {
     base_rent + size_rent
 }
 
+/// Converts SOL amount to lamports
+///
+/// Converts a decimal SOL amount to the equivalent number of lamports.
+/// 1 SOL = 1,000,000,000 lamports.
+///
+/// # Arguments
+/// * `sol` - The amount in SOL as a floating point number
+///
+/// # Returns
+/// The equivalent amount in lamports
 fn sol_to_lamports(sol: f64) -> u64 {
     (sol * 1_000_000_000.0) as u64
 }

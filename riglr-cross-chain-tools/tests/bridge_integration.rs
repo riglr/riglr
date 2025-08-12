@@ -1,3 +1,9 @@
+//! Integration tests for cross-chain bridge functionality.
+//!
+//! This module contains comprehensive integration tests for the cross-chain bridge operations,
+//! including quote fetching, error handling, chain validation, transaction signing, and monitoring.
+//! Tests use mock signers to simulate both Solana and EVM blockchain interactions.
+
 use riglr_core::{
     error::ToolError,
     signer::{SignerContext, SignerError, TransactionSigner},

@@ -38,15 +38,16 @@ impl Default for DispatchConfig {
             retry_delay: Duration::from_secs(1),
             max_concurrent_tasks_per_agent: 10,
             enable_load_balancing: true,
-            routing_strategy: RoutingStrategy::Capability,
+            routing_strategy: RoutingStrategy::default(),
         }
     }
 }
 
 /// Routing strategies for task dispatch.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum RoutingStrategy {
     /// Route based on agent capabilities
+    #[default]
     Capability,
     /// Round-robin among capable agents
     RoundRobin,
@@ -84,7 +85,7 @@ impl<R: AgentRegistry> AgentDispatcher<R> {
         info!("Creating agent dispatcher with config: {:?}", config);
         Self {
             registry,
-            router: Router::new(config.routing_strategy),
+            router: Router::with_strategy(config.routing_strategy),
             config,
         }
     }
@@ -364,7 +365,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_dispatcher_basic_dispatch() {
-        let registry = Arc::new(LocalAgentRegistry::new());
+        let registry = Arc::new(LocalAgentRegistry::default());
         let dispatcher = AgentDispatcher::new(registry.clone());
 
         // Register a trading agent
@@ -385,7 +386,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_dispatcher_no_suitable_agent() {
-        let registry = Arc::new(LocalAgentRegistry::new());
+        let registry = Arc::new(LocalAgentRegistry::default());
         let dispatcher = AgentDispatcher::new(registry.clone());
 
         // Register a trading agent
@@ -413,7 +414,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_dispatcher_retry_logic() {
-        let registry = Arc::new(LocalAgentRegistry::new());
+        let registry = Arc::new(LocalAgentRegistry::default());
         let config = DispatchConfig {
             max_retries: 2,
             retry_delay: Duration::from_millis(10),
@@ -440,7 +441,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_dispatcher_timeout() {
-        let registry = Arc::new(LocalAgentRegistry::new());
+        let registry = Arc::new(LocalAgentRegistry::default());
         let config = DispatchConfig {
             default_task_timeout: Duration::from_millis(50),
             ..Default::default()
@@ -468,7 +469,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_dispatcher_concurrent_tasks() {
-        let registry = Arc::new(LocalAgentRegistry::new());
+        let registry = Arc::new(LocalAgentRegistry::default());
         let dispatcher = AgentDispatcher::new(registry.clone());
 
         // Register multiple agents
@@ -499,7 +500,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_dispatcher_stats() {
-        let registry = Arc::new(LocalAgentRegistry::new());
+        let registry = Arc::new(LocalAgentRegistry::default());
         let dispatcher = AgentDispatcher::new(registry.clone());
 
         let agent = Arc::new(MockAgent {
@@ -517,7 +518,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_dispatcher_health_check() {
-        let registry = Arc::new(LocalAgentRegistry::new());
+        let registry = Arc::new(LocalAgentRegistry::default());
         let dispatcher = AgentDispatcher::new(registry.clone());
 
         // Should be unhealthy with no agents

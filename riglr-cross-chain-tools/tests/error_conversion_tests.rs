@@ -1,3 +1,5 @@
+//! Tests for CrossChainError to ToolError conversion
+
 use riglr_core::error::ToolError;
 use riglr_cross_chain_tools::error::CrossChainError;
 

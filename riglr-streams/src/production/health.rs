@@ -80,9 +80,13 @@ pub struct HealthAlert {
 /// Alert severity levels
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum AlertSeverity {
+    /// Informational alerts for general status updates
     Info,
+    /// Warning alerts for potential issues that need attention
     Warning,
+    /// Error alerts for failures that occurred but system can continue
     Error,
+    /// Critical alerts for severe issues requiring immediate attention
     Critical,
 }
 

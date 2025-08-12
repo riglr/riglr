@@ -28,7 +28,7 @@ impl EventIdGenerator {
     pub fn new(prefix: String) -> Self {
         Self {
             prefix,
-            counter: Arc::new(AtomicU64::new(0)),
+            counter: Arc::new(AtomicU64::default()),
         }
     }
 
@@ -127,7 +127,7 @@ impl EventDeduplicator {
     /// Create a new deduplicator with TTL for seen events
     pub fn new(ttl: Duration, cleanup_interval: Duration) -> Self {
         Self {
-            seen_events: Arc::new(DashMap::new()),
+            seen_events: Arc::new(DashMap::default()),
             ttl,
             cleanup_interval,
         }
@@ -194,7 +194,7 @@ impl RateLimiter {
         Self {
             max_rate,
             window,
-            events_in_window: Arc::new(RwLock::new(Vec::new())),
+            events_in_window: Arc::new(RwLock::default()),
         }
     }
 
@@ -337,15 +337,6 @@ pub struct EventPerformanceMetrics {
 }
 
 impl EventPerformanceMetrics {
-    /// Create a new metrics collector
-    pub fn new() -> Self {
-        Self {
-            total_events: Arc::new(AtomicU64::new(0)),
-            total_errors: Arc::new(AtomicU64::new(0)),
-            processing_times: Arc::new(RwLock::new(Vec::new())),
-            last_reset: Arc::new(RwLock::new(SystemTime::now())),
-        }
-    }
 
     /// Record an event processing time
     pub async fn record_processing_time(&self, duration: Duration) {
@@ -461,9 +452,9 @@ impl EventPerformanceMetrics {
 impl Default for EventPerformanceMetrics {
     fn default() -> Self {
         Self {
-            total_events: Arc::new(AtomicU64::new(0)),
-            total_errors: Arc::new(AtomicU64::new(0)),
-            processing_times: Arc::new(RwLock::new(Vec::new())),
+            total_events: Arc::new(AtomicU64::default()),
+            total_errors: Arc::new(AtomicU64::default()),
+            processing_times: Arc::new(RwLock::default()),
             last_reset: Arc::new(RwLock::new(SystemTime::now())),
         }
     }
@@ -565,7 +556,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_performance_metrics() {
-        let metrics = EventPerformanceMetrics::new();
+        let metrics = EventPerformanceMetrics::default();
 
         metrics
             .record_processing_time(Duration::from_millis(10))
@@ -590,7 +581,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_performance_metrics_percentiles() {
-        let metrics = EventPerformanceMetrics::new();
+        let metrics = EventPerformanceMetrics::default();
 
         // Add some processing times
         for i in 1..=100 {

@@ -1,3 +1,12 @@
+//! Performance benchmarks for riglr-solana-tools functionality.
+//!
+//! This module contains comprehensive benchmarks for testing the performance
+//! of various Solana operations including public key operations, client creation,
+//! balance handling, transaction processing, network operations, error handling,
+//! serialization operations, throughput testing, and concurrent workloads.
+
+#![allow(missing_docs)]
+
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use riglr_solana_tools::{
     client::{SolanaClient, SolanaConfig},

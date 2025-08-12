@@ -5,8 +5,8 @@ use borsh::BorshDeserialize;
 use solana_sdk::{instruction::CompiledInstruction, pubkey::Pubkey};
 use solana_transaction_status::UiCompiledInstruction;
 
+use crate::types::{EventMetadata, EventType, ProtocolType};
 use crate::events::{
-    common::{EventMetadata, EventType, ProtocolType},
     core::traits::{EventParser, GenericEventParseConfig, GenericEventParser},
     protocols::raydium_cpmm::{discriminators, RaydiumCpmmDepositEvent, RaydiumCpmmSwapEvent},
 };
@@ -22,12 +22,6 @@ pub struct RaydiumCpmmEventParser {
 
 impl Default for RaydiumCpmmEventParser {
     fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl RaydiumCpmmEventParser {
-    pub fn new() -> Self {
         let configs = vec![
             GenericEventParseConfig {
                 program_id: RAYDIUM_CPMM_PROGRAM_ID,
@@ -61,6 +55,13 @@ impl RaydiumCpmmEventParser {
         let inner = GenericEventParser::new(vec![RAYDIUM_CPMM_PROGRAM_ID], configs);
         Self { inner }
     }
+}
+
+impl RaydiumCpmmEventParser {
+    /// Creates a new Raydium CPMM event parser with default configuration
+    pub fn new() -> Self {
+        Self::default()
+    }
 
     /// Parse swap log event
     fn parse_swap_inner_instruction(
@@ -71,7 +72,7 @@ impl RaydiumCpmmEventParser {
         if let Ok(event) = RaydiumCpmmSwapEvent::try_from_slice(data) {
             let mut metadata = metadata;
             metadata.set_id(format!("{}-{}-swap", metadata.signature, event.pool_state));
-            Some(Box::new(RaydiumCpmmSwapEvent { metadata, ..event }))
+            Some(Box::new(RaydiumCpmmSwapEvent { metadata: metadata.core, ..event }))
         } else {
             None
         }
@@ -89,7 +90,7 @@ impl RaydiumCpmmEventParser {
                 "{}-{}-deposit",
                 metadata.signature, event.pool_state
             ));
-            Some(Box::new(RaydiumCpmmDepositEvent { metadata, ..event }))
+            Some(Box::new(RaydiumCpmmDepositEvent { metadata: metadata.core, ..event }))
         } else {
             None
         }
@@ -115,7 +116,7 @@ impl RaydiumCpmmEventParser {
         ));
 
         Some(Box::new(RaydiumCpmmSwapEvent {
-            metadata,
+            metadata: metadata.core,
             pool_state: accounts[0],
             payer: accounts[1],
             input_token_account: accounts[2],
@@ -150,7 +151,7 @@ impl RaydiumCpmmEventParser {
         ));
 
         Some(Box::new(RaydiumCpmmSwapEvent {
-            metadata,
+            metadata: metadata.core,
             pool_state: accounts[0],
             payer: accounts[1],
             input_token_account: accounts[2],
@@ -186,7 +187,7 @@ impl RaydiumCpmmEventParser {
         ));
 
         Some(Box::new(RaydiumCpmmDepositEvent {
-            metadata,
+            metadata: metadata.core,
             pool_state: accounts[0],
             user: accounts[1],
             lp_token_amount,

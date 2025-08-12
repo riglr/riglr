@@ -1,4 +1,4 @@
-use crate::types::{EventMetadata, EventType, ProtocolType};
+use crate::types::{metadata_helpers, EventMetadata, EventType, ProtocolType};
 use riglr_events_core::Event;
 use std::fmt::Debug;
 
@@ -52,12 +52,19 @@ pub trait EventParser: Send + Sync {
 /// Generic event parser configuration
 #[derive(Debug, Clone)]
 pub struct GenericEventParseConfig {
+    /// Program ID this configuration applies to
     pub program_id: solana_sdk::pubkey::Pubkey,
+    /// Protocol type for events generated from this configuration
     pub protocol_type: ProtocolType,
+    /// Discriminator string for inner instructions
     pub inner_instruction_discriminator: &'static str,
+    /// Discriminator bytes for instructions
     pub instruction_discriminator: &'static [u8],
+    /// Type of events this configuration generates
     pub event_type: EventType,
+    /// Parser function for inner instructions
     pub inner_instruction_parser: InnerInstructionEventParser,
+    /// Parser function for instructions
     pub instruction_parser: InstructionEventParser,
 }
 
@@ -74,9 +81,12 @@ pub type InstructionEventParser = fn(
 
 /// Generic event parser base class
 pub struct GenericEventParser {
+    /// List of program IDs this parser handles
     pub program_ids: Vec<solana_sdk::pubkey::Pubkey>,
+    /// Configuration mapping for inner instruction parsing by discriminator
     pub inner_instruction_configs:
         std::collections::HashMap<&'static str, Vec<GenericEventParseConfig>>,
+    /// Configuration mapping for instruction parsing by discriminator bytes
     pub instruction_configs: std::collections::HashMap<Vec<u8>, Vec<GenericEventParseConfig>>,
 }
 
@@ -139,12 +149,11 @@ impl EventParser for GenericEventParser {
         if let Ok(data) = bs58::decode(&inner_instruction.data).into_vec() {
             for configs in self.inner_instruction_configs.values() {
                 for config in configs {
-                    let metadata = EventMetadata::new(
+                    let metadata = metadata_helpers::create_solana_metadata(
                         format!("{}_{}", signature, index),
                         signature.to_string(),
                         slot,
                         block_time.unwrap_or(0),
-                        block_time.unwrap_or(0) * 1000,
                         config.protocol_type.clone(),
                         config.event_type.clone(),
                         config.program_id,
@@ -176,12 +185,11 @@ impl EventParser for GenericEventParser {
 
         if let Some(configs) = self.instruction_configs.get(&instruction.data) {
             for config in configs {
-                let metadata = EventMetadata::new(
+                let metadata = metadata_helpers::create_solana_metadata(
                     format!("{}_{}", signature, index),
                     signature.to_string(),
                     slot,
                     block_time.unwrap_or(0),
-                    block_time.unwrap_or(0) * 1000,
                     config.protocol_type.clone(),
                     config.event_type.clone(),
                     config.program_id,

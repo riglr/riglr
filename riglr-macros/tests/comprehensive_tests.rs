@@ -1,5 +1,7 @@
 //! Basic tests for riglr-macros
 
+#![allow(missing_docs)]
+
 use anyhow::Result;
 use riglr_core::Tool;
 use riglr_macros::tool;

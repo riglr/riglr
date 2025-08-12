@@ -1,19 +1,35 @@
+/// Stream configuration and builder utilities
 pub mod builder;
+/// Configuration structures for stream management
 pub mod config;
+/// Connection management and pooling functionality
 pub mod connection;
+/// Advanced stream operators for complex data processing
 pub mod enhanced_operators;
+/// Error types and result definitions for streaming operations
 pub mod error;
+/// Adapters for converting between different event formats
 pub mod event_adapter;
+/// Financial analysis operators for market data streams
 pub mod financial_operators;
+/// Stream lifecycle management and coordination
 pub mod manager;
+/// Performance monitoring and metrics collection
 pub mod metrics;
+/// Mock streaming utilities for testing and development
 pub mod mock_stream;
+/// Core stream transformation and composition operators
 pub mod operators;
+/// Event processing and pattern matching utilities
 pub mod processor;
+/// Core streaming abstractions and implementations
 pub mod stream;
+/// Event wrapper types for streaming data
 pub mod streamed_event;
+/// Macros for resilience patterns in stream processing
 #[macro_use]
 pub mod resilience_macro;
+/// Tests for numeric conversion functionality
 #[cfg(test)]
 mod test_asnumeric;
 
@@ -27,10 +43,14 @@ pub use streamed_event::{
 /// Temporary StreamMetadata for migration phase
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct StreamMetadata {
+    /// Source identifier for the stream that generated this event
     pub stream_source: String,
+    /// Timestamp when this event was received by the stream processor
     #[serde(with = "systemtime_as_millis")]
     pub received_at: std::time::SystemTime,
+    /// Optional sequence number for ordering events within a stream
     pub sequence_number: Option<u64>,
+    /// Optional custom metadata specific to the event or stream source
     pub custom_data: Option<serde_json::Value>,
 }
 

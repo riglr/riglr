@@ -62,7 +62,7 @@ where
 
 /// Simple hash function for consistent hashing
 pub fn hash_string(s: &str) -> u64 {
-    let mut hasher = DefaultHasher::new();
+    let mut hasher = DefaultHasher::default();
     s.hash(&mut hasher);
     hasher.finish()
 }

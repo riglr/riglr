@@ -22,6 +22,7 @@ use tracing::{debug, error, info};
 /// Configuration for Solana RPC client
 #[derive(Debug, Clone)]
 pub struct SolanaConfig {
+    /// RPC URL for the Solana cluster
     pub rpc_url: String,
     /// Commitment level for transactions
     pub commitment: CommitmentLevel,
@@ -79,7 +80,7 @@ impl SolanaClient {
 
     /// Create a new Solana client with default mainnet configuration
     pub fn mainnet() -> Self {
-        Self::new(SolanaConfig::default())
+        Self::default()
     }
 
     /// Create a new Solana client with devnet configuration
@@ -185,6 +186,7 @@ impl SolanaClient {
         Ok(balance)
     }
 
+    /// Get SPL token balance for a specific token mint owned by an address
     pub async fn get_token_balance(&self, address: &str, mint: &str) -> Result<u64> {
         let owner_pubkey = Pubkey::from_str(address).map_err(|e| {
             SolanaToolError::InvalidAddress(format!("Invalid owner address: {}", e))
@@ -436,7 +438,7 @@ impl SolanaClient {
             return Err(SolanaToolError::Rpc(error.to_string()));
         }
 
-        Ok(result.get("result").cloned().unwrap_or(json!(null)))
+        Ok(result.get("result").cloned().unwrap_or(serde_json::Value::Null))
     }
 
     /// Check if the client is connected
@@ -509,7 +511,24 @@ impl SolanaClient {
 
 impl Default for SolanaClient {
     fn default() -> Self {
-        Self::mainnet()
+        let config = SolanaConfig::default();
+        let rpc_client = RpcClient::new_with_timeout_and_commitment(
+            config.rpc_url.clone(),
+            config.timeout,
+            CommitmentConfig {
+                commitment: config.commitment,
+            },
+        );
+
+        Self {
+            rpc_client: Arc::new(rpc_client),
+            http_client: Client::builder()
+                .timeout(config.timeout)
+                .build()
+                .unwrap_or_else(|_| Client::new()),
+            config,
+            signer: None,
+        }
     }
 }
 

@@ -8,11 +8,11 @@
 
 use crate::core::config::{BackpressureConfig, BackpressureStrategy, BatchConfig};
 use crate::core::error::{StreamError, StreamResult};
+use dashmap::DashMap;
 use std::collections::{HashMap, VecDeque};
 use std::hash::Hash;
 use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime};
-use tokio::sync::RwLock;
 use tokio::sync::Semaphore;
 use tokio::time::sleep;
 use tracing::{info, warn};
@@ -33,14 +33,20 @@ pub enum WindowType {
 /// Window state for managing event windows
 #[derive(Debug)]
 pub struct Window<E> {
+    /// Unique identifier for this window
     pub id: u64,
+    /// When this window started
     pub start_time: Instant,
+    /// When this window ended (if closed)
     pub end_time: Option<Instant>,
+    /// Events collected in this window
     pub events: Vec<E>,
+    /// Whether this window is closed for new events
     pub is_closed: bool,
 }
 
 impl<E> Window<E> {
+    /// Creates a new window with the given ID and start time
     fn new(id: u64, start_time: Instant) -> Self {
         Self {
             id,
@@ -51,11 +57,13 @@ impl<E> Window<E> {
         }
     }
 
+    /// Closes the window, preventing new events from being added
     fn close(&mut self) {
         self.end_time = Some(Instant::now());
         self.is_closed = true;
     }
 
+    /// Adds an event to the window if it's not closed
     fn add_event(&mut self, event: E) {
         if !self.is_closed {
             self.events.push(event);
@@ -65,13 +73,18 @@ impl<E> Window<E> {
 
 /// Window manager for handling different window types
 pub struct WindowManager<E> {
+    /// Type of windowing to apply
     window_type: WindowType,
+    /// Currently active windows indexed by ID
     active_windows: HashMap<u64, Window<E>>,
+    /// Counter for generating unique window IDs
     next_window_id: u64,
+    /// Last time cleanup was performed
     last_cleanup: Instant,
 }
 
 impl<E> WindowManager<E> {
+    /// Creates a new window manager with the specified window type
     pub fn new(window_type: WindowType) -> Self {
         Self {
             window_type,
@@ -81,6 +94,7 @@ impl<E> WindowManager<E> {
         }
     }
 
+    /// Adds an event to the appropriate window(s) and returns any completed windows
     pub fn add_event(&mut self, event: E) -> Vec<Window<E>> {
         let now = Instant::now();
         let system_now = SystemTime::now();
@@ -207,8 +221,10 @@ impl<E> WindowManager<E> {
         completed_windows
     }
 
+    /// Removes old windows that are no longer needed
     fn cleanup_old_windows(&mut self) {
-        let cutoff = Instant::now() - Duration::from_secs(3600); // Keep windows for 1 hour max
+        let cleanup_start = Instant::now();
+        let cutoff = cleanup_start - Duration::from_secs(3600); // Keep windows for 1 hour max
         let old_ids: Vec<_> = self
             .active_windows
             .iter()
@@ -228,8 +244,11 @@ where
     K: Hash + Eq + Clone,
     S: Clone,
 {
-    state_store: Arc<RwLock<HashMap<K, S>>>,
+    /// Concurrent state storage using DashMap for better performance
+    state_store: Arc<DashMap<K, S>>,
+    /// How often to create checkpoints
     checkpoint_interval: Duration,
+    /// When the last checkpoint was created
     last_checkpoint: Instant,
 }
 
@@ -238,44 +257,44 @@ where
     K: Hash + Eq + Clone + Send + Sync + 'static,
     S: Clone + Send + Sync + 'static,
 {
+    /// Creates a new stateful processor with the specified checkpoint interval
     pub fn new(checkpoint_interval: Duration) -> Self {
         Self {
-            state_store: Arc::new(RwLock::new(HashMap::new())),
+            state_store: Arc::new(DashMap::new()),
             checkpoint_interval,
             last_checkpoint: Instant::now(),
         }
     }
 
+    /// Retrieves the current state for the given key
     pub async fn get_state(&self, key: &K) -> Option<S> {
-        let store = self.state_store.read().await;
-        store.get(key).cloned()
+        self.state_store.get(key).map(|entry| entry.value().clone())
     }
 
+    /// Updates the state for the given key using the provided function
     pub async fn update_state<F, R>(&self, key: K, update_fn: F) -> R
     where
         F: FnOnce(Option<&S>) -> (S, R),
     {
-        let mut store = self.state_store.write().await;
-        let current = store.get(&key);
-        let (new_state, result) = update_fn(current);
-        store.insert(key, new_state);
+        let current = self.state_store.get(&key);
+        let current_ref = current.as_ref().map(|entry| entry.value());
+        let (new_state, result) = update_fn(current_ref);
+        self.state_store.insert(key, new_state);
         result
     }
 
+    /// Removes and returns the state for the given key
     pub async fn remove_state(&self, key: &K) -> Option<S> {
-        let mut store = self.state_store.write().await;
-        store.remove(key)
+        self.state_store.remove(key).map(|(_, value)| value)
     }
 
+    /// Creates a checkpoint of the current state if enough time has passed
     pub async fn checkpoint(&self) -> StreamResult<()> {
         if self.last_checkpoint.elapsed() >= self.checkpoint_interval {
-            let state_snapshot = {
-                let store = self.state_store.read().await;
-                store.clone()
-            };
+            let state_count = self.state_store.len();
 
             // In a real implementation, this would persist to durable storage
-            info!("Checkpointing state with {} entries", state_snapshot.len());
+            info!("Checkpointing state with {} entries", state_count);
             // self.persist_checkpoint(state_snapshot).await?;
 
             Ok(())
@@ -287,13 +306,18 @@ where
 
 /// Flow control manager with backpressure handling
 pub struct FlowController {
+    /// Backpressure configuration settings
     config: BackpressureConfig,
+    /// Semaphore for controlling concurrent access
     semaphore: Arc<Semaphore>,
+    /// Current queue size counter
     queue_size: Arc<tokio::sync::RwLock<usize>>,
+    /// Number of dropped events counter
     drop_count: Arc<tokio::sync::RwLock<usize>>,
 }
 
 impl FlowController {
+    /// Creates a new flow controller with the specified backpressure configuration
     pub fn new(config: BackpressureConfig) -> Self {
         let semaphore = Arc::new(Semaphore::new(config.channel_size));
 
@@ -305,6 +329,7 @@ impl FlowController {
         }
     }
 
+    /// Attempts to acquire a permit based on the configured backpressure strategy
     pub async fn acquire_permit(&self) -> StreamResult<()> {
         let current_size = *self.queue_size.read().await;
 
@@ -388,26 +413,22 @@ impl FlowController {
                     Ok(())
                 } else {
                     // Try to acquire, but don't wait too long
-                    match tokio::time::timeout(Duration::from_millis(10), self.semaphore.acquire())
-                        .await
-                    {
-                        Ok(Ok(permit)) => {
-                            permit.forget();
-                            Ok(())
-                        }
-                        _ => {
-                            let mut drop_count = self.drop_count.write().await;
-                            *drop_count += 1;
-                            Err(StreamError::Backpressure {
-                                message: "Adaptive timeout".into(),
-                            })
-                        }
+                    if let Ok(Ok(permit)) = tokio::time::timeout(Duration::from_millis(10), self.semaphore.acquire()).await {
+                        permit.forget();
+                        Ok(())
+                    } else {
+                        let mut drop_count = self.drop_count.write().await;
+                        *drop_count += 1;
+                        Err(StreamError::Backpressure {
+                            message: "Adaptive timeout".into(),
+                        })
                     }
                 }
             }
         }
     }
 
+    /// Releases a permit back to the semaphore pool
     pub async fn release_permit(&self) {
         self.semaphore.add_permits(1);
         let mut size = self.queue_size.write().await;
@@ -416,6 +437,7 @@ impl FlowController {
         }
     }
 
+    /// Updates the queue size by the specified delta
     pub async fn update_queue_size(&self, delta: i32) {
         let mut size = self.queue_size.write().await;
         if delta > 0 {
@@ -425,6 +447,7 @@ impl FlowController {
         }
     }
 
+    /// Returns current queue size and drop count statistics
     pub async fn get_stats(&self) -> (usize, usize) {
         let queue_size = *self.queue_size.read().await;
         let drop_count = *self.drop_count.read().await;
@@ -434,12 +457,16 @@ impl FlowController {
 
 /// Event batch processor with configurable batching
 pub struct BatchProcessor<E> {
+    /// Batching configuration settings
     config: BatchConfig,
+    /// Buffer for accumulating events before batching
     batch_buffer: VecDeque<E>,
+    /// When the last batch was flushed
     last_flush: Instant,
 }
 
 impl<E> BatchProcessor<E> {
+    /// Creates a new batch processor with the specified configuration
     pub fn new(config: BatchConfig) -> Self {
         Self {
             config,
@@ -448,6 +475,7 @@ impl<E> BatchProcessor<E> {
         }
     }
 
+    /// Adds an event to the batch buffer and returns a completed batch if ready
     pub fn add_event(&mut self, event: E) -> Option<Vec<E>> {
         if !self.config.enabled {
             return Some(vec![event]);
@@ -466,6 +494,7 @@ impl<E> BatchProcessor<E> {
         }
     }
 
+    /// Forces a flush of the current batch buffer
     pub fn flush_batch(&mut self) -> Option<Vec<E>> {
         if self.batch_buffer.is_empty() {
             return None;
@@ -476,6 +505,7 @@ impl<E> BatchProcessor<E> {
         Some(batch)
     }
 
+    /// Returns the number of events currently in the batch buffer
     pub fn pending_count(&self) -> usize {
         self.batch_buffer.len()
     }
@@ -499,9 +529,13 @@ pub enum EventPattern<E> {
     All(Vec<EventPattern<E>>),
 }
 
+/// Complex event processing pattern matcher
 pub struct PatternMatcher<E> {
+    /// Patterns to match against events
     patterns: Vec<EventPattern<E>>,
+    /// History of recent events with timestamps
     event_history: VecDeque<(E, Instant)>,
+    /// Maximum number of events to keep in history
     max_history: usize,
 }
 
@@ -509,6 +543,7 @@ impl<E> PatternMatcher<E>
 where
     E: Clone,
 {
+    /// Creates a new pattern matcher with the specified patterns and history size
     pub fn new(patterns: Vec<EventPattern<E>>, max_history: usize) -> Self {
         Self {
             patterns,
@@ -517,6 +552,7 @@ where
         }
     }
 
+    /// Processes an event and returns indices of matching patterns
     pub fn match_event(&mut self, event: E) -> Vec<usize> {
         let now = Instant::now();
         self.event_history.push_back((event.clone(), now));
@@ -537,6 +573,7 @@ where
         matches
     }
 
+    /// Checks if a specific pattern matches the current event and history
     fn matches_pattern(&self, pattern: &EventPattern<E>, current_event: &E, now: Instant) -> bool {
         match pattern {
             EventPattern::Single(predicate) => predicate(current_event),

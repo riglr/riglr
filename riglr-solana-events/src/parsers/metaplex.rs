@@ -20,59 +20,108 @@ pub const METAPLEX_AUCTION_HOUSE_PROGRAM_ID: &str = "hausS13jsjafwWwGqZTUQRmWyvy
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MetaplexTokenMetadataDiscriminator {
+    /// Create metadata account for NFT
     CreateMetadataAccount = 0,
+    /// Update existing metadata account
     UpdateMetadataAccount = 1,
+    /// Deprecated create master edition instruction
     DeprecatedCreateMasterEdition = 2,
+    /// Deprecated mint new edition from master edition via printing token
     DeprecatedMintNewEditionFromMasterEditionViaPrintingToken = 3,
+    /// Update primary sale happened via token
     UpdatePrimarySaleHappenedViaToken = 4,
+    /// Deprecated set reservation list instruction
     DeprecatedSetReservationList = 5,
+    /// Deprecated create reservation list instruction
     DeprecatedCreateReservationList = 6,
+    /// Sign metadata for creator verification
     SignMetadata = 7,
+    /// Deprecated mint printing tokens via token
     DeprecatedMintPrintingTokensViaToken = 8,
+    /// Deprecated mint printing tokens instruction
     DeprecatedMintPrintingTokens = 9,
+    /// Create master edition for limited editions
     CreateMasterEdition = 10,
+    /// Mint new edition from master edition via token
     MintNewEditionFromMasterEditionViaToken = 11,
+    /// Convert master edition V1 to V2
     ConvertMasterEditionV1ToV2 = 12,
+    /// Mint new edition from master edition via vault proxy
     MintNewEditionFromMasterEditionViaVaultProxy = 13,
+    /// Puff metadata to increase size
     PuffMetadata = 14,
+    /// Update metadata account version 2
     UpdateMetadataAccountV2 = 15,
+    /// Create metadata account version 2
     CreateMetadataAccountV2 = 16,
+    /// Create master edition version 3
     CreateMasterEditionV3 = 17,
+    /// Verify collection membership
     VerifyCollection = 18,
+    /// Utilize NFT for specific use case
     Utilize = 19,
+    /// Approve use authority for NFT
     ApproveUseAuthority = 20,
+    /// Revoke use authority for NFT
     RevokeUseAuthority = 21,
+    /// Unverify collection membership
     UnverifyCollection = 22,
+    /// Approve collection authority
     ApproveCollectionAuthority = 23,
+    /// Revoke collection authority
     RevokeCollectionAuthority = 24,
+    /// Set and verify collection in one transaction
     SetAndVerifyCollection = 25,
+    /// Freeze delegated account
     FreezeDelegatedAccount = 26,
+    /// Thaw delegated account
     ThawDelegatedAccount = 27,
+    /// Remove creator verification
     RemoveCreatorVerification = 28,
+    /// Burn NFT permanently
     BurnNft = 29,
+    /// Verify creator signature
     VerifyCreator = 30,
+    /// Unverify creator signature
     UnverifyCreator = 31,
+    /// Bubblegum set collection size
     BubblegumSetCollectionSize = 32,
+    /// Burn edition NFT
     BurnEditionNft = 33,
+    /// Create metadata account version 3
     CreateMetadataAccountV3 = 34,
+    /// Set collection size
     SetCollectionSize = 35,
+    /// Set token standard
     SetTokenStandard = 36,
+    /// Bubblegum verify creator
     BubblegumVerifyCreator = 37,
+    /// Bubblegum unverify creator
     BubblegumUnverifyCreator = 38,
+    /// Bubblegum verify collection
     BubblegumVerifyCollection = 39,
+    /// Bubblegum unverify collection
     BubblegumUnverifyCollection = 40,
+    /// Bubblegum set and verify collection
     BubblegumSetAndVerifyCollection = 41,
+    /// Transfer NFT ownership
     Transfer = 42,
 }
 
 /// Metaplex Auction House discriminators
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MetaplexAuctionHouseDiscriminator {
+    /// Buy NFT from auction house
     Buy,
+    /// Sell NFT on auction house
     Sell,
+    /// Execute sale between buyer and seller
     ExecuteSale,
+    /// Deposit funds to auction house
     Deposit,
+    /// Withdraw funds from auction house
     Withdraw,
+    /// Cancel buy or sell order
     Cancel,
 }
 
@@ -445,7 +494,7 @@ pub struct MetaplexParserFactory;
 impl MetaplexParserFactory {
     /// Create a new high-performance zero-copy parser with full metadata
     pub fn create_zero_copy() -> Arc<dyn ByteSliceEventParser> {
-        Arc::new(MetaplexParser::new())
+        Arc::new(MetaplexParser::default())
     }
 
     /// Create a fast parser with minimal metadata
@@ -474,7 +523,7 @@ mod tests {
 
     #[test]
     fn test_create_metadata_account_parsing() {
-        let parser = MetaplexParser::new();
+        let parser = MetaplexParser::default();
 
         let data = vec![0u8; 100]; // CreateMetadataAccount discriminator + data
 
@@ -492,7 +541,7 @@ mod tests {
 
     #[test]
     fn test_transfer_parsing() {
-        let parser = MetaplexParser::new();
+        let parser = MetaplexParser::default();
 
         let data = vec![42u8; 50]; // Transfer discriminator + data
 
@@ -509,7 +558,7 @@ mod tests {
 
     #[test]
     fn test_can_parse() {
-        let parser = MetaplexParser::new();
+        let parser = MetaplexParser::default();
 
         assert!(parser.can_parse(&[0])); // CreateMetadataAccount
         assert!(parser.can_parse(&[42])); // Transfer

@@ -5,7 +5,7 @@ use riglr_graph_memory::extractor::EntityExtractor;
 
 #[test]
 fn test_entity_extractor_new() {
-    let _extractor = EntityExtractor::new();
+    let _extractor = EntityExtractor::default();
     // Should initialize with patterns
     // Internal state is private, but we can test functionality
     // Test passes if no panic occurs
@@ -20,7 +20,7 @@ fn test_entity_extractor_default() {
 
 #[tokio::test]
 async fn test_extract_ethereum_addresses() {
-    let extractor = EntityExtractor::new();
+    let extractor = EntityExtractor::default();
 
     let text = "Send 1 ETH to 0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb8 from 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48";
     let entities = extractor.extract(text);
@@ -48,7 +48,7 @@ async fn test_extract_ethereum_addresses() {
 
 #[tokio::test]
 async fn test_extract_solana_addresses() {
-    let extractor = EntityExtractor::new();
+    let extractor = EntityExtractor::default();
 
     // Base58 Solana addresses
     let text = "Transfer SOL to 11111111111111111111111111111111 and 5omQJtDUHA3gMFdHEQg1zZSvcBUVzey5WaKWYRmqF1Vj";
@@ -63,7 +63,7 @@ async fn test_extract_solana_addresses() {
 
 #[tokio::test]
 async fn test_extract_tokens() {
-    let extractor = EntityExtractor::new();
+    let extractor = EntityExtractor::default();
 
     let text = "Swap 100 USDC for 0.05 ETH on Uniswap. Also holding some BTC and SOL.";
     let entities = extractor.extract(text);
@@ -85,7 +85,7 @@ async fn test_extract_tokens() {
 
 #[tokio::test]
 async fn test_extract_protocols() {
-    let extractor = EntityExtractor::new();
+    let extractor = EntityExtractor::default();
 
     let text = "Used Uniswap to swap tokens, then deposited into Aave for lending. Also tried Compound and Jupiter.";
     let entities = extractor.extract(text);
@@ -105,7 +105,7 @@ async fn test_extract_protocols() {
 
 #[tokio::test]
 async fn test_extract_chains() {
-    let extractor = EntityExtractor::new();
+    let extractor = EntityExtractor::default();
 
     let text = "Deploy on Ethereum mainnet, then bridge to Polygon and Arbitrum. Solana is also supported.";
     let entities = extractor.extract(text);
@@ -125,7 +125,7 @@ async fn test_extract_chains() {
 
 #[tokio::test]
 async fn test_extract_amounts() {
-    let extractor = EntityExtractor::new();
+    let extractor = EntityExtractor::default();
 
     let text =
         "Transfer 100.5 ETH with a fee of 0.001 ETH. Market cap is $1.2B and volume is 500K USDC.";
@@ -159,7 +159,7 @@ async fn test_extract_amounts() {
 
 #[tokio::test]
 async fn test_extract_amounts_with_suffixes() {
-    let extractor = EntityExtractor::new();
+    let extractor = EntityExtractor::default();
 
     let text = "TVL is $2.5M, trading volume 10K ETH, market cap $1B";
     let entities = extractor.extract(text);
@@ -174,7 +174,7 @@ async fn test_extract_amounts_with_suffixes() {
 
 #[tokio::test]
 async fn test_extract_relationships_basic() {
-    let extractor = EntityExtractor::new();
+    let extractor = EntityExtractor::default();
 
     let text = "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb8 swapped tokens on Uniswap";
     let entities = extractor.extract(text);
@@ -189,7 +189,7 @@ async fn test_extract_relationships_basic() {
 
 #[tokio::test]
 async fn test_extract_complex_text() {
-    let extractor = EntityExtractor::new();
+    let extractor = EntityExtractor::default();
 
     let text = r#"
         Transaction Details:
@@ -221,7 +221,7 @@ async fn test_extract_complex_text() {
 
 #[tokio::test]
 async fn test_extract_empty_text() {
-    let extractor = EntityExtractor::new();
+    let extractor = EntityExtractor::default();
 
     let entities = extractor.extract("");
 
@@ -235,7 +235,7 @@ async fn test_extract_empty_text() {
 
 #[tokio::test]
 async fn test_extract_no_entities() {
-    let extractor = EntityExtractor::new();
+    let extractor = EntityExtractor::default();
 
     let text = "This is just regular text without any blockchain entities.";
     let entities = extractor.extract(text);
@@ -247,7 +247,7 @@ async fn test_extract_no_entities() {
 
 #[tokio::test]
 async fn test_extract_case_insensitive() {
-    let extractor = EntityExtractor::new();
+    let extractor = EntityExtractor::default();
 
     let text = "UNISWAP uniswap UniSwap Uniswap";
     let entities = extractor.extract(text);
@@ -259,7 +259,7 @@ async fn test_extract_case_insensitive() {
 
 #[tokio::test]
 async fn test_extract_duplicate_entities() {
-    let extractor = EntityExtractor::new();
+    let extractor = EntityExtractor::default();
 
     let text = "Uniswap is great. I love Uniswap. Everyone uses Uniswap.";
     let entities = extractor.extract(text);
@@ -270,7 +270,7 @@ async fn test_extract_duplicate_entities() {
 
 #[tokio::test]
 async fn test_extract_invalid_addresses() {
-    let extractor = EntityExtractor::new();
+    let extractor = EntityExtractor::default();
 
     // Invalid Ethereum address (wrong length)
     let text = "Send to 0x123 and 0xZZZ";
@@ -282,7 +282,7 @@ async fn test_extract_invalid_addresses() {
 
 #[tokio::test]
 async fn test_extract_transaction_hashes() {
-    let extractor = EntityExtractor::new();
+    let extractor = EntityExtractor::default();
 
     let text =
         "Transaction hash: 0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef";
@@ -295,7 +295,7 @@ async fn test_extract_transaction_hashes() {
 
 #[tokio::test]
 async fn test_extract_mixed_chains() {
-    let extractor = EntityExtractor::new();
+    let extractor = EntityExtractor::default();
 
     let text = "Bridge from Ethereum (0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb8) to Solana (11111111111111111111111111111111)";
     let entities = extractor.extract(text);
@@ -313,7 +313,7 @@ async fn test_extract_mixed_chains() {
 
 #[tokio::test]
 async fn test_entity_properties() {
-    let extractor = EntityExtractor::new();
+    let extractor = EntityExtractor::default();
 
     let text = "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb8";
     let entities = extractor.extract(text);
@@ -332,7 +332,7 @@ async fn test_entity_properties() {
 
 #[tokio::test]
 async fn test_amount_types_classification() {
-    let extractor = EntityExtractor::new();
+    let extractor = EntityExtractor::default();
 
     let tests = vec![
         ("My balance is 100 ETH", AmountType::Balance),
@@ -374,7 +374,7 @@ async fn test_amount_types_classification() {
 
 #[tokio::test]
 async fn test_confidence_scores() {
-    let extractor = EntityExtractor::new();
+    let extractor = EntityExtractor::default();
 
     let text = "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb8 uses Uniswap";
     let entities = extractor.extract(text);
@@ -392,7 +392,7 @@ async fn test_confidence_scores() {
 
 #[tokio::test]
 async fn test_span_positions() {
-    let extractor = EntityExtractor::new();
+    let extractor = EntityExtractor::default();
 
     let text = "Send 100 USDC to address";
     let entities = extractor.extract(text);
@@ -417,7 +417,7 @@ async fn test_span_positions() {
 
 #[tokio::test]
 async fn test_protocol_variations() {
-    let extractor = EntityExtractor::new();
+    let extractor = EntityExtractor::default();
 
     let text = "Use Uniswap V2, Uniswap V3, and regular Uniswap";
     let entities = extractor.extract(text);
@@ -429,7 +429,7 @@ async fn test_protocol_variations() {
 
 #[tokio::test]
 async fn test_token_symbols_and_names() {
-    let extractor = EntityExtractor::new();
+    let extractor = EntityExtractor::default();
 
     let text = "Trade ETH (Ethereum) and BTC (Bitcoin) for USDC (USD Coin)";
     let entities = extractor.extract(text);
@@ -448,10 +448,10 @@ async fn test_token_symbols_and_names() {
 
 #[tokio::test]
 async fn test_very_long_text() {
-    let extractor = EntityExtractor::new();
+    let extractor = EntityExtractor::default();
 
     // Create a very long text with repeated patterns
-    let mut text = String::new();
+    let mut text = String::default();
     for i in 0..100 {
         text.push_str(&format!(
             "Transaction {}: Send {} ETH to 0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb{} using Uniswap. ",
@@ -470,7 +470,7 @@ async fn test_very_long_text() {
 
 #[tokio::test]
 async fn test_unicode_text() {
-    let extractor = EntityExtractor::new();
+    let extractor = EntityExtractor::default();
 
     let text = "Send 100 USDC 送信 to 0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb8 使用 Uniswap 🚀";
     let entities = extractor.extract(text);
@@ -483,7 +483,7 @@ async fn test_unicode_text() {
 
 #[tokio::test]
 async fn test_special_characters() {
-    let extractor = EntityExtractor::new();
+    let extractor = EntityExtractor::default();
 
     let text = "Price: $1,234.56 | Volume: $10,000,000 | Fee: 0.3%";
     let entities = extractor.extract(text);
@@ -495,7 +495,7 @@ async fn test_special_characters() {
 
 #[tokio::test]
 async fn test_extract_debug_implementation() {
-    let extractor = EntityExtractor::new();
+    let extractor = EntityExtractor::default();
     let debug_str = format!("{:?}", extractor);
     assert!(debug_str.contains("EntityExtractor"));
 }
@@ -503,7 +503,7 @@ async fn test_extract_debug_implementation() {
 #[tokio::test]
 async fn test_tx_hash_regex_coverage() {
     // This test specifically exercises the TX_HASH_REGEX pattern (line 47)
-    let extractor = EntityExtractor::new();
+    let extractor = EntityExtractor::default();
 
     // Test with valid transaction hash (use proper hex to avoid Solana address confusion)
     let text =
@@ -525,7 +525,7 @@ async fn test_tx_hash_regex_coverage() {
 #[tokio::test]
 async fn test_parse_value_error_cases() {
     // This test covers the error handling in parse_value (lines 481, 486-487)
-    let extractor = EntityExtractor::new();
+    let extractor = EntityExtractor::default();
 
     // Test with malformed numbers that should trigger parse errors
     let text = "Amount: $abc123xyz ETH";
@@ -544,7 +544,7 @@ async fn test_parse_value_error_cases() {
 #[tokio::test]
 async fn test_find_related_entity_none_case() {
     // This test covers the None return path in find_related_entity (line 530)
-    let extractor = EntityExtractor::new();
+    let extractor = EntityExtractor::default();
 
     // Create text where entities are mentioned but no clear relationships
     let text = "Random text without any clear entity relationships or mentions";
@@ -557,8 +557,8 @@ async fn test_find_related_entity_none_case() {
 #[tokio::test]
 async fn test_initialize_patterns_debug_log() {
     // This test ensures the debug log in initialize_patterns is covered (line 167)
-    // The log is triggered during EntityExtractor::new()
-    let _extractor = EntityExtractor::new();
+    // The log is triggered during EntityExtractor::default()
+    let _extractor = EntityExtractor::default();
     // The debug log will be executed during initialization
     // No assertion needed as we're just ensuring code coverage
 }
@@ -566,7 +566,7 @@ async fn test_initialize_patterns_debug_log() {
 #[tokio::test]
 async fn test_empty_value_string_error() {
     // Test empty value string error path (lines 486-487)
-    let extractor = EntityExtractor::new();
+    let extractor = EntityExtractor::default();
 
     // Test with amounts that might result in empty parsed values
     let text = "Price: $ (empty) and Volume: $";

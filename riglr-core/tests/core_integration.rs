@@ -1,3 +1,15 @@
+//! Integration tests for riglr-core functionality.
+//!
+//! This module contains comprehensive integration tests that verify the core
+//! functionality of the riglr framework, including:
+//!
+//! - Signer context isolation and thread safety across async tasks
+//! - Cross-chain signer context management (Solana and EVM)
+//! - Tool error classification and handling mechanisms
+//! - Environment configuration utilities and error handling
+//! - Concurrent operations and context isolation guarantees
+//! - Nested signer context behavior and restoration
+
 use futures::future;
 use riglr_core::{
     error::ToolError,
@@ -7,6 +19,11 @@ use riglr_core::{
 use solana_sdk::transaction::Transaction;
 use std::sync::Arc;
 use tokio::task;
+
+// Test environment variable constants
+const TEST_EXISTING_VAR: &str = "TEST_EXISTING_VAR";
+const TEST_NON_EXISTING_VAR: &str = "TEST_NON_EXISTING_VAR";
+const TEST_MISSING_VAR: &str = "TEST_MISSING_VAR";
 
 /// Mock signer for testing signer context isolation
 struct MockSigner {
@@ -193,36 +210,36 @@ async fn test_tool_error_classification() {
 fn test_environment_configuration_helpers() {
     // Test get_required_env with existing environment variable
     unsafe {
-        std::env::set_var("TEST_EXISTING_VAR", "test_value");
+        std::env::set_var(TEST_EXISTING_VAR, "test_value");
     }
-    let value = get_required_env("TEST_EXISTING_VAR").expect("should find existing var");
+    let value = get_required_env(TEST_EXISTING_VAR).expect("should find existing var");
     assert_eq!(value, "test_value");
 
     // Test get_env_or_default with existing variable
-    let value = get_env_or_default("TEST_EXISTING_VAR", "default_value");
+    let value = get_env_or_default(TEST_EXISTING_VAR, "default_value");
     assert_eq!(value, "test_value");
 
     // Test get_env_or_default with non-existing variable
     unsafe {
-        std::env::remove_var("TEST_NON_EXISTING_VAR");
+        std::env::remove_var(TEST_NON_EXISTING_VAR);
     }
-    let value = get_env_or_default("TEST_NON_EXISTING_VAR", "default_value");
+    let value = get_env_or_default(TEST_NON_EXISTING_VAR, "default_value");
     assert_eq!(value, "default_value");
 
     // Clean up
     unsafe {
-        std::env::remove_var("TEST_EXISTING_VAR");
+        std::env::remove_var(TEST_EXISTING_VAR);
     }
 }
 
 #[test]
 fn test_get_required_env_errors_on_missing_var() {
     unsafe {
-        std::env::remove_var("TEST_MISSING_VAR");
+        std::env::remove_var(TEST_MISSING_VAR);
     }
-    let result = get_required_env("TEST_MISSING_VAR");
+    let result = get_required_env(TEST_MISSING_VAR);
     assert!(result.is_err());
-    assert!(result.unwrap_err().to_string().contains("TEST_MISSING_VAR"));
+    assert!(result.unwrap_err().to_string().contains(TEST_MISSING_VAR));
 }
 
 #[tokio::test]

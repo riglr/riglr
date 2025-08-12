@@ -2,18 +2,28 @@
 pub mod parsing {
     /// Size constants for basic data types
     pub const U8_SIZE: usize = 1;
+    /// Size of a u16 in bytes
     pub const U16_SIZE: usize = 2;
+    /// Size of a u32 in bytes
     pub const U32_SIZE: usize = 4;
+    /// Size of a u64 in bytes
     pub const U64_SIZE: usize = 8;
+    /// Size of a u128 in bytes
     pub const U128_SIZE: usize = 16;
+    /// Size of a Solana public key in bytes
     pub const PUBKEY_SIZE: usize = 32;
 
     /// Common byte ranges for parsing
     pub const U8_RANGE: std::ops::Range<usize> = 0..U8_SIZE;
+    /// Byte range for parsing a single u16 value
     pub const U16_RANGE: std::ops::Range<usize> = 0..U16_SIZE;
+    /// Byte range for parsing a single u32 value
     pub const U32_RANGE: std::ops::Range<usize> = 0..U32_SIZE;
+    /// Byte range for parsing a single u64 value
     pub const U64_RANGE: std::ops::Range<usize> = 0..U64_SIZE;
+    /// Byte range for parsing a single u128 value
     pub const U128_RANGE: std::ops::Range<usize> = 0..U128_SIZE;
+    /// Byte range for parsing a single public key value
     pub const PUBKEY_RANGE: std::ops::Range<usize> = 0..PUBKEY_SIZE;
 
     /// Second u64 range (for parsing two consecutive u64 values)

@@ -22,14 +22,14 @@ pub struct MetricsCollector {
 
 impl MetricsCollector {
     /// Create a new metrics collector
-    pub fn new(config: &MetricsConfig) -> IndexerResult<Self> {
+    pub fn new(config: MetricsConfig) -> IndexerResult<Self> {
         info!("Initializing metrics collector");
 
         let registry = Arc::new(MetricsRegistry::new(config.clone()));
 
         let collector = Self {
             registry,
-            config: config.clone(),
+            config,
             current_metrics: Arc::new(RwLock::new(IndexerMetrics::default())),
             start_time: std::time::Instant::now(),
         };
@@ -100,30 +100,31 @@ impl MetricsCollector {
     pub async fn update_indexer_metrics(&self, metrics: IndexerMetrics) {
         {
             let mut current = self.current_metrics.write().await;
-            *current = metrics.clone();
+            *current = metrics;
         }
 
         // Update registry with current values
+        let current = self.current_metrics.read().await;
         self.record_gauge(
             "indexer_events_processed_total",
-            metrics.events_processed_total as f64,
+            current.events_processed_total as f64,
         );
         self.record_gauge(
             "indexer_events_processing_rate",
-            metrics.events_processing_rate,
+            current.events_processing_rate,
         );
         self.record_gauge(
             "indexer_processing_latency_ms",
-            metrics.processing_latency_ms,
+            current.processing_latency_ms,
         );
-        self.record_gauge("indexer_queue_depth", metrics.queue_depth as f64);
-        self.record_gauge("indexer_active_workers", metrics.active_workers as f64);
-        self.record_gauge("indexer_error_rate", metrics.error_rate);
+        self.record_gauge("indexer_queue_depth", current.queue_depth as f64);
+        self.record_gauge("indexer_active_workers", current.active_workers as f64);
+        self.record_gauge("indexer_error_rate", current.error_rate);
         self.record_gauge(
             "indexer_storage_size_bytes",
-            metrics.storage_size_bytes as f64,
+            current.storage_size_bytes as f64,
         );
-        self.record_gauge("indexer_cache_hit_rate", metrics.cache_hit_rate);
+        self.record_gauge("indexer_cache_hit_rate", current.cache_hit_rate);
 
         // Record uptime
         let uptime_seconds = self.start_time.elapsed().as_secs() as f64;
@@ -131,7 +132,7 @@ impl MetricsCollector {
 
         debug!(
             "Updated indexer metrics: {} events processed, {:.2} events/sec",
-            metrics.events_processed_total, metrics.events_processing_rate
+            current.events_processed_total, current.events_processing_rate
         );
     }
 

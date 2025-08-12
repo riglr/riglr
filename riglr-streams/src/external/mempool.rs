@@ -55,8 +55,11 @@ impl Default for MempoolConfig {
 /// Bitcoin network type
 #[derive(Clone, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
 pub enum BitcoinNetwork {
+    /// Bitcoin mainnet
     Mainnet,
+    /// Bitcoin testnet
     Testnet,
+    /// Bitcoin signet
     Signet,
 }
 
@@ -92,8 +95,11 @@ pub struct MempoolStreamEvent {
 /// Mempool event types
 #[derive(Debug, Clone, Serialize)]
 pub enum MempoolEventType {
+    /// Block-related event
     Block,
+    /// Transaction-related event
     Transaction,
+    /// Statistics update event
     Stats,
 }
 
@@ -112,45 +118,69 @@ pub enum MempoolEventData {
     Unknown(serde_json::Value),
 }
 
+/// Bitcoin transaction data
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct BitcoinTransaction {
+    /// Transaction ID
     pub txid: String,
+    /// Transaction fee in satoshis
     pub fee: u64,
+    /// Virtual size of the transaction
     pub vsize: u32,
+    /// Total value in satoshis
     pub value: u64,
+    /// Whether the transaction is confirmed
     #[serde(default)]
     pub confirmed: bool,
 }
 
+/// Bitcoin block data
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct BitcoinBlock {
+    /// Block ID (hash)
     pub id: String,
+    /// Block height
     pub height: u64,
+    /// Block timestamp
     pub timestamp: u64,
+    /// Number of transactions in block
     pub tx_count: u32,
+    /// Block size in bytes
     pub size: u32,
+    /// Block weight
     pub weight: u32,
 }
 
+/// Bitcoin fee estimate data
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct FeeEstimate {
+    /// Fastest fee estimate in sat/vB
     #[serde(rename = "fastestFee")]
     pub fastest_fee: u32,
+    /// Half hour fee estimate in sat/vB
     #[serde(rename = "halfHourFee")]
     pub half_hour_fee: u32,
+    /// One hour fee estimate in sat/vB
     #[serde(rename = "hourFee")]
     pub hour_fee: u32,
+    /// Economy fee estimate in sat/vB
     #[serde(rename = "economyFee")]
     pub economy_fee: u32,
+    /// Minimum fee estimate in sat/vB
     #[serde(rename = "minimumFee")]
     pub minimum_fee: u32,
 }
 
+/// Mempool statistics data
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct MempoolStats {
+    /// Number of transactions in mempool
     pub count: u32,
+    /// Total virtual size of mempool transactions
     pub vsize: u64,
+    /// Total fees in mempool
     pub total_fee: u64,
+    /// Fee rate histogram
     pub fee_histogram: Vec<Vec<u64>>,
 }
 

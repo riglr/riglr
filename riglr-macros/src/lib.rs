@@ -599,7 +599,7 @@ developer-friendly framework for building sophisticated blockchain AI agents.
 
 use heck::ToPascalCase;
 use proc_macro::TokenStream;
-use quote::{quote, ToTokens};
+use quote::quote;
 use syn::{
     parse::Parse, parse::ParseStream, parse_macro_input, Attribute, DeriveInput, FnArg, ItemFn,
     ItemStruct, LitStr, PatType, Token,
@@ -699,25 +699,20 @@ fn handle_function(function: ItemFn, tool_attrs: ToolAttr) -> proc_macro2::Token
                 let param_doc = extract_doc_comments(attrs);
 
                 param_names.push(param_name.clone());
-                param_docs.push(param_doc);
+                param_docs.push(param_doc.clone());
 
-                // Check if the type has serde attributes
-                let has_default = attrs.iter().any(|attr| {
-                    attr.path().is_ident("serde")
-                        && attr.to_token_stream().to_string().contains("default")
-                });
-
-                if has_default {
-                    param_fields.push(quote! {
-                        #(#attrs)*
-                        pub #param_name: #param_type
-                    });
+                // Add documentation for the field
+                let doc_attr = if param_doc.is_empty() {
+                    quote! { #[doc = "Parameter"] }
                 } else {
-                    param_fields.push(quote! {
-                        #(#attrs)*
-                        pub #param_name: #param_type
-                    });
-                }
+                    quote! { #[doc = #param_doc] }
+                };
+
+                param_fields.push(quote! {
+                    #doc_attr
+                    #(#attrs)*
+                    pub #param_name: #param_type
+                });
             }
         }
     }
@@ -756,10 +751,12 @@ fn handle_function(function: ItemFn, tool_attrs: ToolAttr) -> proc_macro2::Token
         #function
 
         // Generate all tool-related code in a module namespace
+        #[doc = "Generated tool module containing implementation details"]
         #fn_vis mod #module_name {
             use super::*;
 
             // Generate the args struct if there are parameters
+            #[doc = "Arguments structure for the tool"]
             #[derive(serde::Serialize, serde::Deserialize, schemars::JsonSchema, Debug, Clone)]
             #[serde(rename_all = "camelCase")]
             pub struct Args {
@@ -767,6 +764,7 @@ fn handle_function(function: ItemFn, tool_attrs: ToolAttr) -> proc_macro2::Token
             }
 
             // Generate the tool struct
+            #[doc = "Tool implementation structure"]
             #[derive(Clone)]
             pub struct Tool;
 
@@ -786,6 +784,7 @@ fn handle_function(function: ItemFn, tool_attrs: ToolAttr) -> proc_macro2::Token
             // Implement the Tool trait
             #[async_trait::async_trait]
             impl riglr_core::Tool for Tool {
+                /// Execute the tool with the provided parameters
                 async fn execute(&self, params: serde_json::Value) -> Result<riglr_core::JobResult, Box<dyn std::error::Error + Send + Sync>> {
                     // Parse the parameters; return a structured JobResult on parse failure
                     let args: Args = match serde_json::from_value(params) {
@@ -831,6 +830,7 @@ fn handle_function(function: ItemFn, tool_attrs: ToolAttr) -> proc_macro2::Token
         }
 
         // Create a convenience function to create an Arc<dyn Tool> using the namespaced type
+        /// Factory function to create a new instance of the tool
         #fn_vis fn #tool_fn_name() -> std::sync::Arc<dyn riglr_core::Tool> {
             std::sync::Arc::new(#module_name::Tool::new())
         }

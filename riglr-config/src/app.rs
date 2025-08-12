@@ -35,8 +35,11 @@ pub struct AppConfig {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Environment {
+    /// Development environment for local testing and debugging
     Development,
+    /// Staging environment for pre-production testing
     Staging,
+    /// Production environment for live deployment
     Production,
 }
 
@@ -87,6 +90,7 @@ pub struct RetryConfig {
 }
 
 impl AppConfig {
+    /// Validates the application configuration for correctness
     pub fn validate(&self) -> ConfigResult<()> {
         // Validate log level
         match self.log_level.as_str() {
@@ -122,6 +126,7 @@ impl AppConfig {
 }
 
 impl RetryConfig {
+    /// Validates the retry configuration for correctness
     pub fn validate(&self) -> ConfigResult<()> {
         if self.max_retry_attempts == 0 {
             return Err(ConfigError::validation(

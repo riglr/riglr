@@ -49,7 +49,7 @@ impl InMemoryIdempotencyStore {
 impl Default for InMemoryIdempotencyStore {
     fn default() -> Self {
         Self {
-            store: Arc::new(DashMap::new()),
+            store: Arc::new(DashMap::default()),
         }
     }
 }
@@ -173,7 +173,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_in_memory_idempotency_store() {
-        let store = InMemoryIdempotencyStore::new();
+        let store = InMemoryIdempotencyStore::default();
 
         let result = JobResult::success(&"test_value").unwrap();
         let key = "test_key";
@@ -199,7 +199,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_idempotency_expiry() {
-        let store = InMemoryIdempotencyStore::new();
+        let store = InMemoryIdempotencyStore::default();
 
         let result = JobResult::success(&"test_value").unwrap();
         let key = "test_key";

@@ -184,11 +184,17 @@ impl ClientConfig {
 /// Base URL configuration for various services
 #[derive(Debug, Clone)]
 pub struct BaseUrls {
+    /// DexScreener API base URL
     pub dexscreener: String,
+    /// Exa API base URL
     pub exa: String,
+    /// News API base URL
     pub newsapi: String,
+    /// CryptoPanic API base URL
     pub cryptopanic: String,
+    /// LunarCrush API base URL
     pub lunarcrush: String,
+    /// Twitter API base URL
     pub twitter: String,
 }
 
@@ -208,9 +214,13 @@ impl Default for BaseUrls {
 /// Rate limiting configuration
 #[derive(Debug, Clone)]
 pub struct RateLimits {
+    /// DexScreener requests per minute limit
     pub dexscreener_per_minute: u32,
+    /// Twitter requests per minute limit
     pub twitter_per_minute: u32,
+    /// News API requests per minute limit
     pub newsapi_per_minute: u32,
+    /// Exa API requests per minute limit
     pub exa_per_minute: u32,
 }
 
@@ -238,24 +248,29 @@ pub struct WebClient {
     pub http_config: HttpConfig,
 }
 
-impl WebClient {
-    /// Create a new web client
-    pub fn new() -> Result<Self> {
+impl Default for WebClient {
+    fn default() -> Self {
         let http_config = HttpConfig::default();
-
         let http_client = ClientBuilder::new()
             .timeout(http_config.timeout)
             .user_agent(&http_config.user_agent)
             .gzip(true)
             .build()
-            .map_err(|e| WebToolError::Client(format!("Failed to create HTTP client: {}", e)))?;
+            .expect("Failed to create default HTTP client");
 
-        Ok(Self {
+        Self {
             http_client,
             api_keys: ApiKeys::default(),
             config: ClientConfig::default(),
             http_config,
-        })
+        }
+    }
+}
+
+impl WebClient {
+    /// Create a new web client
+    pub fn new() -> Result<Self> {
+        Ok(Self::default())
     }
 
     /// Create with custom HTTP configuration
@@ -654,17 +669,6 @@ impl WebClient {
     }
 }
 
-impl Default for WebClient {
-    fn default() -> Self {
-        // Create a basic client without external dependencies
-        Self {
-            http_client: Client::new(), // Client::new() can't fail
-            api_keys: ApiKeys::default(),
-            config: ClientConfig::default(),
-            http_config: HttpConfig::default(),
-        }
-    }
-}
 
 #[cfg(test)]
 mod tests {
@@ -672,14 +676,14 @@ mod tests {
 
     #[test]
     fn test_web_client_creation() {
-        let client = WebClient::new().unwrap();
+        let client = WebClient::default().unwrap();
         assert!(client.api_keys.is_empty());
-        assert!(client.config.is_empty());
+        assert!(!client.config.is_empty()); // Config always has default values
     }
 
     #[test]
     fn test_with_api_key() {
-        let client = WebClient::new()
+        let client = WebClient::default()
             .unwrap()
             .with_twitter_token("test_token")
             .with_exa_key("exa_key");
@@ -694,7 +698,7 @@ mod tests {
 
     #[test]
     fn test_config() {
-        let mut client = WebClient::new().unwrap();
+        let mut client = WebClient::default().unwrap();
         client.set_config("test_key", "test_value");
 
         // Config no longer stores arbitrary test keys, only predefined URLs

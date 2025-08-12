@@ -131,49 +131,62 @@ mod tests {
     use super::*;
     use std::env;
 
+    // Test environment variable constants
+    const TEST_VAR_EXISTS: &str = "TEST_VAR_EXISTS";
+    const TEST_VAR_MISSING: &str = "TEST_VAR_MISSING";
+    const TEST_REQUIRED_VAR: &str = "TEST_REQUIRED_VAR";
+    const TEST_MISSING_REQUIRED: &str = "TEST_MISSING_REQUIRED";
+    const TEST_VALIDATE_VAR1: &str = "TEST_VALIDATE_VAR1";
+    const TEST_VALIDATE_VAR2: &str = "TEST_VALIDATE_VAR2";
+    const TEST_VALIDATE_MISSING_VAR1: &str = "TEST_VALIDATE_MISSING_VAR1";
+    const TEST_VALIDATE_MISSING_VAR2: &str = "TEST_VALIDATE_MISSING_VAR2";
+    const TEST_MULTI_1: &str = "TEST_MULTI_1";
+    const TEST_MULTI_2: &str = "TEST_MULTI_2";
+    const TEST_MULTI_3: &str = "TEST_MULTI_3";
+
     #[test]
     fn test_get_env_or_default_with_existing_var() {
         unsafe {
-            env::set_var("TEST_VAR_EXISTS", "test_value");
+            env::set_var(TEST_VAR_EXISTS, "test_value");
         }
-        let result = get_env_or_default("TEST_VAR_EXISTS", "default");
+        let result = get_env_or_default(TEST_VAR_EXISTS, "default");
         assert_eq!(result, "test_value");
         unsafe {
-            env::remove_var("TEST_VAR_EXISTS");
+            env::remove_var(TEST_VAR_EXISTS);
         }
     }
 
     #[test]
     fn test_get_env_or_default_with_missing_var() {
         unsafe {
-            env::remove_var("TEST_VAR_MISSING");
+            env::remove_var(TEST_VAR_MISSING);
         }
-        let result = get_env_or_default("TEST_VAR_MISSING", "default_value");
+        let result = get_env_or_default(TEST_VAR_MISSING, "default_value");
         assert_eq!(result, "default_value");
     }
 
     #[test]
     fn test_get_required_env_with_existing_var() {
         unsafe {
-            env::set_var("TEST_REQUIRED_VAR", "required_value");
+            env::set_var(TEST_REQUIRED_VAR, "required_value");
         }
-        let result = get_required_env("TEST_REQUIRED_VAR").unwrap();
+        let result = get_required_env(TEST_REQUIRED_VAR).unwrap();
         assert_eq!(result, "required_value");
         unsafe {
-            env::remove_var("TEST_REQUIRED_VAR");
+            env::remove_var(TEST_REQUIRED_VAR);
         }
     }
 
     #[test]
     fn test_get_required_env_with_missing_var() {
         unsafe {
-            env::remove_var("TEST_MISSING_REQUIRED");
+            env::remove_var(TEST_MISSING_REQUIRED);
         }
-        let result = get_required_env("TEST_MISSING_REQUIRED");
+        let result = get_required_env(TEST_MISSING_REQUIRED);
         assert!(result.is_err());
         match result {
             Err(EnvError::MissingRequired(key)) => {
-                assert_eq!(key, "TEST_MISSING_REQUIRED");
+                assert_eq!(key, TEST_MISSING_REQUIRED);
             }
             _ => panic!("Expected MissingRequired error"),
         }
@@ -182,64 +195,64 @@ mod tests {
     #[test]
     fn test_validate_required_env_all_present() {
         unsafe {
-            env::set_var("TEST_VALIDATE_VAR1", "value1");
+            env::set_var(TEST_VALIDATE_VAR1, "value1");
         }
         unsafe {
-            env::set_var("TEST_VALIDATE_VAR2", "value2");
+            env::set_var(TEST_VALIDATE_VAR2, "value2");
         }
 
-        let result = validate_required_env(&["TEST_VALIDATE_VAR1", "TEST_VALIDATE_VAR2"]);
+        let result = validate_required_env(&[TEST_VALIDATE_VAR1, TEST_VALIDATE_VAR2]);
         assert!(result.is_ok());
 
         unsafe {
-            env::remove_var("TEST_VALIDATE_VAR1");
+            env::remove_var(TEST_VALIDATE_VAR1);
         }
         unsafe {
-            env::remove_var("TEST_VALIDATE_VAR2");
+            env::remove_var(TEST_VALIDATE_VAR2);
         }
     }
 
     #[test]
     fn test_validate_required_env_missing_one() {
         unsafe {
-            env::set_var("TEST_VALIDATE_MISSING_VAR1", "value1");
+            env::set_var(TEST_VALIDATE_MISSING_VAR1, "value1");
         }
         unsafe {
-            env::remove_var("TEST_VALIDATE_MISSING_VAR2");
+            env::remove_var(TEST_VALIDATE_MISSING_VAR2);
         }
 
         let result =
-            validate_required_env(&["TEST_VALIDATE_MISSING_VAR1", "TEST_VALIDATE_MISSING_VAR2"]);
+            validate_required_env(&[TEST_VALIDATE_MISSING_VAR1, TEST_VALIDATE_MISSING_VAR2]);
         assert!(result.is_err());
 
         unsafe {
-            env::remove_var("TEST_VALIDATE_MISSING_VAR1");
+            env::remove_var(TEST_VALIDATE_MISSING_VAR1);
         }
     }
 
     #[test]
     fn test_get_env_vars() {
         unsafe {
-            env::set_var("TEST_MULTI_1", "value1");
+            env::set_var(TEST_MULTI_1, "value1");
         }
         unsafe {
-            env::set_var("TEST_MULTI_2", "value2");
+            env::set_var(TEST_MULTI_2, "value2");
         }
         unsafe {
-            env::remove_var("TEST_MULTI_3");
+            env::remove_var(TEST_MULTI_3);
         }
 
-        let vars = get_env_vars(&["TEST_MULTI_1", "TEST_MULTI_2", "TEST_MULTI_3"]);
+        let vars = get_env_vars(&[TEST_MULTI_1, TEST_MULTI_2, TEST_MULTI_3]);
 
-        assert_eq!(vars.get("TEST_MULTI_1"), Some(&"value1".to_string()));
-        assert_eq!(vars.get("TEST_MULTI_2"), Some(&"value2".to_string()));
-        assert_eq!(vars.get("TEST_MULTI_3"), None);
+        assert_eq!(vars.get(TEST_MULTI_1), Some(&"value1".to_string()));
+        assert_eq!(vars.get(TEST_MULTI_2), Some(&"value2".to_string()));
+        assert_eq!(vars.get(TEST_MULTI_3), None);
 
         unsafe {
-            env::remove_var("TEST_MULTI_1");
+            env::remove_var(TEST_MULTI_1);
         }
         unsafe {
-            env::remove_var("TEST_MULTI_2");
+            env::remove_var(TEST_MULTI_2);
         }
     }
 }

@@ -37,7 +37,7 @@ impl Tool for MockSolanaTransferTool {
             .ok_or("Missing 'amount' parameter")?;
 
         // Validate address format
-        if let Err(_) = Pubkey::from_str(to_address) {
+        if Pubkey::from_str(to_address).is_err() {
             return Ok(JobResult::permanent_failure(
                 format!("Invalid Solana address: {}", to_address)
             ));
@@ -665,7 +665,7 @@ impl Tool for MockBalanceCheckerTool {
             .ok_or("Missing 'address' parameter")?;
 
         // Validate address format
-        if let Err(_) = Pubkey::from_str(address) {
+        if Pubkey::from_str(address).is_err() {
             return Ok(JobResult::permanent_failure(
                 format!("Invalid Solana address: {}", address)
             ));

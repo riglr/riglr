@@ -274,8 +274,12 @@ pub async fn get_multiple_balances(
 }
 
 /// Result structure for balance queries
+///
+/// Contains balance information for a Solana address including both raw lamports
+/// and human-readable SOL amounts.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct BalanceResult {
+    /// The Solana wallet address that was queried
     pub address: String,
     /// Balance in lamports (smallest unit)
     pub lamports: u64,
@@ -285,18 +289,27 @@ pub struct BalanceResult {
     pub formatted: String,
 }
 
+/// Result structure for SPL token balance queries
+///
+/// Contains balance information for a specific SPL token including both raw amounts
+/// and decimal-adjusted values.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct TokenBalanceResult {
+    /// The wallet address that owns the tokens
     pub owner_address: String,
+    /// The SPL token mint address (contract address)
     pub mint_address: String,
+    /// Raw token amount (before decimal adjustment)
     pub raw_amount: u64,
     /// UI amount (with decimal adjustment)
     pub ui_amount: f64,
+    /// Number of decimal places for the token
     pub decimals: u8,
     /// Human-readable formatted balance
     pub formatted: String,
 }
 
+/// Unit tests for balance functionality
 #[cfg(test)]
 mod tests {
     use super::*;

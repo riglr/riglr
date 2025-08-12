@@ -3,6 +3,8 @@
 //! These benchmarks validate that the new parsing infrastructure provides
 //! measurable performance improvements over the legacy implementations.
 
+#![allow(missing_docs)]
+
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use riglr_solana_events::prelude::*;
 use riglr_solana_events::types::EventMetadata;
@@ -180,7 +182,7 @@ fn benchmark_deserializers(c: &mut Criterion) {
 fn benchmark_pattern_matching(c: &mut Criterion) {
     let mut group = c.benchmark_group("pattern_matching");
 
-    let mut matcher = SIMDPatternMatcher::new();
+    let mut matcher = SIMDPatternMatcher::default();
     matcher.add_pattern(vec![0x09], ProtocolType::RaydiumAmmV4);
     matcher.add_pattern(
         vec![229, 23, 203, 151, 122, 227, 173, 42],

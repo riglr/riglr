@@ -9,18 +9,31 @@ pub enum ParseError {
     /// Not enough bytes available for the requested operation
     #[error("Not enough bytes: expected {expected}, got {found} at offset {offset}")]
     NotEnoughBytes {
+        /// Number of bytes expected
         expected: usize,
+        /// Number of bytes actually found
         found: usize,
+        /// Byte offset where the error occurred
         offset: usize,
     },
 
     /// Invalid discriminator for the instruction
     #[error("Invalid discriminator: expected {expected:?}, got {found:?}")]
-    InvalidDiscriminator { expected: Vec<u8>, found: Vec<u8> },
+    InvalidDiscriminator {
+        /// Expected discriminator bytes
+        expected: Vec<u8>,
+        /// Actual discriminator bytes found
+        found: Vec<u8>,
+    },
 
     /// Invalid account index
     #[error("Account index {index} out of bounds (max: {max})")]
-    InvalidAccountIndex { index: usize, max: usize },
+    InvalidAccountIndex {
+        /// The invalid account index that was accessed
+        index: usize,
+        /// Maximum valid account index
+        max: usize,
+    },
 
     /// Invalid public key format
     #[error("Invalid public key: {0}")]
@@ -36,7 +49,12 @@ pub enum ParseError {
 
     /// Invalid enum variant
     #[error("Invalid enum variant {variant} for type {type_name}")]
-    InvalidEnumVariant { variant: u8, type_name: String },
+    InvalidEnumVariant {
+        /// The invalid variant value
+        variant: u8,
+        /// Name of the enum type
+        type_name: String,
+    },
 
     /// Invalid instruction type
     #[error("Invalid instruction type: {0}")]

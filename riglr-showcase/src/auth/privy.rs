@@ -139,8 +139,8 @@ pub mod privy_impl {
                                     sol_address = Some(address.clone());
                                 }
                                 if *delegated && chain_type == "ethereum" {
-                                    evm_address = Some(address.clone());
-                                    evm_wallet_id = id.clone();
+                                    evm_address.clone_from(&Some(address.clone()));
+                                    evm_wallet_id.clone_from(&id);
                                 }
                             }
                         }
@@ -182,7 +182,7 @@ pub mod privy_impl {
             }
 
             // Create appropriate signer based on linked delegated wallets
-            if let Some(sol_addr) = &user_data.solana_address {
+            if let Some(sol_addr) = user_data.solana_address {
                 let sol_cfg = config
                     .solana_networks
                     .get(&auth_data.network)
@@ -193,12 +193,12 @@ pub mod privy_impl {
                         explorer_url: None,
                     });
                 let client = create_privy_client(&self.privy_app_id, &self.privy_app_secret);
-                let signer = PrivySolanaSigner::new(client, sol_addr.clone(), sol_cfg);
+                let signer = PrivySolanaSigner::new(client, sol_addr, sol_cfg);
                 return Ok(Box::new(signer));
             }
 
             if let (Some(evm_addr), Some(evm_wallet_id)) =
-                (&user_data.evm_address, &user_data.evm_wallet_id)
+                (user_data.evm_address, user_data.evm_wallet_id)
             {
                 let evm_cfg = config
                     .evm_networks
@@ -207,7 +207,7 @@ pub mod privy_impl {
                     .ok_or_else(|| format!("Unsupported EVM network: {}", auth_data.network))?;
                 let client = create_privy_client(&self.privy_app_id, &self.privy_app_secret);
                 let signer =
-                    PrivyEvmSigner::new(client, evm_addr.clone(), evm_wallet_id.clone(), evm_cfg);
+                    PrivyEvmSigner::new(client, evm_addr, evm_wallet_id, evm_cfg);
                 return Ok(Box::new(signer));
             }
 
@@ -270,7 +270,7 @@ pub mod privy_impl {
 
     impl PrivySolanaSigner {
         fn new(client: reqwest::Client, address: String, network: SolanaNetworkConfig) -> Self {
-            let rpc = Arc::new(RpcClient::new(network.rpc_url.clone()));
+            let rpc = Arc::new(RpcClient::new(network.rpc_url));
             Self {
                 client,
                 address,

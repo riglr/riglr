@@ -17,11 +17,11 @@ fn test_invalid_address_error() {
     let error = EvmToolError::InvalidAddress("Not a valid hex address".to_string());
     assert_eq!(
         error.to_string(),
-        "Invalid address: Not a valid hex address"
+        "Invalid address format: Not a valid hex address"
     );
 
     let error2 = EvmToolError::InvalidAddress("Missing 0x prefix".to_string());
-    assert_eq!(error2.to_string(), "Invalid address: Missing 0x prefix");
+    assert_eq!(error2.to_string(), "Invalid address format: Missing 0x prefix");
 }
 
 #[test]

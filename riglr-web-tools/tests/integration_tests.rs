@@ -1,9 +1,21 @@
+//! Integration tests for web tools functionality
+
 use riglr_web_tools::{client::WebClient, dexscreener::*, news::*, price::*, web_search::*};
 use serde_json::json;
 use wiremock::{
     matchers::{method, path, query_param},
     Mock, MockServer, ResponseTemplate,
 };
+
+// Constants for environment variable names
+const DEXSCREENER_BASE_URL: &str = "DEXSCREENER_BASE_URL";
+const DEXSCREENER_API_URL: &str = "DEXSCREENER_API_URL";
+const EXA_API_URL: &str = "EXA_API_URL";
+const EXA_API_KEY: &str = "EXA_API_KEY";
+const NEWSAPI_URL: &str = "NEWSAPI_URL";
+const NEWSAPI_KEY: &str = "NEWSAPI_KEY";
+const CRYPTOPANIC_URL: &str = "CRYPTOPANIC_URL";
+const CRYPTOPANIC_KEY: &str = "CRYPTOPANIC_KEY";
 
 /// Helper to create a WebClient that points to our mock server
 #[allow(dead_code)]
@@ -78,7 +90,10 @@ async fn test_dexscreener_token_info_success() {
         .await;
 
     // Override the DexScreener base URL to use our mock server
-    std::env::set_var("DEXSCREENER_BASE_URL", mock_server.uri());
+    unsafe {
+        // SAFETY: Safe in test environment where we control thread access
+        std::env::set_var(DEXSCREENER_BASE_URL, mock_server.uri());
+    }
 
     // Call the actual function
     let result = get_token_info(
@@ -106,7 +121,10 @@ async fn test_dexscreener_token_info_success() {
     assert_eq!(token_info.pairs.len(), 1);
 
     // Clean up
-    std::env::remove_var("DEXSCREENER_BASE_URL");
+    unsafe {
+        // SAFETY: Safe in test environment where we control thread access
+        std::env::remove_var(DEXSCREENER_BASE_URL);
+    }
 }
 
 #[tokio::test]
@@ -125,7 +143,10 @@ async fn test_dexscreener_token_not_found() {
         .mount(&mock_server)
         .await;
 
-    std::env::set_var("DEXSCREENER_BASE_URL", mock_server.uri());
+    unsafe {
+        // SAFETY: Safe in test environment where we control thread access
+        std::env::set_var(DEXSCREENER_BASE_URL, mock_server.uri());
+    }
 
     let result = get_token_info(
         "0xInvalidAddress".to_string(),
@@ -139,7 +160,10 @@ async fn test_dexscreener_token_not_found() {
     assert!(result.is_err());
     assert!(result.unwrap_err().to_string().contains("No pairs found"));
 
-    std::env::remove_var("DEXSCREENER_BASE_URL");
+    unsafe {
+        // SAFETY: Safe in test environment where we control thread access
+        std::env::remove_var(DEXSCREENER_BASE_URL);
+    }
 }
 
 #[tokio::test]
@@ -187,7 +211,10 @@ async fn test_dexscreener_api_error_handling() {
         .mount(&mock_server)
         .await;
 
-    std::env::set_var("DEXSCREENER_BASE_URL", mock_server.uri());
+    unsafe {
+        // SAFETY: Safe in test environment where we control thread access
+        std::env::set_var(DEXSCREENER_BASE_URL, mock_server.uri());
+    }
 
     // Test 401 - should not retry
     let result = get_token_info("unauthorized".to_string(), None, None, None).await;
@@ -201,7 +228,10 @@ async fn test_dexscreener_api_error_handling() {
     let result = get_token_info("server_error".to_string(), None, None, None).await;
     assert!(result.is_ok());
 
-    std::env::remove_var("DEXSCREENER_BASE_URL");
+    unsafe {
+        // SAFETY: Safe in test environment where we control thread access
+        std::env::remove_var(DEXSCREENER_BASE_URL);
+    }
 }
 
 #[tokio::test]
@@ -243,10 +273,13 @@ async fn test_price_fetch_with_multiple_pairs() {
         .await;
 
     // Override base URL for DexScreener API
-    std::env::set_var(
-        "DEXSCREENER_API_URL",
-        format!("{}/latest", mock_server.uri()),
-    );
+    unsafe {
+        // SAFETY: Safe in test environment where we control thread access
+        std::env::set_var(
+            DEXSCREENER_API_URL,
+            format!("{}/latest", mock_server.uri()),
+        );
+    }
 
     // The price module should select the pair with highest liquidity
     let result = get_token_price("0xETH".to_string(), Some("ethereum".to_string())).await;
@@ -258,7 +291,10 @@ async fn test_price_fetch_with_multiple_pairs() {
     assert_eq!(price_result.source_dex, Some("curve".to_string()));
     assert_eq!(price_result.source_liquidity_usd, Some(2000000.0));
 
-    std::env::remove_var("DEXSCREENER_API_URL");
+    unsafe {
+        // SAFETY: Safe in test environment where we control thread access
+        std::env::remove_var(DEXSCREENER_API_URL);
+    }
 }
 
 #[tokio::test]
@@ -303,7 +339,10 @@ async fn test_search_tokens_with_filters() {
         .mount(&mock_server)
         .await;
 
-    std::env::set_var("DEXSCREENER_BASE_URL", mock_server.uri());
+    unsafe {
+        // SAFETY: Safe in test environment where we control thread access
+        std::env::set_var(DEXSCREENER_BASE_URL, mock_server.uri());
+    }
 
     let result = search_tokens(
         "pepe".to_string(),
@@ -321,7 +360,10 @@ async fn test_search_tokens_with_filters() {
     assert_eq!(search_result.tokens[0].symbol, "PEPE");
     assert_eq!(search_result.metadata.result_count, 1);
 
-    std::env::remove_var("DEXSCREENER_BASE_URL");
+    unsafe {
+        // SAFETY: Safe in test environment where we control thread access
+        std::env::remove_var(DEXSCREENER_BASE_URL);
+    }
 }
 
 #[tokio::test]
@@ -356,8 +398,11 @@ async fn test_web_search_with_exa_api() {
         .await;
 
     // Set mock server as Exa API URL
-    std::env::set_var("EXA_API_URL", mock_server.uri());
-    std::env::set_var("EXA_API_KEY", "test_key");
+    unsafe {
+        // SAFETY: Safe in test environment where we control thread access
+        std::env::set_var(EXA_API_URL, mock_server.uri());
+        std::env::set_var(EXA_API_KEY, "test_key");
+    }
 
     let result = search_web(
         "rust programming".to_string(),
@@ -379,8 +424,11 @@ async fn test_web_search_with_exa_api() {
     );
     assert!(search_result.results[0].relevance_score > 0.9);
 
-    std::env::remove_var("EXA_API_URL");
-    std::env::remove_var("EXA_API_KEY");
+    unsafe {
+        // SAFETY: Safe in test environment where we control thread access
+        std::env::remove_var(EXA_API_URL);
+        std::env::remove_var(EXA_API_KEY);
+    }
 }
 
 #[tokio::test]
@@ -445,10 +493,13 @@ async fn test_news_aggregation_with_mock_apis() {
         .mount(&mock_server)
         .await;
 
-    std::env::set_var("NEWSAPI_URL", format!("{}/v2", mock_server.uri()));
-    std::env::set_var("NEWSAPI_KEY", "test_newsapi_key");
-    std::env::set_var("CRYPTOPANIC_URL", format!("{}/api/v1", mock_server.uri()));
-    std::env::set_var("CRYPTOPANIC_KEY", "test_cryptopanic_key");
+    unsafe {
+        // SAFETY: Safe in test environment where we control thread access
+        std::env::set_var(NEWSAPI_URL, format!("{}/v2", mock_server.uri()));
+        std::env::set_var(NEWSAPI_KEY, "test_newsapi_key");
+        std::env::set_var(CRYPTOPANIC_URL, format!("{}/api/v1", mock_server.uri()));
+        std::env::set_var(CRYPTOPANIC_KEY, "test_cryptopanic_key");
+    }
 
     let result = get_crypto_news(
         "bitcoin".to_string(),
@@ -467,10 +518,13 @@ async fn test_news_aggregation_with_mock_apis() {
     assert!(!news_result.articles.is_empty());
     assert!(!news_result.metadata.sources_queried.is_empty());
 
-    std::env::remove_var("NEWSAPI_URL");
-    std::env::remove_var("NEWSAPI_KEY");
-    std::env::remove_var("CRYPTOPANIC_URL");
-    std::env::remove_var("CRYPTOPANIC_KEY");
+    unsafe {
+        // SAFETY: Safe in test environment where we control thread access
+        std::env::remove_var(NEWSAPI_URL);
+        std::env::remove_var(NEWSAPI_KEY);
+        std::env::remove_var(CRYPTOPANIC_URL);
+        std::env::remove_var(CRYPTOPANIC_KEY);
+    }
 }
 
 #[tokio::test]
@@ -532,14 +586,20 @@ async fn test_malformed_json_response() {
         .mount(&mock_server)
         .await;
 
-    std::env::set_var("DEXSCREENER_BASE_URL", mock_server.uri());
+    unsafe {
+        // SAFETY: Safe in test environment where we control thread access
+        std::env::set_var(DEXSCREENER_BASE_URL, mock_server.uri());
+    }
 
     let result = get_token_info("malformed".to_string(), None, None, None).await;
 
     assert!(result.is_err());
     assert!(result.unwrap_err().to_string().contains("parse"));
 
-    std::env::remove_var("DEXSCREENER_BASE_URL");
+    unsafe {
+        // SAFETY: Safe in test environment where we control thread access
+        std::env::remove_var(DEXSCREENER_BASE_URL);
+    }
 }
 
 #[tokio::test]

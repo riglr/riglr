@@ -49,7 +49,7 @@
 //! use std::sync::Arc;
 //!
 //! # async fn example() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-//! let registry = LocalAgentRegistry::new();
+//! let registry = LocalAgentRegistry::default();
 //!
 //! // Register agents
 //! // let agent = Arc::new(TradingAgent { id: AgentId::new("trader-1") });

@@ -13,27 +13,44 @@ use url::{ParseError, Url};
 /// Errors that can occur during LiFi API operations
 #[derive(Error, Debug)]
 pub enum LiFiError {
+    /// HTTP request failed
     #[error("HTTP request failed: {0}")]
     Request(#[from] reqwest::Error),
 
+    /// Invalid response format from API
     #[error("Invalid response format: {0}")]
     InvalidResponse(String),
 
+    /// API returned an error response
     #[error("API error: {code} - {message}")]
-    ApiError { code: u16, message: String },
+    ApiError { 
+        /// HTTP status code
+        code: u16, 
+        /// Error message from API
+        message: String 
+    },
 
+    /// Chain is not supported by LiFi
     #[error("Chain not supported: {chain_name}")]
-    UnsupportedChain { chain_name: String },
+    UnsupportedChain { 
+        /// Name of the unsupported chain
+        chain_name: String 
+    },
 
+    /// No route found between chains
     #[error("Route not found for {from_chain} -> {to_chain}")]
     RouteNotFound {
+        /// Source chain name
         from_chain: String,
+        /// Destination chain name
         to_chain: String,
     },
 
+    /// Configuration error
     #[error("Configuration error: {0}")]
     Configuration(String),
 
+    /// URL parsing error
     #[error("URL parsing error: {0}")]
     UrlParse(#[from] ParseError),
 }
@@ -42,8 +59,10 @@ pub enum LiFiError {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "lowercase")]
 pub enum ChainType {
+    /// Ethereum Virtual Machine based blockchain
     #[serde(rename = "evm")]
     Evm,
+    /// Solana blockchain
     #[serde(rename = "solana")]
     Solana,
 }
@@ -52,11 +71,17 @@ pub enum ChainType {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Chain {
+    /// Unique chain identifier
     pub id: u64,
+    /// Human-readable chain name
     pub name: String,
+    /// Chain key used by LiFi API
     pub key: String,
+    /// Type of blockchain (EVM or Solana)
     pub chain_type: ChainType,
+    /// Optional URI for chain logo
     pub logo_uri: Option<String>,
+    /// Native token information for this chain
     pub native_token: Token,
 }
 
@@ -64,11 +89,17 @@ pub struct Chain {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Token {
+    /// Token contract address
     pub address: String,
+    /// Token symbol (e.g., ETH, USDC)
     pub symbol: String,
+    /// Number of decimal places for this token
     pub decimals: u8,
+    /// Full token name
     pub name: String,
+    /// Optional URI for token logo
     pub logo_uri: Option<String>,
+    /// Current price in USD
     pub price_usd: Option<f64>,
 }
 
@@ -76,18 +107,31 @@ pub struct Token {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CrossChainRoute {
+    /// Unique route identifier
     pub id: String,
+    /// Source chain ID
     pub from_chain_id: u64,
+    /// Destination chain ID
     pub to_chain_id: u64,
+    /// Token being sent from source chain
     pub from_token: Token,
+    /// Token being received on destination chain
     pub to_token: Token,
+    /// Amount to send (in token units)
     pub from_amount: String,
+    /// Expected amount to receive (in token units)
     pub to_amount: String,
+    /// Minimum amount guaranteed to receive
     pub to_amount_min: String,
+    /// Steps required to execute this route
     pub steps: Vec<RouteStep>,
+    /// Estimated gas cost in USD
     pub gas_cost_usd: Option<f64>,
+    /// Fees associated with this route
     pub fees: Vec<RouteFee>,
+    /// Estimated time to complete the route in seconds
     pub estimated_execution_duration: u64, // seconds
+    /// Route tags for categorization
     pub tags: Vec<String>,
     /// Transaction request data for executing the bridge
     pub transaction_request: Option<TransactionRequest>,
@@ -97,10 +141,15 @@ pub struct CrossChainRoute {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RouteStep {
+    /// Unique step identifier
     pub id: String,
+    /// Step type (e.g., "lifi", "cross", "swap")
     pub type_: String, // "lifi", "cross", "swap"
+    /// Tool/protocol used for this step
     pub tool: String,
+    /// Action details for this step
     pub action: StepAction,
+    /// Execution estimates for this step
     pub estimate: StepEstimate,
 }
 
@@ -108,11 +157,17 @@ pub struct RouteStep {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StepAction {
+    /// Source chain ID for this step
     pub from_chain_id: u64,
+    /// Destination chain ID for this step
     pub to_chain_id: u64,
+    /// Input token for this step
     pub from_token: Token,
+    /// Output token for this step
     pub to_token: Token,
+    /// Input amount for this step
     pub from_amount: String,
+    /// Expected output amount for this step
     pub to_amount: String,
 }
 
@@ -120,12 +175,19 @@ pub struct StepAction {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StepEstimate {
+    /// Tool/protocol used for estimation
     pub tool: String,
+    /// Contract address that needs approval (if any)
     pub approval_address: Option<String>,
+    /// Minimum guaranteed output amount
     pub to_amount_min: String,
+    /// Estimated gas for data/computation
     pub data_gas_estimate: Option<String>,
+    /// Current gas price
     pub gas_price: Option<String>,
+    /// Total estimated gas cost
     pub gas_cost: Option<String>,
+    /// Estimated execution time in seconds
     pub execution_duration: u64,
 }
 
@@ -133,12 +195,19 @@ pub struct StepEstimate {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RouteFee {
+    /// Fee name/type
     pub name: String,
+    /// Human-readable fee description
     pub description: String,
+    /// Fee percentage (as string)
     pub percentage: String,
+    /// Token in which the fee is denominated
     pub token: Token,
+    /// Fee amount in token units
     pub amount: String,
+    /// Fee amount in USD
     pub amount_usd: Option<f64>,
+    /// Whether this fee is included in the quoted amounts
     pub included: bool,
 }
 
@@ -146,13 +215,21 @@ pub struct RouteFee {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RouteRequest {
+    /// Source chain ID
     pub from_chain: u64,
+    /// Destination chain ID
     pub to_chain: u64,
+    /// Source token address
     pub from_token: String,
+    /// Destination token address
     pub to_token: String,
+    /// Amount to bridge (in token units)
     pub from_amount: String,
+    /// Optional sender address
     pub from_address: Option<String>,
+    /// Optional recipient address
     pub to_address: Option<String>,
+    /// Slippage tolerance (0.005 = 0.5%)
     pub slippage: Option<f64>, // 0.005 = 0.5%
 }
 
@@ -160,6 +237,7 @@ pub struct RouteRequest {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RouteResponse {
+    /// Available cross-chain routes
     pub routes: Vec<CrossChainRoute>,
 }
 
@@ -167,9 +245,13 @@ pub struct RouteResponse {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum BridgeStatus {
+    /// Transaction not found
     NotFound,
+    /// Transaction is pending execution
     Pending,
+    /// Transaction completed successfully
     Done,
+    /// Transaction failed
     Failed,
 }
 
@@ -177,13 +259,21 @@ pub enum BridgeStatus {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BridgeStatusResponse {
+    /// Current status of the bridge transaction
     pub status: BridgeStatus,
+    /// Source chain ID
     pub from_chain_id: Option<u64>,
+    /// Destination chain ID
     pub to_chain_id: Option<u64>,
+    /// Tool/protocol used for bridging
     pub tool: Option<String>,
+    /// Transaction hash on source chain
     pub sending_tx_hash: Option<String>,
+    /// Transaction hash on destination chain
     pub receiving_tx_hash: Option<String>,
+    /// Amount sent from source chain
     pub amount_sent: Option<String>,
+    /// Amount received on destination chain
     pub amount_received: Option<String>,
 }
 
@@ -212,26 +302,28 @@ pub struct TransactionRequest {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SolanaAccountMeta {
+    /// Public key of the account
     pub pubkey: String,
+    /// Whether this account must sign the transaction
     pub is_signer: bool,
+    /// Whether this account is writable
     pub is_writable: bool,
 }
 
 /// LiFi Protocol API client
 #[derive(Debug, Clone)]
 pub struct LiFiClient {
+    /// HTTP client for API requests
     client: reqwest::Client,
+    /// Base URL for LiFi API
     base_url: Url,
+    /// Optional API key for authentication
     api_key: Option<String>,
 }
 
 impl LiFiClient {
     const DEFAULT_BASE_URL: &'static str = "https://li.quest/v1/";
 
-    /// Create a new LiFi client with default settings
-    pub fn new() -> Self {
-        Self::default()
-    }
 
     /// Create a new LiFi client with custom base URL
     pub fn with_base_url(base_url: &str) -> Result<Self, LiFiError> {
@@ -545,7 +637,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_lifi_client_creation() {
-        let client = LiFiClient::new();
+        let client = LiFiClient::default();
         assert!(client.api_key.is_none());
     }
 

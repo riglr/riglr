@@ -42,7 +42,9 @@ impl Default for GasConfig {
 
 /// EVM transaction processor with gas optimization
 pub struct EvmTransactionProcessor<P: Provider> {
+    /// The blockchain provider for interacting with the EVM network
     provider: Arc<P>,
+    /// Gas configuration settings for transaction optimization
     gas_config: GasConfig,
 }
 

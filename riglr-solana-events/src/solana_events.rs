@@ -8,60 +8,87 @@ use serde::{Deserialize, Serialize};
 use std::any::Any;
 use std::time::SystemTime;
 // UnifiedEvent trait has been removed
-use crate::types::{EventMetadata, EventType, ProtocolType, TransferData};
+use crate::types::{metadata_helpers, EventMetadata, EventType, ProtocolType, TransferData};
 use riglr_events_core::prelude::*;
 
 /// Parameters for creating swap events, reducing function parameter count
 #[derive(Debug, Clone)]
 pub struct SwapEventParams {
+    /// Event identifier
     pub id: String,
+    /// Transaction signature
     pub signature: String,
+    /// Solana slot number
     pub slot: u64,
+    /// Block timestamp
     pub block_time: i64,
+    /// Protocol type (e.g., Jupiter, Raydium)
     pub protocol_type: ProtocolType,
+    /// Program ID that executed the swap
     pub program_id: solana_sdk::pubkey::Pubkey,
+    /// Input token mint address
     pub input_mint: solana_sdk::pubkey::Pubkey,
+    /// Output token mint address
     pub output_mint: solana_sdk::pubkey::Pubkey,
+    /// Amount of input tokens
     pub amount_in: u64,
+    /// Amount of output tokens
     pub amount_out: u64,
 }
 
 /// Parameters for creating liquidity events, reducing function parameter count
 #[derive(Debug, Clone)]
 pub struct LiquidityEventParams {
+    /// Event identifier
     pub id: String,
+    /// Transaction signature
     pub signature: String,
+    /// Solana slot number
     pub slot: u64,
+    /// Block timestamp
     pub block_time: i64,
+    /// Protocol type (e.g., Orca, Raydium)
     pub protocol_type: ProtocolType,
+    /// Program ID that executed the liquidity operation
     pub program_id: solana_sdk::pubkey::Pubkey,
+    /// True for adding liquidity, false for removing
     pub is_add: bool,
+    /// First token mint address
     pub mint_a: solana_sdk::pubkey::Pubkey,
+    /// Second token mint address
     pub mint_b: solana_sdk::pubkey::Pubkey,
+    /// Amount of first token
     pub amount_a: u64,
+    /// Amount of second token
     pub amount_b: u64,
 }
 
 /// Parameters for creating protocol events, reducing function parameter count
 #[derive(Debug, Clone)]
 pub struct ProtocolEventParams {
+    /// Event identifier
     pub id: String,
+    /// Transaction signature
     pub signature: String,
+    /// Solana slot number
     pub slot: u64,
+    /// Block timestamp
     pub block_time: i64,
+    /// Protocol type (e.g., MarginFi, Meteora)
     pub protocol_type: ProtocolType,
+    /// Specific event type within the protocol
     pub event_type: EventType,
+    /// Program ID that executed the event
     pub program_id: solana_sdk::pubkey::Pubkey,
+    /// Event-specific data payload
     pub data: serde_json::Value,
 }
 
-/// A wrapper that implements both UnifiedEvent and Event traits for seamless migration
+/// A wrapper that implements the Event trait for Solana events
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SolanaEvent {
-    /// Legacy metadata for compatibility
-    pub legacy_metadata: EventMetadata,
-    /// Core metadata for new functionality
-    pub core_metadata: riglr_events_core::types::EventMetadata,
+    /// Event metadata
+    pub metadata: EventMetadata,
     /// Event data payload
     pub data: serde_json::Value,
     /// Transfer data for token movements
@@ -69,30 +96,10 @@ pub struct SolanaEvent {
 }
 
 impl SolanaEvent {
-    /// Create a new Solana event from legacy metadata
-    pub fn new(legacy_metadata: EventMetadata, data: serde_json::Value) -> Self {
-        let core_metadata = legacy_metadata.to_core_metadata(
-            legacy_metadata.event_type.to_event_kind(),
-            format!("solana-{}", legacy_metadata.protocol_type),
-        );
-
+    /// Create a new Solana event
+    pub fn new(metadata: EventMetadata, data: serde_json::Value) -> Self {
         Self {
-            legacy_metadata,
-            core_metadata,
-            data,
-            transfer_data: Vec::new(),
-        }
-    }
-
-    /// Create from both legacy and core metadata (for precise control)
-    pub fn with_metadata(
-        legacy_metadata: EventMetadata,
-        core_metadata: riglr_events_core::types::EventMetadata,
-        data: serde_json::Value,
-    ) -> Self {
-        Self {
-            legacy_metadata,
-            core_metadata,
+            metadata,
             data,
             transfer_data: Vec::new(),
         }
@@ -122,27 +129,27 @@ impl SolanaEvent {
 // Implement the new Event trait from riglr-events-core
 impl riglr_events_core::traits::Event for SolanaEvent {
     fn id(&self) -> &str {
-        &self.core_metadata.id
+        &self.metadata.id
     }
 
     fn kind(&self) -> &riglr_events_core::types::EventKind {
-        &self.core_metadata.kind
+        &self.metadata.kind
     }
 
     fn metadata(&self) -> &riglr_events_core::types::EventMetadata {
-        &self.core_metadata
+        &self.metadata
     }
 
     fn metadata_mut(&mut self) -> &mut riglr_events_core::types::EventMetadata {
-        &mut self.core_metadata
+        &mut self.metadata
     }
 
     fn timestamp(&self) -> SystemTime {
-        self.core_metadata.timestamp.into()
+        self.metadata.timestamp.into()
     }
 
     fn source(&self) -> &str {
-        &self.core_metadata.source
+        &self.metadata.source
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -159,8 +166,7 @@ impl riglr_events_core::traits::Event for SolanaEvent {
 
     fn to_json(&self) -> EventResult<serde_json::Value> {
         Ok(serde_json::json!({
-            "legacy_metadata": self.legacy_metadata,
-            "core_metadata": self.core_metadata,
+            "metadata": self.metadata,
             "data": self.data,
             "transfer_data": self.transfer_data
         }))
@@ -169,6 +175,7 @@ impl riglr_events_core::traits::Event for SolanaEvent {
 
 /// Helper trait for converting legacy events to Solana events
 pub trait ToSolanaEvent {
+    /// Convert this event to a SolanaEvent for unified handling
     fn to_solana_event(&self) -> SolanaEvent;
 }
 
@@ -190,12 +197,11 @@ macro_rules! impl_to_solana_event {
 impl SolanaEvent {
     /// Create a swap event
     pub fn swap(params: SwapEventParams) -> Self {
-        let legacy_metadata = EventMetadata::new(
+        let metadata = metadata_helpers::create_solana_metadata(
             params.id,
             params.signature,
             params.slot,
             params.block_time,
-            params.block_time * 1000,
             params.protocol_type,
             EventType::Swap,
             params.program_id,
@@ -210,7 +216,7 @@ impl SolanaEvent {
             "amount_out": params.amount_out,
         });
 
-        Self::new(legacy_metadata, swap_data)
+        Self::new(metadata, swap_data)
     }
 
     /// Create a liquidity event
@@ -221,12 +227,11 @@ impl SolanaEvent {
             EventType::RemoveLiquidity
         };
 
-        let legacy_metadata = EventMetadata::new(
+        let metadata = metadata_helpers::create_solana_metadata(
             params.id,
             params.signature,
             params.slot,
             params.block_time,
-            params.block_time * 1000,
             params.protocol_type,
             event_type,
             params.program_id,
@@ -242,17 +247,16 @@ impl SolanaEvent {
             "amount_b": params.amount_b,
         });
 
-        Self::new(legacy_metadata, liquidity_data)
+        Self::new(metadata, liquidity_data)
     }
 
     /// Create a generic protocol event
     pub fn protocol_event(params: ProtocolEventParams) -> Self {
-        let legacy_metadata = EventMetadata::new(
+        let metadata = metadata_helpers::create_solana_metadata(
             params.id,
             params.signature,
             params.slot,
             params.block_time,
-            params.block_time * 1000,
             params.protocol_type,
             params.event_type,
             params.program_id,
@@ -260,7 +264,7 @@ impl SolanaEvent {
             Utc::now().timestamp_millis(),
         );
 
-        Self::new(legacy_metadata, params.data)
+        Self::new(metadata, params.data)
     }
 }
 
@@ -272,12 +276,11 @@ mod tests {
     #[test]
     fn test_solana_event_creation() {
         let program_id = solana_sdk::pubkey::Pubkey::new_unique();
-        let legacy_metadata = EventMetadata::new(
+        let metadata = metadata_helpers::create_solana_metadata(
             "test-event".to_string(),
             "signature123".to_string(),
             12345,
             1234567890,
-            1234567890000,
             ProtocolType::Jupiter,
             EventType::Swap,
             program_id,

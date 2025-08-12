@@ -1,3 +1,27 @@
+//! DeFi Agent Example
+//!
+//! This example demonstrates how to build an advanced DeFi (Decentralized Finance) agent
+//! using the Riglr framework. The agent showcases sophisticated yield optimization,
+//! risk management, and multi-protocol strategies across various DeFi protocols.
+//!
+//! Key Features:
+//! - Portfolio analysis and yield optimization strategies
+//! - Risk assessment and mitigation techniques  
+//! - Multi-protocol DeFi patterns (yield farming, lending, staking)
+//! - Advanced strategies like delta-neutral farming and auto-compounding
+//! - MEV protection and gas optimization
+//! - Cross-protocol arbitrage and strategy rotation
+//!
+//! Supported DeFi Protocols:
+//! - Solana: Jupiter, Solend, Raydium, Marinade, Tulip, Saber
+//! - Ethereum: Uniswap V3, Aave, Compound, Curve, Convex, Yearn
+//!
+//! The agent demonstrates best practices for:
+//! - Capital preservation and diversification
+//! - Risk-adjusted return optimization
+//! - Automated rebalancing and compounding
+//! - Smart contract risk assessment
+
 use riglr_core::signer::SignerContext;
 use riglr_solana_tools::LocalSolanaSigner;
 // TODO: Re-enable when rig tools are updated

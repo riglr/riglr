@@ -1,3 +1,10 @@
+//! Core signer traits for multi-chain transaction operations
+//!
+//! This module defines the primary traits used by the signer system to provide
+//! unified interfaces for transaction signing across different blockchain networks.
+//! It includes both legacy traits for backward compatibility and client traits
+//! for blockchain network interactions.
+
 use super::error::SignerError;
 use alloy::primitives::{Bytes, TxHash, U256};
 use alloy::rpc::types::TransactionRequest;
@@ -84,14 +91,22 @@ pub trait TransactionSigner: Send + Sync + std::fmt::Debug {
 /// Type-safe EVM client interface
 #[async_trait]
 pub trait EvmClient: Send + Sync {
+    /// Get the balance of an address in wei
     async fn get_balance(&self, address: &str) -> Result<U256, SignerError>;
+    
+    /// Send a transaction to the network and return the transaction hash
     async fn send_transaction(&self, tx: &TransactionRequest) -> Result<TxHash, SignerError>;
+    
+    /// Execute a call against the network without creating a transaction
     async fn call(&self, tx: &TransactionRequest) -> Result<Bytes, SignerError>;
 }
 
 /// Type-safe Solana client interface
 #[async_trait]
 pub trait SolanaClient: Send + Sync {
+    /// Get the balance of a Solana account in lamports
     async fn get_balance(&self, pubkey: &Pubkey) -> Result<u64, SignerError>;
+    
+    /// Send a transaction to the Solana network and return the signature
     async fn send_transaction(&self, tx: &Transaction) -> Result<Signature, SignerError>;
 }

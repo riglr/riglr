@@ -15,8 +15,10 @@ const RIGLR_METRICS_ENABLED: &str = "RIGLR_METRICS_ENABLED";
 /// Configuration errors
 #[derive(Error, Debug)]
 pub enum ConfigError {
+    /// Invalid configuration parameter or value
     #[error("Invalid configuration: {0}")]
     Invalid(String),
+    /// Environment variable parsing or access error
     #[error("Environment variable error: {0}")]
     Environment(String),
 }
@@ -30,7 +32,9 @@ pub enum BackpressureStrategy {
     Drop,
     /// Retry with exponential backoff, then drop
     Retry {
+        /// Maximum number of retry attempts before dropping
         max_attempts: usize,
+        /// Base wait time in milliseconds between retries
         base_wait_ms: u64,
     },
     /// Adaptive strategy that switches based on load
@@ -68,10 +72,12 @@ impl Default for BatchConfig {
 }
 
 impl BatchConfig {
+    /// Convert batch timeout milliseconds to Duration
     pub fn batch_timeout(&self) -> Duration {
         Duration::from_millis(self.batch_timeout_ms)
     }
 
+    /// Validate batch configuration parameters
     pub fn validate(&self) -> Result<(), ConfigError> {
         if self.batch_size == 0 {
             return Err(ConfigError::Invalid(
@@ -112,6 +118,7 @@ impl Default for BackpressureConfig {
 }
 
 impl BackpressureConfig {
+    /// Validate backpressure configuration parameters
     pub fn validate(&self) -> Result<(), ConfigError> {
         if self.channel_size == 0 {
             return Err(ConfigError::Invalid(
@@ -131,10 +138,12 @@ impl BackpressureConfig {
         Ok(())
     }
 
+    /// Calculate the high watermark threshold in absolute terms
     pub fn high_watermark(&self) -> usize {
         (self.channel_size * self.high_watermark_pct as usize) / 100
     }
 
+    /// Calculate the low watermark threshold in absolute terms
     pub fn low_watermark(&self) -> usize {
         (self.channel_size * self.low_watermark_pct as usize) / 100
     }
@@ -177,26 +186,32 @@ impl Default for ConnectionConfig {
 }
 
 impl ConnectionConfig {
+    /// Convert connection timeout seconds to Duration
     pub fn connect_timeout(&self) -> Duration {
         Duration::from_secs(self.connect_timeout_secs)
     }
 
+    /// Convert request timeout seconds to Duration
     pub fn request_timeout(&self) -> Duration {
         Duration::from_secs(self.request_timeout_secs)
     }
 
+    /// Convert keepalive interval seconds to Duration
     pub fn keepalive_interval(&self) -> Duration {
         Duration::from_secs(self.keepalive_interval_secs)
     }
 
+    /// Convert base retry delay milliseconds to Duration
     pub fn retry_base_delay(&self) -> Duration {
         Duration::from_millis(self.retry_base_delay_ms)
     }
 
+    /// Convert maximum retry delay milliseconds to Duration
     pub fn retry_max_delay(&self) -> Duration {
         Duration::from_millis(self.retry_max_delay_ms)
     }
 
+    /// Validate connection configuration parameters
     pub fn validate(&self) -> Result<(), ConfigError> {
         if self.connect_timeout_secs == 0 {
             return Err(ConfigError::Invalid(
@@ -250,14 +265,17 @@ impl Default for MetricsConfig {
 }
 
 impl MetricsConfig {
+    /// Convert metrics window seconds to Duration
     pub fn window_duration(&self) -> Duration {
         Duration::from_secs(self.window_secs)
     }
 
+    /// Convert report interval seconds to Duration
     pub fn report_interval(&self) -> Duration {
         Duration::from_secs(self.report_interval_secs)
     }
 
+    /// Convert slow threshold milliseconds to Duration
     pub fn slow_threshold(&self) -> Duration {
         Duration::from_millis(self.slow_threshold_ms)
     }

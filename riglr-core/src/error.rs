@@ -36,12 +36,17 @@ pub type Result<T> = std::result::Result<T, CoreError>;
 pub enum WorkerError {
     /// Tool not found in the worker's registry
     #[error("Tool '{tool_name}' not found in worker registry")]
-    ToolNotFound { tool_name: String },
+    ToolNotFound { 
+        /// Name of the tool that was not found
+        tool_name: String 
+    },
 
     /// Failed to acquire semaphore for concurrency control
     #[error("Failed to acquire semaphore for tool '{tool_name}': {source}")]
     SemaphoreAcquisition {
+        /// Name of the tool for which semaphore acquisition failed
         tool_name: String,
+        /// The underlying error that caused the semaphore acquisition failure
         #[source]
         source: Box<dyn std::error::Error + Send + Sync>,
     },
@@ -49,6 +54,7 @@ pub enum WorkerError {
     /// Idempotency store operation failed
     #[error("Idempotency store operation failed: {source}")]
     IdempotencyStore {
+        /// The underlying error that caused the idempotency store operation to fail
         #[source]
         source: Box<dyn std::error::Error + Send + Sync>,
     },
@@ -56,17 +62,24 @@ pub enum WorkerError {
     /// Job serialization/deserialization error
     #[error("Job serialization error: {source}")]
     JobSerialization {
+        /// The underlying JSON serialization error
         #[source]
         source: serde_json::Error,
     },
 
     /// Tool execution exceeded configured timeout
     #[error("Tool execution timed out after {timeout:?}")]
-    ExecutionTimeout { timeout: std::time::Duration },
+    ExecutionTimeout { 
+        /// The duration after which the execution timed out
+        timeout: std::time::Duration 
+    },
 
     /// Internal worker system error
     #[error("Internal worker error: {message}")]
-    Internal { message: String },
+    Internal { 
+        /// Human-readable description of the internal error
+        message: String 
+    },
 }
 
 impl From<&str> for CoreError {
@@ -81,33 +94,42 @@ pub enum ToolError {
     /// Operation can be retried
     #[error("Operation can be retried")]
     Retriable {
+        /// The underlying error that occurred
         #[source]
         source: Box<dyn std::error::Error + Send + Sync>,
+        /// Additional context about the error
         context: String,
     },
 
     /// Rate limited, retry after delay
     #[error("Rate limited, retry after delay")]
     RateLimited {
+        /// The underlying error that occurred
         #[source]
         source: Box<dyn std::error::Error + Send + Sync>,
+        /// Additional context about the rate limiting
         context: String,
+        /// Optional duration to wait before retrying
         retry_after: Option<std::time::Duration>,
     },
 
     /// Permanent error, do not retry
     #[error("Permanent error, do not retry")]
     Permanent {
+        /// The underlying error that occurred
         #[source]
         source: Box<dyn std::error::Error + Send + Sync>,
+        /// Additional context about the permanent error
         context: String,
     },
 
     /// Invalid input provided
     #[error("Invalid input provided: {context}")]
     InvalidInput {
+        /// The underlying error that occurred due to invalid input
         #[source]
         source: Box<dyn std::error::Error + Send + Sync>,
+        /// Description of what input was invalid
         context: String,
     },
 

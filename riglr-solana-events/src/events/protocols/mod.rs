@@ -1,13 +1,22 @@
+/// BONK token protocol events and parsers
 pub mod bonk;
+/// PumpSwap DEX protocol events and parsers
 pub mod pumpswap;
+/// Raydium AMM v4 protocol events and parsers
 pub mod raydium_amm_v4;
+/// Raydium Concentrated Liquidity Market Maker events and parsers
 pub mod raydium_clmm;
+/// Raydium Constant Product Market Maker events and parsers
 pub mod raydium_cpmm;
 
 // New protocol modules we'll add
+/// Jupiter aggregator protocol events and parsers
 pub mod jupiter;
+/// MarginFi lending protocol events and parsers
 pub mod marginfi;
+/// Meteora protocol events and parsers
 pub mod meteora;
+/// Orca DEX protocol events and parsers
 pub mod orca;
 
 // Re-export specific types to avoid conflicts
