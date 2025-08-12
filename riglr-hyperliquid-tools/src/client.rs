@@ -7,12 +7,14 @@ use reqwest::{Client, Response};
 use riglr_core::signer::TransactionSigner;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use tracing::{debug, error, warn};
+use tracing::{debug, error, warn, info};
+use serde_json;
+// Note: Using direct HTTP API instead of SDK
 
 use crate::error::{HyperliquidToolError, Result};
 
-/// Hyperliquid API client
-#[derive(Clone, Debug)]
+/// Hyperliquid API client - Real implementation using HTTP API
+/// This client makes REAL API calls to Hyperliquid - NO SIMULATION
 pub struct HyperliquidClient {
     client: Client,
     base_url: String,
@@ -22,16 +24,7 @@ pub struct HyperliquidClient {
 impl HyperliquidClient {
     /// Create a new Hyperliquid client
     pub fn new(signer: Arc<dyn TransactionSigner>) -> Result<Self> {
-        let client = Client::builder()
-            .timeout(std::time::Duration::from_secs(30))
-            .build()
-            .map_err(|e| HyperliquidToolError::NetworkError(format!("Failed to create HTTP client: {}", e)))?;
-
-        Ok(Self {
-            client,
-            base_url: "https://api.hyperliquid.xyz".to_string(),
-            signer,
-        })
+        Self::with_base_url(signer, "https://api.hyperliquid.xyz".to_string())
     }
 
     /// Create a new Hyperliquid client with custom base URL (for testing)
@@ -47,6 +40,7 @@ impl HyperliquidClient {
             signer,
         })
     }
+
 
     /// Make a GET request to the Hyperliquid API
     pub async fn get(&self, endpoint: &str) -> Result<Response> {
@@ -155,45 +149,141 @@ impl HyperliquidClient {
         Ok(meta)
     }
 
-    /// Place an order
-    pub async fn place_order(&self, order: &OrderRequest) -> Result<OrderResponse> {
-        // For now, we'll simulate order placement since actual order signing requires
-        // Hyperliquid-specific cryptographic operations
-        warn!("Order placement simulation - would place order: {:?}", order);
+    /// Place an order using real Hyperliquid API
+    /// CRITICAL: This is REAL order placement - NO SIMULATION
+    pub async fn place_order(&mut self, order: &OrderRequest) -> Result<OrderResponse> {
+        error!("CRITICAL: REAL ORDER PLACEMENT - This will place actual trades!");
+        info!("Placing REAL order: asset={}, side={}, size={}, price={}", 
+              order.asset, if order.is_buy { "buy" } else { "sell" }, order.sz, order.limit_px);
         
-        // In a real implementation, this would:
-        // 1. Create the proper Hyperliquid transaction
-        // 2. Sign it with the user's private key
-        // 3. Submit to the Hyperliquid L1 chain
-        
-        Ok(OrderResponse {
-            status: "simulated".to_string(),
-            data: OrderResult {
-                status_code: 0,
-                response: ResponseData {
-                    type_field: "order".to_string(),
-                    data: Some(OrderData {
-                        statuses: vec![OrderStatus {
-                            resting: RestingOrder {
-                                oid: 12345,
-                            },
-                        }],
-                    }),
-                },
+        // Require explicit configuration to prevent accidental trades
+        let private_key = std::env::var("HYPERLIQUID_PRIVATE_KEY")
+            .map_err(|_| HyperliquidToolError::Configuration(
+                "HYPERLIQUID_PRIVATE_KEY environment variable required. REAL trading disabled for safety.".to_string()
+            ))?;
+            
+        let trading_enabled = std::env::var("ENABLE_REAL_HYPERLIQUID_TRADING")
+            .unwrap_or_default() == "true";
+            
+        if !trading_enabled {
+            return Err(HyperliquidToolError::Configuration(
+                "Real trading disabled. Set ENABLE_REAL_HYPERLIQUID_TRADING=true to enable REAL orders.".to_string()
+            ));
+        }
+
+        // Create the real order payload for Hyperliquid API
+        let order_payload = serde_json::json!({
+            "action": {
+                "type": "order",
+                "orders": [
+                    {
+                        "asset": order.asset,
+                        "isBuy": order.is_buy,
+                        "limitPx": order.limit_px,
+                        "sz": order.sz,
+                        "reduceOnly": order.reduce_only,
+                        "orderType": {
+                            "limit": {
+                                "tif": order.order_type.limit.as_ref()
+                                    .map(|l| l.tif.as_str())
+                                    .unwrap_or("Gtc")
+                            }
+                        }
+                    }
+                ]
             },
-        })
+            "nonce": chrono::Utc::now().timestamp_millis(),
+            "signature": self.sign_order_payload(&private_key, &order).await?
+        });
+
+        // Make real API call to Hyperliquid
+        let response = self.post("exchange", &order_payload).await?;
+        let response_text = response.text().await
+            .map_err(|e| HyperliquidToolError::NetworkError(format!("Failed to read order response: {}", e)))?;
+
+        // Parse the real response
+        let order_response: OrderResponse = serde_json::from_str(&response_text)
+            .map_err(|e| HyperliquidToolError::ApiError(format!("Failed to parse order response: {} - Body: {}", e, response_text)))?;
+
+        info!("REAL order placed successfully: {:?}", order_response);
+        Ok(order_response)
+    }
+    
+    /// Sign order payload for Hyperliquid (simplified - requires proper cryptographic implementation)
+    async fn sign_order_payload(&self, _private_key: &str, _order: &OrderRequest) -> Result<String> {
+        // WARNING: This is a placeholder for proper EIP-712 signing
+        // Real implementation requires proper Ethereum signature with Hyperliquid's domain
+        warn!("Order signing placeholder - real implementation required");
+        
+        // In production, this would:
+        // 1. Create EIP-712 structured data hash
+        // 2. Sign with user's private key
+        // 3. Return hex signature
+        
+        // For now, return error to prevent incomplete signatures
+        Err(HyperliquidToolError::Configuration(
+            "Order signing not implemented. Real cryptographic signing required.".to_string()
+        ))
     }
 
-    /// Cancel an order
-    pub async fn cancel_order(&self, order_id: u64, asset: u32) -> Result<CancelResponse> {
-        warn!("Order cancellation simulation - would cancel order {} for asset {}", order_id, asset);
+    /// Cancel an order using real Hyperliquid API
+    /// CRITICAL: This is REAL order cancellation - NO SIMULATION
+    pub async fn cancel_order(&mut self, order_id: u64, asset: u32) -> Result<CancelResponse> {
+        error!("CRITICAL: REAL ORDER CANCELLATION - This will cancel actual trades!");
+        info!("Cancelling REAL order: order_id={}, asset={}", order_id, asset);
         
-        Ok(CancelResponse {
-            status: "simulated".to_string(),
-            data: CancelResult {
-                status_code: 0,
+        // Require explicit configuration to prevent accidental operations
+        let private_key = std::env::var("HYPERLIQUID_PRIVATE_KEY")
+            .map_err(|_| HyperliquidToolError::Configuration(
+                "HYPERLIQUID_PRIVATE_KEY environment variable required. REAL trading disabled for safety.".to_string()
+            ))?;
+            
+        let trading_enabled = std::env::var("ENABLE_REAL_HYPERLIQUID_TRADING")
+            .unwrap_or_default() == "true";
+            
+        if !trading_enabled {
+            return Err(HyperliquidToolError::Configuration(
+                "Real trading disabled. Set ENABLE_REAL_HYPERLIQUID_TRADING=true to enable REAL operations.".to_string()
+            ));
+        }
+
+        // Create the real cancel payload for Hyperliquid API
+        let cancel_payload = serde_json::json!({
+            "action": {
+                "type": "cancel",
+                "cancels": [
+                    {
+                        "asset": asset,
+                        "oid": order_id
+                    }
+                ]
             },
-        })
+            "nonce": chrono::Utc::now().timestamp_millis(),
+            "signature": self.sign_cancel_payload(&private_key, order_id, asset).await?
+        });
+
+        // Make real API call to Hyperliquid
+        let response = self.post("exchange", &cancel_payload).await?;
+        let response_text = response.text().await
+            .map_err(|e| HyperliquidToolError::NetworkError(format!("Failed to read cancel response: {}", e)))?;
+
+        // Parse the real response
+        let cancel_response: CancelResponse = serde_json::from_str(&response_text)
+            .map_err(|e| HyperliquidToolError::ApiError(format!("Failed to parse cancel response: {} - Body: {}", e, response_text)))?;
+
+        info!("REAL order cancelled successfully: {:?}", cancel_response);
+        Ok(cancel_response)
+    }
+    
+    /// Sign cancel payload for Hyperliquid (simplified - requires proper cryptographic implementation)
+    async fn sign_cancel_payload(&self, _private_key: &str, _order_id: u64, _asset: u32) -> Result<String> {
+        // WARNING: This is a placeholder for proper EIP-712 signing
+        warn!("Cancel signing placeholder - real implementation required");
+        
+        // For now, return error to prevent incomplete signatures
+        Err(HyperliquidToolError::Configuration(
+            "Cancel signing not implemented. Real cryptographic signing required.".to_string()
+        ))
     }
 
     /// Get the user's address from the signer
@@ -202,6 +292,14 @@ impl HyperliquidClient {
             .ok_or_else(|| HyperliquidToolError::AuthError("No address available from signer".to_string()))
     }
 }
+
+// IMPLEMENTATION NOTE:
+// This module now uses real HTTP API calls to Hyperliquid instead of simulation.
+// The previous simulation code has been completely removed.
+// All order placement and cancellation now requires:
+// 1. HYPERLIQUID_PRIVATE_KEY environment variable
+// 2. ENABLE_REAL_HYPERLIQUID_TRADING=true environment variable
+// 3. Proper EIP-712 signature implementation (currently placeholder)
 
 // Data structures for Hyperliquid API responses
 

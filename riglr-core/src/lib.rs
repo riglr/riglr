@@ -184,6 +184,7 @@
 //! - Using structured logging with correlation IDs for debugging
 //! - Setting up dead letter queues for failed job analysis
 
+pub mod config;
 pub mod error;
 pub mod idempotency;
 pub mod jobs;
@@ -193,6 +194,7 @@ pub mod tool;
 pub mod transactions;
 pub mod util;
 
+pub use config::*;
 pub use error::{ToolError, CoreError, SignerError};
 pub use idempotency::*;
 pub use jobs::*;

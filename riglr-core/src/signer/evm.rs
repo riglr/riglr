@@ -4,7 +4,7 @@
 //! using the Alloy library with proper wallet management.
 
 use alloy::network::EthereumWallet;
-use alloy::primitives::Address;
+use alloy::primitives::{Address, U256, Bytes, TxHash};
 use alloy::providers::{Provider, ProviderBuilder};
 use alloy::rpc::types::TransactionRequest;
 use alloy::signers::local::PrivateKeySigner;
@@ -12,18 +12,20 @@ use async_trait::async_trait;
 use std::str::FromStr;
 use std::sync::Arc;
 
-use crate::signer::{SignerError, TransactionSigner};
+use crate::signer::{SignerError, TransactionSigner, EvmClient};
+use crate::config::{RpcConfig, EvmNetworkConfig};
 
 /// Local EVM signer with private key management
 pub struct LocalEvmSigner {
     wallet: EthereumWallet,
     provider_url: String,
     chain_id: u64,
+    config: EvmNetworkConfig,
 }
 
 impl LocalEvmSigner {
-    /// Create a new EVM signer from a private key
-    pub fn new(private_key: String, provider_url: String, chain_id: u64) -> Result<Self, SignerError> {
+    /// Create a new EVM signer from a private key and network configuration
+    pub fn new(private_key: String, network_config: EvmNetworkConfig) -> Result<Self, SignerError> {
         let signer = PrivateKeySigner::from_str(&private_key)
             .map_err(|e| SignerError::InvalidPrivateKey(format!("Invalid EVM private key: {}", e)))?;
         
@@ -31,9 +33,17 @@ impl LocalEvmSigner {
         
         Ok(Self {
             wallet,
-            provider_url,
-            chain_id,
+            provider_url: network_config.rpc_url.clone(),
+            chain_id: network_config.chain_id,
+            config: network_config,
         })
+    }
+    
+    /// Create a new EVM signer from RPC configuration and network name
+    pub fn from_config(private_key: String, config: &RpcConfig, network: &str) -> Result<Self, SignerError> {
+        let network_config = config.evm_networks.get(network)
+            .ok_or_else(|| SignerError::UnsupportedNetwork(network.to_string()))?;
+        Self::new(private_key, network_config.clone())
     }
     
     /// Get the address of this signer
@@ -111,9 +121,73 @@ impl TransactionSigner for LocalEvmSigner {
         panic!("Solana client not available for EVM signer")
     }
     
-    fn evm_client(&self) -> Result<Arc<dyn std::any::Any + Send + Sync>, SignerError> {
-        // Return the provider URL as a simple client representation
-        Ok(Arc::new(self.provider_url.clone()))
+    fn evm_client(&self) -> Result<Arc<dyn EvmClient>, SignerError> {
+        Ok(Arc::new(EvmClientImpl {
+            wallet: self.wallet.clone(),
+            provider_url: self.provider_url.clone(),
+            chain_id: self.chain_id,
+        }))
+    }
+}
+
+/// Implementation of EvmClient trait for LocalEvmSigner
+struct EvmClientImpl {
+    wallet: EthereumWallet,
+    provider_url: String,
+    chain_id: u64,
+}
+
+#[async_trait]
+impl EvmClient for EvmClientImpl {
+    async fn get_balance(&self, address: &str) -> Result<U256, SignerError> {
+        let provider = ProviderBuilder::new()
+            .wallet(self.wallet.clone())
+            .connect(&self.provider_url)
+            .await
+            .map_err(|e| SignerError::ProviderError(format!("Failed to create provider: {}", e)))?;
+        
+        let address = address.parse::<Address>()
+            .map_err(|e| SignerError::InvalidPrivateKey(format!("Invalid address format: {}", e)))?;
+        
+        let balance = provider.get_balance(address)
+            .await
+            .map_err(|e| SignerError::ProviderError(format!("Failed to get balance: {}", e)))?;
+        
+        Ok(balance)
+    }
+    
+    async fn send_transaction(&self, tx: &TransactionRequest) -> Result<TxHash, SignerError> {
+        let provider = ProviderBuilder::new()
+            .wallet(self.wallet.clone())
+            .connect(&self.provider_url)
+            .await
+            .map_err(|e| SignerError::ProviderError(format!("Failed to create provider: {}", e)))?;
+        
+        let mut tx_request = tx.clone();
+        if tx_request.chain_id.is_none() {
+            tx_request.chain_id = Some(self.chain_id);
+        }
+        
+        let pending_tx = provider
+            .send_transaction(tx_request)
+            .await
+            .map_err(|e| SignerError::TransactionFailed(format!("Failed to send transaction: {}", e)))?;
+        
+        Ok(*pending_tx.tx_hash())
+    }
+    
+    async fn call(&self, tx: &TransactionRequest) -> Result<Bytes, SignerError> {
+        let provider = ProviderBuilder::new()
+            .wallet(self.wallet.clone())
+            .connect(&self.provider_url)
+            .await
+            .map_err(|e| SignerError::ProviderError(format!("Failed to create provider: {}", e)))?;
+        
+        let result = provider.call(tx.clone())
+            .await
+            .map_err(|e| SignerError::ProviderError(format!("Failed to call contract: {}", e)))?;
+        
+        Ok(result)
     }
 }
 
@@ -125,10 +199,14 @@ mod tests {
     fn test_evm_signer_creation() {
         // Test private key (DO NOT USE IN PRODUCTION)
         let private_key = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
-        let provider_url = "https://eth.llamarpc.com".to_string();
-        let chain_id = 1;
+        let network_config = EvmNetworkConfig {
+            name: "Ethereum Mainnet".to_string(),
+            chain_id: 1,
+            rpc_url: "https://eth.llamarpc.com".to_string(),
+            explorer_url: Some("https://etherscan.io".to_string()),
+        };
         
-        let signer = LocalEvmSigner::new(private_key.to_string(), provider_url, chain_id);
+        let signer = LocalEvmSigner::new(private_key.to_string(), network_config);
         assert!(signer.is_ok());
         
         let signer = signer.unwrap();

@@ -17,7 +17,7 @@ documentation = "https://docs.rs/riglr-hyperliquid-tools"
 rig-core = { workspace = true }
 riglr-core = { workspace = true }
 riglr-macros = { workspace = true }
-riglr-solana-tools = { workspace = true }
+# riglr-solana-tools = { workspace = true }  # Temporarily commented out due to compilation issues
 
 # Async and Error Handling
 tokio = { workspace = true }
@@ -48,6 +48,9 @@ sha2 = "0.10"
 
 # Base64 encoding
 base64 = "0.22"
+
+# Note: Using direct HTTP API calls instead of SDK due to compilation complexity
+# hyperliquid_rust_sdk = "0.6.0"
 
 [dev-dependencies]
 tokio-test = { workspace = true }

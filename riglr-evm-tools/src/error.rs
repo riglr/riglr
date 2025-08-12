@@ -111,6 +111,8 @@ impl From<EvmToolError> for ToolError {
             },
             EvmToolError::ToolError(tool_err) => tool_err, // Pass through
             EvmToolError::SignerError(signer_err) => ToolError::SignerContext(signer_err),
+            EvmToolError::Serialization(err) => ToolError::permanent_with_source(EvmToolError::Serialization(err), "Serialization error"),
+            EvmToolError::Core(err) => ToolError::permanent_with_source(EvmToolError::Core(err), "Core error"),
             // No catch-all pattern - compiler enforces exhaustive matching
         }
     }

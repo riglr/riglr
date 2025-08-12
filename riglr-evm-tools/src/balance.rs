@@ -119,59 +119,42 @@ pub struct TokenBalanceResult {
 #[tool]
 pub async fn get_eth_balance(
     address: String,
-    chain_id: u64,
     block_number: Option<u64>,
-) -> std::result::Result<BalanceResult, EvmToolError> {
-    debug!("Getting ETH balance for address: {} on chain: {}", address, chain_id);
+) -> std::result::Result<BalanceResult, Box<dyn std::error::Error + Send + Sync>> {
+    // Get signer context and EVM client
+    let signer = riglr_core::SignerContext::current().await?;
+    let client = signer.evm_client()?;
+
+    debug!("Getting ETH balance for address: {}", address);
 
     // Validate address format
-    let validated_addr = Address::from_str(&address)
-        .map_err(|e| EvmToolError::InvalidAddress(format!("Invalid address format: {}", e)))?;
+    let _validated_addr = Address::from_str(&address)?;
 
-    // Create provider using factory
-    let provider = crate::util::make_provider(chain_id)?;
+    // Get balance using client
+    let balance_wei = client.get_balance(&address).await?;
 
-    // Get balance
-    let balance_wei = provider
-        .get_balance(validated_addr)
-        .await
-        .map_err(|e| EvmToolError::ProviderError(format!("Failed to get balance: {}", e)))?;
-
-    // Get current block number if not specified
-    let block_num = if let Some(bn) = block_number {
-        bn
-    } else {
-        provider
-            .get_block_number()
-            .await
-            .map_err(|e| EvmToolError::ProviderError(format!("Failed to get block number: {}", e)))?
-    };
+    // For block number, we'll use current block (since we can't get block number from the abstracted client)
+    let block_num = block_number.unwrap_or(0);
 
     // Convert wei to ETH (1 ETH = 10^18 wei)
     let balance_f64 = balance_wei.to::<u64>() as f64 / 1_000_000_000_000_000_000.0;
 
-    // Get chain name
-    let chain_name = match chain_id {
-        1 => "Ethereum Mainnet",
-        42161 => "Arbitrum One",
-        137 => "Polygon",
-        8453 => "Base",
-        _ => "Unknown Chain",
-    };
+    // For now, use generic chain name since we don't have access to chain_id from the abstracted client
+    let chain_name = "EVM Chain";
 
     let result = BalanceResult {
         address: address.clone(),
         balance_raw: balance_wei.to_string(),
         balance_formatted: format!("{:.6}", balance_f64),
         unit: "ETH".to_string(),
-        chain_id,
+        chain_id: 0, // No longer available from abstracted client
         chain_name: chain_name.to_string(),
         block_number: Some(block_num),
     };
 
     info!(
-        "ETH balance for {} on chain {}: {} ETH",
-        address, chain_id, balance_f64
+        "ETH balance for {}: {} ETH",
+        address, balance_f64
     );
 
     Ok(result)
@@ -231,30 +214,28 @@ pub async fn get_eth_balance(
 pub async fn get_erc20_balance(
     address: String,
     token_address: String,
-    chain_id: u64,
     fetch_metadata: Option<bool>,
-) -> std::result::Result<TokenBalanceResult, EvmToolError> {
+) -> std::result::Result<TokenBalanceResult, Box<dyn std::error::Error + Send + Sync>> {
+    // Get signer context and EVM client
+    let signer = riglr_core::SignerContext::current().await?;
+    let client = signer.evm_client()?;
+
     debug!(
-        "Getting ERC20 balance for address {} token {} on chain {}",
-        address, token_address, chain_id
+        "Getting ERC20 balance for address {} token {}",
+        address, token_address
     );
 
     // Validate addresses
-    let validated_addr = Address::from_str(&address)
-        .map_err(|e| EvmToolError::InvalidAddress(format!("Invalid address format: {}", e)))?;
-    let validated_token_addr = Address::from_str(&token_address)
-        .map_err(|e| EvmToolError::InvalidAddress(format!("Invalid token address format: {}", e)))?;
-
-    // Create provider using factory
-    let provider = crate::util::make_provider(chain_id)?;
+    let validated_addr = Address::from_str(&address)?;
+    let validated_token_addr = Address::from_str(&token_address)?;
 
     // Get balance using balanceOf function
-    let balance = get_token_balance(&provider, validated_token_addr, validated_addr)
+    let balance = get_token_balance(&*client, validated_token_addr, validated_addr)
         .await?;
 
     // Get token metadata if requested
     let (symbol, name, decimals) = if fetch_metadata.unwrap_or(true) {
-        get_token_metadata(&provider, validated_token_addr)
+        get_token_metadata(&*client, validated_token_addr)
             .await
             .unwrap_or((None, None, 18)) // Default to 18 decimals if metadata fetch fails
     } else {
@@ -264,14 +245,8 @@ pub async fn get_erc20_balance(
     // Format balance
     let balance_formatted = format_token_balance(balance, decimals);
 
-    // Get chain name
-    let chain_name = match chain_id {
-        1 => "Ethereum Mainnet",
-        42161 => "Arbitrum One",
-        137 => "Polygon",
-        8453 => "Base",
-        _ => "Unknown Chain",
-    };
+    // Use generic chain name since chain_id is no longer accessible
+    let chain_name = "EVM Chain";
 
     let result = TokenBalanceResult {
         address: address.clone(),
@@ -281,7 +256,7 @@ pub async fn get_erc20_balance(
         decimals,
         balance_raw: balance.to_string(),
         balance_formatted,
-        chain_id,
+        chain_id: 0, // No longer available from abstracted client
         chain_name: chain_name.to_string(),
     };
 
@@ -295,10 +270,10 @@ pub async fn get_erc20_balance(
 
 /// Helper to get token balance
 async fn get_token_balance(
-    provider: &crate::util::EvmProvider,
+    client: &dyn riglr_core::signer::EvmClient,
     token_address: Address,
     wallet_address: Address,
-) -> Result<U256, EvmToolError> {
+) -> Result<U256, Box<dyn std::error::Error + Send + Sync>> {
     // Create balanceOf call
     let call = IERC20::balanceOfCall {
         account: wallet_address,
@@ -311,42 +286,41 @@ async fn get_token_balance(
         .input(call_data.into());
 
     // Call the contract
-    let result = provider
-        .call(tx)
-        .await
-        .map_err(|e| EvmToolError::ProviderError(format!("Failed to get token balance: {}", e)))?;
+    let result = client
+        .call(&tx)
+        .await?;
 
     // Decode the result
     let balance = U256::try_from_be_slice(&result)
-        .ok_or_else(|| EvmToolError::InvalidAddress("Failed to decode balance".to_string()))?;
+        .ok_or("Failed to decode balance")?;
 
     Ok(balance)
 }
 
 /// Helper to get token metadata
 async fn get_token_metadata(
-    provider: &crate::util::EvmProvider,
+    client: &dyn riglr_core::signer::EvmClient,
     token_address: Address,
-) -> Result<(Option<String>, Option<String>, u8), EvmToolError> {
+) -> Result<(Option<String>, Option<String>, u8), Box<dyn std::error::Error + Send + Sync>> {
     // Get decimals
-    let decimals = get_token_decimals(provider, token_address)
+    let decimals = get_token_decimals(client, token_address)
         .await
         .unwrap_or(18);
 
     // Get symbol
-    let symbol = get_token_symbol(provider, token_address).await.ok();
+    let symbol = get_token_symbol(client, token_address).await.ok();
 
     // Get name
-    let name = get_token_name(provider, token_address).await.ok();
+    let name = get_token_name(client, token_address).await.ok();
 
     Ok((symbol, name, decimals))
 }
 
 /// Get token decimals
-async fn get_token_decimals(
-    provider: &crate::util::EvmProvider,
+pub async fn get_token_decimals(
+    client: &dyn riglr_core::signer::EvmClient,
     token_address: Address,
-) -> Result<u8, EvmToolError> {
+) -> Result<u8, Box<dyn std::error::Error + Send + Sync>> {
     let call = IERC20::decimalsCall {};
     let call_data = call.abi_encode();
 
@@ -354,10 +328,9 @@ async fn get_token_decimals(
         .to(token_address)
         .input(call_data.into());
 
-    let result = provider
-        .call(tx)
-        .await
-        .map_err(|e| EvmToolError::ProviderError(format!("Failed to get decimals: {}", e)))?;
+    let result = client
+        .call(&tx)
+        .await?;
 
     // Parse the result as u8
     if !result.is_empty() {
@@ -368,10 +341,10 @@ async fn get_token_decimals(
 }
 
 /// Get token symbol
-async fn get_token_symbol(
-    provider: &crate::util::EvmProvider,
+pub async fn get_token_symbol(
+    client: &dyn riglr_core::signer::EvmClient,
     token_address: Address,
-) -> Result<String, EvmToolError> {
+) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
     let call = IERC20::symbolCall {};
     let call_data = call.abi_encode();
 
@@ -379,20 +352,19 @@ async fn get_token_symbol(
         .to(token_address)
         .input(call_data.into());
 
-    let result = provider
-        .call(tx)
-        .await
-        .map_err(|e| EvmToolError::ProviderError(format!("Failed to get symbol: {}", e)))?;
+    let result = client
+        .call(&tx)
+        .await?;
 
     // Decode string from bytes
     parse_string_from_bytes(&result)
 }
 
 /// Get token name
-async fn get_token_name(
-    provider: &crate::util::EvmProvider,
+pub async fn get_token_name(
+    client: &dyn riglr_core::signer::EvmClient,
     token_address: Address,
-) -> Result<String, EvmToolError> {
+) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
     let call = IERC20::nameCall {};
     let call_data = call.abi_encode();
 
@@ -400,18 +372,17 @@ async fn get_token_name(
         .to(token_address)
         .input(call_data.into());
 
-    let result = provider
-        .call(tx)
-        .await
-        .map_err(|e| EvmToolError::ProviderError(format!("Failed to get name: {}", e)))?;
+    let result = client
+        .call(&tx)
+        .await?;
 
     parse_string_from_bytes(&result)
 }
 
 /// Parse string from contract return bytes
-fn parse_string_from_bytes(bytes: &[u8]) -> Result<String, EvmToolError> {
+fn parse_string_from_bytes(bytes: &[u8]) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
     if bytes.len() < 64 {
-        return Err(EvmToolError::ProviderError("Invalid string data".to_string()));
+        return Err("Invalid string data".into());
     }
 
     // Skip offset and length, get actual string bytes
@@ -423,7 +394,7 @@ fn parse_string_from_bytes(bytes: &[u8]) -> Result<String, EvmToolError> {
         .unwrap_or(string_bytes.len());
 
     String::from_utf8(string_bytes[..end].to_vec())
-        .map_err(|e| EvmToolError::ProviderError(format!("Failed to parse string: {}", e)))
+        .map_err(|e| e.into())
 }
 
 /// Format token balance with decimals

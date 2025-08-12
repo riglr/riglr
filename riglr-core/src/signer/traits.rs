@@ -1,6 +1,9 @@
 use async_trait::async_trait;
 use std::sync::Arc;
 use super::error::SignerError;
+use alloy::primitives::{U256, Bytes, TxHash};
+use alloy::rpc::types::TransactionRequest;
+use solana_sdk::{pubkey::Pubkey, transaction::Transaction, signature::Signature};
 
 /// A trait for transaction signing across multiple blockchain networks.
 /// This trait provides a unified interface for signing transactions on different chains
@@ -47,5 +50,20 @@ pub trait TransactionSigner: Send + Sync + std::fmt::Debug {
     
     /// Get EVM RPC client (derived from signer configuration)  
     /// This client should be configured with the appropriate RPC endpoint and chain ID
-    fn evm_client(&self) -> Result<std::sync::Arc<dyn std::any::Any + Send + Sync>, SignerError>;
+    fn evm_client(&self) -> Result<Arc<dyn EvmClient>, SignerError>;
+}
+
+/// Type-safe EVM client interface
+#[async_trait]
+pub trait EvmClient: Send + Sync {
+    async fn get_balance(&self, address: &str) -> Result<U256, SignerError>;
+    async fn send_transaction(&self, tx: &TransactionRequest) -> Result<TxHash, SignerError>;
+    async fn call(&self, tx: &TransactionRequest) -> Result<Bytes, SignerError>;
+}
+
+/// Type-safe Solana client interface
+#[async_trait]
+pub trait SolanaClient: Send + Sync {
+    async fn get_balance(&self, pubkey: &Pubkey) -> Result<u64, SignerError>;
+    async fn send_transaction(&self, tx: &Transaction) -> Result<Signature, SignerError>;
 }

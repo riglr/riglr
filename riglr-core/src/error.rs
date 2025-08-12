@@ -120,6 +120,8 @@ impl From<crate::signer::SignerError> for SignerError {
             crate::signer::SignerError::UnsupportedOperation(msg) => SignerError::TransactionFailed(msg),
             crate::signer::SignerError::BlockhashError(msg) => SignerError::NetworkError(msg),
             crate::signer::SignerError::SigningError(msg) => SignerError::InvalidSignature(msg),
+            crate::signer::SignerError::UnsupportedNetwork(msg) => SignerError::NetworkError(msg),
+            crate::signer::SignerError::InvalidRpcUrl(msg) => SignerError::NetworkError(msg),
         }
     }
 }

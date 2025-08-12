@@ -239,21 +239,8 @@ async fn test_evm_gas_estimation() -> anyhow::Result<()> {
     Ok(())
 }
 
-#[tokio::test]
-#[ignore] // Config module was moved to a different location
-async fn test_config_loading() -> anyhow::Result<()> {
-    // Config module was moved, this test would need updating
-    // Keeping as a placeholder for future implementation
-    Ok(())
-}
-
-#[tokio::test]
-#[ignore] // Config module was moved to a different location  
-async fn test_config_validation() -> anyhow::Result<()> {
-    // Config module was moved, this test would need updating
-    // Keeping as a placeholder for future implementation
-    Ok(())
-}
+// Config module tests removed - config module was moved to riglr-showcase
+// These tests are no longer relevant as config functionality is application-specific
 
 #[tokio::test]
 async fn test_tool_worker_with_signers() -> anyhow::Result<()> {
