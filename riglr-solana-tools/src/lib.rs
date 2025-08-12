@@ -56,6 +56,7 @@ pub mod pump;
 pub mod signer;
 pub mod swap;
 pub mod transaction;
+pub mod util;
 pub mod utils;
 
 // Re-export commonly used tools
@@ -65,6 +66,7 @@ pub use pump::*;
 pub use signer::*;
 pub use swap::*;
 pub use transaction::*;
+pub use util::*;
 pub use utils::*;
 
 // Re-export client and error types

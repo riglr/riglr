@@ -1,15 +1,28 @@
 //! Error types for riglr-solana-tools.
 
 use thiserror::Error;
+use riglr_core::error::{ToolError, SignerError};
 use solana_client::client_error::{ClientError, ClientErrorKind};
 use solana_client::rpc_request::RpcError;
 
 /// Main error type for Solana tool operations.
 #[derive(Error, Debug)]
 pub enum SolanaToolError {
+    /// Core tool error
+    #[error("Core tool error: {0}")]
+    ToolError(#[from] ToolError),
+    
+    /// Signer context error
+    #[error("Signer context error: {0}")]
+    SignerError(#[from] SignerError),
+    
     /// RPC client error
     #[error("RPC error: {0}")]
     Rpc(String),
+    
+    /// Solana client error
+    #[error("Solana client error: {0}")]
+    SolanaClient(#[from] ClientError),
 
     /// Invalid address format
     #[error("Invalid address: {0}")]
@@ -22,6 +35,14 @@ pub enum SolanaToolError {
     /// Transaction failed
     #[error("Transaction error: {0}")]
     Transaction(String),
+    
+    /// Insufficient funds for operation
+    #[error("Insufficient funds for operation")]
+    InsufficientFunds,
+    
+    /// Invalid token mint
+    #[error("Invalid token mint: {0}")]
+    InvalidTokenMint(String),
 
     /// Serialization error
     #[error("Serialization error: {0}")]
@@ -188,51 +209,66 @@ fn classify_rpc_error(rpc_error: &RpcError) -> TransactionErrorType {
 }
 
 // Implement From conversion to riglr_core::ToolError for proper error handling
-impl From<SolanaToolError> for riglr_core::error::ToolError {
+impl From<SolanaToolError> for ToolError {
     fn from(err: SolanaToolError) -> Self {
         match err {
+            SolanaToolError::ToolError(tool_err) => tool_err,
+            SolanaToolError::SignerError(signer_err) => ToolError::SignerContext(signer_err),
+            
             // RPC and HTTP errors are often retriable
             SolanaToolError::Rpc(msg) => {
                 if msg.contains("429") || msg.contains("rate limit") || msg.contains("too many requests") {
-                    riglr_core::error::ToolError::rate_limited(msg)
+                    ToolError::rate_limited(msg)
                 } else {
-                    riglr_core::error::ToolError::retriable(msg)
+                    ToolError::retriable(msg)
+                }
+            }
+            
+            SolanaToolError::SolanaClient(ref client_err) => {
+                let error_type = classify_transaction_error(client_err);
+                match error_type {
+                    TransactionErrorType::Retryable(_) => ToolError::retriable(err.to_string()),
+                    TransactionErrorType::RateLimited(_) => ToolError::rate_limited(err.to_string()),
+                    TransactionErrorType::Permanent(_) => ToolError::permanent(err.to_string()),
+                    TransactionErrorType::Unknown(_) => ToolError::retriable(err.to_string()),
                 }
             }
             
             SolanaToolError::Http(ref http_err) => {
                 if http_err.status() == Some(reqwest::StatusCode::TOO_MANY_REQUESTS) {
-                    riglr_core::error::ToolError::rate_limited(err.to_string())
+                    ToolError::rate_limited(err.to_string())
                 } else if http_err.is_timeout() || http_err.is_connect() {
-                    riglr_core::error::ToolError::retriable(err.to_string())
+                    ToolError::retriable(err.to_string())
                 } else {
-                    riglr_core::error::ToolError::permanent(err.to_string())
+                    ToolError::permanent(err.to_string())
                 }
             }
 
-            // Address validation errors are permanent
-            SolanaToolError::InvalidAddress(msg) => riglr_core::error::ToolError::permanent(msg),
+            // Address and key validation errors are permanent
+            SolanaToolError::InvalidAddress(_) => ToolError::invalid_input(err.to_string()),
+            SolanaToolError::InvalidKey(_) => ToolError::invalid_input(err.to_string()),
+            SolanaToolError::InvalidTokenMint(_) => ToolError::invalid_input(err.to_string()),
             
-            // Key validation errors are permanent
-            SolanaToolError::InvalidKey(msg) => riglr_core::error::ToolError::permanent(msg),
+            // Insufficient funds is permanent
+            SolanaToolError::InsufficientFunds => ToolError::permanent(err.to_string()),
             
             // Transaction errors could be retriable if they're network related
             SolanaToolError::Transaction(msg) => {
                 if msg.contains("insufficient funds") || msg.contains("invalid") {
-                    riglr_core::error::ToolError::permanent(msg)
+                    ToolError::permanent(msg)
                 } else {
-                    riglr_core::error::ToolError::retriable(msg)
+                    ToolError::retriable(msg)
                 }
             }
             
             // Serialization errors are permanent
-            SolanaToolError::Serialization(_) => riglr_core::error::ToolError::permanent(err.to_string()),
+            SolanaToolError::Serialization(_) => ToolError::permanent(err.to_string()),
             
             // Core errors inherit their retriable nature
-            SolanaToolError::Core(_) => riglr_core::error::ToolError::retriable(err.to_string()),
+            SolanaToolError::Core(_) => ToolError::retriable(err.to_string()),
             
             // Generic errors default to retriable
-            SolanaToolError::Generic(msg) => riglr_core::error::ToolError::retriable(msg),
+            SolanaToolError::Generic(msg) => ToolError::retriable(msg),
         }
     }
 }

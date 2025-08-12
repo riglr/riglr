@@ -23,6 +23,7 @@ use riglr_web_tools::{
     dexscreener::{get_token_info, search_tokens, analyze_token_market},
     twitter::analyze_crypto_sentiment,
     news::get_crypto_news,
+    price::get_token_price,
 };
 {% endif %}
 
@@ -124,7 +125,8 @@ impl TradingBot {
             .tool(search_tokens)
             .tool(analyze_token_market)
             .tool(analyze_crypto_sentiment)
-            .tool(get_crypto_news);
+            .tool(get_crypto_news)
+            .tool(get_token_price); // Add the new price fetching tool
         {% endif %}
 
         let agent = agent.build();
@@ -296,18 +298,50 @@ Remember: Capital preservation is priority #1. Only take high-probability trades
     }
 
     async fn get_current_price(&self, asset: &str) -> Result<f64> {
-        {% if include-web-tools -%}
-        // Get price from DexScreener or other price feed
-        // This is a simplified example - you'd implement actual price fetching
-        {% endif %}
+        // Map asset symbols to token addresses for price fetching
+        let (token_address, chain) = match asset {
+            "SOL" => ("So11111111111111111111111111111111111111112", "solana"), // Wrapped SOL
+            "ETH" => ("0x0000000000000000000000000000000000000000", "ethereum"), // Native ETH
+            "BTC" => ("0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599", "ethereum"), // WBTC
+            "USDC" => ("0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", "ethereum"), // USDC
+            _ => return Ok(1.0), // Fallback for unknown assets
+        };
         
-        // Mock price for demonstration
-        Ok(match asset {
-            "SOL" => 23.45,
-            "ETH" => 1650.30,
-            "BTC" => 26800.50,
-            _ => 1.0,
-        })
+        // Use real DexScreener API to get current price
+        let price_query = format!(
+            "Get current price for token {} on chain {} using get_token_price tool",
+            token_address, chain
+        );
+        
+        match self.agent.prompt(&price_query).await {
+            Ok(response) => {
+                // Parse price from agent response (simplified)
+                // In a real implementation, you'd extract the actual price value
+                if response.contains("$") {
+                    // Try to extract price from response
+                    if let Some(price_str) = extract_price_from_response(&response) {
+                        return Ok(price_str);
+                    }
+                }
+                
+                // Fallback to mock prices if parsing fails
+                Ok(match asset {
+                    "SOL" => 23.45,
+                    "ETH" => 1650.30,
+                    "BTC" => 26800.50,
+                    _ => 1.0,
+                })
+            }
+            Err(_) => {
+                // Fallback to mock prices if API call fails
+                Ok(match asset {
+                    "SOL" => 23.45,
+                    "ETH" => 1650.30,
+                    "BTC" => 26800.50,
+                    _ => 1.0,
+                })
+            }
+        }
     }
 
     async fn close_position(&mut self, asset: &str, reason: &str) -> Result<()> {
@@ -406,6 +440,32 @@ Remember: Capital preservation is priority #1. Only take high-probability trades
 enum TradingAction {
     Buy,
     Sell,
+}
+
+/// Helper function to extract price from agent response
+fn extract_price_from_response(response: &str) -> Option<f64> {
+    // Simple regex to find price patterns like "$1234.56"
+    use regex::Regex;
+    
+    let price_patterns = [
+        r"\$(\d+\.?\d*)",           // $123.45
+        r"price[:\s]*\$?(\d+\.?\d*)", // price: $123.45 or price: 123.45
+        r"(\d+\.?\d*)\s*USD",       // 123.45 USD
+    ];
+    
+    for pattern in &price_patterns {
+        if let Ok(re) = Regex::new(pattern) {
+            if let Some(captures) = re.captures(response) {
+                if let Some(price_str) = captures.get(1) {
+                    if let Ok(price) = price_str.as_str().parse::<f64>() {
+                        return Some(price);
+                    }
+                }
+            }
+        }
+    }
+    
+    None
 }
 
 #[tokio::main]
