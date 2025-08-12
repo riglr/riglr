@@ -195,7 +195,7 @@ impl GraphRetriever {
             "CALL db.index.vector.queryNodes('{}', {}, $embedding) 
              YIELD node, score
              RETURN node.id as id, node.content as content, node.metadata as metadata,
-                    node.entities as entities, score
+                    node.entities as entities, node.embedding as embedding, score
              LIMIT $limit",
             self.index_name,
             limit * 2 // Get more candidates for graph expansion
@@ -223,7 +223,7 @@ impl GraphRetriever {
                             if let (Some(id), Some(content), Some(score)) = (
                                 row_data[0].as_str(),
                                 row_data[1].as_str(),
-                                row_data[4].as_f64(),
+                                row_data[5].as_f64(), // Score is now at index 5 due to added embedding field
                             ) {
                                 let similarity_score = score as f32;
 
@@ -247,6 +247,19 @@ impl GraphRetriever {
                                                 .collect()
                                         })
                                         .unwrap_or_default();
+                                    
+                                    // Extract the actual embedding from the database
+                                    let actual_embedding: Vec<f32> = row_data[4]
+                                        .as_array()
+                                        .map(|arr| {
+                                            arr.iter()
+                                                .filter_map(|v| v.as_f64().map(|f| f as f32))
+                                                .collect()
+                                        })
+                                        .unwrap_or_else(|| {
+                                            warn!("Failed to extract embedding for document {}, using empty vector", id);
+                                            Vec::new()
+                                        });
 
                                     // Collect entities for graph expansion
                                     for entity in &entities {
@@ -256,7 +269,7 @@ impl GraphRetriever {
                                     documents.push(GraphDocument {
                                         id: id.to_string(),
                                         content: content.to_string(),
-                                        embedding: query_embedding.to_vec(), // Placeholder
+                                        embedding: actual_embedding, // CRITICAL: Using REAL embedding from database
                                         metadata,
                                         entities,
                                         relationships: Vec::new(), // To be filled by graph traversal

@@ -2,6 +2,9 @@
 
 // use crate::error::Result;
 use riglr_macros::tool;
+use alloy::primitives::{self, Address, Bytes, U256};
+use alloy::rpc::types::TransactionRequest;
+use std::str::FromStr;
 use tracing::{debug, info};
 
 /// Standard ERC20 ABI for common operations
@@ -39,12 +42,12 @@ pub async fn call_contract_read(
     let contract_addr = contract_address.parse::<alloy::primitives::Address>()
         .map_err(|e| format!("Invalid contract address: {}", e))?;
 
-    // For now, return a simple call without full ABI parsing
-    // In a full implementation, this would parse the ABI and encode parameters
-    let tx = alloy::rpc::types::TransactionRequest::default()
+    // Encode calldata = 4-byte selector + encoded params (static types or pre-encoded words)
+    let calldata = encode_selector_and_params(&function_selector, &params)?;
+
+    let tx = TransactionRequest::default()
         .to(contract_addr)
-        .input(alloy::primitives::hex::decode(&function_selector)
-            .map_err(|e| format!("Invalid function selector: {}", e))?.into());
+        .input(calldata.into());
 
     let result = client.call(&tx).await
         .map_err(|e| format!("Contract call failed: {}", e))?;
@@ -54,7 +57,13 @@ pub async fn call_contract_read(
         contract_address, function_selector
     );
 
-    Ok(format!("0x{}", alloy::primitives::hex::encode(result)))
+    // Best-effort decode: if exactly 32 bytes, treat as uint256 decimal; otherwise hex
+    if result.len() == 32 {
+        if let Some(v) = U256::try_from_be_slice(&result) {
+            return Ok(v.to_string());
+        }
+    }
+    Ok(format!("0x{}", primitives::hex::encode(result)))
 }
 
 /// Call a contract write function (state-mutating function)
@@ -86,12 +95,13 @@ pub async fn call_contract_write(
     let contract_addr = contract_address.parse::<alloy::primitives::Address>()
         .map_err(|e| format!("Invalid contract address: {}", e))?;
 
-    // Build transaction
-    let tx = alloy::rpc::types::TransactionRequest::default()
+    // Build transaction with encoded calldata
+    let calldata = encode_selector_and_params(&function_selector, &params)?;
+
+    let tx = TransactionRequest::default()
         .from(from_addr)
         .to(contract_addr)
-        .input(alloy::primitives::hex::decode(&function_selector)
-            .map_err(|e| format!("Invalid function selector: {}", e))?.into())
+        .input(calldata.into())
         .gas_limit(gas_limit.unwrap_or(200000));
 
     // Sign and send transaction
@@ -127,13 +137,86 @@ pub async fn read_erc20_info(
     let name = get_token_name(&*client, token_addr).await.ok();
     let decimals = get_token_decimals(&*client, token_addr).await.unwrap_or(18);
 
+    // totalSupply()
+    let total_supply = {
+        // 0x18160ddd = keccak256("totalSupply()") first 4 bytes
+        let selector = Bytes::from(primitives::hex::decode("18160ddd").map_err(|e| format!("selector decode: {}", e))?);
+        let tx = TransactionRequest::default()
+            .to(token_addr)
+            .input(selector.into());
+        match client.call(&tx).await {
+            Ok(bytes) => U256::try_from_be_slice(&bytes).map(|v| v.to_string()).unwrap_or_default(),
+            Err(_) => String::new(),
+        }
+    };
+
     Ok(serde_json::json!({
         "address": token_address,
         "name": name,
         "symbol": symbol,
         "decimals": decimals,
-        "totalSupply": "unknown" // Would need additional implementation
+        "totalSupply": total_supply
     }))
+}
+
+/// Encode a 4-byte function selector and parameters into calldata.
+/// Params are heuristically encoded:
+/// - If starts with 0x and length is 42 (address), left-padded to 32 bytes
+/// - If decimal number, encoded as uint256
+/// - If starts with 0x and length is 66 (32 bytes), treated as one ABI word
+/// - Otherwise, if starts with 0x, raw bytes are appended (advanced use: pre-encoded tail)
+fn encode_selector_and_params(
+    selector_hex: &str,
+    params: &Vec<String>,
+) -> Result<Bytes, Box<dyn std::error::Error + Send + Sync>> {
+    let mut data: Vec<u8> = Vec::new();
+    let sel = selector_hex.strip_prefix("0x").unwrap_or(selector_hex);
+    let selector_bytes = primitives::hex::decode(sel)
+        .map_err(|e| format!("Invalid function selector: {}", e))?;
+    if selector_bytes.len() != 4 {
+        return Err(format!("Function selector must be 4 bytes (8 hex chars), got {} bytes", selector_bytes.len()).into());
+    }
+    data.extend_from_slice(&selector_bytes);
+
+    for p in params {
+        let encoded = encode_param_word(p)?;
+        data.extend_from_slice(&encoded);
+    }
+
+    Ok(Bytes::from(data))
+}
+
+fn encode_param_word(p: &str) -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>> {
+    // Address hex
+    if p.starts_with("0x") && p.len() == 42 {
+        let addr = Address::from_str(p)?;
+        let mut word = vec![0u8; 32];
+        let be = addr.as_slice();
+        // address is 20 bytes, left pad to 32
+        word[12..].copy_from_slice(be);
+        return Ok(word);
+    }
+
+    // 32-byte word hex
+    if p.starts_with("0x") && p.len() == 66 {
+        let bytes = primitives::hex::decode(&p[2..])?;
+        return Ok(bytes);
+    }
+
+    // Hex arbitrary length: treat as already-encoded bytes (advanced use)
+    if p.starts_with("0x") {
+        let bytes = primitives::hex::decode(&p[2..])?;
+        return Ok(bytes);
+    }
+
+    // Decimal number -> uint256
+    if p.chars().all(|c| c.is_ascii_digit()) {
+        let v = U256::from_str_radix(p, 10)?;
+    let buf: [u8; 32] = v.to_be_bytes();
+    return Ok(buf.to_vec());
+    }
+
+    Err(format!("Unsupported param format: {}. Use 0x-prefixed hex (address or 32-byte word) or decimal uint.", p).into())
 }
 
 #[cfg(test)]

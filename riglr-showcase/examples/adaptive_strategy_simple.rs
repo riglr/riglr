@@ -1,4 +1,3 @@
-// TODO: Update to use new rig API - AgentBuilder no longer accepts string literals
 //! Adaptive Strategy Example - Rig-Native Behavioral Adaptation
 //!
 //! This example demonstrates how rig agents can dynamically adapt their behavior
@@ -14,9 +13,10 @@
 
 use anyhow::Result;
 use tracing::warn;
-
-// TODO: Update to new rig API - AgentBuilder::new() now requires CompletionModel instead of string
-// use rig::agent::AgentBuilder;
+use rig::agent::AgentBuilder;
+use rig::providers::openai;
+use serde_json::json;
+use std::env;
 
 /// Demo: Volatility-Based Strategy Adaptation
 /// 
@@ -26,10 +26,11 @@ async fn demo_volatility_adaptation() -> Result<()> {
     println!("📊 Demo: Volatility-Based Strategy Adaptation");
     println!("==============================================");
 
-    // TODO: AgentBuilder API has changed - update when new API is available
-    /*
-    // TODO: Re-enable when rig provider API is updated
-    // let volatility_strategist = AgentBuilder::new("gpt-4")
+    // Create OpenAI client and model
+    let openai_client = openai::Client::new(&env::var("OPENAI_API_KEY")?);
+    let model = openai_client.completion_model("gpt-4");
+    
+    let volatility_strategist = AgentBuilder::new(model)
         .preamble(r#"
 You are a volatility-adaptive trading strategist. Your core strength is adjusting
 your approach based on market conditions and recent performance data.
@@ -48,7 +49,6 @@ You continuously adapt based on:
 
 Your adaptation is natural and systematic - no rigid rules or custom loops.
         "#)
-        .max_tokens(1400)
         .build();
 
     // Simulate recent performance data
@@ -123,9 +123,6 @@ Show your rapid adaptation process.
     let extreme_adaptation = volatility_strategist.prompt(regime_change).await?;
     println!("🛡️ Extreme Volatility Response:");
     println!("{}\n", extreme_adaptation);
-    */
-
-    println!("Example temporarily disabled - rig API update needed");
     println!("✅ Volatility adaptation demo complete!");
     Ok(())
 }
@@ -138,10 +135,11 @@ async fn demo_performance_evolution() -> Result<()> {
     println!("\n📈 Demo: Performance-Based Strategy Evolution");
     println!("===============================================");
 
-    // TODO: AgentBuilder API has changed - update when new API is available
-    /*
-    // TODO: Re-enable when rig provider API is updated
-    // let evolution_strategist = AgentBuilder::new("gpt-4")
+    // Create OpenAI client and model
+    let openai_client = openai::Client::new(&env::var("OPENAI_API_KEY")?);
+    let model = openai_client.completion_model("gpt-4");
+    
+    let evolution_strategist = AgentBuilder::new(model)
         .preamble(r#"
 You are a performance-driven strategy evolution specialist. You systematically
 improve trading approaches based on data-driven analysis of results.
@@ -156,7 +154,6 @@ Evolution Framework:
 You evolve strategies naturally through systematic analysis, not rigid backtesting.
 Your approach is dynamic and responsive to changing market conditions.
         "#)
-        .max_tokens(1500)
         .build();
 
     // Simulate comprehensive performance data
@@ -241,9 +238,6 @@ Show your systematic approach to evolution during difficult periods.
     let crisis_evolution = evolution_strategist.prompt(drawdown_prompt).await?;
     println!("🔄 Crisis Evolution Response:");
     println!("{}\n", crisis_evolution);
-    */
-
-    println!("Example temporarily disabled - rig API update needed");
     println!("✅ Performance evolution demo complete!");
     Ok(())
 }
@@ -256,10 +250,11 @@ async fn demo_timeframe_coordination() -> Result<()> {
     println!("\n⏰ Demo: Multi-Timeframe Adaptive Coordination");
     println!("===============================================");
 
-    // TODO: AgentBuilder API has changed - update when new API is available
-    /*
-    // TODO: Re-enable when rig provider API is updated
-    // let timeframe_coordinator = AgentBuilder::new("gpt-4")
+    // Create OpenAI client and model
+    let openai_client = openai::Client::new(&env::var("OPENAI_API_KEY")?);
+    let model = openai_client.completion_model("gpt-4");
+    
+    let timeframe_coordinator = AgentBuilder::new(model)
         .preamble(r#"
 You are a multi-timeframe strategy coordinator who adapts based on how different
 time horizons align or conflict with each other.
@@ -278,7 +273,6 @@ Adaptation Rules:
 
 You coordinate naturally without rigid rules - adapting based on timeframe dynamics.
         "#)
-        .max_tokens(1500)
         .build();
 
     // Multi-timeframe market analysis
@@ -360,9 +354,6 @@ Show your adaptation to timeframe alignment.
     let alignment_adaptation = timeframe_coordinator.prompt(alignment_change).await?;
     println!("⚡ Alignment Adaptation:");
     println!("{}\n", alignment_adaptation);
-    */
-
-    println!("Example temporarily disabled - rig API update needed");
     println!("✅ Timeframe coordination demo complete!");
     Ok(())
 }
@@ -375,10 +366,11 @@ async fn demo_event_response_adaptation() -> Result<()> {
     println!("\n⚡ Demo: Real-Time Event Response Adaptation");
     println!("==============================================");
 
-    // TODO: AgentBuilder API has changed - update when new API is available
-    /*
-    // TODO: Re-enable when rig provider API is updated
-    // let event_responder = AgentBuilder::new("gpt-4")
+    // Create OpenAI client and model
+    let openai_client = openai::Client::new(&env::var("OPENAI_API_KEY")?);
+    let model = openai_client.completion_model("gpt-4");
+    
+    let event_responder = AgentBuilder::new(model)
         .preamble(r#"
 You are a real-time event response specialist who rapidly adapts strategies
 based on breaking news, market events, and unexpected developments.
@@ -397,7 +389,6 @@ Event Categories:
 
 You adapt naturally and systematically to events without predetermined scripts.
         "#)
-        .max_tokens(1400)
         .build();
 
     // Current position baseline
@@ -497,10 +488,6 @@ Show your systematic adaptation as events evolve.
     let evolution_response = event_responder.prompt(event_evolution).await?;
     println!("📈 Recovery Adaptation:");
     println!("{}\n", evolution_response);
-
-    */
-
-    println!("Example temporarily disabled - rig API update needed");
     println!("✅ Event response adaptation demo complete!");
     Ok(())
 }
@@ -553,21 +540,27 @@ async fn main() -> Result<()> {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use serde_json::json;
 
     #[tokio::test]
     async fn test_adaptation_patterns() {
         // Test validates adaptation pattern concepts
-        // TODO: AgentBuilder API has changed - update when new API is available
-        /*
-        // TODO: Re-enable when rig provider API is updated
-        // let strategist = AgentBuilder::new("mock-model")
-            .preamble("Adaptive strategy testing")
-            .build();
-        */
-        
-        // Validate agent construction for adaptation
-        assert!(true); // Placeholder for actual adaptation testing
+        // Note: This test requires OPENAI_API_KEY to be set for actual agent testing
+        if std::env::var("OPENAI_API_KEY").is_ok() {
+            let openai_client = openai::Client::new(&std::env::var("OPENAI_API_KEY").unwrap());
+            let model = openai_client.completion_model("gpt-3.5-turbo");
+            
+            let strategist = AgentBuilder::new(model)
+                .preamble("You are an adaptive strategy testing assistant.")
+                .build();
+            
+            // Test basic agent construction
+            assert!(true); // Agent was successfully created
+        } else {
+            // Skip actual agent testing if no API key is available
+            assert!(true, "Skipping agent test - OPENAI_API_KEY not set");
+        }
     }
 
     #[test]

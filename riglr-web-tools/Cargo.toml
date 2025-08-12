@@ -40,6 +40,10 @@ url = { workspace = true }
 chrono = { workspace = true }
 rand = "0.9.2"
 
+# Parsing helpers
+regex = "1.10"
+html-escape = "0.2"
+
 # Logging
 tracing = { workspace = true }
 

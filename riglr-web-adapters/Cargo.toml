@@ -20,6 +20,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 futures-util = "0.3"
 pin-project = "1.0"
+async-stream = "0.3"
 
 # Actix-specific dependencies (optional)
 actix-web = { version = "4", optional = true }

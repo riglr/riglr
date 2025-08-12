@@ -7,9 +7,15 @@ use reqwest::{Client, Response};
 use riglr_core::signer::TransactionSigner;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use tracing::{debug, error, warn, info};
+use tracing::{debug, error, info};
 use serde_json;
 // Note: Using direct HTTP API instead of SDK
+
+// EIP-712 signing dependencies
+use ethers_core::types::H256;
+use ethers_core::types::transaction::eip712::{Eip712, TypedData};
+use ethers_signers::LocalWallet;
+use hex;
 
 use crate::error::{HyperliquidToolError, Result};
 
@@ -151,7 +157,7 @@ impl HyperliquidClient {
 
     /// Place an order using real Hyperliquid API
     /// CRITICAL: This is REAL order placement - NO SIMULATION
-    pub async fn place_order(&mut self, order: &OrderRequest) -> Result<OrderResponse> {
+    pub async fn place_order(&self, order: &OrderRequest) -> Result<OrderResponse> {
         error!("CRITICAL: REAL ORDER PLACEMENT - This will place actual trades!");
         info!("Placing REAL order: asset={}, side={}, size={}, price={}", 
               order.asset, if order.is_buy { "buy" } else { "sell" }, order.sz, order.limit_px);
@@ -209,26 +215,101 @@ impl HyperliquidClient {
         Ok(order_response)
     }
     
-    /// Sign order payload for Hyperliquid (simplified - requires proper cryptographic implementation)
-    async fn sign_order_payload(&self, _private_key: &str, _order: &OrderRequest) -> Result<String> {
-        // WARNING: This is a placeholder for proper EIP-712 signing
-        // Real implementation requires proper Ethereum signature with Hyperliquid's domain
-        warn!("Order signing placeholder - real implementation required");
+    /// Sign order payload for Hyperliquid using EIP-712
+    async fn sign_order_payload(&self, private_key: &str, order: &OrderRequest) -> Result<String> {
+        info!("Signing order payload with EIP-712");
         
-        // In production, this would:
-        // 1. Create EIP-712 structured data hash
-        // 2. Sign with user's private key
-        // 3. Return hex signature
+        // Parse the private key
+        let wallet = private_key.parse::<LocalWallet>()
+            .map_err(|e| HyperliquidToolError::Configuration(format!("Invalid private key: {}", e)))?;
         
-        // For now, return error to prevent incomplete signatures
-        Err(HyperliquidToolError::Configuration(
-            "Order signing not implemented. Real cryptographic signing required.".to_string()
-        ))
+        // Create the EIP-712 domain
+        let domain = serde_json::json!({
+            "name": "HyperliquidSignTransaction",
+            "version": "1",
+            "chainId": 42161,  // Arbitrum mainnet
+            "verifyingContract": "0x0000000000000000000000000000000000000000"
+        });
+        
+        // Create the message to sign
+        let message = serde_json::json!({
+            "a": order.asset,  // asset
+            "b": order.is_buy, // isBuy
+            "p": order.limit_px.to_string(), // price
+            "s": order.sz.to_string(), // size
+            "r": order.reduce_only, // reduceOnly
+            "t": {
+                "limit": {
+                    "tif": order.order_type.limit.as_ref()
+                        .map(|l| l.tif.as_str())
+                        .unwrap_or("Gtc")
+                }
+            }
+        });
+        
+        // Create the types definition
+        let types = serde_json::json!({
+            "EIP712Domain": [
+                {"name": "name", "type": "string"},
+                {"name": "version", "type": "string"},
+                {"name": "chainId", "type": "uint256"},
+                {"name": "verifyingContract", "type": "address"}
+            ],
+            "Order": [
+                {"name": "a", "type": "uint32"},
+                {"name": "b", "type": "bool"},
+                {"name": "p", "type": "string"},
+                {"name": "s", "type": "string"},
+                {"name": "r", "type": "bool"},
+                {"name": "t", "type": "OrderType"}
+            ],
+            "OrderType": [
+                {"name": "limit", "type": "LimitOrderType"}
+            ],
+            "LimitOrderType": [
+                {"name": "tif", "type": "string"}
+            ]
+        });
+        
+        // Create the typed data
+        let typed_data = serde_json::json!({
+            "types": types,
+            "primaryType": "Order",
+            "domain": domain,
+            "message": message
+        });
+        
+        // Convert to TypedData struct
+        let typed_data: TypedData = serde_json::from_value(typed_data)
+            .map_err(|e| HyperliquidToolError::Configuration(format!("Failed to create typed data: {}", e)))?;
+        
+        // Encode the typed data
+        let encoded = typed_data.encode_eip712()
+            .map_err(|e| HyperliquidToolError::Configuration(format!("Failed to encode EIP-712: {}", e)))?;
+        
+        // Sign the encoded data
+        let signature = wallet.sign_hash(H256::from(encoded))
+            .map_err(|e| HyperliquidToolError::Configuration(format!("Failed to sign: {}", e)))?;
+        
+        // Convert signature to the expected format
+        let r = signature.r;
+        let s = signature.s;
+        let v = signature.v;
+        
+        // Hyperliquid expects the signature as r + s + v (65 bytes total)
+        let mut sig_bytes = vec![0u8; 65];
+        r.to_big_endian(&mut sig_bytes[0..32]);
+        s.to_big_endian(&mut sig_bytes[32..64]);
+        sig_bytes[64] = v as u8;
+        
+        let signature_hex = format!("0x{}", hex::encode(sig_bytes));
+        info!("Order signed successfully");
+        Ok(signature_hex)
     }
 
     /// Cancel an order using real Hyperliquid API
     /// CRITICAL: This is REAL order cancellation - NO SIMULATION
-    pub async fn cancel_order(&mut self, order_id: u64, asset: u32) -> Result<CancelResponse> {
+    pub async fn cancel_order(&self, order_id: u64, asset: u32) -> Result<CancelResponse> {
         error!("CRITICAL: REAL ORDER CANCELLATION - This will cancel actual trades!");
         info!("Cancelling REAL order: order_id={}, asset={}", order_id, asset);
         
@@ -275,15 +356,76 @@ impl HyperliquidClient {
         Ok(cancel_response)
     }
     
-    /// Sign cancel payload for Hyperliquid (simplified - requires proper cryptographic implementation)
-    async fn sign_cancel_payload(&self, _private_key: &str, _order_id: u64, _asset: u32) -> Result<String> {
-        // WARNING: This is a placeholder for proper EIP-712 signing
-        warn!("Cancel signing placeholder - real implementation required");
+    /// Sign cancel payload for Hyperliquid using EIP-712
+    async fn sign_cancel_payload(&self, private_key: &str, order_id: u64, asset: u32) -> Result<String> {
+        info!("Signing cancel payload with EIP-712");
         
-        // For now, return error to prevent incomplete signatures
-        Err(HyperliquidToolError::Configuration(
-            "Cancel signing not implemented. Real cryptographic signing required.".to_string()
-        ))
+        // Parse the private key
+        let wallet = private_key.parse::<LocalWallet>()
+            .map_err(|e| HyperliquidToolError::Configuration(format!("Invalid private key: {}", e)))?;
+        
+        // Create the EIP-712 domain
+        let domain = serde_json::json!({
+            "name": "HyperliquidSignTransaction",
+            "version": "1",
+            "chainId": 42161,  // Arbitrum mainnet
+            "verifyingContract": "0x0000000000000000000000000000000000000000"
+        });
+        
+        // Create the message to sign
+        let message = serde_json::json!({
+            "a": asset,   // asset
+            "o": order_id // order ID
+        });
+        
+        // Create the types definition
+        let types = serde_json::json!({
+            "EIP712Domain": [
+                {"name": "name", "type": "string"},
+                {"name": "version", "type": "string"},
+                {"name": "chainId", "type": "uint256"},
+                {"name": "verifyingContract", "type": "address"}
+            ],
+            "Cancel": [
+                {"name": "a", "type": "uint32"},
+                {"name": "o", "type": "uint64"}
+            ]
+        });
+        
+        // Create the typed data
+        let typed_data = serde_json::json!({
+            "types": types,
+            "primaryType": "Cancel",
+            "domain": domain,
+            "message": message
+        });
+        
+        // Convert to TypedData struct
+        let typed_data: TypedData = serde_json::from_value(typed_data)
+            .map_err(|e| HyperliquidToolError::Configuration(format!("Failed to create typed data: {}", e)))?;
+        
+        // Encode the typed data
+        let encoded = typed_data.encode_eip712()
+            .map_err(|e| HyperliquidToolError::Configuration(format!("Failed to encode EIP-712: {}", e)))?;
+        
+        // Sign the encoded data
+        let signature = wallet.sign_hash(H256::from(encoded))
+            .map_err(|e| HyperliquidToolError::Configuration(format!("Failed to sign: {}", e)))?;
+        
+        // Convert signature to the expected format
+        let r = signature.r;
+        let s = signature.s;
+        let v = signature.v;
+        
+        // Hyperliquid expects the signature as r + s + v (65 bytes total)
+        let mut sig_bytes = vec![0u8; 65];
+        r.to_big_endian(&mut sig_bytes[0..32]);
+        s.to_big_endian(&mut sig_bytes[32..64]);
+        sig_bytes[64] = v as u8;
+        
+        let signature_hex = format!("0x{}", hex::encode(sig_bytes));
+        info!("Cancel order signed successfully");
+        Ok(signature_hex)
     }
 
     /// Get the user's address from the signer

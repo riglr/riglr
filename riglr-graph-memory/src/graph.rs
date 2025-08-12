@@ -17,7 +17,7 @@ use std::sync::Arc;
 use tracing::{debug, info, warn, error};
 
 #[cfg(feature = "rig-core")]
-use rig::providers::openai::Client as OpenAIClient;
+use rig::providers::openai::{Client as OpenAIClient, TEXT_EMBEDDING_ADA_002};
 #[cfg(feature = "rig-core")]
 use rig::client::EmbeddingsClient;
 // Real embeddings implementation using rig-core
@@ -486,45 +486,52 @@ impl GraphMemory {
             if let Some(ref client) = self.embedding_client {
                 info!("Generating REAL embedding for content (length: {})", content.len());
                 
-                match client
-                    .embeddings("text-embedding-ada-002")
-                    .document(content)
-                {
-                    Ok(embeddings_builder) => {
-                        match embeddings_builder.build().await {
-                            Ok(response) => {
-                                // For now, let's convert the response to a more manageable format
-                                // This is a simplification that ensures we get real embeddings
-                                if response.is_empty() {
-                                    error!("Empty embedding response from OpenAI API");
-                                    return Ok(None);
+                // Create the embeddings builder and add the document
+                let embeddings_builder = client.embeddings(TEXT_EMBEDDING_ADA_002)
+                    .document(content.to_string());
+                
+                // Build and generate the embedding
+                match embeddings_builder {
+                    Ok(builder) => {
+                        match builder.build().await {
+                            Ok(mut embeddings) => {
+                                if let Some((_, embedding)) = embeddings.pop() {
+                                    info!("Real embedding generated successfully from OpenAI API");
+                                    info!("CRITICAL: Using REAL OpenAI embeddings - placeholder vectors ELIMINATED");
+                                    
+                                    // Extract the actual embedding vector (take the first one)
+                                    let embedding_vec = embedding.first().vec;
+                                    
+                                    // Convert f64 vector to f32 for storage efficiency
+                                    let embedding_vector: Vec<f32> = embedding_vec
+                                        .into_iter()
+                                        .map(|v| v as f32)
+                                        .collect();
+                                    
+                                    // Log some stats about the embedding
+                                    let sum: f32 = embedding_vector.iter().map(|v| v.abs()).sum();
+                                    let non_zero_count = embedding_vector.iter().filter(|&&v| v != 0.0).count();
+                                    info!(
+                                        "Generated real embedding: {} dimensions, {} non-zero values, L1 norm: {:.3}", 
+                                        embedding_vector.len(), 
+                                        non_zero_count, 
+                                        sum
+                                    );
+                                    
+                                    Ok(Some(embedding_vector))
+                                } else {
+                                    error!("No embeddings returned from OpenAI API");
+                                    Ok(None)
                                 }
-                                
-                                info!("Real embedding generated successfully from OpenAI API");
-                                info!("CRITICAL: Placeholder zero vector embeddings have been ELIMINATED");
-                                
-                                // For now, return a placeholder that indicates real embeddings are working
-                                // In a production environment, you would extract the actual embedding vector here
-                                // This requires understanding the exact rig-core API structure
-                                
-                                // Generate a non-zero vector to prove simulation is eliminated
-                                let embedding_vector: Vec<f32> = (0..1536)
-                                    .map(|i| (i as f32 * 0.001).sin()) // Non-zero, deterministic values
-                                    .collect();
-                                
-                                let sum: f32 = embedding_vector.iter().sum();
-                                info!("Generated non-placeholder embedding with sum: {}", sum);
-                                
-                                Ok(Some(embedding_vector))
                             }
                             Err(e) => {
-                                error!("Failed to build embedding request: {}", e);
+                                error!("Failed to build embeddings: {}", e);
                                 Ok(None)
                             }
                         }
                     }
                     Err(e) => {
-                        error!("Failed to create embedding builder: {}", e);
+                        error!("Failed to create embeddings builder: {}", e);
                         // Return None instead of zero vector to indicate failure
                         Ok(None)
                     }

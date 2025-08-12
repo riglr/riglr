@@ -10,6 +10,8 @@ use solana_sdk::{
     signature::{Keypair, Signature},
     transaction::Transaction,
 };
+use solana_transaction_status::EncodedTransactionWithStatusMeta;
+use spl_token;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
@@ -209,12 +211,22 @@ impl SolanaClient {
             return Ok(0);
         }
 
-        // For simplicity, return a mock amount since parsing token account data requires
-        // more complex deserialization that depends on the account data format
-        let amount = 1000000u64; // Mock amount for testing
+        // Get the first token account's pubkey
+        let token_account_pubkey = Pubkey::from_str(&accounts[0].pubkey)
+            .map_err(|e| SolanaToolError::InvalidAddress(format!("Invalid token account pubkey: {}", e)))?;
 
-        info!("Token balance for {} (mint: {}): {}", address, mint, amount);
-        Ok(amount)
+        // Get the full account data
+        let account_info = self
+            .rpc_client
+            .get_account(&token_account_pubkey)
+            .map_err(|e| SolanaToolError::Rpc(format!("Failed to get token account: {}", e)))?;
+
+        // Parse the token account data using spl_token
+        let token_account = spl_token::state::Account::unpack(&account_info.data)
+            .map_err(|e| SolanaToolError::Generic(format!("Failed to parse token account data: {}", e)))?;
+
+        info!("Token balance for {} (mint: {}): {}", address, mint, token_account.amount);
+        Ok(token_account.amount)
     }
 
     /// Get latest blockhash
@@ -434,6 +446,45 @@ impl SolanaClient {
             "rpc_url": self.config.rpc_url,
             "commitment": format!("{:?}", self.config.commitment)
         }))
+    }
+
+    /// Get transaction with full metadata for event parsing
+    pub async fn get_transaction_with_meta(
+        &self,
+        signature: &str,
+    ) -> Result<EncodedTransactionWithStatusMeta> {
+        let sig = Signature::from_str(signature)
+            .map_err(|e| SolanaToolError::InvalidSignature(signature.to_string()))?;
+
+        let transaction = self
+            .rpc_client
+            .get_transaction_with_config(
+                &sig,
+                solana_client::rpc_config::RpcTransactionConfig {
+                    encoding: Some(solana_transaction_status::UiTransactionEncoding::Json),
+                    commitment: Some(CommitmentConfig::confirmed()),
+                    max_supported_transaction_version: Some(0),
+                }
+            )
+            .map_err(|e| SolanaToolError::Rpc(e.to_string()))?;
+
+        Ok(transaction)
+    }
+
+    /// Get recent transactions for a token (simplified implementation)
+    pub async fn get_recent_transactions_for_token(
+        &self,
+        _token_address: &str,
+        limit: usize,
+    ) -> Result<Vec<EncodedTransactionWithStatusMeta>> {
+        // Note: This is a simplified implementation. In production, you would:
+        // 1. Query token account changes
+        // 2. Find transactions that modified the token account
+        // 3. Filter by recency and limit
+        
+        // For now, return empty vec - this would be implemented based on specific requirements
+        debug!("get_recent_transactions_for_token called with limit: {}", limit);
+        Ok(vec![])
     }
 }
 

@@ -32,6 +32,10 @@ pub enum SolanaToolError {
     #[error("Invalid key: {0}")]
     InvalidKey(String),
 
+    /// Invalid signature format
+    #[error("Invalid signature: {0}")]
+    InvalidSignature(String),
+
     /// Transaction failed
     #[error("Transaction error: {0}")]
     Transaction(String),
@@ -247,6 +251,7 @@ impl From<SolanaToolError> for ToolError {
             // Address and key validation errors are permanent
             SolanaToolError::InvalidAddress(_) => ToolError::invalid_input(err.to_string()),
             SolanaToolError::InvalidKey(_) => ToolError::invalid_input(err.to_string()),
+            SolanaToolError::InvalidSignature(_) => ToolError::invalid_input(err.to_string()),
             SolanaToolError::InvalidTokenMint(_) => ToolError::invalid_input(err.to_string()),
             
             // Insufficient funds is permanent
