@@ -148,13 +148,32 @@ let swap = perform_uniswap_swap(
 ### Environment Variables
 
 ```bash
-# Optional: Default RPC endpoints
-ETH_RPC_URL=https://eth.llamarpc.com
-POLYGON_RPC_URL=https://polygon-rpc.com
-ARBITRUM_RPC_URL=https://arb1.arbitrum.io/rpc
+# Convention-based RPC endpoints (RPC_URL_{CHAIN_ID})
+RPC_URL_1=https://eth.llamarpc.com        # Ethereum (Chain ID: 1)
+RPC_URL_137=https://polygon-rpc.com       # Polygon (Chain ID: 137)
+RPC_URL_42161=https://arb1.arbitrum.io/rpc # Arbitrum (Chain ID: 42161)
+RPC_URL_8453=https://base.llamarpc.com    # Base (Chain ID: 8453)
+
+# Add any EVM chain by setting RPC_URL_{CHAIN_ID}
+# Example: RPC_URL_10=https://optimism.io  # Optimism (Chain ID: 10)
 
 # Private key for transactions (required for signing)
 EVM_PRIVATE_KEY=0x...
+```
+
+### Extensible Chain Support
+
+The EVM tools now support adding new chains without code changes. Simply set an environment variable following the `RPC_URL_{CHAIN_ID}` convention:
+
+```rust
+// Any chain with RPC_URL_{ID} set is automatically supported
+let supported_chains = riglr_evm_tools::util::get_supported_chains();
+println!("Supported chains: {:?}", supported_chains);
+
+// Check if a specific chain is supported
+if riglr_evm_tools::util::is_chain_supported(10) {
+    println!("Optimism is configured!");
+}
 ```
 
 ### Supported Networks
