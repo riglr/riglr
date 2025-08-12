@@ -26,9 +26,13 @@ use tokio::task_local;
 
 pub mod traits;
 pub mod error;
+pub mod evm;
+pub mod solana;
 
 pub use traits::TransactionSigner;
 pub use error::SignerError;
+pub use evm::LocalEvmSigner;
+pub use solana::LocalSolanaSigner;
 
 
 // Thread-local storage for current signer context

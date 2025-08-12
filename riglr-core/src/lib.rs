@@ -190,6 +190,7 @@ pub mod jobs;
 pub mod queue;
 pub mod signer;
 pub mod tool;
+pub mod transactions;
 pub mod util;
 
 pub use error::{ToolError, CoreError, SignerError};

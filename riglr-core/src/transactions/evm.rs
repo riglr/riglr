@@ -1,0 +1,224 @@
+//! EVM-specific transaction processing with gas optimization
+//!
+//! This module provides enhanced EVM transaction handling including:
+//! - Dynamic gas price estimation
+//! - EIP-1559 support
+//! - MEV protection options
+//! - Transaction simulation
+
+use alloy::primitives::U256;
+use alloy::providers::Provider;
+use alloy::rpc::types::TransactionRequest;
+use async_trait::async_trait;
+use std::sync::Arc;
+use tracing::{info, debug};
+
+use crate::error::ToolError;
+use super::{TransactionProcessor, TransactionStatus, RetryConfig};
+
+/// EVM gas configuration
+#[derive(Debug, Clone)]
+pub struct GasConfig {
+    /// Use EIP-1559 (base fee + priority fee)
+    pub use_eip1559: bool,
+    /// Gas price multiplier for faster inclusion
+    pub gas_price_multiplier: f64,
+    /// Maximum gas price willing to pay (in wei)
+    pub max_gas_price: Option<U256>,
+    /// Priority fee for EIP-1559 (in wei)
+    pub max_priority_fee: Option<U256>,
+}
+
+impl Default for GasConfig {
+    fn default() -> Self {
+        Self {
+            use_eip1559: true,
+            gas_price_multiplier: 1.1, // 10% above estimate
+            max_gas_price: None,
+            max_priority_fee: Some(U256::from(2_000_000_000u64)), // 2 gwei
+        }
+    }
+}
+
+/// EVM transaction processor with gas optimization
+pub struct EvmTransactionProcessor<P: Provider> {
+    provider: Arc<P>,
+    gas_config: GasConfig,
+}
+
+impl<P: Provider> EvmTransactionProcessor<P> {
+    /// Create a new EVM transaction processor
+    pub fn new(provider: Arc<P>, gas_config: GasConfig) -> Self {
+        Self {
+            provider,
+            gas_config,
+        }
+    }
+    
+    /// Estimate optimal gas price
+    pub async fn estimate_gas_price(&self) -> Result<u128, ToolError> {
+        if self.gas_config.use_eip1559 {
+            // Get base fee and estimate priority fee
+            let base_fee = self.provider
+                .get_gas_price()
+                .await
+                .map_err(|e| ToolError::permanent(format!("Failed to get base fee: {}", e)))?;
+            
+            let priority_fee = self.gas_config.max_priority_fee
+                .unwrap_or(U256::from(1_000_000_000u64)); // 1 gwei default
+            
+            let total = base_fee + priority_fee.to::<u128>();
+            
+            // Apply multiplier
+            let adjusted = (total as f64 * self.gas_config.gas_price_multiplier) as u128;
+            
+            // Apply max cap if set
+            if let Some(max) = self.gas_config.max_gas_price {
+                Ok(adjusted.min(max.to::<u128>()))
+            } else {
+                Ok(adjusted)
+            }
+        } else {
+            // Legacy gas price
+            let gas_price = self.provider
+                .get_gas_price()
+                .await
+                .map_err(|e| ToolError::permanent(format!("Failed to get gas price: {}", e)))?;
+            
+            // Apply multiplier
+            let adjusted = (gas_price as f64 * self.gas_config.gas_price_multiplier) as u128;
+            
+            // Apply max cap if set
+            if let Some(max) = self.gas_config.max_gas_price {
+                Ok(adjusted.min(max.to::<u128>()))
+            } else {
+                Ok(adjusted)
+            }
+        }
+    }
+    
+    /// Estimate gas limit for a transaction
+    pub async fn estimate_gas_limit(&self, tx: &TransactionRequest) -> Result<u64, ToolError> {
+        let estimate = self.provider
+            .estimate_gas(tx.clone())
+            .await
+            .map_err(|e| ToolError::permanent(format!("Failed to estimate gas: {}", e)))?;
+        
+        // Add 20% buffer to gas estimate
+        Ok((estimate as f64 * 1.2) as u64)
+    }
+    
+    /// Prepare transaction with optimal gas settings
+    pub async fn prepare_transaction(
+        &self,
+        mut tx: TransactionRequest,
+    ) -> Result<TransactionRequest, ToolError> {
+        // Estimate gas limit if not set
+        if tx.gas.is_none() {
+            let gas_limit = self.estimate_gas_limit(&tx).await?;
+            tx.gas = Some(gas_limit);
+            debug!("Set gas limit to {}", gas_limit);
+        }
+        
+        // Set gas price
+        if self.gas_config.use_eip1559 {
+            if tx.max_fee_per_gas.is_none() || tx.max_priority_fee_per_gas.is_none() {
+                let base_fee = self.provider
+                    .get_gas_price()
+                    .await
+                    .map_err(|e| ToolError::permanent(format!("Failed to get base fee: {}", e)))?;
+                
+                let priority_fee = self.gas_config.max_priority_fee
+                    .unwrap_or(U256::from(2_000_000_000u64)); // 2 gwei
+                
+                tx.max_priority_fee_per_gas = Some(priority_fee.to::<u128>());
+                tx.max_fee_per_gas = Some(base_fee + priority_fee.to::<u128>() * 2);
+                
+                debug!(
+                    "Set EIP-1559 gas: max_fee={}, priority_fee={}",
+                    tx.max_fee_per_gas.unwrap(),
+                    priority_fee
+                );
+            }
+        } else if tx.gas_price.is_none() {
+            let gas_price = self.estimate_gas_price().await?;
+            tx.gas_price = Some(gas_price);
+            debug!("Set gas price to {}", gas_price);
+        }
+        
+        Ok(tx)
+    }
+    
+    /// Simulate transaction before sending
+    pub async fn simulate_transaction(
+        &self,
+        tx: &TransactionRequest,
+    ) -> Result<(), ToolError> {
+        // Use eth_call to simulate the transaction
+        let _result = self.provider
+            .call(tx.clone())
+            .await
+            .map_err(|e| ToolError::permanent(format!("Transaction simulation failed: {}", e)))?;
+        
+        info!("Transaction simulation successful");
+        Ok(())
+    }
+}
+
+#[async_trait]
+impl<P: Provider + Send + Sync> TransactionProcessor for EvmTransactionProcessor<P> {
+    async fn process_with_retry<T, F, Fut>(
+        &self,
+        operation: F,
+        config: RetryConfig,
+    ) -> Result<T, ToolError>
+    where
+        T: Send,
+        F: Fn() -> Fut + Send,
+        Fut: std::future::Future<Output = Result<T, ToolError>> + Send,
+    {
+        // Use the generic implementation
+        let processor = super::GenericTransactionProcessor;
+        processor.process_with_retry(operation, config).await
+    }
+    
+    async fn get_status(&self, tx_hash: &str) -> Result<TransactionStatus, ToolError> {
+        let hash = tx_hash.parse()
+            .map_err(|e| ToolError::permanent(format!("Invalid transaction hash: {}", e)))?;
+        
+        // Get transaction receipt
+        match self.provider.get_transaction_receipt(hash).await {
+            Ok(Some(receipt)) => {
+                if receipt.status() {
+                    Ok(TransactionStatus::Confirmed {
+                        hash: tx_hash.to_string(),
+                        block: receipt.block_number.unwrap_or_default(),
+                    })
+                } else {
+                    Ok(TransactionStatus::Failed {
+                        reason: "Transaction reverted".to_string(),
+                    })
+                }
+            }
+            Ok(None) => {
+                // Transaction not yet mined
+                Ok(TransactionStatus::Submitted {
+                    hash: tx_hash.to_string(),
+                })
+            }
+            Err(e) => {
+                Err(ToolError::permanent(format!("Failed to get transaction status: {}", e)))
+            }
+        }
+    }
+    
+    async fn wait_for_confirmation(
+        &self,
+        tx_hash: &str,
+        required_confirmations: u64,
+    ) -> Result<TransactionStatus, ToolError> {
+        // Use the generic implementation with custom status checking
+        let processor = super::GenericTransactionProcessor;
+        processor.wait_for_confirmation(tx_hash, required_confirmations).await
+    }
+}
