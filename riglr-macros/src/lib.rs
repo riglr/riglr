@@ -90,7 +90,22 @@ impl riglr_core::Tool for SwapTokensTool {
                         error: msg,
                         retriable: true,
                     }),
-                    // ... other error types
+                    riglr_core::ToolError::Permanent(msg) => Ok(riglr_core::JobResult::Failure {
+                        error: msg,
+                        retriable: false,
+                    }),
+                    riglr_core::ToolError::RateLimited(msg) => Ok(riglr_core::JobResult::Failure {
+                        error: format!("Rate limited: {}", msg),
+                        retriable: true,
+                    }),
+                    riglr_core::ToolError::InvalidInput(msg) => Ok(riglr_core::JobResult::Failure {
+                        error: format!("Invalid input: {}", msg),
+                        retriable: false,
+                    }),
+                    riglr_core::ToolError::SignerContext(err) => Ok(riglr_core::JobResult::Failure {
+                        error: format!("Signer error: {}", err),
+                        retriable: false,
+                    }),
                 }
             }
         }
@@ -652,6 +667,18 @@ fn handle_function(function: ItemFn) -> proc_macro2::TokenStream {
                                     retriable: true,
                                 })
                             }
+                            riglr_core::ToolError::InvalidInput(msg) => {
+                                Ok(riglr_core::JobResult::Failure {
+                                    error: format!("Invalid input: {}", msg),
+                                    retriable: false,
+                                })
+                            }
+                            riglr_core::ToolError::SignerContext(err) => {
+                                Ok(riglr_core::JobResult::Failure {
+                                    error: format!("Signer error: {}", err),
+                                    retriable: false,
+                                })
+                            }
                         }
                     }
                 }
@@ -729,6 +756,18 @@ fn handle_struct(structure: ItemStruct) -> proc_macro2::TokenStream {
                                 Ok(riglr_core::JobResult::Failure {
                                     error: format!("Rate limited: {}", msg),
                                     retriable: true,
+                                })
+                            }
+                            riglr_core::ToolError::InvalidInput(msg) => {
+                                Ok(riglr_core::JobResult::Failure {
+                                    error: format!("Invalid input: {}", msg),
+                                    retriable: false,
+                                })
+                            }
+                            riglr_core::ToolError::SignerContext(err) => {
+                                Ok(riglr_core::JobResult::Failure {
+                                    error: format!("Signer error: {}", err),
+                                    retriable: false,
                                 })
                             }
                         }

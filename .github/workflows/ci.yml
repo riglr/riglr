@@ -44,8 +44,8 @@ jobs:
       - name: Run Clippy
         run: cargo clippy --workspace --all-features --all-targets -- -D warnings
 
-  test:
-    name: Test Suite
+  unit-tests:
+    name: Unit Tests
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
@@ -68,11 +68,48 @@ jobs:
       - name: Build workspace
         run: cargo build --workspace --all-features
       
-      - name: Run tests
-        run: cargo test --workspace --all-features
+      - name: Run unit tests
+        run: cargo test --workspace --lib --all-features
+        env:
+          # Mock environment variables for unit tests
+          ANTHROPIC_API_KEY: test_key
+          REDIS_URL: redis://localhost:6379
+          NEO4J_URL: bolt://localhost:7687
+          ETHEREUM_RPC_URL: https://eth.llamarpc.com
+          ARBITRUM_RPC_URL: https://arb1.arbitrum.io/rpc
+          POLYGON_RPC_URL: https://polygon-rpc.com
+          BASE_RPC_URL: https://mainnet.base.org
+          SOLANA_RPC_URL: https://api.devnet.solana.com
       
       - name: Run doc tests
         run: cargo test --workspace --doc
+        env:
+          ANTHROPIC_API_KEY: test_key
+
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+      
+      - name: Cache dependencies
+        uses: Swatinem/rust-cache@v2
+      
+      - name: Run integration tests
+        run: cargo test --workspace --test '*' --all-features
+        env:
+          # Environment variables for integration tests
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ETHEREUM_RPC_URL: ${{ secrets.ETHEREUM_RPC_URL }}
+          ARBITRUM_RPC_URL: ${{ secrets.ARBITRUM_RPC_URL }}
+          POLYGON_RPC_URL: ${{ secrets.POLYGON_RPC_URL }}
+          BASE_RPC_URL: ${{ secrets.BASE_RPC_URL }}
+          SOLANA_RPC_URL: https://api.devnet.solana.com
+          REDIS_URL: redis://localhost:6379
+          NEO4J_URL: bolt://localhost:7687
 
   msrv:
     name: Minimum Supported Rust Version
@@ -144,3 +181,112 @@ jobs:
 
     - name: Run cargo-deny
       run: cargo deny check
+
+  coverage:
+    name: Code Coverage
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout sources
+      uses: actions/checkout@v4
+
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Cache dependencies
+      uses: Swatinem/rust-cache@v2
+
+    - name: Install cargo-tarpaulin
+      run: cargo install cargo-tarpaulin
+
+    - name: Generate coverage report
+      run: |
+        cargo tarpaulin \
+          --workspace \
+          --all-features \
+          --timeout 120 \
+          --out Xml \
+          --output-dir ./coverage
+      env:
+        # Mock environment variables for coverage tests
+        ANTHROPIC_API_KEY: test_key
+        REDIS_URL: redis://localhost:6379
+        NEO4J_URL: bolt://localhost:7687
+        ETHEREUM_RPC_URL: https://eth.llamarpc.com
+        ARBITRUM_RPC_URL: https://arb1.arbitrum.io/rpc
+        POLYGON_RPC_URL: https://polygon-rpc.com
+        BASE_RPC_URL: https://mainnet.base.org
+        SOLANA_RPC_URL: https://api.devnet.solana.com
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage/cobertura.xml
+        fail_ci_if_error: false
+        verbose: true
+
+  performance:
+    name: Performance Tests
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout sources
+      uses: actions/checkout@v4
+
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Cache dependencies
+      uses: Swatinem/rust-cache@v2
+
+    - name: Run performance benchmarks
+      run: cargo test --workspace --benches --all-features
+      env:
+        ANTHROPIC_API_KEY: test_key
+        ETHEREUM_RPC_URL: https://eth.llamarpc.com
+        SOLANA_RPC_URL: https://api.devnet.solana.com
+
+  testnet-integration:
+    name: Testnet Integration Tests
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+    - name: Checkout sources
+      uses: actions/checkout@v4
+
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Cache dependencies
+      uses: Swatinem/rust-cache@v2
+
+    - name: Run testnet integration tests
+      run: cargo test --workspace --test '*' --all-features -- --ignored
+      env:
+        # Real testnet endpoints for integration tests (only on main branch)
+        ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        ETHEREUM_RPC_URL: ${{ secrets.ETHEREUM_TESTNET_RPC_URL }}
+        ARBITRUM_RPC_URL: ${{ secrets.ARBITRUM_TESTNET_RPC_URL }}
+        POLYGON_RPC_URL: ${{ secrets.POLYGON_TESTNET_RPC_URL }}
+        BASE_RPC_URL: ${{ secrets.BASE_TESTNET_RPC_URL }}
+        SOLANA_RPC_URL: https://api.devnet.solana.com
+        TEST_PRIVATE_KEY: ${{ secrets.TEST_PRIVATE_KEY }}
+        LIFI_API_KEY: ${{ secrets.LIFI_API_KEY }}
+
+  container:
+    name: Container Tests
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout sources
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Build test container
+      run: |
+        docker build -t riglr-test -f Dockerfile.test .
+      if: github.event_name == 'push'
+
+    - name: Run container tests
+      run: |
+        docker run --rm riglr-test cargo test --workspace --lib
+      if: github.event_name == 'push'

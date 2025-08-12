@@ -39,17 +39,66 @@ impl From<&str> for CoreError {
 /// Tool-specific error type for distinguishing retriable vs permanent failures.
 #[derive(Error, Debug)]
 pub enum ToolError {
-    /// A retriable error that may succeed on retry
-    #[error("Retriable error: {0}")]
+    /// Operation can be retried
+    #[error("Operation can be retried: {0}")]
     Retriable(String),
-
-    /// A rate-limited error that should be retried with backoff
-    #[error("Rate limited: {0}")]
+    
+    /// Rate limited, retry after delay
+    #[error("Rate limited, retry after delay: {0}")]
     RateLimited(String),
-
-    /// A permanent error that should not be retried
-    #[error("Permanent error: {0}")]
+    
+    /// Permanent error, do not retry
+    #[error("Permanent error, do not retry: {0}")]
     Permanent(String),
+    
+    /// Invalid input provided
+    #[error("Invalid input provided: {0}")]
+    InvalidInput(String),
+    
+    /// Signer context error
+    #[error("Signer context error: {0}")]
+    SignerContext(#[from] SignerError),
+}
+
+/// Signer-specific error type
+#[derive(Error, Debug)]
+pub enum SignerError {
+    /// No signer context available
+    #[error("No signer context available")]
+    NoContext,
+    
+    /// Invalid signature
+    #[error("Invalid signature: {0}")]
+    InvalidSignature(String),
+    
+    /// Network error during signing
+    #[error("Network error during signing: {0}")]
+    NetworkError(String),
+    
+    /// Insufficient funds
+    #[error("Insufficient funds for operation")]
+    InsufficientFunds,
+    
+    /// Invalid private key
+    #[error("Invalid private key: {0}")]
+    InvalidPrivateKey(String),
+    
+    /// Transaction failed
+    #[error("Transaction failed: {0}")]
+    TransactionFailed(String),
+}
+
+impl From<crate::signer::SignerError> for SignerError {
+    fn from(err: crate::signer::SignerError) -> Self {
+        match err {
+            crate::signer::SignerError::NoSignerContext => SignerError::NoContext,
+            crate::signer::SignerError::Configuration(msg) => SignerError::InvalidPrivateKey(msg),
+            crate::signer::SignerError::Signing(msg) => SignerError::InvalidSignature(msg),
+            crate::signer::SignerError::SolanaTransaction(err) => SignerError::TransactionFailed(err.to_string()),
+            crate::signer::SignerError::EvmTransaction(msg) => SignerError::TransactionFailed(msg),
+            crate::signer::SignerError::ClientCreation(msg) => SignerError::NetworkError(msg),
+        }
+    }
 }
 
 impl ToolError {
@@ -66,6 +115,11 @@ impl ToolError {
     /// Creates a new permanent error
     pub fn permanent<S: Into<String>>(msg: S) -> Self {
         ToolError::Permanent(msg.into())
+    }
+    
+    /// Creates a new invalid input error
+    pub fn invalid_input<S: Into<String>>(msg: S) -> Self {
+        ToolError::InvalidInput(msg.into())
     }
 
     /// Checks if the error is retriable

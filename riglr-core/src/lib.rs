@@ -190,13 +190,15 @@ pub mod jobs;
 pub mod queue;
 pub mod signer;
 pub mod tool;
+pub mod util;
 
-pub use error::*;
+pub use error::{ToolError, CoreError, SignerError};
 pub use idempotency::*;
 pub use jobs::*;
 pub use queue::*;
-pub use signer::*;
+pub use signer::{SignerContext, TransactionSigner};
 pub use tool::*;
+pub use util::*;
 
 #[cfg(test)]
 mod tests {

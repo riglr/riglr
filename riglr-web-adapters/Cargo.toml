@@ -1,0 +1,50 @@
+[package]
+name = "riglr-web-adapters"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+authors = ["riglr project contributors"]
+repository = "https://github.com/riglr-project/riglr"
+homepage = "https://github.com/riglr-project/riglr"
+description = "Framework-agnostic web adapters for riglr agents with library-first approach"
+
+[dependencies]
+# Core dependencies
+riglr-core = { path = "../riglr-core" }
+riglr-solana-tools = { path = "../riglr-solana-tools" }
+ rig-core = { workspace = true }
+tokio = { workspace = true }
+async-trait = { workspace = true }
+thiserror = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+futures-util = "0.3"
+pin-project = "1.0"
+
+# Actix-specific dependencies (optional)
+actix-web = { version = "4", optional = true }
+actix-web-lab = { version = "0.20", optional = true }
+
+# Axum-specific dependencies (optional)
+axum = { version = "0.7", optional = true }
+tower = { version = "0.5", optional = true }
+hyper = { version = "1.0", optional = true }
+
+# Tracing
+tracing = { workspace = true }
+
+# Utilities
+uuid = { workspace = true }
+chrono = { workspace = true }
+
+# Solana SDK for mock signers  
+solana-sdk = { workspace = true }
+
+[features]
+default = ["actix"]
+actix = ["dep:actix-web", "dep:actix-web-lab"]
+axum = ["dep:axum", "dep:tower", "dep:hyper"]
+
+[dev-dependencies]
+tokio-test = { workspace = true }
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
