@@ -82,6 +82,7 @@
 //! ```
 
 pub mod core;
+pub mod factory;
 
 #[cfg(feature = "actix")]
 pub mod actix;
@@ -91,6 +92,16 @@ pub mod axum;
 
 // Re-export commonly used types
 pub use core::{Agent, AgentStream, PromptRequest, CompletionResponse};
+
+// Re-export factory traits for easy use
+pub use factory::{SignerFactory, AuthenticationData, CompositeSignerFactory};
+
+// Re-export new adapter types for easy use
+#[cfg(feature = "actix")]
+pub use actix::ActixRiglrAdapter;
+
+#[cfg(feature = "axum")]
+pub use axum::AxumRiglrAdapter;
 
 #[cfg(test)]
 mod tests {

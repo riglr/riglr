@@ -53,7 +53,7 @@ testcontainers = "0.24.0"
 mockito = "1.0"
 
 [features]
-default = []
+default = ["rig-core"]
 rig = ["rig-core", "rig-neo4j"]
 rig-neo4j = ["dep:rig-neo4j"]
 

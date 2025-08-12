@@ -418,7 +418,6 @@ async fn test_signer_context_persistence_across_operations() {
 }
 
 #[tokio::test]
-#[ignore] // Long-running timeout test
 async fn test_signer_context_timeout_scenarios() {
 
     let worker = ToolWorker::<InMemoryIdempotencyStore>::new(ExecutionConfig {

@@ -22,6 +22,9 @@ pub enum HyperliquidToolError {
     
     #[error("Order error: {0}")]
     OrderError(String),
+    
+    #[error("Configuration error: {0}")]
+    Configuration(String),
 }
 
 /// Result type alias for Hyperliquid tool operations.
@@ -60,6 +63,9 @@ impl From<HyperliquidToolError> for riglr_core::error::ToolError {
             }
             HyperliquidToolError::OrderError(msg) => {
                 riglr_core::error::ToolError::retriable(msg)
+            }
+            HyperliquidToolError::Configuration(msg) => {
+                riglr_core::error::ToolError::permanent(msg)
             }
         }
     }

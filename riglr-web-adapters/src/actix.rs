@@ -1,26 +1,206 @@
 //! Actix Web adapter for riglr agents
 //!
 //! This module provides Actix-specific handlers that wrap the framework-agnostic
-//! core handlers. It handles Privy authentication, request/response conversion,
-//! and SSE streaming in the Actix Web ecosystem.
+//! core handlers. It handles authentication via pluggable SignerFactory implementations,
+//! request/response conversion, and SSE streaming in the Actix Web ecosystem.
 
 use actix_web::{web, HttpRequest, HttpResponse, Result as ActixResult};
 use futures_util::StreamExt;
 use crate::core::Agent;
+use crate::factory::{SignerFactory, AuthenticationData};
+use riglr_core::config::RpcConfig;
 use riglr_core::signer::TransactionSigner;
 use crate::core::{handle_agent_stream, handle_agent_completion, PromptRequest};
+use std::sync::Arc;
 
-/// Extract authorization token from Authorization header
+/// Actix Web adapter that uses SignerFactory for authentication
+pub struct ActixRiglrAdapter {
+    signer_factory: Arc<dyn SignerFactory>,
+    rpc_config: RpcConfig,
+}
+
+impl ActixRiglrAdapter {
+    /// Create a new Actix adapter with the given signer factory and RPC config
+    pub fn new(signer_factory: Arc<dyn SignerFactory>, rpc_config: RpcConfig) -> Self {
+        Self {
+            signer_factory,
+            rpc_config,
+        }
+    }
+    
+    /// Extract authentication data from request headers
+    fn extract_auth_data(&self, req: &HttpRequest) -> Result<AuthenticationData, Box<dyn std::error::Error + Send + Sync>> {
+        let auth_header = req.headers()
+            .get("authorization")
+            .ok_or("Missing authorization header")?
+            .to_str()?;
+        
+        // Parse auth header to determine type and extract credentials
+        if auth_header.starts_with("Bearer ") {
+            let token = auth_header.strip_prefix("Bearer ").unwrap();
+            
+            Ok(AuthenticationData {
+                auth_type: "privy".to_string(), // Could be detected from token format
+                credentials: [("token".to_string(), token.to_string())].into(),
+                network: req.headers()
+                    .get("x-network")
+                    .and_then(|h| h.to_str().ok())
+                    .unwrap_or("mainnet")
+                    .to_string(),
+            })
+        } else {
+            Err("Unsupported authentication format".into())
+        }
+    }
+    
+    /// Authenticate request and create appropriate signer
+    async fn authenticate_request(
+        &self,
+        req: &HttpRequest,
+    ) -> Result<Box<dyn TransactionSigner>, Box<dyn std::error::Error + Send + Sync>> {
+        // Extract authentication data from request headers
+        let auth_data = self.extract_auth_data(req)?;
+        
+        // Use factory to create appropriate signer
+        let signer = self.signer_factory
+            .create_signer(auth_data, &self.rpc_config)
+            .await?;
+        
+        Ok(signer)
+    }
+    
+    /// SSE handler using SignerFactory pattern
+    pub async fn sse_handler<A>(
+        &self,
+        req: &HttpRequest,
+        agent: &A,
+        prompt: PromptRequest,
+    ) -> ActixResult<HttpResponse>
+    where
+        A: Agent + Clone + Send + Sync + 'static,
+        A::Error: std::fmt::Display + std::fmt::Debug + Send + Sync + 'static,
+    {
+        tracing::info!(
+            prompt_len = prompt.text.len(),
+            conversation_id = ?prompt.conversation_id,
+            request_id = ?prompt.request_id,
+            "Processing SSE request with SignerFactory"
+        );
+
+        // Extract authentication data and create signer
+        let signer = match self.authenticate_request(req).await {
+            Ok(s) => Arc::new(s),
+            Err(e) => {
+                tracing::error!(error = %e, "Authentication failed");
+                return Ok(HttpResponse::Unauthorized().json(serde_json::json!({
+                    "error": e.to_string(),
+                    "code": "AUTHENTICATION_FAILED"
+                })));
+            }
+        };
+        
+        // Handle stream using framework-agnostic core
+        let stream_result = handle_agent_stream(
+            agent.clone(),
+            signer,
+            prompt,
+        ).await;
+        
+        match stream_result {
+            Ok(stream) => {
+                tracing::info!("Agent stream created successfully");
+                
+                // Convert to Actix SSE stream
+                let sse_stream = stream.map(|chunk| {
+                    match chunk {
+                        Ok(data) => Ok(actix_web::web::Bytes::from(format!("data: {}\n\n", data))),
+                        Err(e) => {
+                            tracing::error!(error = %e, "Stream error");
+                            Err(actix_web::error::ErrorInternalServerError(e))
+                        }
+                    }
+                });
+                
+                Ok(HttpResponse::Ok()
+                    .content_type("text/event-stream")
+                    .insert_header(("Cache-Control", "no-cache"))
+                    .insert_header(("Connection", "keep-alive"))
+                    .insert_header(("Access-Control-Allow-Origin", "*"))
+                    .insert_header(("Access-Control-Allow-Headers", "Cache-Control, Authorization"))
+                    .streaming(sse_stream))
+            }
+            Err(e) => {
+                tracing::error!(error = %e, "Failed to create agent stream");
+                Ok(HttpResponse::InternalServerError().json(serde_json::json!({
+                    "error": e.to_string(),
+                    "code": "AGENT_STREAM_ERROR"
+                })))
+            }
+        }
+    }
+    
+    /// Completion handler using SignerFactory pattern
+    pub async fn completion_handler<A>(
+        &self,
+        req: &HttpRequest,
+        agent: &A,
+        prompt: PromptRequest,
+    ) -> ActixResult<HttpResponse>
+    where
+        A: Agent + Clone + Send + Sync + 'static,
+        A::Error: std::fmt::Display + std::fmt::Debug + Send + Sync + 'static,
+    {
+        tracing::info!(
+            prompt_len = prompt.text.len(),
+            conversation_id = ?prompt.conversation_id,
+            request_id = ?prompt.request_id,
+            "Processing completion request with SignerFactory"
+        );
+
+        // Extract authentication data and create signer
+        let signer = match self.authenticate_request(req).await {
+            Ok(s) => Arc::new(s),
+            Err(e) => {
+                tracing::error!(error = %e, "Authentication failed");
+                return Ok(HttpResponse::Unauthorized().json(serde_json::json!({
+                    "error": e.to_string(),
+                    "code": "AUTHENTICATION_FAILED"
+                })));
+            }
+        };
+        
+        // Handle completion using framework-agnostic core
+        match handle_agent_completion(
+            agent.clone(),
+            signer,
+            prompt,
+        ).await {
+            Ok(response) => {
+                tracing::info!(
+                    conversation_id = %response.conversation_id,
+                    request_id = %response.request_id,
+                    response_len = response.response.len(),
+                    "Completion request processed successfully"
+                );
+                Ok(HttpResponse::Ok().json(response))
+            }
+            Err(e) => {
+                tracing::error!(error = %e, "Failed to process completion");
+                Ok(HttpResponse::InternalServerError().json(serde_json::json!({
+                    "error": e.to_string(),
+                    "code": "AGENT_COMPLETION_ERROR"
+                })))
+            }
+        }
+    }
+}
+
+// Legacy authentication methods (deprecated - use ActixRiglrAdapter instead)
+
+/// Extract authorization token from Authorization header (deprecated)
 ///
-/// This function parses the Authorization header to extract a Bearer token.
-/// In a real implementation, this would create a PrivySigner or other signer
-/// implementation based on the token.
-///
-/// # Arguments
-/// * `req` - The HTTP request containing headers
-///
-/// # Returns
-/// The bearer token or an HTTP error response
+/// This function is kept for backward compatibility. Use ActixRiglrAdapter instead.
+#[deprecated(note = "Use ActixRiglrAdapter for better authentication abstraction")]
 pub async fn extract_auth_token(req: &HttpRequest) -> Result<String, HttpResponse> {
     let auth_header = req
         .headers()
@@ -48,13 +228,11 @@ pub async fn extract_auth_token(req: &HttpRequest) -> Result<String, HttpRespons
     Ok(token.to_string())
 }
 
-/// Create a signer from an auth token
+/// Create a signer from an auth token (deprecated)
 ///
-/// This is a mock implementation for demonstration purposes.
-/// In a real application, this would:
-/// 1. Validate the token with Privy
-/// 2. Extract user wallet information
-/// 3. Create appropriate signer implementation
+/// This is a mock implementation kept for backward compatibility.
+/// Use ActixRiglrAdapter with a proper SignerFactory instead.
+#[deprecated(note = "Use ActixRiglrAdapter with SignerFactory for better authentication abstraction")]
 pub async fn create_signer_from_token(token: &str) -> Result<std::sync::Arc<dyn TransactionSigner>, HttpResponse> {
     // Mock implementation - in production this would validate the token
     // and create a proper PrivySigner or other implementation

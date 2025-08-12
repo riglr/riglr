@@ -37,6 +37,12 @@ pub enum SignerError {
     
     #[error("Signing error: {0}")]
     SigningError(String),
+    
+    #[error("Unsupported network: {0}")]
+    UnsupportedNetwork(String),
+    
+    #[error("Invalid RPC URL: {0}")]
+    InvalidRpcUrl(String),
 }
 
 impl From<solana_sdk::signer::SignerError> for SignerError {

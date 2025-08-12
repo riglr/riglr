@@ -86,6 +86,8 @@ pub struct CrossChainRoute {
     pub fees: Vec<RouteFee>,
     pub estimated_execution_duration: u64, // seconds
     pub tags: Vec<String>,
+    /// Transaction request data for executing the bridge
+    pub transaction_request: Option<TransactionRequest>,
 }
 
 /// A step within a cross-chain route
@@ -180,6 +182,24 @@ pub struct BridgeStatusResponse {
     pub receiving_tx_hash: Option<String>,
     pub amount_sent: Option<String>,
     pub amount_received: Option<String>,
+}
+
+/// Transaction request data for executing cross-chain bridges
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TransactionRequest {
+    /// Target contract address
+    pub to: String,
+    /// Transaction data (hex encoded)
+    pub data: String,
+    /// Value to send (in wei for EVM chains)
+    pub value: String,
+    /// Gas limit for the transaction
+    pub gas_limit: String,
+    /// Gas price (in wei for EVM chains)
+    pub gas_price: String,
+    /// Chain ID for the transaction
+    pub chain_id: u64,
 }
 
 /// LiFi Protocol API client
@@ -314,6 +334,93 @@ impl LiFiClient {
             .map_err(|e| LiFiError::InvalidResponse(format!("Failed to parse status: {}", e)))?;
             
         Ok(status)
+    }
+
+    /// Get a route with transaction request for bridge execution
+    /// This method gets routes and includes the transaction data needed for execution
+    pub async fn get_route_with_transaction(
+        &self,
+        request: &RouteRequest,
+    ) -> Result<Vec<CrossChainRoute>, LiFiError> {
+        let mut routes = self.get_routes(request).await?;
+        
+        // For each route, fetch the transaction request data
+        for route in &mut routes {
+            match self.get_transaction_request_for_route(&route.id).await {
+                Ok(tx_request) => {
+                    route.transaction_request = Some(tx_request);
+                }
+                Err(e) => {
+                    // Log error but don't fail the entire request
+                    eprintln!("Failed to get transaction request for route {}: {}", route.id, e);
+                    route.transaction_request = None;
+                }
+            }
+        }
+        
+        Ok(routes)
+    }
+
+    /// Get transaction request data for a specific route
+    pub async fn get_transaction_request_for_route(
+        &self,
+        route_id: &str,
+    ) -> Result<TransactionRequest, LiFiError> {
+        let url = self.base_url.join(&format!("advanced/stepTransaction?route={}", route_id))?;
+        
+        let mut request = self.client.get(url);
+        if let Some(ref api_key) = self.api_key {
+            request = request.header("x-lifi-api-key", api_key);
+        }
+        
+        let response = request.send().await?;
+        
+        if !response.status().is_success() {
+            return Err(LiFiError::ApiError {
+                code: response.status().as_u16(),
+                message: response.text().await.unwrap_or_default(),
+            });
+        }
+        
+        let tx_data: serde_json::Value = response.json().await
+            .map_err(|e| LiFiError::InvalidResponse(format!("Failed to parse transaction data: {}", e)))?;
+        
+        // Parse the transaction request from LiFi API response
+        // Note: This is a simplified implementation - actual LiFi API response format may vary
+        let tx_request = TransactionRequest {
+            to: tx_data["to"].as_str().unwrap_or_default().to_string(),
+            data: tx_data["data"].as_str().unwrap_or_default().to_string(),
+            value: tx_data["value"].as_str().unwrap_or("0").to_string(),
+            gas_limit: tx_data["gasLimit"].as_str().unwrap_or("200000").to_string(),
+            gas_price: tx_data["gasPrice"].as_str().unwrap_or("20000000000").to_string(),
+            chain_id: tx_data["chainId"].as_u64().unwrap_or(1),
+        };
+        
+        Ok(tx_request)
+    }
+
+    /// Execute a cross-chain bridge transaction (requires integration with wallet/signer)
+    /// This method prepares the transaction data but requires external signing
+    pub async fn prepare_bridge_execution(
+        &self,
+        route: &CrossChainRoute,
+    ) -> Result<TransactionRequest, LiFiError> {
+        match &route.transaction_request {
+            Some(tx_request) => {
+                // Validate the transaction request
+                if tx_request.to.is_empty() || tx_request.data.is_empty() {
+                    return Err(LiFiError::Configuration(
+                        "Invalid transaction request: missing to address or data".to_string()
+                    ));
+                }
+                
+                // Return the transaction request for external signing and execution
+                Ok(tx_request.clone())
+            }
+            None => Err(LiFiError::Configuration(
+                "Route does not contain transaction request data. Use get_route_with_transaction() first.".to_string()
+            )),
+        }
     }
 }
 

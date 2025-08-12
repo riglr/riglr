@@ -1,6 +1,7 @@
 //! Generic smart contract interaction tools
 
-use crate::{client::EvmClient, error::Result};
+// use crate::error::Result;
+use riglr_macros::tool;
 use tracing::{debug, info};
 
 /// Standard ERC20 ABI for common operations
@@ -17,66 +18,121 @@ const _ERC20_ABI: &str = r#"[
 ]"#;
 
 /// Call a contract read function (view/pure function)
+#[tool]
 pub async fn call_contract_read(
-    _client: &EvmClient,
-    contract_address: &str,
-    function: &str,
+    contract_address: String,
+    function_selector: String,
     params: Vec<String>,
-    _abi_json: Option<&str>,
-) -> Result<serde_json::Value> {
+) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
     debug!(
         "Calling contract read function {} at {} with params: {:?}",
-        function, contract_address, params
+        function_selector, contract_address, params
     );
 
-    // For testing: return placeholder empty object
+    // Get signer context and EVM client
+    let signer = riglr_core::SignerContext::current().await
+        .map_err(|e| format!("No signer context: {}", e))?;
+    let client = signer.evm_client()
+        .map_err(|e| format!("Failed to get EVM client: {}", e))?;
+
+    // Validate contract address
+    let contract_addr = contract_address.parse::<alloy::primitives::Address>()
+        .map_err(|e| format!("Invalid contract address: {}", e))?;
+
+    // For now, return a simple call without full ABI parsing
+    // In a full implementation, this would parse the ABI and encode parameters
+    let tx = alloy::rpc::types::TransactionRequest::default()
+        .to(contract_addr)
+        .input(alloy::primitives::hex::decode(&function_selector)
+            .map_err(|e| format!("Invalid function selector: {}", e))?.into());
+
+    let result = client.call(&tx).await
+        .map_err(|e| format!("Contract call failed: {}", e))?;
+
     info!(
         "Contract read successful: {}::{}",
-        contract_address, function
+        contract_address, function_selector
     );
 
-    Ok(serde_json::json!({}))
+    Ok(format!("0x{}", alloy::primitives::hex::encode(result)))
 }
 
 /// Call a contract write function (state-mutating function)
+#[tool]
 pub async fn call_contract_write(
-    _client: &EvmClient,
-    contract_address: &str,
-    function: &str,
+    contract_address: String,
+    function_selector: String,
     params: Vec<String>,
-    _abi_json: Option<&str>,
-    _gas_limit: Option<u128>,
-) -> Result<String> {
+    gas_limit: Option<u64>,
+) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
     debug!(
         "Calling contract write function {} at {} with params: {:?}",
-        function, contract_address, params
+        function_selector, contract_address, params
     );
 
-    // For testing: return placeholder transaction hash
+    // Get signer context and EVM client
+    let signer = riglr_core::SignerContext::current().await
+        .map_err(|e| format!("No signer context: {}", e))?;
+    let _client = signer.evm_client()
+        .map_err(|e| format!("Failed to get EVM client: {}", e))?;
+
+    // Get signer address
+    let from_addr_str = signer.address()
+        .ok_or_else(|| "Signer has no address")?;
+    let from_addr = from_addr_str.parse::<alloy::primitives::Address>()
+        .map_err(|e| format!("Invalid signer address: {}", e))?;
+
+    // Validate contract address
+    let contract_addr = contract_address.parse::<alloy::primitives::Address>()
+        .map_err(|e| format!("Invalid contract address: {}", e))?;
+
+    // Build transaction
+    let tx = alloy::rpc::types::TransactionRequest::default()
+        .from(from_addr)
+        .to(contract_addr)
+        .input(alloy::primitives::hex::decode(&function_selector)
+            .map_err(|e| format!("Invalid function selector: {}", e))?.into())
+        .gas_limit(gas_limit.unwrap_or(200000));
+
+    // Sign and send transaction
+    let tx_hash = signer.sign_and_send_evm_transaction(tx).await
+        .map_err(|e| format!("Failed to send transaction: {}", e))?;
+
     info!(
-        "Contract write transaction sent: {}::{} - Hash: 0xplaceholder_transaction_hash",
-        contract_address, function
+        "Contract write transaction sent: {}::{} - Hash: {}",
+        contract_address, function_selector, tx_hash
     );
 
-    Ok("0xplaceholder_transaction_hash".to_string())
+    Ok(tx_hash)
 }
 
 /// Read ERC20 token information
+#[tool]
 pub async fn read_erc20_info(
-    client: &EvmClient,
-    token_address: &str,
-) -> Result<serde_json::Value> {
-    let name = call_contract_read(client, token_address, "name", vec![], None).await?;
-    let symbol = call_contract_read(client, token_address, "symbol", vec![], None).await?;
-    let decimals = call_contract_read(client, token_address, "decimals", vec![], None).await?;
-    let total_supply = call_contract_read(client, token_address, "totalSupply", vec![], None).await?;
+    token_address: String,
+) -> Result<serde_json::Value, Box<dyn std::error::Error + Send + Sync>> {
+    // Get signer context and EVM client
+    let signer = riglr_core::SignerContext::current().await
+        .map_err(|e| format!("No signer context: {}", e))?;
+    let client = signer.evm_client()
+        .map_err(|e| format!("Failed to get EVM client: {}", e))?;
+
+    let token_addr = token_address.parse::<alloy::primitives::Address>()
+        .map_err(|e| format!("Invalid token address: {}", e))?;
+
+    // Use helper functions from balance module
+    use crate::balance::{get_token_symbol, get_token_name, get_token_decimals};
+    
+    let symbol = get_token_symbol(&*client, token_addr).await.ok();
+    let name = get_token_name(&*client, token_addr).await.ok();
+    let decimals = get_token_decimals(&*client, token_addr).await.unwrap_or(18);
 
     Ok(serde_json::json!({
         "address": token_address,
         "name": name,
         "symbol": symbol,
         "decimals": decimals,
-        "totalSupply": total_supply
+        "totalSupply": "unknown" // Would need additional implementation
     }))
 }
 
