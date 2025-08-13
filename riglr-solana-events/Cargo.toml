@@ -1,0 +1,29 @@
+[package]
+name = "riglr-solana-events"
+version = "0.1.0"
+authors = ["riglr project contributors"]
+edition = "2021"
+description = "Standalone, high-performance Solana event parsing library used by riglr and other projects."
+license = "MIT"
+
+[lib]
+name = "riglr_solana_events"
+path = "src/lib.rs"
+
+[dependencies]
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+chrono = { workspace = true }
+hex = "0.4"
+bs58 = "0.5"
+borsh = { version = "1", features = ["derive"] }
+async-trait = { workspace = true }
+tokio = { workspace = true }
+solana-sdk = { workspace = true }
+solana-transaction-status = "2.3.7"
+
+[features]
+default = []

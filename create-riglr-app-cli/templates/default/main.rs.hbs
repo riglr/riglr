@@ -1,0 +1,17 @@
+//! {{project_name}} - {{description}}
+
+use anyhow::Result;
+use tracing::info;
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    tracing_subscriber::fmt()
+        .with_env_filter("info")
+        .init();
+
+    info!("Starting {{project_name}}");
+
+    // Your code here
+
+    Ok(())
+}

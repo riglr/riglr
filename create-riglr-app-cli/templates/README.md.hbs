@@ -1,0 +1,221 @@
+# {{project_name}}
+
+{{description}}
+
+Built with [RIGLR](https://github.com/riglr-project/riglr) - AI-powered blockchain agent framework.
+
+## 🚀 Features
+
+{{#if template}}
+This project is based on the **{{template_description}}** template and includes:
+{{/if}}
+
+{{#if has_solana}}
+- ✅ Solana blockchain integration
+{{/if}}
+{{#if has_evm}}
+- ✅ EVM chains support (Ethereum, Arbitrum, Base, etc.)
+{{/if}}
+{{#if has_server}}
+- ✅ Production-ready {{server_framework}} HTTP server
+{{/if}}
+{{#if has_web_tools}}
+- ✅ Web data tools (Twitter, DexScreener, News)
+{{/if}}
+{{#if has_graph_memory}}
+- ✅ Graph-based knowledge storage with Neo4j
+{{/if}}
+{{#if has_cross_chain}}
+- ✅ Cross-chain bridge integration via LI.FI
+{{/if}}
+{{#if has_auth}}
+- ✅ Authentication system (Privy/Web3Auth/Magic)
+{{/if}}
+{{#if has_streaming}}
+- ✅ Real-time WebSocket streaming
+{{/if}}
+{{#if has_database}}
+- ✅ PostgreSQL database integration
+{{/if}}
+{{#if has_redis}}
+- ✅ Redis caching and job queue
+{{/if}}
+
+## 📋 Prerequisites
+
+- Rust 1.75 or higher
+- Redis server (if using Redis features)
+{{#if has_database}}
+- PostgreSQL database
+{{/if}}
+{{#if has_graph_memory}}
+- Neo4j database
+{{/if}}
+
+## 🛠️ Installation
+
+1. Clone the repository:
+```bash
+git clone <your-repo-url>
+cd {{project_name}}
+```
+
+2. Copy the environment variables:
+```bash
+cp .env.example .env
+```
+
+3. Configure your environment variables:
+```bash
+# Edit .env with your API keys and configuration
+nano .env
+```
+
+4. Build the project:
+```bash
+cargo build --release
+```
+
+## 🏃 Running
+
+### Development Mode
+```bash
+cargo run
+```
+
+### Production Mode
+```bash
+cargo run --release
+```
+
+{{#if has_server}}
+### Server Endpoints
+
+The server will start on `http://localhost:8080` by default.
+
+- **Health Check**: `GET /health`
+- **API Base**: `/api/v1`
+{{#if has_streaming}}
+- **WebSocket**: `ws://localhost:8080/ws`
+{{/if}}
+{{#if has_api_docs}}
+- **API Documentation**: `http://localhost:8080/docs`
+{{/if}}
+
+### Example API Calls
+
+#### Health Check
+```bash
+curl http://localhost:8080/health
+```
+
+#### Agent Query
+```bash
+curl -X POST http://localhost:8080/api/v1/agent/query \
+  -H "Content-Type: application/json" \
+  -d '{
+    "prompt": "What is the current SOL price?",
+    "chain": "solana"
+  }'
+```
+{{/if}}
+
+## 🧪 Testing
+
+Run all tests:
+```bash
+cargo test
+```
+
+Run with coverage:
+```bash
+cargo tarpaulin --out Html
+```
+
+## 📁 Project Structure
+
+```
+{{project_name}}/
+├── src/
+│   ├── main.rs              # Application entry point
+{{#if has_server}}
+│   ├── server.rs            # Server configuration
+│   ├── routes/              # API routes
+│   ├── middleware/          # HTTP middleware
+{{/if}}
+│   ├── config.rs            # Configuration management
+│   └── ...
+├── Cargo.toml               # Dependencies
+├── .env.example             # Environment variables template
+└── README.md                # This file
+```
+
+## 🔧 Configuration
+
+All configuration is managed through environment variables. See `.env.example` for available options.
+
+### Required Variables
+
+- `ANTHROPIC_API_KEY`: Your Anthropic API key for Claude
+{{#if has_solana}}
+- `SOLANA_RPC_URL`: Solana RPC endpoint
+{{/if}}
+{{#if has_evm}}
+- `ETHEREUM_RPC_URL`: Ethereum RPC endpoint
+{{/if}}
+{{#if has_redis}}
+- `REDIS_URL`: Redis connection URL
+{{/if}}
+{{#if has_database}}
+- `DATABASE_URL`: PostgreSQL connection string
+{{/if}}
+
+## 🚀 Deployment
+
+### Docker
+
+Build the Docker image:
+```bash
+docker build -t {{project_name}} .
+```
+
+Run the container:
+```bash
+docker run -p 8080:8080 --env-file .env {{project_name}}
+```
+
+### Kubernetes
+
+Apply the Kubernetes manifests:
+```bash
+kubectl apply -f k8s/
+```
+
+## 📚 Documentation
+
+{{#if include_docs}}
+Full documentation is available in the `docs/` directory.
+
+Build the documentation:
+```bash
+cargo doc --open
+```
+{{/if}}
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## 📄 License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## 🙏 Acknowledgments
+
+- Built with [RIGLR](https://github.com/riglr-project/riglr)
+- Powered by [Anthropic Claude](https://www.anthropic.com/)
+- {{author_name}} <{{author_email}}>
+
+---
+
+Generated with create-riglr-app v0.2.0
