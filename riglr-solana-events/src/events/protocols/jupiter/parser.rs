@@ -131,12 +131,11 @@ impl EventParser for JupiterEventParser {
 
         if let Some(configs) = self.instruction_configs.get(&instruction.data) {
             for config in configs {
-                let metadata = EventMetadata::new(
+                let metadata = metadata_helpers::create_solana_metadata(
                     format!("{}_{}", signature, index),
                     signature.to_string(),
                     slot,
                     block_time.unwrap_or(0),
-                    block_time.unwrap_or(0) * 1000,
                     config.protocol_type.clone(),
                     config.event_type.clone(),
                     config.program_id,

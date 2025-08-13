@@ -1,4 +1,4 @@
-/// Raydium CLMM instruction discriminators
+//! Raydium CLMM instruction discriminators
 
 /// Instruction discriminator for swap operations
 pub const SWAP: &[u8] = &[0xa9, 0x0d, 0xd0, 0xfe, 0x89, 0xbc, 0xab, 0x27];

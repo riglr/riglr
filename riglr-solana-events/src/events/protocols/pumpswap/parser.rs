@@ -92,7 +92,7 @@ impl PumpSwapEventParser {
         if let Ok(event) = PumpSwapBuyEvent::try_from_slice(data) {
             let mut metadata = metadata;
             metadata.set_id(format!("{}-{}-buy", metadata.signature, event.pool));
-            Some(Box::new(PumpSwapBuyEvent { metadata, ..event }))
+            Some(Box::new(PumpSwapBuyEvent { metadata: metadata.core, ..event }))
         } else {
             None
         }
@@ -107,7 +107,7 @@ impl PumpSwapEventParser {
         if let Ok(event) = PumpSwapSellEvent::try_from_slice(data) {
             let mut metadata = metadata;
             metadata.set_id(format!("{}-{}-sell", metadata.signature, event.pool));
-            Some(Box::new(PumpSwapSellEvent { metadata, ..event }))
+            Some(Box::new(PumpSwapSellEvent { metadata: metadata.core, ..event }))
         } else {
             None
         }
@@ -122,7 +122,7 @@ impl PumpSwapEventParser {
         if let Ok(event) = PumpSwapCreatePoolEvent::try_from_slice(data) {
             let mut metadata = metadata;
             metadata.set_id(format!("{}-{}-create", metadata.signature, event.pool));
-            Some(Box::new(PumpSwapCreatePoolEvent { metadata, ..event }))
+            Some(Box::new(PumpSwapCreatePoolEvent { metadata: metadata.core, ..event }))
         } else {
             None
         }
@@ -137,7 +137,7 @@ impl PumpSwapEventParser {
         if let Ok(event) = PumpSwapDepositEvent::try_from_slice(data) {
             let mut metadata = metadata;
             metadata.set_id(format!("{}-{}-deposit", metadata.signature, event.pool));
-            Some(Box::new(PumpSwapDepositEvent { metadata, ..event }))
+            Some(Box::new(PumpSwapDepositEvent { metadata: metadata.core, ..event }))
         } else {
             None
         }
@@ -152,7 +152,7 @@ impl PumpSwapEventParser {
         if let Ok(event) = PumpSwapWithdrawEvent::try_from_slice(data) {
             let mut metadata = metadata;
             metadata.set_id(format!("{}-{}-withdraw", metadata.signature, event.pool));
-            Some(Box::new(PumpSwapWithdrawEvent { metadata, ..event }))
+            Some(Box::new(PumpSwapWithdrawEvent { metadata: metadata.core, ..event }))
         } else {
             None
         }

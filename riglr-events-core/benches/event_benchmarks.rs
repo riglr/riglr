@@ -212,7 +212,7 @@ fn bench_metrics_collection(c: &mut Criterion) {
     let rt = Runtime::new().unwrap();
     let mut group = c.benchmark_group("metrics_collection");
 
-    let metrics = EventPerformanceMetrics::new();
+    let metrics = EventPerformanceMetrics::default();
 
     group.bench_function("record_metrics", |b| {
         b.to_async(&rt).iter(|| async {

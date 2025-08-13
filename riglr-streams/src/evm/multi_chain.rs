@@ -1,3 +1,8 @@
+//! Multi-chain EVM stream management
+//!
+//! This module provides functionality for managing EVM streams across multiple blockchain networks.
+//! It allows for dynamic registration and management of EVM chains using environment-based configuration.
+
 use crate::core::{Stream, StreamError, StreamManager};
 use crate::evm::{ChainId, EvmStreamConfig, EvmWebSocketStream};
 use dashmap::DashMap;

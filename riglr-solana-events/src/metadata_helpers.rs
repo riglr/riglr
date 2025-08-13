@@ -124,6 +124,7 @@ pub fn set_event_type(metadata: &mut EventMetadata, event_type: EventType) {
 /// Helper struct that wraps EventMetadata for Solana-specific operations
 /// This is primarily used in legacy code that expects direct field access
 pub struct SolanaEventMetadata {
+    /// The wrapped EventMetadata instance
     pub inner: EventMetadata,
 }
 

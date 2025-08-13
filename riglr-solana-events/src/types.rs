@@ -304,12 +304,12 @@ pub mod metadata_helpers {
         let timestamp = chrono::DateTime::from_timestamp(block_time, 0)
             .unwrap_or_else(chrono::Utc::now);
         
-        let mut metadata = EventMetadata::with_timestamp(id, kind, source, timestamp);
+        let mut metadata = riglr_events_core::EventMetadata::with_timestamp(id, kind, source, timestamp);
             
         // Add Solana chain data
         let chain_data = ChainData::Solana {
             slot,
-            signature: Some(signature),
+            signature: Some(signature.clone()),
             program_id: Some(program_id),
             instruction_index: index.parse().ok(),
             block_time: Some(block_time),
@@ -321,7 +321,17 @@ pub mod metadata_helpers {
         };
         
         metadata = metadata.with_chain_data(chain_data);
-        metadata
+        
+        // Create SolanaEventMetadata wrapper
+        crate::solana_metadata::SolanaEventMetadata::new(
+            signature,
+            slot,
+            event_type,
+            protocol_type,
+            index,
+            program_received_time_ms,
+            metadata,
+        )
     }
 }
 

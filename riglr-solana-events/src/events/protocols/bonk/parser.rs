@@ -125,7 +125,7 @@ impl BonkEventParser {
                 return None;
             }
 
-            Some(Box::new(BonkTradeEvent { metadata, ..event }))
+            Some(Box::new(BonkTradeEvent { metadata: metadata.core, ..event }))
         } else {
             None
         }
@@ -140,7 +140,7 @@ impl BonkEventParser {
         if let Ok(event) = BonkPoolCreateEvent::try_from_slice(data) {
             let mut metadata = metadata;
             metadata.set_id(format!("{}-{}", metadata.signature, event.pool_state));
-            Some(Box::new(BonkPoolCreateEvent { metadata, ..event }))
+            Some(Box::new(BonkPoolCreateEvent { metadata: metadata.core, ..event }))
         } else {
             None
         }

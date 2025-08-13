@@ -676,7 +676,7 @@ mod tests {
 
     #[test]
     fn test_web_client_creation() {
-        let client = WebClient::default().unwrap();
+        let client = WebClient::default();
         assert!(client.api_keys.is_empty());
         assert!(!client.config.is_empty()); // Config always has default values
     }
@@ -684,7 +684,6 @@ mod tests {
     #[test]
     fn test_with_api_key() {
         let client = WebClient::default()
-            .unwrap()
             .with_twitter_token("test_token")
             .with_exa_key("exa_key");
 
@@ -698,7 +697,7 @@ mod tests {
 
     #[test]
     fn test_config() {
-        let mut client = WebClient::default().unwrap();
+        let mut client = WebClient::default();
         client.set_config("test_key", "test_value");
 
         // Config no longer stores arbitrary test keys, only predefined URLs

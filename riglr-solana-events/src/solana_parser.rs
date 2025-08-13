@@ -61,6 +61,12 @@ pub struct SolanaEventParser {
     supported_programs: Vec<Pubkey>,
 }
 
+impl Default for SolanaEventParser {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SolanaEventParser {
     /// Create a new Solana event parser
     pub fn new() -> Self {
