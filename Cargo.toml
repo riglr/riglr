@@ -8,6 +8,7 @@ members = [
     "riglr-web-tools",
     "riglr-graph-memory",
     "riglr-web-adapters",
+    "riglr-server",
     "riglr-showcase",
     "riglr-hyperliquid-tools",
     "riglr-cross-chain-tools"

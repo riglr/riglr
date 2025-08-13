@@ -356,16 +356,7 @@ pub async fn set_leverage(
     let asset_id = find_asset_id(&meta, &symbol)?;
 
     // Update leverage using the real API
-    let response = client.update_leverage(leverage, &symbol, true, Some(asset_id)).await
-        .map_err(|e| {
-            if e.to_string().contains("rate limit") {
-                ToolError::retriable(format!("Rate limited while setting leverage: {}", e))
-            } else if e.to_string().contains("network") || e.to_string().contains("timeout") {
-                ToolError::retriable(format!("Network error while setting leverage: {}", e))
-            } else {
-                ToolError::permanent(format!("Failed to set leverage: {}", e))
-            }
-        })?;
+    let response = client.update_leverage(leverage, &symbol, true, Some(asset_id)).await?;
 
     info!("Successfully set {}x leverage for {}", leverage, symbol);
 

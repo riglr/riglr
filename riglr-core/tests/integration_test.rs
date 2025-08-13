@@ -281,6 +281,10 @@ async fn test_tool_worker_with_signers() -> anyhow::Result<()> {
         fn name(&self) -> &str {
             "signer_test"
         }
+
+        fn description(&self) -> &str {
+            ""
+        }
     }
     
     let worker = ToolWorker::<InMemoryIdempotencyStore>::new(
@@ -355,6 +359,10 @@ async fn test_end_to_end_workflow() -> anyhow::Result<()> {
         
         fn name(&self) -> &str {
             "workflow"
+        }
+
+        fn description(&self) -> &str {
+            ""
         }
     }
     

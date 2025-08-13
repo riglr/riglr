@@ -34,23 +34,18 @@ impl From<HyperliquidToolError> for riglr_core::error::ToolError {
     fn from(err: HyperliquidToolError) -> Self {
         match err {
             HyperliquidToolError::RateLimit(msg) => {
+                // RateLimit errors are already properly categorized
                 riglr_core::error::ToolError::rate_limited(msg)
             }
             HyperliquidToolError::NetworkError(msg) => {
-                if msg.contains("timeout") || msg.contains("connection") {
-                    riglr_core::error::ToolError::retriable(msg)
-                } else {
-                    riglr_core::error::ToolError::permanent(msg)
-                }
+                // NetworkError typically indicates temporary issues (already categorized as 5xx errors)
+                // All network errors should be retriable
+                riglr_core::error::ToolError::retriable(msg)
             }
             HyperliquidToolError::ApiError(msg) => {
-                if msg.contains("429") || msg.contains("rate limit") {
-                    riglr_core::error::ToolError::rate_limited(msg)
-                } else if msg.contains("503") || msg.contains("502") {
-                    riglr_core::error::ToolError::retriable(msg)
-                } else {
-                    riglr_core::error::ToolError::permanent(msg)
-                }
+                // ApiError typically indicates client errors (4xx) which are not retriable
+                // The categorization is already done when creating the error
+                riglr_core::error::ToolError::permanent(msg)
             }
             HyperliquidToolError::AuthError(msg) => {
                 riglr_core::error::ToolError::permanent(msg)

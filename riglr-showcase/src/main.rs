@@ -88,10 +88,10 @@ async fn main() -> Result<()> {
     tracing::info!("🚀 Initializing riglr-showcase with production-ready configuration...");
     
     // Load and validate all configuration at startup
-    let config = config::Config::from_env();
-    config.validate().map_err(|e| anyhow::anyhow!("Configuration validation failed: {}", e))?;
+    let config = config::Config::from_env()
+        .map_err(|e| anyhow::anyhow!("Configuration error: {}", e))?;
     
-    tracing::info!("✅ Configuration validated successfully");
+    tracing::info!("✅ Configuration loaded and validated successfully");
 
     info!("Starting riglr-showcase v{}", env!("CARGO_PKG_VERSION"));
 

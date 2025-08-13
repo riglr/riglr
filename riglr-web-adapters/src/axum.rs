@@ -17,6 +17,7 @@ use crate::core::{handle_agent_stream, handle_agent_completion, PromptRequest, C
 use std::sync::Arc;
 
 /// Axum adapter that uses SignerFactory for authentication
+#[derive(Clone)]
 pub struct AxumRiglrAdapter {
     signer_factory: Arc<dyn SignerFactory>,
     rpc_config: RpcConfig,

@@ -1,7 +1,8 @@
 //! Error types for riglr-solana-tools.
 
 use thiserror::Error;
-use riglr_core::error::{ToolError, SignerError};
+use riglr_core::error::ToolError;
+use riglr_core::SignerError;
 use solana_client::client_error::{ClientError, ClientErrorKind};
 use solana_client::rpc_request::RpcError;
 

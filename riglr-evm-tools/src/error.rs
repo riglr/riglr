@@ -1,120 +1,90 @@
 //! Error types for riglr-evm-tools.
 
 use thiserror::Error;
-use riglr_core::error::{ToolError, SignerError};
+use riglr_core::error::ToolError;
+use riglr_core::SignerError;
+use riglr_macros::IntoToolError;
 
 /// Main error type for EVM tool operations.
-#[derive(Error, Debug)]
+/// 
+/// The IntoToolError derive macro automatically classifies errors based on variant names:
+/// - Retriable: Rpc, Http, Provider, Transaction (network-related)
+/// - Permanent: Invalid*, InsufficientBalance, Unsupported*, Contract, Serialization
+#[derive(Error, Debug, IntoToolError)]
 pub enum EvmToolError {
-    /// Core tool error
+    /// Core tool error - pass through directly
     #[error("Core tool error: {0}")]
+    #[tool_error(permanent)]  // Will be handled specially in macro update
     ToolError(#[from] ToolError),
     
-    /// Signer context error
+    /// Signer context error - pass through directly
     #[error("Signer context error: {0}")]
+    #[tool_error(permanent)]  // Will be handled specially in macro update
     SignerError(#[from] SignerError),
     
-    /// Provider error
+    /// Provider error - automatically retriable
     #[error("Provider error: {0}")]
     ProviderError(String),
     
-    /// Transaction build error
+    /// Transaction build error - permanent
     #[error("Transaction build error: {0}")]
+    #[tool_error(permanent)]
     TransactionBuildError(String),
     
-    /// Invalid address format
+    /// Invalid address format - automatically permanent
     #[error("Invalid address format: {0}")]
     InvalidAddress(String),
     
-    /// Insufficient balance for operation
+    /// Insufficient balance - automatically permanent
     #[error("Insufficient balance for operation")]
     InsufficientBalance,
     
-    /// Unsupported chain ID
+    /// Unsupported chain ID - permanent
     #[error("Unsupported chain ID: {0}")]
+    #[tool_error(permanent)]
     UnsupportedChain(u64),
 
-    /// Serialization error
+    /// Serialization error - automatically permanent
     #[error("Serialization error: {0}")]
     Serialization(#[from] serde_json::Error),
 
-    /// HTTP request error
+    /// HTTP request error - automatically retriable
     #[error("HTTP error: {0}")]
     Http(#[from] reqwest::Error),
 
-    /// Core riglr error
+    /// Core riglr error - retriable by default
     #[error("Core error: {0}")]
+    #[tool_error(retriable)]
     Core(#[from] riglr_core::CoreError),
 
-    /// RPC client error
+    /// RPC client error - automatically retriable
     #[error("RPC error: {0}")]
     Rpc(String),
 
-    /// Contract interaction failed
+    /// Contract interaction failed - permanent
     #[error("Contract error: {0}")]
+    #[tool_error(permanent)]
     Contract(String),
 
-    /// Invalid private key
+    /// Invalid private key - automatically permanent
     #[error("Invalid key: {0}")]
     InvalidKey(String),
 
-    /// Transaction failed
+    /// Transaction failed - retriable
     #[error("Transaction error: {0}")]
+    #[tool_error(retriable)]
     Transaction(String),
 
-    /// Generic error
+    /// Generic error - permanent by default
     #[error("EVM tool error: {0}")]
+    #[tool_error(permanent)]
     Generic(String),
 }
 
 /// Result type alias for EVM tool operations.
 pub type Result<T> = std::result::Result<T, EvmToolError>;
 
-
-
-impl From<EvmToolError> for ToolError {
-    fn from(err: EvmToolError) -> Self {
-        match err {
-            // Classify errors explicitly with context preservation
-            EvmToolError::ProviderError(provider_err) => {
-                ToolError::retriable_with_source(EvmToolError::ProviderError(provider_err.clone()), format!("EVM provider error: {}", provider_err))
-            },
-            EvmToolError::InsufficientBalance => {
-                ToolError::permanent_with_source(EvmToolError::InsufficientBalance, "Insufficient balance for transaction")
-            },
-            EvmToolError::InvalidAddress(addr) => {
-                ToolError::invalid_input_with_source(EvmToolError::InvalidAddress(addr.clone()), format!("Invalid Ethereum address: {}", addr))
-            },
-            EvmToolError::UnsupportedChain(chain_id) => {
-                ToolError::invalid_input_with_source(EvmToolError::UnsupportedChain(chain_id), format!("Unsupported chain ID: {}", chain_id))
-            },
-            EvmToolError::Http(http_err) => {
-                ToolError::retriable(format!("HTTP error: {}", http_err))
-            },
-            EvmToolError::Rpc(rpc_err) => {
-                ToolError::retriable(format!("RPC error: {}", rpc_err))
-            },
-            EvmToolError::Contract(contract_err) => {
-                ToolError::permanent(format!("Contract error: {}", contract_err))
-            },
-            EvmToolError::InvalidKey(key_err) => {
-                ToolError::invalid_input(format!("Invalid key: {}", key_err))
-            },
-            EvmToolError::Transaction(tx_err) => {
-                ToolError::retriable(format!("Transaction error: {}", tx_err))
-            },
-            EvmToolError::Generic(generic_err) => {
-                ToolError::permanent(format!("Generic error: {}", generic_err))
-            },
-            EvmToolError::TransactionBuildError(details) => {
-                ToolError::permanent(format!("Failed to build transaction: {}", details))
-            },
-            EvmToolError::ToolError(tool_err) => tool_err, // Pass through
-            EvmToolError::SignerError(signer_err) => ToolError::SignerContext(signer_err),
-            EvmToolError::Serialization(_) => ToolError::permanent("Serialization error"),
-            EvmToolError::Core(_) => ToolError::permanent("Core error"),
-            // No catch-all pattern - compiler enforces exhaustive matching
-        }
-    }
-}
+// The From<EvmToolError> for ToolError implementation is now automatically
+// generated by the IntoToolError derive macro. The macro classifies errors
+// based on variant naming conventions and explicit #[tool_error] attributes.
 

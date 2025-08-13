@@ -2,12 +2,12 @@
 //!
 //! This module provides tools for querying SOL and SPL token balances on the Solana blockchain.
 
-use riglr_core::{ToolError, SignerContext};
+use crate::util::{make_client, validate_address};
+use riglr_core::ToolError;
 use riglr_macros::tool;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use solana_sdk::{native_token::LAMPORTS_PER_SOL, pubkey::Pubkey};
-use std::str::FromStr;
+use solana_sdk::native_token::LAMPORTS_PER_SOL;
 use tracing::{debug, info};
 
 /// Get SOL balance for a given address
@@ -57,14 +57,13 @@ pub async fn get_sol_balance(
 ) -> Result<BalanceResult, ToolError> {
     debug!("Getting SOL balance for address: {}", address);
 
-    // Get signer context and client
-    let signer = SignerContext::current().await
-        .map_err(|e| ToolError::permanent(format!("No signer context: {}", e)))?;
-    let client = signer.solana_client();
+    // Validate address using stateless utility
+    let pubkey = validate_address(&address)
+        .map_err(|e| ToolError::permanent(e.to_string()))?;
 
-    // Parse address
-    let pubkey = Pubkey::from_str(&address)
-        .map_err(|e| ToolError::permanent(format!("Invalid address: {}", e)))?;
+    // Create client using factory function
+    let client = make_client()
+        .map_err(|e| ToolError::retriable(format!("Failed to create client: {}", e)))?;
 
     // Get balance in lamports
     let lamports = client.get_balance(&pubkey).map_err(|e| {
@@ -152,16 +151,15 @@ pub async fn get_spl_token_balance(
         owner_address, mint_address
     );
 
-    // Get signer context and client
-    let signer = SignerContext::current().await
-        .map_err(|e| ToolError::permanent(format!("No signer context: {}", e)))?;
-    let client = signer.solana_client();
-
-    // Parse addresses - invalid addresses are permanent errors
-    let owner_pubkey = Pubkey::from_str(&owner_address)
+    // Validate addresses using stateless utilities
+    let owner_pubkey = validate_address(&owner_address)
         .map_err(|e| ToolError::permanent(format!("Invalid owner address: {}", e)))?;
-    let mint_pubkey = Pubkey::from_str(&mint_address)
+    let mint_pubkey = validate_address(&mint_address)
         .map_err(|e| ToolError::permanent(format!("Invalid mint address: {}", e)))?;
+
+    // Create client using factory function  
+    let client = make_client()
+        .map_err(|e| ToolError::retriable(format!("Failed to create client: {}", e)))?;
 
     // Get the Associated Token Account (ATA) address
     let ata = get_associated_token_address(&owner_pubkey, &mint_pubkey);
