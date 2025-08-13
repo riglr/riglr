@@ -14,6 +14,7 @@ use solana_sdk::{
     signature::Signature,
     transaction::Transaction,
 };
+use solana_transaction_status::UiTransactionEncoding;
 use async_trait::async_trait;
 use std::sync::Arc;
 use tracing::{info, debug};
@@ -117,9 +118,45 @@ impl SolanaTransactionProcessor {
     
     /// Get recent prioritization fees from the network
     pub async fn get_recent_prioritization_fees(&self) -> Result<u64, ToolError> {
-        // This would typically call RPC method to get recent fees
-        // For now, return the configured default
-        Ok(self.priority_config.microlamports_per_cu)
+        // Try to get recent prioritization fees from the network
+        // Using the getRecentPrioritizationFees RPC method
+        
+        // Build the RPC request for recent prioritization fees
+        let _request = serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "getRecentPrioritizationFees",
+            "params": []
+        });
+        
+        // Try to get fees from RPC, fall back to default if unavailable
+        match self.client.get_recent_prioritization_fees(&[]) {
+            Ok(fees) if !fees.is_empty() => {
+                // Calculate average of recent fees
+                let total: u64 = fees.iter().map(|f| f.prioritization_fee).sum();
+                let average = total / fees.len() as u64;
+                
+                debug!("Average recent prioritization fee: {} microlamports/CU", average);
+                
+                // Use the average or fall back to configured if too low
+                if average > 0 {
+                    Ok(average)
+                } else {
+                    Ok(self.priority_config.microlamports_per_cu)
+                }
+            }
+            Ok(_) => {
+                // No recent fees available, use configured default
+                debug!("No recent prioritization fees available, using default: {} microlamports/CU", 
+                       self.priority_config.microlamports_per_cu);
+                Ok(self.priority_config.microlamports_per_cu)
+            }
+            Err(e) => {
+                // RPC error, log and use default
+                debug!("Failed to get recent prioritization fees: {}, using default", e);
+                Ok(self.priority_config.microlamports_per_cu)
+            }
+        }
     }
     
     /// Send transaction with automatic retry on blockhash expiry
@@ -197,11 +234,36 @@ impl TransactionProcessor for SolanaTransactionProcessor {
                         reason: format!("Transaction failed: {:?}", status.err()),
                     })
                 } else {
-                    // Transaction is successful
-                    Ok(TransactionStatus::Confirmed {
-                        hash: tx_hash.to_string(),
-                        block: 0, // Solana doesn't easily provide block number here
-                    })
+                    // Transaction is successful, try to get slot information
+                    match self.client.get_transaction(&signature, UiTransactionEncoding::Json) {
+                        Ok(confirmed_tx) => {
+                            let block = confirmed_tx.slot;
+                            
+                            // Check if finalized based on commitment
+                            match self.client.get_signature_status_with_commitment(&signature, CommitmentConfig::finalized()) {
+                                Ok(Some(finalized_status)) if finalized_status.is_ok() => {
+                                    Ok(TransactionStatus::Confirmed {
+                                        hash: tx_hash.to_string(),
+                                        block,
+                                    })
+                                }
+                                _ => {
+                                    // Not yet finalized, still confirming
+                                    Ok(TransactionStatus::Confirming {
+                                        hash: tx_hash.to_string(),
+                                        confirmations: 1, // At least 1 confirmation
+                                    })
+                                }
+                            }
+                        }
+                        Err(_) => {
+                            // Can't get detailed info, but transaction is successful
+                            Ok(TransactionStatus::Confirmed {
+                                hash: tx_hash.to_string(),
+                                block: self.client.get_slot().unwrap_or(0),
+                            })
+                        }
+                    }
                 }
             }
             Ok(None) => {
@@ -226,26 +288,152 @@ impl TransactionProcessor for SolanaTransactionProcessor {
         let signature = tx_hash.parse::<Signature>()
             .map_err(|e| ToolError::permanent(format!("Invalid signature: {}", e)))?;
         
-        // Use confirmed commitment for waiting
-        let commitment = if required_confirmations > 1 {
+        // Determine commitment level based on required confirmations
+        // Solana has: processed (0), confirmed (1), finalized (31+)
+        let commitment = if required_confirmations >= 31 {
             CommitmentConfig::finalized()
-        } else {
+        } else if required_confirmations > 0 {
             CommitmentConfig::confirmed()
+        } else {
+            CommitmentConfig::processed()
         };
         
-        match self.client.confirm_transaction_with_commitment(&signature, commitment) {
-            Ok(_) => {
-                info!("Transaction {} confirmed with {:?}", tx_hash, commitment);
-                Ok(TransactionStatus::Confirmed {
-                    hash: tx_hash.to_string(),
-                    block: 0,
-                })
-            }
-            Err(e) => {
-                Err(ToolError::permanent(
-                    format!("Failed to confirm transaction: {}", e)
-                ))
+        // Wait for the transaction to reach the desired commitment level
+        let max_retries = 60; // Maximum retries (60 * 2 seconds = 2 minutes)
+        let mut retries = 0;
+        
+        loop {
+            match self.client.get_signature_status_with_commitment(&signature, commitment) {
+                Ok(Some(status)) => {
+                    if status.is_err() {
+                        return Err(ToolError::permanent(
+                            format!("Transaction failed: {:?}", status.err())
+                        ));
+                    }
+                    
+                    // Transaction has reached desired commitment, get slot info
+                    match self.client.get_transaction(&signature, UiTransactionEncoding::Json) {
+                        Ok(confirmed_tx) => {
+                            let block = confirmed_tx.slot;
+                            info!("Transaction {} confirmed at slot {} with {:?}", tx_hash, block, commitment);
+                            
+                            return Ok(TransactionStatus::Confirmed {
+                                hash: tx_hash.to_string(),
+                                block,
+                            });
+                        }
+                        Err(_) => {
+                            // Can't get slot info, use current slot as approximation
+                            let block = self.client.get_slot().unwrap_or(0);
+                            info!("Transaction {} confirmed (approximate slot {})", tx_hash, block);
+                            
+                            return Ok(TransactionStatus::Confirmed {
+                                hash: tx_hash.to_string(),
+                                block,
+                            });
+                        }
+                    }
+                }
+                Ok(None) => {
+                    // Transaction not yet at desired commitment level
+                    retries += 1;
+                    if retries >= max_retries {
+                        return Err(ToolError::permanent(
+                            format!("Transaction {} not confirmed after {} seconds", tx_hash, max_retries * 2)
+                        ));
+                    }
+                    
+                    debug!("Waiting for transaction {} to reach {:?} commitment... (attempt {}/{})", 
+                           tx_hash, commitment, retries, max_retries);
+                    tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
+                }
+                Err(e) => {
+                    return Err(ToolError::permanent(
+                        format!("Failed to check transaction status: {}", e)
+                    ));
+                }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use solana_sdk::pubkey::Pubkey;
+    
+    #[test]
+    fn test_priority_fee_config() {
+        let config = PriorityFeeConfig::default();
+        assert!(config.enabled);
+        assert_eq!(config.microlamports_per_cu, 1000);
+        assert_eq!(config.additional_compute_units, Some(200_000));
+    }
+    
+    #[test]
+    fn test_add_priority_fee_instructions() {
+        let client = Arc::new(RpcClient::new("https://api.devnet.solana.com".to_string()));
+        let processor = SolanaTransactionProcessor::new(client, PriorityFeeConfig::default());
+        
+        let mut instructions = vec![
+            solana_sdk::system_instruction::transfer(
+                &Pubkey::new_unique(),
+                &Pubkey::new_unique(),
+                1000,
+            ),
+        ];
+        
+        let original_len = instructions.len();
+        processor.add_priority_fee_instructions(&mut instructions);
+        
+        // Should add 2 instructions (compute unit price and limit)
+        assert_eq!(instructions.len(), original_len + 2);
+        
+        // Priority instructions should be at the beginning
+        // We can't easily test the exact instruction type, but we can verify count
+    }
+    
+    #[test]
+    fn test_disabled_priority_fees() {
+        let client = Arc::new(RpcClient::new("https://api.devnet.solana.com".to_string()));
+        let config = PriorityFeeConfig {
+            enabled: false,
+            ..Default::default()
+        };
+        let processor = SolanaTransactionProcessor::new(client, config);
+        
+        let mut instructions = vec![
+            solana_sdk::system_instruction::transfer(
+                &Pubkey::new_unique(),
+                &Pubkey::new_unique(),
+                1000,
+            ),
+        ];
+        
+        let original_len = instructions.len();
+        processor.add_priority_fee_instructions(&mut instructions);
+        
+        // Should not add any instructions when disabled
+        assert_eq!(instructions.len(), original_len);
+    }
+    
+    #[test]
+    fn test_transaction_size_validation() {
+        let client = Arc::new(RpcClient::new("https://api.devnet.solana.com".to_string()));
+        let processor = SolanaTransactionProcessor::new(client, PriorityFeeConfig::default());
+        
+        // Create a normal-sized transaction
+        let payer = Pubkey::new_unique();
+        let mut tx = Transaction::new_with_payer(
+            &[solana_sdk::system_instruction::transfer(
+                &payer,
+                &Pubkey::new_unique(),
+                1000,
+            )],
+            Some(&payer),
+        );
+        
+        // Should succeed for normal transaction
+        assert!(processor.optimize_transaction(&mut tx).is_ok());
     }
 }
