@@ -848,7 +848,6 @@ async fn execute_solana_bridge_transaction(
     signer: &dyn riglr_core::TransactionSigner,
     route: &CrossChainRoute,
 ) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
-    use riglr_solana_common::{string_to_pubkey, SolanaAccount};
     use solana_sdk::{instruction::Instruction, message::Message, transaction::Transaction};
     use std::str::FromStr;
 

@@ -4,7 +4,7 @@ use solana_sdk::{instruction::CompiledInstruction, pubkey::Pubkey};
 use solana_transaction_status::UiCompiledInstruction;
 
 use crate::events::{
-    common::{EventMetadata, EventType, ProtocolType, read_i32_le, read_u64_le, read_u128_le, read_u8_le, read_u16_le, read_option_bool},
+    common::{EventMetadata, EventType, ProtocolType, read_i32_le, read_u64_le, read_u128_le, read_u8_le, read_option_bool},
     core::traits::{EventParser, GenericEventParseConfig, GenericEventParser, UnifiedEvent},
     protocols::raydium_clmm::{
         discriminators, RaydiumClmmSwapEvent, RaydiumClmmSwapV2Event, RaydiumClmmCreatePoolEvent,
@@ -51,8 +51,8 @@ impl RaydiumClmmEventParser {
         // Calculate tick = log1.0001(price)
         // Using change of base: log1.0001(price) = ln(price) / ln(1.0001)
         if price > 0.0 {
-            let tick = (price.ln() / 1.0001_f64.ln()).round() as i32;
-            tick
+            
+            (price.ln() / 1.0001_f64.ln()).round() as i32
         } else {
             0
         }
@@ -236,7 +236,7 @@ impl RaydiumClmmEventParser {
         }
 
         let sqrt_price_x64 = read_u128_le(data, 0)?;
-        let open_time = read_u64_le(data, 16)?; // Not used in event
+        let _open_time = read_u64_le(data, 16)?; // Not used in event
 
         let mut metadata = metadata;
         metadata.set_id(format!("{}-{}-create-pool", metadata.signature, accounts[0]));

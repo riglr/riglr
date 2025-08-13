@@ -636,7 +636,7 @@ async fn parse_exa_search_response(
         let title = r.get("title").and_then(|v| v.as_str()).unwrap_or("").to_string();
         let url = r.get("url").and_then(|v| v.as_str()).unwrap_or("").to_string();
         if url.is_empty() { continue; }
-        let id = r.get("id").and_then(|v| v.as_str()).unwrap_or_else(|| url.as_str()).to_string();
+        let id = r.get("id").and_then(|v| v.as_str()).unwrap_or(url.as_str()).to_string();
         let description = r.get("description").or_else(|| r.get("snippet")).and_then(|v| v.as_str()).map(|s| s.to_string());
         let content = r.get("text").and_then(|v| v.as_str()).map(|s| s.to_string());
         let published_date = r.get("publishedDate").or_else(|| r.get("published_date")).and_then(|v| v.as_str())
@@ -730,8 +730,7 @@ async fn extract_and_summarize_page(
     // Key points: top distinct sentences or heading-based bullets
     let mut key_points = selected
         .iter()
-        .cloned()
-        .take(5)
+        .take(5).cloned()
         .collect::<Vec<_>>();
     if key_points.is_empty() && !headings.is_empty() {
         key_points = headings.iter().take(5).cloned().collect();
@@ -744,7 +743,7 @@ async fn extract_and_summarize_page(
     };
 
     // Entities via improved proper-noun pattern
-    let entity_re = regex::Regex::new(r"(?m)(?:^|\s)([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,3})(?=\s|[\.,;:!\?])").unwrap();
+    let entity_re = regex::Regex::new(r"(?m)(?:^|\s)([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,3})").unwrap();
     let mut entities: Vec<ContentEntity> = entity_re
         .captures_iter(&clean_text)
         .map(|cap| ContentEntity { name: cap[1].trim().to_string(), entity_type: "ProperNoun".to_string(), confidence: 0.55, context: "".to_string() })
@@ -921,7 +920,7 @@ fn rank_sentences(
             for w in &words { score += *tf.get(w).unwrap_or(&0.0); }
             // Length normalization
             let len = s.split_whitespace().count() as f64;
-            if len > 0.0 { score /= (len.powf(0.3)); }
+            if len > 0.0 { score /= len.powf(0.3); }
             // Positional boost (earlier sentences)
             score += 0.15 * (1.0 / ((i + 1) as f64).sqrt());
             // Topic boost

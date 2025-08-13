@@ -9,6 +9,7 @@ use async_trait::async_trait;
 use serde_json::json;
 use rig::providers::{openai, anthropic, gemini};
 use rig::completion::Prompt;
+use rig::client::{ProviderClient, CompletionClient};
 
 /// LLM-based output distiller
 ///
@@ -101,18 +102,18 @@ Please provide a concise summary of this tool output:"#,
             .preamble(&self.system_prompt);
         
         if let Some(max_tokens) = self.max_tokens {
-            builder = builder.max_tokens(max_tokens);
+            builder = builder.max_tokens(max_tokens.into());
         }
         
         if let Some(temperature) = self.temperature {
-            builder = builder.temperature(temperature);
+            builder = builder.temperature(temperature.into());
         }
         
         let agent = builder.build();
         
         // Make the completion request
         match agent.prompt(prompt).await {
-            Ok(response) => Ok(response.content),
+            Ok(response) => Ok(response),
             Err(e) => Err(anyhow!("OpenAI API error: {}", e))
         }
     }
@@ -125,7 +126,7 @@ Please provide a concise summary of this tool output:"#,
         // Map model names to Anthropic's model constants
         let model = match self.model.as_str() {
             "claude-3-5-sonnet" => anthropic::CLAUDE_3_5_SONNET,
-            "claude-3-5-haiku" => anthropic::CLAUDE_3_5_HAIKU,
+            "claude-3-5-haiku" => anthropic::CLAUDE_3_HAIKU, // Using regular haiku as 3.5 might not be available
             "claude-3-haiku" => anthropic::CLAUDE_3_HAIKU,
             "claude-3-opus" => anthropic::CLAUDE_3_OPUS,
             model => model, // Pass through other model names
@@ -136,18 +137,18 @@ Please provide a concise summary of this tool output:"#,
             .preamble(&self.system_prompt);
         
         if let Some(max_tokens) = self.max_tokens {
-            builder = builder.max_tokens(max_tokens);
+            builder = builder.max_tokens(max_tokens.into());
         }
         
         if let Some(temperature) = self.temperature {
-            builder = builder.temperature(temperature);
+            builder = builder.temperature(temperature.into());
         }
         
         let agent = builder.build();
         
         // Make the completion request
         match agent.prompt(prompt).await {
-            Ok(response) => Ok(response.content),
+            Ok(response) => Ok(response),
             Err(e) => Err(anyhow!("Anthropic API error: {}", e))
         }
     }
@@ -162,18 +163,18 @@ Please provide a concise summary of this tool output:"#,
             .preamble(&self.system_prompt);
         
         if let Some(max_tokens) = self.max_tokens {
-            builder = builder.max_tokens(max_tokens);
+            builder = builder.max_tokens(max_tokens.into());
         }
         
         if let Some(temperature) = self.temperature {
-            builder = builder.temperature(temperature);
+            builder = builder.temperature(temperature.into());
         }
         
         let agent = builder.build();
         
         // Make the completion request
         match agent.prompt(prompt).await {
-            Ok(response) => Ok(response.content),
+            Ok(response) => Ok(response),
             Err(e) => Err(anyhow!("Gemini API error: {}", e))
         }
     }

@@ -43,7 +43,7 @@ pub struct AuthenticationData {
 
 /// Composite factory that can hold multiple authentication providers
 pub struct CompositeSignerFactory {
-    factories: HashMap<String, Box<dyn SignerFactory>>,
+    factories: HashMap<String, std::sync::Arc<dyn SignerFactory>>,
 }
 
 impl CompositeSignerFactory {
@@ -60,12 +60,12 @@ impl CompositeSignerFactory {
     /// * `auth_type` - Authentication type identifier
     /// * `factory` - Factory implementation for this auth type
     pub fn register_factory(&mut self, auth_type: String, factory: Box<dyn SignerFactory>) {
-        self.factories.insert(auth_type, factory);
+        self.factories.insert(auth_type, std::sync::Arc::from(factory));
     }
 
     /// Convenience: add a factory wrapped in Arc
     pub fn add_factory(&mut self, auth_type: String, factory: std::sync::Arc<dyn SignerFactory>) {
-        self.factories.insert(auth_type, Box::new(factory));
+        self.factories.insert(auth_type, factory);
     }
     
     /// Get all registered auth types

@@ -20,7 +20,7 @@ pub struct LocalEvmSigner {
     wallet: EthereumWallet,
     provider_url: String,
     chain_id: u64,
-    config: EvmNetworkConfig,
+    _config: EvmNetworkConfig,
 }
 
 impl LocalEvmSigner {
@@ -35,7 +35,7 @@ impl LocalEvmSigner {
             wallet,
             provider_url: network_config.rpc_url.clone(),
             chain_id: network_config.chain_id,
-            config: network_config,
+            _config: network_config,
         })
     }
     

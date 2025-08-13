@@ -19,7 +19,7 @@ use solana_sdk::{
 use spl_associated_token_account::get_associated_token_address;
 use spl_token;
 use std::str::FromStr;
-use std::str::FromStr;
+use solana_sdk::signer::Signer;
 use tracing::{debug, info};
 
 
@@ -367,7 +367,7 @@ pub async fn create_spl_token_mint(
     let client = signer_context.solana_client();
     
     // Calculate rent for mint account
-    let mint_account_size = spl_token::state::Mint::LEN;
+    let mint_account_size = std::mem::size_of::<spl_token::state::Mint>();
     let rent = client
         .get_minimum_balance_for_rent_exemption(mint_account_size)
         .map_err(|e| ToolError::permanent(format!("Failed to get rent: {}", e)))?;
@@ -445,14 +445,14 @@ pub async fn create_spl_token_mint(
     let mut transaction = Transaction::new_with_payer(&instructions, Some(&payer_pubkey));
     transaction.message.recent_blockhash = blockhash;
 
-    // Sign with both payer and mint keypair
-    let signed_tx = signer_context
-        .sign_transaction_with_additional_signers(transaction, vec![&mint_keypair])
-        .await
-        .map_err(|e| ToolError::permanent(format!("Failed to sign transaction: {}", e)))?;
+    // Sign with the mint keypair (additional signer)
+    transaction.sign(&[&mint_keypair], blockhash);
 
-    // Send transaction
-    let signature = send_transaction(&mut signed_tx, "Create SPL Token Mint").await?;
+    // Send transaction through signer context
+    let signature = signer_context
+        .sign_and_send_solana_transaction(&mut transaction)
+        .await
+        .map_err(|e| ToolError::permanent(format!("Failed to send transaction: {}", e)))?;
 
     info!(
         "Created SPL token mint {} with signature {}",

@@ -1,10 +1,8 @@
 use riglr_web_adapters::{
-    core::{handle_agent_stream, handle_agent_completion},
-    actix::{extract_privy_signer, sse_handler, completion_handler, PromptRequest, CompletionResponse},
+    core::{handle_agent_stream, handle_agent_completion, PromptRequest, CompletionResponse},
 };
 use riglr_core::{
-    signer::{SignerContext, TransactionSigner, SignerError},
-    error::ToolError,
+    signer::{TransactionSigner, SignerError, EvmClient},
 };
 use std::sync::Arc;
 use solana_sdk::transaction::Transaction;
@@ -15,7 +13,7 @@ use actix_web::{
     HttpRequest,
     App,
 };
-use futures::StreamExt;
+use futures_util::StreamExt;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
@@ -98,8 +96,8 @@ impl TransactionSigner for MockAdapterSigner {
         Arc::new(solana_client::rpc_client::RpcClient::new("https://api.devnet.solana.com".to_string()))
     }
 
-    fn evm_client(&self) -> Result<Arc<dyn std::any::Any + Send + Sync>, SignerError> {
-        Ok(Arc::new("mock_evm_client"))
+    fn evm_client(&self) -> Result<Arc<dyn EvmClient>, SignerError> {
+        Err(SignerError::UnsupportedOperation("Mock signer does not provide EVM client".to_string()))
     }
 }
 

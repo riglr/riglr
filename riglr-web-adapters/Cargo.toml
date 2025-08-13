@@ -49,3 +49,4 @@ axum = ["dep:axum", "dep:tower", "dep:hyper"]
 [dev-dependencies]
 tokio-test = { workspace = true }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+futures-util = "0.3"

@@ -4,7 +4,7 @@
 //! core handlers. It handles authentication via pluggable SignerFactory implementations,
 //! request/response conversion, and SSE streaming in the Actix Web ecosystem.
 
-use actix_web::{web, HttpRequest, HttpResponse, Result as ActixResult};
+use actix_web::{HttpRequest, HttpResponse, Result as ActixResult};
 use futures_util::StreamExt;
 use crate::core::Agent;
 use crate::factory::{SignerFactory, AuthenticationData};
@@ -89,7 +89,7 @@ impl ActixRiglrAdapter {
 
         // Extract authentication data and create signer
         let signer = match self.authenticate_request(req).await {
-            Ok(s) => Arc::new(s),
+            Ok(s) => std::sync::Arc::<dyn riglr_core::TransactionSigner>::from(s),
             Err(e) => {
                 tracing::error!(error = %e, "Authentication failed");
                 return Ok(HttpResponse::Unauthorized().json(serde_json::json!({
@@ -159,7 +159,7 @@ impl ActixRiglrAdapter {
 
         // Extract authentication data and create signer
         let signer = match self.authenticate_request(req).await {
-            Ok(s) => Arc::new(s),
+            Ok(s) => std::sync::Arc::<dyn riglr_core::TransactionSigner>::from(s),
             Err(e) => {
                 tracing::error!(error = %e, "Authentication failed");
                 return Ok(HttpResponse::Unauthorized().json(serde_json::json!({
@@ -236,17 +236,22 @@ pub async fn info_handler() -> ActixResult<HttpResponse> {
 mod tests {
     use super::*;
     use actix_web::{test, web, App};
+    #[allow(unused_imports)]
     use riglr_solana_tools::signer::LocalSolanaSigner;
+    #[allow(unused_imports)]
     use solana_sdk::signature::Keypair;
+    #[allow(unused_imports)]
     use std::error::Error as StdError;
 
     // Mock agent for testing
     #[derive(Clone)]
+    #[allow(dead_code)]
     struct MockAgent {
         response: String,
     }
 
     impl MockAgent {
+        #[allow(dead_code)]
         fn new(response: String) -> Self {
             Self { response }
         }

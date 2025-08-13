@@ -60,7 +60,7 @@ pub async fn run_demo(config: Config, address: Option<String>, chain_id: u64) ->
     // Demo 1: Get native token balance (ETH)
     pb.set_message("Fetching native token balance...");
     
-    match get_eth_balance(wallet_address.clone(), chain_id, None).await {
+    match get_eth_balance(wallet_address.clone(), None).await {
         Ok(balance) => {
             println!("\n{}", format!("💰 {} Balance", chain_info.native_token).green().bold());
             println!("   Address: {}", balance.address);
@@ -96,7 +96,7 @@ pub async fn run_demo(config: Config, address: Option<String>, chain_id: u64) ->
         
         pb.set_message(format!("Fetching {} balance...", symbol));
         
-        match get_erc20_balance(wallet_address.clone(), contract_address.clone(), chain_id, Some(true)).await {
+        match get_erc20_balance(wallet_address.clone(), contract_address.clone(), Some(true)).await {
             Ok(balance) => {
                 println!("\n{}", format!("🪙 {} Balance", symbol).green().bold());
                 println!("   Balance: {} {}", balance.balance_formatted.bright_green(), 

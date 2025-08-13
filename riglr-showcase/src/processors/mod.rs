@@ -39,8 +39,7 @@ pub mod distiller;
 pub mod formatter;
 pub mod notifier;
 
-// Create pipeline alias for easier use
-pub use crate::processors::ProcessorPipeline;
+// ProcessorPipeline is defined below
 
 // Re-export notification types as they're named differently in the sub-module
 pub use notifier::{

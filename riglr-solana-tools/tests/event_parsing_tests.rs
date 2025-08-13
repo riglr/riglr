@@ -30,15 +30,15 @@ use solana_transaction_status::UiCompiledInstruction;
 use std::collections::HashMap;
 use std::str::FromStr;
 
+// Mock transaction signature for testing
+const MOCK_SIGNATURE: &str = "5j7s8K9LmNoPqRstuVwXyZ1BcDeFgHiJkLmNoPqRstuVwXyZ1BcDeFgHiJkLmNoPqRst";
+const MOCK_SLOT: u64 = 123456789;
+const MOCK_BLOCK_TIME: i64 = 1640995200;
+const MOCK_PROGRAM_RECEIVED_TIME: i64 = 1640995200000;
+
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    // Mock transaction signature for testing
-    const MOCK_SIGNATURE: &str = "5j7s8K9LmNoPqRstuVwXyZ1BcDeFgHiJkLmNoPqRstuVwXyZ1BcDeFgHiJkLmNoPqRst";
-    const MOCK_SLOT: u64 = 123456789;
-    const MOCK_BLOCK_TIME: i64 = 1640995200;
-    const MOCK_PROGRAM_RECEIVED_TIME: i64 = 1640995200000;
 
     // Helper function to create mock event metadata
     fn create_mock_metadata(
@@ -487,7 +487,7 @@ mod tests {
         let insufficient_instruction = CompiledInstruction {
             program_id_index: 0,
             accounts: vec![0, 1], // Not enough accounts
-            data: [discriminator, &payload].concat(),
+            data: [&discriminator[..], &payload[..]].concat(),
         };
 
         let few_accounts = vec![PUMPSWAP_PROGRAM_ID, Pubkey::new_unique()];
@@ -564,7 +564,8 @@ mod tests {
 
         // Test parsing instruction from different protocols
         let pumpswap_discriminator = &[102, 6, 61, 18, 1, 218, 235, 234];
-        let pumpswap_data = [pumpswap_discriminator, &vec![0u8; 16]].concat();
+        let padding = [0u8; 16];
+        let pumpswap_data = [pumpswap_discriminator, &padding].concat();
         
         let pumpswap_instruction = CompiledInstruction {
             program_id_index: 0,

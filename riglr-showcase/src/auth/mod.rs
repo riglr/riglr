@@ -6,4 +6,5 @@
 
 pub mod privy;
 
+#[cfg(feature = "web-server")]
 pub use privy::{PrivySignerFactory, PrivyUserData};

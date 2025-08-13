@@ -7,6 +7,8 @@ use solana_client::rpc_request::RpcError;
 
 /// Main error type for Solana tool operations.
 #[derive(Error, Debug)]
+#[allow(clippy::result_large_err)]
+#[allow(clippy::large_enum_variant)]
 pub enum SolanaToolError {
     /// Core tool error
     #[error("Core tool error: {0}")]
@@ -22,7 +24,7 @@ pub enum SolanaToolError {
     
     /// Solana client error
     #[error("Solana client error: {0}")]
-    SolanaClient(#[from] ClientError),
+    SolanaClient(Box<ClientError>),
 
     /// Invalid address format
     #[error("Invalid address: {0}")]
@@ -439,5 +441,11 @@ mod tests {
 
         let result = classify_transaction_error(&client_error);
         assert!(matches!(result, TransactionErrorType::Unknown(_)));
+    }
+}
+
+impl From<ClientError> for SolanaToolError {
+    fn from(error: ClientError) -> Self {
+        SolanaToolError::SolanaClient(Box::new(error))
     }
 }
