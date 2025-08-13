@@ -1,0 +1,147 @@
+//! {{project_name}} - {{description}}
+//!
+//! API Service Backend powered by RIGLR framework
+
+use anyhow::Result;
+use tracing::{info, error};
+use std::sync::Arc;
+
+mod config;
+mod routes;
+mod middleware;
+mod server;
+
+use crate::config::Config;
+use crate::server::create_server;
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    // Initialize tracing
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| "{{project_name}}=info,riglr=info".into())
+        )
+        .init();
+
+    info!("Starting {{project_name}} API Service");
+
+    // Load configuration
+    dotenvy::dotenv().ok();
+    let config = Config::from_env()?;
+    config.validate()?;
+    
+    info!("Configuration loaded and validated");
+
+    // Initialize RIGLR components
+    {{#if has_solana}}
+    let solana_config = riglr_core::config::SolanaNetworkConfig {
+        name: "mainnet".to_string(),
+        rpc_url: config.solana_rpc_url.clone(),
+        explorer_url: None,
+    };
+    {{/if}}
+    
+    {{#if has_evm}}
+    let evm_config = riglr_core::config::EvmNetworkConfig {
+        chain_id: 1,
+        name: "ethereum".to_string(),
+        rpc_url: config.ethereum_rpc_url.clone(),
+        explorer_url: None,
+    };
+    {{/if}}
+
+    // Initialize Redis connection pool
+    {{#if has_redis}}
+    let redis_client = redis::Client::open(config.redis_url.as_str())?;
+    let redis_pool = Arc::new(redis_client);
+    info!("Redis connection established");
+    {{/if}}
+
+    // Initialize database connection
+    {{#if has_database}}
+    let db_pool = sqlx::postgres::PgPoolOptions::new()
+        .max_connections(5)
+        .connect(&config.database_url)
+        .await?;
+    info!("Database connection established");
+    {{/if}}
+
+    // Create AI agent
+    let agent = create_agent(&config).await?;
+    let agent = Arc::new(agent);
+    info!("AI agent initialized");
+
+    // Start server
+    let server_config = crate::server::ServerConfig {
+        host: config.server_host.clone(),
+        port: config.server_port,
+        {{#if has_auth}}
+        enable_auth: true,
+        {{/if}}
+        {{#if has_streaming}}
+        enable_websocket: true,
+        {{/if}}
+        {{#if has_api_docs}}
+        enable_swagger: true,
+        {{/if}}
+    };
+
+    let app_state = crate::server::AppState {
+        config: Arc::new(config),
+        agent,
+        {{#if has_redis}}
+        redis: redis_pool,
+        {{/if}}
+        {{#if has_database}}
+        db: Arc::new(db_pool),
+        {{/if}}
+    };
+
+    let server = create_server(server_config, app_state).await?;
+    
+    info!("Server starting on http://{}:{}", 
+        server_config.host, server_config.port);
+    
+    server.await?;
+
+    Ok(())
+}
+
+async fn create_agent(config: &Config) -> Result<rig_core::Agent<rig_core::providers::anthropic::Client>> {
+    use rig_core::providers::anthropic;
+    
+    let client = anthropic::ClientBuilder::new(&config.anthropic_api_key).build();
+    
+    let mut agent = client
+        .agent("claude-3-5-sonnet-20241022")
+        .preamble("You are an AI assistant helping with blockchain operations and analysis.")
+        .temperature(0.7);
+
+    // Add tools based on configuration
+    {{#if has_solana}}
+    use riglr_solana_tools::*;
+    agent = agent
+        .tool(get_sol_balance())
+        .tool(get_spl_token_balance())
+        .tool(transfer_sol());
+    {{/if}}
+
+    {{#if has_evm}}
+    use riglr_evm_tools::*;
+    agent = agent
+        .tool(get_eth_balance())
+        .tool(get_erc20_balance())
+        .tool(transfer_eth());
+    {{/if}}
+
+    {{#if has_web_tools}}
+    use riglr_web_tools::*;
+    agent = agent
+        .tool(dexscreener::get_token_info())
+        .tool(twitter::search_tweets())
+        .tool(news::get_crypto_news());
+    {{/if}}
+
+    Ok(agent.build())
+}
