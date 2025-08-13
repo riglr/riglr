@@ -55,7 +55,6 @@ Comprehensive API documentation for the `riglr-events-core` crate.
 - [`new`](#new)
 - [`new`](#new)
 - [`new`](#new)
-- [`new`](#new)
 - [`next`](#next)
 - [`next_with_context`](#next_with_context)
 - [`not_found`](#not_found)
@@ -155,7 +154,7 @@ Comprehensive API documentation for the `riglr-events-core` crate.
 ```
 
 ```rust
-pub enum ChainData { /// Solana-specific data #[cfg(feature = "solana")] Solana { /// Slot number slot: u64, /// Transaction signature signature: Option<String>, /// Program ID program_id: Option<solana_sdk::pubkey::Pubkey>, /// Instruction index within transaction instruction_index: Option<usize>, }, /// EVM-specific data #[cfg(feature = "evm")] Evm { /// Block number block_number: u64, /// Transaction hash transaction_hash: Option<String>, /// Contract address contract_address: Option<String>, /// Event log index log_index: Option<usize>, /// Chain ID chain_id: u64, }, /// Generic chain data for unsupported chains Generic { /// Chain identifier chain_id: String, /// Generic block identifier block_id: String, /// Generic transaction identifier transaction_id: Option<String>, /// Additional data data: HashMap<String, serde_json::Value>, }, }
+pub enum ChainData { /// Solana-specific data #[cfg(feature = "solana")] Solana { /// Slot number slot: u64, /// Transaction signature signature: Option<String>, /// Program ID program_id: Option<solana_sdk::pubkey::Pubkey>, /// Instruction index within transaction instruction_index: Option<usize>, /// Block time in Unix seconds block_time: Option<i64>, /// Custom protocol-specific data (e.g., protocol_type, event_type) protocol_data: Option<serde_json::Value>, }, /// EVM-specific data #[cfg(feature = "evm")] Evm { /// Block number block_number: u64, /// Transaction hash transaction_hash: Option<String>, /// Contract address contract_address: Option<String>, /// Event log index log_index: Option<usize>, /// Chain ID chain_id: u64, }, /// Generic chain data for unsupported chains Generic { /// Chain identifier chain_id: String, /// Generic block identifier block_id: String, /// Generic transaction identifier transaction_id: Option<String>, /// Additional data data: HashMap<String, serde_json::Value>, }, }
 ```
 
 Blockchain-specific data that can be attached to events.
@@ -167,6 +166,8 @@ Blockchain-specific data that can be attached to events.
 - `signature`
 - `program_id`
 - `instruction_index`
+- `block_time`
+- `protocol_data`
 - `Evm`
 - `block_number`
 - `transaction_hash`
@@ -377,18 +378,6 @@ Deduplicate events in a stream
 
 ### error_rate
 
-**Source**: `src/types.rs`
-
-```rust
-pub fn error_rate(&self) -> f64
-```
-
-Calculate error rate as a percentage
-
----
-
-### error_rate
-
 **Source**: `src/utils.rs`
 
 ```rust
@@ -396,6 +385,18 @@ pub fn error_rate(&self) -> f64
 ```
 
 Get error rate as percentage
+
+---
+
+### error_rate
+
+**Source**: `src/types.rs`
+
+```rust
+pub fn error_rate(&self) -> f64
+```
+
+Calculate error rate as a percentage
 
 ---
 
@@ -689,42 +690,6 @@ Create a new OR filter
 
 ### new
 
-**Source**: `src/types.rs`
-
-```rust
-pub fn new(id: String, kind: EventKind, source: String) -> Self
-```
-
-Create new event metadata with minimal required fields
-
----
-
-### new
-
-**Source**: `src/types.rs`
-
-```rust
-pub fn new(id: String, kind: EventKind, data: serde_json::Value) -> Self
-```
-
-Create a new generic event
-
----
-
-### new
-
-**Source**: `src/types.rs`
-
-```rust
-pub fn new(id: String, name: String, source_type: String, endpoint: String) -> Self
-```
-
-Create new stream info
-
----
-
-### new
-
 **Source**: `src/utils.rs`
 
 ```rust
@@ -773,13 +738,37 @@ Create a new rate limiter
 
 ### new
 
-**Source**: `src/utils.rs`
+**Source**: `src/types.rs`
 
 ```rust
-pub fn new() -> Self
+pub fn new(id: String, kind: EventKind, source: String) -> Self
 ```
 
-Create a new metrics collector
+Create new event metadata with minimal required fields
+
+---
+
+### new
+
+**Source**: `src/types.rs`
+
+```rust
+pub fn new(id: String, kind: EventKind, data: serde_json::Value) -> Self
+```
+
+Create a new generic event
+
+---
+
+### new
+
+**Source**: `src/types.rs`
+
+```rust
+pub fn new(id: String, name: String, source_type: String, endpoint: String) -> Self
+```
+
+Create new stream info
 
 ---
 
@@ -857,10 +846,10 @@ Add rate limiting to an event stream
 
 ### record_error
 
-**Source**: `src/types.rs`
+**Source**: `src/utils.rs`
 
 ```rust
-pub fn record_error(&mut self)
+pub fn record_error(&self)
 ```
 
 Record an error
@@ -869,10 +858,10 @@ Record an error
 
 ### record_error
 
-**Source**: `src/utils.rs`
+**Source**: `src/types.rs`
 
 ```rust
-pub fn record_error(&self)
+pub fn record_error(&mut self)
 ```
 
 Record an error
@@ -1357,7 +1346,7 @@ Batching utility for accumulating events before processing.
 ```
 
 ```rust
-pub struct EventDeduplicator { seen_events: Arc<RwLock<HashMap<String, SystemTime>>>, ttl: Duration, cleanup_interval: Duration, }
+pub struct EventDeduplicator { seen_events: Arc<DashMap<String, SystemTime>>, ttl: Duration, cleanup_interval: Duration, }
 ```
 
 Event deduplication utility to prevent processing duplicate events.

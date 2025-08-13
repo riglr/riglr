@@ -4,6 +4,25 @@ Comprehensive API documentation for the `riglr-hyperliquid-tools` crate.
 
 ## Table of Contents
 
+### Enums
+
+- [`HyperliquidToolError`](#hyperliquidtoolerror)
+
+### Constants
+
+- [`VERSION`](#version)
+
+### Tools
+
+- [`cancel_hyperliquid_order`](#cancel_hyperliquid_order)
+- [`close_hyperliquid_position`](#close_hyperliquid_position)
+- [`get_hyperliquid_account_info`](#get_hyperliquid_account_info)
+- [`get_hyperliquid_portfolio_risk`](#get_hyperliquid_portfolio_risk)
+- [`get_hyperliquid_position_details`](#get_hyperliquid_position_details)
+- [`get_hyperliquid_positions`](#get_hyperliquid_positions)
+- [`place_hyperliquid_order`](#place_hyperliquid_order)
+- [`set_leverage`](#set_leverage)
+
 ### Structs
 
 - [`AccountInfo`](#accountinfo)
@@ -52,621 +71,6 @@ Comprehensive API documentation for the `riglr-hyperliquid-tools` crate.
 - [`update_leverage`](#update_leverage)
 - [`with_base_url`](#with_base_url)
 
-### Enums
-
-- [`HyperliquidToolError`](#hyperliquidtoolerror)
-
-### Tools
-
-- [`cancel_hyperliquid_order`](#cancel_hyperliquid_order)
-- [`close_hyperliquid_position`](#close_hyperliquid_position)
-- [`get_hyperliquid_account_info`](#get_hyperliquid_account_info)
-- [`get_hyperliquid_portfolio_risk`](#get_hyperliquid_portfolio_risk)
-- [`get_hyperliquid_position_details`](#get_hyperliquid_position_details)
-- [`get_hyperliquid_positions`](#get_hyperliquid_positions)
-- [`place_hyperliquid_order`](#place_hyperliquid_order)
-- [`set_leverage`](#set_leverage)
-
-### Constants
-
-- [`VERSION`](#version)
-
-## Structs
-
-### AccountInfo
-
-**Source**: `src/client.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize)]
-```
-
-```rust
-pub struct AccountInfo { #[serde(rename = "assetPositions")]
-```
-
----
-
-### AssetInfo
-
-**Source**: `src/client.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize)]
-```
-
-```rust
-pub struct AssetInfo { pub name: String, #[serde(rename = "szDecimals")]
-```
-
----
-
-### CancelResponse
-
-**Source**: `src/client.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize)]
-```
-
-```rust
-pub struct CancelResponse { pub status: String, pub data: CancelResult, }
-```
-
----
-
-### CancelResult
-
-**Source**: `src/client.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize)]
-```
-
-```rust
-pub struct CancelResult { #[serde(rename = "statuses")]
-```
-
----
-
-### ClearinghouseState
-
-**Source**: `src/client.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize)]
-```
-
-```rust
-pub struct ClearinghouseState { #[serde(rename = "assetPositions")]
-```
-
----
-
-### HyperliquidAccountResult
-
-**Source**: `src/trading.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub struct HyperliquidAccountResult { pub user_address: String, pub withdrawable_balance: String, pub cross_margin_used: String, pub cross_maintenance_margin_used: String, pub positions_count: usize, }
-```
-
----
-
-### HyperliquidCancelResult
-
-**Source**: `src/trading.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub struct HyperliquidCancelResult { pub symbol: String, pub order_id: String, pub status: String, pub message: String, }
-```
-
----
-
-### HyperliquidClient
-
-**Source**: `src/client.rs`
-
-```rust
-pub struct HyperliquidClient { client: Client, base_url: String, signer: Arc<dyn TransactionSigner>, }
-```
-
-Hyperliquid API client - Real implementation using HTTP API
-This client makes REAL API calls to Hyperliquid - NO SIMULATION
-
----
-
-### HyperliquidCloseResult
-
-**Source**: `src/positions.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub struct HyperliquidCloseResult { pub symbol: String, pub closed_size: String, pub order_side: String, pub order_id: Option<String>, pub status: String, pub message: String, }
-```
-
----
-
-### HyperliquidLeverageResult
-
-**Source**: `src/trading.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub struct HyperliquidLeverageResult { pub symbol: String, pub leverage: u32, pub status: String, pub message: String, }
-```
-
----
-
-### HyperliquidOrderResult
-
-**Source**: `src/trading.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub struct HyperliquidOrderResult { pub symbol: String, pub side: String, pub size: String, pub order_type: String, pub price: Option<String>, pub status: String, pub order_id: Option<String>, pub message: String, }
-```
-
----
-
-### HyperliquidPosition
-
-**Source**: `src/positions.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub struct HyperliquidPosition { pub symbol: String, pub size: String, pub entry_price: String, pub mark_price: String, pub unrealized_pnl: String, pub position_value: String, pub leverage: u32, pub liquidation_price: String, pub margin_used: String, pub return_on_equity: String, pub position_type: String, }
-```
-
----
-
-### HyperliquidRiskMetrics
-
-**Source**: `src/positions.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub struct HyperliquidRiskMetrics { pub total_positions: usize, pub total_position_value: String, pub total_unrealized_pnl: String, pub margin_utilization_percent: f64, pub max_leverage: u32, pub positions_at_risk: usize, pub risk_level: String, }
-```
-
----
-
-### LeverageAction
-
-**Source**: `src/client.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize)]
-```
-
-```rust
-pub struct LeverageAction { #[serde(rename = "type")]
-```
-
----
-
-### LeverageRequest
-
-**Source**: `src/client.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize)]
-```
-
-```rust
-pub struct LeverageRequest { pub action: LeverageAction, pub nonce: i64, pub signature: Option<String>, }
-```
-
----
-
-### LeverageResponse
-
-**Source**: `src/client.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize)]
-```
-
-```rust
-pub struct LeverageResponse { pub status: String, pub data: Option<LeverageResult>, }
-```
-
----
-
-### LeverageResult
-
-**Source**: `src/client.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize)]
-```
-
-```rust
-pub struct LeverageResult { pub leverage: u32, pub asset: String, }
-```
-
----
-
-### LimitOrderType
-
-**Source**: `src/client.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize)]
-```
-
-```rust
-pub struct LimitOrderType { pub tif: String, // Time in force: "Gtc", "Ioc", "Alo" }
-```
-
----
-
-### Meta
-
-**Source**: `src/client.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize)]
-```
-
-```rust
-pub struct Meta { pub universe: Vec<AssetInfo>, }
-```
-
----
-
-### OrderData
-
-**Source**: `src/client.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize)]
-```
-
-```rust
-pub struct OrderData { pub statuses: Vec<OrderStatus>, }
-```
-
----
-
-### OrderRequest
-
-**Source**: `src/client.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize)]
-```
-
-```rust
-pub struct OrderRequest { pub asset: u32, #[serde(rename = "isBuy")]
-```
-
----
-
-### OrderResponse
-
-**Source**: `src/client.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize)]
-```
-
-```rust
-pub struct OrderResponse { pub status: String, pub data: OrderResult, }
-```
-
----
-
-### OrderResult
-
-**Source**: `src/client.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize)]
-```
-
-```rust
-pub struct OrderResult { #[serde(rename = "statuses")]
-```
-
----
-
-### OrderStatus
-
-**Source**: `src/client.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize)]
-```
-
-```rust
-pub struct OrderStatus { pub resting: RestingOrder, }
-```
-
----
-
-### OrderType
-
-**Source**: `src/client.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize)]
-```
-
-```rust
-pub struct OrderType { #[serde(rename = "limit")]
-```
-
----
-
-### Position
-
-**Source**: `src/client.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize)]
-```
-
-```rust
-pub struct Position { #[serde(rename = "position")]
-```
-
----
-
-### PositionData
-
-**Source**: `src/client.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize)]
-```
-
-```rust
-pub struct PositionData { pub coin: String, #[serde(rename = "entryPx")]
-```
-
----
-
-### PositionLeverage
-
-**Source**: `src/client.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize)]
-```
-
-```rust
-pub struct PositionLeverage { #[serde(rename = "type")]
-```
-
----
-
-### ResponseData
-
-**Source**: `src/client.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize)]
-```
-
-```rust
-pub struct ResponseData { #[serde(rename = "type")]
-```
-
----
-
-### RestingOrder
-
-**Source**: `src/client.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize)]
-```
-
-```rust
-pub struct RestingOrder { pub oid: u64, }
-```
-
----
-
-## Functions
-
-### cancel_order
-
-**Source**: `src/client.rs`
-
-```rust
-pub async fn cancel_order(&self, order_id: u64, asset: u32) -> Result<CancelResponse>
-```
-
----
-
-### get
-
-**Source**: `src/client.rs`
-
-```rust
-pub async fn get(&self, endpoint: &str) -> Result<Response>
-```
-
-Make a GET request to the Hyperliquid API
-
----
-
-### get_account_info
-
-**Source**: `src/client.rs`
-
-```rust
-pub async fn get_account_info(&self, user_address: &str) -> Result<AccountInfo>
-```
-
-Get account information
-
----
-
-### get_all_mids
-
-**Source**: `src/client.rs`
-
-```rust
-pub async fn get_all_mids(&self) -> Result<serde_json::Value>
-```
-
-Get all market mid prices (current market prices)
-
----
-
-### get_meta
-
-**Source**: `src/client.rs`
-
-```rust
-pub async fn get_meta(&self) -> Result<Meta>
-```
-
-Get market information
-
----
-
-### get_positions
-
-**Source**: `src/client.rs`
-
-```rust
-pub async fn get_positions(&self, user_address: &str) -> Result<Vec<Position>>
-```
-
-Get current positions for a user
-
----
-
-### get_user_address
-
-**Source**: `src/client.rs`
-
-```rust
-pub fn get_user_address(&self) -> Result<String>
-```
-
-Get the user's address from the signer
-
----
-
-### new
-
-**Source**: `src/client.rs`
-
-```rust
-pub fn new(signer: Arc<dyn TransactionSigner>) -> Result<Self>
-```
-
-Create a new Hyperliquid client
-
----
-
-### place_order
-
-**Source**: `src/client.rs`
-
-```rust
-pub async fn place_order(&self, order: &OrderRequest) -> Result<OrderResponse>
-```
-
-Place an order using real Hyperliquid API
-CRITICAL: This is REAL order placement - NO SIMULATION
-
----
-
-### post
-
-**Source**: `src/client.rs`
-
-```rust
-pub async fn post<T: Serialize>(&self, endpoint: &str, payload: &T) -> Result<Response>
-```
-
-Make a POST request to the Hyperliquid API
-
----
-
-### update_leverage
-
-**Source**: `src/client.rs`
-
-```rust
-pub async fn update_leverage( &self, leverage: u32, coin: &str, is_cross: bool, asset_id: Option<u32>, ) -> Result<LeverageResponse>
-```
-
-Cancel an order using real Hyperliquid API
-CRITICAL: This is REAL order cancellation - NO SIMULATION
-
----
-
-### with_base_url
-
-**Source**: `src/client.rs`
-
-```rust
-pub fn with_base_url(signer: Arc<dyn TransactionSigner>, base_url: String) -> Result<Self>
-```
-
-Create a new Hyperliquid client with custom base URL (for testing)
-
----
-
 ## Enums
 
 ### HyperliquidToolError
@@ -679,8 +83,10 @@ Create a new Hyperliquid client with custom base URL (for testing)
 ```
 
 ```rust
-pub enum HyperliquidToolError { #[error("API error: {0}")] ApiError(String), #[error("Invalid symbol: {0}")] InvalidSymbol(String), #[error("Network error: {0}")] NetworkError(String), #[error("Rate limited: {0}")] RateLimit(String), #[error("Authentication error: {0}")] AuthError(String), #[error("Insufficient balance: {0}")] InsufficientBalance(String), #[error("Order error: {0}")] OrderError(String), #[error("Configuration error: {0}")] Configuration(String), }
+pub enum HyperliquidToolError { /// API error returned by Hyperliquid exchange #[error("API error: {0}")] ApiError(String), /// Invalid trading symbol provided #[error("Invalid symbol: {0}")] InvalidSymbol(String), /// Network connectivity error #[error("Network error: {0}")] NetworkError(String), /// Rate limit exceeded by Hyperliquid API #[error("Rate limited: {0}")] RateLimit(String), /// Authentication or authorization error #[error("Authentication error: {0}")] AuthError(String), /// Insufficient balance for requested operation #[error("Insufficient balance: {0}")] InsufficientBalance(String), /// Trading order related error #[error("Order error: {0}")] OrderError(String), /// Configuration or setup error #[error("Configuration error: {0}")] Configuration(String), }
 ```
+
+Main error type for Hyperliquid tool operations
 
 **Variants**:
 
@@ -692,6 +98,20 @@ pub enum HyperliquidToolError { #[error("API error: {0}")] ApiError(String), #[e
 - `InsufficientBalance(String)`
 - `OrderError(String)`
 - `Configuration(String)`
+
+---
+
+## Constants
+
+### VERSION
+
+**Source**: `src/lib.rs`
+
+```rust
+const VERSION: &str
+```
+
+Current version of riglr-hyperliquid-tools
 
 ---
 
@@ -1193,17 +613,752 @@ println!("Leverage updated: {}", result.message);
 
 ---
 
-## Constants
+## Structs
 
-### VERSION
+### AccountInfo
 
-**Source**: `src/lib.rs`
+**Source**: `src/client.rs`
 
+**Attributes**:
 ```rust
-const VERSION: &str
+#[derive(Debug, Clone, Serialize, Deserialize)]
 ```
 
-Current version of riglr-hyperliquid-tools
+```rust
+pub struct AccountInfo { /// List of asset positions held by the user #[serde(rename = "assetPositions")]
+```
+
+Account information response from Hyperliquid API
+
+Contains the current state of a user's account including positions,
+margin usage, and withdrawable funds.
+
+---
+
+### AssetInfo
+
+**Source**: `src/client.rs`
+
+**Attributes**:
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize)]
+```
+
+```rust
+pub struct AssetInfo { /// Name of the trading asset (e.g., "BTC", "ETH", "SOL")
+```
+
+Information about a tradeable asset on Hyperliquid
+
+Specifies the asset name and precision details required
+for proper order formatting and size calculations.
+
+---
+
+### CancelResponse
+
+**Source**: `src/client.rs`
+
+**Attributes**:
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize)]
+```
+
+```rust
+pub struct CancelResponse { /// Status of the cancellation API call ("ok" for success)
+```
+
+Response from order cancellation API call
+
+Contains the status of the cancellation attempt
+and result information indicating success or failure.
+
+---
+
+### CancelResult
+
+**Source**: `src/client.rs`
+
+**Attributes**:
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize)]
+```
+
+```rust
+pub struct CancelResult { /// Numeric status code indicating the result of the cancellation #[serde(rename = "statuses")]
+```
+
+Result of an order cancellation operation
+
+Contains a status code indicating whether the
+cancellation was successful or failed.
+
+---
+
+### ClearinghouseState
+
+**Source**: `src/client.rs`
+
+**Attributes**:
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize)]
+```
+
+```rust
+pub struct ClearinghouseState { /// List of asset positions held by the user #[serde(rename = "assetPositions")]
+```
+
+Clearinghouse state information from Hyperliquid API
+
+Represents the current state of the clearinghouse for a user,
+including positions and margin information.
+
+---
+
+### HyperliquidAccountResult
+
+**Source**: `src/trading.rs`
+
+**Attributes**:
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+```
+
+```rust
+pub struct HyperliquidAccountResult { /// Account's Ethereum address pub user_address: String, /// Available balance that can be withdrawn pub withdrawable_balance: String, /// Amount of balance used for cross-margin positions pub cross_margin_used: String, /// Maintenance margin requirements for cross-margin pub cross_maintenance_margin_used: String, /// Number of active positions pub positions_count: usize, }
+```
+
+Account information retrieved from Hyperliquid
+
+Contains balance, margin usage, and position information for the account.
+
+---
+
+### HyperliquidCancelResult
+
+**Source**: `src/trading.rs`
+
+**Attributes**:
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+```
+
+```rust
+pub struct HyperliquidCancelResult { /// Trading pair symbol that the order belonged to pub symbol: String, /// Order ID that was canceled pub order_id: String, /// Exchange response status pub status: String, /// Human-readable result message pub message: String, }
+```
+
+Result returned after canceling an order on Hyperliquid
+
+Contains confirmation details about the canceled order.
+
+---
+
+### HyperliquidClient
+
+**Source**: `src/client.rs`
+
+```rust
+pub struct HyperliquidClient { client: Client, base_url: String, signer: Arc<dyn TransactionSigner>, }
+```
+
+Hyperliquid API client - Real implementation using HTTP API
+This client makes REAL API calls to Hyperliquid - NO SIMULATION
+
+---
+
+### HyperliquidCloseResult
+
+**Source**: `src/positions.rs`
+
+**Attributes**:
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+```
+
+```rust
+pub struct HyperliquidCloseResult { /// Trading pair symbol that was closed pub symbol: String, /// Amount of the position that was closed pub closed_size: String, /// Direction of the closing order ("buy" or "sell")
+```
+
+Result of closing a position on Hyperliquid
+
+Contains the outcome details when a position is closed,
+including order information and execution status.
+
+---
+
+### HyperliquidLeverageResult
+
+**Source**: `src/trading.rs`
+
+**Attributes**:
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+```
+
+```rust
+pub struct HyperliquidLeverageResult { /// Trading pair symbol that leverage was set for pub symbol: String, /// Leverage multiplier (1-100x)
+```
+
+Result returned after setting leverage on Hyperliquid
+
+Contains confirmation details about the leverage update.
+
+---
+
+### HyperliquidOrderResult
+
+**Source**: `src/trading.rs`
+
+**Attributes**:
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+```
+
+```rust
+pub struct HyperliquidOrderResult { /// Trading pair symbol (e.g., "ETH-PERP", "BTC")
+```
+
+Result returned after placing an order on Hyperliquid
+
+Contains all relevant information about the placed order including
+the original parameters and the exchange's response.
+
+---
+
+### HyperliquidPosition
+
+**Source**: `src/positions.rs`
+
+**Attributes**:
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+```
+
+```rust
+pub struct HyperliquidPosition { /// Trading pair symbol (e.g., "ETH-PERP", "BTC-PERP")
+```
+
+Represents a trading position on Hyperliquid
+
+Contains comprehensive position data including size, prices, leverage,
+profit/loss metrics, and risk information for a perpetual futures position.
+
+---
+
+### HyperliquidRiskMetrics
+
+**Source**: `src/positions.rs`
+
+**Attributes**:
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+```
+
+```rust
+pub struct HyperliquidRiskMetrics { /// Total number of active positions in the portfolio pub total_positions: usize, /// Combined value of all positions in USD pub total_position_value: String, /// Sum of unrealized profit/loss across all positions pub total_unrealized_pnl: String, /// Percentage of available margin currently being used (0-100)
+```
+
+Portfolio risk analysis metrics for Hyperliquid positions
+
+Provides comprehensive risk assessment including exposure,
+margin utilization, leverage analysis, and overall risk rating.
+
+---
+
+### LeverageAction
+
+**Source**: `src/client.rs`
+
+**Attributes**:
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize)]
+```
+
+```rust
+pub struct LeverageAction { /// Type of action ("updateLeverage" for leverage changes)
+```
+
+Action specification for leverage updates
+
+Defines the specific leverage change to be made,
+including the asset, margin type, and new leverage value.
+
+---
+
+### LeverageRequest
+
+**Source**: `src/client.rs`
+
+**Attributes**:
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize)]
+```
+
+```rust
+pub struct LeverageRequest { /// The leverage action to perform (update leverage)
+```
+
+Request to update leverage settings for a trading asset
+
+Contains the leverage action to perform, a nonce for security,
+and an optional signature for authentication.
+
+---
+
+### LeverageResponse
+
+**Source**: `src/client.rs`
+
+**Attributes**:
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize)]
+```
+
+```rust
+pub struct LeverageResponse { /// Status of the leverage update API call ("success" for successful updates)
+```
+
+Response from leverage update API call
+
+Contains the status of the leverage update attempt
+and result data if the update was successful.
+
+---
+
+### LeverageResult
+
+**Source**: `src/client.rs`
+
+**Attributes**:
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize)]
+```
+
+```rust
+pub struct LeverageResult { /// New leverage multiplier that was set pub leverage: u32, /// Asset symbol that had its leverage updated pub asset: String, }
+```
+
+Result of a successful leverage update operation
+
+Contains the new leverage value and the asset
+that was updated, confirming the change was applied.
+
+---
+
+### LimitOrderType
+
+**Source**: `src/client.rs`
+
+**Attributes**:
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize)]
+```
+
+```rust
+pub struct LimitOrderType { /// Time in force: "Gtc" (Good Till Cancelled), "Ioc" (Immediate or Cancel), "Alo" (Add Liquidity Only)
+```
+
+Limit order configuration with time-in-force settings
+
+Specifies how long a limit order should remain active
+in the order book before expiring or being cancelled.
+
+---
+
+### Meta
+
+**Source**: `src/client.rs`
+
+**Attributes**:
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize)]
+```
+
+```rust
+pub struct Meta { /// List of all available trading assets with their specifications pub universe: Vec<AssetInfo>, }
+```
+
+Market metadata from Hyperliquid API
+
+Contains information about all available trading assets
+and their specifications on the Hyperliquid exchange.
+
+---
+
+### OrderData
+
+**Source**: `src/client.rs`
+
+**Attributes**:
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize)]
+```
+
+```rust
+pub struct OrderData { /// List of order statuses for each order in the request pub statuses: Vec<OrderStatus>, }
+```
+
+Order data containing status information for placed orders
+
+Contains an array of order statuses, typically one per order
+in the batch request (single orders will have one status).
+
+---
+
+### OrderRequest
+
+**Source**: `src/client.rs`
+
+**Attributes**:
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize)]
+```
+
+```rust
+pub struct OrderRequest { /// Asset ID for the trading pair (numeric identifier)
+```
+
+Order placement request for Hyperliquid API
+
+Represents a request to place a new trading order with all
+necessary parameters including price, size, and order type.
+
+---
+
+### OrderResponse
+
+**Source**: `src/client.rs`
+
+**Attributes**:
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize)]
+```
+
+```rust
+pub struct OrderResponse { /// Status of the API call ("ok" for success, error message for failure)
+```
+
+Response from order placement API call
+
+Contains the status of the order placement attempt
+and detailed result information if successful.
+
+---
+
+### OrderResult
+
+**Source**: `src/client.rs`
+
+**Attributes**:
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize)]
+```
+
+```rust
+pub struct OrderResult { /// Numeric status code indicating the result of the operation #[serde(rename = "statuses")]
+```
+
+Detailed result of an order placement operation
+
+Contains status codes and response data indicating
+whether the order was successfully placed.
+
+---
+
+### OrderStatus
+
+**Source**: `src/client.rs`
+
+**Attributes**:
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize)]
+```
+
+```rust
+pub struct OrderStatus { /// Information about the order if it's resting in the order book pub resting: RestingOrder, }
+```
+
+Status information for a single order
+
+Indicates whether the order is resting in the order book
+and provides access to the order identifier.
+
+---
+
+### OrderType
+
+**Source**: `src/client.rs`
+
+**Attributes**:
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize)]
+```
+
+```rust
+pub struct OrderType { /// Limit order configuration, if this is a limit order #[serde(rename = "limit")]
+```
+
+Order type configuration for trading orders
+
+Specifies the type of order and its execution parameters.
+Currently supports limit orders with time-in-force options.
+
+---
+
+### Position
+
+**Source**: `src/client.rs`
+
+**Attributes**:
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize)]
+```
+
+```rust
+pub struct Position { /// Detailed position data including size, entry price, and P&L #[serde(rename = "position")]
+```
+
+Trading position information from Hyperliquid API
+
+Represents a user's position in a specific trading asset,
+containing detailed position data and type information.
+
+---
+
+### PositionData
+
+**Source**: `src/client.rs`
+
+**Attributes**:
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize)]
+```
+
+```rust
+pub struct PositionData { /// The trading symbol/coin for this position (e.g., "BTC", "ETH")
+```
+
+Detailed position data from Hyperliquid API
+
+Contains comprehensive information about a trading position including
+entry price, leverage, margin usage, and profit/loss metrics.
+
+---
+
+### PositionLeverage
+
+**Source**: `src/client.rs`
+
+**Attributes**:
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize)]
+```
+
+```rust
+pub struct PositionLeverage { /// Type of leverage (e.g., "cross" for cross margin, "isolated" for isolated margin)
+```
+
+Leverage configuration for a trading position
+
+Specifies the leverage type and multiplier used for a position.
+
+---
+
+### ResponseData
+
+**Source**: `src/client.rs`
+
+**Attributes**:
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize)]
+```
+
+```rust
+pub struct ResponseData { /// Type of response (e.g., "order" for order placement responses)
+```
+
+Response data container for order operations
+
+Wraps the actual order data with type information
+to indicate the kind of response received.
+
+---
+
+### RestingOrder
+
+**Source**: `src/client.rs`
+
+**Attributes**:
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize)]
+```
+
+```rust
+pub struct RestingOrder { /// Order ID assigned by the exchange for this resting order pub oid: u64, }
+```
+
+Information about an order resting in the order book
+
+Contains the order identifier that can be used to reference
+the order for cancellation or modification operations.
+
+---
+
+## Functions
+
+### cancel_order
+
+**Source**: `src/client.rs`
+
+```rust
+pub async fn cancel_order(&self, order_id: u64, asset: u32) -> Result<CancelResponse>
+```
+
+Cancel an order using real Hyperliquid API
+
+# Arguments
+* `order_id` - The ID of the order to cancel
+* `asset` - The asset ID for the order
+
+# Warning
+This performs REAL order cancellation - NO SIMULATION
+
+---
+
+### get
+
+**Source**: `src/client.rs`
+
+```rust
+pub async fn get(&self, endpoint: &str) -> Result<Response>
+```
+
+Make a GET request to the Hyperliquid API
+
+---
+
+### get_account_info
+
+**Source**: `src/client.rs`
+
+```rust
+pub async fn get_account_info(&self, user_address: &str) -> Result<AccountInfo>
+```
+
+Get account information
+
+---
+
+### get_all_mids
+
+**Source**: `src/client.rs`
+
+```rust
+pub async fn get_all_mids(&self) -> Result<serde_json::Value>
+```
+
+Get all market mid prices (current market prices)
+
+---
+
+### get_meta
+
+**Source**: `src/client.rs`
+
+```rust
+pub async fn get_meta(&self) -> Result<Meta>
+```
+
+Get market information
+
+---
+
+### get_positions
+
+**Source**: `src/client.rs`
+
+```rust
+pub async fn get_positions(&self, user_address: &str) -> Result<Vec<Position>>
+```
+
+Get current positions for a user
+
+---
+
+### get_user_address
+
+**Source**: `src/client.rs`
+
+```rust
+pub fn get_user_address(&self) -> Result<String>
+```
+
+Get the user's address from the signer
+
+Returns the address associated with the current signer, which is used
+for identifying the user in Hyperliquid API calls.
+
+---
+
+### new
+
+**Source**: `src/client.rs`
+
+```rust
+pub fn new(signer: Arc<dyn TransactionSigner>) -> Result<Self>
+```
+
+Create a new Hyperliquid client
+
+---
+
+### place_order
+
+**Source**: `src/client.rs`
+
+```rust
+pub async fn place_order(&self, order: &OrderRequest) -> Result<OrderResponse>
+```
+
+Place an order using real Hyperliquid API
+CRITICAL: This is REAL order placement - NO SIMULATION
+
+---
+
+### post
+
+**Source**: `src/client.rs`
+
+```rust
+pub async fn post<T: Serialize>(&self, endpoint: &str, payload: &T) -> Result<Response>
+```
+
+Make a POST request to the Hyperliquid API
+
+---
+
+### update_leverage
+
+**Source**: `src/client.rs`
+
+```rust
+pub async fn update_leverage( &self, leverage: u32, coin: &str, is_cross: bool, asset_id: Option<u32>, ) -> Result<LeverageResponse>
+```
+
+Cancel an order using real Hyperliquid API
+CRITICAL: This is REAL order cancellation - NO SIMULATION
+
+---
+
+### with_base_url
+
+**Source**: `src/client.rs`
+
+```rust
+pub fn with_base_url(signer: Arc<dyn TransactionSigner>, base_url: String) -> Result<Self>
+```
+
+Create a new Hyperliquid client with custom base URL (for testing)
 
 ---
 

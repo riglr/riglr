@@ -111,7 +111,7 @@ Comprehensive API documentation for the `riglr-showcase` crate.
 **Source**: `processors/notifier.rs`
 
 ```rust
-pub struct ConsoleChannel { use_colors: bool, }
+pub struct ConsoleChannel { /// Whether to use ANSI color codes in console output use_colors: bool, }
 ```
 
 Console/log notification channel for debugging
@@ -123,7 +123,7 @@ Console/log notification channel for debugging
 **Source**: `processors/notifier.rs`
 
 ```rust
-pub struct DiscordChannel { #[allow(dead_code)]
+pub struct DiscordChannel { /// Discord webhook URL for sending messages #[allow(dead_code)]
 ```
 
 Discord webhook notification channel
@@ -194,7 +194,7 @@ Useful for documentation, reports, or display in Markdown-aware interfaces.
 ```
 
 ```rust
-pub struct MarketIntelligenceAgent { id: AgentId, communication: Arc<ChannelCommunication>, _config: Config, _trading_state: Arc<Mutex<TradingState>>, }
+pub struct MarketIntelligenceAgent { /// Unique identifier for this agent id: AgentId, /// Communication channel for inter-agent messaging communication: Arc<ChannelCommunication>, /// Configuration settings _config: Config, /// Shared trading state reference _trading_state: Arc<Mutex<TradingState>>, }
 ```
 
 Market research agent that uses real data sources
@@ -235,7 +235,7 @@ Multi-format processor that can output in multiple formats simultaneously
 ```
 
 ```rust
-pub struct NotificationResult { pub channel: String, pub success: bool, pub message_id: Option<String>, pub error: Option<String>, }
+pub struct NotificationResult { /// Name of the channel that was used for the notification pub channel: String, /// Whether the notification was sent successfully pub success: bool, /// Optional message ID returned by the notification service pub message_id: Option<String>, /// Optional error message if the notification failed pub error: Option<String>, }
 ```
 
 Result of a notification attempt
@@ -247,7 +247,7 @@ Result of a notification attempt
 **Source**: `processors/notifier.rs`
 
 ```rust
-pub struct NotificationRouter { channels: HashMap<String, Box<dyn NotificationChannel>>, routing_rules: Vec<RoutingRule>, default_channel: Option<String>, }
+pub struct NotificationRouter { /// Map of channel names to notification channel implementations channels: HashMap<String, Box<dyn NotificationChannel>>, /// List of routing rules that determine which channels to use routing_rules: Vec<RoutingRule>, /// Default channel to use when no routing rules match default_channel: Option<String>, }
 ```
 
 Notification router that sends outputs to various channels
@@ -264,8 +264,10 @@ Notification router that sends outputs to various channels
 ```
 
 ```rust
-pub struct Order { pub id: String, pub symbol: String, pub side: OrderSide, pub amount: f64, pub price: Option<f64>, pub network: String, pub status: OrderStatus, }
+pub struct Order { /// Unique identifier for this order pub id: String, /// Token symbol or address being traded pub symbol: String, /// Buy or sell side of the order pub side: OrderSide, /// Amount of tokens to trade pub amount: f64, /// Target price (None for market orders)
 ```
+
+Represents a trading order (pending or executed)
 
 ---
 
@@ -279,8 +281,10 @@ pub struct Order { pub id: String, pub symbol: String, pub side: OrderSide, pub 
 ```
 
 ```rust
-pub struct Position { pub symbol: String, pub amount: f64, pub avg_price: f64, pub current_price: f64, pub pnl: f64, pub network: String, pub entry_time: chrono::DateTime<chrono::Utc>, }
+pub struct Position { /// Token symbol or address pub symbol: String, /// Amount of tokens held pub amount: f64, /// Average entry price per token pub avg_price: f64, /// Current market price per token pub current_price: f64, /// Profit and loss for this position pub pnl: f64, /// Blockchain network where the position exists pub network: String, /// Timestamp when the position was opened pub entry_time: chrono::DateTime<chrono::Utc>, }
 ```
+
+Represents an active trading position
 
 ---
 
@@ -323,7 +327,7 @@ Privy user data structure
 ```
 
 ```rust
-pub struct ProcessedOutput { pub original: ToolOutput, pub processed_result: serde_json::Value, pub format: OutputFormat, pub summary: Option<String>, pub routing_info: Option<RoutingInfo>, }
+pub struct ProcessedOutput { /// The original tool output before processing pub original: ToolOutput, /// The result after processing (transformed, formatted, etc.)
 ```
 
 Processed output after going through a processor
@@ -355,7 +359,7 @@ to create complex processing workflows.
 ```
 
 ```rust
-pub struct RiskManagementAgent { id: AgentId, communication: Arc<ChannelCommunication>, _config: Config, trading_state: Arc<Mutex<TradingState>>, max_position_size: f64, max_daily_loss: f64, }
+pub struct RiskManagementAgent { /// Unique identifier for this agent id: AgentId, /// Communication channel for inter-agent messaging communication: Arc<ChannelCommunication>, /// Configuration settings _config: Config, /// Shared trading state reference trading_state: Arc<Mutex<TradingState>>, /// Maximum position size as percentage of portfolio max_position_size: f64, /// Maximum daily loss as percentage of portfolio max_daily_loss: f64, }
 ```
 
 Risk management agent with real portfolio tracking
@@ -372,7 +376,7 @@ Risk management agent with real portfolio tracking
 ```
 
 ```rust
-pub struct RoutingInfo { pub channel: String, pub recipients: Vec<String>, pub priority: NotificationPriority, }
+pub struct RoutingInfo { /// The target channel for notification routing pub channel: String, /// List of recipients to notify pub recipients: Vec<String>, /// Priority level for the notification pub priority: NotificationPriority, }
 ```
 
 Routing information for notifications
@@ -389,7 +393,7 @@ Routing information for notifications
 ```
 
 ```rust
-pub struct RoutingRule { pub name: String, pub condition: RoutingCondition, pub channels: Vec<String>, }
+pub struct RoutingRule { /// Human-readable name for this rule pub name: String, /// Condition that determines when this rule applies pub condition: RoutingCondition, /// List of channel names to route to when condition matches pub channels: Vec<String>, }
 ```
 
 Routing rule for determining which channels to use
@@ -413,7 +417,7 @@ Smart distiller that chooses different strategies based on output type
 **Source**: `processors/notifier.rs`
 
 ```rust
-pub struct TelegramChannel { #[allow(dead_code)]
+pub struct TelegramChannel { /// Telegram bot token for API authentication #[allow(dead_code)]
 ```
 
 Telegram bot notification channel
@@ -430,7 +434,7 @@ Telegram bot notification channel
 ```
 
 ```rust
-pub struct ToolOutput { pub tool_name: String, pub success: bool, pub result: serde_json::Value, pub error: Option<String>, pub execution_time_ms: u64, pub metadata: HashMap<String, String>, }
+pub struct ToolOutput { /// Name of the tool that produced this output pub tool_name: String, /// Whether the tool execution was successful pub success: bool, /// The actual result data from the tool execution pub result: serde_json::Value, /// Error message if the tool execution failed pub error: Option<String>, /// Execution time in milliseconds pub execution_time_ms: u64, /// Additional metadata about the tool execution pub metadata: HashMap<String, String>, }
 ```
 
 Represents the output from a tool execution
@@ -447,7 +451,7 @@ Represents the output from a tool execution
 ```
 
 ```rust
-pub struct TradeExecutionAgent { id: AgentId, communication: Arc<ChannelCommunication>, _config: Config, _trading_state: Arc<Mutex<TradingState>>, }
+pub struct TradeExecutionAgent { /// Unique identifier for this agent id: AgentId, /// Communication channel for inter-agent messaging communication: Arc<ChannelCommunication>, /// Configuration settings _config: Config, /// Shared trading state reference _trading_state: Arc<Mutex<TradingState>>, }
 ```
 
 Execution agent that performs real blockchain trades
@@ -464,7 +468,7 @@ Execution agent that performs real blockchain trades
 ```
 
 ```rust
-pub struct TradingState { pub active_positions: HashMap<String, Position>, pub pending_orders: Vec<Order>, pub portfolio_value_usd: f64, pub available_balance_eth: f64, pub available_balance_sol: f64, pub daily_pnl: f64, pub risk_exposure: f64, }
+pub struct TradingState { /// Map of symbol to active trading positions pub active_positions: HashMap<String, Position>, /// List of pending orders awaiting execution pub pending_orders: Vec<Order>, /// Total portfolio value in USD pub portfolio_value_usd: f64, /// Available ETH balance for trading pub available_balance_eth: f64, /// Available SOL balance for trading pub available_balance_sol: f64, /// Daily profit and loss percentage pub daily_pnl: f64, /// Current risk exposure as percentage of portfolio pub risk_exposure: f64, }
 ```
 
 Shared trading state across all agents
@@ -476,7 +480,7 @@ Shared trading state across all agents
 **Source**: `processors/notifier.rs`
 
 ```rust
-pub struct WebhookChannel { name: String, #[allow(dead_code)]
+pub struct WebhookChannel { /// Human-readable name for this webhook name: String, /// Webhook URL endpoint #[allow(dead_code)]
 ```
 
 Generic webhook notification channel
@@ -495,7 +499,7 @@ Generic webhook notification channel
 ```
 
 ```rust
-pub enum NotificationPriority { Low, Normal, High, Critical, }
+pub enum NotificationPriority { /// Low priority notification Low, /// Normal priority notification Normal, /// High priority notification High, /// Critical priority notification Critical, }
 ```
 
 Notification priority levels
@@ -519,8 +523,10 @@ Notification priority levels
 ```
 
 ```rust
-pub enum OrderSide { Buy, Sell, }
+pub enum OrderSide { /// Buy order (acquire tokens) Buy, /// Sell order (dispose of tokens) Sell, }
 ```
+
+Specifies the side of a trading order
 
 **Variants**:
 
@@ -539,8 +545,10 @@ pub enum OrderSide { Buy, Sell, }
 ```
 
 ```rust
-pub enum OrderStatus { Pending, Executing, Completed, Failed, }
+pub enum OrderStatus { /// Order is waiting to be executed Pending, /// Order is currently being processed Executing, /// Order has been successfully executed Completed, /// Order execution failed Failed, }
 ```
+
+Represents the current status of a trading order
 
 **Variants**:
 
@@ -561,7 +569,7 @@ pub enum OrderStatus { Pending, Executing, Completed, Failed, }
 ```
 
 ```rust
-pub enum OutputFormat { Json, Markdown, PlainText, Html, Custom(String), }
+pub enum OutputFormat { /// JSON format output Json, /// Markdown format output Markdown, /// Plain text format output PlainText, /// HTML format output Html, /// Custom format with specified type name Custom(String), }
 ```
 
 Output format types
@@ -586,7 +594,7 @@ Output format types
 ```
 
 ```rust
-pub enum RoutingCondition { Always, OnSuccess, OnError, ToolName(String), ToolNameContains(String), ExecutionTimeOver(u64), // milliseconds HasMetadata(String), And(Vec<RoutingCondition>), Or(Vec<RoutingCondition>), Not(Box<RoutingCondition>), }
+pub enum RoutingCondition { /// Always matches any output Always, /// Matches only successful outputs OnSuccess, /// Matches only failed outputs OnError, /// Matches outputs from a specific tool by exact name ToolName(String), /// Matches outputs from tools whose name contains the given substring ToolNameContains(String), /// Matches outputs that took longer than the specified number of milliseconds ExecutionTimeOver(u64), // milliseconds /// Matches outputs that have metadata with the specified key HasMetadata(String), /// Matches when all nested conditions match And(Vec<RoutingCondition>), /// Matches when any nested condition matches Or(Vec<RoutingCondition>), /// Matches when the nested condition does not match Not(Box<RoutingCondition>), }
 ```
 
 Conditions for routing decisions
@@ -616,6 +624,8 @@ Conditions for routing decisions
 pub fn add_channel<C: NotificationChannel + 'static>(mut self, name: &str, channel: C) -> Self
 ```
 
+Adds a notification channel with the given name
+
 ---
 
 ### add_format
@@ -625,6 +635,8 @@ pub fn add_channel<C: NotificationChannel + 'static>(mut self, name: &str, chann
 ```rust
 pub fn add_format<F: OutputProcessor + 'static>(mut self, formatter: F) -> Self
 ```
+
+Add a formatter to the processor
 
 ---
 
@@ -648,6 +660,8 @@ Add a processor to the pipeline
 pub fn add_routing_rule(mut self, rule: RoutingRule) -> Self
 ```
 
+Adds a routing rule for determining which channels to use
+
 ---
 
 ### compact
@@ -657,6 +671,8 @@ pub fn add_routing_rule(mut self, rule: RoutingRule) -> Self
 ```rust
 pub fn compact(mut self) -> Self
 ```
+
+Configure formatter to output compact JSON
 
 ---
 
@@ -704,6 +720,8 @@ Get information about all processors in the pipeline
 pub fn matches(&self, output: &ToolOutput) -> bool
 ```
 
+Checks if this routing rule matches the given tool output
+
 ---
 
 ### matches
@@ -714,15 +732,7 @@ pub fn matches(&self, output: &ToolOutput) -> bool
 pub fn matches(&self, output: &ToolOutput) -> bool
 ```
 
----
-
-### new
-
-**Source**: `agents/trading_coordination.rs`
-
-```rust
-pub fn new( id: &str, communication: Arc<ChannelCommunication>, config: Config, trading_state: Arc<Mutex<TradingState>>, ) -> Self
-```
+Evaluates whether this condition matches the given tool output
 
 ---
 
@@ -734,6 +744,8 @@ pub fn new( id: &str, communication: Arc<ChannelCommunication>, config: Config, 
 pub fn new( id: &str, communication: Arc<ChannelCommunication>, config: Config, trading_state: Arc<Mutex<TradingState>>, ) -> Self
 ```
 
+Creates a new market intelligence agent
+
 ---
 
 ### new
@@ -743,6 +755,20 @@ pub fn new( id: &str, communication: Arc<ChannelCommunication>, config: Config, 
 ```rust
 pub fn new( id: &str, communication: Arc<ChannelCommunication>, config: Config, trading_state: Arc<Mutex<TradingState>>, ) -> Self
 ```
+
+Creates a new risk management agent
+
+---
+
+### new
+
+**Source**: `agents/trading_coordination.rs`
+
+```rust
+pub fn new( id: &str, communication: Arc<ChannelCommunication>, config: Config, trading_state: Arc<Mutex<TradingState>>, ) -> Self
+```
+
+Creates a new trade execution agent
 
 ---
 
@@ -764,7 +790,7 @@ Create a new Privy signer factory
 
 ### new
 
-**Source**: `processors/formatter.rs`
+**Source**: `commands/interactive.rs`
 
 ```rust
 pub fn new() -> Self
@@ -774,11 +800,73 @@ pub fn new() -> Self
 
 ### new
 
-**Source**: `processors/formatter.rs`
+**Source**: `processors/notifier.rs`
 
 ```rust
 pub fn new() -> Self
 ```
+
+Creates a new notification router with no channels or rules
+
+---
+
+### new
+
+**Source**: `processors/notifier.rs`
+
+```rust
+pub fn new(name: &str, condition: RoutingCondition, channels: Vec<String>) -> Self
+```
+
+Creates a new routing rule with the given name, condition, and target channels
+
+---
+
+### new
+
+**Source**: `processors/notifier.rs`
+
+```rust
+pub fn new(webhook_url: &str) -> Self
+```
+
+Creates a new Discord channel with the given webhook URL
+
+---
+
+### new
+
+**Source**: `processors/notifier.rs`
+
+```rust
+pub fn new(bot_token: &str, chat_id: &str) -> Self
+```
+
+Creates a new Telegram channel with the given bot token and chat ID
+
+---
+
+### new
+
+**Source**: `processors/notifier.rs`
+
+```rust
+pub fn new(name: &str, url: &str) -> Self
+```
+
+Creates a new webhook channel with the given name and URL
+
+---
+
+### new
+
+**Source**: `processors/notifier.rs`
+
+```rust
+pub fn new() -> Self
+```
+
+Creates a new console channel with color output enabled
 
 ---
 
@@ -786,9 +874,16 @@ pub fn new() -> Self
 
 **Source**: `processors/formatter.rs`
 
+**Attributes**:
+```rust
+#[must_use]
+```
+
 ```rust
 pub fn new() -> Self
 ```
+
+Create a new MarkdownFormatter with default settings
 
 ---
 
@@ -796,21 +891,50 @@ pub fn new() -> Self
 
 **Source**: `processors/formatter.rs`
 
+**Attributes**:
+```rust
+#[must_use]
+```
+
 ```rust
 pub fn new() -> Self
 ```
+
+Create a new HtmlFormatter with default CSS classes and styles
 
 ---
 
 ### new
 
-**Source**: `processors/mod.rs`
+**Source**: `processors/formatter.rs`
+
+**Attributes**:
+```rust
+#[must_use]
+```
 
 ```rust
 pub fn new() -> Self
 ```
 
-Create a new empty pipeline
+Create a new JsonFormatter with default settings
+
+---
+
+### new
+
+**Source**: `processors/formatter.rs`
+
+**Attributes**:
+```rust
+#[must_use]
+```
+
+```rust
+pub fn new() -> Self
+```
+
+Create a new MultiFormatProcessor with no formatters
 
 ---
 
@@ -830,79 +954,28 @@ Create a new distillation processor with a specific model
 
 **Source**: `processors/distiller.rs`
 
+**Attributes**:
 ```rust
-pub fn new() -> Self
+#[must_use]
 ```
-
----
-
-### new
-
-**Source**: `processors/distiller.rs`
 
 ```rust
 pub fn new() -> Self
 ```
 
+Create a new MockDistiller with default responses
+
 ---
 
 ### new
 
-**Source**: `processors/notifier.rs`
+**Source**: `processors/mod.rs`
 
 ```rust
 pub fn new() -> Self
 ```
 
----
-
-### new
-
-**Source**: `processors/notifier.rs`
-
-```rust
-pub fn new(name: &str, condition: RoutingCondition, channels: Vec<String>) -> Self
-```
-
----
-
-### new
-
-**Source**: `processors/notifier.rs`
-
-```rust
-pub fn new(webhook_url: &str) -> Self
-```
-
----
-
-### new
-
-**Source**: `processors/notifier.rs`
-
-```rust
-pub fn new(bot_token: &str, chat_id: &str) -> Self
-```
-
----
-
-### new
-
-**Source**: `processors/notifier.rs`
-
-```rust
-pub fn new(name: &str, url: &str) -> Self
-```
-
----
-
-### new
-
-**Source**: `processors/notifier.rs`
-
-```rust
-pub fn new() -> Self
-```
+Create a new empty pipeline
 
 ---
 
@@ -927,30 +1000,6 @@ pub async fn run_chat(config: Arc<Config>) -> Result<()>
 ```
 
 Run interactive chat mode.
-
----
-
-### run_demo
-
-**Source**: `commands/cross_chain.rs`
-
-```rust
-pub async fn run_demo(config: Arc<Config>, token: String) -> Result<()>
-```
-
-Run the cross-chain analysis demo.
-
----
-
-### run_demo
-
-**Source**: `commands/evm.rs`
-
-```rust
-pub async fn run_demo(config: Arc<Config>, address: Option<String>, chain_id: u64) -> Result<()>
-```
-
-Run the EVM tools demo.
 
 ---
 
@@ -992,10 +1041,61 @@ Run the web tools demo.
 
 ### run_demo
 
+**Source**: `commands/evm.rs`
+
+```rust
+pub async fn run_demo(config: Arc<Config>, address: Option<String>, chain_id: u64) -> Result<()>
+```
+
+Run the EVM tools demo.
+
+---
+
+### run_demo
+
+**Source**: `commands/cross_chain.rs`
+
+```rust
+pub async fn run_demo(config: Arc<Config>, token: String) -> Result<()>
+```
+
+Run the cross-chain analysis demo.
+
+---
+
+### run_demo
+
 **Source**: `commands/agents.rs`
 
 ```rust
 pub async fn run_demo(config: Arc<Config>, scenario: String) -> Result<()>
+```
+
+Runs a multi-agent coordination demonstration based on the specified scenario.
+
+This function demonstrates the riglr-agents framework through various predefined scenarios:
+- `"trading"`: Real-world trading coordination with blockchain operations
+- `"risk"`: Risk management system with coordinated assessment across multiple agents
+- `"basic"`: Fundamental multi-agent communication and workflow patterns
+
+# Arguments
+* `config` - Shared configuration for all agents and blockchain operations
+* `scenario` - The demonstration scenario to execute
+
+# Returns
+Returns `Ok(())` on successful demonstration completion, or an error if the scenario
+is unknown or the demonstration fails.
+
+# Examples
+```
+use std::sync::Arc;
+use riglr_config::Config;
+
+# async fn example() -> anyhow::Result<()> {
+let config = Arc::new(Config::default());
+run_demo(config, "basic".to_string()).await?;
+# Ok(())
+# }
 ```
 
 ---
@@ -1008,6 +1108,8 @@ pub async fn run_demo(config: Arc<Config>, scenario: String) -> Result<()>
 pub fn set_default_channel(mut self, name: &str) -> Self
 ```
 
+Sets the default channel to use when no routing rules match
+
 ---
 
 ### standard_formats
@@ -1017,6 +1119,8 @@ pub fn set_default_channel(mut self, name: &str) -> Self
 ```rust
 pub fn standard_formats() -> Self
 ```
+
+Create a MultiFormatProcessor with standard formatters (Markdown, HTML, JSON)
 
 ---
 
@@ -1064,6 +1168,8 @@ Create a processor with custom settings
 pub fn with_css_classes(mut self, classes: HashMap<String, String>) -> Self
 ```
 
+Add custom CSS classes, preserving existing defaults
+
 ---
 
 ### with_field_mapping
@@ -1073,6 +1179,8 @@ pub fn with_css_classes(mut self, classes: HashMap<String, String>) -> Self
 ```rust
 pub fn with_field_mapping(mut self, from: &str, to: &str) -> Self
 ```
+
+Add a field name mapping for JSON transformation
 
 ---
 
@@ -1084,6 +1192,8 @@ pub fn with_field_mapping(mut self, from: &str, to: &str) -> Self
 pub fn with_format_template(mut self, template: &str) -> Self
 ```
 
+Sets a custom format template for webhook message bodies
+
 ---
 
 ### with_header
@@ -1093,6 +1203,8 @@ pub fn with_format_template(mut self, template: &str) -> Self
 ```rust
 pub fn with_header(mut self, key: &str, value: &str) -> Self
 ```
+
+Adds an HTTP header to include with webhook requests
 
 ---
 
@@ -1104,6 +1216,8 @@ pub fn with_header(mut self, key: &str, value: &str) -> Self
 pub fn with_html_mode(mut self) -> Self
 ```
 
+Switches message formatting from Markdown to HTML mode
+
 ---
 
 ### with_identity
@@ -1113,6 +1227,8 @@ pub fn with_html_mode(mut self) -> Self
 ```rust
 pub fn with_identity(mut self, username: &str, avatar_url: Option<&str>) -> Self
 ```
+
+Sets the bot username and optional avatar URL for Discord messages
 
 ---
 
@@ -1136,6 +1252,8 @@ Add metadata to a ToolOutput
 pub fn with_options(include_metadata: bool, include_timing: bool) -> Self
 ```
 
+Create a MarkdownFormatter with custom metadata and timing options
+
 ---
 
 ### with_response
@@ -1145,6 +1263,8 @@ pub fn with_options(include_metadata: bool, include_timing: bool) -> Self
 ```rust
 pub fn with_response(mut self, tool_name: &str, response: &str) -> Self
 ```
+
+Add a custom response for a specific tool name
 
 ---
 
@@ -1180,6 +1300,8 @@ Add timing information to a ToolOutput
 pub fn without_colors(mut self) -> Self
 ```
 
+Disables color output for plain text logging
+
 ---
 
 ### without_metadata
@@ -1190,6 +1312,8 @@ pub fn without_colors(mut self) -> Self
 pub fn without_metadata(mut self) -> Self
 ```
 
+Configure formatter to exclude metadata from output
+
 ---
 
 ### without_styles
@@ -1199,6 +1323,8 @@ pub fn without_metadata(mut self) -> Self
 ```rust
 pub fn without_styles(mut self) -> Self
 ```
+
+Disable inline CSS styles in output
 
 ---
 

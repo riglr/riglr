@@ -4,16 +4,6 @@ Comprehensive API documentation for the `riglr-solana-common` crate.
 
 ## Table of Contents
 
-### Enums
-
-- [`SolanaCommonError`](#solanacommonerror)
-
-### Structs
-
-- [`SolanaAccount`](#solanaaccount)
-- [`SolanaConfig`](#solanaconfig)
-- [`SolanaTransactionData`](#solanatransactiondata)
-
 ### Functions
 
 - [`account_count`](#account_count)
@@ -37,83 +27,15 @@ Comprehensive API documentation for the `riglr-solana-common` crate.
 - [`with_compute_units`](#with_compute_units)
 - [`writable_accounts`](#writable_accounts)
 
-## Enums
+### Enums
 
-### SolanaCommonError
+- [`SolanaCommonError`](#solanacommonerror)
 
-**Source**: `src/types.rs`
+### Structs
 
-**Attributes**:
-```rust
-#[derive(Debug, thiserror::Error)]
-```
-
-```rust
-pub enum SolanaCommonError { #[error("Invalid public key: {0}")] InvalidPubkey(String), #[error("Client error: {0}")] ClientError(String), #[error("Parse error: {0}")] ParseError(String), }
-```
-
-Error types for Solana operations shared across crates
-
-**Variants**:
-
-- `InvalidPubkey(String)`
-- `ClientError(String)`
-- `ParseError(String)`
-
----
-
-## Structs
-
-### SolanaAccount
-
-**Source**: `src/types.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize)]
-```
-
-```rust
-pub struct SolanaAccount { pub pubkey: String, pub is_signer: bool, pub is_writable: bool, }
-```
-
-Common Solana account metadata
-
----
-
-### SolanaConfig
-
-**Source**: `src/types.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone)]
-```
-
-```rust
-pub struct SolanaConfig { pub rpc_url: String, pub commitment: String, pub timeout_seconds: u64, }
-```
-
-Shared configuration for Solana operations
-
----
-
-### SolanaTransactionData
-
-**Source**: `src/types.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize)]
-```
-
-```rust
-pub struct SolanaTransactionData { /// Recent blockhash for the transaction pub recent_blockhash: String, /// Fee payer account (base58 encoded)
-```
-
-Solana transaction metadata shared between crates
-
----
+- [`SolanaAccount`](#solanaaccount)
+- [`SolanaConfig`](#solanaconfig)
+- [`SolanaTransactionData`](#solanatransactiondata)
 
 ## Functions
 
@@ -233,6 +155,8 @@ Convert lamports to SOL for display
 pub fn new( pubkey: &str, is_signer: bool, is_writable: bool, ) -> Result<Self, SolanaCommonError>
 ```
 
+Create a new Solana account with validation
+
 ---
 
 ### new
@@ -303,6 +227,8 @@ Convert a string to a Solana Pubkey with better error handling
 pub fn to_pubkey(&self) -> Result<Pubkey, SolanaCommonError>
 ```
 
+Convert the string pubkey to a Solana Pubkey type
+
 ---
 
 ### validate_rpc_url
@@ -350,6 +276,84 @@ pub fn writable_accounts(&self) -> Vec<&SolanaAccount>
 ```
 
 Get writable accounts
+
+---
+
+## Enums
+
+### SolanaCommonError
+
+**Source**: `src/types.rs`
+
+**Attributes**:
+```rust
+#[derive(Debug, thiserror::Error)]
+```
+
+```rust
+pub enum SolanaCommonError { #[error("Invalid public key: {0}")] /// Invalid Solana public key format or encoding InvalidPubkey(String), #[error("Client error: {0}")] /// Solana RPC client communication error ClientError(String), #[error("Parse error: {0}")] /// Failed to parse Solana-related data ParseError(String), }
+```
+
+Error types for Solana operations shared across crates
+
+**Variants**:
+
+- `InvalidPubkey(String)`
+- `ClientError(String)`
+- `ParseError(String)`
+
+---
+
+## Structs
+
+### SolanaAccount
+
+**Source**: `src/types.rs`
+
+**Attributes**:
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize)]
+```
+
+```rust
+pub struct SolanaAccount { /// Base58-encoded Solana public key pub pubkey: String, /// Whether this account must sign the transaction pub is_signer: bool, /// Whether this account can be modified by the transaction pub is_writable: bool, }
+```
+
+Common Solana account metadata
+
+---
+
+### SolanaConfig
+
+**Source**: `src/types.rs`
+
+**Attributes**:
+```rust
+#[derive(Debug, Clone)]
+```
+
+```rust
+pub struct SolanaConfig { /// Solana RPC endpoint URL pub rpc_url: String, /// Transaction commitment level (processed, confirmed, finalized)
+```
+
+Shared configuration for Solana operations
+
+---
+
+### SolanaTransactionData
+
+**Source**: `src/types.rs`
+
+**Attributes**:
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize)]
+```
+
+```rust
+pub struct SolanaTransactionData { /// Recent blockhash for the transaction pub recent_blockhash: String, /// Fee payer account (base58 encoded)
+```
+
+Solana transaction metadata shared between crates
 
 ---
 
