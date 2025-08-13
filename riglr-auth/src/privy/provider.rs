@@ -5,14 +5,21 @@ use base64::{engine::general_purpose::STANDARD, Engine as _};
 use riglr_core::config::RpcConfig;
 use riglr_core::signer::TransactionSigner;
 use riglr_web_adapters::factory::{AuthenticationData, SignerFactory};
-use std::sync::Arc;
-use tracing::{debug, info, warn};
+use tracing::info;
+#[cfg(any(feature = "solana", feature = "evm"))]
+use tracing::debug;
 
 use crate::error::{AuthError, AuthResult};
 use crate::provider::{AuthenticationProvider, UserInfo};
+use crate::config::ProviderConfig;
 use super::config::PrivyConfig;
-use super::signer::{PrivyEvmSigner, PrivySolanaSigner};
-use super::types::{PrivyClaims, PrivyUserData, LinkedAccount};
+use super::types::{PrivyClaims, PrivyUserData};
+
+#[cfg(feature = "solana")]
+use super::signer::PrivySolanaSigner;
+
+#[cfg(feature = "evm")]
+use super::signer::PrivyEvmSigner;
 
 #[cfg(feature = "caching")]
 use lru::LruCache;
@@ -151,7 +158,7 @@ impl SignerFactory for PrivyProvider {
     async fn create_signer(
         &self,
         auth_data: AuthenticationData,
-        config: &RpcConfig,
+        _config: &RpcConfig,
     ) -> Result<Box<dyn TransactionSigner>, Box<dyn std::error::Error + Send + Sync>> {
         // Get token from credentials
         let token = auth_data.credentials.get("token")
@@ -169,38 +176,56 @@ impl SignerFactory for PrivyProvider {
         }
         
         // Create appropriate signer based on available wallets
-        if let Some(sol_wallet) = user_data.solana_wallet() {
-            debug!("Creating Solana signer for address {}", sol_wallet.address);
-            let sol_config = config.solana_networks
-                .get(&auth_data.network)
-                .cloned()
-                .unwrap_or_else(|| config.default_solana_network());
-            
-            let signer = PrivySolanaSigner::new(
-                self.client.clone(),
-                sol_wallet.address.clone(),
-                sol_config,
-            );
-            return Ok(Box::new(signer));
+        #[cfg(feature = "solana")]
+        {
+            if let Some(sol_wallet) = user_data.solana_wallet() {
+                debug!("Creating Solana signer for address {}", sol_wallet.address);
+                let sol_config = _config.solana_networks
+                    .get(&auth_data.network)
+                    .cloned()
+                    .unwrap_or_else(|| {
+                        use riglr_core::config::SolanaNetworkConfig;
+                        SolanaNetworkConfig {
+                            name: "mainnet".to_string(),
+                            rpc_url: "https://api.mainnet-beta.solana.com".to_string(),
+                            explorer_url: None,
+                        }
+                    });
+                
+                let signer = PrivySolanaSigner::new(
+                    self.client.clone(),
+                    sol_wallet.address.clone(),
+                    sol_config,
+                );
+                return Ok(Box::new(signer));
+            }
         }
         
-        if let Some(evm_wallet) = user_data.evm_wallet() {
-            debug!("Creating EVM signer for address {}", evm_wallet.address);
-            let evm_config = config.evm_networks
-                .get(&auth_data.network)
-                .cloned()
-                .ok_or_else(|| AuthError::ConfigError(format!("Unsupported EVM network: {}", auth_data.network)))?;
-            
-            let wallet_id = evm_wallet.id.clone()
-                .ok_or_else(|| AuthError::ConfigError("EVM wallet missing ID".to_string()))?;
-            
-            let signer = PrivyEvmSigner::new(
-                self.client.clone(),
-                evm_wallet.address.clone(),
-                wallet_id,
-                evm_config,
-            );
-            return Ok(Box::new(signer));
+        #[cfg(feature = "evm")]
+        {
+            if let Some(evm_wallet) = user_data.evm_wallet() {
+                debug!("Creating EVM signer for address {}", evm_wallet.address);
+                let evm_config = _config.evm_networks
+                    .get(&auth_data.network)
+                    .cloned()
+                    .ok_or_else(|| AuthError::ConfigError(format!("Unsupported EVM network: {}", auth_data.network)))?;
+                
+                let wallet_id = evm_wallet.id.clone()
+                    .ok_or_else(|| AuthError::ConfigError("EVM wallet missing ID".to_string()))?;
+                
+                let signer = PrivyEvmSigner::new(
+                    self.client.clone(),
+                    evm_wallet.address.clone(),
+                    wallet_id,
+                    evm_config,
+                );
+                return Ok(Box::new(signer));
+            }
+        }
+        
+        #[cfg(not(any(feature = "solana", feature = "evm")))]
+        {
+            let _ = user_data; // Suppress unused warning
         }
         
         Err(Box::new(AuthError::NoWallet("No delegated wallets found".to_string())))
@@ -219,7 +244,7 @@ impl AuthenticationProvider for PrivyProvider {
         let user_data = self.fetch_user_data(&user_id).await?;
         
         Ok(UserInfo {
-            id: user_data.id,
+            id: user_data.id.clone(),
             email: user_data.email(),
             solana_address: user_data.solana_wallet().map(|w| w.address.clone()),
             evm_address: user_data.evm_wallet().map(|w| w.address.clone()),

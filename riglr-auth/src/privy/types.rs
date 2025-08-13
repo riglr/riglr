@@ -49,7 +49,7 @@ impl PrivyUserData {
         self.linked_accounts
             .iter()
             .filter_map(|account| match account {
-                LinkedAccount::Email { address } => Some(address.clone()),
+                LinkedAccount::Email { address, .. } => Some(address.clone()),
                 _ => None,
             })
             .next()

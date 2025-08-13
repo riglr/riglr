@@ -7,13 +7,16 @@ multilingual = false
 src = "src"
 
 [output.html]
-theme = "light"
 default-theme = "light"
 preferred-dark-theme = "navy"
+theme = "theme"
 git-repository-url = "https://github.com/riglr-project/riglr"
 edit-url-template = "https://github.com/riglr-project/riglr/edit/main/docs/{path}"
 site-url = "/docs/"
-cname = "docs.riglr.dev"
+cname = "docs.riglr.com"
+additional-css = [
+	"src/css/riglr.css",
+]
 
 [output.html.search]
 limit-results = 20

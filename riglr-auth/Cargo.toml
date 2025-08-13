@@ -42,8 +42,9 @@ hex = "0.4"
 # Blockchain support
 solana-sdk = { version = "2", optional = true }
 solana-client = { version = "2", optional = true }
-alloy = { version = "0.8", features = ["full"], optional = true }
+alloy = { workspace = true, optional = true }
 ethers = { version = "2", optional = true }
+bincode = { version = "1", optional = true }
 
 # Caching
 lru = { version = "0.12", optional = true }
@@ -60,7 +61,7 @@ default = ["privy", "web3auth", "magic", "solana", "evm"]
 privy = ["dep:jsonwebtoken", "dep:lru"]
 web3auth = ["dep:jsonwebtoken", "dep:dashmap"]
 magic = ["dep:jsonwebtoken"]
-solana = ["dep:solana-sdk", "dep:solana-client", "dep:riglr-solana-tools"]
+solana = ["dep:solana-sdk", "dep:solana-client", "dep:riglr-solana-tools", "dep:bincode"]
 evm = ["dep:alloy", "dep:ethers", "dep:riglr-evm-tools"]
 caching = ["dep:lru", "dep:dashmap"]
 
@@ -69,9 +70,4 @@ name = "privy_auth"
 required-features = ["privy"]
 
 [[example]]
-name = "web3auth_auth"
-required-features = ["web3auth"]
-
-[[example]]
-name = "magic_auth"
-required-features = ["magic"]
+name = "multi_provider"

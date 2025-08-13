@@ -1,0 +1,31 @@
+:root {
+  /* Layout widths */
+  --sidebar-width: 300px; /* wider sidebar for readability */
+  --content-max-width: 1200px; /* wider content area */
+
+  /* Typography sizes (mdBook uses these variables) */
+  --font-size: 17px;           /* base font size */
+  --code-font-size: 0.95rem;   /* inline and block code */
+
+  /* Colors (base, mdBook built-ins will still apply) */
+  --fg: #0f172a;               /* text color */
+  --bg: #ffffff;               /* background */
+  --sidebar-bg: #ffffff;       /* sidebar background */
+  --sidebar-fg: #334155;       /* sidebar text */
+  --links: #2563eb;            /* link color */
+  --inline-code-color: #111827;
+  --inline-code-bg: #f1f5f9;
+
+  /* Menu sizing */
+  --menu-bar-height: 52px;
+}
+
+/* Constrain content width for long lines */
+.page { max-width: var(--content-max-width); }
+
+/* Slightly larger sidebar toggles */
+.chapter .toggle { transform: scale(1.15); }
+
+/* Make the scrollbar subtler */
+.sidebar-scrollbox::-webkit-scrollbar { width: 10px; }
+.sidebar-scrollbox::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 8px; }

@@ -94,14 +94,14 @@ pub trait AuthenticationProvider: SignerFactory {
     async fn validate_token(&self, token: &str) -> AuthResult<UserInfo>;
     
     /// Refresh a token if supported
-    async fn refresh_token(&self, token: &str) -> AuthResult<String> {
+    async fn refresh_token(&self, _token: &str) -> AuthResult<String> {
         Err(crate::AuthError::UnsupportedOperation(
             "Token refresh not supported".to_string()
         ))
     }
     
     /// Revoke a token if supported
-    async fn revoke_token(&self, token: &str) -> AuthResult<()> {
+    async fn revoke_token(&self, _token: &str) -> AuthResult<()> {
         Err(crate::AuthError::UnsupportedOperation(
             "Token revocation not supported".to_string()
         ))

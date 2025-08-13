@@ -8,6 +8,7 @@ members = [
     "riglr-web-tools",
     "riglr-graph-memory",
     "riglr-web-adapters",
+    "riglr-auth",
     "riglr-server",
     "riglr-showcase",
     "riglr-hyperliquid-tools",
@@ -34,6 +35,7 @@ riglr-evm-tools = { path = "riglr-evm-tools" }
 riglr-web-tools = { path = "riglr-web-tools" }
 riglr-graph-memory = { path = "riglr-graph-memory" }
 riglr-web-adapters = { path = "riglr-web-adapters" }
+riglr-auth = { path = "riglr-auth" }
 
 # Async and concurrency
 tokio = { version = "1", features = ["full"] }
