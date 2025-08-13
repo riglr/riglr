@@ -1,0 +1,11 @@
+[package]
+name = "riglr-solana-common"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+solana-sdk = { workspace = true }
+solana-client = { workspace = true }
+riglr-core = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }

@@ -17,6 +17,7 @@ documentation = "https://docs.rs/riglr-solana-tools"
 rig-core = { workspace = true }
 riglr-core = { workspace = true }
 riglr-macros = { workspace = true }
+riglr-solana-common = { workspace = true }
 
 # Async and Error Handling
 tokio = { workspace = true }

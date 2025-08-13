@@ -3,12 +3,12 @@ use crate::events::common::EventMetadata;
 use crate::events::protocols::bonk::types::{
     CurveParams, MintParams, PoolStatus, TradeDirection, VestingParams,
 };
-// use borsh::BorshDeserialize; // Not needed for simplified implementation
+use borsh::BorshDeserialize;
 use serde::{Deserialize, Serialize};
 use solana_sdk::pubkey::Pubkey;
 
 /// Trade event
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, BorshDeserialize)]
 pub struct BonkTradeEvent {
     #[serde(skip)]
     pub metadata: EventMetadata,
@@ -74,7 +74,7 @@ impl_unified_event!(
 );
 
 /// Create pool event
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, BorshDeserialize)]
 pub struct BonkPoolCreateEvent {
     #[serde(skip)]
     pub metadata: EventMetadata,

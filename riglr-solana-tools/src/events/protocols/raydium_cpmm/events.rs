@@ -51,7 +51,7 @@ impl crate::events::core::traits::UnifiedEvent for RaydiumCpmmSwapEvent {
     }
 
     fn set_program_handle_time_consuming_ms(&mut self, time: i64) {
-        self.metadata.set_program_handle_time_consuming_ms(time);
+        self.metadata.program_handle_time_consuming_ms = time;
     }
 
     fn as_any(&self) -> &dyn std::any::Any {

@@ -92,7 +92,7 @@ impl PumpSwapEventParser {
         // Parse the buy event using borsh deserialization
         if let Ok(event) = PumpSwapBuyEvent::try_from_slice(data) {
             let mut metadata = metadata;
-            metadata.set_id(format!("{}-{}-buy", metadata.signature, event.pool_state));
+            metadata.set_id(format!("{}-{}-buy", metadata.signature, event.pool));
             Some(Box::new(PumpSwapBuyEvent { metadata, ..event }))
         } else {
             None
@@ -107,7 +107,7 @@ impl PumpSwapEventParser {
         // Parse the sell event using borsh deserialization
         if let Ok(event) = PumpSwapSellEvent::try_from_slice(data) {
             let mut metadata = metadata;
-            metadata.set_id(format!("{}-{}-sell", metadata.signature, event.pool_state));
+            metadata.set_id(format!("{}-{}-sell", metadata.signature, event.pool));
             Some(Box::new(PumpSwapSellEvent { metadata, ..event }))
         } else {
             None
@@ -122,7 +122,7 @@ impl PumpSwapEventParser {
         // Parse the create pool event using borsh deserialization
         if let Ok(event) = PumpSwapCreatePoolEvent::try_from_slice(data) {
             let mut metadata = metadata;
-            metadata.set_id(format!("{}-{}-create", metadata.signature, event.pool_state));
+            metadata.set_id(format!("{}-{}-create", metadata.signature, event.pool));
             Some(Box::new(PumpSwapCreatePoolEvent { metadata, ..event }))
         } else {
             None
@@ -137,7 +137,7 @@ impl PumpSwapEventParser {
         // Parse the deposit event using borsh deserialization
         if let Ok(event) = PumpSwapDepositEvent::try_from_slice(data) {
             let mut metadata = metadata;
-            metadata.set_id(format!("{}-{}-deposit", metadata.signature, event.pool_state));
+            metadata.set_id(format!("{}-{}-deposit", metadata.signature, event.pool));
             Some(Box::new(PumpSwapDepositEvent { metadata, ..event }))
         } else {
             None
@@ -152,7 +152,7 @@ impl PumpSwapEventParser {
         // Parse the withdraw event using borsh deserialization
         if let Ok(event) = PumpSwapWithdrawEvent::try_from_slice(data) {
             let mut metadata = metadata;
-            metadata.set_id(format!("{}-{}-withdraw", metadata.signature, event.pool_state));
+            metadata.set_id(format!("{}-{}-withdraw", metadata.signature, event.pool));
             Some(Box::new(PumpSwapWithdrawEvent { metadata, ..event }))
         } else {
             None

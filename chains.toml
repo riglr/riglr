@@ -1,0 +1,67 @@
+# RIGLR Chain Configuration
+# Defines contract addresses and chain-specific parameters for Uniswap V3 integration
+
+[chains]
+
+[chains.ethereum]
+id = 1
+name = "Ethereum Mainnet"
+router = "0xE592427A0AEce92De3Edee1F18E0157C05861564"
+quoter = "0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6"
+factory = "0x1F98431c8aD98523631AE4a59f267346ea31F984"
+
+[chains.polygon]
+id = 137
+name = "Polygon"
+router = "0xE592427A0AEce92De3Edee1F18E0157C05861564"
+quoter = "0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6"
+factory = "0x1F98431c8aD98523631AE4a59f267346ea31F984"
+
+[chains.arbitrum]
+id = 42161
+name = "Arbitrum One"
+router = "0xE592427A0AEce92De3Edee1F18E0157C05861564"
+quoter = "0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6"
+factory = "0x1F98431c8aD98523631AE4a59f267346ea31F984"
+
+[chains.optimism]
+id = 10
+name = "Optimism"
+router = "0xE592427A0AEce92De3Edee1F18E0157C05861564"
+quoter = "0x61fFE014bA17989E743c5F6cB21bF9697530B21e"
+factory = "0x1F98431c8aD98523631AE4a59f267346ea31F984"
+
+[chains.base]
+id = 8453
+name = "Base"
+router = "0x2626664c2603336E57B271c5C0b26F421741e481"
+quoter = "0x3d4e44Eb1374240CE5F1B871ab261CD16335B76a"
+factory = "0x33128a8fC17869897dcE68Ed026d694621f6FDfD"
+
+[chains.bsc]
+id = 56
+name = "BNB Smart Chain"
+router = "0x13f4EA83D0bd40E75C8222255bc855a974568Dd4"
+quoter = "0x78D78E420Da98ad378D7799bE8f4AF69033EB077"
+factory = "0xdB1d10011AD0Ff90774D0C6Bb92e5C5c8b4461F7"
+
+[chains.avalanche]
+id = 43114
+name = "Avalanche C-Chain"
+router = "0xbb00FF08d01D300023C629E8fFfFcb65A5a578cE"
+quoter = "0xbe0F5544EC67e9B3b2D979aaA43f18Fd87E6257F"
+factory = "0x740b1c1de25031C31FF4fC9A62f554A55cdC1baD"
+
+[chains.fantom]
+id = 250
+name = "Fantom"
+router = "0xF491e7B69E4244ad4002BC14e878a34207E38c29"
+quoter = "0x2002c5d0fb92de681ee76c1c0f9c7ddc2e7b9dcb"
+factory = "0x152eE697f2E276fA89E96742e9bB9aB1446d155F"
+
+[chains.celo]
+id = 42220
+name = "Celo"
+router = "0x5615CDAb10dc425a742d643d949a7F474C01abc4"
+quoter = "0x82825d0554fA07f7FC52Ab63c961F330fdEFa8E8"
+factory = "0xAfE208a311B21f13EF87E33A90049fC17A7acDEc"
