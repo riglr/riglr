@@ -12,11 +12,11 @@ use riglr_solana_tools::{
     events::{
         core::traits::{EventParser, GenericEventParser, GenericEventParseConfig, UnifiedEvent},
         common::{EventMetadata, EventType, ProtocolType, TransferData, SwapData},
-        factory::{EventParserFactory, Protocol, MutilEventParser},
+        factory::{EventParserFactory, Protocol},
         protocols::{
             pumpswap::{PumpSwapEventParser, PumpSwapBuyEvent, PumpSwapSellEvent, PUMPSWAP_PROGRAM_ID},
-            bonk::{BonkEventParser, BONK_PROGRAM_ID},
-            raydium_cpmm::{RaydiumCpmmEventParser, RAYDIUM_CPMM_PROGRAM_ID},
+            bonk::BONK_PROGRAM_ID,
+            raydium_cpmm::RAYDIUM_CPMM_PROGRAM_ID,
         }
     },
     analyze_transaction_events, get_protocol_events, analyze_recent_events, monitor_token_events,
@@ -27,7 +27,6 @@ use solana_sdk::{
     instruction::CompiledInstruction,
 };
 use solana_transaction_status::UiCompiledInstruction;
-use std::collections::HashMap;
 use std::str::FromStr;
 
 // Mock transaction signature for testing
@@ -61,13 +60,6 @@ mod tests {
         )
     }
 
-    // Helper function to create mock instruction data
-    fn create_mock_instruction_data(discriminator: &[u8], payload: &[u8]) -> Vec<u8> {
-        let mut data = Vec::with_capacity(discriminator.len() + payload.len());
-        data.extend_from_slice(discriminator);
-        data.extend_from_slice(payload);
-        data
-    }
 
     #[test]
     fn test_event_metadata_creation() {
@@ -199,7 +191,9 @@ mod tests {
         }) as Box<dyn UnifiedEvent>;
 
         // Test matching buy event
+        #[allow(unused_assignments)]
         let mut matched_type = "";
+        #[allow(unused_assignments)]
         let mut matched_amount = 0u64;
 
         match_event!(buy_event, {
@@ -207,9 +201,8 @@ mod tests {
                 matched_type = "buy";
                 matched_amount = buy.base_amount_out;
             },
-            PumpSwapSellEvent => |sell: &PumpSwapSellEvent| {
-                matched_type = "sell";
-                matched_amount = sell.base_amount_in;
+            PumpSwapSellEvent => |_sell: &PumpSwapSellEvent| {
+                // This branch won't be executed for buy_event
             },
         });
 
@@ -221,9 +214,8 @@ mod tests {
         matched_amount = 0;
 
         match_event!(sell_event, {
-            PumpSwapBuyEvent => |buy: &PumpSwapBuyEvent| {
-                matched_type = "buy";
-                matched_amount = buy.base_amount_out;
+            PumpSwapBuyEvent => |_buy: &PumpSwapBuyEvent| {
+                // This branch won't be executed for sell_event
             },
             PumpSwapSellEvent => |sell: &PumpSwapSellEvent| {
                 matched_type = "sell";
@@ -484,10 +476,14 @@ mod tests {
         let discriminator = &[102, 6, 61, 18, 1, 218, 235, 234]; // BUY_IX
         let payload = vec![0u8; 16]; // 16 bytes of data
         
+        let mut instruction_data = Vec::new();
+        instruction_data.extend_from_slice(discriminator);
+        instruction_data.extend_from_slice(&payload);
+        
         let insufficient_instruction = CompiledInstruction {
             program_id_index: 0,
             accounts: vec![0, 1], // Not enough accounts
-            data: [&discriminator[..], &payload[..]].concat(),
+            data: instruction_data,
         };
 
         let few_accounts = vec![PUMPSWAP_PROGRAM_ID, Pubkey::new_unique()];
@@ -564,8 +560,10 @@ mod tests {
 
         // Test parsing instruction from different protocols
         let pumpswap_discriminator = &[102, 6, 61, 18, 1, 218, 235, 234];
-        let padding = [0u8; 16];
-        let pumpswap_data = [pumpswap_discriminator, &padding].concat();
+        let padding = [0u8; 8];
+        let mut pumpswap_data = Vec::new();
+        pumpswap_data.extend_from_slice(pumpswap_discriminator);
+        pumpswap_data.extend_from_slice(&padding);
         
         let pumpswap_instruction = CompiledInstruction {
             program_id_index: 0,

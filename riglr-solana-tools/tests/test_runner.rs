@@ -2,12 +2,12 @@
 //! This test ensures basic compilation of the event parsing system
 
 use riglr_solana_tools::events::{
-    core::traits::{EventParser, UnifiedEvent},
+    core::traits::UnifiedEvent,
     common::{EventMetadata, EventType, ProtocolType},
     factory::{EventParserFactory, Protocol},
     protocols::pumpswap::{PumpSwapBuyEvent, PUMPSWAP_PROGRAM_ID},
 };
-use solana_sdk::pubkey::Pubkey;
+//use solana_sdk::pubkey::Pubkey;
 
 #[test]
 fn test_basic_event_system_compilation() {
@@ -87,6 +87,7 @@ fn test_macro_imports() {
         ..Default::default()
     }) as Box<dyn UnifiedEvent>;
     
+    #[allow(unused_assignments)]
     let mut matched = false;
     match_event!(event, {
         PumpSwapBuyEvent => |_buy: &PumpSwapBuyEvent| {

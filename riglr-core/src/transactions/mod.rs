@@ -210,7 +210,7 @@ mod tests {
                     *count += 1;
                     if *count < 3 {
                         Err(crate::error::ToolError::Retriable {
-                            source: Box::new(std::io::Error::new(std::io::ErrorKind::Other, "test")),
+                            source: Box::new(std::io::Error::other("test")),
                             context: "test error".to_string(),
                         })
                     } else {

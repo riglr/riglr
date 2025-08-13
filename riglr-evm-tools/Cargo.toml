@@ -49,6 +49,8 @@ mockito = "1.0"
 criterion = { workspace = true }
 riglr-showcase = { path = "../riglr-showcase" }
 solana-client = { workspace = true }
+solana-sdk = { workspace = true }
+futures = "0.3"
 
 # Removed workspace definition to be part of parent workspace
 

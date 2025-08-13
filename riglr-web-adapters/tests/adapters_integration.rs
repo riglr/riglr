@@ -5,6 +5,18 @@ use riglr_core::{
     signer::{TransactionSigner, SignerError, EvmClient},
 };
 use std::sync::Arc;
+
+/// Test error type
+#[derive(Debug)]
+struct TestError(String);
+
+impl std::fmt::Display for TestError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl std::error::Error for TestError {}
 use solana_sdk::transaction::Transaction;
 use actix_web::{
     test,
@@ -18,6 +30,7 @@ use std::pin::Pin;
 use std::task::{Context, Poll};
 
 /// Mock agent for testing web adapter functionality
+#[derive(Clone)]
 struct MockAgent {
     responses: Vec<String>,
 }
@@ -26,41 +39,22 @@ impl MockAgent {
     fn new(responses: Vec<String>) -> Self {
         Self { responses }
     }
+}
+
+#[async_trait::async_trait]
+impl riglr_web_adapters::core::Agent for MockAgent {
+    type Error = TestError;
     
-    async fn prompt(&self, _prompt: &str) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+    async fn prompt(&self, _prompt: &str) -> Result<String, Self::Error> {
         Ok(self.responses.first().unwrap_or(&"Mock response".to_string()).clone())
     }
     
-    async fn prompt_stream(&self, _prompt: &str) -> Result<MockStream, Box<dyn std::error::Error + Send + Sync>> {
-        Ok(MockStream::new(self.responses.clone()))
+    async fn prompt_stream(&self, _prompt: &str) -> Result<futures_util::stream::BoxStream<'_, Result<String, Self::Error>>, Self::Error> {
+        let stream = futures_util::stream::iter(self.responses.clone().into_iter().map(|s| Ok::<_, TestError>(s)));
+        Ok(Box::pin(stream))
     }
 }
 
-/// Mock stream for testing streaming responses
-struct MockStream {
-    responses: Vec<String>,
-    index: usize,
-}
-
-impl MockStream {
-    fn new(responses: Vec<String>) -> Self {
-        Self { responses, index: 0 }
-    }
-}
-
-impl futures::Stream for MockStream {
-    type Item = Result<String, Box<dyn std::error::Error + Send + Sync>>;
-    
-    fn poll_next(mut self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        if self.index < self.responses.len() {
-            let response = self.responses[self.index].clone();
-            self.index += 1;
-            Poll::Ready(Some(Ok(response)))
-        } else {
-            Poll::Ready(None)
-        }
-    }
-}
 
 /// Mock signer for testing adapter authentication
 struct MockAdapterSigner {
@@ -113,17 +107,23 @@ impl std::fmt::Debug for MockAdapterSigner {
 #[tokio::test]
 async fn test_core_handler_logic_completion() {
     let agent = MockAgent::new(vec!["Test response".to_string()]);
-    let signer = MockAdapterSigner::new("user123".to_string(), Some("0x742d35Cc2F5f8a89A0D2EAd5a53c97c49444E34F".to_string()));
+    let signer = Arc::new(MockAdapterSigner::new("user123".to_string(), Some("0x742d35Cc2F5f8a89A0D2EAd5a53c97c49444E34F".to_string())));
+    
+    let prompt = PromptRequest {
+        text: "Test prompt".to_string(),
+        conversation_id: None,
+        request_id: None,
+    };
     
     let result = handle_agent_completion(
         agent,
         signer,
-        "Test prompt".to_string(),
+        prompt,
     ).await;
     
     assert!(result.is_ok());
     let response = result.unwrap();
-    assert_eq!(response, "Test response");
+    assert_eq!(response.response, "Test response");
 }
 
 #[tokio::test]
@@ -133,12 +133,18 @@ async fn test_core_handler_logic_streaming() {
         "Second chunk".to_string(),
         "Third chunk".to_string(),
     ]);
-    let signer = MockAdapterSigner::new("user123".to_string(), Some("0x742d35Cc2F5f8a89A0D2EAd5a53c97c49444E34F".to_string()));
+    let signer = Arc::new(MockAdapterSigner::new("user123".to_string(), Some("0x742d35Cc2F5f8a89A0D2EAd5a53c97c49444E34F".to_string())));
+    
+    let prompt = PromptRequest {
+        text: "Test prompt".to_string(),
+        conversation_id: None,
+        request_id: None,
+    };
     
     let result = handle_agent_stream(
         agent,
         signer,
-        "Test prompt".to_string(),
+        prompt,
     ).await;
     
     assert!(result.is_ok());
@@ -162,10 +168,15 @@ async fn test_signer_context_in_handlers() {
     let signer = MockAdapterSigner::new("user456".to_string(), Some("0x1234567890123456789012345678901234567890".to_string()));
     
     // Test that signer context is properly set within handler
+    let prompt = PromptRequest {
+        text: "Test prompt".to_string(),
+        conversation_id: None,
+        request_id: None,
+    };
     let result = handle_agent_completion(
         agent,
-        signer,
-        "Test prompt".to_string(),
+        Arc::new(signer),
+        prompt,
     ).await;
     
     assert!(result.is_ok());
@@ -189,10 +200,15 @@ async fn test_concurrent_handler_requests() {
     
     let handles = agents.into_iter().zip(signers.into_iter()).enumerate().map(|(i, (agent, signer))| {
         tokio::spawn(async move {
+            let prompt = PromptRequest {
+                text: format!("Prompt {}", i),
+                conversation_id: None,
+                request_id: None,
+            };
             handle_agent_completion(
                 agent,
-                signer,
-                format!("Prompt {}", i),
+                Arc::new(signer),
+                prompt,
             ).await
         })
     }).collect::<Vec<_>>();
@@ -201,7 +217,7 @@ async fn test_concurrent_handler_requests() {
     
     for (i, result) in results.into_iter().enumerate() {
         let response = result.unwrap().unwrap();
-        assert_eq!(response, format!("Response {}", i));
+        assert_eq!(response.response, format!("Response {}", i));
     }
 }
 
@@ -215,6 +231,8 @@ async fn test_actix_completion_handler() {
     
     let prompt = PromptRequest {
         text: "Test prompt".to_string(),
+        conversation_id: None,
+        request_id: None,
     };
     
     let req = test::TestRequest::post()
@@ -269,7 +287,12 @@ async fn test_event_streaming_format() {
     ]);
     let signer = MockAdapterSigner::new("user123".to_string(), None);
     
-    let result = handle_agent_stream(agent, signer, "Test".to_string()).await;
+    let prompt = PromptRequest {
+        text: "Test".to_string(),
+        conversation_id: None,
+        request_id: None,
+    };
+    let result = handle_agent_stream(agent, Arc::new(signer), prompt).await;
     assert!(result.is_ok());
     
     let mut stream = result.unwrap();
@@ -293,10 +316,16 @@ async fn test_error_handling_in_adapters() {
     let error_agent = MockErrorAgent::new("Agent processing error".to_string());
     let signer = MockAdapterSigner::new("user123".to_string(), None);
     
+    let prompt = PromptRequest {
+        text: "Test prompt".to_string(),
+        conversation_id: None,
+        request_id: None,
+    };
+    
     let result = handle_agent_completion(
         error_agent,
-        signer,
-        "Test prompt".to_string(),
+        Arc::new(signer),
+        prompt,
     ).await;
     
     assert!(result.is_err());
@@ -310,7 +339,12 @@ async fn test_adapter_with_different_signer_types() {
     
     // Test with Solana signer (no address)
     let solana_signer = MockAdapterSigner::new("solana_user".to_string(), None);
-    let result = handle_agent_completion(agent.clone(), solana_signer, "Test".to_string()).await;
+    let prompt = PromptRequest {
+        text: "Test".to_string(),
+        conversation_id: None,
+        request_id: None,
+    };
+    let result = handle_agent_completion(agent.clone(), Arc::new(solana_signer), prompt).await;
     assert!(result.is_ok());
     
     // Test with EVM signer (with address)
@@ -318,7 +352,12 @@ async fn test_adapter_with_different_signer_types() {
         "evm_user".to_string(),
         Some("0x742d35Cc2F5f8a89A0D2EAd5a53c97c49444E34F".to_string())
     );
-    let result = handle_agent_completion(agent, evm_signer, "Test".to_string()).await;
+    let prompt = PromptRequest {
+        text: "Test".to_string(),
+        conversation_id: None,
+        request_id: None,
+    };
+    let result = handle_agent_completion(agent, Arc::new(evm_signer), prompt).await;
     assert!(result.is_ok());
 }
 
@@ -337,13 +376,10 @@ async fn mock_completion_handler(
     
     match handle_agent_completion(
         agent.get_ref().clone(),
-        signer,
-        prompt.text.clone(),
+        Arc::new(signer),
+        prompt.into_inner(),
     ).await {
-        Ok(response) => Ok(web::Json(CompletionResponse {
-            response,
-            model: "claude-3-5-sonnet".to_string(),
-        })),
+        Ok(response) => Ok(web::Json(response)),
         Err(e) => Err(actix_web::error::ErrorInternalServerError(e.to_string())),
     }
 }
@@ -363,6 +399,7 @@ fn extract_mock_auth_token(headers: &HeaderMap) -> Result<String, &'static str> 
 }
 
 /// Mock agent that returns errors for testing error handling
+#[derive(Clone)]
 struct MockErrorAgent {
     error_message: String,
 }
@@ -371,26 +408,18 @@ impl MockErrorAgent {
     fn new(error_message: String) -> Self {
         Self { error_message }
     }
+}
+
+#[async_trait::async_trait]
+impl riglr_web_adapters::core::Agent for MockErrorAgent {
+    type Error = TestError;
     
-    async fn prompt(&self, _prompt: &str) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
-        Err(Box::new(std::io::Error::new(
-            std::io::ErrorKind::Other,
-            self.error_message.clone()
-        )))
+    async fn prompt(&self, _prompt: &str) -> Result<String, Self::Error> {
+        Err(TestError(self.error_message.clone()))
     }
     
-    async fn prompt_stream(&self, _prompt: &str) -> Result<MockStream, Box<dyn std::error::Error + Send + Sync>> {
-        Err(Box::new(std::io::Error::new(
-            std::io::ErrorKind::Other,
-            self.error_message.clone()
-        )))
+    async fn prompt_stream(&self, _prompt: &str) -> Result<futures_util::stream::BoxStream<'_, Result<String, Self::Error>>, Self::Error> {
+        Err(TestError(self.error_message.clone()))
     }
 }
 
-impl Clone for MockAgent {
-    fn clone(&self) -> Self {
-        Self {
-            responses: self.responses.clone(),
-        }
-    }
-}

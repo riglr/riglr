@@ -1,12 +1,11 @@
 use riglr_solana_tools::{
     util::{create_token_with_mint_keypair, generate_mint_keypair},
-    error::SolanaToolError,
 };
 use riglr_core::{
     signer::{SignerContext, TransactionSigner, SignerError},
-    error::ToolError,
 };
 use std::sync::Arc;
+#[allow(deprecated)]
 use solana_sdk::{
     signature::Keypair,
     signer::Signer as SolanaSigner,

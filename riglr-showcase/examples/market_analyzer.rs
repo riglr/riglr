@@ -13,10 +13,12 @@
 //! 5. Complex workflow orchestration through natural conversation
 
 use anyhow::Result;
-use riglr_core::signer::SignerContext;
+use rig::agent::AgentBuilder;
+use rig::completion::Prompt; // for .prompt()
+use rig::client::CompletionClient;
+use rig::providers::openai;
+use riglr_core::signer::{SignerContext, SignerError};
 use riglr_solana_tools::LocalSolanaSigner;
-// use riglr_solana_tools::{get_sol_balance, get_spl_token_balance, perform_jupiter_swap};
-// use rig::agent::AgentBuilder;
 use serde::{Deserialize, Serialize};
 use solana_sdk::signer::{keypair::Keypair, Signer};
 use std::sync::Arc;
@@ -108,9 +110,9 @@ enum TimeSensitivity {
 async fn comprehensive_token_analysis() -> Result<()> {
     info!("Starting comprehensive token analysis workflow...");
     
-    // TODO: Commented out due to rig API changes
-    /*
-    let agent = AgentBuilder::new("gpt-4")
+    let openai_client = openai::Client::new(&std::env::var("OPENAI_API_KEY")?);
+    let model = openai_client.completion_model("gpt-4");
+    let agent = AgentBuilder::new(model)
         .preamble(r#"
 You are an advanced crypto market analyst specializing in comprehensive token evaluation.
 Your analysis framework combines multiple methodologies for holistic assessment.
@@ -155,12 +157,12 @@ RISK ASSESSMENT:
 Your goal: Provide actionable investment recommendations with clear reasoning,
 risk assessment, and specific entry/exit strategies.
         "#.trim())
-        .tool(get_sol_balance)
-        .tool(get_spl_token_balance)
-        .tool(perform_jupiter_swap)
+    // Tools integration will be added via adapter bridging riglr_core::Tool -> rig::Tool
+    // .tool(get_sol_balance)
+    // .tool(get_spl_token_balance)
+    // .tool(perform_jupiter_swap)
         .max_tokens(3000)
         .build();
-    */
 
     let keypair = Keypair::new();
     let signer = Arc::new(LocalSolanaSigner::new(
@@ -210,7 +212,7 @@ ON-CHAIN METRICS:
 - Network uptime: 99.95% (improved)
         "#;
 
-        let _comprehensive_prompt = format!(r#"
+    let comprehensive_prompt = format!(r#"
 Please perform a comprehensive analysis of SOL using your multi-methodology framework.
 
 My portfolio context:
@@ -239,12 +241,14 @@ Analysis Request:
 Please be thorough and show your reasoning process across all analysis dimensions.
         "#, user_address, analysis_context);
 
-        // let analysis_response = agent.prompt(&comprehensive_prompt).await?;
-        let analysis_response = "COMPREHENSIVE SOL ANALYSIS: Technical analysis shows bullish momentum with price above key moving averages. Fundamental strength from growing developer ecosystem and institutional adoption. On-chain metrics indicate healthy network growth. Recommendation: BUY with target $165-180, stop-loss $135.";
+    let analysis_response = agent
+        .prompt(&comprehensive_prompt)
+        .await
+        .map_err(|e| SignerError::ProviderError(e.to_string()))?;
         info!("Comprehensive analysis: {}", analysis_response);
 
         // Follow up with comparative analysis
-        let _comparative_prompt = r#"
+    let comparative_prompt = r#"
 Now please compare SOL against its main competitors and alternative opportunities:
 
 COMPARISON ANALYSIS REQUEST:
@@ -270,12 +274,14 @@ Based on this comparative analysis:
 Provide specific allocation recommendations with reasoning.
         "#;
 
-        // let comparative_response = agent.prompt(comparative_prompt).await?;
-        let comparative_response = "COMPARATIVE ANALYSIS: SOL offers better risk-adjusted returns vs competitors. Superior TPS vs ETH, lower fees vs AVAX, stronger ecosystem vs ADA. Recommend maintaining 60% SOL allocation vs 25% ETH, 15% alternatives for optimal portfolio diversification.";
+    let comparative_response = agent
+        .prompt(comparative_prompt)
+        .await
+        .map_err(|e| SignerError::ProviderError(e.to_string()))?;
         info!("Comparative analysis: {}", comparative_response);
 
         // Test analysis adaptation to changing conditions
-        let _market_change_prompt = r#"
+    let market_change_prompt = r#"
 MARKET UPDATE: Major news just broke affecting your analysis:
 
 NEWS: Federal Reserve announces crypto-friendly regulation framework
@@ -304,8 +310,10 @@ Please:
 Show how you adapt comprehensive analysis to major news events.
         "#;
 
-        // let adaptation_response = agent.prompt(market_change_prompt).await?;
-        let adaptation_response = "REGULATORY UPDATE ANALYSIS: Crypto-friendly regulation is a major positive catalyst. Upgrading SOL target to $185-200 and increasing recommended allocation to 70%. Regulatory clarity reduces risk premium and attracts institutional capital.";
+    let adaptation_response = agent
+        .prompt(market_change_prompt)
+        .await
+        .map_err(|e| SignerError::ProviderError(e.to_string()))?;
         info!("Analysis adaptation: {}", adaptation_response);
 
         Ok(())
