@@ -4,9 +4,8 @@
 //! core handlers. It handles authentication via pluggable SignerFactory implementations.
 
 use axum::{
-    extract::{Request, State},
     http::{StatusCode, HeaderMap},
-    response::{Response, Sse, sse::Event},
+    response::{Sse, sse::Event},
     Json,
 };
 use futures_util::StreamExt;
@@ -97,7 +96,7 @@ impl AxumRiglrAdapter {
         );
 
         // Extract authentication data and create signer
-        let signer = Arc::new(self.authenticate_request(&headers).await?);
+        let signer: Arc<dyn TransactionSigner> = Arc::from(self.authenticate_request(&headers).await?);
         
         // Handle stream using framework-agnostic core
         let stream_result = handle_agent_stream(agent, signer, prompt).await;
@@ -145,7 +144,7 @@ impl AxumRiglrAdapter {
         );
 
         // Extract authentication data and create signer
-        let signer = Arc::new(self.authenticate_request(&headers).await?);
+        let signer: Arc<dyn TransactionSigner> = Arc::from(self.authenticate_request(&headers).await?);
         
         // Handle completion using framework-agnostic core
         match handle_agent_completion(agent, signer, prompt).await {

@@ -58,7 +58,7 @@ pub struct LocalSolanaSigner {
     keypair: Arc<Keypair>,
     client: Arc<RpcClient>,
     blockhash_cache: Arc<RwLock<BlockhashCache>>,
-    config: SolanaNetworkConfig,
+    _config: SolanaNetworkConfig,
 }
 
 impl LocalSolanaSigner {
@@ -77,7 +77,7 @@ impl LocalSolanaSigner {
             keypair: Arc::new(keypair),
             client,
             blockhash_cache,
-            config: network_config,
+            _config: network_config,
         })
     }
     
@@ -101,7 +101,7 @@ impl LocalSolanaSigner {
             keypair: Arc::new(keypair),
             client,
             blockhash_cache,
-            config: network_config,
+            _config: network_config,
         }
     }
     
@@ -182,6 +182,7 @@ impl TransactionSigner for LocalSolanaSigner {
 }
 
 /// Implementation of SolanaClient trait for LocalSolanaSigner
+#[allow(dead_code)]
 struct SolanaClientImpl {
     client: Arc<RpcClient>,
 }

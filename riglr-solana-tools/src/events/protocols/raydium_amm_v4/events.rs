@@ -1,9 +1,6 @@
 use serde::{Deserialize, Serialize};
 use solana_sdk::pubkey::Pubkey;
-use crate::events::{
-    common::{EventMetadata, EventType, ProtocolType},
-    core::traits::UnifiedEvent,
-};
+use crate::events::common::EventMetadata;
 
 /// Raydium AMM V4 swap event
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]

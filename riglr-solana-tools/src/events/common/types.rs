@@ -354,7 +354,7 @@ pub fn parse_transfer_datas_from_next_instructions(
     let next_instructions: Vec<&UiInstruction> =
         inner_instruction.instructions.iter().skip((current_index + 1) as usize).collect();
 
-    let system_programs = vec![
+    let system_programs = [
         // Token Program
         Pubkey::from_str("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA").unwrap(),
         // Token 2022 Program

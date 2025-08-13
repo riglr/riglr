@@ -7,7 +7,7 @@ fn test_rpc_error_conversion() {
     let tool_err: ToolError = err.into();
     
     match tool_err {
-        ToolError::Retriable(_) => {},
+        ToolError::Retriable { .. } => {},
         _ => panic!("Expected Retriable variant"),
     }
 }
@@ -18,7 +18,7 @@ fn test_invalid_address_conversion() {
     let tool_err: ToolError = err.into();
     
     match tool_err {
-        ToolError::Permanent(_) => {},
+        ToolError::Permanent { .. } => {},
         _ => panic!("Expected Permanent variant"),
     }
 }
@@ -29,7 +29,7 @@ fn test_generic_error_conversion() {
     let tool_err: ToolError = err.into();
     
     match tool_err {
-        ToolError::Permanent(_) => {},
+        ToolError::Permanent { .. } => {},
         _ => panic!("Expected Permanent variant"),
     }
 }
@@ -41,7 +41,7 @@ fn test_rpc_error_is_retriable() {
     let tool_err: ToolError = err.into();
     
     match tool_err {
-        ToolError::Retriable(_) => {},
+        ToolError::Retriable { .. } => {},
         _ => panic!("Expected Retriable variant for RPC errors"),
     }
 }
@@ -52,7 +52,7 @@ fn test_transaction_error_conversion() {
     let tool_err: ToolError = err.into();
     
     match tool_err {
-        ToolError::Permanent(_) => {},
+        ToolError::Permanent { .. } => {},
         _ => panic!("Expected Permanent variant"),
     }
 }
@@ -63,7 +63,7 @@ fn test_contract_error_conversion() {
     let tool_err: ToolError = err.into();
     
     match tool_err {
-        ToolError::Permanent(_) => {},
+        ToolError::Permanent { .. } => {},
         _ => panic!("Expected Permanent variant"),
     }
 }

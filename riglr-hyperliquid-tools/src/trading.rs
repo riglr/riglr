@@ -9,7 +9,7 @@ use rust_decimal::Decimal;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
-use tracing::{debug, info, warn};
+use tracing::{debug, info};
 
 /// Place a perpetual futures order on Hyperliquid
 ///

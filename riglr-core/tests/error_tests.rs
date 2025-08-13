@@ -104,7 +104,7 @@ fn test_error_serialization_from_json_error() {
 
 #[test]
 fn test_tool_error_retriable() {
-    let error = ToolError::Retriable("Connection timeout".to_string());
+    let error = ToolError::retriable("Connection timeout");
     assert_eq!(error.to_string(), "Operation can be retried: Connection timeout");
     assert!(error.is_retriable());
 
@@ -115,7 +115,7 @@ fn test_tool_error_retriable() {
 
 #[test]
 fn test_tool_error_permanent() {
-    let error = ToolError::Permanent("Invalid address".to_string());
+    let error = ToolError::permanent("Invalid address");
     assert_eq!(error.to_string(), "Permanent error, do not retry: Invalid address");
     assert!(!error.is_retriable());
 
@@ -131,23 +131,23 @@ fn test_tool_error_permanent() {
 fn test_tool_error_constructors() {
     // Test retriable constructor
     let retriable = ToolError::retriable("Temporary failure");
-    assert!(matches!(retriable, ToolError::Retriable(_)));
+    assert!(matches!(retriable, ToolError::Retriable { .. }));
     assert!(retriable.is_retriable());
 
     // Test permanent constructor
     let permanent = ToolError::permanent("Configuration error");
-    assert!(matches!(permanent, ToolError::Permanent(_)));
+    assert!(matches!(permanent, ToolError::Permanent { .. }));
     assert!(!permanent.is_retriable());
 }
 
 #[test]
 fn test_tool_error_debug_format() {
-    let error = ToolError::Retriable("Debug test".to_string());
+    let error = ToolError::retriable("Debug test");
     let debug_str = format!("{:?}", error);
     assert!(debug_str.contains("Retriable"));
     assert!(debug_str.contains("Debug test"));
 
-    let error2 = ToolError::Permanent("Permanent debug".to_string());
+    let error2 = ToolError::permanent("Permanent debug");
     let debug_str2 = format!("{:?}", error2);
     assert!(debug_str2.contains("Permanent"));
     assert!(debug_str2.contains("Permanent debug"));
@@ -155,9 +155,9 @@ fn test_tool_error_debug_format() {
 
 #[test]
 fn test_tool_error_display() {
-    let retriable = ToolError::Retriable("Rate limited".to_string());
+    let retriable = ToolError::rate_limited("Rate limited");
     assert_eq!(retriable.to_string(), "Operation can be retried: Rate limited");
 
-    let permanent = ToolError::Permanent("Invalid API key".to_string());
+    let permanent = ToolError::permanent("Invalid API key");
     assert_eq!(permanent.to_string(), "Permanent error, do not retry: Invalid API key");
 }

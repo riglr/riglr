@@ -2,11 +2,11 @@
 
 use solana_sdk::{
     signature::Keypair,
-    signer::Signer,
     transaction::Transaction,
     instruction::Instruction,
-    pubkey::Pubkey,
 };
+#[cfg(test)]
+use solana_sdk::signer::Signer;
 use riglr_core::signer::SignerContext;
 use crate::error::SolanaToolError;
 
@@ -27,7 +27,7 @@ pub async fn create_token_with_mint_keypair(
     // Get recent blockhash
     let rpc_client = signer.solana_client();
     let recent_blockhash = rpc_client.get_latest_blockhash()
-        .map_err(|e| SolanaToolError::SolanaClient(e))?;
+        .map_err(|e| SolanaToolError::SolanaClient(Box::new(e)))?;
     
     tx.partial_sign(&[mint_keypair], recent_blockhash);
     
@@ -46,6 +46,7 @@ pub fn generate_mint_keypair() -> Keypair {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use solana_sdk::pubkey::Pubkey;
 
     #[test]
     fn test_generate_mint_keypair() {

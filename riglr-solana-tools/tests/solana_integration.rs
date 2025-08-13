@@ -55,7 +55,7 @@ impl TransactionSigner for MockSolanaSigner {
         Arc::new(solana_client::rpc_client::RpcClient::new(self.rpc_url.clone()))
     }
 
-    fn evm_client(&self) -> Result<Arc<dyn std::any::Any + Send + Sync>, SignerError> {
+    fn evm_client(&self) -> Result<Arc<dyn riglr_core::signer::EvmClient>, SignerError> {
         Err(SignerError::UnsupportedOperation("Solana signer does not provide EVM client".to_string()))
     }
 }
@@ -121,15 +121,17 @@ async fn test_deterministic_addressing() {
 #[tokio::test]
 async fn test_create_token_with_mint_keypair() {
     let payer_keypair = Keypair::new();
-    let signer = MockSolanaSigner::new(payer_keypair.clone());
+    let payer_pubkey = payer_keypair.pubkey();
+    let signer = Arc::new(MockSolanaSigner::new(payer_keypair));
     
     let result = SignerContext::with_signer(signer, async {
         let mint_keypair = generate_mint_keypair();
         
         // Create mock instructions for token creation
-        let instructions = create_mock_token_instructions(&payer_keypair.pubkey(), &mint_keypair.pubkey());
+        let instructions = create_mock_token_instructions(&payer_pubkey, &mint_keypair.pubkey());
         
         create_token_with_mint_keypair(instructions, &mint_keypair).await
+            .map_err(|e| SignerError::UnsupportedOperation(e.to_string()))
     }).await;
     
     assert!(result.is_ok());
@@ -168,7 +170,7 @@ async fn test_utility_functions() {
 #[tokio::test]
 async fn test_solana_error_handling() {
     let payer_keypair = Keypair::new();
-    let signer = MockSolanaSigner::new(payer_keypair.clone());
+    let signer = Arc::new(MockSolanaSigner::new(payer_keypair));
     
     // Test with empty instructions
     let result = SignerContext::with_signer(signer.clone(), async {
@@ -176,6 +178,7 @@ async fn test_solana_error_handling() {
         let empty_instructions = vec![];
         
         create_token_with_mint_keypair(empty_instructions, &mint_keypair).await
+            .map_err(|e| SignerError::UnsupportedOperation(e.to_string()))
     }).await;
     
     // This should still work (empty transaction)
@@ -187,6 +190,7 @@ async fn test_solana_error_handling() {
         let invalid_instructions = create_invalid_instructions();
         
         create_token_with_mint_keypair(invalid_instructions, &mint_keypair).await
+            .map_err(|e| SignerError::UnsupportedOperation(e.to_string()))
     }).await;
     
     // Should still return OK since we're mocking the transaction submission
@@ -201,7 +205,7 @@ async fn test_concurrent_mint_keypair_generation() {
         })
     }).collect::<Vec<_>>();
     
-    let keypairs = futures::future::join_all(handles).await;
+    let keypairs = futures_util::future::join_all(handles).await;
     let mut pubkeys = std::collections::HashSet::new();
     
     for keypair_result in keypairs {
@@ -242,37 +246,41 @@ async fn test_signer_context_with_solana_operations() {
     let keypair1 = Keypair::new();
     let keypair2 = Keypair::new();
     
-    let signer1 = MockSolanaSigner::new(keypair1.clone());
-    let signer2 = MockSolanaSigner::new(keypair2.clone());
+    let keypair1_pubkey = keypair1.pubkey();
+    let keypair2_pubkey = keypair2.pubkey();
+    let signer1 = MockSolanaSigner::new(keypair1);
+    let signer2 = MockSolanaSigner::new(keypair2);
     
     // Test concurrent operations with different signers
     let handle1 = tokio::spawn(async move {
-        SignerContext::with_signer(signer1, async {
+        SignerContext::with_signer(Arc::new(signer1), async {
             let current = SignerContext::current().await?;
             let pubkey = current.pubkey().unwrap();
-            assert_eq!(pubkey, keypair1.pubkey().to_string());
+            assert_eq!(pubkey, keypair1_pubkey.to_string());
             
             // Perform token creation
             let mint_keypair = generate_mint_keypair();
-            let instructions = create_mock_token_instructions(&keypair1.pubkey(), &mint_keypair.pubkey());
+            let instructions = create_mock_token_instructions(&keypair1_pubkey, &mint_keypair.pubkey());
             create_token_with_mint_keypair(instructions, &mint_keypair).await
+                .map_err(|e| SignerError::UnsupportedOperation(e.to_string()))
         }).await
     });
     
     let handle2 = tokio::spawn(async move {
-        SignerContext::with_signer(signer2, async {
+        SignerContext::with_signer(Arc::new(signer2), async {
             let current = SignerContext::current().await?;
             let pubkey = current.pubkey().unwrap();
-            assert_eq!(pubkey, keypair2.pubkey().to_string());
+            assert_eq!(pubkey, keypair2_pubkey.to_string());
             
             // Perform different operation
             let mint_keypair = generate_mint_keypair();
-            let instructions = create_mock_token_instructions(&keypair2.pubkey(), &mint_keypair.pubkey());
+            let instructions = create_mock_token_instructions(&keypair2_pubkey, &mint_keypair.pubkey());
             create_token_with_mint_keypair(instructions, &mint_keypair).await
+                .map_err(|e| SignerError::UnsupportedOperation(e.to_string()))
         }).await
     });
     
-    let results = futures::future::join_all(vec![handle1, handle2]).await;
+    let results = futures_util::future::join_all(vec![handle1, handle2]).await;
     
     for result in results {
         let tx_result = result.unwrap();

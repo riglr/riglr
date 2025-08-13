@@ -7,7 +7,7 @@ use super::{
     OutputProcessor, ToolOutput, ProcessedOutput, OutputFormat, 
     NotificationPriority, RoutingInfo
 };
-use anyhow::{Result, anyhow};
+use anyhow::Result;
 use async_trait::async_trait;
 use serde_json::json;
 use std::collections::HashMap;
@@ -348,9 +348,10 @@ impl NotificationChannel for DiscordChannel {
         if response.status().is_success() {
             Ok(format!("discord_msg_{}", chrono::Utc::now().timestamp()))
         } else {
+            let status = response.status();
             let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
             Err(anyhow::anyhow!("Discord webhook failed with status {}: {}", 
-                response.status(), error_text))
+                status, error_text))
         }
     }
     
@@ -459,9 +460,10 @@ impl NotificationChannel for TelegramChannel {
                 Err(anyhow::anyhow!("Invalid Telegram response format"))
             }
         } else {
+            let status = response.status();
             let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
             Err(anyhow::anyhow!("Telegram API failed with status {}: {}", 
-                response.status(), error_text))
+                status, error_text))
         }
     }
     

@@ -196,16 +196,16 @@ impl Config {
             .values()
             .find(|config| config.id == chain_id)
             .cloned()
-            .ok_or_else(|| ConfigError::ChainNotSupported(chain_id))?;
+            .ok_or(ConfigError::ChainNotSupported(chain_id))?;
             
         // Override with environment variables if present
-        if let Ok(router) = std::env::var(&format!("ROUTER_{}", chain_id)) {
+        if let Ok(router) = std::env::var(format!("ROUTER_{}", chain_id)) {
             chain_config.router = router;
         }
-        if let Ok(quoter) = std::env::var(&format!("QUOTER_{}", chain_id)) {
+        if let Ok(quoter) = std::env::var(format!("QUOTER_{}", chain_id)) {
             chain_config.quoter = quoter;
         }
-        if let Ok(factory) = std::env::var(&format!("FACTORY_{}", chain_id)) {
+        if let Ok(factory) = std::env::var(format!("FACTORY_{}", chain_id)) {
             chain_config.factory = factory;
         }
         
@@ -556,15 +556,15 @@ factory = "0x1F98431c8aD98523631AE4a59f267346ea31F984"
 "#;
 
         // Write test config to temporary file
-        let temp_path = "/tmp/test_chains.toml";
-        std::fs::write(temp_path, test_config).unwrap();
+        let temp_path = format!("/tmp/test_chains_{}.toml", std::process::id());
+        std::fs::write(&temp_path, test_config).unwrap();
 
         // Set environment variable to use test config
-        std::env::set_var("RIGLR_CHAINS_CONFIG", temp_path);
+        std::env::set_var("RIGLR_CHAINS_CONFIG", &temp_path);
 
         let config = Config::default();
         let chains = config.load_chains().unwrap();
-
+        
         // Verify chain configurations are loaded correctly
         assert_eq!(chains.chains.len(), 2);
         
@@ -582,7 +582,7 @@ factory = "0x1F98431c8aD98523631AE4a59f267346ea31F984"
 
         // Cleanup
         std::env::remove_var("RIGLR_CHAINS_CONFIG");
-        std::fs::remove_file(temp_path).ok();
+        std::fs::remove_file(&temp_path).ok();
     }
 
     #[test]

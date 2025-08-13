@@ -4,11 +4,12 @@
 //! and configuration management in realistic scenarios.
 
 use riglr_core::{
-    signer::{SignerContext, TransactionSigner, evm::LocalEvmSigner, solana::LocalSolanaSigner},
-    transactions::{TransactionProcessor, TransactionStatus, RetryConfig, 
+    signer::{SignerContext, TransactionSigner, SignerError, evm::LocalEvmSigner, solana::LocalSolanaSigner},
+    transactions::{TransactionProcessor, RetryConfig, 
                    solana::{SolanaTransactionProcessor, PriorityFeeConfig}, 
-                   evm::{EvmTransactionProcessor, GasConfig}},
-    error::{ToolError, SignerError},
+                   evm::GasConfig},
+    error::ToolError,
+    config::{EvmNetworkConfig, SolanaNetworkConfig},
     ToolWorker, ExecutionConfig, Job, JobResult, Tool,
     idempotency::InMemoryIdempotencyStore,
 };
@@ -25,10 +26,16 @@ async fn create_test_evm_signer() -> Arc<dyn TransactionSigner> {
     let rpc_url = std::env::var("TEST_EVM_RPC_URL")
         .unwrap_or_else(|_| "http://localhost:8545".to_string());
     
+    let network_config = EvmNetworkConfig {
+        name: "ethereum_test".to_string(),
+        chain_id: 1,
+        rpc_url,
+        explorer_url: Some("https://etherscan.io".to_string()),
+    };
+    
     Arc::new(LocalEvmSigner::new(
         private_key.to_string(),
-        rpc_url,
-        1, // Ethereum mainnet chain ID for testing
+        network_config,
     ).expect("Failed to create EVM signer"))
 }
 
@@ -40,9 +47,15 @@ async fn create_test_solana_signer() -> Arc<dyn TransactionSigner> {
     let rpc_url = std::env::var("TEST_SOLANA_RPC_URL")
         .unwrap_or_else(|_| "https://api.devnet.solana.com".to_string());
     
+    let network_config = SolanaNetworkConfig {
+        name: "devnet_test".to_string(),
+        rpc_url,
+        explorer_url: Some("https://explorer.solana.com".to_string()),
+    };
+    
     Arc::new(LocalSolanaSigner::from_keypair(
         keypair,
-        rpc_url,
+        network_config,
     ))
 }
 
@@ -291,7 +304,7 @@ async fn test_tool_worker_with_signers() -> anyhow::Result<()> {
     // Execute with signer context
     let signer = create_test_evm_signer().await;
     let result = SignerContext::with_signer(signer, async {
-        worker.process_job(job).await.map_err(|e| SignerError::NetworkError(format!("Process failed: {}", e)))
+        worker.process_job(job).await.map_err(|e| SignerError::TransactionFailed(format!("Process failed: {}", e)))
     }).await?;
     
     match result {

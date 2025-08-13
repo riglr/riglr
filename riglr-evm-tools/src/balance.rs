@@ -2,7 +2,6 @@
 //!
 //! This module provides production-grade tools for checking balances on EVM chains.
 
-use crate::error::EvmToolError;
 use alloy::{
     primitives::{Address, U256},
     rpc::types::TransactionRequest,

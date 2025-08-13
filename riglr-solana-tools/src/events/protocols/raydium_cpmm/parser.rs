@@ -190,7 +190,6 @@ impl RaydiumCpmmEventParser {
             lp_token_amount,
             token_0_amount,
             token_1_amount,
-            ..Default::default()
         }))
     }
 }

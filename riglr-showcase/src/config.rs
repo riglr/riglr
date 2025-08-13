@@ -6,17 +6,22 @@ use std::fmt;
 pub struct Config {
     pub openai_api_key: String,
     pub redis_url: String,
+    #[allow(dead_code)]
     pub neo4j_url: String,
     pub twitter_bearer_token: Option<String>,
     pub exa_api_key: Option<String>,
     // New convention-based RPC URLs
     #[serde(rename = "RPC_URL_1")]
+    #[allow(dead_code)]
     pub ethereum_rpc_url: String,
     #[serde(rename = "RPC_URL_137")]
+    #[allow(dead_code)]
     pub polygon_rpc_url: String,
     #[serde(rename = "RPC_URL_42161")]
+    #[allow(dead_code)]
     pub arbitrum_rpc_url: String,
     #[serde(rename = "RPC_URL_8453")]
+    #[allow(dead_code)]
     pub base_rpc_url: String,
     pub solana_rpc_url: String,
 }
