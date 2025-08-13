@@ -14,6 +14,7 @@ use crate::core::{handle_agent_stream, handle_agent_completion, PromptRequest};
 use std::sync::Arc;
 
 /// Actix Web adapter that uses SignerFactory for authentication
+#[derive(Clone)]
 pub struct ActixRiglrAdapter {
     signer_factory: Arc<dyn SignerFactory>,
     rpc_config: RpcConfig,

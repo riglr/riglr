@@ -14,7 +14,7 @@ categories = ["web-programming", "api-bindings"]
 riglr-core = { workspace = true }
 riglr-macros = { workspace = true }
 riglr-solana-common = { workspace = true }
-# riglr-solana-tools = { workspace = true }  # Temporarily commented out due to compilation issues in riglr-solana-tools
+riglr-solana-tools = { workspace = true }
 rig-core = { workspace = true }
 reqwest = { workspace = true }
 serde = { workspace = true }

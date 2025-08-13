@@ -35,6 +35,10 @@ impl Tool for TestTool {
     fn name(&self) -> &str {
         "test_tool"
     }
+
+    fn description(&self) -> &str {
+        ""
+    }
 }
 
 fn job_creation_benchmarks(c: &mut Criterion) {

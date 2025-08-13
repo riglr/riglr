@@ -21,6 +21,13 @@ pub async fn multi_param_tool(a: i32, b: i32, c: String) -> Result<String> {
     Ok(format!("{} + {} = {}", a, b, c))
 }
 
+/// Doc comment used when no explicit description attribute is provided
+#[tool]
+pub async fn doc_only_tool() -> Result<&'static str> { Ok("ok") }
+
+#[tool(description = "Explicit description.")]
+pub async fn attr_tool() -> Result<&'static str> { Ok("ok") }
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -41,5 +48,16 @@ mod tests {
     async fn test_multi_param_tool() {
         let result = multi_param_tool(1, 2, "test".to_string()).await.unwrap();
         assert_eq!(result, "1 + 2 = test");
+    }
+
+    #[tokio::test]
+    async fn test_description_priority() {
+    // For function tools, the generated struct name is <FnNamePascalCase>Tool
+    // Hence doc_only_tool -> DocOnlyToolTool, attr_tool -> AttrToolTool
+    let doc_tool = DocOnlyToolTool::new();
+    let attr_tool = AttrToolTool::new();
+
+        assert_eq!(doc_tool.description(), "Doc comment used when no explicit description attribute is provided");
+        assert_eq!(attr_tool.description(), "Explicit description.");
     }
 }

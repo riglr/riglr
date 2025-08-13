@@ -122,13 +122,25 @@ pub fn swap_tokens_tool() -> std::sync::Arc<dyn riglr_core::Tool> {
 }
 ```
 
-### 3. Documentation Processing
+### 3. Documentation Processing and Description Attribute
 
-The macro extracts documentation from three sources:
+The macro extracts documentation from three sources and wires them into the Tool implementation:
 
 - **Function docstrings** → Tool descriptions for AI models
 - **Parameter docstrings** → JSON schema field descriptions  
 - **Type annotations** → JSON schema type information
+
+You can also provide an explicit AI-facing description using the attribute:
+
+```rust,ignore
+#[tool(description = "Fetches the URL and returns the body as text.")]
+async fn fetch(url: String) -> Result<String, Error> { ... }
+```
+
+Priority logic for the generated `Tool::description()` method:
+- If `description = "..."` attribute is present, that string is used
+- Else, the item's rustdoc comments are used
+- Else, an empty string is returned
 
 This enables AI models to understand exactly what each tool does and how to use it properly.
 
@@ -500,7 +512,7 @@ developer-friendly framework for building sophisticated blockchain AI agents.
 use heck::ToPascalCase;
 use proc_macro::TokenStream;
 use quote::{quote, ToTokens};
-use syn::{Attribute, FnArg, ItemFn, ItemStruct, PatType};
+use syn::{parse_macro_input, Attribute, DeriveInput, FnArg, ItemFn, ItemStruct, PatType, parse::Parse, parse::ParseStream, LitStr, Token};
 
 /// The `#[tool]` procedural macro that converts functions and structs into Tool implementations.
 ///
@@ -510,15 +522,22 @@ use syn::{Attribute, FnArg, ItemFn, ItemStruct, PatType};
 /// - Automatic JSON schema generation using `schemars`
 /// - Documentation extraction from doc comments
 /// - Parameter descriptions from doc comments on function arguments
+/// Attributes supported:
+/// - description = "..."
 #[proc_macro_attribute]
-pub fn tool(_attr: TokenStream, item: TokenStream) -> TokenStream {
+pub fn tool(attr: TokenStream, item: TokenStream) -> TokenStream {
     let input = item.clone();
+
+    let tool_attrs = match syn::parse::<ToolAttr>(attr) {
+        Ok(attrs) => attrs,
+        Err(_) => ToolAttr { description: None },
+    };
 
     // Try to parse as function first, then as struct
     if let Ok(function) = syn::parse::<ItemFn>(input.clone()) {
-        handle_function(function).into()
+        handle_function(function, tool_attrs).into()
     } else if let Ok(structure) = syn::parse::<ItemStruct>(input) {
-        handle_struct(structure).into()
+        handle_struct(structure, tool_attrs).into()
     } else {
         syn::Error::new_spanned(
             proc_macro2::TokenStream::from(item),
@@ -529,16 +548,42 @@ pub fn tool(_attr: TokenStream, item: TokenStream) -> TokenStream {
     }
 }
 
-fn handle_function(function: ItemFn) -> proc_macro2::TokenStream {
+#[derive(Default)]
+struct ToolAttr {
+    description: Option<String>,
+}
+
+impl Parse for ToolAttr {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        if input.is_empty() {
+            return Ok(Self::default());
+        }
+
+        let lookahead = input.lookahead1();
+        if lookahead.peek(syn::Ident) {
+            let ident: syn::Ident = input.parse()?;
+            if ident == "description" {
+                input.parse::<Token![=]>()?;
+                let lit: LitStr = input.parse()?;
+                return Ok(Self { description: Some(lit.value()) });
+            } else {
+                return Err(syn::Error::new_spanned(ident, "Unknown attribute key. Supported: description"));
+            }
+        }
+
+        Err(syn::Error::new(input.span(), "Expected attribute key like: description = \"...\""))
+    }
+}
+
+fn handle_function(function: ItemFn, tool_attrs: ToolAttr) -> proc_macro2::TokenStream {
     let fn_name = &function.sig.ident;
     let fn_vis = &function.vis;
 
     // Extract documentation from function
     let description = extract_doc_comments(&function.attrs);
-    let _description_lit = if description.is_empty() {
-        quote! { concat!("Tool: ", stringify!(#fn_name)) }
-    } else {
-        quote! { #description }
+    let selected_description = match tool_attrs.description {
+        Some(desc) => desc,
+        None => description,
     };
 
     // Extract parameter info 
@@ -626,8 +671,8 @@ fn handle_function(function: ItemFn) -> proc_macro2::TokenStream {
         }
 
         // Implement the Tool trait
-        #[async_trait::async_trait]
-        impl riglr_core::Tool for #tool_struct_name {
+    #[async_trait::async_trait]
+    impl riglr_core::Tool for #tool_struct_name {
             async fn execute(&self, params: serde_json::Value) -> Result<riglr_core::JobResult, Box<dyn std::error::Error + Send + Sync>> {
                 // Parse the parameters; return a structured JobResult on parse failure
                 let args: #args_struct_name = match serde_json::from_value(params) {
@@ -694,6 +739,10 @@ fn handle_function(function: ItemFn) -> proc_macro2::TokenStream {
             fn name(&self) -> &str {
                 stringify!(#fn_name)
             }
+
+            fn description(&self) -> &str {
+                #selected_description
+            }
         }
 
 
@@ -707,16 +756,15 @@ fn handle_function(function: ItemFn) -> proc_macro2::TokenStream {
     }
 }
 
-fn handle_struct(structure: ItemStruct) -> proc_macro2::TokenStream {
+fn handle_struct(structure: ItemStruct, tool_attrs: ToolAttr) -> proc_macro2::TokenStream {
     let struct_name = &structure.ident;
     let struct_vis = &structure.vis;
 
     // Extract documentation from struct
     let description = extract_doc_comments(&structure.attrs);
-    let _description_lit = if description.is_empty() {
-        quote! { concat!("Tool: ", stringify!(#struct_name)) }
-    } else {
-        quote! { #description }
+    let selected_description = match tool_attrs.description {
+        Some(desc) => desc,
+        None => description,
     };
 
     quote! {
@@ -724,8 +772,8 @@ fn handle_struct(structure: ItemStruct) -> proc_macro2::TokenStream {
         #structure
 
         // Implement the Tool trait
-        #[async_trait::async_trait]
-        impl riglr_core::Tool for #struct_name {
+    #[async_trait::async_trait]
+    impl riglr_core::Tool for #struct_name {
             async fn execute(&self, params: serde_json::Value) -> Result<riglr_core::JobResult, Box<dyn std::error::Error + Send + Sync>> {
                 // Parse parameters into the struct; return a structured JobResult on parse failure
                 let args: Self = match serde_json::from_value(params) {
@@ -792,6 +840,10 @@ fn handle_struct(structure: ItemStruct) -> proc_macro2::TokenStream {
             fn name(&self) -> &str {
                 stringify!(#struct_name)
             }
+
+            fn description(&self) -> &str {
+                #selected_description
+            }
         }
 
         // Convenience function to create the tool
@@ -825,6 +877,152 @@ fn extract_doc_comments(attrs: &[Attribute]) -> String {
     }
 
     docs.join("\n").trim().to_string()
+}
+
+/// Derives automatic conversion from an error enum to ToolError.
+/// 
+/// This macro generates a `From<YourError> for ToolError` implementation
+/// that automatically classifies errors as retriable or permanent based on
+/// naming conventions in variant names.
+/// 
+/// # Classification Rules
+/// 
+/// Errors are classified as **retriable** if their variant names contain:
+/// - `Rpc`, `Network`, `Connection`, `Timeout`, `TooManyRequests`, `RateLimit`
+/// - `Api` (for external API errors)
+/// - `Http` (for HTTP-related errors)
+/// 
+/// Errors are classified as **permanent** if their variant names contain:
+/// - `Invalid`, `Parse`, `Serialization`, `NotFound`, `Unauthorized`
+/// - `InsufficientBalance`, `InsufficientFunds`
+/// - All other unmatched variants (conservative default)
+/// 
+/// # Custom Classification
+/// 
+/// You can override the automatic classification using attributes:
+/// 
+/// ```rust,ignore
+/// #[derive(IntoToolError)]
+/// enum MyError {
+///     #[tool_error(retriable)]
+///     CustomError(String),
+///     
+///     #[tool_error(permanent)]
+///     NetworkError(String), // Override default retriable classification
+///     
+///     #[tool_error(rate_limited)]
+///     ApiQuotaExceeded,
+/// }
+/// ```
+/// 
+/// # Examples
+/// 
+/// ```rust,ignore
+/// use riglr_macros::IntoToolError;
+/// use thiserror::Error;
+/// 
+/// #[derive(Error, Debug, IntoToolError)]
+/// enum SolanaError {
+///     #[error("RPC error: {0}")]
+///     RpcError(String),  // Automatically retriable
+///     
+///     #[error("Invalid address: {0}")]
+///     InvalidAddress(String),  // Automatically permanent
+///     
+///     #[error("Network timeout")]
+///     NetworkTimeout,  // Automatically retriable
+///     
+///     #[error("Insufficient balance")]
+///     InsufficientBalance,  // Automatically permanent
+///     
+///     #[tool_error(retriable)]
+///     #[error("Custom error: {0}")]
+///     CustomError(String),  // Explicitly retriable
+/// }
+/// ```
+#[proc_macro_derive(IntoToolError, attributes(tool_error))]
+pub fn derive_into_tool_error(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    
+    let name = input.ident;
+    let variants = match input.data {
+        syn::Data::Enum(ref data) => &data.variants,
+        _ => {
+            return TokenStream::from(quote! {
+                compile_error!("IntoToolError can only be derived for enums");
+            });
+        }
+    };
+    
+    let match_arms = variants.iter().map(|variant| {
+        let variant_name = &variant.ident;
+        let variant_name_str = variant_name.to_string();
+        
+        // Check for explicit classification attribute
+        let classification = variant.attrs.iter()
+            .filter_map(|attr| {
+                if attr.path().is_ident("tool_error") {
+                    attr.parse_args::<syn::Ident>().ok()
+                } else {
+                    None
+                }
+            })
+            .next();
+        
+        let pattern = match &variant.fields {
+            syn::Fields::Named(_) => quote! { #name::#variant_name { .. } },
+            syn::Fields::Unnamed(_) => quote! { #name::#variant_name(..) },
+            syn::Fields::Unit => quote! { #name::#variant_name },
+        };
+        
+        let conversion = if let Some(class) = classification {
+            match class.to_string().as_str() {
+                "retriable" => quote! { 
+                    riglr_core::ToolError::retriable(err.to_string()) 
+                },
+                "permanent" => quote! { 
+                    riglr_core::ToolError::permanent(err.to_string()) 
+                },
+                "rate_limited" => quote! { 
+                    riglr_core::ToolError::rate_limited(err.to_string()) 
+                },
+                _ => quote! { 
+                    riglr_core::ToolError::permanent(err.to_string()) 
+                },
+            }
+        } else {
+            // Automatic classification based on naming conventions
+            let retriable_patterns = [
+                "Rpc", "Network", "Connection", "Timeout", 
+                "TooManyRequests", "RateLimit", "Api", "Http"
+            ];
+            
+            let is_retriable = retriable_patterns.iter()
+                .any(|pattern| variant_name_str.contains(pattern));
+            
+            if is_retriable {
+                quote! { riglr_core::ToolError::retriable(err.to_string()) }
+            } else {
+                quote! { riglr_core::ToolError::permanent(err.to_string()) }
+            }
+        };
+        
+        quote! {
+            #pattern => #conversion
+        }
+    });
+    
+    let expanded = quote! {
+        impl From<#name> for riglr_core::ToolError {
+            fn from(err: #name) -> Self {
+                match err {
+                    #(#match_arms),*
+                }
+            }
+        }
+    };
+    
+    TokenStream::from(expanded)
 }
 
 #[cfg(test)]

@@ -49,6 +49,28 @@ pub trait TransactionSigner: Send + Sync + std::fmt::Debug {
         tx: alloy::rpc::types::TransactionRequest,
     ) -> Result<String, SignerError>;
     
+    /// Sign and send a Solana transaction with retry logic
+    /// Uses default retry configuration
+    async fn sign_and_send_solana_with_retry(
+        &self,
+        tx: &mut solana_sdk::transaction::Transaction,
+    ) -> Result<String, SignerError> {
+        // Default implementation just calls the regular method
+        // Concrete implementations can override with actual retry logic
+        self.sign_and_send_solana_transaction(tx).await
+    }
+    
+    /// Sign and send an EVM transaction with retry logic
+    /// Uses default retry configuration
+    async fn sign_and_send_evm_with_retry(
+        &self,
+        tx: alloy::rpc::types::TransactionRequest,
+    ) -> Result<String, SignerError> {
+        // Default implementation just calls the regular method
+        // Concrete implementations can override with actual retry logic
+        self.sign_and_send_evm_transaction(tx).await
+    }
+    
     /// Get Solana RPC client (derived from signer configuration)
     /// This client should be configured with the appropriate RPC endpoint
     fn solana_client(&self) -> Arc<solana_client::rpc_client::RpcClient>;

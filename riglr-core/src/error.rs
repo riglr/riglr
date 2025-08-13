@@ -74,57 +74,9 @@ pub enum ToolError {
     
     /// Signer context error
     #[error("Signer context error")]
-    SignerContext(#[from] SignerError),
+    SignerContext(#[from] crate::signer::SignerError),
 }
 
-/// Signer-specific error type
-#[derive(Error, Debug)]
-pub enum SignerError {
-    /// No signer context available
-    #[error("No signer context available")]
-    NoContext,
-    
-    /// Invalid signature
-    #[error("Invalid signature: {0}")]
-    InvalidSignature(String),
-    
-    /// Network error during signing
-    #[error("Network error during signing: {0}")]
-    NetworkError(String),
-    
-    /// Insufficient funds
-    #[error("Insufficient funds for operation")]
-    InsufficientFunds,
-    
-    /// Invalid private key
-    #[error("Invalid private key: {0}")]
-    InvalidPrivateKey(String),
-    
-    /// Transaction failed
-    #[error("Transaction failed: {0}")]
-    TransactionFailed(String),
-}
-
-impl From<crate::signer::SignerError> for SignerError {
-    fn from(err: crate::signer::SignerError) -> Self {
-        match err {
-            crate::signer::SignerError::NoSignerContext => SignerError::NoContext,
-            crate::signer::SignerError::Configuration(msg) => SignerError::InvalidPrivateKey(msg),
-            crate::signer::SignerError::Signing(msg) => SignerError::InvalidSignature(msg),
-            crate::signer::SignerError::SolanaTransaction(err) => SignerError::TransactionFailed(err.to_string()),
-            crate::signer::SignerError::EvmTransaction(msg) => SignerError::TransactionFailed(msg),
-            crate::signer::SignerError::ClientCreation(msg) => SignerError::NetworkError(msg),
-            crate::signer::SignerError::InvalidPrivateKey(msg) => SignerError::InvalidPrivateKey(msg),
-            crate::signer::SignerError::ProviderError(msg) => SignerError::NetworkError(msg),
-            crate::signer::SignerError::TransactionFailed(msg) => SignerError::TransactionFailed(msg),
-            crate::signer::SignerError::UnsupportedOperation(msg) => SignerError::TransactionFailed(msg),
-            crate::signer::SignerError::BlockhashError(msg) => SignerError::NetworkError(msg),
-            crate::signer::SignerError::SigningError(msg) => SignerError::InvalidSignature(msg),
-            crate::signer::SignerError::UnsupportedNetwork(msg) => SignerError::NetworkError(msg),
-            crate::signer::SignerError::InvalidRpcUrl(msg) => SignerError::NetworkError(msg),
-        }
-    }
-}
 
 impl ToolError {
     /// Creates a retriable error with context and source preservation

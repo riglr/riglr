@@ -1,0 +1,22 @@
+[book]
+title = "riglr Documentation"
+authors = ["riglr project contributors"]
+description = "The official documentation for riglr, a production-ready AI agent framework for blockchain."
+language = "en"
+multilingual = false
+src = "src"
+
+[output.html]
+theme = "light"
+default-theme = "light"
+preferred-dark-theme = "navy"
+git-repository-url = "https://github.com/riglr-project/riglr"
+edit-url-template = "https://github.com/riglr-project/riglr/edit/main/docs/{path}"
+site-url = "/docs/"
+cname = "docs.riglr.dev"
+
+[output.html.search]
+limit-results = 20
+use-boolean-search = true
+boost-title = 2
+boost-hierarchy = 1

@@ -409,6 +409,18 @@ pub trait Tool: Send + Sync {
     /// # }
     /// ```
     fn name(&self) -> &str;
+
+    /// A concise, AI-friendly description of this tool's purpose.
+    ///
+    /// This should be a short, human-readable sentence that explains
+    /// what the tool does and when to use it. It's intended for AI models
+    /// and end-user UIs, and is separate from developer-facing rustdoc.
+    ///
+    /// When using the `#[tool]` macro from `riglr-macros`, this value is:
+    /// - Taken from the explicit `#[tool(description = "...")]` attribute when provided
+    /// - Otherwise derived from the item's doc comments
+    /// - Falls back to an empty string if neither is present
+    fn description(&self) -> &str;
 }
 
 /// Configuration for tool execution behavior.
@@ -1221,6 +1233,10 @@ mod tests {
 
         fn name(&self) -> &str {
             &self.name
+        }
+
+        fn description(&self) -> &str {
+            ""
         }
     }
 
@@ -2078,6 +2094,10 @@ mod tests {
 
         fn name(&self) -> &str {
             &self.name
+        }
+
+        fn description(&self) -> &str {
+            ""
         }
     }
 

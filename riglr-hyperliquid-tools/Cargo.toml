@@ -17,7 +17,7 @@ documentation = "https://docs.rs/riglr-hyperliquid-tools"
 rig-core = { workspace = true }
 riglr-core = { workspace = true }
 riglr-macros = { workspace = true }
-# riglr-solana-tools = { workspace = true }  # Temporarily commented out due to compilation issues
+riglr-solana-tools = { workspace = true }
 
 # Async and Error Handling
 tokio = { workspace = true }

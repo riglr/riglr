@@ -95,6 +95,11 @@
 //!     fn name(&self) -> &str {
 //!         "greeting"
 //!     }
+//!
+//!     fn description(&self) -> &str {
+//!         "Greets a user by name with a friendly message."
+//!     }
+//!     }
 //! }
 //!
 //! # async fn example() -> anyhow::Result<()> {
@@ -194,14 +199,16 @@ pub mod tool;
 pub mod transactions;
 pub mod util;
 
-pub use config::*;
-pub use error::{ToolError, CoreError, SignerError};
+pub use config::{RpcConfig, EvmNetworkConfig, SolanaNetworkConfig};
+pub use error::{ToolError, CoreError};
+pub use signer::SignerError;
 pub use idempotency::*;
 pub use jobs::*;
 pub use queue::*;
 pub use signer::{SignerContext, TransactionSigner};
 pub use tool::*;
-pub use util::*;
+// Note: util functions are for internal use only
+// Environment variable functions should not be used by library consumers
 
 #[cfg(test)]
 mod tests {
@@ -230,6 +237,10 @@ mod tests {
 
         fn name(&self) -> &str {
             &self.name
+        }
+
+        fn description(&self) -> &str {
+            ""
         }
     }
 
