@@ -12,45 +12,10 @@ Comprehensive API documentation for the `riglr-evm-tools` crate.
 
 - [`VERSION`](#version)
 
-### Functions
+### Functions (network)
 
-- [`anvil`](#anvil)
-- [`arbitrum`](#arbitrum)
-- [`arbitrum`](#arbitrum)
-- [`base`](#base)
-- [`base`](#base)
-- [`chain_id_to_rpc_url`](#chain_id_to_rpc_url)
-- [`chain_name`](#chain_name)
-- [`config`](#config)
-- [`eth_to_wei`](#eth_to_wei)
-- [`ethereum`](#ethereum)
-- [`execute_evm_transaction`](#execute_evm_transaction)
-- [`for_chain`](#for_chain)
-- [`from_signer`](#from_signer)
-- [`get_balance`](#get_balance)
 - [`get_block_number`](#get_block_number)
-- [`get_block_number`](#get_block_number)
-- [`get_gas_price`](#get_gas_price)
-- [`get_supported_chains`](#get_supported_chains)
-- [`get_token_decimals`](#get_token_decimals)
-- [`get_token_name`](#get_token_name)
-- [`get_token_symbol`](#get_token_symbol)
 - [`get_transaction_receipt`](#get_transaction_receipt)
-- [`has_signer`](#has_signer)
-- [`is_supported_chain`](#is_supported_chain)
-- [`mainnet`](#mainnet)
-- [`make_provider`](#make_provider)
-- [`new`](#new)
-- [`optimism`](#optimism)
-- [`optimism`](#optimism)
-- [`polygon`](#polygon)
-- [`polygon`](#polygon)
-- [`provider`](#provider)
-- [`require_signer`](#require_signer)
-- [`signer`](#signer)
-- [`validate_address`](#validate_address)
-- [`wei_to_eth`](#wei_to_eth)
-- [`with_signer`](#with_signer)
 
 ### Structs
 
@@ -76,9 +41,56 @@ Comprehensive API documentation for the `riglr-evm-tools` crate.
 - [`transfer_erc20`](#transfer_erc20)
 - [`transfer_eth`](#transfer_eth)
 
+### Functions (balance)
+
+- [`get_token_decimals`](#get_token_decimals)
+- [`get_token_name`](#get_token_name)
+- [`get_token_symbol`](#get_token_symbol)
+
+### Functions (client)
+
+- [`anvil`](#anvil)
+- [`arbitrum`](#arbitrum)
+- [`base`](#base)
+- [`chain_name`](#chain_name)
+- [`config`](#config)
+- [`eth_to_wei`](#eth_to_wei)
+- [`from_signer`](#from_signer)
+- [`get_balance`](#get_balance)
+- [`get_block_number`](#get_block_number)
+- [`get_gas_price`](#get_gas_price)
+- [`has_signer`](#has_signer)
+- [`mainnet`](#mainnet)
+- [`new`](#new)
+- [`optimism`](#optimism)
+- [`polygon`](#polygon)
+- [`provider`](#provider)
+- [`require_signer`](#require_signer)
+- [`signer`](#signer)
+- [`validate_address`](#validate_address)
+- [`wei_to_eth`](#wei_to_eth)
+- [`with_signer`](#with_signer)
+
 ### Type Aliases
 
 - [`EvmProvider`](#evmprovider)
+
+### Functions (util)
+
+- [`chain_id_to_rpc_url`](#chain_id_to_rpc_url)
+- [`execute_evm_transaction`](#execute_evm_transaction)
+- [`get_supported_chains`](#get_supported_chains)
+- [`is_supported_chain`](#is_supported_chain)
+- [`make_provider`](#make_provider)
+
+### Functions (swap)
+
+- [`arbitrum`](#arbitrum)
+- [`base`](#base)
+- [`ethereum`](#ethereum)
+- [`for_chain`](#for_chain)
+- [`optimism`](#optimism)
+- [`polygon`](#polygon)
 
 ## Enums
 
@@ -135,178 +147,7 @@ Current version
 
 ---
 
-## Functions
-
-### anvil
-
-**Source**: `src/client.rs`
-
-```rust
-pub async fn anvil() -> Result<Self>
-```
-
-Create a local Anvil client for testing
-
----
-
-### arbitrum
-
-**Source**: `src/client.rs`
-
-```rust
-pub async fn arbitrum() -> Result<Self>
-```
-
-Create an Arbitrum client
-
----
-
-### arbitrum
-
-**Source**: `src/swap.rs`
-
-```rust
-pub fn arbitrum() -> Self
-```
-
-Default configuration for Arbitrum
-
----
-
-### base
-
-**Source**: `src/client.rs`
-
-```rust
-pub async fn base() -> Result<Self>
-```
-
-Create a Base client
-
----
-
-### base
-
-**Source**: `src/swap.rs`
-
-```rust
-pub fn base() -> Self
-```
-
-Default configuration for Base
-
----
-
-### chain_id_to_rpc_url
-
-**Source**: `src/util.rs`
-
-```rust
-pub fn chain_id_to_rpc_url(chain_id: u64) -> Result<String>
-```
-
-Maps chain IDs to RPC URLs using convention-based environment variable lookup.
-Uses format: RPC_URL_{CHAIN_ID}
-Examples: RPC_URL_1 (Ethereum), RPC_URL_137 (Polygon), RPC_URL_42161 (Arbitrum)
-
----
-
-### chain_name
-
-**Source**: `src/client.rs`
-
-```rust
-pub fn chain_name(chain_id: u64) -> &'static str
-```
-
-Get chain name from chain ID
-
----
-
-### config
-
-**Source**: `src/client.rs`
-
-```rust
-pub fn config(&self) -> &EvmConfig
-```
-
-Get config
-
----
-
-### eth_to_wei
-
-**Source**: `src/client.rs`
-
-```rust
-pub fn eth_to_wei(eth: f64) -> U256
-```
-
-Convert ETH to wei
-
----
-
-### ethereum
-
-**Source**: `src/swap.rs`
-
-```rust
-pub fn ethereum() -> Self
-```
-
-Default configuration for Ethereum mainnet
-
----
-
-### execute_evm_transaction
-
-**Source**: `src/util.rs`
-
-```rust
-pub async fn execute_evm_transaction<F, Fut>( chain_id: u64, tx_creator: F, ) -> Result<String, EvmToolError> where F: FnOnce(Address, EvmProvider) -> Fut + Send + 'static, Fut: Future<Output = Result<TransactionRequest, EvmToolError>> + Send + 'static,
-```
-
-Higher-order function to execute EVM transactions
-Abstracts signer context retrieval and transaction signing
-
----
-
-### for_chain
-
-**Source**: `src/swap.rs`
-
-```rust
-pub fn for_chain(chain_id: u64) -> Result<Self, String>
-```
-
-Get configuration for a specific chain ID
-
----
-
-### from_signer
-
-**Source**: `src/client.rs`
-
-```rust
-pub async fn from_signer(signer: &dyn riglr_core::signer::TransactionSigner) -> Result<Self>
-```
-
-Create an EvmClient from a TransactionSigner
-
----
-
-### get_balance
-
-**Source**: `src/client.rs`
-
-```rust
-pub async fn get_balance(&self, address: Address) -> Result<U256>
-```
-
-Get ETH balance for an address
-
----
+## Functions (network)
 
 ### get_block_number
 
@@ -320,78 +161,6 @@ Get the current block number
 
 ---
 
-### get_block_number
-
-**Source**: `src/client.rs`
-
-```rust
-pub async fn get_block_number(&self) -> Result<u64>
-```
-
-Get current block number
-
----
-
-### get_gas_price
-
-**Source**: `src/client.rs`
-
-```rust
-pub async fn get_gas_price(&self) -> Result<u128>
-```
-
-Get gas price
-
----
-
-### get_supported_chains
-
-**Source**: `src/util.rs`
-
-```rust
-pub fn get_supported_chains() -> Vec<u64>
-```
-
-Returns a list of all configured chain IDs by scanning environment variables
-
----
-
-### get_token_decimals
-
-**Source**: `src/balance.rs`
-
-```rust
-pub async fn get_token_decimals( client: &dyn riglr_core::signer::EvmClient, token_address: Address, ) -> Result<u8, Box<dyn std::error::Error + Send + Sync>>
-```
-
-Get token decimals
-
----
-
-### get_token_name
-
-**Source**: `src/balance.rs`
-
-```rust
-pub async fn get_token_name( client: &dyn riglr_core::signer::EvmClient, token_address: Address, ) -> Result<String, Box<dyn std::error::Error + Send + Sync>>
-```
-
-Get token name
-
----
-
-### get_token_symbol
-
-**Source**: `src/balance.rs`
-
-```rust
-pub async fn get_token_symbol( client: &dyn riglr_core::signer::EvmClient, token_address: Address, ) -> Result<String, Box<dyn std::error::Error + Send + Sync>>
-```
-
-Get token symbol
-
----
-
 ### get_transaction_receipt
 
 **Source**: `src/network.rs`
@@ -401,187 +170,6 @@ pub async fn get_transaction_receipt( _client: &EvmClient, tx_hash: &str, ) -> R
 ```
 
 Get a transaction receipt by hash
-
----
-
-### has_signer
-
-**Source**: `src/client.rs`
-
-```rust
-pub fn has_signer(&self) -> bool
-```
-
-Check if client has a signer configured
-
----
-
-### is_supported_chain
-
-**Source**: `src/util.rs`
-
-```rust
-pub fn is_supported_chain(chain_id: u64) -> bool
-```
-
-Helper function to check if a chain is supported (has RPC URL configured)
-
----
-
-### mainnet
-
-**Source**: `src/client.rs`
-
-```rust
-pub async fn mainnet() -> Result<Self>
-```
-
-Create a mainnet client
-
----
-
-### make_provider
-
-**Source**: `src/util.rs`
-
-```rust
-pub fn make_provider(chain_id: u64) -> Result<EvmProvider, EvmToolError>
-```
-
-Factory function for creating EVM providers
-Centralizes provider creation and ensures consistent configuration
-
----
-
-### new
-
-**Source**: `src/client.rs`
-
-```rust
-pub async fn new(rpc_url: String) -> Result<Self>
-```
-
-Create a new EVM client
-
----
-
-### optimism
-
-**Source**: `src/client.rs`
-
-```rust
-pub async fn optimism() -> Result<Self>
-```
-
-Create an Optimism client
-
----
-
-### optimism
-
-**Source**: `src/swap.rs`
-
-```rust
-pub fn optimism() -> Self
-```
-
-Default configuration for Optimism
-
----
-
-### polygon
-
-**Source**: `src/client.rs`
-
-```rust
-pub async fn polygon() -> Result<Self>
-```
-
-Create a Polygon client
-
----
-
-### polygon
-
-**Source**: `src/swap.rs`
-
-```rust
-pub fn polygon() -> Self
-```
-
-Default configuration for Polygon
-
----
-
-### provider
-
-**Source**: `src/client.rs`
-
-```rust
-pub fn provider(&self) -> &Arc<dyn Provider<Ethereum>>
-```
-
-Get the provider
-
----
-
-### require_signer
-
-**Source**: `src/client.rs`
-
-```rust
-pub fn require_signer(&self) -> Result<&PrivateKeySigner>
-```
-
-Get signer or return error if not configured
-
----
-
-### signer
-
-**Source**: `src/client.rs`
-
-```rust
-pub fn signer(&self) -> Option<&PrivateKeySigner>
-```
-
-Get reference to the signer if configured
-
----
-
-### validate_address
-
-**Source**: `src/client.rs`
-
-```rust
-pub fn validate_address(address: &str) -> Result<Address>
-```
-
-Validate an Ethereum address
-
----
-
-### wei_to_eth
-
-**Source**: `src/client.rs`
-
-```rust
-pub fn wei_to_eth(wei: U256) -> f64
-```
-
-Convert wei to ETH
-
----
-
-### with_signer
-
-**Source**: `src/client.rs`
-
-```rust
-pub fn with_signer(mut self, private_key: &str) -> Result<Self>
-```
-
-Configure client with a private key signer
 
 ---
 
@@ -1334,6 +922,298 @@ println!("Gas used: {} at {} wei", result.gas_used.unwrap_or(0), result.gas_pric
 
 ---
 
+## Functions (balance)
+
+### get_token_decimals
+
+**Source**: `src/balance.rs`
+
+```rust
+pub async fn get_token_decimals( client: &dyn riglr_core::signer::EvmClient, token_address: Address, ) -> Result<u8, Box<dyn std::error::Error + Send + Sync>>
+```
+
+Get token decimals
+
+---
+
+### get_token_name
+
+**Source**: `src/balance.rs`
+
+```rust
+pub async fn get_token_name( client: &dyn riglr_core::signer::EvmClient, token_address: Address, ) -> Result<String, Box<dyn std::error::Error + Send + Sync>>
+```
+
+Get token name
+
+---
+
+### get_token_symbol
+
+**Source**: `src/balance.rs`
+
+```rust
+pub async fn get_token_symbol( client: &dyn riglr_core::signer::EvmClient, token_address: Address, ) -> Result<String, Box<dyn std::error::Error + Send + Sync>>
+```
+
+Get token symbol
+
+---
+
+## Functions (client)
+
+### anvil
+
+**Source**: `src/client.rs`
+
+```rust
+pub async fn anvil() -> Result<Self>
+```
+
+Create a local Anvil client for testing
+
+---
+
+### arbitrum
+
+**Source**: `src/client.rs`
+
+```rust
+pub async fn arbitrum() -> Result<Self>
+```
+
+Create an Arbitrum client
+
+---
+
+### base
+
+**Source**: `src/client.rs`
+
+```rust
+pub async fn base() -> Result<Self>
+```
+
+Create a Base client
+
+---
+
+### chain_name
+
+**Source**: `src/client.rs`
+
+```rust
+pub fn chain_name(chain_id: u64) -> &'static str
+```
+
+Get chain name from chain ID
+
+---
+
+### config
+
+**Source**: `src/client.rs`
+
+```rust
+pub fn config(&self) -> &EvmConfig
+```
+
+Get config
+
+---
+
+### eth_to_wei
+
+**Source**: `src/client.rs`
+
+```rust
+pub fn eth_to_wei(eth: f64) -> U256
+```
+
+Convert ETH to wei
+
+---
+
+### from_signer
+
+**Source**: `src/client.rs`
+
+```rust
+pub async fn from_signer(signer: &dyn riglr_core::signer::TransactionSigner) -> Result<Self>
+```
+
+Create an EvmClient from a TransactionSigner
+
+---
+
+### get_balance
+
+**Source**: `src/client.rs`
+
+```rust
+pub async fn get_balance(&self, address: Address) -> Result<U256>
+```
+
+Get ETH balance for an address
+
+---
+
+### get_block_number
+
+**Source**: `src/client.rs`
+
+```rust
+pub async fn get_block_number(&self) -> Result<u64>
+```
+
+Get current block number
+
+---
+
+### get_gas_price
+
+**Source**: `src/client.rs`
+
+```rust
+pub async fn get_gas_price(&self) -> Result<u128>
+```
+
+Get gas price
+
+---
+
+### has_signer
+
+**Source**: `src/client.rs`
+
+```rust
+pub fn has_signer(&self) -> bool
+```
+
+Check if client has a signer configured
+
+---
+
+### mainnet
+
+**Source**: `src/client.rs`
+
+```rust
+pub async fn mainnet() -> Result<Self>
+```
+
+Create a mainnet client
+
+---
+
+### new
+
+**Source**: `src/client.rs`
+
+```rust
+pub async fn new(rpc_url: String) -> Result<Self>
+```
+
+Create a new EVM client
+
+---
+
+### optimism
+
+**Source**: `src/client.rs`
+
+```rust
+pub async fn optimism() -> Result<Self>
+```
+
+Create an Optimism client
+
+---
+
+### polygon
+
+**Source**: `src/client.rs`
+
+```rust
+pub async fn polygon() -> Result<Self>
+```
+
+Create a Polygon client
+
+---
+
+### provider
+
+**Source**: `src/client.rs`
+
+```rust
+pub fn provider(&self) -> &Arc<dyn Provider<Ethereum>>
+```
+
+Get the provider
+
+---
+
+### require_signer
+
+**Source**: `src/client.rs`
+
+```rust
+pub fn require_signer(&self) -> Result<&PrivateKeySigner>
+```
+
+Get signer or return error if not configured
+
+---
+
+### signer
+
+**Source**: `src/client.rs`
+
+```rust
+pub fn signer(&self) -> Option<&PrivateKeySigner>
+```
+
+Get reference to the signer if configured
+
+---
+
+### validate_address
+
+**Source**: `src/client.rs`
+
+```rust
+pub fn validate_address(address: &str) -> Result<Address>
+```
+
+Validate an Ethereum address
+
+---
+
+### wei_to_eth
+
+**Source**: `src/client.rs`
+
+```rust
+pub fn wei_to_eth(wei: U256) -> f64
+```
+
+Convert wei to ETH
+
+---
+
+### with_signer
+
+**Source**: `src/client.rs`
+
+```rust
+pub fn with_signer(mut self, private_key: &str) -> Result<Self>
+```
+
+Configure client with a private key signer
+
+---
+
 ## Type Aliases
 
 ### EvmProvider
@@ -1345,6 +1225,146 @@ type EvmProvider = Arc<dyn Provider<Ethereum>>
 ```
 
 Type alias for an Arc-wrapped Ethereum provider
+
+---
+
+## Functions (util)
+
+### chain_id_to_rpc_url
+
+**Source**: `src/util.rs`
+
+```rust
+pub fn chain_id_to_rpc_url(chain_id: u64) -> Result<String>
+```
+
+Maps chain IDs to RPC URLs using convention-based environment variable lookup.
+Uses format: RPC_URL_{CHAIN_ID}
+Examples: RPC_URL_1 (Ethereum), RPC_URL_137 (Polygon), RPC_URL_42161 (Arbitrum)
+
+---
+
+### execute_evm_transaction
+
+**Source**: `src/util.rs`
+
+```rust
+pub async fn execute_evm_transaction<F, Fut>( chain_id: u64, tx_creator: F, ) -> Result<String, EvmToolError> where F: FnOnce(Address, EvmProvider) -> Fut + Send + 'static, Fut: Future<Output = Result<TransactionRequest, EvmToolError>> + Send + 'static,
+```
+
+Higher-order function to execute EVM transactions
+Abstracts signer context retrieval and transaction signing
+
+---
+
+### get_supported_chains
+
+**Source**: `src/util.rs`
+
+```rust
+pub fn get_supported_chains() -> Vec<u64>
+```
+
+Returns a list of all configured chain IDs by scanning environment variables
+
+---
+
+### is_supported_chain
+
+**Source**: `src/util.rs`
+
+```rust
+pub fn is_supported_chain(chain_id: u64) -> bool
+```
+
+Helper function to check if a chain is supported (has RPC URL configured)
+
+---
+
+### make_provider
+
+**Source**: `src/util.rs`
+
+```rust
+pub fn make_provider(chain_id: u64) -> Result<EvmProvider, EvmToolError>
+```
+
+Factory function for creating EVM providers
+Centralizes provider creation and ensures consistent configuration
+
+---
+
+## Functions (swap)
+
+### arbitrum
+
+**Source**: `src/swap.rs`
+
+```rust
+pub fn arbitrum() -> Self
+```
+
+Default configuration for Arbitrum
+
+---
+
+### base
+
+**Source**: `src/swap.rs`
+
+```rust
+pub fn base() -> Self
+```
+
+Default configuration for Base
+
+---
+
+### ethereum
+
+**Source**: `src/swap.rs`
+
+```rust
+pub fn ethereum() -> Self
+```
+
+Default configuration for Ethereum mainnet
+
+---
+
+### for_chain
+
+**Source**: `src/swap.rs`
+
+```rust
+pub fn for_chain(chain_id: u64) -> Result<Self, String>
+```
+
+Get configuration for a specific chain ID
+
+---
+
+### optimism
+
+**Source**: `src/swap.rs`
+
+```rust
+pub fn optimism() -> Self
+```
+
+Default configuration for Optimism
+
+---
+
+### polygon
+
+**Source**: `src/swap.rs`
+
+```rust
+pub fn polygon() -> Self
+```
+
+Default configuration for Polygon
 
 ---
 

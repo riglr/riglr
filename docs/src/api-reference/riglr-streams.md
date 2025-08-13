@@ -138,221 +138,20 @@ Comprehensive API documentation for the `riglr-streams` crate.
 - [`WindowManager`](#windowmanager)
 - [`ZipStream`](#zipstream)
 
-### Functions
+### Functions (streamed_event)
 
-- [`acquire_permit`](#acquire_permit)
-- [`active_chains`](#active_chains)
-- [`add_chain`](#add_chain)
-- [`add_condition`](#add_condition)
-- [`add_event`](#add_event)
-- [`add_event`](#add_event)
-- [`add_event_handler`](#add_event_handler)
-- [`add_stream`](#add_stream)
-- [`add_stream`](#add_stream)
-- [`after`](#after)
-- [`as_event`](#as_event)
-- [`as_event_extended`](#as_event_extended)
-- [`attempt_connect`](#attempt_connect)
-- [`batch_timeout`](#batch_timeout)
-- [`before`](#before)
-- [`build`](#build)
-- [`build`](#build)
-- [`build`](#build)
-- [`calculate_delay`](#calculate_delay)
-- [`calculate_imbalance`](#calculate_imbalance)
-- [`checkpoint`](#checkpoint)
-- [`combinator`](#combinator)
-- [`combine_latest`](#combine_latest)
-- [`condition`](#condition)
-- [`connect`](#connect)
-- [`connect_all`](#connect_all)
-- [`connect_timeout`](#connect_timeout)
-- [`current_health`](#current_health)
-- [`development`](#development)
-- [`disconnect`](#disconnect)
-- [`downcast`](#downcast)
-- [`elapsed_ms`](#elapsed_ms)
-- [`execute`](#execute)
-- [`execution_count`](#execution_count)
-- [`export_json`](#export_json)
-- [`export_prometheus`](#export_prometheus)
-- [`flush_batch`](#flush_batch)
-- [`from`](#from)
-- [`from_config_file`](#from_config_file)
-- [`from_env`](#from_env)
-- [`from_env`](#from_env)
-- [`from_env`](#from_env)
 - [`from_event`](#from_event)
-- [`from_event_error`](#from_event_error)
-- [`from_toml_file`](#from_toml_file)
-- [`get_all_handler_metrics`](#get_all_handler_metrics)
-- [`get_all_metrics`](#get_all_metrics)
-- [`get_all_stream_metrics`](#get_all_stream_metrics)
-- [`get_connection`](#get_connection)
-- [`get_global_metrics`](#get_global_metrics)
-- [`get_handler_metrics`](#get_handler_metrics)
-- [`get_healthy_connection`](#get_healthy_connection)
-- [`get_metrics`](#get_metrics)
-- [`get_metrics`](#get_metrics)
-- [`get_state`](#get_state)
-- [`get_stats`](#get_stats)
-- [`get_stream_metrics`](#get_stream_metrics)
-- [`get_stream_metrics`](#get_stream_metrics)
-- [`health`](#health)
-- [`health`](#health)
-- [`health_history`](#health_history)
-- [`high_performance`](#high_performance)
-- [`high_watermark`](#high_watermark)
-- [`inner`](#inner)
 - [`inner`](#inner)
 - [`inner`](#inner)
 - [`inner_mut`](#inner_mut)
 - [`into_inner`](#into_inner)
-- [`is_chain_configured`](#is_chain_configured)
-- [`is_open`](#is_open)
-- [`is_retriable`](#is_retriable)
-- [`is_stream_running`](#is_stream_running)
-- [`keepalive_interval`](#keepalive_interval)
-- [`list_streams`](#list_streams)
-- [`low_latency`](#low_latency)
-- [`low_watermark`](#low_watermark)
-- [`mark_disconnected`](#mark_disconnected)
-- [`match_event`](#match_event)
-- [`merge_all`](#merge_all)
-- [`metrics_collector`](#metrics_collector)
 - [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`pending_count`](#pending_count)
-- [`permanent_connection`](#permanent_connection)
-- [`pool_health`](#pool_health)
-- [`process_events`](#process_events)
-- [`rate_limited`](#rate_limited)
-- [`record_dropped_event`](#record_dropped_event)
-- [`record_error`](#record_error)
-- [`record_event`](#record_event)
-- [`record_failure`](#record_failure)
-- [`record_handler_execution`](#record_handler_execution)
-- [`record_reconnection`](#record_reconnection)
-- [`record_stream_event`](#record_stream_event)
-- [`record_success`](#record_success)
-- [`register`](#register)
-- [`register_all_configured_chains`](#register_all_configured_chains)
-- [`release_permit`](#release_permit)
-- [`reliable`](#reliable)
-- [`remove_chain`](#remove_chain)
-- [`remove_state`](#remove_state)
-- [`remove_stream`](#remove_stream)
-- [`report_interval`](#report_interval)
-- [`request_timeout`](#request_timeout)
-- [`reset_metrics`](#reset_metrics)
-- [`retriable_connection`](#retriable_connection)
-- [`retry_after`](#retry_after)
-- [`retry_base_delay`](#retry_base_delay)
-- [`retry_max_delay`](#retry_max_delay)
-- [`serialize`](#serialize)
-- [`set_execution_mode`](#set_execution_mode)
-- [`single`](#single)
-- [`single`](#single)
-- [`slow_threshold`](#slow_threshold)
-- [`source_stream`](#source_stream)
-- [`start`](#start)
-- [`start`](#start)
-- [`start`](#start)
-- [`start_all`](#start_all)
-- [`start_stream`](#start_stream)
-- [`start_with_collector`](#start_with_collector)
-- [`state`](#state)
-- [`state`](#state)
-- [`stop`](#stop)
-- [`stop`](#stop)
-- [`stop_all`](#stop_all)
-- [`stop_all`](#stop_all)
-- [`stop_stream`](#stop_stream)
 - [`stream_meta`](#stream_meta)
 - [`stream_meta`](#stream_meta)
-- [`to_event_error`](#to_event_error)
-- [`update_queue_size`](#update_queue_size)
-- [`update_rates`](#update_rates)
-- [`update_state`](#update_state)
-- [`validate`](#validate)
-- [`validate`](#validate)
-- [`validate`](#validate)
-- [`validate`](#validate)
-- [`window_duration`](#window_duration)
-- [`with_check_interval`](#with_check_interval)
-- [`with_combinator`](#with_combinator)
-- [`with_condition`](#with_condition)
-- [`with_connection`](#with_connection)
-- [`with_execution_mode`](#with_execution_mode)
-- [`with_execution_mode`](#with_execution_mode)
-- [`with_failure_threshold`](#with_failure_threshold)
-- [`with_metrics`](#with_metrics)
-- [`with_metrics_collector`](#with_metrics_collector)
-- [`with_stream_manager`](#with_stream_manager)
-- [`with_success_threshold`](#with_success_threshold)
-- [`with_thresholds`](#with_thresholds)
-- [`with_timeout`](#with_timeout)
-- [`zip`](#zip)
+
+### Functions (mock_stream)
+
+- [`new`](#new)
 
 ### Enums
 
@@ -379,9 +178,285 @@ Comprehensive API documentation for the `riglr-streams` crate.
 - [`StreamError`](#streamerror)
 - [`WindowType`](#windowtype)
 
+### Functions (builder)
+
+- [`add_stream`](#add_stream)
+- [`build`](#build)
+- [`from_config_file`](#from_config_file)
+- [`from_env`](#from_env)
+- [`from_env`](#from_env)
+- [`from_toml_file`](#from_toml_file)
+- [`new`](#new)
+- [`with_execution_mode`](#with_execution_mode)
+- [`with_metrics`](#with_metrics)
+- [`with_metrics_collector`](#with_metrics_collector)
+
+### Functions (config)
+
+- [`batch_timeout`](#batch_timeout)
+- [`connect_timeout`](#connect_timeout)
+- [`development`](#development)
+- [`from_env`](#from_env)
+- [`high_performance`](#high_performance)
+- [`high_watermark`](#high_watermark)
+- [`keepalive_interval`](#keepalive_interval)
+- [`low_latency`](#low_latency)
+- [`low_watermark`](#low_watermark)
+- [`reliable`](#reliable)
+- [`report_interval`](#report_interval)
+- [`request_timeout`](#request_timeout)
+- [`retry_base_delay`](#retry_base_delay)
+- [`retry_max_delay`](#retry_max_delay)
+- [`slow_threshold`](#slow_threshold)
+- [`validate`](#validate)
+- [`validate`](#validate)
+- [`validate`](#validate)
+- [`validate`](#validate)
+- [`window_duration`](#window_duration)
+
+### Functions (error)
+
+- [`from_event_error`](#from_event_error)
+- [`is_retriable`](#is_retriable)
+- [`permanent_connection`](#permanent_connection)
+- [`rate_limited`](#rate_limited)
+- [`retriable_connection`](#retriable_connection)
+- [`retry_after`](#retry_after)
+- [`to_event_error`](#to_event_error)
+
+### Functions (connection)
+
+- [`attempt_connect`](#attempt_connect)
+- [`connect`](#connect)
+- [`connect_all`](#connect_all)
+- [`disconnect`](#disconnect)
+- [`get_connection`](#get_connection)
+- [`get_healthy_connection`](#get_healthy_connection)
+- [`health`](#health)
+- [`mark_disconnected`](#mark_disconnected)
+- [`new`](#new)
+- [`new`](#new)
+- [`new`](#new)
+- [`pool_health`](#pool_health)
+- [`state`](#state)
+- [`with_connection`](#with_connection)
+
+### Functions (financial_operators)
+
+- [`calculate_imbalance`](#calculate_imbalance)
+- [`new`](#new)
+- [`new`](#new)
+- [`new`](#new)
+- [`new`](#new)
+- [`new`](#new)
+- [`new`](#new)
+- [`new`](#new)
+- [`new`](#new)
+- [`new`](#new)
+- [`new`](#new)
+
+### Functions (mod)
+
+- [`serialize`](#serialize)
+
+### Functions (metrics)
+
+- [`elapsed_ms`](#elapsed_ms)
+- [`export_json`](#export_json)
+- [`export_prometheus`](#export_prometheus)
+- [`get_all_handler_metrics`](#get_all_handler_metrics)
+- [`get_all_stream_metrics`](#get_all_stream_metrics)
+- [`get_global_metrics`](#get_global_metrics)
+- [`get_handler_metrics`](#get_handler_metrics)
+- [`get_stream_metrics`](#get_stream_metrics)
+- [`new`](#new)
+- [`record_dropped_event`](#record_dropped_event)
+- [`record_handler_execution`](#record_handler_execution)
+- [`record_reconnection`](#record_reconnection)
+- [`record_stream_event`](#record_stream_event)
+- [`start`](#start)
+- [`start_with_collector`](#start_with_collector)
+- [`stop`](#stop)
+- [`update_rates`](#update_rates)
+
+### Functions (enhanced_operators)
+
+- [`get_metrics`](#get_metrics)
+- [`new`](#new)
+- [`new`](#new)
+- [`reset_metrics`](#reset_metrics)
+
+### Functions (stream)
+
+- [`new`](#new)
+
+### Functions (manager)
+
+- [`add_event_handler`](#add_event_handler)
+- [`add_stream`](#add_stream)
+- [`health`](#health)
+- [`is_stream_running`](#is_stream_running)
+- [`list_streams`](#list_streams)
+- [`metrics_collector`](#metrics_collector)
+- [`new`](#new)
+- [`new`](#new)
+- [`process_events`](#process_events)
+- [`remove_stream`](#remove_stream)
+- [`set_execution_mode`](#set_execution_mode)
+- [`start_all`](#start_all)
+- [`start_stream`](#start_stream)
+- [`state`](#state)
+- [`stop_all`](#stop_all)
+- [`stop_stream`](#stop_stream)
+- [`with_execution_mode`](#with_execution_mode)
+
+### Functions (processor)
+
+- [`acquire_permit`](#acquire_permit)
+- [`add_event`](#add_event)
+- [`add_event`](#add_event)
+- [`checkpoint`](#checkpoint)
+- [`flush_batch`](#flush_batch)
+- [`get_state`](#get_state)
+- [`get_stats`](#get_stats)
+- [`match_event`](#match_event)
+- [`new`](#new)
+- [`new`](#new)
+- [`new`](#new)
+- [`new`](#new)
+- [`new`](#new)
+- [`pending_count`](#pending_count)
+- [`release_permit`](#release_permit)
+- [`remove_state`](#remove_state)
+- [`update_queue_size`](#update_queue_size)
+- [`update_state`](#update_state)
+
+### Functions (operators)
+
+- [`build`](#build)
+- [`combine_latest`](#combine_latest)
+- [`downcast`](#downcast)
+- [`from`](#from)
+- [`inner`](#inner)
+- [`merge_all`](#merge_all)
+- [`new`](#new)
+- [`new`](#new)
+- [`new`](#new)
+- [`new`](#new)
+- [`new`](#new)
+- [`new`](#new)
+- [`new`](#new)
+- [`new`](#new)
+- [`new`](#new)
+- [`new`](#new)
+- [`new`](#new)
+- [`new`](#new)
+- [`new`](#new)
+- [`new`](#new)
+- [`new`](#new)
+- [`new`](#new)
+- [`new`](#new)
+- [`new`](#new)
+- [`source_stream`](#source_stream)
+- [`zip`](#zip)
+
+### Functions (multi_chain)
+
+- [`active_chains`](#active_chains)
+- [`add_chain`](#add_chain)
+- [`is_chain_configured`](#is_chain_configured)
+- [`new`](#new)
+- [`register_all_configured_chains`](#register_all_configured_chains)
+- [`remove_chain`](#remove_chain)
+- [`stop_all`](#stop_all)
+- [`with_stream_manager`](#with_stream_manager)
+
+### Functions (websocket)
+
+- [`new`](#new)
+
+### Functions (binance)
+
+- [`new`](#new)
+
+### Functions (mempool)
+
+- [`new`](#new)
+
+### Functions (health)
+
+- [`current_health`](#current_health)
+- [`health_history`](#health_history)
+- [`new`](#new)
+- [`start`](#start)
+- [`with_check_interval`](#with_check_interval)
+- [`with_thresholds`](#with_thresholds)
+
+### Functions (monitoring)
+
+- [`get_all_metrics`](#get_all_metrics)
+- [`get_metrics`](#get_metrics)
+- [`get_stream_metrics`](#get_stream_metrics)
+- [`new`](#new)
+- [`new`](#new)
+- [`record_error`](#record_error)
+- [`record_event`](#record_event)
+
+### Functions (resilience)
+
+- [`calculate_delay`](#calculate_delay)
+- [`execute`](#execute)
+- [`is_open`](#is_open)
+- [`new`](#new)
+- [`record_failure`](#record_failure)
+- [`record_success`](#record_success)
+- [`with_failure_threshold`](#with_failure_threshold)
+- [`with_success_threshold`](#with_success_threshold)
+- [`with_timeout`](#with_timeout)
+
 ### Type Aliases
 
 - [`SolanaStreamEvent`](#solanastreamevent)
+
+### Functions (geyser)
+
+- [`new`](#new)
+
+### Functions (event_triggered)
+
+- [`build`](#build)
+- [`combinator`](#combinator)
+- [`condition`](#condition)
+- [`execution_count`](#execution_count)
+- [`new`](#new)
+- [`new`](#new)
+- [`register`](#register)
+- [`with_combinator`](#with_combinator)
+- [`with_condition`](#with_condition)
+
+### Functions (event_utils)
+
+- [`as_event`](#as_event)
+- [`as_event_extended`](#as_event_extended)
+
+### Functions (worker_extension)
+
+- [`new`](#new)
+- [`start`](#start)
+- [`stop`](#stop)
+
+### Functions (condition)
+
+- [`add_condition`](#add_condition)
+- [`after`](#after)
+- [`before`](#before)
+- [`new`](#new)
+- [`new`](#new)
+- [`new`](#new)
+- [`new`](#new)
+- [`new`](#new)
+- [`single`](#single)
+- [`single`](#single)
 
 ## Traits
 
@@ -2697,513 +2772,7 @@ Stream that zips two streams
 
 ---
 
-## Functions
-
-### acquire_permit
-
-**Source**: `core/processor.rs`
-
-```rust
-pub async fn acquire_permit(&self) -> StreamResult<()>
-```
-
-Attempts to acquire a permit based on the configured backpressure strategy
-
----
-
-### active_chains
-
-**Source**: `evm/multi_chain.rs`
-
-```rust
-pub async fn active_chains(&self) -> Vec<ChainId>
-```
-
-Get list of active chains
-
----
-
-### add_chain
-
-**Source**: `evm/multi_chain.rs`
-
-```rust
-pub async fn add_chain(&self, chain_id: ChainId) -> Result<(), StreamError>
-```
-
-Add an EVM chain using the RPC_URL_{CHAIN_ID} pattern
-
----
-
-### add_condition
-
-**Source**: `tools/condition.rs`
-
-```rust
-pub fn add_condition(mut self, condition: Box<dyn EventCondition>) -> Self
-```
-
-Add a condition to this composite condition
-
----
-
-### add_event
-
-**Source**: `core/processor.rs`
-
-```rust
-pub fn add_event(&mut self, event: E) -> Vec<Window<E>>
-```
-
-Adds an event to the appropriate window(s) and returns any completed windows
-
----
-
-### add_event
-
-**Source**: `core/processor.rs`
-
-```rust
-pub fn add_event(&mut self, event: E) -> Option<Vec<E>>
-```
-
-Adds an event to the batch buffer and returns a completed batch if ready
-
----
-
-### add_event_handler
-
-**Source**: `core/manager.rs`
-
-```rust
-pub async fn add_event_handler(&self, handler: Arc<dyn EventHandler>)
-```
-
-Add an event handler
-
----
-
-### add_stream
-
-**Source**: `core/builder.rs`
-
-```rust
-pub fn add_stream(mut self, config: StreamConfig) -> Self
-```
-
-Add a stream configuration
-
----
-
-### add_stream
-
-**Source**: `core/manager.rs`
-
-```rust
-pub async fn add_stream<S>(&self, name: String, stream: S) -> StreamResult<()> where S: Stream + Send + Sync + 'static, S::Event: Send + Sync + 'static,
-```
-
-Add a stream to be managed (stream should already be configured and started)
-
----
-
-### after
-
-**Source**: `tools/condition.rs`
-
-```rust
-pub fn after(timestamp: std::time::SystemTime) -> Self
-```
-
-Create a TimestampRangeMatcher that matches events after the given timestamp
-
----
-
-### as_event
-
-**Source**: `tools/event_utils.rs`
-
-```rust
-pub fn as_event(event: &(dyn Any + Send + Sync)) -> Option<&dyn Event>
-```
-
-Helper to convert Any to Event by trying all known event types
-
----
-
-### as_event_extended
-
-**Source**: `tools/event_utils.rs`
-
-```rust
-pub fn as_event_extended(event: &(dyn Any + Send + Sync)) -> Option<&dyn Event>
-```
-
----
-
-### attempt_connect
-
-**Source**: `core/connection.rs`
-
-```rust
-pub async fn attempt_connect<F, Fut, T>(&self, connect_fn: F) -> StreamResult<T> where F: Fn() -> Fut, Fut: std::future::Future<Output = StreamResult<T>>,
-```
-
-Attempts to establish a connection using the provided function
-
-Respects circuit breaker state and implements backoff logic
-
----
-
-### batch_timeout
-
-**Source**: `core/config.rs`
-
-```rust
-pub fn batch_timeout(&self) -> Duration
-```
-
-Convert batch timeout milliseconds to Duration
-
----
-
-### before
-
-**Source**: `tools/condition.rs`
-
-```rust
-pub fn before(timestamp: std::time::SystemTime) -> Self
-```
-
-Create a TimestampRangeMatcher that matches events before the given timestamp
-
----
-
-### build
-
-**Source**: `core/builder.rs`
-
-```rust
-pub async fn build(self) -> Result<StreamManager, Box<dyn std::error::Error>>
-```
-
-Build the StreamManager with all configured streams
-
----
-
-### build
-
-**Source**: `core/operators.rs`
-
-```rust
-pub fn build(self) -> T
-```
-
-Build the final stream
-
----
-
-### build
-
-**Source**: `tools/event_triggered.rs`
-
-```rust
-pub fn build(self) -> EventTriggeredTool<T>
-```
-
-Build the event-triggered tool
-
----
-
-### calculate_delay
-
-**Source**: `production/resilience.rs`
-
-```rust
-pub fn calculate_delay(&self, attempt: u32) -> Duration
-```
-
-Calculate delay for retry attempt
-
----
-
-### calculate_imbalance
-
-**Source**: `core/financial_operators.rs`
-
-```rust
-pub fn calculate_imbalance(bids: &[(f64, f64)], asks: &[(f64, f64)]) -> f64
-```
-
-Calculates order book imbalance from bid/ask data
-
----
-
-### checkpoint
-
-**Source**: `core/processor.rs`
-
-```rust
-pub async fn checkpoint(&self) -> StreamResult<()>
-```
-
-Creates a checkpoint of the current state if enough time has passed
-
----
-
-### combinator
-
-**Source**: `tools/event_triggered.rs`
-
-```rust
-pub fn combinator(mut self, combinator: ConditionCombinator) -> Self
-```
-
-Set combinator
-
----
-
-### combine_latest
-
-**Source**: `core/operators.rs`
-
-```rust
-pub fn combine_latest<S1, S2>(stream1: S1, stream2: S2) -> CombineLatestStream<S1, S2> where S1: Stream, S2: Stream,
-```
-
-Combine latest values from two streams
-
----
-
-### condition
-
-**Source**: `tools/event_triggered.rs`
-
-```rust
-pub fn condition(mut self, condition: Box<dyn EventCondition>) -> Self
-```
-
-Add a condition
-
----
-
-### connect
-
-**Source**: `core/connection.rs`
-
-```rust
-pub async fn connect<F, Fut>(&self, connect_fn: F) -> StreamResult<()> where F: Fn() -> Fut + Send + Sync + 'static + Clone, Fut: std::future::Future<Output = StreamResult<T>> + Send,
-```
-
-Establishes a connection using the provided function
-
-Starts background monitoring for automatic reconnection
-
----
-
-### connect_all
-
-**Source**: `core/connection.rs`
-
-```rust
-pub async fn connect_all<F, Fut>(&self, connect_fn: F) -> StreamResult<()> where F: Fn() -> Fut + Send + Sync + 'static + Clone, Fut: std::future::Future<Output = StreamResult<T>> + Send,
-```
-
-Attempts to connect all connections in the pool concurrently
-
----
-
-### connect_timeout
-
-**Source**: `core/config.rs`
-
-```rust
-pub fn connect_timeout(&self) -> Duration
-```
-
-Convert connection timeout seconds to Duration
-
----
-
-### current_health
-
-**Source**: `production/health.rs`
-
-```rust
-pub async fn current_health(&self) -> HealthSnapshot
-```
-
-Get current health snapshot
-
----
-
-### development
-
-**Source**: `core/config.rs`
-
-```rust
-pub fn development() -> Self
-```
-
-Development configuration with debugging enabled
-
----
-
-### disconnect
-
-**Source**: `core/connection.rs`
-
-```rust
-pub async fn disconnect(&self)
-```
-
-Disconnects and stops monitoring the connection
-
----
-
-### downcast
-
-**Source**: `core/operators.rs`
-
-```rust
-pub fn downcast<T: Event + 'static>(&self) -> Option<&T>
-```
-
-Attempt to downcast to a specific event type
-
----
-
-### elapsed_ms
-
-**Source**: `core/metrics.rs`
-
-```rust
-pub fn elapsed_ms(&self) -> f64
-```
-
-Get elapsed time in milliseconds
-
----
-
-### execute
-
-**Source**: `production/resilience.rs`
-
-```rust
-pub async fn execute<F, T, E>(&self, mut operation: F) -> Result<T, E> where F: FnMut() -> futures::future::BoxFuture<'static, Result<T, E>>, E: std::fmt::Display,
-```
-
-Execute with retry
-
----
-
-### execution_count
-
-**Source**: `tools/event_triggered.rs`
-
-```rust
-pub async fn execution_count(&self) -> u64
-```
-
-Get execution count
-
----
-
-### export_json
-
-**Source**: `core/metrics.rs`
-
-```rust
-pub async fn export_json(&self) -> String
-```
-
-Export metrics as JSON
-
----
-
-### export_prometheus
-
-**Source**: `core/metrics.rs`
-
-```rust
-pub async fn export_prometheus(&self) -> String
-```
-
-Export metrics in Prometheus format
-
----
-
-### flush_batch
-
-**Source**: `core/processor.rs`
-
-```rust
-pub fn flush_batch(&mut self) -> Option<Vec<E>>
-```
-
-Forces a flush of the current batch buffer
-
----
-
-### from
-
-**Source**: `core/operators.rs`
-
-```rust
-pub fn from(stream: T) -> Self
-```
-
-Create a new pipeline from a stream
-
----
-
-### from_config_file
-
-**Source**: `core/builder.rs`
-
-```rust
-pub async fn from_config_file(path: &str) -> Result<StreamManager, Box<dyn std::error::Error>>
-```
-
-Helper to load and build a StreamManager from a TOML file
-
----
-
-### from_env
-
-**Source**: `core/builder.rs`
-
-```rust
-pub fn from_env(mut self) -> Result<Self, Box<dyn std::error::Error>>
-```
-
-Load configuration from environment variables
-
----
-
-### from_env
-
-**Source**: `core/builder.rs`
-
-```rust
-pub async fn from_env() -> Result<StreamManager, Box<dyn std::error::Error>>
-```
-
-Helper to load and build a StreamManager from environment variables
-
----
-
-### from_env
-
-**Source**: `core/config.rs`
-
-```rust
-pub fn from_env() -> Result<Self, ConfigError>
-```
-
-Load configuration from environment variables
-
----
+## Functions (streamed_event)
 
 ### from_event
 
@@ -3214,246 +2783,6 @@ pub fn from_event(event: Box<dyn Event>, stream_metadata: StreamMetadata) -> Sel
 ```
 
 Create from any Event
-
----
-
-### from_event_error
-
-**Source**: `core/error.rs`
-
-```rust
-pub fn from_event_error(event_error: EventError) -> Self
-```
-
-Create a StreamError from an EventError
-
----
-
-### from_toml_file
-
-**Source**: `core/builder.rs`
-
-```rust
-pub async fn from_toml_file(mut self, path: &str) -> Result<Self, Box<dyn std::error::Error>>
-```
-
-Load configuration from a TOML file
-
----
-
-### get_all_handler_metrics
-
-**Source**: `core/metrics.rs`
-
-```rust
-pub async fn get_all_handler_metrics(&self) -> Vec<HandlerMetrics>
-```
-
-Get all handler metrics
-
----
-
-### get_all_metrics
-
-**Source**: `production/monitoring.rs`
-
-```rust
-pub async fn get_all_metrics(&self) -> HashMap<String, MetricsSnapshot>
-```
-
-Get all metrics
-
----
-
-### get_all_stream_metrics
-
-**Source**: `core/metrics.rs`
-
-```rust
-pub async fn get_all_stream_metrics(&self) -> Vec<StreamMetrics>
-```
-
-Get all stream metrics
-
----
-
-### get_connection
-
-**Source**: `core/connection.rs`
-
-```rust
-pub async fn get_connection(&self) -> Option<T> where T: Clone,
-```
-
-Returns a clone of the current connection, if available
-
----
-
-### get_global_metrics
-
-**Source**: `core/metrics.rs`
-
-```rust
-pub async fn get_global_metrics(&self) -> GlobalMetrics
-```
-
-Get global metrics
-
----
-
-### get_handler_metrics
-
-**Source**: `core/metrics.rs`
-
-```rust
-pub async fn get_handler_metrics(&self, handler_name: &str) -> Option<HandlerMetrics>
-```
-
-Get handler metrics
-
----
-
-### get_healthy_connection
-
-**Source**: `core/connection.rs`
-
-```rust
-pub async fn get_healthy_connection(&self) -> StreamResult<T>
-```
-
-Returns a healthy connection from the pool using round-robin selection
-
----
-
-### get_metrics
-
-**Source**: `core/enhanced_operators.rs`
-
-```rust
-pub async fn get_metrics(&self) -> MetricsSummary
-```
-
-Get performance metrics for this stream
-
----
-
-### get_metrics
-
-**Source**: `production/monitoring.rs`
-
-```rust
-pub async fn get_metrics(&self) -> MetricsSnapshot
-```
-
-Get current metrics
-
----
-
-### get_state
-
-**Source**: `core/processor.rs`
-
-```rust
-pub async fn get_state(&self, key: &K) -> Option<S>
-```
-
-Retrieves the current state for the given key
-
----
-
-### get_stats
-
-**Source**: `core/processor.rs`
-
-```rust
-pub async fn get_stats(&self) -> (usize, usize)
-```
-
-Returns current queue size and drop count statistics
-
----
-
-### get_stream_metrics
-
-**Source**: `core/metrics.rs`
-
-```rust
-pub async fn get_stream_metrics(&self, stream_name: &str) -> Option<StreamMetrics>
-```
-
-Get stream metrics
-
----
-
-### get_stream_metrics
-
-**Source**: `production/monitoring.rs`
-
-```rust
-pub async fn get_stream_metrics(&self, stream_name: &str) -> StreamMetrics
-```
-
-Get or create metrics for a stream
-
----
-
-### health
-
-**Source**: `core/connection.rs`
-
-```rust
-pub async fn health(&self) -> ConnectionHealth
-```
-
-Returns the current health status of the connection
-
----
-
-### health
-
-**Source**: `core/manager.rs`
-
-```rust
-pub async fn health(&self) -> std::collections::HashMap<String, StreamHealth>
-```
-
-Get health status of all streams
-
----
-
-### health_history
-
-**Source**: `production/health.rs`
-
-```rust
-pub async fn health_history(&self) -> Vec<HealthSnapshot>
-```
-
-Get health history
-
----
-
-### high_performance
-
-**Source**: `core/config.rs`
-
-```rust
-pub fn high_performance() -> Self
-```
-
-High-performance configuration for production environments
-
----
-
-### high_watermark
-
-**Source**: `core/config.rs`
-
-```rust
-pub fn high_watermark(&self) -> usize
-```
-
-Calculate the high watermark threshold in absolute terms
 
 ---
 
@@ -3481,18 +2810,6 @@ Get a reference to the inner event
 
 ---
 
-### inner
-
-**Source**: `core/operators.rs`
-
-```rust
-pub fn inner(&self) -> &dyn Event
-```
-
-Get the inner event as a trait object
-
----
-
 ### inner_mut
 
 **Source**: `core/streamed_event.rs`
@@ -3517,150 +2834,6 @@ Unwrap to get the inner event
 
 ---
 
-### is_chain_configured
-
-**Source**: `evm/multi_chain.rs`
-
-```rust
-pub fn is_chain_configured(&self, chain_id: ChainId) -> bool
-```
-
-Check if a chain is configured
-
----
-
-### is_open
-
-**Source**: `production/resilience.rs`
-
-```rust
-pub async fn is_open(&self) -> bool
-```
-
-Check if circuit is open
-
----
-
-### is_retriable
-
-**Source**: `core/error.rs`
-
-```rust
-pub fn is_retriable(&self) -> bool
-```
-
-Check if this error is retriable
-
----
-
-### is_stream_running
-
-**Source**: `core/manager.rs`
-
-```rust
-pub async fn is_stream_running(&self, name: &str) -> bool
-```
-
-Check if a stream is running
-
----
-
-### keepalive_interval
-
-**Source**: `core/config.rs`
-
-```rust
-pub fn keepalive_interval(&self) -> Duration
-```
-
-Convert keepalive interval seconds to Duration
-
----
-
-### list_streams
-
-**Source**: `core/manager.rs`
-
-```rust
-pub async fn list_streams(&self) -> Vec<String>
-```
-
-Get list of stream names
-
----
-
-### low_latency
-
-**Source**: `core/config.rs`
-
-```rust
-pub fn low_latency() -> Self
-```
-
-Low-latency configuration for real-time applications
-
----
-
-### low_watermark
-
-**Source**: `core/config.rs`
-
-```rust
-pub fn low_watermark(&self) -> usize
-```
-
-Calculate the low watermark threshold in absolute terms
-
----
-
-### mark_disconnected
-
-**Source**: `core/connection.rs`
-
-```rust
-pub fn mark_disconnected(&self)
-```
-
-Marks the connection as explicitly disconnected
-
----
-
-### match_event
-
-**Source**: `core/processor.rs`
-
-```rust
-pub fn match_event(&mut self, event: E) -> Vec<usize>
-```
-
-Processes an event and returns indices of matching patterns
-
----
-
-### merge_all
-
-**Source**: `core/operators.rs`
-
-```rust
-pub fn merge_all<S, I>(streams: I) -> MergeAllStream<S> where S: Stream + 'static, I: IntoIterator<Item = S>,
-```
-
-Merge multiple streams into one
-
----
-
-### metrics_collector
-
-**Source**: `core/manager.rs`
-
-```rust
-pub fn metrics_collector(&self) -> Arc<MetricsCollector>
-```
-
-Get the metrics collector
-
----
-
 ### new
 
 **Source**: `core/streamed_event.rs`
@@ -3673,6 +2846,32 @@ Create a new streamed event by wrapping an existing event
 
 ---
 
+### stream_meta
+
+**Source**: `core/streamed_event.rs`
+
+```rust
+pub fn stream_meta(&self) -> &StreamMetadata
+```
+
+Get the stream metadata
+
+---
+
+### stream_meta
+
+**Source**: `core/streamed_event.rs`
+
+```rust
+pub fn stream_meta(&self) -> &StreamMetadata
+```
+
+Get the stream metadata
+
+---
+
+## Functions (mock_stream)
+
 ### new
 
 **Source**: `core/mock_stream.rs`
@@ -3682,1566 +2881,6 @@ pub fn new(name: impl Into<String>) -> Self
 ```
 
 Create a new mock stream
-
----
-
-### new
-
-**Source**: `core/enhanced_operators.rs`
-
-```rust
-pub fn new(inner: S, _batch_size: usize, _timeout: Duration) -> Self
-```
-
-Create a new batched stream
-
----
-
-### new
-
-**Source**: `core/enhanced_operators.rs`
-
-```rust
-pub fn new(inner: S, _max_rate_per_second: u64, _dedup_ttl: Duration) -> Self
-```
-
-Create an enhanced stream with rate limiting and deduplication
-
----
-
-### new
-
-**Source**: `core/builder.rs`
-
-```rust
-pub fn new() -> Self
-```
-
-Create a new builder
-
----
-
-### new
-
-**Source**: `core/connection.rs`
-
-```rust
-pub fn new(config: ConnectionConfig) -> Self
-```
-
-Creates a new circuit breaker with the given configuration
-
----
-
-### new
-
-**Source**: `core/connection.rs`
-
-```rust
-pub fn new(config: ConnectionConfig) -> Self
-```
-
-Creates a new connection manager with the given configuration
-
----
-
-### new
-
-**Source**: `core/connection.rs`
-
-```rust
-pub fn new(config: ConnectionConfig, pool_size: usize) -> Self
-```
-
-Creates a new connection pool with the specified size and configuration
-
----
-
-### new
-
-**Source**: `core/financial_operators.rs`
-
-```rust
-pub fn new(inner: S, window: Duration) -> Self
-```
-
-Creates a new VWAP stream with the specified time window
-
----
-
-### new
-
-**Source**: `core/financial_operators.rs`
-
-```rust
-pub fn new(inner: S, window_size: usize) -> Self
-```
-
-Creates a new moving average stream with the specified window size
-
----
-
-### new
-
-**Source**: `core/financial_operators.rs`
-
-```rust
-pub fn new(inner: S, periods: usize) -> Self
-```
-
-Creates a new EMA stream with the specified number of periods
-
----
-
-### new
-
-**Source**: `core/financial_operators.rs`
-
-```rust
-pub fn new(inner: S, window: usize, std_dev_multiplier: f64) -> Self
-```
-
-Creates a new Bollinger Bands stream with specified window and standard deviation multiplier
-
----
-
-### new
-
-**Source**: `core/financial_operators.rs`
-
-```rust
-pub fn new(inner: S, period: usize) -> Self
-```
-
-Creates a new RSI stream with the specified period
-
----
-
-### new
-
-**Source**: `core/financial_operators.rs`
-
-```rust
-pub fn new(inner: S, depth_levels: usize) -> Self
-```
-
-Creates a new order book imbalance stream with specified depth levels
-
----
-
-### new
-
-**Source**: `core/financial_operators.rs`
-
-```rust
-pub fn new(inner: S, lookback_period: usize) -> Self
-```
-
-Creates a new momentum stream with specified lookback period
-
----
-
-### new
-
-**Source**: `core/financial_operators.rs`
-
-```rust
-pub fn new(inner: S) -> Self
-```
-
-Creates a new liquidity pool tracker stream
-
----
-
-### new
-
-**Source**: `core/financial_operators.rs`
-
-```rust
-pub fn new(inner: S, window: Duration) -> Self
-```
-
-Creates a new MEV detection stream with specified time window
-
----
-
-### new
-
-**Source**: `core/financial_operators.rs`
-
-```rust
-pub fn new(inner: S, window_size: usize) -> Self
-```
-
-Creates a new gas price oracle stream with specified window size
-
----
-
-### new
-
-**Source**: `core/stream.rs`
-
-```rust
-pub fn new(stream: S) -> Self
-```
-
-Create a new dynamic stream wrapper around the given stream
-
----
-
-### new
-
-**Source**: `core/processor.rs`
-
-```rust
-pub fn new(window_type: WindowType) -> Self
-```
-
-Creates a new window manager with the specified window type
-
----
-
-### new
-
-**Source**: `core/processor.rs`
-
-```rust
-pub fn new(checkpoint_interval: Duration) -> Self
-```
-
-Creates a new stateful processor with the specified checkpoint interval
-
----
-
-### new
-
-**Source**: `core/processor.rs`
-
-```rust
-pub fn new(config: BackpressureConfig) -> Self
-```
-
-Creates a new flow controller with the specified backpressure configuration
-
----
-
-### new
-
-**Source**: `core/processor.rs`
-
-```rust
-pub fn new(config: BatchConfig) -> Self
-```
-
-Creates a new batch processor with the specified configuration
-
----
-
-### new
-
-**Source**: `core/processor.rs`
-
-```rust
-pub fn new(patterns: Vec<EventPattern<E>>, max_history: usize) -> Self
-```
-
-Creates a new pattern matcher with the specified patterns and history size
-
----
-
-### new
-
-**Source**: `core/manager.rs`
-
-```rust
-pub fn new() -> Self
-```
-
-Create a new StreamManager with default configuration
-
----
-
-### new
-
-**Source**: `core/manager.rs`
-
-```rust
-pub fn new(name: impl Into<String>) -> Self
-```
-
----
-
-### new
-
-**Source**: `core/metrics.rs`
-
-```rust
-pub fn new() -> Self
-```
-
-Create a new metrics collector
-
----
-
-### new
-
-**Source**: `core/operators.rs`
-
-```rust
-pub fn new(inner: S, transform: F) -> Self
-```
-
-Create a new mapped stream
-
----
-
-### new
-
-**Source**: `core/operators.rs`
-
-```rust
-pub fn new(inner: S, predicate: F) -> Self
-```
-
-Create a new filtered stream
-
----
-
-### new
-
-**Source**: `core/operators.rs`
-
-```rust
-pub fn new(stream1: S1, stream2: S2) -> Self
-```
-
-Create a new merged stream
-
----
-
-### new
-
-**Source**: `core/operators.rs`
-
-```rust
-pub fn new(inner: S, batch_size: usize, timeout: Duration) -> Self
-```
-
-Create a new batched stream
-
----
-
-### new
-
-**Source**: `core/operators.rs`
-
-```rust
-pub fn new(inner: S, duration: Duration) -> Self
-```
-
-Create a new debounced stream
-
----
-
-### new
-
-**Source**: `core/operators.rs`
-
-```rust
-pub fn new(inner: S, duration: Duration) -> Self
-```
-
-Create a new throttled stream
-
----
-
-### new
-
-**Source**: `core/operators.rs`
-
-```rust
-pub fn new(inner: S, count: usize) -> Self
-```
-
-Create a new take stream
-
----
-
-### new
-
-**Source**: `core/operators.rs`
-
-```rust
-pub fn new(inner: S, count: usize) -> Self
-```
-
-Create a new skip stream
-
----
-
-### new
-
-**Source**: `core/operators.rs`
-
-```rust
-pub fn new(inner: S, initial_state: St, transform: F) -> Self
-```
-
-Create a new scan stream
-
----
-
-### new
-
-**Source**: `core/operators.rs`
-
-```rust
-pub fn new(inner: S, strategy: BufferStrategy) -> Self
-```
-
-Create a new buffered stream
-
----
-
-### new
-
-**Source**: `core/operators.rs`
-
-```rust
-pub fn new(inner: S, filter: FilterF, map: MapF) -> Self
-```
-
-Create a new filter-map stream
-
----
-
-### new
-
-**Source**: `core/operators.rs`
-
-```rust
-pub fn new(inner: S, max_retries: usize, retry_delay: Duration) -> Self
-```
-
-Create a new resilient stream
-
----
-
-### new
-
-**Source**: `core/operators.rs`
-
-```rust
-pub fn new(inner: S, error_handler: F) -> Self
-```
-
----
-
-### new
-
-**Source**: `core/operators.rs`
-
-```rust
-pub fn new(event: Arc<dyn Event>, source_stream: String) -> Self
-```
-
-Create a new type-erased event
-
----
-
-### new
-
-**Source**: `core/operators.rs`
-
-```rust
-pub fn new(streams: Vec<S>) -> Self
-```
-
----
-
-### new
-
-**Source**: `core/operators.rs`
-
-```rust
-pub fn new(inner: S, buffer_size: usize) -> Self
-```
-
----
-
-### new
-
-**Source**: `core/operators.rs`
-
-```rust
-pub fn new(stream1: S1, stream2: S2) -> Self
-```
-
----
-
-### new
-
-**Source**: `core/operators.rs`
-
-```rust
-pub fn new(stream1: S1, stream2: S2) -> Self
-```
-
----
-
-### new
-
-**Source**: `evm/multi_chain.rs`
-
-```rust
-pub fn new() -> Self
-```
-
-Create a new multi-chain EVM manager
-
----
-
-### new
-
-**Source**: `evm/websocket.rs`
-
-```rust
-pub fn new(name: impl Into<String>) -> Self
-```
-
-Create a new EVM WebSocket stream
-
----
-
-### new
-
-**Source**: `external/binance.rs`
-
-```rust
-pub fn new(name: impl Into<String>) -> Self
-```
-
-Create a new Binance stream
-
----
-
-### new
-
-**Source**: `external/mempool.rs`
-
-```rust
-pub fn new(name: impl Into<String>) -> Self
-```
-
-Create a new Mempool.space stream
-
----
-
-### new
-
-**Source**: `production/health.rs`
-
-```rust
-pub fn new(stream_manager: Arc<StreamManager>) -> Self
-```
-
-Create a new health monitor
-
----
-
-### new
-
-**Source**: `production/resilience.rs`
-
-```rust
-pub fn new(name: impl Into<String>) -> Self
-```
-
-Create new circuit breaker
-
----
-
-### new
-
-**Source**: `production/monitoring.rs`
-
-```rust
-pub fn new() -> Self
-```
-
-Create new metrics collector
-
----
-
-### new
-
-**Source**: `production/monitoring.rs`
-
-```rust
-pub fn new() -> Self
-```
-
-Create new collector
-
----
-
-### new
-
-**Source**: `solana/geyser.rs`
-
-```rust
-pub fn new(name: impl Into<String>) -> Self
-```
-
-Create a new Solana Geyser stream
-
----
-
-### new
-
-**Source**: `tools/event_triggered.rs`
-
-```rust
-pub fn new(tool: T, name: impl Into<String>) -> Self
-```
-
-Create a new event-triggered tool
-
----
-
-### new
-
-**Source**: `tools/event_triggered.rs`
-
-```rust
-pub fn new(tool: T, name: impl Into<String>) -> Self
-```
-
-Create a new builder
-
----
-
-### new
-
-**Source**: `tools/worker_extension.rs`
-
-```rust
-pub fn new(worker_id: String, stream_manager: Arc<StreamManager>) -> Self
-```
-
-Create a new streaming tool worker
-
----
-
-### new
-
-**Source**: `tools/condition.rs`
-
-```rust
-pub fn new(event_kinds: Vec<EventKind>) -> Self
-```
-
-Create a new EventKindMatcher with multiple event kinds
-
----
-
-### new
-
-**Source**: `tools/condition.rs`
-
-```rust
-pub fn new(sources: Vec<String>) -> Self
-```
-
-Create a new SourceMatcher with multiple sources
-
----
-
-### new
-
-**Source**: `tools/condition.rs`
-
-```rust
-pub fn new( min_timestamp: Option<std::time::SystemTime>, max_timestamp: Option<std::time::SystemTime>, ) -> Self
-```
-
-Create a new TimestampRangeMatcher with optional min and max timestamps
-
----
-
-### new
-
-**Source**: `tools/condition.rs`
-
-```rust
-pub fn new(predicate: F, description: impl Into<String>) -> Self
-```
-
-Create a new CustomCondition with a predicate function and description
-
----
-
-### new
-
-**Source**: `tools/condition.rs`
-
-```rust
-pub fn new(combinator: ConditionCombinator) -> Self
-```
-
-Create a new CompositeCondition with the specified combinator
-
----
-
-### pending_count
-
-**Source**: `core/processor.rs`
-
-```rust
-pub fn pending_count(&self) -> usize
-```
-
-Returns the number of events currently in the batch buffer
-
----
-
-### permanent_connection
-
-**Source**: `core/error.rs`
-
-```rust
-pub fn permanent_connection(message: impl Into<String>) -> Self
-```
-
-Create a permanent connection error
-
----
-
-### pool_health
-
-**Source**: `core/connection.rs`
-
-```rust
-pub async fn pool_health(&self) -> Vec<ConnectionHealth>
-```
-
-Returns health status for all connections in the pool
-
----
-
-### process_events
-
-**Source**: `core/manager.rs`
-
-```rust
-pub async fn process_events(&self) -> StreamResult<()>
-```
-
-Process events from all streams
-
----
-
-### rate_limited
-
-**Source**: `core/error.rs`
-
-```rust
-pub fn rate_limited(message: impl Into<String>, retry_after_seconds: u64) -> Self
-```
-
-Create a rate limit error with retry after duration
-
----
-
-### record_dropped_event
-
-**Source**: `core/metrics.rs`
-
-```rust
-pub async fn record_dropped_event(&self, stream_name: &str)
-```
-
-Record a dropped event
-
----
-
-### record_error
-
-**Source**: `production/monitoring.rs`
-
-```rust
-pub async fn record_error(&self, error_type: &str)
-```
-
-Record an error
-
----
-
-### record_event
-
-**Source**: `production/monitoring.rs`
-
-```rust
-pub async fn record_event(&self, event_type: &str, latency_ms: f64)
-```
-
-Record an event
-
----
-
-### record_failure
-
-**Source**: `production/resilience.rs`
-
-```rust
-pub async fn record_failure(&self)
-```
-
-Record failure
-
----
-
-### record_handler_execution
-
-**Source**: `core/metrics.rs`
-
-```rust
-pub async fn record_handler_execution( &self, handler_name: &str, execution_time_ms: f64, success: bool, )
-```
-
-Record a handler execution
-
----
-
-### record_reconnection
-
-**Source**: `core/metrics.rs`
-
-```rust
-pub async fn record_reconnection(&self, stream_name: &str)
-```
-
-Record a stream reconnection
-
----
-
-### record_stream_event
-
-**Source**: `core/metrics.rs`
-
-```rust
-pub async fn record_stream_event( &self, stream_name: &str, processing_time_ms: f64, bytes: u64, )
-```
-
-Record a stream event
-
----
-
-### record_success
-
-**Source**: `production/resilience.rs`
-
-```rust
-pub async fn record_success(&self)
-```
-
-Record success
-
----
-
-### register
-
-**Source**: `tools/event_triggered.rs`
-
-```rust
-pub async fn register(self, manager: &StreamManager) -> Arc<EventTriggeredTool<T>> where T: 'static,
-```
-
-Register with a stream manager
-
----
-
-### register_all_configured_chains
-
-**Source**: `evm/multi_chain.rs`
-
-```rust
-pub async fn register_all_configured_chains(&self) -> Result<(), StreamError>
-```
-
-Register all configured chains
-
----
-
-### release_permit
-
-**Source**: `core/processor.rs`
-
-```rust
-pub async fn release_permit(&self)
-```
-
-Releases a permit back to the semaphore pool
-
----
-
-### reliable
-
-**Source**: `core/config.rs`
-
-```rust
-pub fn reliable() -> Self
-```
-
-Reliable configuration prioritizing data integrity
-
----
-
-### remove_chain
-
-**Source**: `evm/multi_chain.rs`
-
-```rust
-pub async fn remove_chain(&self, chain_id: ChainId) -> Result<(), StreamError>
-```
-
-Remove a chain
-
----
-
-### remove_state
-
-**Source**: `core/processor.rs`
-
-```rust
-pub async fn remove_state(&self, key: &K) -> Option<S>
-```
-
-Removes and returns the state for the given key
-
----
-
-### remove_stream
-
-**Source**: `core/manager.rs`
-
-```rust
-pub async fn remove_stream(&self, name: &str) -> StreamResult<()>
-```
-
-Remove a stream
-
----
-
-### report_interval
-
-**Source**: `core/config.rs`
-
-```rust
-pub fn report_interval(&self) -> Duration
-```
-
-Convert report interval seconds to Duration
-
----
-
-### request_timeout
-
-**Source**: `core/config.rs`
-
-```rust
-pub fn request_timeout(&self) -> Duration
-```
-
-Convert request timeout seconds to Duration
-
----
-
-### reset_metrics
-
-**Source**: `core/enhanced_operators.rs`
-
-```rust
-pub async fn reset_metrics(&self)
-```
-
-Reset performance metrics
-
----
-
-### retriable_connection
-
-**Source**: `core/error.rs`
-
-```rust
-pub fn retriable_connection(message: impl Into<String>) -> Self
-```
-
-Create a retriable connection error
-
----
-
-### retry_after
-
-**Source**: `core/error.rs`
-
-```rust
-pub fn retry_after(&self) -> Option<std::time::Duration>
-```
-
-Get retry after duration if available
-
----
-
-### retry_base_delay
-
-**Source**: `core/config.rs`
-
-```rust
-pub fn retry_base_delay(&self) -> Duration
-```
-
-Convert base retry delay milliseconds to Duration
-
----
-
-### retry_max_delay
-
-**Source**: `core/config.rs`
-
-```rust
-pub fn retry_max_delay(&self) -> Duration
-```
-
-Convert maximum retry delay milliseconds to Duration
-
----
-
-### serialize
-
-**Source**: `core/mod.rs`
-
-```rust
-pub fn serialize<S>(time: &SystemTime, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer,
-```
-
----
-
-### set_execution_mode
-
-**Source**: `core/manager.rs`
-
-```rust
-pub async fn set_execution_mode(&self, mode: HandlerExecutionMode)
-```
-
-Set the handler execution mode
-
----
-
-### single
-
-**Source**: `tools/condition.rs`
-
-```rust
-pub fn single(event_kind: EventKind) -> Self
-```
-
-Create a new EventKindMatcher for a single event kind
-
----
-
-### single
-
-**Source**: `tools/condition.rs`
-
-```rust
-pub fn single(source: String) -> Self
-```
-
-Create a new SourceMatcher for a single source
-
----
-
-### slow_threshold
-
-**Source**: `core/config.rs`
-
-```rust
-pub fn slow_threshold(&self) -> Duration
-```
-
-Convert slow threshold milliseconds to Duration
-
----
-
-### source_stream
-
-**Source**: `core/operators.rs`
-
-```rust
-pub fn source_stream(&self) -> &str
-```
-
-Get the source stream name
-
----
-
-### start
-
-**Source**: `core/metrics.rs`
-
-```rust
-pub fn start(name: impl Into<String>) -> Self
-```
-
-Start a new timer
-
----
-
-### start
-
-**Source**: `production/health.rs`
-
-```rust
-pub async fn start(&self)
-```
-
-Start monitoring
-
----
-
-### start
-
-**Source**: `tools/worker_extension.rs`
-
-```rust
-pub async fn start(&mut self) -> Result<(), Box<dyn std::error::Error>>
-```
-
-Start processing events
-
----
-
-### start_all
-
-**Source**: `core/manager.rs`
-
-```rust
-pub async fn start_all(&self) -> StreamResult<()>
-```
-
-Start all registered streams
-
----
-
-### start_stream
-
-**Source**: `core/manager.rs`
-
-```rust
-pub async fn start_stream(&self, name: &str) -> StreamResult<()>
-```
-
-Start a specific stream (stream should already be configured)
-
----
-
-### start_with_collector
-
-**Source**: `core/metrics.rs`
-
-```rust
-pub fn start_with_collector(name: impl Into<String>, collector: Arc<MetricsCollector>) -> Self
-```
-
-Start a timer with a collector
-
----
-
-### state
-
-**Source**: `core/connection.rs`
-
-```rust
-pub fn state(&self) -> ConnectionState
-```
-
-Returns the current state of the circuit breaker
-
----
-
-### state
-
-**Source**: `core/manager.rs`
-
-```rust
-pub async fn state(&self) -> ManagerState
-```
-
-Get manager state
-
----
-
-### stop
-
-**Source**: `core/metrics.rs`
-
-```rust
-pub async fn stop(self, success: bool)
-```
-
-Stop timer and record metrics
-
----
-
-### stop
-
-**Source**: `tools/worker_extension.rs`
-
-```rust
-pub async fn stop(&mut self) -> Result<(), Box<dyn std::error::Error>>
-```
-
-Stop the worker
-
----
-
-### stop_all
-
-**Source**: `core/manager.rs`
-
-```rust
-pub async fn stop_all(&self) -> StreamResult<()>
-```
-
-Stop all streams
-
----
-
-### stop_all
-
-**Source**: `evm/multi_chain.rs`
-
-```rust
-pub async fn stop_all(&self) -> Result<(), StreamError>
-```
-
-Stop all streams
-
----
-
-### stop_stream
-
-**Source**: `core/manager.rs`
-
-```rust
-pub async fn stop_stream(&self, name: &str) -> StreamResult<()>
-```
-
-Stop a specific stream
-
----
-
-### stream_meta
-
-**Source**: `core/streamed_event.rs`
-
-```rust
-pub fn stream_meta(&self) -> &StreamMetadata
-```
-
-Get the stream metadata
-
----
-
-### stream_meta
-
-**Source**: `core/streamed_event.rs`
-
-```rust
-pub fn stream_meta(&self) -> &StreamMetadata
-```
-
-Get the stream metadata
-
----
-
-### to_event_error
-
-**Source**: `core/error.rs`
-
-```rust
-pub fn to_event_error(self) -> EventError
-```
-
-Convert StreamError to EventError for integration with events-core
-
----
-
-### update_queue_size
-
-**Source**: `core/processor.rs`
-
-```rust
-pub async fn update_queue_size(&self, delta: i32)
-```
-
-Updates the queue size by the specified delta
-
----
-
-### update_rates
-
-**Source**: `core/metrics.rs`
-
-```rust
-pub async fn update_rates(&self)
-```
-
-Update rates (should be called periodically)
-
----
-
-### update_state
-
-**Source**: `core/processor.rs`
-
-```rust
-pub async fn update_state<F, R>(&self, key: K, update_fn: F) -> R where F: FnOnce(Option<&S>) -> (S, R),
-```
-
-Updates the state for the given key using the provided function
-
----
-
-### validate
-
-**Source**: `core/config.rs`
-
-```rust
-pub fn validate(&self) -> Result<(), ConfigError>
-```
-
-Validate batch configuration parameters
-
----
-
-### validate
-
-**Source**: `core/config.rs`
-
-```rust
-pub fn validate(&self) -> Result<(), ConfigError>
-```
-
-Validate backpressure configuration parameters
-
----
-
-### validate
-
-**Source**: `core/config.rs`
-
-```rust
-pub fn validate(&self) -> Result<(), ConfigError>
-```
-
-Validate connection configuration parameters
-
----
-
-### validate
-
-**Source**: `core/config.rs`
-
-```rust
-pub fn validate(&self) -> Result<(), ConfigError>
-```
-
-Validate all configuration settings
-
----
-
-### window_duration
-
-**Source**: `core/config.rs`
-
-```rust
-pub fn window_duration(&self) -> Duration
-```
-
-Convert metrics window seconds to Duration
-
----
-
-### with_check_interval
-
-**Source**: `production/health.rs`
-
-```rust
-pub fn with_check_interval(mut self, interval: Duration) -> Self
-```
-
-Set check interval
-
----
-
-### with_combinator
-
-**Source**: `tools/event_triggered.rs`
-
-```rust
-pub fn with_combinator(mut self, combinator: ConditionCombinator) -> Self
-```
-
-Set condition combinator
-
----
-
-### with_condition
-
-**Source**: `tools/event_triggered.rs`
-
-```rust
-pub fn with_condition(mut self, condition: Box<dyn EventCondition>) -> Self
-```
-
-Add a condition
-
----
-
-### with_connection
-
-**Source**: `core/connection.rs`
-
-```rust
-pub async fn with_connection<F, R>(&self, f: F) -> StreamResult<R> where F: FnOnce(&T) -> R, T: Clone,
-```
-
-Executes a function with the current connection
-
-Updates activity tracking when the connection is accessed
-
----
-
-### with_execution_mode
-
-**Source**: `core/builder.rs`
-
-```rust
-pub fn with_execution_mode(mut self, mode: HandlerExecutionMode) -> Self
-```
-
-Set the handler execution mode
-
----
-
-### with_execution_mode
-
-**Source**: `core/manager.rs`
-
-```rust
-pub fn with_execution_mode(mode: HandlerExecutionMode) -> Self
-```
-
-Create a new StreamManager with specified execution mode
-
----
-
-### with_failure_threshold
-
-**Source**: `production/resilience.rs`
-
-```rust
-pub fn with_failure_threshold(mut self, threshold: u64) -> Self
-```
-
-Set failure threshold
-
----
-
-### with_metrics
-
-**Source**: `core/builder.rs`
-
-```rust
-pub fn with_metrics(mut self, enable: bool) -> Self
-```
-
-Enable or disable metrics collection
-
----
-
-### with_metrics_collector
-
-**Source**: `core/builder.rs`
-
-```rust
-pub fn with_metrics_collector(mut self, collector: Arc<MetricsCollector>) -> Self
-```
-
-Use a custom metrics collector
-
----
-
-### with_stream_manager
-
-**Source**: `evm/multi_chain.rs`
-
-```rust
-pub fn with_stream_manager(mut self, manager: Arc<StreamManager>) -> Self
-```
-
-Set the stream manager
-
----
-
-### with_success_threshold
-
-**Source**: `production/resilience.rs`
-
-```rust
-pub fn with_success_threshold(mut self, threshold: u64) -> Self
-```
-
-Set success threshold
-
----
-
-### with_thresholds
-
-**Source**: `production/health.rs`
-
-```rust
-pub fn with_thresholds(mut self, thresholds: HealthThresholds) -> Self
-```
-
-Set custom thresholds
-
----
-
-### with_timeout
-
-**Source**: `production/resilience.rs`
-
-```rust
-pub fn with_timeout(mut self, timeout: Duration) -> Self
-```
-
-Set timeout
-
----
-
-### zip
-
-**Source**: `core/operators.rs`
-
-```rust
-pub fn zip<S1, S2>(stream1: S1, stream2: S2) -> ZipStream<S1, S2> where S1: Stream, S2: Stream,
-```
-
-Zip two streams together
 
 ---
 
@@ -5501,7 +3140,7 @@ Connection state
 ```
 
 ```rust
-pub enum EventPattern<E> { /// Match a single event type Single(fn(&E) -> bool), /// Match a sequence of events Sequence(Vec<fn(&E) -> bool>), /// Match events within a time window Within { pattern: Box<EventPattern<E>>, duration: Duration, }, /// Match any of the patterns Any(Vec<EventPattern<E>>), /// Match all patterns All(Vec<EventPattern<E>>), }
+pub enum EventPattern<E> { /// Match a single event type Single(fn(&E) -> bool), /// Match a sequence of events Sequence(Vec<fn(&E) -> bool>), /// Match events within a time window Within { /// Pattern to match within the time window pattern: Box<EventPattern<E>>, /// Duration of the time window duration: Duration, }, /// Match any of the patterns Any(Vec<EventPattern<E>>), /// Match all patterns All(Vec<EventPattern<E>>), }
 ```
 
 Complex event processing pattern matcher
@@ -5804,7 +3443,7 @@ maintaining compatibility with the events-core error hierarchy.
 ```
 
 ```rust
-pub enum WindowType { /// Fixed-size tumbling windows Tumbling { duration: Duration }, /// Sliding windows with overlap Sliding { size: Duration, step: Duration }, /// Session windows that close after inactivity Session { timeout: Duration }, /// Count-based windows Count { size: usize }, }
+pub enum WindowType { /// Fixed-size tumbling windows Tumbling { /// Duration of each tumbling window duration: Duration }, /// Sliding windows with overlap Sliding { /// Size of the sliding window size: Duration, /// Step size between windows step: Duration }, /// Session windows that close after inactivity Session { /// Timeout duration for session inactivity timeout: Duration }, /// Count-based windows Count { /// Number of events per window size: usize }, }
 ```
 
 Window types for time-based processing
@@ -5812,9 +3451,2204 @@ Window types for time-based processing
 **Variants**:
 
 - `Tumbling`
+- `duration`
 - `Sliding`
+- `size`
+- `step`
 - `Session`
+- `timeout`
 - `Count`
+- `size`
+
+---
+
+## Functions (builder)
+
+### add_stream
+
+**Source**: `core/builder.rs`
+
+```rust
+pub fn add_stream(mut self, config: StreamConfig) -> Self
+```
+
+Add a stream configuration
+
+---
+
+### build
+
+**Source**: `core/builder.rs`
+
+```rust
+pub async fn build(self) -> Result<StreamManager, Box<dyn std::error::Error>>
+```
+
+Build the StreamManager with all configured streams
+
+---
+
+### from_config_file
+
+**Source**: `core/builder.rs`
+
+```rust
+pub async fn from_config_file(path: &str) -> Result<StreamManager, Box<dyn std::error::Error>>
+```
+
+Helper to load and build a StreamManager from a TOML file
+
+---
+
+### from_env
+
+**Source**: `core/builder.rs`
+
+```rust
+pub fn from_env(mut self) -> Result<Self, Box<dyn std::error::Error>>
+```
+
+Load configuration from environment variables
+
+---
+
+### from_env
+
+**Source**: `core/builder.rs`
+
+```rust
+pub async fn from_env() -> Result<StreamManager, Box<dyn std::error::Error>>
+```
+
+Helper to load and build a StreamManager from environment variables
+
+---
+
+### from_toml_file
+
+**Source**: `core/builder.rs`
+
+```rust
+pub async fn from_toml_file(mut self, path: &str) -> Result<Self, Box<dyn std::error::Error>>
+```
+
+Load configuration from a TOML file
+
+---
+
+### new
+
+**Source**: `core/builder.rs`
+
+```rust
+pub fn new() -> Self
+```
+
+Create a new builder
+
+---
+
+### with_execution_mode
+
+**Source**: `core/builder.rs`
+
+```rust
+pub fn with_execution_mode(mut self, mode: HandlerExecutionMode) -> Self
+```
+
+Set the handler execution mode
+
+---
+
+### with_metrics
+
+**Source**: `core/builder.rs`
+
+```rust
+pub fn with_metrics(mut self, enable: bool) -> Self
+```
+
+Enable or disable metrics collection
+
+---
+
+### with_metrics_collector
+
+**Source**: `core/builder.rs`
+
+```rust
+pub fn with_metrics_collector(mut self, collector: Arc<MetricsCollector>) -> Self
+```
+
+Use a custom metrics collector
+
+---
+
+## Functions (config)
+
+### batch_timeout
+
+**Source**: `core/config.rs`
+
+```rust
+pub fn batch_timeout(&self) -> Duration
+```
+
+Convert batch timeout milliseconds to Duration
+
+---
+
+### connect_timeout
+
+**Source**: `core/config.rs`
+
+```rust
+pub fn connect_timeout(&self) -> Duration
+```
+
+Convert connection timeout seconds to Duration
+
+---
+
+### development
+
+**Source**: `core/config.rs`
+
+```rust
+pub fn development() -> Self
+```
+
+Development configuration with debugging enabled
+
+---
+
+### from_env
+
+**Source**: `core/config.rs`
+
+```rust
+pub fn from_env() -> Result<Self, ConfigError>
+```
+
+Load configuration from environment variables
+
+---
+
+### high_performance
+
+**Source**: `core/config.rs`
+
+```rust
+pub fn high_performance() -> Self
+```
+
+High-performance configuration for production environments
+
+---
+
+### high_watermark
+
+**Source**: `core/config.rs`
+
+```rust
+pub fn high_watermark(&self) -> usize
+```
+
+Calculate the high watermark threshold in absolute terms
+
+---
+
+### keepalive_interval
+
+**Source**: `core/config.rs`
+
+```rust
+pub fn keepalive_interval(&self) -> Duration
+```
+
+Convert keepalive interval seconds to Duration
+
+---
+
+### low_latency
+
+**Source**: `core/config.rs`
+
+```rust
+pub fn low_latency() -> Self
+```
+
+Low-latency configuration for real-time applications
+
+---
+
+### low_watermark
+
+**Source**: `core/config.rs`
+
+```rust
+pub fn low_watermark(&self) -> usize
+```
+
+Calculate the low watermark threshold in absolute terms
+
+---
+
+### reliable
+
+**Source**: `core/config.rs`
+
+```rust
+pub fn reliable() -> Self
+```
+
+Reliable configuration prioritizing data integrity
+
+---
+
+### report_interval
+
+**Source**: `core/config.rs`
+
+```rust
+pub fn report_interval(&self) -> Duration
+```
+
+Convert report interval seconds to Duration
+
+---
+
+### request_timeout
+
+**Source**: `core/config.rs`
+
+```rust
+pub fn request_timeout(&self) -> Duration
+```
+
+Convert request timeout seconds to Duration
+
+---
+
+### retry_base_delay
+
+**Source**: `core/config.rs`
+
+```rust
+pub fn retry_base_delay(&self) -> Duration
+```
+
+Convert base retry delay milliseconds to Duration
+
+---
+
+### retry_max_delay
+
+**Source**: `core/config.rs`
+
+```rust
+pub fn retry_max_delay(&self) -> Duration
+```
+
+Convert maximum retry delay milliseconds to Duration
+
+---
+
+### slow_threshold
+
+**Source**: `core/config.rs`
+
+```rust
+pub fn slow_threshold(&self) -> Duration
+```
+
+Convert slow threshold milliseconds to Duration
+
+---
+
+### validate
+
+**Source**: `core/config.rs`
+
+```rust
+pub fn validate(&self) -> Result<(), ConfigError>
+```
+
+Validate batch configuration parameters
+
+---
+
+### validate
+
+**Source**: `core/config.rs`
+
+```rust
+pub fn validate(&self) -> Result<(), ConfigError>
+```
+
+Validate backpressure configuration parameters
+
+---
+
+### validate
+
+**Source**: `core/config.rs`
+
+```rust
+pub fn validate(&self) -> Result<(), ConfigError>
+```
+
+Validate connection configuration parameters
+
+---
+
+### validate
+
+**Source**: `core/config.rs`
+
+```rust
+pub fn validate(&self) -> Result<(), ConfigError>
+```
+
+Validate all configuration settings
+
+---
+
+### window_duration
+
+**Source**: `core/config.rs`
+
+```rust
+pub fn window_duration(&self) -> Duration
+```
+
+Convert metrics window seconds to Duration
+
+---
+
+## Functions (error)
+
+### from_event_error
+
+**Source**: `core/error.rs`
+
+```rust
+pub fn from_event_error(event_error: EventError) -> Self
+```
+
+Create a StreamError from an EventError
+
+---
+
+### is_retriable
+
+**Source**: `core/error.rs`
+
+```rust
+pub fn is_retriable(&self) -> bool
+```
+
+Check if this error is retriable
+
+---
+
+### permanent_connection
+
+**Source**: `core/error.rs`
+
+```rust
+pub fn permanent_connection(message: impl Into<String>) -> Self
+```
+
+Create a permanent connection error
+
+---
+
+### rate_limited
+
+**Source**: `core/error.rs`
+
+```rust
+pub fn rate_limited(message: impl Into<String>, retry_after_seconds: u64) -> Self
+```
+
+Create a rate limit error with retry after duration
+
+---
+
+### retriable_connection
+
+**Source**: `core/error.rs`
+
+```rust
+pub fn retriable_connection(message: impl Into<String>) -> Self
+```
+
+Create a retriable connection error
+
+---
+
+### retry_after
+
+**Source**: `core/error.rs`
+
+```rust
+pub fn retry_after(&self) -> Option<std::time::Duration>
+```
+
+Get retry after duration if available
+
+---
+
+### to_event_error
+
+**Source**: `core/error.rs`
+
+```rust
+pub fn to_event_error(self) -> EventError
+```
+
+Convert StreamError to EventError for integration with events-core
+
+---
+
+## Functions (connection)
+
+### attempt_connect
+
+**Source**: `core/connection.rs`
+
+```rust
+pub async fn attempt_connect<F, Fut, T>(&self, connect_fn: F) -> StreamResult<T> where F: Fn() -> Fut, Fut: std::future::Future<Output = StreamResult<T>>,
+```
+
+Attempts to establish a connection using the provided function
+
+Respects circuit breaker state and implements backoff logic
+
+---
+
+### connect
+
+**Source**: `core/connection.rs`
+
+```rust
+pub async fn connect<F, Fut>(&self, connect_fn: F) -> StreamResult<()> where F: Fn() -> Fut + Send + Sync + 'static + Clone, Fut: std::future::Future<Output = StreamResult<T>> + Send,
+```
+
+Establishes a connection using the provided function
+
+Starts background monitoring for automatic reconnection
+
+---
+
+### connect_all
+
+**Source**: `core/connection.rs`
+
+```rust
+pub async fn connect_all<F, Fut>(&self, connect_fn: F) -> StreamResult<()> where F: Fn() -> Fut + Send + Sync + 'static + Clone, Fut: std::future::Future<Output = StreamResult<T>> + Send,
+```
+
+Attempts to connect all connections in the pool concurrently
+
+---
+
+### disconnect
+
+**Source**: `core/connection.rs`
+
+```rust
+pub async fn disconnect(&self)
+```
+
+Disconnects and stops monitoring the connection
+
+---
+
+### get_connection
+
+**Source**: `core/connection.rs`
+
+```rust
+pub async fn get_connection(&self) -> Option<T> where T: Clone,
+```
+
+Returns a clone of the current connection, if available
+
+---
+
+### get_healthy_connection
+
+**Source**: `core/connection.rs`
+
+```rust
+pub async fn get_healthy_connection(&self) -> StreamResult<T>
+```
+
+Returns a healthy connection from the pool using round-robin selection
+
+---
+
+### health
+
+**Source**: `core/connection.rs`
+
+```rust
+pub async fn health(&self) -> ConnectionHealth
+```
+
+Returns the current health status of the connection
+
+---
+
+### mark_disconnected
+
+**Source**: `core/connection.rs`
+
+```rust
+pub fn mark_disconnected(&self)
+```
+
+Marks the connection as explicitly disconnected
+
+---
+
+### new
+
+**Source**: `core/connection.rs`
+
+```rust
+pub fn new(config: ConnectionConfig) -> Self
+```
+
+Creates a new circuit breaker with the given configuration
+
+---
+
+### new
+
+**Source**: `core/connection.rs`
+
+```rust
+pub fn new(config: ConnectionConfig) -> Self
+```
+
+Creates a new connection manager with the given configuration
+
+---
+
+### new
+
+**Source**: `core/connection.rs`
+
+```rust
+pub fn new(config: ConnectionConfig, pool_size: usize) -> Self
+```
+
+Creates a new connection pool with the specified size and configuration
+
+---
+
+### pool_health
+
+**Source**: `core/connection.rs`
+
+```rust
+pub async fn pool_health(&self) -> Vec<ConnectionHealth>
+```
+
+Returns health status for all connections in the pool
+
+---
+
+### state
+
+**Source**: `core/connection.rs`
+
+```rust
+pub fn state(&self) -> ConnectionState
+```
+
+Returns the current state of the circuit breaker
+
+---
+
+### with_connection
+
+**Source**: `core/connection.rs`
+
+```rust
+pub async fn with_connection<F, R>(&self, f: F) -> StreamResult<R> where F: FnOnce(&T) -> R, T: Clone,
+```
+
+Executes a function with the current connection
+
+Updates activity tracking when the connection is accessed
+
+---
+
+## Functions (financial_operators)
+
+### calculate_imbalance
+
+**Source**: `core/financial_operators.rs`
+
+```rust
+pub fn calculate_imbalance(bids: &[(f64, f64)], asks: &[(f64, f64)]) -> f64
+```
+
+Calculates order book imbalance from bid/ask data
+
+---
+
+### new
+
+**Source**: `core/financial_operators.rs`
+
+```rust
+pub fn new(inner: S, window: Duration) -> Self
+```
+
+Creates a new VWAP stream with the specified time window
+
+---
+
+### new
+
+**Source**: `core/financial_operators.rs`
+
+```rust
+pub fn new(inner: S, window_size: usize) -> Self
+```
+
+Creates a new moving average stream with the specified window size
+
+---
+
+### new
+
+**Source**: `core/financial_operators.rs`
+
+```rust
+pub fn new(inner: S, periods: usize) -> Self
+```
+
+Creates a new EMA stream with the specified number of periods
+
+---
+
+### new
+
+**Source**: `core/financial_operators.rs`
+
+```rust
+pub fn new(inner: S, window: usize, std_dev_multiplier: f64) -> Self
+```
+
+Creates a new Bollinger Bands stream with specified window and standard deviation multiplier
+
+---
+
+### new
+
+**Source**: `core/financial_operators.rs`
+
+```rust
+pub fn new(inner: S, period: usize) -> Self
+```
+
+Creates a new RSI stream with the specified period
+
+---
+
+### new
+
+**Source**: `core/financial_operators.rs`
+
+```rust
+pub fn new(inner: S, depth_levels: usize) -> Self
+```
+
+Creates a new order book imbalance stream with specified depth levels
+
+---
+
+### new
+
+**Source**: `core/financial_operators.rs`
+
+```rust
+pub fn new(inner: S, lookback_period: usize) -> Self
+```
+
+Creates a new momentum stream with specified lookback period
+
+---
+
+### new
+
+**Source**: `core/financial_operators.rs`
+
+```rust
+pub fn new(inner: S) -> Self
+```
+
+Creates a new liquidity pool tracker stream
+
+---
+
+### new
+
+**Source**: `core/financial_operators.rs`
+
+```rust
+pub fn new(inner: S, window: Duration) -> Self
+```
+
+Creates a new MEV detection stream with specified time window
+
+---
+
+### new
+
+**Source**: `core/financial_operators.rs`
+
+```rust
+pub fn new(inner: S, window_size: usize) -> Self
+```
+
+Creates a new gas price oracle stream with specified window size
+
+---
+
+## Functions (mod)
+
+### serialize
+
+**Source**: `core/mod.rs`
+
+```rust
+pub fn serialize<S>(time: &SystemTime, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer,
+```
+
+---
+
+## Functions (metrics)
+
+### elapsed_ms
+
+**Source**: `core/metrics.rs`
+
+```rust
+pub fn elapsed_ms(&self) -> f64
+```
+
+Get elapsed time in milliseconds
+
+---
+
+### export_json
+
+**Source**: `core/metrics.rs`
+
+```rust
+pub async fn export_json(&self) -> String
+```
+
+Export metrics as JSON
+
+---
+
+### export_prometheus
+
+**Source**: `core/metrics.rs`
+
+```rust
+pub async fn export_prometheus(&self) -> String
+```
+
+Export metrics in Prometheus format
+
+---
+
+### get_all_handler_metrics
+
+**Source**: `core/metrics.rs`
+
+```rust
+pub async fn get_all_handler_metrics(&self) -> Vec<HandlerMetrics>
+```
+
+Get all handler metrics
+
+---
+
+### get_all_stream_metrics
+
+**Source**: `core/metrics.rs`
+
+```rust
+pub async fn get_all_stream_metrics(&self) -> Vec<StreamMetrics>
+```
+
+Get all stream metrics
+
+---
+
+### get_global_metrics
+
+**Source**: `core/metrics.rs`
+
+```rust
+pub async fn get_global_metrics(&self) -> GlobalMetrics
+```
+
+Get global metrics
+
+---
+
+### get_handler_metrics
+
+**Source**: `core/metrics.rs`
+
+```rust
+pub async fn get_handler_metrics(&self, handler_name: &str) -> Option<HandlerMetrics>
+```
+
+Get handler metrics
+
+---
+
+### get_stream_metrics
+
+**Source**: `core/metrics.rs`
+
+```rust
+pub async fn get_stream_metrics(&self, stream_name: &str) -> Option<StreamMetrics>
+```
+
+Get stream metrics
+
+---
+
+### new
+
+**Source**: `core/metrics.rs`
+
+```rust
+pub fn new() -> Self
+```
+
+Create a new metrics collector
+
+---
+
+### record_dropped_event
+
+**Source**: `core/metrics.rs`
+
+```rust
+pub async fn record_dropped_event(&self, stream_name: &str)
+```
+
+Record a dropped event
+
+---
+
+### record_handler_execution
+
+**Source**: `core/metrics.rs`
+
+```rust
+pub async fn record_handler_execution( &self, handler_name: &str, execution_time_ms: f64, success: bool, )
+```
+
+Record a handler execution
+
+---
+
+### record_reconnection
+
+**Source**: `core/metrics.rs`
+
+```rust
+pub async fn record_reconnection(&self, stream_name: &str)
+```
+
+Record a stream reconnection
+
+---
+
+### record_stream_event
+
+**Source**: `core/metrics.rs`
+
+```rust
+pub async fn record_stream_event( &self, stream_name: &str, processing_time_ms: f64, bytes: u64, )
+```
+
+Record a stream event
+
+---
+
+### start
+
+**Source**: `core/metrics.rs`
+
+```rust
+pub fn start(name: impl Into<String>) -> Self
+```
+
+Start a new timer
+
+---
+
+### start_with_collector
+
+**Source**: `core/metrics.rs`
+
+```rust
+pub fn start_with_collector(name: impl Into<String>, collector: Arc<MetricsCollector>) -> Self
+```
+
+Start a timer with a collector
+
+---
+
+### stop
+
+**Source**: `core/metrics.rs`
+
+```rust
+pub async fn stop(self, success: bool)
+```
+
+Stop timer and record metrics
+
+---
+
+### update_rates
+
+**Source**: `core/metrics.rs`
+
+```rust
+pub async fn update_rates(&self)
+```
+
+Update rates (should be called periodically)
+
+---
+
+## Functions (enhanced_operators)
+
+### get_metrics
+
+**Source**: `core/enhanced_operators.rs`
+
+```rust
+pub async fn get_metrics(&self) -> MetricsSummary
+```
+
+Get performance metrics for this stream
+
+---
+
+### new
+
+**Source**: `core/enhanced_operators.rs`
+
+```rust
+pub fn new(inner: S, _batch_size: usize, _timeout: Duration) -> Self
+```
+
+Create a new batched stream
+
+---
+
+### new
+
+**Source**: `core/enhanced_operators.rs`
+
+```rust
+pub fn new(inner: S, _max_rate_per_second: u64, _dedup_ttl: Duration) -> Self
+```
+
+Create an enhanced stream with rate limiting and deduplication
+
+---
+
+### reset_metrics
+
+**Source**: `core/enhanced_operators.rs`
+
+```rust
+pub async fn reset_metrics(&self)
+```
+
+Reset performance metrics
+
+---
+
+## Functions (stream)
+
+### new
+
+**Source**: `core/stream.rs`
+
+```rust
+pub fn new(stream: S) -> Self
+```
+
+Create a new dynamic stream wrapper around the given stream
+
+---
+
+## Functions (manager)
+
+### add_event_handler
+
+**Source**: `core/manager.rs`
+
+```rust
+pub async fn add_event_handler(&self, handler: Arc<dyn EventHandler>)
+```
+
+Add an event handler
+
+---
+
+### add_stream
+
+**Source**: `core/manager.rs`
+
+```rust
+pub async fn add_stream<S>(&self, name: String, stream: S) -> StreamResult<()> where S: Stream + Send + Sync + 'static, S::Event: Send + Sync + 'static,
+```
+
+Add a stream to be managed (stream should already be configured and started)
+
+---
+
+### health
+
+**Source**: `core/manager.rs`
+
+```rust
+pub async fn health(&self) -> std::collections::HashMap<String, StreamHealth>
+```
+
+Get health status of all streams
+
+---
+
+### is_stream_running
+
+**Source**: `core/manager.rs`
+
+```rust
+pub async fn is_stream_running(&self, name: &str) -> bool
+```
+
+Check if a stream is running
+
+---
+
+### list_streams
+
+**Source**: `core/manager.rs`
+
+```rust
+pub async fn list_streams(&self) -> Vec<String>
+```
+
+Get list of stream names
+
+---
+
+### metrics_collector
+
+**Source**: `core/manager.rs`
+
+```rust
+pub fn metrics_collector(&self) -> Arc<MetricsCollector>
+```
+
+Get the metrics collector
+
+---
+
+### new
+
+**Source**: `core/manager.rs`
+
+```rust
+pub fn new() -> Self
+```
+
+Create a new StreamManager with default configuration
+
+---
+
+### new
+
+**Source**: `core/manager.rs`
+
+```rust
+pub fn new(name: impl Into<String>) -> Self
+```
+
+Create a new LoggingEventHandler with the specified name
+
+---
+
+### process_events
+
+**Source**: `core/manager.rs`
+
+```rust
+pub async fn process_events(&self) -> StreamResult<()>
+```
+
+Process events from all streams
+
+---
+
+### remove_stream
+
+**Source**: `core/manager.rs`
+
+```rust
+pub async fn remove_stream(&self, name: &str) -> StreamResult<()>
+```
+
+Remove a stream
+
+---
+
+### set_execution_mode
+
+**Source**: `core/manager.rs`
+
+```rust
+pub async fn set_execution_mode(&self, mode: HandlerExecutionMode)
+```
+
+Set the handler execution mode
+
+---
+
+### start_all
+
+**Source**: `core/manager.rs`
+
+```rust
+pub async fn start_all(&self) -> StreamResult<()>
+```
+
+Start all registered streams
+
+---
+
+### start_stream
+
+**Source**: `core/manager.rs`
+
+```rust
+pub async fn start_stream(&self, name: &str) -> StreamResult<()>
+```
+
+Start a specific stream (stream should already be configured)
+
+---
+
+### state
+
+**Source**: `core/manager.rs`
+
+```rust
+pub async fn state(&self) -> ManagerState
+```
+
+Get manager state
+
+---
+
+### stop_all
+
+**Source**: `core/manager.rs`
+
+```rust
+pub async fn stop_all(&self) -> StreamResult<()>
+```
+
+Stop all streams
+
+---
+
+### stop_stream
+
+**Source**: `core/manager.rs`
+
+```rust
+pub async fn stop_stream(&self, name: &str) -> StreamResult<()>
+```
+
+Stop a specific stream
+
+---
+
+### with_execution_mode
+
+**Source**: `core/manager.rs`
+
+```rust
+pub fn with_execution_mode(mode: HandlerExecutionMode) -> Self
+```
+
+Create a new StreamManager with specified execution mode
+
+---
+
+## Functions (processor)
+
+### acquire_permit
+
+**Source**: `core/processor.rs`
+
+```rust
+pub async fn acquire_permit(&self) -> StreamResult<()>
+```
+
+Attempts to acquire a permit based on the configured backpressure strategy
+
+---
+
+### add_event
+
+**Source**: `core/processor.rs`
+
+```rust
+pub fn add_event(&mut self, event: E) -> Vec<Window<E>>
+```
+
+Adds an event to the appropriate window(s) and returns any completed windows
+
+---
+
+### add_event
+
+**Source**: `core/processor.rs`
+
+```rust
+pub fn add_event(&mut self, event: E) -> Option<Vec<E>>
+```
+
+Adds an event to the batch buffer and returns a completed batch if ready
+
+---
+
+### checkpoint
+
+**Source**: `core/processor.rs`
+
+```rust
+pub async fn checkpoint(&self) -> StreamResult<()>
+```
+
+Creates a checkpoint of the current state if enough time has passed
+
+---
+
+### flush_batch
+
+**Source**: `core/processor.rs`
+
+```rust
+pub fn flush_batch(&mut self) -> Option<Vec<E>>
+```
+
+Forces a flush of the current batch buffer
+
+---
+
+### get_state
+
+**Source**: `core/processor.rs`
+
+```rust
+pub async fn get_state(&self, key: &K) -> Option<S>
+```
+
+Retrieves the current state for the given key
+
+---
+
+### get_stats
+
+**Source**: `core/processor.rs`
+
+```rust
+pub async fn get_stats(&self) -> (usize, usize)
+```
+
+Returns current queue size and drop count statistics
+
+---
+
+### match_event
+
+**Source**: `core/processor.rs`
+
+```rust
+pub fn match_event(&mut self, event: E) -> Vec<usize>
+```
+
+Processes an event and returns indices of matching patterns
+
+---
+
+### new
+
+**Source**: `core/processor.rs`
+
+```rust
+pub fn new(window_type: WindowType) -> Self
+```
+
+Creates a new window manager with the specified window type
+
+---
+
+### new
+
+**Source**: `core/processor.rs`
+
+```rust
+pub fn new(checkpoint_interval: Duration) -> Self
+```
+
+Creates a new stateful processor with the specified checkpoint interval
+
+---
+
+### new
+
+**Source**: `core/processor.rs`
+
+```rust
+pub fn new(config: BackpressureConfig) -> Self
+```
+
+Creates a new flow controller with the specified backpressure configuration
+
+---
+
+### new
+
+**Source**: `core/processor.rs`
+
+```rust
+pub fn new(config: BatchConfig) -> Self
+```
+
+Creates a new batch processor with the specified configuration
+
+---
+
+### new
+
+**Source**: `core/processor.rs`
+
+```rust
+pub fn new(patterns: Vec<EventPattern<E>>, max_history: usize) -> Self
+```
+
+Creates a new pattern matcher with the specified patterns and history size
+
+---
+
+### pending_count
+
+**Source**: `core/processor.rs`
+
+```rust
+pub fn pending_count(&self) -> usize
+```
+
+Returns the number of events currently in the batch buffer
+
+---
+
+### release_permit
+
+**Source**: `core/processor.rs`
+
+```rust
+pub async fn release_permit(&self)
+```
+
+Releases a permit back to the semaphore pool
+
+---
+
+### remove_state
+
+**Source**: `core/processor.rs`
+
+```rust
+pub async fn remove_state(&self, key: &K) -> Option<S>
+```
+
+Removes and returns the state for the given key
+
+---
+
+### update_queue_size
+
+**Source**: `core/processor.rs`
+
+```rust
+pub async fn update_queue_size(&self, delta: i32)
+```
+
+Updates the queue size by the specified delta
+
+---
+
+### update_state
+
+**Source**: `core/processor.rs`
+
+```rust
+pub async fn update_state<F, R>(&self, key: K, update_fn: F) -> R where F: FnOnce(Option<&S>) -> (S, R),
+```
+
+Updates the state for the given key using the provided function
+
+---
+
+## Functions (operators)
+
+### build
+
+**Source**: `core/operators.rs`
+
+```rust
+pub fn build(self) -> T
+```
+
+Build the final stream
+
+---
+
+### combine_latest
+
+**Source**: `core/operators.rs`
+
+```rust
+pub fn combine_latest<S1, S2>(stream1: S1, stream2: S2) -> CombineLatestStream<S1, S2> where S1: Stream, S2: Stream,
+```
+
+Combine latest values from two streams
+
+---
+
+### downcast
+
+**Source**: `core/operators.rs`
+
+```rust
+pub fn downcast<T: Event + 'static>(&self) -> Option<&T>
+```
+
+Attempt to downcast to a specific event type
+
+---
+
+### from
+
+**Source**: `core/operators.rs`
+
+```rust
+pub fn from(stream: T) -> Self
+```
+
+Create a new pipeline from a stream
+
+---
+
+### inner
+
+**Source**: `core/operators.rs`
+
+```rust
+pub fn inner(&self) -> &dyn Event
+```
+
+Get the inner event as a trait object
+
+---
+
+### merge_all
+
+**Source**: `core/operators.rs`
+
+```rust
+pub fn merge_all<S, I>(streams: I) -> MergeAllStream<S> where S: Stream + 'static, I: IntoIterator<Item = S>,
+```
+
+Merge multiple streams into one
+
+---
+
+### new
+
+**Source**: `core/operators.rs`
+
+```rust
+pub fn new(inner: S, transform: F) -> Self
+```
+
+Create a new mapped stream
+
+---
+
+### new
+
+**Source**: `core/operators.rs`
+
+```rust
+pub fn new(inner: S, predicate: F) -> Self
+```
+
+Create a new filtered stream
+
+---
+
+### new
+
+**Source**: `core/operators.rs`
+
+```rust
+pub fn new(stream1: S1, stream2: S2) -> Self
+```
+
+Create a new merged stream
+
+---
+
+### new
+
+**Source**: `core/operators.rs`
+
+```rust
+pub fn new(inner: S, batch_size: usize, timeout: Duration) -> Self
+```
+
+Create a new batched stream
+
+---
+
+### new
+
+**Source**: `core/operators.rs`
+
+```rust
+pub fn new(inner: S, duration: Duration) -> Self
+```
+
+Create a new debounced stream
+
+---
+
+### new
+
+**Source**: `core/operators.rs`
+
+```rust
+pub fn new(inner: S, duration: Duration) -> Self
+```
+
+Create a new throttled stream
+
+---
+
+### new
+
+**Source**: `core/operators.rs`
+
+```rust
+pub fn new(inner: S, count: usize) -> Self
+```
+
+Create a new take stream
+
+---
+
+### new
+
+**Source**: `core/operators.rs`
+
+```rust
+pub fn new(inner: S, count: usize) -> Self
+```
+
+Create a new skip stream
+
+---
+
+### new
+
+**Source**: `core/operators.rs`
+
+```rust
+pub fn new(inner: S, initial_state: St, transform: F) -> Self
+```
+
+Create a new scan stream
+
+---
+
+### new
+
+**Source**: `core/operators.rs`
+
+```rust
+pub fn new(inner: S, strategy: BufferStrategy) -> Self
+```
+
+Create a new buffered stream
+
+---
+
+### new
+
+**Source**: `core/operators.rs`
+
+```rust
+pub fn new(inner: S, filter: FilterF, map: MapF) -> Self
+```
+
+Create a new filter-map stream
+
+---
+
+### new
+
+**Source**: `core/operators.rs`
+
+```rust
+pub fn new(inner: S, max_retries: usize, retry_delay: Duration) -> Self
+```
+
+Create a new resilient stream
+
+---
+
+### new
+
+**Source**: `core/operators.rs`
+
+```rust
+pub fn new(inner: S, error_handler: F) -> Self
+```
+
+Create a new error-catching stream with the given error handler
+
+---
+
+### new
+
+**Source**: `core/operators.rs`
+
+```rust
+pub fn new(event: Arc<dyn Event>, source_stream: String) -> Self
+```
+
+Create a new type-erased event
+
+---
+
+### new
+
+**Source**: `core/operators.rs`
+
+```rust
+pub fn new(streams: Vec<S>) -> Self
+```
+
+Create a new merge-all stream from a vector of streams
+
+---
+
+### new
+
+**Source**: `core/operators.rs`
+
+```rust
+pub fn new(inner: S, buffer_size: usize) -> Self
+```
+
+Create a new guaranteed delivery stream with specified buffer size
+
+---
+
+### new
+
+**Source**: `core/operators.rs`
+
+```rust
+pub fn new(stream1: S1, stream2: S2) -> Self
+```
+
+Create a new zip stream that combines events from two streams
+
+---
+
+### new
+
+**Source**: `core/operators.rs`
+
+```rust
+pub fn new(stream1: S1, stream2: S2) -> Self
+```
+
+Create a new combine-latest stream that emits when either stream updates
+
+---
+
+### source_stream
+
+**Source**: `core/operators.rs`
+
+```rust
+pub fn source_stream(&self) -> &str
+```
+
+Get the source stream name
+
+---
+
+### zip
+
+**Source**: `core/operators.rs`
+
+```rust
+pub fn zip<S1, S2>(stream1: S1, stream2: S2) -> ZipStream<S1, S2> where S1: Stream, S2: Stream,
+```
+
+Zip two streams together
+
+---
+
+## Functions (multi_chain)
+
+### active_chains
+
+**Source**: `evm/multi_chain.rs`
+
+```rust
+pub async fn active_chains(&self) -> Vec<ChainId>
+```
+
+Get list of active chains
+
+---
+
+### add_chain
+
+**Source**: `evm/multi_chain.rs`
+
+```rust
+pub async fn add_chain(&self, chain_id: ChainId) -> Result<(), StreamError>
+```
+
+Add an EVM chain using the RPC_URL_{CHAIN_ID} pattern
+
+---
+
+### is_chain_configured
+
+**Source**: `evm/multi_chain.rs`
+
+```rust
+pub fn is_chain_configured(&self, chain_id: ChainId) -> bool
+```
+
+Check if a chain is configured
+
+---
+
+### new
+
+**Source**: `evm/multi_chain.rs`
+
+```rust
+pub fn new() -> Self
+```
+
+Create a new multi-chain EVM manager
+
+---
+
+### register_all_configured_chains
+
+**Source**: `evm/multi_chain.rs`
+
+```rust
+pub async fn register_all_configured_chains(&self) -> Result<(), StreamError>
+```
+
+Register all configured chains
+
+---
+
+### remove_chain
+
+**Source**: `evm/multi_chain.rs`
+
+```rust
+pub async fn remove_chain(&self, chain_id: ChainId) -> Result<(), StreamError>
+```
+
+Remove a chain
+
+---
+
+### stop_all
+
+**Source**: `evm/multi_chain.rs`
+
+```rust
+pub async fn stop_all(&self) -> Result<(), StreamError>
+```
+
+Stop all streams
+
+---
+
+### with_stream_manager
+
+**Source**: `evm/multi_chain.rs`
+
+```rust
+pub fn with_stream_manager(mut self, manager: Arc<StreamManager>) -> Self
+```
+
+Set the stream manager
+
+---
+
+## Functions (websocket)
+
+### new
+
+**Source**: `evm/websocket.rs`
+
+```rust
+pub fn new(name: impl Into<String>) -> Self
+```
+
+Create a new EVM WebSocket stream
+
+---
+
+## Functions (binance)
+
+### new
+
+**Source**: `external/binance.rs`
+
+```rust
+pub fn new(name: impl Into<String>) -> Self
+```
+
+Create a new Binance stream
+
+---
+
+## Functions (mempool)
+
+### new
+
+**Source**: `external/mempool.rs`
+
+```rust
+pub fn new(name: impl Into<String>) -> Self
+```
+
+Create a new Mempool.space stream
+
+---
+
+## Functions (health)
+
+### current_health
+
+**Source**: `production/health.rs`
+
+```rust
+pub async fn current_health(&self) -> HealthSnapshot
+```
+
+Get current health snapshot
+
+---
+
+### health_history
+
+**Source**: `production/health.rs`
+
+```rust
+pub async fn health_history(&self) -> Vec<HealthSnapshot>
+```
+
+Get health history
+
+---
+
+### new
+
+**Source**: `production/health.rs`
+
+```rust
+pub fn new(stream_manager: Arc<StreamManager>) -> Self
+```
+
+Create a new health monitor
+
+---
+
+### start
+
+**Source**: `production/health.rs`
+
+```rust
+pub async fn start(&self)
+```
+
+Start monitoring
+
+---
+
+### with_check_interval
+
+**Source**: `production/health.rs`
+
+```rust
+pub fn with_check_interval(mut self, interval: Duration) -> Self
+```
+
+Set check interval
+
+---
+
+### with_thresholds
+
+**Source**: `production/health.rs`
+
+```rust
+pub fn with_thresholds(mut self, thresholds: HealthThresholds) -> Self
+```
+
+Set custom thresholds
+
+---
+
+## Functions (monitoring)
+
+### get_all_metrics
+
+**Source**: `production/monitoring.rs`
+
+```rust
+pub async fn get_all_metrics(&self) -> HashMap<String, MetricsSnapshot>
+```
+
+Get all metrics
+
+---
+
+### get_metrics
+
+**Source**: `production/monitoring.rs`
+
+```rust
+pub async fn get_metrics(&self) -> MetricsSnapshot
+```
+
+Get current metrics
+
+---
+
+### get_stream_metrics
+
+**Source**: `production/monitoring.rs`
+
+```rust
+pub async fn get_stream_metrics(&self, stream_name: &str) -> StreamMetrics
+```
+
+Get or create metrics for a stream
+
+---
+
+### new
+
+**Source**: `production/monitoring.rs`
+
+```rust
+pub fn new() -> Self
+```
+
+Create new metrics collector
+
+---
+
+### new
+
+**Source**: `production/monitoring.rs`
+
+```rust
+pub fn new() -> Self
+```
+
+Create new collector
+
+---
+
+### record_error
+
+**Source**: `production/monitoring.rs`
+
+```rust
+pub async fn record_error(&self, error_type: &str)
+```
+
+Record an error
+
+---
+
+### record_event
+
+**Source**: `production/monitoring.rs`
+
+```rust
+pub async fn record_event(&self, event_type: &str, latency_ms: f64)
+```
+
+Record an event
+
+---
+
+## Functions (resilience)
+
+### calculate_delay
+
+**Source**: `production/resilience.rs`
+
+```rust
+pub fn calculate_delay(&self, attempt: u32) -> Duration
+```
+
+Calculate delay for retry attempt
+
+---
+
+### execute
+
+**Source**: `production/resilience.rs`
+
+```rust
+pub async fn execute<F, T, E>(&self, mut operation: F) -> Result<T, E> where F: FnMut() -> futures::future::BoxFuture<'static, Result<T, E>>, E: std::fmt::Display,
+```
+
+Execute with retry
+
+---
+
+### is_open
+
+**Source**: `production/resilience.rs`
+
+```rust
+pub async fn is_open(&self) -> bool
+```
+
+Check if circuit is open
+
+---
+
+### new
+
+**Source**: `production/resilience.rs`
+
+```rust
+pub fn new(name: impl Into<String>) -> Self
+```
+
+Create new circuit breaker
+
+---
+
+### record_failure
+
+**Source**: `production/resilience.rs`
+
+```rust
+pub async fn record_failure(&self)
+```
+
+Record failure
+
+---
+
+### record_success
+
+**Source**: `production/resilience.rs`
+
+```rust
+pub async fn record_success(&self)
+```
+
+Record success
+
+---
+
+### with_failure_threshold
+
+**Source**: `production/resilience.rs`
+
+```rust
+pub fn with_failure_threshold(mut self, threshold: u64) -> Self
+```
+
+Set failure threshold
+
+---
+
+### with_success_threshold
+
+**Source**: `production/resilience.rs`
+
+```rust
+pub fn with_success_threshold(mut self, threshold: u64) -> Self
+```
+
+Set success threshold
+
+---
+
+### with_timeout
+
+**Source**: `production/resilience.rs`
+
+```rust
+pub fn with_timeout(mut self, timeout: Duration) -> Self
+```
+
+Set timeout
 
 ---
 
@@ -5829,6 +5663,314 @@ type SolanaStreamEvent = DynamicStreamedEvent
 ```
 
 Type alias for streamed Solana events using protocol-specific parsing
+
+---
+
+## Functions (geyser)
+
+### new
+
+**Source**: `solana/geyser.rs`
+
+```rust
+pub fn new(name: impl Into<String>) -> Self
+```
+
+Create a new Solana Geyser stream
+
+---
+
+## Functions (event_triggered)
+
+### build
+
+**Source**: `tools/event_triggered.rs`
+
+```rust
+pub fn build(self) -> EventTriggeredTool<T>
+```
+
+Build the event-triggered tool
+
+---
+
+### combinator
+
+**Source**: `tools/event_triggered.rs`
+
+```rust
+pub fn combinator(mut self, combinator: ConditionCombinator) -> Self
+```
+
+Set combinator
+
+---
+
+### condition
+
+**Source**: `tools/event_triggered.rs`
+
+```rust
+pub fn condition(mut self, condition: Box<dyn EventCondition>) -> Self
+```
+
+Add a condition
+
+---
+
+### execution_count
+
+**Source**: `tools/event_triggered.rs`
+
+```rust
+pub async fn execution_count(&self) -> u64
+```
+
+Get execution count
+
+---
+
+### new
+
+**Source**: `tools/event_triggered.rs`
+
+```rust
+pub fn new(tool: T, name: impl Into<String>) -> Self
+```
+
+Create a new event-triggered tool
+
+---
+
+### new
+
+**Source**: `tools/event_triggered.rs`
+
+```rust
+pub fn new(tool: T, name: impl Into<String>) -> Self
+```
+
+Create a new builder
+
+---
+
+### register
+
+**Source**: `tools/event_triggered.rs`
+
+```rust
+pub async fn register(self, manager: &StreamManager) -> Arc<EventTriggeredTool<T>> where T: 'static,
+```
+
+Register with a stream manager
+
+---
+
+### with_combinator
+
+**Source**: `tools/event_triggered.rs`
+
+```rust
+pub fn with_combinator(mut self, combinator: ConditionCombinator) -> Self
+```
+
+Set condition combinator
+
+---
+
+### with_condition
+
+**Source**: `tools/event_triggered.rs`
+
+```rust
+pub fn with_condition(mut self, condition: Box<dyn EventCondition>) -> Self
+```
+
+Add a condition
+
+---
+
+## Functions (event_utils)
+
+### as_event
+
+**Source**: `tools/event_utils.rs`
+
+```rust
+pub fn as_event(event: &(dyn Any + Send + Sync)) -> Option<&dyn Event>
+```
+
+Helper to convert Any to Event by trying all known event types
+
+---
+
+### as_event_extended
+
+**Source**: `tools/event_utils.rs`
+
+```rust
+pub fn as_event_extended(event: &(dyn Any + Send + Sync)) -> Option<&dyn Event>
+```
+
+---
+
+## Functions (worker_extension)
+
+### new
+
+**Source**: `tools/worker_extension.rs`
+
+```rust
+pub fn new(worker_id: String, stream_manager: Arc<StreamManager>) -> Self
+```
+
+Create a new streaming tool worker
+
+---
+
+### start
+
+**Source**: `tools/worker_extension.rs`
+
+```rust
+pub async fn start(&mut self) -> Result<(), Box<dyn std::error::Error>>
+```
+
+Start processing events
+
+---
+
+### stop
+
+**Source**: `tools/worker_extension.rs`
+
+```rust
+pub async fn stop(&mut self) -> Result<(), Box<dyn std::error::Error>>
+```
+
+Stop the worker
+
+---
+
+## Functions (condition)
+
+### add_condition
+
+**Source**: `tools/condition.rs`
+
+```rust
+pub fn add_condition(mut self, condition: Box<dyn EventCondition>) -> Self
+```
+
+Add a condition to this composite condition
+
+---
+
+### after
+
+**Source**: `tools/condition.rs`
+
+```rust
+pub fn after(timestamp: std::time::SystemTime) -> Self
+```
+
+Create a TimestampRangeMatcher that matches events after the given timestamp
+
+---
+
+### before
+
+**Source**: `tools/condition.rs`
+
+```rust
+pub fn before(timestamp: std::time::SystemTime) -> Self
+```
+
+Create a TimestampRangeMatcher that matches events before the given timestamp
+
+---
+
+### new
+
+**Source**: `tools/condition.rs`
+
+```rust
+pub fn new(event_kinds: Vec<EventKind>) -> Self
+```
+
+Create a new EventKindMatcher with multiple event kinds
+
+---
+
+### new
+
+**Source**: `tools/condition.rs`
+
+```rust
+pub fn new(sources: Vec<String>) -> Self
+```
+
+Create a new SourceMatcher with multiple sources
+
+---
+
+### new
+
+**Source**: `tools/condition.rs`
+
+```rust
+pub fn new( min_timestamp: Option<std::time::SystemTime>, max_timestamp: Option<std::time::SystemTime>, ) -> Self
+```
+
+Create a new TimestampRangeMatcher with optional min and max timestamps
+
+---
+
+### new
+
+**Source**: `tools/condition.rs`
+
+```rust
+pub fn new(predicate: F, description: impl Into<String>) -> Self
+```
+
+Create a new CustomCondition with a predicate function and description
+
+---
+
+### new
+
+**Source**: `tools/condition.rs`
+
+```rust
+pub fn new(combinator: ConditionCombinator) -> Self
+```
+
+Create a new CompositeCondition with the specified combinator
+
+---
+
+### single
+
+**Source**: `tools/condition.rs`
+
+```rust
+pub fn single(event_kind: EventKind) -> Self
+```
+
+Create a new EventKindMatcher for a single event kind
+
+---
+
+### single
+
+**Source**: `tools/condition.rs`
+
+```rust
+pub fn single(source: String) -> Self
+```
+
+Create a new SourceMatcher for a single source
 
 ---
 

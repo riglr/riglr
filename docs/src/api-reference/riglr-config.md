@@ -14,51 +14,29 @@ Comprehensive API documentation for the `riglr-config` crate.
 - [`EnvironmentSource`](#environmentsource)
 - [`Feature`](#feature)
 
-### Functions
+### Functions (environment)
 
-- [`app`](#app)
-- [`build`](#build)
-- [`builder`](#builder)
-- [`database`](#database)
-- [`disable`](#disable)
-- [`enable`](#enable)
 - [`exists`](#exists)
 - [`extract_by_prefix`](#extract_by_prefix)
 - [`extract_chain_rpc_urls`](#extract_chain_rpc_urls)
 - [`extract_contract_overrides`](#extract_contract_overrides)
-- [`extract_rpc_urls`](#extract_rpc_urls)
-- [`features`](#features)
-- [`from_env`](#from_env)
-- [`generic`](#generic)
 - [`get`](#get)
-- [`get_ai_key`](#get_ai_key)
-- [`get_blockchain_key`](#get_blockchain_key)
-- [`get_chain`](#get_chain)
 - [`get_or`](#get_or)
-- [`get_rpc_url`](#get_rpc_url)
-- [`get_supported_chains`](#get_supported_chains)
-- [`global`](#global)
-- [`has_ai_provider`](#has_ai_provider)
-- [`has_blockchain_provider`](#has_blockchain_provider)
-- [`has_data_provider`](#has_data_provider)
-- [`io`](#io)
-- [`is_custom_enabled`](#is_custom_enabled)
-- [`is_enabled`](#is_enabled)
-- [`load_chain_contracts`](#load_chain_contracts)
-- [`network`](#network)
-- [`new`](#new)
-- [`parse`](#parse)
-- [`providers`](#providers)
 - [`require`](#require)
-- [`try_global`](#try_global)
-- [`validate`](#validate)
-- [`validate`](#validate)
-- [`validate`](#validate)
-- [`validate`](#validate)
-- [`validate`](#validate)
-- [`validate`](#validate)
-- [`validate`](#validate)
-- [`validate`](#validate)
+
+### Functions (error)
+
+- [`generic`](#generic)
+- [`io`](#io)
+- [`parse`](#parse)
+- [`validation`](#validation)
+
+### Traits
+
+- [`Validator`](#validator)
+
+### Functions (validation)
+
 - [`validate_api_key`](#validate_api_key)
 - [`validate_email`](#validate_email)
 - [`validate_eth_address`](#validate_eth_address)
@@ -68,11 +46,6 @@ Comprehensive API documentation for the `riglr-config` crate.
 - [`validate_range`](#validate_range)
 - [`validate_solana_address`](#validate_solana_address)
 - [`validate_url`](#validate_url)
-- [`validation`](#validation)
-
-### Traits
-
-- [`Validator`](#validator)
 
 ### Structs
 
@@ -89,6 +62,57 @@ Comprehensive API documentation for the `riglr-config` crate.
 - [`ProvidersConfig`](#providersconfig)
 - [`RetryConfig`](#retryconfig)
 - [`TransactionConfig`](#transactionconfig)
+
+### Functions (app)
+
+- [`validate`](#validate)
+- [`validate`](#validate)
+
+### Functions (features)
+
+- [`disable`](#disable)
+- [`enable`](#enable)
+- [`is_custom_enabled`](#is_custom_enabled)
+- [`is_enabled`](#is_enabled)
+- [`validate`](#validate)
+
+### Functions (database)
+
+- [`validate`](#validate)
+- [`validate`](#validate)
+
+### Functions (network)
+
+- [`extract_rpc_urls`](#extract_rpc_urls)
+- [`get_chain`](#get_chain)
+- [`get_rpc_url`](#get_rpc_url)
+- [`get_supported_chains`](#get_supported_chains)
+- [`load_chain_contracts`](#load_chain_contracts)
+- [`validate`](#validate)
+
+### Functions (providers)
+
+- [`get_ai_key`](#get_ai_key)
+- [`get_blockchain_key`](#get_blockchain_key)
+- [`has_ai_provider`](#has_ai_provider)
+- [`has_blockchain_provider`](#has_blockchain_provider)
+- [`has_data_provider`](#has_data_provider)
+- [`validate`](#validate)
+
+### Functions (lib)
+
+- [`app`](#app)
+- [`build`](#build)
+- [`builder`](#builder)
+- [`database`](#database)
+- [`features`](#features)
+- [`from_env`](#from_env)
+- [`global`](#global)
+- [`network`](#network)
+- [`new`](#new)
+- [`providers`](#providers)
+- [`try_global`](#try_global)
+- [`validate`](#validate)
 
 ## Enums
 
@@ -263,79 +287,7 @@ Feature enumeration
 
 ---
 
-## Functions
-
-### app
-
-**Source**: `src/lib.rs`
-
-```rust
-pub fn app(mut self, config: AppConfig) -> Self
-```
-
-Set application configuration
-
----
-
-### build
-
-**Source**: `src/lib.rs`
-
-```rust
-pub fn build(self) -> ConfigResult<Config>
-```
-
-Build the configuration
-
----
-
-### builder
-
-**Source**: `src/lib.rs`
-
-```rust
-pub fn builder() -> ConfigBuilder
-```
-
-Create a builder for constructing configuration programmatically
-
----
-
-### database
-
-**Source**: `src/lib.rs`
-
-```rust
-pub fn database(mut self, config: DatabaseConfig) -> Self
-```
-
-Set database configuration
-
----
-
-### disable
-
-**Source**: `src/features.rs`
-
-```rust
-pub fn disable(&mut self, feature: Feature)
-```
-
-Disable a feature
-
----
-
-### enable
-
-**Source**: `src/features.rs`
-
-```rust
-pub fn enable(&mut self, feature: Feature)
-```
-
-Enable a feature
-
----
+## Functions (environment)
 
 ### exists
 
@@ -400,62 +352,6 @@ Helper to extract and parse contract addresses
 
 ---
 
-### extract_rpc_urls
-
-**Source**: `src/network.rs`
-
-```rust
-pub fn extract_rpc_urls(&mut self)
-```
-
-Extract RPC URLs from environment using RPC_URL_{CHAIN_ID} convention
-
----
-
-### features
-
-**Source**: `src/lib.rs`
-
-```rust
-pub fn features(mut self, config: FeaturesConfig) -> Self
-```
-
-Set features configuration
-
----
-
-### from_env
-
-**Source**: `src/lib.rs`
-
-```rust
-pub fn from_env() -> Arc<Self>
-```
-
-Load configuration from environment variables (fail-fast)
-
-This will:
-1. Load .env file if present
-2. Parse environment variables
-3. Apply convention-based patterns (RPC_URL_{CHAIN_ID})
-4. Load chains.toml if specified
-5. Validate all configuration
-6. Store globally for access via Config::global()
-
----
-
-### generic
-
-**Source**: `src/error.rs`
-
-```rust
-pub fn generic<S: Into<String>>(msg: S) -> Self
-```
-
-Create a generic error
-
----
-
 ### get
 
 **Source**: `src/environment.rs`
@@ -465,42 +361,6 @@ pub fn get(&self, key: &str) -> Option<String>
 ```
 
 Get an environment variable
-
----
-
-### get_ai_key
-
-**Source**: `src/providers.rs`
-
-```rust
-pub fn get_ai_key(&self, provider: AiProvider) -> Option<&str>
-```
-
-Get the API key for an AI provider
-
----
-
-### get_blockchain_key
-
-**Source**: `src/providers.rs`
-
-```rust
-pub fn get_blockchain_key(&self, provider: BlockchainProvider) -> Option<&str>
-```
-
-Get the API key for a blockchain provider
-
----
-
-### get_chain
-
-**Source**: `src/network.rs`
-
-```rust
-pub fn get_chain(&self, chain_id: u64) -> Option<&ChainConfig>
-```
-
-Get chain configuration
 
 ---
 
@@ -516,77 +376,29 @@ Get an optional environment variable with default
 
 ---
 
-### get_rpc_url
+### require
 
-**Source**: `src/network.rs`
+**Source**: `src/environment.rs`
 
 ```rust
-pub fn get_rpc_url(&self, chain_id: u64) -> Option<String>
+pub fn require(&self, key: &str) -> ConfigResult<String>
 ```
 
-Get RPC URL for a specific chain ID
+Get a required environment variable
 
 ---
 
-### get_supported_chains
+## Functions (error)
 
-**Source**: `src/network.rs`
+### generic
 
-```rust
-pub fn get_supported_chains(&self) -> Vec<u64>
-```
-
-Get all supported chain IDs
-
----
-
-### global
-
-**Source**: `src/lib.rs`
+**Source**: `src/error.rs`
 
 ```rust
-pub fn global() -> Arc<Self>
+pub fn generic<S: Into<String>>(msg: S) -> Self
 ```
 
-Get the global configuration instance
-
-Panics if configuration hasn't been loaded via from_env()
-
----
-
-### has_ai_provider
-
-**Source**: `src/providers.rs`
-
-```rust
-pub fn has_ai_provider(&self, provider: AiProvider) -> bool
-```
-
-Check if a specific AI provider is configured
-
----
-
-### has_blockchain_provider
-
-**Source**: `src/providers.rs`
-
-```rust
-pub fn has_blockchain_provider(&self, provider: BlockchainProvider) -> bool
-```
-
-Check if a blockchain provider is configured
-
----
-
-### has_data_provider
-
-**Source**: `src/providers.rs`
-
-```rust
-pub fn has_data_provider(&self, provider: DataProvider) -> bool
-```
-
-Check if a data provider is configured
+Create a generic error
 
 ---
 
@@ -602,66 +414,6 @@ Create an IO error
 
 ---
 
-### is_custom_enabled
-
-**Source**: `src/features.rs`
-
-```rust
-pub fn is_custom_enabled(&self, name: &str) -> bool
-```
-
-Check if a custom feature is enabled
-
----
-
-### is_enabled
-
-**Source**: `src/features.rs`
-
-```rust
-pub fn is_enabled(&self, feature: Feature) -> bool
-```
-
-Check if a feature is enabled
-
----
-
-### load_chain_contracts
-
-**Source**: `src/network.rs`
-
-```rust
-pub fn load_chain_contracts(&mut self) -> ConfigResult<()>
-```
-
-Load chain contracts from chains.toml file
-
----
-
-### network
-
-**Source**: `src/lib.rs`
-
-```rust
-pub fn network(mut self, config: NetworkConfig) -> Self
-```
-
-Set network configuration
-
----
-
-### new
-
-**Source**: `src/lib.rs`
-
-```rust
-pub fn new() -> Self
-```
-
-Create a new configuration builder with defaults
-
----
-
 ### parse
 
 **Source**: `src/error.rs`
@@ -674,159 +426,41 @@ Create a parse error
 
 ---
 
-### providers
+### validation
 
-**Source**: `src/lib.rs`
+**Source**: `src/error.rs`
 
 ```rust
-pub fn providers(mut self, config: ProvidersConfig) -> Self
+pub fn validation<S: Into<String>>(msg: S) -> Self
 ```
 
-Set providers configuration
+Create a validation error
 
 ---
 
-### require
+## Traits
 
-**Source**: `src/environment.rs`
+### Validator
+
+**Source**: `src/validation.rs`
 
 ```rust
-pub fn require(&self, key: &str) -> ConfigResult<String>
+pub trait Validator { ... }
 ```
 
-Get a required environment variable
+Trait for validatable configuration
+
+**Methods**:
+
+#### `validate`
+
+```rust
+fn validate(&self) -> ConfigResult<()>;
+```
 
 ---
 
-### try_global
-
-**Source**: `src/lib.rs`
-
-```rust
-pub fn try_global() -> Option<Arc<Self>>
-```
-
-Try to get the global configuration instance
-
----
-
-### validate
-
-**Source**: `src/app.rs`
-
-```rust
-pub fn validate(&self) -> ConfigResult<()>
-```
-
-Validates the application configuration for correctness
-
----
-
-### validate
-
-**Source**: `src/app.rs`
-
-```rust
-pub fn validate(&self) -> ConfigResult<()>
-```
-
-Validates the retry configuration for correctness
-
----
-
-### validate
-
-**Source**: `src/features.rs`
-
-```rust
-pub fn validate(&self) -> ConfigResult<()>
-```
-
-Validate the features configuration for consistency and warnings
-
----
-
-### validate
-
-**Source**: `src/database.rs`
-
-```rust
-pub fn validate(&self) -> ConfigResult<()>
-```
-
-Validates all database configuration settings
-
-This method validates:
-- Redis URL format and connectivity
-- Neo4j URL format (if provided)
-- ClickHouse URL format (if provided)
-- PostgreSQL URL format (if provided)
-- Connection pool configuration
-
-# Errors
-
-Returns `ConfigError` if any validation fails
-
----
-
-### validate
-
-**Source**: `src/database.rs`
-
-```rust
-pub fn validate(&self) -> ConfigResult<()>
-```
-
-Validates connection pool configuration settings
-
-This method validates:
-- Maximum connections is greater than 0
-- Minimum connections doesn't exceed maximum connections
-- Connection timeout is greater than 0
-
-# Errors
-
-Returns `ConfigError` if any validation fails
-
----
-
-### validate
-
-**Source**: `src/network.rs`
-
-```rust
-pub fn validate(&self) -> ConfigResult<()>
-```
-
-Validates the network configuration
-
-Checks that all URLs are properly formatted and contract addresses are valid
-
----
-
-### validate
-
-**Source**: `src/providers.rs`
-
-```rust
-pub fn validate(&self) -> ConfigResult<()>
-```
-
-Validate API key formats and configurations
-
----
-
-### validate
-
-**Source**: `src/lib.rs`
-
-```rust
-pub fn validate(&self) -> ConfigResult<()>
-```
-
-Validate the entire configuration
-
----
+## Functions (validation)
 
 ### validate_api_key
 
@@ -978,40 +612,6 @@ pub fn validate_url(url: &str) -> ConfigResult<()>
 ```
 
 Validate a URL
-
----
-
-### validation
-
-**Source**: `src/error.rs`
-
-```rust
-pub fn validation<S: Into<String>>(msg: S) -> Self
-```
-
-Create a validation error
-
----
-
-## Traits
-
-### Validator
-
-**Source**: `src/validation.rs`
-
-```rust
-pub trait Validator { ... }
-```
-
-Trait for validatable configuration
-
-**Methods**:
-
-#### `validate`
-
-```rust
-fn validate(&self) -> ConfigResult<()>;
-```
 
 ---
 
@@ -1235,6 +835,446 @@ pub struct TransactionConfig { /// Maximum gas price in gwei #[serde(default = "
 ```
 
 Transaction configuration
+
+---
+
+## Functions (app)
+
+### validate
+
+**Source**: `src/app.rs`
+
+```rust
+pub fn validate(&self) -> ConfigResult<()>
+```
+
+Validates the application configuration for correctness
+
+---
+
+### validate
+
+**Source**: `src/app.rs`
+
+```rust
+pub fn validate(&self) -> ConfigResult<()>
+```
+
+Validates the retry configuration for correctness
+
+---
+
+## Functions (features)
+
+### disable
+
+**Source**: `src/features.rs`
+
+```rust
+pub fn disable(&mut self, feature: Feature)
+```
+
+Disable a feature
+
+---
+
+### enable
+
+**Source**: `src/features.rs`
+
+```rust
+pub fn enable(&mut self, feature: Feature)
+```
+
+Enable a feature
+
+---
+
+### is_custom_enabled
+
+**Source**: `src/features.rs`
+
+```rust
+pub fn is_custom_enabled(&self, name: &str) -> bool
+```
+
+Check if a custom feature is enabled
+
+---
+
+### is_enabled
+
+**Source**: `src/features.rs`
+
+```rust
+pub fn is_enabled(&self, feature: Feature) -> bool
+```
+
+Check if a feature is enabled
+
+---
+
+### validate
+
+**Source**: `src/features.rs`
+
+```rust
+pub fn validate(&self) -> ConfigResult<()>
+```
+
+Validate the features configuration for consistency and warnings
+
+---
+
+## Functions (database)
+
+### validate
+
+**Source**: `src/database.rs`
+
+```rust
+pub fn validate(&self) -> ConfigResult<()>
+```
+
+Validates all database configuration settings
+
+This method validates:
+- Redis URL format and connectivity
+- Neo4j URL format (if provided)
+- ClickHouse URL format (if provided)
+- PostgreSQL URL format (if provided)
+- Connection pool configuration
+
+# Errors
+
+Returns `ConfigError` if any validation fails
+
+---
+
+### validate
+
+**Source**: `src/database.rs`
+
+```rust
+pub fn validate(&self) -> ConfigResult<()>
+```
+
+Validates connection pool configuration settings
+
+This method validates:
+- Maximum connections is greater than 0
+- Minimum connections doesn't exceed maximum connections
+- Connection timeout is greater than 0
+
+# Errors
+
+Returns `ConfigError` if any validation fails
+
+---
+
+## Functions (network)
+
+### extract_rpc_urls
+
+**Source**: `src/network.rs`
+
+```rust
+pub fn extract_rpc_urls(&mut self)
+```
+
+Extract RPC URLs from environment using RPC_URL_{CHAIN_ID} convention
+
+---
+
+### get_chain
+
+**Source**: `src/network.rs`
+
+```rust
+pub fn get_chain(&self, chain_id: u64) -> Option<&ChainConfig>
+```
+
+Get chain configuration
+
+---
+
+### get_rpc_url
+
+**Source**: `src/network.rs`
+
+```rust
+pub fn get_rpc_url(&self, chain_id: u64) -> Option<String>
+```
+
+Get RPC URL for a specific chain ID
+
+---
+
+### get_supported_chains
+
+**Source**: `src/network.rs`
+
+```rust
+pub fn get_supported_chains(&self) -> Vec<u64>
+```
+
+Get all supported chain IDs
+
+---
+
+### load_chain_contracts
+
+**Source**: `src/network.rs`
+
+```rust
+pub fn load_chain_contracts(&mut self) -> ConfigResult<()>
+```
+
+Load chain contracts from chains.toml file
+
+---
+
+### validate
+
+**Source**: `src/network.rs`
+
+```rust
+pub fn validate(&self) -> ConfigResult<()>
+```
+
+Validates the network configuration
+
+Checks that all URLs are properly formatted and contract addresses are valid
+
+---
+
+## Functions (providers)
+
+### get_ai_key
+
+**Source**: `src/providers.rs`
+
+```rust
+pub fn get_ai_key(&self, provider: AiProvider) -> Option<&str>
+```
+
+Get the API key for an AI provider
+
+---
+
+### get_blockchain_key
+
+**Source**: `src/providers.rs`
+
+```rust
+pub fn get_blockchain_key(&self, provider: BlockchainProvider) -> Option<&str>
+```
+
+Get the API key for a blockchain provider
+
+---
+
+### has_ai_provider
+
+**Source**: `src/providers.rs`
+
+```rust
+pub fn has_ai_provider(&self, provider: AiProvider) -> bool
+```
+
+Check if a specific AI provider is configured
+
+---
+
+### has_blockchain_provider
+
+**Source**: `src/providers.rs`
+
+```rust
+pub fn has_blockchain_provider(&self, provider: BlockchainProvider) -> bool
+```
+
+Check if a blockchain provider is configured
+
+---
+
+### has_data_provider
+
+**Source**: `src/providers.rs`
+
+```rust
+pub fn has_data_provider(&self, provider: DataProvider) -> bool
+```
+
+Check if a data provider is configured
+
+---
+
+### validate
+
+**Source**: `src/providers.rs`
+
+```rust
+pub fn validate(&self) -> ConfigResult<()>
+```
+
+Validate API key formats and configurations
+
+---
+
+## Functions (lib)
+
+### app
+
+**Source**: `src/lib.rs`
+
+```rust
+pub fn app(mut self, config: AppConfig) -> Self
+```
+
+Set application configuration
+
+---
+
+### build
+
+**Source**: `src/lib.rs`
+
+```rust
+pub fn build(self) -> ConfigResult<Config>
+```
+
+Build the configuration
+
+---
+
+### builder
+
+**Source**: `src/lib.rs`
+
+```rust
+pub fn builder() -> ConfigBuilder
+```
+
+Create a builder for constructing configuration programmatically
+
+---
+
+### database
+
+**Source**: `src/lib.rs`
+
+```rust
+pub fn database(mut self, config: DatabaseConfig) -> Self
+```
+
+Set database configuration
+
+---
+
+### features
+
+**Source**: `src/lib.rs`
+
+```rust
+pub fn features(mut self, config: FeaturesConfig) -> Self
+```
+
+Set features configuration
+
+---
+
+### from_env
+
+**Source**: `src/lib.rs`
+
+```rust
+pub fn from_env() -> Arc<Self>
+```
+
+Load configuration from environment variables (fail-fast)
+
+This will:
+1. Load .env file if present
+2. Parse environment variables
+3. Apply convention-based patterns (RPC_URL_{CHAIN_ID})
+4. Load chains.toml if specified
+5. Validate all configuration
+6. Store globally for access via Config::global()
+
+---
+
+### global
+
+**Source**: `src/lib.rs`
+
+```rust
+pub fn global() -> Arc<Self>
+```
+
+Get the global configuration instance
+
+Panics if configuration hasn't been loaded via from_env()
+
+---
+
+### network
+
+**Source**: `src/lib.rs`
+
+```rust
+pub fn network(mut self, config: NetworkConfig) -> Self
+```
+
+Set network configuration
+
+---
+
+### new
+
+**Source**: `src/lib.rs`
+
+```rust
+pub fn new() -> Self
+```
+
+Create a new configuration builder with defaults
+
+---
+
+### providers
+
+**Source**: `src/lib.rs`
+
+```rust
+pub fn providers(mut self, config: ProvidersConfig) -> Self
+```
+
+Set providers configuration
+
+---
+
+### try_global
+
+**Source**: `src/lib.rs`
+
+```rust
+pub fn try_global() -> Option<Arc<Self>>
+```
+
+Try to get the global configuration instance
+
+---
+
+### validate
+
+**Source**: `src/lib.rs`
+
+```rust
+pub fn validate(&self) -> ConfigResult<()>
+```
+
+Validate the entire configuration
 
 ---
 

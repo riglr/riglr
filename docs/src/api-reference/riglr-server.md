@@ -8,7 +8,7 @@ Comprehensive API documentation for the `riglr-server` crate.
 
 - [`ServerConfig`](#serverconfig)
 
-### Functions
+### Functions (server)
 
 - [`start_actix`](#start_actix)
 - [`start_axum`](#start_axum)
@@ -32,7 +32,7 @@ Configuration for riglr server instances
 
 ---
 
-## Functions
+## Functions (server)
 
 ### start_actix
 

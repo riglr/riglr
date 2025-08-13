@@ -43,7 +43,7 @@ Comprehensive API documentation for the `riglr-cross-chain-tools` crate.
 - [`get_cross_chain_routes`](#get_cross_chain_routes)
 - [`get_supported_chains`](#get_supported_chains)
 
-### Functions
+### Functions (lifi)
 
 - [`chain_id_to_name`](#chain_id_to_name)
 - [`chain_name_to_id`](#chain_name_to_id)
@@ -911,7 +911,7 @@ println!("    Logo: {}", logo);
 
 ---
 
-## Functions
+## Functions (lifi)
 
 ### chain_id_to_name
 

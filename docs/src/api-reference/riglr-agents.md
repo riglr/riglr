@@ -31,125 +31,36 @@ Comprehensive API documentation for the `riglr-agents` crate.
 - [`Task`](#task)
 - [`ToolExecutor`](#toolexecutor)
 
-### Functions
+### Functions (types)
 
-- [`agent`](#agent)
-- [`agent_count`](#agent_count)
-- [`agent_count`](#agent_count)
-- [`agent_error_to_tool_error`](#agent_error_to_tool_error)
-- [`agent_id`](#agent_id)
-- [`agent_not_found`](#agent_not_found)
-- [`agent_unavailable`](#agent_unavailable)
 - [`as_str`](#as_str)
 - [`broadcast`](#broadcast)
-- [`build`](#build)
-- [`build_with_registry`](#build_with_registry)
-- [`can_execute_tools`](#can_execute_tools)
 - [`can_retry`](#can_retry)
 - [`cancelled`](#cancelled)
-- [`capabilities`](#capabilities)
-- [`cleanup`](#cleanup)
-- [`communication`](#communication)
-- [`communication_with_source`](#communication_with_source)
-- [`config`](#config)
-- [`config`](#config)
-- [`configuration`](#configuration)
 - [`data`](#data)
-- [`dispatch_task`](#dispatch_task)
-- [`dispatch_tasks`](#dispatch_tasks)
-- [`dispatcher`](#dispatcher)
-- [`dispatcher_with_source`](#dispatcher_with_source)
 - [`error`](#error)
-- [`execute_job`](#execute_job)
-- [`execute_with_signer`](#execute_with_signer)
 - [`failure`](#failure)
 - [`generate`](#generate)
-- [`generic`](#generic)
-- [`generic_with_source`](#generic_with_source)
-- [`health_check`](#health_check)
-- [`health_check`](#health_check)
-- [`health_check`](#health_check)
 - [`increment_retry`](#increment_retry)
-- [`invalid_routing_rule`](#invalid_routing_rule)
 - [`is_expired`](#is_expired)
 - [`is_past_deadline`](#is_past_deadline)
 - [`is_retriable`](#is_retriable)
-- [`is_retriable`](#is_retriable)
 - [`is_success`](#is_success)
-- [`job_result_to_task_result`](#job_result_to_task_result)
-- [`job_to_task`](#job_to_task)
 - [`matches`](#matches)
 - [`matches`](#matches)
-- [`matches`](#matches)
-- [`message_delivery_failed`](#message_delivery_failed)
-- [`metadata`](#metadata)
 - [`new`](#new)
 - [`new`](#new)
 - [`new`](#new)
 - [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`no_suitable_agent`](#no_suitable_agent)
-- [`register_agent`](#register_agent)
-- [`register_agent`](#register_agent)
-- [`register_agents`](#register_agents)
-- [`register_agents`](#register_agents)
-- [`registry`](#registry)
-- [`registry_with_source`](#registry_with_source)
-- [`retry_delay`](#retry_delay)
-- [`select_agent`](#select_agent)
-- [`set_strategy`](#set_strategy)
-- [`stats`](#stats)
-- [`stats`](#stats)
-- [`stats`](#stats)
-- [`stats`](#stats)
-- [`strategy`](#strategy)
 - [`success`](#success)
-- [`task_cancelled`](#task_cancelled)
-- [`task_execution`](#task_execution)
-- [`task_execution_with_source`](#task_execution_with_source)
-- [`task_result_to_job_result`](#task_result_to_job_result)
-- [`task_timeout`](#task_timeout)
-- [`task_to_job`](#task_to_job)
 - [`timeout`](#timeout)
-- [`tool_error_to_agent_error`](#tool_error_to_agent_error)
-- [`validate`](#validate)
-- [`validate_agent_compatibility`](#validate_agent_compatibility)
-- [`with_capabilities`](#with_capabilities)
-- [`with_capability`](#with_capability)
-- [`with_channel_buffer_size`](#with_channel_buffer_size)
-- [`with_config`](#with_config)
-- [`with_config`](#with_config)
-- [`with_config`](#with_config)
-- [`with_config`](#with_config)
 - [`with_deadline`](#with_deadline)
 - [`with_expiration`](#with_expiration)
-- [`with_health_checks`](#with_health_checks)
-- [`with_id`](#with_id)
-- [`with_load_balancing`](#with_load_balancing)
-- [`with_maintenance_interval`](#with_maintenance_interval)
-- [`with_max_agents`](#with_max_agents)
-- [`with_max_concurrent_tasks`](#with_max_concurrent_tasks)
-- [`with_max_pending_messages`](#with_max_pending_messages)
 - [`with_max_retries`](#with_max_retries)
-- [`with_max_retries`](#with_max_retries)
-- [`with_max_subscriptions`](#with_max_subscriptions)
-- [`with_message_persistence`](#with_message_persistence)
-- [`with_message_ttl`](#with_message_ttl)
-- [`with_metadata`](#with_metadata)
 - [`with_metadata`](#with_metadata)
 - [`with_parameter`](#with_parameter)
 - [`with_priority`](#with_priority)
 - [`with_priority`](#with_priority)
-- [`with_registry_timeout`](#with_registry_timeout)
-- [`with_retry_delay`](#with_retry_delay)
-- [`with_routing_strategy`](#with_routing_strategy)
-- [`with_strategy`](#with_strategy)
-- [`with_task_timeout`](#with_task_timeout)
 - [`with_timeout`](#with_timeout)
 
 ### Enums
@@ -163,6 +74,81 @@ Comprehensive API documentation for the `riglr-agents` crate.
 - [`TaskResult`](#taskresult)
 - [`TaskType`](#tasktype)
 
+### Functions (integration)
+
+- [`agent`](#agent)
+- [`agent_error_to_tool_error`](#agent_error_to_tool_error)
+- [`can_execute_tools`](#can_execute_tools)
+- [`execute_job`](#execute_job)
+- [`execute_with_signer`](#execute_with_signer)
+- [`job_result_to_task_result`](#job_result_to_task_result)
+- [`job_to_task`](#job_to_task)
+- [`new`](#new)
+- [`task_result_to_job_result`](#task_result_to_job_result)
+- [`task_to_job`](#task_to_job)
+- [`tool_error_to_agent_error`](#tool_error_to_agent_error)
+- [`validate_agent_compatibility`](#validate_agent_compatibility)
+
+### Functions (error)
+
+- [`agent_not_found`](#agent_not_found)
+- [`agent_unavailable`](#agent_unavailable)
+- [`communication`](#communication)
+- [`communication_with_source`](#communication_with_source)
+- [`configuration`](#configuration)
+- [`dispatcher`](#dispatcher)
+- [`dispatcher_with_source`](#dispatcher_with_source)
+- [`generic`](#generic)
+- [`generic_with_source`](#generic_with_source)
+- [`invalid_routing_rule`](#invalid_routing_rule)
+- [`is_retriable`](#is_retriable)
+- [`message_delivery_failed`](#message_delivery_failed)
+- [`no_suitable_agent`](#no_suitable_agent)
+- [`registry`](#registry)
+- [`registry_with_source`](#registry_with_source)
+- [`retry_delay`](#retry_delay)
+- [`task_cancelled`](#task_cancelled)
+- [`task_execution`](#task_execution)
+- [`task_execution_with_source`](#task_execution_with_source)
+- [`task_timeout`](#task_timeout)
+
+### Functions (builder)
+
+- [`agent_count`](#agent_count)
+- [`agent_count`](#agent_count)
+- [`agent_id`](#agent_id)
+- [`build`](#build)
+- [`build_with_registry`](#build_with_registry)
+- [`capabilities`](#capabilities)
+- [`health_check`](#health_check)
+- [`health_check`](#health_check)
+- [`metadata`](#metadata)
+- [`register_agent`](#register_agent)
+- [`register_agent`](#register_agent)
+- [`register_agents`](#register_agents)
+- [`register_agents`](#register_agents)
+- [`stats`](#stats)
+- [`validate`](#validate)
+- [`with_capabilities`](#with_capabilities)
+- [`with_capability`](#with_capability)
+- [`with_channel_buffer_size`](#with_channel_buffer_size)
+- [`with_health_checks`](#with_health_checks)
+- [`with_id`](#with_id)
+- [`with_load_balancing`](#with_load_balancing)
+- [`with_maintenance_interval`](#with_maintenance_interval)
+- [`with_max_agents`](#with_max_agents)
+- [`with_max_concurrent_tasks`](#with_max_concurrent_tasks)
+- [`with_max_pending_messages`](#with_max_pending_messages)
+- [`with_max_retries`](#with_max_retries)
+- [`with_max_subscriptions`](#with_max_subscriptions)
+- [`with_message_persistence`](#with_message_persistence)
+- [`with_message_ttl`](#with_message_ttl)
+- [`with_metadata`](#with_metadata)
+- [`with_registry_timeout`](#with_registry_timeout)
+- [`with_retry_delay`](#with_retry_delay)
+- [`with_routing_strategy`](#with_routing_strategy)
+- [`with_task_timeout`](#with_task_timeout)
+
 ### Traits
 
 - [`Agent`](#agent)
@@ -170,6 +156,44 @@ Comprehensive API documentation for the `riglr-agents` crate.
 - [`AgentRegistry`](#agentregistry)
 - [`IntoAgent`](#intoagent)
 - [`MessageReceiver`](#messagereceiver)
+
+### Functions (mod)
+
+- [`config`](#config)
+- [`dispatch_task`](#dispatch_task)
+- [`dispatch_tasks`](#dispatch_tasks)
+- [`health_check`](#health_check)
+- [`matches`](#matches)
+- [`new`](#new)
+- [`stats`](#stats)
+- [`with_config`](#with_config)
+
+### Functions (channels)
+
+- [`cleanup`](#cleanup)
+- [`new`](#new)
+- [`stats`](#stats)
+- [`with_config`](#with_config)
+
+### Functions (router)
+
+- [`new`](#new)
+- [`select_agent`](#select_agent)
+- [`set_strategy`](#set_strategy)
+- [`strategy`](#strategy)
+- [`with_strategy`](#with_strategy)
+
+### Functions (distributed)
+
+- [`new`](#new)
+- [`with_config`](#with_config)
+
+### Functions (local)
+
+- [`config`](#config)
+- [`new`](#new)
+- [`stats`](#stats)
+- [`with_config`](#with_config)
 
 ## Structs
 
@@ -586,99 +610,7 @@ Wrapper for executing riglr-core tools within agent contexts.
 
 ---
 
-## Functions
-
-### agent
-
-**Source**: `src/integration.rs`
-
-```rust
-pub fn agent(&self) -> &Arc<dyn Agent>
-```
-
-Get the underlying agent.
-
----
-
-### agent_count
-
-**Source**: `src/builder.rs`
-
-```rust
-pub async fn agent_count(&self) -> Result<usize>
-```
-
-Get the number of registered agents.
-
----
-
-### agent_count
-
-**Source**: `src/builder.rs`
-
-```rust
-pub async fn agent_count(&self) -> Result<usize>
-```
-
-Get the number of registered agents.
-
----
-
-### agent_error_to_tool_error
-
-**Source**: `src/integration.rs`
-
-```rust
-pub fn agent_error_to_tool_error(agent_error: AgentError) -> ToolError
-```
-
-Convert an AgentError to a ToolError for riglr-core integration.
-
-# Arguments
-
-* `agent_error` - The agent error to convert
-
-# Returns
-
-A ToolError representation suitable for riglr-core systems.
-
----
-
-### agent_id
-
-**Source**: `src/builder.rs`
-
-```rust
-pub fn agent_id(&self) -> Option<&str>
-```
-
-Get the configured agent ID.
-
----
-
-### agent_not_found
-
-**Source**: `src/error.rs`
-
-```rust
-pub fn agent_not_found(agent_id: impl Into<String>) -> Self
-```
-
-Create an agent not found error.
-
----
-
-### agent_unavailable
-
-**Source**: `src/error.rs`
-
-```rust
-pub fn agent_unavailable(agent_id: impl Into<String>, status: impl Into<String>) -> Self
-```
-
-Create an agent unavailable error.
-
----
+## Functions (types)
 
 ### as_str
 
@@ -701,66 +633,6 @@ pub fn broadcast(from: AgentId, message_type: String, payload: serde_json::Value
 ```
 
 Create a broadcast message (no specific recipient).
-
----
-
-### build
-
-**Source**: `src/builder.rs`
-
-```rust
-pub async fn build(self) -> Result<AgentSystem>
-```
-
-Build the agent system with the configured settings.
-
-# Returns
-
-A complete agent system ready for use.
-
----
-
-### build_with_registry
-
-**Source**: `src/builder.rs`
-
-```rust
-pub async fn build_with_registry<R: AgentRegistry + 'static>( self, registry: Arc<R>, ) -> Result<CustomAgentSystem<R>>
-```
-
-Build with a custom registry implementation.
-
-# Arguments
-
-* `registry` - Custom registry implementation to use
-
-# Returns
-
-A complete agent system with the custom registry.
-
----
-
-### can_execute_tools
-
-**Source**: `src/integration.rs`
-
-```rust
-pub fn can_execute_tools(agent: &dyn Agent, required_capabilities: &[String]) -> bool
-```
-
-Check if an agent can execute riglr-core tools.
-
-This validates that the agent has the necessary capabilities
-to execute tools from the riglr ecosystem.
-
-# Arguments
-
-* `agent` - The agent to check
-* `required_capabilities` - List of required capabilities
-
-# Returns
-
-true if the agent can execute the tools, false otherwise.
 
 ---
 
@@ -788,90 +660,6 @@ Create a cancelled task result.
 
 ---
 
-### capabilities
-
-**Source**: `src/builder.rs`
-
-```rust
-pub fn capabilities(&self) -> &[String]
-```
-
-Get the configured capabilities.
-
----
-
-### cleanup
-
-**Source**: `communication/channels.rs`
-
-```rust
-pub async fn cleanup(&self) -> Result<usize>
-```
-
-Clean up expired messages and closed channels.
-
----
-
-### communication
-
-**Source**: `src/error.rs`
-
-```rust
-pub fn communication(message: impl Into<String>) -> Self
-```
-
-Create a communication error.
-
----
-
-### communication_with_source
-
-**Source**: `src/error.rs`
-
-```rust
-pub fn communication_with_source<E>(message: impl Into<String>, source: E) -> Self where E: std::error::Error + Send + Sync + 'static,
-```
-
-Create a communication error with source.
-
----
-
-### config
-
-**Source**: `dispatcher/mod.rs`
-
-```rust
-pub fn config(&self) -> &DispatchConfig
-```
-
-Get the current configuration.
-
----
-
-### config
-
-**Source**: `registry/local.rs`
-
-```rust
-pub fn config(&self) -> &RegistryConfig
-```
-
-Get the current configuration.
-
----
-
-### configuration
-
-**Source**: `src/error.rs`
-
-```rust
-pub fn configuration(message: impl Into<String>) -> Self
-```
-
-Create a configuration error.
-
----
-
 ### data
 
 **Source**: `src/types.rs`
@@ -884,76 +672,6 @@ Get the data from a successful result.
 
 ---
 
-### dispatch_task
-
-**Source**: `dispatcher/mod.rs`
-
-```rust
-pub async fn dispatch_task(&self, mut task: Task) -> Result<TaskResult>
-```
-
-Dispatch a task to an appropriate agent.
-
-This method:
-1. Finds suitable agents for the task
-2. Selects the best agent using the routing strategy
-3. Executes the task while preserving SignerContext
-4. Handles retries on retriable failures
-
-# Arguments
-
-* `task` - The task to dispatch
-
-# Returns
-
-The task result from the executing agent.
-
----
-
-### dispatch_tasks
-
-**Source**: `dispatcher/mod.rs`
-
-```rust
-pub async fn dispatch_tasks(&self, tasks: Vec<Task>) -> Vec<Result<TaskResult>>
-```
-
-Dispatch multiple tasks concurrently.
-
-# Arguments
-
-* `tasks` - Vector of tasks to dispatch
-
-# Returns
-
-Vector of task results in the same order as input tasks.
-
----
-
-### dispatcher
-
-**Source**: `src/error.rs`
-
-```rust
-pub fn dispatcher(message: impl Into<String>) -> Self
-```
-
-Create a dispatcher error.
-
----
-
-### dispatcher_with_source
-
-**Source**: `src/error.rs`
-
-```rust
-pub fn dispatcher_with_source<E>(message: impl Into<String>, source: E) -> Self where E: std::error::Error + Send + Sync + 'static,
-```
-
-Create a dispatcher error with source.
-
----
-
 ### error
 
 **Source**: `src/types.rs`
@@ -963,54 +681,6 @@ pub fn error(&self) -> Option<&str>
 ```
 
 Get the error message from a failed result.
-
----
-
-### execute_job
-
-**Source**: `src/integration.rs`
-
-```rust
-pub async fn execute_job(&self, job: Job) -> Result<JobResult>
-```
-
-Execute a riglr-core job using the agent.
-
-This method bridges riglr-core's Job system with the agent execution model.
-
-# Arguments
-
-* `job` - The riglr-core job to execute
-
-# Returns
-
-A riglr-core JobResult from the execution.
-
----
-
-### execute_with_signer
-
-**Source**: `src/integration.rs`
-
-```rust
-pub async fn execute_with_signer( signer: Arc<dyn TransactionSigner>, agent: Arc<dyn Agent>, task: Task, ) -> Result<TaskResult>
-```
-
-Execute an agent task within a signer context.
-
-This method ensures that the agent's task execution maintains the
-proper signer context isolation while integrating with riglr-core's
-security model.
-
-# Arguments
-
-* `signer` - The signer to use for the task execution
-* `agent` - The agent to execute the task
-* `task` - The task to execute
-
-# Returns
-
-The task result from the agent execution.
 
 ---
 
@@ -1038,66 +708,6 @@ Generate a random agent ID.
 
 ---
 
-### generic
-
-**Source**: `src/error.rs`
-
-```rust
-pub fn generic(message: impl Into<String>) -> Self
-```
-
-Create a generic error.
-
----
-
-### generic_with_source
-
-**Source**: `src/error.rs`
-
-```rust
-pub fn generic_with_source<E>(message: impl Into<String>, source: E) -> Self where E: std::error::Error + Send + Sync + 'static,
-```
-
-Create a generic error with source.
-
----
-
-### health_check
-
-**Source**: `src/builder.rs`
-
-```rust
-pub async fn health_check(&self) -> Result<SystemHealth>
-```
-
-Perform a health check on all system components.
-
----
-
-### health_check
-
-**Source**: `src/builder.rs`
-
-```rust
-pub async fn health_check(&self) -> Result<SystemHealth>
-```
-
-Perform a health check on all system components.
-
----
-
-### health_check
-
-**Source**: `dispatcher/mod.rs`
-
-```rust
-pub async fn health_check(&self) -> Result<bool>
-```
-
-Health check for the dispatcher.
-
----
-
 ### increment_retry
 
 **Source**: `src/types.rs`
@@ -1107,18 +717,6 @@ pub fn increment_retry(&mut self)
 ```
 
 Increment the retry count.
-
----
-
-### invalid_routing_rule
-
-**Source**: `src/error.rs`
-
-```rust
-pub fn invalid_routing_rule(rule: impl Into<String>) -> Self
-```
-
-Create an invalid routing rule error.
 
 ---
 
@@ -1158,20 +756,6 @@ Check if the result represents a retriable failure.
 
 ---
 
-### is_retriable
-
-**Source**: `src/error.rs`
-
-```rust
-pub fn is_retriable(&self) -> bool
-```
-
-Check if this error is retriable.
-
-Some agent errors represent temporary conditions that may succeed on retry.
-
----
-
 ### is_success
 
 **Source**: `src/types.rs`
@@ -1181,49 +765,6 @@ pub fn is_success(&self) -> bool
 ```
 
 Check if the result represents success.
-
----
-
-### job_result_to_task_result
-
-**Source**: `src/integration.rs`
-
-```rust
-pub fn job_result_to_task_result( job_result: &JobResult, duration: std::time::Duration, ) -> TaskResult
-```
-
-Convert a riglr-core JobResult to an agent TaskResult.
-
-# Arguments
-
-* `job_result` - The riglr-core job result to convert
-* `duration` - The execution duration to include in the task result
-
-# Returns
-
-An agent TaskResult representation.
-
----
-
-### job_to_task
-
-**Source**: `src/integration.rs`
-
-```rust
-pub fn job_to_task(job: &Job) -> Result<Task>
-```
-
-Convert a riglr-core Job to an agent Task.
-
-This enables riglr-core jobs to be executed by agents.
-
-# Arguments
-
-* `job` - The riglr-core job to convert
-
-# Returns
-
-An agent Task representation of the job.
 
 ---
 
@@ -1248,42 +789,6 @@ pub fn matches(&self, task: &Task, agent_id: &AgentId, capabilities: &[String]) 
 ```
 
 Check if this rule matches the given task and agent context.
-
----
-
-### matches
-
-**Source**: `communication/mod.rs`
-
-```rust
-pub fn matches(&self, message: &AgentMessage) -> bool
-```
-
-Check if a message matches this filter.
-
----
-
-### message_delivery_failed
-
-**Source**: `src/error.rs`
-
-```rust
-pub fn message_delivery_failed( message_id: impl Into<String>, agent_id: impl Into<String>, ) -> Self
-```
-
-Create a message delivery failed error.
-
----
-
-### metadata
-
-**Source**: `src/builder.rs`
-
-```rust
-pub fn metadata(&self) -> &std::collections::HashMap<String, serde_json::Value>
-```
-
-Get the configured metadata.
 
 ---
 
@@ -1335,269 +840,6 @@ Create a new capability.
 
 ---
 
-### new
-
-**Source**: `src/integration.rs`
-
-```rust
-pub fn new(agent: Arc<dyn Agent>) -> Self
-```
-
-Create a new tool executor for the given agent.
-
----
-
-### new
-
-**Source**: `communication/channels.rs`
-
-```rust
-pub fn new() -> Self
-```
-
-Create a new channel-based communication system.
-
----
-
-### new
-
-**Source**: `dispatcher/mod.rs`
-
-```rust
-pub fn new(registry: Arc<R>) -> Self
-```
-
-Create a new agent dispatcher with the given registry.
-
----
-
-### new
-
-**Source**: `dispatcher/router.rs`
-
-```rust
-pub fn new() -> Self
-```
-
-Create a new router with default strategy.
-
----
-
-### new
-
-**Source**: `registry/distributed.rs`
-
-```rust
-pub fn new(_redis_url: String) -> Result<Self>
-```
-
-Create a new distributed agent registry.
-
-**Note**: This is currently a stub implementation.
-
----
-
-### new
-
-**Source**: `registry/local.rs`
-
-```rust
-pub fn new() -> Self
-```
-
-Create a new local agent registry with default configuration.
-
----
-
-### no_suitable_agent
-
-**Source**: `src/error.rs`
-
-```rust
-pub fn no_suitable_agent(task_type: impl Into<String>) -> Self
-```
-
-Create a no suitable agent error.
-
----
-
-### register_agent
-
-**Source**: `src/builder.rs`
-
-```rust
-pub async fn register_agent(&self, agent: Arc<dyn Agent>) -> Result<()>
-```
-
-Register an agent in the system.
-
----
-
-### register_agent
-
-**Source**: `src/builder.rs`
-
-```rust
-pub async fn register_agent(&self, agent: Arc<dyn Agent>) -> Result<()>
-```
-
-Register an agent in the system.
-
----
-
-### register_agents
-
-**Source**: `src/builder.rs`
-
-```rust
-pub async fn register_agents(&self, agents: Vec<Arc<dyn Agent>>) -> Result<()>
-```
-
-Register multiple agents in the system.
-
----
-
-### register_agents
-
-**Source**: `src/builder.rs`
-
-```rust
-pub async fn register_agents(&self, agents: Vec<Arc<dyn Agent>>) -> Result<()>
-```
-
-Register multiple agents in the system.
-
----
-
-### registry
-
-**Source**: `src/error.rs`
-
-```rust
-pub fn registry(operation: impl Into<String>) -> Self
-```
-
-Create a registry error.
-
----
-
-### registry_with_source
-
-**Source**: `src/error.rs`
-
-```rust
-pub fn registry_with_source<E>(operation: impl Into<String>, source: E) -> Self where E: std::error::Error + Send + Sync + 'static,
-```
-
-Create a registry error with source.
-
----
-
-### retry_delay
-
-**Source**: `src/error.rs`
-
-```rust
-pub fn retry_delay(&self) -> Option<std::time::Duration>
-```
-
-Get the retry delay for retriable errors.
-
----
-
-### select_agent
-
-**Source**: `dispatcher/router.rs`
-
-```rust
-pub async fn select_agent( &self, agents: &[Arc<dyn Agent>], task: &Task, ) -> Result<Arc<dyn Agent>>
-```
-
-Select an agent from the available agents using the configured strategy.
-
-# Arguments
-
-* `agents` - Available agents to choose from
-* `task` - The task to be executed (used for routing decisions)
-
-# Returns
-
-The selected agent.
-
----
-
-### set_strategy
-
-**Source**: `dispatcher/router.rs`
-
-```rust
-pub fn set_strategy(&mut self, strategy: RoutingStrategy)
-```
-
-Change the routing strategy.
-
----
-
-### stats
-
-**Source**: `src/builder.rs`
-
-```rust
-pub async fn stats(&self) -> Result<SystemStats>
-```
-
-Get system statistics.
-
----
-
-### stats
-
-**Source**: `communication/channels.rs`
-
-```rust
-pub async fn stats(&self) -> CommunicationStats
-```
-
-Get current statistics.
-
----
-
-### stats
-
-**Source**: `dispatcher/mod.rs`
-
-```rust
-pub async fn stats(&self) -> Result<DispatcherStats>
-```
-
-Get statistics about the dispatcher.
-
----
-
-### stats
-
-**Source**: `registry/local.rs`
-
-```rust
-pub async fn stats(&self) -> RegistryStats
-```
-
-Get statistics about the registry.
-
----
-
-### strategy
-
-**Source**: `dispatcher/router.rs`
-
-```rust
-pub fn strategy(&self) -> RoutingStrategy
-```
-
-Get the current routing strategy.
-
----
-
 ### success
 
 **Source**: `src/types.rs`
@@ -1610,96 +852,6 @@ Create a successful task result.
 
 ---
 
-### task_cancelled
-
-**Source**: `src/error.rs`
-
-```rust
-pub fn task_cancelled(task_id: impl Into<String>, reason: impl Into<String>) -> Self
-```
-
-Create a task cancelled error.
-
----
-
-### task_execution
-
-**Source**: `src/error.rs`
-
-```rust
-pub fn task_execution(message: impl Into<String>) -> Self
-```
-
-Create a task execution error.
-
----
-
-### task_execution_with_source
-
-**Source**: `src/error.rs`
-
-```rust
-pub fn task_execution_with_source<E>(message: impl Into<String>, source: E) -> Self where E: std::error::Error + Send + Sync + 'static,
-```
-
-Create a task execution error with source.
-
----
-
-### task_result_to_job_result
-
-**Source**: `src/integration.rs`
-
-```rust
-pub fn task_result_to_job_result(task_result: &TaskResult) -> Result<JobResult>
-```
-
-Convert an agent TaskResult to a riglr-core JobResult.
-
-# Arguments
-
-* `task_result` - The agent task result to convert
-
-# Returns
-
-A riglr-core JobResult representation.
-
----
-
-### task_timeout
-
-**Source**: `src/error.rs`
-
-```rust
-pub fn task_timeout(task_id: impl Into<String>, duration: std::time::Duration) -> Self
-```
-
-Create a task timeout error.
-
----
-
-### task_to_job
-
-**Source**: `src/integration.rs`
-
-```rust
-pub fn task_to_job(task: &Task) -> Result<Job>
-```
-
-Convert an agent task to a riglr-core Job.
-
-This enables agents to be integrated with riglr-core's job queue system.
-
-# Arguments
-
-* `task` - The agent task to convert
-
-# Returns
-
-A riglr-core Job representation of the task.
-
----
-
 ### timeout
 
 **Source**: `src/types.rs`
@@ -1709,147 +861,6 @@ pub fn timeout(duration: Duration) -> Self
 ```
 
 Create a timeout task result.
-
----
-
-### tool_error_to_agent_error
-
-**Source**: `src/integration.rs`
-
-```rust
-pub fn tool_error_to_agent_error(tool_error: ToolError) -> AgentError
-```
-
-Convert a ToolError to an AgentError.
-
-# Arguments
-
-* `tool_error` - The tool error to convert
-
-# Returns
-
-An AgentError representation.
-
----
-
-### validate
-
-**Source**: `src/builder.rs`
-
-```rust
-pub fn validate(&self) -> Result<()>
-```
-
-Validate the builder configuration.
-
----
-
-### validate_agent_compatibility
-
-**Source**: `src/integration.rs`
-
-```rust
-pub fn validate_agent_compatibility(agent: &dyn Agent) -> Result<()>
-```
-
-Validate that an agent is compatible with riglr-core patterns.
-
-This performs various compatibility checks to ensure the agent
-can work properly within the riglr ecosystem.
-
-# Arguments
-
-* `agent` - The agent to validate
-
-# Returns
-
-Ok(()) if the agent is compatible, Err with details otherwise.
-
----
-
-### with_capabilities
-
-**Source**: `src/builder.rs`
-
-```rust
-pub fn with_capabilities(mut self, capabilities: Vec<String>) -> Self
-```
-
-Add multiple capabilities to the agent.
-
----
-
-### with_capability
-
-**Source**: `src/builder.rs`
-
-```rust
-pub fn with_capability(mut self, capability: impl Into<String>) -> Self
-```
-
-Add a capability to the agent.
-
----
-
-### with_channel_buffer_size
-
-**Source**: `src/builder.rs`
-
-```rust
-pub fn with_channel_buffer_size(mut self, size: usize) -> Self
-```
-
-Set the channel buffer size for communication.
-
----
-
-### with_config
-
-**Source**: `communication/channels.rs`
-
-```rust
-pub fn with_config(config: CommunicationConfig) -> Self
-```
-
-Create a new channel-based communication system with configuration.
-
----
-
-### with_config
-
-**Source**: `dispatcher/mod.rs`
-
-```rust
-pub fn with_config(registry: Arc<R>, config: DispatchConfig) -> Self
-```
-
-Create a new agent dispatcher with custom configuration.
-
----
-
-### with_config
-
-**Source**: `registry/distributed.rs`
-
-```rust
-pub fn with_config(_redis_url: String, config: RegistryConfig) -> Result<Self>
-```
-
-Create a new distributed agent registry with configuration.
-
-**Note**: This is currently a stub implementation.
-
----
-
-### with_config
-
-**Source**: `registry/local.rs`
-
-```rust
-pub fn with_config(config: RegistryConfig) -> Self
-```
-
-Create a new local agent registry with custom configuration.
 
 ---
 
@@ -1877,90 +888,6 @@ Set message expiration.
 
 ---
 
-### with_health_checks
-
-**Source**: `src/builder.rs`
-
-```rust
-pub fn with_health_checks(mut self, enabled: bool) -> Self
-```
-
-Enable or disable registry health checks.
-
----
-
-### with_id
-
-**Source**: `src/builder.rs`
-
-```rust
-pub fn with_id(mut self, id: impl Into<String>) -> Self
-```
-
-Set the agent ID.
-
----
-
-### with_load_balancing
-
-**Source**: `src/builder.rs`
-
-```rust
-pub fn with_load_balancing(mut self, enabled: bool) -> Self
-```
-
-Enable or disable load balancing.
-
----
-
-### with_maintenance_interval
-
-**Source**: `src/builder.rs`
-
-```rust
-pub fn with_maintenance_interval(mut self, interval: Duration) -> Self
-```
-
-Set the registry maintenance interval.
-
----
-
-### with_max_agents
-
-**Source**: `src/builder.rs`
-
-```rust
-pub fn with_max_agents(mut self, max_agents: usize) -> Self
-```
-
-Set the maximum number of agents in the registry.
-
----
-
-### with_max_concurrent_tasks
-
-**Source**: `src/builder.rs`
-
-```rust
-pub fn with_max_concurrent_tasks(mut self, max_tasks: u32) -> Self
-```
-
-Set the maximum number of concurrent tasks per agent.
-
----
-
-### with_max_pending_messages
-
-**Source**: `src/builder.rs`
-
-```rust
-pub fn with_max_pending_messages(mut self, max_messages: usize) -> Self
-```
-
-Set the maximum number of pending messages per agent.
-
----
-
 ### with_max_retries
 
 **Source**: `src/types.rs`
@@ -1973,54 +900,6 @@ Set the maximum retry count.
 
 ---
 
-### with_max_retries
-
-**Source**: `src/builder.rs`
-
-```rust
-pub fn with_max_retries(mut self, max_retries: u32) -> Self
-```
-
-Set the maximum number of retry attempts for failed tasks.
-
----
-
-### with_max_subscriptions
-
-**Source**: `src/builder.rs`
-
-```rust
-pub fn with_max_subscriptions(mut self, max_subs: usize) -> Self
-```
-
-Set the maximum number of communication subscriptions.
-
----
-
-### with_message_persistence
-
-**Source**: `src/builder.rs`
-
-```rust
-pub fn with_message_persistence(mut self, enabled: bool) -> Self
-```
-
-Enable or disable message persistence.
-
----
-
-### with_message_ttl
-
-**Source**: `src/builder.rs`
-
-```rust
-pub fn with_message_ttl(mut self, ttl: Duration) -> Self
-```
-
-Set the message time-to-live.
-
----
-
 ### with_metadata
 
 **Source**: `src/types.rs`
@@ -2030,18 +909,6 @@ pub fn with_metadata(mut self, key: impl Into<String>, value: serde_json::Value)
 ```
 
 Add metadata to the task.
-
----
-
-### with_metadata
-
-**Source**: `src/builder.rs`
-
-```rust
-pub fn with_metadata(mut self, key: impl Into<String>, value: serde_json::Value) -> Self
-```
-
-Add metadata to the agent.
 
 ---
 
@@ -2078,66 +945,6 @@ pub fn with_priority(mut self, priority: Priority) -> Self
 ```
 
 Set message priority.
-
----
-
-### with_registry_timeout
-
-**Source**: `src/builder.rs`
-
-```rust
-pub fn with_registry_timeout(mut self, timeout: Duration) -> Self
-```
-
-Set the registry operation timeout.
-
----
-
-### with_retry_delay
-
-**Source**: `src/builder.rs`
-
-```rust
-pub fn with_retry_delay(mut self, delay: Duration) -> Self
-```
-
-Set the delay between retry attempts.
-
----
-
-### with_routing_strategy
-
-**Source**: `src/builder.rs`
-
-```rust
-pub fn with_routing_strategy(mut self, strategy: RoutingStrategy) -> Self
-```
-
-Set the routing strategy for task dispatch.
-
----
-
-### with_strategy
-
-**Source**: `dispatcher/router.rs`
-
-```rust
-pub fn with_strategy(strategy: RoutingStrategy) -> Self
-```
-
-Create a new router with the specified strategy.
-
----
-
-### with_task_timeout
-
-**Source**: `src/builder.rs`
-
-```rust
-pub fn with_task_timeout(mut self, timeout: Duration) -> Self
-```
-
-Set the default task execution timeout.
 
 ---
 
@@ -2399,6 +1206,918 @@ Types of tasks that can be executed by agents.
 - `Portfolio`
 - `Monitoring`
 - `Custom(String)`
+
+---
+
+## Functions (integration)
+
+### agent
+
+**Source**: `src/integration.rs`
+
+```rust
+pub fn agent(&self) -> &Arc<dyn Agent>
+```
+
+Get the underlying agent.
+
+---
+
+### agent_error_to_tool_error
+
+**Source**: `src/integration.rs`
+
+```rust
+pub fn agent_error_to_tool_error(agent_error: AgentError) -> ToolError
+```
+
+Convert an AgentError to a ToolError for riglr-core integration.
+
+# Arguments
+
+* `agent_error` - The agent error to convert
+
+# Returns
+
+A ToolError representation suitable for riglr-core systems.
+
+---
+
+### can_execute_tools
+
+**Source**: `src/integration.rs`
+
+```rust
+pub fn can_execute_tools(agent: &dyn Agent, required_capabilities: &[String]) -> bool
+```
+
+Check if an agent can execute riglr-core tools.
+
+This validates that the agent has the necessary capabilities
+to execute tools from the riglr ecosystem.
+
+# Arguments
+
+* `agent` - The agent to check
+* `required_capabilities` - List of required capabilities
+
+# Returns
+
+true if the agent can execute the tools, false otherwise.
+
+---
+
+### execute_job
+
+**Source**: `src/integration.rs`
+
+```rust
+pub async fn execute_job(&self, job: Job) -> Result<JobResult>
+```
+
+Execute a riglr-core job using the agent.
+
+This method bridges riglr-core's Job system with the agent execution model.
+
+# Arguments
+
+* `job` - The riglr-core job to execute
+
+# Returns
+
+A riglr-core JobResult from the execution.
+
+---
+
+### execute_with_signer
+
+**Source**: `src/integration.rs`
+
+```rust
+pub async fn execute_with_signer( signer: Arc<dyn TransactionSigner>, agent: Arc<dyn Agent>, task: Task, ) -> Result<TaskResult>
+```
+
+Execute an agent task within a signer context.
+
+This method ensures that the agent's task execution maintains the
+proper signer context isolation while integrating with riglr-core's
+security model.
+
+# Arguments
+
+* `signer` - The signer to use for the task execution
+* `agent` - The agent to execute the task
+* `task` - The task to execute
+
+# Returns
+
+The task result from the agent execution.
+
+---
+
+### job_result_to_task_result
+
+**Source**: `src/integration.rs`
+
+```rust
+pub fn job_result_to_task_result( job_result: &JobResult, duration: std::time::Duration, ) -> TaskResult
+```
+
+Convert a riglr-core JobResult to an agent TaskResult.
+
+# Arguments
+
+* `job_result` - The riglr-core job result to convert
+* `duration` - The execution duration to include in the task result
+
+# Returns
+
+An agent TaskResult representation.
+
+---
+
+### job_to_task
+
+**Source**: `src/integration.rs`
+
+```rust
+pub fn job_to_task(job: &Job) -> Result<Task>
+```
+
+Convert a riglr-core Job to an agent Task.
+
+This enables riglr-core jobs to be executed by agents.
+
+# Arguments
+
+* `job` - The riglr-core job to convert
+
+# Returns
+
+An agent Task representation of the job.
+
+---
+
+### new
+
+**Source**: `src/integration.rs`
+
+```rust
+pub fn new(agent: Arc<dyn Agent>) -> Self
+```
+
+Create a new tool executor for the given agent.
+
+---
+
+### task_result_to_job_result
+
+**Source**: `src/integration.rs`
+
+```rust
+pub fn task_result_to_job_result(task_result: &TaskResult) -> Result<JobResult>
+```
+
+Convert an agent TaskResult to a riglr-core JobResult.
+
+# Arguments
+
+* `task_result` - The agent task result to convert
+
+# Returns
+
+A riglr-core JobResult representation.
+
+---
+
+### task_to_job
+
+**Source**: `src/integration.rs`
+
+```rust
+pub fn task_to_job(task: &Task) -> Result<Job>
+```
+
+Convert an agent task to a riglr-core Job.
+
+This enables agents to be integrated with riglr-core's job queue system.
+
+# Arguments
+
+* `task` - The agent task to convert
+
+# Returns
+
+A riglr-core Job representation of the task.
+
+---
+
+### tool_error_to_agent_error
+
+**Source**: `src/integration.rs`
+
+```rust
+pub fn tool_error_to_agent_error(tool_error: ToolError) -> AgentError
+```
+
+Convert a ToolError to an AgentError.
+
+# Arguments
+
+* `tool_error` - The tool error to convert
+
+# Returns
+
+An AgentError representation.
+
+---
+
+### validate_agent_compatibility
+
+**Source**: `src/integration.rs`
+
+```rust
+pub fn validate_agent_compatibility(agent: &dyn Agent) -> Result<()>
+```
+
+Validate that an agent is compatible with riglr-core patterns.
+
+This performs various compatibility checks to ensure the agent
+can work properly within the riglr ecosystem.
+
+# Arguments
+
+* `agent` - The agent to validate
+
+# Returns
+
+Ok(()) if the agent is compatible, Err with details otherwise.
+
+---
+
+## Functions (error)
+
+### agent_not_found
+
+**Source**: `src/error.rs`
+
+```rust
+pub fn agent_not_found(agent_id: impl Into<String>) -> Self
+```
+
+Create an agent not found error.
+
+---
+
+### agent_unavailable
+
+**Source**: `src/error.rs`
+
+```rust
+pub fn agent_unavailable(agent_id: impl Into<String>, status: impl Into<String>) -> Self
+```
+
+Create an agent unavailable error.
+
+---
+
+### communication
+
+**Source**: `src/error.rs`
+
+```rust
+pub fn communication(message: impl Into<String>) -> Self
+```
+
+Create a communication error.
+
+---
+
+### communication_with_source
+
+**Source**: `src/error.rs`
+
+```rust
+pub fn communication_with_source<E>(message: impl Into<String>, source: E) -> Self where E: std::error::Error + Send + Sync + 'static,
+```
+
+Create a communication error with source.
+
+---
+
+### configuration
+
+**Source**: `src/error.rs`
+
+```rust
+pub fn configuration(message: impl Into<String>) -> Self
+```
+
+Create a configuration error.
+
+---
+
+### dispatcher
+
+**Source**: `src/error.rs`
+
+```rust
+pub fn dispatcher(message: impl Into<String>) -> Self
+```
+
+Create a dispatcher error.
+
+---
+
+### dispatcher_with_source
+
+**Source**: `src/error.rs`
+
+```rust
+pub fn dispatcher_with_source<E>(message: impl Into<String>, source: E) -> Self where E: std::error::Error + Send + Sync + 'static,
+```
+
+Create a dispatcher error with source.
+
+---
+
+### generic
+
+**Source**: `src/error.rs`
+
+```rust
+pub fn generic(message: impl Into<String>) -> Self
+```
+
+Create a generic error.
+
+---
+
+### generic_with_source
+
+**Source**: `src/error.rs`
+
+```rust
+pub fn generic_with_source<E>(message: impl Into<String>, source: E) -> Self where E: std::error::Error + Send + Sync + 'static,
+```
+
+Create a generic error with source.
+
+---
+
+### invalid_routing_rule
+
+**Source**: `src/error.rs`
+
+```rust
+pub fn invalid_routing_rule(rule: impl Into<String>) -> Self
+```
+
+Create an invalid routing rule error.
+
+---
+
+### is_retriable
+
+**Source**: `src/error.rs`
+
+```rust
+pub fn is_retriable(&self) -> bool
+```
+
+Check if this error is retriable.
+
+Some agent errors represent temporary conditions that may succeed on retry.
+
+---
+
+### message_delivery_failed
+
+**Source**: `src/error.rs`
+
+```rust
+pub fn message_delivery_failed( message_id: impl Into<String>, agent_id: impl Into<String>, ) -> Self
+```
+
+Create a message delivery failed error.
+
+---
+
+### no_suitable_agent
+
+**Source**: `src/error.rs`
+
+```rust
+pub fn no_suitable_agent(task_type: impl Into<String>) -> Self
+```
+
+Create a no suitable agent error.
+
+---
+
+### registry
+
+**Source**: `src/error.rs`
+
+```rust
+pub fn registry(operation: impl Into<String>) -> Self
+```
+
+Create a registry error.
+
+---
+
+### registry_with_source
+
+**Source**: `src/error.rs`
+
+```rust
+pub fn registry_with_source<E>(operation: impl Into<String>, source: E) -> Self where E: std::error::Error + Send + Sync + 'static,
+```
+
+Create a registry error with source.
+
+---
+
+### retry_delay
+
+**Source**: `src/error.rs`
+
+```rust
+pub fn retry_delay(&self) -> Option<std::time::Duration>
+```
+
+Get the retry delay for retriable errors.
+
+---
+
+### task_cancelled
+
+**Source**: `src/error.rs`
+
+```rust
+pub fn task_cancelled(task_id: impl Into<String>, reason: impl Into<String>) -> Self
+```
+
+Create a task cancelled error.
+
+---
+
+### task_execution
+
+**Source**: `src/error.rs`
+
+```rust
+pub fn task_execution(message: impl Into<String>) -> Self
+```
+
+Create a task execution error.
+
+---
+
+### task_execution_with_source
+
+**Source**: `src/error.rs`
+
+```rust
+pub fn task_execution_with_source<E>(message: impl Into<String>, source: E) -> Self where E: std::error::Error + Send + Sync + 'static,
+```
+
+Create a task execution error with source.
+
+---
+
+### task_timeout
+
+**Source**: `src/error.rs`
+
+```rust
+pub fn task_timeout(task_id: impl Into<String>, duration: std::time::Duration) -> Self
+```
+
+Create a task timeout error.
+
+---
+
+## Functions (builder)
+
+### agent_count
+
+**Source**: `src/builder.rs`
+
+```rust
+pub async fn agent_count(&self) -> Result<usize>
+```
+
+Get the number of registered agents.
+
+---
+
+### agent_count
+
+**Source**: `src/builder.rs`
+
+```rust
+pub async fn agent_count(&self) -> Result<usize>
+```
+
+Get the number of registered agents.
+
+---
+
+### agent_id
+
+**Source**: `src/builder.rs`
+
+```rust
+pub fn agent_id(&self) -> Option<&str>
+```
+
+Get the configured agent ID.
+
+---
+
+### build
+
+**Source**: `src/builder.rs`
+
+```rust
+pub async fn build(self) -> Result<AgentSystem>
+```
+
+Build the agent system with the configured settings.
+
+# Returns
+
+A complete agent system ready for use.
+
+---
+
+### build_with_registry
+
+**Source**: `src/builder.rs`
+
+```rust
+pub async fn build_with_registry<R: AgentRegistry + 'static>( self, registry: Arc<R>, ) -> Result<CustomAgentSystem<R>>
+```
+
+Build with a custom registry implementation.
+
+# Arguments
+
+* `registry` - Custom registry implementation to use
+
+# Returns
+
+A complete agent system with the custom registry.
+
+---
+
+### capabilities
+
+**Source**: `src/builder.rs`
+
+```rust
+pub fn capabilities(&self) -> &[String]
+```
+
+Get the configured capabilities.
+
+---
+
+### health_check
+
+**Source**: `src/builder.rs`
+
+```rust
+pub async fn health_check(&self) -> Result<SystemHealth>
+```
+
+Perform a health check on all system components.
+
+---
+
+### health_check
+
+**Source**: `src/builder.rs`
+
+```rust
+pub async fn health_check(&self) -> Result<SystemHealth>
+```
+
+Perform a health check on all system components.
+
+---
+
+### metadata
+
+**Source**: `src/builder.rs`
+
+```rust
+pub fn metadata(&self) -> &std::collections::HashMap<String, serde_json::Value>
+```
+
+Get the configured metadata.
+
+---
+
+### register_agent
+
+**Source**: `src/builder.rs`
+
+```rust
+pub async fn register_agent(&self, agent: Arc<dyn Agent>) -> Result<()>
+```
+
+Register an agent in the system.
+
+---
+
+### register_agent
+
+**Source**: `src/builder.rs`
+
+```rust
+pub async fn register_agent(&self, agent: Arc<dyn Agent>) -> Result<()>
+```
+
+Register an agent in the system.
+
+---
+
+### register_agents
+
+**Source**: `src/builder.rs`
+
+```rust
+pub async fn register_agents(&self, agents: Vec<Arc<dyn Agent>>) -> Result<()>
+```
+
+Register multiple agents in the system.
+
+---
+
+### register_agents
+
+**Source**: `src/builder.rs`
+
+```rust
+pub async fn register_agents(&self, agents: Vec<Arc<dyn Agent>>) -> Result<()>
+```
+
+Register multiple agents in the system.
+
+---
+
+### stats
+
+**Source**: `src/builder.rs`
+
+```rust
+pub async fn stats(&self) -> Result<SystemStats>
+```
+
+Get system statistics.
+
+---
+
+### validate
+
+**Source**: `src/builder.rs`
+
+```rust
+pub fn validate(&self) -> Result<()>
+```
+
+Validate the builder configuration.
+
+---
+
+### with_capabilities
+
+**Source**: `src/builder.rs`
+
+```rust
+pub fn with_capabilities(mut self, capabilities: Vec<String>) -> Self
+```
+
+Add multiple capabilities to the agent.
+
+---
+
+### with_capability
+
+**Source**: `src/builder.rs`
+
+```rust
+pub fn with_capability(mut self, capability: impl Into<String>) -> Self
+```
+
+Add a capability to the agent.
+
+---
+
+### with_channel_buffer_size
+
+**Source**: `src/builder.rs`
+
+```rust
+pub fn with_channel_buffer_size(mut self, size: usize) -> Self
+```
+
+Set the channel buffer size for communication.
+
+---
+
+### with_health_checks
+
+**Source**: `src/builder.rs`
+
+```rust
+pub fn with_health_checks(mut self, enabled: bool) -> Self
+```
+
+Enable or disable registry health checks.
+
+---
+
+### with_id
+
+**Source**: `src/builder.rs`
+
+```rust
+pub fn with_id(mut self, id: impl Into<String>) -> Self
+```
+
+Set the agent ID.
+
+---
+
+### with_load_balancing
+
+**Source**: `src/builder.rs`
+
+```rust
+pub fn with_load_balancing(mut self, enabled: bool) -> Self
+```
+
+Enable or disable load balancing.
+
+---
+
+### with_maintenance_interval
+
+**Source**: `src/builder.rs`
+
+```rust
+pub fn with_maintenance_interval(mut self, interval: Duration) -> Self
+```
+
+Set the registry maintenance interval.
+
+---
+
+### with_max_agents
+
+**Source**: `src/builder.rs`
+
+```rust
+pub fn with_max_agents(mut self, max_agents: usize) -> Self
+```
+
+Set the maximum number of agents in the registry.
+
+---
+
+### with_max_concurrent_tasks
+
+**Source**: `src/builder.rs`
+
+```rust
+pub fn with_max_concurrent_tasks(mut self, max_tasks: u32) -> Self
+```
+
+Set the maximum number of concurrent tasks per agent.
+
+---
+
+### with_max_pending_messages
+
+**Source**: `src/builder.rs`
+
+```rust
+pub fn with_max_pending_messages(mut self, max_messages: usize) -> Self
+```
+
+Set the maximum number of pending messages per agent.
+
+---
+
+### with_max_retries
+
+**Source**: `src/builder.rs`
+
+```rust
+pub fn with_max_retries(mut self, max_retries: u32) -> Self
+```
+
+Set the maximum number of retry attempts for failed tasks.
+
+---
+
+### with_max_subscriptions
+
+**Source**: `src/builder.rs`
+
+```rust
+pub fn with_max_subscriptions(mut self, max_subs: usize) -> Self
+```
+
+Set the maximum number of communication subscriptions.
+
+---
+
+### with_message_persistence
+
+**Source**: `src/builder.rs`
+
+```rust
+pub fn with_message_persistence(mut self, enabled: bool) -> Self
+```
+
+Enable or disable message persistence.
+
+---
+
+### with_message_ttl
+
+**Source**: `src/builder.rs`
+
+```rust
+pub fn with_message_ttl(mut self, ttl: Duration) -> Self
+```
+
+Set the message time-to-live.
+
+---
+
+### with_metadata
+
+**Source**: `src/builder.rs`
+
+```rust
+pub fn with_metadata(mut self, key: impl Into<String>, value: serde_json::Value) -> Self
+```
+
+Add metadata to the agent.
+
+---
+
+### with_registry_timeout
+
+**Source**: `src/builder.rs`
+
+```rust
+pub fn with_registry_timeout(mut self, timeout: Duration) -> Self
+```
+
+Set the registry operation timeout.
+
+---
+
+### with_retry_delay
+
+**Source**: `src/builder.rs`
+
+```rust
+pub fn with_retry_delay(mut self, delay: Duration) -> Self
+```
+
+Set the delay between retry attempts.
+
+---
+
+### with_routing_strategy
+
+**Source**: `src/builder.rs`
+
+```rust
+pub fn with_routing_strategy(mut self, strategy: RoutingStrategy) -> Self
+```
+
+Set the routing strategy for task dispatch.
+
+---
+
+### with_task_timeout
+
+**Source**: `src/builder.rs`
+
+```rust
+pub fn with_task_timeout(mut self, timeout: Duration) -> Self
+```
+
+Set the default task execution timeout.
 
 ---
 
@@ -2697,6 +2416,327 @@ async fn close(&mut self);
 ```rust
 fn is_closed(&self) -> bool;
 ```
+
+---
+
+## Functions (mod)
+
+### config
+
+**Source**: `dispatcher/mod.rs`
+
+```rust
+pub fn config(&self) -> &DispatchConfig
+```
+
+Get the current configuration.
+
+---
+
+### dispatch_task
+
+**Source**: `dispatcher/mod.rs`
+
+```rust
+pub async fn dispatch_task(&self, mut task: Task) -> Result<TaskResult>
+```
+
+Dispatch a task to an appropriate agent.
+
+This method:
+1. Finds suitable agents for the task
+2. Selects the best agent using the routing strategy
+3. Executes the task while preserving SignerContext
+4. Handles retries on retriable failures
+
+# Arguments
+
+* `task` - The task to dispatch
+
+# Returns
+
+The task result from the executing agent.
+
+---
+
+### dispatch_tasks
+
+**Source**: `dispatcher/mod.rs`
+
+```rust
+pub async fn dispatch_tasks(&self, tasks: Vec<Task>) -> Vec<Result<TaskResult>>
+```
+
+Dispatch multiple tasks concurrently.
+
+# Arguments
+
+* `tasks` - Vector of tasks to dispatch
+
+# Returns
+
+Vector of task results in the same order as input tasks.
+
+---
+
+### health_check
+
+**Source**: `dispatcher/mod.rs`
+
+```rust
+pub async fn health_check(&self) -> Result<bool>
+```
+
+Health check for the dispatcher.
+
+---
+
+### matches
+
+**Source**: `communication/mod.rs`
+
+```rust
+pub fn matches(&self, message: &AgentMessage) -> bool
+```
+
+Check if a message matches this filter.
+
+---
+
+### new
+
+**Source**: `dispatcher/mod.rs`
+
+```rust
+pub fn new(registry: Arc<R>) -> Self
+```
+
+Create a new agent dispatcher with the given registry.
+
+---
+
+### stats
+
+**Source**: `dispatcher/mod.rs`
+
+```rust
+pub async fn stats(&self) -> Result<DispatcherStats>
+```
+
+Get statistics about the dispatcher.
+
+---
+
+### with_config
+
+**Source**: `dispatcher/mod.rs`
+
+```rust
+pub fn with_config(registry: Arc<R>, config: DispatchConfig) -> Self
+```
+
+Create a new agent dispatcher with custom configuration.
+
+---
+
+## Functions (channels)
+
+### cleanup
+
+**Source**: `communication/channels.rs`
+
+```rust
+pub async fn cleanup(&self) -> Result<usize>
+```
+
+Clean up expired messages and closed channels.
+
+---
+
+### new
+
+**Source**: `communication/channels.rs`
+
+```rust
+pub fn new() -> Self
+```
+
+Create a new channel-based communication system.
+
+---
+
+### stats
+
+**Source**: `communication/channels.rs`
+
+```rust
+pub async fn stats(&self) -> CommunicationStats
+```
+
+Get current statistics.
+
+---
+
+### with_config
+
+**Source**: `communication/channels.rs`
+
+```rust
+pub fn with_config(config: CommunicationConfig) -> Self
+```
+
+Create a new channel-based communication system with configuration.
+
+---
+
+## Functions (router)
+
+### new
+
+**Source**: `dispatcher/router.rs`
+
+```rust
+pub fn new() -> Self
+```
+
+Create a new router with default strategy.
+
+---
+
+### select_agent
+
+**Source**: `dispatcher/router.rs`
+
+```rust
+pub async fn select_agent( &self, agents: &[Arc<dyn Agent>], task: &Task, ) -> Result<Arc<dyn Agent>>
+```
+
+Select an agent from the available agents using the configured strategy.
+
+# Arguments
+
+* `agents` - Available agents to choose from
+* `task` - The task to be executed (used for routing decisions)
+
+# Returns
+
+The selected agent.
+
+---
+
+### set_strategy
+
+**Source**: `dispatcher/router.rs`
+
+```rust
+pub fn set_strategy(&mut self, strategy: RoutingStrategy)
+```
+
+Change the routing strategy.
+
+---
+
+### strategy
+
+**Source**: `dispatcher/router.rs`
+
+```rust
+pub fn strategy(&self) -> RoutingStrategy
+```
+
+Get the current routing strategy.
+
+---
+
+### with_strategy
+
+**Source**: `dispatcher/router.rs`
+
+```rust
+pub fn with_strategy(strategy: RoutingStrategy) -> Self
+```
+
+Create a new router with the specified strategy.
+
+---
+
+## Functions (distributed)
+
+### new
+
+**Source**: `registry/distributed.rs`
+
+```rust
+pub fn new(_redis_url: String) -> Result<Self>
+```
+
+Create a new distributed agent registry.
+
+**Note**: This is currently a stub implementation.
+
+---
+
+### with_config
+
+**Source**: `registry/distributed.rs`
+
+```rust
+pub fn with_config(_redis_url: String, config: RegistryConfig) -> Result<Self>
+```
+
+Create a new distributed agent registry with configuration.
+
+**Note**: This is currently a stub implementation.
+
+---
+
+## Functions (local)
+
+### config
+
+**Source**: `registry/local.rs`
+
+```rust
+pub fn config(&self) -> &RegistryConfig
+```
+
+Get the current configuration.
+
+---
+
+### new
+
+**Source**: `registry/local.rs`
+
+```rust
+pub fn new() -> Self
+```
+
+Create a new local agent registry with default configuration.
+
+---
+
+### stats
+
+**Source**: `registry/local.rs`
+
+```rust
+pub async fn stats(&self) -> RegistryStats
+```
+
+Get statistics about the registry.
+
+---
+
+### with_config
+
+**Source**: `registry/local.rs`
+
+```rust
+pub fn with_config(config: RegistryConfig) -> Self
+```
+
+Create a new local agent registry with custom configuration.
 
 ---
 

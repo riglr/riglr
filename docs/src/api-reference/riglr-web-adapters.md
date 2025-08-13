@@ -13,23 +13,20 @@ Comprehensive API documentation for the `riglr-web-adapters` crate.
 - [`CompositeSignerFactory`](#compositesignerfactory)
 - [`PromptRequest`](#promptrequest)
 
-### Functions
+### Functions (actix)
 
-- [`add_factory`](#add_factory)
 - [`completion_handler`](#completion_handler)
-- [`completion_handler`](#completion_handler)
-- [`get_registered_auth_types`](#get_registered_auth_types)
-- [`handle_agent_completion`](#handle_agent_completion)
-- [`handle_agent_stream`](#handle_agent_stream)
-- [`health_handler`](#health_handler)
 - [`health_handler`](#health_handler)
 - [`info_handler`](#info_handler)
-- [`info_handler`](#info_handler)
 - [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`register_factory`](#register_factory)
 - [`sse_handler`](#sse_handler)
+
+### Functions (axum)
+
+- [`completion_handler`](#completion_handler)
+- [`health_handler`](#health_handler)
+- [`info_handler`](#info_handler)
+- [`new`](#new)
 - [`sse_handler`](#sse_handler)
 
 ### Traits
@@ -40,6 +37,18 @@ Comprehensive API documentation for the `riglr-web-adapters` crate.
 ### Enums
 
 - [`AgentEvent`](#agentevent)
+
+### Functions (core)
+
+- [`handle_agent_completion`](#handle_agent_completion)
+- [`handle_agent_stream`](#handle_agent_stream)
+
+### Functions (factory)
+
+- [`add_factory`](#add_factory)
+- [`get_registered_auth_types`](#get_registered_auth_types)
+- [`new`](#new)
+- [`register_factory`](#register_factory)
 
 ## Structs
 
@@ -145,19 +154,7 @@ Generic prompt request structure
 
 ---
 
-## Functions
-
-### add_factory
-
-**Source**: `src/factory.rs`
-
-```rust
-pub fn add_factory(&mut self, auth_type: String, factory: std::sync::Arc<dyn SignerFactory>)
-```
-
-Convenience: add a factory wrapped in Arc
-
----
+## Functions (actix)
 
 ### completion_handler
 
@@ -171,76 +168,6 @@ Completion handler using SignerFactory pattern
 
 ---
 
-### completion_handler
-
-**Source**: `src/axum.rs`
-
-```rust
-pub async fn completion_handler<A>( &self, headers: HeaderMap, agent: A, prompt: PromptRequest, ) -> Result<Json<CompletionResponse>, StatusCode> where A: Agent + Clone + Send + Sync + 'static, A::Error: std::fmt::Display + std::fmt::Debug + Send + Sync + 'static,
-```
-
-Completion handler using SignerFactory pattern
-
----
-
-### get_registered_auth_types
-
-**Source**: `src/factory.rs`
-
-```rust
-pub fn get_registered_auth_types(&self) -> Vec<String>
-```
-
-Get all registered auth types
-
----
-
-### handle_agent_completion
-
-**Source**: `src/core.rs`
-
-```rust
-pub async fn handle_agent_completion<A>( agent: A, signer: std::sync::Arc<dyn TransactionSigner>, prompt: PromptRequest, ) -> Result<CompletionResponse, Box<dyn StdError + Send + Sync>> where A: Agent + Send + Sync + 'static,
-```
-
-Framework-agnostic handler for one-shot agent completion
-
-This function executes an agent prompt within a SignerContext and returns
-a completion response that can be serialized by any web framework.
-
-# Arguments
-* `agent` - The rig agent to execute
-* `signer` - The signer to use for blockchain operations
-* `prompt` - The prompt request
-
-# Returns
-A completion response with the agent's answer
-
----
-
-### handle_agent_stream
-
-**Source**: `src/core.rs`
-
-```rust
-pub async fn handle_agent_stream<A>( agent: A, signer: std::sync::Arc<dyn TransactionSigner>, prompt: PromptRequest, ) -> Result<AgentStream, Box<dyn StdError + Send + Sync>> where A: Agent + Send + Sync + 'static,
-```
-
-Framework-agnostic handler for agent streaming
-
-This function executes an agent prompt within a SignerContext and returns
-a stream of events that can be adapted to any web framework's SSE implementation.
-
-# Arguments
-* `agent` - The rig agent to execute
-* `signer` - The signer to use for blockchain operations
-* `prompt` - The prompt request
-
-# Returns
-A stream of formatted SSE events as JSON strings
-
----
-
 ### health_handler
 
 **Source**: `src/actix.rs`
@@ -250,6 +177,56 @@ pub async fn health_handler() -> ActixResult<HttpResponse>
 ```
 
 Health check handler
+
+---
+
+### info_handler
+
+**Source**: `src/actix.rs`
+
+```rust
+pub async fn info_handler() -> ActixResult<HttpResponse>
+```
+
+Information handler
+
+---
+
+### new
+
+**Source**: `src/actix.rs`
+
+```rust
+pub fn new(signer_factory: Arc<dyn SignerFactory>, rpc_config: RpcConfig) -> Self
+```
+
+Create a new Actix adapter with the given signer factory and RPC config
+
+---
+
+### sse_handler
+
+**Source**: `src/actix.rs`
+
+```rust
+pub async fn sse_handler<A>( &self, req: &HttpRequest, agent: &A, prompt: PromptRequest, ) -> ActixResult<HttpResponse> where A: Agent + Clone + Send + Sync + 'static, A::Error: std::fmt::Display + std::fmt::Debug + Send + Sync + 'static,
+```
+
+SSE handler using SignerFactory pattern
+
+---
+
+## Functions (axum)
+
+### completion_handler
+
+**Source**: `src/axum.rs`
+
+```rust
+pub async fn completion_handler<A>( &self, headers: HeaderMap, agent: A, prompt: PromptRequest, ) -> Result<Json<CompletionResponse>, StatusCode> where A: Agent + Clone + Send + Sync + 'static, A::Error: std::fmt::Display + std::fmt::Debug + Send + Sync + 'static,
+```
+
+Completion handler using SignerFactory pattern
 
 ---
 
@@ -267,18 +244,6 @@ Health check handler for Axum
 
 ### info_handler
 
-**Source**: `src/actix.rs`
-
-```rust
-pub async fn info_handler() -> ActixResult<HttpResponse>
-```
-
-Information handler
-
----
-
-### info_handler
-
 **Source**: `src/axum.rs`
 
 ```rust
@@ -291,18 +256,6 @@ Information handler for Axum
 
 ### new
 
-**Source**: `src/actix.rs`
-
-```rust
-pub fn new(signer_factory: Arc<dyn SignerFactory>, rpc_config: RpcConfig) -> Self
-```
-
-Create a new Actix adapter with the given signer factory and RPC config
-
----
-
-### new
-
 **Source**: `src/axum.rs`
 
 ```rust
@@ -310,46 +263,6 @@ pub fn new(signer_factory: Arc<dyn SignerFactory>, rpc_config: RpcConfig) -> Sel
 ```
 
 Create a new Axum adapter with the given signer factory and RPC config
-
----
-
-### new
-
-**Source**: `src/factory.rs`
-
-```rust
-pub fn new() -> Self
-```
-
-Create a new composite factory
-
----
-
-### register_factory
-
-**Source**: `src/factory.rs`
-
-```rust
-pub fn register_factory(&mut self, auth_type: String, factory: Box<dyn SignerFactory>)
-```
-
-Register a signer factory for a specific auth type
-
-# Arguments
-* `auth_type` - Authentication type identifier
-* `factory` - Factory implementation for this auth type
-
----
-
-### sse_handler
-
-**Source**: `src/actix.rs`
-
-```rust
-pub async fn sse_handler<A>( &self, req: &HttpRequest, agent: &A, prompt: PromptRequest, ) -> ActixResult<HttpResponse> where A: Agent + Clone + Send + Sync + 'static, A::Error: std::fmt::Display + std::fmt::Debug + Send + Sync + 'static,
-```
-
-SSE handler using SignerFactory pattern
 
 ---
 
@@ -474,6 +387,108 @@ Server-Sent Event structure for streaming
 - `conversation_id`
 - `request_id`
 - `timestamp`
+
+---
+
+## Functions (core)
+
+### handle_agent_completion
+
+**Source**: `src/core.rs`
+
+```rust
+pub async fn handle_agent_completion<A>( agent: A, signer: std::sync::Arc<dyn TransactionSigner>, prompt: PromptRequest, ) -> Result<CompletionResponse, Box<dyn StdError + Send + Sync>> where A: Agent + Send + Sync + 'static,
+```
+
+Framework-agnostic handler for one-shot agent completion
+
+This function executes an agent prompt within a SignerContext and returns
+a completion response that can be serialized by any web framework.
+
+# Arguments
+* `agent` - The rig agent to execute
+* `signer` - The signer to use for blockchain operations
+* `prompt` - The prompt request
+
+# Returns
+A completion response with the agent's answer
+
+---
+
+### handle_agent_stream
+
+**Source**: `src/core.rs`
+
+```rust
+pub async fn handle_agent_stream<A>( agent: A, signer: std::sync::Arc<dyn TransactionSigner>, prompt: PromptRequest, ) -> Result<AgentStream, Box<dyn StdError + Send + Sync>> where A: Agent + Send + Sync + 'static,
+```
+
+Framework-agnostic handler for agent streaming
+
+This function executes an agent prompt within a SignerContext and returns
+a stream of events that can be adapted to any web framework's SSE implementation.
+
+# Arguments
+* `agent` - The rig agent to execute
+* `signer` - The signer to use for blockchain operations
+* `prompt` - The prompt request
+
+# Returns
+A stream of formatted SSE events as JSON strings
+
+---
+
+## Functions (factory)
+
+### add_factory
+
+**Source**: `src/factory.rs`
+
+```rust
+pub fn add_factory(&mut self, auth_type: String, factory: std::sync::Arc<dyn SignerFactory>)
+```
+
+Convenience: add a factory wrapped in Arc
+
+---
+
+### get_registered_auth_types
+
+**Source**: `src/factory.rs`
+
+```rust
+pub fn get_registered_auth_types(&self) -> Vec<String>
+```
+
+Get all registered auth types
+
+---
+
+### new
+
+**Source**: `src/factory.rs`
+
+```rust
+pub fn new() -> Self
+```
+
+Create a new composite factory
+
+---
+
+### register_factory
+
+**Source**: `src/factory.rs`
+
+```rust
+pub fn register_factory(&mut self, auth_type: String, factory: Box<dyn SignerFactory>)
+```
+
+Register a signer factory for a specific auth type
+
+# Arguments
+* `auth_type` - Authentication type identifier
+* `factory` - Factory implementation for this auth type
 
 ---
 
