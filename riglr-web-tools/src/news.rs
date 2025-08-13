@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use tracing::{debug, info, warn};
 use std::hash::{Hash, Hasher};
+use regex::Regex;
 
 /// Configuration for news aggregation services
 #[derive(Debug, Clone)]
@@ -701,9 +702,14 @@ async fn query_newsapi(
                 geographic_scope: vec!["Global".to_string()],
                 target_audience: "Retail".to_string(),
             };
-            let sentiment = NewsSentiment { overall_score: 0.0, confidence: 0.5, classification: "Neutral".to_string(), topic_sentiments: HashMap::new(), emotions: EmotionalIndicators { fear: 0.2, greed: 0.2, excitement: 0.2, uncertainty: 0.2, urgency: 0.2 }, key_phrases: vec![] };
-            let market_impact = MarketImpact { impact_level: "Low".to_string(), impact_score: 40, time_horizon: "Short-term".to_string(), affected_sectors: vec![], potential_price_impact: None, historical_correlation: None, risk_factors: vec![] };
-            let entities = vec![NewsEntity { name: topic.to_string(), entity_type: "Topic".to_string(), relevance_score: 0.8, sentiment: None, mention_count: 1, contexts: vec![] }];
+            // Perform real sentiment analysis on title and content
+            let sentiment = analyze_sentiment(&title, &description, &content);
+            
+            // Calculate market impact based on sentiment and source credibility
+            let market_impact = calculate_market_impact(&sentiment, &source, &category);
+            
+            // Extract entities from title and content
+            let entities = extract_entities_from_text(&title, &description, &content, topic);
             let article = NewsArticle {
                 id: format!("newsapi_{}_{}", published_at.timestamp(), hash64(&url)),
                 title,
@@ -780,16 +786,16 @@ async fn query_cryptopanic(
             let category = NewsCategory { primary: "News".to_string(), sub_category: None, tags: vec![topic.to_lowercase()], geographic_scope: vec!["Global".to_string()], target_audience: "Crypto".to_string() };
             let article = NewsArticle {
                 id: format!("cryptopanic_{}_{}", published_at.timestamp(), hash64(&url)),
-                title,
+                title: title.clone(),
                 url,
                 description: None,
                 content: None,
                 published_at,
                 source,
                 category,
-                sentiment: NewsSentiment { overall_score: 0.0, confidence: 0.5, classification: "Neutral".to_string(), topic_sentiments: HashMap::new(), emotions: EmotionalIndicators { fear: 0.2, greed: 0.2, excitement: 0.2, uncertainty: 0.2, urgency: 0.2 }, key_phrases: vec![] },
-                market_impact: MarketImpact { impact_level: "Low".to_string(), impact_score: 45, time_horizon: "Short-term".to_string(), affected_sectors: vec![], potential_price_impact: None, historical_correlation: None, risk_factors: vec![] },
-                entities: vec![NewsEntity { name: topic.to_string(), entity_type: "Cryptocurrency".to_string(), relevance_score: 0.8, sentiment: None, mention_count: 1, contexts: vec![] }],
+                sentiment: analyze_sentiment(&title, &None, &None),
+                market_impact: calculate_market_impact_simple(&title),
+                entities: extract_entities_from_text(&title, &None, &None, topic),
                 related_assets: vec![topic.to_lowercase()],
                 quality_metrics: QualityMetrics { overall_score: 68, depth_score: 55, factual_accuracy: 70, writing_quality: 65, citation_quality: 55, uniqueness_score: 50, reading_difficulty: 5 },
                 social_metrics: None,
@@ -800,92 +806,6 @@ async fn query_cryptopanic(
     Ok(articles_out)
 }
 
-/// Create a sample news article for testing
-fn create_sample_article(topic: &str, source_name: &str, credibility: u32) -> NewsArticle {
-    NewsArticle {
-        id: format!("article_{}", rand::random::<u32>()),
-        title: format!("Breaking: Major developments in {}", topic),
-        url: "https://example.com/article".to_string(),
-        description: Some(format!(
-            "Important news about {} affecting the market",
-            topic
-        )),
-        content: Some(format!("Detailed analysis of {} developments...", topic)),
-        published_at: Utc::now(),
-        source: NewsSource {
-            id: "example_source".to_string(),
-            name: source_name.to_string(),
-            url: "https://example.com".to_string(),
-            category: "Crypto".to_string(),
-            credibility_score: credibility,
-            accuracy_rating: Some(0.85),
-            bias_score: Some(0.1),
-            is_verified: true,
-            logo_url: Some("https://example.com/logo.png".to_string()),
-        },
-        category: NewsCategory {
-            primary: "Breaking".to_string(),
-            sub_category: Some("Market".to_string()),
-            tags: vec![topic.to_lowercase()],
-            geographic_scope: vec!["Global".to_string()],
-            target_audience: "Retail".to_string(),
-        },
-        sentiment: NewsSentiment {
-            overall_score: 0.2,
-            confidence: 0.8,
-            classification: "Slightly Bullish".to_string(),
-            topic_sentiments: HashMap::new(),
-            emotions: EmotionalIndicators {
-                fear: 0.2,
-                greed: 0.3,
-                excitement: 0.4,
-                uncertainty: 0.3,
-                urgency: 0.5,
-            },
-            key_phrases: vec![SentimentPhrase {
-                phrase: "positive development".to_string(),
-                sentiment_contribution: 0.3,
-                confidence: 0.9,
-            }],
-        },
-        market_impact: MarketImpact {
-            impact_level: "Medium".to_string(),
-            impact_score: 65,
-            time_horizon: "Short-term".to_string(),
-            affected_sectors: vec!["DeFi".to_string()],
-            potential_price_impact: Some(2.5),
-            historical_correlation: Some(0.6),
-            risk_factors: vec!["Regulatory uncertainty".to_string()],
-        },
-        entities: vec![NewsEntity {
-            name: topic.to_string(),
-            entity_type: "Cryptocurrency".to_string(),
-            relevance_score: 0.9,
-            sentiment: Some(0.2),
-            mention_count: 3,
-            contexts: vec!["Price movement".to_string()],
-        }],
-        related_assets: vec![topic.to_lowercase()],
-        quality_metrics: QualityMetrics {
-            overall_score: 75,
-            depth_score: 70,
-            factual_accuracy: 80,
-            writing_quality: 75,
-            citation_quality: 65,
-            uniqueness_score: 60,
-            reading_difficulty: 6,
-        },
-        social_metrics: Some(SocialMetrics {
-            total_shares: 150,
-            twitter_shares: 100,
-            reddit_mentions: 25,
-            linkedin_shares: 25,
-            social_sentiment: 0.15,
-            viral_score: 45,
-            influencer_mentions: 5,
-        }),
-    }
-}
 
 /// Remove duplicate articles based on content similarity
 fn deduplicate_articles(articles: Vec<NewsArticle>) -> Vec<NewsArticle> {
@@ -1066,15 +986,15 @@ async fn fetch_trending_articles(
                             .map(|dt| dt.with_timezone(&Utc)).unwrap_or_else(Utc::now);
                         out.push(NewsArticle {
                             id: format!("cp_trending_{}_{}", published_at.timestamp(), hash64(&url)),
-                            title,
+                            title: title.clone(),
                             url: url.clone(),
                             description: None,
                             content: None,
                             published_at,
                             source: NewsSource { id: "cryptopanic".to_string(), name: "CryptoPanic".to_string(), url, category: "Crypto".to_string(), credibility_score: 70, accuracy_rating: None, bias_score: None, is_verified: true, logo_url: None },
                             category: NewsCategory { primary: "Trending".to_string(), sub_category: None, tags: vec![], geographic_scope: vec!["Global".to_string()], target_audience: "Crypto".to_string() },
-                            sentiment: NewsSentiment { overall_score: 0.0, confidence: 0.5, classification: "Neutral".to_string(), topic_sentiments: HashMap::new(), emotions: EmotionalIndicators { fear: 0.2, greed: 0.2, excitement: 0.2, uncertainty: 0.2, urgency: 0.2 }, key_phrases: vec![] },
-                            market_impact: MarketImpact { impact_level: "Medium".to_string(), impact_score: 60, time_horizon: "Short-term".to_string(), affected_sectors: vec![], potential_price_impact: None, historical_correlation: None, risk_factors: vec![] },
+                            sentiment: analyze_sentiment(&title, &None, &None),
+                            market_impact: calculate_market_impact_simple(&title),
                             entities: vec![],
                             related_assets: vec![],
                             quality_metrics: QualityMetrics { overall_score: 65, depth_score: 55, factual_accuracy: 70, writing_quality: 65, citation_quality: 55, uniqueness_score: 50, reading_difficulty: 5 },
@@ -1105,13 +1025,47 @@ async fn fetch_trending_articles(
                         let published_at = a.get("publishedAt").and_then(|v| v.as_str())
                             .and_then(|s| DateTime::parse_from_rfc3339(s).ok())
                             .map(|dt| dt.with_timezone(&Utc)).unwrap_or_else(Utc::now);
-                        out.push(create_sample_article("Crypto", "NewsAPI", 75));
-                        if let Some(last) = out.last_mut() {
-                            last.title = title;
-                            last.url = url;
-                            last.published_at = published_at;
-                            last.category.primary = "Trending".to_string();
-                        }
+                        // Parse and analyze the article properly
+                        let description = a.get("description").and_then(|v| v.as_str()).map(|s| s.to_string());
+                        let content = a.get("content").and_then(|v| v.as_str()).map(|s| s.to_string());
+                        let source_name = a.get("source").and_then(|o| o.get("name")).and_then(|v| v.as_str()).unwrap_or("NewsAPI");
+                        
+                        let source = NewsSource {
+                            id: format!("newsapi_{}", hash64(&url)),
+                            name: source_name.to_string(),
+                            url: url.clone(),
+                            category: "Mainstream".to_string(),
+                            credibility_score: 75,
+                            accuracy_rating: None,
+                            bias_score: None,
+                            is_verified: true,
+                            logo_url: None,
+                        };
+                        
+                        let category = NewsCategory {
+                            primary: "Trending".to_string(),
+                            sub_category: None,
+                            tags: extract_tags_from_text(&title, &description),
+                            geographic_scope: vec!["Global".to_string()],
+                            target_audience: "Retail".to_string(),
+                        };
+                        
+                        out.push(NewsArticle {
+                            id: format!("newsapi_trending_{}_{}", published_at.timestamp(), hash64(&url)),
+                            title: title.clone(),
+                            url,
+                            description: description.clone(),
+                            content: content.clone(),
+                            published_at,
+                            source,
+                            category,
+                            sentiment: analyze_sentiment(&title, &description, &content),
+                            market_impact: calculate_market_impact_from_content(&title, &description, &content),
+                            entities: extract_entities_from_text(&title, &description, &content, "crypto"),
+                            related_assets: extract_crypto_mentions(&title, &description, &content),
+                            quality_metrics: calculate_quality_metrics(&title, &description, &content, 75),
+                            social_metrics: None,
+                        });
                     }
                 }
             }
@@ -1197,6 +1151,631 @@ fn is_above_severity_threshold(current_severity: &str, threshold: &str) -> bool 
         .position(|&s| s == threshold)
         .unwrap_or(1);
     current_index >= threshold_index
+}
+
+/// Perform real sentiment analysis on text
+fn analyze_sentiment(title: &str, description: &Option<String>, content: &Option<String>) -> NewsSentiment {
+    let full_text = format!(
+        "{} {} {}",
+        title,
+        description.as_deref().unwrap_or(""),
+        content.as_deref().unwrap_or("")
+    );
+    
+    // Sentiment keywords with weights
+    let positive_words = [
+        ("bullish", 0.8), ("surge", 0.7), ("rally", 0.7), ("breakthrough", 0.8),
+        ("adoption", 0.6), ("partnership", 0.6), ("growth", 0.5), ("success", 0.6),
+        ("innovative", 0.5), ("leading", 0.4), ("strong", 0.5), ("positive", 0.5),
+        ("gains", 0.6), ("rise", 0.5), ("increase", 0.4), ("improve", 0.5),
+        ("upgrade", 0.6), ("expand", 0.5), ("launch", 0.4), ("milestone", 0.6),
+    ];
+    
+    let negative_words = [
+        ("bearish", -0.8), ("crash", -0.9), ("plunge", -0.8), ("collapse", -0.9),
+        ("hack", -0.9), ("exploit", -0.9), ("scam", -0.9), ("fraud", -0.9),
+        ("decline", -0.6), ("drop", -0.6), ("fall", -0.5), ("loss", -0.6),
+        ("concern", -0.4), ("risk", -0.5), ("threat", -0.6), ("vulnerable", -0.7),
+        ("lawsuit", -0.7), ("investigation", -0.6), ("ban", -0.8), ("restrict", -0.6),
+    ];
+    
+    let fear_words = ["crash", "collapse", "panic", "fear", "scared", "worried", "concern", "threat"];
+    let greed_words = ["moon", "lambo", "rich", "profit", "gains", "millionaire", "explosive", "massive"];
+    let uncertainty_words = ["maybe", "perhaps", "unclear", "uncertain", "volatile", "unpredictable", "risky"];
+    let excitement_words = ["amazing", "incredible", "wow", "breakthrough", "revolutionary", "game-changer"];
+    let urgency_words = ["now", "immediately", "urgent", "breaking", "alert", "warning", "critical"];
+    
+    let text_lower = full_text.to_lowercase();
+    
+    // Calculate overall sentiment score
+    let mut sentiment_score = 0.0;
+    let mut word_count = 0;
+    
+    for (word, weight) in &positive_words {
+        let count = text_lower.matches(word).count();
+        sentiment_score += count as f64 * weight;
+        word_count += count;
+    }
+    
+    for (word, weight) in &negative_words {
+        let count = text_lower.matches(word).count();
+        sentiment_score += count as f64 * weight;
+        word_count += count;
+    }
+    
+    // Normalize sentiment score
+    let overall_score = if word_count > 0 {
+        (sentiment_score / word_count as f64).max(-1.0).min(1.0)
+    } else {
+        0.0
+    };
+    
+    // Calculate confidence based on word count and text length
+    let confidence = ((word_count as f64 / 10.0).min(1.0) * 0.5 + 
+                     (full_text.len() as f64 / 500.0).min(1.0) * 0.5)
+                     .max(0.3).min(0.95);
+    
+    // Determine classification
+    let classification = if overall_score > 0.3 {
+        "Bullish"
+    } else if overall_score > 0.1 {
+        "Slightly Bullish"
+    } else if overall_score < -0.3 {
+        "Bearish"
+    } else if overall_score < -0.1 {
+        "Slightly Bearish"
+    } else {
+        "Neutral"
+    }.to_string();
+    
+    // Calculate emotional indicators
+    let calc_emotion = |words: &[&str]| -> f64 {
+        let count: usize = words.iter().map(|w| text_lower.matches(w).count()).sum();
+        (count as f64 / 20.0).min(1.0)
+    };
+    
+    let emotions = EmotionalIndicators {
+        fear: calc_emotion(&fear_words),
+        greed: calc_emotion(&greed_words),
+        excitement: calc_emotion(&excitement_words),
+        uncertainty: calc_emotion(&uncertainty_words),
+        urgency: calc_emotion(&urgency_words),
+    };
+    
+    // Extract key phrases that contribute to sentiment
+    let mut key_phrases = Vec::new();
+    
+    // Look for specific phrase patterns
+    let phrase_patterns = [
+        (r"(?i)(bullish|positive|optimistic) (?:on|about|for) (\w+)", 0.5),
+        (r"(?i)(bearish|negative|pessimistic) (?:on|about|for) (\w+)", -0.5),
+        (r"(?i)(?:surge|rally|jump) (?:in|of) \d+%", 0.6),
+        (r"(?i)(?:drop|fall|decline) (?:in|of) \d+%", -0.6),
+    ];
+    
+    for (pattern, contribution) in &phrase_patterns {
+        if let Ok(re) = Regex::new(pattern) {
+            for cap in re.captures_iter(&text_lower) {
+                if let Some(matched) = cap.get(0) {
+                    key_phrases.push(SentimentPhrase {
+                        phrase: matched.as_str().to_string(),
+                        sentiment_contribution: *contribution,
+                        confidence: 0.7,
+                    });
+                }
+            }
+        }
+    }
+    
+    // Topic-specific sentiments
+    let mut topic_sentiments = HashMap::new();
+    let topics = ["bitcoin", "ethereum", "defi", "nft", "regulation", "adoption"];
+    
+    for topic in &topics {
+        if text_lower.contains(topic) {
+            // Calculate sentiment specific to this topic's context
+            let topic_score = if text_lower.contains(&format!("{} surge", topic)) ||
+                                text_lower.contains(&format!("{} rally", topic)) {
+                0.5
+            } else if text_lower.contains(&format!("{} crash", topic)) ||
+                     text_lower.contains(&format!("{} plunge", topic)) {
+                -0.5
+            } else {
+                overall_score * 0.7 // Slightly dampened overall sentiment
+            };
+            topic_sentiments.insert(topic.to_string(), topic_score);
+        }
+    }
+    
+    NewsSentiment {
+        overall_score,
+        confidence,
+        classification,
+        topic_sentiments,
+        emotions,
+        key_phrases,
+    }
+}
+
+/// Calculate market impact based on content and sentiment
+fn calculate_market_impact(
+    sentiment: &NewsSentiment,
+    source: &NewsSource,
+    category: &NewsCategory,
+) -> MarketImpact {
+    // Base impact score from sentiment magnitude and confidence
+    let sentiment_impact = (sentiment.overall_score.abs() * 100.0 * sentiment.confidence) as u32;
+    
+    // Adjust for source credibility
+    let credibility_factor = source.credibility_score as f64 / 100.0;
+    let base_score = (sentiment_impact as f64 * credibility_factor) as u32;
+    
+    // Category-based adjustments
+    let category_multiplier = match category.primary.as_str() {
+        "Breaking" => 1.5,
+        "Regulation" => 1.4,
+        "Security" => 1.3,
+        "Analysis" => 1.1,
+        _ => 1.0,
+    };
+    
+    let impact_score = ((base_score as f64 * category_multiplier).min(100.0)) as u32;
+    
+    // Determine impact level
+    let impact_level = match impact_score {
+        80..=100 => "Critical",
+        60..=79 => "High",
+        40..=59 => "Medium",
+        20..=39 => "Low",
+        _ => "Negligible",
+    }.to_string();
+    
+    // Time horizon based on urgency and category
+    let time_horizon = if sentiment.emotions.urgency > 0.7 || category.primary == "Breaking" {
+        "Immediate"
+    } else if impact_score > 60 {
+        "Short-term"
+    } else {
+        "Medium-term"
+    }.to_string();
+    
+    // Identify affected sectors based on tags and content
+    let mut affected_sectors = Vec::new();
+    if category.tags.iter().any(|t| t.contains("defi")) {
+        affected_sectors.push("DeFi".to_string());
+    }
+    if category.tags.iter().any(|t| t.contains("nft")) {
+        affected_sectors.push("NFT".to_string());
+    }
+    if category.tags.iter().any(|t| t.contains("exchange")) {
+        affected_sectors.push("CEX".to_string());
+    }
+    if category.tags.iter().any(|t| t.contains("regulation")) {
+        affected_sectors.push("Regulatory".to_string());
+    }
+    if affected_sectors.is_empty() {
+        affected_sectors.push("General".to_string());
+    }
+    
+    // Estimate potential price impact
+    let potential_price_impact = if impact_score > 70 {
+        Some((sentiment.overall_score * 10.0).abs())
+    } else if impact_score > 50 {
+        Some((sentiment.overall_score * 5.0).abs())
+    } else {
+        None
+    };
+    
+    // Identify risk factors
+    let mut risk_factors = Vec::new();
+    if sentiment.emotions.uncertainty > 0.6 {
+        risk_factors.push("High uncertainty".to_string());
+    }
+    if sentiment.emotions.fear > 0.6 {
+        risk_factors.push("Market fear".to_string());
+    }
+    if category.tags.iter().any(|t| t.contains("hack") || t.contains("exploit")) {
+        risk_factors.push("Security breach".to_string());
+    }
+    if category.tags.iter().any(|t| t.contains("regulation")) {
+        risk_factors.push("Regulatory risk".to_string());
+    }
+    
+    MarketImpact {
+        impact_level,
+        impact_score,
+        time_horizon,
+        affected_sectors,
+        potential_price_impact,
+        historical_correlation: None, // Would need historical data
+        risk_factors,
+    }
+}
+
+/// Simpler market impact calculation for when we only have title
+fn calculate_market_impact_simple(title: &str) -> MarketImpact {
+    let title_lower = title.to_lowercase();
+    
+    // High impact keywords
+    let high_impact = ["hack", "exploit", "sec", "ban", "crash", "surge", "partnership", "adoption"];
+    let medium_impact = ["update", "launch", "announce", "report", "analysis"];
+    
+    let (impact_level, impact_score) = if high_impact.iter().any(|k| title_lower.contains(k)) {
+        ("High".to_string(), 70)
+    } else if medium_impact.iter().any(|k| title_lower.contains(k)) {
+        ("Medium".to_string(), 50)
+    } else {
+        ("Low".to_string(), 30)
+    };
+    
+    MarketImpact {
+        impact_level,
+        impact_score,
+        time_horizon: "Short-term".to_string(),
+        affected_sectors: vec!["General".to_string()],
+        potential_price_impact: None,
+        historical_correlation: None,
+        risk_factors: vec![],
+    }
+}
+
+/// Extract entities from text using pattern matching
+fn extract_entities_from_text(
+    title: &str,
+    description: &Option<String>,
+    content: &Option<String>,
+    default_topic: &str,
+) -> Vec<NewsEntity> {
+    let full_text = format!(
+        "{} {} {}",
+        title,
+        description.as_deref().unwrap_or(""),
+        content.as_deref().unwrap_or("")
+    );
+    
+    let mut entities = Vec::new();
+    let mut entity_map: HashMap<String, (String, u32)> = HashMap::new(); // name -> (type, count)
+    
+    // Cryptocurrency patterns
+    let crypto_pattern = r"\b(Bitcoin|BTC|Ethereum|ETH|Solana|SOL|Cardano|ADA|Polkadot|DOT|Chainlink|LINK|Avalanche|AVAX|Polygon|MATIC|Arbitrum|ARB|Optimism|OP)\b";
+    if let Ok(re) = Regex::new(crypto_pattern) {
+        for cap in re.captures_iter(&full_text) {
+            if let Some(matched) = cap.get(0) {
+                let name = matched.as_str();
+                let entry = entity_map.entry(name.to_string()).or_insert(("Cryptocurrency".to_string(), 0));
+                entry.1 += 1;
+            }
+        }
+    }
+    
+    // Company patterns
+    let company_pattern = r"\b(Coinbase|Binance|Kraken|FTX|OpenSea|Uniswap|Aave|Compound|MakerDAO|Circle|Tether|Block\.one|ConsenSys|Ripple|Grayscale|MicroStrategy|Tesla|Square|PayPal)\b";
+    if let Ok(re) = Regex::new(company_pattern) {
+        for cap in re.captures_iter(&full_text) {
+            if let Some(matched) = cap.get(0) {
+                let name = matched.as_str();
+                let entry = entity_map.entry(name.to_string()).or_insert(("Company".to_string(), 0));
+                entry.1 += 1;
+            }
+        }
+    }
+    
+    // Person patterns (common crypto figures)
+    let person_pattern = r"\b(Vitalik Buterin|Satoshi Nakamoto|CZ|Changpeng Zhao|Sam Bankman-Fried|SBF|Michael Saylor|Elon Musk|Gary Gensler|Jerome Powell)\b";
+    if let Ok(re) = Regex::new(person_pattern) {
+        for cap in re.captures_iter(&full_text) {
+            if let Some(matched) = cap.get(0) {
+                let name = matched.as_str();
+                let entry = entity_map.entry(name.to_string()).or_insert(("Person".to_string(), 0));
+                entry.1 += 1;
+            }
+        }
+    }
+    
+    // Protocol/Platform patterns
+    let protocol_pattern = r"\b(DeFi|NFT|DAO|DEX|CEX|Layer 2|L2|zkSync|StarkNet|Lightning Network|Cosmos|IBC)\b";
+    if let Ok(re) = Regex::new(protocol_pattern) {
+        for cap in re.captures_iter(&full_text) {
+            if let Some(matched) = cap.get(0) {
+                let name = matched.as_str();
+                let entry = entity_map.entry(name.to_string()).or_insert(("Protocol".to_string(), 0));
+                entry.1 += 1;
+            }
+        }
+    }
+    
+    // Convert map to entities vector
+    for (name, (entity_type, count)) in entity_map {
+        let relevance_score = (count as f64 / 10.0).min(1.0);
+        entities.push(NewsEntity {
+            name: name.clone(),
+            entity_type,
+            relevance_score,
+            sentiment: None, // Would need entity-specific sentiment analysis
+            mention_count: count,
+            contexts: vec![], // Would need to extract surrounding context
+        });
+    }
+    
+    // Add default topic if no entities found
+    if entities.is_empty() {
+        entities.push(NewsEntity {
+            name: default_topic.to_string(),
+            entity_type: "Topic".to_string(),
+            relevance_score: 0.5,
+            sentiment: None,
+            mention_count: 1,
+            contexts: vec![],
+        });
+    }
+    
+    // Sort by relevance
+    entities.sort_by(|a, b| b.relevance_score.partial_cmp(&a.relevance_score).unwrap_or(std::cmp::Ordering::Equal));
+    
+    entities
+}
+
+/// Extract tags from text
+fn extract_tags_from_text(title: &str, description: &Option<String>) -> Vec<String> {
+    let full_text = format!(
+        "{} {}",
+        title.to_lowercase(),
+        description.as_deref().unwrap_or("").to_lowercase()
+    );
+    
+    let mut tags = Vec::new();
+    
+    // Topic keywords to tags
+    let tag_keywords = [
+        ("defi", "defi"),
+        ("nft", "nft"),
+        ("metaverse", "metaverse"),
+        ("web3", "web3"),
+        ("layer 2", "layer2"),
+        ("stablecoin", "stablecoin"),
+        ("cbdc", "cbdc"),
+        ("mining", "mining"),
+        ("staking", "staking"),
+        ("governance", "governance"),
+        ("dao", "dao"),
+        ("smart contract", "smart-contracts"),
+        ("regulation", "regulation"),
+        ("sec", "regulation"),
+        ("hack", "security"),
+        ("exploit", "security"),
+        ("partnership", "partnership"),
+        ("integration", "integration"),
+        ("upgrade", "upgrade"),
+        ("mainnet", "mainnet"),
+        ("testnet", "testnet"),
+    ];
+    
+    for (keyword, tag) in &tag_keywords {
+        if full_text.contains(keyword) {
+            tags.push(tag.to_string());
+        }
+    }
+    
+    // Remove duplicates
+    tags.sort();
+    tags.dedup();
+    
+    tags
+}
+
+/// Extract cryptocurrency mentions from text
+fn extract_crypto_mentions(title: &str, description: &Option<String>, content: &Option<String>) -> Vec<String> {
+    let full_text = format!(
+        "{} {} {}",
+        title.to_lowercase(),
+        description.as_deref().unwrap_or("").to_lowercase(),
+        content.as_deref().unwrap_or("").to_lowercase()
+    );
+    
+    let mut cryptos = Vec::new();
+    
+    let crypto_list = [
+        ("bitcoin", "bitcoin"),
+        ("btc", "bitcoin"),
+        ("ethereum", "ethereum"),
+        ("eth", "ethereum"),
+        ("solana", "solana"),
+        ("sol", "solana"),
+        ("cardano", "cardano"),
+        ("ada", "cardano"),
+        ("polkadot", "polkadot"),
+        ("dot", "polkadot"),
+        ("chainlink", "chainlink"),
+        ("link", "chainlink"),
+        ("avalanche", "avalanche"),
+        ("avax", "avalanche"),
+        ("polygon", "polygon"),
+        ("matic", "polygon"),
+        ("arbitrum", "arbitrum"),
+        ("optimism", "optimism"),
+        ("bnb", "bnb"),
+        ("xrp", "xrp"),
+        ("doge", "dogecoin"),
+        ("shib", "shiba-inu"),
+    ];
+    
+    for (keyword, crypto) in &crypto_list {
+        if full_text.contains(keyword) && !cryptos.contains(&crypto.to_string()) {
+            cryptos.push(crypto.to_string());
+        }
+    }
+    
+    cryptos
+}
+
+/// Calculate quality metrics for an article
+fn calculate_quality_metrics(
+    title: &str,
+    description: &Option<String>,
+    content: &Option<String>,
+    source_credibility: u32,
+) -> QualityMetrics {
+    let has_description = description.is_some() && !description.as_ref().unwrap().is_empty();
+    let has_content = content.is_some() && !content.as_ref().unwrap().is_empty();
+    
+    // Content depth based on length and structure
+    let content_length = content.as_ref().map(|c| c.len()).unwrap_or(0);
+    let depth_score = if content_length > 2000 {
+        85
+    } else if content_length > 1000 {
+        70
+    } else if content_length > 500 {
+        55
+    } else if has_description {
+        40
+    } else {
+        25
+    };
+    
+    // Writing quality based on title and description
+    let title_words = title.split_whitespace().count();
+    let writing_quality = if title_words > 5 && title_words < 20 && has_description {
+        75
+    } else if title_words > 3 {
+        65
+    } else {
+        50
+    };
+    
+    // Citation quality (would need to detect citations in real implementation)
+    let citation_quality = if content_length > 1000 {
+        60
+    } else {
+        40
+    };
+    
+    // Overall score
+    let overall_score = (
+        (source_credibility as f64 * 0.3) +
+        (depth_score as f64 * 0.3) +
+        (writing_quality as f64 * 0.2) +
+        (citation_quality as f64 * 0.2)
+    ) as u32;
+    
+    QualityMetrics {
+        overall_score,
+        depth_score,
+        factual_accuracy: source_credibility, // Use source credibility as proxy
+        writing_quality,
+        citation_quality,
+        uniqueness_score: 50, // Would need deduplication analysis
+        reading_difficulty: if content_length > 2000 { 7 } else { 5 },
+    }
+}
+
+/// Calculate market impact from content analysis
+fn calculate_market_impact_from_content(
+    title: &str,
+    description: &Option<String>,
+    content: &Option<String>,
+) -> MarketImpact {
+    let sentiment = analyze_sentiment(title, description, content);
+    let full_text = format!(
+        "{} {} {}",
+        title.to_lowercase(),
+        description.as_deref().unwrap_or("").to_lowercase(),
+        content.as_deref().unwrap_or("").to_lowercase()
+    );
+    
+    // Check for high-impact keywords
+    let critical_keywords = ["hack", "exploit", "bankrupt", "sec enforcement", "criminal", "fraud"];
+    let high_keywords = ["partnership", "adoption", "integration", "launch", "acquisition"];
+    let medium_keywords = ["update", "upgrade", "announce", "report", "analysis"];
+    
+    let has_critical = critical_keywords.iter().any(|k| full_text.contains(k));
+    let has_high = high_keywords.iter().any(|k| full_text.contains(k));
+    let has_medium = medium_keywords.iter().any(|k| full_text.contains(k));
+    
+    let (impact_level, base_score) = if has_critical {
+        ("Critical", 85)
+    } else if has_high {
+        ("High", 70)
+    } else if has_medium {
+        ("Medium", 50)
+    } else {
+        ("Low", 30)
+    };
+    
+    // Adjust score based on sentiment magnitude
+    let impact_score = ((base_score as f64 * (1.0 + sentiment.overall_score.abs() * 0.3)) as u32).min(100);
+    
+    MarketImpact {
+        impact_level: impact_level.to_string(),
+        impact_score,
+        time_horizon: if has_critical { "Immediate" } else { "Short-term" }.to_string(),
+        affected_sectors: extract_affected_sectors(&full_text),
+        potential_price_impact: if impact_score > 70 {
+            Some((sentiment.overall_score * 7.5).abs())
+        } else if impact_score > 50 {
+            Some((sentiment.overall_score * 4.0).abs())
+        } else {
+            None
+        },
+        historical_correlation: None,
+        risk_factors: extract_risk_factors(&full_text),
+    }
+}
+
+/// Extract affected sectors from text
+fn extract_affected_sectors(text: &str) -> Vec<String> {
+    let mut sectors = Vec::new();
+    
+    let sector_keywords = [
+        ("defi", "DeFi"),
+        ("nft", "NFT"),
+        ("exchange", "CEX"),
+        ("dex", "DEX"),
+        ("stablecoin", "Stablecoins"),
+        ("mining", "Mining"),
+        ("layer 2", "Layer2"),
+        ("lending", "Lending"),
+        ("derivatives", "Derivatives"),
+        ("gamefi", "GameFi"),
+        ("metaverse", "Metaverse"),
+    ];
+    
+    for (keyword, sector) in &sector_keywords {
+        if text.contains(keyword) && !sectors.contains(&sector.to_string()) {
+            sectors.push(sector.to_string());
+        }
+    }
+    
+    if sectors.is_empty() {
+        sectors.push("General".to_string());
+    }
+    
+    sectors
+}
+
+/// Extract risk factors from text
+fn extract_risk_factors(text: &str) -> Vec<String> {
+    let mut risks = Vec::new();
+    
+    let risk_keywords = [
+        ("regulation", "Regulatory uncertainty"),
+        ("sec", "Regulatory action"),
+        ("hack", "Security vulnerability"),
+        ("exploit", "Protocol vulnerability"),
+        ("volatile", "Market volatility"),
+        ("uncertain", "Market uncertainty"),
+        ("lawsuit", "Legal risk"),
+        ("investigation", "Regulatory investigation"),
+        ("liquidity", "Liquidity risk"),
+        ("contagion", "Contagion risk"),
+    ];
+    
+    for (keyword, risk) in &risk_keywords {
+        if text.contains(keyword) && !risks.contains(&risk.to_string()) {
+            risks.push(risk.to_string());
+        }
+    }
+    
+    risks
 }
 
 #[cfg(test)]

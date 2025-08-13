@@ -62,6 +62,11 @@ impl CompositeSignerFactory {
     pub fn register_factory(&mut self, auth_type: String, factory: Box<dyn SignerFactory>) {
         self.factories.insert(auth_type, factory);
     }
+
+    /// Convenience: add a factory wrapped in Arc
+    pub fn add_factory(&mut self, auth_type: String, factory: std::sync::Arc<dyn SignerFactory>) {
+        self.factories.insert(auth_type, Box::new(factory));
+    }
     
     /// Get all registered auth types
     pub fn get_registered_auth_types(&self) -> Vec<String> {

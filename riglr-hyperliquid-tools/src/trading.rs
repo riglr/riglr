@@ -299,8 +299,39 @@ pub async fn get_hyperliquid_account_info() -> Result<HyperliquidAccountResult, 
 
 /// Set leverage for a trading pair on Hyperliquid
 ///
-/// This tool sets the leverage multiplier for a specific asset.
-/// Note: This is a placeholder implementation as leverage setting requires specific API endpoints.
+/// This tool sets the leverage multiplier for a specific asset on Hyperliquid.
+/// The leverage determines the maximum position size relative to your margin.
+/// 
+/// # Arguments
+/// 
+/// * `symbol` - Trading pair symbol (e.g., "ETH", "BTC", "SOL")
+/// * `leverage` - Leverage multiplier (1-100x)
+/// 
+/// # Returns
+/// 
+/// Returns `HyperliquidLeverageResult` containing the updated leverage settings.
+/// 
+/// # Errors
+/// 
+/// * `ToolError::permanent` - Invalid leverage value or symbol
+/// * `ToolError::retriable` - Network or API errors
+/// 
+/// # Examples
+/// 
+/// ```rust,ignore
+/// use riglr_hyperliquid_tools::trading::set_leverage;
+/// 
+/// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+/// // Set 10x leverage for ETH perpetual futures
+/// let result = set_leverage(
+///     "ETH".to_string(),
+///     10,
+/// ).await?;
+/// 
+/// println!("Leverage updated: {}", result.message);
+/// # Ok(())
+/// # }
+/// ```
 #[tool]
 pub async fn set_leverage(
     symbol: String,
@@ -320,17 +351,28 @@ pub async fn set_leverage(
     // Create client  
     let client = HyperliquidClient::new(signer)?;
 
-    // Get market metadata to validate symbol
+    // Get market metadata to validate symbol and get asset ID
     let meta = client.get_meta().await?;
-    let _asset_id = find_asset_id(&meta, &symbol)?; // Validate symbol exists
+    let asset_id = find_asset_id(&meta, &symbol)?;
 
-    // Note: In a real implementation, this would make an API call to set leverage
-    warn!("Leverage setting simulation - would set {}x leverage for {}", leverage, symbol);
+    // Update leverage using the real API
+    let response = client.update_leverage(leverage, &symbol, true, Some(asset_id)).await
+        .map_err(|e| {
+            if e.to_string().contains("rate limit") {
+                ToolError::retriable(format!("Rate limited while setting leverage: {}", e))
+            } else if e.to_string().contains("network") || e.to_string().contains("timeout") {
+                ToolError::retriable(format!("Network error while setting leverage: {}", e))
+            } else {
+                ToolError::permanent(format!("Failed to set leverage: {}", e))
+            }
+        })?;
+
+    info!("Successfully set {}x leverage for {}", leverage, symbol);
 
     Ok(HyperliquidLeverageResult {
         symbol: symbol.clone(),
         leverage,
-        status: "simulated".to_string(),
+        status: response.status,
         message: format!("Leverage set to {}x for {}", leverage, symbol),
     })
 }

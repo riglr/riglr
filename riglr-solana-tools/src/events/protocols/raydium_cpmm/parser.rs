@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use borsh::BorshDeserialize;
 use solana_sdk::{instruction::CompiledInstruction, pubkey::Pubkey};
 use solana_transaction_status::UiCompiledInstruction;
 
@@ -68,7 +69,7 @@ impl RaydiumCpmmEventParser {
         metadata: EventMetadata,
     ) -> Option<Box<dyn UnifiedEvent>> {
         // Parse the swap event using borsh deserialization
-        if let Ok(event) = borsh::from_slice::<RaydiumCpmmSwapEvent>(data) {
+        if let Ok(event) = RaydiumCpmmSwapEvent::try_from_slice(data) {
             let mut metadata = metadata;
             metadata.set_id(format!("{}-{}-swap", metadata.signature, event.pool_state));
             Some(Box::new(RaydiumCpmmSwapEvent { metadata, ..event }))
@@ -83,7 +84,7 @@ impl RaydiumCpmmEventParser {
         metadata: EventMetadata,
     ) -> Option<Box<dyn UnifiedEvent>> {
         // Parse the deposit event using borsh deserialization
-        if let Ok(event) = borsh::from_slice::<RaydiumCpmmDepositEvent>(data) {
+        if let Ok(event) = RaydiumCpmmDepositEvent::try_from_slice(data) {
             let mut metadata = metadata;
             metadata.set_id(format!("{}-{}-deposit", metadata.signature, event.pool_state));
             Some(Box::new(RaydiumCpmmDepositEvent { metadata, ..event }))

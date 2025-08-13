@@ -315,8 +315,8 @@ pub async fn transfer_erc20(
 /// 
 /// # Returns
 /// 
-/// Returns `TransactionResult` with available transaction details. Some fields may be
-/// placeholders due to current implementation limitations with transaction detail extraction.
+/// Returns `TransactionResult` with full transaction details including gas usage,
+/// block number, and execution status.
 /// 
 /// # Errors
 /// 
@@ -344,30 +344,66 @@ pub async fn transfer_erc20(
 pub async fn get_transaction_receipt(
     tx_hash: String,
 ) -> std::result::Result<TransactionResult, Box<dyn std::error::Error + Send + Sync>> {
+    use alloy::primitives::FixedBytes;
+    use alloy::providers::Provider;
+    
     debug!("Getting transaction receipt for {}", tx_hash);
 
     // Get signer context and EVM client
     let signer = riglr_core::SignerContext::current().await
         .map_err(|e| EvmToolError::Generic(format!("No signer context: {}", e)))?;
-    let _client = signer.evm_client()
+    let client = signer.evm_client()
         .map_err(|e| EvmToolError::Generic(format!("Failed to get EVM client: {}", e)))?;
 
-    // For the abstracted client, we can't easily get receipt details
-    // Return a basic result indicating that lookup was attempted
+    // Parse transaction hash
+    let hash_bytes: FixedBytes<32> = tx_hash.parse()
+        .map_err(|e| EvmToolError::Generic(format!("Invalid transaction hash format: {}", e)))?;
+
+    // Get the provider from the client
+    let provider = client.provider();
+
+    // Fetch the transaction receipt
+    let receipt = provider
+        .get_transaction_receipt(hash_bytes)
+        .await
+        .map_err(|e| EvmToolError::Rpc(format!("Failed to fetch transaction receipt: {}", e)))?
+        .ok_or_else(|| EvmToolError::Generic(format!("Transaction receipt not found for hash: {}", tx_hash)))?;
+
+    // Fetch the transaction details for additional information
+    let transaction = provider
+        .get_transaction_by_hash(hash_bytes)
+        .await
+        .map_err(|e| EvmToolError::Rpc(format!("Failed to fetch transaction details: {}", e)))?
+        .ok_or_else(|| EvmToolError::Generic(format!("Transaction not found for hash: {}", tx_hash)))?;
+
+    // Extract from and to addresses
+    let from = format!("0x{:x}", receipt.from);
+    let to = receipt.to
+        .map(|addr| format!("0x{:x}", addr))
+        .unwrap_or_else(|| "Contract Creation".to_string());
+
+    // Calculate value in ETH
+    let value_wei = transaction.value;
+    let value_eth = value_wei.to_string().parse::<f64>().unwrap_or(0.0) / 1e18;
+
+    // Build the result
     let result = TransactionResult {
         tx_hash: tx_hash.clone(),
-        from: "0x0000000000000000000000000000000000000000".to_string(),
-        to: "0x0000000000000000000000000000000000000000".to_string(),
-        value_wei: "0".to_string(),
-        value_eth: 0.0,
-        gas_used: None, // Not available from abstracted client
-        gas_price: None, // Not available from abstracted client
-        block_number: None, // Not available from abstracted client
-        chain_id: 0, // Not available from abstracted client
-        status: true, // Assume transaction exists if hash is valid
+        from,
+        to,
+        value_wei: value_wei.to_string(),
+        value_eth,
+        gas_used: receipt.gas_used.map(|g| g as u128),
+        gas_price: transaction.gas_price.map(|g| g as u128),
+        block_number: receipt.block_number,
+        chain_id: client.chain_id,
+        status: receipt.status(),
     };
 
-    info!("Transaction receipt retrieved: {}", tx_hash);
+    info!(
+        "Transaction receipt retrieved: {} (block: {:?}, gas: {:?}, status: {})",
+        tx_hash, result.block_number, result.gas_used, result.status
+    );
 
     Ok(result)
 }

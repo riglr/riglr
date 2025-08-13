@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use borsh::BorshDeserialize;
 use solana_sdk::{instruction::CompiledInstruction, pubkey::Pubkey};
 use solana_transaction_status::UiCompiledInstruction;
 
@@ -106,7 +107,7 @@ impl BonkEventParser {
         metadata: EventMetadata,
     ) -> Option<Box<dyn UnifiedEvent>> {
         // Parse the trade event using borsh deserialization
-        if let Ok(event) = borsh::from_slice::<BonkTradeEvent>(data) {
+        if let Ok(event) = BonkTradeEvent::try_from_slice(data) {
             let mut metadata = metadata;
             metadata.set_id(format!("{}-{}", metadata.signature, event.pool_state));
             
@@ -136,7 +137,7 @@ impl BonkEventParser {
         metadata: EventMetadata,
     ) -> Option<Box<dyn UnifiedEvent>> {
         // Parse the pool create event using borsh deserialization
-        if let Ok(event) = borsh::from_slice::<BonkPoolCreateEvent>(data) {
+        if let Ok(event) = BonkPoolCreateEvent::try_from_slice(data) {
             let mut metadata = metadata;
             metadata.set_id(format!("{}-{}", metadata.signature, event.pool_state));
             Some(Box::new(BonkPoolCreateEvent { metadata, ..event }))

@@ -3,9 +3,12 @@ use crate::events::{
     core::traits::EventParser,
     protocols::{
         PumpSwapEventParser, BonkEventParser, RaydiumCpmmEventParser,
+        RaydiumClmmEventParser, RaydiumAmmV4EventParser,
         pumpswap::PUMPSWAP_PROGRAM_ID,
         bonk::BONK_PROGRAM_ID, 
         raydium_cpmm::RAYDIUM_CPMM_PROGRAM_ID,
+        raydium_clmm::RAYDIUM_CLMM_PROGRAM_ID,
+        raydium_amm_v4::RAYDIUM_AMM_V4_PROGRAM_ID,
     },
 };
 
@@ -44,6 +47,14 @@ static RAYDIUM_CPMM_PARSER: LazyLock<Arc<RaydiumCpmmEventParser>> = LazyLock::ne
     Arc::new(RaydiumCpmmEventParser::new())
 });
 
+static RAYDIUM_CLMM_PARSER: LazyLock<Arc<RaydiumClmmEventParser>> = LazyLock::new(|| {
+    Arc::new(RaydiumClmmEventParser::new())
+});
+
+static RAYDIUM_AMM_V4_PARSER: LazyLock<Arc<RaydiumAmmV4EventParser>> = LazyLock::new(|| {
+    Arc::new(RaydiumAmmV4EventParser::new())
+});
+
 /// Event parser factory
 pub struct EventParserFactory;
 
@@ -54,8 +65,8 @@ impl EventParserFactory {
             Protocol::PumpSwap => PUMPSWAP_PARSER.clone(),
             Protocol::Bonk => BONK_PARSER.clone(),
             Protocol::RaydiumCpmm => RAYDIUM_CPMM_PARSER.clone(),
-            Protocol::RaydiumClmm => RAYDIUM_CPMM_PARSER.clone(), // Using CPMM as placeholder
-            Protocol::RaydiumAmmV4 => RAYDIUM_CPMM_PARSER.clone(), // Using CPMM as placeholder
+            Protocol::RaydiumClmm => RAYDIUM_CLMM_PARSER.clone(),
+            Protocol::RaydiumAmmV4 => RAYDIUM_AMM_V4_PARSER.clone(),
         }
     }
 
@@ -81,6 +92,8 @@ impl EventParserFactory {
             PUMPSWAP_PROGRAM_ID => Some(PUMPSWAP_PARSER.clone()),
             BONK_PROGRAM_ID => Some(BONK_PARSER.clone()),
             RAYDIUM_CPMM_PROGRAM_ID => Some(RAYDIUM_CPMM_PARSER.clone()),
+            RAYDIUM_CLMM_PROGRAM_ID => Some(RAYDIUM_CLMM_PARSER.clone()),
+            RAYDIUM_AMM_V4_PROGRAM_ID => Some(RAYDIUM_AMM_V4_PARSER.clone()),
             _ => None,
         }
     }

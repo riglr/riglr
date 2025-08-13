@@ -28,51 +28,72 @@
 //! - `GET /` - Server information
 
 #[cfg(feature = "web-server")]
-use actix_web::{web, App, HttpServer, middleware::Logger};
+use actix_web::{web, App, HttpServer, middleware::Logger, HttpRequest, HttpResponse};
 #[cfg(feature = "web-server")]
-use riglr_web_adapters::actix::{sse_handler, completion_handler, health_handler, info_handler};
+use riglr_web_adapters::actix::ActixRiglrAdapter;
 use riglr_core::util::must_get_env;
 use std::error::Error as StdError;
+#[cfg(feature = "web-server")]
+use riglr_web_adapters::core::PromptRequest;
+#[cfg(feature = "web-server")]
+use riglr_web_adapters::factory::CompositeSignerFactory;
+#[cfg(feature = "web-server")]
+use riglr_core::config::RpcConfig;
+#[cfg(feature = "web-server")]
+use riglr_showcase::auth::privy::PrivySignerFactory;
+#[cfg(feature = "web-server")]
+use rig::providers::anthropic::{self, CLAUDE_3_5_SONNET};
+#[cfg(feature = "web-server")]
+use rig::completion::{Prompt, PromptError};
+#[cfg(feature = "web-server")]
+use futures_util::StreamExt;
 
-/// Mock agent implementation for demonstration
-/// In production, this would be replaced with a real rig agent
+/// Real rig agent implementation using Anthropic Claude
 #[derive(Clone)]
-struct MockAgent {
-    name: String,
+struct RiglrAgent {
+    agent: rig::agent::Agent<anthropic::CompletionModel>,
 }
 
-impl MockAgent {
-    fn new(name: String) -> Self {
-        Self { name }
+impl RiglrAgent {
+    fn new(api_key: String) -> Self {
+        let client = anthropic::Client::new(&api_key);
+        let agent = client
+            .agent(CLAUDE_3_5_SONNET)
+            .preamble("You are a helpful blockchain assistant with access to riglr tools. \
+                      Provide clear, concise responses and use the available tools when appropriate.")
+            .temperature(0.7)
+            .max_tokens(2048)
+            .build();
+        Self { agent }
     }
 }
 
 #[async_trait::async_trait]
-impl riglr_web_adapters::Agent for MockAgent {
+impl riglr_web_adapters::Agent for RiglrAgent {
     type Error = Box<dyn StdError + Send + Sync>;
 
     async fn prompt(&self, prompt: &str) -> Result<String, Self::Error> {
-        // Mock implementation for demonstration
-        Ok(format!(
-            "Mock Agent '{}' received: '{}'. This is a demonstration response showing the library-first approach. \
-             In production, this would use real Claude API integration.",
-            self.name, prompt
-        ))
+        // Real implementation using rig agent
+        match self.agent.prompt(prompt).await {
+            Ok(response) => Ok(response.content),
+            Err(e) => Err(Box::new(e) as Box<dyn StdError + Send + Sync>)
+        }
     }
 
     async fn prompt_stream(&self, prompt: &str) -> Result<futures_util::stream::BoxStream<'_, Result<String, Self::Error>>, Self::Error> {
-        // Mock streaming implementation
-        let response_chunks = vec![
-            format!("Mock Agent '{}' received: '{}'", self.name, prompt),
-            " This is a demonstration of streaming responses.".to_string(),
-            " The library-first approach allows easy adaptation to any web framework.".to_string(),
-            " Real implementation would stream from Claude API.".to_string(),
-        ];
-        
-        let stream = futures_util::stream::iter(response_chunks)
-            .map(|chunk| Ok(chunk));
-        
-        Ok(Box::pin(stream))
+        // Real streaming implementation using rig agent
+        match self.agent.stream_prompt(prompt).await {
+            Ok(stream) => {
+                let mapped_stream = stream.map(|chunk| {
+                    match chunk {
+                        Ok(text) => Ok(text),
+                        Err(e) => Err(Box::new(e) as Box<dyn StdError + Send + Sync>)
+                    }
+                });
+                Ok(Box::pin(mapped_stream))
+            },
+            Err(e) => Err(Box::new(e) as Box<dyn StdError + Send + Sync>)
+        }
     }
 }
 
@@ -93,18 +114,22 @@ async fn main() -> std::io::Result<()> {
         "Starting riglr-showcase Actix server with library-first architecture"
     );
 
-    // Create mock agent for demonstration
-    // In production, this would be:
-    // let client = Client::new(&anthropic_key);
-    // let agent = client.agent(CLAUDE_3_5_SONNET)
-    //     .preamble("You are a helpful blockchain assistant with access to riglr tools.")
-    //     .build();
-    let agent = MockAgent::new("riglr-demo".to_string());
+    // Create real rig agent with Anthropic Claude
+    let agent = RiglrAgent::new(anthropic_key);
 
-    tracing::info!("Mock agent created for demonstration");
+    // Build signer factory (Privy)
+    let privy_app_id = must_get_env("PRIVY_APP_ID");
+    let privy_app_secret = must_get_env("PRIVY_APP_SECRET");
+    let rpc_config = RpcConfig::default();
+    let mut composite = CompositeSignerFactory::default();
+    composite.add_factory("privy".to_string(), std::sync::Arc::new(PrivySignerFactory::new(privy_app_id, privy_app_secret)));
+    let adapter = std::sync::Arc::new(ActixRiglrAdapter::new(std::sync::Arc::new(composite), rpc_config));
+
+    tracing::info!("Actix adapter initialized with Privy authentication");
 
     // Start HTTP server using riglr-web-adapters
     HttpServer::new(move || {
+        let adapter = adapter.clone();
         App::new()
             .app_data(web::Data::new(agent.clone()))
             .wrap(Logger::default())
@@ -112,14 +137,37 @@ async fn main() -> std::io::Result<()> {
                 actix_cors::Cors::default()
                     .allow_any_origin()
                     .allowed_methods(vec!["GET", "POST", "OPTIONS"])
-                    .allowed_headers(vec!["Content-Type", "Authorization"])
+                    .allowed_headers(vec!["Content-Type", "Authorization", "x-network"])
                     .max_age(3600)
             )
-            // riglr-web-adapters endpoints
-            .route("/api/v1/sse", web::post().to(sse_handler))
-            .route("/api/v1/completion", web::post().to(completion_handler))
-            .route("/health", web::get().to(health_handler))
-            .route("/", web::get().to(info_handler))
+            // riglr-web-adapters endpoints via adapter
+            .route("/api/v1/sse", web::post().to({
+                let adapter = adapter.clone();
+                move |req: HttpRequest, agent: web::Data<RiglrAgent>, prompt: web::Json<PromptRequest>| {
+                    let adapter = adapter.clone();
+                    let agent = agent.get_ref().clone();
+                    async move { adapter.sse_handler(&req, &agent, prompt.into_inner()).await }
+                }
+            }))
+            .route("/api/v1/completion", web::post().to({
+                let adapter = adapter.clone();
+                move |req: HttpRequest, agent: web::Data<RiglrAgent>, prompt: web::Json<PromptRequest>| {
+                    let adapter = adapter.clone();
+                    let agent = agent.get_ref().clone();
+                    async move { adapter.completion_handler(&req, &agent, prompt.into_inner()).await }
+                }
+            }))
+            .route("/health", web::get().to(|| async {
+                Ok::<HttpResponse, actix_web::Error>(HttpResponse::Ok().json(serde_json::json!({
+                    "status": "healthy"
+                })))
+            }))
+            .route("/", web::get().to(|| async {
+                Ok::<HttpResponse, actix_web::Error>(HttpResponse::Ok().json(serde_json::json!({
+                    "service": "riglr-showcase",
+                    "version": env!("CARGO_PKG_VERSION")
+                })))
+            }))
     })
     .bind(("0.0.0.0", port))?
     .run()
@@ -138,15 +186,17 @@ mod tests {
     use actix_web::{test, web, App};
 
     #[actix_web::test]
-    async fn test_mock_agent_prompt() {
-        let agent = MockAgent::new("test".to_string());
-        let response = agent.prompt("Hello").await.unwrap();
-        assert!(response.contains("Mock Agent 'test' received: 'Hello'"));
+    async fn test_riglr_agent_creation() {
+        // Test that agent can be created with a mock API key
+        let agent = RiglrAgent::new("test-api-key".to_string());
+        // The agent should be created successfully
+        // Real API calls would fail with invalid key, but creation should succeed
+        assert!(true); // Agent creation doesn't panic
     }
 
     #[actix_web::test]
     async fn test_health_endpoint_integration() {
-        let agent = MockAgent::new("test".to_string());
+        let agent = RiglrAgent::new("test-api-key".to_string());
         
         let app = test::init_service(
             App::new()

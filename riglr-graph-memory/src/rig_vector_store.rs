@@ -22,6 +22,145 @@ pub struct RigDocument {
     pub metadata: HashMap<String, Value>,
 }
 
+/// Neo4j query response structure for proper deserialization
+#[derive(Debug, Deserialize)]
+struct Neo4jQueryResponse {
+    results: Vec<Neo4jResult>,
+    #[allow(dead_code)]
+    errors: Vec<Neo4jError>,
+}
+
+#[derive(Debug, Deserialize)]
+struct Neo4jResult {
+    columns: Vec<String>,
+    data: Vec<Neo4jDataRow>,
+}
+
+#[derive(Debug, Deserialize)]
+struct Neo4jDataRow {
+    row: Vec<Value>,
+    #[allow(dead_code)]
+    meta: Option<Vec<Value>>,
+}
+
+#[derive(Debug, Deserialize)]
+struct Neo4jError {
+    #[allow(dead_code)]
+    code: String,
+    #[allow(dead_code)]
+    message: String,
+}
+
+impl Neo4jQueryResponse {
+    /// Extract documents from query response
+    fn extract_documents(&self) -> Vec<RigDocument> {
+        let mut documents = Vec::new();
+        
+        for result in &self.results {
+            // Find column indices
+            let id_idx = result.columns.iter().position(|c| c == "id");
+            let content_idx = result.columns.iter().position(|c| c == "content");
+            let embedding_idx = result.columns.iter().position(|c| c == "embedding");
+            let metadata_idx = result.columns.iter().position(|c| c == "metadata");
+            
+            for data_row in &result.data {
+                if let Some(doc) = Self::parse_document_row(
+                    &data_row.row,
+                    id_idx,
+                    content_idx,
+                    embedding_idx,
+                    metadata_idx,
+                    None,
+                ) {
+                    documents.push(doc);
+                }
+            }
+        }
+        
+        documents
+    }
+    
+    /// Extract documents with scores from search results
+    fn extract_documents_with_scores(&self) -> Vec<(RigDocument, f32)> {
+        let mut results = Vec::new();
+        
+        for result in &self.results {
+            // Find column indices
+            let id_idx = result.columns.iter().position(|c| c == "id");
+            let content_idx = result.columns.iter().position(|c| c == "content");
+            let embedding_idx = result.columns.iter().position(|c| c == "embedding");
+            let metadata_idx = result.columns.iter().position(|c| c == "metadata");
+            let score_idx = result.columns.iter().position(|c| c == "score");
+            
+            for data_row in &result.data {
+                if let Some(doc) = Self::parse_document_row(
+                    &data_row.row,
+                    id_idx,
+                    content_idx,
+                    embedding_idx,
+                    metadata_idx,
+                    score_idx,
+                ) {
+                    // Extract score if available
+                    let score = score_idx
+                        .and_then(|idx| data_row.row.get(idx))
+                        .and_then(|v| v.as_f64())
+                        .unwrap_or(0.0) as f32;
+                    
+                    results.push((doc, score));
+                }
+            }
+        }
+        
+        results
+    }
+    
+    /// Parse a single document row
+    fn parse_document_row(
+        row: &[Value],
+        id_idx: Option<usize>,
+        content_idx: Option<usize>,
+        embedding_idx: Option<usize>,
+        metadata_idx: Option<usize>,
+        _score_idx: Option<usize>,
+    ) -> Option<RigDocument> {
+        // Extract required fields
+        let id = id_idx
+            .and_then(|idx| row.get(idx))
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string())?;
+        
+        let content = content_idx
+            .and_then(|idx| row.get(idx))
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string())
+            .unwrap_or_default();
+        
+        let embedding = embedding_idx
+            .and_then(|idx| row.get(idx))
+            .and_then(|v| v.as_array())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|v| v.as_f64().map(|f| f as f32))
+                    .collect()
+            })
+            .unwrap_or_default();
+        
+        let metadata = metadata_idx
+            .and_then(|idx| row.get(idx))
+            .and_then(|v| v.as_object())
+            .map(|obj| obj.clone().into_iter().collect())
+            .unwrap_or_default();
+        
+        Some(RigDocument {
+            id,
+            content,
+            embedding,
+            metadata,
+        })
+    }
+}
+
 /// Graph-based vector store implementation for rig
 /// 
 /// This implementation leverages Neo4j's vector capabilities combined with graph traversal
@@ -129,45 +268,11 @@ impl GraphVectorStore {
         let result = self.client.execute_query(query, Some(params)).await
             .map_err(|e| GraphMemoryError::Database(format!("Failed to get documents: {}", e)))?;
         
-        let mut documents = Vec::new();
+        // Parse response using serde deserialization
+        let response: Neo4jQueryResponse = serde_json::from_value(result)
+            .map_err(|e| GraphMemoryError::Database(format!("Failed to parse Neo4j response: {}", e)))?;
         
-        // Parse Neo4j response (this would need to be adjusted based on actual Neo4j client response format)
-        if let Some(results) = result.get("results").and_then(|r| r.as_array()) {
-            for result in results {
-                if let Some(data) = result.get("data").and_then(|d| d.as_array()) {
-                    for row in data {
-                        if let Some(row_data) = row.get("row").and_then(|r| r.as_array()) {
-                            if row_data.len() >= 4 {
-                                if let (Some(id), Some(content), Some(embedding)) = (
-                                    row_data[0].as_str(),
-                                    row_data[1].as_str(),
-                                    row_data[2].as_array(),
-                                ) {
-                                    let metadata = &row_data[3];
-                                    let embedding_vec: Vec<f32> = embedding
-                                        .iter()
-                                        .filter_map(|v| v.as_f64().map(|f| f as f32))
-                                        .collect();
-                                    
-                                    let metadata_map: HashMap<String, Value> = if metadata.is_object() {
-                                        metadata.as_object().unwrap().clone().into_iter().collect()
-                                    } else {
-                                        HashMap::new()
-                                    };
-                                    
-                                    documents.push(RigDocument {
-                                        id: id.to_string(),
-                                        content: content.to_string(),
-                                        embedding: embedding_vec,
-                                        metadata: metadata_map,
-                                    });
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
+        let documents = response.extract_documents();
         
         debug!("Retrieved {} documents", documents.len());
         Ok(documents)
@@ -194,47 +299,11 @@ impl GraphVectorStore {
         let result = self.client.execute_query(&search_query, Some(params)).await
             .map_err(|e| GraphMemoryError::Database(format!("Failed to perform vector search: {}", e)))?;
         
-        let mut search_results = Vec::new();
+        // Parse response using serde deserialization
+        let response: Neo4jQueryResponse = serde_json::from_value(result)
+            .map_err(|e| GraphMemoryError::Database(format!("Failed to parse search results: {}", e)))?;
         
-        // Parse search results (adjusted based on Neo4j response format)
-        if let Some(results) = result.get("results").and_then(|r| r.as_array()) {
-            for result in results {
-                if let Some(data) = result.get("data").and_then(|d| d.as_array()) {
-                    for row in data {
-                        if let Some(row_data) = row.get("row").and_then(|r| r.as_array()) {
-                            if row_data.len() >= 5 {
-                                if let (Some(id), Some(content), Some(embedding), Some(score)) = (
-                                    row_data[0].as_str(),
-                                    row_data[1].as_str(),
-                                    row_data[2].as_array(),
-                                    row_data[4].as_f64(),
-                                ) {
-                                    let embedding_vec: Vec<f32> = embedding
-                                        .iter()
-                                        .filter_map(|v| v.as_f64().map(|f| f as f32))
-                                        .collect();
-                                    
-                                    let metadata_map: HashMap<String, Value> = if let Some(metadata) = row_data[3].as_object() {
-                                        metadata.clone().into_iter().collect()
-                                    } else {
-                                        HashMap::new()
-                                    };
-                                    
-                                    let document = RigDocument {
-                                        id: id.to_string(),
-                                        content: content.to_string(),
-                                        embedding: embedding_vec,
-                                        metadata: metadata_map,
-                                    };
-                                    
-                                    search_results.push((document, score as f32));
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
+        let search_results = response.extract_documents_with_scores();
         
         info!("Vector search returned {} results", search_results.len());
         Ok(search_results)
