@@ -7,7 +7,7 @@ use super::{
     OutputProcessor, ToolOutput, ProcessedOutput, OutputFormat, 
     NotificationPriority, RoutingInfo
 };
-use anyhow::Result;
+use anyhow::{Result, anyhow};
 use async_trait::async_trait;
 use serde_json::json;
 use std::collections::HashMap;
@@ -333,26 +333,25 @@ impl DiscordChannel {
 #[async_trait]
 impl NotificationChannel for DiscordChannel {
     async fn send_notification(&self, output: &ToolOutput) -> Result<String> {
-        let _payload = self.format_for_discord(output);
+        let payload = self.format_for_discord(output);
         
-        // In a real implementation, you would use reqwest to send the webhook
-        /*
+        // Real implementation using reqwest
         let client = reqwest::Client::new();
         let response = client
             .post(&self.webhook_url)
             .json(&payload)
+            .timeout(std::time::Duration::from_secs(10))
             .send()
-            .await?;
+            .await
+            .map_err(|e| anyhow::anyhow!("Failed to send Discord webhook: {}", e))?;
         
         if response.status().is_success() {
             Ok(format!("discord_msg_{}", chrono::Utc::now().timestamp()))
         } else {
-            Err(anyhow!("Discord webhook failed: {}", response.status()))
+            let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+            Err(anyhow::anyhow!("Discord webhook failed with status {}: {}", 
+                response.status(), error_text))
         }
-        */
-        
-        // For demo purposes, return a mock message ID
-        Ok(format!("discord_msg_{}", chrono::Utc::now().timestamp()))
     }
     
     fn name(&self) -> &str {
@@ -431,10 +430,9 @@ impl TelegramChannel {
 #[async_trait]
 impl NotificationChannel for TelegramChannel {
     async fn send_notification(&self, output: &ToolOutput) -> Result<String> {
-        let _message = self.format_for_telegram(output);
+        let message = self.format_for_telegram(output);
         
-        // In a real implementation:
-        /*
+        // Real implementation with Telegram Bot API
         let url = format!("https://api.telegram.org/bot{}/sendMessage", self.bot_token);
         let payload = json!({
             "chat_id": self.chat_id,
@@ -443,18 +441,28 @@ impl NotificationChannel for TelegramChannel {
         });
         
         let client = reqwest::Client::new();
-        let response = client.post(&url).json(&payload).send().await?;
+        let response = client
+            .post(&url)
+            .json(&payload)
+            .timeout(std::time::Duration::from_secs(10))
+            .send()
+            .await
+            .map_err(|e| anyhow::anyhow!("Failed to send Telegram message: {}", e))?;
         
         if response.status().is_success() {
-            let result: serde_json::Value = response.json().await?;
-            Ok(result["result"]["message_id"].to_string())
+            let result: serde_json::Value = response.json().await
+                .map_err(|e| anyhow::anyhow!("Failed to parse Telegram response: {}", e))?;
+            
+            if let Some(message_id) = result["result"]["message_id"].as_i64() {
+                Ok(format!("tg_msg_{}", message_id))
+            } else {
+                Err(anyhow::anyhow!("Invalid Telegram response format"))
+            }
         } else {
-            Err(anyhow!("Telegram API failed: {}", response.status()))
+            let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+            Err(anyhow::anyhow!("Telegram API failed with status {}: {}", 
+                response.status(), error_text))
         }
-        */
-        
-        // For demo purposes, return a mock message ID
-        Ok(format!("tg_msg_{}", chrono::Utc::now().timestamp()))
     }
     
     fn name(&self) -> &str {
@@ -518,28 +526,40 @@ impl WebhookChannel {
 #[async_trait]
 impl NotificationChannel for WebhookChannel {
     async fn send_notification(&self, output: &ToolOutput) -> Result<String> {
-        let _message = self.format_message(output);
+        let message = self.format_message(output);
         
-        // In a real implementation:
-        /*
+        // Real implementation with configurable webhook
         let client = reqwest::Client::new();
-        let mut request = client.post(&self.url);
+        let mut request = client.post(&self.url)
+            .timeout(std::time::Duration::from_secs(30));
         
+        // Add custom headers
         for (key, value) in &self.headers {
             request = request.header(key, value);
         }
         
-        let response = request.body(message).send().await?;
-        
-        if response.status().is_success() {
-            Ok(format!("webhook_{}", chrono::Utc::now().timestamp()))
-        } else {
-            Err(anyhow!("Webhook failed: {}", response.status()))
+        // Set content-type if not already specified
+        if !self.headers.contains_key("Content-Type") {
+            request = request.header("Content-Type", "application/json");
         }
-        */
         
-        // For demo purposes, return a mock ID
-        Ok(format!("webhook_{}_{}", self.name, chrono::Utc::now().timestamp()))
+        // Send the request with body
+        let response = request
+            .body(message)
+            .send()
+            .await
+            .map_err(|e| anyhow::anyhow!("Failed to send webhook to {}: {}", self.url, e))?;
+        
+        let status = response.status();
+        
+        if status.is_success() {
+            Ok(format!("webhook_{}_{}", self.name, chrono::Utc::now().timestamp()))
+        } else {
+            // Try to get error details from response
+            let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+            Err(anyhow::anyhow!("Webhook '{}' failed with status {}: {}", 
+                self.name, status, error_text))
+        }
     }
     
     fn name(&self) -> &str {

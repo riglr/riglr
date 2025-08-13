@@ -66,6 +66,15 @@ reqwest = { version = "0.11", features = ["json"] }
 # Authentication dependencies
 jsonwebtoken = "9.0"
 
+# Crypto / encoding
+base64 = "0.22.1"
+bincode = "1.3.3"
+hex = "0.4"
+
+# Blockchain client types
+solana-client = { workspace = true }
+alloy = { workspace = true }
+
 # Web server dependencies for examples
 actix-web = { version = "4", optional = true }
 actix-cors = { version = "0.7", optional = true }

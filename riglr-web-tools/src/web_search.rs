@@ -10,6 +10,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use tracing::{debug, info, warn};
+use scraper::{Html, Selector, ElementRef};
 
 /// Configuration for web search services
 #[derive(Debug, Clone)]
@@ -706,61 +707,55 @@ async fn extract_and_summarize_page(
     focus_topics: &Option<Vec<String>>,
 ) -> crate::error::Result<ContentSummary> {
     let html = client.get(url).await.map_err(|e| WebToolError::Request(format!("Failed to fetch {}: {}", url, e)))?;
+    let (title, clean_text, sentences, headings) = extract_main_content(&html, url);
 
-    // Extract <title>
-    let title = regex::Regex::new(r"(?is)<title>(.*?)</title>")
-        .ok()
-        .and_then(|re| re.captures(&html).and_then(|cap| cap.get(1).map(|m| m.as_str().trim().to_string())))
-        .unwrap_or_else(|| url.to_string());
-
-    // Remove scripts/styles and tags to get text
-    let script_re = regex::Regex::new(r"(?is)<script.*?>.*?</script>").unwrap();
-    let style_re = regex::Regex::new(r"(?is)<style.*?>.*?</style>").unwrap();
-    let tag_re = regex::Regex::new(r"(?is)<[^>]+>").unwrap();
-    let mut text = script_re.replace_all(&html, " ").to_string();
-    text = style_re.replace_all(&text, " ").to_string();
-    text = tag_re.replace_all(&text, " ").to_string();
-    let text = html_escape::decode_html_entities(&text).to_string();
-
-    // Normalize whitespace
-    let whitespace_re = regex::Regex::new(r"\s+").unwrap();
-    let clean = whitespace_re.replace_all(&text, " ").trim().to_string();
-
-    // Determine summary sentence count
-    let sentences: Vec<&str> = clean.split_terminator(|c| c == '.' || c == '!' || c == '?').collect();
+    // Determine target summary length
     let n = match summary_length.as_deref() {
         Some("comprehensive") => 8,
         Some("detailed") => 5,
         _ => 3,
-    };
-    let executive_summary = sentences.iter().take(n).map(|s| s.trim()).filter(|s| !s.is_empty()).collect::<Vec<_>>().join(". ") + ".";
+    } as usize;
 
-    // Key points: take first few longer sentences
-    let mut key_points: Vec<String> = sentences
-        .iter()
-        .map(|s| s.trim().to_string())
-        .filter(|s| s.split_whitespace().count() >= 6)
-        .take(5)
+    let topic_set: std::collections::HashSet<String> = focus_topics
+        .clone()
+        .unwrap_or_default()
+        .into_iter()
+        .map(|t| t.to_lowercase())
         .collect();
 
-    // Topics: from focus_topics or extract top frequent words
-    let topics = if let Some(topics) = focus_topics { topics.clone() } else { extract_topics_from_text(&clean) };
+    let ranked = rank_sentences(&sentences, &clean_text, &topic_set, &headings);
+    let selected = select_diverse(&ranked, n, 0.6);
+    let executive_summary = selected.join(" ");
 
-    // Entities: naive extraction of Capitalized Words sequences
-    let entity_re = regex::Regex::new(r"\b([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)*)\b").unwrap();
-    let mut entities: Vec<ContentEntity> = entity_re
-        .captures_iter(&clean)
+    // Key points: top distinct sentences or heading-based bullets
+    let mut key_points = selected
+        .iter()
+        .cloned()
         .take(5)
-        .map(|cap| ContentEntity { name: cap[1].to_string(), entity_type: "Unknown".to_string(), confidence: 0.6, context: "".to_string() })
+        .collect::<Vec<_>>();
+    if key_points.is_empty() && !headings.is_empty() {
+        key_points = headings.iter().take(5).cloned().collect();
+    }
+
+    let topics = if !topic_set.is_empty() {
+        topic_set.iter().cloned().collect()
+    } else {
+        extract_topics_from_text(&clean_text)
+    };
+
+    // Entities via improved proper-noun pattern
+    let entity_re = regex::Regex::new(r"(?m)(?:^|\s)([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,3})(?=\s|[\.,;:!\?])").unwrap();
+    let mut entities: Vec<ContentEntity> = entity_re
+        .captures_iter(&clean_text)
+        .map(|cap| ContentEntity { name: cap[1].trim().to_string(), entity_type: "ProperNoun".to_string(), confidence: 0.55, context: "".to_string() })
         .collect();
     entities.dedup_by(|a,b| a.name.eq_ignore_ascii_case(&b.name));
+    entities.truncate(8);
 
-    // Confidence: crude heuristic based on content length
-    let confidence = ((clean.len().min(5000) as f64) / 5000.0 * 0.5 + 0.5).min(0.95);
-
-    if key_points.is_empty() {
-        key_points.push(executive_summary.clone());
-    }
+    // Confidence based on content richness and heading availability
+    let mut confidence = (clean_text.len().min(8000) as f64 / 8000.0) * 0.6 + 0.3;
+    if !headings.is_empty() { confidence += 0.05; }
+    confidence = confidence.min(0.97);
 
     Ok(ContentSummary {
         url: url.to_string(),
@@ -772,6 +767,201 @@ async fn extract_and_summarize_page(
         confidence,
         generated_at: Utc::now(),
     })
+}
+
+// Extract main content using HTML parsing and content-density heuristics
+fn extract_main_content(html: &str, fallback_url: &str) -> (String, String, Vec<String>, Vec<String>) {
+    let document = Html::parse_document(html);
+
+    // Prefer og:title
+    let sel_meta_title = Selector::parse("meta[property=\"og:title\"]").unwrap();
+    let title = document
+        .select(&sel_meta_title)
+        .filter_map(|el| el.value().attr("content"))
+        .map(|s| s.trim().to_string())
+        .find(|s| !s.is_empty())
+        .or_else(|| {
+            // Fallback to <title>
+            let sel_title = Selector::parse("title").unwrap();
+            document.select(&sel_title).next().map(|e| e.text().collect::<String>().trim().to_string())
+        })
+        .unwrap_or_else(|| fallback_url.to_string());
+
+    // Candidate containers likely to hold article content
+    let candidates = vec![
+        "article",
+        "main",
+        "div#content",
+        "div#main",
+        "div.post-content",
+        "div.article-content",
+        "section.article",
+        "div.entry-content",
+        "div#main-content",
+    ];
+
+    let mut best_text = String::new();
+    let mut best_headings: Vec<String> = Vec::new();
+    for css in candidates {
+        if let Ok(sel) = Selector::parse(css) {
+            for node in document.select(&sel) {
+                let (text, headings) = extract_text_from_node(node);
+                if text.len() > best_text.len() {
+                    best_text = text;
+                    best_headings = headings;
+                }
+            }
+        }
+    }
+
+    if best_text.is_empty() {
+        // Fallback: collect from body paragraphs
+        if let Ok(sel) = Selector::parse("body") {
+            if let Some(body) = document.select(&sel).next() {
+                let (text, headings) = extract_text_from_node(body);
+                best_text = text;
+                best_headings = headings;
+            }
+        }
+    }
+
+    // Sentence split
+    let sentences: Vec<String> = split_sentences(&best_text)
+        .into_iter()
+        .filter(|s| s.split_whitespace().count() >= 5)
+        .collect();
+
+    (title, best_text, sentences, best_headings)
+}
+
+fn extract_text_from_node(root: ElementRef) -> (String, Vec<String>) {
+    let sel_exclude = ["script","style","noscript","template","header","footer","nav","aside"];
+    let sel_p = Selector::parse("p, li").unwrap();
+    let sel_h = Selector::parse("h1, h2, h3").unwrap();
+
+    // Headings
+    let mut headings: Vec<String> = root.select(&sel_h)
+        .map(|h| normalize_whitespace(&h.text().collect::<String>()))
+        .filter(|s| !s.is_empty())
+        .collect();
+    headings.dedup();
+
+    // Paragraph-like text
+    let mut blocks: Vec<String> = Vec::new();
+    for p in root.select(&sel_p) {
+        // Skip paragraphs inside excluded parents
+        if has_excluded_ancestor(p, &sel_exclude) { continue; }
+        let txt = normalize_whitespace(&p.text().collect::<String>());
+        if txt.len() >= 40 { blocks.push(txt); }
+    }
+    let full = blocks.join("\n");
+    (full, headings)
+}
+
+fn has_excluded_ancestor(mut node: ElementRef, excluded: &[&str]) -> bool {
+    while let Some(parent) = node.ancestors().find_map(ElementRef::wrap) {
+        let name = parent.value().name();
+        if excluded.contains(&name) { return true; }
+        node = parent;
+        // continue up until root
+        if node.parent().is_none() { break; }
+    }
+    false
+}
+
+fn normalize_whitespace(s: &str) -> String {
+    let s = html_escape::decode_html_entities(s);
+    let re = regex::Regex::new(r"\s+").unwrap();
+    re.replace_all(&s, " ").trim().to_string()
+}
+
+fn split_sentences(text: &str) -> Vec<String> {
+    let mut v = Vec::new();
+    let mut current = String::new();
+    for ch in text.chars() {
+        current.push(ch);
+        if matches!(ch, '.' | '!' | '?') {
+            let s = normalize_whitespace(&current);
+            if !s.is_empty() { v.push(s); }
+            current.clear();
+        }
+    }
+    if !current.trim().is_empty() { v.push(normalize_whitespace(&current)); }
+    v
+}
+
+// Rank sentences with simple TF scoring + positional + heading/topic boosts
+fn rank_sentences(
+    sentences: &[String],
+    full_text: &str,
+    topics: &std::collections::HashSet<String>,
+    headings: &[String],
+) -> Vec<(String, f64)> {
+    let mut tf: HashMap<String, f64> = HashMap::new();
+    for w in full_text.split(|c: char| !c.is_alphanumeric()) {
+        let w = w.to_lowercase();
+        if w.len() < 3 { continue; }
+        *tf.entry(w).or_insert(0.0) += 1.0;
+    }
+    // Normalize
+    let max_tf = tf.values().cloned().fold(1.0, f64::max);
+    for v in tf.values_mut() { *v /= max_tf; }
+
+    let heading_text = headings.join(" ").to_lowercase();
+
+    let mut scored: Vec<(String, f64)> = sentences
+        .iter()
+        .enumerate()
+        .map(|(i, s)| {
+            let words: Vec<String> = s.split(|c: char| !c.is_alphanumeric())
+                .map(|w| w.to_lowercase())
+                .filter(|w| w.len() >= 3)
+                .collect();
+            let mut score = 0.0;
+            for w in &words { score += *tf.get(w).unwrap_or(&0.0); }
+            // Length normalization
+            let len = s.split_whitespace().count() as f64;
+            if len > 0.0 { score /= (len.powf(0.3)); }
+            // Positional boost (earlier sentences)
+            score += 0.15 * (1.0 / ((i + 1) as f64).sqrt());
+            // Topic boost
+            if !topics.is_empty() {
+                let lower = s.to_lowercase();
+                for t in topics { if lower.contains(t) { score += 0.25; } }
+            }
+            // Heading proximity boost
+            for h in headings {
+                if s.to_lowercase().contains(&h.to_lowercase()) { score += 0.2; break; }
+            }
+            // Title/headings semantic overlap
+            if !heading_text.is_empty() {
+                let overlap = jaccard(&s.to_lowercase(), &heading_text);
+                score += 0.1 * overlap;
+            }
+            (s.clone(), score)
+        })
+        .collect();
+    scored.sort_by(|a,b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+    scored
+}
+
+fn jaccard(a: &str, b: &str) -> f64 {
+    let set_a: std::collections::HashSet<_> = a.split_whitespace().collect();
+    let set_b: std::collections::HashSet<_> = b.split_whitespace().collect();
+    let inter = set_a.intersection(&set_b).count() as f64;
+    let union = set_a.union(&set_b).count() as f64;
+    if union == 0.0 { 0.0 } else { inter / union }
+}
+
+fn select_diverse(scored: &[(String, f64)], k: usize, max_sim: f64) -> Vec<String> {
+    let mut out: Vec<String> = Vec::new();
+    for (s, _) in scored {
+        if out.len() >= k { break; }
+        if out.iter().all(|t| jaccard(&s.to_lowercase(), &t.to_lowercase()) < max_sim) {
+            out.push(s.clone());
+        }
+    }
+    out
 }
 
 /// Analyze search results to extract insights

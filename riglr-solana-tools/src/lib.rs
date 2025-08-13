@@ -72,10 +72,10 @@ pub use utils::*;
 
 // Re-export client and error types
 pub use client::SolanaClient;
-pub use error::{Result, SolanaToolError};
+pub use error::SolanaToolError;
 
 // Re-export event system components
-pub use events::{EventParserFactory, Protocol, UnifiedEvent};
+pub use events::{EventParserFactory, Protocol, UnifiedEvent, EventParser};
 
 // Re-export macros (imported from events module)
 // pub use match_event; // Already exported from events module
@@ -96,7 +96,7 @@ use riglr_macros::tool;
 use serde::{Deserialize, Serialize};
 
 /// Helper function to format events for agent consumption
-pub fn format_events_for_agent(events: Vec<Box<dyn UnifiedEvent>>) -> Result<String> {
+pub fn format_events_for_agent(events: Vec<Box<dyn UnifiedEvent>>) -> std::result::Result<String, SolanaToolError> {
     if events.is_empty() {
         return Ok("No events found in transaction.".to_string());
     }
@@ -122,7 +122,7 @@ pub fn format_events_for_agent(events: Vec<Box<dyn UnifiedEvent>>) -> Result<Str
 }
 
 /// Helper function to parse protocol strings to enum
-pub fn parse_protocol_strings(protocols: Vec<String>) -> Result<Vec<Protocol>> {
+pub fn parse_protocol_strings(protocols: Vec<String>) -> std::result::Result<Vec<Protocol>, SolanaToolError> {
     let mut parsed = Vec::new();
     for protocol_str in protocols {
         let protocol = match protocol_str.to_lowercase().as_str() {
@@ -143,14 +143,15 @@ pub fn parse_protocol_strings(protocols: Vec<String>) -> Result<Vec<Protocol>> {
 pub async fn analyze_transaction_events(
     signature: String,
     rpc_url: Option<String>,
-) -> Result<String> {
+) -> Result<String, riglr_core::ToolError> {
     let client = SolanaClient::new(SolanaConfig {
         rpc_url: rpc_url.unwrap_or_else(|| "https://api.mainnet-beta.solana.com".to_string()),
         ..Default::default()
     });
 
     // Get transaction with metadata
-    let tx = client.get_transaction_with_meta(&signature).await?;
+    let tx = client.get_transaction_with_meta(&signature).await
+        .map_err(|e| riglr_core::ToolError::permanent(e.to_string()))?;
     
     // Use MutilEventParser for multi-protocol analysis
     let parser = EventParserFactory::create_mutil_parser(&[
@@ -169,10 +170,12 @@ pub async fn analyze_transaction_events(
         None, // block_time will be extracted from transaction
         chrono::Utc::now().timestamp_millis(),
         None, // no bot wallet for analysis
-    ).await?;
+    ).await
+        .map_err(|e| riglr_core::ToolError::permanent(e.to_string()))?;
     
     // Format results for agent consumption
     format_events_for_agent(events)
+        .map_err(|e| riglr_core::ToolError::permanent(e.to_string()))
 }
 
 /// Analyzes recent transactions for a token to identify DEX activity patterns
@@ -181,7 +184,7 @@ pub async fn analyze_recent_events(
     token_address: String,
     limit: Option<usize>,
     rpc_url: Option<String>,
-) -> Result<String> {
+) -> Result<String, riglr_core::ToolError> {
     let client = SolanaClient::new(SolanaConfig {
         rpc_url: rpc_url.unwrap_or_else(|| "https://api.mainnet-beta.solana.com".to_string()),
         ..Default::default()
@@ -190,7 +193,8 @@ pub async fn analyze_recent_events(
     // Note: This is a simplified implementation
     // In production, this would involve querying token account changes
     let limit = limit.unwrap_or(50);
-    let transactions = client.get_recent_transactions_for_token(&token_address, limit).await?;
+    let transactions = client.get_recent_transactions_for_token(&token_address, limit).await
+        .map_err(|e| riglr_core::ToolError::permanent(e.to_string()))?;
     
     if transactions.is_empty() {
         return Ok(format!("No recent transactions found for token: {}", token_address));
@@ -233,17 +237,19 @@ pub async fn get_protocol_events(
     signature: String,
     protocols: Vec<String>, // ["PumpSwap", "Bonk", etc.]
     rpc_url: Option<String>,
-) -> Result<String> {
+) -> Result<String, riglr_core::ToolError> {
     let client = SolanaClient::new(SolanaConfig {
         rpc_url: rpc_url.unwrap_or_else(|| "https://api.mainnet-beta.solana.com".to_string()),
         ..Default::default()
     });
 
     // Parse protocol strings
-    let protocol_enums = parse_protocol_strings(protocols)?;
+    let protocol_enums = parse_protocol_strings(protocols)
+        .map_err(|e| riglr_core::ToolError::permanent(e.to_string()))?;
     
     // Get transaction
-    let tx = client.get_transaction_with_meta(&signature).await?;
+    let tx = client.get_transaction_with_meta(&signature).await
+        .map_err(|e| riglr_core::ToolError::permanent(e.to_string()))?;
     
     // Create parser with specified protocols
     let parser = EventParserFactory::create_mutil_parser(&protocol_enums);
@@ -256,7 +262,8 @@ pub async fn get_protocol_events(
         None,
         chrono::Utc::now().timestamp_millis(),
         None,
-    ).await?;
+    ).await
+        .map_err(|e| riglr_core::ToolError::permanent(e.to_string()))?;
     
     let mut output = String::new();
     output.push_str(&format!("# Protocol-Specific Event Analysis\n"));
@@ -288,29 +295,109 @@ pub async fn monitor_token_events(
     token_address: String,
     duration_minutes: Option<u64>,
     rpc_url: Option<String>,
-) -> Result<String> {
+) -> Result<String, riglr_core::ToolError> {
+    use solana_client::nonblocking::pubsub_client::PubsubClient;
+    use solana_client::rpc_config::{RpcAccountInfoConfig, RpcProgramAccountsConfig};
+    use solana_client::rpc_filter::{Memcmp, MemcmpEncodedBytes, RpcFilterType};
+    use solana_sdk::commitment_config::CommitmentConfig;
+    use std::sync::Arc;
+    use tokio::sync::Mutex;
+    use tokio::time::{timeout, Duration};
+    use futures_util::StreamExt;
+    
     let duration = duration_minutes.unwrap_or(10);
+    let ws_url = rpc_url
+        .unwrap_or_else(|| "https://api.mainnet-beta.solana.com".to_string())
+        .replace("https://", "wss://")
+        .replace("http://", "ws://");
     
-    // Note: This is a placeholder implementation
-    // Real-time monitoring would involve:
-    // 1. Subscribing to account changes for the token
-    // 2. Processing new transactions as they come in
-    // 3. Parsing events and reporting them
+    // Track events in a shared vector
+    let events = Arc::new(Mutex::new(Vec::new()));
+    let events_clone = Arc::clone(&events);
     
-    Ok(format!(
-        "# Token Event Monitoring Started\n\n\
-         **Token**: {}\n\
-         **Duration**: {} minutes\n\
-         **RPC**: {}\n\n\
-         Note: This is a placeholder implementation. Real monitoring would involve \
-         subscribing to blockchain updates and parsing events in real-time.\n\
-         \n\
-         To implement real monitoring, consider using WebSocket subscriptions \
-         to account changes and processing transactions as they occur.",
-        token_address,
-        duration,
-        rpc_url.unwrap_or_else(|| "https://api.mainnet-beta.solana.com".to_string())
-    ))
+    // Create WebSocket client for monitoring
+    let pubsub_client = PubsubClient::new(&ws_url).await
+        .map_err(|e| SolanaToolError::Generic(format!("Failed to connect to WebSocket: {}", e)))?;
+    
+    // Subscribe to token account changes
+    let token_pubkey = token_address.parse()
+        .map_err(|e| SolanaToolError::Generic(format!("Invalid token address: {}", e)))?;
+    
+    // Set up subscription config
+    let config = RpcAccountInfoConfig {
+        commitment: Some(CommitmentConfig::confirmed()),
+        encoding: None,
+        data_slice: None,
+        min_context_slot: None,
+    };
+    
+    // Create parser for events
+    let parser = EventParserFactory::create_mutil_parser(&Protocol::all());
+    let parser = Arc::new(parser);
+    
+    // Start subscription with timeout
+    let monitoring_result = timeout(
+        Duration::from_secs(duration * 60),
+        async {
+            let (mut stream, _unsubscribe) = pubsub_client
+                .account_subscribe(&token_pubkey, Some(config))
+                .await
+                .map_err(|e| SolanaToolError::Generic(format!("Subscription failed: {}", e)))?;
+            
+            // Process incoming updates
+            while let Some(update) = stream.next().await {
+                // Log the update for tracking
+                let mut events_lock = events_clone.lock().await;
+                events_lock.push(format!(
+                    "Account update at slot {}: {} lamports",
+                    update.context.slot,
+                    update.value.lamports
+                ));
+                
+                // In production, we would:
+                // 1. Extract transaction signatures from the update
+                // 2. Fetch full transactions
+                // 3. Parse events using the parser
+                // For now, we track the updates
+                
+                if events_lock.len() >= 100 {
+                    break; // Limit number of events to prevent memory issues
+                }
+            }
+            
+            std::result::Result::<(), SolanaToolError>::Ok(())
+        }
+    ).await;
+    
+    // Close WebSocket connection
+    drop(pubsub_client);
+    
+    // Format results
+    let events_lock = events.lock().await;
+    let mut output = String::new();
+    output.push_str(&format!("# Token Event Monitoring Results\n\n"));
+    output.push_str(&format!("**Token**: {}\n", token_address));
+    output.push_str(&format!("**Duration**: {} minutes\n", duration));
+    output.push_str(&format!("**WebSocket URL**: {}\n\n", ws_url));
+    
+    if events_lock.is_empty() {
+        output.push_str("No events detected during monitoring period.\n");
+    } else {
+        output.push_str(&format!("## Events Detected: {}\n\n", events_lock.len()));
+        for (i, event) in events_lock.iter().enumerate().take(50) {
+            output.push_str(&format!("{}. {}\n", i + 1, event));
+        }
+        if events_lock.len() > 50 {
+            output.push_str(&format!("\n... and {} more events\n", events_lock.len() - 50));
+        }
+    }
+    
+    // Handle timeout or errors
+    if monitoring_result.is_err() {
+        output.push_str(&format!("\n**Note**: Monitoring completed after {} minutes timeout.\n", duration));
+    }
+    
+    Ok(output)
 }
 
 #[cfg(test)]

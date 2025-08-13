@@ -439,6 +439,7 @@ pub fn parse_transfer_datas_from_next_instructions(
             }
         }
     }
+    // Infer swap by netting flows per mint, using most-frequent authority as the user.
     let mut swap_data: SwapData = SwapData {
         from_mint: Pubkey::default(),
         to_mint: Pubkey::default(),
@@ -446,20 +447,131 @@ pub fn parse_transfer_datas_from_next_instructions(
         to_amount: 0,
         description: None,
     };
+
     let sol_mint = Pubkey::from_str("So11111111111111111111111111111111111111112").unwrap();
+    let system_program = Pubkey::from_str("11111111111111111111111111111111").unwrap();
+
     if !transfer_datas.is_empty() {
-        // For now, create a simple swap data from first two transfers
-        if transfer_datas.len() >= 2 {
-            swap_data.from_mint = transfer_datas[0].mint.unwrap_or(sol_mint);
-            swap_data.to_mint = transfer_datas[1].mint.unwrap_or(sol_mint);
-            swap_data.from_amount = transfer_datas[0].amount;
-            swap_data.to_amount = transfer_datas[1].amount;
+        use std::collections::HashMap;
+
+        // 1) Determine the most common authority (probable user wallet)
+        let mut auth_counts: HashMap<Pubkey, usize> = HashMap::new();
+        for td in &transfer_datas {
+            if let Some(auth) = td.authority {
+                *auth_counts.entry(auth).or_insert(0) += 1;
+            }
+        }
+        let user_authority = auth_counts
+            .iter()
+            .max_by_key(|(_, c)| *c)
+            .map(|(k, _)| *k);
+
+        // 2) Aggregate spent/received amounts per mint
+        let mut spent_by_mint: HashMap<Pubkey, u128> = HashMap::new();
+        let mut recv_by_mint: HashMap<Pubkey, u128> = HashMap::new();
+
+        for td in &transfer_datas {
+            // Resolve mint: system transfers are SOL; SPL transfers may miss mint for `transfer` (opcode 3)
+            let mint = match (td.mint, td.token_program == system_program) {
+                (Some(m), _) => Some(m),
+                (None, true) => Some(sol_mint),
+                _ => None, // Unknown mint, skip for swap inference
+            };
+
+            if let Some(mint) = mint {
+                let amount = td.amount as u128;
+                match (user_authority, td.authority) {
+                    (Some(user), Some(auth)) if auth == user => {
+                        // Outflow from user
+                        *spent_by_mint.entry(mint).or_insert(0) += amount;
+                    }
+                    // If we don't know the user, we still try to infer inflows as transfers not authorized by the spender
+                    (Some(user), Some(auth)) if auth != user => {
+                        *recv_by_mint.entry(mint).or_insert(0) += amount;
+                    }
+                    (Some(_), None) => {
+                        // System transfers (SOL) without authority: conservative, treat as outflow only if source equals an earlier source
+                        // Without ownership context it's ambiguous; don't classify.
+                    }
+                    (None, _) => {
+                        // No authority context at all; skip classification
+                    }
+                    (Some(_), Some(_)) => {
+                        // Remaining cases should be covered by guards; keep as no-op for exhaustiveness
+                    }
+                }
+            }
+        }
+
+        // 3) Choose dominant from/to mints by volume
+        let from = spent_by_mint.iter().max_by_key(|(_, v)| *v).map(|(k, v)| (*k, *v));
+        let mut to = recv_by_mint.iter().max_by_key(|(_, v)| *v).map(|(k, v)| (*k, *v));
+
+        // Avoid same mint for from/to when possible
+        if let (Some((from_m, _)), Some((to_m, _))) = (from, to) {
+            if from_m == to_m {
+                // Try the second-best receive mint
+                let mut entries: Vec<(&Pubkey, &u128)> = recv_by_mint.iter().collect();
+                entries.sort_by(|a, b| b.1.cmp(a.1));
+                if let Some((m, v)) = entries.into_iter().find(|(m, _)| **m != from_m) {
+                    to = Some((*m, *v));
+                }
+            }
+        }
+
+        if let (Some((from_mint, from_amt)), Some((to_mint, to_amt))) = (from, to) {
+            if from_mint != to_mint && from_amt > 0 && to_amt > 0 {
+                swap_data.from_mint = from_mint;
+                swap_data.to_mint = to_mint;
+                swap_data.from_amount = (from_amt as u64).saturating_sub(0);
+                swap_data.to_amount = (to_amt as u64).saturating_sub(0);
+                if let Some(user) = user_authority {
+                    swap_data.description = Some(format!(
+                        "inferred swap by user {} across {} transfers",
+                        user, transfer_datas.len()
+                    ));
+                } else {
+                    swap_data.description = Some(format!(
+                        "inferred swap across {} transfers",
+                        transfer_datas.len()
+                    ));
+                }
+            }
+        } else if user_authority.is_some() {
+            // Fallback: if exactly two distinct mints appear (including SOL), use their summed directions
+            let mut by_mint: HashMap<Pubkey, (u128, u128)> = HashMap::new(); // (spent, recv)
+            for (m, v) in spent_by_mint.iter() {
+                by_mint.entry(*m).or_insert((0, 0)).0 += *v;
+            }
+            for (m, v) in recv_by_mint.iter() {
+                by_mint.entry(*m).or_insert((0, 0)).1 += *v;
+            }
+            if by_mint.len() == 2 {
+                let mut it = by_mint.into_iter();
+                let (m1, (s1, r1)) = it.next().unwrap();
+                let (m2, (s2, r2)) = it.next().unwrap();
+                // pick direction by net
+                let net1 = r1 as i128 - s1 as i128;
+                let net2 = r2 as i128 - s2 as i128;
+                if net1 > 0 && net2 < 0 {
+                    swap_data.from_mint = m2;
+                    swap_data.to_mint = m1;
+                    swap_data.from_amount = (s2 as u64).max((-net2) as u64);
+                    swap_data.to_amount = (r1 as u64).max(net1 as u64);
+                } else if net2 > 0 && net1 < 0 {
+                    swap_data.from_mint = m1;
+                    swap_data.to_mint = m2;
+                    swap_data.from_amount = (s1 as u64).max((-net1) as u64);
+                    swap_data.to_amount = (r2 as u64).max(net2 as u64);
+                }
+            }
         }
     }
+
     if swap_data.from_mint != Pubkey::default()
-        || swap_data.to_mint != Pubkey::default()
-        || swap_data.from_amount != 0
-        || swap_data.to_amount != 0
+        && swap_data.to_mint != Pubkey::default()
+        && swap_data.from_amount > 0
+        && swap_data.to_amount > 0
     {
         (transfer_datas, Some(swap_data))
     } else {

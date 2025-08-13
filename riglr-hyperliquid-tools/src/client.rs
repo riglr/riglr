@@ -155,6 +155,18 @@ impl HyperliquidClient {
         Ok(meta)
     }
 
+    /// Get all market mid prices (current market prices)
+    pub async fn get_all_mids(&self) -> Result<serde_json::Value> {
+        let response = self.get("info?type=allMids").await?;
+        let text = response.text().await
+            .map_err(|e| HyperliquidToolError::NetworkError(format!("Failed to read mids response: {}", e)))?;
+        
+        let mids: serde_json::Value = serde_json::from_str(&text)
+            .map_err(|e| HyperliquidToolError::ApiError(format!("Failed to parse market mids: {}", e)))?;
+        
+        Ok(mids)
+    }
+
     /// Place an order using real Hyperliquid API
     /// CRITICAL: This is REAL order placement - NO SIMULATION
     pub async fn place_order(&self, order: &OrderRequest) -> Result<OrderResponse> {
@@ -309,6 +321,56 @@ impl HyperliquidClient {
 
     /// Cancel an order using real Hyperliquid API
     /// CRITICAL: This is REAL order cancellation - NO SIMULATION
+    pub async fn update_leverage(&self, leverage: u32, coin: &str, is_cross: bool, asset_id: Option<u32>) -> Result<LeverageResponse> {
+        debug!("Updating leverage for {} to {}x (cross: {})", coin, leverage, is_cross);
+        
+        // Get user address for signing
+        let _user_address = self.get_user_address()?;
+        
+        // Create the leverage update request
+        let leverage_req = LeverageRequest {
+            action: LeverageAction {
+                type_: "updateLeverage".to_string(),
+                asset: asset_id.unwrap_or(0), // Will be resolved from coin if not provided
+                is_cross,
+                leverage,
+            },
+            nonce: chrono::Utc::now().timestamp_millis(),
+            signature: None, // Will be set after signing
+        };
+        
+        // Sign the request
+        let signed_req = self.sign_leverage_request(leverage_req).await?;
+        
+        // Make the API call
+        let endpoint = "exchange";
+        let response = self.post(endpoint, &signed_req).await?;
+        
+        let leverage_response: LeverageResponse = response.json().await
+            .map_err(|e| HyperliquidToolError::ApiError(format!("Failed to parse leverage response: {}", e)))?;
+        
+        info!("Successfully updated leverage for {} to {}x", coin, leverage);
+        Ok(leverage_response)
+    }
+    
+    async fn sign_leverage_request(&self, mut request: LeverageRequest) -> Result<LeverageRequest> {
+        // Create the message to sign
+        let message = serde_json::json!({
+            "action": request.action,
+            "nonce": request.nonce,
+            "vault_address": null
+        });
+        
+        let message_str = serde_json::to_string(&message)
+            .map_err(|e| HyperliquidToolError::ApiError(format!("Failed to serialize message for signing: {}", e)))?;
+        
+        // Sign the message
+        let signature = self.sign_message(&message_str).await?;
+        request.signature = Some(signature);
+        
+        Ok(request)
+    }
+
     pub async fn cancel_order(&self, order_id: u64, asset: u32) -> Result<CancelResponse> {
         error!("CRITICAL: REAL ORDER CANCELLATION - This will cancel actual trades!");
         info!("Cancelling REAL order: order_id={}, asset={}", order_id, asset);
@@ -586,4 +648,34 @@ pub struct CancelResponse {
 pub struct CancelResult {
     #[serde(rename = "statuses")]
     pub status_code: u32,
+}
+
+// Leverage-related structures
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LeverageRequest {
+    pub action: LeverageAction,
+    pub nonce: i64,
+    pub signature: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LeverageAction {
+    #[serde(rename = "type")]
+    pub type_: String,
+    pub asset: u32,
+    #[serde(rename = "isCross")]
+    pub is_cross: bool,
+    pub leverage: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LeverageResponse {
+    pub status: String,
+    pub data: Option<LeverageResult>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LeverageResult {
+    pub leverage: u32,
+    pub asset: String,
 }

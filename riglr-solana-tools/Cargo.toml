@@ -58,6 +58,9 @@ tracing = { workspace = true }
 # Random number generation for jitter
 rand = "0.8"
 
+# Futures utilities for async streams
+futures-util = "0.3"
+
 # New dependencies for event parsing
 borsh = "0.10"
 hex = "0.4"

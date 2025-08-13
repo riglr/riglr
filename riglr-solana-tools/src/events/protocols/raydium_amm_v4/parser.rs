@@ -91,6 +91,16 @@ impl RaydiumAmmV4EventParser {
         Self { inner }
     }
 
+    /// Empty parser for inner instructions
+    /// 
+    /// Raydium AMM V4 does not emit events through inner instructions or program logs.
+    /// All event data is encoded directly in the instruction data itself, which is
+    /// parsed by the instruction_parser functions below. This is intentional and
+    /// follows the protocol's design where all necessary information is available
+    /// in the instruction parameters and accounts.
+    /// 
+    /// This differs from protocols like Raydium CPMM which emit events through logs
+    /// that need to be parsed from inner instructions.
     fn empty_parse(_data: &[u8], _metadata: EventMetadata) -> Option<Box<dyn UnifiedEvent>> {
         None
     }
@@ -117,7 +127,7 @@ impl RaydiumAmmV4EventParser {
         Some(Box::new(RaydiumAmmV4SwapEvent {
             metadata,
             amount_in,
-            amount_out: 0, // Will be filled from logs
+            amount_out: minimum_amount_out, // Use minimum as estimate, actual amount determined on-chain
             direction: SwapDirection::BaseIn,
             amm: accounts[1],
             amm_authority: accounts[2],
@@ -153,7 +163,7 @@ impl RaydiumAmmV4EventParser {
 
         Some(Box::new(RaydiumAmmV4SwapEvent {
             metadata,
-            amount_in: 0, // Will be filled from logs
+            amount_in: max_amount_in, // Use maximum as estimate, actual amount determined on-chain
             amount_out,
             direction: SwapDirection::BaseOut,
             amm: accounts[1],
@@ -341,25 +351,59 @@ impl RaydiumAmmV4EventParser {
 }
 
 impl EventParser for RaydiumAmmV4EventParser {
-    fn parse_instruction(
+    fn inner_instruction_configs(&self) -> HashMap<&'static str, Vec<GenericEventParseConfig>> {
+        self.inner.inner_instruction_configs()
+    }
+    
+    fn instruction_configs(&self) -> HashMap<Vec<u8>, Vec<GenericEventParseConfig>> {
+        self.inner.instruction_configs()
+    }
+    
+    fn parse_events_from_inner_instruction(
+        &self,
+        inner_instruction: &UiCompiledInstruction,
+        signature: &str,
+        slot: u64,
+        block_time: Option<i64>,
+        program_received_time_ms: i64,
+        index: String,
+    ) -> Vec<Box<dyn UnifiedEvent>> {
+        self.inner.parse_events_from_inner_instruction(
+            inner_instruction,
+            signature,
+            slot,
+            block_time,
+            program_received_time_ms,
+            index,
+        )
+    }
+
+    fn parse_events_from_instruction(
         &self,
         instruction: &CompiledInstruction,
         accounts: &[Pubkey],
-        metadata: EventMetadata,
-    ) -> Option<Box<dyn UnifiedEvent>> {
-        self.inner.parse_instruction(instruction, accounts, metadata)
+        signature: &str,
+        slot: u64,
+        block_time: Option<i64>,
+        program_received_time_ms: i64,
+        index: String,
+    ) -> Vec<Box<dyn UnifiedEvent>> {
+        self.inner.parse_events_from_instruction(
+            instruction,
+            accounts,
+            signature,
+            slot,
+            block_time,
+            program_received_time_ms,
+            index,
+        )
     }
 
-    fn parse_ui_instruction(
-        &self,
-        instruction: &UiCompiledInstruction,
-        accounts: &[Pubkey],
-        metadata: EventMetadata,
-    ) -> Option<Box<dyn UnifiedEvent>> {
-        self.inner.parse_ui_instruction(instruction, accounts, metadata)
+    fn should_handle(&self, program_id: &Pubkey) -> bool {
+        self.inner.should_handle(program_id)
     }
 
-    fn parse_logs(&self, logs: &[String]) -> Vec<Box<dyn UnifiedEvent>> {
-        self.inner.parse_logs(logs)
+    fn supported_program_ids(&self) -> Vec<Pubkey> {
+        self.inner.supported_program_ids()
     }
 }

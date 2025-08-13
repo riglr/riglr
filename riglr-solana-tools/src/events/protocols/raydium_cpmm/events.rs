@@ -1,4 +1,4 @@
-// use borsh::BorshDeserialize; // Not needed for simplified implementation
+use borsh::BorshDeserialize;
 use serde::{Deserialize, Serialize};
 use solana_sdk::pubkey::Pubkey;
 
@@ -6,7 +6,7 @@ use crate::events::common::EventMetadata;
 use crate::impl_unified_event;
 
 /// Raydium CPMM Swap event
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, BorshDeserialize)]
 pub struct RaydiumCpmmSwapEvent {
     #[serde(skip)]
     pub metadata: EventMetadata,
@@ -24,24 +24,84 @@ pub struct RaydiumCpmmSwapEvent {
     pub transfer_fee: u64,
 }
 
-impl_unified_event!(
-    RaydiumCpmmSwapEvent,
-    pool_state,
-    payer,
-    input_token_account,
-    output_token_account,
-    input_vault,
-    output_vault,
-    input_token_mint,
-    output_token_mint,
-    amount_in,
-    amount_out,
-    trade_fee,
-    transfer_fee
-);
+// Custom implementation to handle merge logic properly
+impl crate::events::core::traits::UnifiedEvent for RaydiumCpmmSwapEvent {
+    fn id(&self) -> &str {
+        &self.metadata.id
+    }
+
+    fn event_type(&self) -> crate::events::common::EventType {
+        self.metadata.event_type.clone()
+    }
+
+    fn signature(&self) -> &str {
+        &self.metadata.signature
+    }
+
+    fn slot(&self) -> u64 {
+        self.metadata.slot
+    }
+
+    fn program_received_time_ms(&self) -> i64 {
+        self.metadata.program_received_time_ms
+    }
+    
+    fn program_handle_time_consuming_ms(&self) -> i64 {
+        self.metadata.program_handle_time_consuming_ms
+    }
+
+    fn set_program_handle_time_consuming_ms(&mut self, time: i64) {
+        self.metadata.set_program_handle_time_consuming_ms(time);
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+
+    fn clone_boxed(&self) -> Box<dyn crate::events::core::traits::UnifiedEvent> {
+        Box::new(self.clone())
+    }
+
+    /// Custom merge implementation that only fills missing values
+    fn merge(&mut self, other: Box<dyn crate::events::core::traits::UnifiedEvent>) {
+        if let Some(other_event) = other.as_any().downcast_ref::<RaydiumCpmmSwapEvent>() {
+            // Only update amount_out if it's currently 0 and the other has a value
+            if self.amount_out == 0 && other_event.amount_out > 0 {
+                self.amount_out = other_event.amount_out;
+            }
+            // Only update amount_in if it's currently 0 and the other has a value
+            if self.amount_in == 0 && other_event.amount_in > 0 {
+                self.amount_in = other_event.amount_in;
+            }
+            // Always update fees from log data if available
+            if other_event.trade_fee > 0 {
+                self.trade_fee = other_event.trade_fee;
+            }
+            if other_event.transfer_fee > 0 {
+                self.transfer_fee = other_event.transfer_fee;
+            }
+        }
+    }
+
+    fn set_transfer_datas(&mut self, transfer_datas: Vec<crate::events::common::types::TransferData>, swap_data: Option<crate::events::common::types::SwapData>) {
+        self.metadata.set_transfer_datas(transfer_datas, swap_data);
+    }
+
+    fn index(&self) -> String {
+        self.metadata.index.clone()
+    }
+
+    fn protocol_type(&self) -> crate::events::common::types::ProtocolType {
+        self.metadata.protocol.clone()
+    }
+}
 
 /// Raydium CPMM Deposit event
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, BorshDeserialize)]
 pub struct RaydiumCpmmDepositEvent {
     #[serde(skip)]
     pub metadata: EventMetadata,
