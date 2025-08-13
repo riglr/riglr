@@ -17,7 +17,6 @@ use std::sync::Arc;
 use std::time::Duration;
 use alloy::primitives::U256;
 use async_trait::async_trait;
-use tokio;
 
 /// Test helper to create a mock EVM signer
 async fn create_test_evm_signer() -> Arc<dyn TransactionSigner> {

@@ -14,6 +14,8 @@
 use anyhow::Result;
 use rig::agent::AgentBuilder;
 use rig::providers::openai;
+use rig::client::CompletionClient;
+use rig::completion::Prompt;
 use serde_json::json;
 use std::env;
 use tracing::warn;

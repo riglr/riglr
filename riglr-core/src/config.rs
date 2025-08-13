@@ -523,8 +523,10 @@ mod tests {
     
     #[test]
     fn test_validation() {
-        let mut config = Config::default();
-        config.environment = Environment::Production;
+        let mut config = Config { 
+            environment: Environment::Production, 
+            ..Default::default() 
+        };
         
         // Should fail with localhost Redis in production
         assert!(config.validate().is_err());

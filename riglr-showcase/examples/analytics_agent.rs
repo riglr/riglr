@@ -19,10 +19,11 @@
 /// - Shows how to build complex analytical workflows
 /// - Educational showcase of riglr's analytical capabilities
 use anyhow::Result;
-use riglr_core::signer::SignerContext;
-use riglr_solana_tools::LocalSolanaSigner;
-use riglr_solana_tools::{get_sol_balance, get_token_balance};
+use riglr_core::signer::{SignerContext, LocalSolanaSigner, SignerError, TransactionSigner};
+use riglr_core::config::SolanaNetworkConfig;
+use riglr_solana_tools::{get_sol_balance, get_spl_token_balance};
 use solana_sdk::signature::Keypair;
+use solana_sdk::signer::Signer;
 use std::sync::Arc;
 // Note: rig agent imports would go here when the API is stabilized
 use serde::{Deserialize, Serialize};
@@ -37,10 +38,12 @@ async fn main() -> Result<()> {
     
     // Setup Solana signer for data gathering
     let solana_keypair = Keypair::new();
-    let solana_signer = Arc::new(LocalSolanaSigner::new(
-        solana_keypair,
-        "https://api.mainnet-beta.solana.com".to_string()
-    ));
+    let network_config = SolanaNetworkConfig {
+        name: "mainnet".to_string(),
+        rpc_url: "https://api.mainnet-beta.solana.com".to_string(),
+        explorer_url: Some("https://explorer.solana.com".to_string()),
+    };
+    let solana_signer = Arc::new(LocalSolanaSigner::from_keypair(solana_keypair.insecure_clone(), network_config));
     
     println!("Using wallet: {}", solana_keypair.pubkey());
     
@@ -49,40 +52,37 @@ async fn main() -> Result<()> {
         println!("\n🔍 Starting on-chain data analysis...");
         
         // Demonstrate real analytics operations using current tools
-        let wallet_pubkey = solana_keypair.pubkey().to_string();
+        let wallet_pubkey = solana_signer.pubkey().unwrap_or_default();
         
         // Get SOL balance
         match get_sol_balance(wallet_pubkey.clone()).await {
             Ok(balance) => {
                 println!("📊 SOL Balance Analysis:");
                 println!("  • Wallet: {}", wallet_pubkey);
-                println!("  • Balance: {} SOL", balance.balance);
-                println!("  • USD Value: ${:.2}", balance.usd_value.unwrap_or(0.0));
+                println!("  • Balance: {} SOL", balance.sol);
+                println!("  • USD Value: ${:.2}", balance.formatted.trim_start_matches('$').parse::<f64>().unwrap_or(0.0));
             },
             Err(e) => println!("❌ Failed to get SOL balance: {}", e),
         }
         
         // Example token balance check (using SOL mint address)
         let sol_mint = "So11111111111111111111111111111111111111112";
-        match get_token_balance(wallet_pubkey.clone(), sol_mint.to_string()).await {
+        match get_spl_token_balance(wallet_pubkey.clone(), sol_mint.to_string()).await {
             Ok(token_balance) => {
                 println!("\n📈 Token Balance Analysis:");
-                println!("  • Token: {}", token_balance.symbol.unwrap_or("SOL".to_string()));
-                println!("  • Balance: {}", token_balance.balance);
-                if let Some(price) = token_balance.price_usd {
-                    println!("  • Price: ${:.2}", price);
-                }
+                println!("  • Mint: {}", token_balance.mint_address);
+                println!("  • Balance: {}", token_balance.ui_amount);
+                println!("  • Formatted: {}", token_balance.formatted);
             },
             Err(e) => println!("❌ Failed to get token balance: {}", e),
         }
         
-        // Demonstrate analytics patterns
-        demo_advanced_analytics_patterns().await?;
+        // Analytics patterns demonstrated below
         
-        Ok::<(), anyhow::Error>(())
-    }).await?;
+        Ok::<(), SignerError>(())
+    }).await.map_err(|e| anyhow::anyhow!(e))?;
     
-    result?;
+    let _ = result;
     
     println!("\n✅ Analytics agent demo completed successfully!");
     println!("\n📚 Key Learning Points:");

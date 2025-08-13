@@ -16,7 +16,7 @@ fn test_config_from_env_with_defaults() {
     // Set required OPENAI_API_KEY
     env::set_var("OPENAI_API_KEY", "test_api_key");
     
-    let config = Config::from_env().unwrap();
+    let config = Config::from_env();
     
     assert_eq!(config.solana_rpc_url, "https://api.mainnet-beta.solana.com");
     assert_eq!(config.ethereum_rpc_url, "https://eth-mainnet.alchemyapi.io/v2/demo");
@@ -41,7 +41,7 @@ fn test_config_from_env_with_custom_values() {
     env::set_var("REDIS_URL", "redis://custom:6379");
     env::set_var("OPENAI_API_KEY", "openai_key");
     
-    let config = Config::from_env().unwrap();
+    let config = Config::from_env();
     
     assert_eq!(config.solana_rpc_url, "https://custom.solana.com");
     assert_eq!(config.ethereum_rpc_url, "https://custom.ethereum.com");
@@ -62,22 +62,20 @@ fn test_config_from_env_with_custom_values() {
 }
 
 #[test]
+#[should_panic(expected = "OPENAI_API_KEY")]
 fn test_config_from_env_missing_openai_key() {
     // Clear OPENAI_API_KEY
     env::remove_var("OPENAI_API_KEY");
     
-    let result = Config::from_env();
-    
-    // Should fail without OPENAI_API_KEY
-    assert!(result.is_err());
-    assert!(result.unwrap_err().to_string().contains("OPENAI_API_KEY"));
+    // This should panic since from_env() panics on missing required fields
+    let _config = Config::from_env();
 }
 
 #[test]
 fn test_config_clone() {
     env::set_var("OPENAI_API_KEY", "test_key");
     
-    let config = Config::from_env().unwrap();
+    let config = Config::from_env();
     let cloned = config.clone();
     
     assert_eq!(cloned.solana_rpc_url, config.solana_rpc_url);
@@ -95,7 +93,7 @@ fn test_config_clone() {
 fn test_config_debug() {
     env::set_var("OPENAI_API_KEY", "debug_key");
     
-    let config = Config::from_env().unwrap();
+    let config = Config::from_env();
     let debug_str = format!("{:?}", config);
     
     assert!(debug_str.contains("Config"));
@@ -119,7 +117,7 @@ fn test_config_partial_env_vars() {
     env::remove_var("NEO4J_URL");
     env::remove_var("REDIS_URL");
     
-    let config = Config::from_env().unwrap();
+    let config = Config::from_env();
     
     assert_eq!(config.solana_rpc_url, "https://partial.solana.com");
     assert_eq!(config.ethereum_rpc_url, "https://eth-mainnet.alchemyapi.io/v2/demo");
@@ -136,22 +134,30 @@ fn test_config_partial_env_vars() {
 
 #[test]
 fn test_config_empty_env_values() {
-    // Set empty values
+    // Set empty values  
     env::set_var("TWITTER_BEARER_TOKEN", "");
     env::set_var("EXA_API_KEY", "");
     env::set_var("OPENAI_API_KEY", "");
+    env::set_var("REDIS_URL", "redis://localhost:6379");
     
-    let config = Config::from_env().unwrap();
+    let config = Config::from_env();
     
-    // Empty strings should be treated as None
+    // Empty strings should be treated as None for optional fields
     assert!(config.twitter_bearer_token.is_none());
     assert!(config.exa_api_key.is_none());
     assert_eq!(config.openai_api_key, "");
+    
+    // Test validation with empty API key
+    let validation_result = config.validate();
+    assert!(validation_result.is_err(), "Should reject empty API key");
+    let err = validation_result.unwrap_err();
+    assert!(err.to_string().contains("OPENAI_API_KEY"));
     
     // Clean up
     env::remove_var("TWITTER_BEARER_TOKEN");
     env::remove_var("EXA_API_KEY");
     env::remove_var("OPENAI_API_KEY");
+    env::remove_var("REDIS_URL");
 }
 
 #[test]
@@ -164,7 +170,7 @@ fn test_config_special_characters_in_env() {
     env::set_var("REDIS_URL", "redis://user:pass@redis.com:6379/0");
     env::set_var("OPENAI_API_KEY", "sk-123abc!@#");
     
-    let config = Config::from_env().unwrap();
+    let config = Config::from_env();
     
     assert_eq!(config.solana_rpc_url, "https://user:pass@solana.com:8899/path");
     assert_eq!(config.ethereum_rpc_url, "wss://ethereum.com/ws");
@@ -190,7 +196,7 @@ fn test_config_localhost_urls() {
     env::set_var("REDIS_URL", "redis://127.0.0.1:6379");
     env::set_var("OPENAI_API_KEY", "test");
     
-    let config = Config::from_env().unwrap();
+    let config = Config::from_env();
     
     assert_eq!(config.solana_rpc_url, "http://localhost:8899");
     assert_eq!(config.ethereum_rpc_url, "http://127.0.0.1:8545");
@@ -212,7 +218,7 @@ fn test_config_network_specific_urls() {
     env::set_var("ETHEREUM_RPC_URL", "https://rpc.ankr.com/eth_goerli");
     env::set_var("OPENAI_API_KEY", "test");
     
-    let config = Config::from_env().unwrap();
+    let config = Config::from_env();
     
     assert_eq!(config.solana_rpc_url, "https://api.devnet.solana.com");
     assert_eq!(config.ethereum_rpc_url, "https://rpc.ankr.com/eth_goerli");
@@ -221,4 +227,22 @@ fn test_config_network_specific_urls() {
     env::remove_var("SOLANA_RPC_URL");
     env::remove_var("ETHEREUM_RPC_URL");
     env::remove_var("OPENAI_API_KEY");
+}
+
+#[test]
+fn test_config_validation_invalid_redis_url() {
+    // Set up config with invalid redis URL
+    env::set_var("OPENAI_API_KEY", "test_key");
+    env::set_var("REDIS_URL", "http://localhost:6379"); // Wrong protocol
+    
+    let config = Config::from_env();
+    let validation_result = config.validate();
+    
+    assert!(validation_result.is_err(), "Should reject invalid redis URL");
+    let err = validation_result.unwrap_err();
+    assert!(err.to_string().contains("redis://"));
+    
+    // Clean up
+    env::remove_var("OPENAI_API_KEY");
+    env::remove_var("REDIS_URL");
 }
