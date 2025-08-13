@@ -115,16 +115,22 @@ impl UniswapConfig {
         }
     }
 
-    /// Get configuration for a specific chain ID
-    pub fn for_chain(chain_id: u64) -> Self {
-        match chain_id {
-            1 => Self::ethereum(),
-            137 => Self::polygon(),
-            42161 => Self::arbitrum(),
-            10 => Self::optimism(),
-            8453 => Self::base(),
-            _ => Self::ethereum(), // Default to Ethereum
-        }
+    /// Get configuration for a specific chain ID using external configuration
+    pub fn for_chain(chain_id: u64) -> Result<Self, EvmToolError> {
+        use riglr_core::config::Config;
+        
+        let config = Config::from_env()
+            .map_err(|e| EvmToolError::Generic(format!("Failed to load configuration: {}", e)))?;
+        
+        let chain_config = config.get_chain_config(chain_id)
+            .map_err(|e| EvmToolError::Generic(format!("Chain configuration error: {}", e)))?;
+            
+        Ok(Self {
+            router_address: chain_config.router,
+            quoter_address: chain_config.quoter,
+            slippage_bps: 50,      // Default 0.5% slippage
+            deadline_seconds: 300, // Default 5 minutes
+        })
     }
 }
 
@@ -250,8 +256,10 @@ pub async fn get_uniswap_quote(
     let token_out_addr = validate_address(&token_out)
         .map_err(|e| EvmToolError::Generic(format!("Invalid token_out address: {}", e)))?;
 
-    // Get default Uniswap config (since chain_id is no longer accessible)
-    let config = UniswapConfig::ethereum();
+    // Get Uniswap config based on signer's chain ID
+    let chain_id = signer.chain_id().unwrap_or(1); // Default to Ethereum if not available
+    let config = UniswapConfig::for_chain(chain_id)
+        .map_err(|e| EvmToolError::Generic(format!("Failed to get Uniswap config: {}", e)))?;
 
     // Parse amount
     let amount_in_wei = parse_amount_with_decimals(&amount_in, decimals_in)
@@ -397,8 +405,10 @@ pub async fn perform_uniswap_swap(
     let from_addr = validate_address(&from_addr_str)
         .map_err(|e| EvmToolError::Generic(format!("Invalid signer address: {}", e)))?;
 
-    // Get Uniswap config (using default since chain_id is no longer accessible)
-    let config = UniswapConfig::ethereum();
+    // Get Uniswap config based on signer's chain ID
+    let chain_id = signer.chain_id().unwrap_or(1); // Default to Ethereum if not available
+    let config = UniswapConfig::for_chain(chain_id)
+        .map_err(|e| EvmToolError::Generic(format!("Failed to get Uniswap config: {}", e)))?;
 
     // Parse amounts
     let amount_in_wei = parse_amount_with_decimals(&amount_in, decimals_in)
@@ -544,14 +554,44 @@ mod tests {
             "0xE592427A0AEce92De3Edee1F18E0157C05861564"
         );
 
-        let config_by_id = UniswapConfig::for_chain(1);
+        // Create a temporary chains config for testing
+        let test_config = r#"
+[chains]
+
+[chains.ethereum]
+id = 1
+name = "Ethereum Mainnet"
+router = "0xE592427A0AEce92De3Edee1F18E0157C05861564"
+quoter = "0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6"
+factory = "0x1F98431c8aD98523631AE4a59f267346ea31F984"
+
+[chains.base]
+id = 8453
+name = "Base"
+router = "0x2626664c2603336E57B271c5C0b26F421741e481"
+quoter = "0x3d4e44Eb1374240CE5F1B871ab261CD16335B76a"
+factory = "0x33128a8fC17869897dcE68Ed026d694621f6FDfD"
+"#;
+
+        // Write test config to temporary file
+        let temp_path = "/tmp/test_swap_internal_chains.toml";
+        std::fs::write(temp_path, test_config).unwrap();
+
+        // Set environment variable to use test config
+        std::env::set_var("RIGLR_CHAINS_CONFIG", temp_path);
+
+        let config_by_id = UniswapConfig::for_chain(1).unwrap();
         assert_eq!(config_by_id.router_address, eth_config.router_address);
 
-        let base_config = UniswapConfig::for_chain(8453);
+        let base_config = UniswapConfig::for_chain(8453).unwrap();
         assert_eq!(
             base_config.router_address,
             "0x2626664c2603336E57B271c5C0b26F421741e481"
         );
+
+        // Cleanup
+        std::env::remove_var("RIGLR_CHAINS_CONFIG");
+        std::fs::remove_file(temp_path).ok();
     }
 
     #[test]

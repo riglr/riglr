@@ -175,6 +175,42 @@ impl Config {
             Feature::GraphMemory => self.enable_graph_memory,
         }
     }
+
+    /// Load chain configurations from TOML file
+    pub fn load_chains(&self) -> Result<ChainsConfig, ConfigError> {
+        let chains_path = std::env::var("RIGLR_CHAINS_CONFIG")
+            .unwrap_or_else(|_| "chains.toml".to_string());
+            
+        let content = std::fs::read_to_string(&chains_path)
+            .map_err(|e| ConfigError::ChainConfigNotFound(chains_path, e))?;
+            
+        toml::from_str(&content)
+            .map_err(ConfigError::InvalidChainConfig)
+    }
+    
+    /// Get chain configuration for a specific chain ID with environment variable overrides
+    pub fn get_chain_config(&self, chain_id: u64) -> Result<ChainConfig, ConfigError> {
+        let chains = self.load_chains()?;
+        
+        let mut chain_config = chains.chains
+            .values()
+            .find(|config| config.id == chain_id)
+            .cloned()
+            .ok_or_else(|| ConfigError::ChainNotSupported(chain_id))?;
+            
+        // Override with environment variables if present
+        if let Ok(router) = std::env::var(&format!("ROUTER_{}", chain_id)) {
+            chain_config.router = router;
+        }
+        if let Ok(quoter) = std::env::var(&format!("QUOTER_{}", chain_id)) {
+            chain_config.quoter = quoter;
+        }
+        if let Ok(factory) = std::env::var(&format!("FACTORY_{}", chain_id)) {
+            chain_config.factory = factory;
+        }
+        
+        Ok(chain_config)
+    }
 }
 
 /// Available features
@@ -191,6 +227,9 @@ pub enum Feature {
 pub enum ConfigError {
     LoadError(String),
     ValidationError(String),
+    ChainConfigNotFound(String, std::io::Error),
+    InvalidChainConfig(toml::de::Error),
+    ChainNotSupported(u64),
 }
 
 impl fmt::Display for ConfigError {
@@ -198,11 +237,30 @@ impl fmt::Display for ConfigError {
         match self {
             ConfigError::LoadError(msg) => write!(f, "Failed to load configuration: {}", msg),
             ConfigError::ValidationError(msg) => write!(f, "Configuration validation failed: {}", msg),
+            ConfigError::ChainConfigNotFound(path, err) => write!(f, "Chain configuration file not found at {}: {}", path, err),
+            ConfigError::InvalidChainConfig(err) => write!(f, "Invalid chain configuration: {}", err),
+            ConfigError::ChainNotSupported(chain_id) => write!(f, "Chain {} is not supported", chain_id),
         }
     }
 }
 
 impl std::error::Error for ConfigError {}
+
+/// Chain-specific configuration for contract addresses
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct ChainConfig {
+    pub id: u64,
+    pub name: String,
+    pub router: String,
+    pub quoter: String,
+    pub factory: String,
+}
+
+/// Collection of all chain configurations
+#[derive(Debug, Clone, Deserialize)]
+pub struct ChainsConfig {
+    pub chains: HashMap<String, ChainConfig>,
+}
 
 /// Type-safe RPC configuration for blockchain networks
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -474,5 +532,94 @@ mod tests {
         // Fix Redis URL
         config.redis_url = "redis://prod.example.com:6379".to_string();
         assert!(config.validate().is_ok());
+    }
+
+    #[test]
+    fn test_chain_configuration_loading() {
+        // Create a temporary chains config for testing
+        let test_config = r#"
+[chains]
+
+[chains.ethereum]
+id = 1
+name = "Ethereum Mainnet"
+router = "0xE592427A0AEce92De3Edee1F18E0157C05861564"
+quoter = "0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6"
+factory = "0x1F98431c8aD98523631AE4a59f267346ea31F984"
+
+[chains.polygon]
+id = 137
+name = "Polygon"
+router = "0xE592427A0AEce92De3Edee1F18E0157C05861564"
+quoter = "0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6"
+factory = "0x1F98431c8aD98523631AE4a59f267346ea31F984"
+"#;
+
+        // Write test config to temporary file
+        let temp_path = "/tmp/test_chains.toml";
+        std::fs::write(temp_path, test_config).unwrap();
+
+        // Set environment variable to use test config
+        std::env::set_var("RIGLR_CHAINS_CONFIG", temp_path);
+
+        let config = Config::default();
+        let chains = config.load_chains().unwrap();
+
+        // Verify chain configurations are loaded correctly
+        assert_eq!(chains.chains.len(), 2);
+        
+        let eth_config = config.get_chain_config(1).unwrap();
+        assert_eq!(eth_config.id, 1);
+        assert_eq!(eth_config.name, "Ethereum Mainnet");
+        assert_eq!(eth_config.router, "0xE592427A0AEce92De3Edee1F18E0157C05861564");
+
+        let polygon_config = config.get_chain_config(137).unwrap();
+        assert_eq!(polygon_config.id, 137);
+        assert_eq!(polygon_config.name, "Polygon");
+
+        // Test unsupported chain
+        assert!(config.get_chain_config(999).is_err());
+
+        // Cleanup
+        std::env::remove_var("RIGLR_CHAINS_CONFIG");
+        std::fs::remove_file(temp_path).ok();
+    }
+
+    #[test]
+    fn test_environment_variable_overrides() {
+        // Create a temporary chains config for testing
+        let test_config = r#"
+[chains]
+
+[chains.ethereum]
+id = 1
+name = "Ethereum Mainnet"
+router = "0xE592427A0AEce92De3Edee1F18E0157C05861564"
+quoter = "0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6"
+factory = "0x1F98431c8aD98523631AE4a59f267346ea31F984"
+"#;
+
+        // Write test config to temporary file
+        let temp_path = "/tmp/test_chains_override.toml";
+        std::fs::write(temp_path, test_config).unwrap();
+
+        // Set environment variables
+        std::env::set_var("RIGLR_CHAINS_CONFIG", temp_path);
+        std::env::set_var("ROUTER_1", "0x1234567890123456789012345678901234567890");
+        std::env::set_var("QUOTER_1", "0x0987654321098765432109876543210987654321");
+
+        let config = Config::default();
+        let chain_config = config.get_chain_config(1).unwrap();
+
+        // Verify environment variable overrides work
+        assert_eq!(chain_config.router, "0x1234567890123456789012345678901234567890");
+        assert_eq!(chain_config.quoter, "0x0987654321098765432109876543210987654321");
+        assert_eq!(chain_config.factory, "0x1F98431c8aD98523631AE4a59f267346ea31F984"); // Not overridden
+
+        // Cleanup
+        std::env::remove_var("RIGLR_CHAINS_CONFIG");
+        std::env::remove_var("ROUTER_1");
+        std::env::remove_var("QUOTER_1");
+        std::fs::remove_file(temp_path).ok();
     }
 }

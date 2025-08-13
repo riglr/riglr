@@ -52,13 +52,40 @@ fn test_uniswap_config_arbitrum() {
 
 #[test]
 fn test_uniswap_config_for_chain() {
-    let config = UniswapConfig::for_chain(1); // Ethereum
+    // Create a temporary chains config for testing
+    let test_config = r#"
+[chains]
+
+[chains.ethereum]
+id = 1
+name = "Ethereum Mainnet"
+router = "0xE592427A0AEce92De3Edee1F18E0157C05861564"
+quoter = "0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6"
+factory = "0x1F98431c8aD98523631AE4a59f267346ea31F984"
+"#;
+
+    // Write test config to temporary file
+    let temp_path = "/tmp/test_swap_chains.toml";
+    std::fs::write(temp_path, test_config).unwrap();
+
+    // Set environment variable to use test config
+    std::env::set_var("RIGLR_CHAINS_CONFIG", temp_path);
+
+    let config = UniswapConfig::for_chain(1).unwrap(); // Ethereum
     let ethereum_config = UniswapConfig::ethereum();
 
     assert_eq!(config.router_address, ethereum_config.router_address);
     assert_eq!(config.quoter_address, ethereum_config.quoter_address);
     assert_eq!(config.slippage_bps, ethereum_config.slippage_bps);
     assert_eq!(config.deadline_seconds, ethereum_config.deadline_seconds);
+
+    // Test unsupported chain
+    let result = UniswapConfig::for_chain(999);
+    assert!(result.is_err());
+
+    // Cleanup
+    std::env::remove_var("RIGLR_CHAINS_CONFIG");
+    std::fs::remove_file(temp_path).ok();
 }
 
 #[test]

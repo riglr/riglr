@@ -10,7 +10,7 @@ use solana_sdk::{
     signature::{Keypair, Signature},
     transaction::Transaction,
 };
-use solana_transaction_status::EncodedTransactionWithStatusMeta;
+use solana_transaction_status::{EncodedTransactionWithStatusMeta, EncodedConfirmedTransactionWithStatusMeta};
 use spl_token;
 use std::str::FromStr;
 use std::sync::Arc;
@@ -222,7 +222,7 @@ impl SolanaClient {
             .map_err(|e| SolanaToolError::Rpc(format!("Failed to get token account: {}", e)))?;
 
         // Parse the token account data using spl_token
-        let token_account = spl_token::state::Account::unpack(&account_info.data)
+        let token_account = spl_token::state::unpack::<spl_token::state::Account>(&account_info.data)
             .map_err(|e| SolanaToolError::Generic(format!("Failed to parse token account data: {}", e)))?;
 
         info!("Token balance for {} (mint: {}): {}", address, mint, token_account.amount);
@@ -452,7 +452,7 @@ impl SolanaClient {
     pub async fn get_transaction_with_meta(
         &self,
         signature: &str,
-    ) -> Result<EncodedTransactionWithStatusMeta> {
+    ) -> Result<EncodedConfirmedTransactionWithStatusMeta> {
         let sig = Signature::from_str(signature)
             .map_err(|e| SolanaToolError::InvalidSignature(signature.to_string()))?;
 

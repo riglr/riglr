@@ -298,39 +298,30 @@ Remember: Capital preservation is priority #1. Only take high-probability trades
     }
 
     async fn get_current_price(&self, asset: &str) -> Result<f64> {
-        // Map asset symbols to token addresses for price fetching
+        // Map asset to token address and chain for DexScreener
         let (token_address, chain) = match asset {
-            "SOL" => ("So11111111111111111111111111111111111111112", "solana"), // Wrapped SOL
-            "ETH" => ("0x0000000000000000000000000000000000000000", "ethereum"), // Native ETH
+            // Solana
+            "SOL" => ("So11111111111111111111111111111111111111112", "solana"),
+            // EVM (use canonical wrapped/native representations)
+            "ETH" => ("0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2", "ethereum"), // WETH
             "BTC" => ("0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599", "ethereum"), // WBTC
-            "USDC" => ("0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", "ethereum"), // USDC
-            _ => return Ok(1.0), // Fallback for unknown assets
+            "USDC" => ("0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", "ethereum"),
+            _ => anyhow::bail!("Unsupported asset for pricing: {}", asset),
         };
-        
-        // Use real DexScreener API to get current price
-        let price_query = format!(
-            "Get current price for token {} on chain {} using get_token_price tool",
-            token_address, chain
-        );
-        
-        match self.agent.prompt(&price_query).await {
-            Ok(response) => {
-                // Parse price from agent response (simplified)
-                // In a real implementation, you'd extract the actual price value
-                if response.contains("$") {
-                    // Try to extract price from response
-                    if let Some(price_str) = extract_price_from_response(&response) {
-                        return Ok(price_str);
-                    }
-                }
-                
-                Err(anyhow::anyhow!("Failed to parse price data for {}: invalid price format", asset))
-            }
-            Err(e) => {
-                // Fail fast on API errors instead of using mock data
-                Err(anyhow::anyhow!("Failed to fetch price for {}: {}", asset, e))
-            }
-        }
+
+        // Prefer direct API tool over LLM prompts
+        #[allow(unused_imports)]
+        use riglr_web_tools::price::get_token_price as get_price_tool;
+
+        let res = get_price_tool(token_address.to_string(), Some(chain.to_string()))
+            .await
+            .map_err(|e| anyhow::anyhow!("Price API error: {}", e))?;
+
+        let price = res
+            .price_usd
+            .parse::<f64>()
+            .map_err(|e| anyhow::anyhow!("Invalid price format from API: {}", e))?;
+        Ok(price)
     }
 
     async fn close_position(&mut self, asset: &str, reason: &str) -> Result<()> {
@@ -408,19 +399,196 @@ Remember: Capital preservation is priority #1. Only take high-probability trades
         }
     }
 
-    async fn execute_trade(&self, asset: &str, action: &TradingAction, confidence: f64) -> Result<()> {
-        // In a real implementation, this would execute actual trades
-        // For now, just log the intended action
-        info!(
-            "🎯 Would execute {:?} for {} with confidence {:.1}%",
-            action, asset, confidence * 100.0
-        );
-        
-        // Here you would integrate with actual trading platforms:
-        // - For Solana: Use Jupiter aggregator or other DEX
-        // - For EVM: Use Uniswap or other DEX
-        // - For CEX: Use exchange APIs
-        
+    async fn execute_trade(&mut self, asset: &str, action: &TradingAction, confidence: f64) -> Result<()> {
+        let confidence = confidence.clamp(0.1, 1.0);
+        let price = self.get_current_price(asset).await?; // USD per unit
+        let usd_notional = (self.config.max_trade_size * confidence).clamp(10.0, self.config.max_trade_size);
+
+        info!("🎯 Executing {:?} for {} | price ${:.4} | notional ${:.2}", action, asset, price, usd_notional);
+
+        // Paper vs live
+        let live = self.config.mode.eq_ignore_ascii_case("live");
+
+        match asset {
+            // -------------------- Solana via Jupiter --------------------
+            "SOL" => {
+                let sol_mint = "So11111111111111111111111111111111111111112".to_string();
+                let usdc_mint = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v".to_string();
+                let slippage_bps: u16 = 50;
+
+                match action {
+                    TradingAction::Buy => {
+                        // Swap USDC -> SOL
+                        let amount_usdc = usd_notional; // human USDC
+                        let amount_usdc_lamports = (amount_usdc * 1_000_000.0) as u64; // USDC 6 decimals
+
+                        if live {
+                            // Get quote then perform swap
+                            let _quote = riglr_solana_tools::swap::get_jupiter_quote(
+                                usdc_mint.clone(),
+                                sol_mint.clone(),
+                                amount_usdc_lamports,
+                                slippage_bps,
+                                false,
+                                None,
+                            ).await?;
+
+                            let res = riglr_solana_tools::swap::perform_jupiter_swap(
+                                usdc_mint.clone(),
+                                sol_mint.clone(),
+                                amount_usdc_lamports,
+                                slippage_bps,
+                                None,
+                                true,
+                            ).await?;
+                            info!("✅ SOL buy tx: {} (in: {}, out est: {})", res.signature, res.in_amount, res.out_amount);
+                        } else {
+                            info!("📋 Paper trade: Buy SOL with ${:.2} USDC", amount_usdc);
+                        }
+
+                        // Record position (paper/live)
+                        let qty = usd_notional / price;
+                        self.active_positions.insert(
+                            asset.to_string(),
+                            Position {
+                                asset: asset.to_string(),
+                                entry_price: price,
+                                quantity: qty,
+                                timestamp: chrono::Utc::now(),
+                                stop_loss: price * (1.0 - self.config.stop_loss / 100.0),
+                                take_profit: price * (1.0 + self.config.take_profit / 100.0),
+                                unrealized_pnl: 0.0,
+                            },
+                        );
+                    }
+                    TradingAction::Sell => {
+                        // Swap SOL -> USDC
+                        let qty_sol = usd_notional / price;
+                        let amount_sol_lamports = (qty_sol * 1_000_000_000.0) as u64; // SOL 9 decimals
+
+                        if live {
+                            let _quote = riglr_solana_tools::swap::get_jupiter_quote(
+                                sol_mint.clone(),
+                                usdc_mint.clone(),
+                                amount_sol_lamports,
+                                slippage_bps,
+                                false,
+                                None,
+                            ).await?;
+
+                            let res = riglr_solana_tools::swap::perform_jupiter_swap(
+                                sol_mint.clone(),
+                                usdc_mint.clone(),
+                                amount_sol_lamports,
+                                slippage_bps,
+                                None,
+                                true,
+                            ).await?;
+                            info!("✅ SOL sell tx: {} (in: {}, out est: {})", res.signature, res.in_amount, res.out_amount);
+                        } else {
+                            info!("📋 Paper trade: Sell {:.6} SOL for USDC", qty_sol);
+                        }
+
+                        // Remove position if exists
+                        self.active_positions.remove(asset);
+                    }
+                }
+            }
+
+            // -------------------- EVM via Uniswap V3 --------------------
+            "ETH" | "BTC" => {
+                let (base_addr, base_decimals) = match asset {
+                    "ETH" => ("0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2", 18u8), // WETH
+                    "BTC" => ("0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599", 8u8),   // WBTC
+                    _ => unreachable!(),
+                };
+                let usdc_addr = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"; // USDC
+                let usdc_decimals = 6u8;
+                let fee_tier = Some(3000u32);
+                let slippage_bps = Some(50u16);
+
+                match action {
+                    TradingAction::Buy => {
+                        // USDC -> BASE
+                        let usdc_amount_human = usd_notional; // USDC ~ USD
+                        let quote = riglr_evm_tools::swap::get_uniswap_quote(
+                            usdc_addr.to_string(),
+                            base_addr.to_string(),
+                            format!("{:.6}", usdc_amount_human),
+                            usdc_decimals,
+                            base_decimals,
+                            fee_tier,
+                            slippage_bps,
+                        ).await?;
+
+                        if live {
+                            let res = riglr_evm_tools::swap::perform_uniswap_swap(
+                                usdc_addr.to_string(),
+                                base_addr.to_string(),
+                                format!("{:.6}", usdc_amount_human),
+                                usdc_decimals,
+                                quote.amount_out_minimum.clone(),
+                                fee_tier,
+                                Some(300),
+                            ).await?;
+                            info!("✅ {} buy tx: {} (min out: {})", asset, res.tx_hash, quote.amount_out_minimum);
+                        } else {
+                            info!("📋 Paper trade: Buy {} with ${:.2} USDC", asset, usdc_amount_human);
+                        }
+
+                        // Record position
+                        let qty = usd_notional / price;
+                        self.active_positions.insert(
+                            asset.to_string(),
+                            Position {
+                                asset: asset.to_string(),
+                                entry_price: price,
+                                quantity: qty,
+                                timestamp: chrono::Utc::now(),
+                                stop_loss: price * (1.0 - self.config.stop_loss / 100.0),
+                                take_profit: price * (1.0 + self.config.take_profit / 100.0),
+                                unrealized_pnl: 0.0,
+                            },
+                        );
+                    }
+                    TradingAction::Sell => {
+                        // BASE -> USDC
+                        let base_qty_human = usd_notional / price;
+                        let quote = riglr_evm_tools::swap::get_uniswap_quote(
+                            base_addr.to_string(),
+                            usdc_addr.to_string(),
+                            format!("{:.8}", base_qty_human),
+                            base_decimals,
+                            usdc_decimals,
+                            fee_tier,
+                            slippage_bps,
+                        ).await?;
+
+                        if live {
+                            let res = riglr_evm_tools::swap::perform_uniswap_swap(
+                                base_addr.to_string(),
+                                usdc_addr.to_string(),
+                                format!("{:.8}", base_qty_human),
+                                base_decimals,
+                                quote.amount_out_minimum.clone(),
+                                fee_tier,
+                                Some(300),
+                            ).await?;
+                            info!("✅ {} sell tx: {} (min out: {})", asset, res.tx_hash, quote.amount_out_minimum);
+                        } else {
+                            info!("📋 Paper trade: Sell {:.6} {} for USDC", base_qty_human, asset);
+                        }
+
+                        self.active_positions.remove(asset);
+                    }
+                }
+            }
+
+            other => {
+                anyhow::bail!("Unsupported asset for trading: {}", other);
+            }
+        }
+
         Ok(())
     }
 }

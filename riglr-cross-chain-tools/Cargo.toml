@@ -13,7 +13,8 @@ categories = ["web-programming", "api-bindings"]
 [dependencies]
 riglr-core = { workspace = true }
 riglr-macros = { workspace = true }
-# riglr-solana-tools = { workspace = true }  # Temporarily commented out due to compilation issues
+riglr-solana-common = { workspace = true }
+# riglr-solana-tools = { workspace = true }  # Temporarily commented out due to compilation issues in riglr-solana-tools
 rig-core = { workspace = true }
 reqwest = { workspace = true }
 serde = { workspace = true }
@@ -31,7 +32,7 @@ schemars = { workspace = true }
 # Hex encoding/decoding
 hex = "0.4"
 
-# Blockchain dependencies for TransactionSigner trait
+# Blockchain dependencies for TransactionSigner trait  
 solana-sdk = { workspace = true }
 solana-client = { workspace = true }
 alloy = { workspace = true }

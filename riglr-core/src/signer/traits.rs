@@ -20,6 +20,11 @@ pub trait TransactionSigner: Send + Sync + std::fmt::Debug {
         None
     }
     
+    /// EVM chain ID for this signer
+    fn chain_id(&self) -> Option<u64> {
+        None
+    }
+    
     /// Solana wallet address (base58 encoded)
     fn address(&self) -> Option<String> {
         None

@@ -1,4 +1,4 @@
-// use borsh::BorshDeserialize; // Not needed for simplified implementation
+use borsh::BorshDeserialize;
 use serde::{Deserialize, Serialize};
 use solana_sdk::pubkey::Pubkey;
 
@@ -6,7 +6,7 @@ use crate::events::common::EventMetadata;
 use crate::impl_unified_event;
 
 /// Buy event
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, BorshDeserialize)]
 pub struct PumpSwapBuyEvent {
     #[serde(skip)]
     pub metadata: EventMetadata,
@@ -81,7 +81,7 @@ impl_unified_event!(
 );
 
 /// Sell event
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, BorshDeserialize)]
 pub struct PumpSwapSellEvent {
     #[serde(skip)]
     pub metadata: EventMetadata,
@@ -151,7 +151,7 @@ impl_unified_event!(
 );
 
 /// Create pool event
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, BorshDeserialize)]
 pub struct PumpSwapCreatePoolEvent {
     #[serde(skip)]
     pub metadata: EventMetadata,
@@ -208,7 +208,7 @@ impl_unified_event!(
 );
 
 /// Deposit event
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, BorshDeserialize)]
 pub struct PumpSwapDepositEvent {
     #[serde(skip)]
     pub metadata: EventMetadata,
@@ -259,7 +259,7 @@ impl_unified_event!(
 );
 
 /// Withdraw event
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, BorshDeserialize)]
 pub struct PumpSwapWithdrawEvent {
     #[serde(skip)]
     pub metadata: EventMetadata,

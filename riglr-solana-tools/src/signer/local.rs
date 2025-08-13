@@ -93,9 +93,9 @@ impl TransactionSigner for LocalSolanaSigner {
         self.client.clone()
     }
     
-    fn evm_client(&self) -> Result<std::sync::Arc<dyn std::any::Any + Send + Sync>, SignerError> {
+    fn evm_client(&self) -> Result<std::sync::Arc<dyn riglr_core::signer::traits::EvmClient>, riglr_core::signer::error::SignerError> {
         // LocalSolanaSigner doesn't provide EVM client
-        Err(SignerError::Configuration(
+        Err(riglr_core::signer::error::SignerError::Configuration(
             "LocalSolanaSigner does not support EVM clients".to_string()
         ))
     }
