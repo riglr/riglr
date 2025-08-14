@@ -149,77 +149,86 @@ async fn test_basic_signer_context_lifecycle() {
     let result = SignerContext::current().await;
     assert!(result.is_err());
 
-    // Set a signer
+    // Test with signer using safe RAII pattern
     let signer = Arc::new(MockSigner::new("test1", false));
-    SignerContext::set_current(signer.clone()).await;
+    let result = SignerContext::with_signer(signer.clone(), async {
+        // Now signer should be available
+        assert!(SignerContext::is_available().await);
 
-    // Now signer should be available
-    assert!(SignerContext::is_available().await);
+        let current = SignerContext::current().await.unwrap();
+        assert_eq!(current.address(), Some("mock_address_test1".to_string()));
+        
+        Ok(())
+    }).await;
+    
+    assert!(result.is_ok());
 
-    let current = SignerContext::current().await.unwrap();
-    assert_eq!(current.address(), Some("mock_address_test1".to_string()));
-
-    // Clear the signer
-    SignerContext::clear().await;
-
-    // Should be unavailable again
+    // Should be unavailable again after scope ends
     assert!(!SignerContext::is_available().await);
 }
 
 #[tokio::test]
 async fn test_signer_context_replacement() {
-    // Set first signer
+    // Test nested signer contexts
     let signer1 = Arc::new(MockSigner::new("signer1", false));
-    SignerContext::set_current(signer1).await;
-
-    let current = SignerContext::current().await.unwrap();
-    assert_eq!(current.address(), Some("mock_address_signer1".to_string()));
-
-    // Replace with second signer
     let signer2 = Arc::new(MockSigner::new("signer2", false));
-    SignerContext::set_current(signer2).await;
+    
+    let result = SignerContext::with_signer(signer1, async {
+        let current = SignerContext::current().await.unwrap();
+        assert_eq!(current.address(), Some("mock_address_signer1".to_string()));
 
-    let current = SignerContext::current().await.unwrap();
-    assert_eq!(current.address(), Some("mock_address_signer2".to_string()));
+        // Nested context with different signer
+        SignerContext::with_signer(signer2, async {
+            let current = SignerContext::current().await.unwrap();
+            assert_eq!(current.address(), Some("mock_address_signer2".to_string()));
+            Ok(())
+        }).await?;
 
-    // Clean up
-    SignerContext::clear().await;
+        // Should be back to original signer
+        let current = SignerContext::current().await.unwrap();
+        assert_eq!(current.address(), Some("mock_address_signer1".to_string()));
+        
+        Ok(())
+    }).await;
+    
+    assert!(result.is_ok());
 }
 
 #[tokio::test]
 async fn test_concurrent_signer_context_access() {
-    // Set a signer
-    let signer = Arc::new(MockSigner::new("concurrent", false));
-    SignerContext::set_current(signer).await;
+    let signer1 = Arc::new(MockSigner::new("concurrent1", false));
+    let signer2 = Arc::new(MockSigner::new("concurrent2", false));
 
-    // Spawn multiple tasks that access the signer context concurrently
-    let mut handles = vec![];
-    for i in 0..20 {
-        let handle = tokio::spawn(async move {
+    // Run concurrent tasks with isolated signer contexts
+    let (result1, result2) = tokio::join!(
+        SignerContext::with_signer(signer1, async {
             for _ in 0..10 {
                 assert!(SignerContext::is_available().await);
                 let current = SignerContext::current().await.unwrap();
                 let address = current.address().unwrap();
-                assert_eq!(address, "mock_address_concurrent");
+                assert_eq!(address, "mock_address_concurrent1");
                 
                 // Small delay to encourage race conditions if they exist
                 tokio::time::sleep(Duration::from_millis(1)).await;
             }
-            i
-        });
-        handles.push(handle);
-    }
+            Ok("task1_completed")
+        }),
+        SignerContext::with_signer(signer2, async {
+            for _ in 0..10 {
+                assert!(SignerContext::is_available().await);
+                let current = SignerContext::current().await.unwrap();
+                let address = current.address().unwrap();
+                assert_eq!(address, "mock_address_concurrent2");
+                
+                // Small delay to encourage race conditions if they exist
+                tokio::time::sleep(Duration::from_millis(1)).await;
+            }
+            Ok("task2_completed")
+        })
+    );
 
-    // Wait for all tasks to complete
-    let mut completed = 0;
-    for handle in handles {
-        completed += handle.await.unwrap();
-    }
-
-    assert_eq!(completed, (0..20).sum::<i32>());
-
-    // Clean up
-    SignerContext::clear().await;
+    assert!(result1.is_ok());
+    assert!(result2.is_ok());
 }
 
 #[tokio::test]
@@ -246,101 +255,102 @@ async fn test_signer_context_with_tool_execution() {
     let result = worker.process_job(job2).await.unwrap();
     assert!(result.is_success());
 
-    // Set signer context
+    // Test with signer context using safe pattern
     let signer = Arc::new(MockSigner::new("worker_test", false));
-    SignerContext::set_current(signer).await;
+    let result = SignerContext::with_signer(signer, async {
+        // Now tool requiring signer should work
+        let job3 = Job::new("requires_signer", &json!({"test": "data"}), 0).unwrap();
+        let result = worker.process_job(job3).await.unwrap();
+        assert!(result.is_success());
 
-    // Now tool requiring signer should work
-    let job3 = Job::new("requires_signer", &json!({"test": "data"}), 0).unwrap();
-    let result = worker.process_job(job3).await.unwrap();
-    assert!(result.is_success());
-
-    match result {
-        JobResult::Success { value, .. } => {
-            assert_eq!(value["signer_address"], "mock_address_worker_test");
-            assert_eq!(value["tool"], "requires_signer");
+        match result {
+            JobResult::Success { value, .. } => {
+                assert_eq!(value["signer_address"], "mock_address_worker_test");
+                assert_eq!(value["tool"], "requires_signer");
+            }
+            _ => panic!("Expected successful result"),
         }
-        _ => panic!("Expected successful result"),
-    }
-
-    // Clean up
-    SignerContext::clear().await;
+        
+        Ok(())
+    }).await;
+    
+    assert!(result.is_ok());
 }
 
 #[tokio::test]
 async fn test_signer_context_thread_safety() {
-    let counter = Arc::new(AtomicU32::new(0));
     let mut handles = vec![];
 
-    // Spawn tasks that set different signers concurrently
+    // Spawn tasks that use different signers concurrently - each isolated
     for i in 0..10 {
-        let counter_clone = counter.clone();
         let handle = tokio::spawn(async move {
             let signer = Arc::new(MockSigner::new(&format!("thread_{}", i), false));
-            SignerContext::set_current(signer).await;
-
-            // Verify we can access the signer we just set
-            // Note: Due to global state, we might get a different signer due to races
-            if SignerContext::is_available().await {
-                counter_clone.fetch_add(1, Ordering::Relaxed);
-            }
-
-            tokio::time::sleep(Duration::from_millis(10)).await;
-
-            if SignerContext::is_available().await {
-                let current = SignerContext::current().await;
-                if current.is_ok() {
-                    counter_clone.fetch_add(1, Ordering::Relaxed);
+            
+            SignerContext::with_signer(signer, async {
+                // Verify we can access our signer
+                if SignerContext::is_available().await {
+                    let current = SignerContext::current().await.unwrap();
+                    let expected_addr = format!("mock_address_thread_{}", i);
+                    assert_eq!(current.address(), Some(expected_addr));
+                    
+                    tokio::time::sleep(Duration::from_millis(10)).await;
+                    
+                    // Should still be available and correct
+                    let current = SignerContext::current().await.unwrap();
+                    let expected_addr = format!("mock_address_thread_{}", i);
+                    assert_eq!(current.address(), Some(expected_addr));
+                    
+                    return Ok(i);
                 }
-            }
+                Err(SignerError::NoSignerContext)
+            }).await
         });
         handles.push(handle);
     }
 
     // Wait for all tasks
+    let mut results = vec![];
     for handle in handles {
-        handle.await.unwrap();
+        let result = handle.await.unwrap();
+        assert!(result.is_ok());
+        results.push(result.unwrap());
     }
 
-    // At least some operations should have succeeded
-    assert!(counter.load(Ordering::Relaxed) > 0);
-
-    // Clean up
-    SignerContext::clear().await;
+    // All tasks should have completed successfully
+    assert_eq!(results.len(), 10);
+    assert_eq!(results, (0..10).collect::<Vec<_>>());
 }
 
 #[tokio::test]
 async fn test_signer_context_error_handling() {
     // Test error scenarios
     
-    // Clear context first
-    SignerContext::clear().await;
-    
     // Getting current signer when none is set should fail
     let result = SignerContext::current().await;
     assert!(result.is_err());
     
-    // Set a failing signer
+    // Test with failing signer
     let failing_signer = Arc::new(MockSigner::new("failing", true));
-    SignerContext::set_current(failing_signer).await;
+    let result = SignerContext::with_signer(failing_signer, async {
+        // Context should be available even if signer will fail operations
+        assert!(SignerContext::is_available().await);
+        
+        let current = SignerContext::current().await.unwrap();
+        assert_eq!(current.address(), Some("mock_address_failing".to_string()));
+        
+        // But signing operations should fail
+        let mut dummy_tx = Transaction::default();
+        let sign_result = current.sign_and_send_solana_transaction(&mut dummy_tx).await;
+        assert!(sign_result.is_err());
+        
+        let evm_tx = alloy::rpc::types::TransactionRequest::default();
+        let evm_result = current.sign_and_send_evm_transaction(evm_tx).await;
+        assert!(evm_result.is_err());
+        
+        Ok(())
+    }).await;
     
-    // Context should be available even if signer will fail operations
-    assert!(SignerContext::is_available().await);
-    
-    let current = SignerContext::current().await.unwrap();
-    assert_eq!(current.address(), Some("mock_address_failing".to_string()));
-    
-    // But signing operations should fail
-    let mut dummy_tx = Transaction::default();
-    let sign_result = current.sign_and_send_solana_transaction(&mut dummy_tx).await;
-    assert!(sign_result.is_err());
-    
-    let evm_tx = alloy::rpc::types::TransactionRequest::default();
-    let evm_result = current.sign_and_send_evm_transaction(evm_tx).await;
-    assert!(evm_result.is_err());
-
-    // Clean up
-    SignerContext::clear().await;
+    assert!(result.is_ok());
 }
 
 #[tokio::test]
@@ -351,41 +361,36 @@ async fn test_signer_context_with_concurrent_workers() {
     worker1.register_tool(Arc::new(SignerAwareTool::new("worker1_tool", true))).await;
     worker2.register_tool(Arc::new(SignerAwareTool::new("worker2_tool", true))).await;
 
-    // Set a signer
-    let signer = Arc::new(MockSigner::new("shared", false));
-    SignerContext::set_current(signer).await;
+    // Use different signers for different workers
+    let signer1 = Arc::new(MockSigner::new("worker1", false));
+    let signer2 = Arc::new(MockSigner::new("worker2", false));
 
-    // Run jobs on both workers concurrently
-    let job1 = Job::new("worker1_tool", &json!({"worker": 1}), 0).unwrap();
-    let job2 = Job::new("worker2_tool", &json!({"worker": 2}), 0).unwrap();
+    // Run jobs on both workers concurrently with isolated contexts
+    let (result1, result2) = tokio::join!(
+        SignerContext::with_signer(signer1, async {
+            let job1 = Job::new("worker1_tool", &json!({"worker": 1}), 0).unwrap();
+            worker1.process_job(job1).await.map_err(|e| SignerError::Configuration(e.to_string()))
+        }),
+        SignerContext::with_signer(signer2, async {
+            let job2 = Job::new("worker2_tool", &json!({"worker": 2}), 0).unwrap();
+            worker2.process_job(job2).await.map_err(|e| SignerError::Configuration(e.to_string()))
+        })
+    );
 
-    let handle1 = tokio::spawn({
-        let worker1 = worker1.clone();
-        async move { worker1.process_job(job1).await }
-    });
-
-    let handle2 = tokio::spawn({
-        let worker2 = worker2.clone();
-        async move { worker2.process_job(job2).await }
-    });
-
-    let result1 = handle1.await.unwrap().unwrap();
-    let result2 = handle2.await.unwrap().unwrap();
+    let result1 = result1.unwrap().unwrap();
+    let result2 = result2.unwrap().unwrap();
 
     assert!(result1.is_success());
     assert!(result2.is_success());
 
-    // Both should have used the same signer
+    // Each should have used their respective signer
     match (&result1, &result2) {
         (JobResult::Success { value: v1, .. }, JobResult::Success { value: v2, .. }) => {
-            assert_eq!(v1["signer_address"], "mock_address_shared");
-            assert_eq!(v2["signer_address"], "mock_address_shared");
+            assert_eq!(v1["signer_address"], "mock_address_worker1");
+            assert_eq!(v2["signer_address"], "mock_address_worker2");
         }
         _ => panic!("Expected successful results from both workers"),
     }
-
-    // Clean up
-    SignerContext::clear().await;
 }
 
 #[tokio::test]
@@ -393,37 +398,36 @@ async fn test_signer_context_persistence_across_operations() {
     let worker = ToolWorker::<InMemoryIdempotencyStore>::new(ExecutionConfig::default());
     worker.register_tool(Arc::new(SignerAwareTool::new("persistent_test", true))).await;
 
-    // Set signer
     let signer = Arc::new(MockSigner::new("persistent", false));
-    SignerContext::set_current(signer).await;
+    
+    let result = SignerContext::with_signer(signer, async {
+        // Execute multiple jobs - signer should persist throughout the scope
+        for i in 0..5 {
+            let job = Job::new(
+                "persistent_test",
+                &json!({"iteration": i}),
+                0
+            ).unwrap();
 
-    // Execute multiple jobs - signer should persist
-    for i in 0..5 {
-        let job = Job::new(
-            "persistent_test",
-            &json!({"iteration": i}),
-            0
-        ).unwrap();
+            let result = worker.process_job(job).await.unwrap();
+            assert!(result.is_success());
 
-        let result = worker.process_job(job).await.unwrap();
-        assert!(result.is_success());
-
-        match result {
-            JobResult::Success { value, .. } => {
-                assert_eq!(value["signer_address"], "mock_address_persistent");
-                assert_eq!(value["params"]["iteration"], i);
+            match result {
+                JobResult::Success { value, .. } => {
+                    assert_eq!(value["signer_address"], "mock_address_persistent");
+                    assert_eq!(value["params"]["iteration"], i);
+                }
+                _ => panic!("Expected successful result for iteration {}", i),
             }
-            _ => panic!("Expected successful result for iteration {}", i),
         }
-    }
-
-    // Clean up
-    SignerContext::clear().await;
+        Ok(())
+    }).await;
+    
+    assert!(result.is_ok());
 }
 
 #[tokio::test]
 async fn test_signer_context_timeout_scenarios() {
-
     let worker = ToolWorker::<InMemoryIdempotencyStore>::new(ExecutionConfig {
         default_timeout: Duration::from_millis(100), // Short timeout
         ..Default::default()
@@ -431,87 +435,24 @@ async fn test_signer_context_timeout_scenarios() {
     
     worker.register_tool(Arc::new(SignerAwareTool::new("timeout_test", true))).await;
 
-    // Set a slow signer
+    // Test with slow signer - but our test only accesses context, not actual signing
     let slow_signer = Arc::new(MockSigner::new_with_delay("slow", false, Duration::from_millis(200)));
-    SignerContext::set_current(slow_signer).await;
-
-    let job = Job::new("timeout_test", &json!({}), 0).unwrap();
     
-    // This should complete quickly since we're only testing context access, not actual signing
-    let start = std::time::Instant::now();
-    let result = worker.process_job(job).await.unwrap();
-    let elapsed = start.elapsed();
+    let result = SignerContext::with_signer(slow_signer, async {
+        let job = Job::new("timeout_test", &json!({}), 0).unwrap();
+        
+        // This should complete quickly since we're only testing context access, not actual signing
+        let start = std::time::Instant::now();
+        let result = worker.process_job(job).await.unwrap();
+        let elapsed = start.elapsed();
+        
+        assert!(result.is_success());
+        assert!(elapsed < Duration::from_secs(1)); // Should complete quickly
+        
+        Ok(())
+    }).await;
     
-    assert!(result.is_success());
-    assert!(elapsed < Duration::from_secs(1)); // Should complete quickly
-
-    // Clean up
-    SignerContext::clear().await;
-}
-
-#[tokio::test]
-async fn test_signer_context_multiple_rapid_changes() {
-    // Rapidly change signers to test for race conditions
-    let mut handles = vec![];
-    
-    for i in 0..50 {
-        let handle = tokio::spawn(async move {
-            let signer = Arc::new(MockSigner::new(&format!("rapid_{}", i), false));
-            SignerContext::set_current(signer).await;
-            
-            // Quick verification
-            if SignerContext::is_available().await {
-                let current = SignerContext::current().await;
-                if let Ok(signer) = current {
-                    if let Some(addr) = signer.address() {
-                        return addr.contains("rapid_");
-                    }
-                }
-            }
-            false
-        });
-        handles.push(handle);
-    }
-
-    // Wait for all changes
-    let mut success_count = 0;
-    for handle in handles {
-        if handle.await.unwrap() {
-            success_count += 1;
-        }
-    }
-
-    // Most changes should succeed
-    assert!(success_count > 40);
-
-    // Clean up
-    SignerContext::clear().await;
-}
-
-#[tokio::test]
-async fn test_signer_context_clear_during_use() {
-    let worker = ToolWorker::<InMemoryIdempotencyStore>::new(ExecutionConfig::default());
-    worker.register_tool(Arc::new(SignerAwareTool::new("clear_test", true))).await;
-
-    // Set signer
-    let signer = Arc::new(MockSigner::new("clear_me", false));
-    SignerContext::set_current(signer).await;
-
-    // Start a job
-    let job = Job::new("clear_test", &json!({}), 0).unwrap();
-    let worker_clone = worker.clone();
-    
-    let job_handle = tokio::spawn(async move {
-        worker_clone.process_job(job).await.unwrap()
-    });
-
-    // Clear context while job might be running
-    tokio::time::sleep(Duration::from_millis(10)).await;
-    SignerContext::clear().await;
-
-    // Job should still complete successfully since it already captured the signer
-    let result = job_handle.await.unwrap();
-    assert!(result.is_success());
+    assert!(result.is_ok());
 }
 
 #[tokio::test]
@@ -559,95 +500,94 @@ async fn test_signer_context_error_propagation() {
 
     // Test with failing signer
     let failing_signer = Arc::new(MockSigner::new("will_fail", true));
-    SignerContext::set_current(failing_signer).await;
-
-    let job2 = Job::new("failing_tool", &json!({}), 0).unwrap();
-    let result2 = worker.process_job(job2).await.unwrap();
-    assert!(!result2.is_success());
-    assert!(result2.is_retriable()); // Signing failures should be retriable
+    let result2 = SignerContext::with_signer(failing_signer, async {
+        let job2 = Job::new("failing_tool", &json!({}), 0).unwrap();
+        let result = worker.process_job(job2).await.unwrap();
+        assert!(!result.is_success());
+        assert!(result.is_retriable()); // Signing failures should be retriable
+        Ok(())
+    }).await;
+    assert!(result2.is_ok());
 
     // Test with working signer
     let working_signer = Arc::new(MockSigner::new("will_work", false));
-    SignerContext::set_current(working_signer).await;
-
-    let job3 = Job::new("failing_tool", &json!({}), 0).unwrap();
-    let result3 = worker.process_job(job3).await.unwrap();
-    assert!(result3.is_success());
-
-    // Clean up
-    SignerContext::clear().await;
+    let result3 = SignerContext::with_signer(working_signer, async {
+        let job3 = Job::new("failing_tool", &json!({}), 0).unwrap();
+        let result = worker.process_job(job3).await.unwrap();
+        assert!(result.is_success());
+        Ok(())
+    }).await;
+    assert!(result3.is_ok());
 }
 
 #[tokio::test]
 async fn test_signer_context_access_patterns() {
     // Test various patterns of accessing signer context
     
-    // Pattern 1: Check availability before access
-    SignerContext::clear().await;
+    // Pattern 1: Check availability before access (outside context)
     assert!(!SignerContext::is_available().await);
+    
+    // Pattern 2: Direct access with error handling (outside context)
+    match SignerContext::current().await {
+        Ok(_) => panic!("Should not have signer available"),
+        Err(_) => {} // Expected
+    }
     
     let signer1 = Arc::new(MockSigner::new("pattern1", false));
-    SignerContext::set_current(signer1).await;
-    assert!(SignerContext::is_available().await);
-    
-    // Pattern 2: Direct access with error handling
-    match SignerContext::current().await {
-        Ok(signer) => assert!(signer.address().is_some()),
-        Err(_) => panic!("Should have signer available"),
-    }
-    
-    // Pattern 3: Multiple consecutive accesses
-    for _ in 0..10 {
+    let result = SignerContext::with_signer(signer1, async {
         assert!(SignerContext::is_available().await);
-        let signer = SignerContext::current().await.unwrap();
-        assert_eq!(signer.address(), Some("mock_address_pattern1".to_string()));
-    }
+        
+        // Pattern 3: Direct access with error handling (inside context)
+        match SignerContext::current().await {
+            Ok(signer) => assert!(signer.address().is_some()),
+            Err(_) => panic!("Should have signer available"),
+        }
+        
+        // Pattern 4: Multiple consecutive accesses
+        for _ in 0..10 {
+            assert!(SignerContext::is_available().await);
+            let signer = SignerContext::current().await.unwrap();
+            assert_eq!(signer.address(), Some("mock_address_pattern1".to_string()));
+        }
+        
+        Ok(())
+    }).await;
     
-    // Pattern 4: Access after clear
-    SignerContext::clear().await;
+    assert!(result.is_ok());
+    
+    // Pattern 5: Should be unavailable outside context again
     assert!(!SignerContext::is_available().await);
     assert!(SignerContext::current().await.is_err());
-    
-    // Pattern 5: Rapid set/clear cycles
-    for i in 0..5 {
-        let signer = Arc::new(MockSigner::new(&format!("cycle_{}", i), false));
-        SignerContext::set_current(signer).await;
-        assert!(SignerContext::is_available().await);
-        
-        let current = SignerContext::current().await.unwrap();
-        assert_eq!(current.address(), Some(format!("mock_address_cycle_{}", i)));
-        
-        SignerContext::clear().await;
-        assert!(!SignerContext::is_available().await);
-    }
 }
 
 #[tokio::test]
 async fn test_signer_capabilities_access() {
     let signer = Arc::new(MockSigner::new("capabilities", false));
-    SignerContext::set_current(signer).await;
-
-    let current = SignerContext::current().await.unwrap();
-
-    // Test all capability methods
-    assert!(current.address().is_some());
-    assert!(current.pubkey().is_some());
     
-    let solana_client = current.solana_client();
-    assert!(Arc::strong_count(&solana_client) >= 1);
+    let result = SignerContext::with_signer(signer, async {
+        let current = SignerContext::current().await.unwrap();
+
+        // Test all capability methods
+        assert!(current.address().is_some());
+        assert!(current.pubkey().is_some());
+        
+        let solana_client = current.solana_client();
+        assert!(Arc::strong_count(&solana_client) >= 1);
+        
+        let evm_client_result = current.evm_client();
+        assert!(evm_client_result.is_ok());
+
+        // Test transaction methods
+        let mut tx = Transaction::default();
+        let solana_result = current.sign_and_send_solana_transaction(&mut tx).await;
+        assert!(solana_result.is_ok());
+
+        let evm_tx = alloy::rpc::types::TransactionRequest::default();
+        let evm_result = current.sign_and_send_evm_transaction(evm_tx).await;
+        assert!(evm_result.is_ok());
+        
+        Ok(())
+    }).await;
     
-    let evm_client_result = current.evm_client();
-    assert!(evm_client_result.is_ok());
-
-    // Test transaction methods
-    let mut tx = Transaction::default();
-    let solana_result = current.sign_and_send_solana_transaction(&mut tx).await;
-    assert!(solana_result.is_ok());
-
-    let evm_tx = alloy::rpc::types::TransactionRequest::default();
-    let evm_result = current.sign_and_send_evm_transaction(evm_tx).await;
-    assert!(evm_result.is_ok());
-
-    // Clean up
-    SignerContext::clear().await;
+    assert!(result.is_ok());
 }

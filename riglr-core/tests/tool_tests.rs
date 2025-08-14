@@ -360,7 +360,8 @@ async fn test_tool_worker_process_job_timeout() {
     assert!(!result.is_success());
     match result {
         JobResult::Failure { error, .. } => {
-            assert!(error.contains("timeout") || error.contains("Timeout"));
+            let lower = error.to_lowercase();
+            assert!(lower.contains("timed out"));
         }
         _ => panic!("Expected failure"),
     }
@@ -552,8 +553,9 @@ async fn test_tool_worker_run_with_queue() {
     let worker_clone = worker.clone();
     let queue_clone = queue.clone();
     let handle = tokio::spawn(async move {
+        let token = tokio_util::sync::CancellationToken::new();
         tokio::select! {
-            _ = worker_clone.run(queue_clone) => {},
+            _ = worker_clone.run(queue_clone, token.clone()) => {},
             _ = tokio::time::sleep(Duration::from_millis(100)) => {},
         }
     });
@@ -621,8 +623,9 @@ async fn test_tool_worker_error_handling_in_run_loop() {
     let worker_clone = worker.clone();
     let queue_clone = queue.clone();
     let handle = tokio::spawn(async move {
+        let token = tokio_util::sync::CancellationToken::new();
         tokio::select! {
-            _ = worker_clone.run(queue_clone) => {},
+            _ = worker_clone.run(queue_clone, token.clone()) => {},
             _ = tokio::time::sleep(Duration::from_millis(100)) => {},
         }
     });
@@ -799,9 +802,12 @@ async fn test_tool_worker_idempotency_store_error() {
 
     let job = Job::new_idempotent("failing_store_tool", &json!({}), 0, "test_key").unwrap();
 
-    // Should continue execution even if idempotency store fails (covers error path in line 170)
-    let result = worker.process_job(job).await.unwrap();
-    assert!(result.is_success());
+    // Should surface idempotency store error as WorkerError
+    let result = worker.process_job(job).await;
+    assert!(result.is_err());
+    let err = result.unwrap_err();
+    let msg = err.to_string();
+    assert!(msg.contains("Idempotency store operation failed") || msg.contains("Store get error"));
 }
 
 #[tokio::test]
@@ -986,8 +992,9 @@ async fn test_tool_worker_run_loop_job_processing_error() {
     let worker_clone = worker.clone();
     let queue_clone = queue.clone();
     let handle = tokio::spawn(async move {
+        let token = tokio_util::sync::CancellationToken::new();
         tokio::select! {
-            _ = worker_clone.run(queue_clone) => {},
+            _ = worker_clone.run(queue_clone, token.clone()) => {},
             _ = tokio::time::sleep(Duration::from_millis(100)) => {},
         }
     });
@@ -1019,8 +1026,9 @@ async fn test_tool_worker_run_loop_startup_logging() {
     let worker_clone = worker.clone();
     let queue_clone = queue.clone();
     let handle = tokio::spawn(async move {
+        let token = tokio_util::sync::CancellationToken::new();
         tokio::select! {
-            _ = worker_clone.run(queue_clone) => {},
+            _ = worker_clone.run(queue_clone, token.clone()) => {},
             _ = tokio::time::sleep(Duration::from_millis(50)) => {},
         }
     });
@@ -1039,8 +1047,9 @@ async fn test_tool_worker_run_loop_no_jobs() {
     let worker_clone = worker.clone();
     let queue_clone = queue.clone();
     let handle = tokio::spawn(async move {
+        let token = tokio_util::sync::CancellationToken::new();
         tokio::select! {
-            _ = worker_clone.run(queue_clone) => {},
+            _ = worker_clone.run(queue_clone, token.clone()) => {},
             _ = tokio::time::sleep(Duration::from_millis(100)) => {},
         }
     });
@@ -1083,8 +1092,9 @@ async fn test_tool_worker_run_loop_queue_error() {
     let worker_clone = worker.clone();
     let queue_clone = error_queue.clone();
     let handle = tokio::spawn(async move {
+        let token = tokio_util::sync::CancellationToken::new();
         tokio::select! {
-            _ = worker_clone.run(queue_clone) => {},
+            _ = worker_clone.run(queue_clone, token.clone()) => {},
             _ = tokio::time::sleep(Duration::from_millis(200)) => {},
         }
     });

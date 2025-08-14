@@ -561,3 +561,138 @@ fn test_large_data_handling() {
         }
     });
 }
+
+#[test]
+fn test_job_with_serialization_failing_params() {
+    // Test that Jobs handle serialization errors properly
+    // Create a type that will fail serialization
+    struct UnserializableType {
+        _data: std::rc::Rc<()>, // Rc cannot be serialized
+    }
+    
+    impl serde::Serialize for UnserializableType {
+        fn serialize<S>(&self, _serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: serde::Serializer,
+        {
+            Err(serde::ser::Error::custom("Cannot serialize this type"))
+        }
+    }
+    
+    let unserializable = UnserializableType {
+        _data: std::rc::Rc::new(()),
+    };
+    
+    // Job::new should return an error for unserializable params
+    let result = Job::new("test_tool", &unserializable, 3);
+    assert!(result.is_err());
+    
+    // Job::new_idempotent should also return an error
+    let result_idempotent = Job::new_idempotent(
+        "test_tool",
+        &unserializable,
+        3,
+        "test_key"
+    );
+    assert!(result_idempotent.is_err());
+}
+
+#[test]
+fn test_job_retry_count_saturation() {
+    // Test that retry_count saturates at u32::MAX and doesn't overflow
+    let mut job = Job::new("test_tool", &json!({}), u32::MAX).unwrap();
+    
+    // Set retry_count to MAX - 1
+    job.retry_count = u32::MAX - 1;
+    assert!(job.can_retry()); // MAX-1 < MAX, should be able to retry
+    
+    // Increment to MAX
+    job.increment_retry();
+    assert_eq!(job.retry_count, u32::MAX);
+    assert!(!job.can_retry()); // MAX >= MAX, cannot retry
+    
+    // Try to increment beyond MAX - should saturate
+    job.increment_retry();
+    assert_eq!(job.retry_count, u32::MAX.saturating_add(1)); // Should still be MAX
+    assert!(!job.can_retry());
+}
+
+#[test]
+fn test_job_result_success_with_serialization_failing_value() {
+    // Test that JobResult handles serialization errors properly
+    struct UnserializableType {
+        _data: std::rc::Rc<()>,
+    }
+    
+    impl serde::Serialize for UnserializableType {
+        fn serialize<S>(&self, _serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: serde::Serializer,
+        {
+            Err(serde::ser::Error::custom("Cannot serialize this type"))
+        }
+    }
+    
+    let unserializable = UnserializableType {
+        _data: std::rc::Rc::new(()),
+    };
+    
+    // JobResult::success should return an error
+    let result = JobResult::success(&unserializable);
+    assert!(result.is_err());
+    
+    // JobResult::success_with_tx should also return an error
+    let result_with_tx = JobResult::success_with_tx(&unserializable, "0xabc123");
+    assert!(result_with_tx.is_err());
+}
+
+#[test]
+fn test_job_with_empty_and_special_strings() {
+    // Test edge cases with empty and special strings
+    let empty_tool = Job::new("", &json!({}), 0);
+    assert!(empty_tool.is_ok()); // Empty tool name is technically allowed
+    
+    let whitespace_tool = Job::new("   ", &json!({}), 0);
+    assert!(whitespace_tool.is_ok());
+    
+    let special_chars = Job::new("!@#$%^&*()", &json!({}), 0);
+    assert!(special_chars.is_ok());
+    
+    // Test with empty idempotency key
+    let empty_key = Job::new_idempotent("tool", &json!({}), 0, "");
+    assert!(empty_key.is_ok());
+    if let Ok(job) = empty_key {
+        assert_eq!(job.idempotency_key, Some("".to_string()));
+    }
+    
+    // Test JobResult with empty error message
+    let empty_error = JobResult::retriable_failure("");
+    assert_eq!(empty_error.is_retriable(), true);
+    
+    let empty_permanent = JobResult::permanent_failure("");
+    assert_eq!(empty_permanent.is_retriable(), false);
+}
+
+#[test]
+fn test_job_result_pattern_exhaustiveness() {
+    // Test that all JobResult patterns are handled correctly
+    let success = JobResult::success(&json!({"data": "test"})).unwrap();
+    let retriable = JobResult::retriable_failure("error");
+    let permanent = JobResult::permanent_failure("error");
+    
+    fn check_result(result: &JobResult) -> String {
+        match result {
+            JobResult::Success { value, tx_hash } => {
+                format!("Success: value={:?}, tx={:?}", value, tx_hash)
+            }
+            JobResult::Failure { error, retriable } => {
+                format!("Failure: error={}, retriable={}", error, retriable)
+            }
+        }
+    }
+    
+    // Ensure all variants are covered
+    assert!(check_result(&success).starts_with("Success"));
+    assert!(check_result(&retriable).starts_with("Failure"));
+    assert!(check_result(&permanent).starts_with("Failure"));
+}

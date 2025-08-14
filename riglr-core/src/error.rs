@@ -30,6 +30,45 @@ pub enum CoreError {
 /// Result type alias for riglr-core operations.
 pub type Result<T> = std::result::Result<T, CoreError>;
 
+/// Worker-specific error type for distinguishing system-level worker failures
+/// from tool execution failures.
+#[derive(Error, Debug)]
+pub enum WorkerError {
+    /// Tool not found in the worker's registry
+    #[error("Tool '{tool_name}' not found in worker registry")]
+    ToolNotFound { tool_name: String },
+
+    /// Failed to acquire semaphore for concurrency control
+    #[error("Failed to acquire semaphore for tool '{tool_name}': {source}")]
+    SemaphoreAcquisition {
+        tool_name: String,
+        #[source]
+        source: Box<dyn std::error::Error + Send + Sync>,
+    },
+
+    /// Idempotency store operation failed
+    #[error("Idempotency store operation failed: {source}")]
+    IdempotencyStore {
+        #[source]
+        source: Box<dyn std::error::Error + Send + Sync>,
+    },
+
+    /// Job serialization/deserialization error
+    #[error("Job serialization error: {source}")]
+    JobSerialization {
+        #[source]
+        source: serde_json::Error,
+    },
+
+    /// Tool execution exceeded configured timeout
+    #[error("Tool execution timed out after {timeout:?}")]
+    ExecutionTimeout { timeout: std::time::Duration },
+
+    /// Internal worker system error
+    #[error("Internal worker error: {message}")]
+    Internal { message: String },
+}
+
 impl From<&str> for CoreError {
     fn from(err: &str) -> Self {
         CoreError::Generic(err.to_string())
@@ -116,29 +155,73 @@ impl ToolError {
         }
     }
 
-    // Backward compatibility methods - maintain old API
-    /// Creates a new retriable error
-    pub fn retriable<S: Into<String>>(msg: S) -> Self {
+    // Simple convenience methods (discouraged - prefer _with_source versions)
+    /// Creates a retriable error from a simple message.
+    /// 
+    /// **Discouraged**: Use [`retriable_with_source`](Self::retriable_with_source) instead 
+    /// to preserve error context and enable better debugging.
+    /// 
+    /// This method creates a simple error wrapper that loses type information.
+    /// For better error handling, prefer:
+    /// ```rust
+    /// # use riglr_core::ToolError;
+    /// # #[derive(thiserror::Error, Debug)]
+    /// # #[error("Network error")]
+    /// # struct NetworkError;
+    /// let error = NetworkError;
+    /// let tool_error = ToolError::retriable_with_source(error, "Failed to connect to API");
+    /// ```
+    pub fn retriable_from_msg<S: Into<String>>(msg: S) -> Self {
         let msg = msg.into();
         Self::retriable_with_source(SimpleError(msg.clone()), msg)
     }
 
-    /// Creates a new rate limited error
-    pub fn rate_limited<S: Into<String>>(msg: S) -> Self {
+    /// Creates a rate limited error from a simple message.
+    /// 
+    /// **Discouraged**: Use [`rate_limited_with_source`](Self::rate_limited_with_source) instead 
+    /// to preserve error context and enable better debugging.
+    pub fn rate_limited_from_msg<S: Into<String>>(msg: S) -> Self {
         let msg = msg.into();
         Self::rate_limited_with_source(SimpleError(msg.clone()), msg, None)
     }
 
-    /// Creates a new permanent error
-    pub fn permanent<S: Into<String>>(msg: S) -> Self {
+    /// Creates a permanent error from a simple message.
+    /// 
+    /// **Discouraged**: Use [`permanent_with_source`](Self::permanent_with_source) instead 
+    /// to preserve error context and enable better debugging.
+    pub fn permanent_from_msg<S: Into<String>>(msg: S) -> Self {
         let msg = msg.into();
         Self::permanent_with_source(SimpleError(msg.clone()), msg)
     }
     
-    /// Creates a new invalid input error
-    pub fn invalid_input<S: Into<String>>(msg: S) -> Self {
+    /// Creates an invalid input error from a simple message.
+    /// 
+    /// **Discouraged**: Use [`invalid_input_with_source`](Self::invalid_input_with_source) instead 
+    /// to preserve error context and enable better debugging.
+    pub fn invalid_input_from_msg<S: Into<String>>(msg: S) -> Self {
         let msg = msg.into();
         Self::invalid_input_with_source(SimpleError(msg.clone()), msg)
+    }
+
+    // Legacy compatibility aliases (deprecated)
+    #[deprecated(since = "0.1.0", note = "Use `retriable_with_source` for better error handling or `retriable_from_msg` for simple messages")]
+    pub fn retriable<S: Into<String>>(msg: S) -> Self {
+        Self::retriable_from_msg(msg)
+    }
+
+    #[deprecated(since = "0.1.0", note = "Use `rate_limited_with_source` for better error handling or `rate_limited_from_msg` for simple messages")]
+    pub fn rate_limited<S: Into<String>>(msg: S) -> Self {
+        Self::rate_limited_from_msg(msg)
+    }
+
+    #[deprecated(since = "0.1.0", note = "Use `permanent_with_source` for better error handling or `permanent_from_msg` for simple messages")]
+    pub fn permanent<S: Into<String>>(msg: S) -> Self {
+        Self::permanent_from_msg(msg)
+    }
+    
+    #[deprecated(since = "0.1.0", note = "Use `invalid_input_with_source` for better error handling or `invalid_input_from_msg` for simple messages")]
+    pub fn invalid_input<S: Into<String>>(msg: S) -> Self {
+        Self::invalid_input_from_msg(msg)
     }
 
     /// Returns whether this error is retriable
@@ -170,7 +253,7 @@ struct SimpleError(String);
 impl From<anyhow::Error> for ToolError {
     fn from(err: anyhow::Error) -> Self {
         // anyhow::Error doesn't implement std::error::Error directly, use string conversion
-        ToolError::permanent(err.to_string())
+        ToolError::permanent_from_msg(err.to_string())
     }
 }
 
@@ -185,13 +268,13 @@ impl From<Box<dyn std::error::Error + Send + Sync>> for ToolError {
 
 impl From<String> for ToolError {
     fn from(err: String) -> Self {
-        ToolError::permanent(err)
+        ToolError::permanent_from_msg(err)
     }
 }
 
 impl From<&str> for ToolError {
     fn from(err: &str) -> Self {
-        ToolError::permanent(err.to_string())
+        ToolError::permanent_from_msg(err.to_string())
     }
 }
 
@@ -236,15 +319,15 @@ mod tests {
 
     #[test]
     fn test_backward_compatibility() {
-        let retriable = ToolError::retriable("Network timeout");
+        let retriable = ToolError::retriable_from_msg("Network timeout");
         assert!(retriable.is_retriable());
         assert!(!retriable.is_rate_limited());
         
-        let rate_limited = ToolError::rate_limited("API rate limit exceeded");
+        let rate_limited = ToolError::rate_limited_from_msg("API rate limit exceeded");
         assert!(rate_limited.is_retriable());
         assert!(rate_limited.is_rate_limited());
         
-        let permanent = ToolError::permanent("Invalid parameters");
+        let permanent = ToolError::permanent_from_msg("Invalid parameters");
         assert!(!permanent.is_retriable());
         assert!(!permanent.is_rate_limited());
     }
