@@ -1,0 +1,56 @@
+[package]
+name = "riglr-agents"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Multi-agent coordination system for riglr blockchain automation"
+keywords = ["blockchain", "agent", "coordination", "distributed", "riglr"]
+categories = ["algorithms", "development-tools", "network-programming", "web-programming"]
+
+[dependencies]
+# Core riglr dependencies
+riglr-core = { workspace = true }
+rig-core = { workspace = true }
+
+# Async and concurrency
+tokio = { workspace = true, features = ["sync", "time", "macros", "rt-multi-thread"] }
+async-trait = { workspace = true }
+
+# Error handling
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+
+# Serialization
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+
+# Utility
+uuid = { workspace = true, features = ["v4", "serde"] }
+tracing = { workspace = true }
+chrono = { workspace = true, features = ["serde"] }
+
+# Async utilities
+futures = { workspace = true }
+
+# Collections
+indexmap = "2.0"
+
+[dev-dependencies]
+tokio-test = { workspace = true }
+criterion = { workspace = true }
+quickcheck = "1.0"
+quickcheck_macros = "1.0"
+rand = "0.8"
+hex = "0.4"
+
+[features]
+default = ["redis"]
+redis = ["riglr-core/redis"]
+
+[[bench]]
+name = "agent_benchmarks"
+harness = false
+path = "benches/agent_benchmarks.rs"
