@@ -4,12 +4,12 @@
 Procedural macros for riglr - dramatically reducing boilerplate when creating blockchain tools.
 
 The `#[tool]` macro is the cornerstone of riglr's developer experience, transforming simple async
-functions and structs into full-featured blockchain tools with automatic error handling, JSON
+functions, synchronous functions, and structs into full-featured blockchain tools with automatic error handling, JSON
 schema generation, and seamless `rig` framework integration.
 
 ## Overview
 
-The `#[tool]` macro automatically implements the `Tool` trait for async functions and structs,
+The `#[tool]` macro automatically implements the `Tool` trait for both async and sync functions, as well as structs,
 eliminating the need to write ~30 lines of boilerplate code per tool. It generates:
 
 1. **Parameter struct** with proper JSON schema and serde annotations
@@ -170,16 +170,19 @@ This enables AI models to understand exactly what each tool does and how to use 
    async fn bad_params(custom: CustomType) -> Result<(), ToolError> { ... }
    ```
 
-3. **Async Functions Only**: The macro only works with async functions
+3. **Function Type**: The macro supports both async and synchronous functions
    ```rust,ignore
-   // ✅ Valid
+   // ✅ Valid - async function
    #[tool]
    async fn async_tool() -> Result<String, ToolError> { ... }
    
-   // ❌ Invalid - not async
+   // ✅ Valid - sync function (executed within async context)
    #[tool]
    fn sync_tool() -> Result<String, ToolError> { ... }
    ```
+   
+   Synchronous functions are automatically wrapped to work within the async Tool trait.
+   They execute synchronously within the async `execute` method.
 
 4. **Documentation**: Function and parameters should have doc comments for AI consumption
    ```rust,ignore
@@ -215,6 +218,91 @@ impl MyStructTool {
 ```
 
 ## Complex Usage Examples
+
+### Synchronous Function Example
+
+The macro supports both async and sync functions. Sync functions are useful for
+computational tools that don't require I/O operations:
+
+```rust,ignore
+use riglr_core::ToolError;
+
+/// Calculate compound interest for a given principal, rate, and time
+/// 
+/// This is a computational tool that doesn't require async operations,
+/// so it's implemented as a synchronous function that runs efficiently
+/// within the async Tool framework.
+#[tool]
+fn calculate_compound_interest(
+    /// Principal amount in dollars
+    principal: f64,
+    /// Annual interest rate as a decimal (e.g., 0.05 for 5%)
+    annual_rate: f64,
+    /// Time period in years
+    years: f64,
+    /// Number of times interest is compounded per year
+    compounds_per_year: u32,
+) -> Result<f64, ToolError> {
+    if principal <= 0.0 {
+        return Err(ToolError::invalid_input_from_msg("Principal must be positive"));
+    }
+    if annual_rate < 0.0 {
+        return Err(ToolError::invalid_input_from_msg("Interest rate cannot be negative"));
+    }
+    if years < 0.0 {
+        return Err(ToolError::invalid_input_from_msg("Time period cannot be negative"));
+    }
+    if compounds_per_year == 0 {
+        return Err(ToolError::invalid_input_from_msg("Compounds per year must be at least 1"));
+    }
+
+    let rate_per_compound = annual_rate / compounds_per_year as f64;
+    let total_compounds = compounds_per_year as f64 * years;
+    let final_amount = principal * (1.0 + rate_per_compound).powf(total_compounds);
+    
+    Ok(final_amount)
+}
+```
+
+#### Important Note on CPU-Intensive Sync Functions
+
+The `#[tool]` macro executes synchronous functions directly within the async executor's thread.
+This is fine for quick computations, but **CPU-intensive operations can block the async runtime**.
+
+For CPU-intensive work, wrap your function in `tokio::task::spawn_blocking` **before** applying
+the `#[tool]` macro:
+
+```rust,ignore
+use riglr_core::ToolError;
+
+/// CPU-intensive cryptographic operation
+/// 
+/// This uses spawn_blocking to avoid blocking the async runtime
+#[tool]
+async fn compute_hash(
+    /// Data to hash
+    data: Vec<u8>,
+    /// Number of iterations
+    iterations: u32,
+) -> Result<String, ToolError> {
+    // Move CPU-intensive work to a blocking thread pool
+    tokio::task::spawn_blocking(move || {
+        // Simulate expensive computation
+        let mut hash = data;
+        for _ in 0..iterations {
+            hash = sha256::digest(&hash).into_bytes();
+        }
+        Ok(hex::encode(hash))
+    })
+    .await
+    .map_err(|e| ToolError::permanent_from_msg(format!("Task failed: {}", e)))?
+}
+```
+
+**Guidelines for choosing between sync and async with spawn_blocking:**
+- **Use sync functions** for quick calculations (< 1ms), simple data transformations, or validation
+- **Use async + spawn_blocking** for CPU-intensive work like cryptography, complex parsing, or heavy computation
+- **Use regular async** for I/O operations like network requests or database queries
 
 ### Generic Parameters and Type Constraints
 
@@ -644,114 +732,121 @@ fn handle_function(function: ItemFn, tool_attrs: ToolAttr) -> proc_macro2::Token
     };
 
 
-    // Generate the tool implementation
+    // Generate the module name from the function name
+    let module_name = syn::Ident::new(&fn_name.to_string(), fn_name.span());
+
+    // Generate the tool implementation with namespace
     quote! {
-        // Generate the args struct if there are parameters
-        #[derive(serde::Serialize, serde::Deserialize, schemars::JsonSchema, Debug, Clone)]
-        #[serde(rename_all = "camelCase")]
-        pub struct #args_struct_name {
-            #(#param_fields),*
-        }
+        // Keep the original function
+        #function
 
-        // Generate the tool struct
-        #[derive(Clone)]
-        #fn_vis struct #tool_struct_name;
+        // Generate all tool-related code in a module namespace
+        #fn_vis mod #module_name {
+            use super::*;
 
-        impl #tool_struct_name {
-            /// Create a new instance of this tool
-            pub fn new() -> Self {
-                Self
+            // Generate the args struct if there are parameters
+            #[derive(serde::Serialize, serde::Deserialize, schemars::JsonSchema, Debug, Clone)]
+            #[serde(rename_all = "camelCase")]
+            pub struct Args {
+                #(#param_fields),*
             }
-        }
 
-        impl Default for #tool_struct_name {
-            fn default() -> Self {
-                Self::new()
+            // Generate the tool struct
+            #[derive(Clone)]
+            pub struct Tool;
+
+            impl Tool {
+                /// Create a new instance of this tool
+                pub fn new() -> Self {
+                    Self
+                }
             }
-        }
 
-        // Implement the Tool trait
-    #[async_trait::async_trait]
-    impl riglr_core::Tool for #tool_struct_name {
-            async fn execute(&self, params: serde_json::Value) -> Result<riglr_core::JobResult, Box<dyn std::error::Error + Send + Sync>> {
-                // Parse the parameters; return a structured JobResult on parse failure
-                let args: #args_struct_name = match serde_json::from_value(params) {
-                    Ok(v) => v,
-                    Err(e) => {
-                        return Ok(riglr_core::JobResult::Failure {
-                            error: format!("Failed to parse parameters: {}", e),
-                            retriable: false,
-                        });
-                    }
-                };
+            impl Default for Tool {
+                fn default() -> Self {
+                    Self::new()
+                }
+            }
 
-                // Call the original function (expecting Result<T, ToolError>)
-                let result = #fn_name(#(#field_assignments),*)#await_token;
+            // Implement the Tool trait
+            #[async_trait::async_trait]
+            impl riglr_core::Tool for Tool {
+                async fn execute(&self, params: serde_json::Value) -> Result<riglr_core::JobResult, Box<dyn std::error::Error + Send + Sync>> {
+                    // Parse the parameters; return a structured JobResult on parse failure
+                    let args: Args = match serde_json::from_value(params) {
+                        Ok(v) => v,
+                        Err(e) => {
+                            return Ok(riglr_core::JobResult::Failure {
+                                error: format!("Failed to parse parameters: {}", e),
+                                retriable: false,
+                            });
+                        }
+                    };
 
-                // Convert the result to JobResult
-                match result {
-                    Ok(value) => {
-                        let json_value = serde_json::to_value(value)?;
-                        Ok(riglr_core::JobResult::Success {
-                            value: json_value,
-                            tx_hash: None,
-                        })
-                    }
-                    Err(tool_error) => {
-            // Convert any error to ToolError, then match on it
-                        let tool_error: riglr_core::ToolError = tool_error.into();
-                        match tool_error {
-                riglr_core::ToolError::Retriable { context, .. } => {
-                                Ok(riglr_core::JobResult::Failure {
-                    error: context,
-                                    retriable: true,
-                                })
-                            }
-                riglr_core::ToolError::Permanent { context, .. } => {
-                                Ok(riglr_core::JobResult::Failure {
-                    error: context,
-                                    retriable: false,
-                                })
-                            }
-                riglr_core::ToolError::RateLimited { context, .. } => {
-                                Ok(riglr_core::JobResult::Failure {
-                    error: format!("Rate limited: {}", context),
-                                    retriable: true,
-                                })
-                            }
-                riglr_core::ToolError::InvalidInput { context, .. } => {
-                                Ok(riglr_core::JobResult::Failure {
-                    error: format!("Invalid input: {}", context),
-                                    retriable: false,
-                                })
-                            }
-                            riglr_core::ToolError::SignerContext(err) => {
-                                Ok(riglr_core::JobResult::Failure {
-                                    error: format!("Signer error: {}", err),
-                                    retriable: false,
-                                })
+                    // Call the original function (expecting Result<T, ToolError>)
+                    let result = super::#fn_name(#(args.#param_names),*)#await_token;
+
+                    // Convert the result to JobResult
+                    match result {
+                        Ok(value) => {
+                            let json_value = serde_json::to_value(value)?;
+                            Ok(riglr_core::JobResult::Success {
+                                value: json_value,
+                                tx_hash: None,
+                            })
+                        }
+                        Err(tool_error) => {
+                            // Convert any error to ToolError, then match on it
+                            let tool_error: riglr_core::ToolError = tool_error.into();
+                            match tool_error {
+                                riglr_core::ToolError::Retriable { context, .. } => {
+                                    Ok(riglr_core::JobResult::Failure {
+                                        error: context,
+                                        retriable: true,
+                                    })
+                                }
+                                riglr_core::ToolError::Permanent { context, .. } => {
+                                    Ok(riglr_core::JobResult::Failure {
+                                        error: context,
+                                        retriable: false,
+                                    })
+                                }
+                                riglr_core::ToolError::RateLimited { context, .. } => {
+                                    Ok(riglr_core::JobResult::Failure {
+                                        error: format!("Rate limited: {}", context),
+                                        retriable: true,
+                                    })
+                                }
+                                riglr_core::ToolError::InvalidInput { context, .. } => {
+                                    Ok(riglr_core::JobResult::Failure {
+                                        error: format!("Invalid input: {}", context),
+                                        retriable: false,
+                                    })
+                                }
+                                riglr_core::ToolError::SignerContext(err) => {
+                                    Ok(riglr_core::JobResult::Failure {
+                                        error: format!("Signer error: {}", err),
+                                        retriable: false,
+                                    })
+                                }
                             }
                         }
                     }
                 }
-            }
 
-            fn name(&self) -> &str {
-                stringify!(#fn_name)
-            }
+                fn name(&self) -> &str {
+                    stringify!(#fn_name)
+                }
 
-            fn description(&self) -> &str {
-                #selected_description
+                fn description(&self) -> &str {
+                    #selected_description
+                }
             }
         }
 
-
-        // Keep the original function
-        #function
-
-        // Optionally, create a convenience function to create an Arc<dyn Tool>
+        // Create a convenience function to create an Arc<dyn Tool> using the namespaced type
         #fn_vis fn #tool_fn_name() -> std::sync::Arc<dyn riglr_core::Tool> {
-            std::sync::Arc::new(#tool_struct_name::new())
+            std::sync::Arc::new(#module_name::Tool::new())
         }
     }
 }
@@ -978,16 +1073,16 @@ pub fn derive_into_tool_error(input: TokenStream) -> TokenStream {
         let conversion = if let Some(class) = classification {
             match class.to_string().as_str() {
                 "retriable" => quote! { 
-                    riglr_core::ToolError::retriable(err.to_string()) 
+                    riglr_core::ToolError::retriable_from_msg(err.to_string()) 
                 },
                 "permanent" => quote! { 
-                    riglr_core::ToolError::permanent(err.to_string()) 
+                    riglr_core::ToolError::permanent_from_msg(err.to_string()) 
                 },
                 "rate_limited" => quote! { 
-                    riglr_core::ToolError::rate_limited(err.to_string()) 
+                    riglr_core::ToolError::rate_limited_from_msg(err.to_string()) 
                 },
                 _ => quote! { 
-                    riglr_core::ToolError::permanent(err.to_string()) 
+                    riglr_core::ToolError::permanent_from_msg(err.to_string()) 
                 },
             }
         } else {
@@ -1001,9 +1096,9 @@ pub fn derive_into_tool_error(input: TokenStream) -> TokenStream {
                 .any(|pattern| variant_name_str.contains(pattern));
             
             if is_retriable {
-                quote! { riglr_core::ToolError::retriable(err.to_string()) }
+                quote! { riglr_core::ToolError::retriable_from_msg(err.to_string()) }
             } else {
-                quote! { riglr_core::ToolError::permanent(err.to_string()) }
+                quote! { riglr_core::ToolError::permanent_from_msg(err.to_string()) }
             }
         };
         
