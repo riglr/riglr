@@ -1,0 +1,81 @@
+# RIGLR Indexer Configuration for Docker environment
+
+[service]
+name = "riglr-indexer"
+environment = "docker"
+shutdown_timeout = "30s"
+health_check_interval = "30s"
+
+[storage]
+[storage.primary]
+backend = "postgres"
+url = "postgresql://postgres:password@postgres:5432/riglr_indexer"
+
+[storage.primary.pool]
+max_connections = 10
+min_connections = 2
+connect_timeout = "30s"
+idle_timeout = "5m"
+max_lifetime = "30m"
+
+[storage.cache]
+backend = "redis"
+redis_url = "redis://redis:6379"
+
+[storage.cache.ttl]
+default = "5m"
+events = "1h"
+aggregates = "30m"
+
+[processing]
+workers = 4
+batch.max_size = 500
+batch.max_age = "5s"
+
+[processing.queue]
+capacity = 5000
+queue_type = "memory"
+
+[processing.retry]
+max_attempts = 3
+base_delay = "100ms"
+max_delay = "30s"
+backoff_multiplier = 2.0
+
+[processing.rate_limit]
+enabled = true
+max_events_per_second = 1000
+burst_capacity = 100
+
+[api]
+[api.http]
+bind = "0.0.0.0"
+port = 8080
+timeout = "30s"
+
+[api.websocket]
+enabled = true
+max_connections = 100
+
+[api.cors]
+enabled = true
+allowed_origins = ["*"]
+allowed_methods = ["GET", "POST"]
+allowed_headers = ["*"]
+
+[metrics]
+enabled = true
+port = 9090
+endpoint = "/metrics"
+collection_interval = "15s"
+
+[logging]
+level = "info"
+format = "json"
+outputs = ["stdout"]
+
+[features]
+realtime_streaming = true
+archival = false
+graphql_api = false
+experimental = false
