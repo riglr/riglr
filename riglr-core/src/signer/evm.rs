@@ -12,8 +12,9 @@ use async_trait::async_trait;
 use std::str::FromStr;
 use std::sync::Arc;
 
-use crate::signer::{SignerError, TransactionSigner, EvmClient};
+use crate::signer::{SignerError, TransactionSigner, EvmClient, SignerBase, EvmSigner as EvmSignerTrait, UnifiedSigner};
 use crate::config::{RpcConfig, EvmNetworkConfig};
+use std::any::Any;
 
 /// Local EVM signer with private key management
 pub struct LocalEvmSigner {
@@ -121,8 +122,8 @@ impl TransactionSigner for LocalEvmSigner {
         Ok(tx_hash)
     }
     
-    fn solana_client(&self) -> Arc<solana_client::rpc_client::RpcClient> {
-        panic!("Solana client not available for EVM signer")
+    fn solana_client(&self) -> Option<Arc<solana_client::rpc_client::RpcClient>> {
+        None
     }
     
     fn evm_client(&self) -> Result<Arc<dyn EvmClient>, SignerError> {
@@ -192,6 +193,92 @@ impl EvmClient for EvmClientImpl {
             .map_err(|e| SignerError::ProviderError(format!("Failed to call contract: {}", e)))?;
         
         Ok(result)
+    }
+}
+
+// Implement the new granular traits
+impl SignerBase for LocalEvmSigner {
+    fn locale(&self) -> String {
+        "en".to_string()
+    }
+    
+    fn user_id(&self) -> Option<String> {
+        None
+    }
+    
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
+#[async_trait]
+impl EvmSignerTrait for LocalEvmSigner {
+    fn chain_id(&self) -> u64 {
+        self.chain_id
+    }
+    
+    fn address(&self) -> String {
+        self.get_address().to_string()
+    }
+    
+    async fn sign_and_send_transaction(
+        &self,
+        mut tx: TransactionRequest,
+    ) -> Result<String, SignerError> {
+        // Ensure chain ID is set
+        if tx.chain_id.is_none() {
+            tx.chain_id = Some(self.chain_id);
+        }
+        
+        // Get provider with wallet
+        let provider = self.get_provider().await?;
+        
+        // Send the transaction
+        let pending_tx = provider
+            .send_transaction(tx)
+            .await
+            .map_err(|e| SignerError::TransactionFailed(format!("Failed to send transaction: {}", e)))?;
+        
+        // Get the transaction hash
+        let tx_hash = pending_tx.tx_hash().to_string();
+        
+        // Optionally wait for confirmation (1 block)
+        let _receipt = pending_tx
+            .get_receipt()
+            .await
+            .map_err(|e| SignerError::TransactionFailed(format!("Failed to get receipt: {}", e)))?;
+        
+        Ok(tx_hash)
+    }
+    
+    fn client(&self) -> Result<Arc<dyn EvmClient>, SignerError> {
+        Ok(Arc::new(EvmClientImpl {
+            wallet: self.wallet.clone(),
+            provider_url: self.provider_url.clone(),
+            chain_id: self.chain_id,
+        }))
+    }
+}
+
+impl UnifiedSigner for LocalEvmSigner {
+    fn supports_solana(&self) -> bool {
+        false
+    }
+    
+    fn supports_evm(&self) -> bool {
+        true
+    }
+    
+    fn as_solana(&self) -> Option<&dyn crate::signer::SolanaSigner> {
+        None
+    }
+    
+    fn as_evm(&self) -> Option<&dyn EvmSignerTrait> {
+        Some(self)
+    }
+    
+    fn as_multi_chain(&self) -> Option<&dyn crate::signer::MultiChainSigner> {
+        None
     }
 }
 

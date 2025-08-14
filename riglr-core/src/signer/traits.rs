@@ -73,7 +73,8 @@ pub trait TransactionSigner: Send + Sync + std::fmt::Debug {
     
     /// Get Solana RPC client (derived from signer configuration)
     /// This client should be configured with the appropriate RPC endpoint
-    fn solana_client(&self) -> Arc<solana_client::rpc_client::RpcClient>;
+    /// Returns None if this signer doesn't support Solana
+    fn solana_client(&self) -> Option<Arc<solana_client::rpc_client::RpcClient>>;
     
     /// Get EVM RPC client (derived from signer configuration)  
     /// This client should be configured with the appropriate RPC endpoint and chain ID

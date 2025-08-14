@@ -17,8 +17,9 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use std::time::{Duration, Instant};
 
-use crate::signer::{SignerError, TransactionSigner, SolanaClient};
+use crate::signer::{SignerError, TransactionSigner, SolanaClient, SignerBase, SolanaSigner as SolanaSignerTrait, UnifiedSigner};
 use crate::config::{RpcConfig, SolanaNetworkConfig};
+use std::any::Any;
 
 /// Cache for recent blockhashes to improve performance
 struct BlockhashCache {
@@ -133,7 +134,7 @@ impl TransactionSigner for LocalSolanaSigner {
     
     fn address(&self) -> Option<String> {
         // For Solana, address and pubkey are the same
-        self.pubkey()
+        Some(self.get_pubkey().to_string())
     }
     
     async fn sign_and_send_solana_transaction(
@@ -170,8 +171,8 @@ impl TransactionSigner for LocalSolanaSigner {
         ))
     }
     
-    fn solana_client(&self) -> Arc<solana_client::rpc_client::RpcClient> {
-        self.client.clone()
+    fn solana_client(&self) -> Option<Arc<solana_client::rpc_client::RpcClient>> {
+        Some(self.client.clone())
     }
     
     fn evm_client(&self) -> Result<Arc<dyn crate::signer::EvmClient>, SignerError> {
@@ -213,6 +214,83 @@ impl SolanaClient for SolanaClientImpl {
         .map_err(|e| SignerError::TransactionFailed(format!("RPC error sending transaction: {}", e)))?;
         
         Ok(signature)
+    }
+}
+
+// Implement the new granular traits
+impl SignerBase for LocalSolanaSigner {
+    fn locale(&self) -> String {
+        "en".to_string()
+    }
+    
+    fn user_id(&self) -> Option<String> {
+        None
+    }
+    
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
+#[async_trait]
+impl SolanaSignerTrait for LocalSolanaSigner {
+    fn address(&self) -> String {
+        self.get_pubkey().to_string()
+    }
+    
+    fn pubkey(&self) -> String {
+        self.get_pubkey().to_string()
+    }
+    
+    async fn sign_and_send_transaction(
+        &self,
+        tx: &mut Transaction,
+    ) -> Result<String, SignerError> {
+        // Get recent blockhash
+        let recent_blockhash = self.get_recent_blockhash().await?;
+        tx.message.recent_blockhash = recent_blockhash;
+        
+        // Sign the transaction
+        tx.try_sign(&[&*self.keypair], recent_blockhash)
+            .map_err(|e| SignerError::Signing(format!("Failed to sign transaction: {}", e)))?;
+        
+        // Send the transaction
+        let signature = tokio::task::spawn_blocking({
+            let client = self.client.clone();
+            let tx = tx.clone();
+            move || client.send_and_confirm_transaction(&tx)
+        })
+        .await
+        .map_err(|e| SignerError::TransactionFailed(format!("Failed to send transaction: {}", e)))?
+        .map_err(|e| SignerError::TransactionFailed(format!("RPC error sending transaction: {}", e)))?;
+        
+        Ok(signature.to_string())
+    }
+    
+    fn client(&self) -> Arc<solana_client::rpc_client::RpcClient> {
+        self.client.clone()
+    }
+}
+
+impl UnifiedSigner for LocalSolanaSigner {
+    fn supports_solana(&self) -> bool {
+        true
+    }
+    
+    fn supports_evm(&self) -> bool {
+        false
+    }
+    
+    fn as_solana(&self) -> Option<&dyn SolanaSignerTrait> {
+        Some(self)
+    }
+    
+    fn as_evm(&self) -> Option<&dyn crate::signer::EvmSigner> {
+        None
+    }
+    
+    fn as_multi_chain(&self) -> Option<&dyn crate::signer::MultiChainSigner> {
+        None
     }
 }
 

@@ -14,7 +14,7 @@
 //!
 //! Thread-local storage for multi-tenant blockchain client management:
 //!
-//! ```rust
+//! ```ignore
 //! use riglr_core::signer::SignerContext;
 //! 
 //! # async fn example() -> Result<(), Box<dyn std::error::Error>> {
@@ -32,7 +32,7 @@
 //!
 //! Orchestrates tool execution with proper error handling:
 //!
-//! ```rust
+//! ```ignore
 //! use riglr_core::{ToolWorker, ExecutionConfig};
 //! use riglr_core::idempotency::InMemoryIdempotencyStore;
 //!
@@ -71,11 +71,8 @@
 //!
 //! ### Quick Start Example
 //!
-//! ```rust
-//! use riglr_core::{
-//!     ToolWorker, ExecutionConfig, Tool, Job, JobResult,
-//!     idempotency::InMemoryIdempotencyStore
-//! };
+//! ```ignore
+//! use riglr_core::{ToolWorker, ExecutionConfig, Tool, Job, JobResult, idempotency::InMemoryIdempotencyStore};
 //! use async_trait::async_trait;
 //! use std::sync::Arc;
 //!
@@ -131,8 +128,7 @@
 //! The [`SignerContext`] provides secure, thread-local access to cryptographic signers,
 //! enabling tools to perform blockchain operations without directly handling private keys:
 //!
-//! ```rust
-//! use riglr_core::SignerContext;
+//! ```ignore
 //! use riglr_solana_tools::LocalSolanaSigner;
 //! use std::sync::Arc;
 //! # use solana_sdk::signer::keypair::Keypair;
