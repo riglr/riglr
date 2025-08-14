@@ -1,0 +1,58 @@
+# Example configuration file for riglr-streams
+# This demonstrates how to configure multiple streams using the builder pattern
+
+# Handler execution mode
+# Options: "Sequential", "Concurrent", or { ConcurrentBounded = 10 }
+execution_mode = "Concurrent"
+
+# Enable metrics collection
+enable_metrics = true
+
+# Stream configurations
+[[streams]]
+type = "SolanaGeyser"
+name = "solana-mainnet"
+[streams.config]
+ws_url = "wss://api.mainnet-beta.solana.com"
+program_ids = [
+    "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",  # Jupiter
+    "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc"   # Orca Whirlpool
+]
+buffer_size = 10000
+
+[[streams]]
+type = "EvmWebSocket"
+name = "ethereum-mainnet"
+[streams.config]
+ws_url = "wss://eth-mainnet.g.alchemy.com/v2/YOUR_API_KEY"
+chain_id = "Ethereum"
+subscribe_new_blocks = true
+subscribe_pending_transactions = false
+contract_addresses = [
+    "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D",  # Uniswap V2 Router
+    "0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45"   # Uniswap V3 Router
+]
+buffer_size = 10000
+
+[[streams]]
+type = "Binance"
+name = "binance-spot"
+[streams.config]
+streams = [
+    "btcusdt@ticker",
+    "ethusdt@ticker",
+    "solusdt@ticker",
+    "btcusdt@depth5"
+]
+testnet = false
+buffer_size = 10000
+
+[[streams]]
+type = "MempoolSpace"
+name = "bitcoin-mempool"
+[streams.config]
+network = "Mainnet"
+subscribe_transactions = true
+subscribe_blocks = true
+subscribe_fees = true
+buffer_size = 10000
