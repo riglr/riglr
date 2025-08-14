@@ -1,6 +1,6 @@
 //! Comprehensive cryptocurrency and financial news aggregation
 //!
-//! This module provides production-grade news aggregation, sentiment analysis,
+//! This module provides news aggregation with heuristic-based sentiment analysis
 //! and market impact assessment for AI agents to stay informed about market developments.
 
 use crate::{client::WebClient, error::WebToolError};
@@ -655,11 +655,11 @@ async fn query_newsapi(
     let resp_text = client
         .get_with_params_and_headers(&url, &params, headers)
         .await
-        .map_err(|e| WebToolError::Request(format!("NewsAPI request failed: {}", e)))?;
+        .map_err(|e| WebToolError::Api(format!("NewsAPI request failed: {}", e)))?;
 
     // Parse JSON and map to NewsArticle
     let json: serde_json::Value = serde_json::from_str(&resp_text)
-        .map_err(|e| WebToolError::JsonParseError(format!("NewsAPI parse error: {}", e)))?;
+        .map_err(|e| WebToolError::Parsing(format!("NewsAPI parse error: {}", e)))?;
 
     if let Some(status) = json.get("status").and_then(|s| s.as_str()) {
         if status != "ok" {
@@ -753,10 +753,10 @@ async fn query_cryptopanic(
     let resp_text = client
         .get_with_params(base, &params)
         .await
-        .map_err(|e| WebToolError::Request(format!("CryptoPanic request failed: {}", e)))?;
+        .map_err(|e| WebToolError::Api(format!("CryptoPanic request failed: {}", e)))?;
 
     let json: serde_json::Value = serde_json::from_str(&resp_text)
-        .map_err(|e| WebToolError::JsonParseError(format!("CryptoPanic parse error: {}", e)))?;
+        .map_err(|e| WebToolError::Parsing(format!("CryptoPanic parse error: {}", e)))?;
 
     let mut articles_out = Vec::new();
     if let Some(results) = json.get("results").and_then(|v| v.as_array()) {
@@ -1153,7 +1153,10 @@ fn is_above_severity_threshold(current_severity: &str, threshold: &str) -> bool 
     current_index >= threshold_index
 }
 
-/// Perform real sentiment analysis on text
+/// Perform lexicon-based sentiment analysis on text using keyword matching
+///
+/// This is a heuristic approach that counts positive and negative keywords.
+/// For production use, consider integrating with a proper NLP sentiment model.
 fn analyze_sentiment(title: &str, description: &Option<String>, content: &Option<String>) -> NewsSentiment {
     let full_text = format!(
         "{} {} {}",
@@ -1295,7 +1298,10 @@ fn analyze_sentiment(title: &str, description: &Option<String>, content: &Option
     }
 }
 
-/// Calculate market impact based on content and sentiment
+/// Calculate market impact using heuristic rules based on sentiment and source credibility
+///
+/// This is a simplified calculation based on keyword presence and sentiment scores.
+/// For production use, consider training a model on historical market reactions.
 fn calculate_market_impact(
     sentiment: &NewsSentiment,
     source: &NewsSource,
@@ -1417,7 +1423,11 @@ fn calculate_market_impact_simple(title: &str) -> MarketImpact {
     }
 }
 
-/// Extract entities from text using pattern matching
+/// Extract entities from text using regex pattern matching
+///
+/// This is a heuristic approach that matches against predefined entity patterns.
+/// Only recognizes entities in the hardcoded list. For production use, consider
+/// integrating with a proper NER (Named Entity Recognition) model.
 fn extract_entities_from_text(
     title: &str,
     description: &Option<String>,

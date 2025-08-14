@@ -55,16 +55,14 @@ fn web_search_benchmarks(c: &mut Criterion) {
                 "num_results": 10,
                 "search_type": "general"
             });
-            // Comment out the parsing test since WebSearchInput doesn't exist
-            // serde_json::from_value::<WebSearchInput>(black_box(input))
+            // Benchmark JSON creation since WebSearchInput struct doesn't exist
             black_box(input)
         })
     });
 
     group.bench_function("search_result_creation", |b| {
         b.iter(|| {
-            // SearchResult has a complex structure with nested types, 
-            // so we'll benchmark basic string operations instead
+            // Benchmark basic components of search result creation
             let title = "Example Title".to_string();
             let url = "https://example.com".to_string();
             let snippet = "This is an example snippet of search result content".to_string();
@@ -104,16 +102,14 @@ fn dexscreener_benchmarks(c: &mut Criterion) {
                 "query": "USDC",
                 "chain": "ethereum"
             });
-            // Comment out parsing test since DexTokenSearchInput doesn't exist
-            // serde_json::from_value::<DexTokenSearchInput>(black_box(input))
+            // Benchmark JSON creation since DexTokenSearchInput struct doesn't exist
             black_box(input)
         })
     });
 
     group.bench_function("token_data_creation", |b| {
         b.iter(|| {
-            // TokenInfo has complex nested structures (ChainInfo, SecurityInfo, SocialLink),
-            // so we'll benchmark basic field operations instead
+            // Benchmark basic components of TokenInfo creation
             let address = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48".to_string();
             let name = "USD Coin".to_string();
             let symbol = "USDC".to_string();
@@ -125,8 +121,7 @@ fn dexscreener_benchmarks(c: &mut Criterion) {
 
     group.bench_function("pair_data_creation", |b| {
         b.iter(|| {
-            // TokenPair has complex nested structures (DexInfo, PairToken),
-            // so we'll benchmark basic field operations instead
+            // Benchmark basic components of TokenPair creation
             let pair_id = "ethereum_uniswap_v3_0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640".to_string();
             let price_usd = 1.0f64;
             let volume_24h = 10000000.0f64;
@@ -172,16 +167,14 @@ fn news_benchmarks(c: &mut Criterion) {
                 "language": "en",
                 "sort_by": "relevance"
             });
-            // Comment out parsing test since NewsSearchInput doesn't exist
-            // serde_json::from_value::<NewsSearchInput>(black_box(input))
+            // Benchmark JSON creation since NewsSearchInput struct doesn't exist
             black_box(input)
         })
     });
 
     group.bench_function("news_article_creation", |b| {
         b.iter(|| {
-            // NewsArticle has complex nested structures (NewsSource, NewsCategory),
-            // so we'll benchmark basic field operations instead  
+            // Benchmark basic components of NewsArticle creation
             let title = "Breaking News: Blockchain Revolution".to_string();
             let description = Some("A comprehensive look at blockchain technology".to_string());
             let url = "https://news.example.com/article".to_string();

@@ -143,13 +143,9 @@ where
     // Clone values for use in async block
     let conv_id = conversation_id.clone();
     let req_id = request_id.clone();
-    let _prompt_text = prompt.text.clone();
     
     // Create the stream with proper event formatting
     let stream = async_stream::stream! {
-        // Move agent and signer into the stream
-        let _agent = agent;
-        let _signer = signer;
         // Send start event
         let start_event = AgentEvent::Start {
             conversation_id: conv_id.clone(),
@@ -158,9 +154,22 @@ where
         };
         yield Ok(serde_json::to_string(&start_event).unwrap_or_default());
         
-        // TODO: Implement proper agent streaming with correct lifetime management
-        // For now, return a simple placeholder stream to make compilation work
-        let stream_result: Result<futures_util::stream::Empty<Result<String, riglr_core::signer::SignerError>>, riglr_core::signer::SignerError> = Ok(futures_util::stream::empty());
+        // Get agent stream first, then process within signer context
+        let agent_stream_result = agent.prompt_stream(&prompt.text).await;
+        
+        let stream_result = match agent_stream_result {
+            Ok(mut agent_stream) => {
+                // Process each chunk within signer context
+                SignerContext::with_signer(signer, async move {
+                    let mut chunks = Vec::new();
+                    while let Some(chunk_result) = agent_stream.next().await {
+                        chunks.push(chunk_result);
+                    }
+                    Ok::<Vec<Result<String, _>>, riglr_core::signer::SignerError>(chunks)
+                }).await.map(|chunks| futures_util::stream::iter(chunks))
+            }
+            Err(e) => Err(riglr_core::signer::SignerError::Configuration(e.to_string()))
+        };
         
         match stream_result {
             Ok(mut stream) => {

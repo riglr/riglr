@@ -1,7 +1,7 @@
-//! Intelligent web search integration using Exa API and web scraping
+//! Web search integration using Exa API and web scraping
 //!
-//! This module provides production-grade web search capabilities, content extraction,
-//! and intelligent ranking for AI agents to gather comprehensive web-based information.
+//! This module provides web search capabilities, content extraction using HTML parsing,
+//! and extractive summarization (sentence ranking) for AI agents to gather web-based information.
 
 use crate::{client::WebClient, error::WebToolError};
 use chrono::{DateTime, Utc};
@@ -283,10 +283,10 @@ impl Default for WebSearchConfig {
     }
 }
 
-/// Perform intelligent semantic web search
+/// Perform web search with content extraction
 ///
-/// This tool performs AI-powered web search using semantic understanding,
-/// returning highly relevant results with extracted content and metadata.
+/// This tool performs web search and returns results with extracted content and metadata.
+/// Uses traditional search APIs rather than semantic understanding.
 #[tool]
 pub async fn search_web(
     query: String,
@@ -699,14 +699,17 @@ async fn parse_similar_pages_response(response: &str) -> crate::error::Result<Ve
     parse_exa_search_response(response, "").await
 }
 
-/// Extract and summarize content from a single page
+/// Extract and summarize content from a single page using extractive summarization
+///
+/// Uses sentence ranking and selection rather than generative AI summarization.
+/// Ranks sentences by importance and selects diverse, representative ones.
 async fn extract_and_summarize_page(
     client: &WebClient,
     url: &str,
     summary_length: &Option<String>,
     focus_topics: &Option<Vec<String>>,
 ) -> crate::error::Result<ContentSummary> {
-    let html = client.get(url).await.map_err(|e| WebToolError::Request(format!("Failed to fetch {}: {}", url, e)))?;
+    let html = client.get(url).await.map_err(|e| WebToolError::Network(format!("Failed to fetch {}: {}", url, e)))?;
     let (title, clean_text, sentences, headings) = extract_main_content(&html, url);
 
     // Determine target summary length

@@ -1,9 +1,10 @@
 [workspace]
 members = [
     "riglr-core",
+    "riglr-config",
     "riglr-macros",
     "riglr-solana-common",
-    "riglr-solana-events",
+    "riglr-evm-common",
     "riglr-solana-tools",
     "riglr-evm-tools",
     "riglr-web-tools",
@@ -14,7 +15,13 @@ members = [
     "riglr-showcase",
     "riglr-hyperliquid-tools",
     "riglr-cross-chain-tools",
-    "create-riglr-app-cli"
+    # "create-riglr-app",  # This is a template, not a real crate
+    "create-riglr-app-cli",
+    "riglr-streams",
+    "riglr-solana-events",
+    "riglr-events-core",
+    "riglr-indexer",
+    "riglr-agents"
 ]
 resolver = "2"
 
@@ -30,19 +37,28 @@ homepage = "https://github.com/riglr-project/riglr"
 # Core riglr and rig dependencies
 rig-core = "0.17.1"
 riglr-core = { path = "riglr-core" }
+riglr-config = { path = "riglr-config" }
 riglr-macros = { path = "riglr-macros" }
 riglr-solana-common = { path = "riglr-solana-common" }
-riglr-solana-events = { path = "riglr-solana-events" }
+riglr-evm-common = { path = "riglr-evm-common" }
 riglr-solana-tools = { path = "riglr-solana-tools" }
 riglr-evm-tools = { path = "riglr-evm-tools" }
 riglr-web-tools = { path = "riglr-web-tools" }
 riglr-graph-memory = { path = "riglr-graph-memory" }
 riglr-web-adapters = { path = "riglr-web-adapters" }
 riglr-auth = { path = "riglr-auth" }
+riglr-events-core = { path = "riglr-events-core" }
+riglr-solana-events = { path = "riglr-solana-events" }
+riglr-streams = { path = "riglr-streams" }
+riglr-indexer = { path = "riglr-indexer" }
+riglr-agents = { path = "riglr-agents" }
+riglr-showcase = { path = "riglr-showcase" }
 
 # Async and concurrency
 tokio = { version = "1", features = ["full"] }
+tokio-util = "0.7"
 async-trait = "0.1"
+futures = "0.3"
 
 # Error handling
 anyhow = "1.0"
@@ -52,6 +68,12 @@ thiserror = "2.0.12"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 schemars = "1.0.4"
+toml = "0.8"
+
+# Environment
+dotenv = "0.15"
+envy = "0.4"
+once_cell = "1.19"
 
 # Database and caching
 redis = { version = "0.32.4", features = ["tokio-comp"] }
@@ -60,8 +82,14 @@ redis = { version = "0.32.4", features = ["tokio-comp"] }
 reqwest = { version = "0.12.22", features = ["json"] }
 url = "2.5"
 
+# Streaming
+tokio-stream = "0.1"
+
 # UUID generation
 uuid = { version = "1.0", features = ["v4", "serde"] }
+
+# Collections
+indexmap = "2.0"
 
 # Logging
 tracing = "0.1"
@@ -104,3 +132,5 @@ chrono = { version = "0.4", features = ["serde"] }
 
 # Config and environment
 config = "0.15.13"
+humantime-serde = "1.1"
+num_cpus = "1.16"
