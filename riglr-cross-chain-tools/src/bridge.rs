@@ -897,6 +897,7 @@ async fn execute_solana_bridge_transaction(
     // Recent blockhash
     let rpc = signer.solana_client();
     let recent_blockhash = rpc
+        .ok_or("No Solana RPC client available")?
         .get_latest_blockhash()
         .map_err(|e| format!("Failed to get recent blockhash: {}", e))?;
 
@@ -921,6 +922,7 @@ async fn execute_evm_bridge_transaction(
 ) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
     use alloy::rpc::types::TransactionRequest;
     use alloy::primitives::{Address, U256, Bytes};
+    use riglr_evm_common::address::parse_evm_address;
     use std::str::FromStr;
     
     tracing::info!("🌉 Executing real EVM bridge transaction for chain {} route {}", chain_id, route.id);
@@ -930,7 +932,7 @@ async fn execute_evm_bridge_transaction(
         .ok_or("No transaction data in route")?;
     
     // Parse EVM transaction parameters from LiFi route data
-    let to_address = Address::from_str(&tx_data.to)
+    let to_address = parse_evm_address(&tx_data.to)
         .map_err(|e| format!("Invalid to address: {}", e))?;
     
     let data = hex::decode(tx_data.data.trim_start_matches("0x"))
@@ -950,7 +952,7 @@ async fn execute_evm_bridge_transaction(
     let _gas_price = parse_u256(&tx_data.gas_price).unwrap_or_else(|_| U256::from(20_000_000_000u64));
     
     // Build EVM transaction from LiFi route data
-    let from_opt = signer.address().and_then(|s| Address::from_str(&s).ok());
+    let from_opt = signer.address().and_then(|s| parse_evm_address(&s).ok());
     let mut evm_tx = TransactionRequest::default()
         .to(to_address)
         .input(Bytes::from(data).into())
