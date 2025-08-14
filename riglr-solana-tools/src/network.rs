@@ -44,7 +44,8 @@ pub async fn get_block_height() -> Result<u64, ToolError> {
     // Get signer context and client
     let signer = SignerContext::current().await
         .map_err(|e| ToolError::permanent(format!("No signer context: {}", e)))?;
-    let client = signer.solana_client();
+    let client = signer.solana_client()
+        .ok_or_else(|| ToolError::permanent("No Solana client available in signer".to_string()))?;
 
     let height = client
         .get_block_height()
@@ -106,7 +107,8 @@ pub async fn get_transaction_status(signature: String) -> Result<String, ToolErr
     // Get signer context and client
     let signer_context = SignerContext::current().await
         .map_err(|e| ToolError::permanent(format!("No signer context: {}", e)))?;
-    let client = signer_context.solana_client();
+    let client = signer_context.solana_client()
+        .ok_or_else(|| ToolError::permanent("No Solana client available in signer".to_string()))?;
 
     let signatures = vec![signature.parse().map_err(|e| ToolError::permanent(format!("Invalid signature: {}", e)))?];
     let statuses = client

@@ -2,8 +2,8 @@
 //!
 //! This module provides tools for querying SOL and SPL token balances on the Solana blockchain.
 
-use crate::util::{make_client, validate_address};
-use riglr_core::ToolError;
+use crate::utils::validate_address;
+use riglr_core::{ToolError, SignerContext};
 use riglr_macros::tool;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -61,9 +61,11 @@ pub async fn get_sol_balance(
     let pubkey = validate_address(&address)
         .map_err(|e| ToolError::permanent(e.to_string()))?;
 
-    // Create client using factory function
-    let client = make_client()
-        .map_err(|e| ToolError::retriable(format!("Failed to create client: {}", e)))?;
+    // Get client from SignerContext (following riglr-core pattern)
+    let signer = SignerContext::current().await
+        .map_err(|e| ToolError::permanent(format!("No signer context available: {}", e)))?;
+    let client = signer.solana_client()
+        .ok_or_else(|| ToolError::permanent("No Solana client available in signer context".to_string()))?;
 
     // Get balance in lamports
     let lamports = client.get_balance(&pubkey).map_err(|e| {
@@ -157,9 +159,11 @@ pub async fn get_spl_token_balance(
     let mint_pubkey = validate_address(&mint_address)
         .map_err(|e| ToolError::permanent(format!("Invalid mint address: {}", e)))?;
 
-    // Create client using factory function  
-    let client = make_client()
-        .map_err(|e| ToolError::retriable(format!("Failed to create client: {}", e)))?;
+    // Get client from SignerContext (following riglr-core pattern)
+    let signer = SignerContext::current().await
+        .map_err(|e| ToolError::permanent(format!("No signer context available: {}", e)))?;
+    let client = signer.solana_client()
+        .ok_or_else(|| ToolError::permanent("No Solana client available in signer context".to_string()))?;
 
     // Get the Associated Token Account (ATA) address
     let ata = get_associated_token_address(&owner_pubkey, &mint_pubkey);
