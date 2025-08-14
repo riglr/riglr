@@ -15,4 +15,9 @@ fn test_macro_compilation() {
     // Test compilation failures
     t.compile_fail("tests/ui/invalid_no_params.rs");
     t.compile_fail("tests/ui/invalid_unknown_attr.rs");
+    t.compile_fail("tests/ui/invalid_lifetime_param.rs");
+    t.compile_fail("tests/ui/invalid_impl_trait.rs");
+    t.compile_fail("tests/ui/invalid_complex_patterns.rs");
+    t.compile_fail("tests/ui/invalid_reference_param.rs");
+    t.compile_fail("tests/ui/more_failures.rs");
 }

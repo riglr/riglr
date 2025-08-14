@@ -1,6 +1,7 @@
 //! Basic tests for riglr-macros
 
 use riglr_macros::tool;
+use riglr_core::Tool;
 use anyhow::Result;
 
 // Test basic async function with tool macro
@@ -52,10 +53,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_description_priority() {
-    // For function tools, the generated struct name is <FnNamePascalCase>Tool
-    // Hence doc_only_tool -> DocOnlyToolTool, attr_tool -> AttrToolTool
-    let doc_tool = DocOnlyToolTool::new();
-    let attr_tool = AttrToolTool::new();
+    // With namespacing, the generated tools are in modules named after the function
+    // The tool struct is always named Tool inside the function's module
+    let doc_tool = doc_only_tool::Tool::new();
+    let attr_tool = attr_tool::Tool::new();
 
         assert_eq!(doc_tool.description(), "Doc comment used when no explicit description attribute is provided");
         assert_eq!(attr_tool.description(), "Explicit description.");
