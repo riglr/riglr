@@ -1,0 +1,38 @@
+[package]
+name = "riglr-evm-common"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Shared EVM types and utilities for RIGLR framework - prevents circular dependencies"
+keywords = ["ethereum", "evm", "blockchain", "types", "common"]
+categories = ["cryptography::cryptocurrencies", "data-structures"]
+
+[dependencies]
+# Core riglr dependencies
+riglr-core = { workspace = true }
+
+# EVM dependencies (using alloy-rs)
+alloy = { workspace = true }
+
+# Serialization and schema
+serde = { workspace = true }
+schemars = { workspace = true }
+
+# Error handling
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+
+# Logging
+tracing = { workspace = true }
+
+# Async runtime
+tokio = { workspace = true }
+
+# Hex encoding/decoding
+hex = "0.4"
+
+[dev-dependencies]
+tokio-test = { workspace = true }
