@@ -89,8 +89,8 @@ impl TransactionSigner for LocalSolanaSigner {
         ))
     }
     
-    fn solana_client(&self) -> Arc<RpcClient> {
-        self.client.clone()
+    fn solana_client(&self) -> Option<Arc<RpcClient>> {
+        Some(self.client.clone())
     }
     
     fn evm_client(&self) -> Result<std::sync::Arc<dyn riglr_core::signer::traits::EvmClient>, riglr_core::signer::error::SignerError> {

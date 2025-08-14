@@ -302,36 +302,18 @@ pub async fn buy_pump_token(
         sol_amount, token_mint, signature
     );
 
-    // Attempt to parse executed tx for actual token amount and price
-    let mut parsed_token_amount: Option<u64> = None;
-    let mut parsed_price: Option<f64> = None;
-    let mut actual_sol_spent: Option<f64> = None;
-
-    if let Ok(signer) = SignerContext::current().await {
-        let rpc = signer.solana_client();
-        let mint_pubkey = Pubkey::from_str(&token_mint).ok();
-        let user_pubkey = signer.pubkey().and_then(|s| Pubkey::from_str(&s).ok());
-        if let (Some(mint_pk), Some(user_pk)) = (mint_pubkey, user_pubkey) {
-            match parse_pump_trade_details(&rpc, &signature, &user_pk, &mint_pk).await {
-                Ok((token_delta, sol_delta, price)) => {
-                    parsed_token_amount = token_delta;
-                    actual_sol_spent = sol_delta;
-                    parsed_price = price;
-                }
-                Err(e) => warn!("Failed to parse buy tx details: {}", e),
-            }
-        }
-    }
+    // Action tools should return transaction signatures only
+    // Use separate analysis tools for parsing transaction details
 
     Ok(PumpTradeResult {
         signature,
         token_mint,
-        sol_amount: actual_sol_spent.unwrap_or(sol_amount),
-        token_amount: parsed_token_amount,
+        sol_amount,
+        token_amount: None, // Action tools don't parse amounts
         trade_type: PumpTradeType::Buy,
         slippage_percent: slippage,
         status: TransactionStatus::Pending,
-        price_per_token: parsed_price,
+        price_per_token: None, // Use separate analysis tools for price data
     })
 }
 
@@ -418,33 +400,18 @@ pub async fn sell_pump_token(
         token_amount, signature
     );
 
-    // Attempt to parse executed tx for actual SOL amount received and price
-    let mut actual_sol_received: Option<f64> = None;
-    let mut parsed_price: Option<f64> = None;
-    if let Ok(signer) = SignerContext::current().await {
-        let rpc = signer.solana_client();
-        let mint_pubkey = Pubkey::from_str(&token_mint).ok();
-        let user_pubkey = signer.pubkey().and_then(|s| Pubkey::from_str(&s).ok());
-        if let (Some(mint_pk), Some(user_pk)) = (mint_pubkey, user_pubkey) {
-            match parse_pump_trade_details(&rpc, &signature, &user_pk, &mint_pk).await {
-                Ok((_token_delta, sol_delta, price)) => {
-                    actual_sol_received = sol_delta;
-                    parsed_price = price;
-                }
-                Err(e) => warn!("Failed to parse sell tx details: {}", e),
-            }
-        }
-    }
+    // Action tools should return transaction signatures only
+    // Use separate analysis tools for parsing transaction details
 
     Ok(PumpTradeResult {
         signature,
         token_mint,
-        sol_amount: actual_sol_received.unwrap_or(0.0),
+        sol_amount: 0.0, // Action tools don't parse actual amounts
         token_amount: Some(token_amount),
         trade_type: PumpTradeType::Sell,
         slippage_percent: slippage,
         status: TransactionStatus::Pending,
-        price_per_token: parsed_price,
+        price_per_token: None, // Use separate analysis tools for price data
     })
 }
 
@@ -505,6 +472,54 @@ pub async fn get_pump_token_info(
         creation_signature: None,
         creator: token_response.creator,
         initial_buy_signature: None,
+    })
+}
+
+/// Analyze a Pump.fun trade transaction to extract actual amounts and price
+///
+/// This tool parses a completed Pump.fun transaction to determine the actual
+/// token amounts, SOL amounts, and price per token that were executed.
+/// Separate from action tools following riglr separation of concerns pattern.
+#[tool]
+pub async fn analyze_pump_transaction(
+    signature: String,
+    user_address: String,
+    token_mint: String,
+) -> Result<PumpTradeAnalysis, ToolError> {
+    debug!(
+        "Analyzing Pump transaction: {} for user: {} and token: {}",
+        signature, user_address, token_mint
+    );
+
+    // Validate inputs
+    let user_pubkey = Pubkey::from_str(&user_address)
+        .map_err(|e| ToolError::permanent(format!("Invalid user address: {}", e)))?;
+    let mint_pubkey = Pubkey::from_str(&token_mint)
+        .map_err(|e| ToolError::permanent(format!("Invalid token mint: {}", e)))?;
+
+    // Get client from SignerContext
+    let signer = SignerContext::current().await
+        .map_err(|e| ToolError::permanent(format!("No signer context: {}", e)))?;
+    let client = signer.solana_client()
+        .ok_or_else(|| ToolError::permanent("No Solana client available in signer context".to_string()))?;
+
+    // Parse transaction details
+    let (token_amount, sol_amount, price_per_token) = parse_pump_trade_details(
+        &client, &signature, &user_pubkey, &mint_pubkey
+    ).await?;
+
+    info!(
+        "Analyzed Pump transaction {}: token_amount={:?}, sol_amount={:?}, price={:?}",
+        signature, token_amount, sol_amount, price_per_token
+    );
+
+    Ok(PumpTradeAnalysis {
+        signature,
+        user_address,
+        token_mint,
+        token_amount,
+        sol_amount,
+        price_per_token,
     })
 }
 
@@ -624,6 +639,23 @@ pub struct PumpTradeResult {
 pub enum PumpTradeType {
     Buy,
     Sell,
+}
+
+/// Result of analyzing a Pump.fun trade transaction
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct PumpTradeAnalysis {
+    /// Transaction signature that was analyzed
+    pub signature: String,
+    /// User address involved in the trade
+    pub user_address: String,
+    /// Token mint address
+    pub token_mint: String,
+    /// Actual token amount involved (in raw units)
+    pub token_amount: Option<u64>,
+    /// Actual SOL amount involved (positive for received, negative for spent)
+    pub sol_amount: Option<f64>,
+    /// Price per token in SOL
+    pub price_per_token: Option<f64>,
 }
 
 // ============================================================================
