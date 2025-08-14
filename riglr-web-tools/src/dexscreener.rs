@@ -72,12 +72,12 @@ pub struct TokenPair {
     pub base_token: PairToken,
     pub quote_token: PairToken,
     /// Current price
-    pub price_usd: f64,
-    pub price_native: f64,
+    pub price_usd: Option<f64>,
+    pub price_native: Option<f64>,
     /// 24h trading volume in USD
-    pub volume_24h: f64,
+    pub volume_24h: Option<f64>,
     /// 24h price change percentage
-    pub price_change_24h: f64,
+    pub price_change_24h: Option<f64>,
     /// Total liquidity in USD
     pub liquidity_usd: Option<f64>,
     /// Fully diluted valuation
@@ -120,15 +120,15 @@ pub struct PairToken {
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct TransactionStats {
     /// Number of buy transactions (24h)
-    pub buys: u32,
+    pub buys: Option<u32>,
     /// Number of sell transactions (24h)
-    pub sells: u32,
+    pub sells: Option<u32>,
     /// Total number of transactions (24h)
-    pub total: u32,
+    pub total: Option<u32>,
     /// Buy volume in USD (24h)
-    pub buy_volume_usd: f64,
+    pub buy_volume_usd: Option<f64>,
     /// Sell volume in USD (24h)
-    pub sell_volume_usd: f64,
+    pub sell_volume_usd: Option<f64>,
 }
 
 /// Blockchain/chain information
@@ -319,7 +319,7 @@ pub async fn get_token_info(
     token_address: String,
     chain_id: Option<String>,
     include_pairs: Option<bool>,
-    _include_security: Option<bool>,
+    include_security: Option<bool>,
 ) -> crate::error::Result<TokenInfo> {
     debug!(
         "Fetching token info for address: {} on chain: {:?}",
@@ -351,7 +351,7 @@ pub async fn get_token_info(
     })?;
 
     // Parse response (simplified - would parse actual DexScreener JSON)
-    let token_info = parse_token_response(&response, &token_address, &chain)
+    let token_info = parse_token_response(&response, &token_address, &chain, include_security)
         .await
         .map_err(|e| WebToolError::Api(format!("Failed to parse token response: {}", e)))?;
 
@@ -481,10 +481,16 @@ pub async fn get_trending_tokens(
     Ok(trending_tokens)
 }
 
-/// Analyze token market data
+/// Analyze token market data using heuristic-based calculations
 ///
-/// This tool provides deep market analysis including trend analysis,
-/// volume patterns, liquidity assessment, and risk evaluation.
+/// This tool provides market analysis based on available on-chain data including:
+/// - Simple trend analysis based on price changes
+/// - Volume pattern calculations from 24h data
+/// - Liquidity assessment from DEX pairs
+/// - Basic risk evaluation using heuristic scoring
+///
+/// Note: This is not a substitute for professional financial analysis or
+/// machine learning models. All calculations are rule-based heuristics.
 #[tool]
 pub async fn analyze_token_market(
     token_address: String,
@@ -607,100 +613,216 @@ pub async fn get_top_pairs(
 }
 
 async fn parse_token_response(
-    _response: &str,
+    response: &str,
     token_address: &str,
     chain: &str,
+    include_security: Option<bool>,
 ) -> crate::error::Result<TokenInfo> {
-    // In production, this would parse actual DexScreener JSON
-    // For now, return a comprehensive mock token
-    Ok(TokenInfo {
-        address: token_address.to_string(),
-        name: "Example Token".to_string(),
-        symbol: "EXAMPLE".to_string(),
-        decimals: 18,
-        price_usd: Some(1.25),
-        market_cap: Some(125_000_000.0),
-        volume_24h: Some(2_500_000.0),
-        price_change_24h: Some(5.25),
-        price_change_1h: Some(-1.5),
-        price_change_5m: Some(0.8),
-        circulating_supply: Some(100_000_000.0),
-        total_supply: Some(1_000_000_000.0),
-        pair_count: 5,
-        pairs: vec![TokenPair {
-            pair_id: "uniswap_v3_eth_example".to_string(),
+    // Parse actual DexScreener JSON response
+    let dex_response: crate::dexscreener_api::DexScreenerResponse = serde_json::from_str(response)
+        .map_err(|e| crate::error::WebToolError::Parsing(format!("Failed to parse DexScreener response: {}", e)))?;
+    
+    debug!("Parsed response with {} pairs", dex_response.pairs.len());
+    
+    // Find pairs for this token and aggregate data
+    let token_pairs: Vec<&crate::dexscreener_api::PairInfo> = dex_response.pairs.iter()
+        .filter(|p| {
+            let matches = p.base_token.address.eq_ignore_ascii_case(token_address);
+            debug!("Checking pair: base_token={}, looking for={}, matches={}", 
+                   p.base_token.address, token_address, matches);
+            matches
+        })
+        .collect();
+    
+    if token_pairs.is_empty() {
+        return Err(crate::error::WebToolError::Api(format!("No pairs found for token address: {}", token_address)));
+    }
+    
+    // Use the pair with highest liquidity as primary source
+    let primary_pair = token_pairs.iter()
+        .max_by_key(|p| {
+            p.liquidity
+                .as_ref()
+                .and_then(|l| l.usd)
+                .map(|usd| (usd * 1000.0) as u64)
+                .unwrap_or(0)
+        })
+        .ok_or_else(|| crate::error::WebToolError::Api("No valid pairs found".to_string()))?;
+    
+    // Aggregate volume across all pairs
+    let total_volume_24h: f64 = token_pairs.iter()
+        .filter_map(|p| p.volume.as_ref())
+        .filter_map(|v| v.h24)
+        .sum();
+    
+    debug!("Found {} pairs for token {}", token_pairs.len(), token_address);
+    debug!("Primary pair: symbol={}, price_usd={:?}", 
+           primary_pair.base_token.symbol, primary_pair.price_usd);
+    
+    // Convert pairs to our format
+    let pairs: Vec<TokenPair> = token_pairs.iter().map(|pair| {
+        TokenPair {
+            pair_id: pair.pair_address.clone(),
             dex: DexInfo {
-                id: "uniswap_v3".to_string(),
-                name: "Uniswap V3".to_string(),
-                url: Some("https://uniswap.org".to_string()),
+                id: pair.dex_id.clone(),
+                name: format_dex_name(&pair.dex_id),
+                url: Some(pair.url.clone()),
                 logo: None,
             },
             base_token: PairToken {
-                address: token_address.to_string(),
-                name: "Example Token".to_string(),
-                symbol: "EXAMPLE".to_string(),
+                address: pair.base_token.address.clone(),
+                name: pair.base_token.name.clone(),
+                symbol: pair.base_token.symbol.clone(),
             },
             quote_token: PairToken {
-                address: "0xA0b86a33E6441986a3f0c7B7A4a8D7F56B9a7C9F".to_string(),
-                name: "Wrapped Ether".to_string(),
-                symbol: "WETH".to_string(),
+                address: pair.quote_token.address.clone(),
+                name: pair.quote_token.name.clone(),
+                symbol: pair.quote_token.symbol.clone(),
             },
-            price_usd: 1.25,
-            price_native: 0.0008,
-            volume_24h: 1_200_000.0,
-            price_change_24h: 5.25,
-            liquidity_usd: Some(800_000.0),
-            fdv: Some(125_000_000.0),
-            created_at: Some(Utc::now()),
-            last_trade_at: Utc::now(),
+            price_usd: pair.price_usd.as_ref().and_then(|p| p.parse().ok()),
+            price_native: pair.price_native.parse().ok(),
+            volume_24h: pair.volume.as_ref().and_then(|v| v.h24),
+            price_change_24h: pair.price_change.as_ref().and_then(|pc| pc.h24),
+            liquidity_usd: pair.liquidity.as_ref().and_then(|l| l.usd),
+            fdv: pair.fdv,
+            created_at: None, // DexScreener doesn't provide this in the response
+            last_trade_at: Utc::now(), // Using current time as approximation
             txns_24h: TransactionStats {
-                buys: 1250,
-                sells: 980,
-                total: 2230,
-                buy_volume_usd: 700_000.0,
-                sell_volume_usd: 500_000.0,
+                buys: pair.txns.as_ref()
+                    .and_then(|t| t.h24.as_ref())
+                    .and_then(|h| h.buys.map(|b| b as u32)),
+                sells: pair.txns.as_ref()
+                    .and_then(|t| t.h24.as_ref())
+                    .and_then(|h| h.sells.map(|s| s as u32)),
+                total: None, // Will calculate if both buys and sells are available
+                buy_volume_usd: None, // DexScreener doesn't provide this separately
+                sell_volume_usd: None, // DexScreener doesn't provide this separately
             },
-            url: "https://app.uniswap.org/#/swap".to_string(),
-        }],
+            url: pair.url.clone(),
+        }
+    }).collect();
+    
+    // Update total transactions
+    let mut updated_pairs = pairs.clone();
+    for pair in &mut updated_pairs {
+        // Calculate total transactions if both buys and sells are available
+        pair.txns_24h.total = match (pair.txns_24h.buys, pair.txns_24h.sells) {
+            (Some(b), Some(s)) => Some(b + s),
+            _ => None,
+        };
+        
+        // Estimate buy/sell volumes (split total volume proportionally) if we have the data
+        if let (Some(total), Some(buys), Some(volume)) = 
+            (pair.txns_24h.total, pair.txns_24h.buys, pair.volume_24h) {
+            if total > 0 {
+                let buy_ratio = buys as f64 / total as f64;
+                pair.txns_24h.buy_volume_usd = Some(volume * buy_ratio);
+                pair.txns_24h.sell_volume_usd = Some(volume * (1.0 - buy_ratio));
+            }
+        }
+    }
+    
+    let parsed_price = primary_pair.price_usd.as_ref().and_then(|p| {
+        let parsed = p.parse().ok();
+        debug!("Parsing price_usd string '{}' -> {:?}", p, parsed);
+        parsed
+    });
+    
+    Ok(TokenInfo {
+        address: token_address.to_string(),
+        name: primary_pair.base_token.name.clone(),
+        symbol: primary_pair.base_token.symbol.clone(),
+        decimals: 18, // Default as DexScreener doesn't provide this
+        price_usd: parsed_price,
+        market_cap: primary_pair.market_cap,
+        volume_24h: Some(total_volume_24h),
+        price_change_24h: primary_pair.price_change.as_ref().and_then(|pc| pc.h24),
+        price_change_1h: primary_pair.price_change.as_ref().and_then(|pc| pc.h1),
+        price_change_5m: primary_pair.price_change.as_ref().and_then(|pc| pc.m5),
+        circulating_supply: None, // DexScreener doesn't provide this
+        total_supply: None, // DexScreener doesn't provide this
+        pair_count: updated_pairs.len() as u32,
+        pairs: updated_pairs,
         chain: ChainInfo {
             id: chain.to_string(),
-            name: match chain {
-                "ethereum" => "Ethereum",
-                "bsc" => "Binance Smart Chain",
-                "polygon" => "Polygon",
-                _ => "Unknown Chain",
-            }
-            .to_string(),
+            name: format_chain_name(chain),
             logo: None,
-            native_token: match chain {
-                "ethereum" => "ETH",
-                "bsc" => "BNB",
-                "polygon" => "MATIC",
-                _ => "NATIVE",
+            native_token: get_native_token(chain),
+        },
+        security: if include_security.unwrap_or(false) {
+            // Future enhancement: Integrate with security API services like GoPlus or Honeypot.is
+            // For now, return basic placeholder data
+            SecurityInfo {
+                is_verified: false,
+                liquidity_locked: None,
+                audit_status: None,
+                honeypot_status: None,
+                ownership_status: None,
+                risk_score: None,
             }
-            .to_string(),
+        } else {
+            // Return minimal security info when not requested
+            SecurityInfo {
+                is_verified: false,
+                liquidity_locked: None,
+                audit_status: None,
+                honeypot_status: None,
+                ownership_status: None,
+                risk_score: None,
+            }
         },
-        security: SecurityInfo {
-            is_verified: true,
-            liquidity_locked: Some(true),
-            audit_status: Some("Audited".to_string()),
-            honeypot_status: Some("Safe".to_string()),
-            ownership_status: Some("Renounced".to_string()),
-            risk_score: Some(25),
-        },
-        socials: vec![SocialLink {
-            platform: "twitter".to_string(),
-            url: "https://twitter.com/example_token".to_string(),
-            followers: Some(15000),
-        }],
+        socials: vec![], // Would need additional API call to get social links
         updated_at: Utc::now(),
     })
+}
+
+fn format_dex_name(dex_id: &str) -> String {
+    match dex_id {
+        "uniswap" => "Uniswap V2".to_string(),
+        "uniswapv3" => "Uniswap V3".to_string(),
+        "pancakeswap" => "PancakeSwap".to_string(),
+        "sushiswap" => "SushiSwap".to_string(),
+        "curve" => "Curve".to_string(),
+        "balancer" => "Balancer".to_string(),
+        "quickswap" => "QuickSwap".to_string(),
+        "raydium" => "Raydium".to_string(),
+        "orca" => "Orca".to_string(),
+        _ => dex_id.to_string(),
+    }
+}
+
+fn format_chain_name(chain_id: &str) -> String {
+    match chain_id {
+        "ethereum" => "Ethereum".to_string(),
+        "bsc" => "Binance Smart Chain".to_string(),
+        "polygon" => "Polygon".to_string(),
+        "arbitrum" => "Arbitrum".to_string(),
+        "optimism" => "Optimism".to_string(),
+        "avalanche" => "Avalanche".to_string(),
+        "fantom" => "Fantom".to_string(),
+        "solana" => "Solana".to_string(),
+        _ => chain_id.to_string(),
+    }
+}
+
+fn get_native_token(chain_id: &str) -> String {
+    match chain_id {
+        "ethereum" => "ETH".to_string(),
+        "bsc" => "BNB".to_string(),
+        "polygon" => "MATIC".to_string(),
+        "arbitrum" => "ETH".to_string(),
+        "optimism" => "ETH".to_string(),
+        "avalanche" => "AVAX".to_string(),
+        "fantom" => "FTM".to_string(),
+        "solana" => "SOL".to_string(),
+        _ => "NATIVE".to_string(),
+    }
 }
 
 /// Parse search results from DexScreener API
 async fn parse_search_results(response: &str) -> crate::error::Result<Vec<TokenInfo>> {
     let dex_response: crate::dexscreener_api::DexScreenerResponse = serde_json::from_str(response)
-        .map_err(|e| crate::error::WebToolError::JsonParseError(e.to_string()))?;
+        .map_err(|e| crate::error::WebToolError::Parsing(e.to_string()))?;
     
     // Group pairs by token and aggregate data
     let mut tokens_map = std::collections::HashMap::new();
@@ -759,20 +881,20 @@ async fn parse_search_results(response: &str) -> crate::error::Result<Vec<TokenI
                 name: pair.quote_token.name.clone(),
                 symbol: pair.quote_token.symbol.clone(),
             },
-            price_usd: pair.price_usd.and_then(|p| p.parse().ok()).unwrap_or(0.0),
-            price_native: pair.price_native.parse().unwrap_or(0.0),
-            volume_24h: pair.volume.and_then(|v| v.h24).unwrap_or(0.0),
-            price_change_24h: pair.price_change.and_then(|pc| pc.h24).unwrap_or(0.0),
+            price_usd: pair.price_usd.and_then(|p| p.parse().ok()),
+            price_native: pair.price_native.parse().ok(),
+            volume_24h: pair.volume.and_then(|v| v.h24),
+            price_change_24h: pair.price_change.and_then(|pc| pc.h24),
             liquidity_usd: pair.liquidity.and_then(|l| l.usd),
             fdv: pair.fdv,
             created_at: None,
             last_trade_at: chrono::Utc::now(),
             txns_24h: TransactionStats {
-                buys: pair.txns.as_ref().and_then(|t| t.h24.as_ref().and_then(|h| h.buys.map(|b| b as u32))).unwrap_or(0),
-                sells: pair.txns.as_ref().and_then(|t| t.h24.as_ref().and_then(|h| h.sells.map(|s| s as u32))).unwrap_or(0),
-                total: 0,
-                buy_volume_usd: 0.0,
-                sell_volume_usd: 0.0,
+                buys: pair.txns.as_ref().and_then(|t| t.h24.as_ref().and_then(|h| h.buys.map(|b| b as u32))),
+                sells: pair.txns.as_ref().and_then(|t| t.h24.as_ref().and_then(|h| h.sells.map(|s| s as u32))),
+                total: None,
+                buy_volume_usd: None,
+                sell_volume_usd: None,
             },
             url: pair.url,
         });
@@ -790,7 +912,7 @@ async fn parse_trending_response(response: &str) -> crate::error::Result<Vec<Tok
 /// Parse trading pairs response
 async fn parse_pairs_response(response: &str) -> crate::error::Result<Vec<TokenPair>> {
     let dex_response: crate::dexscreener_api::DexScreenerResponse = serde_json::from_str(response)
-        .map_err(|e| crate::error::WebToolError::JsonParseError(e.to_string()))?;
+        .map_err(|e| crate::error::WebToolError::Parsing(e.to_string()))?;
     
     let pairs: Vec<TokenPair> = dex_response.pairs.into_iter().map(|pair| {
         TokenPair {
@@ -811,20 +933,20 @@ async fn parse_pairs_response(response: &str) -> crate::error::Result<Vec<TokenP
                 name: pair.quote_token.name.clone(),
                 symbol: pair.quote_token.symbol.clone(),
             },
-            price_usd: pair.price_usd.and_then(|p| p.parse().ok()).unwrap_or(0.0),
-            price_native: pair.price_native.parse().unwrap_or(0.0),
-            volume_24h: pair.volume.and_then(|v| v.h24).unwrap_or(0.0),
-            price_change_24h: pair.price_change.and_then(|pc| pc.h24).unwrap_or(0.0),
+            price_usd: pair.price_usd.and_then(|p| p.parse().ok()),
+            price_native: pair.price_native.parse().ok(),
+            volume_24h: pair.volume.and_then(|v| v.h24),
+            price_change_24h: pair.price_change.and_then(|pc| pc.h24),
             liquidity_usd: pair.liquidity.and_then(|l| l.usd),
             fdv: pair.fdv,
             created_at: None,
             last_trade_at: chrono::Utc::now(),
             txns_24h: TransactionStats {
-                buys: pair.txns.as_ref().and_then(|t| t.h24.as_ref().and_then(|h| h.buys.map(|b| b as u32))).unwrap_or(0),
-                sells: pair.txns.as_ref().and_then(|t| t.h24.as_ref().and_then(|h| h.sells.map(|s| s as u32))).unwrap_or(0),
-                total: 0,
-                buy_volume_usd: 0.0,
-                sell_volume_usd: 0.0,
+                buys: pair.txns.as_ref().and_then(|t| t.h24.as_ref().and_then(|h| h.buys.map(|b| b as u32))),
+                sells: pair.txns.as_ref().and_then(|t| t.h24.as_ref().and_then(|h| h.sells.map(|s| s as u32))),
+                total: None,
+                buy_volume_usd: None,
+                sell_volume_usd: None,
             },
             url: pair.url,
         }
@@ -834,40 +956,62 @@ async fn parse_pairs_response(response: &str) -> crate::error::Result<Vec<TokenP
 }
 
 async fn analyze_price_trends(token: &TokenInfo) -> crate::error::Result<TrendAnalysis> {
-    let price_change_24h = token.price_change_24h.unwrap_or(0.0);
-    let price_change_1h = token.price_change_1h.unwrap_or(0.0);
+    // Calculate trend based on available price change data
+    let price_change_24h = token.price_change_24h;
+    let price_change_1h = token.price_change_1h;
 
-    let direction = if price_change_24h > 5.0 {
-        "Bullish"
-    } else if price_change_24h < -5.0 {
-        "Bearish"
+    let direction = match price_change_24h {
+        Some(change) if change > 5.0 => "Bullish",
+        Some(change) if change < -5.0 => "Bearish",
+        Some(_) => "Neutral",
+        None => "Unknown"
+    }.to_string();
+
+    let strength = price_change_24h
+        .map(|change| ((change.abs() / 10.0).clamp(1.0, 10.0)) as u32)
+        .unwrap_or(5); // Default to medium strength if no data
+
+    // Calculate momentum and velocity only if we have data
+    let momentum = match (price_change_1h, price_change_24h) {
+        (Some(h1), Some(h24)) => h1 * 24.0 - h24, // Acceleration
+        _ => 0.0
+    };
+
+    let velocity = price_change_24h.map(|c| c / 24.0).unwrap_or(0.0);
+
+    // Simple support/resistance based on recent range, if price available
+    let (support_levels, resistance_levels) = if let Some(price) = token.price_usd {
+        // Basic 5% bands - in production would use actual order book data
+        (vec![price * 0.95], vec![price * 1.05])
     } else {
-        "Neutral"
-    }
-    .to_string();
-
-    let strength = ((price_change_24h.abs() / 10.0).clamp(1.0, 10.0)) as u32;
+        (vec![], vec![])
+    };
 
     Ok(TrendAnalysis {
         direction,
         strength,
-        momentum: price_change_1h * 24.0, // Extrapolated momentum
-        velocity: price_change_24h / 24.0,
-        support_levels: vec![token.price_usd.unwrap_or(0.0) * 0.95],
-        resistance_levels: vec![token.price_usd.unwrap_or(0.0) * 1.05],
+        momentum,
+        velocity,
+        support_levels,
+        resistance_levels,
     })
 }
 
 async fn analyze_volume_patterns(token: &TokenInfo) -> crate::error::Result<VolumeAnalysis> {
-    let volume_24h = token.volume_24h.unwrap_or(0.0);
-    let market_cap = token.market_cap.unwrap_or(1.0);
+    // Calculate volume metrics from available data
+    let volume_mcap_ratio = match (token.volume_24h, token.market_cap) {
+        (Some(vol), Some(mcap)) if mcap > 0.0 => Some(vol / mcap),
+        _ => None
+    };
 
+    // We don't have historical data, so we can't determine trend or averages
+    // In production, this would query historical data from the API
     Ok(VolumeAnalysis {
-        volume_rank: None,                      // Would calculate from all tokens
-        volume_trend: "Increasing".to_string(), // Would analyze historical data
-        volume_mcap_ratio: Some(volume_24h / market_cap),
-        avg_volume_7d: Some(volume_24h * 0.8), // Mock 7-day average
-        spike_factor: Some(1.2),               // Current vs average
+        volume_rank: None, // Requires comparison with other tokens
+        volume_trend: "Unknown".to_string(), // Requires historical data
+        volume_mcap_ratio,
+        avg_volume_7d: None, // Requires 7-day historical data
+        spike_factor: None, // Requires average to compare against
     })
 }
 
@@ -905,16 +1049,39 @@ async fn analyze_liquidity(token: &TokenInfo) -> crate::error::Result<LiquidityA
 }
 
 async fn analyze_price_levels(token: &TokenInfo) -> crate::error::Result<PriceLevelAnalysis> {
-    let current_price = token.price_usd.unwrap_or(0.0);
+    // We don't have historical ATH/ATL data from the API
+    // Only return what we can actually calculate from available data
+    
+    // Try to estimate 24h high/low from price and price change
+    let (high_24h, low_24h, range_position) = if let Some(price) = token.price_usd {
+        // If we have price change %, estimate the range
+        let estimated_range = match token.price_change_24h {
+            Some(change_pct) => {
+                // Rough estimate: if price went up X%, low was price/(1+X/100)
+                let change_factor = 1.0 + (change_pct / 100.0);
+                if change_pct > 0.0 {
+                    let low = price / change_factor;
+                    (Some(price), Some(low), Some(1.0)) // Currently at high
+                } else {
+                    let high = price / change_factor;
+                    (Some(high), Some(price), Some(0.0)) // Currently at low
+                }
+            }
+            None => (None, None, None)
+        };
+        estimated_range
+    } else {
+        (None, None, None)
+    };
 
     Ok(PriceLevelAnalysis {
-        ath: Some(current_price * 1.5), // Mock ATH
-        atl: Some(current_price * 0.1), // Mock ATL
-        ath_distance_pct: Some(-33.3),
-        atl_distance_pct: Some(900.0),
-        high_24h: Some(current_price * 1.02),
-        low_24h: Some(current_price * 0.98),
-        range_position: Some(0.6),
+        ath: None, // Requires historical data not available from current API
+        atl: None, // Requires historical data not available from current API
+        ath_distance_pct: None,
+        atl_distance_pct: None,
+        high_24h,
+        low_24h,
+        range_position,
     })
 }
 
@@ -957,16 +1124,26 @@ async fn assess_token_risks(token: &TokenInfo) -> crate::error::Result<RiskAsses
     total_risk += contract_score;
 
     // Check volatility
-    let volatility_score = if token.price_change_24h.unwrap_or(0.0).abs() > 20.0 {
-        risk_factors.push(RiskFactor {
-            category: "Volatility".to_string(),
-            description: "High price volatility detected".to_string(),
-            severity: "Medium".to_string(),
-            impact: 60,
-        });
-        60
-    } else {
-        30
+    let volatility_score = match token.price_change_24h {
+        Some(change) if change.abs() > 20.0 => {
+            risk_factors.push(RiskFactor {
+                category: "Volatility".to_string(),
+                description: "High price volatility detected".to_string(),
+                severity: "Medium".to_string(),
+                impact: 60,
+            });
+            60
+        }
+        Some(_) => 30,  // Normal volatility
+        None => {
+            risk_factors.push(RiskFactor {
+                category: "Data".to_string(),
+                description: "Volatility data unavailable".to_string(),
+                severity: "Low".to_string(),
+                impact: 20,
+            });
+            20
+        }
     };
     total_risk += volatility_score;
 

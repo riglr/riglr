@@ -64,17 +64,21 @@ async fn main() -> anyhow::Result<()> {
     // Get token information from DexScreener
     let token = get_token_info(
         "So11111111111111111111111111111111111112".to_string(), // SOL address
-        None, // Use default chain
+        Some("solana".to_string()), // Chain ID
+        None,  // Include pairs (defaults to true)
+        None,  // Include security info
     ).await?;
     
-    println!("SOL price: ${}", token.price_usd);
+    println!("SOL price: ${:.2}", token.price_usd.unwrap_or(0.0));
     
     // Search the web for market analysis
     let search_results = search_web(
         "Solana ecosystem growth 2024".to_string(),
-        Some(10),
-        Some("auto".to_string()),
-        None,
+        Some(10),         // Max results
+        Some(true),       // Include content
+        None,             // Domain filter
+        None,             // Date filter
+        None,             // Content type filter
     ).await?;
     
     println!("Found {} relevant articles", search_results.results.len());
@@ -139,10 +143,12 @@ Get detailed token information and metrics.
 ```rust
 let token = get_token_info(
     "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48".to_string(), // USDC
-    Some("ethereum".to_string()),
+    Some("ethereum".to_string()),  // Chain ID
+    None,                           // Include pairs
+    None,                           // Include security
 ).await?;
 
-println!("Market cap: ${:.2}M", token.market_cap / 1_000_000.0);
+println!("Market cap: ${:.2}M", token.market_cap.unwrap_or(0.0) / 1_000_000.0);
 ```
 
 #### `search_tokens`
@@ -151,7 +157,10 @@ Search for tokens by name or symbol.
 ```rust
 let results = search_tokens(
     "pepe".to_string(),
-    Some(10),
+    None,       // Chain filter
+    None,       // Min market cap
+    None,       // Min liquidity
+    Some(10),   // Limit
 ).await?;
 ```
 
@@ -160,8 +169,10 @@ Get currently trending tokens across chains.
 
 ```rust
 let trending = get_trending_tokens(
-    Some("solana".to_string()),
-    Some(20),
+    Some("1h".to_string()),        // Time window
+    Some("solana".to_string()),    // Chain filter
+    None,                           // Min volume
+    Some(20),                       // Limit
 ).await?;
 ```
 
@@ -170,8 +181,10 @@ Deep market analysis for a specific token.
 
 ```rust
 let analysis = analyze_token_market(
-    "bonk".to_string(),
-    Some(7), // Days to analyze
+    "bonk".to_string(),             // Token address
+    Some("solana".to_string()),     // Chain ID
+    None,                           // Include technical
+    Some(true),                     // Include risk
 ).await?;
 ```
 
@@ -180,8 +193,11 @@ Get top trading pairs by volume or liquidity.
 
 ```rust
 let pairs = get_top_pairs(
-    Some("ethereum".to_string()),
-    Some(50),
+    Some("24h".to_string()),        // Time window
+    Some("ethereum".to_string()),   // Chain filter
+    None,                           // DEX filter
+    None,                           // Min liquidity
+    Some(50),                       // Limit
 ).await?;
 ```
 
@@ -192,9 +208,11 @@ Fetch latest cryptocurrency news.
 
 ```rust
 let news = get_crypto_news(
-    Some("bitcoin".to_string()), // Topic filter
-    Some(50),                     // Max articles
-    Some(24),                     // Hours back
+    "bitcoin".to_string(),             // Topic (required)
+    Some("24h".to_string()),           // Time window
+    None,                              // Source types
+    Some(70),                          // Min credibility score
+    Some(true),                        // Include analysis
 ).await?;
 
 for article in news.articles {

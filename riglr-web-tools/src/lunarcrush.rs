@@ -188,20 +188,20 @@ pub async fn get_social_sentiment(
     let response_text = client.get_with_params(&url, &params).await?;
 
     let response_data: serde_json::Value = serde_json::from_str(&response_text)
-        .map_err(|e| WebToolError::InvalidResponse(format!("Invalid JSON response: {}", e)))?;
+        .map_err(|e| WebToolError::Parsing(format!("Invalid JSON response: {}", e)))?;
     
     // Extract asset data from the response
     let data = response_data
         .get("data")
-        .ok_or_else(|| WebToolError::InvalidResponse("Missing 'data' field".to_string()))?;
+        .ok_or_else(|| WebToolError::Parsing("Missing 'data' field".to_string()))?;
         
     let assets = data
         .as_array()
-        .ok_or_else(|| WebToolError::InvalidResponse("'data' is not an array".to_string()))?;
+        .ok_or_else(|| WebToolError::Parsing("'data' is not an array".to_string()))?;
         
     let asset = assets
         .first()
-        .ok_or_else(|| WebToolError::InvalidResponse(format!("No data found for symbol {}", symbol)))?;
+        .ok_or_else(|| WebToolError::Parsing(format!("No data found for symbol {}", symbol)))?;
 
     // Parse the asset data
     let social_score = asset.get("galaxy_score").and_then(|v| v.as_f64()).unwrap_or(0.0);
@@ -292,15 +292,15 @@ pub async fn get_trending_cryptos(
     let response_text = client.get_with_params(&url, &params).await?;
 
     let response_data: serde_json::Value = serde_json::from_str(&response_text)
-        .map_err(|e| WebToolError::InvalidResponse(format!("Invalid JSON response: {}", e)))?;
+        .map_err(|e| WebToolError::Parsing(format!("Invalid JSON response: {}", e)))?;
     
     let data = response_data
         .get("data")
-        .ok_or_else(|| WebToolError::InvalidResponse("Missing 'data' field".to_string()))?;
+        .ok_or_else(|| WebToolError::Parsing("Missing 'data' field".to_string()))?;
         
     let assets = data
         .as_array()
-        .ok_or_else(|| WebToolError::InvalidResponse("'data' is not an array".to_string()))?;
+        .ok_or_else(|| WebToolError::Parsing("'data' is not an array".to_string()))?;
 
     let mut trending_cryptos = Vec::new();
     
@@ -392,15 +392,15 @@ pub async fn get_influencer_mentions(
     let response_text = client.get_with_params(&url, &params).await?;
 
     let response_data: serde_json::Value = serde_json::from_str(&response_text)
-        .map_err(|e| WebToolError::InvalidResponse(format!("Invalid JSON response: {}", e)))?;
+        .map_err(|e| WebToolError::Parsing(format!("Invalid JSON response: {}", e)))?;
     
     let data = response_data
         .get("data")
-        .ok_or_else(|| WebToolError::InvalidResponse("Missing 'data' field".to_string()))?;
+        .ok_or_else(|| WebToolError::Parsing("Missing 'data' field".to_string()))?;
         
     let posts = data
         .as_array()
-        .ok_or_else(|| WebToolError::InvalidResponse("'data' is not an array".to_string()))?;
+        .ok_or_else(|| WebToolError::Parsing("'data' is not an array".to_string()))?;
 
     let mut mentions = Vec::new();
     let mut total_sentiment = 0.0;

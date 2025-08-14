@@ -285,11 +285,11 @@ pub async fn analyze_token_holders(
     let response_text = client.get_with_params(&url, &params).await?;
 
     let response_data: serde_json::Value = serde_json::from_str(&response_text)
-        .map_err(|e| WebToolError::InvalidResponse(format!("Invalid JSON response: {}", e)))?;
+        .map_err(|e| WebToolError::Parsing(format!("Invalid JSON response: {}", e)))?;
     
     let data = response_data
         .get("data")
-        .ok_or_else(|| WebToolError::InvalidResponse("Missing 'data' field".to_string()))?;
+        .ok_or_else(|| WebToolError::Parsing("Missing 'data' field".to_string()))?;
 
     // Parse basic token info
     let token_symbol = data.get("symbol").and_then(|v| v.as_str()).unwrap_or("UNKNOWN").to_string();
@@ -432,11 +432,11 @@ pub async fn get_whale_activity(
     let response_text = client.get_with_params(&url, &params).await?;
 
     let response_data: serde_json::Value = serde_json::from_str(&response_text)
-        .map_err(|e| WebToolError::InvalidResponse(format!("Invalid JSON response: {}", e)))?;
+        .map_err(|e| WebToolError::Parsing(format!("Invalid JSON response: {}", e)))?;
     
     let data = response_data
         .get("data")
-        .ok_or_else(|| WebToolError::InvalidResponse("Missing 'data' field".to_string()))?;
+        .ok_or_else(|| WebToolError::Parsing("Missing 'data' field".to_string()))?;
 
     // Parse whale transactions
     let mut whale_transactions = Vec::new();
@@ -534,11 +534,11 @@ pub async fn get_holder_trends(
     let response_text = client.get_with_params(&url, &params).await?;
 
     let response_data: serde_json::Value = serde_json::from_str(&response_text)
-        .map_err(|e| WebToolError::InvalidResponse(format!("Invalid JSON response: {}", e)))?;
+        .map_err(|e| WebToolError::Parsing(format!("Invalid JSON response: {}", e)))?;
     
     let data = response_data
         .get("data")
-        .ok_or_else(|| WebToolError::InvalidResponse("Missing 'data' field".to_string()))?;
+        .ok_or_else(|| WebToolError::Parsing("Missing 'data' field".to_string()))?;
 
     // Parse trend data points
     let mut trend_data_points = Vec::new();

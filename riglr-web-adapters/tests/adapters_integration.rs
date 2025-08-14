@@ -26,8 +26,6 @@ use actix_web::{
     App,
 };
 use futures_util::StreamExt;
-use std::pin::Pin;
-use std::task::{Context, Poll};
 
 /// Mock agent for testing web adapter functionality
 #[derive(Clone)]
@@ -86,8 +84,8 @@ impl TransactionSigner for MockAdapterSigner {
         Ok(format!("evm_tx_{}", self.user_id))
     }
 
-    fn solana_client(&self) -> Arc<solana_client::rpc_client::RpcClient> {
-        Arc::new(solana_client::rpc_client::RpcClient::new("https://api.devnet.solana.com".to_string()))
+    fn solana_client(&self) -> Option<Arc<solana_client::rpc_client::RpcClient>> {
+        Some(Arc::new(solana_client::rpc_client::RpcClient::new("https://api.devnet.solana.com".to_string())))
     }
 
     fn evm_client(&self) -> Result<Arc<dyn EvmClient>, SignerError> {
@@ -137,8 +135,8 @@ async fn test_core_handler_logic_streaming() {
     
     let prompt = PromptRequest {
         text: "Test prompt".to_string(),
-        conversation_id: None,
-        request_id: None,
+        conversation_id: Some("test-conv".to_string()),
+        request_id: Some("test-req".to_string()),
     };
     
     let result = handle_agent_stream(
@@ -150,16 +148,27 @@ async fn test_core_handler_logic_streaming() {
     assert!(result.is_ok());
     let mut stream = result.unwrap();
     
-    let mut chunks = Vec::new();
+    let mut events = Vec::new();
     while let Some(chunk_result) = stream.next().await {
         assert!(chunk_result.is_ok());
-        chunks.push(chunk_result.unwrap());
+        let json_str = chunk_result.unwrap();
+        let event: riglr_web_adapters::core::AgentEvent = serde_json::from_str(&json_str).unwrap();
+        events.push(event);
     }
     
-    assert_eq!(chunks.len(), 3);
-    assert_eq!(chunks[0], "First chunk");
-    assert_eq!(chunks[1], "Second chunk");
-    assert_eq!(chunks[2], "Third chunk");
+    // Should have: Start + 3 Content chunks + Complete = 5 events
+    assert_eq!(events.len(), 5);
+    
+    // First event should be Start
+    assert!(matches!(events[0], riglr_web_adapters::core::AgentEvent::Start { .. }));
+    
+    // Middle events should be Content
+    assert!(matches!(events[1], riglr_web_adapters::core::AgentEvent::Content { ref content, .. } if content == "First chunk"));
+    assert!(matches!(events[2], riglr_web_adapters::core::AgentEvent::Content { ref content, .. } if content == "Second chunk"));
+    assert!(matches!(events[3], riglr_web_adapters::core::AgentEvent::Content { ref content, .. } if content == "Third chunk"));
+    
+    // Last event should be Complete
+    assert!(matches!(events[4], riglr_web_adapters::core::AgentEvent::Complete { .. }));
 }
 
 #[tokio::test]
@@ -289,25 +298,34 @@ async fn test_event_streaming_format() {
     
     let prompt = PromptRequest {
         text: "Test".to_string(),
-        conversation_id: None,
-        request_id: None,
+        conversation_id: Some("test-conv".to_string()),
+        request_id: Some("test-req".to_string()),
     };
     let result = handle_agent_stream(agent, Arc::new(signer), prompt).await;
     assert!(result.is_ok());
     
     let mut stream = result.unwrap();
-    let mut event_count = 0;
+    let mut events = Vec::new();
     
     while let Some(chunk_result) = stream.next().await {
         assert!(chunk_result.is_ok());
-        let chunk = chunk_result.unwrap();
+        let json_str = chunk_result.unwrap();
         
-        // Verify chunk format (in real implementation would be SSE format)
-        assert!(!chunk.is_empty());
-        event_count += 1;
+        // Verify it's valid JSON and can be parsed as AgentEvent
+        assert!(!json_str.is_empty());
+        let event: riglr_web_adapters::core::AgentEvent = serde_json::from_str(&json_str).unwrap();
+        events.push(event);
     }
     
-    assert_eq!(event_count, 3);
+    // Should have: Start + 3 Content chunks + Complete = 5 events
+    assert_eq!(events.len(), 5);
+    
+    // Verify event sequence
+    assert!(matches!(events[0], riglr_web_adapters::core::AgentEvent::Start { .. }));
+    assert!(matches!(events[1], riglr_web_adapters::core::AgentEvent::Content { .. }));
+    assert!(matches!(events[2], riglr_web_adapters::core::AgentEvent::Content { .. }));
+    assert!(matches!(events[3], riglr_web_adapters::core::AgentEvent::Content { .. }));
+    assert!(matches!(events[4], riglr_web_adapters::core::AgentEvent::Complete { .. }));
 }
 
 #[tokio::test]

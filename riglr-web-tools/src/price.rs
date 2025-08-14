@@ -4,6 +4,7 @@
 //! integration. It focuses on finding the most reliable price data by selecting pairs
 //! with highest liquidity for accuracy.
 
+use crate::client::WebClient;
 use riglr_macros::tool;
 use riglr_core::ToolError;
 use serde::{Deserialize, Serialize};
@@ -136,24 +137,16 @@ pub async fn get_token_price(
     
     debug!("Fetching price data from: {}", url);
     
-    // Make HTTP request
-    let client = reqwest::Client::new();
-    let response = client
+    // Use WebClient for HTTP request with retry logic
+    let client = WebClient::new()
+        .map_err(|e| ToolError::retriable(format!("Failed to create client: {}", e)))?;
+    
+    let response_text = client
         .get(&url)
-        .header("User-Agent", "riglr-web-tools/1.0")
-        .send()
         .await
         .map_err(|e| ToolError::retriable(format!("DexScreener request failed: {}", e)))?;
     
-    if !response.status().is_success() {
-        return Err(ToolError::retriable(
-            format!("DexScreener API returned status: {}", response.status())
-        ));
-    }
-    
-    let data: DexScreenerResponse = response
-        .json()
-        .await
+    let data: DexScreenerResponse = serde_json::from_str(&response_text)
         .map_err(|e| ToolError::retriable(format!("Failed to parse response: {}", e)))?;
     
     // Find pair with highest liquidity for most reliable price
