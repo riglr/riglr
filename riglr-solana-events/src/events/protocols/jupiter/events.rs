@@ -15,6 +15,40 @@ use riglr_events_core::{Event, EventKind, EventMetadata as CoreEventMetadata};
 use chrono::{DateTime, Utc};
 use std::collections::HashMap;
 
+/// Parameters for creating event metadata, reducing function parameter count
+#[derive(Debug, Clone)]
+pub struct EventParameters {
+    pub id: String,
+    pub signature: String,
+    pub slot: u64,
+    pub block_time: i64,
+    pub block_time_ms: i64,
+    pub program_received_time_ms: i64,
+    pub index: String,
+}
+
+impl EventParameters {
+    pub fn new(
+        id: String,
+        signature: String,
+        slot: u64,
+        block_time: i64,
+        block_time_ms: i64,
+        program_received_time_ms: i64,
+        index: String,
+    ) -> Self {
+        Self {
+            id,
+            signature,
+            slot,
+            block_time,
+            block_time_ms,
+            program_received_time_ms,
+            index,
+        }
+    }
+}
+
 /// Jupiter swap event
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct JupiterSwapEvent {
@@ -31,25 +65,16 @@ pub struct JupiterSwapEvent {
 }
 
 impl JupiterSwapEvent {
-    pub fn new(
-        id: String,
-        signature: String,
-        slot: u64,
-        block_time: i64,
-        block_time_ms: i64,
-        program_received_time_ms: i64,
-        index: String,
-        swap_data: JupiterSwapData,
-    ) -> Self {
+    pub fn new(params: EventParameters, swap_data: JupiterSwapData) -> Self {
         Self {
-            id,
-            signature,
-            slot,
-            block_time,
-            block_time_ms,
-            program_received_time_ms,
+            id: params.id,
+            signature: params.signature,
+            slot: params.slot,
+            block_time: params.block_time,
+            block_time_ms: params.block_time_ms,
+            program_received_time_ms: params.program_received_time_ms,
             program_handle_time_consuming_ms: 0,
-            index,
+            index: params.index,
             swap_data,
             transfer_data: Vec::new(),
         }

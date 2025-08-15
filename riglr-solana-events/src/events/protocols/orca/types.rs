@@ -92,7 +92,7 @@ pub struct OrcaPositionData {
 }
 
 /// Position reward information
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
 pub struct PositionRewardInfo {
     pub growth_inside_checkpoint: u128,
     pub amount_owed: u64,
