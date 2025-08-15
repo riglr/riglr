@@ -29,11 +29,11 @@ fn test_rate_limit_error() {
 
 #[test]
 fn test_invalid_response_error() {
-    let error = WebToolError::InvalidResponse("Unexpected JSON structure".to_string());
-    assert!(matches!(error, WebToolError::InvalidResponse(_)));
+    let error = WebToolError::Parsing("Unexpected JSON structure".to_string());
+    assert!(matches!(error, WebToolError::Parsing(_)));
     assert_eq!(
         error.to_string(),
-        "Invalid response: Unexpected JSON structure"
+        "Parsing error: Unexpected JSON structure"
     );
 }
 
@@ -63,9 +63,9 @@ fn test_core_error() {
 
 #[test]
 fn test_generic_error() {
-    let error = WebToolError::Generic("Something went wrong".to_string());
-    assert!(matches!(error, WebToolError::Generic(_)));
-    assert_eq!(error.to_string(), "Error: Something went wrong");
+    let error = WebToolError::Api("Something went wrong".to_string());
+    assert!(matches!(error, WebToolError::Api(_)));
+    assert_eq!(error.to_string(), "API error: Something went wrong");
 }
 
 #[test]
@@ -79,7 +79,7 @@ fn test_error_result_type() {
     assert_eq!(result.unwrap(), "success");
 
     fn returns_error() -> Result<String> {
-        Err(WebToolError::Generic("failed".to_string()))
+        Err(WebToolError::Api("failed".to_string()))
     }
 
     let result = returns_error();
@@ -100,8 +100,8 @@ fn test_error_variants() {
     let errors = vec![
         WebToolError::Auth("auth".to_string()),
         WebToolError::RateLimit("rate".to_string()),
-        WebToolError::InvalidResponse("response".to_string()),
-        WebToolError::Generic("generic".to_string()),
+        WebToolError::Parsing("response".to_string()),
+        WebToolError::Api("generic".to_string()),
     ];
 
     for error in errors {
@@ -127,7 +127,7 @@ fn test_result_mapping() {
     let mapped = ok_result.map(|x| x * 2);
     assert_eq!(mapped.unwrap(), 84);
 
-    let err_result: Result<i32> = Err(WebToolError::Generic("error".to_string()));
+    let err_result: Result<i32> = Err(WebToolError::Api("error".to_string()));
     let mapped = err_result.map(|x| x * 2);
     assert!(mapped.is_err());
 }
@@ -152,10 +152,10 @@ fn test_error_display() {
         ),
         (WebToolError::RateLimit("limit".to_string()), "Rate limit"),
         (
-            WebToolError::InvalidResponse("bad".to_string()),
-            "Invalid response",
+            WebToolError::Parsing("bad".to_string()),
+            "Parsing",
         ),
-        (WebToolError::Generic("gen".to_string()), "Error:"),
+        (WebToolError::Api("gen".to_string()), "API error"),
     ];
 
     for (error, expected_prefix) in test_cases {

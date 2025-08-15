@@ -123,7 +123,7 @@ pub async fn get_token_price(
 
     // Validate token address format
     if token_address.is_empty() {
-        return Err(ToolError::invalid_input("Token address cannot be empty"));
+        return Err(ToolError::invalid_input_string("Token address cannot be empty"));
     }
 
     // Build query string
@@ -139,15 +139,15 @@ pub async fn get_token_price(
     
     // Use WebClient for HTTP request with retry logic
     let client = WebClient::new()
-        .map_err(|e| ToolError::retriable(format!("Failed to create client: {}", e)))?;
+        .map_err(|e| ToolError::retriable_string(format!("Failed to create client: {}", e)))?;
     
     let response_text = client
         .get(&url)
         .await
-        .map_err(|e| ToolError::retriable(format!("DexScreener request failed: {}", e)))?;
+        .map_err(|e| ToolError::retriable_string(format!("DexScreener request failed: {}", e)))?;
     
     let data: DexScreenerResponse = serde_json::from_str(&response_text)
-        .map_err(|e| ToolError::retriable(format!("Failed to parse response: {}", e)))?;
+        .map_err(|e| ToolError::retriable_string(format!("Failed to parse response: {}", e)))?;
     
     // Find pair with highest liquidity for most reliable price
     let best_pair = data
@@ -173,11 +173,11 @@ pub async fn get_token_price(
                     })
             }
         })
-        .ok_or_else(|| ToolError::permanent("No trading pairs found for token"))?;
+        .ok_or_else(|| ToolError::permanent_string("No trading pairs found for token"))?;
     
     let price = best_pair
         .price_usd
-        .ok_or_else(|| ToolError::permanent("No price data available"))?;
+        .ok_or_else(|| ToolError::permanent_string("No price data available"))?;
     
     let result = TokenPriceResult {
         token_address: token_address.clone(),
@@ -247,7 +247,7 @@ pub async fn get_token_prices_batch(
     chain: Option<String>,
 ) -> Result<Vec<TokenPriceResult>, ToolError> {
     if token_addresses.is_empty() {
-        return Err(ToolError::invalid_input("Token addresses list cannot be empty"));
+        return Err(ToolError::invalid_input_string("Token addresses list cannot be empty"));
     }
 
     debug!("Getting batch prices for {} tokens", token_addresses.len());

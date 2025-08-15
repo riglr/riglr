@@ -1055,7 +1055,7 @@ async fn analyze_price_levels(token: &TokenInfo) -> crate::error::Result<PriceLe
     // Try to estimate 24h high/low from price and price change
     let (high_24h, low_24h, range_position) = if let Some(price) = token.price_usd {
         // If we have price change %, estimate the range
-        let estimated_range = match token.price_change_24h {
+        match token.price_change_24h {
             Some(change_pct) => {
                 // Rough estimate: if price went up X%, low was price/(1+X/100)
                 let change_factor = 1.0 + (change_pct / 100.0);
@@ -1068,8 +1068,7 @@ async fn analyze_price_levels(token: &TokenInfo) -> crate::error::Result<PriceLe
                 }
             }
             None => (None, None, None)
-        };
-        estimated_range
+        }
     } else {
         (None, None, None)
     };
