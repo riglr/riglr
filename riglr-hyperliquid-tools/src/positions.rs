@@ -57,7 +57,7 @@ pub async fn get_hyperliquid_positions() -> Result<Vec<HyperliquidPosition>, Too
 
     // Get signer context
     let signer = SignerContext::current().await
-        .map_err(|e| ToolError::permanent(format!("No signer context: {}", e)))?;
+        .map_err(|e| ToolError::permanent_string(format!("No signer context: {}", e)))?;
     
     // Create client
     let client = HyperliquidClient::new(signer)?;
@@ -175,22 +175,22 @@ pub async fn close_hyperliquid_position(
     let position = positions.iter()
         .find(|p| p.symbol.eq_ignore_ascii_case(&symbol) || 
                   p.symbol.eq_ignore_ascii_case(&format!("{}-PERP", symbol)))
-        .ok_or_else(|| ToolError::permanent(format!("No open position found for {}", symbol)))?;
+        .ok_or_else(|| ToolError::permanent_string(format!("No open position found for {}", symbol)))?;
 
     let current_size = position.size.parse::<f64>()
-        .map_err(|e| ToolError::permanent(format!("Invalid position size: {}", e)))?;
+        .map_err(|e| ToolError::permanent_string(format!("Invalid position size: {}", e)))?;
 
     if current_size == 0.0 {
-        return Err(ToolError::permanent(format!("No open position for {}", symbol)));
+        return Err(ToolError::permanent_string(format!("No open position for {}", symbol)));
     }
 
     // Determine close size
     let close_size = if let Some(size_str) = size {
         let requested_size = size_str.parse::<f64>()
-            .map_err(|e| ToolError::permanent(format!("Invalid size '{}': {}", size_str, e)))?;
+            .map_err(|e| ToolError::permanent_string(format!("Invalid size '{}': {}", size_str, e)))?;
         
         if requested_size > current_size.abs() {
-            return Err(ToolError::permanent(format!(
+            return Err(ToolError::permanent_string(format!(
                 "Requested close size {} exceeds position size {}", 
                 requested_size, current_size.abs()
             )));
