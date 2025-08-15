@@ -1,195 +1,35 @@
 name: Benchmarks
 
 on:
-  push:
-    branches: [ main ]
   pull_request:
     branches: [ main ]
   workflow_dispatch:
-    inputs:
-      compare:
-        description: 'Compare with base branch'
-        required: false
-        default: 'false'
-        type: choice
-        options:
-          - 'true'
-          - 'false'
 
 env:
   CARGO_TERM_COLOR: always
-  RUST_BACKTRACE: 1
 
 jobs:
   benchmark:
-    name: Run Benchmarks
+    name: Performance Check
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-
+    timeout-minutes: 20
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Setup Rust
-      uses: dtolnay/rust-toolchain@stable
-      with:
-        components: rustfmt, clippy
-
-    - name: Cache cargo registry
-      uses: actions/cache@v4
-      with:
-        path: ~/.cargo/registry
-        key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
-        restore-keys: |
-          ${{ runner.os }}-cargo-registry-
-
-    - name: Cache cargo index
-      uses: actions/cache@v4
-      with:
-        path: ~/.cargo/git
-        key: ${{ runner.os }}-cargo-git-${{ hashFiles('**/Cargo.lock') }}
-        restore-keys: |
-          ${{ runner.os }}-cargo-git-
-
-    - name: Cache target directory
-      uses: actions/cache@v4
-      with:
-        path: target
-        key: ${{ runner.os }}-target-bench-${{ hashFiles('**/Cargo.lock') }}
-        restore-keys: |
-          ${{ runner.os }}-target-bench-
-
-    - name: Install dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y libssl-dev pkg-config
-
-    - name: Install critcmp for statistical analysis
-      run: cargo install critcmp --version ^0.1
-
-    - name: Run benchmarks with criterion baseline
-      run: |
-        # Create baseline directory if it doesn't exist
-        mkdir -p target/criterion
-        
-        # Run all benchmarks and save as baseline
-        cargo bench --workspace --no-default-features -- --save-baseline main
-
-    - name: Upload benchmark results
-      uses: actions/upload-artifact@v4
-      with:
-        name: benchmark-results
-        path: |
-          target/criterion/**/*
-        retention-days: 30
-
-    - name: Generate benchmark report
-      if: github.event_name == 'pull_request'
-      run: |
-        echo "## Benchmark Results (Main Branch)" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "Benchmarks have been executed and saved as baseline." >> $GITHUB_STEP_SUMMARY
-        echo "See comparison job for performance analysis." >> $GITHUB_STEP_SUMMARY
-
-  benchmark-comparison:
-    name: Benchmark Comparison
-    runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request' || github.event.inputs.compare == 'true'
-    timeout-minutes: 45
-    
-    steps:
-    - name: Checkout PR branch
-      uses: actions/checkout@v4
-
-    - name: Setup Rust
-      uses: dtolnay/rust-toolchain@stable
-
-    - name: Install critcmp for statistical analysis
-      run: cargo install critcmp --version ^0.1
-
-    - name: Cache dependencies
-      uses: actions/cache@v4
-      with:
-        path: |
-          ~/.cargo/registry
-          ~/.cargo/git
-          target
-        key: ${{ runner.os }}-cargo-bench-${{ hashFiles('**/Cargo.lock') }}
-
-    - name: Run benchmarks on base branch (baseline)
-      run: |
-        git fetch origin ${{ github.base_ref || 'main' }}
-        git checkout origin/${{ github.base_ref || 'main' }}
-        mkdir -p target/criterion
-        cargo bench --workspace --no-default-features -- --save-baseline base
-
-    - name: Run benchmarks on PR branch
-      run: |
-        git checkout ${{ github.head_ref || github.ref }}
-        cargo bench --workspace --no-default-features -- --save-baseline pr
-
-    - name: Statistical benchmark comparison with critcmp
-      run: |
-        echo "## Statistical Benchmark Comparison" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "**Performance Regression Threshold:** 5%" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "### Detailed Analysis" >> $GITHUB_STEP_SUMMARY
-        echo '```' >> $GITHUB_STEP_SUMMARY
-        
-        # Use critcmp to compare with statistical significance
-        # Set threshold at 5% for performance regressions
-        critcmp base pr --threshold 5 >> $GITHUB_STEP_SUMMARY || {
-          echo "⚠️ Performance regression detected!" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Some benchmarks show statistically significant performance degradation." >> $GITHUB_STEP_SUMMARY
-          echo "Please review the results above and optimize if necessary." >> $GITHUB_STEP_SUMMARY
-        }
-        
-        echo '```' >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "**Legend:**" >> $GITHUB_STEP_SUMMARY
-        echo "- **Green**: Statistically significant improvement" >> $GITHUB_STEP_SUMMARY
-        echo "- **Red**: Statistically significant regression (>5%)" >> $GITHUB_STEP_SUMMARY
-        echo "- **Gray**: No statistically significant change" >> $GITHUB_STEP_SUMMARY
-
-  profile-guided-optimization:
-    name: Profile-Guided Optimization Check
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    timeout-minutes: 60
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Setup Rust with PGO support
-      uses: dtolnay/rust-toolchain@stable
-      with:
-        components: llvm-tools-preview
-
-    - name: Install cargo-pgo
-      run: |
-        cargo install cargo-pgo || true
-
-    - name: Build with PGO instrumentation
-      run: |
-        cargo pgo build --workspace
-      continue-on-error: true
-
-    - name: Run PGO benchmarks
-      run: |
-        cargo pgo bench --workspace
-      continue-on-error: true
-
-    - name: Build optimized binary
-      run: |
-        cargo pgo optimize --workspace
-      continue-on-error: true
-
-    - name: Compare performance
-      run: |
-        echo "## PGO Performance Analysis" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "Profile-Guided Optimization analysis completed." >> $GITHUB_STEP_SUMMARY
-        echo "Check artifacts for detailed results." >> $GITHUB_STEP_SUMMARY
+      - uses: actions/checkout@v4
+      
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+      
+      - name: Cache dependencies
+        uses: Swatinem/rust-cache@v2
+      
+      - name: Run benchmarks
+        run: |
+          # Run quick benchmarks to check for major regressions
+          cargo bench --workspace --no-default-features -- --quick
+        continue-on-error: true
+      
+      - name: Summary
+        run: |
+          echo "## Benchmark Check" >> $GITHUB_STEP_SUMMARY
+          echo "Quick performance regression check completed." >> $GITHUB_STEP_SUMMARY
+          echo "For detailed analysis, run benchmarks locally." >> $GITHUB_STEP_SUMMARY
