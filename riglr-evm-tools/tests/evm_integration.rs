@@ -4,7 +4,6 @@ use riglr_evm_tools::{
 };
 use riglr_core::{
     signer::{SignerContext, TransactionSigner, SignerError},
-    error::ToolError,
 };
 use std::sync::Arc;
 use alloy::{
@@ -54,8 +53,8 @@ impl TransactionSigner for MockEvmSigner {
         Ok(tx_hash)
     }
 
-    fn solana_client(&self) -> Arc<solana_client::rpc_client::RpcClient> {
-        Arc::new(solana_client::rpc_client::RpcClient::new("https://api.devnet.solana.com".to_string()))
+    fn solana_client(&self) -> Option<Arc<solana_client::rpc_client::RpcClient>> {
+        None
     }
 
     fn evm_client(&self) -> Result<Arc<dyn riglr_core::signer::EvmClient>, SignerError> {

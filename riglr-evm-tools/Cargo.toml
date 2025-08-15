@@ -48,7 +48,7 @@ tokio-test = { workspace = true }
 tracing-subscriber = { workspace = true }
 mockito = "1.0"
 criterion = { workspace = true }
-riglr-showcase = { path = "../riglr-showcase" }
+# riglr-showcase = { path = "../riglr-showcase" }  # REMOVED - unnecessary dev dependency
 solana-client = { workspace = true }
 solana-sdk = { workspace = true }
 futures = "0.3"
