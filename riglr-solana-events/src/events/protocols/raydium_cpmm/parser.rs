@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use riglr_events_core::Event;
 
 use borsh::BorshDeserialize;
 use solana_sdk::{instruction::CompiledInstruction, pubkey::Pubkey};
@@ -6,7 +7,7 @@ use solana_transaction_status::UiCompiledInstruction;
 
 use crate::events::{
     common::{EventMetadata, EventType, ProtocolType},
-    core::traits::{EventParser, GenericEventParseConfig, GenericEventParser, UnifiedEvent},
+    core::traits::{EventParser, GenericEventParseConfig, GenericEventParser},
     protocols::raydium_cpmm::{
         discriminators, RaydiumCpmmSwapEvent, RaydiumCpmmDepositEvent,
     },
@@ -67,7 +68,7 @@ impl RaydiumCpmmEventParser {
     fn parse_swap_inner_instruction(
         data: &[u8],
         metadata: EventMetadata,
-    ) -> Option<Box<dyn UnifiedEvent>> {
+    ) -> Option<Box<dyn Event>> {
         // Parse the swap event using borsh deserialization
         if let Ok(event) = RaydiumCpmmSwapEvent::try_from_slice(data) {
             let mut metadata = metadata;
@@ -82,7 +83,7 @@ impl RaydiumCpmmEventParser {
     fn parse_deposit_inner_instruction(
         data: &[u8],
         metadata: EventMetadata,
-    ) -> Option<Box<dyn UnifiedEvent>> {
+    ) -> Option<Box<dyn Event>> {
         // Parse the deposit event using borsh deserialization
         if let Ok(event) = RaydiumCpmmDepositEvent::try_from_slice(data) {
             let mut metadata = metadata;
@@ -98,7 +99,7 @@ impl RaydiumCpmmEventParser {
         data: &[u8],
         accounts: &[Pubkey],
         metadata: EventMetadata,
-    ) -> Option<Box<dyn UnifiedEvent>> {
+    ) -> Option<Box<dyn Event>> {
         if data.len() < 16 || accounts.len() < 10 {
             return None;
         }
@@ -133,7 +134,7 @@ impl RaydiumCpmmEventParser {
         data: &[u8],
         accounts: &[Pubkey],
         metadata: EventMetadata,
-    ) -> Option<Box<dyn UnifiedEvent>> {
+    ) -> Option<Box<dyn Event>> {
         if data.len() < 16 || accounts.len() < 10 {
             return None;
         }
@@ -168,7 +169,7 @@ impl RaydiumCpmmEventParser {
         data: &[u8],
         accounts: &[Pubkey],
         metadata: EventMetadata,
-    ) -> Option<Box<dyn UnifiedEvent>> {
+    ) -> Option<Box<dyn Event>> {
         if data.len() < 24 || accounts.len() < 8 {
             return None;
         }
@@ -210,7 +211,7 @@ impl EventParser for RaydiumCpmmEventParser {
         block_time: Option<i64>,
         program_received_time_ms: i64,
         index: String,
-    ) -> Vec<Box<dyn UnifiedEvent>> {
+    ) -> Vec<Box<dyn Event>> {
         self.inner.parse_events_from_inner_instruction(
             inner_instruction,
             signature,
@@ -230,7 +231,7 @@ impl EventParser for RaydiumCpmmEventParser {
         block_time: Option<i64>,
         program_received_time_ms: i64,
         index: String,
-    ) -> Vec<Box<dyn UnifiedEvent>> {
+    ) -> Vec<Box<dyn Event>> {
         self.inner.parse_events_from_instruction(
             instruction,
             accounts,

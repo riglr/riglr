@@ -8,7 +8,7 @@ use borsh::{BorshDeserialize, BorshSerialize};
 use solana_sdk::pubkey::Pubkey;
 use crate::zero_copy::{ByteSliceEventParser, ParseError, CustomDeserializer, ZeroCopyEvent};
 use crate::types::{EventMetadata, EventType, ProtocolType};
-use crate::events::core::traits::UnifiedEvent;
+// UnifiedEvent trait has been removed
 
 /// Raydium AMM V4 program ID
 pub const RAYDIUM_AMM_V4_PROGRAM_ID: &str = "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8";
@@ -98,9 +98,16 @@ pub struct WithdrawInstruction {
 /// High-performance Raydium V4 parser
 pub struct RaydiumV4Parser {
     /// Program ID for validation
+    #[allow(dead_code)]
     program_id: Pubkey,
     /// Enable zero-copy parsing
     zero_copy: bool,
+}
+
+impl Default for RaydiumV4Parser {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl RaydiumV4Parser {

@@ -1,9 +1,13 @@
 use borsh::BorshDeserialize;
 use serde::{Deserialize, Serialize};
 use solana_sdk::pubkey::Pubkey;
+use riglr_events_core::{Event, EventKind, EventMetadata as CoreEventMetadata};
+use std::any::Any;
+use chrono::{DateTime, Utc};
+use std::collections::HashMap;
 
 use crate::types::EventMetadata;
-use crate::impl_unified_event;
+// UnifiedEvent trait removed - events now implement Event trait directly
 
 /// Raydium CPMM Swap event
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, BorshDeserialize)]
@@ -25,79 +29,49 @@ pub struct RaydiumCpmmSwapEvent {
     pub transfer_fee: u64,
 }
 
-// Custom implementation to handle merge logic properly
-impl crate::events::core::traits::UnifiedEvent for RaydiumCpmmSwapEvent {
+// Event trait implementation for RaydiumCpmmSwapEvent
+impl Event for RaydiumCpmmSwapEvent {
     fn id(&self) -> &str {
         &self.metadata.id
     }
 
-    fn event_type(&self) -> crate::types::EventType {
-        self.metadata.event_type.clone()
+    fn kind(&self) -> &EventKind {
+        &EventKind::Swap
     }
 
-    fn signature(&self) -> &str {
-        &self.metadata.signature
+    fn metadata(&self) -> &CoreEventMetadata {
+        use once_cell::sync::Lazy;
+        static DEFAULT_METADATA: Lazy<CoreEventMetadata> = Lazy::new(|| {
+            CoreEventMetadata {
+                id: String::new(),
+                kind: EventKind::Swap,
+                timestamp: DateTime::<Utc>::MIN_UTC,
+                received_at: DateTime::<Utc>::MIN_UTC,
+                source: String::from("solana"),
+                chain_data: None,
+                custom: HashMap::new(),
+            }
+        });
+        &DEFAULT_METADATA
     }
 
-    fn slot(&self) -> u64 {
-        self.metadata.slot
+    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
+        // This would need proper implementation with actual mutable metadata storage
+        unimplemented!("Mutable metadata not yet implemented")
     }
 
-    fn program_received_time_ms(&self) -> i64 {
-        self.metadata.program_received_time_ms
-    }
-    
-    fn program_handle_time_consuming_ms(&self) -> i64 {
-        self.metadata.program_handle_time_consuming_ms
-    }
 
-    fn set_program_handle_time_consuming_ms(&mut self, time: i64) {
-        self.metadata.program_handle_time_consuming_ms = time;
-    }
 
-    fn as_any(&self) -> &dyn std::any::Any {
+    fn as_any(&self) -> &dyn Any {
         self
     }
 
-    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+    fn as_any_mut(&mut self) -> &mut dyn Any {
         self
     }
 
-    fn clone_boxed(&self) -> Box<dyn crate::events::core::traits::UnifiedEvent> {
+    fn clone_boxed(&self) -> Box<dyn Event> {
         Box::new(self.clone())
-    }
-
-    /// Custom merge implementation that only fills missing values
-    fn merge(&mut self, other: Box<dyn crate::events::core::traits::UnifiedEvent>) {
-        if let Some(other_event) = other.as_any().downcast_ref::<RaydiumCpmmSwapEvent>() {
-            // Only update amount_out if it's currently 0 and the other has a value
-            if self.amount_out == 0 && other_event.amount_out > 0 {
-                self.amount_out = other_event.amount_out;
-            }
-            // Only update amount_in if it's currently 0 and the other has a value
-            if self.amount_in == 0 && other_event.amount_in > 0 {
-                self.amount_in = other_event.amount_in;
-            }
-            // Always update fees from log data if available
-            if other_event.trade_fee > 0 {
-                self.trade_fee = other_event.trade_fee;
-            }
-            if other_event.transfer_fee > 0 {
-                self.transfer_fee = other_event.transfer_fee;
-            }
-        }
-    }
-
-    fn set_transfer_data(&mut self, _transfer_data: Vec<crate::types::TransferData>, _swap_data: Option<crate::types::SwapData>) {
-        // Implementation can be extended as needed
-    }
-
-    fn index(&self) -> String {
-        self.metadata.index.clone()
-    }
-
-    fn protocol_type(&self) -> crate::types::ProtocolType {
-        self.metadata.protocol_type.clone()
     }
 }
 
@@ -114,7 +88,51 @@ pub struct RaydiumCpmmDepositEvent {
     pub token_1_amount: u64,
 }
 
-impl_unified_event!(RaydiumCpmmDepositEvent);
+// Event trait implementation for RaydiumCpmmDepositEvent
+impl Event for RaydiumCpmmDepositEvent {
+    fn id(&self) -> &str {
+        &self.metadata.id
+    }
+
+    fn kind(&self) -> &EventKind {
+        &EventKind::Liquidity
+    }
+
+    fn metadata(&self) -> &CoreEventMetadata {
+        use once_cell::sync::Lazy;
+        static DEFAULT_METADATA: Lazy<CoreEventMetadata> = Lazy::new(|| {
+            CoreEventMetadata {
+                id: String::new(),
+                kind: EventKind::Liquidity,
+                timestamp: DateTime::<Utc>::MIN_UTC,
+                received_at: DateTime::<Utc>::MIN_UTC,
+                source: String::from("solana"),
+                chain_data: None,
+                custom: HashMap::new(),
+            }
+        });
+        &DEFAULT_METADATA
+    }
+
+    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
+        // This would need proper implementation with actual mutable metadata storage
+        unimplemented!("Mutable metadata not yet implemented")
+    }
+
+
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
+    fn clone_boxed(&self) -> Box<dyn Event> {
+        Box::new(self.clone())
+    }
+}
 
 /// Event discriminator constants
 pub mod discriminators {

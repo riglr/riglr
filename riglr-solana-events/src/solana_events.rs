@@ -7,8 +7,8 @@ use std::any::Any;
 use std::time::SystemTime;
 use serde::{Deserialize, Serialize};
 use chrono::Utc;
-use crate::events::core::traits::UnifiedEvent;
-use crate::types::{EventMetadata, EventType, ProtocolType, TransferData, SwapData};
+// UnifiedEvent trait has been removed
+use crate::types::{EventMetadata, EventType, ProtocolType, TransferData};
 use riglr_events_core::prelude::*;
 
 /// A wrapper that implements both UnifiedEvent and Event traits for seamless migration
@@ -75,80 +75,6 @@ impl SolanaEvent {
     }
 }
 
-// Implement the legacy UnifiedEvent trait for backward compatibility
-impl UnifiedEvent for SolanaEvent {
-    fn id(&self) -> &str {
-        &self.legacy_metadata.id
-    }
-
-    fn event_type(&self) -> EventType {
-        self.legacy_metadata.event_type.clone()
-    }
-
-    fn signature(&self) -> &str {
-        &self.legacy_metadata.signature
-    }
-
-    fn slot(&self) -> u64 {
-        self.legacy_metadata.slot
-    }
-
-    fn program_received_time_ms(&self) -> i64 {
-        self.legacy_metadata.program_received_time_ms
-    }
-
-    fn program_handle_time_consuming_ms(&self) -> i64 {
-        self.legacy_metadata.program_handle_time_consuming_ms
-    }
-
-    fn set_program_handle_time_consuming_ms(&mut self, time: i64) {
-        self.legacy_metadata.program_handle_time_consuming_ms = time;
-    }
-
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    fn as_any_mut(&mut self) -> &mut dyn Any {
-        self
-    }
-
-    fn clone_boxed(&self) -> Box<dyn UnifiedEvent> {
-        Box::new(self.clone())
-    }
-
-    fn set_transfer_data(&mut self, transfer_data: Vec<TransferData>, swap_data: Option<SwapData>) {
-        self.transfer_data = transfer_data;
-        
-        // Update the data payload with swap information if provided
-        if let Some(swap_data) = swap_data {
-            if let Ok(mut data_obj) = serde_json::from_value::<serde_json::Map<String, serde_json::Value>>(self.data.clone()) {
-                data_obj.insert("swap_data".to_string(), serde_json::to_value(swap_data).unwrap_or(serde_json::Value::Null));
-                self.data = serde_json::Value::Object(data_obj);
-            }
-        }
-    }
-
-    fn index(&self) -> String {
-        self.legacy_metadata.index.clone()
-    }
-
-    fn protocol_type(&self) -> ProtocolType {
-        self.legacy_metadata.protocol_type.clone()
-    }
-
-    fn timestamp(&self) -> SystemTime {
-        SystemTime::UNIX_EPOCH + std::time::Duration::from_millis(self.legacy_metadata.program_received_time_ms as u64)
-    }
-
-    fn transaction_hash(&self) -> Option<String> {
-        Some(self.legacy_metadata.signature.clone())
-    }
-
-    fn block_number(&self) -> Option<u64> {
-        Some(self.legacy_metadata.slot)
-    }
-}
 
 // Implement the new Event trait from riglr-events-core
 impl riglr_events_core::traits::Event for SolanaEvent {
@@ -353,11 +279,11 @@ mod tests {
 
         let event = SolanaEvent::new(legacy_metadata.clone(), event_data.clone());
 
-        // Test UnifiedEvent interface
-        assert_eq!(UnifiedEvent::id(&event), "test-event");
-        assert_eq!(event.event_type(), EventType::Swap);
-        assert_eq!(event.signature(), "signature123");
-        assert_eq!(event.slot(), 12345);
+        // Test legacy fields
+        assert_eq!(event.legacy_metadata.id, "test-event");
+        assert_eq!(event.legacy_metadata.event_type, EventType::Swap);
+        assert_eq!(event.legacy_metadata.signature, "signature123");
+        assert_eq!(event.legacy_metadata.slot, 12345);
 
         // Test Event interface  
         assert_eq!(riglr_events_core::traits::Event::id(&event), "test-event");
@@ -388,11 +314,11 @@ mod tests {
             900000,
         );
 
-        assert_eq!(UnifiedEvent::id(&event), "swap-test");
-        assert_eq!(event.event_type(), EventType::Swap);
-        assert_eq!(event.signature(), "sig456");
-        assert_eq!(event.slot(), 67890);
-        assert_eq!(event.protocol_type(), ProtocolType::RaydiumAmmV4);
+        assert_eq!(event.legacy_metadata.id, "swap-test");
+        assert_eq!(event.legacy_metadata.event_type, EventType::Swap);
+        assert_eq!(event.legacy_metadata.signature, "sig456");
+        assert_eq!(event.legacy_metadata.slot, 67890);
+        assert_eq!(event.legacy_metadata.protocol_type, ProtocolType::RaydiumAmmV4);
 
         let swap_data = event.extract_data::<serde_json::Value>().unwrap();
         assert_eq!(swap_data["amount_in"], 1000000);
@@ -419,10 +345,10 @@ mod tests {
             250000,
         );
 
-        assert_eq!(UnifiedEvent::id(&event), "liq-test");
-        assert_eq!(event.event_type(), EventType::AddLiquidity);
-        assert_eq!(event.signature(), "sig789");
-        assert_eq!(event.slot(), 11111);
+        assert_eq!(event.legacy_metadata.id, "liq-test");
+        assert_eq!(event.legacy_metadata.event_type, EventType::AddLiquidity);
+        assert_eq!(event.legacy_metadata.signature, "sig789");
+        assert_eq!(event.legacy_metadata.slot, 11111);
 
         let liq_data = event.extract_data::<serde_json::Value>().unwrap();
         assert_eq!(liq_data["is_add"], true);
@@ -455,20 +381,16 @@ mod tests {
             }
         ];
 
-        let swap_data = SwapData {
+        let _swap_data = crate::SwapData {
             input_mint: solana_sdk::pubkey::Pubkey::new_unique(),
             output_mint: solana_sdk::pubkey::Pubkey::new_unique(),
             amount_in: 1000000,
             amount_out: 900000,
         };
 
-        // Test UnifiedEvent interface
-        event.set_transfer_data(transfer_data.clone(), Some(swap_data));
+        // Test transfer data assignment
+        event.transfer_data = transfer_data.clone();
         assert_eq!(event.transfer_data.len(), 1);
-
-        // Verify swap data was added to the event data
-        let event_data = event.extract_data::<serde_json::Value>().unwrap();
-        assert!(event_data.get("swap_data").is_some());
     }
 
     #[test]

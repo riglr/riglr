@@ -1,10 +1,13 @@
 use std::any::Any;
 use serde::{Deserialize, Serialize};
 use crate::{
-    events::core::UnifiedEvent,
-    types::{EventType, ProtocolType, TransferData, SwapData},
+    // UnifiedEvent removed - using Event trait from riglr_events_core
+    types::{TransferData},
 };
 use super::types::{OrcaSwapData, OrcaPositionData, OrcaLiquidityData};
+
+// Import new Event trait from riglr-events-core
+use riglr_events_core::{Event, EventKind, EventMetadata as CoreEventMetadata};
 
 /// Orca Whirlpool swap event
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -19,6 +22,8 @@ pub struct OrcaSwapEvent {
     pub index: String,
     pub swap_data: OrcaSwapData,
     pub transfer_data: Vec<TransferData>,
+    #[serde(skip)]
+    pub core_metadata: Option<CoreEventMetadata>,
 }
 
 impl OrcaSwapEvent {
@@ -43,6 +48,7 @@ impl OrcaSwapEvent {
             index,
             swap_data,
             transfer_data: Vec::new(),
+            core_metadata: None,
         }
     }
 
@@ -52,70 +58,6 @@ impl OrcaSwapEvent {
     }
 }
 
-impl UnifiedEvent for OrcaSwapEvent {
-    fn id(&self) -> &str {
-        &self.id
-    }
-
-    fn event_type(&self) -> EventType {
-        EventType::Swap
-    }
-
-    fn signature(&self) -> &str {
-        &self.signature
-    }
-
-    fn slot(&self) -> u64 {
-        self.slot
-    }
-
-    fn program_received_time_ms(&self) -> i64 {
-        self.program_received_time_ms
-    }
-
-    fn program_handle_time_consuming_ms(&self) -> i64 {
-        self.program_handle_time_consuming_ms
-    }
-
-    fn set_program_handle_time_consuming_ms(&mut self, program_handle_time_consuming_ms: i64) {
-        self.program_handle_time_consuming_ms = program_handle_time_consuming_ms;
-    }
-
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    fn as_any_mut(&mut self) -> &mut dyn Any {
-        self
-    }
-
-    fn clone_boxed(&self) -> Box<dyn UnifiedEvent> {
-        Box::new(self.clone())
-    }
-
-    fn set_transfer_data(&mut self, transfer_data: Vec<TransferData>, swap_data: Option<SwapData>) {
-        self.transfer_data = transfer_data;
-        if let Some(swap_data) = swap_data {
-            if self.swap_data.a_to_b {
-                self.swap_data.token_mint_a = swap_data.input_mint;
-                self.swap_data.token_mint_b = swap_data.output_mint;
-            } else {
-                self.swap_data.token_mint_a = swap_data.output_mint;
-                self.swap_data.token_mint_b = swap_data.input_mint;
-            }
-            self.swap_data.amount_in = swap_data.amount_in;
-            self.swap_data.amount_out = swap_data.amount_out;
-        }
-    }
-
-    fn index(&self) -> String {
-        self.index.clone()
-    }
-
-    fn protocol_type(&self) -> ProtocolType {
-        ProtocolType::OrcaWhirlpool
-    }
-}
 
 /// Orca position event (open/close)
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -131,65 +73,10 @@ pub struct OrcaPositionEvent {
     pub position_data: OrcaPositionData,
     pub is_open: bool,
     pub transfer_data: Vec<TransferData>,
+    #[serde(skip)]
+    pub core_metadata: Option<CoreEventMetadata>,
 }
 
-impl UnifiedEvent for OrcaPositionEvent {
-    fn id(&self) -> &str {
-        &self.id
-    }
-
-    fn event_type(&self) -> EventType {
-        if self.is_open {
-            EventType::CreatePool
-        } else {
-            EventType::Unknown
-        }
-    }
-
-    fn signature(&self) -> &str {
-        &self.signature
-    }
-
-    fn slot(&self) -> u64 {
-        self.slot
-    }
-
-    fn program_received_time_ms(&self) -> i64 {
-        self.program_received_time_ms
-    }
-
-    fn program_handle_time_consuming_ms(&self) -> i64 {
-        self.program_handle_time_consuming_ms
-    }
-
-    fn set_program_handle_time_consuming_ms(&mut self, program_handle_time_consuming_ms: i64) {
-        self.program_handle_time_consuming_ms = program_handle_time_consuming_ms;
-    }
-
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    fn as_any_mut(&mut self) -> &mut dyn Any {
-        self
-    }
-
-    fn clone_boxed(&self) -> Box<dyn UnifiedEvent> {
-        Box::new(self.clone())
-    }
-
-    fn set_transfer_data(&mut self, transfer_data: Vec<TransferData>, _swap_data: Option<SwapData>) {
-        self.transfer_data = transfer_data;
-    }
-
-    fn index(&self) -> String {
-        self.index.clone()
-    }
-
-    fn protocol_type(&self) -> ProtocolType {
-        ProtocolType::OrcaWhirlpool
-    }
-}
 
 /// Orca liquidity event (increase/decrease)
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -204,39 +91,49 @@ pub struct OrcaLiquidityEvent {
     pub index: String,
     pub liquidity_data: OrcaLiquidityData,
     pub transfer_data: Vec<TransferData>,
+    #[serde(skip)]
+    pub core_metadata: Option<CoreEventMetadata>,
 }
 
-impl UnifiedEvent for OrcaLiquidityEvent {
+
+// New Event trait implementation for OrcaSwapEvent
+impl Event for OrcaSwapEvent {
     fn id(&self) -> &str {
         &self.id
     }
 
-    fn event_type(&self) -> EventType {
-        if self.liquidity_data.is_increase {
-            EventType::AddLiquidity
+    fn kind(&self) -> &EventKind {
+        if let Some(ref core_metadata) = self.core_metadata {
+            &core_metadata.kind
         } else {
-            EventType::RemoveLiquidity
+            &EventKind::Swap
         }
     }
 
-    fn signature(&self) -> &str {
-        &self.signature
+    fn metadata(&self) -> &CoreEventMetadata {
+        self.core_metadata.as_ref().unwrap_or_else(|| {
+            panic!("Core metadata not initialized for OrcaSwapEvent")
+        })
     }
 
-    fn slot(&self) -> u64 {
-        self.slot
-    }
+    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
+        if self.core_metadata.is_none() {
+            let chain_data = riglr_events_core::types::ChainData::Solana {
+                slot: self.slot,
+                signature: Some(self.signature.clone()),
+                program_id: None,
+                instruction_index: self.index.parse::<usize>().ok(),
+            };
 
-    fn program_received_time_ms(&self) -> i64 {
-        self.program_received_time_ms
-    }
-
-    fn program_handle_time_consuming_ms(&self) -> i64 {
-        self.program_handle_time_consuming_ms
-    }
-
-    fn set_program_handle_time_consuming_ms(&mut self, program_handle_time_consuming_ms: i64) {
-        self.program_handle_time_consuming_ms = program_handle_time_consuming_ms;
+            self.core_metadata = Some(CoreEventMetadata::with_timestamp(
+                self.id.clone(),
+                EventKind::Swap,
+                "orca".to_string(),
+                chrono::DateTime::from_timestamp(self.block_time, 0)
+                    .unwrap_or_else(|| chrono::Utc::now()),
+            ).with_chain_data(chain_data));
+        }
+        self.core_metadata.as_mut().unwrap()
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -247,19 +144,128 @@ impl UnifiedEvent for OrcaLiquidityEvent {
         self
     }
 
-    fn clone_boxed(&self) -> Box<dyn UnifiedEvent> {
+    fn clone_boxed(&self) -> Box<dyn Event> {
         Box::new(self.clone())
     }
 
-    fn set_transfer_data(&mut self, transfer_data: Vec<TransferData>, _swap_data: Option<SwapData>) {
-        self.transfer_data = transfer_data;
+    fn to_json(&self) -> riglr_events_core::error::EventResult<serde_json::Value> {
+        serde_json::to_value(self)
+            .map_err(riglr_events_core::error::EventError::Serialization)
+    }
+}
+
+// New Event trait implementation for OrcaPositionEvent
+impl Event for OrcaPositionEvent {
+    fn id(&self) -> &str {
+        &self.id
     }
 
-    fn index(&self) -> String {
-        self.index.clone()
+    fn kind(&self) -> &EventKind {
+        if let Some(ref core_metadata) = self.core_metadata {
+            &core_metadata.kind
+        } else {
+            &EventKind::Contract
+        }
     }
 
-    fn protocol_type(&self) -> ProtocolType {
-        ProtocolType::OrcaWhirlpool
+    fn metadata(&self) -> &CoreEventMetadata {
+        self.core_metadata.as_ref().unwrap_or_else(|| {
+            panic!("Core metadata not initialized for OrcaPositionEvent")
+        })
+    }
+
+    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
+        if self.core_metadata.is_none() {
+            let chain_data = riglr_events_core::types::ChainData::Solana {
+                slot: self.slot,
+                signature: Some(self.signature.clone()),
+                program_id: None,
+                instruction_index: self.index.parse::<usize>().ok(),
+            };
+
+            self.core_metadata = Some(CoreEventMetadata::with_timestamp(
+                self.id.clone(),
+                EventKind::Contract,
+                "orca".to_string(),
+                chrono::DateTime::from_timestamp(self.block_time, 0)
+                    .unwrap_or_else(|| chrono::Utc::now()),
+            ).with_chain_data(chain_data));
+        }
+        self.core_metadata.as_mut().unwrap()
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
+    fn clone_boxed(&self) -> Box<dyn Event> {
+        Box::new(self.clone())
+    }
+
+    fn to_json(&self) -> riglr_events_core::error::EventResult<serde_json::Value> {
+        serde_json::to_value(self)
+            .map_err(riglr_events_core::error::EventError::Serialization)
+    }
+}
+
+// New Event trait implementation for OrcaLiquidityEvent
+impl Event for OrcaLiquidityEvent {
+    fn id(&self) -> &str {
+        &self.id
+    }
+
+    fn kind(&self) -> &EventKind {
+        if let Some(ref core_metadata) = self.core_metadata {
+            &core_metadata.kind
+        } else {
+            &EventKind::Liquidity
+        }
+    }
+
+    fn metadata(&self) -> &CoreEventMetadata {
+        self.core_metadata.as_ref().unwrap_or_else(|| {
+            panic!("Core metadata not initialized for OrcaLiquidityEvent")
+        })
+    }
+
+    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
+        if self.core_metadata.is_none() {
+            let chain_data = riglr_events_core::types::ChainData::Solana {
+                slot: self.slot,
+                signature: Some(self.signature.clone()),
+                program_id: None,
+                instruction_index: self.index.parse::<usize>().ok(),
+            };
+
+            self.core_metadata = Some(CoreEventMetadata::with_timestamp(
+                self.id.clone(),
+                EventKind::Liquidity,
+                "orca".to_string(),
+                chrono::DateTime::from_timestamp(self.block_time, 0)
+                    .unwrap_or_else(|| chrono::Utc::now()),
+            ).with_chain_data(chain_data));
+        }
+        self.core_metadata.as_mut().unwrap()
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
+    fn clone_boxed(&self) -> Box<dyn Event> {
+        Box::new(self.clone())
+    }
+
+    fn to_json(&self) -> riglr_events_core::error::EventResult<serde_json::Value> {
+        serde_json::to_value(self)
+            .map_err(riglr_events_core::error::EventError::Serialization)
     }
 }

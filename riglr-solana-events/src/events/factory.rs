@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 use std::sync::Arc;
-use crate::events::core::{EventParser, UnifiedEvent};
+use crate::events::core::EventParser;
 use crate::types::ProtocolType;
+use riglr_events_core::Event;
 
 /// Protocol enum for supported protocols
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -63,14 +64,14 @@ impl From<Protocol> for ProtocolType {
     }
 }
 
-/// Multi-event parser that combines multiple protocol parsers
-pub struct MultiEventParser {
+/// EventParserRegistry - the new async event parser registry
+pub struct EventParserRegistry {
     parsers: HashMap<Protocol, Arc<dyn EventParser>>,
     program_id_to_parser: HashMap<solana_sdk::pubkey::Pubkey, Arc<dyn EventParser>>,
 }
 
-impl MultiEventParser {
-    /// Create a new multi-event parser
+impl EventParserRegistry {
+    /// Create a new event parser registry
     pub fn new() -> Self {
         Self {
             parsers: HashMap::new(),
@@ -106,7 +107,7 @@ impl MultiEventParser {
         block_time: Option<i64>,
         program_received_time_ms: i64,
         index: String,
-    ) -> Vec<Box<dyn UnifiedEvent>> {
+    ) -> Vec<Box<dyn Event>> {
         // Try to identify the program and use the appropriate parser
         for parser in self.parsers.values() {
             let events = parser.parse_events_from_inner_instruction(
@@ -125,6 +126,7 @@ impl MultiEventParser {
     }
 
     /// Parse events from instruction using the appropriate parser
+    #[allow(clippy::too_many_arguments)]
     pub fn parse_events_from_instruction(
         &self,
         instruction: &solana_sdk::instruction::CompiledInstruction,
@@ -134,7 +136,7 @@ impl MultiEventParser {
         block_time: Option<i64>,
         program_received_time_ms: i64,
         index: String,
-    ) -> Vec<Box<dyn UnifiedEvent>> {
+    ) -> Vec<Box<dyn Event>> {
         // Get the program ID from the instruction
         if let Some(program_id) = accounts.get(instruction.program_id_index as usize) {
             if let Some(parser) = self.get_parser_for_program(program_id) {
@@ -161,55 +163,19 @@ impl MultiEventParser {
     pub fn should_handle(&self, program_id: &solana_sdk::pubkey::Pubkey) -> bool {
         self.program_id_to_parser.contains_key(program_id)
     }
-}
 
-impl Default for MultiEventParser {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-/// Event parser factory for creating and managing parsers
-pub struct EventParserFactory {
-    multi_parser: MultiEventParser,
-}
-
-impl EventParserFactory {
-    /// Create a new event parser factory
-    pub fn new() -> Self {
-        Self {
-            multi_parser: MultiEventParser::new(),
-        }
-    }
-
-    /// Create a factory with all available parsers
+    /// Create a registry with all available parsers
     pub fn with_all_parsers() -> Self {
-        let factory = Self::new();
+        let mut registry = Self::new();
         
         // Add parsers for all supported protocols
-        // Note: Specific protocol parsers will be implemented in their respective modules
+        // Note: Specific protocol parsers will be added here once they're updated
         
-        factory
-    }
-
-    /// Add a parser for a specific protocol
-    pub fn add_parser(&mut self, protocol: Protocol, parser: Arc<dyn EventParser>) -> &mut Self {
-        self.multi_parser.add_parser(protocol, parser);
-        self
-    }
-
-    /// Build the multi-event parser
-    pub fn build(self) -> MultiEventParser {
-        self.multi_parser
-    }
-
-    /// Get a reference to the multi-parser
-    pub fn parser(&self) -> &MultiEventParser {
-        &self.multi_parser
+        registry
     }
 }
 
-impl Default for EventParserFactory {
+impl Default for EventParserRegistry {
     fn default() -> Self {
         Self::new()
     }

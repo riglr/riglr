@@ -71,13 +71,13 @@ impl MemoryMappedParser {
     }
 
     /// Parse events from the memory-mapped data
-    pub fn parse_all(&self) -> Result<Vec<ZeroCopyEvent>, ParseError> {
+    pub fn parse_all(&self) -> Result<Vec<ZeroCopyEvent<'_>>, ParseError> {
         let mut events = Vec::new();
         let data = &self.mmap[..];
         
         // Simple parsing - in real implementation, this would have more sophisticated
         // transaction boundary detection
-        for (protocol, parser) in &self.parsers {
+        for parser in self.parsers.values() {
             if parser.can_parse(data) {
                 let metadata = EventMetadata::default(); // Would be computed from context
                 let mut parsed = parser.parse_from_slice(data, metadata)?;
@@ -135,7 +135,7 @@ impl SIMDPatternMatcher {
     pub fn find_matches(&self, data: &[u8]) -> Vec<(usize, ProtocolType)> {
         let mut matches = Vec::new();
         
-        for (i, (pattern, protocol)) in self.patterns.iter().zip(&self.protocols).enumerate() {
+        for (pattern, protocol) in self.patterns.iter().zip(&self.protocols) {
             if data.len() >= pattern.len() {
                 for pos in 0..=data.len() - pattern.len() {
                     if &data[pos..pos + pattern.len()] == pattern {
@@ -156,6 +156,12 @@ impl SIMDPatternMatcher {
             }
         }
         None
+    }
+}
+
+impl Default for SIMDPatternMatcher {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -230,9 +236,9 @@ impl<'a> CustomDeserializer<'a> {
         
         let bytes = &self.data[self.pos..self.pos + 32];
         self.pos += 32;
-        Ok(solana_sdk::pubkey::Pubkey::try_from(bytes).map_err(|e| {
+        solana_sdk::pubkey::Pubkey::try_from(bytes).map_err(|e| {
             ParseError::InvalidInstructionData(format!("Invalid pubkey: {}", e))
-        })?)
+        })
     }
 
     /// Read a byte array of fixed size

@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 use solana_sdk::pubkey::Pubkey;
 use crate::events::common::EventMetadata;
+use riglr_events_core::{Event, EventKind, EventMetadata as CoreEventMetadata};
+use std::any::Any;
 
 /// Raydium CLMM swap event
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
@@ -23,7 +25,6 @@ pub struct RaydiumClmmSwapEvent {
     pub token_mint1: Pubkey,
 }
 
-crate::impl_unified_event!(RaydiumClmmSwapEvent);
 
 /// Raydium CLMM swap V2 event
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
@@ -47,7 +48,6 @@ pub struct RaydiumClmmSwapV2Event {
     pub token_mint1: Pubkey,
 }
 
-crate::impl_unified_event!(RaydiumClmmSwapV2Event);
 
 /// Raydium CLMM create pool event
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
@@ -66,7 +66,6 @@ pub struct RaydiumClmmCreatePoolEvent {
     pub token_vault1: Pubkey,
 }
 
-crate::impl_unified_event!(RaydiumClmmCreatePoolEvent);
 
 /// Raydium CLMM open position V2 event
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
@@ -91,7 +90,6 @@ pub struct RaydiumClmmOpenPositionV2Event {
     pub pool_state: Pubkey,
 }
 
-crate::impl_unified_event!(RaydiumClmmOpenPositionV2Event);
 
 /// Raydium CLMM close position event
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
@@ -105,7 +103,6 @@ pub struct RaydiumClmmClosePositionEvent {
     pub personal_position: Pubkey,
 }
 
-crate::impl_unified_event!(RaydiumClmmClosePositionEvent);
 
 /// Raydium CLMM increase liquidity V2 event
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
@@ -122,7 +119,6 @@ pub struct RaydiumClmmIncreaseLiquidityV2Event {
     pub pool_state: Pubkey,
 }
 
-crate::impl_unified_event!(RaydiumClmmIncreaseLiquidityV2Event);
 
 /// Raydium CLMM decrease liquidity V2 event
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
@@ -138,7 +134,6 @@ pub struct RaydiumClmmDecreaseLiquidityV2Event {
     pub pool_state: Pubkey,
 }
 
-crate::impl_unified_event!(RaydiumClmmDecreaseLiquidityV2Event);
 
 /// Raydium CLMM open position with Token-22 NFT event  
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
@@ -162,4 +157,357 @@ pub struct RaydiumClmmOpenPositionWithToken22NftEvent {
     pub pool_state: Pubkey,
 }
 
-crate::impl_unified_event!(RaydiumClmmOpenPositionWithToken22NftEvent);
+// Event trait implementations
+
+impl Event for RaydiumClmmSwapEvent {
+    fn id(&self) -> &str {
+        &self.metadata.id
+    }
+
+    fn kind(&self) -> &EventKind {
+        static SWAP_KIND: EventKind = EventKind::Swap;
+        &SWAP_KIND
+    }
+
+    fn metadata(&self) -> &CoreEventMetadata {
+        use std::sync::OnceLock;
+        static METADATA_CACHE: OnceLock<CoreEventMetadata> = OnceLock::new();
+        
+        METADATA_CACHE.get_or_init(|| {
+            CoreEventMetadata::new(
+                String::new(),
+                EventKind::Swap,
+                "raydium-clmm".to_string(),
+            )
+        })
+    }
+
+    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
+        unimplemented!("Mutable metadata not yet implemented")
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
+    fn clone_boxed(&self) -> Box<dyn Event> {
+        Box::new(self.clone())
+    }
+
+    fn to_json(&self) -> riglr_events_core::error::EventResult<serde_json::Value> {
+        Ok(serde_json::to_value(self)?)
+    }
+}
+
+impl Event for RaydiumClmmSwapV2Event {
+    fn id(&self) -> &str {
+        &self.metadata.id
+    }
+
+    fn kind(&self) -> &EventKind {
+        static SWAP_KIND: EventKind = EventKind::Swap;
+        &SWAP_KIND
+    }
+
+    fn metadata(&self) -> &CoreEventMetadata {
+        use std::sync::OnceLock;
+        static METADATA_CACHE: OnceLock<CoreEventMetadata> = OnceLock::new();
+        
+        METADATA_CACHE.get_or_init(|| {
+            CoreEventMetadata::new(
+                String::new(),
+                EventKind::Swap,
+                "raydium-clmm".to_string(),
+            )
+        })
+    }
+
+    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
+        unimplemented!("Mutable metadata not yet implemented")
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
+    fn clone_boxed(&self) -> Box<dyn Event> {
+        Box::new(self.clone())
+    }
+
+    fn to_json(&self) -> riglr_events_core::error::EventResult<serde_json::Value> {
+        Ok(serde_json::to_value(self)?)
+    }
+}
+
+impl Event for RaydiumClmmCreatePoolEvent {
+    fn id(&self) -> &str {
+        &self.metadata.id
+    }
+
+    fn kind(&self) -> &EventKind {
+        static CONTRACT_KIND: EventKind = EventKind::Contract;
+        &CONTRACT_KIND
+    }
+
+    fn metadata(&self) -> &CoreEventMetadata {
+        use std::sync::OnceLock;
+        static METADATA_CACHE: OnceLock<CoreEventMetadata> = OnceLock::new();
+        
+        METADATA_CACHE.get_or_init(|| {
+            CoreEventMetadata::new(
+                String::new(),
+                EventKind::Contract,
+                "raydium-clmm".to_string(),
+            )
+        })
+    }
+
+    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
+        unimplemented!("Mutable metadata not yet implemented")
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
+    fn clone_boxed(&self) -> Box<dyn Event> {
+        Box::new(self.clone())
+    }
+
+    fn to_json(&self) -> riglr_events_core::error::EventResult<serde_json::Value> {
+        Ok(serde_json::to_value(self)?)
+    }
+}
+
+impl Event for RaydiumClmmOpenPositionV2Event {
+    fn id(&self) -> &str {
+        &self.metadata.id
+    }
+
+    fn kind(&self) -> &EventKind {
+        static LIQUIDITY_KIND: EventKind = EventKind::Liquidity;
+        &LIQUIDITY_KIND
+    }
+
+    fn metadata(&self) -> &CoreEventMetadata {
+        use std::sync::OnceLock;
+        static METADATA_CACHE: OnceLock<CoreEventMetadata> = OnceLock::new();
+        
+        METADATA_CACHE.get_or_init(|| {
+            CoreEventMetadata::new(
+                String::new(),
+                EventKind::Liquidity,
+                "raydium-clmm".to_string(),
+            )
+        })
+    }
+
+    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
+        unimplemented!("Mutable metadata not yet implemented")
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
+    fn clone_boxed(&self) -> Box<dyn Event> {
+        Box::new(self.clone())
+    }
+
+    fn to_json(&self) -> riglr_events_core::error::EventResult<serde_json::Value> {
+        Ok(serde_json::to_value(self)?)
+    }
+}
+
+impl Event for RaydiumClmmClosePositionEvent {
+    fn id(&self) -> &str {
+        &self.metadata.id
+    }
+
+    fn kind(&self) -> &EventKind {
+        static LIQUIDITY_KIND: EventKind = EventKind::Liquidity;
+        &LIQUIDITY_KIND
+    }
+
+    fn metadata(&self) -> &CoreEventMetadata {
+        use std::sync::OnceLock;
+        static METADATA_CACHE: OnceLock<CoreEventMetadata> = OnceLock::new();
+        
+        METADATA_CACHE.get_or_init(|| {
+            CoreEventMetadata::new(
+                String::new(),
+                EventKind::Liquidity,
+                "raydium-clmm".to_string(),
+            )
+        })
+    }
+
+    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
+        unimplemented!("Mutable metadata not yet implemented")
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
+    fn clone_boxed(&self) -> Box<dyn Event> {
+        Box::new(self.clone())
+    }
+
+    fn to_json(&self) -> riglr_events_core::error::EventResult<serde_json::Value> {
+        Ok(serde_json::to_value(self)?)
+    }
+}
+
+impl Event for RaydiumClmmIncreaseLiquidityV2Event {
+    fn id(&self) -> &str {
+        &self.metadata.id
+    }
+
+    fn kind(&self) -> &EventKind {
+        static LIQUIDITY_KIND: EventKind = EventKind::Liquidity;
+        &LIQUIDITY_KIND
+    }
+
+    fn metadata(&self) -> &CoreEventMetadata {
+        use std::sync::OnceLock;
+        static METADATA_CACHE: OnceLock<CoreEventMetadata> = OnceLock::new();
+        
+        METADATA_CACHE.get_or_init(|| {
+            CoreEventMetadata::new(
+                String::new(),
+                EventKind::Liquidity,
+                "raydium-clmm".to_string(),
+            )
+        })
+    }
+
+    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
+        unimplemented!("Mutable metadata not yet implemented")
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
+    fn clone_boxed(&self) -> Box<dyn Event> {
+        Box::new(self.clone())
+    }
+
+    fn to_json(&self) -> riglr_events_core::error::EventResult<serde_json::Value> {
+        Ok(serde_json::to_value(self)?)
+    }
+}
+
+impl Event for RaydiumClmmDecreaseLiquidityV2Event {
+    fn id(&self) -> &str {
+        &self.metadata.id
+    }
+
+    fn kind(&self) -> &EventKind {
+        static LIQUIDITY_KIND: EventKind = EventKind::Liquidity;
+        &LIQUIDITY_KIND
+    }
+
+    fn metadata(&self) -> &CoreEventMetadata {
+        use std::sync::OnceLock;
+        static METADATA_CACHE: OnceLock<CoreEventMetadata> = OnceLock::new();
+        
+        METADATA_CACHE.get_or_init(|| {
+            CoreEventMetadata::new(
+                String::new(),
+                EventKind::Liquidity,
+                "raydium-clmm".to_string(),
+            )
+        })
+    }
+
+    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
+        unimplemented!("Mutable metadata not yet implemented")
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
+    fn clone_boxed(&self) -> Box<dyn Event> {
+        Box::new(self.clone())
+    }
+
+    fn to_json(&self) -> riglr_events_core::error::EventResult<serde_json::Value> {
+        Ok(serde_json::to_value(self)?)
+    }
+}
+
+impl Event for RaydiumClmmOpenPositionWithToken22NftEvent {
+    fn id(&self) -> &str {
+        &self.metadata.id
+    }
+
+    fn kind(&self) -> &EventKind {
+        static LIQUIDITY_KIND: EventKind = EventKind::Liquidity;
+        &LIQUIDITY_KIND
+    }
+
+    fn metadata(&self) -> &CoreEventMetadata {
+        use std::sync::OnceLock;
+        static METADATA_CACHE: OnceLock<CoreEventMetadata> = OnceLock::new();
+        
+        METADATA_CACHE.get_or_init(|| {
+            CoreEventMetadata::new(
+                String::new(),
+                EventKind::Liquidity,
+                "raydium-clmm".to_string(),
+            )
+        })
+    }
+
+    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
+        unimplemented!("Mutable metadata not yet implemented")
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
+    fn clone_boxed(&self) -> Box<dyn Event> {
+        Box::new(self.clone())
+    }
+
+    fn to_json(&self) -> riglr_events_core::error::EventResult<serde_json::Value> {
+        Ok(serde_json::to_value(self)?)
+    }
+}
+

@@ -1,10 +1,13 @@
 use std::any::Any;
 use serde::{Deserialize, Serialize};
 use crate::{
-    events::core::UnifiedEvent,
-    types::{EventType, ProtocolType, TransferData, SwapData},
+    // UnifiedEvent removed - using Event trait from riglr_events_core
+    types::{TransferData},
 };
 use super::types::{MeteoraSwapData, MeteoraLiquidityData, MeteoraDynamicLiquidityData};
+
+// Import new Event trait from riglr-events-core
+use riglr_events_core::{Event, EventKind, EventMetadata as CoreEventMetadata};
 
 /// Meteora DLMM swap event
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -19,6 +22,8 @@ pub struct MeteoraSwapEvent {
     pub index: String,
     pub swap_data: MeteoraSwapData,
     pub transfer_data: Vec<TransferData>,
+    #[serde(skip)]
+    pub core_metadata: Option<CoreEventMetadata>,
 }
 
 impl MeteoraSwapEvent {
@@ -43,6 +48,7 @@ impl MeteoraSwapEvent {
             index,
             swap_data,
             transfer_data: Vec::new(),
+            core_metadata: None,
         }
     }
 
@@ -52,33 +58,46 @@ impl MeteoraSwapEvent {
     }
 }
 
-impl UnifiedEvent for MeteoraSwapEvent {
+
+// New Event trait implementation
+impl Event for MeteoraSwapEvent {
     fn id(&self) -> &str {
         &self.id
     }
 
-    fn event_type(&self) -> EventType {
-        EventType::Swap
+    fn kind(&self) -> &EventKind {
+        if let Some(ref core_metadata) = self.core_metadata {
+            &core_metadata.kind
+        } else {
+            &EventKind::Swap // Meteora swap event
+        }
     }
 
-    fn signature(&self) -> &str {
-        &self.signature
+    fn metadata(&self) -> &CoreEventMetadata {
+        self.core_metadata.as_ref().unwrap_or_else(|| {
+            panic!("Core metadata not initialized for MeteoraSwapEvent")
+        })
     }
 
-    fn slot(&self) -> u64 {
-        self.slot
-    }
+    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
+        if self.core_metadata.is_none() {
+            // Create new core metadata from legacy fields
+            let chain_data = riglr_events_core::types::ChainData::Solana {
+                slot: self.slot,
+                signature: Some(self.signature.clone()),
+                program_id: None, // Will be set by parser
+                instruction_index: self.index.parse::<usize>().ok(),
+            };
 
-    fn program_received_time_ms(&self) -> i64 {
-        self.program_received_time_ms
-    }
-
-    fn program_handle_time_consuming_ms(&self) -> i64 {
-        self.program_handle_time_consuming_ms
-    }
-
-    fn set_program_handle_time_consuming_ms(&mut self, program_handle_time_consuming_ms: i64) {
-        self.program_handle_time_consuming_ms = program_handle_time_consuming_ms;
+            self.core_metadata = Some(CoreEventMetadata::with_timestamp(
+                self.id.clone(),
+                EventKind::Swap,
+                "meteora".to_string(),
+                chrono::DateTime::from_timestamp(self.block_time, 0)
+                    .unwrap_or_else(|| chrono::Utc::now()),
+            ).with_chain_data(chain_data));
+        }
+        self.core_metadata.as_mut().unwrap()
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -89,31 +108,13 @@ impl UnifiedEvent for MeteoraSwapEvent {
         self
     }
 
-    fn clone_boxed(&self) -> Box<dyn UnifiedEvent> {
+    fn clone_boxed(&self) -> Box<dyn Event> {
         Box::new(self.clone())
     }
 
-    fn set_transfer_data(&mut self, transfer_data: Vec<TransferData>, swap_data: Option<SwapData>) {
-        self.transfer_data = transfer_data;
-        if let Some(swap_data) = swap_data {
-            if self.swap_data.swap_for_y {
-                self.swap_data.token_mint_x = swap_data.input_mint;
-                self.swap_data.token_mint_y = swap_data.output_mint;
-            } else {
-                self.swap_data.token_mint_x = swap_data.output_mint;
-                self.swap_data.token_mint_y = swap_data.input_mint;
-            }
-            self.swap_data.amount_in = swap_data.amount_in;
-            self.swap_data.actual_amount_out = swap_data.amount_out;
-        }
-    }
-
-    fn index(&self) -> String {
-        self.index.clone()
-    }
-
-    fn protocol_type(&self) -> ProtocolType {
-        ProtocolType::MeteoraDlmm
+    fn to_json(&self) -> riglr_events_core::error::EventResult<serde_json::Value> {
+        serde_json::to_value(self)
+            .map_err(riglr_events_core::error::EventError::Serialization)
     }
 }
 
@@ -130,39 +131,56 @@ pub struct MeteoraLiquidityEvent {
     pub index: String,
     pub liquidity_data: MeteoraLiquidityData,
     pub transfer_data: Vec<TransferData>,
+    #[serde(skip)]
+    pub core_metadata: Option<CoreEventMetadata>,
 }
 
-impl UnifiedEvent for MeteoraLiquidityEvent {
+
+// New Event trait implementation for MeteoraLiquidityEvent
+impl Event for MeteoraLiquidityEvent {
     fn id(&self) -> &str {
         &self.id
     }
 
-    fn event_type(&self) -> EventType {
-        if self.liquidity_data.is_add {
-            EventType::AddLiquidity
+    fn kind(&self) -> &EventKind {
+        if let Some(ref core_metadata) = self.core_metadata {
+            &core_metadata.kind
         } else {
-            EventType::RemoveLiquidity
+            if self.liquidity_data.is_add {
+                &EventKind::Liquidity
+            } else {
+                &EventKind::Liquidity
+            }
         }
     }
 
-    fn signature(&self) -> &str {
-        &self.signature
+    fn metadata(&self) -> &CoreEventMetadata {
+        self.core_metadata.as_ref().unwrap_or_else(|| {
+            panic!("Core metadata not initialized for MeteoraLiquidityEvent")
+        })
     }
 
-    fn slot(&self) -> u64 {
-        self.slot
-    }
+    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
+        if self.core_metadata.is_none() {
+            // Create new core metadata from legacy fields
+            let chain_data = riglr_events_core::types::ChainData::Solana {
+                slot: self.slot,
+                signature: Some(self.signature.clone()),
+                program_id: None, // Will be set by parser
+                instruction_index: self.index.parse::<usize>().ok(),
+            };
 
-    fn program_received_time_ms(&self) -> i64 {
-        self.program_received_time_ms
-    }
+            let event_kind = EventKind::Liquidity;
 
-    fn program_handle_time_consuming_ms(&self) -> i64 {
-        self.program_handle_time_consuming_ms
-    }
-
-    fn set_program_handle_time_consuming_ms(&mut self, program_handle_time_consuming_ms: i64) {
-        self.program_handle_time_consuming_ms = program_handle_time_consuming_ms;
+            self.core_metadata = Some(CoreEventMetadata::with_timestamp(
+                self.id.clone(),
+                event_kind,
+                "meteora".to_string(),
+                chrono::DateTime::from_timestamp(self.block_time, 0)
+                    .unwrap_or_else(|| chrono::Utc::now()),
+            ).with_chain_data(chain_data));
+        }
+        self.core_metadata.as_mut().unwrap()
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -173,20 +191,13 @@ impl UnifiedEvent for MeteoraLiquidityEvent {
         self
     }
 
-    fn clone_boxed(&self) -> Box<dyn UnifiedEvent> {
+    fn clone_boxed(&self) -> Box<dyn Event> {
         Box::new(self.clone())
     }
 
-    fn set_transfer_data(&mut self, transfer_data: Vec<TransferData>, _swap_data: Option<SwapData>) {
-        self.transfer_data = transfer_data;
-    }
-
-    fn index(&self) -> String {
-        self.index.clone()
-    }
-
-    fn protocol_type(&self) -> ProtocolType {
-        ProtocolType::MeteoraDlmm
+    fn to_json(&self) -> riglr_events_core::error::EventResult<serde_json::Value> {
+        serde_json::to_value(self)
+            .map_err(riglr_events_core::error::EventError::Serialization)
     }
 }
 
@@ -203,39 +214,56 @@ pub struct MeteoraDynamicLiquidityEvent {
     pub index: String,
     pub liquidity_data: MeteoraDynamicLiquidityData,
     pub transfer_data: Vec<TransferData>,
+    #[serde(skip)]
+    pub core_metadata: Option<CoreEventMetadata>,
 }
 
-impl UnifiedEvent for MeteoraDynamicLiquidityEvent {
+
+// New Event trait implementation for MeteoraDynamicLiquidityEvent
+impl Event for MeteoraDynamicLiquidityEvent {
     fn id(&self) -> &str {
         &self.id
     }
 
-    fn event_type(&self) -> EventType {
-        if self.liquidity_data.is_deposit {
-            EventType::AddLiquidity
+    fn kind(&self) -> &EventKind {
+        if let Some(ref core_metadata) = self.core_metadata {
+            &core_metadata.kind
         } else {
-            EventType::RemoveLiquidity
+            if self.liquidity_data.is_deposit {
+                &EventKind::Liquidity
+            } else {
+                &EventKind::Liquidity
+            }
         }
     }
 
-    fn signature(&self) -> &str {
-        &self.signature
+    fn metadata(&self) -> &CoreEventMetadata {
+        self.core_metadata.as_ref().unwrap_or_else(|| {
+            panic!("Core metadata not initialized for MeteoraDynamicLiquidityEvent")
+        })
     }
 
-    fn slot(&self) -> u64 {
-        self.slot
-    }
+    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
+        if self.core_metadata.is_none() {
+            // Create new core metadata from legacy fields
+            let chain_data = riglr_events_core::types::ChainData::Solana {
+                slot: self.slot,
+                signature: Some(self.signature.clone()),
+                program_id: None, // Will be set by parser
+                instruction_index: self.index.parse::<usize>().ok(),
+            };
 
-    fn program_received_time_ms(&self) -> i64 {
-        self.program_received_time_ms
-    }
+            let event_kind = EventKind::Liquidity;
 
-    fn program_handle_time_consuming_ms(&self) -> i64 {
-        self.program_handle_time_consuming_ms
-    }
-
-    fn set_program_handle_time_consuming_ms(&mut self, program_handle_time_consuming_ms: i64) {
-        self.program_handle_time_consuming_ms = program_handle_time_consuming_ms;
+            self.core_metadata = Some(CoreEventMetadata::with_timestamp(
+                self.id.clone(),
+                event_kind,
+                "meteora".to_string(),
+                chrono::DateTime::from_timestamp(self.block_time, 0)
+                    .unwrap_or_else(|| chrono::Utc::now()),
+            ).with_chain_data(chain_data));
+        }
+        self.core_metadata.as_mut().unwrap()
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -246,19 +274,12 @@ impl UnifiedEvent for MeteoraDynamicLiquidityEvent {
         self
     }
 
-    fn clone_boxed(&self) -> Box<dyn UnifiedEvent> {
+    fn clone_boxed(&self) -> Box<dyn Event> {
         Box::new(self.clone())
     }
 
-    fn set_transfer_data(&mut self, transfer_data: Vec<TransferData>, _swap_data: Option<SwapData>) {
-        self.transfer_data = transfer_data;
-    }
-
-    fn index(&self) -> String {
-        self.index.clone()
-    }
-
-    fn protocol_type(&self) -> ProtocolType {
-        ProtocolType::Other("MeteoraDynamic".to_string())
+    fn to_json(&self) -> riglr_events_core::error::EventResult<serde_json::Value> {
+        serde_json::to_value(self)
+            .map_err(riglr_events_core::error::EventError::Serialization)
     }
 }
