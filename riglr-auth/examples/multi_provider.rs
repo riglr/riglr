@@ -4,7 +4,6 @@ use riglr_auth::config::ProviderConfig;
 use riglr_auth::{
     AuthProvider, CompositeSignerFactoryExt, MagicConfig, PrivyConfig, Web3AuthConfig,
 };
-use riglr_core::config::RpcConfig;
 use riglr_web_adapters::factory::{AuthenticationData, CompositeSignerFactory, SignerFactory};
 use std::collections::HashMap;
 
@@ -71,9 +70,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             network: "mainnet".to_string(),
         };
 
-        let rpc_config = RpcConfig::default();
-
-        match factory.create_signer(auth_data, &rpc_config).await {
+        match factory.create_signer(auth_data).await {
             Ok(_signer) => {
                 println!("✅ Successfully created signer with Privy");
             }
