@@ -86,22 +86,17 @@ impl std::fmt::Display for TaskType {
 }
 
 /// Priority levels for task execution.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Default)]
 pub enum Priority {
     /// Low priority tasks
     Low = 1,
     /// Normal priority tasks
+    #[default]
     Normal = 2,
     /// High priority tasks
     High = 3,
     /// Critical priority tasks (emergency)
     Critical = 4,
-}
-
-impl Default for Priority {
-    fn default() -> Self {
-        Priority::Normal
-    }
 }
 
 /// A task to be executed by an agent.
@@ -438,7 +433,7 @@ pub struct AgentStatus {
 }
 
 /// Agent state enumeration.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum AgentState {
     /// Agent is active and ready to accept tasks
     Active,
@@ -447,17 +442,12 @@ pub enum AgentState {
     /// Agent is at capacity
     Full,
     /// Agent is idle
+    #[default]
     Idle,
     /// Agent is offline/unavailable
     Offline,
     /// Agent is in maintenance mode
     Maintenance,
-}
-
-impl Default for AgentState {
-    fn default() -> Self {
-        AgentState::Idle
-    }
 }
 
 #[cfg(test)]

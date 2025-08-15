@@ -93,7 +93,7 @@ impl SignerContextIntegration {
     /// A riglr-core Job representation of the task.
     pub fn task_to_job(task: &Task) -> Result<Job> {
         let job = Job::new(
-            &format!("agent_task:{}", task.task_type),
+            format!("agent_task:{}", task.task_type),
             &serde_json::json!({
                 "task_id": task.id,
                 "task_type": task.task_type,
@@ -187,10 +187,10 @@ impl SignerContextIntegration {
                 }
             }
             TaskResult::Cancelled { reason } => {
-                JobResult::permanent_failure(&format!("Task cancelled: {}", reason))
+                JobResult::permanent_failure(format!("Task cancelled: {}", reason))
             }
             TaskResult::Timeout { duration } => {
-                JobResult::retriable_failure(&format!("Task timed out after {:?}", duration))
+                JobResult::retriable_failure(format!("Task timed out after {:?}", duration))
             }
         };
 
@@ -546,7 +546,7 @@ mod tests {
         let tool_error = SignerContextIntegration::agent_error_to_tool_error(agent_error);
         assert!(!tool_error.is_retriable());
 
-        let tool_error = ToolError::retriable_from_msg("Network timeout");
+        let tool_error = ToolError::retriable_string("Network timeout");
         let agent_error = SignerContextIntegration::tool_error_to_agent_error(tool_error);
         assert!(matches!(agent_error, AgentError::Tool { .. }));
     }

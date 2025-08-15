@@ -455,7 +455,7 @@ mod tests {
         // Register multiple agents
         for i in 0..3 {
             let agent = Arc::new(MockAgent {
-                id: AgentId::new(&format!("agent-{}", i)),
+                id: AgentId::new(format!("agent-{}", i)),
                 capabilities: vec!["trading".to_string()],
                 should_fail: false,
                 execution_delay: Duration::from_millis(10),

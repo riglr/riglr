@@ -20,6 +20,7 @@ pub struct ChannelCommunication {
     /// Configuration
     config: CommunicationConfig,
     /// Statistics
+    #[allow(dead_code)]
     stats: Arc<CommunicationStats>,
     /// Atomic counters for statistics
     messages_sent: AtomicU64,
@@ -188,7 +189,7 @@ impl AgentCommunication for ChannelCommunication {
         self.messages_sent.fetch_add(successful_sends, Ordering::Relaxed);
         self.failed_deliveries.fetch_add(failed_sends, Ordering::Relaxed);
 
-        if successful_sends == 0 && channels.len() > 0 {
+        if successful_sends == 0 && !channels.is_empty() {
             Err(AgentError::communication("Failed to deliver broadcast message to any agent"))
         } else {
             Ok(())
