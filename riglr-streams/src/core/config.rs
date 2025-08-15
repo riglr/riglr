@@ -239,6 +239,7 @@ impl MetricsConfig {
 
 /// Comprehensive streaming client configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct StreamClientConfig {
     /// Connection settings
     pub connection: ConnectionConfig,
@@ -252,17 +253,6 @@ pub struct StreamClientConfig {
     pub debug: bool,
 }
 
-impl Default for StreamClientConfig {
-    fn default() -> Self {
-        Self {
-            connection: ConnectionConfig::default(),
-            batch: BatchConfig::default(),
-            backpressure: BackpressureConfig::default(),
-            metrics: MetricsConfig::default(),
-            debug: false,
-        }
-    }
-}
 
 impl StreamClientConfig {
     /// High-performance configuration for production environments

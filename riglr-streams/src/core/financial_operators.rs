@@ -9,9 +9,9 @@ use std::any::Any;
 use tokio::sync::{RwLock, broadcast};
 use async_trait::async_trait;
 
-use crate::core::{Stream, StreamHealth, StreamError, StreamEvent};
+use crate::core::{Stream, StreamHealth, StreamError};
 use crate::core::operators::ComposableStream;
-use riglr_solana_events::{UnifiedEvent, EventType, ProtocolType};
+use riglr_events_core::prelude::{Event, EventKind};
 
 /// Trait for extracting numeric data from events for financial analysis
 pub trait AsNumeric {
@@ -40,45 +40,33 @@ pub trait AsNumeric {
 /// Financial indicator event wrapper
 #[derive(Clone, Debug)]
 pub struct FinancialEvent<T, E> {
+    pub metadata: riglr_events_core::EventMetadata,
     pub indicator_value: T,
     pub original_event: Arc<E>,
     pub indicator_type: String,
     pub timestamp: SystemTime,
 }
 
-impl<T, E> UnifiedEvent for FinancialEvent<T, E>
+impl<T, E> Event for FinancialEvent<T, E>
 where
     T: Clone + Send + Sync + 'static + std::fmt::Debug,
-    E: UnifiedEvent + Clone + 'static,
+    E: Event + Clone + 'static,
 {
     fn id(&self) -> &str {
-        self.original_event.id()
+        &self.metadata.id
     }
     
-    fn event_type(&self) -> EventType {
-        EventType::PriceUpdate
+    fn kind(&self) -> &riglr_events_core::EventKind {
+        &self.metadata.kind
     }
     
-    fn signature(&self) -> &str {
-        "financial-event"
+    fn metadata(&self) -> &riglr_events_core::EventMetadata {
+        &self.metadata
     }
     
-    fn slot(&self) -> u64 {
-        0 // Financial events don't have slots
+    fn metadata_mut(&mut self) -> &mut riglr_events_core::EventMetadata {
+        &mut self.metadata
     }
-    
-    fn program_received_time_ms(&self) -> i64 {
-        self.timestamp
-            .duration_since(SystemTime::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_millis() as i64
-    }
-    
-    fn program_handle_time_consuming_ms(&self) -> i64 {
-        0 // Financial events don't track processing time
-    }
-    
-    fn set_program_handle_time_consuming_ms(&mut self, _time: i64) {}
     
     fn as_any(&self) -> &dyn Any {
         self
@@ -88,38 +76,20 @@ where
         self
     }
     
-    fn clone_boxed(&self) -> Box<dyn UnifiedEvent> {
+    fn clone_boxed(&self) -> Box<dyn Event> {
         Box::new(self.clone())
     }
     
-    fn set_transfer_data(
-        &mut self,
-        _transfer_data: Vec<riglr_solana_events::TransferData>,
-        _swap_data: Option<riglr_solana_events::SwapData>,
-    ) {}
-    
-    fn index(&self) -> String {
-        "0".to_string()
-    }
-    
-    fn protocol_type(&self) -> ProtocolType {
-        // For financial events, we delegate to the original event
-        // but only if it implements UnifiedEvent properly
-        ProtocolType::Other("Financial".to_string())
-    }
-    
-    fn timestamp(&self) -> SystemTime {
-        self.timestamp
-    }
-    
-    fn transaction_hash(&self) -> Option<String> {
-        // Try to get from original event if it has proper trait bounds
-        None // Simplified for now
-    }
-    
-    fn block_number(&self) -> Option<u64> {
-        // Try to get from original event if it has proper trait bounds  
-        None // Simplified for now
+    fn to_json(&self) -> riglr_events_core::EventResult<serde_json::Value> {
+        Ok(serde_json::json!({
+            "metadata": self.metadata,
+            "indicator_value": format!("{:?}", self.indicator_value),
+            "indicator_type": self.indicator_type,
+            "timestamp": self.timestamp
+                .duration_since(SystemTime::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_millis()
+        }))
     }
 }
 
@@ -231,7 +201,14 @@ where
                         }
                     };
                     
+                    let metadata = riglr_events_core::EventMetadata::new(
+                        format!("vwap-{}", event.id()),
+                        riglr_events_core::EventKind::Price,
+                        "financial-vwap".to_string(),
+                    );
+                    
                     let financial_event = FinancialEvent {
+                        metadata,
                         indicator_value: vwap,
                         original_event: event,
                         indicator_type: "VWAP".to_string(),
@@ -559,7 +536,7 @@ impl<S: Stream> MevDetectionStream<S> {
         }
     }
     
-    async fn detect_mev(&self, event: &dyn UnifiedEvent) -> Option<MevType> {
+    async fn detect_mev(&self, event: &dyn Event) -> Option<MevType> {
         // Simplified MEV detection logic
         let mut txs = self.transactions.write().await;
         let now = SystemTime::now();
@@ -570,7 +547,7 @@ impl<S: Stream> MevDetectionStream<S> {
         });
         
         // Look for patterns
-        if event.event_type() == EventType::Swap {
+        if matches!(event.kind(), EventKind::Swap) {
             // Check for sandwich attacks (simplified)
             let recent_swaps: Vec<_> = txs.iter()
                 .filter(|tx| matches!(tx.pattern_type, MevType::Sandwich))

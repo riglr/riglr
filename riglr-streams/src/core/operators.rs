@@ -57,7 +57,7 @@ use async_trait::async_trait;
 use futures::future::BoxFuture;
 
 use crate::core::{Stream, StreamHealth, StreamError};
-use riglr_solana_events::UnifiedEvent;
+use riglr_events_core::Event;
 // NOTE: Future enhancement - integrate events-core utilities for batching, rate limiting, etc.
 // use riglr_events_core::prelude::{EventBatcher, EventDeduplicator, RateLimiter, StreamUtils};
 
@@ -72,7 +72,7 @@ pub trait ComposableStream: Stream {
     where
         Self: Sized,
         F: Fn(Arc<Self::Event>) -> R + Send + Sync + 'static,
-        R: UnifiedEvent + Clone + Send + Sync + 'static,
+        R: Event + Clone + Send + Sync + 'static,
     {
         MappedStream::new(self, f)
     }
@@ -91,7 +91,7 @@ pub trait ComposableStream: Stream {
     where
         Self: Sized,
         S: Stream,
-        S::Event: UnifiedEvent + Clone + Send + Sync + 'static,
+        S::Event: Event + Clone + Send + Sync + 'static,
     {
         MergedStream::new(self, other)
     }
@@ -193,7 +193,7 @@ impl<S, F, R> MappedStream<S, F, R>
 where
     S: Stream,
     F: Fn(Arc<S::Event>) -> R + Send + Sync + 'static,
-    R: UnifiedEvent + Clone + Send + Sync + 'static,
+    R: Event + Clone + Send + Sync + 'static,
 {
     pub fn new(inner: S, transform: F) -> Self {
         Self {
@@ -209,7 +209,7 @@ impl<S, F, R> Stream for MappedStream<S, F, R>
 where
     S: Stream + Send + Sync + 'static,
     F: Fn(Arc<S::Event>) -> R + Send + Sync + 'static,
-    R: UnifiedEvent + Clone + Send + Sync + 'static,
+    R: Event + Clone + Send + Sync + 'static,
 {
     type Event = R;
     type Config = S::Config;
@@ -338,8 +338,8 @@ impl<S1, S2> Stream for MergedStream<S1, S2>
 where
     S1: Stream + Send + Sync + 'static,
     S2: Stream + Send + Sync + 'static,
-    S1::Event: UnifiedEvent + Clone + Send + Sync + 'static,
-    S2::Event: UnifiedEvent + Clone + Send + Sync + 'static,
+    S1::Event: Event + Clone + Send + Sync + 'static,
+    S2::Event: Event + Clone + Send + Sync + 'static,
 {
     type Event = MergedEvent<S1::Event, S2::Event>;
     type Config = (S1::Config, S2::Config);
@@ -414,10 +414,10 @@ pub enum MergedEvent<E1, E2> {
     Second(E2),
 }
 
-impl<E1, E2> UnifiedEvent for MergedEvent<E1, E2>
+impl<E1, E2> Event for MergedEvent<E1, E2>
 where
-    E1: UnifiedEvent + Clone + 'static,
-    E2: UnifiedEvent + Clone + 'static,
+    E1: Event + Clone + 'static,
+    E2: Event + Clone + 'static,
 {
     fn id(&self) -> &str {
         match self {
@@ -426,45 +426,24 @@ where
         }
     }
     
-    fn event_type(&self) -> riglr_solana_events::EventType {
+    fn kind(&self) -> &riglr_events_core::EventKind {
         match self {
-            MergedEvent::First(e) => e.event_type(),
-            MergedEvent::Second(e) => e.event_type(),
+            MergedEvent::First(e) => e.kind(),
+            MergedEvent::Second(e) => e.kind(),
         }
     }
     
-    fn signature(&self) -> &str {
+    fn metadata(&self) -> &riglr_events_core::EventMetadata {
         match self {
-            MergedEvent::First(e) => e.signature(),
-            MergedEvent::Second(e) => e.signature(),
+            MergedEvent::First(e) => e.metadata(),
+            MergedEvent::Second(e) => e.metadata(),
         }
     }
     
-    fn slot(&self) -> u64 {
+    fn metadata_mut(&mut self) -> &mut riglr_events_core::EventMetadata {
         match self {
-            MergedEvent::First(e) => e.slot(),
-            MergedEvent::Second(e) => e.slot(),
-        }
-    }
-    
-    fn program_received_time_ms(&self) -> i64 {
-        match self {
-            MergedEvent::First(e) => e.program_received_time_ms(),
-            MergedEvent::Second(e) => e.program_received_time_ms(),
-        }
-    }
-    
-    fn program_handle_time_consuming_ms(&self) -> i64 {
-        match self {
-            MergedEvent::First(e) => e.program_handle_time_consuming_ms(),
-            MergedEvent::Second(e) => e.program_handle_time_consuming_ms(),
-        }
-    }
-    
-    fn set_program_handle_time_consuming_ms(&mut self, time: i64) {
-        match self {
-            MergedEvent::First(e) => e.set_program_handle_time_consuming_ms(time),
-            MergedEvent::Second(e) => e.set_program_handle_time_consuming_ms(time),
+            MergedEvent::First(e) => e.metadata_mut(),
+            MergedEvent::Second(e) => e.metadata_mut(),
         }
     }
     
@@ -476,54 +455,8 @@ where
         self
     }
     
-    fn clone_boxed(&self) -> Box<dyn UnifiedEvent> {
+    fn clone_boxed(&self) -> Box<dyn Event> {
         Box::new(self.clone())
-    }
-    
-    fn set_transfer_data(
-        &mut self,
-        transfer_data: Vec<riglr_solana_events::TransferData>,
-        swap_data: Option<riglr_solana_events::SwapData>,
-    ) {
-        match self {
-            MergedEvent::First(e) => e.set_transfer_data(transfer_data, swap_data),
-            MergedEvent::Second(e) => e.set_transfer_data(transfer_data, swap_data),
-        }
-    }
-    
-    fn index(&self) -> String {
-        match self {
-            MergedEvent::First(e) => e.index(),
-            MergedEvent::Second(e) => e.index(),
-        }
-    }
-    
-    fn protocol_type(&self) -> riglr_solana_events::ProtocolType {
-        match self {
-            MergedEvent::First(e) => e.protocol_type(),
-            MergedEvent::Second(e) => e.protocol_type(),
-        }
-    }
-    
-    fn timestamp(&self) -> std::time::SystemTime {
-        match self {
-            MergedEvent::First(e) => e.timestamp(),
-            MergedEvent::Second(e) => e.timestamp(),
-        }
-    }
-    
-    fn transaction_hash(&self) -> Option<String> {
-        match self {
-            MergedEvent::First(e) => e.transaction_hash(),
-            MergedEvent::Second(e) => e.transaction_hash(),
-        }
-    }
-    
-    fn block_number(&self) -> Option<u64> {
-        match self {
-            MergedEvent::First(e) => e.block_number(),
-            MergedEvent::Second(e) => e.block_number(),
-        }
     }
 }
 
@@ -535,38 +468,35 @@ pub struct BatchEvent<E> {
     pub timestamp: std::time::SystemTime,
 }
 
-impl<E> UnifiedEvent for BatchEvent<E>
+impl<E> Event for BatchEvent<E>
 where
-    E: UnifiedEvent + Clone + 'static,
+    E: Event + Clone + 'static,
 {
     fn id(&self) -> &str {
         &self.batch_id
     }
     
-    fn event_type(&self) -> riglr_solana_events::EventType {
-        riglr_solana_events::EventType::Unknown
+    fn kind(&self) -> &riglr_events_core::EventKind {
+        static KIND: std::sync::LazyLock<riglr_events_core::EventKind> = std::sync::LazyLock::new(|| riglr_events_core::EventKind::Custom("batch".to_string()));
+        &KIND
     }
     
-    fn signature(&self) -> &str {
-        &self.batch_id
+    fn metadata(&self) -> &riglr_events_core::EventMetadata {
+        // For simplicity, we'll create a static metadata
+        // In a real implementation, this should be stored in the struct
+        static METADATA: std::sync::OnceLock<riglr_events_core::EventMetadata> = std::sync::OnceLock::new();
+        METADATA.get_or_init(|| {
+            riglr_events_core::EventMetadata::new(
+                "batch".to_string(),
+                riglr_events_core::EventKind::Custom("batch".to_string()),
+                "batch-stream".to_string(),
+            )
+        })
     }
     
-    fn slot(&self) -> u64 {
-        self.events.first().map(|e| e.slot()).unwrap_or(0)
+    fn metadata_mut(&mut self) -> &mut riglr_events_core::EventMetadata {
+        panic!("metadata_mut not supported for BatchEvent")
     }
-    
-    fn program_received_time_ms(&self) -> i64 {
-        self.timestamp
-            .duration_since(std::time::SystemTime::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_millis() as i64
-    }
-    
-    fn program_handle_time_consuming_ms(&self) -> i64 {
-        0
-    }
-    
-    fn set_program_handle_time_consuming_ms(&mut self, _time: i64) {}
     
     fn as_any(&self) -> &dyn Any {
         self
@@ -576,34 +506,8 @@ where
         self
     }
     
-    fn clone_boxed(&self) -> Box<dyn UnifiedEvent> {
+    fn clone_boxed(&self) -> Box<dyn Event> {
         Box::new(self.clone())
-    }
-    
-    fn set_transfer_data(
-        &mut self,
-        _transfer_data: Vec<riglr_solana_events::TransferData>,
-        _swap_data: Option<riglr_solana_events::SwapData>,
-    ) {}
-    
-    fn index(&self) -> String {
-        self.batch_id.clone()
-    }
-    
-    fn protocol_type(&self) -> riglr_solana_events::ProtocolType {
-        riglr_solana_events::ProtocolType::Other("batch".to_string())
-    }
-    
-    fn timestamp(&self) -> std::time::SystemTime {
-        self.timestamp
-    }
-    
-    fn transaction_hash(&self) -> Option<String> {
-        None
-    }
-    
-    fn block_number(&self) -> Option<u64> {
-        None
     }
 }
 
@@ -661,7 +565,7 @@ where
                         
                         if buffer.len() >= batch_size {
                             let batch = BatchEvent {
-                                events: buffer.drain(..).collect(),
+                                events: std::mem::take(&mut buffer),
                                 batch_id: format!("batch_{}", batch_counter),
                                 timestamp: std::time::SystemTime::now(),
                             };
@@ -672,7 +576,7 @@ where
                     _ = interval.tick() => {
                         if !buffer.is_empty() {
                             let batch = BatchEvent {
-                                events: buffer.drain(..).collect(),
+                                events: std::mem::take(&mut buffer),
                                 batch_id: format!("batch_{}", batch_counter),
                                 timestamp: std::time::SystemTime::now(),
                             };
@@ -736,7 +640,6 @@ where
         let duration = self.duration;
         
         tokio::spawn(async move {
-            let mut last_event: Option<Arc<S::Event>> = None;
             let mut timeout_task: Option<tokio::task::JoinHandle<()>> = None;
             
             while let Ok(event) = inner_rx.recv().await {
@@ -745,7 +648,6 @@ where
                     task.abort();
                 }
                 
-                last_event = Some(event.clone());
                 let tx_clone = tx.clone();
                 let event_clone = event;
                 
@@ -967,40 +869,26 @@ pub struct ScanEvent<S, E> {
     pub timestamp: std::time::SystemTime,
 }
 
-impl<S, E> UnifiedEvent for ScanEvent<S, E>
+impl<S, E> Event for ScanEvent<S, E>
 where
     S: Clone + Send + Sync + 'static + std::fmt::Debug,
-    E: UnifiedEvent + Clone + 'static,
+    E: Event + Clone + 'static,
 {
     fn id(&self) -> &str {
         &self.scan_id
     }
     
-    fn event_type(&self) -> riglr_solana_events::EventType {
-        self.original_event.event_type()
+    fn kind(&self) -> &riglr_events_core::EventKind {
+        self.original_event.kind()
     }
     
-    fn signature(&self) -> &str {
-        self.original_event.signature()
+    fn metadata(&self) -> &riglr_events_core::EventMetadata {
+        self.original_event.metadata()
     }
     
-    fn slot(&self) -> u64 {
-        self.original_event.slot()
-    }
-    
-    fn program_received_time_ms(&self) -> i64 {
-        self.timestamp
-            .duration_since(std::time::SystemTime::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_millis() as i64
-    }
-    
-    fn program_handle_time_consuming_ms(&self) -> i64 {
-        self.original_event.program_handle_time_consuming_ms()
-    }
-    
-    fn set_program_handle_time_consuming_ms(&mut self, _time: i64) {
+    fn metadata_mut(&mut self) -> &mut riglr_events_core::EventMetadata {
         // Cannot modify original event through Arc
+        panic!("metadata_mut not supported for ScanEvent")
     }
     
     fn as_any(&self) -> &dyn Any {
@@ -1011,34 +899,8 @@ where
         self
     }
     
-    fn clone_boxed(&self) -> Box<dyn UnifiedEvent> {
+    fn clone_boxed(&self) -> Box<dyn Event> {
         Box::new(self.clone())
-    }
-    
-    fn set_transfer_data(
-        &mut self,
-        _transfer_data: Vec<riglr_solana_events::TransferData>,
-        _swap_data: Option<riglr_solana_events::SwapData>,
-    ) {}
-    
-    fn index(&self) -> String {
-        self.original_event.index()
-    }
-    
-    fn protocol_type(&self) -> riglr_solana_events::ProtocolType {
-        self.original_event.protocol_type()
-    }
-    
-    fn timestamp(&self) -> std::time::SystemTime {
-        self.timestamp
-    }
-    
-    fn transaction_hash(&self) -> Option<String> {
-        self.original_event.transaction_hash()
-    }
-    
-    fn block_number(&self) -> Option<u64> {
-        self.original_event.block_number()
     }
 }
 
@@ -1143,7 +1005,7 @@ where
     S: Stream,
     FilterF: Fn(&S::Event) -> bool + Send + Sync + 'static,
     MapF: Fn(Arc<S::Event>) -> R + Send + Sync + 'static,
-    R: UnifiedEvent + Clone + Send + Sync + 'static,
+    R: Event + Clone + Send + Sync + 'static,
 {
     pub fn new(inner: S, filter: FilterF, map: MapF) -> Self {
         let name = format!("filter_map({})", inner.name());
@@ -1163,7 +1025,7 @@ where
     S: Stream + Send + Sync + 'static,
     FilterF: Fn(&S::Event) -> bool + Send + Sync + 'static,
     MapF: Fn(Arc<S::Event>) -> R + Send + Sync + 'static,
-    R: UnifiedEvent + Clone + Send + Sync + 'static,
+    R: Event + Clone + Send + Sync + 'static,
 {
     type Event = R;
     type Config = S::Config;
@@ -1216,7 +1078,7 @@ pub trait PerformanceStreamExt: ComposableStream {
         Self: Sized,
         FilterF: Fn(&Self::Event) -> bool + Send + Sync + 'static,
         MapF: Fn(Arc<Self::Event>) -> R + Send + Sync + 'static,
-        R: UnifiedEvent + Clone + Send + Sync + 'static,
+        R: Event + Clone + Send + Sync + 'static,
     {
         FilterMapStream::new(self, filter, map)
     }
@@ -1449,17 +1311,17 @@ pub mod combinators {
 /// Type-erased event for merged streams to avoid complex nested types
 #[derive(Clone, Debug)]
 pub struct TypeErasedEvent {
-    inner: Arc<dyn UnifiedEvent>,
+    inner: Arc<dyn Event>,
     source_stream: String,
 }
 
 impl TypeErasedEvent {
-    pub fn new(event: Arc<dyn UnifiedEvent>, source_stream: String) -> Self {
+    pub fn new(event: Arc<dyn Event>, source_stream: String) -> Self {
         Self { inner: event, source_stream }
     }
     
     /// Attempt to downcast to a specific event type
-    pub fn downcast<T: UnifiedEvent + 'static>(&self) -> Option<&T> {
+    pub fn downcast<T: Event + 'static>(&self) -> Option<&T> {
         self.inner.as_any().downcast_ref::<T>()
     }
     
@@ -1469,38 +1331,27 @@ impl TypeErasedEvent {
     }
     
     /// Get the inner event as a trait object
-    pub fn inner(&self) -> &dyn UnifiedEvent {
+    pub fn inner(&self) -> &dyn Event {
         &*self.inner
     }
 }
 
-impl UnifiedEvent for TypeErasedEvent {
+impl Event for TypeErasedEvent {
     fn id(&self) -> &str {
         self.inner.id()
     }
     
-    fn event_type(&self) -> riglr_solana_events::EventType {
-        self.inner.event_type()
+    fn kind(&self) -> &riglr_events_core::EventKind {
+        self.inner.kind()
     }
     
-    fn signature(&self) -> &str {
-        self.inner.signature()
+    fn metadata(&self) -> &riglr_events_core::EventMetadata {
+        self.inner.metadata()
     }
     
-    fn slot(&self) -> u64 {
-        self.inner.slot()
-    }
-    
-    fn program_received_time_ms(&self) -> i64 {
-        self.inner.program_received_time_ms()
-    }
-    
-    fn program_handle_time_consuming_ms(&self) -> i64 {
-        self.inner.program_handle_time_consuming_ms()
-    }
-    
-    fn set_program_handle_time_consuming_ms(&mut self, _time: i64) {
-        // Cannot modify through Arc - this is a limitation of type erasure
+    fn metadata_mut(&mut self) -> &mut riglr_events_core::EventMetadata {
+        // Cannot modify through Arc
+        panic!("metadata_mut not supported for TypeErasedEvent")
     }
     
     fn as_any(&self) -> &dyn Any {
@@ -1511,36 +1362,8 @@ impl UnifiedEvent for TypeErasedEvent {
         self
     }
     
-    fn clone_boxed(&self) -> Box<dyn UnifiedEvent> {
+    fn clone_boxed(&self) -> Box<dyn Event> {
         Box::new(self.clone())
-    }
-    
-    fn set_transfer_data(
-        &mut self,
-        _transfer_data: Vec<riglr_solana_events::TransferData>,
-        _swap_data: Option<riglr_solana_events::SwapData>,
-    ) {
-        // Cannot modify through Arc
-    }
-    
-    fn index(&self) -> String {
-        self.inner.index()
-    }
-    
-    fn protocol_type(&self) -> riglr_solana_events::ProtocolType {
-        self.inner.protocol_type()
-    }
-    
-    fn timestamp(&self) -> std::time::SystemTime {
-        self.inner.timestamp()
-    }
-    
-    fn transaction_hash(&self) -> Option<String> {
-        self.inner.transaction_hash()
-    }
-    
-    fn block_number(&self) -> Option<u64> {
-        self.inner.block_number()
     }
 }
 
@@ -1597,7 +1420,7 @@ where
             tokio::spawn(async move {
                 while let Ok(event) = stream_rx.recv().await {
                     let type_erased = TypeErasedEvent::new(
-                        event as Arc<dyn UnifiedEvent>,
+                        event as Arc<dyn Event>,
                         stream_name.clone(),
                     );
                     let _ = tx_clone.send(Arc::new(type_erased));

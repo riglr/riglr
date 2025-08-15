@@ -3,9 +3,9 @@ use std::sync::Arc;
 use std::time::SystemTime;
 use tokio::sync::broadcast;
 use async_trait::async_trait;
-use riglr_events_core::traits::Event;
-pub use riglr_solana_events::StreamMetadata;
+use riglr_events_core::prelude::Event;
 use riglr_events_core::StreamInfo;
+use super::StreamMetadata;
 
 use super::error::StreamError;
 
@@ -41,6 +41,7 @@ pub trait Stream: Send + Sync {
 /// 
 /// Enhanced with events-core integration for better observability
 #[derive(Debug, Clone)]
+#[derive(Default)]
 pub struct StreamHealth {
     /// Whether the stream is connected
     pub is_connected: bool,
@@ -58,23 +59,10 @@ pub struct StreamHealth {
     pub stream_info: Option<StreamInfo>,
 }
 
-impl Default for StreamHealth {
-    fn default() -> Self {
-        Self {
-            is_connected: false,
-            last_event_time: None,
-            error_count: 0,
-            events_processed: 0,
-            backlog_size: None,
-            custom_metrics: None,
-            stream_info: None,
-        }
-    }
-}
 
 
 /// Extension trait for events with streaming context
-pub trait StreamEvent: Event {
+pub trait StreamEvent: Send + Sync {
     /// Get stream-specific metadata
     fn stream_metadata(&self) -> Option<&StreamMetadata>;
     

@@ -36,6 +36,12 @@ pub struct PerformanceStats {
     pub p99_latency_ms: f64,
 }
 
+impl Default for StreamMetrics {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl StreamMetrics {
     /// Create new metrics collector
     pub fn new() -> Self {
@@ -130,6 +136,12 @@ pub struct MetricsSnapshot {
 pub struct MetricsCollector {
     /// Metrics by stream
     stream_metrics: Arc<RwLock<HashMap<String, StreamMetrics>>>,
+}
+
+impl Default for MetricsCollector {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl MetricsCollector {

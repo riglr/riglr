@@ -253,8 +253,7 @@ impl StreamManager {
                 .collect::<Vec<_>>()
                 .join(", ");
             return Err(StreamError::Internal {
-                source: Box::new(std::io::Error::new(
-                    std::io::ErrorKind::Other,
+                source: Box::new(std::io::Error::other(
                     format!("Failed to start some streams: {}", error_msg)
                 ))
             });

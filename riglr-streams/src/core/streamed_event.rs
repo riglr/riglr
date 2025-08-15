@@ -8,9 +8,7 @@
 use std::any::Any;
 use std::time::SystemTime;
 use std::fmt;
-use riglr_events_core::traits::Event;
-use riglr_events_core::types::{EventKind, EventMetadata};
-use riglr_solana_events::{UnifiedEvent, EventType, ProtocolType, TransferData, SwapData};
+use riglr_events_core::prelude::Event;
 use crate::core::{StreamEvent, StreamMetadata};
 
 /// Wrapper that adds streaming metadata to any Event through composition
@@ -53,20 +51,23 @@ impl<T: Event + Clone> StreamedEvent<T> {
 }
 
 // Implement Event by delegating to the inner event
-impl<T: Event + Clone + 'static> Event for StreamedEvent<T> {
+impl<T> Event for StreamedEvent<T> 
+where 
+    T: Event + Clone + 'static
+{
     fn id(&self) -> &str {
         self.inner.id()
     }
 
-    fn kind(&self) -> &EventKind {
+    fn kind(&self) -> &riglr_events_core::EventKind {
         self.inner.kind()
     }
 
-    fn metadata(&self) -> &EventMetadata {
+    fn metadata(&self) -> &riglr_events_core::EventMetadata {
         self.inner.metadata()
     }
 
-    fn metadata_mut(&mut self) -> &mut EventMetadata {
+    fn metadata_mut(&mut self) -> &mut riglr_events_core::EventMetadata {
         self.inner.metadata_mut()
     }
 
@@ -82,83 +83,8 @@ impl<T: Event + Clone + 'static> Event for StreamedEvent<T> {
         Box::new(self.clone())
     }
 
-    fn to_json(&self) -> riglr_events_core::error::EventResult<serde_json::Value> {
+    fn to_json(&self) -> riglr_events_core::EventResult<serde_json::Value> {
         self.inner.to_json()
-    }
-}
-
-// Legacy UnifiedEvent implementation for backward compatibility with Solana events
-// This allows StreamedEvent to wrap legacy Solana events that still use UnifiedEvent
-impl<T> UnifiedEvent for StreamedEvent<T> 
-where 
-    T: Event + Clone + UnifiedEvent + 'static
-{
-    fn id(&self) -> &str {
-        <T as UnifiedEvent>::id(&self.inner)
-    }
-
-    fn event_type(&self) -> EventType {
-        self.inner.event_type()
-    }
-
-    fn signature(&self) -> &str {
-        self.inner.signature()
-    }
-
-    fn slot(&self) -> u64 {
-        self.inner.slot()
-    }
-
-    fn program_received_time_ms(&self) -> i64 {
-        self.inner.program_received_time_ms()
-    }
-
-    fn program_handle_time_consuming_ms(&self) -> i64 {
-        self.inner.program_handle_time_consuming_ms()
-    }
-
-    fn set_program_handle_time_consuming_ms(&mut self, time: i64) {
-        self.inner.set_program_handle_time_consuming_ms(time)
-    }
-
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    fn as_any_mut(&mut self) -> &mut dyn Any {
-        self
-    }
-
-    fn clone_boxed(&self) -> Box<dyn UnifiedEvent> {
-        Box::new(self.clone())
-    }
-
-    fn set_transfer_data(
-        &mut self,
-        transfer_data: Vec<TransferData>,
-        swap_data: Option<SwapData>,
-    ) {
-        self.inner.set_transfer_data(transfer_data, swap_data)
-    }
-
-    fn index(&self) -> String {
-        self.inner.index()
-    }
-
-    fn protocol_type(&self) -> ProtocolType {
-        self.inner.protocol_type()
-    }
-
-    fn timestamp(&self) -> SystemTime {
-        <T as UnifiedEvent>::timestamp(&self.inner)
-    }
-
-    fn transaction_hash(&self) -> Option<String> {
-        self.inner.transaction_hash()
-    }
-
-    fn block_number(&self) -> Option<u64> {
-        self.inner.block_number()
     }
 }
 
@@ -202,19 +128,6 @@ impl DynamicStreamedEvent {
         }
     }
 
-    /// Create from any UnifiedEvent (backward compatibility)
-    pub fn from_unified(
-        event: Box<dyn UnifiedEvent>,
-        stream_metadata: StreamMetadata,
-    ) -> Self {
-        use crate::core::event_adapter::{UnifiedEventAdapter, EventConversion};
-        let adapted = event.to_event();
-        Self {
-            inner: adapted,
-            stream_metadata,
-        }
-    }
-
     /// Get a reference to the inner event
     pub fn inner(&self) -> &dyn Event {
         self.inner.as_ref()
@@ -232,15 +145,15 @@ impl Event for DynamicStreamedEvent {
         self.inner.id()
     }
 
-    fn kind(&self) -> &EventKind {
+    fn kind(&self) -> &riglr_events_core::EventKind {
         self.inner.kind()
     }
 
-    fn metadata(&self) -> &EventMetadata {
+    fn metadata(&self) -> &riglr_events_core::EventMetadata {
         self.inner.metadata()
     }
 
-    fn metadata_mut(&mut self) -> &mut EventMetadata {
+    fn metadata_mut(&mut self) -> &mut riglr_events_core::EventMetadata {
         self.inner.metadata_mut()
     }
 
@@ -256,93 +169,8 @@ impl Event for DynamicStreamedEvent {
         Box::new(self.clone())
     }
 
-    fn to_json(&self) -> riglr_events_core::error::EventResult<serde_json::Value> {
+    fn to_json(&self) -> riglr_events_core::EventResult<serde_json::Value> {
         self.inner.to_json()
-    }
-}
-
-// Implement UnifiedEvent by using defaults for non-Solana events
-// Note: This is a bridge implementation for backward compatibility
-impl UnifiedEvent for DynamicStreamedEvent {
-    fn id(&self) -> &str {
-        self.inner.id()
-    }
-
-    fn event_type(&self) -> EventType {
-        match self.inner.kind() {
-            EventKind::Swap => EventType::Swap,
-            EventKind::Transfer => EventType::Transfer,
-            EventKind::Liquidity => EventType::AddLiquidity,
-            EventKind::Price => EventType::PriceUpdate,
-            _ => EventType::Unknown,
-        }
-    }
-
-    fn signature(&self) -> &str {
-        // For non-Solana events, use the event ID as signature
-        self.inner.id()
-    }
-
-    fn slot(&self) -> u64 {
-        // Default value for non-Solana events
-        0
-    }
-
-    fn program_received_time_ms(&self) -> i64 {
-        self.inner.timestamp()
-            .duration_since(SystemTime::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_millis() as i64
-    }
-
-    fn program_handle_time_consuming_ms(&self) -> i64 {
-        0 // Default value for non-Solana events
-    }
-
-    fn set_program_handle_time_consuming_ms(&mut self, _time: i64) {
-        // No-op for non-Solana events
-    }
-
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    fn as_any_mut(&mut self) -> &mut dyn Any {
-        self
-    }
-
-    fn clone_boxed(&self) -> Box<dyn UnifiedEvent> {
-        // Can't clone because Box<dyn Event> doesn't have clone
-        panic!("Cannot clone DynamicStreamedEvent as UnifiedEvent")
-    }
-
-    fn set_transfer_data(
-        &mut self,
-        _transfer_data: Vec<TransferData>,
-        _swap_data: Option<SwapData>,
-    ) {
-        // No-op for non-Solana events
-    }
-
-    fn index(&self) -> String {
-        "0".to_string() // Default value
-    }
-
-    fn protocol_type(&self) -> ProtocolType {
-        // Default to Other for non-Solana events
-        ProtocolType::Other(self.inner.source().to_string())
-    }
-
-    fn timestamp(&self) -> SystemTime {
-        self.inner.timestamp()
-    }
-
-    fn transaction_hash(&self) -> Option<String> {
-        None // Default for non-Solana events
-    }
-
-    fn block_number(&self) -> Option<u64> {
-        None // Default for non-Solana events
     }
 }
 
@@ -375,7 +203,7 @@ pub trait IntoStreamedEvent: Event + Clone + Sized {
 // Implement for all Event types
 impl<T: Event + Clone + 'static> IntoStreamedEvent for T {}
 
-/// Helper trait for creating DynamicStreamedEvent from Box<dyn UnifiedEvent>
+/// Helper trait for creating DynamicStreamedEvent from Box<dyn Event>
 pub trait IntoDynamicStreamedEvent {
     /// Wrap this boxed event with streaming metadata
     fn with_stream_metadata(self, metadata: StreamMetadata) -> DynamicStreamedEvent;
@@ -384,11 +212,9 @@ pub trait IntoDynamicStreamedEvent {
     fn with_default_stream_metadata(self, source: impl Into<String>) -> DynamicStreamedEvent;
 }
 
-impl IntoDynamicStreamedEvent for Box<dyn UnifiedEvent> {
+impl IntoDynamicStreamedEvent for Box<dyn Event> {
     fn with_stream_metadata(self, metadata: StreamMetadata) -> DynamicStreamedEvent {
-        use crate::core::event_adapter::{UnifiedEventAdapter, EventConversion};
-        let adapted = self.to_event();
-        DynamicStreamedEvent::from_event(adapted, metadata)
+        DynamicStreamedEvent::from_event(self, metadata)
     }
 
     fn with_default_stream_metadata(self, source: impl Into<String>) -> DynamicStreamedEvent {
@@ -405,33 +231,40 @@ impl IntoDynamicStreamedEvent for Box<dyn UnifiedEvent> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use riglr_solana_events::{ProtocolType, EventType};
+    use riglr_events_core::prelude::{EventKind, EventMetadata};
+    use chrono::Utc;
     
     // Mock event for testing
     #[derive(Debug, Clone)]
     struct MockEvent {
-        id: String,
+        metadata: EventMetadata,
     }
     
-    impl UnifiedEvent for MockEvent {
-        fn id(&self) -> &str { &self.id }
-        fn event_type(&self) -> EventType { EventType::Swap }
-        fn signature(&self) -> &str { "mock_sig" }
-        fn slot(&self) -> u64 { 0 }
-        fn program_received_time_ms(&self) -> i64 { 0 }
-        fn program_handle_time_consuming_ms(&self) -> i64 { 0 }
-        fn set_program_handle_time_consuming_ms(&mut self, _: i64) {}
+    impl MockEvent {
+        fn new() -> Self {
+            Self {
+                metadata: EventMetadata::new(
+                    "test".to_string(),
+                    EventKind::Swap,
+                    "mock".to_string(),
+                ),
+            }
+        }
+    }
+    
+    impl Event for MockEvent {
+        fn id(&self) -> &str { &self.metadata.id }
+        fn kind(&self) -> &EventKind { &self.metadata.kind }
+        fn metadata(&self) -> &EventMetadata { &self.metadata }
+        fn metadata_mut(&mut self) -> &mut EventMetadata { &mut self.metadata }
         fn as_any(&self) -> &dyn Any { self }
         fn as_any_mut(&mut self) -> &mut dyn Any { self }
-        fn clone_boxed(&self) -> Box<dyn UnifiedEvent> { Box::new(self.clone()) }
-        fn set_transfer_data(&mut self, _: Vec<TransferData>, _: Option<SwapData>) {}
-        fn index(&self) -> String { "0".to_string() }
-        fn protocol_type(&self) -> ProtocolType { ProtocolType::Jupiter }
+        fn clone_boxed(&self) -> Box<dyn Event> { Box::new(self.clone()) }
     }
     
     #[test]
     fn test_streamed_event_composition() {
-        let event = MockEvent { id: "test".to_string() };
+        let event = MockEvent::new();
         let metadata = StreamMetadata {
             stream_source: "test-stream".to_string(),
             received_at: SystemTime::now(),
@@ -441,9 +274,9 @@ mod tests {
         
         let streamed = event.with_stream_metadata(metadata);
         
-        // Test UnifiedEvent delegation
+        // Test Event delegation
         assert_eq!(streamed.id(), "test");
-        assert_eq!(streamed.event_type(), EventType::Swap);
+        assert_eq!(streamed.kind(), &EventKind::Swap);
         
         // Test StreamEvent functionality
         assert!(streamed.stream_metadata().is_some());

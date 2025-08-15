@@ -2,12 +2,12 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::SystemTime;
 use tokio::sync::{broadcast, RwLock};
-use tokio_tungstenite::{connect_async, tungstenite::Message};
+use tokio_tungstenite::connect_async;
 use serde::{Deserialize, Serialize};
-use tracing::{info, warn, error, debug};
-use futures::{StreamExt, SinkExt, FutureExt};
+use tracing::info;
 
-use riglr_solana_events::{UnifiedEvent, EventType, ProtocolType};
+use riglr_events_core::prelude::{Event, EventKind, EventMetadata};
+use chrono::Utc;
 use crate::core::StreamMetadata;
 use crate::core::{Stream, StreamError, StreamEvent, StreamHealth};
 
@@ -49,16 +49,16 @@ impl Default for BinanceConfig {
 /// Binance streaming event
 #[derive(Debug, Clone)]
 pub struct BinanceStreamEvent {
-    /// Event ID
-    pub id: String,
+    /// Event metadata for riglr-events-core compatibility
+    pub metadata: EventMetadata,
     /// Event data
     pub data: BinanceEventData,
-    /// Stream metadata
+    /// Stream metadata (legacy)
     pub stream_meta: StreamMetadata,
 }
 
 /// Binance event data types
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub enum BinanceEventData {
     /// 24hr ticker statistics
     Ticker(TickerData),
@@ -142,48 +142,22 @@ impl StreamEvent for BinanceStreamEvent {
     }
 }
 
-impl UnifiedEvent for BinanceStreamEvent {
+impl Event for BinanceStreamEvent {
     fn id(&self) -> &str {
-        &self.id
+        &self.metadata.id
     }
     
-    fn event_type(&self) -> EventType {
-        match &self.data {
-            BinanceEventData::Ticker(_) => EventType::PriceUpdate,
-            BinanceEventData::OrderBook(_) => EventType::OrderBook,
-            BinanceEventData::Trade(_) => EventType::Trade,
-            BinanceEventData::Kline(_) => EventType::PriceUpdate,
-            BinanceEventData::Unknown(_) => EventType::Unknown,
-        }
+    fn kind(&self) -> &EventKind {
+        &self.metadata.kind
     }
     
-    fn signature(&self) -> &str {
-        &self.id
+    fn metadata(&self) -> &EventMetadata {
+        &self.metadata
     }
     
-    fn slot(&self) -> u64 {
-        // Use event time as "slot" for compatibility
-        match &self.data {
-            BinanceEventData::Ticker(t) => t.event_time,
-            BinanceEventData::OrderBook(o) => o.event_time,
-            BinanceEventData::Trade(t) => t.trade_time,
-            BinanceEventData::Kline(k) => k.kline.open_time,
-            BinanceEventData::Unknown(_) => 0,
-        }
+    fn metadata_mut(&mut self) -> &mut EventMetadata {
+        &mut self.metadata
     }
-    
-    fn program_received_time_ms(&self) -> i64 {
-        self.stream_meta.received_at
-            .duration_since(SystemTime::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_millis() as i64
-    }
-    
-    fn program_handle_time_consuming_ms(&self) -> i64 {
-        0
-    }
-    
-    fn set_program_handle_time_consuming_ms(&mut self, _time: i64) {}
     
     fn as_any(&self) -> &dyn std::any::Any {
         self
@@ -193,34 +167,16 @@ impl UnifiedEvent for BinanceStreamEvent {
         self
     }
     
-    fn clone_boxed(&self) -> Box<dyn UnifiedEvent> {
+    fn clone_boxed(&self) -> Box<dyn Event> {
         Box::new(self.clone())
     }
     
-    fn set_transfer_data(
-        &mut self,
-        _transfer_data: Vec<riglr_solana_events::TransferData>,
-        _swap_data: Option<riglr_solana_events::SwapData>,
-    ) {}
-    
-    fn index(&self) -> String {
-        "0".to_string()
-    }
-    
-    fn protocol_type(&self) -> ProtocolType {
-        ProtocolType::Other("Binance".to_string())
-    }
-    
-    fn timestamp(&self) -> SystemTime {
-        self.stream_meta.received_at
-    }
-    
-    fn transaction_hash(&self) -> Option<String> {
-        None
-    }
-    
-    fn block_number(&self) -> Option<u64> {
-        Some(self.slot())
+    fn to_json(&self) -> riglr_events_core::EventResult<serde_json::Value> {
+        Ok(serde_json::json!({
+            "metadata": self.metadata,
+            "data": self.data,
+            "stream_meta": self.stream_meta
+        }))
     }
 }
 
@@ -331,6 +287,7 @@ impl BinanceStream {
                 running,
                 health,
                 event_tx,
+                Option::<crate::core::MetricsCollector>::None, // No metrics for now
                 // Connect function
                 || {
                     let url = url.clone();
@@ -395,7 +352,30 @@ impl BinanceStream {
             BinanceEventData::Unknown(_) => "unknown",
         };
         
-        // Create stream metadata
+        // Create unique ID
+        let id = format!("{}-{}-{}", symbol, event_type, sequence_number);
+        
+        // Determine event kind
+        let kind = match event_type {
+            "24hrTicker" | "kline" => EventKind::Price,
+            "depthUpdate" => EventKind::External,
+            "trade" => EventKind::Transaction,
+            _ => EventKind::External,
+        };
+        
+        // Create event metadata
+        let now = Utc::now();
+        let metadata = EventMetadata {
+            id: id.clone(),
+            kind,
+            timestamp: now,
+            received_at: now,
+            source: "binance-ws".to_string(),
+            chain_data: None,
+            custom: std::collections::HashMap::new(),
+        };
+        
+        // Create stream metadata (legacy)
         let stream_meta = StreamMetadata {
             stream_source: "binance".to_string(),
             received_at: SystemTime::now(),
@@ -403,11 +383,8 @@ impl BinanceStream {
             custom_data: Some(json.clone()),
         };
         
-        // Create unique ID
-        let id = format!("{}-{}-{}", symbol, event_type, sequence_number);
-        
         Some(BinanceStreamEvent {
-            id,
+            metadata,
             data,
             stream_meta,
         })

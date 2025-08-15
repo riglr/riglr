@@ -20,7 +20,32 @@ mod test_asnumeric;
 pub use stream::{Stream, StreamEvent, StreamHealth, DynamicStream, DynamicStreamWrapper};
 pub use streamed_event::{StreamedEvent, DynamicStreamedEvent, IntoStreamedEvent, IntoDynamicStreamedEvent};
 pub use mock_stream::{MockStream, MockConfig};
-pub use riglr_solana_events::StreamMetadata;
+// pub use riglr_solana_events::StreamMetadata; // Temporarily disabled
+
+/// Temporary StreamMetadata for migration phase
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct StreamMetadata {
+    pub stream_source: String,
+    #[serde(with = "systemtime_as_millis")]
+    pub received_at: std::time::SystemTime,
+    pub sequence_number: Option<u64>,
+    pub custom_data: Option<serde_json::Value>,
+}
+
+mod systemtime_as_millis {
+    use serde::{Serialize, Serializer};
+    use std::time::SystemTime;
+    
+    pub fn serialize<S>(time: &SystemTime, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let millis = time.duration_since(SystemTime::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as u64;
+        millis.serialize(serializer)
+    }
+}
 pub use error::{StreamError, StreamResult};
 pub use manager::{StreamManager, EventHandler, LoggingEventHandler, HandlerExecutionMode};
 pub use metrics::{MetricsCollector, StreamMetrics, HandlerMetrics, GlobalMetrics, MetricsTimer};

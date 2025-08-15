@@ -8,7 +8,6 @@
 
 use crate::core::config::{BackpressureConfig, BackpressureStrategy, BatchConfig};
 use crate::core::error::{StreamError, StreamResult};
-use riglr_events_core::EventResult;
 use std::collections::{HashMap, VecDeque};
 use std::hash::Hash;
 use std::sync::Arc;
@@ -16,7 +15,7 @@ use std::time::{Duration, Instant, SystemTime};
 use tokio::sync::RwLock;
 use tokio::sync::Semaphore;
 use tokio::time::sleep;
-use tracing::{debug, error, info, warn};
+use tracing::{info, warn};
 
 /// Window types for time-based processing
 #[derive(Debug, Clone)]
@@ -358,7 +357,7 @@ impl FlowController {
                     // Switch to drop mode under high load
                     let mut drop_count = self.drop_count.write().await;
                     *drop_count += 1;
-                    return Err(StreamError::Backpressure { message: "Adaptive backpressure: dropping event".into() });
+                    Err(StreamError::Backpressure { message: "Adaptive backpressure: dropping event".into() })
                 } else if current_size <= self.config.low_watermark() {
                     // Switch to block mode under low load
                     self.semaphore.acquire().await
