@@ -8,7 +8,7 @@ use std::borrow::Cow;
 use std::sync::Arc;
 use solana_sdk::pubkey::Pubkey;
 use crate::types::{EventType, ProtocolType, EventMetadata};
-use crate::core::UnifiedEvent;
+// UnifiedEvent trait has been removed - using Event trait from riglr_events_core
 
 /// Zero-copy base event that holds references to source data
 #[derive(Debug, Clone)]
@@ -86,64 +86,6 @@ impl<'a> ZeroCopyEvent<'a> {
     }
 }
 
-// Only implement UnifiedEvent for 'static lifetime events
-impl UnifiedEvent for ZeroCopyEvent<'static> {
-    fn id(&self) -> &str {
-        &self.metadata.id
-    }
-
-    fn event_type(&self) -> EventType {
-        self.metadata.event_type.clone()
-    }
-
-    fn signature(&self) -> &str {
-        &self.metadata.signature
-    }
-
-    fn slot(&self) -> u64 {
-        self.metadata.slot
-    }
-
-    fn program_received_time_ms(&self) -> i64 {
-        self.metadata.program_received_time_ms
-    }
-
-    fn program_handle_time_consuming_ms(&self) -> i64 {
-        self.metadata.program_handle_time_consuming_ms
-    }
-
-    fn set_program_handle_time_consuming_ms(&mut self, time: i64) {
-        self.metadata.program_handle_time_consuming_ms = time;
-    }
-
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
-
-    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
-        self
-    }
-
-    fn clone_boxed(&self) -> Box<dyn UnifiedEvent> {
-        Box::new(self.clone())
-    }
-
-    fn set_transfer_data(
-        &mut self,
-        _transfer_data: Vec<crate::types::TransferData>,
-        _swap_data: Option<crate::types::SwapData>,
-    ) {
-        // Could be implemented to update JSON data
-    }
-
-    fn index(&self) -> String {
-        self.metadata.index.clone()
-    }
-
-    fn protocol_type(&self) -> ProtocolType {
-        self.metadata.protocol_type.clone()
-    }
-}
 
 // Helper methods for any lifetime
 impl<'a> ZeroCopyEvent<'a> {
@@ -271,63 +213,6 @@ impl<'a> ZeroCopySwapEvent<'a> {
     }
 }
 
-impl UnifiedEvent for ZeroCopySwapEvent<'static> {
-    fn id(&self) -> &str {
-        self.base.id()
-    }
-
-    fn event_type(&self) -> EventType {
-        self.base.event_type()
-    }
-
-    fn signature(&self) -> &str {
-        self.base.signature()
-    }
-
-    fn slot(&self) -> u64 {
-        self.base.slot()
-    }
-
-    fn program_received_time_ms(&self) -> i64 {
-        self.base.program_received_time_ms()
-    }
-
-    fn program_handle_time_consuming_ms(&self) -> i64 {
-        self.base.program_handle_time_consuming_ms()
-    }
-
-    fn set_program_handle_time_consuming_ms(&mut self, time: i64) {
-        self.base.set_program_handle_time_consuming_ms(time);
-    }
-
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
-
-    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
-        self
-    }
-
-    fn clone_boxed(&self) -> Box<dyn UnifiedEvent> {
-        Box::new(self.clone())
-    }
-
-    fn set_transfer_data(
-        &mut self,
-        transfer_data: Vec<crate::types::TransferData>,
-        swap_data: Option<crate::types::SwapData>,
-    ) {
-        self.base.set_transfer_data(transfer_data, swap_data);
-    }
-
-    fn index(&self) -> String {
-        self.base.index()
-    }
-
-    fn protocol_type(&self) -> ProtocolType {
-        self.base.protocol_type()
-    }
-}
 
 /// Zero-copy liquidity event
 #[derive(Debug, Clone)]
@@ -406,60 +291,3 @@ impl<'a> ZeroCopyLiquidityEvent<'a> {
     }
 }
 
-impl UnifiedEvent for ZeroCopyLiquidityEvent<'static> {
-    fn id(&self) -> &str {
-        self.base.id()
-    }
-
-    fn event_type(&self) -> EventType {
-        self.base.event_type()
-    }
-
-    fn signature(&self) -> &str {
-        self.base.signature()
-    }
-
-    fn slot(&self) -> u64 {
-        self.base.slot()
-    }
-
-    fn program_received_time_ms(&self) -> i64 {
-        self.base.program_received_time_ms()
-    }
-
-    fn program_handle_time_consuming_ms(&self) -> i64 {
-        self.base.program_handle_time_consuming_ms()
-    }
-
-    fn set_program_handle_time_consuming_ms(&mut self, time: i64) {
-        self.base.set_program_handle_time_consuming_ms(time);
-    }
-
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
-
-    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
-        self
-    }
-
-    fn clone_boxed(&self) -> Box<dyn UnifiedEvent> {
-        Box::new(self.clone())
-    }
-
-    fn set_transfer_data(
-        &mut self,
-        transfer_data: Vec<crate::types::TransferData>,
-        swap_data: Option<crate::types::SwapData>,
-    ) {
-        self.base.set_transfer_data(transfer_data, swap_data);
-    }
-
-    fn index(&self) -> String {
-        self.base.index()
-    }
-
-    fn protocol_type(&self) -> ProtocolType {
-        self.base.protocol_type()
-    }
-}

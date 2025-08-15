@@ -5,12 +5,9 @@
 
 use criterion::{criterion_group, criterion_main, Criterion, BenchmarkId};
 use std::hint::black_box;
-use std::sync::Arc;
 use riglr_solana_events::prelude::*;
 use riglr_solana_events::zero_copy::{BatchEventParser, CustomDeserializer, SIMDPatternMatcher};
-use riglr_solana_events::parsers::*;
 use riglr_solana_events::types::EventMetadata;
-use solana_sdk::pubkey::Pubkey;
 
 /// Generate test data for Raydium V4 SwapBaseIn instruction
 fn generate_raydium_swap_data() -> Vec<u8> {
@@ -140,7 +137,7 @@ fn benchmark_batch_parsing(c: &mut Criterion) {
                     let result = black_box(batch_parser.parse_batch(
                         black_box(&batch_refs), 
                         black_box(batch_metadata.clone())
-                    ).await);
+                    ));
                     black_box(result)
                 })
             },

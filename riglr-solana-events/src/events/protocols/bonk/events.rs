@@ -1,4 +1,4 @@
-use crate::impl_unified_event;
+// UnifiedEvent trait removed - events now implement Event trait directly
 use crate::events::common::EventMetadata;
 use crate::events::protocols::bonk::types::{
     CurveParams, MintParams, PoolStatus, TradeDirection, VestingParams,
@@ -7,12 +7,19 @@ use borsh::BorshDeserialize;
 use serde::{Deserialize, Serialize};
 use solana_sdk::pubkey::Pubkey;
 
+// Import new Event trait from riglr-events-core
+use riglr_events_core::{Event, EventKind, EventMetadata as CoreEventMetadata};
+use std::any::Any;
+
 /// Trade event
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, BorshDeserialize)]
 pub struct BonkTradeEvent {
     #[serde(skip)]
     #[borsh(skip)]
     pub metadata: EventMetadata,
+    #[serde(skip)]
+    #[borsh(skip)]
+    pub core_metadata: Option<CoreEventMetadata>,
     pub pool_state: Pubkey,
     pub total_base_sell: u64,
     pub virtual_base: u64,
@@ -55,7 +62,57 @@ pub struct BonkTradeEvent {
 }
 
 // Macro to generate UnifiedEvent implementation
-impl_unified_event!(BonkTradeEvent);
+
+// New Event trait implementation
+impl Event for BonkTradeEvent {
+    fn id(&self) -> &str {
+        &self.metadata.id
+    }
+
+    fn kind(&self) -> &EventKind {
+        if let Some(ref core_metadata) = self.core_metadata {
+            &core_metadata.kind
+        } else {
+            // Fallback: create EventKind from legacy EventType
+            &EventKind::Swap // Bonk trades are swaps
+        }
+    }
+
+    fn metadata(&self) -> &CoreEventMetadata {
+        self.core_metadata.as_ref().unwrap_or_else(|| {
+            // This should not happen in practice once migration is complete
+            panic!("Core metadata not initialized for BonkTradeEvent")
+        })
+    }
+
+    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
+        if self.core_metadata.is_none() {
+            // Initialize core metadata from legacy metadata if needed
+            self.core_metadata = Some(self.metadata.to_core_metadata(
+                self.metadata.event_type.to_event_kind(),
+                "bonk".to_string(),
+            ));
+        }
+        self.core_metadata.as_mut().unwrap()
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
+    fn clone_boxed(&self) -> Box<dyn Event> {
+        Box::new(self.clone())
+    }
+
+    fn to_json(&self) -> riglr_events_core::error::EventResult<serde_json::Value> {
+        serde_json::to_value(self)
+            .map_err(riglr_events_core::error::EventError::Serialization)
+    }
+}
 
 /// Create pool event
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, BorshDeserialize)]
@@ -63,6 +120,9 @@ pub struct BonkPoolCreateEvent {
     #[serde(skip)]
     #[borsh(skip)]
     pub metadata: EventMetadata,
+    #[serde(skip)]
+    #[borsh(skip)]
+    pub core_metadata: Option<CoreEventMetadata>,
     pub pool_state: Pubkey,
     pub creator: Pubkey,
     pub config: Pubkey,
@@ -85,7 +145,57 @@ pub struct BonkPoolCreateEvent {
     pub platform_config: Pubkey,
 }
 
-impl_unified_event!(BonkPoolCreateEvent);
+
+// New Event trait implementation
+impl Event for BonkPoolCreateEvent {
+    fn id(&self) -> &str {
+        &self.metadata.id
+    }
+
+    fn kind(&self) -> &EventKind {
+        if let Some(ref core_metadata) = self.core_metadata {
+            &core_metadata.kind
+        } else {
+            // Fallback: create EventKind from legacy EventType
+            &EventKind::Liquidity // Pool creation is liquidity-related
+        }
+    }
+
+    fn metadata(&self) -> &CoreEventMetadata {
+        self.core_metadata.as_ref().unwrap_or_else(|| {
+            // This should not happen in practice once migration is complete
+            panic!("Core metadata not initialized for BonkPoolCreateEvent")
+        })
+    }
+
+    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
+        if self.core_metadata.is_none() {
+            // Initialize core metadata from legacy metadata if needed
+            self.core_metadata = Some(self.metadata.to_core_metadata(
+                self.metadata.event_type.to_event_kind(),
+                "bonk".to_string(),
+            ));
+        }
+        self.core_metadata.as_mut().unwrap()
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
+    fn clone_boxed(&self) -> Box<dyn Event> {
+        Box::new(self.clone())
+    }
+
+    fn to_json(&self) -> riglr_events_core::error::EventResult<serde_json::Value> {
+        serde_json::to_value(self)
+            .map_err(riglr_events_core::error::EventError::Serialization)
+    }
+}
 
 /// Event discriminator constants
 pub mod discriminators {

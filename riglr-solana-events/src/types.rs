@@ -44,7 +44,7 @@ impl std::fmt::Display for ProtocolType {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, BorshDeserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, BorshDeserialize, Default)]
 pub enum EventType {
     Swap,
     AddLiquidity,
@@ -106,19 +106,18 @@ pub enum EventType {
     DecreaseLiquidity,
     Deposit,
     Withdraw,
+    #[default]
     Unknown,
 }
 
-impl Default for EventType {
-    fn default() -> Self {
-        EventType::Unknown
+
+impl std::fmt::Display for EventType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
     }
 }
 
 impl EventType {
-    pub fn to_string(&self) -> String {
-        format!("{:?}", self)
-    }
 
     /// Convert local EventType to riglr-events-core EventKind
     pub fn to_event_kind(&self) -> riglr_events_core::types::EventKind {
@@ -177,6 +176,7 @@ pub struct EventMetadata {
 }
 
 impl EventMetadata {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         id: String,
         signature: String,
@@ -275,7 +275,7 @@ impl EventMetadata {
             kind,
             source,
             chrono::DateTime::from_timestamp(self.block_time, 0)
-                .unwrap_or_else(|| chrono::Utc::now()),
+                .unwrap_or_else(chrono::Utc::now),
         ).with_chain_data(chain_data)
     }
 }

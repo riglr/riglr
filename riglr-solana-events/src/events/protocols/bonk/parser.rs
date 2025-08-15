@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use riglr_events_core::Event;
 
 use borsh::BorshDeserialize;
 use solana_sdk::{instruction::CompiledInstruction, pubkey::Pubkey};
@@ -6,7 +7,7 @@ use solana_transaction_status::UiCompiledInstruction;
 
 use crate::events::{
     common::{EventMetadata, EventType, ProtocolType},
-    core::traits::{EventParser, GenericEventParseConfig, GenericEventParser, UnifiedEvent},
+    core::traits::{EventParser, GenericEventParseConfig, GenericEventParser},
     protocols::bonk::{
         discriminators, BonkTradeEvent, BonkPoolCreateEvent, TradeDirection
     },
@@ -105,7 +106,7 @@ impl BonkEventParser {
     fn parse_trade_inner_instruction(
         data: &[u8],
         metadata: EventMetadata,
-    ) -> Option<Box<dyn UnifiedEvent>> {
+    ) -> Option<Box<dyn Event>> {
         // Parse the trade event using borsh deserialization
         if let Ok(event) = BonkTradeEvent::try_from_slice(data) {
             let mut metadata = metadata;
@@ -135,7 +136,7 @@ impl BonkEventParser {
     fn parse_pool_create_inner_instruction(
         data: &[u8],
         metadata: EventMetadata,
-    ) -> Option<Box<dyn UnifiedEvent>> {
+    ) -> Option<Box<dyn Event>> {
         // Parse the pool create event using borsh deserialization
         if let Ok(event) = BonkPoolCreateEvent::try_from_slice(data) {
             let mut metadata = metadata;
@@ -151,7 +152,7 @@ impl BonkEventParser {
         data: &[u8],
         accounts: &[Pubkey],
         metadata: EventMetadata,
-    ) -> Option<Box<dyn UnifiedEvent>> {
+    ) -> Option<Box<dyn Event>> {
         if data.len() < 16 || accounts.len() < 10 {
             return None;
         }
@@ -187,7 +188,7 @@ impl BonkEventParser {
         data: &[u8],
         accounts: &[Pubkey],
         metadata: EventMetadata,
-    ) -> Option<Box<dyn UnifiedEvent>> {
+    ) -> Option<Box<dyn Event>> {
         if data.len() < 16 || accounts.len() < 10 {
             return None;
         }
@@ -223,7 +224,7 @@ impl BonkEventParser {
         data: &[u8],
         accounts: &[Pubkey],
         metadata: EventMetadata,
-    ) -> Option<Box<dyn UnifiedEvent>> {
+    ) -> Option<Box<dyn Event>> {
         if data.len() < 16 || accounts.len() < 10 {
             return None;
         }
@@ -259,7 +260,7 @@ impl BonkEventParser {
         data: &[u8],
         accounts: &[Pubkey],
         metadata: EventMetadata,
-    ) -> Option<Box<dyn UnifiedEvent>> {
+    ) -> Option<Box<dyn Event>> {
         if data.len() < 16 || accounts.len() < 10 {
             return None;
         }
@@ -295,7 +296,7 @@ impl BonkEventParser {
         _data: &[u8],
         accounts: &[Pubkey],
         metadata: EventMetadata,
-    ) -> Option<Box<dyn UnifiedEvent>> {
+    ) -> Option<Box<dyn Event>> {
         if accounts.len() < 8 {
             return None;
         }
@@ -326,7 +327,7 @@ impl BonkEventParser {
         _data: &[u8],
         accounts: &[Pubkey],
         metadata: EventMetadata,
-    ) -> Option<Box<dyn UnifiedEvent>> {
+    ) -> Option<Box<dyn Event>> {
         if accounts.len() < 5 {
             return None;
         }
@@ -353,7 +354,7 @@ impl BonkEventParser {
         _data: &[u8],
         accounts: &[Pubkey],
         metadata: EventMetadata,
-    ) -> Option<Box<dyn UnifiedEvent>> {
+    ) -> Option<Box<dyn Event>> {
         if accounts.len() < 5 {
             return None;
         }
@@ -392,7 +393,7 @@ impl EventParser for BonkEventParser {
         block_time: Option<i64>,
         program_received_time_ms: i64,
         index: String,
-    ) -> Vec<Box<dyn UnifiedEvent>> {
+    ) -> Vec<Box<dyn Event>> {
         self.inner.parse_events_from_inner_instruction(
             inner_instruction,
             signature,
@@ -412,7 +413,7 @@ impl EventParser for BonkEventParser {
         block_time: Option<i64>,
         program_received_time_ms: i64,
         index: String,
-    ) -> Vec<Box<dyn UnifiedEvent>> {
+    ) -> Vec<Box<dyn Event>> {
         self.inner.parse_events_from_instruction(
             instruction,
             accounts,

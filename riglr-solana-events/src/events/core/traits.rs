@@ -1,83 +1,11 @@
-use std::any::Any;
 use std::fmt::Debug;
-use crate::types::{EventMetadata, EventType, ProtocolType, TransferData, SwapData};
+use crate::types::{EventMetadata, EventType, ProtocolType};
+use riglr_events_core::Event;
 
-/// Unified Event Interface - All protocol events must implement this trait
-pub trait UnifiedEvent: Debug + Send + Sync {
-    /// Get event ID
-    fn id(&self) -> &str;
-
-    /// Get event type
-    fn event_type(&self) -> EventType;
-
-    /// Get transaction signature
-    fn signature(&self) -> &str;
-
-    /// Get slot number
-    fn slot(&self) -> u64;
-
-    /// Get program received timestamp (milliseconds)
-    fn program_received_time_ms(&self) -> i64;
-
-    /// Processing time consumption (milliseconds)
-    fn program_handle_time_consuming_ms(&self) -> i64;
-
-    /// Set processing time consumption (milliseconds)
-    fn set_program_handle_time_consuming_ms(&mut self, program_handle_time_consuming_ms: i64);
-
-    /// Convert event to Any for downcasting
-    fn as_any(&self) -> &dyn Any;
-
-    /// Convert event to mutable Any for downcasting
-    fn as_any_mut(&mut self) -> &mut dyn Any;
-
-    /// Clone the event
-    fn clone_boxed(&self) -> Box<dyn UnifiedEvent>;
-
-    /// Merge events (optional implementation)
-    fn merge(&mut self, _other: Box<dyn UnifiedEvent>) {
-        // Default implementation: no merging operation
-    }
-
-    /// Set transfer data
-    fn set_transfer_data(
-        &mut self,
-        transfer_data: Vec<TransferData>,
-        swap_data: Option<SwapData>,
-    );
-
-    /// Get index
-    fn index(&self) -> String;
-
-    /// Get protocol type
-    fn protocol_type(&self) -> ProtocolType;
-
-    /// Get timestamp
-    fn timestamp(&self) -> std::time::SystemTime {
-        std::time::UNIX_EPOCH + std::time::Duration::from_millis(self.program_received_time_ms() as u64)
-    }
-
-    /// Get transaction hash
-    fn transaction_hash(&self) -> Option<String> {
-        Some(self.signature().to_string())
-    }
-
-    /// Get block number
-    fn block_number(&self) -> Option<u64> {
-        Some(self.slot())
-    }
-
-    // Core event methods only - streaming logic moved to riglr-streams
-}
-
-/// Implement Clone for Box<dyn UnifiedEvent>
-impl Clone for Box<dyn UnifiedEvent> {
-    fn clone(&self) -> Self {
-        self.clone_boxed()
-    }
-}
+// UnifiedEvent trait has been removed. Use riglr_events_core::Event instead.
 
 /// Event Parser trait - defines the core methods for event parsing
+/// This now returns Event trait objects instead of UnifiedEvent
 #[async_trait::async_trait]
 pub trait EventParser: Send + Sync {
     /// Get inner instruction parsing configurations
@@ -95,9 +23,10 @@ pub trait EventParser: Send + Sync {
         block_time: Option<i64>,
         program_received_time_ms: i64,
         index: String,
-    ) -> Vec<Box<dyn UnifiedEvent>>;
+    ) -> Vec<Box<dyn Event>>;
 
     /// Parse event data from instruction
+    #[allow(clippy::too_many_arguments)]
     fn parse_events_from_instruction(
         &self,
         instruction: &solana_sdk::instruction::CompiledInstruction,
@@ -107,7 +36,7 @@ pub trait EventParser: Send + Sync {
         block_time: Option<i64>,
         program_received_time_ms: i64,
         index: String,
-    ) -> Vec<Box<dyn UnifiedEvent>>;
+    ) -> Vec<Box<dyn Event>>;
 
     /// Check if this program ID should be handled
     fn should_handle(&self, program_id: &solana_sdk::pubkey::Pubkey) -> bool;
@@ -130,11 +59,11 @@ pub struct GenericEventParseConfig {
 
 /// Inner instruction event parser
 pub type InnerInstructionEventParser =
-    fn(data: &[u8], metadata: EventMetadata) -> Option<Box<dyn UnifiedEvent>>;
+    fn(data: &[u8], metadata: EventMetadata) -> Option<Box<dyn Event>>;
 
 /// Instruction event parser
 pub type InstructionEventParser =
-    fn(data: &[u8], accounts: &[solana_sdk::pubkey::Pubkey], metadata: EventMetadata) -> Option<Box<dyn UnifiedEvent>>;
+    fn(data: &[u8], accounts: &[solana_sdk::pubkey::Pubkey], metadata: EventMetadata) -> Option<Box<dyn Event>>;
 
 /// Generic event parser base class
 pub struct GenericEventParser {
@@ -184,12 +113,12 @@ impl EventParser for GenericEventParser {
         block_time: Option<i64>,
         program_received_time_ms: i64,
         index: String,
-    ) -> Vec<Box<dyn UnifiedEvent>> {
+    ) -> Vec<Box<dyn Event>> {
         let mut events = Vec::new();
         
         // For inner instructions, we'll use the data to identify the instruction type
         if let Ok(data) = bs58::decode(&inner_instruction.data).into_vec() {
-            for (_, configs) in &self.inner_instruction_configs {
+            for configs in self.inner_instruction_configs.values() {
                 for config in configs {
                     let metadata = EventMetadata::new(
                         format!("{}_{}", signature, index),
@@ -223,7 +152,7 @@ impl EventParser for GenericEventParser {
         block_time: Option<i64>,
         program_received_time_ms: i64,
         index: String,
-    ) -> Vec<Box<dyn UnifiedEvent>> {
+    ) -> Vec<Box<dyn Event>> {
         let mut events = Vec::new();
         
         if let Some(configs) = self.instruction_configs.get(&instruction.data) {

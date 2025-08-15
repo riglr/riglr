@@ -1,7 +1,8 @@
 use std::collections::HashMap;
+use riglr_events_core::Event;
 use solana_sdk::pubkey::Pubkey;
 use crate::{
-    events::core::{EventParser, GenericEventParseConfig, UnifiedEvent},
+    events::core::{EventParser, GenericEventParseConfig},
     types::{EventMetadata, EventType, ProtocolType},
     events::common::utils::{has_discriminator, parse_u64_le, parse_u128_le, parse_u32_le},
 };
@@ -114,12 +115,12 @@ impl EventParser for OrcaEventParser {
         block_time: Option<i64>,
         program_received_time_ms: i64,
         index: String,
-    ) -> Vec<Box<dyn UnifiedEvent>> {
+    ) -> Vec<Box<dyn Event>> {
         let mut events = Vec::new();
         
         // For inner instructions, we'll use the data to identify the instruction type
         if let Ok(data) = bs58::decode(&inner_instruction.data).into_vec() {
-            for (_, configs) in &self.inner_instruction_configs {
+            for configs in self.inner_instruction_configs.values() {
                 for config in configs {
                     let metadata = EventMetadata::new(
                         format!("{}_{}", signature, index),
@@ -153,7 +154,7 @@ impl EventParser for OrcaEventParser {
         block_time: Option<i64>,
         program_received_time_ms: i64,
         index: String,
-    ) -> Vec<Box<dyn UnifiedEvent>> {
+    ) -> Vec<Box<dyn Event>> {
         let mut events = Vec::new();
         
         // Check each discriminator
@@ -204,7 +205,7 @@ impl Default for OrcaEventParser {
 fn parse_orca_swap_inner_instruction(
     data: &[u8],
     metadata: EventMetadata,
-) -> Option<Box<dyn UnifiedEvent>> {
+) -> Option<Box<dyn Event>> {
     parse_orca_swap_data(data).map(|swap_data| {
         Box::new(OrcaSwapEvent::new(
             metadata.id,
@@ -215,7 +216,7 @@ fn parse_orca_swap_inner_instruction(
             metadata.program_received_time_ms,
             metadata.index,
             swap_data,
-        )) as Box<dyn UnifiedEvent>
+        )) as Box<dyn Event>
     })
 }
 
@@ -223,7 +224,7 @@ fn parse_orca_swap_instruction(
     data: &[u8],
     accounts: &[Pubkey],
     metadata: EventMetadata,
-) -> Option<Box<dyn UnifiedEvent>> {
+) -> Option<Box<dyn Event>> {
     parse_orca_swap_data_from_instruction(data, accounts).map(|swap_data| {
         Box::new(OrcaSwapEvent::new(
             metadata.id,
@@ -234,14 +235,14 @@ fn parse_orca_swap_instruction(
             metadata.program_received_time_ms,
             metadata.index,
             swap_data,
-        )) as Box<dyn UnifiedEvent>
+        )) as Box<dyn Event>
     })
 }
 
 fn parse_orca_open_position_inner_instruction(
     data: &[u8],
     metadata: EventMetadata,
-) -> Option<Box<dyn UnifiedEvent>> {
+) -> Option<Box<dyn Event>> {
     parse_orca_position_data(data).map(|position_data| {
         Box::new(OrcaPositionEvent {
             id: metadata.id,
@@ -255,7 +256,8 @@ fn parse_orca_open_position_inner_instruction(
             position_data,
             is_open: true,
             transfer_data: Vec::new(),
-        }) as Box<dyn UnifiedEvent>
+            core_metadata: None,
+        }) as Box<dyn Event>
     })
 }
 
@@ -263,7 +265,7 @@ fn parse_orca_open_position_instruction(
     data: &[u8],
     accounts: &[Pubkey],
     metadata: EventMetadata,
-) -> Option<Box<dyn UnifiedEvent>> {
+) -> Option<Box<dyn Event>> {
     parse_orca_position_data_from_instruction(data, accounts).map(|position_data| {
         Box::new(OrcaPositionEvent {
             id: metadata.id,
@@ -277,14 +279,15 @@ fn parse_orca_open_position_instruction(
             position_data,
             is_open: true,
             transfer_data: Vec::new(),
-        }) as Box<dyn UnifiedEvent>
+            core_metadata: None,
+        }) as Box<dyn Event>
     })
 }
 
 fn parse_orca_close_position_inner_instruction(
     data: &[u8],
     metadata: EventMetadata,
-) -> Option<Box<dyn UnifiedEvent>> {
+) -> Option<Box<dyn Event>> {
     parse_orca_position_data(data).map(|position_data| {
         Box::new(OrcaPositionEvent {
             id: metadata.id,
@@ -298,7 +301,8 @@ fn parse_orca_close_position_inner_instruction(
             position_data,
             is_open: false,
             transfer_data: Vec::new(),
-        }) as Box<dyn UnifiedEvent>
+            core_metadata: None,
+        }) as Box<dyn Event>
     })
 }
 
@@ -306,7 +310,7 @@ fn parse_orca_close_position_instruction(
     data: &[u8],
     accounts: &[Pubkey],
     metadata: EventMetadata,
-) -> Option<Box<dyn UnifiedEvent>> {
+) -> Option<Box<dyn Event>> {
     parse_orca_position_data_from_instruction(data, accounts).map(|position_data| {
         Box::new(OrcaPositionEvent {
             id: metadata.id,
@@ -320,14 +324,15 @@ fn parse_orca_close_position_instruction(
             position_data,
             is_open: false,
             transfer_data: Vec::new(),
-        }) as Box<dyn UnifiedEvent>
+            core_metadata: None,
+        }) as Box<dyn Event>
     })
 }
 
 fn parse_orca_increase_liquidity_inner_instruction(
     data: &[u8],
     metadata: EventMetadata,
-) -> Option<Box<dyn UnifiedEvent>> {
+) -> Option<Box<dyn Event>> {
     parse_orca_liquidity_data(data, true).map(|liquidity_data| {
         Box::new(OrcaLiquidityEvent {
             id: metadata.id,
@@ -340,7 +345,8 @@ fn parse_orca_increase_liquidity_inner_instruction(
             index: metadata.index,
             liquidity_data,
             transfer_data: Vec::new(),
-        }) as Box<dyn UnifiedEvent>
+            core_metadata: None,
+        }) as Box<dyn Event>
     })
 }
 
@@ -348,7 +354,7 @@ fn parse_orca_increase_liquidity_instruction(
     data: &[u8],
     accounts: &[Pubkey],
     metadata: EventMetadata,
-) -> Option<Box<dyn UnifiedEvent>> {
+) -> Option<Box<dyn Event>> {
     parse_orca_liquidity_data_from_instruction(data, accounts, true).map(|liquidity_data| {
         Box::new(OrcaLiquidityEvent {
             id: metadata.id,
@@ -361,14 +367,15 @@ fn parse_orca_increase_liquidity_instruction(
             index: metadata.index,
             liquidity_data,
             transfer_data: Vec::new(),
-        }) as Box<dyn UnifiedEvent>
+            core_metadata: None,
+        }) as Box<dyn Event>
     })
 }
 
 fn parse_orca_decrease_liquidity_inner_instruction(
     data: &[u8],
     metadata: EventMetadata,
-) -> Option<Box<dyn UnifiedEvent>> {
+) -> Option<Box<dyn Event>> {
     parse_orca_liquidity_data(data, false).map(|liquidity_data| {
         Box::new(OrcaLiquidityEvent {
             id: metadata.id,
@@ -381,7 +388,8 @@ fn parse_orca_decrease_liquidity_inner_instruction(
             index: metadata.index,
             liquidity_data,
             transfer_data: Vec::new(),
-        }) as Box<dyn UnifiedEvent>
+            core_metadata: None,
+        }) as Box<dyn Event>
     })
 }
 
@@ -389,7 +397,7 @@ fn parse_orca_decrease_liquidity_instruction(
     data: &[u8],
     accounts: &[Pubkey],
     metadata: EventMetadata,
-) -> Option<Box<dyn UnifiedEvent>> {
+) -> Option<Box<dyn Event>> {
     parse_orca_liquidity_data_from_instruction(data, accounts, false).map(|liquidity_data| {
         Box::new(OrcaLiquidityEvent {
             id: metadata.id,
@@ -402,7 +410,8 @@ fn parse_orca_decrease_liquidity_instruction(
             index: metadata.index,
             liquidity_data,
             transfer_data: Vec::new(),
-        }) as Box<dyn UnifiedEvent>
+            core_metadata: None,
+        }) as Box<dyn Event>
     })
 }
 

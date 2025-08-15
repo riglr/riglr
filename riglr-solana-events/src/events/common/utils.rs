@@ -2,7 +2,7 @@ use solana_sdk::pubkey::Pubkey;
 use crate::error::{ParseError, ParseResult};
 
 /// Common utility functions for event parsing
-
+///
 /// Read u64 from little-endian bytes at offset
 pub fn read_u64_le(data: &[u8], offset: usize) -> ParseResult<u64> {
     if data.len() < offset + 8 {

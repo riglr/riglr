@@ -1,11 +1,12 @@
 use std::collections::HashMap;
+use riglr_events_core::Event;
 
 use solana_sdk::{instruction::CompiledInstruction, pubkey::Pubkey};
 use solana_transaction_status::UiCompiledInstruction;
 
 use crate::events::{
     common::{EventMetadata, EventType, ProtocolType, read_u64_le, read_u8_le},
-    core::traits::{EventParser, GenericEventParseConfig, GenericEventParser, UnifiedEvent},
+    core::traits::{EventParser, GenericEventParseConfig, GenericEventParser},
     protocols::raydium_amm_v4::{
         discriminators, RaydiumAmmV4SwapEvent, RaydiumAmmV4DepositEvent,
         RaydiumAmmV4Initialize2Event, RaydiumAmmV4WithdrawEvent, 
@@ -101,7 +102,7 @@ impl RaydiumAmmV4EventParser {
     /// 
     /// This differs from protocols like Raydium CPMM which emit events through logs
     /// that need to be parsed from inner instructions.
-    fn empty_parse(_data: &[u8], _metadata: EventMetadata) -> Option<Box<dyn UnifiedEvent>> {
+    fn empty_parse(_data: &[u8], _metadata: EventMetadata) -> Option<Box<dyn Event>> {
         None
     }
 
@@ -110,7 +111,7 @@ impl RaydiumAmmV4EventParser {
         data: &[u8],
         accounts: &[Pubkey],
         metadata: EventMetadata,
-    ) -> Option<Box<dyn UnifiedEvent>> {
+    ) -> Option<Box<dyn Event>> {
         if data.len() < 16 || accounts.len() < 17 {
             return None;
         }
@@ -147,7 +148,7 @@ impl RaydiumAmmV4EventParser {
         data: &[u8],
         accounts: &[Pubkey],
         metadata: EventMetadata,
-    ) -> Option<Box<dyn UnifiedEvent>> {
+    ) -> Option<Box<dyn Event>> {
         if data.len() < 16 || accounts.len() < 17 {
             return None;
         }
@@ -184,7 +185,7 @@ impl RaydiumAmmV4EventParser {
         data: &[u8],
         accounts: &[Pubkey],
         metadata: EventMetadata,
-    ) -> Option<Box<dyn UnifiedEvent>> {
+    ) -> Option<Box<dyn Event>> {
         if data.len() < 24 || accounts.len() < 13 {
             return None;
         }
@@ -225,7 +226,7 @@ impl RaydiumAmmV4EventParser {
         data: &[u8],
         accounts: &[Pubkey],
         metadata: EventMetadata,
-    ) -> Option<Box<dyn UnifiedEvent>> {
+    ) -> Option<Box<dyn Event>> {
         if data.len() < 25 || accounts.len() < 21 {
             return None;
         }
@@ -270,7 +271,7 @@ impl RaydiumAmmV4EventParser {
         data: &[u8],
         accounts: &[Pubkey],
         metadata: EventMetadata,
-    ) -> Option<Box<dyn UnifiedEvent>> {
+    ) -> Option<Box<dyn Event>> {
         if data.len() < 8 || accounts.len() < 22 {
             return None;
         }
@@ -316,7 +317,7 @@ impl RaydiumAmmV4EventParser {
         _data: &[u8],
         accounts: &[Pubkey],
         metadata: EventMetadata,
-    ) -> Option<Box<dyn UnifiedEvent>> {
+    ) -> Option<Box<dyn Event>> {
         if accounts.len() < 17 {
             return None;
         }
@@ -367,7 +368,7 @@ impl EventParser for RaydiumAmmV4EventParser {
         block_time: Option<i64>,
         program_received_time_ms: i64,
         index: String,
-    ) -> Vec<Box<dyn UnifiedEvent>> {
+    ) -> Vec<Box<dyn Event>> {
         self.inner.parse_events_from_inner_instruction(
             inner_instruction,
             signature,
@@ -387,7 +388,7 @@ impl EventParser for RaydiumAmmV4EventParser {
         block_time: Option<i64>,
         program_received_time_ms: i64,
         index: String,
-    ) -> Vec<Box<dyn UnifiedEvent>> {
+    ) -> Vec<Box<dyn Event>> {
         self.inner.parse_events_from_instruction(
             instruction,
             accounts,

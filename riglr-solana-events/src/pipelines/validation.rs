@@ -10,7 +10,7 @@ use serde_json::Value;
 use solana_sdk::pubkey::Pubkey;
 use crate::zero_copy::ZeroCopyEvent;
 use crate::types::{ProtocolType, EventType};
-use crate::events::core::traits::UnifiedEvent;
+// UnifiedEvent trait has been removed
 
 /// Configuration for validation pipeline
 #[derive(Debug, Clone)]
@@ -227,7 +227,7 @@ impl ValidationPipeline {
         seen.retain(|_, &mut timestamp| timestamp > cutoff);
         
         // Check if we've seen this event before
-        if let Some(&original_time) = seen.get(&event_id) {
+        if let Some(&_original_time) = seen.get(&event_id) {
             return Some(ValidationError::Duplicate { 
                 original_id: event_id.clone() 
             });
@@ -257,13 +257,13 @@ impl ValidationPipeline {
     async fn validate_jupiter_event(&self, event: &ZeroCopyEvent<'_>) -> Option<ValidationError> {
         if let Some(json_data) = event.get_json_data() {
             // Check for required Jupiter fields
-            if !json_data.get("total_amount_in").is_some() {
+            if json_data.get("total_amount_in").is_none() {
                 return Some(ValidationError::MissingField { 
                     field: "total_amount_in".to_string() 
                 });
             }
             
-            if !json_data.get("total_amount_out").is_some() {
+            if json_data.get("total_amount_out").is_none() {
                 return Some(ValidationError::MissingField { 
                     field: "total_amount_out".to_string() 
                 });
@@ -481,6 +481,7 @@ impl ValidationRule for PubkeyValidationRule {
 }
 
 impl PubkeyValidationRule {
+    #[allow(clippy::only_used_in_recursion)]
     fn validate_pubkeys_in_json(&self, value: &Value, result: &mut RuleResult) {
         match value {
             Value::String(s) => {

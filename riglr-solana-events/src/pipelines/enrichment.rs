@@ -11,7 +11,7 @@ use serde_json::Value;
 use solana_sdk::pubkey::Pubkey;
 use crate::zero_copy::ZeroCopyEvent;
 use crate::types::ProtocolType;
-use crate::events::core::traits::UnifiedEvent;
+// UnifiedEvent trait has been removed
 
 /// Configuration for event enrichment
 #[derive(Debug, Clone)]
@@ -226,6 +226,7 @@ impl EventEnricher {
     }
 
     /// Recursively extract Pubkey-like strings from JSON
+    #[allow(clippy::only_used_in_recursion)]
     fn extract_pubkeys_from_json(&self, value: &Value, addresses: &mut Vec<Pubkey>) {
         match value {
             Value::String(s) => {

@@ -1,11 +1,12 @@
 use std::collections::HashMap;
+use riglr_events_core::Event;
 
 use solana_sdk::{instruction::CompiledInstruction, pubkey::Pubkey};
 use solana_transaction_status::UiCompiledInstruction;
 
 use crate::events::{
     common::{EventMetadata, EventType, ProtocolType, read_i32_le, read_u64_le, read_u128_le, read_u8_le, read_option_bool},
-    core::traits::{EventParser, GenericEventParseConfig, GenericEventParser, UnifiedEvent},
+    core::traits::{EventParser, GenericEventParseConfig, GenericEventParser},
     protocols::raydium_clmm::{
         discriminators, RaydiumClmmSwapEvent, RaydiumClmmSwapV2Event, RaydiumClmmCreatePoolEvent,
         RaydiumClmmOpenPositionV2Event, RaydiumClmmClosePositionEvent, RaydiumClmmIncreaseLiquidityV2Event,
@@ -148,7 +149,7 @@ impl RaydiumClmmEventParser {
     /// 
     /// This differs from protocols like Raydium CPMM which emit events through logs
     /// that need to be parsed from inner instructions.
-    fn empty_parse(_data: &[u8], _metadata: EventMetadata) -> Option<Box<dyn UnifiedEvent>> {
+    fn empty_parse(_data: &[u8], _metadata: EventMetadata) -> Option<Box<dyn Event>> {
         None
     }
 
@@ -157,7 +158,7 @@ impl RaydiumClmmEventParser {
         data: &[u8],
         accounts: &[Pubkey],
         metadata: EventMetadata,
-    ) -> Option<Box<dyn UnifiedEvent>> {
+    ) -> Option<Box<dyn Event>> {
         if data.len() < 41 || accounts.len() < 17 {
             return None;
         }
@@ -193,7 +194,7 @@ impl RaydiumClmmEventParser {
         data: &[u8],
         accounts: &[Pubkey],
         metadata: EventMetadata,
-    ) -> Option<Box<dyn UnifiedEvent>> {
+    ) -> Option<Box<dyn Event>> {
         if data.len() < 42 || accounts.len() < 17 {
             return None;
         }
@@ -230,7 +231,7 @@ impl RaydiumClmmEventParser {
         data: &[u8],
         accounts: &[Pubkey],
         metadata: EventMetadata,
-    ) -> Option<Box<dyn UnifiedEvent>> {
+    ) -> Option<Box<dyn Event>> {
         if data.len() < 22 || accounts.len() < 10 {
             return None;
         }
@@ -260,7 +261,7 @@ impl RaydiumClmmEventParser {
         data: &[u8],
         accounts: &[Pubkey],
         metadata: EventMetadata,
-    ) -> Option<Box<dyn UnifiedEvent>> {
+    ) -> Option<Box<dyn Event>> {
         if data.len() < 51 || accounts.len() < 22 {
             return None;
         }
@@ -293,7 +294,7 @@ impl RaydiumClmmEventParser {
         _data: &[u8],
         accounts: &[Pubkey],
         metadata: EventMetadata,
-    ) -> Option<Box<dyn UnifiedEvent>> {
+    ) -> Option<Box<dyn Event>> {
         if accounts.len() < 9 {
             return None;
         }
@@ -315,7 +316,7 @@ impl RaydiumClmmEventParser {
         data: &[u8],
         accounts: &[Pubkey],
         metadata: EventMetadata,
-    ) -> Option<Box<dyn UnifiedEvent>> {
+    ) -> Option<Box<dyn Event>> {
         if data.len() < 33 || accounts.len() < 15 {
             return None;
         }
@@ -345,7 +346,7 @@ impl RaydiumClmmEventParser {
         data: &[u8],
         accounts: &[Pubkey],
         metadata: EventMetadata,
-    ) -> Option<Box<dyn UnifiedEvent>> {
+    ) -> Option<Box<dyn Event>> {
         if data.len() < 32 || accounts.len() < 15 {
             return None;
         }
@@ -373,7 +374,7 @@ impl RaydiumClmmEventParser {
         data: &[u8],
         accounts: &[Pubkey],
         metadata: EventMetadata,
-    ) -> Option<Box<dyn UnifiedEvent>> {
+    ) -> Option<Box<dyn Event>> {
         if data.len() < 51 || accounts.len() < 20 {
             return None;
         }
@@ -418,7 +419,7 @@ impl EventParser for RaydiumClmmEventParser {
         block_time: Option<i64>,
         program_received_time_ms: i64,
         index: String,
-    ) -> Vec<Box<dyn UnifiedEvent>> {
+    ) -> Vec<Box<dyn Event>> {
         self.inner.parse_events_from_inner_instruction(
             inner_instruction,
             signature,
@@ -438,7 +439,7 @@ impl EventParser for RaydiumClmmEventParser {
         block_time: Option<i64>,
         program_received_time_ms: i64,
         index: String,
-    ) -> Vec<Box<dyn UnifiedEvent>> {
+    ) -> Vec<Box<dyn Event>> {
         self.inner.parse_events_from_instruction(
             instruction,
             accounts,

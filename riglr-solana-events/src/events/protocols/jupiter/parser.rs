@@ -1,10 +1,10 @@
 use std::collections::HashMap;
+use riglr_events_core::Event;
 use borsh::BorshDeserialize;
 use solana_sdk::pubkey::Pubkey;
 use crate::{
-    events::core::{EventParser, GenericEventParseConfig, UnifiedEvent},
+    events::core::{EventParser, GenericEventParseConfig},
     types::{EventMetadata, EventType, ProtocolType},
-    events::common::utils::{has_discriminator, parse_u64_le, parse_pubkey_from_bytes},
 };
 use super::{
     events::JupiterSwapEvent,
@@ -12,8 +12,6 @@ use super::{
         jupiter_v6_program_id, JupiterSwapData, RoutePlan,
         SharedAccountsRouteData, SharedAccountsExactOutRouteData,
         ROUTE_DISCRIMINATOR, EXACT_OUT_ROUTE_DISCRIMINATOR,
-        LEGACY_ROUTE_DISCRIMINATOR, LEGACY_EXACT_OUT_DISCRIMINATOR,
-        SWAP_DISCRIMINATOR, ROUTE_WITH_TOKEN_LEDGER_DISCRIMINATOR,
     },
 };
 
@@ -89,13 +87,13 @@ impl EventParser for JupiterEventParser {
         block_time: Option<i64>,
         program_received_time_ms: i64,
         index: String,
-    ) -> Vec<Box<dyn UnifiedEvent>> {
+    ) -> Vec<Box<dyn Event>> {
         let mut events = Vec::new();
         
         // For inner instructions, we'll use the data to identify the instruction type
         // since the program field isn't available in all Solana SDK versions
         if let Ok(data) = bs58::decode(&inner_instruction.data).into_vec() {
-            for (_, configs) in &self.inner_instruction_configs {
+            for configs in self.inner_instruction_configs.values() {
                 for config in configs {
                     let metadata = EventMetadata::new(
                         format!("{}_{}", signature, index),
@@ -129,7 +127,7 @@ impl EventParser for JupiterEventParser {
         block_time: Option<i64>,
         program_received_time_ms: i64,
         index: String,
-    ) -> Vec<Box<dyn UnifiedEvent>> {
+    ) -> Vec<Box<dyn Event>> {
         let mut events = Vec::new();
         
         if let Some(configs) = self.instruction_configs.get(&instruction.data) {
@@ -177,8 +175,8 @@ impl Default for JupiterEventParser {
 fn parse_jupiter_swap_inner_instruction(
     data: &[u8],
     metadata: EventMetadata,
-) -> Option<Box<dyn UnifiedEvent>> {
-    parse_jupiter_swap_data(data).map(|swap_data| {
+) -> Option<Box<dyn Event>> {
+    parse_jupiter_swap_with_borsh(data).map(|swap_data| {
         Box::new(JupiterSwapEvent::new(
             metadata.id,
             metadata.signature,
@@ -188,7 +186,7 @@ fn parse_jupiter_swap_inner_instruction(
             metadata.program_received_time_ms,
             metadata.index,
             swap_data,
-        )) as Box<dyn UnifiedEvent>
+        )) as Box<dyn Event>
     })
 }
 
@@ -196,8 +194,8 @@ fn parse_jupiter_swap_instruction(
     data: &[u8],
     _accounts: &[Pubkey],
     metadata: EventMetadata,
-) -> Option<Box<dyn UnifiedEvent>> {
-    parse_jupiter_swap_data(data).map(|swap_data| {
+) -> Option<Box<dyn Event>> {
+    parse_jupiter_swap_with_borsh(data).map(|swap_data| {
         Box::new(JupiterSwapEvent::new(
             metadata.id,
             metadata.signature,
@@ -207,15 +205,15 @@ fn parse_jupiter_swap_instruction(
             metadata.program_received_time_ms,
             metadata.index,
             swap_data,
-        )) as Box<dyn UnifiedEvent>
+        )) as Box<dyn Event>
     })
 }
 
 fn parse_jupiter_exact_out_inner_instruction(
     data: &[u8],
     metadata: EventMetadata,
-) -> Option<Box<dyn UnifiedEvent>> {
-    parse_jupiter_exact_out_data(data).map(|swap_data| {
+) -> Option<Box<dyn Event>> {
+    parse_jupiter_exact_out_with_borsh(data).map(|swap_data| {
         Box::new(JupiterSwapEvent::new(
             metadata.id,
             metadata.signature,
@@ -225,7 +223,7 @@ fn parse_jupiter_exact_out_inner_instruction(
             metadata.program_received_time_ms,
             metadata.index,
             swap_data,
-        )) as Box<dyn UnifiedEvent>
+        )) as Box<dyn Event>
     })
 }
 
@@ -233,8 +231,8 @@ fn parse_jupiter_exact_out_instruction(
     data: &[u8],
     _accounts: &[Pubkey],
     metadata: EventMetadata,
-) -> Option<Box<dyn UnifiedEvent>> {
-    parse_jupiter_exact_out_data(data).map(|swap_data| {
+) -> Option<Box<dyn Event>> {
+    parse_jupiter_exact_out_with_borsh(data).map(|swap_data| {
         Box::new(JupiterSwapEvent::new(
             metadata.id,
             metadata.signature,
@@ -244,7 +242,7 @@ fn parse_jupiter_exact_out_instruction(
             metadata.program_received_time_ms,
             metadata.index,
             swap_data,
-        )) as Box<dyn UnifiedEvent>
+        )) as Box<dyn Event>
     })
 }
 
@@ -324,138 +322,4 @@ fn parse_jupiter_exact_out_with_borsh(data: &[u8]) -> Option<JupiterSwapData> {
     None
 }
 
-// Legacy manual parsing (kept for backward compatibility)
-fn parse_jupiter_swap_data(data: &[u8]) -> Option<JupiterSwapData> {
-    // First try borsh deserialization
-    if let Some(swap_data) = parse_jupiter_swap_with_borsh(data) {
-        return Some(swap_data);
-    }
-    
-    // Fall back to manual parsing
-    if data.len() < 72 { // Minimum required for discriminator + basic fields
-        return None;
-    }
-
-    let mut offset = 8; // Skip discriminator
-
-    // Parse route plan count
-    let route_plan_count = data.get(offset)?;
-    offset += 1;
-
-    let mut route_plan = Vec::new();
-    for _ in 0..*route_plan_count {
-        if offset + 88 > data.len() { // Each route plan entry is ~88 bytes
-            break;
-        }
-
-        let input_mint = parse_pubkey_from_bytes(&data[offset..offset + 32]).ok()?;
-        offset += 32;
-        
-        let output_mint = parse_pubkey_from_bytes(&data[offset..offset + 32]).ok()?;
-        offset += 32;
-        
-        let amount_in = parse_u64_le(&data[offset..offset + 8]).ok()?;
-        offset += 8;
-        
-        let amount_out = parse_u64_le(&data[offset..offset + 8]).ok()?;
-        offset += 8;
-
-        // Skip dex info for now (simplified parsing)
-        offset += 8;
-
-        route_plan.push(RoutePlan {
-            input_mint,
-            output_mint,
-            amount_in,
-            amount_out,
-            dex_label: "Unknown".to_string(),
-        });
-    }
-
-    if route_plan.is_empty() {
-        return None;
-    }
-
-    // Extract overall swap info from first and last route
-    let first_route = &route_plan[0];
-    let last_route = &route_plan[route_plan.len() - 1];
-
-    Some(JupiterSwapData {
-        user: Pubkey::default(), // Would need to extract from accounts
-        input_mint: first_route.input_mint,
-        output_mint: last_route.output_mint,
-        input_amount: first_route.amount_in,
-        output_amount: last_route.amount_out,
-        price_impact_pct: None,
-        platform_fee_bps: None,
-        route_plan,
-    })
-}
-
-fn parse_jupiter_exact_out_data(data: &[u8]) -> Option<JupiterSwapData> {
-    // First try borsh deserialization
-    if let Some(swap_data) = parse_jupiter_exact_out_with_borsh(data) {
-        return Some(swap_data);
-    }
-    
-    // Fall back to manual parsing
-    if data.len() < 80 {
-        return None;
-    }
-
-    let mut offset = 8; // Skip discriminator
-
-    // Parse exact out specific fields
-    let out_amount = parse_u64_le(&data[offset..offset + 8]).ok()?;
-    offset += 8;
-    
-    let quote_max_in_amount = parse_u64_le(&data[offset..offset + 8]).ok()?;
-    offset += 8;
-
-    // Parse route plan (simplified)
-    let route_plan_count = data.get(offset)?;
-    offset += 1;
-
-    let mut route_plan = Vec::new();
-    for _ in 0..*route_plan_count {
-        if offset + 88 > data.len() {
-            break;
-        }
-
-        let input_mint = parse_pubkey_from_bytes(&data[offset..offset + 32]).ok()?;
-        offset += 32;
-        
-        let output_mint = parse_pubkey_from_bytes(&data[offset..offset + 32]).ok()?;
-        offset += 32;
-        
-        offset += 16; // Skip amounts for now
-        offset += 8; // Skip dex info
-
-        route_plan.push(RoutePlan {
-            input_mint,
-            output_mint,
-            amount_in: quote_max_in_amount,
-            amount_out: out_amount,
-            dex_label: "Unknown".to_string(),
-        });
-    }
-
-    if route_plan.is_empty() {
-        return None;
-    }
-
-    let first_route = &route_plan[0];
-    let last_route = &route_plan[route_plan.len() - 1];
-
-    Some(JupiterSwapData {
-        user: Pubkey::default(),
-        input_mint: first_route.input_mint,
-        output_mint: last_route.output_mint,
-        input_amount: quote_max_in_amount,
-        output_amount: out_amount,
-        price_impact_pct: None,
-        platform_fee_bps: None,
-        route_plan,
-    })
-}
 

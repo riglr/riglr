@@ -1,7 +1,8 @@
 use std::collections::HashMap;
+use riglr_events_core::Event;
 use solana_sdk::pubkey::Pubkey;
 use crate::{
-    events::core::{EventParser, GenericEventParseConfig, UnifiedEvent},
+    events::core::{EventParser, GenericEventParseConfig},
     types::{EventMetadata, EventType, ProtocolType},
     events::common::utils::{has_discriminator, parse_u64_le},
 };
@@ -118,7 +119,7 @@ impl EventParser for MarginFiEventParser {
         block_time: Option<i64>,
         program_received_time_ms: i64,
         index: String,
-    ) -> Vec<Box<dyn UnifiedEvent>> {
+    ) -> Vec<Box<dyn Event>> {
         let mut events = Vec::new();
         
         // For inner instructions, we'll use the data to identify the instruction type
@@ -157,7 +158,7 @@ impl EventParser for MarginFiEventParser {
         block_time: Option<i64>,
         program_received_time_ms: i64,
         index: String,
-    ) -> Vec<Box<dyn UnifiedEvent>> {
+    ) -> Vec<Box<dyn Event>> {
         let mut events = Vec::new();
         
         // Check each discriminator
@@ -208,7 +209,7 @@ impl Default for MarginFiEventParser {
 fn parse_marginfi_deposit_inner_instruction(
     data: &[u8],
     metadata: EventMetadata,
-) -> Option<Box<dyn UnifiedEvent>> {
+) -> Option<Box<dyn Event>> {
     parse_marginfi_deposit_data(data).map(|deposit_data| {
         Box::new(MarginFiDepositEvent::new(
             metadata.id,
@@ -219,7 +220,7 @@ fn parse_marginfi_deposit_inner_instruction(
             metadata.program_received_time_ms,
             metadata.index,
             deposit_data,
-        )) as Box<dyn UnifiedEvent>
+        )) as Box<dyn Event>
     })
 }
 
@@ -227,7 +228,7 @@ fn parse_marginfi_deposit_instruction(
     data: &[u8],
     accounts: &[Pubkey],
     metadata: EventMetadata,
-) -> Option<Box<dyn UnifiedEvent>> {
+) -> Option<Box<dyn Event>> {
     parse_marginfi_deposit_data_from_instruction(data, accounts).map(|deposit_data| {
         Box::new(MarginFiDepositEvent::new(
             metadata.id,
@@ -238,14 +239,14 @@ fn parse_marginfi_deposit_instruction(
             metadata.program_received_time_ms,
             metadata.index,
             deposit_data,
-        )) as Box<dyn UnifiedEvent>
+        )) as Box<dyn Event>
     })
 }
 
 fn parse_marginfi_withdraw_inner_instruction(
     data: &[u8],
     metadata: EventMetadata,
-) -> Option<Box<dyn UnifiedEvent>> {
+) -> Option<Box<dyn Event>> {
     parse_marginfi_withdraw_data(data).map(|withdraw_data| {
         Box::new(MarginFiWithdrawEvent {
             id: metadata.id,
@@ -258,7 +259,8 @@ fn parse_marginfi_withdraw_inner_instruction(
             index: metadata.index,
             withdraw_data,
             transfer_data: Vec::new(),
-        }) as Box<dyn UnifiedEvent>
+            core_metadata: None,
+        }) as Box<dyn Event>
     })
 }
 
@@ -266,7 +268,7 @@ fn parse_marginfi_withdraw_instruction(
     data: &[u8],
     accounts: &[Pubkey],
     metadata: EventMetadata,
-) -> Option<Box<dyn UnifiedEvent>> {
+) -> Option<Box<dyn Event>> {
     parse_marginfi_withdraw_data_from_instruction(data, accounts).map(|withdraw_data| {
         Box::new(MarginFiWithdrawEvent {
             id: metadata.id,
@@ -279,14 +281,15 @@ fn parse_marginfi_withdraw_instruction(
             index: metadata.index,
             withdraw_data,
             transfer_data: Vec::new(),
-        }) as Box<dyn UnifiedEvent>
+            core_metadata: None,
+        }) as Box<dyn Event>
     })
 }
 
 fn parse_marginfi_borrow_inner_instruction(
     data: &[u8],
     metadata: EventMetadata,
-) -> Option<Box<dyn UnifiedEvent>> {
+) -> Option<Box<dyn Event>> {
     parse_marginfi_borrow_data(data).map(|borrow_data| {
         Box::new(MarginFiBorrowEvent {
             id: metadata.id,
@@ -299,7 +302,8 @@ fn parse_marginfi_borrow_inner_instruction(
             index: metadata.index,
             borrow_data,
             transfer_data: Vec::new(),
-        }) as Box<dyn UnifiedEvent>
+            core_metadata: None,
+        }) as Box<dyn Event>
     })
 }
 
@@ -307,7 +311,7 @@ fn parse_marginfi_borrow_instruction(
     data: &[u8],
     accounts: &[Pubkey],
     metadata: EventMetadata,
-) -> Option<Box<dyn UnifiedEvent>> {
+) -> Option<Box<dyn Event>> {
     parse_marginfi_borrow_data_from_instruction(data, accounts).map(|borrow_data| {
         Box::new(MarginFiBorrowEvent {
             id: metadata.id,
@@ -320,14 +324,15 @@ fn parse_marginfi_borrow_instruction(
             index: metadata.index,
             borrow_data,
             transfer_data: Vec::new(),
-        }) as Box<dyn UnifiedEvent>
+            core_metadata: None,
+        }) as Box<dyn Event>
     })
 }
 
 fn parse_marginfi_repay_inner_instruction(
     data: &[u8],
     metadata: EventMetadata,
-) -> Option<Box<dyn UnifiedEvent>> {
+) -> Option<Box<dyn Event>> {
     parse_marginfi_repay_data(data).map(|repay_data| {
         Box::new(MarginFiRepayEvent {
             id: metadata.id,
@@ -340,7 +345,8 @@ fn parse_marginfi_repay_inner_instruction(
             index: metadata.index,
             repay_data,
             transfer_data: Vec::new(),
-        }) as Box<dyn UnifiedEvent>
+            core_metadata: None,
+        }) as Box<dyn Event>
     })
 }
 
@@ -348,7 +354,7 @@ fn parse_marginfi_repay_instruction(
     data: &[u8],
     accounts: &[Pubkey],
     metadata: EventMetadata,
-) -> Option<Box<dyn UnifiedEvent>> {
+) -> Option<Box<dyn Event>> {
     parse_marginfi_repay_data_from_instruction(data, accounts).map(|repay_data| {
         Box::new(MarginFiRepayEvent {
             id: metadata.id,
@@ -361,14 +367,15 @@ fn parse_marginfi_repay_instruction(
             index: metadata.index,
             repay_data,
             transfer_data: Vec::new(),
-        }) as Box<dyn UnifiedEvent>
+            core_metadata: None,
+        }) as Box<dyn Event>
     })
 }
 
 fn parse_marginfi_liquidate_inner_instruction(
     data: &[u8],
     metadata: EventMetadata,
-) -> Option<Box<dyn UnifiedEvent>> {
+) -> Option<Box<dyn Event>> {
     parse_marginfi_liquidate_data(data).map(|liquidation_data| {
         Box::new(MarginFiLiquidationEvent {
             id: metadata.id,
@@ -381,7 +388,8 @@ fn parse_marginfi_liquidate_inner_instruction(
             index: metadata.index,
             liquidation_data,
             transfer_data: Vec::new(),
-        }) as Box<dyn UnifiedEvent>
+            core_metadata: None,
+        }) as Box<dyn Event>
     })
 }
 
@@ -389,7 +397,7 @@ fn parse_marginfi_liquidate_instruction(
     data: &[u8],
     accounts: &[Pubkey],
     metadata: EventMetadata,
-) -> Option<Box<dyn UnifiedEvent>> {
+) -> Option<Box<dyn Event>> {
     parse_marginfi_liquidate_data_from_instruction(data, accounts).map(|liquidation_data| {
         Box::new(MarginFiLiquidationEvent {
             id: metadata.id,
@@ -402,7 +410,8 @@ fn parse_marginfi_liquidate_instruction(
             index: metadata.index,
             liquidation_data,
             transfer_data: Vec::new(),
-        }) as Box<dyn UnifiedEvent>
+            core_metadata: None,
+        }) as Box<dyn Event>
     })
 }
 

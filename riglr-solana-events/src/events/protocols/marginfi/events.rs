@@ -1,13 +1,16 @@
 use std::any::Any;
 use serde::{Deserialize, Serialize};
 use crate::{
-    events::core::UnifiedEvent,
-    types::{EventType, ProtocolType, TransferData, SwapData},
+    // UnifiedEvent removed - using Event trait from riglr_events_core
+    types::{TransferData},
 };
 use super::types::{
     MarginFiDepositData, MarginFiWithdrawData, MarginFiBorrowData, 
     MarginFiRepayData, MarginFiLiquidationData
 };
+
+// Import new Event trait from riglr-events-core
+use riglr_events_core::{Event, EventKind, EventMetadata as CoreEventMetadata};
 
 /// MarginFi deposit event
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -22,6 +25,8 @@ pub struct MarginFiDepositEvent {
     pub index: String,
     pub deposit_data: MarginFiDepositData,
     pub transfer_data: Vec<TransferData>,
+    #[serde(skip)]
+    pub core_metadata: Option<CoreEventMetadata>,
 }
 
 impl MarginFiDepositEvent {
@@ -46,6 +51,7 @@ impl MarginFiDepositEvent {
             index,
             deposit_data,
             transfer_data: Vec::new(),
+            core_metadata: None,
         }
     }
 
@@ -55,33 +61,46 @@ impl MarginFiDepositEvent {
     }
 }
 
-impl UnifiedEvent for MarginFiDepositEvent {
+
+// New Event trait implementation for MarginFiDepositEvent
+impl Event for MarginFiDepositEvent {
     fn id(&self) -> &str {
         &self.id
     }
 
-    fn event_type(&self) -> EventType {
-        EventType::AddLiquidity
+    fn kind(&self) -> &EventKind {
+        if let Some(ref core_metadata) = self.core_metadata {
+            &core_metadata.kind
+        } else {
+            &EventKind::Transfer // MarginFi deposit event
+        }
     }
 
-    fn signature(&self) -> &str {
-        &self.signature
+    fn metadata(&self) -> &CoreEventMetadata {
+        self.core_metadata.as_ref().unwrap_or_else(|| {
+            panic!("Core metadata not initialized for MarginFiDepositEvent")
+        })
     }
 
-    fn slot(&self) -> u64 {
-        self.slot
-    }
+    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
+        if self.core_metadata.is_none() {
+            // Create new core metadata from legacy fields
+            let chain_data = riglr_events_core::types::ChainData::Solana {
+                slot: self.slot,
+                signature: Some(self.signature.clone()),
+                program_id: None, // Will be set by parser
+                instruction_index: self.index.parse::<usize>().ok(),
+            };
 
-    fn program_received_time_ms(&self) -> i64 {
-        self.program_received_time_ms
-    }
-
-    fn program_handle_time_consuming_ms(&self) -> i64 {
-        self.program_handle_time_consuming_ms
-    }
-
-    fn set_program_handle_time_consuming_ms(&mut self, program_handle_time_consuming_ms: i64) {
-        self.program_handle_time_consuming_ms = program_handle_time_consuming_ms;
+            self.core_metadata = Some(CoreEventMetadata::with_timestamp(
+                self.id.clone(),
+                EventKind::Transfer,
+                "marginfi".to_string(),
+                chrono::DateTime::from_timestamp(self.block_time, 0)
+                    .unwrap_or_else(|| chrono::Utc::now()),
+            ).with_chain_data(chain_data));
+        }
+        self.core_metadata.as_mut().unwrap()
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -92,22 +111,14 @@ impl UnifiedEvent for MarginFiDepositEvent {
         self
     }
 
-    fn clone_boxed(&self) -> Box<dyn UnifiedEvent> {
+    fn clone_boxed(&self) -> Box<dyn Event> {
         Box::new(self.clone())
     }
 
-    fn set_transfer_data(&mut self, transfer_data: Vec<TransferData>, _swap_data: Option<SwapData>) {
-        self.transfer_data = transfer_data;
+    fn to_json(&self) -> riglr_events_core::error::EventResult<serde_json::Value> {
+        serde_json::to_value(self)
+            .map_err(riglr_events_core::error::EventError::Serialization)
     }
-
-    fn index(&self) -> String {
-        self.index.clone()
-    }
-
-    fn protocol_type(&self) -> ProtocolType {
-        ProtocolType::MarginFi
-    }
-
 }
 
 /// MarginFi withdraw event
@@ -123,35 +134,49 @@ pub struct MarginFiWithdrawEvent {
     pub index: String,
     pub withdraw_data: MarginFiWithdrawData,
     pub transfer_data: Vec<TransferData>,
+    #[serde(skip)]
+    pub core_metadata: Option<CoreEventMetadata>,
 }
 
-impl UnifiedEvent for MarginFiWithdrawEvent {
+
+// New Event trait implementation for MarginFiWithdrawEvent
+impl Event for MarginFiWithdrawEvent {
     fn id(&self) -> &str {
         &self.id
     }
 
-    fn event_type(&self) -> EventType {
-        EventType::RemoveLiquidity
+    fn kind(&self) -> &EventKind {
+        if let Some(ref core_metadata) = self.core_metadata {
+            &core_metadata.kind
+        } else {
+            &EventKind::Transfer
+        }
     }
 
-    fn signature(&self) -> &str {
-        &self.signature
+    fn metadata(&self) -> &CoreEventMetadata {
+        self.core_metadata.as_ref().unwrap_or_else(|| {
+            panic!("Core metadata not initialized for MarginFiWithdrawEvent")
+        })
     }
 
-    fn slot(&self) -> u64 {
-        self.slot
-    }
+    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
+        if self.core_metadata.is_none() {
+            let chain_data = riglr_events_core::types::ChainData::Solana {
+                slot: self.slot,
+                signature: Some(self.signature.clone()),
+                program_id: None,
+                instruction_index: self.index.parse::<usize>().ok(),
+            };
 
-    fn program_received_time_ms(&self) -> i64 {
-        self.program_received_time_ms
-    }
-
-    fn program_handle_time_consuming_ms(&self) -> i64 {
-        self.program_handle_time_consuming_ms
-    }
-
-    fn set_program_handle_time_consuming_ms(&mut self, program_handle_time_consuming_ms: i64) {
-        self.program_handle_time_consuming_ms = program_handle_time_consuming_ms;
+            self.core_metadata = Some(CoreEventMetadata::with_timestamp(
+                self.id.clone(),
+                EventKind::Transfer,
+                "marginfi".to_string(),
+                chrono::DateTime::from_timestamp(self.block_time, 0)
+                    .unwrap_or_else(|| chrono::Utc::now()),
+            ).with_chain_data(chain_data));
+        }
+        self.core_metadata.as_mut().unwrap()
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -162,22 +187,14 @@ impl UnifiedEvent for MarginFiWithdrawEvent {
         self
     }
 
-    fn clone_boxed(&self) -> Box<dyn UnifiedEvent> {
+    fn clone_boxed(&self) -> Box<dyn Event> {
         Box::new(self.clone())
     }
 
-    fn set_transfer_data(&mut self, transfer_data: Vec<TransferData>, _swap_data: Option<SwapData>) {
-        self.transfer_data = transfer_data;
+    fn to_json(&self) -> riglr_events_core::error::EventResult<serde_json::Value> {
+        serde_json::to_value(self)
+            .map_err(riglr_events_core::error::EventError::Serialization)
     }
-
-    fn index(&self) -> String {
-        self.index.clone()
-    }
-
-    fn protocol_type(&self) -> ProtocolType {
-        ProtocolType::MarginFi
-    }
-
 }
 
 /// MarginFi borrow event
@@ -193,62 +210,10 @@ pub struct MarginFiBorrowEvent {
     pub index: String,
     pub borrow_data: MarginFiBorrowData,
     pub transfer_data: Vec<TransferData>,
+    #[serde(skip)]
+    pub core_metadata: Option<CoreEventMetadata>,
 }
 
-impl UnifiedEvent for MarginFiBorrowEvent {
-    fn id(&self) -> &str {
-        &self.id
-    }
-
-    fn event_type(&self) -> EventType {
-        EventType::Borrow
-    }
-
-    fn signature(&self) -> &str {
-        &self.signature
-    }
-
-    fn slot(&self) -> u64 {
-        self.slot
-    }
-
-    fn program_received_time_ms(&self) -> i64 {
-        self.program_received_time_ms
-    }
-
-    fn program_handle_time_consuming_ms(&self) -> i64 {
-        self.program_handle_time_consuming_ms
-    }
-
-    fn set_program_handle_time_consuming_ms(&mut self, program_handle_time_consuming_ms: i64) {
-        self.program_handle_time_consuming_ms = program_handle_time_consuming_ms;
-    }
-
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    fn as_any_mut(&mut self) -> &mut dyn Any {
-        self
-    }
-
-    fn clone_boxed(&self) -> Box<dyn UnifiedEvent> {
-        Box::new(self.clone())
-    }
-
-    fn set_transfer_data(&mut self, transfer_data: Vec<TransferData>, _swap_data: Option<SwapData>) {
-        self.transfer_data = transfer_data;
-    }
-
-    fn index(&self) -> String {
-        self.index.clone()
-    }
-
-    fn protocol_type(&self) -> ProtocolType {
-        ProtocolType::MarginFi
-    }
-
-}
 
 /// MarginFi repay event
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -263,62 +228,10 @@ pub struct MarginFiRepayEvent {
     pub index: String,
     pub repay_data: MarginFiRepayData,
     pub transfer_data: Vec<TransferData>,
+    #[serde(skip)]
+    pub core_metadata: Option<CoreEventMetadata>,
 }
 
-impl UnifiedEvent for MarginFiRepayEvent {
-    fn id(&self) -> &str {
-        &self.id
-    }
-
-    fn event_type(&self) -> EventType {
-        EventType::Repay
-    }
-
-    fn signature(&self) -> &str {
-        &self.signature
-    }
-
-    fn slot(&self) -> u64 {
-        self.slot
-    }
-
-    fn program_received_time_ms(&self) -> i64 {
-        self.program_received_time_ms
-    }
-
-    fn program_handle_time_consuming_ms(&self) -> i64 {
-        self.program_handle_time_consuming_ms
-    }
-
-    fn set_program_handle_time_consuming_ms(&mut self, program_handle_time_consuming_ms: i64) {
-        self.program_handle_time_consuming_ms = program_handle_time_consuming_ms;
-    }
-
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    fn as_any_mut(&mut self) -> &mut dyn Any {
-        self
-    }
-
-    fn clone_boxed(&self) -> Box<dyn UnifiedEvent> {
-        Box::new(self.clone())
-    }
-
-    fn set_transfer_data(&mut self, transfer_data: Vec<TransferData>, _swap_data: Option<SwapData>) {
-        self.transfer_data = transfer_data;
-    }
-
-    fn index(&self) -> String {
-        self.index.clone()
-    }
-
-    fn protocol_type(&self) -> ProtocolType {
-        ProtocolType::MarginFi
-    }
-
-}
 
 /// MarginFi liquidation event
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -333,35 +246,48 @@ pub struct MarginFiLiquidationEvent {
     pub index: String,
     pub liquidation_data: MarginFiLiquidationData,
     pub transfer_data: Vec<TransferData>,
+    #[serde(skip)]
+    pub core_metadata: Option<CoreEventMetadata>,
 }
 
-impl UnifiedEvent for MarginFiLiquidationEvent {
+// New Event trait implementation for MarginFiBorrowEvent
+impl Event for MarginFiBorrowEvent {
     fn id(&self) -> &str {
         &self.id
     }
 
-    fn event_type(&self) -> EventType {
-        EventType::Liquidate
+    fn kind(&self) -> &EventKind {
+        if let Some(ref core_metadata) = self.core_metadata {
+            &core_metadata.kind
+        } else {
+            &EventKind::Transfer
+        }
     }
 
-    fn signature(&self) -> &str {
-        &self.signature
+    fn metadata(&self) -> &CoreEventMetadata {
+        self.core_metadata.as_ref().unwrap_or_else(|| {
+            panic!("Core metadata not initialized for MarginFiBorrowEvent")
+        })
     }
 
-    fn slot(&self) -> u64 {
-        self.slot
-    }
+    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
+        if self.core_metadata.is_none() {
+            let chain_data = riglr_events_core::types::ChainData::Solana {
+                slot: self.slot,
+                signature: Some(self.signature.clone()),
+                program_id: None,
+                instruction_index: self.index.parse::<usize>().ok(),
+            };
 
-    fn program_received_time_ms(&self) -> i64 {
-        self.program_received_time_ms
-    }
-
-    fn program_handle_time_consuming_ms(&self) -> i64 {
-        self.program_handle_time_consuming_ms
-    }
-
-    fn set_program_handle_time_consuming_ms(&mut self, program_handle_time_consuming_ms: i64) {
-        self.program_handle_time_consuming_ms = program_handle_time_consuming_ms;
+            self.core_metadata = Some(CoreEventMetadata::with_timestamp(
+                self.id.clone(),
+                EventKind::Transfer,
+                "marginfi".to_string(),
+                chrono::DateTime::from_timestamp(self.block_time, 0)
+                    .unwrap_or_else(|| chrono::Utc::now()),
+            ).with_chain_data(chain_data));
+        }
+        self.core_metadata.as_mut().unwrap()
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -372,20 +298,128 @@ impl UnifiedEvent for MarginFiLiquidationEvent {
         self
     }
 
-    fn clone_boxed(&self) -> Box<dyn UnifiedEvent> {
+    fn clone_boxed(&self) -> Box<dyn Event> {
         Box::new(self.clone())
     }
 
-    fn set_transfer_data(&mut self, transfer_data: Vec<TransferData>, _swap_data: Option<SwapData>) {
-        self.transfer_data = transfer_data;
+    fn to_json(&self) -> riglr_events_core::error::EventResult<serde_json::Value> {
+        serde_json::to_value(self)
+            .map_err(riglr_events_core::error::EventError::Serialization)
+    }
+}
+
+// New Event trait implementation for MarginFiRepayEvent
+impl Event for MarginFiRepayEvent {
+    fn id(&self) -> &str {
+        &self.id
     }
 
-    fn index(&self) -> String {
-        self.index.clone()
+    fn kind(&self) -> &EventKind {
+        if let Some(ref core_metadata) = self.core_metadata {
+            &core_metadata.kind
+        } else {
+            &EventKind::Transfer
+        }
     }
 
-    fn protocol_type(&self) -> ProtocolType {
-        ProtocolType::MarginFi
+    fn metadata(&self) -> &CoreEventMetadata {
+        self.core_metadata.as_ref().unwrap_or_else(|| {
+            panic!("Core metadata not initialized for MarginFiRepayEvent")
+        })
     }
 
+    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
+        if self.core_metadata.is_none() {
+            let chain_data = riglr_events_core::types::ChainData::Solana {
+                slot: self.slot,
+                signature: Some(self.signature.clone()),
+                program_id: None,
+                instruction_index: self.index.parse::<usize>().ok(),
+            };
+
+            self.core_metadata = Some(CoreEventMetadata::with_timestamp(
+                self.id.clone(),
+                EventKind::Transfer,
+                "marginfi".to_string(),
+                chrono::DateTime::from_timestamp(self.block_time, 0)
+                    .unwrap_or_else(|| chrono::Utc::now()),
+            ).with_chain_data(chain_data));
+        }
+        self.core_metadata.as_mut().unwrap()
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
+    fn clone_boxed(&self) -> Box<dyn Event> {
+        Box::new(self.clone())
+    }
+
+    fn to_json(&self) -> riglr_events_core::error::EventResult<serde_json::Value> {
+        serde_json::to_value(self)
+            .map_err(riglr_events_core::error::EventError::Serialization)
+    }
+}
+
+// New Event trait implementation for MarginFiLiquidationEvent
+impl Event for MarginFiLiquidationEvent {
+    fn id(&self) -> &str {
+        &self.id
+    }
+
+    fn kind(&self) -> &EventKind {
+        if let Some(ref core_metadata) = self.core_metadata {
+            &core_metadata.kind
+        } else {
+            &EventKind::Transfer
+        }
+    }
+
+    fn metadata(&self) -> &CoreEventMetadata {
+        self.core_metadata.as_ref().unwrap_or_else(|| {
+            panic!("Core metadata not initialized for MarginFiLiquidationEvent")
+        })
+    }
+
+    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
+        if self.core_metadata.is_none() {
+            let chain_data = riglr_events_core::types::ChainData::Solana {
+                slot: self.slot,
+                signature: Some(self.signature.clone()),
+                program_id: None,
+                instruction_index: self.index.parse::<usize>().ok(),
+            };
+
+            self.core_metadata = Some(CoreEventMetadata::with_timestamp(
+                self.id.clone(),
+                EventKind::Transfer,
+                "marginfi".to_string(),
+                chrono::DateTime::from_timestamp(self.block_time, 0)
+                    .unwrap_or_else(|| chrono::Utc::now()),
+            ).with_chain_data(chain_data));
+        }
+        self.core_metadata.as_mut().unwrap()
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
+    fn clone_boxed(&self) -> Box<dyn Event> {
+        Box::new(self.clone())
+    }
+
+    fn to_json(&self) -> riglr_events_core::error::EventResult<serde_json::Value> {
+        serde_json::to_value(self)
+            .map_err(riglr_events_core::error::EventError::Serialization)
+    }
 }

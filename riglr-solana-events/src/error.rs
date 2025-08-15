@@ -116,7 +116,7 @@ impl From<ParseError> for EventError {
     fn from(err: ParseError) -> Self {
         match err {
             ParseError::Network(_) | ParseError::Timeout(_) => {
-                EventError::stream_error(std::io::Error::new(std::io::ErrorKind::Other, err.to_string()), "Solana parsing error")
+                EventError::stream_error(std::io::Error::other(err.to_string()), "Solana parsing error")
             }
             _ => {
                 EventError::parse_error(std::io::Error::new(std::io::ErrorKind::InvalidData, err.to_string()), "Solana parsing error")
