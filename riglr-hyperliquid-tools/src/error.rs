@@ -35,32 +35,32 @@ impl From<HyperliquidToolError> for riglr_core::error::ToolError {
         match err {
             HyperliquidToolError::RateLimit(msg) => {
                 // RateLimit errors are already properly categorized
-                riglr_core::error::ToolError::rate_limited(msg)
+                riglr_core::error::ToolError::rate_limited_string(msg)
             }
             HyperliquidToolError::NetworkError(msg) => {
                 // NetworkError typically indicates temporary issues (already categorized as 5xx errors)
                 // All network errors should be retriable
-                riglr_core::error::ToolError::retriable(msg)
+                riglr_core::error::ToolError::retriable_string(msg)
             }
             HyperliquidToolError::ApiError(msg) => {
                 // ApiError typically indicates client errors (4xx) which are not retriable
                 // The categorization is already done when creating the error
-                riglr_core::error::ToolError::permanent(msg)
+                riglr_core::error::ToolError::permanent_string(msg)
             }
             HyperliquidToolError::AuthError(msg) => {
-                riglr_core::error::ToolError::permanent(msg)
+                riglr_core::error::ToolError::permanent_string(msg)
             }
             HyperliquidToolError::InvalidSymbol(msg) => {
-                riglr_core::error::ToolError::permanent(msg)
+                riglr_core::error::ToolError::permanent_string(msg)
             }
             HyperliquidToolError::InsufficientBalance(msg) => {
-                riglr_core::error::ToolError::permanent(msg)
+                riglr_core::error::ToolError::permanent_string(msg)
             }
             HyperliquidToolError::OrderError(msg) => {
-                riglr_core::error::ToolError::retriable(msg)
+                riglr_core::error::ToolError::retriable_string(msg)
             }
             HyperliquidToolError::Configuration(msg) => {
-                riglr_core::error::ToolError::permanent(msg)
+                riglr_core::error::ToolError::permanent_string(msg)
             }
         }
     }
