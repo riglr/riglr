@@ -53,8 +53,8 @@ impl TransactionSigner for MockBridgeSigner {
         Ok("0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef01".to_string())
     }
 
-    fn solana_client(&self) -> Arc<solana_client::rpc_client::RpcClient> {
-        Arc::new(solana_client::rpc_client::RpcClient::new("https://api.devnet.solana.com".to_string()))
+    fn solana_client(&self) -> Option<Arc<solana_client::rpc_client::RpcClient>> {
+        Some(Arc::new(solana_client::rpc_client::RpcClient::new("https://api.devnet.solana.com".to_string())))
     }
 
     fn evm_client(&self) -> Result<Arc<dyn riglr_core::signer::EvmClient>, SignerError> {
@@ -285,7 +285,7 @@ async fn mock_bridge_transaction(
     is_solana_source: bool,
 ) -> Result<String, CrossChainError> {
     let signer = SignerContext::current().await
-        .map_err(|e| CrossChainError::ToolError(ToolError::permanent(e.to_string())))?;
+        .map_err(|e| CrossChainError::ToolError(ToolError::permanent_string(e.to_string())))?;
     
     // Verify correct address type based on source chain
     if is_solana_source {

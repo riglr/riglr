@@ -36,12 +36,12 @@ impl From<CrossChainError> for ToolError {
     fn from(err: CrossChainError) -> Self {
         match err {
             CrossChainError::ToolError(tool_err) => tool_err,
-            CrossChainError::LifiApiError(_) => ToolError::retriable(err.to_string()),
-            CrossChainError::QuoteFetchError(_) => ToolError::retriable(err.to_string()),
-            CrossChainError::InvalidRoute(_) => ToolError::invalid_input(err.to_string()),
-            CrossChainError::UnsupportedChainPair { .. } => ToolError::invalid_input(err.to_string()),
-            CrossChainError::InsufficientLiquidity { .. } => ToolError::permanent(err.to_string()),
-            CrossChainError::BridgeExecutionError(_) => ToolError::retriable(err.to_string()),
+            CrossChainError::LifiApiError(_) => ToolError::retriable_string(err.to_string()),
+            CrossChainError::QuoteFetchError(_) => ToolError::retriable_string(err.to_string()),
+            CrossChainError::InvalidRoute(_) => ToolError::invalid_input_string(err.to_string()),
+            CrossChainError::UnsupportedChainPair { .. } => ToolError::invalid_input_string(err.to_string()),
+            CrossChainError::InsufficientLiquidity { .. } => ToolError::permanent_string(err.to_string()),
+            CrossChainError::BridgeExecutionError(_) => ToolError::retriable_string(err.to_string()),
         }
     }
 }
