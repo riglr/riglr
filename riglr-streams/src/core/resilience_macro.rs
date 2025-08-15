@@ -177,18 +177,4 @@ macro_rules! impl_resilient_websocket {
         
         info!("WebSocket handler exiting for {}", $stream_name);
     }};
-    // Backward compatible version without metrics
-    ($stream_name:expr, $url:expr, $running:expr, $health:expr, $event_tx:expr, $connect_fn:expr, $subscribe_fn:expr, $parse_fn:expr) => {{
-        $crate::impl_resilient_websocket!(
-            $stream_name,
-            $url,
-            $running,
-            $health,
-            $event_tx,
-            None::<std::sync::Arc<$crate::core::MetricsCollector>>,
-            $connect_fn,
-            $subscribe_fn,
-            $parse_fn
-        )
-    }};
 }

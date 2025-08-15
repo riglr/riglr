@@ -8,12 +8,10 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, SystemTime};
 use tokio::sync::{broadcast, RwLock};
-use tokio::time::{interval, Interval};
+use tokio::time::interval;
 use async_trait::async_trait;
 
-use riglr_solana_events::{
-    UnifiedEvent, EventType, ProtocolType
-};
+use riglr_events_core::prelude::{Event, EventKind, EventMetadata};
 
 use crate::core::{
     Stream, StreamError, StreamHealth, StreamMetadata, 
@@ -25,8 +23,8 @@ use crate::core::{
 pub struct MockConfig {
     /// Events per second to generate
     pub events_per_second: f64,
-    /// Protocol types to simulate
-    pub protocols: Vec<ProtocolType>,
+    /// Event kinds to simulate
+    pub event_kinds: Vec<EventKind>,
     /// Total events to generate (None for infinite)
     pub max_events: Option<usize>,
 }
@@ -35,10 +33,10 @@ impl Default for MockConfig {
     fn default() -> Self {
         Self {
             events_per_second: 1.0,
-            protocols: vec![
-                ProtocolType::Jupiter,
-                ProtocolType::OrcaWhirlpool,
-                ProtocolType::Bonk,
+            event_kinds: vec![
+                EventKind::Transaction,
+                EventKind::Swap,
+                EventKind::Price,
             ],
             max_events: Some(100),
         }
@@ -95,8 +93,8 @@ impl MockStream {
                     }
                 }
                 
-                // Generate a random event from configured protocols
-                if let Some(event) = Self::generate_mock_event(&config.protocols, sequence_number) {
+                // Generate a random event from configured event kinds
+                if let Some(event) = Self::generate_mock_event(&config.event_kinds, sequence_number) {
                     // Send the event
                     if let Err(e) = event_tx.send(Arc::new(event)) {
                         eprintln!("Failed to send mock event: {}", e);
@@ -121,14 +119,14 @@ impl MockStream {
         Ok(())
     }
     
-    /// Generate a mock event for a random protocol
+    /// Generate a mock event for a random event kind
     fn generate_mock_event(
-        protocols: &[ProtocolType], 
+        event_kinds: &[EventKind], 
         sequence_number: u64
     ) -> Option<DynamicStreamedEvent> {
         use rand::Rng;
         let mut rng = rand::thread_rng();
-        let protocol = protocols.get(rng.gen_range(0..protocols.len()))?;
+        let event_kind = event_kinds.get(rng.gen_range(0..event_kinds.len()))?;
         
         let stream_metadata = StreamMetadata {
             stream_source: "mock-stream".to_string(),
@@ -137,12 +135,10 @@ impl MockStream {
             custom_data: None,
         };
         
-        let event: Box<dyn UnifiedEvent> = Box::new(MockEvent {
-            id: format!("mock-{}-{}", protocol, sequence_number),
-            protocol: protocol.clone(),
-            signature: "mock-signature".to_string(),
-            slot: sequence_number,
-        });
+        let event: Box<dyn Event> = Box::new(MockEvent::new(
+            format!("mock-{:?}-{}", event_kind, sequence_number),
+            event_kind.clone(),
+        ));
         
         Some(event.with_stream_metadata(stream_metadata))
     }
@@ -206,29 +202,53 @@ impl Stream for MockStream {
     }
 }
 
-/// Simple fallback event for unsupported protocols
+/// Simple mock event for testing
 #[derive(Debug, Clone)]
 struct MockEvent {
-    id: String,
-    protocol: ProtocolType,
-    signature: String,
-    slot: u64,
+    metadata: EventMetadata,
 }
 
-impl UnifiedEvent for MockEvent {
-    fn id(&self) -> &str { &self.id }
-    fn event_type(&self) -> EventType { EventType::Trade }
-    fn signature(&self) -> &str { &self.signature }
-    fn slot(&self) -> u64 { self.slot }
-    fn program_received_time_ms(&self) -> i64 { 0 }
-    fn program_handle_time_consuming_ms(&self) -> i64 { 0 }
-    fn set_program_handle_time_consuming_ms(&mut self, _: i64) {}
-    fn as_any(&self) -> &dyn std::any::Any { self }
-    fn as_any_mut(&mut self) -> &mut dyn std::any::Any { self }
-    fn clone_boxed(&self) -> Box<dyn UnifiedEvent> { Box::new(self.clone()) }
-    fn set_transfer_data(&mut self, _: Vec<riglr_solana_events::TransferData>, _: Option<riglr_solana_events::SwapData>) {}
-    fn index(&self) -> String { "0".to_string() }
-    fn protocol_type(&self) -> ProtocolType { self.protocol.clone() }
+impl MockEvent {
+    fn new(id: String, kind: EventKind) -> Self {
+        let metadata = EventMetadata::new(id, kind, "mock-stream".to_string());
+        Self { metadata }
+    }
+}
+
+impl Event for MockEvent {
+    fn id(&self) -> &str {
+        &self.metadata.id
+    }
+    
+    fn kind(&self) -> &EventKind {
+        &self.metadata.kind
+    }
+    
+    fn metadata(&self) -> &EventMetadata {
+        &self.metadata
+    }
+    
+    fn metadata_mut(&mut self) -> &mut EventMetadata {
+        &mut self.metadata
+    }
+    
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+    
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+    
+    fn clone_boxed(&self) -> Box<dyn Event> {
+        Box::new(self.clone())
+    }
+    
+    fn to_json(&self) -> riglr_events_core::EventResult<serde_json::Value> {
+        Ok(serde_json::json!({
+            "metadata": self.metadata
+        }))
+    }
 }
 
 #[cfg(test)]
@@ -242,7 +262,7 @@ mod tests {
         let mut stream = MockStream::new("test-mock");
         let config = MockConfig {
             events_per_second: 10.0,
-            protocols: vec![ProtocolType::Jupiter],
+            event_kinds: vec![EventKind::Transaction],
             max_events: Some(5),
         };
         
@@ -253,8 +273,8 @@ mod tests {
         
         // Receive events with timeout
         while let Ok(Ok(event)) = timeout(Duration::from_secs(2), rx.recv()).await {
-            println!("Received event: {} from protocol: {}", 
-                event.id(), event.protocol_type());
+            println!("Received event: {} from kind: {:?}", 
+                event.id(), event.kind());
             
             // Verify it has streaming metadata
             assert!(event.stream_metadata().is_some());

@@ -11,8 +11,9 @@ use riglr_streams::prelude::*;
 use riglr_streams::solana::{SolanaGeyserStream, GeyserConfig};
 use riglr_streams::evm::{EvmWebSocketStream, EvmStreamConfig, ChainId};
 use riglr_streams::external::{BinanceStream, BinanceConfig};
-use riglr_streams::tools::{EventTriggeredTool, EventTriggerBuilder, StreamingTool, EventTypeMatcher, ConditionCombinator};
-use riglr_solana_events::{UnifiedEvent, EventType};
+use riglr_streams::tools::{EventTriggerBuilder, StreamingTool, ConditionCombinator};
+use riglr_streams::tools::condition::EventKindMatcher;
+use riglr_events_core::{Event, EventKind};
 use async_trait::async_trait;
 use tracing::info;
 
@@ -23,10 +24,10 @@ struct ArbitrageBot {
 
 #[async_trait]
 impl StreamingTool for ArbitrageBot {
-    async fn execute(&self, event: &dyn UnifiedEvent) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    async fn execute(&self, event: &dyn Event) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         info!("Arbitrage opportunity detected!");
-        info!("Event type: {:?}", event.event_type());
-        info!("Signature: {}", event.signature());
+        info!("Event kind: {:?}", event.kind());
+        info!("Event ID: {}", event.id());
         
         // Here you would:
         // 1. Parse the event data
@@ -106,12 +107,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         name: "ArbitrageBot".to_string(),
     };
     
-    // Create event trigger with conditions using the library's EventTypeMatcher
+    // Create event trigger with conditions using the library's EventKindMatcher
     let trigger = EventTriggerBuilder::new(arb_bot, "arbitrage-trigger")
-        .condition(Box::new(EventTypeMatcher::new(vec![
-            EventType::Swap,
-            EventType::Trade,
-            EventType::PriceUpdate,
+        .condition(Box::new(EventKindMatcher::new(vec![
+            EventKind::Swap,
+            EventKind::Custom("trade".to_string()),
+            EventKind::Price,
         ])))
         .combinator(ConditionCombinator::Any)
         .register(&stream_manager)

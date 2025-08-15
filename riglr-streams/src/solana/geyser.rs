@@ -4,12 +4,12 @@ use std::time::SystemTime;
 use tokio::sync::{broadcast, RwLock};
 use tokio_tungstenite::{connect_async, tungstenite::Message};
 use serde::{Deserialize, Serialize};
-use tracing::{info, warn, error, debug};
-use futures::{StreamExt, SinkExt};
+use tracing::{info, warn, error};
+use futures::StreamExt;
 
-use riglr_solana_events::{UnifiedEvent, EventType, ProtocolType, MultiEventParser};
+use riglr_events_core::Event;
 use crate::core::{StreamMetadata, DynamicStreamedEvent, IntoDynamicStreamedEvent};
-use crate::core::{Stream, StreamError, StreamEvent, StreamHealth};
+use crate::core::{Stream, StreamError, StreamHealth};
 
 /// Solana Geyser stream implementation using WebSocket
 pub struct SolanaGeyserStream {
@@ -18,7 +18,7 @@ pub struct SolanaGeyserStream {
     /// Event broadcast channel for protocol-specific events
     event_tx: broadcast::Sender<Arc<DynamicStreamedEvent>>,
     /// Event parser for converting raw data to structured events
-    event_parser: MultiEventParser,
+    _event_parser_placeholder: (),
     /// Running state
     running: Arc<AtomicBool>,
     /// Health metrics
@@ -61,20 +61,46 @@ pub struct TransactionEvent {
     pub slot: u64,
 }
 
-impl UnifiedEvent for TransactionEvent {
-    fn id(&self) -> &str { &self.signature }
-    fn event_type(&self) -> EventType { EventType::Transaction }
-    fn signature(&self) -> &str { &self.signature }
-    fn slot(&self) -> u64 { self.slot }
-    fn program_received_time_ms(&self) -> i64 { 0 }
-    fn program_handle_time_consuming_ms(&self) -> i64 { 0 }
-    fn set_program_handle_time_consuming_ms(&mut self, _: i64) {}
-    fn as_any(&self) -> &dyn std::any::Any { self }
-    fn as_any_mut(&mut self) -> &mut dyn std::any::Any { self }
-    fn clone_boxed(&self) -> Box<dyn UnifiedEvent> { Box::new(self.clone()) }
-    fn set_transfer_data(&mut self, _: Vec<riglr_solana_events::TransferData>, _: Option<riglr_solana_events::SwapData>) {}
-    fn index(&self) -> String { "0".to_string() }
-    fn protocol_type(&self) -> ProtocolType { ProtocolType::Other("Solana".to_string()) }
+impl Event for TransactionEvent {
+    fn id(&self) -> &str {
+        &self.signature
+    }
+    
+    fn kind(&self) -> &riglr_events_core::EventKind {
+        static KIND: riglr_events_core::EventKind = riglr_events_core::EventKind::Transaction;
+        &KIND
+    }
+    
+    fn metadata(&self) -> &riglr_events_core::EventMetadata {
+        // For simplicity, we'll create a static metadata
+        // In a real implementation, this should be stored in the struct
+        static METADATA: std::sync::OnceLock<riglr_events_core::EventMetadata> = std::sync::OnceLock::new();
+        METADATA.get_or_init(|| {
+            riglr_events_core::EventMetadata::new(
+                "transaction".to_string(),
+                riglr_events_core::EventKind::Transaction,
+                "geyser-stream".to_string(),
+            )
+        })
+    }
+    
+    fn metadata_mut(&mut self) -> &mut riglr_events_core::EventMetadata {
+        // This is a limitation of this simple implementation
+        // In a real implementation, metadata should be stored in the struct
+        panic!("metadata_mut not supported for TransactionEvent")
+    }
+    
+    fn as_any(&self) -> &dyn std::any::Any { 
+        self 
+    }
+    
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+    
+    fn clone_boxed(&self) -> Box<dyn Event> { 
+        Box::new(self.clone()) 
+    }
 }
 
 #[async_trait::async_trait]
@@ -150,7 +176,7 @@ impl SolanaGeyserStream {
         Self {
             config: GeyserConfig::default(),
             event_tx,
-            event_parser: MultiEventParser::new(),
+            _event_parser_placeholder: (),
             running: Arc::new(AtomicBool::new(false)),
             health: Arc::new(RwLock::new(StreamHealth::default())),
             name: name.into(),
@@ -160,7 +186,7 @@ impl SolanaGeyserStream {
     /// Start the WebSocket connection with automatic reconnection
     async fn start_websocket(&self) -> Result<(), StreamError> {
         let url = self.config.ws_url.clone();
-        let program_ids = self.config.program_ids.clone();
+        let _program_ids = self.config.program_ids.clone();
         let event_tx = self.event_tx.clone();
         let running = self.running.clone();
         let health = self.health.clone();
@@ -174,7 +200,7 @@ impl SolanaGeyserStream {
                 
                 match connect_async(&url).await {
                     Ok((ws_stream, _)) => {
-                        let (mut write, mut read) = ws_stream.split();
+                        let (_write, mut read) = ws_stream.split();
                         info!("Successfully connected to Solana WebSocket for {}", stream_name);
                         
                         // Update health - connected
@@ -290,7 +316,7 @@ impl SolanaGeyserStream {
             let fallback_event = Box::new(TransactionEvent {
                 signature: signature.to_string(),
                 slot,
-            }) as Box<dyn UnifiedEvent>;
+            }) as Box<dyn Event>;
             
             let streamed_event = fallback_event.with_stream_metadata(stream_metadata);
             return Some(vec![streamed_event]);

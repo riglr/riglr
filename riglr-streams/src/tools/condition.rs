@@ -1,7 +1,7 @@
 use std::any::Any;
 use async_trait::async_trait;
-use riglr_solana_events::{UnifiedEvent, EventType, ProtocolType};
-use super::event_utils::as_unified_event;
+use riglr_events_core::prelude::EventKind;
+use super::event_utils::as_event;
 
 /// Trait for event conditions
 #[async_trait]
@@ -24,113 +24,113 @@ pub enum ConditionCombinator {
     None,
 }
 
-/// Event type matcher
-pub struct EventTypeMatcher {
-    event_types: Vec<EventType>,
+/// Event kind matcher
+pub struct EventKindMatcher {
+    event_kinds: Vec<EventKind>,
 }
 
-impl EventTypeMatcher {
-    pub fn new(event_types: Vec<EventType>) -> Self {
-        Self { event_types }
+impl EventKindMatcher {
+    pub fn new(event_kinds: Vec<EventKind>) -> Self {
+        Self { event_kinds }
     }
     
-    pub fn single(event_type: EventType) -> Self {
+    pub fn single(event_kind: EventKind) -> Self {
         Self {
-            event_types: vec![event_type],
+            event_kinds: vec![event_kind],
         }
     }
 }
 
 #[async_trait]
-impl EventCondition for EventTypeMatcher {
+impl EventCondition for EventKindMatcher {
     async fn matches(&self, event: &(dyn Any + Send + Sync)) -> bool {
-        if let Some(unified_event) = as_unified_event(event) {
-            self.event_types.contains(&unified_event.event_type())
+        if let Some(event_ref) = as_event(event) {
+            self.event_kinds.contains(event_ref.kind())
         } else {
             false
         }
     }
     
     fn description(&self) -> String {
-        format!("EventType in {:?}", self.event_types)
+        format!("EventKind in {:?}", self.event_kinds)
     }
 }
 
-/// Protocol type matcher
-pub struct ProtocolMatcher {
-    protocols: Vec<ProtocolType>,
+/// Source matcher (matches event source)
+pub struct SourceMatcher {
+    sources: Vec<String>,
 }
 
-impl ProtocolMatcher {
-    pub fn new(protocols: Vec<ProtocolType>) -> Self {
-        Self { protocols }
+impl SourceMatcher {
+    pub fn new(sources: Vec<String>) -> Self {
+        Self { sources }
     }
     
-    pub fn single(protocol: ProtocolType) -> Self {
+    pub fn single(source: String) -> Self {
         Self {
-            protocols: vec![protocol],
+            sources: vec![source],
         }
     }
 }
 
 #[async_trait]
-impl EventCondition for ProtocolMatcher {
+impl EventCondition for SourceMatcher {
     async fn matches(&self, event: &(dyn Any + Send + Sync)) -> bool {
-        if let Some(unified_event) = as_unified_event(event) {
-            self.protocols.contains(&unified_event.protocol_type())
+        if let Some(event_ref) = as_event(event) {
+            self.sources.contains(&event_ref.source().to_string())
         } else {
             false
         }
     }
     
     fn description(&self) -> String {
-        format!("Protocol in {:?}", self.protocols)
+        format!("Source in {:?}", self.sources)
     }
 }
 
-/// Slot/block range matcher
-pub struct BlockRangeMatcher {
-    min_block: Option<u64>,
-    max_block: Option<u64>,
+/// Timestamp range matcher
+pub struct TimestampRangeMatcher {
+    min_timestamp: Option<std::time::SystemTime>,
+    max_timestamp: Option<std::time::SystemTime>,
 }
 
-impl BlockRangeMatcher {
-    pub fn new(min_block: Option<u64>, max_block: Option<u64>) -> Self {
-        Self { min_block, max_block }
+impl TimestampRangeMatcher {
+    pub fn new(min_timestamp: Option<std::time::SystemTime>, max_timestamp: Option<std::time::SystemTime>) -> Self {
+        Self { min_timestamp, max_timestamp }
     }
     
-    pub fn after(block: u64) -> Self {
+    pub fn after(timestamp: std::time::SystemTime) -> Self {
         Self {
-            min_block: Some(block),
-            max_block: None,
+            min_timestamp: Some(timestamp),
+            max_timestamp: None,
         }
     }
     
-    pub fn before(block: u64) -> Self {
+    pub fn before(timestamp: std::time::SystemTime) -> Self {
         Self {
-            min_block: None,
-            max_block: Some(block),
+            min_timestamp: None,
+            max_timestamp: Some(timestamp),
         }
     }
 }
 
 #[async_trait]
-impl EventCondition for BlockRangeMatcher {
+impl EventCondition for TimestampRangeMatcher {
     async fn matches(&self, event: &(dyn Any + Send + Sync)) -> bool {
-        let slot = if let Some(unified_event) = as_unified_event(event) {
-            unified_event.slot()
+        let event_time = if let Some(event_ref) = as_event(event) {
+            event_ref.timestamp()
         } else {
             return false;
         };
         
-        if let Some(min) = self.min_block {
-            if slot < min {
+        if let Some(min) = self.min_timestamp {
+            if event_time < min {
                 return false;
             }
         }
         
-        if let Some(max) = self.max_block {
-            if slot > max {
+        if let Some(max) = self.max_timestamp {
+            if event_time > max {
                 return false;
             }
         }
@@ -139,11 +139,11 @@ impl EventCondition for BlockRangeMatcher {
     }
     
     fn description(&self) -> String {
-        match (self.min_block, self.max_block) {
-            (Some(min), Some(max)) => format!("Block in range [{}, {}]", min, max),
-            (Some(min), None) => format!("Block >= {}", min),
-            (None, Some(max)) => format!("Block <= {}", max),
-            (None, None) => "Any block".to_string(),
+        match (self.min_timestamp, self.max_timestamp) {
+            (Some(min), Some(max)) => format!("Timestamp in range [{:?}, {:?}]", min, max),
+            (Some(min), None) => format!("Timestamp >= {:?}", min),
+            (None, Some(max)) => format!("Timestamp <= {:?}", max),
+            (None, None) => "Any timestamp".to_string(),
         }
     }
 }
@@ -246,19 +246,19 @@ impl EventCondition for CompositeCondition {
 
 /// Helper trait for pattern matching
 pub trait EventMatcher {
-    /// Match event type
-    fn event_type(event_type: EventType) -> Box<dyn EventCondition> {
-        Box::new(EventTypeMatcher::single(event_type))
+    /// Match event kind
+    fn event_kind(event_kind: EventKind) -> Box<dyn EventCondition> {
+        Box::new(EventKindMatcher::single(event_kind))
     }
     
-    /// Match protocol
-    fn protocol(protocol: ProtocolType) -> Box<dyn EventCondition> {
-        Box::new(ProtocolMatcher::single(protocol))
+    /// Match source
+    fn source(source: String) -> Box<dyn EventCondition> {
+        Box::new(SourceMatcher::single(source))
     }
     
-    /// Match block range
-    fn block_range(min: Option<u64>, max: Option<u64>) -> Box<dyn EventCondition> {
-        Box::new(BlockRangeMatcher::new(min, max))
+    /// Match timestamp range
+    fn timestamp_range(min: Option<std::time::SystemTime>, max: Option<std::time::SystemTime>) -> Box<dyn EventCondition> {
+        Box::new(TimestampRangeMatcher::new(min, max))
     }
     
     /// Combine conditions with ALL

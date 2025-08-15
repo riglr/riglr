@@ -2,12 +2,12 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::SystemTime;
 use tokio::sync::{broadcast, RwLock};
-use tokio_tungstenite::{connect_async, tungstenite::Message, WebSocketStream, MaybeTlsStream};
-use serde::{Deserialize, Serialize};
-use tracing::{info, warn, error, debug};
-use futures::{StreamExt, SinkExt, FutureExt};
+use tokio_tungstenite::connect_async;
+use tracing::info;
 
-use riglr_solana_events::{UnifiedEvent, EventType, ProtocolType};
+use riglr_events_core::prelude::{Event, EventKind, EventMetadata};
+use chrono::Utc;
+use serde::Serialize;
 use crate::core::StreamMetadata;
 use crate::core::{Stream, StreamError, StreamEvent, StreamHealth};
 
@@ -82,11 +82,11 @@ impl Default for EvmStreamConfig {
 /// EVM streaming event
 #[derive(Debug, Clone)]
 pub struct EvmStreamEvent {
-    /// Event ID
-    pub id: String,
+    /// Event metadata for riglr-events-core compatibility
+    pub metadata: EventMetadata,
     /// Event type
     pub event_type: EvmEventType,
-    /// Stream metadata
+    /// Stream metadata (legacy)
     pub stream_meta: StreamMetadata,
     /// Chain ID
     pub chain_id: ChainId,
@@ -99,7 +99,7 @@ pub struct EvmStreamEvent {
 }
 
 /// EVM-specific event types
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub enum EvmEventType {
     /// Pending transaction
     PendingTransaction,
@@ -115,39 +115,22 @@ impl StreamEvent for EvmStreamEvent {
     }
 }
 
-impl UnifiedEvent for EvmStreamEvent {
+impl Event for EvmStreamEvent {
     fn id(&self) -> &str {
-        &self.id
+        &self.metadata.id
     }
     
-    fn event_type(&self) -> EventType {
-        match self.event_type {
-            EvmEventType::PendingTransaction => EventType::Transaction,
-            EvmEventType::NewBlock => EventType::Block,
-            EvmEventType::ContractEvent => EventType::ContractEvent,
-        }
+    fn kind(&self) -> &EventKind {
+        &self.metadata.kind
     }
     
-    fn signature(&self) -> &str {
-        self.transaction_hash.as_deref().unwrap_or(&self.id)
+    fn metadata(&self) -> &EventMetadata {
+        &self.metadata
     }
     
-    fn slot(&self) -> u64 {
-        self.block_number.unwrap_or(0)
+    fn metadata_mut(&mut self) -> &mut EventMetadata {
+        &mut self.metadata
     }
-    
-    fn program_received_time_ms(&self) -> i64 {
-        self.stream_meta.received_at
-            .duration_since(SystemTime::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_millis() as i64
-    }
-    
-    fn program_handle_time_consuming_ms(&self) -> i64 {
-        0
-    }
-    
-    fn set_program_handle_time_consuming_ms(&mut self, _time: i64) {}
     
     fn as_any(&self) -> &dyn std::any::Any {
         self
@@ -157,34 +140,20 @@ impl UnifiedEvent for EvmStreamEvent {
         self
     }
     
-    fn clone_boxed(&self) -> Box<dyn UnifiedEvent> {
+    fn clone_boxed(&self) -> Box<dyn Event> {
         Box::new(self.clone())
     }
     
-    fn set_transfer_data(
-        &mut self,
-        _transfer_data: Vec<riglr_solana_events::TransferData>,
-        _swap_data: Option<riglr_solana_events::SwapData>,
-    ) {}
-    
-    fn index(&self) -> String {
-        "0".to_string()
-    }
-    
-    fn protocol_type(&self) -> ProtocolType {
-        ProtocolType::Other("EVM".to_string())
-    }
-    
-    fn timestamp(&self) -> SystemTime {
-        self.stream_meta.received_at
-    }
-    
-    fn transaction_hash(&self) -> Option<String> {
-        self.transaction_hash.clone()
-    }
-    
-    fn block_number(&self) -> Option<u64> {
-        self.block_number
+    fn to_json(&self) -> riglr_events_core::EventResult<serde_json::Value> {
+        Ok(serde_json::json!({
+            "metadata": self.metadata,
+            "event_type": self.event_type,
+            "stream_meta": self.stream_meta,
+            "chain_id": self.chain_id,
+            "block_number": self.block_number,
+            "transaction_hash": self.transaction_hash,
+            "data": self.data
+        }))
     }
 }
 
@@ -284,6 +253,7 @@ impl EvmWebSocketStream {
                 running,
                 health,
                 event_tx,
+                Option::<crate::core::MetricsCollector>::None, // No metrics for now
                 // Connect function
                 || {
                     let url = url.clone();
@@ -348,7 +318,31 @@ impl EvmWebSocketStream {
             return None;
         };
         
-        // Create stream metadata
+        // Create unique ID
+        let id = transaction_hash.as_ref()
+            .unwrap_or(&subscription.to_string())
+            .clone();
+        
+        // Determine event kind
+        let kind = match event_type {
+            EvmEventType::PendingTransaction => EventKind::Transaction,
+            EvmEventType::NewBlock => EventKind::Block,
+            EvmEventType::ContractEvent => EventKind::Contract,
+        };
+        
+        // Create event metadata
+        let now = Utc::now();
+        let metadata = EventMetadata {
+            id: id.clone(),
+            kind,
+            timestamp: now,
+            received_at: now,
+            source: format!("evm-ws-{}", chain_id),
+            chain_data: None,
+            custom: std::collections::HashMap::new(),
+        };
+        
+        // Create stream metadata (legacy)
         let stream_meta = StreamMetadata {
             stream_source: format!("evm-ws-{}", chain_id),
             received_at: SystemTime::now(),
@@ -356,13 +350,8 @@ impl EvmWebSocketStream {
             custom_data: Some(json.clone()),
         };
         
-        // Create unique ID
-        let id = transaction_hash.as_ref()
-            .unwrap_or(&subscription.to_string())
-            .clone();
-        
         Some(EvmStreamEvent {
-            id,
+            metadata,
             event_type,
             stream_meta,
             chain_id,

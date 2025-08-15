@@ -6,7 +6,7 @@
 //! - Health monitoring and failover capabilities
 //! - Connection pooling for multiple simultaneous streams
 
-use crate::core::config::{ConnectionConfig, ConfigError};
+use crate::core::config::ConnectionConfig;
 use crate::core::error::{StreamError, StreamResult};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
@@ -142,7 +142,7 @@ impl CircuitBreaker {
 
         // Transition to connecting state
         if self.state.compare_exchange(current_state, ConnectionState::Connecting).is_err() {
-            return Err(StreamError::permanent_connection("Connection attempt already in progress".into()));
+            return Err(StreamError::permanent_connection("Connection attempt already in progress"));
         }
 
         let connect_timeout = self.config.connect_timeout();
@@ -259,7 +259,7 @@ where
         T: Clone,
     {
         let connection = self.get_connection().await
-            .ok_or_else(|| StreamError::permanent_connection("No active connection".into()))?;
+            .ok_or_else(|| StreamError::permanent_connection("No active connection"))?;
         
         self.update_activity().await;
         Ok(f(&connection))
@@ -415,7 +415,7 @@ where
             }
         }
         
-        Err(StreamError::retriable_connection("No healthy connections available".into()))
+        Err(StreamError::retriable_connection("No healthy connections available"))
     }
 
     pub async fn pool_health(&self) -> Vec<ConnectionHealth> {
@@ -444,7 +444,10 @@ mod tests {
     }
 
     async fn create_failing_connection() -> StreamResult<MockConnection> {
-        Err(StreamError::Connection("Mock failure".into()))
+        Err(StreamError::Connection { 
+            message: "Mock failure".to_string(),
+            retriable: true,
+        })
     }
 
     #[tokio::test]

@@ -168,13 +168,13 @@ impl StreamError {
                 EventError::generic(format!("Authentication error: {}", message))
             }
             StreamError::RateLimit { message, .. } => {
-                EventError::stream_error(std::io::Error::new(std::io::ErrorKind::Other, message.clone()), format!("Rate limit: {}", message))
+                EventError::stream_error(std::io::Error::other(message.clone()), format!("Rate limit: {}", message))
             }
             StreamError::Parse { message, .. } => {
-                EventError::parse_error(serde_json::Error::from(serde_json::Error::io(std::io::Error::new(std::io::ErrorKind::InvalidData, "parse error"))), message)
+                EventError::parse_error(serde_json::Error::io(std::io::Error::new(std::io::ErrorKind::InvalidData, "parse error")), message)
             }
             StreamError::ResourceExhausted { message } => {
-                EventError::stream_error(std::io::Error::new(std::io::ErrorKind::Other, message.clone()), format!("Resource exhausted: {}", message))
+                EventError::stream_error(std::io::Error::other(message.clone()), format!("Resource exhausted: {}", message))
             }
             StreamError::AlreadyRunning { name } => {
                 EventError::generic(format!("Stream already running: {}", name))

@@ -11,48 +11,34 @@ use tokio::sync::broadcast;
 use std::any::Any;
 
 use crate::core::{Stream, StreamHealth, StreamError};
-use riglr_solana_events::{UnifiedEvent, EventType, ProtocolType, TransferData, SwapData};
+use riglr_events_core::prelude::Event;
 use riglr_events_core::prelude::*;
 
-/// Wrapper for batched events that implements UnifiedEvent
+/// Wrapper for batched events that implements Event
 #[derive(Debug, Clone)]
-pub struct BatchEvent<E: UnifiedEvent> {
+pub struct BatchEvent<E: Event> {
     pub events: Vec<E>,
     pub batch_timestamp: SystemTime,
     pub batch_id: String,
+    pub metadata: EventMetadata,
 }
 
-impl<E: UnifiedEvent + Clone + 'static> UnifiedEvent for BatchEvent<E> {
+impl<E: Event + Clone + 'static> Event for BatchEvent<E> {
     fn id(&self) -> &str {
-        &self.batch_id
+        &self.metadata.id
     }
     
-    fn event_type(&self) -> EventType {
-        // Use the first event's type if available, otherwise create a batch type  
-        self.events.first().map(|e| e.event_type()).unwrap_or(EventType::PriceUpdate)
+    fn kind(&self) -> &EventKind {
+        &self.metadata.kind
     }
     
-    fn signature(&self) -> &str {
-        "batch-event"
+    fn metadata(&self) -> &EventMetadata {
+        &self.metadata
     }
     
-    fn slot(&self) -> u64 {
-        // Use the slot of the first event if available
-        self.events.first().map(|e| e.slot()).unwrap_or(0)
+    fn metadata_mut(&mut self) -> &mut EventMetadata {
+        &mut self.metadata
     }
-    
-    fn program_received_time_ms(&self) -> i64 {
-        self.batch_timestamp
-            .duration_since(SystemTime::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_millis() as i64
-    }
-    
-    fn program_handle_time_consuming_ms(&self) -> i64 {
-        0 // Batch events don't track processing time
-    }
-    
-    fn set_program_handle_time_consuming_ms(&mut self, _time: i64) {}
     
     fn as_any(&self) -> &dyn Any {
         self
@@ -62,19 +48,19 @@ impl<E: UnifiedEvent + Clone + 'static> UnifiedEvent for BatchEvent<E> {
         self
     }
     
-    fn clone_boxed(&self) -> Box<dyn UnifiedEvent> {
+    fn clone_boxed(&self) -> Box<dyn Event> {
         Box::new(self.clone())
     }
     
-    fn set_transfer_data(&mut self, _transfer_data: Vec<TransferData>, _swap_data: Option<SwapData>) {}
-    
-    fn index(&self) -> String {
-        format!("batch-{}", self.events.len())
-    }
-    
-    fn protocol_type(&self) -> ProtocolType {
-        // Use the first event's protocol type if available, otherwise create a batch type
-        self.events.first().map(|e| e.protocol_type()).unwrap_or(ProtocolType::Other("Batch".to_string()))
+    fn to_json(&self) -> EventResult<serde_json::Value> {
+        Ok(serde_json::json!({
+            "metadata": self.metadata,
+            "events": self.events.len(),
+            "batch_timestamp": self.batch_timestamp
+                .duration_since(SystemTime::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_millis()
+        }))
     }
 }
 
@@ -88,7 +74,7 @@ pub struct BatchedStream<S: Stream> {
 
 impl<S: Stream + 'static> BatchedStream<S> {
     /// Create a new batched stream
-    pub fn new(inner: S, batch_size: usize, timeout: Duration) -> Self {
+    pub fn new(inner: S, _batch_size: usize, _timeout: Duration) -> Self {
         let (tx, _) = broadcast::channel(1000);
         let name = format!("batched-{}", inner.name());
         
@@ -110,7 +96,7 @@ impl<S: Stream + 'static> BatchedStream<S> {
 #[async_trait]
 impl<S: Stream> Stream for BatchedStream<S> 
 where
-    S::Event: UnifiedEvent + Clone,
+    S::Event: Event + Clone,
 {
     type Event = BatchEvent<S::Event>;
     type Config = S::Config;
@@ -159,8 +145,8 @@ impl<S: Stream + 'static> EnhancedStream<S> {
     /// Create an enhanced stream with rate limiting and deduplication
     pub fn new(
         inner: S,
-        max_rate_per_second: u64,
-        dedup_ttl: Duration,
+        _max_rate_per_second: u64,
+        _dedup_ttl: Duration,
     ) -> Self {
         let (tx, _) = broadcast::channel(10000);
         let name = format!("enhanced-{}", inner.name());
@@ -243,7 +229,7 @@ pub trait EnhancedStreamExt: Stream + Sized {
     fn with_batching(self, batch_size: usize, timeout: Duration) -> BatchedStream<Self> 
     where 
         Self: 'static,
-        Self::Event: UnifiedEvent + Clone,
+        Self::Event: Event + Clone,
     {
         BatchedStream::new(self, batch_size, timeout)
     }

@@ -2,12 +2,12 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::SystemTime;
 use tokio::sync::{broadcast, RwLock};
-use tokio_tungstenite::{connect_async, tungstenite::Message};
+use tokio_tungstenite::connect_async;
 use serde::{Deserialize, Serialize};
-use tracing::{info, warn, error, debug};
-use futures::{StreamExt, SinkExt, FutureExt};
+use tracing::info;
 
-use riglr_solana_events::{UnifiedEvent, EventType, ProtocolType};
+use riglr_events_core::prelude::{Event, EventKind, EventMetadata};
+use chrono::Utc;
 use crate::core::StreamMetadata;
 use crate::core::{Stream, StreamError, StreamEvent, StreamHealth};
 
@@ -73,13 +73,13 @@ impl std::fmt::Display for BitcoinNetwork {
 /// Mempool streaming event
 #[derive(Debug, Clone)]
 pub struct MempoolStreamEvent {
-    /// Event ID
-    pub id: String,
+    /// Event metadata for riglr-events-core compatibility
+    pub metadata: EventMetadata,
     /// Event type
     pub event_type: MempoolEventType,
     /// Event data
     pub data: serde_json::Value,
-    /// Stream metadata
+    /// Stream metadata (legacy)
     pub stream_meta: StreamMetadata,
     /// Bitcoin network
     pub network: BitcoinNetwork,
@@ -90,7 +90,7 @@ pub struct MempoolStreamEvent {
 }
 
 /// Mempool event types
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub enum MempoolEventType {
     Block,
     Transaction,
@@ -155,44 +155,27 @@ pub struct MempoolStats {
 }
 
 impl StreamEvent for MempoolStreamEvent {
-    fn stream_metadata(&self) -> Option<&riglr_solana_events::StreamMetadata> {
+    fn stream_metadata(&self) -> Option<&StreamMetadata> {
         Some(&self.stream_meta)
     }
 }
 
-impl UnifiedEvent for MempoolStreamEvent {
+impl Event for MempoolStreamEvent {
     fn id(&self) -> &str {
-        &self.id
+        &self.metadata.id
     }
     
-    fn event_type(&self) -> EventType {
-        match self.event_type {
-            MempoolEventType::Transaction => EventType::Transaction,
-            MempoolEventType::Block => EventType::Block,
-            MempoolEventType::Stats => EventType::Unknown,
-        }
+    fn kind(&self) -> &EventKind {
+        &self.metadata.kind
     }
     
-    fn signature(&self) -> &str {
-        &self.id
+    fn metadata(&self) -> &EventMetadata {
+        &self.metadata
     }
     
-    fn slot(&self) -> u64 {
-        self.block_height.unwrap_or(0)
+    fn metadata_mut(&mut self) -> &mut EventMetadata {
+        &mut self.metadata
     }
-    
-    fn program_received_time_ms(&self) -> i64 {
-        self.stream_meta.received_at
-            .duration_since(SystemTime::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_millis() as i64
-    }
-    
-    fn program_handle_time_consuming_ms(&self) -> i64 {
-        0
-    }
-    
-    fn set_program_handle_time_consuming_ms(&mut self, _time: i64) {}
     
     fn as_any(&self) -> &dyn std::any::Any {
         self
@@ -202,34 +185,20 @@ impl UnifiedEvent for MempoolStreamEvent {
         self
     }
     
-    fn clone_boxed(&self) -> Box<dyn UnifiedEvent> {
+    fn clone_boxed(&self) -> Box<dyn Event> {
         Box::new(self.clone())
     }
     
-    fn set_transfer_data(
-        &mut self,
-        _transfer_data: Vec<riglr_solana_events::TransferData>,
-        _swap_data: Option<riglr_solana_events::SwapData>,
-    ) {}
-    
-    fn index(&self) -> String {
-        "0".to_string()
-    }
-    
-    fn protocol_type(&self) -> ProtocolType {
-        ProtocolType::Other("Bitcoin".to_string())
-    }
-    
-    fn timestamp(&self) -> SystemTime {
-        self.stream_meta.received_at
-    }
-    
-    fn transaction_hash(&self) -> Option<String> {
-        None
-    }
-    
-    fn block_number(&self) -> Option<u64> {
-        self.block_height
+    fn to_json(&self) -> riglr_events_core::EventResult<serde_json::Value> {
+        Ok(serde_json::json!({
+            "metadata": self.metadata,
+            "event_type": self.event_type,
+            "data": self.data,
+            "stream_meta": self.stream_meta,
+            "network": self.network,
+            "block_height": self.block_height,
+            "transaction_count": self.transaction_count
+        }))
     }
 }
 
@@ -334,6 +303,7 @@ impl MempoolSpaceStream {
                 running,
                 health,
                 event_tx,
+                Option::<crate::core::MetricsCollector>::None, // No metrics for now
                 // Connect function
                 || {
                     let url = url.clone();
@@ -366,16 +336,36 @@ impl MempoolSpaceStream {
 
     /// Parse a message from mempool.space
     fn parse_message(json: serde_json::Value, _sequence_number: u64) -> Option<MempoolStreamEvent> {
-        // For now, just create a basic event
+        // Create unique ID
+        let id = format!("mempool_{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis());
+        
+        // Determine event kind
+        let kind = EventKind::Block;
+        
+        // Create event metadata
+        let now = Utc::now();
+        let metadata = EventMetadata {
+            id: id.clone(),
+            kind,
+            timestamp: now,
+            received_at: now,
+            source: "mempool-space-ws".to_string(),
+            chain_data: None,
+            custom: std::collections::HashMap::new(),
+        };
+        
+        // Create stream metadata (legacy)
+        let stream_meta = StreamMetadata {
+            stream_source: "mempool.space".to_string(),
+            received_at: std::time::SystemTime::now(),
+            sequence_number: Some(_sequence_number),
+            custom_data: None,
+        };
+        
         Some(MempoolStreamEvent {
-            id: format!("mempool_{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis()),
+            metadata,
             event_type: MempoolEventType::Block,
-            stream_meta: StreamMetadata {
-                stream_source: "mempool.space".to_string(),
-                received_at: std::time::SystemTime::now(),
-                sequence_number: Some(_sequence_number),
-                custom_data: None,
-            },
+            stream_meta,
             network: BitcoinNetwork::Mainnet,
             block_height: None,
             transaction_count: None,
