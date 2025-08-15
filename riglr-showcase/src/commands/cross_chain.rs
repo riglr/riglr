@@ -1,6 +1,7 @@
 //! Cross-chain analysis demonstration commands.
 
-use crate::config::Config;
+use riglr_config::Config;
+use std::sync::Arc;
 use anyhow::Result;
 use colored::Colorize;
 use dialoguer::{Input, Select};
@@ -35,7 +36,7 @@ use tokio::time::{sleep, Duration};
 use tracing::warn;
 
 /// Run the cross-chain analysis demo.
-pub async fn run_demo(config: Config, token: String) -> Result<()> {
+pub async fn run_demo(config: Arc<Config>, token: String) -> Result<()> {
     println!("{}", "🌐 Cross-Chain Analysis Demo".bright_blue().bold());
     println!("{}", "=".repeat(50).blue());
     
@@ -44,7 +45,7 @@ pub async fn run_demo(config: Config, token: String) -> Result<()> {
     
     // Initialize all clients
     let _solana_client = SolanaClient::new(SolanaConfig {
-        rpc_url: config.solana_rpc_url.clone(),
+        rpc_url: config.network.solana_rpc_url.clone(),
         commitment: solana_sdk::commitment_config::CommitmentLevel::Confirmed,
         timeout: std::time::Duration::from_secs(30),
         skip_preflight: false,

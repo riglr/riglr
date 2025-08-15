@@ -14,11 +14,10 @@
 //! Run with: cargo run --example trading_swarm
 
 use riglr_agents::{
-    Agent, AgentBuilder, AgentDispatcher, AgentRegistry, LocalAgentRegistry,
+    Agent, AgentDispatcher, AgentRegistry, LocalAgentRegistry,
     Task, TaskResult, TaskType, Priority, AgentId, AgentMessage,
     DispatchConfig, RoutingStrategy, ChannelCommunication
 };
-use riglr_core::{SignerContext, signer::MemorySignerFactory};
 use async_trait::async_trait;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -572,13 +571,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         enable_load_balancing: false, // Sequential execution for trading workflow
     };
     
-    let dispatcher = Arc::new(AgentDispatcher::new(registry.clone(), dispatch_config));
-    
-    // Setup signer context for blockchain operations
-    let signer_factory = MemorySignerFactory::new();
+    let dispatcher = Arc::new(AgentDispatcher::with_config(registry.clone(), dispatch_config));
     
     // Execute coordinated trading workflow
-    SignerContext::new(&signer_factory).execute(async {
+    {
         println!("\n🔄 Starting Coordinated Trading Workflow");
         
         // Step 1: Market Research
@@ -594,7 +590,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         
         let research_result = dispatcher.dispatch_task(research_task).await?;
         println!("✅ Research completed with confidence: {}", 
-            research_result.output.get("recommendation")
+            research_result.data().unwrap().get("recommendation")
                 .and_then(|r| r.get("confidence"))
                 .and_then(|c| c.as_f64())
                 .unwrap_or(0.0));
@@ -607,7 +603,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let risk_task = Task::new(
             TaskType::RiskAnalysis,
             json!({
-                "analysis": research_result.output,
+                "analysis": research_result.data().unwrap(),
                 "trade_params": {
                     "symbol": "BTC",
                     "action": "buy",
@@ -617,13 +613,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         ).with_priority(Priority::High);
         
         let risk_result = dispatcher.dispatch_task(risk_task).await?;
-        let risk_approved = risk_result.output.get("approved")
+        let risk_approved = risk_result.data().unwrap().get("approved")
             .and_then(|a| a.as_bool())
             .unwrap_or(false);
         
         println!("✅ Risk assessment: {} (Risk Level: {})", 
             if risk_approved { "APPROVED" } else { "REJECTED" },
-            risk_result.output.get("risk_level")
+            risk_result.data().unwrap().get("risk_level")
                 .and_then(|l| l.as_str())
                 .unwrap_or("unknown")
         );
@@ -636,19 +632,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             let execution_task = Task::new(
                 TaskType::Trading,
                 json!({
-                    "risk_approval": risk_result.output,
+                    "risk_approval": risk_result.data().unwrap(),
                     "trade_params": {
                         "symbol": "BTC",
                         "action": "buy",
                         "amount": 2.5
                     },
-                    "research_data": research_result.output
+                    "research_data": research_result.data().unwrap()
                 })
             ).with_priority(Priority::Critical);
             
             let execution_result = dispatcher.dispatch_task(execution_task).await?;
             println!("✅ Trade executed: {}", 
-                execution_result.output.get("transaction_hash")
+                execution_result.data().unwrap().get("transaction_hash")
                     .and_then(|h| h.as_str())
                     .unwrap_or("unknown"));
         } else {
@@ -669,14 +665,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         
         let monitor_result = dispatcher.dispatch_task(monitor_task).await?;
         println!("✅ Portfolio updated - Total Value: ${:.2}", 
-            monitor_result.output.get("total_value")
+            monitor_result.data().unwrap().get("total_value")
                 .and_then(|v| v.as_f64())
                 .unwrap_or(0.0));
         
         sleep(Duration::from_millis(200)).await;
         
-        Ok::<(), riglr_core::error::RiglrError>(())
-    }).await?;
+    }
     
     // Final status report
     println!("\n📊 Trading Swarm Final Status:");

@@ -7,7 +7,7 @@ use riglr_core::config::RpcConfig;
 use riglr_core::signer::TransactionSigner;
 use riglr_web_adapters::factory::{AuthenticationData, SignerFactory};
 use serde::{Deserialize, Serialize};
-use crate::error::{AuthError, AuthResult};
+use crate::error::AuthError;
 use crate::config::ProviderConfig;
 
 /// Magic.link configuration
@@ -75,6 +75,7 @@ impl ProviderConfig for MagicConfig {
 }
 
 /// Magic.link provider implementation
+#[allow(dead_code)]
 pub struct MagicProvider {
     config: MagicConfig,
     client: reqwest::Client,

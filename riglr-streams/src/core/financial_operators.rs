@@ -112,6 +112,7 @@ impl<S: Stream> VwapStream<S> {
         }
     }
     
+    #[allow(dead_code)]
     async fn calculate_vwap(&self) -> f64 {
         let mut pairs = self.price_volume_pairs.write().await;
         let now = SystemTime::now();
@@ -237,6 +238,7 @@ where
 }
 
 /// Moving average calculation
+#[allow(dead_code)]
 pub struct MovingAverageStream<S> {
     inner: S,
     window_size: usize,
@@ -252,6 +254,7 @@ impl<S: Stream> MovingAverageStream<S> {
         }
     }
     
+    #[allow(dead_code)]
     async fn add_value(&self, value: f64) -> f64 {
         let mut values = self.values.write().await;
         
@@ -266,6 +269,7 @@ impl<S: Stream> MovingAverageStream<S> {
 }
 
 /// Exponential moving average
+#[allow(dead_code)]
 pub struct EmaStream<S> {
     inner: S,
     alpha: f64,
@@ -282,6 +286,7 @@ impl<S: Stream> EmaStream<S> {
         }
     }
     
+    #[allow(dead_code)]
     async fn update(&self, value: f64) -> f64 {
         let mut ema = self.current_ema.write().await;
         
@@ -296,6 +301,7 @@ impl<S: Stream> EmaStream<S> {
 }
 
 /// Bollinger Bands calculation
+#[allow(dead_code)]
 pub struct BollingerBandsStream<S> {
     inner: S,
     window: usize,
@@ -313,6 +319,7 @@ impl<S: Stream> BollingerBandsStream<S> {
         }
     }
     
+    #[allow(dead_code)]
     async fn calculate_bands(&self, value: f64) -> BollingerBands {
         let mut values = self.values.write().await;
         
@@ -345,6 +352,7 @@ pub struct BollingerBands {
 }
 
 /// RSI (Relative Strength Index) calculation
+#[allow(dead_code)]
 pub struct RsiStream<S> {
     inner: S,
     period: usize,
@@ -364,6 +372,7 @@ impl<S: Stream> RsiStream<S> {
         }
     }
     
+    #[allow(dead_code)]
     async fn calculate_rsi(&self, value: f64) -> Option<f64> {
         let mut last = self.last_value.write().await;
         
@@ -404,6 +413,7 @@ impl<S: Stream> RsiStream<S> {
 }
 
 /// Order book imbalance calculator
+#[allow(dead_code)]
 pub struct OrderBookImbalanceStream<S> {
     inner: S,
     depth_levels: usize,
@@ -427,6 +437,7 @@ impl<S: Stream> OrderBookImbalanceStream<S> {
 }
 
 /// Price momentum indicator
+#[allow(dead_code)]
 pub struct MomentumStream<S> {
     inner: S,
     lookback_period: usize,
@@ -442,6 +453,7 @@ impl<S: Stream> MomentumStream<S> {
         }
     }
     
+    #[allow(dead_code)]
     async fn calculate_momentum(&self, current_price: f64) -> Option<f64> {
         let mut history = self.price_history.write().await;
         
@@ -460,6 +472,7 @@ impl<S: Stream> MomentumStream<S> {
 }
 
 /// Liquidity pool balance tracker
+#[allow(dead_code)]
 pub struct LiquidityPoolStream<S> {
     inner: S,
     pools: Arc<RwLock<HashMap<String, PoolState>>>,
@@ -481,6 +494,7 @@ impl<S: Stream> LiquidityPoolStream<S> {
         }
     }
     
+    #[allow(dead_code)]
     async fn update_pool(&self, pool_id: String, token_a: f64, token_b: f64) {
         let mut pools = self.pools.write().await;
         pools.insert(pool_id, PoolState {
@@ -491,6 +505,7 @@ impl<S: Stream> LiquidityPoolStream<S> {
         });
     }
     
+    #[allow(dead_code)]
     async fn calculate_price_impact(&self, pool_id: &str, trade_amount: f64) -> Option<f64> {
         let pools = self.pools.read().await;
         if let Some(pool) = pools.get(pool_id) {
@@ -506,6 +521,7 @@ impl<S: Stream> LiquidityPoolStream<S> {
 }
 
 /// MEV (Maximum Extractable Value) detection
+#[allow(dead_code)]
 pub struct MevDetectionStream<S> {
     inner: S,
     window: Duration,
@@ -513,6 +529,7 @@ pub struct MevDetectionStream<S> {
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 struct TransactionPattern {
     pub tx_hash: String,
     pub timestamp: SystemTime,
@@ -536,6 +553,7 @@ impl<S: Stream> MevDetectionStream<S> {
         }
     }
     
+    #[allow(dead_code)]
     async fn detect_mev(&self, event: &dyn Event) -> Option<MevType> {
         // Simplified MEV detection logic
         let mut txs = self.transactions.write().await;
@@ -563,6 +581,7 @@ impl<S: Stream> MevDetectionStream<S> {
 }
 
 /// Gas price oracle stream
+#[allow(dead_code)]
 pub struct GasPriceOracleStream<S> {
     inner: S,
     percentiles: Vec<usize>,
@@ -580,6 +599,7 @@ impl<S: Stream> GasPriceOracleStream<S> {
         }
     }
     
+    #[allow(dead_code)]
     async fn update_gas_price(&self, gas_price: f64) -> GasPriceEstimate {
         let mut prices = self.gas_prices.write().await;
         

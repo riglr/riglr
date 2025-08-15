@@ -1,6 +1,7 @@
 //! Solana tools demonstration commands.
 
-use crate::config::Config;
+use riglr_config::Config;
+use std::sync::Arc;
 use anyhow::Result;
 use colored::Colorize;
 use dialoguer::{Input, Select};
@@ -15,7 +16,7 @@ use std::str::FromStr;
 use tracing::warn;
 
 /// Run the Solana tools demo.
-pub async fn run_demo(config: Config, address: Option<String>) -> Result<()> {
+pub async fn run_demo(config: Arc<Config>, address: Option<String>) -> Result<()> {
     println!("{}", "🌟 Solana Tools Demo".bright_blue().bold());
     println!("{}", "=".repeat(50).blue());
     
@@ -34,7 +35,7 @@ pub async fn run_demo(config: Config, address: Option<String>) -> Result<()> {
 
     // Initialize Solana client
     let solana_config = SolanaConfig {
-        rpc_url: config.solana_rpc_url.clone(),
+        rpc_url: config.network.solana_rpc_url.clone(),
         commitment: CommitmentLevel::Confirmed,
         timeout: std::time::Duration::from_secs(30),
         skip_preflight: false,

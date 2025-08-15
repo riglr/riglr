@@ -149,8 +149,8 @@ impl TransactionSigner for PrivySolanaSigner {
         Err(SignerError::UnsupportedOperation("EVM support not compiled".to_string()))
     }
     
-    fn solana_client(&self) -> Arc<RpcClient> {
-        self.rpc.clone()
+    fn solana_client(&self) -> Option<Arc<RpcClient>> {
+        Some(self.rpc.clone())
     }
     
     fn evm_client(&self) -> Result<Arc<dyn EvmClient>, SignerError> {
@@ -259,9 +259,9 @@ impl TransactionSigner for PrivyEvmSigner {
         Ok(hash.to_string())
     }
     
-    fn solana_client(&self) -> Arc<solana_client::rpc_client::RpcClient> {
-        // Return a dummy client, not used for EVM signer
-        Arc::new(RpcClient::new("https://api.mainnet-beta.solana.com"))
+    fn solana_client(&self) -> Option<Arc<solana_client::rpc_client::RpcClient>> {
+        // EVM signer doesn't need Solana client
+        None
     }
     
     fn evm_client(&self) -> Result<Arc<dyn EvmClient>, SignerError> {

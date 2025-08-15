@@ -118,7 +118,7 @@ mod workspace_validation {
         use riglr_core::{Tool, Job, JobResult, ToolError, ToolWorker, ExecutionConfig};
         
         // Test that we can create error types
-        let _error = ToolError::permanent("test");
+        let _error = ToolError::permanent_string("test");
         let _config = ExecutionConfig::default();
         
         // This test succeeds if it compiles

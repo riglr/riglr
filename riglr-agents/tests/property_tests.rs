@@ -224,7 +224,7 @@ async fn test_task_parameters_preserved_property() {
                 json!({"test_param": param_value}),
             );
 
-            let original_params = task.parameters.clone();
+            let _original_params = task.parameters.clone();
             let result = dispatcher.dispatch_task(task).await.unwrap();
 
             // Property: Task execution doesn't modify original parameters
@@ -321,8 +321,8 @@ async fn test_registry_query_idempotency_property() {
             }
 
             // Property: Queries don't modify state
-            assert_eq!(first_result.0, true); // Agent exists
-            assert_eq!(first_result.1, true); // Agent can be retrieved
+            assert!(first_result.0); // Agent exists
+            assert!(first_result.1); // Agent can be retrieved
             assert_eq!(first_result.2, 1);    // Count is correct
 
             TestResult::passed()
@@ -557,7 +557,7 @@ async fn test_communication_subscription_uniqueness_property() {
 
             // Subscribe multiple agents
             for i in 0..agent_count {
-                let agent_id = AgentId::new(&format!("sub_agent_{}", i));
+                let agent_id = AgentId::new(format!("sub_agent_{}", i));
                 let receiver = comm.subscribe(&agent_id).await.unwrap();
                 receivers.push(receiver);
             }
@@ -576,7 +576,7 @@ async fn test_communication_subscription_uniqueness_property() {
             // Property: Each agent gets only their own messages
             for i in 0..agent_count {
                 let sender = AgentId::new("broadcaster");
-                let target = AgentId::new(&format!("sub_agent_{}", i));
+                let target = AgentId::new(format!("sub_agent_{}", i));
                 
                 let message = AgentMessage::new(
                     sender,
