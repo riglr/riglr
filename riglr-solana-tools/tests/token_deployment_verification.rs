@@ -44,8 +44,8 @@ mod token_deployment_tests {
             Err(SignerError::UnsupportedOperation("Solana signer cannot sign EVM transactions".to_string()))
         }
 
-        fn solana_client(&self) -> Arc<solana_client::rpc_client::RpcClient> {
-            Arc::new(solana_client::rpc_client::RpcClient::new(self.rpc_url.clone()))
+        fn solana_client(&self) -> Option<Arc<solana_client::rpc_client::RpcClient>> {
+            Some(Arc::new(solana_client::rpc_client::RpcClient::new(self.rpc_url.clone())))
         }
 
         fn evm_client(&self) -> Result<Arc<dyn EvmClient>, SignerError> {

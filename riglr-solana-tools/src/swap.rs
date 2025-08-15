@@ -103,9 +103,9 @@ pub async fn get_jupiter_quote(
 
     // Validate mint addresses
     let _input_pubkey = Pubkey::from_str(&input_mint)
-        .map_err(|e| ToolError::permanent(format!("Invalid input mint: {}", e)))?;
+        .map_err(|e| ToolError::permanent_string(format!("Invalid input mint: {}", e)))?;
     let _output_pubkey = Pubkey::from_str(&output_mint)
-        .map_err(|e| ToolError::permanent(format!("Invalid output mint: {}", e)))?;
+        .map_err(|e| ToolError::permanent_string(format!("Invalid output mint: {}", e)))?;
 
     let api_url = jupiter_api_url.unwrap_or_else(|| JupiterConfig::default().api_url);
 
@@ -132,20 +132,20 @@ pub async fn get_jupiter_quote(
         .get(&url)
         .send()
         .await
-        .map_err(|e| ToolError::retriable(format!("Failed to request quote: {}", e)))?;
+        .map_err(|e| ToolError::retriable_string(format!("Failed to request quote: {}", e)))?;
 
     if !response.status().is_success() {
         let error_text = response
             .text()
             .await
             .unwrap_or_else(|_| "Unknown error".to_string());
-        return Err(ToolError::permanent(format!("Jupiter API error: {}", error_text)));
+        return Err(ToolError::permanent_string(format!("Jupiter API error: {}", error_text)));
     }
 
     let quote_response: JupiterQuoteResponse = response
         .json()
         .await
-        .map_err(|e| ToolError::permanent(format!("Failed to parse quote response: {}", e)))?;
+        .map_err(|e| ToolError::permanent_string(format!("Failed to parse quote response: {}", e)))?;
 
     // Calculate price impact
     let price_impact = calculate_price_impact(&quote_response);
@@ -239,10 +239,10 @@ pub async fn perform_jupiter_swap(
 
     // Get signer from context
     let signer_context = SignerContext::current().await
-        .map_err(|e| ToolError::permanent(format!("No signer context: {}", e)))?;
+        .map_err(|e| ToolError::permanent_string(format!("No signer context: {}", e)))?;
     
     let signer_pubkey = signer_context.pubkey()
-        .ok_or_else(|| ToolError::permanent("Signer has no public key"))?;
+        .ok_or_else(|| ToolError::permanent_string("Signer has no public key"))?;
 
     let api_url = jupiter_api_url.unwrap_or_else(|| JupiterConfig::default().api_url);
 
@@ -284,29 +284,29 @@ pub async fn perform_jupiter_swap(
         .json(&swap_request)
         .send()
         .await
-        .map_err(|e| ToolError::retriable(format!("Failed to request swap transaction: {}", e)))?;
+        .map_err(|e| ToolError::retriable_string(format!("Failed to request swap transaction: {}", e)))?;
 
     if !response.status().is_success() {
         let error_text = response
             .text()
             .await
             .unwrap_or_else(|_| "Unknown error".to_string());
-        return Err(ToolError::permanent(format!("Jupiter swap API error: {}", error_text)));
+        return Err(ToolError::permanent_string(format!("Jupiter swap API error: {}", error_text)));
     }
 
     let swap_response: JupiterSwapResponse = response
         .json()
         .await
-        .map_err(|e| ToolError::permanent(format!("Failed to parse swap response: {}", e)))?;
+        .map_err(|e| ToolError::permanent_string(format!("Failed to parse swap response: {}", e)))?;
 
     // Deserialize and sign the transaction
     use base64::{engine::general_purpose, Engine as _};
     let transaction_bytes = general_purpose::STANDARD
         .decode(&swap_response.swap_transaction)
-        .map_err(|e| ToolError::permanent(format!("Failed to decode transaction: {}", e)))?;
+        .map_err(|e| ToolError::permanent_string(format!("Failed to decode transaction: {}", e)))?;
 
     let mut transaction: Transaction = bincode::deserialize(&transaction_bytes)
-        .map_err(|e| ToolError::permanent(format!("Failed to deserialize transaction: {}", e)))?;
+        .map_err(|e| ToolError::permanent_string(format!("Failed to deserialize transaction: {}", e)))?;
 
     // Send transaction with retry logic
     let signature = send_transaction(&mut transaction, &format!("Jupiter Swap ({} -> {})", input_mint, output_mint)).await?;

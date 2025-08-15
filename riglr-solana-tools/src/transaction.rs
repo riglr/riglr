@@ -85,23 +85,23 @@ pub async fn transfer_sol(
 
     // Validate inputs
     if amount_sol <= 0.0 {
-        return Err(ToolError::permanent("Amount must be positive"));
+        return Err(ToolError::permanent_string("Amount must be positive"));
     }
 
     let to_pubkey = Pubkey::from_str(&to_address)
-        .map_err(|e| ToolError::permanent(format!("Invalid recipient address: {}", e)))?;
+        .map_err(|e| ToolError::permanent_string(format!("Invalid recipient address: {}", e)))?;
 
     // Convert SOL to lamports
     let lamports = (amount_sol * LAMPORTS_PER_SOL as f64) as u64;
 
     // Get signer from context
     let signer_context = SignerContext::current().await
-        .map_err(|e| ToolError::permanent(format!("No signer context: {}", e)))?;
+        .map_err(|e| ToolError::permanent_string(format!("No signer context: {}", e)))?;
     
     let from_pubkey = signer_context.pubkey()
-        .ok_or_else(|| ToolError::permanent("Signer has no public key"))?
+        .ok_or_else(|| ToolError::permanent_string("Signer has no public key"))?
         .parse::<Pubkey>()
-        .map_err(|e| ToolError::permanent(format!("Invalid signer pubkey: {}", e)))?;
+        .map_err(|e| ToolError::permanent_string(format!("Invalid signer pubkey: {}", e)))?;
 
     // Create transfer instruction
     let mut instructions = vec![system_instruction::transfer(
@@ -209,18 +209,18 @@ pub async fn transfer_spl_token(
 
     // Validate inputs
     let to_pubkey = Pubkey::from_str(&to_address)
-        .map_err(|e| ToolError::permanent(format!("Invalid recipient address: {}", e)))?;
+        .map_err(|e| ToolError::permanent_string(format!("Invalid recipient address: {}", e)))?;
     let mint_pubkey = Pubkey::from_str(&mint_address)
-        .map_err(|e| ToolError::permanent(format!("Invalid mint address: {}", e)))?;
+        .map_err(|e| ToolError::permanent_string(format!("Invalid mint address: {}", e)))?;
 
     // Get signer from context
     let signer_context = SignerContext::current().await
-        .map_err(|e| ToolError::permanent(format!("No signer context: {}", e)))?;
+        .map_err(|e| ToolError::permanent_string(format!("No signer context: {}", e)))?;
     
     let from_pubkey = signer_context.pubkey()
-        .ok_or_else(|| ToolError::permanent("Signer has no public key"))?
+        .ok_or_else(|| ToolError::permanent_string("Signer has no public key"))?
         .parse::<Pubkey>()
-        .map_err(|e| ToolError::permanent(format!("Invalid signer pubkey: {}", e)))?;
+        .map_err(|e| ToolError::permanent_string(format!("Invalid signer pubkey: {}", e)))?;
 
     // Get associated token accounts
     let from_ata = get_associated_token_address(&from_pubkey, &mint_pubkey);
@@ -252,7 +252,7 @@ pub async fn transfer_spl_token(
             &[],
             amount,
         )
-        .map_err(|e| ToolError::permanent(format!("Failed to create transfer instruction: {}", e)))?,
+        .map_err(|e| ToolError::permanent_string(format!("Failed to create transfer instruction: {}", e)))?,
     );
 
     // Create and send transaction with retry logic
@@ -347,17 +347,17 @@ pub async fn create_spl_token_mint(
 
     // Validate inputs
     if decimals > 9 {
-        return Err(ToolError::permanent("Decimals must be between 0 and 9"));
+        return Err(ToolError::permanent_string("Decimals must be between 0 and 9"));
     }
 
     // Get signer from context
     let signer_context = SignerContext::current().await
-        .map_err(|e| ToolError::permanent(format!("No signer context: {}", e)))?;
+        .map_err(|e| ToolError::permanent_string(format!("No signer context: {}", e)))?;
     
     let payer_pubkey_str = signer_context.pubkey()
-        .ok_or_else(|| ToolError::permanent("Failed to get signer pubkey".to_string()))?;
+        .ok_or_else(|| ToolError::permanent_string("Failed to get signer pubkey".to_string()))?;
     let payer_pubkey = Pubkey::from_str(&payer_pubkey_str)
-        .map_err(|e| ToolError::permanent(format!("Invalid pubkey format: {}", e)))?;
+        .map_err(|e| ToolError::permanent_string(format!("Invalid pubkey format: {}", e)))?;
 
     // Generate a new mint keypair
     let mint_keypair = solana_sdk::signature::Keypair::new();
@@ -365,18 +365,18 @@ pub async fn create_spl_token_mint(
 
     // Get client to check account size and rent
     let client = signer_context.solana_client()
-        .ok_or_else(|| ToolError::permanent("No Solana client available in signer".to_string()))?;
+        .ok_or_else(|| ToolError::permanent_string("No Solana client available in signer".to_string()))?;
     
     // Calculate rent for mint account
     let mint_account_size = std::mem::size_of::<spl_token::state::Mint>();
     let rent = client
         .get_minimum_balance_for_rent_exemption(mint_account_size)
-        .map_err(|e| ToolError::permanent(format!("Failed to get rent: {}", e)))?;
+        .map_err(|e| ToolError::permanent_string(format!("Failed to get rent: {}", e)))?;
 
     // Get recent blockhash
     let blockhash = client
         .get_latest_blockhash()
-        .map_err(|e| ToolError::retriable(format!("Failed to get blockhash: {}", e)))?;
+        .map_err(|e| ToolError::retriable_string(format!("Failed to get blockhash: {}", e)))?;
 
     // Determine freeze authority
     let freeze_authority = if freezable {
@@ -411,7 +411,7 @@ pub async fn create_spl_token_mint(
             &payer_pubkey,  // mint authority
             freeze_authority.as_ref(),
             decimals,
-        ).map_err(|e| ToolError::permanent(format!("Failed to create initialize mint instruction: {}", e)))?
+        ).map_err(|e| ToolError::permanent_string(format!("Failed to create initialize mint instruction: {}", e)))?
     );
 
     // If there's initial supply, create ATA and mint tokens
@@ -438,7 +438,7 @@ pub async fn create_spl_token_mint(
                 &payer_pubkey,
                 &[],
                 initial_supply,
-            ).map_err(|e| ToolError::permanent(format!("Failed to create mint instruction: {}", e)))?
+            ).map_err(|e| ToolError::permanent_string(format!("Failed to create mint instruction: {}", e)))?
         );
     }
 
@@ -453,7 +453,7 @@ pub async fn create_spl_token_mint(
     let signature = signer_context
         .sign_and_send_solana_transaction(&mut transaction)
         .await
-        .map_err(|e| ToolError::permanent(format!("Failed to send transaction: {}", e)))?;
+        .map_err(|e| ToolError::permanent_string(format!("Failed to send transaction: {}", e)))?;
 
     info!(
         "Created SPL token mint {} with signature {}",

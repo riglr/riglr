@@ -59,13 +59,13 @@ pub async fn get_sol_balance(
 
     // Validate address using stateless utility
     let pubkey = validate_address(&address)
-        .map_err(|e| ToolError::permanent(e.to_string()))?;
+        .map_err(|e| ToolError::permanent_string(e.to_string()))?;
 
     // Get client from SignerContext (following riglr-core pattern)
     let signer = SignerContext::current().await
-        .map_err(|e| ToolError::permanent(format!("No signer context available: {}", e)))?;
+        .map_err(|e| ToolError::permanent_string(format!("No signer context available: {}", e)))?;
     let client = signer.solana_client()
-        .ok_or_else(|| ToolError::permanent("No Solana client available in signer context".to_string()))?;
+        .ok_or_else(|| ToolError::permanent_string("No Solana client available in signer context".to_string()))?;
 
     // Get balance in lamports
     let lamports = client.get_balance(&pubkey).map_err(|e| {
@@ -76,9 +76,9 @@ pub async fn get_sol_balance(
             || error_str.contains("temporarily")
             || error_str.contains("network")
         {
-            ToolError::retriable(format!("Failed to get balance: {}", e))
+            ToolError::retriable_string(format!("Failed to get balance: {}", e))
         } else {
-            ToolError::permanent(format!("Failed to get balance: {}", e))
+            ToolError::permanent_string(format!("Failed to get balance: {}", e))
         }
     })?;
 
@@ -155,24 +155,24 @@ pub async fn get_spl_token_balance(
 
     // Validate addresses using stateless utilities
     let owner_pubkey = validate_address(&owner_address)
-        .map_err(|e| ToolError::permanent(format!("Invalid owner address: {}", e)))?;
+        .map_err(|e| ToolError::permanent_string(format!("Invalid owner address: {}", e)))?;
     let mint_pubkey = validate_address(&mint_address)
-        .map_err(|e| ToolError::permanent(format!("Invalid mint address: {}", e)))?;
+        .map_err(|e| ToolError::permanent_string(format!("Invalid mint address: {}", e)))?;
 
     // Get client from SignerContext (following riglr-core pattern)
     let signer = SignerContext::current().await
-        .map_err(|e| ToolError::permanent(format!("No signer context available: {}", e)))?;
+        .map_err(|e| ToolError::permanent_string(format!("No signer context available: {}", e)))?;
     let client = signer.solana_client()
-        .ok_or_else(|| ToolError::permanent("No Solana client available in signer context".to_string()))?;
+        .ok_or_else(|| ToolError::permanent_string("No Solana client available in signer context".to_string()))?;
 
     // Get the Associated Token Account (ATA) address
     let ata = get_associated_token_address(&owner_pubkey, &mint_pubkey);
 
     // Get token account balance
-    match client.get_token_account_balance(&ata).map_err(|e| ToolError::permanent(format!("Failed to get token balance: {}", e))) {
+    match client.get_token_account_balance(&ata).map_err(|e| ToolError::permanent_string(format!("Failed to get token balance: {}", e))) {
         Ok(balance) => {
             let raw_amount = balance.amount.parse::<u64>().map_err(|e| {
-                ToolError::permanent(format!("Failed to parse token amount: {}", e))
+                ToolError::permanent_string(format!("Failed to parse token amount: {}", e))
             })?;
             let ui_amount = balance.ui_amount.unwrap_or(0.0);
             let decimals = balance.decimals;
