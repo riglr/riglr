@@ -17,7 +17,7 @@ async fn generic_processor_retry_and_status() {
                 let mut c = a2.lock().unwrap();
                 *c += 1;
                 if *c < 2 {
-                    Err(ToolError::retriable_from_msg("temporary"))
+                    Err(ToolError::retriable_string("temporary"))
                 } else {
                     Ok("ok")
                 }
@@ -29,7 +29,7 @@ async fn generic_processor_retry_and_status() {
 
     // Non-retriable error returns immediately
     let err = proc.process_with_retry(
-        || async { Err(ToolError::permanent_from_msg("bad")) },
+        || async { Err(ToolError::permanent_string("bad")) },
         RetryConfig::default(),
     ).await.unwrap_err();
     assert!(!err.is_retriable());

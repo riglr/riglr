@@ -15,7 +15,7 @@ async fn solana_specific_tool() -> Result<String, ToolError> {
     // Try to get the current signer as a Solana signer
     // This will fail at runtime if the context doesn't have a Solana-capable signer
     let signer = SignerContext::current_as_solana().await
-        .map_err(|e| ToolError::permanent_from_msg(
+        .map_err(|e| ToolError::permanent_string(
             format!("This tool requires a Solana signer: {}", e)
         ))?;
     
@@ -32,7 +32,7 @@ async fn solana_specific_tool() -> Result<String, ToolError> {
 async fn evm_specific_tool() -> Result<String, ToolError> {
     // Try to get the current signer as an EVM signer
     let signer = SignerContext::current_as_evm().await
-        .map_err(|e| ToolError::permanent_from_msg(
+        .map_err(|e| ToolError::permanent_string(
             format!("This tool requires an EVM signer: {}", e)
         ))?;
     
@@ -61,7 +61,7 @@ async fn demonstrate_unified_context() -> Result<(), Box<dyn std::error::Error +
     ));
     
     // Use the new unified signer context
-    let result = SignerContext::with_unified_signer(
+    SignerContext::with_unified_signer(
         solana_signer as Arc<dyn UnifiedSigner>,
         async {
             // Inside this context, tools can access the signer with type safety
@@ -82,10 +82,11 @@ async fn demonstrate_unified_context() -> Result<(), Box<dyn std::error::Error +
         }
     ).await?;
     
-    Ok(result)
+    Ok(())
 }
 
 /// Example showing how tools can check capabilities before attempting operations
+#[allow(dead_code)]
 async fn flexible_tool() -> Result<String, ToolError> {
     // Check if we have a signer context at all
     if !SignerContext::is_available().await {
@@ -104,7 +105,7 @@ async fn flexible_tool() -> Result<String, ToolError> {
         return Ok(format!("Performing EVM operation for: {}", address));
     }
     
-    Err(ToolError::permanent_from_msg(
+    Err(ToolError::permanent_string(
         "Signer available but doesn't support Solana or EVM"
     ))
 }

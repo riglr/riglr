@@ -105,22 +105,22 @@ fn test_error_serialization_from_json_error() {
 
 #[test]
 fn test_tool_error_retriable() {
-    let error = ToolError::retriable("Connection timeout");
+    let error = ToolError::retriable_string("Connection timeout");
     assert_eq!(error.to_string(), "Operation can be retried");
     assert!(error.is_retriable());
 
-    let error2 = ToolError::retriable("Network issue");
+    let error2 = ToolError::retriable_string("Network issue");
     assert_eq!(error2.to_string(), "Operation can be retried");
     assert!(error2.is_retriable());
 }
 
 #[test]
 fn test_tool_error_permanent() {
-    let error = ToolError::permanent("Invalid address");
+    let error = ToolError::permanent_string("Invalid address");
     assert_eq!(error.to_string(), "Permanent error, do not retry");
     assert!(!error.is_retriable());
 
-    let error2 = ToolError::permanent("Insufficient permissions");
+    let error2 = ToolError::permanent_string("Insufficient permissions");
     assert_eq!(
         error2.to_string(),
         "Permanent error, do not retry"
@@ -131,24 +131,24 @@ fn test_tool_error_permanent() {
 #[test]
 fn test_tool_error_constructors() {
     // Test retriable constructor
-    let retriable = ToolError::retriable("Temporary failure");
+    let retriable = ToolError::retriable_string("Temporary failure");
     assert!(matches!(retriable, ToolError::Retriable { .. }));
     assert!(retriable.is_retriable());
 
     // Test permanent constructor
-    let permanent = ToolError::permanent("Configuration error");
+    let permanent = ToolError::permanent_string("Configuration error");
     assert!(matches!(permanent, ToolError::Permanent { .. }));
     assert!(!permanent.is_retriable());
 }
 
 #[test]
 fn test_tool_error_debug_format() {
-    let error = ToolError::retriable("Debug test");
+    let error = ToolError::retriable_string("Debug test");
     let debug_str = format!("{:?}", error);
     assert!(debug_str.contains("Retriable"));
     assert!(debug_str.contains("Debug test"));
 
-    let error2 = ToolError::permanent("Permanent debug");
+    let error2 = ToolError::permanent_string("Permanent debug");
     let debug_str2 = format!("{:?}", error2);
     assert!(debug_str2.contains("Permanent"));
     assert!(debug_str2.contains("Permanent debug"));
@@ -156,10 +156,10 @@ fn test_tool_error_debug_format() {
 
 #[test]
 fn test_tool_error_display() {
-    let retriable = ToolError::rate_limited("Rate limited");
+    let retriable = ToolError::rate_limited_string("Rate limited");
     assert_eq!(retriable.to_string(), "Rate limited, retry after delay");
 
-    let permanent = ToolError::permanent("Invalid API key");
+    let permanent = ToolError::permanent_string("Invalid API key");
     assert_eq!(permanent.to_string(), "Permanent error, do not retry");
 }
 
@@ -184,7 +184,7 @@ fn test_worker_error_display() {
     assert_eq!(err.to_string(), "Tool 'my_tool' not found in worker registry");
     
     // Test SemaphoreAcquisition
-    let io_err = io::Error::new(io::ErrorKind::Other, "semaphore error");
+    let io_err = io::Error::other("semaphore error");
     let err = WorkerError::SemaphoreAcquisition {
         tool_name: "test_tool".to_string(),
         source: Box::new(io_err),
@@ -192,7 +192,7 @@ fn test_worker_error_display() {
     assert!(err.to_string().contains("Failed to acquire semaphore for tool 'test_tool'"));
     
     // Test IdempotencyStore
-    let io_err = io::Error::new(io::ErrorKind::Other, "store error");
+    let io_err = io::Error::other("store error");
     let err = WorkerError::IdempotencyStore {
         source: Box::new(io_err),
     };
@@ -237,7 +237,7 @@ fn test_tool_error_with_source_variants() {
     assert!(tool_err.source().is_some());
     
     // Test rate_limited_with_source with retry_after
-    let io_err = io::Error::new(io::ErrorKind::Other, "rate limit exceeded");
+    let io_err = io::Error::other("rate limit exceeded");
     let retry_duration = Some(std::time::Duration::from_secs(120));
     let tool_err = ToolError::rate_limited_with_source(io_err, "API rate limit", retry_duration);
     assert!(tool_err.is_retriable());
@@ -246,7 +246,7 @@ fn test_tool_error_with_source_variants() {
     assert!(tool_err.source().is_some());
     
     // Test rate_limited_with_source without retry_after
-    let io_err = io::Error::new(io::ErrorKind::Other, "rate limit");
+    let io_err = io::Error::other("rate limit");
     let tool_err = ToolError::rate_limited_with_source(io_err, "Rate limited", None);
     assert!(tool_err.retry_after().is_none());
     
@@ -261,25 +261,25 @@ fn test_tool_error_with_source_variants() {
 
 #[test]
 fn test_tool_error_from_msg_variants() {
-    // Test retriable_from_msg
-    let err = ToolError::retriable_from_msg("Network error");
+    // Test retriable_string
+    let err = ToolError::retriable_string("Network error");
     assert!(err.is_retriable());
     assert!(err.source().is_some()); // SimpleError is used as source
     
-    // Test permanent_from_msg
-    let err = ToolError::permanent_from_msg("Config error");
+    // Test permanent_string
+    let err = ToolError::permanent_string("Config error");
     assert!(!err.is_retriable());
     assert!(err.source().is_some());
     
-    // Test rate_limited_from_msg
-    let err = ToolError::rate_limited_from_msg("Too many requests");
+    // Test rate_limited_string
+    let err = ToolError::rate_limited_string("Too many requests");
     assert!(err.is_retriable());
     assert!(err.is_rate_limited());
     assert!(err.retry_after().is_none());
     assert!(err.source().is_some());
     
-    // Test invalid_input_from_msg
-    let err = ToolError::invalid_input_from_msg("Bad input");
+    // Test invalid_input_string
+    let err = ToolError::invalid_input_string("Bad input");
     assert!(!err.is_retriable());
     assert!(err.to_string().contains("Invalid input provided"));
     assert!(err.source().is_some());
@@ -294,7 +294,7 @@ fn test_tool_error_from_conversions() {
     
     // Test From<Box<dyn Error>>
     let boxed_err: Box<dyn std::error::Error + Send + Sync> = 
-        Box::new(std::io::Error::new(std::io::ErrorKind::Other, "boxed error"));
+        Box::new(std::io::Error::other("boxed error"));
     let tool_err: ToolError = boxed_err.into();
     assert!(!tool_err.is_retriable());
     
@@ -324,16 +324,16 @@ fn test_deprecated_constructors() {
     // Test deprecated methods still work for backward compatibility
     #[allow(deprecated)]
     {
-        let err = ToolError::retriable("Old style");
+        let err = ToolError::retriable_string("Old style");
         assert!(err.is_retriable());
         
-        let err = ToolError::rate_limited("Old rate limit");
+        let err = ToolError::rate_limited_string("Old rate limit");
         assert!(err.is_rate_limited());
         
-        let err = ToolError::permanent("Old permanent");
+        let err = ToolError::permanent_string("Old permanent");
         assert!(!err.is_retriable());
         
-        let err = ToolError::invalid_input("Old invalid");
+        let err = ToolError::invalid_input_string("Old invalid");
         assert!(!err.is_retriable());
     }
 }

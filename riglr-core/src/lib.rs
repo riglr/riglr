@@ -357,15 +357,15 @@ mod tests {
 
     #[test]
     fn test_tool_error_types() {
-        let retriable = ToolError::retriable("Network timeout");
+        let retriable = ToolError::retriable_string("Network timeout");
         assert!(retriable.is_retriable());
         assert!(!retriable.is_rate_limited());
 
-        let rate_limited = ToolError::rate_limited("API rate limit exceeded");
+        let rate_limited = ToolError::rate_limited_string("API rate limit exceeded");
         assert!(rate_limited.is_retriable());
         assert!(rate_limited.is_rate_limited());
 
-        let permanent = ToolError::permanent("Invalid parameters");
+        let permanent = ToolError::permanent_string("Invalid parameters");
         assert!(!permanent.is_retriable());
         assert!(!permanent.is_rate_limited());
     }

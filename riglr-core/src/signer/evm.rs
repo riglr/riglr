@@ -301,7 +301,7 @@ mod tests {
         assert!(signer.is_ok());
         
         let signer = signer.unwrap();
-        let address = signer.address();
+        let address = TransactionSigner::address(&signer);
         assert!(address.is_some());
         assert!(address.unwrap().starts_with("0x"));
     }
