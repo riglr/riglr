@@ -2,6 +2,7 @@
 
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
+use std::fmt;
 
 /// Project configuration for scaffolding
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -68,26 +69,6 @@ impl Template {
         }
     }
     
-    pub fn to_string(&self) -> String {
-        match self {
-            Template::ApiServiceBackend => "api-service".to_string(),
-            Template::DataAnalyticsBot => "data-analytics".to_string(),
-            Template::EventDrivenTradingEngine => "event-driven".to_string(),
-            Template::TradingBot => "trading-bot".to_string(),
-            Template::MarketAnalyst => "market-analyst".to_string(),
-            Template::NewsMonitor => "news-monitor".to_string(),
-            Template::DexArbitrageBot => "dex-arbitrage".to_string(),
-            Template::PortfolioTracker => "portfolio-tracker".to_string(),
-            Template::BridgeMonitor => "bridge-monitor".to_string(),
-            Template::MevProtectionAgent => "mev-protection".to_string(),
-            Template::DaoGovernanceBot => "dao-governance".to_string(),
-            Template::NftTradingBot => "nft-trading".to_string(),
-            Template::YieldOptimizer => "yield-optimizer".to_string(),
-            Template::SocialTradingCopier => "social-trading".to_string(),
-            Template::Custom => "custom".to_string(),
-        }
-    }
-    
     pub fn description(&self) -> &str {
         match self {
             Template::ApiServiceBackend => "RESTful API service with blockchain integration and AI agents",
@@ -108,6 +89,7 @@ impl Template {
         }
     }
     
+    #[allow(dead_code)]
     pub fn default_features(&self) -> Vec<String> {
         match self {
             Template::ApiServiceBackend => vec![
@@ -143,6 +125,29 @@ impl Template {
     }
 }
 
+impl fmt::Display for Template {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
+            Template::ApiServiceBackend => "api-service",
+            Template::DataAnalyticsBot => "data-analytics",
+            Template::EventDrivenTradingEngine => "event-driven",
+            Template::TradingBot => "trading-bot",
+            Template::MarketAnalyst => "market-analyst",
+            Template::NewsMonitor => "news-monitor",
+            Template::DexArbitrageBot => "dex-arbitrage",
+            Template::PortfolioTracker => "portfolio-tracker",
+            Template::BridgeMonitor => "bridge-monitor",
+            Template::MevProtectionAgent => "mev-protection",
+            Template::DaoGovernanceBot => "dao-governance",
+            Template::NftTradingBot => "nft-trading",
+            Template::YieldOptimizer => "yield-optimizer",
+            Template::SocialTradingCopier => "social-trading",
+            Template::Custom => "custom",
+        };
+        write!(f, "{}", s)
+    }
+}
+
 /// Web server framework options
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum ServerFramework {
@@ -153,6 +158,7 @@ pub enum ServerFramework {
 }
 
 impl ServerFramework {
+    #[allow(dead_code)]
     pub fn dependencies(&self) -> Vec<(&str, &str)> {
         match self {
             ServerFramework::Actix => vec![

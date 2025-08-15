@@ -7,10 +7,12 @@ use std::path::PathBuf;
 use crate::config::{Template, TemplateInfo};
 
 // Embed template files at compile time
+#[allow(dead_code)]
 static TEMPLATES_DIR: Dir = include_dir!("$CARGO_MANIFEST_DIR/templates");
 
 /// Template manager for handling template operations
 pub struct TemplateManager {
+    #[allow(dead_code)]
     templates_path: PathBuf,
 }
 
@@ -26,7 +28,7 @@ impl TemplateManager {
     
     /// List all available templates
     pub fn list_templates(&self) -> Result<Vec<TemplateInfo>> {
-        let templates = vec![
+        let templates = [
             Template::ApiServiceBackend,
             Template::DataAnalyticsBot,
             Template::EventDrivenTradingEngine,
@@ -44,7 +46,7 @@ impl TemplateManager {
             Template::Custom,
         ];
         
-        Ok(templates.iter().map(|t| TemplateInfo::from_template(t)).collect())
+        Ok(templates.iter().map(TemplateInfo::from_template).collect())
     }
     
     /// Get detailed information about a specific template

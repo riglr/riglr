@@ -26,7 +26,7 @@ pub fn validate_project_name(name: &str) -> Result<(), String> {
     }
     
     // Check for reserved names
-    let reserved = vec!["test", "main", "src", "target", "build", "dist", "node_modules"];
+    let reserved = ["test", "main", "src", "target", "build", "dist", "node_modules"];
     if reserved.contains(&name.to_lowercase().as_str()) {
         return Err(format!("'{}' is a reserved name", name));
     }
@@ -45,6 +45,7 @@ pub fn validate_email(email: &str) -> Result<(), String> {
 }
 
 /// Validate URL
+#[allow(dead_code)]
 pub fn validate_url(url: &str) -> Result<(), String> {
     if url.starts_with("http://") || url.starts_with("https://") {
         Ok(())
@@ -54,6 +55,7 @@ pub fn validate_url(url: &str) -> Result<(), String> {
 }
 
 /// Validate port number
+#[allow(dead_code)]
 pub fn validate_port(port: &str) -> Result<(), String> {
     match port.parse::<u16>() {
         Ok(p) if p > 0 => Ok(()),
