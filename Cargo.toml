@@ -15,8 +15,7 @@ members = [
     "riglr-showcase",
     "riglr-hyperliquid-tools",
     "riglr-cross-chain-tools",
-    # "create-riglr-app",  # This is a template, not a real crate
-    "create-riglr-app-cli",
+    "create-riglr-app",
     "riglr-streams",
     "riglr-solana-events",
     "riglr-events-core",

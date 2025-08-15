@@ -105,7 +105,7 @@ riglr/
 ├── riglr-graph-memory/     # Neo4j knowledge graph
 ├── riglr-web-adapters/     # Framework-agnostic web server adapters
 ├── riglr-showcase/         # Examples and demonstrations
-└── create-riglr-app-cli/   # Project scaffolding CLI
+└── create-riglr-app/       # Project scaffolding CLI
 ```
 
 📚 **[View Complete Crate Map →](./ARCHITECTURE.md#-crate-dependency-graph)**
@@ -211,7 +211,28 @@ cargo test test_no_mock_implementations
 
 ## 🚀 Quick Start
 
-### Installation
+### Create a New Project
+
+The easiest way to get started is with our interactive scaffolding tool:
+
+```bash
+# Install the CLI
+cargo install create-riglr-app
+
+# Create a new project interactively
+create-riglr-app my-agent
+
+# Or use a specific template
+create-riglr-app new trading-bot my-trading-bot
+```
+
+The CLI will guide you through:
+- Selecting a project template (trading bot, API service, analytics, etc.)
+- Choosing blockchain networks (Solana, Ethereum, multi-chain)
+- Configuring features (web tools, graph memory, authentication)
+- Setting up your development environment
+
+### Manual Installation
 
 Add riglr to your `Cargo.toml`:
 
