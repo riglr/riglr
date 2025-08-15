@@ -7,7 +7,6 @@ use riglr_agents::*;
 use std::sync::Arc;
 use std::time::Duration;
 use serde_json::json;
-use std::collections::HashMap;
 
 /// Agent that exhibits unusual behavior for edge case testing.
 #[derive(Clone)]
@@ -43,7 +42,7 @@ impl EdgeCaseAgent {
 
 #[async_trait::async_trait]
 impl Agent for EdgeCaseAgent {
-    async fn execute_task(&self, task: Task) -> Result<TaskResult> {
+    async fn execute_task(&self, _task: Task) -> Result<TaskResult> {
         match &self.behavior {
             EdgeCaseBehavior::EmptyResult => {
                 tokio::time::sleep(Duration::from_millis(10)).await;
@@ -561,7 +560,7 @@ async fn test_concurrent_registry_modifications() {
             
             // Immediately try to unregister
             let unregister_result = registry_clone
-                .unregister_agent(&AgentId::new(&format!("concurrent_agent_{}", i)))
+                .unregister_agent(&AgentId::new(format!("concurrent_agent_{}", i)))
                 .await;
             
             (register_result.is_ok(), unregister_result.is_ok())

@@ -50,7 +50,7 @@ pub struct StreamManager {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum ManagerState {
+pub enum ManagerState {
     Idle,
     Starting,
     Running,

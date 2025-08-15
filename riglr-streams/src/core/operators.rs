@@ -62,6 +62,7 @@ use riglr_events_core::Event;
 // use riglr_events_core::prelude::{EventBatcher, EventDeduplicator, RateLimiter, StreamUtils};
 
 /// Type alias for boxed futures
+#[allow(dead_code)]
 type BoxedFuture<T> = BoxFuture<'static, T>;
 
 /// Trait for composable streams
@@ -816,6 +817,7 @@ where
 }
 
 /// Stream that skips N events
+#[allow(dead_code)]
 pub struct SkipStream<S> {
     inner: S,
     count: usize,
@@ -972,6 +974,7 @@ where
 }
 
 /// Stream with buffering strategies
+#[allow(dead_code)]
 pub struct BufferedStream<S: Stream> {
     inner: S,
     strategy: BufferStrategy,
@@ -1537,6 +1540,7 @@ where
 }
 
 /// Stream that zips two streams
+#[allow(dead_code)]
 pub struct ZipStream<S1, S2> {
     stream1: S1,
     stream2: S2,
@@ -1551,6 +1555,7 @@ impl<S1: Stream, S2: Stream> ZipStream<S1, S2> {
 }
 
 /// Stream that combines latest values
+#[allow(dead_code)]
 pub struct CombineLatestStream<S1, S2> {
     stream1: S1,
     stream2: S2,

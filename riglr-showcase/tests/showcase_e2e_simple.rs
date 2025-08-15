@@ -10,13 +10,13 @@ use std::sync::Arc;
 #[test]
 fn test_error_classification() {
     // Test that errors are properly classified
-    let permanent_err = ToolError::permanent("Invalid parameters");
+    let permanent_err = ToolError::permanent_string("Invalid parameters");
     assert!(matches!(permanent_err, ToolError::Permanent { .. }));
     
-    let retriable_err = ToolError::retriable("Network timeout");
+    let retriable_err = ToolError::retriable_string("Network timeout");
     assert!(matches!(retriable_err, ToolError::Retriable { .. }));
     
-    let rate_limited_err = ToolError::rate_limited("API rate limit exceeded");
+    let rate_limited_err = ToolError::rate_limited_string("API rate limit exceeded");
     assert!(matches!(rate_limited_err, ToolError::RateLimited { .. }));
 }
 

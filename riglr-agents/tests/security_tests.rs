@@ -41,7 +41,7 @@ impl MaliciousAgent {
 
 #[async_trait::async_trait]
 impl Agent for MaliciousAgent {
-    async fn execute_task(&self, task: Task) -> Result<TaskResult> {
+    async fn execute_task(&self, _task: Task) -> Result<TaskResult> {
         match &self.attack_type {
             AttackType::TaskStealing => {
                 // Attempt to access information from other tasks

@@ -179,9 +179,10 @@ impl MetricsCollector {
     ) {
         let mut metrics = self.stream_metrics.write().await;
         let stream_metrics = metrics.entry(stream_name.to_string()).or_insert_with(|| {
-            let mut m = StreamMetrics::default();
-            m.stream_name = stream_name.to_string();
-            m
+            StreamMetrics {
+                stream_name: stream_name.to_string(),
+                ..Default::default()
+            }
         });
         
         // Update basic counters
@@ -222,9 +223,10 @@ impl MetricsCollector {
     ) {
         let mut metrics = self.handler_metrics.write().await;
         let handler_metrics = metrics.entry(handler_name.to_string()).or_insert_with(|| {
-            let mut m = HandlerMetrics::default();
-            m.handler_name = handler_name.to_string();
-            m
+            HandlerMetrics {
+                handler_name: handler_name.to_string(),
+                ..Default::default()
+            }
         });
         
         // Update counters
@@ -340,7 +342,7 @@ impl MetricsCollector {
     }
     
     /// Calculate percentiles from histogram
-    fn calculate_percentiles(&self, histogram: &mut Vec<f64>) -> (f64, f64, f64, f64) {
+    fn calculate_percentiles(&self, histogram: &mut [f64]) -> (f64, f64, f64, f64) {
         if histogram.is_empty() {
             return (0.0, 0.0, 0.0, 0.0);
         }

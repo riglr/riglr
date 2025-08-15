@@ -244,16 +244,16 @@ fn calculate_compound_interest(
     compounds_per_year: u32,
 ) -> Result<f64, ToolError> {
     if principal <= 0.0 {
-        return Err(ToolError::invalid_input_from_msg("Principal must be positive"));
+        return Err(ToolError::invalid_input_string("Principal must be positive"));
     }
     if annual_rate < 0.0 {
-        return Err(ToolError::invalid_input_from_msg("Interest rate cannot be negative"));
+        return Err(ToolError::invalid_input_string("Interest rate cannot be negative"));
     }
     if years < 0.0 {
-        return Err(ToolError::invalid_input_from_msg("Time period cannot be negative"));
+        return Err(ToolError::invalid_input_string("Time period cannot be negative"));
     }
     if compounds_per_year == 0 {
-        return Err(ToolError::invalid_input_from_msg("Compounds per year must be at least 1"));
+        return Err(ToolError::invalid_input_string("Compounds per year must be at least 1"));
     }
 
     let rate_per_compound = annual_rate / compounds_per_year as f64;
@@ -295,7 +295,7 @@ async fn compute_hash(
         Ok(hex::encode(hash))
     })
     .await
-    .map_err(|e| ToolError::permanent_from_msg(format!("Task failed: {}", e)))?
+    .map_err(|e| ToolError::permanent_string(format!("Task failed: {}", e)))?
 }
 ```
 
@@ -610,6 +610,7 @@ use syn::{parse_macro_input, Attribute, DeriveInput, FnArg, ItemFn, ItemStruct, 
 /// - Automatic JSON schema generation using `schemars`
 /// - Documentation extraction from doc comments
 /// - Parameter descriptions from doc comments on function arguments
+///
 /// Attributes supported:
 /// - description = "..."
 #[proc_macro_attribute]
@@ -715,11 +716,11 @@ fn handle_function(function: ItemFn, tool_attrs: ToolAttr) -> proc_macro2::Token
         &format!("{}Tool", fn_name.to_string().to_pascal_case()),
         fn_name.span(),
     );
-    let args_struct_name = syn::Ident::new(&format!("{}Args", tool_struct_name), fn_name.span());
+    let _args_struct_name = syn::Ident::new(&format!("{}Args", tool_struct_name), fn_name.span());
     let tool_fn_name = syn::Ident::new(&format!("{}_tool", fn_name), fn_name.span());
 
     // Generate field assignments for function call
-    let field_assignments: Vec<_> = param_names.iter()
+    let _field_assignments: Vec<_> = param_names.iter()
         .map(|name| quote! { args.#name })
         .collect();
 
@@ -1073,16 +1074,16 @@ pub fn derive_into_tool_error(input: TokenStream) -> TokenStream {
         let conversion = if let Some(class) = classification {
             match class.to_string().as_str() {
                 "retriable" => quote! { 
-                    riglr_core::ToolError::retriable_from_msg(err.to_string()) 
+                    riglr_core::ToolError::retriable_string(err.to_string()) 
                 },
                 "permanent" => quote! { 
-                    riglr_core::ToolError::permanent_from_msg(err.to_string()) 
+                    riglr_core::ToolError::permanent_string(err.to_string()) 
                 },
                 "rate_limited" => quote! { 
-                    riglr_core::ToolError::rate_limited_from_msg(err.to_string()) 
+                    riglr_core::ToolError::rate_limited_string(err.to_string()) 
                 },
                 _ => quote! { 
-                    riglr_core::ToolError::permanent_from_msg(err.to_string()) 
+                    riglr_core::ToolError::permanent_string(err.to_string()) 
                 },
             }
         } else {
@@ -1096,9 +1097,9 @@ pub fn derive_into_tool_error(input: TokenStream) -> TokenStream {
                 .any(|pattern| variant_name_str.contains(pattern));
             
             if is_retriable {
-                quote! { riglr_core::ToolError::retriable_from_msg(err.to_string()) }
+                quote! { riglr_core::ToolError::retriable_string(err.to_string()) }
             } else {
-                quote! { riglr_core::ToolError::permanent_from_msg(err.to_string()) }
+                quote! { riglr_core::ToolError::permanent_string(err.to_string()) }
             }
         };
         

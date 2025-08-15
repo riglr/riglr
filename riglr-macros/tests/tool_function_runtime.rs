@@ -8,9 +8,8 @@
 //! - Both async and sync functions
 
 use riglr_macros::{tool, IntoToolError};
-use riglr_core::{Tool, JobResult, ToolError};
+use riglr_core::{Tool, JobResult};
 use serde_json::json;
-use std::sync::Arc;
 use thiserror::Error;
 
 // Test error enum for comprehensive error handling tests
@@ -62,7 +61,6 @@ async fn doc_comment_fn() -> Result<&'static str, TestError> {
     Ok("documented")
 }
 
-/// 
 #[tool]
 async fn no_description_fn() -> Result<&'static str, TestError> {
     Ok("no_desc")
@@ -115,7 +113,7 @@ mod tests {
     fn test_tool_struct_instantiation() {
         // Verify that the generated Tool structs can be created with ::new() and Default
         let tool1 = no_params_fn::Tool::new();
-        let tool2 = sync_params_fn::Tool::default();
+        let tool2 = sync_params_fn::Tool;
         
         assert_eq!(tool1.name(), "no_params_fn");
         assert_eq!(tool2.name(), "sync_params_fn");

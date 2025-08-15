@@ -45,6 +45,8 @@ quickcheck = "1.0"
 quickcheck_macros = "1.0"
 rand = "0.8"
 hex = "0.4"
+solana-sdk = { workspace = true }
+bs58 = "0.5"
 
 [features]
 default = ["redis"]

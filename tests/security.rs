@@ -98,7 +98,7 @@ async fn test_error_information_disclosure() {
         format!("Failed to authenticate with key: {}", sensitive_data)
     );
     
-    let tool_error = ToolError::permanent(error_with_sensitive, "Authentication failed".to_string());
+    let tool_error = ToolError::permanent_string(error_with_sensitive, "Authentication failed".to_string());
     let error_display = format!("{}", tool_error);
     
     // Error should not leak the sensitive data in the display

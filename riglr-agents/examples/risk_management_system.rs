@@ -15,11 +15,10 @@
 //! Run with: cargo run --example risk_management_system
 
 use riglr_agents::{
-    Agent, AgentBuilder, AgentDispatcher, AgentRegistry, LocalAgentRegistry,
+    Agent, AgentDispatcher, AgentRegistry, LocalAgentRegistry,
     Task, TaskResult, TaskType, Priority, AgentId, AgentMessage,
     DispatchConfig, RoutingStrategy, ChannelCommunication
 };
-use riglr_core::{SignerContext, signer::MemorySignerFactory};
 use async_trait::async_trait;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -719,13 +718,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         enable_load_balancing: false,
     };
     
-    let dispatcher = Arc::new(AgentDispatcher::new(registry.clone(), dispatch_config));
-    
-    // Setup signer context
-    let signer_factory = MemorySignerFactory::new();
+    let dispatcher = Arc::new(AgentDispatcher::with_config(registry.clone(), dispatch_config));
     
     // Execute comprehensive risk management workflow
-    SignerContext::new(&signer_factory).execute(async {
+    {
         println!("\n🔄 Starting Risk Management Workflow");
         
         // Scenario 1: Normal position risk analysis
@@ -746,12 +742,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         
         let position_result = dispatcher.dispatch_task(position_task).await?;
         println!("✅ Position risk analysis: {} (Risk Score: {:.2})", 
-            if position_result.output.get("approved").and_then(|a| a.as_bool()).unwrap_or(false) { 
+            if position_result.data().unwrap().get("approved").and_then(|a| a.as_bool()).unwrap_or(false) { 
                 "APPROVED" 
             } else { 
                 "REJECTED" 
             },
-            position_result.output.get("risk_score").and_then(|s| s.as_f64()).unwrap_or(0.0)
+            position_result.data().unwrap().get("risk_score").and_then(|s| s.as_f64()).unwrap_or(0.0)
         );
         
         sleep(Duration::from_millis(100)).await;
@@ -767,7 +763,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         ).with_priority(Priority::High);
         
         let portfolio_result = dispatcher.dispatch_task(portfolio_task).await?;
-        let alert_level = portfolio_result.output.get("alert_level")
+        let alert_level = portfolio_result.data().unwrap().get("alert_level")
             .and_then(|l| l.as_str())
             .unwrap_or("Green");
         println!("✅ Portfolio risk assessment: Alert Level {}", alert_level);
@@ -790,7 +786,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         ).with_priority(Priority::High);
         
         let compliance_result = dispatcher.dispatch_task(compliance_task).await?;
-        let compliant = compliance_result.output.get("compliant")
+        let compliant = compliance_result.data().unwrap().get("compliant")
             .and_then(|c| c.as_bool())
             .unwrap_or(false);
         println!("✅ Compliance check: {}", if compliant { "COMPLIANT" } else { "NON-COMPLIANT" });
@@ -821,7 +817,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         ).with_priority(Priority::Critical);
         
         let emergency_result = dispatcher.dispatch_task(emergency_task).await?;
-        let actions_taken = emergency_result.output.get("actions_taken")
+        let actions_taken = emergency_result.data().unwrap().get("actions_taken")
             .and_then(|a| a.as_array())
             .map(|arr| arr.len())
             .unwrap_or(0);
@@ -840,13 +836,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         ).with_priority(Priority::High);
         
         let final_result = dispatcher.dispatch_task(final_portfolio_task).await?;
-        let final_alert = final_result.output.get("alert_level")
+        let final_alert = final_result.data().unwrap().get("alert_level")
             .and_then(|l| l.as_str())
             .unwrap_or("Unknown");
         println!("✅ Post-emergency assessment: Alert Level {}", final_alert);
         
-        Ok::<(), riglr_core::error::RiglrError>(())
-    }).await?;
+    }
     
     // Final system status
     println!("\n📊 Risk Management System Status:");

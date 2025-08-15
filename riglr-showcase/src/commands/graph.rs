@@ -1,6 +1,7 @@
 //! Graph memory demonstration commands.
 
-use crate::config::Config;
+use riglr_config::Config;
+use std::sync::Arc;
 use anyhow::Result;
 use colored::Colorize;
 use dialoguer::{Input, Select};
@@ -12,7 +13,7 @@ use std::time::Duration;
 // use tracing::warn;
 
 /// Run the graph memory demo.
-pub async fn run_demo(_config: Config, init: bool, query: Option<String>) -> Result<()> {
+pub async fn run_demo(_config: Arc<Config>, init: bool, query: Option<String>) -> Result<()> {
     println!("{}", "🧠 Graph Memory Demo".bright_blue().bold());
     println!("{}", "=".repeat(50).blue());
     

@@ -171,7 +171,7 @@ async fn test_dexscreener_api_error_handling() {
     // After retries, return success
     Mock::given(method("GET"))
         .and(path("/dex/tokens/server_error"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(&json!({
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
             "schemaVersion": "1.0.0",
             "pairs": [{
                 "baseToken": {"address": "0x123", "name": "Test", "symbol": "TEST"},
@@ -549,7 +549,7 @@ async fn test_concurrent_requests() {
         let path_str = format!("/token{}", i);
         Mock::given(method("GET"))
             .and(path(path_str.as_str()))
-            .respond_with(ResponseTemplate::new(200).set_body_json(&json!({
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
                 "id": i,
                 "data": format!("Token {}", i)
             })))

@@ -118,6 +118,7 @@ pub struct PrivyWallet {
 
 /// JWT claims for Privy tokens
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 pub struct PrivyClaims {
     /// Subject (user ID)
     pub sub: String,

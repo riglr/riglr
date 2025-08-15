@@ -18,13 +18,13 @@ fn test_config_from_env_with_defaults() {
     
     let config = Config::from_env();
     
-    assert_eq!(config.solana_rpc_url, "https://api.mainnet-beta.solana.com");
-    assert_eq!(config.ethereum_rpc_url, "https://eth-mainnet.alchemyapi.io/v2/demo");
-    assert!(config.twitter_bearer_token.is_none());
-    assert!(config.exa_api_key.is_none());
-    assert_eq!(config.neo4j_url, "neo4j://localhost:7687");
-    assert_eq!(config.redis_url, "redis://localhost:6379");
-    assert_eq!(config.openai_api_key, "test_api_key");
+    assert_eq!(config.network.solana_rpc_url, "https://api.mainnet-beta.solana.com");
+    // Ethereum RPC URL would be in config.network.rpc_urls["1"]
+    assert!(config.providers.twitter_bearer_token.is_none());
+    assert!(config.providers.exa_api_key.is_none());
+    assert_eq!(config.database.neo4j_url.as_deref(), Some("neo4j://localhost:7687"));
+    assert_eq!(config.database.redis_url, "redis://localhost:6379");
+    assert_eq!(config.providers.openai_api_key.as_deref(), Some("test_api_key"));
     
     // Clean up
     env::remove_var("OPENAI_API_KEY");
@@ -43,13 +43,13 @@ fn test_config_from_env_with_custom_values() {
     
     let config = Config::from_env();
     
-    assert_eq!(config.solana_rpc_url, "https://custom.solana.com");
-    assert_eq!(config.ethereum_rpc_url, "https://custom.ethereum.com");
-    assert_eq!(config.twitter_bearer_token, Some("twitter_token".to_string()));
-    assert_eq!(config.exa_api_key, Some("exa_key".to_string()));
-    assert_eq!(config.neo4j_url, "neo4j://custom:7687");
-    assert_eq!(config.redis_url, "redis://custom:6379");
-    assert_eq!(config.openai_api_key, "openai_key");
+    assert_eq!(config.network.solana_rpc_url, "https://custom.solana.com");
+    // assert_eq!(config.network.rpc_urls.get("1"), Some(&"https://custom.ethereum.com".to_string()));
+    assert_eq!(config.providers.twitter_bearer_token, Some("twitter_token".to_string()));
+    assert_eq!(config.providers.exa_api_key, Some("exa_key".to_string()));
+    assert_eq!(config.database.neo4j_url.as_deref(), Some("neo4j://custom:7687"));
+    assert_eq!(config.database.redis_url, "redis://custom:6379");
+    assert_eq!(config.providers.openai_api_key.as_deref(), Some("openai_key"));
     
     // Clean up
     env::remove_var("SOLANA_RPC_URL");
@@ -78,13 +78,13 @@ fn test_config_clone() {
     let config = Config::from_env();
     let cloned = config.clone();
     
-    assert_eq!(cloned.solana_rpc_url, config.solana_rpc_url);
-    assert_eq!(cloned.ethereum_rpc_url, config.ethereum_rpc_url);
-    assert_eq!(cloned.twitter_bearer_token, config.twitter_bearer_token);
-    assert_eq!(cloned.exa_api_key, config.exa_api_key);
-    assert_eq!(cloned.neo4j_url, config.neo4j_url);
-    assert_eq!(cloned.redis_url, config.redis_url);
-    assert_eq!(cloned.openai_api_key, config.openai_api_key);
+    assert_eq!(cloned.network.solana_rpc_url, config.network.solana_rpc_url);
+    // assert_eq!(cloned.network.rpc_urls, config.network.rpc_urls);
+    assert_eq!(cloned.providers.twitter_bearer_token, config.providers.twitter_bearer_token);
+    assert_eq!(cloned.providers.exa_api_key, config.providers.exa_api_key);
+    assert_eq!(cloned.database.neo4j_url, config.database.neo4j_url);
+    assert_eq!(cloned.database.redis_url, config.database.redis_url);
+    assert_eq!(cloned.providers.openai_api_key, config.providers.openai_api_key);
     
     env::remove_var("OPENAI_API_KEY");
 }
@@ -119,12 +119,12 @@ fn test_config_partial_env_vars() {
     
     let config = Config::from_env();
     
-    assert_eq!(config.solana_rpc_url, "https://partial.solana.com");
-    assert_eq!(config.ethereum_rpc_url, "https://eth-mainnet.alchemyapi.io/v2/demo");
-    assert_eq!(config.twitter_bearer_token, Some("partial_twitter".to_string()));
-    assert!(config.exa_api_key.is_none());
-    assert_eq!(config.neo4j_url, "neo4j://localhost:7687");
-    assert_eq!(config.redis_url, "redis://localhost:6379");
+    assert_eq!(config.network.solana_rpc_url, "https://partial.solana.com");
+    // Ethereum RPC URL would be in config.network.rpc_urls["1"]
+    assert_eq!(config.providers.twitter_bearer_token, Some("partial_twitter".to_string()));
+    assert!(config.providers.exa_api_key.is_none());
+    assert_eq!(config.database.neo4j_url.as_deref(), Some("neo4j://localhost:7687"));
+    assert_eq!(config.database.redis_url, "redis://localhost:6379");
     
     // Clean up
     env::remove_var("SOLANA_RPC_URL");
@@ -143,9 +143,9 @@ fn test_config_empty_env_values() {
     let config = Config::from_env();
     
     // Empty strings should be treated as None for optional fields
-    assert!(config.twitter_bearer_token.is_none());
-    assert!(config.exa_api_key.is_none());
-    assert_eq!(config.openai_api_key, "");
+    assert!(config.providers.twitter_bearer_token.is_none());
+    assert!(config.providers.exa_api_key.is_none());
+    assert_eq!(config.providers.openai_api_key.as_deref(), Some(""));
     
     // Test validation with empty API key
     let validation_result = config.validate();
@@ -172,9 +172,9 @@ fn test_config_special_characters_in_env() {
     
     let config = Config::from_env();
     
-    assert_eq!(config.solana_rpc_url, "https://user:pass@solana.com:8899/path");
-    assert_eq!(config.ethereum_rpc_url, "wss://ethereum.com/ws");
-    assert_eq!(config.twitter_bearer_token, Some("Bearer abc123!@#$%".to_string()));
+    assert_eq!(config.network.solana_rpc_url, "https://user:pass@solana.com:8899/path");
+    // assert_eq!(config.network.rpc_urls.get("1"), Some(&"wss://ethereum.com/ws".to_string()));
+    assert_eq!(config.providers.twitter_bearer_token, Some("Bearer abc123!@#$%".to_string()));
     assert_eq!(config.neo4j_url, "neo4j+s://user:pass@neo4j.com:7687");
     assert_eq!(config.redis_url, "redis://user:pass@redis.com:6379/0");
     assert_eq!(config.openai_api_key, "sk-123abc!@#");

@@ -10,9 +10,9 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use tracing::info;
+use riglr_config::Config;
 
 mod commands;
-mod config;
 
 #[derive(Parser)]
 #[command(name = "riglr-showcase")]
@@ -71,6 +71,12 @@ enum Commands {
         #[arg(short, long)]
         token: String,
     },
+    /// Run multi-agent coordination demo
+    Agents {
+        /// Demo scenario to run (trading, risk, basic)
+        #[arg(short, long, default_value = "trading")]
+        scenario: String,
+    },
     /// Interactive chat mode
     Interactive,
 }
@@ -88,8 +94,7 @@ async fn main() -> Result<()> {
     tracing::info!("🚀 Initializing riglr-showcase with production-ready configuration...");
     
     // Load and validate all configuration at startup
-    let config = config::Config::from_env()
-        .map_err(|e| anyhow::anyhow!("Configuration error: {}", e))?;
+    let config = Config::from_env();
     
     tracing::info!("✅ Configuration loaded and validated successfully");
 
@@ -111,6 +116,9 @@ async fn main() -> Result<()> {
         }
         Commands::CrossChain { token } => {
             commands::cross_chain::run_demo(config, token).await?;
+        }
+        Commands::Agents { scenario } => {
+            commands::agents::run_demo(config, scenario).await?;
         }
         Commands::Interactive => {
             commands::interactive::run_chat(config).await?;
