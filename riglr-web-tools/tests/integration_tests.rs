@@ -9,6 +9,7 @@ use wiremock::{matchers::{method, path, query_param}, Mock, MockServer, Response
 use serde_json::json;
 
 /// Helper to create a WebClient that points to our mock server
+#[allow(dead_code)]
 async fn create_mock_client(server: &MockServer) -> WebClient {
     let mut client = WebClient::new().unwrap();
     // Override the base URL to point to our mock server
@@ -483,7 +484,7 @@ async fn test_client_retry_logic() {
         .mount(&mock_server)
         .await;
     
-    let mut client = WebClient::new().unwrap();
+    let client = WebClient::new().unwrap();
     let url = format!("{}/retry-test", mock_server.uri());
     
     let result = client.get(&url).await;
