@@ -279,24 +279,22 @@ fn interactive_setup(project_name: Option<String>) -> Result<ProjectConfig> {
         .interact()?;
 
     let mut enabled_features = vec![];
-    for (idx, &selected) in selected_features.iter().enumerate() {
-        if selected {
-            enabled_features.push(match idx {
-                0 => "web_tools",
-                1 => "graph_memory",
-                2 => "cross_chain",
-                3 => "dashboard",
-                4 => "auth",
-                5 => "streaming",
-                6 => "database",
-                7 => "redis",
-                8 => "logging",
-                9 => "testing",
-                10 => "cicd",
-                11 => "api_docs",
-                _ => continue,
-            }.to_string());
-        }
+    for &selected_idx in selected_features.iter() {
+        enabled_features.push(match selected_idx {
+            0 => "web_tools",
+            1 => "graph_memory",
+            2 => "cross_chain",
+            3 => "dashboard",
+            4 => "auth",
+            5 => "streaming",
+            6 => "database",
+            7 => "redis",
+            8 => "logging",
+            9 => "testing",
+            10 => "cicd",
+            11 => "api_docs",
+            _ => continue,
+        }.to_string());
     }
 
     // Author information
@@ -313,7 +311,7 @@ fn interactive_setup(project_name: Option<String>) -> Result<ProjectConfig> {
     // Description
     let description = Input::<String>::with_theme(&theme)
         .with_prompt("Project description")
-        .default(format!("AI-powered blockchain agent built with RIGLR"))
+        .default("AI-powered blockchain agent built with RIGLR".to_string())
         .interact_text()?;
 
     Ok(ProjectConfig {
@@ -466,7 +464,7 @@ async fn list_templates() -> Result<()> {
 }
 
 async fn create_from_template(template: &str, name: &str, output: Option<PathBuf>) -> Result<()> {
-    let manager = TemplateManager::new();
+    let _manager = TemplateManager::new();
     let template_enum = Template::from_str(template)?;
     
     let config = ProjectConfig {
