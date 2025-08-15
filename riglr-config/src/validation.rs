@@ -9,6 +9,7 @@ pub trait Validator {
 }
 
 /// Validate an email address
+#[allow(dead_code)]
 pub fn validate_email(email: &str) -> ConfigResult<()> {
     if !email.contains('@') || !email.contains('.') {
         return Err(ConfigError::validation(
@@ -19,6 +20,7 @@ pub fn validate_email(email: &str) -> ConfigResult<()> {
 }
 
 /// Validate a URL
+#[allow(dead_code)]
 pub fn validate_url(url: &str) -> ConfigResult<()> {
     url::Url::parse(url)
         .map_err(|e| ConfigError::validation(
@@ -28,6 +30,7 @@ pub fn validate_url(url: &str) -> ConfigResult<()> {
 }
 
 /// Validate a port number
+#[allow(dead_code)]
 pub fn validate_port(port: u16) -> ConfigResult<()> {
     if port == 0 {
         return Err(ConfigError::validation(
@@ -38,6 +41,7 @@ pub fn validate_port(port: u16) -> ConfigResult<()> {
 }
 
 /// Validate an Ethereum address
+#[allow(dead_code)]
 pub fn validate_eth_address(address: &str) -> ConfigResult<()> {
     if !address.starts_with("0x") || address.len() != 42 {
         return Err(ConfigError::validation(
@@ -58,6 +62,7 @@ pub fn validate_eth_address(address: &str) -> ConfigResult<()> {
 }
 
 /// Validate a Solana address
+#[allow(dead_code)]
 pub fn validate_solana_address(address: &str) -> ConfigResult<()> {
     // Solana addresses are base58 encoded and typically 32-44 characters
     if address.len() < 32 || address.len() > 44 {
@@ -79,6 +84,7 @@ pub fn validate_solana_address(address: &str) -> ConfigResult<()> {
 }
 
 /// Validate an API key format
+#[allow(dead_code)]
 pub fn validate_api_key(key: &str, name: &str) -> ConfigResult<()> {
     if key.is_empty() {
         return Err(ConfigError::validation(
@@ -96,8 +102,9 @@ pub fn validate_api_key(key: &str, name: &str) -> ConfigResult<()> {
 }
 
 /// Validate a percentage value (0-100)
+#[allow(dead_code)]
 pub fn validate_percentage(value: f64, name: &str) -> ConfigResult<()> {
-    if value < 0.0 || value > 100.0 {
+    if !(0.0..=100.0).contains(&value) {
         return Err(ConfigError::validation(
             format!("{} must be between 0 and 100, got {}", name, value)
         ));
@@ -106,6 +113,7 @@ pub fn validate_percentage(value: f64, name: &str) -> ConfigResult<()> {
 }
 
 /// Validate a positive number
+#[allow(dead_code)]
 pub fn validate_positive<T: PartialOrd + Default + std::fmt::Display>(
     value: T, 
     name: &str
@@ -119,6 +127,7 @@ pub fn validate_positive<T: PartialOrd + Default + std::fmt::Display>(
 }
 
 /// Validate a range
+#[allow(dead_code)]
 pub fn validate_range<T: PartialOrd + std::fmt::Display>(
     value: T,
     min: T,
