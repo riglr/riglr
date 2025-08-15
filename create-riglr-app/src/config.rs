@@ -1,264 +1,250 @@
-//! Centralized application configuration.
-//! 
-//! This module provides a strongly-typed configuration struct that loads
-//! and validates all environment variables at startup, implementing a
-//! fail-fast pattern for production safety.
+//! Configuration types and template definitions
 
-use serde::Deserialize;
-use std::fmt;
-use std::collections::HashMap;
+use anyhow::{anyhow, Result};
+use serde::{Deserialize, Serialize};
 
-/// Main application configuration loaded from environment variables
-#[derive(Deserialize, Debug, Clone)]
-pub struct Config {
-    // AI Provider Configuration
-    pub anthropic_api_key: String,
-    
-    // Database Configuration  
-    pub redis_url: String,
-    pub neo4j_url: String,
-    
-    // Blockchain API Configuration
-    pub alchemy_api_key: String,
-    pub lifi_api_key: String,
-    
-    // EVM RPC URLs using convention-based naming (RPC_URL_{CHAIN_ID})
-    // This HashMap is populated dynamically from environment variables
-    #[serde(flatten)]
-    pub rpc_urls: HashMap<String, String>,
-    
-    // Optional Solana Configuration
-    #[serde(default)]
-    pub solana_rpc_url: Option<String>,
-    
-    // Optional API Keys
-    #[serde(default)]
-    pub dexscreener_api_key: Option<String>,
-    
-    #[serde(default)]
-    pub pump_api_key: Option<String>,
+/// Project configuration for scaffolding
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProjectConfig {
+    pub name: String,
+    pub template: Template,
+    pub chains: Vec<String>,
+    pub server_framework: Option<ServerFramework>,
+    pub features: Vec<String>,
+    pub author_name: String,
+    pub author_email: String,
+    pub description: String,
+    pub include_examples: bool,
+    pub include_tests: bool,
+    pub include_docs: bool,
 }
 
-impl Config {
-    /// Loads configuration from environment variables, panicking if any required variables are missing.
-    /// This implements a fail-fast pattern to prevent runtime configuration errors.
-    pub fn from_env() -> Self {
-        match envy::from_env::<Config>() {
-            Ok(mut config) => {
-                // Extract RPC URLs using the RPC_URL_{CHAIN_ID} convention
-                config.extract_rpc_urls();
-                
-                tracing::info!("✅ All required environment variables loaded successfully");
-                // Validate the configuration
-                if let Err(e) = config.validate() {
-                    eprintln!("❌ Configuration validation failed: {}", e);
-                    eprintln!("   Please check your environment variables match the requirements.");
-                    eprintln!("   See .env.example for the required format.");
-                    std::process::exit(1);
-                }
-                config
-            }
-            Err(e) => {
-                eprintln!("❌ FATAL: Failed to load required environment configuration:");
-                eprintln!("   Error: {}", e);
-                eprintln!("   Please ensure all required environment variables are set.");
-                eprintln!("   See .env.example for required variables.");
-                std::process::exit(1);
-            }
-        }
-    }
+/// Available project templates
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum Template {
+    // New templates
+    ApiServiceBackend,
+    DataAnalyticsBot,
+    EventDrivenTradingEngine,
     
-    /// Extract RPC URLs following the RPC_URL_{CHAIN_ID} convention
-    fn extract_rpc_urls(&mut self) {
-        for (key, value) in std::env::vars() {
-            if key.starts_with("RPC_URL_") {
-                if let Some(chain_id) = key.strip_prefix("RPC_URL_") {
-                    // Validate that it's a valid chain ID (numeric)
-                    if chain_id.parse::<u64>().is_ok() {
-                        self.rpc_urls.insert(chain_id.to_string(), value);
-                    }
-                }
-            }
-        }
-    }
+    // Existing templates
+    TradingBot,
+    MarketAnalyst,
+    NewsMonitor,
+    DexArbitrageBot,
+    PortfolioTracker,
     
-    /// Validates the configuration values to ensure they are properly formatted
-    pub fn validate(&self) -> Result<(), ConfigError> {
-        // Validate API keys are not empty
-        if self.anthropic_api_key.trim().is_empty() {
-            return Err(ConfigError::EmptyValue("ANTHROPIC_API_KEY".to_string()));
-        }
-        
-        if self.alchemy_api_key.trim().is_empty() {
-            return Err(ConfigError::EmptyValue("ALCHEMY_API_KEY".to_string()));
-        }
-        
-        if self.lifi_api_key.trim().is_empty() {
-            return Err(ConfigError::EmptyValue("LIFI_API_KEY".to_string()));
-        }
-        
-        // Validate URL formats
-        if !self.redis_url.starts_with("redis://") && !self.redis_url.starts_with("rediss://") {
-            return Err(ConfigError::InvalidFormat(
-                "REDIS_URL must start with redis:// or rediss://".to_string()
-            ));
-        }
-        
-        if !self.neo4j_url.starts_with("neo4j://") && !self.neo4j_url.starts_with("bolt://") {
-            return Err(ConfigError::InvalidFormat(
-                "NEO4J_URL must start with neo4j:// or bolt://".to_string()
-            ));
-        }
-        
-        // Validate RPC URLs
-        for (chain_id, url) in &self.rpc_urls {
-            if !url.starts_with("http://") && !url.starts_with("https://") && !url.starts_with("wss://") {
-                return Err(ConfigError::InvalidFormat(
-                    format!("RPC_URL_{} must be a valid RPC URL starting with http://, https://, or wss://", chain_id)
-                ));
-            }
-        }
-        
-        // Ensure at least one RPC URL is configured
-        if self.rpc_urls.is_empty() {
-            return Err(ConfigError::InvalidFormat(
-                "At least one RPC_URL_{CHAIN_ID} must be configured".to_string()
-            ));
-        }
-        
-        // Validate optional Solana RPC URL if provided
-        if let Some(ref solana_url) = self.solana_rpc_url {
-            if !solana_url.is_empty() && !solana_url.starts_with("http://") && !solana_url.starts_with("https://") {
-                return Err(ConfigError::InvalidFormat(
-                    "SOLANA_RPC_URL must be a valid URL".to_string()
-                ));
-            }
-        }
-        
-        Ok(())
-    }
+    // Additional templates
+    BridgeMonitor,
+    MevProtectionAgent,
+    DaoGovernanceBot,
+    NftTradingBot,
+    YieldOptimizer,
+    SocialTradingCopier,
     
-    /// Get RPC URL for a specific chain ID using the convention-based pattern
-    pub fn get_rpc_url(&self, chain_id: u64) -> Option<String> {
-        self.rpc_urls.get(&chain_id.to_string()).cloned()
-    }
-    
-    /// Get all configured chain IDs
-    pub fn get_supported_chains(&self) -> Vec<u64> {
-        self.rpc_urls
-            .keys()
-            .filter_map(|k| k.parse::<u64>().ok())
-            .collect()
-    }
+    // Basic template
+    Custom,
 }
 
-/// Configuration validation errors
-#[derive(Debug)]
-pub enum ConfigError {
-    EmptyValue(String),
-    InvalidFormat(String),
-}
-
-impl fmt::Display for ConfigError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Template {
+    pub fn from_str(s: &str) -> Result<Self> {
+        match s.to_lowercase().as_str() {
+            "api-service" | "api" => Ok(Template::ApiServiceBackend),
+            "analytics" | "data-analytics" => Ok(Template::DataAnalyticsBot),
+            "event-driven" | "trading-engine" => Ok(Template::EventDrivenTradingEngine),
+            "trading-bot" | "trader" => Ok(Template::TradingBot),
+            "market-analyst" | "analyst" => Ok(Template::MarketAnalyst),
+            "news-monitor" | "news" => Ok(Template::NewsMonitor),
+            "dex-arbitrage" | "arbitrage" => Ok(Template::DexArbitrageBot),
+            "portfolio" | "portfolio-tracker" => Ok(Template::PortfolioTracker),
+            "bridge-monitor" | "bridge" => Ok(Template::BridgeMonitor),
+            "mev-protection" | "mev" => Ok(Template::MevProtectionAgent),
+            "dao-governance" | "dao" => Ok(Template::DaoGovernanceBot),
+            "nft-trading" | "nft" => Ok(Template::NftTradingBot),
+            "yield-optimizer" | "yield" => Ok(Template::YieldOptimizer),
+            "social-trading" | "copier" => Ok(Template::SocialTradingCopier),
+            "custom" | "minimal" => Ok(Template::Custom),
+            _ => Err(anyhow!("Unknown template: {}", s)),
+        }
+    }
+    
+    pub fn to_string(&self) -> String {
         match self {
-            ConfigError::EmptyValue(key) => write!(f, "Environment variable {} cannot be empty", key),
-            ConfigError::InvalidFormat(msg) => write!(f, "Invalid configuration format: {}", msg),
+            Template::ApiServiceBackend => "api-service".to_string(),
+            Template::DataAnalyticsBot => "data-analytics".to_string(),
+            Template::EventDrivenTradingEngine => "event-driven".to_string(),
+            Template::TradingBot => "trading-bot".to_string(),
+            Template::MarketAnalyst => "market-analyst".to_string(),
+            Template::NewsMonitor => "news-monitor".to_string(),
+            Template::DexArbitrageBot => "dex-arbitrage".to_string(),
+            Template::PortfolioTracker => "portfolio-tracker".to_string(),
+            Template::BridgeMonitor => "bridge-monitor".to_string(),
+            Template::MevProtectionAgent => "mev-protection".to_string(),
+            Template::DaoGovernanceBot => "dao-governance".to_string(),
+            Template::NftTradingBot => "nft-trading".to_string(),
+            Template::YieldOptimizer => "yield-optimizer".to_string(),
+            Template::SocialTradingCopier => "social-trading".to_string(),
+            Template::Custom => "custom".to_string(),
+        }
+    }
+    
+    pub fn description(&self) -> &str {
+        match self {
+            Template::ApiServiceBackend => "RESTful API service with blockchain integration and AI agents",
+            Template::DataAnalyticsBot => "Real-time blockchain data analysis and insights generation",
+            Template::EventDrivenTradingEngine => "Event-driven automated trading with complex strategies",
+            Template::TradingBot => "Advanced trading bot with risk management",
+            Template::MarketAnalyst => "Comprehensive market analysis and reporting",
+            Template::NewsMonitor => "Real-time news aggregation and sentiment analysis",
+            Template::DexArbitrageBot => "Cross-DEX arbitrage opportunity finder",
+            Template::PortfolioTracker => "Multi-chain portfolio management and tracking",
+            Template::BridgeMonitor => "Cross-chain bridge activity monitoring",
+            Template::MevProtectionAgent => "MEV protection and sandwich attack defense",
+            Template::DaoGovernanceBot => "Automated DAO participation and voting",
+            Template::NftTradingBot => "NFT market making and sniping bot",
+            Template::YieldOptimizer => "Yield farming strategy automation",
+            Template::SocialTradingCopier => "Copy trading from successful wallets",
+            Template::Custom => "Minimal template with basic structure",
+        }
+    }
+    
+    pub fn default_features(&self) -> Vec<String> {
+        match self {
+            Template::ApiServiceBackend => vec![
+                "web_tools".to_string(),
+                "auth".to_string(),
+                "redis".to_string(),
+                "database".to_string(),
+                "api_docs".to_string(),
+                "logging".to_string(),
+            ],
+            Template::DataAnalyticsBot => vec![
+                "web_tools".to_string(),
+                "graph_memory".to_string(),
+                "streaming".to_string(),
+                "database".to_string(),
+                "redis".to_string(),
+                "logging".to_string(),
+            ],
+            Template::EventDrivenTradingEngine => vec![
+                "web_tools".to_string(),
+                "streaming".to_string(),
+                "redis".to_string(),
+                "database".to_string(),
+                "logging".to_string(),
+            ],
+            Template::TradingBot => vec![
+                "web_tools".to_string(),
+                "redis".to_string(),
+                "logging".to_string(),
+            ],
+            _ => vec!["logging".to_string()],
         }
     }
 }
 
-impl std::error::Error for ConfigError {}
+/// Web server framework options
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum ServerFramework {
+    Actix,
+    Axum,
+    Warp,
+    Rocket,
+}
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::env;
-    
-    fn set_test_env_vars() {
-        env::set_var("ANTHROPIC_API_KEY", "test-anthropic-key");
-        env::set_var("REDIS_URL", "redis://localhost:6379");
-        env::set_var("NEO4J_URL", "bolt://localhost:7687");
-        env::set_var("ALCHEMY_API_KEY", "test-alchemy-key");
-        env::set_var("LIFI_API_KEY", "test-lifi-key");
-        env::set_var("RPC_URL_1", "https://eth-mainnet.example.com");
-        env::set_var("RPC_URL_137", "https://polygon-mainnet.example.com");
-        env::set_var("RPC_URL_42161", "https://arbitrum-mainnet.example.com");
-        env::set_var("RPC_URL_8453", "https://base-mainnet.example.com");
+impl ServerFramework {
+    pub fn dependencies(&self) -> Vec<(&str, &str)> {
+        match self {
+            ServerFramework::Actix => vec![
+                ("actix-web", "4"),
+                ("actix-web-lab", "0.20"),
+                ("actix-cors", "0.7"),
+            ],
+            ServerFramework::Axum => vec![
+                ("axum", "0.7"),
+                ("tower", "0.5"),
+                ("tower-http", "0.6"),
+            ],
+            ServerFramework::Warp => vec![
+                ("warp", "0.3"),
+                ("tokio-stream", "0.1"),
+            ],
+            ServerFramework::Rocket => vec![
+                ("rocket", "0.5"),
+                ("rocket_cors", "0.6"),
+            ],
+        }
     }
-    
-    fn clear_test_env_vars() {
-        env::remove_var("ANTHROPIC_API_KEY");
-        env::remove_var("REDIS_URL");
-        env::remove_var("NEO4J_URL");
-        env::remove_var("ALCHEMY_API_KEY");
-        env::remove_var("LIFI_API_KEY");
-        env::remove_var("RPC_URL_1");
-        env::remove_var("RPC_URL_137");
-        env::remove_var("RPC_URL_42161");
-        env::remove_var("RPC_URL_8453");
-    }
-    
-    #[test]
-    fn test_config_validation_success() {
-        set_test_env_vars();
-        let config = Config::from_env();
-        assert!(config.validate().is_ok());
-        clear_test_env_vars();
-    }
-    
-    #[test]
-    fn test_config_validation_empty_api_key() {
-        set_test_env_vars();
-        env::set_var("ANTHROPIC_API_KEY", "");
-        let config = Config::from_env();
-        assert!(matches!(config.validate(), Err(ConfigError::EmptyValue(_))));
-        clear_test_env_vars();
-    }
-    
-    #[test]
-    fn test_config_validation_invalid_redis_url() {
-        set_test_env_vars();
-        env::set_var("REDIS_URL", "invalid-url");
-        let config = Config::from_env();
-        assert!(matches!(config.validate(), Err(ConfigError::InvalidFormat(_))));
-        clear_test_env_vars();
-    }
-    
-    #[test]
-    fn test_get_rpc_url() {
-        set_test_env_vars();
-        let config = Config::from_env();
+}
+
+/// Template metadata for listing
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TemplateInfo {
+    pub name: String,
+    pub description: String,
+    pub features: Vec<String>,
+    pub default_chains: Vec<String>,
+    pub included_tools: Vec<String>,
+}
+
+impl TemplateInfo {
+    pub fn from_template(template: &Template) -> Self {
+        let (features, chains, tools) = match template {
+            Template::ApiServiceBackend => (
+                vec![
+                    "RESTful API endpoints".to_string(),
+                    "OpenAPI documentation".to_string(),
+                    "Authentication middleware".to_string(),
+                    "Rate limiting".to_string(),
+                    "CORS support".to_string(),
+                ],
+                vec!["solana".to_string(), "ethereum".to_string()],
+                vec![
+                    "Blockchain query tools".to_string(),
+                    "Transaction builders".to_string(),
+                    "Wallet management".to_string(),
+                ],
+            ),
+            Template::DataAnalyticsBot => (
+                vec![
+                    "Real-time data ingestion".to_string(),
+                    "Time-series analysis".to_string(),
+                    "Pattern recognition".to_string(),
+                    "Alert system".to_string(),
+                    "Data visualization API".to_string(),
+                ],
+                vec!["solana".to_string()],
+                vec![
+                    "DexScreener integration".to_string(),
+                    "On-chain data parsers".to_string(),
+                    "Statistical analysis tools".to_string(),
+                ],
+            ),
+            Template::EventDrivenTradingEngine => (
+                vec![
+                    "Event sourcing".to_string(),
+                    "CQRS pattern".to_string(),
+                    "Strategy backtesting".to_string(),
+                    "Risk management".to_string(),
+                    "Order management system".to_string(),
+                ],
+                vec!["solana".to_string(), "ethereum".to_string()],
+                vec![
+                    "Jupiter integration".to_string(),
+                    "Uniswap integration".to_string(),
+                    "Price oracles".to_string(),
+                    "Position tracking".to_string(),
+                ],
+            ),
+            _ => (vec![], vec![], vec![]),
+        };
         
-        // Test retrieving configured chains
-        assert_eq!(config.get_rpc_url(1), Some("https://eth-mainnet.example.com".to_string()));
-        assert_eq!(config.get_rpc_url(137), Some("https://polygon-mainnet.example.com".to_string()));
-        assert_eq!(config.get_rpc_url(999), None);
-        
-        // Test get_supported_chains
-        let supported = config.get_supported_chains();
-        assert!(supported.contains(&1));
-        assert!(supported.contains(&137));
-        assert!(supported.contains(&42161));
-        assert!(supported.contains(&8453));
-        
-        clear_test_env_vars();
-    }
-    
-    #[test]
-    fn test_dynamic_chain_support() {
-        set_test_env_vars();
-        
-        // Add a new chain dynamically
-        env::set_var("RPC_URL_10", "https://optimism.example.com");
-        
-        let config = Config::from_env();
-        
-        // Should be able to retrieve the dynamically added chain
-        assert_eq!(config.get_rpc_url(10), Some("https://optimism.example.com".to_string()));
-        
-        // Clean up
-        env::remove_var("RPC_URL_10");
-        clear_test_env_vars();
+        TemplateInfo {
+            name: template.to_string(),
+            description: template.description().to_string(),
+            features,
+            default_chains: chains,
+            included_tools: tools,
+        }
     }
 }

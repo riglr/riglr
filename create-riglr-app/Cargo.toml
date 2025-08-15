@@ -1,117 +1,66 @@
 [package]
-name = "{{project-name}}"
-version = "0.1.0"
+name = "create-riglr-app"
+version = "0.2.0"
 edition = "2021"
-authors = ["{{author-name}} <{{author-email}}>"]
-description = "{{description}}"
-license = "MIT"
-readme = "README.md"
+authors = ["RIGLR Team"]
+description = "Interactive CLI for scaffolding RIGLR-powered blockchain AI agents"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/yourusername/riglr"
+keywords = ["blockchain", "ai", "scaffolding", "cli", "template"]
+categories = ["command-line-utilities", "development-tools"]
+
+[[bin]]
+name = "create-riglr-app"
+path = "src/main.rs"
 
 [dependencies]
-# Core riglr framework - always included
-rig-core = "0.17.1"
-riglr-core = "0.1.0"
-riglr-macros = "0.1.0"
+# CLI and user interaction
+clap = { version = "4", features = ["derive"] }
+dialoguer = "0.11"
+indicatif = "0.17"
+console = "0.15"
+colored = "2"
 
-{% if include-solana-tools or blockchain-selection == "solana-only" or blockchain-selection == "multi-chain-basic" or blockchain-selection == "multi-chain-advanced" -%}
-# Solana blockchain tools
-riglr-solana-tools = "0.1.0"
-{% endif %}
+# Template processing
+handlebars = "6"
+liquid = "0.26"
+include_dir = "0.7"
 
-{% if include-evm-tools or blockchain-selection == "ethereum-only" or blockchain-selection == "multi-chain-basic" or blockchain-selection == "multi-chain-advanced" -%}
-# Ethereum/EVM blockchain tools
-riglr-evm-tools = "0.1.0"
-{% endif %}
+# File system operations
+walkdir = "2"
+tempfile = "3"
+fs_extra = "1"
 
-{% if include-web-tools or tool-bundle == "analytics-focused" or tool-bundle == "complete" -%}
-# Web data tools (Twitter, DexScreener, news, web search)
-riglr-web-tools = "0.1.0"
-{% endif %}
-
-{% if include-graph-memory or tool-bundle == "analytics-focused" or tool-bundle == "complete" -%}
-# Graph-based knowledge storage and RAG capabilities
-riglr-graph-memory = "0.1.0"
-{% endif %}
-
-{% if include-cross-chain-tools or blockchain-selection == "multi-chain-advanced" or tool-bundle == "cross-chain" or tool-bundle == "complete" -%}
-# Cross-chain bridge and swap tools
-riglr-cross-chain-tools = "0.1.0"
-{% endif %}
-
-{% if include-hyperliquid-tools or tool-bundle == "complete" -%}
-# Hyperliquid derivatives trading tools
-riglr-hyperliquid-tools = "0.1.0"
-{% endif %}
-
-{% if include-server -%}
-# Web adapters for serving agents over HTTP
-riglr-web-adapters = "0.1.0"
-actix-web = "4.0"
-actix-web-lab = "0.20"
-{% endif %}
-
-# Async runtime and utilities
-tokio = { version = "1", features = ["full"] }
-tokio-retry = "0.3"
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "0.8"
 
 # Error handling
-anyhow = "1.0"
-thiserror = "2.0.12"
+anyhow = "1"
+thiserror = "2"
 
-# Serialization and configuration
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-dotenvy = "0.15"
-config = "0.15.13"
-envy = "0.4"
+# HTTP client for fetching templates
+reqwest = { version = "0.12", features = ["json", "blocking"] }
+
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+
+# Utilities
+regex = "1"
+semver = "1"
+chrono = "0.4"
+uuid = { version = "1", features = ["v4"] }
+whoami = "1.5"
 
 # Logging
 tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
-# CLI interface
-clap = { version = "4.0", features = ["derive"] }
-
-# Database/caching (optional but commonly needed)
-redis = { version = "0.32.4", features = ["tokio-comp"] }
-
-# HTTP client for API interactions
-reqwest = { version = "0.12.22", features = ["json"] }
-
-# Time handling
-chrono = { version = "0.4", features = ["serde"] }
-
-# UUID generation
-uuid = { version = "1.0", features = ["v4", "serde"] }
-
-# Regular expressions for parsing
-regex = "1.10"
-
-# Development dependencies
 [dev-dependencies]
-tokio-test = "0.4"
-pretty_assertions = "1.4"
+tempdir = "0.3"
+assert_cmd = "2"
+predicates = "3"
 
-# Example binaries for different agent types
-{% if agent-type == "trading-bot" -%}
-[[bin]]
-name = "trading-bot"
-path = "src/bin/trading_bot.rs"
-{% endif %}
-
-{% if agent-type == "market-analyst" -%}
-[[bin]]
-name = "market-analyst"
-path = "src/bin/market_analyst.rs"
-{% endif %}
-
-{% if agent-type == "news-monitor" -%}
-[[bin]]
-name = "news-monitor"
-path = "src/bin/news_monitor.rs"
-{% endif %}
-
-[profile.release]
-lto = true
-codegen-units = 1
-panic = "abort"
+[build-dependencies]
+include_dir_macros = "0.7"
