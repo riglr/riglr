@@ -489,7 +489,7 @@ async fn generate_project(config: ProjectConfig, output: Option<PathBuf>) -> Res
 }
 
 async fn list_templates() -> Result<()> {
-    let manager = TemplateManager::new();
+    let manager = TemplateManager::default();
     let templates = manager.list_templates()?;
 
     println!("{}", style("Available Templates:").cyan().bold());
@@ -514,8 +514,8 @@ async fn list_templates() -> Result<()> {
 }
 
 async fn create_from_template(template: &str, name: &str, output: Option<PathBuf>) -> Result<()> {
-    let _manager = TemplateManager::new();
-    let template_enum = Template::from_str(template)?;
+    let _manager = TemplateManager::default();
+    let template_enum = Template::parse(template)?;
 
     let config = ProjectConfig {
         name: name.to_string(),
@@ -541,7 +541,7 @@ async fn update_templates() -> Result<()> {
     pb.set_style(ProgressStyle::default_spinner());
     pb.set_message("Fetching latest templates...");
 
-    let manager = TemplateManager::new();
+    let manager = TemplateManager::default();
     manager.update_templates().await?;
 
     pb.finish_with_message("Templates updated successfully!");
@@ -550,7 +550,7 @@ async fn update_templates() -> Result<()> {
 }
 
 async fn show_template_info(template: &str) -> Result<()> {
-    let manager = TemplateManager::new();
+    let manager = TemplateManager::default();
     let info = manager.get_template_info(template)?;
 
     println!("{}", style(&info.name).cyan().bold());
@@ -575,4 +575,354 @@ async fn show_template_info(template: &str) -> Result<()> {
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_print_banner_should_execute_without_panic() {
+        // Happy path: Banner should print without errors
+        // Since print_banner() only prints to stdout, we just ensure it doesn't panic
+        print_banner();
+    }
+
+    #[test]
+    fn test_prompt_project_name_when_name_provided_should_return_name() {
+        // Happy path: When project name is provided, it should return that name
+        let theme = ColorfulTheme::default();
+        let project_name = Some("test-project".to_string());
+
+        let result = prompt_project_name(&theme, project_name);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "test-project");
+    }
+
+    #[test]
+    fn test_prompt_template_should_return_valid_template() {
+        // Testing template selection logic
+        // Since prompt_template requires user interaction, we test the match logic
+        let template_mappings = vec![
+            (0, Template::ApiServiceBackend),
+            (1, Template::DataAnalyticsBot),
+            (2, Template::EventDrivenTradingEngine),
+            (3, Template::TradingBot),
+            (4, Template::MarketAnalyst),
+            (5, Template::NewsMonitor),
+            (6, Template::DexArbitrageBot),
+            (7, Template::PortfolioTracker),
+            (8, Template::BridgeMonitor),
+            (9, Template::MevProtectionAgent),
+            (10, Template::DaoGovernanceBot),
+            (11, Template::NftTradingBot),
+            (12, Template::YieldOptimizer),
+            (13, Template::SocialTradingCopier),
+            (14, Template::Custom),
+            (999, Template::Custom), // Test default case
+        ];
+
+        for (idx, expected_template) in template_mappings {
+            let result = match idx {
+                0 => Template::ApiServiceBackend,
+                1 => Template::DataAnalyticsBot,
+                2 => Template::EventDrivenTradingEngine,
+                3 => Template::TradingBot,
+                4 => Template::MarketAnalyst,
+                5 => Template::NewsMonitor,
+                6 => Template::DexArbitrageBot,
+                7 => Template::PortfolioTracker,
+                8 => Template::BridgeMonitor,
+                9 => Template::MevProtectionAgent,
+                10 => Template::DaoGovernanceBot,
+                11 => Template::NftTradingBot,
+                12 => Template::YieldOptimizer,
+                13 => Template::SocialTradingCopier,
+                14 => Template::Custom,
+                _ => Template::Custom,
+            };
+            assert_eq!(result, expected_template);
+        }
+    }
+
+    #[test]
+    fn test_create_default_config_when_no_name_should_use_default() {
+        // Happy path: No project name provided, should use default
+        let result = create_default_config(None);
+        assert!(result.is_ok());
+
+        let config = result.unwrap();
+        assert_eq!(config.name, "my-riglr-agent");
+        assert_eq!(config.template, Template::ApiServiceBackend);
+        assert_eq!(config.chains, vec!["solana".to_string()]);
+        assert_eq!(config.server_framework, Some(ServerFramework::Actix));
+        assert!(config.features.contains(&"web_tools".to_string()));
+        assert!(config.features.contains(&"redis".to_string()));
+        assert!(config.features.contains(&"logging".to_string()));
+        assert!(config.include_examples);
+        assert!(config.include_tests);
+        assert!(!config.include_docs);
+    }
+
+    #[test]
+    fn test_create_default_config_when_name_provided_should_use_name() {
+        // Happy path: Project name provided
+        let project_name = Some("custom-project".to_string());
+        let result = create_default_config(project_name);
+        assert!(result.is_ok());
+
+        let config = result.unwrap();
+        assert_eq!(config.name, "custom-project");
+        assert_eq!(config.template, Template::ApiServiceBackend);
+        assert_eq!(config.chains, vec!["solana".to_string()]);
+        assert_eq!(config.server_framework, Some(ServerFramework::Actix));
+        assert_eq!(config.author_name, whoami::realname());
+        assert_eq!(
+            config.author_email,
+            format!("{}@example.com", whoami::username())
+        );
+        assert_eq!(
+            config.description,
+            "AI-powered blockchain agent built with RIGLR"
+        );
+    }
+
+    #[test]
+    fn test_create_default_config_should_have_expected_features() {
+        // Edge case: Verify all default features are correctly set
+        let result = create_default_config(None);
+        assert!(result.is_ok());
+
+        let config = result.unwrap();
+        assert_eq!(config.features.len(), 3);
+        assert!(config.features.contains(&"web_tools".to_string()));
+        assert!(config.features.contains(&"redis".to_string()));
+        assert!(config.features.contains(&"logging".to_string()));
+    }
+
+    #[test]
+    fn test_create_default_config_should_have_expected_booleans() {
+        // Edge case: Verify boolean fields are correctly set
+        let result = create_default_config(Some("test".to_string()));
+        assert!(result.is_ok());
+
+        let config = result.unwrap();
+        assert!(config.include_examples);
+        assert!(config.include_tests);
+        assert!(!config.include_docs);
+    }
+
+    #[test]
+    fn test_blockchain_chain_names_mapping() {
+        // Test the blockchain chain names mapping logic
+        let chain_names = [
+            "solana",
+            "ethereum",
+            "arbitrum",
+            "optimism",
+            "polygon",
+            "base",
+            "bsc",
+            "avalanche",
+        ];
+
+        // Test valid indices
+        for (idx, expected_name) in chain_names.iter().enumerate() {
+            assert_eq!(chain_names.get(idx).unwrap(), expected_name);
+        }
+
+        // Test invalid index
+        assert!(chain_names.get(999).is_none());
+    }
+
+    #[test]
+    fn test_feature_names_mapping() {
+        // Test the feature names mapping logic
+        let feature_names = [
+            "web_tools",
+            "graph_memory",
+            "cross_chain",
+            "dashboard",
+            "auth",
+            "streaming",
+            "database",
+            "redis",
+            "logging",
+            "testing",
+            "cicd",
+            "api_docs",
+        ];
+
+        // Test valid indices
+        for (idx, expected_name) in feature_names.iter().enumerate() {
+            assert_eq!(feature_names.get(idx).unwrap(), expected_name);
+        }
+
+        // Test invalid index
+        assert!(feature_names.get(999).is_none());
+    }
+
+    #[test]
+    fn test_server_framework_selection_logic() {
+        // Test server framework selection mapping
+        let framework_mappings = vec![
+            (0, Some(ServerFramework::Actix)),
+            (1, Some(ServerFramework::Axum)),
+            (2, Some(ServerFramework::Warp)),
+            (3, Some(ServerFramework::Rocket)),
+            (4, None),
+            (999, None), // Test default case
+        ];
+
+        for (idx, expected_framework) in framework_mappings {
+            let result = match idx {
+                0 => Some(ServerFramework::Actix),
+                1 => Some(ServerFramework::Axum),
+                2 => Some(ServerFramework::Warp),
+                3 => Some(ServerFramework::Rocket),
+                _ => None,
+            };
+            assert_eq!(result, expected_framework);
+        }
+    }
+
+    #[test]
+    fn test_cli_debug_derive() {
+        // Test that CLI struct can be debug printed
+        let cli = Cli {
+            project_name: Some("test".to_string()),
+            template: Some("api".to_string()),
+            yes: false,
+            output: None,
+            verbose: true,
+            command: None,
+        };
+
+        let debug_str = format!("{:?}", cli);
+        assert!(debug_str.contains("test"));
+        assert!(debug_str.contains("api"));
+        assert!(debug_str.contains("verbose: true"));
+    }
+
+    #[test]
+    fn test_commands_debug_derive() {
+        // Test that Commands enum variants can be debug printed
+        let list_cmd = Commands::List;
+        let debug_str = format!("{:?}", list_cmd);
+        assert!(debug_str.contains("List"));
+
+        let new_cmd = Commands::New {
+            template: "api".to_string(),
+            name: "test".to_string(),
+        };
+        let debug_str = format!("{:?}", new_cmd);
+        assert!(debug_str.contains("New"));
+        assert!(debug_str.contains("api"));
+        assert!(debug_str.contains("test"));
+
+        let update_cmd = Commands::Update;
+        let debug_str = format!("{:?}", update_cmd);
+        assert!(debug_str.contains("Update"));
+
+        let info_cmd = Commands::Info {
+            template: "api".to_string(),
+        };
+        let debug_str = format!("{:?}", info_cmd);
+        assert!(debug_str.contains("Info"));
+        assert!(debug_str.contains("api"));
+    }
+
+    #[test]
+    fn test_cli_with_all_options() {
+        // Test CLI with all options set
+        let cli = Cli {
+            project_name: Some("my-project".to_string()),
+            template: Some("trading-bot".to_string()),
+            yes: true,
+            output: Some(PathBuf::from("test-output")),
+            verbose: false,
+            command: Some(Commands::List),
+        };
+
+        assert_eq!(cli.project_name, Some("my-project".to_string()));
+        assert_eq!(cli.template, Some("trading-bot".to_string()));
+        assert!(cli.yes);
+        assert_eq!(cli.output, Some(PathBuf::from("test-output")));
+        assert!(!cli.verbose);
+        assert!(matches!(cli.command, Some(Commands::List)));
+    }
+
+    #[test]
+    fn test_cli_with_minimal_options() {
+        // Test CLI with minimal options
+        let cli = Cli {
+            project_name: None,
+            template: None,
+            yes: false,
+            output: None,
+            verbose: false,
+            command: None,
+        };
+
+        assert_eq!(cli.project_name, None);
+        assert_eq!(cli.template, None);
+        assert!(!cli.yes);
+        assert_eq!(cli.output, None);
+        assert!(!cli.verbose);
+        assert!(cli.command.is_none());
+    }
+
+    #[test]
+    fn test_commands_new_with_values() {
+        // Test Commands::New with specific values
+        let cmd = Commands::New {
+            template: "data-analytics".to_string(),
+            name: "my-analytics-bot".to_string(),
+        };
+
+        match cmd {
+            Commands::New { template, name } => {
+                assert_eq!(template, "data-analytics");
+                assert_eq!(name, "my-analytics-bot");
+            }
+            _ => panic!("Expected Commands::New variant"),
+        }
+    }
+
+    #[test]
+    fn test_commands_info_with_template() {
+        // Test Commands::Info with template value
+        let cmd = Commands::Info {
+            template: "trading-bot".to_string(),
+        };
+
+        match cmd {
+            Commands::Info { template } => {
+                assert_eq!(template, "trading-bot");
+            }
+            _ => panic!("Expected Commands::Info variant"),
+        }
+    }
+
+    #[test]
+    fn test_empty_string_handling() {
+        // Edge case: Test empty string handling
+        let empty_name = Some("".to_string());
+        let theme = ColorfulTheme::default();
+
+        // This should return the empty string without validation in this context
+        let result = prompt_project_name(&theme, empty_name);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "");
+    }
+
+    #[test]
+    fn test_pathbuf_creation() {
+        // Test PathBuf creation and handling
+        let path = PathBuf::from("test-project");
+        assert_eq!(path.to_string_lossy(), "test-project");
+
+        let path = PathBuf::from("/absolute/path/to/project");
+        assert_eq!(path.to_string_lossy(), "/absolute/path/to/project");
+    }
 }

@@ -7,16 +7,27 @@ use std::fmt;
 /// Project configuration for scaffolding
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProjectConfig {
+    /// The name of the project
     pub name: String,
+    /// The template to use for project scaffolding
     pub template: Template,
+    /// List of blockchain networks to support
     pub chains: Vec<String>,
+    /// Optional web server framework to include
     pub server_framework: Option<ServerFramework>,
+    /// List of features to enable in the project
     pub features: Vec<String>,
+    /// Author's name for project metadata
     pub author_name: String,
+    /// Author's email for project metadata
     pub author_email: String,
+    /// Project description
     pub description: String,
+    /// Whether to include example code
     pub include_examples: bool,
+    /// Whether to include test files
     pub include_tests: bool,
+    /// Whether to include documentation
     pub include_docs: bool,
 }
 
@@ -24,31 +35,47 @@ pub struct ProjectConfig {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum Template {
     // New templates
+    /// RESTful API service template with blockchain integration
     ApiServiceBackend,
+    /// Real-time blockchain data analysis template
     DataAnalyticsBot,
+    /// Event-driven automated trading engine template
     EventDrivenTradingEngine,
 
     // Existing templates
+    /// Advanced trading bot template with risk management
     TradingBot,
+    /// Comprehensive market analysis template
     MarketAnalyst,
+    /// Real-time news aggregation template
     NewsMonitor,
+    /// Cross-DEX arbitrage bot template
     DexArbitrageBot,
+    /// Multi-chain portfolio tracking template
     PortfolioTracker,
 
     // Additional templates
+    /// Cross-chain bridge monitoring template
     BridgeMonitor,
+    /// MEV protection agent template
     MevProtectionAgent,
+    /// DAO governance automation template
     DaoGovernanceBot,
+    /// NFT trading bot template
     NftTradingBot,
+    /// Yield farming optimization template
     YieldOptimizer,
+    /// Social copy trading template
     SocialTradingCopier,
 
     // Basic template
+    /// Minimal custom template
     Custom,
 }
 
 impl Template {
-    pub fn from_str(s: &str) -> Result<Self> {
+    /// Parse a template from a string identifier
+    pub fn parse(s: &str) -> Result<Self> {
         match s.to_lowercase().as_str() {
             "api-service" | "api" => Ok(Template::ApiServiceBackend),
             "analytics" | "data-analytics" => Ok(Template::DataAnalyticsBot),
@@ -69,6 +96,7 @@ impl Template {
         }
     }
 
+    /// Get the description for this template
     pub fn description(&self) -> &str {
         match self {
             Template::ApiServiceBackend => {
@@ -96,6 +124,7 @@ impl Template {
     }
 
     #[allow(dead_code)]
+    /// Get the default features for this template
     pub fn default_features(&self) -> Vec<String> {
         match self {
             Template::ApiServiceBackend => vec![
@@ -157,14 +186,19 @@ impl fmt::Display for Template {
 /// Web server framework options
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum ServerFramework {
+    /// Actix Web framework
     Actix,
+    /// Axum framework
     Axum,
+    /// Warp framework
     Warp,
+    /// Rocket framework
     Rocket,
 }
 
 impl ServerFramework {
     #[allow(dead_code)]
+    /// Get the dependencies for this server framework
     pub fn dependencies(&self) -> Vec<(&str, &str)> {
         match self {
             ServerFramework::Actix => vec![
@@ -182,14 +216,20 @@ impl ServerFramework {
 /// Template metadata for listing
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TemplateInfo {
+    /// Template name
     pub name: String,
+    /// Template description
     pub description: String,
+    /// List of template features
     pub features: Vec<String>,
+    /// Default blockchain networks for this template
     pub default_chains: Vec<String>,
+    /// Tools included with this template
     pub included_tools: Vec<String>,
 }
 
 impl TemplateInfo {
+    /// Create template info from a template
     pub fn from_template(template: &Template) -> Self {
         let (features, chains, tools) = match template {
             Template::ApiServiceBackend => (
@@ -248,5 +288,664 @@ impl TemplateInfo {
             default_chains: chains,
             included_tools: tools,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_template_from_str_when_api_service_aliases_should_return_api_service_backend() {
+        assert_eq!(
+            Template::parse("api-service").unwrap(),
+            Template::ApiServiceBackend
+        );
+        assert_eq!(Template::parse("api").unwrap(), Template::ApiServiceBackend);
+    }
+
+    #[test]
+    fn test_template_from_str_when_analytics_aliases_should_return_data_analytics_bot() {
+        assert_eq!(
+            Template::parse("analytics").unwrap(),
+            Template::DataAnalyticsBot
+        );
+        assert_eq!(
+            Template::parse("data-analytics").unwrap(),
+            Template::DataAnalyticsBot
+        );
+    }
+
+    #[test]
+    fn test_template_from_str_when_event_driven_aliases_should_return_event_driven_trading_engine()
+    {
+        assert_eq!(
+            Template::parse("event-driven").unwrap(),
+            Template::EventDrivenTradingEngine
+        );
+        assert_eq!(
+            Template::parse("trading-engine").unwrap(),
+            Template::EventDrivenTradingEngine
+        );
+    }
+
+    #[test]
+    fn test_template_from_str_when_trading_bot_aliases_should_return_trading_bot() {
+        assert_eq!(
+            Template::parse("trading-bot").unwrap(),
+            Template::TradingBot
+        );
+        assert_eq!(Template::parse("trader").unwrap(), Template::TradingBot);
+    }
+
+    #[test]
+    fn test_template_from_str_when_market_analyst_aliases_should_return_market_analyst() {
+        assert_eq!(
+            Template::parse("market-analyst").unwrap(),
+            Template::MarketAnalyst
+        );
+        assert_eq!(Template::parse("analyst").unwrap(), Template::MarketAnalyst);
+    }
+
+    #[test]
+    fn test_template_from_str_when_news_monitor_aliases_should_return_news_monitor() {
+        assert_eq!(
+            Template::parse("news-monitor").unwrap(),
+            Template::NewsMonitor
+        );
+        assert_eq!(Template::parse("news").unwrap(), Template::NewsMonitor);
+    }
+
+    #[test]
+    fn test_template_from_str_when_dex_arbitrage_aliases_should_return_dex_arbitrage_bot() {
+        assert_eq!(
+            Template::parse("dex-arbitrage").unwrap(),
+            Template::DexArbitrageBot
+        );
+        assert_eq!(
+            Template::parse("arbitrage").unwrap(),
+            Template::DexArbitrageBot
+        );
+    }
+
+    #[test]
+    fn test_template_from_str_when_portfolio_aliases_should_return_portfolio_tracker() {
+        assert_eq!(
+            Template::parse("portfolio").unwrap(),
+            Template::PortfolioTracker
+        );
+        assert_eq!(
+            Template::parse("portfolio-tracker").unwrap(),
+            Template::PortfolioTracker
+        );
+    }
+
+    #[test]
+    fn test_template_from_str_when_bridge_monitor_aliases_should_return_bridge_monitor() {
+        assert_eq!(
+            Template::parse("bridge-monitor").unwrap(),
+            Template::BridgeMonitor
+        );
+        assert_eq!(Template::parse("bridge").unwrap(), Template::BridgeMonitor);
+    }
+
+    #[test]
+    fn test_template_from_str_when_mev_protection_aliases_should_return_mev_protection_agent() {
+        assert_eq!(
+            Template::parse("mev-protection").unwrap(),
+            Template::MevProtectionAgent
+        );
+        assert_eq!(
+            Template::parse("mev").unwrap(),
+            Template::MevProtectionAgent
+        );
+    }
+
+    #[test]
+    fn test_template_from_str_when_dao_governance_aliases_should_return_dao_governance_bot() {
+        assert_eq!(
+            Template::parse("dao-governance").unwrap(),
+            Template::DaoGovernanceBot
+        );
+        assert_eq!(Template::parse("dao").unwrap(), Template::DaoGovernanceBot);
+    }
+
+    #[test]
+    fn test_template_from_str_when_nft_trading_aliases_should_return_nft_trading_bot() {
+        assert_eq!(
+            Template::parse("nft-trading").unwrap(),
+            Template::NftTradingBot
+        );
+        assert_eq!(Template::parse("nft").unwrap(), Template::NftTradingBot);
+    }
+
+    #[test]
+    fn test_template_from_str_when_yield_optimizer_aliases_should_return_yield_optimizer() {
+        assert_eq!(
+            Template::parse("yield-optimizer").unwrap(),
+            Template::YieldOptimizer
+        );
+        assert_eq!(Template::parse("yield").unwrap(), Template::YieldOptimizer);
+    }
+
+    #[test]
+    fn test_template_from_str_when_social_trading_aliases_should_return_social_trading_copier() {
+        assert_eq!(
+            Template::parse("social-trading").unwrap(),
+            Template::SocialTradingCopier
+        );
+        assert_eq!(
+            Template::parse("copier").unwrap(),
+            Template::SocialTradingCopier
+        );
+    }
+
+    #[test]
+    fn test_template_from_str_when_custom_aliases_should_return_custom() {
+        assert_eq!(Template::parse("custom").unwrap(), Template::Custom);
+        assert_eq!(Template::parse("minimal").unwrap(), Template::Custom);
+    }
+
+    #[test]
+    fn test_template_from_str_when_case_insensitive_should_work() {
+        assert_eq!(
+            Template::parse("API-SERVICE").unwrap(),
+            Template::ApiServiceBackend
+        );
+        assert_eq!(Template::parse("Api").unwrap(), Template::ApiServiceBackend);
+        assert_eq!(Template::parse("CUSTOM").unwrap(), Template::Custom);
+    }
+
+    #[test]
+    fn test_template_from_str_when_unknown_template_should_return_error() {
+        let result = Template::parse("unknown-template");
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err().to_string(),
+            "Unknown template: unknown-template"
+        );
+    }
+
+    #[test]
+    fn test_template_from_str_when_empty_string_should_return_error() {
+        let result = Template::parse("");
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err().to_string(), "Unknown template: ");
+    }
+
+    #[test]
+    fn test_template_description_for_all_variants() {
+        assert_eq!(
+            Template::ApiServiceBackend.description(),
+            "RESTful API service with blockchain integration and AI agents"
+        );
+        assert_eq!(
+            Template::DataAnalyticsBot.description(),
+            "Real-time blockchain data analysis and insights generation"
+        );
+        assert_eq!(
+            Template::EventDrivenTradingEngine.description(),
+            "Event-driven automated trading with complex strategies"
+        );
+        assert_eq!(
+            Template::TradingBot.description(),
+            "Advanced trading bot with risk management"
+        );
+        assert_eq!(
+            Template::MarketAnalyst.description(),
+            "Comprehensive market analysis and reporting"
+        );
+        assert_eq!(
+            Template::NewsMonitor.description(),
+            "Real-time news aggregation and sentiment analysis"
+        );
+        assert_eq!(
+            Template::DexArbitrageBot.description(),
+            "Cross-DEX arbitrage opportunity finder"
+        );
+        assert_eq!(
+            Template::PortfolioTracker.description(),
+            "Multi-chain portfolio management and tracking"
+        );
+        assert_eq!(
+            Template::BridgeMonitor.description(),
+            "Cross-chain bridge activity monitoring"
+        );
+        assert_eq!(
+            Template::MevProtectionAgent.description(),
+            "MEV protection and sandwich attack defense"
+        );
+        assert_eq!(
+            Template::DaoGovernanceBot.description(),
+            "Automated DAO participation and voting"
+        );
+        assert_eq!(
+            Template::NftTradingBot.description(),
+            "NFT market making and sniping bot"
+        );
+        assert_eq!(
+            Template::YieldOptimizer.description(),
+            "Yield farming strategy automation"
+        );
+        assert_eq!(
+            Template::SocialTradingCopier.description(),
+            "Copy trading from successful wallets"
+        );
+        assert_eq!(
+            Template::Custom.description(),
+            "Minimal template with basic structure"
+        );
+    }
+
+    #[test]
+    fn test_template_default_features_api_service_backend() {
+        let features = Template::ApiServiceBackend.default_features();
+        let expected = vec![
+            "web_tools".to_string(),
+            "auth".to_string(),
+            "redis".to_string(),
+            "database".to_string(),
+            "api_docs".to_string(),
+            "logging".to_string(),
+        ];
+        assert_eq!(features, expected);
+    }
+
+    #[test]
+    fn test_template_default_features_data_analytics_bot() {
+        let features = Template::DataAnalyticsBot.default_features();
+        let expected = vec![
+            "web_tools".to_string(),
+            "graph_memory".to_string(),
+            "streaming".to_string(),
+            "database".to_string(),
+            "redis".to_string(),
+            "logging".to_string(),
+        ];
+        assert_eq!(features, expected);
+    }
+
+    #[test]
+    fn test_template_default_features_event_driven_trading_engine() {
+        let features = Template::EventDrivenTradingEngine.default_features();
+        let expected = vec![
+            "web_tools".to_string(),
+            "streaming".to_string(),
+            "redis".to_string(),
+            "database".to_string(),
+            "logging".to_string(),
+        ];
+        assert_eq!(features, expected);
+    }
+
+    #[test]
+    fn test_template_default_features_trading_bot() {
+        let features = Template::TradingBot.default_features();
+        let expected = vec![
+            "web_tools".to_string(),
+            "redis".to_string(),
+            "logging".to_string(),
+        ];
+        assert_eq!(features, expected);
+    }
+
+    #[test]
+    fn test_template_default_features_fallback() {
+        let features = Template::MarketAnalyst.default_features();
+        let expected = vec!["logging".to_string()];
+        assert_eq!(features, expected);
+
+        let features = Template::Custom.default_features();
+        assert_eq!(features, expected);
+    }
+
+    #[test]
+    fn test_template_display_for_all_variants() {
+        assert_eq!(Template::ApiServiceBackend.to_string(), "api-service");
+        assert_eq!(Template::DataAnalyticsBot.to_string(), "data-analytics");
+        assert_eq!(
+            Template::EventDrivenTradingEngine.to_string(),
+            "event-driven"
+        );
+        assert_eq!(Template::TradingBot.to_string(), "trading-bot");
+        assert_eq!(Template::MarketAnalyst.to_string(), "market-analyst");
+        assert_eq!(Template::NewsMonitor.to_string(), "news-monitor");
+        assert_eq!(Template::DexArbitrageBot.to_string(), "dex-arbitrage");
+        assert_eq!(Template::PortfolioTracker.to_string(), "portfolio-tracker");
+        assert_eq!(Template::BridgeMonitor.to_string(), "bridge-monitor");
+        assert_eq!(Template::MevProtectionAgent.to_string(), "mev-protection");
+        assert_eq!(Template::DaoGovernanceBot.to_string(), "dao-governance");
+        assert_eq!(Template::NftTradingBot.to_string(), "nft-trading");
+        assert_eq!(Template::YieldOptimizer.to_string(), "yield-optimizer");
+        assert_eq!(Template::SocialTradingCopier.to_string(), "social-trading");
+        assert_eq!(Template::Custom.to_string(), "custom");
+    }
+
+    #[test]
+    fn test_server_framework_dependencies_actix() {
+        let deps = ServerFramework::Actix.dependencies();
+        let expected = vec![
+            ("actix-web", "4"),
+            ("actix-web-lab", "0.20"),
+            ("actix-cors", "0.7"),
+        ];
+        assert_eq!(deps, expected);
+    }
+
+    #[test]
+    fn test_server_framework_dependencies_axum() {
+        let deps = ServerFramework::Axum.dependencies();
+        let expected = vec![("axum", "0.7"), ("tower", "0.5"), ("tower-http", "0.6")];
+        assert_eq!(deps, expected);
+    }
+
+    #[test]
+    fn test_server_framework_dependencies_warp() {
+        let deps = ServerFramework::Warp.dependencies();
+        let expected = vec![("warp", "0.3"), ("tokio-stream", "0.1")];
+        assert_eq!(deps, expected);
+    }
+
+    #[test]
+    fn test_server_framework_dependencies_rocket() {
+        let deps = ServerFramework::Rocket.dependencies();
+        let expected = vec![("rocket", "0.5"), ("rocket_cors", "0.6")];
+        assert_eq!(deps, expected);
+    }
+
+    #[test]
+    fn test_template_info_from_template_api_service_backend() {
+        let template = Template::ApiServiceBackend;
+        let info = TemplateInfo::from_template(&template);
+
+        assert_eq!(info.name, "api-service");
+        assert_eq!(
+            info.description,
+            "RESTful API service with blockchain integration and AI agents"
+        );
+        assert_eq!(
+            info.features,
+            vec![
+                "RESTful API endpoints".to_string(),
+                "OpenAPI documentation".to_string(),
+                "Authentication middleware".to_string(),
+                "Rate limiting".to_string(),
+                "CORS support".to_string(),
+            ]
+        );
+        assert_eq!(
+            info.default_chains,
+            vec!["solana".to_string(), "ethereum".to_string()]
+        );
+        assert_eq!(
+            info.included_tools,
+            vec![
+                "Blockchain query tools".to_string(),
+                "Transaction builders".to_string(),
+                "Wallet management".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_template_info_from_template_data_analytics_bot() {
+        let template = Template::DataAnalyticsBot;
+        let info = TemplateInfo::from_template(&template);
+
+        assert_eq!(info.name, "data-analytics");
+        assert_eq!(
+            info.description,
+            "Real-time blockchain data analysis and insights generation"
+        );
+        assert_eq!(
+            info.features,
+            vec![
+                "Real-time data ingestion".to_string(),
+                "Time-series analysis".to_string(),
+                "Pattern recognition".to_string(),
+                "Alert system".to_string(),
+                "Data visualization API".to_string(),
+            ]
+        );
+        assert_eq!(info.default_chains, vec!["solana".to_string()]);
+        assert_eq!(
+            info.included_tools,
+            vec![
+                "DexScreener integration".to_string(),
+                "On-chain data parsers".to_string(),
+                "Statistical analysis tools".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_template_info_from_template_event_driven_trading_engine() {
+        let template = Template::EventDrivenTradingEngine;
+        let info = TemplateInfo::from_template(&template);
+
+        assert_eq!(info.name, "event-driven");
+        assert_eq!(
+            info.description,
+            "Event-driven automated trading with complex strategies"
+        );
+        assert_eq!(
+            info.features,
+            vec![
+                "Event sourcing".to_string(),
+                "CQRS pattern".to_string(),
+                "Strategy backtesting".to_string(),
+                "Risk management".to_string(),
+                "Order management system".to_string(),
+            ]
+        );
+        assert_eq!(
+            info.default_chains,
+            vec!["solana".to_string(), "ethereum".to_string()]
+        );
+        assert_eq!(
+            info.included_tools,
+            vec![
+                "Jupiter integration".to_string(),
+                "Uniswap integration".to_string(),
+                "Price oracles".to_string(),
+                "Position tracking".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_template_info_from_template_fallback() {
+        let template = Template::TradingBot;
+        let info = TemplateInfo::from_template(&template);
+
+        assert_eq!(info.name, "trading-bot");
+        assert_eq!(
+            info.description,
+            "Advanced trading bot with risk management"
+        );
+        assert_eq!(info.features, Vec::<String>::new());
+        assert_eq!(info.default_chains, Vec::<String>::new());
+        assert_eq!(info.included_tools, Vec::<String>::new());
+    }
+
+    #[test]
+    fn test_project_config_serialization() {
+        let config = ProjectConfig {
+            name: "test-project".to_string(),
+            template: Template::ApiServiceBackend,
+            chains: vec!["solana".to_string(), "ethereum".to_string()],
+            server_framework: Some(ServerFramework::Axum),
+            features: vec!["auth".to_string(), "redis".to_string()],
+            author_name: "Test Author".to_string(),
+            author_email: "test@example.com".to_string(),
+            description: "A test project".to_string(),
+            include_examples: true,
+            include_tests: true,
+            include_docs: false,
+        };
+
+        let serialized = serde_json::to_string(&config).unwrap();
+        let deserialized: ProjectConfig = serde_json::from_str(&serialized).unwrap();
+
+        assert_eq!(config.name, deserialized.name);
+        assert_eq!(config.template, deserialized.template);
+        assert_eq!(config.chains, deserialized.chains);
+        assert_eq!(config.server_framework, deserialized.server_framework);
+        assert_eq!(config.features, deserialized.features);
+        assert_eq!(config.author_name, deserialized.author_name);
+        assert_eq!(config.author_email, deserialized.author_email);
+        assert_eq!(config.description, deserialized.description);
+        assert_eq!(config.include_examples, deserialized.include_examples);
+        assert_eq!(config.include_tests, deserialized.include_tests);
+        assert_eq!(config.include_docs, deserialized.include_docs);
+    }
+
+    #[test]
+    fn test_template_serialization() {
+        let template = Template::ApiServiceBackend;
+        let serialized = serde_json::to_string(&template).unwrap();
+        let deserialized: Template = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(template, deserialized);
+    }
+
+    #[test]
+    fn test_server_framework_serialization() {
+        let framework = ServerFramework::Axum;
+        let serialized = serde_json::to_string(&framework).unwrap();
+        let deserialized: ServerFramework = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(framework, deserialized);
+    }
+
+    #[test]
+    fn test_template_info_serialization() {
+        let info = TemplateInfo {
+            name: "test".to_string(),
+            description: "Test template".to_string(),
+            features: vec!["feature1".to_string()],
+            default_chains: vec!["solana".to_string()],
+            included_tools: vec!["tool1".to_string()],
+        };
+
+        let serialized = serde_json::to_string(&info).unwrap();
+        let deserialized: TemplateInfo = serde_json::from_str(&serialized).unwrap();
+
+        assert_eq!(info.name, deserialized.name);
+        assert_eq!(info.description, deserialized.description);
+        assert_eq!(info.features, deserialized.features);
+        assert_eq!(info.default_chains, deserialized.default_chains);
+        assert_eq!(info.included_tools, deserialized.included_tools);
+    }
+
+    #[test]
+    fn test_template_partial_eq() {
+        assert_eq!(Template::ApiServiceBackend, Template::ApiServiceBackend);
+        assert_ne!(Template::ApiServiceBackend, Template::DataAnalyticsBot);
+    }
+
+    #[test]
+    fn test_server_framework_partial_eq() {
+        assert_eq!(ServerFramework::Axum, ServerFramework::Axum);
+        assert_ne!(ServerFramework::Axum, ServerFramework::Actix);
+    }
+
+    #[test]
+    fn test_template_debug_fmt() {
+        let template = Template::ApiServiceBackend;
+        let debug_str = format!("{:?}", template);
+        assert!(debug_str.contains("ApiServiceBackend"));
+    }
+
+    #[test]
+    fn test_server_framework_debug_fmt() {
+        let framework = ServerFramework::Axum;
+        let debug_str = format!("{:?}", framework);
+        assert!(debug_str.contains("Axum"));
+    }
+
+    #[test]
+    fn test_project_config_debug_fmt() {
+        let config = ProjectConfig {
+            name: "test".to_string(),
+            template: Template::Custom,
+            chains: vec![],
+            server_framework: None,
+            features: vec![],
+            author_name: "Author".to_string(),
+            author_email: "email@test.com".to_string(),
+            description: "Description".to_string(),
+            include_examples: false,
+            include_tests: false,
+            include_docs: false,
+        };
+
+        let debug_str = format!("{:?}", config);
+        assert!(debug_str.contains("ProjectConfig"));
+    }
+
+    #[test]
+    fn test_template_info_debug_fmt() {
+        let info = TemplateInfo {
+            name: "test".to_string(),
+            description: "desc".to_string(),
+            features: vec![],
+            default_chains: vec![],
+            included_tools: vec![],
+        };
+
+        let debug_str = format!("{:?}", info);
+        assert!(debug_str.contains("TemplateInfo"));
+    }
+
+    #[test]
+    fn test_template_clone() {
+        let template = Template::ApiServiceBackend;
+        let cloned = template.clone();
+        assert_eq!(template, cloned);
+    }
+
+    #[test]
+    fn test_server_framework_clone() {
+        let framework = ServerFramework::Axum;
+        let cloned = framework.clone();
+        assert_eq!(framework, cloned);
+    }
+
+    #[test]
+    fn test_project_config_clone() {
+        let config = ProjectConfig {
+            name: "test".to_string(),
+            template: Template::Custom,
+            chains: vec!["solana".to_string()],
+            server_framework: Some(ServerFramework::Axum),
+            features: vec!["auth".to_string()],
+            author_name: "Author".to_string(),
+            author_email: "email@test.com".to_string(),
+            description: "Description".to_string(),
+            include_examples: true,
+            include_tests: true,
+            include_docs: true,
+        };
+
+        let cloned = config.clone();
+        assert_eq!(config.name, cloned.name);
+        assert_eq!(config.template, cloned.template);
+        assert_eq!(config.chains, cloned.chains);
+        assert_eq!(config.server_framework, cloned.server_framework);
+    }
+
+    #[test]
+    fn test_template_info_clone() {
+        let info = TemplateInfo {
+            name: "test".to_string(),
+            description: "desc".to_string(),
+            features: vec!["feature".to_string()],
+            default_chains: vec!["solana".to_string()],
+            included_tools: vec!["tool".to_string()],
+        };
+
+        let cloned = info.clone();
+        assert_eq!(info.name, cloned.name);
+        assert_eq!(info.description, cloned.description);
+        assert_eq!(info.features, cloned.features);
     }
 }

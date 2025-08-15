@@ -9,6 +9,10 @@ repository = "https://github.com/yourusername/riglr"
 keywords = ["blockchain", "ai", "scaffolding", "cli", "template"]
 categories = ["command-line-utilities", "development-tools"]
 
+[lib]
+name = "create_riglr_app"
+path = "src/lib.rs"
+
 [[bin]]
 name = "create-riglr-app"
 path = "src/main.rs"
