@@ -1314,24 +1314,6 @@ impl<I: IdempotencyStore + 'static> ToolWorker<I> {
         info!("ToolWorker shutdown completed");
         Ok(())
     }
-    
-    /// Start the worker loop without cancellation support (deprecated).
-    /// 
-    /// This method is provided for backward compatibility but is deprecated.
-    /// Use [`run`](Self::run) with a cancellation token for production deployments.
-    /// 
-    /// # Deprecated
-    /// This method runs an infinite loop with no graceful shutdown mechanism.
-    /// Use `run(queue, cancellation_token)` instead.
-    #[deprecated(since = "0.1.0", note = "Use run(queue, cancellation_token) for graceful shutdown")]
-    pub async fn run_forever<Q: JobQueue>(
-        &self,
-        queue: Arc<Q>,
-    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        let cancellation_token = tokio_util::sync::CancellationToken::new();
-        // This will run forever since the token is never cancelled
-        self.run(queue, cancellation_token).await
-    }
 }
 
 // Implement Clone for ToolWorker to enable spawning tasks

@@ -164,7 +164,7 @@ async fn test_transaction_retry_logic() -> anyhow::Result<()> {
                 let mut count = counter.lock().unwrap();
                 *count += 1;
                 if *count < 3 {
-                    Err(ToolError::retriable("temporary failure"))
+                    Err(ToolError::retriable_string("temporary failure"))
                 } else {
                     Ok("success after retries")
                 }
@@ -186,7 +186,7 @@ async fn test_transaction_retry_logic() -> anyhow::Result<()> {
             async move {
                 let mut count = counter.lock().unwrap();
                 *count += 1;
-                Err::<String, _>(ToolError::permanent("permanent failure"))
+                Err::<String, _>(ToolError::permanent_string("permanent failure"))
             }
         },
         config.clone()
@@ -399,17 +399,17 @@ async fn test_error_classification() -> anyhow::Result<()> {
     // Test different error types and their classification
     
     // Retriable errors
-    let network_error = ToolError::retriable("Network timeout");
+    let network_error = ToolError::retriable_string("Network timeout");
     assert!(network_error.is_retriable());
     assert!(!network_error.is_rate_limited());
     
     // Rate limited errors
-    let rate_error = ToolError::rate_limited("Too many requests");
+    let rate_error = ToolError::rate_limited_string("Too many requests");
     assert!(rate_error.is_retriable());
     assert!(rate_error.is_rate_limited());
     
     // Permanent errors
-    let perm_error = ToolError::permanent("Invalid private key");
+    let perm_error = ToolError::permanent_string("Invalid private key");
     assert!(!perm_error.is_retriable());
     assert!(!perm_error.is_rate_limited());
     

@@ -4,7 +4,7 @@ use alloy::primitives::U256;
 #[test]
 fn test_gas_config_default() {
     let config = GasConfig::default();
-    assert_eq!(config.use_eip1559, true);
+    assert!(config.use_eip1559);
     assert_eq!(config.gas_price_multiplier, 1.1);
     assert_eq!(config.max_gas_price, None);
     assert_eq!(config.max_priority_fee, Some(U256::from(2_000_000_000u64)));
@@ -19,7 +19,7 @@ fn test_gas_config_custom() {
         max_priority_fee: Some(U256::from(5_000_000_000u64)),
     };
     
-    assert_eq!(config.use_eip1559, false);
+    assert!(!config.use_eip1559);
     assert_eq!(config.gas_price_multiplier, 1.5);
     assert_eq!(config.max_gas_price, Some(U256::from(100_000_000_000u64)));
     assert_eq!(config.max_priority_fee, Some(U256::from(5_000_000_000u64)));

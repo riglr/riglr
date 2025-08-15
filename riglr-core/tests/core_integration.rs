@@ -1,7 +1,7 @@
 use riglr_core::{
     signer::{SignerContext, TransactionSigner, SignerError, EvmClient},
     error::ToolError,
-    util::{must_get_env, get_env_or_default},
+    util::{get_required_env, get_env_or_default},
 };
 use std::sync::Arc;
 use tokio::task;
@@ -137,28 +137,28 @@ async fn test_cross_chain_signer_context() {
 #[tokio::test]
 async fn test_tool_error_classification() {
     // Test retriable error
-    let retriable = ToolError::retriable("Network timeout");
+    let retriable = ToolError::retriable_string("Network timeout");
     match retriable {
         ToolError::Retriable { context, .. } => assert_eq!(context, "Network timeout"),
         _ => panic!("Expected retriable error"),
     }
 
     // Test permanent error
-    let permanent = ToolError::permanent("Invalid signature");
+    let permanent = ToolError::permanent_string("Invalid signature");
     match permanent {
         ToolError::Permanent { context, .. } => assert_eq!(context, "Invalid signature"),
         _ => panic!("Expected permanent error"),
     }
 
     // Test rate limited error
-    let rate_limited = ToolError::rate_limited("API limit exceeded");
+    let rate_limited = ToolError::rate_limited_string("API limit exceeded");
     match rate_limited {
         ToolError::RateLimited { context, .. } => assert_eq!(context, "API limit exceeded"),
         _ => panic!("Expected rate limited error"),
     }
 
     // Test invalid input error
-    let invalid_input = ToolError::invalid_input("Missing required parameter");
+    let invalid_input = ToolError::invalid_input_string("Missing required parameter");
     match invalid_input {
         ToolError::InvalidInput { context, .. } => assert_eq!(context, "Missing required parameter"),
         _ => panic!("Expected invalid input error"),
@@ -167,9 +167,9 @@ async fn test_tool_error_classification() {
 
 #[test]
 fn test_environment_configuration_helpers() {
-    // Test must_get_env with existing environment variable
+    // Test get_required_env with existing environment variable
     std::env::set_var("TEST_EXISTING_VAR", "test_value");
-    let value = must_get_env("TEST_EXISTING_VAR");
+    let value = get_required_env("TEST_EXISTING_VAR").expect("should find existing var");
     assert_eq!(value, "test_value");
 
     // Test get_env_or_default with existing variable
@@ -186,10 +186,11 @@ fn test_environment_configuration_helpers() {
 }
 
 #[test]
-#[should_panic(expected = "FATAL: Environment variable 'TEST_MISSING_VAR' is required but not set")]
-fn test_must_get_env_panics_on_missing_var() {
+fn test_get_required_env_errors_on_missing_var() {
     std::env::remove_var("TEST_MISSING_VAR");
-    must_get_env("TEST_MISSING_VAR");
+    let result = get_required_env("TEST_MISSING_VAR");
+    assert!(result.is_err());
+    assert!(result.unwrap_err().to_string().contains("TEST_MISSING_VAR"));
 }
 
 #[tokio::test]

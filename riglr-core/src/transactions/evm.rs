@@ -62,7 +62,7 @@ impl<P: Provider> EvmTransactionProcessor<P> {
             let base_fee = self.provider
                 .get_gas_price()
                 .await
-                .map_err(|e| ToolError::permanent(format!("Failed to get base fee: {}", e)))?;
+                .map_err(|e| ToolError::permanent_string(format!("Failed to get base fee: {}", e)))?;
             
             let priority_fee = self.gas_config.max_priority_fee
                 .unwrap_or(U256::from(1_000_000_000u64)); // 1 gwei default
@@ -83,7 +83,7 @@ impl<P: Provider> EvmTransactionProcessor<P> {
             let gas_price = self.provider
                 .get_gas_price()
                 .await
-                .map_err(|e| ToolError::permanent(format!("Failed to get gas price: {}", e)))?;
+                .map_err(|e| ToolError::permanent_string(format!("Failed to get gas price: {}", e)))?;
             
             // Apply multiplier
             let adjusted = (gas_price as f64 * self.gas_config.gas_price_multiplier) as u128;
@@ -102,7 +102,7 @@ impl<P: Provider> EvmTransactionProcessor<P> {
         let estimate = self.provider
             .estimate_gas(tx.clone())
             .await
-            .map_err(|e| ToolError::permanent(format!("Failed to estimate gas: {}", e)))?;
+            .map_err(|e| ToolError::permanent_string(format!("Failed to estimate gas: {}", e)))?;
         
         // Add 20% buffer to gas estimate
         Ok((estimate as f64 * 1.2) as u64)
@@ -126,7 +126,7 @@ impl<P: Provider> EvmTransactionProcessor<P> {
                 let base_fee = self.provider
                     .get_gas_price()
                     .await
-                    .map_err(|e| ToolError::permanent(format!("Failed to get base fee: {}", e)))?;
+                    .map_err(|e| ToolError::permanent_string(format!("Failed to get base fee: {}", e)))?;
                 
                 let priority_fee = self.gas_config.max_priority_fee
                     .unwrap_or(U256::from(2_000_000_000u64)); // 2 gwei
@@ -158,7 +158,7 @@ impl<P: Provider> EvmTransactionProcessor<P> {
         let _result = self.provider
             .call(tx.clone())
             .await
-            .map_err(|e| ToolError::permanent(format!("Transaction simulation failed: {}", e)))?;
+            .map_err(|e| ToolError::permanent_string(format!("Transaction simulation failed: {}", e)))?;
         
         info!("Transaction simulation successful");
         Ok(())
@@ -184,7 +184,7 @@ impl<P: Provider + Send + Sync> TransactionProcessor for EvmTransactionProcessor
     
     async fn get_status(&self, tx_hash: &str) -> Result<TransactionStatus, ToolError> {
         let hash = tx_hash.parse()
-            .map_err(|e| ToolError::permanent(format!("Invalid transaction hash: {}", e)))?;
+            .map_err(|e| ToolError::permanent_string(format!("Invalid transaction hash: {}", e)))?;
         
         // Get transaction receipt
         match self.provider.get_transaction_receipt(hash).await {
@@ -207,7 +207,7 @@ impl<P: Provider + Send + Sync> TransactionProcessor for EvmTransactionProcessor
                 })
             }
             Err(e) => {
-                Err(ToolError::permanent(format!("Failed to get transaction status: {}", e)))
+                Err(ToolError::permanent_string(format!("Failed to get transaction status: {}", e)))
             }
         }
     }

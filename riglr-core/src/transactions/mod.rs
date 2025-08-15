@@ -143,7 +143,7 @@ impl TransactionProcessor for GenericTransactionProcessor {
         
         // Validate the transaction hash format (basic check)
         if tx_hash.is_empty() {
-            return Err(crate::error::ToolError::permanent(
+            return Err(crate::error::ToolError::permanent_string(
                 "Transaction hash cannot be empty".to_string()
             ));
         }
@@ -170,7 +170,7 @@ impl TransactionProcessor for GenericTransactionProcessor {
         
         while confirmations < required_confirmations {
             if start.elapsed() > max_wait {
-                return Err(crate::error::ToolError::permanent(
+                return Err(crate::error::ToolError::permanent_string(
                     format!("Transaction {} not confirmed after {:?}", tx_hash, max_wait)
                 ));
             }
@@ -180,7 +180,7 @@ impl TransactionProcessor for GenericTransactionProcessor {
                     return Ok(TransactionStatus::Confirmed { hash, block });
                 }
                 TransactionStatus::Failed { reason } => {
-                    return Err(crate::error::ToolError::permanent(
+                    return Err(crate::error::ToolError::permanent_string(
                         format!("Transaction failed: {}", reason)
                     ));
                 }

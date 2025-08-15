@@ -98,12 +98,12 @@ impl SolanaTransactionProcessor {
     pub fn optimize_transaction(&self, tx: &mut Transaction) -> Result<(), ToolError> {
         // Check transaction size
         let serialized = bincode::serialize(&tx)
-            .map_err(|e| ToolError::permanent(format!("Failed to serialize transaction: {}", e)))?;
+            .map_err(|e| ToolError::permanent_string(format!("Failed to serialize transaction: {}", e)))?;
         
         const MAX_TRANSACTION_SIZE: usize = 1232; // Solana's max transaction size
         
         if serialized.len() > MAX_TRANSACTION_SIZE {
-            return Err(ToolError::permanent(
+            return Err(ToolError::permanent_string(
                 format!(
                     "Transaction size {} exceeds maximum {}",
                     serialized.len(),
@@ -187,7 +187,7 @@ impl SolanaTransactionProcessor {
                         });
                     } else if error_str.contains("insufficient funds") {
                         // Non-retriable error
-                        return Err(ToolError::permanent(
+                        return Err(ToolError::permanent_string(
                             format!("Insufficient funds: {}", e)
                         ));
                     } else {
@@ -196,7 +196,7 @@ impl SolanaTransactionProcessor {
                     }
                 }
                 Err(e) => {
-                    return Err(ToolError::permanent(
+                    return Err(ToolError::permanent_string(
                         format!("Transaction failed after {} attempts: {}", attempts, e)
                     ));
                 }
@@ -224,7 +224,7 @@ impl TransactionProcessor for SolanaTransactionProcessor {
     
     async fn get_status(&self, tx_hash: &str) -> Result<TransactionStatus, ToolError> {
         let signature = tx_hash.parse::<Signature>()
-            .map_err(|e| ToolError::permanent(format!("Invalid signature: {}", e)))?;
+            .map_err(|e| ToolError::permanent_string(format!("Invalid signature: {}", e)))?;
         
         // Get transaction status
         match self.client.get_signature_status(&signature) {
@@ -273,7 +273,7 @@ impl TransactionProcessor for SolanaTransactionProcessor {
                 })
             }
             Err(e) => {
-                Err(ToolError::permanent(
+                Err(ToolError::permanent_string(
                     format!("Failed to get transaction status: {}", e)
                 ))
             }
@@ -286,7 +286,7 @@ impl TransactionProcessor for SolanaTransactionProcessor {
         required_confirmations: u64,
     ) -> Result<TransactionStatus, ToolError> {
         let signature = tx_hash.parse::<Signature>()
-            .map_err(|e| ToolError::permanent(format!("Invalid signature: {}", e)))?;
+            .map_err(|e| ToolError::permanent_string(format!("Invalid signature: {}", e)))?;
         
         // Determine commitment level based on required confirmations
         // Solana has: processed (0), confirmed (1), finalized (31+)
@@ -306,7 +306,7 @@ impl TransactionProcessor for SolanaTransactionProcessor {
             match self.client.get_signature_status_with_commitment(&signature, commitment) {
                 Ok(Some(status)) => {
                     if status.is_err() {
-                        return Err(ToolError::permanent(
+                        return Err(ToolError::permanent_string(
                             format!("Transaction failed: {:?}", status.err())
                         ));
                     }
@@ -338,7 +338,7 @@ impl TransactionProcessor for SolanaTransactionProcessor {
                     // Transaction not yet at desired commitment level
                     retries += 1;
                     if retries >= max_retries {
-                        return Err(ToolError::permanent(
+                        return Err(ToolError::permanent_string(
                             format!("Transaction {} not confirmed after {} seconds", tx_hash, max_retries * 2)
                         ));
                     }
@@ -348,7 +348,7 @@ impl TransactionProcessor for SolanaTransactionProcessor {
                     tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
                 }
                 Err(e) => {
-                    return Err(ToolError::permanent(
+                    return Err(ToolError::permanent_string(
                         format!("Failed to check transaction status: {}", e)
                     ));
                 }
