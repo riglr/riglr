@@ -99,9 +99,9 @@ pub enum Chain {
     /// Solana blockchain
     Solana,
     /// EVM-compatible blockchain with the specified chain ID
-    Evm { 
+    Evm {
         /// The numeric chain identifier for this EVM network
-        chain_id: u64 
+        chain_id: u64,
     },
 }
 
@@ -124,59 +124,148 @@ pub trait UnifiedSigner: SignerBase {
     fn as_multi_chain(&self) -> Option<&dyn MultiChainSigner>;
 }
 
-/// Adapter to wrap TransactionSigner for use with granular traits
-pub struct LegacySignerAdapter<T: super::traits::TransactionSigner + 'static> {
-    /// The wrapped legacy transaction signer
-    inner: Arc<T>,
-}
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-impl<T: super::traits::TransactionSigner + 'static> LegacySignerAdapter<T> {
-    /// Create a new adapter wrapping the given legacy signer
-    pub fn new(inner: Arc<T>) -> Self {
-        Self { inner }
-    }
-}
-
-impl<T: super::traits::TransactionSigner + 'static> SignerBase for LegacySignerAdapter<T> {
-    fn locale(&self) -> String {
-        self.inner.locale()
+    #[derive(Debug)]
+    struct MockSigner {
+        locale: String,
+        user_id: Option<String>,
     }
 
-    fn user_id(&self) -> Option<String> {
-        self.inner.user_id()
+    impl MockSigner {
+        fn new() -> Self {
+            Self {
+                locale: "en".to_string(),
+                user_id: None,
+            }
+        }
+
+        fn with_locale(mut self, locale: &str) -> Self {
+            self.locale = locale.to_string();
+            self
+        }
+
+        fn with_user_id(mut self, user_id: &str) -> Self {
+            self.user_id = Some(user_id.to_string());
+            self
+        }
     }
 
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-}
+    impl SignerBase for MockSigner {
+        fn locale(&self) -> String {
+            self.locale.clone()
+        }
 
-impl<T: super::traits::TransactionSigner + 'static> std::fmt::Debug for LegacySignerAdapter<T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.inner.fmt(f)
-    }
-}
+        fn user_id(&self) -> Option<String> {
+            self.user_id.clone()
+        }
 
-impl<T: super::traits::TransactionSigner + 'static> UnifiedSigner for LegacySignerAdapter<T> {
-    fn supports_solana(&self) -> bool {
-        self.inner.pubkey().is_some()
+        fn as_any(&self) -> &dyn Any {
+            self
+        }
     }
 
-    fn supports_evm(&self) -> bool {
-        self.inner.chain_id().is_some()
+    impl UnifiedSigner for MockSigner {
+        fn supports_solana(&self) -> bool {
+            false
+        }
+
+        fn supports_evm(&self) -> bool {
+            false
+        }
+
+        fn as_solana(&self) -> Option<&dyn SolanaSigner> {
+            None
+        }
+
+        fn as_evm(&self) -> Option<&dyn EvmSigner> {
+            None
+        }
+
+        fn as_multi_chain(&self) -> Option<&dyn MultiChainSigner> {
+            None
+        }
     }
 
-    fn as_solana(&self) -> Option<&dyn SolanaSigner> {
-        // Legacy adapters don't implement the granular traits directly
-        None
+    #[test]
+    fn test_chain_solana() {
+        let chain = Chain::Solana;
+        assert_eq!(chain, Chain::Solana);
     }
 
-    fn as_evm(&self) -> Option<&dyn EvmSigner> {
-        // Legacy adapters don't implement the granular traits directly
-        None
+    #[test]
+    fn test_chain_evm() {
+        let chain = Chain::Evm { chain_id: 1 };
+        assert_eq!(chain, Chain::Evm { chain_id: 1 });
     }
 
-    fn as_multi_chain(&self) -> Option<&dyn MultiChainSigner> {
-        None
+    #[test]
+    fn test_chain_evm_different_ids() {
+        let chain1 = Chain::Evm { chain_id: 1 };
+        let chain2 = Chain::Evm { chain_id: 42 };
+        assert_ne!(chain1, chain2);
+    }
+
+    #[test]
+    fn test_signer_base_default_locale() {
+        let signer = MockSigner::new();
+        assert_eq!(signer.locale(), "en");
+    }
+
+    #[test]
+    fn test_signer_base_custom_locale() {
+        let signer = MockSigner::new().with_locale("fr");
+        assert_eq!(signer.locale(), "fr");
+    }
+
+    #[test]
+    fn test_signer_base_default_user_id() {
+        let signer = MockSigner::new();
+        assert_eq!(signer.user_id(), None);
+    }
+
+    #[test]
+    fn test_signer_base_custom_user_id() {
+        let signer = MockSigner::new().with_user_id("user123");
+        assert_eq!(signer.user_id(), Some("user123".to_string()));
+    }
+
+    #[test]
+    fn test_signer_base_as_any() {
+        let signer = MockSigner::new();
+        let any_ref = signer.as_any();
+        assert!(any_ref.is::<MockSigner>());
+    }
+
+    #[test]
+    fn test_unified_signer_supports_nothing() {
+        let signer = MockSigner::new();
+        assert!(!signer.supports_solana());
+        assert!(!signer.supports_evm());
+        assert!(signer.as_solana().is_none());
+        assert!(signer.as_evm().is_none());
+        assert!(signer.as_multi_chain().is_none());
+    }
+
+    #[test]
+    fn test_chain_debug() {
+        let solana_chain = Chain::Solana;
+        let evm_chain = Chain::Evm { chain_id: 1 };
+
+        let debug_str = format!("{:?}", solana_chain);
+        assert!(debug_str.contains("Solana"));
+
+        let debug_str = format!("{:?}", evm_chain);
+        assert!(debug_str.contains("Evm"));
+        assert!(debug_str.contains("1"));
+    }
+
+    #[test]
+    fn test_chain_clone() {
+        let chain = Chain::Evm { chain_id: 42 };
+        let cloned_chain = chain.clone();
+        assert_eq!(chain, cloned_chain);
     }
 }

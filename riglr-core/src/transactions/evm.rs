@@ -134,13 +134,15 @@ impl<P: Provider> EvmTransactionProcessor<P> {
                     .max_priority_fee
                     .unwrap_or_else(|| U256::from(2_000_000_000u64)); // 2 gwei
 
-                tx.max_priority_fee_per_gas = Some(priority_fee.to::<u128>());
-                tx.max_fee_per_gas = Some(base_fee + priority_fee.to::<u128>() * 2);
+                let max_priority_fee = priority_fee.to::<u128>();
+                let max_fee = base_fee + max_priority_fee * 2;
+
+                tx.max_priority_fee_per_gas = Some(max_priority_fee);
+                tx.max_fee_per_gas = Some(max_fee);
 
                 debug!(
                     "Set EIP-1559 gas: max_fee={}, priority_fee={}",
-                    tx.max_fee_per_gas.unwrap(),
-                    priority_fee
+                    max_fee, priority_fee
                 );
             }
         } else if tx.gas_price.is_none() {
@@ -189,7 +191,7 @@ impl<P: Provider + Send + Sync> TransactionProcessor for EvmTransactionProcessor
         // Get transaction receipt
         match self.provider.get_transaction_receipt(hash).await {
             Ok(Some(receipt)) => {
-                if receipt.status() {
+                if receipt.inner.status() {
                     Ok(TransactionStatus::Confirmed {
                         hash: tx_hash.to_string(),
                         block: receipt.block_number.unwrap_or_default(),
@@ -224,4 +226,50 @@ impl<P: Provider + Send + Sync> TransactionProcessor for EvmTransactionProcessor
             .wait_for_confirmation(tx_hash, required_confirmations)
             .await
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_gas_config_default() {
+        let config = GasConfig::default();
+        assert!(config.use_eip1559);
+        assert_eq!(config.gas_price_multiplier, 1.1);
+        assert!(config.max_gas_price.is_none());
+        assert_eq!(config.max_priority_fee, Some(U256::from(2_000_000_000u64)));
+    }
+
+    #[test]
+    fn test_gas_config_debug_clone() {
+        let config = GasConfig {
+            use_eip1559: false,
+            gas_price_multiplier: 1.5,
+            max_gas_price: Some(U256::from(50_000_000_000u64)),
+            max_priority_fee: Some(U256::from(1_000_000_000u64)),
+        };
+
+        let cloned = config.clone();
+        assert_eq!(config.use_eip1559, cloned.use_eip1559);
+        assert_eq!(config.gas_price_multiplier, cloned.gas_price_multiplier);
+        assert_eq!(config.max_gas_price, cloned.max_gas_price);
+        assert_eq!(config.max_priority_fee, cloned.max_priority_fee);
+
+        // Test Debug formatting
+        let debug_str = format!("{:?}", config);
+        assert!(debug_str.contains("GasConfig"));
+    }
+
+    // MockProvider tests are temporarily disabled due to complex alloy trait implementations
+    // TODO: Implement proper mock provider or use integration tests with real providers
+    //
+    // The following tests would normally verify:
+    // - Gas price estimation (EIP-1559 and legacy)
+    // - Gas limit estimation with buffers
+    // - Transaction preparation with various configurations
+    // - Transaction simulation
+    // - Transaction status checking
+    // - Error handling for provider failures
+    // - Edge cases with gas multipliers
 }

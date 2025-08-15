@@ -1,6 +1,6 @@
 [package]
 name = "riglr-core"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 license = "MIT"
 description = "Core abstractions and job execution engine for riglr - building resilient AI agents."
@@ -26,6 +26,12 @@ thiserror = { workspace = true }
 tracing = { workspace = true }
 dotenv = { workspace = true }
 
+# Configuration
+riglr-config = { path = "../riglr-config" }
+
+# Retry utilities
+rand = { workspace = true }
+
 # Queue backends
 redis = { workspace = true, optional = true }
 
@@ -41,9 +47,12 @@ dashmap = "6.1"
 # Signer infrastructure dependencies - needed for TransactionSigner trait
 solana-sdk = { workspace = true }
 solana-client = { workspace = true }
-solana-transaction-status = "2.3.7"
+solana-transaction-status = { workspace = true }
+solana-commitment-config = { workspace = true }
+solana-compute-budget-interface = { workspace = true }
 alloy = { workspace = true }
 bincode = "1.3"
+reqwest = { workspace = true }
 
 # Config loading dependencies
 dotenvy = { workspace = true }
@@ -52,6 +61,7 @@ toml = "0.8"
 
 # For testing
 [dev-dependencies]
+riglr-config = { path = "../riglr-config" }
 tokio-test = { workspace = true }
 criterion = { workspace = true }
 testcontainers = "0.24.0"
@@ -59,11 +69,9 @@ testcontainers-modules = { version = "0.12.1", features = ["redis"] }
 mockito = "1.0"
 proptest = "1.0"
 futures = "0.3"
+chrono = "0.4"
 # riglr-solana-tools = { path = "../riglr-solana-tools" } # Temporarily disabled for debugging
 
-[[bench]]
-name = "core_benchmarks"
-harness = false
 
 [features]
 default = ["redis"]
