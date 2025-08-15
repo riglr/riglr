@@ -493,9 +493,11 @@ mod tests {
 
     #[test]
     fn test_stream_metrics_error_rate() {
-        let mut metrics = StreamMetrics::default();
-        metrics.event_count = 100;
-        metrics.error_count = 5;
+        let metrics = StreamMetrics { 
+            event_count: 100, 
+            error_count: 5,
+            ..Default::default() 
+        };
 
         assert_eq!(metrics.error_rate(), 5.0);
         assert!(!metrics.is_healthy()); // Low uptime
