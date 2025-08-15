@@ -11,6 +11,50 @@ use chrono::Utc;
 use crate::types::{EventMetadata, EventType, ProtocolType, TransferData};
 use riglr_events_core::prelude::*;
 
+/// Parameters for creating swap events, reducing function parameter count
+#[derive(Debug, Clone)]
+pub struct SwapEventParams {
+    pub id: String,
+    pub signature: String,
+    pub slot: u64,
+    pub block_time: i64,
+    pub protocol_type: ProtocolType,
+    pub program_id: solana_sdk::pubkey::Pubkey,
+    pub input_mint: solana_sdk::pubkey::Pubkey,
+    pub output_mint: solana_sdk::pubkey::Pubkey,
+    pub amount_in: u64,
+    pub amount_out: u64,
+}
+
+/// Parameters for creating liquidity events, reducing function parameter count
+#[derive(Debug, Clone)]
+pub struct LiquidityEventParams {
+    pub id: String,
+    pub signature: String,
+    pub slot: u64,
+    pub block_time: i64,
+    pub protocol_type: ProtocolType,
+    pub program_id: solana_sdk::pubkey::Pubkey,
+    pub is_add: bool,
+    pub mint_a: solana_sdk::pubkey::Pubkey,
+    pub mint_b: solana_sdk::pubkey::Pubkey,
+    pub amount_a: u64,
+    pub amount_b: u64,
+}
+
+/// Parameters for creating protocol events, reducing function parameter count  
+#[derive(Debug, Clone)]
+pub struct ProtocolEventParams {
+    pub id: String,
+    pub signature: String,
+    pub slot: u64,
+    pub block_time: i64,
+    pub protocol_type: ProtocolType,
+    pub event_type: EventType,
+    pub program_id: solana_sdk::pubkey::Pubkey,
+    pub data: serde_json::Value,
+}
+
 /// A wrapper that implements both UnifiedEvent and Event traits for seamless migration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SolanaEvent {
@@ -146,106 +190,74 @@ macro_rules! impl_to_solana_event {
 /// Convenience functions for creating Solana events from protocol-specific events
 impl SolanaEvent {
     /// Create a swap event
-    pub fn swap(
-        id: String,
-        signature: String,
-        slot: u64,
-        block_time: i64,
-        protocol_type: ProtocolType,
-        program_id: solana_sdk::pubkey::Pubkey,
-        input_mint: solana_sdk::pubkey::Pubkey,
-        output_mint: solana_sdk::pubkey::Pubkey,
-        amount_in: u64,
-        amount_out: u64,
-    ) -> Self {
+    pub fn swap(params: SwapEventParams) -> Self {
         let legacy_metadata = EventMetadata::new(
-            id.clone(),
-            signature,
-            slot,
-            block_time,
-            block_time * 1000,
-            protocol_type,
+            params.id.clone(),
+            params.signature,
+            params.slot,
+            params.block_time,
+            params.block_time * 1000,
+            params.protocol_type,
             EventType::Swap,
-            program_id,
+            params.program_id,
             "0".to_string(),
             Utc::now().timestamp_millis(),
         );
 
         let swap_data = serde_json::json!({
-            "input_mint": input_mint.to_string(),
-            "output_mint": output_mint.to_string(),
-            "amount_in": amount_in,
-            "amount_out": amount_out,
+            "input_mint": params.input_mint.to_string(),
+            "output_mint": params.output_mint.to_string(),
+            "amount_in": params.amount_in,
+            "amount_out": params.amount_out,
         });
 
         Self::new(legacy_metadata, swap_data)
     }
 
     /// Create a liquidity event
-    pub fn liquidity(
-        id: String,
-        signature: String,
-        slot: u64,
-        block_time: i64,
-        protocol_type: ProtocolType,
-        program_id: solana_sdk::pubkey::Pubkey,
-        is_add: bool,
-        mint_a: solana_sdk::pubkey::Pubkey,
-        mint_b: solana_sdk::pubkey::Pubkey,
-        amount_a: u64,
-        amount_b: u64,
-    ) -> Self {
-        let event_type = if is_add { EventType::AddLiquidity } else { EventType::RemoveLiquidity };
+    pub fn liquidity(params: LiquidityEventParams) -> Self {
+        let event_type = if params.is_add { EventType::AddLiquidity } else { EventType::RemoveLiquidity };
         
         let legacy_metadata = EventMetadata::new(
-            id.clone(),
-            signature,
-            slot,
-            block_time,
-            block_time * 1000,
-            protocol_type,
+            params.id.clone(),
+            params.signature,
+            params.slot,
+            params.block_time,
+            params.block_time * 1000,
+            params.protocol_type,
             event_type,
-            program_id,
+            params.program_id,
             "0".to_string(),
             Utc::now().timestamp_millis(),
         );
 
         let liquidity_data = serde_json::json!({
-            "is_add": is_add,
-            "mint_a": mint_a.to_string(),
-            "mint_b": mint_b.to_string(),
-            "amount_a": amount_a,
-            "amount_b": amount_b,
+            "is_add": params.is_add,
+            "mint_a": params.mint_a.to_string(),
+            "mint_b": params.mint_b.to_string(),
+            "amount_a": params.amount_a,
+            "amount_b": params.amount_b,
         });
 
         Self::new(legacy_metadata, liquidity_data)
     }
 
     /// Create a generic protocol event
-    pub fn protocol_event(
-        id: String,
-        signature: String,
-        slot: u64,
-        block_time: i64,
-        protocol_type: ProtocolType,
-        event_type: EventType,
-        program_id: solana_sdk::pubkey::Pubkey,
-        data: serde_json::Value,
-    ) -> Self {
+    pub fn protocol_event(params: ProtocolEventParams) -> Self {
         let legacy_metadata = EventMetadata::new(
-            id.clone(),
-            signature,
-            slot,
-            block_time,
-            block_time * 1000,
-            protocol_type,
-            event_type,
-            program_id,
+            params.id.clone(),
+            params.signature,
+            params.slot,
+            params.block_time,
+            params.block_time * 1000,
+            params.protocol_type,
+            params.event_type,
+            params.program_id,
             "0".to_string(),
             Utc::now().timestamp_millis(),
         );
 
-        Self::new(legacy_metadata, data)
+        Self::new(legacy_metadata, params.data)
     }
 }
 
@@ -301,18 +313,18 @@ mod tests {
         let input_mint = solana_sdk::pubkey::Pubkey::new_unique();
         let output_mint = solana_sdk::pubkey::Pubkey::new_unique();
 
-        let event = SolanaEvent::swap(
-            "swap-test".to_string(),
-            "sig456".to_string(),
-            67890,
-            1234567890,
-            ProtocolType::RaydiumAmmV4,
+        let event = SolanaEvent::swap(SwapEventParams {
+            id: "swap-test".to_string(),
+            signature: "sig456".to_string(),
+            slot: 67890,
+            block_time: 1234567890,
+            protocol_type: ProtocolType::RaydiumAmmV4,
             program_id,
             input_mint,
             output_mint,
-            1000000,
-            900000,
-        );
+            amount_in: 1000000,
+            amount_out: 900000,
+        });
 
         assert_eq!(event.legacy_metadata.id, "swap-test");
         assert_eq!(event.legacy_metadata.event_type, EventType::Swap);
@@ -331,19 +343,19 @@ mod tests {
         let mint_a = solana_sdk::pubkey::Pubkey::new_unique();
         let mint_b = solana_sdk::pubkey::Pubkey::new_unique();
 
-        let event = SolanaEvent::liquidity(
-            "liq-test".to_string(),
-            "sig789".to_string(),
-            11111,
-            1234567890,
-            ProtocolType::OrcaWhirlpool,
+        let event = SolanaEvent::liquidity(LiquidityEventParams {
+            id: "liq-test".to_string(),
+            signature: "sig789".to_string(),
+            slot: 11111,
+            block_time: 1234567890,
+            protocol_type: ProtocolType::OrcaWhirlpool,
             program_id,
-            true, // is_add
+            is_add: true,
             mint_a,
             mint_b,
-            500000,
-            250000,
-        );
+            amount_a: 500000,
+            amount_b: 250000,
+        });
 
         assert_eq!(event.legacy_metadata.id, "liq-test");
         assert_eq!(event.legacy_metadata.event_type, EventType::AddLiquidity);
@@ -359,18 +371,18 @@ mod tests {
     #[test]
     fn test_transfer_data_handling() {
         let program_id = solana_sdk::pubkey::Pubkey::new_unique();
-        let mut event = SolanaEvent::swap(
-            "transfer-test".to_string(),
-            "sig999".to_string(),
-            22222,
-            1234567890,
-            ProtocolType::Jupiter,
+        let mut event = SolanaEvent::swap(SwapEventParams {
+            id: "transfer-test".to_string(),
+            signature: "sig999".to_string(),
+            slot: 22222,
+            block_time: 1234567890,
+            protocol_type: ProtocolType::Jupiter,
             program_id,
-            solana_sdk::pubkey::Pubkey::new_unique(),
-            solana_sdk::pubkey::Pubkey::new_unique(),
-            1000000,
-            900000,
-        );
+            input_mint: solana_sdk::pubkey::Pubkey::new_unique(),
+            output_mint: solana_sdk::pubkey::Pubkey::new_unique(),
+            amount_in: 1000000,
+            amount_out: 900000,
+        });
 
         let transfer_data = vec![
             TransferData {
@@ -396,18 +408,18 @@ mod tests {
     #[test]
     fn test_json_serialization() {
         let program_id = solana_sdk::pubkey::Pubkey::new_unique();
-        let event = SolanaEvent::swap(
-            "json-test".to_string(),
-            "sigABC".to_string(),
-            33333,
-            1234567890,
-            ProtocolType::MeteoraDlmm,
+        let event = SolanaEvent::swap(SwapEventParams {
+            id: "json-test".to_string(),
+            signature: "sigABC".to_string(),
+            slot: 33333,
+            block_time: 1234567890,
+            protocol_type: ProtocolType::MeteoraDlmm,
             program_id,
-            solana_sdk::pubkey::Pubkey::new_unique(),
-            solana_sdk::pubkey::Pubkey::new_unique(),
-            2000000,
-            1800000,
-        );
+            input_mint: solana_sdk::pubkey::Pubkey::new_unique(),
+            output_mint: solana_sdk::pubkey::Pubkey::new_unique(),
+            amount_in: 2000000,
+            amount_out: 1800000,
+        });
 
         // Test new Event trait to_json method
         let json_result = event.to_json();

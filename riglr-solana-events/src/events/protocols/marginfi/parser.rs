@@ -9,7 +9,7 @@ use crate::{
 use super::{
     events::{
         MarginFiDepositEvent, MarginFiWithdrawEvent, MarginFiBorrowEvent,
-        MarginFiRepayEvent, MarginFiLiquidationEvent
+        MarginFiRepayEvent, MarginFiLiquidationEvent, EventParameters
     },
     types::{
         marginfi_program_id, marginfi_bank_program_id, MarginFiDepositData, MarginFiWithdrawData,
@@ -124,7 +124,7 @@ impl EventParser for MarginFiEventParser {
         
         // For inner instructions, we'll use the data to identify the instruction type
         if let Ok(data) = bs58::decode(&inner_instruction.data).into_vec() {
-            for (_, configs) in &self.inner_instruction_configs {
+            for configs in self.inner_instruction_configs.values() {
                 for config in configs {
                     let metadata = EventMetadata::new(
                         format!("{}_{}", signature, index),
@@ -212,13 +212,15 @@ fn parse_marginfi_deposit_inner_instruction(
 ) -> Option<Box<dyn Event>> {
     parse_marginfi_deposit_data(data).map(|deposit_data| {
         Box::new(MarginFiDepositEvent::new(
-            metadata.id,
-            metadata.signature,
-            metadata.slot,
-            metadata.block_time,
-            metadata.block_time_ms,
-            metadata.program_received_time_ms,
-            metadata.index,
+            EventParameters::new(
+                metadata.id,
+                metadata.signature,
+                metadata.slot,
+                metadata.block_time,
+                metadata.block_time_ms,
+                metadata.program_received_time_ms,
+                metadata.index,
+            ),
             deposit_data,
         )) as Box<dyn Event>
     })
@@ -231,13 +233,15 @@ fn parse_marginfi_deposit_instruction(
 ) -> Option<Box<dyn Event>> {
     parse_marginfi_deposit_data_from_instruction(data, accounts).map(|deposit_data| {
         Box::new(MarginFiDepositEvent::new(
-            metadata.id,
-            metadata.signature,
-            metadata.slot,
-            metadata.block_time,
-            metadata.block_time_ms,
-            metadata.program_received_time_ms,
-            metadata.index,
+            EventParameters::new(
+                metadata.id,
+                metadata.signature,
+                metadata.slot,
+                metadata.block_time,
+                metadata.block_time_ms,
+                metadata.program_received_time_ms,
+                metadata.index,
+            ),
             deposit_data,
         )) as Box<dyn Event>
     })

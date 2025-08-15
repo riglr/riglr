@@ -7,7 +7,7 @@ use crate::{
     types::{EventMetadata, EventType, ProtocolType},
 };
 use super::{
-    events::JupiterSwapEvent,
+    events::{JupiterSwapEvent, EventParameters},
     types::{
         jupiter_v6_program_id, JupiterSwapData, RoutePlan,
         SharedAccountsRouteData, SharedAccountsExactOutRouteData,
@@ -178,13 +178,15 @@ fn parse_jupiter_swap_inner_instruction(
 ) -> Option<Box<dyn Event>> {
     parse_jupiter_swap_with_borsh(data).map(|swap_data| {
         Box::new(JupiterSwapEvent::new(
-            metadata.id,
-            metadata.signature,
-            metadata.slot,
-            metadata.block_time,
-            metadata.block_time_ms,
-            metadata.program_received_time_ms,
-            metadata.index,
+            EventParameters::new(
+                metadata.id,
+                metadata.signature,
+                metadata.slot,
+                metadata.block_time,
+                metadata.block_time_ms,
+                metadata.program_received_time_ms,
+                metadata.index,
+            ),
             swap_data,
         )) as Box<dyn Event>
     })
@@ -197,13 +199,15 @@ fn parse_jupiter_swap_instruction(
 ) -> Option<Box<dyn Event>> {
     parse_jupiter_swap_with_borsh(data).map(|swap_data| {
         Box::new(JupiterSwapEvent::new(
-            metadata.id,
-            metadata.signature,
-            metadata.slot,
-            metadata.block_time,
-            metadata.block_time_ms,
-            metadata.program_received_time_ms,
-            metadata.index,
+            EventParameters::new(
+                metadata.id,
+                metadata.signature,
+                metadata.slot,
+                metadata.block_time,
+                metadata.block_time_ms,
+                metadata.program_received_time_ms,
+                metadata.index,
+            ),
             swap_data,
         )) as Box<dyn Event>
     })
@@ -215,13 +219,15 @@ fn parse_jupiter_exact_out_inner_instruction(
 ) -> Option<Box<dyn Event>> {
     parse_jupiter_exact_out_with_borsh(data).map(|swap_data| {
         Box::new(JupiterSwapEvent::new(
-            metadata.id,
-            metadata.signature,
-            metadata.slot,
-            metadata.block_time,
-            metadata.block_time_ms,
-            metadata.program_received_time_ms,
-            metadata.index,
+            EventParameters::new(
+                metadata.id,
+                metadata.signature,
+                metadata.slot,
+                metadata.block_time,
+                metadata.block_time_ms,
+                metadata.program_received_time_ms,
+                metadata.index,
+            ),
             swap_data,
         )) as Box<dyn Event>
     })
@@ -234,13 +240,15 @@ fn parse_jupiter_exact_out_instruction(
 ) -> Option<Box<dyn Event>> {
     parse_jupiter_exact_out_with_borsh(data).map(|swap_data| {
         Box::new(JupiterSwapEvent::new(
-            metadata.id,
-            metadata.signature,
-            metadata.slot,
-            metadata.block_time,
-            metadata.block_time_ms,
-            metadata.program_received_time_ms,
-            metadata.index,
+            EventParameters::new(
+                metadata.id,
+                metadata.signature,
+                metadata.slot,
+                metadata.block_time,
+                metadata.block_time_ms,
+                metadata.program_received_time_ms,
+                metadata.index,
+            ),
             swap_data,
         )) as Box<dyn Event>
     })

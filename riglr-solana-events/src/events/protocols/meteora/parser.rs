@@ -7,7 +7,7 @@ use crate::{
     events::common::utils::{has_discriminator, parse_u64_le, parse_u32_le},
 };
 use super::{
-    events::{MeteoraSwapEvent, MeteoraLiquidityEvent, MeteoraDynamicLiquidityEvent},
+    events::{MeteoraSwapEvent, MeteoraLiquidityEvent, MeteoraDynamicLiquidityEvent, EventParameters},
     types::{
         meteora_dlmm_program_id, meteora_dynamic_program_id, MeteoraSwapData, MeteoraLiquidityData,
         MeteoraDynamicLiquidityData,
@@ -210,13 +210,15 @@ fn parse_meteora_dlmm_swap_inner_instruction(
 ) -> Option<Box<dyn Event>> {
     parse_meteora_dlmm_swap_data(data).map(|swap_data| {
         Box::new(MeteoraSwapEvent::new(
-            metadata.id,
-            metadata.signature,
-            metadata.slot,
-            metadata.block_time,
-            metadata.block_time_ms,
-            metadata.program_received_time_ms,
-            metadata.index,
+            EventParameters::new(
+                metadata.id,
+                metadata.signature,
+                metadata.slot,
+                metadata.block_time,
+                metadata.block_time_ms,
+                metadata.program_received_time_ms,
+                metadata.index,
+            ),
             swap_data,
         )) as Box<dyn Event>
     })
@@ -229,13 +231,15 @@ fn parse_meteora_dlmm_swap_instruction(
 ) -> Option<Box<dyn Event>> {
     parse_meteora_dlmm_swap_data_from_instruction(data, accounts).map(|swap_data| {
         Box::new(MeteoraSwapEvent::new(
-            metadata.id,
-            metadata.signature,
-            metadata.slot,
-            metadata.block_time,
-            metadata.block_time_ms,
-            metadata.program_received_time_ms,
-            metadata.index,
+            EventParameters::new(
+                metadata.id,
+                metadata.signature,
+                metadata.slot,
+                metadata.block_time,
+                metadata.block_time_ms,
+                metadata.program_received_time_ms,
+                metadata.index,
+            ),
             swap_data,
         )) as Box<dyn Event>
     })

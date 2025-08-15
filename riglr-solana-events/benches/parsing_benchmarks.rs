@@ -122,8 +122,10 @@ fn benchmark_batch_parsing(c: &mut Criterion) {
             };
             batch_data.push(data);
             
-            let mut metadata = EventMetadata::default();
-            metadata.id = format!("event_{}", i);
+            let metadata = EventMetadata {
+                id: format!("event_{}", i),
+                ..Default::default()
+            };
             batch_metadata.push(metadata);
         }
         
@@ -133,7 +135,7 @@ fn benchmark_batch_parsing(c: &mut Criterion) {
             BenchmarkId::new("batch_parse", size),
             &size,
             |b, _| {
-                b.to_async(tokio::runtime::Runtime::new().unwrap()).iter(|| async {
+                b.iter(|| {
                     let result = black_box(batch_parser.parse_batch(
                         black_box(&batch_refs), 
                         black_box(batch_metadata.clone())

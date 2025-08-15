@@ -6,8 +6,8 @@
 use riglr_solana_events::prelude::*;
 use riglr_solana_events::zero_copy::{BatchEventParser};
 use riglr_solana_events::pipelines::{
-    ParsingPipeline, ParsingPipelineBuilder, EventEnricher, 
-    validation::{ValidationPipeline, ValidationConfig}
+    ParsingPipelineBuilder, EventEnricher, ParsingInput, EnrichmentConfig,
+    validation::{ValidationPipeline, ValidationConfig, ValidationError}
 };
 use riglr_solana_events::types::{EventMetadata, EventType, ProtocolType};
 use tokio_stream::iter;
@@ -31,10 +31,12 @@ async fn test_end_to_end_parsing_pipeline() {
     raydium_data.extend_from_slice(&1_000_000u64.to_le_bytes()); // amount_in
     raydium_data.extend_from_slice(&950_000u64.to_le_bytes());   // minimum_amount_out
     
-    let mut metadata = EventMetadata::default();
-    metadata.id = "raydium_event_1".to_string();
-    metadata.signature = "raydium_sig_1".to_string();
-    metadata.index = "0".to_string();
+    let metadata = EventMetadata {
+        id: "raydium_event_1".to_string(),
+        signature: "raydium_sig_1".to_string(),
+        index: "0".to_string(),
+        ..Default::default()
+    };
     
     inputs.push(ParsingInput {
         data: raydium_data,
@@ -48,10 +50,12 @@ async fn test_end_to_end_parsing_pipeline() {
     jupiter_data.extend_from_slice(&1_900_000u64.to_le_bytes()); // minimum_amount_out
     jupiter_data.extend_from_slice(&25u32.to_le_bytes());        // platform_fee_bps
     
-    let mut metadata = EventMetadata::default();
-    metadata.id = "jupiter_event_1".to_string();
-    metadata.signature = "jupiter_sig_1".to_string();
-    metadata.index = "0".to_string();
+    let metadata = EventMetadata {
+        id: "jupiter_event_1".to_string(),
+        signature: "jupiter_sig_1".to_string(),
+        index: "0".to_string(),
+        ..Default::default()
+    };
     
     inputs.push(ParsingInput {
         data: jupiter_data,
@@ -65,10 +69,12 @@ async fn test_end_to_end_parsing_pipeline() {
     pump_data.extend_from_slice(&500u64.to_le_bytes());                // amount
     pump_data.extend_from_slice(&1000u64.to_le_bytes());               // max_price_per_token
     
-    let mut metadata = EventMetadata::default();
-    metadata.id = "pump_event_1".to_string();
-    metadata.signature = "pump_sig_1".to_string();
-    metadata.index = "0".to_string();
+    let metadata = EventMetadata {
+        id: "pump_event_1".to_string(),
+        signature: "pump_sig_1".to_string(),
+        index: "0".to_string(),
+        ..Default::default()
+    };
     
     inputs.push(ParsingInput {
         data: pump_data,
@@ -128,11 +134,13 @@ async fn test_event_enrichment_pipeline() {
     let enricher = EventEnricher::new(config);
 
     // Create a test event
-    let mut metadata = EventMetadata::default();
-    metadata.id = "test_event_1".to_string();
-    metadata.signature = "test_sig_1".to_string();
-    metadata.protocol_type = ProtocolType::Jupiter;
-    metadata.event_type = EventType::Swap;
+    let metadata = EventMetadata {
+        id: "test_event_1".to_string(),
+        signature: "test_sig_1".to_string(),
+        protocol_type: ProtocolType::Jupiter,
+        event_type: EventType::Swap,
+        ..Default::default()
+    };
     
     let mut event = ZeroCopyEvent::new_owned(metadata, vec![0x09, 0x01, 0x02]);
     
@@ -179,12 +187,14 @@ async fn test_validation_pipeline() {
     let mut events = Vec::new();
 
     // Valid event
-    let mut valid_metadata = EventMetadata::default();
-    valid_metadata.id = "valid_event_1".to_string();
-    valid_metadata.signature = "valid_sig_1".to_string();
-    valid_metadata.protocol_type = ProtocolType::RaydiumAmmV4;
-    valid_metadata.event_type = EventType::Swap;
-    valid_metadata.index = "0".to_string();
+    let valid_metadata = EventMetadata {
+        id: "valid_event_1".to_string(),
+        signature: "valid_sig_1".to_string(),
+        protocol_type: ProtocolType::RaydiumAmmV4,
+        event_type: EventType::Swap,
+        index: "0".to_string(),
+        ..Default::default()
+    };
     
     let mut valid_event = ZeroCopyEvent::new_owned(valid_metadata, vec![0x09, 0x01, 0x02]);
     valid_event.set_json_data(serde_json::json!({
@@ -195,20 +205,24 @@ async fn test_validation_pipeline() {
     events.push(valid_event);
 
     // Invalid event (missing required fields)
-    let mut invalid_metadata = EventMetadata::default();
-    invalid_metadata.protocol_type = ProtocolType::Jupiter;
+    let invalid_metadata = EventMetadata {
+        protocol_type: ProtocolType::Jupiter,
+        ..Default::default()
+    };
     // Missing id and signature
     
     let invalid_event = ZeroCopyEvent::new_owned(invalid_metadata, vec![]);
     events.push(invalid_event);
 
     // Duplicate event (same as first one)
-    let mut duplicate_metadata = EventMetadata::default();
-    duplicate_metadata.id = "valid_event_1".to_string();
-    duplicate_metadata.signature = "valid_sig_1".to_string();
-    duplicate_metadata.protocol_type = ProtocolType::RaydiumAmmV4;
-    duplicate_metadata.event_type = EventType::Swap;
-    duplicate_metadata.index = "0".to_string();
+    let duplicate_metadata = EventMetadata {
+        id: "valid_event_1".to_string(),
+        signature: "valid_sig_1".to_string(),
+        protocol_type: ProtocolType::RaydiumAmmV4,
+        event_type: EventType::Swap,
+        index: "0".to_string(),
+        ..Default::default()
+    };
     
     let duplicate_event = ZeroCopyEvent::new_owned(duplicate_metadata, vec![0x09, 0x01, 0x02]);
     events.push(duplicate_event);

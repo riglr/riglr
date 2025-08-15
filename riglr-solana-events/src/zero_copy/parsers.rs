@@ -436,7 +436,7 @@ mod tests {
 
     #[test]
     fn test_batch_parser() {
-        let mut parser = BatchEventParser::new(100);
+        let parser = BatchEventParser::new(100);
         assert_eq!(parser.get_stats().max_batch_size, 100);
         assert_eq!(parser.get_stats().registered_parsers, 0);
     }
