@@ -442,13 +442,13 @@ fn pubkey(&self) -> String;
 #### `sign_and_send_transaction`
 
 ```rust
-async fn sign_and_send_transaction( &self, tx: &mut Transaction, ) -> Result<String, SignerError>;
+async fn sign_and_send_transaction(&self, tx: &mut Transaction) -> Result<String, SignerError>;
 ```
 
 #### `sign_and_send_with_retry`
 
 ```rust
-async fn sign_and_send_with_retry( &self, tx: &mut Transaction, ) -> Result<String, SignerError> {;
+async fn sign_and_send_with_retry(&self, tx: &mut Transaction) -> Result<String, SignerError> {
 ```
 
 #### `client`
@@ -1533,7 +1533,7 @@ Add or update an EVM network configuration dynamically.
 **Source**: `transactions/solana.rs`
 
 ```rust
-pub fn add_priority_fee_instructions( &self, instructions: &mut Vec<Instruction>, )
+pub fn add_priority_fee_instructions(&self, instructions: &mut Vec<Instruction>)
 ```
 
 Add priority fee instructions to transaction
@@ -1762,7 +1762,7 @@ Get CAIP-2 for an EVM network by name (case-insensitive key lookup).
 **Source**: `signer/evm.rs`
 
 ```rust
-pub fn from_config(private_key: String, config: &RpcConfig, network: &str) -> Result<Self, SignerError>
+pub fn from_config( private_key: String, config: &RpcConfig, network: &str, ) -> Result<Self, SignerError>
 ```
 
 Create a new EVM signer from RPC configuration and network name
@@ -1774,7 +1774,7 @@ Create a new EVM signer from RPC configuration and network name
 **Source**: `signer/solana.rs`
 
 ```rust
-pub fn from_config(private_key: String, config: &RpcConfig, network: &str) -> Result<Self, SignerError>
+pub fn from_config( private_key: String, config: &RpcConfig, network: &str, ) -> Result<Self, SignerError>
 ```
 
 Create a new Solana signer from RPC configuration and network name
@@ -2034,7 +2034,7 @@ Creates an invalid input error from a string message
 **Source**: `src/error.rs`
 
 ```rust
-pub fn invalid_input_with_source<E: std::error::Error + Send + Sync + 'static>(source: E, context: impl Into<String>) -> Self
+pub fn invalid_input_with_source<E: std::error::Error + Send + Sync + 'static>( source: E, context: impl Into<String>, ) -> Self
 ```
 
 Creates an invalid input error
@@ -2410,7 +2410,7 @@ pub fn new(inner: Arc<T>) -> Self
 **Source**: `signer/solana.rs`
 
 ```rust
-pub fn new(private_key: String, network_config: SolanaNetworkConfig) -> Result<Self, SignerError>
+pub fn new( private_key: String, network_config: SolanaNetworkConfig, ) -> Result<Self, SignerError>
 ```
 
 Create a new Solana signer from a base58-encoded private key and network configuration
@@ -2596,7 +2596,7 @@ Creates a permanent error from a string message
 **Source**: `src/error.rs`
 
 ```rust
-pub fn permanent_with_source<E: std::error::Error + Send + Sync + 'static>(source: E, context: impl Into<String>) -> Self
+pub fn permanent_with_source<E: std::error::Error + Send + Sync + 'static>( source: E, context: impl Into<String>, ) -> Self
 ```
 
 Creates a permanent error with context and source preservation
@@ -2620,7 +2620,7 @@ Prepare transaction with optimal gas settings
 **Source**: `src/tool.rs`
 
 ```rust
-pub async fn process_job( &self, mut job: Job, ) -> Result<JobResult, WorkerError>
+pub async fn process_job(&self, mut job: Job) -> Result<JobResult, WorkerError>
 ```
 
 Process a single job with all resilience features.
@@ -2648,7 +2648,7 @@ Creates a rate limited error from a string message
 **Source**: `src/error.rs`
 
 ```rust
-pub fn rate_limited_with_source<E: std::error::Error + Send + Sync + 'static>( source: E, context: impl Into<String>, retry_after: Option<std::time::Duration> ) -> Self
+pub fn rate_limited_with_source<E: std::error::Error + Send + Sync + 'static>( source: E, context: impl Into<String>, retry_after: Option<std::time::Duration>, ) -> Self
 ```
 
 Creates a rate limited error with optional retry duration
@@ -2776,7 +2776,7 @@ Creates a retriable error from a string message
 **Source**: `src/error.rs`
 
 ```rust
-pub fn retriable_with_source<E: std::error::Error + Send + Sync + 'static>(source: E, context: impl Into<String>) -> Self
+pub fn retriable_with_source<E: std::error::Error + Send + Sync + 'static>( source: E, context: impl Into<String>, ) -> Self
 ```
 
 Creates a retriable error with context and source preservation
@@ -2847,7 +2847,7 @@ Send transaction with automatic retry on blockhash expiry
 **Source**: `transactions/evm.rs`
 
 ```rust
-pub async fn simulate_transaction( &self, tx: &TransactionRequest, ) -> Result<(), ToolError>
+pub async fn simulate_transaction(&self, tx: &TransactionRequest) -> Result<(), ToolError>
 ```
 
 Simulate transaction before sending
@@ -3234,7 +3234,7 @@ pub async fn with_unified_signer<T, F>( signer: Arc<dyn UnifiedSigner>, future: 
 
 Execute a future with a unified signer context.
 
-Similar to [`with_signer`] but uses the new granular trait system.
+Similar to `with_signer` but uses the new granular trait system.
 This is the preferred method for new code.
 
 # Examples

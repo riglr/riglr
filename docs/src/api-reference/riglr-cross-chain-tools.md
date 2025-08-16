@@ -860,7 +860,7 @@ Supported blockchain networks
 ```
 
 ```rust
-pub enum CrossChainError { /// Core tool error #[error("Core tool error: {0}")] ToolError(#[from] ToolError), /// Li.fi API error #[error("Li.fi API error: {0}")] LifiApiError(String), /// Quote fetch failed #[error("Quote fetch failed: {0}")] QuoteFetchError(String), /// Invalid route configuration #[error("Invalid route configuration: {0}")] InvalidRoute(String), /// Bridge operation failed #[error("Bridge operation failed: {0}")] BridgeExecutionError(String), /// Unsupported chain pair #[error("Unsupported chain pair: {from_chain} -> {to_chain}")] UnsupportedChainPair { from_chain: String, to_chain: String }, /// Insufficient liquidity for amount #[error("Insufficient liquidity for amount: {amount}")] InsufficientLiquidity { amount: String }, }
+pub enum CrossChainError { /// Core tool error #[error("Core tool error: {0}")] ToolError(#[from] ToolError), /// Li.fi API error #[error("Li.fi API error: {0}")] LifiApiError(String), /// Quote fetch failed #[error("Quote fetch failed: {0}")] QuoteFetchError(String), /// Invalid route configuration #[error("Invalid route configuration: {0}")] InvalidRoute(String), /// Bridge operation failed #[error("Bridge operation failed: {0}")] BridgeExecutionError(String), /// Unsupported chain pair #[error("Unsupported chain pair: {from_chain} -> {to_chain}")] UnsupportedChainPair { from_chain: String, to_chain: String, }, /// Insufficient liquidity for amount #[error("Insufficient liquidity for amount: {amount}")] InsufficientLiquidity { amount: String }, }
 ```
 
 **Variants**:
@@ -871,6 +871,8 @@ pub enum CrossChainError { /// Core tool error #[error("Core tool error: {0}")] 
 - `InvalidRoute(String)`
 - `BridgeExecutionError(String)`
 - `UnsupportedChainPair`
+- `from_chain`
+- `to_chain`
 - `InsufficientLiquidity`
 
 ---
@@ -885,7 +887,7 @@ pub enum CrossChainError { /// Core tool error #[error("Core tool error: {0}")] 
 ```
 
 ```rust
-pub enum LiFiError { #[error("HTTP request failed: {0}")] Request(#[from] reqwest::Error), #[error("Invalid response format: {0}")] InvalidResponse(String), #[error("API error: {code} - {message}")] ApiError { code: u16, message: String }, #[error("Chain not supported: {chain_name}")] UnsupportedChain { chain_name: String }, #[error("Route not found for {from_chain} -> {to_chain}")] RouteNotFound { from_chain: String, to_chain: String }, #[error("Configuration error: {0}")] Configuration(String), #[error("URL parsing error: {0}")] UrlParse(#[from] ParseError), }
+pub enum LiFiError { #[error("HTTP request failed: {0}")] Request(#[from] reqwest::Error), #[error("Invalid response format: {0}")] InvalidResponse(String), #[error("API error: {code} - {message}")] ApiError { code: u16, message: String }, #[error("Chain not supported: {chain_name}")] UnsupportedChain { chain_name: String }, #[error("Route not found for {from_chain} -> {to_chain}")] RouteNotFound { from_chain: String, to_chain: String, }, #[error("Configuration error: {0}")] Configuration(String), #[error("URL parsing error: {0}")] UrlParse(#[from] ParseError), }
 ```
 
 Errors that can occur during LiFi API operations
@@ -897,6 +899,8 @@ Errors that can occur during LiFi API operations
 - `ApiError`
 - `UnsupportedChain`
 - `RouteNotFound`
+- `from_chain`
+- `to_chain`
 - `Configuration(String)`
 - `UrlParse(#[from] ParseError)`
 
@@ -982,7 +986,7 @@ This method gets routes and includes the transaction data needed for execution
 **Source**: `src/lifi.rs`
 
 ```rust
-pub async fn get_routes(&self, request: &RouteRequest) -> Result<Vec<CrossChainRoute>, LiFiError>
+pub async fn get_routes( &self, request: &RouteRequest, ) -> Result<Vec<CrossChainRoute>, LiFiError>
 ```
 
 Get cross-chain routes for a given request

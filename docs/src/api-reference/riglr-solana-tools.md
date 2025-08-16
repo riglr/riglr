@@ -419,7 +419,7 @@ println!("{}: {} SOL", balance.address, balance.sol);
 ```
 
 ```rust
-pub async fn get_pump_token_info( token_mint: String, ) -> Result<PumpTokenInfo, ToolError>
+pub async fn get_pump_token_info(token_mint: String) -> Result<PumpTokenInfo, ToolError>
 ```
 
 Get token information from Pump.fun
@@ -439,7 +439,7 @@ for a specific token on the Pump.fun platform.
 ```
 
 ```rust
-pub async fn get_sol_balance( address: String, ) -> Result<BalanceResult, ToolError>
+pub async fn get_sol_balance(address: String) -> Result<BalanceResult, ToolError>
 ```
 
 Get SOL balance for a given address
@@ -673,7 +673,7 @@ _ => println!("Unknown status: {}", status),
 ```
 
 ```rust
-pub async fn get_trending_pump_tokens( limit: Option<u32>, ) -> Result<Vec<PumpTokenInfo>, ToolError>
+pub async fn get_trending_pump_tokens(limit: Option<u32>) -> Result<Vec<PumpTokenInfo>, ToolError>
 ```
 
 Get trending tokens on Pump.fun

@@ -2001,7 +2001,7 @@ Create a new web client
 **Source**: `src/client.rs`
 
 ```rust
-pub async fn post<T: Serialize>( &self, url: &str, body: &T, ) -> Result<serde_json::Value>
+pub async fn post<T: Serialize>(&self, url: &str, body: &T) -> Result<serde_json::Value>
 ```
 
 Make a POST request with JSON body
@@ -2049,7 +2049,7 @@ Set configuration option (for backwards compatibility)
 **Source**: `src/client.rs`
 
 ```rust
-pub fn with_api_key<S1: Into<String>, S2: Into<String>>(mut self, service: S1, api_key: S2) -> Self
+pub fn with_api_key<S1: Into<String>, S2: Into<String>>( mut self, service: S1, api_key: S2, ) -> Self
 ```
 
 Set API key for a service (for backwards compatibility)

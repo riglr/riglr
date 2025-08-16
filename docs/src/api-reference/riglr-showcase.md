@@ -613,7 +613,7 @@ Conditions for routing decisions
 **Source**: `processors/notifier.rs`
 
 ```rust
-pub fn add_channel<C: NotificationChannel + 'static>( mut self, name: &str, channel: C ) -> Self
+pub fn add_channel<C: NotificationChannel + 'static>(mut self, name: &str, channel: C) -> Self
 ```
 
 ---
@@ -665,7 +665,7 @@ pub fn compact(mut self) -> Self
 **Source**: `agents/trading_coordination.rs`
 
 ```rust
-pub async fn demonstrate_trading_coordination(config: Config) -> Result<(), Box<dyn std::error::Error + Send + Sync>>
+pub async fn demonstrate_trading_coordination( config: Config, ) -> Result<(), Box<dyn std::error::Error + Send + Sync>>
 ```
 
 Demonstration function that shows the complete trading coordination workflow
@@ -721,7 +721,7 @@ pub fn matches(&self, output: &ToolOutput) -> bool
 **Source**: `agents/trading_coordination.rs`
 
 ```rust
-pub fn new( id: &str, communication: Arc<ChannelCommunication>, config: Config, trading_state: Arc<Mutex<TradingState>> ) -> Self
+pub fn new( id: &str, communication: Arc<ChannelCommunication>, config: Config, trading_state: Arc<Mutex<TradingState>>, ) -> Self
 ```
 
 ---
@@ -731,7 +731,7 @@ pub fn new( id: &str, communication: Arc<ChannelCommunication>, config: Config, 
 **Source**: `agents/trading_coordination.rs`
 
 ```rust
-pub fn new( id: &str, communication: Arc<ChannelCommunication>, config: Config, trading_state: Arc<Mutex<TradingState>> ) -> Self
+pub fn new( id: &str, communication: Arc<ChannelCommunication>, config: Config, trading_state: Arc<Mutex<TradingState>>, ) -> Self
 ```
 
 ---
@@ -741,7 +741,7 @@ pub fn new( id: &str, communication: Arc<ChannelCommunication>, config: Config, 
 **Source**: `agents/trading_coordination.rs`
 
 ```rust
-pub fn new( id: &str, communication: Arc<ChannelCommunication>, config: Config, trading_state: Arc<Mutex<TradingState>> ) -> Self
+pub fn new( id: &str, communication: Arc<ChannelCommunication>, config: Config, trading_state: Arc<Mutex<TradingState>>, ) -> Self
 ```
 
 ---
@@ -1236,7 +1236,7 @@ fn name(&self) -> &str;
 #### `supports_formatting`
 
 ```rust
-fn supports_formatting(&self) -> bool { true }
+fn supports_formatting(&self) -> bool {
 ```
 
 ---

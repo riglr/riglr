@@ -37,10 +37,6 @@ Comprehensive API documentation for the `riglr-web-adapters` crate.
 - [`Agent`](#agent)
 - [`SignerFactory`](#signerfactory)
 
-### Type Aliases
-
-- [`AgentStream`](#agentstream)
-
 ### Enums
 
 - [`AgentEvent`](#agentevent)
@@ -394,7 +390,7 @@ async fn prompt(&self, prompt: &str) -> Result<String, Self::Error>;
 #### `prompt_stream`
 
 ```rust
-async fn prompt_stream(&self, prompt: &str) -> Result<futures_util::stream::BoxStream<'_, Result<String, Self::Error>>, Self::Error>;
+async fn prompt_stream( &self, prompt: &str, ) -> Result<futures_util::stream::BoxStream<'_, Result<String, Self::Error>>, Self::Error>;
 ```
 
 #### `model_name`
@@ -433,20 +429,6 @@ async fn create_signer( &self, auth_data: AuthenticationData, config: &RpcConfig
 ```rust
 fn supported_auth_types(&self) -> Vec<String>;
 ```
-
----
-
-## Type Aliases
-
-### AgentStream
-
-**Source**: `src/core.rs`
-
-```rust
-type AgentStream = Pin<Box<dyn Stream<Item = Result<String, Box<dyn StdError + Send + Sync>>> + Send>>
-```
-
-Type alias for agent streaming responses
 
 ---
 
