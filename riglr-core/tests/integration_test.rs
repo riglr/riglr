@@ -20,6 +20,9 @@ use riglr_core::{
     },
     ExecutionConfig, Job, JobResult, Tool, ToolWorker,
 };
+
+const TEST_EVM_RPC_URL: &str = "TEST_EVM_RPC_URL";
+const TEST_SOLANA_RPC_URL: &str = "TEST_SOLANA_RPC_URL";
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -28,7 +31,7 @@ async fn create_test_evm_signer() -> Arc<dyn TransactionSigner> {
     // Use a well-known test private key (from Hardhat/Anvil)
     let private_key = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
     let rpc_url =
-        std::env::var("TEST_EVM_RPC_URL").unwrap_or_else(|_| "http://localhost:8545".to_string());
+        std::env::var(TEST_EVM_RPC_URL).unwrap_or_else(|_| "http://localhost:8545".to_string());
 
     let network_config = EvmNetworkConfig {
         name: "ethereum_test".to_string(),
@@ -48,7 +51,7 @@ async fn create_test_solana_signer() -> Arc<dyn TransactionSigner> {
     use solana_sdk::signer::keypair::Keypair;
 
     let keypair = Keypair::new();
-    let rpc_url = std::env::var("TEST_SOLANA_RPC_URL")
+    let rpc_url = std::env::var(TEST_SOLANA_RPC_URL)
         .unwrap_or_else(|_| "https://api.devnet.solana.com".to_string());
 
     let network_config = SolanaNetworkConfig {

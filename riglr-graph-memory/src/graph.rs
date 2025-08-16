@@ -16,6 +16,8 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tracing::{debug, error, info, warn};
 
+const OPENAI_API_KEY: &str = "OPENAI_API_KEY";
+
 #[cfg(feature = "rig-core")]
 use rig::client::EmbeddingsClient;
 #[cfg(feature = "rig-core")]
@@ -129,7 +131,7 @@ impl GraphMemory {
         // Initialize embedding client if OpenAI API key is available
         #[cfg(feature = "rig-core")]
         let embedding_client = {
-            match std::env::var("OPENAI_API_KEY") {
+            match std::env::var(OPENAI_API_KEY) {
                 Ok(api_key) => {
                     info!("Initializing OpenAI client for real embeddings");
                     Some(OpenAIClient::new(&api_key))

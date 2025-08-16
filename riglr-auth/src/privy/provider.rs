@@ -9,6 +9,8 @@ use riglr_web_adapters::factory::{AuthenticationData, SignerFactory};
 use tracing::debug;
 use tracing::info;
 
+const PRIVY_VERIFICATION_KEY: &str = "PRIVY_VERIFICATION_KEY";
+
 use super::config::PrivyConfig;
 use super::types::{PrivyClaims, PrivyUserData};
 use crate::config::ProviderConfig;
@@ -97,7 +99,7 @@ impl PrivyProvider {
     async fn get_verification_key(&self) -> AuthResult<String> {
         // In production, fetch from JWKS endpoint
         // For now, get from environment
-        std::env::var("PRIVY_VERIFICATION_KEY")
+        std::env::var(PRIVY_VERIFICATION_KEY)
             .map_err(|_| AuthError::ConfigError("Missing PRIVY_VERIFICATION_KEY".to_string()))
     }
 

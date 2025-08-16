@@ -446,7 +446,7 @@ fn test_large_embeddings() {
     let doc = GraphDocument {
         id: "large".to_string(),
         content: "large embedding test".to_string(),
-        embedding: large_embedding.clone(),
+        embedding: large_embedding,
         metadata: HashMap::new(),
         entities: Vec::new(),
         relationships: Vec::new(),
@@ -468,8 +468,8 @@ fn test_many_entities_and_relationships() {
         content: "many entities".to_string(),
         embedding: vec![0.5],
         metadata: HashMap::new(),
-        entities: entities.clone(),
-        relationships: relationships.clone(),
+        entities,
+        relationships,
         similarity_score: None,
     };
 
@@ -1100,7 +1100,7 @@ fn test_search_result_construction() {
     };
 
     let result = GraphSearchResult {
-        documents: documents.clone(),
+        documents,
         related_entities: entity_set.into_iter().collect(),
         metrics,
     };

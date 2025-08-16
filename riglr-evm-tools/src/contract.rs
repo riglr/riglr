@@ -201,7 +201,7 @@ pub async fn read_erc20_info(
             Ok(bytes) => U256::try_from_be_slice(&bytes)
                 .map(|v| v.to_string())
                 .unwrap_or_default(),
-            Err(_) => String::new(),
+            Err(_) => String::default(),
         }
     };
 
@@ -228,7 +228,7 @@ fn encode_function_call_with_types(
     // Check if it's a 4-byte selector
     if function_or_selector.starts_with("0x") && function_or_selector.len() == 10 {
         // Handle selector-based encoding directly
-        let mut data: Vec<u8> = Vec::new();
+        let mut data: Vec<u8> = Vec::default();
         let sel = function_or_selector
             .strip_prefix("0x")
             .unwrap_or(function_or_selector);
@@ -280,7 +280,7 @@ fn encode_function_call_with_types(
         .map_err(|e| format!("Invalid function signature: {}", e))?;
 
     // Convert string params to DynSolValue based on function signature
-    let mut values = Vec::new();
+    let mut values = Vec::default();
     for (i, param) in params.iter().enumerate() {
         if let Some(input) = function.inputs.get(i) {
             let value = parse_param_to_dyn_sol_value(param, &input.ty)
@@ -336,169 +336,196 @@ fn parse_param_to_dyn_sol_value(
         .map_err(|e| format!("Invalid type '{}': {}", expected_type, e))?;
 
     match sol_type {
-        DynSolType::Address => {
-            let addr = Address::from_str(param)
-                .map_err(|e| format!("Invalid address '{}': {}", param, e))?;
-            Ok(DynSolValue::Address(addr))
-        }
-        DynSolType::Bool => {
-            let val = param
-                .parse::<bool>()
-                .or_else(|_| {
-                    if param == "1" {
-                        Ok(true)
-                    } else if param == "0" {
-                        Ok(false)
-                    } else {
-                        Err(())
-                    }
-                })
-                .map_err(|_| format!("Invalid bool value '{}'", param))?;
-            Ok(DynSolValue::Bool(val))
-        }
-        DynSolType::Bytes => {
-            let bytes = if let Some(stripped) = param.strip_prefix("0x") {
-                primitives::hex::decode(stripped)
-                    .map_err(|e| format!("Invalid hex bytes: {}", e))?
-            } else {
-                param.as_bytes().to_vec()
-            };
-            Ok(DynSolValue::Bytes(bytes))
-        }
-        DynSolType::FixedBytes(size) => {
-            let bytes = if let Some(stripped) = param.strip_prefix("0x") {
-                primitives::hex::decode(stripped)
-                    .map_err(|e| format!("Invalid hex bytes: {}", e))?
-            } else {
-                param.as_bytes().to_vec()
-            };
-            if bytes.len() != size {
-                return Err(format!("Expected {} bytes, got {}", size, bytes.len()).into());
-            }
-            Ok(DynSolValue::FixedBytes(
-                alloy::primitives::FixedBytes::from_slice(&bytes),
-                size,
-            ))
-        }
+        DynSolType::Address => parse_address(param),
+        DynSolType::Bool => parse_bool(param),
+        DynSolType::Bytes => parse_bytes(param),
+        DynSolType::FixedBytes(size) => parse_fixed_bytes(param, size),
         DynSolType::String => Ok(DynSolValue::String(param.to_string())),
-        DynSolType::Uint(bits) => {
-            let value = if let Some(stripped) = param.strip_prefix("0x") {
-                U256::from_str_radix(stripped, 16)
-                    .map_err(|e| format!("Invalid hex uint: {}", e))?
-            } else {
-                U256::from_str_radix(param, 10)
-                    .map_err(|e| format!("Invalid decimal uint: {}", e))?
-            };
-            // Check bounds for specific uint size
-            let max = if bits == 256 {
-                U256::MAX
-            } else {
-                (U256::from(1u64) << bits) - U256::from(1u64)
-            };
-            if value > max {
-                return Err(format!("Value {} exceeds max for uint{}", value, bits).into());
-            }
-            Ok(DynSolValue::Uint(value, bits))
-        }
-        DynSolType::Int(bits) => {
-            let value = if let Some(abs_str) = param.strip_prefix("-") {
-                // Negative number
-                let abs_val = if let Some(stripped) = abs_str.strip_prefix("0x") {
-                    U256::from_str_radix(stripped, 16)
-                        .map_err(|e| format!("Invalid hex int: {}", e))?
-                } else {
-                    U256::from_str_radix(abs_str, 10)
-                        .map_err(|e| format!("Invalid decimal int: {}", e))?
-                };
-                I256::ZERO
-                    - I256::try_from(abs_val).map_err(|e| format!("Invalid negative int: {}", e))?
-            } else {
-                // Positive number
-                let val = if let Some(stripped) = param.strip_prefix("0x") {
-                    U256::from_str_radix(stripped, 16)
-                        .map_err(|e| format!("Invalid hex int: {}", e))?
-                } else {
-                    U256::from_str_radix(param, 10)
-                        .map_err(|e| format!("Invalid decimal int: {}", e))?
-                };
-                I256::try_from(val).map_err(|e| format!("Invalid positive int: {}", e))?
-            };
-            Ok(DynSolValue::Int(value, bits))
-        }
-        DynSolType::Array(inner) => {
-            // Parse JSON array or comma-separated values
-            let values = if param.starts_with("[") && param.ends_with("]") {
-                // JSON array
-                serde_json::from_str::<Vec<String>>(param)
-                    .map_err(|e| format!("Invalid JSON array: {}", e))?
-            } else {
-                // Comma-separated
-                param.split(',').map(|s| s.trim().to_string()).collect()
-            };
-
-            let mut parsed = Vec::new();
-            let inner_type = inner.to_string();
-            for val in values {
-                parsed.push(parse_param_to_dyn_sol_value(&val, &inner_type)?);
-            }
-            Ok(DynSolValue::Array(parsed))
-        }
-        DynSolType::FixedArray(inner, size) => {
-            // Parse JSON array or comma-separated values
-            let values = if param.starts_with("[") && param.ends_with("]") {
-                // JSON array
-                serde_json::from_str::<Vec<String>>(param)
-                    .map_err(|e| format!("Invalid JSON array: {}", e))?
-            } else {
-                // Comma-separated
-                param.split(',').map(|s| s.trim().to_string()).collect()
-            };
-
-            if values.len() != size {
-                return Err(format!("Expected {} elements, got {}", size, values.len()).into());
-            }
-
-            let mut parsed = Vec::new();
-            let inner_type = inner.to_string();
-            for val in values {
-                parsed.push(parse_param_to_dyn_sol_value(&val, &inner_type)?);
-            }
-            Ok(DynSolValue::FixedArray(parsed))
-        }
-        DynSolType::Tuple(types) => {
-            // Parse tuple as JSON array or parentheses-enclosed comma-separated values
-            let values = if param.starts_with("[") && param.ends_with("]") {
-                // JSON array
-                serde_json::from_str::<Vec<String>>(param)
-                    .map_err(|e| format!("Invalid JSON tuple: {}", e))?
-            } else if param.starts_with("(") && param.ends_with(")") {
-                // Parentheses tuple
-                param[1..param.len() - 1]
-                    .split(',')
-                    .map(|s| s.trim().to_string())
-                    .collect()
-            } else {
-                // Plain comma-separated
-                param.split(',').map(|s| s.trim().to_string()).collect()
-            };
-
-            if values.len() != types.len() {
-                return Err(format!(
-                    "Expected {} tuple elements, got {}",
-                    types.len(),
-                    values.len()
-                )
-                .into());
-            }
-
-            let mut parsed = Vec::new();
-            for (val, ty) in values.iter().zip(types.iter()) {
-                parsed.push(parse_param_to_dyn_sol_value(val, &ty.to_string())?);
-            }
-            Ok(DynSolValue::Tuple(parsed))
-        }
+        DynSolType::Uint(bits) => parse_uint(param, bits),
+        DynSolType::Int(bits) => parse_int(param, bits),
+        DynSolType::Array(inner) => parse_array(param, &inner),
+        DynSolType::FixedArray(inner, size) => parse_fixed_array(param, &inner, size),
+        DynSolType::Tuple(types) => parse_tuple(param, &types),
         _ => Err(format!("Unsupported type: {}", expected_type).into()),
     }
+}
+
+/// Parse an address parameter
+fn parse_address(param: &str) -> Result<DynSolValue, Box<dyn std::error::Error + Send + Sync>> {
+    let addr = Address::from_str(param)
+        .map_err(|e| format!("Invalid address '{}': {}", param, e))?;
+    Ok(DynSolValue::Address(addr))
+}
+
+/// Parse a boolean parameter
+fn parse_bool(param: &str) -> Result<DynSolValue, Box<dyn std::error::Error + Send + Sync>> {
+    let val = param
+        .parse::<bool>()
+        .or_else(|_| {
+            if param == "1" {
+                Ok(true)
+            } else if param == "0" {
+                Ok(false)
+            } else {
+                Err(())
+            }
+        })
+        .map_err(|_| format!("Invalid bool value '{}'", param))?;
+    Ok(DynSolValue::Bool(val))
+}
+
+/// Parse a bytes parameter
+fn parse_bytes(param: &str) -> Result<DynSolValue, Box<dyn std::error::Error + Send + Sync>> {
+    let bytes = if let Some(stripped) = param.strip_prefix("0x") {
+        primitives::hex::decode(stripped)
+            .map_err(|e| format!("Invalid hex bytes: {}", e))?
+    } else {
+        param.as_bytes().to_vec()
+    };
+    Ok(DynSolValue::Bytes(bytes))
+}
+
+/// Parse fixed-size bytes parameter
+fn parse_fixed_bytes(param: &str, size: usize) -> Result<DynSolValue, Box<dyn std::error::Error + Send + Sync>> {
+    let bytes = if let Some(stripped) = param.strip_prefix("0x") {
+        primitives::hex::decode(stripped)
+            .map_err(|e| format!("Invalid hex bytes: {}", e))?
+    } else {
+        param.as_bytes().to_vec()
+    };
+    if bytes.len() != size {
+        return Err(format!("Expected {} bytes, got {}", size, bytes.len()).into());
+    }
+    Ok(DynSolValue::FixedBytes(
+        alloy::primitives::FixedBytes::from_slice(&bytes),
+        size,
+    ))
+}
+
+/// Parse an unsigned integer parameter
+fn parse_uint(param: &str, bits: usize) -> Result<DynSolValue, Box<dyn std::error::Error + Send + Sync>> {
+    let value = if let Some(stripped) = param.strip_prefix("0x") {
+        U256::from_str_radix(stripped, 16)
+            .map_err(|e| format!("Invalid hex uint: {}", e))?
+    } else {
+        U256::from_str_radix(param, 10)
+            .map_err(|e| format!("Invalid decimal uint: {}", e))?
+    };
+    // Check bounds for specific uint size
+    let max = if bits == 256 {
+        U256::MAX
+    } else {
+        (U256::from(1u64) << bits) - U256::from(1u64)
+    };
+    if value > max {
+        return Err(format!("Value {} exceeds max for uint{}", value, bits).into());
+    }
+    Ok(DynSolValue::Uint(value, bits))
+}
+
+/// Parse a signed integer parameter
+fn parse_int(param: &str, bits: usize) -> Result<DynSolValue, Box<dyn std::error::Error + Send + Sync>> {
+    let value = if let Some(abs_str) = param.strip_prefix('-') {
+        // Negative number
+        let abs_val = if let Some(stripped) = abs_str.strip_prefix("0x") {
+            U256::from_str_radix(stripped, 16)
+                .map_err(|e| format!("Invalid hex int: {}", e))?
+        } else {
+            U256::from_str_radix(abs_str, 10)
+                .map_err(|e| format!("Invalid decimal int: {}", e))?
+        };
+        I256::ZERO
+            - I256::try_from(abs_val).map_err(|e| format!("Invalid negative int: {}", e))?
+    } else {
+        // Positive number
+        let val = if let Some(stripped) = param.strip_prefix("0x") {
+            U256::from_str_radix(stripped, 16)
+                .map_err(|e| format!("Invalid hex int: {}", e))?
+        } else {
+            U256::from_str_radix(param, 10)
+                .map_err(|e| format!("Invalid decimal int: {}", e))?
+        };
+        I256::try_from(val).map_err(|e| format!("Invalid positive int: {}", e))?
+    };
+    Ok(DynSolValue::Int(value, bits))
+}
+
+/// Parse an array parameter
+fn parse_array(param: &str, inner: &DynSolType) -> Result<DynSolValue, Box<dyn std::error::Error + Send + Sync>> {
+    // Parse JSON array or comma-separated values
+    let values = if param.starts_with('[') && param.ends_with(']') {
+        // JSON array
+        serde_json::from_str::<Vec<String>>(param)
+            .map_err(|e| format!("Invalid JSON array: {}", e))?
+    } else {
+        // Comma-separated
+        param.split(',').map(|s| s.trim().to_string()).collect()
+    };
+
+    let mut parsed = Vec::default();
+    let inner_type = inner.to_string();
+    for val in values {
+        parsed.push(parse_param_to_dyn_sol_value(&val, &inner_type)?);
+    }
+    Ok(DynSolValue::Array(parsed))
+}
+
+/// Parse a fixed-size array parameter
+fn parse_fixed_array(param: &str, inner: &DynSolType, size: usize) -> Result<DynSolValue, Box<dyn std::error::Error + Send + Sync>> {
+    // Parse JSON array or comma-separated values
+    let values = if param.starts_with('[') && param.ends_with(']') {
+        // JSON array
+        serde_json::from_str::<Vec<String>>(param)
+            .map_err(|e| format!("Invalid JSON array: {}", e))?
+    } else {
+        // Comma-separated
+        param.split(',').map(|s| s.trim().to_string()).collect()
+    };
+
+    if values.len() != size {
+        return Err(format!("Expected {} elements, got {}", size, values.len()).into());
+    }
+
+    let mut parsed = Vec::default();
+    let inner_type = inner.to_string();
+    for val in values {
+        parsed.push(parse_param_to_dyn_sol_value(&val, &inner_type)?);
+    }
+    Ok(DynSolValue::FixedArray(parsed))
+}
+
+/// Parse a tuple parameter
+fn parse_tuple(param: &str, types: &[DynSolType]) -> Result<DynSolValue, Box<dyn std::error::Error + Send + Sync>> {
+    // Parse tuple as JSON array or parentheses-enclosed comma-separated values
+    let values = if param.starts_with('[') && param.ends_with(']') {
+        // JSON array
+        serde_json::from_str::<Vec<String>>(param)
+            .map_err(|e| format!("Invalid JSON tuple: {}", e))?
+    } else if param.starts_with('(') && param.ends_with(')') {
+        // Parentheses tuple
+        param[1..param.len() - 1]
+            .split(',')
+            .map(|s| s.trim().to_string())
+            .collect()
+    } else {
+        // Plain comma-separated
+        param.split(',').map(|s| s.trim().to_string()).collect()
+    };
+
+    if values.len() != types.len() {
+        return Err(format!(
+            "Expected {} tuple elements, got {}",
+            types.len(),
+            values.len()
+        )
+        .into());
+    }
+
+    let mut parsed = Vec::default();
+    for (val, ty) in values.iter().zip(types.iter()) {
+        parsed.push(parse_param_to_dyn_sol_value(val, &ty.to_string())?);
+    }
+    Ok(DynSolValue::Tuple(parsed))
 }
 
 /// Decode contract call result based on expected output types
@@ -512,7 +539,7 @@ fn decode_contract_result(
     }
 
     // Parse output types and decode
-    let mut decoded_values = Vec::new();
+    let mut decoded_values = Vec::default();
     let mut offset = 0;
 
     for output_type in output_types {

@@ -174,8 +174,7 @@ impl Task {
     /// Check if the task has exceeded its deadline.
     pub fn is_past_deadline(&self) -> bool {
         self.deadline
-            .map(|deadline| chrono::Utc::now() > deadline)
-            .unwrap_or(false)
+            .map_or(false, |deadline| chrono::Utc::now() > deadline)
     }
 
     /// Check if the task can be retried.
@@ -348,8 +347,7 @@ impl AgentMessage {
     /// Check if the message has expired.
     pub fn is_expired(&self) -> bool {
         self.expires_at
-            .map(|expiry| chrono::Utc::now() > expiry)
-            .unwrap_or(false)
+            .map_or(false, |expiry| chrono::Utc::now() > expiry)
     }
 }
 

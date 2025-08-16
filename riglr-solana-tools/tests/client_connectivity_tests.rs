@@ -7,9 +7,12 @@ use riglr_solana_tools::client::SolanaClient;
 use solana_sdk::commitment_config::CommitmentLevel;
 use std::env;
 
+const SOLANA_RPC_URL: &str = "SOLANA_RPC_URL";
+const SOLANA_TESTNET_RPC_URL: &str = "SOLANA_TESTNET_RPC_URL";
+
 /// Helper to get RPC URL from environment or use default devnet
 fn get_solana_rpc_url() -> String {
-    env::var("SOLANA_RPC_URL").unwrap_or_else(|_| "https://api.devnet.solana.com".to_string())
+    env::var(SOLANA_RPC_URL).unwrap_or_else(|_| "https://api.devnet.solana.com".to_string())
 }
 
 #[tokio::test]
@@ -166,7 +169,7 @@ async fn test_solana_get_minimum_balance_for_rent_exemption() {
 #[ignore] // Run with --ignored flag
 async fn test_solana_testnet_connectivity() {
     // Try testnet if configured
-    if let Ok(testnet_url) = env::var("SOLANA_TESTNET_RPC_URL") {
+    if let Ok(testnet_url) = env::var(SOLANA_TESTNET_RPC_URL) {
         let client = SolanaClient::with_rpc_url(&testnet_url);
 
         let block_height = client.rpc_client.get_block_height();
@@ -227,11 +230,11 @@ mod test_helpers {
     #[test]
     fn verify_test_environment() {
         // Check if we can read environment variables
-        if env::var("SOLANA_RPC_URL").is_err() {
+        if env::var(SOLANA_RPC_URL).is_err() {
             println!("ℹ️ SOLANA_RPC_URL not set, will use default devnet endpoint");
         }
 
-        if env::var("SOLANA_TESTNET_RPC_URL").is_err() {
+        if env::var(SOLANA_TESTNET_RPC_URL).is_err() {
             println!("ℹ️ SOLANA_TESTNET_RPC_URL not set, testnet tests will be skipped");
         }
     }

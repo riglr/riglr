@@ -9,6 +9,7 @@
 //! - Generate alerts for profitable opportunities
 
 use anyhow::Result;
+use dashmap::DashMap;
 use riglr_core::{ToolError, ToolResult};
 use riglr_events_core::prelude::*;
 use riglr_showcase::config::Config;
@@ -103,7 +104,7 @@ pub struct YieldMonitor {
     protocols: HashMap<String, Protocol>,
 
     /// Current yield opportunities
-    opportunities: Arc<RwLock<HashMap<String, YieldOpportunity>>>,
+    opportunities: Arc<DashMap<String, YieldOpportunity>>,
 
     /// Price data for impermanent loss calculations
     price_history: WindowManager<PriceData>,
@@ -272,7 +273,7 @@ impl YieldMonitor {
     pub fn new(config: YieldMonitorConfig) -> Self {
         Self {
             protocols: HashMap::new(),
-            opportunities: Arc::new(RwLock::new(HashMap::new())),
+            opportunities: Arc::new(DashMap::new()),
             price_history: WindowManager::new(
                 WindowType::Sliding {
                     size: Duration::from_hours(24), // 24-hour price history
@@ -306,9 +307,8 @@ impl YieldMonitor {
 
             // Store updated opportunity
             let pool_key = opportunity.pool_address.clone();
-            let mut opportunities = self.opportunities.write().await;
-            let previous_opportunity = opportunities.get(&pool_key).cloned();
-            opportunities.insert(pool_key.clone(), opportunity.clone());
+            let previous_opportunity = self.opportunities.get(&pool_key).map(|r| r.clone());
+            self.opportunities.insert(pool_key.clone(), opportunity.clone());
 
             // Check for alerts
             self.check_for_alerts(opportunity, previous_opportunity).await?;
@@ -374,9 +374,9 @@ impl YieldMonitor {
             token_b: data.get("token_b")?.as_str()?.to_string(),
             liquidity_a: data.get("liquidity_a")?.as_f64()?,
             liquidity_b: data.get("liquidity_b")?.as_f64()?,
-            fee_rate: data.get("fee_rate")?.as_f64().unwrap_or(0.25), // 0.25% default
-            volume_24h: data.get("volume_24h")?.as_f64().unwrap_or(0.0),
-            fees_24h: data.get("fees_24h")?.as_f64().unwrap_or(0.0),
+            fee_rate: data.get("fee_rate")?.as_f64().unwrap_or_else(|| 0.25), // 0.25% default
+            volume_24h: data.get("volume_24h")?.as_f64().unwrap_or_else(|| 0.0),
+            fees_24h: data.get("fees_24h")?.as_f64().unwrap_or_else(|| 0.0),
         })
     }
 
@@ -389,7 +389,7 @@ impl YieldMonitor {
             token_b: data.get("token_mint_b")?.as_str()?.to_string(),
             liquidity_a: data.get("vault_a_amount")?.as_f64()?,
             liquidity_b: data.get("vault_b_amount")?.as_f64()?,
-            fee_rate: data.get("fee_rate")?.as_f64().unwrap_or(0.30), // 0.30% default
+            fee_rate: data.get("fee_rate")?.as_f64().unwrap_or_else(|| 0.30), // 0.30% default
             volume_24h: 0.0, // Would be calculated separately
             fees_24h: 0.0,   // Would be calculated separately
         })
@@ -410,7 +410,7 @@ impl YieldMonitor {
             liquidity_a: data.get("total_sol")?.as_f64()?,
             liquidity_b: data.get("total_msol")?.as_f64()?,
             fee_rate: 0.0, // Marinade has different reward mechanics
-            volume_24h: data.get("stake_volume_24h")?.as_f64().unwrap_or(0.0),
+            volume_24h: data.get("stake_volume_24h")?.as_f64().unwrap_or_else(|| 0.0),
             fees_24h: 0.0, // Rewards instead of fees
         })
     }
@@ -570,9 +570,9 @@ impl YieldMonitor {
 
     async fn update_impermanent_loss_estimates(&mut self, price_history: &[PriceData]) -> ToolResult<()> {
         // Calculate impermanent loss for all tracked opportunities
-        let opportunities = self.opportunities.read().await;
-
-        for (pool_key, opportunity) in opportunities.iter() {
+        for entry in self.opportunities.iter() {
+            let pool_key = entry.key();
+            let opportunity = entry.value();
             // Find price data for both tokens in the pair
             let token_a_prices: Vec<_> = price_history.iter()
                 .filter(|p| p.token == opportunity.token_pair.0)
@@ -612,8 +612,7 @@ impl YieldMonitor {
     }
 
     pub async fn get_top_opportunities(&self, limit: usize) -> Vec<YieldOpportunity> {
-        let opportunities = self.opportunities.read().await;
-        let mut sorted_opportunities: Vec<_> = opportunities.values().cloned().collect();
+        let mut sorted_opportunities: Vec<_> = self.opportunities.iter().map(|r| r.value().clone()).collect();
 
         // Sort by APY descending
         sorted_opportunities.sort_by(|a, b| b.apy.partial_cmp(&a.apy).unwrap_or(std::cmp::Ordering::Equal));

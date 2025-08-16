@@ -8,6 +8,8 @@ use crate::{client::WebClient, error::WebToolError};
 use chrono::{DateTime, Utc};
 use riglr_macros::tool;
 use schemars::JsonSchema;
+
+const FASTER100X_API_KEY: &str = "FASTER100X_API_KEY";
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use tracing::{debug, info};
@@ -25,7 +27,7 @@ pub struct Faster100xConfig {
 impl Default for Faster100xConfig {
     fn default() -> Self {
         Self {
-            api_key: std::env::var("FASTER100X_API_KEY").unwrap_or_default(),
+            api_key: std::env::var(FASTER100X_API_KEY).unwrap_or_default(),
             base_url: "https://api.faster100x.com/v1".to_string(),
             rate_limit_per_minute: 100,
         }

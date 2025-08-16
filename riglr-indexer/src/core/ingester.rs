@@ -8,6 +8,8 @@ use tracing::{error, info};
 
 use riglr_events_core::prelude::*;
 
+const SOLANA_RPC_URL: &str = "SOLANA_RPC_URL";
+
 use crate::core::{ComponentHealth, HealthStatus, ServiceContext, ServiceLifecycle};
 use crate::error::{IndexerError, IndexerResult};
 use crate::utils::RateLimiter;
@@ -108,7 +110,7 @@ impl EventIngester {
         let mut builder = StreamManagerBuilder::new();
 
         // Add Solana streams if configured
-        if let Ok(rpc_url) = std::env::var("SOLANA_RPC_URL") {
+        if let Ok(rpc_url) = std::env::var(SOLANA_RPC_URL) {
             info!("Adding Solana stream source: {}", rpc_url);
 
             // Create a Solana event stream
@@ -148,13 +150,13 @@ impl EventIngester {
     async fn start_workers(&self) -> IndexerResult<()> {
         info!("Starting {} ingestion workers", self.config.workers);
 
-        let event_tx = self.event_tx.read().await;
-        let tx = event_tx
-            .as_ref()
-            .ok_or_else(|| IndexerError::internal("Event sender not initialized"))?
-            .clone();
-
-        drop(event_tx);
+        let tx = {
+            let event_tx = self.event_tx.read().await;
+            event_tx
+                .as_ref()
+                .ok_or_else(|| IndexerError::internal("Event sender not initialized"))?
+                .clone()
+        };
 
         for worker_id in 0..self.config.workers {
             let context = self.context.clone();
@@ -217,28 +219,28 @@ impl EventIngester {
             loop {
                 interval.tick().await;
 
-                let mut stats_guard = stats.write().await;
-                let now = std::time::Instant::now();
-                let elapsed = now.duration_since(last_time).as_secs_f64();
+                {
+                    let mut stats_guard = stats.write().await;
+                    let now = std::time::Instant::now();
+                    let elapsed = now.duration_since(last_time).as_secs_f64();
 
-                if elapsed > 0.0 {
-                    let events_delta = stats_guard.total_events.saturating_sub(last_count);
-                    stats_guard.events_per_second = events_delta as f64 / elapsed;
+                    if elapsed > 0.0 {
+                        let events_delta = stats_guard.total_events.saturating_sub(last_count);
+                        stats_guard.events_per_second = events_delta as f64 / elapsed;
 
-                    // Record metrics
-                    context.metrics.record_gauge(
-                        "indexer_ingestion_events_per_second",
-                        stats_guard.events_per_second,
-                    );
-                    context
-                        .metrics
-                        .record_counter("indexer_ingestion_total_events", stats_guard.total_events);
+                        // Record metrics
+                        context.metrics.record_gauge(
+                            "indexer_ingestion_events_per_second",
+                            stats_guard.events_per_second,
+                        );
+                        context
+                            .metrics
+                            .record_counter("indexer_ingestion_total_events", stats_guard.total_events);
+                    }
+
+                    last_count = stats_guard.total_events;
+                    last_time = now;
                 }
-
-                last_count = stats_guard.total_events;
-                last_time = now;
-
-                drop(stats_guard);
 
                 // Check for shutdown
                 if matches!(

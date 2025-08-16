@@ -9,6 +9,10 @@ use solana_sdk::{commitment_config::CommitmentConfig, pubkey::Pubkey};
 use std::str::FromStr;
 use std::sync::Arc;
 
+const SOLANA_RPC_URL: &str = "SOLANA_RPC_URL";
+const SOLANA_COMMITMENT: &str = "SOLANA_COMMITMENT";
+const SOLANA_TIMEOUT: &str = "SOLANA_TIMEOUT";
+
 /// Create a Solana RPC client with the given configuration
 pub fn create_solana_client(config: &SolanaConfig) -> RpcClient {
     let commitment = crate::types::parse_commitment(&config.commitment);
@@ -30,10 +34,10 @@ pub fn string_to_pubkey(s: &str) -> Result<Pubkey, SolanaCommonError> {
 /// Get the default Solana configuration from environment or defaults
 pub fn default_solana_config() -> SolanaConfig {
     SolanaConfig {
-        rpc_url: std::env::var("SOLANA_RPC_URL")
+        rpc_url: std::env::var(SOLANA_RPC_URL)
             .unwrap_or_else(|_| "https://api.mainnet-beta.solana.com".to_string()),
-        commitment: std::env::var("SOLANA_COMMITMENT").unwrap_or_else(|_| "confirmed".to_string()),
-        timeout_seconds: std::env::var("SOLANA_TIMEOUT")
+        commitment: std::env::var(SOLANA_COMMITMENT).unwrap_or_else(|_| "confirmed".to_string()),
+        timeout_seconds: std::env::var(SOLANA_TIMEOUT)
             .ok()
             .and_then(|v| v.parse().ok())
             .unwrap_or(30),

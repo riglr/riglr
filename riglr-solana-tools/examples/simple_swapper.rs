@@ -9,6 +9,8 @@ use riglr_solana_tools::{
 use solana_sdk::signature::Keypair;
 use std::env;
 
+const SOLANA_PRIVATE_KEY: &str = "SOLANA_PRIVATE_KEY";
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Initialize logging
@@ -88,7 +90,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Step 3: Executing swap (demo only - requires funded wallet)...\n");
 
     // Check for private key in environment variable (for demo purposes only!)
-    if let Ok(private_key) = env::var("SOLANA_PRIVATE_KEY") {
+    if let Ok(private_key) = env::var(SOLANA_PRIVATE_KEY) {
         println!("Private key found in environment. Initializing signer...");
 
         // Parse private key (this is just for demo - use secure key management in production!)

@@ -13,6 +13,8 @@
 //! 5. Complex workflow orchestration through natural reasoning
 
 use anyhow::Result;
+
+const OPENAI_API_KEY: &str = "OPENAI_API_KEY";
 use rig::agent::AgentBuilder;
 use rig::client::CompletionClient;
 use rig::completion::Prompt;
@@ -30,7 +32,7 @@ async fn demo_comprehensive_token_analysis() -> Result<()> {
     println!("=====================================");
 
     // Create OpenAI client and model
-    let openai_client = openai::Client::new(&env::var("OPENAI_API_KEY")?);
+    let openai_client = openai::Client::new(&env::var(OPENAI_API_KEY)?);
     let model = openai_client.completion_model("gpt-4");
 
     let market_analyst = AgentBuilder::new(model)
@@ -196,7 +198,7 @@ async fn demo_cross_chain_opportunity_analysis() -> Result<()> {
     println!("==========================================");
 
     // Create OpenAI client and model
-    let openai_client = openai::Client::new(&env::var("OPENAI_API_KEY")?);
+    let openai_client = openai::Client::new(&env::var(OPENAI_API_KEY)?);
     let model = openai_client.completion_model("gpt-4");
 
     let opportunity_analyst = AgentBuilder::new(model)
@@ -367,7 +369,7 @@ async fn demo_intelligence_synthesis() -> Result<()> {
     println!("===============================================");
 
     // Create OpenAI client and model
-    let openai_client = openai::Client::new(&env::var("OPENAI_API_KEY")?);
+    let openai_client = openai::Client::new(&env::var(OPENAI_API_KEY)?);
     let model = openai_client.completion_model("gpt-4");
 
     let intelligence_synthesizer = AgentBuilder::new(model)
@@ -526,7 +528,7 @@ async fn demo_portfolio_risk_analysis() -> Result<()> {
     println!("==========================================");
 
     // Create OpenAI client and model
-    let openai_client = openai::Client::new(&env::var("OPENAI_API_KEY")?);
+    let openai_client = openai::Client::new(&env::var(OPENAI_API_KEY)?);
     let model = openai_client.completion_model("gpt-4");
 
     let portfolio_analyst = AgentBuilder::new(model)
@@ -733,19 +735,17 @@ mod tests {
     async fn test_market_analysis_patterns() {
         // Test validates market analysis pattern concepts
         // Note: This test requires OPENAI_API_KEY to be set for actual agent testing
-        if std::env::var("OPENAI_API_KEY").is_ok() {
-            let openai_client = openai::Client::new(&std::env::var("OPENAI_API_KEY").unwrap());
+        if std::env::var(OPENAI_API_KEY).is_ok() {
+            let openai_client = openai::Client::new(&std::env::var(OPENAI_API_KEY).unwrap());
             let model = openai_client.completion_model("gpt-3.5-turbo");
 
             let analyst = AgentBuilder::new(model)
                 .preamble("You are a market analysis testing assistant.")
                 .build();
 
-            // Test basic agent construction
-            assert!(true); // Agent was successfully created
+            // Test basic agent construction - agent was successfully created
         } else {
-            // Skip actual agent testing if no API key is available
-            assert!(true, "Skipping agent test - OPENAI_API_KEY not set");
+            // Skip actual agent testing if no API key is available - OPENAI_API_KEY not set
         }
     }
 

@@ -133,3 +133,6 @@ chrono = { version = "0.4", features = ["serde"] }
 config = "0.15.13"
 humantime-serde = "1.1"
 num_cpus = "1.16"
+
+[workspace.lints.rust]
+missing_docs = "warn"

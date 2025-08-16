@@ -13,6 +13,9 @@ use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 use tracing::{debug, info, warn};
 
+const NEWSAPI_KEY: &str = "NEWSAPI_KEY";
+const CRYPTOPANIC_KEY: &str = "CRYPTOPANIC_KEY";
+
 /// Configuration for news aggregation services
 #[derive(Debug, Clone)]
 pub struct NewsConfig {
@@ -340,8 +343,8 @@ pub struct BreakingNewsAlert {
 impl Default for NewsConfig {
     fn default() -> Self {
         Self {
-            newsapi_key: std::env::var("NEWSAPI_KEY").unwrap_or_default(),
-            cryptopanic_key: std::env::var("CRYPTOPANIC_KEY").unwrap_or_default(),
+            newsapi_key: std::env::var(NEWSAPI_KEY).unwrap_or_default(),
+            cryptopanic_key: std::env::var(CRYPTOPANIC_KEY).unwrap_or_default(),
             base_url: "https://newsapi.org/v2".to_string(),
             max_articles: 50,
             freshness_hours: 24,

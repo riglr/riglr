@@ -10,6 +10,9 @@ description = "Cross-chain tools for riglr - bridge tokens across different bloc
 keywords = ["blockchain", "cross-chain", "bridge", "defi", "ai"]
 categories = ["web-programming", "api-bindings"]
 
+[lints]
+workspace = true
+
 [dependencies]
 riglr-core = { workspace = true }
 riglr-macros = { workspace = true }

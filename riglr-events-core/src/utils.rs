@@ -2,8 +2,8 @@
 
 use crate::error::EventResult;
 use crate::traits::Event;
+use dashmap::DashMap;
 use futures::{Stream, StreamExt};
-use std::collections::HashMap;
 use std::pin::Pin;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
@@ -118,7 +118,7 @@ impl EventBatcher {
 /// Event deduplication utility to prevent processing duplicate events.
 #[derive(Debug)]
 pub struct EventDeduplicator {
-    seen_events: Arc<RwLock<HashMap<String, SystemTime>>>,
+    seen_events: Arc<DashMap<String, SystemTime>>,
     ttl: Duration,
     cleanup_interval: Duration,
 }
@@ -127,7 +127,7 @@ impl EventDeduplicator {
     /// Create a new deduplicator with TTL for seen events
     pub fn new(ttl: Duration, cleanup_interval: Duration) -> Self {
         Self {
-            seen_events: Arc::new(RwLock::new(HashMap::new())),
+            seen_events: Arc::new(DashMap::new()),
             ttl,
             cleanup_interval,
         }
@@ -136,11 +136,10 @@ impl EventDeduplicator {
     /// Check if an event is a duplicate
     pub async fn is_duplicate(&self, event: &dyn Event) -> bool {
         let event_id = event.id();
-        let seen_events = self.seen_events.read().await;
 
-        if let Some(seen_at) = seen_events.get(event_id) {
+        if let Some(seen_at) = self.seen_events.get(event_id) {
             // Check if the event is still within TTL
-            seen_at.elapsed().unwrap_or_default() < self.ttl
+            seen_at.value().elapsed().unwrap_or_default() < self.ttl
         } else {
             false
         }
@@ -149,16 +148,14 @@ impl EventDeduplicator {
     /// Mark an event as seen
     pub async fn mark_seen(&self, event: &dyn Event) {
         let event_id = event.id().to_string();
-        let mut seen_events = self.seen_events.write().await;
-        seen_events.insert(event_id, SystemTime::now());
+        self.seen_events.insert(event_id, SystemTime::now());
     }
 
     /// Clean up expired entries
     pub async fn cleanup(&self) {
-        let mut seen_events = self.seen_events.write().await;
         let now = SystemTime::now();
 
-        seen_events
+        self.seen_events
             .retain(|_, seen_at| now.duration_since(*seen_at).unwrap_or_default() < self.ttl);
     }
 
@@ -174,7 +171,6 @@ impl EventDeduplicator {
             loop {
                 interval.tick().await;
 
-                let mut seen_events = seen_events.write().await;
                 let now = SystemTime::now();
 
                 seen_events
@@ -464,7 +460,12 @@ impl EventPerformanceMetrics {
 
 impl Default for EventPerformanceMetrics {
     fn default() -> Self {
-        Self::new()
+        Self {
+            total_events: Arc::new(AtomicU64::new(0)),
+            total_errors: Arc::new(AtomicU64::new(0)),
+            processing_times: Arc::new(RwLock::new(Vec::new())),
+            last_reset: Arc::new(RwLock::new(SystemTime::now())),
+        }
     }
 }
 

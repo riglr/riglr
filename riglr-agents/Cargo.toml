@@ -10,6 +10,9 @@ description = "Multi-agent coordination system for riglr blockchain automation"
 keywords = ["blockchain", "agent", "coordination", "distributed", "riglr"]
 categories = ["algorithms", "development-tools", "network-programming", "web-programming"]
 
+[lints]
+workspace = true
+
 [dependencies]
 # Core riglr dependencies
 riglr-core = { workspace = true }

@@ -66,7 +66,7 @@ impl<P: Provider> EvmTransactionProcessor<P> {
             let priority_fee = self
                 .gas_config
                 .max_priority_fee
-                .unwrap_or(U256::from(1_000_000_000u64)); // 1 gwei default
+                .unwrap_or_else(|| U256::from(1_000_000_000u64)); // 1 gwei default
 
             let total = base_fee + priority_fee.to::<u128>();
 
@@ -130,7 +130,7 @@ impl<P: Provider> EvmTransactionProcessor<P> {
                 let priority_fee = self
                     .gas_config
                     .max_priority_fee
-                    .unwrap_or(U256::from(2_000_000_000u64)); // 2 gwei
+                    .unwrap_or_else(|| U256::from(2_000_000_000u64)); // 2 gwei
 
                 tx.max_priority_fee_per_gas = Some(priority_fee.to::<u128>());
                 tx.max_fee_per_gas = Some(base_fee + priority_fee.to::<u128>() * 2);

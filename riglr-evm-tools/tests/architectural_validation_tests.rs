@@ -352,8 +352,12 @@ async fn test_memory_efficiency() {
         println!("Client {} chain ID: {}", i, client.chain_id);
     }
 
-    // Drop all clients
-    drop(clients);
+    // Clients go out of scope automatically when this block ends
+    // Using a scope block instead of explicit drop() for better idiomatic Rust
+    {
+        let _moved_clients = clients;
+        // Clients are moved here and will be dropped at end of scope
+    }
 
     // Should be able to create new clients after cleanup
     let _new_client = EvmClient::mainnet().await;

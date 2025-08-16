@@ -11,59 +11,43 @@ use riglr_evm_tools::{get_erc20_balance, get_eth_balance, get_uniswap_quote, Evm
 use std::collections::HashMap;
 // use tracing::{info, warn}; // Temporarily disabled
 
-/// Run the EVM tools demo.
-pub async fn run_demo(config: Arc<Config>, address: Option<String>, chain_id: u64) -> Result<()> {
-    println!("{}", "⚡ EVM Tools Demo".bright_blue().bold());
-    println!("{}", "=".repeat(50).blue());
-
-    // Get chain info
-    let chain_info = get_chain_info(chain_id);
-    println!(
-        "\n{}",
-        format!("🔗 Chain: {} (ID: {})", chain_info.name, chain_id).cyan()
-    );
-
-    // Get or prompt for wallet address
-    let wallet_address = match address {
-        Some(addr) => addr,
+/// Get wallet address from user input or use provided address.
+async fn get_wallet_address(address: Option<String>) -> Result<String> {
+    match address {
+        Some(addr) => Ok(addr),
         None => {
             println!("\n{}", "Let's analyze an EVM wallet!".cyan());
             let default_address = "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"; // vitalik.eth
             Input::new()
                 .with_prompt("Enter EVM wallet address")
                 .default(default_address.to_string())
-                .interact_text()?
+                .interact_text()
+                .map_err(Into::into)
         }
-    };
+    }
+}
 
-    // Create EVM client
-    let _client = match chain_id {
-        1 => EvmClient::mainnet().await?,
-        137 => EvmClient::new("https://polygon-rpc.com".to_string()).await?,
-        42161 => EvmClient::new("https://arb1.arbitrum.io/rpc".to_string()).await?,
-        10 => EvmClient::new("https://mainnet.optimism.io".to_string()).await?,
-        8453 => EvmClient::new("https://mainnet.base.org".to_string()).await?,
-        _ => EvmClient::mainnet().await?,
-    };
+/// Create EVM client based on chain ID.
+async fn create_evm_client(chain_id: u64) -> Result<EvmClient> {
+    match chain_id {
+        1 => EvmClient::mainnet().await,
+        137 => EvmClient::new("https://polygon-rpc.com".to_string()).await,
+        42161 => EvmClient::new("https://arb1.arbitrum.io/rpc".to_string()).await,
+        10 => EvmClient::new("https://mainnet.optimism.io".to_string()).await,
+        8453 => EvmClient::new("https://mainnet.base.org".to_string()).await,
+        _ => EvmClient::mainnet().await,
+    }
+}
 
-    println!(
-        "\n{}",
-        format!("🔍 Analyzing wallet: {}", wallet_address).yellow()
-    );
-
-    // Show progress bar
-    let pb = ProgressBar::new_spinner();
-    pb.set_style(
-        ProgressStyle::default_spinner()
-            .tick_chars("⠁⠂⠄⡀⢀⠠⠐⠈ ")
-            .template("{spinner:.green} {msg}")?,
-    );
-    pb.set_message("Fetching wallet data...");
-
-    // Demo 1: Get native token balance (ETH)
+/// Fetch and display native token balance.
+async fn display_native_balance(
+    wallet_address: &str,
+    chain_info: &ChainInfo,
+    pb: &ProgressBar,
+) -> Result<()> {
     pb.set_message("Fetching native token balance...");
 
-    match get_eth_balance(wallet_address.clone(), None).await {
+    match get_eth_balance(wallet_address.to_string(), None).await {
         Ok(balance) => {
             println!(
                 "\n{}",
@@ -109,11 +93,16 @@ pub async fn run_demo(config: Arc<Config>, address: Option<String>, chain_id: u6
             println!("   Block: #19234567");
         }
     }
+    Ok(())
+}
 
-    // Demo 2: Check popular ERC20 token balances
+/// Fetch and display ERC20 token balances.
+async fn display_token_balances(
+    wallet_address: &str,
+    chain_id: u64,
+    pb: &ProgressBar,
+) -> Result<()> {
     let popular_tokens = get_popular_tokens(chain_id);
-
-    // Check first two tokens
     let token_limit = 2;
 
     for (token_count, (symbol, contract_address)) in popular_tokens.iter().enumerate() {
@@ -123,7 +112,8 @@ pub async fn run_demo(config: Arc<Config>, address: Option<String>, chain_id: u6
 
         pb.set_message(format!("Fetching {} balance...", symbol));
 
-        match get_erc20_balance(wallet_address.clone(), contract_address.clone(), Some(true)).await
+        match get_erc20_balance(wallet_address.to_string(), contract_address.clone(), Some(true))
+            .await
         {
             Ok(balance) => {
                 println!("\n{}", format!("🪙 {} Balance", symbol).green().bold());
@@ -136,7 +126,6 @@ pub async fn run_demo(config: Arc<Config>, address: Option<String>, chain_id: u6
                 println!("   Decimals: {}", balance.decimals);
             }
             Err(_) => {
-                // Fallback to simulation if real call fails
                 println!(
                     "\n{}",
                     format!("🪙 {} Balance (Simulated)", symbol).green().bold()
@@ -147,83 +136,71 @@ pub async fn run_demo(config: Arc<Config>, address: Option<String>, chain_id: u6
             }
         }
     }
+    Ok(())
+}
 
-    // Demo 3: Uniswap quote example (only for Ethereum mainnet)
-    if chain_id == 1 {
-        pb.set_message("Fetching Uniswap quote...");
+/// Display Uniswap quote for Ethereum mainnet.
+async fn display_uniswap_quote(pb: &ProgressBar) -> Result<()> {
+    pb.set_message("Fetching Uniswap quote...");
 
-        let weth = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2";
-        let usdc = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48";
+    let weth = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2";
+    let usdc = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48";
 
-        match get_uniswap_quote(
-            weth.to_string(),
-            usdc.to_string(),
-            "1".to_string(), // 1 WETH
-            18,              // WETH decimals
-            6,               // USDC decimals
-            Some(3000),      // 0.3% fee tier
-            Some(50),        // 0.5% slippage
-        )
-        .await
-        {
-            Ok(quote) => {
-                println!("\n{}", "🔄 Uniswap Quote (1 WETH → USDC)".green().bold());
-                println!("   Input: {} {}", quote.amount_in, quote.token_in);
-                println!(
-                    "   Output: {} {}",
-                    quote.amount_out.bright_green(),
-                    quote.token_out
-                );
-                println!("   Price: {:.2} USDC per WETH", quote.price);
-                println!("   Pool Fee: {:.2}%", quote.fee_tier as f64 / 10000.0);
-                println!("   Min Output: {}", quote.amount_out_minimum);
-            }
-            Err(_) => {
-                // Fallback to simulation
-                println!(
-                    "\n{}",
-                    "🔄 Uniswap Quote (1 WETH → USDC) - Simulated"
-                        .green()
-                        .bold()
-                );
-                println!("   Input: 1.0 WETH");
-                println!("   Output: ~{} USDC", "2891.45".bright_green());
-                println!("   Pool Fee: 0.3%");
-                println!("   Route: WETH → USDC");
-                println!("   Price Impact: 0.01%");
-            }
+    match get_uniswap_quote(
+        weth.to_string(),
+        usdc.to_string(),
+        "1".to_string(), // 1 WETH
+        18,              // WETH decimals
+        6,               // USDC decimals
+        Some(3000),      // 0.3% fee tier
+        Some(50),        // 0.5% slippage
+    )
+    .await
+    {
+        Ok(quote) => {
+            println!("\n{}", "🔄 Uniswap Quote (1 WETH → USDC)".green().bold());
+            println!("   Input: {} {}", quote.amount_in, quote.token_in);
+            println!(
+                "   Output: {} {}",
+                quote.amount_out.bright_green(),
+                quote.token_out
+            );
+            println!("   Price: {:.2} USDC per WETH", quote.price);
+            println!("   Pool Fee: {:.2}%", quote.fee_tier as f64 / 10000.0);
+            println!("   Min Output: {}", quote.amount_out_minimum);
+        }
+        Err(_) => {
+            println!(
+                "\n{}",
+                "🔄 Uniswap Quote (1 WETH → USDC) - Simulated"
+                    .green()
+                    .bold()
+            );
+            println!("   Input: 1.0 WETH");
+            println!("   Output: ~{} USDC", "2891.45".bright_green());
+            println!("   Pool Fee: 0.3%");
+            println!("   Route: WETH → USDC");
+            println!("   Price Impact: 0.01%");
         }
     }
+    Ok(())
+}
 
-    pb.finish_and_clear();
-
-    // Interactive menu for more demos
-    println!("\n{}", "🎮 Interactive Options".bright_blue().bold());
-    let mut options = vec![
-        "Analyze another wallet",
-        "Check specific ERC20 token",
-        "Switch to different chain",
-        "Exit demo",
-    ];
-
-    // Add Uniswap simulation for Ethereum mainnet
-    if chain_id == 1 {
-        options.insert(2, "Get custom Uniswap quote");
-    }
-
-    let selection = Select::new()
-        .with_prompt("What would you like to do next?")
-        .items(&options)
-        .default(options.len() - 1)
-        .interact()?;
-
+/// Handle interactive menu selection.
+async fn handle_menu_selection(
+    selection: usize,
+    chain_id: u64,
+    config: Arc<Config>,
+    wallet_address: String,
+) -> Result<bool> {
     match selection {
         0 => {
             println!("\n{}", "Let's analyze another wallet!".cyan());
             let new_address: String = Input::new()
                 .with_prompt("Enter wallet address")
                 .interact_text()?;
-            return Box::pin(run_demo(config, Some(new_address), chain_id)).await;
+            Box::pin(run_demo(config, Some(new_address), chain_id)).await?;
+            Ok(true)
         }
         1 => {
             println!("\n{}", "🪙 ERC20 Token Analysis (Simulated)".cyan());
@@ -231,27 +208,27 @@ pub async fn run_demo(config: Arc<Config>, address: Option<String>, chain_id: u6
                 .with_prompt("Enter ERC20 contract address")
                 .interact_text()?;
 
-            // Simulate token balance check
             println!("   Contract: {}", token_address);
             println!("   Symbol: {}", "CUSTOM".bright_cyan());
             println!("   Name: Custom Token");
             println!("   Balance: {} tokens", "1234.567".bright_green());
             println!("   Decimals: 18");
             println!("   {} Note: Running in simulation mode", "💡".yellow());
+            Ok(false)
         }
         2 if chain_id == 1 => {
             println!("\n{}", "💱 Custom Uniswap Quote (Simulated)".cyan());
             let _token_in: String = Input::new()
                 .with_prompt("Enter input token address")
-                .default("0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2".to_string()) // WETH
+                .default("0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2".to_string())
                 .interact_text()?;
             let _token_out: String = Input::new()
                 .with_prompt("Enter output token address")
-                .default("0xA0b86a33E6411617D1A03e63BDD7d9F5eF9b6EA9".to_string()) // USDC
+                .default("0xA0b86a33E6411617D1A03e63BDD7d9F5eF9b6EA9".to_string())
                 .interact_text()?;
             let amount: String = Input::new()
                 .with_prompt("Enter amount (in token units)")
-                .default("1000000000000000000".to_string()) // 1 token with 18 decimals
+                .default("1000000000000000000".to_string())
                 .interact_text()?;
 
             println!("   Simulating quote...");
@@ -261,6 +238,7 @@ pub async fn run_demo(config: Arc<Config>, address: Option<String>, chain_id: u6
             println!("   Output Amount: {}", "2845.67".bright_green());
             println!("   Pool Fee: 0.05%");
             println!("   {} Note: Running in simulation mode", "💡".yellow());
+            Ok(false)
         }
         2 | 3 => {
             println!("\n{}", "🔗 Chain Selection".cyan());
@@ -279,9 +257,81 @@ pub async fn run_demo(config: Arc<Config>, address: Option<String>, chain_id: u6
                 .interact()?;
 
             let new_chain_id = chains[chain_selection].1;
-            return Box::pin(run_demo(config, Some(wallet_address), new_chain_id)).await;
+            Box::pin(run_demo(config, Some(wallet_address), new_chain_id)).await?;
+            Ok(true)
         }
-        _ => {}
+        _ => Ok(false),
+    }
+}
+
+/// Run the EVM tools demo.
+pub async fn run_demo(config: Arc<Config>, address: Option<String>, chain_id: u64) -> Result<()> {
+    println!("{}", "⚡ EVM Tools Demo".bright_blue().bold());
+    println!("{}", "=".repeat(50).blue());
+
+    // Get chain info
+    let chain_info = get_chain_info(chain_id);
+    println!(
+        "\n{}",
+        format!("🔗 Chain: {} (ID: {})", chain_info.name, chain_id).cyan()
+    );
+
+    // Get wallet address
+    let wallet_address = get_wallet_address(address).await?;
+
+    // Create EVM client
+    let _client = create_evm_client(chain_id).await?;
+
+    println!(
+        "\n{}",
+        format!("🔍 Analyzing wallet: {}", wallet_address).yellow()
+    );
+
+    // Show progress bar
+    let pb = ProgressBar::new_spinner();
+    pb.set_style(
+        ProgressStyle::default_spinner()
+            .tick_chars("⠁⠂⠄⡀⢀⠠⠐⠈ ")
+            .template("{spinner:.green} {msg}")?,
+    );
+    pb.set_message("Fetching wallet data...");
+
+    // Display native token balance
+    display_native_balance(&wallet_address, &chain_info, &pb).await?;
+
+    // Display ERC20 token balances
+    display_token_balances(&wallet_address, chain_id, &pb).await?;
+
+    // Display Uniswap quote for Ethereum mainnet
+    if chain_id == 1 {
+        display_uniswap_quote(&pb).await?;
+    }
+
+    pb.finish_and_clear();
+
+    // Interactive menu
+    println!("\n{}", "🎮 Interactive Options".bright_blue().bold());
+    let mut options = vec![
+        "Analyze another wallet",
+        "Check specific ERC20 token",
+        "Switch to different chain",
+        "Exit demo",
+    ];
+
+    if chain_id == 1 {
+        options.insert(2, "Get custom Uniswap quote");
+    }
+
+    let selection = Select::new()
+        .with_prompt("What would you like to do next?")
+        .items(&options)
+        .default(options.len() - 1)
+        .interact()?;
+
+    let should_return = handle_menu_selection(selection, chain_id, config, wallet_address).await?;
+    
+    if should_return {
+        return Ok(());
     }
 
     println!("\n{}", "✅ EVM demo completed!".bright_green().bold());

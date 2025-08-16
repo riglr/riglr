@@ -251,7 +251,19 @@ impl SolanaEventParser {
 
 impl Default for SolanaEventParser {
     fn default() -> Self {
-        Self::new()
+        let legacy_parser = EventParserRegistry::new();
+        let supported_programs = legacy_parser.supported_program_ids();
+        Self {
+            legacy_parser,
+            info: ParserInfo::new("solana-event-parser".to_string(), "1.0.0".to_string())
+                .with_kind(riglr_events_core::types::EventKind::Transaction)
+                .with_kind(riglr_events_core::types::EventKind::Swap)
+                .with_kind(riglr_events_core::types::EventKind::Liquidity)
+                .with_kind(riglr_events_core::types::EventKind::Transfer)
+                .with_format("solana-instruction".to_string())
+                .with_format("solana-inner-instruction".to_string()),
+            supported_programs,
+        }
     }
 }
 

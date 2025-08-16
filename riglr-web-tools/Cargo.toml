@@ -12,6 +12,9 @@ keywords = ["web", "api", "ai", "agent", "rig"]
 categories = ["web-programming::api-bindings"]
 documentation = "https://docs.rs/riglr-web-tools"
 
+[lints]
+workspace = true
+
 [dependencies]
 # Core riglr and rig dependencies
 rig-core = { workspace = true }

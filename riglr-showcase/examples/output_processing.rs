@@ -357,7 +357,7 @@ async fn multi_format() -> Result<()> {
         multi_result
             .summary
             .as_ref()
-            .unwrap_or(&"No summary".to_string())
+            .unwrap_or_else(|| &"No summary".to_string())
     );
 
     // Show a snippet of each format

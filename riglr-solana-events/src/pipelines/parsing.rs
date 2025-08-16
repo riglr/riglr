@@ -394,7 +394,10 @@ impl ParsingPipelineBuilder {
 
 impl Default for ParsingPipelineBuilder {
     fn default() -> Self {
-        Self::new()
+        Self {
+            config: ParsingPipelineConfig::default(),
+            parsers: Vec::new(),
+        }
     }
 }
 

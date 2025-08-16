@@ -61,7 +61,7 @@ impl MemoryMappedParser {
 
         Ok(Self {
             mmap,
-            parsers: HashMap::new(),
+            parsers: HashMap::default(),
         })
     }
 
@@ -72,7 +72,7 @@ impl MemoryMappedParser {
 
     /// Parse events from the memory-mapped data
     pub fn parse_all(&self) -> Result<Vec<ZeroCopyEvent<'_>>, ParseError> {
-        let mut events = Vec::new();
+        let mut events = Vec::default();
         let data = &self.mmap[..];
 
         // Simple parsing - in real implementation, this would have more sophisticated
@@ -117,8 +117,8 @@ impl SIMDPatternMatcher {
     /// Create a new SIMD pattern matcher
     pub fn new() -> Self {
         Self {
-            patterns: Vec::new(),
-            protocols: Vec::new(),
+            patterns: Vec::default(),
+            protocols: Vec::default(),
         }
     }
 
@@ -133,7 +133,7 @@ impl SIMDPatternMatcher {
     /// In a real implementation, this would use SIMD instructions for parallel matching
     /// For now, we provide a basic implementation
     pub fn find_matches(&self, data: &[u8]) -> Vec<(usize, ProtocolType)> {
-        let mut matches = Vec::new();
+        let mut matches = Vec::default();
 
         for (pattern, protocol) in self.patterns.iter().zip(&self.protocols) {
             if data.len() >= pattern.len() {
@@ -161,7 +161,10 @@ impl SIMDPatternMatcher {
 
 impl Default for SIMDPatternMatcher {
     fn default() -> Self {
-        Self::new()
+        Self {
+            patterns: Vec::default(),
+            protocols: Vec::default(),
+        }
     }
 }
 
@@ -297,7 +300,7 @@ impl BatchEventParser {
     /// Create a new batch parser
     pub fn new(max_batch_size: usize) -> Self {
         Self {
-            parsers: HashMap::new(),
+            parsers: HashMap::default(),
             pattern_matcher: SIMDPatternMatcher::new(),
             max_batch_size,
         }
@@ -342,7 +345,7 @@ impl BatchEventParser {
             )));
         }
 
-        let mut all_events = Vec::new();
+        let mut all_events = Vec::default();
 
         for (data, metadata) in batch.iter().zip(metadatas.into_iter()) {
             // Fast protocol detection using SIMD pattern matching

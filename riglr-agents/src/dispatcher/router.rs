@@ -17,7 +17,7 @@ impl Router {
     pub fn new(strategy: RoutingStrategy) -> Self {
         Self {
             strategy,
-            round_robin_counter: AtomicUsize::new(0),
+            round_robin_counter: AtomicUsize::default(),
         }
     }
 

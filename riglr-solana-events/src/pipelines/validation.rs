@@ -226,7 +226,8 @@ impl ValidationPipeline {
         let mut seen = self.seen_events.write().await;
 
         // Clean up old entries (older than max_event_age)
-        let cutoff = Instant::now() - self.config.max_event_age;
+        let cutoff = std::time::Instant::now().checked_sub(self.config.max_event_age)
+            .unwrap_or_else(std::time::Instant::now);
         seen.retain(|_, &mut timestamp| timestamp > cutoff);
 
         // Check if we've seen this event before
@@ -439,7 +440,8 @@ impl ValidationRule for NumericRangesRule {
 
         if let Some(json_data) = event.get_json_data() {
             // Validate amounts are within reasonable ranges
-            for (key, value) in json_data.as_object().unwrap_or(&serde_json::Map::new()) {
+            let empty_map = serde_json::Map::new();
+            for (key, value) in json_data.as_object().unwrap_or(&empty_map) {
                 if key.contains("amount") {
                     if let Some(amount_str) = value.as_str() {
                         if let Ok(amount) = amount_str.parse::<u64>() {

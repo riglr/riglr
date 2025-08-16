@@ -379,7 +379,7 @@ fn parse_string_from_bytes(
     let end = string_bytes
         .iter()
         .position(|&b| b == 0)
-        .unwrap_or(string_bytes.len());
+        .unwrap_or_else(|| string_bytes.len());
 
     String::from_utf8(string_bytes[..end].to_vec()).map_err(|e| e.into())
 }

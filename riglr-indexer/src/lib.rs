@@ -76,7 +76,6 @@
 //! - **Storage**: Optimized time-series schemas
 //! - **Scaling**: Horizontal with consistent hashing
 
-#![warn(missing_docs)]
 #![warn(clippy::all)]
 #![allow(clippy::module_inception)]
 

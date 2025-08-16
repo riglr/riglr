@@ -184,10 +184,10 @@ impl EmptyStruct {
     }
 }
 
-// Test unit struct
+// Test tuple struct with unit type
 #[derive(Serialize, Deserialize, JsonSchema, Clone)]
 #[tool]
-pub struct UnitStruct();
+pub struct UnitStruct(());
 
 impl UnitStruct {
     pub async fn execute(&self) -> Result<String> {

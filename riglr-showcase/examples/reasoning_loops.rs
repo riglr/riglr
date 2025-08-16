@@ -566,20 +566,20 @@ mod tests {
     async fn test_multi_turn_reasoning() {
         // This test would typically require a real LLM endpoint
         // For now, it validates the structure and flow
-        assert!(true); // Placeholder
+        // Placeholder test - implementation would require real LLM endpoint
     }
 
     /// Test tool chaining through agent reasoning
     #[tokio::test]
     async fn test_tool_chaining() {
         // Validate that tools can be chained through natural conversation
-        assert!(true); // Placeholder
+        // Placeholder test - implementation would require real LLM endpoint
     }
 
     /// Test context persistence across reasoning steps
     #[tokio::test]
     async fn test_context_persistence() {
         // Validate that context is maintained across multiple agent interactions
-        assert!(true); // Placeholder
+        // Placeholder test - implementation would require real LLM endpoint
     }
 }

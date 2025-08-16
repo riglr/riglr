@@ -21,8 +21,8 @@ pub struct NotificationRouter {
 impl NotificationRouter {
     pub fn new() -> Self {
         Self {
-            channels: HashMap::new(),
-            routing_rules: Vec::new(),
+            channels: HashMap::default(),
+            routing_rules: Vec::default(),
             default_channel: None,
         }
     }
@@ -44,7 +44,7 @@ impl NotificationRouter {
 
     /// Determine which channels to route to based on output and rules
     fn determine_routes(&self, output: &ToolOutput) -> Vec<String> {
-        let mut routes = Vec::new();
+        let mut routes = Vec::default();
 
         // Apply routing rules
         for rule in &self.routing_rules {
@@ -73,7 +73,7 @@ impl NotificationRouter {
         output: &ToolOutput,
         routes: &[String],
     ) -> Result<Vec<NotificationResult>> {
-        let mut results = Vec::new();
+        let mut results = Vec::default();
 
         for channel_name in routes {
             if let Some(channel) = self.channels.get(channel_name) {
@@ -322,7 +322,7 @@ impl DiscordChannel {
             .map(|word| {
                 let mut chars = word.chars();
                 match chars.next() {
-                    None => String::new(),
+                    None => String::default(),
                     Some(first) => first.to_uppercase().collect::<String>() + chars.as_str(),
                 }
             })
@@ -506,7 +506,7 @@ impl WebhookChannel {
         Self {
             name: name.to_string(),
             url: url.to_string(),
-            headers: HashMap::new(),
+            headers: HashMap::default(),
             format_template: "{\"message\": \"{{message}}\"}".to_string(),
         }
     }
@@ -662,13 +662,17 @@ impl NotificationChannel for ConsoleChannel {
 
 impl Default for NotificationRouter {
     fn default() -> Self {
-        Self::new()
+        Self {
+            channels: HashMap::default(),
+            routing_rules: Vec::default(),
+            default_channel: None,
+        }
     }
 }
 
 impl Default for ConsoleChannel {
     fn default() -> Self {
-        Self::new()
+        Self { use_colors: true }
     }
 }
 

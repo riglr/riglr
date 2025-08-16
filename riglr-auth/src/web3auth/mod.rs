@@ -10,6 +10,11 @@ use riglr_core::signer::TransactionSigner;
 use riglr_web_adapters::factory::{AuthenticationData, SignerFactory};
 use serde::{Deserialize, Serialize};
 
+const WEB3AUTH_CLIENT_ID: &str = "WEB3AUTH_CLIENT_ID";
+const WEB3AUTH_VERIFIER: &str = "WEB3AUTH_VERIFIER";
+const WEB3AUTH_NETWORK: &str = "WEB3AUTH_NETWORK";
+const WEB3AUTH_API_URL: &str = "WEB3AUTH_API_URL";
+
 /// Web3Auth configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Web3AuthConfig {
@@ -59,17 +64,17 @@ impl ProviderConfig for Web3AuthConfig {
     }
 
     fn from_env() -> Result<Self, AuthError> {
-        let client_id = std::env::var("WEB3AUTH_CLIENT_ID")
+        let client_id = std::env::var(WEB3AUTH_CLIENT_ID)
             .map_err(|_| AuthError::ConfigError("WEB3AUTH_CLIENT_ID not found".to_string()))?;
-        let verifier = std::env::var("WEB3AUTH_VERIFIER")
+        let verifier = std::env::var(WEB3AUTH_VERIFIER)
             .map_err(|_| AuthError::ConfigError("WEB3AUTH_VERIFIER not found".to_string()))?;
 
         let mut config = Self::new(client_id, verifier);
 
-        if let Ok(network) = std::env::var("WEB3AUTH_NETWORK") {
+        if let Ok(network) = std::env::var(WEB3AUTH_NETWORK) {
             config.network = network;
         }
-        if let Ok(api_url) = std::env::var("WEB3AUTH_API_URL") {
+        if let Ok(api_url) = std::env::var(WEB3AUTH_API_URL) {
             config.api_url = api_url;
         }
 

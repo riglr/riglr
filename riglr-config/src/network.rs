@@ -4,6 +4,8 @@ use crate::{ConfigError, ConfigResult};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+const RIGLR_CHAINS_CONFIG: &str = "RIGLR_CHAINS_CONFIG";
+
 /// Network configuration
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct NetworkConfig {
@@ -125,7 +127,7 @@ impl NetworkConfig {
     /// Load chain contracts from chains.toml file
     pub fn load_chain_contracts(&mut self) -> ConfigResult<()> {
         let chains_path =
-            std::env::var("RIGLR_CHAINS_CONFIG").unwrap_or_else(|_| "chains.toml".to_string());
+            std::env::var(RIGLR_CHAINS_CONFIG).unwrap_or_else(|_| "chains.toml".to_string());
 
         // Only try to load if file exists
         if !std::path::Path::new(&chains_path).exists() {

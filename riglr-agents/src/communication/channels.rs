@@ -32,13 +32,13 @@ pub struct ChannelCommunication {
 impl ChannelCommunication {
     /// Create a new channel-based communication system.
     pub fn new() -> Self {
-        Self::with_config(CommunicationConfig::default())
+        Self::default()
     }
 
     /// Create a new channel-based communication system with configuration.
     pub fn with_config(config: CommunicationConfig) -> Self {
         Self {
-            channels: RwLock::new(HashMap::new()),
+            channels: RwLock::new(HashMap::default()),
             config,
             stats: Arc::new(CommunicationStats {
                 active_subscriptions: 0,
@@ -103,7 +103,7 @@ impl ChannelCommunication {
 
 impl Default for ChannelCommunication {
     fn default() -> Self {
-        Self::new()
+        Self::with_config(CommunicationConfig::default())
     }
 }
 

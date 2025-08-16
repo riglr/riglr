@@ -8,7 +8,6 @@ linker = "clang"
 rustflags = [
   "-C", "link-arg=-fuse-ld=lld",
   "-C", "link-arg=-Wl,--no-keep-memory",
-  "-C", "link-arg=-Wl,--reduce-memory-overheads",
 ]
 
 [profile.dev]

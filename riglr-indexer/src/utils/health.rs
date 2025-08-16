@@ -1,9 +1,9 @@
 //! Health check utilities
 
+use dashmap::DashMap;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use tokio::sync::RwLock;
 use tracing::{debug, error, warn};
 
 /// Health check trait for services and components
@@ -72,9 +72,9 @@ impl HealthCheckResult {
 /// Health check coordinator that manages multiple health checks
 pub struct HealthCheckCoordinator {
     /// Registered health checks
-    checks: Arc<RwLock<HashMap<String, Arc<dyn HealthCheck>>>>,
+    checks: Arc<DashMap<String, Arc<dyn HealthCheck>>>,
     /// Cached results
-    cached_results: Arc<RwLock<HashMap<String, (HealthCheckResult, Instant)>>>,
+    cached_results: Arc<DashMap<String, (HealthCheckResult, Instant)>>,
     /// Cache TTL
     cache_ttl: Duration,
 }
@@ -83,30 +83,28 @@ impl HealthCheckCoordinator {
     /// Create a new health check coordinator
     pub fn new(cache_ttl: Duration) -> Self {
         Self {
-            checks: Arc::new(RwLock::new(HashMap::new())),
-            cached_results: Arc::new(RwLock::new(HashMap::new())),
+            checks: Arc::new(DashMap::new()),
+            cached_results: Arc::new(DashMap::new()),
             cache_ttl,
         }
     }
 
     /// Register a health check
     pub async fn register(&self, name: String, check: Arc<dyn HealthCheck>) {
-        let mut checks = self.checks.write().await;
-        checks.insert(name, check);
+        self.checks.insert(name, check);
     }
 
     /// Remove a health check
     pub async fn unregister(&self, name: &str) -> bool {
-        let mut checks = self.checks.write().await;
-        checks.remove(name).is_some()
+        self.checks.remove(name).is_some()
     }
 
     /// Perform all health checks
     pub async fn check_all(&self) -> HashMap<String, HealthCheckResult> {
-        let checks = self.checks.read().await;
         let mut results = HashMap::new();
 
-        for (name, check) in checks.iter() {
+        for entry in self.checks.iter() {
+            let (name, check) = entry.pair();
             let result = self.check_with_cache(name, check).await;
             results.insert(name.clone(), result);
         }
@@ -116,9 +114,8 @@ impl HealthCheckCoordinator {
 
     /// Perform a specific health check
     pub async fn check_one(&self, name: &str) -> Option<HealthCheckResult> {
-        let checks = self.checks.read().await;
-        let check = checks.get(name)?;
-        Some(self.check_with_cache(name, check).await)
+        let check = self.checks.get(name)?;
+        Some(self.check_with_cache(name, check.value()).await)
     }
 
     /// Check if all components are healthy
@@ -159,13 +156,11 @@ impl HealthCheckCoordinator {
         check: &Arc<dyn HealthCheck>,
     ) -> HealthCheckResult {
         // Check cache first
-        {
-            let cache = self.cached_results.read().await;
-            if let Some((result, cached_at)) = cache.get(name) {
-                if cached_at.elapsed() < self.cache_ttl {
-                    debug!("Using cached health check result for {}", name);
-                    return result.clone();
-                }
+        if let Some(entry) = self.cached_results.get(name) {
+            let (result, cached_at) = entry.value();
+            if cached_at.elapsed() < self.cache_ttl {
+                debug!("Using cached health check result for {}", name);
+                return result.clone();
             }
         }
 
@@ -182,10 +177,8 @@ impl HealthCheckCoordinator {
         result.timestamp = Instant::now();
 
         // Update cache
-        {
-            let mut cache = self.cached_results.write().await;
-            cache.insert(name.to_string(), (result.clone(), Instant::now()));
-        }
+        self.cached_results
+            .insert(name.to_string(), (result.clone(), Instant::now()));
 
         if result.healthy {
             debug!("Health check passed for {}: {}", name, result.message);
@@ -225,8 +218,7 @@ impl HealthCheckCoordinator {
 
     /// Clear all cached results
     pub async fn clear_cache(&self) {
-        let mut cache = self.cached_results.write().await;
-        cache.clear();
+        self.cached_results.clear();
     }
 }
 

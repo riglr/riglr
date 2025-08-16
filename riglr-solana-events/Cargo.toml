@@ -10,6 +10,9 @@ license = "MIT"
 name = "riglr_solana_events"
 path = "src/lib.rs"
 
+[lints]
+workspace = true
+
 [dependencies]
 # Core riglr dependencies
 riglr-events-core = { path = "../riglr-events-core", features = ["solana"] }

@@ -7,6 +7,8 @@ use alloy::primitives::U256;
 use riglr_evm_tools::client::EvmClient;
 use std::env;
 
+const RPC_URL_11155111: &str = "RPC_URL_11155111";
+
 /// Helper to get RPC URL for a specific chain from environment
 fn get_evm_rpc_url(chain_id: u64) -> Option<String> {
     env::var(format!("RPC_URL_{}", chain_id)).ok()
@@ -321,7 +323,7 @@ mod test_helpers {
     #[test]
     fn verify_test_environment() {
         // Check if Sepolia RPC is configured
-        if env::var("RPC_URL_11155111").is_err() {
+        if env::var(RPC_URL_11155111).is_err() {
             println!("ℹ️ RPC_URL_11155111 not set, will use default Sepolia endpoint");
         }
 
