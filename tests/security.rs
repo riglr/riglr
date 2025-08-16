@@ -1,6 +1,19 @@
 //! Security-focused tests for production deployment
 use std::env;
 
+// Environment variable constants to avoid string literals
+const OPENAI_API_KEY: &str = "OPENAI_API_KEY";
+const REDIS_URL: &str = "REDIS_URL";
+const NEO4J_URL: &str = "NEO4J_URL";
+const TWITTER_BEARER_TOKEN: &str = "TWITTER_BEARER_TOKEN";
+const EXA_API_KEY: &str = "EXA_API_KEY";
+const RPC_URL_1: &str = "RPC_URL_1";
+const RPC_URL_137: &str = "RPC_URL_137";
+const RPC_URL_42161: &str = "RPC_URL_42161";
+const RPC_URL_8453: &str = "RPC_URL_8453";
+const SOLANA_RPC_URL: &str = "SOLANA_RPC_URL";
+const RPC_URL_999: &str = "RPC_URL_999";
+
 #[test]
 fn test_no_hardcoded_secrets() {
     // Ensure no API keys or secrets are hardcoded
@@ -52,16 +65,16 @@ fn test_configuration_validation() {
     // Test that configuration validation catches common issues
 
     // Test empty API key validation
-    env::set_var("OPENAI_API_KEY", "");
-    env::set_var("REDIS_URL", "redis://localhost:6379");
-    env::set_var("NEO4J_URL", "neo4j://localhost:7687");
-    env::set_var("TWITTER_BEARER_TOKEN", "test-key");
-    env::set_var("EXA_API_KEY", "test-key");
-    env::set_var("RPC_URL_1", "https://test.example.com");
-    env::set_var("RPC_URL_137", "https://test.example.com");
-    env::set_var("RPC_URL_42161", "https://test.example.com");
-    env::set_var("RPC_URL_8453", "https://test.example.com");
-    env::set_var("SOLANA_RPC_URL", "https://test.example.com");
+    env::set_var(OPENAI_API_KEY, "");
+    env::set_var(REDIS_URL, "redis://localhost:6379");
+    env::set_var(NEO4J_URL, "neo4j://localhost:7687");
+    env::set_var(TWITTER_BEARER_TOKEN, "test-key");
+    env::set_var(EXA_API_KEY, "test-key");
+    env::set_var(RPC_URL_1, "https://test.example.com");
+    env::set_var(RPC_URL_137, "https://test.example.com");
+    env::set_var(RPC_URL_42161, "https://test.example.com");
+    env::set_var(RPC_URL_8453, "https://test.example.com");
+    env::set_var(SOLANA_RPC_URL, "https://test.example.com");
 
     let config = riglr_showcase::config::Config::from_env();
     let validation_result = config.validate();
@@ -69,22 +82,22 @@ fn test_configuration_validation() {
     assert!(validation_result.is_err(), "Should reject empty API key");
 
     // Test invalid URL formats
-    env::set_var("REDIS_URL", "invalid-url");
+    env::set_var(REDIS_URL, "invalid-url");
     let config = riglr_showcase::config::Config::from_env();
     let validation_result = config.validate();
     assert!(validation_result.is_err(), "Should reject invalid Redis URL format");
 
     // Clean up
-    env::remove_var("OPENAI_API_KEY");
-    env::remove_var("REDIS_URL");
-    env::remove_var("NEO4J_URL");
-    env::remove_var("TWITTER_BEARER_TOKEN");
-    env::remove_var("EXA_API_KEY");
-    env::remove_var("RPC_URL_1");
-    env::remove_var("RPC_URL_137");
-    env::remove_var("RPC_URL_42161");
-    env::remove_var("RPC_URL_8453");
-    env::remove_var("SOLANA_RPC_URL");
+    env::remove_var(OPENAI_API_KEY);
+    env::remove_var(REDIS_URL);
+    env::remove_var(NEO4J_URL);
+    env::remove_var(TWITTER_BEARER_TOKEN);
+    env::remove_var(EXA_API_KEY);
+    env::remove_var(RPC_URL_1);
+    env::remove_var(RPC_URL_137);
+    env::remove_var(RPC_URL_42161);
+    env::remove_var(RPC_URL_8453);
+    env::remove_var(SOLANA_RPC_URL);
 }
 
 #[tokio::test]
@@ -136,22 +149,22 @@ fn test_rpc_url_validation() {
     use riglr_evm_tools::util::chain_id_to_rpc_url;
 
     // Test invalid URL format
-    env::set_var("RPC_URL_999", "invalid-url");
+    env::set_var(RPC_URL_999, "invalid-url");
     let result = chain_id_to_rpc_url(999);
     assert!(result.is_err(), "Should reject invalid URL format");
 
     // Test valid URL format
-    env::set_var("RPC_URL_999", "https://valid-url.example.com");
+    env::set_var(RPC_URL_999, "https://valid-url.example.com");
     let result = chain_id_to_rpc_url(999);
     assert!(result.is_ok(), "Should accept valid URL format");
 
     // Test empty URL
-    env::set_var("RPC_URL_999", "");
+    env::set_var(RPC_URL_999, "");
     let result = chain_id_to_rpc_url(999);
     assert!(result.is_err(), "Should reject empty URL");
 
     // Clean up
-    env::remove_var("RPC_URL_999");
+    env::remove_var(RPC_URL_999);
 }
 
 #[test]
