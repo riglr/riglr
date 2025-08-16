@@ -388,8 +388,10 @@ impl FlowController {
                     Ok(())
                 } else {
                     // Try to acquire, but don't wait too long
-                    if let Ok(Ok(permit)) = tokio::time::timeout(Duration::from_millis(10), self.semaphore.acquire())
-                                            .await {
+                    if let Ok(Ok(permit)) =
+                        tokio::time::timeout(Duration::from_millis(10), self.semaphore.acquire())
+                            .await
+                    {
                         permit.forget();
                         Ok(())
                     } else {
