@@ -388,20 +388,16 @@ impl FlowController {
                     Ok(())
                 } else {
                     // Try to acquire, but don't wait too long
-                    match tokio::time::timeout(Duration::from_millis(10), self.semaphore.acquire())
-                        .await
-                    {
-                        Ok(Ok(permit)) => {
-                            permit.forget();
-                            Ok(())
-                        }
-                        _ => {
-                            let mut drop_count = self.drop_count.write().await;
-                            *drop_count += 1;
-                            Err(StreamError::Backpressure {
-                                message: "Adaptive timeout".into(),
-                            })
-                        }
+                    if let Ok(Ok(permit)) = tokio::time::timeout(Duration::from_millis(10), self.semaphore.acquire())
+                                            .await {
+                        permit.forget();
+                        Ok(())
+                    } else {
+                        let mut drop_count = self.drop_count.write().await;
+                        *drop_count += 1;
+                        Err(StreamError::Backpressure {
+                            message: "Adaptive timeout".into(),
+                        })
                     }
                 }
             }
