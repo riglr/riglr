@@ -21,7 +21,7 @@ env:
 jobs:
   benchmark:
     name: Performance Check
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
