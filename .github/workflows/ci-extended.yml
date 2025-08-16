@@ -4,6 +4,12 @@ on:
   # Run on main branch pushes and manual trigger only
   push:
     branches: [ main ]
+    paths-ignore:
+      - 'docs/**'
+      - 'website/**'
+      - '**.md'
+      - 'LICENSE'
+      - '.github/workflows/deploy-docs.yml'
   workflow_dispatch:
   schedule:
     # Weekly run to catch issues
