@@ -683,7 +683,7 @@ Get the inner string value.
 **Source**: `src/types.rs`
 
 ```rust
-pub fn broadcast( from: AgentId, message_type: String, payload: serde_json::Value, ) -> Self
+pub fn broadcast(from: AgentId, message_type: String, payload: serde_json::Value) -> Self
 ```
 
 Create a broadcast message (no specific recipient).
@@ -711,7 +711,7 @@ A complete agent system ready for use.
 **Source**: `src/builder.rs`
 
 ```rust
-pub async fn build_with_registry<R: AgentRegistry + 'static>( self, registry: Arc<R> ) -> Result<CustomAgentSystem<R>>
+pub async fn build_with_registry<R: AgentRegistry + 'static>( self, registry: Arc<R>, ) -> Result<CustomAgentSystem<R>>
 ```
 
 Build with a custom registry implementation.
@@ -1326,7 +1326,7 @@ Create a new agent ID from a string.
 **Source**: `src/types.rs`
 
 ```rust
-pub fn new( task_type: TaskType, parameters: serde_json::Value, ) -> Self
+pub fn new(task_type: TaskType, parameters: serde_json::Value) -> Self
 ```
 
 Create a new task with the given type and parameters.
@@ -2163,7 +2163,7 @@ Set the task timeout.
 ```
 
 ```rust
-pub enum AgentError { /// Agent not found in registry #[error("Agent '{agent_id}' not found in registry")] AgentNotFound { agent_id: String }, /// No suitable agent found for task #[error("No agent found capable of handling task type '{task_type}'")] NoSuitableAgent { task_type: String }, /// Agent is not available #[error("Agent '{agent_id}' is not available (status: {status})")] AgentUnavailable { agent_id: String, status: String }, /// Task execution failed #[error("Task execution failed: {message}")] TaskExecution { message: String, #[source] source: Option<Box<dyn std::error::Error + Send + Sync>>, }, /// Task timeout #[error("Task '{task_id}' timed out after {duration:?}")] TaskTimeout { task_id: String, duration: std::time::Duration }, /// Task cancelled #[error("Task '{task_id}' was cancelled: {reason}")] TaskCancelled { task_id: String, reason: String }, /// Invalid routing rule #[error("Invalid routing rule: {rule}")] InvalidRoutingRule { rule: String }, /// Communication error #[error("Communication error: {message}")] Communication { message: String, #[source] source: Option<Box<dyn std::error::Error + Send + Sync>>, }, /// Message delivery failed #[error("Failed to deliver message '{message_id}' to agent '{agent_id}'")] MessageDeliveryFailed { message_id: String, agent_id: String, }, /// Registry operation failed #[error("Registry operation failed: {operation}")] Registry { operation: String, #[source] source: Option<Box<dyn std::error::Error + Send + Sync>>, }, /// Dispatcher error #[error("Dispatcher error: {message}")] Dispatcher { message: String, #[source] source: Option<Box<dyn std::error::Error + Send + Sync>>, }, /// Configuration error #[error("Configuration error: {message}")] Configuration { message: String }, /// Serialization error #[error("Serialization error")] Serialization { #[from] source: serde_json::Error, }, /// Tool error (from riglr-core) #[error("Tool error")] Tool { #[from] source: ToolError, }, /// Generic error #[error("Agent system error: {message}")] Generic { message: String, #[source] source: Option<Box<dyn std::error::Error + Send + Sync>>, }, }
+pub enum AgentError { /// Agent not found in registry #[error("Agent '{agent_id}' not found in registry")] AgentNotFound { agent_id: String }, /// No suitable agent found for task #[error("No agent found capable of handling task type '{task_type}'")] NoSuitableAgent { task_type: String }, /// Agent is not available #[error("Agent '{agent_id}' is not available (status: {status})")] AgentUnavailable { agent_id: String, status: String }, /// Task execution failed #[error("Task execution failed: {message}")] TaskExecution { message: String, #[source] source: Option<Box<dyn std::error::Error + Send + Sync>>, }, /// Task timeout #[error("Task '{task_id}' timed out after {duration:?}")] TaskTimeout { task_id: String, duration: std::time::Duration, }, /// Task cancelled #[error("Task '{task_id}' was cancelled: {reason}")] TaskCancelled { task_id: String, reason: String }, /// Invalid routing rule #[error("Invalid routing rule: {rule}")] InvalidRoutingRule { rule: String }, /// Communication error #[error("Communication error: {message}")] Communication { message: String, #[source] source: Option<Box<dyn std::error::Error + Send + Sync>>, }, /// Message delivery failed #[error("Failed to deliver message '{message_id}' to agent '{agent_id}'")] MessageDeliveryFailed { message_id: String, agent_id: String, }, /// Registry operation failed #[error("Registry operation failed: {operation}")] Registry { operation: String, #[source] source: Option<Box<dyn std::error::Error + Send + Sync>>, }, /// Dispatcher error #[error("Dispatcher error: {message}")] Dispatcher { message: String, #[source] source: Option<Box<dyn std::error::Error + Send + Sync>>, }, /// Configuration error #[error("Configuration error: {message}")] Configuration { message: String }, /// Serialization error #[error("Serialization error")] Serialization { #[from] source: serde_json::Error, }, /// Tool error (from riglr-core) #[error("Tool error")] Tool { #[from] source: ToolError, }, /// Generic error #[error("Agent system error: {message}")] Generic { message: String, #[source] source: Option<Box<dyn std::error::Error + Send + Sync>>, }, }
 ```
 
 Main error type for riglr-agents operations.
@@ -2180,8 +2180,6 @@ Main error type for riglr-agents operations.
 - `task_id`
 - `duration`
 - `TaskCancelled`
-- `task_id`
-- `reason`
 - `InvalidRoutingRule`
 - `Communication`
 - `message`

@@ -284,7 +284,7 @@ Get average processing time
 **Source**: `src/utils.rs`
 
 ```rust
-pub fn batch_events( stream: EventStream, batch_size: usize, ) -> EventBatchStream
+pub fn batch_events(stream: EventStream, batch_size: usize) -> EventBatchStream
 ```
 
 Batch events into groups of specified size
@@ -368,7 +368,7 @@ Get the current batch size
 **Source**: `src/utils.rs`
 
 ```rust
-pub fn deduplicate( stream: EventStream, deduplicator: Arc<EventDeduplicator>, ) -> EventStream
+pub fn deduplicate(stream: EventStream, deduplicator: Arc<EventDeduplicator>) -> EventStream
 ```
 
 Deduplicate events in a stream
@@ -428,7 +428,7 @@ Create a filter error with source preservation
 **Source**: `src/utils.rs`
 
 ```rust
-pub fn filter_events<F>( stream: EventStream, predicate: F, ) -> EventStream where F: Fn(&dyn Event) -> bool + Send + Sync + Clone + 'static,
+pub fn filter_events<F>(stream: EventStream, predicate: F) -> EventStream where F: Fn(&dyn Event) -> bool + Send + Sync + Clone + 'static,
 ```
 
 Filter events based on a predicate
@@ -848,7 +848,7 @@ Get processing time percentiles
 **Source**: `src/utils.rs`
 
 ```rust
-pub fn rate_limit( stream: EventStream, rate_limiter: Arc<RateLimiter>, ) -> EventStream
+pub fn rate_limit(stream: EventStream, rate_limiter: Arc<RateLimiter>) -> EventStream
 ```
 
 Add rate limiting to an event stream
@@ -1997,7 +1997,7 @@ sources like websockets, message queues, or blockchain nodes.
 #### `start`
 
 ```rust
-async fn start(&mut self) -> EventResult<Pin<Box<dyn Stream<Item = EventResult<Box<dyn Event>>> + Send>>>;
+async fn start( &mut self, ) -> EventResult<Pin<Box<dyn Stream<Item = EventResult<Box<dyn Event>>> + Send>>>;
 ```
 
 #### `stop`
@@ -2027,7 +2027,7 @@ fn info_mut(&mut self) -> &mut StreamInfo;
 #### `restart`
 
 ```rust
-async fn restart(&mut self) -> EventResult<Pin<Box<dyn Stream<Item = EventResult<Box<dyn Event>>> + Send>>> {
+async fn restart( &mut self, ) -> EventResult<Pin<Box<dyn Stream<Item = EventResult<Box<dyn Event>>> + Send>>> {;
 ```
 
 ---

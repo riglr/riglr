@@ -442,7 +442,7 @@ Backoff strategy for retries
 ```
 
 ```rust
-pub enum BackpressureStrategy { /// Block and wait (default) - guarantees delivery but may cause slowdowns Block, /// Drop messages when buffer is full - fastest but may lose data Drop, /// Retry with exponential backoff, then drop Retry { max_attempts: usize, base_wait_ms: u64 }, /// Adaptive strategy that switches based on load Adaptive, }
+pub enum BackpressureStrategy { /// Block and wait (default) - guarantees delivery but may cause slowdowns Block, /// Drop messages when buffer is full - fastest but may lose data Drop, /// Retry with exponential backoff, then drop Retry { max_attempts: usize, base_wait_ms: u64, }, /// Adaptive strategy that switches based on load Adaptive, }
 ```
 
 Backpressure handling strategies
@@ -452,6 +452,8 @@ Backpressure handling strategies
 - `Block`
 - `Drop`
 - `Retry`
+- `max_attempts`
+- `base_wait_ms`
 - `Adaptive`
 
 ---
@@ -635,7 +637,7 @@ Connection state
 ```
 
 ```rust
-pub enum EventPattern<E> { /// Match a single event type Single(fn(&E) -> bool), /// Match a sequence of events Sequence(Vec<fn(&E) -> bool>), /// Match events within a time window Within { pattern: Box<EventPattern<E>>, duration: Duration }, /// Match any of the patterns Any(Vec<EventPattern<E>>), /// Match all patterns All(Vec<EventPattern<E>>), }
+pub enum EventPattern<E> { /// Match a single event type Single(fn(&E) -> bool), /// Match a sequence of events Sequence(Vec<fn(&E) -> bool>), /// Match events within a time window Within { pattern: Box<EventPattern<E>>, duration: Duration, }, /// Match any of the patterns Any(Vec<EventPattern<E>>), /// Match all patterns All(Vec<EventPattern<E>>), }
 ```
 
 Complex event processing pattern matcher
@@ -645,6 +647,8 @@ Complex event processing pattern matcher
 - `Single(fn(&E)`
 - `Sequence(Vec<fn(&E)`
 - `Within`
+- `pattern`
+- `duration`
 - `Any(Vec<EventPattern<E>>)`
 - `All(Vec<EventPattern<E>>)`
 
@@ -878,7 +882,7 @@ Configuration for a stream
 ```
 
 ```rust
-pub enum StreamError { /// Connection-related errors #[error("Connection failed: {message}")] Connection { message: String, retriable: bool, }, /// Configuration errors #[error("Configuration error: {message}")] Configuration { message: String, }, /// Invalid configuration #[error("Invalid configuration: {reason}")] ConfigurationInvalid { reason: String, }, /// Authentication failures #[error("Authentication failed: {message}")] Authentication { message: String, }, /// Rate limiting errors #[error("Rate limit exceeded: {message}")] RateLimit { message: String, retry_after: Option<u64>, }, /// Data parsing errors #[error("Parse error: {message}")] Parse { message: String, data: String, }, /// Resource exhaustion #[error("Resource exhausted: {message}")] ResourceExhausted { message: String, }, /// Stream already running #[error("Stream already running: {name}")] AlreadyRunning { name: String, }, /// Stream not running #[error("Stream not running: {name}")] NotRunning { name: String, }, /// Channel errors #[error("Channel error: {message}")] Channel { message: String, }, /// Timeout errors #[error("Operation timed out: {message}")] Timeout { message: String, }, /// Processing errors #[error("Processing error: {message}")] Processing { message: String, }, /// Backpressure errors #[error("Backpressure error: {message}")] Backpressure { message: String, }, /// Internal errors #[error("Internal error: {source}")] Internal { #[source] source: Box<dyn std::error::Error + Send + Sync>, }, }
+pub enum StreamError { /// Connection-related errors #[error("Connection failed: {message}")] Connection { message: String, retriable: bool }, /// Configuration errors #[error("Configuration error: {message}")] Configuration { message: String }, /// Invalid configuration #[error("Invalid configuration: {reason}")] ConfigurationInvalid { reason: String }, /// Authentication failures #[error("Authentication failed: {message}")] Authentication { message: String }, /// Rate limiting errors #[error("Rate limit exceeded: {message}")] RateLimit { message: String, retry_after: Option<u64>, }, /// Data parsing errors #[error("Parse error: {message}")] Parse { message: String, data: String }, /// Resource exhaustion #[error("Resource exhausted: {message}")] ResourceExhausted { message: String }, /// Stream already running #[error("Stream already running: {name}")] AlreadyRunning { name: String }, /// Stream not running #[error("Stream not running: {name}")] NotRunning { name: String }, /// Channel errors #[error("Channel error: {message}")] Channel { message: String }, /// Timeout errors #[error("Operation timed out: {message}")] Timeout { message: String }, /// Processing errors #[error("Processing error: {message}")] Processing { message: String }, /// Backpressure errors #[error("Backpressure error: {message}")] Backpressure { message: String }, /// Internal errors #[error("Internal error: {source}")] Internal { #[source] source: Box<dyn std::error::Error + Send + Sync>, }, }
 ```
 
 Comprehensive error type for streaming operations
@@ -889,34 +893,20 @@ maintaining compatibility with the events-core error hierarchy.
 **Variants**:
 
 - `Connection`
-- `message`
-- `retriable`
 - `Configuration`
-- `message`
 - `ConfigurationInvalid`
-- `reason`
 - `Authentication`
-- `message`
 - `RateLimit`
 - `message`
 - `retry_after`
 - `Parse`
-- `message`
-- `data`
 - `ResourceExhausted`
-- `message`
 - `AlreadyRunning`
-- `name`
 - `NotRunning`
-- `name`
 - `Channel`
-- `message`
 - `Timeout`
-- `message`
 - `Processing`
-- `message`
 - `Backpressure`
-- `message`
 - `Internal`
 - `source`
 
@@ -2260,8 +2250,7 @@ Stateful event processor with checkpointing
 
 **Attributes**:
 ```rust
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 ```
 
 ```rust
@@ -2278,8 +2267,7 @@ Comprehensive streaming client configuration
 
 **Attributes**:
 ```rust
-#[derive(Debug, Clone)]
-#[derive(Default)]
+#[derive(Debug, Clone, Default)]
 ```
 
 ```rust
@@ -3072,7 +3060,7 @@ Load configuration from environment variables
 **Source**: `core/streamed_event.rs`
 
 ```rust
-pub fn from_event( event: Box<dyn Event>, stream_metadata: StreamMetadata, ) -> Self
+pub fn from_event(event: Box<dyn Event>, stream_metadata: StreamMetadata) -> Self
 ```
 
 Create from any Event
@@ -3532,7 +3520,7 @@ Create a new batched stream
 **Source**: `core/enhanced_operators.rs`
 
 ```rust
-pub fn new( inner: S, _max_rate_per_second: u64, _dedup_ttl: Duration, ) -> Self
+pub fn new(inner: S, _max_rate_per_second: u64, _dedup_ttl: Duration) -> Self
 ```
 
 Create an enhanced stream with rate limiting and deduplication
@@ -4100,7 +4088,7 @@ pub fn new(sources: Vec<String>) -> Self
 **Source**: `tools/condition.rs`
 
 ```rust
-pub fn new(min_timestamp: Option<std::time::SystemTime>, max_timestamp: Option<std::time::SystemTime>) -> Self
+pub fn new( min_timestamp: Option<std::time::SystemTime>, max_timestamp: Option<std::time::SystemTime>, ) -> Self
 ```
 
 ---
@@ -4154,7 +4142,7 @@ Create a new builder
 **Source**: `tools/worker_extension.rs`
 
 ```rust
-pub fn new( worker_id: String, stream_manager: Arc<StreamManager>, ) -> Self
+pub fn new(worker_id: String, stream_manager: Arc<StreamManager>) -> Self
 ```
 
 Create a new streaming tool worker
@@ -4318,7 +4306,7 @@ Record success
 **Source**: `tools/event_triggered.rs`
 
 ```rust
-pub async fn register(self, manager: &StreamManager) -> Arc<EventTriggeredTool<T>> where T: 'static
+pub async fn register(self, manager: &StreamManager) -> Arc<EventTriggeredTool<T>> where T: 'static,
 ```
 
 Register with a stream manager
@@ -5180,7 +5168,7 @@ fn with_batching(self, batch_size: usize, timeout: Duration) -> BatchedStream<Se
 #### `with_enhancements`
 
 ```rust
-fn with_enhancements( self, max_rate_per_second: u64, dedup_ttl: Duration, ) -> EnhancedStream<Self> where Self: 'static {;
+fn with_enhancements( self, max_rate_per_second: u64, dedup_ttl: Duration, ) -> EnhancedStream<Self> where Self: 'static, {;
 ```
 
 ---
@@ -5266,7 +5254,7 @@ async fn should_handle(&self, event: &(dyn Any + Send + Sync)) -> bool;
 #### `handle`
 
 ```rust
-async fn handle(&self, event: Arc<dyn Any + Send + Sync>) -> Result<(), Box<dyn std::error::Error + Send + Sync>>;
+async fn handle( &self, event: Arc<dyn Any + Send + Sync>, ) -> Result<(), Box<dyn std::error::Error + Send + Sync>>;
 ```
 
 #### `name`
@@ -5304,7 +5292,7 @@ fn source(source: String) -> Box<dyn EventCondition> {
 #### `timestamp_range`
 
 ```rust
-fn timestamp_range(min: Option<std::time::SystemTime>, max: Option<std::time::SystemTime>) -> Box<dyn EventCondition> {
+fn timestamp_range( min: Option<std::time::SystemTime>, max: Option<std::time::SystemTime>, ) -> Box<dyn EventCondition> {;
 ```
 
 #### `all`
@@ -5456,7 +5444,7 @@ Extension trait for performance optimizations
 #### `filter_map`
 
 ```rust
-fn filter_map<FilterF, MapF, R>(self, filter: FilterF, map: MapF) -> FilterMapStream<Self, FilterF, MapF, R> where Self: Sized, FilterF: Fn(&Self::Event) -> bool + Send + Sync + 'static, MapF: Fn(Arc<Self::Event>) -> R + Send + Sync + 'static, R: Event + Clone + Send + Sync + 'static, {;
+fn filter_map<FilterF, MapF, R>( self, filter: FilterF, map: MapF, ) -> FilterMapStream<Self, FilterF, MapF, R> where Self: Sized, FilterF: Fn(&Self::Event) -> bool + Send + Sync + 'static, MapF: Fn(Arc<Self::Event>) -> R + Send + Sync + 'static, R: Event + Clone + Send + Sync + 'static, {;
 ```
 
 ---
@@ -5600,7 +5588,7 @@ Generic tool trait for event-triggered execution
 #### `execute`
 
 ```rust
-async fn execute(&self, event: &dyn Event) -> Result<(), Box<dyn std::error::Error + Send + Sync>>;
+async fn execute( &self, event: &dyn Event, ) -> Result<(), Box<dyn std::error::Error + Send + Sync>>;
 ```
 
 #### `name`

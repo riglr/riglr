@@ -29,7 +29,7 @@ This page contains documentation for tools provided by the `riglr-solana-tools` 
 **Source**: `src/balance.rs`
 
 ```rust
-pub async fn get_sol_balance( address: String, ) -> Result<BalanceResult, ToolError>
+pub async fn get_sol_balance(address: String) -> Result<BalanceResult, ToolError>
 ```
 
 **Documentation:**
@@ -346,7 +346,7 @@ with configurable slippage protection.
 **Source**: `src/pump.rs`
 
 ```rust
-pub async fn get_pump_token_info( token_mint: String, ) -> Result<PumpTokenInfo, ToolError>
+pub async fn get_pump_token_info(token_mint: String) -> Result<PumpTokenInfo, ToolError>
 ```
 
 **Documentation:**
@@ -381,7 +381,7 @@ Separate from action tools following riglr separation of concerns pattern.
 **Source**: `src/pump.rs`
 
 ```rust
-pub async fn get_trending_pump_tokens( limit: Option<u32>, ) -> Result<Vec<PumpTokenInfo>, ToolError>
+pub async fn get_trending_pump_tokens(limit: Option<u32>) -> Result<Vec<PumpTokenInfo>, ToolError>
 ```
 
 **Documentation:**

@@ -1105,7 +1105,7 @@ Validate a port number
 ```
 
 ```rust
-pub fn validate_positive<T: PartialOrd + Default + std::fmt::Display>( value: T, name: &str ) -> ConfigResult<()>
+pub fn validate_positive<T: PartialOrd + Default + std::fmt::Display>( value: T, name: &str, ) -> ConfigResult<()>
 ```
 
 Validate a positive number
@@ -1122,7 +1122,7 @@ Validate a positive number
 ```
 
 ```rust
-pub fn validate_range<T: PartialOrd + std::fmt::Display>( value: T, min: T, max: T, name: &str ) -> ConfigResult<()>
+pub fn validate_range<T: PartialOrd + std::fmt::Display>( value: T, min: T, max: T, name: &str, ) -> ConfigResult<()>
 ```
 
 Validate a range

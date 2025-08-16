@@ -1038,7 +1038,7 @@ Broadcast new event
 **Source**: `api/websocket.rs`
 
 ```rust
-pub fn broadcast_health(&self, healthy: bool, components: std::collections::HashMap<String, bool>)
+pub fn broadcast_health( &self, healthy: bool, components: std::collections::HashMap<String, bool>, )
 ```
 
 Broadcast health update
@@ -1878,7 +1878,7 @@ Create a new indexer service
 **Source**: `core/ingester.rs`
 
 ```rust
-pub async fn new( config: IngesterConfig, context: Arc<ServiceContext>, ) -> IndexerResult<Self>
+pub async fn new(config: IngesterConfig, context: Arc<ServiceContext>) -> IndexerResult<Self>
 ```
 
 Create a new event ingester
@@ -1890,7 +1890,7 @@ Create a new event ingester
 **Source**: `core/processor.rs`
 
 ```rust
-pub async fn new( config: ProcessorConfig, context: Arc<ServiceContext>, ) -> IndexerResult<Self>
+pub async fn new(config: ProcessorConfig, context: Arc<ServiceContext>) -> IndexerResult<Self>
 ```
 
 Create a new event processor
@@ -4145,7 +4145,7 @@ async fn health_check(&self) -> IndexerResult<()>;
 #### `cache_event`
 
 ```rust
-async fn cache_event(&self, key: &str, event: &StoredEvent, ttl: Option<Duration>) -> IndexerResult<()> {
+async fn cache_event( &self, key: &str, event: &StoredEvent, ttl: Option<Duration>, ) -> IndexerResult<()> {;
 ```
 
 #### `get_cached_event`
@@ -4194,7 +4194,7 @@ async fn process_event(&self, event: Box<dyn riglr_events_core::Event>) -> Index
 #### `process_batch`
 
 ```rust
-async fn process_batch(&self, events: Vec<Box<dyn riglr_events_core::Event>>) -> IndexerResult<()>;
+async fn process_batch( &self, events: Vec<Box<dyn riglr_events_core::Event>>, ) -> IndexerResult<()>;
 ```
 
 #### `processing_stats`
@@ -4225,7 +4225,7 @@ Health check trait for services and components
 #### `health_check`
 
 ```rust
-async fn health_check(&self) -> Result<HealthCheckResult, Box<dyn std::error::Error + Send + Sync>>;
+async fn health_check( &self, ) -> Result<HealthCheckResult, Box<dyn std::error::Error + Send + Sync>>;
 ```
 
 #### `component_name`

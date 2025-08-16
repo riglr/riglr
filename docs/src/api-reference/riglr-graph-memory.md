@@ -795,7 +795,7 @@ Search for documents using hybrid vector + graph search
 **Source**: `src/rig_vector_store.rs`
 
 ```rust
-pub async fn search(&self, query_embedding: Vec<f32>, limit: usize) -> Result<Vec<(RigDocument, f32)>>
+pub async fn search( &self, query_embedding: Vec<f32>, limit: usize, ) -> Result<Vec<(RigDocument, f32)>>
 ```
 
 Search for similar documents using vector similarity
@@ -1078,25 +1078,25 @@ This trait defines the interface for storing and retrieving documents with embed
 #### `add_documents`
 
 ```rust
-async fn add_documents(&self, documents: Vec<Self::Document>) -> std::result::Result<Vec<String>, Self::Error>;
+async fn add_documents( &self, documents: Vec<Self::Document>, ) -> std::result::Result<Vec<String>, Self::Error>;
 ```
 
 #### `search`
 
 ```rust
-async fn search(&self, query_embedding: Vec<f32>, limit: usize) -> std::result::Result<Vec<(Self::Document, f32)>, Self::Error>;
+async fn search( &self, query_embedding: Vec<f32>, limit: usize, ) -> std::result::Result<Vec<(Self::Document, f32)>, Self::Error>;
 ```
 
 #### `get_documents`
 
 ```rust
-async fn get_documents(&self, ids: Vec<String>) -> std::result::Result<Vec<Self::Document>, Self::Error>;
+async fn get_documents( &self, ids: Vec<String>, ) -> std::result::Result<Vec<Self::Document>, Self::Error>;
 ```
 
 #### `delete_documents`
 
 ```rust
-async fn delete_documents(&self, ids: Vec<String>) -> std::result::Result<Vec<String>, Self::Error>;
+async fn delete_documents( &self, ids: Vec<String>, ) -> std::result::Result<Vec<String>, Self::Error>;
 ```
 
 ---

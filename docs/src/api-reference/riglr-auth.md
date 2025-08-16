@@ -193,7 +193,7 @@ JWT claims for Privy tokens
 ```
 
 ```rust
-pub struct PrivyConfig { /// Privy application ID pub app_id: String, /// Privy application secret pub app_secret: String, /// Privy API base URL (defaults to https://api.privy.io)
+pub struct PrivyConfig { /// Privy application ID pub app_id: String, /// Privy application secret pub app_secret: String, /// Privy API base URL (defaults to <https://api.privy.io>)
 ```
 
 Privy authentication provider configuration
@@ -734,18 +734,6 @@ pub fn new(config: MagicConfig) -> Self
 
 ### new
 
-**Source**: `privy/config.rs`
-
-```rust
-pub fn new(app_id: String, app_secret: String) -> Self
-```
-
-Create a new Privy configuration
-
----
-
-### new
-
 **Source**: `privy/provider.rs`
 
 ```rust
@@ -771,8 +759,20 @@ pub fn new(client: reqwest::Client, address: String, network: SolanaNetworkConfi
 **Source**: `privy/signer.rs`
 
 ```rust
-pub fn new(client: reqwest::Client, address: String, wallet_id: String, network: EvmNetworkConfig) -> Self
+pub fn new( client: reqwest::Client, address: String, wallet_id: String, network: EvmNetworkConfig, ) -> Self
 ```
+
+---
+
+### new
+
+**Source**: `privy/config.rs`
+
+```rust
+pub fn new(app_id: String, app_secret: String) -> Self
+```
+
+Create a new Privy configuration
 
 ---
 

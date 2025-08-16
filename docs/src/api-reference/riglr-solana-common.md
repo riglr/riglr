@@ -230,7 +230,7 @@ Convert lamports to SOL for display
 **Source**: `src/types.rs`
 
 ```rust
-pub fn new(pubkey: &str, is_signer: bool, is_writable: bool) -> Result<Self, SolanaCommonError>
+pub fn new( pubkey: &str, is_signer: bool, is_writable: bool, ) -> Result<Self, SolanaCommonError>
 ```
 
 ---
