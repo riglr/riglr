@@ -433,15 +433,14 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tokio::time::sleep;
 
     #[derive(Clone)]
     struct MockConnection {
-        id: u32,
+        _id: u32,
     }
 
     async fn create_mock_connection() -> StreamResult<MockConnection> {
-        Ok(MockConnection { id: 42 })
+        Ok(MockConnection { _id: 42 })
     }
 
     async fn create_failing_connection() -> StreamResult<MockConnection> {
@@ -463,8 +462,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_circuit_breaker_failure() {
-        let mut config = ConnectionConfig::default();
-        config.max_retries = 1;
+        let config = ConnectionConfig {
+            max_retries: 1,
+            ..ConnectionConfig::default()
+        };
         let breaker = CircuitBreaker::new(config);
         
         let result = breaker.attempt_connect(create_failing_connection).await;

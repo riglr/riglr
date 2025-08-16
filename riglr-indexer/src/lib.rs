@@ -98,10 +98,10 @@ pub mod prelude {
     pub use crate::error::{IndexerError, IndexerResult};
     pub use crate::utils::{ConsistentHash, BatchProcessor, HealthCheck};
     
-    // Re-export key dependencies
-    pub use riglr_events_core::prelude::*;
-    pub use riglr_solana_events::prelude::*;
-    pub use riglr_streams::prelude::*;
+    // Re-export key dependencies - avoid conflicts by being more specific
+    pub use riglr_events_core::{Event, EventKind, EventMetadata};
+    pub use riglr_solana_events::events::*;
+    pub use riglr_streams::core::{Stream, StreamedEvent};
     
     // Re-export common types
     pub use tokio;

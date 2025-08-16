@@ -24,7 +24,7 @@ use super::signer::PrivyEvmSigner;
 #[cfg(feature = "caching")]
 use lru::LruCache;
 #[cfg(feature = "caching")]
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 /// Privy authentication provider
 pub struct PrivyProvider {

@@ -232,7 +232,7 @@ impl MetaplexParser {
             // This is complex due to variable-length strings and nested data
             // For now, we provide a simplified analysis
             
-            let analysis = MetaplexEventAnalysis {
+            let _analysis = MetaplexEventAnalysis {
                 event_category: "nft_mint".to_string(),
                 nft_mint: None, // Would be extracted from accounts
                 collection_mint: None,
@@ -244,7 +244,8 @@ impl MetaplexParser {
                 }),
             };
             
-            event.set_parsed_data(analysis);
+            // NOTE: Commenting out to preserve instruction data in parsed_data
+            // event.set_parsed_data(analysis);
         }
         
         let json = serde_json::json!({
@@ -276,7 +277,7 @@ impl MetaplexParser {
         event.set_parsed_data(instruction_data);
         
         if self.detailed_metadata {
-            let analysis = MetaplexEventAnalysis {
+            let _analysis = MetaplexEventAnalysis {
                 event_category: "nft_transfer".to_string(),
                 nft_mint: None, // Would be extracted from accounts
                 collection_mint: None,
@@ -288,7 +289,8 @@ impl MetaplexParser {
                 }),
             };
             
-            event.set_parsed_data(analysis);
+            // NOTE: Commenting out to preserve instruction data in parsed_data
+            // event.set_parsed_data(analysis);
         }
         
         let json = serde_json::json!({
@@ -320,7 +322,7 @@ impl MetaplexParser {
         event.set_parsed_data(instruction_data);
         
         if self.detailed_metadata {
-            let analysis = MetaplexEventAnalysis {
+            let _analysis = MetaplexEventAnalysis {
                 event_category: "nft_burn".to_string(),
                 nft_mint: None, // Would be extracted from accounts
                 collection_mint: None,
@@ -331,7 +333,8 @@ impl MetaplexParser {
                 }),
             };
             
-            event.set_parsed_data(analysis);
+            // NOTE: Commenting out to preserve instruction data in parsed_data
+            // event.set_parsed_data(analysis);
         }
         
         let json = serde_json::json!({

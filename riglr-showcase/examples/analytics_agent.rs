@@ -48,7 +48,7 @@ async fn main() -> Result<()> {
     println!("Using wallet: {}", solana_keypair.pubkey());
     
     // Execute analytics workflow within signer context
-    let result = SignerContext::with_signer(solana_signer.clone(), async {
+    SignerContext::with_signer(solana_signer.clone(), async {
         println!("\n🔍 Starting on-chain data analysis...");
         
         // Demonstrate real analytics operations using current tools
@@ -81,8 +81,6 @@ async fn main() -> Result<()> {
         
         Ok::<(), SignerError>(())
     }).await.map_err(|e| anyhow::anyhow!(e))?;
-    
-    let _ = result;
     
     println!("\n✅ Analytics agent demo completed successfully!");
     println!("\n📚 Key Learning Points:");

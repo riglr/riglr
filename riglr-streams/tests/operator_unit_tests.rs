@@ -3,8 +3,7 @@
 
 use std::time::Duration;
 use tokio::time::timeout;
-use riglr_events_core::{Event, EventKind};
-use riglr_streams::core::StreamEvent;
+use riglr_events_core::EventKind;
 use riglr_streams::core::{
     mock_stream::{MockStream, MockConfig},
     Stream,
@@ -234,7 +233,7 @@ async fn test_infinite_stream() {
     }
     
     // Should receive approximately 20 events (allowing for some variance)
-    assert!(events >= 15 && events <= 25, 
+    assert!((15..=25).contains(&events), 
             "Should receive approximately 20 events, got {}", events);
     
     // Stream should still be running

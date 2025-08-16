@@ -16,7 +16,7 @@
 use riglr_agents::{
     Agent, AgentDispatcher, AgentRegistry, LocalAgentRegistry,
     Task, TaskResult, TaskType, Priority, AgentId, AgentMessage,
-    DispatchConfig, RoutingStrategy, ChannelCommunication
+    DispatchConfig, RoutingStrategy, ChannelCommunication, AgentCommunication
 };
 use async_trait::async_trait;
 use std::sync::{Arc, Mutex};
@@ -66,13 +66,26 @@ impl MarketResearchAgent {
         // Simulate complex technical analysis
         sleep(Duration::from_millis(300)).await;
         
+        // Check current portfolio exposure to this symbol
+        let portfolio = self.portfolio.lock().unwrap();
+        let current_position = portfolio.positions.get(symbol).copied().unwrap_or(0.0);
+        let position_value = current_position * 50000.0; // Simulate price
+        let exposure_ratio = if portfolio.total_value > 0.0 {
+            position_value / portfolio.total_value
+        } else {
+            0.0
+        };
+        drop(portfolio); // Release lock early
+        
         let indicators = json!({
             "rsi": 65.4,
             "macd": "bullish_crossover",
             "bollinger_bands": "upper_band_touch",
             "volume_profile": "high_volume_node",
             "support_levels": [48500, 47200, 46000],
-            "resistance_levels": [52000, 53500, 55000]
+            "resistance_levels": [52000, 53500, 55000],
+            "current_exposure": exposure_ratio,
+            "position_status": if exposure_ratio > 0.15 { "overweight" } else if exposure_ratio > 0.05 { "balanced" } else { "underweight" }
         });
         
         json!({
@@ -111,13 +124,13 @@ impl MarketResearchAgent {
 impl Agent for MarketResearchAgent {
     async fn execute_task(&self, task: Task) -> riglr_agents::Result<TaskResult> {
         println!("🔬 Research Agent {} analyzing: {}", self.id, 
-            task.input.get("symbol").and_then(|s| s.as_str()).unwrap_or("N/A"));
+            task.parameters.get("symbol").and_then(|s| s.as_str()).unwrap_or("N/A"));
         
-        let symbol = task.input.get("symbol")
+        let symbol = task.parameters.get("symbol")
             .and_then(|s| s.as_str())
-            .ok_or_else(|| riglr_agents::AgentError::InvalidTask("Missing symbol".to_string()))?;
+            .ok_or_else(|| riglr_agents::AgentError::task_execution("Missing symbol".to_string()))?;
         
-        let analysis_type = task.input.get("analysis_type")
+        let _analysis_type = task.parameters.get("analysis_type")
             .and_then(|t| t.as_str())
             .unwrap_or("comprehensive");
         
@@ -126,16 +139,53 @@ impl Agent for MarketResearchAgent {
             self.perform_sentiment_analysis(symbol)
         );
         
+        // Calculate portfolio-aware recommendations
+        let (current_exposure, recommended_position_size, action) = {
+            let portfolio = self.portfolio.lock().unwrap();
+            let current_position = portfolio.positions.get(symbol).copied().unwrap_or(0.0);
+            let available_capital = portfolio.available_capital;
+            let current_exposure = if portfolio.total_value > 0.0 {
+                (current_position * 50000.0) / portfolio.total_value
+            } else {
+                0.0
+            };
+            
+            // Adjust position size based on current exposure and available capital
+            let recommended_position_size = if current_exposure > 0.10 {
+                0.05 // Reduce position size if already heavily exposed
+            } else if available_capital < 10000.0 {
+                0.02 // Conservative sizing with low capital
+            } else {
+                0.15 // Standard position size
+            };
+            
+            let action = if current_exposure > 0.20 {
+                "hold" // Don't increase position if over-exposed
+            } else {
+                "buy"
+            };
+            
+            (current_exposure, recommended_position_size, action)
+        }; // MutexGuard is dropped here
+        
         let comprehensive_analysis = json!({
             "symbol": symbol,
             "technical": technical,
             "sentiment": sentiment,
             "recommendation": {
-                "action": "buy",
+                "action": action,
                 "confidence": 0.78,
                 "target_price": 55000,
                 "stop_loss": 47000,
-                "position_size_percent": 0.15
+                "position_size_percent": recommended_position_size,
+                "current_exposure": current_exposure,
+                "reasoning": if current_exposure > 0.20 {
+                    "Position already overweight, recommend hold"
+                } else if recommended_position_size < 0.10 {
+                    "Limited capital, conservative position sizing"
+                } else {
+                    "Standard position sizing recommended"
+                }
             },
             "research_quality": "high",
             "analysis_timestamp": chrono::Utc::now().timestamp()
@@ -149,12 +199,12 @@ impl Agent for MarketResearchAgent {
             comprehensive_analysis.clone()
         );
         
-        self.communication.broadcast(message).await
-            .map_err(|e| riglr_agents::AgentError::Communication(e.to_string()))?;
+        self.communication.broadcast_message(message).await
+            .map_err(|e| riglr_agents::AgentError::communication(e.to_string()))?;
         
         Ok(TaskResult::success(
             comprehensive_analysis,
-            Some(Duration::from_millis(500)),
+            None, // No transaction hash for research task
             Duration::from_millis(500)
         ))
     }
@@ -198,7 +248,7 @@ impl RiskManagementAgent {
         }
     }
 
-    async fn calculate_position_risk(&self, symbol: &str, amount: f64, price: f64) -> f64 {
+    async fn calculate_position_risk(&self, _symbol: &str, amount: f64, price: f64) -> f64 {
         // Simulate sophisticated risk calculation
         sleep(Duration::from_millis(100)).await;
         
@@ -259,11 +309,11 @@ impl Agent for RiskManagementAgent {
     async fn execute_task(&self, task: Task) -> riglr_agents::Result<TaskResult> {
         println!("⚖️ Risk Agent {} assessing trade risk", self.id);
         
-        let analysis = task.input.get("analysis")
-            .ok_or_else(|| riglr_agents::AgentError::InvalidTask("Missing analysis data".to_string()))?;
+        let analysis = task.parameters.get("analysis")
+            .ok_or_else(|| riglr_agents::AgentError::task_execution("Missing analysis data".to_string()))?;
         
-        let trade_params = task.input.get("trade_params")
-            .ok_or_else(|| riglr_agents::AgentError::InvalidTask("Missing trade parameters".to_string()))?;
+        let trade_params = task.parameters.get("trade_params")
+            .ok_or_else(|| riglr_agents::AgentError::task_execution("Missing trade parameters".to_string()))?;
         
         let risk_assessment = self.validate_trade(analysis, trade_params).await;
         
@@ -275,12 +325,12 @@ impl Agent for RiskManagementAgent {
             risk_assessment.clone()
         );
         
-        self.communication.broadcast(message).await
-            .map_err(|e| riglr_agents::AgentError::Communication(e.to_string()))?;
+        self.communication.broadcast_message(message).await
+            .map_err(|e| riglr_agents::AgentError::communication(e.to_string()))?;
         
         Ok(TaskResult::success(
             risk_assessment,
-            Some(Duration::from_millis(100)),
+            None, // No transaction hash for risk assessment
             Duration::from_millis(200)
         ))
     }
@@ -299,12 +349,9 @@ impl Agent for RiskManagementAgent {
     }
 
     async fn handle_message(&self, message: AgentMessage) -> riglr_agents::Result<()> {
-        match message.message_type.as_str() {
-            "trade_executed" => {
-                println!("⚖️ Risk Agent {} updating portfolio after trade", self.id);
-                // Update portfolio state after successful trade
-            }
-            _ => {}
+        if message.message_type.as_str() == "trade_executed" {
+            println!("⚖️ Risk Agent {} updating portfolio after trade", self.id);
+            // Update portfolio state after successful trade
         }
         Ok(())
     }
@@ -385,7 +432,7 @@ impl Agent for TradeExecutionAgent {
     async fn execute_task(&self, task: Task) -> riglr_agents::Result<TaskResult> {
         println!("⚡ Execution Agent {} processing trade order", self.id);
         
-        let risk_approval = task.input.get("risk_approval")
+        let risk_approval = task.parameters.get("risk_approval")
             .and_then(|r| r.get("approved"))
             .and_then(|a| a.as_bool())
             .unwrap_or(false);
@@ -398,8 +445,8 @@ impl Agent for TradeExecutionAgent {
             ));
         }
         
-        let trade_params = task.input.get("trade_params")
-            .ok_or_else(|| riglr_agents::AgentError::InvalidTask("Missing trade parameters".to_string()))?;
+        let trade_params = task.parameters.get("trade_params")
+            .ok_or_else(|| riglr_agents::AgentError::task_execution("Missing trade parameters".to_string()))?;
         
         let trade_result = self.execute_blockchain_trade(trade_params).await?;
         
@@ -411,12 +458,14 @@ impl Agent for TradeExecutionAgent {
             trade_result.clone()
         );
         
-        self.communication.broadcast(message).await
-            .map_err(|e| riglr_agents::AgentError::Communication(e.to_string()))?;
+        self.communication.broadcast_message(message).await
+            .map_err(|e| riglr_agents::AgentError::communication(e.to_string()))?;
+        
+        let tx_hash = trade_result.get("transaction_hash").and_then(|h| h.as_str()).map(|s| s.to_string());
         
         Ok(TaskResult::success(
             trade_result,
-            Some(Duration::from_millis(500)),
+            tx_hash,
             Duration::from_millis(500)
         ))
     }
@@ -490,7 +539,7 @@ impl PortfolioMonitorAgent {
 
 #[async_trait]
 impl Agent for PortfolioMonitorAgent {
-    async fn execute_task(&self, task: Task) -> riglr_agents::Result<TaskResult> {
+    async fn execute_task(&self, _task: Task) -> riglr_agents::Result<TaskResult> {
         println!("📊 Portfolio Monitor {} generating report", self.id);
         
         let report = self.generate_portfolio_report().await;
@@ -503,12 +552,12 @@ impl Agent for PortfolioMonitorAgent {
             report.clone()
         );
         
-        self.communication.broadcast(message).await
-            .map_err(|e| riglr_agents::AgentError::Communication(e.to_string()))?;
+        self.communication.broadcast_message(message).await
+            .map_err(|e| riglr_agents::AgentError::communication(e.to_string()))?;
         
         Ok(TaskResult::success(
             report,
-            Some(Duration::from_millis(100)),
+            None, // No transaction hash for portfolio report
             Duration::from_millis(100)
         ))
     }
@@ -527,11 +576,8 @@ impl Agent for PortfolioMonitorAgent {
     }
 
     async fn handle_message(&self, message: AgentMessage) -> riglr_agents::Result<()> {
-        match message.message_type.as_str() {
-            "trade_executed" => {
-                println!("📊 Portfolio Monitor {} updating positions", self.id);
-            }
-            _ => {}
+        if message.message_type.as_str() == "trade_executed" {
+            println!("📊 Portfolio Monitor {} updating positions", self.id);
         }
         Ok(())
     }
@@ -561,14 +607,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     registry.register_agent(execution_agent.clone()).await?;
     registry.register_agent(portfolio_monitor.clone()).await?;
     
-    println!("✅ Registered {} specialized agents in trading swarm", registry.count().await);
+    println!("✅ Registered {} specialized agents in trading swarm", registry.agent_count().await?);
     
     // Create dispatcher optimized for trading workflows
     let dispatch_config = DispatchConfig {
-        routing_strategy: RoutingStrategy::CapabilityBased,
+        routing_strategy: RoutingStrategy::Capability,
         max_retries: 2,
-        timeout: Duration::from_secs(45),
+        default_task_timeout: Duration::from_secs(45),
         enable_load_balancing: false, // Sequential execution for trading workflow
+        retry_delay: Duration::from_secs(1),
+        max_concurrent_tasks_per_agent: 10,
     };
     
     let dispatcher = Arc::new(AgentDispatcher::with_config(registry.clone(), dispatch_config));

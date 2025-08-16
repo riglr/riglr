@@ -6,7 +6,7 @@
 use anyhow::Result;
 use riglr_showcase::processors::{
     DistillationProcessor, MarkdownFormatter, HtmlFormatter, JsonFormatter,
-    NotificationRouter, ProcessorPipeline, ToolOutput, OutputProcessor,
+    NotificationRouter, ProcessorPipeline, OutputProcessor,
     RoutingRule, RoutingCondition, DiscordChannel, TelegramChannel,
     ConsoleChannel, MultiFormatProcessor,
     utils,

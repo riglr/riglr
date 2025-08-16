@@ -33,7 +33,7 @@ async fn test_signer_context_basic() {
     let result = SignerContext::with_signer(signer, async {
         // Inside this block, tools can access the signer via SignerContext::current()
         let current_signer = SignerContext::current().await?;
-        assert!(current_signer.solana_client().url().contains("devnet"));
+        assert!(current_signer.solana_client().expect("Solana client should be available").url().contains("devnet"));
         Ok::<_, riglr_core::signer::SignerError>(())
     }).await;
     

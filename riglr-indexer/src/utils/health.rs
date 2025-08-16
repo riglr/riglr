@@ -6,13 +6,12 @@ use std::time::{Duration, Instant};
 use tokio::sync::RwLock;
 use tracing::{debug, error, warn};
 
-use crate::error::{IndexerError, IndexerResult};
 
 /// Health check trait for services and components
 #[async_trait::async_trait]
 pub trait HealthCheck: Send + Sync {
     /// Perform a health check
-    async fn health_check(&self) -> HealthCheckResult;
+    async fn health_check(&self) -> Result<HealthCheckResult, Box<dyn std::error::Error + Send + Sync>>;
     
     /// Get component name
     fn component_name(&self) -> &str;
@@ -236,12 +235,19 @@ impl Clone for HealthCheckCoordinator {
 /// Overall health summary
 #[derive(Debug, Clone)]
 pub struct HealthSummary {
+    /// Overall system health status
     pub overall_healthy: bool,
+    /// Human-readable status description
     pub status: String,
+    /// Total number of components checked
     pub total_components: usize,
+    /// Number of healthy components
     pub healthy_components: usize,
+    /// Number of unhealthy components
     pub unhealthy_components: usize,
+    /// Individual component health check results
     pub component_results: HashMap<String, HealthCheckResult>,
+    /// Health check timestamp
     pub timestamp: Instant,
 }
 
@@ -268,10 +274,10 @@ impl ConnectionHealthCheck {
 
 #[async_trait::async_trait]
 impl HealthCheck for ConnectionHealthCheck {
-    async fn health_check(&self) -> HealthCheckResult {
+    async fn health_check(&self) -> Result<HealthCheckResult, Box<dyn std::error::Error + Send + Sync>> {
         match (self.test_fn)() {
-            Ok(()) => HealthCheckResult::healthy("Connection OK"),
-            Err(e) => HealthCheckResult::unhealthy(&format!("Connection failed: {}", e)),
+            Ok(()) => Ok(HealthCheckResult::healthy("Connection OK")),
+            Err(e) => Ok(HealthCheckResult::unhealthy(&format!("Connection failed: {}", e))),
         }
     }
 
@@ -302,7 +308,7 @@ impl HttpHealthCheck {
 
 #[async_trait::async_trait]
 impl HealthCheck for HttpHealthCheck {
-    async fn health_check(&self) -> HealthCheckResult {
+    async fn health_check(&self) -> Result<HealthCheckResult, Box<dyn std::error::Error + Send + Sync>> {
         let client = reqwest::Client::new();
         
         match tokio::time::timeout(
@@ -312,16 +318,16 @@ impl HealthCheck for HttpHealthCheck {
             Ok(Ok(response)) => {
                 let status = response.status().as_u16();
                 if status == self.expected_status {
-                    HealthCheckResult::healthy(&format!("HTTP {} OK", status))
+                    Ok(HealthCheckResult::healthy(&format!("HTTP {} OK", status)))
                 } else {
-                    HealthCheckResult::unhealthy(&format!("HTTP {} (expected {})", status, self.expected_status))
+                    Ok(HealthCheckResult::unhealthy(&format!("HTTP {} (expected {})", status, self.expected_status)))
                 }
             }
             Ok(Err(e)) => {
-                HealthCheckResult::unhealthy(&format!("HTTP request failed: {}", e))
+                Ok(HealthCheckResult::unhealthy(&format!("HTTP request failed: {}", e)))
             }
             Err(_) => {
-                HealthCheckResult::unhealthy("HTTP request timed out")
+                Ok(HealthCheckResult::unhealthy("HTTP request timed out"))
             }
         }
     }
@@ -341,8 +347,8 @@ mod tests {
 
     #[async_trait::async_trait]
     impl HealthCheck for AlwaysHealthyCheck {
-        async fn health_check(&self) -> HealthCheckResult {
-            HealthCheckResult::healthy("Always healthy")
+        async fn health_check(&self) -> Result<HealthCheckResult, Box<dyn std::error::Error + Send + Sync>> {
+            Ok(HealthCheckResult::healthy("Always healthy"))
         }
 
         fn component_name(&self) -> &str {
@@ -356,8 +362,8 @@ mod tests {
 
     #[async_trait::async_trait]
     impl HealthCheck for AlwaysUnhealthyCheck {
-        async fn health_check(&self) -> HealthCheckResult {
-            HealthCheckResult::unhealthy("Always unhealthy")
+        async fn health_check(&self) -> Result<HealthCheckResult, Box<dyn std::error::Error + Send + Sync>> {
+            Ok(HealthCheckResult::unhealthy("Always unhealthy"))
         }
 
         fn component_name(&self) -> &str {
@@ -423,7 +429,7 @@ mod tests {
     fn test_connection_health_check() {
         let check = ConnectionHealthCheck::new(
             "test".to_string(),
-            || -> Result<(), &'static str> { Ok(()) }
+            || -> Result<(), std::io::Error> { Ok(()) }
         );
 
         assert_eq!(check.component_name(), "test");

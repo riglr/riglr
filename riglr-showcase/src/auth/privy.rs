@@ -299,7 +299,9 @@ pub mod privy_impl {
             Err(SignerError::UnsupportedOperation("EVM not supported by PrivySolanaSigner".into()))
         }
 
-        fn solana_client(&self) -> Arc<RpcClient> { self.rpc.clone() }
+        fn solana_client(&self) -> Option<Arc<solana_client::rpc_client::RpcClient>> { 
+            Some(self.rpc.clone()) 
+        }
         fn evm_client(&self) -> Result<Arc<dyn EvmClient>, SignerError> {
             Err(SignerError::UnsupportedOperation("EVM client not available for PrivySolanaSigner".into()))
         }
@@ -372,8 +374,8 @@ pub mod privy_impl {
             Ok(parsed.data.hash)
         }
 
-        fn solana_client(&self) -> Arc<RpcClient> {
-            Arc::new(RpcClient::new("https://api.mainnet-beta.solana.com"))
+        fn solana_client(&self) -> Option<Arc<solana_client::rpc_client::RpcClient>> {
+            Some(Arc::new(RpcClient::new("https://api.mainnet-beta.solana.com")))
         }
 
         fn evm_client(&self) -> Result<Arc<dyn EvmClient>, SignerError> {
@@ -390,7 +392,7 @@ mod tests {
     #[cfg(feature = "web-server")]
     use super::privy_impl::*;
     #[cfg(feature = "web-server")]
-    use riglr_web_adapters::factory::AuthenticationData;
+    use riglr_web_adapters::factory::{AuthenticationData, SignerFactory};
     #[cfg(feature = "web-server")]
     use riglr_core::config::RpcConfig;
     #[cfg(feature = "web-server")]

@@ -1,6 +1,5 @@
 //! Error types for the RIGLR indexer service
 
-use std::fmt;
 use thiserror::Error;
 
 /// Result type used throughout the indexer
@@ -116,46 +115,91 @@ impl IndexerError {
 /// Configuration-related errors
 #[derive(Error, Debug)]
 pub enum ConfigError {
+    /// Missing required configuration field
     #[error("Missing required configuration: {field}")]
-    MissingField { field: String },
+    MissingField {
+        /// The missing field name
+        field: String,
+    },
 
+    /// Invalid configuration value
     #[error("Invalid configuration value for {field}: {value}")]
-    InvalidValue { field: String, value: String },
+    InvalidValue {
+        /// The field with invalid value
+        field: String,
+        /// The invalid value
+        value: String,
+    },
 
+    /// Failed to load configuration from source
     #[error("Failed to load configuration from {path}: {source}")]
     LoadFailed {
+        /// Path or source of configuration
         path: String,
+        /// The underlying error
         #[source]
         source: Box<dyn std::error::Error + Send + Sync>,
     },
 
+    /// Configuration validation failed
     #[error("Configuration validation failed: {message}")]
-    ValidationFailed { message: String },
+    ValidationFailed {
+        /// Validation error message
+        message: String,
+    },
 }
 
 /// Storage layer errors
 #[derive(Error, Debug)]
 pub enum StorageError {
+    /// Database connection failed
     #[error("Database connection failed: {message}")]
-    ConnectionFailed { message: String },
+    ConnectionFailed {
+        /// Connection failure message
+        message: String,
+    },
 
+    /// Database query failed
     #[error("Database query failed: {query}")]
-    QueryFailed { query: String },
+    QueryFailed {
+        /// The failed query
+        query: String,
+    },
 
+    /// Migration failed
     #[error("Migration failed: {version}")]
-    MigrationFailed { version: String },
+    MigrationFailed {
+        /// Migration version that failed
+        version: String,
+    },
 
+    /// Data corruption detected
     #[error("Data corruption detected: {details}")]
-    DataCorruption { details: String },
+    DataCorruption {
+        /// Corruption details
+        details: String,
+    },
 
+    /// Storage capacity exceeded
     #[error("Storage capacity exceeded: {current_size}")]
-    CapacityExceeded { current_size: u64 },
+    CapacityExceeded {
+        /// Current storage size in bytes
+        current_size: u64,
+    },
 
+    /// Transaction failed
     #[error("Transaction failed: {operation}")]
-    TransactionFailed { operation: String },
+    TransactionFailed {
+        /// Failed operation name
+        operation: String,
+    },
 
+    /// Schema validation failed
     #[error("Schema validation failed: {table}")]
-    SchemaValidationFailed { table: String },
+    SchemaValidationFailed {
+        /// Table with schema issues
+        table: String,
+    },
 }
 
 impl StorageError {
@@ -176,23 +220,51 @@ impl StorageError {
 /// Network and API errors
 #[derive(Error, Debug)]
 pub enum NetworkError {
+    /// HTTP request failed
     #[error("HTTP request failed: {status} - {url}")]
-    HttpFailed { status: u16, url: String },
+    HttpFailed {
+        /// HTTP status code
+        status: u16,
+        /// Request URL
+        url: String,
+    },
 
+    /// WebSocket connection failed
     #[error("WebSocket connection failed: {reason}")]
-    WebSocketFailed { reason: String },
+    WebSocketFailed {
+        /// Failure reason
+        reason: String,
+    },
 
+    /// Request timeout
     #[error("Timeout occurred after {seconds}s")]
-    Timeout { seconds: u64 },
+    Timeout {
+        /// Timeout duration in seconds
+        seconds: u64,
+    },
 
+    /// Rate limit exceeded
     #[error("Rate limit exceeded: {limit} requests per {window}s")]
-    RateLimited { limit: u32, window: u32 },
+    RateLimited {
+        /// Rate limit threshold
+        limit: u32,
+        /// Time window in seconds
+        window: u32,
+    },
 
+    /// DNS resolution failed
     #[error("DNS resolution failed for {host}")]
-    DnsResolutionFailed { host: String },
+    DnsResolutionFailed {
+        /// Host that failed to resolve
+        host: String,
+    },
 
+    /// TLS/SSL error
     #[error("TLS/SSL error: {message}")]
-    TlsError { message: String },
+    TlsError {
+        /// Error message
+        message: String,
+    },
 }
 
 impl NetworkError {
@@ -215,26 +287,58 @@ impl NetworkError {
 /// Event processing errors
 #[derive(Error, Debug)]
 pub enum ProcessingError {
+    /// Failed to parse event
     #[error("Failed to parse event: {event_type}")]
-    ParseFailed { event_type: String },
+    ParseFailed {
+        /// Type of event that failed to parse
+        event_type: String,
+    },
 
+    /// Event validation failed
     #[error("Event validation failed: {reason}")]
-    ValidationFailed { reason: String },
+    ValidationFailed {
+        /// Validation failure reason
+        reason: String,
+    },
 
+    /// Worker pool exhausted
     #[error("Worker pool exhausted: {active}/{max} workers")]
-    WorkerPoolExhausted { active: usize, max: usize },
+    WorkerPoolExhausted {
+        /// Number of active workers
+        active: usize,
+        /// Maximum number of workers
+        max: usize,
+    },
 
+    /// Event queue overflow
     #[error("Event queue overflow: {size}/{capacity}")]
-    QueueOverflow { size: usize, capacity: usize },
+    QueueOverflow {
+        /// Current queue size
+        size: usize,
+        /// Queue capacity
+        capacity: usize,
+    },
 
+    /// Serialization failed
     #[error("Serialization failed for event {event_id}")]
-    SerializationFailed { event_id: String },
+    SerializationFailed {
+        /// ID of event that failed to serialize
+        event_id: String,
+    },
 
+    /// Deserialization failed
     #[error("Deserialization failed: {format}")]
-    DeserializationFailed { format: String },
+    DeserializationFailed {
+        /// Format that failed to deserialize
+        format: String,
+    },
 
+    /// Pipeline stalled
     #[error("Pipeline stalled: no events processed in {seconds}s")]
-    PipelineStalled { seconds: u64 },
+    PipelineStalled {
+        /// Seconds since last event processed
+        seconds: u64,
+    },
 }
 
 impl ProcessingError {
@@ -255,36 +359,72 @@ impl ProcessingError {
 /// Metrics collection errors
 #[derive(Error, Debug)]
 pub enum MetricsError {
+    /// Metrics registry error
     #[error("Metrics registry error: {message}")]
-    RegistryError { message: String },
+    RegistryError {
+        /// Error message
+        message: String,
+    },
 
+    /// Metric recording failed
     #[error("Metric recording failed: {metric_name}")]
-    RecordingFailed { metric_name: String },
+    RecordingFailed {
+        /// Name of metric that failed to record
+        metric_name: String,
+    },
 
+    /// Metrics export failed
     #[error("Metrics export failed: {endpoint}")]
-    ExportFailed { endpoint: String },
+    ExportFailed {
+        /// Export endpoint that failed
+        endpoint: String,
+    },
 
+    /// Invalid metric value
     #[error("Invalid metric value: {value}")]
-    InvalidValue { value: String },
+    InvalidValue {
+        /// The invalid value
+        value: String,
+    },
 }
 
 /// Service lifecycle errors
 #[derive(Error, Debug)]
 pub enum ServiceError {
+    /// Service failed to start
     #[error("Service failed to start: {reason}")]
-    StartupFailed { reason: String },
+    StartupFailed {
+        /// Startup failure reason
+        reason: String,
+    },
 
+    /// Service shutdown timeout
     #[error("Service shutdown timeout after {seconds}s")]
-    ShutdownTimeout { seconds: u64 },
+    ShutdownTimeout {
+        /// Timeout duration in seconds
+        seconds: u64,
+    },
 
+    /// Service health check failed
     #[error("Service unhealthy: {check_name}")]
-    HealthCheckFailed { check_name: String },
+    HealthCheckFailed {
+        /// Name of the health check that failed
+        check_name: String,
+    },
 
+    /// Resource exhausted
     #[error("Resource exhausted: {resource}")]
-    ResourceExhausted { resource: String },
+    ResourceExhausted {
+        /// Name of exhausted resource
+        resource: String,
+    },
 
+    /// Dependency unavailable
     #[error("Dependency unavailable: {service}")]
-    DependencyUnavailable { service: String },
+    DependencyUnavailable {
+        /// Name of unavailable service
+        service: String,
+    },
 }
 
 impl ServiceError {
@@ -372,3 +512,4 @@ impl From<redis::RedisError> for IndexerError {
         Self::Storage(storage_error)
     }
 }
+

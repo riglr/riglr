@@ -14,7 +14,6 @@ use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime};
 use tokio::sync::RwLock;
 use tokio::sync::Semaphore;
-#[allow(unused_imports)]
 use tokio::time::sleep;
 use tracing::{info, warn};
 
@@ -565,8 +564,8 @@ mod tests {
 
     #[derive(Debug, Clone)]
     struct TestEvent {
-        id: u64,
-        event_type: String,
+        _id: u64,
+        _event_type: String,
     }
 
     #[tokio::test]
@@ -576,7 +575,7 @@ mod tests {
         };
         let mut manager = WindowManager::new(window_type);
         
-        let event = TestEvent { id: 1, event_type: "test".into() };
+        let event = TestEvent { _id: 1, _event_type: "test".into() };
         let windows = manager.add_event(event);
         
         // No completed windows immediately
@@ -585,7 +584,7 @@ mod tests {
         // Wait for window to expire
         tokio::time::sleep(Duration::from_millis(150)).await;
         
-        let event2 = TestEvent { id: 2, event_type: "test".into() };
+        let event2 = TestEvent { _id: 2, _event_type: "test".into() };
         let windows = manager.add_event(event2);
         
         // Should have completed windows now
@@ -637,10 +636,10 @@ mod tests {
         let mut processor = BatchProcessor::new(config);
         
         // Add events, should not flush until batch size reached
-        assert!(processor.add_event(TestEvent { id: 1, event_type: "test".into() }).is_none());
-        assert!(processor.add_event(TestEvent { id: 2, event_type: "test".into() }).is_none());
+        assert!(processor.add_event(TestEvent { _id: 1, _event_type: "test".into() }).is_none());
+        assert!(processor.add_event(TestEvent { _id: 2, _event_type: "test".into() }).is_none());
         
-        let batch = processor.add_event(TestEvent { id: 3, event_type: "test".into() });
+        let batch = processor.add_event(TestEvent { _id: 3, _event_type: "test".into() });
         assert!(batch.is_some());
         assert_eq!(batch.unwrap().len(), 3);
     }

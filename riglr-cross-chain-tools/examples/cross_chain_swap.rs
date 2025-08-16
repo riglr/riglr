@@ -266,8 +266,8 @@ mod tests {
             Ok("0xmock_signature".to_string())
         }
         
-        fn solana_client(&self) -> Arc<solana_client::rpc_client::RpcClient> {
-            Arc::new(solana_client::rpc_client::RpcClient::new("http://localhost:8899"))
+        fn solana_client(&self) -> Option<Arc<solana_client::rpc_client::RpcClient>> {
+            Some(Arc::new(solana_client::rpc_client::RpcClient::new("http://localhost:8899")))
         }
         
         fn evm_client(&self) -> Result<std::sync::Arc<dyn std::any::Any + Send + Sync>, riglr_core::SignerError> {

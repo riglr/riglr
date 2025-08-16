@@ -96,7 +96,7 @@ impl Default for RpcConfig {
         });
         evm_networks.insert("scroll".to_string(), EvmNetworkConfig {
             name: "Scroll".to_string(),
-            chain_id: 534352,
+            chain_id: 534_352,
             rpc_url: "https://rpc.scroll.io".to_string(),
             explorer_url: Some("https://scrollscan.com".to_string()),
         });
@@ -143,7 +143,7 @@ impl Default for RpcConfig {
             explorer_url: Some("https://explorer.solana.com".to_string()),
         });
 
-        RpcConfig {
+        Self {
             evm_networks,
             solana_networks,
         }
@@ -152,16 +152,33 @@ impl Default for RpcConfig {
 
 impl EvmNetworkConfig {
     /// Return the CAIP-2 identifier for this EVM network, e.g. "eip155:1".
+    #[must_use]
     pub fn caip2(&self) -> String {
         format!("eip155:{}", self.chain_id)
     }
 }
 
 impl RpcConfig {
+    /// Create `RpcConfig` from environment variables
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if environment variables are invalid or cannot be parsed.
+    pub fn from_env() -> Result<Self, Box<dyn std::error::Error>> {
+        // Start with default configuration
+        let mut config = Self::default();
+        
+        // Apply any environment overrides
+        config = config.with_env_overrides();
+        
+        Ok(config)
+    }
+
     /// Get CAIP-2 for an EVM network by name (case-insensitive key lookup).
+    #[must_use]
     pub fn evm_caip2_for(&self, name: &str) -> Option<String> {
         let key = name.to_lowercase();
-        self.evm_networks.get(&key).map(|n| n.caip2())
+        self.evm_networks.get(&key).map(EvmNetworkConfig::caip2)
     }
 
     /// Add or update an EVM network configuration dynamically.
@@ -183,8 +200,9 @@ impl RpcConfig {
         self
     }
 
-    /// Override or extend EVM networks from env like RPC_URL_{CHAIN_ID}.
-    /// If chain_id exists, updates rpc_url; otherwise adds as "chain_{id}".
+    /// Override or extend EVM networks from env like `RPC_URL`_{`CHAIN_ID`}.
+    /// If `chain_id` exists, updates `rpc_url`; otherwise adds as "chain_{id}".
+    #[must_use]
     pub fn with_env_overrides(mut self) -> Self {
         for (k, v) in std::env::vars() {
             if let Some(cid_str) = k.strip_prefix("RPC_URL_") {
@@ -197,10 +215,10 @@ impl RpcConfig {
                         .map(|(k, v)| (k.clone(), v.clone()))
                     {
                         if let Some(cfg) = self.evm_networks.get_mut(&existing_key) {
-                            cfg.rpc_url = v.clone();
+                            cfg.rpc_url.clone_from(&v);
                         }
                     } else {
-                        let name = format!("chain_{}", cid);
+                        let name = format!("chain_{cid}");
                         self.add_evm_network(name, cid, v.clone(), None);
                     }
                 }

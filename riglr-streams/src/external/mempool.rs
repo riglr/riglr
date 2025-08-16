@@ -413,7 +413,6 @@ mod tests {
         };
         
         let _stream = MempoolSpaceStream::new("test".to_string());
-        // URL generation test simplified
-        assert!(true);
+        // URL generation test simplified - stream creation should succeed
     }
 }

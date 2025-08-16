@@ -103,6 +103,13 @@ pub struct RouteHop {
     pub amount_out: Option<u64>,
 }
 
+/// Combined Jupiter Route Data (instruction + analysis)
+#[derive(Debug, Clone)]
+pub struct JupiterRouteData {
+    pub instruction: JupiterRouteInstruction,
+    pub analysis: JupiterRouteAnalysis,
+}
+
 /// Jupiter route analysis result
 #[derive(Debug, Clone)]
 pub struct JupiterRouteAnalysis {
@@ -199,7 +206,6 @@ impl JupiterParser {
             minimum_amount_out,
             platform_fee_bps,
         };
-        event.set_parsed_data(instruction_data);
         
         // Perform route analysis if enabled
         let analysis = if self.detailed_analysis {
@@ -215,6 +221,13 @@ impl JupiterParser {
             }
         };
         
+        // Store combined data
+        let combined_data = JupiterRouteData {
+            instruction: instruction_data,
+            analysis: analysis.clone(),
+        };
+        event.set_parsed_data(combined_data);
+        
         let json = serde_json::json!({
             "instruction_type": analysis.instruction_type,
             "total_amount_in": analysis.total_amount_in.to_string(),
@@ -224,9 +237,6 @@ impl JupiterParser {
             "protocol": "jupiter"
         });
         event.set_json_data(json);
-        
-        // Store analysis data
-        event.set_parsed_data(analysis);
         
         Ok(event)
     }
@@ -440,16 +450,13 @@ mod tests {
         let event = &events[0];
         assert_eq!(event.protocol_type(), ProtocolType::Jupiter);
         
-        // Check parsed instruction data
-        let parsed = event.get_parsed_data::<JupiterRouteInstruction>().unwrap();
-        assert_eq!(parsed.amount_in, 1000);
-        assert_eq!(parsed.minimum_amount_out, 950);
-        assert_eq!(parsed.platform_fee_bps, 50);
-        
-        // Check analysis data
-        let analysis = event.get_parsed_data::<JupiterRouteAnalysis>().unwrap();
-        assert_eq!(analysis.instruction_type, "route");
-        assert_eq!(analysis.hop_count, 1);
+        // Check combined parsed data
+        let combined = event.get_parsed_data::<JupiterRouteData>().unwrap();
+        assert_eq!(combined.instruction.amount_in, 1000);
+        assert_eq!(combined.instruction.minimum_amount_out, 950);
+        assert_eq!(combined.instruction.platform_fee_bps, 50);
+        assert_eq!(combined.analysis.instruction_type, "route");
+        assert_eq!(combined.analysis.hop_count, 1);
     }
 
     #[test]

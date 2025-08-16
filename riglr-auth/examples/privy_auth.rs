@@ -1,8 +1,8 @@
 //! Example demonstrating Privy authentication integration
 
 use riglr_auth::{AuthProvider, PrivyConfig, CompositeSignerFactoryExt};
+use riglr_auth::config::ProviderConfig;
 use riglr_web_adapters::factory::CompositeSignerFactory;
-use riglr_web_adapters::axum::AxumAdapter;
 use riglr_core::config::RpcConfig;
 use axum::{
     Router,
@@ -11,11 +11,10 @@ use axum::{
     Json,
 };
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
 
 #[derive(Debug, Deserialize)]
 struct AuthRequest {
-    token: String,
+    _token: String,
     network: String,
 }
 
@@ -36,21 +35,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .expect("Failed to load Privy configuration from environment");
     
     // Create composite factory and register Privy provider
-    let mut factory = CompositeSignerFactory::new();
-    factory.register_provider(AuthProvider::privy(privy_config));
+    let mut _factory = CompositeSignerFactory::new();
+    _factory.register_provider(AuthProvider::privy(privy_config));
     
     // Create RPC configuration
-    let rpc_config = RpcConfig::from_env()
+    let _rpc_config = RpcConfig::from_env()
         .expect("Failed to load RPC configuration");
     
-    // Create web adapter
-    let adapter = AxumAdapter::new(Arc::new(factory), Arc::new(rpc_config));
     
     // Build Axum router
     let app = Router::new()
-        .route("/auth", post(handle_auth))
-        .route("/execute", adapter.create_handler())
-        .layer(adapter.auth_middleware());
+        .route("/auth", post(handle_auth));
     
     // Start server
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000")

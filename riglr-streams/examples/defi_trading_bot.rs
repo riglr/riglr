@@ -16,7 +16,6 @@ use riglr_streams::core::{
 use riglr_solana_events::ProtocolType;
 use riglr_events_core::{Event, EventKind, EventMetadata};
 use tracing::{info, Level};
-use tracing_subscriber;
 use async_trait::async_trait;
 
 #[tokio::main]
@@ -77,7 +76,7 @@ struct DummyEvent {
 }
 
 impl DummyEvent {
-    fn new() -> Self {
+    fn _new() -> Self {
         Self {
             metadata: EventMetadata::new(
                 "dummy".to_string(),
@@ -131,7 +130,7 @@ async fn build_trading_pipeline() -> Result<TradingPipeline, Box<dyn std::error:
     let execution_pipeline = DummyStream
         .map(|_event| Transaction {
             from: "wallet_address".to_string(),
-            to: "dex_address".to_string(),
+            _to: "dex_address".to_string(),
             amount: 100.0,
             gas_price: 0.001,
             deadline: SystemTime::now() + Duration::from_secs(60),
@@ -193,7 +192,7 @@ struct TradingPipeline {
 }
 
 #[derive(Clone, Default)]
-struct RiskState {
+struct _RiskState {
     total_exposure: f64,
     daily_trades: usize,
     daily_profit: f64,
@@ -201,11 +200,11 @@ struct RiskState {
     max_daily_trades: usize,
 }
 
-impl RiskState {
-    fn evaluate_opportunity(&mut self, opp: ArbitrageOpportunity) -> TradingDecision {
+impl _RiskState {
+    fn _evaluate_opportunity(&mut self, opp: _ArbitrageOpportunity) -> _TradingDecision {
         // Risk checks
         if self.daily_trades >= self.max_daily_trades {
-            return TradingDecision {
+            return _TradingDecision {
                 should_trade: false,
                 reason: "Daily trade limit reached".to_string(),
                 opportunity: opp,
@@ -213,7 +212,7 @@ impl RiskState {
         }
         
         if opp.required_capital > self.max_position_size {
-            return TradingDecision {
+            return _TradingDecision {
                 should_trade: false,
                 reason: "Position too large".to_string(),
                 opportunity: opp,
@@ -224,7 +223,7 @@ impl RiskState {
         self.daily_trades += 1;
         self.total_exposure += opp.required_capital;
         
-        TradingDecision {
+        _TradingDecision {
             should_trade: true,
             reason: "Risk checks passed".to_string(),
             opportunity: opp,
@@ -233,7 +232,7 @@ impl RiskState {
 }
 
 #[derive(Clone)]
-struct ArbitrageOpportunity {
+struct _ArbitrageOpportunity {
     pair: String,
     cex_price: f64,
     dex_price: f64,
@@ -243,16 +242,16 @@ struct ArbitrageOpportunity {
 }
 
 #[derive(Clone)]
-struct TradingDecision {
+struct _TradingDecision {
     should_trade: bool,
     reason: String,
-    opportunity: ArbitrageOpportunity,
+    opportunity: _ArbitrageOpportunity,
 }
 
 #[derive(Clone, Debug)]
 struct Transaction {
     from: String,
-    to: String,
+    _to: String,
     amount: f64,
     gas_price: f64,
     deadline: SystemTime,
@@ -320,19 +319,19 @@ impl AsNumeric for Transaction {
 //     Ok(stream)
 // }
 
-fn is_relevant_price_update(_event: &dyn Any) -> bool {
+fn _is_relevant_price_update(_event: &dyn Any) -> bool {
     // Check if it's a SOL/USDT price update
     true
 }
 
-fn is_major_dex(protocol: ProtocolType) -> bool {
+fn _is_major_dex(protocol: ProtocolType) -> bool {
     matches!(
         protocol,
         ProtocolType::Other(ref name) if name == "Jupiter" || name == "Orca" || name == "Raydium"
     )
 }
 
-fn extract_price_data(_event: Arc<dyn Any>) -> PriceData {
+fn _extract_price_data(_event: Arc<dyn Any>) -> PriceData {
     PriceData::new(
         "SOL/USDT".to_string(),
         100.0,  // Would extract from event
@@ -340,7 +339,7 @@ fn extract_price_data(_event: Arc<dyn Any>) -> PriceData {
     )
 }
 
-fn extract_dex_trade(_event: Arc<dyn Any>) -> DexTrade {
+fn _extract_dex_trade(_event: Arc<dyn Any>) -> DexTrade {
     DexTrade::new(
         ProtocolType::Other("Jupiter".to_string()),
         "SOL/USDC".to_string(),
@@ -349,10 +348,10 @@ fn extract_dex_trade(_event: Arc<dyn Any>) -> DexTrade {
     )
 }
 
-fn calculate_arbitrage_opportunity(cex: PriceWithIndicators, dex: DexData) -> ArbitrageOpportunity {
+fn _calculate_arbitrage_opportunity(cex: _PriceWithIndicators, dex: _DexData) -> _ArbitrageOpportunity {
     let spread = ((cex.price - dex.price) / cex.price) * 100.0;
     
-    ArbitrageOpportunity {
+    _ArbitrageOpportunity {
         pair: "SOL/USDT".to_string(),
         cex_price: cex.price,
         dex_price: dex.price,
@@ -362,10 +361,10 @@ fn calculate_arbitrage_opportunity(cex: PriceWithIndicators, dex: DexData) -> Ar
     }
 }
 
-fn prepare_transaction(decision: TradingDecision) -> Transaction {
+fn _prepare_transaction(decision: _TradingDecision) -> Transaction {
     Transaction {
         from: "wallet_address".to_string(),
-        to: "dex_address".to_string(),
+        _to: "dex_address".to_string(),
         amount: decision.opportunity.required_capital,
         gas_price: 0.001,
         deadline: SystemTime::now() + Duration::from_secs(60),
@@ -442,7 +441,7 @@ impl AsNumeric for PriceData {
 }
 
 #[derive(Clone)]
-struct PriceWithIndicators {
+struct _PriceWithIndicators {
     price: f64,
     sma: f64,
     ema: f64,
@@ -506,7 +505,7 @@ impl AsNumeric for DexTrade {
 }
 
 #[derive(Clone)]
-struct DexData {
+struct _DexData {
     protocol: ProtocolType,
     price: f64,
     volume: f64,

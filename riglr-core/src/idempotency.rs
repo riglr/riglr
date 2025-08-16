@@ -35,6 +35,7 @@ pub struct InMemoryIdempotencyStore {
 
 impl InMemoryIdempotencyStore {
     /// Create a new in-memory idempotency store
+    #[must_use]
     pub fn new() -> Self {
         Self {
             store: Arc::new(RwLock::new(HashMap::new())),
@@ -62,22 +63,16 @@ impl IdempotencyStore for InMemoryIdempotencyStore {
         self.cleanup_expired().await;
 
         let store = self.store.read().await;
-        match store.get(key) {
-            Some(entry) => {
-                if entry.expires_at > SystemTime::now() {
-                    Ok(Some(entry.result.clone()))
-                } else {
-                    Ok(None)
-                }
-            }
-            None => Ok(None),
-        }
+        store.get(key).map_or_else(|| Ok(None), |entry| if entry.expires_at > SystemTime::now() {
+            Ok(Some(entry.result.clone()))
+        } else {
+            Ok(None)
+        })
     }
 
     async fn set(&self, key: &str, result: &JobResult, ttl: Duration) -> anyhow::Result<()> {
-        let mut store = self.store.write().await;
         let expires_at = SystemTime::now() + ttl;
-        store.insert(
+        self.store.write().await.insert(
             key.to_string(),
             IdempotencyEntry {
                 result: result.clone(),
@@ -88,8 +83,7 @@ impl IdempotencyStore for InMemoryIdempotencyStore {
     }
 
     async fn remove(&self, key: &str) -> anyhow::Result<()> {
-        let mut store = self.store.write().await;
-        store.remove(key);
+        self.store.write().await.remove(key);
         Ok(())
     }
 }

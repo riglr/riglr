@@ -155,7 +155,7 @@ async fn test_binance_order_book_stream() {
                     assert!(book.bids.len() <= 5, "Should have at most 5 bid levels");
                     assert!(book.asks.len() <= 5, "Should have at most 5 ask levels");
                     
-                    if book.bids.len() > 0 && book.asks.len() > 0 {
+                    if !book.bids.is_empty() && !book.asks.is_empty() {
                         let best_bid = &book.bids[0];
                         let best_ask = &book.asks[0];
                         println!("BTC Order Book - Bid: {} @ {}, Ask: {} @ {}", 
@@ -204,7 +204,7 @@ async fn test_binance_stream_with_batch() {
     match timeout(Duration::from_secs(10), rx.recv()).await {
         Ok(Ok(batch)) => {
             println!("Received batch with {} Binance events", batch.events.len());
-            assert!(batch.events.len() > 0, "Batch should not be empty");
+            assert!(!batch.events.is_empty(), "Batch should not be empty");
             assert!(batch.events.len() <= 5, "Batch should not exceed size limit");
         }
         Ok(Err(e)) => println!("Error receiving batch: {:?}", e),

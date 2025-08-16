@@ -149,7 +149,7 @@ impl TransactionSigner for PrivySolanaSigner {
         Err(SignerError::UnsupportedOperation("EVM support not compiled".to_string()))
     }
     
-    fn solana_client(&self) -> Option<Arc<RpcClient>> {
+    fn solana_client(&self) -> Option<Arc<solana_client::rpc_client::RpcClient>> {
         Some(self.rpc.clone())
     }
     

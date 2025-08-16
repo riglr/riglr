@@ -89,7 +89,7 @@ impl TransactionSigner for LocalSolanaSigner {
         ))
     }
     
-    fn solana_client(&self) -> Option<Arc<RpcClient>> {
+    fn solana_client(&self) -> Option<Arc<solana_client::rpc_client::RpcClient>> {
         Some(self.client.clone())
     }
     

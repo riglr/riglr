@@ -175,7 +175,7 @@ pub fn validate_event_type(event_type: &str) -> IndexerResult<()> {
 
 /// Calculate percentile from a sorted vector of values
 pub fn calculate_percentile(sorted_values: &[f64], percentile: f64) -> Option<f64> {
-    if sorted_values.is_empty() || percentile < 0.0 || percentile > 100.0 {
+    if sorted_values.is_empty() || !(0.0..=100.0).contains(&percentile) {
         return None;
     }
     
