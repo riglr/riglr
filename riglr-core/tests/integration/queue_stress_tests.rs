@@ -6,16 +6,18 @@
 use riglr_core::jobs::Job;
 use riglr_core::queue::{InMemoryJobQueue, JobQueue};
 use serde_json::json;
-use std::sync::{Arc, atomic::{AtomicU64, AtomicBool, Ordering}};
+use std::collections::HashMap;
+use std::sync::{
+    atomic::{AtomicBool, AtomicU64, Ordering},
+    Arc,
+};
 use std::time::{Duration, Instant};
 use tokio::sync::Barrier;
-use std::collections::HashMap;
 
 /// Test high-volume producer-consumer patterns
 #[tokio::test]
 #[ignore] // Long-running stress test
 async fn test_high_volume_producer_consumer() {
-
     let queue = Arc::new(InMemoryJobQueue::new());
     let jobs_to_produce = 10000;
     let num_producers = 10;
@@ -44,7 +46,8 @@ async fn test_high_volume_producer_consumer() {
                             .as_millis()
                     }),
                     0,
-                ).unwrap();
+                )
+                .unwrap();
 
                 queue_clone.enqueue(job).await.unwrap();
                 produced_count_clone.fetch_add(1, Ordering::Relaxed);
@@ -68,7 +71,10 @@ async fn test_high_volume_producer_consumer() {
         let handle = tokio::spawn(async move {
             let mut local_consumed = 0;
             while !stop_consumers_clone.load(Ordering::Relaxed) {
-                match queue_clone.dequeue_with_timeout(Duration::from_millis(100)).await {
+                match queue_clone
+                    .dequeue_with_timeout(Duration::from_millis(100))
+                    .await
+                {
                     Ok(Some(_job)) => {
                         local_consumed += 1;
                         consumed_count_clone.fetch_add(1, Ordering::Relaxed);
@@ -142,7 +148,8 @@ async fn test_concurrent_mixed_operations() {
                             format!("thread_{}_op_{}", thread_id, op_id),
                             &json!({"thread": thread_id, "op": op_id}),
                             0,
-                        ).unwrap();
+                        )
+                        .unwrap();
 
                         if queue_clone.enqueue(job).await.is_ok() {
                             enqueue_count_clone.fetch_add(1, Ordering::Relaxed);
@@ -150,7 +157,10 @@ async fn test_concurrent_mixed_operations() {
                     }
                     1 => {
                         // Dequeue operation
-                        if let Ok(Some(_)) = queue_clone.dequeue_with_timeout(Duration::from_millis(10)).await {
+                        if let Ok(Some(_)) = queue_clone
+                            .dequeue_with_timeout(Duration::from_millis(10))
+                            .await
+                        {
                             dequeue_count_clone.fetch_add(1, Ordering::Relaxed);
                         }
                     }
@@ -206,7 +216,9 @@ async fn test_memory_pressure_handling() {
         let queue_clone = queue.clone();
         let handle = tokio::spawn(async move {
             // Create a job with large data payload
-            let large_data = (0..1000).map(|j| format!("data_item_{}_{}", i, j)).collect::<Vec<_>>();
+            let large_data = (0..1000)
+                .map(|j| format!("data_item_{}_{}", i, j))
+                .collect::<Vec<_>>();
             let job = Job::new(
                 format!("large_job_{}", i),
                 &json!({
@@ -218,7 +230,8 @@ async fn test_memory_pressure_handling() {
                     }
                 }),
                 0,
-            ).unwrap();
+            )
+            .unwrap();
 
             queue_clone.enqueue(job).await.unwrap();
         });
@@ -236,16 +249,21 @@ async fn test_memory_pressure_handling() {
     let mut dequeue_handles = vec![];
     let successful_dequeues = Arc::new(AtomicU64::new(0));
 
-    for _ in 0..10 { // 10 concurrent dequeuers
+    for _ in 0..10 {
+        // 10 concurrent dequeuers
         let queue_clone = queue.clone();
         let successful_dequeues_clone = successful_dequeues.clone();
         let handle = tokio::spawn(async move {
             let mut local_count = 0;
-            while let Ok(Some(job)) = queue_clone.dequeue_with_timeout(Duration::from_millis(100)).await {
+            while let Ok(Some(job)) = queue_clone
+                .dequeue_with_timeout(Duration::from_millis(100))
+                .await
+            {
                 // Verify job integrity
-                if job.params["job_id"].is_number() &&
-                   job.params["large_payload"].is_array() &&
-                   job.params["large_payload"].as_array().unwrap().len() == 1000 {
+                if job.params["job_id"].is_number()
+                    && job.params["large_payload"].is_array()
+                    && job.params["large_payload"].as_array().unwrap().len() == 1000
+                {
                     local_count += 1;
                     successful_dequeues_clone.fetch_add(1, Ordering::Relaxed);
                 }
@@ -262,7 +280,10 @@ async fn test_memory_pressure_handling() {
     }
 
     assert_eq!(total_dequeued, num_large_jobs);
-    assert_eq!(successful_dequeues.load(Ordering::Relaxed), num_large_jobs as u64);
+    assert_eq!(
+        successful_dequeues.load(Ordering::Relaxed),
+        num_large_jobs as u64
+    );
     assert!(queue.is_empty().await.unwrap());
 }
 
@@ -299,7 +320,8 @@ async fn test_fifo_ordering_under_concurrency() {
                         "global_id": global_job_id
                     }),
                     0,
-                ).unwrap();
+                )
+                .unwrap();
 
                 // Record insertion time
                 {
@@ -340,7 +362,7 @@ async fn test_fifo_ordering_under_concurrency() {
     let mut out_of_order_count = 0;
 
     for i in 1..dequeued_order.len() {
-        if dequeued_order[i] < dequeued_order[i-1] {
+        if dequeued_order[i] < dequeued_order[i - 1] {
             out_of_order_count += 1;
         }
     }
@@ -348,8 +370,12 @@ async fn test_fifo_ordering_under_concurrency() {
     // Allow some reordering due to concurrency, but not too much
     let total_jobs = num_producers * jobs_per_producer;
     let max_acceptable_out_of_order = total_jobs / 10; // 10% tolerance
-    assert!(out_of_order_count <= max_acceptable_out_of_order,
-            "Too many out-of-order jobs: {} out of {}", out_of_order_count, total_jobs);
+    assert!(
+        out_of_order_count <= max_acceptable_out_of_order,
+        "Too many out-of-order jobs: {} out of {}",
+        out_of_order_count,
+        total_jobs
+    );
 }
 
 /// Test timeout behavior under various load conditions
@@ -360,7 +386,10 @@ async fn test_timeout_behavior_under_load() {
 
     // Test 1: Timeout on empty queue
     let start = Instant::now();
-    let result = queue.dequeue_with_timeout(Duration::from_millis(100)).await.unwrap();
+    let result = queue
+        .dequeue_with_timeout(Duration::from_millis(100))
+        .await
+        .unwrap();
     let elapsed = start.elapsed();
 
     assert!(result.is_none());
@@ -372,7 +401,10 @@ async fn test_timeout_behavior_under_load() {
     queue.enqueue(job).await.unwrap();
 
     let start = Instant::now();
-    let result = queue.dequeue_with_timeout(Duration::from_millis(1000)).await.unwrap();
+    let result = queue
+        .dequeue_with_timeout(Duration::from_millis(1000))
+        .await
+        .unwrap();
     let elapsed = start.elapsed();
 
     assert!(result.is_some());
@@ -387,7 +419,10 @@ async fn test_timeout_behavior_under_load() {
         let timeout_count_clone = timeout_count.clone();
         let handle = tokio::spawn(async move {
             let start = Instant::now();
-            let result = queue_clone.dequeue_with_timeout(Duration::from_millis(50)).await.unwrap();
+            let result = queue_clone
+                .dequeue_with_timeout(Duration::from_millis(50))
+                .await
+                .unwrap();
             let elapsed = start.elapsed();
 
             if result.is_none() && elapsed >= Duration::from_millis(40) {
@@ -426,7 +461,10 @@ async fn test_error_recovery() {
                 // Simulate various operations
                 if op_id % 10 == 0 {
                     // Sometimes try to dequeue from potentially empty queue
-                    match queue_clone.dequeue_with_timeout(Duration::from_millis(1)).await {
+                    match queue_clone
+                        .dequeue_with_timeout(Duration::from_millis(1))
+                        .await
+                    {
                         Ok(Some(_)) => success_count_clone.fetch_add(1, Ordering::Relaxed),
                         Ok(None) => (), // Timeout is expected behavior
                         Err(_) => error_count_clone.fetch_add(1, Ordering::Relaxed),
@@ -437,7 +475,8 @@ async fn test_error_recovery() {
                         format!("recovery_job_{}_{}", thread_id, op_id),
                         &json!({"thread": thread_id, "op": op_id}),
                         0,
-                    ).unwrap();
+                    )
+                    .unwrap();
 
                     match queue_clone.enqueue(job).await {
                         Ok(_) => success_count_clone.fetch_add(1, Ordering::Relaxed),
@@ -471,7 +510,10 @@ async fn test_error_recovery() {
     // Queue operations should still work
     let test_job = Job::new("final_test", &json!({"test": "recovery"}), 0).unwrap();
     assert!(queue.enqueue(test_job).await.is_ok());
-    assert!(queue.dequeue_with_timeout(Duration::from_millis(100)).await.is_ok());
+    assert!(queue
+        .dequeue_with_timeout(Duration::from_millis(100))
+        .await
+        .is_ok());
 }
 
 /// Test queue behavior with rapid size changes
@@ -507,7 +549,8 @@ async fn test_rapid_size_changes() {
                     format!("batch_{}_{}", batch, i),
                     &json!({"batch": batch, "index": i}),
                     0,
-                ).unwrap();
+                )
+                .unwrap();
                 queue_clone.enqueue(job).await.unwrap();
             }
 
@@ -516,7 +559,9 @@ async fn test_rapid_size_changes() {
 
             // Batch dequeue
             for _ in 0..25 {
-                let _ = queue_clone.dequeue_with_timeout(Duration::from_millis(1)).await;
+                let _ = queue_clone
+                    .dequeue_with_timeout(Duration::from_millis(1))
+                    .await;
             }
         });
         operation_handles.push(handle);
@@ -566,14 +611,18 @@ async fn test_cancellation_consistency() {
                         format!("cancel_test_{}_{}", worker_id, op_id),
                         &json!({"worker": worker_id, "op": op_id}),
                         0,
-                    ).unwrap();
+                    )
+                    .unwrap();
 
                     if queue_clone.enqueue(job).await.is_ok() {
                         jobs_enqueued_clone.fetch_add(1, Ordering::Relaxed);
                     }
                 } else {
                     // Long timeout to potentially get cancelled
-                    if let Ok(Some(_)) = queue_clone.dequeue_with_timeout(Duration::from_millis(500)).await {
+                    if let Ok(Some(_)) = queue_clone
+                        .dequeue_with_timeout(Duration::from_millis(500))
+                        .await
+                    {
                         jobs_dequeued_clone.fetch_add(1, Ordering::Relaxed)
                     }
                 }
@@ -590,7 +639,8 @@ async fn test_cancellation_consistency() {
 
     // Cancel some operations
     for (i, handle) in handles.iter().enumerate() {
-        if i % 3 == 0 { // Cancel every third handle
+        if i % 3 == 0 {
+            // Cancel every third handle
             handle.abort();
         }
     }
@@ -611,5 +661,9 @@ async fn test_cancellation_consistency() {
     // Queue operations should still work normally
     let test_job = Job::new("post_cancel_test", &json!({}), 0).unwrap();
     assert!(queue.enqueue(test_job).await.is_ok());
-    assert!(queue.dequeue_with_timeout(Duration::from_millis(100)).await.unwrap().is_some());
+    assert!(queue
+        .dequeue_with_timeout(Duration::from_millis(100))
+        .await
+        .unwrap()
+        .is_some());
 }
