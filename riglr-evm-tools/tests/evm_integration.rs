@@ -331,22 +331,13 @@ async fn test_error_conversion_to_tool_error() {
 
         // Verify conversion logic
         match &tool_error {
-            ToolError::Retriable {
-                source: _,
-                context: _,
-            } => {
+            ToolError::Retriable { .. } => {
                 // Provider errors should be retriable
             }
-            ToolError::Permanent {
-                source: _,
-                context: _,
-            } => {
+            ToolError::Permanent { .. } => {
                 // Balance, build errors should be permanent
             }
-            ToolError::InvalidInput {
-                source: _,
-                context: _,
-            } => {
+            ToolError::InvalidInput { .. } => {
                 // Address format, unsupported chain should be invalid input
             }
             _ => panic!("Unexpected ToolError variant: {:?}", tool_error),
