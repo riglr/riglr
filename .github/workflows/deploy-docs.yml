@@ -1,4 +1,4 @@
-name: Deploy mdBook to GitHub Pages
+name: Deploy Website to GitHub Pages
 
 on:
   push:
@@ -6,12 +6,14 @@ on:
       - main
     paths:
       - 'docs/**'
+      - 'website/**'
       - '.github/workflows/deploy-docs.yml'
   pull_request:
     branches:
       - main
     paths:
       - 'docs/**'
+      - 'website/**'
       - '.github/workflows/deploy-docs.yml'
   workflow_dispatch:
 
@@ -45,6 +47,21 @@ jobs:
           cd docs
           mdbook build
 
+      - name: Prepare deployment directory
+        run: |
+          # Create deployment structure
+          mkdir -p deploy
+          
+          # Copy landing page to root
+          cp website/index.html deploy/
+          cp website/logo-h.png deploy/
+          
+          # Copy docs to /docs subdirectory
+          cp -r docs/book deploy/docs
+          
+          # Ensure docs are accessible at both /docs and /docs/
+          cp docs/book/index.html deploy/docs.html 2>/dev/null || true
+
       - name: Setup Pages
         if: github.event_name != 'pull_request'
         uses: actions/configure-pages@v5
@@ -53,7 +70,7 @@ jobs:
         if: github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@v3
         with:
-          path: ./docs/book
+          path: ./deploy
 
   deploy:
     if: github.event_name != 'pull_request'
