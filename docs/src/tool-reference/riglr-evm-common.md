@@ -1,6 +1,6 @@
-# riglr-graph-memory Tool Reference
+# riglr-evm-common Tool Reference
 
-This page contains documentation for tools provided by the `riglr-graph-memory` crate.
+This page contains documentation for tools provided by the `riglr-evm-common` crate.
 
 > **Note**: No tools with `#[tool]` attribute were found in this crate.
 > 

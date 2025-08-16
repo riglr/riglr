@@ -1,6 +1,6 @@
-# riglr-graph-memory Tool Reference
+# riglr-solana-events Tool Reference
 
-This page contains documentation for tools provided by the `riglr-graph-memory` crate.
+This page contains documentation for tools provided by the `riglr-solana-events` crate.
 
 > **Note**: No tools with `#[tool]` attribute were found in this crate.
 > 
