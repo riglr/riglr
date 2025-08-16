@@ -26,6 +26,14 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Install dependencies (Arch Linux)
+        run: |
+          # Install necessary packages for Arch Linux
+          if command -v pacman &> /dev/null; then
+            echo "Installing mdbook dependencies for Arch Linux..."
+            sudo pacman -Syu --noconfirm --needed base-devel || true
+          fi
+
       - name: Setup mdBook
         uses: peaceiris/actions-mdbook@v2
         with:
