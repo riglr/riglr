@@ -1,9 +1,9 @@
 // Test file covering all features of the macro
 
-use riglr_macros::tool;
-use serde::{Deserialize, Serialize};
 use anyhow::Result;
+use riglr_macros::tool;
 use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 
 // Test function with no parameters - covers empty schema generation
 #[tool]
@@ -138,7 +138,8 @@ async fn private_function(input: String) -> Result<String> {
 
 // Test with very long names
 #[tool]
-pub async fn extremely_long_function_name_that_tests_the_limits_of_pascal_case_conversion_and_identifier_generation_in_the_macro() -> Result<String> {
+pub async fn extremely_long_function_name_that_tests_the_limits_of_pascal_case_conversion_and_identifier_generation_in_the_macro(
+) -> Result<String> {
     Ok("long".to_string())
 }
 
@@ -155,9 +156,7 @@ pub async fn special_docs(input: String) -> Result<String> {
 
 // Test with nested generics
 #[tool]
-pub async fn nested_generics(
-    data: Vec<Option<String>>
-) -> Result<Vec<String>> {
+pub async fn nested_generics(data: Vec<Option<String>>) -> Result<Vec<String>> {
     Ok(data.into_iter().flatten().collect())
 }
 

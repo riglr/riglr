@@ -3,17 +3,13 @@
 //! This file contains tests specifically designed to cover any remaining
 //! untested code paths and integration scenarios.
 
-use riglr_solana_tools::error::{SolanaToolError, Result};
+use riglr_core::signer::{SignerContext, TransactionSigner};
+use riglr_solana_tools::error::{Result, SolanaToolError};
 use riglr_solana_tools::signer::local::LocalSolanaSigner;
-use riglr_core::signer::{TransactionSigner, SignerContext};
-use solana_sdk::{
-    signature::Keypair,
-    transaction::Transaction,
-    system_instruction,
-    pubkey::Pubkey,
-    hash::Hash,
-};
 use serde_json::json;
+use solana_sdk::{
+    hash::Hash, pubkey::Pubkey, signature::Keypair, system_instruction, transaction::Transaction,
+};
 use std::sync::Arc;
 
 /// Test complete error result type usage
@@ -68,24 +64,24 @@ fn test_error_display_implementations() {
             SolanaToolError::Rpc(msg) => {
                 assert!(display_str.contains("RPC error"));
                 assert!(display_str.contains(&msg));
-            },
+            }
             SolanaToolError::InvalidAddress(msg) => {
                 assert!(display_str.contains("Invalid address"));
                 assert!(display_str.contains(&msg));
-            },
+            }
             SolanaToolError::InvalidKey(msg) => {
                 assert!(display_str.contains("Invalid key"));
                 assert!(display_str.contains(&msg));
-            },
+            }
             SolanaToolError::Transaction(msg) => {
                 assert!(display_str.contains("Transaction error"));
                 assert!(display_str.contains(&msg));
-            },
+            }
             SolanaToolError::Generic(msg) => {
                 assert!(display_str.contains("Solana tool error"));
                 assert!(display_str.contains(&msg));
-            },
-            _ => {}, // Handle other variants like Serialization, Http, Core
+            }
+            _ => {} // Handle other variants like Serialization, Http, Core
         }
     }
 }
@@ -146,11 +142,13 @@ async fn test_signer_module_integration() {
     let instruction = system_instruction::transfer(&payer, &recipient, 1_000_000);
     let mut transaction = Transaction::new_with_payer(&[instruction], Some(&payer));
 
-    let result = signer.sign_and_send_solana_transaction(&mut transaction).await;
+    let result = signer
+        .sign_and_send_solana_transaction(&mut transaction)
+        .await;
     // Should get some kind of error (network, signing, etc.) but not a panic
     match result {
-        Ok(_) => {}, // Unexpected but possible
-        Err(_) => {}, // Expected due to no network
+        Ok(_) => {}  // Unexpected but possible
+        Err(_) => {} // Expected due to no network
     }
 }
 
@@ -235,8 +233,8 @@ fn test_module_public_interfaces() {
 /// Test concurrent access to error conversion
 #[test]
 fn test_concurrent_error_handling() {
-    use std::thread;
     use std::sync::Arc;
+    use std::thread;
 
     let errors = Arc::new(vec![
         SolanaToolError::Rpc("RPC error".to_string()),
@@ -260,7 +258,9 @@ fn test_concurrent_error_handling() {
                 // Test error conversion (clone to avoid moving)
                 let cloned_error = match error {
                     SolanaToolError::Rpc(msg) => SolanaToolError::Rpc(msg.clone()),
-                    SolanaToolError::InvalidAddress(msg) => SolanaToolError::InvalidAddress(msg.clone()),
+                    SolanaToolError::InvalidAddress(msg) => {
+                        SolanaToolError::InvalidAddress(msg.clone())
+                    }
                     SolanaToolError::Transaction(msg) => SolanaToolError::Transaction(msg.clone()),
                     SolanaToolError::Generic(msg) => SolanaToolError::Generic(msg.clone()),
                     _ => SolanaToolError::Generic("fallback".to_string()),
@@ -294,7 +294,7 @@ async fn test_riglr_core_integration() {
     match simulate_error() {
         Ok(result) => {
             assert!(result.is_success());
-        },
+        }
         Err(e) => {
             // Convert to tool error
             let tool_error: riglr_core::error::ToolError = e.into();
@@ -335,7 +335,8 @@ fn test_error_edge_cases() {
     assert!(unicode_error.to_string().contains("交易失败"));
 
     // Special characters
-    let special_error = SolanaToolError::Rpc("Error: \"Connection refused\" (code: 111)".to_string());
+    let special_error =
+        SolanaToolError::Rpc("Error: \"Connection refused\" (code: 111)".to_string());
     assert!(special_error.to_string().contains("Connection refused"));
 }
 
@@ -352,7 +353,10 @@ async fn test_signer_context_edge_cases() {
 
     // Set a signer and test various operations
     let keypair = Keypair::new();
-    let signer = Arc::new(LocalSolanaSigner::new(keypair, "https://api.devnet.solana.com".to_string()));
+    let signer = Arc::new(LocalSolanaSigner::new(
+        keypair,
+        "https://api.devnet.solana.com".to_string(),
+    ));
     SignerContext::set_current(signer.clone()).await;
 
     // Verify context is now available
@@ -366,7 +370,7 @@ async fn test_signer_context_edge_cases() {
         let new_keypair = Keypair::new();
         let new_signer = Arc::new(LocalSolanaSigner::new(
             new_keypair,
-            format!("https://api-{}.devnet.solana.com", i)
+            format!("https://api-{}.devnet.solana.com", i),
         ));
         SignerContext::set_current(new_signer.clone()).await;
 
@@ -388,7 +392,11 @@ async fn test_comprehensive_signer_functionality() {
 
     // Test valid seed phrase
     let seed_phrase = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about";
-    let signer2 = LocalSolanaSigner::from_seed_phrase(seed_phrase, "https://api.testnet.solana.com".to_string()).unwrap();
+    let signer2 = LocalSolanaSigner::from_seed_phrase(
+        seed_phrase,
+        "https://api.testnet.solana.com".to_string(),
+    )
+    .unwrap();
 
     // Test that both signers are functional
     for signer in [&signer1, &signer2] {
@@ -438,7 +446,10 @@ async fn test_final_integration_validation() {
 
     // 2. Signer system
     let keypair = Keypair::new();
-    let signer = Arc::new(LocalSolanaSigner::new(keypair, "https://api.devnet.solana.com".to_string()));
+    let signer = Arc::new(LocalSolanaSigner::new(
+        keypair,
+        "https://api.devnet.solana.com".to_string(),
+    ));
     SignerContext::set_current(signer.clone()).await;
 
     assert!(SignerContext::is_available().await);

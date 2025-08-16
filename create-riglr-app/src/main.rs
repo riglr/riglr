@@ -212,8 +212,17 @@ fn prompt_blockchains(theme: &ColorfulTheme) -> Result<Vec<String>> {
         .defaults(&[true, false, false, false, false, false, false, false])
         .interact()?;
 
-    let chain_names = ["solana", "ethereum", "arbitrum", "optimism", "polygon", "base", "bsc", "avalanche"];
-    
+    let chain_names = [
+        "solana",
+        "ethereum",
+        "arbitrum",
+        "optimism",
+        "polygon",
+        "base",
+        "bsc",
+        "avalanche",
+    ];
+
     Ok(selected_chains
         .into_iter()
         .filter_map(|idx| chain_names.get(idx).map(|s| s.to_string()))
@@ -278,9 +287,18 @@ fn prompt_features(theme: &ColorfulTheme) -> Result<(Vec<String>, Vec<usize>)> {
         .interact()?;
 
     let feature_names = [
-        "web_tools", "graph_memory", "cross_chain", "dashboard",
-        "auth", "streaming", "database", "redis",
-        "logging", "testing", "cicd", "api_docs"
+        "web_tools",
+        "graph_memory",
+        "cross_chain",
+        "dashboard",
+        "auth",
+        "streaming",
+        "database",
+        "redis",
+        "logging",
+        "testing",
+        "cicd",
+        "api_docs",
     ];
 
     let enabled_features = selected_features

@@ -24,7 +24,9 @@ fn test_all_signer_error_variants() {
     // Test NoSignerContext variant
     let e = SignerError::NoSignerContext;
     assert!(e.to_string().contains("No signer context available"));
-    assert!(e.to_string().contains("must be called within SignerContext::with_signer"));
+    assert!(e
+        .to_string()
+        .contains("must be called within SignerContext::with_signer"));
 
     // Test SolanaTransaction variant
     let client_error = Box::new(solana_client::client_error::ClientError {

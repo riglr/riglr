@@ -13,12 +13,12 @@ use riglr_core::{ToolError, ToolResult};
 use riglr_events_core::prelude::*;
 use riglr_showcase::config::Config;
 use riglr_streams::prelude::*;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
-use tokio::sync::{RwLock, Mutex};
+use tokio::sync::{Mutex, RwLock};
 use tokio::time::{Duration, Instant};
-use tracing::{info, debug, warn, error};
-use serde::{Serialize, Deserialize};
+use tracing::{debug, error, info, warn};
 
 /// Trading position information
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -68,7 +68,7 @@ impl Default for RiskLimits {
             max_position_size: 10_000.0,
             max_drawdown: 0.05, // 5%
             max_leverage: 3.0,
-            stop_loss_pct: 0.02, // 2%
+            stop_loss_pct: 0.02,   // 2%
             take_profit_pct: 0.06, // 6%
             daily_loss_limit: 1_000.0,
         }
@@ -157,7 +157,11 @@ pub struct LatencyStats {
 /// Trading strategy trait
 trait TradingStrategy: Send + Sync {
     fn name(&self) -> &str;
-    fn generate_signal(&self, price_data: &[PriceUpdate], positions: &HashMap<String, Position>) -> Option<TradingSignal>;
+    fn generate_signal(
+        &self,
+        price_data: &[PriceUpdate],
+        positions: &HashMap<String, Position>,
+    ) -> Option<TradingSignal>;
     fn update_parameters(&mut self, performance: &TradingMetrics);
 }
 
@@ -184,9 +188,11 @@ impl MeanReversionStrategy {
 
         let recent_prices = &prices[prices.len() - self.lookback_period..];
         let mean: f64 = recent_prices.iter().sum::<f64>() / recent_prices.len() as f64;
-        let variance: f64 = recent_prices.iter()
+        let variance: f64 = recent_prices
+            .iter()
             .map(|price| (price - mean).powi(2))
-            .sum::<f64>() / recent_prices.len() as f64;
+            .sum::<f64>()
+            / recent_prices.len() as f64;
 
         let std_dev = variance.sqrt();
         if std_dev == 0.0 {
@@ -203,7 +209,11 @@ impl TradingStrategy for MeanReversionStrategy {
         "MeanReversion"
     }
 
-    fn generate_signal(&self, price_data: &[PriceUpdate], positions: &HashMap<String, Position>) -> Option<TradingSignal> {
+    fn generate_signal(
+        &self,
+        price_data: &[PriceUpdate],
+        positions: &HashMap<String, Position>,
+    ) -> Option<TradingSignal> {
         if price_data.is_empty() {
             return None;
         }
@@ -256,8 +266,12 @@ impl TradingStrategy for MeanReversionStrategy {
             self.z_score_threshold = (self.z_score_threshold * 0.95).max(1.5);
         }
 
-        debug!("🔧 {} strategy updated: threshold={:.2}, win_rate={:.2}%",
-               self.name(), self.z_score_threshold, performance.win_rate * 100.0);
+        debug!(
+            "🔧 {} strategy updated: threshold={:.2}, win_rate={:.2}%",
+            self.name(),
+            self.z_score_threshold,
+            performance.win_rate * 100.0
+        );
     }
 }
 
@@ -277,7 +291,11 @@ impl RiskManager {
         }
     }
 
-    pub async fn validate_trade(&self, signal: &TradingSignal, positions: &HashMap<String, Position>) -> bool {
+    pub async fn validate_trade(
+        &self,
+        signal: &TradingSignal,
+        positions: &HashMap<String, Position>,
+    ) -> bool {
         // Check daily loss limit
         let daily_pnl = *self.daily_pnl.lock().await;
         if daily_pnl < -self.limits.daily_loss_limit {
@@ -287,7 +305,10 @@ impl RiskManager {
 
         // Check position size limits
         if signal.size > self.limits.max_position_size {
-            warn!("🚨 Position size too large: {:.2} > {:.2}", signal.size, self.limits.max_position_size);
+            warn!(
+                "🚨 Position size too large: {:.2} > {:.2}",
+                signal.size, self.limits.max_position_size
+            );
             return false;
         }
 
@@ -295,7 +316,10 @@ impl RiskManager {
         if let Some(existing_position) = positions.get(&signal.symbol) {
             let total_exposure = existing_position.size.abs() + signal.size;
             if total_exposure > self.limits.max_position_size * self.limits.max_leverage {
-                warn!("🚨 Leverage limit exceeded for {}: {:.2}", signal.symbol, total_exposure);
+                warn!(
+                    "🚨 Leverage limit exceeded for {}: {:.2}",
+                    signal.symbol, total_exposure
+                );
                 return false;
             }
         }
@@ -320,12 +344,10 @@ impl HFTBot {
         let position_processor = StatefulProcessor::new(Duration::from_secs(10));
 
         // Create price window manager for 1-second windows
-        let price_windows = WindowManager::new(
-            WindowType::Sliding {
-                size: Duration::from_secs(60), // 1-minute sliding window
-                step: Duration::from_secs(1),  // Update every second
-            }
-        );
+        let price_windows = WindowManager::new(WindowType::Sliding {
+            size: Duration::from_secs(60), // 1-minute sliding window
+            step: Duration::from_secs(1),  // Update every second
+        });
 
         // Create flow controller with adaptive backpressure
         let flow_config = BackpressureConfig {
@@ -337,9 +359,8 @@ impl HFTBot {
         let flow_controller = FlowController::new(flow_config);
 
         // Create trading strategies
-        let strategies: Vec<Box<dyn TradingStrategy>> = vec![
-            Box::new(MeanReversionStrategy::new(20, 2.0)),
-        ];
+        let strategies: Vec<Box<dyn TradingStrategy>> =
+            vec![Box::new(MeanReversionStrategy::new(20, 2.0))];
 
         // Create risk manager
         let risk_manager = RiskManager::new(config.risk_limits.clone());
@@ -359,7 +380,9 @@ impl HFTBot {
         let start_time = Instant::now();
 
         // Apply flow control
-        self.flow_controller.acquire_permit().await
+        self.flow_controller
+            .acquire_permit()
+            .await
             .map_err(|e| ToolError::permanent_string(format!("Flow control error: {}", e)))?;
 
         // Update metrics
@@ -377,8 +400,11 @@ impl HFTBot {
                 continue;
             }
 
-            debug!("📊 Processing price window for {} with {} data points",
-                   price_event.symbol, window.events.len());
+            debug!(
+                "📊 Processing price window for {} with {} data points",
+                price_event.symbol,
+                window.events.len()
+            );
 
             // Get current positions
             let current_positions = self.get_current_positions().await;
@@ -389,7 +415,11 @@ impl HFTBot {
                     info!("⚡ Generated signal: {:?}", signal);
 
                     // Validate signal through risk management
-                    if self.risk_manager.validate_trade(&signal, &current_positions).await {
+                    if self
+                        .risk_manager
+                        .validate_trade(&signal, &current_positions)
+                        .await
+                    {
                         // Execute trade (or simulate in paper trading mode)
                         self.execute_trade(signal).await?;
                     } else {
@@ -400,14 +430,16 @@ impl HFTBot {
         }
 
         // Update position with latest price
-        self.update_position_price(price_event.symbol.clone(), price_event.price).await?;
+        self.update_position_price(price_event.symbol.clone(), price_event.price)
+            .await?;
 
         // Release flow control permit
         self.flow_controller.release_permit().await;
 
         // Update latency metrics
         let processing_time = start_time.elapsed();
-        self.update_latency_metrics(processing_time.as_secs_f64() * 1000.0).await;
+        self.update_latency_metrics(processing_time.as_secs_f64() * 1000.0)
+            .await;
 
         Ok(())
     }
@@ -419,27 +451,29 @@ impl HFTBot {
     }
 
     async fn update_position_price(&self, symbol: String, price: f64) -> ToolResult<()> {
-        self.position_processor.update_state(symbol, |current_position| {
-            let mut position = current_position.clone().unwrap_or_else(|| Position {
-                symbol: "".to_string(),
-                size: 0.0,
-                entry_price: price,
-                current_price: price,
-                unrealized_pnl: 0.0,
-                entry_time: Instant::now(),
-                last_update: Instant::now(),
-            });
+        self.position_processor
+            .update_state(symbol, |current_position| {
+                let mut position = current_position.clone().unwrap_or_else(|| Position {
+                    symbol: "".to_string(),
+                    size: 0.0,
+                    entry_price: price,
+                    current_price: price,
+                    unrealized_pnl: 0.0,
+                    entry_time: Instant::now(),
+                    last_update: Instant::now(),
+                });
 
-            position.current_price = price;
-            position.last_update = Instant::now();
+                position.current_price = price;
+                position.last_update = Instant::now();
 
-            // Calculate unrealized PnL
-            if position.size != 0.0 {
-                position.unrealized_pnl = (price - position.entry_price) * position.size;
-            }
+                // Calculate unrealized PnL
+                if position.size != 0.0 {
+                    position.unrealized_pnl = (price - position.entry_price) * position.size;
+                }
 
-            (position.clone(), position)
-        }).await;
+                (position.clone(), position)
+            })
+            .await;
 
         Ok(())
     }
@@ -449,39 +483,47 @@ impl HFTBot {
             info!("📝 Paper trade executed: {:?}", signal);
 
             // Update position in paper trading mode
-            self.position_processor.update_state(signal.symbol.clone(), |current_position| {
-                let mut position = current_position.clone().unwrap_or_else(|| Position {
-                    symbol: signal.symbol.clone(),
-                    size: 0.0,
-                    entry_price: signal.price,
-                    current_price: signal.price,
-                    unrealized_pnl: 0.0,
-                    entry_time: Instant::now(),
-                    last_update: Instant::now(),
-                });
+            self.position_processor
+                .update_state(signal.symbol.clone(), |current_position| {
+                    let mut position = current_position.clone().unwrap_or_else(|| Position {
+                        symbol: signal.symbol.clone(),
+                        size: 0.0,
+                        entry_price: signal.price,
+                        current_price: signal.price,
+                        unrealized_pnl: 0.0,
+                        entry_time: Instant::now(),
+                        last_update: Instant::now(),
+                    });
 
-                match signal.action {
-                    TradeAction::Buy => position.size += signal.size,
-                    TradeAction::Sell => position.size -= signal.size,
-                    TradeAction::Hold => {}, // No position change
-                }
+                    match signal.action {
+                        TradeAction::Buy => position.size += signal.size,
+                        TradeAction::Sell => position.size -= signal.size,
+                        TradeAction::Hold => {} // No position change
+                    }
 
-                position.entry_price = signal.price;
-                position.current_price = signal.price;
-                position.last_update = Instant::now();
+                    position.entry_price = signal.price;
+                    position.current_price = signal.price;
+                    position.last_update = Instant::now();
 
-                (position.clone(), position)
-            }).await;
+                    (position.clone(), position)
+                })
+                .await;
 
             // Update trading metrics
             let mut metrics = self.metrics.write().await;
             metrics.total_trades += 1;
 
-            info!("✅ Trade executed: {} {} {:.2} @ {:.6}",
-                 signal.symbol,
-                 match signal.action { TradeAction::Buy => "BUY", TradeAction::Sell => "SELL", TradeAction::Hold => "HOLD" },
-                 signal.size,
-                 signal.price);
+            info!(
+                "✅ Trade executed: {} {} {:.2} @ {:.6}",
+                signal.symbol,
+                match signal.action {
+                    TradeAction::Buy => "BUY",
+                    TradeAction::Sell => "SELL",
+                    TradeAction::Hold => "HOLD",
+                },
+                signal.size,
+                signal.price
+            );
         } else {
             // Real trading would integrate with exchange APIs
             warn!("🚫 Real trading not implemented - enable paper trading mode");
@@ -494,7 +536,9 @@ impl HFTBot {
         let mut metrics = self.metrics.write().await;
 
         // Simple latency tracking (in production, you'd use proper percentile calculation)
-        if metrics.latency_stats.min_latency_ms == 0.0 || latency_ms < metrics.latency_stats.min_latency_ms {
+        if metrics.latency_stats.min_latency_ms == 0.0
+            || latency_ms < metrics.latency_stats.min_latency_ms
+        {
             metrics.latency_stats.min_latency_ms = latency_ms;
         }
         if latency_ms > metrics.latency_stats.max_latency_ms {
@@ -504,7 +548,8 @@ impl HFTBot {
         // Update running average
         let total_events = metrics.processed_events as f64;
         metrics.latency_stats.avg_latency_ms =
-            (metrics.latency_stats.avg_latency_ms * (total_events - 1.0) + latency_ms) / total_events;
+            (metrics.latency_stats.avg_latency_ms * (total_events - 1.0) + latency_ms)
+                / total_events;
     }
 
     pub async fn get_metrics(&self) -> TradingMetrics {
@@ -616,7 +661,10 @@ async fn main() -> Result<()> {
     info!("🏁 Final Performance Report:");
     info!("   Total events: {}", final_metrics.processed_events);
     info!("   Total trades: {}", final_metrics.total_trades);
-    info!("   Average latency: {:.2}ms", final_metrics.latency_stats.avg_latency_ms);
+    info!(
+        "   Average latency: {:.2}ms",
+        final_metrics.latency_stats.avg_latency_ms
+    );
 
     Ok(())
 }
@@ -644,7 +692,8 @@ impl PriceGenerator {
         let drift = 0.05; // 5% annual drift
 
         let random_change = (fastrand::f64() - 0.5) * 2.0; // -1 to 1
-        let price_change = self.current_price * (drift * dt + volatility * random_change * dt.sqrt());
+        let price_change =
+            self.current_price * (drift * dt + volatility * random_change * dt.sqrt());
 
         self.current_price += price_change;
         self.current_price = self.current_price.max(0.01); // Prevent negative prices
@@ -687,10 +736,42 @@ mod tests {
     fn test_mean_reversion_strategy() {
         let mut strategy = MeanReversionStrategy::new(5, 2.0);
         let prices = vec![
-            PriceUpdate { symbol: "TEST".to_string(), price: 100.0, volume: 1000.0, timestamp: Instant::now(), bid: None, ask: None, spread: None },
-            PriceUpdate { symbol: "TEST".to_string(), price: 101.0, volume: 1000.0, timestamp: Instant::now(), bid: None, ask: None, spread: None },
-            PriceUpdate { symbol: "TEST".to_string(), price: 102.0, volume: 1000.0, timestamp: Instant::now(), bid: None, ask: None, spread: None },
-            PriceUpdate { symbol: "TEST".to_string(), price: 110.0, volume: 1000.0, timestamp: Instant::now(), bid: None, ask: None, spread: None }, // Outlier
+            PriceUpdate {
+                symbol: "TEST".to_string(),
+                price: 100.0,
+                volume: 1000.0,
+                timestamp: Instant::now(),
+                bid: None,
+                ask: None,
+                spread: None,
+            },
+            PriceUpdate {
+                symbol: "TEST".to_string(),
+                price: 101.0,
+                volume: 1000.0,
+                timestamp: Instant::now(),
+                bid: None,
+                ask: None,
+                spread: None,
+            },
+            PriceUpdate {
+                symbol: "TEST".to_string(),
+                price: 102.0,
+                volume: 1000.0,
+                timestamp: Instant::now(),
+                bid: None,
+                ask: None,
+                spread: None,
+            },
+            PriceUpdate {
+                symbol: "TEST".to_string(),
+                price: 110.0,
+                volume: 1000.0,
+                timestamp: Instant::now(),
+                bid: None,
+                ask: None,
+                spread: None,
+            }, // Outlier
         ];
 
         let positions = HashMap::new();

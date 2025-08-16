@@ -1,6 +1,6 @@
-use riglr_core::config::{RpcConfig, EvmNetworkConfig, SolanaNetworkConfig};
-use std::env;
+use riglr_core::config::{EvmNetworkConfig, RpcConfig, SolanaNetworkConfig};
 use std::collections::HashMap;
+use std::env;
 
 #[test]
 fn default_networks_and_caip2() {
@@ -43,15 +43,27 @@ fn add_evm_network_overwrite_and_lowercase_key() {
 #[test]
 fn env_overrides_update_existing_and_add_new() {
     // Ensure clean env
-    unsafe { env::remove_var("RPC_URL_8453"); }
-    unsafe { env::remove_var("RPC_URL_999999"); }
-    unsafe { env::remove_var("RPC_URL_NOTNUM"); }
+    unsafe {
+        env::remove_var("RPC_URL_8453");
+    }
+    unsafe {
+        env::remove_var("RPC_URL_999999");
+    }
+    unsafe {
+        env::remove_var("RPC_URL_NOTNUM");
+    }
 
     // Override Base (8453) and add a new one 999999
-    unsafe { env::set_var("RPC_URL_8453", "https://override.base"); }
-    unsafe { env::set_var("RPC_URL_999999", "https://new.chain"); }
+    unsafe {
+        env::set_var("RPC_URL_8453", "https://override.base");
+    }
+    unsafe {
+        env::set_var("RPC_URL_999999", "https://new.chain");
+    }
     // Should be ignored
-    unsafe { env::set_var("RPC_URL_NOTNUM", "https://ignored"); }
+    unsafe {
+        env::set_var("RPC_URL_NOTNUM", "https://ignored");
+    }
 
     let cfg = RpcConfig::default().with_env_overrides();
 
@@ -65,9 +77,15 @@ fn env_overrides_update_existing_and_add_new() {
     assert_eq!(added.rpc_url, "https://new.chain");
 
     // Cleanup
-    unsafe { env::remove_var("RPC_URL_8453"); }
-    unsafe { env::remove_var("RPC_URL_999999"); }
-    unsafe { env::remove_var("RPC_URL_NOTNUM"); }
+    unsafe {
+        env::remove_var("RPC_URL_8453");
+    }
+    unsafe {
+        env::remove_var("RPC_URL_999999");
+    }
+    unsafe {
+        env::remove_var("RPC_URL_NOTNUM");
+    }
 }
 
 #[test]
@@ -82,21 +100,30 @@ fn test_all_default_evm_networks() {
     assert_eq!(polygon.name, "Polygon");
     assert_eq!(polygon.chain_id, 137);
     assert_eq!(polygon.rpc_url, "https://polygon.llamarpc.com");
-    assert_eq!(polygon.explorer_url, Some("https://polygonscan.com".to_string()));
+    assert_eq!(
+        polygon.explorer_url,
+        Some("https://polygonscan.com".to_string())
+    );
 
     // Test arbitrum configuration
     let arbitrum = config.evm_networks.get("arbitrum").unwrap();
     assert_eq!(arbitrum.name, "Arbitrum One");
     assert_eq!(arbitrum.chain_id, 42161);
     assert_eq!(arbitrum.rpc_url, "https://arbitrum.llamarpc.com");
-    assert_eq!(arbitrum.explorer_url, Some("https://arbiscan.io".to_string()));
+    assert_eq!(
+        arbitrum.explorer_url,
+        Some("https://arbiscan.io".to_string())
+    );
 
     // Test optimism configuration
     let optimism = config.evm_networks.get("optimism").unwrap();
     assert_eq!(optimism.name, "Optimism");
     assert_eq!(optimism.chain_id, 10);
     assert_eq!(optimism.rpc_url, "https://optimism.llamarpc.com");
-    assert_eq!(optimism.explorer_url, Some("https://optimistic.etherscan.io".to_string()));
+    assert_eq!(
+        optimism.explorer_url,
+        Some("https://optimistic.etherscan.io".to_string())
+    );
 
     // Test bsc configuration
     let bsc = config.evm_networks.get("bsc").unwrap();
@@ -110,14 +137,20 @@ fn test_all_default_evm_networks() {
     assert_eq!(avalanche.name, "Avalanche C-Chain");
     assert_eq!(avalanche.chain_id, 43114);
     assert_eq!(avalanche.rpc_url, "https://avalanche.llamarpc.com");
-    assert_eq!(avalanche.explorer_url, Some("https://snowtrace.io".to_string()));
+    assert_eq!(
+        avalanche.explorer_url,
+        Some("https://snowtrace.io".to_string())
+    );
 
     // Test gnosis configuration
     let gnosis = config.evm_networks.get("gnosis").unwrap();
     assert_eq!(gnosis.name, "Gnosis");
     assert_eq!(gnosis.chain_id, 100);
     assert_eq!(gnosis.rpc_url, "https://gnosis.llamarpc.com");
-    assert_eq!(gnosis.explorer_url, Some("https://gnosisscan.io".to_string()));
+    assert_eq!(
+        gnosis.explorer_url,
+        Some("https://gnosisscan.io".to_string())
+    );
 
     // Test fantom configuration
     let fantom = config.evm_networks.get("fantom").unwrap();
@@ -131,14 +164,20 @@ fn test_all_default_evm_networks() {
     assert_eq!(linea.name, "Linea");
     assert_eq!(linea.chain_id, 59144);
     assert_eq!(linea.rpc_url, "https://linea.blockpi.network/v1/rpc/public");
-    assert_eq!(linea.explorer_url, Some("https://lineascan.build".to_string()));
+    assert_eq!(
+        linea.explorer_url,
+        Some("https://lineascan.build".to_string())
+    );
 
     // Test scroll configuration
     let scroll = config.evm_networks.get("scroll").unwrap();
     assert_eq!(scroll.name, "Scroll");
     assert_eq!(scroll.chain_id, 534352);
     assert_eq!(scroll.rpc_url, "https://rpc.scroll.io");
-    assert_eq!(scroll.explorer_url, Some("https://scrollscan.com".to_string()));
+    assert_eq!(
+        scroll.explorer_url,
+        Some("https://scrollscan.com".to_string())
+    );
 
     // Test blast configuration
     let blast = config.evm_networks.get("blast").unwrap();
@@ -159,7 +198,10 @@ fn test_all_default_evm_networks() {
     assert_eq!(mantle.name, "Mantle");
     assert_eq!(mantle.chain_id, 5000);
     assert_eq!(mantle.rpc_url, "https://mantle.publicnode.com");
-    assert_eq!(mantle.explorer_url, Some("https://explorer.mantle.xyz".to_string()));
+    assert_eq!(
+        mantle.explorer_url,
+        Some("https://explorer.mantle.xyz".to_string())
+    );
 
     // Test celo configuration
     let celo = config.evm_networks.get("celo").unwrap();
@@ -173,7 +215,10 @@ fn test_all_default_evm_networks() {
     assert_eq!(cronos.name, "Cronos");
     assert_eq!(cronos.chain_id, 25);
     assert_eq!(cronos.rpc_url, "https://node.cronos.org/rpc");
-    assert_eq!(cronos.explorer_url, Some("https://cronoscan.com".to_string()));
+    assert_eq!(
+        cronos.explorer_url,
+        Some("https://cronoscan.com".to_string())
+    );
 }
 
 #[test]
@@ -185,12 +230,18 @@ fn test_solana_networks() {
     let mainnet = config.solana_networks.get("mainnet").unwrap();
     assert_eq!(mainnet.name, "Solana Mainnet");
     assert_eq!(mainnet.rpc_url, "https://api.mainnet-beta.solana.com");
-    assert_eq!(mainnet.explorer_url, Some("https://explorer.solana.com".to_string()));
+    assert_eq!(
+        mainnet.explorer_url,
+        Some("https://explorer.solana.com".to_string())
+    );
 
     let devnet = config.solana_networks.get("devnet").unwrap();
     assert_eq!(devnet.name, "Solana Devnet");
     assert_eq!(devnet.rpc_url, "https://api.devnet.solana.com");
-    assert_eq!(devnet.explorer_url, Some("https://explorer.solana.com".to_string()));
+    assert_eq!(
+        devnet.explorer_url,
+        Some("https://explorer.solana.com".to_string())
+    );
 }
 
 #[test]
@@ -203,7 +254,12 @@ fn test_method_chaining() {
     // Test method chaining returns &mut Self
     config
         .add_evm_network("chain1", 1001, "http://chain1.test", None)
-        .add_evm_network("chain2", 1002, "http://chain2.test", Some("http://explorer2".to_string()))
+        .add_evm_network(
+            "chain2",
+            1002,
+            "http://chain2.test",
+            Some("http://explorer2".to_string()),
+        )
         .add_evm_network("chain3", 1003, "http://chain3.test", None);
 
     assert_eq!(config.evm_networks.len(), 3);
@@ -221,7 +277,10 @@ fn test_serialization() {
     let deserialized: RpcConfig = serde_json::from_str(&json).unwrap();
 
     assert_eq!(config.evm_networks.len(), deserialized.evm_networks.len());
-    assert_eq!(config.solana_networks.len(), deserialized.solana_networks.len());
+    assert_eq!(
+        config.solana_networks.len(),
+        deserialized.solana_networks.len()
+    );
 
     // Test a specific network after deserialization
     let eth = deserialized.evm_networks.get("ethereum").unwrap();
@@ -285,26 +344,54 @@ fn test_clone_trait() {
 #[test]
 fn test_env_override_multiple_chains() {
     // Test overriding multiple existing chains and adding new ones
-    unsafe { env::set_var("RPC_URL_1", "http://custom-eth"); }
-    unsafe { env::set_var("RPC_URL_137", "http://custom-polygon"); }
-    unsafe { env::set_var("RPC_URL_42161", "http://custom-arbitrum"); }
-    unsafe { env::set_var("RPC_URL_777", "http://new-chain-777"); }
+    unsafe {
+        env::set_var("RPC_URL_1", "http://custom-eth");
+    }
+    unsafe {
+        env::set_var("RPC_URL_137", "http://custom-polygon");
+    }
+    unsafe {
+        env::set_var("RPC_URL_42161", "http://custom-arbitrum");
+    }
+    unsafe {
+        env::set_var("RPC_URL_777", "http://new-chain-777");
+    }
 
     let config = RpcConfig::default().with_env_overrides();
 
     // Check overrides
-    assert_eq!(config.evm_networks.get("ethereum").unwrap().rpc_url, "http://custom-eth");
-    assert_eq!(config.evm_networks.get("polygon").unwrap().rpc_url, "http://custom-polygon");
-    assert_eq!(config.evm_networks.get("arbitrum").unwrap().rpc_url, "http://custom-arbitrum");
+    assert_eq!(
+        config.evm_networks.get("ethereum").unwrap().rpc_url,
+        "http://custom-eth"
+    );
+    assert_eq!(
+        config.evm_networks.get("polygon").unwrap().rpc_url,
+        "http://custom-polygon"
+    );
+    assert_eq!(
+        config.evm_networks.get("arbitrum").unwrap().rpc_url,
+        "http://custom-arbitrum"
+    );
 
     // Check new chain
     assert!(config.evm_networks.contains_key("chain_777"));
     assert_eq!(config.evm_networks.get("chain_777").unwrap().chain_id, 777);
-    assert_eq!(config.evm_networks.get("chain_777").unwrap().rpc_url, "http://new-chain-777");
+    assert_eq!(
+        config.evm_networks.get("chain_777").unwrap().rpc_url,
+        "http://new-chain-777"
+    );
 
     // Cleanup
-    unsafe { env::remove_var("RPC_URL_1"); }
-    unsafe { env::remove_var("RPC_URL_137"); }
-    unsafe { env::remove_var("RPC_URL_42161"); }
-    unsafe { env::remove_var("RPC_URL_777"); }
+    unsafe {
+        env::remove_var("RPC_URL_1");
+    }
+    unsafe {
+        env::remove_var("RPC_URL_137");
+    }
+    unsafe {
+        env::remove_var("RPC_URL_42161");
+    }
+    unsafe {
+        env::remove_var("RPC_URL_777");
+    }
 }

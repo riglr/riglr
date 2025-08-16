@@ -3,8 +3,8 @@
 //! These tests use property-based testing to verify that job creation,
 //! serialization, and behavior work correctly with a wide range of inputs.
 
-use riglr_core::jobs::{Job, JobResult};
 use proptest::prelude::*;
+use riglr_core::jobs::{Job, JobResult};
 use serde_json::{json, Value};
 use std::collections::HashMap;
 
@@ -34,22 +34,21 @@ fn params_strategy() -> impl Strategy<Value = Value> {
         Just(Value::Null),
         any::<bool>().prop_map(Value::Bool),
         any::<i64>().prop_map(|i| Value::Number(i.into())),
-        any::<f64>().prop_filter("must be finite", |f| f.is_finite())
+        any::<f64>()
+            .prop_filter("must be finite", |f| f.is_finite())
             .prop_map(|f| json!(f)),
         "[a-zA-Z0-9_ ]{0,100}".prop_map(Value::String),
     ];
 
     leaf.prop_recursive(
-        2, // max depth
+        2,  // max depth
         64, // max size
-        8, // items per collection
+        8,  // items per collection
         |inner| {
             prop_oneof![
                 prop::collection::vec(inner.clone(), 0..8).prop_map(Value::Array),
                 prop::collection::hash_map("[a-zA-Z][a-zA-Z0-9_]{0,20}", inner, 0..8)
-                    .prop_map(|map| {
-                        Value::Object(map.into_iter().collect())
-                    }),
+                    .prop_map(|map| { Value::Object(map.into_iter().collect()) }),
             ]
         },
     )
@@ -73,7 +72,7 @@ fn idempotency_key_strategy() -> impl Strategy<Value = Option<String>> {
     prop_oneof![
         Just(None),
         "[a-zA-Z0-9_-]{1,100}".prop_map(Some),
-        Just(Some("".to_string())), // Empty key
+        Just(Some("".to_string())),   // Empty key
         Just(Some("a".repeat(1000))), // Very long key
         // UUID-like keys
         "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}".prop_map(Some),
@@ -588,12 +587,7 @@ fn test_job_with_serialization_failing_params() {
     assert!(result.is_err());
 
     // Job::new_idempotent should also return an error
-    let result_idempotent = Job::new_idempotent(
-        "test_tool",
-        &unserializable,
-        3,
-        "test_key"
-    );
+    let result_idempotent = Job::new_idempotent("test_tool", &unserializable, 3, "test_key");
     assert!(result_idempotent.is_err());
 }
 

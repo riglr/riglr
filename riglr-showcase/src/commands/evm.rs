@@ -112,8 +112,12 @@ async fn display_token_balances(
 
         pb.set_message(format!("Fetching {} balance...", symbol));
 
-        match get_erc20_balance(wallet_address.to_string(), contract_address.clone(), Some(true))
-            .await
+        match get_erc20_balance(
+            wallet_address.to_string(),
+            contract_address.clone(),
+            Some(true),
+        )
+        .await
         {
             Ok(balance) => {
                 println!("\n{}", format!("🪙 {} Balance", symbol).green().bold());
@@ -329,7 +333,7 @@ pub async fn run_demo(config: Arc<Config>, address: Option<String>, chain_id: u6
         .interact()?;
 
     let should_return = handle_menu_selection(selection, chain_id, config, wallet_address).await?;
-    
+
     if should_return {
         return Ok(());
     }
