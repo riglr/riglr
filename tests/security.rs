@@ -20,9 +20,9 @@ fn test_no_hardcoded_secrets() {
     use std::process::Command;
 
     let patterns = [
-        "sk-[a-zA-Z0-9]+", // OpenAI-style API keys
-        "[a-f0-9]{32,64}", // Hex keys (but allow short hashes)
-        "-----BEGIN.*PRIVATE KEY-----", // Private keys
+        "sk-[a-zA-Z0-9]+",                     // OpenAI-style API keys
+        "[a-f0-9]{32,64}",                     // Hex keys (but allow short hashes)
+        "-----BEGIN.*PRIVATE KEY-----",        // Private keys
         "xoxb-[0-9]+-[0-9]+-[0-9]+-[a-f0-9]+", // Slack tokens
     ];
 
@@ -30,11 +30,15 @@ fn test_no_hardcoded_secrets() {
         let output = Command::new("rg")
             .args(&[
                 pattern,
-                "--type", "rust",
-                "--glob", "!.env.example",
-                "--glob", "!tests/*",
-                "--glob", "!*.md",
-                "."
+                "--type",
+                "rust",
+                "--glob",
+                "!.env.example",
+                "--glob",
+                "!tests/*",
+                "--glob",
+                "!*.md",
+                ".",
             ])
             .current_dir("/mnt/storage/projects/riglr")
             .output()
@@ -46,17 +50,20 @@ fn test_no_hardcoded_secrets() {
         let concerning_results: Vec<&str> = results
             .lines()
             .filter(|line| {
-                !line.contains("test-key") &&
-                !line.contains("your-key") &&
-                !line.contains("{{") &&
-                !line.contains("example") &&
-                !line.contains("placeholder")
+                !line.contains("test-key")
+                    && !line.contains("your-key")
+                    && !line.contains("{{")
+                    && !line.contains("example")
+                    && !line.contains("placeholder")
             })
             .collect();
 
-        assert!(concerning_results.is_empty(),
-               "Found potential hardcoded secrets with pattern {}: {:#?}",
-               pattern, concerning_results);
+        assert!(
+            concerning_results.is_empty(),
+            "Found potential hardcoded secrets with pattern {}: {:#?}",
+            pattern,
+            concerning_results
+        );
     }
 }
 
@@ -85,7 +92,10 @@ fn test_configuration_validation() {
     env::set_var(REDIS_URL, "invalid-url");
     let config = riglr_showcase::config::Config::from_env();
     let validation_result = config.validate();
-    assert!(validation_result.is_err(), "Should reject invalid Redis URL format");
+    assert!(
+        validation_result.is_err(),
+        "Should reject invalid Redis URL format"
+    );
 
     // Clean up
     env::remove_var(OPENAI_API_KEY);
@@ -108,15 +118,19 @@ async fn test_error_information_disclosure() {
     let sensitive_data = "sk-1234567890abcdef"; // Mock API key
     let error_with_sensitive = std::io::Error::new(
         std::io::ErrorKind::Other,
-        format!("Failed to authenticate with key: {}", sensitive_data)
+        format!("Failed to authenticate with key: {}", sensitive_data),
     );
 
-    let tool_error = ToolError::permanent_string(error_with_sensitive, "Authentication failed".to_string());
+    let tool_error =
+        ToolError::permanent_string(error_with_sensitive, "Authentication failed".to_string());
     let error_display = format!("{}", tool_error);
 
     // Error should not leak the sensitive data in the display
-    assert!(!error_display.contains("sk-1234567890abcdef"),
-           "Error should not leak sensitive information in display: {}", error_display);
+    assert!(
+        !error_display.contains("sk-1234567890abcdef"),
+        "Error should not leak sensitive information in display: {}",
+        error_display
+    );
 
     // But source should be available for debugging (in secure environments)
     assert!(tool_error.source().is_some());
@@ -133,14 +147,20 @@ fn test_safe_error_propagation() {
     let tool_error: ToolError = network_error.into();
 
     // Network errors should be retriable
-    assert!(tool_error.is_retriable(), "Network errors should be retriable");
+    assert!(
+        tool_error.is_retriable(),
+        "Network errors should be retriable"
+    );
 
     // Test that permanent errors stay permanent
     let balance_error = EvmToolError::InsufficientBalance;
     let tool_error: ToolError = balance_error.into();
 
     // Balance errors should not be retriable
-    assert!(!tool_error.is_retriable(), "Insufficient balance should not be retriable");
+    assert!(
+        !tool_error.is_retriable(),
+        "Insufficient balance should not be retriable"
+    );
 }
 
 #[test]
@@ -175,10 +195,13 @@ fn test_no_debug_info_leaks() {
     let output = Command::new("rg")
         .args(&[
             "dbg!|println!",
-            "--type", "rust",
-            "--glob", "!tests/*",
-            "--glob", "!examples/*",
-            "src/"
+            "--type",
+            "rust",
+            "--glob",
+            "!tests/*",
+            "--glob",
+            "!examples/*",
+            "src/",
         ])
         .current_dir("/mnt/storage/projects/riglr")
         .output()
@@ -190,14 +213,17 @@ fn test_no_debug_info_leaks() {
     let debug_leaks: Vec<&str> = results
         .lines()
         .filter(|line| {
-            !line.contains("#[cfg(test)]") &&
-            !line.contains("// Debug:") &&
-            !line.contains("debug_assert!")
+            !line.contains("#[cfg(test)]")
+                && !line.contains("// Debug:")
+                && !line.contains("debug_assert!")
         })
         .collect();
 
-    assert!(debug_leaks.is_empty(),
-           "Found debug information leaks in production code: {:#?}", debug_leaks);
+    assert!(
+        debug_leaks.is_empty(),
+        "Found debug information leaks in production code: {:#?}",
+        debug_leaks
+    );
 }
 
 #[test]
@@ -206,12 +232,7 @@ fn test_unsafe_code_usage() {
     use std::process::Command;
 
     let output = Command::new("rg")
-        .args(&[
-            "unsafe",
-            "--type", "rust",
-            "--glob", "!tests/*",
-            "src/"
-        ])
+        .args(&["unsafe", "--type", "rust", "--glob", "!tests/*", "src/"])
         .current_dir("/mnt/storage/projects/riglr")
         .output()
         .expect("Failed to run unsafe code scan");
