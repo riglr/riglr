@@ -1,10 +1,9 @@
 //! Idempotency store for preventing duplicate execution of jobs.
 
 use async_trait::async_trait;
-use std::collections::HashMap;
+use dashmap::DashMap;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime};
-use tokio::sync::RwLock;
 
 use crate::jobs::JobResult;
 
@@ -30,29 +29,28 @@ struct IdempotencyEntry {
 
 /// In-memory idempotency store for testing and development
 pub struct InMemoryIdempotencyStore {
-    store: Arc<RwLock<HashMap<String, IdempotencyEntry>>>,
+    store: Arc<DashMap<String, IdempotencyEntry>>,
 }
 
 impl InMemoryIdempotencyStore {
     /// Create a new in-memory idempotency store
     #[must_use]
     pub fn new() -> Self {
-        Self {
-            store: Arc::new(RwLock::new(HashMap::new())),
-        }
+        Self::default()
     }
 
     /// Clean up expired entries
-    async fn cleanup_expired(&self) {
+    fn cleanup_expired(&self) {
         let now = SystemTime::now();
-        let mut store = self.store.write().await;
-        store.retain(|_, entry| entry.expires_at > now);
+        self.store.retain(|_, entry| entry.expires_at > now);
     }
 }
 
 impl Default for InMemoryIdempotencyStore {
     fn default() -> Self {
-        Self::new()
+        Self {
+            store: Arc::new(DashMap::new()),
+        }
     }
 }
 
@@ -60,10 +58,9 @@ impl Default for InMemoryIdempotencyStore {
 impl IdempotencyStore for InMemoryIdempotencyStore {
     async fn get(&self, key: &str) -> anyhow::Result<Option<JobResult>> {
         // Clean up expired entries periodically
-        self.cleanup_expired().await;
+        self.cleanup_expired();
 
-        let store = self.store.read().await;
-        store.get(key).map_or_else(
+        self.store.get(key).map_or_else(
             || Ok(None),
             |entry| {
                 if entry.expires_at > SystemTime::now() {
@@ -77,7 +74,7 @@ impl IdempotencyStore for InMemoryIdempotencyStore {
 
     async fn set(&self, key: &str, result: &JobResult, ttl: Duration) -> anyhow::Result<()> {
         let expires_at = SystemTime::now() + ttl;
-        self.store.write().await.insert(
+        self.store.insert(
             key.to_string(),
             IdempotencyEntry {
                 result: result.clone(),
@@ -88,7 +85,7 @@ impl IdempotencyStore for InMemoryIdempotencyStore {
     }
 
     async fn remove(&self, key: &str) -> anyhow::Result<()> {
-        self.store.write().await.remove(key);
+        self.store.remove(key);
         Ok(())
     }
 }

@@ -34,6 +34,7 @@ use std::time::Duration;
 /// # Ok(())
 /// # }
 /// ```
+#[derive(Default)]
 pub struct AgentBuilder {
     registry_config: RegistryConfig,
     dispatch_config: DispatchConfig,
@@ -43,11 +44,7 @@ pub struct AgentBuilder {
 impl AgentBuilder {
     /// Create a new agent builder with default configuration.
     pub fn new() -> Self {
-        Self {
-            registry_config: RegistryConfig::default(),
-            dispatch_config: DispatchConfig::default(),
-            communication_config: CommunicationConfig::default(),
-        }
+        Self::default()
     }
 
     /// Set the maximum number of agents in the registry.
@@ -181,12 +178,6 @@ impl AgentBuilder {
     }
 }
 
-impl Default for AgentBuilder {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 /// A complete agent system with local registry.
 pub struct AgentSystem {
     /// Agent registry
@@ -313,6 +304,7 @@ pub struct SystemStats {
 }
 
 /// Builder for creating individual agents with common patterns.
+#[derive(Default)]
 pub struct SingleAgentBuilder {
     agent_id: Option<String>,
     capabilities: Vec<String>,
@@ -322,11 +314,7 @@ pub struct SingleAgentBuilder {
 impl SingleAgentBuilder {
     /// Create a new single agent builder.
     pub fn new() -> Self {
-        Self {
-            agent_id: None,
-            capabilities: Vec::new(),
-            metadata: std::collections::HashMap::new(),
-        }
+        Self::default()
     }
 
     /// Set the agent ID.
@@ -381,12 +369,6 @@ impl SingleAgentBuilder {
     /// Get the configured metadata.
     pub fn metadata(&self) -> &std::collections::HashMap<String, serde_json::Value> {
         &self.metadata
-    }
-}
-
-impl Default for SingleAgentBuilder {
-    fn default() -> Self {
-        Self::new()
     }
 }
 

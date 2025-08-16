@@ -103,43 +103,44 @@ impl EventProcessor {
             loop {
                 interval.tick().await;
 
-                let mut stats_guard = stats.write().await;
-                let now = Instant::now();
-                let elapsed = now.duration_since(last_time).as_secs_f64();
+                {
+                    let mut stats_guard = stats.write().await;
+                    let now = Instant::now();
+                    let elapsed = now.duration_since(last_time).as_secs_f64();
 
-                if elapsed > 0.0 {
-                    let events_delta = stats_guard.total_processed.saturating_sub(last_count);
-                    stats_guard.events_per_second = events_delta as f64 / elapsed;
+                    if elapsed > 0.0 {
+                        let events_delta = stats_guard.total_processed.saturating_sub(last_count);
+                        stats_guard.events_per_second = events_delta as f64 / elapsed;
 
-                    // Record metrics
-                    context.metrics.record_gauge(
-                        "indexer_processing_events_per_second",
-                        stats_guard.events_per_second,
-                    );
+                        // Record metrics
+                        context.metrics.record_gauge(
+                            "indexer_processing_events_per_second",
+                            stats_guard.events_per_second,
+                        );
 
-                    context.metrics.record_counter(
-                        "indexer_processing_total_events",
-                        stats_guard.total_processed,
-                    );
+                        context.metrics.record_counter(
+                            "indexer_processing_total_events",
+                            stats_guard.total_processed,
+                        );
 
-                    context.metrics.record_counter(
-                        "indexer_processing_total_errors",
-                        stats_guard.total_errors,
-                    );
+                        context.metrics.record_counter(
+                            "indexer_processing_total_errors",
+                            stats_guard.total_errors,
+                        );
 
-                    let error_rate = if stats_guard.total_processed > 0 {
-                        stats_guard.total_errors as f64 / stats_guard.total_processed as f64
-                    } else {
-                        0.0
-                    };
-                    context
-                        .metrics
-                        .record_gauge("indexer_processing_error_rate", error_rate);
+                        let error_rate = if stats_guard.total_processed > 0 {
+                            stats_guard.total_errors as f64 / stats_guard.total_processed as f64
+                        } else {
+                            0.0
+                        };
+                        context
+                            .metrics
+                            .record_gauge("indexer_processing_error_rate", error_rate);
+                    }
+
+                    last_count = stats_guard.total_processed;
+                    last_time = now;
                 }
-
-                last_count = stats_guard.total_processed;
-                last_time = now;
-                drop(stats_guard);
 
                 // Check for shutdown
                 if matches!(
@@ -520,7 +521,7 @@ pub struct ProcessingPipeline {
 
 impl Default for ProcessingPipeline {
     fn default() -> Self {
-        Self::new()
+        Self { stages: Vec::new() }
     }
 }
 

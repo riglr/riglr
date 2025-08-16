@@ -48,15 +48,7 @@ static TX_HASH_REGEX: Lazy<Regex> =
 impl EntityExtractor {
     /// Create a new entity extractor with predefined patterns
     pub fn new() -> Self {
-        let mut extractor = Self {
-            protocol_patterns: HashMap::new(),
-            token_patterns: HashMap::new(),
-            chain_patterns: HashMap::new(),
-            regex_cache: HashMap::new(),
-        };
-
-        extractor.initialize_patterns();
-        extractor
+        Self::default()
     }
 
     /// Initialize known patterns for entity recognition
@@ -447,7 +439,7 @@ impl EntityExtractor {
             && !address.contains("0x")
             && address
                 .chars()
-                .all(|c| "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz".contains(c))
+                .all(|c| c.is_ascii_alphanumeric() && c != '0' && c != 'O' && c != 'I' && c != 'l')
     }
 
     /// Parse amount text into value and unit
@@ -464,7 +456,7 @@ impl EntityExtractor {
 
     /// Parse numeric value from text (handling K, M, B suffixes)
     fn parse_numeric_value(&self, value_str: &str) -> Option<f64> {
-        let cleaned = value_str.replace("$", "").replace(",", "");
+        let cleaned = value_str.replace(['$', ','], "");
 
         if let Some(last_char) = cleaned.chars().last() {
             let (num_part, multiplier) = match last_char {
@@ -500,7 +492,7 @@ impl EntityExtractor {
             AmountType::MarketCap
         } else if context_lower.contains("price")
             || context_lower.contains("worth")
-            || amount_lower.contains("$")
+            || amount_lower.contains('$')
         {
             AmountType::Price
         } else {
@@ -528,6 +520,13 @@ impl EntityExtractor {
 
 impl Default for EntityExtractor {
     fn default() -> Self {
-        Self::new()
+        let mut extractor = Self {
+            protocol_patterns: HashMap::new(),
+            token_patterns: HashMap::new(),
+            chain_patterns: HashMap::new(),
+            regex_cache: HashMap::new(),
+        };
+        extractor.initialize_patterns();
+        extractor
     }
 }

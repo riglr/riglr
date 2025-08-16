@@ -8,6 +8,8 @@ use serde::{Deserialize, Serialize};
 use std::hint::black_box;
 use std::sync::Arc;
 use std::time::Duration;
+
+const REDIS_URL: &str = "REDIS_URL";
 use tokio::runtime::Runtime;
 
 #[cfg(feature = "redis")]
@@ -371,7 +373,7 @@ fn redis_queue_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("redis_queue");
     let rt = Runtime::new().unwrap();
 
-    let redis_url = std::env::var("REDIS_URL").unwrap_or_else(|_| "redis://127.0.0.1/".to_string());
+    let redis_url = std::env::var(REDIS_URL).unwrap_or_else(|_| "redis://127.0.0.1/".to_string());
 
     // Check if Redis is available before running benchmarks
     let redis_available =

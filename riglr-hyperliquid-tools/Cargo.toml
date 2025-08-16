@@ -12,6 +12,9 @@ keywords = ["hyperliquid", "derivatives", "futures", "ai", "agent", "blockchain"
 categories = ["cryptography::cryptocurrencies", "web-programming::api-bindings"]
 documentation = "https://docs.rs/riglr-hyperliquid-tools"
 
+[lints]
+workspace = true
+
 [dependencies]
 # Core riglr and rig dependencies
 rig-core = { workspace = true }

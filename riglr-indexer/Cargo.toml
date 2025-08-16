@@ -16,6 +16,9 @@ path = "src/main.rs"
 name = "riglr-indexer-cli"
 path = "src/bin/cli.rs"
 
+[lints]
+workspace = true
+
 [dependencies]
 # Core riglr dependencies
 riglr-core = { workspace = true }

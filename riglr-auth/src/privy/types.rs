@@ -26,33 +26,30 @@ impl PrivyUserData {
     pub fn solana_wallet(&self) -> Option<&PrivyWallet> {
         self.linked_accounts
             .iter()
-            .filter_map(|account| match account {
+            .find_map(|account| match account {
                 LinkedAccount::Wallet(w) if w.chain_type == "solana" && w.delegated => Some(w),
                 _ => None,
             })
-            .next()
     }
 
     /// Get EVM wallet if available
     pub fn evm_wallet(&self) -> Option<&PrivyWallet> {
         self.linked_accounts
             .iter()
-            .filter_map(|account| match account {
+            .find_map(|account| match account {
                 LinkedAccount::Wallet(w) if w.chain_type == "ethereum" && w.delegated => Some(w),
                 _ => None,
             })
-            .next()
     }
 
     /// Get email if available
     pub fn email(&self) -> Option<String> {
         self.linked_accounts
             .iter()
-            .filter_map(|account| match account {
+            .find_map(|account| match account {
                 LinkedAccount::Email { address, .. } => Some(address.clone()),
                 _ => None,
             })
-            .next()
     }
 }
 

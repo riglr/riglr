@@ -747,6 +747,9 @@ fn handle_function(function: ItemFn, tool_attrs: ToolAttr) -> proc_macro2::Token
     // Generate the module name from the function name
     let module_name = syn::Ident::new(&fn_name.to_string(), fn_name.span());
 
+    // Generate the error handling match arms
+    let error_match_arms = generate_tool_error_match_arms();
+
     // Generate the tool implementation with namespace
     quote! {
         // Keep the original function
@@ -811,36 +814,7 @@ fn handle_function(function: ItemFn, tool_attrs: ToolAttr) -> proc_macro2::Token
                             // Convert any error to ToolError, then match on it
                             let tool_error: riglr_core::ToolError = tool_error.into();
                             match tool_error {
-                                riglr_core::ToolError::Retriable { context, .. } => {
-                                    Ok(riglr_core::JobResult::Failure {
-                                        error: context,
-                                        retriable: true,
-                                    })
-                                }
-                                riglr_core::ToolError::Permanent { context, .. } => {
-                                    Ok(riglr_core::JobResult::Failure {
-                                        error: context,
-                                        retriable: false,
-                                    })
-                                }
-                                riglr_core::ToolError::RateLimited { context, .. } => {
-                                    Ok(riglr_core::JobResult::Failure {
-                                        error: format!("Rate limited: {}", context),
-                                        retriable: true,
-                                    })
-                                }
-                                riglr_core::ToolError::InvalidInput { context, .. } => {
-                                    Ok(riglr_core::JobResult::Failure {
-                                        error: format!("Invalid input: {}", context),
-                                        retriable: false,
-                                    })
-                                }
-                                riglr_core::ToolError::SignerContext(err) => {
-                                    Ok(riglr_core::JobResult::Failure {
-                                        error: format!("Signer error: {}", err),
-                                        retriable: false,
-                                    })
-                                }
+                                #error_match_arms
                             }
                         }
                     }
@@ -874,6 +848,9 @@ fn handle_struct(structure: ItemStruct, tool_attrs: ToolAttr) -> proc_macro2::To
         None => description,
     };
 
+    // Generate the error handling match arms
+    let error_match_arms = generate_tool_error_match_arms();
+
     quote! {
         // Keep the original struct
         #structure
@@ -906,39 +883,10 @@ fn handle_struct(structure: ItemStruct, tool_attrs: ToolAttr) -> proc_macro2::To
                         })
                     }
                     Err(tool_error) => {
-            // Convert any error to ToolError, then match on it
+                        // Convert any error to ToolError, then match on it
                         let tool_error: riglr_core::ToolError = tool_error.into();
                         match tool_error {
-                riglr_core::ToolError::Retriable { context, .. } => {
-                                Ok(riglr_core::JobResult::Failure {
-                    error: context,
-                                    retriable: true,
-                                })
-                            }
-                riglr_core::ToolError::Permanent { context, .. } => {
-                                Ok(riglr_core::JobResult::Failure {
-                    error: context,
-                                    retriable: false,
-                                })
-                            }
-                riglr_core::ToolError::RateLimited { context, .. } => {
-                                Ok(riglr_core::JobResult::Failure {
-                    error: format!("Rate limited: {}", context),
-                                    retriable: true,
-                                })
-                            }
-                riglr_core::ToolError::InvalidInput { context, .. } => {
-                                Ok(riglr_core::JobResult::Failure {
-                    error: format!("Invalid input: {}", context),
-                                    retriable: false,
-                                })
-                            }
-                            riglr_core::ToolError::SignerContext(err) => {
-                                Ok(riglr_core::JobResult::Failure {
-                                    error: format!("Signer error: {}", err),
-                                    retriable: false,
-                                })
-                            }
+                            #error_match_arms
                         }
                     }
                 }
@@ -984,6 +932,42 @@ fn extract_doc_comments(attrs: &[Attribute]) -> String {
     }
 
     docs.join("\n").trim().to_string()
+}
+
+/// Generates the common error handling match arms for ToolError to JobResult conversion
+fn generate_tool_error_match_arms() -> proc_macro2::TokenStream {
+    quote! {
+        riglr_core::ToolError::Retriable { context, .. } => {
+            Ok(riglr_core::JobResult::Failure {
+                error: context,
+                retriable: true,
+            })
+        }
+        riglr_core::ToolError::Permanent { context, .. } => {
+            Ok(riglr_core::JobResult::Failure {
+                error: context,
+                retriable: false,
+            })
+        }
+        riglr_core::ToolError::RateLimited { context, .. } => {
+            Ok(riglr_core::JobResult::Failure {
+                error: format!("Rate limited: {}", context),
+                retriable: true,
+            })
+        }
+        riglr_core::ToolError::InvalidInput { context, .. } => {
+            Ok(riglr_core::JobResult::Failure {
+                error: format!("Invalid input: {}", context),
+                retriable: false,
+            })
+        }
+        riglr_core::ToolError::SignerContext(err) => {
+            Ok(riglr_core::JobResult::Failure {
+                error: format!("Signer error: {}", err),
+                retriable: false,
+            })
+        }
+    }
 }
 
 /// Derives automatic conversion from an error enum to ToolError.
@@ -1069,14 +1053,13 @@ pub fn derive_into_tool_error(input: TokenStream) -> TokenStream {
         let classification = variant
             .attrs
             .iter()
-            .filter_map(|attr| {
+            .find_map(|attr| {
                 if attr.path().is_ident("tool_error") {
                     attr.parse_args::<syn::Ident>().ok()
                 } else {
                     None
                 }
-            })
-            .next();
+            });
 
         let pattern = match &variant.fields {
             syn::Fields::Named(_) => quote! { #name::#variant_name { .. } },

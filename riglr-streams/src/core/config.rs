@@ -7,6 +7,11 @@ use serde::{Deserialize, Serialize};
 use std::time::Duration;
 use thiserror::Error;
 
+const RIGLR_CONNECT_TIMEOUT_SECS: &str = "RIGLR_CONNECT_TIMEOUT_SECS";
+const RIGLR_CHANNEL_SIZE: &str = "RIGLR_CHANNEL_SIZE";
+const RIGLR_BACKPRESSURE_STRATEGY: &str = "RIGLR_BACKPRESSURE_STRATEGY";
+const RIGLR_METRICS_ENABLED: &str = "RIGLR_METRICS_ENABLED";
+
 /// Configuration errors
 #[derive(Error, Debug)]
 pub enum ConfigError {
@@ -400,19 +405,19 @@ impl StreamClientConfig {
         let mut config = Self::default();
 
         // Connection settings
-        if let Ok(timeout) = std::env::var("RIGLR_CONNECT_TIMEOUT_SECS") {
+        if let Ok(timeout) = std::env::var(RIGLR_CONNECT_TIMEOUT_SECS) {
             config.connection.connect_timeout_secs = timeout.parse().map_err(|e| {
                 ConfigError::Environment(format!("Invalid RIGLR_CONNECT_TIMEOUT_SECS: {}", e))
             })?;
         }
 
-        if let Ok(size) = std::env::var("RIGLR_CHANNEL_SIZE") {
+        if let Ok(size) = std::env::var(RIGLR_CHANNEL_SIZE) {
             config.backpressure.channel_size = size.parse().map_err(|e| {
                 ConfigError::Environment(format!("Invalid RIGLR_CHANNEL_SIZE: {}", e))
             })?;
         }
 
-        if let Ok(strategy) = std::env::var("RIGLR_BACKPRESSURE_STRATEGY") {
+        if let Ok(strategy) = std::env::var(RIGLR_BACKPRESSURE_STRATEGY) {
             config.backpressure.strategy = match strategy.to_lowercase().as_str() {
                 "block" => BackpressureStrategy::Block,
                 "drop" => BackpressureStrategy::Drop,
@@ -426,7 +431,7 @@ impl StreamClientConfig {
             };
         }
 
-        if let Ok(enabled) = std::env::var("RIGLR_METRICS_ENABLED") {
+        if let Ok(enabled) = std::env::var(RIGLR_METRICS_ENABLED) {
             config.metrics.enabled = enabled.parse().map_err(|e| {
                 ConfigError::Environment(format!("Invalid RIGLR_METRICS_ENABLED: {}", e))
             })?;

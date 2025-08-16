@@ -98,9 +98,10 @@ impl MetricsCollector {
 
     /// Update indexer-specific metrics
     pub async fn update_indexer_metrics(&self, metrics: IndexerMetrics) {
-        let mut current = self.current_metrics.write().await;
-        *current = metrics.clone();
-        drop(current);
+        {
+            let mut current = self.current_metrics.write().await;
+            *current = metrics.clone();
+        }
 
         // Update registry with current values
         self.record_gauge(

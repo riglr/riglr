@@ -150,8 +150,8 @@ impl SignerContextIntegration {
         let task_id = params
             .get("task_id")
             .and_then(|v| v.as_str())
-            .unwrap_or(&job.job_id.to_string())
-            .to_string();
+            .map(|s| s.to_string())
+            .unwrap_or_else(|| job.job_id.to_string());
 
         let task_type = params
             .get("task_type")

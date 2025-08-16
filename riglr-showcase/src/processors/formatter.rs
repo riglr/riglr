@@ -24,7 +24,7 @@ impl MarkdownFormatter {
         Self {
             include_metadata: true,
             include_timing: true,
-            custom_templates: HashMap::new(),
+            custom_templates: HashMap::default(),
         }
     }
 
@@ -32,7 +32,7 @@ impl MarkdownFormatter {
         Self {
             include_metadata,
             include_timing,
-            custom_templates: HashMap::new(),
+            custom_templates: HashMap::default(),
         }
     }
 
@@ -50,7 +50,7 @@ impl MarkdownFormatter {
             return self.apply_template(template, output);
         }
 
-        let mut markdown = String::new();
+        let mut markdown = String::default();
 
         // Title
         markdown.push_str(&format!(
@@ -123,7 +123,7 @@ impl MarkdownFormatter {
     fn format_json_as_markdown(&self, value: &Value) -> String {
         match value {
             Value::Object(obj) => {
-                let mut result = String::new();
+                let mut result = String::default();
                 for (key, val) in obj {
                     match val {
                         Value::String(s) => {
@@ -157,7 +157,7 @@ impl MarkdownFormatter {
             .map(|word| {
                 let mut chars = word.chars();
                 match chars.next() {
-                    None => String::new(),
+                    None => String::default(),
                     Some(first) => first.to_uppercase().collect::<String>() + chars.as_str(),
                 }
             })
@@ -245,7 +245,7 @@ impl HtmlFormatter {
             r#"<div class="{}">"#,
             self.css_classes
                 .get("container")
-                .unwrap_or(&"tool-output".to_string())
+                .unwrap_or_else(|| &"tool-output".to_string())
         ));
         html.push('\n');
 
@@ -287,7 +287,7 @@ impl HtmlFormatter {
                 r#"<div class="{}"><pre>{}</pre></div>"#,
                 self.css_classes
                     .get("result")
-                    .unwrap_or(&"result-content".to_string()),
+                    .unwrap_or_else(|| &"result-content".to_string()),
                 html_escape(&serde_json::to_string_pretty(&output.result).unwrap_or_default())
             ));
             html.push('\n');
@@ -323,7 +323,7 @@ impl HtmlFormatter {
             .map(|word| {
                 let mut chars = word.chars();
                 match chars.next() {
-                    None => String::new(),
+                    None => String::default(),
                     Some(first) => first.to_uppercase().collect::<String>() + chars.as_str(),
                 }
             })
@@ -548,25 +548,43 @@ fn html_escape(s: &str) -> String {
 
 impl Default for MarkdownFormatter {
     fn default() -> Self {
-        Self::new()
+        Self {
+            include_metadata: true,
+            include_timing: true,
+            custom_templates: HashMap::default(),
+        }
     }
 }
 
 impl Default for HtmlFormatter {
     fn default() -> Self {
-        Self::new()
+        let mut css_classes = HashMap::new();
+        css_classes.insert("container".to_string(), "tool-output".to_string());
+        css_classes.insert("success".to_string(), "status-success".to_string());
+        css_classes.insert("error".to_string(), "status-error".to_string());
+        css_classes.insert("result".to_string(), "result-content".to_string());
+        Self {
+            css_classes,
+            include_styles: true,
+        }
     }
 }
 
 impl Default for JsonFormatter {
     fn default() -> Self {
-        Self::new()
+        Self {
+            pretty_print: true,
+            include_metadata: true,
+            field_mappings: HashMap::default(),
+        }
     }
 }
 
 impl Default for MultiFormatProcessor {
     fn default() -> Self {
-        Self::new()
+        Self {
+            formats: Vec::new(),
+        }
     }
 }
 

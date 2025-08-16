@@ -42,16 +42,16 @@ pub struct InMemoryJobQueue {
 impl InMemoryJobQueue {
     /// Create a new in-memory job queue
     pub fn new() -> Self {
-        Self {
-            queue: tokio::sync::Mutex::new(std::collections::VecDeque::new()),
-            notify: tokio::sync::Notify::new(),
-        }
+        Self::default()
     }
 }
 
 impl Default for InMemoryJobQueue {
     fn default() -> Self {
-        Self::new()
+        Self {
+            queue: tokio::sync::Mutex::new(Default::default()),
+            notify: tokio::sync::Notify::new(),
+        }
     }
 }
 

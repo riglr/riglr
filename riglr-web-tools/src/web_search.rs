@@ -12,6 +12,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use tracing::{debug, info, warn};
 
+const EXA_API_KEY: &str = "EXA_API_KEY";
+
 /// Configuration for web search services
 #[derive(Debug, Clone)]
 pub struct WebSearchConfig {
@@ -273,7 +275,7 @@ pub struct SimilarityMetadata {
 impl Default for WebSearchConfig {
     fn default() -> Self {
         Self {
-            exa_api_key: std::env::var("EXA_API_KEY").unwrap_or_default(),
+            exa_api_key: std::env::var(EXA_API_KEY).unwrap_or_default(),
             exa_base_url: "https://api.exa.ai".to_string(),
             max_results: 20,
             timeout_seconds: 30,

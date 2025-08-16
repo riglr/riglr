@@ -31,8 +31,8 @@ fn init_env_from_file_valid_and_malformed() {
 
 #[test]
 fn validate_and_get_helpers() {
-    env::remove_var("A");
-    env::set_var("B", "b");
+    unsafe { env::remove_var("A"); }
+    unsafe { env::set_var("B", "b"); }
 
     // get_env_or_default
     assert_eq!(get_env_or_default("A", "def"), "def");
@@ -53,5 +53,5 @@ fn validate_and_get_helpers() {
     assert!(map.get("A").is_none());
     assert_eq!(map.get("B").map(String::as_str), Some("b"));
 
-    env::remove_var("B");
+    unsafe { env::remove_var("B"); }
 }

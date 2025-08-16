@@ -667,10 +667,10 @@ fn test_job_with_empty_and_special_strings() {
 
     // Test JobResult with empty error message
     let empty_error = JobResult::retriable_failure("");
-    assert_eq!(empty_error.is_retriable(), true);
+    assert!(empty_error.is_retriable());
 
     let empty_permanent = JobResult::permanent_failure("");
-    assert_eq!(empty_permanent.is_retriable(), false);
+    assert!(!empty_permanent.is_retriable());
 }
 
 #[test]

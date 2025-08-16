@@ -12,6 +12,9 @@ keywords = ["ethereum", "evm", "ai", "agent", "blockchain", "rig"]
 categories = ["cryptography::cryptocurrencies", "web-programming::api-bindings"]
 documentation = "https://docs.rs/riglr-evm-tools"
 
+[lints]
+workspace = true
+
 [dependencies]
 # Core riglr and rig dependencies
 rig-core = { workspace = true }
@@ -52,6 +55,7 @@ criterion = { workspace = true }
 solana-client = { workspace = true }
 solana-sdk = { workspace = true }
 futures = "0.3"
+tempfile = "3.8"
 
 # Removed workspace definition to be part of parent workspace
 

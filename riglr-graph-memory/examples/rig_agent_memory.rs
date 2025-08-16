@@ -7,6 +7,10 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tracing::{info, warn};
 
+const NEO4J_URL: &str = "NEO4J_URL";
+const NEO4J_USER: &str = "NEO4J_USER";
+const NEO4J_PASSWORD: &str = "NEO4J_PASSWORD";
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Initialize tracing
@@ -20,10 +24,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         use serde_json::json;
         // Setup Neo4j connection
         let neo4j_url =
-            std::env::var("NEO4J_URL").unwrap_or_else(|_| "bolt://localhost:7687".to_string());
-        let _neo4j_user = std::env::var("NEO4J_USER").unwrap_or_else(|_| "neo4j".to_string());
+            std::env::var(NEO4J_URL).unwrap_or_else(|_| "bolt://localhost:7687".to_string());
+        let _neo4j_user = std::env::var(NEO4J_USER).unwrap_or_else(|_| "neo4j".to_string());
         let _neo4j_password =
-            std::env::var("NEO4J_PASSWORD").unwrap_or_else(|_| "password".to_string());
+            std::env::var(NEO4J_PASSWORD).unwrap_or_else(|_| "password".to_string());
 
         info!("Connecting to Neo4j at {}", neo4j_url);
 

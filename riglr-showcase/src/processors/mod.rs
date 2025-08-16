@@ -192,7 +192,9 @@ impl ProcessorPipeline {
 
 impl Default for ProcessorPipeline {
     fn default() -> Self {
-        Self::new()
+        Self {
+            processors: Vec::new(),
+        }
     }
 }
 

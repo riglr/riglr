@@ -199,6 +199,7 @@ impl Config {
 }
 
 /// Builder for constructing configuration programmatically
+#[derive(Default)]
 pub struct ConfigBuilder {
     app: AppConfig,
     database: DatabaseConfig,
@@ -210,13 +211,7 @@ pub struct ConfigBuilder {
 impl ConfigBuilder {
     /// Create a new configuration builder with defaults
     pub fn new() -> Self {
-        Self {
-            app: AppConfig::default(),
-            database: DatabaseConfig::default(),
-            network: NetworkConfig::default(),
-            providers: ProvidersConfig::default(),
-            features: FeaturesConfig::default(),
-        }
+        Self::default()
     }
 
     /// Set application configuration
@@ -261,12 +256,6 @@ impl ConfigBuilder {
 
         config.validate()?;
         Ok(config)
-    }
-}
-
-impl Default for ConfigBuilder {
-    fn default() -> Self {
-        Self::new()
     }
 }
 

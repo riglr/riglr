@@ -11,6 +11,10 @@ use riglr_graph_memory::{
 };
 use std::env;
 
+const NEO4J_URL: &str = "NEO4J_URL";
+const NEO4J_USERNAME: &str = "NEO4J_USERNAME";
+const NEO4J_PASSWORD: &str = "NEO4J_PASSWORD";
+
 /// Simulated transaction data for demonstration
 #[allow(dead_code)]
 struct TransactionData {
@@ -32,9 +36,9 @@ async fn main() -> anyhow::Result<()> {
 
     // Initialize graph memory
     let config = GraphMemoryConfig {
-        neo4j_url: env::var("NEO4J_URL").unwrap_or_else(|_| "neo4j://localhost:7687".to_string()),
-        username: Some(env::var("NEO4J_USERNAME").unwrap_or_else(|_| "neo4j".to_string())),
-        password: Some(env::var("NEO4J_PASSWORD").unwrap_or_else(|_| "password".to_string())),
+        neo4j_url: env::var(NEO4J_URL).unwrap_or_else(|_| "neo4j://localhost:7687".to_string()),
+        username: Some(env::var(NEO4J_USERNAME).unwrap_or_else(|_| "neo4j".to_string())),
+        password: Some(env::var(NEO4J_PASSWORD).unwrap_or_else(|_| "password".to_string())),
         ..Default::default()
     };
 
@@ -348,7 +352,7 @@ fn generate_rag_response(
             "Based on the knowledge graph, I found {} DeFi activities. The wallet has interacted with protocols including: {}. Recent activities include: {}",
             count,
             protocols.join(", "),
-            context_docs.first().map(|d| &d.content[..]).unwrap_or("no recent activity")
+            context_docs.first().map_or("no recent activity", |d| &d.content[..])
         )
     } else if query.contains("commonly used") {
         let mut protocol_counts = std::collections::HashMap::new();
@@ -363,8 +367,7 @@ fn generate_rag_response(
         let most_common = protocol_counts
             .iter()
             .max_by_key(|(_, count)| *count)
-            .map(|(protocol, _)| *protocol)
-            .unwrap_or("Unknown");
+            .map_or("Unknown", |(protocol, _)| *protocol);
 
         format!(
             "Based on the transaction history, {} appears to be the most commonly used protocol for this type of activity. I found {} relevant transactions in the knowledge graph.",

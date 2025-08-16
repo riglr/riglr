@@ -140,7 +140,13 @@ pub struct JupiterParser {
 
 impl Default for JupiterParser {
     fn default() -> Self {
-        Self::new()
+        Self {
+            program_id: JUPITER_PROGRAM_ID
+                .parse()
+                .expect("Valid Jupiter program ID"),
+            zero_copy: true,
+            detailed_analysis: true,
+        }
     }
 }
 

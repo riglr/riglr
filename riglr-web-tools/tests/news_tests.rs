@@ -2,6 +2,9 @@ use chrono::Utc;
 use riglr_web_tools::news::*;
 use std::collections::HashMap;
 
+const NEWSAPI_KEY: &str = "NEWSAPI_KEY";
+const CRYPTOPANIC_KEY: &str = "CRYPTOPANIC_KEY";
+
 #[tokio::test]
 async fn test_get_crypto_news_basic() {
     // Set environment variables for the test
@@ -32,8 +35,8 @@ async fn test_get_crypto_news_basic() {
 #[ignore] // Ignored due to environment variable dependencies that may vary in CI/CD environments
 async fn test_get_crypto_news_no_api_keys() {
     // Store current environment vars if they exist
-    let newsapi_key = std::env::var("NEWSAPI_KEY").ok();
-    let cryptopanic_key = std::env::var("CRYPTOPANIC_KEY").ok();
+    let newsapi_key = std::env::var(NEWSAPI_KEY).ok();
+    let cryptopanic_key = std::env::var(CRYPTOPANIC_KEY).ok();
 
     // Ensure no API keys are set
     std::env::remove_var("NEWSAPI_KEY");

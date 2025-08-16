@@ -11,6 +11,9 @@ use rig::completion::Prompt;
 use rig::providers::{anthropic, gemini, openai};
 use serde_json::json;
 
+const OPENAI_API_KEY: &str = "OPENAI_API_KEY";
+const ANTHROPIC_API_KEY: &str = "ANTHROPIC_API_KEY";
+
 /// LLM-based output distiller
 ///
 /// Uses a separate LLM call to summarize complex tool outputs.
@@ -79,7 +82,7 @@ Please provide a concise summary of this tool output:"#,
             if let Some(error) = &tool_output.error {
                 format!("Error: {}", error)
             } else {
-                String::new()
+                String::default()
             }
         );
 
@@ -283,7 +286,7 @@ pub struct MockDistiller {
 
 impl MockDistiller {
     pub fn new() -> Self {
-        let mut responses = std::collections::HashMap::new();
+        let mut responses = std::collections::HashMap::default();
         responses.insert(
             "get_sol_balance".to_string(),
             "Successfully retrieved SOL balance for the specified address.".to_string(),
@@ -347,13 +350,36 @@ impl OutputProcessor for MockDistiller {
 
 impl Default for SmartDistiller {
     fn default() -> Self {
-        Self::new()
+        Self {
+            processors: vec![
+                DistillationProcessor::new("gpt-4o-mini"), // Fast for simple summaries
+                DistillationProcessor::new("claude-3-5-haiku"), // Good for technical content
+                DistillationProcessor::new("gemini-1.5-flash"), // Cost-effective option
+            ],
+        }
     }
 }
 
 impl Default for MockDistiller {
     fn default() -> Self {
-        Self::new()
+        let mut responses = std::collections::HashMap::default();
+        responses.insert(
+            "get_sol_balance".to_string(),
+            "Successfully retrieved SOL balance for the specified address.".to_string(),
+        );
+        responses.insert(
+            "swap_tokens".to_string(),
+            "Token swap completed successfully.".to_string(),
+        );
+        responses.insert(
+            "error".to_string(),
+            "An error occurred while processing the request.".to_string(),
+        );
+        responses.insert(
+            "test_tool".to_string(),
+            "Test tool executed successfully.".to_string(),
+        );
+        Self { responses }
     }
 }
 
@@ -365,7 +391,7 @@ mod tests {
     #[tokio::test]
     async fn test_distillation_processor() {
         // Skip test if OPENAI_API_KEY is not set
-        if std::env::var("OPENAI_API_KEY").is_err() {
+        if std::env::var(OPENAI_API_KEY).is_err() {
             eprintln!("Skipping test: OPENAI_API_KEY not set");
             return;
         }
@@ -396,7 +422,7 @@ mod tests {
     #[tokio::test]
     async fn test_smart_distiller() {
         // Skip test if ANTHROPIC_API_KEY is not set
-        if std::env::var("ANTHROPIC_API_KEY").is_err() {
+        if std::env::var(ANTHROPIC_API_KEY).is_err() {
             eprintln!("Skipping test: ANTHROPIC_API_KEY not set");
             return;
         }

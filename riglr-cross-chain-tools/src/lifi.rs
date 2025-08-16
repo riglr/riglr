@@ -229,8 +229,8 @@ impl LiFiClient {
     const DEFAULT_BASE_URL: &'static str = "https://li.quest/v1/";
 
     /// Create a new LiFi client with default settings
-    pub fn new() -> Result<Self, LiFiError> {
-        Self::with_base_url(Self::DEFAULT_BASE_URL)
+    pub fn new() -> Self {
+        Self::default()
     }
 
     /// Create a new LiFi client with custom base URL
@@ -545,7 +545,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_lifi_client_creation() {
-        let client = LiFiClient::new().unwrap();
+        let client = LiFiClient::new();
         assert!(client.api_key.is_none());
     }
 

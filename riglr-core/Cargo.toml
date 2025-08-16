@@ -10,6 +10,9 @@ keywords = ["rig", "ai", "agent", "job-queue", "blockchain"]
 categories = ["asynchronous", "web-programming::api-bindings"]
 documentation = "https://docs.rs/riglr-core"
 
+[lints]
+workspace = true
+
 [dependencies]
 # Core dependencies
 tokio = { workspace = true }
@@ -31,6 +34,9 @@ tokio-retry = { workspace = true }
 
 # Exponential backoff
 backoff = "0.4"
+
+# Concurrent hashmap for better performance
+dashmap = "6.1"
 
 # Signer infrastructure dependencies - needed for TransactionSigner trait
 solana-sdk = { workspace = true }

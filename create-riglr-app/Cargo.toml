@@ -13,6 +13,9 @@ categories = ["command-line-utilities", "development-tools"]
 name = "create-riglr-app"
 path = "src/main.rs"
 
+[lints]
+workspace = true
+
 [dependencies]
 # CLI and user interaction
 clap = { version = "4", features = ["derive"] }

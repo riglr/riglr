@@ -12,6 +12,8 @@ use riglr_macros::tool;
 use serde::{Deserialize, Serialize};
 use tracing::info;
 
+const LIFI_API_KEY: &str = "LIFI_API_KEY";
+
 // ============================================================================
 // Data Structures
 // ============================================================================
@@ -214,11 +216,10 @@ fn convert_route(route: &CrossChainRoute) -> Result<RouteInfo, ToolError> {
 /// Create a LiFi client instance
 async fn create_lifi_client() -> Result<LiFiClient, ToolError> {
     // In a production environment, you might want to get API key from environment
-    let client = LiFiClient::new()
-        .map_err(|e| ToolError::permanent_string(format!("Failed to create LiFi client: {}", e)))?;
+    let client = LiFiClient::new();
 
     // Optionally set API key from environment
-    if let Ok(api_key) = std::env::var("LIFI_API_KEY") {
+    if let Ok(api_key) = std::env::var(LIFI_API_KEY) {
         Ok(client.with_api_key(api_key))
     } else {
         Ok(client)

@@ -52,6 +52,8 @@ fn test_uniswap_config_arbitrum() {
 
 #[test]
 fn test_uniswap_config_for_chain() {
+    use tempfile::NamedTempFile;
+    
     // Create a temporary chains config for testing
     let test_config = r#"
 [chains]
@@ -64,12 +66,18 @@ quoter = "0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6"
 factory = "0x1F98431c8aD98523631AE4a59f267346ea31F984"
 "#;
 
-    // Write test config to temporary file
-    let temp_path = "/tmp/test_swap_chains.toml";
+    // Use tempfile for secure temporary file creation
+    let temp_file = NamedTempFile::new().expect("Failed to create temp file");
+    let temp_path = temp_file.path();
     std::fs::write(temp_path, test_config).unwrap();
 
     // Set environment variable to use test config
-    std::env::set_var("RIGLR_CHAINS_CONFIG", temp_path);
+    // SAFETY: This is safe in test context as tests are single-threaded by default
+    let env_var_name = "RIGLR_CHAINS_CONFIG";
+    let temp_path_str = temp_path.to_string_lossy();
+    unsafe {
+        std::env::set_var(env_var_name, temp_path_str.as_ref());
+    }
 
     let config = UniswapConfig::for_chain(1).unwrap(); // Ethereum
     let ethereum_config = UniswapConfig::ethereum();
@@ -84,8 +92,12 @@ factory = "0x1F98431c8aD98523631AE4a59f267346ea31F984"
     assert!(result.is_err());
 
     // Cleanup
-    std::env::remove_var("RIGLR_CHAINS_CONFIG");
-    std::fs::remove_file(temp_path).ok();
+    // SAFETY: This is safe in test context as tests are single-threaded by default
+    let env_var_name_cleanup = "RIGLR_CHAINS_CONFIG";
+    unsafe {
+        std::env::remove_var(env_var_name_cleanup);
+    }
+    // temp_file will be automatically deleted when it goes out of scope
 }
 
 #[test]

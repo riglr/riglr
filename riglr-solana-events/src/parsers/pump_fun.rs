@@ -119,7 +119,12 @@ pub struct PumpFunParser {
 
 impl Default for PumpFunParser {
     fn default() -> Self {
-        Self::new()
+        Self {
+            program_id: PUMP_FUN_PROGRAM_ID
+                .parse()
+                .expect("Valid PumpFun program ID"),
+            zero_copy: true,
+        }
     }
 }
 

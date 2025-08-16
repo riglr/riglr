@@ -11,6 +11,9 @@ use std::sync::Arc;
 use tracing::{debug, error, info};
 // Note: Using direct HTTP API instead of SDK
 
+const HYPERLIQUID_PRIVATE_KEY: &str = "HYPERLIQUID_PRIVATE_KEY";
+const ENABLE_REAL_HYPERLIQUID_TRADING: &str = "ENABLE_REAL_HYPERLIQUID_TRADING";
+
 // EIP-712 signing dependencies
 use ethers_core::types::transaction::eip712::{Eip712, TypedData};
 use ethers_core::types::H256;
@@ -242,13 +245,13 @@ impl HyperliquidClient {
         );
 
         // Require explicit configuration to prevent accidental trades
-        let private_key = std::env::var("HYPERLIQUID_PRIVATE_KEY")
+        let private_key = std::env::var(HYPERLIQUID_PRIVATE_KEY)
             .map_err(|_| HyperliquidToolError::Configuration(
                 "HYPERLIQUID_PRIVATE_KEY environment variable required. REAL trading disabled for safety.".to_string()
             ))?;
 
         let trading_enabled =
-            std::env::var("ENABLE_REAL_HYPERLIQUID_TRADING").unwrap_or_default() == "true";
+            std::env::var(ENABLE_REAL_HYPERLIQUID_TRADING).unwrap_or_default() == "true";
 
         if !trading_enabled {
             return Err(HyperliquidToolError::Configuration(
@@ -446,7 +449,7 @@ impl HyperliquidClient {
         info!("Signing leverage request with EIP-712");
 
         // Get private key from environment variable
-        let private_key = std::env::var("HYPERLIQUID_PRIVATE_KEY")
+        let private_key = std::env::var(HYPERLIQUID_PRIVATE_KEY)
             .map_err(|_| HyperliquidToolError::Configuration(
                 "HYPERLIQUID_PRIVATE_KEY environment variable required for signing leverage requests.".to_string()
             ))?;
@@ -535,13 +538,13 @@ impl HyperliquidClient {
         );
 
         // Require explicit configuration to prevent accidental operations
-        let private_key = std::env::var("HYPERLIQUID_PRIVATE_KEY")
+        let private_key = std::env::var(HYPERLIQUID_PRIVATE_KEY)
             .map_err(|_| HyperliquidToolError::Configuration(
                 "HYPERLIQUID_PRIVATE_KEY environment variable required. REAL trading disabled for safety.".to_string()
             ))?;
 
         let trading_enabled =
-            std::env::var("ENABLE_REAL_HYPERLIQUID_TRADING").unwrap_or_default() == "true";
+            std::env::var(ENABLE_REAL_HYPERLIQUID_TRADING).unwrap_or_default() == "true";
 
         if !trading_enabled {
             return Err(HyperliquidToolError::Configuration(

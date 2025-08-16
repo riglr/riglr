@@ -4,6 +4,13 @@ use crate::config::ProviderConfig;
 use crate::error::AuthError;
 use serde::{Deserialize, Serialize};
 
+const PRIVY_APP_ID: &str = "PRIVY_APP_ID";
+const PRIVY_APP_SECRET: &str = "PRIVY_APP_SECRET";
+const PRIVY_API_URL: &str = "PRIVY_API_URL";
+const PRIVY_AUTH_URL: &str = "PRIVY_AUTH_URL";
+const PRIVY_JWKS_URL: &str = "PRIVY_JWKS_URL";
+const PRIVY_ENABLE_CACHE: &str = "PRIVY_ENABLE_CACHE";
+
 /// Privy authentication provider configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PrivyConfig {
@@ -87,24 +94,24 @@ impl ProviderConfig for PrivyConfig {
     }
 
     fn from_env() -> Result<Self, AuthError> {
-        let app_id = std::env::var("PRIVY_APP_ID")
+        let app_id = std::env::var(PRIVY_APP_ID)
             .map_err(|_| AuthError::ConfigError("PRIVY_APP_ID not found".to_string()))?;
-        let app_secret = std::env::var("PRIVY_APP_SECRET")
+        let app_secret = std::env::var(PRIVY_APP_SECRET)
             .map_err(|_| AuthError::ConfigError("PRIVY_APP_SECRET not found".to_string()))?;
 
         let mut config = Self::new(app_id, app_secret);
 
         // Optional overrides from environment
-        if let Ok(api_url) = std::env::var("PRIVY_API_URL") {
+        if let Ok(api_url) = std::env::var(PRIVY_API_URL) {
             config.api_url = api_url;
         }
-        if let Ok(auth_url) = std::env::var("PRIVY_AUTH_URL") {
+        if let Ok(auth_url) = std::env::var(PRIVY_AUTH_URL) {
             config.auth_url = auth_url;
         }
-        if let Ok(jwks_url) = std::env::var("PRIVY_JWKS_URL") {
+        if let Ok(jwks_url) = std::env::var(PRIVY_JWKS_URL) {
             config.jwks_url = jwks_url;
         }
-        if let Ok(cache) = std::env::var("PRIVY_ENABLE_CACHE") {
+        if let Ok(cache) = std::env::var(PRIVY_ENABLE_CACHE) {
             config.enable_cache = cache.parse().unwrap_or(true);
         }
 

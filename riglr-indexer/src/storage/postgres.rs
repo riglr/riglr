@@ -115,7 +115,7 @@ impl PostgresStore {
         }
 
         let where_clause = if conditions.is_empty() {
-            String::new()
+            String::default()
         } else {
             format!("WHERE {}", conditions.join(" AND "))
         };

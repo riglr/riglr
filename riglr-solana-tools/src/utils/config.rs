@@ -6,6 +6,8 @@
 
 use crate::error::{Result, SolanaToolError};
 
+const SOLANA_RPC_URL: &str = "SOLANA_RPC_URL";
+
 /// Get RPC URL from environment or use default
 ///
 /// Retrieves the Solana RPC URL from the `SOLANA_RPC_URL` environment variable.
@@ -43,7 +45,7 @@ use crate::error::{Result, SolanaToolError};
 /// - Logs only the first 50 characters of custom URLs for privacy
 /// - Defaults to mainnet for production safety
 pub fn get_rpc_url() -> Result<String> {
-    match std::env::var("SOLANA_RPC_URL") {
+    match std::env::var(SOLANA_RPC_URL) {
         Ok(url) if !url.trim().is_empty() => {
             // Validate URL format
             if !url.starts_with("http://")

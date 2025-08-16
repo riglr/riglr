@@ -1026,7 +1026,7 @@ async fn analyze_price_trends(token: &TokenInfo) -> crate::error::Result<TrendAn
         _ => 0.0,
     };
 
-    let velocity = price_change_24h.map(|c| c / 24.0).unwrap_or(0.0);
+    let velocity = price_change_24h.map_or(0.0, |c| c / 24.0);
 
     // Simple support/resistance based on recent range, if price available
     let (support_levels, resistance_levels) = if let Some(price) = token.price_usd {

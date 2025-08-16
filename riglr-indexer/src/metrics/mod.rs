@@ -1,7 +1,7 @@
 //! Metrics collection and monitoring
 
 use chrono::{DateTime, Utc};
-use parking_lot::RwLock;
+use dashmap::DashMap;
 use serde::Serialize;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -161,7 +161,7 @@ pub struct ErrorMetrics {
 /// Metrics registry for storing and managing metrics
 pub struct MetricsRegistry {
     /// Stored metrics
-    metrics: Arc<RwLock<HashMap<String, Metric>>>,
+    metrics: Arc<DashMap<String, Metric>>,
     /// Configuration
     #[allow(dead_code)]
     config: MetricsConfig,
@@ -171,36 +171,31 @@ impl MetricsRegistry {
     /// Create a new metrics registry
     pub fn new(config: MetricsConfig) -> Self {
         Self {
-            metrics: Arc::new(RwLock::new(HashMap::new())),
+            metrics: Arc::new(DashMap::new()),
             config,
         }
     }
 
     /// Register a metric
     pub fn register_metric(&self, metric: Metric) -> IndexerResult<()> {
-        let mut metrics = self.metrics.write();
-        metrics.insert(metric.name.clone(), metric);
+        self.metrics.insert(metric.name.clone(), metric);
         Ok(())
     }
 
     /// Get a metric by name
     pub fn get_metric(&self, name: &str) -> Option<Metric> {
-        let metrics = self.metrics.read();
-        metrics.get(name).cloned()
+        self.metrics.get(name).map(|entry| entry.clone())
     }
 
     /// Get all metrics
     pub fn get_all_metrics(&self) -> Vec<Metric> {
-        let metrics = self.metrics.read();
-        metrics.values().cloned().collect()
+        self.metrics.iter().map(|entry| entry.value().clone()).collect()
     }
 
     /// Update counter metric
     pub fn increment_counter(&self, name: &str, value: u64) -> IndexerResult<()> {
-        let mut metrics = self.metrics.write();
-
-        match metrics.get_mut(name) {
-            Some(metric) => {
+        match self.metrics.get_mut(name) {
+            Some(mut metric) => {
                 if let MetricValue::Counter(ref mut counter) = metric.value {
                     *counter += value;
                     metric.timestamp = Utc::now();
@@ -220,7 +215,7 @@ impl MetricsRegistry {
                     timestamp: Utc::now(),
                     help: format!("Counter metric: {}", name),
                 };
-                metrics.insert(name.to_string(), metric);
+                self.metrics.insert(name.to_string(), metric);
             }
         }
 
@@ -229,8 +224,6 @@ impl MetricsRegistry {
 
     /// Update gauge metric
     pub fn set_gauge(&self, name: &str, value: f64) -> IndexerResult<()> {
-        let mut metrics = self.metrics.write();
-
         let metric = Metric {
             name: name.to_string(),
             metric_type: MetricType::Gauge,
@@ -240,16 +233,14 @@ impl MetricsRegistry {
             help: format!("Gauge metric: {}", name),
         };
 
-        metrics.insert(name.to_string(), metric);
+        self.metrics.insert(name.to_string(), metric);
         Ok(())
     }
 
     /// Record histogram value
     pub fn record_histogram(&self, name: &str, value: f64) -> IndexerResult<()> {
-        let mut metrics = self.metrics.write();
-
-        match metrics.get_mut(name) {
-            Some(metric) => {
+        match self.metrics.get_mut(name) {
+            Some(mut metric) => {
                 if let MetricValue::Histogram(ref mut values) = metric.value {
                     values.push(value);
                     // Keep only recent values to prevent unbounded growth
@@ -273,7 +264,7 @@ impl MetricsRegistry {
                     timestamp: Utc::now(),
                     help: format!("Histogram metric: {}", name),
                 };
-                metrics.insert(name.to_string(), metric);
+                self.metrics.insert(name.to_string(), metric);
             }
         }
 
@@ -282,16 +273,15 @@ impl MetricsRegistry {
 
     /// Clear all metrics
     pub fn clear(&self) {
-        let mut metrics = self.metrics.write();
-        metrics.clear();
+        self.metrics.clear();
     }
 
     /// Export metrics in Prometheus format
     pub fn export_prometheus(&self) -> String {
-        let metrics = self.metrics.read();
         let mut output = String::new();
 
-        for metric in metrics.values() {
+        for entry in self.metrics.iter() {
+            let metric = entry.value();
             output.push_str(&format!("# HELP {} {}\n", metric.name, metric.help));
             output.push_str(&format!(
                 "# TYPE {} {}\n",
@@ -361,6 +351,13 @@ impl MetricsRegistry {
         }
 
         output
+    }
+}
+
+impl IndexerMetrics {
+    /// Create new IndexerMetrics with default values
+    pub fn new() -> Self {
+        Self::default()
     }
 }
 

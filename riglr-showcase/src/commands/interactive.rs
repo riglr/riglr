@@ -22,13 +22,19 @@ struct ChatContext {
     conversation_history: Vec<(String, String)>, // (user_input, agent_response)
 }
 
-impl ChatContext {
-    fn new() -> Self {
+impl Default for ChatContext {
+    fn default() -> Self {
         Self {
             session_id: format!("chat_{}", chrono::Utc::now().timestamp()),
             user_preferences: HashMap::new(),
             conversation_history: Vec::new(),
         }
+    }
+}
+
+impl ChatContext {
+    fn new() -> Self {
+        Self::default()
     }
 
     fn add_exchange(&mut self, user_input: String, agent_response: String) {

@@ -54,7 +54,7 @@ impl EventRouter {
         let pos = self.filters
             .iter()
             .position(|f| f.priority < filter.priority)
-            .unwrap_or(self.filters.len());
+            .unwrap_or_else(|| self.filters.len());
 
         self.filters.insert(pos, filter);
         info!("📋 Added filter: {} (priority: {})", self.filters[pos].name, self.filters[pos].priority);

@@ -5,6 +5,8 @@
 use riglr_evm_tools::{get_uniswap_quote, EvmClient, UniswapQuote};
 use std::env;
 
+const EVM_PRIVATE_KEY: &str = "EVM_PRIVATE_KEY";
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     // Initialize logging
@@ -13,10 +15,10 @@ async fn main() -> anyhow::Result<()> {
     println!("🦄 Uniswap V3 Trading Example\n");
 
     // Get private key from environment (required for swaps)
-    let private_key = env::var("EVM_PRIVATE_KEY").unwrap_or_else(|_| {
+    let private_key = env::var(EVM_PRIVATE_KEY).unwrap_or_else(|_| {
         println!("⚠️  Warning: EVM_PRIVATE_KEY not set. Running in read-only mode.");
         println!("   Set EVM_PRIVATE_KEY to execute actual swaps.\n");
-        String::new()
+        String::default()
     });
 
     // Create EVM client (with optional signer for transactions)

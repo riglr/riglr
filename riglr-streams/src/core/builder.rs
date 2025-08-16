@@ -2,6 +2,15 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tracing::info;
 
+const STREAM_EXECUTION_MODE: &str = "STREAM_EXECUTION_MODE";
+const STREAM_EXECUTION_LIMIT: &str = "STREAM_EXECUTION_LIMIT";
+const SOLANA_GEYSER_WS_URL: &str = "SOLANA_GEYSER_WS_URL";
+const SOLANA_GEYSER_PROGRAMS: &str = "SOLANA_GEYSER_PROGRAMS";
+const BINANCE_STREAMS: &str = "BINANCE_STREAMS";
+const BINANCE_TESTNET: &str = "BINANCE_TESTNET";
+const MEMPOOL_ENABLED: &str = "MEMPOOL_ENABLED";
+const MEMPOOL_NETWORK: &str = "MEMPOOL_NETWORK";
+
 use crate::core::{HandlerExecutionMode, MetricsCollector, Stream, StreamManager};
 use crate::evm::websocket::{ChainId, EvmStreamConfig, EvmWebSocketStream};
 use crate::external::binance::{BinanceConfig, BinanceStream};
@@ -43,7 +52,7 @@ impl StreamManagerBuilder {
     pub fn new() -> Self {
         Self {
             execution_mode: HandlerExecutionMode::default(),
-            streams: Vec::new(),
+            streams: Vec::default(),
             enable_metrics: true,
             metrics_collector: None,
         }
@@ -89,12 +98,12 @@ impl StreamManagerBuilder {
     /// Load configuration from environment variables
     pub fn from_env(mut self) -> Result<Self, Box<dyn std::error::Error>> {
         // Load execution mode from env
-        if let Ok(mode_str) = std::env::var("STREAM_EXECUTION_MODE") {
+        if let Ok(mode_str) = std::env::var(STREAM_EXECUTION_MODE) {
             self.execution_mode = match mode_str.as_str() {
                 "sequential" => HandlerExecutionMode::Sequential,
                 "concurrent" => HandlerExecutionMode::Concurrent,
                 "bounded" => {
-                    let limit = std::env::var("STREAM_EXECUTION_LIMIT")
+                    let limit = std::env::var(STREAM_EXECUTION_LIMIT)
                         .ok()
                         .and_then(|s| s.parse().ok())
                         .unwrap_or(10);
@@ -105,8 +114,8 @@ impl StreamManagerBuilder {
         }
 
         // Load Solana Geyser configuration
-        if let Ok(ws_url) = std::env::var("SOLANA_GEYSER_WS_URL") {
-            let program_ids: Vec<String> = std::env::var("SOLANA_GEYSER_PROGRAMS")
+        if let Ok(ws_url) = std::env::var(SOLANA_GEYSER_WS_URL) {
+            let program_ids: Vec<String> = std::env::var(SOLANA_GEYSER_PROGRAMS)
                 .ok()
                 .map(|s| s.split(',').map(String::from).collect())
                 .unwrap_or_default();
@@ -143,7 +152,7 @@ impl StreamManagerBuilder {
                         chain_id: chain,
                         subscribe_pending_transactions: false,
                         subscribe_new_blocks: true,
-                        contract_addresses: Vec::new(),
+                        contract_addresses: Vec::default(),
                         buffer_size: 10000,
                     },
                 });
@@ -151,9 +160,9 @@ impl StreamManagerBuilder {
         }
 
         // Load Binance configuration
-        if let Ok(streams) = std::env::var("BINANCE_STREAMS") {
+        if let Ok(streams) = std::env::var(BINANCE_STREAMS) {
             let streams: Vec<String> = streams.split(',').map(String::from).collect();
-            let testnet = std::env::var("BINANCE_TESTNET")
+            let testnet = std::env::var(BINANCE_TESTNET)
                 .ok()
                 .and_then(|s| s.parse().ok())
                 .unwrap_or(false);
@@ -169,8 +178,8 @@ impl StreamManagerBuilder {
         }
 
         // Load Mempool.space configuration
-        if std::env::var("MEMPOOL_ENABLED").is_ok() {
-            let network = match std::env::var("MEMPOOL_NETWORK").as_deref() {
+        if std::env::var(MEMPOOL_ENABLED).is_ok() {
+            let network = match std::env::var(MEMPOOL_NETWORK).as_deref() {
                 Ok("testnet") => BitcoinNetwork::Testnet,
                 Ok("signet") => BitcoinNetwork::Signet,
                 _ => BitcoinNetwork::Mainnet,
@@ -251,7 +260,12 @@ impl StreamManagerBuilder {
 
 impl Default for StreamManagerBuilder {
     fn default() -> Self {
-        Self::new()
+        Self {
+            execution_mode: HandlerExecutionMode::default(),
+            streams: Vec::default(),
+            enable_metrics: true,
+            metrics_collector: None,
+        }
     }
 }
 

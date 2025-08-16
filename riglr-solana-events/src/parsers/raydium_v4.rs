@@ -106,7 +106,12 @@ pub struct RaydiumV4Parser {
 
 impl Default for RaydiumV4Parser {
     fn default() -> Self {
-        Self::new()
+        Self {
+            program_id: RAYDIUM_AMM_V4_PROGRAM_ID
+                .parse()
+                .expect("Valid Raydium program ID"),
+            zero_copy: true,
+        }
     }
 }
 

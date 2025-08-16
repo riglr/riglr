@@ -12,6 +12,9 @@
 //! 5. No custom loops needed - rig handles complexity naturally
 
 use anyhow::Result;
+
+const OPENAI_API_KEY: &str = "OPENAI_API_KEY";
+
 use rig::agent::AgentBuilder;
 use rig::client::CompletionClient;
 use rig::completion::Prompt;
@@ -29,7 +32,7 @@ async fn demo_multi_step_reasoning() -> Result<()> {
     println!("=======================================================");
 
     // Create OpenAI client and model
-    let openai_client = openai::Client::new(&env::var("OPENAI_API_KEY")?);
+    let openai_client = openai::Client::new(&env::var(OPENAI_API_KEY)?);
     let model = openai_client.completion_model("gpt-4");
 
     let portfolio_analyst = AgentBuilder::new(model)
@@ -143,7 +146,7 @@ async fn demo_adaptive_reasoning() -> Result<()> {
     println!("===================================================");
 
     // Create OpenAI client and model
-    let openai_client = openai::Client::new(&env::var("OPENAI_API_KEY")?);
+    let openai_client = openai::Client::new(&env::var(OPENAI_API_KEY)?);
     let model = openai_client.completion_model("gpt-4");
 
     let strategist = AgentBuilder::new(model)
@@ -237,7 +240,7 @@ async fn demo_cross_chain_reasoning() -> Result<()> {
     println!("==========================================");
 
     // Create OpenAI client and model
-    let openai_client = openai::Client::new(&env::var("OPENAI_API_KEY")?);
+    let openai_client = openai::Client::new(&env::var(OPENAI_API_KEY)?);
     let model = openai_client.completion_model("gpt-4");
 
     let opportunity_scout = AgentBuilder::new(model)
@@ -397,19 +400,17 @@ mod tests {
     async fn test_reasoning_patterns() {
         // Test validates reasoning pattern concepts
         // Note: This test requires OPENAI_API_KEY to be set for actual agent testing
-        if std::env::var("OPENAI_API_KEY").is_ok() {
-            let openai_client = openai::Client::new(&std::env::var("OPENAI_API_KEY").unwrap());
+        if std::env::var(OPENAI_API_KEY).is_ok() {
+            let openai_client = openai::Client::new(&std::env::var(OPENAI_API_KEY).unwrap());
             let model = openai_client.completion_model("gpt-3.5-turbo");
 
             let agent = AgentBuilder::new(model)
                 .preamble("You are a test agent for reasoning patterns.")
                 .build();
 
-            // Test basic agent construction
-            assert!(true); // Agent was successfully created
+            // Test basic agent construction - agent was successfully created
         } else {
-            // Skip actual agent testing if no API key is available
-            assert!(true, "Skipping agent test - OPENAI_API_KEY not set");
+            // Skip actual agent testing if no API key is available - OPENAI_API_KEY not set
         }
     }
 

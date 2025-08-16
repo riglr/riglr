@@ -24,7 +24,9 @@ impl ValidationStage {
 
 impl Default for ValidationStage {
     fn default() -> Self {
-        Self::new()
+        Self {
+            name: "validation".to_string(),
+        }
     }
 }
 
@@ -64,7 +66,9 @@ impl EnrichmentStage {
 
 impl Default for EnrichmentStage {
     fn default() -> Self {
-        Self::new()
+        Self {
+            name: "enrichment".to_string(),
+        }
     }
 }
 

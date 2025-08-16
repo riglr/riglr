@@ -181,7 +181,16 @@ pub struct MetaplexParser {
 
 impl Default for MetaplexParser {
     fn default() -> Self {
-        Self::new()
+        Self {
+            token_metadata_program_id: METAPLEX_TOKEN_METADATA_PROGRAM_ID
+                .parse()
+                .expect("Valid Metaplex Token Metadata program ID"),
+            auction_house_program_id: METAPLEX_AUCTION_HOUSE_PROGRAM_ID
+                .parse()
+                .expect("Valid Metaplex Auction House program ID"),
+            zero_copy: true,
+            detailed_metadata: true,
+        }
     }
 }
 

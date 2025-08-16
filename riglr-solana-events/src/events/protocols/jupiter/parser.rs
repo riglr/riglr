@@ -166,7 +166,48 @@ impl EventParser for JupiterEventParser {
 
 impl Default for JupiterEventParser {
     fn default() -> Self {
-        Self::new()
+        let program_ids = vec![jupiter_v6_program_id()];
+
+        let configs = vec![
+            GenericEventParseConfig {
+                program_id: jupiter_v6_program_id(),
+                protocol_type: ProtocolType::Other("Jupiter".to_string()),
+                inner_instruction_discriminator: "swap",
+                instruction_discriminator: &ROUTE_DISCRIMINATOR,
+                event_type: EventType::Swap,
+                inner_instruction_parser: parse_jupiter_swap_inner_instruction,
+                instruction_parser: parse_jupiter_swap_instruction,
+            },
+            GenericEventParseConfig {
+                program_id: jupiter_v6_program_id(),
+                protocol_type: ProtocolType::Other("Jupiter".to_string()),
+                inner_instruction_discriminator: "exactOutRoute",
+                instruction_discriminator: &EXACT_OUT_ROUTE_DISCRIMINATOR,
+                event_type: EventType::Swap,
+                inner_instruction_parser: parse_jupiter_exact_out_inner_instruction,
+                instruction_parser: parse_jupiter_exact_out_instruction,
+            },
+        ];
+
+        let mut inner_instruction_configs = HashMap::new();
+        let mut instruction_configs = HashMap::new();
+
+        for config in configs {
+            inner_instruction_configs
+                .entry(config.inner_instruction_discriminator)
+                .or_insert_with(Vec::new)
+                .push(config.clone());
+            instruction_configs
+                .entry(config.instruction_discriminator.to_vec())
+                .or_insert_with(Vec::new)
+                .push(config);
+        }
+
+        Self {
+            program_ids,
+            inner_instruction_configs,
+            instruction_configs,
+        }
     }
 }
 

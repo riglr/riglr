@@ -195,7 +195,7 @@ impl StreamError {
             }
             EventError::ParseError { context, .. } => StreamError::Parse {
                 message: context,
-                data: String::new(),
+                data: String::default(),
             },
             EventError::Timeout { duration } => StreamError::Timeout {
                 message: format!("Operation timed out after {:?}", duration),

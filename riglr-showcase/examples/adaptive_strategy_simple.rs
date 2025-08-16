@@ -12,6 +12,9 @@
 //! 5. Fallback strategies and risk management
 
 use anyhow::Result;
+
+const OPENAI_API_KEY: &str = "OPENAI_API_KEY";
+
 use rig::agent::AgentBuilder;
 use rig::client::CompletionClient;
 use rig::completion::Prompt;
@@ -29,7 +32,7 @@ async fn demo_volatility_adaptation() -> Result<()> {
     println!("==============================================");
 
     // Create OpenAI client and model
-    let openai_client = openai::Client::new(&env::var("OPENAI_API_KEY")?);
+    let openai_client = openai::Client::new(&env::var(OPENAI_API_KEY)?);
     let model = openai_client.completion_model("gpt-4");
 
     let volatility_strategist = AgentBuilder::new(model)
@@ -143,7 +146,7 @@ async fn demo_performance_evolution() -> Result<()> {
     println!("===============================================");
 
     // Create OpenAI client and model
-    let openai_client = openai::Client::new(&env::var("OPENAI_API_KEY")?);
+    let openai_client = openai::Client::new(&env::var(OPENAI_API_KEY)?);
     let model = openai_client.completion_model("gpt-4");
 
     let evolution_strategist = AgentBuilder::new(model)
@@ -263,7 +266,7 @@ async fn demo_timeframe_coordination() -> Result<()> {
     println!("===============================================");
 
     // Create OpenAI client and model
-    let openai_client = openai::Client::new(&env::var("OPENAI_API_KEY")?);
+    let openai_client = openai::Client::new(&env::var(OPENAI_API_KEY)?);
     let model = openai_client.completion_model("gpt-4");
 
     let timeframe_coordinator = AgentBuilder::new(model)
@@ -384,7 +387,7 @@ async fn demo_event_response_adaptation() -> Result<()> {
     println!("==============================================");
 
     // Create OpenAI client and model
-    let openai_client = openai::Client::new(&env::var("OPENAI_API_KEY")?);
+    let openai_client = openai::Client::new(&env::var(OPENAI_API_KEY)?);
     let model = openai_client.completion_model("gpt-4");
 
     let event_responder = AgentBuilder::new(model)
@@ -567,19 +570,17 @@ mod tests {
     async fn test_adaptation_patterns() {
         // Test validates adaptation pattern concepts
         // Note: This test requires OPENAI_API_KEY to be set for actual agent testing
-        if std::env::var("OPENAI_API_KEY").is_ok() {
-            let openai_client = openai::Client::new(&std::env::var("OPENAI_API_KEY").unwrap());
+        if std::env::var(OPENAI_API_KEY).is_ok() {
+            let openai_client = openai::Client::new(&std::env::var(OPENAI_API_KEY).unwrap());
             let model = openai_client.completion_model("gpt-3.5-turbo");
 
             let strategist = AgentBuilder::new(model)
                 .preamble("You are an adaptive strategy testing assistant.")
                 .build();
 
-            // Test basic agent construction
-            assert!(true); // Agent was successfully created
+            // Test basic agent construction - agent was successfully created
         } else {
-            // Skip actual agent testing if no API key is available
-            assert!(true, "Skipping agent test - OPENAI_API_KEY not set");
+            // Skip actual agent testing if no API key is available - OPENAI_API_KEY not set
         }
     }
 

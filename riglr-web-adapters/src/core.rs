@@ -11,6 +11,8 @@ use serde::{Deserialize, Serialize};
 use std::error::Error as StdError;
 use std::pin::Pin;
 
+const RIGLR_DEFAULT_MODEL: &str = "RIGLR_DEFAULT_MODEL";
+
 /// Agent trait for framework-agnostic agent interactions
 /// This trait allows any type to be used as an agent as long as it can
 /// provide prompt responses and streaming capabilities.
@@ -45,7 +47,7 @@ fn get_model_name<A: Agent>(agent: &A) -> Option<String> {
     }
 
     // Fall back to environment variable
-    std::env::var("RIGLR_DEFAULT_MODEL").ok()
+    std::env::var(RIGLR_DEFAULT_MODEL).ok()
 }
 
 /// Generic prompt request structure
