@@ -92,18 +92,16 @@ jobs:
         env:
           RUSTDOCFLAGS: -D warnings
 
-  # MSRV check
+  # MSRV check - Using stable since dependencies require edition2024
   msrv:
-    name: MSRV (1.82)
+    name: MSRV (stable)
     needs: quick-checks
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       
-      - name: Install Rust 1.82
-        uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: "1.82"
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
       
       - name: Cache dependencies
         uses: Swatinem/rust-cache@v2
