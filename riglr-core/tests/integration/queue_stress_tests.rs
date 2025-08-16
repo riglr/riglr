@@ -573,9 +573,8 @@ async fn test_cancellation_consistency() {
                     }
                 } else {
                     // Long timeout to potentially get cancelled
-                    match queue_clone.dequeue_with_timeout(Duration::from_millis(500)).await {
-                        Ok(Some(_)) => jobs_dequeued_clone.fetch_add(1, Ordering::Relaxed),
-                        _ => (), // Timeout or cancellation
+                    if let Ok(Some(_)) = queue_clone.dequeue_with_timeout(Duration::from_millis(500)).await {
+                        jobs_dequeued_clone.fetch_add(1, Ordering::Relaxed)
                     }
                 }
 
