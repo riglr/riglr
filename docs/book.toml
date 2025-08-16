@@ -1,7 +1,7 @@
 [book]
 title = "riglr Documentation"
 authors = ["riglr project contributors"]
-description = "The official documentation for riglr, a production-ready AI agent framework for blockchain."
+description = "The official documentation for riglr, a production-ready blockchain-enabled AI agent framework."
 language = "en"
 multilingual = false
 src = "src"
