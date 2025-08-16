@@ -1050,16 +1050,13 @@ pub fn derive_into_tool_error(input: TokenStream) -> TokenStream {
         let variant_name_str = variant_name.to_string();
 
         // Check for explicit classification attribute
-        let classification = variant
-            .attrs
-            .iter()
-            .find_map(|attr| {
-                if attr.path().is_ident("tool_error") {
-                    attr.parse_args::<syn::Ident>().ok()
-                } else {
-                    None
-                }
-            });
+        let classification = variant.attrs.iter().find_map(|attr| {
+            if attr.path().is_ident("tool_error") {
+                attr.parse_args::<syn::Ident>().ok()
+            } else {
+                None
+            }
+        });
 
         let pattern = match &variant.fields {
             syn::Fields::Named(_) => quote! { #name::#variant_name { .. } },

@@ -354,10 +354,7 @@ async fn multi_format() -> Result<()> {
 
     println!(
         "    Summary: {}",
-        multi_result
-            .summary
-            .as_ref()
-            .unwrap_or_else(|| &"No summary".to_string())
+        multi_result.summary.as_deref().unwrap_or("No summary")
     );
 
     // Show a snippet of each format

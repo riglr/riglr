@@ -5,10 +5,7 @@ use colored::Colorize;
 use dialoguer::{Input, Select};
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use riglr_config::Config;
-use riglr_solana_tools::{
-    balance::get_sol_balance,
-    client::{SolanaClient, SolanaConfig},
-};
+use riglr_solana_tools::client::{SolanaClient, SolanaConfig};
 use std::sync::Arc;
 // Temporarily using mock functionality due to dependency conflicts
 // use riglr_evm_tools::{
@@ -33,7 +30,6 @@ impl WebClient {
 }
 use std::collections::HashMap;
 use tokio::time::{sleep, Duration};
-use tracing::warn;
 
 /// Run the cross-chain analysis demo.
 pub async fn run_demo(config: Arc<Config>, token: String) -> Result<()> {
@@ -251,6 +247,118 @@ pub async fn run_demo(config: Arc<Config>, token: String) -> Result<()> {
         "{}",
         "Thank you for exploring multi-chain capabilities with riglr!".dimmed()
     );
+
+    Ok(())
+}
+
+/// Phase 1 helper: Simulate token discovery and market data collection.
+async fn collect_market_data(
+    multi_pb: &MultiProgress,
+    token: &str,
+) -> Result<std::collections::HashMap<String, String>> {
+    println!(
+        "\n{}",
+        "📊 Phase 1: Token Discovery & Market Data".green().bold()
+    );
+
+    let pb = multi_pb.add(ProgressBar::new_spinner());
+    pb.set_style(
+        ProgressStyle::default_spinner()
+            .tick_chars("⠁⠂⠄⡀⢀⠠⠐⠈ ")
+            .template("{spinner:.green} [Market] {msg}")?,
+    );
+
+    pb.set_message(format!("Searching DEX pairs for {token}..."));
+    sleep(Duration::from_millis(550)).await;
+    pb.set_message("Fetching liquidity and price data...");
+    sleep(Duration::from_millis(650)).await;
+    pb.set_message("Aggregating market presence across chains...");
+    sleep(Duration::from_millis(500)).await;
+    pb.finish_and_clear();
+
+    // Simulated market snapshot
+    println!("   🔎 Found on: Jupiter (Solana), Uniswap (Ethereum), QuickSwap (Polygon)");
+    println!(
+        "   💧 Liquidity (Simulated): ${} | 24h Volume: ${}",
+        "2.3M".bright_cyan(),
+        "6.8M".bright_cyan()
+    );
+    println!(
+        "   📈 Price (Simulated): ${} | 24h Change: {}",
+        "1.24".bright_cyan(),
+        "+5.7%".bright_green()
+    );
+
+    let mut info = std::collections::HashMap::new();
+    // Presence of this key toggles the later summary line.
+    info.insert("dex_data".to_string(), "available".to_string());
+    Ok(info)
+}
+
+/// Phase 2 helper: Simulate cross-chain balance checks for sample wallets.
+async fn analyze_cross_chain_balances(multi_pb: &MultiProgress, token: &str) -> Result<()> {
+    println!(
+        "\n{}",
+        "💼 Phase 2: Cross-Chain Balance Analysis".green().bold()
+    );
+
+    // Use sample wallets defined below to showcase output across chains.
+    for (chain, address) in get_sample_wallets() {
+        let pb = multi_pb.add(ProgressBar::new_spinner());
+        pb.set_style(
+            ProgressStyle::default_spinner()
+                .tick_chars("⠁⠂⠄⡀⢀⠠⠐⠈ ")
+                .template("{spinner:.magenta} [Balances] {msg}")?,
+        );
+        pb.set_message(format!("Checking {chain} balances for {token}..."));
+        sleep(Duration::from_millis(450)).await;
+        pb.finish_and_clear();
+
+        // Simulated balances per chain (for demo only)
+        match chain.as_str() {
+            "Solana" => {
+                println!("   🟣 {}: {}", chain.bright_cyan().bold(), address.dimmed());
+                println!(
+                    "      • Native Balance (Simulated): {} SOL",
+                    "12.48".bright_cyan()
+                );
+                println!(
+                    "      • {} Holdings (Simulated): {} tokens",
+                    token,
+                    "3,240".bright_cyan()
+                );
+            }
+            "Ethereum" => {
+                println!("   🟡 {}: {}", chain.bright_cyan().bold(), address.dimmed());
+                println!(
+                    "      • Native Balance (Simulated): {} ETH",
+                    "4.02".bright_cyan()
+                );
+                println!(
+                    "      • {} Holdings (Simulated): {} tokens",
+                    token,
+                    "1,125".bright_cyan()
+                );
+            }
+            "Polygon" => {
+                println!("   🟣 {}: {}", chain.bright_cyan().bold(), address.dimmed());
+                println!(
+                    "      • Native Balance (Simulated): {} MATIC",
+                    "3,870".bright_cyan()
+                );
+                println!(
+                    "      • {} Holdings (Simulated): {} tokens",
+                    token,
+                    "8,410".bright_cyan()
+                );
+            }
+            _ => {
+                println!("   🔗 {}: {}", chain.bright_cyan().bold(), address.dimmed());
+                println!("      • Native Balance (Simulated): n/a");
+                println!("      • {} Holdings (Simulated): n/a", token);
+            }
+        }
+    }
 
     Ok(())
 }

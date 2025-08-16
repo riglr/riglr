@@ -1,4 +1,5 @@
 //! DeFi Yield Farming Monitor Example
+#![allow(missing_docs, dead_code)]
 //!
 //! Demonstrates real-time monitoring of DeFi yield farming opportunities across multiple protocols.
 //! This example shows how to:
@@ -10,16 +11,20 @@
 
 use anyhow::Result;
 use dashmap::DashMap;
-use riglr_core::{ToolError, ToolResult};
 use riglr_events_core::prelude::*;
 use riglr_showcase::config::Config;
-use riglr_streams::prelude::*;
+use riglr_streams::core::{WindowManager, WindowType};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tokio::time::{Duration, Instant};
-use tracing::{info, debug, warn, error};
-use serde::{Serialize, Deserialize};
+use tracing::{debug, info, warn};
+
+// Helper for serde to provide a default Instant when deserializing skipped fields
+fn now_instant() -> Instant {
+    Instant::now()
+}
 
 /// DeFi protocol information
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -51,6 +56,7 @@ pub struct YieldOpportunity {
     pub volume_24h: f64,
     pub fees_24h: f64,
     pub impermanent_loss_risk: ImpermanentLossRisk,
+    #[serde(skip_serializing, skip_deserializing, default = "now_instant")]
     pub last_updated: Instant,
     pub rewards: Vec<RewardToken>,
 }
@@ -64,9 +70,9 @@ pub struct RewardToken {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ImpermanentLossRisk {
-    Low,      // < 1% expected IL
-    Medium,   // 1-5% expected IL
-    High,     // > 5% expected IL
+    Low,    // < 1% expected IL
+    Medium, // 1-5% expected IL
+    High,   // > 5% expected IL
 }
 
 /// Yield monitoring alert
@@ -76,6 +82,7 @@ pub struct YieldAlert {
     pub opportunity: YieldOpportunity,
     pub message: String,
     pub urgency: AlertUrgency,
+    #[serde(skip_serializing, skip_deserializing, default = "now_instant")]
     pub timestamp: Instant,
 }
 
@@ -132,20 +139,21 @@ pub struct YieldMonitorConfig {
 impl Default for YieldMonitorConfig {
     fn default() -> Self {
         Self {
-            min_apy_threshold: 5.0,  // 5% APY minimum
-            min_tvl_threshold: 100_000.0,  // $100k TVL minimum
+            min_apy_threshold: 5.0,       // 5% APY minimum
+            min_tvl_threshold: 100_000.0, // $100k TVL minimum
             max_impermanent_loss_risk: ImpermanentLossRisk::Medium,
-            alert_cooldown: Duration::from_minutes(5),
+            alert_cooldown: Duration::from_secs(5 * 60),
             price_update_interval: Duration::from_secs(30),
-            opportunity_refresh_interval: Duration::from_minutes(1),
+            opportunity_refresh_interval: Duration::from_secs(60),
         }
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PriceData {
     pub token: String,
     pub price: f64,
+    #[serde(skip_serializing, skip_deserializing, default = "now_instant")]
     pub timestamp: Instant,
     pub source: String,
 }
@@ -157,15 +165,15 @@ pub struct AlertSystem {
     config: YieldMonitorConfig,
 }
 
-trait AlertHandler: Send + Sync {
-    fn handle_alert(&self, alert: &YieldAlert) -> ToolResult<()>;
+pub trait AlertHandler: Send + Sync {
+    fn handle_alert(&self, alert: &YieldAlert) -> Result<()>;
 }
 
 /// Console alert handler
 pub struct ConsoleAlertHandler;
 
 impl AlertHandler for ConsoleAlertHandler {
-    fn handle_alert(&self, alert: &YieldAlert) -> ToolResult<()> {
+    fn handle_alert(&self, alert: &YieldAlert) -> Result<()> {
         let urgency_icon = match alert.urgency {
             AlertUrgency::Low => "📢",
             AlertUrgency::Medium => "⚠️",
@@ -174,8 +182,14 @@ impl AlertHandler for ConsoleAlertHandler {
         };
 
         info!("{} YIELD ALERT: {}", urgency_icon, alert.message);
-        info!("   Protocol: {} ({:?})", alert.opportunity.protocol.name, alert.opportunity.protocol.protocol_type);
-        info!("   Pool: {} / {}", alert.opportunity.token_pair.0, alert.opportunity.token_pair.1);
+        info!(
+            "   Protocol: {} ({:?})",
+            alert.opportunity.protocol.name, alert.opportunity.protocol.protocol_type
+        );
+        info!(
+            "   Pool: {} / {}",
+            alert.opportunity.token_pair.0, alert.opportunity.token_pair.1
+        );
         info!("   APY: {:.2}%", alert.opportunity.apy);
         info!("   TVL: ${:.0}", alert.opportunity.tvl);
         info!("   IL Risk: {:?}", alert.opportunity.impermanent_loss_risk);
@@ -196,15 +210,15 @@ impl WebhookAlertHandler {
 }
 
 impl AlertHandler for WebhookAlertHandler {
-    fn handle_alert(&self, alert: &YieldAlert) -> ToolResult<()> {
+    fn handle_alert(&self, alert: &YieldAlert) -> Result<()> {
         // In a real implementation, this would send HTTP requests to webhooks
         debug!("📡 Sending alert to webhook: {}", self.webhook_url);
         debug!("   Alert: {:?}", alert);
 
         // Simulate webhook call
         tokio::spawn({
-            let url = self.webhook_url.clone();
-            let alert = alert.clone();
+            let _url = self.webhook_url.clone();
+            let _alert = alert.clone();
             async move {
                 // simulate_webhook_call(url, alert).await;
                 debug!("✅ Webhook notification sent");
@@ -233,7 +247,7 @@ impl AlertSystem {
         self.alert_handlers.push(handler);
     }
 
-    pub async fn send_alert(&mut self, alert: YieldAlert) -> ToolResult<()> {
+    pub async fn send_alert(&mut self, alert: YieldAlert) -> Result<()> {
         let alert_key = format!("{}_{:?}", alert.opportunity.pool_address, alert.alert_type);
 
         // Check cooldown period
@@ -259,7 +273,7 @@ impl AlertSystem {
 }
 
 /// Monitoring performance metrics
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct MonitoringMetrics {
     pub opportunities_tracked: usize,
     pub alerts_sent: u64,
@@ -274,12 +288,10 @@ impl YieldMonitor {
         Self {
             protocols: HashMap::new(),
             opportunities: Arc::new(DashMap::new()),
-            price_history: WindowManager::new(
-                WindowType::Sliding {
-                    size: Duration::from_hours(24), // 24-hour price history
-                    step: Duration::from_minutes(1),
-                }
-            ),
+            price_history: WindowManager::new(WindowType::Sliding {
+                size: Duration::from_secs(24 * 60 * 60), // 24-hour price history
+                step: Duration::from_secs(60),
+            }),
             alert_system: AlertSystem::new(config.clone()),
             metrics: Arc::new(RwLock::new(MonitoringMetrics::default())),
             config,
@@ -287,11 +299,14 @@ impl YieldMonitor {
     }
 
     pub fn add_protocol(&mut self, protocol: Protocol) {
-        info!("📋 Adding protocol: {} on {}", protocol.name, protocol.chain);
+        info!(
+            "📋 Adding protocol: {} on {}",
+            protocol.name, protocol.chain
+        );
         self.protocols.insert(protocol.name.clone(), protocol);
     }
 
-    pub async fn process_pool_event(&mut self, event: &dyn Event) -> ToolResult<()> {
+    pub async fn process_pool_event(&mut self, event: &dyn Event) -> Result<()> {
         let start_time = Instant::now();
 
         // Update metrics
@@ -307,11 +322,13 @@ impl YieldMonitor {
 
             // Store updated opportunity
             let pool_key = opportunity.pool_address.clone();
-            let previous_opportunity = self.opportunities.get(&pool_key).map(|r| r.clone());
-            self.opportunities.insert(pool_key.clone(), opportunity.clone());
+            let previous_opportunity = self.opportunities.get(&pool_key).map(|r| r.value().clone());
+            self.opportunities
+                .insert(pool_key.clone(), opportunity.clone());
 
             // Check for alerts
-            self.check_for_alerts(opportunity, previous_opportunity).await?;
+            self.check_for_alerts(opportunity, previous_opportunity)
+                .await?;
         }
 
         // Update processing time metrics
@@ -320,13 +337,14 @@ impl YieldMonitor {
             let mut metrics = self.metrics.write().await;
             let total_events = metrics.total_events_processed as f64;
             metrics.avg_processing_time_ms =
-                (metrics.avg_processing_time_ms * (total_events - 1.0) + processing_time) / total_events;
+                (metrics.avg_processing_time_ms * (total_events - 1.0) + processing_time)
+                    / total_events;
         }
 
         Ok(())
     }
 
-    pub async fn process_price_event(&mut self, price_data: PriceData) -> ToolResult<()> {
+    pub async fn process_price_event(&mut self, price_data: PriceData) -> Result<()> {
         // Add price to history window
         let completed_windows = self.price_history.add_event(price_data.clone());
 
@@ -336,27 +354,32 @@ impl YieldMonitor {
                 continue;
             }
 
-            debug!("📊 Processing price window for {} with {} data points",
-                   price_data.token, window.events.len());
+            debug!(
+                "📊 Processing price window for {} with {} data points",
+                price_data.token,
+                window.events.len()
+            );
 
             // Calculate impermanent loss for all relevant pools
-            self.update_impermanent_loss_estimates(&window.events).await?;
+            self.update_impermanent_loss_estimates(&window.events)
+                .await?;
         }
 
         Ok(())
     }
 
     fn extract_pool_data(&self, event: &dyn Event) -> Option<PoolEventData> {
-        // Extract pool data from different event types
-        if let Some(data) = event.data() {
-            // Parse different DeFi protocol events
-            match event.source().as_str() {
-                source if source.contains("raydium") => self.parse_raydium_event(data),
-                source if source.contains("orca") => self.parse_orca_event(data),
-                source if source.contains("jupiter") => self.parse_jupiter_event(data),
-                source if source.contains("marinade") => self.parse_marinade_event(data),
+        // Downcast to GenericEvent to access JSON payload
+        if let Some(ge) = event.as_any().downcast_ref::<GenericEvent>() {
+            let data = &ge.data;
+            let source = event.source();
+            match source {
+                s if s.contains("raydium") => self.parse_raydium_event(data),
+                s if s.contains("orca") => self.parse_orca_event(data),
+                s if s.contains("jupiter") => self.parse_jupiter_event(data),
+                s if s.contains("marinade") => self.parse_marinade_event(data),
                 _ => {
-                    debug!("Unknown protocol source: {}", event.source());
+                    debug!("Unknown protocol source: {}", source);
                     None
                 }
             }
@@ -374,9 +397,9 @@ impl YieldMonitor {
             token_b: data.get("token_b")?.as_str()?.to_string(),
             liquidity_a: data.get("liquidity_a")?.as_f64()?,
             liquidity_b: data.get("liquidity_b")?.as_f64()?,
-            fee_rate: data.get("fee_rate")?.as_f64().unwrap_or_else(|| 0.25), // 0.25% default
-            volume_24h: data.get("volume_24h")?.as_f64().unwrap_or_else(|| 0.0),
-            fees_24h: data.get("fees_24h")?.as_f64().unwrap_or_else(|| 0.0),
+            fee_rate: data.get("fee_rate")?.as_f64().unwrap_or(0.25), // 0.25% default
+            volume_24h: data.get("volume_24h")?.as_f64().unwrap_or(0.0),
+            fees_24h: data.get("fees_24h")?.as_f64().unwrap_or(0.0),
         })
     }
 
@@ -389,7 +412,7 @@ impl YieldMonitor {
             token_b: data.get("token_mint_b")?.as_str()?.to_string(),
             liquidity_a: data.get("vault_a_amount")?.as_f64()?,
             liquidity_b: data.get("vault_b_amount")?.as_f64()?,
-            fee_rate: data.get("fee_rate")?.as_f64().unwrap_or_else(|| 0.30), // 0.30% default
+            fee_rate: data.get("fee_rate")?.as_f64().unwrap_or(0.30), // 0.30% default
             volume_24h: 0.0, // Would be calculated separately
             fees_24h: 0.0,   // Would be calculated separately
         })
@@ -410,16 +433,21 @@ impl YieldMonitor {
             liquidity_a: data.get("total_sol")?.as_f64()?,
             liquidity_b: data.get("total_msol")?.as_f64()?,
             fee_rate: 0.0, // Marinade has different reward mechanics
-            volume_24h: data.get("stake_volume_24h")?.as_f64().unwrap_or_else(|| 0.0),
+            volume_24h: data.get("stake_volume_24h")?.as_f64().unwrap_or(0.0),
             fees_24h: 0.0, // Rewards instead of fees
         })
     }
 
-    async fn calculate_yield_opportunity(&self, pool_data: PoolEventData) -> ToolResult<YieldOpportunity> {
+    async fn calculate_yield_opportunity(
+        &self,
+        pool_data: PoolEventData,
+    ) -> Result<YieldOpportunity> {
         // Get protocol info
-        let protocol = self.protocols.get(&pool_data.protocol_name)
+        let protocol = self
+            .protocols
+            .get(&pool_data.protocol_name)
             .cloned()
-            .unwrap_or(Protocol {
+            .unwrap_or_else(|| Protocol {
                 name: pool_data.protocol_name.clone(),
                 chain: "solana".to_string(),
                 contract_address: pool_data.pool_address.clone(),
@@ -432,14 +460,20 @@ impl YieldMonitor {
         // Calculate APY based on fees and rewards
         let daily_fees = pool_data.fees_24h;
         let annual_fees = daily_fees * 365.0;
-        let fee_apy = if tvl > 0.0 { (annual_fees / tvl) * 100.0 } else { 0.0 };
+        let fee_apy = if tvl > 0.0 {
+            (annual_fees / tvl) * 100.0
+        } else {
+            0.0
+        };
 
         // Add reward APY (would query reward token prices and emission rates)
         let reward_apy = self.calculate_reward_apy(&pool_data).await;
         let total_apy = fee_apy + reward_apy;
 
         // Estimate impermanent loss risk
-        let il_risk = self.estimate_impermanent_loss_risk(&pool_data.token_a, &pool_data.token_b).await;
+        let il_risk = self
+            .estimate_impermanent_loss_risk(&pool_data.token_a, &pool_data.token_b)
+            .await;
 
         let opportunity = YieldOpportunity {
             protocol,
@@ -455,8 +489,10 @@ impl YieldMonitor {
             rewards: vec![], // Would populate with actual reward tokens
         };
 
-        debug!("📈 Calculated yield opportunity: {} APY for {}/{}",
-               total_apy, opportunity.token_pair.0, opportunity.token_pair.1);
+        debug!(
+            "📈 Calculated yield opportunity: {} APY for {}/{}",
+            total_apy, opportunity.token_pair.0, opportunity.token_pair.1
+        );
 
         Ok(opportunity)
     }
@@ -470,28 +506,36 @@ impl YieldMonitor {
 
         // Simulate reward APY
         match _pool_data.protocol_name.as_str() {
-            "Raydium" => 3.5, // RAY rewards
-            "Orca" => 2.8,    // ORCA rewards
+            "Raydium" => 3.5,  // RAY rewards
+            "Orca" => 2.8,     // ORCA rewards
             "Marinade" => 5.2, // Staking rewards
             _ => 1.0,
         }
     }
 
-    async fn estimate_impermanent_loss_risk(&self, token_a: &str, token_b: &str) -> ImpermanentLossRisk {
+    async fn estimate_impermanent_loss_risk(
+        &self,
+        token_a: &str,
+        token_b: &str,
+    ) -> ImpermanentLossRisk {
         // Analyze historical price correlation and volatility
         // For this example, we'll use simplified heuristics
 
         match (token_a, token_b) {
             // Stablecoin pairs have low IL risk
-            (a, b) if (a.contains("USD") || a.contains("USDT") || a.contains("USDC")) &&
-                     (b.contains("USD") || b.contains("USDT") || b.contains("USDC")) => {
+            (a, b)
+                if (a.contains("USD") || a.contains("USDT") || a.contains("USDC"))
+                    && (b.contains("USD") || b.contains("USDT") || b.contains("USDC")) =>
+            {
                 ImpermanentLossRisk::Low
             }
             // SOL/mSOL or other liquid staking pairs have low IL risk
             ("SOL", "mSOL") | ("mSOL", "SOL") => ImpermanentLossRisk::Low,
             // Major asset pairs have medium risk
-            (a, b) if (a == "SOL" || a == "BTC" || a == "ETH") &&
-                     (b == "SOL" || b == "BTC" || b == "ETH") => {
+            (a, b)
+                if (a == "SOL" || a == "BTC" || a == "ETH")
+                    && (b == "SOL" || b == "BTC" || b == "ETH") =>
+            {
                 ImpermanentLossRisk::Medium
             }
             // Everything else is high risk
@@ -499,22 +543,35 @@ impl YieldMonitor {
         }
     }
 
-    async fn check_for_alerts(&mut self, opportunity: YieldOpportunity, previous: Option<YieldOpportunity>) -> ToolResult<()> {
+    async fn check_for_alerts(
+        &mut self,
+        opportunity: YieldOpportunity,
+        previous: Option<YieldOpportunity>,
+    ) -> Result<()> {
         let mut alerts = Vec::new();
+        let opp_token_pair = opportunity.token_pair.clone();
+        let _opp_pool_address = opportunity.pool_address.clone();
+        let opp_il_risk = opportunity.impermanent_loss_risk.clone();
 
         // Check for high yield opportunities
-        if opportunity.apy >= self.config.min_apy_threshold &&
-           opportunity.tvl >= self.config.min_tvl_threshold &&
-           matches!(opportunity.impermanent_loss_risk, r if matches!(r,
+        if opportunity.apy >= self.config.min_apy_threshold
+            && opportunity.tvl >= self.config.min_tvl_threshold
+            && matches!(opp_il_risk, r if matches!(r,
                ImpermanentLossRisk::Low | ImpermanentLossRisk::Medium) ||
-               matches!(self.config.max_impermanent_loss_risk, ImpermanentLossRisk::High)) {
-
+               matches!(self.config.max_impermanent_loss_risk, ImpermanentLossRisk::High))
+        {
             alerts.push(YieldAlert {
                 alert_type: AlertType::HighYield,
                 opportunity: opportunity.clone(),
-                message: format!("High yield opportunity: {:.2}% APY on {}/{}",
-                               opportunity.apy, opportunity.token_pair.0, opportunity.token_pair.1),
-                urgency: if opportunity.apy > 20.0 { AlertUrgency::High } else { AlertUrgency::Medium },
+                message: format!(
+                    "High yield opportunity: {:.2}% APY on {}/{}",
+                    opportunity.apy, opp_token_pair.0, opp_token_pair.1
+                ),
+                urgency: if opportunity.apy > 20.0 {
+                    AlertUrgency::High
+                } else {
+                    AlertUrgency::Medium
+                },
                 timestamp: Instant::now(),
             });
         }
@@ -527,8 +584,10 @@ impl YieldMonitor {
                 alerts.push(YieldAlert {
                     alert_type: AlertType::APYIncrease,
                     opportunity: opportunity.clone(),
-                    message: format!("APY increased by {:.2}% for {}/{}",
-                                   apy_change, opportunity.token_pair.0, opportunity.token_pair.1),
+                    message: format!(
+                        "APY increased by {:.2}% for {}/{}",
+                        apy_change, opportunity.token_pair.0, opportunity.token_pair.1
+                    ),
                     urgency: AlertUrgency::Medium,
                     timestamp: Instant::now(),
                 });
@@ -536,21 +595,30 @@ impl YieldMonitor {
                 alerts.push(YieldAlert {
                     alert_type: AlertType::APYDecrease,
                     opportunity: opportunity.clone(),
-                    message: format!("APY decreased by {:.2}% for {}/{}",
-                                   apy_change.abs(), opportunity.token_pair.0, opportunity.token_pair.1),
+                    message: format!(
+                        "APY decreased by {:.2}% for {}/{}",
+                        apy_change.abs(),
+                        opportunity.token_pair.0,
+                        opportunity.token_pair.1
+                    ),
                     urgency: AlertUrgency::Low,
                     timestamp: Instant::now(),
                 });
             }
 
             // Check for liquidity drops
-            let liquidity_change_pct = ((opportunity.liquidity - prev.liquidity) / prev.liquidity) * 100.0;
+            let liquidity_change_pct =
+                ((opportunity.liquidity - prev.liquidity) / prev.liquidity) * 100.0;
             if liquidity_change_pct < -20.0 {
                 alerts.push(YieldAlert {
                     alert_type: AlertType::LiquidityDrop,
                     opportunity: opportunity.clone(),
-                    message: format!("Liquidity dropped by {:.1}% for {}/{}",
-                                   liquidity_change_pct.abs(), opportunity.token_pair.0, opportunity.token_pair.1),
+                    message: format!(
+                        "Liquidity dropped by {:.1}% for {}/{}",
+                        liquidity_change_pct.abs(),
+                        opp_token_pair.0,
+                        opp_token_pair.1
+                    ),
                     urgency: AlertUrgency::High,
                     timestamp: Instant::now(),
                 });
@@ -568,28 +636,38 @@ impl YieldMonitor {
         Ok(())
     }
 
-    async fn update_impermanent_loss_estimates(&mut self, price_history: &[PriceData]) -> ToolResult<()> {
+    async fn update_impermanent_loss_estimates(
+        &mut self,
+        price_history: &[PriceData],
+    ) -> Result<()> {
         // Calculate impermanent loss for all tracked opportunities
         for entry in self.opportunities.iter() {
             let pool_key = entry.key();
             let opportunity = entry.value();
             // Find price data for both tokens in the pair
-            let token_a_prices: Vec<_> = price_history.iter()
+            let token_a_prices: Vec<_> = price_history
+                .iter()
                 .filter(|p| p.token == opportunity.token_pair.0)
                 .collect();
 
-            let token_b_prices: Vec<_> = price_history.iter()
+            let token_b_prices: Vec<_> = price_history
+                .iter()
                 .filter(|p| p.token == opportunity.token_pair.1)
                 .collect();
 
             if token_a_prices.len() >= 2 && token_b_prices.len() >= 2 {
                 // Calculate impermanent loss based on price ratio changes
                 let initial_ratio = token_a_prices[0].price / token_b_prices[0].price;
-                let current_ratio = token_a_prices.last().unwrap().price / token_b_prices.last().unwrap().price;
+                let current_ratio =
+                    token_a_prices.last().unwrap().price / token_b_prices.last().unwrap().price;
 
                 let il_percentage = self.calculate_impermanent_loss(initial_ratio, current_ratio);
 
-                debug!("📊 Impermanent Loss for {}: {:.2}%", pool_key, il_percentage * 100.0);
+                debug!(
+                    "📊 Impermanent Loss for {}: {:.2}%",
+                    pool_key,
+                    il_percentage * 100.0
+                );
 
                 // Update metrics
                 let mut metrics = self.metrics.write().await;
@@ -608,14 +686,23 @@ impl YieldMonitor {
     }
 
     pub async fn get_metrics(&self) -> MonitoringMetrics {
-        self.metrics.read().await.clone()
+        let guard = self.metrics.read().await;
+        (*guard).clone()
     }
 
     pub async fn get_top_opportunities(&self, limit: usize) -> Vec<YieldOpportunity> {
-        let mut sorted_opportunities: Vec<_> = self.opportunities.iter().map(|r| r.value().clone()).collect();
+        let mut sorted_opportunities: Vec<_> = self
+            .opportunities
+            .iter()
+            .map(|r| r.value().clone())
+            .collect();
 
         // Sort by APY descending
-        sorted_opportunities.sort_by(|a, b| b.apy.partial_cmp(&a.apy).unwrap_or(std::cmp::Ordering::Equal));
+        sorted_opportunities.sort_by(|a, b| {
+            b.apy
+                .partial_cmp(&a.apy)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
 
         sorted_opportunities.into_iter().take(limit).collect()
     }
@@ -649,8 +736,8 @@ async fn main() -> Result<()> {
 
     // Create yield monitor with custom configuration
     let monitor_config = YieldMonitorConfig {
-        min_apy_threshold: 8.0,  // 8% minimum APY
-        min_tvl_threshold: 50_000.0,  // $50k minimum TVL
+        min_apy_threshold: 8.0,      // 8% minimum APY
+        min_tvl_threshold: 50_000.0, // $50k minimum TVL
         max_impermanent_loss_risk: ImpermanentLossRisk::Medium,
         ..Default::default()
     };
@@ -743,9 +830,15 @@ async fn main() -> Result<()> {
     // Final report
     let final_metrics = yield_monitor.get_metrics().await;
     info!("🏁 Final Monitoring Report:");
-    info!("   Total events processed: {}", final_metrics.total_events_processed);
+    info!(
+        "   Total events processed: {}",
+        final_metrics.total_events_processed
+    );
     info!("   Total alerts sent: {}", final_metrics.alerts_sent);
-    info!("   Impermanent loss calculations: {}", final_metrics.impermanent_loss_calculations);
+    info!(
+        "   Impermanent loss calculations: {}",
+        final_metrics.impermanent_loss_calculations
+    );
 
     Ok(())
 }
@@ -779,8 +872,13 @@ fn create_simulated_pool_event(protocol: &str) -> Box<dyn Event> {
     };
 
     Box::new(GenericEvent::new(
-        format!("{}_{}", protocol.to_lowercase(), fastrand::u64(10000..99999)).into(),
-        EventKind::Custom,
+        format!(
+            "{}_{}",
+            protocol.to_lowercase(),
+            fastrand::u64(10000..99999)
+        )
+        .into(),
+        EventKind::Custom(protocol.to_string()),
         data,
     ))
 }
@@ -828,7 +926,7 @@ mod tests {
 
         // Test case: 50% price increase in one token
         let initial_ratio = 1.0; // 1:1 price ratio
-        let current_ratio = 1.5;  // 1.5:1 price ratio (50% increase)
+        let current_ratio = 1.5; // 1.5:1 price ratio (50% increase)
 
         let il = monitor.calculate_impermanent_loss(initial_ratio, current_ratio);
         assert!(il > 0.0 && il < 0.1); // Should be positive but less than 10%
@@ -849,7 +947,9 @@ mod tests {
             assert!(matches!(risk, ImpermanentLossRisk::Low));
 
             // Random tokens should be high risk
-            let risk = monitor.estimate_impermanent_loss_risk("TokenA", "TokenB").await;
+            let risk = monitor
+                .estimate_impermanent_loss_risk("TokenA", "TokenB")
+                .await;
             assert!(matches!(risk, ImpermanentLossRisk::High));
         });
     }
