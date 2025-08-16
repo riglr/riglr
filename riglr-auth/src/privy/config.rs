@@ -13,11 +13,11 @@ pub struct PrivyConfig {
     /// Privy application secret
     pub app_secret: String,
 
-    /// Privy API base URL (defaults to https://api.privy.io)
+    /// Privy API base URL (defaults to <https://api.privy.io>)
     #[serde(default = "default_api_url")]
     pub api_url: String,
 
-    /// Privy auth URL (defaults to https://auth.privy.io)
+    /// Privy auth URL (defaults to <https://auth.privy.io>)
     #[serde(default = "default_auth_url")]
     pub auth_url: String,
 
