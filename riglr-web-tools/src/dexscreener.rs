@@ -782,13 +782,13 @@ async fn parse_token_response(
             native_token: get_native_token(chain),
         },
         security: SecurityInfo {
-                is_verified: false,
-                liquidity_locked: None,
-                audit_status: None,
-                honeypot_status: None,
-                ownership_status: None,
-                risk_score: None,
-            },
+            is_verified: false,
+            liquidity_locked: None,
+            audit_status: None,
+            honeypot_status: None,
+            ownership_status: None,
+            risk_score: None,
+        },
         socials: vec![], // Would need additional API call to get social links
         updated_at: Utc::now(),
     })
