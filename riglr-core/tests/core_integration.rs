@@ -192,7 +192,9 @@ async fn test_tool_error_classification() {
 #[test]
 fn test_environment_configuration_helpers() {
     // Test get_required_env with existing environment variable
-    unsafe { std::env::set_var("TEST_EXISTING_VAR", "test_value"); }
+    unsafe {
+        std::env::set_var("TEST_EXISTING_VAR", "test_value");
+    }
     let value = get_required_env("TEST_EXISTING_VAR").expect("should find existing var");
     assert_eq!(value, "test_value");
 
@@ -201,17 +203,23 @@ fn test_environment_configuration_helpers() {
     assert_eq!(value, "test_value");
 
     // Test get_env_or_default with non-existing variable
-    unsafe { std::env::remove_var("TEST_NON_EXISTING_VAR"); }
+    unsafe {
+        std::env::remove_var("TEST_NON_EXISTING_VAR");
+    }
     let value = get_env_or_default("TEST_NON_EXISTING_VAR", "default_value");
     assert_eq!(value, "default_value");
 
     // Clean up
-    unsafe { std::env::remove_var("TEST_EXISTING_VAR"); }
+    unsafe {
+        std::env::remove_var("TEST_EXISTING_VAR");
+    }
 }
 
 #[test]
 fn test_get_required_env_errors_on_missing_var() {
-    unsafe { std::env::remove_var("TEST_MISSING_VAR"); }
+    unsafe {
+        std::env::remove_var("TEST_MISSING_VAR");
+    }
     let result = get_required_env("TEST_MISSING_VAR");
     assert!(result.is_err());
     assert!(result.unwrap_err().to_string().contains("TEST_MISSING_VAR"));

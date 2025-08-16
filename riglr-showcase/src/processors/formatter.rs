@@ -241,12 +241,12 @@ impl HtmlFormatter {
         }
 
         // Container
-        html.push_str(&format!(
-            r#"<div class="{}">"#,
-            self.css_classes
-                .get("container")
-                .unwrap_or_else(|| &"tool-output".to_string())
-        ));
+        let container_class = self
+            .css_classes
+            .get("container")
+            .map(String::as_str)
+            .unwrap_or("tool-output");
+        html.push_str(&format!(r#"<div class="{}">"#, container_class));
         html.push('\n');
 
         // Title
@@ -283,11 +283,14 @@ impl HtmlFormatter {
         // Result
         if !output.result.is_null() {
             html.push_str("<h3>Result</h3>\n");
+            let result_class = self
+                .css_classes
+                .get("result")
+                .map(String::as_str)
+                .unwrap_or("result-content");
             html.push_str(&format!(
                 r#"<div class="{}"><pre>{}</pre></div>"#,
-                self.css_classes
-                    .get("result")
-                    .unwrap_or_else(|| &"result-content".to_string()),
+                result_class,
                 html_escape(&serde_json::to_string_pretty(&output.result).unwrap_or_default())
             ));
             html.push('\n');

@@ -72,7 +72,7 @@ impl HealthCheckResult {
 /// Health check coordinator that manages multiple health checks
 pub struct HealthCheckCoordinator {
     /// Registered health checks
-    checks: Arc<DashMap<String, Arc<dyn HealthCheck>>>,
+    checks: Arc<DashMap<String, Arc<dyn HealthCheck + 'static>>>,
     /// Cached results
     cached_results: Arc<DashMap<String, (HealthCheckResult, Instant)>>,
     /// Cache TTL
@@ -90,7 +90,7 @@ impl HealthCheckCoordinator {
     }
 
     /// Register a health check
-    pub async fn register(&self, name: String, check: Arc<dyn HealthCheck>) {
+    pub async fn register(&self, name: String, check: Arc<dyn HealthCheck + 'static>) {
         self.checks.insert(name, check);
     }
 
@@ -101,12 +101,17 @@ impl HealthCheckCoordinator {
 
     /// Perform all health checks
     pub async fn check_all(&self) -> HashMap<String, HealthCheckResult> {
-        let mut results = HashMap::new();
+        // Clone out names and Arc<HealthCheck> first to avoid holding DashMap guards across await
+        let entries: Vec<(String, Arc<dyn HealthCheck + 'static>)> = self
+            .checks
+            .iter()
+            .map(|entry| (entry.key().clone(), Arc::clone(entry.value())))
+            .collect();
 
-        for entry in self.checks.iter() {
-            let (name, check) = entry.pair();
-            let result = self.check_with_cache(name, check).await;
-            results.insert(name.clone(), result);
+        let mut results = HashMap::new();
+        for (name, check) in entries {
+            let result = self.check_with_cache(&name, &check).await;
+            results.insert(name, result);
         }
 
         results
@@ -114,8 +119,8 @@ impl HealthCheckCoordinator {
 
     /// Perform a specific health check
     pub async fn check_one(&self, name: &str) -> Option<HealthCheckResult> {
-        let check = self.checks.get(name)?;
-        Some(self.check_with_cache(name, check.value()).await)
+        let check = self.checks.get(name).map(|g| Arc::clone(g.value()))?;
+        Some(self.check_with_cache(name, &check).await)
     }
 
     /// Check if all components are healthy
@@ -153,7 +158,7 @@ impl HealthCheckCoordinator {
     async fn check_with_cache(
         &self,
         name: &str,
-        check: &Arc<dyn HealthCheck>,
+        check: &Arc<dyn HealthCheck + 'static>,
     ) -> HealthCheckResult {
         // Check cache first
         if let Some(entry) = self.cached_results.get(name) {

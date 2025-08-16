@@ -133,30 +133,42 @@ mod tests {
 
     #[test]
     fn test_get_env_or_default_with_existing_var() {
-        unsafe { env::set_var("TEST_VAR_EXISTS", "test_value"); }
+        unsafe {
+            env::set_var("TEST_VAR_EXISTS", "test_value");
+        }
         let result = get_env_or_default("TEST_VAR_EXISTS", "default");
         assert_eq!(result, "test_value");
-        unsafe { env::remove_var("TEST_VAR_EXISTS"); }
+        unsafe {
+            env::remove_var("TEST_VAR_EXISTS");
+        }
     }
 
     #[test]
     fn test_get_env_or_default_with_missing_var() {
-        unsafe { env::remove_var("TEST_VAR_MISSING"); }
+        unsafe {
+            env::remove_var("TEST_VAR_MISSING");
+        }
         let result = get_env_or_default("TEST_VAR_MISSING", "default_value");
         assert_eq!(result, "default_value");
     }
 
     #[test]
     fn test_get_required_env_with_existing_var() {
-        unsafe { env::set_var("TEST_REQUIRED_VAR", "required_value"); }
+        unsafe {
+            env::set_var("TEST_REQUIRED_VAR", "required_value");
+        }
         let result = get_required_env("TEST_REQUIRED_VAR").unwrap();
         assert_eq!(result, "required_value");
-        unsafe { env::remove_var("TEST_REQUIRED_VAR"); }
+        unsafe {
+            env::remove_var("TEST_REQUIRED_VAR");
+        }
     }
 
     #[test]
     fn test_get_required_env_with_missing_var() {
-        unsafe { env::remove_var("TEST_MISSING_REQUIRED"); }
+        unsafe {
+            env::remove_var("TEST_MISSING_REQUIRED");
+        }
         let result = get_required_env("TEST_MISSING_REQUIRED");
         assert!(result.is_err());
         match result {
@@ -169,32 +181,53 @@ mod tests {
 
     #[test]
     fn test_validate_required_env_all_present() {
-        unsafe { env::set_var("TEST_VALIDATE_VAR1", "value1"); }
-        unsafe { env::set_var("TEST_VALIDATE_VAR2", "value2"); }
+        unsafe {
+            env::set_var("TEST_VALIDATE_VAR1", "value1");
+        }
+        unsafe {
+            env::set_var("TEST_VALIDATE_VAR2", "value2");
+        }
 
         let result = validate_required_env(&["TEST_VALIDATE_VAR1", "TEST_VALIDATE_VAR2"]);
         assert!(result.is_ok());
 
-        unsafe { env::remove_var("TEST_VALIDATE_VAR1"); }
-        unsafe { env::remove_var("TEST_VALIDATE_VAR2"); }
+        unsafe {
+            env::remove_var("TEST_VALIDATE_VAR1");
+        }
+        unsafe {
+            env::remove_var("TEST_VALIDATE_VAR2");
+        }
     }
 
     #[test]
     fn test_validate_required_env_missing_one() {
-        unsafe { env::set_var("TEST_VALIDATE_MISSING_VAR1", "value1"); }
-        unsafe { env::remove_var("TEST_VALIDATE_MISSING_VAR2"); }
+        unsafe {
+            env::set_var("TEST_VALIDATE_MISSING_VAR1", "value1");
+        }
+        unsafe {
+            env::remove_var("TEST_VALIDATE_MISSING_VAR2");
+        }
 
-        let result = validate_required_env(&["TEST_VALIDATE_MISSING_VAR1", "TEST_VALIDATE_MISSING_VAR2"]);
+        let result =
+            validate_required_env(&["TEST_VALIDATE_MISSING_VAR1", "TEST_VALIDATE_MISSING_VAR2"]);
         assert!(result.is_err());
 
-        unsafe { env::remove_var("TEST_VALIDATE_MISSING_VAR1"); }
+        unsafe {
+            env::remove_var("TEST_VALIDATE_MISSING_VAR1");
+        }
     }
 
     #[test]
     fn test_get_env_vars() {
-        unsafe { env::set_var("TEST_MULTI_1", "value1"); }
-        unsafe { env::set_var("TEST_MULTI_2", "value2"); }
-        unsafe { env::remove_var("TEST_MULTI_3"); }
+        unsafe {
+            env::set_var("TEST_MULTI_1", "value1");
+        }
+        unsafe {
+            env::set_var("TEST_MULTI_2", "value2");
+        }
+        unsafe {
+            env::remove_var("TEST_MULTI_3");
+        }
 
         let vars = get_env_vars(&["TEST_MULTI_1", "TEST_MULTI_2", "TEST_MULTI_3"]);
 
@@ -202,7 +235,11 @@ mod tests {
         assert_eq!(vars.get("TEST_MULTI_2"), Some(&"value2".to_string()));
         assert_eq!(vars.get("TEST_MULTI_3"), None);
 
-        unsafe { env::remove_var("TEST_MULTI_1"); }
-        unsafe { env::remove_var("TEST_MULTI_2"); }
+        unsafe {
+            env::remove_var("TEST_MULTI_1");
+        }
+        unsafe {
+            env::remove_var("TEST_MULTI_2");
+        }
     }
 }

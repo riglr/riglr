@@ -29,14 +29,15 @@ async fn get_wallet_address(address: Option<String>) -> Result<String> {
 
 /// Create EVM client based on chain ID.
 async fn create_evm_client(chain_id: u64) -> Result<EvmClient> {
-    match chain_id {
+    let result = match chain_id {
         1 => EvmClient::mainnet().await,
         137 => EvmClient::new("https://polygon-rpc.com".to_string()).await,
         42161 => EvmClient::new("https://arb1.arbitrum.io/rpc".to_string()).await,
         10 => EvmClient::new("https://mainnet.optimism.io".to_string()).await,
         8453 => EvmClient::new("https://mainnet.base.org".to_string()).await,
         _ => EvmClient::mainnet().await,
-    }
+    };
+    result.map_err(Into::into)
 }
 
 /// Fetch and display native token balance.
@@ -112,8 +113,12 @@ async fn display_token_balances(
 
         pb.set_message(format!("Fetching {} balance...", symbol));
 
-        match get_erc20_balance(wallet_address.to_string(), contract_address.clone(), Some(true))
-            .await
+        match get_erc20_balance(
+            wallet_address.to_string(),
+            contract_address.clone(),
+            Some(true),
+        )
+        .await
         {
             Ok(balance) => {
                 println!("\n{}", format!("🪙 {} Balance", symbol).green().bold());
@@ -329,7 +334,7 @@ pub async fn run_demo(config: Arc<Config>, address: Option<String>, chain_id: u6
         .interact()?;
 
     let should_return = handle_menu_selection(selection, chain_id, config, wallet_address).await?;
-    
+
     if should_return {
         return Ok(());
     }

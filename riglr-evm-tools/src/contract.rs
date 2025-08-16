@@ -352,8 +352,8 @@ fn parse_param_to_dyn_sol_value(
 
 /// Parse an address parameter
 fn parse_address(param: &str) -> Result<DynSolValue, Box<dyn std::error::Error + Send + Sync>> {
-    let addr = Address::from_str(param)
-        .map_err(|e| format!("Invalid address '{}': {}", param, e))?;
+    let addr =
+        Address::from_str(param).map_err(|e| format!("Invalid address '{}': {}", param, e))?;
     Ok(DynSolValue::Address(addr))
 }
 
@@ -377,8 +377,7 @@ fn parse_bool(param: &str) -> Result<DynSolValue, Box<dyn std::error::Error + Se
 /// Parse a bytes parameter
 fn parse_bytes(param: &str) -> Result<DynSolValue, Box<dyn std::error::Error + Send + Sync>> {
     let bytes = if let Some(stripped) = param.strip_prefix("0x") {
-        primitives::hex::decode(stripped)
-            .map_err(|e| format!("Invalid hex bytes: {}", e))?
+        primitives::hex::decode(stripped).map_err(|e| format!("Invalid hex bytes: {}", e))?
     } else {
         param.as_bytes().to_vec()
     };
@@ -386,10 +385,12 @@ fn parse_bytes(param: &str) -> Result<DynSolValue, Box<dyn std::error::Error + S
 }
 
 /// Parse fixed-size bytes parameter
-fn parse_fixed_bytes(param: &str, size: usize) -> Result<DynSolValue, Box<dyn std::error::Error + Send + Sync>> {
+fn parse_fixed_bytes(
+    param: &str,
+    size: usize,
+) -> Result<DynSolValue, Box<dyn std::error::Error + Send + Sync>> {
     let bytes = if let Some(stripped) = param.strip_prefix("0x") {
-        primitives::hex::decode(stripped)
-            .map_err(|e| format!("Invalid hex bytes: {}", e))?
+        primitives::hex::decode(stripped).map_err(|e| format!("Invalid hex bytes: {}", e))?
     } else {
         param.as_bytes().to_vec()
     };
@@ -403,13 +404,14 @@ fn parse_fixed_bytes(param: &str, size: usize) -> Result<DynSolValue, Box<dyn st
 }
 
 /// Parse an unsigned integer parameter
-fn parse_uint(param: &str, bits: usize) -> Result<DynSolValue, Box<dyn std::error::Error + Send + Sync>> {
+fn parse_uint(
+    param: &str,
+    bits: usize,
+) -> Result<DynSolValue, Box<dyn std::error::Error + Send + Sync>> {
     let value = if let Some(stripped) = param.strip_prefix("0x") {
-        U256::from_str_radix(stripped, 16)
-            .map_err(|e| format!("Invalid hex uint: {}", e))?
+        U256::from_str_radix(stripped, 16).map_err(|e| format!("Invalid hex uint: {}", e))?
     } else {
-        U256::from_str_radix(param, 10)
-            .map_err(|e| format!("Invalid decimal uint: {}", e))?
+        U256::from_str_radix(param, 10).map_err(|e| format!("Invalid decimal uint: {}", e))?
     };
     // Check bounds for specific uint size
     let max = if bits == 256 {
@@ -424,26 +426,24 @@ fn parse_uint(param: &str, bits: usize) -> Result<DynSolValue, Box<dyn std::erro
 }
 
 /// Parse a signed integer parameter
-fn parse_int(param: &str, bits: usize) -> Result<DynSolValue, Box<dyn std::error::Error + Send + Sync>> {
+fn parse_int(
+    param: &str,
+    bits: usize,
+) -> Result<DynSolValue, Box<dyn std::error::Error + Send + Sync>> {
     let value = if let Some(abs_str) = param.strip_prefix('-') {
         // Negative number
         let abs_val = if let Some(stripped) = abs_str.strip_prefix("0x") {
-            U256::from_str_radix(stripped, 16)
-                .map_err(|e| format!("Invalid hex int: {}", e))?
+            U256::from_str_radix(stripped, 16).map_err(|e| format!("Invalid hex int: {}", e))?
         } else {
-            U256::from_str_radix(abs_str, 10)
-                .map_err(|e| format!("Invalid decimal int: {}", e))?
+            U256::from_str_radix(abs_str, 10).map_err(|e| format!("Invalid decimal int: {}", e))?
         };
-        I256::ZERO
-            - I256::try_from(abs_val).map_err(|e| format!("Invalid negative int: {}", e))?
+        I256::ZERO - I256::try_from(abs_val).map_err(|e| format!("Invalid negative int: {}", e))?
     } else {
         // Positive number
         let val = if let Some(stripped) = param.strip_prefix("0x") {
-            U256::from_str_radix(stripped, 16)
-                .map_err(|e| format!("Invalid hex int: {}", e))?
+            U256::from_str_radix(stripped, 16).map_err(|e| format!("Invalid hex int: {}", e))?
         } else {
-            U256::from_str_radix(param, 10)
-                .map_err(|e| format!("Invalid decimal int: {}", e))?
+            U256::from_str_radix(param, 10).map_err(|e| format!("Invalid decimal int: {}", e))?
         };
         I256::try_from(val).map_err(|e| format!("Invalid positive int: {}", e))?
     };
@@ -451,7 +451,10 @@ fn parse_int(param: &str, bits: usize) -> Result<DynSolValue, Box<dyn std::error
 }
 
 /// Parse an array parameter
-fn parse_array(param: &str, inner: &DynSolType) -> Result<DynSolValue, Box<dyn std::error::Error + Send + Sync>> {
+fn parse_array(
+    param: &str,
+    inner: &DynSolType,
+) -> Result<DynSolValue, Box<dyn std::error::Error + Send + Sync>> {
     // Parse JSON array or comma-separated values
     let values = if param.starts_with('[') && param.ends_with(']') {
         // JSON array
@@ -471,7 +474,11 @@ fn parse_array(param: &str, inner: &DynSolType) -> Result<DynSolValue, Box<dyn s
 }
 
 /// Parse a fixed-size array parameter
-fn parse_fixed_array(param: &str, inner: &DynSolType, size: usize) -> Result<DynSolValue, Box<dyn std::error::Error + Send + Sync>> {
+fn parse_fixed_array(
+    param: &str,
+    inner: &DynSolType,
+    size: usize,
+) -> Result<DynSolValue, Box<dyn std::error::Error + Send + Sync>> {
     // Parse JSON array or comma-separated values
     let values = if param.starts_with('[') && param.ends_with(']') {
         // JSON array
@@ -495,7 +502,10 @@ fn parse_fixed_array(param: &str, inner: &DynSolType, size: usize) -> Result<Dyn
 }
 
 /// Parse a tuple parameter
-fn parse_tuple(param: &str, types: &[DynSolType]) -> Result<DynSolValue, Box<dyn std::error::Error + Send + Sync>> {
+fn parse_tuple(
+    param: &str,
+    types: &[DynSolType],
+) -> Result<DynSolValue, Box<dyn std::error::Error + Send + Sync>> {
     // Parse tuple as JSON array or parentheses-enclosed comma-separated values
     let values = if param.starts_with('[') && param.ends_with(']') {
         // JSON array

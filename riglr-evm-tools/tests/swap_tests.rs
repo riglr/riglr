@@ -53,7 +53,7 @@ fn test_uniswap_config_arbitrum() {
 #[test]
 fn test_uniswap_config_for_chain() {
     use tempfile::NamedTempFile;
-    
+
     // Create a temporary chains config for testing
     let test_config = r#"
 [chains]

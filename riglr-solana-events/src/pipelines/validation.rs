@@ -226,7 +226,8 @@ impl ValidationPipeline {
         let mut seen = self.seen_events.write().await;
 
         // Clean up old entries (older than max_event_age)
-        let cutoff = std::time::Instant::now().checked_sub(self.config.max_event_age)
+        let cutoff = std::time::Instant::now()
+            .checked_sub(self.config.max_event_age)
             .unwrap_or_else(std::time::Instant::now);
         seen.retain(|_, &mut timestamp| timestamp > cutoff);
 
