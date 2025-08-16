@@ -8,15 +8,16 @@
 //!
 //! This example uses the SignerContext pattern for secure transaction signing.
 
-use riglr_core::{SignerContext, signer::SignerError};
+use riglr_core::{signer::SignerError, SignerContext};
 use riglr_solana_tools::LocalSolanaSigner;
 use riglr_solana_tools::{
     // deploy_pump_token, buy_pump_token, sell_pump_token,
-    get_pump_token_info, get_trending_pump_tokens
+    get_pump_token_info,
+    get_trending_pump_tokens,
 };
 use solana_sdk::signer::{keypair::Keypair, Signer};
 use std::sync::Arc;
-use tracing::{info, error};
+use tracing::{error, info};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -38,7 +39,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Execute all operations within the signer context
     SignerContext::with_signer(signer, async {
-        
         // Example 1: Get trending tokens
         info!("\n=== Getting Trending Tokens ===");
         match get_trending_pump_tokens(Some(5)).await {
@@ -50,14 +50,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         token.name, token.symbol, token.market_cap, token.price_sol
                     );
                 }
-            },
+            }
             Err(e) => error!("Failed to get trending tokens: {}", e),
         }
 
         // Example 2: Get token information for a specific token
         // This is a placeholder mint address - replace with actual Pump.fun token
         let example_mint = "So11111111111111111111111111111111111111112"; // SOL mint as example
-        
+
         info!("\n=== Getting Token Information ===");
         match get_pump_token_info(example_mint.to_string()).await {
             Ok(token_info) => {
@@ -67,16 +67,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 info!("Description: {}", token_info.description);
                 info!("Market cap: {:?}", token_info.market_cap);
                 info!("Price: {:?} SOL", token_info.price_sol);
-            },
+            }
             Err(e) => error!("Failed to get token info: {}", e),
         }
 
         info!("\n=== Pump.fun Example Complete ===");
         info!("This example demonstrated the basic Pump.fun read operations.");
         info!("For trading operations, see the commented examples in the source code.");
-        
+
         Ok::<(), SignerError>(())
-    }).await?;
+    })
+    .await?;
 
     Ok(())
 }
@@ -98,7 +99,7 @@ async fn pump_agent_example() -> Result<(), Box<dyn std::error::Error>> {
     // When rig-core is available:
     /*
     use rig_core::agent::AgentBuilder;
-    
+
     let agent = AgentBuilder::new("gpt-4")
         .preamble("You are a Pump.fun trading agent. You can deploy tokens, buy, sell, and analyze market trends.")
         .tool(deploy_pump_token)
@@ -130,7 +131,7 @@ mod tests {
     async fn test_pump_tools_compilation() {
         // This test just ensures the tools compile and can be called
         // It doesn't actually execute network operations
-        
+
         let keypair = Keypair::new();
         let signer = Arc::new(LocalSolanaSigner::new(
             keypair,
@@ -138,6 +139,9 @@ mod tests {
         ));
 
         // Test that we can create the signer context without errors
-        println!("Pump tools compilation test passed with signer: {:?}", signer);
+        println!(
+            "Pump tools compilation test passed with signer: {:?}",
+            signer
+        );
     }
 }

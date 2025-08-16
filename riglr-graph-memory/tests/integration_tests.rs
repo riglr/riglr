@@ -17,12 +17,20 @@ async fn start_neo4j_container() -> testcontainers::ContainerAsync<GenericImage>
         .with_env_var("NEO4J_AUTH", "neo4j/testpassword")
         .with_env_var("NEO4JLABS_PLUGINS", "[\"apoc\",\"graph-data-science\"]");
 
-    neo4j_image.start().await.expect("Failed to start Neo4j container")
+    neo4j_image
+        .start()
+        .await
+        .expect("Failed to start Neo4j container")
 }
 
 /// Helper to create a test Neo4j client
-async fn create_test_client(container: &testcontainers::ContainerAsync<GenericImage>) -> Neo4jClient {
-    let http_port = container.get_host_port_ipv4(7474).await.expect("Failed to get port");
+async fn create_test_client(
+    container: &testcontainers::ContainerAsync<GenericImage>,
+) -> Neo4jClient {
+    let http_port = container
+        .get_host_port_ipv4(7474)
+        .await
+        .expect("Failed to get port");
     let url = format!("http://localhost:{}", http_port);
 
     // Wait for Neo4j to be ready
@@ -39,8 +47,13 @@ async fn create_test_client(container: &testcontainers::ContainerAsync<GenericIm
 }
 
 /// Helper to create test GraphMemoryConfig
-async fn create_test_config(container: &testcontainers::ContainerAsync<GenericImage>) -> GraphMemoryConfig {
-    let http_port = container.get_host_port_ipv4(7474).await.expect("Failed to get port");
+async fn create_test_config(
+    container: &testcontainers::ContainerAsync<GenericImage>,
+) -> GraphMemoryConfig {
+    let http_port = container
+        .get_host_port_ipv4(7474)
+        .await
+        .expect("Failed to get port");
     let url = format!("http://localhost:{}", http_port);
 
     GraphMemoryConfig {
@@ -63,9 +76,7 @@ mod client_tests {
         let client = create_test_client(&container).await;
 
         // Test basic query
-        let result = client
-            .simple_query("RETURN 1 as number")
-            .await;
+        let result = client.simple_query("RETURN 1 as number").await;
 
         assert!(result.is_ok());
         let records = result.unwrap();
@@ -80,18 +91,14 @@ mod client_tests {
 
         // Create a test node
         let create_result = client
-            .simple_query(
-                "CREATE (n:TestNode {name: 'test_node', value: 42}) RETURN n"
-            )
+            .simple_query("CREATE (n:TestNode {name: 'test_node', value: 42}) RETURN n")
             .await;
 
         assert!(create_result.is_ok());
 
         // Query for the node
         let query_result = client
-            .simple_query(
-                "MATCH (n:TestNode {name: 'test_node'}) RETURN n.value as value"
-            )
+            .simple_query("MATCH (n:TestNode {name: 'test_node'}) RETURN n.value as value")
             .await;
 
         assert!(query_result.is_ok());
@@ -113,7 +120,7 @@ mod client_tests {
                 CREATE (b:Token {symbol: 'USDC'})
                 CREATE (a)-[r:HOLDS {amount: 1000}]->(b)
                 RETURN r
-                "#
+                "#,
             )
             .await;
 
@@ -181,8 +188,10 @@ mod entity_extractor_tests {
         // Transaction hashes would be detected as wallets with different properties
         assert!(!entities.wallets.is_empty() || !entities.amounts.is_empty());
         // The transaction hash should be detected as some form of entity
-        assert!(entities.wallets.iter().any(|w| w.text.contains("0xabc123")) 
-                || entities.amounts.iter().any(|a| a.text.contains("100")));
+        assert!(
+            entities.wallets.iter().any(|w| w.text.contains("0xabc123"))
+                || entities.amounts.iter().any(|a| a.text.contains("100"))
+        );
     }
 
     #[test]
@@ -195,8 +204,12 @@ mod entity_extractor_tests {
 
         // The relationships might be empty if patterns don't match exactly
         // But we should have extracted other entities like wallets, tokens, and protocols
-        assert!(!entities.wallets.is_empty() || !entities.tokens.is_empty() || !entities.protocols.is_empty());
-        
+        assert!(
+            !entities.wallets.is_empty()
+                || !entities.tokens.is_empty()
+                || !entities.protocols.is_empty()
+        );
+
         // Optionally check for relationships but don't require them since pattern matching is complex
         // assert!(!entities.relationships.is_empty());
     }
@@ -295,10 +308,7 @@ mod knowledge_graph_tests {
 
         // Search for related documents using embedding vector
         let query_embedding = vec![0.1; 384]; // Placeholder embedding
-        let related = graph
-            .search(&query_embedding, 2)
-            .await
-            .unwrap();
+        let related = graph.search(&query_embedding, 2).await.unwrap();
 
         assert!(!related.documents.is_empty());
     }
@@ -321,10 +331,7 @@ mod knowledge_graph_tests {
         graph.add_documents(vec![doc]).await.unwrap();
 
         let query_embedding = vec![0.1; 384]; // Placeholder embedding
-        let history = graph
-            .search(&query_embedding, 10)
-            .await
-            .unwrap();
+        let history = graph.search(&query_embedding, 10).await.unwrap();
 
         assert!(!history.documents.is_empty());
     }
@@ -355,7 +362,7 @@ mod knowledge_graph_tests {
         assert!(stats.document_count >= 3);
         assert!(stats.entity_count > 0);
 
-        let query_embedding = vec![0.1; 384]; // Placeholder embedding  
+        let query_embedding = vec![0.1; 384]; // Placeholder embedding
         let related = graph.search(&query_embedding, 5).await.unwrap();
         assert!(!related.documents.is_empty());
     }

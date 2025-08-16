@@ -1,11 +1,7 @@
 //! Final tests to achieve 100% coverage for balance.rs and client.rs
 //! These tests target the exact uncovered lines identified by coverage analysis
 
-use riglr_solana_tools::{
-    balance::*,
-    client::SolanaClient,
-    error::SolanaToolError,
-};
+use riglr_solana_tools::{balance::*, client::SolanaClient, error::SolanaToolError};
 use solana_sdk::{
     hash::Hash,
     message::Message,
@@ -18,17 +14,14 @@ use solana_sdk::{
 #[tokio::test(flavor = "multi_thread")]
 async fn test_balance_with_client() {
     // Test the new API pattern
-    
-    let result = get_sol_balance(
-        "11111111111111111111111111111111".to_string(),
-    )
-    .await;
+
+    let result = get_sol_balance("11111111111111111111111111111111".to_string()).await;
 
     // The result doesn't matter as much as testing the function signature
     let _ = result;
 }
 
-/// Test to cover lines 154 and 158 in client.rs - empty token accounts path  
+/// Test to cover lines 154 and 158 in client.rs - empty token accounts path
 #[tokio::test(flavor = "multi_thread")]
 async fn test_client_lines_154_158_empty_token_accounts() {
     let client = SolanaClient::mainnet();
@@ -85,7 +78,8 @@ async fn test_client_lines_213_215_send_transaction_success() {
     let to_pubkey = Pubkey::new_unique();
     let lamports = 1000;
 
-    let instruction = solana_sdk::system_instruction::transfer(&from_keypair.pubkey(), &to_pubkey, lamports);
+    let instruction =
+        solana_sdk::system_instruction::transfer(&from_keypair.pubkey(), &to_pubkey, lamports);
 
     let message = Message::new(&[instruction], Some(&from_keypair.pubkey()));
 

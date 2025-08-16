@@ -3,7 +3,7 @@
 //! This module provides tools for querying SOL and SPL token balances on the Solana blockchain.
 
 use crate::utils::validate_address;
-use riglr_core::{ToolError, SignerContext};
+use riglr_core::{SignerContext, ToolError};
 use riglr_macros::tool;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -14,37 +14,37 @@ use tracing::{debug, info};
 ///
 /// This tool queries the Solana blockchain to retrieve the SOL balance for any wallet address.
 /// The balance is returned in both lamports (smallest unit) and SOL (human-readable format).
-/// 
+///
 /// # Arguments
-/// 
+///
 /// * `address` - The Solana wallet address to check (base58 encoded public key)
-/// 
+///
 /// # Returns
-/// 
+///
 /// Returns `BalanceResult` containing:
 /// - `address`: The queried wallet address
 /// - `lamports`: Balance in lamports (1 SOL = 1,000,000,000 lamports)
 /// - `sol`: Balance in SOL units as a floating-point number
 /// - `formatted`: Human-readable balance string with 9 decimal places
-/// 
+///
 /// # Errors
-/// 
+///
 /// * `ToolError::Permanent` - When the address format is invalid or parsing fails
 /// * `ToolError::Retriable` - When network connection issues occur (timeouts, connection errors)
 /// * `ToolError::Permanent` - When no signer context is available
-/// 
+///
 /// # Examples
-/// 
+///
 /// ```rust,ignore
 /// use riglr_solana_tools::balance::get_sol_balance;
 /// use riglr_core::SignerContext;
-/// 
+///
 /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
 /// // Check SOL balance for a wallet
 /// let balance = get_sol_balance(
 ///     "So11111111111111111111111111111111111111112".to_string()
 /// ).await?;
-/// 
+///
 /// println!("Address: {}", balance.address);
 /// println!("Balance: {} SOL ({} lamports)", balance.sol, balance.lamports);
 /// println!("Formatted: {}", balance.formatted);
@@ -52,20 +52,20 @@ use tracing::{debug, info};
 /// # }
 /// ```
 #[tool]
-pub async fn get_sol_balance(
-    address: String,
-) -> Result<BalanceResult, ToolError> {
+pub async fn get_sol_balance(address: String) -> Result<BalanceResult, ToolError> {
     debug!("Getting SOL balance for address: {}", address);
 
     // Validate address using stateless utility
-    let pubkey = validate_address(&address)
-        .map_err(|e| ToolError::permanent_string(e.to_string()))?;
+    let pubkey =
+        validate_address(&address).map_err(|e| ToolError::permanent_string(e.to_string()))?;
 
     // Get client from SignerContext (following riglr-core pattern)
-    let signer = SignerContext::current().await
+    let signer = SignerContext::current()
+        .await
         .map_err(|e| ToolError::permanent_string(format!("No signer context available: {}", e)))?;
-    let client = signer.solana_client()
-        .ok_or_else(|| ToolError::permanent_string("No Solana client available in signer context".to_string()))?;
+    let client = signer.solana_client().ok_or_else(|| {
+        ToolError::permanent_string("No Solana client available in signer context".to_string())
+    })?;
 
     // Get balance in lamports
     let lamports = client.get_balance(&pubkey).map_err(|e| {
@@ -103,14 +103,14 @@ pub async fn get_sol_balance(
 /// This tool queries the Solana blockchain to retrieve the balance of a specific SPL token
 /// for a given wallet address. It automatically finds the Associated Token Account (ATA)
 /// and returns both raw and UI-adjusted amounts.
-/// 
+///
 /// # Arguments
-/// 
+///
 /// * `owner_address` - The wallet address that owns the tokens (base58 encoded)
 /// * `mint_address` - The SPL token mint address (contract address)
-/// 
+///
 /// # Returns
-/// 
+///
 /// Returns `TokenBalanceResult` containing:
 /// - `owner_address`: The wallet address queried
 /// - `mint_address`: The token mint address
@@ -118,24 +118,24 @@ pub async fn get_sol_balance(
 /// - `ui_amount`: Balance adjusted for token decimals
 /// - `decimals`: Number of decimal places for the token
 /// - `formatted`: Human-readable balance string
-/// 
+///
 /// # Errors
-/// 
+///
 /// * `ToolError::Permanent` - When addresses are invalid or context unavailable
 /// * `ToolError::Retriable` - When network issues occur during balance retrieval
-/// 
+///
 /// # Examples
-/// 
+///
 /// ```rust,ignore
 /// use riglr_solana_tools::balance::get_spl_token_balance;
-/// 
+///
 /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
 /// // Check USDC balance for a wallet
 /// let balance = get_spl_token_balance(
 ///     "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM".to_string(),
 ///     "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v".to_string(), // USDC mint
 /// ).await?;
-/// 
+///
 /// println!("Token balance: {} {}", balance.ui_amount, balance.mint_address);
 /// println!("Raw amount: {} (decimals: {})", balance.raw_amount, balance.decimals);
 /// # Ok(())
@@ -160,16 +160,21 @@ pub async fn get_spl_token_balance(
         .map_err(|e| ToolError::permanent_string(format!("Invalid mint address: {}", e)))?;
 
     // Get client from SignerContext (following riglr-core pattern)
-    let signer = SignerContext::current().await
+    let signer = SignerContext::current()
+        .await
         .map_err(|e| ToolError::permanent_string(format!("No signer context available: {}", e)))?;
-    let client = signer.solana_client()
-        .ok_or_else(|| ToolError::permanent_string("No Solana client available in signer context".to_string()))?;
+    let client = signer.solana_client().ok_or_else(|| {
+        ToolError::permanent_string("No Solana client available in signer context".to_string())
+    })?;
 
     // Get the Associated Token Account (ATA) address
     let ata = get_associated_token_address(&owner_pubkey, &mint_pubkey);
 
     // Get token account balance
-    match client.get_token_account_balance(&ata).map_err(|e| ToolError::permanent_string(format!("Failed to get token balance: {}", e))) {
+    match client
+        .get_token_account_balance(&ata)
+        .map_err(|e| ToolError::permanent_string(format!("Failed to get token balance: {}", e)))
+    {
         Ok(balance) => {
             let raw_amount = balance.amount.parse::<u64>().map_err(|e| {
                 ToolError::permanent_string(format!("Failed to parse token amount: {}", e))
@@ -213,34 +218,34 @@ pub async fn get_spl_token_balance(
 ///
 /// This tool queries the Solana blockchain to retrieve SOL balances for multiple wallet addresses
 /// in a batch operation. Each address is processed individually and results are collected.
-/// 
+///
 /// # Arguments
-/// 
+///
 /// * `addresses` - Vector of Solana wallet addresses to check (base58 encoded public keys)
-/// 
+///
 /// # Returns
-/// 
+///
 /// Returns `Vec<BalanceResult>` with balance information for each address that was successfully queried.
 /// Each result contains the same fields as `get_sol_balance`.
-/// 
+///
 /// # Errors
-/// 
+///
 /// * `ToolError::Permanent` - When any individual address is invalid or signer context unavailable
 /// * `ToolError::Retriable` - When network issues occur during any balance query
-/// 
+///
 /// Note: This function fails fast - if any address query fails, the entire operation returns an error.
-/// 
+///
 /// # Examples
-/// 
+///
 /// ```rust,ignore
 /// use riglr_solana_tools::balance::get_multiple_balances;
-/// 
+///
 /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
 /// let addresses = vec![
 ///     "So11111111111111111111111111111111111111112".to_string(),
 ///     "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM".to_string(),
 /// ];
-/// 
+///
 /// let balances = get_multiple_balances(addresses).await?;
 /// for balance in balances {
 ///     println!("{}: {} SOL", balance.address, balance.sol);
@@ -253,7 +258,7 @@ pub async fn get_multiple_balances(
     addresses: Vec<String>,
 ) -> Result<Vec<BalanceResult>, ToolError> {
     let mut results = Vec::new();
-    
+
     for address in addresses {
         match get_sol_balance(address.clone()).await {
             Ok(balance) => results.push(balance),
@@ -264,7 +269,7 @@ pub async fn get_multiple_balances(
             }
         }
     }
-    
+
     Ok(results)
 }
 

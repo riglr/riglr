@@ -5,11 +5,9 @@
 
 use anyhow::Result;
 use riglr_showcase::processors::{
-    DistillationProcessor, MarkdownFormatter, HtmlFormatter, JsonFormatter,
-    NotificationRouter, ProcessorPipeline, OutputProcessor,
-    RoutingRule, RoutingCondition, DiscordChannel, TelegramChannel,
-    ConsoleChannel, MultiFormatProcessor,
-    utils,
+    utils, ConsoleChannel, DiscordChannel, DistillationProcessor, HtmlFormatter, JsonFormatter,
+    MarkdownFormatter, MultiFormatProcessor, NotificationRouter, OutputProcessor,
+    ProcessorPipeline, RoutingCondition, RoutingRule, TelegramChannel,
 };
 use serde_json::json;
 use std::time::SystemTime;
@@ -21,7 +19,7 @@ async fn main() -> Result<()> {
 
     basic_formatting().await?;
     llm_distillation().await?;
-    notification_routing().await?;  
+    notification_routing().await?;
     complete_pipeline().await?;
     error_handling().await?;
     multi_format().await?;
@@ -40,7 +38,7 @@ async fn basic_formatting() -> Result<()> {
             "address": "11111111111111111111111111111112",
             "balance_lamports": 1500000000,
             "balance_sol": 1.5
-        })
+        }),
     );
 
     let swap_output = utils::success_output(
@@ -51,7 +49,7 @@ async fn basic_formatting() -> Result<()> {
             "amount_in": 1.0,
             "amount_out": 180.5,
             "transaction_signature": "5J7X8gD2F9K3L4M5N6P7Q8R9S0T1U2V3W4X5Y6Z7A8B9C0D1E2F3G4H5I6J7K8L9"
-        })
+        }),
     );
 
     // Markdown formatting
@@ -83,7 +81,7 @@ async fn basic_formatting() -> Result<()> {
         .compact()
         .with_field_mapping("balance_sol", "solana_balance")
         .with_field_mapping("balance_lamports", "lamports_balance");
-        
+
     let json_result = json_formatter.process(balance_output).await?;
     if let Some(structured) = json_result.processed_result.get("structured") {
         println!("{}", serde_json::to_string_pretty(structured)?);
@@ -117,7 +115,7 @@ async fn llm_distillation() -> Result<()> {
                 "Impermanent loss",
                 "Liquidity risk"
             ]
-        })
+        }),
     );
 
     // Use different distillation processors
@@ -153,7 +151,7 @@ async fn notification_routing() -> Result<()> {
     // Set up notification channels
     let discord_channel = DiscordChannel::new("https://discord.com/api/webhooks/dummy")
         .with_identity("RiglrBot", Some("https://example.com/avatar.png"));
-    
+
     let telegram_channel = TelegramChannel::new("bot_token", "chat_id");
     let console_channel = ConsoleChannel::new();
 
@@ -163,59 +161,59 @@ async fn notification_routing() -> Result<()> {
         .add_channel("telegram", telegram_channel)
         .add_channel("console", console_channel)
         .set_default_channel("console")
-        .add_routing_rule(
-            RoutingRule::new(
-                "trading_alerts",
-                RoutingCondition::ToolNameContains("swap".to_string()),
-                vec!["discord".to_string(), "telegram".to_string()]
-            )
-        )
-        .add_routing_rule(
-            RoutingRule::new(
-                "error_alerts",
-                RoutingCondition::OnError,
-                vec!["discord".to_string(), "console".to_string()]
-            )
-        )
-        .add_routing_rule(
-            RoutingRule::new(
-                "high_value_alerts",
-                RoutingCondition::And(vec![
-                    RoutingCondition::OnSuccess,
-                    RoutingCondition::ToolNameContains("trading".to_string())
-                ]),
-                vec!["discord".to_string()]
-            )
-        );
+        .add_routing_rule(RoutingRule::new(
+            "trading_alerts",
+            RoutingCondition::ToolNameContains("swap".to_string()),
+            vec!["discord".to_string(), "telegram".to_string()],
+        ))
+        .add_routing_rule(RoutingRule::new(
+            "error_alerts",
+            RoutingCondition::OnError,
+            vec!["discord".to_string(), "console".to_string()],
+        ))
+        .add_routing_rule(RoutingRule::new(
+            "high_value_alerts",
+            RoutingCondition::And(vec![
+                RoutingCondition::OnSuccess,
+                RoutingCondition::ToolNameContains("trading".to_string()),
+            ]),
+            vec!["discord".to_string()],
+        ));
 
     // Test different outputs with routing
     let trading_success = utils::success_output(
         "swap_tokens",
-        json!({"from": "SOL", "to": "USDC", "amount": 100})
+        json!({"from": "SOL", "to": "USDC", "amount": 100}),
     );
 
-    let balance_check = utils::success_output(
-        "get_balance",
-        json!({"balance": "5.5 SOL"})
-    );
+    let balance_check = utils::success_output("get_balance", json!({"balance": "5.5 SOL"}));
 
-    let error_output = utils::error_output(
-        "trading_bot",
-        "Insufficient balance for trade"
-    );
+    let error_output = utils::error_output("trading_bot", "Insufficient balance for trade");
 
     println!("  📤 Processing trading success (should route to Discord + Telegram):");
     let result1 = router.process(trading_success).await?;
-    println!("    Routes used: {:?}", result1.processed_result["routes_used"]);
-    println!("    Notifications sent: {}", result1.processed_result["total_notifications"]);
+    println!(
+        "    Routes used: {:?}",
+        result1.processed_result["routes_used"]
+    );
+    println!(
+        "    Notifications sent: {}",
+        result1.processed_result["total_notifications"]
+    );
 
     println!("  📤 Processing balance check (should route to Console only):");
     let result2 = router.process(balance_check).await?;
-    println!("    Routes used: {:?}", result2.processed_result["routes_used"]);
+    println!(
+        "    Routes used: {:?}",
+        result2.processed_result["routes_used"]
+    );
 
     println!("  📤 Processing error (should route to Discord + Console):");
     let result3 = router.process(error_output).await?;
-    println!("    Routes used: {:?}", result3.processed_result["routes_used"]);
+    println!(
+        "    Routes used: {:?}",
+        result3.processed_result["routes_used"]
+    );
 
     Ok(())
 }
@@ -227,9 +225,10 @@ async fn complete_pipeline() -> Result<()> {
     let pipeline = ProcessorPipeline::new()
         .add_processor(DistillationProcessor::new("gpt-4o-mini")) // First, distill the output
         .add_processor(MarkdownFormatter::new()) // Then format as markdown
-        .add_processor(NotificationRouter::new() // Finally, send notifications
-            .add_channel("console", ConsoleChannel::new())
-            .set_default_channel("console")
+        .add_processor(
+            NotificationRouter::new() // Finally, send notifications
+                .add_channel("console", ConsoleChannel::new())
+                .set_default_channel("console"),
         );
 
     // Process a complex DeFi operation
@@ -246,18 +245,19 @@ async fn complete_pipeline() -> Result<()> {
                     "transaction_hash": "abc123def456",
                     "estimated_apy": 12.5,
                     "fees_tier": "0.3%"
-                })
+                }),
             ),
-            "user_id", "user_12345"
+            "user_id",
+            "user_12345",
         ),
-        start_time
+        start_time,
     );
 
     println!("  🔄 Processing through complete pipeline:");
     println!("    1. LLM Distillation → 2. Markdown Formatting → 3. Notification Routing");
-    
+
     let final_result = pipeline.process(defi_output).await?;
-    
+
     println!("    ✅ Pipeline completed!");
     println!("    📊 Pipeline info: {:?}", pipeline.info());
     if let Some(summary) = &final_result.summary {
@@ -271,9 +271,11 @@ async fn error_handling() -> Result<()> {
     println!("\n❌ Example 5: Error Handling");
     println!("===============================");
     // Test error handling with different error types
-    let network_error = utils::error_output("get_price", "Connection timeout while fetching price data");
+    let network_error =
+        utils::error_output("get_price", "Connection timeout while fetching price data");
     let auth_error = utils::error_output("place_order", "Unauthorized: Invalid API key");
-    let not_found_error = utils::error_output("get_transaction", "Transaction not found: invalid hash");
+    let not_found_error =
+        utils::error_output("get_transaction", "Transaction not found: invalid hash");
 
     println!("  🚨 Testing error message cleaning:");
 
@@ -281,16 +283,15 @@ async fn error_handling() -> Result<()> {
     let error_pipeline = ProcessorPipeline::new()
         .add_processor(DistillationProcessor::new("gpt-4o-mini"))
         .add_processor(MarkdownFormatter::new())
-        .add_processor(NotificationRouter::new()
-            .add_channel("console", ConsoleChannel::new())
-            .set_default_channel("console")
-            .add_routing_rule(
-                RoutingRule::new(
+        .add_processor(
+            NotificationRouter::new()
+                .add_channel("console", ConsoleChannel::new())
+                .set_default_channel("console")
+                .add_routing_rule(RoutingRule::new(
                     "all_errors",
                     RoutingCondition::OnError,
-                    vec!["console".to_string()]
-                )
-            )
+                    vec!["console".to_string()],
+                )),
         );
 
     let errors = vec![
@@ -300,12 +301,16 @@ async fn error_handling() -> Result<()> {
     ];
 
     for (error_type, error_output) in errors {
-        println!("    {} - Original: {}", error_type, error_output.error.as_ref().unwrap());
+        println!(
+            "    {} - Original: {}",
+            error_type,
+            error_output.error.as_ref().unwrap()
+        );
         let processed = error_pipeline.process(error_output.clone()).await?;
         if let Some(summary) = &processed.summary {
             println!("    {} - User-friendly: {}", error_type, summary);
         }
-        
+
         // Show user-friendly error message
         let friendly = utils::user_friendly_error(&error_output);
         println!("    {} - Utility function: {}", error_type, friendly);
@@ -332,9 +337,9 @@ async fn multi_format() -> Result<()> {
                 "estimated_profit": 1.50,
                 "execution_time_estimate": "15 seconds",
                 "risk_level": "Low"
-            })
+            }),
         ),
-        SystemTime::now()
+        SystemTime::now(),
     );
 
     println!("  📋 Generating multiple output formats:");
@@ -347,7 +352,13 @@ async fn multi_format() -> Result<()> {
         }
     }
 
-    println!("    Summary: {}", multi_result.summary.as_ref().unwrap_or(&"No summary".to_string()));
+    println!(
+        "    Summary: {}",
+        multi_result
+            .summary
+            .as_ref()
+            .unwrap_or(&"No summary".to_string())
+    );
 
     // Show a snippet of each format
     if let Some(markdown) = multi_result.processed_result.get("markdown") {
@@ -358,7 +369,11 @@ async fn multi_format() -> Result<()> {
 
     if let Some(html) = multi_result.processed_result.get("html") {
         let content = html.as_str().unwrap();
-        let snippet = if content.len() > 100 { &content[..100] } else { content };
+        let snippet = if content.len() > 100 {
+            &content[..100]
+        } else {
+            content
+        };
         println!("    HTML preview: {}...", snippet);
     }
 
@@ -383,22 +398,27 @@ mod integration_tests {
         let pipeline = ProcessorPipeline::new()
             .add_processor(DistillationProcessor::new("gpt-4o-mini"))
             .add_processor(MarkdownFormatter::new())
-            .add_processor(NotificationRouter::new()
-                .add_channel("console", ConsoleChannel::new())
-                .set_default_channel("console")
+            .add_processor(
+                NotificationRouter::new()
+                    .add_channel("console", ConsoleChannel::new())
+                    .set_default_channel("console"),
             );
 
-        let test_output = utils::success_output(
-            "integration_test",
-            json!({"test": true, "value": 42})
-        );
+        let test_output =
+            utils::success_output("integration_test", json!({"test": true, "value": 42}));
 
         let result = pipeline.process(test_output).await.unwrap();
-        
+
         // Verify all processors contributed
         assert!(result.summary.is_some()); // From distillation
-        assert!(matches!(result.format, riglr_showcase::processors::OutputFormat::Json)); // From notification router
-        assert!(result.processed_result.get("notification_results").is_some()); // From router
+        assert!(matches!(
+            result.format,
+            riglr_showcase::processors::OutputFormat::Json
+        )); // From notification router
+        assert!(result
+            .processed_result
+            .get("notification_results")
+            .is_some()); // From router
     }
 
     #[tokio::test]

@@ -1,14 +1,14 @@
-use std::any::Any;
+use super::event_utils::as_event;
 use async_trait::async_trait;
 use riglr_events_core::prelude::EventKind;
-use super::event_utils::as_event;
+use std::any::Any;
 
 /// Trait for event conditions
 #[async_trait]
 pub trait EventCondition: Send + Sync {
     /// Check if an event matches this condition
     async fn matches(&self, event: &(dyn Any + Send + Sync)) -> bool;
-    
+
     /// Get condition description
     fn description(&self) -> String;
 }
@@ -33,7 +33,7 @@ impl EventKindMatcher {
     pub fn new(event_kinds: Vec<EventKind>) -> Self {
         Self { event_kinds }
     }
-    
+
     pub fn single(event_kind: EventKind) -> Self {
         Self {
             event_kinds: vec![event_kind],
@@ -50,7 +50,7 @@ impl EventCondition for EventKindMatcher {
             false
         }
     }
-    
+
     fn description(&self) -> String {
         format!("EventKind in {:?}", self.event_kinds)
     }
@@ -65,7 +65,7 @@ impl SourceMatcher {
     pub fn new(sources: Vec<String>) -> Self {
         Self { sources }
     }
-    
+
     pub fn single(source: String) -> Self {
         Self {
             sources: vec![source],
@@ -82,7 +82,7 @@ impl EventCondition for SourceMatcher {
             false
         }
     }
-    
+
     fn description(&self) -> String {
         format!("Source in {:?}", self.sources)
     }
@@ -95,17 +95,23 @@ pub struct TimestampRangeMatcher {
 }
 
 impl TimestampRangeMatcher {
-    pub fn new(min_timestamp: Option<std::time::SystemTime>, max_timestamp: Option<std::time::SystemTime>) -> Self {
-        Self { min_timestamp, max_timestamp }
+    pub fn new(
+        min_timestamp: Option<std::time::SystemTime>,
+        max_timestamp: Option<std::time::SystemTime>,
+    ) -> Self {
+        Self {
+            min_timestamp,
+            max_timestamp,
+        }
     }
-    
+
     pub fn after(timestamp: std::time::SystemTime) -> Self {
         Self {
             min_timestamp: Some(timestamp),
             max_timestamp: None,
         }
     }
-    
+
     pub fn before(timestamp: std::time::SystemTime) -> Self {
         Self {
             min_timestamp: None,
@@ -122,22 +128,22 @@ impl EventCondition for TimestampRangeMatcher {
         } else {
             return false;
         };
-        
+
         if let Some(min) = self.min_timestamp {
             if event_time < min {
                 return false;
             }
         }
-        
+
         if let Some(max) = self.max_timestamp {
             if event_time > max {
                 return false;
             }
         }
-        
+
         true
     }
-    
+
     fn description(&self) -> String {
         match (self.min_timestamp, self.max_timestamp) {
             (Some(min), Some(max)) => format!("Timestamp in range [{:?}, {:?}]", min, max),
@@ -177,7 +183,7 @@ where
     async fn matches(&self, event: &(dyn Any + Send + Sync)) -> bool {
         (self.predicate)(event)
     }
-    
+
     fn description(&self) -> String {
         self.description.clone()
     }
@@ -196,7 +202,7 @@ impl CompositeCondition {
             combinator,
         }
     }
-    
+
     pub fn add_condition(mut self, condition: Box<dyn EventCondition>) -> Self {
         self.conditions.push(condition);
         self
@@ -233,13 +239,11 @@ impl EventCondition for CompositeCondition {
             }
         }
     }
-    
+
     fn description(&self) -> String {
-        let conditions_desc: Vec<String> = self.conditions
-            .iter()
-            .map(|c| c.description())
-            .collect();
-        
+        let conditions_desc: Vec<String> =
+            self.conditions.iter().map(|c| c.description()).collect();
+
         format!("{:?}({})", self.combinator, conditions_desc.join(", "))
     }
 }
@@ -250,17 +254,20 @@ pub trait EventMatcher {
     fn event_kind(event_kind: EventKind) -> Box<dyn EventCondition> {
         Box::new(EventKindMatcher::single(event_kind))
     }
-    
+
     /// Match source
     fn source(source: String) -> Box<dyn EventCondition> {
         Box::new(SourceMatcher::single(source))
     }
-    
+
     /// Match timestamp range
-    fn timestamp_range(min: Option<std::time::SystemTime>, max: Option<std::time::SystemTime>) -> Box<dyn EventCondition> {
+    fn timestamp_range(
+        min: Option<std::time::SystemTime>,
+        max: Option<std::time::SystemTime>,
+    ) -> Box<dyn EventCondition> {
         Box::new(TimestampRangeMatcher::new(min, max))
     }
-    
+
     /// Combine conditions with ALL
     fn all(conditions: Vec<Box<dyn EventCondition>>) -> Box<dyn EventCondition> {
         let mut composite = CompositeCondition::new(ConditionCombinator::All);
@@ -269,7 +276,7 @@ pub trait EventMatcher {
         }
         Box::new(composite)
     }
-    
+
     /// Combine conditions with ANY
     fn any(conditions: Vec<Box<dyn EventCondition>>) -> Box<dyn EventCondition> {
         let mut composite = CompositeCondition::new(ConditionCombinator::Any);

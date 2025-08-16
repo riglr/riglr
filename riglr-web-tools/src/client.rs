@@ -88,13 +88,27 @@ impl ApiKeys {
     /// Get the number of configured API keys
     pub fn len(&self) -> usize {
         let mut count = 0;
-        if self.twitter.is_some() { count += 1; }
-        if self.exa.is_some() { count += 1; }
-        if self.dexscreener.is_some() { count += 1; }
-        if self.newsapi.is_some() { count += 1; }
-        if self.cryptopanic.is_some() { count += 1; }
-        if self.lunarcrush.is_some() { count += 1; }
-        if self.alternative.is_some() { count += 1; }
+        if self.twitter.is_some() {
+            count += 1;
+        }
+        if self.exa.is_some() {
+            count += 1;
+        }
+        if self.dexscreener.is_some() {
+            count += 1;
+        }
+        if self.newsapi.is_some() {
+            count += 1;
+        }
+        if self.cryptopanic.is_some() {
+            count += 1;
+        }
+        if self.lunarcrush.is_some() {
+            count += 1;
+        }
+        if self.alternative.is_some() {
+            count += 1;
+        }
         count + self.other.len()
     }
 
@@ -113,7 +127,9 @@ impl ApiKeys {
             "cryptopanic" => self.cryptopanic = Some(value),
             "lunarcrush" => self.lunarcrush = Some(value),
             "alternative" => self.alternative = Some(value),
-            other => { self.other.insert(other.to_string(), value); }
+            other => {
+                self.other.insert(other.to_string(), value);
+            }
         }
     }
 }
@@ -209,7 +225,6 @@ impl Default for RateLimits {
     }
 }
 
-
 /// A client for interacting with various web APIs and services
 #[derive(Debug, Clone)]
 pub struct WebClient {
@@ -227,14 +242,14 @@ impl WebClient {
     /// Create a new web client
     pub fn new() -> Result<Self> {
         let http_config = HttpConfig::default();
-        
+
         let http_client = ClientBuilder::new()
             .timeout(http_config.timeout)
             .user_agent(&http_config.user_agent)
             .gzip(true)
             .build()
             .map_err(|e| WebToolError::Client(format!("Failed to create HTTP client: {}", e)))?;
-        
+
         Ok(Self {
             http_client,
             api_keys: ApiKeys::default(),
@@ -251,7 +266,7 @@ impl WebClient {
             .gzip(true)
             .build()
             .map_err(|e| WebToolError::Client(format!("Failed to create HTTP client: {}", e)))?;
-        
+
         Ok(Self {
             http_client,
             api_keys: ApiKeys::default(),
@@ -261,10 +276,14 @@ impl WebClient {
     }
 
     /// Set API key for a service (for backwards compatibility)
-    pub fn with_api_key<S1: Into<String>, S2: Into<String>>(mut self, service: S1, api_key: S2) -> Self {
+    pub fn with_api_key<S1: Into<String>, S2: Into<String>>(
+        mut self,
+        service: S1,
+        api_key: S2,
+    ) -> Self {
         let service = service.into();
         let api_key = api_key.into();
-        
+
         match service.as_str() {
             "twitter" => self.api_keys.twitter = Some(api_key),
             "exa" => self.api_keys.exa = Some(api_key),
@@ -273,7 +292,9 @@ impl WebClient {
             "cryptopanic" => self.api_keys.cryptopanic = Some(api_key),
             "lunarcrush" => self.api_keys.lunarcrush = Some(api_key),
             "alternative" => self.api_keys.alternative = Some(api_key),
-            _ => { self.api_keys.other.insert(service, api_key); }
+            _ => {
+                self.api_keys.other.insert(service, api_key);
+            }
         }
         self
     }
@@ -306,7 +327,7 @@ impl WebClient {
     pub fn set_config<S: Into<String>>(&mut self, key: S, value: S) {
         let key = key.into();
         let value = value.into();
-        
+
         // Map old config keys to new structure
         match key.as_str() {
             "base_url" | "dexscreener_base_url" => self.config.base_urls.dexscreener = value,
@@ -352,7 +373,7 @@ impl WebClient {
     /// Calculate retry delay with exponential backoff and jitter
     fn calculate_retry_delay(&self, attempt: u32) -> Duration {
         let base_delay = self.http_config.retry_delay;
-        
+
         let delay = if self.http_config.exponential_backoff {
             // Exponential backoff: delay * 2^(attempt - 1)
             base_delay * (2_u32.pow(attempt.saturating_sub(1)))
@@ -360,7 +381,7 @@ impl WebClient {
             // Linear backoff: delay * attempt
             base_delay * attempt
         };
-        
+
         // Add jitter if configured
         if self.http_config.jitter_factor > 0.0 {
             use rand::Rng;
@@ -373,7 +394,7 @@ impl WebClient {
             delay
         }
     }
-    
+
     /// Execute HTTP request with retry logic (internal helper)
     async fn execute_with_retry<F, Fut>(&self, url: &str, request_fn: F) -> Result<String>
     where
@@ -382,25 +403,29 @@ impl WebClient {
     {
         let mut attempts = 0;
         let mut last_error = None;
-        
+
         while attempts < self.http_config.max_retries {
             attempts += 1;
-            
+
             match request_fn().await {
                 Ok(response) => {
                     let status = response.status();
-                    
+
                     if status.is_success() {
-                        let text = response.text().await
-                            .map_err(|e| WebToolError::Network(format!("Failed to read response: {}", e)))?;
-                        
+                        let text = response.text().await.map_err(|e| {
+                            WebToolError::Network(format!("Failed to read response: {}", e))
+                        })?;
+
                         info!("Successfully fetched {} bytes from {}", text.len(), url);
                         return Ok(text);
                     } else if status.is_server_error() && attempts < self.http_config.max_retries {
                         // Retry on server errors
-                        warn!("Server error {} from {}, attempt {}/{}", status, url, attempts, self.http_config.max_retries);
+                        warn!(
+                            "Server error {} from {}, attempt {}/{}",
+                            status, url, attempts, self.http_config.max_retries
+                        );
                         last_error = Some(format!("HTTP {}", status));
-                        
+
                         let delay = self.calculate_retry_delay(attempts);
                         debug!("Retrying after {:?}", delay);
                         tokio::time::sleep(delay).await;
@@ -415,19 +440,25 @@ impl WebClient {
                 }
                 Err(e) => {
                     if attempts < self.http_config.max_retries {
-                        warn!("Request failed for {}, attempt {}/{}: {}", url, attempts, self.http_config.max_retries, e);
+                        warn!(
+                            "Request failed for {}, attempt {}/{}: {}",
+                            url, attempts, self.http_config.max_retries, e
+                        );
                         last_error = Some(e.to_string());
-                        
+
                         let delay = self.calculate_retry_delay(attempts);
                         debug!("Retrying after {:?}", delay);
                         tokio::time::sleep(delay).await;
                     } else {
-                        return Err(WebToolError::Api(format!("Request failed after {} attempts: {}", attempts, e)));
+                        return Err(WebToolError::Api(format!(
+                            "Request failed after {} attempts: {}",
+                            attempts, e
+                        )));
                     }
                 }
             }
         }
-        
+
         Err(WebToolError::Api(format!(
             "Request failed after {} attempts: {}",
             attempts,
@@ -436,31 +467,39 @@ impl WebClient {
     }
 
     /// Execute HTTP POST request with retry logic returning JSON (internal helper)
-    async fn execute_post_with_retry<F, Fut>(&self, url: &str, request_fn: F) -> Result<serde_json::Value>
+    async fn execute_post_with_retry<F, Fut>(
+        &self,
+        url: &str,
+        request_fn: F,
+    ) -> Result<serde_json::Value>
     where
         F: Fn() -> Fut,
         Fut: std::future::Future<Output = reqwest::Result<reqwest::Response>>,
     {
         let mut attempts = 0;
         let mut last_error = None;
-        
+
         while attempts < self.http_config.max_retries {
             attempts += 1;
-            
+
             match request_fn().await {
                 Ok(response) => {
                     let status = response.status();
-                    
+
                     if status.is_success() {
-                        let json = response.json::<serde_json::Value>().await
-                            .map_err(|e| WebToolError::Parsing(format!("Failed to parse JSON response: {}", e)))?;
-                        
+                        let json = response.json::<serde_json::Value>().await.map_err(|e| {
+                            WebToolError::Parsing(format!("Failed to parse JSON response: {}", e))
+                        })?;
+
                         info!("Successfully posted to {}", url);
                         return Ok(json);
                     } else if status.is_server_error() && attempts < self.http_config.max_retries {
-                        warn!("Server error {} from {}, attempt {}/{}", status, url, attempts, self.http_config.max_retries);
+                        warn!(
+                            "Server error {} from {}, attempt {}/{}",
+                            status, url, attempts, self.http_config.max_retries
+                        );
                         last_error = Some(format!("HTTP {}", status));
-                        
+
                         let delay = self.calculate_retry_delay(attempts);
                         debug!("Retrying after {:?}", delay);
                         tokio::time::sleep(delay).await;
@@ -474,19 +513,25 @@ impl WebClient {
                 }
                 Err(e) => {
                     if attempts < self.http_config.max_retries {
-                        warn!("Request failed for {}, attempt {}/{}: {}", url, attempts, self.http_config.max_retries, e);
+                        warn!(
+                            "Request failed for {}, attempt {}/{}: {}",
+                            url, attempts, self.http_config.max_retries, e
+                        );
                         last_error = Some(e.to_string());
-                        
+
                         let delay = self.calculate_retry_delay(attempts);
                         debug!("Retrying after {:?}", delay);
                         tokio::time::sleep(delay).await;
                     } else {
-                        return Err(WebToolError::Api(format!("Request failed after {} attempts: {}", attempts, e)));
+                        return Err(WebToolError::Api(format!(
+                            "Request failed after {} attempts: {}",
+                            attempts, e
+                        )));
                     }
                 }
             }
         }
-        
+
         Err(WebToolError::Api(format!(
             "Request failed after {} attempts: {}",
             attempts,
@@ -506,17 +551,18 @@ impl WebClient {
         headers: HashMap<String, String>,
     ) -> Result<String> {
         debug!("GET request to: {}", url);
-        
+
         self.execute_with_retry(url, || {
             let mut request = self.http_client.get(url);
-            
+
             // Add headers
             for (key, value) in &headers {
                 request = request.header(key, value);
             }
-            
+
             request.send()
-        }).await
+        })
+        .await
     }
 
     /// Make GET request with query parameters
@@ -525,7 +571,8 @@ impl WebClient {
         url: &str,
         params: &HashMap<String, String>,
     ) -> Result<String> {
-        self.get_with_params_and_headers(url, params, HashMap::new()).await
+        self.get_with_params_and_headers(url, params, HashMap::new())
+            .await
     }
 
     /// Make GET request with query parameters and headers
@@ -536,30 +583,27 @@ impl WebClient {
         headers: HashMap<String, String>,
     ) -> Result<String> {
         debug!("GET request to: {} with params: {:?}", url, params);
-        
+
         self.execute_with_retry(url, || {
             let mut request = self.http_client.get(url);
-            
+
             // Add query parameters
             for (key, value) in params {
                 request = request.query(&[(key, value)]);
             }
-            
+
             // Add headers
             for (key, value) in &headers {
                 request = request.header(key, value);
             }
-            
+
             request.send()
-        }).await
+        })
+        .await
     }
 
     /// Make a POST request with JSON body
-    pub async fn post<T: Serialize>(
-        &self,
-        url: &str,
-        body: &T,
-    ) -> Result<serde_json::Value> {
+    pub async fn post<T: Serialize>(&self, url: &str, body: &T) -> Result<serde_json::Value> {
         self.post_with_headers(url, body, HashMap::new()).await
     }
 
@@ -571,31 +615,31 @@ impl WebClient {
         headers: HashMap<String, String>,
     ) -> Result<serde_json::Value> {
         debug!("POST request to: {}", url);
-        
+
         self.execute_post_with_retry(url, || {
-            let mut request = self.http_client
-                .post(url)
-                .json(body);
-            
+            let mut request = self.http_client.post(url).json(body);
+
             // Add headers
             for (key, value) in &headers {
                 request = request.header(key, value);
             }
-            
+
             request.send()
-        }).await
+        })
+        .await
     }
 
     /// Make a DELETE request
     pub async fn delete(&self, url: &str) -> Result<()> {
         debug!("DELETE request to: {}", url);
-        
-        let response = self.http_client
+
+        let response = self
+            .http_client
             .delete(url)
             .send()
             .await
             .map_err(|e| WebToolError::Network(format!("DELETE request failed: {}", e)))?;
-        
+
         if !response.status().is_success() {
             let status = response.status();
             let error_text = response.text().await.unwrap_or_default();
@@ -604,7 +648,7 @@ impl WebClient {
                 status, url, error_text
             )));
         }
-        
+
         info!("Successfully deleted: {}", url);
         Ok(())
     }
@@ -639,8 +683,11 @@ mod tests {
             .unwrap()
             .with_twitter_token("test_token")
             .with_exa_key("exa_key");
-        
-        assert_eq!(client.get_api_key("twitter"), Some(&"test_token".to_string()));
+
+        assert_eq!(
+            client.get_api_key("twitter"),
+            Some(&"test_token".to_string())
+        );
         assert_eq!(client.get_api_key("exa"), Some(&"exa_key".to_string()));
         assert_eq!(client.get_api_key("unknown"), None);
     }
@@ -649,7 +696,7 @@ mod tests {
     fn test_config() {
         let mut client = WebClient::new().unwrap();
         client.set_config("test_key", "test_value");
-        
+
         // Config no longer stores arbitrary test keys, only predefined URLs
         assert_eq!(client.get_config("unknown"), None);
     }

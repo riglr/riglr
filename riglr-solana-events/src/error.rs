@@ -1,8 +1,8 @@
-use thiserror::Error;
 pub use riglr_events_core::error::{EventError, EventResult};
+use thiserror::Error;
 
 /// Custom error type for event parsing operations
-/// 
+///
 /// NOTE: This will be gradually replaced with EventError from riglr-events-core
 #[derive(Error, Debug)]
 pub enum ParseError {
@@ -16,17 +16,11 @@ pub enum ParseError {
 
     /// Invalid discriminator for the instruction
     #[error("Invalid discriminator: expected {expected:?}, got {found:?}")]
-    InvalidDiscriminator {
-        expected: Vec<u8>,
-        found: Vec<u8>,
-    },
+    InvalidDiscriminator { expected: Vec<u8>, found: Vec<u8> },
 
     /// Invalid account index
     #[error("Account index {index} out of bounds (max: {max})")]
-    InvalidAccountIndex {
-        index: usize,
-        max: usize,
-    },
+    InvalidAccountIndex { index: usize, max: usize },
 
     /// Invalid public key format
     #[error("Invalid public key: {0}")]
@@ -42,10 +36,7 @@ pub enum ParseError {
 
     /// Invalid enum variant
     #[error("Invalid enum variant {variant} for type {type_name}")]
-    InvalidEnumVariant {
-        variant: u8,
-        type_name: String,
-    },
+    InvalidEnumVariant { variant: u8, type_name: String },
 
     /// Invalid instruction type
     #[error("Invalid instruction type: {0}")]
@@ -79,7 +70,11 @@ pub enum ParseError {
 impl ParseError {
     /// Create a NotEnoughBytes error
     pub fn not_enough_bytes(expected: usize, found: usize, offset: usize) -> Self {
-        Self::NotEnoughBytes { expected, found, offset }
+        Self::NotEnoughBytes {
+            expected,
+            found,
+            offset,
+        }
     }
 
     /// Create an InvalidDiscriminator error
@@ -115,12 +110,14 @@ pub type ParseResult<T> = Result<T, ParseError>;
 impl From<ParseError> for EventError {
     fn from(err: ParseError) -> Self {
         match err {
-            ParseError::Network(_) | ParseError::Timeout(_) => {
-                EventError::stream_error(std::io::Error::other(err.to_string()), "Solana parsing error")
-            }
-            _ => {
-                EventError::parse_error(std::io::Error::new(std::io::ErrorKind::InvalidData, err.to_string()), "Solana parsing error")
-            }
+            ParseError::Network(_) | ParseError::Timeout(_) => EventError::stream_error(
+                std::io::Error::other(err.to_string()),
+                "Solana parsing error",
+            ),
+            _ => EventError::parse_error(
+                std::io::Error::new(std::io::ErrorKind::InvalidData, err.to_string()),
+                "Solana parsing error",
+            ),
         }
     }
 }

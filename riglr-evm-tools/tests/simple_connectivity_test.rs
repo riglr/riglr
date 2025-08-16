@@ -11,10 +11,10 @@ async fn test_simple_evm_connectivity() {
     let client = EvmClient::new(rpc_url.to_string())
         .await
         .expect("Failed to create EVM client");
-    
+
     // Try to get chain ID (async call)
     let result = client.provider().get_chain_id().await;
-    
+
     match result {
         Ok(chain_id) => {
             println!("✅ Connected to Ethereum Sepolia. Chain ID: {}", chain_id);

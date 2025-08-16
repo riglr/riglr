@@ -63,11 +63,16 @@ impl IdempotencyStore for InMemoryIdempotencyStore {
         self.cleanup_expired().await;
 
         let store = self.store.read().await;
-        store.get(key).map_or_else(|| Ok(None), |entry| if entry.expires_at > SystemTime::now() {
-            Ok(Some(entry.result.clone()))
-        } else {
-            Ok(None)
-        })
+        store.get(key).map_or_else(
+            || Ok(None),
+            |entry| {
+                if entry.expires_at > SystemTime::now() {
+                    Ok(Some(entry.result.clone()))
+                } else {
+                    Ok(None)
+                }
+            },
+        )
     }
 
     async fn set(&self, key: &str, result: &JobResult, ttl: Duration) -> anyhow::Result<()> {

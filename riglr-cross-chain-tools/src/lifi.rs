@@ -8,29 +8,32 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::Duration;
 use thiserror::Error;
-use url::{Url, ParseError};
+use url::{ParseError, Url};
 
 /// Errors that can occur during LiFi API operations
 #[derive(Error, Debug)]
 pub enum LiFiError {
     #[error("HTTP request failed: {0}")]
     Request(#[from] reqwest::Error),
-    
+
     #[error("Invalid response format: {0}")]
     InvalidResponse(String),
-    
+
     #[error("API error: {code} - {message}")]
     ApiError { code: u16, message: String },
-    
+
     #[error("Chain not supported: {chain_name}")]
     UnsupportedChain { chain_name: String },
-    
+
     #[error("Route not found for {from_chain} -> {to_chain}")]
-    RouteNotFound { from_chain: String, to_chain: String },
-    
+    RouteNotFound {
+        from_chain: String,
+        to_chain: String,
+    },
+
     #[error("Configuration error: {0}")]
     Configuration(String),
-    
+
     #[error("URL parsing error: {0}")]
     UrlParse(#[from] ParseError),
 }
@@ -224,66 +227,69 @@ pub struct LiFiClient {
 
 impl LiFiClient {
     const DEFAULT_BASE_URL: &'static str = "https://li.quest/v1/";
-    
+
     /// Create a new LiFi client with default settings
     pub fn new() -> Result<Self, LiFiError> {
         Self::with_base_url(Self::DEFAULT_BASE_URL)
     }
-    
+
     /// Create a new LiFi client with custom base URL
     pub fn with_base_url(base_url: &str) -> Result<Self, LiFiError> {
         let base_url = Url::parse(base_url)
             .map_err(|e| LiFiError::Configuration(format!("Invalid base URL: {}", e)))?;
-            
+
         let client = reqwest::Client::builder()
             .timeout(Duration::from_secs(30))
             .user_agent(format!("riglr-cross-chain-tools/{}", crate::VERSION))
             .build()?;
-            
+
         Ok(Self {
             client,
             base_url,
             api_key: None,
         })
     }
-    
+
     /// Set an API key for authenticated requests (optional)
     pub fn with_api_key(mut self, api_key: String) -> Self {
         self.api_key = Some(api_key);
         self
     }
-    
+
     /// Get available chains from LiFi
     pub async fn get_chains(&self) -> Result<Vec<Chain>, LiFiError> {
         let url = self.base_url.join("chains")?;
-        
+
         let mut request = self.client.get(url);
         if let Some(ref api_key) = self.api_key {
             request = request.header("x-lifi-api-key", api_key);
         }
-        
+
         let response = request.send().await?;
-        
+
         if !response.status().is_success() {
             return Err(LiFiError::ApiError {
                 code: response.status().as_u16(),
                 message: response.text().await.unwrap_or_default(),
             });
         }
-        
+
         let chains: HashMap<String, Chain> = response.json().await?;
         Ok(chains.into_values().collect())
     }
-    
+
     /// Get cross-chain routes for a given request
-    pub async fn get_routes(&self, request: &RouteRequest) -> Result<Vec<CrossChainRoute>, LiFiError> {
+    pub async fn get_routes(
+        &self,
+        request: &RouteRequest,
+    ) -> Result<Vec<CrossChainRoute>, LiFiError> {
         let url = self.base_url.join("advanced/routes")?;
-        
+
         let mut http_request = self.client.get(url);
         if let Some(ref api_key) = self.api_key {
             http_request = http_request.header("x-lifi-api-key", api_key);
         }
-        
+
         // Convert request to query parameters
         let mut params = vec![
             ("fromChain", request.from_chain.to_string()),
@@ -292,7 +298,7 @@ impl LiFiClient {
             ("toToken", request.to_token.clone()),
             ("fromAmount", request.from_amount.clone()),
         ];
-        
+
         if let Some(ref from_address) = request.from_address {
             params.push(("fromAddress", from_address.clone()));
         }
@@ -302,49 +308,55 @@ impl LiFiClient {
         if let Some(slippage) = request.slippage {
             params.push(("slippage", slippage.to_string()));
         }
-        
+
         http_request = http_request.query(&params);
-        
+
         let response = http_request.send().await?;
-        
+
         if !response.status().is_success() {
             return Err(LiFiError::ApiError {
                 code: response.status().as_u16(),
                 message: response.text().await.unwrap_or_default(),
             });
         }
-        
-        let route_response: RouteResponse = response.json().await
+
+        let route_response: RouteResponse = response
+            .json()
+            .await
             .map_err(|e| LiFiError::InvalidResponse(format!("Failed to parse routes: {}", e)))?;
-            
+
         Ok(route_response.routes)
     }
-    
+
     /// Get the status of a bridge transaction
     pub async fn get_bridge_status(
         &self,
         bridge_id: &str,
         tx_hash: &str,
     ) -> Result<BridgeStatusResponse, LiFiError> {
-        let url = self.base_url.join(&format!("status?bridge={}&txHash={}", bridge_id, tx_hash))?;
-        
+        let url = self
+            .base_url
+            .join(&format!("status?bridge={}&txHash={}", bridge_id, tx_hash))?;
+
         let mut request = self.client.get(url);
         if let Some(ref api_key) = self.api_key {
             request = request.header("x-lifi-api-key", api_key);
         }
-        
+
         let response = request.send().await?;
-        
+
         if !response.status().is_success() {
             return Err(LiFiError::ApiError {
                 code: response.status().as_u16(),
                 message: response.text().await.unwrap_or_default(),
             });
         }
-        
-        let status: BridgeStatusResponse = response.json().await
+
+        let status: BridgeStatusResponse = response
+            .json()
+            .await
             .map_err(|e| LiFiError::InvalidResponse(format!("Failed to parse status: {}", e)))?;
-            
+
         Ok(status)
     }
 
@@ -355,7 +367,7 @@ impl LiFiClient {
         request: &RouteRequest,
     ) -> Result<Vec<CrossChainRoute>, LiFiError> {
         let mut routes = self.get_routes(request).await?;
-        
+
         // For each route, fetch the transaction request data
         for route in &mut routes {
             match self.get_transaction_request_for_route(&route.id).await {
@@ -364,12 +376,15 @@ impl LiFiClient {
                 }
                 Err(e) => {
                     // Log error but don't fail the entire request
-                    eprintln!("Failed to get transaction request for route {}: {}", route.id, e);
+                    eprintln!(
+                        "Failed to get transaction request for route {}: {}",
+                        route.id, e
+                    );
                     route.transaction_request = None;
                 }
             }
         }
-        
+
         Ok(routes)
     }
 
@@ -378,55 +393,79 @@ impl LiFiClient {
         &self,
         route_id: &str,
     ) -> Result<TransactionRequest, LiFiError> {
-        let url = self.base_url.join(&format!("advanced/stepTransaction?route={}", route_id))?;
-        
+        let url = self
+            .base_url
+            .join(&format!("advanced/stepTransaction?route={}", route_id))?;
+
         let mut request = self.client.get(url);
         if let Some(ref api_key) = self.api_key {
             request = request.header("x-lifi-api-key", api_key);
         }
-        
+
         let response = request.send().await?;
-        
+
         if !response.status().is_success() {
             return Err(LiFiError::ApiError {
                 code: response.status().as_u16(),
                 message: response.text().await.unwrap_or_default(),
             });
         }
-        
-        let tx_data: serde_json::Value = response.json().await
-            .map_err(|e| LiFiError::InvalidResponse(format!("Failed to parse transaction data: {}", e)))?;
-        
+
+        let tx_data: serde_json::Value = response.json().await.map_err(|e| {
+            LiFiError::InvalidResponse(format!("Failed to parse transaction data: {}", e))
+        })?;
+
         // Parse the transaction request from LiFi API response
         // Note: This is a simplified implementation - actual LiFi API response format may vary
-        let to = tx_data["to"].as_str()
+        let to = tx_data["to"]
+            .as_str()
             .or_else(|| tx_data["programId"].as_str())
             .unwrap_or_default()
             .to_string();
         let data = tx_data["data"].as_str().unwrap_or_default().to_string();
         let value = tx_data["value"].as_str().unwrap_or("0").to_string();
         let gas_limit = tx_data["gasLimit"].as_str().unwrap_or("200000").to_string();
-        let gas_price = tx_data["gasPrice"].as_str().unwrap_or("20000000000").to_string();
+        let gas_price = tx_data["gasPrice"]
+            .as_str()
+            .unwrap_or("20000000000")
+            .to_string();
         let chain_id = tx_data["chainId"].as_u64().unwrap_or(1);
 
         // Attempt to parse Solana accounts if present
-        let solana_accounts = if let Some(accounts) = tx_data.get("accounts").and_then(|a| a.as_array()) {
-            let mut metas: Vec<SolanaAccountMeta> = Vec::with_capacity(accounts.len());
-            for acc in accounts {
-                let pubkey = acc["pubkey"].as_str().unwrap_or_default().to_string();
-                let is_signer = acc["isSigner"].as_bool().unwrap_or(false);
-                let is_writable = acc["isWritable"].as_bool().unwrap_or(false);
-                if !pubkey.is_empty() {
-                    metas.push(SolanaAccountMeta { pubkey, is_signer, is_writable });
+        let solana_accounts =
+            if let Some(accounts) = tx_data.get("accounts").and_then(|a| a.as_array()) {
+                let mut metas: Vec<SolanaAccountMeta> = Vec::with_capacity(accounts.len());
+                for acc in accounts {
+                    let pubkey = acc["pubkey"].as_str().unwrap_or_default().to_string();
+                    let is_signer = acc["isSigner"].as_bool().unwrap_or(false);
+                    let is_writable = acc["isWritable"].as_bool().unwrap_or(false);
+                    if !pubkey.is_empty() {
+                        metas.push(SolanaAccountMeta {
+                            pubkey,
+                            is_signer,
+                            is_writable,
+                        });
+                    }
                 }
-            }
-            if metas.is_empty() { None } else { Some(metas) }
-        } else {
-            None
+                if metas.is_empty() {
+                    None
+                } else {
+                    Some(metas)
+                }
+            } else {
+                None
+            };
+
+        let tx_request = TransactionRequest {
+            to,
+            data,
+            value,
+            gas_limit,
+            gas_price,
+            chain_id,
+            solana_accounts,
         };
 
-        let tx_request = TransactionRequest { to, data, value, gas_limit, gas_price, chain_id, solana_accounts };
-        
         Ok(tx_request)
     }
 
@@ -444,7 +483,7 @@ impl LiFiClient {
                         "Invalid transaction request: missing to address or data".to_string()
                     ));
                 }
-                
+
                 // Return the transaction request for external signing and execution
                 Ok(tx_request.clone())
             }
@@ -458,14 +497,14 @@ impl LiFiClient {
 impl Default for LiFiClient {
     fn default() -> Self {
         // Create a minimal client configuration that shouldn't fail
-        let base_url = Url::parse(Self::DEFAULT_BASE_URL)
-            .expect("Default LiFi URL should be valid");
-            
+        let base_url =
+            Url::parse(Self::DEFAULT_BASE_URL).expect("Default LiFi URL should be valid");
+
         let client = reqwest::Client::builder()
             .timeout(Duration::from_secs(30))
             .build()
             .expect("Default HTTP client should build successfully");
-            
+
         Self {
             client,
             base_url,
@@ -480,10 +519,9 @@ pub fn chain_name_to_id(name: &str) -> Result<u64, LiFiError> {
         "solana" | "sol" => Ok(1151111081099710), // Solana chain ID in LiFi
         _ => {
             // Use riglr-evm-common for EVM chain mapping
-            riglr_evm_common::chain_name_to_id(name)
-                .map_err(|_| LiFiError::UnsupportedChain {
-                    chain_name: name.to_string(),
-                })
+            riglr_evm_common::chain_name_to_id(name).map_err(|_| LiFiError::UnsupportedChain {
+                chain_name: name.to_string(),
+            })
         }
     }
 }
@@ -494,10 +532,9 @@ pub fn chain_id_to_name(id: u64) -> Result<String, LiFiError> {
         1151111081099710 => Ok("solana".to_string()),
         _ => {
             // Use riglr-evm-common for EVM chain mapping
-            riglr_evm_common::chain_id_to_name(id)
-                .map_err(|_| LiFiError::UnsupportedChain {
-                    chain_name: format!("Chain ID {}", id),
-                })
+            riglr_evm_common::chain_id_to_name(id).map_err(|_| LiFiError::UnsupportedChain {
+                chain_name: format!("Chain ID {}", id),
+            })
         }
     }
 }
@@ -505,28 +542,28 @@ pub fn chain_id_to_name(id: u64) -> Result<String, LiFiError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[tokio::test]
     async fn test_lifi_client_creation() {
         let client = LiFiClient::new().unwrap();
         assert!(client.api_key.is_none());
     }
-    
+
     #[tokio::test]
     async fn test_chain_name_conversion() {
         assert_eq!(chain_name_to_id("ethereum").unwrap(), 1);
         assert_eq!(chain_name_to_id("polygon").unwrap(), 137);
         assert_eq!(chain_name_to_id("solana").unwrap(), 1151111081099710);
-        
+
         assert!(chain_name_to_id("unknown").is_err());
     }
-    
+
     #[tokio::test]
     async fn test_chain_id_to_name() {
         assert_eq!(chain_id_to_name(1).unwrap(), "ethereum");
         assert_eq!(chain_id_to_name(137).unwrap(), "polygon");
         assert_eq!(chain_id_to_name(1151111081099710).unwrap(), "solana");
-        
+
         assert!(chain_id_to_name(999999).is_err());
     }
 }

@@ -86,91 +86,91 @@ enum RiskLevel {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[allow(dead_code)]
 enum ComplexityLevel {
-    Simple,    // Single transaction
-    Medium,    // 2-3 transactions
-    Complex,   // Multiple steps, timing required
-    Advanced,  // Cross-chain, multiple protocols
+    Simple,   // Single transaction
+    Medium,   // 2-3 transactions
+    Complex,  // Multiple steps, timing required
+    Advanced, // Cross-chain, multiple protocols
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[allow(dead_code)]
 enum TimeSensitivity {
-    None,      // Opportunity exists for days/weeks
-    Low,       // Several hours available
-    Medium,    // 1-2 hours window
-    High,      // Minutes to act
+    None,   // Opportunity exists for days/weeks
+    Low,    // Several hours available
+    Medium, // 1-2 hours window
+    High,   // Minutes to act
 }
 
 /// Example 1: Comprehensive Token Analysis Workflow
-/// 
+///
 /// Demonstrates multi-step token analysis combining technical, fundamental,
 /// and sentiment analysis with risk assessment and actionable recommendations.
 async fn comprehensive_token_analysis() -> Result<()> {
     info!("Starting comprehensive token analysis workflow...");
-    
+
     // TODO: Commented out due to rig API changes
     /*
-    let agent = AgentBuilder::new("gpt-4")
-        .preamble(r#"
-You are an advanced crypto market analyst specializing in comprehensive token evaluation.
-Your analysis framework combines multiple methodologies for holistic assessment.
+        let agent = AgentBuilder::new("gpt-4")
+            .preamble(r#"
+    You are an advanced crypto market analyst specializing in comprehensive token evaluation.
+    Your analysis framework combines multiple methodologies for holistic assessment.
 
-ANALYSIS FRAMEWORK:
+    ANALYSIS FRAMEWORK:
 
-TECHNICAL ANALYSIS:
-- Price action and chart patterns
-- Support and resistance levels
-- Volume analysis and trend confirmation
-- Momentum indicators (RSI, MACD, etc.)
-- Moving averages and trend strength
+    TECHNICAL ANALYSIS:
+    - Price action and chart patterns
+    - Support and resistance levels
+    - Volume analysis and trend confirmation
+    - Momentum indicators (RSI, MACD, etc.)
+    - Moving averages and trend strength
 
-FUNDAMENTAL ANALYSIS:
-- Protocol utility and value proposition
-- Team and development activity
-- Tokenomics and supply dynamics
-- Partnership and adoption metrics
-- Competitive positioning
+    FUNDAMENTAL ANALYSIS:
+    - Protocol utility and value proposition
+    - Team and development activity
+    - Tokenomics and supply dynamics
+    - Partnership and adoption metrics
+    - Competitive positioning
 
-SENTIMENT ANALYSIS:
-- Social media sentiment and mentions
-- Community engagement and growth
-- Influencer opinions and analysis
-- Market psychology indicators
-- Fear & greed levels
+    SENTIMENT ANALYSIS:
+    - Social media sentiment and mentions
+    - Community engagement and growth
+    - Influencer opinions and analysis
+    - Market psychology indicators
+    - Fear & greed levels
 
-ON-CHAIN ANALYSIS:
-- Transaction volume and active addresses
-- Whale movement patterns
-- Exchange flow analysis
-- Staking and governance participation
-- Network health metrics
+    ON-CHAIN ANALYSIS:
+    - Transaction volume and active addresses
+    - Whale movement patterns
+    - Exchange flow analysis
+    - Staking and governance participation
+    - Network health metrics
 
-RISK ASSESSMENT:
-- Liquidity analysis and market depth
-- Smart contract risk evaluation
-- Regulatory and compliance factors
-- Market correlation and concentration
-- Volatility and drawdown analysis
+    RISK ASSESSMENT:
+    - Liquidity analysis and market depth
+    - Smart contract risk evaluation
+    - Regulatory and compliance factors
+    - Market correlation and concentration
+    - Volatility and drawdown analysis
 
-Your goal: Provide actionable investment recommendations with clear reasoning,
-risk assessment, and specific entry/exit strategies.
-        "#.trim())
-        .tool(get_sol_balance)
-        .tool(get_spl_token_balance)
-        .tool(perform_jupiter_swap)
-        .max_tokens(3000)
-        .build();
-    */
+    Your goal: Provide actionable investment recommendations with clear reasoning,
+    risk assessment, and specific entry/exit strategies.
+            "#.trim())
+            .tool(get_sol_balance)
+            .tool(get_spl_token_balance)
+            .tool(perform_jupiter_swap)
+            .max_tokens(3000)
+            .build();
+        */
 
     let keypair = Keypair::new();
     let signer = Arc::new(LocalSolanaSigner::new(
         keypair.insecure_clone(),
-        "https://api.devnet.solana.com".to_string()
+        "https://api.devnet.solana.com".to_string(),
     ));
-    
+
     SignerContext::with_signer(signer, async move {
         let user_address = keypair.pubkey().to_string();
-        
+
         let analysis_context = r#"
 TOKEN ANALYSIS REQUEST: SOL (Solana)
 
@@ -183,7 +183,7 @@ CURRENT MARKET DATA:
 
 TECHNICAL INDICATORS:
 - 20-day MA: $142.30 (price above)
-- 50-day MA: $135.80 (price above) 
+- 50-day MA: $135.80 (price above)
 - RSI: 58 (neutral)
 - MACD: Bullish crossover 3 days ago
 - Volume: 120% of 30-day average
@@ -256,7 +256,7 @@ Compare SOL vs:
 
 For each comparison:
 - Relative valuation metrics (P/E ratios, network value)
-- Technology advantages and disadvantages  
+- Technology advantages and disadvantages
 - Ecosystem development and adoption
 - Market positioning and competitive moats
 - Risk/reward profiles for current market conditions
@@ -310,80 +310,80 @@ Show how you adapt comprehensive analysis to major news events.
 
         Ok(())
     }).await.map_err(|_e| anyhow::anyhow!("Token analysis failed"))?;
-    
+
     Ok(())
 }
 
 /// Example 2: Cross-Chain Opportunity Discovery
-/// 
+///
 /// Shows sophisticated analysis across multiple blockchains to identify
 /// arbitrage, yield, and strategic opportunities requiring cross-chain execution.
 async fn cross_chain_opportunity_analysis() -> Result<()> {
     info!("Starting cross-chain opportunity analysis...");
-    
+
     // TODO: Commented out due to rig API changes
     /*
-    let agent = AgentBuilder::new("gpt-4")
-        .preamble(r#"
-You are a cross-chain opportunity analyst specializing in identifying profit opportunities
-across different blockchain ecosystems.
+        let agent = AgentBuilder::new("gpt-4")
+            .preamble(r#"
+    You are a cross-chain opportunity analyst specializing in identifying profit opportunities
+    across different blockchain ecosystems.
 
-CROSS-CHAIN OPPORTUNITY FRAMEWORK:
+    CROSS-CHAIN OPPORTUNITY FRAMEWORK:
 
-ARBITRAGE OPPORTUNITIES:
-- Price differences for same tokens across chains
-- DEX price discrepancies (Uniswap vs Raydium vs PancakeSwap)  
-- CEX vs DEX pricing gaps
-- Bridge token premium/discounts
-- Timing-based arbitrage during high volatility
+    ARBITRAGE OPPORTUNITIES:
+    - Price differences for same tokens across chains
+    - DEX price discrepancies (Uniswap vs Raydium vs PancakeSwap)
+    - CEX vs DEX pricing gaps
+    - Bridge token premium/discounts
+    - Timing-based arbitrage during high volatility
 
-YIELD OPPORTUNITIES:
-- Cross-chain yield farming strategies
-- Staking rewards comparison across chains
-- Liquidity mining programs with token emissions
-- Cross-chain lending/borrowing rate differences
-- Governance token farming opportunities
+    YIELD OPPORTUNITIES:
+    - Cross-chain yield farming strategies
+    - Staking rewards comparison across chains
+    - Liquidity mining programs with token emissions
+    - Cross-chain lending/borrowing rate differences
+    - Governance token farming opportunities
 
-STRATEGIC OPPORTUNITIES:
-- New protocol launches with airdrop potential
-- Cross-chain bridge liquidity incentives
-- Multi-chain governance participation
-- Ecosystem migration opportunities
-- First-mover advantages in new chains
+    STRATEGIC OPPORTUNITIES:
+    - New protocol launches with airdrop potential
+    - Cross-chain bridge liquidity incentives
+    - Multi-chain governance participation
+    - Ecosystem migration opportunities
+    - First-mover advantages in new chains
 
-RISK ANALYSIS:
-- Bridge security and failure risks
-- Chain congestion and timing risks
-- Impermanent loss calculations
-- Smart contract risks across protocols
-- Regulatory differences between chains
+    RISK ANALYSIS:
+    - Bridge security and failure risks
+    - Chain congestion and timing risks
+    - Impermanent loss calculations
+    - Smart contract risks across protocols
+    - Regulatory differences between chains
 
-EXECUTION COMPLEXITY:
-- Transaction sequencing requirements
-- Gas optimization across chains
-- Timing coordination challenges
-- Capital efficiency optimization
-- Monitoring and management overhead
+    EXECUTION COMPLEXITY:
+    - Transaction sequencing requirements
+    - Gas optimization across chains
+    - Timing coordination challenges
+    - Capital efficiency optimization
+    - Monitoring and management overhead
 
-Your goal: Find high-probability, risk-adjusted opportunities across chains
-and provide detailed execution plans.
-        "#.trim())
-        .tool(get_sol_balance)
-        .tool(get_spl_token_balance)
-        .tool(perform_jupiter_swap)
-        .max_tokens(3000)
-        .build();
-    */
+    Your goal: Find high-probability, risk-adjusted opportunities across chains
+    and provide detailed execution plans.
+            "#.trim())
+            .tool(get_sol_balance)
+            .tool(get_spl_token_balance)
+            .tool(perform_jupiter_swap)
+            .max_tokens(3000)
+            .build();
+        */
 
     let keypair = Keypair::new();
     let signer = Arc::new(LocalSolanaSigner::new(
         keypair.insecure_clone(),
-        "https://api.devnet.solana.com".to_string()
+        "https://api.devnet.solana.com".to_string(),
     ));
-    
+
     SignerContext::with_signer(signer, async move {
         let user_address = keypair.pubkey().to_string();
-        
+
         let opportunity_context = r#"
 CROSS-CHAIN MARKET CONDITIONS:
 
@@ -432,7 +432,7 @@ CROSS-CHAIN BRIDGES:
 Please analyze cross-chain opportunities available right now.
 
 My multi-chain setup:
-- Solana wallet: {} 
+- Solana wallet: {}
 - Available on Ethereum: Will need to bridge funds
 - Available on Polygon: Can bridge from Ethereum
 - Available on BSC: Can use Binance Bridge
@@ -546,87 +546,87 @@ TIME IS CRITICAL - Should I participate? If yes, what's the execution plan?
 
         Ok(())
     }).await.map_err(|_e| anyhow::anyhow!("Cross-chain analysis failed"))?;
-    
+
     Ok(())
 }
 
 /// Example 3: Risk-Adjusted Portfolio Analysis
-/// 
+///
 /// Demonstrates sophisticated portfolio risk analysis including correlation analysis,
 /// scenario testing, and adaptive risk management based on market conditions.
 async fn risk_adjusted_portfolio_analysis() -> Result<()> {
     info!("Starting risk-adjusted portfolio analysis...");
-    
+
     // TODO: Commented out due to rig API changes
     /*
-    let agent = AgentBuilder::new("gpt-4")
-        .preamble(r#"
-You are a quantitative portfolio analyst specializing in risk-adjusted return optimization
-for crypto portfolios.
+        let agent = AgentBuilder::new("gpt-4")
+            .preamble(r#"
+    You are a quantitative portfolio analyst specializing in risk-adjusted return optimization
+    for crypto portfolios.
 
-RISK ANALYSIS FRAMEWORK:
+    RISK ANALYSIS FRAMEWORK:
 
-QUANTITATIVE RISK METRICS:
-- Value at Risk (VaR) calculations
-- Maximum drawdown analysis
-- Sharpe and Sortino ratios
-- Beta analysis vs market (BTC/ETH)
-- Correlation matrix between holdings
-- Volatility clustering analysis
+    QUANTITATIVE RISK METRICS:
+    - Value at Risk (VaR) calculations
+    - Maximum drawdown analysis
+    - Sharpe and Sortino ratios
+    - Beta analysis vs market (BTC/ETH)
+    - Correlation matrix between holdings
+    - Volatility clustering analysis
 
-SCENARIO ANALYSIS:
-- Bull market scenarios (+50% crypto market)
-- Bear market scenarios (-70% crypto market)
-- Black swan events (major protocol hacks, regulatory bans)
-- Correlation breakdown scenarios
-- Liquidity crisis scenarios
+    SCENARIO ANALYSIS:
+    - Bull market scenarios (+50% crypto market)
+    - Bear market scenarios (-70% crypto market)
+    - Black swan events (major protocol hacks, regulatory bans)
+    - Correlation breakdown scenarios
+    - Liquidity crisis scenarios
 
-PORTFOLIO CONSTRUCTION:
-- Modern Portfolio Theory application
-- Risk parity allocation strategies
-- Factor-based diversification
-- Rebalancing frequency optimization
-- Position sizing based on Kelly criterion
+    PORTFOLIO CONSTRUCTION:
+    - Modern Portfolio Theory application
+    - Risk parity allocation strategies
+    - Factor-based diversification
+    - Rebalancing frequency optimization
+    - Position sizing based on Kelly criterion
 
-DYNAMIC RISK MANAGEMENT:
-- Adaptive position sizing based on volatility
-- Correlation-based hedging strategies
-- Momentum and mean-reversion regime detection
-- Drawdown-based risk reduction protocols
-- Liquidity management for different market conditions
+    DYNAMIC RISK MANAGEMENT:
+    - Adaptive position sizing based on volatility
+    - Correlation-based hedging strategies
+    - Momentum and mean-reversion regime detection
+    - Drawdown-based risk reduction protocols
+    - Liquidity management for different market conditions
 
-ALTERNATIVE RISK MEASURES:
-- Tail risk and extreme event preparation
-- Liquidity risk assessment
-- Counterparty risk evaluation
-- Smart contract risk quantification
-- Regulatory risk scoring
+    ALTERNATIVE RISK MEASURES:
+    - Tail risk and extreme event preparation
+    - Liquidity risk assessment
+    - Counterparty risk evaluation
+    - Smart contract risk quantification
+    - Regulatory risk scoring
 
-Your goal: Optimize portfolio construction for maximum risk-adjusted returns
-while maintaining downside protection.
-        "#.trim())
-        .tool(get_sol_balance)
-        .tool(get_spl_token_balance)
-        .tool(perform_jupiter_swap)
-        .max_tokens(3000)
-        .build();
-    */
+    Your goal: Optimize portfolio construction for maximum risk-adjusted returns
+    while maintaining downside protection.
+            "#.trim())
+            .tool(get_sol_balance)
+            .tool(get_spl_token_balance)
+            .tool(perform_jupiter_swap)
+            .max_tokens(3000)
+            .build();
+        */
 
     let keypair = Keypair::new();
     let signer = Arc::new(LocalSolanaSigner::new(
         keypair.insecure_clone(),
-        "https://api.devnet.solana.com".to_string()
+        "https://api.devnet.solana.com".to_string(),
     ));
-    
+
     SignerContext::with_signer(signer, async move {
         let user_address = keypair.pubkey().to_string();
-        
+
         let portfolio_context = r#"
 CURRENT PORTFOLIO ANALYSIS REQUEST:
 
 PORTFOLIO HOLDINGS (Total: $150,000):
 - BTC: 30% ($45,000) - Digital gold, store of value
-- ETH: 25% ($37,500) - Smart contract platform leader  
+- ETH: 25% ($37,500) - Smart contract platform leader
 - SOL: 20% ($30,000) - High-performance blockchain
 - AVAX: 10% ($15,000) - Ethereum competitor
 - MATIC: 8% ($12,000) - Scaling solution
@@ -643,7 +643,7 @@ HISTORICAL PERFORMANCE (6 months):
 
 CORRELATION MATRIX (last 90 days):
 - BTC-ETH: 0.82 (high correlation)
-- SOL-AVAX: 0.91 (very high correlation)  
+- SOL-AVAX: 0.91 (very high correlation)
 - All altcoins vs BTC: 0.70-0.85 range
 - USDC correlations: Near zero (good)
 - Major concern: Portfolio highly correlated during crashes
@@ -716,7 +716,7 @@ PORTFOLIO STRESS TEST: Extreme market scenario simulation
 CRISIS SCENARIO: "DeFi Winter" - Regulatory crackdown and liquidity crisis
 - SEC classifies most DeFi tokens as securities
 - Major exchanges delist altcoins in US
-- Institutional selling accelerates 
+- Institutional selling accelerates
 - Credit crisis hits crypto lending protocols
 - Stablecoin de-pegging concerns emerge
 
@@ -759,86 +759,86 @@ Please provide crisis management recommendations and specific action triggers.
 
         Ok(())
     }).await.map_err(|_e| anyhow::anyhow!("Portfolio analysis failed"))?;
-    
+
     Ok(())
 }
 
 /// Example 4: Multi-Source Intelligence Synthesis
-/// 
+///
 /// Shows how agents can synthesize information from multiple data sources
 /// to create comprehensive market intelligence and actionable insights.
 async fn multi_source_intelligence_synthesis() -> Result<()> {
     info!("Starting multi-source intelligence synthesis...");
-    
+
     // TODO: Commented out due to rig API changes
     /*
-    let agent = AgentBuilder::new("gpt-4")
-        .preamble(r#"
-You are a market intelligence analyst that synthesizes information from multiple sources
-to generate comprehensive market insights and trading opportunities.
+        let agent = AgentBuilder::new("gpt-4")
+            .preamble(r#"
+    You are a market intelligence analyst that synthesizes information from multiple sources
+    to generate comprehensive market insights and trading opportunities.
 
-INTELLIGENCE SOURCES FRAMEWORK:
+    INTELLIGENCE SOURCES FRAMEWORK:
 
-ON-CHAIN DATA:
-- Transaction volumes and active addresses
-- Whale movement and large holder behavior
-- Exchange flows (accumulation vs distribution)
-- Smart contract interactions and DeFi activity
-- Network health and development metrics
+    ON-CHAIN DATA:
+    - Transaction volumes and active addresses
+    - Whale movement and large holder behavior
+    - Exchange flows (accumulation vs distribution)
+    - Smart contract interactions and DeFi activity
+    - Network health and development metrics
 
-MARKET DATA:
-- Price action and technical indicators
-- Volume analysis and market microstructure
-- Options flow and derivatives positioning
-- Funding rates and perpetual futures
-- Cross-exchange arbitrage opportunities
+    MARKET DATA:
+    - Price action and technical indicators
+    - Volume analysis and market microstructure
+    - Options flow and derivatives positioning
+    - Funding rates and perpetual futures
+    - Cross-exchange arbitrage opportunities
 
-SOCIAL INTELLIGENCE:
-- Social media sentiment and trending topics
-- Influencer opinions and institutional commentary  
-- Developer activity and GitHub commits
-- Community engagement and adoption metrics
-- News flow analysis and event impact
+    SOCIAL INTELLIGENCE:
+    - Social media sentiment and trending topics
+    - Influencer opinions and institutional commentary
+    - Developer activity and GitHub commits
+    - Community engagement and adoption metrics
+    - News flow analysis and event impact
 
-MACRO ENVIRONMENT:
-- Regulatory developments and policy changes
-- Institutional adoption and investment flows
-- Traditional market correlations and spillovers
-- Central bank policy and monetary conditions
-- Geopolitical events affecting crypto
+    MACRO ENVIRONMENT:
+    - Regulatory developments and policy changes
+    - Institutional adoption and investment flows
+    - Traditional market correlations and spillovers
+    - Central bank policy and monetary conditions
+    - Geopolitical events affecting crypto
 
-FUNDAMENTAL ANALYSIS:
-- Protocol development and roadmap progress
-- Partnership announcements and integrations
-- Token utility and value accrual mechanisms
-- Competitive landscape and market share
-- Team execution and governance quality
+    FUNDAMENTAL ANALYSIS:
+    - Protocol development and roadmap progress
+    - Partnership announcements and integrations
+    - Token utility and value accrual mechanisms
+    - Competitive landscape and market share
+    - Team execution and governance quality
 
-SYNTHESIS METHODOLOGY:
-- Weight each source by reliability and relevance
-- Identify convergent vs divergent signals
-- Resolve conflicts through deeper analysis
-- Generate confidence-weighted conclusions
-- Provide specific actionable recommendations
+    SYNTHESIS METHODOLOGY:
+    - Weight each source by reliability and relevance
+    - Identify convergent vs divergent signals
+    - Resolve conflicts through deeper analysis
+    - Generate confidence-weighted conclusions
+    - Provide specific actionable recommendations
 
-Your goal: Create high-conviction investment theses backed by multi-source intelligence.
-        "#.trim())
-        .tool(get_sol_balance)
-        .tool(get_spl_token_balance)
-        .tool(perform_jupiter_swap)
-        .max_tokens(3500)
-        .build();
-    */
+    Your goal: Create high-conviction investment theses backed by multi-source intelligence.
+            "#.trim())
+            .tool(get_sol_balance)
+            .tool(get_spl_token_balance)
+            .tool(perform_jupiter_swap)
+            .max_tokens(3500)
+            .build();
+        */
 
     let keypair = Keypair::new();
     let signer = Arc::new(LocalSolanaSigner::new(
         keypair.insecure_clone(),
-        "https://api.devnet.solana.com".to_string()
+        "https://api.devnet.solana.com".to_string(),
     ));
-    
+
     SignerContext::with_signer(signer, async move {
         let user_address = keypair.pubkey().to_string();
-        
+
         let intelligence_context = r#"
 MULTI-SOURCE INTELLIGENCE ANALYSIS: Solana (SOL) Investment Thesis
 
@@ -919,7 +919,7 @@ Intelligence Synthesis Request:
 
 5. Identify key monitoring criteria:
    - Which data sources to track most closely
-   - Early warning signals that thesis is breaking down  
+   - Early warning signals that thesis is breaking down
    - Catalysts that could accelerate the thesis
    - Rebalancing triggers and decision points
 
@@ -979,64 +979,62 @@ Show your systematic approach to handling contradictory market intelligence.
 
         Ok(())
     }).await.map_err(|_e| anyhow::anyhow!("Intelligence synthesis failed"))?;
-    
+
     Ok(())
 }
 
 #[tokio::main]
 async fn main() -> Result<()> {
     // Initialize tracing for detailed logging
-    tracing_subscriber::fmt()
-        .with_env_filter("info")
-        .init();
+    tracing_subscriber::fmt().with_env_filter("info").init();
 
     info!("Starting riglr market analysis examples...");
-    
+
     println!("\n📊 Market Analysis with Reasoning Examples");
     println!("==========================================");
     println!("Demonstrating sophisticated market analysis workflows using rig + riglr\n");
-    
+
     // Run market analysis examples
     println!("1️⃣  Comprehensive Token Analysis");
     println!("   Multi-methodology token evaluation with risk assessment...");
     if let Err(e) = comprehensive_token_analysis().await {
         warn!("Token analysis failed: {}", e);
     }
-    
+
     println!("\n2️⃣  Cross-Chain Opportunity Discovery");
     println!("   Multi-blockchain opportunity identification and execution...");
     if let Err(e) = cross_chain_opportunity_analysis().await {
         warn!("Cross-chain analysis failed: {}", e);
     }
-    
-    println!("\n3️⃣  Risk-Adjusted Portfolio Analysis");  
+
+    println!("\n3️⃣  Risk-Adjusted Portfolio Analysis");
     println!("   Quantitative portfolio optimization and stress testing...");
     if let Err(e) = risk_adjusted_portfolio_analysis().await {
         warn!("Portfolio analysis failed: {}", e);
     }
-    
+
     println!("\n4️⃣  Multi-Source Intelligence Synthesis");
     println!("   Combining multiple data sources for market intelligence...");
     if let Err(e) = multi_source_intelligence_synthesis().await {
         warn!("Intelligence synthesis failed: {}", e);
     }
-    
+
     println!("\n✅ Market analysis examples completed!");
     println!("\nKey Analysis Capabilities:");
     println!("- Multi-methodology token evaluation");
-    println!("- Cross-chain opportunity identification");  
+    println!("- Cross-chain opportunity identification");
     println!("- Quantitative risk assessment");
     println!("- Intelligence source synthesis");
     println!("- Adaptive analysis based on market conditions");
     println!("- Complex decision-making workflows");
-    
+
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[tokio::test]
     async fn test_token_analysis_serialization() {
         let analysis = TokenAnalysis {
@@ -1053,16 +1051,16 @@ mod tests {
             fundamental_score: 8.1,
             overall_rating: AnalysisRating::Buy,
         };
-        
+
         let serialized = serde_json::to_string(&analysis).unwrap();
         let deserialized: TokenAnalysis = serde_json::from_str(&serialized).unwrap();
-        
+
         assert_eq!(deserialized.symbol, "SOL");
         assert_eq!(deserialized.current_price, 148.50);
         assert!(matches!(deserialized.overall_rating, AnalysisRating::Buy));
     }
-    
-    #[tokio::test] 
+
+    #[tokio::test]
     async fn test_cross_chain_opportunity_creation() {
         let opportunity = CrossChainOpportunity {
             opportunity_type: OpportunityType::Arbitrage,
@@ -1074,8 +1072,11 @@ mod tests {
             time_sensitivity: TimeSensitivity::High,
             required_capital: 50000.0,
         };
-        
-        assert!(matches!(opportunity.opportunity_type, OpportunityType::Arbitrage));
+
+        assert!(matches!(
+            opportunity.opportunity_type,
+            OpportunityType::Arbitrage
+        ));
         assert!(matches!(opportunity.risk_level, RiskLevel::Medium));
         assert_eq!(opportunity.estimated_profit, 2.3);
     }

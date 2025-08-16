@@ -1,18 +1,18 @@
-use std::any::Any;
-use borsh::BorshDeserialize;
-use serde::{Deserialize, Serialize};
-use solana_sdk::pubkey::Pubkey;
+use super::types::JupiterSwapData;
 use crate::{
     // UnifiedEvent removed - using Event trait from riglr_events_core
     events::common::EventMetadata,
     types::TransferData,
     // UnifiedEvent removed - events now implement Event trait directly
 };
-use super::types::JupiterSwapData;
+use borsh::BorshDeserialize;
+use serde::{Deserialize, Serialize};
+use solana_sdk::pubkey::Pubkey;
+use std::any::Any;
 
 // Import new Event trait from riglr-events-core
-use riglr_events_core::{Event, EventKind, EventMetadata as CoreEventMetadata};
 use chrono::{DateTime, Utc};
+use riglr_events_core::{Event, EventKind, EventMetadata as CoreEventMetadata};
 use std::collections::HashMap;
 
 /// Parameters for creating event metadata, reducing function parameter count
@@ -139,16 +139,14 @@ impl Event for JupiterSwapEvent {
 
     fn metadata(&self) -> &CoreEventMetadata {
         use once_cell::sync::Lazy;
-        static DEFAULT_METADATA: Lazy<CoreEventMetadata> = Lazy::new(|| {
-            CoreEventMetadata {
-                id: String::new(),
-                kind: EventKind::Swap,
-                timestamp: DateTime::<Utc>::MIN_UTC,
-                received_at: DateTime::<Utc>::MIN_UTC,
-                source: String::from("solana"),
-                chain_data: None,
-                custom: HashMap::new(),
-            }
+        static DEFAULT_METADATA: Lazy<CoreEventMetadata> = Lazy::new(|| CoreEventMetadata {
+            id: String::new(),
+            kind: EventKind::Swap,
+            timestamp: DateTime::<Utc>::MIN_UTC,
+            received_at: DateTime::<Utc>::MIN_UTC,
+            source: String::from("solana"),
+            chain_data: None,
+            custom: HashMap::new(),
         });
         &DEFAULT_METADATA
     }
@@ -157,8 +155,6 @@ impl Event for JupiterSwapEvent {
         // This would need proper implementation with actual mutable metadata storage
         unimplemented!("Mutable metadata not yet implemented")
     }
-
-
 
     fn as_any(&self) -> &dyn Any {
         self
@@ -185,16 +181,14 @@ impl Event for JupiterLiquidityEvent {
 
     fn metadata(&self) -> &CoreEventMetadata {
         use once_cell::sync::Lazy;
-        static DEFAULT_METADATA: Lazy<CoreEventMetadata> = Lazy::new(|| {
-            CoreEventMetadata {
-                id: String::new(),
-                kind: EventKind::Liquidity,
-                timestamp: DateTime::<Utc>::MIN_UTC,
-                received_at: DateTime::<Utc>::MIN_UTC,
-                source: String::from("solana"),
-                chain_data: None,
-                custom: HashMap::new(),
-            }
+        static DEFAULT_METADATA: Lazy<CoreEventMetadata> = Lazy::new(|| CoreEventMetadata {
+            id: String::new(),
+            kind: EventKind::Liquidity,
+            timestamp: DateTime::<Utc>::MIN_UTC,
+            received_at: DateTime::<Utc>::MIN_UTC,
+            source: String::from("solana"),
+            chain_data: None,
+            custom: HashMap::new(),
         });
         &DEFAULT_METADATA
     }
@@ -203,8 +197,6 @@ impl Event for JupiterLiquidityEvent {
         // This would need proper implementation with actual mutable metadata storage
         unimplemented!("Mutable metadata not yet implemented")
     }
-
-
 
     fn as_any(&self) -> &dyn Any {
         self
@@ -231,16 +223,14 @@ impl Event for JupiterSwapBorshEvent {
 
     fn metadata(&self) -> &CoreEventMetadata {
         use once_cell::sync::Lazy;
-        static DEFAULT_METADATA: Lazy<CoreEventMetadata> = Lazy::new(|| {
-            CoreEventMetadata {
-                id: String::new(),
-                kind: EventKind::Swap,
-                timestamp: DateTime::<Utc>::MIN_UTC,
-                received_at: DateTime::<Utc>::MIN_UTC,
-                source: String::from("solana"),
-                chain_data: None,
-                custom: HashMap::new(),
-            }
+        static DEFAULT_METADATA: Lazy<CoreEventMetadata> = Lazy::new(|| CoreEventMetadata {
+            id: String::new(),
+            kind: EventKind::Swap,
+            timestamp: DateTime::<Utc>::MIN_UTC,
+            received_at: DateTime::<Utc>::MIN_UTC,
+            source: String::from("solana"),
+            chain_data: None,
+            custom: HashMap::new(),
         });
         &DEFAULT_METADATA
     }
@@ -249,8 +239,6 @@ impl Event for JupiterSwapBorshEvent {
         // This would need proper implementation with actual mutable metadata storage
         unimplemented!("Mutable metadata not yet implemented")
     }
-
-
 
     fn as_any(&self) -> &dyn Any {
         self

@@ -1,10 +1,10 @@
-use std::any::Any;
-use serde::{Deserialize, Serialize};
+use super::types::{OrcaLiquidityData, OrcaPositionData, OrcaSwapData};
 use crate::{
     // UnifiedEvent removed - using Event trait from riglr_events_core
-    types::{TransferData},
+    types::TransferData,
 };
-use super::types::{OrcaSwapData, OrcaPositionData, OrcaLiquidityData};
+use serde::{Deserialize, Serialize};
+use std::any::Any;
 
 // Import new Event trait from riglr-events-core
 use riglr_events_core::{Event, EventKind, EventMetadata as CoreEventMetadata};
@@ -83,7 +83,6 @@ impl OrcaSwapEvent {
     }
 }
 
-
 /// Orca position event (open/close)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OrcaPositionEvent {
@@ -102,7 +101,6 @@ pub struct OrcaPositionEvent {
     pub core_metadata: Option<CoreEventMetadata>,
 }
 
-
 /// Orca liquidity event (increase/decrease)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OrcaLiquidityEvent {
@@ -120,7 +118,6 @@ pub struct OrcaLiquidityEvent {
     pub core_metadata: Option<CoreEventMetadata>,
 }
 
-
 // New Event trait implementation for OrcaSwapEvent
 impl Event for OrcaSwapEvent {
     fn id(&self) -> &str {
@@ -136,9 +133,9 @@ impl Event for OrcaSwapEvent {
     }
 
     fn metadata(&self) -> &CoreEventMetadata {
-        self.core_metadata.as_ref().unwrap_or_else(|| {
-            panic!("Core metadata not initialized for OrcaSwapEvent")
-        })
+        self.core_metadata
+            .as_ref()
+            .unwrap_or_else(|| panic!("Core metadata not initialized for OrcaSwapEvent"))
     }
 
     fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
@@ -150,13 +147,16 @@ impl Event for OrcaSwapEvent {
                 instruction_index: self.index.parse::<usize>().ok(),
             };
 
-            self.core_metadata = Some(CoreEventMetadata::with_timestamp(
-                self.id.clone(),
-                EventKind::Swap,
-                "orca".to_string(),
-                chrono::DateTime::from_timestamp(self.block_time, 0)
-                    .unwrap_or_else(chrono::Utc::now),
-            ).with_chain_data(chain_data));
+            self.core_metadata = Some(
+                CoreEventMetadata::with_timestamp(
+                    self.id.clone(),
+                    EventKind::Swap,
+                    "orca".to_string(),
+                    chrono::DateTime::from_timestamp(self.block_time, 0)
+                        .unwrap_or_else(chrono::Utc::now),
+                )
+                .with_chain_data(chain_data),
+            );
         }
         self.core_metadata.as_mut().unwrap()
     }
@@ -174,8 +174,7 @@ impl Event for OrcaSwapEvent {
     }
 
     fn to_json(&self) -> riglr_events_core::error::EventResult<serde_json::Value> {
-        serde_json::to_value(self)
-            .map_err(riglr_events_core::error::EventError::Serialization)
+        serde_json::to_value(self).map_err(riglr_events_core::error::EventError::Serialization)
     }
 }
 
@@ -194,9 +193,9 @@ impl Event for OrcaPositionEvent {
     }
 
     fn metadata(&self) -> &CoreEventMetadata {
-        self.core_metadata.as_ref().unwrap_or_else(|| {
-            panic!("Core metadata not initialized for OrcaPositionEvent")
-        })
+        self.core_metadata
+            .as_ref()
+            .unwrap_or_else(|| panic!("Core metadata not initialized for OrcaPositionEvent"))
     }
 
     fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
@@ -208,13 +207,16 @@ impl Event for OrcaPositionEvent {
                 instruction_index: self.index.parse::<usize>().ok(),
             };
 
-            self.core_metadata = Some(CoreEventMetadata::with_timestamp(
-                self.id.clone(),
-                EventKind::Contract,
-                "orca".to_string(),
-                chrono::DateTime::from_timestamp(self.block_time, 0)
-                    .unwrap_or_else(chrono::Utc::now),
-            ).with_chain_data(chain_data));
+            self.core_metadata = Some(
+                CoreEventMetadata::with_timestamp(
+                    self.id.clone(),
+                    EventKind::Contract,
+                    "orca".to_string(),
+                    chrono::DateTime::from_timestamp(self.block_time, 0)
+                        .unwrap_or_else(chrono::Utc::now),
+                )
+                .with_chain_data(chain_data),
+            );
         }
         self.core_metadata.as_mut().unwrap()
     }
@@ -232,8 +234,7 @@ impl Event for OrcaPositionEvent {
     }
 
     fn to_json(&self) -> riglr_events_core::error::EventResult<serde_json::Value> {
-        serde_json::to_value(self)
-            .map_err(riglr_events_core::error::EventError::Serialization)
+        serde_json::to_value(self).map_err(riglr_events_core::error::EventError::Serialization)
     }
 }
 
@@ -252,9 +253,9 @@ impl Event for OrcaLiquidityEvent {
     }
 
     fn metadata(&self) -> &CoreEventMetadata {
-        self.core_metadata.as_ref().unwrap_or_else(|| {
-            panic!("Core metadata not initialized for OrcaLiquidityEvent")
-        })
+        self.core_metadata
+            .as_ref()
+            .unwrap_or_else(|| panic!("Core metadata not initialized for OrcaLiquidityEvent"))
     }
 
     fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
@@ -266,13 +267,16 @@ impl Event for OrcaLiquidityEvent {
                 instruction_index: self.index.parse::<usize>().ok(),
             };
 
-            self.core_metadata = Some(CoreEventMetadata::with_timestamp(
-                self.id.clone(),
-                EventKind::Liquidity,
-                "orca".to_string(),
-                chrono::DateTime::from_timestamp(self.block_time, 0)
-                    .unwrap_or_else(chrono::Utc::now),
-            ).with_chain_data(chain_data));
+            self.core_metadata = Some(
+                CoreEventMetadata::with_timestamp(
+                    self.id.clone(),
+                    EventKind::Liquidity,
+                    "orca".to_string(),
+                    chrono::DateTime::from_timestamp(self.block_time, 0)
+                        .unwrap_or_else(chrono::Utc::now),
+                )
+                .with_chain_data(chain_data),
+            );
         }
         self.core_metadata.as_mut().unwrap()
     }
@@ -290,7 +294,6 @@ impl Event for OrcaLiquidityEvent {
     }
 
     fn to_json(&self) -> riglr_events_core::error::EventResult<serde_json::Value> {
-        serde_json::to_value(self)
-            .map_err(riglr_events_core::error::EventError::Serialization)
+        serde_json::to_value(self).map_err(riglr_events_core::error::EventError::Serialization)
     }
 }

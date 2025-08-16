@@ -9,7 +9,7 @@ use async_trait::async_trait;
 use std::time::Duration;
 
 /// Trait for job queue implementations.
-/// 
+///
 /// Provides a common interface for different queue backends, enabling
 /// both local development with in-memory queues and production deployment
 /// with distributed Redis queues.

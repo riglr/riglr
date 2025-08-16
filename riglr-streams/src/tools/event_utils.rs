@@ -1,5 +1,5 @@
-use std::any::Any;
 use riglr_events_core::prelude::Event;
+use std::any::Any;
 
 /// Helper to convert Any to Event by trying all known event types
 pub fn as_event(event: &(dyn Any + Send + Sync)) -> Option<&dyn Event> {
@@ -26,14 +26,14 @@ macro_rules! register_event_types {
             if let Some(event_ref) = as_event(event) {
                 return Some(event_ref);
             }
-            
+
             // Then try the extended types
             $(
                 if let Some(typed_event) = event.downcast_ref::<$event_type>() {
                     return Some(typed_event);
                 }
             )*
-            
+
             None
         }
     };

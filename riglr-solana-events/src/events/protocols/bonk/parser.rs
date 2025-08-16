@@ -1,5 +1,5 @@
-use std::collections::HashMap;
 use riglr_events_core::Event;
+use std::collections::HashMap;
 
 use borsh::BorshDeserialize;
 use solana_sdk::{instruction::CompiledInstruction, pubkey::Pubkey};
@@ -8,9 +8,7 @@ use solana_transaction_status::UiCompiledInstruction;
 use crate::events::{
     common::{EventMetadata, EventType, ProtocolType},
     core::traits::{EventParser, GenericEventParseConfig, GenericEventParser},
-    protocols::bonk::{
-        discriminators, BonkTradeEvent, BonkPoolCreateEvent, TradeDirection
-    },
+    protocols::bonk::{discriminators, BonkPoolCreateEvent, BonkTradeEvent, TradeDirection},
 };
 
 /// Bonk program ID
@@ -111,7 +109,7 @@ impl BonkEventParser {
         if let Ok(event) = BonkTradeEvent::try_from_slice(data) {
             let mut metadata = metadata;
             metadata.set_id(format!("{}-{}", metadata.signature, event.pool_state));
-            
+
             // Validate trade direction matches the event type
             if metadata.event_type == EventType::BonkBuyExactIn
                 || metadata.event_type == EventType::BonkBuyExactOut
@@ -125,7 +123,7 @@ impl BonkEventParser {
             {
                 return None;
             }
-            
+
             Some(Box::new(BonkTradeEvent { metadata, ..event }))
         } else {
             None

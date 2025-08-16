@@ -34,12 +34,12 @@ pub mod test_utils {
         agent_configs: Vec<(String, Vec<String>, bool, Duration)>,
     ) -> Arc<LocalAgentRegistry> {
         let registry = Arc::new(LocalAgentRegistry::new());
-        
+
         for (id, caps, success, delay) in agent_configs {
             let agent = create_test_agent(id, caps, success, delay);
             registry.register_agent(agent).await.unwrap();
         }
-        
+
         registry
     }
 
@@ -195,10 +195,10 @@ pub mod test_constants {
     pub const FAST_TASK_DELAY: Duration = Duration::from_millis(10);
     pub const MEDIUM_TASK_DELAY: Duration = Duration::from_millis(50);
     pub const SLOW_TASK_DELAY: Duration = Duration::from_millis(200);
-    
+
     pub const MIN_SUCCESS_RATE: f64 = 0.95; // 95%
     pub const MIN_THROUGHPUT: f64 = 10.0; // tasks per second
-    
+
     pub const SMALL_TASK_BATCH: usize = 10;
     pub const MEDIUM_TASK_BATCH: usize = 50;
     pub const LARGE_TASK_BATCH: usize = 200;
@@ -221,9 +221,9 @@ pub mod fixtures {
             true,
             test_constants::FAST_TASK_DELAY,
         );
-        
+
         let trading_agent_2 = test_utils::create_test_agent(
-            "trader-2", 
+            "trader-2",
             vec!["trading".to_string()],
             true,
             test_constants::MEDIUM_TASK_DELAY,

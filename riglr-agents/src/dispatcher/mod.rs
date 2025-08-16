@@ -6,9 +6,7 @@
 
 pub mod router;
 
-use crate::{
-    Agent, AgentError, AgentRegistry, Task, TaskResult, TaskType, Result
-};
+use crate::{Agent, AgentError, AgentRegistry, Result, Task, TaskResult, TaskType};
 use router::Router;
 use std::sync::Arc;
 use std::time::Duration;
@@ -126,21 +124,30 @@ impl<R: AgentRegistry> AgentDispatcher<R> {
                     return Ok(result);
                 }
                 Err(err) if err.is_retriable() && attempt < self.config.max_retries => {
-                    warn!("Task {} failed on attempt {}, will retry: {}", 
-                          task.id, attempt + 1, err);
+                    warn!(
+                        "Task {} failed on attempt {}, will retry: {}",
+                        task.id,
+                        attempt + 1,
+                        err
+                    );
                     task.increment_retry();
                     continue;
                 }
                 Err(err) => {
-                    error!("Task {} failed permanently after {} attempts: {}", 
-                           task.id, attempt + 1, err);
+                    error!(
+                        "Task {} failed permanently after {} attempts: {}",
+                        task.id,
+                        attempt + 1,
+                        err
+                    );
                     return Err(err);
                 }
             }
         }
 
         Err(AgentError::task_execution(format!(
-            "Task {} exhausted all retry attempts", task.id
+            "Task {} exhausted all retry attempts",
+            task.id
         )))
     }
 
@@ -154,32 +161,46 @@ impl<R: AgentRegistry> AgentDispatcher<R> {
 
         // Select the best agent using routing strategy
         let selected_agent = self.router.select_agent(&agents, task).await?;
-        
-        debug!("Selected agent {} for task {}", 
-               selected_agent.id(), task.id);
+
+        debug!(
+            "Selected agent {} for task {}",
+            selected_agent.id(),
+            task.id
+        );
 
         // Execute the task with timeout
         let task_timeout = task.timeout.unwrap_or(self.config.default_task_timeout);
-        
+
         match timeout(task_timeout, selected_agent.execute_task(task.clone())).await {
             Ok(Ok(result)) => {
-                info!("Task {} completed by agent {} in {:?}", 
-                      task.id, selected_agent.id(), 
-                      if let TaskResult::Success { duration, .. } = &result { 
-                          Some(*duration) 
-                      } else { 
-                          None 
-                      });
+                info!(
+                    "Task {} completed by agent {} in {:?}",
+                    task.id,
+                    selected_agent.id(),
+                    if let TaskResult::Success { duration, .. } = &result {
+                        Some(*duration)
+                    } else {
+                        None
+                    }
+                );
                 Ok(result)
             }
             Ok(Err(err)) => {
-                warn!("Task {} failed in agent {}: {}", 
-                      task.id, selected_agent.id(), err);
+                warn!(
+                    "Task {} failed in agent {}: {}",
+                    task.id,
+                    selected_agent.id(),
+                    err
+                );
                 Err(err)
             }
             Err(_) => {
-                error!("Task {} timed out after {:?} in agent {}", 
-                       task.id, task_timeout, selected_agent.id());
+                error!(
+                    "Task {} timed out after {:?} in agent {}",
+                    task.id,
+                    task_timeout,
+                    selected_agent.id()
+                );
                 Err(AgentError::task_timeout(task.id.clone(), task_timeout))
             }
         }
@@ -190,24 +211,25 @@ impl<R: AgentRegistry> AgentDispatcher<R> {
         debug!("Finding suitable agents for task type {:?}", task.task_type);
 
         let capability = self.task_type_to_capability(&task.task_type);
-        let mut suitable_agents = self.registry
-            .find_agents_by_capability(&capability)
-            .await?;
+        let mut suitable_agents = self.registry.find_agents_by_capability(&capability).await?;
 
         // Filter by availability and other criteria
-        suitable_agents.retain(|agent| {
-            agent.is_available() && agent.can_handle(task)
-        });
+        suitable_agents.retain(|agent| agent.is_available() && agent.can_handle(task));
 
         if self.config.enable_load_balancing {
             // Sort by load for load-aware routing strategies
             suitable_agents.sort_by(|a, b| {
-                a.load().partial_cmp(&b.load()).unwrap_or(std::cmp::Ordering::Equal)
+                a.load()
+                    .partial_cmp(&b.load())
+                    .unwrap_or(std::cmp::Ordering::Equal)
             });
         }
 
-        debug!("Found {} suitable agents for task {}", 
-               suitable_agents.len(), task.id);
+        debug!(
+            "Found {} suitable agents for task {}",
+            suitable_agents.len(),
+            task.id
+        );
 
         Ok(suitable_agents)
     }
@@ -235,10 +257,10 @@ impl<R: AgentRegistry> AgentDispatcher<R> {
     /// Vector of task results in the same order as input tasks.
     pub async fn dispatch_tasks(&self, tasks: Vec<Task>) -> Vec<Result<TaskResult>> {
         info!("Dispatching {} tasks concurrently", tasks.len());
-        
-        let futures = tasks.into_iter().map(|task| {
-            Box::pin(self.dispatch_task(task))
-        });
+
+        let futures = tasks
+            .into_iter()
+            .map(|task| Box::pin(self.dispatch_task(task)));
 
         futures::future::join_all(futures).await
     }
@@ -247,7 +269,7 @@ impl<R: AgentRegistry> AgentDispatcher<R> {
     pub async fn stats(&self) -> Result<DispatcherStats> {
         let agent_count = self.registry.agent_count().await?;
         let statuses = self.registry.list_agent_statuses().await?;
-        
+
         let total_active_tasks = statuses.iter().map(|s| s.active_tasks).sum();
         let average_load = if !statuses.is_empty() {
             statuses.iter().map(|s| s.load).sum::<f64>() / statuses.len() as f64
@@ -267,7 +289,7 @@ impl<R: AgentRegistry> AgentDispatcher<R> {
     pub async fn health_check(&self) -> Result<bool> {
         // Check registry health
         self.registry.health_check().await?;
-        
+
         // Check if we have any agents registered
         let agent_count = self.registry.agent_count().await?;
         if agent_count == 0 {
@@ -355,10 +377,7 @@ mod tests {
         registry.register_agent(agent).await.unwrap();
 
         // Create and dispatch a trading task
-        let task = Task::new(
-            TaskType::Trading,
-            serde_json::json!({"symbol": "BTC/USD"}),
-        );
+        let task = Task::new(TaskType::Trading, serde_json::json!({"symbol": "BTC/USD"}));
 
         let result = dispatcher.dispatch_task(task).await.unwrap();
         assert!(result.is_success());
@@ -386,7 +405,10 @@ mod tests {
 
         let result = dispatcher.dispatch_task(task).await;
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), AgentError::NoSuitableAgent { .. }));
+        assert!(matches!(
+            result.unwrap_err(),
+            AgentError::NoSuitableAgent { .. }
+        ));
     }
 
     #[tokio::test]
@@ -408,10 +430,7 @@ mod tests {
         });
         registry.register_agent(agent).await.unwrap();
 
-        let task = Task::new(
-            TaskType::Trading,
-            serde_json::json!({"symbol": "BTC/USD"}),
-        );
+        let task = Task::new(TaskType::Trading, serde_json::json!({"symbol": "BTC/USD"}));
 
         // Should retry and eventually return the failure result
         let result = dispatcher.dispatch_task(task).await.unwrap();
@@ -437,14 +456,14 @@ mod tests {
         });
         registry.register_agent(agent).await.unwrap();
 
-        let task = Task::new(
-            TaskType::Trading,
-            serde_json::json!({"symbol": "BTC/USD"}),
-        );
+        let task = Task::new(TaskType::Trading, serde_json::json!({"symbol": "BTC/USD"}));
 
         let result = dispatcher.dispatch_task(task).await;
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), AgentError::TaskTimeout { .. }));
+        assert!(matches!(
+            result.unwrap_err(),
+            AgentError::TaskTimeout { .. }
+        ));
     }
 
     #[tokio::test]

@@ -126,10 +126,7 @@ pub struct Task {
 
 impl Task {
     /// Create a new task with the given type and parameters.
-    pub fn new(
-        task_type: TaskType,
-        parameters: serde_json::Value,
-    ) -> Self {
+    pub fn new(task_type: TaskType, parameters: serde_json::Value) -> Self {
         Self {
             id: Uuid::new_v4().to_string(),
             task_type,
@@ -228,12 +225,20 @@ pub enum TaskResult {
 impl TaskResult {
     /// Create a successful task result.
     pub fn success(data: serde_json::Value, tx_hash: Option<String>, duration: Duration) -> Self {
-        Self::Success { data, tx_hash, duration }
+        Self::Success {
+            data,
+            tx_hash,
+            duration,
+        }
     }
 
     /// Create a failed task result.
     pub fn failure(error: String, retriable: bool, duration: Duration) -> Self {
-        Self::Failure { error, retriable, duration }
+        Self::Failure {
+            error,
+            retriable,
+            duration,
+        }
     }
 
     /// Create a cancelled task result.
@@ -253,7 +258,13 @@ impl TaskResult {
 
     /// Check if the result represents a retriable failure.
     pub fn is_retriable(&self) -> bool {
-        matches!(self, TaskResult::Failure { retriable: true, .. })
+        matches!(
+            self,
+            TaskResult::Failure {
+                retriable: true,
+                ..
+            }
+        )
     }
 
     /// Get the data from a successful result.
@@ -318,11 +329,7 @@ impl AgentMessage {
     }
 
     /// Create a broadcast message (no specific recipient).
-    pub fn broadcast(
-        from: AgentId,
-        message_type: String,
-        payload: serde_json::Value,
-    ) -> Self {
+    pub fn broadcast(from: AgentId, message_type: String, payload: serde_json::Value) -> Self {
         Self::new(from, None, message_type, payload)
     }
 
@@ -377,8 +384,12 @@ impl RoutingRule {
             RoutingRule::Capability(capability) => capabilities.contains(capability),
             RoutingRule::Agent(target_agent) => target_agent == agent_id,
             RoutingRule::Priority(priority) => task.priority >= *priority,
-            RoutingRule::All(rules) => rules.iter().all(|rule| rule.matches(task, agent_id, capabilities)),
-            RoutingRule::Any(rules) => rules.iter().any(|rule| rule.matches(task, agent_id, capabilities)),
+            RoutingRule::All(rules) => rules
+                .iter()
+                .all(|rule| rule.matches(task, agent_id, capabilities)),
+            RoutingRule::Any(rules) => rules
+                .iter()
+                .any(|rule| rule.matches(task, agent_id, capabilities)),
             // These routing strategies require external context
             RoutingRule::RoundRobin | RoutingRule::LeastLoaded | RoutingRule::Custom(_) => false,
         }
@@ -459,7 +470,7 @@ mod tests {
         let id1 = AgentId::new("test-agent");
         let id2 = AgentId::from("test-agent");
         let id3: AgentId = "test-agent".into();
-        
+
         assert_eq!(id1, id2);
         assert_eq!(id2, id3);
         assert_eq!(id1.as_str(), "test-agent");
@@ -469,7 +480,7 @@ mod tests {
     fn test_agent_id_generation() {
         let id1 = AgentId::generate();
         let id2 = AgentId::generate();
-        
+
         assert_ne!(id1, id2);
         assert!(!id1.as_str().is_empty());
     }
@@ -480,7 +491,7 @@ mod tests {
             TaskType::Trading,
             serde_json::json!({"symbol": "BTC/USD", "action": "buy"}),
         );
-        
+
         assert_eq!(task.task_type, TaskType::Trading);
         assert_eq!(task.priority, Priority::Normal);
         assert_eq!(task.retry_count, 0);
@@ -496,19 +507,21 @@ mod tests {
             .with_max_retries(5)
             .with_deadline(deadline)
             .with_metadata("source", serde_json::json!("external"));
-        
+
         assert_eq!(task.priority, Priority::High);
         assert_eq!(task.timeout, Some(Duration::from_secs(30)));
         assert_eq!(task.max_retries, 5);
         assert_eq!(task.deadline, Some(deadline));
-        assert_eq!(task.metadata.get("source"), Some(&serde_json::json!("external")));
+        assert_eq!(
+            task.metadata.get("source"),
+            Some(&serde_json::json!("external"))
+        );
     }
 
     #[test]
     fn test_task_retry_logic() {
-        let mut task = Task::new(TaskType::Trading, serde_json::json!({}))
-            .with_max_retries(2);
-        
+        let mut task = Task::new(TaskType::Trading, serde_json::json!({})).with_max_retries(2);
+
         assert!(task.can_retry());
         task.increment_retry();
         assert!(task.can_retry());
@@ -545,14 +558,14 @@ mod tests {
     fn test_agent_message_creation() {
         let from = AgentId::new("agent1");
         let to = AgentId::new("agent2");
-        
+
         let message = AgentMessage::new(
             from.clone(),
             Some(to.clone()),
             "task_update".to_string(),
             serde_json::json!({"status": "completed"}),
         );
-        
+
         assert_eq!(message.from, from);
         assert_eq!(message.to, Some(to));
         assert_eq!(message.message_type, "task_update");
@@ -567,7 +580,7 @@ mod tests {
             "system_alert".to_string(),
             serde_json::json!({"alert": "high_volatility"}),
         );
-        
+
         assert_eq!(message.from, from);
         assert_eq!(message.to, None);
         assert_eq!(message.message_type, "system_alert");
@@ -575,32 +588,34 @@ mod tests {
 
     #[test]
     fn test_routing_rule_matching() {
-        let task = Task::new(TaskType::Trading, serde_json::json!({}))
-            .with_priority(Priority::High);
+        let task =
+            Task::new(TaskType::Trading, serde_json::json!({})).with_priority(Priority::High);
         let agent_id = AgentId::new("trading-agent");
         let capabilities = vec!["trading".to_string(), "risk_management".to_string()];
-        
+
         let task_type_rule = RoutingRule::TaskType(TaskType::Trading);
         assert!(task_type_rule.matches(&task, &agent_id, &capabilities));
-        
+
         let capability_rule = RoutingRule::Capability("trading".to_string());
         assert!(capability_rule.matches(&task, &agent_id, &capabilities));
-        
+
         let priority_rule = RoutingRule::Priority(Priority::Normal);
         assert!(priority_rule.matches(&task, &agent_id, &capabilities));
-        
+
         let agent_rule = RoutingRule::Agent(agent_id.clone());
         assert!(agent_rule.matches(&task, &agent_id, &capabilities));
-        
+
         let all_rule = RoutingRule::All(vec![task_type_rule, capability_rule]);
         assert!(all_rule.matches(&task, &agent_id, &capabilities));
     }
 
     #[test]
     fn test_capability_creation() {
-        let capability = Capability::new("trading", "1.0")
-            .with_parameter("supported_exchanges", serde_json::json!(["binance", "coinbase"]));
-        
+        let capability = Capability::new("trading", "1.0").with_parameter(
+            "supported_exchanges",
+            serde_json::json!(["binance", "coinbase"]),
+        );
+
         assert_eq!(capability.name, "trading");
         assert_eq!(capability.version, "1.0");
         assert!(capability.parameters.contains_key("supported_exchanges"));
@@ -616,6 +631,9 @@ mod tests {
     #[test]
     fn test_task_type_display() {
         assert_eq!(TaskType::Trading.to_string(), "trading");
-        assert_eq!(TaskType::Custom("arbitrage".to_string()).to_string(), "custom:arbitrage");
+        assert_eq!(
+            TaskType::Custom("arbitrage".to_string()).to_string(),
+            "custom:arbitrage"
+        );
     }
 }

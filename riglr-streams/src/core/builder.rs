@@ -1,12 +1,12 @@
-use std::sync::Arc;
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 use tracing::info;
 
-use crate::core::{StreamManager, HandlerExecutionMode, MetricsCollector, Stream};
-use crate::solana::geyser::{SolanaGeyserStream, GeyserConfig};
-use crate::evm::websocket::{EvmWebSocketStream, EvmStreamConfig, ChainId};
-use crate::external::binance::{BinanceStream, BinanceConfig};
-use crate::external::mempool::{MempoolSpaceStream, MempoolConfig, BitcoinNetwork};
+use crate::core::{HandlerExecutionMode, MetricsCollector, Stream, StreamManager};
+use crate::evm::websocket::{ChainId, EvmStreamConfig, EvmWebSocketStream};
+use crate::external::binance::{BinanceConfig, BinanceStream};
+use crate::external::mempool::{BitcoinNetwork, MempoolConfig, MempoolSpaceStream};
+use crate::solana::geyser::{GeyserConfig, SolanaGeyserStream};
 
 /// Configuration for a stream
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -48,44 +48,44 @@ impl StreamManagerBuilder {
             metrics_collector: None,
         }
     }
-    
+
     /// Set the handler execution mode
     pub fn with_execution_mode(mut self, mode: HandlerExecutionMode) -> Self {
         self.execution_mode = mode;
         self
     }
-    
+
     /// Enable or disable metrics collection
     pub fn with_metrics(mut self, enable: bool) -> Self {
         self.enable_metrics = enable;
         self
     }
-    
+
     /// Use a custom metrics collector
     pub fn with_metrics_collector(mut self, collector: Arc<MetricsCollector>) -> Self {
         self.metrics_collector = Some(collector);
         self.enable_metrics = true;
         self
     }
-    
+
     /// Add a stream configuration
     pub fn add_stream(mut self, config: StreamConfig) -> Self {
         self.streams.push(config);
         self
     }
-    
+
     /// Load configuration from a TOML file
     pub async fn from_toml_file(mut self, path: &str) -> Result<Self, Box<dyn std::error::Error>> {
         let contents = tokio::fs::read_to_string(path).await?;
         let config: StreamManagerConfig = toml::from_str(&contents)?;
-        
+
         self.execution_mode = config.execution_mode.unwrap_or(self.execution_mode);
         self.enable_metrics = config.enable_metrics.unwrap_or(self.enable_metrics);
         self.streams.extend(config.streams);
-        
+
         Ok(self)
     }
-    
+
     /// Load configuration from environment variables
     pub fn from_env(mut self) -> Result<Self, Box<dyn std::error::Error>> {
         // Load execution mode from env
@@ -103,14 +103,14 @@ impl StreamManagerBuilder {
                 _ => self.execution_mode,
             };
         }
-        
+
         // Load Solana Geyser configuration
         if let Ok(ws_url) = std::env::var("SOLANA_GEYSER_WS_URL") {
             let program_ids: Vec<String> = std::env::var("SOLANA_GEYSER_PROGRAMS")
                 .ok()
                 .map(|s| s.split(',').map(String::from).collect())
                 .unwrap_or_default();
-            
+
             self.streams.push(StreamConfig::SolanaGeyser {
                 name: "solana-geyser".to_string(),
                 config: GeyserConfig {
@@ -121,7 +121,7 @@ impl StreamManagerBuilder {
                 },
             });
         }
-        
+
         // Load EVM configurations
         for chain_id in [1, 137, 56, 42161, 10, 43114, 8453] {
             if let Ok(ws_url) = std::env::var(format!("EVM_WS_URL_{}", chain_id)) {
@@ -135,7 +135,7 @@ impl StreamManagerBuilder {
                     8453 => ChainId::Base,
                     _ => continue,
                 };
-                
+
                 self.streams.push(StreamConfig::EvmWebSocket {
                     name: format!("evm-{}", chain_id),
                     config: EvmStreamConfig {
@@ -149,7 +149,7 @@ impl StreamManagerBuilder {
                 });
             }
         }
-        
+
         // Load Binance configuration
         if let Ok(streams) = std::env::var("BINANCE_STREAMS") {
             let streams: Vec<String> = streams.split(',').map(String::from).collect();
@@ -157,7 +157,7 @@ impl StreamManagerBuilder {
                 .ok()
                 .and_then(|s| s.parse().ok())
                 .unwrap_or(false);
-            
+
             self.streams.push(StreamConfig::Binance {
                 name: "binance".to_string(),
                 config: BinanceConfig {
@@ -167,7 +167,7 @@ impl StreamManagerBuilder {
                 },
             });
         }
-        
+
         // Load Mempool.space configuration
         if std::env::var("MEMPOOL_ENABLED").is_ok() {
             let network = match std::env::var("MEMPOOL_NETWORK").as_deref() {
@@ -175,7 +175,7 @@ impl StreamManagerBuilder {
                 Ok("signet") => BitcoinNetwork::Signet,
                 _ => BitcoinNetwork::Mainnet,
             };
-            
+
             self.streams.push(StreamConfig::MempoolSpace {
                 name: "mempool".to_string(),
                 config: MempoolConfig {
@@ -187,21 +187,22 @@ impl StreamManagerBuilder {
                 },
             });
         }
-        
+
         Ok(self)
     }
-    
+
     /// Build the StreamManager with all configured streams
     pub async fn build(self) -> Result<StreamManager, Box<dyn std::error::Error>> {
         let manager = StreamManager::with_execution_mode(self.execution_mode);
-        
+
         // Set up metrics collector if enabled
         let metrics = if self.enable_metrics {
-            self.metrics_collector.or_else(|| Some(Arc::new(MetricsCollector::new())))
+            self.metrics_collector
+                .or_else(|| Some(Arc::new(MetricsCollector::new())))
         } else {
             None
         };
-        
+
         // Create and add all configured streams
         for stream_config in self.streams {
             match stream_config {
@@ -231,7 +232,7 @@ impl StreamManagerBuilder {
                 }
             }
         }
-        
+
         // Start periodic metrics updates if enabled
         if let Some(metrics) = metrics {
             let metrics_clone = metrics.clone();
@@ -243,7 +244,7 @@ impl StreamManagerBuilder {
                 }
             });
         }
-        
+
         Ok(manager)
     }
 }
@@ -265,21 +266,21 @@ pub struct StreamManagerConfig {
 /// Helper to load and build a StreamManager from a TOML file
 pub async fn from_config_file(path: &str) -> Result<StreamManager, Box<dyn std::error::Error>> {
     StreamManagerBuilder::new()
-        .from_toml_file(path).await?
-        .build().await
+        .from_toml_file(path)
+        .await?
+        .build()
+        .await
 }
 
 /// Helper to load and build a StreamManager from environment variables
 pub async fn from_env() -> Result<StreamManager, Box<dyn std::error::Error>> {
-    StreamManagerBuilder::new()
-        .from_env()?
-        .build().await
+    StreamManagerBuilder::new().from_env()?.build().await
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[tokio::test]
     async fn test_builder_basic() {
         let manager = StreamManagerBuilder::new()
@@ -288,10 +289,10 @@ mod tests {
             .build()
             .await
             .unwrap();
-        
+
         assert_eq!(manager.list_streams().await.len(), 0);
     }
-    
+
     #[tokio::test]
     async fn test_builder_with_stream() {
         let config = StreamConfig::Binance {
@@ -302,13 +303,13 @@ mod tests {
                 buffer_size: 1000,
             },
         };
-        
+
         let _manager = StreamManagerBuilder::new()
             .add_stream(config)
             .with_metrics(false)
             .build()
             .await;
-        
+
         // Note: This will fail to connect in test environment but validates the builder
     }
 }

@@ -1,9 +1,9 @@
 use borsh::BorshDeserialize;
+use chrono::{DateTime, Utc};
+use riglr_events_core::{Event, EventKind, EventMetadata as CoreEventMetadata};
 use serde::{Deserialize, Serialize};
 use solana_sdk::pubkey::Pubkey;
-use riglr_events_core::{Event, EventKind, EventMetadata as CoreEventMetadata};
 use std::any::Any;
-use chrono::{DateTime, Utc};
 use std::collections::HashMap;
 
 use crate::types::EventMetadata;
@@ -41,16 +41,14 @@ impl Event for RaydiumCpmmSwapEvent {
 
     fn metadata(&self) -> &CoreEventMetadata {
         use once_cell::sync::Lazy;
-        static DEFAULT_METADATA: Lazy<CoreEventMetadata> = Lazy::new(|| {
-            CoreEventMetadata {
-                id: String::new(),
-                kind: EventKind::Swap,
-                timestamp: DateTime::<Utc>::MIN_UTC,
-                received_at: DateTime::<Utc>::MIN_UTC,
-                source: String::from("solana"),
-                chain_data: None,
-                custom: HashMap::new(),
-            }
+        static DEFAULT_METADATA: Lazy<CoreEventMetadata> = Lazy::new(|| CoreEventMetadata {
+            id: String::new(),
+            kind: EventKind::Swap,
+            timestamp: DateTime::<Utc>::MIN_UTC,
+            received_at: DateTime::<Utc>::MIN_UTC,
+            source: String::from("solana"),
+            chain_data: None,
+            custom: HashMap::new(),
         });
         &DEFAULT_METADATA
     }
@@ -59,8 +57,6 @@ impl Event for RaydiumCpmmSwapEvent {
         // This would need proper implementation with actual mutable metadata storage
         unimplemented!("Mutable metadata not yet implemented")
     }
-
-
 
     fn as_any(&self) -> &dyn Any {
         self
@@ -100,16 +96,14 @@ impl Event for RaydiumCpmmDepositEvent {
 
     fn metadata(&self) -> &CoreEventMetadata {
         use once_cell::sync::Lazy;
-        static DEFAULT_METADATA: Lazy<CoreEventMetadata> = Lazy::new(|| {
-            CoreEventMetadata {
-                id: String::new(),
-                kind: EventKind::Liquidity,
-                timestamp: DateTime::<Utc>::MIN_UTC,
-                received_at: DateTime::<Utc>::MIN_UTC,
-                source: String::from("solana"),
-                chain_data: None,
-                custom: HashMap::new(),
-            }
+        static DEFAULT_METADATA: Lazy<CoreEventMetadata> = Lazy::new(|| CoreEventMetadata {
+            id: String::new(),
+            kind: EventKind::Liquidity,
+            timestamp: DateTime::<Utc>::MIN_UTC,
+            received_at: DateTime::<Utc>::MIN_UTC,
+            source: String::from("solana"),
+            chain_data: None,
+            custom: HashMap::new(),
         });
         &DEFAULT_METADATA
     }
@@ -118,8 +112,6 @@ impl Event for RaydiumCpmmDepositEvent {
         // This would need proper implementation with actual mutable metadata storage
         unimplemented!("Mutable metadata not yet implemented")
     }
-
-
 
     fn as_any(&self) -> &dyn Any {
         self
@@ -139,11 +131,17 @@ pub mod discriminators {
     // Event discriminators - more efficient string identifiers
     pub const SWAP_EVENT: &str = "raydium_cpmm_swap_event";
     pub const DEPOSIT_EVENT: &str = "raydium_cpmm_deposit_event";
-    
+
     // Raw event discriminators as byte arrays for efficient parsing
-    pub const SWAP_EVENT_BYTES: &[u8] = &[0xe4, 0x45, 0xa5, 0x2e, 0x51, 0xcb, 0x9a, 0x1d, 0x0a, 0x11, 0xa9, 0xd2, 0xbe, 0x8b, 0x72, 0xb1];
-    pub const DEPOSIT_EVENT_BYTES: &[u8] = &[0xe4, 0x45, 0xa5, 0x2e, 0x51, 0xcb, 0x9a, 0x1d, 0x0b, 0x11, 0xa9, 0xd2, 0xbe, 0x8b, 0x72, 0xb2];
-    
+    pub const SWAP_EVENT_BYTES: &[u8] = &[
+        0xe4, 0x45, 0xa5, 0x2e, 0x51, 0xcb, 0x9a, 0x1d, 0x0a, 0x11, 0xa9, 0xd2, 0xbe, 0x8b, 0x72,
+        0xb1,
+    ];
+    pub const DEPOSIT_EVENT_BYTES: &[u8] = &[
+        0xe4, 0x45, 0xa5, 0x2e, 0x51, 0xcb, 0x9a, 0x1d, 0x0b, 0x11, 0xa9, 0xd2, 0xbe, 0x8b, 0x72,
+        0xb2,
+    ];
+
     // Instruction discriminators
     pub const SWAP_BASE_INPUT_IX: &[u8] = &[143, 190, 90, 218, 196, 30, 51, 222];
     pub const SWAP_BASE_OUTPUT_IX: &[u8] = &[55, 217, 98, 86, 163, 74, 180, 175];

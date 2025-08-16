@@ -11,7 +11,7 @@
 
 pub mod server;
 
-pub use server::{ServerConfig, start_axum};
+pub use server::{start_axum, ServerConfig};
 
 #[cfg(feature = "actix")]
 pub use server::start_actix;

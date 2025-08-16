@@ -74,7 +74,6 @@ pub struct ValidationConfig {
     pub patterns: HashMap<String, String>,
 }
 
-
 impl ValidationConfig {
     /// Add a required field
     pub fn with_required(mut self, field: String) -> Self {
@@ -177,7 +176,10 @@ impl JsonEventParser {
         for required_field in &self.config.validation.required_fields {
             if !obj.contains_key(required_field) {
                 return Err(EventError::parse_error(
-                    std::io::Error::new(std::io::ErrorKind::InvalidData, format!("Missing required field: {}", required_field)),
+                    std::io::Error::new(
+                        std::io::ErrorKind::InvalidData,
+                        format!("Missing required field: {}", required_field),
+                    ),
                     format!("Required field '{}' is missing", required_field),
                 ));
             }
@@ -197,10 +199,13 @@ impl JsonEventParser {
 
                 if actual_type != expected_type {
                     return Err(EventError::parse_error(
-                        std::io::Error::new(std::io::ErrorKind::InvalidData, format!(
-                            "Type mismatch for field '{}': expected {}, got {}",
-                            field, expected_type, actual_type
-                        )),
+                        std::io::Error::new(
+                            std::io::ErrorKind::InvalidData,
+                            format!(
+                                "Type mismatch for field '{}': expected {}, got {}",
+                                field, expected_type, actual_type
+                            ),
+                        ),
                         format!("Field '{}' has wrong type", field),
                     ));
                 }
@@ -213,10 +218,13 @@ impl JsonEventParser {
                 if let Some(num) = value.as_f64() {
                     if num < *min_value {
                         return Err(EventError::parse_error(
-                            std::io::Error::new(std::io::ErrorKind::InvalidData, format!(
-                                "Value {} for field '{}' is below minimum {}",
-                                num, field, min_value
-                            )),
+                            std::io::Error::new(
+                                std::io::ErrorKind::InvalidData,
+                                format!(
+                                    "Value {} for field '{}' is below minimum {}",
+                                    num, field, min_value
+                                ),
+                            ),
                             format!("Field '{}' value too small", field),
                         ));
                     }
@@ -229,10 +237,13 @@ impl JsonEventParser {
                 if let Some(num) = value.as_f64() {
                     if num > *max_value {
                         return Err(EventError::parse_error(
-                            std::io::Error::new(std::io::ErrorKind::InvalidData, format!(
-                                "Value {} for field '{}' is above maximum {}",
-                                num, field, max_value
-                            )),
+                            std::io::Error::new(
+                                std::io::ErrorKind::InvalidData,
+                                format!(
+                                    "Value {} for field '{}' is above maximum {}",
+                                    num, field, max_value
+                                ),
+                            ),
                             format!("Field '{}' value too large", field),
                         ));
                     }
@@ -247,10 +258,13 @@ impl JsonEventParser {
                     // Simple pattern matching - in production, use regex crate
                     if !string_value.contains(pattern) {
                         return Err(EventError::parse_error(
-                            std::io::Error::new(std::io::ErrorKind::InvalidData, format!(
-                                "String '{}' for field '{}' doesn't match pattern '{}'",
-                                string_value, field, pattern
-                            )),
+                            std::io::Error::new(
+                                std::io::ErrorKind::InvalidData,
+                                format!(
+                                    "String '{}' for field '{}' doesn't match pattern '{}'",
+                                    string_value, field, pattern
+                                ),
+                            ),
                             format!("Field '{}' doesn't match pattern", field),
                         ));
                     }
@@ -280,7 +294,8 @@ impl EventParser for JsonEventParser {
             .map(|s| s.to_string())
             .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
 
-        let metadata = EventMetadata::new(event_id, self.event_kind.clone(), self.source_name.clone());
+        let metadata =
+            EventMetadata::new(event_id, self.event_kind.clone(), self.source_name.clone());
 
         // Create the event
         let event = GenericEvent::with_metadata(metadata, mapped_data);
@@ -361,7 +376,9 @@ impl EventParser for MultiFormatParser {
 
     fn can_parse(&self, input: &Self::Input) -> bool {
         let format = self.detect_format(input);
-        self.parsers.get(&format).is_some_and(|p| p.can_parse(input))
+        self.parsers
+            .get(&format)
+            .is_some_and(|p| p.can_parse(input))
     }
 
     fn info(&self) -> ParserInfo {
@@ -399,7 +416,8 @@ impl EventParser for BinaryEventParser {
     async fn parse(&self, input: Self::Input) -> EventResult<Vec<Box<dyn Event>>> {
         // Create metadata for binary data
         let event_id = format!("binary_{}", uuid::Uuid::new_v4());
-        let metadata = EventMetadata::new(event_id, self.event_kind.clone(), self.source_name.clone());
+        let metadata =
+            EventMetadata::new(event_id, self.event_kind.clone(), self.source_name.clone());
 
         // Convert binary data to hex representation for storage
         let hex_data = hex::encode(&input);
@@ -428,8 +446,8 @@ impl EventParser for BinaryEventParser {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde_json::json;
     use crate::types::EventKind;
+    use serde_json::json;
 
     #[tokio::test]
     async fn test_json_parser_basic() {
@@ -442,7 +460,8 @@ mod tests {
         .with_mapping("token".to_string(), "transaction.token".to_string())
         .with_default("fee".to_string(), 0.01);
 
-        let parser = JsonEventParser::new(config, EventKind::Transaction, "test-source".to_string());
+        let parser =
+            JsonEventParser::new(config, EventKind::Transaction, "test-source".to_string());
 
         let input = json!({
             "transaction": {
@@ -473,7 +492,8 @@ mod tests {
                 .with_range("amount".to_string(), 0.0, 1000.0),
         );
 
-        let parser = JsonEventParser::new(config, EventKind::Transaction, "test-source".to_string());
+        let parser =
+            JsonEventParser::new(config, EventKind::Transaction, "test-source".to_string());
 
         // Test missing required field
         let input = json!({"other": "value"});
@@ -502,7 +522,7 @@ mod tests {
 
         let input = vec![0x01, 0x02, 0x03, 0x04];
         let events = parser.parse(input.clone()).await.unwrap();
-        
+
         assert_eq!(events.len(), 1);
         let event = &events[0];
         assert_eq!(event.kind(), &EventKind::Contract);
@@ -511,18 +531,15 @@ mod tests {
 
     #[test]
     fn test_parsing_config_builder() {
-        let config = ParsingConfig::new(
-            "test".to_string(),
-            "1.0.0".to_string(),
-            "json".to_string(),
-        )
-        .with_mapping("field1".to_string(), "source.field1".to_string())
-        .with_default("field2".to_string(), "default_value")
-        .with_validation(
-            ValidationConfig::default()
-                .with_required("field1".to_string())
-                .with_type("field1".to_string(), "string".to_string()),
-        );
+        let config =
+            ParsingConfig::new("test".to_string(), "1.0.0".to_string(), "json".to_string())
+                .with_mapping("field1".to_string(), "source.field1".to_string())
+                .with_default("field2".to_string(), "default_value")
+                .with_validation(
+                    ValidationConfig::default()
+                        .with_required("field1".to_string())
+                        .with_type("field1".to_string(), "string".to_string()),
+                );
 
         assert_eq!(config.field_mappings.len(), 1);
         assert_eq!(config.defaults.len(), 1);

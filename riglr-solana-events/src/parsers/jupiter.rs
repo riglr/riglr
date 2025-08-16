@@ -1,13 +1,13 @@
 //! High-performance Jupiter aggregator parser for complex swap routing analysis
-//! 
+//!
 //! This parser handles Jupiter protocol operations with optimized parsing for
 //! multi-hop swaps and complex routing instructions.
 
-use std::sync::Arc;
+use crate::types::{EventMetadata, EventType, ProtocolType};
+use crate::zero_copy::{ByteSliceEventParser, CustomDeserializer, ParseError, ZeroCopyEvent};
 use borsh::{BorshDeserialize, BorshSerialize};
 use solana_sdk::pubkey::Pubkey;
-use crate::zero_copy::{ByteSliceEventParser, ParseError, CustomDeserializer, ZeroCopyEvent};
-use crate::types::{EventMetadata, EventType, ProtocolType};
+use std::sync::Arc;
 // UnifiedEvent trait has been removed
 
 /// Jupiter aggregator program ID
@@ -148,7 +148,9 @@ impl JupiterParser {
     /// Create new Jupiter parser with full analysis
     pub fn new() -> Self {
         Self {
-            program_id: JUPITER_PROGRAM_ID.parse().expect("Valid Jupiter program ID"),
+            program_id: JUPITER_PROGRAM_ID
+                .parse()
+                .expect("Valid Jupiter program ID"),
             zero_copy: true,
             detailed_analysis: true,
         }
@@ -157,7 +159,9 @@ impl JupiterParser {
     /// Create parser with simplified analysis (faster)
     pub fn new_fast() -> Self {
         Self {
-            program_id: JUPITER_PROGRAM_ID.parse().expect("Valid Jupiter program ID"),
+            program_id: JUPITER_PROGRAM_ID
+                .parse()
+                .expect("Valid Jupiter program ID"),
             zero_copy: true,
             detailed_analysis: false,
         }
@@ -166,7 +170,9 @@ impl JupiterParser {
     /// Create parser with zero-copy disabled
     pub fn new_standard() -> Self {
         Self {
-            program_id: JUPITER_PROGRAM_ID.parse().expect("Valid Jupiter program ID"),
+            program_id: JUPITER_PROGRAM_ID
+                .parse()
+                .expect("Valid Jupiter program ID"),
             zero_copy: false,
             detailed_analysis: true,
         }
@@ -180,36 +186,42 @@ impl JupiterParser {
         metadata: EventMetadata,
     ) -> Result<ZeroCopyEvent<'a>, ParseError> {
         let mut deserializer = CustomDeserializer::new(data);
-        
+
         // Skip discriminator (8 bytes)
         deserializer.skip(8)?;
-        
+
         // Parse basic route parameters
         let amount_in = deserializer.read_u64_le()?;
         let minimum_amount_out = deserializer.read_u64_le()?;
-        
+
         // Try to read platform fee (may not be present in all versions)
         let platform_fee_bps = if deserializer.remaining() >= 2 {
             (deserializer.read_u32_le()? & 0xFFFF) as u16
         } else {
             0
         };
-        
+
         let mut event = if self.zero_copy {
             ZeroCopyEvent::new_borrowed(metadata, data)
         } else {
             ZeroCopyEvent::new_owned(metadata, data.to_vec())
         };
-        
+
         let instruction_data = JupiterRouteInstruction {
             amount_in,
             minimum_amount_out,
             platform_fee_bps,
         };
-        
+
         // Perform route analysis if enabled
         let analysis = if self.detailed_analysis {
-            self.analyze_route(data, discriminator, amount_in, minimum_amount_out, platform_fee_bps)?
+            self.analyze_route(
+                data,
+                discriminator,
+                amount_in,
+                minimum_amount_out,
+                platform_fee_bps,
+            )?
         } else {
             JupiterRouteAnalysis {
                 instruction_type: format!("{:?}", discriminator),
@@ -220,14 +232,14 @@ impl JupiterParser {
                 hops: Vec::new(),
             }
         };
-        
+
         // Store combined data
         let combined_data = JupiterRouteData {
             instruction: instruction_data,
             analysis: analysis.clone(),
         };
         event.set_parsed_data(combined_data);
-        
+
         let json = serde_json::json!({
             "instruction_type": analysis.instruction_type,
             "total_amount_in": analysis.total_amount_in.to_string(),
@@ -237,7 +249,7 @@ impl JupiterParser {
             "protocol": "jupiter"
         });
         event.set_json_data(json);
-        
+
         Ok(event)
     }
 
@@ -249,34 +261,40 @@ impl JupiterParser {
         metadata: EventMetadata,
     ) -> Result<ZeroCopyEvent<'a>, ParseError> {
         let mut deserializer = CustomDeserializer::new(data);
-        
+
         // Skip discriminator (8 bytes)
         deserializer.skip(8)?;
-        
+
         let max_amount_in = deserializer.read_u64_le()?;
         let amount_out = deserializer.read_u64_le()?;
-        
+
         let platform_fee_bps = if deserializer.remaining() >= 2 {
             (deserializer.read_u32_le()? & 0xFFFF) as u16
         } else {
             0
         };
-        
+
         let mut event = if self.zero_copy {
             ZeroCopyEvent::new_borrowed(metadata, data)
         } else {
             ZeroCopyEvent::new_owned(metadata, data.to_vec())
         };
-        
+
         let instruction_data = JupiterExactOutRouteInstruction {
             max_amount_in,
             amount_out,
             platform_fee_bps,
         };
         event.set_parsed_data(instruction_data);
-        
+
         let analysis = if self.detailed_analysis {
-            self.analyze_route(data, discriminator, max_amount_in, amount_out, platform_fee_bps)?
+            self.analyze_route(
+                data,
+                discriminator,
+                max_amount_in,
+                amount_out,
+                platform_fee_bps,
+            )?
         } else {
             JupiterRouteAnalysis {
                 instruction_type: format!("{:?}", discriminator),
@@ -287,7 +305,7 @@ impl JupiterParser {
                 hops: Vec::new(),
             }
         };
-        
+
         let json = serde_json::json!({
             "instruction_type": analysis.instruction_type,
             "max_amount_in": analysis.total_amount_in.to_string(),
@@ -297,7 +315,7 @@ impl JupiterParser {
             "protocol": "jupiter"
         });
         event.set_json_data(json);
-        
+
         Ok(event)
     }
 
@@ -313,24 +331,28 @@ impl JupiterParser {
         // In a full implementation, this would parse the route structure
         // including all the accounts and intermediate hops.
         // For now, we provide a simplified analysis.
-        
+
         let instruction_type = match discriminator {
             JupiterDiscriminator::Route => "route".to_string(),
             JupiterDiscriminator::RouteWithTokenLedger => "route_with_token_ledger".to_string(),
             JupiterDiscriminator::ExactOutRoute => "exact_out_route".to_string(),
             JupiterDiscriminator::SharedAccountsRoute => "shared_accounts_route".to_string(),
-            JupiterDiscriminator::SharedAccountsRouteWithTokenLedger => "shared_accounts_route_with_token_ledger".to_string(),
-            JupiterDiscriminator::SharedAccountsExactOutRoute => "shared_accounts_exact_out_route".to_string(),
+            JupiterDiscriminator::SharedAccountsRouteWithTokenLedger => {
+                "shared_accounts_route_with_token_ledger".to_string()
+            }
+            JupiterDiscriminator::SharedAccountsExactOutRoute => {
+                "shared_accounts_exact_out_route".to_string()
+            }
         };
-        
+
         // Estimate hop count based on instruction type
         let hop_count = match discriminator {
-            JupiterDiscriminator::SharedAccountsRoute |
-            JupiterDiscriminator::SharedAccountsRouteWithTokenLedger |
-            JupiterDiscriminator::SharedAccountsExactOutRoute => 3, // Multi-hop routes
+            JupiterDiscriminator::SharedAccountsRoute
+            | JupiterDiscriminator::SharedAccountsRouteWithTokenLedger
+            | JupiterDiscriminator::SharedAccountsExactOutRoute => 3, // Multi-hop routes
             _ => 1, // Single hop routes
         };
-        
+
         Ok(JupiterRouteAnalysis {
             instruction_type,
             total_amount_in: amount_in,
@@ -357,27 +379,28 @@ impl ByteSliceEventParser for JupiterParser {
 
         // Update metadata with protocol info
         metadata.protocol_type = ProtocolType::Jupiter;
-        
+
         // Parse discriminator from first 8 bytes
-        let discriminator = JupiterDiscriminator::from_bytes(&data[0..8])
-            .ok_or_else(|| ParseError::UnknownDiscriminator { 
-                discriminator: data[0..8].to_vec() 
-            })?;
+        let discriminator = JupiterDiscriminator::from_bytes(&data[0..8]).ok_or_else(|| {
+            ParseError::UnknownDiscriminator {
+                discriminator: data[0..8].to_vec(),
+            }
+        })?;
 
         // Update event type
         metadata.event_type = discriminator.event_type();
 
         let event = match discriminator {
-            JupiterDiscriminator::Route |
-            JupiterDiscriminator::RouteWithTokenLedger |
-            JupiterDiscriminator::SharedAccountsRoute |
-            JupiterDiscriminator::SharedAccountsRouteWithTokenLedger => {
+            JupiterDiscriminator::Route
+            | JupiterDiscriminator::RouteWithTokenLedger
+            | JupiterDiscriminator::SharedAccountsRoute
+            | JupiterDiscriminator::SharedAccountsRouteWithTokenLedger => {
                 self.parse_route(data, discriminator, metadata)?
-            },
-            JupiterDiscriminator::ExactOutRoute |
-            JupiterDiscriminator::SharedAccountsExactOutRoute => {
+            }
+            JupiterDiscriminator::ExactOutRoute
+            | JupiterDiscriminator::SharedAccountsExactOutRoute => {
                 self.parse_exact_out_route(data, discriminator, metadata)?
-            },
+            }
         };
 
         Ok(vec![event])
@@ -387,7 +410,7 @@ impl ByteSliceEventParser for JupiterParser {
         if data.len() < 8 {
             return false;
         }
-        
+
         JupiterDiscriminator::from_bytes(&data[0..8]).is_some()
     }
 
@@ -425,31 +448,34 @@ mod tests {
     fn test_discriminator_parsing() {
         let route_discriminator = [229, 23, 203, 151, 122, 227, 173, 42];
         assert_eq!(
-            JupiterDiscriminator::from_bytes(&route_discriminator), 
+            JupiterDiscriminator::from_bytes(&route_discriminator),
             Some(JupiterDiscriminator::Route)
         );
-        
+
         let invalid_discriminator = [0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF];
-        assert_eq!(JupiterDiscriminator::from_bytes(&invalid_discriminator), None);
+        assert_eq!(
+            JupiterDiscriminator::from_bytes(&invalid_discriminator),
+            None
+        );
     }
 
     #[test]
     fn test_route_instruction_parsing() {
         let parser = JupiterParser::new();
-        
+
         let mut data = Vec::new();
         data.extend_from_slice(&[229, 23, 203, 151, 122, 227, 173, 42]); // Route discriminator
         data.extend_from_slice(&1000u64.to_le_bytes()); // amount_in
-        data.extend_from_slice(&950u64.to_le_bytes());  // minimum_amount_out
-        data.extend_from_slice(&50u32.to_le_bytes());   // platform_fee_bps (50 bps = 0.5%)
-        
+        data.extend_from_slice(&950u64.to_le_bytes()); // minimum_amount_out
+        data.extend_from_slice(&50u32.to_le_bytes()); // platform_fee_bps (50 bps = 0.5%)
+
         let metadata = EventMetadata::default();
         let events = parser.parse_from_slice(&data, metadata).unwrap();
-        
+
         assert_eq!(events.len(), 1);
         let event = &events[0];
         assert_eq!(event.protocol_type(), ProtocolType::Jupiter);
-        
+
         // Check combined parsed data
         let combined = event.get_parsed_data::<JupiterRouteData>().unwrap();
         assert_eq!(combined.instruction.amount_in, 1000);
@@ -462,13 +488,13 @@ mod tests {
     #[test]
     fn test_can_parse() {
         let parser = JupiterParser::new();
-        
+
         let valid_data = vec![229, 23, 203, 151, 122, 227, 173, 42, 0, 0]; // Route discriminator
         assert!(parser.can_parse(&valid_data));
-        
+
         let invalid_data = vec![0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF];
         assert!(!parser.can_parse(&invalid_data));
-        
+
         let short_data = vec![229, 23]; // Too short
         assert!(!parser.can_parse(&short_data));
     }
@@ -478,7 +504,7 @@ mod tests {
         let zero_copy_parser = JupiterParserFactory::create_zero_copy();
         let fast_parser = JupiterParserFactory::create_fast();
         let standard_parser = JupiterParserFactory::create_standard();
-        
+
         assert_eq!(zero_copy_parser.protocol_type(), ProtocolType::Jupiter);
         assert_eq!(fast_parser.protocol_type(), ProtocolType::Jupiter);
         assert_eq!(standard_parser.protocol_type(), ProtocolType::Jupiter);

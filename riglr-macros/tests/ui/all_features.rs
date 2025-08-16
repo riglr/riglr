@@ -36,7 +36,7 @@ pub fn sync_fn(input: String) -> Result<String> {
 pub async fn multiple_params(
     /// First parameter documentation
     param1: String,
-    /// Second parameter documentation  
+    /// Second parameter documentation
     param2: i32,
     // Parameter without doc comment
     param3: bool,
@@ -217,14 +217,14 @@ fn main() {
     // Test that convenience functions are generated
     let _tool1 = empty_params_tool();
     let _tool2 = with_docs_tool();
-    
+
     // Test that structs have as_tool method
     let struct_instance = TestStruct {
         field1: "test".to_string(),
         field2: 42,
     };
     let _tool3 = struct_instance.as_tool();
-    
+
     // Test that tool structs implement Default
     let _tool4 = EmptyParamsTool::default();
     let _tool5 = WithDocsTool::new();

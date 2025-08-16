@@ -3,16 +3,12 @@
 //! This example demonstrates how to use riglr-hyperliquid-tools to build
 //! a derivatives trading agent using the rig framework.
 
-use riglr_core::{SignerContext, signer::SignerError, config::SolanaNetworkConfig};
 use riglr_core::signer::LocalSolanaSigner;
+use riglr_core::{config::SolanaNetworkConfig, signer::SignerError, SignerContext};
 use riglr_hyperliquid_tools::{
-    place_hyperliquid_order, 
-    cancel_hyperliquid_order,
-    get_hyperliquid_positions,
-    get_hyperliquid_account_info,
-    close_hyperliquid_position,
+    cancel_hyperliquid_order, close_hyperliquid_position, get_hyperliquid_account_info,
+    get_hyperliquid_portfolio_risk, get_hyperliquid_positions, place_hyperliquid_order,
     set_leverage,
-    get_hyperliquid_portfolio_risk,
 };
 use std::sync::Arc;
 use tracing::{info, Level};
@@ -20,9 +16,7 @@ use tracing::{info, Level};
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Initialize logging
-    tracing_subscriber::fmt()
-        .with_max_level(Level::INFO)
-        .init();
+    tracing_subscriber::fmt().with_max_level(Level::INFO).init();
 
     info!("Starting Hyperliquid perpetual trading example");
 
@@ -58,12 +52,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     info!("No open positions");
                 } else {
                     for (i, position) in positions.iter().enumerate() {
-                        info!("Position {}: {} {} @ {} (PnL: {})", 
-                              i + 1, 
-                              position.size, 
-                              position.symbol,
-                              position.entry_price,
-                              position.unrealized_pnl);
+                        info!(
+                            "Position {}: {} {} @ {} (PnL: {})",
+                            i + 1,
+                            position.size,
+                            position.symbol,
+                            position.entry_price,
+                            position.unrealized_pnl
+                        );
                     }
                 }
             }
@@ -89,7 +85,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             Some("2000.0".to_string()),
             Some(false),
             Some("gtc".to_string()),
-        ).await {
+        )
+        .await
+        {
             Ok(order) => {
                 info!("Order placed successfully!");
                 info!("  Symbol: {}", order.symbol);
@@ -112,17 +110,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             None,
             Some(false),
             None,
-        ).await {
+        )
+        .await
+        {
             Ok(order) => {
-                info!("Market order placed: {} {} {}", order.side, order.size, order.symbol);
+                info!(
+                    "Market order placed: {} {} {}",
+                    order.side, order.size, order.symbol
+                );
                 info!("  Status: {}", order.status);
-                
+
                 // Example 6: Cancel the order (if it's not immediately filled)
                 if let Some(order_id) = order.order_id {
                     info!("\n=== Canceling Order ===");
                     match cancel_hyperliquid_order(order.symbol.clone(), order_id).await {
                         Ok(cancel_result) => {
-                            info!("Cancel result: {} - {}", cancel_result.status, cancel_result.message);
+                            info!(
+                                "Cancel result: {} - {}",
+                                cancel_result.status, cancel_result.message
+                            );
                         }
                         Err(e) => info!("Failed to cancel order: {}", e),
                     }
@@ -139,7 +145,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 info!("  Total Positions: {}", risk.total_positions);
                 info!("  Position Value: {}", risk.total_position_value);
                 info!("  Unrealized PnL: {}", risk.total_unrealized_pnl);
-                info!("  Margin Utilization: {:.2}%", risk.margin_utilization_percent);
+                info!(
+                    "  Margin Utilization: {:.2}%",
+                    risk.margin_utilization_percent
+                );
                 info!("  Max Leverage: {}x", risk.max_leverage);
                 info!("  Positions at Risk: {}", risk.positions_at_risk);
                 info!("  Risk Level: {}", risk.risk_level);
@@ -161,7 +170,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
 
         Ok::<(), SignerError>(())
-    }).await?;
+    })
+    .await?;
 
     info!("Hyperliquid trading example completed successfully!");
     Ok(())

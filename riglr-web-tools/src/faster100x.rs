@@ -216,44 +216,44 @@ pub struct HolderTrendPoint {
 /// Creates a Faster100x API client
 async fn create_faster100x_client() -> Result<WebClient, WebToolError> {
     let config = Faster100xConfig::default();
-    
+
     if config.api_key.is_empty() {
         return Err(WebToolError::Config(
             "FASTER100X_API_KEY environment variable not set".to_string(),
         ));
     }
 
-    let client = WebClient::new()?
-        .with_api_key("faster100x", config.api_key);
-    
+    let client = WebClient::new()?.with_api_key("faster100x", config.api_key);
+
     Ok(client)
 }
 
 /// Validates and normalizes token address format
 fn normalize_token_address(address: &str) -> Result<String, WebToolError> {
     let address = address.trim();
-    
+
     // Basic validation for Ethereum-style addresses
     if address.len() != 42 || !address.starts_with("0x") {
         return Err(WebToolError::Config(
-            "Invalid token address format. Expected 42-character hex string starting with 0x".to_string(),
+            "Invalid token address format. Expected 42-character hex string starting with 0x"
+                .to_string(),
         ));
     }
-    
+
     // Convert to lowercase for consistency
     Ok(address.to_lowercase())
 }
 
 #[tool]
 /// Analyze token holder distribution and concentration risks
-/// 
+///
 /// This tool provides comprehensive analysis of a token's holder distribution,
 /// including concentration risks, whale analysis, and holder categorization.
-/// 
+///
 /// # Arguments
 /// * `token_address` - Token contract address (must be valid hex address)
 /// * `chain` - Blockchain network: "eth", "bsc", "polygon", "arbitrum", "base". Defaults to "eth"
-/// 
+///
 /// # Returns
 /// Detailed holder analysis including distribution metrics and risk assessment
 pub async fn analyze_token_holders(
@@ -262,13 +262,17 @@ pub async fn analyze_token_holders(
 ) -> Result<TokenHolderAnalysis, WebToolError> {
     let chain = chain.unwrap_or_else(|| "eth".to_string());
     let normalized_address = normalize_token_address(&token_address)?;
-    
-    info!("Analyzing token holders for {} on {}", normalized_address, chain);
+
+    info!(
+        "Analyzing token holders for {} on {}",
+        normalized_address, chain
+    );
 
     // Validate chain parameter
     if !["eth", "bsc", "polygon", "arbitrum", "base", "avalanche"].contains(&chain.as_str()) {
         return Err(WebToolError::Config(
-            "Invalid chain. Must be one of: eth, bsc, polygon, arbitrum, base, avalanche".to_string(),
+            "Invalid chain. Must be one of: eth, bsc, polygon, arbitrum, base, avalanche"
+                .to_string(),
         ));
     }
 
@@ -281,31 +285,63 @@ pub async fn analyze_token_holders(
 
     let config = Faster100xConfig::default();
     let url = format!("{}/tokens/{}/holders", config.base_url, normalized_address);
-    
+
     let response_text = client.get_with_params(&url, &params).await?;
 
     let response_data: serde_json::Value = serde_json::from_str(&response_text)
         .map_err(|e| WebToolError::Parsing(format!("Invalid JSON response: {}", e)))?;
-    
+
     let data = response_data
         .get("data")
         .ok_or_else(|| WebToolError::Parsing("Missing 'data' field".to_string()))?;
 
     // Parse basic token info
-    let token_symbol = data.get("symbol").and_then(|v| v.as_str()).unwrap_or("UNKNOWN").to_string();
-    let token_name = data.get("name").and_then(|v| v.as_str()).unwrap_or("Unknown Token").to_string();
-    let total_holders = data.get("total_holders").and_then(|v| v.as_u64()).unwrap_or(0);
-    let unique_holders = data.get("unique_holders").and_then(|v| v.as_u64()).unwrap_or(total_holders);
+    let token_symbol = data
+        .get("symbol")
+        .and_then(|v| v.as_str())
+        .unwrap_or("UNKNOWN")
+        .to_string();
+    let token_name = data
+        .get("name")
+        .and_then(|v| v.as_str())
+        .unwrap_or("Unknown Token")
+        .to_string();
+    let total_holders = data
+        .get("total_holders")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
+    let unique_holders = data
+        .get("unique_holders")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(total_holders);
 
     // Parse distribution data
     let distribution_data = data.get("distribution").unwrap_or(&serde_json::Value::Null);
     let distribution = HolderDistribution {
-        top_1_percent: distribution_data.get("top_1_percent").and_then(|v| v.as_f64()).unwrap_or(0.0),
-        top_5_percent: distribution_data.get("top_5_percent").and_then(|v| v.as_f64()).unwrap_or(0.0),
-        top_10_percent: distribution_data.get("top_10_percent").and_then(|v| v.as_f64()).unwrap_or(0.0),
-        whale_percentage: distribution_data.get("whale_percentage").and_then(|v| v.as_f64()).unwrap_or(0.0),
-        retail_percentage: distribution_data.get("retail_percentage").and_then(|v| v.as_f64()).unwrap_or(0.0),
-        gini_coefficient: distribution_data.get("gini_coefficient").and_then(|v| v.as_f64()).unwrap_or(0.0),
+        top_1_percent: distribution_data
+            .get("top_1_percent")
+            .and_then(|v| v.as_f64())
+            .unwrap_or(0.0),
+        top_5_percent: distribution_data
+            .get("top_5_percent")
+            .and_then(|v| v.as_f64())
+            .unwrap_or(0.0),
+        top_10_percent: distribution_data
+            .get("top_10_percent")
+            .and_then(|v| v.as_f64())
+            .unwrap_or(0.0),
+        whale_percentage: distribution_data
+            .get("whale_percentage")
+            .and_then(|v| v.as_f64())
+            .unwrap_or(0.0),
+        retail_percentage: distribution_data
+            .get("retail_percentage")
+            .and_then(|v| v.as_f64())
+            .unwrap_or(0.0),
+        gini_coefficient: distribution_data
+            .get("gini_coefficient")
+            .and_then(|v| v.as_f64())
+            .unwrap_or(0.0),
         holder_categories: HashMap::new(), // Would be populated from API response
     };
 
@@ -313,21 +349,44 @@ pub async fn analyze_token_holders(
     let mut top_holders = Vec::new();
     if let Some(holders_array) = data.get("top_holders").and_then(|v| v.as_array()) {
         for holder in holders_array.iter().take(10) {
-            let wallet_address = holder.get("address").and_then(|v| v.as_str()).unwrap_or("unknown").to_string();
-            let token_amount = holder.get("balance").and_then(|v| v.as_f64()).unwrap_or(0.0);
-            let percentage_of_supply = holder.get("percentage").and_then(|v| v.as_f64()).unwrap_or(0.0);
-            let usd_value = holder.get("usd_value").and_then(|v| v.as_f64()).unwrap_or(0.0);
-            let wallet_type = holder.get("type").and_then(|v| v.as_str()).unwrap_or("unknown").to_string();
+            let wallet_address = holder
+                .get("address")
+                .and_then(|v| v.as_str())
+                .unwrap_or("unknown")
+                .to_string();
+            let token_amount = holder
+                .get("balance")
+                .and_then(|v| v.as_f64())
+                .unwrap_or(0.0);
+            let percentage_of_supply = holder
+                .get("percentage")
+                .and_then(|v| v.as_f64())
+                .unwrap_or(0.0);
+            let usd_value = holder
+                .get("usd_value")
+                .and_then(|v| v.as_f64())
+                .unwrap_or(0.0);
+            let wallet_type = holder
+                .get("type")
+                .and_then(|v| v.as_str())
+                .unwrap_or("unknown")
+                .to_string();
             let transaction_count = holder.get("tx_count").and_then(|v| v.as_u64()).unwrap_or(0);
-            
+
             // Parse timestamps
-            let first_acquired_str = holder.get("first_acquired").and_then(|v| v.as_str()).unwrap_or("1970-01-01T00:00:00Z");
-            let last_activity_str = holder.get("last_activity").and_then(|v| v.as_str()).unwrap_or("1970-01-01T00:00:00Z");
-            
+            let first_acquired_str = holder
+                .get("first_acquired")
+                .and_then(|v| v.as_str())
+                .unwrap_or("1970-01-01T00:00:00Z");
+            let last_activity_str = holder
+                .get("last_activity")
+                .and_then(|v| v.as_str())
+                .unwrap_or("1970-01-01T00:00:00Z");
+
             let first_acquired = DateTime::parse_from_rfc3339(first_acquired_str)
                 .unwrap_or_else(|_| DateTime::from_timestamp(0, 0).unwrap().into())
                 .with_timezone(&Utc);
-                
+
             let last_activity = DateTime::parse_from_rfc3339(last_activity_str)
                 .unwrap_or_else(|_| DateTime::from_timestamp(0, 0).unwrap().into())
                 .with_timezone(&Utc);
@@ -347,30 +406,73 @@ pub async fn analyze_token_holders(
     }
 
     // Parse concentration risk
-    let risk_data = data.get("concentration_risk").unwrap_or(&serde_json::Value::Null);
+    let risk_data = data
+        .get("concentration_risk")
+        .unwrap_or(&serde_json::Value::Null);
     let concentration_risk = ConcentrationRisk {
-        risk_level: risk_data.get("level").and_then(|v| v.as_str()).unwrap_or("Medium").to_string(),
-        risk_score: risk_data.get("score").and_then(|v| v.as_u64()).unwrap_or(50) as u8,
-        wallets_controlling_50_percent: risk_data.get("wallets_50_percent").and_then(|v| v.as_u64()).unwrap_or(0),
-        largest_holder_percentage: risk_data.get("largest_holder").and_then(|v| v.as_f64()).unwrap_or(0.0),
-        exchange_holdings_percentage: risk_data.get("exchange_percentage").and_then(|v| v.as_f64()).unwrap_or(0.0),
-        locked_holdings_percentage: risk_data.get("locked_percentage").and_then(|v| v.as_f64()).unwrap_or(0.0),
+        risk_level: risk_data
+            .get("level")
+            .and_then(|v| v.as_str())
+            .unwrap_or("Medium")
+            .to_string(),
+        risk_score: risk_data
+            .get("score")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(50) as u8,
+        wallets_controlling_50_percent: risk_data
+            .get("wallets_50_percent")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0),
+        largest_holder_percentage: risk_data
+            .get("largest_holder")
+            .and_then(|v| v.as_f64())
+            .unwrap_or(0.0),
+        exchange_holdings_percentage: risk_data
+            .get("exchange_percentage")
+            .and_then(|v| v.as_f64())
+            .unwrap_or(0.0),
+        locked_holdings_percentage: risk_data
+            .get("locked_percentage")
+            .and_then(|v| v.as_f64())
+            .unwrap_or(0.0),
         risk_factors: Vec::new(), // Would be populated from API response
     };
 
     // Parse recent activity
-    let activity_data = data.get("recent_activity").unwrap_or(&serde_json::Value::Null);
+    let activity_data = data
+        .get("recent_activity")
+        .unwrap_or(&serde_json::Value::Null);
     let recent_activity = HolderActivity {
-        new_holders_24h: activity_data.get("new_holders_24h").and_then(|v| v.as_u64()).unwrap_or(0),
-        exited_holders_24h: activity_data.get("exited_holders_24h").and_then(|v| v.as_u64()).unwrap_or(0),
-        net_holder_change_24h: activity_data.get("net_change_24h").and_then(|v| v.as_i64()).unwrap_or(0),
-        avg_buy_size_24h: activity_data.get("avg_buy_size_24h").and_then(|v| v.as_f64()).unwrap_or(0.0),
-        avg_sell_size_24h: activity_data.get("avg_sell_size_24h").and_then(|v| v.as_f64()).unwrap_or(0.0),
-        holder_growth_rate_7d: activity_data.get("growth_rate_7d").and_then(|v| v.as_f64()).unwrap_or(0.0),
+        new_holders_24h: activity_data
+            .get("new_holders_24h")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0),
+        exited_holders_24h: activity_data
+            .get("exited_holders_24h")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0),
+        net_holder_change_24h: activity_data
+            .get("net_change_24h")
+            .and_then(|v| v.as_i64())
+            .unwrap_or(0),
+        avg_buy_size_24h: activity_data
+            .get("avg_buy_size_24h")
+            .and_then(|v| v.as_f64())
+            .unwrap_or(0.0),
+        avg_sell_size_24h: activity_data
+            .get("avg_sell_size_24h")
+            .and_then(|v| v.as_f64())
+            .unwrap_or(0.0),
+        holder_growth_rate_7d: activity_data
+            .get("growth_rate_7d")
+            .and_then(|v| v.as_f64())
+            .unwrap_or(0.0),
     };
 
-    debug!("Successfully analyzed {} holders for token {} with {}% whale concentration", 
-           total_holders, token_symbol, distribution.whale_percentage);
+    debug!(
+        "Successfully analyzed {} holders for token {} with {}% whale concentration",
+        total_holders, token_symbol, distribution.whale_percentage
+    );
 
     Ok(TokenHolderAnalysis {
         token_address: normalized_address,
@@ -389,15 +491,15 @@ pub async fn analyze_token_holders(
 
 #[tool]
 /// Get whale activity for a specific token
-/// 
+///
 /// This tool tracks large-holder (whale) transactions and movements,
 /// providing insights into institutional and high-net-worth trading activity.
-/// 
+///
 /// # Arguments
 /// * `token_address` - Token contract address
 /// * `timeframe` - Analysis timeframe: "1h", "4h", "24h", "7d". Defaults to "24h"
 /// * `min_usd_value` - Minimum transaction value in USD to be considered whale activity. Defaults to 10000
-/// 
+///
 /// # Returns
 /// Whale activity analysis with transaction details and flow metrics
 pub async fn get_whale_activity(
@@ -408,9 +510,11 @@ pub async fn get_whale_activity(
     let timeframe = timeframe.unwrap_or_else(|| "24h".to_string());
     let min_usd_value = min_usd_value.unwrap_or(10000.0);
     let normalized_address = normalize_token_address(&token_address)?;
-    
-    info!("Analyzing whale activity for {} (timeframe: {}, min value: ${})", 
-          normalized_address, timeframe, min_usd_value);
+
+    info!(
+        "Analyzing whale activity for {} (timeframe: {}, min value: ${})",
+        normalized_address, timeframe, min_usd_value
+    );
 
     // Validate timeframe
     if !["1h", "4h", "24h", "7d"].contains(&timeframe.as_str()) {
@@ -427,13 +531,16 @@ pub async fn get_whale_activity(
     params.insert("include_details".to_string(), "true".to_string());
 
     let config = Faster100xConfig::default();
-    let url = format!("{}/tokens/{}/whale-activity", config.base_url, normalized_address);
-    
+    let url = format!(
+        "{}/tokens/{}/whale-activity",
+        config.base_url, normalized_address
+    );
+
     let response_text = client.get_with_params(&url, &params).await?;
 
     let response_data: serde_json::Value = serde_json::from_str(&response_text)
         .map_err(|e| WebToolError::Parsing(format!("Invalid JSON response: {}", e)))?;
-    
+
     let data = response_data
         .get("data")
         .ok_or_else(|| WebToolError::Parsing("Missing 'data' field".to_string()))?;
@@ -442,15 +549,36 @@ pub async fn get_whale_activity(
     let mut whale_transactions = Vec::new();
     if let Some(transactions_array) = data.get("transactions").and_then(|v| v.as_array()) {
         for tx in transactions_array {
-            let tx_hash = tx.get("hash").and_then(|v| v.as_str()).unwrap_or("unknown").to_string();
-            let wallet_address = tx.get("from").and_then(|v| v.as_str()).unwrap_or("unknown").to_string();
-            let transaction_type = tx.get("type").and_then(|v| v.as_str()).unwrap_or("unknown").to_string();
-            let token_amount = tx.get("token_amount").and_then(|v| v.as_f64()).unwrap_or(0.0);
+            let tx_hash = tx
+                .get("hash")
+                .and_then(|v| v.as_str())
+                .unwrap_or("unknown")
+                .to_string();
+            let wallet_address = tx
+                .get("from")
+                .and_then(|v| v.as_str())
+                .unwrap_or("unknown")
+                .to_string();
+            let transaction_type = tx
+                .get("type")
+                .and_then(|v| v.as_str())
+                .unwrap_or("unknown")
+                .to_string();
+            let token_amount = tx
+                .get("token_amount")
+                .and_then(|v| v.as_f64())
+                .unwrap_or(0.0);
             let usd_value = tx.get("usd_value").and_then(|v| v.as_f64()).unwrap_or(0.0);
             let gas_fee = tx.get("gas_fee").and_then(|v| v.as_f64()).unwrap_or(0.0);
-            let price_impact = tx.get("price_impact").and_then(|v| v.as_f64()).unwrap_or(0.0);
-            
-            let timestamp_str = tx.get("timestamp").and_then(|v| v.as_str()).unwrap_or("1970-01-01T00:00:00Z");
+            let price_impact = tx
+                .get("price_impact")
+                .and_then(|v| v.as_f64())
+                .unwrap_or(0.0);
+
+            let timestamp_str = tx
+                .get("timestamp")
+                .and_then(|v| v.as_str())
+                .unwrap_or("1970-01-01T00:00:00Z");
             let timestamp = DateTime::parse_from_rfc3339(timestamp_str)
                 .unwrap_or_else(|_| DateTime::from_timestamp(0, 0).unwrap().into())
                 .with_timezone(&Utc);
@@ -469,13 +597,26 @@ pub async fn get_whale_activity(
     }
 
     // Parse summary metrics
-    let total_whale_buys = data.get("total_buys_usd").and_then(|v| v.as_f64()).unwrap_or(0.0);
-    let total_whale_sells = data.get("total_sells_usd").and_then(|v| v.as_f64()).unwrap_or(0.0);
+    let total_whale_buys = data
+        .get("total_buys_usd")
+        .and_then(|v| v.as_f64())
+        .unwrap_or(0.0);
+    let total_whale_sells = data
+        .get("total_sells_usd")
+        .and_then(|v| v.as_f64())
+        .unwrap_or(0.0);
     let net_whale_flow = total_whale_buys - total_whale_sells;
-    let active_whales = data.get("active_whales").and_then(|v| v.as_u64()).unwrap_or(0);
+    let active_whales = data
+        .get("active_whales")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
 
-    debug!("Found {} whale transactions with net flow of ${:.2} for token {}", 
-           whale_transactions.len(), net_whale_flow, normalized_address);
+    debug!(
+        "Found {} whale transactions with net flow of ${:.2} for token {}",
+        whale_transactions.len(),
+        net_whale_flow,
+        normalized_address
+    );
 
     Ok(WhaleActivity {
         token_address: normalized_address,
@@ -491,15 +632,15 @@ pub async fn get_whale_activity(
 
 #[tool]
 /// Get holder trends over time for a token
-/// 
+///
 /// This tool provides historical analysis of holder growth/decline patterns,
 /// correlating holder changes with price movements and market events.
-/// 
+///
 /// # Arguments
 /// * `token_address` - Token contract address
 /// * `period` - Analysis period: "7d", "30d", "90d". Defaults to "30d"
 /// * `data_points` - Number of data points to return (10-100). Defaults to 30
-/// 
+///
 /// # Returns
 /// Time series analysis of holder trends with insights and correlations
 pub async fn get_holder_trends(
@@ -510,9 +651,11 @@ pub async fn get_holder_trends(
     let period = period.unwrap_or_else(|| "30d".to_string());
     let data_points = data_points.unwrap_or(30).clamp(10, 100);
     let normalized_address = normalize_token_address(&token_address)?;
-    
-    info!("Analyzing holder trends for {} (period: {}, data points: {})", 
-          normalized_address, period, data_points);
+
+    info!(
+        "Analyzing holder trends for {} (period: {}, data points: {})",
+        normalized_address, period, data_points
+    );
 
     // Validate period
     if !["7d", "30d", "90d"].contains(&period.as_str()) {
@@ -529,13 +672,16 @@ pub async fn get_holder_trends(
     params.insert("include_price".to_string(), "true".to_string());
 
     let config = Faster100xConfig::default();
-    let url = format!("{}/tokens/{}/holder-trends", config.base_url, normalized_address);
-    
+    let url = format!(
+        "{}/tokens/{}/holder-trends",
+        config.base_url, normalized_address
+    );
+
     let response_text = client.get_with_params(&url, &params).await?;
 
     let response_data: serde_json::Value = serde_json::from_str(&response_text)
         .map_err(|e| WebToolError::Parsing(format!("Invalid JSON response: {}", e)))?;
-    
+
     let data = response_data
         .get("data")
         .ok_or_else(|| WebToolError::Parsing("Missing 'data' field".to_string()))?;
@@ -544,16 +690,25 @@ pub async fn get_holder_trends(
     let mut trend_data_points = Vec::new();
     if let Some(points_array) = data.get("points").and_then(|v| v.as_array()) {
         for point in points_array {
-            let timestamp_str = point.get("timestamp").and_then(|v| v.as_str()).unwrap_or("1970-01-01T00:00:00Z");
+            let timestamp_str = point
+                .get("timestamp")
+                .and_then(|v| v.as_str())
+                .unwrap_or("1970-01-01T00:00:00Z");
             let timestamp = DateTime::parse_from_rfc3339(timestamp_str)
                 .unwrap_or_else(|_| DateTime::from_timestamp(0, 0).unwrap().into())
                 .with_timezone(&Utc);
-                
+
             let total_holders = point.get("holders").and_then(|v| v.as_u64()).unwrap_or(0);
             let holder_change = point.get("change").and_then(|v| v.as_i64()).unwrap_or(0);
             let token_price = point.get("price").and_then(|v| v.as_f64()).unwrap_or(0.0);
-            let whale_percentage = point.get("whale_percentage").and_then(|v| v.as_f64()).unwrap_or(0.0);
-            let volume_24h = point.get("volume_24h").and_then(|v| v.as_f64()).unwrap_or(0.0);
+            let whale_percentage = point
+                .get("whale_percentage")
+                .and_then(|v| v.as_f64())
+                .unwrap_or(0.0);
+            let volume_24h = point
+                .get("volume_24h")
+                .and_then(|v| v.as_f64())
+                .unwrap_or(0.0);
 
             trend_data_points.push(HolderTrendPoint {
                 timestamp,
@@ -567,10 +722,18 @@ pub async fn get_holder_trends(
     }
 
     // Parse trend analysis
-    let trend_direction = data.get("trend_direction").and_then(|v| v.as_str()).unwrap_or("stable").to_string();
-    let trend_strength = data.get("trend_strength").and_then(|v| v.as_u64()).unwrap_or(50) as u8;
-    
-    let insights = data.get("insights")
+    let trend_direction = data
+        .get("trend_direction")
+        .and_then(|v| v.as_str())
+        .unwrap_or("stable")
+        .to_string();
+    let trend_strength = data
+        .get("trend_strength")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(50) as u8;
+
+    let insights = data
+        .get("insights")
         .and_then(|v| v.as_array())
         .map(|arr| {
             arr.iter()
@@ -579,8 +742,12 @@ pub async fn get_holder_trends(
         })
         .unwrap_or_default();
 
-    debug!("Analyzed holder trends with {} data points, trend: {} (strength: {})", 
-           trend_data_points.len(), trend_direction, trend_strength);
+    debug!(
+        "Analyzed holder trends with {} data points, trend: {} (strength: {})",
+        trend_data_points.len(),
+        trend_direction,
+        trend_strength
+    );
 
     Ok(HolderTrends {
         token_address: normalized_address,
@@ -608,7 +775,10 @@ mod tests {
         // Valid address
         let result = normalize_token_address("0x1234567890123456789012345678901234567890");
         assert!(result.is_ok());
-        assert_eq!(result.unwrap(), "0x1234567890123456789012345678901234567890");
+        assert_eq!(
+            result.unwrap(),
+            "0x1234567890123456789012345678901234567890"
+        );
 
         // Invalid address - too short
         let result = normalize_token_address("0x123");

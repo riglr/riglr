@@ -345,13 +345,13 @@ impl ProcessingError {
     /// Check if the processing error is retriable
     pub fn is_retriable(&self) -> bool {
         match self {
-            Self::ParseFailed { .. } => false, // Data issue
-            Self::ValidationFailed { .. } => false, // Data issue
-            Self::WorkerPoolExhausted { .. } => true, // May recover
-            Self::QueueOverflow { .. } => true, // May recover
-            Self::SerializationFailed { .. } => false, // Data issue
+            Self::ParseFailed { .. } => false,           // Data issue
+            Self::ValidationFailed { .. } => false,      // Data issue
+            Self::WorkerPoolExhausted { .. } => true,    // May recover
+            Self::QueueOverflow { .. } => true,          // May recover
+            Self::SerializationFailed { .. } => false,   // Data issue
             Self::DeserializationFailed { .. } => false, // Data issue
-            Self::PipelineStalled { .. } => true, // May recover
+            Self::PipelineStalled { .. } => true,        // May recover
         }
     }
 }
@@ -431,8 +431,8 @@ impl ServiceError {
     /// Check if the service error is retriable
     pub fn is_retriable(&self) -> bool {
         match self {
-            Self::StartupFailed { .. } => false, // Usually configuration
-            Self::ShutdownTimeout { .. } => false, // Lifecycle issue
+            Self::StartupFailed { .. } => false,    // Usually configuration
+            Self::ShutdownTimeout { .. } => false,  // Lifecycle issue
             Self::HealthCheckFailed { .. } => true, // May recover
             Self::ResourceExhausted { .. } => true, // May recover
             Self::DependencyUnavailable { .. } => true, // May recover
@@ -466,12 +466,8 @@ impl From<riglr_events_core::EventError> for IndexerError {
                     event_id: "unknown".to_string(),
                 })
             }
-            riglr_events_core::EventError::Generic { message } => {
-                Self::internal(message)
-            }
-            _ => {
-                Self::internal(error.to_string())
-            }
+            riglr_events_core::EventError::Generic { message } => Self::internal(message),
+            _ => Self::internal(error.to_string()),
         }
     }
 }
@@ -512,4 +508,3 @@ impl From<redis::RedisError> for IndexerError {
         Self::Storage(storage_error)
     }
 }
-

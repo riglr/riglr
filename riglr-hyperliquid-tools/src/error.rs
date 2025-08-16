@@ -4,25 +4,25 @@ use thiserror::Error;
 pub enum HyperliquidToolError {
     #[error("API error: {0}")]
     ApiError(String),
-    
+
     #[error("Invalid symbol: {0}")]
     InvalidSymbol(String),
-    
+
     #[error("Network error: {0}")]
     NetworkError(String),
-    
+
     #[error("Rate limited: {0}")]
     RateLimit(String),
-    
+
     #[error("Authentication error: {0}")]
     AuthError(String),
-    
+
     #[error("Insufficient balance: {0}")]
     InsufficientBalance(String),
-    
+
     #[error("Order error: {0}")]
     OrderError(String),
-    
+
     #[error("Configuration error: {0}")]
     Configuration(String),
 }

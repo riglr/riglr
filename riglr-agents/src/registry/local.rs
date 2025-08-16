@@ -47,19 +47,23 @@ impl LocalAgentRegistry {
     pub async fn stats(&self) -> RegistryStats {
         let agents = self.agents.read().await;
         let statuses = self.statuses.read().await;
-        
+
         RegistryStats {
             total_agents: agents.len(),
-            active_agents: statuses.values()
+            active_agents: statuses
+                .values()
                 .filter(|s| matches!(s.status, crate::types::AgentState::Active))
                 .count(),
-            busy_agents: statuses.values()
+            busy_agents: statuses
+                .values()
                 .filter(|s| matches!(s.status, crate::types::AgentState::Busy))
                 .count(),
-            idle_agents: statuses.values()
+            idle_agents: statuses
+                .values()
                 .filter(|s| matches!(s.status, crate::types::AgentState::Idle))
                 .count(),
-            offline_agents: statuses.values()
+            offline_agents: statuses
+                .values()
                 .filter(|s| matches!(s.status, crate::types::AgentState::Offline))
                 .count(),
         }
@@ -76,17 +80,20 @@ impl Default for LocalAgentRegistry {
 impl AgentRegistry for LocalAgentRegistry {
     async fn register_agent(&self, agent: Arc<dyn Agent>) -> Result<()> {
         let agent_id = agent.id().clone();
-        
+
         debug!("Registering agent: {}", agent_id);
 
         // Check capacity limits
         if let Some(max_agents) = self.config.max_agents {
             let current_count = self.agents.read().await.len();
             if current_count >= max_agents {
-                warn!("Cannot register agent {}: registry at capacity ({}/{})", 
-                      agent_id, current_count, max_agents);
+                warn!(
+                    "Cannot register agent {}: registry at capacity ({}/{})",
+                    agent_id, current_count, max_agents
+                );
                 return Err(AgentError::registry(format!(
-                    "Registry at capacity ({}/{})", current_count, max_agents
+                    "Registry at capacity ({}/{})",
+                    current_count, max_agents
                 )));
             }
         }
@@ -98,19 +105,24 @@ impl AgentRegistry for LocalAgentRegistry {
         if agents.contains_key(&agent_id) {
             warn!("Agent {} is already registered", agent_id);
             return Err(AgentError::registry(format!(
-                "Agent {} is already registered", agent_id
+                "Agent {} is already registered",
+                agent_id
             )));
         }
 
         // Register the agent
         agents.insert(agent_id.clone(), agent.clone());
-        
+
         // Initialize agent status
         let status = agent.status();
         statuses.insert(agent_id.clone(), status);
 
         info!("Successfully registered agent: {}", agent_id);
-        debug!("Agent {} capabilities: {:?}", agent_id, agent.capabilities());
+        debug!(
+            "Agent {} capabilities: {:?}",
+            agent_id,
+            agent.capabilities()
+        );
 
         Ok(())
     }
@@ -145,7 +157,7 @@ impl AgentRegistry for LocalAgentRegistry {
 
     async fn find_agents_by_capability(&self, capability: &str) -> Result<Vec<Arc<dyn Agent>>> {
         debug!("Finding agents with capability: {}", capability);
-        
+
         let agents = self.agents.read().await;
         let matching_agents: Vec<Arc<dyn Agent>> = agents
             .values()
@@ -153,9 +165,15 @@ impl AgentRegistry for LocalAgentRegistry {
             .cloned()
             .collect();
 
-        debug!("Found {} agents with capability '{}': {:?}", 
-               matching_agents.len(), capability,
-               matching_agents.iter().map(|a| a.id().as_str()).collect::<Vec<_>>());
+        debug!(
+            "Found {} agents with capability '{}': {:?}",
+            matching_agents.len(),
+            capability,
+            matching_agents
+                .iter()
+                .map(|a| a.id().as_str())
+                .collect::<Vec<_>>()
+        );
 
         Ok(matching_agents)
     }
@@ -167,12 +185,15 @@ impl AgentRegistry for LocalAgentRegistry {
 
     async fn update_agent_status(&self, status: AgentStatus) -> Result<()> {
         debug!("Updating status for agent: {}", status.agent_id);
-        
+
         let mut statuses = self.statuses.write().await;
-        
+
         // Verify the agent exists
         if !self.agents.read().await.contains_key(&status.agent_id) {
-            warn!("Attempted to update status for non-existent agent: {}", status.agent_id);
+            warn!(
+                "Attempted to update status for non-existent agent: {}",
+                status.agent_id
+            );
             return Err(AgentError::agent_not_found(status.agent_id.as_str()));
         }
 
@@ -258,7 +279,10 @@ mod tests {
 
         // Test successful registration
         registry.register_agent(agent.clone()).await.unwrap();
-        assert!(registry.is_agent_registered(&AgentId::new("test-agent")).await.unwrap());
+        assert!(registry
+            .is_agent_registered(&AgentId::new("test-agent"))
+            .await
+            .unwrap());
         assert_eq!(registry.agent_count().await.unwrap(), 1);
 
         // Test duplicate registration fails
@@ -276,23 +300,31 @@ mod tests {
 
         // Register then unregister
         registry.register_agent(agent).await.unwrap();
-        registry.unregister_agent(&AgentId::new("test-agent")).await.unwrap();
-        assert!(!registry.is_agent_registered(&AgentId::new("test-agent")).await.unwrap());
+        registry
+            .unregister_agent(&AgentId::new("test-agent"))
+            .await
+            .unwrap();
+        assert!(!registry
+            .is_agent_registered(&AgentId::new("test-agent"))
+            .await
+            .unwrap());
 
         // Test unregistering non-existent agent fails
-        let result = registry.unregister_agent(&AgentId::new("non-existent")).await;
+        let result = registry
+            .unregister_agent(&AgentId::new("non-existent"))
+            .await;
         assert!(result.is_err());
     }
 
     #[tokio::test]
     async fn test_local_registry_capability_search() {
         let registry = LocalAgentRegistry::new();
-        
+
         let trading_agent = Arc::new(TestAgent {
             id: AgentId::new("trading-agent"),
             capabilities: vec!["trading".to_string(), "risk_analysis".to_string()],
         });
-        
+
         let research_agent = Arc::new(TestAgent {
             id: AgentId::new("research-agent"),
             capabilities: vec!["research".to_string(), "monitoring".to_string()],
@@ -306,14 +338,23 @@ mod tests {
         assert_eq!(trading_agents.len(), 1);
         assert_eq!(trading_agents[0].id().as_str(), "trading-agent");
 
-        let research_agents = registry.find_agents_by_capability("research").await.unwrap();
+        let research_agents = registry
+            .find_agents_by_capability("research")
+            .await
+            .unwrap();
         assert_eq!(research_agents.len(), 1);
         assert_eq!(research_agents[0].id().as_str(), "research-agent");
 
-        let risk_agents = registry.find_agents_by_capability("risk_analysis").await.unwrap();
+        let risk_agents = registry
+            .find_agents_by_capability("risk_analysis")
+            .await
+            .unwrap();
         assert_eq!(risk_agents.len(), 1);
 
-        let non_existent = registry.find_agents_by_capability("non_existent").await.unwrap();
+        let non_existent = registry
+            .find_agents_by_capability("non_existent")
+            .await
+            .unwrap();
         assert_eq!(non_existent.len(), 0);
     }
 
@@ -328,7 +369,10 @@ mod tests {
         registry.register_agent(agent).await.unwrap();
 
         // Test initial status
-        let status = registry.get_agent_status(&AgentId::new("test-agent")).await.unwrap();
+        let status = registry
+            .get_agent_status(&AgentId::new("test-agent"))
+            .await
+            .unwrap();
         assert!(status.is_some());
 
         // Test status update
@@ -337,9 +381,15 @@ mod tests {
         new_status.active_tasks = 5;
         new_status.load = 0.8;
 
-        registry.update_agent_status(new_status.clone()).await.unwrap();
+        registry
+            .update_agent_status(new_status.clone())
+            .await
+            .unwrap();
 
-        let updated_status = registry.get_agent_status(&AgentId::new("test-agent")).await.unwrap();
+        let updated_status = registry
+            .get_agent_status(&AgentId::new("test-agent"))
+            .await
+            .unwrap();
         assert!(updated_status.is_some());
         let updated_status = updated_status.unwrap();
         assert!(matches!(updated_status.status, AgentState::Busy));
@@ -381,7 +431,7 @@ mod tests {
     #[tokio::test]
     async fn test_local_registry_stats() {
         let registry = LocalAgentRegistry::new();
-        
+
         let agent1 = Arc::new(TestAgent {
             id: AgentId::new("agent1"),
             capabilities: vec!["trading".to_string()],

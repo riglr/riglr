@@ -5,11 +5,11 @@
 //! principle of separation of concerns - parsing logic is in protocol-specific crates,
 //! while streaming metadata is added here through composition.
 
-use std::any::Any;
-use std::time::SystemTime;
-use std::fmt;
-use riglr_events_core::prelude::Event;
 use crate::core::{StreamEvent, StreamMetadata};
+use riglr_events_core::prelude::Event;
+use std::any::Any;
+use std::fmt;
+use std::time::SystemTime;
 
 /// Wrapper that adds streaming metadata to any Event through composition
 #[derive(Debug, Clone)]
@@ -51,9 +51,9 @@ impl<T: Event + Clone> StreamedEvent<T> {
 }
 
 // Implement Event by delegating to the inner event
-impl<T> Event for StreamedEvent<T> 
-where 
-    T: Event + Clone + 'static
+impl<T> Event for StreamedEvent<T>
+where
+    T: Event + Clone + 'static,
 {
     fn id(&self) -> &str {
         self.inner.id()
@@ -95,7 +95,6 @@ impl<T: Event + Clone + 'static> StreamEvent for StreamedEvent<T> {
     }
 }
 
-
 /// Dynamic event wrapper for type-erased Events with streaming metadata
 /// This is a separate implementation that doesn't rely on the generic StreamedEvent<T>
 #[derive(Clone)]
@@ -118,10 +117,7 @@ impl fmt::Debug for DynamicStreamedEvent {
 
 impl DynamicStreamedEvent {
     /// Create from any Event
-    pub fn from_event(
-        event: Box<dyn Event>,
-        stream_metadata: StreamMetadata,
-    ) -> Self {
+    pub fn from_event(event: Box<dyn Event>, stream_metadata: StreamMetadata) -> Self {
         Self {
             inner: event,
             stream_metadata,
@@ -207,7 +203,7 @@ impl<T: Event + Clone + 'static> IntoStreamedEvent for T {}
 pub trait IntoDynamicStreamedEvent {
     /// Wrap this boxed event with streaming metadata
     fn with_stream_metadata(self, metadata: StreamMetadata) -> DynamicStreamedEvent;
-    
+
     /// Wrap this boxed event with default streaming metadata
     fn with_default_stream_metadata(self, source: impl Into<String>) -> DynamicStreamedEvent;
 }
@@ -232,13 +228,13 @@ impl IntoDynamicStreamedEvent for Box<dyn Event> {
 mod tests {
     use super::*;
     use riglr_events_core::prelude::{EventKind, EventMetadata};
-    
+
     // Mock event for testing
     #[derive(Debug, Clone)]
     struct MockEvent {
         metadata: EventMetadata,
     }
-    
+
     impl MockEvent {
         fn new() -> Self {
             Self {
@@ -250,17 +246,31 @@ mod tests {
             }
         }
     }
-    
+
     impl Event for MockEvent {
-        fn id(&self) -> &str { &self.metadata.id }
-        fn kind(&self) -> &EventKind { &self.metadata.kind }
-        fn metadata(&self) -> &EventMetadata { &self.metadata }
-        fn metadata_mut(&mut self) -> &mut EventMetadata { &mut self.metadata }
-        fn as_any(&self) -> &dyn Any { self }
-        fn as_any_mut(&mut self) -> &mut dyn Any { self }
-        fn clone_boxed(&self) -> Box<dyn Event> { Box::new(self.clone()) }
+        fn id(&self) -> &str {
+            &self.metadata.id
+        }
+        fn kind(&self) -> &EventKind {
+            &self.metadata.kind
+        }
+        fn metadata(&self) -> &EventMetadata {
+            &self.metadata
+        }
+        fn metadata_mut(&mut self) -> &mut EventMetadata {
+            &mut self.metadata
+        }
+        fn as_any(&self) -> &dyn Any {
+            self
+        }
+        fn as_any_mut(&mut self) -> &mut dyn Any {
+            self
+        }
+        fn clone_boxed(&self) -> Box<dyn Event> {
+            Box::new(self.clone())
+        }
     }
-    
+
     #[test]
     fn test_streamed_event_composition() {
         let event = MockEvent::new();
@@ -270,13 +280,13 @@ mod tests {
             sequence_number: Some(1),
             custom_data: None,
         };
-        
+
         let streamed = event.with_stream_metadata(metadata);
-        
+
         // Test Event delegation
         assert_eq!(streamed.id(), "test");
         assert_eq!(streamed.kind(), &EventKind::Swap);
-        
+
         // Test StreamEvent functionality
         assert!(streamed.stream_metadata().is_some());
         assert_eq!(streamed.stream_source(), Some("test-stream"));

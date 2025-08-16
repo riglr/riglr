@@ -1,10 +1,10 @@
 //! Error types for riglr-solana-tools.
 
-use thiserror::Error;
 use riglr_core::error::ToolError;
 use riglr_core::SignerError;
 use solana_client::client_error::{ClientError, ClientErrorKind};
 use solana_client::rpc_request::RpcError;
+use thiserror::Error;
 
 /// Main error type for Solana tool operations.
 #[derive(Error, Debug)]
@@ -14,15 +14,15 @@ pub enum SolanaToolError {
     /// Core tool error
     #[error("Core tool error: {0}")]
     ToolError(#[from] ToolError),
-    
+
     /// Signer context error
     #[error("Signer context error: {0}")]
     SignerError(#[from] SignerError),
-    
+
     /// RPC client error
     #[error("RPC error: {0}")]
     Rpc(String),
-    
+
     /// Solana client error
     #[error("Solana client error: {0}")]
     SolanaClient(Box<ClientError>),
@@ -42,11 +42,11 @@ pub enum SolanaToolError {
     /// Transaction failed
     #[error("Transaction error: {0}")]
     Transaction(String),
-    
+
     /// Insufficient funds for operation
     #[error("Insufficient funds for operation")]
     InsufficientFunds,
-    
+
     /// Invalid token mint
     #[error("Invalid token mint: {0}")]
     InvalidTokenMint(String),
@@ -85,7 +85,7 @@ pub enum TransactionErrorType {
 pub enum RetryableError {
     /// Network connectivity issues
     NetworkConnectivity,
-    /// RPC service temporary unavailability 
+    /// RPC service temporary unavailability
     TemporaryRpcFailure,
     /// Blockchain congestion
     NetworkCongestion,
@@ -122,9 +122,12 @@ pub enum RateLimitError {
 impl TransactionErrorType {
     /// Check if this error type is retryable
     pub fn is_retryable(&self) -> bool {
-        matches!(self, TransactionErrorType::Retryable(_) | TransactionErrorType::RateLimited(_))
+        matches!(
+            self,
+            TransactionErrorType::Retryable(_) | TransactionErrorType::RateLimited(_)
+        )
     }
-    
+
     /// Check if this is a rate limiting error (special case of retryable)
     pub fn is_rate_limited(&self) -> bool {
         matches!(self, TransactionErrorType::RateLimited(_))
@@ -139,15 +142,13 @@ impl TransactionErrorType {
 /// retry guidance.
 pub fn classify_transaction_error(error: &ClientError) -> TransactionErrorType {
     match &error.kind {
-        ClientErrorKind::RpcError(rpc_error) => {
-            classify_rpc_error(rpc_error)
-        },
+        ClientErrorKind::RpcError(rpc_error) => classify_rpc_error(rpc_error),
         ClientErrorKind::SerdeJson(_) => {
             TransactionErrorType::Permanent(PermanentError::InvalidTransaction)
-        },
+        }
         ClientErrorKind::Io(_) => {
             TransactionErrorType::Retryable(RetryableError::NetworkConnectivity)
-        },
+        }
         ClientErrorKind::Reqwest(reqwest_error) => {
             if reqwest_error.status() == Some(reqwest::StatusCode::TOO_MANY_REQUESTS) {
                 TransactionErrorType::RateLimited(RateLimitError::TooManyRequests)
@@ -156,7 +157,7 @@ pub fn classify_transaction_error(error: &ClientError) -> TransactionErrorType {
             } else {
                 TransactionErrorType::Unknown(error.to_string())
             }
-        },
+        }
         ClientErrorKind::Custom(msg) => {
             // Handle custom error messages with more sophisticated logic than string matching
             if msg.contains("InsufficientFundsForRent") || msg.contains("insufficient funds") {
@@ -170,7 +171,7 @@ pub fn classify_transaction_error(error: &ClientError) -> TransactionErrorType {
             } else {
                 TransactionErrorType::Unknown(error.to_string())
             }
-        },
+        }
         _ => TransactionErrorType::Unknown(error.to_string()),
     }
 }
@@ -178,15 +179,18 @@ pub fn classify_transaction_error(error: &ClientError) -> TransactionErrorType {
 /// Classify RPC-specific errors
 fn classify_rpc_error(rpc_error: &RpcError) -> TransactionErrorType {
     use solana_client::rpc_request::RpcError::*;
-    
+
     match rpc_error {
         RpcRequestError(msg) => {
-            if msg.contains("rate limit") || msg.contains("429") || msg.contains("too many requests") {
+            if msg.contains("rate limit")
+                || msg.contains("429")
+                || msg.contains("too many requests")
+            {
                 TransactionErrorType::RateLimited(RateLimitError::RpcRateLimit)
             } else {
                 TransactionErrorType::Retryable(RetryableError::TemporaryRpcFailure)
             }
-        },
+        }
         RpcResponseError { code, message, .. } => {
             // Standard JSON-RPC error codes
             match *code {
@@ -209,7 +213,7 @@ fn classify_rpc_error(rpc_error: &RpcError) -> TransactionErrorType {
                     }
                 }
             }
-        },
+        }
         ParseError(_msg) => TransactionErrorType::Permanent(PermanentError::InvalidTransaction),
         ForUser(msg) => TransactionErrorType::Unknown(msg.clone()),
     }
@@ -221,26 +225,37 @@ impl From<SolanaToolError> for ToolError {
         match err {
             SolanaToolError::ToolError(tool_err) => tool_err,
             SolanaToolError::SignerError(signer_err) => ToolError::SignerContext(signer_err),
-            
+
             // RPC and HTTP errors are often retriable
             SolanaToolError::Rpc(msg) => {
-                if msg.contains("429") || msg.contains("rate limit") || msg.contains("too many requests") {
+                if msg.contains("429")
+                    || msg.contains("rate limit")
+                    || msg.contains("too many requests")
+                {
                     ToolError::rate_limited_string(msg)
                 } else {
                     ToolError::retriable_string(msg)
                 }
             }
-            
+
             SolanaToolError::SolanaClient(ref client_err) => {
                 let error_type = classify_transaction_error(client_err);
                 match error_type {
-                    TransactionErrorType::Retryable(_) => ToolError::retriable_string(err.to_string()),
-                    TransactionErrorType::RateLimited(_) => ToolError::rate_limited_string(err.to_string()),
-                    TransactionErrorType::Permanent(_) => ToolError::permanent_string(err.to_string()),
-                    TransactionErrorType::Unknown(_) => ToolError::retriable_string(err.to_string()),
+                    TransactionErrorType::Retryable(_) => {
+                        ToolError::retriable_string(err.to_string())
+                    }
+                    TransactionErrorType::RateLimited(_) => {
+                        ToolError::rate_limited_string(err.to_string())
+                    }
+                    TransactionErrorType::Permanent(_) => {
+                        ToolError::permanent_string(err.to_string())
+                    }
+                    TransactionErrorType::Unknown(_) => {
+                        ToolError::retriable_string(err.to_string())
+                    }
                 }
             }
-            
+
             SolanaToolError::Http(ref http_err) => {
                 if http_err.status() == Some(reqwest::StatusCode::TOO_MANY_REQUESTS) {
                     ToolError::rate_limited_string(err.to_string())
@@ -254,12 +269,16 @@ impl From<SolanaToolError> for ToolError {
             // Address and key validation errors are permanent
             SolanaToolError::InvalidAddress(_) => ToolError::invalid_input_string(err.to_string()),
             SolanaToolError::InvalidKey(_) => ToolError::invalid_input_string(err.to_string()),
-            SolanaToolError::InvalidSignature(_) => ToolError::invalid_input_string(err.to_string()),
-            SolanaToolError::InvalidTokenMint(_) => ToolError::invalid_input_string(err.to_string()),
-            
+            SolanaToolError::InvalidSignature(_) => {
+                ToolError::invalid_input_string(err.to_string())
+            }
+            SolanaToolError::InvalidTokenMint(_) => {
+                ToolError::invalid_input_string(err.to_string())
+            }
+
             // Insufficient funds is permanent
             SolanaToolError::InsufficientFunds => ToolError::permanent_string(err.to_string()),
-            
+
             // Transaction errors could be retriable if they're network related
             SolanaToolError::Transaction(msg) => {
                 if msg.contains("insufficient funds") || msg.contains("invalid") {
@@ -268,13 +287,13 @@ impl From<SolanaToolError> for ToolError {
                     ToolError::retriable_string(msg)
                 }
             }
-            
+
             // Serialization errors are permanent
             SolanaToolError::Serialization(_) => ToolError::permanent_string(err.to_string()),
-            
+
             // Core errors inherit their retriable nature
             SolanaToolError::Core(_) => ToolError::retriable_string(err.to_string()),
-            
+
             // Generic errors default to retriable
             SolanaToolError::Generic(msg) => ToolError::retriable_string(msg),
         }
@@ -315,27 +334,35 @@ mod tests {
 
     #[test]
     fn test_io_error_classification() {
-        let io_error = std::io::Error::new(std::io::ErrorKind::ConnectionRefused, "connection refused");
+        let io_error =
+            std::io::Error::new(std::io::ErrorKind::ConnectionRefused, "connection refused");
         let client_error = ClientError::new_with_request(
             ClientErrorKind::Io(io_error),
             solana_client::rpc_request::RpcRequest::GetAccountInfo,
         );
 
         let result = classify_transaction_error(&client_error);
-        assert_eq!(result, TransactionErrorType::Retryable(RetryableError::NetworkConnectivity));
+        assert_eq!(
+            result,
+            TransactionErrorType::Retryable(RetryableError::NetworkConnectivity)
+        );
     }
 
     #[test]
     fn test_serde_error_classification() {
         // Create a serde error by trying to parse invalid JSON
-        let serde_error: serde_json::Error = serde_json::from_str::<serde_json::Value>("invalid json").unwrap_err();
+        let serde_error: serde_json::Error =
+            serde_json::from_str::<serde_json::Value>("invalid json").unwrap_err();
         let client_error = ClientError::new_with_request(
             ClientErrorKind::SerdeJson(serde_error),
             solana_client::rpc_request::RpcRequest::GetAccountInfo,
         );
 
         let result = classify_transaction_error(&client_error);
-        assert_eq!(result, TransactionErrorType::Permanent(PermanentError::InvalidTransaction));
+        assert_eq!(
+            result,
+            TransactionErrorType::Permanent(PermanentError::InvalidTransaction)
+        );
     }
 
     #[test]
@@ -346,7 +373,10 @@ mod tests {
             solana_client::rpc_request::RpcRequest::SendTransaction,
         );
         let result = classify_transaction_error(&client_error);
-        assert_eq!(result, TransactionErrorType::Permanent(PermanentError::InsufficientFunds));
+        assert_eq!(
+            result,
+            TransactionErrorType::Permanent(PermanentError::InsufficientFunds)
+        );
 
         // Test invalid signature
         let client_error = ClientError::new_with_request(
@@ -354,7 +384,10 @@ mod tests {
             solana_client::rpc_request::RpcRequest::SendTransaction,
         );
         let result = classify_transaction_error(&client_error);
-        assert_eq!(result, TransactionErrorType::Permanent(PermanentError::InvalidSignature));
+        assert_eq!(
+            result,
+            TransactionErrorType::Permanent(PermanentError::InvalidSignature)
+        );
 
         // Test invalid account
         let client_error = ClientError::new_with_request(
@@ -362,7 +395,10 @@ mod tests {
             solana_client::rpc_request::RpcRequest::SendTransaction,
         );
         let result = classify_transaction_error(&client_error);
-        assert_eq!(result, TransactionErrorType::Permanent(PermanentError::InvalidAccount));
+        assert_eq!(
+            result,
+            TransactionErrorType::Permanent(PermanentError::InvalidAccount)
+        );
 
         // Test duplicate signature
         let client_error = ClientError::new_with_request(
@@ -370,7 +406,10 @@ mod tests {
             solana_client::rpc_request::RpcRequest::SendTransaction,
         );
         let result = classify_transaction_error(&client_error);
-        assert_eq!(result, TransactionErrorType::Permanent(PermanentError::DuplicateTransaction));
+        assert_eq!(
+            result,
+            TransactionErrorType::Permanent(PermanentError::DuplicateTransaction)
+        );
     }
 
     #[cfg(test)]
@@ -389,7 +428,10 @@ mod tests {
             solana_client::rpc_request::RpcRequest::SendTransaction,
         );
         let result = classify_transaction_error(&client_error);
-        assert_eq!(result, TransactionErrorType::RateLimited(RateLimitError::RpcRateLimit));
+        assert_eq!(
+            result,
+            TransactionErrorType::RateLimited(RateLimitError::RpcRateLimit)
+        );
 
         // Test network congestion (transaction pool full)
         let rpc_error = RpcError::RpcResponseError {
@@ -402,7 +444,10 @@ mod tests {
             solana_client::rpc_request::RpcRequest::SendTransaction,
         );
         let result = classify_transaction_error(&client_error);
-        assert_eq!(result, TransactionErrorType::Retryable(RetryableError::NetworkCongestion));
+        assert_eq!(
+            result,
+            TransactionErrorType::Retryable(RetryableError::NetworkCongestion)
+        );
 
         // Test insufficient funds in RPC response
         let rpc_error = RpcError::RpcResponseError {
@@ -415,7 +460,10 @@ mod tests {
             solana_client::rpc_request::RpcRequest::SendTransaction,
         );
         let result = classify_transaction_error(&client_error);
-        assert_eq!(result, TransactionErrorType::Permanent(PermanentError::InsufficientFunds));
+        assert_eq!(
+            result,
+            TransactionErrorType::Permanent(PermanentError::InsufficientFunds)
+        );
     }
 
     #[test]
@@ -427,7 +475,10 @@ mod tests {
             solana_client::rpc_request::RpcRequest::SendTransaction,
         );
         let result = classify_transaction_error(&client_error);
-        assert_eq!(result, TransactionErrorType::RateLimited(RateLimitError::RpcRateLimit));
+        assert_eq!(
+            result,
+            TransactionErrorType::RateLimited(RateLimitError::RpcRateLimit)
+        );
 
         // Test other RPC request error
         let rpc_error = RpcError::RpcRequestError("network timeout".to_string());
@@ -436,7 +487,10 @@ mod tests {
             solana_client::rpc_request::RpcRequest::SendTransaction,
         );
         let result = classify_transaction_error(&client_error);
-        assert_eq!(result, TransactionErrorType::Retryable(RetryableError::TemporaryRpcFailure));
+        assert_eq!(
+            result,
+            TransactionErrorType::Retryable(RetryableError::TemporaryRpcFailure)
+        );
     }
 
     #[test]

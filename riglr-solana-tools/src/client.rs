@@ -10,7 +10,9 @@ use solana_sdk::{
     signature::{Keypair, Signature},
     transaction::Transaction,
 };
-use solana_transaction_status::{EncodedTransactionWithStatusMeta, EncodedConfirmedTransactionWithStatusMeta};
+use solana_transaction_status::{
+    EncodedConfirmedTransactionWithStatusMeta, EncodedTransactionWithStatusMeta,
+};
 use spl_token;
 use std::str::FromStr;
 use std::sync::Arc;
@@ -146,23 +148,24 @@ impl SolanaClient {
 
     /// Get signer or return error if not configured
     pub fn require_signer(&self) -> Result<&Arc<Keypair>> {
-        self.signer
-            .as_ref()
-            .ok_or_else(|| SolanaToolError::Generic("Client requires signer configuration".to_string()))
+        self.signer.as_ref().ok_or_else(|| {
+            SolanaToolError::Generic("Client requires signer configuration".to_string())
+        })
     }
 
     /// Create a SolanaClient from a TransactionSigner
     pub fn from_signer(signer: &dyn riglr_core::signer::TransactionSigner) -> Result<Self> {
-        let client = signer.solana_client()
-            .ok_or_else(|| SolanaToolError::Generic("No Solana client available in signer".to_string()))?;
-        
+        let client = signer.solana_client().ok_or_else(|| {
+            SolanaToolError::Generic("No Solana client available in signer".to_string())
+        })?;
+
         // Extract configuration from the RPC client
         // This is a simplified approach - in practice you might want to store config in the signer
         Ok(SolanaClient {
             rpc_client: client,
             http_client: reqwest::Client::new(),
             config: SolanaConfig::default(), // Use default config for now
-            signer: None, // The signer is managed by the context
+            signer: None,                    // The signer is managed by the context
         })
     }
 
@@ -213,8 +216,9 @@ impl SolanaClient {
         }
 
         // Get the first token account's pubkey
-        let token_account_pubkey = Pubkey::from_str(&accounts[0].pubkey)
-            .map_err(|e| SolanaToolError::InvalidAddress(format!("Invalid token account pubkey: {}", e)))?;
+        let token_account_pubkey = Pubkey::from_str(&accounts[0].pubkey).map_err(|e| {
+            SolanaToolError::InvalidAddress(format!("Invalid token account pubkey: {}", e))
+        })?;
 
         // Get the full account data
         let account_info = self
@@ -224,13 +228,17 @@ impl SolanaClient {
 
         // Simple parsing - just return the amount directly as u64 from the raw bytes
         // This is a simplified implementation for basic functionality
-        if account_info.data.len() < 72 { // SPL token account should be at least 72 bytes
-            return Err(SolanaToolError::Generic("Invalid token account data size".to_string()));
+        if account_info.data.len() < 72 {
+            // SPL token account should be at least 72 bytes
+            return Err(SolanaToolError::Generic(
+                "Invalid token account data size".to_string(),
+            ));
         }
-        
+
         // The amount is stored at offset 64 as a little-endian u64
-        let amount_bytes = account_info.data[64..72].try_into()
-            .map_err(|_| SolanaToolError::Generic("Failed to read amount from token account".to_string()))?;
+        let amount_bytes = account_info.data[64..72].try_into().map_err(|_| {
+            SolanaToolError::Generic("Failed to read amount from token account".to_string())
+        })?;
         let amount = u64::from_le_bytes(amount_bytes);
 
         info!("Token balance for {} (mint: {}): {}", address, mint, amount);
@@ -472,7 +480,7 @@ impl SolanaClient {
                     encoding: Some(solana_transaction_status::UiTransactionEncoding::Json),
                     commitment: Some(CommitmentConfig::confirmed()),
                     max_supported_transaction_version: Some(0),
-                }
+                },
             )
             .map_err(|e| SolanaToolError::Rpc(e.to_string()))?;
 
@@ -489,9 +497,12 @@ impl SolanaClient {
         // 1. Query token account changes
         // 2. Find transactions that modified the token account
         // 3. Filter by recency and limit
-        
+
         // For now, return empty vec - this would be implemented based on specific requirements
-        debug!("get_recent_transactions_for_token called with limit: {}", limit);
+        debug!(
+            "get_recent_transactions_for_token called with limit: {}",
+            limit
+        );
         Ok(vec![])
     }
 }

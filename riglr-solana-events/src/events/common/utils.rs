@@ -1,5 +1,5 @@
-use solana_sdk::pubkey::Pubkey;
 use crate::error::{ParseError, ParseResult};
+use solana_sdk::pubkey::Pubkey;
 
 /// Common utility functions for event parsing
 ///
@@ -8,7 +8,7 @@ pub fn read_u64_le(data: &[u8], offset: usize) -> ParseResult<u64> {
     if data.len() < offset + 8 {
         return Err(ParseError::not_enough_bytes(8, data.len() - offset, offset));
     }
-    
+
     let mut u64_bytes = [0u8; 8];
     u64_bytes.copy_from_slice(&data[offset..offset + 8]);
     Ok(u64::from_le_bytes(u64_bytes))
@@ -17,9 +17,13 @@ pub fn read_u64_le(data: &[u8], offset: usize) -> ParseResult<u64> {
 /// Read u128 from little-endian bytes at offset
 pub fn read_u128_le(data: &[u8], offset: usize) -> ParseResult<u128> {
     if data.len() < offset + 16 {
-        return Err(ParseError::not_enough_bytes(16, data.len() - offset, offset));
+        return Err(ParseError::not_enough_bytes(
+            16,
+            data.len() - offset,
+            offset,
+        ));
     }
-    
+
     let mut u128_bytes = [0u8; 16];
     u128_bytes.copy_from_slice(&data[offset..offset + 16]);
     Ok(u128::from_le_bytes(u128_bytes))
@@ -30,7 +34,7 @@ pub fn read_u32_le(data: &[u8], offset: usize) -> ParseResult<u32> {
     if data.len() < offset + 4 {
         return Err(ParseError::not_enough_bytes(4, data.len() - offset, offset));
     }
-    
+
     let mut u32_bytes = [0u8; 4];
     u32_bytes.copy_from_slice(&data[offset..offset + 4]);
     Ok(u32::from_le_bytes(u32_bytes))
@@ -41,7 +45,7 @@ pub fn read_i32_le(data: &[u8], offset: usize) -> ParseResult<i32> {
     if data.len() < offset + 4 {
         return Err(ParseError::not_enough_bytes(4, data.len() - offset, offset));
     }
-    
+
     let mut i32_bytes = [0u8; 4];
     i32_bytes.copy_from_slice(&data[offset..offset + 4]);
     Ok(i32::from_le_bytes(i32_bytes))
@@ -52,7 +56,7 @@ pub fn read_u8_le(data: &[u8], offset: usize) -> ParseResult<u8> {
     if data.len() <= offset {
         return Err(ParseError::not_enough_bytes(1, 0, offset));
     }
-    
+
     Ok(data[offset])
 }
 
@@ -61,10 +65,10 @@ pub fn read_option_bool(data: &[u8], offset: &mut usize) -> ParseResult<Option<b
     if data.len() <= *offset {
         return Ok(None);
     }
-    
+
     let tag = data[*offset];
     *offset += 1;
-    
+
     match tag {
         0 => Ok(None),
         1 => {
@@ -75,16 +79,19 @@ pub fn read_option_bool(data: &[u8], offset: &mut usize) -> ParseResult<Option<b
             *offset += 1;
             Ok(Some(value))
         }
-        _ => Err(ParseError::invalid_enum_variant(tag, "Option<bool>"))
+        _ => Err(ParseError::invalid_enum_variant(tag, "Option<bool>")),
     }
 }
 
 /// Parse a pubkey from bytes
 pub fn parse_pubkey_from_bytes(bytes: &[u8]) -> ParseResult<Pubkey> {
     if bytes.len() != 32 {
-        return Err(ParseError::InvalidPubkey(format!("expected 32 bytes, got {}", bytes.len())));
+        return Err(ParseError::InvalidPubkey(format!(
+            "expected 32 bytes, got {}",
+            bytes.len()
+        )));
     }
-    
+
     let mut pubkey_bytes = [0u8; 32];
     pubkey_bytes.copy_from_slice(bytes);
     Ok(Pubkey::from(pubkey_bytes))
@@ -95,7 +102,7 @@ pub fn parse_u64_le(bytes: &[u8]) -> ParseResult<u64> {
     if bytes.len() < 8 {
         return Err(ParseError::not_enough_bytes(8, bytes.len(), 0));
     }
-    
+
     let mut u64_bytes = [0u8; 8];
     u64_bytes.copy_from_slice(&bytes[..8]);
     Ok(u64::from_le_bytes(u64_bytes))
@@ -106,7 +113,7 @@ pub fn parse_u128_le(bytes: &[u8]) -> ParseResult<u128> {
     if bytes.len() < 16 {
         return Err(ParseError::not_enough_bytes(16, bytes.len(), 0));
     }
-    
+
     let mut u128_bytes = [0u8; 16];
     u128_bytes.copy_from_slice(&bytes[..16]);
     Ok(u128::from_le_bytes(u128_bytes))
@@ -117,7 +124,7 @@ pub fn parse_u32_le(bytes: &[u8]) -> ParseResult<u32> {
     if bytes.len() < 4 {
         return Err(ParseError::not_enough_bytes(4, bytes.len(), 0));
     }
-    
+
     let mut u32_bytes = [0u8; 4];
     u32_bytes.copy_from_slice(&bytes[..4]);
     Ok(u32::from_le_bytes(u32_bytes))
@@ -128,7 +135,7 @@ pub fn parse_u16_le(bytes: &[u8]) -> ParseResult<u16> {
     if bytes.len() < 2 {
         return Err(ParseError::not_enough_bytes(2, bytes.len(), 0));
     }
-    
+
     let mut u16_bytes = [0u8; 2];
     u16_bytes.copy_from_slice(&bytes[..2]);
     Ok(u16::from_le_bytes(u16_bytes))
@@ -168,14 +175,14 @@ pub fn calculate_price_impact(
     if reserve_in == 0 || reserve_out == 0 {
         return 0.0;
     }
-    
+
     let expected_amount_out = (amount_in as f64 * reserve_out as f64) / reserve_in as f64;
     let actual_amount_out = amount_out as f64;
-    
+
     if expected_amount_out == 0.0 {
         return 0.0;
     }
-    
+
     ((expected_amount_out - actual_amount_out) / expected_amount_out * 100.0).abs()
 }
 
@@ -187,7 +194,12 @@ pub fn extract_account_keys(
     let mut keys = Vec::new();
     for &index in indices {
         if index >= accounts.len() {
-            return Err(format!("Account index {} out of bounds (max: {})", index, accounts.len() - 1).into());
+            return Err(format!(
+                "Account index {} out of bounds (max: {})",
+                index,
+                accounts.len() - 1
+            )
+            .into());
         }
         keys.push(accounts[index]);
     }
@@ -229,7 +241,7 @@ mod tests {
         let data = [0x01, 0x02, 0x03, 0x04, 0x05];
         let discriminator = [0x01, 0x02, 0x03];
         assert!(has_discriminator(&data, &discriminator));
-        
+
         let wrong_discriminator = [0x01, 0x02, 0x04];
         assert!(!has_discriminator(&data, &wrong_discriminator));
     }

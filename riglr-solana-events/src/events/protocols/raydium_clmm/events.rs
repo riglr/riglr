@@ -1,7 +1,7 @@
-use serde::{Deserialize, Serialize};
-use solana_sdk::pubkey::Pubkey;
 use crate::events::common::EventMetadata;
 use riglr_events_core::{Event, EventKind, EventMetadata as CoreEventMetadata};
+use serde::{Deserialize, Serialize};
+use solana_sdk::pubkey::Pubkey;
 use std::any::Any;
 
 /// Raydium CLMM swap event
@@ -13,7 +13,7 @@ pub struct RaydiumClmmSwapEvent {
     pub sqrt_price_x64: u128,
     pub liquidity: u128,
     pub tick_current: i32,
-    
+
     // Account keys
     pub payer: Pubkey,
     pub pool_state: Pubkey,
@@ -24,7 +24,6 @@ pub struct RaydiumClmmSwapEvent {
     pub token_mint0: Pubkey,
     pub token_mint1: Pubkey,
 }
-
 
 /// Raydium CLMM swap V2 event
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
@@ -36,7 +35,7 @@ pub struct RaydiumClmmSwapV2Event {
     pub liquidity: u128,
     pub tick_current: i32,
     pub is_base_input: bool,
-    
+
     // Account keys
     pub payer: Pubkey,
     pub pool_state: Pubkey,
@@ -48,7 +47,6 @@ pub struct RaydiumClmmSwapV2Event {
     pub token_mint1: Pubkey,
 }
 
-
 /// Raydium CLMM create pool event
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct RaydiumClmmCreatePoolEvent {
@@ -56,7 +54,7 @@ pub struct RaydiumClmmCreatePoolEvent {
     pub sqrt_price_x64: u128,
     pub tick_current: i32,
     pub observation_index: u16,
-    
+
     // Account keys
     pub pool_creator: Pubkey,
     pub pool_state: Pubkey,
@@ -65,7 +63,6 @@ pub struct RaydiumClmmCreatePoolEvent {
     pub token_vault0: Pubkey,
     pub token_vault1: Pubkey,
 }
-
 
 /// Raydium CLMM open position V2 event
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
@@ -80,7 +77,7 @@ pub struct RaydiumClmmOpenPositionV2Event {
     pub amount1_max: u64,
     pub with_metadata: bool,
     pub base_flag: Option<bool>,
-    
+
     // Account keys
     pub payer: Pubkey,
     pub position_nft_owner: Pubkey,
@@ -90,19 +87,17 @@ pub struct RaydiumClmmOpenPositionV2Event {
     pub pool_state: Pubkey,
 }
 
-
 /// Raydium CLMM close position event
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct RaydiumClmmClosePositionEvent {
     pub metadata: EventMetadata,
-    
+
     // Account keys
     pub nft_owner: Pubkey,
     pub position_nft_mint: Pubkey,
     pub position_nft_account: Pubkey,
     pub personal_position: Pubkey,
 }
-
 
 /// Raydium CLMM increase liquidity V2 event
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
@@ -112,13 +107,12 @@ pub struct RaydiumClmmIncreaseLiquidityV2Event {
     pub amount0_max: u64,
     pub amount1_max: u64,
     pub base_flag: Option<bool>,
-    
+
     // Account keys
     pub nft_owner: Pubkey,
     pub position_nft_account: Pubkey,
     pub pool_state: Pubkey,
 }
-
 
 /// Raydium CLMM decrease liquidity V2 event
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
@@ -127,15 +121,14 @@ pub struct RaydiumClmmDecreaseLiquidityV2Event {
     pub liquidity: u128,
     pub amount0_min: u64,
     pub amount1_min: u64,
-    
+
     // Account keys
     pub nft_owner: Pubkey,
     pub position_nft_account: Pubkey,
     pub pool_state: Pubkey,
 }
 
-
-/// Raydium CLMM open position with Token-22 NFT event  
+/// Raydium CLMM open position with Token-22 NFT event
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct RaydiumClmmOpenPositionWithToken22NftEvent {
     pub metadata: EventMetadata,
@@ -148,7 +141,7 @@ pub struct RaydiumClmmOpenPositionWithToken22NftEvent {
     pub amount1_max: u64,
     pub with_metadata: bool,
     pub base_flag: Option<bool>,
-    
+
     // Account keys
     pub payer: Pubkey,
     pub position_nft_owner: Pubkey,
@@ -172,13 +165,9 @@ impl Event for RaydiumClmmSwapEvent {
     fn metadata(&self) -> &CoreEventMetadata {
         use std::sync::OnceLock;
         static METADATA_CACHE: OnceLock<CoreEventMetadata> = OnceLock::new();
-        
+
         METADATA_CACHE.get_or_init(|| {
-            CoreEventMetadata::new(
-                String::new(),
-                EventKind::Swap,
-                "raydium-clmm".to_string(),
-            )
+            CoreEventMetadata::new(String::new(), EventKind::Swap, "raydium-clmm".to_string())
         })
     }
 
@@ -216,13 +205,9 @@ impl Event for RaydiumClmmSwapV2Event {
     fn metadata(&self) -> &CoreEventMetadata {
         use std::sync::OnceLock;
         static METADATA_CACHE: OnceLock<CoreEventMetadata> = OnceLock::new();
-        
+
         METADATA_CACHE.get_or_init(|| {
-            CoreEventMetadata::new(
-                String::new(),
-                EventKind::Swap,
-                "raydium-clmm".to_string(),
-            )
+            CoreEventMetadata::new(String::new(), EventKind::Swap, "raydium-clmm".to_string())
         })
     }
 
@@ -260,7 +245,7 @@ impl Event for RaydiumClmmCreatePoolEvent {
     fn metadata(&self) -> &CoreEventMetadata {
         use std::sync::OnceLock;
         static METADATA_CACHE: OnceLock<CoreEventMetadata> = OnceLock::new();
-        
+
         METADATA_CACHE.get_or_init(|| {
             CoreEventMetadata::new(
                 String::new(),
@@ -304,7 +289,7 @@ impl Event for RaydiumClmmOpenPositionV2Event {
     fn metadata(&self) -> &CoreEventMetadata {
         use std::sync::OnceLock;
         static METADATA_CACHE: OnceLock<CoreEventMetadata> = OnceLock::new();
-        
+
         METADATA_CACHE.get_or_init(|| {
             CoreEventMetadata::new(
                 String::new(),
@@ -348,7 +333,7 @@ impl Event for RaydiumClmmClosePositionEvent {
     fn metadata(&self) -> &CoreEventMetadata {
         use std::sync::OnceLock;
         static METADATA_CACHE: OnceLock<CoreEventMetadata> = OnceLock::new();
-        
+
         METADATA_CACHE.get_or_init(|| {
             CoreEventMetadata::new(
                 String::new(),
@@ -392,7 +377,7 @@ impl Event for RaydiumClmmIncreaseLiquidityV2Event {
     fn metadata(&self) -> &CoreEventMetadata {
         use std::sync::OnceLock;
         static METADATA_CACHE: OnceLock<CoreEventMetadata> = OnceLock::new();
-        
+
         METADATA_CACHE.get_or_init(|| {
             CoreEventMetadata::new(
                 String::new(),
@@ -436,7 +421,7 @@ impl Event for RaydiumClmmDecreaseLiquidityV2Event {
     fn metadata(&self) -> &CoreEventMetadata {
         use std::sync::OnceLock;
         static METADATA_CACHE: OnceLock<CoreEventMetadata> = OnceLock::new();
-        
+
         METADATA_CACHE.get_or_init(|| {
             CoreEventMetadata::new(
                 String::new(),
@@ -480,7 +465,7 @@ impl Event for RaydiumClmmOpenPositionWithToken22NftEvent {
     fn metadata(&self) -> &CoreEventMetadata {
         use std::sync::OnceLock;
         static METADATA_CACHE: OnceLock<CoreEventMetadata> = OnceLock::new();
-        
+
         METADATA_CACHE.get_or_init(|| {
             CoreEventMetadata::new(
                 String::new(),
@@ -510,4 +495,3 @@ impl Event for RaydiumClmmOpenPositionWithToken22NftEvent {
         Ok(serde_json::to_value(self)?)
     }
 }
-

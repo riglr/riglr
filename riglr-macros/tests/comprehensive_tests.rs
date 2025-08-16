@@ -1,8 +1,8 @@
 //! Basic tests for riglr-macros
 
-use riglr_macros::tool;
-use riglr_core::Tool;
 use anyhow::Result;
+use riglr_core::Tool;
+use riglr_macros::tool;
 
 // Test basic async function with tool macro
 #[tool]
@@ -24,10 +24,14 @@ pub async fn multi_param_tool(a: i32, b: i32, c: String) -> Result<String> {
 
 /// Doc comment used when no explicit description attribute is provided
 #[tool]
-pub async fn doc_only_tool() -> Result<&'static str> { Ok("ok") }
+pub async fn doc_only_tool() -> Result<&'static str> {
+    Ok("ok")
+}
 
 #[tool(description = "Explicit description.")]
-pub async fn attr_tool() -> Result<&'static str> { Ok("ok") }
+pub async fn attr_tool() -> Result<&'static str> {
+    Ok("ok")
+}
 
 #[cfg(test)]
 mod tests {
@@ -53,12 +57,15 @@ mod tests {
 
     #[tokio::test]
     async fn test_description_priority() {
-    // With namespacing, the generated tools are in modules named after the function
-    // The tool struct is always named Tool inside the function's module
-    let doc_tool = doc_only_tool::Tool::new();
-    let attr_tool = attr_tool::Tool::new();
+        // With namespacing, the generated tools are in modules named after the function
+        // The tool struct is always named Tool inside the function's module
+        let doc_tool = doc_only_tool::Tool::new();
+        let attr_tool = attr_tool::Tool::new();
 
-        assert_eq!(doc_tool.description(), "Doc comment used when no explicit description attribute is provided");
+        assert_eq!(
+            doc_tool.description(),
+            "Doc comment used when no explicit description attribute is provided"
+        );
         assert_eq!(attr_tool.description(), "Explicit description.");
     }
 }

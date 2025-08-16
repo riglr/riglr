@@ -4,7 +4,7 @@ use riglr_macros::IntoToolError;
 use thiserror::Error;
 
 /// Main error type for web tool operations.
-/// 
+///
 /// The IntoToolError derive macro automatically classifies errors:
 /// - Retriable: Network (includes HTTP), Api (includes request errors), RateLimit
 /// - Permanent: Auth, Parsing (includes JSON), Config, Client, InvalidInput

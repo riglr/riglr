@@ -2,7 +2,7 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 
 use riglr_core::config::RpcConfig;
-use riglr_web_adapters::{PromptRequest, Agent, SignerFactory};
+use riglr_web_adapters::{Agent, PromptRequest, SignerFactory};
 
 #[derive(Clone, Debug)]
 pub struct ServerConfig {
@@ -26,7 +26,12 @@ pub async fn start_axum<A: Agent + Clone + Send + Sync + 'static>(
     agent: A,
     signer_factory: Arc<dyn SignerFactory>,
 ) -> anyhow::Result<()> {
-    use axum::{routing::{get, post}, Router, extract::State, http::HeaderMap, Json};
+    use axum::{
+        extract::State,
+        http::HeaderMap,
+        routing::{get, post},
+        Json, Router,
+    };
     use riglr_web_adapters::axum as axum_adapters;
 
     // Wire adapter with provided factory and rpc config
@@ -47,9 +52,17 @@ pub async fn start_axum<A: Agent + Clone + Send + Sync + 'static>(
         State(state): State<AppState<A>>,
         headers: HeaderMap,
         Json(prompt): Json<PromptRequest>,
-    ) -> Result<axum::response::Sse<impl futures_util::Stream<Item = Result<axum::response::sse::Event, axum::Error>>>, axum::http::StatusCode> {
-    state.sse_count.fetch_add(1, Ordering::Relaxed);
-    state.adapter.sse_handler(headers, state.agent.clone(), prompt).await
+    ) -> Result<
+        axum::response::Sse<
+            impl futures_util::Stream<Item = Result<axum::response::sse::Event, axum::Error>>,
+        >,
+        axum::http::StatusCode,
+    > {
+        state.sse_count.fetch_add(1, Ordering::Relaxed);
+        state
+            .adapter
+            .sse_handler(headers, state.agent.clone(), prompt)
+            .await
     }
 
     async fn completion_handler<A: Agent + Clone + Send + Sync + 'static>(
@@ -57,14 +70,23 @@ pub async fn start_axum<A: Agent + Clone + Send + Sync + 'static>(
         headers: HeaderMap,
         Json(prompt): Json<PromptRequest>,
     ) -> Result<Json<riglr_web_adapters::CompletionResponse>, axum::http::StatusCode> {
-    state.completion_count.fetch_add(1, Ordering::Relaxed);
-    state.adapter.completion_handler(headers, state.agent.clone(), prompt).await
+        state.completion_count.fetch_add(1, Ordering::Relaxed);
+        state
+            .adapter
+            .completion_handler(headers, state.agent.clone(), prompt)
+            .await
     }
 
-    async fn health() -> Json<serde_json::Value> { axum_adapters::health_handler().await }
-    async fn info() -> Json<serde_json::Value> { axum_adapters::info_handler().await }
+    async fn health() -> Json<serde_json::Value> {
+        axum_adapters::health_handler().await
+    }
+    async fn info() -> Json<serde_json::Value> {
+        axum_adapters::info_handler().await
+    }
 
-    async fn metrics<A: Agent + Clone + Send + Sync + 'static>(State(state): State<AppState<A>>) -> Json<serde_json::Value> {
+    async fn metrics<A: Agent + Clone + Send + Sync + 'static>(
+        State(state): State<AppState<A>>,
+    ) -> Json<serde_json::Value> {
         Json(serde_json::json!({
             "sse_requests": state.sse_count.load(Ordering::Relaxed),
             "completion_requests": state.completion_count.load(Ordering::Relaxed),
@@ -110,22 +132,32 @@ pub async fn start_actix<A: Agent + Clone + Send + Sync + 'static>(
         App::new()
             .app_data(adapter_data.clone())
             .app_data(agent_data.clone())
-            .route("/v1/stream", web::post().to(
-                |adapter: web::Data<actix_adapters::ActixRiglrAdapter>,
-                 req: actix_web::HttpRequest,
-                 agent: web::Data<A>,
-                 prompt: web::Json<PromptRequest>| async move {
-                    adapter.sse_handler(&req, agent.as_ref(), prompt.into_inner()).await
-                },
-            ))
-            .route("/v1/completion", web::post().to(
-                |adapter: web::Data<actix_adapters::ActixRiglrAdapter>,
-                 req: actix_web::HttpRequest,
-                 agent: web::Data<A>,
-                 prompt: web::Json<PromptRequest>| async move {
-                    adapter.completion_handler(&req, agent.as_ref(), prompt.into_inner()).await
-                },
-            ))
+            .route(
+                "/v1/stream",
+                web::post().to(
+                    |adapter: web::Data<actix_adapters::ActixRiglrAdapter>,
+                     req: actix_web::HttpRequest,
+                     agent: web::Data<A>,
+                     prompt: web::Json<PromptRequest>| async move {
+                        adapter
+                            .sse_handler(&req, agent.as_ref(), prompt.into_inner())
+                            .await
+                    },
+                ),
+            )
+            .route(
+                "/v1/completion",
+                web::post().to(
+                    |adapter: web::Data<actix_adapters::ActixRiglrAdapter>,
+                     req: actix_web::HttpRequest,
+                     agent: web::Data<A>,
+                     prompt: web::Json<PromptRequest>| async move {
+                        adapter
+                            .completion_handler(&req, agent.as_ref(), prompt.into_inner())
+                            .await
+                    },
+                ),
+            )
             .route("/health", web::get().to(actix_adapters::health_handler))
             .route("/", web::get().to(actix_adapters::info_handler))
     })

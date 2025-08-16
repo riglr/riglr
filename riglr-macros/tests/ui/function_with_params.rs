@@ -6,7 +6,7 @@ use anyhow::Result;
 pub async fn add_numbers(
     // The first number
     a: i32,
-    // The second number  
+    // The second number
     b: i32,
     // Whether to return absolute value
     absolute: bool,

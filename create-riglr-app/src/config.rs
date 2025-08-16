@@ -27,14 +27,14 @@ pub enum Template {
     ApiServiceBackend,
     DataAnalyticsBot,
     EventDrivenTradingEngine,
-    
+
     // Existing templates
     TradingBot,
     MarketAnalyst,
     NewsMonitor,
     DexArbitrageBot,
     PortfolioTracker,
-    
+
     // Additional templates
     BridgeMonitor,
     MevProtectionAgent,
@@ -42,7 +42,7 @@ pub enum Template {
     NftTradingBot,
     YieldOptimizer,
     SocialTradingCopier,
-    
+
     // Basic template
     Custom,
 }
@@ -68,12 +68,18 @@ impl Template {
             _ => Err(anyhow!("Unknown template: {}", s)),
         }
     }
-    
+
     pub fn description(&self) -> &str {
         match self {
-            Template::ApiServiceBackend => "RESTful API service with blockchain integration and AI agents",
-            Template::DataAnalyticsBot => "Real-time blockchain data analysis and insights generation",
-            Template::EventDrivenTradingEngine => "Event-driven automated trading with complex strategies",
+            Template::ApiServiceBackend => {
+                "RESTful API service with blockchain integration and AI agents"
+            }
+            Template::DataAnalyticsBot => {
+                "Real-time blockchain data analysis and insights generation"
+            }
+            Template::EventDrivenTradingEngine => {
+                "Event-driven automated trading with complex strategies"
+            }
             Template::TradingBot => "Advanced trading bot with risk management",
             Template::MarketAnalyst => "Comprehensive market analysis and reporting",
             Template::NewsMonitor => "Real-time news aggregation and sentiment analysis",
@@ -88,7 +94,7 @@ impl Template {
             Template::Custom => "Minimal template with basic structure",
         }
     }
-    
+
     #[allow(dead_code)]
     pub fn default_features(&self) -> Vec<String> {
         match self {
@@ -166,19 +172,9 @@ impl ServerFramework {
                 ("actix-web-lab", "0.20"),
                 ("actix-cors", "0.7"),
             ],
-            ServerFramework::Axum => vec![
-                ("axum", "0.7"),
-                ("tower", "0.5"),
-                ("tower-http", "0.6"),
-            ],
-            ServerFramework::Warp => vec![
-                ("warp", "0.3"),
-                ("tokio-stream", "0.1"),
-            ],
-            ServerFramework::Rocket => vec![
-                ("rocket", "0.5"),
-                ("rocket_cors", "0.6"),
-            ],
+            ServerFramework::Axum => vec![("axum", "0.7"), ("tower", "0.5"), ("tower-http", "0.6")],
+            ServerFramework::Warp => vec![("warp", "0.3"), ("tokio-stream", "0.1")],
+            ServerFramework::Rocket => vec![("rocket", "0.5"), ("rocket_cors", "0.6")],
         }
     }
 }
@@ -244,7 +240,7 @@ impl TemplateInfo {
             ),
             _ => (vec![], vec![], vec![]),
         };
-        
+
         TemplateInfo {
             name: template.to_string(),
             description: template.description().to_string(),

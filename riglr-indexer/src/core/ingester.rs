@@ -4,11 +4,11 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::{mpsc, RwLock};
 use tokio::time::interval;
-use tracing::{info, error};
+use tracing::{error, info};
 
 use riglr_events_core::prelude::*;
 
-use crate::core::{ServiceContext, ServiceLifecycle, ComponentHealth, HealthStatus};
+use crate::core::{ComponentHealth, HealthStatus, ServiceContext, ServiceLifecycle};
 use crate::error::{IndexerError, IndexerResult};
 use crate::utils::RateLimiter;
 
@@ -66,11 +66,11 @@ pub struct IngestionStats {
 
 impl EventIngester {
     /// Create a new event ingester
-    pub async fn new(
-        config: IngesterConfig,
-        context: Arc<ServiceContext>,
-    ) -> IndexerResult<Self> {
-        info!("Initializing event ingester with {} workers", config.workers);
+    pub async fn new(config: IngesterConfig, context: Arc<ServiceContext>) -> IndexerResult<Self> {
+        info!(
+            "Initializing event ingester with {} workers",
+            config.workers
+        );
 
         // Create event queue
         let (event_tx, event_rx) = mpsc::unbounded_channel();
@@ -110,7 +110,7 @@ impl EventIngester {
         // Add Solana streams if configured
         if let Ok(rpc_url) = std::env::var("SOLANA_RPC_URL") {
             info!("Adding Solana stream source: {}", rpc_url);
-            
+
             // Create a Solana event stream
             // This would integrate with riglr-streams to create actual streams
             // For now, we'll create a placeholder that can be extended
@@ -127,7 +127,10 @@ impl EventIngester {
             if chain_id_str.starts_with("RPC_URL_") {
                 if let Some(chain_id_str) = chain_id_str.strip_prefix("RPC_URL_") {
                     if let Ok(chain_id) = chain_id_str.parse::<u64>() {
-                        info!("Adding EVM stream source for chain {}: {}", chain_id, rpc_url);
+                        info!(
+                            "Adding EVM stream source for chain {}: {}",
+                            chain_id, rpc_url
+                        );
                         // Add EVM stream configuration
                     }
                 }
@@ -146,10 +149,11 @@ impl EventIngester {
         info!("Starting {} ingestion workers", self.config.workers);
 
         let event_tx = self.event_tx.read().await;
-        let tx = event_tx.as_ref()
+        let tx = event_tx
+            .as_ref()
             .ok_or_else(|| IndexerError::internal("Event sender not initialized"))?
             .clone();
-        
+
         drop(event_tx);
 
         for worker_id in 0..self.config.workers {
@@ -157,10 +161,10 @@ impl EventIngester {
             let stats = self.stats.clone();
             let rate_limiter = self.rate_limiter.clone();
             let tx = tx.clone();
-            
+
             tokio::spawn(async move {
                 info!("Starting ingestion worker {}", worker_id);
-                
+
                 let mut shutdown_rx = context.shutdown_receiver();
                 let mut batch_interval = interval(Duration::from_millis(100));
 
@@ -172,12 +176,12 @@ impl EventIngester {
                             if context.config.features.experimental {
                                 if let Ok(()) = rate_limiter.check() {
                                     let mock_event = create_mock_solana_event();
-                                    
+
                                     if let Err(e) = tx.send(mock_event) {
                                         error!("Worker {} failed to send event: {}", worker_id, e);
                                         break;
                                     }
-                                    
+
                                     // Update stats
                                     let mut stats = stats.write().await;
                                     stats.total_events += 1;
@@ -185,14 +189,14 @@ impl EventIngester {
                                 }
                             }
                         }
-                        
+
                         _ = shutdown_rx.recv() => {
                             info!("Worker {} received shutdown signal", worker_id);
                             break;
                         }
                     }
                 }
-                
+
                 info!("Ingestion worker {} stopped", worker_id);
             });
         }
@@ -204,41 +208,43 @@ impl EventIngester {
     fn start_stats_collection(&self) {
         let stats = self.stats.clone();
         let context = self.context.clone();
-        
+
         tokio::spawn(async move {
             let mut interval = interval(Duration::from_secs(10));
             let mut last_count = 0u64;
             let mut last_time = std::time::Instant::now();
-            
+
             loop {
                 interval.tick().await;
-                
+
                 let mut stats_guard = stats.write().await;
                 let now = std::time::Instant::now();
                 let elapsed = now.duration_since(last_time).as_secs_f64();
-                
+
                 if elapsed > 0.0 {
                     let events_delta = stats_guard.total_events.saturating_sub(last_count);
                     stats_guard.events_per_second = events_delta as f64 / elapsed;
-                    
+
                     // Record metrics
                     context.metrics.record_gauge(
                         "indexer_ingestion_events_per_second",
                         stats_guard.events_per_second,
                     );
-                    context.metrics.record_counter(
-                        "indexer_ingestion_total_events",
-                        stats_guard.total_events,
-                    );
+                    context
+                        .metrics
+                        .record_counter("indexer_ingestion_total_events", stats_guard.total_events);
                 }
-                
+
                 last_count = stats_guard.total_events;
                 last_time = now;
-                
+
                 drop(stats_guard);
-                
+
                 // Check for shutdown
-                if matches!(context.state().await, crate::core::ServiceState::Stopping | crate::core::ServiceState::Stopped) {
+                if matches!(
+                    context.state().await,
+                    crate::core::ServiceState::Stopping | crate::core::ServiceState::Stopped
+                ) {
                     break;
                 }
             }
@@ -248,7 +254,8 @@ impl EventIngester {
     /// Receive events from the ingestion queue
     pub async fn receive_events(&self) -> IndexerResult<Vec<Box<dyn Event>>> {
         let mut rx_guard = self.event_rx.write().await;
-        let rx = rx_guard.as_mut()
+        let rx = rx_guard
+            .as_mut()
             .ok_or_else(|| IndexerError::internal("Event receiver not initialized"))?;
 
         let mut events = Vec::new();
@@ -309,12 +316,17 @@ impl ServiceLifecycle for EventIngester {
         self.start_stats_collection();
 
         // Update component health
-        self.context.update_component_health(
-            "ingester",
-            ComponentHealth::healthy("Event ingester started successfully"),
-        ).await;
+        self.context
+            .update_component_health(
+                "ingester",
+                ComponentHealth::healthy("Event ingester started successfully"),
+            )
+            .await;
 
-        info!("Event ingester started with {} workers", self.config.workers);
+        info!(
+            "Event ingester started with {} workers",
+            self.config.workers
+        );
         Ok(())
     }
 
@@ -342,27 +354,34 @@ impl ServiceLifecycle for EventIngester {
 
     async fn health(&self) -> IndexerResult<HealthStatus> {
         let stats = self.stats.read().await;
-        
+
         let healthy = stats.error_count < 100 && // Less than 100 errors
                      stats.last_success.is_some_and(|t| {
                          chrono::Utc::now().signed_duration_since(t).num_minutes() < 5
                      });
 
         let mut components = std::collections::HashMap::new();
-        
+
         let message = if healthy {
-            format!("Ingester healthy: {} events/sec, {} errors", 
-                   stats.events_per_second, stats.error_count)
+            format!(
+                "Ingester healthy: {} events/sec, {} errors",
+                stats.events_per_second, stats.error_count
+            )
         } else {
-            format!("Ingester unhealthy: {} errors, last success: {:?}", 
-                   stats.error_count, stats.last_success)
+            format!(
+                "Ingester unhealthy: {} errors, last success: {:?}",
+                stats.error_count, stats.last_success
+            )
         };
 
-        components.insert("ingester".to_string(), if healthy {
-            ComponentHealth::healthy(&message)
-        } else {
-            ComponentHealth::unhealthy(&message)
-        });
+        components.insert(
+            "ingester".to_string(),
+            if healthy {
+                ComponentHealth::healthy(&message)
+            } else {
+                ComponentHealth::unhealthy(&message)
+            },
+        );
 
         Ok(HealthStatus {
             healthy,
@@ -394,44 +413,44 @@ fn create_mock_solana_event() -> Box<dyn Event> {
         metadata: EventMetadata,
         kind: EventKind,
     }
-    
+
     impl Event for MockEvent {
         fn id(&self) -> &str {
             &self.id
         }
-        
+
         fn kind(&self) -> &EventKind {
             &self.kind
         }
-        
+
         fn source(&self) -> &str {
             "mock"
         }
-        
+
         fn timestamp(&self) -> std::time::SystemTime {
             self.timestamp
         }
-        
+
         fn metadata(&self) -> &EventMetadata {
             &self.metadata
         }
-        
+
         fn metadata_mut(&mut self) -> &mut EventMetadata {
             &mut self.metadata
         }
-        
+
         fn as_any(&self) -> &(dyn std::any::Any + 'static) {
             self
         }
-        
+
         fn as_any_mut(&mut self) -> &mut (dyn std::any::Any + 'static) {
             self
         }
-        
+
         fn clone_boxed(&self) -> Box<dyn Event> {
             Box::new(self.clone())
         }
-        
+
         fn to_json(&self) -> Result<serde_json::Value, riglr_events_core::EventError> {
             Ok(serde_json::json!({
                 "id": self.id,
@@ -441,7 +460,7 @@ fn create_mock_solana_event() -> Box<dyn Event> {
             }))
         }
     }
-    
+
     let custom_data = std::collections::HashMap::new();
     let metadata = EventMetadata {
         id: "mock".to_string(),
@@ -452,7 +471,7 @@ fn create_mock_solana_event() -> Box<dyn Event> {
         timestamp: chrono::Utc::now(),
         custom: custom_data,
     };
-    
+
     Box::new(MockEvent {
         id: format!("mock-{}", uuid::Uuid::new_v4()),
         timestamp: std::time::SystemTime::now(),

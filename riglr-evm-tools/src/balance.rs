@@ -71,36 +71,36 @@ pub struct TokenBalanceResult {
 ///
 /// This tool retrieves the native ETH balance for any Ethereum wallet address on the current
 /// EVM chain. The balance is returned in both wei (smallest unit) and ETH (human-readable format).
-/// 
+///
 /// # Arguments
-/// 
+///
 /// * `address` - The Ethereum wallet address to check (0x-prefixed hex string)
 /// * `chain_id` - EVM chain identifier (1 for Ethereum mainnet, 42161 for Arbitrum, etc.)
 /// * `block_number` - Optional specific block number to query (uses latest if None)
-/// 
+///
 /// # Returns
-/// 
+///
 /// Returns `BalanceResult` containing:
 /// - `address`: The queried wallet address
 /// - `balance_raw`: Balance in wei (1 ETH = 10^18 wei)
-/// - `balance_formatted`: Balance in ETH with 6 decimal places  
+/// - `balance_formatted`: Balance in ETH with 6 decimal places
 /// - `unit`: "ETH" currency identifier
 /// - `chain_id`: EVM chain identifier (1 for Ethereum mainnet)
 /// - `chain_name`: Human-readable chain name
 /// - `block_number`: Block number at which balance was fetched
-/// 
+///
 /// # Errors
-/// 
+///
 /// * `EvmToolError::InvalidAddress` - When the address format is invalid
 /// * `EvmToolError::Rpc` - When network connection issues occur
 /// * `EvmToolError::Generic` - When no signer context is available
-/// 
+///
 /// # Examples
-/// 
+///
 /// ```rust,ignore
 /// use riglr_evm_tools::balance::get_eth_balance;
 /// use riglr_core::SignerContext;
-/// 
+///
 /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
 /// // Check ETH balance for Vitalik's address
 /// let balance = get_eth_balance(
@@ -108,7 +108,7 @@ pub struct TokenBalanceResult {
 ///     1, // Ethereum mainnet
 ///     None, // Use latest block
 /// ).await?;
-/// 
+///
 /// println!("Address: {}", balance.address);
 /// println!("Balance: {} ETH ({} wei)", balance.balance_formatted, balance.balance_raw);
 /// println!("Chain: {} (ID: {})", balance.chain_name, balance.chain_id);
@@ -151,10 +151,7 @@ pub async fn get_eth_balance(
         block_number: Some(block_num),
     };
 
-    info!(
-        "ETH balance for {}: {} ETH",
-        address, balance_f64
-    );
+    info!("ETH balance for {}: {} ETH", address, balance_f64);
 
     Ok(result)
 }
@@ -164,16 +161,16 @@ pub async fn get_eth_balance(
 /// This tool retrieves the balance of any ERC20 token for a given Ethereum wallet address.
 /// It automatically fetches token metadata (symbol, name, decimals) and formats the balance
 /// appropriately. Works with any standard ERC20 token contract.
-/// 
+///
 /// # Arguments
-/// 
+///
 /// * `address` - The Ethereum wallet address to check token balance for
 /// * `token_address` - The ERC20 token contract address
 /// * `chain_id` - EVM chain identifier (1 for Ethereum mainnet, 42161 for Arbitrum, etc.)
 /// * `fetch_metadata` - Whether to fetch token metadata (symbol, name) - defaults to true
-/// 
+///
 /// # Returns
-/// 
+///
 /// Returns `TokenBalanceResult` containing:
 /// - `address`: The wallet address queried
 /// - `token_address`: The token contract address
@@ -182,18 +179,18 @@ pub async fn get_eth_balance(
 /// - `balance_raw`: Balance in token's smallest unit
 /// - `balance_formatted`: Human-readable balance with decimal adjustment
 /// - `chain_id`, `chain_name`: Network information
-/// 
+///
 /// # Errors
-/// 
+///
 /// * `EvmToolError::InvalidAddress` - When wallet or token address is invalid
 /// * `EvmToolError::Rpc` - When network issues occur or token contract doesn't respond
 /// * `EvmToolError::Generic` - When no signer context is available
-/// 
+///
 /// # Examples
-/// 
+///
 /// ```rust,ignore
 /// use riglr_evm_tools::balance::get_erc20_balance;
-/// 
+///
 /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
 /// // Check USDC balance
 /// let balance = get_erc20_balance(
@@ -202,7 +199,7 @@ pub async fn get_eth_balance(
 ///     1, // Ethereum mainnet
 ///     Some(true), // Fetch metadata
 /// ).await?;
-/// 
+///
 /// println!("Token: {} ({})", balance.token_symbol.unwrap_or_default(), balance.token_name.unwrap_or_default());
 /// println!("Balance: {} (decimals: {})", balance.balance_formatted, balance.decimals);
 /// println!("Raw balance: {}", balance.balance_raw);
@@ -229,8 +226,7 @@ pub async fn get_erc20_balance(
     let validated_token_addr = Address::from_str(&token_address)?;
 
     // Get balance using balanceOf function
-    let balance = get_token_balance(&*client, validated_token_addr, validated_addr)
-        .await?;
+    let balance = get_token_balance(&*client, validated_token_addr, validated_addr).await?;
 
     // Get token metadata if requested
     let (symbol, name, decimals) = if fetch_metadata.unwrap_or(true) {
@@ -285,13 +281,10 @@ async fn get_token_balance(
         .input(call_data.into());
 
     // Call the contract
-    let result = client
-        .call(&tx)
-        .await?;
+    let result = client.call(&tx).await?;
 
     // Decode the result
-    let balance = U256::try_from_be_slice(&result)
-        .ok_or("Failed to decode balance")?;
+    let balance = U256::try_from_be_slice(&result).ok_or("Failed to decode balance")?;
 
     Ok(balance)
 }
@@ -327,9 +320,7 @@ pub async fn get_token_decimals(
         .to(token_address)
         .input(call_data.into());
 
-    let result = client
-        .call(&tx)
-        .await?;
+    let result = client.call(&tx).await?;
 
     // Parse the result as u8
     if !result.is_empty() {
@@ -351,9 +342,7 @@ pub async fn get_token_symbol(
         .to(token_address)
         .input(call_data.into());
 
-    let result = client
-        .call(&tx)
-        .await?;
+    let result = client.call(&tx).await?;
 
     // Decode string from bytes
     parse_string_from_bytes(&result)
@@ -371,15 +360,15 @@ pub async fn get_token_name(
         .to(token_address)
         .input(call_data.into());
 
-    let result = client
-        .call(&tx)
-        .await?;
+    let result = client.call(&tx).await?;
 
     parse_string_from_bytes(&result)
 }
 
 /// Parse string from contract return bytes
-fn parse_string_from_bytes(bytes: &[u8]) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+fn parse_string_from_bytes(
+    bytes: &[u8],
+) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
     if bytes.len() < 64 {
         return Err("Invalid string data".into());
     }
@@ -392,8 +381,7 @@ fn parse_string_from_bytes(bytes: &[u8]) -> Result<String, Box<dyn std::error::E
         .position(|&b| b == 0)
         .unwrap_or(string_bytes.len());
 
-    String::from_utf8(string_bytes[..end].to_vec())
-        .map_err(|e| e.into())
+    String::from_utf8(string_bytes[..end].to_vec()).map_err(|e| e.into())
 }
 
 /// Format token balance with decimals
@@ -456,14 +444,8 @@ mod tests {
 
     #[test]
     fn test_format_token_balance() {
-        assert_eq!(
-            format_token_balance(U256::from(1000000), 6),
-            "1.000000"
-        );
-        assert_eq!(
-            format_token_balance(U256::from(123456789), 6),
-            "123.456789"
-        );
+        assert_eq!(format_token_balance(U256::from(1000000), 6), "1.000000");
+        assert_eq!(format_token_balance(U256::from(123456789), 6), "123.456789");
         assert_eq!(format_token_balance(U256::from(100), 6), "0.000100");
         assert_eq!(format_token_balance(U256::from(1), 0), "1");
     }

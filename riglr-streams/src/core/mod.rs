@@ -1,25 +1,27 @@
-pub mod stream;
-pub mod streamed_event;
-pub mod event_adapter;
-pub mod mock_stream;
-pub mod error;
-pub mod manager;
-pub mod metrics;
 pub mod builder;
-pub mod operators;
-pub mod financial_operators;
-pub mod enhanced_operators;
 pub mod config;
 pub mod connection;
+pub mod enhanced_operators;
+pub mod error;
+pub mod event_adapter;
+pub mod financial_operators;
+pub mod manager;
+pub mod metrics;
+pub mod mock_stream;
+pub mod operators;
 pub mod processor;
+pub mod stream;
+pub mod streamed_event;
 #[macro_use]
 pub mod resilience_macro;
 #[cfg(test)]
 mod test_asnumeric;
 
-pub use stream::{Stream, StreamEvent, StreamHealth, DynamicStream, DynamicStreamWrapper};
-pub use streamed_event::{StreamedEvent, DynamicStreamedEvent, IntoStreamedEvent, IntoDynamicStreamedEvent};
-pub use mock_stream::{MockStream, MockConfig};
+pub use mock_stream::{MockConfig, MockStream};
+pub use stream::{DynamicStream, DynamicStreamWrapper, Stream, StreamEvent, StreamHealth};
+pub use streamed_event::{
+    DynamicStreamedEvent, IntoDynamicStreamedEvent, IntoStreamedEvent, StreamedEvent,
+};
 // pub use riglr_solana_events::StreamMetadata; // Temporarily disabled
 
 /// Temporary StreamMetadata for migration phase
@@ -35,27 +37,35 @@ pub struct StreamMetadata {
 mod systemtime_as_millis {
     use serde::{Serialize, Serializer};
     use std::time::SystemTime;
-    
+
     pub fn serialize<S>(time: &SystemTime, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        let millis = time.duration_since(SystemTime::UNIX_EPOCH)
+        let millis = time
+            .duration_since(SystemTime::UNIX_EPOCH)
             .unwrap_or_default()
             .as_millis() as u64;
         millis.serialize(serializer)
     }
 }
-pub use error::{StreamError, StreamResult};
-pub use manager::{StreamManager, EventHandler, LoggingEventHandler, HandlerExecutionMode};
-pub use metrics::{MetricsCollector, StreamMetrics, HandlerMetrics, GlobalMetrics, MetricsTimer};
-pub use builder::{StreamManagerBuilder, StreamConfig, from_config_file, from_env};
-pub use operators::{
-    ComposableStream, BufferStrategy, combinators, 
-    PerformanceStreamExt, ResilienceStreamExt, TypeErasedEvent,
-    GuaranteedDeliveryStream
+pub use builder::{from_config_file, from_env, StreamConfig, StreamManagerBuilder};
+pub use config::{
+    BackpressureConfig, BackpressureStrategy, BatchConfig, ConnectionConfig, MetricsConfig,
+    StreamClientConfig,
 };
-pub use financial_operators::{FinancialStreamExt, AsNumeric};
-pub use config::{StreamClientConfig, BackpressureStrategy, BatchConfig, BackpressureConfig, ConnectionConfig, MetricsConfig};
-pub use connection::{ConnectionManager, ConnectionPool, ConnectionHealth, ConnectionState, CircuitBreaker};
-pub use processor::{WindowManager, WindowType, Window, StatefulProcessor, FlowController, BatchProcessor, PatternMatcher, EventPattern};
+pub use connection::{
+    CircuitBreaker, ConnectionHealth, ConnectionManager, ConnectionPool, ConnectionState,
+};
+pub use error::{StreamError, StreamResult};
+pub use financial_operators::{AsNumeric, FinancialStreamExt};
+pub use manager::{EventHandler, HandlerExecutionMode, LoggingEventHandler, StreamManager};
+pub use metrics::{GlobalMetrics, HandlerMetrics, MetricsCollector, MetricsTimer, StreamMetrics};
+pub use operators::{
+    combinators, BufferStrategy, ComposableStream, GuaranteedDeliveryStream, PerformanceStreamExt,
+    ResilienceStreamExt, TypeErasedEvent,
+};
+pub use processor::{
+    BatchProcessor, EventPattern, FlowController, PatternMatcher, StatefulProcessor, Window,
+    WindowManager, WindowType,
+};

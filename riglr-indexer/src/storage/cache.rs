@@ -1,7 +1,7 @@
 //! Caching layer for the indexer storage
 
-use std::time::Duration;
 use async_trait::async_trait;
+use std::time::Duration;
 
 use crate::error::IndexerResult;
 use crate::storage::StoredEvent;
@@ -10,7 +10,8 @@ use crate::storage::StoredEvent;
 #[async_trait]
 pub trait Cache: Send + Sync {
     /// Store an event in cache
-    async fn set(&self, key: &str, event: &StoredEvent, ttl: Option<Duration>) -> IndexerResult<()>;
+    async fn set(&self, key: &str, event: &StoredEvent, ttl: Option<Duration>)
+        -> IndexerResult<()>;
 
     /// Retrieve an event from cache
     async fn get(&self, key: &str) -> IndexerResult<Option<StoredEvent>>;

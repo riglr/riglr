@@ -24,7 +24,10 @@ pub enum BackpressureStrategy {
     /// Drop messages when buffer is full - fastest but may lose data
     Drop,
     /// Retry with exponential backoff, then drop
-    Retry { max_attempts: usize, base_wait_ms: u64 },
+    Retry {
+        max_attempts: usize,
+        base_wait_ms: u64,
+    },
     /// Adaptive strategy that switches based on load
     Adaptive,
 }
@@ -66,10 +69,14 @@ impl BatchConfig {
 
     pub fn validate(&self) -> Result<(), ConfigError> {
         if self.batch_size == 0 {
-            return Err(ConfigError::Invalid("batch_size must be greater than 0".into()));
+            return Err(ConfigError::Invalid(
+                "batch_size must be greater than 0".into(),
+            ));
         }
         if self.batch_timeout_ms == 0 {
-            return Err(ConfigError::Invalid("batch_timeout_ms must be greater than 0".into()));
+            return Err(ConfigError::Invalid(
+                "batch_timeout_ms must be greater than 0".into(),
+            ));
         }
         Ok(())
     }
@@ -102,13 +109,19 @@ impl Default for BackpressureConfig {
 impl BackpressureConfig {
     pub fn validate(&self) -> Result<(), ConfigError> {
         if self.channel_size == 0 {
-            return Err(ConfigError::Invalid("channel_size must be greater than 0".into()));
+            return Err(ConfigError::Invalid(
+                "channel_size must be greater than 0".into(),
+            ));
         }
         if self.high_watermark_pct <= self.low_watermark_pct {
-            return Err(ConfigError::Invalid("high_watermark_pct must be greater than low_watermark_pct".into()));
+            return Err(ConfigError::Invalid(
+                "high_watermark_pct must be greater than low_watermark_pct".into(),
+            ));
         }
         if self.high_watermark_pct > 100 || self.low_watermark_pct > 100 {
-            return Err(ConfigError::Invalid("watermark percentages must be <= 100".into()));
+            return Err(ConfigError::Invalid(
+                "watermark percentages must be <= 100".into(),
+            ));
         }
         Ok(())
     }
@@ -181,16 +194,24 @@ impl ConnectionConfig {
 
     pub fn validate(&self) -> Result<(), ConfigError> {
         if self.connect_timeout_secs == 0 {
-            return Err(ConfigError::Invalid("connect_timeout_secs must be greater than 0".into()));
+            return Err(ConfigError::Invalid(
+                "connect_timeout_secs must be greater than 0".into(),
+            ));
         }
         if self.request_timeout_secs == 0 {
-            return Err(ConfigError::Invalid("request_timeout_secs must be greater than 0".into()));
+            return Err(ConfigError::Invalid(
+                "request_timeout_secs must be greater than 0".into(),
+            ));
         }
         if self.max_message_size == 0 {
-            return Err(ConfigError::Invalid("max_message_size must be greater than 0".into()));
+            return Err(ConfigError::Invalid(
+                "max_message_size must be greater than 0".into(),
+            ));
         }
         if self.retry_base_delay_ms >= self.retry_max_delay_ms {
-            return Err(ConfigError::Invalid("retry_base_delay_ms must be less than retry_max_delay_ms".into()));
+            return Err(ConfigError::Invalid(
+                "retry_base_delay_ms must be less than retry_max_delay_ms".into(),
+            ));
         }
         Ok(())
     }
@@ -238,8 +259,7 @@ impl MetricsConfig {
 }
 
 /// Comprehensive streaming client configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct StreamClientConfig {
     /// Connection settings
     pub connection: ConnectionConfig,
@@ -252,7 +272,6 @@ pub struct StreamClientConfig {
     /// Enable debugging features
     pub debug: bool,
 }
-
 
 impl StreamClientConfig {
     /// High-performance configuration for production environments
@@ -379,32 +398,40 @@ impl StreamClientConfig {
     /// Load configuration from environment variables
     pub fn from_env() -> Result<Self, ConfigError> {
         let mut config = Self::default();
-        
+
         // Connection settings
         if let Ok(timeout) = std::env::var("RIGLR_CONNECT_TIMEOUT_SECS") {
-            config.connection.connect_timeout_secs = timeout.parse()
-                .map_err(|e| ConfigError::Environment(format!("Invalid RIGLR_CONNECT_TIMEOUT_SECS: {}", e)))?;
+            config.connection.connect_timeout_secs = timeout.parse().map_err(|e| {
+                ConfigError::Environment(format!("Invalid RIGLR_CONNECT_TIMEOUT_SECS: {}", e))
+            })?;
         }
-        
+
         if let Ok(size) = std::env::var("RIGLR_CHANNEL_SIZE") {
-            config.backpressure.channel_size = size.parse()
-                .map_err(|e| ConfigError::Environment(format!("Invalid RIGLR_CHANNEL_SIZE: {}", e)))?;
+            config.backpressure.channel_size = size.parse().map_err(|e| {
+                ConfigError::Environment(format!("Invalid RIGLR_CHANNEL_SIZE: {}", e))
+            })?;
         }
-        
+
         if let Ok(strategy) = std::env::var("RIGLR_BACKPRESSURE_STRATEGY") {
             config.backpressure.strategy = match strategy.to_lowercase().as_str() {
                 "block" => BackpressureStrategy::Block,
                 "drop" => BackpressureStrategy::Drop,
                 "adaptive" => BackpressureStrategy::Adaptive,
-                _ => return Err(ConfigError::Environment(format!("Invalid RIGLR_BACKPRESSURE_STRATEGY: {}", strategy))),
+                _ => {
+                    return Err(ConfigError::Environment(format!(
+                        "Invalid RIGLR_BACKPRESSURE_STRATEGY: {}",
+                        strategy
+                    )))
+                }
             };
         }
-        
+
         if let Ok(enabled) = std::env::var("RIGLR_METRICS_ENABLED") {
-            config.metrics.enabled = enabled.parse()
-                .map_err(|e| ConfigError::Environment(format!("Invalid RIGLR_METRICS_ENABLED: {}", e)))?;
+            config.metrics.enabled = enabled.parse().map_err(|e| {
+                ConfigError::Environment(format!("Invalid RIGLR_METRICS_ENABLED: {}", e))
+            })?;
         }
-        
+
         config.validate()?;
         Ok(config)
     }
@@ -436,7 +463,7 @@ mod tests {
             low_watermark_pct: 20,
             ..Default::default()
         };
-        
+
         assert_eq!(config.high_watermark(), 800);
         assert_eq!(config.low_watermark(), 200);
     }

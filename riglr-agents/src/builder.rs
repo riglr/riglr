@@ -4,11 +4,11 @@
 //! multi-agent systems with minimal boilerplate code.
 
 use crate::{
-    Agent, AgentDispatcher, AgentRegistry, ChannelCommunication, DispatchConfig,
-    LocalAgentRegistry, Result, AgentError,
     communication::{AgentCommunication, CommunicationConfig},
-    registry::RegistryConfig,
     dispatcher::RoutingStrategy,
+    registry::RegistryConfig,
+    Agent, AgentDispatcher, AgentError, AgentRegistry, ChannelCommunication, DispatchConfig,
+    LocalAgentRegistry, Result,
 };
 use std::sync::Arc;
 use std::time::Duration;
@@ -167,8 +167,8 @@ impl AgentBuilder {
     ///
     /// A complete agent system with the custom registry.
     pub async fn build_with_registry<R: AgentRegistry + 'static>(
-        self, 
-        registry: Arc<R>
+        self,
+        registry: Arc<R>,
     ) -> Result<CustomAgentSystem<R>> {
         let dispatcher = AgentDispatcher::with_config(registry.clone(), self.dispatch_config);
         let communication = Arc::new(ChannelCommunication::with_config(self.communication_config));
@@ -360,7 +360,9 @@ impl SingleAgentBuilder {
         }
 
         if self.capabilities.is_empty() {
-            return Err(AgentError::configuration("At least one capability is required"));
+            return Err(AgentError::configuration(
+                "At least one capability is required",
+            ));
         }
 
         Ok(())
@@ -395,9 +397,9 @@ mod tests {
     #[tokio::test]
     async fn test_agent_builder_default() {
         let system = AgentBuilder::new().build().await.unwrap();
-        
+
         assert_eq!(system.agent_count().await.unwrap(), 0);
-        
+
         let health = system.health_check().await.unwrap();
         assert!(!health.overall_healthy); // No agents registered
         assert!(health.registry_healthy);
@@ -418,7 +420,7 @@ mod tests {
 
         // Verify configuration is applied (indirectly through behavior)
         assert_eq!(system.agent_count().await.unwrap(), 0);
-        
+
         // The specific config values are internal, but we can verify the system works
         let health = system.health_check().await.unwrap();
         assert!(health.registry_healthy);
@@ -478,7 +480,10 @@ mod tests {
 
         assert_eq!(builder.agent_id(), Some("test-agent"));
         assert_eq!(builder.capabilities(), ["trading", "research"]);
-        assert_eq!(builder.metadata().get("version"), Some(&serde_json::json!("1.0")));
+        assert_eq!(
+            builder.metadata().get("version"),
+            Some(&serde_json::json!("1.0"))
+        );
 
         assert!(builder.validate().is_ok());
     }
@@ -486,13 +491,11 @@ mod tests {
     #[test]
     fn test_single_agent_builder_validation() {
         // Missing ID should fail validation
-        let builder = SingleAgentBuilder::new()
-            .with_capability("trading");
+        let builder = SingleAgentBuilder::new().with_capability("trading");
         assert!(builder.validate().is_err());
 
         // Missing capabilities should fail validation
-        let builder = SingleAgentBuilder::new()
-            .with_id("test-agent");
+        let builder = SingleAgentBuilder::new().with_id("test-agent");
         assert!(builder.validate().is_err());
 
         // Valid configuration should pass

@@ -41,13 +41,13 @@ impl ConsistentHash {
             weight,
             metadata,
         };
-        
+
         self.nodes.insert(node_id.clone(), node_info);
-        
+
         // Add virtual nodes based on weight
         let virtual_node_count = (self.virtual_nodes as f64 * (weight as f64 / 100.0)) as usize;
         let virtual_node_count = virtual_node_count.max(1); // At least 1 virtual node
-        
+
         for i in 0..virtual_node_count {
             let virtual_node_key = format!("{}:{}", node_id, i);
             let hash = self.hash_key(&virtual_node_key);
@@ -62,7 +62,7 @@ impl ConsistentHash {
         }
 
         self.nodes.remove(node_id);
-        
+
         // Remove all virtual nodes for this physical node
         let keys_to_remove: Vec<u64> = self
             .ring
@@ -85,7 +85,7 @@ impl ConsistentHash {
         }
 
         let hash = self.hash_key(key);
-        
+
         // Find the first node with hash >= our key hash
         let node_id = if let Some((_, node_id)) = self.ring.range(hash..).next() {
             node_id
@@ -117,7 +117,7 @@ impl ConsistentHash {
                 if let Some(node_info) = self.nodes.get(node_id) {
                     result.push(node_info);
                     seen_nodes.insert(node_id);
-                    
+
                     if result.len() >= count {
                         break;
                     }
@@ -146,7 +146,7 @@ impl ConsistentHash {
     /// Get load distribution (for debugging/monitoring)
     pub fn get_load_distribution(&self, sample_keys: &[String]) -> HashMap<String, usize> {
         let mut distribution = HashMap::new();
-        
+
         for node_info in self.nodes.values() {
             distribution.insert(node_info.id.clone(), 0);
         }
@@ -209,7 +209,7 @@ impl ConsistentHashBuilder {
     /// Build the consistent hash ring
     pub fn build(self) -> ConsistentHash {
         let mut ring = ConsistentHash::new(self.virtual_nodes);
-        
+
         for (node_id, weight, metadata) in self.nodes {
             ring.add_node(node_id, weight, metadata);
         }
@@ -231,7 +231,7 @@ mod tests {
     #[test]
     fn test_consistent_hash_basic() {
         let mut ring = ConsistentHash::new(100);
-        
+
         // Add some nodes
         ring.add_node("node1".to_string(), 100, HashMap::new());
         ring.add_node("node2".to_string(), 100, HashMap::new());
@@ -239,7 +239,7 @@ mod tests {
 
         // Test key distribution
         let test_keys = ["key1", "key2", "key3", "key4", "key5"];
-        
+
         for key in &test_keys {
             let node = ring.get_node(key);
             assert!(node.is_some(), "Should find a node for key {}", key);
@@ -249,7 +249,7 @@ mod tests {
     #[test]
     fn test_consistent_hash_node_removal() {
         let mut ring = ConsistentHash::new(100);
-        
+
         ring.add_node("node1".to_string(), 100, HashMap::new());
         ring.add_node("node2".to_string(), 100, HashMap::new());
 
@@ -260,10 +260,10 @@ mod tests {
         ring.remove_node("node1");
 
         let new_node = ring.get_node(key).unwrap().id.clone();
-        
+
         // Key should still be assignable
         assert!(!new_node.is_empty());
-        
+
         // If the original node was removed, key should move to the other node
         if original_node == "node1" {
             assert_eq!(new_node, "node2");
@@ -273,13 +273,13 @@ mod tests {
     #[test]
     fn test_consistent_hash_replication() {
         let mut ring = ConsistentHash::new(100);
-        
+
         ring.add_node("node1".to_string(), 100, HashMap::new());
         ring.add_node("node2".to_string(), 100, HashMap::new());
         ring.add_node("node3".to_string(), 100, HashMap::new());
 
         let nodes = ring.get_nodes("test_key", 2);
-        
+
         assert_eq!(nodes.len(), 2);
         assert_ne!(nodes[0].id, nodes[1].id); // Should be different nodes
     }
@@ -300,7 +300,7 @@ mod tests {
     #[test]
     fn test_load_distribution() {
         let mut ring = ConsistentHash::new(100);
-        
+
         ring.add_node("node1".to_string(), 100, HashMap::new());
         ring.add_node("node2".to_string(), 100, HashMap::new());
 
@@ -308,15 +308,15 @@ mod tests {
         let distribution = ring.get_load_distribution(&sample_keys);
 
         assert_eq!(distribution.len(), 2);
-        
+
         // Should have some distribution (not all keys to one node)
         let node1_load = distribution.get("node1").unwrap_or(&0);
         let node2_load = distribution.get("node2").unwrap_or(&0);
-        
+
         assert!(*node1_load > 0);
         assert!(*node2_load > 0);
         assert_eq!(node1_load + node2_load, 1000);
-        
+
         // Distribution should be reasonably balanced (within 30% of expected)
         let expected = 500;
         let tolerance = 150;

@@ -2,22 +2,22 @@
 
 use std::sync::Arc;
 use tokio::sync::{broadcast, RwLock};
-use tracing::{info, error, warn};
+use tracing::{error, info, warn};
 
 use crate::config::IndexerConfig;
 use crate::error::{IndexerError, IndexerResult};
-use crate::storage::DataStore;
 use crate::metrics::MetricsCollector;
+use crate::storage::DataStore;
 
 pub mod indexer;
-pub mod ingester; 
-pub mod processor;
+pub mod ingester;
 pub mod pipeline;
+pub mod processor;
 
 pub use indexer::IndexerService;
 pub use ingester::{EventIngester, IngesterConfig};
-pub use processor::{EventProcessor, ProcessorConfig, ProcessingPipeline};
-pub use pipeline::{ProcessingPipeline as Pipeline, PipelineStage, PipelineResult};
+pub use pipeline::{PipelineResult, PipelineStage, ProcessingPipeline as Pipeline};
+pub use processor::{EventProcessor, ProcessingPipeline, ProcessorConfig};
 
 /// Service state enumeration
 #[derive(Debug, Clone, PartialEq)]
@@ -142,7 +142,10 @@ impl ServiceContext {
     /// Update service state
     pub async fn set_state(&self, state: ServiceState) {
         let mut current_state = self.state.write().await;
-        info!("Service state transition: {:?} -> {:?}", *current_state, state);
+        info!(
+            "Service state transition: {:?} -> {:?}",
+            *current_state, state
+        );
         *current_state = state;
     }
 
@@ -175,7 +178,7 @@ impl ServiceContext {
         let mut status = self.health.write().await;
         status.components.insert(component.to_string(), health);
         status.timestamp = chrono::Utc::now();
-        
+
         // Update overall health based on components
         status.healthy = status.components.values().all(|c| c.healthy);
     }
@@ -188,7 +191,7 @@ impl ServiceContext {
     /// Perform health check on all components
     pub async fn health_check(&self) -> IndexerResult<HealthStatus> {
         let mut status = self.health.write().await;
-        
+
         // Check data store health
         match self.store.health_check().await {
             Ok(_) => {
@@ -236,7 +239,10 @@ pub trait EventProcessing {
     async fn process_event(&self, event: Box<dyn riglr_events_core::Event>) -> IndexerResult<()>;
 
     /// Process a batch of events
-    async fn process_batch(&self, events: Vec<Box<dyn riglr_events_core::Event>>) -> IndexerResult<()>;
+    async fn process_batch(
+        &self,
+        events: Vec<Box<dyn riglr_events_core::Event>>,
+    ) -> IndexerResult<()>;
 
     /// Get processing statistics
     async fn processing_stats(&self) -> ProcessingStats;
@@ -296,11 +302,14 @@ impl ShutdownCoordinator {
 
     /// Shutdown all services gracefully
     pub async fn shutdown_all(&mut self) -> IndexerResult<()> {
-        info!("Starting graceful shutdown of {} services", self.services.len());
-        
+        info!(
+            "Starting graceful shutdown of {} services",
+            self.services.len()
+        );
+
         let mut results = Vec::new();
         let timeout = self.timeout;
-        
+
         for (i, service) in self.services.iter_mut().enumerate() {
             let result = match tokio::time::timeout(timeout, service.stop()).await {
                 Ok(result) => {
@@ -312,14 +321,16 @@ impl ShutdownCoordinator {
                 }
                 Err(_) => {
                     error!("Service {} shutdown timeout", i);
-                    Err(IndexerError::Service(crate::error::ServiceError::ShutdownTimeout {
-                        seconds: timeout.as_secs(),
-                    }))
+                    Err(IndexerError::Service(
+                        crate::error::ServiceError::ShutdownTimeout {
+                            seconds: timeout.as_secs(),
+                        },
+                    ))
                 }
             };
             results.push((i, result));
         }
-        
+
         let mut errors = Vec::new();
         for (i, result) in results.into_iter() {
             if let Err(e) = result {

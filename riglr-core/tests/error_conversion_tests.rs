@@ -28,7 +28,7 @@ fn test_tool_error_permanent() {
 fn test_tool_error_from_string() {
     let retriable = ToolError::retriable_string("Connection failed");
     assert_eq!(retriable.to_string(), "Operation can be retried");
-    
+
     let permanent = ToolError::permanent_string("Invalid address format");
     assert_eq!(permanent.to_string(), "Permanent error, do not retry");
 }

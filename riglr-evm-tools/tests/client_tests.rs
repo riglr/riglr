@@ -1,7 +1,7 @@
 //! Comprehensive tests for client module
 
-use riglr_evm_tools::client::{validate_address, EvmClient, EvmConfig};
 use alloy::primitives::U256;
+use riglr_evm_tools::client::{validate_address, EvmClient, EvmConfig};
 use serde_json::json;
 use std::time::Duration;
 
@@ -112,7 +112,6 @@ fn test_validate_address_invalid_hex() {
         assert!(result.is_err(), "Should fail for address: {}", addr);
     }
 }
-
 
 #[tokio::test]
 async fn test_evm_client_creation_with_mock() {
@@ -309,16 +308,13 @@ async fn test_evm_client_get_balance() {
         .await;
 
     let client = EvmClient::new(url).await.unwrap();
-    let address = "0x742d35Cc6634C0532925a3b8D8e41E5d3e4F8123".parse().unwrap();
-    let balance = client
-        .get_balance(address)
-        .await
+    let address = "0x742d35Cc6634C0532925a3b8D8e41E5d3e4F8123"
+        .parse()
         .unwrap();
+    let balance = client.get_balance(address).await.unwrap();
     // get_balance returns U256, not a string
     assert!(balance > U256::from(0));
 }
-
-
 
 #[tokio::test]
 async fn test_evm_client_invalid_response_format() {
@@ -415,7 +411,7 @@ async fn test_evm_client_invalid_url() {
 async fn test_evm_client_config_defaults() {
     // Test that EvmConfig has reasonable defaults
     use riglr_evm_tools::client::EvmConfig;
-    
+
     let config = EvmConfig::default();
     assert!(!config.rpc_url.is_empty());
     assert!(config.chain_id > 0);

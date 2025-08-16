@@ -4,15 +4,19 @@ use solana_sdk::pubkey::Pubkey;
 /// Meteora DLMM program ID
 pub const METEORA_DLMM_PROGRAM_ID: &str = "LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo";
 
-/// Meteora Dynamic program ID  
+/// Meteora Dynamic program ID
 pub const METEORA_DYNAMIC_PROGRAM_ID: &str = "Dooar9JkhdZ7J3LHN3A7YCuoGRUggXhQaG4kijfLGU2j";
 
 /// Meteora instruction discriminators
 pub const DLMM_SWAP_DISCRIMINATOR: [u8; 8] = [0x14, 0x65, 0x32, 0x1f, 0x7a, 0x43, 0x2a, 0x9f];
-pub const DLMM_ADD_LIQUIDITY_DISCRIMINATOR: [u8; 8] = [0x4c, 0x1c, 0x9b, 0x2d, 0xe3, 0x7a, 0x8b, 0x12];
-pub const DLMM_REMOVE_LIQUIDITY_DISCRIMINATOR: [u8; 8] = [0xa2, 0xfd, 0x67, 0xe3, 0x45, 0x1b, 0x8c, 0x9a];
-pub const DYNAMIC_ADD_LIQUIDITY_DISCRIMINATOR: [u8; 8] = [0x85, 0x72, 0x1a, 0x5f, 0x9d, 0x4e, 0x23, 0x7c];
-pub const DYNAMIC_REMOVE_LIQUIDITY_DISCRIMINATOR: [u8; 8] = [0x6a, 0x8b, 0x47, 0x2e, 0x1c, 0x93, 0x5f, 0x4d];
+pub const DLMM_ADD_LIQUIDITY_DISCRIMINATOR: [u8; 8] =
+    [0x4c, 0x1c, 0x9b, 0x2d, 0xe3, 0x7a, 0x8b, 0x12];
+pub const DLMM_REMOVE_LIQUIDITY_DISCRIMINATOR: [u8; 8] =
+    [0xa2, 0xfd, 0x67, 0xe3, 0x45, 0x1b, 0x8c, 0x9a];
+pub const DYNAMIC_ADD_LIQUIDITY_DISCRIMINATOR: [u8; 8] =
+    [0x85, 0x72, 0x1a, 0x5f, 0x9d, 0x4e, 0x23, 0x7c];
+pub const DYNAMIC_REMOVE_LIQUIDITY_DISCRIMINATOR: [u8; 8] =
+    [0x6a, 0x8b, 0x47, 0x2e, 0x1c, 0x93, 0x5f, 0x4d];
 
 /// Meteora DLMM bin information
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -164,7 +168,7 @@ pub fn calculate_liquidity_distribution(
 ) -> Vec<(u32, u64, u64)> {
     let mut distribution = Vec::new();
     let total_bins = (bin_id_to - bin_id_from + 1) as u64;
-    
+
     if total_bins == 0 {
         return distribution;
     }
@@ -175,15 +179,15 @@ pub fn calculate_liquidity_distribution(
         } else {
             0
         };
-        
+
         let y_amount = if bin_id >= active_id {
             amount_y / total_bins
         } else {
             0
         };
-        
+
         distribution.push((bin_id, x_amount, y_amount));
     }
-    
+
     distribution
 }

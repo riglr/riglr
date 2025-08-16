@@ -8,10 +8,10 @@ use riglr_solana_tools::client::SolanaClient;
 fn test_simple_solana_connectivity() {
     // Create a devnet client
     let client = SolanaClient::devnet();
-    
+
     // Try to get block height (synchronous call)
     let result = client.rpc_client.get_block_height();
-    
+
     match result {
         Ok(height) => {
             println!("✅ Connected to Solana devnet. Block height: {}", height);

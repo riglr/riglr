@@ -1,14 +1,12 @@
 //! Graph memory demonstration commands.
 
-use riglr_config::Config;
-use std::sync::Arc;
 use anyhow::Result;
 use colored::Colorize;
 use dialoguer::{Input, Select};
 use indicatif::{ProgressBar, ProgressStyle};
-use riglr_graph_memory::{
-    document::RawTextDocument,
-};
+use riglr_config::Config;
+use riglr_graph_memory::document::RawTextDocument;
+use std::sync::Arc;
 use std::time::Duration;
 // use tracing::warn;
 
@@ -16,10 +14,16 @@ use std::time::Duration;
 pub async fn run_demo(_config: Arc<Config>, init: bool, query: Option<String>) -> Result<()> {
     println!("{}", "🧠 Graph Memory Demo".bright_blue().bold());
     println!("{}", "=".repeat(50).blue());
-    
-    println!("\n{}", "Graph-based memory system for blockchain AI agents".cyan());
-    println!("{}", "Stores and queries complex relationships between on-chain entities.".dimmed());
-    
+
+    println!(
+        "\n{}",
+        "Graph-based memory system for blockchain AI agents".cyan()
+    );
+    println!(
+        "{}",
+        "Stores and queries complex relationships between on-chain entities.".dimmed()
+    );
+
     // Show progress bar
     let pb = ProgressBar::new_spinner();
     pb.set_style(
@@ -27,27 +31,30 @@ pub async fn run_demo(_config: Arc<Config>, init: bool, query: Option<String>) -
             .tick_chars("⠁⠂⠄⡀⢀⠠⠐⠈ ")
             .template("{spinner:.green} {msg}")?,
     );
-    
+
     // Initialize Neo4j client (temporarily simulated)
     pb.set_message("Simulating Neo4j connection...");
     tokio::time::sleep(Duration::from_millis(500)).await;
     let _neo4j_client: Option<()> = None; // Simulated
-    /*
-    let neo4j_client = match Neo4jClient::new(&config.neo4j_url).await {
-        Ok(client) => {
-            println!("\n{}", "✅ Connected to Neo4j database".green());
-            Some(client)
-        }
-        Err(e) => {
-            warn!("Failed to connect to Neo4j: {}", e);
-            println!("\n{}", format!("⚠️ Could not connect to Neo4j: {}", e).yellow());
-            println!("{}", "Demo will run in simulation mode with mock data.".dimmed());
-            None
-        }
-    };
-    */
-    
-    println!("\n{}", "⚠️ Neo4j connection simulated - running in demo mode".yellow());
+                                          /*
+                                          let neo4j_client = match Neo4jClient::new(&config.neo4j_url).await {
+                                              Ok(client) => {
+                                                  println!("\n{}", "✅ Connected to Neo4j database".green());
+                                                  Some(client)
+                                              }
+                                              Err(e) => {
+                                                  warn!("Failed to connect to Neo4j: {}", e);
+                                                  println!("\n{}", format!("⚠️ Could not connect to Neo4j: {}", e).yellow());
+                                                  println!("{}", "Demo will run in simulation mode with mock data.".dimmed());
+                                                  None
+                                              }
+                                          };
+                                          */
+
+    println!(
+        "\n{}",
+        "⚠️ Neo4j connection simulated - running in demo mode".yellow()
+    );
 
     // Initialize graph memory (temporarily simulated)
     let graph_memory: Option<()> = None; // Simulated
@@ -59,7 +66,7 @@ pub async fn run_demo(_config: Arc<Config>, init: bool, query: Option<String>) -
     if init || graph_memory.is_none() {
         println!("\n{}", "📊 Sample Blockchain Data".green().bold());
         let sample_data = get_sample_blockchain_data();
-        
+
         if graph_memory.is_some() {
             pb.set_message("Adding sample data to graph...");
             for data in sample_data.iter() {
@@ -81,7 +88,7 @@ pub async fn run_demo(_config: Arc<Config>, init: bool, query: Option<String>) -
     println!("\n{}", "🔍 Entity Extraction".green().bold());
     let sample_text = "Wallet 0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045 swapped 100 SOL for 15000 USDC on Jupiter protocol, generating 0.25 SOL in fees for liquidity providers.";
     println!("   Sample Text: {}", sample_text.dimmed());
-    
+
     if graph_memory.is_some() {
         // Entity extraction temporarily disabled
         println!("\n   Entity extraction would run here...");
@@ -107,7 +114,10 @@ pub async fn run_demo(_config: Arc<Config>, init: bool, query: Option<String>) -
     } else {
         // Show simulated entity extraction
         println!("\n   Simulated Entity Extraction:");
-        println!("   • {} (Wallet)", "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045".bright_cyan());
+        println!(
+            "   • {} (Wallet)",
+            "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045".bright_cyan()
+        );
         println!("   • {} (Token)", "SOL".bright_cyan());
         println!("   • {} (Token)", "USDC".bright_cyan());
         println!("   • {} (Protocol)", "Jupiter".bright_cyan());
@@ -118,7 +128,7 @@ pub async fn run_demo(_config: Arc<Config>, init: bool, query: Option<String>) -
     if let Some(query_text) = query {
         println!("\n{}", "🔎 Graph Query".green().bold());
         println!("   Query: {}", query_text.cyan());
-        
+
         if let Some(_memory) = graph_memory {
             pb.set_message("Simulating graph search...");
             tokio::time::sleep(Duration::from_millis(800)).await;
@@ -158,9 +168,11 @@ pub async fn run_demo(_config: Arc<Config>, init: bool, query: Option<String>) -
             println!("\n{}", "📝 Add Transaction Data".cyan());
             let transaction_data: String = Input::new()
                 .with_prompt("Enter transaction description")
-                .default("Wallet 0x123ABC transferred 50 WETH to 0x456DEF on Uniswap V3".to_string())
+                .default(
+                    "Wallet 0x123ABC transferred 50 WETH to 0x456DEF on Uniswap V3".to_string(),
+                )
                 .interact_text()?;
-            
+
             if graph_memory.is_some() {
                 let _doc = RawTextDocument::new(transaction_data.clone());
                 // Note: In simulation mode, we just show what would be added
@@ -187,7 +199,7 @@ pub async fn run_demo(_config: Arc<Config>, init: bool, query: Option<String>) -
                 .with_prompt("Enter search query")
                 .default("wallets that used Jupiter".to_string())
                 .interact_text()?;
-            
+
             if let Some(_memory) = graph_memory {
                 println!("   Simulated graph search would run here...");
             } else {
@@ -202,13 +214,13 @@ pub async fn run_demo(_config: Arc<Config>, init: bool, query: Option<String>) -
                 .with_prompt("Enter wallet address")
                 .default("0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045".to_string())
                 .interact_text()?;
-            
+
             println!("   Analyzing relationships for: {}", wallet.bright_cyan());
-            
+
             if graph_memory.is_some() {
                 println!("   🔗 Connected to:");
                 println!("   • 5 different protocols (Jupiter, Uniswap, Compound...)");
-                println!("   • 12 unique tokens (SOL, ETH, USDC, WBTC...)"); 
+                println!("   • 12 unique tokens (SOL, ETH, USDC, WBTC...)");
                 println!("   • 3 other wallets (direct transfers)");
                 println!("   💡 Pattern: Active DeFi user, high-volume trader");
             } else {
@@ -221,14 +233,23 @@ pub async fn run_demo(_config: Arc<Config>, init: bool, query: Option<String>) -
         _ => {}
     }
 
-    println!("\n{}", "✅ Graph memory demo completed!".bright_green().bold());
+    println!(
+        "\n{}",
+        "✅ Graph memory demo completed!".bright_green().bold()
+    );
     println!("{}", "Thank you for exploring riglr-graph-memory!".dimmed());
-    
+
     if graph_memory.is_none() {
-        println!("\n{}", "💡 Tip: Set up Neo4j to see the full graph memory capabilities!".blue());
-        println!("{}", "   docker run -p 7687:7687 -p 7474:7474 neo4j".dimmed());
+        println!(
+            "\n{}",
+            "💡 Tip: Set up Neo4j to see the full graph memory capabilities!".blue()
+        );
+        println!(
+            "{}",
+            "   docker run -p 7687:7687 -p 7474:7474 neo4j".dimmed()
+        );
     }
-    
+
     Ok(())
 }
 

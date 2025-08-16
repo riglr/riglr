@@ -54,7 +54,7 @@
 //! The graph uses a standardized schema:
 //!
 //! - `(Wallet)` - Blockchain addresses/accounts
-//! - `(Token)` - Fungible and non-fungible tokens  
+//! - `(Token)` - Fungible and non-fungible tokens
 //! - `(Protocol)` - DeFi protocols and applications
 //! - `(Transaction)` - On-chain transactions
 //! - `(Block)` - Blockchain blocks
@@ -86,7 +86,7 @@ pub use vector_store::GraphRetriever;
 // Export rig integration components when feature is enabled
 pub use rig_vector_store::{GraphVectorStore, RigDocument};
 
-/// Current version of riglr-graph-memory  
+/// Current version of riglr-graph-memory
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[cfg(test)]
@@ -95,6 +95,9 @@ mod tests {
 
     #[test]
     fn test_version() {
-        assert!(VERSION.starts_with("0.") || VERSION.starts_with("1."), "VERSION should be a valid semver");
+        assert!(
+            VERSION.starts_with("0.") || VERSION.starts_with("1."),
+            "VERSION should be a valid semver"
+        );
     }
 }

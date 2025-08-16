@@ -20,7 +20,7 @@ async fn test_high_volume_producer_consumer() {
     let jobs_to_produce = 10000;
     let num_producers = 10;
     let num_consumers = 5;
-    
+
     let produced_count = Arc::new(AtomicU64::new(0));
     let consumed_count = Arc::new(AtomicU64::new(0));
     let stop_consumers = Arc::new(AtomicBool::new(false));
@@ -45,10 +45,10 @@ async fn test_high_volume_producer_consumer() {
                     }),
                     0,
                 ).unwrap();
-                
+
                 queue_clone.enqueue(job).await.unwrap();
                 produced_count_clone.fetch_add(1, Ordering::Relaxed);
-                
+
                 // Small yield to allow other tasks to run
                 if i % 100 == 0 {
                     tokio::task::yield_now().await;
@@ -64,7 +64,7 @@ async fn test_high_volume_producer_consumer() {
         let queue_clone = queue.clone();
         let consumed_count_clone = consumed_count.clone();
         let stop_consumers_clone = stop_consumers.clone();
-        
+
         let handle = tokio::spawn(async move {
             let mut local_consumed = 0;
             while !stop_consumers_clone.load(Ordering::Relaxed) {
@@ -120,7 +120,7 @@ async fn test_concurrent_mixed_operations() {
     let queue = Arc::new(InMemoryJobQueue::new());
     let num_threads = 20;
     let operations_per_thread = 100;
-    
+
     let enqueue_count = Arc::new(AtomicU64::new(0));
     let dequeue_count = Arc::new(AtomicU64::new(0));
     let len_check_count = Arc::new(AtomicU64::new(0));
@@ -143,7 +143,7 @@ async fn test_concurrent_mixed_operations() {
                             &json!({"thread": thread_id, "op": op_id}),
                             0,
                         ).unwrap();
-                        
+
                         if queue_clone.enqueue(job).await.is_ok() {
                             enqueue_count_clone.fetch_add(1, Ordering::Relaxed);
                         }
@@ -166,7 +166,7 @@ async fn test_concurrent_mixed_operations() {
                     }
                     _ => unreachable!(),
                 }
-                
+
                 // Small yield every few operations
                 if op_id % 10 == 0 {
                     tokio::task::yield_now().await;
@@ -184,12 +184,12 @@ async fn test_concurrent_mixed_operations() {
     // Verify operations were executed
     assert!(enqueue_count.load(Ordering::Relaxed) > 0);
     assert!(len_check_count.load(Ordering::Relaxed) > 0);
-    
+
     // Final queue state should be consistent
     let final_len = queue.len().await.unwrap();
     let enqueued = enqueue_count.load(Ordering::Relaxed);
     let dequeued = dequeue_count.load(Ordering::Relaxed);
-    
+
     assert_eq!(final_len as u64, enqueued - dequeued);
 }
 
@@ -199,7 +199,7 @@ async fn test_concurrent_mixed_operations() {
 async fn test_memory_pressure_handling() {
     let queue = Arc::new(InMemoryJobQueue::new());
     let num_large_jobs = 1000;
-    
+
     // Create jobs with large payloads
     let mut enqueue_handles = vec![];
     for i in 0..num_large_jobs {
@@ -219,7 +219,7 @@ async fn test_memory_pressure_handling() {
                 }),
                 0,
             ).unwrap();
-            
+
             queue_clone.enqueue(job).await.unwrap();
         });
         enqueue_handles.push(handle);
@@ -235,7 +235,7 @@ async fn test_memory_pressure_handling() {
     // Now dequeue all jobs concurrently
     let mut dequeue_handles = vec![];
     let successful_dequeues = Arc::new(AtomicU64::new(0));
-    
+
     for _ in 0..10 { // 10 concurrent dequeuers
         let queue_clone = queue.clone();
         let successful_dequeues_clone = successful_dequeues.clone();
@@ -243,7 +243,7 @@ async fn test_memory_pressure_handling() {
             let mut local_count = 0;
             while let Ok(Some(job)) = queue_clone.dequeue_with_timeout(Duration::from_millis(100)).await {
                 // Verify job integrity
-                if job.params["job_id"].is_number() && 
+                if job.params["job_id"].is_number() &&
                    job.params["large_payload"].is_array() &&
                    job.params["large_payload"].as_array().unwrap().len() == 1000 {
                     local_count += 1;
@@ -273,7 +273,7 @@ async fn test_fifo_ordering_under_concurrency() {
     let queue = Arc::new(InMemoryJobQueue::new());
     let num_producers = 5;
     let jobs_per_producer = 200;
-    
+
     // Track job insertion order
     let insertion_order = Arc::new(tokio::sync::Mutex::new(Vec::new()));
     let barrier = Arc::new(Barrier::new(num_producers));
@@ -284,11 +284,11 @@ async fn test_fifo_ordering_under_concurrency() {
         let queue_clone = queue.clone();
         let insertion_order_clone = insertion_order.clone();
         let barrier_clone = barrier.clone();
-        
+
         let handle = tokio::spawn(async move {
             // Wait for all producers to be ready
             barrier_clone.wait().await;
-            
+
             for job_id in 0..jobs_per_producer {
                 let global_job_id = producer_id * jobs_per_producer + job_id;
                 let job = Job::new(
@@ -300,13 +300,13 @@ async fn test_fifo_ordering_under_concurrency() {
                     }),
                     0,
                 ).unwrap();
-                
+
                 // Record insertion time
                 {
                     let mut order = insertion_order_clone.lock().await;
                     order.push(global_job_id);
                 }
-                
+
                 queue_clone.enqueue(job).await.unwrap();
             }
         });
@@ -338,17 +338,17 @@ async fn test_fifo_ordering_under_concurrency() {
     // the general order should be approximately correct
     let insertion_order = insertion_order.lock().await;
     let mut out_of_order_count = 0;
-    
+
     for i in 1..dequeued_order.len() {
         if dequeued_order[i] < dequeued_order[i-1] {
             out_of_order_count += 1;
         }
     }
-    
+
     // Allow some reordering due to concurrency, but not too much
     let total_jobs = num_producers * jobs_per_producer;
     let max_acceptable_out_of_order = total_jobs / 10; // 10% tolerance
-    assert!(out_of_order_count <= max_acceptable_out_of_order, 
+    assert!(out_of_order_count <= max_acceptable_out_of_order,
             "Too many out-of-order jobs: {} out of {}", out_of_order_count, total_jobs);
 }
 
@@ -357,12 +357,12 @@ async fn test_fifo_ordering_under_concurrency() {
 #[ignore] // Long-running stress test
 async fn test_timeout_behavior_under_load() {
     let queue = Arc::new(InMemoryJobQueue::new());
-    
+
     // Test 1: Timeout on empty queue
     let start = Instant::now();
     let result = queue.dequeue_with_timeout(Duration::from_millis(100)).await.unwrap();
     let elapsed = start.elapsed();
-    
+
     assert!(result.is_none());
     assert!(elapsed >= Duration::from_millis(90)); // Allow some tolerance
     assert!(elapsed < Duration::from_millis(200));
@@ -370,18 +370,18 @@ async fn test_timeout_behavior_under_load() {
     // Test 2: No timeout when jobs are available
     let job = Job::new("quick_job", &json!({}), 0).unwrap();
     queue.enqueue(job).await.unwrap();
-    
+
     let start = Instant::now();
     let result = queue.dequeue_with_timeout(Duration::from_millis(1000)).await.unwrap();
     let elapsed = start.elapsed();
-    
+
     assert!(result.is_some());
     assert!(elapsed < Duration::from_millis(100)); // Should be very fast
 
     // Test 3: Multiple timeouts concurrently
     let mut timeout_handles = vec![];
     let timeout_count = Arc::new(AtomicU64::new(0));
-    
+
     for _ in 0..50 {
         let queue_clone = queue.clone();
         let timeout_count_clone = timeout_count.clone();
@@ -389,7 +389,7 @@ async fn test_timeout_behavior_under_load() {
             let start = Instant::now();
             let result = queue_clone.dequeue_with_timeout(Duration::from_millis(50)).await.unwrap();
             let elapsed = start.elapsed();
-            
+
             if result.is_none() && elapsed >= Duration::from_millis(40) {
                 timeout_count_clone.fetch_add(1, Ordering::Relaxed);
             }
@@ -413,14 +413,14 @@ async fn test_error_recovery() {
     let queue = Arc::new(InMemoryJobQueue::new());
     let error_count = Arc::new(AtomicU64::new(0));
     let success_count = Arc::new(AtomicU64::new(0));
-    
+
     // Simulate operations that might fail and recover
     let mut handles = vec![];
     for thread_id in 0..10 {
         let queue_clone = queue.clone();
         let error_count_clone = error_count.clone();
         let success_count_clone = success_count.clone();
-        
+
         let handle = tokio::spawn(async move {
             for op_id in 0..100 {
                 // Simulate various operations
@@ -438,13 +438,13 @@ async fn test_error_recovery() {
                         &json!({"thread": thread_id, "op": op_id}),
                         0,
                     ).unwrap();
-                    
+
                     match queue_clone.enqueue(job).await {
                         Ok(_) => success_count_clone.fetch_add(1, Ordering::Relaxed),
                         Err(_) => error_count_clone.fetch_add(1, Ordering::Relaxed),
                     }
                 }
-                
+
                 // Small delay to allow other operations
                 if op_id % 20 == 0 {
                     tokio::time::sleep(Duration::from_millis(1)).await;
@@ -462,12 +462,12 @@ async fn test_error_recovery() {
     // Verify the queue is still functional
     let final_len = queue.len().await.unwrap();
     assert!(final_len > 0); // Should have jobs remaining
-    
+
     // Should have more successes than errors
     let successes = success_count.load(Ordering::Relaxed);
     let errors = error_count.load(Ordering::Relaxed);
     assert!(successes > errors);
-    
+
     // Queue operations should still work
     let test_job = Job::new("final_test", &json!({"test": "recovery"}), 0).unwrap();
     assert!(queue.enqueue(test_job).await.is_ok());
@@ -481,7 +481,7 @@ async fn test_rapid_size_changes() {
     let queue = Arc::new(InMemoryJobQueue::new());
     let size_samples = Arc::new(tokio::sync::Mutex::new(Vec::new()));
     let stop_sampling = Arc::new(AtomicBool::new(false));
-    
+
     // Start size sampler
     let queue_sampler = queue.clone();
     let size_samples_clone = size_samples.clone();
@@ -510,10 +510,10 @@ async fn test_rapid_size_changes() {
                 ).unwrap();
                 queue_clone.enqueue(job).await.unwrap();
             }
-            
+
             // Small pause
             tokio::time::sleep(Duration::from_millis(10)).await;
-            
+
             // Batch dequeue
             for _ in 0..25 {
                 let _ = queue_clone.dequeue_with_timeout(Duration::from_millis(1)).await;
@@ -534,10 +534,10 @@ async fn test_rapid_size_changes() {
     // Analyze size changes
     let samples = size_samples.lock().await;
     assert!(samples.len() > 10); // Should have collected multiple samples
-    
+
     let max_size = samples.iter().max().unwrap();
     let min_size = samples.iter().min().unwrap();
-    
+
     // Should have seen significant size variations
     assert!(*max_size > 100); // Should have grown significantly
     assert!(*max_size - *min_size > 50); // Should have seen substantial changes
@@ -550,14 +550,14 @@ async fn test_cancellation_consistency() {
     let queue = Arc::new(InMemoryJobQueue::new());
     let jobs_enqueued = Arc::new(AtomicU64::new(0));
     let jobs_dequeued = Arc::new(AtomicU64::new(0));
-    
+
     // Start background operations that might be cancelled
     let mut handles = vec![];
     for worker_id in 0..20 {
         let queue_clone = queue.clone();
         let jobs_enqueued_clone = jobs_enqueued.clone();
         let jobs_dequeued_clone = jobs_dequeued.clone();
-        
+
         let handle = tokio::spawn(async move {
             for op_id in 0..100 {
                 // Randomly choose operation
@@ -567,7 +567,7 @@ async fn test_cancellation_consistency() {
                         &json!({"worker": worker_id, "op": op_id}),
                         0,
                     ).unwrap();
-                    
+
                     if queue_clone.enqueue(job).await.is_ok() {
                         jobs_enqueued_clone.fetch_add(1, Ordering::Relaxed);
                     }
@@ -578,7 +578,7 @@ async fn test_cancellation_consistency() {
                         _ => (), // Timeout or cancellation
                     }
                 }
-                
+
                 // Yield to allow cancellation
                 tokio::task::yield_now().await;
             }
@@ -588,7 +588,7 @@ async fn test_cancellation_consistency() {
 
     // Let operations run for a bit
     tokio::time::sleep(Duration::from_millis(100)).await;
-    
+
     // Cancel some operations
     for (i, handle) in handles.iter().enumerate() {
         if i % 3 == 0 { // Cancel every third handle
@@ -605,10 +605,10 @@ async fn test_cancellation_consistency() {
     let final_len = queue.len().await.unwrap();
     let total_enqueued = jobs_enqueued.load(Ordering::Relaxed);
     let total_dequeued = jobs_dequeued.load(Ordering::Relaxed);
-    
+
     // Basic consistency check
     assert_eq!(final_len as u64, total_enqueued - total_dequeued);
-    
+
     // Queue operations should still work normally
     let test_job = Job::new("post_cancel_test", &json!({}), 0).unwrap();
     assert!(queue.enqueue(test_job).await.is_ok());

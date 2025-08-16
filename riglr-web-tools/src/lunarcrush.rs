@@ -135,41 +135,43 @@ pub struct InfluencerMentionsResult {
 /// Creates a LunarCrush API client
 async fn create_lunarcrush_client() -> Result<WebClient, WebToolError> {
     let config = LunarCrushConfig::default();
-    
+
     if config.api_key.is_empty() {
         return Err(WebToolError::Config(
             "LUNARCRUSH_API_KEY environment variable not set".to_string(),
         ));
     }
 
-    let client = WebClient::new()?
-        .with_api_key("lunarcrush", config.api_key);
-    
+    let client = WebClient::new()?.with_api_key("lunarcrush", config.api_key);
+
     Ok(client)
 }
 
 #[tool]
 /// Get social sentiment data for a cryptocurrency from LunarCrush
-/// 
+///
 /// This tool provides comprehensive social analytics for any cryptocurrency,
 /// including sentiment scores, social volume, and platform-specific data.
-/// 
+///
 /// # Arguments
 /// * `symbol` - Cryptocurrency symbol (e.g., "BTC", "ETH", "SOL")
 /// * `timeframe` - Optional timeframe for analysis ("1h", "24h", "7d", "30d"). Defaults to "24h"
-/// 
+///
 /// # Returns
 /// Detailed sentiment analysis including scores, volume metrics, and trending keywords
 pub async fn get_social_sentiment(
     symbol: String,
     timeframe: Option<String>,
 ) -> Result<SentimentData, WebToolError> {
-    info!("Fetching social sentiment for {} (timeframe: {})", 
-          symbol, timeframe.as_deref().unwrap_or("24h"));
+    info!(
+        "Fetching social sentiment for {} (timeframe: {})",
+        symbol,
+        timeframe.as_deref().unwrap_or("24h")
+    );
 
     let client = create_lunarcrush_client().await?;
     let timeframe = timeframe.unwrap_or_else(|| "24h".to_string());
-    
+
     // Validate timeframe
     if !["1h", "24h", "7d", "30d"].contains(&timeframe.as_str()) {
         return Err(WebToolError::Config(
@@ -184,33 +186,54 @@ pub async fn get_social_sentiment(
 
     let config = LunarCrushConfig::default();
     let url = format!("{}/assets", config.base_url);
-    
+
     let response_text = client.get_with_params(&url, &params).await?;
 
     let response_data: serde_json::Value = serde_json::from_str(&response_text)
         .map_err(|e| WebToolError::Parsing(format!("Invalid JSON response: {}", e)))?;
-    
+
     // Extract asset data from the response
     let data = response_data
         .get("data")
         .ok_or_else(|| WebToolError::Parsing("Missing 'data' field".to_string()))?;
-        
+
     let assets = data
         .as_array()
         .ok_or_else(|| WebToolError::Parsing("'data' is not an array".to_string()))?;
-        
+
     let asset = assets
         .first()
         .ok_or_else(|| WebToolError::Parsing(format!("No data found for symbol {}", symbol)))?;
 
     // Parse the asset data
-    let social_score = asset.get("galaxy_score").and_then(|v| v.as_f64()).unwrap_or(0.0);
-    let sentiment_score = asset.get("sentiment").and_then(|v| v.as_f64()).unwrap_or(0.0);
-    let social_volume = asset.get("social_volume").and_then(|v| v.as_u64()).unwrap_or(0);
-    let mentions = asset.get("total_mentions").and_then(|v| v.as_u64()).unwrap_or(0);
-    let influencer_posts = asset.get("influencer_posts").and_then(|v| v.as_u64()).unwrap_or(0);
-    let avg_social_volume = asset.get("avg_social_volume").and_then(|v| v.as_f64()).unwrap_or(0.0);
-    let social_volume_change = asset.get("social_volume_change_24h").and_then(|v| v.as_f64()).unwrap_or(0.0);
+    let social_score = asset
+        .get("galaxy_score")
+        .and_then(|v| v.as_f64())
+        .unwrap_or(0.0);
+    let sentiment_score = asset
+        .get("sentiment")
+        .and_then(|v| v.as_f64())
+        .unwrap_or(0.0);
+    let social_volume = asset
+        .get("social_volume")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
+    let mentions = asset
+        .get("total_mentions")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
+    let influencer_posts = asset
+        .get("influencer_posts")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
+    let avg_social_volume = asset
+        .get("avg_social_volume")
+        .and_then(|v| v.as_f64())
+        .unwrap_or(0.0);
+    let social_volume_change = asset
+        .get("social_volume_change_24h")
+        .and_then(|v| v.as_f64())
+        .unwrap_or(0.0);
 
     // Extract platform sentiment breakdown
     let mut platform_sentiment = HashMap::new();
@@ -234,8 +257,10 @@ pub async fn get_social_sentiment(
         })
         .unwrap_or_default();
 
-    debug!("Successfully fetched sentiment data for {} with {} mentions", 
-           symbol, mentions);
+    debug!(
+        "Successfully fetched sentiment data for {} with {} mentions",
+        symbol, mentions
+    );
 
     Ok(SentimentData {
         symbol: symbol.to_uppercase(),
@@ -254,14 +279,14 @@ pub async fn get_social_sentiment(
 
 #[tool]
 /// Get trending cryptocurrencies by social metrics from LunarCrush
-/// 
+///
 /// This tool identifies the most trending cryptocurrencies based on social media activity,
 /// sentiment, and LunarCrush's proprietary Galaxy Score.
-/// 
+///
 /// # Arguments
 /// * `limit` - Maximum number of trending cryptocurrencies to return (1-50). Defaults to 10
 /// * `sort_by` - Sort metric: "galaxy_score", "social_volume", "alt_rank". Defaults to "galaxy_score"
-/// 
+///
 /// # Returns
 /// List of trending cryptocurrencies with social and market metrics
 pub async fn get_trending_cryptos(
@@ -270,13 +295,17 @@ pub async fn get_trending_cryptos(
 ) -> Result<Vec<TrendingCrypto>, WebToolError> {
     let limit = limit.unwrap_or(10).clamp(1, 50);
     let sort_by = sort_by.unwrap_or_else(|| "galaxy_score".to_string());
-    
-    info!("Fetching top {} trending cryptos sorted by {}", limit, sort_by);
+
+    info!(
+        "Fetching top {} trending cryptos sorted by {}",
+        limit, sort_by
+    );
 
     // Validate sort_by parameter
     if !["galaxy_score", "social_volume", "alt_rank"].contains(&sort_by.as_str()) {
         return Err(WebToolError::Config(
-            "Invalid sort_by parameter. Must be one of: galaxy_score, social_volume, alt_rank".to_string(),
+            "Invalid sort_by parameter. Must be one of: galaxy_score, social_volume, alt_rank"
+                .to_string(),
         ));
     }
 
@@ -288,43 +317,69 @@ pub async fn get_trending_cryptos(
 
     let config = LunarCrushConfig::default();
     let url = format!("{}/market", config.base_url);
-    
+
     let response_text = client.get_with_params(&url, &params).await?;
 
     let response_data: serde_json::Value = serde_json::from_str(&response_text)
         .map_err(|e| WebToolError::Parsing(format!("Invalid JSON response: {}", e)))?;
-    
+
     let data = response_data
         .get("data")
         .ok_or_else(|| WebToolError::Parsing("Missing 'data' field".to_string()))?;
-        
+
     let assets = data
         .as_array()
         .ok_or_else(|| WebToolError::Parsing("'data' is not an array".to_string()))?;
 
     let mut trending_cryptos = Vec::new();
-    
+
     for asset in assets.iter().take(limit as usize) {
-        let symbol = asset.get("symbol")
+        let symbol = asset
+            .get("symbol")
             .and_then(|v| v.as_str())
             .unwrap_or("UNKNOWN")
             .to_string();
-            
-        let name = asset.get("name")
+
+        let name = asset
+            .get("name")
             .and_then(|v| v.as_str())
             .unwrap_or("Unknown")
             .to_string();
-            
-        let market_rank = asset.get("market_cap_rank").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
-        let galaxy_score = asset.get("galaxy_score").and_then(|v| v.as_f64()).unwrap_or(0.0);
+
+        let market_rank = asset
+            .get("market_cap_rank")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0) as u32;
+        let galaxy_score = asset
+            .get("galaxy_score")
+            .and_then(|v| v.as_f64())
+            .unwrap_or(0.0);
         let alt_rank = asset.get("alt_rank").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
-        let social_score = asset.get("social_score").and_then(|v| v.as_f64()).unwrap_or(0.0);
+        let social_score = asset
+            .get("social_score")
+            .and_then(|v| v.as_f64())
+            .unwrap_or(0.0);
         let price_usd = asset.get("price").and_then(|v| v.as_f64()).unwrap_or(0.0);
-        let price_change_24h = asset.get("percent_change_24h").and_then(|v| v.as_f64()).unwrap_or(0.0);
-        let social_volume = asset.get("social_volume").and_then(|v| v.as_u64()).unwrap_or(0);
-        let social_volume_change = asset.get("social_volume_change_24h").and_then(|v| v.as_f64()).unwrap_or(0.0);
-        let market_cap = asset.get("market_cap").and_then(|v| v.as_u64()).unwrap_or(0);
-        let volume_24h = asset.get("volume_24h").and_then(|v| v.as_u64()).unwrap_or(0);
+        let price_change_24h = asset
+            .get("percent_change_24h")
+            .and_then(|v| v.as_f64())
+            .unwrap_or(0.0);
+        let social_volume = asset
+            .get("social_volume")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0);
+        let social_volume_change = asset
+            .get("social_volume_change_24h")
+            .and_then(|v| v.as_f64())
+            .unwrap_or(0.0);
+        let market_cap = asset
+            .get("market_cap")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0);
+        let volume_24h = asset
+            .get("volume_24h")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0);
 
         trending_cryptos.push(TrendingCrypto {
             symbol,
@@ -342,22 +397,25 @@ pub async fn get_trending_cryptos(
         });
     }
 
-    debug!("Successfully fetched {} trending cryptocurrencies", trending_cryptos.len());
+    debug!(
+        "Successfully fetched {} trending cryptocurrencies",
+        trending_cryptos.len()
+    );
 
     Ok(trending_cryptos)
 }
 
 #[tool]
 /// Get influencer mentions for a specific token from LunarCrush
-/// 
+///
 /// This tool tracks mentions from cryptocurrency influencers and high-follower accounts,
 /// providing insights into what key opinion leaders are saying about specific tokens.
-/// 
+///
 /// # Arguments
 /// * `token_symbol` - Cryptocurrency symbol to search for (e.g., "BTC", "ETH", "SOL")
 /// * `limit` - Maximum number of mentions to return (1-50). Defaults to 20
 /// * `timeframe` - Time period to search: "24h", "7d", "30d". Defaults to "24h"
-/// 
+///
 /// # Returns
 /// Collection of influencer mentions with engagement metrics and sentiment analysis
 pub async fn get_influencer_mentions(
@@ -367,9 +425,11 @@ pub async fn get_influencer_mentions(
 ) -> Result<InfluencerMentionsResult, WebToolError> {
     let limit = limit.unwrap_or(20).clamp(1, 50);
     let timeframe = timeframe.unwrap_or_else(|| "24h".to_string());
-    
-    info!("Fetching influencer mentions for {} (limit: {}, timeframe: {})", 
-          token_symbol, limit, timeframe);
+
+    info!(
+        "Fetching influencer mentions for {} (limit: {}, timeframe: {})",
+        token_symbol, limit, timeframe
+    );
 
     // Validate timeframe
     if !["24h", "7d", "30d"].contains(&timeframe.as_str()) {
@@ -388,69 +448,97 @@ pub async fn get_influencer_mentions(
 
     let config = LunarCrushConfig::default();
     let url = format!("{}/feeds", config.base_url);
-    
+
     let response_text = client.get_with_params(&url, &params).await?;
 
     let response_data: serde_json::Value = serde_json::from_str(&response_text)
         .map_err(|e| WebToolError::Parsing(format!("Invalid JSON response: {}", e)))?;
-    
+
     let data = response_data
         .get("data")
         .ok_or_else(|| WebToolError::Parsing("Missing 'data' field".to_string()))?;
-        
+
     let posts = data
         .as_array()
         .ok_or_else(|| WebToolError::Parsing("'data' is not an array".to_string()))?;
 
     let mut mentions = Vec::new();
     let mut total_sentiment = 0.0;
-    
+
     for post in posts.iter().take(limit as usize) {
-        let id = post.get("id")
+        let id = post
+            .get("id")
             .and_then(|v| v.as_str())
             .unwrap_or("unknown")
             .to_string();
-            
-        let influencer_username = post.get("user_name")
+
+        let influencer_username = post
+            .get("user_name")
             .and_then(|v| v.as_str())
             .unwrap_or("unknown")
             .to_string();
-            
-        let influencer_name = post.get("user_display_name")
+
+        let influencer_name = post
+            .get("user_display_name")
             .and_then(|v| v.as_str())
             .unwrap_or(&influencer_username)
             .to_string();
-            
-        let followers = post.get("user_followers").and_then(|v| v.as_u64()).unwrap_or(0);
-        
-        let text = post.get("content")
+
+        let followers = post
+            .get("user_followers")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0);
+
+        let text = post
+            .get("content")
             .and_then(|v| v.as_str())
             .unwrap_or("")
             .to_string();
-            
-        let timestamp_str = post.get("created_time")
+
+        let timestamp_str = post
+            .get("created_time")
             .and_then(|v| v.as_str())
             .unwrap_or("1970-01-01T00:00:00Z");
-            
+
         let timestamp = DateTime::parse_from_rfc3339(timestamp_str)
-            .unwrap_or_else(|_| DateTime::from_timestamp(0, 0)
-                .map(|dt| dt.into())
-                .unwrap_or_else(|| Utc::now().into())
-            )
+            .unwrap_or_else(|_| {
+                DateTime::from_timestamp(0, 0)
+                    .map(|dt| dt.into())
+                    .unwrap_or_else(|| Utc::now().into())
+            })
             .with_timezone(&Utc);
-            
-        let platform = post.get("type")
+
+        let platform = post
+            .get("type")
             .and_then(|v| v.as_str())
             .unwrap_or("twitter")
             .to_string();
-            
-        let likes = post.get("interactions").and_then(|i| i.get("likes")).and_then(|v| v.as_u64()).unwrap_or(0);
-        let shares = post.get("interactions").and_then(|i| i.get("retweets")).and_then(|v| v.as_u64()).unwrap_or(0);
-        let comments = post.get("interactions").and_then(|i| i.get("replies")).and_then(|v| v.as_u64()).unwrap_or(0);
-        
-        let url = post.get("url").and_then(|v| v.as_str()).map(|s| s.to_string());
-        
-        let sentiment = post.get("sentiment").and_then(|v| v.as_f64()).unwrap_or(0.0);
+
+        let likes = post
+            .get("interactions")
+            .and_then(|i| i.get("likes"))
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0);
+        let shares = post
+            .get("interactions")
+            .and_then(|i| i.get("retweets"))
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0);
+        let comments = post
+            .get("interactions")
+            .and_then(|i| i.get("replies"))
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0);
+
+        let url = post
+            .get("url")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string());
+
+        let sentiment = post
+            .get("sentiment")
+            .and_then(|v| v.as_f64())
+            .unwrap_or(0.0);
         total_sentiment += sentiment;
 
         mentions.push(InfluencerMention {
@@ -475,8 +563,12 @@ pub async fn get_influencer_mentions(
         total_sentiment / mentions.len() as f64
     };
 
-    debug!("Successfully fetched {} influencer mentions for {} with avg sentiment {:.2}", 
-           mentions.len(), token_symbol, avg_sentiment);
+    debug!(
+        "Successfully fetched {} influencer mentions for {} with avg sentiment {:.2}",
+        mentions.len(),
+        token_symbol,
+        avg_sentiment
+    );
 
     let total_mentions = mentions.len() as u64;
 

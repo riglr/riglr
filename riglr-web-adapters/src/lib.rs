@@ -44,7 +44,7 @@
 //! async fn main() -> std::io::Result<()> {
 //!     let client = Client::from_env();
 //!     let agent = client.agent("claude-3-5-sonnet").build();
-//!     
+//!
 //!     HttpServer::new(move || {
 //!         App::new()
 //!             .app_data(web::Data::new(agent.clone()))
@@ -68,12 +68,12 @@
 //! async fn main() {
 //!     let client = Client::from_env();
 //!     let agent = client.agent("claude-3-5-sonnet").build();
-//!     
+//!
 //!     let app = Router::new()
 //!         .route("/api/v1/sse", post(sse_handler))
 //!         .route("/api/v1/completion", post(completion_handler))
 //!         .with_state(agent);
-//!         
+//!
 //!     axum::Server::bind(&"0.0.0.0:8080".parse().unwrap())
 //!         .serve(app.into_make_service())
 //!         .await
@@ -91,10 +91,10 @@ pub mod actix;
 pub mod axum;
 
 // Re-export commonly used types
-pub use core::{Agent, AgentStream, PromptRequest, CompletionResponse};
+pub use core::{Agent, AgentStream, CompletionResponse, PromptRequest};
 
 // Re-export factory traits for easy use
-pub use factory::{SignerFactory, AuthenticationData, CompositeSignerFactory};
+pub use factory::{AuthenticationData, CompositeSignerFactory, SignerFactory};
 
 // Re-export new adapter types for easy use
 #[cfg(feature = "actix")]

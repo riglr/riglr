@@ -3,17 +3,19 @@
 //! This module provides Axum-specific handlers that wrap the framework-agnostic
 //! core handlers. It handles authentication via pluggable SignerFactory implementations.
 
+use crate::core::Agent;
+use crate::core::{
+    handle_agent_completion, handle_agent_stream, CompletionResponse, PromptRequest,
+};
+use crate::factory::{AuthenticationData, SignerFactory};
 use axum::{
-    http::{StatusCode, HeaderMap},
-    response::{Sse, sse::Event},
+    http::{HeaderMap, StatusCode},
+    response::{sse::Event, Sse},
     Json,
 };
 use futures_util::StreamExt;
-use crate::core::Agent;
-use crate::factory::{SignerFactory, AuthenticationData};
 use riglr_core::config::RpcConfig;
 use riglr_core::signer::TransactionSigner;
-use crate::core::{handle_agent_stream, handle_agent_completion, PromptRequest, CompletionResponse};
 use std::sync::Arc;
 
 /// Axum adapter that uses SignerFactory for authentication
@@ -31,27 +33,28 @@ impl AxumRiglrAdapter {
             rpc_config,
         }
     }
-    
+
     /// Detect authentication type from request headers
     fn detect_auth_type(&self, headers: &HeaderMap) -> Result<String, StatusCode> {
         // First check for explicit auth type header
         if let Some(auth_type) = headers.get("x-auth-type") {
-            return auth_type.to_str()
+            return auth_type
+                .to_str()
                 .map(|s| s.to_string())
                 .map_err(|_| StatusCode::BAD_REQUEST);
         }
-        
+
         // Fall back to registered auth types - use first one as default
         let supported_types = self.signer_factory.supported_auth_types();
         if supported_types.is_empty() {
             return Err(StatusCode::INTERNAL_SERVER_ERROR);
         }
-        
+
         // For now, return the first registered type
         // In the future, this could inspect the JWT to determine the issuer
         Ok(supported_types[0].clone())
     }
-    
+
     /// Extract authentication data from request headers
     fn extract_auth_data(&self, headers: &HeaderMap) -> Result<AuthenticationData, StatusCode> {
         let auth_header = headers
@@ -61,12 +64,12 @@ impl AxumRiglrAdapter {
                 tracing::warn!("Missing Authorization header");
                 StatusCode::UNAUTHORIZED
             })?;
-        
+
         // Parse auth header to determine type and extract credentials
         if auth_header.starts_with("Bearer ") {
             let token = auth_header.strip_prefix("Bearer ").unwrap();
             let auth_type = self.detect_auth_type(headers)?;
-            
+
             Ok(AuthenticationData {
                 auth_type,
                 credentials: [("token".to_string(), token.to_string())].into(),
@@ -81,7 +84,7 @@ impl AxumRiglrAdapter {
             Err(StatusCode::UNAUTHORIZED)
         }
     }
-    
+
     /// Authenticate request and create appropriate signer
     async fn authenticate_request(
         &self,
@@ -89,16 +92,17 @@ impl AxumRiglrAdapter {
     ) -> Result<Box<dyn TransactionSigner>, StatusCode> {
         // Extract authentication data from request headers
         let auth_data = self.extract_auth_data(headers)?;
-        
+
         // Use factory to create appropriate signer
-        let signer = self.signer_factory
+        let signer = self
+            .signer_factory
             .create_signer(auth_data, &self.rpc_config)
             .await
             .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-        
+
         Ok(signer)
     }
-    
+
     /// SSE handler using SignerFactory pattern
     pub async fn sse_handler<A>(
         &self,
@@ -118,26 +122,25 @@ impl AxumRiglrAdapter {
         );
 
         // Extract authentication data and create signer
-        let signer: Arc<dyn TransactionSigner> = Arc::from(self.authenticate_request(&headers).await?);
-        
+        let signer: Arc<dyn TransactionSigner> =
+            Arc::from(self.authenticate_request(&headers).await?);
+
         // Handle stream using framework-agnostic core
         let stream_result = handle_agent_stream(agent, signer, prompt).await;
-        
+
         match stream_result {
             Ok(stream) => {
                 tracing::info!("Agent stream created successfully");
-                
+
                 // Convert to Axum SSE stream
-                let sse_stream = stream.map(|chunk| {
-                    match chunk {
-                        Ok(data) => Ok(Event::default().data(data)),
-                        Err(e) => {
-                            tracing::error!(error = %e, "Stream error");
-                            Err(axum::Error::new(e))
-                        }
+                let sse_stream = stream.map(|chunk| match chunk {
+                    Ok(data) => Ok(Event::default().data(data)),
+                    Err(e) => {
+                        tracing::error!(error = %e, "Stream error");
+                        Err(axum::Error::new(e))
                     }
                 });
-                
+
                 Ok(Sse::new(sse_stream))
             }
             Err(e) => {
@@ -146,7 +149,7 @@ impl AxumRiglrAdapter {
             }
         }
     }
-    
+
     /// Completion handler using SignerFactory pattern
     pub async fn completion_handler<A>(
         &self,
@@ -166,8 +169,9 @@ impl AxumRiglrAdapter {
         );
 
         // Extract authentication data and create signer
-        let signer: Arc<dyn TransactionSigner> = Arc::from(self.authenticate_request(&headers).await?);
-        
+        let signer: Arc<dyn TransactionSigner> =
+            Arc::from(self.authenticate_request(&headers).await?);
+
         // Handle completion using framework-agnostic core
         match handle_agent_completion(agent, signer, prompt).await {
             Ok(response) => {
@@ -186,7 +190,6 @@ impl AxumRiglrAdapter {
         }
     }
 }
-
 
 /// Health check handler for Axum
 pub async fn health_handler() -> Json<serde_json::Value> {
@@ -212,7 +215,7 @@ pub async fn info_handler() -> Json<serde_json::Value> {
                 "description": "Server-Sent Events streaming with agent"
             },
             {
-                "method": "POST", 
+                "method": "POST",
                 "path": "/api/v1/completion",
                 "description": "One-shot completion with agent"
             },
@@ -253,10 +256,13 @@ mod tests {
             Ok(self.response.clone())
         }
 
-        async fn prompt_stream(&self, _prompt: &str) -> Result<futures_util::stream::BoxStream<'_, Result<String, Self::Error>>, Self::Error> {
+        async fn prompt_stream(
+            &self,
+            _prompt: &str,
+        ) -> Result<futures_util::stream::BoxStream<'_, Result<String, Self::Error>>, Self::Error>
+        {
             let chunks = vec!["Hello", " ", "world"];
-            let stream = futures_util::stream::iter(chunks)
-                .map(|chunk| Ok(chunk.to_string()));
+            let stream = futures_util::stream::iter(chunks).map(|chunk| Ok(chunk.to_string()));
             Ok(Box::pin(stream))
         }
     }
@@ -294,5 +300,4 @@ mod tests {
 
         assert_eq!(response.status(), StatusCode::OK);
     }
-
 }

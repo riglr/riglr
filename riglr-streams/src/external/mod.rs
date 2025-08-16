@@ -1,5 +1,7 @@
 pub mod binance;
 pub mod mempool;
 
-pub use binance::{BinanceStream, BinanceConfig, BinanceStreamEvent, BinanceEventData};
-pub use mempool::{MempoolSpaceStream, MempoolConfig, MempoolStreamEvent, MempoolEventData, BitcoinNetwork};
+pub use binance::{BinanceConfig, BinanceEventData, BinanceStream, BinanceStreamEvent};
+pub use mempool::{
+    BitcoinNetwork, MempoolConfig, MempoolEventData, MempoolSpaceStream, MempoolStreamEvent,
+};

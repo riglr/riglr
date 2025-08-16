@@ -66,45 +66,42 @@ pub mod web_search;
 // Re-export commonly used tools - be selective to avoid name conflicts
 // From dexscreener
 pub use dexscreener::{
-    get_token_info, search_tokens, get_trending_tokens, analyze_token_market, get_top_pairs,
-    TokenInfo, TokenPair, ChainInfo, MarketAnalysis,
+    analyze_token_market, get_token_info, get_top_pairs, get_trending_tokens, search_tokens,
+    ChainInfo, MarketAnalysis, TokenInfo, TokenPair,
 };
 
 // From news
 pub use news::{
-    get_crypto_news, get_trending_news, monitor_breaking_news, analyze_market_sentiment,
-    NewsArticle, NewsSource, NewsAggregationResult,
+    analyze_market_sentiment, get_crypto_news, get_trending_news, monitor_breaking_news,
+    NewsAggregationResult, NewsArticle, NewsSource,
 };
 
 // From twitter
 pub use twitter::{
-    search_tweets, get_user_tweets, analyze_crypto_sentiment,
-    TwitterPost, TwitterUser, TwitterSearchResult, SentimentAnalysis, SentimentBreakdown,
+    analyze_crypto_sentiment, get_user_tweets, search_tweets, SentimentAnalysis,
+    SentimentBreakdown, TwitterPost, TwitterSearchResult, TwitterUser,
 };
 
 // From web_search
 pub use web_search::{
-    search_web, find_similar_pages, summarize_web_content, search_recent_news,
-    WebSearchResult, SearchResult, ContentSummary,
+    find_similar_pages, search_recent_news, search_web, summarize_web_content, ContentSummary,
+    SearchResult, WebSearchResult,
 };
 
 // From lunarcrush
 pub use lunarcrush::{
-    get_social_sentiment, get_trending_cryptos, get_influencer_mentions,
-    SentimentData, TrendingCrypto, InfluencerMention, InfluencerMentionsResult,
+    get_influencer_mentions, get_social_sentiment, get_trending_cryptos, InfluencerMention,
+    InfluencerMentionsResult, SentimentData, TrendingCrypto,
 };
 
 // From faster100x
 pub use faster100x::{
-    analyze_token_holders, get_whale_activity, get_holder_trends,
-    TokenHolderAnalysis, WhaleActivity, HolderTrends, WalletHolding, ConcentrationRisk,
+    analyze_token_holders, get_holder_trends, get_whale_activity, ConcentrationRisk, HolderTrends,
+    TokenHolderAnalysis, WalletHolding, WhaleActivity,
 };
 
 // From price
-pub use price::{
-    get_token_price, get_token_prices_batch,
-    TokenPriceResult,
-};
+pub use price::{get_token_price, get_token_prices_batch, TokenPriceResult};
 
 // Re-export client and error types
 pub use client::WebClient;
@@ -119,6 +116,9 @@ mod tests {
 
     #[test]
     fn test_version() {
-        assert!(VERSION.starts_with("0.") || VERSION.starts_with("1."), "VERSION should be a valid semver");
+        assert!(
+            VERSION.starts_with("0.") || VERSION.starts_with("1."),
+            "VERSION should be a valid semver"
+        );
     }
 }

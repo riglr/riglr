@@ -1,20 +1,19 @@
-use std::collections::HashMap;
-use riglr_events_core::Event;
-use solana_sdk::pubkey::Pubkey;
-use crate::{
-    events::core::{EventParser, GenericEventParseConfig},
-    types::{EventMetadata, EventType, ProtocolType},
-    events::common::utils::{has_discriminator, parse_u64_le, parse_u128_le, parse_u32_le},
-};
 use super::{
-    events::{OrcaSwapEvent, OrcaPositionEvent, OrcaLiquidityEvent, EventParameters},
+    events::{EventParameters, OrcaLiquidityEvent, OrcaPositionEvent, OrcaSwapEvent},
     types::{
-        orca_whirlpool_program_id, OrcaSwapData, OrcaPositionData, OrcaLiquidityData,
-        SWAP_DISCRIMINATOR, OPEN_POSITION_DISCRIMINATOR, CLOSE_POSITION_DISCRIMINATOR,
-        INCREASE_LIQUIDITY_DISCRIMINATOR, DECREASE_LIQUIDITY_DISCRIMINATOR,
-        PositionRewardInfo,
+        orca_whirlpool_program_id, OrcaLiquidityData, OrcaPositionData, OrcaSwapData,
+        PositionRewardInfo, CLOSE_POSITION_DISCRIMINATOR, DECREASE_LIQUIDITY_DISCRIMINATOR,
+        INCREASE_LIQUIDITY_DISCRIMINATOR, OPEN_POSITION_DISCRIMINATOR, SWAP_DISCRIMINATOR,
     },
 };
+use crate::{
+    events::common::utils::{has_discriminator, parse_u128_le, parse_u32_le, parse_u64_le},
+    events::core::{EventParser, GenericEventParseConfig},
+    types::{EventMetadata, EventType, ProtocolType},
+};
+use riglr_events_core::Event;
+use solana_sdk::pubkey::Pubkey;
+use std::collections::HashMap;
 
 /// Orca Whirlpool event parser
 pub struct OrcaEventParser {
@@ -26,7 +25,7 @@ pub struct OrcaEventParser {
 impl OrcaEventParser {
     pub fn new() -> Self {
         let program_ids = vec![orca_whirlpool_program_id()];
-        
+
         let configs = vec![
             GenericEventParseConfig {
                 program_id: orca_whirlpool_program_id(),
@@ -117,7 +116,7 @@ impl EventParser for OrcaEventParser {
         index: String,
     ) -> Vec<Box<dyn Event>> {
         let mut events = Vec::new();
-        
+
         // For inner instructions, we'll use the data to identify the instruction type
         if let Ok(data) = bs58::decode(&inner_instruction.data).into_vec() {
             for configs in self.inner_instruction_configs.values() {
@@ -134,14 +133,14 @@ impl EventParser for OrcaEventParser {
                         index.clone(),
                         program_received_time_ms,
                     );
-                    
+
                     if let Some(event) = (config.inner_instruction_parser)(&data, metadata) {
                         events.push(event);
                     }
                 }
             }
         }
-        
+
         events
     }
 
@@ -156,7 +155,7 @@ impl EventParser for OrcaEventParser {
         index: String,
     ) -> Vec<Box<dyn Event>> {
         let mut events = Vec::new();
-        
+
         // Check each discriminator
         for (discriminator, configs) in &self.instruction_configs {
             if has_discriminator(&instruction.data, discriminator) {
@@ -173,14 +172,16 @@ impl EventParser for OrcaEventParser {
                         index.clone(),
                         program_received_time_ms,
                     );
-                    
-                    if let Some(event) = (config.instruction_parser)(&instruction.data, accounts, metadata) {
+
+                    if let Some(event) =
+                        (config.instruction_parser)(&instruction.data, accounts, metadata)
+                    {
                         events.push(event);
                     }
                 }
             }
         }
-        
+
         events
     }
 
@@ -191,7 +192,6 @@ impl EventParser for OrcaEventParser {
     fn supported_program_ids(&self) -> Vec<Pubkey> {
         self.program_ids.clone()
     }
-
 }
 
 impl Default for OrcaEventParser {
@@ -430,41 +430,49 @@ fn parse_orca_swap_data(data: &[u8]) -> Option<OrcaSwapData> {
 
     let amount = parse_u64_le(&data[offset..offset + 8]).ok()?;
     offset += 8;
-    
+
     let other_amount_threshold = parse_u64_le(&data[offset..offset + 8]).ok()?;
     offset += 8;
-    
+
     let sqrt_price_limit = parse_u128_le(&data[offset..offset + 16]).ok()?;
     offset += 16;
-    
+
     let amount_specified_is_input = data.get(offset)? != &0;
     offset += 1;
-    
+
     let a_to_b = data.get(offset)? != &0;
-    
+
     Some(OrcaSwapData {
-        whirlpool: Pubkey::default(), // Would need to extract from accounts
-        user: Pubkey::default(), // Would need to extract from accounts
-        token_mint_a: Pubkey::default(), // Would need to extract from accounts
-        token_mint_b: Pubkey::default(), // Would need to extract from accounts
+        whirlpool: Pubkey::default(),     // Would need to extract from accounts
+        user: Pubkey::default(),          // Would need to extract from accounts
+        token_mint_a: Pubkey::default(),  // Would need to extract from accounts
+        token_mint_b: Pubkey::default(),  // Would need to extract from accounts
         token_vault_a: Pubkey::default(), // Would need to extract from accounts
         token_vault_b: Pubkey::default(), // Would need to extract from accounts
         amount,
         amount_specified_is_input,
         a_to_b,
         sqrt_price_limit,
-        amount_in: if amount_specified_is_input { amount } else { other_amount_threshold },
-        amount_out: if amount_specified_is_input { other_amount_threshold } else { amount },
-        fee_amount: 0, // Would need to calculate from pool state
+        amount_in: if amount_specified_is_input {
+            amount
+        } else {
+            other_amount_threshold
+        },
+        amount_out: if amount_specified_is_input {
+            other_amount_threshold
+        } else {
+            amount
+        },
+        fee_amount: 0,         // Would need to calculate from pool state
         tick_current_index: 0, // Would need to extract from pool state
-        sqrt_price: 0, // Would need to extract from pool state
-        liquidity: 0, // Would need to extract from pool state
+        sqrt_price: 0,         // Would need to extract from pool state
+        liquidity: 0,          // Would need to extract from pool state
     })
 }
 
 fn parse_orca_swap_data_from_instruction(data: &[u8], accounts: &[Pubkey]) -> Option<OrcaSwapData> {
     let mut swap_data = parse_orca_swap_data(data)?;
-    
+
     // Extract accounts (typical Orca swap instruction layout)
     if accounts.len() >= 11 {
         swap_data.whirlpool = accounts[1];
@@ -473,7 +481,7 @@ fn parse_orca_swap_data_from_instruction(data: &[u8], accounts: &[Pubkey]) -> Op
         swap_data.token_vault_b = accounts[4];
         // Note: Would need more sophisticated parsing for all fields
     }
-    
+
     Some(swap_data)
 }
 
@@ -486,9 +494,9 @@ fn parse_orca_position_data(data: &[u8]) -> Option<OrcaPositionData> {
 
     let tick_lower_index = parse_u32_le(&data[offset..offset + 4]).ok()? as i32;
     offset += 4;
-    
+
     let tick_upper_index = parse_u32_le(&data[offset..offset + 4]).ok()? as i32;
-    
+
     Some(OrcaPositionData {
         whirlpool: Pubkey::default(),
         position_mint: Pubkey::default(),
@@ -506,9 +514,12 @@ fn parse_orca_position_data(data: &[u8]) -> Option<OrcaPositionData> {
     })
 }
 
-fn parse_orca_position_data_from_instruction(data: &[u8], accounts: &[Pubkey]) -> Option<OrcaPositionData> {
+fn parse_orca_position_data_from_instruction(
+    data: &[u8],
+    accounts: &[Pubkey],
+) -> Option<OrcaPositionData> {
     let mut position_data = parse_orca_position_data(data)?;
-    
+
     // Extract accounts from instruction
     if accounts.len() >= 7 {
         position_data.whirlpool = accounts[1];
@@ -517,7 +528,7 @@ fn parse_orca_position_data_from_instruction(data: &[u8], accounts: &[Pubkey]) -
         position_data.position_mint = accounts[3];
         position_data.position_token_account = accounts[4];
     }
-    
+
     Some(position_data)
 }
 
@@ -530,12 +541,12 @@ fn parse_orca_liquidity_data(data: &[u8], is_increase: bool) -> Option<OrcaLiqui
 
     let liquidity_amount = parse_u128_le(&data[offset..offset + 16]).ok()?;
     offset += 16;
-    
+
     let token_max_a = parse_u64_le(&data[offset..offset + 8]).ok()?;
     offset += 8;
-    
+
     let token_max_b = parse_u64_le(&data[offset..offset + 8]).ok()?;
-    
+
     Some(OrcaLiquidityData {
         whirlpool: Pubkey::default(),
         position: Pubkey::default(),
@@ -555,9 +566,13 @@ fn parse_orca_liquidity_data(data: &[u8], is_increase: bool) -> Option<OrcaLiqui
     })
 }
 
-fn parse_orca_liquidity_data_from_instruction(data: &[u8], accounts: &[Pubkey], is_increase: bool) -> Option<OrcaLiquidityData> {
+fn parse_orca_liquidity_data_from_instruction(
+    data: &[u8],
+    accounts: &[Pubkey],
+    is_increase: bool,
+) -> Option<OrcaLiquidityData> {
     let mut liquidity_data = parse_orca_liquidity_data(data, is_increase)?;
-    
+
     // Extract accounts from instruction
     if accounts.len() >= 12 {
         liquidity_data.whirlpool = accounts[1];
@@ -566,7 +581,6 @@ fn parse_orca_liquidity_data_from_instruction(data: &[u8], accounts: &[Pubkey], 
         liquidity_data.token_vault_a = accounts[5];
         liquidity_data.token_vault_b = accounts[6];
     }
-    
+
     Some(liquidity_data)
 }
-

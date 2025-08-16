@@ -196,15 +196,15 @@ async fn test_extract_complex_text() {
         From: 0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb8
         To: 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48
         Amount: 1000 USDC ($1000)
-        
+
         The user swapped 500 USDC for 0.25 ETH on Uniswap V3 deployed on Ethereum mainnet.
         Then bridged to Polygon using the official bridge. Gas fee was 0.002 ETH.
-        
+
         Current balances:
         - ETH: 10.5
         - USDC: 5000
         - USDT: 2500.50
-        
+
         Also interacted with Aave lending protocol and Compound finance.
         Total portfolio value is approximately $15K.
     "#;

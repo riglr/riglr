@@ -110,7 +110,6 @@ pub enum EventType {
     Unknown,
 }
 
-
 impl std::fmt::Display for EventType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:?}", self)
@@ -118,14 +117,19 @@ impl std::fmt::Display for EventType {
 }
 
 impl EventType {
-
     /// Convert local EventType to riglr-events-core EventKind
     pub fn to_event_kind(&self) -> riglr_events_core::types::EventKind {
         match self {
             Self::Swap => riglr_events_core::types::EventKind::Swap,
-            Self::AddLiquidity | Self::IncreaseLiquidity => riglr_events_core::types::EventKind::Liquidity,
-            Self::RemoveLiquidity | Self::DecreaseLiquidity => riglr_events_core::types::EventKind::Liquidity,
-            Self::Transfer | Self::Deposit | Self::Withdraw => riglr_events_core::types::EventKind::Transfer,
+            Self::AddLiquidity | Self::IncreaseLiquidity => {
+                riglr_events_core::types::EventKind::Liquidity
+            }
+            Self::RemoveLiquidity | Self::DecreaseLiquidity => {
+                riglr_events_core::types::EventKind::Liquidity
+            }
+            Self::Transfer | Self::Deposit | Self::Withdraw => {
+                riglr_events_core::types::EventKind::Transfer
+            }
             Self::Transaction => riglr_events_core::types::EventKind::Transaction,
             Self::Block => riglr_events_core::types::EventKind::Block,
             Self::ContractEvent => riglr_events_core::types::EventKind::Contract,
@@ -135,7 +139,7 @@ impl EventType {
         }
     }
 
-    /// Convert from riglr-events-core EventKind to local EventType  
+    /// Convert from riglr-events-core EventKind to local EventType
     pub fn from_event_kind(kind: &riglr_events_core::types::EventKind) -> Self {
         match kind {
             riglr_events_core::types::EventKind::Transaction => Self::Transaction,
@@ -189,16 +193,16 @@ impl EventMetadata {
         index: String,
         program_received_time_ms: i64,
     ) -> Self {
-        Self { 
-            id, 
-            signature, 
-            slot, 
-            block_time, 
-            block_time_ms, 
-            protocol_type, 
-            event_type, 
-            program_id, 
-            index, 
+        Self {
+            id,
+            signature,
+            slot,
+            block_time,
+            block_time_ms,
+            protocol_type,
+            event_type,
+            program_id,
+            index,
             program_received_time_ms,
             program_handle_time_consuming_ms: 0,
         }
@@ -241,13 +245,23 @@ pub struct StreamMetadata {
 // Bridge functions to migrate between old and new metadata formats
 impl EventMetadata {
     /// Convert from riglr-events-core EventMetadata to local EventMetadata
-    pub fn from_core_metadata(core_metadata: &riglr_events_core::types::EventMetadata, protocol_type: ProtocolType, event_type: EventType, program_id: Pubkey, index: String) -> Self {
+    pub fn from_core_metadata(
+        core_metadata: &riglr_events_core::types::EventMetadata,
+        protocol_type: ProtocolType,
+        event_type: EventType,
+        program_id: Pubkey,
+        index: String,
+    ) -> Self {
         Self {
             id: core_metadata.id.clone(),
-            signature: core_metadata.chain_data.as_ref()
+            signature: core_metadata
+                .chain_data
+                .as_ref()
                 .and_then(|cd| cd.transaction_id())
                 .unwrap_or_else(|| "unknown".to_string()),
-            slot: core_metadata.chain_data.as_ref()
+            slot: core_metadata
+                .chain_data
+                .as_ref()
                 .map(|cd| cd.block_id().parse::<u64>().unwrap_or(0))
                 .unwrap_or(0),
             block_time: core_metadata.timestamp.timestamp(),
@@ -262,7 +276,11 @@ impl EventMetadata {
     }
 
     /// Convert to riglr-events-core EventMetadata
-    pub fn to_core_metadata(&self, kind: riglr_events_core::types::EventKind, source: String) -> riglr_events_core::types::EventMetadata {
+    pub fn to_core_metadata(
+        &self,
+        kind: riglr_events_core::types::EventKind,
+        source: String,
+    ) -> riglr_events_core::types::EventMetadata {
         let chain_data = riglr_events_core::types::ChainData::Solana {
             slot: self.slot,
             signature: Some(self.signature.clone()),
@@ -274,8 +292,8 @@ impl EventMetadata {
             self.id.clone(),
             kind,
             source,
-            chrono::DateTime::from_timestamp(self.block_time, 0)
-                .unwrap_or_else(chrono::Utc::now),
-        ).with_chain_data(chain_data)
+            chrono::DateTime::from_timestamp(self.block_time, 0).unwrap_or_else(chrono::Utc::now),
+        )
+        .with_chain_data(chain_data)
     }
 }

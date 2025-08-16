@@ -4,10 +4,11 @@
 //! All state-mutating operations are queued through the job system for resilience.
 
 use crate::utils::send_transaction;
-use riglr_core::{ToolError, SignerContext};
+use riglr_core::{SignerContext, ToolError};
 use riglr_macros::tool;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use solana_sdk::signer::Signer;
 #[allow(deprecated)]
 use solana_sdk::{
     instruction::{AccountMeta, Instruction},
@@ -19,24 +20,22 @@ use solana_sdk::{
 use spl_associated_token_account::get_associated_token_address;
 use spl_token;
 use std::str::FromStr;
-use solana_sdk::signer::Signer;
 use tracing::{debug, info};
-
 
 /// Transfer SOL from one account to another
 ///
 /// This tool creates, signs, and executes a SOL transfer transaction using the current signer context.
 /// The transaction includes optional memo and priority fee support for faster confirmation.
-/// 
+///
 /// # Arguments
-/// 
+///
 /// * `to_address` - Recipient wallet address (base58 encoded public key)
 /// * `amount_sol` - Amount to transfer in SOL (e.g., 0.001 for 1,000,000 lamports)
 /// * `memo` - Optional memo to include in the transaction for record keeping
 /// * `priority_fee` - Optional priority fee in microlamports for faster processing
-/// 
+///
 /// # Returns
-/// 
+///
 /// Returns `TransactionResult` containing:
 /// - `signature`: Transaction signature hash
 /// - `from`: Sender address from signer context
@@ -45,18 +44,18 @@ use tracing::{debug, info};
 /// - `amount_display`: Human-readable amount in SOL
 /// - `status`: Transaction confirmation status
 /// - `memo`: Included memo (if any)
-/// 
+///
 /// # Errors
-/// 
+///
 /// * `ToolError::Permanent` - When amount is non-positive, addresses are invalid, or signer unavailable
 /// * `ToolError::Permanent` - When transaction signing or submission fails
-/// 
+///
 /// # Examples
-/// 
+///
 /// ```rust,ignore
 /// use riglr_solana_tools::transaction::transfer_sol;
 /// use riglr_core::SignerContext;
-/// 
+///
 /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
 /// // Transfer 0.001 SOL with a memo
 /// let result = transfer_sol(
@@ -65,7 +64,7 @@ use tracing::{debug, info};
 ///     Some("Payment for services".to_string()),
 ///     Some(5000), // 5000 microlamports priority fee
 /// ).await?;
-/// 
+///
 /// println!("Transfer completed! Signature: {}", result.signature);
 /// println!("Sent {} from {} to {}", result.amount_display, result.from, result.to);
 /// # Ok(())
@@ -95,10 +94,12 @@ pub async fn transfer_sol(
     let lamports = (amount_sol * LAMPORTS_PER_SOL as f64) as u64;
 
     // Get signer from context
-    let signer_context = SignerContext::current().await
+    let signer_context = SignerContext::current()
+        .await
         .map_err(|e| ToolError::permanent_string(format!("No signer context: {}", e)))?;
-    
-    let from_pubkey = signer_context.pubkey()
+
+    let from_pubkey = signer_context
+        .pubkey()
         .ok_or_else(|| ToolError::permanent_string("Signer has no public key"))?
         .parse::<Pubkey>()
         .map_err(|e| ToolError::permanent_string(format!("Invalid signer pubkey: {}", e)))?;
@@ -130,14 +131,15 @@ pub async fn transfer_sol(
 
     // Create and send transaction with retry logic
     let mut transaction = Transaction::new_with_payer(&instructions, Some(&from_pubkey));
-    let signature = send_transaction(&mut transaction, &format!("SOL Transfer ({} SOL)", amount_sol)).await?;
+    let signature = send_transaction(
+        &mut transaction,
+        &format!("SOL Transfer ({} SOL)", amount_sol),
+    )
+    .await?;
 
     info!(
         "SOL transfer initiated: {} -> {} ({} SOL), signature: {}",
-        from_pubkey,
-        to_address,
-        amount_sol,
-        signature
+        from_pubkey, to_address, amount_sol, signature
     );
 
     Ok(TransactionResult {
@@ -156,29 +158,29 @@ pub async fn transfer_sol(
 ///
 /// This tool creates, signs, and executes an SPL token transfer transaction. It automatically
 /// handles Associated Token Account (ATA) creation if needed and supports any SPL token.
-/// 
+///
 /// # Arguments
-/// 
+///
 /// * `to_address` - Recipient wallet address (base58 encoded public key)
 /// * `mint_address` - SPL token mint address (contract address)
 /// * `amount` - Amount to transfer in token's smallest unit (before decimal adjustment)
 /// * `decimals` - Number of decimal places for the token (e.g., 6 for USDC, 9 for most tokens)
 /// * `create_ata_if_needed` - Whether to create recipient's ATA if it doesn't exist
-/// 
+///
 /// # Returns
-/// 
+///
 /// Returns `TokenTransferResult` containing transaction details and amount information
 /// in both raw and UI-adjusted formats.
-/// 
+///
 /// # Errors
-/// 
+///
 /// * `ToolError::Permanent` - When addresses are invalid, signer unavailable, or transaction fails
-/// 
+///
 /// # Examples
-/// 
+///
 /// ```rust,ignore
 /// use riglr_solana_tools::transaction::transfer_spl_token;
-/// 
+///
 /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
 /// // Transfer 1 USDC (6 decimals)
 /// let result = transfer_spl_token(
@@ -188,7 +190,7 @@ pub async fn transfer_sol(
 ///     6, // USDC has 6 decimals
 ///     true, // Create recipient ATA if needed
 /// ).await?;
-/// 
+///
 /// println!("Token transfer completed! Signature: {}", result.signature);
 /// println!("Transferred {} tokens", result.ui_amount);
 /// # Ok(())
@@ -214,10 +216,12 @@ pub async fn transfer_spl_token(
         .map_err(|e| ToolError::permanent_string(format!("Invalid mint address: {}", e)))?;
 
     // Get signer from context
-    let signer_context = SignerContext::current().await
+    let signer_context = SignerContext::current()
+        .await
         .map_err(|e| ToolError::permanent_string(format!("No signer context: {}", e)))?;
-    
-    let from_pubkey = signer_context.pubkey()
+
+    let from_pubkey = signer_context
+        .pubkey()
         .ok_or_else(|| ToolError::permanent_string("Signer has no public key"))?
         .parse::<Pubkey>()
         .map_err(|e| ToolError::permanent_string(format!("Invalid signer pubkey: {}", e)))?;
@@ -252,20 +256,23 @@ pub async fn transfer_spl_token(
             &[],
             amount,
         )
-        .map_err(|e| ToolError::permanent_string(format!("Failed to create transfer instruction: {}", e)))?,
+        .map_err(|e| {
+            ToolError::permanent_string(format!("Failed to create transfer instruction: {}", e))
+        })?,
     );
 
     // Create and send transaction with retry logic
     let mut transaction = Transaction::new_with_payer(&instructions, Some(&from_pubkey));
     let ui_amount = amount as f64 / 10_f64.powi(decimals as i32);
-    let signature = send_transaction(&mut transaction, &format!("SPL Token Transfer ({:.9} tokens)", ui_amount)).await?;
+    let signature = send_transaction(
+        &mut transaction,
+        &format!("SPL Token Transfer ({:.9} tokens)", ui_amount),
+    )
+    .await?;
 
     info!(
         "SPL token transfer initiated: {} -> {} ({} tokens), signature: {}",
-        from_pubkey,
-        to_address,
-        ui_amount,
-        signature
+        from_pubkey, to_address, ui_amount, signature
     );
 
     Ok(TokenTransferResult {
@@ -287,39 +294,39 @@ pub async fn transfer_spl_token(
 /// This tool creates a new SPL token mint account on the Solana blockchain with specified
 /// configuration parameters. The mint authority is set to the current signer, enabling
 /// future token supply management operations.
-/// 
+///
 /// **Note**: This function is currently a placeholder and will return an implementation
 /// pending error. A full implementation would create the mint account, set authorities,
 /// and optionally mint initial tokens to the creator.
-/// 
+///
 /// # Arguments
-/// 
+///
 /// * `decimals` - Number of decimal places for the token (0-9, commonly 6 or 9)
 /// * `initial_supply` - Initial number of tokens to mint (in smallest unit)
 /// * `freezable` - Whether the token accounts can be frozen by the freeze authority
-/// 
+///
 /// # Returns
-/// 
+///
 /// Returns `CreateMintResult` containing:
 /// - `mint_address`: The newly created token mint address
 /// - `transaction_signature`: Transaction signature of the mint creation
 /// - `initial_supply`: Number of tokens initially minted
 /// - `decimals`: Decimal places configuration
 /// - `authority`: The mint authority address (signer address)
-/// 
+///
 /// # Errors
-/// 
+///
 /// * `ToolError::Permanent` - Currently returns "Implementation pending" error
 /// * Future implementation would include:
 ///   - Invalid decimals value (must be 0-9)
 ///   - Insufficient SOL balance for rent and fees
 ///   - Network connection issues
-/// 
+///
 /// # Examples
-/// 
+///
 /// ```rust,ignore
 /// use riglr_solana_tools::transaction::create_spl_token_mint;
-/// 
+///
 /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
 /// // This would create a USDC-like token with 6 decimals
 /// let result = create_spl_token_mint(
@@ -327,7 +334,7 @@ pub async fn transfer_spl_token(
 ///     1_000_000_000, // 1,000 tokens initial supply (1000 * 10^6)
 ///     true,          // Allow freezing accounts
 /// ).await?;
-/// 
+///
 /// println!("Created token mint: {}", result.mint_address);
 /// println!("Initial supply: {} tokens", result.initial_supply);
 /// println!("Transaction: {}", result.transaction_signature);
@@ -347,14 +354,18 @@ pub async fn create_spl_token_mint(
 
     // Validate inputs
     if decimals > 9 {
-        return Err(ToolError::permanent_string("Decimals must be between 0 and 9"));
+        return Err(ToolError::permanent_string(
+            "Decimals must be between 0 and 9",
+        ));
     }
 
     // Get signer from context
-    let signer_context = SignerContext::current().await
+    let signer_context = SignerContext::current()
+        .await
         .map_err(|e| ToolError::permanent_string(format!("No signer context: {}", e)))?;
-    
-    let payer_pubkey_str = signer_context.pubkey()
+
+    let payer_pubkey_str = signer_context
+        .pubkey()
         .ok_or_else(|| ToolError::permanent_string("Failed to get signer pubkey".to_string()))?;
     let payer_pubkey = Pubkey::from_str(&payer_pubkey_str)
         .map_err(|e| ToolError::permanent_string(format!("Invalid pubkey format: {}", e)))?;
@@ -364,9 +375,10 @@ pub async fn create_spl_token_mint(
     let mint_pubkey = mint_keypair.pubkey();
 
     // Get client to check account size and rent
-    let client = signer_context.solana_client()
-        .ok_or_else(|| ToolError::permanent_string("No Solana client available in signer".to_string()))?;
-    
+    let client = signer_context.solana_client().ok_or_else(|| {
+        ToolError::permanent_string("No Solana client available in signer".to_string())
+    })?;
+
     // Calculate rent for mint account
     let mint_account_size = std::mem::size_of::<spl_token::state::Mint>();
     let rent = client
@@ -379,11 +391,7 @@ pub async fn create_spl_token_mint(
         .map_err(|e| ToolError::retriable_string(format!("Failed to get blockhash: {}", e)))?;
 
     // Determine freeze authority
-    let freeze_authority = if freezable {
-        Some(payer_pubkey)
-    } else {
-        None
-    };
+    let freeze_authority = if freezable { Some(payer_pubkey) } else { None };
 
     // Create instructions for:
     // 1. Create mint account
@@ -393,32 +401,36 @@ pub async fn create_spl_token_mint(
     let mut instructions = vec![];
 
     // Create the mint account
-    instructions.push(
-        solana_sdk::system_instruction::create_account(
-            &payer_pubkey,
-            &mint_pubkey,
-            rent,
-            mint_account_size as u64,
-            &spl_token::id(),
-        )
-    );
+    instructions.push(solana_sdk::system_instruction::create_account(
+        &payer_pubkey,
+        &mint_pubkey,
+        rent,
+        mint_account_size as u64,
+        &spl_token::id(),
+    ));
 
     // Initialize the mint
     instructions.push(
         spl_token::instruction::initialize_mint2(
             &spl_token::id(),
             &mint_pubkey,
-            &payer_pubkey,  // mint authority
+            &payer_pubkey, // mint authority
             freeze_authority.as_ref(),
             decimals,
-        ).map_err(|e| ToolError::permanent_string(format!("Failed to create initialize mint instruction: {}", e)))?
+        )
+        .map_err(|e| {
+            ToolError::permanent_string(format!(
+                "Failed to create initialize mint instruction: {}",
+                e
+            ))
+        })?,
     );
 
     // If there's initial supply, create ATA and mint tokens
     if initial_supply > 0 {
         // Get or create associated token account for the payer
         let ata = get_associated_token_address(&payer_pubkey, &mint_pubkey);
-        
+
         // Create ATA instruction
         instructions.push(
             spl_associated_token_account::instruction::create_associated_token_account(
@@ -426,7 +438,7 @@ pub async fn create_spl_token_mint(
                 &payer_pubkey,
                 &mint_pubkey,
                 &spl_token::id(),
-            )
+            ),
         );
 
         // Mint initial supply to ATA
@@ -438,7 +450,10 @@ pub async fn create_spl_token_mint(
                 &payer_pubkey,
                 &[],
                 initial_supply,
-            ).map_err(|e| ToolError::permanent_string(format!("Failed to create mint instruction: {}", e)))?
+            )
+            .map_err(|e| {
+                ToolError::permanent_string(format!("Failed to create mint instruction: {}", e))
+            })?,
         );
     }
 
@@ -469,7 +484,6 @@ pub async fn create_spl_token_mint(
         freezable,
     })
 }
-
 
 /// Result of a SOL transfer transaction
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]

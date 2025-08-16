@@ -8,19 +8,19 @@
 //!
 //! Run with: cargo run --example simple_dispatcher
 
+use async_trait::async_trait;
 use riglr_agents::{
-    Agent, AgentDispatcher, AgentRegistry, LocalAgentRegistry,
-    Task, TaskResult, TaskType, Priority, AgentId
+    Agent, AgentDispatcher, AgentId, AgentRegistry, LocalAgentRegistry, Priority, Task, TaskResult,
+    TaskType,
 };
 use riglr_core::{
-    SignerContext, 
+    config::SolanaNetworkConfig,
     signer::{LocalSolanaSigner, TransactionSigner},
-    config::SolanaNetworkConfig
+    SignerContext,
 };
-use async_trait::async_trait;
+use serde_json::json;
 use std::sync::Arc;
 use std::time::Duration;
-use serde_json::json;
 
 /// A simple trading agent
 #[derive(Clone)]
@@ -40,18 +40,22 @@ impl TradingAgent {
 impl Agent for TradingAgent {
     async fn execute_task(&self, task: Task) -> riglr_agents::Result<TaskResult> {
         println!("💰 Trading Agent {} executing task: {}", self.id, task.id);
-        
-        let symbol = task.parameters.get("symbol")
+
+        let symbol = task
+            .parameters
+            .get("symbol")
             .and_then(|s| s.as_str())
             .unwrap_or("BTC");
-            
-        let action = task.parameters.get("action")
+
+        let action = task
+            .parameters
+            .get("action")
             .and_then(|s| s.as_str())
             .unwrap_or("buy");
-        
+
         // Simulate trade execution
         tokio::time::sleep(Duration::from_millis(100)).await;
-        
+
         Ok(TaskResult::success(
             json!({
                 "trade_id": uuid::Uuid::new_v4().to_string(),
@@ -61,7 +65,7 @@ impl Agent for TradingAgent {
                 "trader": self.id.as_str()
             }),
             None,
-            Duration::from_millis(100)
+            Duration::from_millis(100),
         ))
     }
 
@@ -92,14 +96,16 @@ impl ResearchAgent {
 impl Agent for ResearchAgent {
     async fn execute_task(&self, task: Task) -> riglr_agents::Result<TaskResult> {
         println!("🔬 Research Agent {} executing task: {}", self.id, task.id);
-        
-        let symbol = task.parameters.get("symbol")
+
+        let symbol = task
+            .parameters
+            .get("symbol")
             .and_then(|s| s.as_str())
             .unwrap_or("BTC");
-        
+
         // Simulate research work
         tokio::time::sleep(Duration::from_millis(50)).await;
-        
+
         Ok(TaskResult::success(
             json!({
                 "symbol": symbol,
@@ -111,7 +117,7 @@ impl Agent for ResearchAgent {
                 "analyst": self.id.as_str()
             }),
             None,
-            Duration::from_millis(50)
+            Duration::from_millis(50),
         ))
     }
 
@@ -127,21 +133,21 @@ impl Agent for ResearchAgent {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     println!("🚀 Starting Simple Agent Dispatcher Example");
-    
+
     // Create agents with different capabilities
     let trading_agent = Arc::new(TradingAgent::new("trader-001"));
     let research_agent = Arc::new(ResearchAgent::new("researcher-001"));
-    
+
     // Create agent registry and register agents
     let registry = Arc::new(LocalAgentRegistry::new());
     registry.register_agent(trading_agent).await?;
     registry.register_agent(research_agent).await?;
-    
+
     println!("✅ Registered {} agents", registry.agent_count().await?);
-    
+
     // Create dispatcher
     let dispatcher = AgentDispatcher::new(registry.clone());
-    
+
     // Setup a Solana signer for blockchain operations
     let solana_config = SolanaNetworkConfig {
         name: "devnet".to_string(),
@@ -151,9 +157,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // Create a test keypair for the example
     let signer = Arc::new(LocalSolanaSigner::from_keypair(
         solana_sdk::signer::keypair::Keypair::new(),
-        solana_config
+        solana_config,
     )) as Arc<dyn TransactionSigner>;
-    
+
     // Execute within signer context
     SignerContext::with_signer(signer, async {
         println!("\n🔬 Dispatching Research Task");
@@ -162,13 +168,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             json!({
                 "symbol": "BTC",
                 "analysis_type": "technical"
-            })
-        ).with_priority(Priority::High);
-        
+            }),
+        )
+        .with_priority(Priority::High);
+
         match dispatcher.dispatch_task(research_task).await {
             Ok(result) => {
                 if let Some(data) = result.data() {
-                    let recommendation = data.get("recommendation")
+                    let recommendation = data
+                        .get("recommendation")
                         .and_then(|r| r.as_str())
                         .unwrap_or("HOLD");
                     println!("✅ Research completed: {}", recommendation);
@@ -178,7 +186,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             }
             Err(e) => eprintln!("❌ Research failed: {}", e),
         }
-        
+
         println!("\n💰 Dispatching Trading Task");
         let trading_task = Task::new(
             TaskType::Trading,
@@ -186,13 +194,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 "symbol": "BTC",
                 "action": "buy",
                 "amount": 1.0
-            })
-        ).with_priority(Priority::High);
-        
+            }),
+        )
+        .with_priority(Priority::High);
+
         match dispatcher.dispatch_task(trading_task).await {
             Ok(result) => {
                 if let Some(data) = result.data() {
-                    let trade_id = data.get("trade_id")
+                    let trade_id = data
+                        .get("trade_id")
                         .and_then(|id| id.as_str())
                         .unwrap_or("unknown");
                     println!("✅ Trade executed: {}", trade_id);
@@ -202,22 +212,28 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             }
             Err(e) => eprintln!("❌ Trade failed: {}", e),
         }
-        
+
         Ok::<(), riglr_core::signer::SignerError>(())
-    }).await?;
-    
+    })
+    .await?;
+
     // Display final agent statuses
     println!("\n📊 Agent Status:");
     let agents = registry.list_agents().await?;
     for agent in agents {
         let status = agent.status();
-        println!("  {} - {} capabilities: {:?}", 
+        println!(
+            "  {} - {} capabilities: {:?}",
             status.agent_id,
             status.capabilities.len(),
-            status.capabilities.iter().map(|c| &c.name).collect::<Vec<_>>()
+            status
+                .capabilities
+                .iter()
+                .map(|c| &c.name)
+                .collect::<Vec<_>>()
         );
     }
-    
+
     println!("\n🎉 Simple dispatcher example completed successfully!");
     Ok(())
 }
