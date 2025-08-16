@@ -707,12 +707,7 @@ fn handle_function(function: ItemFn, tool_attrs: ToolAttr) -> proc_macro2::Token
                         && attr.to_token_stream().to_string().contains("default")
                 });
 
-                if has_default {
-                    param_fields.push(quote! {
-                        #(#attrs)*
-                        pub #param_name: #param_type
-                    });
-                } else {
+                {
                     param_fields.push(quote! {
                         #(#attrs)*
                         pub #param_name: #param_type
