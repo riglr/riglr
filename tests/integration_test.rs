@@ -54,20 +54,16 @@ impl riglr_core::Tool for MockIntegrationTool {
 
 #[tokio::test]
 async fn test_tool_worker_integration() -> anyhow::Result<()> {
-    use riglr_core::{ToolWorker, ExecutionConfig, Job, JobResult, InMemoryIdempotencyStore};
+    use riglr_core::{ExecutionConfig, InMemoryIdempotencyStore, Job, JobResult, ToolWorker};
 
-    let worker = ToolWorker::<InMemoryIdempotencyStore>::new(
-        ExecutionConfig::default()
-    );
+    let worker = ToolWorker::<InMemoryIdempotencyStore>::new(ExecutionConfig::default());
 
-    let tool = Arc::new(MockIntegrationTool { should_succeed: true });
+    let tool = Arc::new(MockIntegrationTool {
+        should_succeed: true,
+    });
     worker.register_tool(tool).await;
 
-    let job = Job::new(
-        "mock_integration_tool",
-        &serde_json::json!({}),
-        3
-    )?;
+    let job = Job::new("mock_integration_tool", &serde_json::json!({}), 3)?;
 
     let result = worker.process_job(job).await?;
 
@@ -79,20 +75,16 @@ async fn test_tool_worker_integration() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_error_handling_integration() -> anyhow::Result<()> {
-    use riglr_core::{ToolWorker, ExecutionConfig, Job, JobResult, InMemoryIdempotencyStore};
+    use riglr_core::{ExecutionConfig, InMemoryIdempotencyStore, Job, JobResult, ToolWorker};
 
-    let worker = ToolWorker::<InMemoryIdempotencyStore>::new(
-        ExecutionConfig::default()
-    );
+    let worker = ToolWorker::<InMemoryIdempotencyStore>::new(ExecutionConfig::default());
 
-    let tool = Arc::new(MockIntegrationTool { should_succeed: false });
+    let tool = Arc::new(MockIntegrationTool {
+        should_succeed: false,
+    });
     worker.register_tool(tool).await;
 
-    let job = Job::new(
-        "mock_integration_tool",
-        &serde_json::json!({}),
-        3
-    )?;
+    let job = Job::new("mock_integration_tool", &serde_json::json!({}), 3)?;
 
     let result = worker.process_job(job).await?;
 
@@ -101,7 +93,7 @@ async fn test_error_handling_integration() -> anyhow::Result<()> {
             assert!(error.contains("integration test failure"));
             // Errors from Box<dyn Error> are typically treated as permanent
             Ok(())
-        },
+        }
         JobResult::Success { .. } => Err(anyhow::anyhow!("Expected job to fail")),
     }
 }
@@ -113,7 +105,7 @@ mod workspace_validation {
     #[test]
     fn validate_core_types_exist() {
         // Verify that core types can be referenced
-        use riglr_core::{Tool, Job, JobResult, ToolError, ToolWorker, ExecutionConfig};
+        use riglr_core::{ExecutionConfig, Job, JobResult, Tool, ToolError, ToolWorker};
 
         // Test that we can create error types
         let _error = ToolError::permanent_string("test");
