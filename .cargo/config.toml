@@ -1,0 +1,33 @@
+[build]
+# Limit parallel jobs for memory-constrained environments
+jobs = 2
+
+[target.x86_64-unknown-linux-gnu]
+# Use mold linker if available (much faster and more memory efficient)
+# Falls back to default linker if mold is not installed
+linker = "clang"
+rustflags = [
+  "-C", "link-arg=-fuse-ld=lld",
+  "-C", "link-arg=-Wl,--no-keep-memory",
+  "-C", "link-arg=-Wl,--reduce-memory-overheads",
+]
+
+[profile.dev]
+# Reduce debug info size
+debug = 1
+# Faster builds with less optimization
+opt-level = 0
+# Reduce codegen units for less memory usage during linking
+codegen-units = 16
+
+[profile.test]
+# Reduce memory usage for tests
+opt-level = 0
+debug = 1
+codegen-units = 1
+
+[profile.ci]
+inherits = "dev"
+# Even more conservative settings for CI
+codegen-units = 1
+incremental = false

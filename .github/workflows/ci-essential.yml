@@ -25,7 +25,9 @@ concurrency:
 env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: 1
-  RUSTFLAGS: -D warnings
+  RUSTFLAGS: -D warnings -C link-arg=-Wl,-z,stack-size=10485760
+  CARGO_BUILD_JOBS: 2
+  CARGO_INCREMENTAL: 0
 
 jobs:
   # Quick format and lint checks - fail fast
@@ -60,14 +62,39 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
       
+      - name: Install efficient linker
+        run: |
+          # Try to use lld linker if available (much more memory efficient)
+          if command -v lld &> /dev/null; then
+            echo "lld already installed"
+          else
+            echo "Installing lld for more efficient linking..."
+            sudo apt-get update && sudo apt-get install -y lld || true
+          fi
+      
       - name: Cache dependencies
         uses: Swatinem/rust-cache@v2
       
-      - name: Build
-        run: cargo build --workspace --all-features
+      - name: Build (memory-efficient)
+        run: |
+          # Build in smaller chunks to reduce memory usage
+          cargo build --profile=ci --package riglr-core --all-features
+          cargo build --profile=ci --package riglr-config --all-features
+          cargo build --profile=ci --package riglr-agents --all-features
+          cargo build --profile=ci --package riglr-solana-common --all-features
+          cargo build --profile=ci --package riglr-evm-common --all-features
+          cargo build --profile=ci --workspace --all-features
       
-      - name: Run tests
-        run: cargo test --workspace --all-features
+      - name: Run tests (memory-efficient)
+        run: |
+          # Run tests package by package to reduce memory usage
+          cargo test --package riglr-core --all-features -- --test-threads=1
+          cargo test --package riglr-config --all-features -- --test-threads=1
+          cargo test --package riglr-agents --all-features -- --test-threads=1
+          cargo test --package riglr-solana-tools --all-features -- --test-threads=1
+          cargo test --package riglr-evm-tools --all-features -- --test-threads=1
+          # Run remaining workspace tests
+          cargo test --workspace --all-features --exclude riglr-core --exclude riglr-config --exclude riglr-agents --exclude riglr-solana-tools --exclude riglr-evm-tools -- --test-threads=1
         env:
           # Mock environment variables for tests
           ANTHROPIC_API_KEY: test_key
@@ -78,5 +105,8 @@ jobs:
           POLYGON_RPC_URL: https://polygon-rpc.com
           BASE_RPC_URL: https://mainnet.base.org
           SOLANA_RPC_URL: https://api.devnet.solana.com
+          # Reduce linker memory usage
+          RUSTFLAGS: -C link-arg=-Wl,--no-keep-memory -C link-arg=-Wl,--reduce-memory-overheads -C codegen-units=1
+          CARGO_BUILD_JOBS: 1
 
 
