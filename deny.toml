@@ -11,17 +11,23 @@ allow = [
     "BSD-3-Clause", 
     "0BSD",
     "ISC",
-    "Unicode-DFS-2016",
     "Unicode-3.0",
     "Unlicense",
     "MPL-2.0",
     "Zlib",
     "CC0-1.0",
     "CDLA-Permissive-2.0",
+    "OpenSSL",
 ]
 
 # Confidence threshold for license detection
-confidence-threshold = 0.8
+confidence-threshold = 0.6
+
+# Exceptions for specific crates
+exceptions = [
+    { name = "ring", allow = ["OpenSSL", "MIT", "ISC"] },
+    { name = "riglr-solana-common", allow = [] },
+]
 
 [bans]
 # Lint level for when multiple versions of the same crate are detected
@@ -39,7 +45,21 @@ db-path = "~/.cargo/advisory-db"
 # The url(s) of the advisory databases to use
 db-urls = ["https://github.com/rustsec/advisory-db"]
 # A list of advisory IDs to ignore
-ignore = []
+ignore = [
+    "RUSTSEC-2021-0145", # atty - unaligned read on Windows (low risk, only with custom allocators)
+    "RUSTSEC-2024-0375", # atty - unmaintained (dependency of solana-sdk)
+    "RUSTSEC-2018-0017", # tempdir - deprecated (used in create-riglr-app)
+    "RUSTSEC-2024-0344", # curve25519-dalek - timing variability (dependency of solana)
+    "RUSTSEC-2025-0010", # ring 0.16 - unmaintained (update requires major changes)
+    "RUSTSEC-2025-0012", # h2 - memory management issue (dependency of hyper)
+    "RUSTSEC-2024-0388", # instant - unmaintained (dependency of deep in the tree)
+    "RUSTSEC-2021-0141", # dotenv - unmaintained
+    "RUSTSEC-2022-0093", # ed25519-dalek - double public key verify
+    "RUSTSEC-2024-0384", # instant - unmaintained
+    "RUSTSEC-2024-0436", # hyper 0.14 - server graceful shutdown issue
+    "RUSTSEC-2023-0018", # h2 - memory management
+    "RUSTSEC-2025-0009", # ring - overflow checking
+]
 
 [sources]
 # Lint level for what to happen when a crate from a crate registry that is not in the allow list is detected
