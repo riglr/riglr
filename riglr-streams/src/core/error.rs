@@ -172,9 +172,7 @@ impl StreamError {
                 std::io::Error::new(std::io::ErrorKind::BrokenPipe, message.clone()),
                 format!("Channel error: {}", message),
             ),
-            StreamError::Timeout { .. } => {
-                EventError::timeout(std::time::Duration::from_secs(30))
-            }
+            StreamError::Timeout { .. } => EventError::timeout(std::time::Duration::from_secs(30)),
             StreamError::Processing { message } => {
                 EventError::generic(format!("Processing error: {}", message))
             }
