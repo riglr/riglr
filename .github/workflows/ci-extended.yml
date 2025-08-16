@@ -27,7 +27,7 @@ jobs:
   # Beta and nightly tests
   beta-nightly:
     name: Rust ${{ matrix.rust }}
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     strategy:
       matrix:
         rust: [beta, nightly]
@@ -52,7 +52,7 @@ jobs:
   # Security audit
   security:
     name: Security Audit
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
       - uses: actions/checkout@v4
       
@@ -70,7 +70,7 @@ jobs:
   # Code coverage (optional, for visibility)
   coverage:
     name: Code Coverage
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4
@@ -103,7 +103,7 @@ jobs:
   # Dependency check with cargo-deny
   dependencies:
     name: Dependency Check
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4
