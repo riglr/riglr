@@ -5,5 +5,5 @@
   font-family: 'Source Code Pro';
   font-style: normal;
   font-weight: 500;
-  src: url('{{ resource "fonts/source-code-pro-v11-all-charsets-500.woff2" }}') format('woff2');
+  src: url('source-code-pro-v11-all-charsets-500.woff2') format('woff2');
 }
