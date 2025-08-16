@@ -8,12 +8,12 @@ use indicatif::{ProgressBar, ProgressStyle};
 use std::path::PathBuf;
 use std::time::Duration;
 
-mod templates;
-mod generator;
 mod config;
+mod generator;
+mod templates;
 mod validation;
 
-use crate::config::{ProjectConfig, Template, ServerFramework};
+use crate::config::{ProjectConfig, ServerFramework, Template};
 use crate::generator::ProjectGenerator;
 use crate::templates::TemplateManager;
 
@@ -50,19 +50,19 @@ struct Cli {
 enum Commands {
     /// List available templates
     List,
-    
+
     /// Create a new project with a specific template
     New {
         /// Template name
         template: String,
-        
+
         /// Project name
         name: String,
     },
-    
+
     /// Update templates from remote repository
     Update,
-    
+
     /// Show template details
     Info {
         /// Template name
@@ -73,12 +73,10 @@ enum Commands {
 #[tokio::main]
 async fn main() -> Result<()> {
     let cli = Cli::parse();
-    
+
     // Initialize logging
     if cli.verbose {
-        tracing_subscriber::fmt()
-            .with_env_filter("debug")
-            .init();
+        tracing_subscriber::fmt().with_env_filter("debug").init();
     }
 
     // Print banner
@@ -104,7 +102,7 @@ async fn main() -> Result<()> {
             } else {
                 interactive_setup(cli.project_name)?
             };
-            
+
             generate_project(config, cli.output).await?;
         }
     }
@@ -113,7 +111,10 @@ async fn main() -> Result<()> {
 }
 
 fn print_banner() {
-    println!("{}", style("
+    println!(
+        "{}",
+        style(
+            "
 ╔═══════════════════════════════════════════════════════╗
 ║                                                       ║
 ║     ██████╗ ██╗ ██████╗ ██╗     ██████╗              ║
@@ -127,14 +128,23 @@ fn print_banner() {
 ║    Build AI-Powered Blockchain Agents with Ease      ║
 ║                                                       ║
 ╚═══════════════════════════════════════════════════════╝
-    ").cyan().bold());
+    "
+        )
+        .cyan()
+        .bold()
+    );
     println!();
 }
 
 fn interactive_setup(project_name: Option<String>) -> Result<ProjectConfig> {
     let theme = ColorfulTheme::default();
-    
-    println!("{}", style("Let's set up your new RIGLR project! 🚀").green().bold());
+
+    println!(
+        "{}",
+        style("Let's set up your new RIGLR project! 🚀")
+            .green()
+            .bold()
+    );
     println!();
 
     // Project name
@@ -275,26 +285,31 @@ fn interactive_setup(project_name: Option<String>) -> Result<ProjectConfig> {
     let selected_features = MultiSelect::with_theme(&theme)
         .with_prompt("Select additional features")
         .items(&features)
-        .defaults(&[true, false, false, false, true, false, false, true, true, true, false, false])
+        .defaults(&[
+            true, false, false, false, true, false, false, true, true, true, false, false,
+        ])
         .interact()?;
 
     let mut enabled_features = vec![];
     for &selected_idx in selected_features.iter() {
-        enabled_features.push(match selected_idx {
-            0 => "web_tools",
-            1 => "graph_memory",
-            2 => "cross_chain",
-            3 => "dashboard",
-            4 => "auth",
-            5 => "streaming",
-            6 => "database",
-            7 => "redis",
-            8 => "logging",
-            9 => "testing",
-            10 => "cicd",
-            11 => "api_docs",
-            _ => continue,
-        }.to_string());
+        enabled_features.push(
+            match selected_idx {
+                0 => "web_tools",
+                1 => "graph_memory",
+                2 => "cross_chain",
+                3 => "dashboard",
+                4 => "auth",
+                5 => "streaming",
+                6 => "database",
+                7 => "redis",
+                8 => "logging",
+                9 => "testing",
+                10 => "cicd",
+                11 => "api_docs",
+                _ => continue,
+            }
+            .to_string(),
+        );
     }
 
     // Author information
@@ -331,13 +346,17 @@ fn interactive_setup(project_name: Option<String>) -> Result<ProjectConfig> {
 
 fn create_default_config(project_name: Option<String>) -> Result<ProjectConfig> {
     let name = project_name.unwrap_or_else(|| "my-riglr-agent".to_string());
-    
+
     Ok(ProjectConfig {
         name: name.clone(),
         template: Template::ApiServiceBackend,
         chains: vec!["solana".to_string()],
         server_framework: Some(ServerFramework::Actix),
-        features: vec!["web_tools".to_string(), "redis".to_string(), "logging".to_string()],
+        features: vec![
+            "web_tools".to_string(),
+            "redis".to_string(),
+            "logging".to_string(),
+        ],
         author_name: whoami::realname(),
         author_email: format!("{}@example.com", whoami::username()),
         description: "AI-powered blockchain agent built with RIGLR".to_string(),
@@ -350,70 +369,79 @@ fn create_default_config(project_name: Option<String>) -> Result<ProjectConfig> 
 async fn generate_project(config: ProjectConfig, output: Option<PathBuf>) -> Result<()> {
     println!();
     println!("{}", style("Generating your project...").cyan().bold());
-    
+
     let pb = ProgressBar::new(100);
     pb.set_style(
         ProgressStyle::default_bar()
             .template("[{elapsed_precise}] {bar:40.cyan/blue} {pos:>7}/{len:7} {msg}")?
             .progress_chars("##-"),
     );
-    
+
     let output_dir = output.unwrap_or_else(|| PathBuf::from(&config.name));
-    
+
     // Check if directory exists
     if output_dir.exists() {
         let overwrite = Confirm::new()
-            .with_prompt(format!("Directory {} already exists. Overwrite?", output_dir.display()))
+            .with_prompt(format!(
+                "Directory {} already exists. Overwrite?",
+                output_dir.display()
+            ))
             .default(false)
             .interact()?;
-        
+
         if !overwrite {
             println!("{}", style("Aborting...").red());
             return Ok(());
         }
-        
+
         std::fs::remove_dir_all(&output_dir)?;
     }
-    
+
     pb.set_message("Creating project structure...");
     pb.set_position(10);
-    
+
     let generator = ProjectGenerator::new(config.clone());
     generator.create_structure(&output_dir)?;
-    
+
     pb.set_message("Generating source files...");
     pb.set_position(30);
     tokio::time::sleep(Duration::from_millis(200)).await;
-    
+
     generator.generate_source_files(&output_dir)?;
-    
+
     pb.set_message("Setting up configuration...");
     pb.set_position(50);
     tokio::time::sleep(Duration::from_millis(200)).await;
-    
+
     generator.generate_config_files(&output_dir)?;
-    
+
     pb.set_message("Creating examples...");
     pb.set_position(70);
     tokio::time::sleep(Duration::from_millis(200)).await;
-    
+
     if config.include_examples {
         generator.generate_examples(&output_dir)?;
     }
-    
+
     pb.set_message("Finalizing...");
     pb.set_position(90);
     tokio::time::sleep(Duration::from_millis(200)).await;
-    
+
     generator.generate_readme(&output_dir)?;
-    
+
     pb.set_position(100);
     pb.finish_with_message("Done!");
-    
+
     println!();
-    println!("{}", style("✨ Project created successfully!").green().bold());
+    println!(
+        "{}",
+        style("✨ Project created successfully!").green().bold()
+    );
     println!();
-    println!("📁 Project location: {}", style(output_dir.display()).cyan());
+    println!(
+        "📁 Project location: {}",
+        style(output_dir.display()).cyan()
+    );
     println!();
     println!("{}", style("Next steps:").yellow().bold());
     println!("  1. cd {}", config.name);
@@ -422,7 +450,7 @@ async fn generate_project(config: ProjectConfig, output: Option<PathBuf>) -> Res
     println!("  4. cargo build");
     println!("  5. cargo run");
     println!();
-    
+
     if config.server_framework.is_some() {
         println!("{}", style("Server endpoints:").yellow().bold());
         println!("  • Health: http://localhost:8080/health");
@@ -435,38 +463,41 @@ async fn generate_project(config: ProjectConfig, output: Option<PathBuf>) -> Res
         }
         println!();
     }
-    
+
     println!("{}", style("Happy building! 🚀").magenta().bold());
-    
+
     Ok(())
 }
 
 async fn list_templates() -> Result<()> {
     let manager = TemplateManager::new();
     let templates = manager.list_templates()?;
-    
+
     println!("{}", style("Available Templates:").cyan().bold());
     println!();
-    
+
     for template in templates {
-        println!("  {} {} - {}", 
+        println!(
+            "  {} {} - {}",
             style("•").green(),
             style(&template.name).yellow().bold(),
             template.description
         );
     }
-    
+
     println!();
-    println!("Use {} to create a project with a specific template", 
-        style("create-riglr-app new <template> <name>").cyan());
-    
+    println!(
+        "Use {} to create a project with a specific template",
+        style("create-riglr-app new <template> <name>").cyan()
+    );
+
     Ok(())
 }
 
 async fn create_from_template(template: &str, name: &str, output: Option<PathBuf>) -> Result<()> {
     let _manager = TemplateManager::new();
     let template_enum = Template::from_str(template)?;
-    
+
     let config = ProjectConfig {
         name: name.to_string(),
         template: template_enum,
@@ -480,29 +511,29 @@ async fn create_from_template(template: &str, name: &str, output: Option<PathBuf
         include_tests: true,
         include_docs: false,
     };
-    
+
     generate_project(config, output).await
 }
 
 async fn update_templates() -> Result<()> {
     println!("{}", style("Updating templates...").cyan());
-    
+
     let pb = ProgressBar::new_spinner();
     pb.set_style(ProgressStyle::default_spinner());
     pb.set_message("Fetching latest templates...");
-    
+
     let manager = TemplateManager::new();
     manager.update_templates().await?;
-    
+
     pb.finish_with_message("Templates updated successfully!");
-    
+
     Ok(())
 }
 
 async fn show_template_info(template: &str) -> Result<()> {
     let manager = TemplateManager::new();
     let info = manager.get_template_info(template)?;
-    
+
     println!("{}", style(&info.name).cyan().bold());
     println!("{}", style("─".repeat(40)).dim());
     println!();
@@ -523,6 +554,6 @@ async fn show_template_info(template: &str) -> Result<()> {
     for tool in &info.included_tools {
         println!("  • {}", tool);
     }
-    
+
     Ok(())
 }

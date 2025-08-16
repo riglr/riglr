@@ -1,7 +1,7 @@
 //! Environment variable utilities
 
-use std::env;
 use crate::{ConfigError, ConfigResult};
+use std::env;
 
 /// Type alias for custom environment source
 type CustomEnvSource = dyn Fn(&str) -> Option<String>;
@@ -29,18 +29,18 @@ impl EnvironmentSource {
             EnvironmentSource::Custom(f) => f(key),
         }
     }
-    
+
     /// Get a required environment variable
     pub fn require(&self, key: &str) -> ConfigResult<String> {
         self.get(key)
             .ok_or_else(|| ConfigError::MissingEnvVar(key.to_string()))
     }
-    
+
     /// Get an optional environment variable with default
     pub fn get_or(&self, key: &str, default: String) -> String {
         self.get(key).unwrap_or(default)
     }
-    
+
     /// Check if an environment variable exists
     pub fn exists(&self, key: &str) -> bool {
         self.get(key).is_some()
@@ -50,9 +50,7 @@ impl EnvironmentSource {
 /// Helper to extract values by prefix
 #[allow(dead_code)]
 pub fn extract_by_prefix(prefix: &str) -> Vec<(String, String)> {
-    env::vars()
-        .filter(|(k, _)| k.starts_with(prefix))
-        .collect()
+    env::vars().filter(|(k, _)| k.starts_with(prefix)).collect()
 }
 
 /// Helper to extract and parse chain IDs from RPC_URL_{CHAIN_ID} pattern
@@ -72,14 +70,14 @@ pub fn extract_chain_rpc_urls() -> Vec<(u64, String)> {
 #[allow(dead_code)]
 pub fn extract_contract_overrides(chain_id: u64) -> Vec<(String, String)> {
     let prefixes = ["ROUTER_", "QUOTER_", "FACTORY_", "WETH_", "USDC_", "USDT_"];
-    
+
     prefixes
         .iter()
         .filter_map(|prefix| {
             let key = format!("{}{}", prefix, chain_id);
-            env::var(&key).ok().map(|value| {
-                (prefix.trim_end_matches('_').to_lowercase(), value)
-            })
+            env::var(&key)
+                .ok()
+                .map(|value| (prefix.trim_end_matches('_').to_lowercase(), value))
         })
         .collect()
 }

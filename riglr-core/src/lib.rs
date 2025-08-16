@@ -16,7 +16,7 @@
 //!
 //! ```ignore
 //! use riglr_core::signer::SignerContext;
-//! 
+//!
 //! # async fn example() -> Result<(), Box<dyn std::error::Error>> {
 //! // Set context for current operation
 //! // Create your signer implementation
@@ -40,7 +40,7 @@
 //! let worker = ToolWorker::<InMemoryIdempotencyStore>::new(
 //!     ExecutionConfig::default()
 //! );
-//! 
+//!
 //! // Execute tools with automatic retry logic
 //! // let result = worker.process_job(job).await?;
 //! # Ok(())
@@ -195,12 +195,12 @@ pub mod tool;
 pub mod transactions;
 pub mod util;
 
-pub use config::{RpcConfig, EvmNetworkConfig, SolanaNetworkConfig};
-pub use error::{ToolError, CoreError};
-pub use signer::SignerError;
+pub use config::{EvmNetworkConfig, RpcConfig, SolanaNetworkConfig};
+pub use error::{CoreError, ToolError};
 pub use idempotency::*;
 pub use jobs::*;
 pub use queue::*;
+pub use signer::SignerError;
 pub use signer::{SignerContext, TransactionSigner};
 pub use tool::*;
 // Note: util functions are for internal use only
@@ -226,7 +226,7 @@ mod tests {
             if self.should_fail {
                 return Err("Mock tool failure".into());
             }
-            
+
             let message = params["message"].as_str().unwrap_or("Hello");
             Ok(JobResult::success(&format!("{}: {}", self.name, message))?)
         }
@@ -242,11 +242,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_job_creation() -> anyhow::Result<()> {
-        let job = Job::new(
-            "test_tool",
-            &serde_json::json!({"message": "test"}),
-            3
-        )?;
+        let job = Job::new("test_tool", &serde_json::json!({"message": "test"}), 3)?;
 
         assert_eq!(job.tool_name, "test_tool");
         assert_eq!(job.max_retries, 3);
@@ -257,7 +253,7 @@ mod tests {
     #[tokio::test]
     async fn test_job_result_success() -> anyhow::Result<()> {
         let result = JobResult::success(&"test result")?;
-        
+
         match result {
             JobResult::Success { value, tx_hash } => {
                 assert_eq!(value, serde_json::json!("test result"));
@@ -271,7 +267,7 @@ mod tests {
     #[tokio::test]
     async fn test_job_result_failure() {
         let result = JobResult::retriable_failure("test error");
-        
+
         match result {
             JobResult::Failure { error, retriable } => {
                 assert_eq!(error, "test error");
@@ -283,18 +279,14 @@ mod tests {
 
     #[tokio::test]
     async fn test_tool_worker_creation() {
-        let _worker = ToolWorker::<InMemoryIdempotencyStore>::new(
-            ExecutionConfig::default()
-        );
-        
+        let _worker = ToolWorker::<InMemoryIdempotencyStore>::new(ExecutionConfig::default());
+
         // Verify worker was created successfully - creation itself is the test
     }
 
     #[tokio::test]
     async fn test_tool_registration_and_execution() -> anyhow::Result<()> {
-        let worker = ToolWorker::<InMemoryIdempotencyStore>::new(
-            ExecutionConfig::default()
-        );
+        let worker = ToolWorker::<InMemoryIdempotencyStore>::new(ExecutionConfig::default());
 
         let tool = Arc::new(MockTool {
             name: "test_tool".to_string(),
@@ -306,12 +298,12 @@ mod tests {
         let job = Job::new(
             "test_tool",
             &serde_json::json!({"message": "Hello World"}),
-            3
+            3,
         )?;
 
         let result = worker.process_job(job).await;
         assert!(result.is_ok());
-        
+
         match result.unwrap() {
             JobResult::Success { value, .. } => {
                 assert!(value.as_str().unwrap().contains("Hello World"));
@@ -324,9 +316,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_tool_error_handling() -> anyhow::Result<()> {
-        let worker = ToolWorker::<InMemoryIdempotencyStore>::new(
-            ExecutionConfig::default()
-        );
+        let worker = ToolWorker::<InMemoryIdempotencyStore>::new(ExecutionConfig::default());
 
         let tool = Arc::new(MockTool {
             name: "failing_tool".to_string(),
@@ -335,15 +325,11 @@ mod tests {
 
         worker.register_tool(tool).await;
 
-        let job = Job::new(
-            "failing_tool",
-            &serde_json::json!({"message": "test"}),
-            3
-        )?;
+        let job = Job::new("failing_tool", &serde_json::json!({"message": "test"}), 3)?;
 
         let result = worker.process_job(job).await;
         assert!(result.is_ok());
-        
+
         // The tool should handle errors gracefully and return a failure result
         match result.unwrap() {
             JobResult::Failure { error, .. } => {
@@ -388,7 +374,7 @@ mod tests {
     #[tokio::test]
     async fn test_execution_config() {
         let config = ExecutionConfig::default();
-        
+
         assert!(config.default_timeout > std::time::Duration::from_millis(0));
         assert!(config.max_concurrency > 0);
         assert!(config.initial_retry_delay > std::time::Duration::from_millis(0));
@@ -405,7 +391,9 @@ mod tests {
 
         // Store a value
         let job_result = JobResult::success(&value)?;
-        store.set(key, &job_result, std::time::Duration::from_secs(60)).await?;
+        store
+            .set(key, &job_result, std::time::Duration::from_secs(60))
+            .await?;
 
         // Retrieve the value
         let retrieved = store.get(key).await?;

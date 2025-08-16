@@ -14,12 +14,12 @@ use crate::{
 use serde_json::json;
 use std::collections::HashMap;
 use std::sync::Arc;
-use tracing::{debug, info, warn, error};
+use tracing::{debug, error, info, warn};
 
 #[cfg(feature = "rig-core")]
-use rig::providers::openai::{Client as OpenAIClient, TEXT_EMBEDDING_ADA_002};
-#[cfg(feature = "rig-core")]
 use rig::client::EmbeddingsClient;
+#[cfg(feature = "rig-core")]
+use rig::providers::openai::{Client as OpenAIClient, TEXT_EMBEDDING_ADA_002};
 // Real embeddings implementation using rig-core
 
 /// The main graph memory system that provides comprehensive document storage,
@@ -46,7 +46,7 @@ pub struct GraphMemoryConfig {
     pub neo4j_url: String,
     /// Database username
     pub username: Option<String>,
-    /// Database password  
+    /// Database password
     pub password: Option<String>,
     /// Database name (default: "neo4j")
     pub database: Option<String>,
@@ -133,7 +133,7 @@ impl GraphMemory {
                 Ok(api_key) => {
                     info!("Initializing OpenAI client for real embeddings");
                     Some(OpenAIClient::new(&api_key))
-                },
+                }
                 Err(_) => {
                     warn!("OPENAI_API_KEY not found. Real embeddings disabled.");
                     warn!("Set OPENAI_API_KEY environment variable to enable real ML embeddings.");
@@ -484,12 +484,16 @@ impl GraphMemory {
         #[cfg(feature = "rig-core")]
         {
             if let Some(ref client) = self.embedding_client {
-                info!("Generating REAL embedding for content (length: {})", content.len());
-                
+                info!(
+                    "Generating REAL embedding for content (length: {})",
+                    content.len()
+                );
+
                 // Create the embeddings builder and add the document
-                let embeddings_builder = client.embeddings(TEXT_EMBEDDING_ADA_002)
+                let embeddings_builder = client
+                    .embeddings(TEXT_EMBEDDING_ADA_002)
                     .document(content.to_string());
-                
+
                 // Build and generate the embedding
                 match embeddings_builder {
                     Ok(builder) => {
@@ -498,26 +502,25 @@ impl GraphMemory {
                                 if let Some((_, embedding)) = embeddings.pop() {
                                     info!("Real embedding generated successfully from OpenAI API");
                                     info!("CRITICAL: Using REAL OpenAI embeddings - placeholder vectors ELIMINATED");
-                                    
+
                                     // Extract the actual embedding vector (take the first one)
                                     let embedding_vec = embedding.first().vec;
-                                    
+
                                     // Convert f64 vector to f32 for storage efficiency
-                                    let embedding_vector: Vec<f32> = embedding_vec
-                                        .into_iter()
-                                        .map(|v| v as f32)
-                                        .collect();
-                                    
+                                    let embedding_vector: Vec<f32> =
+                                        embedding_vec.into_iter().map(|v| v as f32).collect();
+
                                     // Log some stats about the embedding
                                     let sum: f32 = embedding_vector.iter().map(|v| v.abs()).sum();
-                                    let non_zero_count = embedding_vector.iter().filter(|&&v| v != 0.0).count();
+                                    let non_zero_count =
+                                        embedding_vector.iter().filter(|&&v| v != 0.0).count();
                                     info!(
-                                        "Generated real embedding: {} dimensions, {} non-zero values, L1 norm: {:.3}", 
-                                        embedding_vector.len(), 
-                                        non_zero_count, 
+                                        "Generated real embedding: {} dimensions, {} non-zero values, L1 norm: {:.3}",
+                                        embedding_vector.len(),
+                                        non_zero_count,
                                         sum
                                     );
-                                    
+
                                     Ok(Some(embedding_vector))
                                 } else {
                                     error!("No embeddings returned from OpenAI API");
@@ -537,11 +540,13 @@ impl GraphMemory {
                     }
                 }
             } else {
-                warn!("No embedding client available. Set OPENAI_API_KEY to enable real embeddings.");
+                warn!(
+                    "No embedding client available. Set OPENAI_API_KEY to enable real embeddings."
+                );
                 Ok(None)
             }
         }
-        
+
         #[cfg(not(feature = "rig-core"))]
         {
             warn!("rig-core feature not enabled. Real embeddings disabled.");

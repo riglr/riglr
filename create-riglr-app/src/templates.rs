@@ -19,13 +19,11 @@ pub struct TemplateManager {
 impl TemplateManager {
     pub fn new() -> Self {
         // Use local templates directory or embedded templates
-        let templates_path = std::env::current_dir()
-            .unwrap()
-            .join("templates");
-        
+        let templates_path = std::env::current_dir().unwrap().join("templates");
+
         Self { templates_path }
     }
-    
+
     /// List all available templates
     pub fn list_templates(&self) -> Result<Vec<TemplateInfo>> {
         let templates = [
@@ -45,16 +43,16 @@ impl TemplateManager {
             Template::SocialTradingCopier,
             Template::Custom,
         ];
-        
+
         Ok(templates.iter().map(TemplateInfo::from_template).collect())
     }
-    
+
     /// Get detailed information about a specific template
     pub fn get_template_info(&self, name: &str) -> Result<TemplateInfo> {
         let template = Template::from_str(name)?;
         Ok(TemplateInfo::from_template(&template))
     }
-    
+
     /// Get template content for a specific template
     pub fn get_template_content(&self, template: &Template) -> Result<TemplateContent> {
         match template {
@@ -64,14 +62,14 @@ impl TemplateManager {
             _ => Ok(self.get_default_template()),
         }
     }
-    
+
     /// Update templates from remote repository
     pub async fn update_templates(&self) -> Result<()> {
         // In a real implementation, this would fetch templates from a git repository
         // For now, we'll just return success
         Ok(())
     }
-    
+
     fn get_api_service_template(&self) -> TemplateContent {
         TemplateContent {
             main_rs: include_str!("../templates/api_service/main.rs.hbs").to_string(),
@@ -79,16 +77,34 @@ impl TemplateManager {
             cargo_toml: include_str!("../templates/api_service/Cargo.toml.hbs").to_string(),
             env_example: include_str!("../templates/api_service/.env.example.hbs").to_string(),
             additional_files: vec![
-                ("src/routes/mod.rs", include_str!("../templates/api_service/routes/mod.rs.hbs")),
-                ("src/routes/health.rs", include_str!("../templates/api_service/routes/health.rs.hbs")),
-                ("src/routes/agent.rs", include_str!("../templates/api_service/routes/agent.rs.hbs")),
-                ("src/middleware/mod.rs", include_str!("../templates/api_service/middleware/mod.rs.hbs")),
-                ("src/middleware/auth.rs", include_str!("../templates/api_service/middleware/auth.rs.hbs")),
-                ("src/middleware/rate_limit.rs", include_str!("../templates/api_service/middleware/rate_limit.rs.hbs")),
+                (
+                    "src/routes/mod.rs",
+                    include_str!("../templates/api_service/routes/mod.rs.hbs"),
+                ),
+                (
+                    "src/routes/health.rs",
+                    include_str!("../templates/api_service/routes/health.rs.hbs"),
+                ),
+                (
+                    "src/routes/agent.rs",
+                    include_str!("../templates/api_service/routes/agent.rs.hbs"),
+                ),
+                (
+                    "src/middleware/mod.rs",
+                    include_str!("../templates/api_service/middleware/mod.rs.hbs"),
+                ),
+                (
+                    "src/middleware/auth.rs",
+                    include_str!("../templates/api_service/middleware/auth.rs.hbs"),
+                ),
+                (
+                    "src/middleware/rate_limit.rs",
+                    include_str!("../templates/api_service/middleware/rate_limit.rs.hbs"),
+                ),
             ],
         }
     }
-    
+
     fn get_data_analytics_template(&self) -> TemplateContent {
         TemplateContent {
             main_rs: include_str!("../templates/data_analytics/main.rs.hbs").to_string(),
@@ -96,16 +112,34 @@ impl TemplateManager {
             cargo_toml: include_str!("../templates/data_analytics/Cargo.toml.hbs").to_string(),
             env_example: include_str!("../templates/data_analytics/.env.example.hbs").to_string(),
             additional_files: vec![
-                ("src/analytics/mod.rs", include_str!("../templates/data_analytics/analytics/mod.rs.hbs")),
-                ("src/analytics/metrics.rs", include_str!("../templates/data_analytics/analytics/metrics.rs.hbs")),
-                ("src/analytics/patterns.rs", include_str!("../templates/data_analytics/analytics/patterns.rs.hbs")),
-                ("src/data/mod.rs", include_str!("../templates/data_analytics/data/mod.rs.hbs")),
-                ("src/data/ingestion.rs", include_str!("../templates/data_analytics/data/ingestion.rs.hbs")),
-                ("src/data/storage.rs", include_str!("../templates/data_analytics/data/storage.rs.hbs")),
+                (
+                    "src/analytics/mod.rs",
+                    include_str!("../templates/data_analytics/analytics/mod.rs.hbs"),
+                ),
+                (
+                    "src/analytics/metrics.rs",
+                    include_str!("../templates/data_analytics/analytics/metrics.rs.hbs"),
+                ),
+                (
+                    "src/analytics/patterns.rs",
+                    include_str!("../templates/data_analytics/analytics/patterns.rs.hbs"),
+                ),
+                (
+                    "src/data/mod.rs",
+                    include_str!("../templates/data_analytics/data/mod.rs.hbs"),
+                ),
+                (
+                    "src/data/ingestion.rs",
+                    include_str!("../templates/data_analytics/data/ingestion.rs.hbs"),
+                ),
+                (
+                    "src/data/storage.rs",
+                    include_str!("../templates/data_analytics/data/storage.rs.hbs"),
+                ),
             ],
         }
     }
-    
+
     fn get_event_driven_template(&self) -> TemplateContent {
         TemplateContent {
             main_rs: include_str!("../templates/event_driven/main.rs.hbs").to_string(),
@@ -113,17 +147,38 @@ impl TemplateManager {
             cargo_toml: include_str!("../templates/event_driven/Cargo.toml.hbs").to_string(),
             env_example: include_str!("../templates/event_driven/.env.example.hbs").to_string(),
             additional_files: vec![
-                ("src/events/mod.rs", include_str!("../templates/event_driven/events/mod.rs.hbs")),
-                ("src/events/processor.rs", include_str!("../templates/event_driven/events/processor.rs.hbs")),
-                ("src/events/handlers.rs", include_str!("../templates/event_driven/events/handlers.rs.hbs")),
-                ("src/strategies/mod.rs", include_str!("../templates/event_driven/strategies/mod.rs.hbs")),
-                ("src/strategies/base.rs", include_str!("../templates/event_driven/strategies/base.rs.hbs")),
-                ("src/execution/mod.rs", include_str!("../templates/event_driven/execution/mod.rs.hbs")),
-                ("src/execution/engine.rs", include_str!("../templates/event_driven/execution/engine.rs.hbs")),
+                (
+                    "src/events/mod.rs",
+                    include_str!("../templates/event_driven/events/mod.rs.hbs"),
+                ),
+                (
+                    "src/events/processor.rs",
+                    include_str!("../templates/event_driven/events/processor.rs.hbs"),
+                ),
+                (
+                    "src/events/handlers.rs",
+                    include_str!("../templates/event_driven/events/handlers.rs.hbs"),
+                ),
+                (
+                    "src/strategies/mod.rs",
+                    include_str!("../templates/event_driven/strategies/mod.rs.hbs"),
+                ),
+                (
+                    "src/strategies/base.rs",
+                    include_str!("../templates/event_driven/strategies/base.rs.hbs"),
+                ),
+                (
+                    "src/execution/mod.rs",
+                    include_str!("../templates/event_driven/execution/mod.rs.hbs"),
+                ),
+                (
+                    "src/execution/engine.rs",
+                    include_str!("../templates/event_driven/execution/engine.rs.hbs"),
+                ),
             ],
         }
     }
-    
+
     fn get_default_template(&self) -> TemplateContent {
         // For now, return a basic template
         // In production, each template would have its own files

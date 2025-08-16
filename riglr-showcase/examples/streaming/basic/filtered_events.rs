@@ -55,7 +55,7 @@ impl EventRouter {
             .iter()
             .position(|f| f.priority < filter.priority)
             .unwrap_or(self.filters.len());
-        
+
         self.filters.insert(pos, filter);
         info!("📋 Added filter: {} (priority: {})", self.filters[pos].name, self.filters[pos].priority);
     }
@@ -63,7 +63,7 @@ impl EventRouter {
     pub async fn route_event(&self, event: &dyn Event) -> Vec<String> {
         let start = Instant::now();
         let mut matches = Vec::new();
-        
+
         // Update total events counter
         {
             let mut stats = self.stats.write().await;
@@ -78,7 +78,7 @@ impl EventRouter {
 
             if (filter.predicate)(event) {
                 matches.push(filter.name.clone());
-                
+
                 // Update filter stats
                 let mut stats = self.stats.write().await;
                 *stats.filtered_events.entry(filter.name.clone()).or_insert(0) += 1;
@@ -140,15 +140,15 @@ impl EventSequenceMatcher {
             // Pattern: DEX swap followed by arbitrage within 5 seconds
             EventPattern::Sequence(vec![
                 |event: &EventSnapshot| {
-                    event.kind == EventKind::Custom && 
+                    event.kind == EventKind::Custom &&
                     event.data.get("event_type") == Some(&serde_json::Value::String("swap".to_string()))
                 },
                 |event: &EventSnapshot| {
-                    event.kind == EventKind::Custom && 
+                    event.kind == EventKind::Custom &&
                     event.data.get("event_type") == Some(&serde_json::Value::String("arbitrage".to_string()))
                 },
             ]),
-            
+
             // Pattern: High-value transaction (> $10k)
             EventPattern::Single(|event: &EventSnapshot| {
                 if let Some(amount) = event.data.get("amount").and_then(|v| v.as_f64()) {
@@ -157,7 +157,7 @@ impl EventSequenceMatcher {
                     false
                 }
             }),
-            
+
             // Pattern: Multiple transactions from same address within 1 minute
             EventPattern::Within {
                 pattern: Box::new(EventPattern::Single(|event: &EventSnapshot| {
@@ -176,7 +176,7 @@ impl EventSequenceMatcher {
     pub fn match_event(&mut self, event: &dyn Event) -> Vec<usize> {
         let snapshot = EventSnapshot::from(event);
         let matches = self.pattern_matcher.match_event(snapshot.clone());
-        
+
         if !matches.is_empty() {
             debug!("🎯 Pattern matches for event {}: {:?}", event.id(), matches);
         }
@@ -210,7 +210,7 @@ impl WindowHandler for SwapVolumeHandler {
                 .filter_map(|e| e.data.get("amount").and_then(|v| v.as_f64()))
                 .sum();
 
-            info!("💹 Window {} - {} swaps, total volume: ${:.2}", 
+            info!("💹 Window {} - {} swaps, total volume: ${:.2}",
                  window.id, swap_events.len(), total_volume);
         }
 
@@ -255,7 +255,7 @@ impl TimeWindowProcessor {
 
         // Process completed windows
         for window in completed_windows {
-            debug!("⏰ Processing completed window {} with {} events", 
+            debug!("⏰ Processing completed window {} with {} events",
                   window.id, window.events.len());
 
             for (_name, handler) in &self.window_handlers {
@@ -371,14 +371,14 @@ async fn main() -> Result<()> {
     info!("📊 Final Statistics:");
     info!("   Total events processed: {}", stats.total_events);
     info!("   Events dropped: {}", stats.dropped_events);
-    
+
     for (filter_name, count) in &stats.filtered_events {
         let avg_processing_time = stats.processing_time_ms.get(filter_name).unwrap_or(&0) / count.max(1);
         info!("   Filter '{}': {} matches (avg: {}ms)", filter_name, count, avg_processing_time);
     }
 
     let elapsed = start_time.elapsed();
-    info!("⏱️  Processing completed in {:?} ({:.2} events/sec)", 
+    info!("⏱️  Processing completed in {:?} ({:.2} events/sec)",
          elapsed, event_count as f64 / elapsed.as_secs_f64());
 
     Ok(())

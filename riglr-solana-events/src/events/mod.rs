@@ -3,9 +3,9 @@ pub mod core;
 pub mod factory;
 pub mod protocols;
 
+pub use crate::types::{EventMetadata, EventType, ProtocolType, SwapData, TransferData};
 pub use core::{EventParser, GenericEventParser};
-pub use crate::types::{ProtocolType, EventType, EventMetadata, TransferData, SwapData};
-pub use factory::{Protocol, EventParserRegistry};
+pub use factory::{EventParserRegistry, Protocol};
 
 // match_event! macro for pattern matching on events
 #[macro_export]

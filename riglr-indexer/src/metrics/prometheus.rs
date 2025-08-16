@@ -21,7 +21,7 @@ pub struct PrometheusState {
 /// Create Prometheus metrics router
 pub fn create_metrics_router(collector: Arc<MetricsCollector>) -> Router {
     let state = PrometheusState { collector };
-    
+
     Router::new()
         .route("/metrics", get(metrics_handler))
         .route("/health", get(health_handler))
@@ -33,13 +33,13 @@ async fn metrics_handler(
     State(state): State<Arc<PrometheusState>>,
 ) -> Result<Response, StatusCode> {
     let metrics_data = state.collector.export_prometheus();
-    
+
     let response = Response::builder()
         .status(StatusCode::OK)
         .header("content-type", "text/plain; version=0.0.4; charset=utf-8")
         .body(metrics_data.into())
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    
+
     Ok(response)
 }
 
@@ -56,12 +56,12 @@ pub async fn start_metrics_server(
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let addr = format!("{}:{}", bind_addr, port);
     let listener = tokio::net::TcpListener::bind(&addr).await?;
-    
+
     info!("Starting Prometheus metrics server on {}", addr);
-    
+
     let app = create_metrics_router(collector);
-    
+
     axum::serve(listener, app).await?;
-    
+
     Ok(())
 }

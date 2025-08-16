@@ -50,7 +50,7 @@
 //!
 //! # async fn example() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 //! let registry = LocalAgentRegistry::new();
-//! 
+//!
 //! // Register agents
 //! // let agent = Arc::new(TradingAgent { id: AgentId::new("trader-1") });
 //! // registry.register_agent(agent).await?;
@@ -68,7 +68,7 @@
 //!
 //! # async fn example() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 //! // let dispatcher = AgentDispatcher::new(registry);
-//! 
+//!
 //! let task = Task::new(
 //!     TaskType::Trading,
 //!     serde_json::json!({"symbol": "BTC/USD", "action": "buy"})
@@ -114,25 +114,25 @@ use async_trait::async_trait;
 use std::sync::Arc;
 
 // Public exports
-pub mod types;
-pub mod registry;
-pub mod dispatcher;
-pub mod communication;
-pub mod error;
 pub mod builder;
+pub mod communication;
+pub mod dispatcher;
+pub mod error;
 pub mod integration;
+pub mod registry;
+pub mod types;
 
 // Re-export commonly used types
-pub use types::{
-    AgentId, Task, TaskResult, TaskType, Priority, AgentMessage, RoutingRule,
-    Capability, AgentStatus, AgentState,
-};
-pub use registry::{AgentRegistry, LocalAgentRegistry};
-pub use dispatcher::{AgentDispatcher, DispatchConfig, RoutingStrategy};
-pub use communication::{AgentCommunication, ChannelCommunication};
-pub use error::{AgentError, Result};
 pub use builder::AgentBuilder;
+pub use communication::{AgentCommunication, ChannelCommunication};
+pub use dispatcher::{AgentDispatcher, DispatchConfig, RoutingStrategy};
+pub use error::{AgentError, Result};
 pub use integration::SignerContextIntegration;
+pub use registry::{AgentRegistry, LocalAgentRegistry};
+pub use types::{
+    AgentId, AgentMessage, AgentState, AgentStatus, Capability, Priority, RoutingRule, Task,
+    TaskResult, TaskType,
+};
 
 /// Core trait that all agents must implement.
 ///
@@ -175,7 +175,9 @@ pub trait Agent: Send + Sync {
             active_tasks: 0,
             load: 0.0,
             last_heartbeat: chrono::Utc::now(),
-            capabilities: self.capabilities().into_iter()
+            capabilities: self
+                .capabilities()
+                .into_iter()
                 .map(|cap| Capability::new(cap, "1.0"))
                 .collect(),
             metadata: std::collections::HashMap::new(),
@@ -310,10 +312,7 @@ mod tests {
             should_fail: false,
         };
 
-        let task = Task::new(
-            TaskType::Trading,
-            serde_json::json!({"symbol": "BTC/USD"}),
-        );
+        let task = Task::new(TaskType::Trading, serde_json::json!({"symbol": "BTC/USD"}));
 
         assert!(agent.can_handle(&task));
         assert!(agent.is_available());

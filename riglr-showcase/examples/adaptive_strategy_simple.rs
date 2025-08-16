@@ -12,16 +12,16 @@
 //! 5. Fallback strategies and risk management
 
 use anyhow::Result;
-use tracing::warn;
 use rig::agent::AgentBuilder;
-use rig::providers::openai;
 use rig::client::CompletionClient;
 use rig::completion::Prompt;
+use rig::providers::openai;
 use serde_json::json;
 use std::env;
+use tracing::warn;
 
 /// Demo: Volatility-Based Strategy Adaptation
-/// 
+///
 /// Shows how agents can adapt their approach based on market volatility
 /// and recent performance without requiring custom adaptation loops.
 async fn demo_volatility_adaptation() -> Result<()> {
@@ -31,15 +31,16 @@ async fn demo_volatility_adaptation() -> Result<()> {
     // Create OpenAI client and model
     let openai_client = openai::Client::new(&env::var("OPENAI_API_KEY")?);
     let model = openai_client.completion_model("gpt-4");
-    
+
     let volatility_strategist = AgentBuilder::new(model)
-        .preamble(r#"
+        .preamble(
+            r#"
 You are a volatility-adaptive trading strategist. Your core strength is adjusting
 your approach based on market conditions and recent performance data.
 
 Adaptation Framework:
 - LOW VOLATILITY (<5% daily): Larger positions, longer holds, range strategies
-- MEDIUM VOLATILITY (5-15% daily): Standard sizing, trend following, balanced approach  
+- MEDIUM VOLATILITY (5-15% daily): Standard sizing, trend following, balanced approach
 - HIGH VOLATILITY (15-30% daily): Smaller positions, quick exits, momentum plays
 - EXTREME VOLATILITY (>30% daily): Minimal exposure, defensive positioning
 
@@ -50,7 +51,8 @@ You continuously adapt based on:
 4. Risk tolerance and capital preservation needs
 
 Your adaptation is natural and systematic - no rigid rules or custom loops.
-        "#)
+        "#,
+        )
         .build();
 
     // Simulate recent performance data
@@ -66,7 +68,7 @@ Your adaptation is natural and systematic - no rigid rules or custom loops.
         },
         "previous_7_days": {
             "volatility_regime": "MEDIUM (8% avg daily)",
-            "strategy_used": "trend_following", 
+            "strategy_used": "trend_following",
             "trades": 6,
             "win_rate": "33%",
             "total_pnl": "-1.8%",
@@ -75,14 +77,15 @@ Your adaptation is natural and systematic - no rigid rules or custom loops.
         },
         "current_conditions": {
             "sol_24h_volatility": "22%",
-            "market_regime": "HIGH_VOLATILITY", 
+            "market_regime": "HIGH_VOLATILITY",
             "trend_direction": "downtrend",
             "volume": "140% of average",
             "fear_greed_index": 25
         }
     });
 
-    let adaptation_prompt = format!(r#"
+    let adaptation_prompt = format!(
+        r#"
 Analyze your recent performance and current conditions to adapt your strategy:
 
 Performance History & Current Conditions:
@@ -95,7 +98,9 @@ Based on this data:
 4. How do you adapt position sizing, hold times, and risk management?
 
 Think through your adaptation process systematically.
-    "#, serde_json::to_string_pretty(&performance_history)?);
+    "#,
+        serde_json::to_string_pretty(&performance_history)?
+    );
 
     println!("🔍 Analyzing performance and adapting strategy...");
     let adaptation = volatility_strategist.prompt(&adaptation_prompt).await?;
@@ -106,7 +111,7 @@ Think through your adaptation process systematically.
     let regime_change = r#"
 Regime Shift Alert: Volatility just spiked to 35% (EXTREME) due to:
 - Major exchange outage affecting liquidity
-- Regulatory uncertainty announcement  
+- Regulatory uncertainty announcement
 - Large institutional liquidations
 - Market structure breakdown
 
@@ -130,7 +135,7 @@ Show your rapid adaptation process.
 }
 
 /// Demo: Performance-Based Strategy Evolution
-/// 
+///
 /// Shows how agents can evolve their strategies based on systematic
 /// analysis of what's working vs what's not.
 async fn demo_performance_evolution() -> Result<()> {
@@ -140,9 +145,10 @@ async fn demo_performance_evolution() -> Result<()> {
     // Create OpenAI client and model
     let openai_client = openai::Client::new(&env::var("OPENAI_API_KEY")?);
     let model = openai_client.completion_model("gpt-4");
-    
+
     let evolution_strategist = AgentBuilder::new(model)
-        .preamble(r#"
+        .preamble(
+            r#"
 You are a performance-driven strategy evolution specialist. You systematically
 improve trading approaches based on data-driven analysis of results.
 
@@ -155,14 +161,15 @@ Evolution Framework:
 
 You evolve strategies naturally through systematic analysis, not rigid backtesting.
 Your approach is dynamic and responsive to changing market conditions.
-        "#)
+        "#,
+        )
         .build();
 
     // Simulate comprehensive performance data
     let strategy_performance = json!({
         "momentum_strategy": {
             "total_trades": 45,
-            "win_rate": "64%", 
+            "win_rate": "64%",
             "avg_win": "+3.4%",
             "avg_loss": "-1.9%",
             "sharpe_ratio": 1.7,
@@ -173,7 +180,7 @@ Your approach is dynamic and responsive to changing market conditions.
         "mean_reversion": {
             "total_trades": 32,
             "win_rate": "56%",
-            "avg_win": "+2.1%", 
+            "avg_win": "+2.1%",
             "avg_loss": "-2.6%",
             "sharpe_ratio": 0.8,
             "max_drawdown": "-8.9%",
@@ -184,7 +191,7 @@ Your approach is dynamic and responsive to changing market conditions.
             "total_trades": 18,
             "win_rate": "72%",
             "avg_win": "+5.1%",
-            "avg_loss": "-2.3%", 
+            "avg_loss": "-2.3%",
             "sharpe_ratio": 2.1,
             "max_drawdown": "-4.1%",
             "best_conditions": "volatility expansion, news events",
@@ -193,7 +200,8 @@ Your approach is dynamic and responsive to changing market conditions.
         "current_market": "high volatility trending with frequent reversals"
     });
 
-    let evolution_prompt = format!(r#"
+    let evolution_prompt = format!(
+        r#"
 Analyze this performance data to evolve your overall strategy approach:
 
 Strategy Performance Analysis:
@@ -207,7 +215,9 @@ Based on this data:
 5. Are there new strategies to consider based on what's working?
 
 Walk through your systematic evolution process.
-    "#, serde_json::to_string_pretty(&strategy_performance)?);
+    "#,
+        serde_json::to_string_pretty(&strategy_performance)?
+    );
 
     println!("🔬 Analyzing performance data for strategy evolution...");
     let evolution = evolution_strategist.prompt(&evolution_prompt).await?;
@@ -244,8 +254,8 @@ Show your systematic approach to evolution during difficult periods.
     Ok(())
 }
 
-/// Demo: Multi-Timeframe Adaptive Coordination  
-/// 
+/// Demo: Multi-Timeframe Adaptive Coordination
+///
 /// Shows how agents can coordinate strategy across multiple time horizons
 /// and adapt the coordination based on changing alignments.
 async fn demo_timeframe_coordination() -> Result<()> {
@@ -255,15 +265,16 @@ async fn demo_timeframe_coordination() -> Result<()> {
     // Create OpenAI client and model
     let openai_client = openai::Client::new(&env::var("OPENAI_API_KEY")?);
     let model = openai_client.completion_model("gpt-4");
-    
+
     let timeframe_coordinator = AgentBuilder::new(model)
-        .preamble(r#"
+        .preamble(
+            r#"
 You are a multi-timeframe strategy coordinator who adapts based on how different
 time horizons align or conflict with each other.
 
 Coordination Framework:
 - LONG-TERM (weeks/months): Strategic direction, major trends
-- MEDIUM-TERM (days/weeks): Tactical positioning, sector rotation  
+- MEDIUM-TERM (days/weeks): Tactical positioning, sector rotation
 - SHORT-TERM (hours/days): Entry/exit timing, quick opportunities
 - INTRADAY (minutes/hours): Execution optimization
 
@@ -274,7 +285,8 @@ Adaptation Rules:
 4. Priority order: Long-term > Medium-term > Short-term > Intraday
 
 You coordinate naturally without rigid rules - adapting based on timeframe dynamics.
-        "#)
+        "#,
+        )
         .build();
 
     // Multi-timeframe market analysis
@@ -287,14 +299,14 @@ You coordinate naturally without rigid rules - adapting based on timeframe dynam
         },
         "medium_term": {
             "trend": "CONSOLIDATION after rally to $180",
-            "timeframe": "2 weeks", 
+            "timeframe": "2 weeks",
             "pattern": "testing support at $155-165 range",
             "bias": "neutral, waiting for breakout direction"
         },
         "short_term": {
             "trend": "BEARISH breakdown from $165 to $158",
             "timeframe": "3 days",
-            "momentum": "negative, volume increasing on decline", 
+            "momentum": "negative, volume increasing on decline",
             "bias": "short-term weakness continuing"
         },
         "intraday": {
@@ -305,7 +317,8 @@ You coordinate naturally without rigid rules - adapting based on timeframe dynam
         }
     });
 
-    let coordination_prompt = format!(r#"
+    let coordination_prompt = format!(
+        r#"
 Analyze these conflicting timeframe signals and coordinate your strategy:
 
 Multi-Timeframe Analysis:
@@ -324,7 +337,9 @@ Address:
 4. What would change your coordination approach
 
 Think through your coordination logic systematically.
-    "#, serde_json::to_string_pretty(&timeframe_analysis)?);
+    "#,
+        serde_json::to_string_pretty(&timeframe_analysis)?
+    );
 
     println!("🎯 Coordinating conflicting timeframe signals...");
     let coordination = timeframe_coordinator.prompt(&coordination_prompt).await?;
@@ -338,7 +353,7 @@ Timeframe Alignment Update: All signals now converging BULLISH!
 New Analysis:
 - Long-term: Still bullish, thesis strengthening
 - Medium-term: Broke above $165 resistance, momentum building
-- Short-term: Reversal pattern complete, uptrend resuming  
+- Short-term: Reversal pattern complete, uptrend resuming
 - Intraday: Strong breakout volume, continuation likely
 
 All timeframes now aligned for first time in weeks.
@@ -361,7 +376,7 @@ Show your adaptation to timeframe alignment.
 }
 
 /// Demo: Real-Time Event Response Adaptation
-/// 
+///
 /// Shows how agents can rapidly adapt to breaking news and unexpected
 /// market events that require immediate strategy changes.
 async fn demo_event_response_adaptation() -> Result<()> {
@@ -371,9 +386,10 @@ async fn demo_event_response_adaptation() -> Result<()> {
     // Create OpenAI client and model
     let openai_client = openai::Client::new(&env::var("OPENAI_API_KEY")?);
     let model = openai_client.completion_model("gpt-4");
-    
+
     let event_responder = AgentBuilder::new(model)
-        .preamble(r#"
+        .preamble(
+            r#"
 You are a real-time event response specialist who rapidly adapts strategies
 based on breaking news, market events, and unexpected developments.
 
@@ -390,7 +406,8 @@ Event Categories:
 4. Macro events (economic data, central bank actions)
 
 You adapt naturally and systematically to events without predetermined scripts.
-        "#)
+        "#,
+        )
         .build();
 
     // Current position baseline
@@ -398,7 +415,7 @@ You adapt naturally and systematically to events without predetermined scripts.
         "sol_position": {
             "size": "45 SOL (~$7,200)",
             "entry": "$158.50",
-            "current": "$161.20", 
+            "current": "$161.20",
             "pnl": "+1.7%",
             "stop_loss": "$152.00"
         },
@@ -410,7 +427,8 @@ You adapt naturally and systematically to events without predetermined scripts.
         "cash_reserves": "$2,400 USDC (15% of portfolio)"
     });
 
-    let baseline_prompt = format!(r#"
+    let baseline_prompt = format!(
+        r#"
 Establish your current baseline position and monitoring framework:
 
 Current Positions:
@@ -423,7 +441,9 @@ Set up your event response framework:
 4. Baseline risk management for current positions?
 
 Prepare for systematic event response.
-    "#, serde_json::to_string_pretty(&current_positions)?);
+    "#,
+        serde_json::to_string_pretty(&current_positions)?
+    );
 
     println!("📋 Establishing baseline and monitoring framework...");
     let baseline = event_responder.prompt(&baseline_prompt).await?;
@@ -443,7 +463,7 @@ MAJOR SOLANA VALIDATOR OUTAGE:
 
 YOUR POSITION IMPACT:
 - SOL position now -10.3% from current entry
-- All DeFi positions down 15-25% 
+- All DeFi positions down 15-25%
 - Stop losses haven't triggered yet due to speed of move
 
 YOU HAVE ~60 SECONDS TO RESPOND.
@@ -479,7 +499,7 @@ Market is now rewarding those who bought the panic vs those who panic sold.
 
 How do you adapt as the event resolves?
 1. Evaluate if your immediate response was optimal
-2. Consider if you should reverse any panic decisions  
+2. Consider if you should reverse any panic decisions
 3. Assess new opportunities created by the recovery
 4. Update your strategy for continued uncertainty
 
@@ -497,9 +517,7 @@ Show your systematic adaptation as events evolve.
 #[tokio::main]
 async fn main() -> Result<()> {
     // Initialize logging
-    tracing_subscriber::fmt()
-        .with_env_filter("info")
-        .init();
+    tracing_subscriber::fmt().with_env_filter("info").init();
 
     println!("🎯 Adaptive Strategy Examples - Rig-Native Behavioral Adaptation");
     println!("=================================================================");
@@ -552,11 +570,11 @@ mod tests {
         if std::env::var("OPENAI_API_KEY").is_ok() {
             let openai_client = openai::Client::new(&std::env::var("OPENAI_API_KEY").unwrap());
             let model = openai_client.completion_model("gpt-3.5-turbo");
-            
+
             let strategist = AgentBuilder::new(model)
                 .preamble("You are an adaptive strategy testing assistant.")
                 .build();
-            
+
             // Test basic agent construction
             assert!(true); // Agent was successfully created
         } else {
@@ -572,7 +590,7 @@ mod tests {
             "win_rate": "64%",
             "sharpe_ratio": 1.7
         });
-        
+
         assert!(performance.get("strategy").is_some());
         assert!(performance.get("win_rate").is_some());
     }
@@ -583,7 +601,7 @@ mod tests {
             "long_term": {"trend": "bullish"},
             "short_term": {"trend": "bearish"}
         });
-        
+
         assert!(timeframes.get("long_term").is_some());
         assert!(timeframes.get("short_term").is_some());
     }

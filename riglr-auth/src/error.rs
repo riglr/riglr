@@ -8,31 +8,31 @@ pub enum AuthError {
     /// Token validation failed
     #[error("Token validation failed: {0}")]
     TokenValidation(String),
-    
+
     /// Missing required credentials
     #[error("Missing required credential: {0}")]
     MissingCredential(String),
-    
+
     /// User not verified or authorized
     #[error("User not verified: {0}")]
     NotVerified(String),
-    
+
     /// Network or API request failed
     #[error("API request failed: {0}")]
     ApiError(String),
-    
+
     /// Configuration error
     #[error("Configuration error: {0}")]
     ConfigError(String),
-    
+
     /// Unsupported operation
     #[error("Unsupported operation: {0}")]
     UnsupportedOperation(String),
-    
+
     /// No wallet found for user
     #[error("No wallet found for user: {0}")]
     NoWallet(String),
-    
+
     /// Generic error with source
     #[error("Authentication error: {0}")]
     Other(#[from] anyhow::Error),

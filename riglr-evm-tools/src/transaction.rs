@@ -7,12 +7,7 @@ use crate::{
     client::{eth_to_wei, validate_address},
     error::EvmToolError,
 };
-use alloy::{
-    primitives::U256,
-    rpc::types::TransactionRequest,
-    sol,
-    sol_types::SolCall,
-};
+use alloy::{primitives::U256, rpc::types::TransactionRequest, sol, sol_types::SolCall};
 use riglr_macros::tool;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -27,9 +22,6 @@ sol! {
         function allowance(address owner, address spender) external view returns (uint256);
     }
 }
-
-
-
 
 /// Result of a transaction
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
@@ -60,16 +52,16 @@ pub struct TransactionResult {
 ///
 /// This tool creates, signs, and executes an ETH transfer transaction using the current signer context.
 /// It supports custom gas pricing and nonce management for transaction optimization and replacement.
-/// 
+///
 /// # Arguments
-/// 
+///
 /// * `to_address` - Recipient Ethereum address (0x-prefixed hex string)
 /// * `amount_eth` - Amount to transfer in ETH (e.g., 0.01 for 0.01 ETH)
 /// * `gas_price_gwei` - Optional gas price in Gwei (e.g., 20 for 20 Gwei)
 /// * `nonce` - Optional transaction nonce (uses next available if None)
-/// 
+///
 /// # Returns
-/// 
+///
 /// Returns `TransactionResult` containing:
 /// - `tx_hash`: Transaction hash for tracking on blockchain
 /// - `from`, `to`: Sender and recipient addresses
@@ -78,20 +70,20 @@ pub struct TransactionResult {
 /// - `block_number`: Block where transaction was confirmed
 /// - `chain_id`: EVM chain identifier
 /// - `status`: Whether transaction succeeded
-/// 
+///
 /// # Errors
-/// 
+///
 /// * `EvmToolError::InvalidAddress` - When recipient address is invalid
 /// * `EvmToolError::Transaction` - When sender has insufficient ETH balance
 /// * `EvmToolError::Rpc` - When network issues or transaction failures occur
 /// * `EvmToolError::Generic` - When no signer context available
-/// 
+///
 /// # Examples
-/// 
+///
 /// ```rust,ignore
 /// use riglr_evm_tools::transaction::transfer_eth;
 /// use riglr_core::SignerContext;
-/// 
+///
 /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
 /// // Transfer 0.01 ETH with custom gas price
 /// let result = transfer_eth(
@@ -100,7 +92,7 @@ pub struct TransactionResult {
 ///     Some(25), // 25 Gwei gas price
 ///     None, // Auto-select nonce
 /// ).await?;
-/// 
+///
 /// println!("Transfer completed! Hash: {}", result.tx_hash);
 /// println!("Sent {} ETH from {} to {}", result.value_eth, result.from, result.to);
 /// println!("Gas used: {} at {} wei", result.gas_used.unwrap_or(0), result.gas_price.unwrap_or(0));
@@ -117,9 +109,11 @@ pub async fn transfer_eth(
     debug!("Transferring {} ETH to {}", amount_eth, to_address);
 
     // Get signer context and EVM client
-    let signer = riglr_core::SignerContext::current().await
+    let signer = riglr_core::SignerContext::current()
+        .await
         .map_err(|e| EvmToolError::Generic(format!("No signer context: {}", e)))?;
-    let _client = signer.evm_client()
+    let _client = signer
+        .evm_client()
         .map_err(|e| EvmToolError::Generic(format!("Failed to get EVM client: {}", e)))?;
 
     // Validate destination address
@@ -127,7 +121,8 @@ pub async fn transfer_eth(
         .map_err(|e| EvmToolError::Generic(format!("Invalid address: {}", e)))?;
 
     // Get signer address
-    let from_addr_str = signer.address()
+    let from_addr_str = signer
+        .address()
         .ok_or_else(|| EvmToolError::Generic("Signer has no address".to_string()))?;
     let from_addr = validate_address(&from_addr_str)
         .map_err(|e| EvmToolError::Generic(format!("Invalid signer address: {}", e)))?;
@@ -141,14 +136,10 @@ pub async fn transfer_eth(
         .to(to_addr)
         .value(value_wei)
         .gas_limit(21000); // Standard ETH transfer gas limit
-        
+
     // Add nonce and gas_price if provided
-    let tx = if let Some(n) = nonce {
-        tx.nonce(n)
-    } else {
-        tx
-    };
-    
+    let tx = if let Some(n) = nonce { tx.nonce(n) } else { tx };
+
     let tx = if let Some(gwei) = gas_price_gwei {
         tx.gas_price(gwei as u128 * 1_000_000_000)
     } else {
@@ -156,7 +147,9 @@ pub async fn transfer_eth(
     };
 
     // Sign and send transaction using the signer
-    let tx_hash = signer.sign_and_send_evm_transaction(tx).await
+    let tx_hash = signer
+        .sign_and_send_evm_transaction(tx)
+        .await
         .map_err(|e| EvmToolError::Generic(format!("Failed to send transaction: {}", e)))?;
 
     let result = TransactionResult {
@@ -168,8 +161,8 @@ pub async fn transfer_eth(
         gas_used: None, // Not available from abstracted signer
         gas_price: gas_price_gwei.map(|g| g as u128 * 1_000_000_000),
         block_number: None, // Not available from abstracted signer
-        chain_id: 0, // Not available from abstracted signer
-        status: true, // Assume success since transaction was sent
+        chain_id: 0,        // Not available from abstracted signer
+        status: true,       // Assume success since transaction was sent
     };
 
     info!(
@@ -184,31 +177,31 @@ pub async fn transfer_eth(
 ///
 /// This tool creates, signs, and executes an ERC20 token transfer transaction. It constructs
 /// the appropriate contract call to the token's transfer function and handles decimal conversion.
-/// 
+///
 /// # Arguments
-/// 
+///
 /// * `token_address` - ERC20 token contract address
-/// * `to_address` - Recipient Ethereum address  
+/// * `to_address` - Recipient Ethereum address
 /// * `amount` - Amount to transfer as string (e.g., "100.5" for human-readable amount)
 /// * `decimals` - Number of decimal places for the token (e.g., 6 for USDC, 18 for most tokens)
 /// * `gas_price_gwei` - Optional gas price in Gwei
-/// 
+///
 /// # Returns
-/// 
+///
 /// Returns `TransactionResult` with transaction details. Note that `value_eth` will be 0
 /// since this is a token transfer, not ETH transfer.
-/// 
+///
 /// # Errors
-/// 
+///
 /// * `EvmToolError::InvalidAddress` - When token or recipient address is invalid
 /// * `EvmToolError::Transaction` - When sender has insufficient token balance
 /// * `EvmToolError::Rpc` - When network issues or transaction failures occur
-/// 
+///
 /// # Examples
-/// 
+///
 /// ```rust,ignore
 /// use riglr_evm_tools::transaction::transfer_erc20;
-/// 
+///
 /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
 /// // Transfer 100.5 USDC (6 decimals)
 /// let result = transfer_erc20(
@@ -218,7 +211,7 @@ pub async fn transfer_eth(
 ///     6, // USDC has 6 decimals
 ///     Some(30), // 30 Gwei gas price
 /// ).await?;
-/// 
+///
 /// println!("Token transfer completed! Hash: {}", result.tx_hash);
 /// println!("Transferred {} tokens", "100.5");
 /// # Ok(())
@@ -238,9 +231,11 @@ pub async fn transfer_erc20(
     );
 
     // Get signer context and EVM client
-    let signer = riglr_core::SignerContext::current().await
+    let signer = riglr_core::SignerContext::current()
+        .await
         .map_err(|e| EvmToolError::Generic(format!("No signer context: {}", e)))?;
-    let _client = signer.evm_client()
+    let _client = signer
+        .evm_client()
         .map_err(|e| EvmToolError::Generic(format!("Failed to get EVM client: {}", e)))?;
 
     // Validate addresses
@@ -249,7 +244,8 @@ pub async fn transfer_erc20(
     let to_addr = validate_address(&to_address)
         .map_err(|e| EvmToolError::Generic(format!("Invalid to address: {}", e)))?;
 
-    let from_addr_str = signer.address()
+    let from_addr_str = signer
+        .address()
         .ok_or_else(|| EvmToolError::Generic("Signer has no address".to_string()))?;
     let from_addr = validate_address(&from_addr_str)
         .map_err(|e| EvmToolError::Generic(format!("Invalid signer address: {}", e)))?;
@@ -280,7 +276,9 @@ pub async fn transfer_erc20(
     };
 
     // Sign and send transaction using the signer
-    let tx_hash = signer.sign_and_send_evm_transaction(tx).await
+    let tx_hash = signer
+        .sign_and_send_evm_transaction(tx)
+        .await
         .map_err(|e| EvmToolError::Generic(format!("Failed to send transaction: {}", e)))?;
 
     let result = TransactionResult {
@@ -292,8 +290,8 @@ pub async fn transfer_erc20(
         gas_used: None, // Not available from abstracted signer
         gas_price: gas_price_gwei.map(|g| g as u128 * 1_000_000_000),
         block_number: None, // Not available from abstracted signer
-        chain_id: 0, // Not available from abstracted signer
-        status: true, // Assume success since transaction was sent
+        chain_id: 0,        // Not available from abstracted signer
+        status: true,       // Assume success since transaction was sent
     };
 
     info!(
@@ -308,31 +306,31 @@ pub async fn transfer_erc20(
 ///
 /// This tool retrieves the receipt and details for a completed transaction using its hash.
 /// Useful for checking transaction status, gas usage, and extracting event logs.
-/// 
+///
 /// # Arguments
-/// 
+///
 /// * `tx_hash` - Transaction hash to look up (0x-prefixed hex string)
-/// 
+///
 /// # Returns
-/// 
+///
 /// Returns `TransactionResult` with full transaction details including gas usage,
 /// block number, and execution status.
-/// 
+///
 /// # Errors
-/// 
+///
 /// * `EvmToolError::Rpc` - When network issues occur or transaction lookup fails
 /// * `EvmToolError::Generic` - When transaction is not found or invalid hash format
-/// 
+///
 /// # Examples
-/// 
+///
 /// ```rust,ignore
 /// use riglr_evm_tools::transaction::get_transaction_receipt;
-/// 
+///
 /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
 /// let receipt = get_transaction_receipt(
 ///     "0x1234...abcd".to_string(), // Transaction hash
 /// ).await?;
-/// 
+///
 /// println!("Transaction: {}", receipt.tx_hash);
 /// println!("Block: {:?}", receipt.block_number);
 /// println!("Gas used: {:?}", receipt.gas_used);
@@ -345,17 +343,20 @@ pub async fn get_transaction_receipt(
     tx_hash: String,
 ) -> std::result::Result<TransactionResult, Box<dyn std::error::Error + Send + Sync>> {
     use alloy::primitives::FixedBytes;
-    
+
     debug!("Getting transaction receipt for {}", tx_hash);
 
     // Get signer context and EVM client
-    let signer = riglr_core::SignerContext::current().await
+    let signer = riglr_core::SignerContext::current()
+        .await
         .map_err(|e| EvmToolError::Generic(format!("No signer context: {}", e)))?;
-    let _client = signer.evm_client()
+    let _client = signer
+        .evm_client()
         .map_err(|e| EvmToolError::Generic(format!("Failed to get EVM client: {}", e)))?;
 
     // Parse transaction hash
-    let _hash_bytes: FixedBytes<32> = tx_hash.parse()
+    let _hash_bytes: FixedBytes<32> = tx_hash
+        .parse()
         .map_err(|e| EvmToolError::Generic(format!("Invalid transaction hash format: {}", e)))?;
 
     // Simplified implementation - return basic transaction result
@@ -363,14 +364,14 @@ pub async fn get_transaction_receipt(
     let result = TransactionResult {
         tx_hash: tx_hash.clone(),
         from: "0x0000000000000000000000000000000000000000".to_string(), // Placeholder
-        to: "0x0000000000000000000000000000000000000000".to_string(), // Placeholder
+        to: "0x0000000000000000000000000000000000000000".to_string(),   // Placeholder
         value_wei: "0".to_string(),
         value_eth: 0.0,
         gas_used: None,
         gas_price: None,
         block_number: None,
         chain_id: signer.chain_id().unwrap_or(1), // Default to Ethereum mainnet
-        status: true, // Assume successful for now
+        status: true,                             // Assume successful for now
     };
 
     info!(

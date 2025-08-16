@@ -1,5 +1,5 @@
 //! Stream composition operators for building reactive pipelines
-//! 
+//!
 //! This module provides a rich set of operators for composing, transforming,
 //! and combining streams in a declarative, functional style.
 //!
@@ -15,7 +15,7 @@
 //!
 //! ### Buffer Sizing Recommendations:
 //! - High-frequency streams (>1000 events/sec): Use buffer size 50,000-100,000
-//! - Medium-frequency streams (100-1000 events/sec): Use buffer size 10,000-50,000  
+//! - Medium-frequency streams (100-1000 events/sec): Use buffer size 10,000-50,000
 //! - Low-frequency streams (<100 events/sec): Use buffer size 1,000-10,000
 //! - Financial indicators: Use buffer size 5,000-20,000 for smooth operation
 //!
@@ -26,7 +26,7 @@
 //! - Task switching overhead becomes noticeable with >10 operators in a single pipeline
 //!
 //! ### Alternative Channel Strategies:
-//! 
+//!
 //! For use cases requiring **guaranteed delivery** of every message, use the
 //! `with_guaranteed_delivery()` method available on select operators. This switches
 //! the underlying channel from `broadcast` to `mpsc`, providing:
@@ -48,15 +48,15 @@
 //! - Event logging and analytics
 //! - High-frequency trading signals
 
-use std::sync::Arc;
-use std::any::Any;
-use std::time::Duration;
-use std::marker::PhantomData;
-use tokio::sync::{broadcast, RwLock};
 use async_trait::async_trait;
 use futures::future::BoxFuture;
+use std::any::Any;
+use std::marker::PhantomData;
+use std::sync::Arc;
+use std::time::Duration;
+use tokio::sync::{broadcast, RwLock};
 
-use crate::core::{Stream, StreamHealth, StreamError};
+use crate::core::{Stream, StreamError, StreamHealth};
 use riglr_events_core::Event;
 // NOTE: Future enhancement - integrate events-core utilities for batching, rate limiting, etc.
 // use riglr_events_core::prelude::{EventBatcher, EventDeduplicator, RateLimiter, StreamUtils};
@@ -77,7 +77,7 @@ pub trait ComposableStream: Stream {
     {
         MappedStream::new(self, f)
     }
-    
+
     /// Filter events based on a predicate
     fn filter<F>(self, predicate: F) -> FilteredStream<Self, F>
     where
@@ -86,7 +86,7 @@ pub trait ComposableStream: Stream {
     {
         FilteredStream::new(self, predicate)
     }
-    
+
     /// Merge with another stream
     fn merge<S>(self, other: S) -> MergedStream<Self, S>
     where
@@ -96,7 +96,7 @@ pub trait ComposableStream: Stream {
     {
         MergedStream::new(self, other)
     }
-    
+
     /// Batch events into groups
     fn batch(self, size: usize, timeout: Duration) -> BatchedStream<Self>
     where
@@ -104,7 +104,7 @@ pub trait ComposableStream: Stream {
     {
         BatchedStream::new(self, size, timeout)
     }
-    
+
     /// Debounce events (only emit after quiet period)
     fn debounce(self, duration: Duration) -> DebouncedStream<Self>
     where
@@ -112,7 +112,7 @@ pub trait ComposableStream: Stream {
     {
         DebouncedStream::new(self, duration)
     }
-    
+
     /// Throttle events (rate limiting)
     fn throttle(self, duration: Duration) -> ThrottledStream<Self>
     where
@@ -120,9 +120,9 @@ pub trait ComposableStream: Stream {
     {
         ThrottledStream::new(self, duration)
     }
-    
+
     /// Enable guaranteed delivery using mpsc channels instead of broadcast
-    /// 
+    ///
     /// This ensures every message is delivered but may block the pipeline
     /// if receivers are slow. Use for critical data that cannot be lost.
     fn with_guaranteed_delivery(self, buffer_size: usize) -> GuaranteedDeliveryStream<Self>
@@ -131,7 +131,7 @@ pub trait ComposableStream: Stream {
     {
         GuaranteedDeliveryStream::new(self, buffer_size)
     }
-    
+
     /// Take only the first N events
     fn take(self, count: usize) -> TakeStream<Self>
     where
@@ -139,7 +139,7 @@ pub trait ComposableStream: Stream {
     {
         TakeStream::new(self, count)
     }
-    
+
     /// Skip the first N events
     fn skip(self, count: usize) -> SkipStream<Self>
     where
@@ -147,7 +147,7 @@ pub trait ComposableStream: Stream {
     {
         SkipStream::new(self, count)
     }
-    
+
     /// Scan (stateful transformation)
     fn scan<S, F>(self, initial_state: S, f: F) -> ScanStream<Self, S, F>
     where
@@ -157,7 +157,7 @@ pub trait ComposableStream: Stream {
     {
         ScanStream::new(self, initial_state, f)
     }
-    
+
     /// Buffer events with various strategies
     fn buffer(self, strategy: BufferStrategy) -> BufferedStream<Self>
     where
@@ -214,38 +214,38 @@ where
 {
     type Event = R;
     type Config = S::Config;
-    
+
     async fn start(&mut self, config: Self::Config) -> Result<(), StreamError> {
         self.inner.start(config).await
     }
-    
+
     async fn stop(&mut self) -> Result<(), StreamError> {
         self.inner.stop().await
     }
-    
+
     fn subscribe(&self) -> broadcast::Receiver<Arc<Self::Event>> {
         let (tx, rx) = broadcast::channel(10000);
         let mut inner_rx = self.inner.subscribe();
         let transform = self.transform.clone();
-        
+
         tokio::spawn(async move {
             while let Ok(event) = inner_rx.recv().await {
                 let transformed = (transform)(event);
                 let _ = tx.send(Arc::new(transformed));
             }
         });
-        
+
         rx
     }
-    
+
     fn is_running(&self) -> bool {
         self.inner.is_running()
     }
-    
+
     async fn health(&self) -> StreamHealth {
         self.inner.health().await
     }
-    
+
     fn name(&self) -> &str {
         self.inner.name()
     }
@@ -278,20 +278,20 @@ where
 {
     type Event = S::Event;
     type Config = S::Config;
-    
+
     async fn start(&mut self, config: Self::Config) -> Result<(), StreamError> {
         self.inner.start(config).await
     }
-    
+
     async fn stop(&mut self) -> Result<(), StreamError> {
         self.inner.stop().await
     }
-    
+
     fn subscribe(&self) -> broadcast::Receiver<Arc<Self::Event>> {
         let (tx, rx) = broadcast::channel(10000);
         let mut inner_rx = self.inner.subscribe();
         let predicate = self.predicate.clone();
-        
+
         tokio::spawn(async move {
             while let Ok(event) = inner_rx.recv().await {
                 if (predicate)(&event) {
@@ -299,18 +299,18 @@ where
                 }
             }
         });
-        
+
         rx
     }
-    
+
     fn is_running(&self) -> bool {
         self.inner.is_running()
     }
-    
+
     async fn health(&self) -> StreamHealth {
         self.inner.health().await
     }
-    
+
     fn name(&self) -> &str {
         self.inner.name()
     }
@@ -330,7 +330,11 @@ where
 {
     pub fn new(stream1: S1, stream2: S2) -> Self {
         let name = format!("merged({},{})", stream1.name(), stream2.name());
-        Self { stream1, stream2, name }
+        Self {
+            stream1,
+            stream2,
+            name,
+        }
     }
 }
 
@@ -344,51 +348,51 @@ where
 {
     type Event = MergedEvent<S1::Event, S2::Event>;
     type Config = (S1::Config, S2::Config);
-    
+
     async fn start(&mut self, config: Self::Config) -> Result<(), StreamError> {
         self.stream1.start(config.0).await?;
         self.stream2.start(config.1).await?;
         Ok(())
     }
-    
+
     async fn stop(&mut self) -> Result<(), StreamError> {
         self.stream1.stop().await?;
         self.stream2.stop().await?;
         Ok(())
     }
-    
+
     fn subscribe(&self) -> broadcast::Receiver<Arc<Self::Event>> {
         let (tx, rx) = broadcast::channel(10000);
         let mut rx1 = self.stream1.subscribe();
         let mut rx2 = self.stream2.subscribe();
         let tx1 = tx.clone();
         let tx2 = tx.clone();
-        
+
         tokio::spawn(async move {
             while let Ok(event) = rx1.recv().await {
                 let merged = MergedEvent::First((*event).clone());
                 let _ = tx1.send(Arc::new(merged));
             }
         });
-        
+
         tokio::spawn(async move {
             while let Ok(event) = rx2.recv().await {
                 let merged = MergedEvent::Second((*event).clone());
                 let _ = tx2.send(Arc::new(merged));
             }
         });
-        
+
         rx
     }
-    
+
     fn is_running(&self) -> bool {
         self.stream1.is_running() && self.stream2.is_running()
     }
-    
+
     async fn health(&self) -> StreamHealth {
         let health1 = self.stream1.health().await;
         let health2 = self.stream2.health().await;
-        
+
         StreamHealth {
             is_connected: health1.is_connected && health2.is_connected,
             last_event_time: [health1.last_event_time, health2.last_event_time]
@@ -402,7 +406,7 @@ where
             stream_info: None,
         }
     }
-    
+
     fn name(&self) -> &str {
         &self.name
     }
@@ -426,36 +430,36 @@ where
             MergedEvent::Second(e) => e.id(),
         }
     }
-    
+
     fn kind(&self) -> &riglr_events_core::EventKind {
         match self {
             MergedEvent::First(e) => e.kind(),
             MergedEvent::Second(e) => e.kind(),
         }
     }
-    
+
     fn metadata(&self) -> &riglr_events_core::EventMetadata {
         match self {
             MergedEvent::First(e) => e.metadata(),
             MergedEvent::Second(e) => e.metadata(),
         }
     }
-    
+
     fn metadata_mut(&mut self) -> &mut riglr_events_core::EventMetadata {
         match self {
             MergedEvent::First(e) => e.metadata_mut(),
             MergedEvent::Second(e) => e.metadata_mut(),
         }
     }
-    
+
     fn as_any(&self) -> &dyn Any {
         self
     }
-    
+
     fn as_any_mut(&mut self) -> &mut dyn Any {
         self
     }
-    
+
     fn clone_boxed(&self) -> Box<dyn Event> {
         Box::new(self.clone())
     }
@@ -476,16 +480,18 @@ where
     fn id(&self) -> &str {
         &self.batch_id
     }
-    
+
     fn kind(&self) -> &riglr_events_core::EventKind {
-        static KIND: std::sync::LazyLock<riglr_events_core::EventKind> = std::sync::LazyLock::new(|| riglr_events_core::EventKind::Custom("batch".to_string()));
+        static KIND: std::sync::LazyLock<riglr_events_core::EventKind> =
+            std::sync::LazyLock::new(|| riglr_events_core::EventKind::Custom("batch".to_string()));
         &KIND
     }
-    
+
     fn metadata(&self) -> &riglr_events_core::EventMetadata {
         // For simplicity, we'll create a static metadata
         // In a real implementation, this should be stored in the struct
-        static METADATA: std::sync::OnceLock<riglr_events_core::EventMetadata> = std::sync::OnceLock::new();
+        static METADATA: std::sync::OnceLock<riglr_events_core::EventMetadata> =
+            std::sync::OnceLock::new();
         METADATA.get_or_init(|| {
             riglr_events_core::EventMetadata::new(
                 "batch".to_string(),
@@ -494,19 +500,19 @@ where
             )
         })
     }
-    
+
     fn metadata_mut(&mut self) -> &mut riglr_events_core::EventMetadata {
         panic!("metadata_mut not supported for BatchEvent")
     }
-    
+
     fn as_any(&self) -> &dyn Any {
         self
     }
-    
+
     fn as_any_mut(&mut self) -> &mut dyn Any {
         self
     }
-    
+
     fn clone_boxed(&self) -> Box<dyn Event> {
         Box::new(self.clone())
     }
@@ -539,31 +545,31 @@ where
 {
     type Event = BatchEvent<S::Event>;
     type Config = S::Config;
-    
+
     async fn start(&mut self, config: Self::Config) -> Result<(), StreamError> {
         self.inner.start(config).await
     }
-    
+
     async fn stop(&mut self) -> Result<(), StreamError> {
         self.inner.stop().await
     }
-    
+
     fn subscribe(&self) -> broadcast::Receiver<Arc<Self::Event>> {
         let (tx, rx) = broadcast::channel(10000);
         let mut inner_rx = self.inner.subscribe();
         let batch_size = self.batch_size;
         let timeout = self.timeout;
-        
+
         tokio::spawn(async move {
             let mut buffer = Vec::new();
             let mut interval = tokio::time::interval(timeout);
             let mut batch_counter = 0u64;
-            
+
             loop {
                 tokio::select! {
                     Ok(event) = inner_rx.recv() => {
                         buffer.push(event);
-                        
+
                         if buffer.len() >= batch_size {
                             let batch = BatchEvent {
                                 events: std::mem::take(&mut buffer),
@@ -588,18 +594,18 @@ where
                 }
             }
         });
-        
+
         rx
     }
-    
+
     fn is_running(&self) -> bool {
         self.inner.is_running()
     }
-    
+
     async fn health(&self) -> StreamHealth {
         self.inner.health().await
     }
-    
+
     fn name(&self) -> &str {
         &self.name
     }
@@ -615,7 +621,11 @@ pub struct DebouncedStream<S> {
 impl<S: Stream> DebouncedStream<S> {
     pub fn new(inner: S, duration: Duration) -> Self {
         let name = format!("debounced({})", inner.name());
-        Self { inner, duration, name }
+        Self {
+            inner,
+            duration,
+            name,
+        }
     }
 }
 
@@ -626,32 +636,32 @@ where
 {
     type Event = S::Event;
     type Config = S::Config;
-    
+
     async fn start(&mut self, config: Self::Config) -> Result<(), StreamError> {
         self.inner.start(config).await
     }
-    
+
     async fn stop(&mut self) -> Result<(), StreamError> {
         self.inner.stop().await
     }
-    
+
     fn subscribe(&self) -> broadcast::Receiver<Arc<Self::Event>> {
         let (tx, rx) = broadcast::channel(10000);
         let mut inner_rx = self.inner.subscribe();
         let duration = self.duration;
-        
+
         tokio::spawn(async move {
             let mut timeout_task: Option<tokio::task::JoinHandle<()>> = None;
-            
+
             while let Ok(event) = inner_rx.recv().await {
                 // Cancel previous timeout if it exists
                 if let Some(task) = timeout_task.take() {
                     task.abort();
                 }
-                
+
                 let tx_clone = tx.clone();
                 let event_clone = event;
-                
+
                 // Start new timeout
                 timeout_task = Some(tokio::spawn(async move {
                     tokio::time::sleep(duration).await;
@@ -659,18 +669,18 @@ where
                 }));
             }
         });
-        
+
         rx
     }
-    
+
     fn is_running(&self) -> bool {
         self.inner.is_running()
     }
-    
+
     async fn health(&self) -> StreamHealth {
         self.inner.health().await
     }
-    
+
     fn name(&self) -> &str {
         &self.name
     }
@@ -686,7 +696,11 @@ pub struct ThrottledStream<S> {
 impl<S: Stream> ThrottledStream<S> {
     pub fn new(inner: S, duration: Duration) -> Self {
         let name = format!("throttled({})", inner.name());
-        Self { inner, duration, name }
+        Self {
+            inner,
+            duration,
+            name,
+        }
     }
 }
 
@@ -697,24 +711,24 @@ where
 {
     type Event = S::Event;
     type Config = S::Config;
-    
+
     async fn start(&mut self, config: Self::Config) -> Result<(), StreamError> {
         self.inner.start(config).await
     }
-    
+
     async fn stop(&mut self) -> Result<(), StreamError> {
         self.inner.stop().await
     }
-    
+
     fn subscribe(&self) -> broadcast::Receiver<Arc<Self::Event>> {
         let (tx, rx) = broadcast::channel(10000);
         let mut inner_rx = self.inner.subscribe();
         let duration = self.duration;
-        
+
         tokio::spawn(async move {
             let mut interval = tokio::time::interval(duration);
             let mut last_event: Option<Arc<S::Event>> = None;
-            
+
             loop {
                 tokio::select! {
                     Ok(event) = inner_rx.recv() => {
@@ -728,18 +742,18 @@ where
                 }
             }
         });
-        
+
         rx
     }
-    
+
     fn is_running(&self) -> bool {
         self.inner.is_running()
     }
-    
+
     async fn health(&self) -> StreamHealth {
         self.inner.health().await
     }
-    
+
     fn name(&self) -> &str {
         &self.name
     }
@@ -772,21 +786,21 @@ where
 {
     type Event = S::Event;
     type Config = S::Config;
-    
+
     async fn start(&mut self, config: Self::Config) -> Result<(), StreamError> {
         self.inner.start(config).await
     }
-    
+
     async fn stop(&mut self) -> Result<(), StreamError> {
         self.inner.stop().await
     }
-    
+
     fn subscribe(&self) -> broadcast::Receiver<Arc<Self::Event>> {
         let (tx, rx) = broadcast::channel(10000);
         let mut inner_rx = self.inner.subscribe();
         let count = self.count;
         let taken = self.taken.clone();
-        
+
         tokio::spawn(async move {
             while let Ok(event) = inner_rx.recv().await {
                 let mut taken_count = taken.write().await;
@@ -799,18 +813,18 @@ where
                 }
             }
         });
-        
+
         rx
     }
-    
+
     fn is_running(&self) -> bool {
         self.inner.is_running()
     }
-    
+
     async fn health(&self) -> StreamHealth {
         self.inner.health().await
     }
-    
+
     fn name(&self) -> &str {
         &self.name
     }
@@ -879,28 +893,28 @@ where
     fn id(&self) -> &str {
         &self.scan_id
     }
-    
+
     fn kind(&self) -> &riglr_events_core::EventKind {
         self.original_event.kind()
     }
-    
+
     fn metadata(&self) -> &riglr_events_core::EventMetadata {
         self.original_event.metadata()
     }
-    
+
     fn metadata_mut(&mut self) -> &mut riglr_events_core::EventMetadata {
         // Cannot modify original event through Arc
         panic!("metadata_mut not supported for ScanEvent")
     }
-    
+
     fn as_any(&self) -> &dyn Any {
         self
     }
-    
+
     fn as_any_mut(&mut self) -> &mut dyn Any {
         self
     }
-    
+
     fn clone_boxed(&self) -> Box<dyn Event> {
         Box::new(self.clone())
     }
@@ -915,36 +929,36 @@ where
 {
     type Event = ScanEvent<St, S::Event>;
     type Config = S::Config;
-    
+
     async fn start(&mut self, config: Self::Config) -> Result<(), StreamError> {
         self.inner.start(config).await
     }
-    
+
     async fn stop(&mut self) -> Result<(), StreamError> {
         self.inner.stop().await
     }
-    
+
     fn subscribe(&self) -> broadcast::Receiver<Arc<Self::Event>> {
         let (tx, rx) = broadcast::channel(10000);
         let mut inner_rx = self.inner.subscribe();
         let state = self.state.clone();
         let transform = self.transform.clone();
         let mut counter = 0u64;
-        
+
         tokio::spawn(async move {
             while let Ok(event) = inner_rx.recv().await {
                 let current_state = {
                     let state_guard = state.read().await;
                     state_guard.clone()
                 };
-                
+
                 let new_state = (transform)(current_state.clone(), event.clone());
-                
+
                 {
                     let mut state_guard = state.write().await;
                     *state_guard = new_state.clone();
                 }
-                
+
                 let scan_event = ScanEvent {
                     state: new_state,
                     original_event: event,
@@ -952,22 +966,22 @@ where
                     timestamp: std::time::SystemTime::now(),
                 };
                 counter += 1;
-                
+
                 let _ = tx.send(Arc::new(scan_event));
             }
         });
-        
+
         rx
     }
-    
+
     fn is_running(&self) -> bool {
         self.inner.is_running()
     }
-    
+
     async fn health(&self) -> StreamHealth {
         self.inner.health().await
     }
-    
+
     fn name(&self) -> &str {
         &self.name
     }
@@ -1032,21 +1046,21 @@ where
 {
     type Event = R;
     type Config = S::Config;
-    
+
     async fn start(&mut self, config: Self::Config) -> Result<(), StreamError> {
         self.inner.start(config).await
     }
-    
+
     async fn stop(&mut self) -> Result<(), StreamError> {
         self.inner.stop().await
     }
-    
+
     fn subscribe(&self) -> broadcast::Receiver<Arc<Self::Event>> {
         let (tx, rx) = broadcast::channel(10000);
         let mut inner_rx = self.inner.subscribe();
         let filter = self.filter.clone();
         let map = self.map.clone();
-        
+
         tokio::spawn(async move {
             while let Ok(event) = inner_rx.recv().await {
                 // Apply filter and map in a single task - reduces overhead
@@ -1056,18 +1070,18 @@ where
                 }
             }
         });
-        
+
         rx
     }
-    
+
     fn is_running(&self) -> bool {
         self.inner.is_running()
     }
-    
+
     async fn health(&self) -> StreamHealth {
         self.inner.health().await
     }
-    
+
     fn name(&self) -> &str {
         &self.name
     }
@@ -1076,7 +1090,11 @@ where
 /// Extension trait for performance optimizations
 pub trait PerformanceStreamExt: ComposableStream {
     /// Fused filter + map operation for better performance
-    fn filter_map<FilterF, MapF, R>(self, filter: FilterF, map: MapF) -> FilterMapStream<Self, FilterF, MapF, R>
+    fn filter_map<FilterF, MapF, R>(
+        self,
+        filter: FilterF,
+        map: MapF,
+    ) -> FilterMapStream<Self, FilterF, MapF, R>
     where
         Self: Sized,
         FilterF: Fn(&Self::Event) -> bool + Send + Sync + 'static,
@@ -1100,7 +1118,12 @@ pub struct ResilientStream<S> {
 impl<S: Stream> ResilientStream<S> {
     pub fn new(inner: S, max_retries: usize, retry_delay: Duration) -> Self {
         let name = format!("resilient({})", inner.name());
-        Self { inner, max_retries, retry_delay, name }
+        Self {
+            inner,
+            max_retries,
+            retry_delay,
+            name,
+        }
     }
 }
 
@@ -1111,7 +1134,7 @@ where
 {
     type Event = S::Event;
     type Config = S::Config;
-    
+
     async fn start(&mut self, config: Self::Config) -> Result<(), StreamError> {
         let mut attempt = 0;
         loop {
@@ -1120,13 +1143,13 @@ where
                 Err(e) if e.is_retriable() && attempt < self.max_retries => {
                     attempt += 1;
                     tracing::warn!("Stream start failed (attempt {}): {}", attempt, e);
-                    
+
                     let delay = if let Some(retry_after) = e.retry_after() {
                         retry_after
                     } else {
                         self.retry_delay * attempt as u32
                     };
-                    
+
                     tokio::time::sleep(delay).await;
                     continue;
                 }
@@ -1134,24 +1157,24 @@ where
             }
         }
     }
-    
+
     async fn stop(&mut self) -> Result<(), StreamError> {
         self.inner.stop().await
     }
-    
+
     fn subscribe(&self) -> broadcast::Receiver<Arc<Self::Event>> {
         // For resilience, we could add circuit breaker logic here
         self.inner.subscribe()
     }
-    
+
     fn is_running(&self) -> bool {
         self.inner.is_running()
     }
-    
+
     async fn health(&self) -> StreamHealth {
         self.inner.health().await
     }
-    
+
     fn name(&self) -> &str {
         &self.name
     }
@@ -1187,20 +1210,20 @@ where
 {
     type Event = S::Event;
     type Config = S::Config;
-    
+
     async fn start(&mut self, config: Self::Config) -> Result<(), StreamError> {
         self.inner.start(config).await
     }
-    
+
     async fn stop(&mut self) -> Result<(), StreamError> {
         self.inner.stop().await
     }
-    
+
     fn subscribe(&self) -> broadcast::Receiver<Arc<Self::Event>> {
         let (tx, rx) = broadcast::channel(10000);
         let mut inner_rx = self.inner.subscribe();
         let error_handler = self.error_handler.clone();
-        
+
         tokio::spawn(async move {
             loop {
                 match inner_rx.recv().await {
@@ -1212,29 +1235,29 @@ where
                         let stream_error = StreamError::Channel {
                             message: e.to_string(),
                         };
-                        
+
                         if let Some(fallback_event) = (error_handler)(stream_error) {
                             let _ = tx.send(fallback_event);
                         }
-                        
+
                         // Continue listening - don't break on errors
                         continue;
                     }
                 }
             }
         });
-        
+
         rx
     }
-    
+
     fn is_running(&self) -> bool {
         self.inner.is_running()
     }
-    
+
     async fn health(&self) -> StreamHealth {
         self.inner.health().await
     }
-    
+
     fn name(&self) -> &str {
         &self.name
     }
@@ -1249,7 +1272,7 @@ pub trait ResilienceStreamExt: ComposableStream {
     {
         ResilientStream::new(self, max_retries, retry_delay)
     }
-    
+
     /// Catch errors and provide fallback events
     fn catch_errors<F>(self, error_handler: F) -> CatchErrorStream<Self, F>
     where
@@ -1272,7 +1295,7 @@ impl<T: Stream> StreamPipeline<T> {
     pub fn from(stream: T) -> Self {
         Self { stream }
     }
-    
+
     /// Build the final stream
     pub fn build(self) -> T {
         self.stream
@@ -1282,7 +1305,7 @@ impl<T: Stream> StreamPipeline<T> {
 /// Utility functions for stream composition
 pub mod combinators {
     use super::*;
-    
+
     /// Merge multiple streams into one
     pub fn merge_all<S, I>(streams: I) -> MergeAllStream<S>
     where
@@ -1291,7 +1314,7 @@ pub mod combinators {
     {
         MergeAllStream::new(streams.into_iter().collect())
     }
-    
+
     /// Zip two streams together
     pub fn zip<S1, S2>(stream1: S1, stream2: S2) -> ZipStream<S1, S2>
     where
@@ -1300,7 +1323,7 @@ pub mod combinators {
     {
         ZipStream::new(stream1, stream2)
     }
-    
+
     /// Combine latest values from two streams
     pub fn combine_latest<S1, S2>(stream1: S1, stream2: S2) -> CombineLatestStream<S1, S2>
     where
@@ -1320,19 +1343,22 @@ pub struct TypeErasedEvent {
 
 impl TypeErasedEvent {
     pub fn new(event: Arc<dyn Event>, source_stream: String) -> Self {
-        Self { inner: event, source_stream }
+        Self {
+            inner: event,
+            source_stream,
+        }
     }
-    
+
     /// Attempt to downcast to a specific event type
     pub fn downcast<T: Event + 'static>(&self) -> Option<&T> {
         self.inner.as_any().downcast_ref::<T>()
     }
-    
+
     /// Get the source stream name
     pub fn source_stream(&self) -> &str {
         &self.source_stream
     }
-    
+
     /// Get the inner event as a trait object
     pub fn inner(&self) -> &dyn Event {
         &*self.inner
@@ -1343,28 +1369,28 @@ impl Event for TypeErasedEvent {
     fn id(&self) -> &str {
         self.inner.id()
     }
-    
+
     fn kind(&self) -> &riglr_events_core::EventKind {
         self.inner.kind()
     }
-    
+
     fn metadata(&self) -> &riglr_events_core::EventMetadata {
         self.inner.metadata()
     }
-    
+
     fn metadata_mut(&mut self) -> &mut riglr_events_core::EventMetadata {
         // Cannot modify through Arc
         panic!("metadata_mut not supported for TypeErasedEvent")
     }
-    
+
     fn as_any(&self) -> &dyn Any {
         self
     }
-    
+
     fn as_any_mut(&mut self) -> &mut dyn Any {
         self
     }
-    
+
     fn clone_boxed(&self) -> Box<dyn Event> {
         Box::new(self.clone())
     }
@@ -1391,80 +1417,79 @@ where
 {
     type Event = TypeErasedEvent;
     type Config = Vec<S::Config>;
-    
+
     async fn start(&mut self, configs: Self::Config) -> Result<(), StreamError> {
         if configs.len() != self.streams.len() {
             return Err(StreamError::ConfigurationInvalid {
                 reason: "Number of configs must match number of streams".to_string(),
             });
         }
-        
+
         for (stream, config) in self.streams.iter_mut().zip(configs.into_iter()) {
             stream.start(config).await?;
         }
         Ok(())
     }
-    
+
     async fn stop(&mut self) -> Result<(), StreamError> {
         for stream in &mut self.streams {
             stream.stop().await?;
         }
         Ok(())
     }
-    
+
     fn subscribe(&self) -> broadcast::Receiver<Arc<Self::Event>> {
         let (tx, rx) = broadcast::channel(10000);
-        
+
         for (i, stream) in self.streams.iter().enumerate() {
             let mut stream_rx = stream.subscribe();
             let tx_clone = tx.clone();
             let stream_name = format!("{}_{}", stream.name(), i);
-            
+
             tokio::spawn(async move {
                 while let Ok(event) = stream_rx.recv().await {
-                    let type_erased = TypeErasedEvent::new(
-                        event as Arc<dyn Event>,
-                        stream_name.clone(),
-                    );
+                    let type_erased =
+                        TypeErasedEvent::new(event as Arc<dyn Event>, stream_name.clone());
                     let _ = tx_clone.send(Arc::new(type_erased));
                 }
             });
         }
-        
+
         rx
     }
-    
+
     fn is_running(&self) -> bool {
         self.streams.iter().any(|s| s.is_running())
     }
-    
+
     async fn health(&self) -> StreamHealth {
         let mut combined_health = StreamHealth::default();
-        
+
         for stream in &self.streams {
             let health = stream.health().await;
             combined_health.is_connected = combined_health.is_connected || health.is_connected;
             combined_health.error_count += health.error_count;
             combined_health.events_processed += health.events_processed;
-            
+
             if health.last_event_time.is_some() {
-                combined_health.last_event_time = [
-                    combined_health.last_event_time,
-                    health.last_event_time
-                ].iter().filter_map(|&x| x).max();
+                combined_health.last_event_time =
+                    [combined_health.last_event_time, health.last_event_time]
+                        .iter()
+                        .filter_map(|&x| x)
+                        .max();
             }
         }
-        
+
         combined_health
     }
-    
+
     fn name(&self) -> &str {
         &self.name
     }
 }
 
 /// Stream wrapper that provides guaranteed delivery using mpsc channels
-/// 
+///
 /// Unlike the default broadcast channels that drop old messages when buffers fill,
 /// this wrapper uses tokio::sync::mpsc channels to ensure every message is delivered.
 /// This comes at the cost of potential pipeline blocking if receivers are slow.
@@ -1477,7 +1502,11 @@ pub struct GuaranteedDeliveryStream<S> {
 impl<S: Stream> GuaranteedDeliveryStream<S> {
     pub fn new(inner: S, buffer_size: usize) -> Self {
         let name = format!("guaranteed({})", inner.name());
-        Self { inner, buffer_size, name }
+        Self {
+            inner,
+            buffer_size,
+            name,
+        }
     }
 }
 
@@ -1488,23 +1517,24 @@ where
 {
     type Event = S::Event;
     type Config = S::Config;
-    
+
     async fn start(&mut self, config: Self::Config) -> Result<(), StreamError> {
         self.inner.start(config).await
     }
-    
+
     async fn stop(&mut self) -> Result<(), StreamError> {
         self.inner.stop().await
     }
-    
+
     fn subscribe(&self) -> broadcast::Receiver<Arc<Self::Event>> {
         // We still need to return a broadcast::Receiver for compatibility,
         // but internally we use mpsc for guaranteed delivery
         let (broadcast_tx, broadcast_rx) = broadcast::channel(self.buffer_size);
-        let (mpsc_tx, mut mpsc_rx) = tokio::sync::mpsc::channel::<Arc<Self::Event>>(self.buffer_size);
-        
+        let (mpsc_tx, mut mpsc_rx) =
+            tokio::sync::mpsc::channel::<Arc<Self::Event>>(self.buffer_size);
+
         let mut inner_rx = self.inner.subscribe();
-        
+
         // Task 1: Forward from broadcast source to mpsc (guaranteed delivery)
         tokio::spawn(async move {
             while let Ok(event) = inner_rx.recv().await {
@@ -1514,26 +1544,26 @@ where
                 }
             }
         });
-        
-        // Task 2: Forward from mpsc to broadcast for compatibility  
+
+        // Task 2: Forward from mpsc to broadcast for compatibility
         tokio::spawn(async move {
             while let Some(event) = mpsc_rx.recv().await {
                 // If broadcast fails (no receivers), continue processing
                 let _ = broadcast_tx.send(event);
             }
         });
-        
+
         broadcast_rx
     }
-    
+
     fn is_running(&self) -> bool {
         self.inner.is_running()
     }
-    
+
     async fn health(&self) -> StreamHealth {
         self.inner.health().await
     }
-    
+
     fn name(&self) -> &str {
         &self.name
     }
@@ -1550,7 +1580,11 @@ pub struct ZipStream<S1, S2> {
 impl<S1: Stream, S2: Stream> ZipStream<S1, S2> {
     pub fn new(stream1: S1, stream2: S2) -> Self {
         let name = format!("zip({},{})", stream1.name(), stream2.name());
-        Self { stream1, stream2, name }
+        Self {
+            stream1,
+            stream2,
+            name,
+        }
     }
 }
 
@@ -1565,6 +1599,10 @@ pub struct CombineLatestStream<S1, S2> {
 impl<S1: Stream, S2: Stream> CombineLatestStream<S1, S2> {
     pub fn new(stream1: S1, stream2: S2) -> Self {
         let name = format!("combine_latest({},{})", stream1.name(), stream2.name());
-        Self { stream1, stream2, name }
+        Self {
+            stream1,
+            stream2,
+            name,
+        }
     }
 }

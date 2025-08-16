@@ -204,7 +204,6 @@ async fn test_perform_jupiter_swap_versioned_transaction() {
 
 #[test]
 fn test_swap_quote_structure() {
-
     let quote = SwapQuote {
         input_mint: "mint1".to_string(),
         output_mint: "mint2".to_string(),

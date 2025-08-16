@@ -505,44 +505,56 @@ pub async fn analyze_crypto_sentiment(
 /// Parse Twitter API response into structured tweets
 /// CRITICAL: This now parses REAL Twitter API v2 responses - NO MORE MOCK DATA
 async fn parse_twitter_response(response: &str) -> crate::error::Result<Vec<TwitterPost>> {
-    info!("Parsing REAL Twitter API v2 response (length: {})", response.len());
-    
+    info!(
+        "Parsing REAL Twitter API v2 response (length: {})",
+        response.len()
+    );
+
     // Parse the Twitter API v2 JSON response
-    let api_response: serde_json::Value = serde_json::from_str(response)
-        .map_err(|e| crate::error::WebToolError::Api(format!("Failed to parse Twitter API response: {}", e)))?;
+    let api_response: serde_json::Value = serde_json::from_str(response).map_err(|e| {
+        crate::error::WebToolError::Api(format!("Failed to parse Twitter API response: {}", e))
+    })?;
 
     let mut tweets = Vec::new();
-    
+
     // Extract tweets from the 'data' field
     if let Some(data) = api_response["data"].as_array() {
         let empty_users = vec![];
-        let users = api_response["includes"]["users"].as_array().unwrap_or(&empty_users);
-        
+        let users = api_response["includes"]["users"]
+            .as_array()
+            .unwrap_or(&empty_users);
+
         for tweet_data in data {
             // Parse tweet
             let tweet = parse_single_tweet(tweet_data, users)?;
             tweets.push(tweet);
         }
     }
-    
+
     if tweets.is_empty() {
         info!("No tweets found in Twitter API response");
     } else {
-        info!("Successfully parsed {} real tweets from Twitter API", tweets.len());
+        info!(
+            "Successfully parsed {} real tweets from Twitter API",
+            tweets.len()
+        );
     }
-    
+
     Ok(tweets)
 }
 
 /// Parse a single tweet from Twitter API v2 data
-fn parse_single_tweet(tweet_data: &serde_json::Value, users: &[serde_json::Value]) -> crate::error::Result<TwitterPost> {
+fn parse_single_tweet(
+    tweet_data: &serde_json::Value,
+    users: &[serde_json::Value],
+) -> crate::error::Result<TwitterPost> {
     let id = tweet_data["id"].as_str().unwrap_or_default().to_string();
     let text = tweet_data["text"].as_str().unwrap_or_default().to_string();
     let author_id = tweet_data["author_id"].as_str().unwrap_or_default();
-    
+
     // Find author information from includes.users
     let author = find_user_by_id(author_id, users)?;
-    
+
     // Parse creation time
     let created_at = if let Some(created_str) = tweet_data["created_at"].as_str() {
         DateTime::parse_from_rfc3339(created_str)
@@ -551,39 +563,57 @@ fn parse_single_tweet(tweet_data: &serde_json::Value, users: &[serde_json::Value
     } else {
         Utc::now()
     };
-    
+
     // Parse metrics
     let metrics = if let Some(public_metrics) = tweet_data["public_metrics"].as_object() {
         TweetMetrics {
-            retweet_count: public_metrics.get("retweet_count").and_then(|v| v.as_u64()).unwrap_or(0) as u32,
-            like_count: public_metrics.get("like_count").and_then(|v| v.as_u64()).unwrap_or(0) as u32,
-            reply_count: public_metrics.get("reply_count").and_then(|v| v.as_u64()).unwrap_or(0) as u32,
-            quote_count: public_metrics.get("quote_count").and_then(|v| v.as_u64()).unwrap_or(0) as u32,
-            impression_count: public_metrics.get("impression_count").and_then(|v| v.as_u64()).map(|v| v as u32),
+            retweet_count: public_metrics
+                .get("retweet_count")
+                .and_then(|v| v.as_u64())
+                .unwrap_or(0) as u32,
+            like_count: public_metrics
+                .get("like_count")
+                .and_then(|v| v.as_u64())
+                .unwrap_or(0) as u32,
+            reply_count: public_metrics
+                .get("reply_count")
+                .and_then(|v| v.as_u64())
+                .unwrap_or(0) as u32,
+            quote_count: public_metrics
+                .get("quote_count")
+                .and_then(|v| v.as_u64())
+                .unwrap_or(0) as u32,
+            impression_count: public_metrics
+                .get("impression_count")
+                .and_then(|v| v.as_u64())
+                .map(|v| v as u32),
         }
     } else {
         TweetMetrics::default()
     };
-    
+
     // Parse entities
     let entities = parse_tweet_entities(&tweet_data["entities"]);
-    
+
     // Parse context annotations
     let context_annotations = if let Some(contexts) = tweet_data["context_annotations"].as_array() {
-        contexts.iter().filter_map(|ctx| {
-            Some(ContextAnnotation {
-                domain_id: ctx["domain"]["id"].as_str()?.to_string(),
-                domain_name: ctx["domain"]["name"].as_str()?.to_string(),
-                entity_id: ctx["entity"]["id"].as_str()?.to_string(),
-                entity_name: ctx["entity"]["name"].as_str()?.to_string(),
+        contexts
+            .iter()
+            .filter_map(|ctx| {
+                Some(ContextAnnotation {
+                    domain_id: ctx["domain"]["id"].as_str()?.to_string(),
+                    domain_name: ctx["domain"]["name"].as_str()?.to_string(),
+                    entity_id: ctx["entity"]["id"].as_str()?.to_string(),
+                    entity_name: ctx["entity"]["name"].as_str()?.to_string(),
+                })
             })
-        }).collect()
+            .collect()
     } else {
         vec![]
     };
-    
+
     let is_retweet = text.starts_with("RT @");
-    
+
     Ok(TwitterPost {
         id,
         text,
@@ -599,13 +629,16 @@ fn parse_single_tweet(tweet_data: &serde_json::Value, users: &[serde_json::Value
 }
 
 /// Find user by ID in the users array
-fn find_user_by_id(author_id: &str, users: &[serde_json::Value]) -> crate::error::Result<TwitterUser> {
+fn find_user_by_id(
+    author_id: &str,
+    users: &[serde_json::Value],
+) -> crate::error::Result<TwitterUser> {
     for user in users {
         if user["id"].as_str() == Some(author_id) {
             return parse_user_data(user);
         }
     }
-    
+
     // Fallback if user not found in includes
     Ok(TwitterUser {
         id: author_id.to_string(),
@@ -629,17 +662,29 @@ fn parse_user_data(user_data: &serde_json::Value) -> crate::error::Result<Twitte
     } else {
         Utc::now()
     };
-    
+
     let public_metrics = user_data["public_metrics"].as_object();
-    
+
     Ok(TwitterUser {
         id: user_data["id"].as_str().unwrap_or_default().to_string(),
-        username: user_data["username"].as_str().unwrap_or_default().to_string(),
+        username: user_data["username"]
+            .as_str()
+            .unwrap_or_default()
+            .to_string(),
         name: user_data["name"].as_str().unwrap_or_default().to_string(),
         description: user_data["description"].as_str().map(|s| s.to_string()),
-        followers_count: public_metrics.and_then(|m| m.get("followers_count")).and_then(|v| v.as_u64()).unwrap_or(0) as u32,
-        following_count: public_metrics.and_then(|m| m.get("following_count")).and_then(|v| v.as_u64()).unwrap_or(0) as u32,
-        tweet_count: public_metrics.and_then(|m| m.get("tweet_count")).and_then(|v| v.as_u64()).unwrap_or(0) as u32,
+        followers_count: public_metrics
+            .and_then(|m| m.get("followers_count"))
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0) as u32,
+        following_count: public_metrics
+            .and_then(|m| m.get("following_count"))
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0) as u32,
+        tweet_count: public_metrics
+            .and_then(|m| m.get("tweet_count"))
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0) as u32,
         verified: user_data["verified"].as_bool().unwrap_or(false),
         created_at,
     })
@@ -648,29 +693,40 @@ fn parse_user_data(user_data: &serde_json::Value) -> crate::error::Result<Twitte
 /// Parse tweet entities from Twitter API v2 response
 fn parse_tweet_entities(entities_data: &serde_json::Value) -> TweetEntities {
     let hashtags = if let Some(tags) = entities_data["hashtags"].as_array() {
-        tags.iter().filter_map(|tag| tag["tag"].as_str().map(|s| s.to_string())).collect()
+        tags.iter()
+            .filter_map(|tag| tag["tag"].as_str().map(|s| s.to_string()))
+            .collect()
     } else {
         vec![]
     };
-    
+
     let mentions = if let Some(mentions_array) = entities_data["mentions"].as_array() {
-        mentions_array.iter().filter_map(|mention| mention["username"].as_str().map(|s| format!("@{}", s))).collect()
+        mentions_array
+            .iter()
+            .filter_map(|mention| mention["username"].as_str().map(|s| format!("@{}", s)))
+            .collect()
     } else {
         vec![]
     };
-    
+
     let urls = if let Some(urls_array) = entities_data["urls"].as_array() {
-        urls_array.iter().filter_map(|url| url["expanded_url"].as_str().map(|s| s.to_string())).collect()
+        urls_array
+            .iter()
+            .filter_map(|url| url["expanded_url"].as_str().map(|s| s.to_string()))
+            .collect()
     } else {
         vec![]
     };
-    
+
     let cashtags = if let Some(cashtags_array) = entities_data["cashtags"].as_array() {
-        cashtags_array.iter().filter_map(|tag| tag["tag"].as_str().map(|s| format!("${}", s))).collect()
+        cashtags_array
+            .iter()
+            .filter_map(|tag| tag["tag"].as_str().map(|s| format!("${}", s)))
+            .collect()
     } else {
         vec![]
     };
-    
+
     TweetEntities {
         hashtags,
         mentions,
@@ -679,28 +735,27 @@ fn parse_tweet_entities(entities_data: &serde_json::Value) -> TweetEntities {
     }
 }
 
-
 /// Analyze sentiment of tweets with real sentiment analysis
 async fn analyze_tweet_sentiment(tweets: &[TwitterPost]) -> crate::error::Result<Vec<TwitterPost>> {
     // Real sentiment analysis implementation
     // We'll analyze each tweet's text and update the tweets with sentiment data
-    
+
     let mut analyzed_tweets = Vec::new();
-    
+
     for tweet in tweets {
         // Perform sentiment analysis on the tweet text
         let _sentiment_score = calculate_text_sentiment(&tweet.text);
-        
+
         // Create a new tweet with sentiment metadata added
         let analyzed_tweet = tweet.clone();
-        
+
         // Store sentiment score in a way that preserves the tweet structure
         // In production, you might want to extend the TwitterPost struct
         // For now, we can tag positive/negative tweets in the analysis
-        
+
         analyzed_tweets.push(analyzed_tweet);
     }
-    
+
     Ok(analyzed_tweets)
 }
 
@@ -722,45 +777,120 @@ async fn analyze_tweet_sentiment_scores(tweets: &[TwitterPost]) -> crate::error:
 fn calculate_text_sentiment(text: &str) -> f64 {
     // Sentiment lexicons for crypto/financial context
     let positive_words = [
-        "bullish", "moon", "pump", "gains", "profit", "growth", "strong",
-        "buy", "accumulate", "breakout", "rally", "surge", "soar", "boom",
-        "amazing", "excellent", "great", "fantastic", "wonderful", "love",
-        "excited", "optimistic", "confident", "winning", "success", "up",
-        "green", "ath", "gem", "rocket", "fire", "diamond", "gold",
-        "hodl", "hold", "long", "support", "resistance", "breakthrough"
+        "bullish",
+        "moon",
+        "pump",
+        "gains",
+        "profit",
+        "growth",
+        "strong",
+        "buy",
+        "accumulate",
+        "breakout",
+        "rally",
+        "surge",
+        "soar",
+        "boom",
+        "amazing",
+        "excellent",
+        "great",
+        "fantastic",
+        "wonderful",
+        "love",
+        "excited",
+        "optimistic",
+        "confident",
+        "winning",
+        "success",
+        "up",
+        "green",
+        "ath",
+        "gem",
+        "rocket",
+        "fire",
+        "diamond",
+        "gold",
+        "hodl",
+        "hold",
+        "long",
+        "support",
+        "resistance",
+        "breakthrough",
     ];
-    
+
     let negative_words = [
-        "bearish", "dump", "crash", "loss", "decline", "drop", "weak",
-        "sell", "liquidation", "rekt", "scam", "rug", "fail", "collapse",
-        "terrible", "awful", "bad", "horrible", "hate", "fear", "panic",
-        "worried", "concern", "down", "red", "blood", "bleeding", "pain",
-        "bubble", "ponzi", "fraud", "warning", "danger", "risk", "avoid",
-        "short", "dead", "over", "finished", "broke", "bankruptcy"
+        "bearish",
+        "dump",
+        "crash",
+        "loss",
+        "decline",
+        "drop",
+        "weak",
+        "sell",
+        "liquidation",
+        "rekt",
+        "scam",
+        "rug",
+        "fail",
+        "collapse",
+        "terrible",
+        "awful",
+        "bad",
+        "horrible",
+        "hate",
+        "fear",
+        "panic",
+        "worried",
+        "concern",
+        "down",
+        "red",
+        "blood",
+        "bleeding",
+        "pain",
+        "bubble",
+        "ponzi",
+        "fraud",
+        "warning",
+        "danger",
+        "risk",
+        "avoid",
+        "short",
+        "dead",
+        "over",
+        "finished",
+        "broke",
+        "bankruptcy",
     ];
-    
+
     // Intensifiers and negations
-    let intensifiers = ["very", "extremely", "really", "absolutely", "totally", "completely"];
+    let intensifiers = [
+        "very",
+        "extremely",
+        "really",
+        "absolutely",
+        "totally",
+        "completely",
+    ];
     let negations = ["not", "no", "never", "neither", "nor", "none", "nothing"];
-    
+
     // Convert text to lowercase for matching
     let text_lower = text.to_lowercase();
     let words: Vec<&str> = text_lower.split_whitespace().collect();
-    
+
     let mut score = 0.0;
     let mut word_count = 0;
-    
+
     for (i, word) in words.iter().enumerate() {
         // Check for negation in previous word
         let is_negated = i > 0 && negations.contains(&words[i - 1]);
-        
+
         // Check for intensifier in previous word
         let is_intensified = i > 0 && intensifiers.contains(&words[i - 1]);
         let intensity_multiplier = if is_intensified { 1.5 } else { 1.0 };
-        
+
         // Calculate word sentiment
         let mut word_score = 0.0;
-        
+
         if positive_words.iter().any(|&pw| word.contains(pw)) {
             word_score = 1.0 * intensity_multiplier;
             word_count += 1;
@@ -768,36 +898,36 @@ fn calculate_text_sentiment(text: &str) -> f64 {
             word_score = -intensity_multiplier;
             word_count += 1;
         }
-        
+
         // Apply negation (flips the sentiment)
         if is_negated {
             word_score *= -1.0;
         }
-        
+
         score += word_score;
     }
-    
+
     // Analyze emojis (common crypto/trading emojis)
     let positive_emojis = ["🚀", "💎", "🔥", "💪", "🎯", "✅", "💚", "📈", "🤑", "💰"];
     let negative_emojis = ["📉", "💔", "❌", "⚠️", "🔴", "😭", "😱", "💀", "🩸", "📊"];
-    
+
     for emoji in positive_emojis {
         if text.contains(emoji) {
             score += 0.5;
             word_count += 1;
         }
     }
-    
+
     for emoji in negative_emojis {
         if text.contains(emoji) {
             score -= 0.5;
             word_count += 1;
         }
     }
-    
+
     // Consider engagement metrics as sentiment indicators
     // (This would be enhanced with actual engagement data)
-    
+
     // Normalize score to -1.0 to 1.0 range
     if word_count > 0 {
         let normalized_score = score / word_count as f64;

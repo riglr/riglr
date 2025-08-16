@@ -597,7 +597,7 @@ fn test_vector_index_creation_query() {
     let embedding_dimension = 1536;
 
     let expected_query = format!(
-        "CREATE VECTOR INDEX IF NOT EXISTS {} FOR (d:Document) ON (d.embedding) 
+        "CREATE VECTOR INDEX IF NOT EXISTS {} FOR (d:Document) ON (d.embedding)
          OPTIONS {{indexConfig: {{`vector.dimensions`: {}, `vector.similarity_function`: 'cosine'}}}}",
         index_name, embedding_dimension
     );
@@ -639,7 +639,7 @@ fn test_vector_search_query_structure() {
     let limit = 10;
 
     let expected_query = format!(
-        "CALL db.index.vector.queryNodes('{}', {}, $embedding) 
+        "CALL db.index.vector.queryNodes('{}', {}, $embedding)
          YIELD node, score
          RETURN node.id as id, node.content as content, node.metadata as metadata,
                 node.entities as entities, score
@@ -1016,9 +1016,11 @@ fn test_empty_entity_set_handling() {
 #[test]
 fn test_relationship_traversal_metrics() {
     // Test relationship traversal metrics (lines 286-291)
-    let related_entities = ["related1".to_string(),
+    let related_entities = [
+        "related1".to_string(),
         "related2".to_string(),
-        "related3".to_string()];
+        "related3".to_string(),
+    ];
 
     let relationships_traversed = related_entities.len() as u32;
     assert_eq!(relationships_traversed, 3);
@@ -1157,7 +1159,7 @@ fn test_vector_index_dimension_validation() {
         assert!(dim % 4 == 0); // Common constraint for vector databases
 
         let index_query = format!(
-            "CREATE VECTOR INDEX IF NOT EXISTS test_index FOR (d:Document) ON (d.embedding) 
+            "CREATE VECTOR INDEX IF NOT EXISTS test_index FOR (d:Document) ON (d.embedding)
              OPTIONS {{indexConfig: {{`vector.dimensions`: {}, `vector.similarity_function`: 'cosine'}}}}",
             dim
         );
@@ -1178,4 +1180,3 @@ fn test_graph_hops_limit_calculation() {
         assert!(limit <= 250); // Max reasonable limit
     }
 }
-

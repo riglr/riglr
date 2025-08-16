@@ -7,10 +7,10 @@ use crate::{client::WebClient, error::WebToolError};
 use chrono::{DateTime, Utc};
 use riglr_macros::tool;
 use schemars::JsonSchema;
+use scraper::{ElementRef, Html, Selector};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use tracing::{debug, info, warn};
-use scraper::{Html, Selector, ElementRef};
 
 /// Configuration for web search services
 #[derive(Debug, Clone)]
@@ -125,7 +125,7 @@ pub struct SeoMetadata {
 pub struct ContentType {
     /// Primary content type (Article, Blog, News, Academic, etc.)
     pub primary: String,
-    /// Content format (HTML, PDF, etc.)  
+    /// Content format (HTML, PDF, etc.)
     pub format: String,
     /// Whether content is behind paywall
     pub is_paywalled: Option<bool>,
@@ -195,7 +195,7 @@ pub struct SearchSentiment {
     pub distribution: SentimentDistribution,
     /// Most positive result
     pub most_positive: Option<String>, // URL
-    /// Most negative result  
+    /// Most negative result
     pub most_negative: Option<String>, // URL
 }
 
@@ -343,13 +343,16 @@ pub async fn search_web(
     let mut headers = HashMap::new();
     headers.insert("x-api-key".to_string(), config.exa_api_key.clone());
     headers.insert("accept".to_string(), "application/json".to_string());
-    let response = client.get_with_params_and_headers(&url, &params, headers).await.map_err(|e| {
-        if e.to_string().contains("timeout") || e.to_string().contains("connection") {
-            WebToolError::Network(format!("Web search request failed: {}", e))
-        } else {
-            WebToolError::Config(format!("Web search request failed: {}", e))
-        }
-    })?;
+    let response = client
+        .get_with_params_and_headers(&url, &params, headers)
+        .await
+        .map_err(|e| {
+            if e.to_string().contains("timeout") || e.to_string().contains("connection") {
+                WebToolError::Network(format!("Web search request failed: {}", e))
+            } else {
+                WebToolError::Config(format!("Web search request failed: {}", e))
+            }
+        })?;
 
     // Parse search results
     let results = parse_exa_search_response(&response, &query)
@@ -433,13 +436,16 @@ pub async fn find_similar_pages(
     let mut headers = HashMap::new();
     headers.insert("x-api-key".to_string(), config.exa_api_key.clone());
     headers.insert("accept".to_string(), "application/json".to_string());
-    let response = client.get_with_params_and_headers(&url, &params, headers).await.map_err(|e| {
-        if e.to_string().contains("timeout") || e.to_string().contains("connection") {
-            WebToolError::Network(format!("Web search request failed: {}", e))
-        } else {
-            WebToolError::Config(format!("Web search request failed: {}", e))
-        }
-    })?;
+    let response = client
+        .get_with_params_and_headers(&url, &params, headers)
+        .await
+        .map_err(|e| {
+            if e.to_string().contains("timeout") || e.to_string().contains("connection") {
+                WebToolError::Network(format!("Web search request failed: {}", e))
+            } else {
+                WebToolError::Config(format!("Web search request failed: {}", e))
+            }
+        })?;
 
     // Parse results
     let similar_pages = parse_similar_pages_response(&response)
@@ -560,13 +566,16 @@ pub async fn search_recent_news(
     let mut headers = HashMap::new();
     headers.insert("x-api-key".to_string(), config.exa_api_key.clone());
     headers.insert("accept".to_string(), "application/json".to_string());
-    let response = client.get_with_params_and_headers(&url, &params, headers).await.map_err(|e| {
-        if e.to_string().contains("timeout") || e.to_string().contains("connection") {
-            WebToolError::Network(format!("Web search request failed: {}", e))
-        } else {
-            WebToolError::Config(format!("Web search request failed: {}", e))
-        }
-    })?;
+    let response = client
+        .get_with_params_and_headers(&url, &params, headers)
+        .await
+        .map_err(|e| {
+            if e.to_string().contains("timeout") || e.to_string().contains("connection") {
+                WebToolError::Network(format!("Web search request failed: {}", e))
+            } else {
+                WebToolError::Config(format!("Web search request failed: {}", e))
+            }
+        })?;
 
     // Parse and enhance results for news context
     let mut results = parse_exa_search_response(&response, &topic)
@@ -631,33 +640,83 @@ async fn parse_exa_search_response(
         .map_err(|e| WebToolError::Parsing(format!("Invalid Exa JSON: {}", e)))?;
 
     let mut out = Vec::new();
-    let results = json.get("results").and_then(|v| v.as_array()).cloned().unwrap_or_default();
+    let results = json
+        .get("results")
+        .and_then(|v| v.as_array())
+        .cloned()
+        .unwrap_or_default();
     for r in results {
-        let title = r.get("title").and_then(|v| v.as_str()).unwrap_or("").to_string();
-        let url = r.get("url").and_then(|v| v.as_str()).unwrap_or("").to_string();
-        if url.is_empty() { continue; }
-        let id = r.get("id").and_then(|v| v.as_str()).unwrap_or(url.as_str()).to_string();
-        let description = r.get("description").or_else(|| r.get("snippet")).and_then(|v| v.as_str()).map(|s| s.to_string());
-        let content = r.get("text").and_then(|v| v.as_str()).map(|s| s.to_string());
-        let published_date = r.get("publishedDate").or_else(|| r.get("published_date")).and_then(|v| v.as_str())
-            .and_then(|s| DateTime::parse_from_rfc3339(s).ok()).map(|dt| dt.with_timezone(&Utc));
-        let domain_name = url::Url::parse(&url).ok().and_then(|u| u.host_str().map(|h| h.to_string())).unwrap_or_default();
+        let title = r
+            .get("title")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        let url = r
+            .get("url")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        if url.is_empty() {
+            continue;
+        }
+        let id = r
+            .get("id")
+            .and_then(|v| v.as_str())
+            .unwrap_or(url.as_str())
+            .to_string();
+        let description = r
+            .get("description")
+            .or_else(|| r.get("snippet"))
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string());
+        let content = r
+            .get("text")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string());
+        let published_date = r
+            .get("publishedDate")
+            .or_else(|| r.get("published_date"))
+            .and_then(|v| v.as_str())
+            .and_then(|s| DateTime::parse_from_rfc3339(s).ok())
+            .map(|dt| dt.with_timezone(&Utc));
+        let domain_name = url::Url::parse(&url)
+            .ok()
+            .and_then(|u| u.host_str().map(|h| h.to_string()))
+            .unwrap_or_default();
         let score = r.get("score").and_then(|v| v.as_f64()).unwrap_or(0.8);
-        let language = r.get("language").and_then(|v| v.as_str()).map(|s| s.to_string());
-        let author = r.get("author").and_then(|v| v.as_str()).map(|s| s.to_string());
+        let language = r
+            .get("language")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string());
+        let author = r
+            .get("author")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string());
 
-        let words = content.as_ref().map(|c| c.split_whitespace().count() as u32).unwrap_or(0);
-        let reading_time = if words > 0 { Some((words as f64 / 200.0).ceil() as u32) } else { None };
+        let words = content
+            .as_ref()
+            .map(|c| c.split_whitespace().count() as u32)
+            .unwrap_or(0);
+        let reading_time = if words > 0 {
+            Some((words as f64 / 200.0).ceil() as u32)
+        } else {
+            None
+        };
         let length_category = match words {
             0..=200 => "Short",
             201..=800 => "Medium",
             801..=2000 => "Long",
             _ => "Very Long",
-        }.to_string();
+        }
+        .to_string();
 
         let content_type = ContentType {
             primary: "Article".to_string(),
-            format: if url.to_lowercase().ends_with(".pdf") { "PDF".to_string() } else { "HTML".to_string() },
+            format: if url.to_lowercase().ends_with(".pdf") {
+                "PDF".to_string()
+            } else {
+                "HTML".to_string()
+            },
             is_paywalled: None,
             quality_score: Some(((score * 100.0) as u32).min(100)),
             length_category,
@@ -666,13 +725,30 @@ async fn parse_exa_search_response(
         let metadata = PageMetadata {
             author,
             tags: vec![query.to_lowercase()],
-            social_meta: SocialMetadata { og_title: None, og_description: None, og_image: None, twitter_card: None, twitter_site: None },
-            seo_meta: SeoMetadata { meta_description: description.clone(), meta_keywords: vec![], robots: None, schema_types: vec![] },
+            social_meta: SocialMetadata {
+                og_title: None,
+                og_description: None,
+                og_image: None,
+                twitter_card: None,
+                twitter_site: None,
+            },
+            seo_meta: SeoMetadata {
+                meta_description: description.clone(),
+                meta_keywords: vec![],
+                robots: None,
+                schema_types: vec![],
+            },
             canonical_url: None,
             last_modified: None,
         };
 
-        let domain = DomainInfo { name: domain_name, reputation_score: None, category: None, is_trusted: true, authority_score: None };
+        let domain = DomainInfo {
+            name: domain_name,
+            reputation_score: None,
+            category: None,
+            is_trusted: true,
+            authority_score: None,
+        };
 
         out.push(SearchResult {
             id,
@@ -709,7 +785,10 @@ async fn extract_and_summarize_page(
     summary_length: &Option<String>,
     focus_topics: &Option<Vec<String>>,
 ) -> crate::error::Result<ContentSummary> {
-    let html = client.get(url).await.map_err(|e| WebToolError::Network(format!("Failed to fetch {}: {}", url, e)))?;
+    let html = client
+        .get(url)
+        .await
+        .map_err(|e| WebToolError::Network(format!("Failed to fetch {}: {}", url, e)))?;
     let (title, clean_text, sentences, headings) = extract_main_content(&html, url);
 
     // Determine target summary length
@@ -731,10 +810,7 @@ async fn extract_and_summarize_page(
     let executive_summary = selected.join(" ");
 
     // Key points: top distinct sentences or heading-based bullets
-    let mut key_points = selected
-        .iter()
-        .take(5).cloned()
-        .collect::<Vec<_>>();
+    let mut key_points = selected.iter().take(5).cloned().collect::<Vec<_>>();
     if key_points.is_empty() && !headings.is_empty() {
         key_points = headings.iter().take(5).cloned().collect();
     }
@@ -749,14 +825,21 @@ async fn extract_and_summarize_page(
     let entity_re = regex::Regex::new(r"(?m)(?:^|\s)([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,3})").unwrap();
     let mut entities: Vec<ContentEntity> = entity_re
         .captures_iter(&clean_text)
-        .map(|cap| ContentEntity { name: cap[1].trim().to_string(), entity_type: "ProperNoun".to_string(), confidence: 0.55, context: "".to_string() })
+        .map(|cap| ContentEntity {
+            name: cap[1].trim().to_string(),
+            entity_type: "ProperNoun".to_string(),
+            confidence: 0.55,
+            context: "".to_string(),
+        })
         .collect();
-    entities.dedup_by(|a,b| a.name.eq_ignore_ascii_case(&b.name));
+    entities.dedup_by(|a, b| a.name.eq_ignore_ascii_case(&b.name));
     entities.truncate(8);
 
     // Confidence based on content richness and heading availability
     let mut confidence = (clean_text.len().min(8000) as f64 / 8000.0) * 0.6 + 0.3;
-    if !headings.is_empty() { confidence += 0.05; }
+    if !headings.is_empty() {
+        confidence += 0.05;
+    }
     confidence = confidence.min(0.97);
 
     Ok(ContentSummary {
@@ -772,7 +855,10 @@ async fn extract_and_summarize_page(
 }
 
 // Extract main content using HTML parsing and content-density heuristics
-fn extract_main_content(html: &str, fallback_url: &str) -> (String, String, Vec<String>, Vec<String>) {
+fn extract_main_content(
+    html: &str,
+    fallback_url: &str,
+) -> (String, String, Vec<String>, Vec<String>) {
     let document = Html::parse_document(html);
 
     // Prefer og:title
@@ -785,7 +871,10 @@ fn extract_main_content(html: &str, fallback_url: &str) -> (String, String, Vec<
         .or_else(|| {
             // Fallback to <title>
             let sel_title = Selector::parse("title").unwrap();
-            document.select(&sel_title).next().map(|e| e.text().collect::<String>().trim().to_string())
+            document
+                .select(&sel_title)
+                .next()
+                .map(|e| e.text().collect::<String>().trim().to_string())
         })
         .unwrap_or_else(|| fallback_url.to_string());
 
@@ -837,12 +926,15 @@ fn extract_main_content(html: &str, fallback_url: &str) -> (String, String, Vec<
 }
 
 fn extract_text_from_node(root: ElementRef) -> (String, Vec<String>) {
-    let sel_exclude = ["script","style","noscript","template","header","footer","nav","aside"];
+    let sel_exclude = [
+        "script", "style", "noscript", "template", "header", "footer", "nav", "aside",
+    ];
     let sel_p = Selector::parse("p, li").unwrap();
     let sel_h = Selector::parse("h1, h2, h3").unwrap();
 
     // Headings
-    let mut headings: Vec<String> = root.select(&sel_h)
+    let mut headings: Vec<String> = root
+        .select(&sel_h)
         .map(|h| normalize_whitespace(&h.text().collect::<String>()))
         .filter(|s| !s.is_empty())
         .collect();
@@ -852,9 +944,13 @@ fn extract_text_from_node(root: ElementRef) -> (String, Vec<String>) {
     let mut blocks: Vec<String> = Vec::new();
     for p in root.select(&sel_p) {
         // Skip paragraphs inside excluded parents
-        if has_excluded_ancestor(p, &sel_exclude) { continue; }
+        if has_excluded_ancestor(p, &sel_exclude) {
+            continue;
+        }
         let txt = normalize_whitespace(&p.text().collect::<String>());
-        if txt.len() >= 40 { blocks.push(txt); }
+        if txt.len() >= 40 {
+            blocks.push(txt);
+        }
     }
     let full = blocks.join("\n");
     (full, headings)
@@ -863,10 +959,14 @@ fn extract_text_from_node(root: ElementRef) -> (String, Vec<String>) {
 fn has_excluded_ancestor(mut node: ElementRef, excluded: &[&str]) -> bool {
     while let Some(parent) = node.ancestors().find_map(ElementRef::wrap) {
         let name = parent.value().name();
-        if excluded.contains(&name) { return true; }
+        if excluded.contains(&name) {
+            return true;
+        }
         node = parent;
         // continue up until root
-        if node.parent().is_none() { break; }
+        if node.parent().is_none() {
+            break;
+        }
     }
     false
 }
@@ -884,11 +984,15 @@ fn split_sentences(text: &str) -> Vec<String> {
         current.push(ch);
         if matches!(ch, '.' | '!' | '?') {
             let s = normalize_whitespace(&current);
-            if !s.is_empty() { v.push(s); }
+            if !s.is_empty() {
+                v.push(s);
+            }
             current.clear();
         }
     }
-    if !current.trim().is_empty() { v.push(normalize_whitespace(&current)); }
+    if !current.trim().is_empty() {
+        v.push(normalize_whitespace(&current));
+    }
     v
 }
 
@@ -902,12 +1006,16 @@ fn rank_sentences(
     let mut tf: HashMap<String, f64> = HashMap::new();
     for w in full_text.split(|c: char| !c.is_alphanumeric()) {
         let w = w.to_lowercase();
-        if w.len() < 3 { continue; }
+        if w.len() < 3 {
+            continue;
+        }
         *tf.entry(w).or_insert(0.0) += 1.0;
     }
     // Normalize
     let max_tf = tf.values().cloned().fold(1.0, f64::max);
-    for v in tf.values_mut() { *v /= max_tf; }
+    for v in tf.values_mut() {
+        *v /= max_tf;
+    }
 
     let heading_text = headings.join(" ").to_lowercase();
 
@@ -915,25 +1023,37 @@ fn rank_sentences(
         .iter()
         .enumerate()
         .map(|(i, s)| {
-            let words: Vec<String> = s.split(|c: char| !c.is_alphanumeric())
+            let words: Vec<String> = s
+                .split(|c: char| !c.is_alphanumeric())
                 .map(|w| w.to_lowercase())
                 .filter(|w| w.len() >= 3)
                 .collect();
             let mut score = 0.0;
-            for w in &words { score += *tf.get(w).unwrap_or(&0.0); }
+            for w in &words {
+                score += *tf.get(w).unwrap_or(&0.0);
+            }
             // Length normalization
             let len = s.split_whitespace().count() as f64;
-            if len > 0.0 { score /= len.powf(0.3); }
+            if len > 0.0 {
+                score /= len.powf(0.3);
+            }
             // Positional boost (earlier sentences)
             score += 0.15 * (1.0 / ((i + 1) as f64).sqrt());
             // Topic boost
             if !topics.is_empty() {
                 let lower = s.to_lowercase();
-                for t in topics { if lower.contains(t) { score += 0.25; } }
+                for t in topics {
+                    if lower.contains(t) {
+                        score += 0.25;
+                    }
+                }
             }
             // Heading proximity boost
             for h in headings {
-                if s.to_lowercase().contains(&h.to_lowercase()) { score += 0.2; break; }
+                if s.to_lowercase().contains(&h.to_lowercase()) {
+                    score += 0.2;
+                    break;
+                }
             }
             // Title/headings semantic overlap
             if !heading_text.is_empty() {
@@ -943,7 +1063,7 @@ fn rank_sentences(
             (s.clone(), score)
         })
         .collect();
-    scored.sort_by(|a,b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+    scored.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
     scored
 }
 
@@ -952,14 +1072,23 @@ fn jaccard(a: &str, b: &str) -> f64 {
     let set_b: std::collections::HashSet<_> = b.split_whitespace().collect();
     let inter = set_a.intersection(&set_b).count() as f64;
     let union = set_a.union(&set_b).count() as f64;
-    if union == 0.0 { 0.0 } else { inter / union }
+    if union == 0.0 {
+        0.0
+    } else {
+        inter / union
+    }
 }
 
 fn select_diverse(scored: &[(String, f64)], k: usize, max_sim: f64) -> Vec<String> {
     let mut out: Vec<String> = Vec::new();
     for (s, _) in scored {
-        if out.len() >= k { break; }
-        if out.iter().all(|t| jaccard(&s.to_lowercase(), &t.to_lowercase()) < max_sim) {
+        if out.len() >= k {
+            break;
+        }
+        if out
+            .iter()
+            .all(|t| jaccard(&s.to_lowercase(), &t.to_lowercase()) < max_sim)
+        {
             out.push(s.clone());
         }
     }
@@ -1100,17 +1229,26 @@ fn format_date_filter(window: &str) -> String {
 
 // Simple keyword topic extraction from text
 fn extract_topics_from_text(text: &str) -> Vec<String> {
-    let stopwords = ["the","and","for","with","that","this","from","have","your","you","are","was","were","has","had","not","but","all","any","can","will","just","into","about","over","more","than","when","what","how","why","where","then","them","they","their","its","it's","as","of","in","on","to","by","at","or","an","be"];    
+    let stopwords = [
+        "the", "and", "for", "with", "that", "this", "from", "have", "your", "you", "are", "was",
+        "were", "has", "had", "not", "but", "all", "any", "can", "will", "just", "into", "about",
+        "over", "more", "than", "when", "what", "how", "why", "where", "then", "them", "they",
+        "their", "its", "it's", "as", "of", "in", "on", "to", "by", "at", "or", "an", "be",
+    ];
     let mut counts: HashMap<String, u32> = HashMap::new();
     for w in text.split(|c: char| !c.is_alphanumeric()) {
         let w = w.to_lowercase();
-        if w.len() < 4 { continue; }
-        if stopwords.contains(&w.as_str()) { continue; }
+        if w.len() < 4 {
+            continue;
+        }
+        if stopwords.contains(&w.as_str()) {
+            continue;
+        }
         *counts.entry(w).or_insert(0) += 1;
     }
-    let mut v: Vec<(String,u32)> = counts.into_iter().collect();
-    v.sort_by(|a,b| b.1.cmp(&a.1));
-    v.into_iter().take(5).map(|(k,_)| k).collect()
+    let mut v: Vec<(String, u32)> = counts.into_iter().collect();
+    v.sort_by(|a, b| b.1.cmp(&a.1));
+    v.into_iter().take(5).map(|(k, _)| k).collect()
 }
 
 #[cfg(test)]

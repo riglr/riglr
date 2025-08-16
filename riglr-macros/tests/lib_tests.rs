@@ -79,7 +79,7 @@ fn test_serde_json_integration() {
 fn test_async_trait_available() {
     // Test that async_trait is available (used by the macro)
     // This is just a compilation test
-    
+
     use async_trait::async_trait;
 
     #[async_trait]
@@ -104,7 +104,6 @@ fn test_async_trait_available() {
 // Comprehensive test of all dependencies the macro uses
 #[test]
 fn test_all_macro_dependencies() {
-
     use heck::ToPascalCase;
     use proc_macro2::TokenStream;
     use quote::quote;

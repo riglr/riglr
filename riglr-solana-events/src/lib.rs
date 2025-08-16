@@ -1,5 +1,5 @@
 //! Standalone Solana event parsing library integrated with riglr-events-core.
-//! 
+//!
 //! This library provides comprehensive Solana event parsing capabilities with support for
 //! multiple protocols including Orca, Meteora, MarginFi, Jupiter, Raydium, and more.
 //!
@@ -12,12 +12,12 @@
 //!
 //! ```rust,no_run
 //! use riglr_solana_events::prelude::*;
-//! 
+//!
 //! # #[tokio::main]
 //! # async fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! // Create a multi-parser for various protocols
 //! let parser = EventParserFactory::with_all_parsers().build();
-//! 
+//!
 //! // Parse events using legacy interface
 //! let events = parser.parse_events_from_instruction(
 //!     &instruction,
@@ -28,7 +28,7 @@
 //!     received_time,
 //!     "0".to_string(),
 //! );
-//! 
+//!
 //! for event in events {
 //!     println!("Legacy event: {}", event.id());
 //! }
@@ -46,7 +46,7 @@
 //! # async fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! // Create a Solana event parser that implements riglr-events-core traits
 //! let parser = SolanaEventParser::new();
-//! 
+//!
 //! let input = SolanaTransactionInput::new(
 //!     instruction,
 //!     accounts,
@@ -94,7 +94,7 @@
 //! println!("Slot: {}", solana_event.slot());
 //! println!("Protocol: {}", solana_event.protocol_type());
 //!
-//! // Use new interface  
+//! // Use new interface
 //! println!("Kind: {:?}", solana_event.kind());
 //! let json = solana_event.to_json()?;
 //! println!("JSON: {}", json);
@@ -114,7 +114,7 @@
 //! ## Migration Guide
 //!
 //! 1. **Immediate**: Use `SolanaEvent` for new event types - it implements both interfaces
-//! 2. **Gradual**: Replace direct `UnifiedEvent` usage with `Event` trait where possible  
+//! 2. **Gradual**: Replace direct `UnifiedEvent` usage with `Event` trait where possible
 //! 3. **Parser Migration**: Move from `MultiEventParser` to `SolanaEventParser` for new code
 //! 4. **Error Handling**: Adopt `EventError` and `EventResult` types for better error context
 //!
@@ -132,23 +132,41 @@ macro_rules! impl_event {
                 match self.metadata.event_type {
                     $crate::types::EventType::Swap => riglr_events_core::EventKind::Swap,
                     $crate::types::EventType::Transfer => riglr_events_core::EventKind::Transfer,
-                    $crate::types::EventType::Liquidation => riglr_events_core::EventKind::Other("liquidation".to_string()),
-                    $crate::types::EventType::Deposit => riglr_events_core::EventKind::Other("deposit".to_string()),
-                    $crate::types::EventType::Withdraw => riglr_events_core::EventKind::Other("withdraw".to_string()),
-                    $crate::types::EventType::Borrow => riglr_events_core::EventKind::Other("borrow".to_string()),
-                    $crate::types::EventType::Repay => riglr_events_core::EventKind::Other("repay".to_string()),
-                    $crate::types::EventType::CreatePool => riglr_events_core::EventKind::Other("create_pool".to_string()),
-                    $crate::types::EventType::AddLiquidity => riglr_events_core::EventKind::Other("add_liquidity".to_string()),
-                    $crate::types::EventType::RemoveLiquidity => riglr_events_core::EventKind::Other("remove_liquidity".to_string()),
-                    $crate::types::EventType::Unknown => riglr_events_core::EventKind::Other("unknown".to_string()),
+                    $crate::types::EventType::Liquidation => {
+                        riglr_events_core::EventKind::Other("liquidation".to_string())
+                    }
+                    $crate::types::EventType::Deposit => {
+                        riglr_events_core::EventKind::Other("deposit".to_string())
+                    }
+                    $crate::types::EventType::Withdraw => {
+                        riglr_events_core::EventKind::Other("withdraw".to_string())
+                    }
+                    $crate::types::EventType::Borrow => {
+                        riglr_events_core::EventKind::Other("borrow".to_string())
+                    }
+                    $crate::types::EventType::Repay => {
+                        riglr_events_core::EventKind::Other("repay".to_string())
+                    }
+                    $crate::types::EventType::CreatePool => {
+                        riglr_events_core::EventKind::Other("create_pool".to_string())
+                    }
+                    $crate::types::EventType::AddLiquidity => {
+                        riglr_events_core::EventKind::Other("add_liquidity".to_string())
+                    }
+                    $crate::types::EventType::RemoveLiquidity => {
+                        riglr_events_core::EventKind::Other("remove_liquidity".to_string())
+                    }
+                    $crate::types::EventType::Unknown => {
+                        riglr_events_core::EventKind::Other("unknown".to_string())
+                    }
                 }
             }
 
             fn metadata(&self) -> &riglr_events_core::EventMetadata {
                 // Create compatible metadata if needed
-                self.core_metadata.as_ref().unwrap_or_else(|| {
-                    panic!("Event must have core_metadata initialized")
-                })
+                self.core_metadata
+                    .as_ref()
+                    .unwrap_or_else(|| panic!("Event must have core_metadata initialized"))
             }
 
             fn signature(&self) -> &str {
@@ -171,33 +189,44 @@ macro_rules! impl_event {
 }
 
 pub mod prelude {
-    pub use crate::events::core::traits::{EventParser, GenericEventParser, GenericEventParseConfig};
+    pub use crate::events::core::traits::{
+        EventParser, GenericEventParseConfig, GenericEventParser,
+    };
     // Re-export types but exclude EventMetadata as it conflicts with riglr_events_core
-    pub use crate::types::{EventType, TransferData, SwapData, ProtocolType};
-    pub use crate::events::factory::{Protocol, EventParserRegistry};
     pub use crate::events::core::traits::*;
+    pub use crate::events::factory::{EventParserRegistry, Protocol};
     pub use crate::solana_events::{SolanaEvent, ToSolanaEvent};
-    pub use crate::solana_parser::{SolanaEventParser, SolanaInnerInstructionParser, SolanaTransactionInput, SolanaInnerInstructionInput};
+    pub use crate::solana_parser::{
+        SolanaEventParser, SolanaInnerInstructionInput, SolanaInnerInstructionParser,
+        SolanaTransactionInput,
+    };
+    pub use crate::types::{EventType, ProtocolType, SwapData, TransferData};
     // Re-export new high-performance parsing components
-    pub use crate::zero_copy::{ZeroCopyEvent, ZeroCopySwapEvent, ZeroCopyLiquidityEvent, ByteSliceEventParser, 
-                               CustomDeserializer, MemoryMappedParser, SIMDPatternMatcher, BatchEventParser};
-    pub use crate::parsers::{RaydiumV4Parser, RaydiumV4ParserFactory, PumpFunParser, PumpFunParserFactory,
-                             JupiterParser, JupiterParserFactory, MetaplexParser, MetaplexParserFactory};
-    pub use crate::pipelines::{ParsingPipeline, ParsingPipelineBuilder, EventEnricher, ValidationPipeline};
+    pub use crate::parsers::{
+        JupiterParser, JupiterParserFactory, MetaplexParser, MetaplexParserFactory, PumpFunParser,
+        PumpFunParserFactory, RaydiumV4Parser, RaydiumV4ParserFactory,
+    };
+    pub use crate::pipelines::{
+        EventEnricher, ParsingPipeline, ParsingPipelineBuilder, ValidationPipeline,
+    };
+    pub use crate::zero_copy::{
+        BatchEventParser, ByteSliceEventParser, CustomDeserializer, MemoryMappedParser,
+        SIMDPatternMatcher, ZeroCopyEvent, ZeroCopyLiquidityEvent, ZeroCopySwapEvent,
+    };
     // Re-export riglr-events-core types for convenience
     pub use riglr_events_core::prelude::*;
 }
 
 pub mod constants;
 pub mod error;
-pub mod types;
-pub mod utils;
 pub mod events;
-pub mod solana_events;
-pub mod solana_parser;
-pub mod zero_copy;
 pub mod parsers;
 pub mod pipelines;
+pub mod solana_events;
+pub mod solana_parser;
+pub mod types;
+pub mod utils;
+pub mod zero_copy;
 
 // Create core module that re-exports from events::core::traits for backward compatibility
 pub mod core {
@@ -205,13 +234,16 @@ pub mod core {
 }
 
 // Re-export key types at crate root
-pub use events::core::traits::{EventParser, GenericEventParser, GenericEventParseConfig};
-pub use types::{EventType, ProtocolType, EventMetadata, StreamMetadata, TransferData, SwapData};
-pub use events::factory::{Protocol, EventParserRegistry};
+pub use events::core::traits::{EventParser, GenericEventParseConfig, GenericEventParser};
+pub use events::factory::{EventParserRegistry, Protocol};
+pub use types::{EventMetadata, EventType, ProtocolType, StreamMetadata, SwapData, TransferData};
 
 // New riglr-events-core integration
 pub use solana_events::{SolanaEvent, ToSolanaEvent};
-pub use solana_parser::{SolanaEventParser, SolanaInnerInstructionParser, SolanaTransactionInput, SolanaInnerInstructionInput};
+pub use solana_parser::{
+    SolanaEventParser, SolanaInnerInstructionInput, SolanaInnerInstructionParser,
+    SolanaTransactionInput,
+};
 
 // Re-export core error types for convenience
-pub use error::{ParseError, ParseResult, EventError, EventResult};
+pub use error::{EventError, EventResult, ParseError, ParseResult};

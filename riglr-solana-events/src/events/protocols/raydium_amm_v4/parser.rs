@@ -1,16 +1,16 @@
-use std::collections::HashMap;
 use riglr_events_core::Event;
+use std::collections::HashMap;
 
 use solana_sdk::{instruction::CompiledInstruction, pubkey::Pubkey};
 use solana_transaction_status::UiCompiledInstruction;
 
 use crate::events::{
-    common::{EventMetadata, EventType, ProtocolType, read_u64_le, read_u8_le},
+    common::{read_u64_le, read_u8_le, EventMetadata, EventType, ProtocolType},
     core::traits::{EventParser, GenericEventParseConfig, GenericEventParser},
     protocols::raydium_amm_v4::{
-        discriminators, RaydiumAmmV4SwapEvent, RaydiumAmmV4DepositEvent,
-        RaydiumAmmV4Initialize2Event, RaydiumAmmV4WithdrawEvent, 
-        RaydiumAmmV4WithdrawPnlEvent, SwapDirection,
+        discriminators, RaydiumAmmV4DepositEvent, RaydiumAmmV4Initialize2Event,
+        RaydiumAmmV4SwapEvent, RaydiumAmmV4WithdrawEvent, RaydiumAmmV4WithdrawPnlEvent,
+        SwapDirection,
     },
 };
 
@@ -93,20 +93,20 @@ impl RaydiumAmmV4EventParser {
     }
 
     /// Empty parser for inner instructions
-    /// 
+    ///
     /// Raydium AMM V4 does not emit events through inner instructions or program logs.
     /// All event data is encoded directly in the instruction data itself, which is
     /// parsed by the instruction_parser functions below. This is intentional and
     /// follows the protocol's design where all necessary information is available
     /// in the instruction parameters and accounts.
-    /// 
+    ///
     /// This differs from protocols like Raydium CPMM which emit events through logs
     /// that need to be parsed from inner instructions.
     fn empty_parse(_data: &[u8], _metadata: EventMetadata) -> Option<Box<dyn Event>> {
         None
     }
 
-    /// Parse swap base input instruction event  
+    /// Parse swap base input instruction event
     fn parse_swap_base_input_instruction(
         data: &[u8],
         accounts: &[Pubkey],
@@ -355,11 +355,11 @@ impl EventParser for RaydiumAmmV4EventParser {
     fn inner_instruction_configs(&self) -> HashMap<&'static str, Vec<GenericEventParseConfig>> {
         self.inner.inner_instruction_configs()
     }
-    
+
     fn instruction_configs(&self) -> HashMap<Vec<u8>, Vec<GenericEventParseConfig>> {
         self.inner.instruction_configs()
     }
-    
+
     fn parse_events_from_inner_instruction(
         &self,
         inner_instruction: &UiCompiledInstruction,

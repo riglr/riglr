@@ -50,11 +50,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     match get_uniswap_quote(
         weth.clone(),
         usdc.clone(),
-        "1".to_string(),   // 1 WETH
-        18,                // WETH decimals
-        6,                 // USDC decimals
-        Some(3000),        // 0.3% fee tier
-        Some(50),          // 0.5% slippage
+        "1".to_string(), // 1 WETH
+        18,              // WETH decimals
+        6,               // USDC decimals
+        Some(3000),      // 0.3% fee tier
+        Some(50),        // 0.5% slippage
     )
     .await
     {

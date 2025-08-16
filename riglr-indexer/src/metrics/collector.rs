@@ -2,11 +2,11 @@
 
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tracing::{info, error, debug};
+use tracing::{debug, error, info};
 
 use crate::config::MetricsConfig;
 use crate::error::{IndexerError, IndexerResult};
-use crate::metrics::{MetricsRegistry, IndexerMetrics, PerformanceMetrics};
+use crate::metrics::{IndexerMetrics, MetricsRegistry, PerformanceMetrics};
 
 /// Main metrics collector
 pub struct MetricsCollector {
@@ -44,9 +44,12 @@ impl MetricsCollector {
     /// Initialize standard indexer metrics
     fn init_standard_metrics(&self) -> IndexerResult<()> {
         // Initialize counters
-        self.registry.set_gauge("indexer_events_processed_total", 0.0)?;
-        self.registry.set_gauge("indexer_events_processing_rate", 0.0)?;
-        self.registry.set_gauge("indexer_processing_latency_ms", 0.0)?;
+        self.registry
+            .set_gauge("indexer_events_processed_total", 0.0)?;
+        self.registry
+            .set_gauge("indexer_events_processing_rate", 0.0)?;
+        self.registry
+            .set_gauge("indexer_processing_latency_ms", 0.0)?;
         self.registry.set_gauge("indexer_queue_depth", 0.0)?;
         self.registry.set_gauge("indexer_active_workers", 0.0)?;
         self.registry.set_gauge("indexer_error_rate", 0.0)?;
@@ -55,9 +58,12 @@ impl MetricsCollector {
         self.registry.set_gauge("indexer_uptime_seconds", 0.0)?;
 
         // Initialize component health gauges
-        self.registry.set_gauge("indexer_component_health_ingester", 1.0)?;
-        self.registry.set_gauge("indexer_component_health_processor", 1.0)?;
-        self.registry.set_gauge("indexer_component_health_storage", 1.0)?;
+        self.registry
+            .set_gauge("indexer_component_health_ingester", 1.0)?;
+        self.registry
+            .set_gauge("indexer_component_health_processor", 1.0)?;
+        self.registry
+            .set_gauge("indexer_component_health_storage", 1.0)?;
 
         Ok(())
     }
@@ -97,21 +103,35 @@ impl MetricsCollector {
         drop(current);
 
         // Update registry with current values
-        self.record_gauge("indexer_events_processed_total", metrics.events_processed_total as f64);
-        self.record_gauge("indexer_events_processing_rate", metrics.events_processing_rate);
-        self.record_gauge("indexer_processing_latency_ms", metrics.processing_latency_ms);
+        self.record_gauge(
+            "indexer_events_processed_total",
+            metrics.events_processed_total as f64,
+        );
+        self.record_gauge(
+            "indexer_events_processing_rate",
+            metrics.events_processing_rate,
+        );
+        self.record_gauge(
+            "indexer_processing_latency_ms",
+            metrics.processing_latency_ms,
+        );
         self.record_gauge("indexer_queue_depth", metrics.queue_depth as f64);
         self.record_gauge("indexer_active_workers", metrics.active_workers as f64);
         self.record_gauge("indexer_error_rate", metrics.error_rate);
-        self.record_gauge("indexer_storage_size_bytes", metrics.storage_size_bytes as f64);
+        self.record_gauge(
+            "indexer_storage_size_bytes",
+            metrics.storage_size_bytes as f64,
+        );
         self.record_gauge("indexer_cache_hit_rate", metrics.cache_hit_rate);
-        
+
         // Record uptime
         let uptime_seconds = self.start_time.elapsed().as_secs() as f64;
         self.record_gauge("indexer_uptime_seconds", uptime_seconds);
 
-        debug!("Updated indexer metrics: {} events processed, {:.2} events/sec", 
-               metrics.events_processed_total, metrics.events_processing_rate);
+        debug!(
+            "Updated indexer metrics: {} events processed, {:.2} events/sec",
+            metrics.events_processed_total, metrics.events_processing_rate
+        );
     }
 
     /// Get current indexer metrics
@@ -122,7 +142,7 @@ impl MetricsCollector {
     /// Get performance metrics summary
     pub async fn get_performance_metrics(&self) -> PerformanceMetrics {
         let current = self.current_metrics.read().await;
-        
+
         // This is a simplified implementation
         // In production, you'd calculate these from historical data
         PerformanceMetrics {
@@ -140,17 +160,17 @@ impl MetricsCollector {
                 max_latency_ms: current.processing_latency_ms * 3.0, // Simplified
             },
             resources: crate::metrics::ResourceMetrics {
-                cpu_usage_percent: 0.0, // Would need system metrics
-                memory_usage_bytes: 0, // Would need system metrics
+                cpu_usage_percent: 0.0,    // Would need system metrics
+                memory_usage_bytes: 0,     // Would need system metrics
                 memory_usage_percent: 0.0, // Would need system metrics
                 db_connections_active: current.active_workers as u32, // Simplified
-                db_connections_max: 20, // From config
+                db_connections_max: 20,    // From config
             },
             errors: crate::metrics::ErrorMetrics {
                 total_errors: (current.events_processed_total as f64 * current.error_rate) as u64,
                 error_rate: current.error_rate,
                 errors_by_category: std::collections::HashMap::new(), // Would need tracking
-                recent_error_rate: current.error_rate, // Simplified
+                recent_error_rate: current.error_rate,                // Simplified
             },
         }
     }
@@ -158,17 +178,17 @@ impl MetricsCollector {
     /// Start metrics collection background task
     pub fn start_collection_task(&self) -> tokio::task::JoinHandle<()> {
         let collector = self.clone();
-        
+
         tokio::spawn(async move {
             let mut interval = tokio::time::interval(collector.config.collection_interval);
-            
+
             loop {
                 interval.tick().await;
-                
+
                 // Collect system metrics here if needed
                 // For now, we'll just log that collection is running
                 debug!("Metrics collection tick");
-                
+
                 // In a real implementation, you might:
                 // 1. Collect system metrics (CPU, memory, etc.)
                 // 2. Calculate derived metrics
@@ -193,12 +213,12 @@ impl MetricsCollector {
     /// Flush metrics (for graceful shutdown)
     pub async fn flush(&self) -> IndexerResult<()> {
         info!("Flushing metrics");
-        
+
         // In a real implementation, this would:
         // 1. Send any pending metrics to external systems
         // 2. Persist metrics state
         // 3. Clean up resources
-        
+
         Ok(())
     }
 

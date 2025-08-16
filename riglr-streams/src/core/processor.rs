@@ -92,16 +92,18 @@ impl<E> WindowManager<E> {
                     Ok(duration_since_epoch) => duration_since_epoch.as_secs() / duration.as_secs(),
                     Err(_) => 0,
                 };
-                
-                let window = self.active_windows
+
+                let window = self
+                    .active_windows
                     .entry(window_id)
                     .or_insert_with(|| Window::new(window_id, now));
-                
+
                 window.add_event(event);
 
                 // Check for expired windows
                 let cutoff = now - *duration;
-                let expired_ids: Vec<_> = self.active_windows
+                let expired_ids: Vec<_> = self
+                    .active_windows
                     .iter()
                     .filter(|(_, window)| window.start_time < cutoff)
                     .map(|(&id, _)| id)
@@ -114,7 +116,7 @@ impl<E> WindowManager<E> {
                     }
                 }
             }
-            
+
             WindowType::Sliding { size, step } => {
                 // Create overlapping windows based on step size
                 let step_secs = step.as_secs();
@@ -123,16 +125,18 @@ impl<E> WindowManager<E> {
                     Err(_) => 0,
                 };
                 let window_id = window_start;
-                
-                let window = self.active_windows
+
+                let window = self
+                    .active_windows
                     .entry(window_id)
                     .or_insert_with(|| Window::new(window_id, now));
-                
+
                 window.add_event(event);
 
                 // Check for expired sliding windows
                 let cutoff = now - *size;
-                let expired_ids: Vec<_> = self.active_windows
+                let expired_ids: Vec<_> = self
+                    .active_windows
                     .iter()
                     .filter(|(_, window)| window.start_time < cutoff)
                     .map(|(&id, _)| id)
@@ -145,26 +149,24 @@ impl<E> WindowManager<E> {
                     }
                 }
             }
-            
+
             WindowType::Session { timeout } => {
                 // Session windows group events with no gaps larger than timeout
                 let window_id = self.next_window_id;
-                let window = self.active_windows
-                    .entry(window_id)
-                    .or_insert_with(|| {
-                        self.next_window_id += 1;
-                        Window::new(window_id, now)
-                    });
-                
+                let window = self.active_windows.entry(window_id).or_insert_with(|| {
+                    self.next_window_id += 1;
+                    Window::new(window_id, now)
+                });
+
                 window.add_event(event);
 
                 // Close sessions that have been inactive
                 let inactive_cutoff = now - *timeout;
-                let inactive_ids: Vec<_> = self.active_windows
+                let inactive_ids: Vec<_> = self
+                    .active_windows
                     .iter()
                     .filter(|(_, window)| {
-                        window.events.is_empty() || 
-                        window.start_time < inactive_cutoff
+                        window.events.is_empty() || window.start_time < inactive_cutoff
                     })
                     .map(|(&id, _)| id)
                     .collect();
@@ -176,16 +178,14 @@ impl<E> WindowManager<E> {
                     }
                 }
             }
-            
+
             WindowType::Count { size } => {
                 let window_id = self.next_window_id;
-                let window = self.active_windows
-                    .entry(window_id)
-                    .or_insert_with(|| {
-                        self.next_window_id += 1;
-                        Window::new(window_id, now)
-                    });
-                
+                let window = self.active_windows.entry(window_id).or_insert_with(|| {
+                    self.next_window_id += 1;
+                    Window::new(window_id, now)
+                });
+
                 window.add_event(event);
 
                 // Close window when it reaches target size
@@ -209,7 +209,8 @@ impl<E> WindowManager<E> {
 
     fn cleanup_old_windows(&mut self) {
         let cutoff = Instant::now() - Duration::from_secs(3600); // Keep windows for 1 hour max
-        let old_ids: Vec<_> = self.active_windows
+        let old_ids: Vec<_> = self
+            .active_windows
             .iter()
             .filter(|(_, window)| window.start_time < cutoff)
             .map(|(&id, _)| id)
@@ -222,7 +223,7 @@ impl<E> WindowManager<E> {
 }
 
 /// Stateful event processor with checkpointing
-pub struct StatefulProcessor<K, S> 
+pub struct StatefulProcessor<K, S>
 where
     K: Hash + Eq + Clone,
     S: Clone,
@@ -272,11 +273,11 @@ where
                 let store = self.state_store.read().await;
                 store.clone()
             };
-            
+
             // In a real implementation, this would persist to durable storage
             info!("Checkpointing state with {} entries", state_snapshot.len());
             // self.persist_checkpoint(state_snapshot).await?;
-            
+
             Ok(())
         } else {
             Ok(())
@@ -295,7 +296,7 @@ pub struct FlowController {
 impl FlowController {
     pub fn new(config: BackpressureConfig) -> Self {
         let semaphore = Arc::new(Semaphore::new(config.channel_size));
-        
+
         Self {
             config,
             semaphore,
@@ -306,67 +307,90 @@ impl FlowController {
 
     pub async fn acquire_permit(&self) -> StreamResult<()> {
         let current_size = *self.queue_size.read().await;
-        
+
         match self.config.strategy {
             BackpressureStrategy::Block => {
-                self.semaphore.acquire().await
-                    .map_err(|_| StreamError::Processing { message: "Failed to acquire permit".into() })?
+                self.semaphore
+                    .acquire()
+                    .await
+                    .map_err(|_| StreamError::Processing {
+                        message: "Failed to acquire permit".into(),
+                    })?
                     .forget();
                 Ok(())
             }
-            
+
             BackpressureStrategy::Drop => {
                 if current_size >= self.config.high_watermark() {
                     let mut drop_count = self.drop_count.write().await;
                     *drop_count += 1;
-                    
+
                     if *drop_count % 100 == 0 {
                         warn!("Dropped {} events due to backpressure", *drop_count);
                     }
-                    
-                    return Err(StreamError::Backpressure { message: "Event dropped due to backpressure".into() });
+
+                    return Err(StreamError::Backpressure {
+                        message: "Event dropped due to backpressure".into(),
+                    });
                 }
-                
-                self.semaphore.acquire().await
-                    .map_err(|_| StreamError::Processing { message: "Failed to acquire permit".into() })?
+
+                self.semaphore
+                    .acquire()
+                    .await
+                    .map_err(|_| StreamError::Processing {
+                        message: "Failed to acquire permit".into(),
+                    })?
                     .forget();
                 Ok(())
             }
-            
-            BackpressureStrategy::Retry { max_attempts, base_wait_ms } => {
+
+            BackpressureStrategy::Retry {
+                max_attempts,
+                base_wait_ms,
+            } => {
                 let mut attempts = 0;
-                
+
                 while attempts < max_attempts {
                     if let Ok(permit) = self.semaphore.try_acquire() {
                         permit.forget();
                         return Ok(());
                     }
-                    
+
                     attempts += 1;
                     let delay = Duration::from_millis(base_wait_ms * (1 << attempts.min(5))); // Exponential backoff
                     sleep(delay).await;
                 }
-                
+
                 let mut drop_count = self.drop_count.write().await;
                 *drop_count += 1;
-                Err(StreamError::Backpressure { message: format!("Failed after {} retry attempts", max_attempts) })
+                Err(StreamError::Backpressure {
+                    message: format!("Failed after {} retry attempts", max_attempts),
+                })
             }
-            
+
             BackpressureStrategy::Adaptive => {
                 if current_size >= self.config.high_watermark() {
                     // Switch to drop mode under high load
                     let mut drop_count = self.drop_count.write().await;
                     *drop_count += 1;
-                    Err(StreamError::Backpressure { message: "Adaptive backpressure: dropping event".into() })
+                    Err(StreamError::Backpressure {
+                        message: "Adaptive backpressure: dropping event".into(),
+                    })
                 } else if current_size <= self.config.low_watermark() {
                     // Switch to block mode under low load
-                    self.semaphore.acquire().await
-                        .map_err(|_| StreamError::Processing { message: "Failed to acquire permit".into() })?
+                    self.semaphore
+                        .acquire()
+                        .await
+                        .map_err(|_| StreamError::Processing {
+                            message: "Failed to acquire permit".into(),
+                        })?
                         .forget();
                     Ok(())
                 } else {
                     // Try to acquire, but don't wait too long
-                    match tokio::time::timeout(Duration::from_millis(10), self.semaphore.acquire()).await {
+                    match tokio::time::timeout(Duration::from_millis(10), self.semaphore.acquire())
+                        .await
+                    {
                         Ok(Ok(permit)) => {
                             permit.forget();
                             Ok(())
@@ -374,7 +398,9 @@ impl FlowController {
                         _ => {
                             let mut drop_count = self.drop_count.write().await;
                             *drop_count += 1;
-                            Err(StreamError::Backpressure { message: "Adaptive timeout".into() })
+                            Err(StreamError::Backpressure {
+                                message: "Adaptive timeout".into(),
+                            })
                         }
                     }
                 }
@@ -463,7 +489,10 @@ pub enum EventPattern<E> {
     /// Match a sequence of events
     Sequence(Vec<fn(&E) -> bool>),
     /// Match events within a time window
-    Within { pattern: Box<EventPattern<E>>, duration: Duration },
+    Within {
+        pattern: Box<EventPattern<E>>,
+        duration: Duration,
+    },
     /// Match any of the patterns
     Any(Vec<EventPattern<E>>),
     /// Match all patterns
@@ -511,7 +540,7 @@ where
     fn matches_pattern(&self, pattern: &EventPattern<E>, current_event: &E, now: Instant) -> bool {
         match pattern {
             EventPattern::Single(predicate) => predicate(current_event),
-            
+
             EventPattern::Sequence(predicates) => {
                 if predicates.is_empty() {
                     return false;
@@ -528,10 +557,11 @@ where
                 }
                 false
             }
-            
+
             EventPattern::Within { pattern, duration } => {
                 let cutoff = now - *duration;
-                let recent_events: Vec<_> = self.event_history
+                let recent_events: Vec<_> = self
+                    .event_history
                     .iter()
                     .filter(|(_, timestamp)| *timestamp >= cutoff)
                     .map(|(event, timestamp)| (event.clone(), *timestamp))
@@ -546,14 +576,14 @@ where
 
                 !temp_matcher.match_event(current_event.clone()).is_empty()
             }
-            
-            EventPattern::Any(patterns) => {
-                patterns.iter().any(|p| self.matches_pattern(p, current_event, now))
-            }
-            
-            EventPattern::All(patterns) => {
-                patterns.iter().all(|p| self.matches_pattern(p, current_event, now))
-            }
+
+            EventPattern::Any(patterns) => patterns
+                .iter()
+                .any(|p| self.matches_pattern(p, current_event, now)),
+
+            EventPattern::All(patterns) => patterns
+                .iter()
+                .all(|p| self.matches_pattern(p, current_event, now)),
         }
     }
 }
@@ -570,23 +600,29 @@ mod tests {
 
     #[tokio::test]
     async fn test_window_manager_tumbling() {
-        let window_type = WindowType::Tumbling { 
-            duration: Duration::from_millis(100) 
+        let window_type = WindowType::Tumbling {
+            duration: Duration::from_millis(100),
         };
         let mut manager = WindowManager::new(window_type);
-        
-        let event = TestEvent { _id: 1, _event_type: "test".into() };
+
+        let event = TestEvent {
+            _id: 1,
+            _event_type: "test".into(),
+        };
         let windows = manager.add_event(event);
-        
+
         // No completed windows immediately
         assert!(windows.is_empty());
-        
+
         // Wait for window to expire
         tokio::time::sleep(Duration::from_millis(150)).await;
-        
-        let event2 = TestEvent { _id: 2, _event_type: "test".into() };
+
+        let event2 = TestEvent {
+            _id: 2,
+            _event_type: "test".into(),
+        };
         let windows = manager.add_event(event2);
-        
+
         // Should have completed windows now
         assert!(!windows.is_empty());
     }
@@ -594,14 +630,16 @@ mod tests {
     #[tokio::test]
     async fn test_stateful_processor() {
         let processor = StatefulProcessor::<String, u64>::new(Duration::from_secs(1));
-        
-        let result = processor.update_state("key1".to_string(), |current| {
-            let new_value = current.unwrap_or(&0) + 1;
-            (new_value, new_value)
-        }).await;
-        
+
+        let result = processor
+            .update_state("key1".to_string(), |current| {
+                let new_value = current.unwrap_or(&0) + 1;
+                (new_value, new_value)
+            })
+            .await;
+
         assert_eq!(result, 1);
-        
+
         let state = processor.get_state(&"key1".to_string()).await;
         assert_eq!(state, Some(1));
     }
@@ -613,13 +651,13 @@ mod tests {
             strategy: BackpressureStrategy::Block,
             ..Default::default()
         };
-        
+
         let controller = FlowController::new(config);
-        
+
         // Should be able to acquire permits up to channel size
         assert!(controller.acquire_permit().await.is_ok());
         assert!(controller.acquire_permit().await.is_ok());
-        
+
         controller.release_permit().await;
         controller.release_permit().await;
     }
@@ -632,14 +670,27 @@ mod tests {
             enabled: true,
             zero_copy: false,
         };
-        
+
         let mut processor = BatchProcessor::new(config);
-        
+
         // Add events, should not flush until batch size reached
-        assert!(processor.add_event(TestEvent { _id: 1, _event_type: "test".into() }).is_none());
-        assert!(processor.add_event(TestEvent { _id: 2, _event_type: "test".into() }).is_none());
-        
-        let batch = processor.add_event(TestEvent { _id: 3, _event_type: "test".into() });
+        assert!(processor
+            .add_event(TestEvent {
+                _id: 1,
+                _event_type: "test".into()
+            })
+            .is_none());
+        assert!(processor
+            .add_event(TestEvent {
+                _id: 2,
+                _event_type: "test".into()
+            })
+            .is_none());
+
+        let batch = processor.add_event(TestEvent {
+            _id: 3,
+            _event_type: "test".into(),
+        });
         assert!(batch.is_some());
         assert_eq!(batch.unwrap().len(), 3);
     }

@@ -30,7 +30,7 @@ When you apply `#[tool]` to a function, the macro performs the following transfo
 async fn swap_tokens(
     /// Source token mint address
     from_mint: String,
-    /// Destination token mint address  
+    /// Destination token mint address
     to_mint: String,
     /// Amount to swap in base units
     amount: u64,
@@ -45,7 +45,7 @@ async fn swap_tokens(
 pub struct SwapTokensArgs {
     /// Source token mint address
     pub from_mint: String,
-    /// Destination token mint address  
+    /// Destination token mint address
     pub to_mint: String,
     /// Amount to swap in base units
     pub amount: u64,
@@ -127,7 +127,7 @@ pub fn swap_tokens_tool() -> std::sync::Arc<dyn riglr_core::Tool> {
 The macro extracts documentation from three sources and wires them into the Tool implementation:
 
 - **Function docstrings** → Tool descriptions for AI models
-- **Parameter docstrings** → JSON schema field descriptions  
+- **Parameter docstrings** → JSON schema field descriptions
 - **Type annotations** → JSON schema type information
 
 You can also provide an explicit AI-facing description using the attribute:
@@ -152,10 +152,10 @@ This enables AI models to understand exactly what each tool does and how to use 
    ```rust,ignore
    // ✅ Valid
    async fn valid_tool() -> Result<String, MyError> { ... }
-   
+
    // ❌ Invalid - not a Result
    async fn invalid_tool() -> String { ... }
-   
+
    // ❌ Invalid - error type doesn't implement Into<ToolError>
    async fn bad_error() -> Result<String, std::io::Error> { ... }
    ```
@@ -164,7 +164,7 @@ This enables AI models to understand exactly what each tool does and how to use 
    ```rust,ignore
    // ✅ Valid - standard types implement these automatically
    async fn good_params(address: String, amount: u64) -> Result<(), ToolError> { ... }
-   
+
    // ❌ Invalid - custom types need derives
    struct CustomType { field: String }
    async fn bad_params(custom: CustomType) -> Result<(), ToolError> { ... }
@@ -175,12 +175,12 @@ This enables AI models to understand exactly what each tool does and how to use 
    // ✅ Valid - async function
    #[tool]
    async fn async_tool() -> Result<String, ToolError> { ... }
-   
+
    // ✅ Valid - sync function (executed within async context)
    #[tool]
    fn sync_tool() -> Result<String, ToolError> { ... }
    ```
-   
+
    Synchronous functions are automatically wrapped to work within the async Tool trait.
    They execute synchronously within the async `execute` method.
 
@@ -228,7 +228,7 @@ computational tools that don't require I/O operations:
 use riglr_core::ToolError;
 
 /// Calculate compound interest for a given principal, rate, and time
-/// 
+///
 /// This is a computational tool that doesn't require async operations,
 /// so it's implemented as a synchronous function that runs efficiently
 /// within the async Tool framework.
@@ -259,7 +259,7 @@ fn calculate_compound_interest(
     let rate_per_compound = annual_rate / compounds_per_year as f64;
     let total_compounds = compounds_per_year as f64 * years;
     let final_amount = principal * (1.0 + rate_per_compound).powf(total_compounds);
-    
+
     Ok(final_amount)
 }
 ```
@@ -276,7 +276,7 @@ the `#[tool]` macro:
 use riglr_core::ToolError;
 
 /// CPU-intensive cryptographic operation
-/// 
+///
 /// This uses spawn_blocking to avoid blocking the async runtime
 #[tool]
 async fn compute_hash(
@@ -336,14 +336,14 @@ Tools automatically have access to the current blockchain signer:
 use riglr_core::signer::SignerContext;
 
 /// Swap tokens on Solana using Jupiter aggregator
-/// 
+///
 /// This tool automatically accesses the current signer from the context,
 /// eliminating the need to pass signing credentials explicitly.
 #[tool]
 async fn jupiter_swap(
     /// Input token mint address
     input_mint: String,
-    /// Output token mint address  
+    /// Output token mint address
     output_mint: String,
     /// Amount to swap in base units
     amount: u64,
@@ -352,20 +352,20 @@ async fn jupiter_swap(
 ) -> Result<String, SwapError> {
     // Access the current signer automatically
     let signer = SignerContext::current().await?;
-    
+
     // Derive RPC client from signer
     let rpc_client = signer.rpc_client();
-    
+
     // Get quote from Jupiter
     let quote = get_jupiter_quote(&input_mint, &output_mint, amount, max_slippage_bps).await?;
-    
+
     // Build and sign transaction
     let tx = build_swap_transaction(quote, &signer.pubkey()).await?;
     let signed_tx = signer.sign_transaction(tx).await?;
-    
+
     // Send transaction
     let signature = rpc_client.send_and_confirm_transaction(&signed_tx).await?;
-    
+
     Ok(signature.to_string())
 }
 ```
@@ -376,14 +376,14 @@ async fn jupiter_swap(
 use riglr_core::signer::{SignerContext, ChainType};
 
 /// Bridge tokens between different blockchains
-/// 
+///
 /// Automatically detects the source chain from the current signer
 /// and handles cross-chain bridging operations.
 #[tool]
 async fn bridge_tokens(
     /// Source token address
     source_token: String,
-    /// Destination chain identifier  
+    /// Destination chain identifier
     dest_chain: String,
     /// Destination token address
     dest_token: String,
@@ -393,7 +393,7 @@ async fn bridge_tokens(
     recipient: String,
 ) -> Result<BridgeResult, BridgeError> {
     let signer = SignerContext::current().await?;
-    
+
     // Dynamic chain detection
     let bridge_operation = match signer.chain_type() {
         ChainType::Solana => {
@@ -413,7 +413,7 @@ async fn bridge_tokens(
         },
         _ => return Err(BridgeError::UnsupportedChain),
     };
-    
+
     Ok(bridge_operation)
 }
 ```
@@ -429,13 +429,13 @@ use riglr_core::ToolError;
 enum SwapError {
     #[error("Insufficient balance: need {required}, have {available}")]
     InsufficientBalance { required: u64, available: u64 },
-    
+
     #[error("Network congestion, retry in {retry_after_seconds}s")]
     NetworkCongestion { retry_after_seconds: u64 },
-    
+
     #[error("Slippage too high: expected {expected}%, got {actual}%")]
     SlippageTooHigh { expected: f64, actual: f64 },
-    
+
     #[error("Invalid token mint: {mint}")]
     InvalidToken { mint: String },
 }
@@ -460,7 +460,7 @@ async fn advanced_swap(
     amount: u64,
 ) -> Result<SwapResult, SwapError> {
     let signer = SignerContext::current().await?;
-    
+
     // Check balance first
     let balance = get_token_balance(&signer, &input_mint).await?;
     if balance < amount {
@@ -469,7 +469,7 @@ async fn advanced_swap(
             available: balance,
         });
     }
-    
+
     // Attempt swap with retries for transient failures
     match attempt_swap(&signer, &input_mint, &output_mint, amount).await {
         Err(SwapError::NetworkCongestion { .. }) => {
@@ -502,7 +502,7 @@ mod tests {
 
         // Test the generated tool
         let tool = SwapTokensTool::new();
-        
+
         let result = SignerContext::new(&mock_signer).execute(async {
             tool.execute(json!({
                 "fromMint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
@@ -526,7 +526,7 @@ mod tests {
 - Use appropriate default values with `#[serde(default)]` where applicable
 - Group related parameters into structs for complex operations
 
-### 2. Error Handling  
+### 2. Error Handling
 - Define custom error types that implement `Into<ToolError>`
 - Use structured errors that provide actionable information
 - Distinguish between retriable and permanent errors appropriately
@@ -549,7 +549,7 @@ mod tests {
 ### Current Limitations
 
 1. **Generic Functions**: Limited support for complex generic constraints
-2. **Lifetime Parameters**: Not currently supported in tool functions  
+2. **Lifetime Parameters**: Not currently supported in tool functions
 3. **Associated Types**: Cannot use associated types in parameters
 4. **Const Generics**: No support for const generic parameters
 
@@ -563,7 +563,7 @@ For complex generic scenarios, consider using trait objects or type erasure:
 // async fn complex_generic<T: ComplexTrait>(data: T) -> Result<(), Error> { ... }
 
 // Use:
-#[tool]  
+#[tool]
 async fn process_complex_data(
     /// JSON representation of the data to process
     data: serde_json::Value,
@@ -593,14 +593,17 @@ The macro is designed to work seamlessly with the broader Rust ecosystem:
 - Proper handling of async trait implementations
 - Support for async error handling patterns
 
-The `#[tool]` macro transforms riglr from a collection of utilities into a cohesive, 
+The `#[tool]` macro transforms riglr from a collection of utilities into a cohesive,
 developer-friendly framework for building sophisticated blockchain AI agents.
 */
 
 use heck::ToPascalCase;
 use proc_macro::TokenStream;
 use quote::{quote, ToTokens};
-use syn::{parse_macro_input, Attribute, DeriveInput, FnArg, ItemFn, ItemStruct, PatType, parse::Parse, parse::ParseStream, LitStr, Token};
+use syn::{
+    parse::Parse, parse::ParseStream, parse_macro_input, Attribute, DeriveInput, FnArg, ItemFn,
+    ItemStruct, LitStr, PatType, Token,
+};
 
 /// The `#[tool]` procedural macro that converts functions and structs into Tool implementations.
 ///
@@ -654,13 +657,21 @@ impl Parse for ToolAttr {
             if ident == "description" {
                 input.parse::<Token![=]>()?;
                 let lit: LitStr = input.parse()?;
-                return Ok(Self { description: Some(lit.value()) });
+                return Ok(Self {
+                    description: Some(lit.value()),
+                });
             } else {
-                return Err(syn::Error::new_spanned(ident, "Unknown attribute key. Supported: description"));
+                return Err(syn::Error::new_spanned(
+                    ident,
+                    "Unknown attribute key. Supported: description",
+                ));
             }
         }
 
-        Err(syn::Error::new(input.span(), "Expected attribute key like: description = \"...\""))
+        Err(syn::Error::new(
+            input.span(),
+            "Expected attribute key like: description = \"...\"",
+        ))
     }
 }
 
@@ -675,7 +686,7 @@ fn handle_function(function: ItemFn, tool_attrs: ToolAttr) -> proc_macro2::Token
         None => description,
     };
 
-    // Extract parameter info 
+    // Extract parameter info
     let mut param_fields = Vec::new();
     let mut param_names = Vec::new();
     let mut param_docs = Vec::new();
@@ -720,7 +731,8 @@ fn handle_function(function: ItemFn, tool_attrs: ToolAttr) -> proc_macro2::Token
     let tool_fn_name = syn::Ident::new(&format!("{}_tool", fn_name), fn_name.span());
 
     // Generate field assignments for function call
-    let _field_assignments: Vec<_> = param_names.iter()
+    let _field_assignments: Vec<_> = param_names
+        .iter()
         .map(|name| quote! { args.#name })
         .collect();
 
@@ -731,7 +743,6 @@ fn handle_function(function: ItemFn, tool_attrs: ToolAttr) -> proc_macro2::Token
     } else {
         quote! {}
     };
-
 
     // Generate the module name from the function name
     let module_name = syn::Ident::new(&fn_name.to_string(), fn_name.span());
@@ -976,61 +987,61 @@ fn extract_doc_comments(attrs: &[Attribute]) -> String {
 }
 
 /// Derives automatic conversion from an error enum to ToolError.
-/// 
+///
 /// This macro generates a `From<YourError> for ToolError` implementation
 /// that automatically classifies errors as retriable or permanent based on
 /// naming conventions in variant names.
-/// 
+///
 /// # Classification Rules
-/// 
+///
 /// Errors are classified as **retriable** if their variant names contain:
 /// - `Rpc`, `Network`, `Connection`, `Timeout`, `TooManyRequests`, `RateLimit`
 /// - `Api` (for external API errors)
 /// - `Http` (for HTTP-related errors)
-/// 
+///
 /// Errors are classified as **permanent** if their variant names contain:
 /// - `Invalid`, `Parse`, `Serialization`, `NotFound`, `Unauthorized`
 /// - `InsufficientBalance`, `InsufficientFunds`
 /// - All other unmatched variants (conservative default)
-/// 
+///
 /// # Custom Classification
-/// 
+///
 /// You can override the automatic classification using attributes:
-/// 
+///
 /// ```rust,ignore
 /// #[derive(IntoToolError)]
 /// enum MyError {
 ///     #[tool_error(retriable)]
 ///     CustomError(String),
-///     
+///
 ///     #[tool_error(permanent)]
 ///     NetworkError(String), // Override default retriable classification
-///     
+///
 ///     #[tool_error(rate_limited)]
 ///     ApiQuotaExceeded,
 /// }
 /// ```
-/// 
+///
 /// # Examples
-/// 
+///
 /// ```rust,ignore
 /// use riglr_macros::IntoToolError;
 /// use thiserror::Error;
-/// 
+///
 /// #[derive(Error, Debug, IntoToolError)]
 /// enum SolanaError {
 ///     #[error("RPC error: {0}")]
 ///     RpcError(String),  // Automatically retriable
-///     
+///
 ///     #[error("Invalid address: {0}")]
 ///     InvalidAddress(String),  // Automatically permanent
-///     
+///
 ///     #[error("Network timeout")]
 ///     NetworkTimeout,  // Automatically retriable
-///     
+///
 ///     #[error("Insufficient balance")]
 ///     InsufficientBalance,  // Automatically permanent
-///     
+///
 ///     #[tool_error(retriable)]
 ///     #[error("Custom error: {0}")]
 ///     CustomError(String),  // Explicitly retriable
@@ -1039,7 +1050,7 @@ fn extract_doc_comments(attrs: &[Attribute]) -> String {
 #[proc_macro_derive(IntoToolError, attributes(tool_error))]
 pub fn derive_into_tool_error(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
-    
+
     let name = input.ident;
     let variants = match input.data {
         syn::Data::Enum(ref data) => &data.variants,
@@ -1049,13 +1060,15 @@ pub fn derive_into_tool_error(input: TokenStream) -> TokenStream {
             });
         }
     };
-    
+
     let match_arms = variants.iter().map(|variant| {
         let variant_name = &variant.ident;
         let variant_name_str = variant_name.to_string();
-        
+
         // Check for explicit classification attribute
-        let classification = variant.attrs.iter()
+        let classification = variant
+            .attrs
+            .iter()
             .filter_map(|attr| {
                 if attr.path().is_ident("tool_error") {
                     attr.parse_args::<syn::Ident>().ok()
@@ -1064,50 +1077,57 @@ pub fn derive_into_tool_error(input: TokenStream) -> TokenStream {
                 }
             })
             .next();
-        
+
         let pattern = match &variant.fields {
             syn::Fields::Named(_) => quote! { #name::#variant_name { .. } },
             syn::Fields::Unnamed(_) => quote! { #name::#variant_name(..) },
             syn::Fields::Unit => quote! { #name::#variant_name },
         };
-        
+
         let conversion = if let Some(class) = classification {
             match class.to_string().as_str() {
-                "retriable" => quote! { 
-                    riglr_core::ToolError::retriable_string(err.to_string()) 
+                "retriable" => quote! {
+                    riglr_core::ToolError::retriable_string(err.to_string())
                 },
-                "permanent" => quote! { 
-                    riglr_core::ToolError::permanent_string(err.to_string()) 
+                "permanent" => quote! {
+                    riglr_core::ToolError::permanent_string(err.to_string())
                 },
-                "rate_limited" => quote! { 
-                    riglr_core::ToolError::rate_limited_string(err.to_string()) 
+                "rate_limited" => quote! {
+                    riglr_core::ToolError::rate_limited_string(err.to_string())
                 },
-                _ => quote! { 
-                    riglr_core::ToolError::permanent_string(err.to_string()) 
+                _ => quote! {
+                    riglr_core::ToolError::permanent_string(err.to_string())
                 },
             }
         } else {
             // Automatic classification based on naming conventions
             let retriable_patterns = [
-                "Rpc", "Network", "Connection", "Timeout", 
-                "TooManyRequests", "RateLimit", "Api", "Http"
+                "Rpc",
+                "Network",
+                "Connection",
+                "Timeout",
+                "TooManyRequests",
+                "RateLimit",
+                "Api",
+                "Http",
             ];
-            
-            let is_retriable = retriable_patterns.iter()
+
+            let is_retriable = retriable_patterns
+                .iter()
                 .any(|pattern| variant_name_str.contains(pattern));
-            
+
             if is_retriable {
                 quote! { riglr_core::ToolError::retriable_string(err.to_string()) }
             } else {
                 quote! { riglr_core::ToolError::permanent_string(err.to_string()) }
             }
         };
-        
+
         quote! {
             #pattern => #conversion
         }
     });
-    
+
     let expanded = quote! {
         impl From<#name> for riglr_core::ToolError {
             fn from(err: #name) -> Self {
@@ -1117,7 +1137,7 @@ pub fn derive_into_tool_error(input: TokenStream) -> TokenStream {
             }
         }
     };
-    
+
     TokenStream::from(expanded)
 }
 

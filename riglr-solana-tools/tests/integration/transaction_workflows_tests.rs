@@ -470,7 +470,7 @@ async fn test_no_signer_context() {
 #[tokio::test]
 async fn test_solana_tool_error_conversion_to_tool_error() {
     // Test various SolanaToolError conversions to riglr_core::error::ToolError
-    
+
     // RPC errors
     let rpc_error = SolanaToolError::Rpc("Connection timeout".to_string());
     let tool_error: riglr_core::error::ToolError = rpc_error.into();
@@ -528,23 +528,23 @@ async fn test_local_solana_signer_integration() {
     // Test LocalSolanaSigner integration
     let keypair = Keypair::new();
     let signer = LocalSolanaSigner::new(keypair, "https://api.devnet.solana.com".to_string());
-    
+
     // Test basic properties
     assert!(signer.address().is_some());
     assert!(signer.pubkey().is_some());
     assert_eq!(signer.rpc_url(), "https://api.devnet.solana.com");
-    
+
     // Test EVM methods (should fail)
     let evm_tx = alloy::rpc::types::TransactionRequest::default();
     let result = signer.sign_and_send_evm_transaction(evm_tx).await;
     assert!(result.is_err());
-    
+
     let evm_client_result = signer.evm_client();
     assert!(evm_client_result.is_err());
-    
+
     // Test Solana client access
     let _solana_client = signer.solana_client();
-    
+
     // Test debug formatting (should not expose private keys)
     let debug_str = format!("{:?}", signer);
     assert!(debug_str.contains("LocalSolanaSigner"));
@@ -558,15 +558,15 @@ async fn test_local_signer_from_seed_phrase() {
     let seed_phrase = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about";
     let result = LocalSolanaSigner::from_seed_phrase(seed_phrase, "https://api.devnet.solana.com".to_string());
     assert!(result.is_ok());
-    
+
     let signer = result.unwrap();
     assert!(signer.address().is_some());
-    
+
     // Test invalid seed phrase
     let invalid_seed = "invalid seed phrase";
     let result = LocalSolanaSigner::from_seed_phrase(invalid_seed, "https://api.devnet.solana.com".to_string());
     assert!(result.is_err());
-    
+
     match result {
         Err(SignerError::Configuration(msg)) => {
             assert!(msg.contains("Invalid seed phrase"));
@@ -579,7 +579,7 @@ async fn test_local_signer_from_seed_phrase() {
 async fn test_idempotent_transaction_workflow() {
     let worker = ToolWorker::<InMemoryIdempotencyStore>::new(ExecutionConfig::default());
     worker.register_tool(Arc::new(MockSolanaTransferTool)).await;
-    
+
     let store = Arc::new(InMemoryIdempotencyStore::new());
     let worker = worker.with_idempotency_store(store);
 
@@ -600,11 +600,11 @@ async fn test_idempotent_transaction_workflow() {
     // First execution
     let result1 = worker.process_job(job.clone()).await.unwrap();
     assert!(result1.is_success());
-    
+
     // Second execution should return cached result
     let result2 = worker.process_job(job.clone()).await.unwrap();
     assert!(result2.is_success());
-    
+
     // Both should have the same transaction hash
     match (&result1, &result2) {
         (JobResult::Success { tx_hash: Some(hash1), .. }, JobResult::Success { tx_hash: Some(hash2), .. }) => {
@@ -644,9 +644,9 @@ async fn test_comprehensive_error_scenarios() {
         let result = worker.process_job(job).await.unwrap();
         assert!(!result.is_success(), "Expected failure for {:?}", failure_mode);
         assert_eq!(
-            result.is_retriable(), 
+            result.is_retriable(),
             should_be_retriable,
-            "Incorrect retriability for {:?}", 
+            "Incorrect retriability for {:?}",
             failure_mode
         );
     }

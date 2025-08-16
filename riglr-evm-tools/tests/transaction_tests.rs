@@ -93,7 +93,6 @@ fn test_transaction_result_debug() {
     assert!(debug_str.contains("0xdebug"));
 }
 
-
 #[tokio::test]
 async fn test_transfer_eth_invalid_amount() {
     let result = transfer_eth(
@@ -111,13 +110,7 @@ async fn test_transfer_eth_invalid_amount() {
 
 #[tokio::test]
 async fn test_transfer_eth_invalid_address() {
-    let result = transfer_eth(
-        "invalid_address".to_string(),
-        1.0,
-        None,
-        None,
-    )
-    .await;
+    let result = transfer_eth("invalid_address".to_string(), 1.0, None, None).await;
 
     assert!(result.is_err());
     let error_msg = result.unwrap_err().to_string();

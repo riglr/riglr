@@ -1,54 +1,50 @@
 //! Examples demonstrating stream composition patterns in riglr-streams
 
-use std::sync::Arc;
-use std::time::Duration;
-use std::any::Any;
-use riglr_streams::core::{
-    ComposableStream, Stream
-};
-use riglr_streams::solana::geyser::SolanaGeyserStream;
+use riglr_events_core::{Event, EventKind, EventMetadata};
+use riglr_solana_events::ProtocolType;
+use riglr_streams::core::DynamicStreamedEvent;
+use riglr_streams::core::{ComposableStream, Stream};
 use riglr_streams::evm::websocket::EvmWebSocketStream;
 use riglr_streams::external::binance::BinanceStream;
-use riglr_solana_events::ProtocolType;
-use riglr_events_core::{Event, EventKind, EventMetadata};
-use riglr_streams::core::DynamicStreamedEvent;
+use riglr_streams::solana::geyser::SolanaGeyserStream;
+use std::any::Any;
+use std::sync::Arc;
+use std::time::Duration;
 use tracing::{info, Level};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Initialize logging
-    tracing_subscriber::fmt()
-        .with_max_level(Level::INFO)
-        .init();
-    
+    tracing_subscriber::fmt().with_max_level(Level::INFO).init();
+
     // Example 1: Simple Filter and Map
     example_filter_map().await?;
-    
+
     // Example 2: Merging Multiple Streams
     example_merge_streams().await?;
-    
+
     // Example 3: Throttling High-Frequency Events
     example_throttle().await?;
-    
+
     // Example 4: Batching for Efficiency
     example_batching().await?;
-    
+
     // Example 5: Complex Pipeline
     example_complex_pipeline().await?;
-    
+
     // Example 6: Cross-Chain Arbitrage Detection
     example_arbitrage_detection().await?;
-    
+
     Ok(())
 }
 
 /// Example 1: Filter and map events from a single stream
 async fn example_filter_map() -> Result<(), Box<dyn std::error::Error>> {
     info!("Example 1: Filter and Map");
-    
+
     // Create a Solana stream
     let solana_stream = SolanaGeyserStream::new("solana-mainnet");
-    
+
     // Filter for swap events and map to extract key data
     let _processed_stream = solana_stream
         .filter(|event| matches!(event.inner.kind(), EventKind::Swap))
@@ -61,85 +57,82 @@ async fn example_filter_map() -> Result<(), Box<dyn std::error::Error>> {
                 event.inner.timestamp(),
             )
         });
-    
+
     // Subscribe to processed events
     // Note: rx is not Send, so we can't spawn it in a task
     // In a real application, you would process events here or use a Send-compatible channel
-    
+
     Ok(())
 }
 
 /// Example 2: Merge events from multiple chains
 async fn example_merge_streams() -> Result<(), Box<dyn std::error::Error>> {
     info!("Example 2: Merging Multiple Streams");
-    
+
     // Create streams for different chains
     let solana_stream = SolanaGeyserStream::new("solana");
     let _eth_stream = EvmWebSocketStream::new("ethereum");
     let _bsc_stream = EvmWebSocketStream::new("bsc");
-    
+
     // For demonstration - normally you'd merge streams of the same type
     // Here we're just using the solana_stream as an example
     let _merged = solana_stream;
-    
+
     // Subscribe to merged stream
     // Note: rx is not Send, so we can't spawn it in a task
     // In a real application, you would process events here or use a Send-compatible channel
-    
+
     Ok(())
 }
 
 /// Example 3: Throttle high-frequency events
 async fn example_throttle() -> Result<(), Box<dyn std::error::Error>> {
     info!("Example 3: Throttling High-Frequency Events");
-    
+
     // Create a Binance stream for price tickers
     let binance_stream = BinanceStream::new("binance");
-    
+
     // Throttle to one event per second to avoid overwhelming downstream
-    let _throttled = binance_stream
-        .throttle(Duration::from_secs(1));
-    
+    let _throttled = binance_stream.throttle(Duration::from_secs(1));
+
     // We need to subscribe directly since Arc<BinanceStreamEvent> doesn't implement Event
-    
+
     // Process throttled events
     // Note: rx is not Send, so we can't spawn it in a task
     // In a real application, you would process events here or use a Send-compatible channel
-    
+
     Ok(())
 }
 
 /// Example 4: Batch events for efficient processing
 async fn example_batching() -> Result<(), Box<dyn std::error::Error>> {
     info!("Example 4: Batching Events");
-    
+
     let stream = SolanaGeyserStream::new("solana");
-    
+
     // Batch events: up to 100 events or 5 seconds, whichever comes first
-    let _batched = stream
-        .batch(100, Duration::from_secs(5))
-        .map(|batch| {
-            info!("Processing batch of {} events", batch.events.len());
-            // Process entire batch at once (e.g., bulk database insert)
-            BatchResult::new(batch.events.len())
-        });
-    
+    let _batched = stream.batch(100, Duration::from_secs(5)).map(|batch| {
+        info!("Processing batch of {} events", batch.events.len());
+        // Process entire batch at once (e.g., bulk database insert)
+        BatchResult::new(batch.events.len())
+    });
+
     Ok(())
 }
 
 /// Example 5: Complex processing pipeline
 async fn example_complex_pipeline() -> Result<(), Box<dyn std::error::Error>> {
     info!("Example 5: Complex Pipeline");
-    
+
     let stream = SolanaGeyserStream::new("solana");
-    
+
     // Build a complex pipeline:
     // 1. Filter for DEX swaps
     // 2. Extract swap data
     // 3. Calculate running average
     // 4. Throttle output
     // 5. Batch for database writes
-    
+
     let _pipeline = stream
         .filter(|_e| {
             // In real implementation, would check if it's a swap event
@@ -153,26 +146,26 @@ async fn example_complex_pipeline() -> Result<(), Box<dyn std::error::Error>> {
         })
         .throttle(Duration::from_secs(10))
         .batch(50, Duration::from_secs(60));
-    
+
     // Subscribe to final processed stream
     // Note: rx is not Send, so we can't spawn it in a task
     // In a real application, you would process events here or use a Send-compatible channel
-    
+
     Ok(())
 }
 
 /// Example 6: Cross-chain arbitrage detection
 async fn example_arbitrage_detection() -> Result<(), Box<dyn std::error::Error>> {
     info!("Example 6: Cross-Chain Arbitrage Detection");
-    
+
     // Create price streams from different sources
     let binance_btc = create_price_stream("binance", "btcusdt");
     let _coinbase_btc = create_price_stream("coinbase", "BTC-USD");
-    
+
     // Combine latest prices from both exchanges
     // For this demo, just use one stream
     let combined = binance_btc;
-    
+
     // Detect arbitrage opportunities (simplified for demo)
     let _opportunities = combined
         .map(|_price_event| {
@@ -186,11 +179,11 @@ async fn example_arbitrage_detection() -> Result<(), Box<dyn std::error::Error>>
         })
         .filter(|opp| opp.spread_percentage > 0.1) // Only significant opportunities
         .debounce(Duration::from_secs(1)); // Avoid duplicate alerts
-    
+
     // Subscribe to arbitrage opportunities
     // Note: rx is not Send, so we can't spawn it in a task
     // In a real application, you would process events here or use a Send-compatible channel
-    
+
     Ok(())
 }
 
@@ -204,7 +197,12 @@ struct SwapSummary {
 }
 
 impl SwapSummary {
-    fn new(id: String, protocol: ProtocolType, slot: u64, timestamp: std::time::SystemTime) -> Self {
+    fn new(
+        id: String,
+        protocol: ProtocolType,
+        slot: u64,
+        timestamp: std::time::SystemTime,
+    ) -> Self {
         Self {
             metadata: EventMetadata::with_timestamp(
                 id,
@@ -219,13 +217,27 @@ impl SwapSummary {
 }
 
 impl Event for SwapSummary {
-    fn id(&self) -> &str { &self.metadata.id }
-    fn kind(&self) -> &EventKind { &self.metadata.kind }
-    fn metadata(&self) -> &EventMetadata { &self.metadata }
-    fn metadata_mut(&mut self) -> &mut EventMetadata { &mut self.metadata }
-    fn as_any(&self) -> &dyn Any { self }
-    fn as_any_mut(&mut self) -> &mut dyn Any { self }
-    fn clone_boxed(&self) -> Box<dyn Event> { Box::new(self.clone()) }
+    fn id(&self) -> &str {
+        &self.metadata.id
+    }
+    fn kind(&self) -> &EventKind {
+        &self.metadata.kind
+    }
+    fn metadata(&self) -> &EventMetadata {
+        &self.metadata
+    }
+    fn metadata_mut(&mut self) -> &mut EventMetadata {
+        &mut self.metadata
+    }
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+    fn clone_boxed(&self) -> Box<dyn Event> {
+        Box::new(self.clone())
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -243,7 +255,13 @@ impl SwapMetrics {
             _price: price,
             _timestamp: timestamp,
             metadata: EventMetadata::new(
-                format!("swap_{}", timestamp.duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs()),
+                format!(
+                    "swap_{}",
+                    timestamp
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .unwrap_or_default()
+                        .as_secs()
+                ),
                 EventKind::Swap,
                 "swap_metrics".to_string(),
             ),
@@ -252,13 +270,27 @@ impl SwapMetrics {
 }
 
 impl Event for SwapMetrics {
-    fn id(&self) -> &str { &self.metadata.id }
-    fn kind(&self) -> &EventKind { &self.metadata.kind }
-    fn metadata(&self) -> &EventMetadata { &self.metadata }
-    fn metadata_mut(&mut self) -> &mut EventMetadata { &mut self.metadata }
-    fn as_any(&self) -> &dyn Any { self }
-    fn as_any_mut(&mut self) -> &mut dyn Any { self }
-    fn clone_boxed(&self) -> Box<dyn Event> { Box::new(self.clone()) }
+    fn id(&self) -> &str {
+        &self.metadata.id
+    }
+    fn kind(&self) -> &EventKind {
+        &self.metadata.kind
+    }
+    fn metadata(&self) -> &EventMetadata {
+        &self.metadata
+    }
+    fn metadata_mut(&mut self) -> &mut EventMetadata {
+        &mut self.metadata
+    }
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+    fn clone_boxed(&self) -> Box<dyn Event> {
+        Box::new(self.clone())
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -276,7 +308,7 @@ impl RunningAverage {
             average: 0.0,
         }
     }
-    
+
     fn update(&mut self, value: f64) {
         self.sum += value;
         self.count += 1;
@@ -294,7 +326,13 @@ struct ArbitrageOpportunity {
 }
 
 impl ArbitrageOpportunity {
-    fn new(pair: String, exchange1: String, exchange2: String, spread_percentage: f64, timestamp: std::time::SystemTime) -> Self {
+    fn new(
+        pair: String,
+        exchange1: String,
+        exchange2: String,
+        spread_percentage: f64,
+        timestamp: std::time::SystemTime,
+    ) -> Self {
         Self {
             metadata: EventMetadata::with_timestamp(
                 format!("arb_{}_{}", pair, spread_percentage),
@@ -311,13 +349,27 @@ impl ArbitrageOpportunity {
 }
 
 impl Event for ArbitrageOpportunity {
-    fn id(&self) -> &str { &self.metadata.id }
-    fn kind(&self) -> &EventKind { &self.metadata.kind }
-    fn metadata(&self) -> &EventMetadata { &self.metadata }
-    fn metadata_mut(&mut self) -> &mut EventMetadata { &mut self.metadata }
-    fn as_any(&self) -> &dyn Any { self }
-    fn as_any_mut(&mut self) -> &mut dyn Any { self }
-    fn clone_boxed(&self) -> Box<dyn Event> { Box::new(self.clone()) }
+    fn id(&self) -> &str {
+        &self.metadata.id
+    }
+    fn kind(&self) -> &EventKind {
+        &self.metadata.kind
+    }
+    fn metadata(&self) -> &EventMetadata {
+        &self.metadata
+    }
+    fn metadata_mut(&mut self) -> &mut EventMetadata {
+        &mut self.metadata
+    }
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+    fn clone_boxed(&self) -> Box<dyn Event> {
+        Box::new(self.clone())
+    }
 }
 
 async fn _process_price_update(_event: Arc<dyn Any>) {
@@ -349,13 +401,27 @@ impl BatchResult {
 }
 
 impl Event for BatchResult {
-    fn id(&self) -> &str { &self.metadata.id }
-    fn kind(&self) -> &EventKind { &self.metadata.kind }
-    fn metadata(&self) -> &EventMetadata { &self.metadata }
-    fn metadata_mut(&mut self) -> &mut EventMetadata { &mut self.metadata }
-    fn as_any(&self) -> &dyn Any { self }
-    fn as_any_mut(&mut self) -> &mut dyn Any { self }
-    fn clone_boxed(&self) -> Box<dyn Event> { Box::new(self.clone()) }
+    fn id(&self) -> &str {
+        &self.metadata.id
+    }
+    fn kind(&self) -> &EventKind {
+        &self.metadata.kind
+    }
+    fn metadata(&self) -> &EventMetadata {
+        &self.metadata
+    }
+    fn metadata_mut(&mut self) -> &mut EventMetadata {
+        &mut self.metadata
+    }
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+    fn clone_boxed(&self) -> Box<dyn Event> {
+        Box::new(self.clone())
+    }
 }
 
 fn extract_swap_metrics(event: Arc<DynamicStreamedEvent>) -> SwapMetrics {
@@ -380,6 +446,8 @@ fn _calculate_spread(price1: f64, price2: f64) -> f64 {
 }
 
 async fn _alert_arbitrage_opportunity(opp: ArbitrageOpportunity) {
-    info!("🚨 Arbitrage Alert: {} spread on {} between {} and {}", 
-          opp.spread_percentage, opp._pair, opp._exchange1, opp._exchange2);
+    info!(
+        "🚨 Arbitrage Alert: {} spread on {} between {} and {}",
+        opp.spread_percentage, opp._pair, opp._exchange1, opp._exchange2
+    );
 }

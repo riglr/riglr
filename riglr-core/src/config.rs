@@ -34,114 +34,168 @@ pub struct SolanaNetworkConfig {
 impl Default for RpcConfig {
     fn default() -> Self {
         let mut evm_networks = HashMap::new();
-        evm_networks.insert("ethereum".to_string(), EvmNetworkConfig {
-            name: "Ethereum Mainnet".to_string(),
-            chain_id: 1,
-            rpc_url: "https://eth.llamarpc.com".to_string(),
-            explorer_url: Some("https://etherscan.io".to_string()),
-        });
-        evm_networks.insert("polygon".to_string(), EvmNetworkConfig {
-            name: "Polygon".to_string(),
-            chain_id: 137,
-            rpc_url: "https://polygon.llamarpc.com".to_string(),
-            explorer_url: Some("https://polygonscan.com".to_string()),
-        });
-        evm_networks.insert("arbitrum".to_string(), EvmNetworkConfig {
-            name: "Arbitrum One".to_string(),
-            chain_id: 42161,
-            rpc_url: "https://arbitrum.llamarpc.com".to_string(),
-            explorer_url: Some("https://arbiscan.io".to_string()),
-        });
-        evm_networks.insert("optimism".to_string(), EvmNetworkConfig {
-            name: "Optimism".to_string(),
-            chain_id: 10,
-            rpc_url: "https://optimism.llamarpc.com".to_string(),
-            explorer_url: Some("https://optimistic.etherscan.io".to_string()),
-        });
-        evm_networks.insert("base".to_string(), EvmNetworkConfig {
-            name: "Base".to_string(),
-            chain_id: 8453,
-            rpc_url: "https://base.llamarpc.com".to_string(),
-            explorer_url: Some("https://basescan.org".to_string()),
-        });
-        evm_networks.insert("bsc".to_string(), EvmNetworkConfig {
-            name: "BNB Smart Chain".to_string(),
-            chain_id: 56,
-            rpc_url: "https://bsc.llamarpc.com".to_string(),
-            explorer_url: Some("https://bscscan.com".to_string()),
-        });
-        evm_networks.insert("avalanche".to_string(), EvmNetworkConfig {
-            name: "Avalanche C-Chain".to_string(),
-            chain_id: 43114,
-            rpc_url: "https://avalanche.llamarpc.com".to_string(),
-            explorer_url: Some("https://snowtrace.io".to_string()),
-        });
-        evm_networks.insert("gnosis".to_string(), EvmNetworkConfig {
-            name: "Gnosis".to_string(),
-            chain_id: 100,
-            rpc_url: "https://gnosis.llamarpc.com".to_string(),
-            explorer_url: Some("https://gnosisscan.io".to_string()),
-        });
-        evm_networks.insert("fantom".to_string(), EvmNetworkConfig {
-            name: "Fantom".to_string(),
-            chain_id: 250,
-            rpc_url: "https://fantom.llamarpc.com".to_string(),
-            explorer_url: Some("https://ftmscan.com".to_string()),
-        });
-        evm_networks.insert("linea".to_string(), EvmNetworkConfig {
-            name: "Linea".to_string(),
-            chain_id: 59144,
-            rpc_url: "https://linea.blockpi.network/v1/rpc/public".to_string(),
-            explorer_url: Some("https://lineascan.build".to_string()),
-        });
-        evm_networks.insert("scroll".to_string(), EvmNetworkConfig {
-            name: "Scroll".to_string(),
-            chain_id: 534_352,
-            rpc_url: "https://rpc.scroll.io".to_string(),
-            explorer_url: Some("https://scrollscan.com".to_string()),
-        });
-        evm_networks.insert("blast".to_string(), EvmNetworkConfig {
-            name: "Blast".to_string(),
-            chain_id: 81457,
-            rpc_url: "https://blast.blockpi.network/v1/rpc/public".to_string(),
-            explorer_url: Some("https://blastscan.io".to_string()),
-        });
-        evm_networks.insert("mode".to_string(), EvmNetworkConfig {
-            name: "Mode".to_string(),
-            chain_id: 34443,
-            rpc_url: "https://mainnet.mode.network".to_string(),
-            explorer_url: Some("https://modescan.io".to_string()),
-        });
-        evm_networks.insert("mantle".to_string(), EvmNetworkConfig {
-            name: "Mantle".to_string(),
-            chain_id: 5000,
-            rpc_url: "https://mantle.publicnode.com".to_string(),
-            explorer_url: Some("https://explorer.mantle.xyz".to_string()),
-        });
-        evm_networks.insert("celo".to_string(), EvmNetworkConfig {
-            name: "Celo".to_string(),
-            chain_id: 42220,
-            rpc_url: "https://forno.celo.org".to_string(),
-            explorer_url: Some("https://celoscan.io".to_string()),
-        });
-        evm_networks.insert("cronos".to_string(), EvmNetworkConfig {
-            name: "Cronos".to_string(),
-            chain_id: 25,
-            rpc_url: "https://node.cronos.org/rpc".to_string(),
-            explorer_url: Some("https://cronoscan.com".to_string()),
-        });
+        evm_networks.insert(
+            "ethereum".to_string(),
+            EvmNetworkConfig {
+                name: "Ethereum Mainnet".to_string(),
+                chain_id: 1,
+                rpc_url: "https://eth.llamarpc.com".to_string(),
+                explorer_url: Some("https://etherscan.io".to_string()),
+            },
+        );
+        evm_networks.insert(
+            "polygon".to_string(),
+            EvmNetworkConfig {
+                name: "Polygon".to_string(),
+                chain_id: 137,
+                rpc_url: "https://polygon.llamarpc.com".to_string(),
+                explorer_url: Some("https://polygonscan.com".to_string()),
+            },
+        );
+        evm_networks.insert(
+            "arbitrum".to_string(),
+            EvmNetworkConfig {
+                name: "Arbitrum One".to_string(),
+                chain_id: 42161,
+                rpc_url: "https://arbitrum.llamarpc.com".to_string(),
+                explorer_url: Some("https://arbiscan.io".to_string()),
+            },
+        );
+        evm_networks.insert(
+            "optimism".to_string(),
+            EvmNetworkConfig {
+                name: "Optimism".to_string(),
+                chain_id: 10,
+                rpc_url: "https://optimism.llamarpc.com".to_string(),
+                explorer_url: Some("https://optimistic.etherscan.io".to_string()),
+            },
+        );
+        evm_networks.insert(
+            "base".to_string(),
+            EvmNetworkConfig {
+                name: "Base".to_string(),
+                chain_id: 8453,
+                rpc_url: "https://base.llamarpc.com".to_string(),
+                explorer_url: Some("https://basescan.org".to_string()),
+            },
+        );
+        evm_networks.insert(
+            "bsc".to_string(),
+            EvmNetworkConfig {
+                name: "BNB Smart Chain".to_string(),
+                chain_id: 56,
+                rpc_url: "https://bsc.llamarpc.com".to_string(),
+                explorer_url: Some("https://bscscan.com".to_string()),
+            },
+        );
+        evm_networks.insert(
+            "avalanche".to_string(),
+            EvmNetworkConfig {
+                name: "Avalanche C-Chain".to_string(),
+                chain_id: 43114,
+                rpc_url: "https://avalanche.llamarpc.com".to_string(),
+                explorer_url: Some("https://snowtrace.io".to_string()),
+            },
+        );
+        evm_networks.insert(
+            "gnosis".to_string(),
+            EvmNetworkConfig {
+                name: "Gnosis".to_string(),
+                chain_id: 100,
+                rpc_url: "https://gnosis.llamarpc.com".to_string(),
+                explorer_url: Some("https://gnosisscan.io".to_string()),
+            },
+        );
+        evm_networks.insert(
+            "fantom".to_string(),
+            EvmNetworkConfig {
+                name: "Fantom".to_string(),
+                chain_id: 250,
+                rpc_url: "https://fantom.llamarpc.com".to_string(),
+                explorer_url: Some("https://ftmscan.com".to_string()),
+            },
+        );
+        evm_networks.insert(
+            "linea".to_string(),
+            EvmNetworkConfig {
+                name: "Linea".to_string(),
+                chain_id: 59144,
+                rpc_url: "https://linea.blockpi.network/v1/rpc/public".to_string(),
+                explorer_url: Some("https://lineascan.build".to_string()),
+            },
+        );
+        evm_networks.insert(
+            "scroll".to_string(),
+            EvmNetworkConfig {
+                name: "Scroll".to_string(),
+                chain_id: 534_352,
+                rpc_url: "https://rpc.scroll.io".to_string(),
+                explorer_url: Some("https://scrollscan.com".to_string()),
+            },
+        );
+        evm_networks.insert(
+            "blast".to_string(),
+            EvmNetworkConfig {
+                name: "Blast".to_string(),
+                chain_id: 81457,
+                rpc_url: "https://blast.blockpi.network/v1/rpc/public".to_string(),
+                explorer_url: Some("https://blastscan.io".to_string()),
+            },
+        );
+        evm_networks.insert(
+            "mode".to_string(),
+            EvmNetworkConfig {
+                name: "Mode".to_string(),
+                chain_id: 34443,
+                rpc_url: "https://mainnet.mode.network".to_string(),
+                explorer_url: Some("https://modescan.io".to_string()),
+            },
+        );
+        evm_networks.insert(
+            "mantle".to_string(),
+            EvmNetworkConfig {
+                name: "Mantle".to_string(),
+                chain_id: 5000,
+                rpc_url: "https://mantle.publicnode.com".to_string(),
+                explorer_url: Some("https://explorer.mantle.xyz".to_string()),
+            },
+        );
+        evm_networks.insert(
+            "celo".to_string(),
+            EvmNetworkConfig {
+                name: "Celo".to_string(),
+                chain_id: 42220,
+                rpc_url: "https://forno.celo.org".to_string(),
+                explorer_url: Some("https://celoscan.io".to_string()),
+            },
+        );
+        evm_networks.insert(
+            "cronos".to_string(),
+            EvmNetworkConfig {
+                name: "Cronos".to_string(),
+                chain_id: 25,
+                rpc_url: "https://node.cronos.org/rpc".to_string(),
+                explorer_url: Some("https://cronoscan.com".to_string()),
+            },
+        );
 
         let mut solana_networks = HashMap::new();
-        solana_networks.insert("mainnet".to_string(), SolanaNetworkConfig {
-            name: "Solana Mainnet".to_string(),
-            rpc_url: "https://api.mainnet-beta.solana.com".to_string(),
-            explorer_url: Some("https://explorer.solana.com".to_string()),
-        });
-        solana_networks.insert("devnet".to_string(), SolanaNetworkConfig {
-            name: "Solana Devnet".to_string(),
-            rpc_url: "https://api.devnet.solana.com".to_string(),
-            explorer_url: Some("https://explorer.solana.com".to_string()),
-        });
+        solana_networks.insert(
+            "mainnet".to_string(),
+            SolanaNetworkConfig {
+                name: "Solana Mainnet".to_string(),
+                rpc_url: "https://api.mainnet-beta.solana.com".to_string(),
+                explorer_url: Some("https://explorer.solana.com".to_string()),
+            },
+        );
+        solana_networks.insert(
+            "devnet".to_string(),
+            SolanaNetworkConfig {
+                name: "Solana Devnet".to_string(),
+                rpc_url: "https://api.devnet.solana.com".to_string(),
+                explorer_url: Some("https://explorer.solana.com".to_string()),
+            },
+        );
 
         Self {
             evm_networks,
@@ -167,10 +221,10 @@ impl RpcConfig {
     pub fn from_env() -> Result<Self, Box<dyn std::error::Error>> {
         // Start with default configuration
         let mut config = Self::default();
-        
+
         // Apply any environment overrides
         config = config.with_env_overrides();
-        
+
         Ok(config)
     }
 
@@ -191,12 +245,15 @@ impl RpcConfig {
     ) -> &mut Self {
         let key = name.into().to_lowercase();
         let display_name = key.clone();
-        self.evm_networks.insert(key, EvmNetworkConfig { 
-            name: display_name, 
-            chain_id, 
-            rpc_url: rpc_url.into(), 
-            explorer_url 
-        });
+        self.evm_networks.insert(
+            key,
+            EvmNetworkConfig {
+                name: display_name,
+                chain_id,
+                rpc_url: rpc_url.into(),
+                explorer_url,
+            },
+        );
         self
     }
 

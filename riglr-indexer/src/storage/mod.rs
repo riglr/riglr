@@ -1,16 +1,16 @@
 //! Data storage abstractions and implementations
 
-use std::collections::HashMap;
-use std::time::Duration;
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::time::Duration;
 
-use crate::config::{StorageConfig, StorageBackend};
+use crate::config::{StorageBackend, StorageConfig};
 use crate::error::{IndexerError, IndexerResult};
 
-pub mod postgres;
 pub mod cache;
+pub mod postgres;
 pub mod schema;
 
 pub use postgres::PostgresStore;
@@ -120,7 +120,12 @@ pub trait DataStore: Send + Sync {
     async fn health_check(&self) -> IndexerResult<()>;
 
     /// Cache an event (if caching is supported)
-    async fn cache_event(&self, key: &str, event: &StoredEvent, ttl: Option<Duration>) -> IndexerResult<()> {
+    async fn cache_event(
+        &self,
+        key: &str,
+        event: &StoredEvent,
+        ttl: Option<Duration>,
+    ) -> IndexerResult<()> {
         // Default implementation is a no-op
         let _ = (key, event, ttl);
         Ok(())
@@ -162,9 +167,11 @@ pub async fn create_store(config: &StorageConfig) -> IndexerResult<Box<dyn DataS
             }
             #[cfg(not(feature = "clickhouse"))]
             {
-                Err(IndexerError::Config(crate::error::ConfigError::ValidationFailed {
-                    message: "ClickHouse support not compiled in".to_string(),
-                }))
+                Err(IndexerError::Config(
+                    crate::error::ConfigError::ValidationFailed {
+                        message: "ClickHouse support not compiled in".to_string(),
+                    },
+                ))
             }
         }
         StorageBackend::TimescaleDB => {
@@ -173,11 +180,11 @@ pub async fn create_store(config: &StorageConfig) -> IndexerResult<Box<dyn DataS
             store.initialize().await?;
             Ok(Box::new(store))
         }
-        StorageBackend::MongoDB => {
-            Err(IndexerError::Config(crate::error::ConfigError::ValidationFailed {
+        StorageBackend::MongoDB => Err(IndexerError::Config(
+            crate::error::ConfigError::ValidationFailed {
                 message: "MongoDB support not yet implemented".to_string(),
-            }))
-        }
+            },
+        )),
     }
 }
 
@@ -206,8 +213,8 @@ impl EventAggregator {
             let period_secs = period.as_secs() as i64;
             let timestamp_secs = event.timestamp.timestamp();
             let rounded_secs = (timestamp_secs / period_secs) * period_secs;
-            let rounded_timestamp = DateTime::from_timestamp(rounded_secs, 0)
-                .unwrap_or(event.timestamp);
+            let rounded_timestamp =
+                DateTime::from_timestamp(rounded_secs, 0).unwrap_or(event.timestamp);
 
             *aggregates.entry(rounded_timestamp).or_insert(0) += 1;
         }

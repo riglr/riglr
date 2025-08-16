@@ -1,9 +1,9 @@
 //! Event processing pipeline stages
 
-use riglr_events_core::prelude::*;
 use crate::error::{IndexerError, IndexerResult};
+use riglr_events_core::prelude::*;
 
-pub use crate::core::processor::{ProcessingPipeline, PipelineStage};
+pub use crate::core::processor::{PipelineStage, ProcessingPipeline};
 
 /// Result of pipeline processing
 pub type PipelineResult<T> = IndexerResult<T>;
@@ -35,7 +35,7 @@ impl PipelineStage for ValidationStage {
         if event.id().is_empty() {
             return Err(IndexerError::validation("Event ID cannot be empty"));
         }
-        
+
         if event.source().is_empty() {
             return Err(IndexerError::validation("Event source cannot be empty"));
         }

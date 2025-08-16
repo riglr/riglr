@@ -8,14 +8,14 @@ use std::collections::HashMap;
 pub struct PrivyUserData {
     /// User ID
     pub id: String,
-    
+
     /// Linked accounts
     pub linked_accounts: Vec<LinkedAccount>,
-    
+
     /// Whether user is verified
     #[serde(default)]
     pub verified: bool,
-    
+
     /// User metadata
     #[serde(default)]
     pub metadata: HashMap<String, serde_json::Value>,
@@ -32,7 +32,7 @@ impl PrivyUserData {
             })
             .next()
     }
-    
+
     /// Get EVM wallet if available
     pub fn evm_wallet(&self) -> Option<&PrivyWallet> {
         self.linked_accounts
@@ -43,7 +43,7 @@ impl PrivyUserData {
             })
             .next()
     }
-    
+
     /// Get email if available
     pub fn email(&self) -> Option<String> {
         self.linked_accounts
@@ -62,21 +62,21 @@ impl PrivyUserData {
 pub enum LinkedAccount {
     /// Wallet account
     Wallet(PrivyWallet),
-    
+
     /// Email account
     Email {
         address: String,
         #[serde(default)]
         verified: bool,
     },
-    
+
     /// Phone account
     Phone {
         number: String,
         #[serde(default)]
         verified: bool,
     },
-    
+
     /// Social account
     Social {
         provider: String,
@@ -84,7 +84,7 @@ pub enum LinkedAccount {
         #[serde(default)]
         verified: bool,
     },
-    
+
     /// Other account types
     #[serde(other)]
     Other,
@@ -96,21 +96,21 @@ pub struct PrivyWallet {
     /// Wallet ID
     #[serde(default)]
     pub id: Option<String>,
-    
+
     /// Wallet address
     pub address: String,
-    
+
     /// Chain type (solana, ethereum, etc.)
     pub chain_type: String,
-    
+
     /// Wallet client type
     #[serde(default)]
     pub wallet_client: String,
-    
+
     /// Whether this is a delegated wallet
     #[serde(default)]
     pub delegated: bool,
-    
+
     /// Whether wallet is imported
     #[serde(default)]
     pub imported: bool,
@@ -122,20 +122,20 @@ pub struct PrivyWallet {
 pub struct PrivyClaims {
     /// Subject (user ID)
     pub sub: String,
-    
+
     /// Audience (app ID)
     pub aud: String,
-    
+
     /// Issuer
     pub iss: String,
-    
+
     /// Session ID
     #[serde(default)]
     pub sid: String,
-    
+
     /// Expiration time
     pub exp: i64,
-    
+
     /// Issued at
     pub iat: i64,
 }
@@ -145,16 +145,16 @@ pub struct PrivyClaims {
 pub struct PrivyRpcRequest {
     /// Wallet address
     pub address: String,
-    
+
     /// Chain type
     pub chain_type: String,
-    
+
     /// RPC method
     pub method: String,
-    
+
     /// CAIP-2 chain identifier
     pub caip2: String,
-    
+
     /// Method parameters
     pub params: serde_json::Value,
 }
@@ -171,7 +171,7 @@ pub struct PrivyRpcResponse {
 pub struct PrivySolanaTransactionParams {
     /// Base64-encoded transaction
     pub transaction: String,
-    
+
     /// Encoding type
     pub encoding: String,
 }
@@ -181,26 +181,26 @@ pub struct PrivySolanaTransactionParams {
 pub struct PrivyEvmTransactionParams {
     /// From address
     pub from: String,
-    
+
     /// To address
     pub to: String,
-    
+
     /// Value in hex
     #[serde(skip_serializing_if = "Option::is_none")]
     pub value: Option<String>,
-    
+
     /// Data in hex
     #[serde(skip_serializing_if = "Option::is_none")]
     pub data: Option<String>,
-    
+
     /// Gas limit
     #[serde(skip_serializing_if = "Option::is_none", rename = "gasLimit")]
     pub gas_limit: Option<String>,
-    
+
     /// Gas price
     #[serde(skip_serializing_if = "Option::is_none", rename = "gasPrice")]
     pub gas_price: Option<String>,
-    
+
     /// Transaction type
     #[serde(skip_serializing_if = "Option::is_none", rename = "type")]
     pub tx_type: Option<u8>,

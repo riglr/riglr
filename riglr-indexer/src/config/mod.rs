@@ -5,29 +5,29 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::time::Duration;
 
-use crate::error::{ConfigError, IndexerResult, IndexerError};
+use crate::error::{ConfigError, IndexerError, IndexerResult};
 
 /// Main configuration for the indexer service
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct IndexerConfig {
     /// Service configuration
     pub service: ServiceConfig,
-    
+
     /// Storage configuration
     pub storage: StorageConfig,
-    
-    /// Processing configuration  
+
+    /// Processing configuration
     pub processing: ProcessingConfig,
-    
+
     /// API server configuration
     pub api: ApiConfig,
-    
+
     /// Metrics configuration
     pub metrics: MetricsConfig,
-    
+
     /// Logging configuration
     pub logging: LoggingConfig,
-    
+
     /// Feature flags
     pub features: FeatureConfig,
 }
@@ -37,20 +37,20 @@ pub struct IndexerConfig {
 pub struct ServiceConfig {
     /// Service name for identification
     pub name: String,
-    
+
     /// Service version
     pub version: String,
-    
+
     /// Environment (development, staging, production)
     pub environment: String,
-    
+
     /// Node ID for clustering
     pub node_id: Option<String>,
-    
+
     /// Graceful shutdown timeout
     #[serde(with = "humantime_serde")]
     pub shutdown_timeout: Duration,
-    
+
     /// Health check interval
     #[serde(with = "humantime_serde")]
     pub health_check_interval: Duration,
@@ -61,13 +61,13 @@ pub struct ServiceConfig {
 pub struct StorageConfig {
     /// Primary storage backend
     pub primary: StorageBackendConfig,
-    
+
     /// Optional secondary storage for archival
     pub secondary: Option<StorageBackendConfig>,
-    
+
     /// Cache configuration
     pub cache: CacheConfig,
-    
+
     /// Data retention policies
     pub retention: RetentionConfig,
 }
@@ -77,13 +77,13 @@ pub struct StorageConfig {
 pub struct StorageBackendConfig {
     /// Backend type (postgres, clickhouse, etc.)
     pub backend: StorageBackend,
-    
+
     /// Connection URL
     pub url: String,
-    
+
     /// Connection pool settings
     pub pool: ConnectionPoolConfig,
-    
+
     /// Database-specific settings
     pub settings: HashMap<String, serde_json::Value>,
 }
@@ -107,18 +107,18 @@ pub enum StorageBackend {
 pub struct ConnectionPoolConfig {
     /// Maximum number of connections
     pub max_connections: u32,
-    
+
     /// Minimum number of idle connections
     pub min_connections: u32,
-    
+
     /// Connection timeout
     #[serde(with = "humantime_serde")]
     pub connect_timeout: Duration,
-    
+
     /// Idle timeout
     #[serde(with = "humantime_serde")]
     pub idle_timeout: Duration,
-    
+
     /// Maximum connection lifetime
     #[serde(with = "humantime_serde")]
     pub max_lifetime: Duration,
@@ -129,13 +129,13 @@ pub struct ConnectionPoolConfig {
 pub struct CacheConfig {
     /// Cache backend (redis, memory)
     pub backend: CacheBackend,
-    
+
     /// Redis URL (if using Redis)
     pub redis_url: Option<String>,
-    
+
     /// Cache TTL settings
     pub ttl: CacheTtlConfig,
-    
+
     /// Memory cache settings
     pub memory: MemoryCacheConfig,
 }
@@ -158,11 +158,11 @@ pub struct CacheTtlConfig {
     /// Default TTL for cached items
     #[serde(with = "humantime_serde")]
     pub default: Duration,
-    
+
     /// TTL for event metadata
     #[serde(with = "humantime_serde")]
     pub events: Duration,
-    
+
     /// TTL for aggregated data
     #[serde(with = "humantime_serde")]
     pub aggregates: Duration,
@@ -173,7 +173,7 @@ pub struct CacheTtlConfig {
 pub struct MemoryCacheConfig {
     /// Maximum memory usage in bytes
     pub max_size_bytes: u64,
-    
+
     /// Maximum number of entries
     pub max_entries: u64,
 }
@@ -184,10 +184,10 @@ pub struct RetentionConfig {
     /// Default retention period
     #[serde(with = "humantime_serde")]
     pub default: Duration,
-    
+
     /// Retention by event type
     pub by_event_type: HashMap<String, Duration>,
-    
+
     /// Archive configuration
     pub archive: ArchiveConfig,
 }
@@ -197,10 +197,10 @@ pub struct RetentionConfig {
 pub struct ArchiveConfig {
     /// Whether archival is enabled
     pub enabled: bool,
-    
+
     /// Archive storage backend
     pub backend: Option<StorageBackendConfig>,
-    
+
     /// Compression settings
     pub compression: CompressionConfig,
 }
@@ -210,7 +210,7 @@ pub struct ArchiveConfig {
 pub struct CompressionConfig {
     /// Compression algorithm
     pub algorithm: CompressionAlgorithm,
-    
+
     /// Compression level (1-9)
     pub level: u8,
 }
@@ -234,16 +234,16 @@ pub enum CompressionAlgorithm {
 pub struct ProcessingConfig {
     /// Number of worker threads
     pub workers: usize,
-    
+
     /// Batch processing settings
     pub batch: BatchConfig,
-    
+
     /// Event queue configuration
     pub queue: QueueConfig,
-    
+
     /// Retry configuration
     pub retry: RetryConfig,
-    
+
     /// Rate limiting
     pub rate_limit: RateLimitConfig,
 }
@@ -253,11 +253,11 @@ pub struct ProcessingConfig {
 pub struct BatchConfig {
     /// Maximum batch size
     pub max_size: usize,
-    
+
     /// Maximum batch age before forcing flush
     #[serde(with = "humantime_serde")]
     pub max_age: Duration,
-    
+
     /// Target batch size for optimal performance
     pub target_size: usize,
 }
@@ -267,10 +267,10 @@ pub struct BatchConfig {
 pub struct QueueConfig {
     /// Maximum queue capacity
     pub capacity: usize,
-    
+
     /// Queue type (memory, disk, hybrid)
     pub queue_type: QueueType,
-    
+
     /// Disk queue settings (if using disk queue)
     pub disk_settings: Option<DiskQueueConfig>,
 }
@@ -292,10 +292,10 @@ pub enum QueueType {
 pub struct DiskQueueConfig {
     /// Directory for queue files
     pub directory: PathBuf,
-    
+
     /// Maximum size per file
     pub max_file_size: u64,
-    
+
     /// Sync strategy
     pub sync_strategy: SyncStrategy,
 }
@@ -317,18 +317,18 @@ pub enum SyncStrategy {
 pub struct RetryConfig {
     /// Maximum retry attempts
     pub max_attempts: u32,
-    
+
     /// Base delay between retries
     #[serde(with = "humantime_serde")]
     pub base_delay: Duration,
-    
+
     /// Maximum delay between retries
     #[serde(with = "humantime_serde")]
     pub max_delay: Duration,
-    
+
     /// Backoff multiplier
     pub backoff_multiplier: f64,
-    
+
     /// Jitter factor (0.0 to 1.0)
     pub jitter: f64,
 }
@@ -338,10 +338,10 @@ pub struct RetryConfig {
 pub struct RateLimitConfig {
     /// Whether rate limiting is enabled
     pub enabled: bool,
-    
+
     /// Maximum events per second
     pub max_events_per_second: u32,
-    
+
     /// Burst capacity
     pub burst_capacity: u32,
 }
@@ -351,16 +351,16 @@ pub struct RateLimitConfig {
 pub struct ApiConfig {
     /// HTTP server settings
     pub http: HttpConfig,
-    
+
     /// WebSocket settings
     pub websocket: WebSocketConfig,
-    
+
     /// GraphQL settings
     pub graphql: Option<GraphQLConfig>,
-    
+
     /// Authentication settings
     pub auth: AuthConfig,
-    
+
     /// CORS settings
     pub cors: CorsConfig,
 }
@@ -370,17 +370,17 @@ pub struct ApiConfig {
 pub struct HttpConfig {
     /// Server bind address
     pub bind: String,
-    
+
     /// Server port
     pub port: u16,
-    
+
     /// Request timeout
     #[serde(with = "humantime_serde")]
     pub timeout: Duration,
-    
+
     /// Maximum request size
     pub max_request_size: u64,
-    
+
     /// Keep-alive timeout
     #[serde(with = "humantime_serde")]
     pub keep_alive: Duration,
@@ -391,13 +391,13 @@ pub struct HttpConfig {
 pub struct WebSocketConfig {
     /// Whether WebSocket is enabled
     pub enabled: bool,
-    
+
     /// Maximum connections
     pub max_connections: u32,
-    
+
     /// Message buffer size
     pub buffer_size: usize,
-    
+
     /// Heartbeat interval
     #[serde(with = "humantime_serde")]
     pub heartbeat_interval: Duration,
@@ -408,16 +408,16 @@ pub struct WebSocketConfig {
 pub struct GraphQLConfig {
     /// Whether GraphQL is enabled
     pub enabled: bool,
-    
+
     /// GraphQL endpoint path
     pub endpoint: String,
-    
+
     /// Playground enabled
     pub playground: bool,
-    
+
     /// Query complexity limit
     pub complexity_limit: u32,
-    
+
     /// Query depth limit
     pub depth_limit: u32,
 }
@@ -427,13 +427,13 @@ pub struct GraphQLConfig {
 pub struct AuthConfig {
     /// Whether authentication is enabled
     pub enabled: bool,
-    
+
     /// Authentication method
     pub method: AuthMethod,
-    
+
     /// JWT settings (if using JWT)
     pub jwt: Option<JwtConfig>,
-    
+
     /// API key settings (if using API keys)
     pub api_key: Option<ApiKeyConfig>,
 }
@@ -457,14 +457,14 @@ pub enum AuthMethod {
 pub struct JwtConfig {
     /// JWT secret key
     pub secret: String,
-    
+
     /// Token expiration time
     #[serde(with = "humantime_serde")]
     pub expires_in: Duration,
-    
+
     /// Issuer
     pub issuer: String,
-    
+
     /// Audience
     pub audience: String,
 }
@@ -474,7 +474,7 @@ pub struct JwtConfig {
 pub struct ApiKeyConfig {
     /// Header name for API key
     pub header_name: String,
-    
+
     /// Valid API keys
     pub keys: Vec<String>,
 }
@@ -484,16 +484,16 @@ pub struct ApiKeyConfig {
 pub struct CorsConfig {
     /// Whether CORS is enabled
     pub enabled: bool,
-    
+
     /// Allowed origins
     pub allowed_origins: Vec<String>,
-    
+
     /// Allowed methods
     pub allowed_methods: Vec<String>,
-    
+
     /// Allowed headers
     pub allowed_headers: Vec<String>,
-    
+
     /// Max age for preflight requests
     #[serde(with = "humantime_serde")]
     pub max_age: Duration,
@@ -504,20 +504,20 @@ pub struct CorsConfig {
 pub struct MetricsConfig {
     /// Whether metrics are enabled
     pub enabled: bool,
-    
+
     /// Metrics server port
     pub port: u16,
-    
+
     /// Metrics endpoint path
     pub endpoint: String,
-    
+
     /// Collection interval
     #[serde(with = "humantime_serde")]
     pub collection_interval: Duration,
-    
+
     /// Histogram buckets
     pub histogram_buckets: Vec<f64>,
-    
+
     /// Custom metrics
     pub custom: HashMap<String, CustomMetricConfig>,
 }
@@ -527,10 +527,10 @@ pub struct MetricsConfig {
 pub struct CustomMetricConfig {
     /// Metric type
     pub metric_type: MetricType,
-    
+
     /// Metric description
     pub description: String,
-    
+
     /// Metric labels
     pub labels: Vec<String>,
 }
@@ -554,13 +554,13 @@ pub enum MetricType {
 pub struct LoggingConfig {
     /// Log level
     pub level: String,
-    
+
     /// Log format (json, text)
     pub format: LogFormat,
-    
+
     /// Output destinations
     pub outputs: Vec<LogOutput>,
-    
+
     /// Structured logging settings
     pub structured: StructuredLoggingConfig,
 }
@@ -596,13 +596,13 @@ pub enum LogOutput {
 pub struct StructuredLoggingConfig {
     /// Include source location
     pub include_location: bool,
-    
+
     /// Include thread information
     pub include_thread: bool,
-    
+
     /// Include service metadata
     pub include_service_metadata: bool,
-    
+
     /// Custom fields to include
     pub custom_fields: HashMap<String, String>,
 }
@@ -612,16 +612,16 @@ pub struct StructuredLoggingConfig {
 pub struct FeatureConfig {
     /// Enable real-time streaming
     pub realtime_streaming: bool,
-    
+
     /// Enable event archival
     pub archival: bool,
-    
+
     /// Enable GraphQL API
     pub graphql_api: bool,
-    
+
     /// Enable experimental features
     pub experimental: bool,
-    
+
     /// Custom feature flags
     pub custom: HashMap<String, bool>,
 }
@@ -634,40 +634,43 @@ impl IndexerConfig {
 
         // Check for custom config file
         let config_file = std::env::var("RIGLR_INDEXER_CONFIG").ok();
-        
+
         let mut settings = config::Config::builder();
-        
+
         // Load defaults first
-        settings = settings.add_source(config::Config::try_from(&Self::default())
-            .map_err(|e| IndexerError::internal(e.to_string()))?);
-        
+        settings = settings.add_source(
+            config::Config::try_from(&Self::default())
+                .map_err(|e| IndexerError::internal(e.to_string()))?,
+        );
+
         // Override with file if specified
         if let Some(path) = config_file {
             settings = settings.add_source(config::File::with_name(&path).required(false));
         }
-        
+
         // Override with environment variables
         settings = settings.add_source(
             config::Environment::with_prefix("RIGLR_INDEXER")
                 .separator("__")
-                .try_parsing(true)
+                .try_parsing(true),
         );
 
-        let config = settings.build()
-            .map_err(|e| ConfigError::LoadFailed {
-                path: "environment".to_string(),
-                source: Box::new(e),
-            })?;
+        let config = settings.build().map_err(|e| ConfigError::LoadFailed {
+            path: "environment".to_string(),
+            source: Box::new(e),
+        })?;
 
-        let config: IndexerConfig = config.try_deserialize()
-            .map_err(|e| ConfigError::LoadFailed {
-                path: "deserialization".to_string(), 
-                source: Box::new(e),
-            })?;
+        let config: IndexerConfig =
+            config
+                .try_deserialize()
+                .map_err(|e| ConfigError::LoadFailed {
+                    path: "deserialization".to_string(),
+                    source: Box::new(e),
+                })?;
 
         // Validate configuration
         config.validate()?;
-        
+
         Ok(config)
     }
 
@@ -677,14 +680,16 @@ impl IndexerConfig {
         if self.service.name.is_empty() {
             return Err(ConfigError::MissingField {
                 field: "service.name".to_string(),
-            }.into());
+            }
+            .into());
         }
 
         // Validate storage config
         if self.storage.primary.url.is_empty() {
             return Err(ConfigError::MissingField {
                 field: "storage.primary.url".to_string(),
-            }.into());
+            }
+            .into());
         }
 
         // Validate processing config
@@ -692,14 +697,16 @@ impl IndexerConfig {
             return Err(ConfigError::InvalidValue {
                 field: "processing.workers".to_string(),
                 value: "0".to_string(),
-            }.into());
+            }
+            .into());
         }
 
         if self.processing.batch.max_size == 0 {
             return Err(ConfigError::InvalidValue {
                 field: "processing.batch.max_size".to_string(),
                 value: "0".to_string(),
-            }.into());
+            }
+            .into());
         }
 
         // Validate API config
@@ -707,7 +714,8 @@ impl IndexerConfig {
             return Err(ConfigError::InvalidValue {
                 field: "api.http.port".to_string(),
                 value: "0".to_string(),
-            }.into());
+            }
+            .into());
         }
 
         // Validate metrics config if enabled
@@ -715,7 +723,8 @@ impl IndexerConfig {
             return Err(ConfigError::InvalidValue {
                 field: "metrics.port".to_string(),
                 value: "0".to_string(),
-            }.into());
+            }
+            .into());
         }
 
         Ok(())
@@ -734,20 +743,18 @@ impl IndexerConfig {
 
     /// Generate node ID if not provided
     pub fn node_id(&self) -> String {
-        self.service.node_id
-            .clone()
-            .unwrap_or_else(|| {
-                use std::collections::hash_map::DefaultHasher;
-                use std::hash::{Hash, Hasher};
-                
-                let mut hasher = DefaultHasher::new();
-                self.service.name.hash(&mut hasher);
-                std::env::var("HOSTNAME")
-                    .unwrap_or_else(|_| "unknown".to_string())
-                    .hash(&mut hasher);
-                    
-                format!("{:x}", hasher.finish())
-            })
+        self.service.node_id.clone().unwrap_or_else(|| {
+            use std::collections::hash_map::DefaultHasher;
+            use std::hash::{Hash, Hasher};
+
+            let mut hasher = DefaultHasher::new();
+            self.service.name.hash(&mut hasher);
+            std::env::var("HOSTNAME")
+                .unwrap_or_else(|_| "unknown".to_string())
+                .hash(&mut hasher);
+
+            format!("{:x}", hasher.finish())
+        })
     }
 }
 
@@ -861,7 +868,9 @@ impl Default for IndexerConfig {
                 port: 9090,
                 endpoint: "/metrics".to_string(),
                 collection_interval: Duration::from_secs(15),
-                histogram_buckets: vec![0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0],
+                histogram_buckets: vec![
+                    0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0,
+                ],
                 custom: HashMap::new(),
             },
             logging: LoggingConfig {

@@ -1,5 +1,5 @@
-use std::collections::HashMap;
 use riglr_events_core::Event;
+use std::collections::HashMap;
 
 use borsh::BorshDeserialize;
 use solana_sdk::{instruction::CompiledInstruction, pubkey::Pubkey};
@@ -8,9 +8,7 @@ use solana_transaction_status::UiCompiledInstruction;
 use crate::events::{
     common::{EventMetadata, EventType, ProtocolType},
     core::traits::{EventParser, GenericEventParseConfig, GenericEventParser},
-    protocols::raydium_cpmm::{
-        discriminators, RaydiumCpmmSwapEvent, RaydiumCpmmDepositEvent,
-    },
+    protocols::raydium_cpmm::{discriminators, RaydiumCpmmDepositEvent, RaydiumCpmmSwapEvent},
 };
 
 /// Raydium CPMM program ID
@@ -87,7 +85,10 @@ impl RaydiumCpmmEventParser {
         // Parse the deposit event using borsh deserialization
         if let Ok(event) = RaydiumCpmmDepositEvent::try_from_slice(data) {
             let mut metadata = metadata;
-            metadata.set_id(format!("{}-{}-deposit", metadata.signature, event.pool_state));
+            metadata.set_id(format!(
+                "{}-{}-deposit",
+                metadata.signature, event.pool_state
+            ));
             Some(Box::new(RaydiumCpmmDepositEvent { metadata, ..event }))
         } else {
             None

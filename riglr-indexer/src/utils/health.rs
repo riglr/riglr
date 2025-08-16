@@ -6,13 +6,14 @@ use std::time::{Duration, Instant};
 use tokio::sync::RwLock;
 use tracing::{debug, error, warn};
 
-
 /// Health check trait for services and components
 #[async_trait::async_trait]
 pub trait HealthCheck: Send + Sync {
     /// Perform a health check
-    async fn health_check(&self) -> Result<HealthCheckResult, Box<dyn std::error::Error + Send + Sync>>;
-    
+    async fn health_check(
+        &self,
+    ) -> Result<HealthCheckResult, Box<dyn std::error::Error + Send + Sync>>;
+
     /// Get component name
     fn component_name(&self) -> &str;
 }
@@ -152,7 +153,11 @@ impl HealthCheckCoordinator {
     }
 
     /// Perform health check with caching
-    async fn check_with_cache(&self, name: &str, check: &Arc<dyn HealthCheck>) -> HealthCheckResult {
+    async fn check_with_cache(
+        &self,
+        name: &str,
+        check: &Arc<dyn HealthCheck>,
+    ) -> HealthCheckResult {
         // Check cache first
         {
             let cache = self.cached_results.read().await;
@@ -166,11 +171,12 @@ impl HealthCheckCoordinator {
 
         // Perform actual check
         let start = Instant::now();
-        let mut result = match tokio::time::timeout(Duration::from_secs(10), check.health_check()).await {
-            Ok(Ok(result)) => result,
-            Ok(Err(_)) => HealthCheckResult::unhealthy("Health check failed"),
-            Err(_) => HealthCheckResult::unhealthy("Health check timed out"),
-        };
+        let mut result =
+            match tokio::time::timeout(Duration::from_secs(10), check.health_check()).await {
+                Ok(Ok(result)) => result,
+                Ok(Err(_)) => HealthCheckResult::unhealthy("Health check failed"),
+                Err(_) => HealthCheckResult::unhealthy("Health check timed out"),
+            };
 
         result.response_time = start.elapsed();
         result.timestamp = Instant::now();
@@ -193,17 +199,19 @@ impl HealthCheckCoordinator {
     /// Start background health check task
     pub fn start_background_checks(&self, interval: Duration) -> tokio::task::JoinHandle<()> {
         let coordinator = self.clone();
-        
+
         tokio::spawn(async move {
             let mut interval_timer = tokio::time::interval(interval);
-            
+
             loop {
                 interval_timer.tick().await;
-                
+
                 let summary = coordinator.health_summary().await;
-                debug!("Background health check: {} ({}/{})", 
-                       summary.status, summary.healthy_components, summary.total_components);
-                
+                debug!(
+                    "Background health check: {} ({}/{})",
+                    summary.status, summary.healthy_components, summary.total_components
+                );
+
                 if !summary.overall_healthy {
                     for (name, result) in &summary.component_results {
                         if !result.healthy {
@@ -274,10 +282,15 @@ impl ConnectionHealthCheck {
 
 #[async_trait::async_trait]
 impl HealthCheck for ConnectionHealthCheck {
-    async fn health_check(&self) -> Result<HealthCheckResult, Box<dyn std::error::Error + Send + Sync>> {
+    async fn health_check(
+        &self,
+    ) -> Result<HealthCheckResult, Box<dyn std::error::Error + Send + Sync>> {
         match (self.test_fn)() {
             Ok(()) => Ok(HealthCheckResult::healthy("Connection OK")),
-            Err(e) => Ok(HealthCheckResult::unhealthy(&format!("Connection failed: {}", e))),
+            Err(e) => Ok(HealthCheckResult::unhealthy(&format!(
+                "Connection failed: {}",
+                e
+            ))),
         }
     }
 
@@ -308,27 +321,28 @@ impl HttpHealthCheck {
 
 #[async_trait::async_trait]
 impl HealthCheck for HttpHealthCheck {
-    async fn health_check(&self) -> Result<HealthCheckResult, Box<dyn std::error::Error + Send + Sync>> {
+    async fn health_check(
+        &self,
+    ) -> Result<HealthCheckResult, Box<dyn std::error::Error + Send + Sync>> {
         let client = reqwest::Client::new();
-        
-        match tokio::time::timeout(
-            self.timeout,
-            client.get(&self.url).send()
-        ).await {
+
+        match tokio::time::timeout(self.timeout, client.get(&self.url).send()).await {
             Ok(Ok(response)) => {
                 let status = response.status().as_u16();
                 if status == self.expected_status {
                     Ok(HealthCheckResult::healthy(&format!("HTTP {} OK", status)))
                 } else {
-                    Ok(HealthCheckResult::unhealthy(&format!("HTTP {} (expected {})", status, self.expected_status)))
+                    Ok(HealthCheckResult::unhealthy(&format!(
+                        "HTTP {} (expected {})",
+                        status, self.expected_status
+                    )))
                 }
             }
-            Ok(Err(e)) => {
-                Ok(HealthCheckResult::unhealthy(&format!("HTTP request failed: {}", e)))
-            }
-            Err(_) => {
-                Ok(HealthCheckResult::unhealthy("HTTP request timed out"))
-            }
+            Ok(Err(e)) => Ok(HealthCheckResult::unhealthy(&format!(
+                "HTTP request failed: {}",
+                e
+            ))),
+            Err(_) => Ok(HealthCheckResult::unhealthy("HTTP request timed out")),
         }
     }
 
@@ -347,7 +361,9 @@ mod tests {
 
     #[async_trait::async_trait]
     impl HealthCheck for AlwaysHealthyCheck {
-        async fn health_check(&self) -> Result<HealthCheckResult, Box<dyn std::error::Error + Send + Sync>> {
+        async fn health_check(
+            &self,
+        ) -> Result<HealthCheckResult, Box<dyn std::error::Error + Send + Sync>> {
             Ok(HealthCheckResult::healthy("Always healthy"))
         }
 
@@ -362,7 +378,9 @@ mod tests {
 
     #[async_trait::async_trait]
     impl HealthCheck for AlwaysUnhealthyCheck {
-        async fn health_check(&self) -> Result<HealthCheckResult, Box<dyn std::error::Error + Send + Sync>> {
+        async fn health_check(
+            &self,
+        ) -> Result<HealthCheckResult, Box<dyn std::error::Error + Send + Sync>> {
             Ok(HealthCheckResult::unhealthy("Always unhealthy"))
         }
 
@@ -376,15 +394,23 @@ mod tests {
         let coordinator = HealthCheckCoordinator::new(Duration::from_secs(5));
 
         // Register checks
-        coordinator.register(
-            "healthy".to_string(),
-            Arc::new(AlwaysHealthyCheck { name: "healthy".to_string() })
-        ).await;
+        coordinator
+            .register(
+                "healthy".to_string(),
+                Arc::new(AlwaysHealthyCheck {
+                    name: "healthy".to_string(),
+                }),
+            )
+            .await;
 
-        coordinator.register(
-            "unhealthy".to_string(),
-            Arc::new(AlwaysUnhealthyCheck { name: "unhealthy".to_string() })
-        ).await;
+        coordinator
+            .register(
+                "unhealthy".to_string(),
+                Arc::new(AlwaysUnhealthyCheck {
+                    name: "unhealthy".to_string(),
+                }),
+            )
+            .await;
 
         // Check all
         let results = coordinator.check_all().await;
@@ -407,10 +433,14 @@ mod tests {
     async fn test_health_check_caching() {
         let coordinator = HealthCheckCoordinator::new(Duration::from_millis(100));
 
-        coordinator.register(
-            "test".to_string(),
-            Arc::new(AlwaysHealthyCheck { name: "test".to_string() })
-        ).await;
+        coordinator
+            .register(
+                "test".to_string(),
+                Arc::new(AlwaysHealthyCheck {
+                    name: "test".to_string(),
+                }),
+            )
+            .await;
 
         // First check should hit the actual check
         let result1 = coordinator.check_one("test").await.unwrap();
@@ -420,17 +450,17 @@ mod tests {
         let start = Instant::now();
         let result2 = coordinator.check_one("test").await.unwrap();
         let elapsed = start.elapsed();
-        
+
         assert!(result2.healthy);
         assert!(elapsed < Duration::from_millis(10)); // Should be very fast due to caching
     }
 
     #[test]
     fn test_connection_health_check() {
-        let check = ConnectionHealthCheck::new(
-            "test".to_string(),
-            || -> Result<(), std::io::Error> { Ok(()) }
-        );
+        let check =
+            ConnectionHealthCheck::new("test".to_string(), || -> Result<(), std::io::Error> {
+                Ok(())
+            });
 
         assert_eq!(check.component_name(), "test");
     }

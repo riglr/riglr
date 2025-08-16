@@ -1,13 +1,13 @@
 //! Channel-based communication implementation using tokio channels.
 
-use super::{AgentCommunication, MessageReceiver, CommunicationConfig, CommunicationStats};
+use super::{AgentCommunication, CommunicationConfig, CommunicationStats, MessageReceiver};
 use crate::{AgentError, AgentId, AgentMessage, Result};
 use async_trait::async_trait;
 use std::collections::HashMap;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
 use tokio::sync::{mpsc, RwLock};
-use tracing::{debug, warn, error};
+use tracing::{debug, error, warn};
 
 /// Channel-based communication system using tokio MPSC channels.
 ///
@@ -70,7 +70,7 @@ impl ChannelCommunication {
     pub async fn cleanup(&self) -> Result<usize> {
         let mut channels = self.channels.write().await;
         let initial_count = channels.len();
-        
+
         // Remove closed channels
         channels.retain(|agent_id, sender| {
             if sender.is_closed() {
@@ -124,17 +124,22 @@ impl AgentCommunication for ChannelCommunication {
         })?;
 
         let channels = self.channels.read().await;
-        
+
         if let Some(sender) = channels.get(target_agent) {
             match sender.send(message.clone()) {
                 Ok(()) => {
-                    debug!("Message {} sent successfully to agent {}", message.id, target_agent);
+                    debug!(
+                        "Message {} sent successfully to agent {}",
+                        message.id, target_agent
+                    );
                     self.messages_sent.fetch_add(1, Ordering::Relaxed);
                     Ok(())
                 }
                 Err(_) => {
-                    error!("Failed to send message {} to agent {}: channel closed", 
-                           message.id, target_agent);
+                    error!(
+                        "Failed to send message {} to agent {}: channel closed",
+                        message.id, target_agent
+                    );
                     self.failed_deliveries.fetch_add(1, Ordering::Relaxed);
                     Err(AgentError::message_delivery_failed(
                         message.id,
@@ -176,21 +181,29 @@ impl AgentCommunication for ChannelCommunication {
                     successful_sends += 1;
                 }
                 Err(_) => {
-                    warn!("Failed to broadcast message {} to agent {}: channel closed",
-                          message.id, agent_id);
+                    warn!(
+                        "Failed to broadcast message {} to agent {}: channel closed",
+                        message.id, agent_id
+                    );
                     failed_sends += 1;
                 }
             }
         }
 
-        debug!("Broadcast message {} sent to {} agents, {} failures",
-               message.id, successful_sends, failed_sends);
+        debug!(
+            "Broadcast message {} sent to {} agents, {} failures",
+            message.id, successful_sends, failed_sends
+        );
 
-        self.messages_sent.fetch_add(successful_sends, Ordering::Relaxed);
-        self.failed_deliveries.fetch_add(failed_sends, Ordering::Relaxed);
+        self.messages_sent
+            .fetch_add(successful_sends, Ordering::Relaxed);
+        self.failed_deliveries
+            .fetch_add(failed_sends, Ordering::Relaxed);
 
         if successful_sends == 0 && !channels.is_empty() {
-            Err(AgentError::communication("Failed to deliver broadcast message to any agent"))
+            Err(AgentError::communication(
+                "Failed to deliver broadcast message to any agent",
+            ))
         } else {
             Ok(())
         }
@@ -204,35 +217,37 @@ impl AgentCommunication for ChannelCommunication {
             let current_subs = self.channels.read().await.len();
             if current_subs >= max_subs {
                 return Err(AgentError::communication(format!(
-                    "Maximum subscriptions reached ({}/{})", current_subs, max_subs
+                    "Maximum subscriptions reached ({}/{})",
+                    current_subs, max_subs
                 )));
             }
         }
 
         let (sender, receiver) = mpsc::unbounded_channel();
-        
+
         let mut channels = self.channels.write().await;
-        
+
         // Check if agent already has a subscription
         if channels.contains_key(agent_id) {
             warn!("Agent {} already has an active subscription", agent_id);
             return Err(AgentError::communication(format!(
-                "Agent {} already has an active subscription", agent_id
+                "Agent {} already has an active subscription",
+                agent_id
             )));
         }
 
         channels.insert(agent_id.clone(), sender);
-        
+
         debug!("Created subscription for agent {}", agent_id);
-        
+
         Ok(Box::new(ChannelReceiver::new(receiver)))
     }
 
     async fn unsubscribe(&self, agent_id: &AgentId) -> Result<()> {
         debug!("Removing subscription for agent {}", agent_id);
-        
+
         let mut channels = self.channels.write().await;
-        
+
         if channels.remove(agent_id).is_some() {
             debug!("Removed subscription for agent {}", agent_id);
             Ok(())
@@ -250,7 +265,7 @@ impl AgentCommunication for ChannelCommunication {
     async fn health_check(&self) -> Result<bool> {
         // Clean up any closed channels
         let _cleaned = self.cleanup().await?;
-        
+
         // Health check passes if we can access the channels
         let _channels = self.channels.read().await;
         Ok(true)
@@ -352,11 +367,11 @@ mod tests {
     #[tokio::test]
     async fn test_channel_communication_broadcast() {
         let comm = ChannelCommunication::new();
-        
+
         // Subscribe multiple agents
         let agent1 = AgentId::new("agent1");
         let agent2 = AgentId::new("agent2");
-        
+
         let mut receiver1 = comm.subscribe(&agent1).await.unwrap();
         let mut receiver2 = comm.subscribe(&agent2).await.unwrap();
 
@@ -382,7 +397,7 @@ mod tests {
     #[tokio::test]
     async fn test_channel_communication_send_to_nonexistent() {
         let comm = ChannelCommunication::new();
-        
+
         let message = AgentMessage::new(
             AgentId::new("sender"),
             Some(AgentId::new("nonexistent")),
@@ -392,7 +407,10 @@ mod tests {
 
         let result = comm.send_message(message).await;
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), AgentError::AgentNotFound { .. }));
+        assert!(matches!(
+            result.unwrap_err(),
+            AgentError::AgentNotFound { .. }
+        ));
     }
 
     #[tokio::test]
@@ -415,7 +433,10 @@ mod tests {
 
         let result = comm.unsubscribe(&agent_id).await;
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), AgentError::AgentNotFound { .. }));
+        assert!(matches!(
+            result.unwrap_err(),
+            AgentError::AgentNotFound { .. }
+        ));
     }
 
     #[tokio::test]

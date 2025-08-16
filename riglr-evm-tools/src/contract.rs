@@ -1,11 +1,11 @@
 //! Generic smart contract interaction tools
 
 // use crate::error::Result;
-use riglr_macros::tool;
-use alloy::primitives::{self, Address, Bytes, U256, I256};
-use alloy::rpc::types::TransactionRequest;
-use alloy::dyn_abi::{DynSolValue, DynSolType, JsonAbiExt};
+use alloy::dyn_abi::{DynSolType, DynSolValue, JsonAbiExt};
 use alloy::json_abi::Function;
+use alloy::primitives::{self, Address, Bytes, I256, U256};
+use alloy::rpc::types::TransactionRequest;
+use riglr_macros::tool;
 use std::str::FromStr;
 use tracing::{debug, info};
 
@@ -35,13 +35,16 @@ pub async fn call_contract_read(
     );
 
     // Get signer context and EVM client
-    let signer = riglr_core::SignerContext::current().await
+    let signer = riglr_core::SignerContext::current()
+        .await
         .map_err(|e| format!("No signer context: {}", e))?;
-    let client = signer.evm_client()
+    let client = signer
+        .evm_client()
         .map_err(|e| format!("Failed to get EVM client: {}", e))?;
 
     // Validate contract address
-    let contract_addr = contract_address.parse::<alloy::primitives::Address>()
+    let contract_addr = contract_address
+        .parse::<alloy::primitives::Address>()
         .map_err(|e| format!("Invalid contract address: {}", e))?;
 
     // Encode calldata using proper ABI encoding
@@ -54,14 +57,18 @@ pub async fn call_contract_read(
     // Execute call with retry logic
     let mut retries = 0;
     let max_retries = 3;
-    
+
     let result = loop {
         match client.call(&tx).await {
             Ok(bytes) => break bytes,
             Err(e) => {
                 retries += 1;
                 if retries >= max_retries {
-                    return Err(format!("Contract call failed after {} retries: {}", max_retries, e).into());
+                    return Err(format!(
+                        "Contract call failed after {} retries: {}",
+                        max_retries, e
+                    )
+                    .into());
                 }
                 // Exponential backoff
                 tokio::time::sleep(std::time::Duration::from_millis(100 * (1 << retries))).await;
@@ -92,19 +99,22 @@ pub async fn call_contract_write(
     );
 
     // Get signer context and EVM client
-    let signer = riglr_core::SignerContext::current().await
+    let signer = riglr_core::SignerContext::current()
+        .await
         .map_err(|e| format!("No signer context: {}", e))?;
-    let _client = signer.evm_client()
+    let _client = signer
+        .evm_client()
         .map_err(|e| format!("Failed to get EVM client: {}", e))?;
 
     // Get signer address
-    let from_addr_str = signer.address()
-        .ok_or("Signer has no address")?;
-    let from_addr = from_addr_str.parse::<alloy::primitives::Address>()
+    let from_addr_str = signer.address().ok_or("Signer has no address")?;
+    let from_addr = from_addr_str
+        .parse::<alloy::primitives::Address>()
         .map_err(|e| format!("Invalid signer address: {}", e))?;
 
     // Validate contract address
-    let contract_addr = contract_address.parse::<alloy::primitives::Address>()
+    let contract_addr = contract_address
+        .parse::<alloy::primitives::Address>()
         .map_err(|e| format!("Invalid contract address: {}", e))?;
 
     // Build transaction with encoded calldata
@@ -119,20 +129,20 @@ pub async fn call_contract_write(
     // Use provided gas limit or default
     let gas_to_use = gas_limit.unwrap_or(300_000);
     tx = tx.gas_limit(gas_to_use);
-    
+
     debug!("Using gas limit: {}", gas_to_use);
 
     // Sign and send transaction with retry logic
     let mut retries = 0;
     let max_retries = 3;
-    
+
     let tx_hash = loop {
         match signer.sign_and_send_evm_transaction(tx.clone()).await {
             Ok(hash) => {
                 // TODO: Implement transaction receipt verification
                 // For now, assume transaction succeeded
                 break hash;
-            },
+            }
             Err(e) => {
                 let error_msg = format!("Failed to send transaction: {}", e);
                 retries += 1;
@@ -160,17 +170,20 @@ pub async fn read_erc20_info(
     token_address: String,
 ) -> Result<serde_json::Value, Box<dyn std::error::Error + Send + Sync>> {
     // Get signer context and EVM client
-    let signer = riglr_core::SignerContext::current().await
+    let signer = riglr_core::SignerContext::current()
+        .await
         .map_err(|e| format!("No signer context: {}", e))?;
-    let client = signer.evm_client()
+    let client = signer
+        .evm_client()
         .map_err(|e| format!("Failed to get EVM client: {}", e))?;
 
-    let token_addr = token_address.parse::<alloy::primitives::Address>()
+    let token_addr = token_address
+        .parse::<alloy::primitives::Address>()
         .map_err(|e| format!("Invalid token address: {}", e))?;
 
     // Use helper functions from balance module
-    use crate::balance::{get_token_symbol, get_token_name, get_token_decimals};
-    
+    use crate::balance::{get_token_decimals, get_token_name, get_token_symbol};
+
     let symbol = get_token_symbol(&*client, token_addr).await.ok();
     let name = get_token_name(&*client, token_addr).await.ok();
     let decimals = get_token_decimals(&*client, token_addr).await.unwrap_or(18);
@@ -178,12 +191,16 @@ pub async fn read_erc20_info(
     // totalSupply()
     let total_supply = {
         // 0x18160ddd = keccak256("totalSupply()") first 4 bytes
-        let selector = Bytes::from(primitives::hex::decode("18160ddd").map_err(|e| format!("selector decode: {}", e))?);
+        let selector = Bytes::from(
+            primitives::hex::decode("18160ddd").map_err(|e| format!("selector decode: {}", e))?,
+        );
         let tx = TransactionRequest::default()
             .to(token_addr)
             .input(selector.into());
         match client.call(&tx).await {
-            Ok(bytes) => U256::try_from_be_slice(&bytes).map(|v| v.to_string()).unwrap_or_default(),
+            Ok(bytes) => U256::try_from_be_slice(&bytes)
+                .map(|v| v.to_string())
+                .unwrap_or_default(),
             Err(_) => String::new(),
         }
     };
@@ -198,11 +215,11 @@ pub async fn read_erc20_info(
 }
 
 /// Encode a function call with proper ABI encoding and return output types.
-/// 
+///
 /// Supports:
 /// - Function signature string (e.g., "transfer(address,uint256)")
 /// - OR 4-byte function selector (e.g., "0xa9059cbb")
-/// 
+///
 /// Returns both the encoded calldata and expected output types for decoding.
 fn encode_function_call_with_types(
     function_or_selector: &str,
@@ -212,14 +229,20 @@ fn encode_function_call_with_types(
     if function_or_selector.starts_with("0x") && function_or_selector.len() == 10 {
         // Handle selector-based encoding directly
         let mut data: Vec<u8> = Vec::new();
-        let sel = function_or_selector.strip_prefix("0x").unwrap_or(function_or_selector);
+        let sel = function_or_selector
+            .strip_prefix("0x")
+            .unwrap_or(function_or_selector);
         let selector_bytes = primitives::hex::decode(sel)
             .map_err(|e| format!("Invalid function selector: {}", e))?;
         if selector_bytes.len() != 4 {
-            return Err(format!("Function selector must be 4 bytes (8 hex chars), got {} bytes", selector_bytes.len()).into());
+            return Err(format!(
+                "Function selector must be 4 bytes (8 hex chars), got {} bytes",
+                selector_bytes.len()
+            )
+            .into());
         }
         data.extend_from_slice(&selector_bytes);
-        
+
         // Encode parameters as 32-byte words (basic ABI encoding)
         for p in params {
             // Try to determine type and encode appropriately
@@ -240,18 +263,22 @@ fn encode_function_call_with_types(
                 let val = parse_param_to_dyn_sol_value(p, "uint256")?;
                 val.abi_encode()
             } else {
-                return Err(format!("Unsupported param format: {}. Use 0x-prefixed hex or decimal number.", p).into());
+                return Err(format!(
+                    "Unsupported param format: {}. Use 0x-prefixed hex or decimal number.",
+                    p
+                )
+                .into());
             };
             data.extend_from_slice(&encoded);
         }
-        
+
         return Ok((Bytes::from(data), vec!["bytes".to_string()])); // Unknown output type
     }
-    
+
     // Parse as function signature
     let function = Function::parse(function_or_selector)
         .map_err(|e| format!("Invalid function signature: {}", e))?;
-    
+
     // Convert string params to DynSolValue based on function signature
     let mut values = Vec::new();
     for (i, param) in params.iter().enumerate() {
@@ -260,25 +287,36 @@ fn encode_function_call_with_types(
                 .map_err(|e| format!("Failed to parse parameter {}: {}", i, e))?;
             values.push(value);
         } else {
-            return Err(format!("Too many parameters: expected {}, got {}", 
-                function.inputs.len(), params.len()).into());
+            return Err(format!(
+                "Too many parameters: expected {}, got {}",
+                function.inputs.len(),
+                params.len()
+            )
+            .into());
         }
     }
-    
+
     if values.len() != function.inputs.len() {
-        return Err(format!("Parameter count mismatch: expected {}, got {}", 
-            function.inputs.len(), values.len()).into());
+        return Err(format!(
+            "Parameter count mismatch: expected {}, got {}",
+            function.inputs.len(),
+            values.len()
+        )
+        .into());
     }
-    
+
     // Encode the function call
-    let encoded = function.abi_encode_input(&values)
+    let encoded = function
+        .abi_encode_input(&values)
         .map_err(|e| format!("Failed to encode function call: {}", e))?;
-    
+
     // Extract output types
-    let output_types: Vec<String> = function.outputs.iter()
+    let output_types: Vec<String> = function
+        .outputs
+        .iter()
         .map(|output| output.ty.clone())
         .collect();
-    
+
     Ok((Bytes::from(encoded), output_types))
 }
 
@@ -296,7 +334,7 @@ fn parse_param_to_dyn_sol_value(
 ) -> Result<DynSolValue, Box<dyn std::error::Error + Send + Sync>> {
     let sol_type = DynSolType::parse(expected_type)
         .map_err(|e| format!("Invalid type '{}': {}", expected_type, e))?;
-    
+
     match sol_type {
         DynSolType::Address => {
             let addr = Address::from_str(param)
@@ -304,8 +342,17 @@ fn parse_param_to_dyn_sol_value(
             Ok(DynSolValue::Address(addr))
         }
         DynSolType::Bool => {
-            let val = param.parse::<bool>()
-                .or_else(|_| if param == "1" { Ok(true) } else if param == "0" { Ok(false) } else { Err(()) })
+            let val = param
+                .parse::<bool>()
+                .or_else(|_| {
+                    if param == "1" {
+                        Ok(true)
+                    } else if param == "0" {
+                        Ok(false)
+                    } else {
+                        Err(())
+                    }
+                })
                 .map_err(|_| format!("Invalid bool value '{}'", param))?;
             Ok(DynSolValue::Bool(val))
         }
@@ -328,11 +375,12 @@ fn parse_param_to_dyn_sol_value(
             if bytes.len() != size {
                 return Err(format!("Expected {} bytes, got {}", size, bytes.len()).into());
             }
-            Ok(DynSolValue::FixedBytes(alloy::primitives::FixedBytes::from_slice(&bytes), size))
+            Ok(DynSolValue::FixedBytes(
+                alloy::primitives::FixedBytes::from_slice(&bytes),
+                size,
+            ))
         }
-        DynSolType::String => {
-            Ok(DynSolValue::String(param.to_string()))
-        }
+        DynSolType::String => Ok(DynSolValue::String(param.to_string())),
         DynSolType::Uint(bits) => {
             let value = if let Some(stripped) = param.strip_prefix("0x") {
                 U256::from_str_radix(stripped, 16)
@@ -362,8 +410,8 @@ fn parse_param_to_dyn_sol_value(
                     U256::from_str_radix(abs_str, 10)
                         .map_err(|e| format!("Invalid decimal int: {}", e))?
                 };
-                I256::ZERO - I256::try_from(abs_val)
-                    .map_err(|e| format!("Invalid negative int: {}", e))?
+                I256::ZERO
+                    - I256::try_from(abs_val).map_err(|e| format!("Invalid negative int: {}", e))?
             } else {
                 // Positive number
                 let val = if let Some(stripped) = param.strip_prefix("0x") {
@@ -373,8 +421,7 @@ fn parse_param_to_dyn_sol_value(
                     U256::from_str_radix(param, 10)
                         .map_err(|e| format!("Invalid decimal int: {}", e))?
                 };
-                I256::try_from(val)
-                    .map_err(|e| format!("Invalid positive int: {}", e))?
+                I256::try_from(val).map_err(|e| format!("Invalid positive int: {}", e))?
             };
             Ok(DynSolValue::Int(value, bits))
         }
@@ -388,7 +435,7 @@ fn parse_param_to_dyn_sol_value(
                 // Comma-separated
                 param.split(',').map(|s| s.trim().to_string()).collect()
             };
-            
+
             let mut parsed = Vec::new();
             let inner_type = inner.to_string();
             for val in values {
@@ -406,11 +453,11 @@ fn parse_param_to_dyn_sol_value(
                 // Comma-separated
                 param.split(',').map(|s| s.trim().to_string()).collect()
             };
-            
+
             if values.len() != size {
                 return Err(format!("Expected {} elements, got {}", size, values.len()).into());
             }
-            
+
             let mut parsed = Vec::new();
             let inner_type = inner.to_string();
             for val in values {
@@ -426,25 +473,31 @@ fn parse_param_to_dyn_sol_value(
                     .map_err(|e| format!("Invalid JSON tuple: {}", e))?
             } else if param.starts_with("(") && param.ends_with(")") {
                 // Parentheses tuple
-                param[1..param.len()-1].split(',').map(|s| s.trim().to_string()).collect()
+                param[1..param.len() - 1]
+                    .split(',')
+                    .map(|s| s.trim().to_string())
+                    .collect()
             } else {
                 // Plain comma-separated
                 param.split(',').map(|s| s.trim().to_string()).collect()
             };
-            
+
             if values.len() != types.len() {
-                return Err(format!("Expected {} tuple elements, got {}", types.len(), values.len()).into());
+                return Err(format!(
+                    "Expected {} tuple elements, got {}",
+                    types.len(),
+                    values.len()
+                )
+                .into());
             }
-            
+
             let mut parsed = Vec::new();
             for (val, ty) in values.iter().zip(types.iter()) {
                 parsed.push(parse_param_to_dyn_sol_value(val, &ty.to_string())?);
             }
             Ok(DynSolValue::Tuple(parsed))
         }
-        _ => {
-            Err(format!("Unsupported type: {}", expected_type).into())
-        }
+        _ => Err(format!("Unsupported type: {}", expected_type).into()),
     }
 }
 
@@ -457,15 +510,15 @@ fn decode_contract_result(
     if output_types.is_empty() || (output_types.len() == 1 && output_types[0] == "bytes") {
         return Ok(format!("0x{}", primitives::hex::encode(result)));
     }
-    
+
     // Parse output types and decode
     let mut decoded_values = Vec::new();
     let mut offset = 0;
-    
+
     for output_type in output_types {
         let sol_type = DynSolType::parse(output_type)
             .map_err(|e| format!("Invalid output type '{}': {}", output_type, e))?;
-        
+
         // Decode based on type
         match decode_single_type(result, &mut offset, &sol_type) {
             Ok(value) => decoded_values.push(format_decoded_value(&value)),
@@ -476,12 +529,13 @@ fn decode_contract_result(
             }
         }
     }
-    
+
     // Return formatted result
     if decoded_values.len() == 1 {
         Ok(decoded_values[0].clone())
     } else {
-        Ok(serde_json::to_string(&decoded_values).unwrap_or_else(|_| format!("0x{}", primitives::hex::encode(result))))
+        Ok(serde_json::to_string(&decoded_values)
+            .unwrap_or_else(|_| format!("0x{}", primitives::hex::encode(result))))
     }
 }
 
@@ -492,25 +546,28 @@ fn decode_single_type(
     sol_type: &DynSolType,
 ) -> Result<DynSolValue, Box<dyn std::error::Error + Send + Sync>> {
     // For simple 32-byte types, decode directly
-    if matches!(sol_type, DynSolType::Uint(_) | DynSolType::Int(_) | DynSolType::Address | DynSolType::Bool) {
+    if matches!(
+        sol_type,
+        DynSolType::Uint(_) | DynSolType::Int(_) | DynSolType::Address | DynSolType::Bool
+    ) {
         if data.len() >= *offset + 32 {
             let chunk = &data[*offset..*offset + 32];
             *offset += 32;
-            
+
             match sol_type {
                 DynSolType::Uint(_) => {
                     let value = U256::try_from_be_slice(chunk).unwrap_or_default();
                     Ok(DynSolValue::Uint(value, 256))
-                },
+                }
                 DynSolType::Address => {
                     let addr = Address::from_slice(&chunk[12..]);
                     Ok(DynSolValue::Address(addr))
-                },
+                }
                 DynSolType::Bool => {
                     let value = chunk[31] != 0;
                     Ok(DynSolValue::Bool(value))
-                },
-                _ => Err("Unsupported type for simple decode".into())
+                }
+                _ => Err("Unsupported type for simple decode".into()),
             }
         } else {
             Err("Insufficient data for decoding".into())
@@ -519,7 +576,11 @@ fn decode_single_type(
         // For complex types, we need to handle them differently
         // Since DynSolValue doesn't have abi_decode, we'll return an error for now
         // In a full implementation, this would require more complex decoding logic
-        Err(format!("Complex type decoding not fully implemented for: {:?}", sol_type).into())
+        Err(format!(
+            "Complex type decoding not fully implemented for: {:?}",
+            sol_type
+        )
+        .into())
     }
 }
 
@@ -536,11 +597,11 @@ fn format_decoded_value(value: &DynSolValue) -> String {
         DynSolValue::Array(arr) => {
             let items: Vec<String> = arr.iter().map(format_decoded_value).collect();
             format!("[{}]", items.join(", "))
-        },
+        }
         DynSolValue::Tuple(vals) => {
             let items: Vec<String> = vals.iter().map(format_decoded_value).collect();
             format!("({})", items.join(", "))
-        },
+        }
         _ => format!("{:?}", value),
     }
 }
@@ -552,48 +613,56 @@ async fn wait_for_receipt(
     tx_hash: &str,
 ) -> Result<TransactionReceipt, Box<dyn std::error::Error + Send + Sync>> {
     use alloy::primitives::FixedBytes;
-    
+
     // Parse transaction hash
     let hash_bytes = if tx_hash.starts_with("0x") {
         primitives::hex::decode(tx_hash.strip_prefix("0x").unwrap_or(tx_hash))
     } else {
         primitives::hex::decode(tx_hash)
-    }.map_err(|e| format!("Invalid transaction hash: {}", e))?;
-    
-    if hash_bytes.len() != 32 {
-        return Err(format!("Transaction hash must be 32 bytes, got {}", hash_bytes.len()).into());
     }
-    
+    .map_err(|e| format!("Invalid transaction hash: {}", e))?;
+
+    if hash_bytes.len() != 32 {
+        return Err(format!(
+            "Transaction hash must be 32 bytes, got {}",
+            hash_bytes.len()
+        )
+        .into());
+    }
+
     let _tx_hash_fixed = FixedBytes::<32>::from_slice(&hash_bytes);
-    
+
     // Try to get the actual client type
     if let Some(_client) = client.downcast_ref::<alloy::network::Ethereum>() {
         // We have access to the provider trait, wait for actual receipt
         let poll_interval = std::time::Duration::from_secs(2);
-        
+
         // Try to get receipt using eth_getTransactionReceipt
         // Since we don't have direct provider access, simulate with a call
         // In real implementation this would use provider.get_transaction_receipt(tx_hash)
-        
+
         // For now, return a simulated receipt after a short wait
         // This is a limitation of the current architecture
         tokio::time::sleep(poll_interval).await;
-        
+
         // In production, this would check actual receipt
         // For demonstration, return success after polling
         return Ok(TransactionReceipt {
             success: true,
             block_number: Some(1), // Would be actual block number
-            gas_used: 50000, // Would be actual gas used
+            gas_used: 50000,       // Would be actual gas used
         });
     }
-    
+
     // Fallback: If we can't determine the client type, wait a reasonable time
     // and assume success (this maintains backward compatibility)
     tokio::time::sleep(std::time::Duration::from_secs(5)).await;
-    
-    debug!("Receipt polling not fully implemented for this client type, assuming success for: {}", tx_hash);
-    
+
+    debug!(
+        "Receipt polling not fully implemented for this client type, assuming success for: {}",
+        tx_hash
+    );
+
     Ok(TransactionReceipt {
         success: true,
         block_number: Some(0),
@@ -612,28 +681,28 @@ struct TransactionReceipt {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_decode_uint256() {
         let data = vec![0u8; 31];
         let mut data_with_one = data.clone();
         data_with_one.push(1);
-        
+
         let result = decode_contract_result(&data_with_one, &["uint256".to_string()]);
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), "1");
     }
-    
+
     #[test]
     fn test_decode_address() {
         let mut data = vec![0u8; 12];
         data.extend_from_slice(&[0x11; 20]);
-        
+
         let result = decode_contract_result(&data, &["address".to_string()]);
         assert!(result.is_ok());
         assert!(result.unwrap().starts_with("0x"));
     }
-    
+
     #[test]
     fn test_format_decoded_values() {
         let addr = Address::from([0x42; 20]);

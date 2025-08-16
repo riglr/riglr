@@ -76,9 +76,9 @@ impl Event for PumpSwapBuyEvent {
     }
 
     fn metadata(&self) -> &CoreEventMetadata {
-        self.core_metadata.as_ref().unwrap_or_else(|| {
-            panic!("Core metadata not initialized for PumpSwapBuyEvent")
-        })
+        self.core_metadata
+            .as_ref()
+            .unwrap_or_else(|| panic!("Core metadata not initialized for PumpSwapBuyEvent"))
     }
 
     fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
@@ -104,8 +104,7 @@ impl Event for PumpSwapBuyEvent {
     }
 
     fn to_json(&self) -> riglr_events_core::error::EventResult<serde_json::Value> {
-        serde_json::to_value(self)
-            .map_err(riglr_events_core::error::EventError::Serialization)
+        serde_json::to_value(self).map_err(riglr_events_core::error::EventError::Serialization)
     }
 }
 
@@ -171,9 +170,9 @@ impl Event for PumpSwapSellEvent {
     }
 
     fn metadata(&self) -> &CoreEventMetadata {
-        self.core_metadata.as_ref().unwrap_or_else(|| {
-            panic!("Core metadata not initialized for PumpSwapSellEvent")
-        })
+        self.core_metadata
+            .as_ref()
+            .unwrap_or_else(|| panic!("Core metadata not initialized for PumpSwapSellEvent"))
     }
 
     fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
@@ -199,8 +198,7 @@ impl Event for PumpSwapSellEvent {
     }
 
     fn to_json(&self) -> riglr_events_core::error::EventResult<serde_json::Value> {
-        serde_json::to_value(self)
-            .map_err(riglr_events_core::error::EventError::Serialization)
+        serde_json::to_value(self).map_err(riglr_events_core::error::EventError::Serialization)
     }
 }
 
@@ -240,7 +238,6 @@ pub struct PumpSwapCreatePoolEvent {
     pub pool_quote_token_account: Pubkey,
 }
 
-
 // New Event trait implementation
 impl Event for PumpSwapCreatePoolEvent {
     fn id(&self) -> &str {
@@ -256,9 +253,9 @@ impl Event for PumpSwapCreatePoolEvent {
     }
 
     fn metadata(&self) -> &CoreEventMetadata {
-        self.core_metadata.as_ref().unwrap_or_else(|| {
-            panic!("Core metadata not initialized for PumpSwapCreatePoolEvent")
-        })
+        self.core_metadata
+            .as_ref()
+            .unwrap_or_else(|| panic!("Core metadata not initialized for PumpSwapCreatePoolEvent"))
     }
 
     fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
@@ -284,8 +281,7 @@ impl Event for PumpSwapCreatePoolEvent {
     }
 
     fn to_json(&self) -> riglr_events_core::error::EventResult<serde_json::Value> {
-        serde_json::to_value(self)
-            .map_err(riglr_events_core::error::EventError::Serialization)
+        serde_json::to_value(self).map_err(riglr_events_core::error::EventError::Serialization)
     }
 }
 
@@ -323,7 +319,6 @@ pub struct PumpSwapDepositEvent {
     pub pool_quote_token_account: Pubkey,
 }
 
-
 // New Event trait implementation
 impl Event for PumpSwapDepositEvent {
     fn id(&self) -> &str {
@@ -339,9 +334,9 @@ impl Event for PumpSwapDepositEvent {
     }
 
     fn metadata(&self) -> &CoreEventMetadata {
-        self.core_metadata.as_ref().unwrap_or_else(|| {
-            panic!("Core metadata not initialized for PumpSwapDepositEvent")
-        })
+        self.core_metadata
+            .as_ref()
+            .unwrap_or_else(|| panic!("Core metadata not initialized for PumpSwapDepositEvent"))
     }
 
     fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
@@ -367,8 +362,7 @@ impl Event for PumpSwapDepositEvent {
     }
 
     fn to_json(&self) -> riglr_events_core::error::EventResult<serde_json::Value> {
-        serde_json::to_value(self)
-            .map_err(riglr_events_core::error::EventError::Serialization)
+        serde_json::to_value(self).map_err(riglr_events_core::error::EventError::Serialization)
     }
 }
 
@@ -406,7 +400,6 @@ pub struct PumpSwapWithdrawEvent {
     pub pool_quote_token_account: Pubkey,
 }
 
-
 // New Event trait implementation
 impl Event for PumpSwapWithdrawEvent {
     fn id(&self) -> &str {
@@ -422,9 +415,9 @@ impl Event for PumpSwapWithdrawEvent {
     }
 
     fn metadata(&self) -> &CoreEventMetadata {
-        self.core_metadata.as_ref().unwrap_or_else(|| {
-            panic!("Core metadata not initialized for PumpSwapWithdrawEvent")
-        })
+        self.core_metadata
+            .as_ref()
+            .unwrap_or_else(|| panic!("Core metadata not initialized for PumpSwapWithdrawEvent"))
     }
 
     fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
@@ -450,8 +443,7 @@ impl Event for PumpSwapWithdrawEvent {
     }
 
     fn to_json(&self) -> riglr_events_core::error::EventResult<serde_json::Value> {
-        serde_json::to_value(self)
-            .map_err(riglr_events_core::error::EventError::Serialization)
+        serde_json::to_value(self).map_err(riglr_events_core::error::EventError::Serialization)
     }
 }
 
@@ -463,13 +455,28 @@ pub mod discriminators {
     pub const CREATE_POOL_EVENT: &str = "pumpswap_create_pool_event";
     pub const DEPOSIT_EVENT: &str = "pumpswap_deposit_event";
     pub const WITHDRAW_EVENT: &str = "pumpswap_withdraw_event";
-    
+
     // Raw event discriminators as byte arrays for efficient parsing
-    pub const BUY_EVENT_BYTES: &[u8] = &[0xe4, 0x45, 0xa5, 0x2e, 0x51, 0xcb, 0x9a, 0x1d, 0x67, 0xf4, 0x52, 0x1f, 0x2c, 0xf5, 0x77, 0x77];
-    pub const SELL_EVENT_BYTES: &[u8] = &[0xe4, 0x45, 0xa5, 0x2e, 0x51, 0xcb, 0x9a, 0x1d, 0x3e, 0x2f, 0x37, 0x0a, 0xa5, 0x03, 0xdc, 0x2a];
-    pub const CREATE_POOL_EVENT_BYTES: &[u8] = &[0xe4, 0x45, 0xa5, 0x2e, 0x51, 0xcb, 0x9a, 0x1d, 0xb1, 0x31, 0x0c, 0xd2, 0xa0, 0x76, 0xa7, 0x74];
-    pub const DEPOSIT_EVENT_BYTES: &[u8] = &[0xe4, 0x45, 0xa5, 0x2e, 0x51, 0xcb, 0x9a, 0x1d, 0x78, 0xf8, 0x3d, 0x53, 0x1f, 0x8e, 0x6b, 0x90];
-    pub const WITHDRAW_EVENT_BYTES: &[u8] = &[0xe4, 0x45, 0xa5, 0x2e, 0x51, 0xcb, 0x9a, 0x1d, 0x16, 0x09, 0x85, 0x1a, 0xa0, 0x2c, 0x47, 0xc0];
+    pub const BUY_EVENT_BYTES: &[u8] = &[
+        0xe4, 0x45, 0xa5, 0x2e, 0x51, 0xcb, 0x9a, 0x1d, 0x67, 0xf4, 0x52, 0x1f, 0x2c, 0xf5, 0x77,
+        0x77,
+    ];
+    pub const SELL_EVENT_BYTES: &[u8] = &[
+        0xe4, 0x45, 0xa5, 0x2e, 0x51, 0xcb, 0x9a, 0x1d, 0x3e, 0x2f, 0x37, 0x0a, 0xa5, 0x03, 0xdc,
+        0x2a,
+    ];
+    pub const CREATE_POOL_EVENT_BYTES: &[u8] = &[
+        0xe4, 0x45, 0xa5, 0x2e, 0x51, 0xcb, 0x9a, 0x1d, 0xb1, 0x31, 0x0c, 0xd2, 0xa0, 0x76, 0xa7,
+        0x74,
+    ];
+    pub const DEPOSIT_EVENT_BYTES: &[u8] = &[
+        0xe4, 0x45, 0xa5, 0x2e, 0x51, 0xcb, 0x9a, 0x1d, 0x78, 0xf8, 0x3d, 0x53, 0x1f, 0x8e, 0x6b,
+        0x90,
+    ];
+    pub const WITHDRAW_EVENT_BYTES: &[u8] = &[
+        0xe4, 0x45, 0xa5, 0x2e, 0x51, 0xcb, 0x9a, 0x1d, 0x16, 0x09, 0x85, 0x1a, 0xa0, 0x2c, 0x47,
+        0xc0,
+    ];
 
     // Instruction discriminators
     pub const BUY_IX: &[u8] = &[102, 6, 61, 18, 1, 218, 235, 234];

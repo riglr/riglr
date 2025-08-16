@@ -23,7 +23,7 @@ async fn signer_context_availability() {
             _tx: TransactionRequest,
         ) -> Result<String, SignerError> { Ok("0xhash".into()) }
         fn solana_client(&self) -> Option<Arc<solana_client::rpc_client::RpcClient>> { None }
-        fn evm_client(&self) -> Result<Arc<dyn riglr_core::signer::EvmClient>, SignerError> { 
+        fn evm_client(&self) -> Result<Arc<dyn riglr_core::signer::EvmClient>, SignerError> {
             Err(SignerError::UnsupportedOperation("no evm".into()))
         }
     }

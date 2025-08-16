@@ -1,10 +1,10 @@
 //! RIGLR Indexer Service Main Entry Point
 
-use tracing::{info, error, warn};
+use tracing::{error, info, warn};
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
-use riglr_indexer::prelude::*;
 use riglr_indexer::core::ServiceLifecycle;
+use riglr_indexer::prelude::*;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
@@ -46,14 +46,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let collector = indexer.context().metrics.clone();
         let bind_addr = config.api.http.bind.clone();
         let port = config.metrics.port;
-        
+
         Some(tokio::spawn(async move {
             info!("Starting metrics server on {}:{}", bind_addr, port);
             if let Err(e) = riglr_indexer::metrics::prometheus::start_metrics_server(
-                &bind_addr,
-                port,
-                collector,
-            ).await {
+                &bind_addr, port, collector,
+            )
+            .await
+            {
                 error!("Metrics server failed: {}", e);
             }
         }))
@@ -108,7 +108,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     // Wait for services to stop with timeout
     let shutdown_timeout = config.service.shutdown_timeout;
-    info!("Waiting up to {:?} for services to shut down", shutdown_timeout);
+    info!(
+        "Waiting up to {:?} for services to shut down",
+        shutdown_timeout
+    );
 
     tokio::time::timeout(shutdown_timeout, async {
         // Wait for API server to stop
@@ -116,11 +119,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             task.await.ok();
         }
 
-        // Wait for metrics server to stop  
+        // Wait for metrics server to stop
         if let Some(task) = metrics_task {
             task.await.ok();
         }
-    }).await.ok();
+    })
+    .await
+    .ok();
 
     info!("RIGLR Indexer Service stopped");
     Ok(())
@@ -128,8 +133,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
 /// Initialize logging based on configuration
 fn init_logging() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let env_filter = EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| EnvFilter::new("info"));
+    let env_filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
 
     let fmt_layer = fmt::layer()
         .with_target(false)
@@ -150,7 +154,10 @@ fn print_banner() {
     println!("╔══════════════════════════════════════════════════════════════╗");
     println!("║                     RIGLR INDEXER SERVICE                   ║");
     println!("║              Production-Grade Blockchain Indexing           ║");
-    println!("║                        Version {}                        ║", env!("CARGO_PKG_VERSION"));
+    println!(
+        "║                        Version {}                        ║",
+        env!("CARGO_PKG_VERSION")
+    );
     println!("╚══════════════════════════════════════════════════════════════╝");
     println!();
 }
@@ -162,39 +169,59 @@ fn print_config_summary(config: &IndexerConfig) {
     info!("  Version: {}", config.service.version);
     info!("  Environment: {}", config.service.environment);
     info!("  Node ID: {}", config.node_id());
-    
+
     info!("Processing Configuration:");
     info!("  Workers: {}", config.processing.workers);
     info!("  Batch size: {}", config.processing.batch.max_size);
     info!("  Queue capacity: {}", config.processing.queue.capacity);
-    info!("  Rate limiting: {} events/sec", 
-          if config.processing.rate_limit.enabled {
-              config.processing.rate_limit.max_events_per_second.to_string()
-          } else {
-              "disabled".to_string()
-          });
-    
+    info!(
+        "  Rate limiting: {} events/sec",
+        if config.processing.rate_limit.enabled {
+            config
+                .processing
+                .rate_limit
+                .max_events_per_second
+                .to_string()
+        } else {
+            "disabled".to_string()
+        }
+    );
+
     info!("Storage Configuration:");
     info!("  Backend: {:?}", config.storage.primary.backend);
     info!("  URL: {}", redact_url(&config.storage.primary.url));
-    info!("  Pool size: {}-{}", 
-          config.storage.primary.pool.min_connections,
-          config.storage.primary.pool.max_connections);
-    
+    info!(
+        "  Pool size: {}-{}",
+        config.storage.primary.pool.min_connections, config.storage.primary.pool.max_connections
+    );
+
     info!("API Configuration:");
-    info!("  HTTP server: {}:{}", config.api.http.bind, config.api.http.port);
-    info!("  WebSocket: {}", if config.api.websocket.enabled { "enabled" } else { "disabled" });
+    info!(
+        "  HTTP server: {}:{}",
+        config.api.http.bind, config.api.http.port
+    );
+    info!(
+        "  WebSocket: {}",
+        if config.api.websocket.enabled {
+            "enabled"
+        } else {
+            "disabled"
+        }
+    );
     info!("  Authentication: {:?}", config.api.auth.method);
-    
+
     info!("Metrics Configuration:");
     info!("  Enabled: {}", config.metrics.enabled);
     if config.metrics.enabled {
         info!("  Port: {}", config.metrics.port);
         info!("  Endpoint: {}", config.metrics.endpoint);
     }
-    
+
     info!("Features:");
-    info!("  Real-time streaming: {}", config.features.realtime_streaming);
+    info!(
+        "  Real-time streaming: {}",
+        config.features.realtime_streaming
+    );
     info!("  Event archival: {}", config.features.archival);
     info!("  GraphQL API: {}", config.features.graphql_api);
     info!("  Experimental: {}", config.features.experimental);
@@ -228,13 +255,12 @@ async fn setup_signal_handling() -> tokio::signal::unix::Signal {
     #[cfg(unix)]
     {
         use tokio::signal::unix::{signal, SignalKind};
-        
-        let mut sigterm = signal(SignalKind::terminate())
-            .expect("Failed to register SIGTERM handler");
-        let mut sigint = signal(SignalKind::interrupt())
-            .expect("Failed to register SIGINT handler");
-        let mut sigquit = signal(SignalKind::quit())
-            .expect("Failed to register SIGQUIT handler");
+
+        let mut sigterm =
+            signal(SignalKind::terminate()).expect("Failed to register SIGTERM handler");
+        let mut sigint =
+            signal(SignalKind::interrupt()).expect("Failed to register SIGINT handler");
+        let mut sigquit = signal(SignalKind::quit()).expect("Failed to register SIGQUIT handler");
 
         tokio::select! {
             _ = sigterm.recv() => {
@@ -247,15 +273,17 @@ async fn setup_signal_handling() -> tokio::signal::unix::Signal {
                 info!("Received SIGQUIT");
             }
         }
-        
+
         sigterm
     }
-    
+
     #[cfg(not(unix))]
     {
-        signal::ctrl_c().await.expect("Failed to register Ctrl+C handler");
+        signal::ctrl_c()
+            .await
+            .expect("Failed to register Ctrl+C handler");
         info!("Received Ctrl+C");
-        
+
         // Return a dummy signal that's immediately ready
         use tokio::signal::unix::{signal, SignalKind};
         signal(SignalKind::interrupt()).expect("Failed to create dummy signal")
@@ -272,15 +300,12 @@ mod tests {
             redact_url("postgresql://user:password@localhost:5432/db"),
             "postgresql://user:****@localhost:5432/db"
         );
-        
+
         assert_eq!(
             redact_url("redis://localhost:6379"),
             "redis://localhost:6379"
         );
-        
-        assert_eq!(
-            redact_url("invalid-url"),
-            "invalid-url"
-        );
+
+        assert_eq!(redact_url("invalid-url"), "invalid-url");
     }
 }

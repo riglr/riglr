@@ -13,7 +13,7 @@ use std::sync::Arc;
 pub fn create_solana_client(config: &SolanaConfig) -> RpcClient {
     let commitment = crate::types::parse_commitment(&config.commitment);
     let commitment_config = CommitmentConfig { commitment };
-    
+
     RpcClient::new_with_commitment(config.rpc_url.clone(), commitment_config)
 }
 
@@ -32,8 +32,7 @@ pub fn default_solana_config() -> SolanaConfig {
     SolanaConfig {
         rpc_url: std::env::var("SOLANA_RPC_URL")
             .unwrap_or_else(|_| "https://api.mainnet-beta.solana.com".to_string()),
-        commitment: std::env::var("SOLANA_COMMITMENT")
-            .unwrap_or_else(|_| "confirmed".to_string()),
+        commitment: std::env::var("SOLANA_COMMITMENT").unwrap_or_else(|_| "confirmed".to_string()),
         timeout_seconds: std::env::var("SOLANA_TIMEOUT")
             .ok()
             .and_then(|v| v.parse().ok())
@@ -103,7 +102,7 @@ mod tests {
         // Test with well-known Solana address
         let result = string_to_pubkey("So11111111111111111111111111111111111111112");
         assert!(result.is_ok());
-        
+
         // Test with invalid address
         let result = string_to_pubkey("invalid");
         assert!(result.is_err());

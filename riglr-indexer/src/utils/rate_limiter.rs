@@ -83,7 +83,9 @@ impl RateLimiter {
             return Ok(());
         }
 
-        let mut state = self.state.try_lock()
+        let mut state = self
+            .state
+            .try_lock()
             .map_err(|_| RateLimitError::LockContention)?;
 
         self.refill_tokens(&mut state);
@@ -144,7 +146,7 @@ impl RateLimiter {
     fn refill_tokens(&self, state: &mut RateLimiterState) {
         let now = Instant::now();
         let elapsed = now.duration_since(state.last_refill);
-        
+
         if elapsed.as_millis() > 0 {
             let tokens_to_add = elapsed.as_secs_f64() * self.config.tokens_per_second as f64;
             state.tokens = (state.tokens + tokens_to_add).min(self.config.burst_capacity as f64);
@@ -222,7 +224,7 @@ impl AdaptiveRateLimiter {
     /// Check tokens and potentially adjust rate based on success/failure
     pub async fn check_and_adapt(&self) -> Result<(), RateLimitError> {
         let result = self.base_limiter.check();
-        
+
         // Record success/failure for adaptation
         match &result {
             Ok(()) => {
@@ -267,7 +269,7 @@ impl AdaptiveRateLimiter {
         let total = success_count + failure_count;
         if total > 0 {
             let success_rate = success_count as f64 / total as f64;
-            
+
             // Adjust rate based on success rate
             // High success rate -> increase rate
             // Low success rate -> decrease rate
@@ -281,8 +283,11 @@ impl AdaptiveRateLimiter {
 
             // In a real implementation, you'd need to modify the rate limiter's config
             // This would require making the config mutable or rebuilding the limiter
-            tracing::debug!("Rate limiter adjustment: success_rate={:.2}, factor={:.2}", 
-                          success_rate, adjustment_factor);
+            tracing::debug!(
+                "Rate limiter adjustment: success_rate={:.2}, factor={:.2}",
+                success_rate,
+                adjustment_factor
+            );
         }
 
         let mut last_adjustment = self.last_adjustment.lock().await;
@@ -346,7 +351,11 @@ mod tests {
 
         // Wait for a new token
         let start = Instant::now();
-        assert!(timeout(Duration::from_millis(200), limiter.wait_for_tokens(1)).await.is_ok());
+        assert!(
+            timeout(Duration::from_millis(200), limiter.wait_for_tokens(1))
+                .await
+                .is_ok()
+        );
         let elapsed = start.elapsed();
 
         // Should have waited at least 100ms (1 token at 10 tokens/sec)

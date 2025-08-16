@@ -4,8 +4,8 @@
 //! broader riglr ecosystem, including SignerContext management, job queue
 //! integration, and tool compatibility.
 
-use crate::{Agent, AgentError, Task, TaskResult, Result};
-use riglr_core::{SignerContext, TransactionSigner, ToolError, Job, JobResult};
+use crate::{Agent, AgentError, Result, Task, TaskResult};
+use riglr_core::{Job, JobResult, SignerContext, ToolError, TransactionSigner};
 use std::sync::Arc;
 use tracing::{debug, info, warn};
 
@@ -33,8 +33,11 @@ impl SignerContextIntegration {
         agent: Arc<dyn Agent>,
         task: Task,
     ) -> Result<TaskResult> {
-        info!("Executing task {} with agent {} in signer context", 
-              task.id, agent.id());
+        info!(
+            "Executing task {} with agent {} in signer context",
+            task.id,
+            agent.id()
+        );
 
         let task_id = task.id.clone();
         let agent_id = agent.id().clone();
@@ -43,39 +46,58 @@ impl SignerContextIntegration {
         // Execute the task within the signer context
         let result = SignerContext::with_signer(signer, async move {
             debug!("Task {} starting execution in agent {}", task_id, agent_id);
-            
+
             // Call agent hooks
             agent.before_task(&task).await.map_err(|e| match e {
                 AgentError::Tool { source } => match source {
                     riglr_core::ToolError::SignerContext(signer_err) => signer_err,
-                    _ => riglr_core::SignerError::Configuration(format!("Agent hook failed: {}", source)),
+                    _ => riglr_core::SignerError::Configuration(format!(
+                        "Agent hook failed: {}",
+                        source
+                    )),
                 },
                 _ => riglr_core::SignerError::Configuration(format!("Agent hook failed: {}", e)),
             })?;
-            
+
             let start_time = std::time::Instant::now();
             let result = agent.execute_task(task.clone()).await;
             let duration = start_time.elapsed();
-            
-            debug!("Task {} completed in agent {} after {:?}", 
-                   task_id, agent_id, duration);
-            
+
+            debug!(
+                "Task {} completed in agent {} after {:?}",
+                task_id, agent_id, duration
+            );
+
             // Call after hook regardless of result
             if let Ok(ref task_result) = result {
                 let _ = agent.after_task(&task, task_result).await;
             }
-            
+
             match result {
                 Ok(task_result) => Ok(task_result),
                 Err(AgentError::Tool { source }) => match source {
                     riglr_core::ToolError::SignerContext(signer_err) => Err(signer_err),
-                    _ => Err(riglr_core::SignerError::Configuration(format!("Agent execution failed: {}", source))),
+                    _ => Err(riglr_core::SignerError::Configuration(format!(
+                        "Agent execution failed: {}",
+                        source
+                    ))),
                 },
-                Err(e) => Err(riglr_core::SignerError::Configuration(format!("Agent execution failed: {}", e))),
+                Err(e) => Err(riglr_core::SignerError::Configuration(format!(
+                    "Agent execution failed: {}",
+                    e
+                ))),
             }
-        }).await.map_err(|e| AgentError::task_execution_with_source(
-            format!("Failed to execute task {} in signer context", task_id_for_error), e
-        ))?;
+        })
+        .await
+        .map_err(|e| {
+            AgentError::task_execution_with_source(
+                format!(
+                    "Failed to execute task {} in signer context",
+                    task_id_for_error
+                ),
+                e,
+            )
+        })?;
 
         Ok(result)
     }
@@ -102,9 +124,8 @@ impl SignerContextIntegration {
                 "metadata": task.metadata
             }),
             task.max_retries,
-        ).map_err(|e| AgentError::task_execution_with_source(
-            "Failed to convert task to job", e
-        ))?;
+        )
+        .map_err(|e| AgentError::task_execution_with_source("Failed to convert task to job", e))?;
 
         Ok(job)
     }
@@ -121,35 +142,38 @@ impl SignerContextIntegration {
     ///
     /// An agent Task representation of the job.
     pub fn job_to_task(job: &Job) -> Result<Task> {
-        let params = job.params.as_object()
+        let params = job
+            .params
+            .as_object()
             .ok_or_else(|| AgentError::task_execution("Job parameters must be an object"))?;
 
-        let task_id = params.get("task_id")
+        let task_id = params
+            .get("task_id")
             .and_then(|v| v.as_str())
             .unwrap_or(&job.job_id.to_string())
             .to_string();
 
-        let task_type = params.get("task_type")
+        let task_type = params
+            .get("task_type")
             .ok_or_else(|| AgentError::task_execution("Missing task_type in job parameters"))?;
 
         let task_type = serde_json::from_value(task_type.clone())
             .map_err(|e| AgentError::task_execution_with_source("Invalid task_type", e))?;
 
-        let parameters = params.get("parameters")
+        let parameters = params
+            .get("parameters")
             .cloned()
             .unwrap_or(serde_json::Value::Null);
 
-        let priority = params.get("priority")
+        let priority = params
+            .get("priority")
             .and_then(|v| serde_json::from_value(v.clone()).ok())
             .unwrap_or_default();
 
-        let metadata = params.get("metadata")
+        let metadata = params
+            .get("metadata")
             .and_then(|v| v.as_object())
-            .map(|obj| {
-                obj.iter()
-                    .map(|(k, v)| (k.clone(), v.clone()))
-                    .collect()
-            })
+            .map(|obj| obj.iter().map(|(k, v)| (k.clone(), v.clone())).collect())
             .unwrap_or_default();
 
         let mut task = Task::new(task_type, parameters);
@@ -173,13 +197,13 @@ impl SignerContextIntegration {
     /// A riglr-core JobResult representation.
     pub fn task_result_to_job_result(task_result: &TaskResult) -> Result<JobResult> {
         let job_result = match task_result {
-            TaskResult::Success { data, tx_hash, .. } => {
-                JobResult::Success {
-                    value: data.clone(),
-                    tx_hash: tx_hash.clone(),
-                }
-            }
-            TaskResult::Failure { error, retriable, .. } => {
+            TaskResult::Success { data, tx_hash, .. } => JobResult::Success {
+                value: data.clone(),
+                tx_hash: tx_hash.clone(),
+            },
+            TaskResult::Failure {
+                error, retriable, ..
+            } => {
                 if *retriable {
                     JobResult::retriable_failure(error)
                 } else {
@@ -212,20 +236,16 @@ impl SignerContextIntegration {
         duration: std::time::Duration,
     ) -> TaskResult {
         match job_result {
-            JobResult::Success { value, tx_hash } => {
-                TaskResult::Success {
-                    data: value.clone(),
-                    tx_hash: tx_hash.clone(),
-                    duration,
-                }
-            }
-            JobResult::Failure { error, retriable } => {
-                TaskResult::Failure {
-                    error: error.clone(),
-                    retriable: *retriable,
-                    duration,
-                }
-            }
+            JobResult::Success { value, tx_hash } => TaskResult::Success {
+                data: value.clone(),
+                tx_hash: tx_hash.clone(),
+                duration,
+            },
+            JobResult::Failure { error, retriable } => TaskResult::Failure {
+                error: error.clone(),
+                retriable: *retriable,
+                duration,
+            },
         }
     }
 
@@ -270,7 +290,9 @@ impl SignerContextIntegration {
     /// true if the agent can execute the tools, false otherwise.
     pub fn can_execute_tools(agent: &dyn Agent, required_capabilities: &[String]) -> bool {
         let agent_capabilities = agent.capabilities();
-        required_capabilities.iter().all(|cap| agent_capabilities.contains(cap))
+        required_capabilities
+            .iter()
+            .all(|cap| agent_capabilities.contains(cap))
     }
 
     /// Validate that an agent is compatible with riglr-core patterns.
@@ -332,7 +354,11 @@ impl ToolExecutor {
     ///
     /// A riglr-core JobResult from the execution.
     pub async fn execute_job(&self, job: Job) -> Result<JobResult> {
-        debug!("Executing job {} with agent {}", job.job_id, self.agent.id());
+        debug!(
+            "Executing job {} with agent {}",
+            job.job_id,
+            self.agent.id()
+        );
 
         // Convert job to task
         let task = SignerContextIntegration::job_to_task(&job)?;
@@ -345,8 +371,12 @@ impl ToolExecutor {
         // Convert result back to job result
         let job_result = SignerContextIntegration::task_result_to_job_result(&task_result)?;
 
-        info!("Job {} completed by agent {} in {:?}", 
-              job.job_id, self.agent.id(), duration);
+        info!(
+            "Job {} completed by agent {} in {:?}",
+            job.job_id,
+            self.agent.id(),
+            duration
+        );
 
         Ok(job_result)
     }
@@ -392,10 +422,8 @@ mod tests {
 
     #[test]
     fn test_task_to_job_conversion() {
-        let task = Task::new(
-            TaskType::Trading,
-            serde_json::json!({"symbol": "BTC/USD"}),
-        ).with_priority(Priority::High);
+        let task = Task::new(TaskType::Trading, serde_json::json!({"symbol": "BTC/USD"}))
+            .with_priority(Priority::High);
 
         let job = SignerContextIntegration::task_to_job(&task).unwrap();
         assert_eq!(job.tool_name, "agent_task:trading");
@@ -419,7 +447,10 @@ mod tests {
         assert_eq!(task.id, "test-task");
         assert_eq!(task.task_type, TaskType::Trading);
         assert_eq!(task.priority, Priority::High);
-        assert_eq!(task.metadata.get("source"), Some(&serde_json::json!("test")));
+        assert_eq!(
+            task.metadata.get("source"),
+            Some(&serde_json::json!("test"))
+        );
     }
 
     #[test]
@@ -431,7 +462,7 @@ mod tests {
         );
 
         let job_result = SignerContextIntegration::task_result_to_job_result(&task_result).unwrap();
-        
+
         match job_result {
             JobResult::Success { value, tx_hash } => {
                 assert_eq!(value, serde_json::json!({"result": "success"}));
@@ -454,7 +485,11 @@ mod tests {
         );
 
         match task_result {
-            TaskResult::Success { data, tx_hash, duration } => {
+            TaskResult::Success {
+                data,
+                tx_hash,
+                duration,
+            } => {
                 assert_eq!(data, serde_json::json!({"result": "test"}));
                 assert_eq!(tx_hash, Some("0x456".to_string()));
                 assert_eq!(duration, std::time::Duration::from_millis(200));

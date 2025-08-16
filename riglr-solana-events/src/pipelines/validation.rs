@@ -1,15 +1,15 @@
 //! Data integrity validation pipeline for parsed events
-//! 
+//!
 //! This module provides comprehensive validation of parsed events to ensure
 //! data quality, consistency, and integrity before downstream processing.
 
+use crate::types::{EventType, ProtocolType};
+use crate::zero_copy::ZeroCopyEvent;
+use serde_json::Value;
+use solana_sdk::pubkey::Pubkey;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use serde_json::Value;
-use solana_sdk::pubkey::Pubkey;
-use crate::zero_copy::ZeroCopyEvent;
-use crate::types::{ProtocolType, EventType};
 // UnifiedEvent trait has been removed
 
 /// Configuration for validation pipeline
@@ -118,7 +118,7 @@ impl ValidationPipeline {
 
         // Register default validation rules
         pipeline.register_default_rules();
-        
+
         pipeline
     }
 
@@ -175,17 +175,17 @@ impl ValidationPipeline {
                 if let Some(error) = self.validate_jupiter_event(event).await {
                     errors.push(error);
                 }
-            },
+            }
             ProtocolType::RaydiumAmmV4 => {
                 if let Some(error) = self.validate_raydium_event(event).await {
                     errors.push(error);
                 }
-            },
+            }
             ProtocolType::PumpSwap => {
                 if let Some(error) = self.validate_pump_fun_event(event).await {
                     errors.push(error);
                 }
-            },
+            }
             _ => {}
         }
         rules_checked += 1;
@@ -206,9 +206,12 @@ impl ValidationPipeline {
     }
 
     /// Validate multiple events
-    pub async fn validate_events(&self, events: &[ZeroCopyEvent<'static>]) -> Vec<ValidationResult> {
+    pub async fn validate_events(
+        &self,
+        events: &[ZeroCopyEvent<'static>],
+    ) -> Vec<ValidationResult> {
         let mut results = Vec::with_capacity(events.len());
-        
+
         for event in events {
             results.push(self.validate_event(event).await);
         }
@@ -219,23 +222,23 @@ impl ValidationPipeline {
     /// Check for duplicate events
     async fn check_duplicate(&self, event: &ZeroCopyEvent<'_>) -> Option<ValidationError> {
         let event_id = format!("{}_{}", event.signature(), event.index());
-        
+
         let mut seen = self.seen_events.write().await;
-        
+
         // Clean up old entries (older than max_event_age)
         let cutoff = Instant::now() - self.config.max_event_age;
         seen.retain(|_, &mut timestamp| timestamp > cutoff);
-        
+
         // Check if we've seen this event before
         if let Some(&_original_time) = seen.get(&event_id) {
-            return Some(ValidationError::Duplicate { 
-                original_id: event_id.clone() 
+            return Some(ValidationError::Duplicate {
+                original_id: event_id.clone(),
             });
         }
-        
+
         // Record this event
         seen.insert(event_id, Instant::now());
-        
+
         None
     }
 
@@ -243,13 +246,13 @@ impl ValidationPipeline {
     fn check_event_age(&self, event: &ZeroCopyEvent<'_>) -> Option<ValidationError> {
         let event_time = event.timestamp();
         let now = std::time::SystemTime::now();
-        
+
         if let Ok(age) = now.duration_since(event_time) {
             if age > self.config.max_event_age {
                 return Some(ValidationError::StaleEvent { age });
             }
         }
-        
+
         None
     }
 
@@ -258,17 +261,17 @@ impl ValidationPipeline {
         if let Some(json_data) = event.get_json_data() {
             // Check for required Jupiter fields
             if json_data.get("total_amount_in").is_none() {
-                return Some(ValidationError::MissingField { 
-                    field: "total_amount_in".to_string() 
+                return Some(ValidationError::MissingField {
+                    field: "total_amount_in".to_string(),
                 });
             }
-            
+
             if json_data.get("total_amount_out").is_none() {
-                return Some(ValidationError::MissingField { 
-                    field: "total_amount_out".to_string() 
+                return Some(ValidationError::MissingField {
+                    field: "total_amount_out".to_string(),
                 });
             }
-            
+
             // Validate amounts are positive
             if let Some(amount_in) = json_data.get("total_amount_in").and_then(|v| v.as_str()) {
                 if let Ok(amount) = amount_in.parse::<u64>() {
@@ -281,7 +284,7 @@ impl ValidationPipeline {
                 }
             }
         }
-        
+
         None
     }
 
@@ -289,20 +292,21 @@ impl ValidationPipeline {
     async fn validate_raydium_event(&self, event: &ZeroCopyEvent<'_>) -> Option<ValidationError> {
         // Check event type matches Raydium operations
         match event.event_type() {
-            EventType::RaydiumAmmV4SwapBaseIn | 
-            EventType::RaydiumAmmV4SwapBaseOut => {
+            EventType::RaydiumAmmV4SwapBaseIn | EventType::RaydiumAmmV4SwapBaseOut => {
                 // Validate swap-specific fields
                 if let Some(json_data) = event.get_json_data() {
-                    if json_data.get("amount_in").is_none() && json_data.get("max_amount_in").is_none() {
+                    if json_data.get("amount_in").is_none()
+                        && json_data.get("max_amount_in").is_none()
+                    {
                         return Some(ValidationError::MissingField {
-                            field: "amount_in or max_amount_in".to_string()
+                            field: "amount_in or max_amount_in".to_string(),
                         });
                     }
                 }
-            },
+            }
             _ => {}
         }
-        
+
         None
     }
 
@@ -318,7 +322,7 @@ impl ValidationPipeline {
                         0x33e685a4017f83ad, // Sell
                         0x181ec828051c0777, // CreatePool
                     ];
-                    
+
                     if !known_discriminators.contains(&disc_val) {
                         return Some(ValidationError::InvalidValue {
                             field: "discriminator".to_string(),
@@ -328,14 +332,14 @@ impl ValidationPipeline {
                 }
             }
         }
-        
+
         None
     }
 
     /// Get pipeline statistics
     pub async fn get_stats(&self) -> ValidationStats {
         let seen_events = self.seen_events.read().await;
-        
+
         ValidationStats {
             total_rules: self.rules.len(),
             cached_events: seen_events.len(),
@@ -357,7 +361,7 @@ pub struct ValidationStats {
 pub trait ValidationRule: Send + Sync {
     /// Validate an event
     async fn validate(&self, event: &ZeroCopyEvent<'_>, config: &ValidationConfig) -> RuleResult;
-    
+
     /// Get rule name
     fn name(&self) -> &'static str;
 }
@@ -377,24 +381,24 @@ struct RequiredFieldsRule;
 impl ValidationRule for RequiredFieldsRule {
     async fn validate(&self, event: &ZeroCopyEvent<'_>, _config: &ValidationConfig) -> RuleResult {
         let mut result = RuleResult::default();
-        
+
         // Check basic required fields
         if event.id().is_empty() {
-            result.errors.push(ValidationError::MissingField { 
-                field: "id".to_string() 
+            result.errors.push(ValidationError::MissingField {
+                field: "id".to_string(),
             });
         }
-        
+
         if event.signature().is_empty() {
-            result.errors.push(ValidationError::MissingField { 
-                field: "signature".to_string() 
+            result.errors.push(ValidationError::MissingField {
+                field: "signature".to_string(),
             });
         }
-        
+
         result.consistency_checks = 2;
         result
     }
-    
+
     fn name(&self) -> &'static str {
         "required_fields"
     }
@@ -407,7 +411,7 @@ struct DataTypesRule;
 impl ValidationRule for DataTypesRule {
     async fn validate(&self, event: &ZeroCopyEvent<'_>, _config: &ValidationConfig) -> RuleResult {
         let mut result = RuleResult::default();
-        
+
         // Validate slot is reasonable
         if event.slot() == 0 {
             result.warnings.push(ValidationWarning::UnusualValue {
@@ -415,11 +419,11 @@ impl ValidationRule for DataTypesRule {
                 value: "0".to_string(),
             });
         }
-        
+
         result.consistency_checks = 1;
         result
     }
-    
+
     fn name(&self) -> &'static str {
         "data_types"
     }
@@ -432,7 +436,7 @@ struct NumericRangesRule;
 impl ValidationRule for NumericRangesRule {
     async fn validate(&self, event: &ZeroCopyEvent<'_>, _config: &ValidationConfig) -> RuleResult {
         let mut result = RuleResult::default();
-        
+
         if let Some(json_data) = event.get_json_data() {
             // Validate amounts are within reasonable ranges
             for (key, value) in json_data.as_object().unwrap_or(&serde_json::Map::new()) {
@@ -451,10 +455,10 @@ impl ValidationRule for NumericRangesRule {
             }
             result.consistency_checks = json_data.as_object().map(|o| o.len()).unwrap_or(0);
         }
-        
+
         result
     }
-    
+
     fn name(&self) -> &'static str {
         "numeric_ranges"
     }
@@ -467,14 +471,14 @@ struct PubkeyValidationRule;
 impl ValidationRule for PubkeyValidationRule {
     async fn validate(&self, event: &ZeroCopyEvent<'_>, _config: &ValidationConfig) -> RuleResult {
         let mut result = RuleResult::default();
-        
+
         if let Some(json_data) = event.get_json_data() {
             self.validate_pubkeys_in_json(json_data, &mut result);
         }
-        
+
         result
     }
-    
+
     fn name(&self) -> &'static str {
         "pubkey_validation"
     }
@@ -485,7 +489,8 @@ impl PubkeyValidationRule {
     fn validate_pubkeys_in_json(&self, value: &Value, result: &mut RuleResult) {
         match value {
             Value::String(s) => {
-                if s.len() == 44 || s.len() == 43 { // Typical Pubkey string lengths
+                if s.len() == 44 || s.len() == 43 {
+                    // Typical Pubkey string lengths
                     if s.parse::<Pubkey>().is_err() {
                         result.errors.push(ValidationError::InvalidValue {
                             field: "pubkey".to_string(),
@@ -494,19 +499,19 @@ impl PubkeyValidationRule {
                     }
                     result.consistency_checks += 1;
                 }
-            },
+            }
             Value::Object(map) => {
                 for (key, val) in map {
                     if key.contains("mint") || key.contains("address") || key.contains("pubkey") {
                         self.validate_pubkeys_in_json(val, result);
                     }
                 }
-            },
+            }
             Value::Array(arr) => {
                 for val in arr {
                     self.validate_pubkeys_in_json(val, result);
                 }
-            },
+            }
             _ => {}
         }
     }
@@ -519,13 +524,19 @@ struct SwapConsistencyRule;
 impl ValidationRule for SwapConsistencyRule {
     async fn validate(&self, event: &ZeroCopyEvent<'_>, _config: &ValidationConfig) -> RuleResult {
         let mut result = RuleResult::default();
-        
+
         if event.event_type() == EventType::Swap {
             if let Some(json_data) = event.get_json_data() {
                 // Check that input and output amounts make sense
-                let amount_in = json_data.get("amount_in").and_then(|v| v.as_str()).and_then(|s| s.parse::<u64>().ok());
-                let amount_out = json_data.get("amount_out").and_then(|v| v.as_str()).and_then(|s| s.parse::<u64>().ok());
-                
+                let amount_in = json_data
+                    .get("amount_in")
+                    .and_then(|v| v.as_str())
+                    .and_then(|s| s.parse::<u64>().ok());
+                let amount_out = json_data
+                    .get("amount_out")
+                    .and_then(|v| v.as_str())
+                    .and_then(|s| s.parse::<u64>().ok());
+
                 if let (Some(in_amount), Some(out_amount)) = (amount_in, amount_out) {
                     if in_amount == 0 || out_amount == 0 {
                         result.errors.push(ValidationError::InvalidValue {
@@ -537,10 +548,10 @@ impl ValidationRule for SwapConsistencyRule {
                 }
             }
         }
-        
+
         result
     }
-    
+
     fn name(&self) -> &'static str {
         "swap_consistency"
     }
@@ -553,18 +564,18 @@ struct LiquidityValidationRule;
 impl ValidationRule for LiquidityValidationRule {
     async fn validate(&self, event: &ZeroCopyEvent<'_>, _config: &ValidationConfig) -> RuleResult {
         let mut result = RuleResult::default();
-        
+
         match event.event_type() {
             EventType::AddLiquidity | EventType::RemoveLiquidity => {
                 // Validate liquidity-specific fields
                 result.consistency_checks += 1;
-            },
+            }
             _ => {}
         }
-        
+
         result
     }
-    
+
     fn name(&self) -> &'static str {
         "liquidity_validation"
     }
@@ -577,10 +588,10 @@ struct TimestampValidationRule;
 impl ValidationRule for TimestampValidationRule {
     async fn validate(&self, event: &ZeroCopyEvent<'_>, _config: &ValidationConfig) -> RuleResult {
         let mut result = RuleResult::default();
-        
+
         let now = std::time::SystemTime::now();
         let event_time = event.timestamp();
-        
+
         // Check if timestamp is in the future
         if event_time > now {
             result.warnings.push(ValidationWarning::UnusualValue {
@@ -588,11 +599,11 @@ impl ValidationRule for TimestampValidationRule {
                 value: format!("{:?}", event_time),
             });
         }
-        
+
         result.consistency_checks = 1;
         result
     }
-    
+
     fn name(&self) -> &'static str {
         "timestamp_validation"
     }
@@ -607,7 +618,7 @@ mod tests {
     async fn test_validation_pipeline_creation() {
         let config = ValidationConfig::default();
         let pipeline = ValidationPipeline::new(config);
-        
+
         let stats = pipeline.get_stats().await;
         assert!(stats.total_rules > 0);
         assert_eq!(stats.cached_events, 0);
@@ -618,10 +629,10 @@ mod tests {
         let rule = RequiredFieldsRule;
         let metadata = EventMetadata::default();
         let event = ZeroCopyEvent::new_owned(metadata, vec![]);
-        
+
         let config = ValidationConfig::default();
         let result = rule.validate(&event, &config).await;
-        
+
         // Should have errors for empty id and signature
         assert!(result.errors.len() >= 2);
     }
@@ -633,20 +644,20 @@ mod tests {
             ..Default::default()
         };
         let pipeline = ValidationPipeline::new(config);
-        
+
         let metadata = EventMetadata {
             id: "test-event-1".to_string(),
             signature: "test-signature".to_string(),
             index: "0".to_string(),
             ..Default::default()
         };
-        
+
         let event = ZeroCopyEvent::new_owned(metadata.clone(), vec![]);
-        
+
         // First validation should pass
         let result1 = pipeline.validate_event(&event).await;
         assert!(result1.is_valid);
-        
+
         // Second validation should detect duplicate
         let result2 = pipeline.validate_event(&event).await;
         assert!(!result2.errors.is_empty());
@@ -656,18 +667,18 @@ mod tests {
     fn test_pubkey_validation() {
         let rule = PubkeyValidationRule;
         let mut result = RuleResult::default();
-        
+
         let valid_json = serde_json::json!({
             "mint": "So11111111111111111111111111111111111111112"
         });
-        
+
         rule.validate_pubkeys_in_json(&valid_json, &mut result);
         assert!(result.errors.is_empty());
-        
+
         let invalid_json = serde_json::json!({
             "mint": "InvalidPubkeyStringWithExactly44Characters!"
         });
-        
+
         rule.validate_pubkeys_in_json(&invalid_json, &mut result);
         assert!(!result.errors.is_empty());
     }

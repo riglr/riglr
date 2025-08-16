@@ -1,16 +1,16 @@
 //! Event enrichment pipeline for metadata augmentation
-//! 
+//!
 //! This module provides functionality to enrich parsed events with additional
 //! metadata such as token information, price data, and transaction context.
 
+use crate::types::ProtocolType;
+use crate::zero_copy::ZeroCopyEvent;
+use serde_json::Value;
+use solana_sdk::pubkey::Pubkey;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::RwLock;
-use serde_json::Value;
-use solana_sdk::pubkey::Pubkey;
-use crate::zero_copy::ZeroCopyEvent;
-use crate::types::ProtocolType;
 // UnifiedEvent trait has been removed
 
 /// Configuration for event enrichment
@@ -145,7 +145,10 @@ impl EventEnricher {
     }
 
     /// Enrich a single event with additional metadata
-    pub async fn enrich_event(&self, mut event: ZeroCopyEvent<'static>) -> Result<ZeroCopyEvent<'static>, EnrichmentError> {
+    pub async fn enrich_event(
+        &self,
+        mut event: ZeroCopyEvent<'static>,
+    ) -> Result<ZeroCopyEvent<'static>, EnrichmentError> {
         let start_time = Instant::now();
 
         // Extract relevant token addresses from the event
@@ -153,12 +156,14 @@ impl EventEnricher {
 
         // Enrich with token metadata
         if self.config.enable_token_metadata && !token_addresses.is_empty() {
-            self.enrich_with_token_metadata(&mut event, &token_addresses).await?;
+            self.enrich_with_token_metadata(&mut event, &token_addresses)
+                .await?;
         }
 
         // Enrich with price data
         if self.config.enable_price_data && !token_addresses.is_empty() {
-            self.enrich_with_price_data(&mut event, &token_addresses).await?;
+            self.enrich_with_price_data(&mut event, &token_addresses)
+                .await?;
         }
 
         // Enrich with transaction context
@@ -169,8 +174,12 @@ impl EventEnricher {
         // Add enrichment timing
         if let Some(json_data) = event.get_json_data() {
             let mut json_map = json_data.as_object().unwrap().clone();
-            json_map.insert("enrichment_time_ms".to_string(), 
-                Value::Number(serde_json::Number::from(start_time.elapsed().as_millis() as u64)));
+            json_map.insert(
+                "enrichment_time_ms".to_string(),
+                Value::Number(serde_json::Number::from(
+                    start_time.elapsed().as_millis() as u64
+                )),
+            );
             event.set_json_data(Value::Object(json_map));
         }
 
@@ -178,14 +187,17 @@ impl EventEnricher {
     }
 
     /// Enrich multiple events in parallel
-    pub async fn enrich_events(&self, events: Vec<ZeroCopyEvent<'static>>) -> Result<Vec<ZeroCopyEvent<'static>>, EnrichmentError> {
+    pub async fn enrich_events(
+        &self,
+        events: Vec<ZeroCopyEvent<'static>>,
+    ) -> Result<Vec<ZeroCopyEvent<'static>>, EnrichmentError> {
         let mut tasks = Vec::new();
 
         for event in events {
             let enricher = self.clone();
-            tasks.push(tokio::spawn(async move {
-                enricher.enrich_event(event).await
-            }));
+            tasks.push(tokio::spawn(
+                async move { enricher.enrich_event(event).await },
+            ));
         }
 
         let mut enriched_events = Vec::new();
@@ -214,11 +226,11 @@ impl EventEnricher {
             ProtocolType::Jupiter => {
                 // Jupiter events might have input/output mints
                 // This would be implemented based on actual data structure
-            },
+            }
             ProtocolType::RaydiumAmmV4 => {
                 // Raydium events have pool tokens
                 // This would be implemented based on actual data structure
-            },
+            }
             _ => {}
         }
 
@@ -233,19 +245,19 @@ impl EventEnricher {
                 if let Ok(pubkey) = s.parse::<Pubkey>() {
                     addresses.push(pubkey);
                 }
-            },
+            }
             Value::Object(map) => {
                 for (key, val) in map {
                     if key.contains("mint") || key.contains("token") || key.contains("address") {
                         self.extract_pubkeys_from_json(val, addresses);
                     }
                 }
-            },
+            }
             Value::Array(arr) => {
                 for val in arr {
                     self.extract_pubkeys_from_json(val, addresses);
                 }
-            },
+            }
             _ => {}
         }
     }
@@ -268,16 +280,19 @@ impl EventEnricher {
             // Add token metadata to JSON
             if let Some(json_data) = event.get_json_data() {
                 let mut json_map = json_data.as_object().unwrap().clone();
-                let metadata_json: Vec<Value> = token_metadata.iter().map(|meta| {
-                    serde_json::json!({
-                        "mint": meta.mint.to_string(),
-                        "name": meta.name,
-                        "symbol": meta.symbol,
-                        "decimals": meta.decimals,
-                        "logo_uri": meta.logo_uri
+                let metadata_json: Vec<Value> = token_metadata
+                    .iter()
+                    .map(|meta| {
+                        serde_json::json!({
+                            "mint": meta.mint.to_string(),
+                            "name": meta.name,
+                            "symbol": meta.symbol,
+                            "decimals": meta.decimals,
+                            "logo_uri": meta.logo_uri
+                        })
                     })
-                }).collect();
-                
+                    .collect();
+
                 json_map.insert("token_metadata".to_string(), Value::Array(metadata_json));
                 event.set_json_data(Value::Object(json_map));
             }
@@ -304,16 +319,19 @@ impl EventEnricher {
             // Add price data to JSON
             if let Some(json_data) = event.get_json_data() {
                 let mut json_map = json_data.as_object().unwrap().clone();
-                let price_json: Vec<Value> = price_data.iter().map(|price| {
-                    serde_json::json!({
-                        "mint": price.mint.to_string(),
-                        "usd_price": price.usd_price,
-                        "sol_price": price.sol_price,
-                        "volume_24h": price.volume_24h,
-                        "market_cap": price.market_cap
+                let price_json: Vec<Value> = price_data
+                    .iter()
+                    .map(|price| {
+                        serde_json::json!({
+                            "mint": price.mint.to_string(),
+                            "usd_price": price.usd_price,
+                            "sol_price": price.sol_price,
+                            "volume_24h": price.volume_24h,
+                            "market_cap": price.market_cap
+                        })
                     })
-                }).collect();
-                
+                    .collect();
+
                 json_map.insert("price_data".to_string(), Value::Array(price_json));
                 event.set_json_data(Value::Object(json_map));
             }
@@ -329,17 +347,20 @@ impl EventEnricher {
     ) -> Result<(), EnrichmentError> {
         // In a real implementation, this would fetch additional transaction details
         // For now, we'll use the existing metadata
-        
+
         if let Some(json_data) = event.get_json_data() {
             let mut json_map = json_data.as_object().unwrap().clone();
-            
-            json_map.insert("transaction_context".to_string(), serde_json::json!({
-                "signature": event.signature(),
-                "slot": event.slot(),
-                "block_time": event.block_number(),
-                "enriched": true
-            }));
-            
+
+            json_map.insert(
+                "transaction_context".to_string(),
+                serde_json::json!({
+                    "signature": event.signature(),
+                    "slot": event.slot(),
+                    "block_time": event.block_number(),
+                    "enriched": true
+                }),
+            );
+
             event.set_json_data(Value::Object(json_map));
         }
 
@@ -347,7 +368,10 @@ impl EventEnricher {
     }
 
     /// Get token metadata with caching
-    async fn get_token_metadata(&self, mint: Pubkey) -> Result<Option<TokenMetadata>, EnrichmentError> {
+    async fn get_token_metadata(
+        &self,
+        mint: Pubkey,
+    ) -> Result<Option<TokenMetadata>, EnrichmentError> {
         // Check cache first
         {
             let cache = self.token_cache.read().await;
@@ -364,13 +388,16 @@ impl EventEnricher {
         // Update cache
         if let Some(ref meta) = metadata {
             let mut cache = self.token_cache.write().await;
-            
+
             // Cleanup expired entries if cache is full
             if cache.len() >= self.config.max_cache_size {
                 cache.retain(|_, entry| !entry.is_expired());
             }
-            
-            cache.insert(mint, CacheEntry::new(meta.clone(), self.config.metadata_cache_ttl));
+
+            cache.insert(
+                mint,
+                CacheEntry::new(meta.clone(), self.config.metadata_cache_ttl),
+            );
         }
 
         Ok(metadata)
@@ -394,20 +421,26 @@ impl EventEnricher {
         // Update cache
         if let Some(ref price) = price_data {
             let mut cache = self.price_cache.write().await;
-            
+
             // Cleanup expired entries if cache is full
             if cache.len() >= self.config.max_cache_size {
                 cache.retain(|_, entry| !entry.is_expired());
             }
-            
-            cache.insert(mint, CacheEntry::new(price.clone(), self.config.metadata_cache_ttl));
+
+            cache.insert(
+                mint,
+                CacheEntry::new(price.clone(), self.config.metadata_cache_ttl),
+            );
         }
 
         Ok(price_data)
     }
 
     /// Fetch token metadata from external API
-    async fn fetch_token_metadata_from_api(&self, mint: Pubkey) -> Result<Option<TokenMetadata>, EnrichmentError> {
+    async fn fetch_token_metadata_from_api(
+        &self,
+        mint: Pubkey,
+    ) -> Result<Option<TokenMetadata>, EnrichmentError> {
         // Placeholder implementation - would integrate with Jupiter API, Solscan, etc.
         // For now, return mock data for testing
         Ok(Some(TokenMetadata {
@@ -422,7 +455,10 @@ impl EventEnricher {
     }
 
     /// Fetch price data from external API
-    async fn fetch_price_data_from_api(&self, mint: Pubkey) -> Result<Option<PriceData>, EnrichmentError> {
+    async fn fetch_price_data_from_api(
+        &self,
+        mint: Pubkey,
+    ) -> Result<Option<PriceData>, EnrichmentError> {
         // Placeholder implementation - would integrate with CoinGecko, Jupiter Price API, etc.
         // For now, return mock data for testing
         Ok(Some(PriceData {
@@ -474,16 +510,16 @@ pub struct CacheStats {
 pub enum EnrichmentError {
     #[error("HTTP request failed: {0}")]
     HttpError(#[from] reqwest::Error),
-    
+
     #[error("Serialization error: {0}")]
     SerializationError(#[from] serde_json::Error),
-    
+
     #[error("Task execution error: {0}")]
     TaskError(String),
-    
+
     #[error("Cache error: {0}")]
     CacheError(String),
-    
+
     #[error("API rate limit exceeded")]
     RateLimitExceeded,
 }
@@ -497,7 +533,7 @@ mod tests {
     async fn test_enricher_creation() {
         let config = EnrichmentConfig::default();
         let enricher = EventEnricher::new(config);
-        
+
         let stats = enricher.get_cache_stats().await;
         assert_eq!(stats.token_cache_size, 0);
         assert_eq!(stats.price_cache_size, 0);
@@ -507,17 +543,17 @@ mod tests {
     async fn test_token_address_extraction() {
         let config = EnrichmentConfig::default();
         let enricher = EventEnricher::new(config);
-        
+
         let metadata = EventMetadata::default();
         let mut event = ZeroCopyEvent::new_owned(metadata, vec![]);
-        
+
         // Add JSON data with token addresses
         let json = serde_json::json!({
             "input_mint": "So11111111111111111111111111111111111111112",
             "output_mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
         });
         event.set_json_data(json);
-        
+
         let addresses = enricher.extract_token_addresses(&event);
         assert_eq!(addresses.len(), 2);
     }
@@ -533,10 +569,10 @@ mod tests {
             description: None,
             fetched_at: Instant::now(),
         };
-        
+
         let entry = CacheEntry::new(metadata, Duration::from_millis(1));
         assert!(!entry.is_expired());
-        
+
         std::thread::sleep(Duration::from_millis(2));
         assert!(entry.is_expired());
     }

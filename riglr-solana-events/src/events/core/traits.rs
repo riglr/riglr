@@ -1,6 +1,6 @@
-use std::fmt::Debug;
 use crate::types::{EventMetadata, EventType, ProtocolType};
 use riglr_events_core::Event;
+use std::fmt::Debug;
 
 // UnifiedEvent trait has been removed. Use riglr_events_core::Event instead.
 
@@ -9,11 +9,15 @@ use riglr_events_core::Event;
 #[async_trait::async_trait]
 pub trait EventParser: Send + Sync {
     /// Get inner instruction parsing configurations
-    fn inner_instruction_configs(&self) -> std::collections::HashMap<&'static str, Vec<GenericEventParseConfig>>;
-    
+    fn inner_instruction_configs(
+        &self,
+    ) -> std::collections::HashMap<&'static str, Vec<GenericEventParseConfig>>;
+
     /// Get instruction parsing configurations
-    fn instruction_configs(&self) -> std::collections::HashMap<Vec<u8>, Vec<GenericEventParseConfig>>;
-    
+    fn instruction_configs(
+        &self,
+    ) -> std::collections::HashMap<Vec<u8>, Vec<GenericEventParseConfig>>;
+
     /// Parse event data from inner instruction
     fn parse_events_from_inner_instruction(
         &self,
@@ -62,21 +66,28 @@ pub type InnerInstructionEventParser =
     fn(data: &[u8], metadata: EventMetadata) -> Option<Box<dyn Event>>;
 
 /// Instruction event parser
-pub type InstructionEventParser =
-    fn(data: &[u8], accounts: &[solana_sdk::pubkey::Pubkey], metadata: EventMetadata) -> Option<Box<dyn Event>>;
+pub type InstructionEventParser = fn(
+    data: &[u8],
+    accounts: &[solana_sdk::pubkey::Pubkey],
+    metadata: EventMetadata,
+) -> Option<Box<dyn Event>>;
 
 /// Generic event parser base class
 pub struct GenericEventParser {
     pub program_ids: Vec<solana_sdk::pubkey::Pubkey>,
-    pub inner_instruction_configs: std::collections::HashMap<&'static str, Vec<GenericEventParseConfig>>,
+    pub inner_instruction_configs:
+        std::collections::HashMap<&'static str, Vec<GenericEventParseConfig>>,
     pub instruction_configs: std::collections::HashMap<Vec<u8>, Vec<GenericEventParseConfig>>,
 }
 
 impl GenericEventParser {
     /// Create new generic event parser
-    pub fn new(program_ids: Vec<solana_sdk::pubkey::Pubkey>, configs: Vec<GenericEventParseConfig>) -> Self {
+    pub fn new(
+        program_ids: Vec<solana_sdk::pubkey::Pubkey>,
+        configs: Vec<GenericEventParseConfig>,
+    ) -> Self {
         use std::collections::HashMap;
-        
+
         let mut inner_instruction_configs = HashMap::with_capacity(configs.len());
         let mut instruction_configs = HashMap::with_capacity(configs.len());
 
@@ -91,17 +102,25 @@ impl GenericEventParser {
                 .push(config);
         }
 
-        Self { program_ids, inner_instruction_configs, instruction_configs }
+        Self {
+            program_ids,
+            inner_instruction_configs,
+            instruction_configs,
+        }
     }
 }
 
 #[async_trait::async_trait]
 impl EventParser for GenericEventParser {
-    fn inner_instruction_configs(&self) -> std::collections::HashMap<&'static str, Vec<GenericEventParseConfig>> {
+    fn inner_instruction_configs(
+        &self,
+    ) -> std::collections::HashMap<&'static str, Vec<GenericEventParseConfig>> {
         self.inner_instruction_configs.clone()
     }
 
-    fn instruction_configs(&self) -> std::collections::HashMap<Vec<u8>, Vec<GenericEventParseConfig>> {
+    fn instruction_configs(
+        &self,
+    ) -> std::collections::HashMap<Vec<u8>, Vec<GenericEventParseConfig>> {
         self.instruction_configs.clone()
     }
 
@@ -115,7 +134,7 @@ impl EventParser for GenericEventParser {
         index: String,
     ) -> Vec<Box<dyn Event>> {
         let mut events = Vec::new();
-        
+
         // For inner instructions, we'll use the data to identify the instruction type
         if let Ok(data) = bs58::decode(&inner_instruction.data).into_vec() {
             for configs in self.inner_instruction_configs.values() {
@@ -132,14 +151,14 @@ impl EventParser for GenericEventParser {
                         index.clone(),
                         program_received_time_ms,
                     );
-                    
+
                     if let Some(event) = (config.inner_instruction_parser)(&data, metadata) {
                         events.push(event);
                     }
                 }
             }
         }
-        
+
         events
     }
 
@@ -154,7 +173,7 @@ impl EventParser for GenericEventParser {
         index: String,
     ) -> Vec<Box<dyn Event>> {
         let mut events = Vec::new();
-        
+
         if let Some(configs) = self.instruction_configs.get(&instruction.data) {
             for config in configs {
                 let metadata = EventMetadata::new(
@@ -169,13 +188,15 @@ impl EventParser for GenericEventParser {
                     index.clone(),
                     program_received_time_ms,
                 );
-                
-                if let Some(event) = (config.instruction_parser)(&instruction.data, accounts, metadata) {
+
+                if let Some(event) =
+                    (config.instruction_parser)(&instruction.data, accounts, metadata)
+                {
                     events.push(event);
                 }
             }
         }
-        
+
         events
     }
 

@@ -23,19 +23,19 @@
 //!     // Create authentication provider
 //!     let privy_config = PrivyConfig::from_env().expect("Failed to load Privy config");
 //!     let privy_provider = AuthProvider::privy(privy_config);
-//!     
+//!
 //!     // Register with composite factory
 //!     let mut factory = CompositeSignerFactory::new();
 //!     factory.register_provider(privy_provider);
-//!     
+//!
 //!     // Use in your web server
 //!     // ... server setup with factory ...
 //! }
 //! ```
 
+pub mod config;
 pub mod error;
 pub mod provider;
-pub mod config;
 
 #[cfg(feature = "privy")]
 pub mod privy;
@@ -47,21 +47,21 @@ pub mod web3auth;
 pub mod magic;
 
 // Re-export main types
+pub use config::AuthConfig;
 pub use error::{AuthError, AuthResult};
 pub use provider::{AuthProvider, AuthProviderType};
-pub use config::AuthConfig;
 
 #[cfg(feature = "privy")]
-pub use privy::{PrivyProvider, PrivyConfig};
+pub use privy::{PrivyConfig, PrivyProvider};
 
 #[cfg(feature = "web3auth")]
-pub use web3auth::{Web3AuthProvider, Web3AuthConfig};
+pub use web3auth::{Web3AuthConfig, Web3AuthProvider};
 
 #[cfg(feature = "magic")]
-pub use magic::{MagicProvider, MagicConfig};
+pub use magic::{MagicConfig, MagicProvider};
 
 // Re-export the SignerFactory trait from web-adapters for convenience
-pub use riglr_web_adapters::factory::{SignerFactory, AuthenticationData};
+pub use riglr_web_adapters::factory::{AuthenticationData, SignerFactory};
 
 /// Extension trait for CompositeSignerFactory to easily register auth providers
 pub trait CompositeSignerFactoryExt {

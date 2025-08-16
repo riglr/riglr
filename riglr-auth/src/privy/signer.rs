@@ -65,7 +65,12 @@ impl std::fmt::Debug for PrivySolanaSigner {
 impl PrivySolanaSigner {
     pub fn new(client: reqwest::Client, address: String, network: SolanaNetworkConfig) -> Self {
         let rpc = Arc::new(RpcClient::new(network.rpc_url.clone()));
-        Self { client, address, rpc, network }
+        Self {
+            client,
+            address,
+            rpc,
+            network,
+        }
     }
 }
 
@@ -75,19 +80,22 @@ impl TransactionSigner for PrivySolanaSigner {
     fn address(&self) -> Option<String> {
         Some(self.address.clone())
     }
-    
+
     fn pubkey(&self) -> Option<String> {
         Some(self.address.clone())
     }
-    
-    async fn sign_and_send_solana_transaction(&self, tx: &mut Transaction) -> Result<String, SignerError> {
+
+    async fn sign_and_send_solana_transaction(
+        &self,
+        tx: &mut Transaction,
+    ) -> Result<String, SignerError> {
         info!("Signing and sending Solana transaction via Privy");
-        
+
         // Serialize and encode transaction
         let tx_bytes = bincode::serialize(tx)
             .map_err(|e| SignerError::Signing(format!("Failed to serialize transaction: {}", e)))?;
         let tx_base64 = STANDARD.encode(&tx_bytes);
-        
+
         // Determine CAIP-2 identifier based on network
         let caip2 = match self.network.name.as_str() {
             "mainnet" | "mainnet-beta" => "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",
@@ -95,12 +103,12 @@ impl TransactionSigner for PrivySolanaSigner {
             "testnet" => "solana:4uhcVJyU9pJkvQyS88uRDiswHXSCkY3z",
             _ => "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp", // Default to mainnet
         };
-        
+
         let params = PrivySolanaTransactionParams {
             transaction: tx_base64,
             encoding: "base64".to_string(),
         };
-        
+
         let request = PrivyRpcRequest {
             address: self.address.clone(),
             chain_type: "solana".to_string(),
@@ -109,52 +117,73 @@ impl TransactionSigner for PrivySolanaSigner {
             params: serde_json::to_value(params)
                 .map_err(|e| SignerError::Signing(format!("Failed to serialize params: {}", e)))?,
         };
-        
+
         debug!("Sending RPC request to Privy");
-        
-        let response = self.client
+
+        let response = self
+            .client
             .post("https://api.privy.io/v1/wallets/rpc")
             .json(&request)
             .send()
             .await
             .map_err(|e| SignerError::TransactionFailed(format!("Privy request failed: {}", e)))?;
-        
+
         if !response.status().is_success() {
             let status = response.status();
             let body = response.text().await.unwrap_or_default();
             error!("Privy RPC error: {} - {}", status, body);
-            return Err(SignerError::TransactionFailed(format!("Privy error: {} - {}", status, body)));
+            return Err(SignerError::TransactionFailed(format!(
+                "Privy error: {} - {}",
+                status, body
+            )));
         }
-        
-        let rpc_response: PrivyRpcResponse = response.json().await
+
+        let rpc_response: PrivyRpcResponse = response
+            .json()
+            .await
             .map_err(|e| SignerError::TransactionFailed(format!("Invalid response: {}", e)))?;
-        
+
         // Extract transaction hash from response
-        let hash = rpc_response.data
+        let hash = rpc_response
+            .data
             .get("hash")
             .and_then(|v| v.as_str())
-            .ok_or_else(|| SignerError::TransactionFailed("No transaction hash in response".to_string()))?;
-        
+            .ok_or_else(|| {
+                SignerError::TransactionFailed("No transaction hash in response".to_string())
+            })?;
+
         info!("Transaction sent successfully: {}", hash);
         Ok(hash.to_string())
     }
-    
+
     #[cfg(feature = "evm")]
-    async fn sign_and_send_evm_transaction(&self, _tx: TransactionRequest) -> Result<String, SignerError> {
-        Err(SignerError::UnsupportedOperation("EVM not supported by Solana signer".to_string()))
+    async fn sign_and_send_evm_transaction(
+        &self,
+        _tx: TransactionRequest,
+    ) -> Result<String, SignerError> {
+        Err(SignerError::UnsupportedOperation(
+            "EVM not supported by Solana signer".to_string(),
+        ))
     }
-    
+
     #[cfg(not(feature = "evm"))]
-    async fn sign_and_send_evm_transaction(&self, _tx: alloy::rpc::types::TransactionRequest) -> Result<String, SignerError> {
-        Err(SignerError::UnsupportedOperation("EVM support not compiled".to_string()))
+    async fn sign_and_send_evm_transaction(
+        &self,
+        _tx: alloy::rpc::types::TransactionRequest,
+    ) -> Result<String, SignerError> {
+        Err(SignerError::UnsupportedOperation(
+            "EVM support not compiled".to_string(),
+        ))
     }
-    
+
     fn solana_client(&self) -> Option<Arc<solana_client::rpc_client::RpcClient>> {
         Some(self.rpc.clone())
     }
-    
+
     fn evm_client(&self) -> Result<Arc<dyn EvmClient>, SignerError> {
-        Err(SignerError::UnsupportedOperation("EVM client not available for Solana signer".to_string()))
+        Err(SignerError::UnsupportedOperation(
+            "EVM client not available for Solana signer".to_string(),
+        ))
     }
 }
 
@@ -170,8 +199,18 @@ pub struct PrivyEvmSigner {
 
 #[cfg(feature = "evm")]
 impl PrivyEvmSigner {
-    pub fn new(client: reqwest::Client, address: String, wallet_id: String, network: EvmNetworkConfig) -> Self {
-        Self { client, address, wallet_id, network }
+    pub fn new(
+        client: reqwest::Client,
+        address: String,
+        wallet_id: String,
+        network: EvmNetworkConfig,
+    ) -> Self {
+        Self {
+            client,
+            address,
+            wallet_id,
+            network,
+        }
     }
 }
 
@@ -181,24 +220,39 @@ impl TransactionSigner for PrivyEvmSigner {
     fn address(&self) -> Option<String> {
         Some(self.address.clone())
     }
-    
+
     #[cfg(feature = "solana")]
-    async fn sign_and_send_solana_transaction(&self, _tx: &mut Transaction) -> Result<String, SignerError> {
-        Err(SignerError::UnsupportedOperation("Solana not supported by EVM signer".to_string()))
+    async fn sign_and_send_solana_transaction(
+        &self,
+        _tx: &mut Transaction,
+    ) -> Result<String, SignerError> {
+        Err(SignerError::UnsupportedOperation(
+            "Solana not supported by EVM signer".to_string(),
+        ))
     }
-    
+
     #[cfg(not(feature = "solana"))]
-    async fn sign_and_send_solana_transaction(&self, _tx: &mut solana_sdk::transaction::Transaction) -> Result<String, SignerError> {
-        Err(SignerError::UnsupportedOperation("Solana support not compiled".to_string()))
+    async fn sign_and_send_solana_transaction(
+        &self,
+        _tx: &mut solana_sdk::transaction::Transaction,
+    ) -> Result<String, SignerError> {
+        Err(SignerError::UnsupportedOperation(
+            "Solana support not compiled".to_string(),
+        ))
     }
-    
-    async fn sign_and_send_evm_transaction(&self, tx: TransactionRequest) -> Result<String, SignerError> {
+
+    async fn sign_and_send_evm_transaction(
+        &self,
+        tx: TransactionRequest,
+    ) -> Result<String, SignerError> {
         info!("Signing and sending EVM transaction via Privy");
-        
+
         // Convert transaction to Privy format
-        let from = tx.from.map(|a| format!("0x{:x}", a))
+        let from = tx
+            .from
+            .map(|a| format!("0x{:x}", a))
             .unwrap_or_else(|| self.address.clone());
-        
+
         let to = if let Some(to) = tx.to {
             // Handle TxKind enum
             format!("0x{:?}", to) // This will need proper handling based on actual TxKind structure
@@ -206,11 +260,15 @@ impl TransactionSigner for PrivyEvmSigner {
             // Contract creation
             "0x0000000000000000000000000000000000000000".to_string()
         };
-        
+
         let value = tx.value.map(|v| format!("0x{:x}", v));
-        let data = tx.input.data.as_ref().map(|d| format!("0x{}", hex::encode(d)));
+        let data = tx
+            .input
+            .data
+            .as_ref()
+            .map(|d| format!("0x{}", hex::encode(d)));
         let gas_limit = tx.gas.map(|g| format!("0x{:x}", g));
-        
+
         let params = PrivyEvmTransactionParams {
             from,
             to,
@@ -220,7 +278,7 @@ impl TransactionSigner for PrivyEvmSigner {
             gas_price: None, // Let Privy handle gas pricing
             tx_type: None,
         };
-        
+
         let request = PrivyRpcRequest {
             address: self.address.clone(),
             chain_type: "ethereum".to_string(),
@@ -229,44 +287,58 @@ impl TransactionSigner for PrivyEvmSigner {
             params: serde_json::to_value(vec![params])
                 .map_err(|e| SignerError::Signing(format!("Failed to serialize params: {}", e)))?,
         };
-        
+
         debug!("Sending RPC request to Privy for wallet {}", self.wallet_id);
-        
-        let response = self.client
-            .post(format!("https://api.privy.io/v1/wallets/{}/rpc", self.wallet_id))
+
+        let response = self
+            .client
+            .post(format!(
+                "https://api.privy.io/v1/wallets/{}/rpc",
+                self.wallet_id
+            ))
             .json(&request)
             .send()
             .await
             .map_err(|e| SignerError::TransactionFailed(format!("Privy request failed: {}", e)))?;
-        
+
         if !response.status().is_success() {
             let status = response.status();
             let body = response.text().await.unwrap_or_default();
             error!("Privy RPC error: {} - {}", status, body);
-            return Err(SignerError::TransactionFailed(format!("Privy error: {} - {}", status, body)));
+            return Err(SignerError::TransactionFailed(format!(
+                "Privy error: {} - {}",
+                status, body
+            )));
         }
-        
-        let rpc_response: PrivyRpcResponse = response.json().await
+
+        let rpc_response: PrivyRpcResponse = response
+            .json()
+            .await
             .map_err(|e| SignerError::TransactionFailed(format!("Invalid response: {}", e)))?;
-        
+
         // Extract transaction hash from response
-        let hash = rpc_response.data
+        let hash = rpc_response
+            .data
             .get("hash")
             .and_then(|v| v.as_str())
-            .ok_or_else(|| SignerError::TransactionFailed("No transaction hash in response".to_string()))?;
-        
+            .ok_or_else(|| {
+                SignerError::TransactionFailed("No transaction hash in response".to_string())
+            })?;
+
         info!("Transaction sent successfully: {}", hash);
         Ok(hash.to_string())
     }
-    
+
     fn solana_client(&self) -> Option<Arc<solana_client::rpc_client::RpcClient>> {
         // EVM signer doesn't need Solana client
         None
     }
-    
+
     fn evm_client(&self) -> Result<Arc<dyn EvmClient>, SignerError> {
         // Privy handles RPC internally, so we don't provide direct client access
-        Err(SignerError::UnsupportedOperation("Direct EVM client not available for Privy signer".to_string()))
+        Err(SignerError::UnsupportedOperation(
+            "Direct EVM client not available for Privy signer".to_string(),
+        ))
     }
 }
 

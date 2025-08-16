@@ -123,14 +123,15 @@ impl CircuitBreaker {
         Fut: std::future::Future<Output = StreamResult<T>>,
     {
         let current_state = self.state();
-        
+
         // Check if circuit breaker is open
         if current_state == ConnectionState::Failed {
             let last_failure = *self.last_failure.lock().await;
             if let Some(last_fail_time) = last_failure {
                 let elapsed = last_fail_time.elapsed();
-                let cooldown = self.calculate_backoff_delay(self.failure_count.load(Ordering::Acquire));
-                
+                let cooldown =
+                    self.calculate_backoff_delay(self.failure_count.load(Ordering::Acquire));
+
                 if elapsed < cooldown {
                     return Err(StreamError::retriable_connection(format!(
                         "Circuit breaker open, retrying in {:?}",
@@ -141,8 +142,14 @@ impl CircuitBreaker {
         }
 
         // Transition to connecting state
-        if self.state.compare_exchange(current_state, ConnectionState::Connecting).is_err() {
-            return Err(StreamError::permanent_connection("Connection attempt already in progress"));
+        if self
+            .state
+            .compare_exchange(current_state, ConnectionState::Connecting)
+            .is_err()
+        {
+            return Err(StreamError::permanent_connection(
+                "Connection attempt already in progress",
+            ));
         }
 
         let connect_timeout = self.config.connect_timeout();
@@ -177,13 +184,16 @@ impl CircuitBreaker {
     async fn on_failure(&self) {
         let failures = self.failure_count.fetch_add(1, Ordering::AcqRel) + 1;
         *self.last_failure.lock().await = Some(Instant::now());
-        
+
         if failures >= self.config.max_retries {
             self.state.store(ConnectionState::Failed);
             error!("Circuit breaker opened after {} failures", failures);
         } else {
             self.state.store(ConnectionState::Reconnecting);
-            warn!("Connection failed ({}/{}), will retry", failures, self.config.max_retries);
+            warn!(
+                "Connection failed ({}/{}), will retry",
+                failures, self.config.max_retries
+            );
         }
     }
 
@@ -194,7 +204,7 @@ impl CircuitBreaker {
     fn calculate_backoff_delay(&self, attempt: usize) -> Duration {
         let base_delay = self.config.retry_base_delay();
         let max_delay = self.config.retry_max_delay();
-        
+
         let multiplier = 1u64 << attempt.min(10); // Cap at 2^10
         let exponential_delay = Duration::from_millis(base_delay.as_millis() as u64 * multiplier);
         std::cmp::min(exponential_delay, max_delay)
@@ -234,14 +244,17 @@ where
         F: Fn() -> Fut + Send + Sync + 'static + Clone,
         Fut: std::future::Future<Output = StreamResult<T>> + Send,
     {
-        let connection = self.circuit_breaker.attempt_connect(connect_fn.clone()).await?;
-        
+        let connection = self
+            .circuit_breaker
+            .attempt_connect(connect_fn.clone())
+            .await?;
+
         *self.connection.write().await = Some(connection);
         self.update_health_on_connect().await;
-        
+
         // Start background reconnection monitoring
         self.start_reconnect_monitor(connect_fn).await;
-        
+
         Ok(())
     }
 
@@ -258,9 +271,11 @@ where
         F: FnOnce(&T) -> R,
         T: Clone,
     {
-        let connection = self.get_connection().await
+        let connection = self
+            .get_connection()
+            .await
             .ok_or_else(|| StreamError::permanent_connection("No active connection"))?;
-        
+
         self.update_activity().await;
         Ok(f(&connection))
     }
@@ -273,7 +288,7 @@ where
         *self.connection.write().await = None;
         self.circuit_breaker.mark_disconnected();
         self.reconnect_task.store(false, Ordering::Release);
-        
+
         let mut health = self.health.write().await;
         health.state = ConnectionState::Disconnected;
         health.connected_at = None;
@@ -282,7 +297,7 @@ where
     async fn update_health_on_connect(&self) {
         let mut health = self.health.write().await;
         let now = Instant::now();
-        
+
         health.state = ConnectionState::Connected;
         health.connected_at = Some(now);
         health.last_activity = Some(now);
@@ -300,7 +315,11 @@ where
         F: Fn() -> Fut + Send + Sync + 'static + Clone,
         Fut: std::future::Future<Output = StreamResult<T>> + Send,
     {
-        if self.reconnect_task.compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire).is_err() {
+        if self
+            .reconnect_task
+            .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+            .is_err()
+        {
             return; // Monitor already running
         }
 
@@ -316,11 +335,11 @@ where
                 let state = circuit_breaker.state();
                 if state == ConnectionState::Reconnecting || state == ConnectionState::Failed {
                     info!("Attempting automatic reconnection...");
-                    
+
                     match circuit_breaker.attempt_connect(connect_fn.clone()).await {
                         Ok(new_connection) => {
                             *connection.write().await = Some(new_connection);
-                            
+
                             let mut health_guard = health.write().await;
                             let now = Instant::now();
                             health_guard.state = ConnectionState::Connected;
@@ -328,17 +347,18 @@ where
                             health_guard.last_activity = Some(now);
                             health_guard.total_reconnects += 1;
                             health_guard.consecutive_failures = 0;
-                            
+
                             info!("Automatic reconnection successful");
                         }
                         Err(e) => {
                             let mut health_guard = health.write().await;
                             health_guard.consecutive_failures += 1;
-                            
+
                             debug!("Reconnection attempt failed: {}", e);
-                            
+
                             // Wait before next attempt
-                            let delay = circuit_breaker.calculate_backoff_delay(health_guard.consecutive_failures);
+                            let delay = circuit_breaker
+                                .calculate_backoff_delay(health_guard.consecutive_failures);
                             sleep(delay).await;
                         }
                     }
@@ -364,7 +384,7 @@ where
         let connections = (0..pool_size)
             .map(|_| ConnectionManager::new(config.clone()))
             .collect();
-        
+
         Self {
             connections,
             config,
@@ -378,54 +398,55 @@ where
         Fut: std::future::Future<Output = StreamResult<T>> + Send,
     {
         let mut tasks = Vec::new();
-        
+
         for manager in &self.connections {
             let connect_fn_clone = connect_fn.clone();
             let manager_ref = manager;
-            
-            tasks.push(async move {
-                manager_ref.connect(connect_fn_clone).await
-            });
+
+            tasks.push(async move { manager_ref.connect(connect_fn_clone).await });
         }
-        
+
         let results = futures::future::join_all(tasks).await;
-        
+
         for (index, result) in results.into_iter().enumerate() {
             if let Err(e) = result {
                 warn!("Failed to connect to pool connection {}: {}", index, e);
             }
         }
-        
+
         Ok(())
     }
 
     pub async fn get_healthy_connection(&self) -> StreamResult<T> {
         let start_index = self.current_index.load(Ordering::Acquire);
-        
+
         for i in 0..self.connections.len() {
             let index = (start_index + i) % self.connections.len();
             let manager = &self.connections[index];
-            
+
             let health = manager.health().await;
             if health.state == ConnectionState::Connected {
                 if let Some(connection) = manager.get_connection().await {
                     // Update round-robin index
-                    self.current_index.store((index + 1) % self.connections.len(), Ordering::Release);
+                    self.current_index
+                        .store((index + 1) % self.connections.len(), Ordering::Release);
                     return Ok(connection);
                 }
             }
         }
-        
-        Err(StreamError::retriable_connection("No healthy connections available"))
+
+        Err(StreamError::retriable_connection(
+            "No healthy connections available",
+        ))
     }
 
     pub async fn pool_health(&self) -> Vec<ConnectionHealth> {
         let mut health_reports = Vec::new();
-        
+
         for manager in &self.connections {
             health_reports.push(manager.health().await);
         }
-        
+
         health_reports
     }
 }
@@ -444,7 +465,7 @@ mod tests {
     }
 
     async fn create_failing_connection() -> StreamResult<MockConnection> {
-        Err(StreamError::Connection { 
+        Err(StreamError::Connection {
             message: "Mock failure".to_string(),
             retriable: true,
         })
@@ -454,7 +475,7 @@ mod tests {
     async fn test_circuit_breaker_success() {
         let config = ConnectionConfig::default();
         let breaker = CircuitBreaker::new(config);
-        
+
         let result = breaker.attempt_connect(create_mock_connection).await;
         assert!(result.is_ok());
         assert_eq!(breaker.state(), ConnectionState::Connected);
@@ -467,7 +488,7 @@ mod tests {
             ..ConnectionConfig::default()
         };
         let breaker = CircuitBreaker::new(config);
-        
+
         let result = breaker.attempt_connect(create_failing_connection).await;
         assert!(result.is_err());
         assert_eq!(breaker.state(), ConnectionState::Reconnecting);
@@ -477,12 +498,12 @@ mod tests {
     async fn test_connection_manager() {
         let config = ConnectionConfig::default();
         let manager = ConnectionManager::new(config);
-        
+
         manager.connect(create_mock_connection).await.unwrap();
-        
+
         let connection = manager.get_connection().await;
         assert!(connection.is_some());
-        
+
         let health = manager.health().await;
         assert_eq!(health.state, ConnectionState::Connected);
         assert!(health.connected_at.is_some());
@@ -492,12 +513,12 @@ mod tests {
     async fn test_connection_pool() {
         let config = ConnectionConfig::default();
         let pool = ConnectionPool::new(config, 3);
-        
+
         pool.connect_all(create_mock_connection).await.unwrap();
-        
+
         let connection = pool.get_healthy_connection().await;
         assert!(connection.is_ok());
-        
+
         let health_reports = pool.pool_health().await;
         assert_eq!(health_reports.len(), 3);
     }

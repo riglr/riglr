@@ -41,55 +41,55 @@ impl DistributedAgentRegistry {
 impl AgentRegistry for DistributedAgentRegistry {
     async fn register_agent(&self, _agent: Arc<dyn Agent>) -> Result<()> {
         Err(AgentError::generic(
-            "Distributed registry not yet implemented. Use LocalAgentRegistry for now."
+            "Distributed registry not yet implemented. Use LocalAgentRegistry for now.",
         ))
     }
 
     async fn unregister_agent(&self, _agent_id: &AgentId) -> Result<()> {
         Err(AgentError::generic(
-            "Distributed registry not yet implemented. Use LocalAgentRegistry for now."
+            "Distributed registry not yet implemented. Use LocalAgentRegistry for now.",
         ))
     }
 
     async fn get_agent(&self, _agent_id: &AgentId) -> Result<Option<Arc<dyn Agent>>> {
         Err(AgentError::generic(
-            "Distributed registry not yet implemented. Use LocalAgentRegistry for now."
+            "Distributed registry not yet implemented. Use LocalAgentRegistry for now.",
         ))
     }
 
     async fn list_agents(&self) -> Result<Vec<Arc<dyn Agent>>> {
         Err(AgentError::generic(
-            "Distributed registry not yet implemented. Use LocalAgentRegistry for now."
+            "Distributed registry not yet implemented. Use LocalAgentRegistry for now.",
         ))
     }
 
     async fn find_agents_by_capability(&self, _capability: &str) -> Result<Vec<Arc<dyn Agent>>> {
         Err(AgentError::generic(
-            "Distributed registry not yet implemented. Use LocalAgentRegistry for now."
+            "Distributed registry not yet implemented. Use LocalAgentRegistry for now.",
         ))
     }
 
     async fn get_agent_status(&self, _agent_id: &AgentId) -> Result<Option<AgentStatus>> {
         Err(AgentError::generic(
-            "Distributed registry not yet implemented. Use LocalAgentRegistry for now."
+            "Distributed registry not yet implemented. Use LocalAgentRegistry for now.",
         ))
     }
 
     async fn update_agent_status(&self, _status: AgentStatus) -> Result<()> {
         Err(AgentError::generic(
-            "Distributed registry not yet implemented. Use LocalAgentRegistry for now."
+            "Distributed registry not yet implemented. Use LocalAgentRegistry for now.",
         ))
     }
 
     async fn list_agent_statuses(&self) -> Result<Vec<AgentStatus>> {
         Err(AgentError::generic(
-            "Distributed registry not yet implemented. Use LocalAgentRegistry for now."
+            "Distributed registry not yet implemented. Use LocalAgentRegistry for now.",
         ))
     }
 
     async fn health_check(&self) -> Result<bool> {
         Err(AgentError::generic(
-            "Distributed registry not yet implemented. Use LocalAgentRegistry for now."
+            "Distributed registry not yet implemented. Use LocalAgentRegistry for now.",
         ))
     }
 }
@@ -102,12 +102,13 @@ mod tests {
     async fn test_distributed_registry_stub() {
         // Test that the stub correctly returns errors
         let config = RegistryConfig::default();
-        let registry = DistributedAgentRegistry::with_config("redis://localhost".to_string(), config);
-        
+        let registry =
+            DistributedAgentRegistry::with_config("redis://localhost".to_string(), config);
+
         assert!(registry.is_ok());
-        
+
         let registry = registry.unwrap();
-        
+
         // All operations should return not implemented errors
         assert!(registry.health_check().await.is_err());
         assert!(registry.list_agents().await.is_err());

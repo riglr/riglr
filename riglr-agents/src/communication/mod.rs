@@ -176,28 +176,28 @@ mod tests {
             "test".to_string(),
             serde_json::json!({}),
         );
-        
+
         assert!(filter.matches(&message));
     }
 
     #[test]
     fn test_message_filter_message_type() {
         let filter = MessageFilter::MessageType("test_type".to_string());
-        
+
         let matching_message = AgentMessage::new(
             AgentId::new("sender"),
             Some(AgentId::new("receiver")),
             "test_type".to_string(),
             serde_json::json!({}),
         );
-        
+
         let non_matching_message = AgentMessage::new(
             AgentId::new("sender"),
             Some(AgentId::new("receiver")),
             "other_type".to_string(),
             serde_json::json!({}),
         );
-        
+
         assert!(filter.matches(&matching_message));
         assert!(!filter.matches(&non_matching_message));
     }
@@ -206,21 +206,21 @@ mod tests {
     fn test_message_filter_sender() {
         let sender_id = AgentId::new("specific_sender");
         let filter = MessageFilter::Sender(sender_id.clone());
-        
+
         let matching_message = AgentMessage::new(
             sender_id.clone(),
             Some(AgentId::new("receiver")),
             "test".to_string(),
             serde_json::json!({}),
         );
-        
+
         let non_matching_message = AgentMessage::new(
             AgentId::new("other_sender"),
             Some(AgentId::new("receiver")),
             "test".to_string(),
             serde_json::json!({}),
         );
-        
+
         assert!(filter.matches(&matching_message));
         assert!(!filter.matches(&non_matching_message));
     }
@@ -228,28 +228,31 @@ mod tests {
     #[test]
     fn test_message_filter_priority() {
         let filter = MessageFilter::Priority(Priority::High);
-        
+
         let high_priority_message = AgentMessage::new(
             AgentId::new("sender"),
             Some(AgentId::new("receiver")),
             "test".to_string(),
             serde_json::json!({}),
-        ).with_priority(Priority::High);
-        
+        )
+        .with_priority(Priority::High);
+
         let critical_priority_message = AgentMessage::new(
             AgentId::new("sender"),
             Some(AgentId::new("receiver")),
             "test".to_string(),
             serde_json::json!({}),
-        ).with_priority(Priority::Critical);
-        
+        )
+        .with_priority(Priority::Critical);
+
         let low_priority_message = AgentMessage::new(
             AgentId::new("sender"),
             Some(AgentId::new("receiver")),
             "test".to_string(),
             serde_json::json!({}),
-        ).with_priority(Priority::Low);
-        
+        )
+        .with_priority(Priority::Low);
+
         assert!(filter.matches(&high_priority_message));
         assert!(filter.matches(&critical_priority_message));
         assert!(!filter.matches(&low_priority_message));
@@ -261,21 +264,23 @@ mod tests {
             MessageFilter::MessageType("test_type".to_string()),
             MessageFilter::Priority(Priority::High),
         ]);
-        
+
         let matching_message = AgentMessage::new(
             AgentId::new("sender"),
             Some(AgentId::new("receiver")),
             "test_type".to_string(),
             serde_json::json!({}),
-        ).with_priority(Priority::High);
-        
+        )
+        .with_priority(Priority::High);
+
         let non_matching_message = AgentMessage::new(
             AgentId::new("sender"),
             Some(AgentId::new("receiver")),
             "test_type".to_string(),
             serde_json::json!({}),
-        ).with_priority(Priority::Low);
-        
+        )
+        .with_priority(Priority::Low);
+
         assert!(filter.matches(&matching_message));
         assert!(!filter.matches(&non_matching_message));
     }
@@ -286,28 +291,28 @@ mod tests {
             MessageFilter::MessageType("type1".to_string()),
             MessageFilter::MessageType("type2".to_string()),
         ]);
-        
+
         let message1 = AgentMessage::new(
             AgentId::new("sender"),
             Some(AgentId::new("receiver")),
             "type1".to_string(),
             serde_json::json!({}),
         );
-        
+
         let message2 = AgentMessage::new(
             AgentId::new("sender"),
             Some(AgentId::new("receiver")),
             "type2".to_string(),
             serde_json::json!({}),
         );
-        
+
         let message3 = AgentMessage::new(
             AgentId::new("sender"),
             Some(AgentId::new("receiver")),
             "type3".to_string(),
             serde_json::json!({}),
         );
-        
+
         assert!(filter.matches(&message1));
         assert!(filter.matches(&message2));
         assert!(!filter.matches(&message3));

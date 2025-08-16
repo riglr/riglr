@@ -14,7 +14,7 @@
 //!
 //! 1. **Creation** - Jobs are created with tool name, parameters, and retry limits
 //! 2. **Queueing** - Jobs are enqueued for processing by workers
-//! 3. **Execution** - Workers execute the corresponding tool with job parameters  
+//! 3. **Execution** - Workers execute the corresponding tool with job parameters
 //! 4. **Result** - Execution produces a [`JobResult`] indicating success or failure
 //! 5. **Retry** - Failed jobs may be retried based on failure type and retry limits
 //!
@@ -36,7 +36,7 @@
 //!
 //! // Create an idempotent job
 //! let idempotent_job = Job::new_idempotent(
-//!     "account_balance", 
+//!     "account_balance",
 //!     &json!({"address": "0x123..."}),
 //!     2, // max retries
 //!     "balance_check_user_123" // idempotency key
@@ -68,7 +68,7 @@
 //!     &json!({"amount": 100, "recipient": "0xabc..."}),
 //!     "0x789def..."
 //! )?;
-//! 
+//!
 //! // Retriable failure (network timeout, rate limit, etc.)
 //! let retriable = JobResult::retriable_failure("Network timeout");
 //! assert!(retriable.is_retriable());
@@ -93,7 +93,7 @@
 //! - Temporary service unavailability
 //! - Resource contention
 //!
-//! ### Permanent Failures  
+//! ### Permanent Failures
 //! These represent issues that won't be resolved by retrying:
 //! - Invalid parameters or malformed requests
 //! - Authentication or authorization failures
@@ -113,7 +113,7 @@
 //!     "transfer",
 //!     &json!({
 //!         "from": "user123",
-//!         "to": "user456", 
+//!         "to": "user456",
 //!         "amount": 100
 //!     }),
 //!     3, // max retries
@@ -178,7 +178,7 @@ use uuid::Uuid;
 ///     "bank_transfer",
 ///     &json!({
 ///         "from_account": "123",
-///         "to_account": "456", 
+///         "to_account": "456",
 ///         "amount": 100.00,
 ///         "currency": "USD"
 ///     }),
@@ -193,7 +193,7 @@ use uuid::Uuid;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Job {
     /// Unique identifier for this job instance.
-    /// 
+    ///
     /// Generated automatically when the job is created. This ID is used
     /// for tracking and logging purposes throughout the job's lifecycle.
     pub job_id: Uuid,
@@ -388,7 +388,7 @@ impl Job {
     /// assert!(job.can_retry());  // 0 < 2, can retry
     /// job.increment_retry();
     /// assert!(job.can_retry());  // 1 < 2, can retry
-    /// job.increment_retry(); 
+    /// job.increment_retry();
     /// assert!(!job.can_retry()); // 2 >= 2, cannot retry
     /// # Ok(())
     /// # }
@@ -429,7 +429,7 @@ impl Job {
 ///
 /// The `JobResult` enum provides structured representation of job execution outcomes,
 /// enabling the system to make intelligent decisions about error handling and retry logic.
-/// 
+///
 /// ## Success vs Failure
 ///
 /// - **Success**: The tool executed successfully and produced a result
@@ -441,7 +441,7 @@ impl Job {
 ///
 /// - **Retriable failures**: Temporary issues that may resolve on retry
 ///   - Network timeouts, connection errors
-///   - Rate limiting from external APIs  
+///   - Rate limiting from external APIs
 ///   - Temporary service unavailability
 ///   - Resource contention
 ///
@@ -506,7 +506,7 @@ impl Job {
 ///
 /// ```rust
 /// use riglr_core::JobResult;
-/// 
+///
 /// fn handle_result(result: JobResult) {
 ///     match result {
 ///         JobResult::Success { value, tx_hash } => {

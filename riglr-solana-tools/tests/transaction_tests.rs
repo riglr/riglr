@@ -26,7 +26,9 @@ fn test_client_without_signer() {
 fn test_client_with_signer_from_bytes() {
     let keypair = Keypair::new();
     let bytes = keypair.to_bytes();
-    let client = SolanaClient::devnet().with_signer_from_bytes(&bytes).unwrap();
+    let client = SolanaClient::devnet()
+        .with_signer_from_bytes(&bytes)
+        .unwrap();
 
     assert!(client.has_signer());
     let signer = client.require_signer().unwrap();
@@ -37,7 +39,7 @@ fn test_client_with_signer_from_bytes() {
 fn test_client_with_invalid_signer_bytes() {
     let client = SolanaClient::devnet();
     let invalid_bytes = vec![0u8; 32]; // Wrong length
-    
+
     let result = client.with_signer_from_bytes(&invalid_bytes);
     assert!(result.is_err());
 }
@@ -45,14 +47,15 @@ fn test_client_with_invalid_signer_bytes() {
 #[tokio::test]
 async fn test_transfer_sol_without_signer() {
     let _client = SolanaClient::devnet();
-    
+
     let result = transfer_sol(
         "11111111111111111111111111111111".to_string(),
         0.001,
         None,
         None,
-    ).await;
-    
+    )
+    .await;
+
     // Should fail because no signer is configured
     assert!(result.is_err());
 }
@@ -60,15 +63,16 @@ async fn test_transfer_sol_without_signer() {
 #[tokio::test]
 async fn test_transfer_spl_token_without_signer() {
     let _client = SolanaClient::devnet();
-    
+
     let result = transfer_spl_token(
         "11111111111111111111111111111111".to_string(),
         "So11111111111111111111111111111111111111112".to_string(),
         1000,
         6,
         false,
-    ).await;
-    
+    )
+    .await;
+
     // Should fail because no signer is configured
     assert!(result.is_err());
 }

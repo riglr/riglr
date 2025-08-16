@@ -79,14 +79,14 @@ async fn main() -> Result<()> {
                     }
                 }
             }
-            
+
             _ = stats_interval.tick() => {
                 let elapsed = start_time.elapsed();
                 let rate = event_count as f64 / elapsed.as_secs_f64();
-                info!("📈 Processed {} events in {:?} ({:.2} events/sec)", 
+                info!("📈 Processed {} events in {:?} ({:.2} events/sec)",
                      event_count, elapsed, rate);
             }
-            
+
             // Simulate processing events
             _ = sleep(Duration::from_millis(100)) => {
                 if let Ok(connection) = connection_manager.with_connection(|conn| {
@@ -108,20 +108,20 @@ async fn main() -> Result<()> {
     // Graceful shutdown
     info!("🛑 Shutting down stream...");
     connection_manager.disconnect().await;
-    
+
     let final_health = connection_manager.health().await;
     info!("📊 Final connection state: {:?}", final_health);
-    
+
     Ok(())
 }
 
 // Mock connection creation for demonstration
 async fn create_solana_connection(rpc_url: String) -> StreamResult<SolanaConnection> {
     debug!("🔌 Creating connection to: {}", rpc_url);
-    
+
     // Simulate connection establishment
     sleep(Duration::from_millis(100)).await;
-    
+
     Ok(SolanaConnection {
         rpc_url,
         connected_at: std::time::Instant::now(),
@@ -139,9 +139,9 @@ struct SolanaConnection {
 fn process_event_batch(connection: &SolanaConnection) -> u64 {
     // Simulate processing time and batch size
     let batch_size = fastrand::u64(1..=10);
-    
+
     debug!("🔄 Processing batch of {} events on {}", batch_size, connection.rpc_url);
-    
+
     batch_size
 }
 
@@ -159,7 +159,7 @@ impl UnifiedEventHandler {
 
     async fn handle_event(&self, event: Box<dyn Event>) -> ToolResult<()> {
         let count = self.processed_count.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-        
+
         // Log event details
         info!("📦 Processing event #{}: {}", count, event.id());
         debug!("   Kind: {:?}", event.kind());
@@ -187,12 +187,12 @@ impl UnifiedEventHandler {
 
     async fn handle_transaction_event(&self, event: &dyn Event) -> ToolResult<()> {
         debug!("💰 Processing transaction event: {}", event.id());
-        
+
         // Extract transaction details from event data
         if let Some(data) = event.data() {
             if let Ok(tx_data) = serde_json::from_value::<serde_json::Value>(data.clone()) {
                 debug!("   Transaction data: {}", tx_data);
-                
+
                 // Here you could:
                 // - Parse signature and slot information
                 // - Extract token transfers
@@ -206,11 +206,11 @@ impl UnifiedEventHandler {
 
     async fn handle_block_event(&self, event: &dyn Event) -> ToolResult<()> {
         debug!("🧱 Processing block event: {}", event.id());
-        
+
         // Process block-level information
         if let Some(data) = event.data() {
             debug!("   Block data: {}", data);
-            
+
             // Here you could:
             // - Update blockchain state
             // - Calculate network metrics
@@ -222,11 +222,11 @@ impl UnifiedEventHandler {
 
     async fn handle_custom_event(&self, event: &dyn Event) -> ToolResult<()> {
         debug!("🔧 Processing custom event: {}", event.id());
-        
+
         // Handle protocol-specific events
         if let Some(data) = event.data() {
             debug!("   Custom event data: {}", data);
-            
+
             // Here you could:
             // - Process DEX swap events
             // - Handle NFT marketplace activities
@@ -249,7 +249,7 @@ mod tests {
     #[tokio::test]
     async fn test_event_handler() {
         let handler = UnifiedEventHandler::new();
-        
+
         let event = GenericEvent::new(
             "test-event".into(),
             EventKind::Transaction,
@@ -275,7 +275,7 @@ mod tests {
         }).await;
 
         assert!(result.is_ok());
-        
+
         let health = manager.health().await;
         assert_eq!(health.state, ConnectionState::Connected);
         assert!(health.connected_at.is_some());
@@ -285,7 +285,7 @@ mod tests {
     fn test_stream_config_validation() {
         let config = StreamClientConfig::low_latency();
         assert!(config.validate().is_ok());
-        
+
         let config = StreamClientConfig::high_performance();
         assert!(config.validate().is_ok());
     }

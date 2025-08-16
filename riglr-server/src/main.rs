@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
-use riglr_server::{ServerConfig, start_axum};
-use riglr_web_adapters::{CompositeSignerFactory, SignerFactory, Agent};
+use riglr_server::{start_axum, ServerConfig};
+use riglr_web_adapters::{Agent, CompositeSignerFactory, SignerFactory};
 
 #[derive(Clone)]
 struct EchoAgent;
@@ -14,7 +14,10 @@ impl Agent for EchoAgent {
         Ok(format!("echo: {}", prompt))
     }
 
-    async fn prompt_stream(&self, prompt: &str) -> Result<futures_util::stream::BoxStream<'_, Result<String, Self::Error>>, Self::Error> {
+    async fn prompt_stream(
+        &self,
+        prompt: &str,
+    ) -> Result<futures_util::stream::BoxStream<'_, Result<String, Self::Error>>, Self::Error> {
         let chunks = vec![
             Ok("start:".to_string()),
             Ok(" ".to_string()),
@@ -33,10 +36,17 @@ impl SignerFactory for DevSignerFactory {
         &self,
         auth_data: riglr_web_adapters::AuthenticationData,
         config: &riglr_core::config::RpcConfig,
-    ) -> Result<Box<dyn riglr_core::signer::TransactionSigner>, Box<dyn std::error::Error + Send + Sync>> {
+    ) -> Result<
+        Box<dyn riglr_core::signer::TransactionSigner>,
+        Box<dyn std::error::Error + Send + Sync>,
+    > {
         // Create a LocalSolanaSigner from a fresh keypair using the requested network (default devnet)
         let kp = solana_sdk::signature::Keypair::new();
-        let network = if auth_data.network.is_empty() { "devnet".to_string() } else { auth_data.network };
+        let network = if auth_data.network.is_empty() {
+            "devnet".to_string()
+        } else {
+            auth_data.network
+        };
         let net_cfg = config
             .solana_networks
             .get(&network)
@@ -51,13 +61,17 @@ impl SignerFactory for DevSignerFactory {
         Ok(Box::new(signer))
     }
 
-    fn supported_auth_types(&self) -> Vec<String> { vec!["dev".into(), "privy".into()] }
+    fn supported_auth_types(&self) -> Vec<String> {
+        vec!["dev".into(), "privy".into()]
+    }
 }
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     // init tracing from env RUST_LOG=info
-    let _ = tracing_subscriber::fmt().with_env_filter(tracing_subscriber::EnvFilter::from_default_env()).try_init();
+    let _ = tracing_subscriber::fmt()
+        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+        .try_init();
 
     let mut composite = CompositeSignerFactory::new();
     composite.register_factory("dev".into(), Box::new(DevSignerFactory));

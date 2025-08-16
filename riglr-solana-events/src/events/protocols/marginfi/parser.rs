@@ -1,24 +1,24 @@
-use std::collections::HashMap;
-use riglr_events_core::Event;
-use solana_sdk::pubkey::Pubkey;
-use crate::{
-    events::core::{EventParser, GenericEventParseConfig},
-    types::{EventMetadata, EventType, ProtocolType},
-    events::common::utils::{has_discriminator, parse_u64_le},
-};
 use super::{
     events::{
-        MarginFiDepositEvent, MarginFiWithdrawEvent, MarginFiBorrowEvent,
-        MarginFiRepayEvent, MarginFiLiquidationEvent, EventParameters
+        EventParameters, MarginFiBorrowEvent, MarginFiDepositEvent, MarginFiLiquidationEvent,
+        MarginFiRepayEvent, MarginFiWithdrawEvent,
     },
     types::{
-        marginfi_program_id, marginfi_bank_program_id, MarginFiDepositData, MarginFiWithdrawData,
-        MarginFiBorrowData, MarginFiRepayData, MarginFiLiquidationData,
-        MARGINFI_DEPOSIT_DISCRIMINATOR, MARGINFI_WITHDRAW_DISCRIMINATOR,
-        MARGINFI_BORROW_DISCRIMINATOR, MARGINFI_REPAY_DISCRIMINATOR,
-        MARGINFI_LIQUIDATE_DISCRIMINATOR,
+        marginfi_bank_program_id, marginfi_program_id, MarginFiBorrowData, MarginFiDepositData,
+        MarginFiLiquidationData, MarginFiRepayData, MarginFiWithdrawData,
+        MARGINFI_BORROW_DISCRIMINATOR, MARGINFI_DEPOSIT_DISCRIMINATOR,
+        MARGINFI_LIQUIDATE_DISCRIMINATOR, MARGINFI_REPAY_DISCRIMINATOR,
+        MARGINFI_WITHDRAW_DISCRIMINATOR,
     },
 };
+use crate::{
+    events::common::utils::{has_discriminator, parse_u64_le},
+    events::core::{EventParser, GenericEventParseConfig},
+    types::{EventMetadata, EventType, ProtocolType},
+};
+use riglr_events_core::Event;
+use solana_sdk::pubkey::Pubkey;
+use std::collections::HashMap;
 
 /// MarginFi event parser
 pub struct MarginFiEventParser {
@@ -30,7 +30,7 @@ pub struct MarginFiEventParser {
 impl MarginFiEventParser {
     pub fn new() -> Self {
         let program_ids = vec![marginfi_program_id(), marginfi_bank_program_id()];
-        
+
         let configs = vec![
             GenericEventParseConfig {
                 program_id: marginfi_program_id(),
@@ -121,7 +121,7 @@ impl EventParser for MarginFiEventParser {
         index: String,
     ) -> Vec<Box<dyn Event>> {
         let mut events = Vec::new();
-        
+
         // For inner instructions, we'll use the data to identify the instruction type
         if let Ok(data) = bs58::decode(&inner_instruction.data).into_vec() {
             for configs in self.inner_instruction_configs.values() {
@@ -138,14 +138,14 @@ impl EventParser for MarginFiEventParser {
                         index.clone(),
                         program_received_time_ms,
                     );
-                    
+
                     if let Some(event) = (config.inner_instruction_parser)(&data, metadata) {
                         events.push(event);
                     }
                 }
             }
         }
-        
+
         events
     }
 
@@ -160,7 +160,7 @@ impl EventParser for MarginFiEventParser {
         index: String,
     ) -> Vec<Box<dyn Event>> {
         let mut events = Vec::new();
-        
+
         // Check each discriminator
         for (discriminator, configs) in &self.instruction_configs {
             if has_discriminator(&instruction.data, discriminator) {
@@ -177,14 +177,16 @@ impl EventParser for MarginFiEventParser {
                         index.clone(),
                         program_received_time_ms,
                     );
-                    
-                    if let Some(event) = (config.instruction_parser)(&instruction.data, accounts, metadata) {
+
+                    if let Some(event) =
+                        (config.instruction_parser)(&instruction.data, accounts, metadata)
+                    {
                         events.push(event);
                     }
                 }
             }
         }
-        
+
         events
     }
 
@@ -195,7 +197,6 @@ impl EventParser for MarginFiEventParser {
     fn supported_program_ids(&self) -> Vec<Pubkey> {
         self.program_ids.clone()
     }
-
 }
 
 impl Default for MarginFiEventParser {
@@ -428,22 +429,25 @@ fn parse_marginfi_deposit_data(data: &[u8]) -> Option<MarginFiDepositData> {
 
     let offset = 8; // Skip discriminator
     let amount = parse_u64_le(&data[offset..offset + 8]).ok()?;
-    
+
     Some(MarginFiDepositData {
         marginfi_group: Pubkey::default(), // Would need to extract from accounts
         marginfi_account: Pubkey::default(), // Would need to extract from accounts
-        signer: Pubkey::default(), // Would need to extract from accounts
-        bank: Pubkey::default(), // Would need to extract from accounts
-        token_account: Pubkey::default(), // Would need to extract from accounts
+        signer: Pubkey::default(),         // Would need to extract from accounts
+        bank: Pubkey::default(),           // Would need to extract from accounts
+        token_account: Pubkey::default(),  // Would need to extract from accounts
         bank_liquidity_vault: Pubkey::default(), // Would need to extract from accounts
-        token_program: Pubkey::default(), // Would need to extract from accounts
+        token_program: Pubkey::default(),  // Would need to extract from accounts
         amount,
     })
 }
 
-fn parse_marginfi_deposit_data_from_instruction(data: &[u8], accounts: &[Pubkey]) -> Option<MarginFiDepositData> {
+fn parse_marginfi_deposit_data_from_instruction(
+    data: &[u8],
+    accounts: &[Pubkey],
+) -> Option<MarginFiDepositData> {
     let mut deposit_data = parse_marginfi_deposit_data(data)?;
-    
+
     // Extract accounts (typical MarginFi deposit instruction layout)
     if accounts.len() >= 8 {
         deposit_data.marginfi_group = accounts[1];
@@ -454,7 +458,7 @@ fn parse_marginfi_deposit_data_from_instruction(data: &[u8], accounts: &[Pubkey]
         deposit_data.bank_liquidity_vault = accounts[5];
         deposit_data.token_program = accounts[6];
     }
-    
+
     Some(deposit_data)
 }
 
@@ -467,7 +471,7 @@ fn parse_marginfi_withdraw_data(data: &[u8]) -> Option<MarginFiWithdrawData> {
     let amount = parse_u64_le(&data[offset..offset + 8]).ok()?;
     offset += 8;
     let withdraw_all = data.get(offset)? != &0;
-    
+
     Some(MarginFiWithdrawData {
         marginfi_group: Pubkey::default(),
         marginfi_account: Pubkey::default(),
@@ -482,9 +486,12 @@ fn parse_marginfi_withdraw_data(data: &[u8]) -> Option<MarginFiWithdrawData> {
     })
 }
 
-fn parse_marginfi_withdraw_data_from_instruction(data: &[u8], accounts: &[Pubkey]) -> Option<MarginFiWithdrawData> {
+fn parse_marginfi_withdraw_data_from_instruction(
+    data: &[u8],
+    accounts: &[Pubkey],
+) -> Option<MarginFiWithdrawData> {
     let mut withdraw_data = parse_marginfi_withdraw_data(data)?;
-    
+
     if accounts.len() >= 9 {
         withdraw_data.marginfi_group = accounts[1];
         withdraw_data.marginfi_account = accounts[2];
@@ -495,7 +502,7 @@ fn parse_marginfi_withdraw_data_from_instruction(data: &[u8], accounts: &[Pubkey
         withdraw_data.bank_liquidity_vault_authority = accounts[6];
         withdraw_data.token_program = accounts[7];
     }
-    
+
     Some(withdraw_data)
 }
 
@@ -506,7 +513,7 @@ fn parse_marginfi_borrow_data(data: &[u8]) -> Option<MarginFiBorrowData> {
 
     let offset = 8; // Skip discriminator
     let amount = parse_u64_le(&data[offset..offset + 8]).ok()?;
-    
+
     Some(MarginFiBorrowData {
         marginfi_group: Pubkey::default(),
         marginfi_account: Pubkey::default(),
@@ -520,9 +527,12 @@ fn parse_marginfi_borrow_data(data: &[u8]) -> Option<MarginFiBorrowData> {
     })
 }
 
-fn parse_marginfi_borrow_data_from_instruction(data: &[u8], accounts: &[Pubkey]) -> Option<MarginFiBorrowData> {
+fn parse_marginfi_borrow_data_from_instruction(
+    data: &[u8],
+    accounts: &[Pubkey],
+) -> Option<MarginFiBorrowData> {
     let mut borrow_data = parse_marginfi_borrow_data(data)?;
-    
+
     if accounts.len() >= 9 {
         borrow_data.marginfi_group = accounts[1];
         borrow_data.marginfi_account = accounts[2];
@@ -533,7 +543,7 @@ fn parse_marginfi_borrow_data_from_instruction(data: &[u8], accounts: &[Pubkey])
         borrow_data.bank_liquidity_vault_authority = accounts[6];
         borrow_data.token_program = accounts[7];
     }
-    
+
     Some(borrow_data)
 }
 
@@ -546,7 +556,7 @@ fn parse_marginfi_repay_data(data: &[u8]) -> Option<MarginFiRepayData> {
     let amount = parse_u64_le(&data[offset..offset + 8]).ok()?;
     offset += 8;
     let repay_all = data.get(offset)? != &0;
-    
+
     Some(MarginFiRepayData {
         marginfi_group: Pubkey::default(),
         marginfi_account: Pubkey::default(),
@@ -560,9 +570,12 @@ fn parse_marginfi_repay_data(data: &[u8]) -> Option<MarginFiRepayData> {
     })
 }
 
-fn parse_marginfi_repay_data_from_instruction(data: &[u8], accounts: &[Pubkey]) -> Option<MarginFiRepayData> {
+fn parse_marginfi_repay_data_from_instruction(
+    data: &[u8],
+    accounts: &[Pubkey],
+) -> Option<MarginFiRepayData> {
     let mut repay_data = parse_marginfi_repay_data(data)?;
-    
+
     if accounts.len() >= 8 {
         repay_data.marginfi_group = accounts[1];
         repay_data.marginfi_account = accounts[2];
@@ -572,7 +585,7 @@ fn parse_marginfi_repay_data_from_instruction(data: &[u8], accounts: &[Pubkey]) 
         repay_data.bank_liquidity_vault = accounts[5];
         repay_data.token_program = accounts[6];
     }
-    
+
     Some(repay_data)
 }
 
@@ -585,7 +598,7 @@ fn parse_marginfi_liquidate_data(data: &[u8]) -> Option<MarginFiLiquidationData>
     let asset_amount = parse_u64_le(&data[offset..offset + 8]).ok()?;
     offset += 8;
     let liab_amount = parse_u64_le(&data[offset..offset + 8]).ok()?;
-    
+
     Some(MarginFiLiquidationData {
         marginfi_group: Pubkey::default(),
         asset_bank: Pubkey::default(),
@@ -602,9 +615,12 @@ fn parse_marginfi_liquidate_data(data: &[u8]) -> Option<MarginFiLiquidationData>
     })
 }
 
-fn parse_marginfi_liquidate_data_from_instruction(data: &[u8], accounts: &[Pubkey]) -> Option<MarginFiLiquidationData> {
+fn parse_marginfi_liquidate_data_from_instruction(
+    data: &[u8],
+    accounts: &[Pubkey],
+) -> Option<MarginFiLiquidationData> {
     let mut liquidation_data = parse_marginfi_liquidate_data(data)?;
-    
+
     if accounts.len() >= 12 {
         liquidation_data.marginfi_group = accounts[1];
         liquidation_data.asset_bank = accounts[2];
@@ -617,7 +633,6 @@ fn parse_marginfi_liquidate_data_from_instruction(data: &[u8], accounts: &[Pubke
         liquidation_data.liquidator_token_account = accounts[8];
         liquidation_data.token_program = accounts[9];
     }
-    
+
     Some(liquidation_data)
 }
-

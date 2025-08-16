@@ -5,8 +5,7 @@
 //! signer from the current context without requiring explicit client parameters.
 
 use crate::lifi::{
-    CrossChainRoute, LiFiClient, LiFiError, RouteRequest,
-    Token, chain_name_to_id, chain_id_to_name,
+    chain_id_to_name, chain_name_to_id, CrossChainRoute, LiFiClient, LiFiError, RouteRequest, Token,
 };
 use riglr_core::{SignerContext, ToolError};
 use riglr_macros::tool;
@@ -53,7 +52,7 @@ pub struct RouteInfo {
     pub estimated_duration: u64,
     /// Total fees in USD (if available)
     pub fees_usd: Option<f64>,
-    /// Gas cost in USD (if available)  
+    /// Gas cost in USD (if available)
     pub gas_cost_usd: Option<f64>,
     /// Bridge/DEX protocols used
     pub protocols: Vec<String>,
@@ -87,7 +86,7 @@ pub struct BridgeExecutionResult {
     pub source_tx_hash: String,
     /// Source chain name
     pub from_chain: String,
-    /// Destination chain name  
+    /// Destination chain name
     pub to_chain: String,
     /// Amount sent (in token's smallest unit)
     pub amount_sent: String,
@@ -186,15 +185,15 @@ fn convert_route(route: &CrossChainRoute) -> Result<RouteInfo, ToolError> {
         .map_err(|e| ToolError::permanent_string(format!("Invalid from chain ID: {}", e)))?;
     let to_chain = chain_id_to_name(route.to_chain_id)
         .map_err(|e| ToolError::permanent_string(format!("Invalid to chain ID: {}", e)))?;
-        
-    let protocols: Vec<String> = route.steps.iter()
-        .map(|step| step.tool.clone())
-        .collect();
-        
-    let fees_usd = route.fees.iter()
+
+    let protocols: Vec<String> = route.steps.iter().map(|step| step.tool.clone()).collect();
+
+    let fees_usd = route
+        .fees
+        .iter()
         .filter_map(|fee| fee.amount_usd)
         .sum::<f64>();
-        
+
     Ok(RouteInfo {
         id: route.id.clone(),
         from_chain,
@@ -217,7 +216,7 @@ async fn create_lifi_client() -> Result<LiFiClient, ToolError> {
     // In a production environment, you might want to get API key from environment
     let client = LiFiClient::new()
         .map_err(|e| ToolError::permanent_string(format!("Failed to create LiFi client: {}", e)))?;
-        
+
     // Optionally set API key from environment
     if let Ok(api_key) = std::env::var("LIFI_API_KEY") {
         Ok(client.with_api_key(api_key))
@@ -231,42 +230,42 @@ async fn create_lifi_client() -> Result<LiFiClient, ToolError> {
 // ============================================================================
 
 /// Get available cross-chain routes between tokens on different networks
-/// 
+///
 /// This tool discovers optimal paths for transferring tokens between blockchain networks
 /// using LiFi Protocol's aggregation of multiple bridge providers and DEXs. Routes are
 /// automatically sorted by quality, cost, and speed with the best options first.
-/// 
+///
 /// # Arguments
-/// 
+///
 /// * `from_chain` - Source blockchain name (e.g., "ethereum", "polygon", "arbitrum", "solana")
 /// * `to_chain` - Destination blockchain name
 /// * `from_token` - Source token address (contract address or mint address for Solana)
-/// * `to_token` - Destination token address  
+/// * `to_token` - Destination token address
 /// * `amount` - Transfer amount in token's smallest unit (e.g., wei for ETH, lamports for SOL)
 /// * `slippage_percent` - Maximum acceptable slippage as percentage (e.g., 0.5 for 0.5%)
-/// 
+///
 /// # Returns
-/// 
+///
 /// Returns `RouteDiscoveryResult` containing:
 /// - `routes`: Available routes sorted by quality (best first)
 /// - `total_routes`: Number of routes found
 /// - `recommended_route_id`: ID of the recommended route (if any)
-/// 
+///
 /// Each route includes detailed information about fees, duration, protocols used, and expected amounts.
-/// 
+///
 /// # Errors
-/// 
+///
 /// * `CrossChainToolError::UnsupportedChain` - When chain names are not supported
 /// * `CrossChainToolError::RouteNotFound` - When no routes exist between the chains/tokens
 /// * `CrossChainToolError::ApiError` - When LiFi API issues occur
 /// * `CrossChainToolError::NetworkError` - When connection problems occur
-/// 
+///
 /// # Examples
-/// 
+///
 /// ```rust,ignore
 /// use riglr_cross_chain_tools::bridge::get_cross_chain_routes;
 /// use riglr_core::SignerContext;
-/// 
+///
 /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
 /// // Find routes to bridge USDC from Ethereum to Polygon
 /// let routes = get_cross_chain_routes(
@@ -277,7 +276,7 @@ async fn create_lifi_client() -> Result<LiFiClient, ToolError> {
 ///     "1000000000".to_string(), // 1000 USDC (6 decimals)
 ///     Some(0.5), // 0.5% slippage tolerance
 /// ).await?;
-/// 
+///
 /// println!("Found {} routes", routes.total_routes);
 /// if let Some(best_route) = routes.routes.first() {
 ///     println!("Best route: {} -> {}", best_route.from_chain, best_route.to_chain);
@@ -299,23 +298,29 @@ pub async fn get_cross_chain_routes(
     amount: String,
     slippage_percent: Option<f64>,
 ) -> Result<RouteDiscoveryResult, ToolError> {
-    info!("Discovering cross-chain routes from {} to {}", from_chain, to_chain);
-    
+    info!(
+        "Discovering cross-chain routes from {} to {}",
+        from_chain, to_chain
+    );
+
     // Get signer to determine user's address
-    let signer = SignerContext::current().await
+    let signer = SignerContext::current()
+        .await
         .map_err(|e| ToolError::permanent_string(format!("No signer context available: {}", e)))?;
-    
+
     let from_address = signer.address();
-    
+
     // Create LiFi client
     let lifi_client = create_lifi_client().await?;
-    
+
     // Convert chain names to IDs
-    let from_chain_id = chain_name_to_id(&from_chain)
-        .map_err(|e| ToolError::permanent_string(format!("Unsupported from_chain '{}': {}", from_chain, e)))?;
-    let to_chain_id = chain_name_to_id(&to_chain)
-        .map_err(|e| ToolError::permanent_string(format!("Unsupported to_chain '{}': {}", to_chain, e)))?;
-    
+    let from_chain_id = chain_name_to_id(&from_chain).map_err(|e| {
+        ToolError::permanent_string(format!("Unsupported from_chain '{}': {}", from_chain, e))
+    })?;
+    let to_chain_id = chain_name_to_id(&to_chain).map_err(|e| {
+        ToolError::permanent_string(format!("Unsupported to_chain '{}': {}", to_chain, e))
+    })?;
+
     // Prepare route request
     let route_request = RouteRequest {
         from_chain: from_chain_id,
@@ -327,13 +332,16 @@ pub async fn get_cross_chain_routes(
         to_address: signer.address(), // Use same address on destination chain
         slippage: slippage_percent.map(|s| s / 100.0), // Convert percentage to decimal
     };
-    
+
     // Get routes from LiFi
-    let routes = lifi_client.get_routes(&route_request).await
+    let routes = lifi_client
+        .get_routes(&route_request)
+        .await
         .map_err(|e| match e {
-            LiFiError::RouteNotFound { .. } => {
-                ToolError::permanent_string(format!("No routes found between {} and {}", from_chain, to_chain))
-            }
+            LiFiError::RouteNotFound { .. } => ToolError::permanent_string(format!(
+                "No routes found between {} and {}",
+                from_chain, to_chain
+            )),
             LiFiError::UnsupportedChain { chain_name } => {
                 ToolError::permanent_string(format!("Chain not supported: {}", chain_name))
             }
@@ -346,26 +354,25 @@ pub async fn get_cross_chain_routes(
             }
             _ => ToolError::retriable_string(format!("Failed to get routes: {}", e)),
         })?;
-    
+
     if routes.is_empty() {
-    return Err(ToolError::permanent_string(format!(
+        return Err(ToolError::permanent_string(format!(
             "No routes available from {} to {} for token {} -> {}",
             from_chain, to_chain, from_token, to_token
         )));
     }
-    
+
     // Convert routes
-    let converted_routes: Result<Vec<RouteInfo>, ToolError> = routes.iter()
-        .map(convert_route)
-        .collect();
+    let converted_routes: Result<Vec<RouteInfo>, ToolError> =
+        routes.iter().map(convert_route).collect();
     let mut route_infos = converted_routes?;
-    
+
     // Sort routes by quality (recommended first, then by fees and duration)
     route_infos.sort_by(|a, b| {
         // Prioritize routes with "RECOMMENDED" tag
         let a_recommended = a.tags.contains(&"RECOMMENDED".to_string());
         let b_recommended = b.tags.contains(&"RECOMMENDED".to_string());
-        
+
         match (a_recommended, b_recommended) {
             (true, false) => std::cmp::Ordering::Less,
             (false, true) => std::cmp::Ordering::Greater,
@@ -373,19 +380,22 @@ pub async fn get_cross_chain_routes(
                 // If both or neither are recommended, sort by total cost
                 let a_cost = a.fees_usd.unwrap_or(0.0) + a.gas_cost_usd.unwrap_or(0.0);
                 let b_cost = b.fees_usd.unwrap_or(0.0) + b.gas_cost_usd.unwrap_or(0.0);
-                
-                a_cost.partial_cmp(&b_cost).unwrap_or(std::cmp::Ordering::Equal)
+
+                a_cost
+                    .partial_cmp(&b_cost)
+                    .unwrap_or(std::cmp::Ordering::Equal)
             }
         }
     });
-    
+
     // Find recommended route
-    let recommended_route_id = route_infos.first()
+    let recommended_route_id = route_infos
+        .first()
         .filter(|r| r.tags.contains(&"RECOMMENDED".to_string()))
         .map(|r| r.id.clone());
-    
+
     info!("Found {} cross-chain routes", route_infos.len());
-    
+
     Ok(RouteDiscoveryResult {
         total_routes: route_infos.len(),
         recommended_route_id,
@@ -398,16 +408,16 @@ pub async fn get_cross_chain_routes(
 /// This tool executes an actual cross-chain token transfer by taking a route ID from
 /// get_cross_chain_routes and constructing the appropriate transaction. The transaction
 /// is signed using the current signer context and submitted to the source blockchain.
-/// 
+///
 /// # Arguments
-/// 
+///
 /// * `route_id` - Route identifier from get_cross_chain_routes
 /// * `from_chain` - Source blockchain name for validation
 /// * `to_chain` - Destination blockchain name for validation
 /// * `amount` - Amount to bridge in token's smallest unit
-/// 
+///
 /// # Returns
-/// 
+///
 /// Returns `BridgeExecutionResult` containing:
 /// - `bridge_id`: Unique identifier for tracking the bridge operation
 /// - `source_tx_hash`: Transaction hash on the source chain
@@ -416,24 +426,24 @@ pub async fn get_cross_chain_routes(
 /// - `status`: Current bridge status (e.g., "PENDING", "CONFIRMED")
 /// - `estimated_completion`: Expected completion time in seconds
 /// - `message`: Status message and tracking instructions
-/// 
+///
 /// # Errors
-/// 
+///
 /// * `CrossChainToolError::InvalidRoute` - When route ID is invalid or expired
 /// * `CrossChainToolError::InsufficientFunds` - When account lacks required tokens
 /// * `CrossChainToolError::TransactionFailed` - When transaction construction or submission fails
 /// * `CrossChainToolError::NetworkError` - When connection issues occur
-/// 
+///
 /// # Examples
-/// 
+///
 /// ```rust,ignore
 /// use riglr_cross_chain_tools::bridge::{get_cross_chain_routes, execute_cross_chain_bridge};
-/// 
+///
 /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
 /// // First get routes
 /// let routes = get_cross_chain_routes(/* ... */).await?;
 /// let best_route = &routes.routes[0];
-/// 
+///
 /// // Execute the bridge
 /// let result = execute_cross_chain_bridge(
 ///     best_route.id.clone(),
@@ -441,7 +451,7 @@ pub async fn get_cross_chain_routes(
 ///     "polygon".to_string(),
 ///     "1000000000".to_string(),
 /// ).await?;
-/// 
+///
 /// println!("Bridge initiated!");
 /// println!("Bridge ID: {}", result.bridge_id);
 /// println!("Source tx: {}", result.source_tx_hash);
@@ -458,27 +468,34 @@ pub async fn execute_cross_chain_bridge(
     amount: String,
 ) -> Result<BridgeExecutionResult, ToolError> {
     info!("Executing cross-chain bridge with route {}", route_id);
-    
+
     // Get current signer
-    let signer = SignerContext::current().await
+    let signer = SignerContext::current()
+        .await
         .map_err(|e| ToolError::permanent_string(format!("No signer context available: {}", e)))?;
-    
+
     // Create LiFi client
     let lifi_client = create_lifi_client().await?;
-    
+
     // Determine addresses based on chain types
     let from_address = if from_chain == "solana" {
-        signer.pubkey().ok_or_else(|| ToolError::permanent_string("No Solana pubkey available".to_string()))?
+        signer
+            .pubkey()
+            .ok_or_else(|| ToolError::permanent_string("No Solana pubkey available".to_string()))?
     } else {
-        signer.address().ok_or_else(|| ToolError::permanent_string("No EVM address available".to_string()))?
+        signer
+            .address()
+            .ok_or_else(|| ToolError::permanent_string("No EVM address available".to_string()))?
     };
 
     // First, get the route to construct the transaction
     let route_request = RouteRequest {
-        from_chain: chain_name_to_id(&from_chain)
-            .map_err(|e| ToolError::permanent_string(format!("Unsupported from_chain '{}': {}", from_chain, e)))?,
-        to_chain: chain_name_to_id(&to_chain)
-            .map_err(|e| ToolError::permanent_string(format!("Unsupported to_chain '{}': {}", to_chain, e)))?,
+        from_chain: chain_name_to_id(&from_chain).map_err(|e| {
+            ToolError::permanent_string(format!("Unsupported from_chain '{}': {}", from_chain, e))
+        })?,
+        to_chain: chain_name_to_id(&to_chain).map_err(|e| {
+            ToolError::permanent_string(format!("Unsupported to_chain '{}': {}", to_chain, e))
+        })?,
         from_token: "0x0000000000000000000000000000000000000000".to_string(), // Native token for simplicity
         to_token: "0x0000000000000000000000000000000000000000".to_string(), // Native token for simplicity
         from_amount: amount.clone(),
@@ -486,34 +503,44 @@ pub async fn execute_cross_chain_bridge(
         to_address: Some(from_address.clone()),
         slippage: Some(0.005), // 0.5% default
     };
-    
+
     // Get routes to find the specific route
-    let routes = lifi_client.get_routes(&route_request).await
+    let routes = lifi_client
+        .get_routes(&route_request)
+        .await
         .map_err(|e| ToolError::retriable_string(format!("Failed to get routes: {}", e)))?;
-    
+
     // Find the route with matching ID
-    let route = routes.iter()
+    let route = routes
+        .iter()
         .find(|r| r.id == route_id)
         .ok_or_else(|| ToolError::permanent_string(format!("Route ID {} not found", route_id)))?;
-    
+
     // Execute the transaction based on source chain type
     let tx_hash = if from_chain == "solana" {
         // For Solana transactions, construct and sign using Solana client
-        execute_solana_bridge_transaction(signer.as_ref(), route).await
-            .map_err(|e| ToolError::permanent_string(format!("Solana bridge execution failed: {}", e)))?
+        execute_solana_bridge_transaction(signer.as_ref(), route)
+            .await
+            .map_err(|e| {
+                ToolError::permanent_string(format!("Solana bridge execution failed: {}", e))
+            })?
     } else {
         // For EVM transactions, construct and sign using EVM client
-        let chain_id = chain_name_to_id(&from_chain)
-            .map_err(|e| ToolError::permanent_string(format!("Unsupported from_chain '{}': {}", from_chain, e)))?;
-        execute_evm_bridge_transaction(signer.as_ref(), route, chain_id).await
-            .map_err(|e| ToolError::permanent_string(format!("EVM bridge execution failed: {}", e)))?
+        let chain_id = chain_name_to_id(&from_chain).map_err(|e| {
+            ToolError::permanent_string(format!("Unsupported from_chain '{}': {}", from_chain, e))
+        })?;
+        execute_evm_bridge_transaction(signer.as_ref(), route, chain_id)
+            .await
+            .map_err(|e| {
+                ToolError::permanent_string(format!("EVM bridge execution failed: {}", e))
+            })?
     };
-    
+
     info!("Bridge transaction submitted: {}", tx_hash);
-    
+
     // Generate bridge ID for tracking (in real implementation would come from Li.fi)
     let bridge_id = uuid::Uuid::new_v4().to_string();
-    
+
     Ok(BridgeExecutionResult {
         bridge_id: bridge_id.clone(),
         source_tx_hash: tx_hash,
@@ -535,14 +562,14 @@ pub async fn execute_cross_chain_bridge(
 /// This tool monitors the progress of a cross-chain bridge transaction using the bridge ID
 /// and source transaction hash returned from execute_cross_chain_bridge. Essential for
 /// tracking multi-step bridge operations that can take several minutes to complete.
-/// 
+///
 /// # Arguments
-/// 
+///
 /// * `bridge_id` - Unique bridge operation identifier from execute_cross_chain_bridge
 /// * `source_tx_hash` - Transaction hash from the source chain
-/// 
+///
 /// # Returns
-/// 
+///
 /// Returns `BridgeStatusResult` containing:
 /// - `bridge_id`: The tracked bridge operation ID
 /// - `status`: Current status ("PENDING", "DONE", "FAILED", etc.)
@@ -551,26 +578,26 @@ pub async fn execute_cross_chain_bridge(
 /// - `amount_sent`, `amount_received`: Actual transfer amounts
 /// - `message`: Human-readable status description
 /// - `is_complete`, `is_failed`: Boolean flags for operation state
-/// 
+///
 /// # Errors
-/// 
+///
 /// * `CrossChainToolError::BridgeNotFound` - When bridge ID or transaction hash is invalid
 /// * `CrossChainToolError::NetworkError` - When status lookup fails
-/// 
+///
 /// # Examples
-/// 
+///
 /// ```rust,ignore
 /// use riglr_cross_chain_tools::bridge::get_bridge_status;
-/// 
+///
 /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
 /// let status = get_bridge_status(
 ///     "bridge-123-abc".to_string(),
 ///     "0x1234...abcd".to_string(),
 /// ).await?;
-/// 
+///
 /// println!("Bridge status: {}", status.status);
 /// println!("Message: {}", status.message);
-/// 
+///
 /// if status.is_complete {
 ///     println!("✅ Bridge completed successfully!");
 ///     if let Some(dest_tx) = status.destination_tx_hash {
@@ -587,18 +614,20 @@ pub async fn execute_cross_chain_bridge(
 /// # Ok(())
 /// # }
 /// ```
-#[tool] 
+#[tool]
 pub async fn get_bridge_status(
     bridge_id: String,
     source_tx_hash: String,
 ) -> Result<BridgeStatusResult, ToolError> {
     info!("Checking bridge status for {}", bridge_id);
-    
+
     // Create LiFi client
     let lifi_client = create_lifi_client().await?;
-    
+
     // Get bridge status from LiFi
-    let status_response = lifi_client.get_bridge_status(&bridge_id, &source_tx_hash).await
+    let status_response = lifi_client
+        .get_bridge_status(&bridge_id, &source_tx_hash)
+        .await
         .map_err(|e| match e {
             LiFiError::ApiError { code: 404, .. } => {
                 ToolError::permanent_string(format!("Bridge ID {} not found", bridge_id))
@@ -612,15 +641,21 @@ pub async fn get_bridge_status(
             }
             _ => ToolError::retriable_string(format!("Failed to check bridge status: {}", e)),
         })?;
-    
+
     // Convert Li.fi status to our format
     let (is_complete, is_failed, message) = match status_response.status {
-        crate::lifi::BridgeStatus::Done => (true, false, "Bridge completed successfully".to_string()),
+        crate::lifi::BridgeStatus::Done => {
+            (true, false, "Bridge completed successfully".to_string())
+        }
         crate::lifi::BridgeStatus::Failed => (true, true, "Bridge transaction failed".to_string()),
-        crate::lifi::BridgeStatus::Pending => (false, false, "Bridge transaction is pending".to_string()),
-        crate::lifi::BridgeStatus::NotFound => (false, false, "Bridge transaction not found".to_string()),
+        crate::lifi::BridgeStatus::Pending => {
+            (false, false, "Bridge transaction is pending".to_string())
+        }
+        crate::lifi::BridgeStatus::NotFound => {
+            (false, false, "Bridge transaction not found".to_string())
+        }
     };
-    
+
     Ok(BridgeStatusResult {
         bridge_id: bridge_id.clone(),
         status: format!("{:?}", status_response.status),
@@ -639,58 +674,58 @@ pub async fn get_bridge_status(
 /// This tool provides detailed cost analysis and timing estimates for bridging tokens
 /// between different blockchain networks without executing any transactions. Useful for
 /// comparing bridge options and budgeting for cross-chain transfers.
-/// 
+///
 /// # Arguments
-/// 
+///
 /// * `from_chain` - Source blockchain name
 /// * `to_chain` - Destination blockchain name
 /// * `from_token` - Source token address
 /// * `to_token` - Destination token address
 /// * `amount` - Transfer amount in token's smallest unit
-/// 
+///
 /// # Returns
-/// 
+///
 /// Returns `BridgeFeeEstimate` containing:
 /// - `from_chain`, `to_chain`: Source and destination networks
 /// - `from_amount`: Input amount
 /// - `estimated_output`: Expected output after all fees
 /// - `fees`: Detailed breakdown of different fee types
 /// - `total_fees_usd`: Total fees in USD (if available)
-/// - `gas_cost_usd`: Gas cost estimate in USD  
+/// - `gas_cost_usd`: Gas cost estimate in USD
 /// - `estimated_duration`: Expected completion time in seconds
-/// 
+///
 /// Each fee in the breakdown includes name, description, percentage, amount, and USD value.
-/// 
+///
 /// # Errors
-/// 
+///
 /// * `CrossChainToolError::UnsupportedChain` - When chain names are not supported
 /// * `CrossChainToolError::RouteNotFound` - When no routes exist for fee estimation
 /// * `CrossChainToolError::NetworkError` - When API connection fails
-/// 
+///
 /// # Examples
-/// 
+///
 /// ```rust,ignore
 /// use riglr_cross_chain_tools::bridge::estimate_bridge_fees;
-/// 
+///
 /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
 /// let estimate = estimate_bridge_fees(
 ///     "ethereum".to_string(),
-///     "polygon".to_string(),  
+///     "polygon".to_string(),
 ///     "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48".to_string(), // USDC on Ethereum
 ///     "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174".to_string(), // USDC on Polygon
 ///     "100000000".to_string(), // 100 USDC (6 decimals)
 /// ).await?;
-/// 
+///
 /// println!("Bridge estimate for {} USDC:", "100");
 /// println!("Expected output: {}", estimate.estimated_output);
-/// println!("Duration: {}s (~{} minutes)", 
-///          estimate.estimated_duration, 
+/// println!("Duration: {}s (~{} minutes)",
+///          estimate.estimated_duration,
 ///          estimate.estimated_duration / 60);
-/// 
+///
 /// if let Some(total_fees) = estimate.total_fees_usd {
 ///     println!("Total fees: ${:.2}", total_fees);
 /// }
-/// 
+///
 /// for fee in estimate.fees {
 ///     println!("  {}: {} ({}%)", fee.name, fee.amount, fee.percentage);
 /// }
@@ -706,7 +741,7 @@ pub async fn estimate_bridge_fees(
     amount: String,
 ) -> Result<BridgeFeeEstimate, ToolError> {
     info!("Estimating bridge fees from {} to {}", from_chain, to_chain);
-    
+
     // Get routes to analyze fees (reuse the route discovery logic)
     let routes_result = get_cross_chain_routes(
         from_chain.clone(),
@@ -715,18 +750,19 @@ pub async fn estimate_bridge_fees(
         to_token.clone(),
         amount.clone(),
         Some(0.5), // 0.5% default slippage
-    ).await?;
-    
+    )
+    .await?;
+
     if routes_result.routes.is_empty() {
         return Err(ToolError::permanent_string(format!(
             "No routes available for fee estimation between {} and {}",
             from_chain, to_chain
         )));
     }
-    
+
     // Use the best (first) route for fee estimation
     let best_route = &routes_result.routes[0];
-    
+
     // Build real fee breakdown from route.fees
     // RouteInfo doesn't include per-fee breakdown, so fallback to gas + fees_usd if present
     let mut fees: Vec<FeeBreakdown> = Vec::new();
@@ -751,16 +787,20 @@ pub async fn estimate_bridge_fees(
         });
     }
     let total_fees_usd = fees.iter().filter_map(|f| f.amount_usd).sum::<f64>();
-    
+
     Ok(BridgeFeeEstimate {
         from_chain,
         to_chain,
         from_amount: amount,
         estimated_output: best_route.to_amount.clone(),
         fees,
-        total_fees_usd: if total_fees_usd > 0.0 { Some(total_fees_usd) } else { None },
-    gas_cost_usd: best_route.gas_cost_usd,
-    estimated_duration: best_route.estimated_duration,
+        total_fees_usd: if total_fees_usd > 0.0 {
+            Some(total_fees_usd)
+        } else {
+            None
+        },
+        gas_cost_usd: best_route.gas_cost_usd,
+        estimated_duration: best_route.estimated_duration,
     })
 }
 
@@ -773,34 +813,34 @@ pub async fn estimate_bridge_fees(
 /// This tool returns comprehensive information about all blockchain networks supported by
 /// the cross-chain bridge infrastructure. Essential for discovering available chains
 /// and their native tokens before initiating bridge operations.
-/// 
+///
 /// # Returns
-/// 
+///
 /// Returns `Vec<ChainInfo>` where each chain contains:
 /// - `id`: Numeric chain identifier used by bridge protocols
 /// - `name`: Human-readable chain name (e.g., "Ethereum", "Polygon")
-/// - `key`: Short identifier key (e.g., "eth", "pol") 
+/// - `key`: Short identifier key (e.g., "eth", "pol")
 /// - `chain_type`: Blockchain type ("evm" or "solana")
 /// - `native_token`: Information about the chain's native currency
 /// - `logo_uri`: Optional logo image URL
-/// 
+///
 /// # Errors
-/// 
+///
 /// * `CrossChainToolError::NetworkError` - When API connection fails
-/// 
+///
 /// # Examples
-/// 
+///
 /// ```rust,ignore
 /// use riglr_cross_chain_tools::bridge::get_supported_chains;
-/// 
+///
 /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
 /// let chains = get_supported_chains().await?;
-/// 
+///
 /// println!("Supported chains ({}):", chains.len());
 /// for chain in chains {
-///     println!("  {} (ID: {}, Type: {})", 
+///     println!("  {} (ID: {}, Type: {})",
 ///              chain.name, chain.id, chain.chain_type);
-///     println!("    Native token: {} ({})", 
+///     println!("    Native token: {} ({})",
 ///              chain.native_token.name, chain.native_token.symbol);
 ///     if let Some(logo) = chain.logo_uri {
 ///         println!("    Logo: {}", logo);
@@ -812,16 +852,18 @@ pub async fn estimate_bridge_fees(
 #[tool]
 pub async fn get_supported_chains() -> Result<Vec<ChainInfo>, ToolError> {
     info!("Fetching supported chains for cross-chain operations");
-    
+
     // Create LiFi client
     let lifi_client = create_lifi_client().await?;
-    
+
     // Get chains from LiFi
-    let chains = lifi_client.get_chains().await
-        .map_err(|e| ToolError::retriable_string(format!("Failed to get supported chains: {}", e)))?;
-    
+    let chains = lifi_client.get_chains().await.map_err(|e| {
+        ToolError::retriable_string(format!("Failed to get supported chains: {}", e))
+    })?;
+
     // Convert to our format
-    let chain_infos: Vec<ChainInfo> = chains.iter()
+    let chain_infos: Vec<ChainInfo> = chains
+        .iter()
         .map(|chain| ChainInfo {
             id: chain.id,
             name: chain.name.clone(),
@@ -834,7 +876,7 @@ pub async fn get_supported_chains() -> Result<Vec<ChainInfo>, ToolError> {
             logo_uri: chain.logo_uri.clone(),
         })
         .collect();
-    
+
     info!("Found {} supported chains", chain_infos.len());
     Ok(chain_infos)
 }
@@ -851,14 +893,17 @@ async fn execute_solana_bridge_transaction(
     use solana_sdk::{instruction::Instruction, message::Message, transaction::Transaction};
     use std::str::FromStr;
 
-    tracing::info!("🌉 Executing real Solana bridge transaction for route {}", route.id);
+    tracing::info!(
+        "🌉 Executing real Solana bridge transaction for route {}",
+        route.id
+    );
 
     // Extract LiFi transaction data
     let tx_data = route
         .transaction_request
         .as_ref()
         .ok_or("No transaction data in route")?;
-    
+
     // Expect Solana accounts to be present in tx_data (populated from LiFi API)
 
     // Program id and instruction data
@@ -889,10 +934,17 @@ async fn execute_solana_bridge_transaction(
         }
     }
     if !metas.iter().any(|m| m.pubkey == payer_pubkey) {
-        metas.insert(0, solana_sdk::instruction::AccountMeta::new(payer_pubkey, true));
+        metas.insert(
+            0,
+            solana_sdk::instruction::AccountMeta::new(payer_pubkey, true),
+        );
     }
 
-    let ix = Instruction { program_id, accounts: metas, data: instruction_data };
+    let ix = Instruction {
+        program_id,
+        accounts: metas,
+        data: instruction_data,
+    };
 
     // Recent blockhash
     let rpc = signer.solana_client();
@@ -920,24 +972,30 @@ async fn execute_evm_bridge_transaction(
     route: &CrossChainRoute,
     chain_id: u64,
 ) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+    use alloy::primitives::{Bytes, U256};
     use alloy::rpc::types::TransactionRequest;
-    use alloy::primitives::{U256, Bytes};
     use riglr_evm_common::address::parse_evm_address;
     use std::str::FromStr;
-    
-    tracing::info!("🌉 Executing real EVM bridge transaction for chain {} route {}", chain_id, route.id);
-    
+
+    tracing::info!(
+        "🌉 Executing real EVM bridge transaction for chain {} route {}",
+        chain_id,
+        route.id
+    );
+
     // Extract LiFi transaction data
-    let tx_data = route.transaction_request.as_ref()
+    let tx_data = route
+        .transaction_request
+        .as_ref()
         .ok_or("No transaction data in route")?;
-    
+
     // Parse EVM transaction parameters from LiFi route data
-    let to_address = parse_evm_address(&tx_data.to)
-        .map_err(|e| format!("Invalid to address: {}", e))?;
-    
+    let to_address =
+        parse_evm_address(&tx_data.to).map_err(|e| format!("Invalid to address: {}", e))?;
+
     let data = hex::decode(tx_data.data.trim_start_matches("0x"))
         .map_err(|e| format!("Invalid transaction data: {}", e))?;
-    
+
     // Parse helpers to accept hex or decimal
     fn parse_u256(s: &str) -> Result<U256, String> {
         let s = s.trim();
@@ -949,8 +1007,9 @@ async fn execute_evm_bridge_transaction(
     }
     let value = parse_u256(&tx_data.value).map_err(|e| format!("Invalid value: {}", e))?;
     let gas_limit = parse_u256(&tx_data.gas_limit).unwrap_or_else(|_| U256::from(200000u64));
-    let _gas_price = parse_u256(&tx_data.gas_price).unwrap_or_else(|_| U256::from(20_000_000_000u64));
-    
+    let _gas_price =
+        parse_u256(&tx_data.gas_price).unwrap_or_else(|_| U256::from(20_000_000_000u64));
+
     // Build EVM transaction from LiFi route data
     let from_opt = signer.address().and_then(|s| parse_evm_address(&s).ok());
     let mut evm_tx = TransactionRequest::default()
@@ -961,11 +1020,15 @@ async fn execute_evm_bridge_transaction(
     if let Some(from_addr) = from_opt {
         evm_tx = evm_tx.from(from_addr);
     }
-    
+
     // Sign and send through signer
     let tx_hash = signer.sign_and_send_evm_transaction(evm_tx).await?;
-    
-    tracing::info!("✅ EVM bridge transaction submitted on chain {}: {}", chain_id, tx_hash);
+
+    tracing::info!(
+        "✅ EVM bridge transaction submitted on chain {}: {}",
+        chain_id,
+        tx_hash
+    );
     Ok(tx_hash)
 }
 
@@ -991,43 +1054,50 @@ pub struct ChainInfo {
 mod tests {
     use super::*;
     use std::sync::Arc;
-    
+
     // Mock signer for testing
     #[derive(Debug)]
     #[allow(dead_code)]
     struct MockCrossChainSigner {
         address: String,
     }
-    
+
     #[async_trait::async_trait]
     impl riglr_core::TransactionSigner for MockCrossChainSigner {
         fn address(&self) -> Option<String> {
             Some(self.address.clone())
         }
-        
+
         async fn sign_and_send_solana_transaction(
             &self,
             _tx: &mut solana_sdk::transaction::Transaction,
         ) -> Result<String, riglr_core::signer::SignerError> {
             Ok("mock_solana_signature".to_string())
         }
-        
+
         async fn sign_and_send_evm_transaction(
             &self,
             _tx: alloy::rpc::types::TransactionRequest,
         ) -> Result<String, riglr_core::signer::SignerError> {
             Ok("0xmock_evm_signature".to_string())
         }
-        
+
         fn solana_client(&self) -> Option<Arc<solana_client::rpc_client::RpcClient>> {
-            Some(Arc::new(solana_client::rpc_client::RpcClient::new("http://localhost:8899")))
+            Some(Arc::new(solana_client::rpc_client::RpcClient::new(
+                "http://localhost:8899",
+            )))
         }
-        
-    fn evm_client(&self) -> Result<Arc<dyn riglr_core::signer::traits::EvmClient>, riglr_core::signer::SignerError> {
-            Err(riglr_core::signer::SignerError::ClientCreation("Mock EVM client not implemented".to_string()))
+
+        fn evm_client(
+            &self,
+        ) -> Result<Arc<dyn riglr_core::signer::traits::EvmClient>, riglr_core::signer::SignerError>
+        {
+            Err(riglr_core::signer::SignerError::ClientCreation(
+                "Mock EVM client not implemented".to_string(),
+            ))
         }
     }
-    
+
     #[tokio::test]
     async fn test_cross_chain_tools_require_signer_context() {
         // Test that tools fail without signer context
@@ -1038,11 +1108,12 @@ mod tests {
             "0xA0b86a33E6417c5d6d6bE6C2e0C6C3e5d6c7D8E9".to_string(),
             "1000000000000000000".to_string(), // 1 ETH in wei
             Some(0.5),
-        ).await;
-        
-    assert!(result.is_err());
+        )
+        .await;
+
+        assert!(result.is_err());
     }
-    
+
     #[tokio::test]
     async fn test_chain_conversion_helpers() {
         let token = Token {
@@ -1053,7 +1124,7 @@ mod tests {
             logo_uri: None,
             price_usd: Some(1.0),
         };
-        
+
         let token_info = convert_token(&token);
         assert_eq!(token_info.symbol, "USDC");
         assert_eq!(token_info.decimals, 6);

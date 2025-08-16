@@ -1,25 +1,25 @@
 //! Solana tools demonstration commands.
 
-use riglr_config::Config;
-use std::sync::Arc;
 use anyhow::Result;
 use colored::Colorize;
 use dialoguer::{Input, Select};
 use indicatif::{ProgressBar, ProgressStyle};
+use riglr_config::Config;
 use riglr_solana_tools::{
-    client::{SolanaClient, SolanaConfig},
     balance::get_sol_balance,
+    client::{SolanaClient, SolanaConfig},
     swap::get_jupiter_quote,
 };
 use solana_sdk::commitment_config::CommitmentLevel;
 use std::str::FromStr;
+use std::sync::Arc;
 use tracing::warn;
 
 /// Run the Solana tools demo.
 pub async fn run_demo(config: Arc<Config>, address: Option<String>) -> Result<()> {
     println!("{}", "🌟 Solana Tools Demo".bright_blue().bold());
     println!("{}", "=".repeat(50).blue());
-    
+
     // Get or prompt for wallet address
     let wallet_address = match address {
         Some(addr) => addr,
@@ -42,8 +42,11 @@ pub async fn run_demo(config: Arc<Config>, address: Option<String>) -> Result<()
     };
     let client = SolanaClient::new(solana_config);
 
-    println!("\n{}", format!("🔍 Analyzing wallet: {}", wallet_address).yellow());
-    
+    println!(
+        "\n{}",
+        format!("🔍 Analyzing wallet: {}", wallet_address).yellow()
+    );
+
     // Show progress bar
     let pb = ProgressBar::new_spinner();
     pb.set_style(
@@ -65,19 +68,36 @@ pub async fn run_demo(config: Arc<Config>, address: Option<String>) -> Result<()
         }
         Err(e) => {
             warn!("Failed to get SOL balance: {}", e);
-            println!("\n{}", format!("⚠️ Could not fetch SOL balance: {}", e).yellow());
+            println!(
+                "\n{}",
+                format!("⚠️ Could not fetch SOL balance: {}", e).yellow()
+            );
         }
     }
 
     // Demo 2: Simulated token accounts (function not available)
     pb.set_message("Simulating token accounts...");
     tokio::time::sleep(std::time::Duration::from_millis(500)).await;
-    
+
     println!("\n{}", "🪙 Token Accounts (Simulated)".green().bold());
-    let simulated_tokens = [("USDC", "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", "1,250.50"),
-        ("USDT", "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB", "850.75"),
-        ("RAY", "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R", "45.25")];
-    
+    let simulated_tokens = [
+        (
+            "USDC",
+            "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+            "1,250.50",
+        ),
+        (
+            "USDT",
+            "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB",
+            "850.75",
+        ),
+        (
+            "RAY",
+            "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R",
+            "45.25",
+        ),
+    ];
+
     for (i, (symbol, mint, balance)) in simulated_tokens.iter().enumerate() {
         println!("   {}. {} ({})", i + 1, symbol, mint);
         println!("      Balance: {}", balance.bright_green());
@@ -87,23 +107,42 @@ pub async fn run_demo(config: Arc<Config>, address: Option<String>) -> Result<()
     pb.set_message("Getting Jupiter swap quote...");
     let sol_mint = "So11111111111111111111111111111111111111112";
     let usdc_mint = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
-    
-    match get_jupiter_quote(sol_mint.to_string(), usdc_mint.to_string(), 1_000_000_000, 50, false, None).await {
+
+    match get_jupiter_quote(
+        sol_mint.to_string(),
+        usdc_mint.to_string(),
+        1_000_000_000,
+        50,
+        false,
+        None,
+    )
+    .await
+    {
         Ok(quote) => {
-            println!("\n{}", "🔄 Jupiter Swap Quote (1 SOL → USDC)".green().bold());
+            println!(
+                "\n{}",
+                "🔄 Jupiter Swap Quote (1 SOL → USDC)".green().bold()
+            );
             println!("   Input: {} SOL", quote.in_amount as f64 / 1_000_000_000.0);
-            println!("   Output: {} USDC", quote.out_amount.to_string().bright_green());
+            println!(
+                "   Output: {} USDC",
+                quote.out_amount.to_string().bright_green()
+            );
             println!("   Price Impact: {:.3}%", quote.price_impact_pct);
             if let Some(route_plan) = quote.route_plan.first() {
-                println!("   Route: {} via {}", 
-                    route_plan.swap_info.label.as_deref().unwrap_or("Unknown"), 
+                println!(
+                    "   Route: {} via {}",
+                    route_plan.swap_info.label.as_deref().unwrap_or("Unknown"),
                     route_plan.swap_info.amm_key
                 );
             }
         }
         Err(e) => {
             warn!("Failed to get Jupiter quote: {}", e);
-            println!("\n{}", format!("⚠️ Could not fetch Jupiter quote: {}", e).yellow());
+            println!(
+                "\n{}",
+                format!("⚠️ Could not fetch Jupiter quote: {}", e).yellow()
+            );
         }
     }
 
@@ -138,7 +177,7 @@ pub async fn run_demo(config: Arc<Config>, address: Option<String>) -> Result<()
                 .with_prompt("Enter token mint address")
                 .default(usdc_mint.to_string())
                 .interact_text()?;
-            
+
             match solana_sdk::pubkey::Pubkey::from_str(&token_mint) {
                 Ok(pubkey) => {
                     match client.rpc_client.get_token_supply(&pubkey) {
@@ -149,7 +188,10 @@ pub async fn run_demo(config: Arc<Config>, address: Option<String>) -> Result<()
                             println!("   Decimals: {}", supply.decimals);
                         }
                         Err(e) => {
-                            println!("   {}", format!("Could not fetch token supply: {}", e).yellow());
+                            println!(
+                                "   {}",
+                                format!("Could not fetch token supply: {}", e).yellow()
+                            );
                         }
                     }
                 }
@@ -161,13 +203,16 @@ pub async fn run_demo(config: Arc<Config>, address: Option<String>) -> Result<()
         2 => {
             println!("\n{}", "💱 Swap Simulation".cyan());
             println!("   This would simulate a token swap using Jupiter...");
-            println!("   {}", "(Implementation would require wallet private key)".dimmed());
+            println!(
+                "   {}",
+                "(Implementation would require wallet private key)".dimmed()
+            );
         }
         _ => {}
     }
 
     println!("\n{}", "✅ Solana demo completed!".bright_green().bold());
     println!("{}", "Thank you for exploring riglr-solana-tools!".dimmed());
-    
+
     Ok(())
 }

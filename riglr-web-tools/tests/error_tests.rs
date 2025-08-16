@@ -151,10 +151,7 @@ fn test_error_display() {
             "Authentication error",
         ),
         (WebToolError::RateLimit("limit".to_string()), "Rate limit"),
-        (
-            WebToolError::Parsing("bad".to_string()),
-            "Parsing",
-        ),
+        (WebToolError::Parsing("bad".to_string()), "Parsing"),
         (WebToolError::Api("gen".to_string()), "API error"),
     ];
 

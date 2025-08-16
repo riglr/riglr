@@ -1,7 +1,7 @@
 //! Feature flags configuration
 
-use serde::{Deserialize, Serialize};
 use crate::ConfigResult;
+use serde::{Deserialize, Serialize};
 
 /// Feature flags configuration
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -9,39 +9,39 @@ pub struct FeaturesConfig {
     /// Enable trading functionality
     #[serde(default = "default_true")]
     pub enable_trading: bool,
-    
+
     /// Enable cross-chain bridging
     #[serde(default = "default_true")]
     pub enable_bridging: bool,
-    
+
     /// Enable social media monitoring
     #[serde(default)]
     pub enable_social_monitoring: bool,
-    
+
     /// Enable graph-based memory
     #[serde(default)]
     pub enable_graph_memory: bool,
-    
+
     /// Enable real-time streaming
     #[serde(default = "default_true")]
     pub enable_streaming: bool,
-    
+
     /// Enable webhook notifications
     #[serde(default)]
     pub enable_webhooks: bool,
-    
+
     /// Enable analytics collection
     #[serde(default)]
     pub enable_analytics: bool,
-    
+
     /// Enable debug mode
     #[serde(default)]
     pub debug_mode: bool,
-    
+
     /// Enable experimental features
     #[serde(default)]
     pub experimental: bool,
-    
+
     /// Custom feature flags
     #[serde(default)]
     pub custom: std::collections::HashMap<String, bool>,
@@ -62,12 +62,12 @@ impl FeaturesConfig {
             Feature::Experimental => self.experimental,
         }
     }
-    
+
     /// Check if a custom feature is enabled
     pub fn is_custom_enabled(&self, name: &str) -> bool {
         self.custom.get(name).copied().unwrap_or(false)
     }
-    
+
     /// Enable a feature
     pub fn enable(&mut self, feature: Feature) {
         match feature {
@@ -82,7 +82,7 @@ impl FeaturesConfig {
             Feature::Experimental => self.experimental = true,
         }
     }
-    
+
     /// Disable a feature
     pub fn disable(&mut self, feature: Feature) {
         match feature {
@@ -97,13 +97,13 @@ impl FeaturesConfig {
             Feature::Experimental => self.experimental = false,
         }
     }
-    
+
     pub fn validate(&self) -> ConfigResult<()> {
         // Add any feature-specific validation here
         if self.experimental && !self.debug_mode {
             tracing::warn!("Experimental features enabled without debug mode");
         }
-        
+
         Ok(())
     }
 }

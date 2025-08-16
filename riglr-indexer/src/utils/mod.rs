@@ -8,14 +8,14 @@ use tokio::time::sleep;
 use crate::error::{IndexerError, IndexerResult};
 
 pub mod batch;
-pub mod rate_limiter;
 pub mod consistent_hash;
 pub mod health;
+pub mod rate_limiter;
 
 pub use batch::BatchProcessor;
-pub use rate_limiter::RateLimiter;
 pub use consistent_hash::ConsistentHash;
 pub use health::HealthCheck;
+pub use rate_limiter::RateLimiter;
 
 /// Retry helper with exponential backoff
 pub async fn retry_with_backoff<F, T, E>(
@@ -34,19 +34,22 @@ where
 
     loop {
         attempt += 1;
-        
+
         match operation() {
             Ok(result) => return Ok(result),
             Err(error) => {
                 if attempt >= max_attempts {
                     return Err(error);
                 }
-                
+
                 tracing::warn!(
                     "Operation failed (attempt {}/{}): {}. Retrying in {:?}",
-                    attempt, max_attempts, error, delay
+                    attempt,
+                    max_attempts,
+                    error,
+                    delay
                 );
-                
+
                 sleep(delay).await;
                 delay = std::cmp::min(
                     Duration::from_millis((delay.as_millis() as f64 * multiplier) as u64),
@@ -85,7 +88,7 @@ pub fn format_bytes(bytes: u64) -> String {
 /// Format duration in human-readable format
 pub fn format_duration(duration: Duration) -> String {
     let seconds = duration.as_secs();
-    
+
     if seconds < 60 {
         format!("{}s", seconds)
     } else if seconds < 3600 {
@@ -125,18 +128,23 @@ pub fn validate_event_id(id: &str) -> IndexerResult<()> {
     if id.is_empty() {
         return Err(IndexerError::validation("Event ID cannot be empty"));
     }
-    
+
     if id.len() > 255 {
-        return Err(IndexerError::validation("Event ID too long (max 255 characters)"));
-    }
-    
-    // Basic validation - must contain only alphanumeric, hyphens, underscores
-    if !id.chars().all(|c| c.is_alphanumeric() || c == '-' || c == '_') {
         return Err(IndexerError::validation(
-            "Event ID must contain only alphanumeric characters, hyphens, and underscores"
+            "Event ID too long (max 255 characters)",
         ));
     }
-    
+
+    // Basic validation - must contain only alphanumeric, hyphens, underscores
+    if !id
+        .chars()
+        .all(|c| c.is_alphanumeric() || c == '-' || c == '_')
+    {
+        return Err(IndexerError::validation(
+            "Event ID must contain only alphanumeric characters, hyphens, and underscores",
+        ));
+    }
+
     Ok(())
 }
 
@@ -145,11 +153,13 @@ pub fn validate_source(source: &str) -> IndexerResult<()> {
     if source.is_empty() {
         return Err(IndexerError::validation("Source cannot be empty"));
     }
-    
+
     if source.len() > 100 {
-        return Err(IndexerError::validation("Source too long (max 100 characters)"));
+        return Err(IndexerError::validation(
+            "Source too long (max 100 characters)",
+        ));
     }
-    
+
     Ok(())
 }
 
@@ -158,18 +168,23 @@ pub fn validate_event_type(event_type: &str) -> IndexerResult<()> {
     if event_type.is_empty() {
         return Err(IndexerError::validation("Event type cannot be empty"));
     }
-    
+
     if event_type.len() > 100 {
-        return Err(IndexerError::validation("Event type too long (max 100 characters)"));
-    }
-    
-    // Event type should follow a specific pattern (lowercase, underscores allowed)
-    if !event_type.chars().all(|c| c.is_ascii_lowercase() || c == '_' || c.is_ascii_digit()) {
         return Err(IndexerError::validation(
-            "Event type must contain only lowercase letters, underscores, and digits"
+            "Event type too long (max 100 characters)",
         ));
     }
-    
+
+    // Event type should follow a specific pattern (lowercase, underscores allowed)
+    if !event_type
+        .chars()
+        .all(|c| c.is_ascii_lowercase() || c == '_' || c.is_ascii_digit())
+    {
+        return Err(IndexerError::validation(
+            "Event type must contain only lowercase letters, underscores, and digits",
+        ));
+    }
+
     Ok(())
 }
 
@@ -178,19 +193,19 @@ pub fn calculate_percentile(sorted_values: &[f64], percentile: f64) -> Option<f6
     if sorted_values.is_empty() || !(0.0..=100.0).contains(&percentile) {
         return None;
     }
-    
+
     if percentile == 0.0 {
         return Some(sorted_values[0]);
     }
-    
+
     if percentile == 100.0 {
         return Some(sorted_values[sorted_values.len() - 1]);
     }
-    
+
     let index = (percentile / 100.0) * (sorted_values.len() as f64 - 1.0);
     let lower = index.floor() as usize;
     let upper = index.ceil() as usize;
-    
+
     if lower == upper {
         Some(sorted_values[lower])
     } else {
@@ -254,7 +269,7 @@ mod tests {
         assert_eq!(calculate_percentile(&values, 0.0), Some(1.0));
         assert_eq!(calculate_percentile(&values, 50.0), Some(3.0));
         assert_eq!(calculate_percentile(&values, 100.0), Some(5.0));
-        
+
         let empty: Vec<f64> = vec![];
         assert_eq!(calculate_percentile(&empty, 50.0), None);
         assert_eq!(calculate_percentile(&values, -1.0), None);

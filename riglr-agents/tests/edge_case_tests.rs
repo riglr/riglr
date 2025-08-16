@@ -4,9 +4,9 @@
 //! boundary conditions, and edge cases gracefully.
 
 use riglr_agents::*;
+use serde_json::json;
 use std::sync::Arc;
 use std::time::Duration;
-use serde_json::json;
 
 /// Agent that exhibits unusual behavior for edge case testing.
 #[derive(Clone)]
@@ -52,10 +52,10 @@ impl Agent for EdgeCaseAgent {
                     Duration::from_millis(10),
                 ))
             }
-            
+
             EdgeCaseBehavior::LargeResult => {
                 tokio::time::sleep(Duration::from_millis(50)).await;
-                
+
                 // Create large result (1MB of data)
                 let large_data = "x".repeat(1024 * 1024);
                 Ok(TaskResult::success(
@@ -71,7 +71,7 @@ impl Agent for EdgeCaseAgent {
                     Duration::from_millis(50),
                 ))
             }
-            
+
             EdgeCaseBehavior::MaxTimeout => {
                 // Sleep for almost the default timeout (but not quite)
                 tokio::time::sleep(Duration::from_millis(4900)).await;
@@ -81,7 +81,7 @@ impl Agent for EdgeCaseAgent {
                     Duration::from_millis(4900),
                 ))
             }
-            
+
             EdgeCaseBehavior::WeirdDataTypes => {
                 tokio::time::sleep(Duration::from_millis(10)).await;
                 Ok(TaskResult::success(
@@ -106,7 +106,7 @@ impl Agent for EdgeCaseAgent {
                     Duration::from_millis(10),
                 ))
             }
-            
+
             EdgeCaseBehavior::FalseCapabilities => {
                 // Claim to handle any task but actually can't handle anything properly
                 Ok(TaskResult::failure(
@@ -115,11 +115,11 @@ impl Agent for EdgeCaseAgent {
                     Duration::from_millis(10),
                 ))
             }
-            
+
             EdgeCaseBehavior::Inconsistent(state) => {
                 let current_state = state.load(std::sync::atomic::Ordering::Relaxed);
                 state.store(!current_state, std::sync::atomic::Ordering::Relaxed);
-                
+
                 if current_state {
                     Ok(TaskResult::success(
                         json!({"behavior": "success"}),
@@ -274,21 +274,38 @@ async fn test_weird_data_types_handling() {
     assert!(result.is_success());
 
     let data = result.data().unwrap();
-    
+
     // Verify various data types are preserved
     assert!(data.get("null_value").unwrap().is_null());
     assert_eq!(data.get("empty_string").unwrap().as_str().unwrap(), "");
-    assert!(data.get("empty_array").unwrap().as_array().unwrap().is_empty());
-    assert!(data.get("empty_object").unwrap().as_object().unwrap().is_empty());
+    assert!(data
+        .get("empty_array")
+        .unwrap()
+        .as_array()
+        .unwrap()
+        .is_empty());
+    assert!(data
+        .get("empty_object")
+        .unwrap()
+        .as_object()
+        .unwrap()
+        .is_empty());
     assert_eq!(data.get("unicode").unwrap().as_str().unwrap(), "🚀🦀💎");
-    
+
     // Verify nested structure is preserved
-    let nested = data.get("nested").unwrap()
-        .get("deeply").unwrap()
-        .get("nested").unwrap()
-        .get("structure").unwrap()
-        .get("value").unwrap()
-        .as_str().unwrap();
+    let nested = data
+        .get("nested")
+        .unwrap()
+        .get("deeply")
+        .unwrap()
+        .get("nested")
+        .unwrap()
+        .get("structure")
+        .unwrap()
+        .get("value")
+        .unwrap()
+        .as_str()
+        .unwrap();
     assert_eq!(nested, "deep");
 }
 
@@ -339,7 +356,7 @@ async fn test_inconsistent_agent_behavior() {
     registry.register_agent(inconsistent_agent).await.unwrap();
 
     let mut results = Vec::new();
-    
+
     // Execute multiple tasks to see inconsistent behavior
     for i in 0..6 {
         let task = Task::new(
@@ -354,7 +371,7 @@ async fn test_inconsistent_agent_behavior() {
     // Should have a mix of successes and failures
     let success_count = results.iter().filter(|&&success| success).count();
     let failure_count = results.len() - success_count;
-    
+
     assert!(success_count > 0);
     assert!(failure_count > 0);
 }
@@ -375,11 +392,12 @@ async fn test_zero_timeout_tasks() {
     let task = Task::new(
         TaskType::Custom("edge_case".to_string()),
         json!({"test": "zero_timeout"}),
-    ).with_timeout(Duration::ZERO);
+    )
+    .with_timeout(Duration::ZERO);
 
     // Zero timeout should likely cause immediate timeout
     let result = dispatcher.dispatch_task(task).await;
-    
+
     // Should either timeout or complete very quickly
     match result {
         Ok(task_result) => {
@@ -423,7 +441,7 @@ async fn test_maximum_retry_count() {
 
     // Should fail without actually doing max retries (would take forever)
     assert!(!result.is_success());
-    
+
     // Should not take an unreasonable amount of time
     assert!(elapsed < Duration::from_secs(10));
 }
@@ -442,13 +460,19 @@ async fn test_extreme_priority_handling() {
     registry.register_agent(priority_agent).await.unwrap();
 
     // Test with all priority levels including edge cases
-    let priorities = vec![Priority::Critical, Priority::High, Priority::Normal, Priority::Low];
-    
+    let priorities = vec![
+        Priority::Critical,
+        Priority::High,
+        Priority::Normal,
+        Priority::Low,
+    ];
+
     for priority in priorities {
         let task = Task::new(
             TaskType::Custom("edge_case".to_string()),
             json!({"test": "priority", "level": priority as u8}),
-        ).with_priority(priority);
+        )
+        .with_priority(priority);
 
         let result = dispatcher.dispatch_task(task).await.unwrap();
         assert!(result.is_success());
@@ -470,10 +494,13 @@ async fn test_empty_registry_handling() {
     );
 
     let result = dispatcher.dispatch_task(task).await;
-    
+
     // Should fail with no suitable agent error
     assert!(result.is_err());
-    assert!(matches!(result.unwrap_err(), AgentError::NoSuitableAgent { .. }));
+    assert!(matches!(
+        result.unwrap_err(),
+        AgentError::NoSuitableAgent { .. }
+    ));
 }
 
 /// Test handling of registry at capacity limit.
@@ -486,24 +513,18 @@ async fn test_registry_capacity_edge_case() {
     let registry = LocalAgentRegistry::with_config(config);
 
     // Fill registry to capacity
-    let agent1 = Arc::new(EdgeCaseAgent::new(
-        "agent1",
-        EdgeCaseBehavior::EmptyResult,
-    ));
+    let agent1 = Arc::new(EdgeCaseAgent::new("agent1", EdgeCaseBehavior::EmptyResult));
 
     registry.register_agent(agent1).await.unwrap();
     assert_eq!(registry.agent_count().await.unwrap(), 1);
 
     // Try to register beyond capacity
-    let agent2 = Arc::new(EdgeCaseAgent::new(
-        "agent2",
-        EdgeCaseBehavior::EmptyResult,
-    ));
+    let agent2 = Arc::new(EdgeCaseAgent::new("agent2", EdgeCaseBehavior::EmptyResult));
 
     let result = registry.register_agent(agent2).await;
     assert!(result.is_err());
     assert!(result.unwrap_err().to_string().contains("capacity"));
-    
+
     // Count should remain unchanged
     assert_eq!(registry.agent_count().await.unwrap(), 1);
 }
@@ -516,10 +537,7 @@ async fn test_long_identifier_handling() {
 
     // Create agent with very long ID
     let long_id = "a".repeat(1000);
-    let long_id_agent = Arc::new(EdgeCaseAgent::new(
-        &long_id,
-        EdgeCaseBehavior::EmptyResult,
-    ));
+    let long_id_agent = Arc::new(EdgeCaseAgent::new(&long_id, EdgeCaseBehavior::EmptyResult));
 
     registry.register_agent(long_id_agent).await.unwrap();
 
@@ -543,10 +561,10 @@ async fn test_long_identifier_handling() {
 #[tokio::test]
 async fn test_concurrent_registry_modifications() {
     let registry = Arc::new(LocalAgentRegistry::new());
-    
+
     // Spawn multiple tasks that modify the registry concurrently
     let mut handles = Vec::new();
-    
+
     for i in 0..10 {
         let registry_clone = registry.clone();
         let handle = tokio::spawn(async move {
@@ -554,36 +572,36 @@ async fn test_concurrent_registry_modifications() {
                 format!("concurrent_agent_{}", i),
                 EdgeCaseBehavior::EmptyResult,
             ));
-            
+
             // Register agent
             let register_result = registry_clone.register_agent(agent).await;
-            
+
             // Immediately try to unregister
             let unregister_result = registry_clone
                 .unregister_agent(&AgentId::new(format!("concurrent_agent_{}", i)))
                 .await;
-            
+
             (register_result.is_ok(), unregister_result.is_ok())
         });
-        
+
         handles.push(handle);
     }
-    
+
     // Wait for all operations to complete
     let results: Vec<(bool, bool)> = futures::future::join_all(handles)
         .await
         .into_iter()
         .map(|r| r.unwrap())
         .collect();
-    
+
     // Most operations should succeed (some may fail due to races)
     let successful_registers = results.iter().filter(|(reg, _)| *reg).count();
     let successful_unregisters = results.iter().filter(|(_, unreg)| *unreg).count();
-    
+
     // Should have some successful operations despite concurrency
     assert!(successful_registers > 0);
     assert!(successful_unregisters > 0);
-    
+
     // Final state should be consistent
     let final_count = registry.agent_count().await.unwrap();
     assert!(final_count <= 10); // Should not exceed the number of attempted registrations
@@ -604,15 +622,15 @@ async fn test_message_expiration_edge_cases() {
         "expiring_message".to_string(),
         json!({"test": "expiration"}),
     );
-    
+
     // Set expiration to current time (edge case)
     message.expires_at = Some(chrono::Utc::now());
-    
+
     // Small delay to ensure expiration
     tokio::time::sleep(Duration::from_millis(1)).await;
-    
+
     let result = comm.send_message(message).await;
-    
+
     // Should fail due to expiration
     assert!(result.is_err());
     assert!(result.unwrap_err().to_string().contains("expired"));
@@ -679,7 +697,7 @@ async fn test_retry_count_boundaries() {
     );
 
     let result = dispatcher_zero.dispatch_task(task).await.unwrap();
-    
+
     // Should fail immediately with no retries
     assert!(!result.is_success());
 }
@@ -704,10 +722,12 @@ async fn test_resource_limit_handling() {
 
     // Create many concurrent tasks
     let tasks: Vec<Task> = (0..1000)
-        .map(|i| Task::new(
-            TaskType::Custom("edge_case".to_string()),
-            json!({"scale_test": i}),
-        ))
+        .map(|i| {
+            Task::new(
+                TaskType::Custom("edge_case".to_string()),
+                json!({"scale_test": i}),
+            )
+        })
         .collect();
 
     let start_time = std::time::Instant::now();
@@ -715,9 +735,12 @@ async fn test_resource_limit_handling() {
     let elapsed = start_time.elapsed();
 
     let success_count = results.iter().filter(|r| r.is_ok()).count();
-    
-    println!("Scale test: {}/{} successful in {:?}", success_count, 1000, elapsed);
-    
+
+    println!(
+        "Scale test: {}/{} successful in {:?}",
+        success_count, 1000, elapsed
+    );
+
     // Should handle large scale reasonably well
     assert!(success_count >= 800); // Allow some failures under load
     assert!(elapsed < Duration::from_secs(30)); // Should complete in reasonable time

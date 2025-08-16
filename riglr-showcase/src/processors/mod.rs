@@ -43,15 +43,15 @@ pub mod notifier;
 
 // Re-export notification types as they're named differently in the sub-module
 pub use notifier::{
-    NotificationRouter, RoutingRule, RoutingCondition,
-    DiscordChannel, TelegramChannel, ConsoleChannel
+    ConsoleChannel, DiscordChannel, NotificationRouter, RoutingCondition, RoutingRule,
+    TelegramChannel,
 };
 
 // Re-export formatter types
-pub use formatter::{MarkdownFormatter, HtmlFormatter, JsonFormatter, MultiFormatProcessor};
+pub use formatter::{HtmlFormatter, JsonFormatter, MarkdownFormatter, MultiFormatProcessor};
 
-// Re-export distiller types  
-pub use distiller::{DistillationProcessor};
+// Re-export distiller types
+pub use distiller::DistillationProcessor;
 
 use anyhow::Result;
 use async_trait::async_trait;
@@ -114,16 +114,16 @@ pub enum NotificationPriority {
 pub trait OutputProcessor: Send + Sync {
     /// Process a tool output and return the processed result
     async fn process(&self, input: ToolOutput) -> Result<ProcessedOutput>;
-    
+
     /// Get the processor name for debugging and logging
     fn name(&self) -> &str;
-    
+
     /// Check if this processor can handle the given output type
     fn can_process(&self, _output: &ToolOutput) -> bool {
         // Default implementation accepts all outputs
         true
     }
-    
+
     /// Get processor configuration as JSON for debugging
     fn config(&self) -> serde_json::Value {
         serde_json::json!({
@@ -148,13 +148,13 @@ impl ProcessorPipeline {
             processors: Vec::new(),
         }
     }
-    
+
     /// Add a processor to the pipeline
     pub fn add_processor<P: OutputProcessor + 'static>(mut self, processor: P) -> Self {
         self.processors.push(Box::new(processor));
         self
     }
-    
+
     /// Process output through the entire pipeline
     pub async fn process(&self, mut output: ToolOutput) -> Result<ProcessedOutput> {
         let mut current = ProcessedOutput {
@@ -164,26 +164,26 @@ impl ProcessorPipeline {
             summary: None,
             routing_info: None,
         };
-        
+
         for processor in &self.processors {
             if processor.can_process(&output) {
                 // Update the tool output with the processed result for the next processor
                 output.result = current.processed_result.clone();
                 let processed = processor.process(output.clone()).await?;
-                
+
                 // Preserve summary from previous processors if current processor doesn't provide one
                 let summary = processed.summary.or(current.summary.clone());
-                
+
                 current = ProcessedOutput {
                     summary,
                     ..processed
                 };
             }
         }
-        
+
         Ok(current)
     }
-    
+
     /// Get information about all processors in the pipeline
     pub fn info(&self) -> Vec<serde_json::Value> {
         self.processors.iter().map(|p| p.config()).collect()
@@ -200,7 +200,7 @@ impl Default for ProcessorPipeline {
 pub mod utils {
     use super::*;
     use std::time::SystemTime;
-    
+
     /// Create a ToolOutput from a successful operation
     pub fn success_output(tool_name: &str, result: serde_json::Value) -> ToolOutput {
         ToolOutput {
@@ -212,7 +212,7 @@ pub mod utils {
             metadata: HashMap::new(),
         }
     }
-    
+
     /// Create a ToolOutput from a failed operation
     pub fn error_output(tool_name: &str, error: &str) -> ToolOutput {
         ToolOutput {
@@ -224,7 +224,7 @@ pub mod utils {
             metadata: HashMap::new(),
         }
     }
-    
+
     /// Add timing information to a ToolOutput
     pub fn with_timing(mut output: ToolOutput, start_time: SystemTime) -> ToolOutput {
         if let Ok(duration) = start_time.elapsed() {
@@ -232,19 +232,19 @@ pub mod utils {
         }
         output
     }
-    
+
     /// Add metadata to a ToolOutput
     pub fn with_metadata(mut output: ToolOutput, key: &str, value: &str) -> ToolOutput {
         output.metadata.insert(key.to_string(), value.to_string());
         output
     }
-    
+
     /// Extract error message from a ToolOutput in a user-friendly way
     pub fn user_friendly_error(output: &ToolOutput) -> String {
         if output.success {
             return "Operation completed successfully".to_string();
         }
-        
+
         match &output.error {
             Some(error) => {
                 // Clean up technical error messages for users
@@ -270,29 +270,29 @@ mod tests {
     use super::*;
     use crate::processors::distiller::MockDistiller;
     use crate::processors::formatter::MarkdownFormatter;
-    
+
     #[tokio::test]
     async fn test_pipeline_composition() {
         let pipeline = ProcessorPipeline::new()
             .add_processor(MockDistiller::new())
             .add_processor(MarkdownFormatter::new());
-        
+
         let output = utils::success_output(
             "test_tool",
-            serde_json::json!({"balance": "1.5 SOL", "address": "11111111111111111111111111111112"})
+            serde_json::json!({"balance": "1.5 SOL", "address": "11111111111111111111111111111112"}),
         );
-        
+
         let processed = pipeline.process(output).await.unwrap();
-        
+
         assert!(processed.summary.is_some());
         assert!(matches!(processed.format, OutputFormat::Markdown));
     }
-    
+
     #[tokio::test]
     async fn test_error_handling() {
         let output = utils::error_output("test_tool", "Connection timeout");
         let friendly_error = utils::user_friendly_error(&output);
-        
+
         assert!(friendly_error.contains("timed out"));
         assert!(!friendly_error.contains("Connection timeout")); // Should be cleaned up
     }

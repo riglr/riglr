@@ -59,12 +59,14 @@ pub mod prelude {
     pub use crate::parser::*;
     pub use crate::traits::*;
     pub use crate::types::*;
-    pub use crate::utils::{EventStream, EventBatchStream, EventIdGenerator, EventBatcher, EventDeduplicator, 
-                           RateLimiter, StreamUtils, EventPerformanceMetrics, MetricsSummary};
+    pub use crate::utils::{
+        EventBatchStream, EventBatcher, EventDeduplicator, EventIdGenerator,
+        EventPerformanceMetrics, EventStream, MetricsSummary, RateLimiter, StreamUtils,
+    };
 }
 
 // Re-export key types at crate root for convenience
 pub use error::{EventError, EventResult};
-pub use traits::{Event, EventParser, EventFilter, EventHandler};
-pub use types::{EventKind, GenericEvent, EventMetadata, StreamInfo};
-pub use utils::{EventStream, EventBatchStream};
+pub use traits::{Event, EventFilter, EventHandler, EventParser};
+pub use types::{EventKind, EventMetadata, GenericEvent, StreamInfo};
+pub use utils::{EventBatchStream, EventStream};

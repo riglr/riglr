@@ -1,11 +1,8 @@
 use chrono::{DateTime, Utc};
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
-use std::hint::black_box;
-use riglr_web_tools::{
-    client::WebClient,
-    error::WebToolError,
-};
+use riglr_web_tools::{client::WebClient, error::WebToolError};
 use serde_json::json;
+use std::hint::black_box;
 use tokio::runtime::Runtime;
 
 fn client_benchmarks(c: &mut Criterion) {
@@ -13,9 +10,7 @@ fn client_benchmarks(c: &mut Criterion) {
 
     group.bench_function("client_creation", |b| b.iter(WebClient::new));
 
-    group.bench_function("client_with_timeout", |b| {
-        b.iter(WebClient::new)
-    });
+    group.bench_function("client_with_timeout", |b| b.iter(WebClient::new));
 
     group.bench_function("url_parsing", |b| {
         let urls = vec![
@@ -122,7 +117,8 @@ fn dexscreener_benchmarks(c: &mut Criterion) {
     group.bench_function("pair_data_creation", |b| {
         b.iter(|| {
             // Benchmark basic components of TokenPair creation
-            let pair_id = "ethereum_uniswap_v3_0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640".to_string();
+            let pair_id =
+                "ethereum_uniswap_v3_0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640".to_string();
             let price_usd = 1.0f64;
             let volume_24h = 10000000.0f64;
             let price_change_24h = -0.5f64;
@@ -337,11 +333,13 @@ fn throughput_benchmarks(c: &mut Criterion) {
             |b, &size| {
                 // Simplified search result tuples since SearchResult has complex structure
                 let results: Vec<(String, String, String)> = (0..size)
-                    .map(|i| (
-                        format!("Result {}", i),
-                        format!("https://example.com/{}", i),
-                        format!("Snippet for result {}", i),
-                    ))
+                    .map(|i| {
+                        (
+                            format!("Result {}", i),
+                            format!("https://example.com/{}", i),
+                            format!("Snippet for result {}", i),
+                        )
+                    })
                     .collect();
 
                 b.iter(|| {

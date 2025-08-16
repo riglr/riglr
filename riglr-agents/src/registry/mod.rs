@@ -8,11 +8,11 @@ use crate::{Agent, AgentId, AgentStatus, Result};
 use async_trait::async_trait;
 use std::sync::Arc;
 
-pub mod local;
 pub mod distributed;
+pub mod local;
 
-pub use local::LocalAgentRegistry;
 pub use distributed::DistributedAgentRegistry;
+pub use local::LocalAgentRegistry;
 
 /// Trait for agent registry implementations.
 ///
@@ -198,7 +198,10 @@ mod tests {
         registry.register_agent(agent.clone()).await.unwrap();
 
         // Test retrieval
-        let retrieved = registry.get_agent(&AgentId::new("test-agent")).await.unwrap();
+        let retrieved = registry
+            .get_agent(&AgentId::new("test-agent"))
+            .await
+            .unwrap();
         assert!(retrieved.is_some());
         assert_eq!(retrieved.unwrap().id(), &AgentId::new("test-agent"));
 
@@ -210,15 +213,24 @@ mod tests {
         let trading_agents = registry.find_agents_by_capability("trading").await.unwrap();
         assert_eq!(trading_agents.len(), 1);
 
-        let research_agents = registry.find_agents_by_capability("research").await.unwrap();
+        let research_agents = registry
+            .find_agents_by_capability("research")
+            .await
+            .unwrap();
         assert_eq!(research_agents.len(), 0);
 
         // Test count
         assert_eq!(registry.agent_count().await.unwrap(), 1);
 
         // Test unregistration
-        registry.unregister_agent(&AgentId::new("test-agent")).await.unwrap();
-        let retrieved = registry.get_agent(&AgentId::new("test-agent")).await.unwrap();
+        registry
+            .unregister_agent(&AgentId::new("test-agent"))
+            .await
+            .unwrap();
+        let retrieved = registry
+            .get_agent(&AgentId::new("test-agent"))
+            .await
+            .unwrap();
         assert!(retrieved.is_none());
     }
 

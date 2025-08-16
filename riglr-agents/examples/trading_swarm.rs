@@ -13,16 +13,16 @@
 //!
 //! Run with: cargo run --example trading_swarm
 
-use riglr_agents::{
-    Agent, AgentDispatcher, AgentRegistry, LocalAgentRegistry,
-    Task, TaskResult, TaskType, Priority, AgentId, AgentMessage,
-    DispatchConfig, RoutingStrategy, ChannelCommunication, AgentCommunication
-};
 use async_trait::async_trait;
+use riglr_agents::{
+    Agent, AgentCommunication, AgentDispatcher, AgentId, AgentMessage, AgentRegistry,
+    ChannelCommunication, DispatchConfig, LocalAgentRegistry, Priority, RoutingStrategy, Task,
+    TaskResult, TaskType,
+};
+use serde_json::json;
+use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
-use std::collections::HashMap;
-use serde_json::json;
 use tokio::time::sleep;
 
 /// Shared portfolio state that agents can read and update
@@ -54,7 +54,11 @@ struct MarketResearchAgent {
 }
 
 impl MarketResearchAgent {
-    fn new(id: &str, communication: Arc<ChannelCommunication>, portfolio: Arc<Mutex<PortfolioState>>) -> Self {
+    fn new(
+        id: &str,
+        communication: Arc<ChannelCommunication>,
+        portfolio: Arc<Mutex<PortfolioState>>,
+    ) -> Self {
         Self {
             id: AgentId::new(id),
             communication,
@@ -65,7 +69,7 @@ impl MarketResearchAgent {
     async fn perform_technical_analysis(&self, symbol: &str) -> serde_json::Value {
         // Simulate complex technical analysis
         sleep(Duration::from_millis(300)).await;
-        
+
         // Check current portfolio exposure to this symbol
         let portfolio = self.portfolio.lock().unwrap();
         let current_position = portfolio.positions.get(symbol).copied().unwrap_or(0.0);
@@ -76,7 +80,7 @@ impl MarketResearchAgent {
             0.0
         };
         drop(portfolio); // Release lock early
-        
+
         let indicators = json!({
             "rsi": 65.4,
             "macd": "bullish_crossover",
@@ -87,7 +91,7 @@ impl MarketResearchAgent {
             "current_exposure": exposure_ratio,
             "position_status": if exposure_ratio > 0.15 { "overweight" } else if exposure_ratio > 0.05 { "balanced" } else { "underweight" }
         });
-        
+
         json!({
             "symbol": symbol,
             "analysis_type": "technical",
@@ -104,7 +108,7 @@ impl MarketResearchAgent {
     async fn perform_sentiment_analysis(&self, symbol: &str) -> serde_json::Value {
         // Simulate sentiment analysis from various sources
         sleep(Duration::from_millis(200)).await;
-        
+
         json!({
             "symbol": symbol,
             "analysis_type": "sentiment",
@@ -123,22 +127,34 @@ impl MarketResearchAgent {
 #[async_trait]
 impl Agent for MarketResearchAgent {
     async fn execute_task(&self, task: Task) -> riglr_agents::Result<TaskResult> {
-        println!("🔬 Research Agent {} analyzing: {}", self.id, 
-            task.parameters.get("symbol").and_then(|s| s.as_str()).unwrap_or("N/A"));
-        
-        let symbol = task.parameters.get("symbol")
+        println!(
+            "🔬 Research Agent {} analyzing: {}",
+            self.id,
+            task.parameters
+                .get("symbol")
+                .and_then(|s| s.as_str())
+                .unwrap_or("N/A")
+        );
+
+        let symbol = task
+            .parameters
+            .get("symbol")
             .and_then(|s| s.as_str())
-            .ok_or_else(|| riglr_agents::AgentError::task_execution("Missing symbol".to_string()))?;
-        
-        let _analysis_type = task.parameters.get("analysis_type")
+            .ok_or_else(|| {
+                riglr_agents::AgentError::task_execution("Missing symbol".to_string())
+            })?;
+
+        let _analysis_type = task
+            .parameters
+            .get("analysis_type")
             .and_then(|t| t.as_str())
             .unwrap_or("comprehensive");
-        
+
         let (technical, sentiment) = tokio::join!(
             self.perform_technical_analysis(symbol),
             self.perform_sentiment_analysis(symbol)
         );
-        
+
         // Calculate portfolio-aware recommendations
         let (current_exposure, recommended_position_size, action) = {
             let portfolio = self.portfolio.lock().unwrap();
@@ -149,7 +165,7 @@ impl Agent for MarketResearchAgent {
             } else {
                 0.0
             };
-            
+
             // Adjust position size based on current exposure and available capital
             let recommended_position_size = if current_exposure > 0.10 {
                 0.05 // Reduce position size if already heavily exposed
@@ -158,16 +174,16 @@ impl Agent for MarketResearchAgent {
             } else {
                 0.15 // Standard position size
             };
-            
+
             let action = if current_exposure > 0.20 {
                 "hold" // Don't increase position if over-exposed
             } else {
                 "buy"
             };
-            
+
             (current_exposure, recommended_position_size, action)
         }; // MutexGuard is dropped here
-        
+
         let comprehensive_analysis = json!({
             "symbol": symbol,
             "technical": technical,
@@ -190,22 +206,24 @@ impl Agent for MarketResearchAgent {
             "research_quality": "high",
             "analysis_timestamp": chrono::Utc::now().timestamp()
         });
-        
+
         // Share analysis with other agents
         let message = AgentMessage::new(
             self.id.clone(),
             None,
             "comprehensive_analysis".to_string(),
-            comprehensive_analysis.clone()
+            comprehensive_analysis.clone(),
         );
-        
-        self.communication.broadcast_message(message).await
+
+        self.communication
+            .broadcast_message(message)
+            .await
             .map_err(|e| riglr_agents::AgentError::communication(e.to_string()))?;
-        
+
         Ok(TaskResult::success(
             comprehensive_analysis,
             None, // No transaction hash for research task
-            Duration::from_millis(500)
+            Duration::from_millis(500),
         ))
     }
 
@@ -235,9 +253,9 @@ struct RiskManagementAgent {
 
 impl RiskManagementAgent {
     fn new(
-        id: &str, 
-        communication: Arc<ChannelCommunication>, 
-        portfolio: Arc<Mutex<PortfolioState>>
+        id: &str,
+        communication: Arc<ChannelCommunication>,
+        portfolio: Arc<Mutex<PortfolioState>>,
     ) -> Self {
         Self {
             id: AgentId::new(id),
@@ -251,38 +269,45 @@ impl RiskManagementAgent {
     async fn calculate_position_risk(&self, _symbol: &str, amount: f64, price: f64) -> f64 {
         // Simulate sophisticated risk calculation
         sleep(Duration::from_millis(100)).await;
-        
+
         let position_value = amount * price;
         let portfolio = self.portfolio.lock().unwrap();
-        
+
         // Calculate risk based on position size, volatility, correlation, etc.
         let position_risk = position_value / portfolio.total_value;
         let volatility_multiplier = 1.2; // Simulate volatility factor
-        
+
         position_risk * volatility_multiplier
     }
 
-    async fn validate_trade(&self, analysis: &serde_json::Value, trade_params: &serde_json::Value) -> serde_json::Value {
-        let symbol = trade_params.get("symbol")
+    async fn validate_trade(
+        &self,
+        analysis: &serde_json::Value,
+        trade_params: &serde_json::Value,
+    ) -> serde_json::Value {
+        let symbol = trade_params
+            .get("symbol")
             .and_then(|s| s.as_str())
             .unwrap_or("UNKNOWN");
-        
-        let amount = trade_params.get("amount")
+
+        let amount = trade_params
+            .get("amount")
             .and_then(|a| a.as_f64())
             .unwrap_or(0.0);
-        
-        let price = analysis.get("technical")
+
+        let price = analysis
+            .get("technical")
             .and_then(|t| t.get("current_price"))
             .and_then(|p| p.as_f64())
             .unwrap_or(50000.0);
-        
+
         let position_risk = self.calculate_position_risk(symbol, amount, price).await;
         let portfolio = self.portfolio.lock().unwrap();
         let new_total_risk = portfolio.risk_exposure + position_risk;
-        
-        let approved = position_risk <= self.max_position_percent && 
-                      new_total_risk <= self.max_portfolio_risk;
-        
+
+        let approved =
+            position_risk <= self.max_position_percent && new_total_risk <= self.max_portfolio_risk;
+
         let risk_assessment = json!({
             "symbol": symbol,
             "position_risk": position_risk,
@@ -299,7 +324,7 @@ impl RiskManagementAgent {
             "assessor": self.id.as_str(),
             "timestamp": chrono::Utc::now().timestamp()
         });
-        
+
         risk_assessment
     }
 }
@@ -308,30 +333,34 @@ impl RiskManagementAgent {
 impl Agent for RiskManagementAgent {
     async fn execute_task(&self, task: Task) -> riglr_agents::Result<TaskResult> {
         println!("⚖️ Risk Agent {} assessing trade risk", self.id);
-        
-        let analysis = task.parameters.get("analysis")
-            .ok_or_else(|| riglr_agents::AgentError::task_execution("Missing analysis data".to_string()))?;
-        
-        let trade_params = task.parameters.get("trade_params")
-            .ok_or_else(|| riglr_agents::AgentError::task_execution("Missing trade parameters".to_string()))?;
-        
+
+        let analysis = task.parameters.get("analysis").ok_or_else(|| {
+            riglr_agents::AgentError::task_execution("Missing analysis data".to_string())
+        })?;
+
+        let trade_params = task.parameters.get("trade_params").ok_or_else(|| {
+            riglr_agents::AgentError::task_execution("Missing trade parameters".to_string())
+        })?;
+
         let risk_assessment = self.validate_trade(analysis, trade_params).await;
-        
+
         // Notify other agents of risk decision
         let message = AgentMessage::new(
             self.id.clone(),
             None,
             "risk_decision".to_string(),
-            risk_assessment.clone()
+            risk_assessment.clone(),
         );
-        
-        self.communication.broadcast_message(message).await
+
+        self.communication
+            .broadcast_message(message)
+            .await
             .map_err(|e| riglr_agents::AgentError::communication(e.to_string()))?;
-        
+
         Ok(TaskResult::success(
             risk_assessment,
             None, // No transaction hash for risk assessment
-            Duration::from_millis(200)
+            Duration::from_millis(200),
         ))
     }
 
@@ -367,9 +396,9 @@ struct TradeExecutionAgent {
 
 impl TradeExecutionAgent {
     fn new(
-        id: &str, 
-        communication: Arc<ChannelCommunication>, 
-        portfolio: Arc<Mutex<PortfolioState>>
+        id: &str,
+        communication: Arc<ChannelCommunication>,
+        portfolio: Arc<Mutex<PortfolioState>>,
     ) -> Self {
         Self {
             id: AgentId::new(id),
@@ -378,27 +407,36 @@ impl TradeExecutionAgent {
         }
     }
 
-    async fn execute_blockchain_trade(&self, trade_params: &serde_json::Value) -> riglr_agents::Result<serde_json::Value> {
+    async fn execute_blockchain_trade(
+        &self,
+        trade_params: &serde_json::Value,
+    ) -> riglr_agents::Result<serde_json::Value> {
         // In a real implementation, this would use SignerContext::current()
         // to access blockchain signers and execute actual trades using
         // riglr-solana-tools, riglr-evm-tools, etc.
-        
-        let symbol = trade_params.get("symbol")
+
+        let symbol = trade_params
+            .get("symbol")
             .and_then(|s| s.as_str())
             .unwrap_or("BTC");
-        
-        let action = trade_params.get("action")
+
+        let action = trade_params
+            .get("action")
             .and_then(|a| a.as_str())
             .unwrap_or("buy");
-        
-        let amount = trade_params.get("amount")
+
+        let amount = trade_params
+            .get("amount")
             .and_then(|a| a.as_f64())
             .unwrap_or(0.0);
-        
+
         // Simulate blockchain interaction
-        println!("🔗 Executing {} {} {} on blockchain...", action, amount, symbol);
+        println!(
+            "🔗 Executing {} {} {} on blockchain...",
+            action, amount, symbol
+        );
         sleep(Duration::from_millis(500)).await;
-        
+
         // Update portfolio state
         {
             let mut portfolio = self.portfolio.lock().unwrap();
@@ -407,7 +445,7 @@ impl TradeExecutionAgent {
                 portfolio.available_capital -= amount * 50000.0; // Simulate price
             }
         }
-        
+
         let trade_result = json!({
             "trade_id": uuid::Uuid::new_v4().to_string(),
             "symbol": symbol,
@@ -422,7 +460,7 @@ impl TradeExecutionAgent {
             "executor": self.id.as_str(),
             "timestamp": chrono::Utc::now().timestamp()
         });
-        
+
         Ok(trade_result)
     }
 }
@@ -431,42 +469,50 @@ impl TradeExecutionAgent {
 impl Agent for TradeExecutionAgent {
     async fn execute_task(&self, task: Task) -> riglr_agents::Result<TaskResult> {
         println!("⚡ Execution Agent {} processing trade order", self.id);
-        
-        let risk_approval = task.parameters.get("risk_approval")
+
+        let risk_approval = task
+            .parameters
+            .get("risk_approval")
             .and_then(|r| r.get("approved"))
             .and_then(|a| a.as_bool())
             .unwrap_or(false);
-        
+
         if !risk_approval {
             return Ok(TaskResult::failure(
                 "Trade rejected by risk management".to_string(),
                 false, // Not retriable
-                Duration::from_millis(10)
+                Duration::from_millis(10),
             ));
         }
-        
-        let trade_params = task.parameters.get("trade_params")
-            .ok_or_else(|| riglr_agents::AgentError::task_execution("Missing trade parameters".to_string()))?;
-        
+
+        let trade_params = task.parameters.get("trade_params").ok_or_else(|| {
+            riglr_agents::AgentError::task_execution("Missing trade parameters".to_string())
+        })?;
+
         let trade_result = self.execute_blockchain_trade(trade_params).await?;
-        
+
         // Notify all agents of successful execution
         let message = AgentMessage::new(
             self.id.clone(),
             None,
             "trade_executed".to_string(),
-            trade_result.clone()
+            trade_result.clone(),
         );
-        
-        self.communication.broadcast_message(message).await
+
+        self.communication
+            .broadcast_message(message)
+            .await
             .map_err(|e| riglr_agents::AgentError::communication(e.to_string()))?;
-        
-        let tx_hash = trade_result.get("transaction_hash").and_then(|h| h.as_str()).map(|s| s.to_string());
-        
+
+        let tx_hash = trade_result
+            .get("transaction_hash")
+            .and_then(|h| h.as_str())
+            .map(|s| s.to_string());
+
         Ok(TaskResult::success(
             trade_result,
             tx_hash,
-            Duration::from_millis(500)
+            Duration::from_millis(500),
         ))
     }
 
@@ -494,9 +540,9 @@ struct PortfolioMonitorAgent {
 
 impl PortfolioMonitorAgent {
     fn new(
-        id: &str, 
-        communication: Arc<ChannelCommunication>, 
-        portfolio: Arc<Mutex<PortfolioState>>
+        id: &str,
+        communication: Arc<ChannelCommunication>,
+        portfolio: Arc<Mutex<PortfolioState>>,
     ) -> Self {
         Self {
             id: AgentId::new(id),
@@ -507,11 +553,12 @@ impl PortfolioMonitorAgent {
 
     async fn generate_portfolio_report(&self) -> serde_json::Value {
         let portfolio = self.portfolio.lock().unwrap();
-        
+
         let total_positions: f64 = portfolio.positions.values().sum();
         let position_diversity = portfolio.positions.len();
-        let utilization_rate = (portfolio.total_value - portfolio.available_capital) / portfolio.total_value;
-        
+        let utilization_rate =
+            (portfolio.total_value - portfolio.available_capital) / portfolio.total_value;
+
         json!({
             "total_value": portfolio.total_value,
             "available_capital": portfolio.available_capital,
@@ -541,24 +588,26 @@ impl PortfolioMonitorAgent {
 impl Agent for PortfolioMonitorAgent {
     async fn execute_task(&self, _task: Task) -> riglr_agents::Result<TaskResult> {
         println!("📊 Portfolio Monitor {} generating report", self.id);
-        
+
         let report = self.generate_portfolio_report().await;
-        
+
         // Share portfolio status with other agents
         let message = AgentMessage::new(
             self.id.clone(),
             None,
             "portfolio_update".to_string(),
-            report.clone()
+            report.clone(),
         );
-        
-        self.communication.broadcast_message(message).await
+
+        self.communication
+            .broadcast_message(message)
+            .await
             .map_err(|e| riglr_agents::AgentError::communication(e.to_string()))?;
-        
+
         Ok(TaskResult::success(
             report,
             None, // No transaction hash for portfolio report
-            Duration::from_millis(100)
+            Duration::from_millis(100),
         ))
     }
 
@@ -587,28 +636,47 @@ impl Agent for PortfolioMonitorAgent {
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     println!("🚀 Starting Trading Swarm Example");
     println!("💼 Initializing portfolio with $100,000 capital");
-    
+
     // Initialize shared portfolio state
     let portfolio = Arc::new(Mutex::new(PortfolioState::new(100000.0)));
-    
+
     // Initialize communication system
     let communication = Arc::new(ChannelCommunication::new());
-    
+
     // Create specialized trading agents
-    let research_agent = Arc::new(MarketResearchAgent::new("research-alpha", communication.clone(), portfolio.clone()));
-    let risk_agent = Arc::new(RiskManagementAgent::new("risk-guardian", communication.clone(), portfolio.clone()));
-    let execution_agent = Arc::new(TradeExecutionAgent::new("executor-prime", communication.clone(), portfolio.clone()));
-    let portfolio_monitor = Arc::new(PortfolioMonitorAgent::new("monitor-omega", communication.clone(), portfolio.clone()));
-    
+    let research_agent = Arc::new(MarketResearchAgent::new(
+        "research-alpha",
+        communication.clone(),
+        portfolio.clone(),
+    ));
+    let risk_agent = Arc::new(RiskManagementAgent::new(
+        "risk-guardian",
+        communication.clone(),
+        portfolio.clone(),
+    ));
+    let execution_agent = Arc::new(TradeExecutionAgent::new(
+        "executor-prime",
+        communication.clone(),
+        portfolio.clone(),
+    ));
+    let portfolio_monitor = Arc::new(PortfolioMonitorAgent::new(
+        "monitor-omega",
+        communication.clone(),
+        portfolio.clone(),
+    ));
+
     // Create agent registry and register all agents
     let registry = Arc::new(LocalAgentRegistry::new());
     registry.register_agent(research_agent.clone()).await?;
     registry.register_agent(risk_agent.clone()).await?;
     registry.register_agent(execution_agent.clone()).await?;
     registry.register_agent(portfolio_monitor.clone()).await?;
-    
-    println!("✅ Registered {} specialized agents in trading swarm", registry.agent_count().await?);
-    
+
+    println!(
+        "✅ Registered {} specialized agents in trading swarm",
+        registry.agent_count().await?
+    );
+
     // Create dispatcher optimized for trading workflows
     let dispatch_config = DispatchConfig {
         routing_strategy: RoutingStrategy::Capability,
@@ -618,13 +686,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         retry_delay: Duration::from_secs(1),
         max_concurrent_tasks_per_agent: 10,
     };
-    
-    let dispatcher = Arc::new(AgentDispatcher::with_config(registry.clone(), dispatch_config));
-    
+
+    let dispatcher = Arc::new(AgentDispatcher::with_config(
+        registry.clone(),
+        dispatch_config,
+    ));
+
     // Execute coordinated trading workflow
     {
         println!("\n🔄 Starting Coordinated Trading Workflow");
-        
+
         // Step 1: Market Research
         println!("\n1️⃣ Phase 1: Market Research & Analysis");
         let research_task = Task::new(
@@ -633,19 +704,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 "symbol": "BTC",
                 "analysis_type": "comprehensive",
                 "urgency": "high"
-            })
-        ).with_priority(Priority::High);
-        
+            }),
+        )
+        .with_priority(Priority::High);
+
         let research_result = dispatcher.dispatch_task(research_task).await?;
-        println!("✅ Research completed with confidence: {}", 
-            research_result.data().unwrap().get("recommendation")
+        println!(
+            "✅ Research completed with confidence: {}",
+            research_result
+                .data()
+                .unwrap()
+                .get("recommendation")
                 .and_then(|r| r.get("confidence"))
                 .and_then(|c| c.as_f64())
-                .unwrap_or(0.0));
-        
+                .unwrap_or(0.0)
+        );
+
         // Wait for message propagation
         sleep(Duration::from_millis(200)).await;
-        
+
         // Step 2: Risk Assessment based on research
         println!("\n2️⃣ Phase 2: Risk Assessment");
         let risk_task = Task::new(
@@ -657,23 +734,35 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                     "action": "buy",
                     "amount": 2.5
                 }
-            })
-        ).with_priority(Priority::High);
-        
+            }),
+        )
+        .with_priority(Priority::High);
+
         let risk_result = dispatcher.dispatch_task(risk_task).await?;
-        let risk_approved = risk_result.data().unwrap().get("approved")
+        let risk_approved = risk_result
+            .data()
+            .unwrap()
+            .get("approved")
             .and_then(|a| a.as_bool())
             .unwrap_or(false);
-        
-        println!("✅ Risk assessment: {} (Risk Level: {})", 
-            if risk_approved { "APPROVED" } else { "REJECTED" },
-            risk_result.data().unwrap().get("risk_level")
+
+        println!(
+            "✅ Risk assessment: {} (Risk Level: {})",
+            if risk_approved {
+                "APPROVED"
+            } else {
+                "REJECTED"
+            },
+            risk_result
+                .data()
+                .unwrap()
+                .get("risk_level")
                 .and_then(|l| l.as_str())
                 .unwrap_or("unknown")
         );
-        
+
         sleep(Duration::from_millis(200)).await;
-        
+
         // Step 3: Trade Execution (if approved)
         if risk_approved {
             println!("\n3️⃣ Phase 3: Trade Execution");
@@ -687,20 +776,26 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                         "amount": 2.5
                     },
                     "research_data": research_result.data().unwrap()
-                })
-            ).with_priority(Priority::Critical);
-            
+                }),
+            )
+            .with_priority(Priority::Critical);
+
             let execution_result = dispatcher.dispatch_task(execution_task).await?;
-            println!("✅ Trade executed: {}", 
-                execution_result.data().unwrap().get("transaction_hash")
+            println!(
+                "✅ Trade executed: {}",
+                execution_result
+                    .data()
+                    .unwrap()
+                    .get("transaction_hash")
                     .and_then(|h| h.as_str())
-                    .unwrap_or("unknown"));
+                    .unwrap_or("unknown")
+            );
         } else {
             println!("\n3️⃣ Phase 3: Trade Execution - SKIPPED (Risk Rejected)");
         }
-        
+
         sleep(Duration::from_millis(300)).await;
-        
+
         // Step 4: Portfolio Update
         println!("\n4️⃣ Phase 4: Portfolio Status Update");
         let monitor_task = Task::new(
@@ -708,34 +803,42 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             json!({
                 "report_type": "comprehensive",
                 "include_performance": true
-            })
-        ).with_priority(Priority::Normal);
-        
+            }),
+        )
+        .with_priority(Priority::Normal);
+
         let monitor_result = dispatcher.dispatch_task(monitor_task).await?;
-        println!("✅ Portfolio updated - Total Value: ${:.2}", 
-            monitor_result.data().unwrap().get("total_value")
+        println!(
+            "✅ Portfolio updated - Total Value: ${:.2}",
+            monitor_result
+                .data()
+                .unwrap()
+                .get("total_value")
                 .and_then(|v| v.as_f64())
-                .unwrap_or(0.0));
-        
+                .unwrap_or(0.0)
+        );
+
         sleep(Duration::from_millis(200)).await;
-        
     }
-    
+
     // Final status report
     println!("\n📊 Trading Swarm Final Status:");
     let agents = registry.list_agents().await?;
     for agent in agents {
         let status = agent.status();
-        println!("  {} - {} capabilities: {}", 
+        println!(
+            "  {} - {} capabilities: {}",
             status.agent_id,
             status.capabilities.len(),
-            status.capabilities.iter()
+            status
+                .capabilities
+                .iter()
                 .map(|c| c.name.clone())
                 .collect::<Vec<_>>()
                 .join(", ")
         );
     }
-    
+
     // Show final portfolio state
     {
         let portfolio = portfolio.lock().unwrap();
@@ -747,13 +850,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             println!("    {}: {:.4}", symbol, amount);
         }
     }
-    
+
     println!("\n🎉 Trading Swarm example completed successfully!");
     println!("The agents demonstrated coordinated workflow with:");
     println!("  - Comprehensive market research");
     println!("  - Risk assessment and approval");
     println!("  - Blockchain trade execution");
     println!("  - Portfolio monitoring and updates");
-    
+
     Ok(())
 }

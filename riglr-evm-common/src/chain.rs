@@ -6,7 +6,7 @@
 
 use crate::error::{EvmCommonError, EvmResult};
 
-/// Chain information structure  
+/// Chain information structure
 #[derive(Debug, Clone)]
 pub struct ChainInfo {
     pub chain_id: u64,
@@ -22,7 +22,7 @@ pub fn get_chain_info(chain_id: u64) -> Option<ChainInfo> {
         1 => Some(ChainInfo {
             chain_id: 1,
             name: "Ethereum".to_string(),
-            symbol: "ETH".to_string(), 
+            symbol: "ETH".to_string(),
             block_explorer: Some("https://etherscan.io".to_string()),
             default_rpc: Some("https://eth.llamarpc.com".to_string()),
         }),
@@ -81,7 +81,7 @@ pub fn get_chain_info(chain_id: u64) -> Option<ChainInfo> {
 
 /// Maps chain IDs to RPC URLs using convention-based environment variable lookup.
 /// Uses format: RPC_URL_{CHAIN_ID}
-/// 
+///
 /// This is the UNIFIED approach that eliminates conflicts between different
 /// chain management systems across riglr crates.
 ///
@@ -93,7 +93,7 @@ pub fn get_chain_info(chain_id: u64) -> Option<ChainInfo> {
 ///
 /// # Environment Variables
 /// * `RPC_URL_1` - Ethereum mainnet
-/// * `RPC_URL_137` - Polygon  
+/// * `RPC_URL_137` - Polygon
 /// * `RPC_URL_42161` - Arbitrum
 /// * `RPC_URL_10` - Optimism
 /// * `RPC_URL_8453` - Base
@@ -102,41 +102,45 @@ pub fn get_chain_info(chain_id: u64) -> Option<ChainInfo> {
 /// # Examples
 /// ```rust,ignore
 /// use riglr_evm_common::chain::chain_id_to_rpc_url;
-/// 
+///
 /// // Configure environment
 /// std::env::set_var("RPC_URL_1", "https://eth.llamarpc.com");
-/// 
+///
 /// let url = chain_id_to_rpc_url(1)?;
 /// assert_eq!(url, "https://eth.llamarpc.com");
 /// ```
 pub fn chain_id_to_rpc_url(chain_id: u64) -> EvmResult<String> {
     let env_var = format!("RPC_URL_{}", chain_id);
-    
+
     match std::env::var(&env_var) {
         Ok(url) => {
             if url.trim().is_empty() {
                 return Err(EvmCommonError::InvalidConfig(format!(
-                    "RPC URL for chain {} is empty. Set {} environment variable.", 
+                    "RPC URL for chain {} is empty. Set {} environment variable.",
                     chain_id, env_var
                 )));
             }
-            
+
             // Validate URL format
             validate_rpc_url(&url, chain_id)?;
-            
-            tracing::debug!("✅ Found RPC URL for chain {}: {}", chain_id, &url[..std::cmp::min(50, url.len())]);
+
+            tracing::debug!(
+                "✅ Found RPC URL for chain {}: {}",
+                chain_id,
+                &url[..std::cmp::min(50, url.len())]
+            );
             Ok(url)
         }
         Err(_) => {
             // Try to use default RPC if available
             if let Some(chain_info) = get_chain_info(chain_id) {
                 if let Some(default_rpc) = chain_info.default_rpc {
-                    tracing::warn!("⚠️  Using default RPC for chain {}: {}. Consider setting {} for production use.", 
+                    tracing::warn!("⚠️  Using default RPC for chain {}: {}. Consider setting {} for production use.",
                                    chain_id, default_rpc, env_var);
                     return Ok(default_rpc);
                 }
             }
-            
+
             Err(EvmCommonError::UnsupportedChain(chain_id))
         }
     }
@@ -146,7 +150,7 @@ pub fn chain_id_to_rpc_url(chain_id: u64) -> EvmResult<String> {
 fn validate_rpc_url(url: &str, chain_id: u64) -> EvmResult<()> {
     if !url.starts_with("http://") && !url.starts_with("https://") && !url.starts_with("wss://") {
         return Err(EvmCommonError::InvalidConfig(format!(
-            "Invalid RPC URL format for chain {}: {}. Must start with http://, https://, or wss://", 
+            "Invalid RPC URL format for chain {}: {}. Must start with http://, https://, or wss://",
             chain_id, url
         )));
     }
@@ -154,19 +158,19 @@ fn validate_rpc_url(url: &str, chain_id: u64) -> EvmResult<()> {
 }
 
 /// Convert chain name to chain ID
-/// 
+///
 /// This provides a bridge between human-readable names and numeric IDs,
 /// useful for cross-chain operations and user interfaces.
 ///
 /// # Arguments
 /// * `name` - Chain name (case-insensitive)
 ///
-/// # Returns  
+/// # Returns
 /// * Numeric chain ID
 ///
 /// # Supported Names
 /// * "ethereum", "eth" → 1
-/// * "polygon", "matic" → 137  
+/// * "polygon", "matic" → 137
 /// * "arbitrum", "arb" → 42161
 /// * "optimism", "op" → 10
 /// * "base" → 8453
@@ -177,7 +181,7 @@ fn validate_rpc_url(url: &str, chain_id: u64) -> EvmResult<()> {
 /// # Examples
 /// ```rust,ignore
 /// use riglr_evm_common::chain::chain_name_to_id;
-/// 
+///
 /// assert_eq!(chain_name_to_id("ethereum")?, 1);
 /// assert_eq!(chain_name_to_id("ETH")?, 1);
 /// assert_eq!(chain_name_to_id("polygon")?, 137);
@@ -194,7 +198,7 @@ pub fn chain_name_to_id(name: &str) -> EvmResult<u64> {
         "avalanche" | "avax" => Ok(43114),
         "fantom" | "ftm" => Ok(250),
         _ => Err(EvmCommonError::InvalidChainName(format!(
-            "Unsupported chain name: {}. Supported: ethereum, polygon, arbitrum, optimism, base, bsc, avalanche, fantom", 
+            "Unsupported chain name: {}. Supported: ethereum, polygon, arbitrum, optimism, base, bsc, avalanche, fantom",
             name
         ))),
     }
@@ -211,7 +215,7 @@ pub fn chain_name_to_id(name: &str) -> EvmResult<u64> {
 /// # Examples
 /// ```rust,ignore
 /// use riglr_evm_common::chain::chain_id_to_name;
-/// 
+///
 /// assert_eq!(chain_id_to_name(1)?, "ethereum");
 /// assert_eq!(chain_id_to_name(137)?, "polygon");
 /// ```
@@ -238,12 +242,12 @@ pub fn chain_id_to_name(id: u64) -> EvmResult<String> {
 /// * `true` if chain is supported, `false` otherwise
 ///
 /// # Examples
-/// ```rust,ignore  
+/// ```rust,ignore
 /// use riglr_evm_common::chain::is_supported_chain;
-/// 
+///
 /// // If RPC_URL_1 is configured or Ethereum has defaults
 /// assert!(is_supported_chain(1));
-/// 
+///
 /// // Unsupported chain
 /// assert!(!is_supported_chain(999999));
 /// ```
@@ -262,7 +266,7 @@ pub fn is_supported_chain(chain_id: u64) -> bool {
 /// # Examples
 /// ```rust,ignore
 /// use riglr_evm_common::chain::get_supported_chains;
-/// 
+///
 /// let chains = get_supported_chains();
 /// if chains.contains(&1) {
 ///     println!("Ethereum is supported!");
@@ -279,25 +283,28 @@ pub fn get_supported_chains() -> Vec<u64> {
             }
         })
         .collect();
-    
+
     // Add chains with default RPCs that aren't already configured
     let default_chains = [1, 137, 42161, 10, 8453, 56, 43114, 250];
     for chain_id in default_chains {
         if !chains.contains(&chain_id) {
             // Check if this chain has default RPC
-            if get_chain_info(chain_id).and_then(|info| info.default_rpc).is_some() {
+            if get_chain_info(chain_id)
+                .and_then(|info| info.default_rpc)
+                .is_some()
+            {
                 chains.push(chain_id);
             }
         }
     }
-    
+
     chains.sort();
     chains
 }
 
 /// Get block explorer URL for a chain
 ///
-/// # Arguments  
+/// # Arguments
 /// * `chain_id` - Numeric chain ID
 ///
 /// # Returns
@@ -306,7 +313,7 @@ pub fn get_supported_chains() -> Vec<u64> {
 /// # Examples
 /// ```rust,ignore
 /// use riglr_evm_common::chain::get_block_explorer_url;
-/// 
+///
 /// let url = get_block_explorer_url(1)?;
 /// assert_eq!(url, "https://etherscan.io");
 /// ```
@@ -328,7 +335,7 @@ pub fn get_block_explorer_url(chain_id: u64) -> EvmResult<String> {
 /// # Examples
 /// ```rust,ignore
 /// use riglr_evm_common::chain::get_transaction_url;
-/// 
+///
 /// let url = get_transaction_url(1, "0x123abc...")?;
 /// // Returns: https://etherscan.io/tx/0x123abc...
 /// ```
@@ -345,16 +352,16 @@ pub fn get_transaction_url(chain_id: u64, tx_hash: &str) -> EvmResult<String> {
 /// Get address URL for viewing an address in block explorer
 ///
 /// # Arguments
-/// * `chain_id` - Numeric chain ID  
+/// * `chain_id` - Numeric chain ID
 /// * `address` - Address (with or without 0x prefix)
 ///
 /// # Returns
 /// * Full URL to view address in block explorer
 ///
-/// # Examples  
+/// # Examples
 /// ```rust,ignore
 /// use riglr_evm_common::chain::get_address_url;
-/// 
+///
 /// let url = get_address_url(1, "0x742d35Cc...")?;
 /// // Returns: https://etherscan.io/address/0x742d35Cc...
 /// ```
@@ -375,17 +382,17 @@ mod tests {
         assert_eq!(chain_name_to_id("ETH").unwrap(), 1);
         assert_eq!(chain_name_to_id("polygon").unwrap(), 137);
         assert_eq!(chain_name_to_id("ARBITRUM").unwrap(), 42161);
-        
+
         // Test invalid name
         assert!(chain_name_to_id("invalid").is_err());
     }
 
-    #[test]  
+    #[test]
     fn test_chain_id_to_name() {
         assert_eq!(chain_id_to_name(1).unwrap(), "ethereum");
         assert_eq!(chain_id_to_name(137).unwrap(), "polygon");
         assert_eq!(chain_id_to_name(42161).unwrap(), "arbitrum");
-        
+
         // Test invalid ID
         assert!(chain_id_to_name(999999).is_err());
     }
@@ -396,7 +403,7 @@ mod tests {
         assert_eq!(eth_info.name, "Ethereum");
         assert_eq!(eth_info.symbol, "ETH");
         assert!(eth_info.block_explorer.is_some());
-        
+
         // Test unknown chain
         assert!(get_chain_info(999999).is_none());
     }
@@ -409,7 +416,7 @@ mod tests {
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), "https://test-rpc.example.com");
         env::remove_var("RPC_URL_999");
-        
+
         // Test with default (Ethereum should have default)
         // Clear any existing env var to test default behavior
         env::remove_var("RPC_URL_1");
@@ -429,7 +436,7 @@ mod tests {
     fn test_supported_chains() {
         let chains = get_supported_chains();
         assert!(!chains.is_empty());
-        
+
         // Should include major chains with defaults
         assert!(chains.contains(&1)); // Ethereum
     }
@@ -438,10 +445,10 @@ mod tests {
     fn test_block_explorer_urls() {
         let eth_url = get_block_explorer_url(1).unwrap();
         assert_eq!(eth_url, "https://etherscan.io");
-        
-        let polygon_url = get_block_explorer_url(137).unwrap();  
+
+        let polygon_url = get_block_explorer_url(137).unwrap();
         assert_eq!(polygon_url, "https://polygonscan.com");
-        
+
         // Test invalid chain
         assert!(get_block_explorer_url(999999).is_err());
     }
@@ -450,19 +457,25 @@ mod tests {
     fn test_transaction_url() {
         let url = get_transaction_url(1, "0x123abc").unwrap();
         assert_eq!(url, "https://etherscan.io/tx/0x123abc");
-        
+
         // Test without 0x prefix
         let url = get_transaction_url(1, "123abc").unwrap();
         assert_eq!(url, "https://etherscan.io/tx/0x123abc");
     }
 
-    #[test] 
+    #[test]
     fn test_address_url() {
         let url = get_address_url(1, "0x742d35Cc67A5b747bE4C506C5e8b0A146d7b2E9e").unwrap();
-        assert_eq!(url, "https://etherscan.io/address/0x742d35Cc67A5b747bE4C506C5e8b0A146d7b2E9e");
-        
-        // Test without 0x prefix  
+        assert_eq!(
+            url,
+            "https://etherscan.io/address/0x742d35Cc67A5b747bE4C506C5e8b0A146d7b2E9e"
+        );
+
+        // Test without 0x prefix
         let url = get_address_url(1, "742d35Cc67A5b747bE4C506C5e8b0A146d7b2E9e").unwrap();
-        assert_eq!(url, "https://etherscan.io/address/0x742d35Cc67A5b747bE4C506C5e8b0A146d7b2E9e");
+        assert_eq!(
+            url,
+            "https://etherscan.io/address/0x742d35Cc67A5b747bE4C506C5e8b0A146d7b2E9e"
+        );
     }
 }

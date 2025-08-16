@@ -1,7 +1,7 @@
-use serde::{Deserialize, Serialize};
-use solana_sdk::pubkey::Pubkey;
 use crate::events::common::EventMetadata;
 use riglr_events_core::{Event, EventKind, EventMetadata as CoreEventMetadata};
+use serde::{Deserialize, Serialize};
+use solana_sdk::pubkey::Pubkey;
 use std::any::Any;
 
 /// Raydium AMM V4 swap event
@@ -11,7 +11,7 @@ pub struct RaydiumAmmV4SwapEvent {
     pub amount_in: u64,
     pub amount_out: u64,
     pub direction: SwapDirection,
-    
+
     // Account keys
     pub amm: Pubkey,
     pub amm_authority: Pubkey,
@@ -32,7 +32,6 @@ pub enum SwapDirection {
     BaseOut,
 }
 
-
 /// Raydium AMM V4 deposit event
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct RaydiumAmmV4DepositEvent {
@@ -40,7 +39,7 @@ pub struct RaydiumAmmV4DepositEvent {
     pub max_coin_amount: u64,
     pub max_pc_amount: u64,
     pub base_side: u64,
-    
+
     // Account keys
     pub token_program: Pubkey,
     pub amm: Pubkey,
@@ -57,7 +56,6 @@ pub struct RaydiumAmmV4DepositEvent {
     pub user_owner: Pubkey,
 }
 
-
 /// Raydium AMM V4 initialize2 event
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct RaydiumAmmV4Initialize2Event {
@@ -66,7 +64,7 @@ pub struct RaydiumAmmV4Initialize2Event {
     pub open_time: u64,
     pub init_pc_amount: u64,
     pub init_coin_amount: u64,
-    
+
     // Account keys
     pub amm: Pubkey,
     pub amm_authority: Pubkey,
@@ -85,13 +83,12 @@ pub struct RaydiumAmmV4Initialize2Event {
     pub user_wallet: Pubkey,
 }
 
-
 /// Raydium AMM V4 withdraw event
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct RaydiumAmmV4WithdrawEvent {
     pub metadata: EventMetadata,
     pub amount: u64,
-    
+
     // Account keys
     pub token_program: Pubkey,
     pub amm: Pubkey,
@@ -117,12 +114,11 @@ pub struct RaydiumAmmV4WithdrawEvent {
     pub serum_asks: Pubkey,
 }
 
-
 /// Raydium AMM V4 withdraw PNL event
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct RaydiumAmmV4WithdrawPnlEvent {
     pub metadata: EventMetadata,
-    
+
     // Account keys
     pub token_program: Pubkey,
     pub amm: Pubkey,
@@ -159,13 +155,9 @@ impl Event for RaydiumAmmV4SwapEvent {
         // Convert our metadata to core metadata and cache it (placeholder implementation)
         use std::sync::OnceLock;
         static METADATA_CACHE: OnceLock<CoreEventMetadata> = OnceLock::new();
-        
+
         METADATA_CACHE.get_or_init(|| {
-            CoreEventMetadata::new(
-                String::new(),
-                EventKind::Swap,
-                "raydium-amm-v4".to_string(),
-            )
+            CoreEventMetadata::new(String::new(), EventKind::Swap, "raydium-amm-v4".to_string())
         })
     }
 
@@ -203,7 +195,7 @@ impl Event for RaydiumAmmV4DepositEvent {
     fn metadata(&self) -> &CoreEventMetadata {
         use std::sync::OnceLock;
         static METADATA_CACHE: OnceLock<CoreEventMetadata> = OnceLock::new();
-        
+
         METADATA_CACHE.get_or_init(|| {
             CoreEventMetadata::new(
                 String::new(),
@@ -247,7 +239,7 @@ impl Event for RaydiumAmmV4Initialize2Event {
     fn metadata(&self) -> &CoreEventMetadata {
         use std::sync::OnceLock;
         static METADATA_CACHE: OnceLock<CoreEventMetadata> = OnceLock::new();
-        
+
         METADATA_CACHE.get_or_init(|| {
             CoreEventMetadata::new(
                 String::new(),
@@ -291,7 +283,7 @@ impl Event for RaydiumAmmV4WithdrawEvent {
     fn metadata(&self) -> &CoreEventMetadata {
         use std::sync::OnceLock;
         static METADATA_CACHE: OnceLock<CoreEventMetadata> = OnceLock::new();
-        
+
         METADATA_CACHE.get_or_init(|| {
             CoreEventMetadata::new(
                 String::new(),
@@ -335,7 +327,7 @@ impl Event for RaydiumAmmV4WithdrawPnlEvent {
     fn metadata(&self) -> &CoreEventMetadata {
         use std::sync::OnceLock;
         static METADATA_CACHE: OnceLock<CoreEventMetadata> = OnceLock::new();
-        
+
         METADATA_CACHE.get_or_init(|| {
             CoreEventMetadata::new(
                 String::new(),
@@ -365,4 +357,3 @@ impl Event for RaydiumAmmV4WithdrawPnlEvent {
         Ok(serde_json::to_value(self)?)
     }
 }
-
