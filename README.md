@@ -1,9 +1,13 @@
-# RIGLR 🦀⚡ - Production-Ready AI Agent Framework for Blockchain
+<div align="center">
+  <img src="logo.png" alt="RIGLR Logo" width="200" />
+  
+  # riglr - Production-Ready AI Agent Framework for Blockchain
 
-[![CI](https://github.com/riglr-project/riglr/workflows/CI/badge.svg)](https://github.com/riglr-project/riglr/actions)
-[![Crates.io](https://img.shields.io/crates/v/riglr-core.svg)](https://crates.io/crates/riglr-core)
-[![Documentation](https://docs.rs/riglr-core/badge.svg)](https://docs.rs/riglr-core)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+  [![CI](https://github.com/riglr/riglr/workflows/CI/badge.svg)](https://github.com/riglr/riglr/actions)
+  [![Crates.io](https://img.shields.io/crates/v/riglr-core.svg)](https://crates.io/crates/riglr-core)
+  [![Documentation](https://docs.rs/riglr-core/badge.svg)](https://docs.rs/riglr-core)
+  [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+</div>
 
 > ⚠️ **UNDER HEAVY DEVELOPMENT**: This project is being actively developed with frequent updates. APIs may change and things will probably break. Use with caution in production environments.
 

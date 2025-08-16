@@ -57,7 +57,7 @@ All tutorials use the same development setup:
 
 ```bash
 # Clone the tutorial repository
-git clone https://github.com/riglr-project/tutorials
+git clone https://github.com/riglr/tutorials
 cd tutorials
 
 # Install dependencies
