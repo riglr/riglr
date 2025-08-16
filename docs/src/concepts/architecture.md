@@ -4,29 +4,62 @@ riglr is a comprehensive blockchain toolkit designed to seamlessly extend the `r
 
 ## Guiding Principle
 
-riglr follows a simple philosophy: **build a library for `rig`, not an application**. This ensures maximum flexibility and composability for developers building AI-powered blockchain agents.
+riglr follows a simple philosophy: **build a library for `rig`, not an application**. This ensures maximum flexibility and composability for developers building AI-powered blockchain agents. 
+
+Each crate in the riglr ecosystem is a composable building block that can be used independently or combined to create powerful applications. Whether you need just the Solana tools, the full agent coordination system, or anything in between, you only pull in what you need. This library-first approach means riglr enhances and extends rig's capabilities without replacing or wrapping them.
 
 ## Architecture Layers
 
 ```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   rig-core      │    │   riglr-core    │    │  riglr-macros   │
-│                 │    │                 │    │                 │
-│ • AgentBuilder  │◄───┤ • SignerContext │    │ • #[tool] macro │
-│ • Tool trait    │    │ • TransactionSigner    │ • Tool impl     │
-│ • Multi-turn    │    │ • Error handling│    │   generation    │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│                        Application Layer                         │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐              │
+│  │riglr-agents │  │riglr-streams│  │riglr-indexer│              │
+│  │             │  │             │  │             │              │
+│  │• Multi-agent│  │• Real-time  │  │• Data       │              │
+│  │  coordination  │  streaming  │  │  pipelines  │              │
+│  │• Task routing  │• Operators  │  │• Storage    │              │
+│  └─────────────┘  └─────────────┘  └─────────────┘              │
+└──────────────────────────────────────────────────────────────────┘
                                 │
-                ┌───────────────┼───────────────┐
-                │               │               │
-        ┌───────▼─────┐ ┌───────▼─────┐ ┌───────▼─────┐
-        │riglr-solana-│ │ riglr-evm-  │ │ riglr-web-  │
-        │tools        │ │ tools       │ │ tools       │
-        │             │ │             │ │             │
-        │• Pump.fun   │ │• Uniswap    │ │• DexScreener│
-        │• Jupiter    │ │• 1inch      │ │• CoinGecko  │
-        │• Risk tools │ │• ENS        │ │• Twitter    │
-        └─────────────┘ └─────────────┘ └─────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│                         Core Framework                           │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌──────────┐│
+│  │  rig-core   │  │ riglr-core  │  │riglr-macros │  │riglr-    ││
+│  │             │◄─┤             │  │             │  │config    ││
+│  │• AgentBuilder  │• SignerContext │• #[tool]    │  │          ││
+│  │• Tool trait │  │• Transaction│  │  macro      │  │• Unified ││
+│  │• Multi-turn │  │  Signer     │  │• Tool impl  │  │  config  ││
+│  └─────────────┘  └─────────────┘  └─────────────┘  └──────────┘│
+└──────────────────────────────────────────────────────────────────┘
+                                │
+┌──────────────────────────────────────────────────────────────────┐
+│                         Tool Libraries                           │
+│  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐             │
+│  │riglr-solana- │ │ riglr-evm-   │ │ riglr-web-   │             │
+│  │tools         │ │ tools        │ │ tools        │             │
+│  │• Pump.fun    │ │• Uniswap     │ │• DexScreener │             │
+│  │• Jupiter     │ │• 1inch       │ │• CoinGecko   │             │
+│  │• Risk tools  │ │• ENS         │ │• Twitter     │             │
+│  └──────────────┘ └──────────────┘ └──────────────┘             │
+│                                                                   │
+│  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐             │
+│  │riglr-cross-  │ │riglr-hyper-  │ │ riglr-graph- │             │
+│  │chain-tools   │ │liquid-tools  │ │ memory       │             │
+│  │• LiFi bridge │ │• Perpetuals  │ │• Neo4j       │             │
+│  │• Multi-chain │ │• Portfolio   │ │• Knowledge   │             │
+│  └──────────────┘ └──────────────┘ └──────────────┘             │
+└──────────────────────────────────────────────────────────────────┘
+                                │
+┌──────────────────────────────────────────────────────────────────┐
+│                      Foundation Components                       │
+│  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐             │
+│  │riglr-events- │ │riglr-solana- │ │riglr-auth    │             │
+│  │core          │ │events        │ │              │             │
+│  │• Event base  │ │• Solana      │ │• Multi-      │             │
+│  │• Streaming   │ │  parsers     │ │  provider    │             │
+│  └──────────────┘ └──────────────┘ └──────────────┘             │
+└──────────────────────────────────────────────────────────────────┘
 ```
 
 ## Core Design Patterns
@@ -55,7 +88,27 @@ The SignerContext provides thread-safe, secure access to cryptographic signers w
 
 ## Component Overview
 
-### Core Components
+### Application Layer
+
+**riglr-agents**
+- Agent coordination: Build distributed networks of specialized agents
+- Task routing: Intelligent routing strategies for multi-agent systems
+- Inter-agent communication: Message passing and coordination protocols
+- Registry pattern: Dynamic agent discovery and registration
+
+**riglr-streams**
+- StreamManager: Centralized management of real-time data streams
+- Stream operators: Map, filter, batch, and transform stream data
+- Multi-source support: Connect to Geyser, WebSockets, exchanges
+- Backpressure handling: Graceful handling of high-throughput data
+
+**riglr-indexer**
+- Pipeline architecture: Ingester → Processor → Storage
+- Custom processors: Build domain-specific indexing logic
+- Storage backends: PostgreSQL, Redis, and custom adapters
+- Real-time indexing: Process blockchain events as they happen
+
+### Core Framework
 
 **riglr-core**
 - SignerContext: Thread-local signer management
@@ -66,6 +119,12 @@ The SignerContext provides thread-safe, secure access to cryptographic signers w
 - #[tool] macro: Generates complete `rig::tool::Tool` implementations
 - Reduces boilerplate from ~30 lines to a single attribute
 - Automatically extracts documentation for tool schemas
+
+**riglr-config**
+- Unified configuration: Single source of truth for all settings
+- Fail-fast validation: Catch configuration errors at startup
+- Chain management: Standardized `RPC_URL_{CHAIN_ID}` convention
+- Environment-based: Seamless development to production transition
 
 ### Blockchain Tools
 
@@ -100,6 +159,23 @@ The SignerContext provides thread-safe, secure access to cryptographic signers w
 - Neo4j backend: Scalable graph database storage
 - Entity extraction: Automatic knowledge graph construction
 - Semantic search: Advanced query capabilities for AI agents
+
+### Foundation Components
+
+**riglr-events-core**
+- Event base types: Common interfaces for all event sources
+- Stream primitives: Core streaming abstractions
+- Protocol registry: Dynamic protocol parser registration
+
+**riglr-solana-events**
+- Protocol parsers: Raydium, Pump.fun, Jupiter, and more
+- Zero-copy parsing: High-performance event deserialization
+- Pipeline support: Integration with riglr-indexer pipelines
+
+**riglr-auth**
+- Multi-provider support: Privy, Web3Auth, Magic.link
+- Session management: Secure token handling and refresh
+- Wallet connection: Seamless wallet integration for web apps
 
 ## Security Architecture
 
