@@ -405,11 +405,9 @@ mod tests {
                 .preamble("You are a test agent for reasoning patterns.")
                 .build();
 
-            // Test basic agent construction
-            assert!(true); // Agent was successfully created
+            // Test basic agent construction // Agent was successfully created
         } else {
             // Skip actual agent testing if no API key is available
-            assert!(true, "Skipping agent test - OPENAI_API_KEY not set");
         }
     }
 

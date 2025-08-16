@@ -224,8 +224,7 @@ mod tests {
         // Test that agent can be created with a mock API key
         let agent = RiglrAgent::new("test-api-key".to_string());
         // The agent should be created successfully
-        // Real API calls would fail with invalid key, but creation should succeed
-        assert!(true); // Agent creation doesn't panic
+        // Real API calls would fail with invalid key, but creation should succeed // Agent creation doesn't panic
     }
 
     #[actix_web::test]
