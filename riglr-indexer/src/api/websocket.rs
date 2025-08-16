@@ -162,7 +162,7 @@ async fn handle_websocket(socket: WebSocket, context: Arc<ServiceContext>) {
                 _ = heartbeat_interval.tick() => {
                     let ping_msg = StreamMessage::Ping;
                     if let Ok(json) = serde_json::to_string(&ping_msg) {
-                        if sender.send(Message::Text(json)).await.is_err() {
+                        if sender.send(Message::Text(json.into())).await.is_err() {
                             debug!("Client {} disconnected (send failed)", client_id_send);
                             break;
                         }
