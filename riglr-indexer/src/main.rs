@@ -1,11 +1,10 @@
 //! RIGLR Indexer Service Main Entry Point
 
-use std::sync::Arc;
-use tokio::signal;
-use tracing::{info, error, warn, level_filters::LevelFilter};
+use tracing::{info, error, warn};
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
 use riglr_indexer::prelude::*;
+use riglr_indexer::core::ServiceLifecycle;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
@@ -90,11 +89,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     });
 
     // Setup signal handling
-    let shutdown_signal = setup_signal_handling().await;
+    let mut shutdown_signal = setup_signal_handling().await;
 
     // Wait for shutdown signal
     tokio::select! {
-        _ = shutdown_signal => {
+        _ = shutdown_signal.recv() => {
             info!("Shutdown signal received, initiating graceful shutdown");
         }
         _ = indexer_task => {
@@ -114,12 +113,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     tokio::time::timeout(shutdown_timeout, async {
         // Wait for API server to stop
         if let Some(task) = api_task {
-            let _ = task.await;
+            task.await.ok();
         }
 
         // Wait for metrics server to stop  
         if let Some(task) = metrics_task {
-            let _ = task.await;
+            task.await.ok();
         }
     }).await.ok();
 
@@ -211,7 +210,7 @@ fn redact_url(url: &str) -> String {
         redacted.to_string()
     } else {
         // If URL parsing fails, just redact after '@' if present
-        if let Some(at_pos) = url.find('@') {
+        if let Some(_at_pos) = url.find('@') {
             let parts: Vec<&str> = url.split('@').collect();
             if parts.len() >= 2 {
                 format!("****@{}", parts[1..].join("@"))

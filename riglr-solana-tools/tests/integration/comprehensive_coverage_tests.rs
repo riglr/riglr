@@ -57,7 +57,7 @@ fn test_error_display_implementations() {
         let debug_str = format!("{:?}", error);
         
         // Display string should be user-friendly
-        assert!(display_str.len() > 0);
+        assert!(!display_str.is_empty());
         assert!(!display_str.contains("SolanaToolError"));
         
         // Debug string should contain type information

@@ -71,7 +71,7 @@ pub enum WorkerError {
 
 impl From<&str> for CoreError {
     fn from(err: &str) -> Self {
-        CoreError::Generic(err.to_string())
+        Self::Generic(err.to_string())
     }
 }
 
@@ -156,21 +156,24 @@ impl ToolError {
     }
 
     /// Returns whether this error is retriable
-    pub fn is_retriable(&self) -> bool {
-        matches!(self, ToolError::Retriable { .. } | ToolError::RateLimited { .. })
+    #[must_use]
+    pub const fn is_retriable(&self) -> bool {
+        matches!(self, Self::Retriable { .. } | Self::RateLimited { .. })
     }
     
     /// Returns the retry delay if this is a rate limited error
-    pub fn retry_after(&self) -> Option<std::time::Duration> {
+    #[must_use]
+    pub const fn retry_after(&self) -> Option<std::time::Duration> {
         match self {
-            ToolError::RateLimited { retry_after, .. } => *retry_after,
+            Self::RateLimited { retry_after, .. } => *retry_after,
             _ => None,
         }
     }
 
     /// Checks if the error is rate limited (for compatibility)
-    pub fn is_rate_limited(&self) -> bool {
-        matches!(self, ToolError::RateLimited { .. })
+    #[must_use]
+    pub const fn is_rate_limited(&self) -> bool {
+        matches!(self, Self::RateLimited { .. })
     }
 
     /// Creates a retriable error from a string message
@@ -207,13 +210,13 @@ struct StringError(String);
 impl From<anyhow::Error> for ToolError {
     fn from(err: anyhow::Error) -> Self {
         // anyhow::Error doesn't implement std::error::Error directly, use string conversion
-        ToolError::permanent_string(err.to_string())
+        Self::permanent_string(err.to_string())
     }
 }
 
 impl From<Box<dyn std::error::Error + Send + Sync>> for ToolError {
     fn from(err: Box<dyn std::error::Error + Send + Sync>) -> Self {
-        ToolError::Permanent {
+        Self::Permanent {
             source: err,
             context: "Generic error".to_string(),
         }
@@ -222,13 +225,13 @@ impl From<Box<dyn std::error::Error + Send + Sync>> for ToolError {
 
 impl From<String> for ToolError {
     fn from(err: String) -> Self {
-        ToolError::permanent_string(err)
+        Self::permanent_string(err)
     }
 }
 
 impl From<&str> for ToolError {
     fn from(err: &str) -> Self {
-        ToolError::permanent_string(err.to_string())
+        Self::permanent_string(err.to_string())
     }
 }
 

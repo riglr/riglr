@@ -9,11 +9,10 @@ use riglr_streams::core::{
 use riglr_streams::solana::geyser::SolanaGeyserStream;
 use riglr_streams::evm::websocket::EvmWebSocketStream;
 use riglr_streams::external::binance::BinanceStream;
-use riglr_solana_events::{EventType, ProtocolType};
+use riglr_solana_events::ProtocolType;
 use riglr_events_core::{Event, EventKind, EventMetadata};
 use riglr_streams::core::DynamicStreamedEvent;
 use tracing::{info, Level};
-use tracing_subscriber;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -51,7 +50,7 @@ async fn example_filter_map() -> Result<(), Box<dyn std::error::Error>> {
     let solana_stream = SolanaGeyserStream::new("solana-mainnet");
     
     // Filter for swap events and map to extract key data
-    let processed_stream = solana_stream
+    let _processed_stream = solana_stream
         .filter(|event| matches!(event.inner.kind(), EventKind::Swap))
         .map(|event| {
             // Extract relevant swap data
@@ -81,7 +80,7 @@ async fn example_merge_streams() -> Result<(), Box<dyn std::error::Error>> {
     
     // For demonstration - normally you'd merge streams of the same type
     // Here we're just using the solana_stream as an example
-    let merged = solana_stream;
+    let _merged = solana_stream;
     
     // Subscribe to merged stream
     // Note: rx is not Send, so we can't spawn it in a task
@@ -98,7 +97,7 @@ async fn example_throttle() -> Result<(), Box<dyn std::error::Error>> {
     let binance_stream = BinanceStream::new("binance");
     
     // Throttle to one event per second to avoid overwhelming downstream
-    let throttled = binance_stream
+    let _throttled = binance_stream
         .throttle(Duration::from_secs(1));
     
     // We need to subscribe directly since Arc<BinanceStreamEvent> doesn't implement Event
@@ -117,7 +116,7 @@ async fn example_batching() -> Result<(), Box<dyn std::error::Error>> {
     let stream = SolanaGeyserStream::new("solana");
     
     // Batch events: up to 100 events or 5 seconds, whichever comes first
-    let batched = stream
+    let _batched = stream
         .batch(100, Duration::from_secs(5))
         .map(|batch| {
             info!("Processing batch of {} events", batch.events.len());
@@ -141,13 +140,13 @@ async fn example_complex_pipeline() -> Result<(), Box<dyn std::error::Error>> {
     // 4. Throttle output
     // 5. Batch for database writes
     
-    let pipeline = stream
+    let _pipeline = stream
         .filter(|_e| {
             // In real implementation, would check if it's a swap event
             // from Jupiter or Orca
             true
         })
-        .map(|e| extract_swap_metrics(e))
+        .map(extract_swap_metrics)
         .scan(RunningAverage::new(), |mut avg, metrics| {
             avg.update(metrics.volume);
             avg
@@ -168,15 +167,15 @@ async fn example_arbitrage_detection() -> Result<(), Box<dyn std::error::Error>>
     
     // Create price streams from different sources
     let binance_btc = create_price_stream("binance", "btcusdt");
-    let coinbase_btc = create_price_stream("coinbase", "BTC-USD");
+    let _coinbase_btc = create_price_stream("coinbase", "BTC-USD");
     
     // Combine latest prices from both exchanges
     // For this demo, just use one stream
     let combined = binance_btc;
     
     // Detect arbitrage opportunities (simplified for demo)
-    let opportunities = combined
-        .map(|price_event| {
+    let _opportunities = combined
+        .map(|_price_event| {
             ArbitrageOpportunity::new(
                 "BTC".to_string(),
                 "Binance".to_string(),
@@ -200,8 +199,8 @@ async fn example_arbitrage_detection() -> Result<(), Box<dyn std::error::Error>>
 #[derive(Debug, Clone)]
 struct SwapSummary {
     metadata: EventMetadata,
-    protocol: ProtocolType,
-    slot: u64,
+    _protocol: ProtocolType,
+    _slot: u64,
 }
 
 impl SwapSummary {
@@ -213,8 +212,8 @@ impl SwapSummary {
                 "swap_summary".to_string(),
                 timestamp.into(),
             ),
-            protocol,
-            slot,
+            _protocol: protocol,
+            _slot: slot,
         }
     }
 }
@@ -232,8 +231,8 @@ impl Event for SwapSummary {
 #[derive(Clone, Debug)]
 struct SwapMetrics {
     volume: f64,
-    price: f64,
-    timestamp: std::time::SystemTime,
+    _price: f64,
+    _timestamp: std::time::SystemTime,
     metadata: EventMetadata,
 }
 
@@ -241,8 +240,8 @@ impl SwapMetrics {
     fn new(volume: f64, price: f64, timestamp: std::time::SystemTime) -> Self {
         Self {
             volume,
-            price,
-            timestamp,
+            _price: price,
+            _timestamp: timestamp,
             metadata: EventMetadata::new(
                 format!("swap_{}", timestamp.duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs()),
                 EventKind::Swap,
@@ -288,9 +287,9 @@ impl RunningAverage {
 #[derive(Debug, Clone)]
 struct ArbitrageOpportunity {
     metadata: EventMetadata,
-    pair: String,
-    exchange1: String,
-    exchange2: String,
+    _pair: String,
+    _exchange1: String,
+    _exchange2: String,
     spread_percentage: f64,
 }
 
@@ -303,9 +302,9 @@ impl ArbitrageOpportunity {
                 "arbitrage".to_string(),
                 timestamp.into(),
             ),
-            pair,
-            exchange1,
-            exchange2,
+            _pair: pair,
+            _exchange1: exchange1,
+            _exchange2: exchange2,
             spread_percentage,
         }
     }
@@ -321,7 +320,7 @@ impl Event for ArbitrageOpportunity {
     fn clone_boxed(&self) -> Box<dyn Event> { Box::new(self.clone()) }
 }
 
-async fn process_price_update(_event: Arc<dyn Any>) {
+async fn _process_price_update(_event: Arc<dyn Any>) {
     // Simulate processing
     info!("Processing price update");
 }
@@ -330,16 +329,16 @@ async fn process_price_update(_event: Arc<dyn Any>) {
 
 #[derive(Debug, Clone)]
 struct BatchResult {
-    processed: usize,
-    timestamp: std::time::SystemTime,
+    _processed: usize,
+    _timestamp: std::time::SystemTime,
     metadata: EventMetadata,
 }
 
 impl BatchResult {
     fn new(processed: usize) -> Self {
         Self {
-            processed,
-            timestamp: std::time::SystemTime::now(),
+            _processed: processed,
+            _timestamp: std::time::SystemTime::now(),
             metadata: EventMetadata::new(
                 format!("batch_{}", processed),
                 EventKind::Custom("batch_result".to_string()),
@@ -367,7 +366,7 @@ fn extract_swap_metrics(event: Arc<DynamicStreamedEvent>) -> SwapMetrics {
     )
 }
 
-async fn write_to_database(data: Vec<RunningAverage>) {
+async fn _write_to_database(data: Vec<RunningAverage>) {
     info!("Writing {} records to database", data.len());
 }
 
@@ -376,11 +375,11 @@ fn create_price_stream(exchange: &str, pair: &str) -> impl Stream {
     BinanceStream::new(format!("{}-{}", exchange, pair))
 }
 
-fn calculate_spread(price1: f64, price2: f64) -> f64 {
+fn _calculate_spread(price1: f64, price2: f64) -> f64 {
     ((price1 - price2).abs() / price1) * 100.0
 }
 
-async fn alert_arbitrage_opportunity(opp: ArbitrageOpportunity) {
+async fn _alert_arbitrage_opportunity(opp: ArbitrageOpportunity) {
     info!("🚨 Arbitrage Alert: {} spread on {} between {} and {}", 
-          opp.spread_percentage, opp.pair, opp.exchange1, opp.exchange2);
+          opp.spread_percentage, opp._pair, opp._exchange1, opp._exchange2);
 }

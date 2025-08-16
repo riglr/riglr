@@ -27,12 +27,12 @@ impl MockHandler {
         }
     }
     
-    fn with_failure(mut self) -> Self {
+    fn _with_failure(mut self) -> Self {
         self.should_fail = true;
         self
     }
     
-    fn execution_count(&self) -> u64 {
+    fn _execution_count(&self) -> u64 {
         self.execution_count.load(Ordering::Relaxed)
     }
 }
@@ -76,7 +76,7 @@ async fn test_sequential_execution_preserves_order() {
     
     // Process an event and measure time
     let start = std::time::Instant::now();
-    let event = Arc::new("test_event");
+    let _event = Arc::new("test_event");
     
     // Simulate handle_event (this would normally be internal)
     // In sequential mode, total time should be sum of all handlers
@@ -145,7 +145,7 @@ async fn test_bounded_concurrent_respects_limit() {
 #[tokio::test]
 async fn test_metrics_collection() {
     let metrics = Arc::new(MetricsCollector::new());
-    let manager = StreamManager::new();
+    let _manager = StreamManager::new();
     
     // Record some events
     metrics.record_stream_event("test-stream", 10.0, 1024).await;

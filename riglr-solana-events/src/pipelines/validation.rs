@@ -665,7 +665,7 @@ mod tests {
         assert!(result.errors.is_empty());
         
         let invalid_json = serde_json::json!({
-            "mint": "invalid-pubkey"
+            "mint": "InvalidPubkeyStringWithExactly44Characters!"
         });
         
         rule.validate_pubkeys_in_json(&invalid_json, &mut result);

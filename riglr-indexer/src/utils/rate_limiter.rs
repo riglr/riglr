@@ -163,23 +163,33 @@ impl RateLimiter {
 /// Rate limiter statistics
 #[derive(Debug, Clone)]
 pub struct RateLimiterStats {
+    /// Whether rate limiting is enabled
     pub enabled: bool,
+    /// Token generation rate per second
     pub tokens_per_second: u32,
+    /// Maximum burst capacity
     pub burst_capacity: u32,
+    /// Current available tokens
     pub current_tokens: f64,
+    /// Last token refill timestamp
     pub last_refill: Instant,
 }
 
 /// Rate limiter errors
 #[derive(Debug, thiserror::Error)]
 pub enum RateLimitError {
+    /// Rate limit exceeded
     #[error("Rate limited: need {required_tokens} tokens, have {available_tokens}. Retry after {retry_after:?}")]
     RateLimited {
+        /// Number of available tokens
         available_tokens: u32,
+        /// Number of required tokens
         required_tokens: u32,
+        /// Time to wait before retry
         retry_after: Duration,
     },
 
+    /// Lock contention error
     #[error("Lock contention")]
     LockContention,
 }

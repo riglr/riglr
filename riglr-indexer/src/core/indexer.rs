@@ -2,21 +2,18 @@
 
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::sync::{broadcast, RwLock};
-use tokio::time::{interval, timeout};
-use tracing::{info, error, warn, debug};
+use tokio::sync::RwLock;
+use tokio::time::interval;
+use tracing::{info, error, debug};
 
 use riglr_events_core::prelude::*;
-use riglr_solana_events::prelude::*;
-use riglr_streams::prelude::*;
 
 use crate::config::IndexerConfig;
 use crate::core::{
     ServiceContext, ServiceState, ServiceLifecycle, EventProcessing, ProcessingStats,
     HealthStatus, ComponentHealth
 };
-use crate::error::{IndexerError, IndexerResult, ServiceError};
-use crate::storage::DataStore;
+use crate::error::{IndexerError, IndexerResult};
 use crate::metrics::MetricsCollector;
 use crate::core::{EventIngester, EventProcessor};
 
@@ -46,7 +43,7 @@ impl IndexerService {
         let metrics = MetricsCollector::new(&config.metrics)?;
         
         // Create service context
-        let context = Arc::new(ServiceContext::new(config, store, Arc::new(metrics)));
+        let context = Arc::new(ServiceContext::new(config, Arc::from(store), Arc::new(metrics)));
         
         let service = Self {
             context,
@@ -136,6 +133,7 @@ impl IndexerService {
     }
 
     /// Process events from the ingester
+    #[allow(dead_code)]
     async fn process_events(&self) -> IndexerResult<()> {
         let ingester = self.ingester.as_ref()
             .ok_or_else(|| IndexerError::internal("Ingester not initialized"))?;
@@ -208,6 +206,7 @@ impl IndexerService {
     }
 
     /// Calculate processing statistics
+    #[allow(dead_code)]
     async fn update_processing_stats(&self) {
         let mut stats = self.stats.write().await;
         
@@ -299,9 +298,9 @@ impl ServiceLifecycle for IndexerService {
 
         // Start main processing loop
         let context_clone = self.context.clone();
-        let stats_clone = self.stats.clone();
-        let ingester = self.ingester.as_ref().unwrap().clone();
-        let processor = self.processor.as_ref().unwrap().clone();
+        let _stats_clone = self.stats.clone();
+        let _ingester = self.ingester.as_ref().unwrap().clone();
+        let _processor = self.processor.as_ref().unwrap().clone();
 
         tokio::spawn(async move {
             let mut shutdown_rx = context_clone.shutdown_receiver();

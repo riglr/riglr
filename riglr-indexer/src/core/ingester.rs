@@ -4,16 +4,13 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::{mpsc, RwLock};
 use tokio::time::interval;
-use tracing::{info, error, debug, warn};
+use tracing::{info, error};
 
 use riglr_events_core::prelude::*;
-use riglr_solana_events::prelude::*;
-use riglr_streams::prelude::*;
 
-use crate::config::IndexerConfig;
 use crate::core::{ServiceContext, ServiceLifecycle, ComponentHealth, HealthStatus};
 use crate::error::{IndexerError, IndexerResult};
-use crate::utils::{BatchProcessor, RateLimiter};
+use crate::utils::RateLimiter;
 
 /// Configuration for the event ingester
 #[derive(Debug, Clone)]
@@ -26,6 +23,11 @@ pub struct IngesterConfig {
     pub queue_capacity: usize,
 }
 
+/// Type alias for event sender
+type EventSender = mpsc::UnboundedSender<Box<dyn Event>>;
+/// Type alias for event receiver
+type EventReceiver = mpsc::UnboundedReceiver<Box<dyn Event>>;
+
 /// Event ingester that collects events from multiple sources
 #[derive(Clone)]
 pub struct EventIngester {
@@ -34,9 +36,9 @@ pub struct EventIngester {
     /// Shared service context
     context: Arc<ServiceContext>,
     /// Event queue sender
-    event_tx: Arc<RwLock<Option<mpsc::UnboundedSender<Box<dyn Event>>>>>,
+    event_tx: Arc<RwLock<Option<EventSender>>>,
     /// Event queue receiver for external access
-    event_rx: Arc<RwLock<Option<mpsc::UnboundedReceiver<Box<dyn Event>>>>>,
+    event_rx: Arc<RwLock<Option<EventReceiver>>>,
     /// Stream manager for handling multiple data sources
     stream_manager: Arc<RwLock<Option<StreamManager>>>,
     /// Rate limiter for ingestion
@@ -328,9 +330,9 @@ impl ServiceLifecycle for EventIngester {
         // Stop stream manager
         {
             let mut manager_guard = self.stream_manager.write().await;
-            if let Some(manager) = manager_guard.take() {
+            if let Some(_manager) = manager_guard.take() {
                 // manager.stop().await?;
-                drop(manager);
+                // Manager is automatically dropped here
             }
         }
 
@@ -342,7 +344,7 @@ impl ServiceLifecycle for EventIngester {
         let stats = self.stats.read().await;
         
         let healthy = stats.error_count < 100 && // Less than 100 errors
-                     stats.last_success.map_or(false, |t| {
+                     stats.last_success.is_some_and(|t| {
                          chrono::Utc::now().signed_duration_since(t).num_minutes() < 5
                      });
 
@@ -383,25 +385,86 @@ impl ServiceLifecycle for EventIngester {
 
 /// Create a mock Solana event for testing
 fn create_mock_solana_event() -> Box<dyn Event> {
-    let event = SolanaEvent::swap(
-        format!("mock-{}", uuid::Uuid::new_v4()),
-        "mock-signature".to_string(),
-        12345,
-        chrono::Utc::now().timestamp_millis(),
-        ProtocolType::Jupiter,
-        "11111111111111111111111111111112".to_string(),
-        "So11111111111111111111111111111111111111112".to_string(),
-        "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v".to_string(),
-        1_000_000,
-        950_000,
-    );
+    // For now, create a minimal mock event that implements the Event trait
+    // In a real implementation, this would use proper Solana event creation
+    #[derive(Debug, Clone)]
+    struct MockEvent {
+        id: String,
+        timestamp: std::time::SystemTime,
+        metadata: EventMetadata,
+        kind: EventKind,
+    }
     
-    Box::new(event)
+    impl Event for MockEvent {
+        fn id(&self) -> &str {
+            &self.id
+        }
+        
+        fn kind(&self) -> &EventKind {
+            &self.kind
+        }
+        
+        fn source(&self) -> &str {
+            "mock"
+        }
+        
+        fn timestamp(&self) -> std::time::SystemTime {
+            self.timestamp
+        }
+        
+        fn metadata(&self) -> &EventMetadata {
+            &self.metadata
+        }
+        
+        fn metadata_mut(&mut self) -> &mut EventMetadata {
+            &mut self.metadata
+        }
+        
+        fn as_any(&self) -> &(dyn std::any::Any + 'static) {
+            self
+        }
+        
+        fn as_any_mut(&mut self) -> &mut (dyn std::any::Any + 'static) {
+            self
+        }
+        
+        fn clone_boxed(&self) -> Box<dyn Event> {
+            Box::new(self.clone())
+        }
+        
+        fn to_json(&self) -> Result<serde_json::Value, riglr_events_core::EventError> {
+            Ok(serde_json::json!({
+                "id": self.id,
+                "type": "swap",
+                "source": "mock",
+                "timestamp": self.timestamp.duration_since(std::time::UNIX_EPOCH).unwrap().as_millis()
+            }))
+        }
+    }
+    
+    let custom_data = std::collections::HashMap::new();
+    let metadata = EventMetadata {
+        id: "mock".to_string(),
+        source: "mock".to_string(),
+        kind: EventKind::Swap,
+        chain_data: None,
+        received_at: chrono::Utc::now(),
+        timestamp: chrono::Utc::now(),
+        custom: custom_data,
+    };
+    
+    Box::new(MockEvent {
+        id: format!("mock-{}", uuid::Uuid::new_v4()),
+        timestamp: std::time::SystemTime::now(),
+        metadata,
+        kind: EventKind::Swap,
+    })
 }
 
 // Placeholder types that would be implemented properly with riglr-streams integration
 struct StreamManager;
 struct StreamManagerBuilder;
+#[allow(dead_code)]
 struct StreamManagerConfig {
     max_concurrent_streams: usize,
     health_check_interval: Duration,

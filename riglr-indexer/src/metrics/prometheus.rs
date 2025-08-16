@@ -8,12 +8,13 @@ use axum::{
     Router,
 };
 use std::sync::Arc;
-use tracing::{info, error};
+use tracing::info;
 
 use crate::metrics::MetricsCollector;
 
 /// Prometheus metrics server state
 pub struct PrometheusState {
+    /// Metrics collector instance
     pub collector: Arc<MetricsCollector>,
 }
 

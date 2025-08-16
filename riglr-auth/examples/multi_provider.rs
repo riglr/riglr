@@ -4,7 +4,8 @@ use riglr_auth::{
     AuthProvider, PrivyConfig, Web3AuthConfig, MagicConfig,
     CompositeSignerFactoryExt,
 };
-use riglr_web_adapters::factory::{CompositeSignerFactory, AuthenticationData};
+use riglr_auth::config::ProviderConfig;
+use riglr_web_adapters::factory::{CompositeSignerFactory, AuthenticationData, SignerFactory};
 use riglr_core::config::RpcConfig;
 use std::collections::HashMap;
 

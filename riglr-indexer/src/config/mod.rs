@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::time::Duration;
 
-use crate::error::{ConfigError, IndexerResult};
+use crate::error::{ConfigError, IndexerResult, IndexerError};
 
 /// Main configuration for the indexer service
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -92,9 +92,13 @@ pub struct StorageBackendConfig {
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
 #[serde(rename_all = "lowercase")]
 pub enum StorageBackend {
+    /// PostgreSQL database backend for general-purpose storage
     Postgres,
+    /// ClickHouse columnar database for high-performance analytics
     ClickHouse,
+    /// TimescaleDB time-series database for temporal data
     TimescaleDB,
+    /// MongoDB document database for flexible schema storage
     MongoDB,
 }
 
@@ -140,8 +144,11 @@ pub struct CacheConfig {
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum CacheBackend {
+    /// Redis distributed cache for shared caching across instances
     Redis,
+    /// In-memory cache for single-instance deployments
     Memory,
+    /// No caching enabled
     Disabled,
 }
 
@@ -212,9 +219,13 @@ pub struct CompressionConfig {
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum CompressionAlgorithm {
+    /// Zstandard compression - best compression ratio
     Zstd,
+    /// Gzip compression - widely compatible
     Gzip,
+    /// LZ4 compression - fastest compression/decompression
     Lz4,
+    /// No compression
     None,
 }
 
@@ -268,8 +279,11 @@ pub struct QueueConfig {
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum QueueType {
+    /// In-memory queue for maximum performance
     Memory,
+    /// Disk-backed queue for durability
     Disk,
+    /// Hybrid queue using memory with disk overflow
     Hybrid,
 }
 
@@ -290,8 +304,11 @@ pub struct DiskQueueConfig {
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum SyncStrategy {
+    /// Sync to disk after every write for maximum durability
     Always,
+    /// Sync to disk periodically for balanced performance
     Periodic,
+    /// Never explicitly sync, rely on OS buffering
     Never,
 }
 
@@ -425,9 +442,13 @@ pub struct AuthConfig {
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum AuthMethod {
+    /// No authentication required
     None,
+    /// API key-based authentication
     ApiKey,
+    /// JSON Web Token authentication
     Jwt,
+    /// OAuth 2.0 authentication
     OAuth2,
 }
 
@@ -518,9 +539,13 @@ pub struct CustomMetricConfig {
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum MetricType {
+    /// Counter metric that only increases
     Counter,
+    /// Gauge metric that can go up or down
     Gauge,
+    /// Histogram for observing value distributions
     Histogram,
+    /// Summary for calculating quantiles
     Summary,
 }
 
@@ -544,8 +569,11 @@ pub struct LoggingConfig {
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum LogFormat {
+    /// JSON structured logging format
     Json,
+    /// Plain text logging format
     Text,
+    /// Pretty-printed format for development
     Pretty,
 }
 
@@ -553,9 +581,13 @@ pub enum LogFormat {
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum LogOutput {
+    /// Standard output stream
     Stdout,
+    /// Standard error stream
     Stderr,
+    /// Log to specified file path
     File(PathBuf),
+    /// System log daemon
     Syslog,
 }
 
@@ -606,7 +638,8 @@ impl IndexerConfig {
         let mut settings = config::Config::builder();
         
         // Load defaults first
-        settings = settings.add_source(config::Config::try_from(&Self::default())?);
+        settings = settings.add_source(config::Config::try_from(&Self::default())
+            .map_err(|e| IndexerError::internal(e.to_string()))?);
         
         // Override with file if specified
         if let Some(path) = config_file {

@@ -18,6 +18,7 @@ use crate::storage::StoredEvent;
 
 /// WebSocket streaming handler
 pub struct WebSocketStreamer {
+    #[allow(dead_code)]
     context: Arc<ServiceContext>,
     event_broadcaster: broadcast::Sender<StreamMessage>,
 }
@@ -28,25 +29,33 @@ pub struct WebSocketStreamer {
 pub enum StreamMessage {
     /// New event notification
     Event {
+        /// The stored event data
         event: StoredEvent,
     },
     /// Health status update
     Health {
+        /// Overall health status
         healthy: bool,
+        /// Individual component health statuses
         components: std::collections::HashMap<String, bool>,
     },
     /// Metrics update
     Metrics {
+        /// Metrics data as JSON value
         metrics: serde_json::Value,
     },
     /// Service status update
     Status {
+        /// Current service state
         state: String,
+        /// Status message
         message: String,
     },
     /// Error notification
     Error {
+        /// Error message
         message: String,
+        /// Optional error code
         code: Option<String>,
     },
     /// Heartbeat/keepalive
@@ -136,6 +145,8 @@ pub async fn websocket_handler(
 async fn handle_websocket(socket: WebSocket, context: Arc<ServiceContext>) {
     let (mut sender, mut receiver) = socket.split();
     let client_id = uuid::Uuid::new_v4().to_string();
+    let client_id_send = client_id.clone();
+    let client_id_recv = client_id.clone();
     
     info!("WebSocket client {} connected", client_id);
 
@@ -152,7 +163,7 @@ async fn handle_websocket(socket: WebSocket, context: Arc<ServiceContext>) {
                     let ping_msg = StreamMessage::Ping;
                     if let Ok(json) = serde_json::to_string(&ping_msg) {
                         if sender.send(Message::Text(json)).await.is_err() {
-                            debug!("Client {} disconnected (send failed)", client_id);
+                            debug!("Client {} disconnected (send failed)", client_id_send);
                             break;
                         }
                     }
@@ -165,59 +176,59 @@ async fn handle_websocket(socket: WebSocket, context: Arc<ServiceContext>) {
             }
         }
         
-        debug!("Send task for client {} ended", client_id);
+        debug!("Send task for client {} ended", client_id_send);
     });
 
     let recv_task = tokio::spawn(async move {
         while let Some(msg) = receiver.next().await {
             match msg {
                 Ok(Message::Text(text)) => {
-                    debug!("Received text message from {}: {}", client_id, text);
+                    debug!("Received text message from {}: {}", client_id_recv, text);
                     
                     // Try to parse as subscription request
                     match serde_json::from_str::<SubscriptionRequest>(&text) {
                         Ok(sub_req) => {
-                            info!("Client {} subscribed to: {:?}", client_id, sub_req.message_types);
+                            info!("Client {} subscribed to: {:?}", client_id_recv, sub_req.message_types);
                             // In a real implementation, you'd store the subscription preferences
                         }
                         Err(_) => {
                             // Try to parse as a generic message
                             match serde_json::from_str::<StreamMessage>(&text) {
                                 Ok(StreamMessage::Pong) => {
-                                    debug!("Received pong from client {}", client_id);
+                                    debug!("Received pong from client {}", client_id_recv);
                                 }
                                 Ok(msg) => {
-                                    debug!("Received message from {}: {:?}", client_id, msg);
+                                    debug!("Received message from {}: {:?}", client_id_recv, msg);
                                 }
                                 Err(e) => {
-                                    warn!("Invalid message from client {}: {}", client_id, e);
+                                    warn!("Invalid message from client {}: {}", client_id_recv, e);
                                 }
                             }
                         }
                     }
                 }
                 Ok(Message::Binary(data)) => {
-                    debug!("Received binary message from {}: {} bytes", client_id, data.len());
+                    debug!("Received binary message from {}: {} bytes", client_id_recv, data.len());
                 }
                 Ok(Message::Close(_)) => {
-                    info!("Client {} closed connection", client_id);
+                    info!("Client {} closed connection", client_id_recv);
                     break;
                 }
                 Ok(Message::Ping(_)) => {
-                    debug!("Received ping from client {}", client_id);
+                    debug!("Received ping from client {}", client_id_recv);
                     // Axum automatically responds to pings
                 }
                 Ok(Message::Pong(_)) => {
-                    debug!("Received pong from client {}", client_id);
+                    debug!("Received pong from client {}", client_id_recv);
                 }
                 Err(e) => {
-                    error!("WebSocket error for client {}: {}", client_id, e);
+                    error!("WebSocket error for client {}: {}", client_id_recv, e);
                     break;
                 }
             }
         }
         
-        debug!("Receive task for client {} ended", client_id);
+        debug!("Receive task for client {} ended", client_id_recv);
     });
 
     // Wait for either task to complete
@@ -236,10 +247,6 @@ async fn handle_websocket(socket: WebSocket, context: Arc<ServiceContext>) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::IndexerConfig;
-    use crate::core::ServiceContext;
-    use crate::storage::create_store;
-    use crate::metrics::MetricsCollector;
 
     #[tokio::test]
     async fn test_stream_message_serialization() {

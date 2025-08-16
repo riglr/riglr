@@ -46,7 +46,7 @@ impl ApiServer {
     }
 
     /// Create the router for the API server
-    pub fn create_router(&self) -> Router {
+    pub fn create_router(&self) -> Router<Arc<ServiceContext>> {
         let mut router = self.rest_handler.create_router();
         
         if let Some(ws_streamer) = &self.websocket_streamer {
@@ -61,7 +61,7 @@ impl ApiServer {
         let addr = format!("{}:{}", self.config.http.bind, self.config.http.port);
         let listener = tokio::net::TcpListener::bind(&addr)
             .await
-            .map_err(|e| IndexerError::Network(crate::error::NetworkError::HttpFailed {
+            .map_err(|_e| IndexerError::Network(crate::error::NetworkError::HttpFailed {
                 status: 0,
                 url: addr.clone(),
             }))?;
@@ -70,7 +70,7 @@ impl ApiServer {
 
         let app = self.create_router();
         
-        axum::serve(listener, app)
+        axum::serve(listener, app.with_state(self.context.clone()))
             .await
             .map_err(|e| IndexerError::internal_with_source("API server failed", e))?;
 

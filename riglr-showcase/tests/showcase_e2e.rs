@@ -92,26 +92,29 @@ async fn test_tool_error_classification() {
 #[tokio::test]
 async fn test_cross_chain_workflow() {
     #[cfg(feature = "riglr-cross-chain-tools")]
-    use riglr_cross_chain_tools::error::CrossChainToolError;
+    use riglr_cross_chain_tools::error::CrossChainError;
     #[cfg(feature = "riglr-cross-chain-tools")]
     use riglr_core::error::ToolError;
     
     #[cfg(feature = "riglr-cross-chain-tools")]
     {
         // Test error conversion from cross-chain tools
-        let bridge_error = CrossChainToolError::BridgeError("Bridge unavailable".to_string());
+        let bridge_error = CrossChainError::BridgeExecutionError("Bridge unavailable".to_string());
         let tool_error: ToolError = bridge_error.into();
         
         // Bridge errors should be retriable by default
         assert!(matches!(tool_error, ToolError::Retriable { .. }));
         
-        // Test route not found error
-        let route_error = CrossChainToolError::RouteNotFound("No route available".to_string());
-        let tool_error: ToolError = route_error.into();
+        // Test quote fetch error
+        let quote_error = CrossChainError::QuoteFetchError("No quote available".to_string());
+        let tool_error: ToolError = quote_error.into();
         assert!(matches!(tool_error, ToolError::Retriable { .. }));
         
-        // Test unsupported chain error
-        let chain_error = CrossChainToolError::UnsupportedChain("UNKNOWN".to_string());
+        // Test unsupported chain pair error
+        let chain_error = CrossChainError::UnsupportedChainPair { 
+            from_chain: "UNKNOWN".to_string(), 
+            to_chain: "ETH".to_string() 
+        };
         let tool_error: ToolError = chain_error.into();
         assert!(matches!(tool_error, ToolError::Permanent { .. }));
     }

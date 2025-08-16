@@ -1,9 +1,9 @@
 //! Batch processing utilities
 
 use std::collections::VecDeque;
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::{mpsc, RwLock};
-use tokio::time::sleep;
 use tracing::{debug, warn};
 
 /// Batch processor for collecting items and processing them in batches
@@ -13,14 +13,14 @@ pub struct BatchProcessor<T> {
     /// Maximum age before forcing a batch
     max_age: Duration,
     /// Current batch
-    current_batch: RwLock<VecDeque<(T, Instant)>>,
+    current_batch: Arc<RwLock<VecDeque<(T, Instant)>>>,
     /// Sender for completed batches
     batch_sender: mpsc::UnboundedSender<Vec<T>>,
     /// Receiver for completed batches
     batch_receiver: RwLock<Option<mpsc::UnboundedReceiver<Vec<T>>>>,
 }
 
-impl<T: Send + 'static> BatchProcessor<T> {
+impl<T: Send + Sync + 'static> BatchProcessor<T> {
     /// Create a new batch processor
     pub fn new(max_size: usize, max_age: Duration) -> Self {
         let (batch_sender, batch_receiver) = mpsc::unbounded_channel();
@@ -28,7 +28,7 @@ impl<T: Send + 'static> BatchProcessor<T> {
         Self {
             max_size,
             max_age,
-            current_batch: RwLock::new(VecDeque::new()),
+            current_batch: Arc::new(RwLock::new(VecDeque::new())),
             batch_sender,
             batch_receiver: RwLock::new(Some(batch_receiver)),
         }
@@ -51,7 +51,7 @@ impl<T: Send + 'static> BatchProcessor<T> {
 
     /// Start the age-based flushing task
     pub fn start_age_flusher(&self) {
-        let current_batch = self.current_batch.clone();
+        let current_batch = Arc::clone(&self.current_batch);
         let batch_sender = self.batch_sender.clone();
         let max_age = self.max_age;
         let check_interval = max_age / 4; // Check 4 times per max_age period
@@ -149,6 +149,7 @@ impl<T: Send + 'static> BatchProcessor<T> {
 /// Errors that can occur during batch processing
 #[derive(Debug, thiserror::Error)]
 pub enum BatchProcessorError {
+    /// Failed to send batch through channel
     #[error("Failed to send batch")]
     SendFailed,
 }
