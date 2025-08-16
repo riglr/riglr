@@ -56,7 +56,7 @@ macro_rules! impl_resilient_websocket {
                                             let start = std::time::Instant::now();
                                             
                                             // Parse the message
-                                            if let Some(event) = $parse_fn(text.clone(), sequence_number) {
+                                            if let Some(event) = $parse_fn(text.to_string(), sequence_number) {
                                                 // Send event
                                                 if let Err(e) = $event_tx.send(std::sync::Arc::new(event)) {
                                                     warn!("Failed to send event: {}", e);
@@ -112,7 +112,7 @@ macro_rules! impl_resilient_websocket {
                                                 break;
                                             }
                                             // Send ping to keep connection alive
-                                            if let Err(e) = write.send(Message::Ping(vec![])).await {
+                                            if let Err(e) = write.send(Message::Ping(vec![].into())).await {
                                                 warn!("Failed to send ping: {}", e);
                                                 break;
                                             }

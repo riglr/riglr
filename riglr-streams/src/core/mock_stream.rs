@@ -125,8 +125,8 @@ impl MockStream {
         sequence_number: u64
     ) -> Option<DynamicStreamedEvent> {
         use rand::Rng;
-        let mut rng = rand::thread_rng();
-        let event_kind = event_kinds.get(rng.gen_range(0..event_kinds.len()))?;
+        let mut rng = rand::rng();
+        let event_kind = event_kinds.get(rng.random_range(0..event_kinds.len()))?;
         
         let stream_metadata = StreamMetadata {
             stream_source: "mock-stream".to_string(),
