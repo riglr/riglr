@@ -1,5 +1,9 @@
 # Introduction to riglr
 
+<div align="center">
+  <img src="logo.png" alt="riglr logo" width="200">
+</div>
+
 **riglr** (pronounced "riggler") is a production-ready Rust ecosystem for building enterprise-grade on-chain AI agents. More than just a blockchain toolkit, riglr is a complete ecosystem that extends the powerful `rig` AI framework with comprehensive tools for blockchain interaction, real-time data streaming, intelligent coordination, and secure transaction management.
 
 Whether you're building a sophisticated DeFi trading bot, a market analysis agent, a cross-chain portfolio manager, or a distributed network of autonomous agents, riglr provides the secure, performant, and developer-friendly components you need.
