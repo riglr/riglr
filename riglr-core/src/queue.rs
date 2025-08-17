@@ -49,8 +49,8 @@ impl InMemoryJobQueue {
 impl Default for InMemoryJobQueue {
     fn default() -> Self {
         Self {
-            queue: tokio::sync::Mutex::new(Default::default()),
-            notify: tokio::sync::Notify::new(),
+            queue: tokio::sync::Mutex::new(std::collections::VecDeque::default()),
+            notify: tokio::sync::Notify::default(),
         }
     }
 }

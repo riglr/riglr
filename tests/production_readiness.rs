@@ -1,11 +1,19 @@
 //! Production readiness integration tests
 use std::env;
 
+// Environment variable constants to avoid string literals
+const OPENAI_API_KEY: &str = "OPENAI_API_KEY";
+const ANTHROPIC_API_KEY: &str = "ANTHROPIC_API_KEY";
+const RPC_URL_12345: &str = "RPC_URL_12345";
+
 #[tokio::test]
 async fn test_configuration_fail_fast() {
     // Test that missing environment variables cause immediate failure
-    env::remove_var("OPENAI_API_KEY");
-    env::remove_var("ANTHROPIC_API_KEY");
+    // SAFETY: Safe in test context as we're only modifying test environment variables
+    unsafe {
+        env::remove_var(OPENAI_API_KEY);
+        env::remove_var(ANTHROPIC_API_KEY);
+    }
 
     // This should panic when trying to load config with missing required vars
     let result = std::panic::catch_unwind(|| {
@@ -15,7 +23,10 @@ async fn test_configuration_fail_fast() {
     assert!(result.is_err(), "Should panic with missing required API keys");
 
     // Restore for other tests
-    env::set_var("OPENAI_API_KEY", "test-key");
+    // SAFETY: Safe in test context as we're only modifying test environment variables
+    unsafe {
+        env::set_var(OPENAI_API_KEY, "test-key");
+    }
 }
 
 #[tokio::test]
@@ -37,7 +48,10 @@ async fn test_error_source_preservation() {
 #[tokio::test]
 async fn test_evm_provider_extensibility() {
     // Test that new chains can be added without code changes
-    env::set_var("RPC_URL_12345", "https://test-new-chain.example.com");
+    // SAFETY: Safe in test context as we're only modifying test environment variables
+    unsafe {
+        env::set_var(RPC_URL_12345, "https://test-new-chain.example.com");
+    }
 
     let result = riglr_evm_tools::util::chain_id_to_rpc_url(12345);
     assert!(result.is_ok());
@@ -46,7 +60,10 @@ async fn test_evm_provider_extensibility() {
     let supported = riglr_evm_tools::util::get_supported_chains();
     assert!(supported.contains(&12345));
 
-    env::remove_var("RPC_URL_12345");
+    // SAFETY: Safe in test context as we're only modifying test environment variables
+    unsafe {
+        env::remove_var(RPC_URL_12345);
+    }
 }
 
 #[tokio::test]

@@ -25,12 +25,6 @@ pub struct PumpSwapEventParser {
 
 impl Default for PumpSwapEventParser {
     fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl PumpSwapEventParser {
-    pub fn new() -> Self {
         // Configure all event types
         let configs = vec![
             GenericEventParseConfig {
@@ -83,6 +77,13 @@ impl PumpSwapEventParser {
         let inner = GenericEventParser::new(vec![PUMPSWAP_PROGRAM_ID], configs);
 
         Self { inner }
+    }
+}
+
+impl PumpSwapEventParser {
+    /// Creates a new PumpSwap event parser with default configuration
+    pub fn new() -> Self {
+        Self::default()
     }
 
     /// Parse buy log event
@@ -177,7 +178,7 @@ impl PumpSwapEventParser {
         ));
 
         Some(Box::new(PumpSwapBuyEvent {
-            metadata,
+            metadata: metadata.core,
             base_amount_out,
             max_quote_amount_in,
             pool: accounts[0],
@@ -216,7 +217,7 @@ impl PumpSwapEventParser {
         ));
 
         Some(Box::new(PumpSwapSellEvent {
-            metadata,
+            metadata: metadata.core,
             base_amount_in,
             min_quote_amount_out,
             pool: accounts[0],
@@ -261,7 +262,7 @@ impl PumpSwapEventParser {
         ));
 
         Some(Box::new(PumpSwapCreatePoolEvent {
-            metadata,
+            metadata: metadata.core,
             index,
             base_amount_in,
             quote_amount_in,
@@ -301,7 +302,7 @@ impl PumpSwapEventParser {
         ));
 
         Some(Box::new(PumpSwapDepositEvent {
-            metadata,
+            metadata: metadata.core,
             lp_token_amount_out,
             max_base_amount_in,
             max_quote_amount_in,
@@ -339,7 +340,7 @@ impl PumpSwapEventParser {
         ));
 
         Some(Box::new(PumpSwapWithdrawEvent {
-            metadata,
+            metadata: metadata.core,
             lp_token_amount_in,
             min_base_amount_out,
             min_quote_amount_out,

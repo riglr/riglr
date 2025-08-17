@@ -15,10 +15,13 @@
 //! - **Multi-Chain Support**: Works with both EVM chains and Solana
 //! - **Stateless Design**: Tools work with riglr's SignerContext pattern for secure multi-tenant operation
 
+/// Error types and handling for cross-chain tools
 pub mod error;
 pub use error::CrossChainError;
 
+/// Core bridge functionality for cross-chain transfers
 pub mod bridge;
+/// LiFi Protocol integration for multi-provider bridge access
 pub mod lifi;
 
 // Re-export main bridge tools
@@ -28,5 +31,5 @@ pub use lifi::*;
 // Re-export common error types
 pub use riglr_core::ToolError;
 
-// Version information
+/// Version information for the riglr-cross-chain-tools crate.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

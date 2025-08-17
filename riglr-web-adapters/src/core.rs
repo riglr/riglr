@@ -18,6 +18,7 @@ const RIGLR_DEFAULT_MODEL: &str = "RIGLR_DEFAULT_MODEL";
 /// provide prompt responses and streaming capabilities.
 #[async_trait::async_trait]
 pub trait Agent: Clone + Send + Sync + 'static {
+    /// Error type returned by agent operations
     type Error: StdError + Send + Sync + 'static;
 
     /// Execute a single prompt and return a response
@@ -83,33 +84,46 @@ pub enum AgentEvent {
     /// Agent started processing
     #[serde(rename = "start")]
     Start {
+        /// Unique identifier for the conversation
         conversation_id: String,
+        /// Unique identifier for this request
         request_id: String,
+        /// When the processing started
         timestamp: chrono::DateTime<chrono::Utc>,
     },
 
     /// Streaming content chunk
     #[serde(rename = "content")]
     Content {
+        /// The content chunk from the agent
         content: String,
+        /// Unique identifier for the conversation
         conversation_id: String,
+        /// Unique identifier for this request
         request_id: String,
     },
 
     /// Agent finished processing
     #[serde(rename = "complete")]
     Complete {
+        /// Unique identifier for the conversation
         conversation_id: String,
+        /// Unique identifier for this request
         request_id: String,
+        /// When the processing completed
         timestamp: chrono::DateTime<chrono::Utc>,
     },
 
     /// Error occurred
     #[serde(rename = "error")]
     Error {
+        /// Error message describing what went wrong
         error: String,
+        /// Unique identifier for the conversation
         conversation_id: String,
+        /// Unique identifier for this request
         request_id: String,
+        /// When the error occurred
         timestamp: chrono::DateTime<chrono::Utc>,
     },
 }

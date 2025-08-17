@@ -7,96 +7,141 @@ use anyhow::Result;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 
+/// Response from DexScreener API containing token pair information
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct DexScreenerResponse {
+    /// Schema version of the API response
     #[serde(rename = "schemaVersion")]
     pub schema_version: String,
+    /// List of token pairs returned by the API
     pub pairs: Vec<PairInfo>,
 }
 
+/// Information about a trading pair from DexScreener
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct PairInfo {
+    /// Blockchain network identifier
     #[serde(rename = "chainId")]
     pub chain_id: String,
+    /// Decentralized exchange identifier
     #[serde(rename = "dexId")]
     pub dex_id: String,
+    /// URL to view this pair on DexScreener
     pub url: String,
+    /// Smart contract address of the trading pair
     #[serde(rename = "pairAddress")]
     pub pair_address: String,
+    /// Optional labels associated with this pair
     pub labels: Option<Vec<String>>,
+    /// Base token information
     #[serde(rename = "baseToken")]
     pub base_token: Token,
+    /// Quote token information
     #[serde(rename = "quoteToken")]
     pub quote_token: Token,
+    /// Price in native chain token (e.g., ETH, SOL)
     #[serde(rename = "priceNative")]
     pub price_native: String,
+    /// Price in USD
     #[serde(rename = "priceUsd")]
     pub price_usd: Option<String>,
+    /// Liquidity information for this pair
     pub liquidity: Option<Liquidity>,
+    /// Trading volume statistics
     pub volume: Option<Volume>,
+    /// Price change statistics
     #[serde(rename = "priceChange")]
     pub price_change: Option<PriceChange>,
+    /// Transaction statistics
     #[serde(rename = "txns")]
     pub txns: Option<Transactions>,
+    /// Market capitalization in USD
     #[serde(rename = "marketCap")]
     pub market_cap: Option<f64>,
+    /// Fully diluted valuation in USD
     #[serde(rename = "fdv")]
     pub fdv: Option<f64>,
 }
 
+/// Liquidity information for a trading pair
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Liquidity {
+    /// Total liquidity in USD
     pub usd: Option<f64>,
+    /// Liquidity of the base token
     pub base: Option<f64>,
+    /// Liquidity of the quote token
     pub quote: Option<f64>,
 }
 
+/// Trading volume statistics over different time periods
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct Volume {
+    /// Trading volume in the last 24 hours
     #[serde(default)]
     pub h24: Option<f64>,
+    /// Trading volume in the last 6 hours
     #[serde(default)]
     pub h6: Option<f64>,
+    /// Trading volume in the last 1 hour
     #[serde(default)]
     pub h1: Option<f64>,
+    /// Trading volume in the last 5 minutes
     #[serde(default)]
     pub m5: Option<f64>,
 }
 
+/// Price change statistics over different time periods
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct PriceChange {
+    /// Price change percentage in the last 24 hours
     #[serde(default)]
     pub h24: Option<f64>,
+    /// Price change percentage in the last 6 hours
     #[serde(default)]
     pub h6: Option<f64>,
+    /// Price change percentage in the last 1 hour
     #[serde(default)]
     pub h1: Option<f64>,
+    /// Price change percentage in the last 5 minutes
     #[serde(default)]
     pub m5: Option<f64>,
 }
 
+/// Transaction statistics over different time periods
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Transactions {
+    /// Transaction statistics for the last 24 hours
     #[serde(default)]
     pub h24: Option<TransactionStats>,
+    /// Transaction statistics for the last 6 hours
     #[serde(default)]
     pub h6: Option<TransactionStats>,
+    /// Transaction statistics for the last 1 hour
     #[serde(default)]
     pub h1: Option<TransactionStats>,
+    /// Transaction statistics for the last 5 minutes
     #[serde(default)]
     pub m5: Option<TransactionStats>,
 }
 
+/// Buy and sell transaction statistics
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct TransactionStats {
+    /// Number of buy transactions
     pub buys: Option<u64>,
+    /// Number of sell transactions
     pub sells: Option<u64>,
 }
 
+/// Token information
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Token {
+    /// Token contract address
     pub address: String,
+    /// Full name of the token
     pub name: String,
+    /// Token symbol/ticker
     pub symbol: String,
 }
 
@@ -177,8 +222,7 @@ pub fn find_best_liquidity_pair(pairs: Vec<PairInfo>) -> Option<PairInfo> {
         p.liquidity
             .as_ref()
             .and_then(|l| l.usd)
-            .map(|usd| (usd * 1000.0) as u64)
-            .unwrap_or(0)
+            .map_or(0, |usd| (usd * 1000.0) as u64)
     })
 }
 
@@ -191,8 +235,7 @@ pub fn get_token_price(pairs: &[PairInfo], token_address: &str) -> Option<String
             p.liquidity
                 .as_ref()
                 .and_then(|l| l.usd)
-                .map(|usd| (usd * 1000.0) as u64)
-                .unwrap_or(0)
+                .map_or(0, |usd| (usd * 1000.0) as u64)
         })
         .and_then(|p| p.price_usd.clone())
 }

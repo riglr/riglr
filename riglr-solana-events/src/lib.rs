@@ -129,35 +129,35 @@ macro_rules! impl_event {
     ($event_type:ty) => {
         impl riglr_events_core::Event for $event_type {
             fn kind(&self) -> riglr_events_core::EventKind {
-                match self.metadata.event_type {
+                match $crate::metadata_helpers::get_event_type(&self.metadata).unwrap_or_default() {
                     $crate::types::EventType::Swap => riglr_events_core::EventKind::Swap,
                     $crate::types::EventType::Transfer => riglr_events_core::EventKind::Transfer,
                     $crate::types::EventType::Liquidation => {
-                        riglr_events_core::EventKind::Other("liquidation".to_string())
+                        riglr_events_core::EventKind::Custom("liquidation".to_string())
                     }
                     $crate::types::EventType::Deposit => {
-                        riglr_events_core::EventKind::Other("deposit".to_string())
+                        riglr_events_core::EventKind::Custom("deposit".to_string())
                     }
                     $crate::types::EventType::Withdraw => {
-                        riglr_events_core::EventKind::Other("withdraw".to_string())
+                        riglr_events_core::EventKind::Custom("withdraw".to_string())
                     }
                     $crate::types::EventType::Borrow => {
-                        riglr_events_core::EventKind::Other("borrow".to_string())
+                        riglr_events_core::EventKind::Custom("borrow".to_string())
                     }
                     $crate::types::EventType::Repay => {
-                        riglr_events_core::EventKind::Other("repay".to_string())
+                        riglr_events_core::EventKind::Custom("repay".to_string())
                     }
                     $crate::types::EventType::CreatePool => {
-                        riglr_events_core::EventKind::Other("create_pool".to_string())
+                        riglr_events_core::EventKind::Custom("create_pool".to_string())
                     }
                     $crate::types::EventType::AddLiquidity => {
-                        riglr_events_core::EventKind::Other("add_liquidity".to_string())
+                        riglr_events_core::EventKind::Custom("add_liquidity".to_string())
                     }
                     $crate::types::EventType::RemoveLiquidity => {
-                        riglr_events_core::EventKind::Other("remove_liquidity".to_string())
+                        riglr_events_core::EventKind::Custom("remove_liquidity".to_string())
                     }
                     $crate::types::EventType::Unknown => {
-                        riglr_events_core::EventKind::Other("unknown".to_string())
+                        riglr_events_core::EventKind::Custom("unknown".to_string())
                     }
                 }
             }
@@ -188,6 +188,7 @@ macro_rules! impl_event {
     };
 }
 
+/// Convenient re-exports for common types and traits used throughout the library
 pub mod prelude {
     pub use crate::events::core::traits::{
         EventParser, GenericEventParseConfig, GenericEventParser,
@@ -217,18 +218,32 @@ pub mod prelude {
     pub use riglr_events_core::prelude::*;
 }
 
+/// Constants used throughout the Solana events library
 pub mod constants;
+/// Error types and utilities for Solana event parsing
 pub mod error;
+/// Core event structures and parsing logic
 pub mod events;
+/// Helper functions for working with Solana-specific metadata
+pub mod metadata_helpers;
+/// Solana-specific metadata wrapper
+pub mod solana_metadata;
+/// High-performance parsers for specific protocols
 pub mod parsers;
+/// Event processing pipelines for validation and enrichment
 pub mod pipelines;
+/// Solana-specific event types that implement both legacy and new interfaces
 pub mod solana_events;
+/// Parser implementation for the riglr-events-core Event trait
 pub mod solana_parser;
+/// Common types and data structures used across the library
 pub mod types;
+/// Utility functions for Solana event processing
 pub mod utils;
+/// Zero-copy parsing implementations for high-performance scenarios
 pub mod zero_copy;
 
-// Create core module that re-exports from events::core::traits for backward compatibility
+/// Backward compatibility module that re-exports core traits from events::core::traits
 pub mod core {
     pub use crate::events::core::traits::*;
 }

@@ -398,7 +398,7 @@ fn test_document_processing_scenarios() {
     // Test different document scenarios
     let docs = vec![
         RawTextDocument::new("Simple text"),
-        RawTextDocument::with_metadata("Text with metadata", DocumentMetadata::new()),
+        RawTextDocument::with_metadata("Text with metadata", DocumentMetadata::default()),
         RawTextDocument::with_source("Text with source", DocumentSource::UserInput),
         RawTextDocument::from_transaction("Transaction text", "ethereum", "0x123"),
     ];
@@ -730,7 +730,7 @@ fn test_document_entity_connection_query() {
 #[test]
 fn test_metadata_entity_addition_methods() {
     // Test DocumentMetadata entity addition methods (lines 184-196, 274-288)
-    let mut metadata = DocumentMetadata::new();
+    let mut metadata = DocumentMetadata::default();
 
     // Test add_wallet method
     metadata.add_wallet("0x1234567890abcdef");

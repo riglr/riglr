@@ -20,14 +20,13 @@ pub struct MarkdownFormatter {
 }
 
 impl MarkdownFormatter {
+    /// Create a new MarkdownFormatter with default settings
+    #[must_use]
     pub fn new() -> Self {
-        Self {
-            include_metadata: true,
-            include_timing: true,
-            custom_templates: HashMap::default(),
-        }
+        Self::default()
     }
 
+    /// Create a MarkdownFormatter with custom metadata and timing options
     pub fn with_options(include_metadata: bool, include_timing: bool) -> Self {
         Self {
             include_metadata,
@@ -115,7 +114,7 @@ impl MarkdownFormatter {
                     serde_json::to_string_pretty(&output.result).unwrap_or_default()
                 ),
             )
-            .replace("{error}", &output.error.clone().unwrap_or_default())
+            .replace("{error}", &output.error.as_deref().unwrap_or_default())
             .replace("{execution_time}", &output.execution_time_ms.to_string())
     }
 
@@ -172,7 +171,7 @@ impl OutputProcessor for MarkdownFormatter {
         let markdown_content = self.format_as_markdown(&input);
 
         Ok(ProcessedOutput {
-            original: input.clone(),
+            original: input,
             processed_result: json!({"markdown": markdown_content}),
             format: OutputFormat::Markdown,
             summary: None, // Formatters typically don't generate summaries
@@ -203,31 +202,29 @@ pub struct HtmlFormatter {
 }
 
 impl HtmlFormatter {
+    /// Create a new HtmlFormatter with default CSS classes and styles
+    #[must_use]
     pub fn new() -> Self {
-        let mut css_classes = HashMap::new();
-        css_classes.insert("container".to_string(), "tool-output".to_string());
-        css_classes.insert("success".to_string(), "status-success".to_string());
-        css_classes.insert("error".to_string(), "status-error".to_string());
-        css_classes.insert("result".to_string(), "result-content".to_string());
-
-        Self {
-            css_classes,
-            include_styles: true,
-        }
+        Self::default()
     }
 
+    /// Add custom CSS classes, preserving existing defaults
     pub fn with_css_classes(mut self, classes: HashMap<String, String>) -> Self {
-        self.css_classes.extend(classes);
+        for (key, value) in classes {
+            self.css_classes.insert(key, value);
+        }
         self
     }
 
+    /// Disable inline CSS styles in output
     pub fn without_styles(mut self) -> Self {
         self.include_styles = false;
         self
     }
 
+    /// Format the output as HTML
     fn format_as_html(&self, output: &ToolOutput) -> String {
-        let mut html = String::new();
+        let mut html = String::default();
 
         // Add basic styles if requested
         if self.include_styles {
@@ -244,8 +241,7 @@ impl HtmlFormatter {
         let container_class = self
             .css_classes
             .get("container")
-            .map(String::as_str)
-            .unwrap_or("tool-output");
+            .map_or("tool-output", String::as_str);
         html.push_str(&format!(r#"<div class="{}">"#, container_class));
         html.push('\n');
 
@@ -286,8 +282,7 @@ impl HtmlFormatter {
             let result_class = self
                 .css_classes
                 .get("result")
-                .map(String::as_str)
-                .unwrap_or("result-content");
+                .map_or("result-content", String::as_str);
             html.push_str(&format!(
                 r#"<div class="{}"><pre>{}</pre></div>"#,
                 result_class,
@@ -321,6 +316,7 @@ impl HtmlFormatter {
         html
     }
 
+    /// Convert snake_case to Title Case
     fn title_case(&self, s: &str) -> String {
         s.split('_')
             .map(|word| {
@@ -341,7 +337,7 @@ impl OutputProcessor for HtmlFormatter {
         let html_content = self.format_as_html(&input);
 
         Ok(ProcessedOutput {
-            original: input.clone(),
+            original: input,
             processed_result: json!({"html": html_content}),
             format: OutputFormat::Html,
             summary: None,
@@ -372,29 +368,31 @@ pub struct JsonFormatter {
 }
 
 impl JsonFormatter {
+    /// Create a new JsonFormatter with default settings
+    #[must_use]
     pub fn new() -> Self {
-        Self {
-            pretty_print: true,
-            include_metadata: true,
-            field_mappings: HashMap::new(),
-        }
+        Self::default()
     }
 
+    /// Configure formatter to output compact JSON
     pub fn compact(mut self) -> Self {
         self.pretty_print = false;
         self
     }
 
+    /// Configure formatter to exclude metadata from output
     pub fn without_metadata(mut self) -> Self {
         self.include_metadata = false;
         self
     }
 
+    /// Add a field name mapping for JSON transformation
     pub fn with_field_mapping(mut self, from: &str, to: &str) -> Self {
         self.field_mappings.insert(from.to_string(), to.to_string());
         self
     }
 
+    /// Format the output as structured JSON
     fn format_as_json(&self, output: &ToolOutput) -> Value {
         let mut result = json!({
             "tool": output.tool_name,
@@ -421,6 +419,7 @@ impl JsonFormatter {
         result
     }
 
+    /// Recursively remap field names according to configured mappings
     fn remap_fields(&self, value: &Value) -> Value {
         match value {
             Value::Object(obj) => {
@@ -449,7 +448,7 @@ impl OutputProcessor for JsonFormatter {
         };
 
         Ok(ProcessedOutput {
-            original: input.clone(),
+            original: input,
             processed_result: json!({"json": json_string, "structured": formatted_json}),
             format: OutputFormat::Json,
             summary: None,
@@ -479,22 +478,24 @@ pub struct MultiFormatProcessor {
 }
 
 impl MultiFormatProcessor {
+    /// Create a new MultiFormatProcessor with no formatters
+    #[must_use]
     pub fn new() -> Self {
-        Self {
-            formats: Vec::new(),
-        }
+        Self::default()
     }
 
+    /// Add a formatter to the processor
     pub fn add_format<F: OutputProcessor + 'static>(mut self, formatter: F) -> Self {
         self.formats.push(Box::new(formatter));
         self
     }
 
+    /// Create a MultiFormatProcessor with standard formatters (Markdown, HTML, JSON)
     pub fn standard_formats() -> Self {
-        Self::new()
-            .add_format(MarkdownFormatter::new())
-            .add_format(HtmlFormatter::new())
-            .add_format(JsonFormatter::new())
+        Self::default()
+            .add_format(MarkdownFormatter::default())
+            .add_format(HtmlFormatter::default())
+            .add_format(JsonFormatter::default())
     }
 }
 
@@ -510,7 +511,7 @@ impl OutputProcessor for MultiFormatProcessor {
             // Extract the formatted content and add to combined result
             if let Value::Object(obj) = &formatted.processed_result {
                 for (key, value) in obj {
-                    combined_result[key] = value.clone();
+                    combined_result[key].clone_from(&value);
                 }
             }
 
@@ -519,7 +520,7 @@ impl OutputProcessor for MultiFormatProcessor {
         }
 
         Ok(ProcessedOutput {
-            original: input.clone(),
+            original: input,
             processed_result: combined_result,
             format: OutputFormat::Custom("multi".to_string()),
             summary: Some(format!("Generated formats: {}", formats.join(", "))),
@@ -598,7 +599,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_markdown_formatter() {
-        let formatter = MarkdownFormatter::new();
+        let formatter = MarkdownFormatter::default();
         let output = utils::success_output(
             "get_balance",
             json!({"balance_sol": 1.5, "address": "11111111111111111111111111111112"}),
@@ -619,7 +620,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_html_formatter() {
-        let formatter = HtmlFormatter::new();
+        let formatter = HtmlFormatter::default();
         let output = utils::error_output("test_tool", "Connection failed");
 
         let processed = formatter.process(output).await.unwrap();
@@ -637,7 +638,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_json_formatter() {
-        let formatter = JsonFormatter::new().with_field_mapping("balance_sol", "balance_solana");
+        let formatter = JsonFormatter::default().with_field_mapping("balance_sol", "balance_solana");
 
         let output = utils::success_output("get_balance", json!({"balance_sol": 1.5}));
 
@@ -655,9 +656,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_multi_format_processor() {
-        let processor = MultiFormatProcessor::new()
-            .add_format(MarkdownFormatter::new())
-            .add_format(JsonFormatter::new());
+        let processor = MultiFormatProcessor::default()
+            .add_format(MarkdownFormatter::default())
+            .add_format(JsonFormatter::default());
 
         let output = utils::success_output("test", json!({"key": "value"}));
         let processed = processor.process(output).await.unwrap();

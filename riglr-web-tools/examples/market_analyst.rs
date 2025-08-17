@@ -402,7 +402,7 @@ fn generate_recommendation(
     trending_rank: Option<u32>,
     price_change: f64,
 ) -> String {
-    let mut recommendation = String::new();
+    let mut recommendation = String::default();
 
     if risk_score < 30.0 && sentiment > 0.7 {
         recommendation.push_str("🟢 STRONG BUY - ");

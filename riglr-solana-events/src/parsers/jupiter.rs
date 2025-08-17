@@ -106,7 +106,9 @@ pub struct RouteHop {
 /// Combined Jupiter Route Data (instruction + analysis)
 #[derive(Debug, Clone)]
 pub struct JupiterRouteData {
+    /// The parsed instruction data
     pub instruction: JupiterRouteInstruction,
+    /// The route analysis result
     pub analysis: JupiterRouteAnalysis,
 }
 
@@ -132,9 +134,9 @@ pub struct JupiterParser {
     /// Program ID for validation
     #[allow(dead_code)]
     program_id: Pubkey,
-    /// Enable zero-copy parsing
+    /// Enable zero-copy parsing for better performance
     zero_copy: bool,
-    /// Enable detailed route analysis
+    /// Enable detailed route analysis with hop information
     detailed_analysis: bool,
 }
 
@@ -235,7 +237,7 @@ impl JupiterParser {
                 total_amount_out: minimum_amount_out,
                 platform_fee_bps,
                 hop_count: 1, // Default assumption
-                hops: Vec::new(),
+                hops: Vec::default(),
             }
         };
 
@@ -308,7 +310,7 @@ impl JupiterParser {
                 total_amount_out: amount_out,
                 platform_fee_bps,
                 hop_count: 1,
-                hops: Vec::new(),
+                hops: Vec::default(),
             }
         };
 
@@ -365,7 +367,7 @@ impl JupiterParser {
             total_amount_out: amount_out,
             platform_fee_bps,
             hop_count,
-            hops: Vec::new(), // Would be populated in full implementation
+            hops: Vec::default(), // Would be populated in full implementation
         })
     }
 }
@@ -431,7 +433,7 @@ pub struct JupiterParserFactory;
 impl JupiterParserFactory {
     /// Create a new high-performance zero-copy parser with full analysis
     pub fn create_zero_copy() -> Arc<dyn ByteSliceEventParser> {
-        Arc::new(JupiterParser::new())
+        Arc::new(JupiterParser::default())
     }
 
     /// Create a fast parser with simplified analysis
@@ -467,9 +469,9 @@ mod tests {
 
     #[test]
     fn test_route_instruction_parsing() {
-        let parser = JupiterParser::new();
+        let parser = JupiterParser::default();
 
-        let mut data = Vec::new();
+        let mut data = Vec::default();
         data.extend_from_slice(&[229, 23, 203, 151, 122, 227, 173, 42]); // Route discriminator
         data.extend_from_slice(&1000u64.to_le_bytes()); // amount_in
         data.extend_from_slice(&950u64.to_le_bytes()); // minimum_amount_out
@@ -493,7 +495,7 @@ mod tests {
 
     #[test]
     fn test_can_parse() {
-        let parser = JupiterParser::new();
+        let parser = JupiterParser::default();
 
         let valid_data = vec![229, 23, 203, 151, 122, 227, 173, 42, 0, 0]; // Route discriminator
         assert!(parser.can_parse(&valid_data));

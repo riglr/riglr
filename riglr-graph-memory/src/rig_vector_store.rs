@@ -16,9 +16,13 @@ use tracing::{debug, info, warn};
 /// Document type that bridges between rig and our graph memory system
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RigDocument {
+    /// Unique document identifier
     pub id: String,
+    /// Main text content of the document
     pub content: String,
+    /// Vector embedding representation of the document
     pub embedding: Vec<f32>,
+    /// Additional metadata key-value pairs for the document
     pub metadata: HashMap<String, Value>,
 }
 

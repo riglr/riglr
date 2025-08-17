@@ -1,5 +1,5 @@
+use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime};
 use tokio::sync::RwLock;
@@ -45,7 +45,7 @@ pub struct StreamMetrics {
 impl Default for StreamMetrics {
     fn default() -> Self {
         Self {
-            stream_name: String::new(),
+            stream_name: String::default(),
             events_received: 0,
             events_processed: 0,
             events_dropped: 0,
@@ -94,7 +94,7 @@ pub struct HandlerMetrics {
 impl Default for HandlerMetrics {
     fn default() -> Self {
         Self {
-            handler_name: String::new(),
+            handler_name: String::default(),
             invocations: 0,
             successes: 0,
             failures: 0,
@@ -147,9 +147,9 @@ impl Default for GlobalMetrics {
 /// Metrics collector for the streaming system
 pub struct MetricsCollector {
     /// Stream metrics
-    stream_metrics: Arc<RwLock<HashMap<String, StreamMetrics>>>,
+    stream_metrics: Arc<DashMap<String, StreamMetrics>>,
     /// Handler metrics
-    handler_metrics: Arc<RwLock<HashMap<String, HandlerMetrics>>>,
+    handler_metrics: Arc<DashMap<String, HandlerMetrics>>,
     /// Global metrics
     global_metrics: Arc<RwLock<GlobalMetrics>>,
     /// Metrics history for time-series data
@@ -161,13 +161,7 @@ pub struct MetricsCollector {
 impl MetricsCollector {
     /// Create a new metrics collector
     pub fn new() -> Self {
-        Self {
-            stream_metrics: Arc::new(RwLock::new(HashMap::new())),
-            handler_metrics: Arc::new(RwLock::new(HashMap::new())),
-            global_metrics: Arc::new(RwLock::new(GlobalMetrics::default())),
-            metrics_history: Arc::new(RwLock::new(Vec::new())),
-            max_history_size: 1000,
-        }
+        Self::default()
     }
 
     /// Record a stream event
@@ -177,13 +171,12 @@ impl MetricsCollector {
         processing_time_ms: f64,
         bytes: u64,
     ) {
-        let mut metrics = self.stream_metrics.write().await;
-        let stream_metrics =
-            metrics
+        let mut stream_metrics =
+            self.stream_metrics
                 .entry(stream_name.to_string())
                 .or_insert_with(|| StreamMetrics {
                     stream_name: stream_name.to_string(),
-                    ..Default::default()
+                    ..StreamMetrics::default()
                 });
 
         // Update basic counters
@@ -222,13 +215,12 @@ impl MetricsCollector {
         execution_time_ms: f64,
         success: bool,
     ) {
-        let mut metrics = self.handler_metrics.write().await;
-        let handler_metrics =
-            metrics
+        let mut handler_metrics =
+            self.handler_metrics
                 .entry(handler_name.to_string())
                 .or_insert_with(|| HandlerMetrics {
                     handler_name: handler_name.to_string(),
-                    ..Default::default()
+                    ..HandlerMetrics::default()
                 });
 
         // Update counters
@@ -258,42 +250,36 @@ impl MetricsCollector {
 
     /// Record a stream reconnection
     pub async fn record_reconnection(&self, stream_name: &str) {
-        let mut metrics = self.stream_metrics.write().await;
-        if let Some(stream_metrics) = metrics.get_mut(stream_name) {
+        if let Some(mut stream_metrics) = self.stream_metrics.get_mut(stream_name) {
             stream_metrics.reconnection_count += 1;
         }
     }
 
     /// Record a dropped event
     pub async fn record_dropped_event(&self, stream_name: &str) {
-        let mut metrics = self.stream_metrics.write().await;
-        if let Some(stream_metrics) = metrics.get_mut(stream_name) {
+        if let Some(mut stream_metrics) = self.stream_metrics.get_mut(stream_name) {
             stream_metrics.events_dropped += 1;
         }
     }
 
     /// Get stream metrics
     pub async fn get_stream_metrics(&self, stream_name: &str) -> Option<StreamMetrics> {
-        let metrics = self.stream_metrics.read().await;
-        metrics.get(stream_name).cloned()
+        self.stream_metrics.get(stream_name).cloned()
     }
 
     /// Get all stream metrics
     pub async fn get_all_stream_metrics(&self) -> Vec<StreamMetrics> {
-        let metrics = self.stream_metrics.read().await;
-        metrics.values().cloned().collect()
+        self.stream_metrics.iter().map(|entry| entry.value().clone()).collect()
     }
 
     /// Get handler metrics
     pub async fn get_handler_metrics(&self, handler_name: &str) -> Option<HandlerMetrics> {
-        let metrics = self.handler_metrics.read().await;
-        metrics.get(handler_name).cloned()
+        self.handler_metrics.get(handler_name).cloned()
     }
 
     /// Get all handler metrics
     pub async fn get_all_handler_metrics(&self) -> Vec<HandlerMetrics> {
-        let metrics = self.handler_metrics.read().await;
-        metrics.values().cloned().collect()
+        self.handler_metrics.iter().map(|entry| entry.value().clone()).collect()
     }
 
     /// Get global metrics
@@ -304,11 +290,11 @@ impl MetricsCollector {
 
     /// Update rates (should be called periodically)
     pub async fn update_rates(&self) {
-        let mut stream_metrics = self.stream_metrics.write().await;
         let mut global = self.global_metrics.write().await;
 
         // Calculate rates for each stream
-        for metrics in stream_metrics.values_mut() {
+        for mut entry in self.stream_metrics.iter_mut() {
+            let metrics = entry.value_mut();
             let uptime_secs = SystemTime::now()
                 .duration_since(metrics.start_time)
                 .unwrap_or_default()
@@ -332,8 +318,8 @@ impl MetricsCollector {
             global.global_bytes_per_second = global.total_bytes as f64 / system_uptime_secs;
         }
 
-        global.active_streams = stream_metrics.len();
-        global.active_handlers = self.handler_metrics.read().await.len();
+        global.active_streams = self.stream_metrics.len();
+        global.active_handlers = self.handler_metrics.len();
 
         // Add to history
         let mut history = self.metrics_history.write().await;
@@ -380,7 +366,7 @@ impl MetricsCollector {
 
     /// Export metrics in Prometheus format
     pub async fn export_prometheus(&self) -> String {
-        let mut output = String::new();
+        let mut output = String::default();
 
         // Stream metrics
         let streams = self.get_all_stream_metrics().await;
@@ -469,7 +455,13 @@ impl MetricsCollector {
 
 impl Default for MetricsCollector {
     fn default() -> Self {
-        Self::new()
+        Self {
+            stream_metrics: Arc::new(DashMap::default()),
+            handler_metrics: Arc::new(DashMap::default()),
+            global_metrics: Arc::new(RwLock::new(GlobalMetrics::default())),
+            metrics_history: Arc::new(RwLock::new(Vec::default())),
+            max_history_size: 1000,
+        }
     }
 }
 

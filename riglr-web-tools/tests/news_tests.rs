@@ -1,3 +1,5 @@
+//! Tests for news API functionality
+
 use chrono::Utc;
 use riglr_web_tools::news::*;
 use std::collections::HashMap;
@@ -8,8 +10,14 @@ const CRYPTOPANIC_KEY: &str = "CRYPTOPANIC_KEY";
 #[tokio::test]
 async fn test_get_crypto_news_basic() {
     // Set environment variables for the test
-    std::env::set_var("NEWSAPI_KEY", "test_key");
-    std::env::set_var("CRYPTOPANIC_KEY", "test_key");
+    unsafe {
+        // SAFETY: Safe in test context where we control the environment
+        std::env::set_var(NEWSAPI_KEY, "test_key");
+    }
+    unsafe {
+        // SAFETY: Safe in test context where we control the environment
+        std::env::set_var(CRYPTOPANIC_KEY, "test_key");
+    }
 
     let result = get_crypto_news(
         "Bitcoin".to_string(),
@@ -27,8 +35,14 @@ async fn test_get_crypto_news_basic() {
     assert!(!news_result.metadata.sources_queried.is_empty());
 
     // Clean up
-    std::env::remove_var("NEWSAPI_KEY");
-    std::env::remove_var("CRYPTOPANIC_KEY");
+    unsafe {
+        // SAFETY: Safe in test context where we control the environment
+        std::env::remove_var(NEWSAPI_KEY);
+    }
+    unsafe {
+        // SAFETY: Safe in test context where we control the environment
+        std::env::remove_var(CRYPTOPANIC_KEY);
+    }
 }
 
 #[tokio::test]
@@ -39,8 +53,14 @@ async fn test_get_crypto_news_no_api_keys() {
     let cryptopanic_key = std::env::var(CRYPTOPANIC_KEY).ok();
 
     // Ensure no API keys are set
-    std::env::remove_var("NEWSAPI_KEY");
-    std::env::remove_var("CRYPTOPANIC_KEY");
+    unsafe {
+        // SAFETY: Safe in test context where we control the environment
+        std::env::remove_var(NEWSAPI_KEY);
+    }
+    unsafe {
+        // SAFETY: Safe in test context where we control the environment
+        std::env::remove_var(CRYPTOPANIC_KEY);
+    }
 
     let result = get_crypto_news("Ethereum".to_string(), None, None, None, None).await;
 
@@ -49,17 +69,29 @@ async fn test_get_crypto_news_no_api_keys() {
 
     // Restore environment vars if they existed
     if let Some(key) = newsapi_key {
-        std::env::set_var("NEWSAPI_KEY", key);
+        unsafe {
+            // SAFETY: Safe in test context where we control the environment
+            std::env::set_var(NEWSAPI_KEY, key);
+        }
     }
     if let Some(key) = cryptopanic_key {
-        std::env::set_var("CRYPTOPANIC_KEY", key);
+        unsafe {
+            // SAFETY: Safe in test context where we control the environment
+            std::env::set_var(CRYPTOPANIC_KEY, key);
+        }
     }
 }
 
 #[tokio::test]
 async fn test_get_crypto_news_with_only_newsapi() {
-    std::env::set_var("NEWSAPI_KEY", "test_key");
-    std::env::remove_var("CRYPTOPANIC_KEY");
+    unsafe {
+        // SAFETY: Safe in test context where we control the environment
+        std::env::set_var(NEWSAPI_KEY, "test_key");
+    }
+    unsafe {
+        // SAFETY: Safe in test context where we control the environment
+        std::env::remove_var(CRYPTOPANIC_KEY);
+    }
 
     let result = get_crypto_news(
         "DeFi".to_string(),
@@ -76,13 +108,22 @@ async fn test_get_crypto_news_with_only_newsapi() {
     // Since this is a mock implementation, just verify we got some sources
     assert!(!news_result.metadata.sources_queried.is_empty());
 
-    std::env::remove_var("NEWSAPI_KEY");
+    unsafe {
+        // SAFETY: Safe in test context where we control the environment
+        std::env::remove_var(NEWSAPI_KEY);
+    }
 }
 
 #[tokio::test]
 async fn test_get_crypto_news_with_only_cryptopanic() {
-    std::env::remove_var("NEWSAPI_KEY");
-    std::env::set_var("CRYPTOPANIC_KEY", "test_key");
+    unsafe {
+        // SAFETY: Safe in test context where we control the environment
+        std::env::remove_var(NEWSAPI_KEY);
+    }
+    unsafe {
+        // SAFETY: Safe in test context where we control the environment
+        std::env::set_var(CRYPTOPANIC_KEY, "test_key");
+    }
 
     let result = get_crypto_news(
         "NFT".to_string(),
@@ -99,7 +140,10 @@ async fn test_get_crypto_news_with_only_cryptopanic() {
     // Since this is a mock implementation, just verify we got some sources
     assert!(!news_result.metadata.sources_queried.is_empty());
 
-    std::env::remove_var("CRYPTOPANIC_KEY");
+    unsafe {
+        // SAFETY: Safe in test context where we control the environment
+        std::env::remove_var(CRYPTOPANIC_KEY);
+    }
 }
 
 #[tokio::test]
@@ -207,8 +251,14 @@ async fn test_analyze_market_sentiment_general() {
 #[test]
 fn test_news_config_default() {
     // Test with environment variables
-    std::env::set_var("NEWSAPI_KEY", "test_news_key");
-    std::env::set_var("CRYPTOPANIC_KEY", "test_crypto_key");
+    unsafe {
+        // SAFETY: Safe in test context where we control the environment
+        std::env::set_var(NEWSAPI_KEY, "test_news_key");
+    }
+    unsafe {
+        // SAFETY: Safe in test context where we control the environment
+        std::env::set_var(CRYPTOPANIC_KEY, "test_crypto_key");
+    }
 
     let config = NewsConfig::default();
     assert_eq!(config.newsapi_key, "test_news_key");
@@ -219,15 +269,27 @@ fn test_news_config_default() {
     assert_eq!(config.min_credibility_score, 60);
 
     // Clean up
-    std::env::remove_var("NEWSAPI_KEY");
-    std::env::remove_var("CRYPTOPANIC_KEY");
+    unsafe {
+        // SAFETY: Safe in test context where we control the environment
+        std::env::remove_var(NEWSAPI_KEY);
+    }
+    unsafe {
+        // SAFETY: Safe in test context where we control the environment
+        std::env::remove_var(CRYPTOPANIC_KEY);
+    }
 }
 
 #[test]
 fn test_news_config_empty_env() {
     // Test without environment variables
-    std::env::remove_var("NEWSAPI_KEY");
-    std::env::remove_var("CRYPTOPANIC_KEY");
+    unsafe {
+        // SAFETY: Safe in test context where we control the environment
+        std::env::remove_var(NEWSAPI_KEY);
+    }
+    unsafe {
+        // SAFETY: Safe in test context where we control the environment
+        std::env::remove_var(CRYPTOPANIC_KEY);
+    }
 
     let config = NewsConfig::default();
     assert!(config.newsapi_key.is_empty());

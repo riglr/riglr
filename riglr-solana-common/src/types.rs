@@ -12,20 +12,26 @@ use std::str::FromStr;
 #[derive(Debug, thiserror::Error)]
 pub enum SolanaCommonError {
     #[error("Invalid public key: {0}")]
+    /// Invalid Solana public key format or encoding
     InvalidPubkey(String),
 
     #[error("Client error: {0}")]
+    /// Solana RPC client communication error
     ClientError(String),
 
     #[error("Parse error: {0}")]
+    /// Failed to parse Solana-related data
     ParseError(String),
 }
 
 /// Shared configuration for Solana operations
 #[derive(Debug, Clone)]
 pub struct SolanaConfig {
+    /// Solana RPC endpoint URL
     pub rpc_url: String,
+    /// Transaction commitment level (processed, confirmed, finalized)
     pub commitment: String,
+    /// RPC request timeout in seconds
     pub timeout_seconds: u64,
 }
 
@@ -42,12 +48,16 @@ impl Default for SolanaConfig {
 /// Common Solana account metadata
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SolanaAccount {
+    /// Base58-encoded Solana public key
     pub pubkey: String,
+    /// Whether this account must sign the transaction
     pub is_signer: bool,
+    /// Whether this account can be modified by the transaction
     pub is_writable: bool,
 }
 
 impl SolanaAccount {
+    /// Create a new Solana account with validation
     pub fn new(
         pubkey: &str,
         is_signer: bool,
@@ -64,6 +74,7 @@ impl SolanaAccount {
         })
     }
 
+    /// Convert the string pubkey to a Solana Pubkey type
     pub fn to_pubkey(&self) -> Result<Pubkey, SolanaCommonError> {
         Pubkey::from_str(&self.pubkey)
             .map_err(|_| SolanaCommonError::InvalidPubkey(self.pubkey.clone()))

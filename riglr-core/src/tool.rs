@@ -873,7 +873,7 @@ impl<I: IdempotencyStore + 'static> ToolWorker<I> {
             resource_limits: ResourceLimits::default(),
             config,
             idempotency_store: None,
-            metrics: Arc::default(),
+            metrics: Arc::new(WorkerMetrics::default()),
         }
     }
 
@@ -1071,7 +1071,7 @@ impl<I: IdempotencyStore + 'static> ToolWorker<I> {
             .ok_or_else(|| WorkerError::ToolNotFound {
                 tool_name: tool_name.to_string(),
             })
-            .map(|entry| entry.clone())
+            .map(|entry| (*entry).clone())
     }
 
     /// Execute a tool with retry logic
@@ -1506,7 +1506,7 @@ mod tests {
     #[tokio::test]
     async fn test_tool_worker_with_resource_limits() {
         let config = ExecutionConfig::default();
-        let limits = ResourceLimits::new()
+        let limits = ResourceLimits::default()
             .with_limit("solana_rpc", 2)
             .with_limit("evm_rpc", 3);
 
@@ -1714,7 +1714,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_resource_limits() {
-        let limits = ResourceLimits::new()
+        let limits = ResourceLimits::default()
             .with_limit("test_resource", 5)
             .with_limit("another_resource", 10);
 
@@ -2152,7 +2152,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_resource_matching_edge_cases() {
-        let limits = ResourceLimits::new()
+        let limits = ResourceLimits::default()
             .with_limit("solana_rpc", 1)
             .with_limit("evm_rpc", 1);
 

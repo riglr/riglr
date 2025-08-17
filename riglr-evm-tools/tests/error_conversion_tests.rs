@@ -1,3 +1,5 @@
+//! Tests for EvmToolError to ToolError conversion
+
 use riglr_core::error::ToolError;
 use riglr_evm_tools::error::EvmToolError;
 
@@ -52,8 +54,8 @@ fn test_transaction_error_conversion() {
     let tool_err: ToolError = err.into();
 
     match tool_err {
-        ToolError::Permanent { .. } => {}
-        _ => panic!("Expected Permanent variant"),
+        ToolError::Retriable { .. } => {}
+        _ => panic!("Expected Retriable variant"),
     }
 }
 

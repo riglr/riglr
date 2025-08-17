@@ -17,6 +17,7 @@ use tracing::{debug, info};
 /// LunarCrush API configuration
 #[derive(Debug, Clone)]
 pub struct LunarCrushConfig {
+    /// LunarCrush API key
     pub api_key: String,
     /// API base URL (default: https://api.lunarcrush.com/v2)
     pub base_url: String,

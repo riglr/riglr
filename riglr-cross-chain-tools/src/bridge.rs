@@ -4,6 +4,8 @@
 //! with riglr's SignerContext pattern. All tools automatically access the appropriate
 //! signer from the current context without requiring explicit client parameters.
 
+#![allow(missing_docs)]
+
 use crate::lifi::{
     chain_id_to_name, chain_name_to_id, CrossChainRoute, LiFiClient, LiFiError, RouteRequest, Token,
 };
@@ -216,7 +218,7 @@ fn convert_route(route: &CrossChainRoute) -> Result<RouteInfo, ToolError> {
 /// Create a LiFi client instance
 async fn create_lifi_client() -> Result<LiFiClient, ToolError> {
     // In a production environment, you might want to get API key from environment
-    let client = LiFiClient::new();
+    let client = LiFiClient::default();
 
     // Optionally set API key from environment
     if let Ok(api_key) = std::env::var(LIFI_API_KEY) {

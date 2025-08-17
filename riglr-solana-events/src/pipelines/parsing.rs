@@ -306,24 +306,32 @@ impl ParsingPipeline {
 /// Statistics for the parsing pipeline
 #[derive(Debug, Clone)]
 pub struct PipelineStats {
+    /// Maximum batch size for processing
     pub max_batch_size: usize,
+    /// Maximum number of concurrent parsing tasks
     pub max_concurrent_tasks: usize,
+    /// Number of registered parsers
     pub registered_parsers: usize,
+    /// Number of available semaphore permits
     pub available_permits: usize,
 }
 
 /// Error type for parsing pipeline operations
 #[derive(Debug, thiserror::Error)]
 pub enum PipelineError {
+    /// Error acquiring semaphore permit
     #[error("Semaphore error")]
     SemaphoreError(()),
 
+    /// Error sending data through channel
     #[error("Channel error")]
     ChannelError,
 
+    /// Error during event parsing
     #[error("Parse error: {0}")]
     ParseError(#[from] ParseError),
 
+    /// Invalid pipeline configuration
     #[error("Configuration error: {0}")]
     ConfigError(String),
 }
@@ -408,7 +416,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_pipeline_builder() {
-        let pipeline = ParsingPipelineBuilder::new()
+        let pipeline = ParsingPipelineBuilder::default()
             .with_batch_size(50)
             .with_concurrency_limit(2)
             .add_parser(RaydiumV4ParserFactory::create_zero_copy())

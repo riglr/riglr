@@ -42,6 +42,7 @@ pub struct AuthenticationData {
 }
 
 /// Composite factory that can hold multiple authentication providers
+#[derive(Default)]
 pub struct CompositeSignerFactory {
     factories: HashMap<String, std::sync::Arc<dyn SignerFactory>>,
 }
@@ -49,9 +50,7 @@ pub struct CompositeSignerFactory {
 impl CompositeSignerFactory {
     /// Create a new composite factory
     pub fn new() -> Self {
-        Self {
-            factories: HashMap::new(),
-        }
+        Self::default()
     }
 
     /// Register a signer factory for a specific auth type
@@ -75,11 +74,6 @@ impl CompositeSignerFactory {
     }
 }
 
-impl Default for CompositeSignerFactory {
-    fn default() -> Self {
-        Self::new()
-    }
-}
 
 #[async_trait]
 impl SignerFactory for CompositeSignerFactory {
@@ -135,13 +129,13 @@ mod tests {
 
     #[tokio::test]
     async fn test_composite_factory_creation() {
-        let factory = CompositeSignerFactory::new();
+        let factory = CompositeSignerFactory::default();
         assert!(factory.get_registered_auth_types().is_empty());
     }
 
     #[tokio::test]
     async fn test_factory_registration() {
-        let mut composite = CompositeSignerFactory::new();
+        let mut composite = CompositeSignerFactory::default();
         let mock_factory = Box::new(MockSignerFactory);
 
         composite.register_factory("mock".to_string(), mock_factory);
@@ -153,7 +147,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_signer_creation() {
-        let mut composite = CompositeSignerFactory::new();
+        let mut composite = CompositeSignerFactory::default();
         let mock_factory = Box::new(MockSignerFactory);
 
         composite.register_factory("mock".to_string(), mock_factory);
@@ -172,11 +166,11 @@ mod tests {
 
     #[tokio::test]
     async fn test_unsupported_auth_type() {
-        let composite = CompositeSignerFactory::new();
+        let composite = CompositeSignerFactory::default();
 
         let auth_data = AuthenticationData {
             auth_type: "unsupported".to_string(),
-            credentials: HashMap::new(),
+            credentials: HashMap::default(),
             network: "devnet".to_string(),
         };
 

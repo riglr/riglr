@@ -4,9 +4,12 @@ use std::sync::Arc;
 use riglr_core::config::RpcConfig;
 use riglr_web_adapters::{Agent, PromptRequest, SignerFactory};
 
+/// Configuration for riglr server instances
 #[derive(Clone, Debug)]
 pub struct ServerConfig {
+    /// Socket address for the server to bind to
     pub addr: SocketAddr,
+    /// RPC configuration for blockchain interactions
     pub rpc: RpcConfig,
 }
 

@@ -1,3 +1,11 @@
+//! Integration tests for EVM tools functionality
+//!
+//! This module contains comprehensive integration tests for EVM tools including:
+//! - Provider factory functionality across different chains
+//! - Transaction execution helpers and error handling
+//! - Concurrent provider creation and management
+//! - Error conversion and validation scenarios
+
 use alloy::{
     primitives::{Address, U256},
     rpc::types::TransactionRequest,

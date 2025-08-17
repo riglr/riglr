@@ -17,6 +17,7 @@ use tracing::{debug, info};
 /// Faster100x API configuration
 #[derive(Debug, Clone)]
 pub struct Faster100xConfig {
+    /// API key for authentication with Faster100x service
     pub api_key: String,
     /// API base URL (default: https://api.faster100x.com/v1)
     pub base_url: String,
@@ -215,7 +216,16 @@ pub struct HolderTrendPoint {
     pub volume_24h: f64,
 }
 
-/// Creates a Faster100x API client
+/// Creates a Faster100x API client with proper authentication
+///
+/// Initializes a WebClient configured for the Faster100x API with the API key
+/// from the FASTER100X_API_KEY environment variable.
+///
+/// # Returns
+/// A configured WebClient instance for Faster100x API calls
+///
+/// # Errors
+/// Returns WebToolError::Config if the FASTER100X_API_KEY environment variable is not set
 async fn create_faster100x_client() -> Result<WebClient, WebToolError> {
     let config = Faster100xConfig::default();
 
@@ -231,6 +241,18 @@ async fn create_faster100x_client() -> Result<WebClient, WebToolError> {
 }
 
 /// Validates and normalizes token address format
+///
+/// Ensures the provided token address follows the correct Ethereum-style format
+/// (42 characters starting with "0x") and normalizes it to lowercase.
+///
+/// # Arguments
+/// * `address` - The token contract address to validate and normalize
+///
+/// # Returns
+/// The normalized lowercase token address
+///
+/// # Errors
+/// Returns WebToolError::Config if the address format is invalid
 fn normalize_token_address(address: &str) -> Result<String, WebToolError> {
     let address = address.trim();
 

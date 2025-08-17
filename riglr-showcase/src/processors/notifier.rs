@@ -13,30 +13,37 @@ use std::collections::HashMap;
 
 /// Notification router that sends outputs to various channels
 pub struct NotificationRouter {
+    /// Map of channel names to notification channel implementations
     channels: HashMap<String, Box<dyn NotificationChannel>>,
+    /// List of routing rules that determine which channels to use
     routing_rules: Vec<RoutingRule>,
+    /// Default channel to use when no routing rules match
     default_channel: Option<String>,
 }
 
 impl NotificationRouter {
+    /// Creates a new notification router with no channels or rules
     pub fn new() -> Self {
         Self {
-            channels: HashMap::default(),
-            routing_rules: Vec::default(),
+            channels: HashMap::new(),
+            routing_rules: Vec::new(),
             default_channel: None,
         }
     }
 
+    /// Adds a notification channel with the given name
     pub fn add_channel<C: NotificationChannel + 'static>(mut self, name: &str, channel: C) -> Self {
         self.channels.insert(name.to_string(), Box::new(channel));
         self
     }
 
+    /// Sets the default channel to use when no routing rules match
     pub fn set_default_channel(mut self, name: &str) -> Self {
         self.default_channel = Some(name.to_string());
         self
     }
 
+    /// Adds a routing rule for determining which channels to use
     pub fn add_routing_rule(mut self, rule: RoutingRule) -> Self {
         self.routing_rules.push(rule);
         self
@@ -44,7 +51,7 @@ impl NotificationRouter {
 
     /// Determine which channels to route to based on output and rules
     fn determine_routes(&self, output: &ToolOutput) -> Vec<String> {
-        let mut routes = Vec::default();
+        let mut routes = Vec::new();
 
         // Apply routing rules
         for rule in &self.routing_rules {
@@ -73,7 +80,7 @@ impl NotificationRouter {
         output: &ToolOutput,
         routes: &[String],
     ) -> Result<Vec<NotificationResult>> {
-        let mut results = Vec::default();
+        let mut results = Vec::new();
 
         for channel_name in routes {
             if let Some(channel) = self.channels.get(channel_name) {
@@ -169,12 +176,16 @@ impl NotificationRouter {
 /// Routing rule for determining which channels to use
 #[derive(Clone)]
 pub struct RoutingRule {
+    /// Human-readable name for this rule
     pub name: String,
+    /// Condition that determines when this rule applies
     pub condition: RoutingCondition,
+    /// List of channel names to route to when condition matches
     pub channels: Vec<String>,
 }
 
 impl RoutingRule {
+    /// Creates a new routing rule with the given name, condition, and target channels
     pub fn new(name: &str, condition: RoutingCondition, channels: Vec<String>) -> Self {
         Self {
             name: name.to_string(),
@@ -183,6 +194,7 @@ impl RoutingRule {
         }
     }
 
+    /// Checks if this routing rule matches the given tool output
     pub fn matches(&self, output: &ToolOutput) -> bool {
         self.condition.matches(output)
     }
@@ -191,19 +203,30 @@ impl RoutingRule {
 /// Conditions for routing decisions
 #[derive(Clone)]
 pub enum RoutingCondition {
+    /// Always matches any output
     Always,
+    /// Matches only successful outputs
     OnSuccess,
+    /// Matches only failed outputs
     OnError,
+    /// Matches outputs from a specific tool by exact name
     ToolName(String),
+    /// Matches outputs from tools whose name contains the given substring
     ToolNameContains(String),
+    /// Matches outputs that took longer than the specified number of milliseconds
     ExecutionTimeOver(u64), // milliseconds
+    /// Matches outputs that have metadata with the specified key
     HasMetadata(String),
+    /// Matches when all nested conditions match
     And(Vec<RoutingCondition>),
+    /// Matches when any nested condition matches
     Or(Vec<RoutingCondition>),
+    /// Matches when the nested condition does not match
     Not(Box<RoutingCondition>),
 }
 
 impl RoutingCondition {
+    /// Evaluates whether this condition matches the given tool output
     pub fn matches(&self, output: &ToolOutput) -> bool {
         match self {
             RoutingCondition::Always => true,
@@ -223,17 +246,24 @@ impl RoutingCondition {
 /// Result of a notification attempt
 #[derive(Clone, serde::Serialize, serde::Deserialize)]
 pub struct NotificationResult {
+    /// Name of the channel that was used for the notification
     pub channel: String,
+    /// Whether the notification was sent successfully
     pub success: bool,
+    /// Optional message ID returned by the notification service
     pub message_id: Option<String>,
+    /// Optional error message if the notification failed
     pub error: Option<String>,
 }
 
 /// Trait for notification channels
 #[async_trait]
 pub trait NotificationChannel: Send + Sync {
+    /// Sends a notification for the given tool output and returns a message ID
     async fn send_notification(&self, output: &ToolOutput) -> Result<String>;
+    /// Returns the human-readable name of this channel
     fn name(&self) -> &str;
+    /// Returns whether this channel supports rich formatting (default: true)
     fn supports_formatting(&self) -> bool {
         true
     }
@@ -241,13 +271,17 @@ pub trait NotificationChannel: Send + Sync {
 
 /// Discord webhook notification channel
 pub struct DiscordChannel {
+    /// Discord webhook URL for sending messages
     #[allow(dead_code)]
     webhook_url: String,
+    /// Optional username to display for the bot
     username: Option<String>,
+    /// Optional avatar URL for the bot
     avatar_url: Option<String>,
 }
 
 impl DiscordChannel {
+    /// Creates a new Discord channel with the given webhook URL
     pub fn new(webhook_url: &str) -> Self {
         Self {
             webhook_url: webhook_url.to_string(),
@@ -256,6 +290,7 @@ impl DiscordChannel {
         }
     }
 
+    /// Sets the bot username and optional avatar URL for Discord messages
     pub fn with_identity(mut self, username: &str, avatar_url: Option<&str>) -> Self {
         self.username = Some(username.to_string());
         self.avatar_url = avatar_url.map(|s| s.to_string());
@@ -369,14 +404,18 @@ impl NotificationChannel for DiscordChannel {
 
 /// Telegram bot notification channel
 pub struct TelegramChannel {
+    /// Telegram bot token for API authentication
     #[allow(dead_code)]
     bot_token: String,
+    /// Chat ID where messages will be sent
     #[allow(dead_code)]
     chat_id: String,
+    /// Parse mode for message formatting (Markdown or HTML)
     parse_mode: String,
 }
 
 impl TelegramChannel {
+    /// Creates a new Telegram channel with the given bot token and chat ID
     pub fn new(bot_token: &str, chat_id: &str) -> Self {
         Self {
             bot_token: bot_token.to_string(),
@@ -385,6 +424,7 @@ impl TelegramChannel {
         }
     }
 
+    /// Switches message formatting from Markdown to HTML mode
     pub fn with_html_mode(mut self) -> Self {
         self.parse_mode = "HTML".to_string();
         self
@@ -494,28 +534,35 @@ impl NotificationChannel for TelegramChannel {
 
 /// Generic webhook notification channel
 pub struct WebhookChannel {
+    /// Human-readable name for this webhook
     name: String,
+    /// Webhook URL endpoint
     #[allow(dead_code)]
     url: String,
+    /// HTTP headers to include with webhook requests
     headers: HashMap<String, String>,
+    /// Template string for formatting notification messages
     format_template: String,
 }
 
 impl WebhookChannel {
+    /// Creates a new webhook channel with the given name and URL
     pub fn new(name: &str, url: &str) -> Self {
         Self {
             name: name.to_string(),
             url: url.to_string(),
-            headers: HashMap::default(),
+            headers: HashMap::new(),
             format_template: "{\"message\": \"{{message}}\"}".to_string(),
         }
     }
 
+    /// Adds an HTTP header to include with webhook requests
     pub fn with_header(mut self, key: &str, value: &str) -> Self {
         self.headers.insert(key.to_string(), value.to_string());
         self
     }
 
+    /// Sets a custom format template for webhook message bodies
     pub fn with_format_template(mut self, template: &str) -> Self {
         self.format_template = template.to_string();
         self
@@ -601,14 +648,17 @@ impl NotificationChannel for WebhookChannel {
 
 /// Console/log notification channel for debugging
 pub struct ConsoleChannel {
+    /// Whether to use ANSI color codes in console output
     use_colors: bool,
 }
 
 impl ConsoleChannel {
+    /// Creates a new console channel with color output enabled
     pub fn new() -> Self {
         Self { use_colors: true }
     }
 
+    /// Disables color output for plain text logging
     pub fn without_colors(mut self) -> Self {
         self.use_colors = false;
         self
@@ -663,8 +713,8 @@ impl NotificationChannel for ConsoleChannel {
 impl Default for NotificationRouter {
     fn default() -> Self {
         Self {
-            channels: HashMap::default(),
-            routing_rules: Vec::default(),
+            channels: HashMap::new(),
+            routing_rules: Vec::new(),
             default_channel: None,
         }
     }

@@ -420,7 +420,7 @@ impl HFTBot {
 
     async fn update_position_price(&self, symbol: String, price: f64) -> ToolResult<()> {
         self.position_processor.update_state(symbol, |current_position| {
-            let mut position = current_position.clone().unwrap_or_else(|| Position {
+            let mut position = current_position.cloned().unwrap_or_else(|| Position {
                 symbol: "".to_string(),
                 size: 0.0,
                 entry_price: price,
@@ -438,7 +438,7 @@ impl HFTBot {
                 position.unrealized_pnl = (price - position.entry_price) * position.size;
             }
 
-            (position.clone(), position)
+            (position, ())
         }).await;
 
         Ok(())
@@ -450,7 +450,7 @@ impl HFTBot {
 
             // Update position in paper trading mode
             self.position_processor.update_state(signal.symbol.clone(), |current_position| {
-                let mut position = current_position.clone().unwrap_or_else(|| Position {
+                let mut position = current_position.cloned().unwrap_or_else(|| Position {
                     symbol: signal.symbol.clone(),
                     size: 0.0,
                     entry_price: signal.price,
@@ -470,7 +470,7 @@ impl HFTBot {
                 position.current_price = signal.price;
                 position.last_update = Instant::now();
 
-                (position.clone(), position)
+                (position, ())
             }).await;
 
             // Update trading metrics
@@ -548,7 +548,7 @@ async fn main() -> Result<()> {
 
     // Initialize price generators for each symbol
     for symbol in &symbols {
-        price_generators.insert(symbol.clone(), PriceGenerator::new(symbol, 100.0));
+        price_generators.insert((*symbol).clone(), PriceGenerator::new(symbol, 100.0));
     }
 
     let start_time = Instant::now();

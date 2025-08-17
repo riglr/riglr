@@ -9,9 +9,13 @@ use riglr_web_adapters::factory::{AuthenticationData, SignerFactory};
 /// Authentication provider types
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AuthProviderType {
+    /// Privy authentication provider
     Privy,
+    /// Web3Auth authentication provider
     Web3Auth,
+    /// Magic.link authentication provider
     Magic,
+    /// Custom authentication provider with a name
     Custom(String),
 }
 

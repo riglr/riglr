@@ -424,17 +424,18 @@ fn test_document_metadata_variations() {
     ];
 
     for metadata in test_cases {
+        let metadata_len = metadata.len();
         let doc = GraphDocument {
             id: "test".to_string(),
             content: "test".to_string(),
             embedding: vec![0.5],
-            metadata: metadata.clone(),
+            metadata,
             entities: Vec::new(),
             relationships: Vec::new(),
             similarity_score: None,
         };
 
-        assert_eq!(doc.metadata.len(), metadata.len());
+        assert_eq!(doc.metadata.len(), metadata_len);
     }
 }
 
@@ -716,9 +717,7 @@ fn test_vector_search_response_parsing() {
                                     })
                                     .unwrap_or_default();
 
-                                for entity in &entities {
-                                    entity_set.insert(entity.clone());
-                                }
+                                entity_set.extend(entities);
 
                                 documents.push((
                                     id.to_string(),
@@ -770,7 +769,7 @@ fn test_metadata_parsing() {
 
     let parsed_metadata: HashMap<String, serde_json::Value> = test_metadata
         .as_object()
-        .map(|obj| obj.iter().map(|(k, v)| (k.clone(), v.clone())).collect())
+        .map(|obj| obj.iter().map(|(k, v)| (k.to_owned(), v.clone())).collect())
         .unwrap_or_default();
 
     assert_eq!(parsed_metadata.len(), 4);
@@ -1066,7 +1065,7 @@ fn test_document_relationship_updates() {
 
     // Update documents with relationship information
     for doc in &mut documents {
-        doc.relationships = related_entities.clone();
+        doc.relationships.clone_from(&related_entities);
     }
 
     assert_eq!(documents[0].relationships.len(), 2);

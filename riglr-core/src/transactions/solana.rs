@@ -42,7 +42,9 @@ impl Default for PriorityFeeConfig {
 
 /// Solana transaction processor with priority fee support
 pub struct SolanaTransactionProcessor {
+    /// The RPC client for interacting with the Solana network
     client: Arc<RpcClient>,
+    /// Priority fee configuration for transaction optimization
     priority_config: PriorityFeeConfig,
 }
 

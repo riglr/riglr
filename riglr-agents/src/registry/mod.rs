@@ -236,7 +236,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_local_registry() {
-        let registry = LocalAgentRegistry::new();
+        let registry = LocalAgentRegistry::default();
         test_registry_basic_operations(registry).await;
     }
 }

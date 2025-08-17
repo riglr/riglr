@@ -77,30 +77,45 @@ mod tests {
     #[test]
     fn test_get_rpc_url() {
         // Test with valid env var
-        std::env::set_var("SOLANA_RPC_URL", "https://custom.solana.com");
+        unsafe {
+            // SAFETY: Safe in test context as we control the environment
+            std::env::set_var(SOLANA_RPC_URL, "https://custom.solana.com");
+        }
         let result = get_rpc_url();
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), "https://custom.solana.com");
 
         // Test with invalid URL format
-        std::env::set_var("SOLANA_RPC_URL", "invalid-url");
+        unsafe {
+            // SAFETY: Safe in test context as we control the environment
+            std::env::set_var(SOLANA_RPC_URL, "invalid-url");
+        }
         let result = get_rpc_url();
         assert!(result.is_err());
 
         // Test without env var (default)
-        std::env::remove_var("SOLANA_RPC_URL");
+        unsafe {
+            // SAFETY: Safe in test context as we control the environment
+            std::env::remove_var(SOLANA_RPC_URL);
+        }
         let result = get_rpc_url();
         assert!(result.is_ok());
         assert!(result.unwrap().contains("mainnet"));
 
         // Test with empty env var
-        std::env::set_var("SOLANA_RPC_URL", "");
+        unsafe {
+            // SAFETY: Safe in test context as we control the environment
+            std::env::set_var(SOLANA_RPC_URL, "");
+        }
         let result = get_rpc_url();
         assert!(result.is_ok());
         assert!(result.unwrap().contains("mainnet"));
 
         // Clean up
-        std::env::remove_var("SOLANA_RPC_URL");
+        unsafe {
+            // SAFETY: Safe in test context as we control the environment
+            std::env::remove_var(SOLANA_RPC_URL);
+        }
     }
 
     #[test]
@@ -112,12 +127,18 @@ mod tests {
         ];
 
         for url in valid_urls {
-            std::env::set_var("SOLANA_RPC_URL", url);
+            unsafe {
+                // SAFETY: Safe in test context as we control the environment
+                std::env::set_var(SOLANA_RPC_URL, url);
+            }
             let result = get_rpc_url();
             assert!(result.is_ok(), "URL should be valid: {}", url);
             assert_eq!(result.unwrap(), url);
         }
 
-        std::env::remove_var("SOLANA_RPC_URL");
+        unsafe {
+            // SAFETY: Safe in test context as we control the environment
+            std::env::remove_var(SOLANA_RPC_URL);
+        }
     }
 }

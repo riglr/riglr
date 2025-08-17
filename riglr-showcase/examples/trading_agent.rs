@@ -1,3 +1,31 @@
+//! Trading Agent Example
+//!
+//! This example demonstrates how to build a sophisticated Solana trading agent using the Riglr framework.
+//! The agent showcases DeFi operations, risk management, and intelligent trading strategies on Solana.
+//!
+//! Key Features:
+//! - Secure wallet management with LocalSolanaSigner integration
+//! - Balance checking for SOL and SPL tokens
+//! - Risk analysis and portfolio management strategies
+//! - Multi-turn conversations for complex trading decisions
+//! - SignerContext for secure, multi-tenant operations
+//!
+//! Trading Capabilities:
+//! - SOL balance analysis and monitoring
+//! - Portfolio diversification recommendations
+//! - Risk assessment with customizable parameters
+//! - Educational trading strategies for beginners
+//! - Transaction cost optimization
+//!
+//! Usage:
+//!   cargo run --example trading_agent
+//!
+//! Architecture Notes:
+//! - Demonstrates SignerContext pattern for secure blockchain operations
+//! - Shows proper error handling for DeFi transactions
+//! - Educational showcase of trading agent patterns in Riglr
+//! - Risk management best practices for automated trading
+
 use riglr_core::signer::SignerContext;
 use riglr_solana_tools::LocalSolanaSigner;
 // TODO: Re-enable when rig tools are updated

@@ -121,7 +121,7 @@ impl GraphMemory {
         client.create_indexes().await?;
 
         // Create entity extractor
-        let extractor = EntityExtractor::new();
+        let extractor = EntityExtractor::default();
 
         // Create graph retriever
         let retriever = Arc::new(

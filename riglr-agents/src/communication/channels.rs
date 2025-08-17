@@ -47,10 +47,10 @@ impl ChannelCommunication {
                 failed_deliveries: 0,
                 expired_messages: 0,
             }),
-            messages_sent: AtomicU64::new(0),
-            messages_received: AtomicU64::new(0),
-            failed_deliveries: AtomicU64::new(0),
-            expired_messages: AtomicU64::new(0),
+            messages_sent: AtomicU64::default(),
+            messages_received: AtomicU64::default(),
+            failed_deliveries: AtomicU64::default(),
+            expired_messages: AtomicU64::default(),
         }
     }
 
@@ -103,7 +103,21 @@ impl ChannelCommunication {
 
 impl Default for ChannelCommunication {
     fn default() -> Self {
-        Self::with_config(CommunicationConfig::default())
+        Self {
+            channels: RwLock::new(HashMap::default()),
+            config: CommunicationConfig::default(),
+            stats: Arc::new(CommunicationStats {
+                active_subscriptions: 0,
+                messages_sent: 0,
+                messages_received: 0,
+                failed_deliveries: 0,
+                expired_messages: 0,
+            }),
+            messages_sent: AtomicU64::default(),
+            messages_received: AtomicU64::default(),
+            failed_deliveries: AtomicU64::default(),
+            expired_messages: AtomicU64::default(),
+        }
     }
 }
 
@@ -335,7 +349,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_channel_communication_basic() {
-        let comm = ChannelCommunication::new();
+        let comm = ChannelCommunication::default();
         let agent_id = AgentId::new("test-agent");
 
         // Subscribe
@@ -366,7 +380,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_channel_communication_broadcast() {
-        let comm = ChannelCommunication::new();
+        let comm = ChannelCommunication::default();
 
         // Subscribe multiple agents
         let agent1 = AgentId::new("agent1");
@@ -396,7 +410,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_channel_communication_send_to_nonexistent() {
-        let comm = ChannelCommunication::new();
+        let comm = ChannelCommunication::default();
 
         let message = AgentMessage::new(
             AgentId::new("sender"),
@@ -415,7 +429,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_channel_communication_duplicate_subscription() {
-        let comm = ChannelCommunication::new();
+        let comm = ChannelCommunication::default();
         let agent_id = AgentId::new("test-agent");
 
         // First subscription should succeed
@@ -428,7 +442,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_channel_communication_unsubscribe_nonexistent() {
-        let comm = ChannelCommunication::new();
+        let comm = ChannelCommunication::default();
         let agent_id = AgentId::new("nonexistent");
 
         let result = comm.unsubscribe(&agent_id).await;
@@ -441,7 +455,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_message_receiver_try_receive() {
-        let comm = ChannelCommunication::new();
+        let comm = ChannelCommunication::default();
         let agent_id = AgentId::new("test-agent");
 
         let mut receiver = comm.subscribe(&agent_id).await.unwrap();
@@ -466,7 +480,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_message_receiver_close() {
-        let comm = ChannelCommunication::new();
+        let comm = ChannelCommunication::default();
         let agent_id = AgentId::new("test-agent");
 
         let mut receiver = comm.subscribe(&agent_id).await.unwrap();
@@ -482,7 +496,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_channel_communication_stats() {
-        let comm = ChannelCommunication::new();
+        let comm = ChannelCommunication::default();
         let agent_id = AgentId::new("test-agent");
 
         let mut _receiver = comm.subscribe(&agent_id).await.unwrap();
@@ -507,13 +521,13 @@ mod tests {
 
     #[tokio::test]
     async fn test_channel_communication_health_check() {
-        let comm = ChannelCommunication::new();
+        let comm = ChannelCommunication::default();
         assert!(comm.health_check().await.unwrap());
     }
 
     #[tokio::test]
     async fn test_expired_message_handling() {
-        let comm = ChannelCommunication::new();
+        let comm = ChannelCommunication::default();
         let agent_id = AgentId::new("test-agent");
 
         let _receiver = comm.subscribe(&agent_id).await.unwrap();

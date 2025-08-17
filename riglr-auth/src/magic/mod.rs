@@ -34,6 +34,7 @@ pub struct MagicConfig {
 }
 
 impl MagicConfig {
+    /// Create a new Magic configuration
     pub fn new(publishable_key: String, secret_key: String) -> Self {
         Self {
             publishable_key,
@@ -91,6 +92,7 @@ pub struct MagicProvider {
 }
 
 impl MagicProvider {
+    /// Create a new Magic provider
     pub fn new(config: MagicConfig) -> Self {
         let client = reqwest::Client::builder()
             .default_headers({

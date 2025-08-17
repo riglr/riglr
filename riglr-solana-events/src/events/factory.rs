@@ -7,39 +7,63 @@ use std::sync::Arc;
 /// Parameters for parsing events from instructions, reducing function parameter count
 #[derive(Debug)]
 pub struct InstructionParseParams<'a> {
+    /// Compiled instruction data
     pub instruction: &'a solana_sdk::instruction::CompiledInstruction,
+    /// Account keys from the transaction
     pub accounts: &'a [solana_sdk::pubkey::Pubkey],
+    /// Transaction signature
     pub signature: &'a str,
+    /// Solana slot number
     pub slot: u64,
+    /// Block time (optional)
     pub block_time: Option<i64>,
+    /// Time when the program received the transaction in milliseconds
     pub program_received_time_ms: i64,
+    /// Index string for event identification
     pub index: String,
 }
 
 /// Parameters for parsing events from inner instructions, reducing function parameter count
 #[derive(Debug)]
 pub struct InnerInstructionParseParams<'a> {
+    /// Inner instruction data from transaction metadata
     pub inner_instruction: &'a solana_transaction_status::UiCompiledInstruction,
+    /// Transaction signature
     pub signature: &'a str,
+    /// Solana slot number
     pub slot: u64,
+    /// Block time (optional)
     pub block_time: Option<i64>,
+    /// Time when the program received the transaction in milliseconds
     pub program_received_time_ms: i64,
+    /// Index string for event identification
     pub index: String,
 }
 
 /// Protocol enum for supported protocols
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Protocol {
+    /// Orca Whirlpool concentrated liquidity protocol
     OrcaWhirlpool,
+    /// Meteora Dynamic Liquidity Market Maker protocol
     MeteoraDlmm,
+    /// MarginFi lending and borrowing protocol
     MarginFi,
+    /// Jupiter swap aggregator protocol
     Jupiter,
+    /// Raydium Automated Market Maker V4 protocol
     RaydiumAmmV4,
+    /// Raydium Concentrated Liquidity Market Maker protocol
     RaydiumClmm,
+    /// Raydium Constant Product Market Maker protocol
     RaydiumCpmm,
+    /// PumpFun meme token creation protocol
     PumpFun,
+    /// PumpSwap trading protocol
     PumpSwap,
+    /// Bonk token protocol
     Bonk,
+    /// Custom protocol with arbitrary name
     Custom(String),
 }
 
@@ -89,7 +113,9 @@ impl From<Protocol> for ProtocolType {
 
 /// EventParserRegistry - the new async event parser registry
 pub struct EventParserRegistry {
+    /// Map of protocols to their respective event parsers
     parsers: HashMap<Protocol, Arc<dyn EventParser>>,
+    /// Map of program IDs to their respective event parsers for fast lookup
     program_id_to_parser: HashMap<solana_sdk::pubkey::Pubkey, Arc<dyn EventParser>>,
 }
 

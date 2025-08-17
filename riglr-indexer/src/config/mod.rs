@@ -750,7 +750,7 @@ impl IndexerConfig {
             use std::collections::hash_map::DefaultHasher;
             use std::hash::{Hash, Hasher};
 
-            let mut hasher = DefaultHasher::new();
+            let mut hasher = DefaultHasher::default();
             self.service.name.hash(&mut hasher);
             std::env::var(HOSTNAME)
                 .unwrap_or_else(|_| "unknown".to_string())
@@ -783,7 +783,7 @@ impl Default for IndexerConfig {
                         idle_timeout: Duration::from_secs(300),
                         max_lifetime: Duration::from_secs(1800),
                     },
-                    settings: Default::default(),
+                    settings: HashMap::default(),
                 },
                 secondary: None,
                 cache: CacheConfig {
@@ -801,7 +801,7 @@ impl Default for IndexerConfig {
                 },
                 retention: RetentionConfig {
                     default: Duration::from_secs(30 * 24 * 3600), // 30 days
-                    by_event_type: Default::default(),
+                    by_event_type: HashMap::default(),
                     archive: ArchiveConfig {
                         enabled: false,
                         backend: None,
@@ -874,7 +874,7 @@ impl Default for IndexerConfig {
                 histogram_buckets: vec![
                     0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0,
                 ],
-                custom: Default::default(),
+                custom: HashMap::default(),
             },
             logging: LoggingConfig {
                 level: "info".to_string(),
@@ -884,7 +884,7 @@ impl Default for IndexerConfig {
                     include_location: false,
                     include_thread: true,
                     include_service_metadata: true,
-                    custom_fields: Default::default(),
+                    custom_fields: HashMap::default(),
                 },
             },
             features: FeatureConfig {
@@ -892,7 +892,7 @@ impl Default for IndexerConfig {
                 archival: true,
                 graphql_api: false,
                 experimental: false,
-                custom: Default::default(),
+                custom: HashMap::default(),
             },
         }
     }

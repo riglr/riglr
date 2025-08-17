@@ -98,6 +98,7 @@ impl FeaturesConfig {
         }
     }
 
+    /// Validate the features configuration for consistency and warnings
     pub fn validate(&self) -> ConfigResult<()> {
         // Add any feature-specific validation here
         if self.experimental && !self.debug_mode {
@@ -111,14 +112,23 @@ impl FeaturesConfig {
 /// Feature enumeration
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Feature {
+    /// Enable trading functionality
     Trading,
+    /// Enable cross-chain bridging
     Bridging,
+    /// Enable social media monitoring
     SocialMonitoring,
+    /// Enable graph-based memory
     GraphMemory,
+    /// Enable real-time streaming
     Streaming,
+    /// Enable webhook notifications
     Webhooks,
+    /// Enable analytics collection
     Analytics,
+    /// Enable debug mode
     Debug,
+    /// Enable experimental features
     Experimental,
 }
 

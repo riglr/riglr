@@ -57,23 +57,32 @@ pub enum DocumentSource {
     UserInput,
     /// On-chain transaction data
     OnChain {
+        /// Blockchain network name (e.g., "ethereum", "solana")
         chain: String,
+        /// Transaction hash or ID
         transaction_hash: String,
     },
     /// Social media post (Twitter, Discord, etc.)
     Social {
+        /// Social media platform name
         platform: String,
+        /// Post or message ID
         post_id: String,
+        /// Author username or handle
         author: Option<String>,
     },
     /// News article or blog post
     News {
+        /// Article URL
         url: String,
+        /// Publication or website name
         publication: Option<String>,
     },
     /// API response or structured data
     ApiResponse {
+        /// API endpoint URL or identifier
         endpoint: String,
+        /// When the data was retrieved
         timestamp: chrono::DateTime<chrono::Utc>,
     },
     /// Other sources
@@ -117,10 +126,15 @@ pub struct EntityMention {
 /// Type of entity
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub enum EntityType {
+    /// Cryptocurrency wallet address
     Wallet,
+    /// Token contract or symbol
     Token,
+    /// DeFi protocol or dApp
     Protocol,
+    /// Blockchain network
     Chain,
+    /// Other entity type
     Other(String),
 }
 
@@ -142,11 +156,17 @@ pub struct AmountMention {
 /// Type of amount
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub enum AmountType {
+    /// Account or wallet balance
     Balance,
+    /// Token or asset price
     Price,
+    /// Transaction or gas fee
     Fee,
+    /// Trading volume
     Volume,
+    /// Market capitalization
     MarketCap,
+    /// Other amount type
     Other(String),
 }
 
@@ -172,6 +192,7 @@ pub enum RelationshipType {
     Transferred,
     /// Wallet interacted with protocol
     Interacted,
+    /// Entity holds or owns another entity
     Holds,
     /// Token is part of protocol
     PartOf,
@@ -265,11 +286,6 @@ impl RawTextDocument {
 }
 
 impl DocumentMetadata {
-    /// Create empty metadata
-    pub fn new() -> Self {
-        Self::default()
-    }
-
     /// Add a tag to the document
     pub fn add_tag(&mut self, tag: impl Into<String>) {
         self.tags.push(tag.into());
@@ -280,6 +296,7 @@ impl DocumentMetadata {
         self.wallet_addresses.push(address.into());
     }
 
+    /// Add a token address mention
     pub fn add_token(&mut self, address: impl Into<String>) {
         self.token_addresses.push(address.into());
     }

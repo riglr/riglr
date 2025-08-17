@@ -64,9 +64,8 @@ pub struct SolanaEventParser {
 impl SolanaEventParser {
     /// Create a new Solana event parser
     pub fn new() -> Self {
-        let legacy_parser = EventParserRegistry::new();
+        let legacy_parser = EventParserRegistry::default();
         let supported_programs = legacy_parser.supported_program_ids();
-
         Self {
             legacy_parser,
             info: ParserInfo::new("solana-event-parser".to_string(), "1.0.0".to_string())
@@ -178,12 +177,11 @@ impl SolanaEventParser {
         });
 
         // Create metadata for the new event system
-        let legacy_metadata = crate::types::EventMetadata::new(
+        let metadata = crate::types::metadata_helpers::create_solana_metadata(
             event.id().to_string(),
             input.signature.clone(),
             input.slot,
             input.block_time.unwrap_or(0),
-            input.block_time.unwrap_or(0) * 1000,
             crate::types::ProtocolType::Other("Solana".to_string()),
             crate::types::EventType::Swap,
             self.extract_program_id(&input.accounts, &input.instruction)?,
@@ -191,7 +189,7 @@ impl SolanaEventParser {
             input.received_time.timestamp_millis(),
         );
 
-        Ok(SolanaEvent::new(legacy_metadata, event_data))
+        Ok(SolanaEvent::new(metadata, event_data))
     }
 
     /// Convert a legacy Event from inner instruction to a SolanaEvent
@@ -212,12 +210,11 @@ impl SolanaEventParser {
         // Use a default program ID or try to extract from the event
         let program_id = Pubkey::default(); // This would need better logic in production
 
-        let legacy_metadata = crate::types::EventMetadata::new(
+        let metadata = crate::types::metadata_helpers::create_solana_metadata(
             event.id().to_string(),
             input.signature.clone(),
             input.slot,
             input.block_time.unwrap_or(0),
-            input.block_time.unwrap_or(0) * 1000,
             crate::types::ProtocolType::Other("Solana".to_string()),
             crate::types::EventType::Swap,
             program_id,
@@ -225,7 +222,7 @@ impl SolanaEventParser {
             input.received_time.timestamp_millis(),
         );
 
-        Ok(SolanaEvent::new(legacy_metadata, event_data))
+        Ok(SolanaEvent::new(metadata, event_data))
     }
 
     /// Extract program ID from instruction
@@ -249,23 +246,6 @@ impl SolanaEventParser {
     }
 }
 
-impl Default for SolanaEventParser {
-    fn default() -> Self {
-        let legacy_parser = EventParserRegistry::new();
-        let supported_programs = legacy_parser.supported_program_ids();
-        Self {
-            legacy_parser,
-            info: ParserInfo::new("solana-event-parser".to_string(), "1.0.0".to_string())
-                .with_kind(riglr_events_core::types::EventKind::Transaction)
-                .with_kind(riglr_events_core::types::EventKind::Swap)
-                .with_kind(riglr_events_core::types::EventKind::Liquidity)
-                .with_kind(riglr_events_core::types::EventKind::Transfer)
-                .with_format("solana-instruction".to_string())
-                .with_format("solana-inner-instruction".to_string()),
-            supported_programs,
-        }
-    }
-}
 
 #[async_trait]
 impl EventParser for SolanaEventParser {

@@ -3,7 +3,8 @@
 //! This module provides utilities for parsing Solana transaction data with minimal
 //! memory allocations through zero-copy techniques and efficient byte slice operations.
 
-use crate::types::{EventMetadata, ProtocolType};
+use crate::metadata_helpers::create_solana_metadata;
+use crate::types::{EventMetadata, EventType, ProtocolType};
 use crate::zero_copy::events::ZeroCopyEvent;
 use memmap2::MmapOptions;
 use std::collections::HashMap;
@@ -29,27 +30,40 @@ pub trait ByteSliceEventParser: Send + Sync {
 /// Error type for parsing operations
 #[derive(Debug, thiserror::Error)]
 pub enum ParseError {
+    /// Invalid instruction data encountered during parsing
     #[error("Invalid instruction data: {0}")]
     InvalidInstructionData(String),
 
+    /// Insufficient data available for parsing operation
     #[error("Insufficient data length: expected {expected}, got {actual}")]
-    InsufficientData { expected: usize, actual: usize },
+    InsufficientData { 
+        /// Expected number of bytes
+        expected: usize, 
+        /// Actual number of bytes available
+        actual: usize 
+    },
 
+    /// Unknown discriminator value encountered
     #[error("Unknown discriminator: {discriminator:?}")]
-    UnknownDiscriminator { discriminator: Vec<u8> },
+    UnknownDiscriminator { 
+        /// The unrecognized discriminator bytes
+        discriminator: Vec<u8> 
+    },
 
+    /// Borsh deserialization error
     #[error("Deserialization error: {0}")]
     DeserializationError(#[from] borsh::io::Error),
 
+    /// Memory mapping operation error
     #[error("Memory map error: {0}")]
     MemoryMapError(String),
 }
 
 /// High-performance parser using memory-mapped files for large transaction logs
 pub struct MemoryMappedParser {
-    /// Memory-mapped file
+    /// Memory-mapped file handle
     mmap: memmap2::Mmap,
-    /// Protocol-specific parsers
+    /// Protocol-specific parsers indexed by protocol type
     parsers: HashMap<ProtocolType, Arc<dyn ByteSliceEventParser>>,
 }
 
@@ -79,7 +93,19 @@ impl MemoryMappedParser {
         // transaction boundary detection
         for parser in self.parsers.values() {
             if parser.can_parse(data) {
-                let metadata = EventMetadata::default(); // Would be computed from context
+                // Create metadata with default values - would be computed from context
+                let metadata = create_solana_metadata(
+                    String::default(),
+                    riglr_events_core::EventKind::Transaction,
+                    "solana".to_string(),
+                    0,
+                    None,
+                    None,
+                    None,
+                    None,
+                    ProtocolType::default(),
+                    EventType::default(),
+                );
                 let mut parsed = parser.parse_from_slice(data, metadata)?;
                 for event in &mut parsed {
                     events.push(event.to_owned());
@@ -106,21 +132,15 @@ impl MemoryMappedParser {
 }
 
 /// SIMD-optimized pattern matcher for instruction discriminators
+#[derive(Default)]
 pub struct SIMDPatternMatcher {
-    /// Patterns to match (discriminator bytes)
+    /// Discriminator byte patterns to match
     patterns: Vec<Vec<u8>>,
-    /// Associated protocol types
+    /// Protocol types corresponding to each pattern
     protocols: Vec<ProtocolType>,
 }
 
 impl SIMDPatternMatcher {
-    /// Create a new SIMD pattern matcher
-    pub fn new() -> Self {
-        Self {
-            patterns: Vec::default(),
-            protocols: Vec::default(),
-        }
-    }
 
     /// Add a pattern to match
     pub fn add_pattern(&mut self, pattern: Vec<u8>, protocol: ProtocolType) {
@@ -159,20 +179,12 @@ impl SIMDPatternMatcher {
     }
 }
 
-impl Default for SIMDPatternMatcher {
-    fn default() -> Self {
-        Self {
-            patterns: Vec::default(),
-            protocols: Vec::default(),
-        }
-    }
-}
 
 /// Custom deserializer for hot path parsing
 pub struct CustomDeserializer<'a> {
-    /// Data to deserialize from
+    /// Byte data being deserialized
     data: &'a [u8],
-    /// Current position
+    /// Current read position in the data
     pos: usize,
 }
 
@@ -288,11 +300,11 @@ impl<'a> CustomDeserializer<'a> {
 
 /// Batch processor for efficient parsing of multiple transactions
 pub struct BatchEventParser {
-    /// Individual parsers for different protocols
+    /// Protocol-specific parsers indexed by protocol type
     parsers: HashMap<ProtocolType, Arc<dyn ByteSliceEventParser>>,
-    /// Pattern matcher for fast protocol detection
+    /// SIMD pattern matcher for fast protocol detection
     pattern_matcher: SIMDPatternMatcher,
-    /// Maximum batch size
+    /// Maximum number of transactions to process in a single batch
     max_batch_size: usize,
 }
 
@@ -301,7 +313,7 @@ impl BatchEventParser {
     pub fn new(max_batch_size: usize) -> Self {
         Self {
             parsers: HashMap::default(),
-            pattern_matcher: SIMDPatternMatcher::new(),
+            pattern_matcher: SIMDPatternMatcher::default(),
             max_batch_size,
         }
     }
@@ -373,16 +385,19 @@ impl BatchEventParser {
 /// Statistics for batch parser performance monitoring
 #[derive(Debug, Clone)]
 pub struct BatchParserStats {
+    /// Number of registered protocol parsers
     pub registered_parsers: usize,
+    /// Maximum batch size configured
     pub max_batch_size: usize,
+    /// Number of discriminator patterns registered
     pub pattern_count: usize,
 }
 
 /// Connection pool for RPC calls during parsing
 pub struct RpcConnectionPool {
-    /// Pool of RPC clients
+    /// Pool of shared RPC client instances
     clients: Vec<Arc<solana_client::rpc_client::RpcClient>>,
-    /// Current index for round-robin
+    /// Current index for round-robin client selection
     current: std::sync::atomic::AtomicUsize,
 }
 
@@ -396,7 +411,7 @@ impl RpcConnectionPool {
 
         Self {
             clients,
-            current: std::sync::atomic::AtomicUsize::new(0),
+            current: std::sync::atomic::AtomicUsize::default(),
         }
     }
 
@@ -435,7 +450,7 @@ mod tests {
 
     #[test]
     fn test_simd_pattern_matcher() {
-        let mut matcher = SIMDPatternMatcher::new();
+        let mut matcher = SIMDPatternMatcher::default();
         matcher.add_pattern(vec![0x09], ProtocolType::RaydiumAmmV4);
 
         let data = vec![0x09, 0x01, 0x02, 0x03];

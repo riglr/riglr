@@ -700,8 +700,7 @@ async fn query_newsapi(
                 .get("publishedAt")
                 .and_then(|v| v.as_str())
                 .and_then(|s| DateTime::parse_from_rfc3339(s).ok())
-                .map(|dt| dt.with_timezone(&Utc))
-                .unwrap_or_else(Utc::now);
+                .map_or_else(Utc::now, |dt| dt.with_timezone(&Utc));
             let description = a
                 .get("description")
                 .and_then(|v| v.as_str())
@@ -822,8 +821,7 @@ async fn query_cryptopanic(
                 .get("published_at")
                 .and_then(|v| v.as_str())
                 .and_then(|s| DateTime::parse_from_rfc3339(s).ok())
-                .map(|dt| dt.with_timezone(&Utc))
-                .unwrap_or_else(Utc::now);
+                .map_or_else(Utc::now, |dt| dt.with_timezone(&Utc));
             let domain = item.get("domain").and_then(|v| v.as_str()).unwrap_or("");
             let source_obj = item.get("source").cloned().unwrap_or_default();
             let source = NewsSource {
@@ -1072,8 +1070,7 @@ async fn fetch_trending_articles(
                             .get("published_at")
                             .and_then(|v| v.as_str())
                             .and_then(|s| DateTime::parse_from_rfc3339(s).ok())
-                            .map(|dt| dt.with_timezone(&Utc))
-                            .unwrap_or_else(Utc::now);
+                            .map_or_else(Utc::now, |dt| dt.with_timezone(&Utc));
                         out.push(NewsArticle {
                             id: format!(
                                 "cp_trending_{}_{}",
@@ -1157,8 +1154,7 @@ async fn fetch_trending_articles(
                             .get("publishedAt")
                             .and_then(|v| v.as_str())
                             .and_then(|s| DateTime::parse_from_rfc3339(s).ok())
-                            .map(|dt| dt.with_timezone(&Utc))
-                            .unwrap_or_else(Utc::now);
+                            .map_or_else(Utc::now, |dt| dt.with_timezone(&Utc));
                         // Parse and analyze the article properly
                         let description = a
                             .get("description")
@@ -1238,7 +1234,7 @@ async fn fetch_trending_articles(
 }
 
 fn hash64(s: &str) -> u64 {
-    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    let mut hasher = std::collections::hash_map::DefaultHasher::default();
     s.hash(&mut hasher);
     hasher.finish()
 }
@@ -1937,7 +1933,7 @@ fn calculate_quality_metrics(
     let _has_content = content.is_some() && !content.as_ref().unwrap().is_empty();
 
     // Content depth based on length and structure
-    let content_length = content.as_ref().map(|c| c.len()).unwrap_or(0);
+    let content_length = content.as_ref().map_or(0, |c| c.len());
     let depth_score = if content_length > 2000 {
         85
     } else if content_length > 1000 {

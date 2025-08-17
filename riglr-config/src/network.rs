@@ -202,6 +202,9 @@ impl NetworkConfig {
         chains
     }
 
+    /// Validates the network configuration
+    ///
+    /// Checks that all URLs are properly formatted and contract addresses are valid
     pub fn validate(&self) -> ConfigResult<()> {
         // Validate Solana RPC URL
         if !self.solana_rpc_url.starts_with("http://")

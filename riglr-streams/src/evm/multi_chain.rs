@@ -1,14 +1,14 @@
 use crate::core::{Stream, StreamError, StreamManager};
 use crate::evm::{ChainId, EvmStreamConfig, EvmWebSocketStream};
-use std::collections::HashMap;
+use dashmap::DashMap;
 use std::sync::Arc;
-use tokio::sync::RwLock;
 use tracing::{info, warn};
 
 /// Multi-chain EVM stream manager
+#[derive(Default)]
 pub struct MultiChainEvmManager {
     /// Streams by chain ID
-    streams: Arc<RwLock<HashMap<ChainId, EvmWebSocketStream>>>,
+    streams: Arc<DashMap<ChainId, EvmWebSocketStream>>,
     /// Stream manager reference
     stream_manager: Option<Arc<StreamManager>>,
 }
@@ -16,10 +16,7 @@ pub struct MultiChainEvmManager {
 impl MultiChainEvmManager {
     /// Create a new multi-chain EVM manager
     pub fn new() -> Self {
-        Self {
-            streams: Arc::new(RwLock::new(HashMap::new())),
-            stream_manager: None,
-        }
+        Self::default()
     }
 
     /// Set the stream manager
@@ -46,7 +43,7 @@ impl MultiChainEvmManager {
         stream.start(stream_config).await?;
 
         // Add to local collection
-        self.streams.write().await.insert(chain_id, stream);
+        self.streams.insert(chain_id, stream);
 
         // If we have a stream manager, register with it
         if let Some(_manager) = &self.stream_manager {
@@ -60,7 +57,7 @@ impl MultiChainEvmManager {
 
     /// Remove a chain
     pub async fn remove_chain(&self, chain_id: ChainId) -> Result<(), StreamError> {
-        if let Some(mut stream) = self.streams.write().await.remove(&chain_id) {
+        if let Some((_, mut stream)) = self.streams.remove(&chain_id) {
             stream.stop().await?;
             info!("Removed EVM stream for chain: {}", chain_id);
         }
@@ -121,10 +118,12 @@ impl MultiChainEvmManager {
 
     /// Stop all streams
     pub async fn stop_all(&self) -> Result<(), StreamError> {
-        let mut streams = self.streams.write().await;
-        for (chain_id, mut stream) in streams.drain() {
-            if let Err(e) = stream.stop().await {
-                warn!("Failed to stop stream for chain {}: {}", chain_id, e);
+        let streams: Vec<_> = self.streams.iter().map(|entry| *entry.key()).collect();
+        for chain_id in streams {
+            if let Some((_, mut stream)) = self.streams.remove(&chain_id) {
+                if let Err(e) = stream.stop().await {
+                    warn!("Failed to stop stream for chain {}: {}", chain_id, e);
+                }
             }
         }
         Ok(())
@@ -132,12 +131,7 @@ impl MultiChainEvmManager {
 
     /// Get list of active chains
     pub async fn active_chains(&self) -> Vec<ChainId> {
-        self.streams.read().await.keys().cloned().collect()
+        self.streams.iter().map(|entry| *entry.key()).collect()
     }
 }
 
-impl Default for MultiChainEvmManager {
-    fn default() -> Self {
-        Self::new()
-    }
-}

@@ -11,6 +11,7 @@ use std::future::Future;
 use std::str::FromStr;
 use std::sync::Arc;
 
+/// Type alias for an Arc-wrapped Ethereum provider
 pub type EvmProvider = Arc<dyn Provider<Ethereum>>;
 
 /// Maps chain IDs to RPC URLs using convention-based environment variable lookup.

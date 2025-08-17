@@ -226,6 +226,7 @@ pub struct UniswapSwapResult {
 /// # Ok(())
 /// # }
 /// ```
+#[allow(missing_docs)]
 #[tool]
 pub async fn get_uniswap_quote(
     token_in: String,
@@ -372,6 +373,7 @@ pub async fn get_uniswap_quote(
 /// # Ok(())
 /// # }
 /// ```
+#[allow(missing_docs)]
 #[tool]
 pub async fn perform_uniswap_swap(
     token_in: String,
@@ -551,27 +553,46 @@ fn format_amount_with_decimals(amount: U256, decimals: u8) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    
+    // Environment variable constants to avoid string literals
+    const REDIS_URL: &str = "REDIS_URL";
+    const SOLANA_RPC_URL: &str = "SOLANA_RPC_URL";
+    const RPC_URL_1: &str = "RPC_URL_1";
+    const RPC_URL_8453: &str = "RPC_URL_8453";
+    const PORT: &str = "PORT";
+    const ENVIRONMENT: &str = "ENVIRONMENT";
+    const LOG_LEVEL: &str = "LOG_LEVEL";
+    const ENABLE_TRADING: &str = "ENABLE_TRADING";
+    const ENABLE_BRIDGING: &str = "ENABLE_BRIDGING";
+    const ENABLE_SOCIAL_MONITORING: &str = "ENABLE_SOCIAL_MONITORING";
+    const ENABLE_GRAPH_MEMORY: &str = "ENABLE_GRAPH_MEMORY";
+    const USE_TESTNET: &str = "USE_TESTNET";
+    const MAX_RETRY_ATTEMPTS: &str = "MAX_RETRY_ATTEMPTS";
+    const RETRY_DELAY_MS: &str = "RETRY_DELAY_MS";
+    const RETRY_BACKOFF_MULTIPLIER: &str = "RETRY_BACKOFF_MULTIPLIER";
+    const RIGLR_CHAINS_CONFIG: &str = "RIGLR_CHAINS_CONFIG";
 
     #[test]
     #[ignore] // Skip due to environment dependency
     fn test_uniswap_config_for_chains() {
         // Set required environment variables for config
         unsafe {
-            std::env::set_var("REDIS_URL", "redis://localhost:6379");
-            std::env::set_var("SOLANA_RPC_URL", "https://api.devnet.solana.com");
-            std::env::set_var("RPC_URL_1", "https://eth-mainnet.alchemyapi.io/v2/test");
-            std::env::set_var("RPC_URL_8453", "https://base-mainnet.g.alchemy.com/v2/test");
-            std::env::set_var("PORT", "8080");
-            std::env::set_var("ENVIRONMENT", "development");
-            std::env::set_var("LOG_LEVEL", "info");
-            std::env::set_var("ENABLE_TRADING", "true");
-            std::env::set_var("ENABLE_BRIDGING", "true");
-            std::env::set_var("ENABLE_SOCIAL_MONITORING", "true");
-            std::env::set_var("ENABLE_GRAPH_MEMORY", "true");
-            std::env::set_var("USE_TESTNET", "false");
-            std::env::set_var("MAX_RETRY_ATTEMPTS", "3");
-            std::env::set_var("RETRY_DELAY_MS", "1000");
-            std::env::set_var("RETRY_BACKOFF_MULTIPLIER", "2.0");
+            // SAFETY: Setting test environment variables in isolated test context
+            std::env::set_var(REDIS_URL, "redis://localhost:6379");
+            std::env::set_var(SOLANA_RPC_URL, "https://api.devnet.solana.com");
+            std::env::set_var(RPC_URL_1, "https://eth-mainnet.alchemyapi.io/v2/test");
+            std::env::set_var(RPC_URL_8453, "https://base-mainnet.g.alchemy.com/v2/test");
+            std::env::set_var(PORT, "8080");
+            std::env::set_var(ENVIRONMENT, "development");
+            std::env::set_var(LOG_LEVEL, "info");
+            std::env::set_var(ENABLE_TRADING, "true");
+            std::env::set_var(ENABLE_BRIDGING, "true");
+            std::env::set_var(ENABLE_SOCIAL_MONITORING, "true");
+            std::env::set_var(ENABLE_GRAPH_MEMORY, "true");
+            std::env::set_var(USE_TESTNET, "false");
+            std::env::set_var(MAX_RETRY_ATTEMPTS, "3");
+            std::env::set_var(RETRY_DELAY_MS, "1000");
+            std::env::set_var(RETRY_BACKOFF_MULTIPLIER, "2.0");
         }
 
         let eth_config = UniswapConfig::ethereum();
@@ -599,13 +620,15 @@ quoter = "0x3d4e44Eb1374240CE5F1B871ab261CD16335B76a"
 factory = "0x33128a8fC17869897dcE68Ed026d694621f6FDfD"
 "#;
 
-        // Write test config to temporary file
-        let temp_path = "/tmp/test_swap_internal_chains.toml";
-        std::fs::write(temp_path, test_config).unwrap();
+        // Write test config to temporary file using tempfile for security
+        let temp_file = tempfile::NamedTempFile::new().unwrap();
+        let temp_path = temp_file.path().to_string_lossy().to_string();
+        std::fs::write(&temp_path, test_config).unwrap();
 
         // Set environment variable to use test config
         unsafe {
-            std::env::set_var("RIGLR_CHAINS_CONFIG", temp_path);
+            // SAFETY: Setting test environment variable in isolated test context
+            std::env::set_var(RIGLR_CHAINS_CONFIG, &temp_path);
         }
 
         let config_by_id = UniswapConfig::for_chain(1).unwrap();
@@ -619,9 +642,10 @@ factory = "0x33128a8fC17869897dcE68Ed026d694621f6FDfD"
 
         // Cleanup
         unsafe {
-            std::env::remove_var("RIGLR_CHAINS_CONFIG");
+            // SAFETY: Removing test environment variable in isolated test context
+            std::env::remove_var(RIGLR_CHAINS_CONFIG);
         }
-        std::fs::remove_file(temp_path).ok();
+        std::fs::remove_file(&temp_path).ok();
     }
 
     #[test]

@@ -500,11 +500,13 @@ pub struct TransactionResult {
     pub amount_display: String,
     /// Transaction status
     pub status: TransactionStatus,
+    /// Optional memo included with the transaction
     pub memo: Option<String>,
     /// Idempotency key if provided
     pub idempotency_key: Option<String>,
 }
 
+/// Result of an SPL token transfer transaction
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct TokenTransferResult {
     /// Transaction signature
@@ -513,10 +515,13 @@ pub struct TokenTransferResult {
     pub from: String,
     /// Recipient address
     pub to: String,
+    /// SPL token mint address
     pub mint: String,
     /// Raw amount transferred
     pub amount: u64,
+    /// UI-formatted amount (adjusted for decimals)
     pub ui_amount: f64,
+    /// Number of decimal places for the token
     pub decimals: u8,
     /// Human-readable amount display
     pub amount_display: String,
@@ -526,14 +531,20 @@ pub struct TokenTransferResult {
     pub idempotency_key: Option<String>,
 }
 
+/// Result of creating a new SPL token mint
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct CreateMintResult {
     /// Transaction signature
     pub signature: String,
+    /// Address of the newly created token mint
     pub mint_address: String,
+    /// Mint authority address
     pub authority: String,
+    /// Number of decimal places for the token
     pub decimals: u8,
+    /// Initial supply of tokens minted
     pub initial_supply: u64,
+    /// Whether token accounts can be frozen
     pub freezable: bool,
 }
 

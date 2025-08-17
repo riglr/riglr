@@ -39,6 +39,7 @@ once_cell = "1.19"
 
 # High-performance parsing dependencies
 memmap2 = "0.9"
+dashmap = "6.1"
 
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }

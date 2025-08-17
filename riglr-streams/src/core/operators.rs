@@ -185,8 +185,11 @@ pub enum BufferStrategy {
 
 /// Stream that maps events through a transformation
 pub struct MappedStream<S, F, R> {
+    /// The underlying stream
     inner: S,
+    /// The transformation function
     transform: Arc<F>,
+    /// Phantom data for the result type
     _phantom: PhantomData<R>,
 }
 
@@ -196,6 +199,7 @@ where
     F: Fn(Arc<S::Event>) -> R + Send + Sync + 'static,
     R: Event + Clone + Send + Sync + 'static,
 {
+    /// Create a new mapped stream
     pub fn new(inner: S, transform: F) -> Self {
         Self {
             inner,
@@ -253,7 +257,9 @@ where
 
 /// Stream that filters events based on a predicate
 pub struct FilteredStream<S, F> {
+    /// The underlying stream
     inner: S,
+    /// The filter predicate
     predicate: Arc<F>,
 }
 
@@ -262,6 +268,7 @@ where
     S: Stream,
     F: Fn(&S::Event) -> bool + Send + Sync + 'static,
 {
+    /// Create a new filtered stream
     pub fn new(inner: S, predicate: F) -> Self {
         Self {
             inner,
@@ -318,8 +325,11 @@ where
 
 /// Stream that merges events from two streams
 pub struct MergedStream<S1, S2> {
+    /// First stream to merge
     stream1: S1,
+    /// Second stream to merge
     stream2: S2,
+    /// Name of the merged stream
     name: String,
 }
 
@@ -328,6 +338,7 @@ where
     S1: Stream,
     S2: Stream,
 {
+    /// Create a new merged stream
     pub fn new(stream1: S1, stream2: S2) -> Self {
         let name = format!("merged({},{})", stream1.name(), stream2.name());
         Self {
@@ -370,14 +381,14 @@ where
 
         tokio::spawn(async move {
             while let Ok(event) = rx1.recv().await {
-                let merged = MergedEvent::First((*event).clone());
+                let merged = MergedEvent::First(Arc::try_unwrap(event).unwrap_or_else(|arc| (*arc).clone()));
                 let _ = tx1.send(Arc::new(merged));
             }
         });
 
         tokio::spawn(async move {
             while let Ok(event) = rx2.recv().await {
-                let merged = MergedEvent::Second((*event).clone());
+                let merged = MergedEvent::Second(Arc::try_unwrap(event).unwrap_or_else(|arc| (*arc).clone()));
                 let _ = tx2.send(Arc::new(merged));
             }
         });
@@ -415,7 +426,9 @@ where
 /// Unified event type for merged streams
 #[derive(Clone, Debug)]
 pub enum MergedEvent<E1, E2> {
+    /// Event from the first stream
     First(E1),
+    /// Event from the second stream
     Second(E2),
 }
 
@@ -468,8 +481,11 @@ where
 /// Event wrapper for batched events
 #[derive(Clone, Debug)]
 pub struct BatchEvent<E> {
+    /// The events in this batch
     pub events: Vec<Arc<E>>,
+    /// Unique identifier for this batch
     pub batch_id: String,
+    /// Timestamp when the batch was created
     pub timestamp: std::time::SystemTime,
 }
 
@@ -520,13 +536,18 @@ where
 
 /// Stream that batches events
 pub struct BatchedStream<S> {
+    /// The underlying stream
     inner: S,
+    /// Maximum number of events per batch
     batch_size: usize,
+    /// Maximum time to wait before emitting a batch
     timeout: Duration,
+    /// Name of the batched stream
     name: String,
 }
 
 impl<S: Stream> BatchedStream<S> {
+    /// Create a new batched stream
     pub fn new(inner: S, batch_size: usize, timeout: Duration) -> Self {
         let name = format!("batched({})", inner.name());
         Self {
@@ -613,12 +634,16 @@ where
 
 /// Stream that debounces events
 pub struct DebouncedStream<S> {
+    /// The underlying stream
     inner: S,
+    /// Debounce duration
     duration: Duration,
+    /// Name of the debounced stream
     name: String,
 }
 
 impl<S: Stream> DebouncedStream<S> {
+    /// Create a new debounced stream
     pub fn new(inner: S, duration: Duration) -> Self {
         let name = format!("debounced({})", inner.name());
         Self {
@@ -660,12 +685,12 @@ where
                 }
 
                 let tx_clone = tx.clone();
-                let event_clone = event;
+                let event_to_send = event;
 
                 // Start new timeout
                 timeout_task = Some(tokio::spawn(async move {
                     tokio::time::sleep(duration).await;
-                    let _ = tx_clone.send(event_clone);
+                    let _ = tx_clone.send(event_to_send);
                 }));
             }
         });
@@ -688,12 +713,16 @@ where
 
 /// Stream that throttles events
 pub struct ThrottledStream<S> {
+    /// The underlying stream
     inner: S,
+    /// Throttle interval
     duration: Duration,
+    /// Name of the throttled stream
     name: String,
 }
 
 impl<S: Stream> ThrottledStream<S> {
+    /// Create a new throttled stream
     pub fn new(inner: S, duration: Duration) -> Self {
         let name = format!("throttled({})", inner.name());
         Self {
@@ -761,13 +790,18 @@ where
 
 /// Stream that takes only N events
 pub struct TakeStream<S> {
+    /// The underlying stream
     inner: S,
+    /// Maximum number of events to take
     count: usize,
+    /// Counter of events taken so far
     taken: Arc<RwLock<usize>>,
+    /// Name of the take stream
     name: String,
 }
 
 impl<S: Stream> TakeStream<S> {
+    /// Create a new take stream
     pub fn new(inner: S, count: usize) -> Self {
         let name = format!("take({},{})", count, inner.name());
         Self {
@@ -833,13 +867,18 @@ where
 /// Stream that skips N events
 #[allow(dead_code)]
 pub struct SkipStream<S> {
+    /// The underlying stream
     inner: S,
+    /// Number of events to skip
     count: usize,
+    /// Counter of events skipped so far
     skipped: Arc<RwLock<usize>>,
+    /// Name of the skip stream
     name: String,
 }
 
 impl<S: Stream> SkipStream<S> {
+    /// Create a new skip stream
     pub fn new(inner: S, count: usize) -> Self {
         let name = format!("skip({},{})", count, inner.name());
         Self {
@@ -853,9 +892,13 @@ impl<S: Stream> SkipStream<S> {
 
 /// Stream with stateful transformation (scan)
 pub struct ScanStream<S, St, F> {
+    /// The underlying stream
     inner: S,
+    /// Current state of the scan
     state: Arc<RwLock<St>>,
+    /// State transformation function
     transform: Arc<F>,
+    /// Name of the scan stream
     name: String,
 }
 
@@ -865,6 +908,7 @@ where
     St: Clone + Send + Sync + 'static,
     F: Fn(St, Arc<S::Event>) -> St + Send + Sync + 'static,
 {
+    /// Create a new scan stream
     pub fn new(inner: S, initial_state: St, transform: F) -> Self {
         let name = format!("scan({})", inner.name());
         Self {
@@ -879,9 +923,13 @@ where
 /// Event wrapper for scan results
 #[derive(Clone, Debug)]
 pub struct ScanEvent<S, E> {
+    /// Current state after transformation
     pub state: S,
+    /// Original event that triggered the scan
     pub original_event: Arc<E>,
+    /// Unique identifier for this scan event
     pub scan_id: String,
+    /// Timestamp when the scan was performed
     pub timestamp: std::time::SystemTime,
 }
 
@@ -952,19 +1000,19 @@ where
                     state_guard.clone()
                 };
 
-                let new_state = (transform)(current_state.clone(), event.clone());
-
-                {
-                    let mut state_guard = state.write().await;
-                    *state_guard = new_state.clone();
-                }
+                let new_state = (transform)(current_state, event.clone());
 
                 let scan_event = ScanEvent {
-                    state: new_state,
+                    state: new_state.clone(),
                     original_event: event,
                     scan_id: format!("scan_{}", counter),
                     timestamp: std::time::SystemTime::now(),
                 };
+
+                {
+                    let mut state_guard = state.write().await;
+                    *state_guard = new_state;
+                }
                 counter += 1;
 
                 let _ = tx.send(Arc::new(scan_event));
@@ -997,6 +1045,7 @@ pub struct BufferedStream<S: Stream> {
 }
 
 impl<S: Stream> BufferedStream<S> {
+    /// Create a new buffered stream
     pub fn new(inner: S, strategy: BufferStrategy) -> Self {
         let name = format!("buffered({})", inner.name());
         Self {
@@ -1024,6 +1073,7 @@ where
     MapF: Fn(Arc<S::Event>) -> R + Send + Sync + 'static,
     R: Event + Clone + Send + Sync + 'static,
 {
+    /// Create a new filter-map stream
     pub fn new(inner: S, filter: FilterF, map: MapF) -> Self {
         let name = format!("filter_map({})", inner.name());
         Self {
@@ -1116,6 +1166,7 @@ pub struct ResilientStream<S> {
 }
 
 impl<S: Stream> ResilientStream<S> {
+    /// Create a new resilient stream
     pub fn new(inner: S, max_retries: usize, retry_delay: Duration) -> Self {
         let name = format!("resilient({})", inner.name());
         Self {
@@ -1342,6 +1393,7 @@ pub struct TypeErasedEvent {
 }
 
 impl TypeErasedEvent {
+    /// Create a new type-erased event
     pub fn new(event: Arc<dyn Event>, source_stream: String) -> Self {
         Self {
             inner: event,

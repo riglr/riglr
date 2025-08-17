@@ -3,8 +3,9 @@
 //! Specialized operators for common DeFi and trading patterns
 
 use async_trait::async_trait;
+use dashmap::DashMap;
 use std::any::Any;
-use std::collections::{HashMap, VecDeque};
+use std::collections::VecDeque;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 use tokio::sync::{broadcast, RwLock};
@@ -40,10 +41,15 @@ pub trait AsNumeric {
 /// Financial indicator event wrapper
 #[derive(Clone, Debug)]
 pub struct FinancialEvent<T, E> {
+    /// Event metadata containing ID, kind, and source information
     pub metadata: riglr_events_core::EventMetadata,
+    /// The calculated indicator value (e.g., VWAP, RSI, etc.)
     pub indicator_value: T,
+    /// Reference to the original event that triggered this indicator
     pub original_event: Arc<E>,
+    /// Type of financial indicator (e.g., "VWAP", "RSI", "Bollinger")
     pub indicator_type: String,
+    /// Timestamp when this indicator was calculated
     pub timestamp: SystemTime,
 }
 
@@ -95,13 +101,18 @@ where
 
 /// Volume-Weighted Average Price (VWAP) calculation
 pub struct VwapStream<S> {
+    /// The underlying stream to process
     inner: S,
+    /// Time window for VWAP calculation
     window: Duration,
+    /// Sliding window of (price, volume, timestamp) tuples
     price_volume_pairs: Arc<RwLock<VecDeque<(f64, f64, SystemTime)>>>,
+    /// Name of this stream for identification
     name: String,
 }
 
 impl<S: Stream> VwapStream<S> {
+    /// Creates a new VWAP stream with the specified time window
     pub fn new(inner: S, window: Duration) -> Self {
         let name = format!("vwap({})", inner.name());
         Self {
@@ -112,6 +123,7 @@ impl<S: Stream> VwapStream<S> {
         }
     }
 
+    /// Calculates the current VWAP based on stored price-volume pairs
     #[allow(dead_code)]
     async fn calculate_vwap(&self) -> f64 {
         let mut pairs = self.price_volume_pairs.write().await;
@@ -134,7 +146,7 @@ impl<S: Stream> VwapStream<S> {
         }
     }
 
-    // Extract price/volume using AsNumeric trait
+    /// Extract price/volume using AsNumeric trait
     fn extract_price_volume(event: &S::Event) -> Option<(f64, f64)>
     where
         S::Event: AsNumeric,
@@ -237,15 +249,19 @@ where
     }
 }
 
-/// Moving average calculation
+/// Moving average calculation stream
 #[allow(dead_code)]
 pub struct MovingAverageStream<S> {
+    /// The underlying stream to process
     inner: S,
+    /// Number of values to include in the moving average
     window_size: usize,
+    /// Sliding window of values for calculation
     values: Arc<RwLock<VecDeque<f64>>>,
 }
 
 impl<S: Stream> MovingAverageStream<S> {
+    /// Creates a new moving average stream with the specified window size
     pub fn new(inner: S, window_size: usize) -> Self {
         Self {
             inner,
@@ -254,6 +270,7 @@ impl<S: Stream> MovingAverageStream<S> {
         }
     }
 
+    /// Adds a new value to the moving average window and returns the updated average
     #[allow(dead_code)]
     async fn add_value(&self, value: f64) -> f64 {
         let mut values = self.values.write().await;
@@ -268,15 +285,19 @@ impl<S: Stream> MovingAverageStream<S> {
     }
 }
 
-/// Exponential moving average
+/// Exponential moving average stream
 #[allow(dead_code)]
 pub struct EmaStream<S> {
+    /// The underlying stream to process
     inner: S,
+    /// Smoothing factor (alpha) for the EMA calculation
     alpha: f64,
+    /// Current EMA value, None if no values processed yet
     current_ema: Arc<RwLock<Option<f64>>>,
 }
 
 impl<S: Stream> EmaStream<S> {
+    /// Creates a new EMA stream with the specified number of periods
     pub fn new(inner: S, periods: usize) -> Self {
         let alpha = 2.0 / (periods as f64 + 1.0);
         Self {
@@ -286,6 +307,7 @@ impl<S: Stream> EmaStream<S> {
         }
     }
 
+    /// Updates the EMA with a new value and returns the calculated EMA
     #[allow(dead_code)]
     async fn update(&self, value: f64) -> f64 {
         let mut ema = self.current_ema.write().await;
@@ -300,16 +322,21 @@ impl<S: Stream> EmaStream<S> {
     }
 }
 
-/// Bollinger Bands calculation
+/// Bollinger Bands calculation stream
 #[allow(dead_code)]
 pub struct BollingerBandsStream<S> {
+    /// The underlying stream to process
     inner: S,
+    /// Number of periods for the moving average and standard deviation
     window: usize,
+    /// Multiplier for standard deviation to create upper/lower bands
     std_dev_multiplier: f64,
+    /// Sliding window of values for calculation
     values: Arc<RwLock<VecDeque<f64>>>,
 }
 
 impl<S: Stream> BollingerBandsStream<S> {
+    /// Creates a new Bollinger Bands stream with specified window and standard deviation multiplier
     pub fn new(inner: S, window: usize, std_dev_multiplier: f64) -> Self {
         Self {
             inner,
@@ -319,6 +346,7 @@ impl<S: Stream> BollingerBandsStream<S> {
         }
     }
 
+    /// Calculates Bollinger Bands for the given value
     #[allow(dead_code)]
     async fn calculate_bands(&self, value: f64) -> BollingerBands {
         let mut values = self.values.write().await;
@@ -342,25 +370,36 @@ impl<S: Stream> BollingerBandsStream<S> {
     }
 }
 
+/// Bollinger Bands calculation result
 #[derive(Debug, Clone)]
 pub struct BollingerBands {
+    /// Upper band (mean + std_dev_multiplier * std_dev)
     pub upper: f64,
+    /// Middle band (simple moving average)
     pub middle: f64,
+    /// Lower band (mean - std_dev_multiplier * std_dev)
     pub lower: f64,
+    /// Current price value
     pub current_value: f64,
 }
 
-/// RSI (Relative Strength Index) calculation
+/// RSI (Relative Strength Index) calculation stream
 #[allow(dead_code)]
 pub struct RsiStream<S> {
+    /// The underlying stream to process
     inner: S,
+    /// Period for RSI calculation (typically 14)
     period: usize,
+    /// Window of gains for average gain calculation
     gains: Arc<RwLock<VecDeque<f64>>>,
+    /// Window of losses for average loss calculation
     losses: Arc<RwLock<VecDeque<f64>>>,
+    /// Last processed value for calculating price changes
     last_value: Arc<RwLock<Option<f64>>>,
 }
 
 impl<S: Stream> RsiStream<S> {
+    /// Creates a new RSI stream with the specified period
     pub fn new(inner: S, period: usize) -> Self {
         Self {
             inner,
@@ -371,6 +410,7 @@ impl<S: Stream> RsiStream<S> {
         }
     }
 
+    /// Calculates RSI for the given value, returns None until enough data is collected
     #[allow(dead_code)]
     async fn calculate_rsi(&self, value: f64) -> Option<f64> {
         let mut last = self.last_value.write().await;
@@ -411,14 +451,17 @@ impl<S: Stream> RsiStream<S> {
     }
 }
 
-/// Order book imbalance calculator
+/// Order book imbalance calculator stream
 #[allow(dead_code)]
 pub struct OrderBookImbalanceStream<S> {
+    /// The underlying stream to process
     inner: S,
+    /// Number of order book depth levels to consider
     depth_levels: usize,
 }
 
 impl<S: Stream> OrderBookImbalanceStream<S> {
+    /// Creates a new order book imbalance stream with specified depth levels
     pub fn new(inner: S, depth_levels: usize) -> Self {
         Self {
             inner,
@@ -426,6 +469,7 @@ impl<S: Stream> OrderBookImbalanceStream<S> {
         }
     }
 
+    /// Calculates order book imbalance from bid/ask data
     pub fn calculate_imbalance(bids: &[(f64, f64)], asks: &[(f64, f64)]) -> f64 {
         let bid_volume: f64 = bids.iter().take(5).map(|(_, vol)| vol).sum();
         let ask_volume: f64 = asks.iter().take(5).map(|(_, vol)| vol).sum();
@@ -438,15 +482,19 @@ impl<S: Stream> OrderBookImbalanceStream<S> {
     }
 }
 
-/// Price momentum indicator
+/// Price momentum indicator stream
 #[allow(dead_code)]
 pub struct MomentumStream<S> {
+    /// The underlying stream to process
     inner: S,
+    /// Number of periods to look back for momentum calculation
     lookback_period: usize,
+    /// Historical price data for momentum calculation
     price_history: Arc<RwLock<VecDeque<f64>>>,
 }
 
 impl<S: Stream> MomentumStream<S> {
+    /// Creates a new momentum stream with specified lookback period
     pub fn new(inner: S, lookback_period: usize) -> Self {
         Self {
             inner,
@@ -455,6 +503,7 @@ impl<S: Stream> MomentumStream<S> {
         }
     }
 
+    /// Calculates price momentum as percentage change from lookback period
     #[allow(dead_code)]
     async fn calculate_momentum(&self, current_price: f64) -> Option<f64> {
         let mut history = self.price_history.write().await;
@@ -473,33 +522,41 @@ impl<S: Stream> MomentumStream<S> {
     }
 }
 
-/// Liquidity pool balance tracker
+/// Liquidity pool balance tracker stream
 #[allow(dead_code)]
 pub struct LiquidityPoolStream<S> {
+    /// The underlying stream to process
     inner: S,
-    pools: Arc<RwLock<HashMap<String, PoolState>>>,
+    /// Map of pool ID to pool state using high-performance concurrent map
+    pools: Arc<DashMap<String, PoolState>>,
 }
 
+/// State of a liquidity pool
 #[derive(Debug, Clone)]
 pub struct PoolState {
+    /// Reserve amount of token A
     pub token_a_reserve: f64,
+    /// Reserve amount of token B
     pub token_b_reserve: f64,
+    /// Constant product (k = x * y)
     pub k_constant: f64,
+    /// Last time this pool state was updated
     pub last_updated: SystemTime,
 }
 
 impl<S: Stream> LiquidityPoolStream<S> {
+    /// Creates a new liquidity pool tracker stream
     pub fn new(inner: S) -> Self {
         Self {
             inner,
-            pools: Arc::new(RwLock::new(HashMap::new())),
+            pools: Arc::new(DashMap::new()),
         }
     }
 
+    /// Updates the state of a liquidity pool
     #[allow(dead_code)]
     async fn update_pool(&self, pool_id: String, token_a: f64, token_b: f64) {
-        let mut pools = self.pools.write().await;
-        pools.insert(
+        self.pools.insert(
             pool_id,
             PoolState {
                 token_a_reserve: token_a,
@@ -510,10 +567,10 @@ impl<S: Stream> LiquidityPoolStream<S> {
         );
     }
 
+    /// Calculates the price impact of a trade on the pool
     #[allow(dead_code)]
     async fn calculate_price_impact(&self, pool_id: &str, trade_amount: f64) -> Option<f64> {
-        let pools = self.pools.read().await;
-        if let Some(pool) = pools.get(pool_id) {
+        if let Some(pool) = self.pools.get(pool_id) {
             let new_reserve_a = pool.token_a_reserve + trade_amount;
             let new_reserve_b = pool.k_constant / new_reserve_a;
             let amount_out = pool.token_b_reserve - new_reserve_b;
@@ -525,31 +582,44 @@ impl<S: Stream> LiquidityPoolStream<S> {
     }
 }
 
-/// MEV (Maximum Extractable Value) detection
+/// MEV (Maximum Extractable Value) detection stream
 #[allow(dead_code)]
 pub struct MevDetectionStream<S> {
+    /// The underlying stream to process
     inner: S,
+    /// Time window for MEV pattern detection
     window: Duration,
+    /// Transaction patterns within the detection window
     transactions: Arc<RwLock<VecDeque<TransactionPattern>>>,
 }
 
+/// Transaction pattern for MEV detection
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
 struct TransactionPattern {
+    /// Transaction hash identifier
     pub tx_hash: String,
+    /// When this transaction was observed
     pub timestamp: SystemTime,
+    /// Type of MEV pattern detected
     pub pattern_type: MevType,
 }
 
+/// Types of MEV (Maximum Extractable Value) patterns
 #[derive(Debug, Clone)]
 pub enum MevType {
+    /// Sandwich attack - placing transactions before and after a target
     Sandwich,
+    /// Front-running - placing a transaction before a target transaction
     Frontrun,
+    /// Back-running - placing a transaction after a target transaction
     Backrun,
+    /// Arbitrage opportunity - price differences across markets
     Arbitrage,
 }
 
 impl<S: Stream> MevDetectionStream<S> {
+    /// Creates a new MEV detection stream with specified time window
     pub fn new(inner: S, window: Duration) -> Self {
         Self {
             inner,
@@ -558,6 +628,7 @@ impl<S: Stream> MevDetectionStream<S> {
         }
     }
 
+    /// Detects MEV patterns from transaction events
     #[allow(dead_code)]
     async fn detect_mev(&self, event: &dyn Event) -> Option<MevType> {
         // Simplified MEV detection logic
@@ -584,16 +655,21 @@ impl<S: Stream> MevDetectionStream<S> {
     }
 }
 
-/// Gas price oracle stream
+/// Gas price oracle stream for tracking network gas prices
 #[allow(dead_code)]
 pub struct GasPriceOracleStream<S> {
+    /// The underlying stream to process
     inner: S,
+    /// Percentiles to calculate for gas price estimates
     percentiles: Vec<usize>,
+    /// Historical gas prices for percentile calculation
     gas_prices: Arc<RwLock<VecDeque<f64>>>,
+    /// Number of historical prices to maintain
     window_size: usize,
 }
 
 impl<S: Stream> GasPriceOracleStream<S> {
+    /// Creates a new gas price oracle stream with specified window size
     pub fn new(inner: S, window_size: usize) -> Self {
         Self {
             inner,
@@ -603,6 +679,7 @@ impl<S: Stream> GasPriceOracleStream<S> {
         }
     }
 
+    /// Updates the gas price history and returns current estimates
     #[allow(dead_code)]
     async fn update_gas_price(&self, gas_price: f64) -> GasPriceEstimate {
         let mut prices = self.gas_prices.write().await;
@@ -624,11 +701,16 @@ impl<S: Stream> GasPriceOracleStream<S> {
     }
 }
 
+/// Gas price estimates at different priority levels
 #[derive(Debug, Clone)]
 pub struct GasPriceEstimate {
+    /// 25th percentile gas price (slow transactions)
     pub slow: f64,
+    /// 50th percentile gas price (standard transactions)
     pub standard: f64,
+    /// 75th percentile gas price (fast transactions)
     pub fast: f64,
+    /// 95th percentile gas price (instant transactions)
     pub instant: f64,
 }
 

@@ -20,7 +20,6 @@ async fn test_workspace_integration() -> anyhow::Result<()> {
     // 5. Verify error handling flows
 
     // For now, we just verify the test infrastructure works
-    assert!(true);
     Ok(())
 }
 
@@ -28,7 +27,6 @@ async fn test_workspace_integration() -> anyhow::Result<()> {
 fn test_workspace_builds() {
     // This test ensures the workspace can be built
     // The fact that this test runs means the build succeeded
-    assert!(true);
 }
 
 // Mock components for testing
@@ -122,7 +120,6 @@ mod workspace_validation {
         let _config = ExecutionConfig::default();
 
         // This test succeeds if it compiles
-        assert!(true);
     }
 
     #[test]
@@ -134,7 +131,6 @@ mod workspace_validation {
         let _event = AgentEvent::Start;
 
         // This test succeeds if it compiles
-        assert!(true);
     }
 
     #[test]
@@ -143,6 +139,5 @@ mod workspace_validation {
         // Note: Actually using the macro would require a more complex test setup
 
         // This test succeeds if it compiles
-        assert!(true);
     }
 }

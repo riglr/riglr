@@ -3,6 +3,7 @@
 //! This parser handles PumpFun protocol operations with optimized parsing
 //! for trading events and pool operations.
 
+use crate::metadata_helpers::{create_solana_metadata, set_event_type, set_protocol_type};
 use crate::types::{EventMetadata, EventType, ProtocolType};
 use crate::zero_copy::{ByteSliceEventParser, CustomDeserializer, ParseError, ZeroCopyEvent};
 use borsh::{BorshDeserialize, BorshSerialize};
@@ -16,11 +17,17 @@ pub const PUMP_FUN_PROGRAM_ID: &str = "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF
 /// PumpFun instruction discriminators
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PumpFunDiscriminator {
+    /// Buy tokens instruction
     Buy,
+    /// Sell tokens instruction
     Sell,
+    /// Create new pool instruction
     CreatePool,
+    /// Deposit liquidity instruction
     Deposit,
+    /// Withdraw liquidity instruction
     Withdraw,
+    /// Set pool parameters instruction
     SetParams,
 }
 
@@ -339,7 +346,7 @@ impl ByteSliceEventParser for PumpFunParser {
         }
 
         // Update metadata with protocol info
-        metadata.protocol_type = ProtocolType::PumpSwap;
+        set_protocol_type(&mut metadata, ProtocolType::PumpSwap);
 
         // Parse 8-byte discriminator
         let discriminator_bytes = &data[0..8];
@@ -362,7 +369,7 @@ impl ByteSliceEventParser for PumpFunParser {
             })?;
 
         // Update event type based on discriminator
-        metadata.event_type = discriminator_enum.event_type();
+        set_event_type(&mut metadata, discriminator_enum.event_type());
 
         let event = match discriminator_enum {
             PumpFunDiscriminator::Buy => self.parse_buy(data, metadata)?,
@@ -458,7 +465,18 @@ mod tests {
         data.extend_from_slice(&1000u64.to_le_bytes()); // amount
         data.extend_from_slice(&2000u64.to_le_bytes()); // max_price_per_token
 
-        let metadata = EventMetadata::default();
+        let metadata = create_solana_metadata(
+            String::new(),
+            riglr_events_core::EventKind::Transaction,
+            "test".to_string(),
+            0,
+            None,
+            None,
+            None,
+            None,
+            ProtocolType::PumpSwap,
+            EventType::default(),
+        );
         let events = parser.parse_from_slice(&data, metadata).unwrap();
 
         assert_eq!(events.len(), 1);

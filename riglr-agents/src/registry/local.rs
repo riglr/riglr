@@ -32,8 +32,8 @@ impl LocalAgentRegistry {
     pub fn with_config(config: RegistryConfig) -> Self {
         info!("Creating local agent registry with config: {:?}", config);
         Self {
-            agents: Default::default(),
-            statuses: Default::default(),
+            agents: RwLock::default(),
+            statuses: RwLock::default(),
             config,
         }
     }
@@ -75,8 +75,8 @@ impl Default for LocalAgentRegistry {
         let config = RegistryConfig::default();
         info!("Creating local agent registry with config: {:?}", config);
         Self {
-            agents: Default::default(),
-            statuses: Default::default(),
+            agents: RwLock::default(),
+            statuses: RwLock::default(),
             config,
         }
     }
@@ -277,7 +277,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_local_registry_registration() {
-        let registry = LocalAgentRegistry::new();
+        let registry = LocalAgentRegistry::default();
         let agent = Arc::new(TestAgent {
             id: AgentId::new("test-agent"),
             capabilities: vec!["trading".to_string()],
@@ -298,7 +298,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_local_registry_unregistration() {
-        let registry = LocalAgentRegistry::new();
+        let registry = LocalAgentRegistry::default();
         let agent = Arc::new(TestAgent {
             id: AgentId::new("test-agent"),
             capabilities: vec!["trading".to_string()],
@@ -324,7 +324,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_local_registry_capability_search() {
-        let registry = LocalAgentRegistry::new();
+        let registry = LocalAgentRegistry::default();
 
         let trading_agent = Arc::new(TestAgent {
             id: AgentId::new("trading-agent"),
@@ -366,7 +366,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_local_registry_status_management() {
-        let registry = LocalAgentRegistry::new();
+        let registry = LocalAgentRegistry::default();
         let agent = Arc::new(TestAgent {
             id: AgentId::new("test-agent"),
             capabilities: vec!["trading".to_string()],
@@ -407,7 +407,7 @@ mod tests {
     async fn test_local_registry_capacity_limits() {
         let config = RegistryConfig {
             max_agents: Some(2),
-            ..Default::default()
+            ..RegistryConfig::default()
         };
         let registry = LocalAgentRegistry::with_config(config);
 
@@ -436,7 +436,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_local_registry_stats() {
-        let registry = LocalAgentRegistry::new();
+        let registry = LocalAgentRegistry::default();
 
         let agent1 = Arc::new(TestAgent {
             id: AgentId::new("agent1"),
@@ -458,7 +458,7 @@ mod tests {
             load: 0.5,
             last_heartbeat: chrono::Utc::now(),
             capabilities: vec![],
-            metadata: std::collections::HashMap::default(),
+            metadata: HashMap::default(),
         };
         registry.update_agent_status(status).await.unwrap();
 
@@ -470,7 +470,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_local_registry_health_check() {
-        let registry = LocalAgentRegistry::new();
+        let registry = LocalAgentRegistry::default();
         assert!(registry.health_check().await.unwrap());
     }
 }

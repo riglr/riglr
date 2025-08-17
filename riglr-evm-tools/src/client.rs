@@ -16,8 +16,11 @@ use tracing::{debug, info};
 /// Configuration for EVM client
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EvmConfig {
+    /// RPC endpoint URL for connecting to the blockchain
     pub rpc_url: String,
+    /// Chain identifier for the blockchain network
     pub chain_id: u64,
+    /// Request timeout duration for RPC calls
     pub timeout: Duration,
 }
 
@@ -34,10 +37,15 @@ impl Default for EvmConfig {
 /// Production-grade EVM client using alloy-rs
 #[derive(Clone)]
 pub struct EvmClient {
+    /// Alloy provider for blockchain interaction
     provider: Arc<dyn Provider<Ethereum>>,
-    signer: Option<PrivateKeySigner>, // Add signer field
+    /// Optional private key signer for signing transactions
+    signer: Option<PrivateKeySigner>,
+    /// EVM configuration settings
     config: EvmConfig,
+    /// RPC endpoint URL for the blockchain connection
     pub rpc_url: String,
+    /// Chain identifier for the connected blockchain network
     pub chain_id: u64,
 }
 

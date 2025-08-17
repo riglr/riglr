@@ -23,6 +23,38 @@ const _ERC20_ABI: &str = r#"[
 ]"#;
 
 /// Call a contract read function (view/pure function)
+///
+/// This tool executes read-only contract functions that don't modify blockchain state.
+/// It supports both function signatures and 4-byte selectors for maximum flexibility.
+///
+/// # Arguments
+///
+/// * `contract_address` - The smart contract address (checksummed hex format)
+/// * `function_selector` - Either a function signature like "balanceOf(address)" or 4-byte selector like "0x70a08231"
+/// * `params` - Function parameters as strings (addresses, numbers, hex data)
+///
+/// # Returns
+///
+/// Returns the decoded function result as a string. For complex return types,
+/// returns JSON-formatted data.
+///
+/// # Errors
+///
+/// * `ToolError::Permanent` - When the contract address is invalid or function doesn't exist
+/// * `ToolError::Retriable` - When network issues occur (timeouts, RPC errors)
+/// * `ToolError::Permanent` - When no signer context is available
+///
+/// # Examples
+///
+/// ```rust,ignore
+/// // Check ERC20 token balance
+/// let balance = call_contract_read(
+///     "0xA0b86a33E6441b8e606Fd25d43b2b6eaa8071CdB".to_string(),
+///     "balanceOf(address)".to_string(),
+///     vec!["0x742EEC0C53C37682b8c7d3210fd5D3e8D8054A8".to_string()]
+/// ).await?;
+/// ```
+#[allow(missing_docs)]
 #[tool]
 pub async fn call_contract_read(
     contract_address: String,
@@ -86,6 +118,44 @@ pub async fn call_contract_read(
 }
 
 /// Call a contract write function (state-mutating function)
+///
+/// This tool executes state-changing contract functions that modify blockchain state.
+/// It automatically handles transaction signing, gas estimation, and retry logic.
+///
+/// # Arguments
+///
+/// * `contract_address` - The smart contract address (checksummed hex format)
+/// * `function_selector` - Either a function signature like "transfer(address,uint256)" or 4-byte selector
+/// * `params` - Function parameters as strings (addresses, amounts, hex data)
+/// * `gas_limit` - Optional gas limit override (default: 300,000)
+///
+/// # Returns
+///
+/// Returns the transaction hash as a string upon successful submission.
+/// Note: This doesn't wait for confirmation, only successful broadcast.
+///
+/// # Errors
+///
+/// * `ToolError::Permanent` - When the contract address is invalid or function fails
+/// * `ToolError::Retriable` - When network congestion or temporary RPC issues occur
+/// * `ToolError::Permanent` - When insufficient funds or gas estimation fails
+/// * `ToolError::Permanent` - When no signer context is available
+///
+/// # Examples
+///
+/// ```rust,ignore
+/// // Transfer ERC20 tokens
+/// let tx_hash = call_contract_write(
+///     "0xA0b86a33E6441b8e606Fd25d43b2b6eaa8071CdB".to_string(),
+///     "transfer(address,uint256)".to_string(),
+///     vec![
+///         "0x742EEC0C53C37682b8c7d3210fd5D3e8D8054A8".to_string(),
+///         "1000000000000000000".to_string() // 1 token with 18 decimals
+///     ],
+///     Some(100000)
+/// ).await?;
+/// ```
+#[allow(missing_docs)]
 #[tool]
 pub async fn call_contract_write(
     contract_address: String,
@@ -165,6 +235,42 @@ pub async fn call_contract_write(
 }
 
 /// Read ERC20 token information
+///
+/// This tool retrieves comprehensive information about an ERC20 token including
+/// name, symbol, decimals, and total supply. It handles standard ERC20 contracts
+/// and gracefully degrades for non-standard implementations.
+///
+/// # Arguments
+///
+/// * `token_address` - The ERC20 token contract address (checksummed hex format)
+///
+/// # Returns
+///
+/// Returns a JSON object containing:
+/// - `address`: The token contract address
+/// - `name`: Token name (e.g., "Chainlink Token") or null if not available
+/// - `symbol`: Token symbol (e.g., "LINK") or null if not available
+/// - `decimals`: Number of decimal places (defaults to 18 if not available)
+/// - `totalSupply`: Total token supply as a string in base units
+///
+/// # Errors
+///
+/// * `ToolError::Permanent` - When the token address is invalid
+/// * `ToolError::Retriable` - When network issues prevent data retrieval
+/// * `ToolError::Permanent` - When no signer context is available
+///
+/// # Examples
+///
+/// ```rust,ignore
+/// // Get USDC token information
+/// let token_info = read_erc20_info(
+///     "0xA0b86a33E6441b8e606Fd25d43b2b6eaa8071CdB".to_string()
+/// ).await?;
+/// 
+/// println!("Token: {} ({})", token_info["name"], token_info["symbol"]);
+/// println!("Decimals: {}", token_info["decimals"]);
+/// ```
+#[allow(missing_docs)]
 #[tool]
 pub async fn read_erc20_info(
     token_address: String,

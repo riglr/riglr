@@ -22,6 +22,7 @@ pub struct DexScreenerConfig {
     pub request_timeout: u64,
 }
 
+/// Comprehensive token information including price, volume, and market data
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct TokenInfo {
     /// Token contract address
@@ -69,10 +70,13 @@ pub struct TokenPair {
     pub pair_id: String,
     /// DEX name (e.g., "Uniswap V3", "PancakeSwap")
     pub dex: DexInfo,
+    /// Base token information
     pub base_token: PairToken,
+    /// Quote token information
     pub quote_token: PairToken,
     /// Current price
     pub price_usd: Option<f64>,
+    /// Price in native token units
     pub price_native: Option<f64>,
     /// 24h trading volume in USD
     pub volume_24h: Option<f64>,
@@ -140,12 +144,14 @@ pub struct ChainInfo {
     pub name: String,
     /// Chain logo URL
     pub logo: Option<String>,
+    /// Native token symbol for this chain
     pub native_token: String,
 }
 
 /// Token security and verification information
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct SecurityInfo {
+    /// Whether the token contract is verified
     pub is_verified: bool,
     /// Whether liquidity is locked
     pub liquidity_locked: Option<bool>,
@@ -189,6 +195,7 @@ pub struct MarketAnalysis {
     pub analyzed_at: DateTime<Utc>,
 }
 
+/// Market trend analysis including direction, momentum, and key price levels
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct TrendAnalysis {
     /// Overall trend direction (Bullish, Bearish, Neutral)
@@ -205,8 +212,10 @@ pub struct TrendAnalysis {
     pub resistance_levels: Vec<f64>,
 }
 
+/// Volume analysis including trends, ratios, and trading activity metrics
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct VolumeAnalysis {
+    /// Volume rank among all tokens
     pub volume_rank: Option<u32>,
     /// Volume trend (Increasing, Decreasing, Stable)
     pub volume_trend: String,
@@ -218,6 +227,7 @@ pub struct VolumeAnalysis {
     pub spike_factor: Option<f64>,
 }
 
+/// Liquidity analysis including depth, distribution, and price impact calculations
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct LiquidityAnalysis {
     /// Total liquidity across all pairs
@@ -249,6 +259,7 @@ pub struct PriceLevelAnalysis {
     pub range_position: Option<f64>,
 }
 
+/// Comprehensive risk assessment including liquidity, volatility, and contract risks
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct RiskAssessment {
     /// Overall risk level (Low, Medium, High, Extreme)
@@ -276,10 +287,12 @@ pub struct RiskFactor {
     pub impact: u32,
 }
 
+/// Token search results with metadata and execution information
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct TokenSearchResult {
     /// Search query used
     pub query: String,
+    /// List of tokens found in search
     pub tokens: Vec<TokenInfo>,
     /// Search metadata
     pub metadata: SearchMetadata,
@@ -620,7 +633,7 @@ async fn parse_token_response(
     response: &str,
     token_address: &str,
     chain: &str,
-    include_security: Option<bool>,
+    _include_security: Option<bool>,
 ) -> crate::error::Result<TokenInfo> {
     // Parse actual DexScreener JSON response
     let dex_response: crate::dexscreener_api::DexScreenerResponse = serde_json::from_str(response)
@@ -781,19 +794,9 @@ async fn parse_token_response(
             logo: None,
             native_token: get_native_token(chain),
         },
-        security: if include_security.unwrap_or(false) {
+        security: {
             // Future enhancement: Integrate with security API services like GoPlus or Honeypot.is
-            // For now, return basic placeholder data
-            SecurityInfo {
-                is_verified: false,
-                liquidity_locked: None,
-                audit_status: None,
-                honeypot_status: None,
-                ownership_status: None,
-                risk_score: None,
-            }
-        } else {
-            // Return minimal security info when not requested
+            // For now, return basic placeholder data regardless of include_security flag
             SecurityInfo {
                 is_verified: false,
                 liquidity_locked: None,
@@ -1017,8 +1020,7 @@ async fn analyze_price_trends(token: &TokenInfo) -> crate::error::Result<TrendAn
     .to_string();
 
     let strength = price_change_24h
-        .map(|change| ((change.abs() / 10.0).clamp(1.0, 10.0)) as u32)
-        .unwrap_or(5); // Default to medium strength if no data
+        .map_or(5, |change| ((change.abs() / 10.0).clamp(1.0, 10.0)) as u32); // Default to medium strength if no data
 
     // Calculate momentum and velocity only if we have data
     let momentum = match (price_change_1h, price_change_24h) {

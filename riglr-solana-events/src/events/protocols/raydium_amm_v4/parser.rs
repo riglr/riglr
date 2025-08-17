@@ -25,12 +25,6 @@ pub struct RaydiumAmmV4EventParser {
 
 impl Default for RaydiumAmmV4EventParser {
     fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl RaydiumAmmV4EventParser {
-    pub fn new() -> Self {
         let configs = vec![
             GenericEventParseConfig {
                 program_id: RAYDIUM_AMM_V4_PROGRAM_ID,
@@ -91,6 +85,13 @@ impl RaydiumAmmV4EventParser {
         let inner = GenericEventParser::new(vec![RAYDIUM_AMM_V4_PROGRAM_ID], configs);
         Self { inner }
     }
+}
+
+impl RaydiumAmmV4EventParser {
+    /// Creates a new Raydium AMM V4 event parser with configured discriminators and instruction parsers
+    pub fn new() -> Self {
+        Self::default()
+    }
 
     /// Empty parser for inner instructions
     ///
@@ -126,7 +127,7 @@ impl RaydiumAmmV4EventParser {
         ));
 
         Some(Box::new(RaydiumAmmV4SwapEvent {
-            metadata,
+            metadata: metadata.core,
             amount_in,
             amount_out: minimum_amount_out, // Use minimum as estimate, actual amount determined on-chain
             direction: SwapDirection::BaseIn,
@@ -163,7 +164,7 @@ impl RaydiumAmmV4EventParser {
         ));
 
         Some(Box::new(RaydiumAmmV4SwapEvent {
-            metadata,
+            metadata: metadata.core,
             amount_in: max_amount_in, // Use maximum as estimate, actual amount determined on-chain
             amount_out,
             direction: SwapDirection::BaseOut,
@@ -201,7 +202,7 @@ impl RaydiumAmmV4EventParser {
         ));
 
         Some(Box::new(RaydiumAmmV4DepositEvent {
-            metadata,
+            metadata: metadata.core,
             max_coin_amount,
             max_pc_amount,
             base_side,
@@ -243,7 +244,7 @@ impl RaydiumAmmV4EventParser {
         ));
 
         Some(Box::new(RaydiumAmmV4Initialize2Event {
-            metadata,
+            metadata: metadata.core,
             nonce,
             open_time,
             init_pc_amount,
@@ -285,7 +286,7 @@ impl RaydiumAmmV4EventParser {
         ));
 
         Some(Box::new(RaydiumAmmV4WithdrawEvent {
-            metadata,
+            metadata: metadata.core,
             amount,
             token_program: accounts[0],
             amm: accounts[1],
@@ -329,7 +330,7 @@ impl RaydiumAmmV4EventParser {
         ));
 
         Some(Box::new(RaydiumAmmV4WithdrawPnlEvent {
-            metadata,
+            metadata: metadata.core,
             token_program: accounts[0],
             amm: accounts[1],
             amm_config: accounts[2],

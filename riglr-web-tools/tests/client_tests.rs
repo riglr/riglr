@@ -7,7 +7,7 @@ fn test_web_client_new() {
     let client = WebClient::new().expect("Failed to create client");
 
     assert!(client.api_keys.is_empty());
-    assert!(client.config.is_empty());
+    assert!(!client.config.is_empty()); // Config always has default values
 }
 
 #[test]
@@ -146,7 +146,7 @@ fn test_web_client_default() {
     let client = WebClient::default();
 
     assert!(client.api_keys.is_empty());
-    assert!(client.config.is_empty());
+    assert!(!client.config.is_empty()); // Config always has default values
 }
 
 #[test]

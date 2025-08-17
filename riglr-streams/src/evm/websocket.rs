@@ -14,12 +14,19 @@ use serde::Serialize;
 /// EVM Chain ID enumeration
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Deserialize, serde::Serialize)]
 pub enum ChainId {
+    /// Ethereum mainnet
     Ethereum = 1,
+    /// Polygon (Matic) network
     Polygon = 137,
+    /// Binance Smart Chain
     BSC = 56,
+    /// Arbitrum layer 2
     Arbitrum = 42161,
+    /// Optimism layer 2
     Optimism = 10,
+    /// Avalanche C-Chain
     Avalanche = 43114,
+    /// Base layer 2
     Base = 8453,
 }
 
@@ -69,7 +76,7 @@ pub struct EvmStreamConfig {
 impl Default for EvmStreamConfig {
     fn default() -> Self {
         Self {
-            ws_url: String::new(),
+            ws_url: String::default(),
             chain_id: ChainId::Ethereum,
             subscribe_pending_transactions: false,
             subscribe_new_blocks: true,
@@ -233,8 +240,8 @@ impl EvmWebSocketStream {
         Self {
             config: EvmStreamConfig::default(),
             event_tx,
-            running: Arc::new(AtomicBool::new(false)),
-            health: Arc::new(RwLock::new(StreamHealth::default())),
+            running: Arc::default(),
+            health: Arc::default(),
             name: name.into(),
         }
     }
@@ -328,9 +335,8 @@ impl EvmWebSocketStream {
 
         // Create unique ID
         let id = transaction_hash
-            .as_ref()
-            .unwrap_or(&subscription.to_string())
-            .clone();
+            .clone()
+            .unwrap_or_else(|| subscription.to_string());
 
         // Determine event kind
         let kind = match event_type {

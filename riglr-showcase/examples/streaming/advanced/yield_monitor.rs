@@ -12,7 +12,7 @@
 use anyhow::Result;
 use dashmap::DashMap;
 use riglr_events_core::prelude::*;
-use riglr_showcase::config::Config;
+use riglr_showcase::config::{Config, ConfigBuilder};
 use riglr_streams::core::{WindowManager, WindowType};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -20,6 +20,13 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use tokio::time::{Duration, Instant};
 use tracing::{debug, info, warn};
+
+// Environment variable constants
+const ENV_REDIS_URL: &str = "REDIS_URL";
+const ENV_METRICS_INTERVAL_SECS: &str = "METRICS_INTERVAL_SECS";
+const ENV_OPPORTUNITY_INTERVAL_SECS: &str = "OPPORTUNITY_INTERVAL_SECS";
+const ENV_PRICE_INTERVAL_SECS: &str = "PRICE_INTERVAL_SECS";
+const ENV_MONITOR_DURATION_SECS: &str = "MONITOR_DURATION_SECS";
 
 // Helper for serde to provide a default Instant when deserializing skipped fields
 fn now_instant() -> Instant {
@@ -730,9 +737,13 @@ async fn main() -> Result<()> {
 
     info!("🌾 Starting DeFi Yield Farming Monitor");
 
-    // Load configuration
-    let config = Config::from_env();
-    config.validate()?;
+    // Load configuration (relaxed: use defaults if env isn't set)
+    if std::env::var(ENV_REDIS_URL).is_ok() {
+        let _ = Config::from_env();
+    } else {
+        info!("ℹ️ No REDIS_URL in env; using default Config for example");
+        let _ = ConfigBuilder::new().build();
+    }
 
     // Create yield monitor with custom configuration
     let monitor_config = YieldMonitorConfig {
@@ -768,10 +779,23 @@ async fn main() -> Result<()> {
 
     info!("🔄 Starting yield opportunity monitoring...");
 
-    // Simulate monitoring with periodic updates
-    let mut metrics_interval = tokio::time::interval(Duration::from_secs(30));
-    let mut opportunity_interval = tokio::time::interval(Duration::from_secs(10));
-    let mut price_interval = tokio::time::interval(Duration::from_secs(5));
+    // Simulate monitoring with periodic updates (configurable via env for faster demos)
+    let metrics_secs: u64 = std::env::var(ENV_METRICS_INTERVAL_SECS)
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(30);
+    let opportunity_secs: u64 = std::env::var(ENV_OPPORTUNITY_INTERVAL_SECS)
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(10);
+    let price_secs: u64 = std::env::var(ENV_PRICE_INTERVAL_SECS)
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(5);
+
+    let mut metrics_interval = tokio::time::interval(Duration::from_secs(metrics_secs));
+    let mut opportunity_interval = tokio::time::interval(Duration::from_secs(opportunity_secs));
+    let mut price_interval = tokio::time::interval(Duration::from_secs(price_secs));
 
     let start_time = Instant::now();
 
@@ -820,8 +844,12 @@ async fn main() -> Result<()> {
             }
         }
 
-        // Stop after reasonable test duration
-        if start_time.elapsed() > Duration::from_secs(180) {
+        // Stop after reasonable test duration (configurable via env)
+        let max_secs: u64 = std::env::var(ENV_MONITOR_DURATION_SECS)
+            .ok()
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(180);
+        if start_time.elapsed() > Duration::from_secs(max_secs) {
             info!("⏰ Test duration complete");
             break;
         }
@@ -871,14 +899,14 @@ fn create_simulated_pool_event(protocol: &str) -> Box<dyn Event> {
         _ => serde_json::json!({}),
     };
 
-    Box::new(GenericEvent::new(
+    Box::new(GenericEvent::with_source(
         format!(
             "{}_{}",
             protocol.to_lowercase(),
             fastrand::u64(10000..99999)
-        )
-        .into(),
+        ),
         EventKind::Custom(protocol.to_string()),
+        protocol.to_lowercase(),
         data,
     ))
 }

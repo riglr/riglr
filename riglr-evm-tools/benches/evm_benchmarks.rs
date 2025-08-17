@@ -1,3 +1,12 @@
+//! Performance benchmarks for riglr-evm-tools functionality.
+//!
+//! This module contains comprehensive benchmarks for testing the performance
+//! of various EVM operations including client creation across different chains,
+//! balance tools, network operations, transaction handling, error processing,
+//! serialization operations, and concurrent workloads.
+
+#![allow(missing_docs)]
+
 use alloy::primitives::U256;
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use riglr_evm_tools::{client::EvmClient, error::EvmToolError};

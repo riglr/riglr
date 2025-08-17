@@ -31,48 +31,79 @@ use tokio::time::sleep;
 /// Shared trading state across all agents
 #[derive(Debug, Clone)]
 pub struct TradingState {
+    /// Map of symbol to active trading positions
     pub active_positions: HashMap<String, Position>,
+    /// List of pending orders awaiting execution
     pub pending_orders: Vec<Order>,
+    /// Total portfolio value in USD
     pub portfolio_value_usd: f64,
+    /// Available ETH balance for trading
     pub available_balance_eth: f64,
+    /// Available SOL balance for trading
     pub available_balance_sol: f64,
+    /// Daily profit and loss percentage
     pub daily_pnl: f64,
+    /// Current risk exposure as percentage of portfolio
     pub risk_exposure: f64,
 }
 
+/// Represents an active trading position
 #[derive(Debug, Clone)]
 pub struct Position {
+    /// Token symbol or address
     pub symbol: String,
+    /// Amount of tokens held
     pub amount: f64,
+    /// Average entry price per token
     pub avg_price: f64,
+    /// Current market price per token
     pub current_price: f64,
+    /// Profit and loss for this position
     pub pnl: f64,
+    /// Blockchain network where the position exists
     pub network: String,
+    /// Timestamp when the position was opened
     pub entry_time: chrono::DateTime<chrono::Utc>,
 }
 
+/// Represents a trading order (pending or executed)
 #[derive(Debug, Clone)]
 pub struct Order {
+    /// Unique identifier for this order
     pub id: String,
+    /// Token symbol or address being traded
     pub symbol: String,
+    /// Buy or sell side of the order
     pub side: OrderSide,
+    /// Amount of tokens to trade
     pub amount: f64,
+    /// Target price (None for market orders)
     pub price: Option<f64>,
+    /// Blockchain network for execution
     pub network: String,
+    /// Current status of the order
     pub status: OrderStatus,
 }
 
+/// Specifies the side of a trading order
 #[derive(Debug, Clone)]
 pub enum OrderSide {
+    /// Buy order (acquire tokens)
     Buy,
+    /// Sell order (dispose of tokens)
     Sell,
 }
 
+/// Represents the current status of a trading order
 #[derive(Debug, Clone)]
 pub enum OrderStatus {
+    /// Order is waiting to be executed
     Pending,
+    /// Order is currently being processed
     Executing,
+    /// Order has been successfully executed
     Completed,
+    /// Order execution failed
     Failed,
 }
 
@@ -93,13 +124,18 @@ impl Default for TradingState {
 /// Market research agent that uses real data sources
 #[derive(Clone)]
 pub struct MarketIntelligenceAgent {
+    /// Unique identifier for this agent
     id: AgentId,
+    /// Communication channel for inter-agent messaging
     communication: Arc<ChannelCommunication>,
+    /// Configuration settings
     _config: Config,
+    /// Shared trading state reference
     _trading_state: Arc<Mutex<TradingState>>,
 }
 
 impl MarketIntelligenceAgent {
+    /// Creates a new market intelligence agent
     pub fn new(
         id: &str,
         communication: Arc<ChannelCommunication>,
@@ -292,15 +328,22 @@ impl Agent for MarketIntelligenceAgent {
 /// Risk management agent with real portfolio tracking
 #[derive(Clone)]
 pub struct RiskManagementAgent {
+    /// Unique identifier for this agent
     id: AgentId,
+    /// Communication channel for inter-agent messaging
     communication: Arc<ChannelCommunication>,
+    /// Configuration settings
     _config: Config,
+    /// Shared trading state reference
     trading_state: Arc<Mutex<TradingState>>,
+    /// Maximum position size as percentage of portfolio
     max_position_size: f64,
+    /// Maximum daily loss as percentage of portfolio
     max_daily_loss: f64,
 }
 
 impl RiskManagementAgent {
+    /// Creates a new risk management agent
     pub fn new(
         id: &str,
         communication: Arc<ChannelCommunication>,
@@ -497,13 +540,18 @@ impl Agent for RiskManagementAgent {
 /// Execution agent that performs real blockchain trades
 #[derive(Clone)]
 pub struct TradeExecutionAgent {
+    /// Unique identifier for this agent
     id: AgentId,
+    /// Communication channel for inter-agent messaging
     communication: Arc<ChannelCommunication>,
+    /// Configuration settings
     _config: Config,
+    /// Shared trading state reference
     _trading_state: Arc<Mutex<TradingState>>,
 }
 
 impl TradeExecutionAgent {
+    /// Creates a new trade execution agent
     pub fn new(
         id: &str,
         communication: Arc<ChannelCommunication>,

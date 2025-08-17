@@ -9,10 +9,15 @@ use crate::error::{EvmCommonError, EvmResult};
 /// Chain information structure
 #[derive(Debug, Clone)]
 pub struct ChainInfo {
+    /// Numeric chain ID (e.g., 1 for Ethereum, 137 for Polygon)
     pub chain_id: u64,
+    /// Human-readable chain name (e.g., "Ethereum", "Polygon")
     pub name: String,
+    /// Native token symbol (e.g., "ETH", "MATIC")
     pub symbol: String,
+    /// Block explorer base URL for this chain
     pub block_explorer: Option<String>,
+    /// Default RPC endpoint URL for this chain
     pub default_rpc: Option<String>,
 }
 

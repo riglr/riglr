@@ -6,22 +6,30 @@ use crate::{
 use serde::{Deserialize, Serialize};
 use std::any::Any;
 
-// Import new Event trait from riglr-events-core
-use riglr_events_core::{Event, EventKind, EventMetadata as CoreEventMetadata};
+// Import Event trait and EventMetadata from riglr-events-core
+use riglr_events_core::{Event, EventKind, EventMetadata};
 
 /// Parameters for creating event metadata, reducing function parameter count
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct EventParameters {
+    /// Unique identifier for the event
     pub id: String,
+    /// Transaction signature
     pub signature: String,
+    /// Solana slot number
     pub slot: u64,
+    /// Block timestamp in seconds
     pub block_time: i64,
+    /// Block timestamp in milliseconds
     pub block_time_ms: i64,
+    /// Time when the program received the event in milliseconds
     pub program_received_time_ms: i64,
+    /// Event index within the transaction
     pub index: String,
 }
 
 impl EventParameters {
+    /// Creates a new EventParameters instance with the provided values
     pub fn new(
         id: String,
         signature: String,
@@ -44,24 +52,42 @@ impl EventParameters {
 }
 
 /// Meteora DLMM swap event
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct MeteoraSwapEvent {
+    /// Unique identifier for the event
     pub id: String,
+    /// Transaction signature
     pub signature: String,
+    /// Solana slot number
     pub slot: u64,
+    /// Block timestamp in seconds
     pub block_time: i64,
+    /// Block timestamp in milliseconds
     pub block_time_ms: i64,
+    /// Time when the program received the event in milliseconds
     pub program_received_time_ms: i64,
+    /// Time consumed by program handling in milliseconds
     pub program_handle_time_consuming_ms: i64,
+    /// Event index within the transaction
     pub index: String,
+    /// Meteora swap-specific data
     pub swap_data: MeteoraSwapData,
+    /// Token transfer data associated with the swap
     pub transfer_data: Vec<TransferData>,
+    /// Event metadata for cross-chain compatibility
     #[serde(skip)]
-    pub core_metadata: Option<CoreEventMetadata>,
+    pub metadata: EventMetadata,
 }
 
 impl MeteoraSwapEvent {
+    /// Creates a new MeteoraSwapEvent with the provided parameters and swap data
     pub fn new(params: EventParameters, swap_data: MeteoraSwapData) -> Self {
+        use crate::types::metadata_helpers;
+        use crate::types::{ProtocolType, EventType};
+        use solana_sdk::pubkey::Pubkey;
+        
+        let metadata = EventMetadata::default();
+        
         Self {
             id: params.id,
             signature: params.signature,
@@ -73,10 +99,11 @@ impl MeteoraSwapEvent {
             index: params.index,
             swap_data,
             transfer_data: Vec::new(),
-            core_metadata: None,
+            metadata,
         }
     }
 
+    /// Sets the transfer data for this swap event
     pub fn with_transfer_data(mut self, transfer_data: Vec<TransferData>) -> Self {
         self.transfer_data = transfer_data;
         self
@@ -86,45 +113,19 @@ impl MeteoraSwapEvent {
 // New Event trait implementation
 impl Event for MeteoraSwapEvent {
     fn id(&self) -> &str {
-        &self.id
+        &self.metadata.id
     }
 
     fn kind(&self) -> &EventKind {
-        if let Some(ref core_metadata) = self.core_metadata {
-            &core_metadata.kind
-        } else {
-            &EventKind::Swap // Meteora swap event
-        }
+        &self.metadata.kind
     }
 
-    fn metadata(&self) -> &CoreEventMetadata {
-        self.core_metadata
-            .as_ref()
-            .unwrap_or_else(|| panic!("Core metadata not initialized for MeteoraSwapEvent"))
+    fn metadata(&self) -> &EventMetadata {
+        &self.metadata
     }
 
-    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
-        if self.core_metadata.is_none() {
-            // Create new core metadata from legacy fields
-            let chain_data = riglr_events_core::types::ChainData::Solana {
-                slot: self.slot,
-                signature: Some(self.signature.clone()),
-                program_id: None, // Will be set by parser
-                instruction_index: self.index.parse::<usize>().ok(),
-            };
-
-            self.core_metadata = Some(
-                CoreEventMetadata::with_timestamp(
-                    self.id.clone(),
-                    EventKind::Swap,
-                    "meteora".to_string(),
-                    chrono::DateTime::from_timestamp(self.block_time, 0)
-                        .unwrap_or_else(chrono::Utc::now),
-                )
-                .with_chain_data(chain_data),
-            );
-        }
-        self.core_metadata.as_mut().unwrap()
+    fn metadata_mut(&mut self) -> &mut EventMetadata {
+        &mut self.metadata
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -145,66 +146,80 @@ impl Event for MeteoraSwapEvent {
 }
 
 /// Meteora DLMM liquidity event
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct MeteoraLiquidityEvent {
+    /// Unique identifier for the event
     pub id: String,
+    /// Transaction signature
     pub signature: String,
+    /// Solana slot number
     pub slot: u64,
+    /// Block timestamp in seconds
     pub block_time: i64,
+    /// Block timestamp in milliseconds
     pub block_time_ms: i64,
+    /// Time when the program received the event in milliseconds
     pub program_received_time_ms: i64,
+    /// Time consumed by program handling in milliseconds
     pub program_handle_time_consuming_ms: i64,
+    /// Event index within the transaction
     pub index: String,
+    /// Meteora liquidity-specific data
     pub liquidity_data: MeteoraLiquidityData,
+    /// Token transfer data associated with the liquidity operation
     pub transfer_data: Vec<TransferData>,
+    /// Event metadata for cross-chain compatibility
     #[serde(skip)]
-    pub core_metadata: Option<CoreEventMetadata>,
+    pub metadata: EventMetadata,
+}
+
+impl MeteoraLiquidityEvent {
+    /// Creates a new MeteoraLiquidityEvent with the provided parameters and liquidity data
+    pub fn new(params: EventParameters, liquidity_data: MeteoraLiquidityData) -> Self {
+        use crate::types::metadata_helpers;
+        use crate::types::{ProtocolType, EventType};
+        use solana_sdk::pubkey::Pubkey;
+        
+        let metadata = EventMetadata::default();
+        
+        Self {
+            id: params.id,
+            signature: params.signature,
+            slot: params.slot,
+            block_time: params.block_time,
+            block_time_ms: params.block_time_ms,
+            program_received_time_ms: params.program_received_time_ms,
+            program_handle_time_consuming_ms: 0,
+            index: params.index,
+            liquidity_data,
+            transfer_data: Vec::new(),
+            metadata,
+        }
+    }
+
+    /// Sets the transfer data for this liquidity event
+    pub fn with_transfer_data(mut self, transfer_data: Vec<TransferData>) -> Self {
+        self.transfer_data = transfer_data;
+        self
+    }
 }
 
 // New Event trait implementation for MeteoraLiquidityEvent
 impl Event for MeteoraLiquidityEvent {
     fn id(&self) -> &str {
-        &self.id
+        &self.metadata.id
     }
 
     fn kind(&self) -> &EventKind {
-        if let Some(ref core_metadata) = self.core_metadata {
-            &core_metadata.kind
-        } else {
-            &EventKind::Liquidity
-        }
+        &self.metadata.kind
     }
 
-    fn metadata(&self) -> &CoreEventMetadata {
-        self.core_metadata
-            .as_ref()
-            .unwrap_or_else(|| panic!("Core metadata not initialized for MeteoraLiquidityEvent"))
+    fn metadata(&self) -> &EventMetadata {
+        &self.metadata
     }
 
-    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
-        if self.core_metadata.is_none() {
-            // Create new core metadata from legacy fields
-            let chain_data = riglr_events_core::types::ChainData::Solana {
-                slot: self.slot,
-                signature: Some(self.signature.clone()),
-                program_id: None, // Will be set by parser
-                instruction_index: self.index.parse::<usize>().ok(),
-            };
-
-            let event_kind = EventKind::Liquidity;
-
-            self.core_metadata = Some(
-                CoreEventMetadata::with_timestamp(
-                    self.id.clone(),
-                    event_kind,
-                    "meteora".to_string(),
-                    chrono::DateTime::from_timestamp(self.block_time, 0)
-                        .unwrap_or_else(chrono::Utc::now),
-                )
-                .with_chain_data(chain_data),
-            );
-        }
-        self.core_metadata.as_mut().unwrap()
+    fn metadata_mut(&mut self) -> &mut EventMetadata {
+        &mut self.metadata
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -225,66 +240,80 @@ impl Event for MeteoraLiquidityEvent {
 }
 
 /// Meteora Dynamic AMM liquidity event
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct MeteoraDynamicLiquidityEvent {
+    /// Unique identifier for the event
     pub id: String,
+    /// Transaction signature
     pub signature: String,
+    /// Solana slot number
     pub slot: u64,
+    /// Block timestamp in seconds
     pub block_time: i64,
+    /// Block timestamp in milliseconds
     pub block_time_ms: i64,
+    /// Time when the program received the event in milliseconds
     pub program_received_time_ms: i64,
+    /// Time consumed by program handling in milliseconds
     pub program_handle_time_consuming_ms: i64,
+    /// Event index within the transaction
     pub index: String,
+    /// Meteora dynamic liquidity-specific data
     pub liquidity_data: MeteoraDynamicLiquidityData,
+    /// Token transfer data associated with the liquidity operation
     pub transfer_data: Vec<TransferData>,
+    /// Event metadata for cross-chain compatibility
     #[serde(skip)]
-    pub core_metadata: Option<CoreEventMetadata>,
+    pub metadata: EventMetadata,
+}
+
+impl MeteoraDynamicLiquidityEvent {
+    /// Creates a new MeteoraDynamicLiquidityEvent with the provided parameters and liquidity data
+    pub fn new(params: EventParameters, liquidity_data: MeteoraDynamicLiquidityData) -> Self {
+        use crate::types::metadata_helpers;
+        use crate::types::{ProtocolType, EventType};
+        use solana_sdk::pubkey::Pubkey;
+        
+        let metadata = EventMetadata::default();
+        
+        Self {
+            id: params.id,
+            signature: params.signature,
+            slot: params.slot,
+            block_time: params.block_time,
+            block_time_ms: params.block_time_ms,
+            program_received_time_ms: params.program_received_time_ms,
+            program_handle_time_consuming_ms: 0,
+            index: params.index,
+            liquidity_data,
+            transfer_data: Vec::new(),
+            metadata,
+        }
+    }
+
+    /// Sets the transfer data for this dynamic liquidity event
+    pub fn with_transfer_data(mut self, transfer_data: Vec<TransferData>) -> Self {
+        self.transfer_data = transfer_data;
+        self
+    }
 }
 
 // New Event trait implementation for MeteoraDynamicLiquidityEvent
 impl Event for MeteoraDynamicLiquidityEvent {
     fn id(&self) -> &str {
-        &self.id
+        &self.metadata.id
     }
 
     fn kind(&self) -> &EventKind {
-        if let Some(ref core_metadata) = self.core_metadata {
-            &core_metadata.kind
-        } else {
-            &EventKind::Liquidity
-        }
+        &self.metadata.kind
     }
 
-    fn metadata(&self) -> &CoreEventMetadata {
-        self.core_metadata.as_ref().unwrap_or_else(|| {
-            panic!("Core metadata not initialized for MeteoraDynamicLiquidityEvent")
-        })
+    fn metadata(&self) -> &EventMetadata {
+        &self.metadata
     }
 
-    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
-        if self.core_metadata.is_none() {
-            // Create new core metadata from legacy fields
-            let chain_data = riglr_events_core::types::ChainData::Solana {
-                slot: self.slot,
-                signature: Some(self.signature.clone()),
-                program_id: None, // Will be set by parser
-                instruction_index: self.index.parse::<usize>().ok(),
-            };
-
-            let event_kind = EventKind::Liquidity;
-
-            self.core_metadata = Some(
-                CoreEventMetadata::with_timestamp(
-                    self.id.clone(),
-                    event_kind,
-                    "meteora".to_string(),
-                    chrono::DateTime::from_timestamp(self.block_time, 0)
-                        .unwrap_or_else(chrono::Utc::now),
-                )
-                .with_chain_data(chain_data),
-            );
-        }
-        self.core_metadata.as_mut().unwrap()
+    fn metadata_mut(&mut self) -> &mut EventMetadata {
+        &mut self.metadata
     }
 
     fn as_any(&self) -> &dyn Any {

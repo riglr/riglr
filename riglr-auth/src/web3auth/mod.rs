@@ -34,6 +34,7 @@ pub struct Web3AuthConfig {
 }
 
 impl Web3AuthConfig {
+    /// Create a new Web3Auth configuration
     pub fn new(client_id: String, verifier: String) -> Self {
         Self {
             client_id,
@@ -91,6 +92,7 @@ pub struct Web3AuthProvider {
 }
 
 impl Web3AuthProvider {
+    /// Create a new Web3Auth provider
     pub fn new(config: Web3AuthConfig) -> Self {
         Self {
             config,
