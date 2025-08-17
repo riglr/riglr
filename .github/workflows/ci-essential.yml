@@ -115,4 +115,19 @@ jobs:
           RUSTFLAGS: -C link-arg=-Wl,--no-keep-memory -C link-arg=-Wl,--reduce-memory-overheads -C codegen-units=1
           CARGO_BUILD_JOBS: 1
 
+  # SonarQube analysis
+  sonarqube:
+    name: SonarQube Analysis
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Shallow clones should be disabled for a better relevancy of analysis
+      
+      - name: SonarQube Scan
+        uses: SonarSource/sonarqube-scan-action@v3
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+
 
