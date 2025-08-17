@@ -1,3 +1,10 @@
+//! Health monitoring for stream systems.
+//!
+//! This module provides comprehensive health monitoring capabilities for streaming systems,
+//! including component status tracking, alert generation, and health history management.
+//! The health monitor continuously evaluates stream connections, event processing rates,
+//! and error conditions to provide real-time system health visibility.
+
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;

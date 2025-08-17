@@ -150,7 +150,7 @@ impl<S: Stream + 'static> EnhancedStream<S> {
     pub fn new(inner: S, _max_rate_per_second: u64, _dedup_ttl: Duration) -> Self {
         let (tx, _) = broadcast::channel(10000);
         let name = format!("enhanced-{}", inner.name());
-        let metrics = Arc::new(EventPerformanceMetrics::new());
+        let metrics = Arc::new(EventPerformanceMetrics::default());
 
         // Create processor handle - in a real implementation, this would
         // set up rate limiting and deduplication

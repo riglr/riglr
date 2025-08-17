@@ -341,10 +341,14 @@ impl StreamManager {
     pub async fn health(&self) -> std::collections::HashMap<String, StreamHealth> {
         let mut health_map = std::collections::HashMap::new();
 
-        for entry in self.streams.iter() {
-            let name = entry.key().clone();
-            let health = entry.value().health_dynamic().await;
-            health_map.insert(name, health);
+        // Collect stream names first to avoid holding references during async calls
+        let stream_names: Vec<String> = self.streams.iter().map(|entry| entry.key().clone()).collect();
+        
+        for name in stream_names {
+            if let Some(stream_ref) = self.streams.get(&name) {
+                let health = stream_ref.value().health_dynamic().await;
+                health_map.insert(name, health);
+            }
         }
 
         health_map
@@ -547,6 +551,7 @@ pub struct LoggingEventHandler {
 }
 
 impl LoggingEventHandler {
+    /// Create a new LoggingEventHandler with the specified name
     pub fn new(name: impl Into<String>) -> Self {
         Self { name: name.into() }
     }

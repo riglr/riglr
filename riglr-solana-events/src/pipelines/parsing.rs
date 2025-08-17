@@ -337,6 +337,7 @@ pub enum PipelineError {
 }
 
 /// Builder for creating parsing pipelines
+#[derive(Default)]
 pub struct ParsingPipelineBuilder {
     config: ParsingPipelineConfig,
     parsers: Vec<Arc<dyn ByteSliceEventParser>>,
@@ -400,14 +401,6 @@ impl ParsingPipelineBuilder {
     }
 }
 
-impl Default for ParsingPipelineBuilder {
-    fn default() -> Self {
-        Self {
-            config: ParsingPipelineConfig::default(),
-            parsers: Vec::new(),
-        }
-    }
-}
 
 #[cfg(test)]
 mod tests {

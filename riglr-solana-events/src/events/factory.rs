@@ -112,6 +112,7 @@ impl From<Protocol> for ProtocolType {
 }
 
 /// EventParserRegistry - the new async event parser registry
+#[derive(Default)]
 pub struct EventParserRegistry {
     /// Map of protocols to their respective event parsers
     parsers: HashMap<Protocol, Arc<dyn EventParser>>,
@@ -216,11 +217,3 @@ impl EventParserRegistry {
     }
 }
 
-impl Default for EventParserRegistry {
-    fn default() -> Self {
-        Self {
-            parsers: HashMap::new(),
-            program_id_to_parser: HashMap::new(),
-        }
-    }
-}

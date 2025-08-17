@@ -3,7 +3,7 @@
 //! This parser provides zero-copy parsing for Raydium AMM V4 swap and liquidity operations
 //! using discriminator-based instruction identification and custom deserialization.
 
-use crate::metadata_helpers::{create_solana_metadata, set_event_type, set_protocol_type};
+use crate::metadata_helpers::{set_event_type, set_protocol_type};
 use crate::types::{EventMetadata, EventType, ProtocolType};
 use crate::zero_copy::{ByteSliceEventParser, CustomDeserializer, ParseError, ZeroCopyEvent};
 use borsh::{BorshDeserialize, BorshSerialize};
@@ -298,7 +298,7 @@ impl ByteSliceEventParser for RaydiumV4Parser {
         }
 
         // Update metadata with protocol info
-        set_protocol_type(&mut metadata, ProtocolType::RaydiumAmmV4);
+        set_protocol_type(&mut metadata.core, ProtocolType::RaydiumAmmV4);
 
         // Parse discriminator
         let discriminator = RaydiumV4Discriminator::from_byte(data[0]).ok_or_else(|| {
@@ -308,7 +308,7 @@ impl ByteSliceEventParser for RaydiumV4Parser {
         })?;
 
         // Update event type based on discriminator
-        set_event_type(&mut metadata, discriminator.event_type());
+        set_event_type(&mut metadata.core, discriminator.event_type());
 
         let event = match discriminator {
             RaydiumV4Discriminator::SwapBaseIn => self.parse_swap_base_in(data, metadata)?,
@@ -381,7 +381,6 @@ impl RaydiumV4ParserFactory {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::types::EventMetadata;
 
     #[test]
     fn test_discriminator_parsing() {
@@ -405,18 +404,7 @@ mod tests {
         data.extend_from_slice(&1000u64.to_le_bytes()); // amount_in
         data.extend_from_slice(&900u64.to_le_bytes()); // minimum_amount_out
 
-        let metadata = create_solana_metadata(
-            String::default(),
-            riglr_events_core::EventKind::Transaction,
-            "test".to_string(),
-            0,
-            None,
-            None,
-            None,
-            None,
-            ProtocolType::RaydiumAmmV4,
-            EventType::default(),
-        );
+        let metadata = EventMetadata::default();
         let events = parser.parse_from_slice(&data, metadata).unwrap();
 
         assert_eq!(events.len(), 1);

@@ -21,13 +21,27 @@ use tracing::{info, warn};
 #[derive(Debug, Clone)]
 pub enum WindowType {
     /// Fixed-size tumbling windows
-    Tumbling { duration: Duration },
+    Tumbling { 
+        /// Duration of each tumbling window
+        duration: Duration 
+    },
     /// Sliding windows with overlap
-    Sliding { size: Duration, step: Duration },
+    Sliding { 
+        /// Size of the sliding window
+        size: Duration, 
+        /// Step size between windows
+        step: Duration 
+    },
     /// Session windows that close after inactivity
-    Session { timeout: Duration },
+    Session { 
+        /// Timeout duration for session inactivity
+        timeout: Duration 
+    },
     /// Count-based windows
-    Count { size: usize },
+    Count { 
+        /// Number of events per window
+        size: usize 
+    },
 }
 
 /// Window state for managing event windows
@@ -520,7 +534,9 @@ pub enum EventPattern<E> {
     Sequence(Vec<fn(&E) -> bool>),
     /// Match events within a time window
     Within {
+        /// Pattern to match within the time window
         pattern: Box<EventPattern<E>>,
+        /// Duration of the time window
         duration: Duration,
     },
     /// Match any of the patterns

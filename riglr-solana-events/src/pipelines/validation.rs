@@ -684,12 +684,16 @@ mod tests {
         };
         let pipeline = ValidationPipeline::new(config);
 
-        let metadata = EventMetadata {
-            id: "test-event-1".to_string(),
-            signature: "test-signature".to_string(),
-            index: "0".to_string(),
-            ..Default::default()
-        };
+        let core_metadata = riglr_events_core::EventMetadata::default();
+        let metadata = crate::solana_metadata::SolanaEventMetadata::new(
+            "test-signature".to_string(),
+            0,
+            EventType::default(),
+            ProtocolType::default(),
+            "0".to_string(),
+            0,
+            core_metadata,
+        );
 
         let event = ZeroCopyEvent::new_owned(metadata.clone(), vec![]);
 

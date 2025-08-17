@@ -1,3 +1,8 @@
+//! EVM WebSocket streaming implementation
+//!
+//! This module provides WebSocket-based streaming capabilities for EVM-compatible blockchains.
+//! It supports real-time event streaming including new blocks, pending transactions, and contract events.
+
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::SystemTime;

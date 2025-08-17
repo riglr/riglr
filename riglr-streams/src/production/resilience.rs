@@ -1,3 +1,10 @@
+//! Resilience patterns for fault-tolerant stream processing.
+//!
+//! This module implements essential resilience patterns including circuit breakers,
+//! retry policies with configurable backoff strategies, and other fault tolerance
+//! mechanisms. These patterns help streaming systems gracefully handle failures,
+//! prevent cascading errors, and maintain system stability under adverse conditions.
+
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, SystemTime};

@@ -129,27 +129,27 @@ impl SolanaEvent {
 // Implement the new Event trait from riglr-events-core
 impl riglr_events_core::traits::Event for SolanaEvent {
     fn id(&self) -> &str {
-        &self.metadata.id
+        &self.metadata.core.id
     }
 
     fn kind(&self) -> &riglr_events_core::types::EventKind {
-        &self.metadata.kind
+        &self.metadata.core.kind
     }
 
     fn metadata(&self) -> &riglr_events_core::types::EventMetadata {
-        &self.metadata
+        &self.metadata.core
     }
 
     fn metadata_mut(&mut self) -> &mut riglr_events_core::types::EventMetadata {
-        &mut self.metadata
+        &mut self.metadata.core
     }
 
     fn timestamp(&self) -> SystemTime {
-        self.metadata.timestamp.into()
+        self.metadata.core.timestamp.into()
     }
 
     fn source(&self) -> &str {
-        &self.metadata.source
+        &self.metadata.core.source
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -295,13 +295,13 @@ mod tests {
             "amount_out": 500000
         });
 
-        let event = SolanaEvent::new(legacy_metadata.clone(), event_data.clone());
+        let event = SolanaEvent::new(metadata.clone(), event_data.clone());
 
         // Test legacy fields
-        assert_eq!(event.legacy_metadata.id, "test-event");
-        assert_eq!(event.legacy_metadata.event_type, EventType::Swap);
-        assert_eq!(event.legacy_metadata.signature, "signature123");
-        assert_eq!(event.legacy_metadata.slot, 12345);
+        assert_eq!(event.metadata.id(), "test-event");
+        assert_eq!(event.metadata.event_type, EventType::Swap);
+        assert_eq!(event.metadata.signature, "signature123");
+        assert_eq!(event.metadata.slot, 12345);
 
         // Test Event interface
         assert_eq!(riglr_events_core::traits::Event::id(&event), "test-event");
@@ -332,12 +332,12 @@ mod tests {
             amount_out: 900000,
         });
 
-        assert_eq!(event.legacy_metadata.id, "swap-test");
-        assert_eq!(event.legacy_metadata.event_type, EventType::Swap);
-        assert_eq!(event.legacy_metadata.signature, "sig456");
-        assert_eq!(event.legacy_metadata.slot, 67890);
+        assert_eq!(event.metadata.id(), "swap-test");
+        assert_eq!(event.metadata.event_type, EventType::Swap);
+        assert_eq!(event.metadata.signature, "sig456");
+        assert_eq!(event.metadata.slot, 67890);
         assert_eq!(
-            event.legacy_metadata.protocol_type,
+            event.metadata.protocol_type,
             ProtocolType::RaydiumAmmV4
         );
 
@@ -366,10 +366,10 @@ mod tests {
             amount_b: 250000,
         });
 
-        assert_eq!(event.legacy_metadata.id, "liq-test");
-        assert_eq!(event.legacy_metadata.event_type, EventType::AddLiquidity);
-        assert_eq!(event.legacy_metadata.signature, "sig789");
-        assert_eq!(event.legacy_metadata.slot, 11111);
+        assert_eq!(event.metadata.id(), "liq-test");
+        assert_eq!(event.metadata.event_type, EventType::AddLiquidity);
+        assert_eq!(event.metadata.signature, "sig789");
+        assert_eq!(event.metadata.slot, 11111);
 
         let liq_data = event.extract_data::<serde_json::Value>().unwrap();
         assert!(liq_data["is_add"].as_bool().unwrap());

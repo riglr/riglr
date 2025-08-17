@@ -1,3 +1,10 @@
+//! Metrics collection and performance monitoring for stream systems.
+//!
+//! This module provides comprehensive metrics collection for streaming applications,
+//! including event counters, latency tracking, performance statistics, and throughput
+//! measurements. It integrates with the `metrics` crate to provide both internal
+//! monitoring and external observability through standard metrics formats.
+
 use dashmap::DashMap;
 use metrics::{counter, gauge, histogram};
 use serde::{Deserialize, Serialize};

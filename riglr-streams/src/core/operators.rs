@@ -1243,6 +1243,7 @@ where
     S: Stream,
     F: Fn(StreamError) -> Option<Arc<S::Event>> + Send + Sync + 'static,
 {
+    /// Create a new error-catching stream with the given error handler
     pub fn new(inner: S, error_handler: F) -> Self {
         let name = format!("catch_error({})", inner.name());
         Self {
@@ -1455,6 +1456,7 @@ pub struct MergeAllStream<S> {
 }
 
 impl<S: Stream> MergeAllStream<S> {
+    /// Create a new merge-all stream from a vector of streams
     pub fn new(streams: Vec<S>) -> Self {
         let names: Vec<_> = streams.iter().map(|s| s.name()).collect();
         let name = format!("merge_all({})", names.join(","));
@@ -1552,6 +1554,7 @@ pub struct GuaranteedDeliveryStream<S> {
 }
 
 impl<S: Stream> GuaranteedDeliveryStream<S> {
+    /// Create a new guaranteed delivery stream with specified buffer size
     pub fn new(inner: S, buffer_size: usize) -> Self {
         let name = format!("guaranteed({})", inner.name());
         Self {
@@ -1630,6 +1633,7 @@ pub struct ZipStream<S1, S2> {
 }
 
 impl<S1: Stream, S2: Stream> ZipStream<S1, S2> {
+    /// Create a new zip stream that combines events from two streams
     pub fn new(stream1: S1, stream2: S2) -> Self {
         let name = format!("zip({},{})", stream1.name(), stream2.name());
         Self {
@@ -1649,6 +1653,7 @@ pub struct CombineLatestStream<S1, S2> {
 }
 
 impl<S1: Stream, S2: Stream> CombineLatestStream<S1, S2> {
+    /// Create a new combine-latest stream that emits when either stream updates
     pub fn new(stream1: S1, stream2: S2) -> Self {
         let name = format!("combine_latest({},{})", stream1.name(), stream2.name());
         Self {

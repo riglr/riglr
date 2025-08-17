@@ -151,6 +151,7 @@ pub struct JupiterLiquidityEvent {
 pub struct JupiterSwapBorshEvent {
     /// Event metadata (skipped during serialization)
     #[serde(skip)]
+    #[borsh(skip)]
     pub metadata: EventMetadata,
     /// User account performing the swap
     pub user: Pubkey,

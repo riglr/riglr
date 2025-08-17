@@ -122,7 +122,9 @@ fn benchmark_batch_parsing(c: &mut Criterion) {
             batch_data.push(data);
 
             let metadata = EventMetadata {
-                id: format!("event_{}", i),
+                signature: format!("sig_{}", i),
+                slot: i as u64,
+                index: i.to_string(),
                 ..Default::default()
             };
             batch_metadata.push(metadata);
