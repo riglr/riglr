@@ -7,7 +7,7 @@ multilingual = false
 src = "src"
 
 [output.html]
-site-url = "/docs/"
+# site-url = "/docs/"
 default-theme = "light"
 preferred-dark-theme = "navy"
 theme = "theme"
