@@ -5,12 +5,12 @@
 
 use crate::types::{EventType, ProtocolType};
 use crate::zero_copy::ZeroCopyEvent;
+use dashmap::DashMap;
 use serde_json::Value;
 use solana_sdk::pubkey::Pubkey;
 use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use dashmap::DashMap;
 // UnifiedEvent trait has been removed
 
 /// Configuration for validation pipeline
@@ -65,36 +65,36 @@ pub enum ValidationError {
     /// Missing required field
     MissingField {
         /// The name of the missing field
-        field: String
+        field: String,
     },
     /// Invalid field value
     InvalidValue {
         /// The name of the invalid field
         field: String,
         /// The reason why the value is invalid
-        reason: String
+        reason: String,
     },
     /// Data inconsistency
     Inconsistency {
         /// Description of the inconsistency
-        description: String
+        description: String,
     },
     /// Business logic violation
     BusinessLogicError {
         /// The business rule that was violated
         rule: String,
         /// Description of the violation
-        description: String
+        description: String,
     },
     /// Event too old
     StaleEvent {
         /// How old the event is
-        age: Duration
+        age: Duration,
     },
     /// Duplicate event detected
     Duplicate {
         /// ID of the original event
-        original_id: String
+        original_id: String,
     },
 }
 
@@ -106,17 +106,17 @@ pub enum ValidationWarning {
         /// The name of the field with unusual value
         field: String,
         /// The unusual value
-        value: String
+        value: String,
     },
     /// Deprecated field usage
     DeprecatedField {
         /// The name of the deprecated field
-        field: String
+        field: String,
     },
     /// Performance concern
     PerformanceWarning {
         /// Description of the performance concern
-        description: String
+        description: String,
     },
 }
 

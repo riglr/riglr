@@ -11,7 +11,6 @@ use rig::completion::Prompt;
 use rig::providers::{anthropic, gemini, openai};
 use serde_json::json;
 
-
 /// LLM-based output distiller
 ///
 /// Uses a separate LLM call to summarize complex tool outputs.
@@ -386,7 +385,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_mock_distiller() {
-        let processor = MockDistiller::default().with_response("test_tool", "This is a test summary");
+        let processor =
+            MockDistiller::default().with_response("test_tool", "This is a test summary");
 
         let output = utils::success_output("test_tool", json!({"result": "success"}));
         let processed = processor.process(output).await.unwrap();

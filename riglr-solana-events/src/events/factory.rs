@@ -216,4 +216,3 @@ impl EventParserRegistry {
         Self::new()
     }
 }
-

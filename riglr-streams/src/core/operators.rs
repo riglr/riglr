@@ -381,14 +381,17 @@ where
 
         tokio::spawn(async move {
             while let Ok(event) = rx1.recv().await {
-                let merged = MergedEvent::First(Arc::try_unwrap(event).unwrap_or_else(|arc| (*arc).clone()));
+                let merged =
+                    MergedEvent::First(Arc::try_unwrap(event).unwrap_or_else(|arc| (*arc).clone()));
                 let _ = tx1.send(Arc::new(merged));
             }
         });
 
         tokio::spawn(async move {
             while let Ok(event) = rx2.recv().await {
-                let merged = MergedEvent::Second(Arc::try_unwrap(event).unwrap_or_else(|arc| (*arc).clone()));
+                let merged = MergedEvent::Second(
+                    Arc::try_unwrap(event).unwrap_or_else(|arc| (*arc).clone()),
+                );
                 let _ = tx2.send(Arc::new(merged));
             }
         });

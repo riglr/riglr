@@ -9,7 +9,7 @@ pub mod commands;
 pub mod processors;
 
 /// Configuration module providing backward compatibility.
-/// 
+///
 /// Re-exports all items from riglr-config for backward compatibility.
 pub mod config {
     pub use riglr_config::*;

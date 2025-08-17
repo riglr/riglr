@@ -123,7 +123,6 @@ impl Default for RaydiumV4Parser {
 }
 
 impl RaydiumV4Parser {
-
     /// Create parser with zero-copy disabled
     pub fn new_standard() -> Self {
         Self {

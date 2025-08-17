@@ -252,7 +252,6 @@ impl SolanaEventParser {
     }
 }
 
-
 #[async_trait]
 impl EventParser for SolanaEventParser {
     type Input = SolanaTransactionInput;

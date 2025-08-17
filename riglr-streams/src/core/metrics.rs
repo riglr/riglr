@@ -171,13 +171,13 @@ impl MetricsCollector {
         processing_time_ms: f64,
         bytes: u64,
     ) {
-        let mut stream_metrics =
-            self.stream_metrics
-                .entry(stream_name.to_string())
-                .or_insert_with(|| StreamMetrics {
-                    stream_name: stream_name.to_string(),
-                    ..StreamMetrics::default()
-                });
+        let mut stream_metrics = self
+            .stream_metrics
+            .entry(stream_name.to_string())
+            .or_insert_with(|| StreamMetrics {
+                stream_name: stream_name.to_string(),
+                ..StreamMetrics::default()
+            });
 
         // Update basic counters
         stream_metrics.events_received += 1;
@@ -215,13 +215,13 @@ impl MetricsCollector {
         execution_time_ms: f64,
         success: bool,
     ) {
-        let mut handler_metrics =
-            self.handler_metrics
-                .entry(handler_name.to_string())
-                .or_insert_with(|| HandlerMetrics {
-                    handler_name: handler_name.to_string(),
-                    ..HandlerMetrics::default()
-                });
+        let mut handler_metrics = self
+            .handler_metrics
+            .entry(handler_name.to_string())
+            .or_insert_with(|| HandlerMetrics {
+                handler_name: handler_name.to_string(),
+                ..HandlerMetrics::default()
+            });
 
         // Update counters
         handler_metrics.invocations += 1;
@@ -264,22 +264,32 @@ impl MetricsCollector {
 
     /// Get stream metrics
     pub async fn get_stream_metrics(&self, stream_name: &str) -> Option<StreamMetrics> {
-        self.stream_metrics.get(stream_name).map(|entry| entry.value().clone())
+        self.stream_metrics
+            .get(stream_name)
+            .map(|entry| entry.value().clone())
     }
 
     /// Get all stream metrics
     pub async fn get_all_stream_metrics(&self) -> Vec<StreamMetrics> {
-        self.stream_metrics.iter().map(|entry| entry.value().clone()).collect()
+        self.stream_metrics
+            .iter()
+            .map(|entry| entry.value().clone())
+            .collect()
     }
 
     /// Get handler metrics
     pub async fn get_handler_metrics(&self, handler_name: &str) -> Option<HandlerMetrics> {
-        self.handler_metrics.get(handler_name).map(|entry| entry.value().clone())
+        self.handler_metrics
+            .get(handler_name)
+            .map(|entry| entry.value().clone())
     }
 
     /// Get all handler metrics
     pub async fn get_all_handler_metrics(&self) -> Vec<HandlerMetrics> {
-        self.handler_metrics.iter().map(|entry| entry.value().clone()).collect()
+        self.handler_metrics
+            .iter()
+            .map(|entry| entry.value().clone())
+            .collect()
     }
 
     /// Get global metrics

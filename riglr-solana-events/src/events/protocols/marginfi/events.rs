@@ -86,7 +86,7 @@ impl MarginFiDepositEvent {
     /// Creates a new MarginFi deposit event with the provided parameters and deposit data
     pub fn new(params: EventParameters, deposit_data: MarginFiDepositData) -> Self {
         let metadata = EventMetadata::default();
-        
+
         Self {
             id: params.id,
             signature: params.signature,
@@ -176,7 +176,7 @@ impl MarginFiWithdrawEvent {
     /// Creates a new MarginFi withdraw event with the provided parameters and withdraw data
     pub fn new(params: EventParameters, withdraw_data: MarginFiWithdrawData) -> Self {
         let metadata = EventMetadata::default();
-        
+
         Self {
             id: params.id,
             signature: params.signature,
@@ -266,7 +266,7 @@ impl MarginFiBorrowEvent {
     /// Creates a new MarginFi borrow event with the provided parameters and borrow data
     pub fn new(params: EventParameters, borrow_data: MarginFiBorrowData) -> Self {
         let metadata = EventMetadata::default();
-        
+
         Self {
             id: params.id,
             signature: params.signature,
@@ -321,7 +321,7 @@ impl MarginFiRepayEvent {
     /// Creates a new MarginFi repay event with the provided parameters and repay data
     pub fn new(params: EventParameters, repay_data: MarginFiRepayData) -> Self {
         let metadata = EventMetadata::default();
-        
+
         Self {
             id: params.id,
             signature: params.signature,
@@ -376,7 +376,7 @@ impl MarginFiLiquidationEvent {
     /// Creates a new MarginFi liquidation event with the provided parameters and liquidation data
     pub fn new(params: EventParameters, liquidation_data: MarginFiLiquidationData) -> Self {
         let metadata = EventMetadata::default();
-        
+
         Self {
             id: params.id,
             signature: params.signature,

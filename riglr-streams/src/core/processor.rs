@@ -21,26 +21,26 @@ use tracing::{info, warn};
 #[derive(Debug, Clone)]
 pub enum WindowType {
     /// Fixed-size tumbling windows
-    Tumbling { 
+    Tumbling {
         /// Duration of each tumbling window
-        duration: Duration 
+        duration: Duration,
     },
     /// Sliding windows with overlap
-    Sliding { 
+    Sliding {
         /// Size of the sliding window
-        size: Duration, 
+        size: Duration,
         /// Step size between windows
-        step: Duration 
+        step: Duration,
     },
     /// Session windows that close after inactivity
-    Session { 
+    Session {
         /// Timeout duration for session inactivity
-        timeout: Duration 
+        timeout: Duration,
     },
     /// Count-based windows
-    Count { 
+    Count {
         /// Number of events per window
-        size: usize 
+        size: usize,
     },
 }
 
@@ -427,7 +427,10 @@ impl FlowController {
                     Ok(())
                 } else {
                     // Try to acquire, but don't wait too long
-                    if let Ok(Ok(permit)) = tokio::time::timeout(Duration::from_millis(10), self.semaphore.acquire()).await {
+                    if let Ok(Ok(permit)) =
+                        tokio::time::timeout(Duration::from_millis(10), self.semaphore.acquire())
+                            .await
+                    {
                         permit.forget();
                         Ok(())
                     } else {

@@ -336,10 +336,7 @@ mod tests {
         assert_eq!(event.metadata.event_type, EventType::Swap);
         assert_eq!(event.metadata.signature, "sig456");
         assert_eq!(event.metadata.slot, 67890);
-        assert_eq!(
-            event.metadata.protocol_type,
-            ProtocolType::RaydiumAmmV4
-        );
+        assert_eq!(event.metadata.protocol_type, ProtocolType::RaydiumAmmV4);
 
         let swap_data = event.extract_data::<serde_json::Value>().unwrap();
         assert_eq!(swap_data["amount_in"], 1000000);

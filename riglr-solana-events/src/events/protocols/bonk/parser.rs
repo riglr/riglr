@@ -5,11 +5,11 @@ use borsh::BorshDeserialize;
 use solana_sdk::{instruction::CompiledInstruction, pubkey::Pubkey};
 use solana_transaction_status::UiCompiledInstruction;
 
-use crate::types::{EventMetadata, EventType, ProtocolType};
 use crate::events::{
     core::traits::{EventParser, GenericEventParseConfig, GenericEventParser},
     protocols::bonk::{discriminators, BonkPoolCreateEvent, BonkTradeEvent, TradeDirection},
 };
+use crate::types::{EventMetadata, EventType, ProtocolType};
 
 /// Bonk program ID
 pub const BONK_PROGRAM_ID: Pubkey =
@@ -125,7 +125,10 @@ impl BonkEventParser {
                 return None;
             }
 
-            Some(Box::new(BonkTradeEvent { metadata: metadata.core, ..event }))
+            Some(Box::new(BonkTradeEvent {
+                metadata: metadata.core,
+                ..event
+            }))
         } else {
             None
         }
@@ -140,7 +143,10 @@ impl BonkEventParser {
         if let Ok(event) = BonkPoolCreateEvent::try_from_slice(data) {
             let mut metadata = metadata;
             metadata.set_id(format!("{}-{}", metadata.signature, event.pool_state));
-            Some(Box::new(BonkPoolCreateEvent { metadata: metadata.core, ..event }))
+            Some(Box::new(BonkPoolCreateEvent {
+                metadata: metadata.core,
+                ..event
+            }))
         } else {
             None
         }
