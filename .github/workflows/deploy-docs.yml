@@ -42,7 +42,26 @@ jobs:
       - name: Build mdBook
         run: |
           cd docs
+          
+          # Generate documentation from source (same as build.sh)
+          if [ -f generate_docs.py ] && command -v python3 &> /dev/null; then
+            echo "Generating tool reference documentation..."
+            python3 generate_docs.py ../ src/tool-reference/
+          fi
+          
+          if [ -f generate_comprehensive_docs.py ] && command -v python3 &> /dev/null; then
+            echo "Generating comprehensive API documentation..."
+            mkdir -p src/api-reference
+            python3 generate_comprehensive_docs.py ../ src/api-reference/
+          fi
+          
+          # Now build mdbook with all generated content
           mdbook build
+          
+          # Fix paths for /docs/ deployment
+          if [ -f fix_paths_for_deployment.sh ]; then
+            ./fix_paths_for_deployment.sh
+          fi
 
       - name: Prepare deployment directory
         run: |
@@ -58,6 +77,13 @@ jobs:
           
           # Ensure docs are accessible at both /docs and /docs/
           cp docs/book/index.html deploy/docs.html 2>/dev/null || true
+          
+          # Debug: List what's in the deployment directory
+          echo "=== Deployment structure ==="
+          find deploy -type f -name "*.js" -o -name "*.css" | head -20
+          echo "=== Checking for critical files ==="
+          ls -la deploy/docs/toc.js || echo "toc.js not found"
+          ls -la deploy/docs/css/riglr.css || echo "riglr.css not found"
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
