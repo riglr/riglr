@@ -99,9 +99,9 @@ pub enum Chain {
     /// Solana blockchain
     Solana,
     /// EVM-compatible blockchain with the specified chain ID
-    Evm { 
+    Evm {
         /// The numeric chain identifier for this EVM network
-        chain_id: u64 
+        chain_id: u64,
     },
 }
 

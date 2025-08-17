@@ -1,6 +1,6 @@
+use dashmap::DashMap;
 use std::any::Any;
 use std::sync::Arc;
-use dashmap::DashMap;
 use tokio::sync::{broadcast, Mutex, RwLock};
 use tokio::task::JoinHandle;
 use tracing::{debug, error, info, warn};
@@ -167,7 +167,8 @@ impl StreamManager {
 
     /// Start a specific stream (stream should already be configured)
     pub async fn start_stream(&self, name: &str) -> StreamResult<()> {
-        let mut stream_ref = self.streams
+        let mut stream_ref = self
+            .streams
             .get_mut(name)
             .ok_or_else(|| StreamError::NotRunning {
                 name: name.to_string(),
@@ -199,7 +200,8 @@ impl StreamManager {
 
     /// Stop a specific stream
     pub async fn stop_stream(&self, name: &str) -> StreamResult<()> {
-        let mut stream_ref = self.streams
+        let mut stream_ref = self
+            .streams
             .get_mut(name)
             .ok_or_else(|| StreamError::NotRunning {
                 name: name.to_string(),
@@ -233,7 +235,11 @@ impl StreamManager {
 
         info!("Starting all streams");
 
-        let stream_names: Vec<String> = self.streams.iter().map(|entry| entry.key().clone()).collect();
+        let stream_names: Vec<String> = self
+            .streams
+            .iter()
+            .map(|entry| entry.key().clone())
+            .collect();
 
         let mut errors = Vec::new();
         for name in stream_names {
@@ -275,7 +281,11 @@ impl StreamManager {
         // Send shutdown signal
         let _ = self.shutdown_tx.send(());
 
-        let stream_names: Vec<String> = self.streams.iter().map(|entry| entry.key().clone()).collect();
+        let stream_names: Vec<String> = self
+            .streams
+            .iter()
+            .map(|entry| entry.key().clone())
+            .collect();
 
         for name in stream_names {
             if let Err(e) = self.stop_stream(&name).await {
@@ -284,8 +294,12 @@ impl StreamManager {
         }
 
         // Wait for all forwarding tasks to complete
-        let running_keys: Vec<String> = self.running_streams.iter().map(|entry| entry.key().clone()).collect();
-        
+        let running_keys: Vec<String> = self
+            .running_streams
+            .iter()
+            .map(|entry| entry.key().clone())
+            .collect();
+
         for name in running_keys {
             if let Some((_, handle)) = self.running_streams.remove(&name) {
                 debug!("Waiting for stream {} to stop", name);
@@ -352,7 +366,10 @@ impl StreamManager {
 
     /// Get list of stream names
     pub async fn list_streams(&self) -> Vec<String> {
-        self.streams.iter().map(|entry| entry.key().clone()).collect()
+        self.streams
+            .iter()
+            .map(|entry| entry.key().clone())
+            .collect()
     }
 
     /// Check if a stream is running

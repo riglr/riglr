@@ -22,7 +22,6 @@ pub struct OrcaEventParser {
     instruction_configs: HashMap<Vec<u8>, Vec<GenericEventParseConfig>>,
 }
 
-
 #[async_trait::async_trait]
 impl EventParser for OrcaEventParser {
     fn inner_instruction_configs(&self) -> HashMap<&'static str, Vec<GenericEventParseConfig>> {
@@ -245,7 +244,7 @@ fn parse_orca_open_position_inner_instruction(
             id: metadata.id().to_string(),
             signature: metadata.signature.clone(),
             slot: metadata.slot,
-            block_time: 0, // Not available in SolanaEventMetadata
+            block_time: 0,    // Not available in SolanaEventMetadata
             block_time_ms: 0, // Not available in SolanaEventMetadata,
             program_received_time_ms: metadata.program_received_time_ms,
             program_handle_time_consuming_ms: 0,
@@ -268,7 +267,7 @@ fn parse_orca_open_position_instruction(
             id: metadata.id().to_string(),
             signature: metadata.signature.clone(),
             slot: metadata.slot,
-            block_time: 0, // Not available in SolanaEventMetadata
+            block_time: 0,    // Not available in SolanaEventMetadata
             block_time_ms: 0, // Not available in SolanaEventMetadata,
             program_received_time_ms: metadata.program_received_time_ms,
             program_handle_time_consuming_ms: 0,
@@ -290,7 +289,7 @@ fn parse_orca_close_position_inner_instruction(
             id: metadata.id().to_string(),
             signature: metadata.signature.clone(),
             slot: metadata.slot,
-            block_time: 0, // Not available in SolanaEventMetadata
+            block_time: 0,    // Not available in SolanaEventMetadata
             block_time_ms: 0, // Not available in SolanaEventMetadata,
             program_received_time_ms: metadata.program_received_time_ms,
             program_handle_time_consuming_ms: 0,
@@ -313,7 +312,7 @@ fn parse_orca_close_position_instruction(
             id: metadata.id().to_string(),
             signature: metadata.signature.clone(),
             slot: metadata.slot,
-            block_time: 0, // Not available in SolanaEventMetadata
+            block_time: 0,    // Not available in SolanaEventMetadata
             block_time_ms: 0, // Not available in SolanaEventMetadata,
             program_received_time_ms: metadata.program_received_time_ms,
             program_handle_time_consuming_ms: 0,
@@ -335,7 +334,7 @@ fn parse_orca_increase_liquidity_inner_instruction(
             id: metadata.id().to_string(),
             signature: metadata.signature.clone(),
             slot: metadata.slot,
-            block_time: 0, // Not available in SolanaEventMetadata
+            block_time: 0,    // Not available in SolanaEventMetadata
             block_time_ms: 0, // Not available in SolanaEventMetadata,
             program_received_time_ms: metadata.program_received_time_ms,
             program_handle_time_consuming_ms: 0,
@@ -357,7 +356,7 @@ fn parse_orca_increase_liquidity_instruction(
             id: metadata.id().to_string(),
             signature: metadata.signature.clone(),
             slot: metadata.slot,
-            block_time: 0, // Not available in SolanaEventMetadata
+            block_time: 0,    // Not available in SolanaEventMetadata
             block_time_ms: 0, // Not available in SolanaEventMetadata,
             program_received_time_ms: metadata.program_received_time_ms,
             program_handle_time_consuming_ms: 0,
@@ -378,7 +377,7 @@ fn parse_orca_decrease_liquidity_inner_instruction(
             id: metadata.id().to_string(),
             signature: metadata.signature.clone(),
             slot: metadata.slot,
-            block_time: 0, // Not available in SolanaEventMetadata
+            block_time: 0,    // Not available in SolanaEventMetadata
             block_time_ms: 0, // Not available in SolanaEventMetadata,
             program_received_time_ms: metadata.program_received_time_ms,
             program_handle_time_consuming_ms: 0,
@@ -400,7 +399,7 @@ fn parse_orca_decrease_liquidity_instruction(
             id: metadata.id().to_string(),
             signature: metadata.signature.clone(),
             slot: metadata.slot,
-            block_time: 0, // Not available in SolanaEventMetadata
+            block_time: 0,    // Not available in SolanaEventMetadata
             block_time_ms: 0, // Not available in SolanaEventMetadata,
             program_received_time_ms: metadata.program_received_time_ms,
             program_handle_time_consuming_ms: 0,

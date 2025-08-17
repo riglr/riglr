@@ -4,8 +4,8 @@
 //! through the ChainData abstraction from riglr-events-core.
 
 use crate::types::{EventType, ProtocolType};
-use riglr_events_core::{EventKind, EventMetadata};
 use riglr_events_core::prelude::ChainData;
+use riglr_events_core::{EventKind, EventMetadata};
 use serde_json::json;
 use solana_sdk::pubkey::Pubkey;
 

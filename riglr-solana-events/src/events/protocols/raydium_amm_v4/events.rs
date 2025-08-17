@@ -252,7 +252,11 @@ impl Event for RaydiumAmmV4SwapEvent {
         static METADATA_CACHE: OnceLock<EventMetadata> = OnceLock::new();
 
         METADATA_CACHE.get_or_init(|| {
-            EventMetadata::new(String::default(), EventKind::Swap, "raydium-amm-v4".to_string())
+            EventMetadata::new(
+                String::default(),
+                EventKind::Swap,
+                "raydium-amm-v4".to_string(),
+            )
         })
     }
 

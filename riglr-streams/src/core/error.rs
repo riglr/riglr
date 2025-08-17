@@ -9,32 +9,32 @@ use thiserror::Error;
 pub enum StreamError {
     /// Connection-related errors
     #[error("Connection failed: {message}")]
-    Connection { 
+    Connection {
         /// Error message describing the connection failure
-        message: String, 
+        message: String,
         /// Whether this connection error can be retried
-        retriable: bool 
+        retriable: bool,
     },
 
     /// Configuration errors
     #[error("Configuration error: {message}")]
-    Configuration { 
+    Configuration {
         /// Error message describing the configuration issue
-        message: String 
+        message: String,
     },
 
     /// Invalid configuration
     #[error("Invalid configuration: {reason}")]
-    ConfigurationInvalid { 
+    ConfigurationInvalid {
         /// Reason why the configuration is invalid
-        reason: String 
+        reason: String,
     },
 
     /// Authentication failures
     #[error("Authentication failed: {message}")]
-    Authentication { 
+    Authentication {
         /// Error message describing the authentication failure
-        message: String 
+        message: String,
     },
 
     /// Rate limiting errors
@@ -48,60 +48,60 @@ pub enum StreamError {
 
     /// Data parsing errors
     #[error("Parse error: {message}")]
-    Parse { 
+    Parse {
         /// Error message describing the parsing failure
-        message: String, 
+        message: String,
         /// The raw data that failed to parse
-        data: String 
+        data: String,
     },
 
     /// Resource exhaustion
     #[error("Resource exhausted: {message}")]
-    ResourceExhausted { 
+    ResourceExhausted {
         /// Error message describing the resource exhaustion
-        message: String 
+        message: String,
     },
 
     /// Stream already running
     #[error("Stream already running: {name}")]
-    AlreadyRunning { 
+    AlreadyRunning {
         /// Name of the stream that is already running
-        name: String 
+        name: String,
     },
 
     /// Stream not running
     #[error("Stream not running: {name}")]
-    NotRunning { 
+    NotRunning {
         /// Name of the stream that is not running
-        name: String 
+        name: String,
     },
 
     /// Channel errors
     #[error("Channel error: {message}")]
-    Channel { 
+    Channel {
         /// Error message describing the channel failure
-        message: String 
+        message: String,
     },
 
     /// Timeout errors
     #[error("Operation timed out: {message}")]
-    Timeout { 
+    Timeout {
         /// Error message describing the timeout
-        message: String 
+        message: String,
     },
 
     /// Processing errors
     #[error("Processing error: {message}")]
-    Processing { 
+    Processing {
         /// Error message describing the processing failure
-        message: String 
+        message: String,
     },
 
     /// Backpressure errors
     #[error("Backpressure error: {message}")]
-    Backpressure { 
+    Backpressure {
         /// Error message describing the backpressure issue
-        message: String 
+        message: String,
     },
 
     /// Internal errors
@@ -215,9 +215,7 @@ impl StreamError {
                 std::io::Error::new(std::io::ErrorKind::BrokenPipe, message.clone()),
                 format!("Channel error: {}", message),
             ),
-            StreamError::Timeout { .. } => {
-                EventError::timeout(std::time::Duration::from_secs(30))
-            }
+            StreamError::Timeout { .. } => EventError::timeout(std::time::Duration::from_secs(30)),
             StreamError::Processing { message } => {
                 EventError::generic(format!("Processing error: {}", message))
             }

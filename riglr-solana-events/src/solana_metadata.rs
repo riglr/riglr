@@ -98,7 +98,7 @@ impl SolanaEventMetadata {
 impl Default for SolanaEventMetadata {
     fn default() -> Self {
         use crate::metadata_helpers::create_solana_metadata;
-        
+
         let core = create_solana_metadata(
             String::new(),
             EventKind::Transaction,
@@ -136,7 +136,7 @@ pub fn create_metadata(
     protocol_type: ProtocolType,
 ) -> SolanaEventMetadata {
     use crate::metadata_helpers::create_solana_metadata;
-    
+
     let core = create_solana_metadata(
         id.clone(),
         EventKind::Transaction,

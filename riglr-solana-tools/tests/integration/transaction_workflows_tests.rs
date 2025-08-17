@@ -3,23 +3,25 @@
 //! These tests focus on testing complete workflows including error handling,
 //! signer integration, and proper tool error conversion.
 
-use riglr_core::jobs::{Job, JobResult};
-use riglr_core::signer::{SignerContext, TransactionSigner, SignerError};
-use riglr_core::tool::{Tool, ToolWorker, ExecutionConfig};
-use riglr_core::idempotency::InMemoryIdempotencyStore;
-use riglr_solana_tools::error::{SolanaToolError, classify_transaction_error, TransactionErrorType};
-use riglr_solana_tools::signer::local::LocalSolanaSigner;
 use async_trait::async_trait;
-use serde_json::json;
-use solana_sdk::{
-    signature::{Keypair, Signer},
-    transaction::Transaction,
-    system_instruction,
-    pubkey::Pubkey,
+use riglr_core::idempotency::InMemoryIdempotencyStore;
+use riglr_core::jobs::{Job, JobResult};
+use riglr_core::signer::{SignerContext, SignerError, TransactionSigner};
+use riglr_core::tool::{ExecutionConfig, Tool, ToolWorker};
+use riglr_solana_tools::error::{
+    classify_transaction_error, SolanaToolError, TransactionErrorType,
 };
+use riglr_solana_tools::signer::local::LocalSolanaSigner;
+use serde_json::json;
 use solana_client::rpc_client::RpcClient;
-use std::sync::Arc;
+use solana_sdk::{
+    pubkey::Pubkey,
+    signature::{Keypair, Signer},
+    system_instruction,
+    transaction::Transaction,
+};
 use std::str::FromStr;
+use std::sync::Arc;
 
 /// Mock Solana tool for testing transaction workflows
 struct MockSolanaTransferTool;
@@ -31,30 +33,34 @@ impl Tool for MockSolanaTransferTool {
         params: serde_json::Value,
     ) -> Result<JobResult, Box<dyn std::error::Error + Send + Sync>> {
         // Extract parameters
-        let to_address = params["to"].as_str()
-            .ok_or("Missing 'to' parameter")?;
-        let amount = params["amount"].as_f64()
+        let to_address = params["to"].as_str().ok_or("Missing 'to' parameter")?;
+        let amount = params["amount"]
+            .as_f64()
             .ok_or("Missing 'amount' parameter")?;
 
         // Validate address format
         if Pubkey::from_str(to_address).is_err() {
-            return Ok(JobResult::permanent_failure(
-                format!("Invalid Solana address: {}", to_address)
-            ));
+            return Ok(JobResult::permanent_failure(format!(
+                "Invalid Solana address: {}",
+                to_address
+            )));
         }
 
         // Check if signer is available
         if !SignerContext::is_available().await {
             return Ok(JobResult::permanent_failure(
-                "No signer context available for transfer"
+                "No signer context available for transfer",
             ));
         }
 
         let signer = match SignerContext::current().await {
             Ok(signer) => signer,
-            Err(e) => return Ok(JobResult::permanent_failure(
-                format!("Failed to get signer: {}", e)
-            )),
+            Err(e) => {
+                return Ok(JobResult::permanent_failure(format!(
+                    "Failed to get signer: {}",
+                    e
+                )))
+            }
         };
 
         // Mock transaction creation and signing
@@ -78,36 +84,46 @@ impl Tool for MockSolanaTransferTool {
         let mut transaction = Transaction::new_with_payer(&[instruction], Some(&from_pubkey));
 
         // Try to sign and send transaction
-        match signer.sign_and_send_solana_transaction(&mut transaction).await {
-            Ok(signature) => {
-                Ok(JobResult::success_with_tx(
-                    &json!({
-                        "from": from_pubkey.to_string(),
-                        "to": to_address,
-                        "amount": amount,
-                        "status": "submitted"
-                    }),
-                    signature,
-                )?)
-            }
+        match signer
+            .sign_and_send_solana_transaction(&mut transaction)
+            .await
+        {
+            Ok(signature) => Ok(JobResult::success_with_tx(
+                &json!({
+                    "from": from_pubkey.to_string(),
+                    "to": to_address,
+                    "amount": amount,
+                    "status": "submitted"
+                }),
+                signature,
+            )?),
             Err(SignerError::SolanaTransaction(e)) => {
                 // Classify the error using our sophisticated error classification
                 let client_error = e.as_ref();
-                if let Some(client_err) = client_error.downcast_ref::<solana_client::client_error::ClientError>() {
+                if let Some(client_err) =
+                    client_error.downcast_ref::<solana_client::client_error::ClientError>()
+                {
                     let classified = classify_transaction_error(client_err);
                     match classified {
-                        TransactionErrorType::Retryable(_) | TransactionErrorType::RateLimited(_) => {
-                            Ok(JobResult::retriable_failure(format!("Transaction failed (retryable): {}", client_err)))
-                        }
-                        TransactionErrorType::Permanent(_) => {
-                            Ok(JobResult::permanent_failure(format!("Transaction failed (permanent): {}", client_err)))
-                        }
+                        TransactionErrorType::Retryable(_)
+                        | TransactionErrorType::RateLimited(_) => Ok(JobResult::retriable_failure(
+                            format!("Transaction failed (retryable): {}", client_err),
+                        )),
+                        TransactionErrorType::Permanent(_) => Ok(JobResult::permanent_failure(
+                            format!("Transaction failed (permanent): {}", client_err),
+                        )),
                         TransactionErrorType::Unknown(_) => {
-                            Ok(JobResult::retriable_failure(format!("Transaction failed (unknown, treating as retryable): {}", client_err)))
+                            Ok(JobResult::retriable_failure(format!(
+                                "Transaction failed (unknown, treating as retryable): {}",
+                                client_err
+                            )))
                         }
                     }
                 } else {
-                    Ok(JobResult::retriable_failure(format!("Transaction failed: {}", e)))
+                    Ok(JobResult::retriable_failure(format!(
+                        "Transaction failed: {}",
+                        e
+                    )))
                 }
             }
             Err(e) => Ok(JobResult::permanent_failure(format!("Signer error: {}", e))),
@@ -165,7 +181,7 @@ impl TransactionSigner for MockFailingSigner {
             FailureMode::NetworkError => {
                 let io_error = std::io::Error::new(
                     std::io::ErrorKind::ConnectionRefused,
-                    "Connection refused"
+                    "Connection refused",
                 );
                 let client_error = solana_client::client_error::ClientError::new_with_request(
                     solana_client::client_error::ClientErrorKind::Io(io_error),
@@ -175,14 +191,18 @@ impl TransactionSigner for MockFailingSigner {
             }
             FailureMode::InsufficientFunds => {
                 let client_error = solana_client::client_error::ClientError::new_with_request(
-                    solana_client::client_error::ClientErrorKind::Custom("InsufficientFundsForRent".to_string()),
+                    solana_client::client_error::ClientErrorKind::Custom(
+                        "InsufficientFundsForRent".to_string(),
+                    ),
                     solana_client::rpc_request::RpcRequest::SendTransaction,
                 );
                 Err(SignerError::SolanaTransaction(Box::new(client_error)))
             }
             FailureMode::InvalidSignature => {
                 let client_error = solana_client::client_error::ClientError::new_with_request(
-                    solana_client::client_error::ClientErrorKind::Custom("InvalidSignature".to_string()),
+                    solana_client::client_error::ClientErrorKind::Custom(
+                        "InvalidSignature".to_string(),
+                    ),
                     solana_client::rpc_request::RpcRequest::SendTransaction,
                 );
                 Err(SignerError::SolanaTransaction(Box::new(client_error)))
@@ -210,7 +230,7 @@ impl TransactionSigner for MockFailingSigner {
         _tx: alloy::rpc::types::TransactionRequest,
     ) -> Result<String, SignerError> {
         Err(SignerError::Configuration(
-            "MockFailingSigner does not support EVM transactions".to_string()
+            "MockFailingSigner does not support EVM transactions".to_string(),
         ))
     }
 
@@ -220,7 +240,7 @@ impl TransactionSigner for MockFailingSigner {
 
     fn evm_client(&self) -> Result<Arc<dyn std::any::Any + Send + Sync>, SignerError> {
         Err(SignerError::Configuration(
-            "MockFailingSigner does not support EVM clients".to_string()
+            "MockFailingSigner does not support EVM clients".to_string(),
         ))
     }
 }
@@ -241,7 +261,8 @@ async fn test_successful_transfer_workflow() {
             "amount": 0.001
         }),
         3,
-    ).unwrap();
+    )
+    .unwrap();
 
     let result = worker.process_job(job).await.unwrap();
     assert!(result.is_success());
@@ -272,7 +293,8 @@ async fn test_network_error_retry_workflow() {
             "amount": 0.001
         }),
         3,
-    ).unwrap();
+    )
+    .unwrap();
 
     let result = worker.process_job(job).await.unwrap();
     assert!(!result.is_success());
@@ -295,7 +317,8 @@ async fn test_insufficient_funds_permanent_failure() {
             "amount": 0.001
         }),
         3,
-    ).unwrap();
+    )
+    .unwrap();
 
     let result = worker.process_job(job).await.unwrap();
     assert!(!result.is_success());
@@ -318,7 +341,8 @@ async fn test_invalid_signature_permanent_failure() {
             "amount": 0.001
         }),
         3,
-    ).unwrap();
+    )
+    .unwrap();
 
     let result = worker.process_job(job).await.unwrap();
     assert!(!result.is_success());
@@ -341,7 +365,8 @@ async fn test_rate_limited_retry_workflow() {
             "amount": 0.001
         }),
         3,
-    ).unwrap();
+    )
+    .unwrap();
 
     let result = worker.process_job(job).await.unwrap();
     assert!(!result.is_success());
@@ -364,7 +389,8 @@ async fn test_unknown_error_retry_workflow() {
             "amount": 0.001
         }),
         3,
-    ).unwrap();
+    )
+    .unwrap();
 
     let result = worker.process_job(job).await.unwrap();
     assert!(!result.is_success());
@@ -388,7 +414,8 @@ async fn test_invalid_address_validation() {
             "amount": 0.001
         }),
         3,
-    ).unwrap();
+    )
+    .unwrap();
 
     let result = worker.process_job(job).await.unwrap();
     assert!(!result.is_success());
@@ -419,7 +446,8 @@ async fn test_missing_parameters() {
             // Missing 'to' parameter
         }),
         3,
-    ).unwrap();
+    )
+    .unwrap();
 
     let result = worker.process_job(job1).await;
     assert!(result.is_err()); // Should return Err for missing parameters
@@ -432,7 +460,8 @@ async fn test_missing_parameters() {
             // Missing 'amount' parameter
         }),
         3,
-    ).unwrap();
+    )
+    .unwrap();
 
     let result = worker.process_job(job2).await;
     assert!(result.is_err()); // Should return Err for missing parameters
@@ -453,7 +482,8 @@ async fn test_no_signer_context() {
             "amount": 0.001
         }),
         3,
-    ).unwrap();
+    )
+    .unwrap();
 
     let result = worker.process_job(job).await.unwrap();
     assert!(!result.is_success());
@@ -556,7 +586,10 @@ async fn test_local_solana_signer_integration() {
 async fn test_local_signer_from_seed_phrase() {
     // Test creating LocalSolanaSigner from seed phrase
     let seed_phrase = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about";
-    let result = LocalSolanaSigner::from_seed_phrase(seed_phrase, "https://api.devnet.solana.com".to_string());
+    let result = LocalSolanaSigner::from_seed_phrase(
+        seed_phrase,
+        "https://api.devnet.solana.com".to_string(),
+    );
     assert!(result.is_ok());
 
     let signer = result.unwrap();
@@ -564,7 +597,10 @@ async fn test_local_signer_from_seed_phrase() {
 
     // Test invalid seed phrase
     let invalid_seed = "invalid seed phrase";
-    let result = LocalSolanaSigner::from_seed_phrase(invalid_seed, "https://api.devnet.solana.com".to_string());
+    let result = LocalSolanaSigner::from_seed_phrase(
+        invalid_seed,
+        "https://api.devnet.solana.com".to_string(),
+    );
     assert!(result.is_err());
 
     match result {
@@ -595,7 +631,8 @@ async fn test_idempotent_transaction_workflow() {
         }),
         3,
         "transfer_test_key_123",
-    ).unwrap();
+    )
+    .unwrap();
 
     // First execution
     let result1 = worker.process_job(job.clone()).await.unwrap();
@@ -607,7 +644,16 @@ async fn test_idempotent_transaction_workflow() {
 
     // Both should have the same transaction hash
     match (&result1, &result2) {
-        (JobResult::Success { tx_hash: Some(hash1), .. }, JobResult::Success { tx_hash: Some(hash2), .. }) => {
+        (
+            JobResult::Success {
+                tx_hash: Some(hash1),
+                ..
+            },
+            JobResult::Success {
+                tx_hash: Some(hash2),
+                ..
+            },
+        ) => {
             assert_eq!(hash1, hash2);
         }
         _ => panic!("Expected successful results with transaction hashes"),
@@ -621,7 +667,7 @@ async fn test_comprehensive_error_scenarios() {
 
     // Test all failure modes with their expected classifications
     let test_cases = vec![
-        (FailureMode::NetworkError, true),      // Should be retriable
+        (FailureMode::NetworkError, true),       // Should be retriable
         (FailureMode::InsufficientFunds, false), // Should be permanent
         (FailureMode::InvalidSignature, false),  // Should be permanent
         (FailureMode::RateLimited, true),        // Should be retriable
@@ -639,10 +685,15 @@ async fn test_comprehensive_error_scenarios() {
                 "amount": 0.001
             }),
             3,
-        ).unwrap();
+        )
+        .unwrap();
 
         let result = worker.process_job(job).await.unwrap();
-        assert!(!result.is_success(), "Expected failure for {:?}", failure_mode);
+        assert!(
+            !result.is_success(),
+            "Expected failure for {:?}",
+            failure_mode
+        );
         assert_eq!(
             result.is_retriable(),
             should_be_retriable,
@@ -661,14 +712,16 @@ impl Tool for MockBalanceCheckerTool {
         &self,
         params: serde_json::Value,
     ) -> Result<JobResult, Box<dyn std::error::Error + Send + Sync>> {
-        let address = params["address"].as_str()
+        let address = params["address"]
+            .as_str()
             .ok_or("Missing 'address' parameter")?;
 
         // Validate address format
         if Pubkey::from_str(address).is_err() {
-            return Ok(JobResult::permanent_failure(
-                format!("Invalid Solana address: {}", address)
-            ));
+            return Ok(JobResult::permanent_failure(format!(
+                "Invalid Solana address: {}",
+                address
+            )));
         }
 
         // Mock balance check - always return success for valid addresses
@@ -699,7 +752,8 @@ async fn test_read_only_tool_workflow() {
             "address": "11111111111111111111111111111112"
         }),
         0,
-    ).unwrap();
+    )
+    .unwrap();
 
     let result = worker.process_job(job).await.unwrap();
     assert!(result.is_success());
@@ -717,7 +771,9 @@ async fn test_read_only_tool_workflow() {
 #[tokio::test]
 #[ignore] // Long-running concurrent test
 async fn test_concurrent_transaction_workflows() {
-    let worker = Arc::new(ToolWorker::<InMemoryIdempotencyStore>::new(ExecutionConfig::default()));
+    let worker = Arc::new(ToolWorker::<InMemoryIdempotencyStore>::new(
+        ExecutionConfig::default(),
+    ));
     worker.register_tool(Arc::new(MockSolanaTransferTool)).await;
 
     // Set up successful signer context
@@ -736,7 +792,8 @@ async fn test_concurrent_transaction_workflows() {
                     "amount": 0.001 * (i + 1) as f64
                 }),
                 3,
-            ).unwrap();
+            )
+            .unwrap();
 
             worker_clone.process_job(job).await.unwrap()
         });

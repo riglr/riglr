@@ -5,11 +5,11 @@ use borsh::BorshDeserialize;
 use solana_sdk::{instruction::CompiledInstruction, pubkey::Pubkey};
 use solana_transaction_status::UiCompiledInstruction;
 
-use crate::types::{EventMetadata, EventType, ProtocolType};
 use crate::events::{
     core::traits::{EventParser, GenericEventParseConfig, GenericEventParser},
     protocols::raydium_cpmm::{discriminators, RaydiumCpmmDepositEvent, RaydiumCpmmSwapEvent},
 };
+use crate::types::{EventMetadata, EventType, ProtocolType};
 
 /// Raydium CPMM program ID
 pub const RAYDIUM_CPMM_PROGRAM_ID: Pubkey =
@@ -72,7 +72,10 @@ impl RaydiumCpmmEventParser {
         if let Ok(event) = RaydiumCpmmSwapEvent::try_from_slice(data) {
             let mut metadata = metadata;
             metadata.set_id(format!("{}-{}-swap", metadata.signature, event.pool_state));
-            Some(Box::new(RaydiumCpmmSwapEvent { metadata: metadata.core, ..event }))
+            Some(Box::new(RaydiumCpmmSwapEvent {
+                metadata: metadata.core,
+                ..event
+            }))
         } else {
             None
         }
@@ -90,7 +93,10 @@ impl RaydiumCpmmEventParser {
                 "{}-{}-deposit",
                 metadata.signature, event.pool_state
             ));
-            Some(Box::new(RaydiumCpmmDepositEvent { metadata: metadata.core, ..event }))
+            Some(Box::new(RaydiumCpmmDepositEvent {
+                metadata: metadata.core,
+                ..event
+            }))
         } else {
             None
         }

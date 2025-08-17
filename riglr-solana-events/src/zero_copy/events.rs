@@ -4,7 +4,9 @@
 //! where possible, providing significant performance improvements for high-throughput
 //! parsing scenarios.
 
-use crate::metadata_helpers::{get_event_type, get_instruction_index, get_protocol_type, get_signature, get_slot};
+use crate::metadata_helpers::{
+    get_event_type, get_instruction_index, get_protocol_type, get_signature, get_slot,
+};
 use crate::types::{EventMetadata, EventType, ProtocolType};
 use solana_sdk::pubkey::Pubkey;
 use std::borrow::Cow;
@@ -110,7 +112,9 @@ impl<'a> ZeroCopyEvent<'a> {
 
     /// Get index for any lifetime
     pub fn index(&self) -> String {
-        get_instruction_index(&self.metadata).map(|i| i.to_string()).unwrap_or_default()
+        get_instruction_index(&self.metadata)
+            .map(|i| i.to_string())
+            .unwrap_or_default()
     }
 
     /// Get timestamp for any lifetime

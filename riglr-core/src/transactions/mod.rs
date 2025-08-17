@@ -44,28 +44,28 @@ pub enum TransactionStatus {
     /// Transaction is pending submission
     Pending,
     /// Transaction has been submitted to the network
-    Submitted { 
+    Submitted {
         /// Transaction hash from the network
-        hash: String 
+        hash: String,
     },
     /// Transaction is being confirmed
-    Confirming { 
+    Confirming {
         /// Transaction hash from the network
-        hash: String, 
+        hash: String,
         /// Current number of confirmations received
-        confirmations: u64 
+        confirmations: u64,
     },
     /// Transaction has been confirmed
-    Confirmed { 
+    Confirmed {
         /// Transaction hash from the network
-        hash: String, 
+        hash: String,
         /// Block number where the transaction was included
-        block: u64 
+        block: u64,
     },
     /// Transaction failed
-    Failed { 
+    Failed {
         /// Reason why the transaction failed
-        reason: String 
+        reason: String,
     },
 }
 

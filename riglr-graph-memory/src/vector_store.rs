@@ -231,7 +231,11 @@ impl GraphRetriever {
                                 if similarity_score >= self.similarity_threshold {
                                     let metadata: HashMap<String, Value> = row_data[2]
                                         .as_object()
-                                        .map(|obj| obj.iter().map(|(k, v)| (k.clone(), v.clone())).collect())
+                                        .map(|obj| {
+                                            obj.iter()
+                                                .map(|(k, v)| (k.clone(), v.clone()))
+                                                .collect()
+                                        })
                                         .unwrap_or_default();
 
                                     let entities: Vec<String> = row_data[3]

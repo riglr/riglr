@@ -74,7 +74,6 @@ impl CompositeSignerFactory {
     }
 }
 
-
 #[async_trait]
 impl SignerFactory for CompositeSignerFactory {
     async fn create_signer(

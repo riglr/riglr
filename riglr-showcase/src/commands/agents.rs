@@ -33,7 +33,7 @@ use std::sync::Arc;
 /// ```
 /// use std::sync::Arc;
 /// use riglr_config::Config;
-/// 
+///
 /// # async fn example() -> anyhow::Result<()> {
 /// let config = Arc::new(Config::default());
 /// run_demo(config, "basic".to_string()).await?;

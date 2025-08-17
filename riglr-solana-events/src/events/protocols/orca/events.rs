@@ -83,11 +83,11 @@ impl OrcaSwapEvent {
     /// Creates a new OrcaSwapEvent with the provided parameters and swap data
     pub fn new(params: EventParameters, swap_data: OrcaSwapData) -> Self {
         use crate::types::metadata_helpers;
-        use crate::types::{ProtocolType, EventType};
+        use crate::types::{EventType, ProtocolType};
         use solana_sdk::pubkey::Pubkey;
-        
+
         let metadata = EventMetadata::default();
-        
+
         Self {
             id: params.id,
             signature: params.signature,
@@ -144,11 +144,11 @@ impl OrcaPositionEvent {
     /// Creates a new OrcaPositionEvent with the provided parameters and position data
     pub fn new(params: EventParameters, position_data: OrcaPositionData, is_open: bool) -> Self {
         use crate::types::metadata_helpers;
-        use crate::types::{ProtocolType, EventType};
+        use crate::types::{EventType, ProtocolType};
         use solana_sdk::pubkey::Pubkey;
-        
+
         let metadata = EventMetadata::default();
-        
+
         Self {
             id: params.id,
             signature: params.signature,
@@ -204,11 +204,11 @@ impl OrcaLiquidityEvent {
     /// Creates a new OrcaLiquidityEvent with the provided parameters and liquidity data
     pub fn new(params: EventParameters, liquidity_data: OrcaLiquidityData) -> Self {
         use crate::types::metadata_helpers;
-        use crate::types::{ProtocolType, EventType};
+        use crate::types::{EventType, ProtocolType};
         use solana_sdk::pubkey::Pubkey;
-        
+
         let metadata = EventMetadata::default();
-        
+
         Self {
             id: params.id,
             signature: params.signature,

@@ -15,7 +15,6 @@ use serde_json::json;
 const OPENAI_API_KEY: &str = "OPENAI_API_KEY";
 const ANTHROPIC_API_KEY: &str = "ANTHROPIC_API_KEY";
 
-
 /// LLM-based output distiller
 ///
 /// Uses a separate LLM call to summarize complex tool outputs.
@@ -240,7 +239,6 @@ pub struct SmartDistiller {
 }
 
 impl SmartDistiller {
-
     /// Choose the best processor for the given output
     fn choose_processor(&self, output: &ToolOutput) -> &DistillationProcessor {
         // Simple heuristic - in practice, you might have more sophisticated logic
@@ -386,7 +384,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_mock_distiller() {
-        let processor = MockDistiller::default().with_response("test_tool", "This is a test summary");
+        let processor =
+            MockDistiller::default().with_response("test_tool", "This is a test summary");
 
         let output = utils::success_output("test_tool", json!({"result": "success"}));
         let processed = processor.process(output).await.unwrap();

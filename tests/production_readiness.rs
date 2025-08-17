@@ -16,11 +16,12 @@ async fn test_configuration_fail_fast() {
     }
 
     // This should panic when trying to load config with missing required vars
-    let result = std::panic::catch_unwind(|| {
-        riglr_showcase::config::Config::from_env()
-    });
+    let result = std::panic::catch_unwind(|| riglr_showcase::config::Config::from_env());
 
-    assert!(result.is_err(), "Should panic with missing required API keys");
+    assert!(
+        result.is_err(),
+        "Should panic with missing required API keys"
+    );
 
     // Restore for other tests
     // SAFETY: Safe in test context as we're only modifying test environment variables
@@ -75,10 +76,13 @@ async fn test_no_mock_implementations() {
         .args(&[
             "-i",
             "mock|placeholder|todo|fixme",
-            "--type", "rust",
-            "--glob", "!tests/*",
-            "--glob", "!examples/*",
-            "src/"
+            "--type",
+            "rust",
+            "--glob",
+            "!tests/*",
+            "--glob",
+            "!examples/*",
+            "src/",
         ])
         .current_dir("/mnt/storage/projects/riglr")
         .output()
@@ -90,17 +94,20 @@ async fn test_no_mock_implementations() {
     let concerning_mocks: Vec<&str> = results
         .lines()
         .filter(|line| {
-            !line.contains("test_") &&
-            !line.contains("mock_signer") &&
-            !line.contains("MockAgent") &&
-            !line.contains("// TODO:") &&
-            !line.contains("// FIXME:") &&
-            (line.contains("mock") || line.contains("TODO") || line.contains("FIXME"))
+            !line.contains("test_")
+                && !line.contains("mock_signer")
+                && !line.contains("MockAgent")
+                && !line.contains("// TODO:")
+                && !line.contains("// FIXME:")
+                && (line.contains("mock") || line.contains("TODO") || line.contains("FIXME"))
         })
         .collect();
 
     if !concerning_mocks.is_empty() {
-        panic!("Found concerning mock/placeholder implementations:\n{:#?}", concerning_mocks);
+        panic!(
+            "Found concerning mock/placeholder implementations:\n{:#?}",
+            concerning_mocks
+        );
     }
 }
 
@@ -113,7 +120,8 @@ async fn test_real_api_integration() {
     let price_result = riglr_web_tools::price::get_token_price(
         "So11111111111111111111111111111111111111112".to_string(), // SOL
         Some("solana".to_string()),
-    ).await;
+    )
+    .await;
 
     assert!(price_result.is_ok(), "Real price feed should work");
 
@@ -122,10 +130,11 @@ async fn test_real_api_integration() {
         "ethereum",
         "polygon",
         "0xA0b86a33E6417c8f1E3BBb8D81c0a64d3E7fE6C8", // USDC
-        "1000000", // 1 USDC
+        "1000000",                                    // 1 USDC
         "0x742d35Cc6645C677A61e7b77dDf0b9A4Cb5F9568",
         "0x742d35Cc6645C677A61e7b77dDf0b9A4Cb5F9568",
-    ).await;
+    )
+    .await;
 
     assert!(routes_result.is_ok(), "Li.fi route discovery should work");
 }
@@ -138,15 +147,20 @@ fn test_bridge_mock_removal() {
     let output = Command::new("rg")
         .args(&[
             "SolanaTxHash1234567890|EvmTxHash0987654321",
-            "--type", "rust",
-            "src/"
+            "--type",
+            "rust",
+            "src/",
         ])
         .current_dir("/mnt/storage/projects/riglr")
         .output()
         .expect("Failed to run ripgrep");
 
     let results = String::from_utf8_lossy(&output.stdout);
-    assert!(results.is_empty(), "Found mock transaction hashes: {}", results);
+    assert!(
+        results.is_empty(),
+        "Found mock transaction hashes: {}",
+        results
+    );
 }
 
 #[test]
@@ -157,8 +171,9 @@ fn test_trading_bot_mock_removal() {
     let output = Command::new("rg")
         .args(&[
             "23\\.45|1650\\.30|26800\\.50",
-            "--type", "rust",
-            "create-riglr-app/src/bin/trading_bot.rs"
+            "--type",
+            "rust",
+            "create-riglr-app/src/bin/trading_bot.rs",
         ])
         .current_dir("/mnt/storage/projects/riglr")
         .output()
@@ -172,7 +187,11 @@ fn test_trading_bot_mock_removal() {
         .filter(|line| !line.contains(r"\$(\d+\.?\d*)") && !line.contains("price"))
         .collect();
 
-    assert!(mock_prices.is_empty(), "Found mock prices in trading bot: {:#?}", mock_prices);
+    assert!(
+        mock_prices.is_empty(),
+        "Found mock prices in trading bot: {:#?}",
+        mock_prices
+    );
 }
 
 #[test]
@@ -183,11 +202,15 @@ fn test_no_placeholder_responses() {
     let output = Command::new("rg")
         .args(&[
             r#"json!\(\{\}\)|// Placeholder|TODO.*Update"#,
-            "--type", "rust",
-            "--glob", "!tests/*",
-            "--glob", "!examples/*",
-            "--glob", "!**/target/*",
-            "src/"
+            "--type",
+            "rust",
+            "--glob",
+            "!tests/*",
+            "--glob",
+            "!examples/*",
+            "--glob",
+            "!**/target/*",
+            "src/",
         ])
         .current_dir("/mnt/storage/projects/riglr")
         .output()
@@ -212,7 +235,10 @@ fn test_no_placeholder_responses() {
         .collect();
 
     if !concerning_placeholders.is_empty() {
-        panic!("Found placeholder implementations in production code:\n{:#?}", concerning_placeholders);
+        panic!(
+            "Found placeholder implementations in production code:\n{:#?}",
+            concerning_placeholders
+        );
     }
 }
 
@@ -241,8 +267,9 @@ fn test_signer_context_usage() {
     let output = Command::new("rg")
         .args(&[
             r#"\.sign_transaction\(|\.evm_client\(|\.solana_client\("#,
-            "--type", "rust",
-            "src/"
+            "--type",
+            "rust",
+            "src/",
         ])
         .current_dir("/mnt/storage/projects/riglr")
         .output()

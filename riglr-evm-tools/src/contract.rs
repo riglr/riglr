@@ -266,7 +266,7 @@ pub async fn call_contract_write(
 /// let token_info = read_erc20_info(
 ///     "0xA0b86a33E6441b8e606Fd25d43b2b6eaa8071CdB".to_string()
 /// ).await?;
-/// 
+///
 /// println!("Token: {} ({})", token_info["name"], token_info["symbol"]);
 /// println!("Decimals: {}", token_info["decimals"]);
 /// ```

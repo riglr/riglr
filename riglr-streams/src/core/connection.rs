@@ -135,7 +135,7 @@ impl CircuitBreaker {
     }
 
     /// Attempts to establish a connection using the provided function
-    /// 
+    ///
     /// Respects circuit breaker state and implements backoff logic
     pub async fn attempt_connect<F, Fut, T>(&self, connect_fn: F) -> StreamResult<T>
     where
@@ -266,7 +266,7 @@ where
     }
 
     /// Establishes a connection using the provided function
-    /// 
+    ///
     /// Starts background monitoring for automatic reconnection
     pub async fn connect<F, Fut>(&self, connect_fn: F) -> StreamResult<()>
     where
@@ -297,7 +297,7 @@ where
     }
 
     /// Executes a function with the current connection
-    /// 
+    ///
     /// Updates activity tracking when the connection is accessed
     pub async fn with_connection<F, R>(&self, f: F) -> StreamResult<R>
     where

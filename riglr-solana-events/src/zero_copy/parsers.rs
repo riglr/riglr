@@ -36,18 +36,18 @@ pub enum ParseError {
 
     /// Insufficient data available for parsing operation
     #[error("Insufficient data length: expected {expected}, got {actual}")]
-    InsufficientData { 
+    InsufficientData {
         /// Expected number of bytes
-        expected: usize, 
+        expected: usize,
         /// Actual number of bytes available
-        actual: usize 
+        actual: usize,
     },
 
     /// Unknown discriminator value encountered
     #[error("Unknown discriminator: {discriminator:?}")]
-    UnknownDiscriminator { 
+    UnknownDiscriminator {
         /// The unrecognized discriminator bytes
-        discriminator: Vec<u8> 
+        discriminator: Vec<u8>,
     },
 
     /// Borsh deserialization error
@@ -141,7 +141,6 @@ pub struct SIMDPatternMatcher {
 }
 
 impl SIMDPatternMatcher {
-
     /// Add a pattern to match
     pub fn add_pattern(&mut self, pattern: Vec<u8>, protocol: ProtocolType) {
         self.patterns.push(pattern);
@@ -178,7 +177,6 @@ impl SIMDPatternMatcher {
         None
     }
 }
-
 
 /// Custom deserializer for hot path parsing
 pub struct CustomDeserializer<'a> {

@@ -5,9 +5,9 @@
 
 use crate::types::ProtocolType;
 use crate::zero_copy::ZeroCopyEvent;
+use dashmap::DashMap;
 use serde_json::Value;
 use solana_sdk::pubkey::Pubkey;
-use dashmap::DashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 // UnifiedEvent trait has been removed

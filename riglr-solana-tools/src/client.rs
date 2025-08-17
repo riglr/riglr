@@ -438,7 +438,10 @@ impl SolanaClient {
             return Err(SolanaToolError::Rpc(error.to_string()));
         }
 
-        Ok(result.get("result").cloned().unwrap_or(serde_json::Value::Null))
+        Ok(result
+            .get("result")
+            .cloned()
+            .unwrap_or(serde_json::Value::Null))
     }
 
     /// Check if the client is connected

@@ -531,11 +531,11 @@ impl HyperliquidClient {
     }
 
     /// Cancel an order using real Hyperliquid API
-    /// 
+    ///
     /// # Arguments
     /// * `order_id` - The ID of the order to cancel
     /// * `asset` - The asset ID for the order
-    /// 
+    ///
     /// # Warning
     /// This performs REAL order cancellation - NO SIMULATION
     pub async fn cancel_order(&self, order_id: u64, asset: u32) -> Result<CancelResponse> {
@@ -676,7 +676,7 @@ impl HyperliquidClient {
     }
 
     /// Get the user's address from the signer
-    /// 
+    ///
     /// Returns the address associated with the current signer, which is used
     /// for identifying the user in Hyperliquid API calls.
     pub fn get_user_address(&self) -> Result<String> {
@@ -697,7 +697,7 @@ impl HyperliquidClient {
 // Data structures for Hyperliquid API responses
 
 /// Account information response from Hyperliquid API
-/// 
+///
 /// Contains the current state of a user's account including positions,
 /// margin usage, and withdrawable funds.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -717,7 +717,7 @@ pub struct AccountInfo {
 }
 
 /// Clearinghouse state information from Hyperliquid API
-/// 
+///
 /// Represents the current state of the clearinghouse for a user,
 /// including positions and margin information.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -736,7 +736,7 @@ pub struct ClearinghouseState {
 }
 
 /// Trading position information from Hyperliquid API
-/// 
+///
 /// Represents a user's position in a specific trading asset,
 /// containing detailed position data and type information.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -750,7 +750,7 @@ pub struct Position {
 }
 
 /// Detailed position data from Hyperliquid API
-/// 
+///
 /// Contains comprehensive information about a trading position including
 /// entry price, leverage, margin usage, and profit/loss metrics.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -785,7 +785,7 @@ pub struct PositionData {
 }
 
 /// Leverage configuration for a trading position
-/// 
+///
 /// Specifies the leverage type and multiplier used for a position.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PositionLeverage {
@@ -797,7 +797,7 @@ pub struct PositionLeverage {
 }
 
 /// Market metadata from Hyperliquid API
-/// 
+///
 /// Contains information about all available trading assets
 /// and their specifications on the Hyperliquid exchange.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -807,7 +807,7 @@ pub struct Meta {
 }
 
 /// Information about a tradeable asset on Hyperliquid
-/// 
+///
 /// Specifies the asset name and precision details required
 /// for proper order formatting and size calculations.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -820,7 +820,7 @@ pub struct AssetInfo {
 }
 
 /// Order placement request for Hyperliquid API
-/// 
+///
 /// Represents a request to place a new trading order with all
 /// necessary parameters including price, size, and order type.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -844,7 +844,7 @@ pub struct OrderRequest {
 }
 
 /// Order type configuration for trading orders
-/// 
+///
 /// Specifies the type of order and its execution parameters.
 /// Currently supports limit orders with time-in-force options.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -855,7 +855,7 @@ pub struct OrderType {
 }
 
 /// Limit order configuration with time-in-force settings
-/// 
+///
 /// Specifies how long a limit order should remain active
 /// in the order book before expiring or being cancelled.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -865,7 +865,7 @@ pub struct LimitOrderType {
 }
 
 /// Response from order placement API call
-/// 
+///
 /// Contains the status of the order placement attempt
 /// and detailed result information if successful.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -877,7 +877,7 @@ pub struct OrderResponse {
 }
 
 /// Detailed result of an order placement operation
-/// 
+///
 /// Contains status codes and response data indicating
 /// whether the order was successfully placed.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -890,7 +890,7 @@ pub struct OrderResult {
 }
 
 /// Response data container for order operations
-/// 
+///
 /// Wraps the actual order data with type information
 /// to indicate the kind of response received.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -903,7 +903,7 @@ pub struct ResponseData {
 }
 
 /// Order data containing status information for placed orders
-/// 
+///
 /// Contains an array of order statuses, typically one per order
 /// in the batch request (single orders will have one status).
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -913,7 +913,7 @@ pub struct OrderData {
 }
 
 /// Status information for a single order
-/// 
+///
 /// Indicates whether the order is resting in the order book
 /// and provides access to the order identifier.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -923,7 +923,7 @@ pub struct OrderStatus {
 }
 
 /// Information about an order resting in the order book
-/// 
+///
 /// Contains the order identifier that can be used to reference
 /// the order for cancellation or modification operations.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -933,7 +933,7 @@ pub struct RestingOrder {
 }
 
 /// Response from order cancellation API call
-/// 
+///
 /// Contains the status of the cancellation attempt
 /// and result information indicating success or failure.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -945,7 +945,7 @@ pub struct CancelResponse {
 }
 
 /// Result of an order cancellation operation
-/// 
+///
 /// Contains a status code indicating whether the
 /// cancellation was successful or failed.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -958,7 +958,7 @@ pub struct CancelResult {
 // Leverage-related structures
 
 /// Request to update leverage settings for a trading asset
-/// 
+///
 /// Contains the leverage action to perform, a nonce for security,
 /// and an optional signature for authentication.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -972,7 +972,7 @@ pub struct LeverageRequest {
 }
 
 /// Action specification for leverage updates
-/// 
+///
 /// Defines the specific leverage change to be made,
 /// including the asset, margin type, and new leverage value.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -990,7 +990,7 @@ pub struct LeverageAction {
 }
 
 /// Response from leverage update API call
-/// 
+///
 /// Contains the status of the leverage update attempt
 /// and result data if the update was successful.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1002,7 +1002,7 @@ pub struct LeverageResponse {
 }
 
 /// Result of a successful leverage update operation
-/// 
+///
 /// Contains the new leverage value and the asset
 /// that was updated, confirming the change was applied.
 #[derive(Debug, Clone, Serialize, Deserialize)]

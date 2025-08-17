@@ -5,11 +5,11 @@ use borsh::BorshDeserialize;
 use solana_sdk::{instruction::CompiledInstruction, pubkey::Pubkey};
 use solana_transaction_status::UiCompiledInstruction;
 
-use crate::types::{EventMetadata, EventType, ProtocolType};
 use crate::events::{
     core::traits::{EventParser, GenericEventParseConfig, GenericEventParser},
     protocols::bonk::{discriminators, BonkPoolCreateEvent, BonkTradeEvent, TradeDirection},
 };
+use crate::types::{EventMetadata, EventType, ProtocolType};
 
 /// Bonk program ID
 pub const BONK_PROGRAM_ID: Pubkey =

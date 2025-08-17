@@ -11,25 +11,25 @@ use thiserror::Error;
 pub enum AgentError {
     /// Agent not found in registry
     #[error("Agent '{agent_id}' not found in registry")]
-    AgentNotFound { 
+    AgentNotFound {
         /// The identifier of the agent that was not found
-        agent_id: String 
+        agent_id: String,
     },
 
     /// No suitable agent found for task
     #[error("No agent found capable of handling task type '{task_type}'")]
-    NoSuitableAgent { 
+    NoSuitableAgent {
         /// The type of task that no agent could handle
-        task_type: String 
+        task_type: String,
     },
 
     /// Agent is not available
     #[error("Agent '{agent_id}' is not available (status: {status})")]
-    AgentUnavailable { 
+    AgentUnavailable {
         /// The identifier of the unavailable agent
-        agent_id: String, 
+        agent_id: String,
         /// The current status of the agent
-        status: String 
+        status: String,
     },
 
     /// Task execution failed
@@ -53,18 +53,18 @@ pub enum AgentError {
 
     /// Task cancelled
     #[error("Task '{task_id}' was cancelled: {reason}")]
-    TaskCancelled { 
+    TaskCancelled {
         /// The identifier of the cancelled task
-        task_id: String, 
+        task_id: String,
         /// The reason for the cancellation
-        reason: String 
+        reason: String,
     },
 
     /// Invalid routing rule
     #[error("Invalid routing rule: {rule}")]
-    InvalidRoutingRule { 
+    InvalidRoutingRule {
         /// The invalid routing rule that was provided
-        rule: String 
+        rule: String,
     },
 
     /// Communication error
@@ -108,9 +108,9 @@ pub enum AgentError {
 
     /// Configuration error
     #[error("Configuration error: {message}")]
-    Configuration { 
+    Configuration {
         /// The error message describing the configuration issue
-        message: String 
+        message: String,
     },
 
     /// Serialization error

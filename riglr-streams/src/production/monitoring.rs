@@ -2,8 +2,8 @@ use dashmap::DashMap;
 use metrics::{counter, gauge, histogram};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 use tokio::sync::RwLock;
 
@@ -63,7 +63,10 @@ impl StreamMetrics {
         counter!("riglr_streams_events_total").increment(1);
 
         // Increment by type
-        let mut entry = self.events_by_type.entry(event_type.to_string()).or_insert(0);
+        let mut entry = self
+            .events_by_type
+            .entry(event_type.to_string())
+            .or_insert(0);
         *entry += 1;
         counter!("riglr_streams_events_by_type", "type" => event_type.to_string()).increment(1);
 
@@ -89,7 +92,11 @@ impl StreamMetrics {
             .unwrap_or(Duration::ZERO);
 
         let events_processed = self.events_processed.load(Ordering::Relaxed);
-        let events_by_type = self.events_by_type.iter().map(|entry| (entry.key().clone(), *entry.value())).collect();
+        let events_by_type = self
+            .events_by_type
+            .iter()
+            .map(|entry| (entry.key().clone(), *entry.value()))
+            .collect();
         let error_count = self.error_count.load(Ordering::Relaxed);
         let performance_stats = self.performance_stats.read().await.clone();
 
@@ -178,7 +185,9 @@ impl Clone for StreamMetrics {
     fn clone(&self) -> Self {
         Self {
             start_time: self.start_time,
-            events_processed: Arc::new(AtomicU64::new(self.events_processed.load(Ordering::Relaxed))),
+            events_processed: Arc::new(AtomicU64::new(
+                self.events_processed.load(Ordering::Relaxed),
+            )),
             events_by_type: self.events_by_type.clone(),
             error_count: Arc::new(AtomicU64::new(self.error_count.load(Ordering::Relaxed))),
             performance_stats: self.performance_stats.clone(),

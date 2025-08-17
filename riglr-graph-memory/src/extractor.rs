@@ -46,7 +46,6 @@ static TX_HASH_REGEX: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"0x[a-fA-F0-9]{64}").expect("Invalid transaction hash regex"));
 
 impl EntityExtractor {
-
     /// Initialize known patterns for entity recognition
     fn initialize_patterns(&mut self) {
         // DeFi Protocol patterns

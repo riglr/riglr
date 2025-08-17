@@ -1,5 +1,5 @@
 //! Integration tests for riglr-web-adapters module
-//! 
+//!
 //! This module provides comprehensive integration tests for the web adapter functionality,
 //! including agent completion handling, streaming responses, and authentication.
 

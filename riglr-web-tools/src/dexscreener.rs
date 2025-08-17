@@ -1019,8 +1019,8 @@ async fn analyze_price_trends(token: &TokenInfo) -> crate::error::Result<TrendAn
     }
     .to_string();
 
-    let strength = price_change_24h
-        .map_or(5, |change| ((change.abs() / 10.0).clamp(1.0, 10.0)) as u32); // Default to medium strength if no data
+    let strength =
+        price_change_24h.map_or(5, |change| ((change.abs() / 10.0).clamp(1.0, 10.0)) as u32); // Default to medium strength if no data
 
     // Calculate momentum and velocity only if we have data
     let momentum = match (price_change_1h, price_change_24h) {

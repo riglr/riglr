@@ -93,10 +93,10 @@ pub trait TransactionSigner: Send + Sync + std::fmt::Debug {
 pub trait EvmClient: Send + Sync {
     /// Get the balance of an address in wei
     async fn get_balance(&self, address: &str) -> Result<U256, SignerError>;
-    
+
     /// Send a transaction to the network and return the transaction hash
     async fn send_transaction(&self, tx: &TransactionRequest) -> Result<TxHash, SignerError>;
-    
+
     /// Execute a call against the network without creating a transaction
     async fn call(&self, tx: &TransactionRequest) -> Result<Bytes, SignerError>;
 }
@@ -106,7 +106,7 @@ pub trait EvmClient: Send + Sync {
 pub trait SolanaClient: Send + Sync {
     /// Get the balance of a Solana account in lamports
     async fn get_balance(&self, pubkey: &Pubkey) -> Result<u64, SignerError>;
-    
+
     /// Send a transaction to the Solana network and return the signature
     async fn send_transaction(&self, tx: &Transaction) -> Result<Signature, SignerError>;
 }

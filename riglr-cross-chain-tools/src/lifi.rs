@@ -23,18 +23,18 @@ pub enum LiFiError {
 
     /// API returned an error response
     #[error("API error: {code} - {message}")]
-    ApiError { 
+    ApiError {
         /// HTTP status code
-        code: u16, 
+        code: u16,
         /// Error message from API
-        message: String 
+        message: String,
     },
 
     /// Chain is not supported by LiFi
     #[error("Chain not supported: {chain_name}")]
-    UnsupportedChain { 
+    UnsupportedChain {
         /// Name of the unsupported chain
-        chain_name: String 
+        chain_name: String,
     },
 
     /// No route found between chains
@@ -323,7 +323,6 @@ pub struct LiFiClient {
 
 impl LiFiClient {
     const DEFAULT_BASE_URL: &'static str = "https://li.quest/v1/";
-
 
     /// Create a new LiFi client with custom base URL
     pub fn with_base_url(base_url: &str) -> Result<Self, LiFiError> {

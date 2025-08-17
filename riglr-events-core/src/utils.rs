@@ -337,7 +337,6 @@ pub struct EventPerformanceMetrics {
 }
 
 impl EventPerformanceMetrics {
-
     /// Record an event processing time
     pub async fn record_processing_time(&self, duration: Duration) {
         self.total_events.fetch_add(1, Ordering::SeqCst);

@@ -206,8 +206,7 @@ pub mod privy_impl {
                     .cloned()
                     .ok_or_else(|| format!("Unsupported EVM network: {}", auth_data.network))?;
                 let client = create_privy_client(&self.privy_app_id, &self.privy_app_secret);
-                let signer =
-                    PrivyEvmSigner::new(client, evm_addr, evm_wallet_id, evm_cfg);
+                let signer = PrivyEvmSigner::new(client, evm_addr, evm_wallet_id, evm_cfg);
                 return Ok(Box::new(signer));
             }
 

@@ -638,7 +638,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_json_formatter() {
-        let formatter = JsonFormatter::default().with_field_mapping("balance_sol", "balance_solana");
+        let formatter =
+            JsonFormatter::default().with_field_mapping("balance_sol", "balance_solana");
 
         let output = utils::success_output("get_balance", json!({"balance_sol": 1.5}));
 

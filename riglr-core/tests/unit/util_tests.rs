@@ -1,4 +1,7 @@
-use riglr_core::util::{init_env_from_file, get_env_vars, validate_required_env, get_required_env, get_env_or_default, EnvError};
+use riglr_core::util::{
+    get_env_or_default, get_env_vars, get_required_env, init_env_from_file, validate_required_env,
+    EnvError,
+};
 use std::{env, fs, io::Write};
 
 // Environment variable constants to avoid string literals
@@ -35,8 +38,12 @@ fn init_env_from_file_valid_and_malformed() {
 
 #[test]
 fn validate_and_get_helpers() {
-    unsafe { env::remove_var(TEST_ENV_VAR_A); }
-    unsafe { env::set_var(TEST_ENV_VAR_B, "b"); }
+    unsafe {
+        env::remove_var(TEST_ENV_VAR_A);
+    }
+    unsafe {
+        env::set_var(TEST_ENV_VAR_B, "b");
+    }
 
     // get_env_or_default
     assert_eq!(get_env_or_default(TEST_ENV_VAR_A, "def"), "def");
@@ -57,5 +64,7 @@ fn validate_and_get_helpers() {
     assert!(map.get(TEST_ENV_VAR_A).is_none());
     assert_eq!(map.get(TEST_ENV_VAR_B).map(String::as_str), Some("b"));
 
-    unsafe { env::remove_var(TEST_ENV_VAR_B); }
+    unsafe {
+        env::remove_var(TEST_ENV_VAR_B);
+    }
 }

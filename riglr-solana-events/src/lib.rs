@@ -226,14 +226,14 @@ pub mod error;
 pub mod events;
 /// Helper functions for working with Solana-specific metadata
 pub mod metadata_helpers;
-/// Solana-specific metadata wrapper
-pub mod solana_metadata;
 /// High-performance parsers for specific protocols
 pub mod parsers;
 /// Event processing pipelines for validation and enrichment
 pub mod pipelines;
 /// Solana-specific event types that implement both legacy and new interfaces
 pub mod solana_events;
+/// Solana-specific metadata wrapper
+pub mod solana_metadata;
 /// Parser implementation for the riglr-events-core Event trait
 pub mod solana_parser;
 /// Common types and data structures used across the library

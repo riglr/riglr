@@ -339,7 +339,7 @@ async fn analyze_cross_chain_balances(multi_pb: &MultiProgress, token: &str) -> 
                     token,
                     "1,125".bright_cyan()
                 );
-                
+
                 // Display ERC20 contract addresses for reference
                 let contracts = get_erc20_contracts();
                 println!("      • Popular ERC20 Contracts:");

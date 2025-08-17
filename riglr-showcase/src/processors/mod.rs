@@ -214,7 +214,6 @@ impl ProcessorPipeline {
     }
 }
 
-
 /// Utility functions for working with tool outputs
 pub mod utils {
     use super::*;

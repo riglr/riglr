@@ -745,14 +745,14 @@ pub struct PumpTradeAnalysis {
 // ============================================================================
 
 /// Generates new mint keypair for token creation
-/// 
+///
 /// Returns a fresh keypair that can be used as the mint address for a new token.
 pub fn generate_mint_keypair() -> Keypair {
     Keypair::new()
 }
 
 /// Creates properly signed Solana transaction with mint keypair
-/// 
+///
 /// This function creates a transaction with the given instructions and signs it
 /// using both the payer from signer context and the provided mint keypair.
 pub async fn create_token_with_mint_keypair(
@@ -796,7 +796,7 @@ pub async fn create_token_with_mint_keypair(
 
 /// Parse a confirmed transaction to compute token delta for the user for the given mint,
 /// the SOL delta (spent or received), and the price per token (SOL per whole token).
-/// 
+///
 /// Returns a tuple of (token_amount, sol_amount, price_per_token) where:
 /// - token_amount: Number of tokens involved in the trade (raw units)
 /// - sol_amount: SOL amount delta (positive for received, negative for spent)

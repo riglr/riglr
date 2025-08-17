@@ -42,7 +42,6 @@ pub struct AgentBuilder {
 }
 
 impl AgentBuilder {
-
     /// Set the maximum number of agents in the registry.
     pub fn with_max_agents(mut self, max_agents: usize) -> Self {
         self.registry_config.max_agents = Some(max_agents);
@@ -308,7 +307,6 @@ pub struct SingleAgentBuilder {
 }
 
 impl SingleAgentBuilder {
-
     /// Set the agent ID.
     pub fn with_id(mut self, id: impl Into<String>) -> Self {
         self.agent_id = Some(id.into());

@@ -275,10 +275,7 @@ async fn test_price_fetch_with_multiple_pairs() {
     // Override base URL for DexScreener API
     unsafe {
         // SAFETY: Safe in test environment where we control thread access
-        std::env::set_var(
-            DEXSCREENER_API_URL,
-            format!("{}/latest", mock_server.uri()),
-        );
+        std::env::set_var(DEXSCREENER_API_URL, format!("{}/latest", mock_server.uri()));
     }
 
     // The price module should select the pair with highest liquidity

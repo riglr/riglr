@@ -36,9 +36,9 @@ pub type Result<T> = std::result::Result<T, CoreError>;
 pub enum WorkerError {
     /// Tool not found in the worker's registry
     #[error("Tool '{tool_name}' not found in worker registry")]
-    ToolNotFound { 
+    ToolNotFound {
         /// Name of the tool that was not found
-        tool_name: String 
+        tool_name: String,
     },
 
     /// Failed to acquire semaphore for concurrency control
@@ -69,16 +69,16 @@ pub enum WorkerError {
 
     /// Tool execution exceeded configured timeout
     #[error("Tool execution timed out after {timeout:?}")]
-    ExecutionTimeout { 
+    ExecutionTimeout {
         /// The duration after which the execution timed out
-        timeout: std::time::Duration 
+        timeout: std::time::Duration,
     },
 
     /// Internal worker system error
     #[error("Internal worker error: {message}")]
-    Internal { 
+    Internal {
         /// Human-readable description of the internal error
-        message: String 
+        message: String,
     },
 }
 

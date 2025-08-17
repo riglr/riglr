@@ -21,7 +21,10 @@ fn test_invalid_address_error() {
     );
 
     let error2 = EvmToolError::InvalidAddress("Missing 0x prefix".to_string());
-    assert_eq!(error2.to_string(), "Invalid address format: Missing 0x prefix");
+    assert_eq!(
+        error2.to_string(),
+        "Invalid address format: Missing 0x prefix"
+    );
 }
 
 #[test]

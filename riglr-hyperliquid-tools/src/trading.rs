@@ -426,17 +426,17 @@ pub async fn set_leverage(
 }
 
 /// Helper function to find asset ID by symbol
-/// 
+///
 /// Searches through the market metadata to find the asset ID for a given symbol.
 /// Supports both exact matches and normalized symbols (with/without -PERP suffix).
-/// 
+///
 /// # Arguments
-/// 
+///
 /// * `meta` - Market metadata containing asset information
 /// * `symbol` - Trading symbol to search for (e.g., "ETH", "BTC-PERP")
-/// 
+///
 /// # Returns
-/// 
+///
 /// Asset ID as u32 index, or ToolError if symbol not found
 fn find_asset_id(meta: &Meta, symbol: &str) -> Result<u32, ToolError> {
     // Normalize symbol (remove -PERP suffix if present)
@@ -467,7 +467,7 @@ fn find_asset_id(meta: &Meta, symbol: &str) -> Result<u32, ToolError> {
 // Result structures
 
 /// Result returned after placing an order on Hyperliquid
-/// 
+///
 /// Contains all relevant information about the placed order including
 /// the original parameters and the exchange's response.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
@@ -491,7 +491,7 @@ pub struct HyperliquidOrderResult {
 }
 
 /// Result returned after canceling an order on Hyperliquid
-/// 
+///
 /// Contains confirmation details about the canceled order.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct HyperliquidCancelResult {
@@ -506,7 +506,7 @@ pub struct HyperliquidCancelResult {
 }
 
 /// Account information retrieved from Hyperliquid
-/// 
+///
 /// Contains balance, margin usage, and position information for the account.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct HyperliquidAccountResult {
@@ -523,7 +523,7 @@ pub struct HyperliquidAccountResult {
 }
 
 /// Result returned after setting leverage on Hyperliquid
-/// 
+///
 /// Contains confirmation details about the leverage update.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct HyperliquidLeverageResult {

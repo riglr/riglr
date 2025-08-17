@@ -256,7 +256,11 @@ impl Event for RaydiumClmmSwapEvent {
         static METADATA_CACHE: OnceLock<EventMetadata> = OnceLock::new();
 
         METADATA_CACHE.get_or_init(|| {
-            EventMetadata::new(String::default(), EventKind::Swap, "raydium-clmm".to_string())
+            EventMetadata::new(
+                String::default(),
+                EventKind::Swap,
+                "raydium-clmm".to_string(),
+            )
         })
     }
 
@@ -296,7 +300,11 @@ impl Event for RaydiumClmmSwapV2Event {
         static METADATA_CACHE: OnceLock<EventMetadata> = OnceLock::new();
 
         METADATA_CACHE.get_or_init(|| {
-            EventMetadata::new(String::default(), EventKind::Swap, "raydium-clmm".to_string())
+            EventMetadata::new(
+                String::default(),
+                EventKind::Swap,
+                "raydium-clmm".to_string(),
+            )
         })
     }
 

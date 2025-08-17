@@ -553,7 +553,7 @@ fn format_amount_with_decimals(amount: U256, decimals: u8) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     // Environment variable constants to avoid string literals
     const REDIS_URL: &str = "REDIS_URL";
     const SOLANA_RPC_URL: &str = "SOLANA_RPC_URL";

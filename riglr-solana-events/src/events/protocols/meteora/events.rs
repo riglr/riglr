@@ -83,11 +83,11 @@ impl MeteoraSwapEvent {
     /// Creates a new MeteoraSwapEvent with the provided parameters and swap data
     pub fn new(params: EventParameters, swap_data: MeteoraSwapData) -> Self {
         use crate::types::metadata_helpers;
-        use crate::types::{ProtocolType, EventType};
+        use crate::types::{EventType, ProtocolType};
         use solana_sdk::pubkey::Pubkey;
-        
+
         let metadata = EventMetadata::default();
-        
+
         Self {
             id: params.id,
             signature: params.signature,
@@ -177,11 +177,11 @@ impl MeteoraLiquidityEvent {
     /// Creates a new MeteoraLiquidityEvent with the provided parameters and liquidity data
     pub fn new(params: EventParameters, liquidity_data: MeteoraLiquidityData) -> Self {
         use crate::types::metadata_helpers;
-        use crate::types::{ProtocolType, EventType};
+        use crate::types::{EventType, ProtocolType};
         use solana_sdk::pubkey::Pubkey;
-        
+
         let metadata = EventMetadata::default();
-        
+
         Self {
             id: params.id,
             signature: params.signature,
@@ -271,11 +271,11 @@ impl MeteoraDynamicLiquidityEvent {
     /// Creates a new MeteoraDynamicLiquidityEvent with the provided parameters and liquidity data
     pub fn new(params: EventParameters, liquidity_data: MeteoraDynamicLiquidityData) -> Self {
         use crate::types::metadata_helpers;
-        use crate::types::{ProtocolType, EventType};
+        use crate::types::{EventType, ProtocolType};
         use solana_sdk::pubkey::Pubkey;
-        
+
         let metadata = EventMetadata::default();
-        
+
         Self {
             id: params.id,
             signature: params.signature,

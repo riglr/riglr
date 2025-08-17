@@ -9,7 +9,9 @@ pub use riglr_events_core::prelude::*;
 pub use crate::solana_metadata::SolanaEventMetadata as EventMetadata;
 
 /// Enumeration of supported Solana DeFi protocols
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, BorshSerialize, BorshDeserialize)]
+#[derive(
+    Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, BorshSerialize, BorshDeserialize,
+)]
 pub enum ProtocolType {
     /// Orca Whirlpool concentrated liquidity pools
     OrcaWhirlpool,
@@ -60,7 +62,18 @@ impl std::fmt::Display for ProtocolType {
 }
 
 /// Enumeration of DeFi event types supported across protocols
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, BorshSerialize, BorshDeserialize, Default)]
+#[derive(
+    Debug,
+    Clone,
+    Serialize,
+    Deserialize,
+    PartialEq,
+    Eq,
+    Hash,
+    BorshSerialize,
+    BorshDeserialize,
+    Default,
+)]
 pub enum EventType {
     /// Token swap transaction
     Swap,
@@ -241,7 +254,6 @@ impl EventType {
     }
 }
 
-
 /// Data structure for token transfer events
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TransferData {
@@ -285,11 +297,11 @@ pub struct StreamMetadata {
 pub mod metadata_helpers {
     use super::*;
     use riglr_events_core::types::ChainData;
-    
+
     /// Create a core EventMetadata with Solana chain data
     pub fn create_solana_metadata(
         id: String,
-        signature: String, 
+        signature: String,
         slot: u64,
         block_time: i64,
         protocol_type: ProtocolType,
@@ -300,12 +312,12 @@ pub mod metadata_helpers {
     ) -> EventMetadata {
         let kind = event_type.to_event_kind();
         let source = format!("solana-{}", protocol_type);
-        
-        let timestamp = chrono::DateTime::from_timestamp(block_time, 0)
-            .unwrap_or_else(chrono::Utc::now);
-        
+
+        let timestamp =
+            chrono::DateTime::from_timestamp(block_time, 0).unwrap_or_else(chrono::Utc::now);
+
         let mut metadata = EventMetadata::with_timestamp(id, kind, source, timestamp);
-            
+
         // Add Solana chain data
         let chain_data = ChainData::Solana {
             slot,
@@ -319,9 +331,8 @@ pub mod metadata_helpers {
                 "program_received_time_ms": program_received_time_ms,
             })),
         };
-        
+
         metadata = metadata.with_chain_data(chain_data);
         metadata
     }
 }
-

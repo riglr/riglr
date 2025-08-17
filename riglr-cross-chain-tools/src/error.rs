@@ -35,9 +35,9 @@ pub enum CrossChainError {
 
     /// Insufficient liquidity for amount
     #[error("Insufficient liquidity for amount: {amount}")]
-    InsufficientLiquidity { 
+    InsufficientLiquidity {
         /// Amount that was requested but unavailable
-        amount: String 
+        amount: String,
     },
 }
 
