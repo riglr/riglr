@@ -162,8 +162,13 @@ Comprehensive API documentation for the `riglr-solana-events` crate.
 - [`calculate_liquidation_threshold`](#calculate_liquidation_threshold)
 - [`calculate_liquidity_distribution`](#calculate_liquidity_distribution)
 - [`calculate_price_impact`](#calculate_price_impact)
+- [`core`](#core)
+- [`core_mut`](#core_mut)
 - [`create_fast`](#create_fast)
 - [`create_fast`](#create_fast)
+- [`create_metadata`](#create_metadata)
+- [`create_solana_metadata`](#create_solana_metadata)
+- [`create_solana_metadata`](#create_solana_metadata)
 - [`create_standard`](#create_standard)
 - [`create_standard`](#create_standard)
 - [`create_standard`](#create_standard)
@@ -177,6 +182,8 @@ Comprehensive API documentation for the `riglr-solana-events` crate.
 - [`encode_base58`](#encode_base58)
 - [`enrich_event`](#enrich_event)
 - [`enrich_events`](#enrich_events)
+- [`event_kind`](#event_kind)
+- [`event_type`](#event_type)
 - [`event_type`](#event_type)
 - [`event_type`](#event_type)
 - [`event_type`](#event_type)
@@ -190,23 +197,32 @@ Comprehensive API documentation for the `riglr-solana-events` crate.
 - [`from_byte`](#from_byte)
 - [`from_byte`](#from_byte)
 - [`from_bytes`](#from_bytes)
-- [`from_core_metadata`](#from_core_metadata)
 - [`from_event_kind`](#from_event_kind)
 - [`from_file`](#from_file)
 - [`from_u64`](#from_u64)
+- [`get_block_time`](#get_block_time)
 - [`get_cache_stats`](#get_cache_stats)
 - [`get_client`](#get_client)
+- [`get_event_type`](#get_event_type)
+- [`get_instruction_index`](#get_instruction_index)
 - [`get_json_data`](#get_json_data)
 - [`get_parsed_data`](#get_parsed_data)
 - [`get_parser`](#get_parser)
 - [`get_parser_for_program`](#get_parser_for_program)
+- [`get_program_id`](#get_program_id)
+- [`get_protocol_type`](#get_protocol_type)
+- [`get_signature`](#get_signature)
+- [`get_slot`](#get_slot)
 - [`get_stats`](#get_stats)
 - [`get_stats`](#get_stats)
 - [`get_stats`](#get_stats)
 - [`has_discriminator`](#has_discriminator)
 - [`id`](#id)
+- [`id`](#id)
+- [`index`](#index)
 - [`index`](#index)
 - [`input_mint`](#input_mint)
+- [`into_inner`](#into_inner)
 - [`invalid_account_index`](#invalid_account_index)
 - [`invalid_discriminator`](#invalid_discriminator)
 - [`invalid_enum_variant`](#invalid_enum_variant)
@@ -216,6 +232,7 @@ Comprehensive API documentation for the `riglr-solana-events` crate.
 - [`is_meteora_dynamic_program`](#is_meteora_dynamic_program)
 - [`is_orca_whirlpool_program`](#is_orca_whirlpool_program)
 - [`jupiter_v6_program_id`](#jupiter_v6_program_id)
+- [`kind`](#kind)
 - [`liquidity`](#liquidity)
 - [`lp_amount`](#lp_amount)
 - [`marginfi_bank_program_id`](#marginfi_bank_program_id)
@@ -223,6 +240,11 @@ Comprehensive API documentation for the `riglr-solana-events` crate.
 - [`match_discriminator`](#match_discriminator)
 - [`meteora_dlmm_program_id`](#meteora_dlmm_program_id)
 - [`meteora_dynamic_program_id`](#meteora_dynamic_program_id)
+- [`new`](#new)
+- [`new`](#new)
+- [`new`](#new)
+- [`new`](#new)
+- [`new`](#new)
 - [`new`](#new)
 - [`new`](#new)
 - [`new`](#new)
@@ -288,6 +310,7 @@ Comprehensive API documentation for the `riglr-solana-events` crate.
 - [`process_stream`](#process_stream)
 - [`protocol_event`](#protocol_event)
 - [`protocol_type`](#protocol_type)
+- [`protocol_type`](#protocol_type)
 - [`raw_data`](#raw_data)
 - [`read_bytes`](#read_bytes)
 - [`read_i32_le`](#read_i32_le)
@@ -302,15 +325,21 @@ Comprehensive API documentation for the `riglr-solana-events` crate.
 - [`read_u8_le`](#read_u8_le)
 - [`remaining`](#remaining)
 - [`remaining_data`](#remaining_data)
+- [`set_event_type`](#set_event_type)
+- [`set_event_type`](#set_event_type)
 - [`set_id`](#set_id)
 - [`set_json_data`](#set_json_data)
 - [`set_parsed_data`](#set_parsed_data)
+- [`set_protocol_type`](#set_protocol_type)
+- [`set_protocol_type`](#set_protocol_type)
 - [`shares_to_amount`](#shares_to_amount)
 - [`should_handle`](#should_handle)
+- [`signature`](#signature)
 - [`signature`](#signature)
 - [`size`](#size)
 - [`size`](#size)
 - [`skip`](#skip)
+- [`slot`](#slot)
 - [`slot`](#slot)
 - [`sqrt_price_to_price`](#sqrt_price_to_price)
 - [`supported_program_ids`](#supported_program_ids)
@@ -320,7 +349,6 @@ Comprehensive API documentation for the `riglr-solana-events` crate.
 - [`take_output_receiver`](#take_output_receiver)
 - [`tick_index_to_price`](#tick_index_to_price)
 - [`timestamp`](#timestamp)
-- [`to_core_metadata`](#to_core_metadata)
 - [`to_event_kind`](#to_event_kind)
 - [`to_owned`](#to_owned)
 - [`to_token_amount`](#to_token_amount)
@@ -334,11 +362,18 @@ Comprehensive API documentation for the `riglr-solana-events` crate.
 - [`with_concurrency_limit`](#with_concurrency_limit)
 - [`with_data`](#with_data)
 - [`with_legacy_parser`](#with_legacy_parser)
-- [`with_metadata`](#with_metadata)
 - [`with_metrics`](#with_metrics)
 - [`with_parser_config`](#with_parser_config)
 - [`with_received_time`](#with_received_time)
 - [`with_received_time`](#with_received_time)
+- [`with_transfer_data`](#with_transfer_data)
+- [`with_transfer_data`](#with_transfer_data)
+- [`with_transfer_data`](#with_transfer_data)
+- [`with_transfer_data`](#with_transfer_data)
+- [`with_transfer_data`](#with_transfer_data)
+- [`with_transfer_data`](#with_transfer_data)
+- [`with_transfer_data`](#with_transfer_data)
+- [`with_transfer_data`](#with_transfer_data)
 - [`with_transfer_data`](#with_transfer_data)
 - [`with_transfer_data`](#with_transfer_data)
 - [`with_transfer_data`](#with_transfer_data)
@@ -364,7 +399,6 @@ Comprehensive API documentation for the `riglr-solana-events` crate.
 - [`DlmmPairConfig`](#dlmmpairconfig)
 - [`EnrichmentConfig`](#enrichmentconfig)
 - [`EventEnricher`](#eventenricher)
-- [`EventMetadata`](#eventmetadata)
 - [`EventParameters`](#eventparameters)
 - [`EventParameters`](#eventparameters)
 - [`EventParameters`](#eventparameters)
@@ -479,6 +513,8 @@ Comprehensive API documentation for the `riglr-solana-events` crate.
 - [`SharedAccountsExactOutRouteData`](#sharedaccountsexactoutroutedata)
 - [`SharedAccountsRouteData`](#sharedaccountsroutedata)
 - [`SolanaEvent`](#solanaevent)
+- [`SolanaEventMetadata`](#solanaeventmetadata)
+- [`SolanaEventMetadata`](#solanaeventmetadata)
 - [`SolanaEventParser`](#solanaeventparser)
 - [`SolanaInnerInstructionInput`](#solanainnerinstructioninput)
 - [`SolanaInnerInstructionParser`](#solanainnerinstructionparser)
@@ -547,6 +583,8 @@ Bonk program ID
 const BUY_EVENT: &str
 ```
 
+String identifier for PumpSwap buy events
+
 ---
 
 ### BUY_EVENT_BYTES
@@ -556,6 +594,8 @@ const BUY_EVENT: &str
 ```rust
 const BUY_EVENT_BYTES: &[u8]
 ```
+
+Byte array discriminator for PumpSwap buy events
 
 ---
 
@@ -567,6 +607,8 @@ const BUY_EVENT_BYTES: &[u8]
 const BUY_EXACT_IN_IX: &[u8]
 ```
 
+Instruction discriminator for buy exact in operations
+
 ---
 
 ### BUY_EXACT_OUT_IX
@@ -576,6 +618,8 @@ const BUY_EXACT_IN_IX: &[u8]
 ```rust
 const BUY_EXACT_OUT_IX: &[u8]
 ```
+
+Instruction discriminator for buy exact out operations
 
 ---
 
@@ -587,6 +631,8 @@ const BUY_EXACT_OUT_IX: &[u8]
 const BUY_IX: &[u8]
 ```
 
+Instruction discriminator for PumpSwap buy operations
+
 ---
 
 ### CLOSE_POSITION
@@ -596,6 +642,8 @@ const BUY_IX: &[u8]
 ```rust
 const CLOSE_POSITION: &[u8]
 ```
+
+Instruction discriminator for closing liquidity positions
 
 ---
 
@@ -607,6 +655,8 @@ const CLOSE_POSITION: &[u8]
 const CLOSE_POSITION_DISCRIMINATOR: [u8; 8]
 ```
 
+Instruction discriminator for closing liquidity positions
+
 ---
 
 ### CREATE_POOL
@@ -616,6 +666,8 @@ const CLOSE_POSITION_DISCRIMINATOR: [u8; 8]
 ```rust
 const CREATE_POOL: &[u8]
 ```
+
+Instruction discriminator for creating new pools
 
 ---
 
@@ -627,6 +679,8 @@ const CREATE_POOL: &[u8]
 const CREATE_POOL_EVENT: &str
 ```
 
+String identifier for PumpSwap create pool events
+
 ---
 
 ### CREATE_POOL_EVENT_BYTES
@@ -636,6 +690,8 @@ const CREATE_POOL_EVENT: &str
 ```rust
 const CREATE_POOL_EVENT_BYTES: &[u8]
 ```
+
+Byte array discriminator for PumpSwap create pool events
 
 ---
 
@@ -647,6 +703,8 @@ const CREATE_POOL_EVENT_BYTES: &[u8]
 const CREATE_POOL_IX: &[u8]
 ```
 
+Instruction discriminator for PumpSwap create pool operations
+
 ---
 
 ### DECREASE_LIQUIDITY_DISCRIMINATOR
@@ -656,6 +714,8 @@ const CREATE_POOL_IX: &[u8]
 ```rust
 const DECREASE_LIQUIDITY_DISCRIMINATOR: [u8; 8]
 ```
+
+Instruction discriminator for decreasing liquidity in positions
 
 ---
 
@@ -667,6 +727,8 @@ const DECREASE_LIQUIDITY_DISCRIMINATOR: [u8; 8]
 const DECREASE_LIQUIDITY_V2: &[u8]
 ```
 
+Instruction discriminator for decreasing liquidity in positions (version 2)
+
 ---
 
 ### DEPOSIT
@@ -677,6 +739,8 @@ const DECREASE_LIQUIDITY_V2: &[u8]
 const DEPOSIT: &[u8]
 ```
 
+Instruction discriminator for depositing liquidity into the pool
+
 ---
 
 ### DEPOSIT_EVENT
@@ -687,6 +751,8 @@ const DEPOSIT: &[u8]
 const DEPOSIT_EVENT: &str
 ```
 
+String identifier for PumpSwap deposit events
+
 ---
 
 ### DEPOSIT_EVENT
@@ -696,6 +762,8 @@ const DEPOSIT_EVENT: &str
 ```rust
 const DEPOSIT_EVENT: &str
 ```
+
+String identifier for deposit events
 
 ---
 
@@ -707,6 +775,8 @@ const DEPOSIT_EVENT: &str
 const DEPOSIT_EVENT_BYTES: &[u8]
 ```
 
+Byte array discriminator for PumpSwap deposit events
+
 ---
 
 ### DEPOSIT_EVENT_BYTES
@@ -716,6 +786,8 @@ const DEPOSIT_EVENT_BYTES: &[u8]
 ```rust
 const DEPOSIT_EVENT_BYTES: &[u8]
 ```
+
+Byte array discriminator for deposit events
 
 ---
 
@@ -727,6 +799,8 @@ const DEPOSIT_EVENT_BYTES: &[u8]
 const DEPOSIT_IX: &[u8]
 ```
 
+Instruction discriminator for PumpSwap deposit operations
+
 ---
 
 ### DEPOSIT_IX
@@ -736,6 +810,8 @@ const DEPOSIT_IX: &[u8]
 ```rust
 const DEPOSIT_IX: &[u8]
 ```
+
+Instruction discriminator for deposit operations
 
 ---
 
@@ -747,6 +823,8 @@ const DEPOSIT_IX: &[u8]
 const DLMM_ADD_LIQUIDITY_DISCRIMINATOR: [u8; 8]
 ```
 
+Discriminator for DLMM add liquidity instruction
+
 ---
 
 ### DLMM_REMOVE_LIQUIDITY_DISCRIMINATOR
@@ -756,6 +834,8 @@ const DLMM_ADD_LIQUIDITY_DISCRIMINATOR: [u8; 8]
 ```rust
 const DLMM_REMOVE_LIQUIDITY_DISCRIMINATOR: [u8; 8]
 ```
+
+Discriminator for DLMM remove liquidity instruction
 
 ---
 
@@ -768,6 +848,7 @@ const DLMM_SWAP_DISCRIMINATOR: [u8; 8]
 ```
 
 Meteora instruction discriminators
+Discriminator for DLMM swap instruction
 
 ---
 
@@ -779,6 +860,8 @@ Meteora instruction discriminators
 const DYNAMIC_ADD_LIQUIDITY_DISCRIMINATOR: [u8; 8]
 ```
 
+Discriminator for Dynamic AMM add liquidity instruction
+
 ---
 
 ### DYNAMIC_REMOVE_LIQUIDITY_DISCRIMINATOR
@@ -788,6 +871,8 @@ const DYNAMIC_ADD_LIQUIDITY_DISCRIMINATOR: [u8; 8]
 ```rust
 const DYNAMIC_REMOVE_LIQUIDITY_DISCRIMINATOR: [u8; 8]
 ```
+
+Discriminator for Dynamic AMM remove liquidity instruction
 
 ---
 
@@ -799,6 +884,8 @@ const DYNAMIC_REMOVE_LIQUIDITY_DISCRIMINATOR: [u8; 8]
 const EXACT_OUT_ROUTE_DISCRIMINATOR: [u8; 8]
 ```
 
+Discriminator for shared accounts exact out route instruction
+
 ---
 
 ### INCREASE_LIQUIDITY_DISCRIMINATOR
@@ -808,6 +895,8 @@ const EXACT_OUT_ROUTE_DISCRIMINATOR: [u8; 8]
 ```rust
 const INCREASE_LIQUIDITY_DISCRIMINATOR: [u8; 8]
 ```
+
+Instruction discriminator for increasing liquidity in positions
 
 ---
 
@@ -819,6 +908,8 @@ const INCREASE_LIQUIDITY_DISCRIMINATOR: [u8; 8]
 const INCREASE_LIQUIDITY_V2: &[u8]
 ```
 
+Instruction discriminator for increasing liquidity in positions (version 2)
+
 ---
 
 ### INITIALIZE2
@@ -828,6 +919,8 @@ const INCREASE_LIQUIDITY_V2: &[u8]
 ```rust
 const INITIALIZE2: &[u8]
 ```
+
+Instruction discriminator for initializing the AMM pool (version 2)
 
 ---
 
@@ -839,6 +932,8 @@ const INITIALIZE2: &[u8]
 const INITIALIZE_IX: &[u8]
 ```
 
+Instruction discriminator for pool initialization
+
 ---
 
 ### INITIALIZE_IX
@@ -848,6 +943,8 @@ const INITIALIZE_IX: &[u8]
 ```rust
 const INITIALIZE_IX: &[u8]
 ```
+
+Instruction discriminator for pool initialization
 
 ---
 
@@ -907,6 +1004,8 @@ Jupiter V6 program ID
 const LEGACY_EXACT_OUT_DISCRIMINATOR: [u8; 8]
 ```
 
+Discriminator for legacy exact out route instruction
+
 ---
 
 ### LEGACY_ROUTE_DISCRIMINATOR
@@ -916,6 +1015,8 @@ const LEGACY_EXACT_OUT_DISCRIMINATOR: [u8; 8]
 ```rust
 const LEGACY_ROUTE_DISCRIMINATOR: [u8; 8]
 ```
+
+Discriminator for legacy route instruction
 
 ---
 
@@ -939,6 +1040,8 @@ MarginFi Bank program ID (for lending pools)
 const MARGINFI_BORROW_DISCRIMINATOR: [u8; 8]
 ```
 
+Discriminator for lending borrow instruction
+
 ---
 
 ### MARGINFI_DEPOSIT_DISCRIMINATOR
@@ -950,6 +1053,7 @@ const MARGINFI_DEPOSIT_DISCRIMINATOR: [u8; 8]
 ```
 
 MarginFi instruction discriminators
+Discriminator for lending deposit instruction
 
 ---
 
@@ -960,6 +1064,8 @@ MarginFi instruction discriminators
 ```rust
 const MARGINFI_LIQUIDATE_DISCRIMINATOR: [u8; 8]
 ```
+
+Discriminator for liquidation instruction
 
 ---
 
@@ -983,6 +1089,8 @@ MarginFi program ID
 const MARGINFI_REPAY_DISCRIMINATOR: [u8; 8]
 ```
 
+Discriminator for lending repay instruction
+
 ---
 
 ### MARGINFI_WITHDRAW_DISCRIMINATOR
@@ -992,6 +1100,8 @@ const MARGINFI_REPAY_DISCRIMINATOR: [u8; 8]
 ```rust
 const MARGINFI_WITHDRAW_DISCRIMINATOR: [u8; 8]
 ```
+
+Discriminator for lending withdraw instruction
 
 ---
 
@@ -1051,6 +1161,8 @@ Meteora Dynamic program ID
 const MIGRATE_TO_AMM_IX: &[u8]
 ```
 
+Instruction discriminator for migrating to AMM
+
 ---
 
 ### MIGRATE_TO_CPSWAP_IX
@@ -1060,6 +1172,8 @@ const MIGRATE_TO_AMM_IX: &[u8]
 ```rust
 const MIGRATE_TO_CPSWAP_IX: &[u8]
 ```
+
+Instruction discriminator for migrating to constant product swap
 
 ---
 
@@ -1155,6 +1269,8 @@ Minimum size for swap instructions (discriminator + 2 u64s)
 const OPEN_POSITION_DISCRIMINATOR: [u8; 8]
 ```
 
+Instruction discriminator for opening liquidity positions
+
 ---
 
 ### OPEN_POSITION_V2
@@ -1165,6 +1281,8 @@ const OPEN_POSITION_DISCRIMINATOR: [u8; 8]
 const OPEN_POSITION_V2: &[u8]
 ```
 
+Instruction discriminator for opening liquidity positions (version 2)
+
 ---
 
 ### OPEN_POSITION_WITH_TOKEN_22_NFT
@@ -1174,6 +1292,8 @@ const OPEN_POSITION_V2: &[u8]
 ```rust
 const OPEN_POSITION_WITH_TOKEN_22_NFT: &[u8]
 ```
+
+Instruction discriminator for opening positions with Token-22 NFT
 
 ---
 
@@ -1197,6 +1317,8 @@ Orca Whirlpool program ID
 const POOL_CREATE_EVENT: &str
 ```
 
+String identifier for Bonk pool creation events
+
 ---
 
 ### POOL_CREATE_EVENT_BYTES
@@ -1206,6 +1328,8 @@ const POOL_CREATE_EVENT: &str
 ```rust
 const POOL_CREATE_EVENT_BYTES: &[u8]
 ```
+
+Byte array discriminator for pool creation events, used for efficient on-chain parsing
 
 ---
 
@@ -1217,6 +1341,8 @@ const POOL_CREATE_EVENT_BYTES: &[u8]
 const PUBKEY_RANGE: std::ops::Range<usize>
 ```
 
+Byte range for parsing a single public key value
+
 ---
 
 ### PUBKEY_SIZE
@@ -1226,6 +1352,8 @@ const PUBKEY_RANGE: std::ops::Range<usize>
 ```rust
 const PUBKEY_SIZE: usize
 ```
+
+Size of a Solana public key in bytes
 
 ---
 
@@ -1322,6 +1450,8 @@ sharedAccountsRoute is the most common Jupiter V6 swap instruction
 const ROUTE_WITH_TOKEN_LEDGER_DISCRIMINATOR: [u8; 8]
 ```
 
+Discriminator for route with token ledger instruction
+
 ---
 
 ### SECOND_U64_RANGE
@@ -1344,6 +1474,8 @@ Second u64 range (for parsing two consecutive u64 values)
 const SELL_EVENT: &str
 ```
 
+String identifier for PumpSwap sell events
+
 ---
 
 ### SELL_EVENT_BYTES
@@ -1353,6 +1485,8 @@ const SELL_EVENT: &str
 ```rust
 const SELL_EVENT_BYTES: &[u8]
 ```
+
+Byte array discriminator for PumpSwap sell events
 
 ---
 
@@ -1364,6 +1498,8 @@ const SELL_EVENT_BYTES: &[u8]
 const SELL_EXACT_IN_IX: &[u8]
 ```
 
+Instruction discriminator for sell exact in operations
+
 ---
 
 ### SELL_EXACT_OUT_IX
@@ -1374,6 +1510,8 @@ const SELL_EXACT_IN_IX: &[u8]
 const SELL_EXACT_OUT_IX: &[u8]
 ```
 
+Instruction discriminator for sell exact out operations
+
 ---
 
 ### SELL_IX
@@ -1383,6 +1521,8 @@ const SELL_EXACT_OUT_IX: &[u8]
 ```rust
 const SELL_IX: &[u8]
 ```
+
+Instruction discriminator for PumpSwap sell operations
 
 ---
 
@@ -1395,6 +1535,7 @@ const SWAP: &[u8]
 ```
 
 Raydium CLMM instruction discriminators
+Instruction discriminator for swap operations
 
 ---
 
@@ -1407,6 +1548,7 @@ const SWAP_BASE_IN: &[u8]
 ```
 
 Raydium AMM V4 instruction discriminators
+Instruction discriminator for swapping with base token as input
 
 ---
 
@@ -1418,6 +1560,8 @@ Raydium AMM V4 instruction discriminators
 const SWAP_BASE_INPUT_IX: &[u8]
 ```
 
+Instruction discriminator for swap with base input
+
 ---
 
 ### SWAP_BASE_OUT
@@ -1427,6 +1571,8 @@ const SWAP_BASE_INPUT_IX: &[u8]
 ```rust
 const SWAP_BASE_OUT: &[u8]
 ```
+
+Instruction discriminator for swapping with base token as output
 
 ---
 
@@ -1438,6 +1584,8 @@ const SWAP_BASE_OUT: &[u8]
 const SWAP_BASE_OUTPUT_IX: &[u8]
 ```
 
+Instruction discriminator for swap with base output
+
 ---
 
 ### SWAP_DISCRIMINATOR
@@ -1447,6 +1595,8 @@ const SWAP_BASE_OUTPUT_IX: &[u8]
 ```rust
 const SWAP_DISCRIMINATOR: [u8; 8]
 ```
+
+Discriminator for swap instruction
 
 ---
 
@@ -1459,6 +1609,7 @@ const SWAP_DISCRIMINATOR: [u8; 8]
 ```
 
 Orca Whirlpool instruction discriminators (calculated from Anchor's "global:<instruction_name>")
+Instruction discriminator for swap operations
 
 ---
 
@@ -1470,6 +1621,8 @@ Orca Whirlpool instruction discriminators (calculated from Anchor's "global:<ins
 const SWAP_EVENT: &str
 ```
 
+String identifier for swap events
+
 ---
 
 ### SWAP_EVENT_BYTES
@@ -1480,6 +1633,8 @@ const SWAP_EVENT: &str
 const SWAP_EVENT_BYTES: &[u8]
 ```
 
+Byte array discriminator for swap events
+
 ---
 
 ### SWAP_V2
@@ -1489,6 +1644,8 @@ const SWAP_EVENT_BYTES: &[u8]
 ```rust
 const SWAP_V2: &[u8]
 ```
+
+Instruction discriminator for swap operations (version 2)
 
 ---
 
@@ -1512,6 +1669,8 @@ Third u64 range (for parsing three consecutive u64 values)
 const TRADE_EVENT: &str
 ```
 
+String identifier for Bonk trade events
+
 ---
 
 ### TRADE_EVENT_BYTES
@@ -1521,6 +1680,8 @@ const TRADE_EVENT: &str
 ```rust
 const TRADE_EVENT_BYTES: &[u8]
 ```
+
+Byte array discriminator for trade events, used for efficient on-chain parsing
 
 ---
 
@@ -1532,6 +1693,8 @@ const TRADE_EVENT_BYTES: &[u8]
 const U128_RANGE: std::ops::Range<usize>
 ```
 
+Byte range for parsing a single u128 value
+
 ---
 
 ### U128_SIZE
@@ -1541,6 +1704,8 @@ const U128_RANGE: std::ops::Range<usize>
 ```rust
 const U128_SIZE: usize
 ```
+
+Size of a u128 in bytes
 
 ---
 
@@ -1552,6 +1717,8 @@ const U128_SIZE: usize
 const U16_RANGE: std::ops::Range<usize>
 ```
 
+Byte range for parsing a single u16 value
+
 ---
 
 ### U16_SIZE
@@ -1561,6 +1728,8 @@ const U16_RANGE: std::ops::Range<usize>
 ```rust
 const U16_SIZE: usize
 ```
+
+Size of a u16 in bytes
 
 ---
 
@@ -1572,6 +1741,8 @@ const U16_SIZE: usize
 const U32_RANGE: std::ops::Range<usize>
 ```
 
+Byte range for parsing a single u32 value
+
 ---
 
 ### U32_SIZE
@@ -1581,6 +1752,8 @@ const U32_RANGE: std::ops::Range<usize>
 ```rust
 const U32_SIZE: usize
 ```
+
+Size of a u32 in bytes
 
 ---
 
@@ -1592,6 +1765,8 @@ const U32_SIZE: usize
 const U64_RANGE: std::ops::Range<usize>
 ```
 
+Byte range for parsing a single u64 value
+
 ---
 
 ### U64_SIZE
@@ -1601,6 +1776,8 @@ const U64_RANGE: std::ops::Range<usize>
 ```rust
 const U64_SIZE: usize
 ```
+
+Size of a u64 in bytes
 
 ---
 
@@ -1636,6 +1813,8 @@ Size constants for basic data types
 const WITHDRAW: &[u8]
 ```
 
+Instruction discriminator for withdrawing liquidity from the pool
+
 ---
 
 ### WITHDRAW_EVENT
@@ -1645,6 +1824,8 @@ const WITHDRAW: &[u8]
 ```rust
 const WITHDRAW_EVENT: &str
 ```
+
+String identifier for PumpSwap withdraw events
 
 ---
 
@@ -1656,6 +1837,8 @@ const WITHDRAW_EVENT: &str
 const WITHDRAW_EVENT_BYTES: &[u8]
 ```
 
+Byte array discriminator for PumpSwap withdraw events
+
 ---
 
 ### WITHDRAW_IX
@@ -1665,6 +1848,8 @@ const WITHDRAW_EVENT_BYTES: &[u8]
 ```rust
 const WITHDRAW_IX: &[u8]
 ```
+
+Instruction discriminator for PumpSwap withdraw operations
 
 ---
 
@@ -1676,6 +1861,8 @@ const WITHDRAW_IX: &[u8]
 const WITHDRAW_IX: &[u8]
 ```
 
+Instruction discriminator for withdraw operations
+
 ---
 
 ### WITHDRAW_PNL
@@ -1685,6 +1872,8 @@ const WITHDRAW_IX: &[u8]
 ```rust
 const WITHDRAW_PNL: &[u8]
 ```
+
+Instruction discriminator for withdrawing profit and loss from the pool
 
 ---
 
@@ -1700,7 +1889,7 @@ const WITHDRAW_PNL: &[u8]
 ```
 
 ```rust
-pub enum EnrichmentError { #[error("HTTP request failed: {0}")] HttpError(#[from] reqwest::Error), #[error("Serialization error: {0}")] SerializationError(#[from] serde_json::Error), #[error("Task execution error: {0}")] TaskError(String), #[error("Cache error: {0}")] CacheError(String), #[error("API rate limit exceeded")] RateLimitExceeded, }
+pub enum EnrichmentError { /// HTTP request failed #[error("HTTP request failed: {0}")] HttpError(#[from] reqwest::Error), /// Serialization error #[error("Serialization error: {0}")] SerializationError(#[from] serde_json::Error), /// Task execution error #[error("Task execution error: {0}")] TaskError(String), /// Cache error #[error("Cache error: {0}")] CacheError(String), /// API rate limit exceeded #[error("API rate limit exceeded")] RateLimitExceeded, }
 ```
 
 Error type for enrichment operations
@@ -1721,12 +1910,14 @@ Error type for enrichment operations
 
 **Attributes**:
 ```rust
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, BorshDeserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, BorshSerialize, BorshDeserialize, Default)]
 ```
 
 ```rust
-pub enum EventType { Swap, AddLiquidity, RemoveLiquidity, Borrow, Repay, Liquidate, Transfer, Mint, Burn, CreatePool, UpdatePool, Transaction, Block, ContractEvent, PriceUpdate, OrderBook, Trade, FeeUpdate, BonkBuyExactIn, BonkBuyExactOut, BonkSellExactIn, BonkSellExactOut, BonkInitialize, BonkMigrateToAmm, BonkMigrateToCpswap, PumpSwapBuy, PumpSwapSell, PumpSwapCreatePool, PumpSwapDeposit, PumpSwapWithdraw, PumpSwapSetParams, RaydiumSwap, RaydiumDeposit, RaydiumWithdraw, RaydiumAmmV4SwapBaseIn, RaydiumAmmV4SwapBaseOut, RaydiumAmmV4Deposit, RaydiumAmmV4Initialize2, RaydiumAmmV4Withdraw, RaydiumAmmV4WithdrawPnl, RaydiumClmmSwap, RaydiumClmmSwapV2, RaydiumClmmCreatePool, RaydiumClmmOpenPositionV2, RaydiumClmmIncreaseLiquidityV2, RaydiumClmmDecreaseLiquidityV2, RaydiumClmmClosePosition, RaydiumClmmOpenPositionWithToken22Nft, RaydiumCpmmSwap, RaydiumCpmmSwapBaseInput, RaydiumCpmmSwapBaseOutput, RaydiumCpmmDeposit, RaydiumCpmmWithdraw, RaydiumCpmmCreatePool, OpenPosition, ClosePosition, IncreaseLiquidity, DecreaseLiquidity, Deposit, Withdraw, #[default] Unknown, }
+pub enum EventType { /// Token swap transaction Swap, /// Add liquidity to a pool AddLiquidity, /// Remove liquidity from a pool RemoveLiquidity, /// Borrow funds from a lending protocol Borrow, /// Repay borrowed funds Repay, /// Liquidate an undercollateralized position Liquidate, /// Transfer tokens between accounts Transfer, /// Mint new tokens Mint, /// Burn existing tokens Burn, /// Create a new liquidity pool CreatePool, /// Update pool parameters UpdatePool, /// General transaction event Transaction, /// Block-level event Block, /// Smart contract execution event ContractEvent, /// Price update event PriceUpdate, /// Order book update OrderBook, /// Trade execution Trade, /// Fee structure update FeeUpdate, /// Bonk buy with exact input amount BonkBuyExactIn, /// Bonk buy with exact output amount BonkBuyExactOut, /// Bonk sell with exact input amount BonkSellExactIn, /// Bonk sell with exact output amount BonkSellExactOut, /// Bonk pool initialization BonkInitialize, /// Bonk migration to AMM BonkMigrateToAmm, /// Bonk migration to constant product swap BonkMigrateToCpswap, /// PumpSwap buy transaction PumpSwapBuy, /// PumpSwap sell transaction PumpSwapSell, /// PumpSwap pool creation PumpSwapCreatePool, /// PumpSwap deposit PumpSwapDeposit, /// PumpSwap withdrawal PumpSwapWithdraw, /// PumpSwap parameter update PumpSwapSetParams, /// Raydium swap transaction RaydiumSwap, /// Raydium deposit RaydiumDeposit, /// Raydium withdrawal RaydiumWithdraw, /// Raydium AMM V4 swap with base token input RaydiumAmmV4SwapBaseIn, /// Raydium AMM V4 swap with base token output RaydiumAmmV4SwapBaseOut, /// Raydium AMM V4 deposit RaydiumAmmV4Deposit, /// Raydium AMM V4 second initialization RaydiumAmmV4Initialize2, /// Raydium AMM V4 withdrawal RaydiumAmmV4Withdraw, /// Raydium AMM V4 profit and loss withdrawal RaydiumAmmV4WithdrawPnl, /// Raydium CLMM swap RaydiumClmmSwap, /// Raydium CLMM swap version 2 RaydiumClmmSwapV2, /// Raydium CLMM pool creation RaydiumClmmCreatePool, /// Raydium CLMM open position version 2 RaydiumClmmOpenPositionV2, /// Raydium CLMM increase liquidity version 2 RaydiumClmmIncreaseLiquidityV2, /// Raydium CLMM decrease liquidity version 2 RaydiumClmmDecreaseLiquidityV2, /// Raydium CLMM close position RaydiumClmmClosePosition, /// Raydium CLMM open position with Token22 NFT RaydiumClmmOpenPositionWithToken22Nft, /// Raydium CPMM swap RaydiumCpmmSwap, /// Raydium CPMM swap with base input RaydiumCpmmSwapBaseInput, /// Raydium CPMM swap with base output RaydiumCpmmSwapBaseOutput, /// Raydium CPMM deposit RaydiumCpmmDeposit, /// Raydium CPMM withdrawal RaydiumCpmmWithdraw, /// Raydium CPMM pool creation RaydiumCpmmCreatePool, /// Open a liquidity position OpenPosition, /// Close a liquidity position ClosePosition, /// Increase liquidity in position IncreaseLiquidity, /// Decrease liquidity in position DecreaseLiquidity, /// General deposit operation Deposit, /// General withdrawal operation Withdraw, /// Unknown or unclassified event type #[default] Unknown, }
 ```
+
+Enumeration of DeFi event types supported across protocols
 
 **Variants**:
 
@@ -1830,7 +2021,7 @@ Jupiter instruction discriminators (using Anchor discriminators)
 ```
 
 ```rust
-pub enum MarginFiAccountType { MarginfiGroup, MarginfiAccount, Bank, Unknown, }
+pub enum MarginFiAccountType { /// MarginFi group account containing global settings MarginfiGroup, /// Individual user account for lending positions MarginfiAccount, /// Bank account representing a lending pool Bank, /// Unknown or unrecognized account type Unknown, }
 ```
 
 MarginFi account types
@@ -1854,7 +2045,7 @@ MarginFi account types
 ```
 
 ```rust
-pub enum MetaplexAuctionHouseDiscriminator { Buy, Sell, ExecuteSale, Deposit, Withdraw, Cancel, }
+pub enum MetaplexAuctionHouseDiscriminator { /// Buy NFT from auction house Buy, /// Sell NFT on auction house Sell, /// Execute sale between buyer and seller ExecuteSale, /// Deposit funds to auction house Deposit, /// Withdraw funds from auction house Withdraw, /// Cancel buy or sell order Cancel, }
 ```
 
 Metaplex Auction House discriminators
@@ -1881,7 +2072,7 @@ Metaplex Auction House discriminators
 ```
 
 ```rust
-pub enum MetaplexTokenMetadataDiscriminator { CreateMetadataAccount = 0, UpdateMetadataAccount = 1, DeprecatedCreateMasterEdition = 2, DeprecatedMintNewEditionFromMasterEditionViaPrintingToken = 3, UpdatePrimarySaleHappenedViaToken = 4, DeprecatedSetReservationList = 5, DeprecatedCreateReservationList = 6, SignMetadata = 7, DeprecatedMintPrintingTokensViaToken = 8, DeprecatedMintPrintingTokens = 9, CreateMasterEdition = 10, MintNewEditionFromMasterEditionViaToken = 11, ConvertMasterEditionV1ToV2 = 12, MintNewEditionFromMasterEditionViaVaultProxy = 13, PuffMetadata = 14, UpdateMetadataAccountV2 = 15, CreateMetadataAccountV2 = 16, CreateMasterEditionV3 = 17, VerifyCollection = 18, Utilize = 19, ApproveUseAuthority = 20, RevokeUseAuthority = 21, UnverifyCollection = 22, ApproveCollectionAuthority = 23, RevokeCollectionAuthority = 24, SetAndVerifyCollection = 25, FreezeDelegatedAccount = 26, ThawDelegatedAccount = 27, RemoveCreatorVerification = 28, BurnNft = 29, VerifyCreator = 30, UnverifyCreator = 31, BubblegumSetCollectionSize = 32, BurnEditionNft = 33, CreateMetadataAccountV3 = 34, SetCollectionSize = 35, SetTokenStandard = 36, BubblegumVerifyCreator = 37, BubblegumUnverifyCreator = 38, BubblegumVerifyCollection = 39, BubblegumUnverifyCollection = 40, BubblegumSetAndVerifyCollection = 41, Transfer = 42, }
+pub enum MetaplexTokenMetadataDiscriminator { /// Create metadata account for NFT CreateMetadataAccount = 0, /// Update existing metadata account UpdateMetadataAccount = 1, /// Deprecated create master edition instruction DeprecatedCreateMasterEdition = 2, /// Deprecated mint new edition from master edition via printing token DeprecatedMintNewEditionFromMasterEditionViaPrintingToken = 3, /// Update primary sale happened via token UpdatePrimarySaleHappenedViaToken = 4, /// Deprecated set reservation list instruction DeprecatedSetReservationList = 5, /// Deprecated create reservation list instruction DeprecatedCreateReservationList = 6, /// Sign metadata for creator verification SignMetadata = 7, /// Deprecated mint printing tokens via token DeprecatedMintPrintingTokensViaToken = 8, /// Deprecated mint printing tokens instruction DeprecatedMintPrintingTokens = 9, /// Create master edition for limited editions CreateMasterEdition = 10, /// Mint new edition from master edition via token MintNewEditionFromMasterEditionViaToken = 11, /// Convert master edition V1 to V2 ConvertMasterEditionV1ToV2 = 12, /// Mint new edition from master edition via vault proxy MintNewEditionFromMasterEditionViaVaultProxy = 13, /// Puff metadata to increase size PuffMetadata = 14, /// Update metadata account version 2 UpdateMetadataAccountV2 = 15, /// Create metadata account version 2 CreateMetadataAccountV2 = 16, /// Create master edition version 3 CreateMasterEditionV3 = 17, /// Verify collection membership VerifyCollection = 18, /// Utilize NFT for specific use case Utilize = 19, /// Approve use authority for NFT ApproveUseAuthority = 20, /// Revoke use authority for NFT RevokeUseAuthority = 21, /// Unverify collection membership UnverifyCollection = 22, /// Approve collection authority ApproveCollectionAuthority = 23, /// Revoke collection authority RevokeCollectionAuthority = 24, /// Set and verify collection in one transaction SetAndVerifyCollection = 25, /// Freeze delegated account FreezeDelegatedAccount = 26, /// Thaw delegated account ThawDelegatedAccount = 27, /// Remove creator verification RemoveCreatorVerification = 28, /// Burn NFT permanently BurnNft = 29, /// Verify creator signature VerifyCreator = 30, /// Unverify creator signature UnverifyCreator = 31, /// Bubblegum set collection size BubblegumSetCollectionSize = 32, /// Burn edition NFT BurnEditionNft = 33, /// Create metadata account version 3 CreateMetadataAccountV3 = 34, /// Set collection size SetCollectionSize = 35, /// Set token standard SetTokenStandard = 36, /// Bubblegum verify creator BubblegumVerifyCreator = 37, /// Bubblegum unverify creator BubblegumUnverifyCreator = 38, /// Bubblegum verify collection BubblegumVerifyCollection = 39, /// Bubblegum unverify collection BubblegumUnverifyCollection = 40, /// Bubblegum set and verify collection BubblegumSetAndVerifyCollection = 41, /// Transfer NFT ownership Transfer = 42, }
 ```
 
 Metaplex instruction discriminators for Token Metadata program
@@ -1944,7 +2135,7 @@ Metaplex instruction discriminators for Token Metadata program
 ```
 
 ```rust
-pub enum ParseError { /// Not enough bytes available for the requested operation #[error("Not enough bytes: expected {expected}, got {found} at offset {offset}")] NotEnoughBytes { expected: usize, found: usize, offset: usize, }, /// Invalid discriminator for the instruction #[error("Invalid discriminator: expected {expected:?}, got {found:?}")] InvalidDiscriminator { expected: Vec<u8>, found: Vec<u8> }, /// Invalid account index #[error("Account index {index} out of bounds (max: {max})")] InvalidAccountIndex { index: usize, max: usize }, /// Invalid public key format #[error("Invalid public key: {0}")] InvalidPubkey(String), /// UTF-8 decoding error #[error("UTF-8 decoding error: {0}")] Utf8Error(#[from] std::str::Utf8Error), /// Borsh deserialization error #[error("Borsh deserialization error: {0}")] BorshError(String), /// Invalid enum variant #[error("Invalid enum variant {variant} for type {type_name}")] InvalidEnumVariant { variant: u8, type_name: String }, /// Invalid instruction type #[error("Invalid instruction type: {0}")] InvalidInstructionType(String), /// Missing required field #[error("Missing required field: {0}")] MissingField(String), /// Invalid data format #[error("Invalid data format: {0}")] InvalidDataFormat(String), /// Overflow error #[error("Arithmetic overflow: {0}")] Overflow(String), /// Generic parsing error #[error("Parse error: {0}")] Generic(String), /// Network error (for streaming) #[error("Network error: {0}")] Network(String), /// Timeout error #[error("Operation timed out: {0}")] Timeout(String), }
+pub enum ParseError { /// Not enough bytes available for the requested operation #[error("Not enough bytes: expected {expected}, got {found} at offset {offset}")] NotEnoughBytes { /// Number of bytes expected expected: usize, /// Number of bytes actually found found: usize, /// Byte offset where the error occurred offset: usize, }, /// Invalid discriminator for the instruction #[error("Invalid discriminator: expected {expected:?}, got {found:?}")] InvalidDiscriminator { /// Expected discriminator bytes expected: Vec<u8>, /// Actual discriminator bytes found found: Vec<u8>, }, /// Invalid account index #[error("Account index {index} out of bounds (max: {max})")] InvalidAccountIndex { /// The invalid account index that was accessed index: usize, /// Maximum valid account index max: usize, }, /// Invalid public key format #[error("Invalid public key: {0}")] InvalidPubkey(String), /// UTF-8 decoding error #[error("UTF-8 decoding error: {0}")] Utf8Error(#[from] std::str::Utf8Error), /// Borsh deserialization error #[error("Borsh deserialization error: {0}")] BorshError(String), /// Invalid enum variant #[error("Invalid enum variant {variant} for type {type_name}")] InvalidEnumVariant { /// The invalid variant value variant: u8, /// Name of the enum type type_name: String, }, /// Invalid instruction type #[error("Invalid instruction type: {0}")] InvalidInstructionType(String), /// Missing required field #[error("Missing required field: {0}")] MissingField(String), /// Invalid data format #[error("Invalid data format: {0}")] InvalidDataFormat(String), /// Overflow error #[error("Arithmetic overflow: {0}")] Overflow(String), /// Generic parsing error #[error("Parse error: {0}")] Generic(String), /// Network error (for streaming) #[error("Network error: {0}")] Network(String), /// Timeout error #[error("Operation timed out: {0}")] Timeout(String), }
 ```
 
 Custom error type for event parsing operations
@@ -1958,11 +2149,17 @@ NOTE: This will be gradually replaced with EventError from riglr-events-core
 - `found`
 - `offset`
 - `InvalidDiscriminator`
+- `expected`
+- `found`
 - `InvalidAccountIndex`
+- `index`
+- `max`
 - `InvalidPubkey(String)`
 - `Utf8Error(#[from] std::str::Utf8Error)`
 - `BorshError(String)`
 - `InvalidEnumVariant`
+- `variant`
+- `type_name`
 - `InvalidInstructionType(String)`
 - `MissingField(String)`
 - `InvalidDataFormat(String)`
@@ -1983,7 +2180,7 @@ NOTE: This will be gradually replaced with EventError from riglr-events-core
 ```
 
 ```rust
-pub enum ParseError { #[error("Invalid instruction data: {0}")] InvalidInstructionData(String), #[error("Insufficient data length: expected {expected}, got {actual}")] InsufficientData { expected: usize, actual: usize }, #[error("Unknown discriminator: {discriminator:?}")] UnknownDiscriminator { discriminator: Vec<u8> }, #[error("Deserialization error: {0}")] DeserializationError(#[from] borsh::io::Error), #[error("Memory map error: {0}")] MemoryMapError(String), }
+pub enum ParseError { /// Invalid instruction data encountered during parsing #[error("Invalid instruction data: {0}")] InvalidInstructionData(String), /// Insufficient data available for parsing operation #[error("Insufficient data length: expected {expected}, got {actual}")] InsufficientData { /// Expected number of bytes expected: usize, /// Actual number of bytes available actual: usize }, /// Unknown discriminator value encountered #[error("Unknown discriminator: {discriminator:?}")] UnknownDiscriminator { /// The unrecognized discriminator bytes discriminator: Vec<u8> }, /// Borsh deserialization error #[error("Deserialization error: {0}")] DeserializationError(#[from] borsh::io::Error), /// Memory mapping operation error #[error("Memory map error: {0}")] MemoryMapError(String), }
 ```
 
 Error type for parsing operations
@@ -1992,7 +2189,10 @@ Error type for parsing operations
 
 - `InvalidInstructionData(String)`
 - `InsufficientData`
+- `expected`
+- `actual`
 - `UnknownDiscriminator`
+- `discriminator`
 - `DeserializationError(#[from] borsh::io::Error)`
 - `MemoryMapError(String)`
 
@@ -2008,7 +2208,7 @@ Error type for parsing operations
 ```
 
 ```rust
-pub enum PipelineError { #[error("Semaphore error")] SemaphoreError(()), #[error("Channel error")] ChannelError, #[error("Parse error: {0}")] ParseError(#[from] ParseError), #[error("Configuration error: {0}")] ConfigError(String), }
+pub enum PipelineError { /// Error acquiring semaphore permit #[error("Semaphore error")] SemaphoreError(()), /// Error sending data through channel #[error("Channel error")] ChannelError, /// Error during event parsing #[error("Parse error: {0}")] ParseError(#[from] ParseError), /// Invalid pipeline configuration #[error("Configuration error: {0}")] ConfigError(String), }
 ```
 
 Error type for parsing pipeline operations
@@ -2032,8 +2232,10 @@ Error type for parsing pipeline operations
 ```
 
 ```rust
-pub enum PoolStatus { #[default] Fund, Migrate, Trade, }
+pub enum PoolStatus { /// Initial funding phase where liquidity is being raised #[default] Fund, /// Migration phase where pool is transitioning to DEX Migrate, /// Active trading phase where tokens can be traded Trade, }
 ```
+
+Current status of a liquidity pool in the BONK protocol
 
 **Variants**:
 
@@ -2053,7 +2255,7 @@ pub enum PoolStatus { #[default] Fund, Migrate, Trade, }
 ```
 
 ```rust
-pub enum Protocol { OrcaWhirlpool, MeteoraDlmm, MarginFi, Jupiter, RaydiumAmmV4, RaydiumClmm, RaydiumCpmm, PumpFun, PumpSwap, Bonk, Custom(String), }
+pub enum Protocol { /// Orca Whirlpool concentrated liquidity protocol OrcaWhirlpool, /// Meteora Dynamic Liquidity Market Maker protocol MeteoraDlmm, /// MarginFi lending and borrowing protocol MarginFi, /// Jupiter swap aggregator protocol Jupiter, /// Raydium Automated Market Maker V4 protocol RaydiumAmmV4, /// Raydium Concentrated Liquidity Market Maker protocol RaydiumClmm, /// Raydium Constant Product Market Maker protocol RaydiumCpmm, /// PumpFun meme token creation protocol PumpFun, /// PumpSwap trading protocol PumpSwap, /// Bonk token protocol Bonk, /// Custom protocol with arbitrary name Custom(String), }
 ```
 
 Protocol enum for supported protocols
@@ -2080,12 +2282,14 @@ Protocol enum for supported protocols
 
 **Attributes**:
 ```rust
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, BorshDeserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, BorshSerialize, BorshDeserialize)]
 ```
 
 ```rust
-pub enum ProtocolType { OrcaWhirlpool, MeteoraDlmm, MarginFi, Bonk, PumpSwap, RaydiumAmm, RaydiumAmmV4, RaydiumClmm, RaydiumCpmm, Jupiter, Other(String), }
+pub enum ProtocolType { /// Orca Whirlpool concentrated liquidity pools OrcaWhirlpool, /// Meteora Dynamic Liquidity Market Maker MeteoraDlmm, /// MarginFi lending protocol MarginFi, /// Bonk decentralized exchange Bonk, /// PumpSwap automated market maker PumpSwap, /// Raydium automated market maker RaydiumAmm, /// Raydium AMM V4 implementation RaydiumAmmV4, /// Raydium concentrated liquidity market maker RaydiumClmm, /// Raydium constant product market maker RaydiumCpmm, /// Jupiter aggregator protocol Jupiter, /// Other protocol not explicitly supported Other(String), }
 ```
+
+Enumeration of supported Solana DeFi protocols
 
 **Variants**:
 
@@ -2113,7 +2317,7 @@ pub enum ProtocolType { OrcaWhirlpool, MeteoraDlmm, MarginFi, Bonk, PumpSwap, Ra
 ```
 
 ```rust
-pub enum PumpFunDiscriminator { Buy, Sell, CreatePool, Deposit, Withdraw, SetParams, }
+pub enum PumpFunDiscriminator { /// Buy tokens instruction Buy, /// Sell tokens instruction Sell, /// Create new pool instruction CreatePool, /// Deposit liquidity instruction Deposit, /// Withdraw liquidity instruction Withdraw, /// Set pool parameters instruction SetParams, }
 ```
 
 PumpFun instruction discriminators
@@ -2140,7 +2344,7 @@ PumpFun instruction discriminators
 ```
 
 ```rust
-pub enum RaydiumV4Discriminator { SwapBaseIn = 0x09, SwapBaseOut = 0x0a, Deposit = 0x03, Withdraw = 0x04, Initialize2 = 0x00, WithdrawPnl = 0x05, }
+pub enum RaydiumV4Discriminator { /// Swap with base input amount (discriminator 0x09) SwapBaseIn = 0x09, /// Swap with base output amount (discriminator 0x0a) SwapBaseOut = 0x0a, /// Deposit liquidity to pool (discriminator 0x03) Deposit = 0x03, /// Withdraw liquidity from pool (discriminator 0x04) Withdraw = 0x04, /// Initialize pool version 2 (discriminator 0x00) Initialize2 = 0x00, /// Withdraw profit and loss (discriminator 0x05) WithdrawPnl = 0x05, }
 ```
 
 Raydium AMM V4 instruction discriminators
@@ -2166,7 +2370,7 @@ Raydium AMM V4 instruction discriminators
 ```
 
 ```rust
-pub enum SwapDirection { AtoB, BtoA, }
+pub enum SwapDirection { /// Swap from token A to token B AtoB, /// Swap from token B to token A BtoA, }
 ```
 
 Orca swap direction
@@ -2184,12 +2388,14 @@ Orca swap direction
 
 **Attributes**:
 ```rust
-#[derive(Clone, Debug, Serialize, Deserialize, Default)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 ```
 
 ```rust
-pub enum SwapDirection { #[default] BaseIn, BaseOut, }
+pub enum SwapDirection { /// Swapping base token in for quote token out #[default] BaseIn, /// Swapping quote token in for base token out BaseOut, }
 ```
+
+Direction of the swap operation
 
 **Variants**:
 
@@ -2208,8 +2414,10 @@ pub enum SwapDirection { #[default] BaseIn, BaseOut, }
 ```
 
 ```rust
-pub enum TradeDirection { #[default] Buy, Sell, }
+pub enum TradeDirection { /// Buy operation - purchasing tokens #[default] Buy, /// Sell operation - selling tokens Sell, }
 ```
+
+Direction of a trade operation in the BONK protocol
 
 **Variants**:
 
@@ -2228,7 +2436,7 @@ pub enum TradeDirection { #[default] Buy, Sell, }
 ```
 
 ```rust
-pub enum ValidationError { /// Missing required field MissingField { field: String }, /// Invalid field value InvalidValue { field: String, reason: String }, /// Data inconsistency Inconsistency { description: String }, /// Business logic violation BusinessLogicError { rule: String, description: String }, /// Event too old StaleEvent { age: Duration }, /// Duplicate event detected Duplicate { original_id: String }, }
+pub enum ValidationError { /// Missing required field MissingField { /// The name of the missing field field: String }, /// Invalid field value InvalidValue { /// The name of the invalid field field: String, /// The reason why the value is invalid reason: String }, /// Data inconsistency Inconsistency { /// Description of the inconsistency description: String }, /// Business logic violation BusinessLogicError { /// The business rule that was violated rule: String, /// Description of the violation description: String }, /// Event too old StaleEvent { /// How old the event is age: Duration }, /// Duplicate event detected Duplicate { /// ID of the original event original_id: String }, }
 ```
 
 Validation error types
@@ -2236,11 +2444,19 @@ Validation error types
 **Variants**:
 
 - `MissingField`
+- `field`
 - `InvalidValue`
+- `field`
+- `reason`
 - `Inconsistency`
+- `description`
 - `BusinessLogicError`
+- `rule`
+- `description`
 - `StaleEvent`
+- `age`
 - `Duplicate`
+- `original_id`
 
 ---
 
@@ -2254,7 +2470,7 @@ Validation error types
 ```
 
 ```rust
-pub enum ValidationWarning { /// Unusual but potentially valid value UnusualValue { field: String, value: String }, /// Deprecated field usage DeprecatedField { field: String }, /// Performance concern PerformanceWarning { description: String }, }
+pub enum ValidationWarning { /// Unusual but potentially valid value UnusualValue { /// The name of the field with unusual value field: String, /// The unusual value value: String }, /// Deprecated field usage DeprecatedField { /// The name of the deprecated field field: String }, /// Performance concern PerformanceWarning { /// Description of the performance concern description: String }, }
 ```
 
 Validation warning types
@@ -2262,8 +2478,12 @@ Validation warning types
 **Variants**:
 
 - `UnusualValue`
+- `field`
+- `value`
 - `DeprecatedField`
+- `field`
 - `PerformanceWarning`
+- `description`
 
 ---
 
@@ -2521,15 +2741,27 @@ Calculate price impact for a swap
 
 ---
 
-### create_fast
+### core
 
-**Source**: `parsers/jupiter.rs`
+**Source**: `src/solana_metadata.rs`
 
 ```rust
-pub fn create_fast() -> Arc<dyn ByteSliceEventParser>
+pub fn core(&self) -> &EventMetadata
 ```
 
-Create a fast parser with simplified analysis
+Get a reference to the core EventMetadata
+
+---
+
+### core_mut
+
+**Source**: `src/solana_metadata.rs`
+
+```rust
+pub fn core_mut(&mut self) -> &mut EventMetadata
+```
+
+Get a mutable reference to the core EventMetadata
 
 ---
 
@@ -2545,27 +2777,51 @@ Create a fast parser with minimal metadata
 
 ---
 
-### create_standard
+### create_fast
 
-**Source**: `parsers/pump_fun.rs`
+**Source**: `parsers/jupiter.rs`
 
 ```rust
-pub fn create_standard() -> Arc<dyn ByteSliceEventParser>
+pub fn create_fast() -> Arc<dyn ByteSliceEventParser>
 ```
 
-Create a standard parser
+Create a fast parser with simplified analysis
 
 ---
 
-### create_standard
+### create_metadata
 
-**Source**: `parsers/raydium_v4.rs`
+**Source**: `src/solana_metadata.rs`
 
 ```rust
-pub fn create_standard() -> Arc<dyn ByteSliceEventParser>
+pub fn create_metadata( id: String, signature: String, slot: u64, block_time: Option<i64>, received_time: i64, index: String, event_type: EventType, protocol_type: ProtocolType, ) -> SolanaEventMetadata
 ```
 
-Create a standard parser
+Create a SolanaEventMetadata from components
+
+---
+
+### create_solana_metadata
+
+**Source**: `src/metadata_helpers.rs`
+
+```rust
+pub fn create_solana_metadata( id: String, kind: EventKind, source: String, slot: u64, signature: Option<String>, program_id: Option<Pubkey>, instruction_index: Option<usize>, block_time: Option<i64>, protocol_type: ProtocolType, event_type: EventType, ) -> EventMetadata
+```
+
+Create a new EventMetadata for Solana events with all required fields
+
+---
+
+### create_solana_metadata
+
+**Source**: `src/types.rs`
+
+```rust
+pub fn create_solana_metadata( id: String, signature: String, slot: u64, block_time: i64, protocol_type: ProtocolType, event_type: EventType, program_id: Pubkey, index: String, program_received_time_ms: i64, ) -> EventMetadata
+```
+
+Create a core EventMetadata with Solana chain data
 
 ---
 
@@ -2581,27 +2837,39 @@ Create a standard parser
 
 ---
 
-### create_zero_copy
+### create_standard
 
 **Source**: `parsers/pump_fun.rs`
 
 ```rust
-pub fn create_zero_copy() -> Arc<dyn ByteSliceEventParser>
+pub fn create_standard() -> Arc<dyn ByteSliceEventParser>
 ```
 
-Create a new high-performance zero-copy parser
+Create a standard parser
+
+---
+
+### create_standard
+
+**Source**: `parsers/raydium_v4.rs`
+
+```rust
+pub fn create_standard() -> Arc<dyn ByteSliceEventParser>
+```
+
+Create a standard parser
 
 ---
 
 ### create_zero_copy
 
-**Source**: `parsers/raydium_v4.rs`
+**Source**: `parsers/metaplex.rs`
 
 ```rust
 pub fn create_zero_copy() -> Arc<dyn ByteSliceEventParser>
 ```
 
-Create a new high-performance zero-copy parser
+Create a new high-performance zero-copy parser with full metadata
 
 ---
 
@@ -2619,13 +2887,25 @@ Create a new high-performance zero-copy parser with full analysis
 
 ### create_zero_copy
 
-**Source**: `parsers/metaplex.rs`
+**Source**: `parsers/pump_fun.rs`
 
 ```rust
 pub fn create_zero_copy() -> Arc<dyn ByteSliceEventParser>
 ```
 
-Create a new high-performance zero-copy parser with full metadata
+Create a new high-performance zero-copy parser
+
+---
+
+### create_zero_copy
+
+**Source**: `parsers/raydium_v4.rs`
+
+```rust
+pub fn create_zero_copy() -> Arc<dyn ByteSliceEventParser>
+```
+
+Create a new high-performance zero-copy parser
 
 ---
 
@@ -2660,6 +2940,20 @@ Decode base58 string to bytes
 ```rust
 pub fn discriminator_matches(data: &str, discriminator: &str) -> bool
 ```
+
+Checks if a hex data string starts with a given hex discriminator
+
+Both `data` and `discriminator` must be valid hex strings starting with "0x".
+Returns `true` if the data string begins with the discriminator string.
+
+# Arguments
+
+* `data` - The hex data string to check
+* `discriminator` - The hex discriminator to match against
+
+# Returns
+
+`true` if the data starts with the discriminator, `false` otherwise
 
 ---
 
@@ -2699,21 +2993,33 @@ Enrich multiple events in parallel
 
 ---
 
-### event_type
+### event_kind
 
-**Source**: `parsers/pump_fun.rs`
+**Source**: `src/solana_metadata.rs`
 
 ```rust
-pub fn event_type(&self) -> EventType
+pub fn event_kind(&self) -> EventKind
 ```
 
-Get corresponding event type
+Convert event type to event kind
 
 ---
 
 ### event_type
 
-**Source**: `parsers/raydium_v4.rs`
+**Source**: `src/metadata_helpers.rs`
+
+```rust
+pub fn event_type(&self) -> EventType
+```
+
+Get the event type
+
+---
+
+### event_type
+
+**Source**: `parsers/metaplex.rs`
 
 ```rust
 pub fn event_type(&self) -> EventType
@@ -2737,7 +3043,19 @@ Get corresponding event type
 
 ### event_type
 
-**Source**: `parsers/metaplex.rs`
+**Source**: `parsers/pump_fun.rs`
+
+```rust
+pub fn event_type(&self) -> EventType
+```
+
+Get corresponding event type
+
+---
+
+### event_type
+
+**Source**: `parsers/raydium_v4.rs`
 
 ```rust
 pub fn event_type(&self) -> EventType
@@ -2824,7 +3142,7 @@ Convert amount with decimals to human-readable format
 
 ### from_byte
 
-**Source**: `parsers/raydium_v4.rs`
+**Source**: `parsers/metaplex.rs`
 
 ```rust
 pub fn from_byte(byte: u8) -> Option<Self>
@@ -2836,7 +3154,7 @@ Parse discriminator from byte
 
 ### from_byte
 
-**Source**: `parsers/metaplex.rs`
+**Source**: `parsers/raydium_v4.rs`
 
 ```rust
 pub fn from_byte(byte: u8) -> Option<Self>
@@ -2855,18 +3173,6 @@ pub fn from_bytes(bytes: &[u8]) -> Option<Self>
 ```
 
 Parse discriminator from first 8 bytes
-
----
-
-### from_core_metadata
-
-**Source**: `src/types.rs`
-
-```rust
-pub fn from_core_metadata( core_metadata: &riglr_events_core::types::EventMetadata, protocol_type: ProtocolType, event_type: EventType, program_id: Pubkey, index: String, ) -> Self
-```
-
-Convert from riglr-events-core EventMetadata to local EventMetadata
 
 ---
 
@@ -2906,12 +3212,24 @@ Parse discriminator from first 8 bytes (u64 little-endian)
 
 ---
 
+### get_block_time
+
+**Source**: `src/metadata_helpers.rs`
+
+```rust
+pub fn get_block_time(metadata: &EventMetadata) -> Option<i64>
+```
+
+Get block_time from Solana EventMetadata
+
+---
+
 ### get_cache_stats
 
 **Source**: `pipelines/enrichment.rs`
 
 ```rust
-pub async fn get_cache_stats(&self) -> CacheStats
+pub fn get_cache_stats(&self) -> CacheStats
 ```
 
 Get cache statistics
@@ -2927,6 +3245,30 @@ pub fn get_client(&self) -> Arc<solana_client::rpc_client::RpcClient>
 ```
 
 Get the next client in round-robin fashion
+
+---
+
+### get_event_type
+
+**Source**: `src/metadata_helpers.rs`
+
+```rust
+pub fn get_event_type(metadata: &EventMetadata) -> Option<EventType>
+```
+
+Get event_type from Solana EventMetadata
+
+---
+
+### get_instruction_index
+
+**Source**: `src/metadata_helpers.rs`
+
+```rust
+pub fn get_instruction_index(metadata: &EventMetadata) -> Option<usize>
+```
+
+Get instruction_index from Solana EventMetadata
 
 ---
 
@@ -2978,15 +3320,51 @@ Get parser for a specific program ID
 
 ---
 
-### get_stats
+### get_program_id
 
-**Source**: `pipelines/parsing.rs`
+**Source**: `src/metadata_helpers.rs`
 
 ```rust
-pub fn get_stats(&self) -> PipelineStats
+pub fn get_program_id(metadata: &EventMetadata) -> Option<&Pubkey>
 ```
 
-Get pipeline statistics
+Get program_id from Solana EventMetadata
+
+---
+
+### get_protocol_type
+
+**Source**: `src/metadata_helpers.rs`
+
+```rust
+pub fn get_protocol_type(metadata: &EventMetadata) -> Option<ProtocolType>
+```
+
+Get protocol_type from Solana EventMetadata
+
+---
+
+### get_signature
+
+**Source**: `src/metadata_helpers.rs`
+
+```rust
+pub fn get_signature(metadata: &EventMetadata) -> Option<&str>
+```
+
+Get signature from Solana EventMetadata
+
+---
+
+### get_slot
+
+**Source**: `src/metadata_helpers.rs`
+
+```rust
+pub fn get_slot(metadata: &EventMetadata) -> Option<u64>
+```
+
+Get slot from Solana EventMetadata
 
 ---
 
@@ -2996,6 +3374,18 @@ Get pipeline statistics
 
 ```rust
 pub async fn get_stats(&self) -> ValidationStats
+```
+
+Get pipeline statistics
+
+---
+
+### get_stats
+
+**Source**: `pipelines/parsing.rs`
+
+```rust
+pub fn get_stats(&self) -> PipelineStats
 ```
 
 Get pipeline statistics
@@ -3028,6 +3418,18 @@ Check if instruction data starts with a specific discriminator
 
 ### id
 
+**Source**: `src/solana_metadata.rs`
+
+```rust
+pub fn id(&self) -> &str
+```
+
+Get the event ID
+
+---
+
+### id
+
 **Source**: `zero_copy/events.rs`
 
 ```rust
@@ -3035,6 +3437,18 @@ pub fn id(&self) -> &str
 ```
 
 Get id for any lifetime
+
+---
+
+### index
+
+**Source**: `src/metadata_helpers.rs`
+
+```rust
+pub fn index(&self) -> Option<usize>
+```
+
+Get the instruction index
 
 ---
 
@@ -3059,6 +3473,18 @@ pub fn input_mint(&mut self) -> Option<Pubkey>
 ```
 
 Get input mint, parsing if necessary
+
+---
+
+### into_inner
+
+**Source**: `src/metadata_helpers.rs`
+
+```rust
+pub fn into_inner(self) -> EventMetadata
+```
+
+Convert to the inner EventMetadata
 
 ---
 
@@ -3170,6 +3596,18 @@ Extract Jupiter program ID as Pubkey
 
 ---
 
+### kind
+
+**Source**: `src/solana_metadata.rs`
+
+```rust
+pub fn kind(&self) -> &EventKind
+```
+
+Get the event kind from core metadata
+
+---
+
 ### liquidity
 
 **Source**: `src/solana_events.rs`
@@ -3259,10 +3697,34 @@ Extract Meteora Dynamic program ID as Pubkey
 **Source**: `src/solana_events.rs`
 
 ```rust
-pub fn new(legacy_metadata: EventMetadata, data: serde_json::Value) -> Self
+pub fn new(metadata: EventMetadata, data: serde_json::Value) -> Self
 ```
 
-Create a new Solana event from legacy metadata
+Create a new Solana event
+
+---
+
+### new
+
+**Source**: `src/metadata_helpers.rs`
+
+```rust
+pub fn new( id: String, kind: EventKind, source: String, slot: u64, signature: Option<String>, program_id: Option<Pubkey>, instruction_index: Option<usize>, block_time: Option<i64>, protocol_type: ProtocolType, event_type: EventType, ) -> Self
+```
+
+Create a new SolanaEventMetadata
+
+---
+
+### new
+
+**Source**: `src/solana_metadata.rs`
+
+```rust
+pub fn new( signature: String, slot: u64, event_type: EventType, protocol_type: ProtocolType, index: String, program_received_time_ms: i64, core: EventMetadata, ) -> Self
+```
+
+Create new Solana event metadata
 
 ---
 
@@ -3316,21 +3778,6 @@ Create a new Solana inner instruction input
 
 ### new
 
-**Source**: `src/types.rs`
-
-**Attributes**:
-```rust
-#[allow(clippy::too_many_arguments)]
-```
-
-```rust
-pub fn new( id: String, signature: String, slot: u64, block_time: i64, block_time_ms: i64, protocol_type: ProtocolType, event_type: EventType, program_id: Pubkey, index: String, program_received_time_ms: i64, ) -> Self
-```
-
----
-
-### new
-
 **Source**: `events/factory.rs`
 
 ```rust
@@ -3343,25 +3790,13 @@ Create a new event parser registry
 
 ### new
 
-**Source**: `parsers/pump_fun.rs`
+**Source**: `parsers/metaplex.rs`
 
 ```rust
 pub fn new() -> Self
 ```
 
-Create new PumpFun parser
-
----
-
-### new
-
-**Source**: `parsers/raydium_v4.rs`
-
-```rust
-pub fn new() -> Self
-```
-
-Create new Raydium V4 parser
+Create new Metaplex parser
 
 ---
 
@@ -3379,13 +3814,25 @@ Create new Jupiter parser with full analysis
 
 ### new
 
-**Source**: `parsers/metaplex.rs`
+**Source**: `parsers/pump_fun.rs`
 
 ```rust
 pub fn new() -> Self
 ```
 
-Create new Metaplex parser
+Create new PumpFun parser
+
+---
+
+### new
+
+**Source**: `pipelines/validation.rs`
+
+```rust
+pub fn new(config: ValidationConfig) -> Self
+```
+
+Create a new validation pipeline
 
 ---
 
@@ -3427,18 +3874,6 @@ Create a new builder
 
 ### new
 
-**Source**: `pipelines/validation.rs`
-
-```rust
-pub fn new(config: ValidationConfig) -> Self
-```
-
-Create a new validation pipeline
-
----
-
-### new
-
 **Source**: `zero_copy/events.rs`
 
 ```rust
@@ -3458,18 +3893,6 @@ pub fn new(base: ZeroCopyEvent<'a>) -> Self
 ```
 
 Create new zero-copy liquidity event
-
----
-
-### new
-
-**Source**: `zero_copy/parsers.rs`
-
-```rust
-pub fn new() -> Self
-```
-
-Create a new SIMD pattern matcher
 
 ---
 
@@ -3529,6 +3952,8 @@ Create new generic event parser
 pub fn new() -> Self
 ```
 
+Creates a new Bonk event parser with configured discriminators and parsers
+
 ---
 
 ### new
@@ -3538,6 +3963,8 @@ pub fn new() -> Self
 ```rust
 pub fn new( id: String, signature: String, slot: u64, block_time: i64, block_time_ms: i64, program_received_time_ms: i64, index: String, ) -> Self
 ```
+
+Creates a new EventParameters instance with the provided values
 
 ---
 
@@ -3549,6 +3976,8 @@ pub fn new( id: String, signature: String, slot: u64, block_time: i64, block_tim
 pub fn new(params: EventParameters, swap_data: JupiterSwapData) -> Self
 ```
 
+Creates a new JupiterSwapEvent with the provided parameters and swap data
+
 ---
 
 ### new
@@ -3559,6 +3988,8 @@ pub fn new(params: EventParameters, swap_data: JupiterSwapData) -> Self
 pub fn new() -> Self
 ```
 
+Creates a new Jupiter event parser with default configurations for routing and exact-out routing
+
 ---
 
 ### new
@@ -3568,6 +3999,8 @@ pub fn new() -> Self
 ```rust
 pub fn new( id: String, signature: String, slot: u64, block_time: i64, block_time_ms: i64, program_received_time_ms: i64, index: String, ) -> Self
 ```
+
+Creates a new EventParameters instance with the provided values
 
 ---
 
@@ -3579,35 +4012,55 @@ pub fn new( id: String, signature: String, slot: u64, block_time: i64, block_tim
 pub fn new(params: EventParameters, deposit_data: MarginFiDepositData) -> Self
 ```
 
----
-
-### new
-
-**Source**: `marginfi/parser.rs`
-
-```rust
-pub fn new() -> Self
-```
+Creates a new MarginFi deposit event with the provided parameters and deposit data
 
 ---
 
 ### new
 
-**Source**: `meteora/events.rs`
+**Source**: `marginfi/events.rs`
 
 ```rust
-pub fn new( id: String, signature: String, slot: u64, block_time: i64, block_time_ms: i64, program_received_time_ms: i64, index: String, ) -> Self
+pub fn new(params: EventParameters, withdraw_data: MarginFiWithdrawData) -> Self
 ```
+
+Creates a new MarginFi withdraw event with the provided parameters and withdraw data
 
 ---
 
 ### new
 
-**Source**: `meteora/events.rs`
+**Source**: `marginfi/events.rs`
 
 ```rust
-pub fn new(params: EventParameters, swap_data: MeteoraSwapData) -> Self
+pub fn new(params: EventParameters, borrow_data: MarginFiBorrowData) -> Self
 ```
+
+Creates a new MarginFi borrow event with the provided parameters and borrow data
+
+---
+
+### new
+
+**Source**: `marginfi/events.rs`
+
+```rust
+pub fn new(params: EventParameters, repay_data: MarginFiRepayData) -> Self
+```
+
+Creates a new MarginFi repay event with the provided parameters and repay data
+
+---
+
+### new
+
+**Source**: `marginfi/events.rs`
+
+```rust
+pub fn new(params: EventParameters, liquidation_data: MarginFiLiquidationData) -> Self
+```
+
+Creates a new MarginFi liquidation event with the provided parameters and liquidation data
 
 ---
 
@@ -3619,6 +4072,56 @@ pub fn new(params: EventParameters, swap_data: MeteoraSwapData) -> Self
 pub fn new() -> Self
 ```
 
+Creates a new Meteora event parser with default configurations
+
+---
+
+### new
+
+**Source**: `meteora/events.rs`
+
+```rust
+pub fn new( id: String, signature: String, slot: u64, block_time: i64, block_time_ms: i64, program_received_time_ms: i64, index: String, ) -> Self
+```
+
+Creates a new EventParameters instance with the provided values
+
+---
+
+### new
+
+**Source**: `meteora/events.rs`
+
+```rust
+pub fn new(params: EventParameters, swap_data: MeteoraSwapData) -> Self
+```
+
+Creates a new MeteoraSwapEvent with the provided parameters and swap data
+
+---
+
+### new
+
+**Source**: `meteora/events.rs`
+
+```rust
+pub fn new(params: EventParameters, liquidity_data: MeteoraLiquidityData) -> Self
+```
+
+Creates a new MeteoraLiquidityEvent with the provided parameters and liquidity data
+
+---
+
+### new
+
+**Source**: `meteora/events.rs`
+
+```rust
+pub fn new(params: EventParameters, liquidity_data: MeteoraDynamicLiquidityData) -> Self
+```
+
+Creates a new MeteoraDynamicLiquidityEvent with the provided parameters and liquidity data
+
 ---
 
 ### new
@@ -3628,6 +4131,8 @@ pub fn new() -> Self
 ```rust
 pub fn new( id: String, signature: String, slot: u64, block_time: i64, block_time_ms: i64, program_received_time_ms: i64, index: String, ) -> Self
 ```
+
+Creates a new EventParameters instance with the provided values
 
 ---
 
@@ -3639,15 +4144,31 @@ pub fn new( id: String, signature: String, slot: u64, block_time: i64, block_tim
 pub fn new(params: EventParameters, swap_data: OrcaSwapData) -> Self
 ```
 
+Creates a new OrcaSwapEvent with the provided parameters and swap data
+
 ---
 
 ### new
 
-**Source**: `orca/parser.rs`
+**Source**: `orca/events.rs`
 
 ```rust
-pub fn new() -> Self
+pub fn new(params: EventParameters, position_data: OrcaPositionData, is_open: bool) -> Self
 ```
+
+Creates a new OrcaPositionEvent with the provided parameters and position data
+
+---
+
+### new
+
+**Source**: `orca/events.rs`
+
+```rust
+pub fn new(params: EventParameters, liquidity_data: OrcaLiquidityData) -> Self
+```
+
+Creates a new OrcaLiquidityEvent with the provided parameters and liquidity data
 
 ---
 
@@ -3659,6 +4180,8 @@ pub fn new() -> Self
 pub fn new() -> Self
 ```
 
+Creates a new PumpSwap event parser with default configuration
+
 ---
 
 ### new
@@ -3668,6 +4191,8 @@ pub fn new() -> Self
 ```rust
 pub fn new() -> Self
 ```
+
+Creates a new Raydium AMM V4 event parser with configured discriminators and instruction parsers
 
 ---
 
@@ -3679,6 +4204,11 @@ pub fn new() -> Self
 pub fn new() -> Self
 ```
 
+Creates a new Raydium CLMM event parser
+
+Initializes the parser with all supported Raydium CLMM instruction types
+including swaps, position management, and pool creation operations.
+
 ---
 
 ### new
@@ -3688,6 +4218,8 @@ pub fn new() -> Self
 ```rust
 pub fn new() -> Self
 ```
+
+Creates a new Raydium CPMM event parser with default configuration
 
 ---
 
@@ -3705,18 +4237,6 @@ Create a new zero-copy event with borrowed data
 
 ### new_fast
 
-**Source**: `parsers/jupiter.rs`
-
-```rust
-pub fn new_fast() -> Self
-```
-
-Create parser with simplified analysis (faster)
-
----
-
-### new_fast
-
 **Source**: `parsers/metaplex.rs`
 
 ```rust
@@ -3724,6 +4244,18 @@ pub fn new_fast() -> Self
 ```
 
 Create parser with minimal metadata parsing (faster)
+
+---
+
+### new_fast
+
+**Source**: `parsers/jupiter.rs`
+
+```rust
+pub fn new_fast() -> Self
+```
+
+Create parser with simplified analysis (faster)
 
 ---
 
@@ -3736,6 +4268,18 @@ pub fn new_owned(metadata: EventMetadata, raw_data: Vec<u8>) -> Self
 ```
 
 Create a new zero-copy event with owned data
+
+---
+
+### new_standard
+
+**Source**: `parsers/jupiter.rs`
+
+```rust
+pub fn new_standard() -> Self
+```
+
+Create parser with zero-copy disabled
 
 ---
 
@@ -3754,18 +4298,6 @@ Create parser with zero-copy disabled
 ### new_standard
 
 **Source**: `parsers/raydium_v4.rs`
-
-```rust
-pub fn new_standard() -> Self
-```
-
-Create parser with zero-copy disabled
-
----
-
-### new_standard
-
-**Source**: `parsers/jupiter.rs`
 
 ```rust
 pub fn new_standard() -> Self
@@ -3993,6 +4525,18 @@ Create a generic protocol event
 
 ### protocol_type
 
+**Source**: `src/metadata_helpers.rs`
+
+```rust
+pub fn protocol_type(&self) -> ProtocolType
+```
+
+Get the protocol type
+
+---
+
+### protocol_type
+
 **Source**: `zero_copy/events.rs`
 
 ```rust
@@ -4173,13 +4717,39 @@ Get remaining data as slice
 
 ---
 
+### set_event_type
+
+**Source**: `src/metadata_helpers.rs`
+
+```rust
+pub fn set_event_type(metadata: &mut EventMetadata, event_type: EventType)
+```
+
+Set event_type in Solana EventMetadata
+
+---
+
+### set_event_type
+
+**Source**: `src/metadata_helpers.rs`
+
+```rust
+pub fn set_event_type(&mut self, event_type: EventType)
+```
+
+Set the event type
+
+---
+
 ### set_id
 
-**Source**: `src/types.rs`
+**Source**: `src/solana_metadata.rs`
 
 ```rust
 pub fn set_id(&mut self, id: String)
 ```
+
+Set the event ID
 
 ---
 
@@ -4207,6 +4777,30 @@ Set parsed data (strongly typed)
 
 ---
 
+### set_protocol_type
+
+**Source**: `src/metadata_helpers.rs`
+
+```rust
+pub fn set_protocol_type(metadata: &mut EventMetadata, protocol_type: ProtocolType)
+```
+
+Set protocol_type in Solana EventMetadata
+
+---
+
+### set_protocol_type
+
+**Source**: `src/metadata_helpers.rs`
+
+```rust
+pub fn set_protocol_type(&mut self, protocol_type: ProtocolType)
+```
+
+Set the protocol type
+
+---
+
 ### shares_to_amount
 
 **Source**: `marginfi/types.rs`
@@ -4228,6 +4822,18 @@ pub fn should_handle(&self, program_id: &solana_sdk::pubkey::Pubkey) -> bool
 ```
 
 Check if a program ID is supported
+
+---
+
+### signature
+
+**Source**: `src/metadata_helpers.rs`
+
+```rust
+pub fn signature(&self) -> Option<String>
+```
+
+Get the signature
 
 ---
 
@@ -4276,6 +4882,18 @@ pub fn skip(&mut self, len: usize) -> Result<(), ParseError>
 ```
 
 Skip bytes
+
+---
+
+### slot
+
+**Source**: `src/metadata_helpers.rs`
+
+```rust
+pub fn slot(&self) -> u64
+```
+
+Get the slot
 
 ---
 
@@ -4384,18 +5002,6 @@ pub fn timestamp(&self) -> std::time::SystemTime
 ```
 
 Get timestamp for any lifetime
-
----
-
-### to_core_metadata
-
-**Source**: `src/types.rs`
-
-```rust
-pub fn to_core_metadata( &self, kind: riglr_events_core::types::EventKind, source: String, ) -> riglr_events_core::types::EventMetadata
-```
-
-Convert to riglr-events-core EventMetadata
 
 ---
 
@@ -4555,18 +5161,6 @@ Create with specific legacy parser
 
 ---
 
-### with_metadata
-
-**Source**: `src/solana_events.rs`
-
-```rust
-pub fn with_metadata( legacy_metadata: EventMetadata, core_metadata: riglr_events_core::types::EventMetadata, data: serde_json::Value, ) -> Self
-```
-
-Create from both legacy and core metadata (for precise control)
-
----
-
 ### with_metrics
 
 **Source**: `pipelines/parsing.rs`
@@ -4635,6 +5229,8 @@ Set transfer data
 pub fn with_transfer_data(mut self, transfer_data: Vec<TransferData>) -> Self
 ```
 
+Adds transfer data to the swap event
+
 ---
 
 ### with_transfer_data
@@ -4644,6 +5240,56 @@ pub fn with_transfer_data(mut self, transfer_data: Vec<TransferData>) -> Self
 ```rust
 pub fn with_transfer_data(mut self, transfer_data: Vec<TransferData>) -> Self
 ```
+
+Adds transfer data to the deposit event and returns the modified event
+
+---
+
+### with_transfer_data
+
+**Source**: `marginfi/events.rs`
+
+```rust
+pub fn with_transfer_data(mut self, transfer_data: Vec<TransferData>) -> Self
+```
+
+Sets the transfer data for this withdraw event
+
+---
+
+### with_transfer_data
+
+**Source**: `marginfi/events.rs`
+
+```rust
+pub fn with_transfer_data(mut self, transfer_data: Vec<TransferData>) -> Self
+```
+
+Sets the transfer data for this borrow event
+
+---
+
+### with_transfer_data
+
+**Source**: `marginfi/events.rs`
+
+```rust
+pub fn with_transfer_data(mut self, transfer_data: Vec<TransferData>) -> Self
+```
+
+Sets the transfer data for this repay event
+
+---
+
+### with_transfer_data
+
+**Source**: `marginfi/events.rs`
+
+```rust
+pub fn with_transfer_data(mut self, transfer_data: Vec<TransferData>) -> Self
+```
+
+Sets the transfer data for this liquidation event
 
 ---
 
@@ -4655,6 +5301,32 @@ pub fn with_transfer_data(mut self, transfer_data: Vec<TransferData>) -> Self
 pub fn with_transfer_data(mut self, transfer_data: Vec<TransferData>) -> Self
 ```
 
+Sets the transfer data for this swap event
+
+---
+
+### with_transfer_data
+
+**Source**: `meteora/events.rs`
+
+```rust
+pub fn with_transfer_data(mut self, transfer_data: Vec<TransferData>) -> Self
+```
+
+Sets the transfer data for this liquidity event
+
+---
+
+### with_transfer_data
+
+**Source**: `meteora/events.rs`
+
+```rust
+pub fn with_transfer_data(mut self, transfer_data: Vec<TransferData>) -> Self
+```
+
+Sets the transfer data for this dynamic liquidity event
+
 ---
 
 ### with_transfer_data
@@ -4664,6 +5336,32 @@ pub fn with_transfer_data(mut self, transfer_data: Vec<TransferData>) -> Self
 ```rust
 pub fn with_transfer_data(mut self, transfer_data: Vec<TransferData>) -> Self
 ```
+
+Sets the transfer data for this swap event
+
+---
+
+### with_transfer_data
+
+**Source**: `orca/events.rs`
+
+```rust
+pub fn with_transfer_data(mut self, transfer_data: Vec<TransferData>) -> Self
+```
+
+Sets the transfer data for this position event
+
+---
+
+### with_transfer_data
+
+**Source**: `orca/events.rs`
+
+```rust
+pub fn with_transfer_data(mut self, transfer_data: Vec<TransferData>) -> Self
+```
+
+Sets the transfer data for this liquidity event
 
 ---
 
@@ -4679,7 +5377,7 @@ pub fn with_transfer_data(mut self, transfer_data: Vec<TransferData>) -> Self
 ```
 
 ```rust
-pub struct AccountMeta { pub pubkey: Pubkey, pub is_signer: bool, pub is_writable: bool, }
+pub struct AccountMeta { /// Public key of the account pub pubkey: Pubkey, /// Whether the account is a signer pub is_signer: bool, /// Whether the account is writable pub is_writable: bool, }
 ```
 
 Account metadata for swap
@@ -4691,7 +5389,7 @@ Account metadata for swap
 **Source**: `zero_copy/parsers.rs`
 
 ```rust
-pub struct BatchEventParser { /// Individual parsers for different protocols parsers: HashMap<ProtocolType, Arc<dyn ByteSliceEventParser>>, /// Pattern matcher for fast protocol detection pattern_matcher: SIMDPatternMatcher, /// Maximum batch size max_batch_size: usize, }
+pub struct BatchEventParser { /// Protocol-specific parsers indexed by protocol type parsers: HashMap<ProtocolType, Arc<dyn ByteSliceEventParser>>, /// SIMD pattern matcher for fast protocol detection pattern_matcher: SIMDPatternMatcher, /// Maximum number of transactions to process in a single batch max_batch_size: usize, }
 ```
 
 Batch processor for efficient parsing of multiple transactions
@@ -4708,7 +5406,7 @@ Batch processor for efficient parsing of multiple transactions
 ```
 
 ```rust
-pub struct BatchParserStats { pub registered_parsers: usize, pub max_batch_size: usize, pub pattern_count: usize, }
+pub struct BatchParserStats { /// Number of registered protocol parsers pub registered_parsers: usize, /// Maximum batch size configured pub max_batch_size: usize, /// Number of discriminator patterns registered pub pattern_count: usize, }
 ```
 
 Statistics for batch parser performance monitoring
@@ -4733,11 +5431,11 @@ Bonk event parser
 
 **Attributes**:
 ```rust
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, BorshDeserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, BorshDeserialize, Default)]
 ```
 
 ```rust
-pub struct BonkPoolCreateEvent { #[serde(skip)]
+pub struct BonkPoolCreateEvent { /// Event metadata #[serde(skip)]
 ```
 
 Create pool event
@@ -4750,11 +5448,11 @@ Create pool event
 
 **Attributes**:
 ```rust
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, BorshDeserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, BorshDeserialize, Default)]
 ```
 
 ```rust
-pub struct BonkTradeEvent { #[serde(skip)]
+pub struct BonkTradeEvent { /// Event metadata #[serde(skip)]
 ```
 
 Trade event
@@ -4788,7 +5486,7 @@ Metaplex BurnNft instruction data
 ```
 
 ```rust
-pub struct CacheStats { pub token_cache_size: usize, pub price_cache_size: usize, pub token_cache_hit_rate: f64, pub price_cache_hit_rate: f64, }
+pub struct CacheStats { /// Number of entries in token metadata cache pub token_cache_size: usize, /// Number of entries in price data cache pub price_cache_size: usize, /// Token cache hit rate (0.0 to 1.0)
 ```
 
 Cache statistics
@@ -4805,8 +5503,10 @@ Cache statistics
 ```
 
 ```rust
-pub struct ConstantCurve { pub supply: u64, pub total_base_sell: u64, pub total_quote_fund_raising: u64, pub migrate_type: u8, }
+pub struct ConstantCurve { /// Total token supply for the curve pub supply: u64, /// Total base tokens available for selling pub total_base_sell: u64, /// Total quote tokens raised during funding pub total_quote_fund_raising: u64, /// Type of migration when curve completes pub migrate_type: u8, }
 ```
+
+Constant product bonding curve parameters
 
 ---
 
@@ -4837,8 +5537,10 @@ Metaplex CreateMetadataAccount instruction data
 ```
 
 ```rust
-pub struct CurveParams { pub constant_curve: Option<ConstantCurve>, pub fixed_curve: Option<FixedCurve>, pub linear_curve: Option<LinearCurve>, }
+pub struct CurveParams { /// Constant product curve configuration, if used pub constant_curve: Option<ConstantCurve>, /// Fixed price curve configuration, if used pub fixed_curve: Option<FixedCurve>, /// Linear price curve configuration, if used pub linear_curve: Option<LinearCurve>, }
 ```
+
+Container for different bonding curve configurations
 
 ---
 
@@ -4847,7 +5549,7 @@ pub struct CurveParams { pub constant_curve: Option<ConstantCurve>, pub fixed_cu
 **Source**: `zero_copy/parsers.rs`
 
 ```rust
-pub struct CustomDeserializer<'a> { /// Data to deserialize from data: &'a [u8], /// Current position pos: usize, }
+pub struct CustomDeserializer<'a> { /// Byte data being deserialized data: &'a [u8], /// Current read position in the data pos: usize, }
 ```
 
 Custom deserializer for hot path parsing
@@ -4881,7 +5583,7 @@ Raydium V4 Deposit instruction data
 ```
 
 ```rust
-pub struct DlmmBin { pub bin_id: u32, pub reserve_x: u64, pub reserve_y: u64, pub price: f64, pub liquidity_supply: u128, }
+pub struct DlmmBin { /// Unique identifier for this price bin pub bin_id: u32, /// Amount of token X reserves in this bin pub reserve_x: u64, /// Amount of token Y reserves in this bin pub reserve_y: u64, /// Current price for this bin pub price: f64, /// Total liquidity token supply for this bin pub liquidity_supply: u128, }
 ```
 
 Meteora DLMM bin information
@@ -4898,7 +5600,7 @@ Meteora DLMM bin information
 ```
 
 ```rust
-pub struct DlmmPairConfig { pub pair: Pubkey, pub token_mint_x: Pubkey, pub token_mint_y: Pubkey, pub bin_step: u16, pub base_fee_percentage: u64, pub max_fee_percentage: u64, pub protocol_fee_percentage: u64, pub liquidity_fee_percentage: u64, pub volatility_accumulator: u32, pub volatility_reference: u32, pub id_reference: u32, pub time_of_last_update: u64, pub active_id: u32, pub base_key: Pubkey, }
+pub struct DlmmPairConfig { /// Public key of the DLMM pair account pub pair: Pubkey, /// Mint address of token X pub token_mint_x: Pubkey, /// Mint address of token Y pub token_mint_y: Pubkey, /// Step size between bins in basis points pub bin_step: u16, /// Base fee percentage charged for swaps pub base_fee_percentage: u64, /// Maximum fee percentage that can be charged pub max_fee_percentage: u64, /// Protocol fee percentage taken from trades pub protocol_fee_percentage: u64, /// Liquidity provider fee percentage pub liquidity_fee_percentage: u64, /// Current volatility accumulator value pub volatility_accumulator: u32, /// Volatility reference point pub volatility_reference: u32, /// ID reference for bin tracking pub id_reference: u32, /// Timestamp of last pair update pub time_of_last_update: u64, /// Currently active bin ID pub active_id: u32, /// Base key for the pair pub base_key: Pubkey, }
 ```
 
 Meteora DLMM pair configuration
@@ -4927,25 +5629,10 @@ Configuration for event enrichment
 **Source**: `pipelines/enrichment.rs`
 
 ```rust
-pub struct EventEnricher { /// Enrichment configuration config: EnrichmentConfig, /// Token metadata cache token_cache: Arc<RwLock<HashMap<Pubkey, CacheEntry<TokenMetadata>>>>, /// Price data cache price_cache: Arc<RwLock<HashMap<Pubkey, CacheEntry<PriceData>>>>, /// HTTP client for external API calls http_client: reqwest::Client, }
+pub struct EventEnricher { /// Enrichment configuration config: EnrichmentConfig, /// Token metadata cache token_cache: Arc<DashMap<Pubkey, CacheEntry<TokenMetadata>>>, /// Price data cache price_cache: Arc<DashMap<Pubkey, CacheEntry<PriceData>>>, /// HTTP client for external API calls http_client: reqwest::Client, }
 ```
 
 Event enricher with caching and external API integration
-
----
-
-### EventMetadata
-
-**Source**: `src/types.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default, BorshDeserialize)]
-```
-
-```rust
-pub struct EventMetadata { pub id: String, pub signature: String, pub slot: u64, pub block_time: i64, pub block_time_ms: i64, pub protocol_type: ProtocolType, pub event_type: EventType, pub program_id: Pubkey, pub index: String, pub program_received_time_ms: i64, pub program_handle_time_consuming_ms: i64, }
-```
 
 ---
 
@@ -4955,11 +5642,11 @@ pub struct EventMetadata { pub id: String, pub signature: String, pub slot: u64,
 
 **Attributes**:
 ```rust
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 ```
 
 ```rust
-pub struct EventParameters { pub id: String, pub signature: String, pub slot: u64, pub block_time: i64, pub block_time_ms: i64, pub program_received_time_ms: i64, pub index: String, }
+pub struct EventParameters { /// Unique identifier for the event pub id: String, /// Transaction signature pub signature: String, /// Solana slot number pub slot: u64, /// Block timestamp in seconds pub block_time: i64, /// Block timestamp in milliseconds pub block_time_ms: i64, /// Time when the program received the event in milliseconds pub program_received_time_ms: i64, /// Event index within the transaction pub index: String, }
 ```
 
 Parameters for creating event metadata, reducing function parameter count
@@ -4972,11 +5659,11 @@ Parameters for creating event metadata, reducing function parameter count
 
 **Attributes**:
 ```rust
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 ```
 
 ```rust
-pub struct EventParameters { pub id: String, pub signature: String, pub slot: u64, pub block_time: i64, pub block_time_ms: i64, pub program_received_time_ms: i64, pub index: String, }
+pub struct EventParameters { /// Unique identifier for the event pub id: String, /// Transaction signature hash pub signature: String, /// Solana slot number when the transaction was processed pub slot: u64, /// Block timestamp in seconds since Unix epoch pub block_time: i64, /// Block timestamp in milliseconds since Unix epoch pub block_time_ms: i64, /// Timestamp when the program received the transaction in milliseconds pub program_received_time_ms: i64, /// Index of the instruction within the transaction pub index: String, }
 ```
 
 Parameters for creating event metadata, reducing function parameter count
@@ -4989,11 +5676,11 @@ Parameters for creating event metadata, reducing function parameter count
 
 **Attributes**:
 ```rust
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 ```
 
 ```rust
-pub struct EventParameters { pub id: String, pub signature: String, pub slot: u64, pub block_time: i64, pub block_time_ms: i64, pub program_received_time_ms: i64, pub index: String, }
+pub struct EventParameters { /// Unique identifier for the event pub id: String, /// Transaction signature pub signature: String, /// Solana slot number pub slot: u64, /// Block timestamp in seconds pub block_time: i64, /// Block timestamp in milliseconds pub block_time_ms: i64, /// Time when the program received the event in milliseconds pub program_received_time_ms: i64, /// Event index within the transaction pub index: String, }
 ```
 
 Parameters for creating event metadata, reducing function parameter count
@@ -5006,11 +5693,11 @@ Parameters for creating event metadata, reducing function parameter count
 
 **Attributes**:
 ```rust
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 ```
 
 ```rust
-pub struct EventParameters { pub id: String, pub signature: String, pub slot: u64, pub block_time: i64, pub block_time_ms: i64, pub program_received_time_ms: i64, pub index: String, }
+pub struct EventParameters { /// Unique identifier for the event pub id: String, /// Transaction signature pub signature: String, /// Solana slot number pub slot: u64, /// Block timestamp in seconds pub block_time: i64, /// Block timestamp in milliseconds pub block_time_ms: i64, /// Time when the program received the event in milliseconds pub program_received_time_ms: i64, /// Event index within the transaction pub index: String, }
 ```
 
 Parameters for creating event metadata, reducing function parameter count
@@ -5022,7 +5709,7 @@ Parameters for creating event metadata, reducing function parameter count
 **Source**: `events/factory.rs`
 
 ```rust
-pub struct EventParserRegistry { parsers: HashMap<Protocol, Arc<dyn EventParser>>, program_id_to_parser: HashMap<solana_sdk::pubkey::Pubkey, Arc<dyn EventParser>>, }
+pub struct EventParserRegistry { /// Map of protocols to their respective event parsers parsers: HashMap<Protocol, Arc<dyn EventParser>>, /// Map of program IDs to their respective event parsers for fast lookup program_id_to_parser: HashMap<solana_sdk::pubkey::Pubkey, Arc<dyn EventParser>>, }
 ```
 
 EventParserRegistry - the new async event parser registry
@@ -5039,8 +5726,10 @@ EventParserRegistry - the new async event parser registry
 ```
 
 ```rust
-pub struct FixedCurve { pub supply: u64, pub total_quote_fund_raising: u64, pub migrate_type: u8, }
+pub struct FixedCurve { /// Total token supply for the curve pub supply: u64, /// Total quote tokens to be raised during funding pub total_quote_fund_raising: u64, /// Type of migration when curve completes pub migrate_type: u8, }
 ```
+
+Fixed price bonding curve parameters
 
 ---
 
@@ -5054,7 +5743,7 @@ pub struct FixedCurve { pub supply: u64, pub total_quote_fund_raising: u64, pub 
 ```
 
 ```rust
-pub struct GenericEventParseConfig { pub program_id: solana_sdk::pubkey::Pubkey, pub protocol_type: ProtocolType, pub inner_instruction_discriminator: &'static str, pub instruction_discriminator: &'static [u8], pub event_type: EventType, pub inner_instruction_parser: InnerInstructionEventParser, pub instruction_parser: InstructionEventParser, }
+pub struct GenericEventParseConfig { /// Program ID this configuration applies to pub program_id: solana_sdk::pubkey::Pubkey, /// Protocol type for events generated from this configuration pub protocol_type: ProtocolType, /// Discriminator string for inner instructions pub inner_instruction_discriminator: &'static str, /// Discriminator bytes for instructions pub instruction_discriminator: &'static [u8], /// Type of events this configuration generates pub event_type: EventType, /// Parser function for inner instructions pub inner_instruction_parser: InnerInstructionEventParser, /// Parser function for instructions pub instruction_parser: InstructionEventParser, }
 ```
 
 Generic event parser configuration
@@ -5066,7 +5755,7 @@ Generic event parser configuration
 **Source**: `core/traits.rs`
 
 ```rust
-pub struct GenericEventParser { pub program_ids: Vec<solana_sdk::pubkey::Pubkey>, pub inner_instruction_configs: std::collections::HashMap<&'static str, Vec<GenericEventParseConfig>>, pub instruction_configs: std::collections::HashMap<Vec<u8>, Vec<GenericEventParseConfig>>, }
+pub struct GenericEventParser { /// List of program IDs this parser handles pub program_ids: Vec<solana_sdk::pubkey::Pubkey>, /// Configuration mapping for inner instruction parsing by discriminator pub inner_instruction_configs: std::collections::HashMap<&'static str, Vec<GenericEventParseConfig>>, /// Configuration mapping for instruction parsing by discriminator bytes pub instruction_configs: std::collections::HashMap<Vec<u8>, Vec<GenericEventParseConfig>>, }
 ```
 
 Generic event parser base class
@@ -5083,7 +5772,7 @@ Generic event parser base class
 ```
 
 ```rust
-pub struct InnerInstructionParseParams<'a> { pub inner_instruction: &'a solana_transaction_status::UiCompiledInstruction, pub signature: &'a str, pub slot: u64, pub block_time: Option<i64>, pub program_received_time_ms: i64, pub index: String, }
+pub struct InnerInstructionParseParams<'a> { /// Inner instruction data from transaction metadata pub inner_instruction: &'a solana_transaction_status::UiCompiledInstruction, /// Transaction signature pub signature: &'a str, /// Solana slot number pub slot: u64, /// Block time (optional)
 ```
 
 Parameters for parsing events from inner instructions, reducing function parameter count
@@ -5100,7 +5789,7 @@ Parameters for parsing events from inner instructions, reducing function paramet
 ```
 
 ```rust
-pub struct InstructionParseParams<'a> { pub instruction: &'a solana_sdk::instruction::CompiledInstruction, pub accounts: &'a [solana_sdk::pubkey::Pubkey], pub signature: &'a str, pub slot: u64, pub block_time: Option<i64>, pub program_received_time_ms: i64, pub index: String, }
+pub struct InstructionParseParams<'a> { /// Compiled instruction data pub instruction: &'a solana_sdk::instruction::CompiledInstruction, /// Account keys from the transaction pub accounts: &'a [solana_sdk::pubkey::Pubkey], /// Transaction signature pub signature: &'a str, /// Solana slot number pub slot: u64, /// Block time (optional)
 ```
 
 Parameters for parsing events from instructions, reducing function parameter count
@@ -5117,7 +5806,7 @@ Parameters for parsing events from instructions, reducing function parameter cou
 ```
 
 ```rust
-pub struct JupiterAccountLayout { pub user_transfer_authority: Pubkey, pub user_source_token_account: Pubkey, pub user_destination_token_account: Pubkey, pub destination_token_account: Pubkey, pub source_mint: Pubkey, pub destination_mint: Pubkey, pub platform_fee_account: Option<Pubkey>, }
+pub struct JupiterAccountLayout { /// User's transfer authority pub user_transfer_authority: Pubkey, /// User's source token account pub user_source_token_account: Pubkey, /// User's destination token account pub user_destination_token_account: Pubkey, /// Destination token account for the swap pub destination_token_account: Pubkey, /// Source token mint address pub source_mint: Pubkey, /// Destination token mint address pub destination_mint: Pubkey, /// Optional platform fee account pub platform_fee_account: Option<Pubkey>, }
 ```
 
 Jupiter program account layout
@@ -5159,11 +5848,11 @@ Jupiter ExactOutRoute instruction data
 
 **Attributes**:
 ```rust
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 ```
 
 ```rust
-pub struct JupiterLiquidityEvent { pub id: String, pub signature: String, pub slot: u64, pub block_time: i64, pub block_time_ms: i64, pub program_received_time_ms: i64, pub program_handle_time_consuming_ms: i64, pub index: String, pub user: solana_sdk::pubkey::Pubkey, pub mint_a: solana_sdk::pubkey::Pubkey, pub mint_b: solana_sdk::pubkey::Pubkey, pub amount_a: u64, pub amount_b: u64, pub liquidity_amount: u64, pub is_remove: bool, pub transfer_data: Vec<TransferData>, }
+pub struct JupiterLiquidityEvent { /// Unique identifier for the event pub id: String, /// Transaction signature pub signature: String, /// Solana slot number pub slot: u64, /// Block timestamp in seconds pub block_time: i64, /// Block timestamp in milliseconds pub block_time_ms: i64, /// Time when the program received the event in milliseconds pub program_received_time_ms: i64, /// Time spent handling the event in milliseconds pub program_handle_time_consuming_ms: i64, /// Event index within the transaction pub index: String, /// User account providing/removing liquidity pub user: solana_sdk::pubkey::Pubkey, /// First token mint address pub mint_a: solana_sdk::pubkey::Pubkey, /// Second token mint address pub mint_b: solana_sdk::pubkey::Pubkey, /// Amount of token A pub amount_a: u64, /// Amount of token B pub amount_b: u64, /// Amount of liquidity tokens pub liquidity_amount: u64, /// Whether this is a liquidity removal operation pub is_remove: bool, /// Associated token transfer data pub transfer_data: Vec<TransferData>, }
 ```
 
 Jupiter liquidity provision event
@@ -5221,7 +5910,7 @@ Jupiter route analysis result
 ```
 
 ```rust
-pub struct JupiterRouteData { pub instruction: JupiterRouteInstruction, pub analysis: JupiterRouteAnalysis, }
+pub struct JupiterRouteData { /// The parsed instruction data pub instruction: JupiterRouteInstruction, /// The route analysis result pub analysis: JupiterRouteAnalysis, }
 ```
 
 Combined Jupiter Route Data (instruction + analysis)
@@ -5251,11 +5940,11 @@ Jupiter Route instruction data
 
 **Attributes**:
 ```rust
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, BorshDeserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, BorshDeserialize, Default)]
 ```
 
 ```rust
-pub struct JupiterSwapBorshEvent { #[serde(skip)]
+pub struct JupiterSwapBorshEvent { /// Event metadata (skipped during serialization)
 ```
 
 Jupiter swap event with borsh (for simple events)
@@ -5268,11 +5957,11 @@ Jupiter swap event with borsh (for simple events)
 
 **Attributes**:
 ```rust
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 ```
 
 ```rust
-pub struct JupiterSwapData { pub user: Pubkey, pub input_mint: Pubkey, pub output_mint: Pubkey, pub input_amount: u64, pub output_amount: u64, pub price_impact_pct: Option<String>, pub platform_fee_bps: Option<u32>, pub route_plan: Vec<RoutePlan>, }
+pub struct JupiterSwapData { /// User who initiated the swap pub user: Pubkey, /// Input token mint address pub input_mint: Pubkey, /// Output token mint address pub output_mint: Pubkey, /// Input amount in base units pub input_amount: u64, /// Output amount in base units pub output_amount: u64, /// Price impact percentage as string pub price_impact_pct: Option<String>, /// Platform fee in basis points pub platform_fee_bps: Option<u32>, /// Route plan for the swap pub route_plan: Vec<RoutePlan>, }
 ```
 
 Jupiter swap event data (for UnifiedEvent)
@@ -5285,11 +5974,11 @@ Jupiter swap event data (for UnifiedEvent)
 
 **Attributes**:
 ```rust
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 ```
 
 ```rust
-pub struct JupiterSwapEvent { pub id: String, pub signature: String, pub slot: u64, pub block_time: i64, pub block_time_ms: i64, pub program_received_time_ms: i64, pub program_handle_time_consuming_ms: i64, pub index: String, pub swap_data: JupiterSwapData, pub transfer_data: Vec<TransferData>, }
+pub struct JupiterSwapEvent { /// Unique identifier for the event pub id: String, /// Transaction signature pub signature: String, /// Solana slot number pub slot: u64, /// Block timestamp in seconds pub block_time: i64, /// Block timestamp in milliseconds pub block_time_ms: i64, /// Time when the program received the event in milliseconds pub program_received_time_ms: i64, /// Time spent handling the event in milliseconds pub program_handle_time_consuming_ms: i64, /// Event index within the transaction pub index: String, /// Jupiter-specific swap data pub swap_data: JupiterSwapData, /// Associated token transfer data pub transfer_data: Vec<TransferData>, }
 ```
 
 Jupiter swap event
@@ -5306,8 +5995,10 @@ Jupiter swap event
 ```
 
 ```rust
-pub struct LinearCurve { pub supply: u64, pub total_quote_fund_raising: u64, pub migrate_type: u8, }
+pub struct LinearCurve { /// Total token supply for the curve pub supply: u64, /// Total quote tokens to be raised during funding pub total_quote_fund_raising: u64, /// Type of migration when curve completes pub migrate_type: u8, }
 ```
+
+Linear bonding curve parameters
 
 ---
 
@@ -5321,7 +6012,7 @@ pub struct LinearCurve { pub supply: u64, pub total_quote_fund_raising: u64, pub
 ```
 
 ```rust
-pub struct LiquidityEventParams { pub id: String, pub signature: String, pub slot: u64, pub block_time: i64, pub protocol_type: ProtocolType, pub program_id: solana_sdk::pubkey::Pubkey, pub is_add: bool, pub mint_a: solana_sdk::pubkey::Pubkey, pub mint_b: solana_sdk::pubkey::Pubkey, pub amount_a: u64, pub amount_b: u64, }
+pub struct LiquidityEventParams { /// Event identifier pub id: String, /// Transaction signature pub signature: String, /// Solana slot number pub slot: u64, /// Block timestamp pub block_time: i64, /// Protocol type (e.g., Orca, Raydium)
 ```
 
 Parameters for creating liquidity events, reducing function parameter count
@@ -5338,7 +6029,7 @@ Parameters for creating liquidity events, reducing function parameter count
 ```
 
 ```rust
-pub struct MarginFiAccount { pub group: Pubkey, pub authority: Pubkey, pub lending_account: MarginFiLendingAccount, pub account_flags: u64, pub padding: [u128; 8], }
+pub struct MarginFiAccount { /// MarginFi group this account belongs to pub group: Pubkey, /// Authority that controls this account pub authority: Pubkey, /// Lending account with balance information pub lending_account: MarginFiLendingAccount, /// Account configuration flags pub account_flags: u64, /// Padding for future use pub padding: [u128; 8], }
 ```
 
 MarginFi user account
@@ -5355,7 +6046,7 @@ MarginFi user account
 ```
 
 ```rust
-pub struct MarginFiBalance { pub active: bool, pub bank_pk: Pubkey, pub asset_shares: u128, pub liability_shares: u128, pub emissions_outstanding: u64, pub last_update: u64, pub padding: [u64; 1], }
+pub struct MarginFiBalance { /// Whether this balance is active pub active: bool, /// Bank public key for this balance pub bank_pk: Pubkey, /// Shares representing deposited assets pub asset_shares: u128, /// Shares representing borrowed liabilities pub liability_shares: u128, /// Outstanding emission rewards pub emissions_outstanding: u64, /// Timestamp of last balance update pub last_update: u64, /// Padding for future use pub padding: [u64; 1], }
 ```
 
 MarginFi account balance
@@ -5372,7 +6063,7 @@ MarginFi account balance
 ```
 
 ```rust
-pub struct MarginFiBankConfig { pub bank: Pubkey, pub mint: Pubkey, pub vault: Pubkey, pub oracle: Pubkey, pub bank_authority: Pubkey, pub collected_insurance_fees_outstanding: u64, pub fee_rate: u64, pub insurance_fee_rate: u64, pub insurance_vault: Pubkey, pub deposit_limit: u64, pub borrow_limit: u64, pub operational_state: u8, pub oracle_setup: u8, pub oracle_keys: [Pubkey; 5], }
+pub struct MarginFiBankConfig { /// Bank account public key pub bank: Pubkey, /// Token mint for this bank pub mint: Pubkey, /// Liquidity vault holding deposited tokens pub vault: Pubkey, /// Price oracle for this token pub oracle: Pubkey, /// Authority that can modify bank settings pub bank_authority: Pubkey, /// Outstanding insurance fees collected pub collected_insurance_fees_outstanding: u64, /// Fee rate charged on operations pub fee_rate: u64, /// Insurance fee rate for risk coverage pub insurance_fee_rate: u64, /// Vault holding insurance funds pub insurance_vault: Pubkey, /// Maximum amount that can be deposited pub deposit_limit: u64, /// Maximum amount that can be borrowed pub borrow_limit: u64, /// Current operational state of the bank pub operational_state: u8, /// Oracle configuration setup pub oracle_setup: u8, /// Array of oracle public keys pub oracle_keys: [Pubkey; 5], }
 ```
 
 MarginFi bank configuration
@@ -5389,7 +6080,7 @@ MarginFi bank configuration
 ```
 
 ```rust
-pub struct MarginFiBankState { pub total_asset_shares: u128, pub total_liability_shares: u128, pub last_update: u64, pub lending_rate: u64, pub borrowing_rate: u64, pub asset_share_value: u128, pub liability_share_value: u128, pub liquidity_vault_authority: Pubkey, pub liquidity_vault_authority_bump: u8, pub insurance_vault_authority: Pubkey, pub insurance_vault_authority_bump: u8, pub collected_group_fees_outstanding: u64, pub fee_vault_authority: Pubkey, pub fee_vault_authority_bump: u8, pub fee_vault: Pubkey, }
+pub struct MarginFiBankState { /// Total shares representing assets in the bank pub total_asset_shares: u128, /// Total shares representing liabilities in the bank pub total_liability_shares: u128, /// Timestamp of last state update pub last_update: u64, /// Current lending interest rate pub lending_rate: u64, /// Current borrowing interest rate pub borrowing_rate: u64, /// Value per asset share pub asset_share_value: u128, /// Value per liability share pub liability_share_value: u128, /// Authority for the liquidity vault pub liquidity_vault_authority: Pubkey, /// Bump seed for liquidity vault authority pub liquidity_vault_authority_bump: u8, /// Authority for the insurance vault pub insurance_vault_authority: Pubkey, /// Bump seed for insurance vault authority pub insurance_vault_authority_bump: u8, /// Outstanding group fees collected pub collected_group_fees_outstanding: u64, /// Authority for the fee vault pub fee_vault_authority: Pubkey, /// Bump seed for fee vault authority pub fee_vault_authority_bump: u8, /// Fee collection vault pub fee_vault: Pubkey, }
 ```
 
 MarginFi bank state
@@ -5402,11 +6093,11 @@ MarginFi bank state
 
 **Attributes**:
 ```rust
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 ```
 
 ```rust
-pub struct MarginFiBorrowData { pub marginfi_group: Pubkey, pub marginfi_account: Pubkey, pub signer: Pubkey, pub bank: Pubkey, pub token_account: Pubkey, pub bank_liquidity_vault: Pubkey, pub bank_liquidity_vault_authority: Pubkey, pub token_program: Pubkey, pub amount: u64, }
+pub struct MarginFiBorrowData { /// MarginFi group for the borrow pub marginfi_group: Pubkey, /// User's MarginFi account pub marginfi_account: Pubkey, /// Transaction signer pub signer: Pubkey, /// Bank from which tokens are borrowed pub bank: Pubkey, /// User's token account being credited pub token_account: Pubkey, /// Bank's liquidity vault being debited pub bank_liquidity_vault: Pubkey, /// Authority for the bank's liquidity vault pub bank_liquidity_vault_authority: Pubkey, /// Token program ID pub token_program: Pubkey, /// Amount being borrowed pub amount: u64, }
 ```
 
 MarginFi borrow data
@@ -5419,11 +6110,11 @@ MarginFi borrow data
 
 **Attributes**:
 ```rust
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 ```
 
 ```rust
-pub struct MarginFiBorrowEvent { pub id: String, pub signature: String, pub slot: u64, pub block_time: i64, pub block_time_ms: i64, pub program_received_time_ms: i64, pub program_handle_time_consuming_ms: i64, pub index: String, pub borrow_data: MarginFiBorrowData, pub transfer_data: Vec<TransferData>, #[serde(skip)]
+pub struct MarginFiBorrowEvent { /// Unique identifier for the event pub id: String, /// Transaction signature hash pub signature: String, /// Solana slot number when the transaction was processed pub slot: u64, /// Block timestamp in seconds since Unix epoch pub block_time: i64, /// Block timestamp in milliseconds since Unix epoch pub block_time_ms: i64, /// Timestamp when the program received the transaction in milliseconds pub program_received_time_ms: i64, /// Time spent handling the transaction in milliseconds pub program_handle_time_consuming_ms: i64, /// Index of the instruction within the transaction pub index: String, /// MarginFi-specific borrow operation data pub borrow_data: MarginFiBorrowData, /// Associated token transfer data for this borrow pub transfer_data: Vec<TransferData>, /// Event metadata for unified event handling #[serde(skip)]
 ```
 
 MarginFi borrow event
@@ -5436,11 +6127,11 @@ MarginFi borrow event
 
 **Attributes**:
 ```rust
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 ```
 
 ```rust
-pub struct MarginFiDepositData { pub marginfi_group: Pubkey, pub marginfi_account: Pubkey, pub signer: Pubkey, pub bank: Pubkey, pub token_account: Pubkey, pub bank_liquidity_vault: Pubkey, pub token_program: Pubkey, pub amount: u64, }
+pub struct MarginFiDepositData { /// MarginFi group for the deposit pub marginfi_group: Pubkey, /// User's MarginFi account pub marginfi_account: Pubkey, /// Transaction signer pub signer: Pubkey, /// Bank receiving the deposit pub bank: Pubkey, /// User's token account being debited pub token_account: Pubkey, /// Bank's liquidity vault being credited pub bank_liquidity_vault: Pubkey, /// Token program ID pub token_program: Pubkey, /// Amount being deposited pub amount: u64, }
 ```
 
 MarginFi deposit data
@@ -5453,11 +6144,11 @@ MarginFi deposit data
 
 **Attributes**:
 ```rust
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 ```
 
 ```rust
-pub struct MarginFiDepositEvent { pub id: String, pub signature: String, pub slot: u64, pub block_time: i64, pub block_time_ms: i64, pub program_received_time_ms: i64, pub program_handle_time_consuming_ms: i64, pub index: String, pub deposit_data: MarginFiDepositData, pub transfer_data: Vec<TransferData>, #[serde(skip)]
+pub struct MarginFiDepositEvent { /// Unique identifier for the event pub id: String, /// Transaction signature hash pub signature: String, /// Solana slot number when the transaction was processed pub slot: u64, /// Block timestamp in seconds since Unix epoch pub block_time: i64, /// Block timestamp in milliseconds since Unix epoch pub block_time_ms: i64, /// Timestamp when the program received the transaction in milliseconds pub program_received_time_ms: i64, /// Time spent handling the transaction in milliseconds pub program_handle_time_consuming_ms: i64, /// Index of the instruction within the transaction pub index: String, /// MarginFi-specific deposit operation data pub deposit_data: MarginFiDepositData, /// Associated token transfer data for this deposit pub transfer_data: Vec<TransferData>, /// Event metadata for unified event handling #[serde(skip)]
 ```
 
 MarginFi deposit event
@@ -5486,7 +6177,7 @@ MarginFi event parser
 ```
 
 ```rust
-pub struct MarginFiLendingAccount { pub balances: [MarginFiBalance; 16], pub padding: [u64; 8], }
+pub struct MarginFiLendingAccount { /// Array of balances for different tokens pub balances: [MarginFiBalance; 16], /// Padding for future use pub padding: [u64; 8], }
 ```
 
 MarginFi lending account
@@ -5499,11 +6190,11 @@ MarginFi lending account
 
 **Attributes**:
 ```rust
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 ```
 
 ```rust
-pub struct MarginFiLiquidationData { pub marginfi_group: Pubkey, pub asset_bank: Pubkey, pub liab_bank: Pubkey, pub liquidatee_marginfi_account: Pubkey, pub liquidator_marginfi_account: Pubkey, pub liquidator: Pubkey, pub asset_bank_liquidity_vault: Pubkey, pub liab_bank_liquidity_vault: Pubkey, pub liquidator_token_account: Pubkey, pub token_program: Pubkey, pub asset_amount: u64, pub liab_amount: u64, }
+pub struct MarginFiLiquidationData { /// MarginFi group for the liquidation pub marginfi_group: Pubkey, /// Bank holding the asset being seized pub asset_bank: Pubkey, /// Bank holding the liability being repaid pub liab_bank: Pubkey, /// Account being liquidated pub liquidatee_marginfi_account: Pubkey, /// Liquidator's MarginFi account pub liquidator_marginfi_account: Pubkey, /// Liquidator's wallet address pub liquidator: Pubkey, /// Asset bank's liquidity vault pub asset_bank_liquidity_vault: Pubkey, /// Liability bank's liquidity vault pub liab_bank_liquidity_vault: Pubkey, /// Liquidator's token account pub liquidator_token_account: Pubkey, /// Token program ID pub token_program: Pubkey, /// Amount of asset being seized pub asset_amount: u64, /// Amount of liability being repaid pub liab_amount: u64, }
 ```
 
 MarginFi liquidation data
@@ -5516,11 +6207,11 @@ MarginFi liquidation data
 
 **Attributes**:
 ```rust
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 ```
 
 ```rust
-pub struct MarginFiLiquidationEvent { pub id: String, pub signature: String, pub slot: u64, pub block_time: i64, pub block_time_ms: i64, pub program_received_time_ms: i64, pub program_handle_time_consuming_ms: i64, pub index: String, pub liquidation_data: MarginFiLiquidationData, pub transfer_data: Vec<TransferData>, #[serde(skip)]
+pub struct MarginFiLiquidationEvent { /// Unique identifier for the event pub id: String, /// Transaction signature hash pub signature: String, /// Solana slot number when the transaction was processed pub slot: u64, /// Block timestamp in seconds since Unix epoch pub block_time: i64, /// Block timestamp in milliseconds since Unix epoch pub block_time_ms: i64, /// Timestamp when the program received the transaction in milliseconds pub program_received_time_ms: i64, /// Time spent handling the transaction in milliseconds pub program_handle_time_consuming_ms: i64, /// Index of the instruction within the transaction pub index: String, /// MarginFi-specific liquidation operation data pub liquidation_data: MarginFiLiquidationData, /// Associated token transfer data for this liquidation pub transfer_data: Vec<TransferData>, /// Event metadata for unified event handling #[serde(skip)]
 ```
 
 MarginFi liquidation event
@@ -5533,11 +6224,11 @@ MarginFi liquidation event
 
 **Attributes**:
 ```rust
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 ```
 
 ```rust
-pub struct MarginFiRepayData { pub marginfi_group: Pubkey, pub marginfi_account: Pubkey, pub signer: Pubkey, pub bank: Pubkey, pub token_account: Pubkey, pub bank_liquidity_vault: Pubkey, pub token_program: Pubkey, pub amount: u64, pub repay_all: bool, }
+pub struct MarginFiRepayData { /// MarginFi group for the repayment pub marginfi_group: Pubkey, /// User's MarginFi account pub marginfi_account: Pubkey, /// Transaction signer pub signer: Pubkey, /// Bank to which tokens are repaid pub bank: Pubkey, /// User's token account being debited pub token_account: Pubkey, /// Bank's liquidity vault being credited pub bank_liquidity_vault: Pubkey, /// Token program ID pub token_program: Pubkey, /// Amount being repaid pub amount: u64, /// Whether to repay all outstanding debt pub repay_all: bool, }
 ```
 
 MarginFi repay data
@@ -5550,11 +6241,11 @@ MarginFi repay data
 
 **Attributes**:
 ```rust
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 ```
 
 ```rust
-pub struct MarginFiRepayEvent { pub id: String, pub signature: String, pub slot: u64, pub block_time: i64, pub block_time_ms: i64, pub program_received_time_ms: i64, pub program_handle_time_consuming_ms: i64, pub index: String, pub repay_data: MarginFiRepayData, pub transfer_data: Vec<TransferData>, #[serde(skip)]
+pub struct MarginFiRepayEvent { /// Unique identifier for the event pub id: String, /// Transaction signature hash pub signature: String, /// Solana slot number when the transaction was processed pub slot: u64, /// Block timestamp in seconds since Unix epoch pub block_time: i64, /// Block timestamp in milliseconds since Unix epoch pub block_time_ms: i64, /// Timestamp when the program received the transaction in milliseconds pub program_received_time_ms: i64, /// Time spent handling the transaction in milliseconds pub program_handle_time_consuming_ms: i64, /// Index of the instruction within the transaction pub index: String, /// MarginFi-specific repay operation data pub repay_data: MarginFiRepayData, /// Associated token transfer data for this repayment pub transfer_data: Vec<TransferData>, /// Event metadata for unified event handling #[serde(skip)]
 ```
 
 MarginFi repay event
@@ -5567,11 +6258,11 @@ MarginFi repay event
 
 **Attributes**:
 ```rust
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 ```
 
 ```rust
-pub struct MarginFiWithdrawData { pub marginfi_group: Pubkey, pub marginfi_account: Pubkey, pub signer: Pubkey, pub bank: Pubkey, pub token_account: Pubkey, pub bank_liquidity_vault: Pubkey, pub bank_liquidity_vault_authority: Pubkey, pub token_program: Pubkey, pub amount: u64, pub withdraw_all: bool, }
+pub struct MarginFiWithdrawData { /// MarginFi group for the withdrawal pub marginfi_group: Pubkey, /// User's MarginFi account pub marginfi_account: Pubkey, /// Transaction signer pub signer: Pubkey, /// Bank from which tokens are withdrawn pub bank: Pubkey, /// User's token account being credited pub token_account: Pubkey, /// Bank's liquidity vault being debited pub bank_liquidity_vault: Pubkey, /// Authority for the bank's liquidity vault pub bank_liquidity_vault_authority: Pubkey, /// Token program ID pub token_program: Pubkey, /// Amount being withdrawn pub amount: u64, /// Whether to withdraw all available tokens pub withdraw_all: bool, }
 ```
 
 MarginFi withdraw data
@@ -5584,11 +6275,11 @@ MarginFi withdraw data
 
 **Attributes**:
 ```rust
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 ```
 
 ```rust
-pub struct MarginFiWithdrawEvent { pub id: String, pub signature: String, pub slot: u64, pub block_time: i64, pub block_time_ms: i64, pub program_received_time_ms: i64, pub program_handle_time_consuming_ms: i64, pub index: String, pub withdraw_data: MarginFiWithdrawData, pub transfer_data: Vec<TransferData>, #[serde(skip)]
+pub struct MarginFiWithdrawEvent { /// Unique identifier for the event pub id: String, /// Transaction signature hash pub signature: String, /// Solana slot number when the transaction was processed pub slot: u64, /// Block timestamp in seconds since Unix epoch pub block_time: i64, /// Block timestamp in milliseconds since Unix epoch pub block_time_ms: i64, /// Timestamp when the program received the transaction in milliseconds pub program_received_time_ms: i64, /// Time spent handling the transaction in milliseconds pub program_handle_time_consuming_ms: i64, /// Index of the instruction within the transaction pub index: String, /// MarginFi-specific withdraw operation data pub withdraw_data: MarginFiWithdrawData, /// Associated token transfer data for this withdrawal pub transfer_data: Vec<TransferData>, /// Event metadata for unified event handling #[serde(skip)]
 ```
 
 MarginFi withdraw event
@@ -5600,7 +6291,7 @@ MarginFi withdraw event
 **Source**: `zero_copy/parsers.rs`
 
 ```rust
-pub struct MemoryMappedParser { /// Memory-mapped file mmap: memmap2::Mmap, /// Protocol-specific parsers parsers: HashMap<ProtocolType, Arc<dyn ByteSliceEventParser>>, }
+pub struct MemoryMappedParser { /// Memory-mapped file handle mmap: memmap2::Mmap, /// Protocol-specific parsers indexed by protocol type parsers: HashMap<ProtocolType, Arc<dyn ByteSliceEventParser>>, }
 ```
 
 High-performance parser using memory-mapped files for large transaction logs
@@ -5654,11 +6345,11 @@ Factory for creating Metaplex parsers
 
 **Attributes**:
 ```rust
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 ```
 
 ```rust
-pub struct MeteoraDynamicLiquidityData { pub pool: Pubkey, pub user: Pubkey, pub token_mint_a: Pubkey, pub token_mint_b: Pubkey, pub vault_a: Pubkey, pub vault_b: Pubkey, pub lp_mint: Pubkey, pub pool_token_amount: u64, pub token_a_amount: u64, pub token_b_amount: u64, pub minimum_pool_token_amount: u64, pub maximum_token_a_amount: u64, pub maximum_token_b_amount: u64, pub is_deposit: bool, }
+pub struct MeteoraDynamicLiquidityData { /// Public key of the Dynamic AMM pool pub pool: Pubkey, /// Public key of the user adding/removing liquidity pub user: Pubkey, /// Mint address of token A pub token_mint_a: Pubkey, /// Mint address of token B pub token_mint_b: Pubkey, /// Vault account holding token A reserves pub vault_a: Pubkey, /// Vault account holding token B reserves pub vault_b: Pubkey, /// Mint address of the LP tokens pub lp_mint: Pubkey, /// Amount of pool tokens being minted or burned pub pool_token_amount: u64, /// Amount of token A being deposited or withdrawn pub token_a_amount: u64, /// Amount of token B being deposited or withdrawn pub token_b_amount: u64, /// Minimum acceptable pool token amount for slippage protection pub minimum_pool_token_amount: u64, /// Maximum token A amount willing to deposit pub maximum_token_a_amount: u64, /// Maximum token B amount willing to deposit pub maximum_token_b_amount: u64, /// Whether this is a deposit (true) or withdrawal (false) operation
 ```
 
 Meteora Dynamic liquidity data
@@ -5671,11 +6362,11 @@ Meteora Dynamic liquidity data
 
 **Attributes**:
 ```rust
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 ```
 
 ```rust
-pub struct MeteoraDynamicLiquidityEvent { pub id: String, pub signature: String, pub slot: u64, pub block_time: i64, pub block_time_ms: i64, pub program_received_time_ms: i64, pub program_handle_time_consuming_ms: i64, pub index: String, pub liquidity_data: MeteoraDynamicLiquidityData, pub transfer_data: Vec<TransferData>, #[serde(skip)]
+pub struct MeteoraDynamicLiquidityEvent { /// Unique identifier for the event pub id: String, /// Transaction signature pub signature: String, /// Solana slot number pub slot: u64, /// Block timestamp in seconds pub block_time: i64, /// Block timestamp in milliseconds pub block_time_ms: i64, /// Time when the program received the event in milliseconds pub program_received_time_ms: i64, /// Time consumed by program handling in milliseconds pub program_handle_time_consuming_ms: i64, /// Event index within the transaction pub index: String, /// Meteora dynamic liquidity-specific data pub liquidity_data: MeteoraDynamicLiquidityData, /// Token transfer data associated with the liquidity operation pub transfer_data: Vec<TransferData>, /// Event metadata for cross-chain compatibility #[serde(skip)]
 ```
 
 Meteora Dynamic AMM liquidity event
@@ -5692,7 +6383,7 @@ Meteora Dynamic AMM liquidity event
 ```
 
 ```rust
-pub struct MeteoraDynamicPoolData { pub pool: Pubkey, pub token_mint_a: Pubkey, pub token_mint_b: Pubkey, pub vault_a: Pubkey, pub vault_b: Pubkey, pub lp_mint: Pubkey, pub fee_rate: u64, pub admin_fee_rate: u64, pub trade_fee_numerator: u64, pub trade_fee_denominator: u64, pub owner_trade_fee_numerator: u64, pub owner_trade_fee_denominator: u64, pub owner_withdraw_fee_numerator: u64, pub owner_withdraw_fee_denominator: u64, pub host_fee_numerator: u64, pub host_fee_denominator: u64, }
+pub struct MeteoraDynamicPoolData { /// Public key of the Dynamic AMM pool pub pool: Pubkey, /// Mint address of token A pub token_mint_a: Pubkey, /// Mint address of token B pub token_mint_b: Pubkey, /// Vault account holding token A reserves pub vault_a: Pubkey, /// Vault account holding token B reserves pub vault_b: Pubkey, /// Mint address of the LP tokens pub lp_mint: Pubkey, /// Base fee rate for the pool pub fee_rate: u64, /// Administrative fee rate pub admin_fee_rate: u64, /// Numerator for trade fee calculation pub trade_fee_numerator: u64, /// Denominator for trade fee calculation pub trade_fee_denominator: u64, /// Numerator for owner trade fee calculation pub owner_trade_fee_numerator: u64, /// Denominator for owner trade fee calculation pub owner_trade_fee_denominator: u64, /// Numerator for owner withdraw fee calculation pub owner_withdraw_fee_numerator: u64, /// Denominator for owner withdraw fee calculation pub owner_withdraw_fee_denominator: u64, /// Numerator for host fee calculation pub host_fee_numerator: u64, /// Denominator for host fee calculation pub host_fee_denominator: u64, }
 ```
 
 Meteora Dynamic AMM pool data
@@ -5717,11 +6408,11 @@ Meteora event parser
 
 **Attributes**:
 ```rust
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 ```
 
 ```rust
-pub struct MeteoraLiquidityData { pub pair: Pubkey, pub user: Pubkey, pub position: Pubkey, pub token_mint_x: Pubkey, pub token_mint_y: Pubkey, pub reserve_x: Pubkey, pub reserve_y: Pubkey, pub bin_id_from: u32, pub bin_id_to: u32, pub amount_x: u64, pub amount_y: u64, pub liquidity_minted: u128, pub active_id: u32, pub is_add: bool, pub bins_affected: Vec<DlmmBin>, }
+pub struct MeteoraLiquidityData { /// Public key of the DLMM pair pub pair: Pubkey, /// Public key of the user adding/removing liquidity pub user: Pubkey, /// Public key of the liquidity position pub position: Pubkey, /// Mint address of token X pub token_mint_x: Pubkey, /// Mint address of token Y pub token_mint_y: Pubkey, /// Reserve account for token X pub reserve_x: Pubkey, /// Reserve account for token Y pub reserve_y: Pubkey, /// Starting bin ID for liquidity range pub bin_id_from: u32, /// Ending bin ID for liquidity range pub bin_id_to: u32, /// Amount of token X added or removed pub amount_x: u64, /// Amount of token Y added or removed pub amount_y: u64, /// Amount of liquidity tokens minted or burned pub liquidity_minted: u128, /// Currently active bin ID pub active_id: u32, /// Whether this is an add (true) or remove (false) operation
 ```
 
 Meteora DLMM liquidity data
@@ -5734,11 +6425,11 @@ Meteora DLMM liquidity data
 
 **Attributes**:
 ```rust
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 ```
 
 ```rust
-pub struct MeteoraLiquidityEvent { pub id: String, pub signature: String, pub slot: u64, pub block_time: i64, pub block_time_ms: i64, pub program_received_time_ms: i64, pub program_handle_time_consuming_ms: i64, pub index: String, pub liquidity_data: MeteoraLiquidityData, pub transfer_data: Vec<TransferData>, #[serde(skip)]
+pub struct MeteoraLiquidityEvent { /// Unique identifier for the event pub id: String, /// Transaction signature pub signature: String, /// Solana slot number pub slot: u64, /// Block timestamp in seconds pub block_time: i64, /// Block timestamp in milliseconds pub block_time_ms: i64, /// Time when the program received the event in milliseconds pub program_received_time_ms: i64, /// Time consumed by program handling in milliseconds pub program_handle_time_consuming_ms: i64, /// Event index within the transaction pub index: String, /// Meteora liquidity-specific data pub liquidity_data: MeteoraLiquidityData, /// Token transfer data associated with the liquidity operation pub transfer_data: Vec<TransferData>, /// Event metadata for cross-chain compatibility #[serde(skip)]
 ```
 
 Meteora DLMM liquidity event
@@ -5751,11 +6442,11 @@ Meteora DLMM liquidity event
 
 **Attributes**:
 ```rust
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 ```
 
 ```rust
-pub struct MeteoraSwapData { pub pair: Pubkey, pub user: Pubkey, pub token_mint_x: Pubkey, pub token_mint_y: Pubkey, pub reserve_x: Pubkey, pub reserve_y: Pubkey, pub amount_in: u64, pub min_amount_out: u64, pub actual_amount_out: u64, pub swap_for_y: bool, pub active_id_before: u32, pub active_id_after: u32, pub fee_amount: u64, pub protocol_fee: u64, pub bins_traversed: Vec<u32>, }
+pub struct MeteoraSwapData { /// Public key of the DLMM pair being swapped on pub pair: Pubkey, /// Public key of the user performing the swap pub user: Pubkey, /// Mint address of token X pub token_mint_x: Pubkey, /// Mint address of token Y pub token_mint_y: Pubkey, /// Reserve account for token X pub reserve_x: Pubkey, /// Reserve account for token Y pub reserve_y: Pubkey, /// Amount of tokens being swapped in pub amount_in: u64, /// Minimum expected amount of tokens out pub min_amount_out: u64, /// Actual amount of tokens received pub actual_amount_out: u64, /// Whether swapping X for Y (true) or Y for X (false)
 ```
 
 Meteora DLMM swap data
@@ -5768,11 +6459,11 @@ Meteora DLMM swap data
 
 **Attributes**:
 ```rust
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 ```
 
 ```rust
-pub struct MeteoraSwapEvent { pub id: String, pub signature: String, pub slot: u64, pub block_time: i64, pub block_time_ms: i64, pub program_received_time_ms: i64, pub program_handle_time_consuming_ms: i64, pub index: String, pub swap_data: MeteoraSwapData, pub transfer_data: Vec<TransferData>, #[serde(skip)]
+pub struct MeteoraSwapEvent { /// Unique identifier for the event pub id: String, /// Transaction signature pub signature: String, /// Solana slot number pub slot: u64, /// Block timestamp in seconds pub block_time: i64, /// Block timestamp in milliseconds pub block_time_ms: i64, /// Time when the program received the event in milliseconds pub program_received_time_ms: i64, /// Time consumed by program handling in milliseconds pub program_handle_time_consuming_ms: i64, /// Event index within the transaction pub index: String, /// Meteora swap-specific data pub swap_data: MeteoraSwapData, /// Token transfer data associated with the swap pub transfer_data: Vec<TransferData>, /// Event metadata for cross-chain compatibility #[serde(skip)]
 ```
 
 Meteora DLMM swap event
@@ -5789,8 +6480,10 @@ Meteora DLMM swap event
 ```
 
 ```rust
-pub struct MintParams { pub decimals: u8, pub name: String, pub symbol: String, pub uri: String, }
+pub struct MintParams { /// Number of decimal places for the token pub decimals: u8, /// Human-readable name of the token pub name: String, /// Trading symbol for the token pub symbol: String, /// URI pointing to token metadata pub uri: String, }
 ```
+
+Parameters for minting new tokens in the BONK protocol
 
 ---
 
@@ -5812,11 +6505,11 @@ Orca Whirlpool event parser
 
 **Attributes**:
 ```rust
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 ```
 
 ```rust
-pub struct OrcaLiquidityData { pub whirlpool: Pubkey, pub position: Pubkey, pub position_authority: Pubkey, pub token_mint_a: Pubkey, pub token_mint_b: Pubkey, pub token_vault_a: Pubkey, pub token_vault_b: Pubkey, pub tick_lower_index: i32, pub tick_upper_index: i32, pub liquidity_amount: u128, pub token_max_a: u64, pub token_max_b: u64, pub token_actual_a: u64, pub token_actual_b: u64, pub is_increase: bool, }
+pub struct OrcaLiquidityData { /// The whirlpool account where liquidity is being modified pub whirlpool: Pubkey, /// The position account being modified pub position: Pubkey, /// Authority account that can modify the position pub position_authority: Pubkey, /// Mint address of the first token in the trading pair pub token_mint_a: Pubkey, /// Mint address of the second token in the trading pair pub token_mint_b: Pubkey, /// Vault account holding token A reserves for the pool pub token_vault_a: Pubkey, /// Vault account holding token B reserves for the pool pub token_vault_b: Pubkey, /// Lower tick boundary of the position's price range pub tick_lower_index: i32, /// Upper tick boundary of the position's price range pub tick_upper_index: i32, /// Amount of liquidity being added or removed pub liquidity_amount: u128, /// Maximum amount of token A willing to deposit/withdraw pub token_max_a: u64, /// Maximum amount of token B willing to deposit/withdraw pub token_max_b: u64, /// Actual amount of token A deposited/withdrawn pub token_actual_a: u64, /// Actual amount of token B deposited/withdrawn pub token_actual_b: u64, /// Whether this is a liquidity increase (true) or decrease (false)
 ```
 
 Orca liquidity change data
@@ -5829,11 +6522,11 @@ Orca liquidity change data
 
 **Attributes**:
 ```rust
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 ```
 
 ```rust
-pub struct OrcaLiquidityEvent { pub id: String, pub signature: String, pub slot: u64, pub block_time: i64, pub block_time_ms: i64, pub program_received_time_ms: i64, pub program_handle_time_consuming_ms: i64, pub index: String, pub liquidity_data: OrcaLiquidityData, pub transfer_data: Vec<TransferData>, #[serde(skip)]
+pub struct OrcaLiquidityEvent { /// Unique identifier for the event pub id: String, /// Transaction signature pub signature: String, /// Solana slot number pub slot: u64, /// Block timestamp in seconds pub block_time: i64, /// Block timestamp in milliseconds pub block_time_ms: i64, /// Time when the program received the event in milliseconds pub program_received_time_ms: i64, /// Time spent handling the event in milliseconds pub program_handle_time_consuming_ms: i64, /// Event index within the transaction pub index: String, /// Orca-specific liquidity data pub liquidity_data: OrcaLiquidityData, /// Associated token transfer data pub transfer_data: Vec<TransferData>, /// Event metadata (excluded from serialization)
 ```
 
 Orca liquidity event (increase/decrease)
@@ -5846,11 +6539,11 @@ Orca liquidity event (increase/decrease)
 
 **Attributes**:
 ```rust
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 ```
 
 ```rust
-pub struct OrcaPositionData { pub whirlpool: Pubkey, pub position_mint: Pubkey, pub position: Pubkey, pub position_token_account: Pubkey, pub position_authority: Pubkey, pub tick_lower_index: i32, pub tick_upper_index: i32, pub liquidity: u128, pub fee_growth_checkpoint_a: u128, pub fee_growth_checkpoint_b: u128, pub fee_owed_a: u64, pub fee_owed_b: u64, pub reward_infos: [PositionRewardInfo; 3], }
+pub struct OrcaPositionData { /// The whirlpool account this position provides liquidity to pub whirlpool: Pubkey, /// Mint address for the NFT representing this liquidity position pub position_mint: Pubkey, /// Account address storing the position's state and parameters pub position: Pubkey, /// Token account holding the position NFT pub position_token_account: Pubkey, /// Authority account that can modify this position pub position_authority: Pubkey, /// Lower tick boundary of the position's price range pub tick_lower_index: i32, /// Upper tick boundary of the position's price range pub tick_upper_index: i32, /// Amount of liquidity provided by this position pub liquidity: u128, /// Fee growth checkpoint for token A when position was last updated pub fee_growth_checkpoint_a: u128, /// Fee growth checkpoint for token B when position was last updated pub fee_growth_checkpoint_b: u128, /// Accumulated fees owed to this position in token A pub fee_owed_a: u64, /// Accumulated fees owed to this position in token B pub fee_owed_b: u64, /// Array of reward information for up to 3 reward tokens pub reward_infos: [PositionRewardInfo; 3], }
 ```
 
 Orca position data
@@ -5863,11 +6556,11 @@ Orca position data
 
 **Attributes**:
 ```rust
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 ```
 
 ```rust
-pub struct OrcaPositionEvent { pub id: String, pub signature: String, pub slot: u64, pub block_time: i64, pub block_time_ms: i64, pub program_received_time_ms: i64, pub program_handle_time_consuming_ms: i64, pub index: String, pub position_data: OrcaPositionData, pub is_open: bool, pub transfer_data: Vec<TransferData>, #[serde(skip)]
+pub struct OrcaPositionEvent { /// Unique identifier for the event pub id: String, /// Transaction signature pub signature: String, /// Solana slot number pub slot: u64, /// Block timestamp in seconds pub block_time: i64, /// Block timestamp in milliseconds pub block_time_ms: i64, /// Time when the program received the event in milliseconds pub program_received_time_ms: i64, /// Time spent handling the event in milliseconds pub program_handle_time_consuming_ms: i64, /// Event index within the transaction pub index: String, /// Orca-specific position data pub position_data: OrcaPositionData, /// Whether the position is being opened (true) or closed (false)
 ```
 
 Orca position event (open/close)
@@ -5880,11 +6573,11 @@ Orca position event (open/close)
 
 **Attributes**:
 ```rust
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 ```
 
 ```rust
-pub struct OrcaSwapData { pub whirlpool: Pubkey, pub user: Pubkey, pub token_mint_a: Pubkey, pub token_mint_b: Pubkey, pub token_vault_a: Pubkey, pub token_vault_b: Pubkey, pub amount: u64, pub amount_specified_is_input: bool, pub a_to_b: bool, pub sqrt_price_limit: u128, pub amount_in: u64, pub amount_out: u64, pub fee_amount: u64, pub tick_current_index: i32, pub sqrt_price: u128, pub liquidity: u128, }
+pub struct OrcaSwapData { /// The whirlpool account where the swap occurred pub whirlpool: Pubkey, /// The user account that initiated the swap transaction pub user: Pubkey, /// Mint address of the first token in the trading pair pub token_mint_a: Pubkey, /// Mint address of the second token in the trading pair pub token_mint_b: Pubkey, /// Vault account holding token A reserves for the pool pub token_vault_a: Pubkey, /// Vault account holding token B reserves for the pool pub token_vault_b: Pubkey, /// The amount specified by the user for the swap operation pub amount: u64, /// Whether the specified amount represents input (true) or output (false)
 ```
 
 Orca swap event data
@@ -5897,11 +6590,11 @@ Orca swap event data
 
 **Attributes**:
 ```rust
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 ```
 
 ```rust
-pub struct OrcaSwapEvent { pub id: String, pub signature: String, pub slot: u64, pub block_time: i64, pub block_time_ms: i64, pub program_received_time_ms: i64, pub program_handle_time_consuming_ms: i64, pub index: String, pub swap_data: OrcaSwapData, pub transfer_data: Vec<TransferData>, #[serde(skip)]
+pub struct OrcaSwapEvent { /// Unique identifier for the event pub id: String, /// Transaction signature pub signature: String, /// Solana slot number pub slot: u64, /// Block timestamp in seconds pub block_time: i64, /// Block timestamp in milliseconds pub block_time_ms: i64, /// Time when the program received the event in milliseconds pub program_received_time_ms: i64, /// Time spent handling the event in milliseconds pub program_handle_time_consuming_ms: i64, /// Event index within the transaction pub index: String, /// Orca-specific swap data pub swap_data: OrcaSwapData, /// Associated token transfer data pub transfer_data: Vec<TransferData>, /// Event metadata (excluded from serialization)
 ```
 
 Orca Whirlpool swap event
@@ -6044,7 +6737,7 @@ Configuration for the parsing pipeline
 ```
 
 ```rust
-pub struct PipelineStats { pub max_batch_size: usize, pub max_concurrent_tasks: usize, pub registered_parsers: usize, pub available_permits: usize, }
+pub struct PipelineStats { /// Maximum batch size for processing pub max_batch_size: usize, /// Maximum number of concurrent parsing tasks pub max_concurrent_tasks: usize, /// Number of registered parsers pub registered_parsers: usize, /// Number of available semaphore permits pub available_permits: usize, }
 ```
 
 Statistics for the parsing pipeline
@@ -6061,7 +6754,7 @@ Statistics for the parsing pipeline
 ```
 
 ```rust
-pub struct PositionRewardInfo { pub growth_inside_checkpoint: u128, pub amount_owed: u64, }
+pub struct PositionRewardInfo { /// Reward growth checkpoint inside the position's tick range pub growth_inside_checkpoint: u128, /// Amount of reward tokens owed to this position pub amount_owed: u64, }
 ```
 
 Position reward information
@@ -6095,7 +6788,7 @@ Price information for a token
 ```
 
 ```rust
-pub struct ProtocolEventParams { pub id: String, pub signature: String, pub slot: u64, pub block_time: i64, pub protocol_type: ProtocolType, pub event_type: EventType, pub program_id: solana_sdk::pubkey::Pubkey, pub data: serde_json::Value, }
+pub struct ProtocolEventParams { /// Event identifier pub id: String, /// Transaction signature pub signature: String, /// Solana slot number pub slot: u64, /// Block timestamp pub block_time: i64, /// Protocol type (e.g., MarginFi, Meteora)
 ```
 
 Parameters for creating protocol events, reducing function parameter count
@@ -6200,11 +6893,11 @@ PumpFun Sell instruction data
 
 **Attributes**:
 ```rust
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, BorshDeserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, BorshDeserialize, Default)]
 ```
 
 ```rust
-pub struct PumpSwapBuyEvent { #[serde(skip)]
+pub struct PumpSwapBuyEvent { /// Event metadata (excluded from serialization)
 ```
 
 Buy event
@@ -6217,11 +6910,11 @@ Buy event
 
 **Attributes**:
 ```rust
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, BorshDeserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, BorshDeserialize, Default)]
 ```
 
 ```rust
-pub struct PumpSwapCreatePoolEvent { #[serde(skip)]
+pub struct PumpSwapCreatePoolEvent { /// Event metadata (excluded from serialization)
 ```
 
 Create pool event
@@ -6234,11 +6927,11 @@ Create pool event
 
 **Attributes**:
 ```rust
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, BorshDeserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, BorshDeserialize, Default)]
 ```
 
 ```rust
-pub struct PumpSwapDepositEvent { #[serde(skip)]
+pub struct PumpSwapDepositEvent { /// Event metadata (excluded from serialization)
 ```
 
 Deposit event
@@ -6263,11 +6956,11 @@ PumpSwap event parser
 
 **Attributes**:
 ```rust
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, BorshDeserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, BorshDeserialize, Default)]
 ```
 
 ```rust
-pub struct PumpSwapSellEvent { #[serde(skip)]
+pub struct PumpSwapSellEvent { /// Event metadata (excluded from serialization)
 ```
 
 Sell event
@@ -6280,11 +6973,11 @@ Sell event
 
 **Attributes**:
 ```rust
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, BorshDeserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, BorshDeserialize, Default)]
 ```
 
 ```rust
-pub struct PumpSwapWithdrawEvent { #[serde(skip)]
+pub struct PumpSwapWithdrawEvent { /// Event metadata (excluded from serialization)
 ```
 
 Withdraw event
@@ -6318,7 +7011,7 @@ PumpFun Withdraw instruction data
 ```
 
 ```rust
-pub struct RaydiumAmmV4DepositEvent { pub metadata: EventMetadata, pub max_coin_amount: u64, pub max_pc_amount: u64, pub base_side: u64, // Account keys pub token_program: Pubkey, pub amm: Pubkey, pub amm_authority: Pubkey, pub amm_open_orders: Pubkey, pub amm_target_orders: Pubkey, pub lp_mint_address: Pubkey, pub pool_coin_token_account: Pubkey, pub pool_pc_token_account: Pubkey, pub serum_market: Pubkey, pub user_coin_token_account: Pubkey, pub user_pc_token_account: Pubkey, pub user_lp_token_account: Pubkey, pub user_owner: Pubkey, }
+pub struct RaydiumAmmV4DepositEvent { /// Event metadata pub metadata: EventMetadata, /// Maximum amount of coin tokens to deposit pub max_coin_amount: u64, /// Maximum amount of PC tokens to deposit pub max_pc_amount: u64, /// Base side identifier pub base_side: u64, // Account keys /// Token program account pub token_program: Pubkey, /// Automated Market Maker account pub amm: Pubkey, /// AMM authority account pub amm_authority: Pubkey, /// AMM open orders account pub amm_open_orders: Pubkey, /// AMM target orders account pub amm_target_orders: Pubkey, /// Liquidity provider mint address pub lp_mint_address: Pubkey, /// Pool coin token account pub pool_coin_token_account: Pubkey, /// Pool PC token account pub pool_pc_token_account: Pubkey, /// Serum market account pub serum_market: Pubkey, /// User coin token account pub user_coin_token_account: Pubkey, /// User PC token account pub user_pc_token_account: Pubkey, /// User liquidity provider token account pub user_lp_token_account: Pubkey, /// User owner account pub user_owner: Pubkey, }
 ```
 
 Raydium AMM V4 deposit event
@@ -6347,7 +7040,7 @@ Raydium AMM V4 event parser
 ```
 
 ```rust
-pub struct RaydiumAmmV4Initialize2Event { pub metadata: EventMetadata, pub nonce: u8, pub open_time: u64, pub init_pc_amount: u64, pub init_coin_amount: u64, // Account keys pub amm: Pubkey, pub amm_authority: Pubkey, pub amm_open_orders: Pubkey, pub lp_mint_address: Pubkey, pub coin_mint_address: Pubkey, pub pc_mint_address: Pubkey, pub pool_coin_token_account: Pubkey, pub pool_pc_token_account: Pubkey, pub pool_withdraw_queue: Pubkey, pub amm_target_orders: Pubkey, pub pool_lp_token_account: Pubkey, pub pool_temp_lp_token_account: Pubkey, pub serum_program: Pubkey, pub serum_market: Pubkey, pub user_wallet: Pubkey, }
+pub struct RaydiumAmmV4Initialize2Event { /// Event metadata pub metadata: EventMetadata, /// Nonce value for initialization pub nonce: u8, /// Time when the pool opens pub open_time: u64, /// Initial PC token amount pub init_pc_amount: u64, /// Initial coin token amount pub init_coin_amount: u64, // Account keys /// Automated Market Maker account pub amm: Pubkey, /// AMM authority account pub amm_authority: Pubkey, /// AMM open orders account pub amm_open_orders: Pubkey, /// Liquidity provider mint address pub lp_mint_address: Pubkey, /// Coin mint address pub coin_mint_address: Pubkey, /// PC mint address pub pc_mint_address: Pubkey, /// Pool coin token account pub pool_coin_token_account: Pubkey, /// Pool PC token account pub pool_pc_token_account: Pubkey, /// Pool withdrawal queue account pub pool_withdraw_queue: Pubkey, /// AMM target orders account pub amm_target_orders: Pubkey, /// Pool liquidity provider token account pub pool_lp_token_account: Pubkey, /// Pool temporary LP token account pub pool_temp_lp_token_account: Pubkey, /// Serum program account pub serum_program: Pubkey, /// Serum market account pub serum_market: Pubkey, /// User wallet account pub user_wallet: Pubkey, }
 ```
 
 Raydium AMM V4 initialize2 event
@@ -6364,7 +7057,7 @@ Raydium AMM V4 initialize2 event
 ```
 
 ```rust
-pub struct RaydiumAmmV4SwapEvent { pub metadata: EventMetadata, pub amount_in: u64, pub amount_out: u64, pub direction: SwapDirection, // Account keys pub amm: Pubkey, pub amm_authority: Pubkey, pub amm_open_orders: Pubkey, pub pool_coin_token_account: Pubkey, pub pool_pc_token_account: Pubkey, pub serum_program: Pubkey, pub serum_market: Pubkey, pub user_coin_token_account: Pubkey, pub user_pc_token_account: Pubkey, pub user_owner: Pubkey, }
+pub struct RaydiumAmmV4SwapEvent { /// Event metadata pub metadata: EventMetadata, /// Amount of tokens going into the swap pub amount_in: u64, /// Amount of tokens coming out of the swap pub amount_out: u64, /// Direction of the swap (BaseIn or BaseOut)
 ```
 
 Raydium AMM V4 swap event
@@ -6381,7 +7074,7 @@ Raydium AMM V4 swap event
 ```
 
 ```rust
-pub struct RaydiumAmmV4WithdrawEvent { pub metadata: EventMetadata, pub amount: u64, // Account keys pub token_program: Pubkey, pub amm: Pubkey, pub amm_authority: Pubkey, pub amm_open_orders: Pubkey, pub amm_target_orders: Pubkey, pub lp_mint_address: Pubkey, pub pool_coin_token_account: Pubkey, pub pool_pc_token_account: Pubkey, pub pool_withdraw_queue: Pubkey, pub pool_temp_lp_token_account: Pubkey, pub serum_program: Pubkey, pub serum_market: Pubkey, pub serum_coin_vault_account: Pubkey, pub serum_pc_vault_account: Pubkey, pub serum_vault_signer: Pubkey, pub user_lp_token_account: Pubkey, pub user_coin_token_account: Pubkey, pub user_pc_token_account: Pubkey, pub user_owner: Pubkey, pub serum_event_queue: Pubkey, pub serum_bids: Pubkey, pub serum_asks: Pubkey, }
+pub struct RaydiumAmmV4WithdrawEvent { /// Event metadata pub metadata: EventMetadata, /// Amount of tokens being withdrawn pub amount: u64, // Account keys /// Token program account pub token_program: Pubkey, /// Automated Market Maker account pub amm: Pubkey, /// AMM authority account pub amm_authority: Pubkey, /// AMM open orders account pub amm_open_orders: Pubkey, /// AMM target orders account pub amm_target_orders: Pubkey, /// Liquidity provider mint address pub lp_mint_address: Pubkey, /// Pool coin token account pub pool_coin_token_account: Pubkey, /// Pool PC token account pub pool_pc_token_account: Pubkey, /// Pool withdrawal queue account pub pool_withdraw_queue: Pubkey, /// Pool temporary LP token account pub pool_temp_lp_token_account: Pubkey, /// Serum program account pub serum_program: Pubkey, /// Serum market account pub serum_market: Pubkey, /// Serum coin vault account pub serum_coin_vault_account: Pubkey, /// Serum PC vault account pub serum_pc_vault_account: Pubkey, /// Serum vault signer account pub serum_vault_signer: Pubkey, /// User liquidity provider token account pub user_lp_token_account: Pubkey, /// User coin token account pub user_coin_token_account: Pubkey, /// User PC token account pub user_pc_token_account: Pubkey, /// User owner account pub user_owner: Pubkey, /// Serum event queue account pub serum_event_queue: Pubkey, /// Serum bids account pub serum_bids: Pubkey, /// Serum asks account pub serum_asks: Pubkey, }
 ```
 
 Raydium AMM V4 withdraw event
@@ -6398,7 +7091,7 @@ Raydium AMM V4 withdraw event
 ```
 
 ```rust
-pub struct RaydiumAmmV4WithdrawPnlEvent { pub metadata: EventMetadata, // Account keys pub token_program: Pubkey, pub amm: Pubkey, pub amm_config: Pubkey, pub amm_authority: Pubkey, pub amm_open_orders: Pubkey, pub pool_coin_token_account: Pubkey, pub pool_pc_token_account: Pubkey, pub coin_pnl_token_account: Pubkey, pub pc_pnl_token_account: Pubkey, pub pnl_owner_account: Pubkey, pub amm_target_orders: Pubkey, pub serum_program: Pubkey, pub serum_market: Pubkey, pub serum_event_queue: Pubkey, pub serum_coin_vault_account: Pubkey, pub serum_pc_vault_account: Pubkey, pub serum_vault_signer: Pubkey, }
+pub struct RaydiumAmmV4WithdrawPnlEvent { /// Event metadata pub metadata: EventMetadata, // Account keys /// Token program account pub token_program: Pubkey, /// Automated Market Maker account pub amm: Pubkey, /// AMM configuration account pub amm_config: Pubkey, /// AMM authority account pub amm_authority: Pubkey, /// AMM open orders account pub amm_open_orders: Pubkey, /// Pool coin token account pub pool_coin_token_account: Pubkey, /// Pool PC token account pub pool_pc_token_account: Pubkey, /// Coin PNL (Profit and Loss) token account
 ```
 
 Raydium AMM V4 withdraw PNL event
@@ -6415,7 +7108,7 @@ Raydium AMM V4 withdraw PNL event
 ```
 
 ```rust
-pub struct RaydiumClmmClosePositionEvent { pub metadata: EventMetadata, // Account keys pub nft_owner: Pubkey, pub position_nft_mint: Pubkey, pub position_nft_account: Pubkey, pub personal_position: Pubkey, }
+pub struct RaydiumClmmClosePositionEvent { /// Event metadata pub metadata: EventMetadata, // Account keys /// Owner of the NFT pub nft_owner: Pubkey, /// Mint account for the position NFT pub position_nft_mint: Pubkey, /// Token account for the position NFT pub position_nft_account: Pubkey, /// Personal position account pub personal_position: Pubkey, }
 ```
 
 Raydium CLMM close position event
@@ -6432,7 +7125,7 @@ Raydium CLMM close position event
 ```
 
 ```rust
-pub struct RaydiumClmmCreatePoolEvent { pub metadata: EventMetadata, pub sqrt_price_x64: u128, pub tick_current: i32, pub observation_index: u16, // Account keys pub pool_creator: Pubkey, pub pool_state: Pubkey, pub token_mint0: Pubkey, pub token_mint1: Pubkey, pub token_vault0: Pubkey, pub token_vault1: Pubkey, }
+pub struct RaydiumClmmCreatePoolEvent { /// Event metadata pub metadata: EventMetadata, /// Square root of price multiplied by 2^64 pub sqrt_price_x64: u128, /// Current tick of the pool pub tick_current: i32, /// Observation index for the pool pub observation_index: u16, // Account keys /// Account that creates the pool pub pool_creator: Pubkey, /// Pool state account pub pool_state: Pubkey, /// Token mint for token0 pub token_mint0: Pubkey, /// Token mint for token1 pub token_mint1: Pubkey, /// Vault account for token0 pub token_vault0: Pubkey, /// Vault account for token1 pub token_vault1: Pubkey, }
 ```
 
 Raydium CLMM create pool event
@@ -6449,7 +7142,7 @@ Raydium CLMM create pool event
 ```
 
 ```rust
-pub struct RaydiumClmmDecreaseLiquidityV2Event { pub metadata: EventMetadata, pub liquidity: u128, pub amount0_min: u64, pub amount1_min: u64, // Account keys pub nft_owner: Pubkey, pub position_nft_account: Pubkey, pub pool_state: Pubkey, }
+pub struct RaydiumClmmDecreaseLiquidityV2Event { /// Event metadata pub metadata: EventMetadata, /// Amount of liquidity to remove pub liquidity: u128, /// Minimum amount of token0 to receive pub amount0_min: u64, /// Minimum amount of token1 to receive pub amount1_min: u64, // Account keys /// Owner of the NFT pub nft_owner: Pubkey, /// Token account for the position NFT pub position_nft_account: Pubkey, /// Pool state account pub pool_state: Pubkey, }
 ```
 
 Raydium CLMM decrease liquidity V2 event
@@ -6478,7 +7171,7 @@ Raydium CLMM event parser
 ```
 
 ```rust
-pub struct RaydiumClmmIncreaseLiquidityV2Event { pub metadata: EventMetadata, pub liquidity: u128, pub amount0_max: u64, pub amount1_max: u64, pub base_flag: Option<bool>, // Account keys pub nft_owner: Pubkey, pub position_nft_account: Pubkey, pub pool_state: Pubkey, }
+pub struct RaydiumClmmIncreaseLiquidityV2Event { /// Event metadata pub metadata: EventMetadata, /// Amount of liquidity to add pub liquidity: u128, /// Maximum amount of token0 to use pub amount0_max: u64, /// Maximum amount of token1 to use pub amount1_max: u64, /// Optional base flag pub base_flag: Option<bool>, // Account keys /// Owner of the NFT pub nft_owner: Pubkey, /// Token account for the position NFT pub position_nft_account: Pubkey, /// Pool state account pub pool_state: Pubkey, }
 ```
 
 Raydium CLMM increase liquidity V2 event
@@ -6495,7 +7188,7 @@ Raydium CLMM increase liquidity V2 event
 ```
 
 ```rust
-pub struct RaydiumClmmOpenPositionV2Event { pub metadata: EventMetadata, pub tick_lower_index: i32, pub tick_upper_index: i32, pub tick_array_lower_start_index: i32, pub tick_array_upper_start_index: i32, pub liquidity: u128, pub amount0_max: u64, pub amount1_max: u64, pub with_metadata: bool, pub base_flag: Option<bool>, // Account keys pub payer: Pubkey, pub position_nft_owner: Pubkey, pub position_nft_mint: Pubkey, pub position_nft_account: Pubkey, pub metadata_account: Pubkey, pub pool_state: Pubkey, }
+pub struct RaydiumClmmOpenPositionV2Event { /// Event metadata pub metadata: EventMetadata, /// Lower tick index for the position pub tick_lower_index: i32, /// Upper tick index for the position pub tick_upper_index: i32, /// Start index for lower tick array pub tick_array_lower_start_index: i32, /// Start index for upper tick array pub tick_array_upper_start_index: i32, /// Liquidity amount for the position pub liquidity: u128, /// Maximum amount of token0 to use pub amount0_max: u64, /// Maximum amount of token1 to use pub amount1_max: u64, /// Whether to include metadata pub with_metadata: bool, /// Optional base flag pub base_flag: Option<bool>, // Account keys /// Account that pays for the transaction pub payer: Pubkey, /// Owner of the position NFT pub position_nft_owner: Pubkey, /// Mint account for the position NFT pub position_nft_mint: Pubkey, /// Token account for the position NFT pub position_nft_account: Pubkey, /// Metadata account for the NFT pub metadata_account: Pubkey, /// Pool state account pub pool_state: Pubkey, }
 ```
 
 Raydium CLMM open position V2 event
@@ -6512,7 +7205,7 @@ Raydium CLMM open position V2 event
 ```
 
 ```rust
-pub struct RaydiumClmmOpenPositionWithToken22NftEvent { pub metadata: EventMetadata, pub tick_lower_index: i32, pub tick_upper_index: i32, pub tick_array_lower_start_index: i32, pub tick_array_upper_start_index: i32, pub liquidity: u128, pub amount0_max: u64, pub amount1_max: u64, pub with_metadata: bool, pub base_flag: Option<bool>, // Account keys pub payer: Pubkey, pub position_nft_owner: Pubkey, pub position_nft_mint: Pubkey, pub position_nft_account: Pubkey, pub pool_state: Pubkey, }
+pub struct RaydiumClmmOpenPositionWithToken22NftEvent { /// Event metadata pub metadata: EventMetadata, /// Lower tick index for the position pub tick_lower_index: i32, /// Upper tick index for the position pub tick_upper_index: i32, /// Start index for lower tick array pub tick_array_lower_start_index: i32, /// Start index for upper tick array pub tick_array_upper_start_index: i32, /// Liquidity amount for the position pub liquidity: u128, /// Maximum amount of token0 to use pub amount0_max: u64, /// Maximum amount of token1 to use pub amount1_max: u64, /// Whether to include metadata pub with_metadata: bool, /// Optional base flag pub base_flag: Option<bool>, // Account keys /// Account that pays for the transaction pub payer: Pubkey, /// Owner of the position NFT pub position_nft_owner: Pubkey, /// Mint account for the position NFT pub position_nft_mint: Pubkey, /// Token account for the position NFT pub position_nft_account: Pubkey, /// Pool state account pub pool_state: Pubkey, }
 ```
 
 Raydium CLMM open position with Token-22 NFT event
@@ -6529,7 +7222,7 @@ Raydium CLMM open position with Token-22 NFT event
 ```
 
 ```rust
-pub struct RaydiumClmmSwapEvent { pub metadata: EventMetadata, pub amount0: u64, pub amount1: u64, pub sqrt_price_x64: u128, pub liquidity: u128, pub tick_current: i32, // Account keys pub payer: Pubkey, pub pool_state: Pubkey, pub input_token_account: Pubkey, pub output_token_account: Pubkey, pub input_vault: Pubkey, pub output_vault: Pubkey, pub token_mint0: Pubkey, pub token_mint1: Pubkey, }
+pub struct RaydiumClmmSwapEvent { /// Event metadata pub metadata: EventMetadata, /// Amount of token0 in the swap pub amount0: u64, /// Amount of token1 in the swap pub amount1: u64, /// Square root of price multiplied by 2^64 pub sqrt_price_x64: u128, /// Liquidity amount for the pool pub liquidity: u128, /// Current tick of the pool pub tick_current: i32, // Account keys /// Account that pays for the transaction pub payer: Pubkey, /// Pool state account pub pool_state: Pubkey, /// Input token account pub input_token_account: Pubkey, /// Output token account pub output_token_account: Pubkey, /// Input vault account pub input_vault: Pubkey, /// Output vault account pub output_vault: Pubkey, /// Token mint for token0 pub token_mint0: Pubkey, /// Token mint for token1 pub token_mint1: Pubkey, }
 ```
 
 Raydium CLMM swap event
@@ -6546,7 +7239,7 @@ Raydium CLMM swap event
 ```
 
 ```rust
-pub struct RaydiumClmmSwapV2Event { pub metadata: EventMetadata, pub amount0: u64, pub amount1: u64, pub sqrt_price_x64: u128, pub liquidity: u128, pub tick_current: i32, pub is_base_input: bool, // Account keys pub payer: Pubkey, pub pool_state: Pubkey, pub input_token_account: Pubkey, pub output_token_account: Pubkey, pub input_vault: Pubkey, pub output_vault: Pubkey, pub token_mint0: Pubkey, pub token_mint1: Pubkey, }
+pub struct RaydiumClmmSwapV2Event { /// Event metadata pub metadata: EventMetadata, /// Amount of token0 in the swap pub amount0: u64, /// Amount of token1 in the swap pub amount1: u64, /// Square root of price multiplied by 2^64 pub sqrt_price_x64: u128, /// Liquidity amount for the pool pub liquidity: u128, /// Current tick of the pool pub tick_current: i32, /// Whether base token is the input pub is_base_input: bool, // Account keys /// Account that pays for the transaction pub payer: Pubkey, /// Pool state account pub pool_state: Pubkey, /// Input token account pub input_token_account: Pubkey, /// Output token account pub output_token_account: Pubkey, /// Input vault account pub input_vault: Pubkey, /// Output vault account pub output_vault: Pubkey, /// Token mint for token0 pub token_mint0: Pubkey, /// Token mint for token1 pub token_mint1: Pubkey, }
 ```
 
 Raydium CLMM swap V2 event
@@ -6559,11 +7252,11 @@ Raydium CLMM swap V2 event
 
 **Attributes**:
 ```rust
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, BorshDeserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, BorshDeserialize, Default)]
 ```
 
 ```rust
-pub struct RaydiumCpmmDepositEvent { #[serde(skip)]
+pub struct RaydiumCpmmDepositEvent { /// Event metadata (excluded from serialization)
 ```
 
 Raydium CPMM Deposit event
@@ -6588,11 +7281,11 @@ Raydium CPMM event parser
 
 **Attributes**:
 ```rust
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, BorshDeserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, BorshDeserialize, Default)]
 ```
 
 ```rust
-pub struct RaydiumCpmmSwapEvent { #[serde(skip)]
+pub struct RaydiumCpmmSwapEvent { /// Event metadata (excluded from serialization)
 ```
 
 Raydium CPMM Swap event
@@ -6650,7 +7343,7 @@ Simplified route hop representation
 ```
 
 ```rust
-pub struct RoutePlan { pub input_mint: Pubkey, pub output_mint: Pubkey, pub amount_in: u64, pub amount_out: u64, pub dex_label: String, }
+pub struct RoutePlan { /// Input token mint address pub input_mint: Pubkey, /// Output token mint address pub output_mint: Pubkey, /// Amount going into this step pub amount_in: u64, /// Amount coming out of this step pub amount_out: u64, /// Label identifying the DEX used pub dex_label: String, }
 ```
 
 Route plan information (simplified for event data)
@@ -6667,7 +7360,7 @@ Route plan information (simplified for event data)
 ```
 
 ```rust
-pub struct RoutePlanStep { pub swap: SwapInfo, pub percent: u8, }
+pub struct RoutePlanStep { /// Swap information for this step pub swap: SwapInfo, /// Percentage of the input amount for this step pub percent: u8, }
 ```
 
 Route plan step for Jupiter swaps
@@ -6679,7 +7372,7 @@ Route plan step for Jupiter swaps
 **Source**: `zero_copy/parsers.rs`
 
 ```rust
-pub struct RpcConnectionPool { /// Pool of RPC clients clients: Vec<Arc<solana_client::rpc_client::RpcClient>>, /// Current index for round-robin current: std::sync::atomic::AtomicUsize, }
+pub struct RpcConnectionPool { /// Pool of shared RPC client instances clients: Vec<Arc<solana_client::rpc_client::RpcClient>>, /// Current index for round-robin client selection current: std::sync::atomic::AtomicUsize, }
 ```
 
 Connection pool for RPC calls during parsing
@@ -6696,7 +7389,7 @@ Connection pool for RPC calls during parsing
 ```
 
 ```rust
-pub struct RuleResult { pub errors: Vec<ValidationError>, pub warnings: Vec<ValidationWarning>, pub consistency_checks: usize, }
+pub struct RuleResult { /// Validation errors found by the rule pub errors: Vec<ValidationError>, /// Validation warnings found by the rule pub warnings: Vec<ValidationWarning>, /// Number of consistency checks performed pub consistency_checks: usize, }
 ```
 
 Result from a validation rule
@@ -6707,8 +7400,13 @@ Result from a validation rule
 
 **Source**: `zero_copy/parsers.rs`
 
+**Attributes**:
 ```rust
-pub struct SIMDPatternMatcher { /// Patterns to match (discriminator bytes)
+#[derive(Default)]
+```
+
+```rust
+pub struct SIMDPatternMatcher { /// Discriminator byte patterns to match patterns: Vec<Vec<u8>>, /// Protocol types corresponding to each pattern protocols: Vec<ProtocolType>, }
 ```
 
 SIMD-optimized pattern matcher for instruction discriminators
@@ -6725,7 +7423,7 @@ SIMD-optimized pattern matcher for instruction discriminators
 ```
 
 ```rust
-pub struct SharedAccountsExactOutRouteData { pub route_plan: Vec<RoutePlanStep>, pub out_amount: u64, pub quoted_in_amount: u64, pub slippage_bps: u16, pub platform_fee_bps: u8, }
+pub struct SharedAccountsExactOutRouteData { /// Route plan steps for the swap pub route_plan: Vec<RoutePlanStep>, /// Output amount in base units pub out_amount: u64, /// Quoted input amount in base units pub quoted_in_amount: u64, /// Slippage tolerance in basis points pub slippage_bps: u16, /// Platform fee in basis points pub platform_fee_bps: u8, }
 ```
 
 Jupiter exact out route instruction data (after discriminator)
@@ -6742,7 +7440,7 @@ Jupiter exact out route instruction data (after discriminator)
 ```
 
 ```rust
-pub struct SharedAccountsRouteData { pub route_plan: Vec<RoutePlanStep>, pub in_amount: u64, pub quoted_out_amount: u64, pub slippage_bps: u16, pub platform_fee_bps: u8, }
+pub struct SharedAccountsRouteData { /// Route plan steps for the swap pub route_plan: Vec<RoutePlanStep>, /// Input amount in base units pub in_amount: u64, /// Quoted output amount in base units pub quoted_out_amount: u64, /// Slippage tolerance in basis points pub slippage_bps: u16, /// Platform fee in basis points pub platform_fee_bps: u8, }
 ```
 
 Jupiter shared accounts route instruction data (after discriminator)
@@ -6759,10 +7457,41 @@ Jupiter shared accounts route instruction data (after discriminator)
 ```
 
 ```rust
-pub struct SolanaEvent { /// Legacy metadata for compatibility pub legacy_metadata: EventMetadata, /// Core metadata for new functionality pub core_metadata: riglr_events_core::types::EventMetadata, /// Event data payload pub data: serde_json::Value, /// Transfer data for token movements pub transfer_data: Vec<TransferData>, }
+pub struct SolanaEvent { /// Event metadata pub metadata: EventMetadata, /// Event data payload pub data: serde_json::Value, /// Transfer data for token movements pub transfer_data: Vec<TransferData>, }
 ```
 
-A wrapper that implements both UnifiedEvent and Event traits for seamless migration
+A wrapper that implements the Event trait for Solana events
+
+---
+
+### SolanaEventMetadata
+
+**Source**: `src/metadata_helpers.rs`
+
+```rust
+pub struct SolanaEventMetadata { pub inner: EventMetadata, }
+```
+
+Helper struct that wraps EventMetadata for Solana-specific operations
+This is primarily used in legacy code that expects direct field access
+
+---
+
+### SolanaEventMetadata
+
+**Source**: `src/solana_metadata.rs`
+
+**Attributes**:
+```rust
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
+```
+
+```rust
+pub struct SolanaEventMetadata { /// Transaction signature pub signature: String, /// Slot number pub slot: u64, /// Event type pub event_type: EventType, /// Protocol type pub protocol_type: ProtocolType, /// Instruction index pub index: String, /// Program received time in milliseconds pub program_received_time_ms: i64, /// The underlying core metadata (excluded from borsh serialization)
+```
+
+Solana-specific event metadata that wraps core EventMetadata
+and provides additional fields and trait implementations
 
 ---
 
@@ -6885,8 +7614,10 @@ Raydium V4 SwapBaseOut instruction data
 ```
 
 ```rust
-pub struct SwapData { pub input_mint: Pubkey, pub output_mint: Pubkey, pub amount_in: u64, pub amount_out: u64, }
+pub struct SwapData { /// Input token mint public key pub input_mint: Pubkey, /// Output token mint public key pub output_mint: Pubkey, /// Amount of input tokens in smallest unit pub amount_in: u64, /// Amount of output tokens in smallest unit pub amount_out: u64, }
 ```
+
+Data structure for token swap events
 
 ---
 
@@ -6900,7 +7631,7 @@ pub struct SwapData { pub input_mint: Pubkey, pub output_mint: Pubkey, pub amoun
 ```
 
 ```rust
-pub struct SwapEventParams { pub id: String, pub signature: String, pub slot: u64, pub block_time: i64, pub protocol_type: ProtocolType, pub program_id: solana_sdk::pubkey::Pubkey, pub input_mint: solana_sdk::pubkey::Pubkey, pub output_mint: solana_sdk::pubkey::Pubkey, pub amount_in: u64, pub amount_out: u64, }
+pub struct SwapEventParams { /// Event identifier pub id: String, /// Transaction signature pub signature: String, /// Solana slot number pub slot: u64, /// Block timestamp pub block_time: i64, /// Protocol type (e.g., Jupiter, Raydium)
 ```
 
 Parameters for creating swap events, reducing function parameter count
@@ -6917,7 +7648,7 @@ Parameters for creating swap events, reducing function parameter count
 ```
 
 ```rust
-pub struct SwapInfo { pub source_token: Pubkey, pub destination_token: Pubkey, pub source_token_account: Pubkey, pub destination_token_account: Pubkey, pub swap_program_id: Pubkey, pub swap_accounts: Vec<AccountMeta>, pub swap_data: Vec<u8>, }
+pub struct SwapInfo { /// Source token mint address pub source_token: Pubkey, /// Destination token mint address pub destination_token: Pubkey, /// Source token account address pub source_token_account: Pubkey, /// Destination token account address pub destination_token_account: Pubkey, /// Program ID for the swap pub swap_program_id: Pubkey, /// Account metadata required for the swap pub swap_accounts: Vec<AccountMeta>, /// Instruction data for the swap pub swap_data: Vec<u8>, }
 ```
 
 Swap information within a route step
@@ -6968,8 +7699,10 @@ Transaction context information
 ```
 
 ```rust
-pub struct TransferData { pub source: Pubkey, pub destination: Pubkey, pub mint: Option<Pubkey>, pub amount: u64, }
+pub struct TransferData { /// Source account public key pub source: Pubkey, /// Destination account public key pub destination: Pubkey, /// Token mint public key (None for SOL transfers)
 ```
+
+Data structure for token transfer events
 
 ---
 
@@ -7029,7 +7762,7 @@ Validation metrics
 **Source**: `pipelines/validation.rs`
 
 ```rust
-pub struct ValidationPipeline { /// Validation configuration config: ValidationConfig, /// Duplicate detection cache seen_events: Arc<tokio::sync::RwLock<HashMap<String, Instant>>>, /// Validation rule registry rules: Vec<Arc<dyn ValidationRule>>, }
+pub struct ValidationPipeline { /// Validation configuration config: ValidationConfig, /// Duplicate detection cache seen_events: Arc<DashMap<String, Instant>>, /// Validation rule registry rules: Vec<Arc<dyn ValidationRule>>, }
 ```
 
 Data integrity validation pipeline
@@ -7063,7 +7796,7 @@ Validation result for a single event
 ```
 
 ```rust
-pub struct ValidationStats { pub total_rules: usize, pub cached_events: usize, pub strict_mode: bool, }
+pub struct ValidationStats { /// Total number of validation rules registered pub total_rules: usize, /// Number of events currently cached for duplicate detection pub cached_events: usize, /// Whether strict mode is enabled pub strict_mode: bool, }
 ```
 
 Validation pipeline statistics
@@ -7080,8 +7813,10 @@ Validation pipeline statistics
 ```
 
 ```rust
-pub struct VestingParams { pub total_locked_amount: u64, pub cliff_period: u64, pub unlock_period: u64, }
+pub struct VestingParams { /// Total amount of tokens locked in vesting pub total_locked_amount: u64, /// Duration before any tokens can be unlocked pub cliff_period: u64, /// Period over which tokens are gradually unlocked pub unlock_period: u64, }
 ```
+
+Parameters for token vesting schedules
 
 ---
 
@@ -7095,7 +7830,7 @@ pub struct VestingParams { pub total_locked_amount: u64, pub cliff_period: u64, 
 ```
 
 ```rust
-pub struct WhirlpoolAccount { pub whirlpools_config: Pubkey, pub whirlpool_bump: [u8; 1], pub tick_spacing: u16, pub tick_spacing_seed: [u8; 2], pub fee_rate: u16, pub protocol_fee_rate: u16, pub liquidity: u128, pub sqrt_price: u128, pub tick_current_index: i32, pub protocol_fee_owed_a: u64, pub protocol_fee_owed_b: u64, pub token_mint_a: Pubkey, pub token_vault_a: Pubkey, pub fee_growth_global_a: u128, pub token_mint_b: Pubkey, pub token_vault_b: Pubkey, pub fee_growth_global_b: u128, pub reward_last_updated_timestamp: u64, pub reward_infos: [WhirlpoolRewardInfo; 3], }
+pub struct WhirlpoolAccount { /// Configuration account that governs this whirlpool's parameters pub whirlpools_config: Pubkey, /// Program-derived address bump seed for this whirlpool account pub whirlpool_bump: [u8; 1], /// The tick spacing for this whirlpool, determining price granularity pub tick_spacing: u16, /// Seed bytes used to derive the whirlpool account from tick spacing pub tick_spacing_seed: [u8; 2], /// Fee rate charged for swaps in basis points (e.g., 300 = 0.3%)
 ```
 
 Orca Whirlpool account layout
@@ -7112,7 +7847,7 @@ Orca Whirlpool account layout
 ```
 
 ```rust
-pub struct WhirlpoolRewardInfo { pub mint: Pubkey, pub vault: Pubkey, pub authority: Pubkey, pub emissions_per_second_x64: u128, pub growth_global_x64: u128, }
+pub struct WhirlpoolRewardInfo { /// Mint address of the reward token being distributed pub mint: Pubkey, /// Vault account holding the reward tokens for distribution pub vault: Pubkey, /// Authority account that can control reward distribution parameters pub authority: Pubkey, /// Rate of reward token emissions per second as Q64.64 fixed-point pub emissions_per_second_x64: u128, /// Global growth accumulator for this reward token as Q64.64 fixed-point pub growth_global_x64: u128, }
 ```
 
 Whirlpool reward information

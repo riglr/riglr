@@ -115,6 +115,11 @@ Generic completion response structure
 
 **Source**: `src/factory.rs`
 
+**Attributes**:
+```rust
+#[derive(Default)]
+```
+
 ```rust
 pub struct CompositeSignerFactory { factories: HashMap<String, std::sync::Arc<dyn SignerFactory>>, }
 ```
@@ -445,7 +450,7 @@ fn supported_auth_types(&self) -> Vec<String>;
 ```
 
 ```rust
-pub enum AgentEvent { /// Agent started processing #[serde(rename = "start")] Start { conversation_id: String, request_id: String, timestamp: chrono::DateTime<chrono::Utc>, }, /// Streaming content chunk #[serde(rename = "content")] Content { content: String, conversation_id: String, request_id: String, }, /// Agent finished processing #[serde(rename = "complete")] Complete { conversation_id: String, request_id: String, timestamp: chrono::DateTime<chrono::Utc>, }, /// Error occurred #[serde(rename = "error")] Error { error: String, conversation_id: String, request_id: String, timestamp: chrono::DateTime<chrono::Utc>, }, }
+pub enum AgentEvent { /// Agent started processing #[serde(rename = "start")] Start { /// Unique identifier for the conversation conversation_id: String, /// Unique identifier for this request request_id: String, /// When the processing started timestamp: chrono::DateTime<chrono::Utc>, }, /// Streaming content chunk #[serde(rename = "content")] Content { /// The content chunk from the agent content: String, /// Unique identifier for the conversation conversation_id: String, /// Unique identifier for this request request_id: String, }, /// Agent finished processing #[serde(rename = "complete")] Complete { /// Unique identifier for the conversation conversation_id: String, /// Unique identifier for this request request_id: String, /// When the processing completed timestamp: chrono::DateTime<chrono::Utc>, }, /// Error occurred #[serde(rename = "error")] Error { /// Error message describing what went wrong error: String, /// Unique identifier for the conversation conversation_id: String, /// Unique identifier for this request request_id: String, /// When the error occurred timestamp: chrono::DateTime<chrono::Utc>, }, }
 ```
 
 Server-Sent Event structure for streaming

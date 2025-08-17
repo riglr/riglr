@@ -128,7 +128,6 @@ Comprehensive API documentation for the `riglr-indexer` crate.
 - [`new`](#new)
 - [`new`](#new)
 - [`new`](#new)
-- [`new`](#new)
 - [`next_batch`](#next_batch)
 - [`node_count`](#node_count)
 - [`node_id`](#node_id)
@@ -1863,25 +1862,25 @@ Create a new shutdown coordinator
 
 ### new
 
-**Source**: `core/indexer.rs`
+**Source**: `core/pipeline.rs`
 
 ```rust
-pub async fn new(config: IndexerConfig) -> IndexerResult<Self>
+pub fn new() -> Self
 ```
 
-Create a new indexer service
+Create a new validation stage
 
 ---
 
 ### new
 
-**Source**: `core/ingester.rs`
+**Source**: `core/pipeline.rs`
 
 ```rust
-pub async fn new(config: IngesterConfig, context: Arc<ServiceContext>) -> IndexerResult<Self>
+pub fn new() -> Self
 ```
 
-Create a new event ingester
+Create a new enrichment stage
 
 ---
 
@@ -1911,25 +1910,25 @@ Create a new processing pipeline
 
 ### new
 
-**Source**: `core/pipeline.rs`
+**Source**: `core/ingester.rs`
 
 ```rust
-pub fn new() -> Self
+pub async fn new(config: IngesterConfig, context: Arc<ServiceContext>) -> IndexerResult<Self>
 ```
 
-Create a new validation stage
+Create a new event ingester
 
 ---
 
 ### new
 
-**Source**: `core/pipeline.rs`
+**Source**: `core/indexer.rs`
 
 ```rust
-pub fn new() -> Self
+pub async fn new(config: IndexerConfig) -> IndexerResult<Self>
 ```
 
-Create a new enrichment stage
+Create a new indexer service
 
 ---
 
@@ -1938,7 +1937,7 @@ Create a new enrichment stage
 **Source**: `metrics/collector.rs`
 
 ```rust
-pub fn new(config: &MetricsConfig) -> IndexerResult<Self>
+pub fn new(config: MetricsConfig) -> IndexerResult<Self>
 ```
 
 Create a new metrics collector
@@ -1995,13 +1994,13 @@ Create a new adaptive rate limiter
 
 ### new
 
-**Source**: `utils/consistent_hash.rs`
+**Source**: `utils/batch.rs`
 
 ```rust
-pub fn new(virtual_nodes: usize) -> Self
+pub fn new(max_size: usize, max_age: Duration) -> Self
 ```
 
-Create a new consistent hash ring
+Create a new batch processor
 
 ---
 
@@ -2010,10 +2009,10 @@ Create a new consistent hash ring
 **Source**: `utils/consistent_hash.rs`
 
 ```rust
-pub fn new() -> Self
+pub fn new(virtual_nodes: usize) -> Self
 ```
 
-Create a new builder
+Create a new consistent hash ring
 
 ---
 
@@ -2050,18 +2049,6 @@ pub fn new(name: String, url: String, timeout: Duration, expected_status: u16) -
 ```
 
 Create a new HTTP health check
-
----
-
-### new
-
-**Source**: `utils/batch.rs`
-
-```rust
-pub fn new(max_size: usize, max_age: Duration) -> Self
-```
-
-Create a new batch processor
 
 ---
 
@@ -2226,7 +2213,7 @@ Record a successful operation
 **Source**: `utils/health.rs`
 
 ```rust
-pub async fn register(&self, name: String, check: Arc<dyn HealthCheck>)
+pub async fn register(&self, name: String, check: Arc<dyn HealthCheck + 'static>)
 ```
 
 Register a health check
@@ -3012,7 +2999,7 @@ Enrichment pipeline stage
 
 **Attributes**:
 ```rust
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 ```
 
 ```rust
@@ -3193,7 +3180,7 @@ GraphQL configuration
 **Source**: `utils/health.rs`
 
 ```rust
-pub struct HealthCheckCoordinator { /// Registered health checks checks: Arc<RwLock<HashMap<String, Arc<dyn HealthCheck>>>>, /// Cached results cached_results: Arc<RwLock<HashMap<String, (HealthCheckResult, Instant)>>>,
+pub struct HealthCheckCoordinator { /// Registered health checks checks: Arc<DashMap<String, Arc<dyn HealthCheck + 'static>>>, /// Cached results cached_results: Arc<DashMap<String, (HealthCheckResult, Instant)>>,
 ```
 
 Health check coordinator that manages multiple health checks
@@ -3320,7 +3307,7 @@ Main configuration for the indexer service
 
 **Attributes**:
 ```rust
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 ```
 
 ```rust
@@ -3400,7 +3387,7 @@ JWT configuration
 
 **Attributes**:
 ```rust
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 ```
 
 ```rust
@@ -3508,7 +3495,7 @@ Metrics configuration
 **Source**: `metrics/mod.rs`
 
 ```rust
-pub struct MetricsRegistry { /// Stored metrics metrics: Arc<RwLock<HashMap<String, Metric>>>, /// Configuration #[allow(dead_code)]
+pub struct MetricsRegistry { /// Stored metrics metrics: Arc<DashMap<String, Metric>>, /// Configuration #[allow(dead_code)]
 ```
 
 Metrics registry for storing and managing metrics
@@ -3538,7 +3525,7 @@ Information about a node
 
 **Attributes**:
 ```rust
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 ```
 
 ```rust
@@ -3751,7 +3738,7 @@ Redis-based cache implementation
 
 **Attributes**:
 ```rust
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 ```
 
 ```rust
@@ -3974,7 +3961,7 @@ Summary metric value
 
 **Attributes**:
 ```rust
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 ```
 
 ```rust

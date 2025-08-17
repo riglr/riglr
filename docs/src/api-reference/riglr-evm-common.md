@@ -4,13 +4,9 @@ Comprehensive API documentation for the `riglr-evm-common` crate.
 
 ## Table of Contents
 
-### Structs
+### Enums
 
-- [`ChainInfo`](#chaininfo)
-- [`EvmAccount`](#evmaccount)
-- [`EvmConfig`](#evmconfig)
-- [`EvmToken`](#evmtoken)
-- [`EvmTransactionData`](#evmtransactiondata)
+- [`EvmCommonError`](#evmcommonerror)
 
 ### Functions
 
@@ -50,10 +46,6 @@ Comprehensive API documentation for the `riglr-evm-common` crate.
 - [`value_u256`](#value_u256)
 - [`with_name`](#with_name)
 
-### Enums
-
-- [`EvmCommonError`](#evmcommonerror)
-
 ### Constants
 
 - [`BURN_ADDRESS`](#burn_address)
@@ -63,90 +55,41 @@ Comprehensive API documentation for the `riglr-evm-common` crate.
 - [`WETH_ETHEREUM`](#weth_ethereum)
 - [`ZERO_ADDRESS`](#zero_address)
 
-## Structs
+### Structs
 
-### ChainInfo
+- [`ChainInfo`](#chaininfo)
+- [`EvmAccount`](#evmaccount)
+- [`EvmConfig`](#evmconfig)
+- [`EvmToken`](#evmtoken)
+- [`EvmTransactionData`](#evmtransactiondata)
 
-**Source**: `src/chain.rs`
+## Enums
 
-**Attributes**:
-```rust
-#[derive(Debug, Clone)]
-```
+### EvmCommonError
 
-```rust
-pub struct ChainInfo { pub chain_id: u64, pub name: String, pub symbol: String, pub block_explorer: Option<String>, pub default_rpc: Option<String>, }
-```
-
-Chain information structure
-
----
-
-### EvmAccount
-
-**Source**: `src/types.rs`
+**Source**: `src/error.rs`
 
 **Attributes**:
 ```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Error)]
 ```
 
 ```rust
-pub struct EvmAccount { /// Address of the account (hex format with 0x prefix)
+pub enum EvmCommonError { /// Invalid EVM address format #[error("Invalid EVM address: {0}")] InvalidAddress(String), /// Unsupported or unconfigured chain #[error("Unsupported chain ID: {0}. Configure RPC_URL_{0} environment variable")] UnsupportedChain(u64), /// Invalid chain name #[error("Invalid chain name: {0}")] InvalidChainName(String), /// RPC provider error #[error("RPC provider error: {0}")] ProviderError(String), /// Configuration validation error #[error("Configuration error: {0}")] InvalidConfig(String), /// Invalid transaction data #[error("Invalid transaction data: {0}")] InvalidData(String), /// Network connection error #[error("Network error: {0}")] NetworkError(String), /// Parsing error #[error("Parse error: {0}")] ParseError(String), }
 ```
 
-Common EVM account metadata
+Error types for EVM operations shared across crates
 
----
+**Variants**:
 
-### EvmConfig
-
-**Source**: `src/types.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub struct EvmConfig { /// RPC endpoint URL for the EVM chain pub rpc_url: String, /// Chain ID (e.g., 1 for Ethereum, 137 for Polygon)
-```
-
-Configuration for EVM operations shared across crates
-
----
-
-### EvmToken
-
-**Source**: `src/types.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub struct EvmToken { /// Contract address (0x0 for native token)
-```
-
-Token information for ERC20 and native tokens
-
----
-
-### EvmTransactionData
-
-**Source**: `src/types.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub struct EvmTransactionData { /// Target contract address pub to: String, /// Transaction data (hex encoded)
-```
-
-EVM transaction data for cross-chain operations
+- `InvalidAddress(String)`
+- `UnsupportedChain(u64)`
+- `InvalidChainName(String)`
+- `ProviderError(String)`
+- `InvalidConfig(String)`
+- `InvalidData(String)`
+- `NetworkError(String)`
+- `ParseError(String)`
 
 ---
 
@@ -834,36 +777,6 @@ Create new EVM account with name
 
 ---
 
-## Enums
-
-### EvmCommonError
-
-**Source**: `src/error.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Error)]
-```
-
-```rust
-pub enum EvmCommonError { /// Invalid EVM address format #[error("Invalid EVM address: {0}")] InvalidAddress(String), /// Unsupported or unconfigured chain #[error("Unsupported chain ID: {0}. Configure RPC_URL_{0} environment variable")] UnsupportedChain(u64), /// Invalid chain name #[error("Invalid chain name: {0}")] InvalidChainName(String), /// RPC provider error #[error("RPC provider error: {0}")] ProviderError(String), /// Configuration validation error #[error("Configuration error: {0}")] InvalidConfig(String), /// Invalid transaction data #[error("Invalid transaction data: {0}")] InvalidData(String), /// Network connection error #[error("Network error: {0}")] NetworkError(String), /// Parsing error #[error("Parse error: {0}")] ParseError(String), }
-```
-
-Error types for EVM operations shared across crates
-
-**Variants**:
-
-- `InvalidAddress(String)`
-- `UnsupportedChain(u64)`
-- `InvalidChainName(String)`
-- `ProviderError(String)`
-- `InvalidConfig(String)`
-- `InvalidData(String)`
-- `NetworkError(String)`
-- `ParseError(String)`
-
----
-
 ## Constants
 
 ### BURN_ADDRESS
@@ -935,6 +848,93 @@ const ZERO_ADDRESS: &str
 ```
 
 Zero address (0x0)
+
+---
+
+## Structs
+
+### ChainInfo
+
+**Source**: `src/chain.rs`
+
+**Attributes**:
+```rust
+#[derive(Debug, Clone)]
+```
+
+```rust
+pub struct ChainInfo { /// Numeric chain ID (e.g., 1 for Ethereum, 137 for Polygon)
+```
+
+Chain information structure
+
+---
+
+### EvmAccount
+
+**Source**: `src/types.rs`
+
+**Attributes**:
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+```
+
+```rust
+pub struct EvmAccount { /// Address of the account (hex format with 0x prefix)
+```
+
+Common EVM account metadata
+
+---
+
+### EvmConfig
+
+**Source**: `src/types.rs`
+
+**Attributes**:
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+```
+
+```rust
+pub struct EvmConfig { /// RPC endpoint URL for the EVM chain pub rpc_url: String, /// Chain ID (e.g., 1 for Ethereum, 137 for Polygon)
+```
+
+Configuration for EVM operations shared across crates
+
+---
+
+### EvmToken
+
+**Source**: `src/types.rs`
+
+**Attributes**:
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+```
+
+```rust
+pub struct EvmToken { /// Contract address (0x0 for native token)
+```
+
+Token information for ERC20 and native tokens
+
+---
+
+### EvmTransactionData
+
+**Source**: `src/types.rs`
+
+**Attributes**:
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+```
+
+```rust
+pub struct EvmTransactionData { /// Target contract address pub to: String, /// Transaction data (hex encoded)
+```
+
+EVM transaction data for cross-chain operations
 
 ---
 

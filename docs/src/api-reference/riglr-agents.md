@@ -93,8 +93,6 @@ Comprehensive API documentation for the `riglr-agents` crate.
 - [`new`](#new)
 - [`new`](#new)
 - [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
 - [`no_suitable_agent`](#no_suitable_agent)
 - [`register_agent`](#register_agent)
 - [`register_agent`](#register_agent)
@@ -150,6 +148,7 @@ Comprehensive API documentation for the `riglr-agents` crate.
 - [`with_registry_timeout`](#with_registry_timeout)
 - [`with_retry_delay`](#with_retry_delay)
 - [`with_routing_strategy`](#with_routing_strategy)
+- [`with_strategy`](#with_strategy)
 - [`with_task_timeout`](#with_task_timeout)
 - [`with_timeout`](#with_timeout)
 
@@ -178,6 +177,11 @@ Comprehensive API documentation for the `riglr-agents` crate.
 
 **Source**: `src/builder.rs`
 
+**Attributes**:
+```rust
+#[derive(Default)]
+```
+
 ```rust
 pub struct AgentBuilder { registry_config: RegistryConfig, dispatch_config: DispatchConfig, communication_config: CommunicationConfig, }
 ```
@@ -194,7 +198,7 @@ use riglr_agents::{AgentBuilder, RoutingStrategy};
 use std::time::Duration;
 
 # async fn example() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-let system = AgentBuilder::new()
+let system = AgentBuilder::default()
 .with_max_agents(50)
 .with_routing_strategy(RoutingStrategy::LeastLoaded)
 .with_task_timeout(Duration::from_secs(300))
@@ -477,6 +481,11 @@ Statistics about the registry state.
 
 **Source**: `dispatcher/router.rs`
 
+**Attributes**:
+```rust
+#[derive(Default)]
+```
+
 ```rust
 pub struct Router { strategy: RoutingStrategy, round_robin_counter: AtomicUsize, }
 ```
@@ -500,6 +509,11 @@ Integration utilities for SignerContext management in multi-agent systems.
 ### SingleAgentBuilder
 
 **Source**: `src/builder.rs`
+
+**Attributes**:
+```rust
+#[derive(Default)]
+```
 
 ```rust
 pub struct SingleAgentBuilder { agent_id: Option<String>, capabilities: Vec<String>, metadata: std::collections::HashMap<String, serde_json::Value>, }
@@ -1134,6 +1148,18 @@ Check if the task has exceeded its deadline.
 
 ### is_retriable
 
+**Source**: `src/types.rs`
+
+```rust
+pub fn is_retriable(&self) -> bool
+```
+
+Check if the result represents a retriable failure.
+
+---
+
+### is_retriable
+
 **Source**: `src/error.rs`
 
 ```rust
@@ -1143,18 +1169,6 @@ pub fn is_retriable(&self) -> bool
 Check if this error is retriable.
 
 Some agent errors represent temporary conditions that may succeed on retry.
-
----
-
-### is_retriable
-
-**Source**: `src/types.rs`
-
-```rust
-pub fn is_retriable(&self) -> bool
-```
-
-Check if the result represents a retriable failure.
 
 ---
 
@@ -1275,42 +1289,6 @@ Get the configured metadata.
 
 ### new
 
-**Source**: `src/builder.rs`
-
-```rust
-pub fn new() -> Self
-```
-
-Create a new agent builder with default configuration.
-
----
-
-### new
-
-**Source**: `src/builder.rs`
-
-```rust
-pub fn new() -> Self
-```
-
-Create a new single agent builder.
-
----
-
-### new
-
-**Source**: `src/integration.rs`
-
-```rust
-pub fn new(agent: Arc<dyn Agent>) -> Self
-```
-
-Create a new tool executor for the given agent.
-
----
-
-### new
-
 **Source**: `src/types.rs`
 
 ```rust
@@ -1359,6 +1337,18 @@ Create a new capability.
 
 ### new
 
+**Source**: `src/integration.rs`
+
+```rust
+pub fn new(agent: Arc<dyn Agent>) -> Self
+```
+
+Create a new tool executor for the given agent.
+
+---
+
+### new
+
 **Source**: `communication/channels.rs`
 
 ```rust
@@ -1386,10 +1376,10 @@ Create a new agent dispatcher with the given registry.
 **Source**: `dispatcher/router.rs`
 
 ```rust
-pub fn new(strategy: RoutingStrategy) -> Self
+pub fn new() -> Self
 ```
 
-Create a new router with the specified strategy.
+Create a new router with default strategy.
 
 ---
 
@@ -1973,18 +1963,6 @@ Set the maximum number of pending messages per agent.
 
 ### with_max_retries
 
-**Source**: `src/builder.rs`
-
-```rust
-pub fn with_max_retries(mut self, max_retries: u32) -> Self
-```
-
-Set the maximum number of retry attempts for failed tasks.
-
----
-
-### with_max_retries
-
 **Source**: `src/types.rs`
 
 ```rust
@@ -1992,6 +1970,18 @@ pub fn with_max_retries(mut self, max_retries: u32) -> Self
 ```
 
 Set the maximum retry count.
+
+---
+
+### with_max_retries
+
+**Source**: `src/builder.rs`
+
+```rust
+pub fn with_max_retries(mut self, max_retries: u32) -> Self
+```
+
+Set the maximum number of retry attempts for failed tasks.
 
 ---
 
@@ -2033,18 +2023,6 @@ Set the message time-to-live.
 
 ### with_metadata
 
-**Source**: `src/builder.rs`
-
-```rust
-pub fn with_metadata(mut self, key: impl Into<String>, value: serde_json::Value) -> Self
-```
-
-Add metadata to the agent.
-
----
-
-### with_metadata
-
 **Source**: `src/types.rs`
 
 ```rust
@@ -2052,6 +2030,18 @@ pub fn with_metadata(mut self, key: impl Into<String>, value: serde_json::Value)
 ```
 
 Add metadata to the task.
+
+---
+
+### with_metadata
+
+**Source**: `src/builder.rs`
+
+```rust
+pub fn with_metadata(mut self, key: impl Into<String>, value: serde_json::Value) -> Self
+```
+
+Add metadata to the agent.
 
 ---
 
@@ -2127,6 +2117,18 @@ Set the routing strategy for task dispatch.
 
 ---
 
+### with_strategy
+
+**Source**: `dispatcher/router.rs`
+
+```rust
+pub fn with_strategy(strategy: RoutingStrategy) -> Self
+```
+
+Create a new router with the specified strategy.
+
+---
+
 ### with_task_timeout
 
 **Source**: `src/builder.rs`
@@ -2163,7 +2165,7 @@ Set the task timeout.
 ```
 
 ```rust
-pub enum AgentError { /// Agent not found in registry #[error("Agent '{agent_id}' not found in registry")] AgentNotFound { agent_id: String }, /// No suitable agent found for task #[error("No agent found capable of handling task type '{task_type}'")] NoSuitableAgent { task_type: String }, /// Agent is not available #[error("Agent '{agent_id}' is not available (status: {status})")] AgentUnavailable { agent_id: String, status: String }, /// Task execution failed #[error("Task execution failed: {message}")] TaskExecution { message: String, #[source] source: Option<Box<dyn std::error::Error + Send + Sync>>, }, /// Task timeout #[error("Task '{task_id}' timed out after {duration:?}")] TaskTimeout { task_id: String, duration: std::time::Duration, }, /// Task cancelled #[error("Task '{task_id}' was cancelled: {reason}")] TaskCancelled { task_id: String, reason: String }, /// Invalid routing rule #[error("Invalid routing rule: {rule}")] InvalidRoutingRule { rule: String }, /// Communication error #[error("Communication error: {message}")] Communication { message: String, #[source] source: Option<Box<dyn std::error::Error + Send + Sync>>, }, /// Message delivery failed #[error("Failed to deliver message '{message_id}' to agent '{agent_id}'")] MessageDeliveryFailed { message_id: String, agent_id: String, }, /// Registry operation failed #[error("Registry operation failed: {operation}")] Registry { operation: String, #[source] source: Option<Box<dyn std::error::Error + Send + Sync>>, }, /// Dispatcher error #[error("Dispatcher error: {message}")] Dispatcher { message: String, #[source] source: Option<Box<dyn std::error::Error + Send + Sync>>, }, /// Configuration error #[error("Configuration error: {message}")] Configuration { message: String }, /// Serialization error #[error("Serialization error")] Serialization { #[from] source: serde_json::Error, }, /// Tool error (from riglr-core) #[error("Tool error")] Tool { #[from] source: ToolError, }, /// Generic error #[error("Agent system error: {message}")] Generic { message: String, #[source] source: Option<Box<dyn std::error::Error + Send + Sync>>, }, }
+pub enum AgentError { /// Agent not found in registry #[error("Agent '{agent_id}' not found in registry")] AgentNotFound { /// The identifier of the agent that was not found agent_id: String }, /// No suitable agent found for task #[error("No agent found capable of handling task type '{task_type}'")] NoSuitableAgent { /// The type of task that no agent could handle task_type: String }, /// Agent is not available #[error("Agent '{agent_id}' is not available (status: {status})")] AgentUnavailable { /// The identifier of the unavailable agent agent_id: String, /// The current status of the agent status: String }, /// Task execution failed #[error("Task execution failed: {message}")] TaskExecution { /// The error message describing the failure message: String, /// The underlying cause of the execution failure #[source] source: Option<Box<dyn std::error::Error + Send + Sync>>, }, /// Task timeout #[error("Task '{task_id}' timed out after {duration:?}")] TaskTimeout { /// The identifier of the task that timed out task_id: String, /// The duration after which the task timed out duration: std::time::Duration, }, /// Task cancelled #[error("Task '{task_id}' was cancelled: {reason}")] TaskCancelled { /// The identifier of the cancelled task task_id: String, /// The reason for the cancellation reason: String }, /// Invalid routing rule #[error("Invalid routing rule: {rule}")] InvalidRoutingRule { /// The invalid routing rule that was provided rule: String }, /// Communication error #[error("Communication error: {message}")] Communication { /// The error message describing the communication failure message: String, /// The underlying cause of the communication error #[source] source: Option<Box<dyn std::error::Error + Send + Sync>>, }, /// Message delivery failed #[error("Failed to deliver message '{message_id}' to agent '{agent_id}'")] MessageDeliveryFailed { /// The identifier of the message that failed to deliver message_id: String, /// The identifier of the target agent agent_id: String, }, /// Registry operation failed #[error("Registry operation failed: {operation}")] Registry { /// The registry operation that failed operation: String, /// The underlying cause of the registry operation failure #[source] source: Option<Box<dyn std::error::Error + Send + Sync>>, }, /// Dispatcher error #[error("Dispatcher error: {message}")] Dispatcher { /// The error message describing the dispatcher failure message: String, /// The underlying cause of the dispatcher error #[source] source: Option<Box<dyn std::error::Error + Send + Sync>>, }, /// Configuration error #[error("Configuration error: {message}")] Configuration { /// The error message describing the configuration issue message: String }, /// Serialization error #[error("Serialization error")] Serialization { /// The underlying JSON serialization error #[from] source: serde_json::Error, }, /// Tool error (from riglr-core) #[error("Tool error")] Tool { /// The underlying tool error from riglr-core #[from] source: ToolError, }, /// Generic error #[error("Agent system error: {message}")] Generic { /// The error message describing the generic failure message: String, /// The underlying cause of the generic error #[source] source: Option<Box<dyn std::error::Error + Send + Sync>>, }, }
 ```
 
 Main error type for riglr-agents operations.
@@ -2171,8 +2173,12 @@ Main error type for riglr-agents operations.
 **Variants**:
 
 - `AgentNotFound`
+- `agent_id`
 - `NoSuitableAgent`
+- `task_type`
 - `AgentUnavailable`
+- `agent_id`
+- `status`
 - `TaskExecution`
 - `message`
 - `source`
@@ -2180,7 +2186,10 @@ Main error type for riglr-agents operations.
 - `task_id`
 - `duration`
 - `TaskCancelled`
+- `task_id`
+- `reason`
 - `InvalidRoutingRule`
+- `rule`
 - `Communication`
 - `message`
 - `source`
@@ -2194,6 +2203,7 @@ Main error type for riglr-agents operations.
 - `message`
 - `source`
 - `Configuration`
+- `message`
 - `Serialization`
 - `source`
 - `Tool`
@@ -2315,11 +2325,11 @@ Rules for routing tasks to agents.
 
 **Attributes**:
 ```rust
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 ```
 
 ```rust
-pub enum RoutingStrategy { /// Route based on agent capabilities Capability, /// Round-robin among capable agents RoundRobin, /// Route to least loaded agent LeastLoaded, /// Route to random capable agent Random, /// Route to specific agent (useful for directed tasks) Direct, }
+pub enum RoutingStrategy { /// Route based on agent capabilities #[default] Capability, /// Round-robin among capable agents RoundRobin, /// Route to least loaded agent LeastLoaded, /// Route to random capable agent Random, /// Route to specific agent (useful for directed tasks) Direct, }
 ```
 
 Routing strategies for task dispatch.

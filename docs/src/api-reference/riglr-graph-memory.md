@@ -53,8 +53,6 @@ Comprehensive API documentation for the `riglr-graph-memory` crate.
 - [`new`](#new)
 - [`new`](#new)
 - [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
 - [`new_default`](#new_default)
 - [`retriever`](#retriever)
 - [`search`](#search)
@@ -76,13 +74,13 @@ Comprehensive API documentation for the `riglr-graph-memory` crate.
 - [`GraphMemoryError`](#graphmemoryerror)
 - [`RelationshipType`](#relationshiptype)
 
-### Constants
-
-- [`VERSION`](#version)
-
 ### Traits
 
 - [`VectorStore`](#vectorstore)
+
+### Constants
+
+- [`VERSION`](#version)
 
 ## Structs
 
@@ -377,7 +375,7 @@ A relationship between entities
 ```
 
 ```rust
-pub struct RigDocument { pub id: String, pub content: String, pub embedding: Vec<f32>, pub metadata: HashMap<String, Value>, }
+pub struct RigDocument { /// Unique document identifier pub id: String, /// Main text content of the document pub content: String, /// Vector embedding representation of the document pub embedding: Vec<f32>, /// Additional metadata key-value pairs for the document pub metadata: HashMap<String, Value>, }
 ```
 
 Document type that bridges between rig and our graph memory system
@@ -405,18 +403,6 @@ Performance metrics for graph search operations
 
 ### add_documents
 
-**Source**: `src/graph.rs`
-
-```rust
-pub async fn add_documents(&self, documents: Vec<RawTextDocument>) -> Result<Vec<String>>
-```
-
-Add documents to the graph with full processing pipeline.
-
----
-
-### add_documents
-
 **Source**: `src/rig_vector_store.rs`
 
 ```rust
@@ -437,6 +423,18 @@ pub async fn add_documents(&self, documents: Vec<RawTextDocument>) -> Result<Vec
 
 Add documents to the graph vector store
 This is the core functionality that would be exposed through rig::VectorStore
+
+---
+
+### add_documents
+
+**Source**: `src/graph.rs`
+
+```rust
+pub async fn add_documents(&self, documents: Vec<RawTextDocument>) -> Result<Vec<String>>
+```
+
+Add documents to the graph with full processing pipeline.
 
 ---
 
@@ -471,6 +469,8 @@ Add a tag to the document
 ```rust
 pub fn add_token(&mut self, address: impl Into<String>)
 ```
+
+Add a token address mention
 
 ---
 
@@ -684,54 +684,6 @@ Create a new Neo4j client with HTTP endpoint.
 
 ### new
 
-**Source**: `src/document.rs`
-
-```rust
-pub fn new(content: impl Into<String>) -> Self
-```
-
-Create a new raw text document with automatic ID generation.
-
----
-
-### new
-
-**Source**: `src/document.rs`
-
-```rust
-pub fn new() -> Self
-```
-
-Create empty metadata
-
----
-
-### new
-
-**Source**: `src/extractor.rs`
-
-```rust
-pub fn new() -> Self
-```
-
-Create a new entity extractor with predefined patterns
-
----
-
-### new
-
-**Source**: `src/graph.rs`
-
-```rust
-pub async fn new(config: GraphMemoryConfig) -> Result<Self>
-```
-
-Create a new graph memory instance with configuration.
-
----
-
-### new
-
 **Source**: `src/rig_vector_store.rs`
 
 ```rust
@@ -751,6 +703,30 @@ pub async fn new( client: Arc<Neo4jClient>, config: Option<GraphRetrieverConfig>
 ```
 
 Create a new graph retriever with Neo4j client
+
+---
+
+### new
+
+**Source**: `src/document.rs`
+
+```rust
+pub fn new(content: impl Into<String>) -> Self
+```
+
+Create a new raw text document with automatic ID generation.
+
+---
+
+### new
+
+**Source**: `src/graph.rs`
+
+```rust
+pub async fn new(config: GraphMemoryConfig) -> Result<Self>
+```
+
+Create a new graph memory instance with configuration.
 
 ---
 
@@ -780,18 +756,6 @@ Get the underlying graph retriever for advanced operations
 
 ### search
 
-**Source**: `src/graph.rs`
-
-```rust
-pub async fn search( &self, query_embedding: &[f32], limit: usize, ) -> Result<crate::vector_store::GraphSearchResult>
-```
-
-Search for documents using hybrid vector + graph search
-
----
-
-### search
-
 **Source**: `src/rig_vector_store.rs`
 
 ```rust
@@ -799,6 +763,18 @@ pub async fn search( &self, query_embedding: Vec<f32>, limit: usize, ) -> Result
 ```
 
 Search for similar documents using vector similarity
+
+---
+
+### search
+
+**Source**: `src/graph.rs`
+
+```rust
+pub async fn search( &self, query_embedding: &[f32], limit: usize, ) -> Result<crate::vector_store::GraphSearchResult>
+```
+
+Search for documents using hybrid vector + graph search
 
 ---
 
@@ -910,7 +886,7 @@ Get document word count
 ```
 
 ```rust
-pub enum AmountType { Balance, Price, Fee, Volume, MarketCap, Other(String), }
+pub enum AmountType { /// Account or wallet balance Balance, /// Token or asset price Price, /// Transaction or gas fee Fee, /// Trading volume Volume, /// Market capitalization MarketCap, /// Other amount type Other(String), }
 ```
 
 Type of amount
@@ -936,7 +912,7 @@ Type of amount
 ```
 
 ```rust
-pub enum DocumentSource { /// User-provided text input UserInput, /// On-chain transaction data OnChain { chain: String, transaction_hash: String, }, /// Social media post (Twitter, Discord, etc.) Social { platform: String, post_id: String, author: Option<String>, }, /// News article or blog post News { url: String, publication: Option<String>, }, /// API response or structured data ApiResponse { endpoint: String, timestamp: chrono::DateTime<chrono::Utc>, }, /// Other sources Other(String), }
+pub enum DocumentSource { /// User-provided text input UserInput, /// On-chain transaction data OnChain { /// Blockchain network name (e.g., "ethereum", "solana") chain: String, /// Transaction hash or ID transaction_hash: String, }, /// Social media post (Twitter, Discord, etc.) Social { /// Social media platform name platform: String, /// Post or message ID post_id: String, /// Author username or handle author: Option<String>, }, /// News article or blog post News { /// Article URL url: String, /// Publication or website name publication: Option<String>, }, /// API response or structured data ApiResponse { /// API endpoint URL or identifier endpoint: String, /// When the data was retrieved timestamp: chrono::DateTime<chrono::Utc>, }, /// Other sources Other(String), }
 ```
 
 Source of the document
@@ -971,7 +947,7 @@ Source of the document
 ```
 
 ```rust
-pub enum EntityType { Wallet, Token, Protocol, Chain, Other(String), }
+pub enum EntityType { /// Cryptocurrency wallet address Wallet, /// Token contract or symbol Token, /// DeFi protocol or dApp Protocol, /// Blockchain network Chain, /// Other entity type Other(String), }
 ```
 
 Type of entity
@@ -1024,7 +1000,7 @@ Main error type for graph memory operations.
 ```
 
 ```rust
-pub enum RelationshipType { /// One wallet transferred to another Transferred, /// Wallet interacted with protocol Interacted, Holds, /// Token is part of protocol PartOf, /// Protocol deployed on chain DeployedOn, /// Generic relationship Related, }
+pub enum RelationshipType { /// One wallet transferred to another Transferred, /// Wallet interacted with protocol Interacted, /// Entity holds or owns another entity Holds, /// Token is part of protocol PartOf, /// Protocol deployed on chain DeployedOn, /// Generic relationship Related, }
 ```
 
 Type of relationship
@@ -1037,20 +1013,6 @@ Type of relationship
 - `PartOf`
 - `DeployedOn`
 - `Related`
-
----
-
-## Constants
-
-### VERSION
-
-**Source**: `src/lib.rs`
-
-```rust
-const VERSION: &str
-```
-
-Current version of riglr-graph-memory
 
 ---
 
@@ -1098,6 +1060,20 @@ async fn get_documents( &self, ids: Vec<String>, ) -> std::result::Result<Vec<Se
 ```rust
 async fn delete_documents( &self, ids: Vec<String>, ) -> std::result::Result<Vec<String>, Self::Error>;
 ```
+
+---
+
+## Constants
+
+### VERSION
+
+**Source**: `src/lib.rs`
+
+```rust
+const VERSION: &str
+```
+
+Current version of riglr-graph-memory
 
 ---
 

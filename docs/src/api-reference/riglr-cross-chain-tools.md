@@ -4,6 +4,13 @@ Comprehensive API documentation for the `riglr-cross-chain-tools` crate.
 
 ## Table of Contents
 
+### Enums
+
+- [`BridgeStatus`](#bridgestatus)
+- [`ChainType`](#chaintype)
+- [`CrossChainError`](#crosschainerror)
+- [`LiFiError`](#lifierror)
+
 ### Structs
 
 - [`BridgeExecutionResult`](#bridgeexecutionresult)
@@ -36,17 +43,6 @@ Comprehensive API documentation for the `riglr-cross-chain-tools` crate.
 - [`get_cross_chain_routes`](#get_cross_chain_routes)
 - [`get_supported_chains`](#get_supported_chains)
 
-### Enums
-
-- [`BridgeStatus`](#bridgestatus)
-- [`ChainType`](#chaintype)
-- [`CrossChainError`](#crosschainerror)
-- [`LiFiError`](#lifierror)
-
-### Constants
-
-- [`VERSION`](#version)
-
 ### Functions
 
 - [`chain_id_to_name`](#chain_id_to_name)
@@ -56,10 +52,125 @@ Comprehensive API documentation for the `riglr-cross-chain-tools` crate.
 - [`get_route_with_transaction`](#get_route_with_transaction)
 - [`get_routes`](#get_routes)
 - [`get_transaction_request_for_route`](#get_transaction_request_for_route)
-- [`new`](#new)
 - [`prepare_bridge_execution`](#prepare_bridge_execution)
 - [`with_api_key`](#with_api_key)
 - [`with_base_url`](#with_base_url)
+
+### Constants
+
+- [`VERSION`](#version)
+
+## Enums
+
+### BridgeStatus
+
+**Source**: `src/lifi.rs`
+
+**Attributes**:
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+```
+
+```rust
+pub enum BridgeStatus { /// Transaction not found NotFound, /// Transaction is pending execution Pending, /// Transaction completed successfully Done, /// Transaction failed Failed, }
+```
+
+Bridge transaction status
+
+**Variants**:
+
+- `NotFound`
+- `Pending`
+- `Done`
+- `Failed`
+
+---
+
+### ChainType
+
+**Source**: `src/lifi.rs`
+
+**Attributes**:
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "lowercase")]
+```
+
+```rust
+pub enum ChainType { /// Ethereum Virtual Machine based blockchain #[serde(rename = "evm")] Evm, /// Solana blockchain #[serde(rename = "solana")] Solana, }
+```
+
+Supported blockchain networks
+
+**Variants**:
+
+- `Evm`
+- `Solana`
+
+---
+
+### CrossChainError
+
+**Source**: `src/error.rs`
+
+**Attributes**:
+```rust
+#[derive(Error, Debug)]
+```
+
+```rust
+pub enum CrossChainError { /// Core tool error #[error("Core tool error: {0}")] ToolError(#[from] ToolError), /// Li.fi API error #[error("Li.fi API error: {0}")] LifiApiError(String), /// Quote fetch failed #[error("Quote fetch failed: {0}")] QuoteFetchError(String), /// Invalid route configuration #[error("Invalid route configuration: {0}")] InvalidRoute(String), /// Bridge operation failed #[error("Bridge operation failed: {0}")] BridgeExecutionError(String), /// Unsupported chain pair #[error("Unsupported chain pair: {from_chain} -> {to_chain}")] UnsupportedChainPair { /// Source chain identifier from_chain: String, /// Destination chain identifier to_chain: String, }, /// Insufficient liquidity for amount #[error("Insufficient liquidity for amount: {amount}")] InsufficientLiquidity { /// Amount that was requested but unavailable amount: String }, }
+```
+
+Errors that can occur during cross-chain operations
+
+**Variants**:
+
+- `ToolError(#[from] ToolError)`
+- `LifiApiError(String)`
+- `QuoteFetchError(String)`
+- `InvalidRoute(String)`
+- `BridgeExecutionError(String)`
+- `UnsupportedChainPair`
+- `from_chain`
+- `to_chain`
+- `InsufficientLiquidity`
+- `amount`
+
+---
+
+### LiFiError
+
+**Source**: `src/lifi.rs`
+
+**Attributes**:
+```rust
+#[derive(Error, Debug)]
+```
+
+```rust
+pub enum LiFiError { /// HTTP request failed #[error("HTTP request failed: {0}")] Request(#[from] reqwest::Error), /// Invalid response format from API #[error("Invalid response format: {0}")] InvalidResponse(String), /// API returned an error response #[error("API error: {code} - {message}")] ApiError { /// HTTP status code code: u16, /// Error message from API message: String }, /// Chain is not supported by LiFi #[error("Chain not supported: {chain_name}")] UnsupportedChain { /// Name of the unsupported chain chain_name: String }, /// No route found between chains #[error("Route not found for {from_chain} -> {to_chain}")] RouteNotFound { /// Source chain name from_chain: String, /// Destination chain name to_chain: String, }, /// Configuration error #[error("Configuration error: {0}")] Configuration(String), /// URL parsing error #[error("URL parsing error: {0}")] UrlParse(#[from] ParseError), }
+```
+
+Errors that can occur during LiFi API operations
+
+**Variants**:
+
+- `Request(#[from] reqwest::Error)`
+- `InvalidResponse(String)`
+- `ApiError`
+- `code`
+- `message`
+- `UnsupportedChain`
+- `chain_name`
+- `RouteNotFound`
+- `from_chain`
+- `to_chain`
+- `Configuration(String)`
+- `UrlParse(#[from] ParseError)`
+
+---
 
 ## Structs
 
@@ -110,7 +221,7 @@ Result of bridge fee estimation
 ```
 
 ```rust
-pub struct BridgeStatusResponse { pub status: BridgeStatus, pub from_chain_id: Option<u64>, pub to_chain_id: Option<u64>, pub tool: Option<String>, pub sending_tx_hash: Option<String>, pub receiving_tx_hash: Option<String>, pub amount_sent: Option<String>, pub amount_received: Option<String>, }
+pub struct BridgeStatusResponse { /// Current status of the bridge transaction pub status: BridgeStatus, /// Source chain ID pub from_chain_id: Option<u64>, /// Destination chain ID pub to_chain_id: Option<u64>, /// Tool/protocol used for bridging pub tool: Option<String>, /// Transaction hash on source chain pub sending_tx_hash: Option<String>, /// Transaction hash on destination chain pub receiving_tx_hash: Option<String>, /// Amount sent from source chain pub amount_sent: Option<String>, /// Amount received on destination chain pub amount_received: Option<String>, }
 ```
 
 Bridge transaction status response
@@ -146,7 +257,7 @@ Result of checking bridge status
 ```
 
 ```rust
-pub struct Chain { pub id: u64, pub name: String, pub key: String, pub chain_type: ChainType, pub logo_uri: Option<String>, pub native_token: Token, }
+pub struct Chain { /// Unique chain identifier pub id: u64, /// Human-readable chain name pub name: String, /// Chain key used by LiFi API pub key: String, /// Type of blockchain (EVM or Solana)
 ```
 
 Chain information from LiFi
@@ -182,7 +293,7 @@ Chain information for supported networks
 ```
 
 ```rust
-pub struct CrossChainRoute { pub id: String, pub from_chain_id: u64, pub to_chain_id: u64, pub from_token: Token, pub to_token: Token, pub from_amount: String, pub to_amount: String, pub to_amount_min: String, pub steps: Vec<RouteStep>, pub gas_cost_usd: Option<f64>, pub fees: Vec<RouteFee>, pub estimated_execution_duration: u64, // seconds pub tags: Vec<String>, /// Transaction request data for executing the bridge pub transaction_request: Option<TransactionRequest>, }
+pub struct CrossChainRoute { /// Unique route identifier pub id: String, /// Source chain ID pub from_chain_id: u64, /// Destination chain ID pub to_chain_id: u64, /// Token being sent from source chain pub from_token: Token, /// Token being received on destination chain pub to_token: Token, /// Amount to send (in token units)
 ```
 
 A cross-chain route option from LiFi
@@ -217,7 +328,7 @@ Fee breakdown information
 ```
 
 ```rust
-pub struct LiFiClient { client: reqwest::Client, base_url: Url, api_key: Option<String>, }
+pub struct LiFiClient { /// HTTP client for API requests client: reqwest::Client, /// Base URL for LiFi API base_url: Url, /// Optional API key for authentication api_key: Option<String>, }
 ```
 
 LiFi Protocol API client
@@ -253,7 +364,7 @@ Result of a cross-chain route discovery
 ```
 
 ```rust
-pub struct RouteFee { pub name: String, pub description: String, pub percentage: String, pub token: Token, pub amount: String, pub amount_usd: Option<f64>, pub included: bool, }
+pub struct RouteFee { /// Fee name/type pub name: String, /// Human-readable fee description pub description: String, /// Fee percentage (as string)
 ```
 
 Fee information for a route
@@ -289,7 +400,7 @@ Simplified route information for tools
 ```
 
 ```rust
-pub struct RouteRequest { pub from_chain: u64, pub to_chain: u64, pub from_token: String, pub to_token: String, pub from_amount: String, pub from_address: Option<String>, pub to_address: Option<String>, pub slippage: Option<f64>, // 0.005 = 0.5% }
+pub struct RouteRequest { /// Source chain ID pub from_chain: u64, /// Destination chain ID pub to_chain: u64, /// Source token address pub from_token: String, /// Destination token address pub to_token: String, /// Amount to bridge (in token units)
 ```
 
 Request parameters for getting cross-chain routes
@@ -307,7 +418,7 @@ Request parameters for getting cross-chain routes
 ```
 
 ```rust
-pub struct RouteResponse { pub routes: Vec<CrossChainRoute>, }
+pub struct RouteResponse { /// Available cross-chain routes pub routes: Vec<CrossChainRoute>, }
 ```
 
 Response from the routes API
@@ -325,7 +436,7 @@ Response from the routes API
 ```
 
 ```rust
-pub struct RouteStep { pub id: String, pub type_: String, // "lifi", "cross", "swap" pub tool: String, pub action: StepAction, pub estimate: StepEstimate, }
+pub struct RouteStep { /// Unique step identifier pub id: String, /// Step type (e.g., "lifi", "cross", "swap")
 ```
 
 A step within a cross-chain route
@@ -343,7 +454,7 @@ A step within a cross-chain route
 ```
 
 ```rust
-pub struct SolanaAccountMeta { pub pubkey: String, pub is_signer: bool, pub is_writable: bool, }
+pub struct SolanaAccountMeta { /// Public key of the account pub pubkey: String, /// Whether this account must sign the transaction pub is_signer: bool, /// Whether this account is writable pub is_writable: bool, }
 ```
 
 Solana account metadata for building instructions
@@ -361,7 +472,7 @@ Solana account metadata for building instructions
 ```
 
 ```rust
-pub struct StepAction { pub from_chain_id: u64, pub to_chain_id: u64, pub from_token: Token, pub to_token: Token, pub from_amount: String, pub to_amount: String, }
+pub struct StepAction { /// Source chain ID for this step pub from_chain_id: u64, /// Destination chain ID for this step pub to_chain_id: u64, /// Input token for this step pub from_token: Token, /// Output token for this step pub to_token: Token, /// Input amount for this step pub from_amount: String, /// Expected output amount for this step pub to_amount: String, }
 ```
 
 Action details for a route step
@@ -379,7 +490,7 @@ Action details for a route step
 ```
 
 ```rust
-pub struct StepEstimate { pub tool: String, pub approval_address: Option<String>, pub to_amount_min: String, pub data_gas_estimate: Option<String>, pub gas_price: Option<String>, pub gas_cost: Option<String>, pub execution_duration: u64, }
+pub struct StepEstimate { /// Tool/protocol used for estimation pub tool: String, /// Contract address that needs approval (if any)
 ```
 
 Execution estimate for a step
@@ -397,7 +508,7 @@ Execution estimate for a step
 ```
 
 ```rust
-pub struct Token { pub address: String, pub symbol: String, pub decimals: u8, pub name: String, pub logo_uri: Option<String>, pub price_usd: Option<f64>, }
+pub struct Token { /// Token contract address pub address: String, /// Token symbol (e.g., ETH, USDC)
 ```
 
 Token information
@@ -800,124 +911,6 @@ println!("    Logo: {}", logo);
 
 ---
 
-## Enums
-
-### BridgeStatus
-
-**Source**: `src/lifi.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
-```
-
-```rust
-pub enum BridgeStatus { NotFound, Pending, Done, Failed, }
-```
-
-Bridge transaction status
-
-**Variants**:
-
-- `NotFound`
-- `Pending`
-- `Done`
-- `Failed`
-
----
-
-### ChainType
-
-**Source**: `src/lifi.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "lowercase")]
-```
-
-```rust
-pub enum ChainType { #[serde(rename = "evm")] Evm, #[serde(rename = "solana")] Solana, }
-```
-
-Supported blockchain networks
-
-**Variants**:
-
-- `Evm`
-- `Solana`
-
----
-
-### CrossChainError
-
-**Source**: `src/error.rs`
-
-**Attributes**:
-```rust
-#[derive(Error, Debug)]
-```
-
-```rust
-pub enum CrossChainError { /// Core tool error #[error("Core tool error: {0}")] ToolError(#[from] ToolError), /// Li.fi API error #[error("Li.fi API error: {0}")] LifiApiError(String), /// Quote fetch failed #[error("Quote fetch failed: {0}")] QuoteFetchError(String), /// Invalid route configuration #[error("Invalid route configuration: {0}")] InvalidRoute(String), /// Bridge operation failed #[error("Bridge operation failed: {0}")] BridgeExecutionError(String), /// Unsupported chain pair #[error("Unsupported chain pair: {from_chain} -> {to_chain}")] UnsupportedChainPair { from_chain: String, to_chain: String, }, /// Insufficient liquidity for amount #[error("Insufficient liquidity for amount: {amount}")] InsufficientLiquidity { amount: String }, }
-```
-
-**Variants**:
-
-- `ToolError(#[from] ToolError)`
-- `LifiApiError(String)`
-- `QuoteFetchError(String)`
-- `InvalidRoute(String)`
-- `BridgeExecutionError(String)`
-- `UnsupportedChainPair`
-- `from_chain`
-- `to_chain`
-- `InsufficientLiquidity`
-
----
-
-### LiFiError
-
-**Source**: `src/lifi.rs`
-
-**Attributes**:
-```rust
-#[derive(Error, Debug)]
-```
-
-```rust
-pub enum LiFiError { #[error("HTTP request failed: {0}")] Request(#[from] reqwest::Error), #[error("Invalid response format: {0}")] InvalidResponse(String), #[error("API error: {code} - {message}")] ApiError { code: u16, message: String }, #[error("Chain not supported: {chain_name}")] UnsupportedChain { chain_name: String }, #[error("Route not found for {from_chain} -> {to_chain}")] RouteNotFound { from_chain: String, to_chain: String, }, #[error("Configuration error: {0}")] Configuration(String), #[error("URL parsing error: {0}")] UrlParse(#[from] ParseError), }
-```
-
-Errors that can occur during LiFi API operations
-
-**Variants**:
-
-- `Request(#[from] reqwest::Error)`
-- `InvalidResponse(String)`
-- `ApiError`
-- `UnsupportedChain`
-- `RouteNotFound`
-- `from_chain`
-- `to_chain`
-- `Configuration(String)`
-- `UrlParse(#[from] ParseError)`
-
----
-
-## Constants
-
-### VERSION
-
-**Source**: `src/lib.rs`
-
-```rust
-const VERSION: &str
-```
-
----
-
 ## Functions
 
 ### chain_id_to_name
@@ -1005,18 +998,6 @@ Get transaction request data for a specific route
 
 ---
 
-### new
-
-**Source**: `src/lifi.rs`
-
-```rust
-pub fn new() -> Result<Self, LiFiError>
-```
-
-Create a new LiFi client with default settings
-
----
-
 ### prepare_bridge_execution
 
 **Source**: `src/lifi.rs`
@@ -1051,6 +1032,20 @@ pub fn with_base_url(base_url: &str) -> Result<Self, LiFiError>
 ```
 
 Create a new LiFi client with custom base URL
+
+---
+
+## Constants
+
+### VERSION
+
+**Source**: `src/lib.rs`
+
+```rust
+const VERSION: &str
+```
+
+Version information for the riglr-cross-chain-tools crate.
 
 ---
 
