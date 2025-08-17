@@ -4,29 +4,13 @@ Comprehensive API documentation for the `riglr-evm-tools` crate.
 
 ## Table of Contents
 
-### Structs
+### Enums
 
-- [`BalanceResult`](#balanceresult)
-- [`EvmClient`](#evmclient)
-- [`EvmConfig`](#evmconfig)
-- [`TokenBalanceResult`](#tokenbalanceresult)
-- [`TransactionResult`](#transactionresult)
-- [`UniswapConfig`](#uniswapconfig)
-- [`UniswapQuote`](#uniswapquote)
-- [`UniswapSwapResult`](#uniswapswapresult)
+- [`EvmToolError`](#evmtoolerror)
 
-### Tools
+### Constants
 
-- [`call_contract_read`](#call_contract_read)
-- [`call_contract_write`](#call_contract_write)
-- [`get_erc20_balance`](#get_erc20_balance)
-- [`get_eth_balance`](#get_eth_balance)
-- [`get_transaction_receipt`](#get_transaction_receipt)
-- [`get_uniswap_quote`](#get_uniswap_quote)
-- [`perform_uniswap_swap`](#perform_uniswap_swap)
-- [`read_erc20_info`](#read_erc20_info)
-- [`transfer_erc20`](#transfer_erc20)
-- [`transfer_eth`](#transfer_eth)
+- [`VERSION`](#version)
 
 ### Functions
 
@@ -68,651 +52,86 @@ Comprehensive API documentation for the `riglr-evm-tools` crate.
 - [`wei_to_eth`](#wei_to_eth)
 - [`with_signer`](#with_signer)
 
-### Enums
+### Structs
 
-- [`EvmToolError`](#evmtoolerror)
+- [`BalanceResult`](#balanceresult)
+- [`EvmClient`](#evmclient)
+- [`EvmConfig`](#evmconfig)
+- [`TokenBalanceResult`](#tokenbalanceresult)
+- [`TransactionResult`](#transactionresult)
+- [`UniswapConfig`](#uniswapconfig)
+- [`UniswapQuote`](#uniswapquote)
+- [`UniswapSwapResult`](#uniswapswapresult)
 
-### Constants
+### Tools
 
-- [`VERSION`](#version)
+- [`call_contract_read`](#call_contract_read)
+- [`call_contract_write`](#call_contract_write)
+- [`get_erc20_balance`](#get_erc20_balance)
+- [`get_eth_balance`](#get_eth_balance)
+- [`get_transaction_receipt`](#get_transaction_receipt)
+- [`get_uniswap_quote`](#get_uniswap_quote)
+- [`perform_uniswap_swap`](#perform_uniswap_swap)
+- [`read_erc20_info`](#read_erc20_info)
+- [`transfer_erc20`](#transfer_erc20)
+- [`transfer_eth`](#transfer_eth)
 
 ### Type Aliases
 
 - [`EvmProvider`](#evmprovider)
 
-## Structs
+## Enums
 
-### BalanceResult
+### EvmToolError
 
-**Source**: `src/balance.rs`
+**Source**: `src/error.rs`
 
 **Attributes**:
 ```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Error, Debug, IntoToolError)]
 ```
 
 ```rust
-pub struct BalanceResult { /// The wallet address that was queried pub address: String, /// The balance in the smallest unit (wei for ETH, smallest decimal for tokens)
+pub enum EvmToolError { /// Core tool error - pass through directly #[error("Core tool error: {0}")] #[tool_error(permanent)] // Will be handled specially in macro update ToolError(#[from] ToolError), /// Signer context error - pass through directly #[error("Signer context error: {0}")] #[tool_error(permanent)] // Will be handled specially in macro update SignerError(#[from] SignerError), /// Provider error - automatically retriable #[error("Provider error: {0}")] ProviderError(String), /// Transaction build error - permanent #[error("Transaction build error: {0}")] #[tool_error(permanent)] TransactionBuildError(String), /// Invalid address format - automatically permanent #[error("Invalid address format: {0}")] InvalidAddress(String), /// Insufficient balance - automatically permanent #[error("Insufficient balance for operation")] InsufficientBalance, /// Unsupported chain ID - permanent #[error("Unsupported chain ID: {0}")] #[tool_error(permanent)] UnsupportedChain(u64), /// Serialization error - automatically permanent #[error("Serialization error: {0}")] Serialization(#[from] serde_json::Error), /// HTTP request error - automatically retriable #[error("HTTP error: {0}")] Http(#[from] reqwest::Error), /// Core riglr error - retriable by default #[error("Core error: {0}")] #[tool_error(retriable)] Core(#[from] riglr_core::CoreError), /// RPC client error - automatically retriable #[error("RPC error: {0}")] Rpc(String), /// Contract interaction failed - permanent #[error("Contract error: {0}")] #[tool_error(permanent)] Contract(String), /// Invalid private key - automatically permanent #[error("Invalid key: {0}")] InvalidKey(String), /// Transaction failed - retriable #[error("Transaction error: {0}")] #[tool_error(retriable)] Transaction(String), /// Generic error - permanent by default #[error("EVM tool error: {0}")] #[tool_error(permanent)] Generic(String), }
 ```
 
-Result of balance checking operation
+Main error type for EVM tool operations.
+
+The IntoToolError derive macro automatically classifies errors based on variant names:
+- Retriable: Rpc, Http, Provider, Transaction (network-related)
+- Permanent: Invalid*, InsufficientBalance, Unsupported*, Contract, Serialization
+
+**Variants**:
+
+- `ToolError(#[from] ToolError)`
+- `SignerError(#[from] SignerError)`
+- `ProviderError(String)`
+- `TransactionBuildError(String)`
+- `InvalidAddress(String)`
+- `InsufficientBalance`
+- `UnsupportedChain(u64)`
+- `Serialization(#[from] serde_json::Error)`
+- `Http(#[from] reqwest::Error)`
+- `Core(#[from] riglr_core::CoreError)`
+- `Rpc(String)`
+- `Contract(String)`
+- `InvalidKey(String)`
+- `Transaction(String)`
+- `Generic(String)`
 
 ---
 
-### EvmClient
+## Constants
 
-**Source**: `src/client.rs`
+### VERSION
 
-**Attributes**:
-```rust
-#[derive(Clone)]
-```
+**Source**: `src/lib.rs`
 
 ```rust
-pub struct EvmClient { provider: Arc<dyn Provider<Ethereum>>, signer: Option<PrivateKeySigner>, // Add signer field config: EvmConfig, pub rpc_url: String, pub chain_id: u64, }
+const VERSION: &str
 ```
 
-Production-grade EVM client using alloy-rs
-
----
-
-### EvmConfig
-
-**Source**: `src/client.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize)]
-```
-
-```rust
-pub struct EvmConfig { pub rpc_url: String, pub chain_id: u64, pub timeout: Duration, }
-```
-
-Configuration for EVM client
-
----
-
-### TokenBalanceResult
-
-**Source**: `src/balance.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub struct TokenBalanceResult { /// The wallet address that was queried pub address: String, /// The token contract address pub token_address: String, /// The token symbol pub token_symbol: Option<String>, /// The token name pub token_name: Option<String>, /// The token decimals pub decimals: u8, /// The raw balance (smallest unit)
-```
-
-Result of ERC20 token balance checking
-
----
-
-### TransactionResult
-
-**Source**: `src/transaction.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub struct TransactionResult { /// Transaction hash pub tx_hash: String, /// From address pub from: String, /// To address pub to: String, /// Value transferred in wei pub value_wei: String, /// Value transferred in ETH pub value_eth: f64, /// Gas used pub gas_used: Option<u128>, /// Gas price in wei pub gas_price: Option<u128>, /// Block number pub block_number: Option<u64>, /// Chain ID pub chain_id: u64, /// Status (success/failure)
-```
-
-Result of a transaction
-
----
-
-### UniswapConfig
-
-**Source**: `src/swap.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone)]
-```
-
-```rust
-pub struct UniswapConfig { /// Uniswap V3 SwapRouter contract address pub router_address: String, /// Uniswap V3 Quoter contract address pub quoter_address: String, /// Default slippage tolerance (basis points, 100 = 1%)
-```
-
-Uniswap V3 configuration
-
----
-
-### UniswapQuote
-
-**Source**: `src/swap.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub struct UniswapQuote { /// Input token address pub token_in: String, /// Output token address pub token_out: String, /// Input amount in smallest units pub amount_in: String, /// Expected output amount in smallest units pub amount_out: String, /// Price per input token pub price: f64, /// Fee tier (100 = 0.01%, 500 = 0.05%, 3000 = 0.3%, 10000 = 1%)
-```
-
-Result of a Uniswap quote
-
----
-
-### UniswapSwapResult
-
-**Source**: `src/swap.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub struct UniswapSwapResult { /// Transaction hash pub tx_hash: String, /// Input token address pub token_in: String, /// Output token address pub token_out: String, /// Input amount pub amount_in: String, /// Actual output amount received pub amount_out: String, /// Gas used pub gas_used: Option<u128>, /// Status pub status: bool, }
-```
-
-Result of a Uniswap swap
-
----
-
-## Tools
-
-### call_contract_read
-
-**Source**: `src/contract.rs`
-
-**Attributes**:
-```rust
-#[tool]
-```
-
-```rust
-pub async fn call_contract_read( contract_address: String, function_selector: String, params: Vec<String>, ) -> Result<String, Box<dyn std::error::Error + Send + Sync>>
-```
-
-Call a contract read function (view/pure function)
-
----
-
-### call_contract_write
-
-**Source**: `src/contract.rs`
-
-**Attributes**:
-```rust
-#[tool]
-```
-
-```rust
-pub async fn call_contract_write( contract_address: String, function_selector: String, params: Vec<String>, gas_limit: Option<u64>, ) -> Result<String, Box<dyn std::error::Error + Send + Sync>>
-```
-
-Call a contract write function (state-mutating function)
-
----
-
-### get_erc20_balance
-
-**Source**: `src/balance.rs`
-
-**Attributes**:
-```rust
-#[tool]
-```
-
-```rust
-pub async fn get_erc20_balance( address: String, token_address: String, fetch_metadata: Option<bool>, ) -> std::result::Result<TokenBalanceResult, Box<dyn std::error::Error + Send + Sync>>
-```
-
-Get ERC20 token balance for an address
-
-This tool retrieves the balance of any ERC20 token for a given Ethereum wallet address.
-It automatically fetches token metadata (symbol, name, decimals) and formats the balance
-appropriately. Works with any standard ERC20 token contract.
-
-# Arguments
-
-* `address` - The Ethereum wallet address to check token balance for
-* `token_address` - The ERC20 token contract address
-* `chain_id` - EVM chain identifier (1 for Ethereum mainnet, 42161 for Arbitrum, etc.)
-* `fetch_metadata` - Whether to fetch token metadata (symbol, name) - defaults to true
-
-# Returns
-
-Returns `TokenBalanceResult` containing:
-- `address`: The wallet address queried
-- `token_address`: The token contract address
-- `token_symbol`, `token_name`: Token metadata (if fetched)
-- `decimals`: Number of decimal places for the token
-- `balance_raw`: Balance in token's smallest unit
-- `balance_formatted`: Human-readable balance with decimal adjustment
-- `chain_id`, `chain_name`: Network information
-
-# Errors
-
-* `EvmToolError::InvalidAddress` - When wallet or token address is invalid
-* `EvmToolError::Rpc` - When network issues occur or token contract doesn't respond
-* `EvmToolError::Generic` - When no signer context is available
-
-# Examples
-
-```rust,ignore
-use riglr_evm_tools::balance::get_erc20_balance;
-
-# async fn example() -> Result<(), Box<dyn std::error::Error>> {
-// Check USDC balance
-let balance = get_erc20_balance(
-"0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045".to_string(),
-"0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48".to_string(), // USDC contract
-1, // Ethereum mainnet
-Some(true), // Fetch metadata
-).await?;
-
-println!("Token: {} ({})", balance.token_symbol.unwrap_or_default(), balance.token_name.unwrap_or_default());
-println!("Balance: {} (decimals: {})", balance.balance_formatted, balance.decimals);
-println!("Raw balance: {}", balance.balance_raw);
-# Ok(())
-# }
-```
-
----
-
-### get_eth_balance
-
-**Source**: `src/balance.rs`
-
-**Attributes**:
-```rust
-#[tool]
-```
-
-```rust
-pub async fn get_eth_balance( address: String, block_number: Option<u64>, ) -> std::result::Result<BalanceResult, Box<dyn std::error::Error + Send + Sync>>
-```
-
-Get ETH balance for an address
-
-This tool retrieves the native ETH balance for any Ethereum wallet address on the current
-EVM chain. The balance is returned in both wei (smallest unit) and ETH (human-readable format).
-
-# Arguments
-
-* `address` - The Ethereum wallet address to check (0x-prefixed hex string)
-* `chain_id` - EVM chain identifier (1 for Ethereum mainnet, 42161 for Arbitrum, etc.)
-* `block_number` - Optional specific block number to query (uses latest if None)
-
-# Returns
-
-Returns `BalanceResult` containing:
-- `address`: The queried wallet address
-- `balance_raw`: Balance in wei (1 ETH = 10^18 wei)
-- `balance_formatted`: Balance in ETH with 6 decimal places
-- `unit`: "ETH" currency identifier
-- `chain_id`: EVM chain identifier (1 for Ethereum mainnet)
-- `chain_name`: Human-readable chain name
-- `block_number`: Block number at which balance was fetched
-
-# Errors
-
-* `EvmToolError::InvalidAddress` - When the address format is invalid
-* `EvmToolError::Rpc` - When network connection issues occur
-* `EvmToolError::Generic` - When no signer context is available
-
-# Examples
-
-```rust,ignore
-use riglr_evm_tools::balance::get_eth_balance;
-use riglr_core::SignerContext;
-
-# async fn example() -> Result<(), Box<dyn std::error::Error>> {
-// Check ETH balance for Vitalik's address
-let balance = get_eth_balance(
-"0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045".to_string(),
-1, // Ethereum mainnet
-None, // Use latest block
-).await?;
-
-println!("Address: {}", balance.address);
-println!("Balance: {} ETH ({} wei)", balance.balance_formatted, balance.balance_raw);
-println!("Chain: {} (ID: {})", balance.chain_name, balance.chain_id);
-# Ok(())
-# }
-```
-
----
-
-### get_transaction_receipt
-
-**Source**: `src/transaction.rs`
-
-**Attributes**:
-```rust
-#[tool]
-```
-
-```rust
-pub async fn get_transaction_receipt( tx_hash: String, ) -> std::result::Result<TransactionResult, Box<dyn std::error::Error + Send + Sync>>
-```
-
-Get transaction receipt
-
-This tool retrieves the receipt and details for a completed transaction using its hash.
-Useful for checking transaction status, gas usage, and extracting event logs.
-
-# Arguments
-
-* `tx_hash` - Transaction hash to look up (0x-prefixed hex string)
-
-# Returns
-
-Returns `TransactionResult` with full transaction details including gas usage,
-block number, and execution status.
-
-# Errors
-
-* `EvmToolError::Rpc` - When network issues occur or transaction lookup fails
-* `EvmToolError::Generic` - When transaction is not found or invalid hash format
-
-# Examples
-
-```rust,ignore
-use riglr_evm_tools::transaction::get_transaction_receipt;
-
-# async fn example() -> Result<(), Box<dyn std::error::Error>> {
-let receipt = get_transaction_receipt(
-"0x1234...abcd".to_string(), // Transaction hash
-).await?;
-
-println!("Transaction: {}", receipt.tx_hash);
-println!("Block: {:?}", receipt.block_number);
-println!("Gas used: {:?}", receipt.gas_used);
-println!("Success: {}", receipt.status);
-# Ok(())
-# }
-```
-
----
-
-### get_uniswap_quote
-
-**Source**: `src/swap.rs`
-
-**Attributes**:
-```rust
-#[tool]
-```
-
-```rust
-pub async fn get_uniswap_quote( token_in: String, token_out: String, amount_in: String, decimals_in: u8, decimals_out: u8, fee_tier: Option<u32>, slippage_bps: Option<u16>, ) -> std::result::Result<UniswapQuote, Box<dyn std::error::Error + Send + Sync>>
-```
-
-Get a quote from Uniswap V3
-
-This tool queries Uniswap V3 to get a quote for swapping ERC20 tokens without executing
-any transaction. It uses the Quoter contract to estimate output amounts and price impact.
-Supports all EVM chains where Uniswap V3 is deployed.
-
-# Arguments
-
-* `token_in` - Input token contract address (ERC20)
-* `token_out` - Output token contract address (ERC20)
-* `amount_in` - Input amount as string (e.g., "1.5" for human-readable amount)
-* `decimals_in` - Number of decimals for input token
-* `decimals_out` - Number of decimals for output token
-* `fee_tier` - Uniswap pool fee tier (100=0.01%, 500=0.05%, 3000=0.3%, 10000=1%)
-* `slippage_bps` - Slippage tolerance in basis points (50 = 0.5%)
-
-# Returns
-
-Returns `UniswapQuote` containing:
-- `token_in`, `token_out`: Token addresses
-- `amount_in`, `amount_out`: Input and expected output amounts
-- `price`: Exchange rate (output tokens per 1 input token)
-- `fee_tier`: Pool fee used for the quote
-- `slippage_bps`: Slippage tolerance applied
-- `amount_out_minimum`: Minimum output after slippage
-
-# Errors
-
-* `EvmToolError::InvalidAddress` - When token addresses are invalid
-* `EvmToolError::Rpc` - When Quoter contract call fails (often due to no liquidity)
-* `EvmToolError::Generic` - When amount parsing fails
-
-# Examples
-
-```rust,ignore
-use riglr_evm_tools::swap::get_uniswap_quote;
-
-# async fn example() -> Result<(), Box<dyn std::error::Error>> {
-// Get quote for swapping 1 WETH to USDC
-let quote = get_uniswap_quote(
-"0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2".to_string(), // WETH
-"0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48".to_string(), // USDC
-"1.0".to_string(), // 1 WETH
-18, // WETH decimals
-6,  // USDC decimals
-Some(3000), // 0.3% fee tier
-Some(50),   // 0.5% slippage
-).await?;
-
-println!("Quote: {} WETH -> {} USDC", quote.amount_in, quote.amount_out);
-println!("Price: {} USDC per WETH", quote.price);
-println!("Minimum output: {}", quote.amount_out_minimum);
-# Ok(())
-# }
-```
-
----
-
-### perform_uniswap_swap
-
-**Source**: `src/swap.rs`
-
-**Attributes**:
-```rust
-#[tool]
-```
-
-```rust
-pub async fn perform_uniswap_swap( token_in: String, token_out: String, amount_in: String, decimals_in: u8, amount_out_minimum: String, fee_tier: Option<u32>, deadline_seconds: Option<u64>, ) -> std::result::Result<UniswapSwapResult, Box<dyn std::error::Error + Send + Sync>>
-```
-
-Perform a token swap on Uniswap V3
-
-This tool executes an actual token swap on Uniswap V3 by calling the SwapRouter contract.
-It constructs the appropriate transaction with slippage protection and deadline management.
-Requires token approvals to be set beforehand for the SwapRouter contract.
-
-# Arguments
-
-* `token_in` - Input token contract address
-* `token_out` - Output token contract address
-* `amount_in` - Input amount as string (human-readable)
-* `decimals_in` - Number of decimals for input token
-* `amount_out_minimum` - Minimum acceptable output amount (for slippage protection)
-* `fee_tier` - Uniswap pool fee tier to use
-* `deadline_seconds` - Transaction deadline in seconds from now
-
-# Returns
-
-Returns `UniswapSwapResult` containing transaction details and actual amounts.
-
-# Errors
-
-* `EvmToolError::InvalidAddress` - When token addresses are invalid
-* `EvmToolError::Transaction` - When insufficient token balance or allowance
-* `EvmToolError::Rpc` - When transaction fails or network issues occur
-
-# Examples
-
-```rust,ignore
-use riglr_evm_tools::swap::perform_uniswap_swap;
-use riglr_core::SignerContext;
-
-# async fn example() -> Result<(), Box<dyn std::error::Error>> {
-// Note: Token approval for SwapRouter must be done first
-let result = perform_uniswap_swap(
-"0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2".to_string(), // WETH
-"0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48".to_string(), // USDC
-"0.5".to_string(), // 0.5 WETH
-18, // WETH decimals
-"900000000".to_string(), // Minimum 900 USDC out (6 decimals)
-Some(3000), // 0.3% fee tier
-Some(300),  // 5 minute deadline
-).await?;
-
-println!("Swap completed! Hash: {}", result.tx_hash);
-println!("Swapped {} for {} tokens", result.amount_in, result.amount_out);
-# Ok(())
-# }
-```
-
----
-
-### read_erc20_info
-
-**Source**: `src/contract.rs`
-
-**Attributes**:
-```rust
-#[tool]
-```
-
-```rust
-pub async fn read_erc20_info( token_address: String, ) -> Result<serde_json::Value, Box<dyn std::error::Error + Send + Sync>>
-```
-
-Read ERC20 token information
-
----
-
-### transfer_erc20
-
-**Source**: `src/transaction.rs`
-
-**Attributes**:
-```rust
-#[tool]
-```
-
-```rust
-pub async fn transfer_erc20( token_address: String, to_address: String, amount: String, decimals: u8, gas_price_gwei: Option<u64>, ) -> std::result::Result<TransactionResult, Box<dyn std::error::Error + Send + Sync>>
-```
-
-Transfer ERC20 tokens to another address
-
-This tool creates, signs, and executes an ERC20 token transfer transaction. It constructs
-the appropriate contract call to the token's transfer function and handles decimal conversion.
-
-# Arguments
-
-* `token_address` - ERC20 token contract address
-* `to_address` - Recipient Ethereum address
-* `amount` - Amount to transfer as string (e.g., "100.5" for human-readable amount)
-* `decimals` - Number of decimal places for the token (e.g., 6 for USDC, 18 for most tokens)
-* `gas_price_gwei` - Optional gas price in Gwei
-
-# Returns
-
-Returns `TransactionResult` with transaction details. Note that `value_eth` will be 0
-since this is a token transfer, not ETH transfer.
-
-# Errors
-
-* `EvmToolError::InvalidAddress` - When token or recipient address is invalid
-* `EvmToolError::Transaction` - When sender has insufficient token balance
-* `EvmToolError::Rpc` - When network issues or transaction failures occur
-
-# Examples
-
-```rust,ignore
-use riglr_evm_tools::transaction::transfer_erc20;
-
-# async fn example() -> Result<(), Box<dyn std::error::Error>> {
-// Transfer 100.5 USDC (6 decimals)
-let result = transfer_erc20(
-"0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48".to_string(), // USDC contract
-"0x742d35Cc6634C0532925a3b844Bc9e7595f0eA4B".to_string(), // Recipient
-"100.5".to_string(), // 100.5 tokens
-6, // USDC has 6 decimals
-Some(30), // 30 Gwei gas price
-).await?;
-
-println!("Token transfer completed! Hash: {}", result.tx_hash);
-println!("Transferred {} tokens", "100.5");
-# Ok(())
-# }
-```
-
----
-
-### transfer_eth
-
-**Source**: `src/transaction.rs`
-
-**Attributes**:
-```rust
-#[tool]
-```
-
-```rust
-pub async fn transfer_eth( to_address: String, amount_eth: f64, gas_price_gwei: Option<u64>, nonce: Option<u64>, ) -> std::result::Result<TransactionResult, Box<dyn std::error::Error + Send + Sync>>
-```
-
-Transfer ETH to another address
-
-This tool creates, signs, and executes an ETH transfer transaction using the current signer context.
-It supports custom gas pricing and nonce management for transaction optimization and replacement.
-
-# Arguments
-
-* `to_address` - Recipient Ethereum address (0x-prefixed hex string)
-* `amount_eth` - Amount to transfer in ETH (e.g., 0.01 for 0.01 ETH)
-* `gas_price_gwei` - Optional gas price in Gwei (e.g., 20 for 20 Gwei)
-* `nonce` - Optional transaction nonce (uses next available if None)
-
-# Returns
-
-Returns `TransactionResult` containing:
-- `tx_hash`: Transaction hash for tracking on blockchain
-- `from`, `to`: Sender and recipient addresses
-- `value_wei`, `value_eth`: Transfer amount in both wei and ETH
-- `gas_used`, `gas_price`: Gas consumption and pricing
-- `block_number`: Block where transaction was confirmed
-- `chain_id`: EVM chain identifier
-- `status`: Whether transaction succeeded
-
-# Errors
-
-* `EvmToolError::InvalidAddress` - When recipient address is invalid
-* `EvmToolError::Transaction` - When sender has insufficient ETH balance
-* `EvmToolError::Rpc` - When network issues or transaction failures occur
-* `EvmToolError::Generic` - When no signer context available
-
-# Examples
-
-```rust,ignore
-use riglr_evm_tools::transaction::transfer_eth;
-use riglr_core::SignerContext;
-
-# async fn example() -> Result<(), Box<dyn std::error::Error>> {
-// Transfer 0.01 ETH with custom gas price
-let result = transfer_eth(
-"0x742d35Cc6634C0532925a3b844Bc9e7595f0eA4B".to_string(),
-0.01, // 0.01 ETH
-Some(25), // 25 Gwei gas price
-None, // Auto-select nonce
-).await?;
-
-println!("Transfer completed! Hash: {}", result.tx_hash);
-println!("Sent {} ETH from {} to {}", result.value_eth, result.from, result.to);
-println!("Gas used: {} at {} wei", result.gas_used.unwrap_or(0), result.gas_price.unwrap_or(0));
-# Ok(())
-# }
-```
+Current version
 
 ---
 
@@ -891,18 +310,6 @@ Get ETH balance for an address
 
 ### get_block_number
 
-**Source**: `src/client.rs`
-
-```rust
-pub async fn get_block_number(&self) -> Result<u64>
-```
-
-Get current block number
-
----
-
-### get_block_number
-
 **Source**: `src/network.rs`
 
 ```rust
@@ -910,6 +317,18 @@ pub async fn get_block_number(_client: &EvmClient) -> Result<u64>
 ```
 
 Get the current block number
+
+---
+
+### get_block_number
+
+**Source**: `src/client.rs`
+
+```rust
+pub async fn get_block_number(&self) -> Result<u64>
+```
+
+Get current block number
 
 ---
 
@@ -1166,58 +585,752 @@ Configure client with a private key signer
 
 ---
 
-## Enums
+## Structs
 
-### EvmToolError
+### BalanceResult
 
-**Source**: `src/error.rs`
+**Source**: `src/balance.rs`
 
 **Attributes**:
 ```rust
-#[derive(Error, Debug, IntoToolError)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 ```
 
 ```rust
-pub enum EvmToolError { /// Core tool error - pass through directly #[error("Core tool error: {0}")] #[tool_error(permanent)] // Will be handled specially in macro update ToolError(#[from] ToolError), /// Signer context error - pass through directly #[error("Signer context error: {0}")] #[tool_error(permanent)] // Will be handled specially in macro update SignerError(#[from] SignerError), /// Provider error - automatically retriable #[error("Provider error: {0}")] ProviderError(String), /// Transaction build error - permanent #[error("Transaction build error: {0}")] #[tool_error(permanent)] TransactionBuildError(String), /// Invalid address format - automatically permanent #[error("Invalid address format: {0}")] InvalidAddress(String), /// Insufficient balance - automatically permanent #[error("Insufficient balance for operation")] InsufficientBalance, /// Unsupported chain ID - permanent #[error("Unsupported chain ID: {0}")] #[tool_error(permanent)] UnsupportedChain(u64), /// Serialization error - automatically permanent #[error("Serialization error: {0}")] Serialization(#[from] serde_json::Error), /// HTTP request error - automatically retriable #[error("HTTP error: {0}")] Http(#[from] reqwest::Error), /// Core riglr error - retriable by default #[error("Core error: {0}")] #[tool_error(retriable)] Core(#[from] riglr_core::CoreError), /// RPC client error - automatically retriable #[error("RPC error: {0}")] Rpc(String), /// Contract interaction failed - permanent #[error("Contract error: {0}")] #[tool_error(permanent)] Contract(String), /// Invalid private key - automatically permanent #[error("Invalid key: {0}")] InvalidKey(String), /// Transaction failed - retriable #[error("Transaction error: {0}")] #[tool_error(retriable)] Transaction(String), /// Generic error - permanent by default #[error("EVM tool error: {0}")] #[tool_error(permanent)] Generic(String), }
+pub struct BalanceResult { /// The wallet address that was queried pub address: String, /// The balance in the smallest unit (wei for ETH, smallest decimal for tokens)
 ```
 
-Main error type for EVM tool operations.
-
-The IntoToolError derive macro automatically classifies errors based on variant names:
-- Retriable: Rpc, Http, Provider, Transaction (network-related)
-- Permanent: Invalid*, InsufficientBalance, Unsupported*, Contract, Serialization
-
-**Variants**:
-
-- `ToolError(#[from] ToolError)`
-- `SignerError(#[from] SignerError)`
-- `ProviderError(String)`
-- `TransactionBuildError(String)`
-- `InvalidAddress(String)`
-- `InsufficientBalance`
-- `UnsupportedChain(u64)`
-- `Serialization(#[from] serde_json::Error)`
-- `Http(#[from] reqwest::Error)`
-- `Core(#[from] riglr_core::CoreError)`
-- `Rpc(String)`
-- `Contract(String)`
-- `InvalidKey(String)`
-- `Transaction(String)`
-- `Generic(String)`
+Result of balance checking operation
 
 ---
 
-## Constants
+### EvmClient
 
-### VERSION
+**Source**: `src/client.rs`
 
-**Source**: `src/lib.rs`
-
+**Attributes**:
 ```rust
-const VERSION: &str
+#[derive(Clone)]
 ```
 
-Current version
+```rust
+pub struct EvmClient { /// Alloy provider for blockchain interaction provider: Arc<dyn Provider<Ethereum>>, /// Optional private key signer for signing transactions signer: Option<PrivateKeySigner>, /// EVM configuration settings config: EvmConfig, /// RPC endpoint URL for the blockchain connection pub rpc_url: String, /// Chain identifier for the connected blockchain network pub chain_id: u64, }
+```
+
+Production-grade EVM client using alloy-rs
+
+---
+
+### EvmConfig
+
+**Source**: `src/client.rs`
+
+**Attributes**:
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize)]
+```
+
+```rust
+pub struct EvmConfig { /// RPC endpoint URL for connecting to the blockchain pub rpc_url: String, /// Chain identifier for the blockchain network pub chain_id: u64, /// Request timeout duration for RPC calls pub timeout: Duration, }
+```
+
+Configuration for EVM client
+
+---
+
+### TokenBalanceResult
+
+**Source**: `src/balance.rs`
+
+**Attributes**:
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+```
+
+```rust
+pub struct TokenBalanceResult { /// The wallet address that was queried pub address: String, /// The token contract address pub token_address: String, /// The token symbol pub token_symbol: Option<String>, /// The token name pub token_name: Option<String>, /// The token decimals pub decimals: u8, /// The raw balance (smallest unit)
+```
+
+Result of ERC20 token balance checking
+
+---
+
+### TransactionResult
+
+**Source**: `src/transaction.rs`
+
+**Attributes**:
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+```
+
+```rust
+pub struct TransactionResult { /// Transaction hash pub tx_hash: String, /// From address pub from: String, /// To address pub to: String, /// Value transferred in wei pub value_wei: String, /// Value transferred in ETH pub value_eth: f64, /// Gas used pub gas_used: Option<u128>, /// Gas price in wei pub gas_price: Option<u128>, /// Block number pub block_number: Option<u64>, /// Chain ID pub chain_id: u64, /// Status (success/failure)
+```
+
+Result of a transaction
+
+---
+
+### UniswapConfig
+
+**Source**: `src/swap.rs`
+
+**Attributes**:
+```rust
+#[derive(Debug, Clone)]
+```
+
+```rust
+pub struct UniswapConfig { /// Uniswap V3 SwapRouter contract address pub router_address: String, /// Uniswap V3 Quoter contract address pub quoter_address: String, /// Default slippage tolerance (basis points, 100 = 1%)
+```
+
+Uniswap V3 configuration
+
+---
+
+### UniswapQuote
+
+**Source**: `src/swap.rs`
+
+**Attributes**:
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+```
+
+```rust
+pub struct UniswapQuote { /// Input token address pub token_in: String, /// Output token address pub token_out: String, /// Input amount in smallest units pub amount_in: String, /// Expected output amount in smallest units pub amount_out: String, /// Price per input token pub price: f64, /// Fee tier (100 = 0.01%, 500 = 0.05%, 3000 = 0.3%, 10000 = 1%)
+```
+
+Result of a Uniswap quote
+
+---
+
+### UniswapSwapResult
+
+**Source**: `src/swap.rs`
+
+**Attributes**:
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+```
+
+```rust
+pub struct UniswapSwapResult { /// Transaction hash pub tx_hash: String, /// Input token address pub token_in: String, /// Output token address pub token_out: String, /// Input amount pub amount_in: String, /// Actual output amount received pub amount_out: String, /// Gas used pub gas_used: Option<u128>, /// Status pub status: bool, }
+```
+
+Result of a Uniswap swap
+
+---
+
+## Tools
+
+### call_contract_read
+
+**Source**: `src/contract.rs`
+
+**Attributes**:
+```rust
+#[allow(missing_docs)]
+#[tool]
+```
+
+```rust
+pub async fn call_contract_read( contract_address: String, function_selector: String, params: Vec<String>, ) -> Result<String, Box<dyn std::error::Error + Send + Sync>>
+```
+
+Call a contract read function (view/pure function)
+
+This tool executes read-only contract functions that don't modify blockchain state.
+It supports both function signatures and 4-byte selectors for maximum flexibility.
+
+# Arguments
+
+* `contract_address` - The smart contract address (checksummed hex format)
+* `function_selector` - Either a function signature like "balanceOf(address)" or 4-byte selector like "0x70a08231"
+* `params` - Function parameters as strings (addresses, numbers, hex data)
+
+# Returns
+
+Returns the decoded function result as a string. For complex return types,
+returns JSON-formatted data.
+
+# Errors
+
+* `ToolError::Permanent` - When the contract address is invalid or function doesn't exist
+* `ToolError::Retriable` - When network issues occur (timeouts, RPC errors)
+* `ToolError::Permanent` - When no signer context is available
+
+# Examples
+
+```rust,ignore
+// Check ERC20 token balance
+let balance = call_contract_read(
+"0xA0b86a33E6441b8e606Fd25d43b2b6eaa8071CdB".to_string(),
+"balanceOf(address)".to_string(),
+vec!["0x742EEC0C53C37682b8c7d3210fd5D3e8D8054A8".to_string()]
+).await?;
+```
+
+---
+
+### call_contract_write
+
+**Source**: `src/contract.rs`
+
+**Attributes**:
+```rust
+#[allow(missing_docs)]
+#[tool]
+```
+
+```rust
+pub async fn call_contract_write( contract_address: String, function_selector: String, params: Vec<String>, gas_limit: Option<u64>, ) -> Result<String, Box<dyn std::error::Error + Send + Sync>>
+```
+
+Call a contract write function (state-mutating function)
+
+This tool executes state-changing contract functions that modify blockchain state.
+It automatically handles transaction signing, gas estimation, and retry logic.
+
+# Arguments
+
+* `contract_address` - The smart contract address (checksummed hex format)
+* `function_selector` - Either a function signature like "transfer(address,uint256)" or 4-byte selector
+* `params` - Function parameters as strings (addresses, amounts, hex data)
+* `gas_limit` - Optional gas limit override (default: 300,000)
+
+# Returns
+
+Returns the transaction hash as a string upon successful submission.
+Note: This doesn't wait for confirmation, only successful broadcast.
+
+# Errors
+
+* `ToolError::Permanent` - When the contract address is invalid or function fails
+* `ToolError::Retriable` - When network congestion or temporary RPC issues occur
+* `ToolError::Permanent` - When insufficient funds or gas estimation fails
+* `ToolError::Permanent` - When no signer context is available
+
+# Examples
+
+```rust,ignore
+// Transfer ERC20 tokens
+let tx_hash = call_contract_write(
+"0xA0b86a33E6441b8e606Fd25d43b2b6eaa8071CdB".to_string(),
+"transfer(address,uint256)".to_string(),
+vec![
+"0x742EEC0C53C37682b8c7d3210fd5D3e8D8054A8".to_string(),
+"1000000000000000000".to_string() // 1 token with 18 decimals
+],
+Some(100000)
+).await?;
+```
+
+---
+
+### get_erc20_balance
+
+**Source**: `src/balance.rs`
+
+**Attributes**:
+```rust
+#[allow(missing_docs)]
+#[tool]
+```
+
+```rust
+pub async fn get_erc20_balance( address: String, token_address: String, fetch_metadata: Option<bool>, ) -> std::result::Result<TokenBalanceResult, Box<dyn std::error::Error + Send + Sync>>
+```
+
+Get ERC20 token balance for an address
+
+This tool retrieves the balance of any ERC20 token for a given Ethereum wallet address.
+It automatically fetches token metadata (symbol, name, decimals) and formats the balance
+appropriately. Works with any standard ERC20 token contract.
+
+# Arguments
+
+* `address` - The Ethereum wallet address to check token balance for
+* `token_address` - The ERC20 token contract address
+* `chain_id` - EVM chain identifier (1 for Ethereum mainnet, 42161 for Arbitrum, etc.)
+* `fetch_metadata` - Whether to fetch token metadata (symbol, name) - defaults to true
+
+# Returns
+
+Returns `TokenBalanceResult` containing:
+- `address`: The wallet address queried
+- `token_address`: The token contract address
+- `token_symbol`, `token_name`: Token metadata (if fetched)
+- `decimals`: Number of decimal places for the token
+- `balance_raw`: Balance in token's smallest unit
+- `balance_formatted`: Human-readable balance with decimal adjustment
+- `chain_id`, `chain_name`: Network information
+
+# Errors
+
+* `EvmToolError::InvalidAddress` - When wallet or token address is invalid
+* `EvmToolError::Rpc` - When network issues occur or token contract doesn't respond
+* `EvmToolError::Generic` - When no signer context is available
+
+# Examples
+
+```rust,ignore
+use riglr_evm_tools::balance::get_erc20_balance;
+
+# async fn example() -> Result<(), Box<dyn std::error::Error>> {
+// Check USDC balance
+let balance = get_erc20_balance(
+"0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045".to_string(),
+"0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48".to_string(), // USDC contract
+1, // Ethereum mainnet
+Some(true), // Fetch metadata
+).await?;
+
+println!("Token: {} ({})", balance.token_symbol.unwrap_or_default(), balance.token_name.unwrap_or_default());
+println!("Balance: {} (decimals: {})", balance.balance_formatted, balance.decimals);
+println!("Raw balance: {}", balance.balance_raw);
+# Ok(())
+# }
+```
+
+---
+
+### get_eth_balance
+
+**Source**: `src/balance.rs`
+
+**Attributes**:
+```rust
+#[allow(missing_docs)]
+#[tool]
+```
+
+```rust
+pub async fn get_eth_balance( address: String, block_number: Option<u64>, ) -> std::result::Result<BalanceResult, Box<dyn std::error::Error + Send + Sync>>
+```
+
+Get ETH balance for an address
+
+This tool retrieves the native ETH balance for any Ethereum wallet address on the current
+EVM chain. The balance is returned in both wei (smallest unit) and ETH (human-readable format).
+
+# Arguments
+
+* `address` - The Ethereum wallet address to check (0x-prefixed hex string)
+* `chain_id` - EVM chain identifier (1 for Ethereum mainnet, 42161 for Arbitrum, etc.)
+* `block_number` - Optional specific block number to query (uses latest if None)
+
+# Returns
+
+Returns `BalanceResult` containing:
+- `address`: The queried wallet address
+- `balance_raw`: Balance in wei (1 ETH = 10^18 wei)
+- `balance_formatted`: Balance in ETH with 6 decimal places
+- `unit`: "ETH" currency identifier
+- `chain_id`: EVM chain identifier (1 for Ethereum mainnet)
+- `chain_name`: Human-readable chain name
+- `block_number`: Block number at which balance was fetched
+
+# Errors
+
+* `EvmToolError::InvalidAddress` - When the address format is invalid
+* `EvmToolError::Rpc` - When network connection issues occur
+* `EvmToolError::Generic` - When no signer context is available
+
+# Examples
+
+```rust,ignore
+use riglr_evm_tools::balance::get_eth_balance;
+use riglr_core::SignerContext;
+
+# async fn example() -> Result<(), Box<dyn std::error::Error>> {
+// Check ETH balance for Vitalik's address
+let balance = get_eth_balance(
+"0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045".to_string(),
+1, // Ethereum mainnet
+None, // Use latest block
+).await?;
+
+println!("Address: {}", balance.address);
+println!("Balance: {} ETH ({} wei)", balance.balance_formatted, balance.balance_raw);
+println!("Chain: {} (ID: {})", balance.chain_name, balance.chain_id);
+# Ok(())
+# }
+```
+
+---
+
+### get_transaction_receipt
+
+**Source**: `src/transaction.rs`
+
+**Attributes**:
+```rust
+#[allow(missing_docs)]
+#[tool]
+```
+
+```rust
+pub async fn get_transaction_receipt( tx_hash: String, ) -> std::result::Result<TransactionResult, Box<dyn std::error::Error + Send + Sync>>
+```
+
+Get transaction receipt
+
+This tool retrieves the receipt and details for a completed transaction using its hash.
+Useful for checking transaction status, gas usage, and extracting event logs.
+
+# Arguments
+
+* `tx_hash` - Transaction hash to look up (0x-prefixed hex string)
+
+# Returns
+
+Returns `TransactionResult` with full transaction details including gas usage,
+block number, and execution status.
+
+# Errors
+
+* `EvmToolError::Rpc` - When network issues occur or transaction lookup fails
+* `EvmToolError::Generic` - When transaction is not found or invalid hash format
+
+# Examples
+
+```rust,ignore
+use riglr_evm_tools::transaction::get_transaction_receipt;
+
+# async fn example() -> Result<(), Box<dyn std::error::Error>> {
+let receipt = get_transaction_receipt(
+"0x1234...abcd".to_string(), // Transaction hash
+).await?;
+
+println!("Transaction: {}", receipt.tx_hash);
+println!("Block: {:?}", receipt.block_number);
+println!("Gas used: {:?}", receipt.gas_used);
+println!("Success: {}", receipt.status);
+# Ok(())
+# }
+```
+
+---
+
+### get_uniswap_quote
+
+**Source**: `src/swap.rs`
+
+**Attributes**:
+```rust
+#[allow(missing_docs)]
+#[tool]
+```
+
+```rust
+pub async fn get_uniswap_quote( token_in: String, token_out: String, amount_in: String, decimals_in: u8, decimals_out: u8, fee_tier: Option<u32>, slippage_bps: Option<u16>, ) -> std::result::Result<UniswapQuote, Box<dyn std::error::Error + Send + Sync>>
+```
+
+Get a quote from Uniswap V3
+
+This tool queries Uniswap V3 to get a quote for swapping ERC20 tokens without executing
+any transaction. It uses the Quoter contract to estimate output amounts and price impact.
+Supports all EVM chains where Uniswap V3 is deployed.
+
+# Arguments
+
+* `token_in` - Input token contract address (ERC20)
+* `token_out` - Output token contract address (ERC20)
+* `amount_in` - Input amount as string (e.g., "1.5" for human-readable amount)
+* `decimals_in` - Number of decimals for input token
+* `decimals_out` - Number of decimals for output token
+* `fee_tier` - Uniswap pool fee tier (100=0.01%, 500=0.05%, 3000=0.3%, 10000=1%)
+* `slippage_bps` - Slippage tolerance in basis points (50 = 0.5%)
+
+# Returns
+
+Returns `UniswapQuote` containing:
+- `token_in`, `token_out`: Token addresses
+- `amount_in`, `amount_out`: Input and expected output amounts
+- `price`: Exchange rate (output tokens per 1 input token)
+- `fee_tier`: Pool fee used for the quote
+- `slippage_bps`: Slippage tolerance applied
+- `amount_out_minimum`: Minimum output after slippage
+
+# Errors
+
+* `EvmToolError::InvalidAddress` - When token addresses are invalid
+* `EvmToolError::Rpc` - When Quoter contract call fails (often due to no liquidity)
+* `EvmToolError::Generic` - When amount parsing fails
+
+# Examples
+
+```rust,ignore
+use riglr_evm_tools::swap::get_uniswap_quote;
+
+# async fn example() -> Result<(), Box<dyn std::error::Error>> {
+// Get quote for swapping 1 WETH to USDC
+let quote = get_uniswap_quote(
+"0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2".to_string(), // WETH
+"0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48".to_string(), // USDC
+"1.0".to_string(), // 1 WETH
+18, // WETH decimals
+6,  // USDC decimals
+Some(3000), // 0.3% fee tier
+Some(50),   // 0.5% slippage
+).await?;
+
+println!("Quote: {} WETH -> {} USDC", quote.amount_in, quote.amount_out);
+println!("Price: {} USDC per WETH", quote.price);
+println!("Minimum output: {}", quote.amount_out_minimum);
+# Ok(())
+# }
+```
+
+---
+
+### perform_uniswap_swap
+
+**Source**: `src/swap.rs`
+
+**Attributes**:
+```rust
+#[allow(missing_docs)]
+#[tool]
+```
+
+```rust
+pub async fn perform_uniswap_swap( token_in: String, token_out: String, amount_in: String, decimals_in: u8, amount_out_minimum: String, fee_tier: Option<u32>, deadline_seconds: Option<u64>, ) -> std::result::Result<UniswapSwapResult, Box<dyn std::error::Error + Send + Sync>>
+```
+
+Perform a token swap on Uniswap V3
+
+This tool executes an actual token swap on Uniswap V3 by calling the SwapRouter contract.
+It constructs the appropriate transaction with slippage protection and deadline management.
+Requires token approvals to be set beforehand for the SwapRouter contract.
+
+# Arguments
+
+* `token_in` - Input token contract address
+* `token_out` - Output token contract address
+* `amount_in` - Input amount as string (human-readable)
+* `decimals_in` - Number of decimals for input token
+* `amount_out_minimum` - Minimum acceptable output amount (for slippage protection)
+* `fee_tier` - Uniswap pool fee tier to use
+* `deadline_seconds` - Transaction deadline in seconds from now
+
+# Returns
+
+Returns `UniswapSwapResult` containing transaction details and actual amounts.
+
+# Errors
+
+* `EvmToolError::InvalidAddress` - When token addresses are invalid
+* `EvmToolError::Transaction` - When insufficient token balance or allowance
+* `EvmToolError::Rpc` - When transaction fails or network issues occur
+
+# Examples
+
+```rust,ignore
+use riglr_evm_tools::swap::perform_uniswap_swap;
+use riglr_core::SignerContext;
+
+# async fn example() -> Result<(), Box<dyn std::error::Error>> {
+// Note: Token approval for SwapRouter must be done first
+let result = perform_uniswap_swap(
+"0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2".to_string(), // WETH
+"0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48".to_string(), // USDC
+"0.5".to_string(), // 0.5 WETH
+18, // WETH decimals
+"900000000".to_string(), // Minimum 900 USDC out (6 decimals)
+Some(3000), // 0.3% fee tier
+Some(300),  // 5 minute deadline
+).await?;
+
+println!("Swap completed! Hash: {}", result.tx_hash);
+println!("Swapped {} for {} tokens", result.amount_in, result.amount_out);
+# Ok(())
+# }
+```
+
+---
+
+### read_erc20_info
+
+**Source**: `src/contract.rs`
+
+**Attributes**:
+```rust
+#[allow(missing_docs)]
+#[tool]
+```
+
+```rust
+pub async fn read_erc20_info( token_address: String, ) -> Result<serde_json::Value, Box<dyn std::error::Error + Send + Sync>>
+```
+
+Read ERC20 token information
+
+This tool retrieves comprehensive information about an ERC20 token including
+name, symbol, decimals, and total supply. It handles standard ERC20 contracts
+and gracefully degrades for non-standard implementations.
+
+# Arguments
+
+* `token_address` - The ERC20 token contract address (checksummed hex format)
+
+# Returns
+
+Returns a JSON object containing:
+- `address`: The token contract address
+- `name`: Token name (e.g., "Chainlink Token") or null if not available
+- `symbol`: Token symbol (e.g., "LINK") or null if not available
+- `decimals`: Number of decimal places (defaults to 18 if not available)
+- `totalSupply`: Total token supply as a string in base units
+
+# Errors
+
+* `ToolError::Permanent` - When the token address is invalid
+* `ToolError::Retriable` - When network issues prevent data retrieval
+* `ToolError::Permanent` - When no signer context is available
+
+# Examples
+
+```rust,ignore
+// Get USDC token information
+let token_info = read_erc20_info(
+"0xA0b86a33E6441b8e606Fd25d43b2b6eaa8071CdB".to_string()
+).await?;
+
+println!("Token: {} ({})", token_info["name"], token_info["symbol"]);
+println!("Decimals: {}", token_info["decimals"]);
+```
+
+---
+
+### transfer_erc20
+
+**Source**: `src/transaction.rs`
+
+**Attributes**:
+```rust
+#[allow(missing_docs)]
+#[tool]
+```
+
+```rust
+pub async fn transfer_erc20( token_address: String, to_address: String, amount: String, decimals: u8, gas_price_gwei: Option<u64>, ) -> std::result::Result<TransactionResult, Box<dyn std::error::Error + Send + Sync>>
+```
+
+Transfer ERC20 tokens to another address
+
+This tool creates, signs, and executes an ERC20 token transfer transaction. It constructs
+the appropriate contract call to the token's transfer function and handles decimal conversion.
+
+# Arguments
+
+* `token_address` - ERC20 token contract address
+* `to_address` - Recipient Ethereum address
+* `amount` - Amount to transfer as string (e.g., "100.5" for human-readable amount)
+* `decimals` - Number of decimal places for the token (e.g., 6 for USDC, 18 for most tokens)
+* `gas_price_gwei` - Optional gas price in Gwei
+
+# Returns
+
+Returns `TransactionResult` with transaction details. Note that `value_eth` will be 0
+since this is a token transfer, not ETH transfer.
+
+# Errors
+
+* `EvmToolError::InvalidAddress` - When token or recipient address is invalid
+* `EvmToolError::Transaction` - When sender has insufficient token balance
+* `EvmToolError::Rpc` - When network issues or transaction failures occur
+
+# Examples
+
+```rust,ignore
+use riglr_evm_tools::transaction::transfer_erc20;
+
+# async fn example() -> Result<(), Box<dyn std::error::Error>> {
+// Transfer 100.5 USDC (6 decimals)
+let result = transfer_erc20(
+"0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48".to_string(), // USDC contract
+"0x742d35Cc6634C0532925a3b844Bc9e7595f0eA4B".to_string(), // Recipient
+"100.5".to_string(), // 100.5 tokens
+6, // USDC has 6 decimals
+Some(30), // 30 Gwei gas price
+).await?;
+
+println!("Token transfer completed! Hash: {}", result.tx_hash);
+println!("Transferred {} tokens", "100.5");
+# Ok(())
+# }
+```
+
+---
+
+### transfer_eth
+
+**Source**: `src/transaction.rs`
+
+**Attributes**:
+```rust
+#[allow(missing_docs)]
+#[tool]
+```
+
+```rust
+pub async fn transfer_eth( to_address: String, amount_eth: f64, gas_price_gwei: Option<u64>, nonce: Option<u64>, ) -> std::result::Result<TransactionResult, Box<dyn std::error::Error + Send + Sync>>
+```
+
+Transfer ETH to another address
+
+This tool creates, signs, and executes an ETH transfer transaction using the current signer context.
+It supports custom gas pricing and nonce management for transaction optimization and replacement.
+
+# Arguments
+
+* `to_address` - Recipient Ethereum address (0x-prefixed hex string)
+* `amount_eth` - Amount to transfer in ETH (e.g., 0.01 for 0.01 ETH)
+* `gas_price_gwei` - Optional gas price in Gwei (e.g., 20 for 20 Gwei)
+* `nonce` - Optional transaction nonce (uses next available if None)
+
+# Returns
+
+Returns `TransactionResult` containing:
+- `tx_hash`: Transaction hash for tracking on blockchain
+- `from`, `to`: Sender and recipient addresses
+- `value_wei`, `value_eth`: Transfer amount in both wei and ETH
+- `gas_used`, `gas_price`: Gas consumption and pricing
+- `block_number`: Block where transaction was confirmed
+- `chain_id`: EVM chain identifier
+- `status`: Whether transaction succeeded
+
+# Errors
+
+* `EvmToolError::InvalidAddress` - When recipient address is invalid
+* `EvmToolError::Transaction` - When sender has insufficient ETH balance
+* `EvmToolError::Rpc` - When network issues or transaction failures occur
+* `EvmToolError::Generic` - When no signer context available
+
+# Examples
+
+```rust,ignore
+use riglr_evm_tools::transaction::transfer_eth;
+use riglr_core::SignerContext;
+
+# async fn example() -> Result<(), Box<dyn std::error::Error>> {
+// Transfer 0.01 ETH with custom gas price
+let result = transfer_eth(
+"0x742d35Cc6634C0532925a3b844Bc9e7595f0eA4B".to_string(),
+0.01, // 0.01 ETH
+Some(25), // 25 Gwei gas price
+None, // Auto-select nonce
+).await?;
+
+println!("Transfer completed! Hash: {}", result.tx_hash);
+println!("Sent {} ETH from {} to {}", result.value_eth, result.from, result.to);
+println!("Gas used: {} at {} wei", result.gas_used.unwrap_or(0), result.gas_price.unwrap_or(0));
+# Ok(())
+# }
+```
 
 ---
 
@@ -1230,6 +1343,8 @@ Current version
 ```rust
 type EvmProvider = Arc<dyn Provider<Ethereum>>
 ```
+
+Type alias for an Arc-wrapped Ethereum provider
 
 ---
 

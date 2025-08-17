@@ -24,6 +24,10 @@ Comprehensive API documentation for the `riglr-solana-tools` crate.
 - [`transfer_sol`](#transfer_sol)
 - [`transfer_spl_token`](#transfer_spl_token)
 
+### Constants
+
+- [`VERSION`](#version)
+
 ### Structs
 
 - [`BalanceResult`](#balanceresult)
@@ -46,6 +50,16 @@ Comprehensive API documentation for the `riglr-solana-tools` crate.
 - [`TransactionConfig`](#transactionconfig)
 - [`TransactionResult`](#transactionresult)
 - [`TransactionSubmissionResult`](#transactionsubmissionresult)
+
+### Enums
+
+- [`PermanentError`](#permanenterror)
+- [`PumpTradeType`](#pumptradetype)
+- [`RateLimitError`](#ratelimiterror)
+- [`RetryableError`](#retryableerror)
+- [`SolanaToolError`](#solanatoolerror)
+- [`TransactionErrorType`](#transactionerrortype)
+- [`TransactionStatus`](#transactionstatus)
 
 ### Functions
 
@@ -74,12 +88,15 @@ Comprehensive API documentation for the `riglr-solana-tools` crate.
 - [`has_signer`](#has_signer)
 - [`is_connected`](#is_connected)
 - [`is_rate_limited`](#is_rate_limited)
+- [`is_rate_limited`](#is_rate_limited)
+- [`is_retriable`](#is_retriable)
 - [`is_retryable`](#is_retryable)
 - [`keypair`](#keypair)
 - [`mainnet`](#mainnet)
 - [`new`](#new)
 - [`new`](#new)
 - [`require_signer`](#require_signer)
+- [`retry_delay`](#retry_delay)
 - [`rpc_url`](#rpc_url)
 - [`send_and_confirm_transaction`](#send_and_confirm_transaction)
 - [`send_transaction`](#send_transaction)
@@ -92,20 +109,6 @@ Comprehensive API documentation for the `riglr-solana-tools` crate.
 - [`with_rpc_url`](#with_rpc_url)
 - [`with_signer`](#with_signer)
 - [`with_signer_from_bytes`](#with_signer_from_bytes)
-
-### Enums
-
-- [`PermanentError`](#permanenterror)
-- [`PumpTradeType`](#pumptradetype)
-- [`RateLimitError`](#ratelimiterror)
-- [`RetryableError`](#retryableerror)
-- [`SolanaToolError`](#solanatoolerror)
-- [`TransactionErrorType`](#transactionerrortype)
-- [`TransactionStatus`](#transactionstatus)
-
-### Constants
-
-- [`VERSION`](#version)
 
 ## Tools
 
@@ -891,6 +894,20 @@ println!("Transferred {} tokens", result.ui_amount);
 
 ---
 
+## Constants
+
+### VERSION
+
+**Source**: `src/lib.rs`
+
+```rust
+const VERSION: &str
+```
+
+Current version of riglr-solana-tools
+
+---
+
 ## Structs
 
 ### BalanceResult
@@ -903,10 +920,13 @@ println!("Transferred {} tokens", result.ui_amount);
 ```
 
 ```rust
-pub struct BalanceResult { pub address: String, /// Balance in lamports (smallest unit)
+pub struct BalanceResult { /// The Solana wallet address that was queried pub address: String, /// Balance in lamports (smallest unit)
 ```
 
 Result structure for balance queries
+
+Contains balance information for a Solana address including both raw lamports
+and human-readable SOL amounts.
 
 ---
 
@@ -920,8 +940,10 @@ Result structure for balance queries
 ```
 
 ```rust
-pub struct CreateMintResult { /// Transaction signature pub signature: String, pub mint_address: String, pub authority: String, pub decimals: u8, pub initial_supply: u64, pub freezable: bool, }
+pub struct CreateMintResult { /// Transaction signature pub signature: String, /// Address of the newly created token mint pub mint_address: String, /// Mint authority address pub authority: String, /// Number of decimal places for the token pub decimals: u8, /// Initial supply of tokens minted pub initial_supply: u64, /// Whether token accounts can be frozen pub freezable: bool, }
 ```
+
+Result of creating a new SPL token mint
 
 ---
 
@@ -935,7 +957,7 @@ pub struct CreateMintResult { /// Transaction signature pub signature: String, p
 ```
 
 ```rust
-pub struct JupiterConfig { /// Jupiter API base URL pub api_url: String, pub slippage_bps: u16, /// Whether to use only direct routes pub only_direct_routes: bool, pub max_accounts: Option<usize>, }
+pub struct JupiterConfig { /// Jupiter API base URL pub api_url: String, /// Maximum acceptable slippage in basis points (e.g., 50 = 0.5%)
 ```
 
 Jupiter API configuration
@@ -966,7 +988,7 @@ private keys can be safely managed in memory.
 ```
 
 ```rust
-pub struct PriceInfo { pub base_mint: String, pub quote_mint: String, /// Price of base in terms of quote pub price: f64, /// Price impact for small trade pub price_impact_pct: f64, }
+pub struct PriceInfo { /// Token being priced (the asset)
 ```
 
 Token price information
@@ -1000,7 +1022,7 @@ Pump.fun API configuration
 ```
 
 ```rust
-pub struct PumpTokenInfo { pub mint_address: String, pub name: String, pub symbol: String, pub description: String, pub image_url: Option<String>, pub market_cap: Option<u64>, pub price_sol: Option<f64>, pub creation_signature: Option<String>, pub creator: String, pub initial_buy_signature: Option<String>, }
+pub struct PumpTokenInfo { /// Token mint address pub mint_address: String, /// Token name pub name: String, /// Token symbol pub symbol: String, /// Token description pub description: String, /// Optional image URL pub image_url: Option<String>, /// Current market cap in lamports pub market_cap: Option<u64>, /// Current price in SOL pub price_sol: Option<f64>, /// Transaction signature for token creation pub creation_signature: Option<String>, /// Creator's public key pub creator: String, /// Transaction signature for initial buy (if any)
 ```
 
 Information about a Pump.fun token
@@ -1034,7 +1056,7 @@ Result of analyzing a Pump.fun trade transaction
 ```
 
 ```rust
-pub struct PumpTradeResult { /// Transaction signature pub signature: String, pub token_mint: String, /// SOL amount involved in the trade pub sol_amount: f64, /// Token amount (for sells or when known)
+pub struct PumpTradeResult { /// Transaction signature pub signature: String, /// Token mint address pub token_mint: String, /// SOL amount involved in the trade pub sol_amount: f64, /// Token amount (for sells or when known)
 ```
 
 Result of a Pump.fun trade operation
@@ -1051,7 +1073,7 @@ Result of a Pump.fun trade operation
 ```
 
 ```rust
-pub struct RoutePlanStep { pub swap_info: SwapInfo, pub percent: u8, }
+pub struct RoutePlanStep { /// Detailed swap information for this step pub swap_info: SwapInfo, /// Percentage of input amount for this route step pub percent: u8, }
 ```
 
 Route plan step in Jupiter quote
@@ -1085,7 +1107,7 @@ A client for interacting with the Solana blockchain
 ```
 
 ```rust
-pub struct SolanaConfig { pub rpc_url: String, /// Commitment level for transactions pub commitment: CommitmentLevel, /// Request timeout pub timeout: Duration, /// Whether to skip preflight checks pub skip_preflight: bool, }
+pub struct SolanaConfig { /// RPC URL for the Solana cluster pub rpc_url: String, /// Commitment level for transactions pub commitment: CommitmentLevel, /// Request timeout pub timeout: Duration, /// Whether to skip preflight checks pub skip_preflight: bool, }
 ```
 
 Configuration for Solana RPC client
@@ -1102,7 +1124,7 @@ Configuration for Solana RPC client
 ```
 
 ```rust
-pub struct SwapInfo { pub amm_key: String, pub label: Option<String>, pub input_mint: String, pub output_mint: String, pub in_amount: String, pub out_amount: String, pub fee_amount: String, pub fee_mint: String, }
+pub struct SwapInfo { /// AMM program public key performing the swap pub amm_key: String, /// Human-readable DEX name (e.g., "Raydium", "Orca")
 ```
 
 Swap information for a route step
@@ -1119,7 +1141,7 @@ Swap information for a route step
 ```
 
 ```rust
-pub struct SwapQuote { pub input_mint: String, pub output_mint: String, /// Input amount pub in_amount: u64, /// Expected output amount pub out_amount: u64, /// Minimum output amount after slippage pub other_amount_threshold: u64, /// Price impact percentage pub price_impact_pct: f64, /// Detailed routing plan pub route_plan: Vec<RoutePlanStep>, /// Context slot for the quote pub context_slot: Option<u64>, /// Time taken to compute quote pub time_taken: Option<f64>, }
+pub struct SwapQuote { /// Source token mint address pub input_mint: String, /// Destination token mint address pub output_mint: String, /// Input amount pub in_amount: u64, /// Expected output amount pub out_amount: u64, /// Minimum output amount after slippage pub other_amount_threshold: u64, /// Price impact percentage pub price_impact_pct: f64, /// Detailed routing plan pub route_plan: Vec<RoutePlanStep>, /// Context slot for the quote pub context_slot: Option<u64>, /// Time taken to compute quote pub time_taken: Option<f64>, }
 ```
 
 Result of a swap quote from Jupiter
@@ -1136,7 +1158,7 @@ Result of a swap quote from Jupiter
 ```
 
 ```rust
-pub struct SwapResult { /// Transaction signature pub signature: String, pub input_mint: String, pub output_mint: String, /// Input amount pub in_amount: u64, /// Expected output amount pub out_amount: u64, /// Price impact percentage pub price_impact_pct: f64, /// Transaction status pub status: TransactionStatus, /// Idempotency key if provided pub idempotency_key: Option<String>, }
+pub struct SwapResult { /// Transaction signature pub signature: String, /// Source token mint address pub input_mint: String, /// Destination token mint address pub output_mint: String, /// Input amount pub in_amount: u64, /// Expected output amount pub out_amount: u64, /// Price impact percentage pub price_impact_pct: f64, /// Transaction status pub status: TransactionStatus, /// Idempotency key if provided pub idempotency_key: Option<String>, }
 ```
 
 Result of a swap execution
@@ -1153,8 +1175,13 @@ Result of a swap execution
 ```
 
 ```rust
-pub struct TokenBalanceResult { pub owner_address: String, pub mint_address: String, pub raw_amount: u64, /// UI amount (with decimal adjustment)
+pub struct TokenBalanceResult { /// The wallet address that owns the tokens pub owner_address: String, /// The SPL token mint address (contract address)
 ```
+
+Result structure for SPL token balance queries
+
+Contains balance information for a specific SPL token including both raw amounts
+and decimal-adjusted values.
 
 ---
 
@@ -1168,8 +1195,10 @@ pub struct TokenBalanceResult { pub owner_address: String, pub mint_address: Str
 ```
 
 ```rust
-pub struct TokenTransferResult { /// Transaction signature pub signature: String, /// Sender address pub from: String, /// Recipient address pub to: String, pub mint: String, /// Raw amount transferred pub amount: u64, pub ui_amount: f64, pub decimals: u8, /// Human-readable amount display pub amount_display: String, /// Transaction status pub status: TransactionStatus, /// Idempotency key if provided pub idempotency_key: Option<String>, }
+pub struct TokenTransferResult { /// Transaction signature pub signature: String, /// Sender address pub from: String, /// Recipient address pub to: String, /// SPL token mint address pub mint: String, /// Raw amount transferred pub amount: u64, /// UI-formatted amount (adjusted for decimals)
 ```
+
+Result of an SPL token transfer transaction
 
 ---
 
@@ -1200,7 +1229,7 @@ Configuration for transaction retry behavior
 ```
 
 ```rust
-pub struct TransactionResult { /// Transaction signature pub signature: String, /// Sender address pub from: String, /// Recipient address pub to: String, /// Amount transferred in lamports pub amount: u64, /// Human-readable amount display pub amount_display: String, /// Transaction status pub status: TransactionStatus, pub memo: Option<String>, /// Idempotency key if provided pub idempotency_key: Option<String>, }
+pub struct TransactionResult { /// Transaction signature pub signature: String, /// Sender address pub from: String, /// Recipient address pub to: String, /// Amount transferred in lamports pub amount: u64, /// Human-readable amount display pub amount_display: String, /// Transaction status pub status: TransactionStatus, /// Optional memo included with the transaction pub memo: Option<String>, /// Idempotency key if provided pub idempotency_key: Option<String>, }
 ```
 
 Result of a SOL transfer transaction
@@ -1221,6 +1250,186 @@ pub struct TransactionSubmissionResult { /// Transaction signature pub signature
 ```
 
 Result of a transaction submission
+
+---
+
+## Enums
+
+### PermanentError
+
+**Source**: `src/error.rs`
+
+**Attributes**:
+```rust
+#[derive(Debug, Clone, PartialEq)]
+```
+
+```rust
+pub enum PermanentError { /// Insufficient funds for transaction InsufficientFunds, /// Invalid signature provided InvalidSignature, /// Invalid account referenced InvalidAccount, /// Program execution error InstructionError, /// Invalid transaction structure InvalidTransaction, /// Duplicate transaction DuplicateTransaction, }
+```
+
+Permanent errors that should not be retried
+
+**Variants**:
+
+- `InsufficientFunds`
+- `InvalidSignature`
+- `InvalidAccount`
+- `InstructionError`
+- `InvalidTransaction`
+- `DuplicateTransaction`
+
+---
+
+### PumpTradeType
+
+**Source**: `src/pump.rs`
+
+**Attributes**:
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+```
+
+```rust
+pub enum PumpTradeType { /// Buy tokens with SOL Buy, /// Sell tokens for SOL Sell, }
+```
+
+Type of trade on Pump.fun
+
+**Variants**:
+
+- `Buy`
+- `Sell`
+
+---
+
+### RateLimitError
+
+**Source**: `src/error.rs`
+
+**Attributes**:
+```rust
+#[derive(Debug, Clone, PartialEq)]
+```
+
+```rust
+pub enum RateLimitError { /// Standard RPC rate limiting RpcRateLimit, /// Too many requests error TooManyRequests, }
+```
+
+Rate limiting errors with special handling
+
+**Variants**:
+
+- `RpcRateLimit`
+- `TooManyRequests`
+
+---
+
+### RetryableError
+
+**Source**: `src/error.rs`
+
+**Attributes**:
+```rust
+#[derive(Debug, Clone, PartialEq)]
+```
+
+```rust
+pub enum RetryableError { /// Network connectivity issues NetworkConnectivity, /// RPC service temporary unavailability TemporaryRpcFailure, /// Blockchain congestion NetworkCongestion, /// Transaction pool full TransactionPoolFull, }
+```
+
+Errors that can be retried with appropriate backoff
+
+**Variants**:
+
+- `NetworkConnectivity`
+- `TemporaryRpcFailure`
+- `NetworkCongestion`
+- `TransactionPoolFull`
+
+---
+
+### SolanaToolError
+
+**Source**: `src/error.rs`
+
+**Attributes**:
+```rust
+#[derive(Error, Debug)]
+#[allow(clippy::result_large_err)]
+#[allow(clippy::large_enum_variant)]
+```
+
+```rust
+pub enum SolanaToolError { /// Core tool error #[error("Core tool error: {0}")] ToolError(#[from] ToolError), /// Signer context error #[error("Signer context error: {0}")] SignerError(#[from] SignerError), /// RPC client error #[error("RPC error: {0}")] Rpc(String), /// Solana client error #[error("Solana client error: {0}")] SolanaClient(Box<ClientError>), /// Invalid address format #[error("Invalid address: {0}")] InvalidAddress(String), /// Invalid key format #[error("Invalid key: {0}")] InvalidKey(String), /// Invalid signature format #[error("Invalid signature: {0}")] InvalidSignature(String), /// Transaction failed #[error("Transaction error: {0}")] Transaction(String), /// Insufficient funds for operation #[error("Insufficient funds for operation")] InsufficientFunds, /// Invalid token mint #[error("Invalid token mint: {0}")] InvalidTokenMint(String), /// Serialization error #[error("Serialization error: {0}")] Serialization(#[from] serde_json::Error), /// HTTP request error #[error("HTTP error: {0}")] Http(#[from] reqwest::Error), /// Core riglr error #[error("Core error: {0}")] Core(#[from] riglr_core::CoreError), /// Generic error #[error("Solana tool error: {0}")] Generic(String), }
+```
+
+Main error type for Solana tool operations.
+
+**Variants**:
+
+- `ToolError(#[from] ToolError)`
+- `SignerError(#[from] SignerError)`
+- `Rpc(String)`
+- `SolanaClient(Box<ClientError>)`
+- `InvalidAddress(String)`
+- `InvalidKey(String)`
+- `InvalidSignature(String)`
+- `Transaction(String)`
+- `InsufficientFunds`
+- `InvalidTokenMint(String)`
+- `Serialization(#[from] serde_json::Error)`
+- `Http(#[from] reqwest::Error)`
+- `Core(#[from] riglr_core::CoreError)`
+- `Generic(String)`
+
+---
+
+### TransactionErrorType
+
+**Source**: `src/error.rs`
+
+**Attributes**:
+```rust
+#[derive(Debug, Clone, PartialEq)]
+```
+
+```rust
+pub enum TransactionErrorType { /// Errors that can be retried with appropriate backoff Retryable(RetryableError), /// Errors that represent permanent failures and should not be retried Permanent(PermanentError), /// Rate limiting errors that require special handling with delays RateLimited(RateLimitError), /// Unknown error types that don't fit other categories Unknown(String), }
+```
+
+Structured classification of transaction errors for intelligent retry logic
+
+**Variants**:
+
+- `Retryable(RetryableError)`
+- `Permanent(PermanentError)`
+- `RateLimited(RateLimitError)`
+- `Unknown(String)`
+
+---
+
+### TransactionStatus
+
+**Source**: `src/transaction.rs`
+
+**Attributes**:
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+```
+
+```rust
+pub enum TransactionStatus { /// Transaction is pending confirmation Pending, /// Transaction is confirmed Confirmed, /// Transaction is finalized Finalized, /// Transaction failed Failed(String), }
+```
+
+Transaction status
+
+**Variants**:
+
+- `Pending`
+- `Confirmed`
+- `Finalized`
+- `Failed(String)`
 
 ---
 
@@ -1264,6 +1473,9 @@ pub async fn create_token_with_mint_keypair( instructions: Vec<Instruction>, _mi
 ```
 
 Creates properly signed Solana transaction with mint keypair
+
+This function creates a transaction with the given instructions and signs it
+using both the payer from signer context and the provided mint keypair.
 
 ---
 
@@ -1400,6 +1612,8 @@ pub fn generate_mint_keypair() -> Keypair
 ```
 
 Generates new mint keypair for token creation
+
+Returns a fresh keypair that can be used as the mint address for a new token.
 
 ---
 
@@ -1588,6 +1802,8 @@ Get token accounts owned by the given address
 pub async fn get_token_balance(&self, address: &str, mint: &str) -> Result<u64>
 ```
 
+Get SPL token balance for a specific token mint owned by an address
+
 ---
 
 ### get_transaction
@@ -1646,7 +1862,31 @@ Check if the client is connected
 pub fn is_rate_limited(&self) -> bool
 ```
 
+Check if this error is rate-limited.
+
+---
+
+### is_rate_limited
+
+**Source**: `src/error.rs`
+
+```rust
+pub fn is_rate_limited(&self) -> bool
+```
+
 Check if this is a rate limiting error (special case of retryable)
+
+---
+
+### is_retriable
+
+**Source**: `src/error.rs`
+
+```rust
+pub fn is_retriable(&self) -> bool
+```
+
+Check if this error is retriable.
 
 ---
 
@@ -1719,6 +1959,18 @@ pub fn require_signer(&self) -> Result<&Arc<Keypair>>
 ```
 
 Get signer or return error if not configured
+
+---
+
+### retry_delay
+
+**Source**: `src/error.rs`
+
+```rust
+pub fn retry_delay(&self) -> Option<std::time::Duration>
+```
+
+Get appropriate retry delay for rate-limited errors.
 
 ---
 
@@ -1975,200 +2227,6 @@ pub fn with_signer_from_bytes(self, private_key_bytes: &[u8]) -> Result<Self>
 ```
 
 Configure client with a signer from private key bytes
-
----
-
-## Enums
-
-### PermanentError
-
-**Source**: `src/error.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, PartialEq)]
-```
-
-```rust
-pub enum PermanentError { /// Insufficient funds for transaction InsufficientFunds, /// Invalid signature provided InvalidSignature, /// Invalid account referenced InvalidAccount, /// Program execution error InstructionError, /// Invalid transaction structure InvalidTransaction, /// Duplicate transaction DuplicateTransaction, }
-```
-
-Permanent errors that should not be retried
-
-**Variants**:
-
-- `InsufficientFunds`
-- `InvalidSignature`
-- `InvalidAccount`
-- `InstructionError`
-- `InvalidTransaction`
-- `DuplicateTransaction`
-
----
-
-### PumpTradeType
-
-**Source**: `src/pump.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub enum PumpTradeType { Buy, Sell, }
-```
-
-Type of trade on Pump.fun
-
-**Variants**:
-
-- `Buy`
-- `Sell`
-
----
-
-### RateLimitError
-
-**Source**: `src/error.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, PartialEq)]
-```
-
-```rust
-pub enum RateLimitError { /// Standard RPC rate limiting RpcRateLimit, /// Too many requests error TooManyRequests, }
-```
-
-Rate limiting errors with special handling
-
-**Variants**:
-
-- `RpcRateLimit`
-- `TooManyRequests`
-
----
-
-### RetryableError
-
-**Source**: `src/error.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, PartialEq)]
-```
-
-```rust
-pub enum RetryableError { /// Network connectivity issues NetworkConnectivity, /// RPC service temporary unavailability TemporaryRpcFailure, /// Blockchain congestion NetworkCongestion, /// Transaction pool full TransactionPoolFull, }
-```
-
-Errors that can be retried with appropriate backoff
-
-**Variants**:
-
-- `NetworkConnectivity`
-- `TemporaryRpcFailure`
-- `NetworkCongestion`
-- `TransactionPoolFull`
-
----
-
-### SolanaToolError
-
-**Source**: `src/error.rs`
-
-**Attributes**:
-```rust
-#[derive(Error, Debug)]
-#[allow(clippy::result_large_err)]
-#[allow(clippy::large_enum_variant)]
-```
-
-```rust
-pub enum SolanaToolError { /// Core tool error #[error("Core tool error: {0}")] ToolError(#[from] ToolError), /// Signer context error #[error("Signer context error: {0}")] SignerError(#[from] SignerError), /// RPC client error #[error("RPC error: {0}")] Rpc(String), /// Solana client error #[error("Solana client error: {0}")] SolanaClient(Box<ClientError>), /// Invalid address format #[error("Invalid address: {0}")] InvalidAddress(String), /// Invalid key format #[error("Invalid key: {0}")] InvalidKey(String), /// Invalid signature format #[error("Invalid signature: {0}")] InvalidSignature(String), /// Transaction failed #[error("Transaction error: {0}")] Transaction(String), /// Insufficient funds for operation #[error("Insufficient funds for operation")] InsufficientFunds, /// Invalid token mint #[error("Invalid token mint: {0}")] InvalidTokenMint(String), /// Serialization error #[error("Serialization error: {0}")] Serialization(#[from] serde_json::Error), /// HTTP request error #[error("HTTP error: {0}")] Http(#[from] reqwest::Error), /// Core riglr error #[error("Core error: {0}")] Core(#[from] riglr_core::CoreError), /// Generic error #[error("Solana tool error: {0}")] Generic(String), }
-```
-
-Main error type for Solana tool operations.
-
-**Variants**:
-
-- `ToolError(#[from] ToolError)`
-- `SignerError(#[from] SignerError)`
-- `Rpc(String)`
-- `SolanaClient(Box<ClientError>)`
-- `InvalidAddress(String)`
-- `InvalidKey(String)`
-- `InvalidSignature(String)`
-- `Transaction(String)`
-- `InsufficientFunds`
-- `InvalidTokenMint(String)`
-- `Serialization(#[from] serde_json::Error)`
-- `Http(#[from] reqwest::Error)`
-- `Core(#[from] riglr_core::CoreError)`
-- `Generic(String)`
-
----
-
-### TransactionErrorType
-
-**Source**: `src/error.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, PartialEq)]
-```
-
-```rust
-pub enum TransactionErrorType { Retryable(RetryableError), Permanent(PermanentError), RateLimited(RateLimitError), Unknown(String), }
-```
-
-Structured classification of transaction errors for intelligent retry logic
-
-**Variants**:
-
-- `Retryable(RetryableError)`
-- `Permanent(PermanentError)`
-- `RateLimited(RateLimitError)`
-- `Unknown(String)`
-
----
-
-### TransactionStatus
-
-**Source**: `src/transaction.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub enum TransactionStatus { /// Transaction is pending confirmation Pending, /// Transaction is confirmed Confirmed, /// Transaction is finalized Finalized, /// Transaction failed Failed(String), }
-```
-
-Transaction status
-
-**Variants**:
-
-- `Pending`
-- `Confirmed`
-- `Finalized`
-- `Failed(String)`
-
----
-
-## Constants
-
-### VERSION
-
-**Source**: `src/lib.rs`
-
-```rust
-const VERSION: &str
-```
-
-Current version of riglr-solana-tools
 
 ---
 

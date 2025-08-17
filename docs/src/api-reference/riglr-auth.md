@@ -562,7 +562,7 @@ Main error type for authentication operations
 ```
 
 ```rust
-pub enum AuthProviderType { Privy, Web3Auth, Magic, Custom(String), }
+pub enum AuthProviderType { /// Privy authentication provider Privy, /// Web3Auth authentication provider Web3Auth, /// Magic.link authentication provider Magic, /// Custom authentication provider with a name Custom(String), }
 ```
 
 Authentication provider types
@@ -720,6 +720,8 @@ Create a new authentication provider
 pub fn new(publishable_key: String, secret_key: String) -> Self
 ```
 
+Create a new Magic configuration
+
 ---
 
 ### new
@@ -730,17 +732,7 @@ pub fn new(publishable_key: String, secret_key: String) -> Self
 pub fn new(config: MagicConfig) -> Self
 ```
 
----
-
-### new
-
-**Source**: `privy/provider.rs`
-
-```rust
-pub fn new(config: PrivyConfig) -> Self
-```
-
-Create a new Privy provider
+Create a new Magic provider
 
 ---
 
@@ -778,11 +770,25 @@ Create a new Privy configuration
 
 ### new
 
+**Source**: `privy/provider.rs`
+
+```rust
+pub fn new(config: PrivyConfig) -> Self
+```
+
+Create a new Privy provider
+
+---
+
+### new
+
 **Source**: `web3auth/mod.rs`
 
 ```rust
 pub fn new(client_id: String, verifier: String) -> Self
 ```
+
+Create a new Web3Auth configuration
 
 ---
 
@@ -793,6 +799,8 @@ pub fn new(client_id: String, verifier: String) -> Self
 ```rust
 pub fn new(config: Web3AuthConfig) -> Self
 ```
+
+Create a new Web3Auth provider
 
 ---
 

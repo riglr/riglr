@@ -4,25 +4,129 @@ This page contains documentation for tools provided by the `riglr-solana-tools` 
 
 ## Available Tools
 
+- [`get_block_height`](#get_block_height) - src/network.rs
+- [`get_transaction_status`](#get_transaction_status) - src/network.rs
 - [`get_sol_balance`](#get_sol_balance) - src/balance.rs
 - [`get_spl_token_balance`](#get_spl_token_balance) - src/balance.rs
 - [`get_multiple_balances`](#get_multiple_balances) - src/balance.rs
-- [`get_block_height`](#get_block_height) - src/network.rs
-- [`get_transaction_status`](#get_transaction_status) - src/network.rs
 - [`deploy_pump_token`](#deploy_pump_token) - src/pump.rs
 - [`buy_pump_token`](#buy_pump_token) - src/pump.rs
 - [`sell_pump_token`](#sell_pump_token) - src/pump.rs
 - [`get_pump_token_info`](#get_pump_token_info) - src/pump.rs
 - [`analyze_pump_transaction`](#analyze_pump_transaction) - src/pump.rs
 - [`get_trending_pump_tokens`](#get_trending_pump_tokens) - src/pump.rs
-- [`get_jupiter_quote`](#get_jupiter_quote) - src/swap.rs
-- [`perform_jupiter_swap`](#perform_jupiter_swap) - src/swap.rs
-- [`get_token_price`](#get_token_price) - src/swap.rs
 - [`transfer_sol`](#transfer_sol) - src/transaction.rs
 - [`transfer_spl_token`](#transfer_spl_token) - src/transaction.rs
 - [`create_spl_token_mint`](#create_spl_token_mint) - src/transaction.rs
+- [`get_jupiter_quote`](#get_jupiter_quote) - src/swap.rs
+- [`perform_jupiter_swap`](#perform_jupiter_swap) - src/swap.rs
+- [`get_token_price`](#get_token_price) - src/swap.rs
 
 ## Tool Functions
+
+### get_block_height
+
+**Source**: `src/network.rs`
+
+```rust
+pub async fn get_block_height() -> Result<u64, ToolError>
+```
+
+**Documentation:**
+
+Get the current block height from the Solana blockchain
+
+This tool queries the Solana network to retrieve the most recent block height,
+which represents the number of blocks that have been processed by the network.
+Essential for checking network activity and determining transaction finality.
+
+# Returns
+
+Returns the current block height as a `u64` representing the total number
+of blocks processed by the Solana network since genesis.
+
+# Errors
+
+* `ToolError::Permanent` - When no signer context is available
+* `ToolError::Retriable` - When network connection issues occur or RPC timeouts
+
+# Examples
+
+```rust,ignore
+use riglr_solana_tools::network::get_block_height;
+use riglr_core::SignerContext;
+
+# async fn example() -> Result<(), Box<dyn std::error::Error>> {
+let height = get_block_height().await?;
+println!("Current block height: {}", height);
+
+// Use block height for transaction confirmation checks
+if height > 150_000_000 {
+println!("Network has processed over 150M blocks");
+}
+# Ok(())
+# }
+```
+
+---
+
+### get_transaction_status
+
+**Source**: `src/network.rs`
+
+```rust
+pub async fn get_transaction_status(signature: String) -> Result<String, ToolError>
+```
+
+**Documentation:**
+
+Get transaction status by signature
+
+This tool queries the Solana network to check the confirmation status of a transaction
+using its signature. Essential for monitoring transaction progress and ensuring operations
+have been confirmed by the network before proceeding with dependent actions.
+
+# Arguments
+
+* `signature` - The transaction signature to check (base58-encoded string)
+
+# Returns
+
+Returns a `String` indicating the transaction status:
+- `"finalized"` - Transaction is finalized and cannot be rolled back
+- `"confirmed"` - Transaction is confirmed by supermajority of cluster
+- `"processed"` - Transaction has been processed but may not be confirmed
+- `"failed"` - Transaction failed due to an error
+- `"not_found"` - Transaction signature not found (may not exist or be too old)
+
+# Errors
+
+* `ToolError::Permanent` - When signature format is invalid or signer context unavailable
+* `ToolError::Retriable` - When network issues occur during status lookup
+
+# Examples
+
+```rust,ignore
+use riglr_solana_tools::network::get_transaction_status;
+
+# async fn example() -> Result<(), Box<dyn std::error::Error>> {
+let status = get_transaction_status(
+"5j7s88CkzQeE6EN5HiV7CqkYsL3x6PbJmSjYpJjm1J2v3z4x8K7b".to_string()
+).await?;
+
+match status.as_str() {
+"finalized" => println!("✅ Transaction is finalized"),
+"confirmed" => println!("🔄 Transaction is confirmed"),
+"processed" => println!("⏳ Transaction is processed, awaiting confirmation"),
+"failed" => println!("❌ Transaction failed"),
+"not_found" => println!("🔍 Transaction not found"),
+_ => println!("Unknown status: {}", status),
+}
+# Ok(())
+# }
+```
+
+---
 
 ### get_sol_balance
 
@@ -186,110 +290,6 @@ println!("{}: {} SOL", balance.address, balance.sol);
 
 ---
 
-### get_block_height
-
-**Source**: `src/network.rs`
-
-```rust
-pub async fn get_block_height() -> Result<u64, ToolError>
-```
-
-**Documentation:**
-
-Get the current block height from the Solana blockchain
-
-This tool queries the Solana network to retrieve the most recent block height,
-which represents the number of blocks that have been processed by the network.
-Essential for checking network activity and determining transaction finality.
-
-# Returns
-
-Returns the current block height as a `u64` representing the total number
-of blocks processed by the Solana network since genesis.
-
-# Errors
-
-* `ToolError::Permanent` - When no signer context is available
-* `ToolError::Retriable` - When network connection issues occur or RPC timeouts
-
-# Examples
-
-```rust,ignore
-use riglr_solana_tools::network::get_block_height;
-use riglr_core::SignerContext;
-
-# async fn example() -> Result<(), Box<dyn std::error::Error>> {
-let height = get_block_height().await?;
-println!("Current block height: {}", height);
-
-// Use block height for transaction confirmation checks
-if height > 150_000_000 {
-println!("Network has processed over 150M blocks");
-}
-# Ok(())
-# }
-```
-
----
-
-### get_transaction_status
-
-**Source**: `src/network.rs`
-
-```rust
-pub async fn get_transaction_status(signature: String) -> Result<String, ToolError>
-```
-
-**Documentation:**
-
-Get transaction status by signature
-
-This tool queries the Solana network to check the confirmation status of a transaction
-using its signature. Essential for monitoring transaction progress and ensuring operations
-have been confirmed by the network before proceeding with dependent actions.
-
-# Arguments
-
-* `signature` - The transaction signature to check (base58-encoded string)
-
-# Returns
-
-Returns a `String` indicating the transaction status:
-- `"finalized"` - Transaction is finalized and cannot be rolled back
-- `"confirmed"` - Transaction is confirmed by supermajority of cluster
-- `"processed"` - Transaction has been processed but may not be confirmed
-- `"failed"` - Transaction failed due to an error
-- `"not_found"` - Transaction signature not found (may not exist or be too old)
-
-# Errors
-
-* `ToolError::Permanent` - When signature format is invalid or signer context unavailable
-* `ToolError::Retriable` - When network issues occur during status lookup
-
-# Examples
-
-```rust,ignore
-use riglr_solana_tools::network::get_transaction_status;
-
-# async fn example() -> Result<(), Box<dyn std::error::Error>> {
-let status = get_transaction_status(
-"5j7s88CkzQeE6EN5HiV7CqkYsL3x6PbJmSjYpJjm1J2v3z4x8K7b".to_string()
-).await?;
-
-match status.as_str() {
-"finalized" => println!("✅ Transaction is finalized"),
-"confirmed" => println!("🔄 Transaction is confirmed"),
-"processed" => println!("⏳ Transaction is processed, awaiting confirmation"),
-"failed" => println!("❌ Transaction failed"),
-"not_found" => println!("🔍 Transaction not found"),
-_ => println!("Unknown status: {}", status),
-}
-# Ok(())
-# }
-```
-
----
-
 ### deploy_pump_token
 
 **Source**: `src/pump.rs`
@@ -389,6 +389,187 @@ pub async fn get_trending_pump_tokens(limit: Option<u32>) -> Result<Vec<PumpToke
 Get trending tokens on Pump.fun
 
 This tool fetches the currently trending tokens on the Pump.fun platform.
+
+---
+
+### transfer_sol
+
+**Source**: `src/transaction.rs`
+
+```rust
+pub async fn transfer_sol( to_address: String, amount_sol: f64, memo: Option<String>, priority_fee: Option<u64>, ) -> Result<TransactionResult, ToolError>
+```
+
+**Documentation:**
+
+Transfer SOL from one account to another
+
+This tool creates, signs, and executes a SOL transfer transaction using the current signer context.
+The transaction includes optional memo and priority fee support for faster confirmation.
+
+# Arguments
+
+* `to_address` - Recipient wallet address (base58 encoded public key)
+* `amount_sol` - Amount to transfer in SOL (e.g., 0.001 for 1,000,000 lamports)
+* `memo` - Optional memo to include in the transaction for record keeping
+* `priority_fee` - Optional priority fee in microlamports for faster processing
+
+# Returns
+
+Returns `TransactionResult` containing:
+- `signature`: Transaction signature hash
+- `from`: Sender address from signer context
+- `to`: Recipient address
+- `amount`: Transfer amount in lamports
+- `amount_display`: Human-readable amount in SOL
+- `status`: Transaction confirmation status
+- `memo`: Included memo (if any)
+
+# Errors
+
+* `ToolError::Permanent` - When amount is non-positive, addresses are invalid, or signer unavailable
+* `ToolError::Permanent` - When transaction signing or submission fails
+
+# Examples
+
+```rust,ignore
+use riglr_solana_tools::transaction::transfer_sol;
+use riglr_core::SignerContext;
+
+# async fn example() -> Result<(), Box<dyn std::error::Error>> {
+// Transfer 0.001 SOL with a memo
+let result = transfer_sol(
+"9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM".to_string(),
+0.001, // 0.001 SOL
+Some("Payment for services".to_string()),
+Some(5000), // 5000 microlamports priority fee
+).await?;
+
+println!("Transfer completed! Signature: {}", result.signature);
+println!("Sent {} from {} to {}", result.amount_display, result.from, result.to);
+# Ok(())
+# }
+```
+
+---
+
+### transfer_spl_token
+
+**Source**: `src/transaction.rs`
+
+```rust
+pub async fn transfer_spl_token( to_address: String, mint_address: String, amount: u64, decimals: u8, create_ata_if_needed: bool, ) -> Result<TokenTransferResult, ToolError>
+```
+
+**Documentation:**
+
+Transfer SPL tokens from one account to another
+
+This tool creates, signs, and executes an SPL token transfer transaction. It automatically
+handles Associated Token Account (ATA) creation if needed and supports any SPL token.
+
+# Arguments
+
+* `to_address` - Recipient wallet address (base58 encoded public key)
+* `mint_address` - SPL token mint address (contract address)
+* `amount` - Amount to transfer in token's smallest unit (before decimal adjustment)
+* `decimals` - Number of decimal places for the token (e.g., 6 for USDC, 9 for most tokens)
+* `create_ata_if_needed` - Whether to create recipient's ATA if it doesn't exist
+
+# Returns
+
+Returns `TokenTransferResult` containing transaction details and amount information
+in both raw and UI-adjusted formats.
+
+# Errors
+
+* `ToolError::Permanent` - When addresses are invalid, signer unavailable, or transaction fails
+
+# Examples
+
+```rust,ignore
+use riglr_solana_tools::transaction::transfer_spl_token;
+
+# async fn example() -> Result<(), Box<dyn std::error::Error>> {
+// Transfer 1 USDC (6 decimals)
+let result = transfer_spl_token(
+"9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM".to_string(),
+"EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v".to_string(), // USDC mint
+1_000_000, // 1 USDC in microunits
+6, // USDC has 6 decimals
+true, // Create recipient ATA if needed
+).await?;
+
+println!("Token transfer completed! Signature: {}", result.signature);
+println!("Transferred {} tokens", result.ui_amount);
+# Ok(())
+# }
+```
+
+---
+
+### create_spl_token_mint
+
+**Source**: `src/transaction.rs`
+
+```rust
+pub async fn create_spl_token_mint( decimals: u8, initial_supply: u64, freezable: bool, ) -> Result<CreateMintResult, ToolError>
+```
+
+**Documentation:**
+
+Create a new SPL token mint
+
+This tool creates a new SPL token mint account on the Solana blockchain with specified
+configuration parameters. The mint authority is set to the current signer, enabling
+future token supply management operations.
+
+**Note**: This function is currently a placeholder and will return an implementation
+pending error. A full implementation would create the mint account, set authorities,
+and optionally mint initial tokens to the creator.
+
+# Arguments
+
+* `decimals` - Number of decimal places for the token (0-9, commonly 6 or 9)
+* `initial_supply` - Initial number of tokens to mint (in smallest unit)
+* `freezable` - Whether the token accounts can be frozen by the freeze authority
+
+# Returns
+
+Returns `CreateMintResult` containing:
+- `mint_address`: The newly created token mint address
+- `transaction_signature`: Transaction signature of the mint creation
+- `initial_supply`: Number of tokens initially minted
+- `decimals`: Decimal places configuration
+- `authority`: The mint authority address (signer address)
+
+# Errors
+
+* `ToolError::Permanent` - Currently returns "Implementation pending" error
+* Future implementation would include:
+- Invalid decimals value (must be 0-9)
+- Insufficient SOL balance for rent and fees
+- Network connection issues
+
+# Examples
+
+```rust,ignore
+use riglr_solana_tools::transaction::create_spl_token_mint;
+
+# async fn example() -> Result<(), Box<dyn std::error::Error>> {
+// This would create a USDC-like token with 6 decimals
+let result = create_spl_token_mint(
+6,             // 6 decimal places
+1_000_000_000, // 1,000 tokens initial supply (1000 * 10^6)
+true,          // Allow freezing accounts
+).await?;
+
+println!("Created token mint: {}", result.mint_address);
+println!("Initial supply: {} tokens", result.initial_supply);
+println!("Transaction: {}", result.transaction_signature);
+# Ok(())
+# }
+```
 
 ---
 
@@ -568,187 +749,6 @@ None, // Use default Jupiter API
 
 println!("1 SOL = {} USDC", price_info.price);
 println!("Price impact: {:.3}%", price_info.price_impact_pct);
-# Ok(())
-# }
-```
-
----
-
-### transfer_sol
-
-**Source**: `src/transaction.rs`
-
-```rust
-pub async fn transfer_sol( to_address: String, amount_sol: f64, memo: Option<String>, priority_fee: Option<u64>, ) -> Result<TransactionResult, ToolError>
-```
-
-**Documentation:**
-
-Transfer SOL from one account to another
-
-This tool creates, signs, and executes a SOL transfer transaction using the current signer context.
-The transaction includes optional memo and priority fee support for faster confirmation.
-
-# Arguments
-
-* `to_address` - Recipient wallet address (base58 encoded public key)
-* `amount_sol` - Amount to transfer in SOL (e.g., 0.001 for 1,000,000 lamports)
-* `memo` - Optional memo to include in the transaction for record keeping
-* `priority_fee` - Optional priority fee in microlamports for faster processing
-
-# Returns
-
-Returns `TransactionResult` containing:
-- `signature`: Transaction signature hash
-- `from`: Sender address from signer context
-- `to`: Recipient address
-- `amount`: Transfer amount in lamports
-- `amount_display`: Human-readable amount in SOL
-- `status`: Transaction confirmation status
-- `memo`: Included memo (if any)
-
-# Errors
-
-* `ToolError::Permanent` - When amount is non-positive, addresses are invalid, or signer unavailable
-* `ToolError::Permanent` - When transaction signing or submission fails
-
-# Examples
-
-```rust,ignore
-use riglr_solana_tools::transaction::transfer_sol;
-use riglr_core::SignerContext;
-
-# async fn example() -> Result<(), Box<dyn std::error::Error>> {
-// Transfer 0.001 SOL with a memo
-let result = transfer_sol(
-"9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM".to_string(),
-0.001, // 0.001 SOL
-Some("Payment for services".to_string()),
-Some(5000), // 5000 microlamports priority fee
-).await?;
-
-println!("Transfer completed! Signature: {}", result.signature);
-println!("Sent {} from {} to {}", result.amount_display, result.from, result.to);
-# Ok(())
-# }
-```
-
----
-
-### transfer_spl_token
-
-**Source**: `src/transaction.rs`
-
-```rust
-pub async fn transfer_spl_token( to_address: String, mint_address: String, amount: u64, decimals: u8, create_ata_if_needed: bool, ) -> Result<TokenTransferResult, ToolError>
-```
-
-**Documentation:**
-
-Transfer SPL tokens from one account to another
-
-This tool creates, signs, and executes an SPL token transfer transaction. It automatically
-handles Associated Token Account (ATA) creation if needed and supports any SPL token.
-
-# Arguments
-
-* `to_address` - Recipient wallet address (base58 encoded public key)
-* `mint_address` - SPL token mint address (contract address)
-* `amount` - Amount to transfer in token's smallest unit (before decimal adjustment)
-* `decimals` - Number of decimal places for the token (e.g., 6 for USDC, 9 for most tokens)
-* `create_ata_if_needed` - Whether to create recipient's ATA if it doesn't exist
-
-# Returns
-
-Returns `TokenTransferResult` containing transaction details and amount information
-in both raw and UI-adjusted formats.
-
-# Errors
-
-* `ToolError::Permanent` - When addresses are invalid, signer unavailable, or transaction fails
-
-# Examples
-
-```rust,ignore
-use riglr_solana_tools::transaction::transfer_spl_token;
-
-# async fn example() -> Result<(), Box<dyn std::error::Error>> {
-// Transfer 1 USDC (6 decimals)
-let result = transfer_spl_token(
-"9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM".to_string(),
-"EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v".to_string(), // USDC mint
-1_000_000, // 1 USDC in microunits
-6, // USDC has 6 decimals
-true, // Create recipient ATA if needed
-).await?;
-
-println!("Token transfer completed! Signature: {}", result.signature);
-println!("Transferred {} tokens", result.ui_amount);
-# Ok(())
-# }
-```
-
----
-
-### create_spl_token_mint
-
-**Source**: `src/transaction.rs`
-
-```rust
-pub async fn create_spl_token_mint( decimals: u8, initial_supply: u64, freezable: bool, ) -> Result<CreateMintResult, ToolError>
-```
-
-**Documentation:**
-
-Create a new SPL token mint
-
-This tool creates a new SPL token mint account on the Solana blockchain with specified
-configuration parameters. The mint authority is set to the current signer, enabling
-future token supply management operations.
-
-**Note**: This function is currently a placeholder and will return an implementation
-pending error. A full implementation would create the mint account, set authorities,
-and optionally mint initial tokens to the creator.
-
-# Arguments
-
-* `decimals` - Number of decimal places for the token (0-9, commonly 6 or 9)
-* `initial_supply` - Initial number of tokens to mint (in smallest unit)
-* `freezable` - Whether the token accounts can be frozen by the freeze authority
-
-# Returns
-
-Returns `CreateMintResult` containing:
-- `mint_address`: The newly created token mint address
-- `transaction_signature`: Transaction signature of the mint creation
-- `initial_supply`: Number of tokens initially minted
-- `decimals`: Decimal places configuration
-- `authority`: The mint authority address (signer address)
-
-# Errors
-
-* `ToolError::Permanent` - Currently returns "Implementation pending" error
-* Future implementation would include:
-- Invalid decimals value (must be 0-9)
-- Insufficient SOL balance for rent and fees
-- Network connection issues
-
-# Examples
-
-```rust,ignore
-use riglr_solana_tools::transaction::create_spl_token_mint;
-
-# async fn example() -> Result<(), Box<dyn std::error::Error>> {
-// This would create a USDC-like token with 6 decimals
-let result = create_spl_token_mint(
-6,             // 6 decimal places
-1_000_000_000, // 1,000 tokens initial supply (1000 * 10^6)
-true,          // Allow freezing accounts
-).await?;
-
-println!("Created token mint: {}", result.mint_address);
-println!("Initial supply: {} tokens", result.initial_supply);
-println!("Transaction: {}", result.transaction_signature);
 # Ok(())
 # }
 ```

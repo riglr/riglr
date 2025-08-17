@@ -4,6 +4,14 @@ Comprehensive API documentation for the `riglr-web-tools` crate.
 
 ## Table of Contents
 
+### Enums
+
+- [`WebToolError`](#webtoolerror)
+
+### Constants
+
+- [`VERSION`](#version)
+
 ### Structs
 
 - [`AggregationMetadata`](#aggregationmetadata)
@@ -101,6 +109,33 @@ Comprehensive API documentation for the `riglr-web-tools` crate.
 - [`WhaleActivity`](#whaleactivity)
 - [`WhaleTransaction`](#whaletransaction)
 
+### Tools
+
+- [`analyze_crypto_sentiment`](#analyze_crypto_sentiment)
+- [`analyze_market_sentiment`](#analyze_market_sentiment)
+- [`analyze_token_holders`](#analyze_token_holders)
+- [`analyze_token_market`](#analyze_token_market)
+- [`find_similar_pages`](#find_similar_pages)
+- [`get_crypto_news`](#get_crypto_news)
+- [`get_holder_trends`](#get_holder_trends)
+- [`get_influencer_mentions`](#get_influencer_mentions)
+- [`get_social_sentiment`](#get_social_sentiment)
+- [`get_token_info`](#get_token_info)
+- [`get_token_price`](#get_token_price)
+- [`get_token_prices_batch`](#get_token_prices_batch)
+- [`get_top_pairs`](#get_top_pairs)
+- [`get_trending_cryptos`](#get_trending_cryptos)
+- [`get_trending_news`](#get_trending_news)
+- [`get_trending_tokens`](#get_trending_tokens)
+- [`get_user_tweets`](#get_user_tweets)
+- [`get_whale_activity`](#get_whale_activity)
+- [`monitor_breaking_news`](#monitor_breaking_news)
+- [`search_recent_news`](#search_recent_news)
+- [`search_tokens`](#search_tokens)
+- [`search_tweets`](#search_tweets)
+- [`search_web`](#search_web)
+- [`summarize_web_content`](#summarize_web_content)
+
 ### Functions
 
 - [`contains_key`](#contains_key)
@@ -135,40 +170,57 @@ Comprehensive API documentation for the `riglr-web-tools` crate.
 - [`with_news_api_key`](#with_news_api_key)
 - [`with_twitter_token`](#with_twitter_token)
 
-### Tools
+## Enums
 
-- [`analyze_crypto_sentiment`](#analyze_crypto_sentiment)
-- [`analyze_market_sentiment`](#analyze_market_sentiment)
-- [`analyze_token_holders`](#analyze_token_holders)
-- [`analyze_token_market`](#analyze_token_market)
-- [`find_similar_pages`](#find_similar_pages)
-- [`get_crypto_news`](#get_crypto_news)
-- [`get_holder_trends`](#get_holder_trends)
-- [`get_influencer_mentions`](#get_influencer_mentions)
-- [`get_social_sentiment`](#get_social_sentiment)
-- [`get_token_info`](#get_token_info)
-- [`get_token_price`](#get_token_price)
-- [`get_token_prices_batch`](#get_token_prices_batch)
-- [`get_top_pairs`](#get_top_pairs)
-- [`get_trending_cryptos`](#get_trending_cryptos)
-- [`get_trending_news`](#get_trending_news)
-- [`get_trending_tokens`](#get_trending_tokens)
-- [`get_user_tweets`](#get_user_tweets)
-- [`get_whale_activity`](#get_whale_activity)
-- [`monitor_breaking_news`](#monitor_breaking_news)
-- [`search_recent_news`](#search_recent_news)
-- [`search_tokens`](#search_tokens)
-- [`search_tweets`](#search_tweets)
-- [`search_web`](#search_web)
-- [`summarize_web_content`](#summarize_web_content)
+### WebToolError
 
-### Enums
+**Source**: `src/error.rs`
 
-- [`WebToolError`](#webtoolerror)
+**Attributes**:
+```rust
+#[derive(Error, Debug, IntoToolError)]
+```
 
-### Constants
+```rust
+pub enum WebToolError { /// Network error (includes HTTP) - automatically retriable #[error("Network error: {0}")] Network(String), /// HTTP request error - automatically retriable (converted to Network) #[error("HTTP error: {0}")] Http(#[from] reqwest::Error), /// API error (includes general API issues) - automatically retriable #[error("API error: {0}")] Api(String), /// API rate limit exceeded - automatically handled as rate_limited #[error("Rate limit exceeded: {0}")] #[tool_error(rate_limited)] RateLimit(String), /// API authentication failed - permanent #[error("Authentication error: {0}")] #[tool_error(permanent)] Auth(String), /// Parsing error (includes JSON and response parsing) - permanent #[error("Parsing error: {0}")] #[tool_error(permanent)] Parsing(String), /// Serialization error - automatically permanent #[error("Serialization error: {0}")] Serialization(#[from] serde_json::Error), /// URL parsing error - permanent #[error("URL error: {0}")] #[tool_error(permanent)] Url(#[from] url::ParseError), /// Configuration error - permanent #[error("Configuration error: {0}")] #[tool_error(permanent)] Config(String), /// Client creation error - permanent #[error("Client error: {0}")] #[tool_error(permanent)] Client(String), /// Invalid input provided - permanent #[error("Invalid input: {0}")] #[tool_error(permanent)] InvalidInput(String), /// Core riglr error #[error("Core error: {0}")] #[tool_error(permanent)] Core(#[from] riglr_core::CoreError), }
+```
 
-- [`VERSION`](#version)
+Main error type for web tool operations.
+
+The IntoToolError derive macro automatically classifies errors:
+- Retriable: Network (includes HTTP), Api (includes request errors), RateLimit
+- Permanent: Auth, Parsing (includes JSON), Config, Client, InvalidInput
+
+**Variants**:
+
+- `Network(String)`
+- `Http(#[from] reqwest::Error)`
+- `Api(String)`
+- `RateLimit(String)`
+- `Auth(String)`
+- `Parsing(String)`
+- `Serialization(#[from] serde_json::Error)`
+- `Url(#[from] url::ParseError)`
+- `Config(String)`
+- `Client(String)`
+- `InvalidInput(String)`
+- `Core(#[from] riglr_core::CoreError)`
+
+---
+
+## Constants
+
+### VERSION
+
+**Source**: `src/lib.rs`
+
+```rust
+const VERSION: &str
+```
+
+Current version of riglr-web-tools
+
+---
 
 ## Structs
 
@@ -216,7 +268,7 @@ Type-safe API keys configuration
 ```
 
 ```rust
-pub struct BaseUrls { pub dexscreener: String, pub exa: String, pub newsapi: String, pub cryptopanic: String, pub lunarcrush: String, pub twitter: String, }
+pub struct BaseUrls { /// DexScreener API base URL pub dexscreener: String, /// Exa API base URL pub exa: String, /// News API base URL pub newsapi: String, /// CryptoPanic API base URL pub cryptopanic: String, /// LunarCrush API base URL pub lunarcrush: String, /// Twitter API base URL pub twitter: String, }
 ```
 
 Base URL configuration for various services
@@ -403,8 +455,10 @@ Configuration for DexScreener API access
 ```
 
 ```rust
-pub struct DexScreenerResponse { #[serde(rename = "schemaVersion")]
+pub struct DexScreenerResponse { /// Schema version of the API response #[serde(rename = "schemaVersion")]
 ```
+
+Response from DexScreener API containing token pair information
 
 ---
 
@@ -444,23 +498,6 @@ Emotional indicators in news content
 
 ### EntityMention
 
-**Source**: `src/news.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub struct EntityMention { /// Entity name pub name: String, /// Number of mentions across articles pub mention_count: u32, /// Average sentiment towards entity pub avg_sentiment: f64, /// Entity type pub entity_type: String, /// Trending status pub is_trending: bool, }
-```
-
-Entity mention statistics
-
----
-
-### EntityMention
-
 **Source**: `src/twitter.rs`
 
 **Attributes**:
@@ -476,6 +513,23 @@ Entity mention in sentiment analysis
 
 ---
 
+### EntityMention
+
+**Source**: `src/news.rs`
+
+**Attributes**:
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+```
+
+```rust
+pub struct EntityMention { /// Entity name pub name: String, /// Number of mentions across articles pub mention_count: u32, /// Average sentiment towards entity pub avg_sentiment: f64, /// Entity type pub entity_type: String, /// Trending status pub is_trending: bool, }
+```
+
+Entity mention statistics
+
+---
+
 ### Faster100xConfig
 
 **Source**: `src/faster100x.rs`
@@ -486,7 +540,7 @@ Entity mention in sentiment analysis
 ```
 
 ```rust
-pub struct Faster100xConfig { pub api_key: String, /// API base URL (default: https://api.faster100x.com/v1)
+pub struct Faster100xConfig { /// API key for authentication with Faster100x service pub api_key: String, /// API base URL (default: https://api.faster100x.com/v1)
 ```
 
 Faster100x API configuration
@@ -622,8 +676,10 @@ Result containing multiple influencer mentions
 ```
 
 ```rust
-pub struct Liquidity { pub usd: Option<f64>, pub base: Option<f64>, pub quote: Option<f64>, }
+pub struct Liquidity { /// Total liquidity in USD pub usd: Option<f64>, /// Liquidity of the base token pub base: Option<f64>, /// Liquidity of the quote token pub quote: Option<f64>, }
 ```
+
+Liquidity information for a trading pair
 
 ---
 
@@ -640,6 +696,8 @@ pub struct Liquidity { pub usd: Option<f64>, pub base: Option<f64>, pub quote: O
 pub struct LiquidityAnalysis { /// Total liquidity across all pairs pub total_liquidity_usd: f64, /// Liquidity distribution across DEXs pub dex_distribution: HashMap<String, f64>, /// Price impact for different trade sizes pub price_impact: HashMap<String, f64>, // "1k", "10k", "100k" -> impact % /// Liquidity depth score (1-100)
 ```
 
+Liquidity analysis including depth, distribution, and price impact calculations
+
 ---
 
 ### LunarCrushConfig
@@ -652,7 +710,7 @@ pub struct LiquidityAnalysis { /// Total liquidity across all pairs pub total_li
 ```
 
 ```rust
-pub struct LunarCrushConfig { pub api_key: String, /// API base URL (default: https://api.lunarcrush.com/v2)
+pub struct LunarCrushConfig { /// LunarCrush API key pub api_key: String, /// API base URL (default: https://api.lunarcrush.com/v2)
 ```
 
 LunarCrush API configuration
@@ -856,8 +914,10 @@ Page metadata extracted from HTML
 ```
 
 ```rust
-pub struct PairInfo { #[serde(rename = "chainId")]
+pub struct PairInfo { /// Blockchain network identifier #[serde(rename = "chainId")]
 ```
+
+Information about a trading pair from DexScreener
 
 ---
 
@@ -888,8 +948,10 @@ Token information within a pair
 ```
 
 ```rust
-pub struct PriceChange { #[serde(default)]
+pub struct PriceChange { /// Price change percentage in the last 24 hours #[serde(default)]
 ```
+
+Price change statistics over different time periods
 
 ---
 
@@ -954,7 +1016,7 @@ Rate limit information
 ```
 
 ```rust
-pub struct RateLimits { pub dexscreener_per_minute: u32, pub twitter_per_minute: u32, pub newsapi_per_minute: u32, pub exa_per_minute: u32, }
+pub struct RateLimits { /// DexScreener requests per minute limit pub dexscreener_per_minute: u32, /// Twitter requests per minute limit pub twitter_per_minute: u32, /// News API requests per minute limit pub newsapi_per_minute: u32, /// Exa API requests per minute limit pub exa_per_minute: u32, }
 ```
 
 Rate limiting configuration
@@ -973,6 +1035,8 @@ Rate limiting configuration
 ```rust
 pub struct RiskAssessment { /// Overall risk level (Low, Medium, High, Extreme)
 ```
+
+Comprehensive risk assessment including liquidity, volatility, and contract risks
 
 ---
 
@@ -1037,7 +1101,7 @@ Metadata for search results
 ```
 
 ```rust
-pub struct SearchMetadata { /// Total number of tweets found pub result_count: u32, /// Search query used pub query: String, pub next_token: Option<String>, /// Search timestamp pub searched_at: DateTime<Utc>, }
+pub struct SearchMetadata { /// Total number of tweets found pub result_count: u32, /// Search query used pub query: String, /// Token for pagination to fetch next set of results pub next_token: Option<String>, /// Search timestamp pub searched_at: DateTime<Utc>, }
 ```
 
 Metadata for Twitter search results
@@ -1088,7 +1152,7 @@ Sentiment analysis of search results
 ```
 
 ```rust
-pub struct SecurityInfo { pub is_verified: bool, /// Whether liquidity is locked pub liquidity_locked: Option<bool>, /// Contract audit status pub audit_status: Option<String>, /// Honeypot detection result pub honeypot_status: Option<String>, /// Contract ownership status pub ownership_status: Option<String>, /// Risk score (0-100, lower is better)
+pub struct SecurityInfo { /// Whether the token contract is verified pub is_verified: bool, /// Whether liquidity is locked pub liquidity_locked: Option<bool>, /// Contract audit status pub audit_status: Option<String>, /// Honeypot detection result pub honeypot_status: Option<String>, /// Contract ownership status pub ownership_status: Option<String>, /// Risk score (0-100, lower is better)
 ```
 
 Token security and verification information
@@ -1309,8 +1373,10 @@ Source diversity analysis
 ```
 
 ```rust
-pub struct Token { pub address: String, pub name: String, pub symbol: String, }
+pub struct Token { /// Token contract address pub address: String, /// Full name of the token pub name: String, /// Token symbol/ticker pub symbol: String, }
 ```
+
+Token information
 
 ---
 
@@ -1343,6 +1409,8 @@ Token holder analysis data
 ```rust
 pub struct TokenInfo { /// Token contract address pub address: String, /// Token name pub name: String, /// Token symbol pub symbol: String, /// Token decimals pub decimals: u32, /// Current price in USD pub price_usd: Option<f64>, /// Market capitalization in USD pub market_cap: Option<f64>, /// 24h trading volume in USD pub volume_24h: Option<f64>, /// Price change percentage (24h)
 ```
+
+Comprehensive token information including price, volume, and market data
 
 ---
 
@@ -1390,8 +1458,27 @@ Price result with additional metadata
 ```
 
 ```rust
-pub struct TokenSearchResult { /// Search query used pub query: String, pub tokens: Vec<TokenInfo>, /// Search metadata pub metadata: SearchMetadata, /// Search timestamp pub searched_at: DateTime<Utc>, }
+pub struct TokenSearchResult { /// Search query used pub query: String, /// List of tokens found in search pub tokens: Vec<TokenInfo>, /// Search metadata pub metadata: SearchMetadata, /// Search timestamp pub searched_at: DateTime<Utc>, }
 ```
+
+Token search results with metadata and execution information
+
+---
+
+### TransactionStats
+
+**Source**: `src/dexscreener_api.rs`
+
+**Attributes**:
+```rust
+#[derive(Debug, Serialize, Deserialize, Clone)]
+```
+
+```rust
+pub struct TransactionStats { /// Number of buy transactions pub buys: Option<u64>, /// Number of sell transactions pub sells: Option<u64>, }
+```
+
+Buy and sell transaction statistics
 
 ---
 
@@ -1412,21 +1499,6 @@ Transaction statistics for a trading pair
 
 ---
 
-### TransactionStats
-
-**Source**: `src/dexscreener_api.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Serialize, Deserialize, Clone)]
-```
-
-```rust
-pub struct TransactionStats { pub buys: Option<u64>, pub sells: Option<u64>, }
-```
-
----
-
 ### Transactions
 
 **Source**: `src/dexscreener_api.rs`
@@ -1437,8 +1509,10 @@ pub struct TransactionStats { pub buys: Option<u64>, pub sells: Option<u64>, }
 ```
 
 ```rust
-pub struct Transactions { #[serde(default)]
+pub struct Transactions { /// Transaction statistics for the last 24 hours #[serde(default)]
 ```
+
+Transaction statistics over different time periods
 
 ---
 
@@ -1454,6 +1528,8 @@ pub struct Transactions { #[serde(default)]
 ```rust
 pub struct TrendAnalysis { /// Overall trend direction (Bullish, Bearish, Neutral)
 ```
+
+Market trend analysis including direction, momentum, and key price levels
 
 ---
 
@@ -1535,7 +1611,7 @@ Tweet engagement metrics
 ```
 
 ```rust
-pub struct TwitterConfig { pub bearer_token: String, /// API base URL (default: https://api.twitter.com/2)
+pub struct TwitterConfig { /// Twitter API Bearer Token for authentication pub bearer_token: String, /// API base URL (default: https://api.twitter.com/2)
 ```
 
 Configuration for Twitter API access
@@ -1603,8 +1679,10 @@ Twitter user information
 ```
 
 ```rust
-pub struct Volume { #[serde(default)]
+pub struct Volume { /// Trading volume in the last 24 hours #[serde(default)]
 ```
+
+Trading volume statistics over different time periods
 
 ---
 
@@ -1618,8 +1696,10 @@ pub struct Volume { #[serde(default)]
 ```
 
 ```rust
-pub struct VolumeAnalysis { pub volume_rank: Option<u32>, /// Volume trend (Increasing, Decreasing, Stable)
+pub struct VolumeAnalysis { /// Volume rank among all tokens pub volume_rank: Option<u32>, /// Volume trend (Increasing, Decreasing, Stable)
 ```
+
+Volume analysis including trends, ratios, and trading activity metrics
 
 ---
 
@@ -1739,380 +1819,6 @@ pub struct WhaleTransaction { /// Transaction hash pub tx_hash: String, /// Whal
 ```
 
 Individual whale transaction
-
----
-
-## Functions
-
-### contains_key
-
-**Source**: `src/client.rs`
-
-```rust
-pub fn contains_key(&self, key: &str) -> bool
-```
-
-Check if an API key exists
-
----
-
-### delete
-
-**Source**: `src/client.rs`
-
-```rust
-pub async fn delete(&self, url: &str) -> Result<()>
-```
-
-Make a DELETE request
-
----
-
-### find_best_liquidity_pair
-
-**Source**: `src/dexscreener_api.rs`
-
-```rust
-pub fn find_best_liquidity_pair(pairs: Vec<PairInfo>) -> Option<PairInfo>
-```
-
-Find the best liquidity pair for a token
-
----
-
-### get
-
-**Source**: `src/client.rs`
-
-```rust
-pub fn get(&self, key: &str) -> Option<&String>
-```
-
-Get an API key by name
-
----
-
-### get
-
-**Source**: `src/client.rs`
-
-```rust
-pub fn get(&self, key: &str) -> Option<String>
-```
-
-Get a configuration value by key
-
----
-
-### get
-
-**Source**: `src/client.rs`
-
-```rust
-pub async fn get(&self, url: &str) -> Result<String>
-```
-
-Make a GET request with retry logic
-
----
-
-### get_api_key
-
-**Source**: `src/client.rs`
-
-```rust
-pub fn get_api_key(&self, service: &str) -> Option<&String>
-```
-
-Get API key for a service
-
----
-
-### get_config
-
-**Source**: `src/client.rs`
-
-```rust
-pub fn get_config(&self, key: &str) -> Option<String>
-```
-
-Get config value (for backwards compatibility)
-
----
-
-### get_pair_by_address
-
-**Source**: `src/dexscreener_api.rs`
-
-```rust
-pub async fn get_pair_by_address(pair_address: &str) -> Result<PairInfo>
-```
-
-Get pairs by pair address
-
----
-
-### get_pairs_by_token
-
-**Source**: `src/dexscreener_api.rs`
-
-```rust
-pub async fn get_pairs_by_token(token_address: &str) -> Result<DexScreenerResponse>
-```
-
-Get token pairs by token address
-
----
-
-### get_token_price
-
-**Source**: `src/dexscreener_api.rs`
-
-```rust
-pub fn get_token_price(pairs: &[PairInfo], token_address: &str) -> Option<String>
-```
-
-Extract token price from the best pair
-
----
-
-### get_with_headers
-
-**Source**: `src/client.rs`
-
-```rust
-pub async fn get_with_headers( &self, url: &str, headers: HashMap<String, String>, ) -> Result<String>
-```
-
-Make a GET request with headers and retry logic
-
----
-
-### get_with_params
-
-**Source**: `src/client.rs`
-
-```rust
-pub async fn get_with_params( &self, url: &str, params: &HashMap<String, String>, ) -> Result<String>
-```
-
-Make GET request with query parameters
-
----
-
-### get_with_params_and_headers
-
-**Source**: `src/client.rs`
-
-```rust
-pub async fn get_with_params_and_headers( &self, url: &str, params: &HashMap<String, String>, headers: HashMap<String, String>, ) -> Result<String>
-```
-
-Make GET request with query parameters and headers
-
----
-
-### insert
-
-**Source**: `src/client.rs`
-
-```rust
-pub fn insert(&mut self, key: String, value: String)
-```
-
-Insert a new API key
-
----
-
-### insert
-
-**Source**: `src/client.rs`
-
-```rust
-pub fn insert(&mut self, key: String, value: String)
-```
-
-Insert a configuration value
-
----
-
-### is_empty
-
-**Source**: `src/client.rs`
-
-```rust
-pub fn is_empty(&self) -> bool
-```
-
-Check if all API keys are empty
-
----
-
-### is_empty
-
-**Source**: `src/client.rs`
-
-```rust
-pub fn is_empty(&self) -> bool
-```
-
-Check if the config is empty
-
----
-
-### len
-
-**Source**: `src/client.rs`
-
-```rust
-pub fn len(&self) -> usize
-```
-
-Get the number of configured API keys
-
----
-
-### len
-
-**Source**: `src/client.rs`
-
-```rust
-pub fn len(&self) -> usize
-```
-
-Get the number of configuration entries
-
----
-
-### new
-
-**Source**: `src/client.rs`
-
-```rust
-pub fn new() -> Result<Self>
-```
-
-Create a new web client
-
----
-
-### post
-
-**Source**: `src/client.rs`
-
-```rust
-pub async fn post<T: Serialize>(&self, url: &str, body: &T) -> Result<serde_json::Value>
-```
-
-Make a POST request with JSON body
-
----
-
-### post_with_headers
-
-**Source**: `src/client.rs`
-
-```rust
-pub async fn post_with_headers<T: Serialize>( &self, url: &str, body: &T, headers: HashMap<String, String>, ) -> Result<serde_json::Value>
-```
-
-Make a POST request with JSON body and headers
-
----
-
-### search_ticker
-
-**Source**: `src/dexscreener_api.rs`
-
-```rust
-pub async fn search_ticker(ticker: String) -> Result<DexScreenerResponse>
-```
-
-Search for tokens or pairs on DexScreener
-
----
-
-### set_config
-
-**Source**: `src/client.rs`
-
-```rust
-pub fn set_config<S: Into<String>>(&mut self, key: S, value: S)
-```
-
-Set configuration option (for backwards compatibility)
-
----
-
-### with_api_key
-
-**Source**: `src/client.rs`
-
-```rust
-pub fn with_api_key<S1: Into<String>, S2: Into<String>>( mut self, service: S1, api_key: S2, ) -> Self
-```
-
-Set API key for a service (for backwards compatibility)
-
----
-
-### with_config
-
-**Source**: `src/client.rs`
-
-```rust
-pub fn with_config(http_config: HttpConfig) -> Result<Self>
-```
-
-Create with custom HTTP configuration
-
----
-
-### with_dexscreener_key
-
-**Source**: `src/client.rs`
-
-```rust
-pub fn with_dexscreener_key<S: Into<String>>(mut self, key: S) -> Self
-```
-
-Set DexScreener API key (if required)
-
----
-
-### with_exa_key
-
-**Source**: `src/client.rs`
-
-```rust
-pub fn with_exa_key<S: Into<String>>(mut self, key: S) -> Self
-```
-
-Set Exa API key
-
----
-
-### with_news_api_key
-
-**Source**: `src/client.rs`
-
-```rust
-pub fn with_news_api_key<S: Into<String>>(mut self, key: S) -> Self
-```
-
-Set News API key
-
----
-
-### with_twitter_token
-
-**Source**: `src/client.rs`
-
-```rust
-pub fn with_twitter_token<S: Into<String>>(mut self, token: S) -> Self
-```
-
-Set Twitter/X Bearer Token
 
 ---
 
@@ -2727,55 +2433,377 @@ creating a comprehensive overview of a topic from multiple sources.
 
 ---
 
-## Enums
+## Functions
 
-### WebToolError
+### contains_key
 
-**Source**: `src/error.rs`
-
-**Attributes**:
-```rust
-#[derive(Error, Debug, IntoToolError)]
-```
+**Source**: `src/client.rs`
 
 ```rust
-pub enum WebToolError { /// Network error (includes HTTP) - automatically retriable #[error("Network error: {0}")] Network(String), /// HTTP request error - automatically retriable (converted to Network) #[error("HTTP error: {0}")] Http(#[from] reqwest::Error), /// API error (includes general API issues) - automatically retriable #[error("API error: {0}")] Api(String), /// API rate limit exceeded - automatically handled as rate_limited #[error("Rate limit exceeded: {0}")] #[tool_error(rate_limited)] RateLimit(String), /// API authentication failed - permanent #[error("Authentication error: {0}")] #[tool_error(permanent)] Auth(String), /// Parsing error (includes JSON and response parsing) - permanent #[error("Parsing error: {0}")] #[tool_error(permanent)] Parsing(String), /// Serialization error - automatically permanent #[error("Serialization error: {0}")] Serialization(#[from] serde_json::Error), /// URL parsing error - permanent #[error("URL error: {0}")] #[tool_error(permanent)] Url(#[from] url::ParseError), /// Configuration error - permanent #[error("Configuration error: {0}")] #[tool_error(permanent)] Config(String), /// Client creation error - permanent #[error("Client error: {0}")] #[tool_error(permanent)] Client(String), /// Invalid input provided - permanent #[error("Invalid input: {0}")] #[tool_error(permanent)] InvalidInput(String), /// Core riglr error #[error("Core error: {0}")] #[tool_error(permanent)] Core(#[from] riglr_core::CoreError), }
+pub fn contains_key(&self, key: &str) -> bool
 ```
 
-Main error type for web tool operations.
-
-The IntoToolError derive macro automatically classifies errors:
-- Retriable: Network (includes HTTP), Api (includes request errors), RateLimit
-- Permanent: Auth, Parsing (includes JSON), Config, Client, InvalidInput
-
-**Variants**:
-
-- `Network(String)`
-- `Http(#[from] reqwest::Error)`
-- `Api(String)`
-- `RateLimit(String)`
-- `Auth(String)`
-- `Parsing(String)`
-- `Serialization(#[from] serde_json::Error)`
-- `Url(#[from] url::ParseError)`
-- `Config(String)`
-- `Client(String)`
-- `InvalidInput(String)`
-- `Core(#[from] riglr_core::CoreError)`
+Check if an API key exists
 
 ---
 
-## Constants
+### delete
 
-### VERSION
-
-**Source**: `src/lib.rs`
+**Source**: `src/client.rs`
 
 ```rust
-const VERSION: &str
+pub async fn delete(&self, url: &str) -> Result<()>
 ```
 
-Current version of riglr-web-tools
+Make a DELETE request
+
+---
+
+### find_best_liquidity_pair
+
+**Source**: `src/dexscreener_api.rs`
+
+```rust
+pub fn find_best_liquidity_pair(pairs: Vec<PairInfo>) -> Option<PairInfo>
+```
+
+Find the best liquidity pair for a token
+
+---
+
+### get
+
+**Source**: `src/client.rs`
+
+```rust
+pub fn get(&self, key: &str) -> Option<&String>
+```
+
+Get an API key by name
+
+---
+
+### get
+
+**Source**: `src/client.rs`
+
+```rust
+pub fn get(&self, key: &str) -> Option<String>
+```
+
+Get a configuration value by key
+
+---
+
+### get
+
+**Source**: `src/client.rs`
+
+```rust
+pub async fn get(&self, url: &str) -> Result<String>
+```
+
+Make a GET request with retry logic
+
+---
+
+### get_api_key
+
+**Source**: `src/client.rs`
+
+```rust
+pub fn get_api_key(&self, service: &str) -> Option<&String>
+```
+
+Get API key for a service
+
+---
+
+### get_config
+
+**Source**: `src/client.rs`
+
+```rust
+pub fn get_config(&self, key: &str) -> Option<String>
+```
+
+Get config value (for backwards compatibility)
+
+---
+
+### get_pair_by_address
+
+**Source**: `src/dexscreener_api.rs`
+
+```rust
+pub async fn get_pair_by_address(pair_address: &str) -> Result<PairInfo>
+```
+
+Get pairs by pair address
+
+---
+
+### get_pairs_by_token
+
+**Source**: `src/dexscreener_api.rs`
+
+```rust
+pub async fn get_pairs_by_token(token_address: &str) -> Result<DexScreenerResponse>
+```
+
+Get token pairs by token address
+
+---
+
+### get_token_price
+
+**Source**: `src/dexscreener_api.rs`
+
+```rust
+pub fn get_token_price(pairs: &[PairInfo], token_address: &str) -> Option<String>
+```
+
+Extract token price from the best pair
+
+---
+
+### get_with_headers
+
+**Source**: `src/client.rs`
+
+```rust
+pub async fn get_with_headers( &self, url: &str, headers: HashMap<String, String>, ) -> Result<String>
+```
+
+Make a GET request with headers and retry logic
+
+---
+
+### get_with_params
+
+**Source**: `src/client.rs`
+
+```rust
+pub async fn get_with_params( &self, url: &str, params: &HashMap<String, String>, ) -> Result<String>
+```
+
+Make GET request with query parameters
+
+---
+
+### get_with_params_and_headers
+
+**Source**: `src/client.rs`
+
+```rust
+pub async fn get_with_params_and_headers( &self, url: &str, params: &HashMap<String, String>, headers: HashMap<String, String>, ) -> Result<String>
+```
+
+Make GET request with query parameters and headers
+
+---
+
+### insert
+
+**Source**: `src/client.rs`
+
+```rust
+pub fn insert(&mut self, key: String, value: String)
+```
+
+Insert a new API key
+
+---
+
+### insert
+
+**Source**: `src/client.rs`
+
+```rust
+pub fn insert(&mut self, key: String, value: String)
+```
+
+Insert a configuration value
+
+---
+
+### is_empty
+
+**Source**: `src/client.rs`
+
+```rust
+pub fn is_empty(&self) -> bool
+```
+
+Check if all API keys are empty
+
+---
+
+### is_empty
+
+**Source**: `src/client.rs`
+
+```rust
+pub fn is_empty(&self) -> bool
+```
+
+Check if the config is empty
+
+---
+
+### len
+
+**Source**: `src/client.rs`
+
+```rust
+pub fn len(&self) -> usize
+```
+
+Get the number of configured API keys
+
+---
+
+### len
+
+**Source**: `src/client.rs`
+
+```rust
+pub fn len(&self) -> usize
+```
+
+Get the number of configuration entries
+
+---
+
+### new
+
+**Source**: `src/client.rs`
+
+```rust
+pub fn new() -> Result<Self>
+```
+
+Create a new web client
+
+---
+
+### post
+
+**Source**: `src/client.rs`
+
+```rust
+pub async fn post<T: Serialize>(&self, url: &str, body: &T) -> Result<serde_json::Value>
+```
+
+Make a POST request with JSON body
+
+---
+
+### post_with_headers
+
+**Source**: `src/client.rs`
+
+```rust
+pub async fn post_with_headers<T: Serialize>( &self, url: &str, body: &T, headers: HashMap<String, String>, ) -> Result<serde_json::Value>
+```
+
+Make a POST request with JSON body and headers
+
+---
+
+### search_ticker
+
+**Source**: `src/dexscreener_api.rs`
+
+```rust
+pub async fn search_ticker(ticker: String) -> Result<DexScreenerResponse>
+```
+
+Search for tokens or pairs on DexScreener
+
+---
+
+### set_config
+
+**Source**: `src/client.rs`
+
+```rust
+pub fn set_config<S: Into<String>>(&mut self, key: S, value: S)
+```
+
+Set configuration option (for backwards compatibility)
+
+---
+
+### with_api_key
+
+**Source**: `src/client.rs`
+
+```rust
+pub fn with_api_key<S1: Into<String>, S2: Into<String>>( mut self, service: S1, api_key: S2, ) -> Self
+```
+
+Set API key for a service (for backwards compatibility)
+
+---
+
+### with_config
+
+**Source**: `src/client.rs`
+
+```rust
+pub fn with_config(http_config: HttpConfig) -> Result<Self>
+```
+
+Create with custom HTTP configuration
+
+---
+
+### with_dexscreener_key
+
+**Source**: `src/client.rs`
+
+```rust
+pub fn with_dexscreener_key<S: Into<String>>(mut self, key: S) -> Self
+```
+
+Set DexScreener API key (if required)
+
+---
+
+### with_exa_key
+
+**Source**: `src/client.rs`
+
+```rust
+pub fn with_exa_key<S: Into<String>>(mut self, key: S) -> Self
+```
+
+Set Exa API key
+
+---
+
+### with_news_api_key
+
+**Source**: `src/client.rs`
+
+```rust
+pub fn with_news_api_key<S: Into<String>>(mut self, key: S) -> Self
+```
+
+Set News API key
+
+---
+
+### with_twitter_token
+
+**Source**: `src/client.rs`
+
+```rust
+pub fn with_twitter_token<S: Into<String>>(mut self, token: S) -> Self
+```
+
+Set Twitter/X Bearer Token
 
 ---
 

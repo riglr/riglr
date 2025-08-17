@@ -252,6 +252,7 @@ fn sync_tool() -> Result<String, ToolError>
 
 **Attributes**:
 ```rust
+#[doc = "Arguments structure for the tool"]
 #[derive(serde::Serialize, serde::Deserialize, schemars::JsonSchema, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 ```
@@ -299,6 +300,7 @@ pub struct SwapTokensTool;
 
 **Attributes**:
 ```rust
+#[doc = "Tool implementation structure"]
 #[derive(Clone)]
 ```
 

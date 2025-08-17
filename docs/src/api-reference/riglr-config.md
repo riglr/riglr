@@ -4,22 +4,6 @@ Comprehensive API documentation for the `riglr-config` crate.
 
 ## Table of Contents
 
-### Structs
-
-- [`AppConfig`](#appconfig)
-- [`ChainConfig`](#chainconfig)
-- [`ChainContract`](#chaincontract)
-- [`Config`](#config)
-- [`ConfigBuilder`](#configbuilder)
-- [`DatabaseConfig`](#databaseconfig)
-- [`FeaturesConfig`](#featuresconfig)
-- [`NetworkConfig`](#networkconfig)
-- [`NetworkTimeouts`](#networktimeouts)
-- [`PoolConfig`](#poolconfig)
-- [`ProvidersConfig`](#providersconfig)
-- [`RetryConfig`](#retryconfig)
-- [`TransactionConfig`](#transactionconfig)
-
 ### Enums
 
 - [`AiProvider`](#aiprovider)
@@ -90,223 +74,21 @@ Comprehensive API documentation for the `riglr-config` crate.
 
 - [`Validator`](#validator)
 
-## Structs
-
-### AppConfig
-
-**Source**: `src/app.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Deserialize, Serialize)]
-```
-
-```rust
-pub struct AppConfig { /// Server port #[serde(default = "default_port")]
-```
-
-Application configuration
-
----
-
-### ChainConfig
-
-**Source**: `src/network.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Deserialize, Serialize)]
-```
-
-```rust
-pub struct ChainConfig { /// Chain ID pub id: u64, /// Human-readable chain name pub name: String, /// RPC URL (overrides global RPC_URL_{CHAIN_ID} if set)
-```
-
-Chain-specific configuration
-
----
-
-### ChainContract
-
-**Source**: `src/network.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Default, Deserialize, Serialize)]
-```
-
-```rust
-pub struct ChainContract { /// Uniswap V3 router address #[serde(default)]
-```
-
-Contract addresses for a chain
-
----
-
-### Config
-
-**Source**: `src/lib.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Deserialize, Serialize)]
-```
-
-```rust
-pub struct Config { /// Application-level configuration #[serde(flatten)]
-```
-
-Main configuration structure that aggregates all subsystems
-
----
-
-### ConfigBuilder
-
-**Source**: `src/lib.rs`
-
-```rust
-pub struct ConfigBuilder { app: AppConfig, database: DatabaseConfig, network: NetworkConfig, providers: ProvidersConfig, features: FeaturesConfig, }
-```
-
-Builder for constructing configuration programmatically
-
----
-
-### DatabaseConfig
-
-**Source**: `src/database.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Deserialize, Serialize)]
-```
-
-```rust
-pub struct DatabaseConfig { /// Redis connection URL pub redis_url: String, /// Neo4j connection URL (optional, for graph memory)
-```
-
-Database configuration
-
----
-
-### FeaturesConfig
-
-**Source**: `src/features.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Deserialize, Serialize)]
-```
-
-```rust
-pub struct FeaturesConfig { /// Enable trading functionality #[serde(default = "default_true")]
-```
-
-Feature flags configuration
-
----
-
-### NetworkConfig
-
-**Source**: `src/network.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Deserialize, Serialize)]
-```
-
-```rust
-pub struct NetworkConfig { /// Solana RPC URL pub solana_rpc_url: String, /// Solana WebSocket URL (optional)
-```
-
-Network configuration
-
----
-
-### NetworkTimeouts
-
-**Source**: `src/network.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Deserialize, Serialize)]
-```
-
-```rust
-pub struct NetworkTimeouts { /// RPC request timeout in seconds #[serde(default = "default_rpc_timeout")]
-```
-
-Network timeout configuration
-
----
-
-### PoolConfig
-
-**Source**: `src/database.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Deserialize, Serialize)]
-```
-
-```rust
-pub struct PoolConfig { /// Maximum number of connections in the pool #[serde(default = "default_max_connections")]
-```
-
-Database connection pool configuration
-
----
-
-### ProvidersConfig
-
-**Source**: `src/providers.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Default, Deserialize, Serialize)]
-```
-
-```rust
-pub struct ProvidersConfig { // AI Providers #[serde(default)]
-```
-
-External API providers configuration
-
----
-
-### RetryConfig
-
-**Source**: `src/app.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Deserialize, Serialize)]
-```
-
-```rust
-pub struct RetryConfig { /// Maximum number of retry attempts #[serde(default = "default_max_retries")]
-```
-
-Retry configuration
-
----
-
-### TransactionConfig
-
-**Source**: `src/app.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Deserialize, Serialize)]
-```
-
-```rust
-pub struct TransactionConfig { /// Maximum gas price in gwei #[serde(default = "default_max_gas_price")]
-```
-
-Transaction configuration
-
----
+### Structs
+
+- [`AppConfig`](#appconfig)
+- [`ChainConfig`](#chainconfig)
+- [`ChainContract`](#chaincontract)
+- [`Config`](#config)
+- [`ConfigBuilder`](#configbuilder)
+- [`DatabaseConfig`](#databaseconfig)
+- [`FeaturesConfig`](#featuresconfig)
+- [`NetworkConfig`](#networkconfig)
+- [`NetworkTimeouts`](#networktimeouts)
+- [`PoolConfig`](#poolconfig)
+- [`ProvidersConfig`](#providersconfig)
+- [`RetryConfig`](#retryconfig)
+- [`TransactionConfig`](#transactionconfig)
 
 ## Enums
 
@@ -320,7 +102,7 @@ Transaction configuration
 ```
 
 ```rust
-pub enum AiProvider { Anthropic, OpenAI, Groq, Perplexity, }
+pub enum AiProvider { /// Anthropic Claude AI provider Anthropic, /// OpenAI provider OpenAI, /// Groq provider Groq, /// Perplexity AI provider Perplexity, }
 ```
 
 AI provider enumeration
@@ -344,7 +126,7 @@ AI provider enumeration
 ```
 
 ```rust
-pub enum BlockchainProvider { Alchemy, Infura, QuickNode, Moralis, }
+pub enum BlockchainProvider { /// Alchemy blockchain data provider Alchemy, /// Infura blockchain infrastructure provider Infura, /// QuickNode blockchain infrastructure provider QuickNode, /// Moralis Web3 development platform Moralis, }
 ```
 
 Blockchain data provider enumeration
@@ -395,7 +177,7 @@ Configuration errors
 ```
 
 ```rust
-pub enum DataProvider { DexScreener, CoinGecko, CoinMarketCap, Twitter, LunarCrush, }
+pub enum DataProvider { /// DexScreener DEX analytics provider DexScreener, /// CoinGecko cryptocurrency data provider CoinGecko, /// CoinMarketCap cryptocurrency market data provider CoinMarketCap, /// Twitter social media data provider Twitter, /// LunarCrush social analytics provider LunarCrush, }
 ```
 
 Data provider enumeration
@@ -421,7 +203,7 @@ Data provider enumeration
 ```
 
 ```rust
-pub enum Environment { Development, Staging, Production, }
+pub enum Environment { /// Development environment for local testing and debugging Development, /// Staging environment for pre-production testing Staging, /// Production environment for live deployment Production, }
 ```
 
 Application environment
@@ -462,7 +244,7 @@ Source for loading environment variables
 ```
 
 ```rust
-pub enum Feature { Trading, Bridging, SocialMonitoring, GraphMemory, Streaming, Webhooks, Analytics, Debug, Experimental, }
+pub enum Feature { /// Enable trading functionality Trading, /// Enable cross-chain bridging Bridging, /// Enable social media monitoring SocialMonitoring, /// Enable graph-based memory GraphMemory, /// Enable real-time streaming Streaming, /// Enable webhook notifications Webhooks, /// Enable analytics collection Analytics, /// Enable debug mode Debug, /// Enable experimental features Experimental, }
 ```
 
 Feature enumeration
@@ -936,6 +718,8 @@ Try to get the global configuration instance
 pub fn validate(&self) -> ConfigResult<()>
 ```
 
+Validates the application configuration for correctness
+
 ---
 
 ### validate
@@ -946,25 +730,7 @@ pub fn validate(&self) -> ConfigResult<()>
 pub fn validate(&self) -> ConfigResult<()>
 ```
 
----
-
-### validate
-
-**Source**: `src/database.rs`
-
-```rust
-pub fn validate(&self) -> ConfigResult<()>
-```
-
----
-
-### validate
-
-**Source**: `src/database.rs`
-
-```rust
-pub fn validate(&self) -> ConfigResult<()>
-```
+Validates the retry configuration for correctness
 
 ---
 
@@ -975,6 +741,78 @@ pub fn validate(&self) -> ConfigResult<()>
 ```rust
 pub fn validate(&self) -> ConfigResult<()>
 ```
+
+Validate the features configuration for consistency and warnings
+
+---
+
+### validate
+
+**Source**: `src/database.rs`
+
+```rust
+pub fn validate(&self) -> ConfigResult<()>
+```
+
+Validates all database configuration settings
+
+This method validates:
+- Redis URL format and connectivity
+- Neo4j URL format (if provided)
+- ClickHouse URL format (if provided)
+- PostgreSQL URL format (if provided)
+- Connection pool configuration
+
+# Errors
+
+Returns `ConfigError` if any validation fails
+
+---
+
+### validate
+
+**Source**: `src/database.rs`
+
+```rust
+pub fn validate(&self) -> ConfigResult<()>
+```
+
+Validates connection pool configuration settings
+
+This method validates:
+- Maximum connections is greater than 0
+- Minimum connections doesn't exceed maximum connections
+- Connection timeout is greater than 0
+
+# Errors
+
+Returns `ConfigError` if any validation fails
+
+---
+
+### validate
+
+**Source**: `src/network.rs`
+
+```rust
+pub fn validate(&self) -> ConfigResult<()>
+```
+
+Validates the network configuration
+
+Checks that all URLs are properly formatted and contract addresses are valid
+
+---
+
+### validate
+
+**Source**: `src/providers.rs`
+
+```rust
+pub fn validate(&self) -> ConfigResult<()>
+```
+
+Validate API key formats and configurations
 
 ---
 
@@ -987,26 +825,6 @@ pub fn validate(&self) -> ConfigResult<()>
 ```
 
 Validate the entire configuration
-
----
-
-### validate
-
-**Source**: `src/network.rs`
-
-```rust
-pub fn validate(&self) -> ConfigResult<()>
-```
-
----
-
-### validate
-
-**Source**: `src/providers.rs`
-
-```rust
-pub fn validate(&self) -> ConfigResult<()>
-```
 
 ---
 
@@ -1194,6 +1012,229 @@ Trait for validatable configuration
 ```rust
 fn validate(&self) -> ConfigResult<()>;
 ```
+
+---
+
+## Structs
+
+### AppConfig
+
+**Source**: `src/app.rs`
+
+**Attributes**:
+```rust
+#[derive(Debug, Clone, Deserialize, Serialize)]
+```
+
+```rust
+pub struct AppConfig { /// Server port #[serde(default = "default_port")]
+```
+
+Application configuration
+
+---
+
+### ChainConfig
+
+**Source**: `src/network.rs`
+
+**Attributes**:
+```rust
+#[derive(Debug, Clone, Deserialize, Serialize)]
+```
+
+```rust
+pub struct ChainConfig { /// Chain ID pub id: u64, /// Human-readable chain name pub name: String, /// RPC URL (overrides global RPC_URL_{CHAIN_ID} if set)
+```
+
+Chain-specific configuration
+
+---
+
+### ChainContract
+
+**Source**: `src/network.rs`
+
+**Attributes**:
+```rust
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+```
+
+```rust
+pub struct ChainContract { /// Uniswap V3 router address #[serde(default)]
+```
+
+Contract addresses for a chain
+
+---
+
+### Config
+
+**Source**: `src/lib.rs`
+
+**Attributes**:
+```rust
+#[derive(Debug, Clone, Deserialize, Serialize)]
+```
+
+```rust
+pub struct Config { /// Application-level configuration #[serde(flatten)]
+```
+
+Main configuration structure that aggregates all subsystems
+
+---
+
+### ConfigBuilder
+
+**Source**: `src/lib.rs`
+
+**Attributes**:
+```rust
+#[derive(Default)]
+```
+
+```rust
+pub struct ConfigBuilder { app: AppConfig, database: DatabaseConfig, network: NetworkConfig, providers: ProvidersConfig, features: FeaturesConfig, }
+```
+
+Builder for constructing configuration programmatically
+
+---
+
+### DatabaseConfig
+
+**Source**: `src/database.rs`
+
+**Attributes**:
+```rust
+#[derive(Debug, Clone, Deserialize, Serialize)]
+```
+
+```rust
+pub struct DatabaseConfig { /// Redis connection URL pub redis_url: String, /// Neo4j connection URL (optional, for graph memory)
+```
+
+Database configuration
+
+---
+
+### FeaturesConfig
+
+**Source**: `src/features.rs`
+
+**Attributes**:
+```rust
+#[derive(Debug, Clone, Deserialize, Serialize)]
+```
+
+```rust
+pub struct FeaturesConfig { /// Enable trading functionality #[serde(default = "default_true")]
+```
+
+Feature flags configuration
+
+---
+
+### NetworkConfig
+
+**Source**: `src/network.rs`
+
+**Attributes**:
+```rust
+#[derive(Debug, Clone, Deserialize, Serialize)]
+```
+
+```rust
+pub struct NetworkConfig { /// Solana RPC URL pub solana_rpc_url: String, /// Solana WebSocket URL (optional)
+```
+
+Network configuration
+
+---
+
+### NetworkTimeouts
+
+**Source**: `src/network.rs`
+
+**Attributes**:
+```rust
+#[derive(Debug, Clone, Deserialize, Serialize)]
+```
+
+```rust
+pub struct NetworkTimeouts { /// RPC request timeout in seconds #[serde(default = "default_rpc_timeout")]
+```
+
+Network timeout configuration
+
+---
+
+### PoolConfig
+
+**Source**: `src/database.rs`
+
+**Attributes**:
+```rust
+#[derive(Debug, Clone, Deserialize, Serialize)]
+```
+
+```rust
+pub struct PoolConfig { /// Maximum number of connections in the pool #[serde(default = "default_max_connections")]
+```
+
+Database connection pool configuration
+
+---
+
+### ProvidersConfig
+
+**Source**: `src/providers.rs`
+
+**Attributes**:
+```rust
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+```
+
+```rust
+pub struct ProvidersConfig { // AI Providers /// API key for Anthropic Claude #[serde(default)]
+```
+
+External API providers configuration
+
+---
+
+### RetryConfig
+
+**Source**: `src/app.rs`
+
+**Attributes**:
+```rust
+#[derive(Debug, Clone, Deserialize, Serialize)]
+```
+
+```rust
+pub struct RetryConfig { /// Maximum number of retry attempts #[serde(default = "default_max_retries")]
+```
+
+Retry configuration
+
+---
+
+### TransactionConfig
+
+**Source**: `src/app.rs`
+
+**Attributes**:
+```rust
+#[derive(Debug, Clone, Deserialize, Serialize)]
+```
+
+```rust
+pub struct TransactionConfig { /// Maximum gas price in gwei #[serde(default = "default_max_gas_price")]
+```
+
+Transaction configuration
 
 ---
 

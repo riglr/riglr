@@ -25,8 +25,10 @@ Comprehensive API documentation for the `riglr-server` crate.
 ```
 
 ```rust
-pub struct ServerConfig { pub addr: SocketAddr, pub rpc: RpcConfig, }
+pub struct ServerConfig { /// Socket address for the server to bind to pub addr: SocketAddr, /// RPC configuration for blockchain interactions pub rpc: RpcConfig, }
 ```
+
+Configuration for riglr server instances
 
 ---
 
