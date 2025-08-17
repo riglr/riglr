@@ -29,75 +29,18 @@ Comprehensive API documentation for the `riglr-core` crate.
 - [`ToolWorker`](#toolworker)
 - [`WorkerMetrics`](#workermetrics)
 
-### Functions
+### Functions (jobs)
 
-- [`add_evm_network`](#add_evm_network)
-- [`add_priority_fee_instructions`](#add_priority_fee_instructions)
-- [`caip2`](#caip2)
 - [`can_retry`](#can_retry)
-- [`current`](#current)
-- [`current_as_evm`](#current_as_evm)
-- [`current_as_solana`](#current_as_solana)
-- [`estimate_gas_limit`](#estimate_gas_limit)
-- [`estimate_gas_price`](#estimate_gas_price)
-- [`evm_caip2_for`](#evm_caip2_for)
-- [`from_config`](#from_config)
-- [`from_config`](#from_config)
-- [`from_env`](#from_env)
-- [`from_keypair`](#from_keypair)
-- [`get_address`](#get_address)
-- [`get_env_or_default`](#get_env_or_default)
-- [`get_env_vars`](#get_env_vars)
-- [`get_pubkey`](#get_pubkey)
-- [`get_recent_prioritization_fees`](#get_recent_prioritization_fees)
-- [`get_required_env`](#get_required_env)
-- [`get_semaphore`](#get_semaphore)
 - [`increment_retry`](#increment_retry)
-- [`init_env_from_file`](#init_env_from_file)
-- [`invalid_input_string`](#invalid_input_string)
-- [`invalid_input_with_source`](#invalid_input_with_source)
-- [`is_available`](#is_available)
 - [`is_retriable`](#is_retriable)
 - [`is_success`](#is_success)
-- [`metrics`](#metrics)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
 - [`new`](#new)
 - [`new_idempotent`](#new_idempotent)
-- [`optimize_transaction`](#optimize_transaction)
 - [`permanent_failure`](#permanent_failure)
-- [`permanent_string`](#permanent_string)
-- [`permanent_with_source`](#permanent_with_source)
-- [`prepare_transaction`](#prepare_transaction)
-- [`process_job`](#process_job)
-- [`rate_limited_string`](#rate_limited_string)
-- [`rate_limited_with_source`](#rate_limited_with_source)
-- [`register_tool`](#register_tool)
 - [`retriable_failure`](#retriable_failure)
-- [`retriable_string`](#retriable_string)
-- [`retriable_with_source`](#retriable_with_source)
-- [`run`](#run)
-- [`send_transaction_with_retry`](#send_transaction_with_retry)
-- [`simulate_transaction`](#simulate_transaction)
 - [`success`](#success)
 - [`success_with_tx`](#success_with_tx)
-- [`validate_required_env`](#validate_required_env)
-- [`with_env_overrides`](#with_env_overrides)
-- [`with_idempotency_store`](#with_idempotency_store)
-- [`with_limit`](#with_limit)
-- [`with_resource_limits`](#with_resource_limits)
-- [`with_signer`](#with_signer)
-- [`with_timeout`](#with_timeout)
-- [`with_unified_signer`](#with_unified_signer)
 
 ### Enums
 
@@ -109,6 +52,15 @@ Comprehensive API documentation for the `riglr-core` crate.
 - [`ToolError`](#toolerror)
 - [`TransactionStatus`](#transactionstatus)
 - [`WorkerError`](#workererror)
+
+### Functions (signer)
+
+- [`current`](#current)
+- [`current_as_evm`](#current_as_evm)
+- [`current_as_solana`](#current_as_solana)
+- [`is_available`](#is_available)
+- [`with_signer`](#with_signer)
+- [`with_unified_signer`](#with_unified_signer)
 
 ### Traits
 
@@ -124,6 +76,84 @@ Comprehensive API documentation for the `riglr-core` crate.
 - [`TransactionProcessor`](#transactionprocessor)
 - [`TransactionSigner`](#transactionsigner)
 - [`UnifiedSigner`](#unifiedsigner)
+
+### Functions (queue)
+
+- [`new`](#new)
+- [`new`](#new)
+- [`with_timeout`](#with_timeout)
+
+### Functions (error)
+
+- [`invalid_input_string`](#invalid_input_string)
+- [`invalid_input_with_source`](#invalid_input_with_source)
+- [`permanent_string`](#permanent_string)
+- [`permanent_with_source`](#permanent_with_source)
+- [`rate_limited_string`](#rate_limited_string)
+- [`rate_limited_with_source`](#rate_limited_with_source)
+- [`retriable_string`](#retriable_string)
+- [`retriable_with_source`](#retriable_with_source)
+
+### Functions (config)
+
+- [`add_evm_network`](#add_evm_network)
+- [`caip2`](#caip2)
+- [`evm_caip2_for`](#evm_caip2_for)
+- [`from_env`](#from_env)
+- [`with_env_overrides`](#with_env_overrides)
+
+### Functions (util)
+
+- [`get_env_or_default`](#get_env_or_default)
+- [`get_env_vars`](#get_env_vars)
+- [`get_required_env`](#get_required_env)
+- [`init_env_from_file`](#init_env_from_file)
+- [`validate_required_env`](#validate_required_env)
+
+### Functions (idempotency)
+
+- [`new`](#new)
+- [`new`](#new)
+
+### Functions (tool)
+
+- [`get_semaphore`](#get_semaphore)
+- [`metrics`](#metrics)
+- [`new`](#new)
+- [`new`](#new)
+- [`process_job`](#process_job)
+- [`register_tool`](#register_tool)
+- [`run`](#run)
+- [`with_idempotency_store`](#with_idempotency_store)
+- [`with_limit`](#with_limit)
+- [`with_resource_limits`](#with_resource_limits)
+
+### Functions (evm)
+
+- [`estimate_gas_limit`](#estimate_gas_limit)
+- [`estimate_gas_price`](#estimate_gas_price)
+- [`from_config`](#from_config)
+- [`get_address`](#get_address)
+- [`new`](#new)
+- [`new`](#new)
+- [`prepare_transaction`](#prepare_transaction)
+- [`simulate_transaction`](#simulate_transaction)
+
+### Functions (solana)
+
+- [`add_priority_fee_instructions`](#add_priority_fee_instructions)
+- [`from_config`](#from_config)
+- [`from_keypair`](#from_keypair)
+- [`get_pubkey`](#get_pubkey)
+- [`get_recent_prioritization_fees`](#get_recent_prioritization_fees)
+- [`new`](#new)
+- [`new`](#new)
+- [`optimize_transaction`](#optimize_transaction)
+- [`send_transaction_with_retry`](#send_transaction_with_retry)
+
+### Functions (granular_traits)
+
+- [`new`](#new)
 
 ## Structs
 
@@ -812,48 +842,7 @@ if processed > 0 { (succeeded as f64 / processed as f64) * 100.0 } else { 0.0 })
 
 ---
 
-## Functions
-
-### add_evm_network
-
-**Source**: `src/config.rs`
-
-```rust
-pub fn add_evm_network( &mut self, name: impl Into<String>, chain_id: u64, rpc_url: impl Into<String>, explorer_url: Option<String>, ) -> &mut Self
-```
-
-Add or update an EVM network configuration dynamically.
-
----
-
-### add_priority_fee_instructions
-
-**Source**: `transactions/solana.rs`
-
-```rust
-pub fn add_priority_fee_instructions(&self, instructions: &mut Vec<Instruction>)
-```
-
-Add priority fee instructions to transaction
-
----
-
-### caip2
-
-**Source**: `src/config.rs`
-
-**Attributes**:
-```rust
-#[must_use]
-```
-
-```rust
-pub fn caip2(&self) -> String
-```
-
-Return the CAIP-2 identifier for this EVM network, e.g. "eip155:1".
-
----
+## Functions (jobs)
 
 ### can_retry
 
@@ -892,371 +881,6 @@ assert!(!job.can_retry()); // 2 >= 2, cannot retry
 
 ---
 
-### current
-
-**Source**: `src/signer.rs`
-
-```rust
-pub async fn current() -> Result<Arc<dyn TransactionSigner>, SignerError>
-```
-
-Get the current signer from thread-local context.
-
-This function retrieves the signer that was set by [`SignerContext::with_signer()`].
-It must be called within a signer context scope, otherwise it will return
-[`SignerError::NoSignerContext`].
-
-# Returns
-* `Ok(Arc<dyn TransactionSigner>)` - The current signer if available
-* `Err(SignerError::NoSignerContext)` - If called outside a signer context
-
-# Examples
-
-```ignore
-use riglr_core::signer::SignerContext;
-use riglr_solana_tools::LocalSolanaSigner;
-use std::sync::Arc;
-# use solana_sdk::signer::keypair::Keypair;
-
-async fn tool_that_needs_signer() -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
-// Get the current signer from context
-let signer = SignerContext::current().await
-.map_err(|e| -> Box<dyn std::error::Error + Send + Sync> { Box::new(e) })?;
-
-// Use the signer for operations
-match signer.user_id() {
-Some(user) => Ok(format!("Operating for user: {}", user)),
-None => Ok("Operating for anonymous user".to_string()),
-}
-}
-
-# async fn example() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-let keypair = Keypair::new();
-let signer = Arc::new(LocalSolanaSigner::new(
-keypair,
-"https://api.devnet.solana.com".to_string()
-));
-
-SignerContext::with_signer(signer, async {
-let result = tool_that_needs_signer().await.unwrap();
-println!("{}", result);
-Ok(())
-}).await.unwrap();
-# Ok(())
-# }
-```
-
-# Error Handling
-
-This function will return an error if called outside a signer context:
-
-```ignore
-use riglr_core::signer::{SignerContext, SignerError};
-
-# async fn error_example() {
-// This will fail because we're not in a signer context
-let result = SignerContext::current().await;
-assert!(matches!(result, Err(SignerError::NoSignerContext)));
-# }
-```
-
----
-
-### current_as_evm
-
-**Source**: `src/signer.rs`
-
-```rust
-pub async fn current_as_evm() -> Result<Arc<dyn EvmSigner>, SignerError>
-```
-
-Get the current signer as an EVM signer
-
----
-
-### current_as_solana
-
-**Source**: `src/signer.rs`
-
-```rust
-pub async fn current_as_solana() -> Result<Arc<dyn SolanaSigner>, SignerError>
-```
-
-Get the current signer as a specific type.
-
-This method allows type-safe access to chain-specific signer capabilities.
-Tools can require specific signer types and get compile-time guarantees.
-
-# Type Parameters
-* `T` - The specific signer trait to cast to (e.g., `dyn SolanaSigner`, `dyn EvmSigner`)
-
-# Returns
-* `Ok(&T)` - Reference to the signer with the requested capabilities
-* `Err(SignerError::UnsupportedOperation)` - If the current signer doesn't support the requested type
-* `Err(SignerError::NoSignerContext)` - If no signer context is available
-
-# Examples
-```ignore
-use riglr_core::signer::{SignerContext, SolanaSigner, EvmSigner};
-
-// Require Solana signer
-async fn solana_operation() -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
-let signer = SignerContext::current_as::<dyn SolanaSigner>().await?;
-Ok(format!("Solana pubkey: {}", signer.pubkey()))
-}
-
-// Require EVM signer
-async fn evm_operation() -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
-let signer = SignerContext::current_as::<dyn EvmSigner>().await?;
-Ok(format!("EVM chain: {}", signer.chain_id()))
-}
-```
-
----
-
-### estimate_gas_limit
-
-**Source**: `transactions/evm.rs`
-
-```rust
-pub async fn estimate_gas_limit(&self, tx: &TransactionRequest) -> Result<u64, ToolError>
-```
-
-Estimate gas limit for a transaction
-
----
-
-### estimate_gas_price
-
-**Source**: `transactions/evm.rs`
-
-```rust
-pub async fn estimate_gas_price(&self) -> Result<u128, ToolError>
-```
-
-Estimate optimal gas price
-
----
-
-### evm_caip2_for
-
-**Source**: `src/config.rs`
-
-**Attributes**:
-```rust
-#[must_use]
-```
-
-```rust
-pub fn evm_caip2_for(&self, name: &str) -> Option<String>
-```
-
-Get CAIP-2 for an EVM network by name (case-insensitive key lookup).
-
----
-
-### from_config
-
-**Source**: `signer/evm.rs`
-
-```rust
-pub fn from_config( private_key: String, config: &RpcConfig, network: &str, ) -> Result<Self, SignerError>
-```
-
-Create a new EVM signer from RPC configuration and network name
-
----
-
-### from_config
-
-**Source**: `signer/solana.rs`
-
-```rust
-pub fn from_config( private_key: String, config: &RpcConfig, network: &str, ) -> Result<Self, SignerError>
-```
-
-Create a new Solana signer from RPC configuration and network name
-
----
-
-### from_env
-
-**Source**: `src/config.rs`
-
-```rust
-pub fn from_env() -> Result<Self, Box<dyn std::error::Error>>
-```
-
-Create `RpcConfig` from environment variables
-
-# Errors
-
-Returns an error if environment variables are invalid or cannot be parsed.
-
----
-
-### from_keypair
-
-**Source**: `signer/solana.rs`
-
-```rust
-pub fn from_keypair(keypair: Keypair, network_config: SolanaNetworkConfig) -> Self
-```
-
-Create a new Solana signer from a Keypair (for testing)
-
----
-
-### get_address
-
-**Source**: `signer/evm.rs`
-
-```rust
-pub fn get_address(&self) -> Address
-```
-
-Get the address of this signer
-
----
-
-### get_env_or_default
-
-**Source**: `src/util.rs`
-
-```rust
-pub fn get_env_or_default(key: &str, default: &str) -> String
-```
-
-Gets an optional environment variable with a default value.
-
-# Examples
-
-```rust
-use riglr_core::util::get_env_or_default;
-
-# unsafe { std::env::remove_var("OPTIONAL_SETTING"); }
-let setting = get_env_or_default("OPTIONAL_SETTING", "default_value");
-assert_eq!(setting, "default_value");
-```
-
----
-
-### get_env_vars
-
-**Source**: `src/util.rs`
-
-```rust
-pub fn get_env_vars(keys: &[&str]) -> std::collections::HashMap<String, String>
-```
-
-Gets multiple environment variables at once, returning a map.
-
-# Examples
-
-```rust
-use riglr_core::util::get_env_vars;
-use std::collections::HashMap;
-
-# unsafe { std::env::set_var("VAR1", "value1"); }
-# unsafe { std::env::set_var("VAR2", "value2"); }
-let vars = get_env_vars(&["VAR1", "VAR2", "VAR3"]);
-assert_eq!(vars.get("VAR1"), Some(&"value1".to_string()));
-assert_eq!(vars.get("VAR3"), None);
-# unsafe { std::env::remove_var("VAR1"); }
-# unsafe { std::env::remove_var("VAR2"); }
-```
-
----
-
-### get_pubkey
-
-**Source**: `signer/solana.rs`
-
-```rust
-pub fn get_pubkey(&self) -> solana_sdk::pubkey::Pubkey
-```
-
-Get the public key of this signer
-
----
-
-### get_recent_prioritization_fees
-
-**Source**: `transactions/solana.rs`
-
-```rust
-pub async fn get_recent_prioritization_fees(&self) -> Result<u64, ToolError>
-```
-
-Get recent prioritization fees from the network
-
----
-
-### get_required_env
-
-**Source**: `src/util.rs`
-
-```rust
-pub fn get_required_env(key: &str) -> EnvResult<String>
-```
-
-Gets a required environment variable, returning an error if not set.
-
-This is the recommended approach for libraries, allowing the application
-to decide how to handle missing configuration.
-
-# Examples
-
-```rust
-use riglr_core::util::get_required_env;
-
-# unsafe { std::env::set_var("MY_API_KEY", "secret123"); }
-let api_key = get_required_env("MY_API_KEY").expect("MY_API_KEY must be set");
-assert_eq!(api_key, "secret123");
-# unsafe { std::env::remove_var("MY_API_KEY"); }
-```
-
-# Errors
-
-Returns [`EnvError::MissingRequired`] if the environment variable is not set.
-
----
-
-### get_semaphore
-
-**Source**: `src/tool.rs`
-
-```rust
-pub fn get_semaphore(&self, resource: &str) -> Option<Arc<Semaphore>>
-```
-
-Get the semaphore for a specific resource type.
-
-This is used internally by the [`ToolWorker`] to acquire permits
-before executing tools. Returns `None` if no limit is configured
-for the specified resource.
-
-# Parameters
-* `resource` - The resource identifier to look up
-
-# Returns
-* `Some(Arc<Semaphore>)` - If a limit is configured for this resource
-* `None` - If no limit is configured (will use default limit)
-
-# Examples
-
-```rust
-use riglr_core::ResourceLimits;
-
-let limits = ResourceLimits::new()
-.with_limit("test_resource", 5);
-
-assert!(limits.get_semaphore("test_resource").is_some());
-assert!(limits.get_semaphore("unknown_resource").is_none());
-```
-
----
-
 ### increment_retry
 
 **Source**: `src/jobs.rs`
@@ -1288,122 +912,6 @@ assert_eq!(job.retry_count, 2);
 # Ok(())
 # }
 ```
-
----
-
-### init_env_from_file
-
-**Source**: `src/util.rs`
-
-```rust
-pub fn init_env_from_file(path: &str) -> std::io::Result<()>
-```
-
-Application-level helper that initializes environment from a `.env` file if present.
-
-This is a convenience function for applications (not libraries) that want to
-support `.env` files for local development.
-
-# Examples
-
-```rust
-use riglr_core::util::init_env_from_file;
-
-// Load .env file if it exists (usually at application startup)
-init_env_from_file(".env").ok(); // Ignore if file doesn't exist
-```
-
----
-
-### invalid_input_string
-
-**Source**: `src/error.rs`
-
-```rust
-pub fn invalid_input_string<S: Into<String>>(msg: S) -> Self
-```
-
-Creates an invalid input error from a string message
-
----
-
-### invalid_input_with_source
-
-**Source**: `src/error.rs`
-
-```rust
-pub fn invalid_input_with_source<E: std::error::Error + Send + Sync + 'static>( source: E, context: impl Into<String>, ) -> Self
-```
-
-Creates an invalid input error
-
----
-
-### is_available
-
-**Source**: `src/signer.rs`
-
-```rust
-pub async fn is_available() -> bool
-```
-
-Check if there is currently a signer context available.
-
-This function returns `true` if the current async task is running within
-a [`SignerContext::with_signer()`] scope, and `false` otherwise.
-
-This is useful for tools that want to provide different behavior when called
-with or without a signer context, such as read-only vs. transactional operations.
-
-# Returns
-* `true` - If a signer context is available
-* `false` - If no signer context is available
-
-# Examples
-
-```ignore
-use riglr_core::signer::SignerContext;
-use riglr_solana_tools::LocalSolanaSigner;
-use std::sync::Arc;
-# use solana_sdk::signer::keypair::Keypair;
-
-async fn flexible_tool() -> Result<String, riglr_core::signer::SignerError> {
-if SignerContext::is_available().await {
-// We have a signer, can perform transactions
-let signer = SignerContext::current().await?;
-Ok("Performing transaction with signer".to_string())
-} else {
-// No signer available, provide read-only functionality
-Ok("Read-only mode: no signer available".to_string())
-}
-}
-
-# async fn example() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-// Test without signer context
-let result1 = flexible_tool().await.unwrap();
-assert_eq!(result1, "Read-only mode: no signer available");
-
-// Test with signer context
-let keypair = Keypair::new();
-let signer = Arc::new(LocalSolanaSigner::new(
-keypair,
-"https://api.devnet.solana.com".to_string()
-));
-
-let result2 = SignerContext::with_signer(signer, async {
-flexible_tool().await
-}).await.unwrap();
-assert_eq!(result2, "Performing transaction with signer");
-
-# Ok(())
-# }
-```
-
-# Performance
-
-This function is very lightweight and can be called frequently without
-performance concerns. It simply checks if the thread-local storage
-contains a signer reference.
 
 ---
 
@@ -1476,42 +984,6 @@ assert!(!failure.is_success());
 
 ---
 
-### metrics
-
-**Source**: `src/tool.rs`
-
-```rust
-pub fn metrics(&self) -> &WorkerMetrics
-```
-
-Get access to worker metrics.
-
-The returned metrics can be used for monitoring worker performance
-and health. All metrics are thread-safe and can be read at any time.
-
-# Returns
-A reference to the worker's metrics
-
-# Examples
-
-```ignore
-use riglr_core::{ToolWorker, ExecutionConfig, idempotency::InMemoryIdempotencyStore};
-use std::sync::atomic::Ordering;
-
-let worker = ToolWorker::<InMemoryIdempotencyStore>::new(ExecutionConfig::default());
-let metrics = worker.metrics();
-
-println!("Jobs processed: {}",
-metrics.jobs_processed.load(Ordering::Relaxed));
-println!("Success rate: {:.2}%", {
-let processed = metrics.jobs_processed.load(Ordering::Relaxed);
-let succeeded = metrics.jobs_succeeded.load(Ordering::Relaxed);
-if processed > 0 { (succeeded as f64 / processed as f64) * 100.0 } else { 0.0 }
-});
-```
-
----
-
 ### new
 
 **Source**: `src/jobs.rs`
@@ -1559,185 +1031,6 @@ assert!(job.idempotency_key.is_none());
 # Ok(())
 # }
 ```
-
----
-
-### new
-
-**Source**: `src/queue.rs`
-
-```rust
-pub fn new() -> Self
-```
-
-Create a new in-memory job queue
-
----
-
-### new
-
-**Source**: `src/queue.rs`
-
-```rust
-pub fn new(redis_url: &str, queue_name: &str) -> Result<Self>
-```
-
-Create a new Redis job queue
-
-# Arguments
-* `redis_url` - Redis connection URL (e.g., "redis://127.0.0.1:6379")
-* `queue_name` - Name of the queue (will be prefixed with "riglr:queue:")
-
----
-
-### new
-
-**Source**: `src/idempotency.rs`
-
-**Attributes**:
-```rust
-#[must_use]
-```
-
-```rust
-pub fn new() -> Self
-```
-
-Create a new in-memory idempotency store
-
----
-
-### new
-
-**Source**: `src/idempotency.rs`
-
-```rust
-pub fn new(redis_url: &str, key_prefix: Option<&str>) -> anyhow::Result<Self>
-```
-
-Create a new Redis idempotency store
-
-# Arguments
-* `redis_url` - Redis connection URL (e.g., "redis://127.0.0.1:6379")
-* `key_prefix` - Prefix for idempotency keys (default: "riglr:idempotency:")
-
----
-
-### new
-
-**Source**: `src/tool.rs`
-
-```rust
-pub fn new() -> Self
-```
-
-Create new empty resource limits configuration.
-
-Use [`ResourceLimits::with_limit()`] to add resource limits,
-or use [`ResourceLimits::default()`] for pre-configured defaults.
-
-# Examples
-
-```ignore
-use riglr_core::ResourceLimits;
-
-let limits = ResourceLimits::new()
-.with_limit("custom_resource", 5);
-```
-
----
-
-### new
-
-**Source**: `src/tool.rs`
-
-```rust
-pub fn new(config: ExecutionConfig) -> Self
-```
-
-Create a new tool worker with the given configuration.
-
-This creates a worker ready to process jobs, but no tools are registered yet.
-Use [`register_tool()`](Self::register_tool) to add tools before processing jobs.
-
-# Parameters
-* `config` - Execution configuration controlling retry behavior, timeouts, etc.
-
-# Examples
-
-```ignore
-use riglr_core::{ToolWorker, ExecutionConfig, idempotency::InMemoryIdempotencyStore};
-use std::time::Duration;
-
-let config = ExecutionConfig {
-max_concurrency: 20,
-default_timeout: Duration::from_secs(60),
-max_retries: 5,
-..Default::default()
-};
-
-let worker = ToolWorker::<InMemoryIdempotencyStore>::new(config);
-```
-
----
-
-### new
-
-**Source**: `signer/evm.rs`
-
-```rust
-pub fn new(private_key: String, network_config: EvmNetworkConfig) -> Result<Self, SignerError>
-```
-
-Create a new EVM signer from a private key and network configuration
-
----
-
-### new
-
-**Source**: `signer/solana.rs`
-
-```rust
-pub fn new( private_key: String, network_config: SolanaNetworkConfig, ) -> Result<Self, SignerError>
-```
-
-Create a new Solana signer from a base58-encoded private key and network configuration
-
----
-
-### new
-
-**Source**: `signer/granular_traits.rs`
-
-```rust
-pub fn new(inner: Arc<T>) -> Self
-```
-
-Create a new adapter wrapping the given legacy signer
-
----
-
-### new
-
-**Source**: `transactions/evm.rs`
-
-```rust
-pub fn new(provider: Arc<P>, gas_config: GasConfig) -> Self
-```
-
-Create a new EVM transaction processor
-
----
-
-### new
-
-**Source**: `transactions/solana.rs`
-
-```rust
-pub fn new(client: Arc<RpcClient>, priority_config: PriorityFeeConfig) -> Self
-```
-
-Create a new Solana transaction processor
 
 ---
 
@@ -1807,18 +1100,6 @@ Example patterns:
 
 ---
 
-### optimize_transaction
-
-**Source**: `transactions/solana.rs`
-
-```rust
-pub fn optimize_transaction(&self, tx: &mut Transaction) -> Result<(), ToolError>
-```
-
-Optimize transaction for size and compute units
-
----
-
 ### permanent_failure
 
 **Source**: `src/jobs.rs`
@@ -1879,133 +1160,6 @@ assert!(!address_error.is_retriable());
 
 ---
 
-### permanent_string
-
-**Source**: `src/error.rs`
-
-```rust
-pub fn permanent_string<S: Into<String>>(msg: S) -> Self
-```
-
-Creates a permanent error from a string message
-
----
-
-### permanent_with_source
-
-**Source**: `src/error.rs`
-
-```rust
-pub fn permanent_with_source<E: std::error::Error + Send + Sync + 'static>( source: E, context: impl Into<String>, ) -> Self
-```
-
-Creates a permanent error with context and source preservation
-
----
-
-### prepare_transaction
-
-**Source**: `transactions/evm.rs`
-
-```rust
-pub async fn prepare_transaction( &self, mut tx: TransactionRequest, ) -> Result<TransactionRequest, ToolError>
-```
-
-Prepare transaction with optimal gas settings
-
----
-
-### process_job
-
-**Source**: `src/tool.rs`
-
-```rust
-pub async fn process_job(&self, mut job: Job) -> Result<JobResult, WorkerError>
-```
-
-Process a single job with all resilience features.
-
-Returns:
-- `Ok(JobResult)` - The job was processed (successfully or with business logic failure)
-- `Err(WorkerError)` - System-level worker failure (tool not found, semaphore issues, etc.)
-
----
-
-### rate_limited_string
-
-**Source**: `src/error.rs`
-
-```rust
-pub fn rate_limited_string<S: Into<String>>(msg: S) -> Self
-```
-
-Creates a rate limited error from a string message
-
----
-
-### rate_limited_with_source
-
-**Source**: `src/error.rs`
-
-```rust
-pub fn rate_limited_with_source<E: std::error::Error + Send + Sync + 'static>( source: E, context: impl Into<String>, retry_after: Option<std::time::Duration>, ) -> Self
-```
-
-Creates a rate limited error with optional retry duration
-
----
-
-### register_tool
-
-**Source**: `src/tool.rs`
-
-```rust
-pub async fn register_tool(&self, tool: Arc<dyn Tool>)
-```
-
-Register a tool with this worker.
-
-Tools must be registered before they can be executed by jobs.
-Each tool is indexed by its name, so tool names must be unique
-within a single worker.
-
-# Parameters
-* `tool` - The tool implementation to register
-
-# Panics
-This method does not panic, but if a tool with the same name
-is already registered, it will be replaced.
-
-# Examples
-
-```ignore
-use riglr_core::{ToolWorker, ExecutionConfig, Tool, JobResult, idempotency::InMemoryIdempotencyStore};
-use async_trait::async_trait;
-use std::sync::Arc;
-
-struct CalculatorTool;
-
-#[async_trait]
-impl Tool for CalculatorTool {
-async fn execute(&self, params: serde_json::Value) -> Result<JobResult, Box<dyn std::error::Error + Send + Sync>> {
-let a = params["a"].as_f64().unwrap_or(0.0);
-let b = params["b"].as_f64().unwrap_or(0.0);
-Ok(JobResult::success(&(a + b))?)
-}
-
-fn name(&self) -> &str {
-"calculator"
-}
-}
-
-# async fn example() {
-let worker = ToolWorker::<InMemoryIdempotencyStore>::new(ExecutionConfig::default());
-worker.register_tool(Arc::new(CalculatorTool)).await;
-# }
-```
-
----
-
 ### retriable_failure
 
 **Source**: `src/jobs.rs`
@@ -2056,101 +1210,6 @@ assert!(service_down.is_retriable());
 - Temporary resource unavailability
 - Blockchain network congestion
 - Database connection issues
-
----
-
-### retriable_string
-
-**Source**: `src/error.rs`
-
-```rust
-pub fn retriable_string<S: Into<String>>(msg: S) -> Self
-```
-
-Creates a retriable error from a string message
-
----
-
-### retriable_with_source
-
-**Source**: `src/error.rs`
-
-```rust
-pub fn retriable_with_source<E: std::error::Error + Send + Sync + 'static>( source: E, context: impl Into<String>, ) -> Self
-```
-
-Creates a retriable error with context and source preservation
-
----
-
-### run
-
-**Source**: `src/tool.rs`
-
-```rust
-pub async fn run<Q: JobQueue>( &self, queue: Arc<Q>, cancellation_token: tokio_util::sync::CancellationToken, ) -> Result<(), Box<dyn std::error::Error + Send + Sync>>
-```
-
-Start the worker loop, processing jobs from the given queue.
-
-The worker will continue processing jobs until the provided cancellation token
-is cancelled. This allows for graceful shutdown where in-flight jobs can complete
-before the worker stops.
-
-# Parameters
-* `queue` - The job queue to process jobs from
-* `cancellation_token` - Token to signal when the worker should stop
-
-# Examples
-
-```rust
-use riglr_core::{ToolWorker, ExecutionConfig, idempotency::InMemoryIdempotencyStore};
-use riglr_core::queue::InMemoryJobQueue;
-use tokio_util::sync::CancellationToken;
-use std::sync::Arc;
-
-# async fn example() -> anyhow::Result<()> {
-let worker = ToolWorker::<InMemoryIdempotencyStore>::new(ExecutionConfig::default());
-let queue = Arc::new(InMemoryJobQueue::new());
-let cancellation_token = CancellationToken::new();
-
-// Start worker in background
-let token_clone = cancellation_token.clone();
-let worker_handle = tokio::spawn(async move {
-worker.run(queue, token_clone).await
-});
-
-// Later, signal shutdown
-cancellation_token.cancel();
-// Await the task and ignore the inner result for simplicity in docs
-let _ = worker_handle.await;
-# Ok(())
-# }
-```
-
----
-
-### send_transaction_with_retry
-
-**Source**: `transactions/solana.rs`
-
-```rust
-pub async fn send_transaction_with_retry( &self, tx: &Transaction, ) -> Result<Signature, ToolError>
-```
-
-Send transaction with automatic retry on blockhash expiry
-
----
-
-### simulate_transaction
-
-**Source**: `transactions/evm.rs`
-
-```rust
-pub async fn simulate_transaction(&self, tx: &TransactionRequest) -> Result<(), ToolError>
-```
-
-Simulate transaction before sending
 
 ---
 
@@ -2255,299 +1314,6 @@ assert!(transfer_result.is_success());
 assert!(swap_result.is_success());
 # Ok(())
 # }
-```
-
----
-
-### validate_required_env
-
-**Source**: `src/util.rs`
-
-```rust
-pub fn validate_required_env(keys: &[&str]) -> EnvResult<()>
-```
-
-Validates that all required environment variables are set.
-
-This is useful during application initialization to fail fast if
-configuration is incomplete.
-
-# Examples
-
-```rust
-use riglr_core::util::validate_required_env;
-
-# unsafe { std::env::set_var("API_KEY", "value1"); }
-# unsafe { std::env::set_var("DATABASE_URL", "value2"); }
-let required = vec!["API_KEY", "DATABASE_URL"];
-validate_required_env(&required).expect("Missing required environment variables");
-# unsafe { std::env::remove_var("API_KEY"); }
-# unsafe { std::env::remove_var("DATABASE_URL"); }
-```
-
-# Errors
-
-Returns the first [`EnvError::MissingRequired`] encountered.
-
----
-
-### with_env_overrides
-
-**Source**: `src/config.rs`
-
-**Attributes**:
-```rust
-#[must_use]
-```
-
-```rust
-pub fn with_env_overrides(mut self) -> Self
-```
-
-Override or extend EVM networks from env like `RPC_URL`_{`CHAIN_ID`}.
-If `chain_id` exists, updates `rpc_url`; otherwise adds as "chain_{id}".
-
----
-
-### with_idempotency_store
-
-**Source**: `src/tool.rs`
-
-```rust
-pub fn with_idempotency_store(mut self, store: Arc<I>) -> Self
-```
-
-Configure an idempotency store for result caching.
-
-When an idempotency store is configured, jobs with idempotency keys
-will have their results cached. Subsequent executions with the same
-idempotency key will return the cached result instead of re-executing.
-
-# Parameters
-* `store` - The idempotency store implementation to use
-
-# Returns
-Self, for method chaining
-
-# Examples
-
-```ignore
-use riglr_core::{ToolWorker, ExecutionConfig, idempotency::InMemoryIdempotencyStore};
-use std::sync::Arc;
-
-let store = Arc::new(InMemoryIdempotencyStore::new());
-let worker = ToolWorker::new(ExecutionConfig::default())
-.with_idempotency_store(store);
-```
-
----
-
-### with_limit
-
-**Source**: `src/tool.rs`
-
-```rust
-pub fn with_limit(mut self, resource: impl Into<String>, limit: usize) -> Self
-```
-
-Add a resource limit for the specified resource type.
-
-This creates a semaphore that will limit concurrent access to the
-specified resource. Tools with names matching the resource mapping
-will be subject to this limit.
-
-# Parameters
-* `resource` - The resource identifier (e.g., "solana_rpc", "evm_rpc")
-* `limit` - Maximum number of concurrent operations for this resource
-
-# Returns
-Self, for method chaining
-
-# Examples
-
-```ignore
-use riglr_core::ResourceLimits;
-
-let limits = ResourceLimits::new()
-.with_limit("solana_rpc", 3)     // Limit Solana RPC calls
-.with_limit("database", 10)      // Limit database connections
-.with_limit("external_api", 5);  // Limit external API calls
-```
-
----
-
-### with_resource_limits
-
-**Source**: `src/tool.rs`
-
-```rust
-pub fn with_resource_limits(mut self, limits: ResourceLimits) -> Self
-```
-
-Configure custom resource limits.
-
-Resource limits control how many concurrent operations can run
-for each resource type. This prevents overwhelming external
-services and provides fine-grained control over resource usage.
-
-# Parameters
-* `limits` - The resource limits configuration to use
-
-# Returns
-Self, for method chaining
-
-# Examples
-
-```ignore
-use riglr_core::{ToolWorker, ExecutionConfig, ResourceLimits, idempotency::InMemoryIdempotencyStore};
-
-let limits = ResourceLimits::new()
-.with_limit("solana_rpc", 3)
-.with_limit("evm_rpc", 8)
-.with_limit("http_api", 15);
-
-let worker = ToolWorker::<InMemoryIdempotencyStore>::new(ExecutionConfig::default())
-.with_resource_limits(limits);
-```
-
----
-
-### with_signer
-
-**Source**: `src/signer.rs`
-
-```rust
-pub async fn with_signer<T, F>( signer: Arc<dyn TransactionSigner>, future: F, ) -> Result<T, SignerError> where F: std::future::Future<Output = Result<T, SignerError>> + Send,
-```
-
-Execute a future with a specific signer context.
-
-This creates an isolated context where the provided signer is available
-to all code running within the future via [`SignerContext::current()`].
-The context is automatically cleaned up when the future completes.
-
-# Arguments
-* `signer` - The signer to make available in the context. This signer will be
-accessible to all code executed within the future scope.
-* `future` - The async code to execute with the signer context. All async
-operations within this future can access the signer.
-
-# Returns
-The result of executing the future. If the future succeeds, returns its result.
-If the future fails with a [`SignerError`], that error is propagated.
-
-# Examples
-
-```ignore
-use riglr_core::signer::SignerContext;
-use riglr_solana_tools::LocalSolanaSigner;
-use std::sync::Arc;
-# use solana_sdk::signer::keypair::Keypair;
-
-# async fn example() -> Result<(), riglr_core::signer::SignerError> {
-let keypair = Keypair::new();
-let signer = Arc::new(LocalSolanaSigner::new(
-keypair,
-"https://api.devnet.solana.com".to_string()
-));
-
-let result = SignerContext::with_signer(signer, async {
-// Multiple operations can access the same signer
-let current = SignerContext::current().await?;
-let user_id = current.user_id();
-
-// Call other async functions that need the signer
-perform_blockchain_operation().await?;
-
-Ok(format!("Completed operations for user: {:?}", user_id))
-}).await?;
-
-println!("{}", result);
-# Ok(())
-# }
-
-async fn perform_blockchain_operation() -> Result<(), riglr_core::signer::SignerError> {
-// This function can access the signer context
-let signer = SignerContext::current().await?;
-// ... perform blockchain operations
-Ok(())
-}
-```
-
-# Thread Safety
-
-Multiple tasks can run concurrently with different signer contexts:
-
-```ignore
-use riglr_core::signer::SignerContext;
-use riglr_solana_tools::LocalSolanaSigner;
-use std::sync::Arc;
-# use solana_sdk::signer::keypair::Keypair;
-
-# async fn concurrent_example() -> Result<(), riglr_core::signer::SignerError> {
-let signer1 = Arc::new(LocalSolanaSigner::new(
-Keypair::new(),
-"https://api.devnet.solana.com".to_string()
-));
-let signer2 = Arc::new(LocalSolanaSigner::new(
-Keypair::new(),
-"https://api.devnet.solana.com".to_string()
-));
-
-let (result1, result2) = tokio::join!(
-SignerContext::with_signer(signer1, async {
-// This task has access to signer1
-Ok("Task 1 completed")
-}),
-SignerContext::with_signer(signer2, async {
-// This task has access to signer2 (isolated from signer1)
-Ok("Task 2 completed")
-})
-);
-
-println!("{}, {}", result1?, result2?);
-# Ok(())
-# }
-```
-
----
-
-### with_timeout
-
-**Source**: `src/queue.rs`
-
-```rust
-pub fn with_timeout(mut self, timeout_seconds: u64) -> Self
-```
-
-Set the blocking timeout for dequeue operations
-
----
-
-### with_unified_signer
-
-**Source**: `src/signer.rs`
-
-```rust
-pub async fn with_unified_signer<T, F>( signer: Arc<dyn UnifiedSigner>, future: F, ) -> Result<T, SignerError> where F: std::future::Future<Output = Result<T, SignerError>> + Send,
-```
-
-Execute a future with a unified signer context.
-
-Similar to `with_signer` but uses the new granular trait system.
-This is the preferred method for new code.
-
-# Examples
-```ignore
-use riglr_core::signer::{SignerContext, SolanaSigner};
-
-let result = SignerContext::with_unified_signer(signer, async {
-// Access as specific signer type
-let solana_signer = SignerContext::current_as::<dyn SolanaSigner>().await?;
-// Use Solana-specific methods
-let pubkey = solana_signer.pubkey();
-Ok(())
-}).await?;
 ```
 
 ---
@@ -2878,6 +1644,326 @@ from tool execution failures.
 - `timeout`
 - `Internal`
 - `message`
+
+---
+
+## Functions (signer)
+
+### current
+
+**Source**: `src/signer.rs`
+
+```rust
+pub async fn current() -> Result<Arc<dyn TransactionSigner>, SignerError>
+```
+
+Get the current signer from thread-local context.
+
+This function retrieves the signer that was set by [`SignerContext::with_signer()`].
+It must be called within a signer context scope, otherwise it will return
+[`SignerError::NoSignerContext`].
+
+# Returns
+* `Ok(Arc<dyn TransactionSigner>)` - The current signer if available
+* `Err(SignerError::NoSignerContext)` - If called outside a signer context
+
+# Examples
+
+```ignore
+use riglr_core::signer::SignerContext;
+use riglr_solana_tools::LocalSolanaSigner;
+use std::sync::Arc;
+# use solana_sdk::signer::keypair::Keypair;
+
+async fn tool_that_needs_signer() -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+// Get the current signer from context
+let signer = SignerContext::current().await
+.map_err(|e| -> Box<dyn std::error::Error + Send + Sync> { Box::new(e) })?;
+
+// Use the signer for operations
+match signer.user_id() {
+Some(user) => Ok(format!("Operating for user: {}", user)),
+None => Ok("Operating for anonymous user".to_string()),
+}
+}
+
+# async fn example() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+let keypair = Keypair::new();
+let signer = Arc::new(LocalSolanaSigner::new(
+keypair,
+"https://api.devnet.solana.com".to_string()
+));
+
+SignerContext::with_signer(signer, async {
+let result = tool_that_needs_signer().await.unwrap();
+println!("{}", result);
+Ok(())
+}).await.unwrap();
+# Ok(())
+# }
+```
+
+# Error Handling
+
+This function will return an error if called outside a signer context:
+
+```ignore
+use riglr_core::signer::{SignerContext, SignerError};
+
+# async fn error_example() {
+// This will fail because we're not in a signer context
+let result = SignerContext::current().await;
+assert!(matches!(result, Err(SignerError::NoSignerContext)));
+# }
+```
+
+---
+
+### current_as_evm
+
+**Source**: `src/signer.rs`
+
+```rust
+pub async fn current_as_evm() -> Result<Arc<dyn EvmSigner>, SignerError>
+```
+
+Get the current signer as an EVM signer
+
+---
+
+### current_as_solana
+
+**Source**: `src/signer.rs`
+
+```rust
+pub async fn current_as_solana() -> Result<Arc<dyn SolanaSigner>, SignerError>
+```
+
+Get the current signer as a specific type.
+
+This method allows type-safe access to chain-specific signer capabilities.
+Tools can require specific signer types and get compile-time guarantees.
+
+# Type Parameters
+* `T` - The specific signer trait to cast to (e.g., `dyn SolanaSigner`, `dyn EvmSigner`)
+
+# Returns
+* `Ok(&T)` - Reference to the signer with the requested capabilities
+* `Err(SignerError::UnsupportedOperation)` - If the current signer doesn't support the requested type
+* `Err(SignerError::NoSignerContext)` - If no signer context is available
+
+# Examples
+```ignore
+use riglr_core::signer::{SignerContext, SolanaSigner, EvmSigner};
+
+// Require Solana signer
+async fn solana_operation() -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+let signer = SignerContext::current_as::<dyn SolanaSigner>().await?;
+Ok(format!("Solana pubkey: {}", signer.pubkey()))
+}
+
+// Require EVM signer
+async fn evm_operation() -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+let signer = SignerContext::current_as::<dyn EvmSigner>().await?;
+Ok(format!("EVM chain: {}", signer.chain_id()))
+}
+```
+
+---
+
+### is_available
+
+**Source**: `src/signer.rs`
+
+```rust
+pub async fn is_available() -> bool
+```
+
+Check if there is currently a signer context available.
+
+This function returns `true` if the current async task is running within
+a [`SignerContext::with_signer()`] scope, and `false` otherwise.
+
+This is useful for tools that want to provide different behavior when called
+with or without a signer context, such as read-only vs. transactional operations.
+
+# Returns
+* `true` - If a signer context is available
+* `false` - If no signer context is available
+
+# Examples
+
+```ignore
+use riglr_core::signer::SignerContext;
+use riglr_solana_tools::LocalSolanaSigner;
+use std::sync::Arc;
+# use solana_sdk::signer::keypair::Keypair;
+
+async fn flexible_tool() -> Result<String, riglr_core::signer::SignerError> {
+if SignerContext::is_available().await {
+// We have a signer, can perform transactions
+let signer = SignerContext::current().await?;
+Ok("Performing transaction with signer".to_string())
+} else {
+// No signer available, provide read-only functionality
+Ok("Read-only mode: no signer available".to_string())
+}
+}
+
+# async fn example() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+// Test without signer context
+let result1 = flexible_tool().await.unwrap();
+assert_eq!(result1, "Read-only mode: no signer available");
+
+// Test with signer context
+let keypair = Keypair::new();
+let signer = Arc::new(LocalSolanaSigner::new(
+keypair,
+"https://api.devnet.solana.com".to_string()
+));
+
+let result2 = SignerContext::with_signer(signer, async {
+flexible_tool().await
+}).await.unwrap();
+assert_eq!(result2, "Performing transaction with signer");
+
+# Ok(())
+# }
+```
+
+# Performance
+
+This function is very lightweight and can be called frequently without
+performance concerns. It simply checks if the thread-local storage
+contains a signer reference.
+
+---
+
+### with_signer
+
+**Source**: `src/signer.rs`
+
+```rust
+pub async fn with_signer<T, F>( signer: Arc<dyn TransactionSigner>, future: F, ) -> Result<T, SignerError> where F: std::future::Future<Output = Result<T, SignerError>> + Send,
+```
+
+Execute a future with a specific signer context.
+
+This creates an isolated context where the provided signer is available
+to all code running within the future via [`SignerContext::current()`].
+The context is automatically cleaned up when the future completes.
+
+# Arguments
+* `signer` - The signer to make available in the context. This signer will be
+accessible to all code executed within the future scope.
+* `future` - The async code to execute with the signer context. All async
+operations within this future can access the signer.
+
+# Returns
+The result of executing the future. If the future succeeds, returns its result.
+If the future fails with a [`SignerError`], that error is propagated.
+
+# Examples
+
+```ignore
+use riglr_core::signer::SignerContext;
+use riglr_solana_tools::LocalSolanaSigner;
+use std::sync::Arc;
+# use solana_sdk::signer::keypair::Keypair;
+
+# async fn example() -> Result<(), riglr_core::signer::SignerError> {
+let keypair = Keypair::new();
+let signer = Arc::new(LocalSolanaSigner::new(
+keypair,
+"https://api.devnet.solana.com".to_string()
+));
+
+let result = SignerContext::with_signer(signer, async {
+// Multiple operations can access the same signer
+let current = SignerContext::current().await?;
+let user_id = current.user_id();
+
+// Call other async functions that need the signer
+perform_blockchain_operation().await?;
+
+Ok(format!("Completed operations for user: {:?}", user_id))
+}).await?;
+
+println!("{}", result);
+# Ok(())
+# }
+
+async fn perform_blockchain_operation() -> Result<(), riglr_core::signer::SignerError> {
+// This function can access the signer context
+let signer = SignerContext::current().await?;
+// ... perform blockchain operations
+Ok(())
+}
+```
+
+# Thread Safety
+
+Multiple tasks can run concurrently with different signer contexts:
+
+```ignore
+use riglr_core::signer::SignerContext;
+use riglr_solana_tools::LocalSolanaSigner;
+use std::sync::Arc;
+# use solana_sdk::signer::keypair::Keypair;
+
+# async fn concurrent_example() -> Result<(), riglr_core::signer::SignerError> {
+let signer1 = Arc::new(LocalSolanaSigner::new(
+Keypair::new(),
+"https://api.devnet.solana.com".to_string()
+));
+let signer2 = Arc::new(LocalSolanaSigner::new(
+Keypair::new(),
+"https://api.devnet.solana.com".to_string()
+));
+
+let (result1, result2) = tokio::join!(
+SignerContext::with_signer(signer1, async {
+// This task has access to signer1
+Ok("Task 1 completed")
+}),
+SignerContext::with_signer(signer2, async {
+// This task has access to signer2 (isolated from signer1)
+Ok("Task 2 completed")
+})
+);
+
+println!("{}, {}", result1?, result2?);
+# Ok(())
+# }
+```
+
+---
+
+### with_unified_signer
+
+**Source**: `src/signer.rs`
+
+```rust
+pub async fn with_unified_signer<T, F>( signer: Arc<dyn UnifiedSigner>, future: F, ) -> Result<T, SignerError> where F: std::future::Future<Output = Result<T, SignerError>> + Send,
+```
+
+Execute a future with a unified signer context.
+
+Similar to `with_signer` but uses the new granular trait system.
+This is the preferred method for new code.
+
+# Examples
+```ignore
+use riglr_core::signer::{SignerContext, SolanaSigner};
+
+let result = SignerContext::with_unified_signer(signer, async {
+// Access as specific signer type
+let solana_signer = SignerContext::current_as::<dyn SolanaSigner>().await?;
+// Use Solana-specific methods
+let pubkey = solana_signer.pubkey();
+Ok(())
+}).await?;
+```
 
 ---
 
@@ -3580,6 +2666,970 @@ fn as_evm(&self) -> Option<&dyn EvmSigner>;
 ```rust
 fn as_multi_chain(&self) -> Option<&dyn MultiChainSigner>;
 ```
+
+---
+
+## Functions (queue)
+
+### new
+
+**Source**: `src/queue.rs`
+
+```rust
+pub fn new() -> Self
+```
+
+Create a new in-memory job queue
+
+---
+
+### new
+
+**Source**: `src/queue.rs`
+
+```rust
+pub fn new(redis_url: &str, queue_name: &str) -> Result<Self>
+```
+
+Create a new Redis job queue
+
+# Arguments
+* `redis_url` - Redis connection URL (e.g., "redis://127.0.0.1:6379")
+* `queue_name` - Name of the queue (will be prefixed with "riglr:queue:")
+
+---
+
+### with_timeout
+
+**Source**: `src/queue.rs`
+
+```rust
+pub fn with_timeout(mut self, timeout_seconds: u64) -> Self
+```
+
+Set the blocking timeout for dequeue operations
+
+---
+
+## Functions (error)
+
+### invalid_input_string
+
+**Source**: `src/error.rs`
+
+```rust
+pub fn invalid_input_string<S: Into<String>>(msg: S) -> Self
+```
+
+Creates an invalid input error from a string message
+
+---
+
+### invalid_input_with_source
+
+**Source**: `src/error.rs`
+
+```rust
+pub fn invalid_input_with_source<E: std::error::Error + Send + Sync + 'static>( source: E, context: impl Into<String>, ) -> Self
+```
+
+Creates an invalid input error
+
+---
+
+### permanent_string
+
+**Source**: `src/error.rs`
+
+```rust
+pub fn permanent_string<S: Into<String>>(msg: S) -> Self
+```
+
+Creates a permanent error from a string message
+
+---
+
+### permanent_with_source
+
+**Source**: `src/error.rs`
+
+```rust
+pub fn permanent_with_source<E: std::error::Error + Send + Sync + 'static>( source: E, context: impl Into<String>, ) -> Self
+```
+
+Creates a permanent error with context and source preservation
+
+---
+
+### rate_limited_string
+
+**Source**: `src/error.rs`
+
+```rust
+pub fn rate_limited_string<S: Into<String>>(msg: S) -> Self
+```
+
+Creates a rate limited error from a string message
+
+---
+
+### rate_limited_with_source
+
+**Source**: `src/error.rs`
+
+```rust
+pub fn rate_limited_with_source<E: std::error::Error + Send + Sync + 'static>( source: E, context: impl Into<String>, retry_after: Option<std::time::Duration>, ) -> Self
+```
+
+Creates a rate limited error with optional retry duration
+
+---
+
+### retriable_string
+
+**Source**: `src/error.rs`
+
+```rust
+pub fn retriable_string<S: Into<String>>(msg: S) -> Self
+```
+
+Creates a retriable error from a string message
+
+---
+
+### retriable_with_source
+
+**Source**: `src/error.rs`
+
+```rust
+pub fn retriable_with_source<E: std::error::Error + Send + Sync + 'static>( source: E, context: impl Into<String>, ) -> Self
+```
+
+Creates a retriable error with context and source preservation
+
+---
+
+## Functions (config)
+
+### add_evm_network
+
+**Source**: `src/config.rs`
+
+```rust
+pub fn add_evm_network( &mut self, name: impl Into<String>, chain_id: u64, rpc_url: impl Into<String>, explorer_url: Option<String>, ) -> &mut Self
+```
+
+Add or update an EVM network configuration dynamically.
+
+---
+
+### caip2
+
+**Source**: `src/config.rs`
+
+**Attributes**:
+```rust
+#[must_use]
+```
+
+```rust
+pub fn caip2(&self) -> String
+```
+
+Return the CAIP-2 identifier for this EVM network, e.g. "eip155:1".
+
+---
+
+### evm_caip2_for
+
+**Source**: `src/config.rs`
+
+**Attributes**:
+```rust
+#[must_use]
+```
+
+```rust
+pub fn evm_caip2_for(&self, name: &str) -> Option<String>
+```
+
+Get CAIP-2 for an EVM network by name (case-insensitive key lookup).
+
+---
+
+### from_env
+
+**Source**: `src/config.rs`
+
+```rust
+pub fn from_env() -> Result<Self, Box<dyn std::error::Error>>
+```
+
+Create `RpcConfig` from environment variables
+
+# Errors
+
+Returns an error if environment variables are invalid or cannot be parsed.
+
+---
+
+### with_env_overrides
+
+**Source**: `src/config.rs`
+
+**Attributes**:
+```rust
+#[must_use]
+```
+
+```rust
+pub fn with_env_overrides(mut self) -> Self
+```
+
+Override or extend EVM networks from env like `RPC_URL`_{`CHAIN_ID`}.
+If `chain_id` exists, updates `rpc_url`; otherwise adds as "chain_{id}".
+
+---
+
+## Functions (util)
+
+### get_env_or_default
+
+**Source**: `src/util.rs`
+
+```rust
+pub fn get_env_or_default(key: &str, default: &str) -> String
+```
+
+Gets an optional environment variable with a default value.
+
+# Examples
+
+```rust
+use riglr_core::util::get_env_or_default;
+
+# unsafe { std::env::remove_var("OPTIONAL_SETTING"); }
+let setting = get_env_or_default("OPTIONAL_SETTING", "default_value");
+assert_eq!(setting, "default_value");
+```
+
+---
+
+### get_env_vars
+
+**Source**: `src/util.rs`
+
+```rust
+pub fn get_env_vars(keys: &[&str]) -> std::collections::HashMap<String, String>
+```
+
+Gets multiple environment variables at once, returning a map.
+
+# Examples
+
+```rust
+use riglr_core::util::get_env_vars;
+use std::collections::HashMap;
+
+# unsafe { std::env::set_var("VAR1", "value1"); }
+# unsafe { std::env::set_var("VAR2", "value2"); }
+let vars = get_env_vars(&["VAR1", "VAR2", "VAR3"]);
+assert_eq!(vars.get("VAR1"), Some(&"value1".to_string()));
+assert_eq!(vars.get("VAR3"), None);
+# unsafe { std::env::remove_var("VAR1"); }
+# unsafe { std::env::remove_var("VAR2"); }
+```
+
+---
+
+### get_required_env
+
+**Source**: `src/util.rs`
+
+```rust
+pub fn get_required_env(key: &str) -> EnvResult<String>
+```
+
+Gets a required environment variable, returning an error if not set.
+
+This is the recommended approach for libraries, allowing the application
+to decide how to handle missing configuration.
+
+# Examples
+
+```rust
+use riglr_core::util::get_required_env;
+
+# unsafe { std::env::set_var("MY_API_KEY", "secret123"); }
+let api_key = get_required_env("MY_API_KEY").expect("MY_API_KEY must be set");
+assert_eq!(api_key, "secret123");
+# unsafe { std::env::remove_var("MY_API_KEY"); }
+```
+
+# Errors
+
+Returns [`EnvError::MissingRequired`] if the environment variable is not set.
+
+---
+
+### init_env_from_file
+
+**Source**: `src/util.rs`
+
+```rust
+pub fn init_env_from_file(path: &str) -> std::io::Result<()>
+```
+
+Application-level helper that initializes environment from a `.env` file if present.
+
+This is a convenience function for applications (not libraries) that want to
+support `.env` files for local development.
+
+# Examples
+
+```rust
+use riglr_core::util::init_env_from_file;
+
+// Load .env file if it exists (usually at application startup)
+init_env_from_file(".env").ok(); // Ignore if file doesn't exist
+```
+
+---
+
+### validate_required_env
+
+**Source**: `src/util.rs`
+
+```rust
+pub fn validate_required_env(keys: &[&str]) -> EnvResult<()>
+```
+
+Validates that all required environment variables are set.
+
+This is useful during application initialization to fail fast if
+configuration is incomplete.
+
+# Examples
+
+```rust
+use riglr_core::util::validate_required_env;
+
+# unsafe { std::env::set_var("API_KEY", "value1"); }
+# unsafe { std::env::set_var("DATABASE_URL", "value2"); }
+let required = vec!["API_KEY", "DATABASE_URL"];
+validate_required_env(&required).expect("Missing required environment variables");
+# unsafe { std::env::remove_var("API_KEY"); }
+# unsafe { std::env::remove_var("DATABASE_URL"); }
+```
+
+# Errors
+
+Returns the first [`EnvError::MissingRequired`] encountered.
+
+---
+
+## Functions (idempotency)
+
+### new
+
+**Source**: `src/idempotency.rs`
+
+**Attributes**:
+```rust
+#[must_use]
+```
+
+```rust
+pub fn new() -> Self
+```
+
+Create a new in-memory idempotency store
+
+---
+
+### new
+
+**Source**: `src/idempotency.rs`
+
+```rust
+pub fn new(redis_url: &str, key_prefix: Option<&str>) -> anyhow::Result<Self>
+```
+
+Create a new Redis idempotency store
+
+# Arguments
+* `redis_url` - Redis connection URL (e.g., "redis://127.0.0.1:6379")
+* `key_prefix` - Prefix for idempotency keys (default: "riglr:idempotency:")
+
+---
+
+## Functions (tool)
+
+### get_semaphore
+
+**Source**: `src/tool.rs`
+
+```rust
+pub fn get_semaphore(&self, resource: &str) -> Option<Arc<Semaphore>>
+```
+
+Get the semaphore for a specific resource type.
+
+This is used internally by the [`ToolWorker`] to acquire permits
+before executing tools. Returns `None` if no limit is configured
+for the specified resource.
+
+# Parameters
+* `resource` - The resource identifier to look up
+
+# Returns
+* `Some(Arc<Semaphore>)` - If a limit is configured for this resource
+* `None` - If no limit is configured (will use default limit)
+
+# Examples
+
+```rust
+use riglr_core::ResourceLimits;
+
+let limits = ResourceLimits::new()
+.with_limit("test_resource", 5);
+
+assert!(limits.get_semaphore("test_resource").is_some());
+assert!(limits.get_semaphore("unknown_resource").is_none());
+```
+
+---
+
+### metrics
+
+**Source**: `src/tool.rs`
+
+```rust
+pub fn metrics(&self) -> &WorkerMetrics
+```
+
+Get access to worker metrics.
+
+The returned metrics can be used for monitoring worker performance
+and health. All metrics are thread-safe and can be read at any time.
+
+# Returns
+A reference to the worker's metrics
+
+# Examples
+
+```ignore
+use riglr_core::{ToolWorker, ExecutionConfig, idempotency::InMemoryIdempotencyStore};
+use std::sync::atomic::Ordering;
+
+let worker = ToolWorker::<InMemoryIdempotencyStore>::new(ExecutionConfig::default());
+let metrics = worker.metrics();
+
+println!("Jobs processed: {}",
+metrics.jobs_processed.load(Ordering::Relaxed));
+println!("Success rate: {:.2}%", {
+let processed = metrics.jobs_processed.load(Ordering::Relaxed);
+let succeeded = metrics.jobs_succeeded.load(Ordering::Relaxed);
+if processed > 0 { (succeeded as f64 / processed as f64) * 100.0 } else { 0.0 }
+});
+```
+
+---
+
+### new
+
+**Source**: `src/tool.rs`
+
+```rust
+pub fn new() -> Self
+```
+
+Create new empty resource limits configuration.
+
+Use [`ResourceLimits::with_limit()`] to add resource limits,
+or use [`ResourceLimits::default()`] for pre-configured defaults.
+
+# Examples
+
+```ignore
+use riglr_core::ResourceLimits;
+
+let limits = ResourceLimits::new()
+.with_limit("custom_resource", 5);
+```
+
+---
+
+### new
+
+**Source**: `src/tool.rs`
+
+```rust
+pub fn new(config: ExecutionConfig) -> Self
+```
+
+Create a new tool worker with the given configuration.
+
+This creates a worker ready to process jobs, but no tools are registered yet.
+Use [`register_tool()`](Self::register_tool) to add tools before processing jobs.
+
+# Parameters
+* `config` - Execution configuration controlling retry behavior, timeouts, etc.
+
+# Examples
+
+```ignore
+use riglr_core::{ToolWorker, ExecutionConfig, idempotency::InMemoryIdempotencyStore};
+use std::time::Duration;
+
+let config = ExecutionConfig {
+max_concurrency: 20,
+default_timeout: Duration::from_secs(60),
+max_retries: 5,
+..Default::default()
+};
+
+let worker = ToolWorker::<InMemoryIdempotencyStore>::new(config);
+```
+
+---
+
+### process_job
+
+**Source**: `src/tool.rs`
+
+```rust
+pub async fn process_job(&self, mut job: Job) -> Result<JobResult, WorkerError>
+```
+
+Process a single job with all resilience features.
+
+Returns:
+- `Ok(JobResult)` - The job was processed (successfully or with business logic failure)
+- `Err(WorkerError)` - System-level worker failure (tool not found, semaphore issues, etc.)
+
+---
+
+### register_tool
+
+**Source**: `src/tool.rs`
+
+```rust
+pub async fn register_tool(&self, tool: Arc<dyn Tool>)
+```
+
+Register a tool with this worker.
+
+Tools must be registered before they can be executed by jobs.
+Each tool is indexed by its name, so tool names must be unique
+within a single worker.
+
+# Parameters
+* `tool` - The tool implementation to register
+
+# Panics
+This method does not panic, but if a tool with the same name
+is already registered, it will be replaced.
+
+# Examples
+
+```ignore
+use riglr_core::{ToolWorker, ExecutionConfig, Tool, JobResult, idempotency::InMemoryIdempotencyStore};
+use async_trait::async_trait;
+use std::sync::Arc;
+
+struct CalculatorTool;
+
+#[async_trait]
+impl Tool for CalculatorTool {
+async fn execute(&self, params: serde_json::Value) -> Result<JobResult, Box<dyn std::error::Error + Send + Sync>> {
+let a = params["a"].as_f64().unwrap_or(0.0);
+let b = params["b"].as_f64().unwrap_or(0.0);
+Ok(JobResult::success(&(a + b))?)
+}
+
+fn name(&self) -> &str {
+"calculator"
+}
+}
+
+# async fn example() {
+let worker = ToolWorker::<InMemoryIdempotencyStore>::new(ExecutionConfig::default());
+worker.register_tool(Arc::new(CalculatorTool)).await;
+# }
+```
+
+---
+
+### run
+
+**Source**: `src/tool.rs`
+
+```rust
+pub async fn run<Q: JobQueue>( &self, queue: Arc<Q>, cancellation_token: tokio_util::sync::CancellationToken, ) -> Result<(), Box<dyn std::error::Error + Send + Sync>>
+```
+
+Start the worker loop, processing jobs from the given queue.
+
+The worker will continue processing jobs until the provided cancellation token
+is cancelled. This allows for graceful shutdown where in-flight jobs can complete
+before the worker stops.
+
+# Parameters
+* `queue` - The job queue to process jobs from
+* `cancellation_token` - Token to signal when the worker should stop
+
+# Examples
+
+```rust
+use riglr_core::{ToolWorker, ExecutionConfig, idempotency::InMemoryIdempotencyStore};
+use riglr_core::queue::InMemoryJobQueue;
+use tokio_util::sync::CancellationToken;
+use std::sync::Arc;
+
+# async fn example() -> anyhow::Result<()> {
+let worker = ToolWorker::<InMemoryIdempotencyStore>::new(ExecutionConfig::default());
+let queue = Arc::new(InMemoryJobQueue::new());
+let cancellation_token = CancellationToken::new();
+
+// Start worker in background
+let token_clone = cancellation_token.clone();
+let worker_handle = tokio::spawn(async move {
+worker.run(queue, token_clone).await
+});
+
+// Later, signal shutdown
+cancellation_token.cancel();
+// Await the task and ignore the inner result for simplicity in docs
+let _ = worker_handle.await;
+# Ok(())
+# }
+```
+
+---
+
+### with_idempotency_store
+
+**Source**: `src/tool.rs`
+
+```rust
+pub fn with_idempotency_store(mut self, store: Arc<I>) -> Self
+```
+
+Configure an idempotency store for result caching.
+
+When an idempotency store is configured, jobs with idempotency keys
+will have their results cached. Subsequent executions with the same
+idempotency key will return the cached result instead of re-executing.
+
+# Parameters
+* `store` - The idempotency store implementation to use
+
+# Returns
+Self, for method chaining
+
+# Examples
+
+```ignore
+use riglr_core::{ToolWorker, ExecutionConfig, idempotency::InMemoryIdempotencyStore};
+use std::sync::Arc;
+
+let store = Arc::new(InMemoryIdempotencyStore::new());
+let worker = ToolWorker::new(ExecutionConfig::default())
+.with_idempotency_store(store);
+```
+
+---
+
+### with_limit
+
+**Source**: `src/tool.rs`
+
+```rust
+pub fn with_limit(mut self, resource: impl Into<String>, limit: usize) -> Self
+```
+
+Add a resource limit for the specified resource type.
+
+This creates a semaphore that will limit concurrent access to the
+specified resource. Tools with names matching the resource mapping
+will be subject to this limit.
+
+# Parameters
+* `resource` - The resource identifier (e.g., "solana_rpc", "evm_rpc")
+* `limit` - Maximum number of concurrent operations for this resource
+
+# Returns
+Self, for method chaining
+
+# Examples
+
+```ignore
+use riglr_core::ResourceLimits;
+
+let limits = ResourceLimits::new()
+.with_limit("solana_rpc", 3)     // Limit Solana RPC calls
+.with_limit("database", 10)      // Limit database connections
+.with_limit("external_api", 5);  // Limit external API calls
+```
+
+---
+
+### with_resource_limits
+
+**Source**: `src/tool.rs`
+
+```rust
+pub fn with_resource_limits(mut self, limits: ResourceLimits) -> Self
+```
+
+Configure custom resource limits.
+
+Resource limits control how many concurrent operations can run
+for each resource type. This prevents overwhelming external
+services and provides fine-grained control over resource usage.
+
+# Parameters
+* `limits` - The resource limits configuration to use
+
+# Returns
+Self, for method chaining
+
+# Examples
+
+```ignore
+use riglr_core::{ToolWorker, ExecutionConfig, ResourceLimits, idempotency::InMemoryIdempotencyStore};
+
+let limits = ResourceLimits::new()
+.with_limit("solana_rpc", 3)
+.with_limit("evm_rpc", 8)
+.with_limit("http_api", 15);
+
+let worker = ToolWorker::<InMemoryIdempotencyStore>::new(ExecutionConfig::default())
+.with_resource_limits(limits);
+```
+
+---
+
+## Functions (evm)
+
+### estimate_gas_limit
+
+**Source**: `transactions/evm.rs`
+
+```rust
+pub async fn estimate_gas_limit(&self, tx: &TransactionRequest) -> Result<u64, ToolError>
+```
+
+Estimate gas limit for a transaction
+
+---
+
+### estimate_gas_price
+
+**Source**: `transactions/evm.rs`
+
+```rust
+pub async fn estimate_gas_price(&self) -> Result<u128, ToolError>
+```
+
+Estimate optimal gas price
+
+---
+
+### from_config
+
+**Source**: `signer/evm.rs`
+
+```rust
+pub fn from_config( private_key: String, config: &RpcConfig, network: &str, ) -> Result<Self, SignerError>
+```
+
+Create a new EVM signer from RPC configuration and network name
+
+---
+
+### get_address
+
+**Source**: `signer/evm.rs`
+
+```rust
+pub fn get_address(&self) -> Address
+```
+
+Get the address of this signer
+
+---
+
+### new
+
+**Source**: `signer/evm.rs`
+
+```rust
+pub fn new(private_key: String, network_config: EvmNetworkConfig) -> Result<Self, SignerError>
+```
+
+Create a new EVM signer from a private key and network configuration
+
+---
+
+### new
+
+**Source**: `transactions/evm.rs`
+
+```rust
+pub fn new(provider: Arc<P>, gas_config: GasConfig) -> Self
+```
+
+Create a new EVM transaction processor
+
+---
+
+### prepare_transaction
+
+**Source**: `transactions/evm.rs`
+
+```rust
+pub async fn prepare_transaction( &self, mut tx: TransactionRequest, ) -> Result<TransactionRequest, ToolError>
+```
+
+Prepare transaction with optimal gas settings
+
+---
+
+### simulate_transaction
+
+**Source**: `transactions/evm.rs`
+
+```rust
+pub async fn simulate_transaction(&self, tx: &TransactionRequest) -> Result<(), ToolError>
+```
+
+Simulate transaction before sending
+
+---
+
+## Functions (solana)
+
+### add_priority_fee_instructions
+
+**Source**: `transactions/solana.rs`
+
+```rust
+pub fn add_priority_fee_instructions(&self, instructions: &mut Vec<Instruction>)
+```
+
+Add priority fee instructions to transaction
+
+---
+
+### from_config
+
+**Source**: `signer/solana.rs`
+
+```rust
+pub fn from_config( private_key: String, config: &RpcConfig, network: &str, ) -> Result<Self, SignerError>
+```
+
+Create a new Solana signer from RPC configuration and network name
+
+---
+
+### from_keypair
+
+**Source**: `signer/solana.rs`
+
+```rust
+pub fn from_keypair(keypair: Keypair, network_config: SolanaNetworkConfig) -> Self
+```
+
+Create a new Solana signer from a Keypair (for testing)
+
+---
+
+### get_pubkey
+
+**Source**: `signer/solana.rs`
+
+```rust
+pub fn get_pubkey(&self) -> solana_sdk::pubkey::Pubkey
+```
+
+Get the public key of this signer
+
+---
+
+### get_recent_prioritization_fees
+
+**Source**: `transactions/solana.rs`
+
+```rust
+pub async fn get_recent_prioritization_fees(&self) -> Result<u64, ToolError>
+```
+
+Get recent prioritization fees from the network
+
+---
+
+### new
+
+**Source**: `signer/solana.rs`
+
+```rust
+pub fn new( private_key: String, network_config: SolanaNetworkConfig, ) -> Result<Self, SignerError>
+```
+
+Create a new Solana signer from a base58-encoded private key and network configuration
+
+---
+
+### new
+
+**Source**: `transactions/solana.rs`
+
+```rust
+pub fn new(client: Arc<RpcClient>, priority_config: PriorityFeeConfig) -> Self
+```
+
+Create a new Solana transaction processor
+
+---
+
+### optimize_transaction
+
+**Source**: `transactions/solana.rs`
+
+```rust
+pub fn optimize_transaction(&self, tx: &mut Transaction) -> Result<(), ToolError>
+```
+
+Optimize transaction for size and compute units
+
+---
+
+### send_transaction_with_retry
+
+**Source**: `transactions/solana.rs`
+
+```rust
+pub async fn send_transaction_with_retry( &self, tx: &Transaction, ) -> Result<Signature, ToolError>
+```
+
+Send transaction with automatic retry on blockhash expiry
+
+---
+
+## Functions (granular_traits)
+
+### new
+
+**Source**: `signer/granular_traits.rs`
+
+```rust
+pub fn new(inner: Arc<T>) -> Self
+```
+
+Create a new adapter wrapping the given legacy signer
 
 ---
 

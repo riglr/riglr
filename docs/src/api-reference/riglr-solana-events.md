@@ -139,246 +139,36 @@ Comprehensive API documentation for the `riglr-solana-events` crate.
 - [`ValidationError`](#validationerror)
 - [`ValidationWarning`](#validationwarning)
 
-### Functions
+### Functions (error)
 
-- [`add_parser`](#add_parser)
-- [`add_parser`](#add_parser)
-- [`add_parser`](#add_parser)
-- [`add_parser`](#add_parser)
-- [`add_parser`](#add_parser)
-- [`add_pattern`](#add_pattern)
-- [`add_protocol_parser`](#add_protocol_parser)
-- [`add_rule`](#add_rule)
-- [`amount_in`](#amount_in)
-- [`amount_out`](#amount_out)
-- [`amount_to_shares`](#amount_to_shares)
-- [`bin_id_to_price`](#bin_id_to_price)
-- [`block_number`](#block_number)
-- [`build`](#build)
-- [`bytes`](#bytes)
-- [`calculate_active_bin_price`](#calculate_active_bin_price)
-- [`calculate_health_ratio`](#calculate_health_ratio)
-- [`calculate_interest_rate`](#calculate_interest_rate)
-- [`calculate_liquidation_threshold`](#calculate_liquidation_threshold)
-- [`calculate_liquidity_distribution`](#calculate_liquidity_distribution)
-- [`calculate_price_impact`](#calculate_price_impact)
-- [`core`](#core)
-- [`core_mut`](#core_mut)
-- [`create_fast`](#create_fast)
-- [`create_fast`](#create_fast)
-- [`create_metadata`](#create_metadata)
-- [`create_solana_metadata`](#create_solana_metadata)
-- [`create_solana_metadata`](#create_solana_metadata)
-- [`create_standard`](#create_standard)
-- [`create_standard`](#create_standard)
-- [`create_standard`](#create_standard)
-- [`create_zero_copy`](#create_zero_copy)
-- [`create_zero_copy`](#create_zero_copy)
-- [`create_zero_copy`](#create_zero_copy)
-- [`create_zero_copy`](#create_zero_copy)
-- [`data_slice`](#data_slice)
-- [`decode_base58`](#decode_base58)
-- [`discriminator_matches`](#discriminator_matches)
-- [`encode_base58`](#encode_base58)
-- [`enrich_event`](#enrich_event)
-- [`enrich_events`](#enrich_events)
-- [`event_kind`](#event_kind)
-- [`event_type`](#event_type)
-- [`event_type`](#event_type)
-- [`event_type`](#event_type)
-- [`event_type`](#event_type)
-- [`event_type`](#event_type)
-- [`event_type`](#event_type)
-- [`extract_account_keys`](#extract_account_keys)
-- [`extract_data`](#extract_data)
-- [`extract_discriminator`](#extract_discriminator)
-- [`find_matches`](#find_matches)
-- [`format_token_amount`](#format_token_amount)
-- [`from_byte`](#from_byte)
-- [`from_byte`](#from_byte)
-- [`from_bytes`](#from_bytes)
-- [`from_event_kind`](#from_event_kind)
-- [`from_file`](#from_file)
-- [`from_u64`](#from_u64)
-- [`get_block_time`](#get_block_time)
-- [`get_cache_stats`](#get_cache_stats)
-- [`get_client`](#get_client)
-- [`get_event_type`](#get_event_type)
-- [`get_instruction_index`](#get_instruction_index)
-- [`get_json_data`](#get_json_data)
-- [`get_parsed_data`](#get_parsed_data)
-- [`get_parser`](#get_parser)
-- [`get_parser_for_program`](#get_parser_for_program)
-- [`get_program_id`](#get_program_id)
-- [`get_protocol_type`](#get_protocol_type)
-- [`get_signature`](#get_signature)
-- [`get_slot`](#get_slot)
-- [`get_stats`](#get_stats)
-- [`get_stats`](#get_stats)
-- [`get_stats`](#get_stats)
-- [`has_discriminator`](#has_discriminator)
-- [`id`](#id)
-- [`id`](#id)
-- [`index`](#index)
-- [`index`](#index)
-- [`input_mint`](#input_mint)
-- [`into_inner`](#into_inner)
 - [`invalid_account_index`](#invalid_account_index)
 - [`invalid_discriminator`](#invalid_discriminator)
 - [`invalid_enum_variant`](#invalid_enum_variant)
-- [`is_jupiter_v6_program`](#is_jupiter_v6_program)
-- [`is_marginfi_program`](#is_marginfi_program)
-- [`is_meteora_dlmm_program`](#is_meteora_dlmm_program)
-- [`is_meteora_dynamic_program`](#is_meteora_dynamic_program)
-- [`is_orca_whirlpool_program`](#is_orca_whirlpool_program)
-- [`jupiter_v6_program_id`](#jupiter_v6_program_id)
-- [`kind`](#kind)
-- [`liquidity`](#liquidity)
-- [`lp_amount`](#lp_amount)
-- [`marginfi_bank_program_id`](#marginfi_bank_program_id)
-- [`marginfi_program_id`](#marginfi_program_id)
-- [`match_discriminator`](#match_discriminator)
-- [`meteora_dlmm_program_id`](#meteora_dlmm_program_id)
-- [`meteora_dynamic_program_id`](#meteora_dynamic_program_id)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new_borrowed`](#new_borrowed)
-- [`new_fast`](#new_fast)
-- [`new_fast`](#new_fast)
-- [`new_owned`](#new_owned)
-- [`new_standard`](#new_standard)
-- [`new_standard`](#new_standard)
-- [`new_standard`](#new_standard)
 - [`not_enough_bytes`](#not_enough_bytes)
-- [`orca_whirlpool_program_id`](#orca_whirlpool_program_id)
-- [`output_mint`](#output_mint)
-- [`parse_all`](#parse_all)
-- [`parse_batch`](#parse_batch)
-- [`parse_events_from_inner_instruction`](#parse_events_from_inner_instruction)
-- [`parse_events_from_instruction`](#parse_events_from_instruction)
-- [`parse_inner_instruction`](#parse_inner_instruction)
-- [`parse_instruction`](#parse_instruction)
+
+### Functions (utils)
+
+- [`calculate_price_impact`](#calculate_price_impact)
+- [`decode_base58`](#decode_base58)
+- [`discriminator_matches`](#discriminator_matches)
+- [`encode_base58`](#encode_base58)
+- [`extract_account_keys`](#extract_account_keys)
+- [`extract_discriminator`](#extract_discriminator)
+- [`format_token_amount`](#format_token_amount)
+- [`has_discriminator`](#has_discriminator)
 - [`parse_pubkey_from_bytes`](#parse_pubkey_from_bytes)
 - [`parse_u128_le`](#parse_u128_le)
 - [`parse_u16_le`](#parse_u16_le)
 - [`parse_u32_le`](#parse_u32_le)
 - [`parse_u64_le`](#parse_u64_le)
-- [`pool_address`](#pool_address)
-- [`position`](#position)
-- [`process_stream`](#process_stream)
-- [`protocol_event`](#protocol_event)
-- [`protocol_type`](#protocol_type)
-- [`protocol_type`](#protocol_type)
-- [`raw_data`](#raw_data)
-- [`read_bytes`](#read_bytes)
 - [`read_i32_le`](#read_i32_le)
 - [`read_option_bool`](#read_option_bool)
-- [`read_pubkey`](#read_pubkey)
 - [`read_u128_le`](#read_u128_le)
 - [`read_u32_le`](#read_u32_le)
-- [`read_u32_le`](#read_u32_le)
 - [`read_u64_le`](#read_u64_le)
-- [`read_u64_le`](#read_u64_le)
-- [`read_u8`](#read_u8)
 - [`read_u8_le`](#read_u8_le)
-- [`remaining`](#remaining)
-- [`remaining_data`](#remaining_data)
-- [`set_event_type`](#set_event_type)
-- [`set_event_type`](#set_event_type)
-- [`set_id`](#set_id)
-- [`set_json_data`](#set_json_data)
-- [`set_parsed_data`](#set_parsed_data)
-- [`set_protocol_type`](#set_protocol_type)
-- [`set_protocol_type`](#set_protocol_type)
-- [`shares_to_amount`](#shares_to_amount)
-- [`should_handle`](#should_handle)
-- [`signature`](#signature)
-- [`signature`](#signature)
-- [`size`](#size)
-- [`size`](#size)
-- [`skip`](#skip)
-- [`slot`](#slot)
-- [`slot`](#slot)
-- [`sqrt_price_to_price`](#sqrt_price_to_price)
-- [`supported_program_ids`](#supported_program_ids)
-- [`supports_program`](#supports_program)
-- [`swap`](#swap)
 - [`system_time_to_millis`](#system_time_to_millis)
-- [`take_output_receiver`](#take_output_receiver)
-- [`tick_index_to_price`](#tick_index_to_price)
-- [`timestamp`](#timestamp)
-- [`to_event_kind`](#to_event_kind)
-- [`to_owned`](#to_owned)
 - [`to_token_amount`](#to_token_amount)
-- [`token_a_amount`](#token_a_amount)
-- [`token_b_amount`](#token_b_amount)
-- [`validate_event`](#validate_event)
-- [`validate_events`](#validate_events)
-- [`with_all_parsers`](#with_all_parsers)
-- [`with_batch_size`](#with_batch_size)
-- [`with_batch_timeout`](#with_batch_timeout)
-- [`with_concurrency_limit`](#with_concurrency_limit)
-- [`with_data`](#with_data)
-- [`with_legacy_parser`](#with_legacy_parser)
-- [`with_metrics`](#with_metrics)
-- [`with_parser_config`](#with_parser_config)
-- [`with_received_time`](#with_received_time)
-- [`with_received_time`](#with_received_time)
-- [`with_transfer_data`](#with_transfer_data)
-- [`with_transfer_data`](#with_transfer_data)
-- [`with_transfer_data`](#with_transfer_data)
-- [`with_transfer_data`](#with_transfer_data)
-- [`with_transfer_data`](#with_transfer_data)
-- [`with_transfer_data`](#with_transfer_data)
-- [`with_transfer_data`](#with_transfer_data)
-- [`with_transfer_data`](#with_transfer_data)
-- [`with_transfer_data`](#with_transfer_data)
-- [`with_transfer_data`](#with_transfer_data)
-- [`with_transfer_data`](#with_transfer_data)
-- [`with_transfer_data`](#with_transfer_data)
-- [`with_transfer_data`](#with_transfer_data)
 
 ### Structs
 
@@ -542,12 +332,276 @@ Comprehensive API documentation for the `riglr-solana-events` crate.
 - [`ZeroCopyLiquidityEvent`](#zerocopyliquidityevent)
 - [`ZeroCopySwapEvent`](#zerocopyswapevent)
 
+### Functions (solana_metadata)
+
+- [`core`](#core)
+- [`core_mut`](#core_mut)
+- [`create_metadata`](#create_metadata)
+- [`event_kind`](#event_kind)
+- [`id`](#id)
+- [`kind`](#kind)
+- [`new`](#new)
+- [`set_id`](#set_id)
+
+### Functions (solana_parser)
+
+- [`add_protocol_parser`](#add_protocol_parser)
+- [`new`](#new)
+- [`new`](#new)
+- [`new`](#new)
+- [`new`](#new)
+- [`parse_inner_instruction`](#parse_inner_instruction)
+- [`parse_instruction`](#parse_instruction)
+- [`supports_program`](#supports_program)
+- [`with_legacy_parser`](#with_legacy_parser)
+- [`with_received_time`](#with_received_time)
+- [`with_received_time`](#with_received_time)
+
+### Functions (solana_events)
+
+- [`extract_data`](#extract_data)
+- [`liquidity`](#liquidity)
+- [`new`](#new)
+- [`protocol_event`](#protocol_event)
+- [`swap`](#swap)
+- [`with_data`](#with_data)
+- [`with_transfer_data`](#with_transfer_data)
+
 ### Traits
 
 - [`ByteSliceEventParser`](#bytesliceeventparser)
 - [`EventParser`](#eventparser)
 - [`ToSolanaEvent`](#tosolanaevent)
 - [`ValidationRule`](#validationrule)
+
+### Functions (types)
+
+- [`amount_to_shares`](#amount_to_shares)
+- [`bin_id_to_price`](#bin_id_to_price)
+- [`calculate_active_bin_price`](#calculate_active_bin_price)
+- [`calculate_health_ratio`](#calculate_health_ratio)
+- [`calculate_interest_rate`](#calculate_interest_rate)
+- [`calculate_liquidation_threshold`](#calculate_liquidation_threshold)
+- [`calculate_liquidity_distribution`](#calculate_liquidity_distribution)
+- [`create_solana_metadata`](#create_solana_metadata)
+- [`from_event_kind`](#from_event_kind)
+- [`is_jupiter_v6_program`](#is_jupiter_v6_program)
+- [`is_marginfi_program`](#is_marginfi_program)
+- [`is_meteora_dlmm_program`](#is_meteora_dlmm_program)
+- [`is_meteora_dynamic_program`](#is_meteora_dynamic_program)
+- [`is_orca_whirlpool_program`](#is_orca_whirlpool_program)
+- [`jupiter_v6_program_id`](#jupiter_v6_program_id)
+- [`marginfi_bank_program_id`](#marginfi_bank_program_id)
+- [`marginfi_program_id`](#marginfi_program_id)
+- [`meteora_dlmm_program_id`](#meteora_dlmm_program_id)
+- [`meteora_dynamic_program_id`](#meteora_dynamic_program_id)
+- [`orca_whirlpool_program_id`](#orca_whirlpool_program_id)
+- [`shares_to_amount`](#shares_to_amount)
+- [`sqrt_price_to_price`](#sqrt_price_to_price)
+- [`tick_index_to_price`](#tick_index_to_price)
+- [`to_event_kind`](#to_event_kind)
+
+### Functions (metadata_helpers)
+
+- [`create_solana_metadata`](#create_solana_metadata)
+- [`event_type`](#event_type)
+- [`get_block_time`](#get_block_time)
+- [`get_event_type`](#get_event_type)
+- [`get_instruction_index`](#get_instruction_index)
+- [`get_program_id`](#get_program_id)
+- [`get_protocol_type`](#get_protocol_type)
+- [`get_signature`](#get_signature)
+- [`get_slot`](#get_slot)
+- [`index`](#index)
+- [`into_inner`](#into_inner)
+- [`new`](#new)
+- [`protocol_type`](#protocol_type)
+- [`set_event_type`](#set_event_type)
+- [`set_event_type`](#set_event_type)
+- [`set_protocol_type`](#set_protocol_type)
+- [`set_protocol_type`](#set_protocol_type)
+- [`signature`](#signature)
+- [`slot`](#slot)
+
+### Functions (factory)
+
+- [`add_parser`](#add_parser)
+- [`get_parser`](#get_parser)
+- [`get_parser_for_program`](#get_parser_for_program)
+- [`new`](#new)
+- [`parse_events_from_inner_instruction`](#parse_events_from_inner_instruction)
+- [`parse_events_from_instruction`](#parse_events_from_instruction)
+- [`should_handle`](#should_handle)
+- [`supported_program_ids`](#supported_program_ids)
+- [`with_all_parsers`](#with_all_parsers)
+
+### Functions (metaplex)
+
+- [`create_fast`](#create_fast)
+- [`create_zero_copy`](#create_zero_copy)
+- [`event_type`](#event_type)
+- [`from_byte`](#from_byte)
+- [`new`](#new)
+- [`new_fast`](#new_fast)
+
+### Functions (jupiter)
+
+- [`bytes`](#bytes)
+- [`create_fast`](#create_fast)
+- [`create_standard`](#create_standard)
+- [`create_zero_copy`](#create_zero_copy)
+- [`event_type`](#event_type)
+- [`from_bytes`](#from_bytes)
+- [`new`](#new)
+- [`new_fast`](#new_fast)
+- [`new_standard`](#new_standard)
+
+### Functions (pump_fun)
+
+- [`create_standard`](#create_standard)
+- [`create_zero_copy`](#create_zero_copy)
+- [`event_type`](#event_type)
+- [`from_u64`](#from_u64)
+- [`new`](#new)
+- [`new_standard`](#new_standard)
+
+### Functions (raydium_v4)
+
+- [`create_standard`](#create_standard)
+- [`create_zero_copy`](#create_zero_copy)
+- [`event_type`](#event_type)
+- [`from_byte`](#from_byte)
+- [`new_standard`](#new_standard)
+
+### Functions (enrichment)
+
+- [`enrich_event`](#enrich_event)
+- [`enrich_events`](#enrich_events)
+- [`get_cache_stats`](#get_cache_stats)
+- [`new`](#new)
+
+### Functions (parsing)
+
+- [`add_parser`](#add_parser)
+- [`add_parser`](#add_parser)
+- [`build`](#build)
+- [`get_stats`](#get_stats)
+- [`new`](#new)
+- [`new`](#new)
+- [`process_stream`](#process_stream)
+- [`take_output_receiver`](#take_output_receiver)
+- [`with_batch_size`](#with_batch_size)
+- [`with_batch_timeout`](#with_batch_timeout)
+- [`with_concurrency_limit`](#with_concurrency_limit)
+- [`with_metrics`](#with_metrics)
+- [`with_parser_config`](#with_parser_config)
+
+### Functions (validation)
+
+- [`add_rule`](#add_rule)
+- [`get_stats`](#get_stats)
+- [`new`](#new)
+- [`validate_event`](#validate_event)
+- [`validate_events`](#validate_events)
+
+### Functions (events)
+
+- [`amount_in`](#amount_in)
+- [`amount_out`](#amount_out)
+- [`block_number`](#block_number)
+- [`event_type`](#event_type)
+- [`get_json_data`](#get_json_data)
+- [`get_parsed_data`](#get_parsed_data)
+- [`id`](#id)
+- [`index`](#index)
+- [`input_mint`](#input_mint)
+- [`lp_amount`](#lp_amount)
+- [`new`](#new)
+- [`new`](#new)
+- [`new`](#new)
+- [`new`](#new)
+- [`new`](#new)
+- [`new`](#new)
+- [`new`](#new)
+- [`new`](#new)
+- [`new`](#new)
+- [`new`](#new)
+- [`new`](#new)
+- [`new`](#new)
+- [`new`](#new)
+- [`new`](#new)
+- [`new`](#new)
+- [`new`](#new)
+- [`new`](#new)
+- [`new`](#new)
+- [`new_borrowed`](#new_borrowed)
+- [`new_owned`](#new_owned)
+- [`output_mint`](#output_mint)
+- [`pool_address`](#pool_address)
+- [`protocol_type`](#protocol_type)
+- [`raw_data`](#raw_data)
+- [`set_json_data`](#set_json_data)
+- [`set_parsed_data`](#set_parsed_data)
+- [`signature`](#signature)
+- [`slot`](#slot)
+- [`timestamp`](#timestamp)
+- [`to_owned`](#to_owned)
+- [`token_a_amount`](#token_a_amount)
+- [`token_b_amount`](#token_b_amount)
+- [`with_transfer_data`](#with_transfer_data)
+- [`with_transfer_data`](#with_transfer_data)
+- [`with_transfer_data`](#with_transfer_data)
+- [`with_transfer_data`](#with_transfer_data)
+- [`with_transfer_data`](#with_transfer_data)
+- [`with_transfer_data`](#with_transfer_data)
+- [`with_transfer_data`](#with_transfer_data)
+- [`with_transfer_data`](#with_transfer_data)
+- [`with_transfer_data`](#with_transfer_data)
+- [`with_transfer_data`](#with_transfer_data)
+- [`with_transfer_data`](#with_transfer_data)
+- [`with_transfer_data`](#with_transfer_data)
+
+### Functions (parsers)
+
+- [`add_parser`](#add_parser)
+- [`add_parser`](#add_parser)
+- [`add_pattern`](#add_pattern)
+- [`data_slice`](#data_slice)
+- [`find_matches`](#find_matches)
+- [`from_file`](#from_file)
+- [`get_client`](#get_client)
+- [`get_stats`](#get_stats)
+- [`match_discriminator`](#match_discriminator)
+- [`new`](#new)
+- [`new`](#new)
+- [`new`](#new)
+- [`parse_all`](#parse_all)
+- [`parse_batch`](#parse_batch)
+- [`position`](#position)
+- [`read_bytes`](#read_bytes)
+- [`read_pubkey`](#read_pubkey)
+- [`read_u32_le`](#read_u32_le)
+- [`read_u64_le`](#read_u64_le)
+- [`read_u8`](#read_u8)
+- [`remaining`](#remaining)
+- [`remaining_data`](#remaining_data)
+- [`size`](#size)
+- [`size`](#size)
+- [`skip`](#skip)
+
+### Functions (traits)
+
+- [`new`](#new)
+
+### Functions (parser)
+
+- [`new`](#new)
+- [`new`](#new)
+- [`new`](#new)
+- [`new`](#new)
+- [`new`](#new)
+- [`new`](#new)
+- [`new`](#new)
 
 ## Constants
 
@@ -2487,247 +2541,57 @@ Validation warning types
 
 ---
 
-## Functions
+## Functions (error)
 
-### add_parser
+### invalid_account_index
 
-**Source**: `events/factory.rs`
+**Source**: `src/error.rs`
 
 ```rust
-pub fn add_parser(&mut self, protocol: Protocol, parser: Arc<dyn EventParser>)
+pub fn invalid_account_index(index: usize, max: usize) -> Self
 ```
 
-Add a parser for a specific protocol
+Create an InvalidAccountIndex error
 
 ---
 
-### add_parser
+### invalid_discriminator
 
-**Source**: `pipelines/parsing.rs`
+**Source**: `src/error.rs`
 
 ```rust
-pub fn add_parser(&mut self, parser: Arc<dyn ByteSliceEventParser>)
+pub fn invalid_discriminator(expected: Vec<u8>, found: Vec<u8>) -> Self
 ```
 
-Add a parser to the pipeline
+Create an InvalidDiscriminator error
 
 ---
 
-### add_parser
+### invalid_enum_variant
 
-**Source**: `pipelines/parsing.rs`
+**Source**: `src/error.rs`
 
 ```rust
-pub fn add_parser(mut self, parser: Arc<dyn ByteSliceEventParser>) -> Self
+pub fn invalid_enum_variant(variant: u8, type_name: &str) -> Self
 ```
 
-Add a parser
+Create an InvalidEnumVariant error
 
 ---
 
-### add_parser
+### not_enough_bytes
 
-**Source**: `zero_copy/parsers.rs`
+**Source**: `src/error.rs`
 
 ```rust
-pub fn add_parser(&mut self, parser: Arc<dyn ByteSliceEventParser>)
+pub fn not_enough_bytes(expected: usize, found: usize, offset: usize) -> Self
 ```
 
-Add a protocol-specific parser
+Create a NotEnoughBytes error
 
 ---
 
-### add_parser
-
-**Source**: `zero_copy/parsers.rs`
-
-```rust
-pub fn add_parser(&mut self, parser: Arc<dyn ByteSliceEventParser>)
-```
-
-Add a parser for a specific protocol
-
----
-
-### add_pattern
-
-**Source**: `zero_copy/parsers.rs`
-
-```rust
-pub fn add_pattern(&mut self, pattern: Vec<u8>, protocol: ProtocolType)
-```
-
-Add a pattern to match
-
----
-
-### add_protocol_parser
-
-**Source**: `src/solana_parser.rs`
-
-```rust
-pub fn add_protocol_parser<P>( &mut self, _protocol: Protocol, _parser: Arc<dyn LegacyEventParser>, ) where P: LegacyEventParser + 'static,
-```
-
-Add a protocol parser
-
----
-
-### add_rule
-
-**Source**: `pipelines/validation.rs`
-
-```rust
-pub fn add_rule(&mut self, rule: Arc<dyn ValidationRule>)
-```
-
-Add a custom validation rule
-
----
-
-### amount_in
-
-**Source**: `zero_copy/events.rs`
-
-```rust
-pub fn amount_in(&mut self) -> Option<u64>
-```
-
-Get amount in, parsing if necessary
-
----
-
-### amount_out
-
-**Source**: `zero_copy/events.rs`
-
-```rust
-pub fn amount_out(&mut self) -> Option<u64>
-```
-
-Get amount out, parsing if necessary
-
----
-
-### amount_to_shares
-
-**Source**: `marginfi/types.rs`
-
-```rust
-pub fn amount_to_shares(amount: u64, share_value: u128) -> u128
-```
-
-Convert amount to shares using share value
-
----
-
-### bin_id_to_price
-
-**Source**: `meteora/types.rs`
-
-```rust
-pub fn bin_id_to_price(bin_id: u32, bin_step: u16) -> f64
-```
-
-Convert bin ID to price for DLMM
-
----
-
-### block_number
-
-**Source**: `zero_copy/events.rs`
-
-```rust
-pub fn block_number(&self) -> Option<u64>
-```
-
-Get block number for any lifetime
-
----
-
-### build
-
-**Source**: `pipelines/parsing.rs`
-
-```rust
-pub fn build(self) -> ParsingPipeline
-```
-
-Build the parsing pipeline
-
----
-
-### bytes
-
-**Source**: `parsers/jupiter.rs`
-
-```rust
-pub fn bytes(&self) -> &'static [u8; 8]
-```
-
-Get discriminator bytes
-
----
-
-### calculate_active_bin_price
-
-**Source**: `meteora/types.rs`
-
-```rust
-pub fn calculate_active_bin_price(active_id: u32, bin_step: u16) -> f64
-```
-
-Calculate active bin price
-
----
-
-### calculate_health_ratio
-
-**Source**: `marginfi/types.rs`
-
-```rust
-pub fn calculate_health_ratio( total_asset_value: u128, total_liability_value: u128, maintenance_margin: u64, ) -> f64
-```
-
-Calculate health ratio for a MarginFi account
-
----
-
-### calculate_interest_rate
-
-**Source**: `marginfi/types.rs`
-
-```rust
-pub fn calculate_interest_rate( utilization_rate: u64, base_rate: u64, slope1: u64, slope2: u64, optimal_utilization: u64, ) -> u64
-```
-
-Calculate interest rate based on utilization
-
----
-
-### calculate_liquidation_threshold
-
-**Source**: `marginfi/types.rs`
-
-```rust
-pub fn calculate_liquidation_threshold(total_asset_value: u128, liquidation_ltv: u64) -> u128
-```
-
-Calculate liquidation threshold
-
----
-
-### calculate_liquidity_distribution
-
-**Source**: `meteora/types.rs`
-
-```rust
-pub fn calculate_liquidity_distribution( amount_x: u64, amount_y: u64, bin_id_from: u32, bin_id_to: u32, active_id: u32, ) -> Vec<(u32, u64, u64)>
-```
-
-Calculate liquidity distribution across bins
-
----
+## Functions (utils)
 
 ### calculate_price_impact
 
@@ -2738,186 +2602,6 @@ pub fn calculate_price_impact( amount_in: u64, amount_out: u64, reserve_in: u64,
 ```
 
 Calculate price impact for a swap
-
----
-
-### core
-
-**Source**: `src/solana_metadata.rs`
-
-```rust
-pub fn core(&self) -> &EventMetadata
-```
-
-Get a reference to the core EventMetadata
-
----
-
-### core_mut
-
-**Source**: `src/solana_metadata.rs`
-
-```rust
-pub fn core_mut(&mut self) -> &mut EventMetadata
-```
-
-Get a mutable reference to the core EventMetadata
-
----
-
-### create_fast
-
-**Source**: `parsers/metaplex.rs`
-
-```rust
-pub fn create_fast() -> Arc<dyn ByteSliceEventParser>
-```
-
-Create a fast parser with minimal metadata
-
----
-
-### create_fast
-
-**Source**: `parsers/jupiter.rs`
-
-```rust
-pub fn create_fast() -> Arc<dyn ByteSliceEventParser>
-```
-
-Create a fast parser with simplified analysis
-
----
-
-### create_metadata
-
-**Source**: `src/solana_metadata.rs`
-
-```rust
-pub fn create_metadata( id: String, signature: String, slot: u64, block_time: Option<i64>, received_time: i64, index: String, event_type: EventType, protocol_type: ProtocolType, ) -> SolanaEventMetadata
-```
-
-Create a SolanaEventMetadata from components
-
----
-
-### create_solana_metadata
-
-**Source**: `src/metadata_helpers.rs`
-
-```rust
-pub fn create_solana_metadata( id: String, kind: EventKind, source: String, slot: u64, signature: Option<String>, program_id: Option<Pubkey>, instruction_index: Option<usize>, block_time: Option<i64>, protocol_type: ProtocolType, event_type: EventType, ) -> EventMetadata
-```
-
-Create a new EventMetadata for Solana events with all required fields
-
----
-
-### create_solana_metadata
-
-**Source**: `src/types.rs`
-
-```rust
-pub fn create_solana_metadata( id: String, signature: String, slot: u64, block_time: i64, protocol_type: ProtocolType, event_type: EventType, program_id: Pubkey, index: String, program_received_time_ms: i64, ) -> EventMetadata
-```
-
-Create a core EventMetadata with Solana chain data
-
----
-
-### create_standard
-
-**Source**: `parsers/jupiter.rs`
-
-```rust
-pub fn create_standard() -> Arc<dyn ByteSliceEventParser>
-```
-
-Create a standard parser
-
----
-
-### create_standard
-
-**Source**: `parsers/pump_fun.rs`
-
-```rust
-pub fn create_standard() -> Arc<dyn ByteSliceEventParser>
-```
-
-Create a standard parser
-
----
-
-### create_standard
-
-**Source**: `parsers/raydium_v4.rs`
-
-```rust
-pub fn create_standard() -> Arc<dyn ByteSliceEventParser>
-```
-
-Create a standard parser
-
----
-
-### create_zero_copy
-
-**Source**: `parsers/metaplex.rs`
-
-```rust
-pub fn create_zero_copy() -> Arc<dyn ByteSliceEventParser>
-```
-
-Create a new high-performance zero-copy parser with full metadata
-
----
-
-### create_zero_copy
-
-**Source**: `parsers/jupiter.rs`
-
-```rust
-pub fn create_zero_copy() -> Arc<dyn ByteSliceEventParser>
-```
-
-Create a new high-performance zero-copy parser with full analysis
-
----
-
-### create_zero_copy
-
-**Source**: `parsers/pump_fun.rs`
-
-```rust
-pub fn create_zero_copy() -> Arc<dyn ByteSliceEventParser>
-```
-
-Create a new high-performance zero-copy parser
-
----
-
-### create_zero_copy
-
-**Source**: `parsers/raydium_v4.rs`
-
-```rust
-pub fn create_zero_copy() -> Arc<dyn ByteSliceEventParser>
-```
-
-Create a new high-performance zero-copy parser
-
----
-
-### data_slice
-
-**Source**: `zero_copy/parsers.rs`
-
-```rust
-pub fn data_slice(&self, offset: usize, len: usize) -> Option<&[u8]>
-```
-
-Get a slice of the memory-mapped data
 
 ---
 
@@ -2969,114 +2653,6 @@ Encode bytes to base58 string
 
 ---
 
-### enrich_event
-
-**Source**: `pipelines/enrichment.rs`
-
-```rust
-pub async fn enrich_event( &self, mut event: ZeroCopyEvent<'static>, ) -> Result<ZeroCopyEvent<'static>, EnrichmentError>
-```
-
-Enrich a single event with additional metadata
-
----
-
-### enrich_events
-
-**Source**: `pipelines/enrichment.rs`
-
-```rust
-pub async fn enrich_events( &self, events: Vec<ZeroCopyEvent<'static>>, ) -> Result<Vec<ZeroCopyEvent<'static>>, EnrichmentError>
-```
-
-Enrich multiple events in parallel
-
----
-
-### event_kind
-
-**Source**: `src/solana_metadata.rs`
-
-```rust
-pub fn event_kind(&self) -> EventKind
-```
-
-Convert event type to event kind
-
----
-
-### event_type
-
-**Source**: `src/metadata_helpers.rs`
-
-```rust
-pub fn event_type(&self) -> EventType
-```
-
-Get the event type
-
----
-
-### event_type
-
-**Source**: `parsers/metaplex.rs`
-
-```rust
-pub fn event_type(&self) -> EventType
-```
-
-Get corresponding event type
-
----
-
-### event_type
-
-**Source**: `parsers/jupiter.rs`
-
-```rust
-pub fn event_type(&self) -> EventType
-```
-
-Get corresponding event type
-
----
-
-### event_type
-
-**Source**: `parsers/pump_fun.rs`
-
-```rust
-pub fn event_type(&self) -> EventType
-```
-
-Get corresponding event type
-
----
-
-### event_type
-
-**Source**: `parsers/raydium_v4.rs`
-
-```rust
-pub fn event_type(&self) -> EventType
-```
-
-Get corresponding event type
-
----
-
-### event_type
-
-**Source**: `zero_copy/events.rs`
-
-```rust
-pub fn event_type(&self) -> EventType
-```
-
-Get event type for any lifetime
-
----
-
 ### extract_account_keys
 
 **Source**: `common/utils.rs`
@@ -3086,18 +2662,6 @@ pub fn extract_account_keys( accounts: &[Pubkey], indices: &[usize], ) -> Result
 ```
 
 Extract account keys from accounts array
-
----
-
-### extract_data
-
-**Source**: `src/solana_events.rs`
-
-```rust
-pub fn extract_data<T>(&self) -> Result<T, serde_json::Error> where T: for<'de> Deserialize<'de>,
-```
-
-Extract typed data from the event
 
 ---
 
@@ -3113,21 +2677,6 @@ Extract discriminator from instruction data
 
 ---
 
-### find_matches
-
-**Source**: `zero_copy/parsers.rs`
-
-```rust
-pub fn find_matches(&self, data: &[u8]) -> Vec<(usize, ProtocolType)>
-```
-
-Find matching patterns in data
-
-In a real implementation, this would use SIMD instructions for parallel matching
-For now, we provide a basic implementation
-
----
-
 ### format_token_amount
 
 **Source**: `common/utils.rs`
@@ -3140,270 +2689,6 @@ Convert amount with decimals to human-readable format
 
 ---
 
-### from_byte
-
-**Source**: `parsers/metaplex.rs`
-
-```rust
-pub fn from_byte(byte: u8) -> Option<Self>
-```
-
-Parse discriminator from byte
-
----
-
-### from_byte
-
-**Source**: `parsers/raydium_v4.rs`
-
-```rust
-pub fn from_byte(byte: u8) -> Option<Self>
-```
-
-Parse discriminator from byte
-
----
-
-### from_bytes
-
-**Source**: `parsers/jupiter.rs`
-
-```rust
-pub fn from_bytes(bytes: &[u8]) -> Option<Self>
-```
-
-Parse discriminator from first 8 bytes
-
----
-
-### from_event_kind
-
-**Source**: `src/types.rs`
-
-```rust
-pub fn from_event_kind(kind: &riglr_events_core::types::EventKind) -> Self
-```
-
-Convert from riglr-events-core EventKind to local EventType
-
----
-
-### from_file
-
-**Source**: `zero_copy/parsers.rs`
-
-```rust
-pub fn from_file(file_path: &str) -> Result<Self, ParseError>
-```
-
-Create a new memory-mapped parser from a file
-
----
-
-### from_u64
-
-**Source**: `parsers/pump_fun.rs`
-
-```rust
-pub fn from_u64(value: u64) -> Option<Self>
-```
-
-Parse discriminator from first 8 bytes (u64 little-endian)
-
----
-
-### get_block_time
-
-**Source**: `src/metadata_helpers.rs`
-
-```rust
-pub fn get_block_time(metadata: &EventMetadata) -> Option<i64>
-```
-
-Get block_time from Solana EventMetadata
-
----
-
-### get_cache_stats
-
-**Source**: `pipelines/enrichment.rs`
-
-```rust
-pub fn get_cache_stats(&self) -> CacheStats
-```
-
-Get cache statistics
-
----
-
-### get_client
-
-**Source**: `zero_copy/parsers.rs`
-
-```rust
-pub fn get_client(&self) -> Arc<solana_client::rpc_client::RpcClient>
-```
-
-Get the next client in round-robin fashion
-
----
-
-### get_event_type
-
-**Source**: `src/metadata_helpers.rs`
-
-```rust
-pub fn get_event_type(metadata: &EventMetadata) -> Option<EventType>
-```
-
-Get event_type from Solana EventMetadata
-
----
-
-### get_instruction_index
-
-**Source**: `src/metadata_helpers.rs`
-
-```rust
-pub fn get_instruction_index(metadata: &EventMetadata) -> Option<usize>
-```
-
-Get instruction_index from Solana EventMetadata
-
----
-
-### get_json_data
-
-**Source**: `zero_copy/events.rs`
-
-```rust
-pub fn get_json_data(&self) -> Option<&serde_json::Value>
-```
-
-Get JSON representation, computing if necessary
-
----
-
-### get_parsed_data
-
-**Source**: `zero_copy/events.rs`
-
-```rust
-pub fn get_parsed_data<T: std::any::Any + Send + Sync>(&self) -> Option<&T>
-```
-
-Get parsed data (strongly typed)
-
----
-
-### get_parser
-
-**Source**: `events/factory.rs`
-
-```rust
-pub fn get_parser(&self, protocol: &Protocol) -> Option<&Arc<dyn EventParser>>
-```
-
-Get parser for a specific protocol
-
----
-
-### get_parser_for_program
-
-**Source**: `events/factory.rs`
-
-```rust
-pub fn get_parser_for_program( &self, program_id: &solana_sdk::pubkey::Pubkey, ) -> Option<&Arc<dyn EventParser>>
-```
-
-Get parser for a specific program ID
-
----
-
-### get_program_id
-
-**Source**: `src/metadata_helpers.rs`
-
-```rust
-pub fn get_program_id(metadata: &EventMetadata) -> Option<&Pubkey>
-```
-
-Get program_id from Solana EventMetadata
-
----
-
-### get_protocol_type
-
-**Source**: `src/metadata_helpers.rs`
-
-```rust
-pub fn get_protocol_type(metadata: &EventMetadata) -> Option<ProtocolType>
-```
-
-Get protocol_type from Solana EventMetadata
-
----
-
-### get_signature
-
-**Source**: `src/metadata_helpers.rs`
-
-```rust
-pub fn get_signature(metadata: &EventMetadata) -> Option<&str>
-```
-
-Get signature from Solana EventMetadata
-
----
-
-### get_slot
-
-**Source**: `src/metadata_helpers.rs`
-
-```rust
-pub fn get_slot(metadata: &EventMetadata) -> Option<u64>
-```
-
-Get slot from Solana EventMetadata
-
----
-
-### get_stats
-
-**Source**: `pipelines/validation.rs`
-
-```rust
-pub async fn get_stats(&self) -> ValidationStats
-```
-
-Get pipeline statistics
-
----
-
-### get_stats
-
-**Source**: `pipelines/parsing.rs`
-
-```rust
-pub fn get_stats(&self) -> PipelineStats
-```
-
-Get pipeline statistics
-
----
-
-### get_stats
-
-**Source**: `zero_copy/parsers.rs`
-
-```rust
-pub fn get_stats(&self) -> BatchParserStats
-```
-
-Get statistics about the batch parser
-
----
-
 ### has_discriminator
 
 **Source**: `common/utils.rs`
@@ -3413,1005 +2698,6 @@ pub fn has_discriminator(data: &[u8], discriminator: &[u8]) -> bool
 ```
 
 Check if instruction data starts with a specific discriminator
-
----
-
-### id
-
-**Source**: `src/solana_metadata.rs`
-
-```rust
-pub fn id(&self) -> &str
-```
-
-Get the event ID
-
----
-
-### id
-
-**Source**: `zero_copy/events.rs`
-
-```rust
-pub fn id(&self) -> &str
-```
-
-Get id for any lifetime
-
----
-
-### index
-
-**Source**: `src/metadata_helpers.rs`
-
-```rust
-pub fn index(&self) -> Option<usize>
-```
-
-Get the instruction index
-
----
-
-### index
-
-**Source**: `zero_copy/events.rs`
-
-```rust
-pub fn index(&self) -> String
-```
-
-Get index for any lifetime
-
----
-
-### input_mint
-
-**Source**: `zero_copy/events.rs`
-
-```rust
-pub fn input_mint(&mut self) -> Option<Pubkey>
-```
-
-Get input mint, parsing if necessary
-
----
-
-### into_inner
-
-**Source**: `src/metadata_helpers.rs`
-
-```rust
-pub fn into_inner(self) -> EventMetadata
-```
-
-Convert to the inner EventMetadata
-
----
-
-### invalid_account_index
-
-**Source**: `src/error.rs`
-
-```rust
-pub fn invalid_account_index(index: usize, max: usize) -> Self
-```
-
-Create an InvalidAccountIndex error
-
----
-
-### invalid_discriminator
-
-**Source**: `src/error.rs`
-
-```rust
-pub fn invalid_discriminator(expected: Vec<u8>, found: Vec<u8>) -> Self
-```
-
-Create an InvalidDiscriminator error
-
----
-
-### invalid_enum_variant
-
-**Source**: `src/error.rs`
-
-```rust
-pub fn invalid_enum_variant(variant: u8, type_name: &str) -> Self
-```
-
-Create an InvalidEnumVariant error
-
----
-
-### is_jupiter_v6_program
-
-**Source**: `jupiter/types.rs`
-
-```rust
-pub fn is_jupiter_v6_program(program_id: &Pubkey) -> bool
-```
-
-Check if the given pubkey is Jupiter V6 program
-
----
-
-### is_marginfi_program
-
-**Source**: `marginfi/types.rs`
-
-```rust
-pub fn is_marginfi_program(program_id: &Pubkey) -> bool
-```
-
-Check if the given pubkey is MarginFi program
-
----
-
-### is_meteora_dlmm_program
-
-**Source**: `meteora/types.rs`
-
-```rust
-pub fn is_meteora_dlmm_program(program_id: &Pubkey) -> bool
-```
-
-Check if the given pubkey is Meteora DLMM program
-
----
-
-### is_meteora_dynamic_program
-
-**Source**: `meteora/types.rs`
-
-```rust
-pub fn is_meteora_dynamic_program(program_id: &Pubkey) -> bool
-```
-
-Check if the given pubkey is Meteora Dynamic program
-
----
-
-### is_orca_whirlpool_program
-
-**Source**: `orca/types.rs`
-
-```rust
-pub fn is_orca_whirlpool_program(program_id: &Pubkey) -> bool
-```
-
-Check if the given pubkey is Orca Whirlpool program
-
----
-
-### jupiter_v6_program_id
-
-**Source**: `jupiter/types.rs`
-
-```rust
-pub fn jupiter_v6_program_id() -> Pubkey
-```
-
-Extract Jupiter program ID as Pubkey
-
----
-
-### kind
-
-**Source**: `src/solana_metadata.rs`
-
-```rust
-pub fn kind(&self) -> &EventKind
-```
-
-Get the event kind from core metadata
-
----
-
-### liquidity
-
-**Source**: `src/solana_events.rs`
-
-```rust
-pub fn liquidity(params: LiquidityEventParams) -> Self
-```
-
-Create a liquidity event
-
----
-
-### lp_amount
-
-**Source**: `zero_copy/events.rs`
-
-```rust
-pub fn lp_amount(&mut self) -> Option<u64>
-```
-
-Get LP token amount, parsing if necessary
-
----
-
-### marginfi_bank_program_id
-
-**Source**: `marginfi/types.rs`
-
-```rust
-pub fn marginfi_bank_program_id() -> Pubkey
-```
-
-Extract MarginFi bank program ID as Pubkey
-
----
-
-### marginfi_program_id
-
-**Source**: `marginfi/types.rs`
-
-```rust
-pub fn marginfi_program_id() -> Pubkey
-```
-
-Extract MarginFi program ID as Pubkey
-
----
-
-### match_discriminator
-
-**Source**: `zero_copy/parsers.rs`
-
-```rust
-pub fn match_discriminator(&self, data: &[u8]) -> Option<ProtocolType>
-```
-
-Fast prefix matching for instruction discriminators
-
----
-
-### meteora_dlmm_program_id
-
-**Source**: `meteora/types.rs`
-
-```rust
-pub fn meteora_dlmm_program_id() -> Pubkey
-```
-
-Extract Meteora DLMM program ID as Pubkey
-
----
-
-### meteora_dynamic_program_id
-
-**Source**: `meteora/types.rs`
-
-```rust
-pub fn meteora_dynamic_program_id() -> Pubkey
-```
-
-Extract Meteora Dynamic program ID as Pubkey
-
----
-
-### new
-
-**Source**: `src/solana_events.rs`
-
-```rust
-pub fn new(metadata: EventMetadata, data: serde_json::Value) -> Self
-```
-
-Create a new Solana event
-
----
-
-### new
-
-**Source**: `src/metadata_helpers.rs`
-
-```rust
-pub fn new( id: String, kind: EventKind, source: String, slot: u64, signature: Option<String>, program_id: Option<Pubkey>, instruction_index: Option<usize>, block_time: Option<i64>, protocol_type: ProtocolType, event_type: EventType, ) -> Self
-```
-
-Create a new SolanaEventMetadata
-
----
-
-### new
-
-**Source**: `src/solana_metadata.rs`
-
-```rust
-pub fn new( signature: String, slot: u64, event_type: EventType, protocol_type: ProtocolType, index: String, program_received_time_ms: i64, core: EventMetadata, ) -> Self
-```
-
-Create new Solana event metadata
-
----
-
-### new
-
-**Source**: `src/solana_parser.rs`
-
-```rust
-pub fn new() -> Self
-```
-
-Create a new Solana event parser
-
----
-
-### new
-
-**Source**: `src/solana_parser.rs`
-
-```rust
-pub fn new(solana_parser: Arc<SolanaEventParser>) -> Self
-```
-
-Create new inner instruction parser
-
----
-
-### new
-
-**Source**: `src/solana_parser.rs`
-
-```rust
-pub fn new( instruction: solana_sdk::instruction::CompiledInstruction, accounts: Vec<Pubkey>, signature: String, slot: u64, block_time: Option<i64>, instruction_index: usize, ) -> Self
-```
-
-Create a new Solana transaction input
-
----
-
-### new
-
-**Source**: `src/solana_parser.rs`
-
-```rust
-pub fn new( inner_instruction: UiCompiledInstruction, signature: String, slot: u64, block_time: Option<i64>, instruction_index: String, ) -> Self
-```
-
-Create a new Solana inner instruction input
-
----
-
-### new
-
-**Source**: `events/factory.rs`
-
-```rust
-pub fn new() -> Self
-```
-
-Create a new event parser registry
-
----
-
-### new
-
-**Source**: `parsers/metaplex.rs`
-
-```rust
-pub fn new() -> Self
-```
-
-Create new Metaplex parser
-
----
-
-### new
-
-**Source**: `parsers/jupiter.rs`
-
-```rust
-pub fn new() -> Self
-```
-
-Create new Jupiter parser with full analysis
-
----
-
-### new
-
-**Source**: `parsers/pump_fun.rs`
-
-```rust
-pub fn new() -> Self
-```
-
-Create new PumpFun parser
-
----
-
-### new
-
-**Source**: `pipelines/validation.rs`
-
-```rust
-pub fn new(config: ValidationConfig) -> Self
-```
-
-Create a new validation pipeline
-
----
-
-### new
-
-**Source**: `pipelines/enrichment.rs`
-
-```rust
-pub fn new(config: EnrichmentConfig) -> Self
-```
-
-Create a new event enricher
-
----
-
-### new
-
-**Source**: `pipelines/parsing.rs`
-
-```rust
-pub fn new(config: ParsingPipelineConfig) -> Self
-```
-
-Create a new parsing pipeline
-
----
-
-### new
-
-**Source**: `pipelines/parsing.rs`
-
-```rust
-pub fn new() -> Self
-```
-
-Create a new builder
-
----
-
-### new
-
-**Source**: `zero_copy/events.rs`
-
-```rust
-pub fn new(base: ZeroCopyEvent<'a>) -> Self
-```
-
-Create new zero-copy swap event
-
----
-
-### new
-
-**Source**: `zero_copy/events.rs`
-
-```rust
-pub fn new(base: ZeroCopyEvent<'a>) -> Self
-```
-
-Create new zero-copy liquidity event
-
----
-
-### new
-
-**Source**: `zero_copy/parsers.rs`
-
-```rust
-pub fn new(data: &'a [u8]) -> Self
-```
-
-Create a new deserializer
-
----
-
-### new
-
-**Source**: `zero_copy/parsers.rs`
-
-```rust
-pub fn new(max_batch_size: usize) -> Self
-```
-
-Create a new batch parser
-
----
-
-### new
-
-**Source**: `zero_copy/parsers.rs`
-
-```rust
-pub fn new(urls: Vec<String>) -> Self
-```
-
-Create a new connection pool
-
----
-
-### new
-
-**Source**: `core/traits.rs`
-
-```rust
-pub fn new( program_ids: Vec<solana_sdk::pubkey::Pubkey>, configs: Vec<GenericEventParseConfig>, ) -> Self
-```
-
-Create new generic event parser
-
----
-
-### new
-
-**Source**: `bonk/parser.rs`
-
-```rust
-pub fn new() -> Self
-```
-
-Creates a new Bonk event parser with configured discriminators and parsers
-
----
-
-### new
-
-**Source**: `jupiter/events.rs`
-
-```rust
-pub fn new( id: String, signature: String, slot: u64, block_time: i64, block_time_ms: i64, program_received_time_ms: i64, index: String, ) -> Self
-```
-
-Creates a new EventParameters instance with the provided values
-
----
-
-### new
-
-**Source**: `jupiter/events.rs`
-
-```rust
-pub fn new(params: EventParameters, swap_data: JupiterSwapData) -> Self
-```
-
-Creates a new JupiterSwapEvent with the provided parameters and swap data
-
----
-
-### new
-
-**Source**: `jupiter/parser.rs`
-
-```rust
-pub fn new() -> Self
-```
-
-Creates a new Jupiter event parser with default configurations for routing and exact-out routing
-
----
-
-### new
-
-**Source**: `marginfi/events.rs`
-
-```rust
-pub fn new( id: String, signature: String, slot: u64, block_time: i64, block_time_ms: i64, program_received_time_ms: i64, index: String, ) -> Self
-```
-
-Creates a new EventParameters instance with the provided values
-
----
-
-### new
-
-**Source**: `marginfi/events.rs`
-
-```rust
-pub fn new(params: EventParameters, deposit_data: MarginFiDepositData) -> Self
-```
-
-Creates a new MarginFi deposit event with the provided parameters and deposit data
-
----
-
-### new
-
-**Source**: `marginfi/events.rs`
-
-```rust
-pub fn new(params: EventParameters, withdraw_data: MarginFiWithdrawData) -> Self
-```
-
-Creates a new MarginFi withdraw event with the provided parameters and withdraw data
-
----
-
-### new
-
-**Source**: `marginfi/events.rs`
-
-```rust
-pub fn new(params: EventParameters, borrow_data: MarginFiBorrowData) -> Self
-```
-
-Creates a new MarginFi borrow event with the provided parameters and borrow data
-
----
-
-### new
-
-**Source**: `marginfi/events.rs`
-
-```rust
-pub fn new(params: EventParameters, repay_data: MarginFiRepayData) -> Self
-```
-
-Creates a new MarginFi repay event with the provided parameters and repay data
-
----
-
-### new
-
-**Source**: `marginfi/events.rs`
-
-```rust
-pub fn new(params: EventParameters, liquidation_data: MarginFiLiquidationData) -> Self
-```
-
-Creates a new MarginFi liquidation event with the provided parameters and liquidation data
-
----
-
-### new
-
-**Source**: `meteora/parser.rs`
-
-```rust
-pub fn new() -> Self
-```
-
-Creates a new Meteora event parser with default configurations
-
----
-
-### new
-
-**Source**: `meteora/events.rs`
-
-```rust
-pub fn new( id: String, signature: String, slot: u64, block_time: i64, block_time_ms: i64, program_received_time_ms: i64, index: String, ) -> Self
-```
-
-Creates a new EventParameters instance with the provided values
-
----
-
-### new
-
-**Source**: `meteora/events.rs`
-
-```rust
-pub fn new(params: EventParameters, swap_data: MeteoraSwapData) -> Self
-```
-
-Creates a new MeteoraSwapEvent with the provided parameters and swap data
-
----
-
-### new
-
-**Source**: `meteora/events.rs`
-
-```rust
-pub fn new(params: EventParameters, liquidity_data: MeteoraLiquidityData) -> Self
-```
-
-Creates a new MeteoraLiquidityEvent with the provided parameters and liquidity data
-
----
-
-### new
-
-**Source**: `meteora/events.rs`
-
-```rust
-pub fn new(params: EventParameters, liquidity_data: MeteoraDynamicLiquidityData) -> Self
-```
-
-Creates a new MeteoraDynamicLiquidityEvent with the provided parameters and liquidity data
-
----
-
-### new
-
-**Source**: `orca/events.rs`
-
-```rust
-pub fn new( id: String, signature: String, slot: u64, block_time: i64, block_time_ms: i64, program_received_time_ms: i64, index: String, ) -> Self
-```
-
-Creates a new EventParameters instance with the provided values
-
----
-
-### new
-
-**Source**: `orca/events.rs`
-
-```rust
-pub fn new(params: EventParameters, swap_data: OrcaSwapData) -> Self
-```
-
-Creates a new OrcaSwapEvent with the provided parameters and swap data
-
----
-
-### new
-
-**Source**: `orca/events.rs`
-
-```rust
-pub fn new(params: EventParameters, position_data: OrcaPositionData, is_open: bool) -> Self
-```
-
-Creates a new OrcaPositionEvent with the provided parameters and position data
-
----
-
-### new
-
-**Source**: `orca/events.rs`
-
-```rust
-pub fn new(params: EventParameters, liquidity_data: OrcaLiquidityData) -> Self
-```
-
-Creates a new OrcaLiquidityEvent with the provided parameters and liquidity data
-
----
-
-### new
-
-**Source**: `pumpswap/parser.rs`
-
-```rust
-pub fn new() -> Self
-```
-
-Creates a new PumpSwap event parser with default configuration
-
----
-
-### new
-
-**Source**: `raydium_amm_v4/parser.rs`
-
-```rust
-pub fn new() -> Self
-```
-
-Creates a new Raydium AMM V4 event parser with configured discriminators and instruction parsers
-
----
-
-### new
-
-**Source**: `raydium_clmm/parser.rs`
-
-```rust
-pub fn new() -> Self
-```
-
-Creates a new Raydium CLMM event parser
-
-Initializes the parser with all supported Raydium CLMM instruction types
-including swaps, position management, and pool creation operations.
-
----
-
-### new
-
-**Source**: `raydium_cpmm/parser.rs`
-
-```rust
-pub fn new() -> Self
-```
-
-Creates a new Raydium CPMM event parser with default configuration
-
----
-
-### new_borrowed
-
-**Source**: `zero_copy/events.rs`
-
-```rust
-pub fn new_borrowed(metadata: EventMetadata, raw_data: &'a [u8]) -> Self
-```
-
-Create a new zero-copy event with borrowed data
-
----
-
-### new_fast
-
-**Source**: `parsers/metaplex.rs`
-
-```rust
-pub fn new_fast() -> Self
-```
-
-Create parser with minimal metadata parsing (faster)
-
----
-
-### new_fast
-
-**Source**: `parsers/jupiter.rs`
-
-```rust
-pub fn new_fast() -> Self
-```
-
-Create parser with simplified analysis (faster)
-
----
-
-### new_owned
-
-**Source**: `zero_copy/events.rs`
-
-```rust
-pub fn new_owned(metadata: EventMetadata, raw_data: Vec<u8>) -> Self
-```
-
-Create a new zero-copy event with owned data
-
----
-
-### new_standard
-
-**Source**: `parsers/jupiter.rs`
-
-```rust
-pub fn new_standard() -> Self
-```
-
-Create parser with zero-copy disabled
-
----
-
-### new_standard
-
-**Source**: `parsers/pump_fun.rs`
-
-```rust
-pub fn new_standard() -> Self
-```
-
-Create parser with zero-copy disabled
-
----
-
-### new_standard
-
-**Source**: `parsers/raydium_v4.rs`
-
-```rust
-pub fn new_standard() -> Self
-```
-
-Create parser with zero-copy disabled
-
----
-
-### not_enough_bytes
-
-**Source**: `src/error.rs`
-
-```rust
-pub fn not_enough_bytes(expected: usize, found: usize, offset: usize) -> Self
-```
-
-Create a NotEnoughBytes error
-
----
-
-### orca_whirlpool_program_id
-
-**Source**: `orca/types.rs`
-
-```rust
-pub fn orca_whirlpool_program_id() -> Pubkey
-```
-
-Extract Orca Whirlpool program ID as Pubkey
-
----
-
-### output_mint
-
-**Source**: `zero_copy/events.rs`
-
-```rust
-pub fn output_mint(&mut self) -> Option<Pubkey>
-```
-
-Get output mint, parsing if necessary
-
----
-
-### parse_all
-
-**Source**: `zero_copy/parsers.rs`
-
-```rust
-pub fn parse_all(&self) -> Result<Vec<ZeroCopyEvent<'_>>, ParseError>
-```
-
-Parse events from the memory-mapped data
-
----
-
-### parse_batch
-
-**Source**: `zero_copy/parsers.rs`
-
-```rust
-pub fn parse_batch<'a>( &self, batch: &'a [&'a [u8]], metadatas: Vec<EventMetadata>, ) -> Result<Vec<ZeroCopyEvent<'a>>, ParseError>
-```
-
-Parse a batch of transaction data
-
----
-
-### parse_events_from_inner_instruction
-
-**Source**: `events/factory.rs`
-
-```rust
-pub fn parse_events_from_inner_instruction( &self, params: InnerInstructionParseParams, ) -> Vec<Box<dyn Event>>
-```
-
-Parse events from inner instruction using the appropriate parser
-
----
-
-### parse_events_from_instruction
-
-**Source**: `events/factory.rs`
-
-```rust
-pub fn parse_events_from_instruction( &self, params: InstructionParseParams, ) -> Vec<Box<dyn Event>>
-```
-
-Parse events from instruction using the appropriate parser
-
----
-
-### parse_inner_instruction
-
-**Source**: `src/solana_parser.rs`
-
-```rust
-pub async fn parse_inner_instruction( &self, input: SolanaInnerInstructionInput, ) -> EventResult<Vec<SolanaEvent>>
-```
-
-Parse events from a Solana inner instruction
-
----
-
-### parse_instruction
-
-**Source**: `src/solana_parser.rs`
-
-```rust
-pub async fn parse_instruction( &self, input: SolanaTransactionInput, ) -> EventResult<Vec<SolanaEvent>>
-```
-
-Parse events from a Solana instruction
 
 ---
 
@@ -4475,102 +2761,6 @@ Parse a u64 from little-endian bytes
 
 ---
 
-### pool_address
-
-**Source**: `zero_copy/events.rs`
-
-```rust
-pub fn pool_address(&mut self) -> Option<Pubkey>
-```
-
-Get pool address, parsing if necessary
-
----
-
-### position
-
-**Source**: `zero_copy/parsers.rs`
-
-```rust
-pub fn position(&self) -> usize
-```
-
-Get current position
-
----
-
-### process_stream
-
-**Source**: `pipelines/parsing.rs`
-
-```rust
-pub async fn process_stream<S>(&mut self, mut input_stream: S) -> Result<(), PipelineError> where S: Stream<Item = ParsingInput> + Unpin,
-```
-
-Process a stream of parsing inputs
-
----
-
-### protocol_event
-
-**Source**: `src/solana_events.rs`
-
-```rust
-pub fn protocol_event(params: ProtocolEventParams) -> Self
-```
-
-Create a generic protocol event
-
----
-
-### protocol_type
-
-**Source**: `src/metadata_helpers.rs`
-
-```rust
-pub fn protocol_type(&self) -> ProtocolType
-```
-
-Get the protocol type
-
----
-
-### protocol_type
-
-**Source**: `zero_copy/events.rs`
-
-```rust
-pub fn protocol_type(&self) -> ProtocolType
-```
-
-Get protocol type for any lifetime
-
----
-
-### raw_data
-
-**Source**: `zero_copy/events.rs`
-
-```rust
-pub fn raw_data(&self) -> &[u8]
-```
-
-Get the raw data as a slice
-
----
-
-### read_bytes
-
-**Source**: `zero_copy/parsers.rs`
-
-```rust
-pub fn read_bytes(&mut self, len: usize) -> Result<&'a [u8], ParseError>
-```
-
-Read a byte array of fixed size
-
----
-
 ### read_i32_le
 
 **Source**: `common/utils.rs`
@@ -4595,18 +2785,6 @@ Read optional bool from bytes at offset
 
 ---
 
-### read_pubkey
-
-**Source**: `zero_copy/parsers.rs`
-
-```rust
-pub fn read_pubkey(&mut self) -> Result<solana_sdk::pubkey::Pubkey, ParseError>
-```
-
-Read a Pubkey (32 bytes)
-
----
-
 ### read_u128_le
 
 **Source**: `common/utils.rs`
@@ -4616,18 +2794,6 @@ pub fn read_u128_le(data: &[u8], offset: usize) -> ParseResult<u128>
 ```
 
 Read u128 from little-endian bytes at offset
-
----
-
-### read_u32_le
-
-**Source**: `zero_copy/parsers.rs`
-
-```rust
-pub fn read_u32_le(&mut self) -> Result<u32, ParseError>
-```
-
-Read a u32 value (little endian)
 
 ---
 
@@ -4645,18 +2811,6 @@ Read u32 from little-endian bytes at offset
 
 ### read_u64_le
 
-**Source**: `zero_copy/parsers.rs`
-
-```rust
-pub fn read_u64_le(&mut self) -> Result<u64, ParseError>
-```
-
-Read a u64 value (little endian)
-
----
-
-### read_u64_le
-
 **Source**: `common/utils.rs`
 
 ```rust
@@ -4666,18 +2820,6 @@ pub fn read_u64_le(data: &[u8], offset: usize) -> ParseResult<u64>
 Common utility functions for event parsing
 
 Read u64 from little-endian bytes at offset
-
----
-
-### read_u8
-
-**Source**: `zero_copy/parsers.rs`
-
-```rust
-pub fn read_u8(&mut self) -> Result<u8, ParseError>
-```
-
-Read a u8 value
 
 ---
 
@@ -4693,270 +2835,6 @@ Read u8 from bytes at offset
 
 ---
 
-### remaining
-
-**Source**: `zero_copy/parsers.rs`
-
-```rust
-pub fn remaining(&self) -> usize
-```
-
-Get remaining bytes
-
----
-
-### remaining_data
-
-**Source**: `zero_copy/parsers.rs`
-
-```rust
-pub fn remaining_data(&self) -> &'a [u8]
-```
-
-Get remaining data as slice
-
----
-
-### set_event_type
-
-**Source**: `src/metadata_helpers.rs`
-
-```rust
-pub fn set_event_type(metadata: &mut EventMetadata, event_type: EventType)
-```
-
-Set event_type in Solana EventMetadata
-
----
-
-### set_event_type
-
-**Source**: `src/metadata_helpers.rs`
-
-```rust
-pub fn set_event_type(&mut self, event_type: EventType)
-```
-
-Set the event type
-
----
-
-### set_id
-
-**Source**: `src/solana_metadata.rs`
-
-```rust
-pub fn set_id(&mut self, id: String)
-```
-
-Set the event ID
-
----
-
-### set_json_data
-
-**Source**: `zero_copy/events.rs`
-
-```rust
-pub fn set_json_data(&mut self, json: serde_json::Value)
-```
-
-Set JSON representation (cached)
-
----
-
-### set_parsed_data
-
-**Source**: `zero_copy/events.rs`
-
-```rust
-pub fn set_parsed_data<T: std::any::Any + Send + Sync>(&mut self, data: T)
-```
-
-Set parsed data (strongly typed)
-
----
-
-### set_protocol_type
-
-**Source**: `src/metadata_helpers.rs`
-
-```rust
-pub fn set_protocol_type(metadata: &mut EventMetadata, protocol_type: ProtocolType)
-```
-
-Set protocol_type in Solana EventMetadata
-
----
-
-### set_protocol_type
-
-**Source**: `src/metadata_helpers.rs`
-
-```rust
-pub fn set_protocol_type(&mut self, protocol_type: ProtocolType)
-```
-
-Set the protocol type
-
----
-
-### shares_to_amount
-
-**Source**: `marginfi/types.rs`
-
-```rust
-pub fn shares_to_amount(shares: u128, share_value: u128) -> u64
-```
-
-Convert shares to amount using share value
-
----
-
-### should_handle
-
-**Source**: `events/factory.rs`
-
-```rust
-pub fn should_handle(&self, program_id: &solana_sdk::pubkey::Pubkey) -> bool
-```
-
-Check if a program ID is supported
-
----
-
-### signature
-
-**Source**: `src/metadata_helpers.rs`
-
-```rust
-pub fn signature(&self) -> Option<String>
-```
-
-Get the signature
-
----
-
-### signature
-
-**Source**: `zero_copy/events.rs`
-
-```rust
-pub fn signature(&self) -> &str
-```
-
-Get signature for any lifetime
-
----
-
-### size
-
-**Source**: `zero_copy/parsers.rs`
-
-```rust
-pub fn size(&self) -> usize
-```
-
-Get the total size of the mapped data
-
----
-
-### size
-
-**Source**: `zero_copy/parsers.rs`
-
-```rust
-pub fn size(&self) -> usize
-```
-
-Get pool size
-
----
-
-### skip
-
-**Source**: `zero_copy/parsers.rs`
-
-```rust
-pub fn skip(&mut self, len: usize) -> Result<(), ParseError>
-```
-
-Skip bytes
-
----
-
-### slot
-
-**Source**: `src/metadata_helpers.rs`
-
-```rust
-pub fn slot(&self) -> u64
-```
-
-Get the slot
-
----
-
-### slot
-
-**Source**: `zero_copy/events.rs`
-
-```rust
-pub fn slot(&self) -> u64
-```
-
-Get slot for any lifetime
-
----
-
-### sqrt_price_to_price
-
-**Source**: `orca/types.rs`
-
-```rust
-pub fn sqrt_price_to_price(sqrt_price: u128, decimals_a: u8, decimals_b: u8) -> f64
-```
-
-Convert sqrt price to price
-
----
-
-### supported_program_ids
-
-**Source**: `events/factory.rs`
-
-```rust
-pub fn supported_program_ids(&self) -> Vec<solana_sdk::pubkey::Pubkey>
-```
-
-Get all supported program IDs
-
----
-
-### supports_program
-
-**Source**: `src/solana_parser.rs`
-
-```rust
-pub fn supports_program(&self, program_id: &Pubkey) -> bool
-```
-
-Check if a program ID is supported
-
----
-
-### swap
-
-**Source**: `src/solana_events.rs`
-
-```rust
-pub fn swap(params: SwapEventParams) -> Self
-```
-
-Create a swap event
-
----
-
 ### system_time_to_millis
 
 **Source**: `common/utils.rs`
@@ -4969,66 +2847,6 @@ Convert SystemTime to milliseconds since epoch
 
 ---
 
-### take_output_receiver
-
-**Source**: `pipelines/parsing.rs`
-
-```rust
-pub fn take_output_receiver(&mut self) -> mpsc::UnboundedReceiver<ParsingOutput>
-```
-
-Get the output receiver for processed events
-
----
-
-### tick_index_to_price
-
-**Source**: `orca/types.rs`
-
-```rust
-pub fn tick_index_to_price(tick_index: i32) -> f64
-```
-
-Convert tick index to price
-
----
-
-### timestamp
-
-**Source**: `zero_copy/events.rs`
-
-```rust
-pub fn timestamp(&self) -> std::time::SystemTime
-```
-
-Get timestamp for any lifetime
-
----
-
-### to_event_kind
-
-**Source**: `src/types.rs`
-
-```rust
-pub fn to_event_kind(&self) -> riglr_events_core::types::EventKind
-```
-
-Convert local EventType to riglr-events-core EventKind
-
----
-
-### to_owned
-
-**Source**: `zero_copy/events.rs`
-
-```rust
-pub fn to_owned(&self) -> ZeroCopyEvent<'static>
-```
-
-Convert to owned event (clones all data)
-
----
-
 ### to_token_amount
 
 **Source**: `common/utils.rs`
@@ -5038,330 +2856,6 @@ pub fn to_token_amount(amount: f64, decimals: u8) -> u64
 ```
 
 Convert human-readable amount to token amount with decimals
-
----
-
-### token_a_amount
-
-**Source**: `zero_copy/events.rs`
-
-```rust
-pub fn token_a_amount(&mut self) -> Option<u64>
-```
-
-Get token A amount, parsing if necessary
-
----
-
-### token_b_amount
-
-**Source**: `zero_copy/events.rs`
-
-```rust
-pub fn token_b_amount(&mut self) -> Option<u64>
-```
-
-Get token B amount, parsing if necessary
-
----
-
-### validate_event
-
-**Source**: `pipelines/validation.rs`
-
-```rust
-pub async fn validate_event(&self, event: &ZeroCopyEvent<'static>) -> ValidationResult
-```
-
-Validate a single event
-
----
-
-### validate_events
-
-**Source**: `pipelines/validation.rs`
-
-```rust
-pub async fn validate_events( &self, events: &[ZeroCopyEvent<'static>], ) -> Vec<ValidationResult>
-```
-
-Validate multiple events
-
----
-
-### with_all_parsers
-
-**Source**: `events/factory.rs`
-
-```rust
-pub fn with_all_parsers() -> Self
-```
-
-Create a registry with all available parsers
-
----
-
-### with_batch_size
-
-**Source**: `pipelines/parsing.rs`
-
-```rust
-pub fn with_batch_size(mut self, size: usize) -> Self
-```
-
-Set batch size
-
----
-
-### with_batch_timeout
-
-**Source**: `pipelines/parsing.rs`
-
-```rust
-pub fn with_batch_timeout(mut self, timeout: Duration) -> Self
-```
-
-Set batch timeout
-
----
-
-### with_concurrency_limit
-
-**Source**: `pipelines/parsing.rs`
-
-```rust
-pub fn with_concurrency_limit(mut self, limit: usize) -> Self
-```
-
-Set concurrency limit
-
----
-
-### with_data
-
-**Source**: `src/solana_events.rs`
-
-```rust
-pub fn with_data<T: Serialize>(mut self, data: T) -> Result<Self, serde_json::Error>
-```
-
-Update the data payload
-
----
-
-### with_legacy_parser
-
-**Source**: `src/solana_parser.rs`
-
-```rust
-pub fn with_legacy_parser(legacy_parser: EventParserRegistry) -> Self
-```
-
-Create with specific legacy parser
-
----
-
-### with_metrics
-
-**Source**: `pipelines/parsing.rs`
-
-```rust
-pub fn with_metrics(mut self, enable: bool) -> Self
-```
-
-Enable or disable metrics collection
-
----
-
-### with_parser_config
-
-**Source**: `pipelines/parsing.rs`
-
-```rust
-pub fn with_parser_config(mut self, protocol: ProtocolType, config: ParserConfig) -> Self
-```
-
-Add parser configuration
-
----
-
-### with_received_time
-
-**Source**: `src/solana_parser.rs`
-
-```rust
-pub fn with_received_time(mut self, received_time: chrono::DateTime<chrono::Utc>) -> Self
-```
-
-Set the received time
-
----
-
-### with_received_time
-
-**Source**: `src/solana_parser.rs`
-
-```rust
-pub fn with_received_time(mut self, received_time: chrono::DateTime<chrono::Utc>) -> Self
-```
-
-Set the received time
-
----
-
-### with_transfer_data
-
-**Source**: `src/solana_events.rs`
-
-```rust
-pub fn with_transfer_data(mut self, transfer_data: Vec<TransferData>) -> Self
-```
-
-Set transfer data
-
----
-
-### with_transfer_data
-
-**Source**: `jupiter/events.rs`
-
-```rust
-pub fn with_transfer_data(mut self, transfer_data: Vec<TransferData>) -> Self
-```
-
-Adds transfer data to the swap event
-
----
-
-### with_transfer_data
-
-**Source**: `marginfi/events.rs`
-
-```rust
-pub fn with_transfer_data(mut self, transfer_data: Vec<TransferData>) -> Self
-```
-
-Adds transfer data to the deposit event and returns the modified event
-
----
-
-### with_transfer_data
-
-**Source**: `marginfi/events.rs`
-
-```rust
-pub fn with_transfer_data(mut self, transfer_data: Vec<TransferData>) -> Self
-```
-
-Sets the transfer data for this withdraw event
-
----
-
-### with_transfer_data
-
-**Source**: `marginfi/events.rs`
-
-```rust
-pub fn with_transfer_data(mut self, transfer_data: Vec<TransferData>) -> Self
-```
-
-Sets the transfer data for this borrow event
-
----
-
-### with_transfer_data
-
-**Source**: `marginfi/events.rs`
-
-```rust
-pub fn with_transfer_data(mut self, transfer_data: Vec<TransferData>) -> Self
-```
-
-Sets the transfer data for this repay event
-
----
-
-### with_transfer_data
-
-**Source**: `marginfi/events.rs`
-
-```rust
-pub fn with_transfer_data(mut self, transfer_data: Vec<TransferData>) -> Self
-```
-
-Sets the transfer data for this liquidation event
-
----
-
-### with_transfer_data
-
-**Source**: `meteora/events.rs`
-
-```rust
-pub fn with_transfer_data(mut self, transfer_data: Vec<TransferData>) -> Self
-```
-
-Sets the transfer data for this swap event
-
----
-
-### with_transfer_data
-
-**Source**: `meteora/events.rs`
-
-```rust
-pub fn with_transfer_data(mut self, transfer_data: Vec<TransferData>) -> Self
-```
-
-Sets the transfer data for this liquidity event
-
----
-
-### with_transfer_data
-
-**Source**: `meteora/events.rs`
-
-```rust
-pub fn with_transfer_data(mut self, transfer_data: Vec<TransferData>) -> Self
-```
-
-Sets the transfer data for this dynamic liquidity event
-
----
-
-### with_transfer_data
-
-**Source**: `orca/events.rs`
-
-```rust
-pub fn with_transfer_data(mut self, transfer_data: Vec<TransferData>) -> Self
-```
-
-Sets the transfer data for this swap event
-
----
-
-### with_transfer_data
-
-**Source**: `orca/events.rs`
-
-```rust
-pub fn with_transfer_data(mut self, transfer_data: Vec<TransferData>) -> Self
-```
-
-Sets the transfer data for this position event
-
----
-
-### with_transfer_data
-
-**Source**: `orca/events.rs`
-
-```rust
-pub fn with_transfer_data(mut self, transfer_data: Vec<TransferData>) -> Self
-```
-
-Sets the transfer data for this liquidity event
 
 ---
 
@@ -5707,6 +3201,11 @@ Parameters for creating event metadata, reducing function parameter count
 ### EventParserRegistry
 
 **Source**: `events/factory.rs`
+
+**Attributes**:
+```rust
+#[derive(Default)]
+```
 
 ```rust
 pub struct EventParserRegistry { /// Map of protocols to their respective event parsers parsers: HashMap<Protocol, Arc<dyn EventParser>>, /// Map of program IDs to their respective event parsers for fast lookup program_id_to_parser: HashMap<solana_sdk::pubkey::Pubkey, Arc<dyn EventParser>>, }
@@ -6702,6 +4201,11 @@ High-performance parsing pipeline
 
 **Source**: `pipelines/parsing.rs`
 
+**Attributes**:
+```rust
+#[derive(Default)]
+```
+
 ```rust
 pub struct ParsingPipelineBuilder { config: ParsingPipelineConfig, parsers: Vec<Arc<dyn ByteSliceEventParser>>, }
 ```
@@ -7466,19 +4970,6 @@ A wrapper that implements the Event trait for Solana events
 
 ### SolanaEventMetadata
 
-**Source**: `src/metadata_helpers.rs`
-
-```rust
-pub struct SolanaEventMetadata { pub inner: EventMetadata, }
-```
-
-Helper struct that wraps EventMetadata for Solana-specific operations
-This is primarily used in legacy code that expects direct field access
-
----
-
-### SolanaEventMetadata
-
 **Source**: `src/solana_metadata.rs`
 
 **Attributes**:
@@ -7492,6 +4983,19 @@ pub struct SolanaEventMetadata { /// Transaction signature pub signature: String
 
 Solana-specific event metadata that wraps core EventMetadata
 and provides additional fields and trait implementations
+
+---
+
+### SolanaEventMetadata
+
+**Source**: `src/metadata_helpers.rs`
+
+```rust
+pub struct SolanaEventMetadata { /// The wrapped EventMetadata instance pub inner: EventMetadata, }
+```
+
+Helper struct that wraps EventMetadata for Solana-specific operations
+This is primarily used in legacy code that expects direct field access
 
 ---
 
@@ -7922,6 +5426,324 @@ Specialized zero-copy swap event
 
 ---
 
+## Functions (solana_metadata)
+
+### core
+
+**Source**: `src/solana_metadata.rs`
+
+```rust
+pub fn core(&self) -> &EventMetadata
+```
+
+Get a reference to the core EventMetadata
+
+---
+
+### core_mut
+
+**Source**: `src/solana_metadata.rs`
+
+```rust
+pub fn core_mut(&mut self) -> &mut EventMetadata
+```
+
+Get a mutable reference to the core EventMetadata
+
+---
+
+### create_metadata
+
+**Source**: `src/solana_metadata.rs`
+
+```rust
+pub fn create_metadata( id: String, signature: String, slot: u64, block_time: Option<i64>, received_time: i64, index: String, event_type: EventType, protocol_type: ProtocolType, ) -> SolanaEventMetadata
+```
+
+Create a SolanaEventMetadata from components
+
+---
+
+### event_kind
+
+**Source**: `src/solana_metadata.rs`
+
+```rust
+pub fn event_kind(&self) -> EventKind
+```
+
+Convert event type to event kind
+
+---
+
+### id
+
+**Source**: `src/solana_metadata.rs`
+
+```rust
+pub fn id(&self) -> &str
+```
+
+Get the event ID
+
+---
+
+### kind
+
+**Source**: `src/solana_metadata.rs`
+
+```rust
+pub fn kind(&self) -> &EventKind
+```
+
+Get the event kind from core metadata
+
+---
+
+### new
+
+**Source**: `src/solana_metadata.rs`
+
+```rust
+pub fn new( signature: String, slot: u64, event_type: EventType, protocol_type: ProtocolType, index: String, program_received_time_ms: i64, core: EventMetadata, ) -> Self
+```
+
+Create new Solana event metadata
+
+---
+
+### set_id
+
+**Source**: `src/solana_metadata.rs`
+
+```rust
+pub fn set_id(&mut self, id: String)
+```
+
+Set the event ID
+
+---
+
+## Functions (solana_parser)
+
+### add_protocol_parser
+
+**Source**: `src/solana_parser.rs`
+
+```rust
+pub fn add_protocol_parser<P>( &mut self, _protocol: Protocol, _parser: Arc<dyn LegacyEventParser>, ) where P: LegacyEventParser + 'static,
+```
+
+Add a protocol parser
+
+---
+
+### new
+
+**Source**: `src/solana_parser.rs`
+
+```rust
+pub fn new() -> Self
+```
+
+Create a new Solana event parser
+
+---
+
+### new
+
+**Source**: `src/solana_parser.rs`
+
+```rust
+pub fn new(solana_parser: Arc<SolanaEventParser>) -> Self
+```
+
+Create new inner instruction parser
+
+---
+
+### new
+
+**Source**: `src/solana_parser.rs`
+
+```rust
+pub fn new( instruction: solana_sdk::instruction::CompiledInstruction, accounts: Vec<Pubkey>, signature: String, slot: u64, block_time: Option<i64>, instruction_index: usize, ) -> Self
+```
+
+Create a new Solana transaction input
+
+---
+
+### new
+
+**Source**: `src/solana_parser.rs`
+
+```rust
+pub fn new( inner_instruction: UiCompiledInstruction, signature: String, slot: u64, block_time: Option<i64>, instruction_index: String, ) -> Self
+```
+
+Create a new Solana inner instruction input
+
+---
+
+### parse_inner_instruction
+
+**Source**: `src/solana_parser.rs`
+
+```rust
+pub async fn parse_inner_instruction( &self, input: SolanaInnerInstructionInput, ) -> EventResult<Vec<SolanaEvent>>
+```
+
+Parse events from a Solana inner instruction
+
+---
+
+### parse_instruction
+
+**Source**: `src/solana_parser.rs`
+
+```rust
+pub async fn parse_instruction( &self, input: SolanaTransactionInput, ) -> EventResult<Vec<SolanaEvent>>
+```
+
+Parse events from a Solana instruction
+
+---
+
+### supports_program
+
+**Source**: `src/solana_parser.rs`
+
+```rust
+pub fn supports_program(&self, program_id: &Pubkey) -> bool
+```
+
+Check if a program ID is supported
+
+---
+
+### with_legacy_parser
+
+**Source**: `src/solana_parser.rs`
+
+```rust
+pub fn with_legacy_parser(legacy_parser: EventParserRegistry) -> Self
+```
+
+Create with specific legacy parser
+
+---
+
+### with_received_time
+
+**Source**: `src/solana_parser.rs`
+
+```rust
+pub fn with_received_time(mut self, received_time: chrono::DateTime<chrono::Utc>) -> Self
+```
+
+Set the received time
+
+---
+
+### with_received_time
+
+**Source**: `src/solana_parser.rs`
+
+```rust
+pub fn with_received_time(mut self, received_time: chrono::DateTime<chrono::Utc>) -> Self
+```
+
+Set the received time
+
+---
+
+## Functions (solana_events)
+
+### extract_data
+
+**Source**: `src/solana_events.rs`
+
+```rust
+pub fn extract_data<T>(&self) -> Result<T, serde_json::Error> where T: for<'de> Deserialize<'de>,
+```
+
+Extract typed data from the event
+
+---
+
+### liquidity
+
+**Source**: `src/solana_events.rs`
+
+```rust
+pub fn liquidity(params: LiquidityEventParams) -> Self
+```
+
+Create a liquidity event
+
+---
+
+### new
+
+**Source**: `src/solana_events.rs`
+
+```rust
+pub fn new(metadata: EventMetadata, data: serde_json::Value) -> Self
+```
+
+Create a new Solana event
+
+---
+
+### protocol_event
+
+**Source**: `src/solana_events.rs`
+
+```rust
+pub fn protocol_event(params: ProtocolEventParams) -> Self
+```
+
+Create a generic protocol event
+
+---
+
+### swap
+
+**Source**: `src/solana_events.rs`
+
+```rust
+pub fn swap(params: SwapEventParams) -> Self
+```
+
+Create a swap event
+
+---
+
+### with_data
+
+**Source**: `src/solana_events.rs`
+
+```rust
+pub fn with_data<T: Serialize>(mut self, data: T) -> Result<Self, serde_json::Error>
+```
+
+Update the data payload
+
+---
+
+### with_transfer_data
+
+**Source**: `src/solana_events.rs`
+
+```rust
+pub fn with_transfer_data(mut self, transfer_data: Vec<TransferData>) -> Self
+```
+
+Set transfer data
+
+---
+
 ## Traits
 
 ### ByteSliceEventParser
@@ -8060,6 +5882,2284 @@ async fn validate(&self, event: &ZeroCopyEvent<'_>, config: &ValidationConfig) -
 ```rust
 fn name(&self) -> &'static str;
 ```
+
+---
+
+## Functions (types)
+
+### amount_to_shares
+
+**Source**: `marginfi/types.rs`
+
+```rust
+pub fn amount_to_shares(amount: u64, share_value: u128) -> u128
+```
+
+Convert amount to shares using share value
+
+---
+
+### bin_id_to_price
+
+**Source**: `meteora/types.rs`
+
+```rust
+pub fn bin_id_to_price(bin_id: u32, bin_step: u16) -> f64
+```
+
+Convert bin ID to price for DLMM
+
+---
+
+### calculate_active_bin_price
+
+**Source**: `meteora/types.rs`
+
+```rust
+pub fn calculate_active_bin_price(active_id: u32, bin_step: u16) -> f64
+```
+
+Calculate active bin price
+
+---
+
+### calculate_health_ratio
+
+**Source**: `marginfi/types.rs`
+
+```rust
+pub fn calculate_health_ratio( total_asset_value: u128, total_liability_value: u128, maintenance_margin: u64, ) -> f64
+```
+
+Calculate health ratio for a MarginFi account
+
+---
+
+### calculate_interest_rate
+
+**Source**: `marginfi/types.rs`
+
+```rust
+pub fn calculate_interest_rate( utilization_rate: u64, base_rate: u64, slope1: u64, slope2: u64, optimal_utilization: u64, ) -> u64
+```
+
+Calculate interest rate based on utilization
+
+---
+
+### calculate_liquidation_threshold
+
+**Source**: `marginfi/types.rs`
+
+```rust
+pub fn calculate_liquidation_threshold(total_asset_value: u128, liquidation_ltv: u64) -> u128
+```
+
+Calculate liquidation threshold
+
+---
+
+### calculate_liquidity_distribution
+
+**Source**: `meteora/types.rs`
+
+```rust
+pub fn calculate_liquidity_distribution( amount_x: u64, amount_y: u64, bin_id_from: u32, bin_id_to: u32, active_id: u32, ) -> Vec<(u32, u64, u64)>
+```
+
+Calculate liquidity distribution across bins
+
+---
+
+### create_solana_metadata
+
+**Source**: `src/types.rs`
+
+```rust
+pub fn create_solana_metadata( id: String, signature: String, slot: u64, block_time: i64, protocol_type: ProtocolType, event_type: EventType, program_id: Pubkey, index: String, program_received_time_ms: i64, ) -> EventMetadata
+```
+
+Create a core EventMetadata with Solana chain data
+
+---
+
+### from_event_kind
+
+**Source**: `src/types.rs`
+
+```rust
+pub fn from_event_kind(kind: &riglr_events_core::types::EventKind) -> Self
+```
+
+Convert from riglr-events-core EventKind to local EventType
+
+---
+
+### is_jupiter_v6_program
+
+**Source**: `jupiter/types.rs`
+
+```rust
+pub fn is_jupiter_v6_program(program_id: &Pubkey) -> bool
+```
+
+Check if the given pubkey is Jupiter V6 program
+
+---
+
+### is_marginfi_program
+
+**Source**: `marginfi/types.rs`
+
+```rust
+pub fn is_marginfi_program(program_id: &Pubkey) -> bool
+```
+
+Check if the given pubkey is MarginFi program
+
+---
+
+### is_meteora_dlmm_program
+
+**Source**: `meteora/types.rs`
+
+```rust
+pub fn is_meteora_dlmm_program(program_id: &Pubkey) -> bool
+```
+
+Check if the given pubkey is Meteora DLMM program
+
+---
+
+### is_meteora_dynamic_program
+
+**Source**: `meteora/types.rs`
+
+```rust
+pub fn is_meteora_dynamic_program(program_id: &Pubkey) -> bool
+```
+
+Check if the given pubkey is Meteora Dynamic program
+
+---
+
+### is_orca_whirlpool_program
+
+**Source**: `orca/types.rs`
+
+```rust
+pub fn is_orca_whirlpool_program(program_id: &Pubkey) -> bool
+```
+
+Check if the given pubkey is Orca Whirlpool program
+
+---
+
+### jupiter_v6_program_id
+
+**Source**: `jupiter/types.rs`
+
+```rust
+pub fn jupiter_v6_program_id() -> Pubkey
+```
+
+Extract Jupiter program ID as Pubkey
+
+---
+
+### marginfi_bank_program_id
+
+**Source**: `marginfi/types.rs`
+
+```rust
+pub fn marginfi_bank_program_id() -> Pubkey
+```
+
+Extract MarginFi bank program ID as Pubkey
+
+---
+
+### marginfi_program_id
+
+**Source**: `marginfi/types.rs`
+
+```rust
+pub fn marginfi_program_id() -> Pubkey
+```
+
+Extract MarginFi program ID as Pubkey
+
+---
+
+### meteora_dlmm_program_id
+
+**Source**: `meteora/types.rs`
+
+```rust
+pub fn meteora_dlmm_program_id() -> Pubkey
+```
+
+Extract Meteora DLMM program ID as Pubkey
+
+---
+
+### meteora_dynamic_program_id
+
+**Source**: `meteora/types.rs`
+
+```rust
+pub fn meteora_dynamic_program_id() -> Pubkey
+```
+
+Extract Meteora Dynamic program ID as Pubkey
+
+---
+
+### orca_whirlpool_program_id
+
+**Source**: `orca/types.rs`
+
+```rust
+pub fn orca_whirlpool_program_id() -> Pubkey
+```
+
+Extract Orca Whirlpool program ID as Pubkey
+
+---
+
+### shares_to_amount
+
+**Source**: `marginfi/types.rs`
+
+```rust
+pub fn shares_to_amount(shares: u128, share_value: u128) -> u64
+```
+
+Convert shares to amount using share value
+
+---
+
+### sqrt_price_to_price
+
+**Source**: `orca/types.rs`
+
+```rust
+pub fn sqrt_price_to_price(sqrt_price: u128, decimals_a: u8, decimals_b: u8) -> f64
+```
+
+Convert sqrt price to price
+
+---
+
+### tick_index_to_price
+
+**Source**: `orca/types.rs`
+
+```rust
+pub fn tick_index_to_price(tick_index: i32) -> f64
+```
+
+Convert tick index to price
+
+---
+
+### to_event_kind
+
+**Source**: `src/types.rs`
+
+```rust
+pub fn to_event_kind(&self) -> riglr_events_core::types::EventKind
+```
+
+Convert local EventType to riglr-events-core EventKind
+
+---
+
+## Functions (metadata_helpers)
+
+### create_solana_metadata
+
+**Source**: `src/metadata_helpers.rs`
+
+```rust
+pub fn create_solana_metadata( id: String, kind: EventKind, source: String, slot: u64, signature: Option<String>, program_id: Option<Pubkey>, instruction_index: Option<usize>, block_time: Option<i64>, protocol_type: ProtocolType, event_type: EventType, ) -> EventMetadata
+```
+
+Create a new EventMetadata for Solana events with all required fields
+
+---
+
+### event_type
+
+**Source**: `src/metadata_helpers.rs`
+
+```rust
+pub fn event_type(&self) -> EventType
+```
+
+Get the event type
+
+---
+
+### get_block_time
+
+**Source**: `src/metadata_helpers.rs`
+
+```rust
+pub fn get_block_time(metadata: &EventMetadata) -> Option<i64>
+```
+
+Get block_time from Solana EventMetadata
+
+---
+
+### get_event_type
+
+**Source**: `src/metadata_helpers.rs`
+
+```rust
+pub fn get_event_type(metadata: &EventMetadata) -> Option<EventType>
+```
+
+Get event_type from Solana EventMetadata
+
+---
+
+### get_instruction_index
+
+**Source**: `src/metadata_helpers.rs`
+
+```rust
+pub fn get_instruction_index(metadata: &EventMetadata) -> Option<usize>
+```
+
+Get instruction_index from Solana EventMetadata
+
+---
+
+### get_program_id
+
+**Source**: `src/metadata_helpers.rs`
+
+```rust
+pub fn get_program_id(metadata: &EventMetadata) -> Option<&Pubkey>
+```
+
+Get program_id from Solana EventMetadata
+
+---
+
+### get_protocol_type
+
+**Source**: `src/metadata_helpers.rs`
+
+```rust
+pub fn get_protocol_type(metadata: &EventMetadata) -> Option<ProtocolType>
+```
+
+Get protocol_type from Solana EventMetadata
+
+---
+
+### get_signature
+
+**Source**: `src/metadata_helpers.rs`
+
+```rust
+pub fn get_signature(metadata: &EventMetadata) -> Option<&str>
+```
+
+Get signature from Solana EventMetadata
+
+---
+
+### get_slot
+
+**Source**: `src/metadata_helpers.rs`
+
+```rust
+pub fn get_slot(metadata: &EventMetadata) -> Option<u64>
+```
+
+Get slot from Solana EventMetadata
+
+---
+
+### index
+
+**Source**: `src/metadata_helpers.rs`
+
+```rust
+pub fn index(&self) -> Option<usize>
+```
+
+Get the instruction index
+
+---
+
+### into_inner
+
+**Source**: `src/metadata_helpers.rs`
+
+```rust
+pub fn into_inner(self) -> EventMetadata
+```
+
+Convert to the inner EventMetadata
+
+---
+
+### new
+
+**Source**: `src/metadata_helpers.rs`
+
+```rust
+pub fn new( id: String, kind: EventKind, source: String, slot: u64, signature: Option<String>, program_id: Option<Pubkey>, instruction_index: Option<usize>, block_time: Option<i64>, protocol_type: ProtocolType, event_type: EventType, ) -> Self
+```
+
+Create a new SolanaEventMetadata
+
+---
+
+### protocol_type
+
+**Source**: `src/metadata_helpers.rs`
+
+```rust
+pub fn protocol_type(&self) -> ProtocolType
+```
+
+Get the protocol type
+
+---
+
+### set_event_type
+
+**Source**: `src/metadata_helpers.rs`
+
+```rust
+pub fn set_event_type(metadata: &mut EventMetadata, event_type: EventType)
+```
+
+Set event_type in Solana EventMetadata
+
+---
+
+### set_event_type
+
+**Source**: `src/metadata_helpers.rs`
+
+```rust
+pub fn set_event_type(&mut self, event_type: EventType)
+```
+
+Set the event type
+
+---
+
+### set_protocol_type
+
+**Source**: `src/metadata_helpers.rs`
+
+```rust
+pub fn set_protocol_type(metadata: &mut EventMetadata, protocol_type: ProtocolType)
+```
+
+Set protocol_type in Solana EventMetadata
+
+---
+
+### set_protocol_type
+
+**Source**: `src/metadata_helpers.rs`
+
+```rust
+pub fn set_protocol_type(&mut self, protocol_type: ProtocolType)
+```
+
+Set the protocol type
+
+---
+
+### signature
+
+**Source**: `src/metadata_helpers.rs`
+
+```rust
+pub fn signature(&self) -> Option<String>
+```
+
+Get the signature
+
+---
+
+### slot
+
+**Source**: `src/metadata_helpers.rs`
+
+```rust
+pub fn slot(&self) -> u64
+```
+
+Get the slot
+
+---
+
+## Functions (factory)
+
+### add_parser
+
+**Source**: `events/factory.rs`
+
+```rust
+pub fn add_parser(&mut self, protocol: Protocol, parser: Arc<dyn EventParser>)
+```
+
+Add a parser for a specific protocol
+
+---
+
+### get_parser
+
+**Source**: `events/factory.rs`
+
+```rust
+pub fn get_parser(&self, protocol: &Protocol) -> Option<&Arc<dyn EventParser>>
+```
+
+Get parser for a specific protocol
+
+---
+
+### get_parser_for_program
+
+**Source**: `events/factory.rs`
+
+```rust
+pub fn get_parser_for_program( &self, program_id: &solana_sdk::pubkey::Pubkey, ) -> Option<&Arc<dyn EventParser>>
+```
+
+Get parser for a specific program ID
+
+---
+
+### new
+
+**Source**: `events/factory.rs`
+
+```rust
+pub fn new() -> Self
+```
+
+Create a new event parser registry
+
+---
+
+### parse_events_from_inner_instruction
+
+**Source**: `events/factory.rs`
+
+```rust
+pub fn parse_events_from_inner_instruction( &self, params: InnerInstructionParseParams, ) -> Vec<Box<dyn Event>>
+```
+
+Parse events from inner instruction using the appropriate parser
+
+---
+
+### parse_events_from_instruction
+
+**Source**: `events/factory.rs`
+
+```rust
+pub fn parse_events_from_instruction( &self, params: InstructionParseParams, ) -> Vec<Box<dyn Event>>
+```
+
+Parse events from instruction using the appropriate parser
+
+---
+
+### should_handle
+
+**Source**: `events/factory.rs`
+
+```rust
+pub fn should_handle(&self, program_id: &solana_sdk::pubkey::Pubkey) -> bool
+```
+
+Check if a program ID is supported
+
+---
+
+### supported_program_ids
+
+**Source**: `events/factory.rs`
+
+```rust
+pub fn supported_program_ids(&self) -> Vec<solana_sdk::pubkey::Pubkey>
+```
+
+Get all supported program IDs
+
+---
+
+### with_all_parsers
+
+**Source**: `events/factory.rs`
+
+```rust
+pub fn with_all_parsers() -> Self
+```
+
+Create a registry with all available parsers
+
+---
+
+## Functions (metaplex)
+
+### create_fast
+
+**Source**: `parsers/metaplex.rs`
+
+```rust
+pub fn create_fast() -> Arc<dyn ByteSliceEventParser>
+```
+
+Create a fast parser with minimal metadata
+
+---
+
+### create_zero_copy
+
+**Source**: `parsers/metaplex.rs`
+
+```rust
+pub fn create_zero_copy() -> Arc<dyn ByteSliceEventParser>
+```
+
+Create a new high-performance zero-copy parser with full metadata
+
+---
+
+### event_type
+
+**Source**: `parsers/metaplex.rs`
+
+```rust
+pub fn event_type(&self) -> EventType
+```
+
+Get corresponding event type
+
+---
+
+### from_byte
+
+**Source**: `parsers/metaplex.rs`
+
+```rust
+pub fn from_byte(byte: u8) -> Option<Self>
+```
+
+Parse discriminator from byte
+
+---
+
+### new
+
+**Source**: `parsers/metaplex.rs`
+
+```rust
+pub fn new() -> Self
+```
+
+Create new Metaplex parser
+
+---
+
+### new_fast
+
+**Source**: `parsers/metaplex.rs`
+
+```rust
+pub fn new_fast() -> Self
+```
+
+Create parser with minimal metadata parsing (faster)
+
+---
+
+## Functions (jupiter)
+
+### bytes
+
+**Source**: `parsers/jupiter.rs`
+
+```rust
+pub fn bytes(&self) -> &'static [u8; 8]
+```
+
+Get discriminator bytes
+
+---
+
+### create_fast
+
+**Source**: `parsers/jupiter.rs`
+
+```rust
+pub fn create_fast() -> Arc<dyn ByteSliceEventParser>
+```
+
+Create a fast parser with simplified analysis
+
+---
+
+### create_standard
+
+**Source**: `parsers/jupiter.rs`
+
+```rust
+pub fn create_standard() -> Arc<dyn ByteSliceEventParser>
+```
+
+Create a standard parser
+
+---
+
+### create_zero_copy
+
+**Source**: `parsers/jupiter.rs`
+
+```rust
+pub fn create_zero_copy() -> Arc<dyn ByteSliceEventParser>
+```
+
+Create a new high-performance zero-copy parser with full analysis
+
+---
+
+### event_type
+
+**Source**: `parsers/jupiter.rs`
+
+```rust
+pub fn event_type(&self) -> EventType
+```
+
+Get corresponding event type
+
+---
+
+### from_bytes
+
+**Source**: `parsers/jupiter.rs`
+
+```rust
+pub fn from_bytes(bytes: &[u8]) -> Option<Self>
+```
+
+Parse discriminator from first 8 bytes
+
+---
+
+### new
+
+**Source**: `parsers/jupiter.rs`
+
+```rust
+pub fn new() -> Self
+```
+
+Create new Jupiter parser with full analysis
+
+---
+
+### new_fast
+
+**Source**: `parsers/jupiter.rs`
+
+```rust
+pub fn new_fast() -> Self
+```
+
+Create parser with simplified analysis (faster)
+
+---
+
+### new_standard
+
+**Source**: `parsers/jupiter.rs`
+
+```rust
+pub fn new_standard() -> Self
+```
+
+Create parser with zero-copy disabled
+
+---
+
+## Functions (pump_fun)
+
+### create_standard
+
+**Source**: `parsers/pump_fun.rs`
+
+```rust
+pub fn create_standard() -> Arc<dyn ByteSliceEventParser>
+```
+
+Create a standard parser
+
+---
+
+### create_zero_copy
+
+**Source**: `parsers/pump_fun.rs`
+
+```rust
+pub fn create_zero_copy() -> Arc<dyn ByteSliceEventParser>
+```
+
+Create a new high-performance zero-copy parser
+
+---
+
+### event_type
+
+**Source**: `parsers/pump_fun.rs`
+
+```rust
+pub fn event_type(&self) -> EventType
+```
+
+Get corresponding event type
+
+---
+
+### from_u64
+
+**Source**: `parsers/pump_fun.rs`
+
+```rust
+pub fn from_u64(value: u64) -> Option<Self>
+```
+
+Parse discriminator from first 8 bytes (u64 little-endian)
+
+---
+
+### new
+
+**Source**: `parsers/pump_fun.rs`
+
+```rust
+pub fn new() -> Self
+```
+
+Create new PumpFun parser
+
+---
+
+### new_standard
+
+**Source**: `parsers/pump_fun.rs`
+
+```rust
+pub fn new_standard() -> Self
+```
+
+Create parser with zero-copy disabled
+
+---
+
+## Functions (raydium_v4)
+
+### create_standard
+
+**Source**: `parsers/raydium_v4.rs`
+
+```rust
+pub fn create_standard() -> Arc<dyn ByteSliceEventParser>
+```
+
+Create a standard parser
+
+---
+
+### create_zero_copy
+
+**Source**: `parsers/raydium_v4.rs`
+
+```rust
+pub fn create_zero_copy() -> Arc<dyn ByteSliceEventParser>
+```
+
+Create a new high-performance zero-copy parser
+
+---
+
+### event_type
+
+**Source**: `parsers/raydium_v4.rs`
+
+```rust
+pub fn event_type(&self) -> EventType
+```
+
+Get corresponding event type
+
+---
+
+### from_byte
+
+**Source**: `parsers/raydium_v4.rs`
+
+```rust
+pub fn from_byte(byte: u8) -> Option<Self>
+```
+
+Parse discriminator from byte
+
+---
+
+### new_standard
+
+**Source**: `parsers/raydium_v4.rs`
+
+```rust
+pub fn new_standard() -> Self
+```
+
+Create parser with zero-copy disabled
+
+---
+
+## Functions (enrichment)
+
+### enrich_event
+
+**Source**: `pipelines/enrichment.rs`
+
+```rust
+pub async fn enrich_event( &self, mut event: ZeroCopyEvent<'static>, ) -> Result<ZeroCopyEvent<'static>, EnrichmentError>
+```
+
+Enrich a single event with additional metadata
+
+---
+
+### enrich_events
+
+**Source**: `pipelines/enrichment.rs`
+
+```rust
+pub async fn enrich_events( &self, events: Vec<ZeroCopyEvent<'static>>, ) -> Result<Vec<ZeroCopyEvent<'static>>, EnrichmentError>
+```
+
+Enrich multiple events in parallel
+
+---
+
+### get_cache_stats
+
+**Source**: `pipelines/enrichment.rs`
+
+```rust
+pub fn get_cache_stats(&self) -> CacheStats
+```
+
+Get cache statistics
+
+---
+
+### new
+
+**Source**: `pipelines/enrichment.rs`
+
+```rust
+pub fn new(config: EnrichmentConfig) -> Self
+```
+
+Create a new event enricher
+
+---
+
+## Functions (parsing)
+
+### add_parser
+
+**Source**: `pipelines/parsing.rs`
+
+```rust
+pub fn add_parser(&mut self, parser: Arc<dyn ByteSliceEventParser>)
+```
+
+Add a parser to the pipeline
+
+---
+
+### add_parser
+
+**Source**: `pipelines/parsing.rs`
+
+```rust
+pub fn add_parser(mut self, parser: Arc<dyn ByteSliceEventParser>) -> Self
+```
+
+Add a parser
+
+---
+
+### build
+
+**Source**: `pipelines/parsing.rs`
+
+```rust
+pub fn build(self) -> ParsingPipeline
+```
+
+Build the parsing pipeline
+
+---
+
+### get_stats
+
+**Source**: `pipelines/parsing.rs`
+
+```rust
+pub fn get_stats(&self) -> PipelineStats
+```
+
+Get pipeline statistics
+
+---
+
+### new
+
+**Source**: `pipelines/parsing.rs`
+
+```rust
+pub fn new(config: ParsingPipelineConfig) -> Self
+```
+
+Create a new parsing pipeline
+
+---
+
+### new
+
+**Source**: `pipelines/parsing.rs`
+
+```rust
+pub fn new() -> Self
+```
+
+Create a new builder
+
+---
+
+### process_stream
+
+**Source**: `pipelines/parsing.rs`
+
+```rust
+pub async fn process_stream<S>(&mut self, mut input_stream: S) -> Result<(), PipelineError> where S: Stream<Item = ParsingInput> + Unpin,
+```
+
+Process a stream of parsing inputs
+
+---
+
+### take_output_receiver
+
+**Source**: `pipelines/parsing.rs`
+
+```rust
+pub fn take_output_receiver(&mut self) -> mpsc::UnboundedReceiver<ParsingOutput>
+```
+
+Get the output receiver for processed events
+
+---
+
+### with_batch_size
+
+**Source**: `pipelines/parsing.rs`
+
+```rust
+pub fn with_batch_size(mut self, size: usize) -> Self
+```
+
+Set batch size
+
+---
+
+### with_batch_timeout
+
+**Source**: `pipelines/parsing.rs`
+
+```rust
+pub fn with_batch_timeout(mut self, timeout: Duration) -> Self
+```
+
+Set batch timeout
+
+---
+
+### with_concurrency_limit
+
+**Source**: `pipelines/parsing.rs`
+
+```rust
+pub fn with_concurrency_limit(mut self, limit: usize) -> Self
+```
+
+Set concurrency limit
+
+---
+
+### with_metrics
+
+**Source**: `pipelines/parsing.rs`
+
+```rust
+pub fn with_metrics(mut self, enable: bool) -> Self
+```
+
+Enable or disable metrics collection
+
+---
+
+### with_parser_config
+
+**Source**: `pipelines/parsing.rs`
+
+```rust
+pub fn with_parser_config(mut self, protocol: ProtocolType, config: ParserConfig) -> Self
+```
+
+Add parser configuration
+
+---
+
+## Functions (validation)
+
+### add_rule
+
+**Source**: `pipelines/validation.rs`
+
+```rust
+pub fn add_rule(&mut self, rule: Arc<dyn ValidationRule>)
+```
+
+Add a custom validation rule
+
+---
+
+### get_stats
+
+**Source**: `pipelines/validation.rs`
+
+```rust
+pub async fn get_stats(&self) -> ValidationStats
+```
+
+Get pipeline statistics
+
+---
+
+### new
+
+**Source**: `pipelines/validation.rs`
+
+```rust
+pub fn new(config: ValidationConfig) -> Self
+```
+
+Create a new validation pipeline
+
+---
+
+### validate_event
+
+**Source**: `pipelines/validation.rs`
+
+```rust
+pub async fn validate_event(&self, event: &ZeroCopyEvent<'static>) -> ValidationResult
+```
+
+Validate a single event
+
+---
+
+### validate_events
+
+**Source**: `pipelines/validation.rs`
+
+```rust
+pub async fn validate_events( &self, events: &[ZeroCopyEvent<'static>], ) -> Vec<ValidationResult>
+```
+
+Validate multiple events
+
+---
+
+## Functions (events)
+
+### amount_in
+
+**Source**: `zero_copy/events.rs`
+
+```rust
+pub fn amount_in(&mut self) -> Option<u64>
+```
+
+Get amount in, parsing if necessary
+
+---
+
+### amount_out
+
+**Source**: `zero_copy/events.rs`
+
+```rust
+pub fn amount_out(&mut self) -> Option<u64>
+```
+
+Get amount out, parsing if necessary
+
+---
+
+### block_number
+
+**Source**: `zero_copy/events.rs`
+
+```rust
+pub fn block_number(&self) -> Option<u64>
+```
+
+Get block number for any lifetime
+
+---
+
+### event_type
+
+**Source**: `zero_copy/events.rs`
+
+```rust
+pub fn event_type(&self) -> EventType
+```
+
+Get event type for any lifetime
+
+---
+
+### get_json_data
+
+**Source**: `zero_copy/events.rs`
+
+```rust
+pub fn get_json_data(&self) -> Option<&serde_json::Value>
+```
+
+Get JSON representation, computing if necessary
+
+---
+
+### get_parsed_data
+
+**Source**: `zero_copy/events.rs`
+
+```rust
+pub fn get_parsed_data<T: std::any::Any + Send + Sync>(&self) -> Option<&T>
+```
+
+Get parsed data (strongly typed)
+
+---
+
+### id
+
+**Source**: `zero_copy/events.rs`
+
+```rust
+pub fn id(&self) -> &str
+```
+
+Get id for any lifetime
+
+---
+
+### index
+
+**Source**: `zero_copy/events.rs`
+
+```rust
+pub fn index(&self) -> String
+```
+
+Get index for any lifetime
+
+---
+
+### input_mint
+
+**Source**: `zero_copy/events.rs`
+
+```rust
+pub fn input_mint(&mut self) -> Option<Pubkey>
+```
+
+Get input mint, parsing if necessary
+
+---
+
+### lp_amount
+
+**Source**: `zero_copy/events.rs`
+
+```rust
+pub fn lp_amount(&mut self) -> Option<u64>
+```
+
+Get LP token amount, parsing if necessary
+
+---
+
+### new
+
+**Source**: `zero_copy/events.rs`
+
+```rust
+pub fn new(base: ZeroCopyEvent<'a>) -> Self
+```
+
+Create new zero-copy swap event
+
+---
+
+### new
+
+**Source**: `zero_copy/events.rs`
+
+```rust
+pub fn new(base: ZeroCopyEvent<'a>) -> Self
+```
+
+Create new zero-copy liquidity event
+
+---
+
+### new
+
+**Source**: `jupiter/events.rs`
+
+```rust
+pub fn new( id: String, signature: String, slot: u64, block_time: i64, block_time_ms: i64, program_received_time_ms: i64, index: String, ) -> Self
+```
+
+Creates a new EventParameters instance with the provided values
+
+---
+
+### new
+
+**Source**: `jupiter/events.rs`
+
+```rust
+pub fn new(params: EventParameters, swap_data: JupiterSwapData) -> Self
+```
+
+Creates a new JupiterSwapEvent with the provided parameters and swap data
+
+---
+
+### new
+
+**Source**: `marginfi/events.rs`
+
+```rust
+pub fn new( id: String, signature: String, slot: u64, block_time: i64, block_time_ms: i64, program_received_time_ms: i64, index: String, ) -> Self
+```
+
+Creates a new EventParameters instance with the provided values
+
+---
+
+### new
+
+**Source**: `marginfi/events.rs`
+
+```rust
+pub fn new(params: EventParameters, deposit_data: MarginFiDepositData) -> Self
+```
+
+Creates a new MarginFi deposit event with the provided parameters and deposit data
+
+---
+
+### new
+
+**Source**: `marginfi/events.rs`
+
+```rust
+pub fn new(params: EventParameters, withdraw_data: MarginFiWithdrawData) -> Self
+```
+
+Creates a new MarginFi withdraw event with the provided parameters and withdraw data
+
+---
+
+### new
+
+**Source**: `marginfi/events.rs`
+
+```rust
+pub fn new(params: EventParameters, borrow_data: MarginFiBorrowData) -> Self
+```
+
+Creates a new MarginFi borrow event with the provided parameters and borrow data
+
+---
+
+### new
+
+**Source**: `marginfi/events.rs`
+
+```rust
+pub fn new(params: EventParameters, repay_data: MarginFiRepayData) -> Self
+```
+
+Creates a new MarginFi repay event with the provided parameters and repay data
+
+---
+
+### new
+
+**Source**: `marginfi/events.rs`
+
+```rust
+pub fn new(params: EventParameters, liquidation_data: MarginFiLiquidationData) -> Self
+```
+
+Creates a new MarginFi liquidation event with the provided parameters and liquidation data
+
+---
+
+### new
+
+**Source**: `meteora/events.rs`
+
+```rust
+pub fn new( id: String, signature: String, slot: u64, block_time: i64, block_time_ms: i64, program_received_time_ms: i64, index: String, ) -> Self
+```
+
+Creates a new EventParameters instance with the provided values
+
+---
+
+### new
+
+**Source**: `meteora/events.rs`
+
+```rust
+pub fn new(params: EventParameters, swap_data: MeteoraSwapData) -> Self
+```
+
+Creates a new MeteoraSwapEvent with the provided parameters and swap data
+
+---
+
+### new
+
+**Source**: `meteora/events.rs`
+
+```rust
+pub fn new(params: EventParameters, liquidity_data: MeteoraLiquidityData) -> Self
+```
+
+Creates a new MeteoraLiquidityEvent with the provided parameters and liquidity data
+
+---
+
+### new
+
+**Source**: `meteora/events.rs`
+
+```rust
+pub fn new(params: EventParameters, liquidity_data: MeteoraDynamicLiquidityData) -> Self
+```
+
+Creates a new MeteoraDynamicLiquidityEvent with the provided parameters and liquidity data
+
+---
+
+### new
+
+**Source**: `orca/events.rs`
+
+```rust
+pub fn new( id: String, signature: String, slot: u64, block_time: i64, block_time_ms: i64, program_received_time_ms: i64, index: String, ) -> Self
+```
+
+Creates a new EventParameters instance with the provided values
+
+---
+
+### new
+
+**Source**: `orca/events.rs`
+
+```rust
+pub fn new(params: EventParameters, swap_data: OrcaSwapData) -> Self
+```
+
+Creates a new OrcaSwapEvent with the provided parameters and swap data
+
+---
+
+### new
+
+**Source**: `orca/events.rs`
+
+```rust
+pub fn new(params: EventParameters, position_data: OrcaPositionData, is_open: bool) -> Self
+```
+
+Creates a new OrcaPositionEvent with the provided parameters and position data
+
+---
+
+### new
+
+**Source**: `orca/events.rs`
+
+```rust
+pub fn new(params: EventParameters, liquidity_data: OrcaLiquidityData) -> Self
+```
+
+Creates a new OrcaLiquidityEvent with the provided parameters and liquidity data
+
+---
+
+### new_borrowed
+
+**Source**: `zero_copy/events.rs`
+
+```rust
+pub fn new_borrowed(metadata: EventMetadata, raw_data: &'a [u8]) -> Self
+```
+
+Create a new zero-copy event with borrowed data
+
+---
+
+### new_owned
+
+**Source**: `zero_copy/events.rs`
+
+```rust
+pub fn new_owned(metadata: EventMetadata, raw_data: Vec<u8>) -> Self
+```
+
+Create a new zero-copy event with owned data
+
+---
+
+### output_mint
+
+**Source**: `zero_copy/events.rs`
+
+```rust
+pub fn output_mint(&mut self) -> Option<Pubkey>
+```
+
+Get output mint, parsing if necessary
+
+---
+
+### pool_address
+
+**Source**: `zero_copy/events.rs`
+
+```rust
+pub fn pool_address(&mut self) -> Option<Pubkey>
+```
+
+Get pool address, parsing if necessary
+
+---
+
+### protocol_type
+
+**Source**: `zero_copy/events.rs`
+
+```rust
+pub fn protocol_type(&self) -> ProtocolType
+```
+
+Get protocol type for any lifetime
+
+---
+
+### raw_data
+
+**Source**: `zero_copy/events.rs`
+
+```rust
+pub fn raw_data(&self) -> &[u8]
+```
+
+Get the raw data as a slice
+
+---
+
+### set_json_data
+
+**Source**: `zero_copy/events.rs`
+
+```rust
+pub fn set_json_data(&mut self, json: serde_json::Value)
+```
+
+Set JSON representation (cached)
+
+---
+
+### set_parsed_data
+
+**Source**: `zero_copy/events.rs`
+
+```rust
+pub fn set_parsed_data<T: std::any::Any + Send + Sync>(&mut self, data: T)
+```
+
+Set parsed data (strongly typed)
+
+---
+
+### signature
+
+**Source**: `zero_copy/events.rs`
+
+```rust
+pub fn signature(&self) -> &str
+```
+
+Get signature for any lifetime
+
+---
+
+### slot
+
+**Source**: `zero_copy/events.rs`
+
+```rust
+pub fn slot(&self) -> u64
+```
+
+Get slot for any lifetime
+
+---
+
+### timestamp
+
+**Source**: `zero_copy/events.rs`
+
+```rust
+pub fn timestamp(&self) -> std::time::SystemTime
+```
+
+Get timestamp for any lifetime
+
+---
+
+### to_owned
+
+**Source**: `zero_copy/events.rs`
+
+```rust
+pub fn to_owned(&self) -> ZeroCopyEvent<'static>
+```
+
+Convert to owned event (clones all data)
+
+---
+
+### token_a_amount
+
+**Source**: `zero_copy/events.rs`
+
+```rust
+pub fn token_a_amount(&mut self) -> Option<u64>
+```
+
+Get token A amount, parsing if necessary
+
+---
+
+### token_b_amount
+
+**Source**: `zero_copy/events.rs`
+
+```rust
+pub fn token_b_amount(&mut self) -> Option<u64>
+```
+
+Get token B amount, parsing if necessary
+
+---
+
+### with_transfer_data
+
+**Source**: `jupiter/events.rs`
+
+```rust
+pub fn with_transfer_data(mut self, transfer_data: Vec<TransferData>) -> Self
+```
+
+Adds transfer data to the swap event
+
+---
+
+### with_transfer_data
+
+**Source**: `marginfi/events.rs`
+
+```rust
+pub fn with_transfer_data(mut self, transfer_data: Vec<TransferData>) -> Self
+```
+
+Adds transfer data to the deposit event and returns the modified event
+
+---
+
+### with_transfer_data
+
+**Source**: `marginfi/events.rs`
+
+```rust
+pub fn with_transfer_data(mut self, transfer_data: Vec<TransferData>) -> Self
+```
+
+Sets the transfer data for this withdraw event
+
+---
+
+### with_transfer_data
+
+**Source**: `marginfi/events.rs`
+
+```rust
+pub fn with_transfer_data(mut self, transfer_data: Vec<TransferData>) -> Self
+```
+
+Sets the transfer data for this borrow event
+
+---
+
+### with_transfer_data
+
+**Source**: `marginfi/events.rs`
+
+```rust
+pub fn with_transfer_data(mut self, transfer_data: Vec<TransferData>) -> Self
+```
+
+Sets the transfer data for this repay event
+
+---
+
+### with_transfer_data
+
+**Source**: `marginfi/events.rs`
+
+```rust
+pub fn with_transfer_data(mut self, transfer_data: Vec<TransferData>) -> Self
+```
+
+Sets the transfer data for this liquidation event
+
+---
+
+### with_transfer_data
+
+**Source**: `meteora/events.rs`
+
+```rust
+pub fn with_transfer_data(mut self, transfer_data: Vec<TransferData>) -> Self
+```
+
+Sets the transfer data for this swap event
+
+---
+
+### with_transfer_data
+
+**Source**: `meteora/events.rs`
+
+```rust
+pub fn with_transfer_data(mut self, transfer_data: Vec<TransferData>) -> Self
+```
+
+Sets the transfer data for this liquidity event
+
+---
+
+### with_transfer_data
+
+**Source**: `meteora/events.rs`
+
+```rust
+pub fn with_transfer_data(mut self, transfer_data: Vec<TransferData>) -> Self
+```
+
+Sets the transfer data for this dynamic liquidity event
+
+---
+
+### with_transfer_data
+
+**Source**: `orca/events.rs`
+
+```rust
+pub fn with_transfer_data(mut self, transfer_data: Vec<TransferData>) -> Self
+```
+
+Sets the transfer data for this swap event
+
+---
+
+### with_transfer_data
+
+**Source**: `orca/events.rs`
+
+```rust
+pub fn with_transfer_data(mut self, transfer_data: Vec<TransferData>) -> Self
+```
+
+Sets the transfer data for this position event
+
+---
+
+### with_transfer_data
+
+**Source**: `orca/events.rs`
+
+```rust
+pub fn with_transfer_data(mut self, transfer_data: Vec<TransferData>) -> Self
+```
+
+Sets the transfer data for this liquidity event
+
+---
+
+## Functions (parsers)
+
+### add_parser
+
+**Source**: `zero_copy/parsers.rs`
+
+```rust
+pub fn add_parser(&mut self, parser: Arc<dyn ByteSliceEventParser>)
+```
+
+Add a protocol-specific parser
+
+---
+
+### add_parser
+
+**Source**: `zero_copy/parsers.rs`
+
+```rust
+pub fn add_parser(&mut self, parser: Arc<dyn ByteSliceEventParser>)
+```
+
+Add a parser for a specific protocol
+
+---
+
+### add_pattern
+
+**Source**: `zero_copy/parsers.rs`
+
+```rust
+pub fn add_pattern(&mut self, pattern: Vec<u8>, protocol: ProtocolType)
+```
+
+Add a pattern to match
+
+---
+
+### data_slice
+
+**Source**: `zero_copy/parsers.rs`
+
+```rust
+pub fn data_slice(&self, offset: usize, len: usize) -> Option<&[u8]>
+```
+
+Get a slice of the memory-mapped data
+
+---
+
+### find_matches
+
+**Source**: `zero_copy/parsers.rs`
+
+```rust
+pub fn find_matches(&self, data: &[u8]) -> Vec<(usize, ProtocolType)>
+```
+
+Find matching patterns in data
+
+In a real implementation, this would use SIMD instructions for parallel matching
+For now, we provide a basic implementation
+
+---
+
+### from_file
+
+**Source**: `zero_copy/parsers.rs`
+
+```rust
+pub fn from_file(file_path: &str) -> Result<Self, ParseError>
+```
+
+Create a new memory-mapped parser from a file
+
+---
+
+### get_client
+
+**Source**: `zero_copy/parsers.rs`
+
+```rust
+pub fn get_client(&self) -> Arc<solana_client::rpc_client::RpcClient>
+```
+
+Get the next client in round-robin fashion
+
+---
+
+### get_stats
+
+**Source**: `zero_copy/parsers.rs`
+
+```rust
+pub fn get_stats(&self) -> BatchParserStats
+```
+
+Get statistics about the batch parser
+
+---
+
+### match_discriminator
+
+**Source**: `zero_copy/parsers.rs`
+
+```rust
+pub fn match_discriminator(&self, data: &[u8]) -> Option<ProtocolType>
+```
+
+Fast prefix matching for instruction discriminators
+
+---
+
+### new
+
+**Source**: `zero_copy/parsers.rs`
+
+```rust
+pub fn new(data: &'a [u8]) -> Self
+```
+
+Create a new deserializer
+
+---
+
+### new
+
+**Source**: `zero_copy/parsers.rs`
+
+```rust
+pub fn new(max_batch_size: usize) -> Self
+```
+
+Create a new batch parser
+
+---
+
+### new
+
+**Source**: `zero_copy/parsers.rs`
+
+```rust
+pub fn new(urls: Vec<String>) -> Self
+```
+
+Create a new connection pool
+
+---
+
+### parse_all
+
+**Source**: `zero_copy/parsers.rs`
+
+```rust
+pub fn parse_all(&self) -> Result<Vec<ZeroCopyEvent<'_>>, ParseError>
+```
+
+Parse events from the memory-mapped data
+
+---
+
+### parse_batch
+
+**Source**: `zero_copy/parsers.rs`
+
+```rust
+pub fn parse_batch<'a>( &self, batch: &'a [&'a [u8]], metadatas: Vec<EventMetadata>, ) -> Result<Vec<ZeroCopyEvent<'a>>, ParseError>
+```
+
+Parse a batch of transaction data
+
+---
+
+### position
+
+**Source**: `zero_copy/parsers.rs`
+
+```rust
+pub fn position(&self) -> usize
+```
+
+Get current position
+
+---
+
+### read_bytes
+
+**Source**: `zero_copy/parsers.rs`
+
+```rust
+pub fn read_bytes(&mut self, len: usize) -> Result<&'a [u8], ParseError>
+```
+
+Read a byte array of fixed size
+
+---
+
+### read_pubkey
+
+**Source**: `zero_copy/parsers.rs`
+
+```rust
+pub fn read_pubkey(&mut self) -> Result<solana_sdk::pubkey::Pubkey, ParseError>
+```
+
+Read a Pubkey (32 bytes)
+
+---
+
+### read_u32_le
+
+**Source**: `zero_copy/parsers.rs`
+
+```rust
+pub fn read_u32_le(&mut self) -> Result<u32, ParseError>
+```
+
+Read a u32 value (little endian)
+
+---
+
+### read_u64_le
+
+**Source**: `zero_copy/parsers.rs`
+
+```rust
+pub fn read_u64_le(&mut self) -> Result<u64, ParseError>
+```
+
+Read a u64 value (little endian)
+
+---
+
+### read_u8
+
+**Source**: `zero_copy/parsers.rs`
+
+```rust
+pub fn read_u8(&mut self) -> Result<u8, ParseError>
+```
+
+Read a u8 value
+
+---
+
+### remaining
+
+**Source**: `zero_copy/parsers.rs`
+
+```rust
+pub fn remaining(&self) -> usize
+```
+
+Get remaining bytes
+
+---
+
+### remaining_data
+
+**Source**: `zero_copy/parsers.rs`
+
+```rust
+pub fn remaining_data(&self) -> &'a [u8]
+```
+
+Get remaining data as slice
+
+---
+
+### size
+
+**Source**: `zero_copy/parsers.rs`
+
+```rust
+pub fn size(&self) -> usize
+```
+
+Get the total size of the mapped data
+
+---
+
+### size
+
+**Source**: `zero_copy/parsers.rs`
+
+```rust
+pub fn size(&self) -> usize
+```
+
+Get pool size
+
+---
+
+### skip
+
+**Source**: `zero_copy/parsers.rs`
+
+```rust
+pub fn skip(&mut self, len: usize) -> Result<(), ParseError>
+```
+
+Skip bytes
+
+---
+
+## Functions (traits)
+
+### new
+
+**Source**: `core/traits.rs`
+
+```rust
+pub fn new( program_ids: Vec<solana_sdk::pubkey::Pubkey>, configs: Vec<GenericEventParseConfig>, ) -> Self
+```
+
+Create new generic event parser
+
+---
+
+## Functions (parser)
+
+### new
+
+**Source**: `bonk/parser.rs`
+
+```rust
+pub fn new() -> Self
+```
+
+Creates a new Bonk event parser with configured discriminators and parsers
+
+---
+
+### new
+
+**Source**: `jupiter/parser.rs`
+
+```rust
+pub fn new() -> Self
+```
+
+Creates a new Jupiter event parser with default configurations for routing and exact-out routing
+
+---
+
+### new
+
+**Source**: `meteora/parser.rs`
+
+```rust
+pub fn new() -> Self
+```
+
+Creates a new Meteora event parser with default configurations
+
+---
+
+### new
+
+**Source**: `pumpswap/parser.rs`
+
+```rust
+pub fn new() -> Self
+```
+
+Creates a new PumpSwap event parser with default configuration
+
+---
+
+### new
+
+**Source**: `raydium_amm_v4/parser.rs`
+
+```rust
+pub fn new() -> Self
+```
+
+Creates a new Raydium AMM V4 event parser with configured discriminators and instruction parsers
+
+---
+
+### new
+
+**Source**: `raydium_clmm/parser.rs`
+
+```rust
+pub fn new() -> Self
+```
+
+Creates a new Raydium CLMM event parser
+
+Initializes the parser with all supported Raydium CLMM instruction types
+including swaps, position management, and pool creation operations.
+
+---
+
+### new
+
+**Source**: `raydium_cpmm/parser.rs`
+
+```rust
+pub fn new() -> Self
+```
+
+Creates a new Raydium CPMM event parser with default configuration
 
 ---
 

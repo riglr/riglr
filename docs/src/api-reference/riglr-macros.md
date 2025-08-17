@@ -26,7 +26,7 @@ Comprehensive API documentation for the `riglr-macros` crate.
 - [`SwapTokensTool`](#swaptokenstool)
 - [`Tool`](#tool)
 
-### Functions
+### Functions (lib)
 
 - [`complex_generic`](#complex_generic)
 - [`derive_into_tool_error`](#derive_into_tool_error)
@@ -310,7 +310,7 @@ pub struct Tool;
 
 ---
 
-## Functions
+## Functions (lib)
 
 ### complex_generic
 

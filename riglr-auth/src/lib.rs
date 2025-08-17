@@ -15,7 +15,8 @@
 //! ## Usage
 //!
 //! ```rust,no_run
-//! use riglr_auth::{AuthProvider, PrivyConfig};
+//! use riglr_auth::{AuthProvider, PrivyConfig, CompositeSignerFactoryExt};
+//! use riglr_auth::config::ProviderConfig;
 //! use riglr_web_adapters::factory::CompositeSignerFactory;
 //!
 //! #[tokio::main]

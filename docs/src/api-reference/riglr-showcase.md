@@ -41,16 +41,49 @@ Comprehensive API documentation for the `riglr-showcase` crate.
 - [`OutputFormat`](#outputformat)
 - [`RoutingCondition`](#routingcondition)
 
-### Functions
+### Functions (trading_coordination)
+
+- [`demonstrate_trading_coordination`](#demonstrate_trading_coordination)
+- [`new`](#new)
+- [`new`](#new)
+- [`new`](#new)
+
+### Functions (privy)
+
+- [`new`](#new)
+
+### Functions (graph)
+
+- [`run_demo`](#run_demo)
+
+### Functions (solana)
+
+- [`run_demo`](#run_demo)
+
+### Functions (web)
+
+- [`run_demo`](#run_demo)
+
+### Functions (evm)
+
+- [`run_demo`](#run_demo)
+
+### Functions (cross_chain)
+
+- [`run_demo`](#run_demo)
+
+### Functions (agents)
+
+- [`run_demo`](#run_demo)
+
+### Functions (interactive)
+
+- [`run_chat`](#run_chat)
+
+### Functions (notifier)
 
 - [`add_channel`](#add_channel)
-- [`add_format`](#add_format)
-- [`add_processor`](#add_processor)
 - [`add_routing_rule`](#add_routing_rule)
-- [`compact`](#compact)
-- [`demonstrate_trading_coordination`](#demonstrate_trading_coordination)
-- [`error_output`](#error_output)
-- [`info`](#info)
 - [`matches`](#matches)
 - [`matches`](#matches)
 - [`new`](#new)
@@ -59,50 +92,53 @@ Comprehensive API documentation for the `riglr-showcase` crate.
 - [`new`](#new)
 - [`new`](#new)
 - [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`process`](#process)
-- [`run_chat`](#run_chat)
-- [`run_demo`](#run_demo)
-- [`run_demo`](#run_demo)
-- [`run_demo`](#run_demo)
-- [`run_demo`](#run_demo)
-- [`run_demo`](#run_demo)
-- [`run_demo`](#run_demo)
 - [`set_default_channel`](#set_default_channel)
-- [`standard_formats`](#standard_formats)
-- [`success_output`](#success_output)
-- [`user_friendly_error`](#user_friendly_error)
-- [`with_config`](#with_config)
-- [`with_css_classes`](#with_css_classes)
-- [`with_field_mapping`](#with_field_mapping)
 - [`with_format_template`](#with_format_template)
 - [`with_header`](#with_header)
 - [`with_html_mode`](#with_html_mode)
 - [`with_identity`](#with_identity)
-- [`with_metadata`](#with_metadata)
-- [`with_options`](#with_options)
-- [`with_response`](#with_response)
-- [`with_template`](#with_template)
-- [`with_timing`](#with_timing)
 - [`without_colors`](#without_colors)
-- [`without_metadata`](#without_metadata)
-- [`without_styles`](#without_styles)
 
 ### Traits
 
 - [`NotificationChannel`](#notificationchannel)
 - [`OutputProcessor`](#outputprocessor)
+
+### Functions (formatter)
+
+- [`add_format`](#add_format)
+- [`compact`](#compact)
+- [`new`](#new)
+- [`new`](#new)
+- [`new`](#new)
+- [`new`](#new)
+- [`standard_formats`](#standard_formats)
+- [`with_css_classes`](#with_css_classes)
+- [`with_field_mapping`](#with_field_mapping)
+- [`with_options`](#with_options)
+- [`with_template`](#with_template)
+- [`without_metadata`](#without_metadata)
+- [`without_styles`](#without_styles)
+
+### Functions (mod)
+
+- [`add_processor`](#add_processor)
+- [`error_output`](#error_output)
+- [`info`](#info)
+- [`new`](#new)
+- [`process`](#process)
+- [`success_output`](#success_output)
+- [`user_friendly_error`](#user_friendly_error)
+- [`with_metadata`](#with_metadata)
+- [`with_timing`](#with_timing)
+
+### Functions (distiller)
+
+- [`new`](#new)
+- [`new`](#new)
+- [`new`](#new)
+- [`with_config`](#with_config)
+- [`with_response`](#with_response)
 
 ## Structs
 
@@ -614,67 +650,7 @@ Conditions for routing decisions
 
 ---
 
-## Functions
-
-### add_channel
-
-**Source**: `processors/notifier.rs`
-
-```rust
-pub fn add_channel<C: NotificationChannel + 'static>(mut self, name: &str, channel: C) -> Self
-```
-
-Adds a notification channel with the given name
-
----
-
-### add_format
-
-**Source**: `processors/formatter.rs`
-
-```rust
-pub fn add_format<F: OutputProcessor + 'static>(mut self, formatter: F) -> Self
-```
-
-Add a formatter to the processor
-
----
-
-### add_processor
-
-**Source**: `processors/mod.rs`
-
-```rust
-pub fn add_processor<P: OutputProcessor + 'static>(mut self, processor: P) -> Self
-```
-
-Add a processor to the pipeline
-
----
-
-### add_routing_rule
-
-**Source**: `processors/notifier.rs`
-
-```rust
-pub fn add_routing_rule(mut self, rule: RoutingRule) -> Self
-```
-
-Adds a routing rule for determining which channels to use
-
----
-
-### compact
-
-**Source**: `processors/formatter.rs`
-
-```rust
-pub fn compact(mut self) -> Self
-```
-
-Configure formatter to output compact JSON
-
----
+## Functions (trading_coordination)
 
 ### demonstrate_trading_coordination
 
@@ -685,54 +661,6 @@ pub async fn demonstrate_trading_coordination( config: Config, ) -> Result<(), B
 ```
 
 Demonstration function that shows the complete trading coordination workflow
-
----
-
-### error_output
-
-**Source**: `processors/mod.rs`
-
-```rust
-pub fn error_output(tool_name: &str, error: &str) -> ToolOutput
-```
-
-Create a ToolOutput from a failed operation
-
----
-
-### info
-
-**Source**: `processors/mod.rs`
-
-```rust
-pub fn info(&self) -> Vec<serde_json::Value>
-```
-
-Get information about all processors in the pipeline
-
----
-
-### matches
-
-**Source**: `processors/notifier.rs`
-
-```rust
-pub fn matches(&self, output: &ToolOutput) -> bool
-```
-
-Checks if this routing rule matches the given tool output
-
----
-
-### matches
-
-**Source**: `processors/notifier.rs`
-
-```rust
-pub fn matches(&self, output: &ToolOutput) -> bool
-```
-
-Evaluates whether this condition matches the given tool output
 
 ---
 
@@ -772,6 +700,8 @@ Creates a new trade execution agent
 
 ---
 
+## Functions (privy)
+
 ### new
 
 **Source**: `auth/privy.rs`
@@ -788,13 +718,176 @@ Create a new Privy signer factory
 
 ---
 
-### new
+## Functions (graph)
+
+### run_demo
+
+**Source**: `commands/graph.rs`
+
+```rust
+pub async fn run_demo(_config: Arc<Config>, init: bool, query: Option<String>) -> Result<()>
+```
+
+Run the graph memory demo.
+
+---
+
+## Functions (solana)
+
+### run_demo
+
+**Source**: `commands/solana.rs`
+
+```rust
+pub async fn run_demo(config: Arc<Config>, address: Option<String>) -> Result<()>
+```
+
+Run the Solana tools demo.
+
+---
+
+## Functions (web)
+
+### run_demo
+
+**Source**: `commands/web.rs`
+
+```rust
+pub async fn run_demo(config: Arc<Config>, query: String) -> Result<()>
+```
+
+Run the web tools demo.
+
+---
+
+## Functions (evm)
+
+### run_demo
+
+**Source**: `commands/evm.rs`
+
+```rust
+pub async fn run_demo(config: Arc<Config>, address: Option<String>, chain_id: u64) -> Result<()>
+```
+
+Run the EVM tools demo.
+
+---
+
+## Functions (cross_chain)
+
+### run_demo
+
+**Source**: `commands/cross_chain.rs`
+
+```rust
+pub async fn run_demo(config: Arc<Config>, token: String) -> Result<()>
+```
+
+Run the cross-chain analysis demo.
+
+---
+
+## Functions (agents)
+
+### run_demo
+
+**Source**: `commands/agents.rs`
+
+```rust
+pub async fn run_demo(config: Arc<Config>, scenario: String) -> Result<()>
+```
+
+Runs a multi-agent coordination demonstration based on the specified scenario.
+
+This function demonstrates the riglr-agents framework through various predefined scenarios:
+- `"trading"`: Real-world trading coordination with blockchain operations
+- `"risk"`: Risk management system with coordinated assessment across multiple agents
+- `"basic"`: Fundamental multi-agent communication and workflow patterns
+
+# Arguments
+* `config` - Shared configuration for all agents and blockchain operations
+* `scenario` - The demonstration scenario to execute
+
+# Returns
+Returns `Ok(())` on successful demonstration completion, or an error if the scenario
+is unknown or the demonstration fails.
+
+# Examples
+```
+use std::sync::Arc;
+use riglr_config::Config;
+
+# async fn example() -> anyhow::Result<()> {
+let config = Arc::new(Config::default());
+run_demo(config, "basic".to_string()).await?;
+# Ok(())
+# }
+```
+
+---
+
+## Functions (interactive)
+
+### run_chat
 
 **Source**: `commands/interactive.rs`
 
 ```rust
-pub fn new() -> Self
+pub async fn run_chat(config: Arc<Config>) -> Result<()>
 ```
+
+Run interactive chat mode.
+
+---
+
+## Functions (notifier)
+
+### add_channel
+
+**Source**: `processors/notifier.rs`
+
+```rust
+pub fn add_channel<C: NotificationChannel + 'static>(mut self, name: &str, channel: C) -> Self
+```
+
+Adds a notification channel with the given name
+
+---
+
+### add_routing_rule
+
+**Source**: `processors/notifier.rs`
+
+```rust
+pub fn add_routing_rule(mut self, rule: RoutingRule) -> Self
+```
+
+Adds a routing rule for determining which channels to use
+
+---
+
+### matches
+
+**Source**: `processors/notifier.rs`
+
+```rust
+pub fn matches(&self, output: &ToolOutput) -> bool
+```
+
+Checks if this routing rule matches the given tool output
+
+---
+
+### matches
+
+**Source**: `processors/notifier.rs`
+
+```rust
+pub fn matches(&self, output: &ToolOutput) -> bool
+```
+
+Evaluates whether this condition matches the given tool output
 
 ---
 
@@ -870,236 +963,6 @@ Creates a new console channel with color output enabled
 
 ---
 
-### new
-
-**Source**: `processors/formatter.rs`
-
-**Attributes**:
-```rust
-#[must_use]
-```
-
-```rust
-pub fn new() -> Self
-```
-
-Create a new MarkdownFormatter with default settings
-
----
-
-### new
-
-**Source**: `processors/formatter.rs`
-
-**Attributes**:
-```rust
-#[must_use]
-```
-
-```rust
-pub fn new() -> Self
-```
-
-Create a new HtmlFormatter with default CSS classes and styles
-
----
-
-### new
-
-**Source**: `processors/formatter.rs`
-
-**Attributes**:
-```rust
-#[must_use]
-```
-
-```rust
-pub fn new() -> Self
-```
-
-Create a new JsonFormatter with default settings
-
----
-
-### new
-
-**Source**: `processors/formatter.rs`
-
-**Attributes**:
-```rust
-#[must_use]
-```
-
-```rust
-pub fn new() -> Self
-```
-
-Create a new MultiFormatProcessor with no formatters
-
----
-
-### new
-
-**Source**: `processors/distiller.rs`
-
-```rust
-pub fn new(model: &str) -> Self
-```
-
-Create a new distillation processor with a specific model
-
----
-
-### new
-
-**Source**: `processors/distiller.rs`
-
-**Attributes**:
-```rust
-#[must_use]
-```
-
-```rust
-pub fn new() -> Self
-```
-
-Create a new MockDistiller with default responses
-
----
-
-### new
-
-**Source**: `processors/mod.rs`
-
-```rust
-pub fn new() -> Self
-```
-
-Create a new empty pipeline
-
----
-
-### process
-
-**Source**: `processors/mod.rs`
-
-```rust
-pub async fn process(&self, mut output: ToolOutput) -> Result<ProcessedOutput>
-```
-
-Process output through the entire pipeline
-
----
-
-### run_chat
-
-**Source**: `commands/interactive.rs`
-
-```rust
-pub async fn run_chat(config: Arc<Config>) -> Result<()>
-```
-
-Run interactive chat mode.
-
----
-
-### run_demo
-
-**Source**: `commands/graph.rs`
-
-```rust
-pub async fn run_demo(_config: Arc<Config>, init: bool, query: Option<String>) -> Result<()>
-```
-
-Run the graph memory demo.
-
----
-
-### run_demo
-
-**Source**: `commands/solana.rs`
-
-```rust
-pub async fn run_demo(config: Arc<Config>, address: Option<String>) -> Result<()>
-```
-
-Run the Solana tools demo.
-
----
-
-### run_demo
-
-**Source**: `commands/web.rs`
-
-```rust
-pub async fn run_demo(config: Arc<Config>, query: String) -> Result<()>
-```
-
-Run the web tools demo.
-
----
-
-### run_demo
-
-**Source**: `commands/evm.rs`
-
-```rust
-pub async fn run_demo(config: Arc<Config>, address: Option<String>, chain_id: u64) -> Result<()>
-```
-
-Run the EVM tools demo.
-
----
-
-### run_demo
-
-**Source**: `commands/cross_chain.rs`
-
-```rust
-pub async fn run_demo(config: Arc<Config>, token: String) -> Result<()>
-```
-
-Run the cross-chain analysis demo.
-
----
-
-### run_demo
-
-**Source**: `commands/agents.rs`
-
-```rust
-pub async fn run_demo(config: Arc<Config>, scenario: String) -> Result<()>
-```
-
-Runs a multi-agent coordination demonstration based on the specified scenario.
-
-This function demonstrates the riglr-agents framework through various predefined scenarios:
-- `"trading"`: Real-world trading coordination with blockchain operations
-- `"risk"`: Risk management system with coordinated assessment across multiple agents
-- `"basic"`: Fundamental multi-agent communication and workflow patterns
-
-# Arguments
-* `config` - Shared configuration for all agents and blockchain operations
-* `scenario` - The demonstration scenario to execute
-
-# Returns
-Returns `Ok(())` on successful demonstration completion, or an error if the scenario
-is unknown or the demonstration fails.
-
-# Examples
-```
-use std::sync::Arc;
-use riglr_config::Config;
-
-# async fn example() -> anyhow::Result<()> {
-let config = Arc::new(Config::default());
-run_demo(config, "basic".to_string()).await?;
-# Ok(())
-# }
-```
-
----
-
 ### set_default_channel
 
 **Source**: `processors/notifier.rs`
@@ -1109,78 +972,6 @@ pub fn set_default_channel(mut self, name: &str) -> Self
 ```
 
 Sets the default channel to use when no routing rules match
-
----
-
-### standard_formats
-
-**Source**: `processors/formatter.rs`
-
-```rust
-pub fn standard_formats() -> Self
-```
-
-Create a MultiFormatProcessor with standard formatters (Markdown, HTML, JSON)
-
----
-
-### success_output
-
-**Source**: `processors/mod.rs`
-
-```rust
-pub fn success_output(tool_name: &str, result: serde_json::Value) -> ToolOutput
-```
-
-Create a ToolOutput from a successful operation
-
----
-
-### user_friendly_error
-
-**Source**: `processors/mod.rs`
-
-```rust
-pub fn user_friendly_error(output: &ToolOutput) -> String
-```
-
-Extract error message from a ToolOutput in a user-friendly way
-
----
-
-### with_config
-
-**Source**: `processors/distiller.rs`
-
-```rust
-pub fn with_config( model: &str, max_tokens: Option<u32>, temperature: Option<f32>, system_prompt: Option<String>, ) -> Self
-```
-
-Create a processor with custom settings
-
----
-
-### with_css_classes
-
-**Source**: `processors/formatter.rs`
-
-```rust
-pub fn with_css_classes(mut self, classes: HashMap<String, String>) -> Self
-```
-
-Add custom CSS classes, preserving existing defaults
-
----
-
-### with_field_mapping
-
-**Source**: `processors/formatter.rs`
-
-```rust
-pub fn with_field_mapping(mut self, from: &str, to: &str) -> Self
-```
-
-Add a field name mapping for JSON transformation
 
 ---
 
@@ -1232,66 +1023,6 @@ Sets the bot username and optional avatar URL for Discord messages
 
 ---
 
-### with_metadata
-
-**Source**: `processors/mod.rs`
-
-```rust
-pub fn with_metadata(mut output: ToolOutput, key: &str, value: &str) -> ToolOutput
-```
-
-Add metadata to a ToolOutput
-
----
-
-### with_options
-
-**Source**: `processors/formatter.rs`
-
-```rust
-pub fn with_options(include_metadata: bool, include_timing: bool) -> Self
-```
-
-Create a MarkdownFormatter with custom metadata and timing options
-
----
-
-### with_response
-
-**Source**: `processors/distiller.rs`
-
-```rust
-pub fn with_response(mut self, tool_name: &str, response: &str) -> Self
-```
-
-Add a custom response for a specific tool name
-
----
-
-### with_template
-
-**Source**: `processors/formatter.rs`
-
-```rust
-pub fn with_template(mut self, tool_name: &str, template: &str) -> Self
-```
-
-Add a custom template for specific tool types
-
----
-
-### with_timing
-
-**Source**: `processors/mod.rs`
-
-```rust
-pub fn with_timing(mut output: ToolOutput, start_time: SystemTime) -> ToolOutput
-```
-
-Add timing information to a ToolOutput
-
----
-
 ### without_colors
 
 **Source**: `processors/notifier.rs`
@@ -1301,30 +1032,6 @@ pub fn without_colors(mut self) -> Self
 ```
 
 Disables color output for plain text logging
-
----
-
-### without_metadata
-
-**Source**: `processors/formatter.rs`
-
-```rust
-pub fn without_metadata(mut self) -> Self
-```
-
-Configure formatter to exclude metadata from output
-
----
-
-### without_styles
-
-**Source**: `processors/formatter.rs`
-
-```rust
-pub fn without_styles(mut self) -> Self
-```
-
-Disable inline CSS styles in output
 
 ---
 
@@ -1410,6 +1117,361 @@ fn can_process(&self, _output: &ToolOutput) -> bool {
 ```rust
 fn config(&self) -> serde_json::Value {
 ```
+
+---
+
+## Functions (formatter)
+
+### add_format
+
+**Source**: `processors/formatter.rs`
+
+```rust
+pub fn add_format<F: OutputProcessor + 'static>(mut self, formatter: F) -> Self
+```
+
+Add a formatter to the processor
+
+---
+
+### compact
+
+**Source**: `processors/formatter.rs`
+
+```rust
+pub fn compact(mut self) -> Self
+```
+
+Configure formatter to output compact JSON
+
+---
+
+### new
+
+**Source**: `processors/formatter.rs`
+
+**Attributes**:
+```rust
+#[must_use]
+```
+
+```rust
+pub fn new() -> Self
+```
+
+Create a new MarkdownFormatter with default settings
+
+---
+
+### new
+
+**Source**: `processors/formatter.rs`
+
+**Attributes**:
+```rust
+#[must_use]
+```
+
+```rust
+pub fn new() -> Self
+```
+
+Create a new HtmlFormatter with default CSS classes and styles
+
+---
+
+### new
+
+**Source**: `processors/formatter.rs`
+
+**Attributes**:
+```rust
+#[must_use]
+```
+
+```rust
+pub fn new() -> Self
+```
+
+Create a new JsonFormatter with default settings
+
+---
+
+### new
+
+**Source**: `processors/formatter.rs`
+
+**Attributes**:
+```rust
+#[must_use]
+```
+
+```rust
+pub fn new() -> Self
+```
+
+Create a new MultiFormatProcessor with no formatters
+
+---
+
+### standard_formats
+
+**Source**: `processors/formatter.rs`
+
+```rust
+pub fn standard_formats() -> Self
+```
+
+Create a MultiFormatProcessor with standard formatters (Markdown, HTML, JSON)
+
+---
+
+### with_css_classes
+
+**Source**: `processors/formatter.rs`
+
+```rust
+pub fn with_css_classes(mut self, classes: HashMap<String, String>) -> Self
+```
+
+Add custom CSS classes, preserving existing defaults
+
+---
+
+### with_field_mapping
+
+**Source**: `processors/formatter.rs`
+
+```rust
+pub fn with_field_mapping(mut self, from: &str, to: &str) -> Self
+```
+
+Add a field name mapping for JSON transformation
+
+---
+
+### with_options
+
+**Source**: `processors/formatter.rs`
+
+```rust
+pub fn with_options(include_metadata: bool, include_timing: bool) -> Self
+```
+
+Create a MarkdownFormatter with custom metadata and timing options
+
+---
+
+### with_template
+
+**Source**: `processors/formatter.rs`
+
+```rust
+pub fn with_template(mut self, tool_name: &str, template: &str) -> Self
+```
+
+Add a custom template for specific tool types
+
+---
+
+### without_metadata
+
+**Source**: `processors/formatter.rs`
+
+```rust
+pub fn without_metadata(mut self) -> Self
+```
+
+Configure formatter to exclude metadata from output
+
+---
+
+### without_styles
+
+**Source**: `processors/formatter.rs`
+
+```rust
+pub fn without_styles(mut self) -> Self
+```
+
+Disable inline CSS styles in output
+
+---
+
+## Functions (mod)
+
+### add_processor
+
+**Source**: `processors/mod.rs`
+
+```rust
+pub fn add_processor<P: OutputProcessor + 'static>(mut self, processor: P) -> Self
+```
+
+Add a processor to the pipeline
+
+---
+
+### error_output
+
+**Source**: `processors/mod.rs`
+
+```rust
+pub fn error_output(tool_name: &str, error: &str) -> ToolOutput
+```
+
+Create a ToolOutput from a failed operation
+
+---
+
+### info
+
+**Source**: `processors/mod.rs`
+
+```rust
+pub fn info(&self) -> Vec<serde_json::Value>
+```
+
+Get information about all processors in the pipeline
+
+---
+
+### new
+
+**Source**: `processors/mod.rs`
+
+```rust
+pub fn new() -> Self
+```
+
+Create a new empty pipeline
+
+---
+
+### process
+
+**Source**: `processors/mod.rs`
+
+```rust
+pub async fn process(&self, mut output: ToolOutput) -> Result<ProcessedOutput>
+```
+
+Process output through the entire pipeline
+
+---
+
+### success_output
+
+**Source**: `processors/mod.rs`
+
+```rust
+pub fn success_output(tool_name: &str, result: serde_json::Value) -> ToolOutput
+```
+
+Create a ToolOutput from a successful operation
+
+---
+
+### user_friendly_error
+
+**Source**: `processors/mod.rs`
+
+```rust
+pub fn user_friendly_error(output: &ToolOutput) -> String
+```
+
+Extract error message from a ToolOutput in a user-friendly way
+
+---
+
+### with_metadata
+
+**Source**: `processors/mod.rs`
+
+```rust
+pub fn with_metadata(mut output: ToolOutput, key: &str, value: &str) -> ToolOutput
+```
+
+Add metadata to a ToolOutput
+
+---
+
+### with_timing
+
+**Source**: `processors/mod.rs`
+
+```rust
+pub fn with_timing(mut output: ToolOutput, start_time: SystemTime) -> ToolOutput
+```
+
+Add timing information to a ToolOutput
+
+---
+
+## Functions (distiller)
+
+### new
+
+**Source**: `processors/distiller.rs`
+
+```rust
+pub fn new(model: &str) -> Self
+```
+
+Create a new distillation processor with a specific model
+
+---
+
+### new
+
+**Source**: `processors/distiller.rs`
+
+```rust
+pub fn new() -> Self
+```
+
+Create a new SmartDistiller with default processors
+
+---
+
+### new
+
+**Source**: `processors/distiller.rs`
+
+**Attributes**:
+```rust
+#[must_use]
+```
+
+```rust
+pub fn new() -> Self
+```
+
+Create a new MockDistiller with default responses
+
+---
+
+### with_config
+
+**Source**: `processors/distiller.rs`
+
+```rust
+pub fn with_config( model: &str, max_tokens: Option<u32>, temperature: Option<f32>, system_prompt: Option<String>, ) -> Self
+```
+
+Create a processor with custom settings
+
+---
+
+### with_response
+
+**Source**: `processors/distiller.rs`
+
+```rust
+pub fn with_response(mut self, tool_name: &str, response: &str) -> Self
+```
+
+Add a custom response for a specific tool name
 
 ---
 
