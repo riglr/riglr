@@ -85,43 +85,43 @@ impl<'a> ZeroCopyEvent<'a> {
 impl<'a> ZeroCopyEvent<'a> {
     /// Get id for any lifetime
     pub fn id(&self) -> &str {
-        &self.metadata.id
+        &self.metadata.core.id
     }
 
     /// Get event type for any lifetime
     pub fn event_type(&self) -> EventType {
-        get_event_type(&self.metadata).unwrap_or_default()
+        get_event_type(&self.metadata.core).unwrap_or_default()
     }
 
     /// Get signature for any lifetime
     pub fn signature(&self) -> &str {
-        get_signature(&self.metadata).unwrap_or("")
+        get_signature(&self.metadata.core).unwrap_or("")
     }
 
     /// Get slot for any lifetime
     pub fn slot(&self) -> u64 {
-        get_slot(&self.metadata).unwrap_or(0)
+        get_slot(&self.metadata.core).unwrap_or(0)
     }
 
     /// Get protocol type for any lifetime
     pub fn protocol_type(&self) -> ProtocolType {
-        get_protocol_type(&self.metadata).unwrap_or_default()
+        get_protocol_type(&self.metadata.core).unwrap_or_default()
     }
 
     /// Get index for any lifetime
     pub fn index(&self) -> String {
-        get_instruction_index(&self.metadata).map(|i| i.to_string()).unwrap_or_default()
+        get_instruction_index(&self.metadata.core).map(|i| i.to_string()).unwrap_or_default()
     }
 
     /// Get timestamp for any lifetime
     pub fn timestamp(&self) -> std::time::SystemTime {
         // Use the timestamp from metadata which is already a DateTime<Utc>
-        std::time::SystemTime::from(self.metadata.timestamp)
+        std::time::SystemTime::from(self.metadata.core.timestamp)
     }
 
     /// Get block number for any lifetime
     pub fn block_number(&self) -> Option<u64> {
-        get_slot(&self.metadata)
+        get_slot(&self.metadata.core)
     }
 }
 

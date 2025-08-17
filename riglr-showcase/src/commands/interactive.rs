@@ -33,10 +33,6 @@ impl Default for ChatContext {
 }
 
 impl ChatContext {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
     fn add_exchange(&mut self, user_input: String, agent_response: String) {
         self.conversation_history.push((user_input, agent_response));
         // Keep only last 10 exchanges to avoid memory bloat

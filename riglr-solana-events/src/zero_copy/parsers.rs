@@ -3,7 +3,7 @@
 //! This module provides utilities for parsing Solana transaction data with minimal
 //! memory allocations through zero-copy techniques and efficient byte slice operations.
 
-use crate::metadata_helpers::create_solana_metadata;
+use crate::types::metadata_helpers::create_solana_metadata;
 use crate::types::{EventMetadata, EventType, ProtocolType};
 use crate::zero_copy::events::ZeroCopyEvent;
 use memmap2::MmapOptions;
@@ -96,15 +96,14 @@ impl MemoryMappedParser {
                 // Create metadata with default values - would be computed from context
                 let metadata = create_solana_metadata(
                     String::default(),
-                    riglr_events_core::EventKind::Transaction,
-                    "solana".to_string(),
+                    String::default(),
                     0,
-                    None,
-                    None,
-                    None,
-                    None,
+                    0,
                     ProtocolType::default(),
                     EventType::default(),
+                    solana_sdk::pubkey::Pubkey::default(),
+                    String::default(),
+                    0,
                 );
                 let mut parsed = parser.parse_from_slice(data, metadata)?;
                 for event in &mut parsed {

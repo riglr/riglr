@@ -11,10 +11,6 @@ use rig::completion::Prompt;
 use rig::providers::{anthropic, gemini, openai};
 use serde_json::json;
 
-// Constants for environment variable names
-const OPENAI_API_KEY: &str = "OPENAI_API_KEY";
-const ANTHROPIC_API_KEY: &str = "ANTHROPIC_API_KEY";
-
 
 /// LLM-based output distiller
 ///
@@ -240,6 +236,10 @@ pub struct SmartDistiller {
 }
 
 impl SmartDistiller {
+    /// Create a new SmartDistiller with default processors
+    pub fn new() -> Self {
+        Self::default()
+    }
 
     /// Choose the best processor for the given output
     fn choose_processor(&self, output: &ToolOutput) -> &DistillationProcessor {
@@ -369,7 +369,7 @@ mod tests {
     #[tokio::test]
     async fn test_distillation_processor() {
         // Skip test if OPENAI_API_KEY is not set
-        if std::env::var(OPENAI_API_KEY).is_err() {
+        if std::env::var("OPENAI_API_KEY").is_err() {
             eprintln!("Skipping test: OPENAI_API_KEY not set");
             return;
         }
@@ -400,7 +400,7 @@ mod tests {
     #[tokio::test]
     async fn test_smart_distiller() {
         // Skip test if ANTHROPIC_API_KEY is not set
-        if std::env::var(ANTHROPIC_API_KEY).is_err() {
+        if std::env::var("ANTHROPIC_API_KEY").is_err() {
             eprintln!("Skipping test: ANTHROPIC_API_KEY not set");
             return;
         }

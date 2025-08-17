@@ -366,11 +366,11 @@ fn parse_meteora_dynamic_add_liquidity_instruction(
     parse_meteora_dynamic_liquidity_data_from_instruction(data, accounts, true).map(
         |liquidity_data| {
             Box::new(MeteoraDynamicLiquidityEvent {
-                id: metadata.id,
-                signature: metadata.signature,
+                id: metadata.id().to_string(),
+                signature: metadata.signature.clone(),
                 slot: metadata.slot,
-                block_time: metadata.block_time,
-                block_time_ms: metadata.block_time_ms,
+                block_time: 0, // Not available in SolanaEventMetadata
+                block_time_ms: 0, // Not available in SolanaEventMetadata
                 program_received_time_ms: metadata.program_received_time_ms,
                 program_handle_time_consuming_ms: 0,
                 index: metadata.index.clone(),
@@ -411,11 +411,11 @@ fn parse_meteora_dynamic_remove_liquidity_instruction(
     parse_meteora_dynamic_liquidity_data_from_instruction(data, accounts, false).map(
         |liquidity_data| {
             Box::new(MeteoraDynamicLiquidityEvent {
-                id: metadata.id,
-                signature: metadata.signature,
+                id: metadata.id().to_string(),
+                signature: metadata.signature.clone(),
                 slot: metadata.slot,
-                block_time: metadata.block_time,
-                block_time_ms: metadata.block_time_ms,
+                block_time: 0, // Not available in SolanaEventMetadata
+                block_time_ms: 0, // Not available in SolanaEventMetadata
                 program_received_time_ms: metadata.program_received_time_ms,
                 program_handle_time_consuming_ms: 0,
                 index: metadata.index.clone(),

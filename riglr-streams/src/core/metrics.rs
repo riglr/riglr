@@ -264,7 +264,7 @@ impl MetricsCollector {
 
     /// Get stream metrics
     pub async fn get_stream_metrics(&self, stream_name: &str) -> Option<StreamMetrics> {
-        self.stream_metrics.get(stream_name).cloned()
+        self.stream_metrics.get(stream_name).map(|entry| entry.value().clone())
     }
 
     /// Get all stream metrics
@@ -274,7 +274,7 @@ impl MetricsCollector {
 
     /// Get handler metrics
     pub async fn get_handler_metrics(&self, handler_name: &str) -> Option<HandlerMetrics> {
-        self.handler_metrics.get(handler_name).cloned()
+        self.handler_metrics.get(handler_name).map(|entry| entry.value().clone())
     }
 
     /// Get all handler metrics

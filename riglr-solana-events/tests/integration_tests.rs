@@ -31,12 +31,12 @@ async fn test_end_to_end_parsing_pipeline() {
     raydium_data.extend_from_slice(&1_000_000u64.to_le_bytes()); // amount_in
     raydium_data.extend_from_slice(&950_000u64.to_le_bytes()); // minimum_amount_out
 
-    let metadata = EventMetadata {
-        id: "raydium_event_1".to_string(),
+    let mut metadata = EventMetadata {
         signature: "raydium_sig_1".to_string(),
         index: "0".to_string(),
         ..Default::default()
     };
+    metadata.set_id("raydium_event_1".to_string());
 
     inputs.push(ParsingInput {
         data: raydium_data,
@@ -50,12 +50,12 @@ async fn test_end_to_end_parsing_pipeline() {
     jupiter_data.extend_from_slice(&1_900_000u64.to_le_bytes()); // minimum_amount_out
     jupiter_data.extend_from_slice(&25u32.to_le_bytes()); // platform_fee_bps
 
-    let metadata = EventMetadata {
-        id: "jupiter_event_1".to_string(),
+    let mut metadata = EventMetadata {
         signature: "jupiter_sig_1".to_string(),
         index: "0".to_string(),
         ..Default::default()
     };
+    metadata.set_id("jupiter_event_1".to_string());
 
     inputs.push(ParsingInput {
         data: jupiter_data,
@@ -69,12 +69,12 @@ async fn test_end_to_end_parsing_pipeline() {
     pump_data.extend_from_slice(&500u64.to_le_bytes()); // amount
     pump_data.extend_from_slice(&1000u64.to_le_bytes()); // max_price_per_token
 
-    let metadata = EventMetadata {
-        id: "pump_event_1".to_string(),
+    let mut metadata = EventMetadata {
         signature: "pump_sig_1".to_string(),
         index: "0".to_string(),
         ..Default::default()
     };
+    metadata.set_id("pump_event_1".to_string());
 
     inputs.push(ParsingInput {
         data: pump_data,
@@ -131,13 +131,13 @@ async fn test_event_enrichment_pipeline() {
     let enricher = EventEnricher::new(config);
 
     // Create a test event
-    let metadata = EventMetadata {
-        id: "test_event_1".to_string(),
+    let mut metadata = EventMetadata {
         signature: "test_sig_1".to_string(),
         protocol_type: ProtocolType::Jupiter,
         event_type: EventType::Swap,
         ..Default::default()
     };
+    metadata.set_id("test_event_1".to_string());
 
     let mut event = ZeroCopyEvent::new_owned(metadata, vec![0x09, 0x01, 0x02]);
 
@@ -184,14 +184,14 @@ async fn test_validation_pipeline() {
     let mut events = Vec::new();
 
     // Valid event
-    let valid_metadata = EventMetadata {
-        id: "valid_event_1".to_string(),
+    let mut valid_metadata = EventMetadata {
         signature: "valid_sig_1".to_string(),
         protocol_type: ProtocolType::RaydiumAmmV4,
         event_type: EventType::Swap,
         index: "0".to_string(),
         ..Default::default()
     };
+    valid_metadata.set_id("valid_event_1".to_string());
 
     let mut valid_event = ZeroCopyEvent::new_owned(valid_metadata, vec![0x09, 0x01, 0x02]);
     valid_event.set_json_data(serde_json::json!({
@@ -212,14 +212,14 @@ async fn test_validation_pipeline() {
     events.push(invalid_event);
 
     // Duplicate event (same as first one)
-    let duplicate_metadata = EventMetadata {
-        id: "valid_event_1".to_string(),
+    let mut duplicate_metadata = EventMetadata {
         signature: "valid_sig_1".to_string(),
         protocol_type: ProtocolType::RaydiumAmmV4,
         event_type: EventType::Swap,
         index: "0".to_string(),
         ..Default::default()
     };
+    duplicate_metadata.set_id("valid_event_1".to_string());
 
     let duplicate_event = ZeroCopyEvent::new_owned(duplicate_metadata, vec![0x09, 0x01, 0x02]);
     events.push(duplicate_event);

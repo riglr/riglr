@@ -1,4 +1,4 @@
-/// Raydium AMM V4 instruction discriminators
+//! Raydium AMM V4 instruction discriminators
 
 /// Instruction discriminator for swapping with base token as input
 pub const SWAP_BASE_IN: &[u8] = &[0x8f, 0x9a, 0x14, 0xdf, 0x90, 0x38, 0x15, 0xe5];

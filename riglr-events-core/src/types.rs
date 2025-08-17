@@ -6,10 +6,11 @@ use std::collections::HashMap;
 use std::fmt;
 
 /// Event classification for different types of blockchain and system events.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum EventKind {
     /// Blockchain transaction events
+    #[default]
     Transaction,
     /// Block-level events (new blocks, reorganizations)
     Block,
@@ -27,12 +28,6 @@ pub enum EventKind {
     External,
     /// Custom event type with string identifier
     Custom(String),
-}
-
-impl Default for EventKind {
-    fn default() -> Self {
-        EventKind::Transaction
-    }
 }
 
 impl fmt::Display for EventKind {

@@ -1,3 +1,18 @@
+//! Integration tests for riglr-streams core functionality.
+//!
+//! This module contains comprehensive integration tests for the riglr-streams crate,
+//! testing the core components including:
+//!
+//! - `StreamManager` execution modes (Sequential, Concurrent, ConcurrentBounded)
+//! - `MetricsCollector` functionality and export formats
+//! - `StreamHealth` tracking and status management
+//! - Event handling and processing pipelines
+//! - Performance characteristics and timing behavior
+//!
+//! These tests verify that the streaming infrastructure works correctly under
+//! various execution patterns and properly collects metrics for monitoring
+//! and observability.
+
 use async_trait::async_trait;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
