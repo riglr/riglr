@@ -115,6 +115,7 @@ pub struct TokenBalanceResult {
 /// # Ok(())
 /// # }
 /// ```
+#[allow(missing_docs)]
 #[tool]
 pub async fn get_eth_balance(
     address: String,
@@ -206,6 +207,7 @@ pub async fn get_eth_balance(
 /// # Ok(())
 /// # }
 /// ```
+#[allow(missing_docs)]
 #[tool]
 pub async fn get_erc20_balance(
     address: String,

@@ -9,62 +9,105 @@ use thiserror::Error;
 pub enum StreamError {
     /// Connection-related errors
     #[error("Connection failed: {message}")]
-    Connection { message: String, retriable: bool },
+    Connection { 
+        /// Error message describing the connection failure
+        message: String, 
+        /// Whether this connection error can be retried
+        retriable: bool 
+    },
 
     /// Configuration errors
     #[error("Configuration error: {message}")]
-    Configuration { message: String },
+    Configuration { 
+        /// Error message describing the configuration issue
+        message: String 
+    },
 
     /// Invalid configuration
     #[error("Invalid configuration: {reason}")]
-    ConfigurationInvalid { reason: String },
+    ConfigurationInvalid { 
+        /// Reason why the configuration is invalid
+        reason: String 
+    },
 
     /// Authentication failures
     #[error("Authentication failed: {message}")]
-    Authentication { message: String },
+    Authentication { 
+        /// Error message describing the authentication failure
+        message: String 
+    },
 
     /// Rate limiting errors
     #[error("Rate limit exceeded: {message}")]
     RateLimit {
+        /// Error message describing the rate limit
         message: String,
+        /// Optional duration in seconds to wait before retrying
         retry_after: Option<u64>,
     },
 
     /// Data parsing errors
     #[error("Parse error: {message}")]
-    Parse { message: String, data: String },
+    Parse { 
+        /// Error message describing the parsing failure
+        message: String, 
+        /// The raw data that failed to parse
+        data: String 
+    },
 
     /// Resource exhaustion
     #[error("Resource exhausted: {message}")]
-    ResourceExhausted { message: String },
+    ResourceExhausted { 
+        /// Error message describing the resource exhaustion
+        message: String 
+    },
 
     /// Stream already running
     #[error("Stream already running: {name}")]
-    AlreadyRunning { name: String },
+    AlreadyRunning { 
+        /// Name of the stream that is already running
+        name: String 
+    },
 
     /// Stream not running
     #[error("Stream not running: {name}")]
-    NotRunning { name: String },
+    NotRunning { 
+        /// Name of the stream that is not running
+        name: String 
+    },
 
     /// Channel errors
     #[error("Channel error: {message}")]
-    Channel { message: String },
+    Channel { 
+        /// Error message describing the channel failure
+        message: String 
+    },
 
     /// Timeout errors
     #[error("Operation timed out: {message}")]
-    Timeout { message: String },
+    Timeout { 
+        /// Error message describing the timeout
+        message: String 
+    },
 
     /// Processing errors
     #[error("Processing error: {message}")]
-    Processing { message: String },
+    Processing { 
+        /// Error message describing the processing failure
+        message: String 
+    },
 
     /// Backpressure errors
     #[error("Backpressure error: {message}")]
-    Backpressure { message: String },
+    Backpressure { 
+        /// Error message describing the backpressure issue
+        message: String 
+    },
 
     /// Internal errors
     #[error("Internal error: {source}")]
     Internal {
+        /// The underlying error that caused this internal error
         #[source]
         source: Box<dyn std::error::Error + Send + Sync>,
     },
@@ -172,7 +215,7 @@ impl StreamError {
                 std::io::Error::new(std::io::ErrorKind::BrokenPipe, message.clone()),
                 format!("Channel error: {}", message),
             ),
-            StreamError::Timeout { message: _ } => {
+            StreamError::Timeout { .. } => {
                 EventError::timeout(std::time::Duration::from_secs(30))
             }
             StreamError::Processing { message } => {
@@ -238,7 +281,7 @@ impl From<serde_json::Error> for StreamError {
     fn from(err: serde_json::Error) -> Self {
         StreamError::Parse {
             message: err.to_string(),
-            data: String::new(),
+            data: String::default(),
         }
     }
 }

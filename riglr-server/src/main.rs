@@ -1,3 +1,11 @@
+//! # riglr-server
+//!
+//! Development server for the riglr ecosystem providing example implementations
+//! of agents and signer factories for testing and development purposes.
+//!
+//! This server includes an echo agent that simply echoes back prompts and a
+//! development signer factory that creates local Solana signers for testing.
+
 use std::sync::Arc;
 
 use riglr_server::{start_axum, ServerConfig};

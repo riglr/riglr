@@ -1,23 +1,23 @@
-/// Analytics Agent Example
-///
-/// This example demonstrates how to create a comprehensive analytics agent that combines
-/// social sentiment analysis, on-chain data analysis, and market intelligence.
-///
-/// Key Features:
-/// - Social sentiment analysis from multiple sources
-/// - On-chain holder analysis and wallet profiling
-/// - Market data aggregation and trend analysis
-/// - Cross-chain analytics coordination
-/// - Comprehensive reporting and insights
-///
-/// Usage:
-///   cargo run --example analytics_agent
-///
-/// Architecture Notes:
-/// - Combines web scraping tools with blockchain data analysis
-/// - Demonstrates multi-source data correlation
-/// - Shows how to build complex analytical workflows
-/// - Educational showcase of riglr's analytical capabilities
+//! Analytics Agent Example
+//!
+//! This example demonstrates how to create a comprehensive analytics agent that combines
+//! social sentiment analysis, on-chain data analysis, and market intelligence.
+//!
+//! Key Features:
+//! - Social sentiment analysis from multiple sources
+//! - On-chain holder analysis and wallet profiling
+//! - Market data aggregation and trend analysis
+//! - Cross-chain analytics coordination
+//! - Comprehensive reporting and insights
+//!
+//! Usage:
+//!   cargo run --example analytics_agent
+//!
+//! Architecture Notes:
+//! - Combines web scraping tools with blockchain data analysis
+//! - Demonstrates multi-source data correlation
+//! - Shows how to build complex analytical workflows
+//! - Educational showcase of riglr's analytical capabilities
 use anyhow::Result;
 use riglr_core::config::SolanaNetworkConfig;
 use riglr_core::signer::{LocalSolanaSigner, SignerContext, SignerError, TransactionSigner};

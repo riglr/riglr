@@ -1,3 +1,12 @@
+//! Performance benchmarks for riglr-events-core functionality.
+//!
+//! This module contains comprehensive benchmarks for testing the performance
+//! of various event processing operations including creation, filtering,
+//! batching, parsing, deduplication, rate limiting, metrics collection,
+//! and ID generation.
+
+#![allow(missing_docs)]
+
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use riglr_events_core::prelude::*;
 use serde_json::json;
@@ -5,6 +14,7 @@ use std::hint::black_box;
 use std::time::Duration;
 use tokio::runtime::Runtime;
 
+/// Benchmarks event creation performance with varying batch sizes.
 fn bench_event_creation(c: &mut Criterion) {
     let mut group = c.benchmark_group("event_creation");
 
@@ -29,6 +39,7 @@ fn bench_event_creation(c: &mut Criterion) {
     group.finish();
 }
 
+/// Benchmarks event filtering performance using kind filters.
 fn bench_event_filtering(c: &mut Criterion) {
     let mut group = c.benchmark_group("event_filtering");
 
@@ -63,6 +74,7 @@ fn bench_event_filtering(c: &mut Criterion) {
     group.finish();
 }
 
+/// Benchmarks event batching performance with different batch sizes.
 fn bench_event_batching(c: &mut Criterion) {
     let mut group = c.benchmark_group("event_batching");
 
@@ -101,6 +113,7 @@ fn bench_event_batching(c: &mut Criterion) {
     group.finish();
 }
 
+/// Benchmarks JSON event parsing performance.
 fn bench_parsing(c: &mut Criterion) {
     let rt = Runtime::new().unwrap();
     let mut group = c.benchmark_group("parsing");
@@ -135,6 +148,7 @@ fn bench_parsing(c: &mut Criterion) {
     group.finish();
 }
 
+/// Benchmarks event deduplication performance.
 fn bench_deduplication(c: &mut Criterion) {
     let rt = Runtime::new().unwrap();
     let mut group = c.benchmark_group("deduplication");
@@ -168,6 +182,7 @@ fn bench_deduplication(c: &mut Criterion) {
     group.finish();
 }
 
+/// Benchmarks rate limiting performance with different rates.
 fn bench_rate_limiting(c: &mut Criterion) {
     let rt = Runtime::new().unwrap();
     let mut group = c.benchmark_group("rate_limiting");
@@ -192,6 +207,7 @@ fn bench_rate_limiting(c: &mut Criterion) {
     group.finish();
 }
 
+/// Benchmarks metrics collection performance.
 fn bench_metrics_collection(c: &mut Criterion) {
     let rt = Runtime::new().unwrap();
     let mut group = c.benchmark_group("metrics_collection");
@@ -217,6 +233,7 @@ fn bench_metrics_collection(c: &mut Criterion) {
     group.finish();
 }
 
+/// Benchmarks event ID generation performance.
 fn bench_id_generation(c: &mut Criterion) {
     let mut group = c.benchmark_group("id_generation");
 

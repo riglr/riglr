@@ -64,6 +64,18 @@ pub struct PoolConfig {
 }
 
 impl DatabaseConfig {
+    /// Validates all database configuration settings
+    ///
+    /// This method validates:
+    /// - Redis URL format and connectivity
+    /// - Neo4j URL format (if provided)
+    /// - ClickHouse URL format (if provided)
+    /// - PostgreSQL URL format (if provided)
+    /// - Connection pool configuration
+    ///
+    /// # Errors
+    ///
+    /// Returns `ConfigError` if any validation fails
     pub fn validate(&self) -> ConfigResult<()> {
         // Validate Redis URL
         self.validate_redis_url()?;
@@ -148,6 +160,16 @@ impl DatabaseConfig {
 }
 
 impl PoolConfig {
+    /// Validates connection pool configuration settings
+    ///
+    /// This method validates:
+    /// - Maximum connections is greater than 0
+    /// - Minimum connections doesn't exceed maximum connections
+    /// - Connection timeout is greater than 0
+    ///
+    /// # Errors
+    ///
+    /// Returns `ConfigError` if any validation fails
     pub fn validate(&self) -> ConfigResult<()> {
         if self.max_connections == 0 {
             return Err(ConfigError::validation(

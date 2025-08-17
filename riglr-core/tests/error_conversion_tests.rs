@@ -1,3 +1,5 @@
+//! Tests for error conversion and classification functionality
+
 use riglr_core::error::ToolError;
 
 #[test]

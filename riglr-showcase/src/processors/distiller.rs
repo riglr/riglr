@@ -11,8 +11,10 @@ use rig::completion::Prompt;
 use rig::providers::{anthropic, gemini, openai};
 use serde_json::json;
 
+// Constants for environment variable names
 const OPENAI_API_KEY: &str = "OPENAI_API_KEY";
 const ANTHROPIC_API_KEY: &str = "ANTHROPIC_API_KEY";
+
 
 /// LLM-based output distiller
 ///
@@ -238,15 +240,6 @@ pub struct SmartDistiller {
 }
 
 impl SmartDistiller {
-    pub fn new() -> Self {
-        Self {
-            processors: vec![
-                DistillationProcessor::new("gpt-4o-mini"), // Fast for simple summaries
-                DistillationProcessor::new("claude-3-5-haiku"), // Good for technical content
-                DistillationProcessor::new("gemini-1.5-flash"), // Cost-effective option
-            ],
-        }
-    }
 
     /// Choose the best processor for the given output
     fn choose_processor(&self, output: &ToolOutput) -> &DistillationProcessor {
@@ -285,28 +278,13 @@ pub struct MockDistiller {
 }
 
 impl MockDistiller {
+    /// Create a new MockDistiller with default responses
+    #[must_use]
     pub fn new() -> Self {
-        let mut responses = std::collections::HashMap::default();
-        responses.insert(
-            "get_sol_balance".to_string(),
-            "Successfully retrieved SOL balance for the specified address.".to_string(),
-        );
-        responses.insert(
-            "swap_tokens".to_string(),
-            "Token swap completed successfully.".to_string(),
-        );
-        responses.insert(
-            "error".to_string(),
-            "An error occurred while processing the request.".to_string(),
-        );
-        responses.insert(
-            "test_tool".to_string(),
-            "Test tool executed successfully.".to_string(),
-        );
-
-        Self { responses }
+        Self::default()
     }
 
+    /// Add a custom response for a specific tool name
     pub fn with_response(mut self, tool_name: &str, response: &str) -> Self {
         self.responses
             .insert(tool_name.to_string(), response.to_string());
@@ -408,7 +386,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_mock_distiller() {
-        let processor = MockDistiller::new().with_response("test_tool", "This is a test summary");
+        let processor = MockDistiller::default().with_response("test_tool", "This is a test summary");
 
         let output = utils::success_output("test_tool", json!({"result": "success"}));
         let processed = processor.process(output).await.unwrap();
@@ -427,7 +405,7 @@ mod tests {
             return;
         }
 
-        let processor = SmartDistiller::new();
+        let processor = SmartDistiller::default();
         let output = utils::success_output("trading_tool", json!({"profit": 100}));
 
         let processed = processor.process(output).await.unwrap();
@@ -436,7 +414,7 @@ mod tests {
 
     #[test]
     fn test_processor_selection() {
-        let distiller = SmartDistiller::new();
+        let distiller = SmartDistiller::default();
 
         let trading_output = utils::success_output("swap_tokens", json!({}));
         let balance_output = utils::success_output("get_balance", json!({}));

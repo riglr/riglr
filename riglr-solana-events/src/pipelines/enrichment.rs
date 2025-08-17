@@ -7,10 +7,9 @@ use crate::types::ProtocolType;
 use crate::zero_copy::ZeroCopyEvent;
 use serde_json::Value;
 use solana_sdk::pubkey::Pubkey;
-use std::collections::HashMap;
+use dashmap::DashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use tokio::sync::RwLock;
 // UnifiedEvent trait has been removed
 
 /// Configuration for event enrichment
@@ -121,9 +120,9 @@ pub struct EventEnricher {
     /// Enrichment configuration
     config: EnrichmentConfig,
     /// Token metadata cache
-    token_cache: Arc<RwLock<HashMap<Pubkey, CacheEntry<TokenMetadata>>>>,
+    token_cache: Arc<DashMap<Pubkey, CacheEntry<TokenMetadata>>>,
     /// Price data cache
-    price_cache: Arc<RwLock<HashMap<Pubkey, CacheEntry<PriceData>>>>,
+    price_cache: Arc<DashMap<Pubkey, CacheEntry<PriceData>>>,
     /// HTTP client for external API calls
     http_client: reqwest::Client,
 }
@@ -138,8 +137,8 @@ impl EventEnricher {
 
         Self {
             config,
-            token_cache: Arc::new(RwLock::new(HashMap::new())),
-            price_cache: Arc::new(RwLock::new(HashMap::new())),
+            token_cache: Arc::new(DashMap::new()),
+            price_cache: Arc::new(DashMap::new()),
             http_client,
         }
     }
@@ -373,12 +372,9 @@ impl EventEnricher {
         mint: Pubkey,
     ) -> Result<Option<TokenMetadata>, EnrichmentError> {
         // Check cache first
-        {
-            let cache = self.token_cache.read().await;
-            if let Some(entry) = cache.get(&mint) {
-                if !entry.is_expired() {
-                    return Ok(Some(entry.data.clone()));
-                }
+        if let Some(entry) = self.token_cache.get(&mint) {
+            if !entry.is_expired() {
+                return Ok(Some(entry.data.clone()));
             }
         }
 
@@ -387,14 +383,12 @@ impl EventEnricher {
 
         // Update cache
         if let Some(ref meta) = metadata {
-            let mut cache = self.token_cache.write().await;
-
             // Cleanup expired entries if cache is full
-            if cache.len() >= self.config.max_cache_size {
-                cache.retain(|_, entry| !entry.is_expired());
+            if self.token_cache.len() >= self.config.max_cache_size {
+                self.token_cache.retain(|_, entry| !entry.is_expired());
             }
 
-            cache.insert(
+            self.token_cache.insert(
                 mint,
                 CacheEntry::new(meta.clone(), self.config.metadata_cache_ttl),
             );
@@ -406,12 +400,9 @@ impl EventEnricher {
     /// Get price data with caching
     async fn get_price_data(&self, mint: Pubkey) -> Result<Option<PriceData>, EnrichmentError> {
         // Check cache first
-        {
-            let cache = self.price_cache.read().await;
-            if let Some(entry) = cache.get(&mint) {
-                if !entry.is_expired() {
-                    return Ok(Some(entry.data.clone()));
-                }
+        if let Some(entry) = self.price_cache.get(&mint) {
+            if !entry.is_expired() {
+                return Ok(Some(entry.data.clone()));
             }
         }
 
@@ -420,14 +411,12 @@ impl EventEnricher {
 
         // Update cache
         if let Some(ref price) = price_data {
-            let mut cache = self.price_cache.write().await;
-
             // Cleanup expired entries if cache is full
-            if cache.len() >= self.config.max_cache_size {
-                cache.retain(|_, entry| !entry.is_expired());
+            if self.price_cache.len() >= self.config.max_cache_size {
+                self.price_cache.retain(|_, entry| !entry.is_expired());
             }
 
-            cache.insert(
+            self.price_cache.insert(
                 mint,
                 CacheEntry::new(price.clone(), self.config.metadata_cache_ttl),
             );
@@ -472,13 +461,10 @@ impl EventEnricher {
     }
 
     /// Get cache statistics
-    pub async fn get_cache_stats(&self) -> CacheStats {
-        let token_cache = self.token_cache.read().await;
-        let price_cache = self.price_cache.read().await;
-
+    pub fn get_cache_stats(&self) -> CacheStats {
         CacheStats {
-            token_cache_size: token_cache.len(),
-            price_cache_size: price_cache.len(),
+            token_cache_size: self.token_cache.len(),
+            price_cache_size: self.price_cache.len(),
             token_cache_hit_rate: 0.0, // Would be tracked in real implementation
             price_cache_hit_rate: 0.0, // Would be tracked in real implementation
         }
@@ -499,27 +485,36 @@ impl Clone for EventEnricher {
 /// Cache statistics
 #[derive(Debug, Clone)]
 pub struct CacheStats {
+    /// Number of entries in token metadata cache
     pub token_cache_size: usize,
+    /// Number of entries in price data cache
     pub price_cache_size: usize,
+    /// Token cache hit rate (0.0 to 1.0)
     pub token_cache_hit_rate: f64,
+    /// Price cache hit rate (0.0 to 1.0)
     pub price_cache_hit_rate: f64,
 }
 
 /// Error type for enrichment operations
 #[derive(Debug, thiserror::Error)]
 pub enum EnrichmentError {
+    /// HTTP request failed
     #[error("HTTP request failed: {0}")]
     HttpError(#[from] reqwest::Error),
 
+    /// Serialization error
     #[error("Serialization error: {0}")]
     SerializationError(#[from] serde_json::Error),
 
+    /// Task execution error
     #[error("Task execution error: {0}")]
     TaskError(String),
 
+    /// Cache error
     #[error("Cache error: {0}")]
     CacheError(String),
 
+    /// API rate limit exceeded
     #[error("API rate limit exceeded")]
     RateLimitExceeded,
 }
@@ -534,7 +529,7 @@ mod tests {
         let config = EnrichmentConfig::default();
         let enricher = EventEnricher::new(config);
 
-        let stats = enricher.get_cache_stats().await;
+        let stats = enricher.get_cache_stats();
         assert_eq!(stats.token_cache_size, 0);
         assert_eq!(stats.price_cache_size, 0);
     }

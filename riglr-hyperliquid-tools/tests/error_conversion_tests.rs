@@ -1,3 +1,5 @@
+//! Tests for HyperliquidToolError to ToolError conversion
+
 use riglr_core::error::ToolError;
 use riglr_hyperliquid_tools::error::HyperliquidToolError;
 

@@ -1,28 +1,37 @@
 use thiserror::Error;
 
+/// Main error type for Hyperliquid tool operations
 #[derive(Error, Debug)]
 pub enum HyperliquidToolError {
+    /// API error returned by Hyperliquid exchange
     #[error("API error: {0}")]
     ApiError(String),
 
+    /// Invalid trading symbol provided
     #[error("Invalid symbol: {0}")]
     InvalidSymbol(String),
 
+    /// Network connectivity error
     #[error("Network error: {0}")]
     NetworkError(String),
 
+    /// Rate limit exceeded by Hyperliquid API
     #[error("Rate limited: {0}")]
     RateLimit(String),
 
+    /// Authentication or authorization error
     #[error("Authentication error: {0}")]
     AuthError(String),
 
+    /// Insufficient balance for requested operation
     #[error("Insufficient balance: {0}")]
     InsufficientBalance(String),
 
+    /// Trading order related error
     #[error("Order error: {0}")]
     OrderError(String),
 
+    /// Configuration or setup error
     #[error("Configuration error: {0}")]
     Configuration(String),
 }

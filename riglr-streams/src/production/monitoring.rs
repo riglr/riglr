@@ -1,7 +1,9 @@
+use dashmap::DashMap;
 use metrics::{counter, gauge, histogram};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, SystemTime};
 use tokio::sync::RwLock;
 
@@ -10,11 +12,11 @@ pub struct StreamMetrics {
     /// Start time
     start_time: SystemTime,
     /// Total events processed
-    events_processed: Arc<RwLock<u64>>,
+    events_processed: Arc<AtomicU64>,
     /// Events by type
-    events_by_type: Arc<RwLock<HashMap<String, u64>>>,
+    events_by_type: Arc<DashMap<String, u64>>,
     /// Error count
-    error_count: Arc<RwLock<u64>>,
+    error_count: Arc<AtomicU64>,
     /// Performance stats
     performance_stats: Arc<RwLock<PerformanceStats>>,
 }
@@ -38,32 +40,31 @@ pub struct PerformanceStats {
 
 impl Default for StreamMetrics {
     fn default() -> Self {
-        Self::new()
+        Self {
+            start_time: SystemTime::now(),
+            events_processed: Arc::new(AtomicU64::new(0)),
+            events_by_type: Arc::new(DashMap::new()),
+            error_count: Arc::new(AtomicU64::new(0)),
+            performance_stats: Arc::new(RwLock::new(PerformanceStats::default())),
+        }
     }
 }
 
 impl StreamMetrics {
     /// Create new metrics collector
     pub fn new() -> Self {
-        Self {
-            start_time: SystemTime::now(),
-            events_processed: Arc::new(RwLock::new(0)),
-            events_by_type: Arc::new(RwLock::new(HashMap::new())),
-            error_count: Arc::new(RwLock::new(0)),
-            performance_stats: Arc::new(RwLock::new(PerformanceStats::default())),
-        }
+        Self::default()
     }
 
     /// Record an event
     pub async fn record_event(&self, event_type: &str, latency_ms: f64) {
         // Increment total counter
-        let mut count = self.events_processed.write().await;
-        *count += 1;
+        self.events_processed.fetch_add(1, Ordering::Relaxed);
         counter!("riglr_streams_events_total").increment(1);
 
         // Increment by type
-        let mut by_type = self.events_by_type.write().await;
-        *by_type.entry(event_type.to_string()).or_insert(0) += 1;
+        let mut entry = self.events_by_type.entry(event_type.to_string()).or_insert(0);
+        *entry += 1;
         counter!("riglr_streams_events_by_type", "type" => event_type.to_string()).increment(1);
 
         // Record latency
@@ -77,8 +78,7 @@ impl StreamMetrics {
 
     /// Record an error
     pub async fn record_error(&self, error_type: &str) {
-        let mut count = self.error_count.write().await;
-        *count += 1;
+        self.error_count.fetch_add(1, Ordering::Relaxed);
         counter!("riglr_streams_errors_total", "type" => error_type.to_string()).increment(1);
     }
 
@@ -88,9 +88,9 @@ impl StreamMetrics {
             .duration_since(self.start_time)
             .unwrap_or(Duration::ZERO);
 
-        let events_processed = *self.events_processed.read().await;
-        let events_by_type = self.events_by_type.read().await.clone();
-        let error_count = *self.error_count.read().await;
+        let events_processed = self.events_processed.load(Ordering::Relaxed);
+        let events_by_type = self.events_by_type.iter().map(|entry| (entry.key().clone(), *entry.value())).collect();
+        let error_count = self.error_count.load(Ordering::Relaxed);
         let performance_stats = self.performance_stats.read().await.clone();
 
         // Calculate events per second
@@ -135,27 +135,26 @@ pub struct MetricsSnapshot {
 /// Metrics collector for all streams
 pub struct MetricsCollector {
     /// Metrics by stream
-    stream_metrics: Arc<RwLock<HashMap<String, StreamMetrics>>>,
+    stream_metrics: Arc<DashMap<String, StreamMetrics>>,
 }
 
 impl Default for MetricsCollector {
     fn default() -> Self {
-        Self::new()
+        Self {
+            stream_metrics: Arc::new(DashMap::new()),
+        }
     }
 }
 
 impl MetricsCollector {
     /// Create new collector
     pub fn new() -> Self {
-        Self {
-            stream_metrics: Arc::new(RwLock::new(HashMap::new())),
-        }
+        Self::default()
     }
 
     /// Get or create metrics for a stream
     pub async fn get_stream_metrics(&self, stream_name: &str) -> StreamMetrics {
-        let mut metrics = self.stream_metrics.write().await;
-        metrics
+        self.stream_metrics
             .entry(stream_name.to_string())
             .or_insert_with(StreamMetrics::new)
             .clone()
@@ -164,10 +163,11 @@ impl MetricsCollector {
     /// Get all metrics
     pub async fn get_all_metrics(&self) -> HashMap<String, MetricsSnapshot> {
         let mut all_metrics = HashMap::new();
-        let metrics = self.stream_metrics.read().await;
 
-        for (name, stream_metrics) in metrics.iter() {
-            all_metrics.insert(name.clone(), stream_metrics.get_metrics().await);
+        for entry in self.stream_metrics.iter() {
+            let name = entry.key().clone();
+            let snapshot = entry.value().get_metrics().await;
+            all_metrics.insert(name, snapshot);
         }
 
         all_metrics
@@ -178,9 +178,9 @@ impl Clone for StreamMetrics {
     fn clone(&self) -> Self {
         Self {
             start_time: self.start_time,
-            events_processed: self.events_processed.clone(),
+            events_processed: Arc::new(AtomicU64::new(self.events_processed.load(Ordering::Relaxed))),
             events_by_type: self.events_by_type.clone(),
-            error_count: self.error_count.clone(),
+            error_count: Arc::new(AtomicU64::new(self.error_count.load(Ordering::Relaxed))),
             performance_stats: self.performance_stats.clone(),
         }
     }

@@ -43,7 +43,7 @@ impl IndexerService {
         let store = crate::storage::create_store(&config.storage).await?;
 
         // Initialize metrics collector
-        let metrics = MetricsCollector::new(&config.metrics)?;
+        let metrics = MetricsCollector::new(config.metrics.clone())?;
 
         // Create service context
         let context = Arc::new(ServiceContext::new(

@@ -7,9 +7,10 @@ use crate::types::{EventType, ProtocolType};
 use crate::zero_copy::ZeroCopyEvent;
 use serde_json::Value;
 use solana_sdk::pubkey::Pubkey;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
+use dashmap::DashMap;
 // UnifiedEvent trait has been removed
 
 /// Configuration for validation pipeline
@@ -62,28 +63,61 @@ pub struct ValidationResult {
 #[derive(Debug, Clone)]
 pub enum ValidationError {
     /// Missing required field
-    MissingField { field: String },
+    MissingField {
+        /// The name of the missing field
+        field: String
+    },
     /// Invalid field value
-    InvalidValue { field: String, reason: String },
+    InvalidValue {
+        /// The name of the invalid field
+        field: String,
+        /// The reason why the value is invalid
+        reason: String
+    },
     /// Data inconsistency
-    Inconsistency { description: String },
+    Inconsistency {
+        /// Description of the inconsistency
+        description: String
+    },
     /// Business logic violation
-    BusinessLogicError { rule: String, description: String },
+    BusinessLogicError {
+        /// The business rule that was violated
+        rule: String,
+        /// Description of the violation
+        description: String
+    },
     /// Event too old
-    StaleEvent { age: Duration },
+    StaleEvent {
+        /// How old the event is
+        age: Duration
+    },
     /// Duplicate event detected
-    Duplicate { original_id: String },
+    Duplicate {
+        /// ID of the original event
+        original_id: String
+    },
 }
 
 /// Validation warning types
 #[derive(Debug, Clone)]
 pub enum ValidationWarning {
     /// Unusual but potentially valid value
-    UnusualValue { field: String, value: String },
+    UnusualValue {
+        /// The name of the field with unusual value
+        field: String,
+        /// The unusual value
+        value: String
+    },
     /// Deprecated field usage
-    DeprecatedField { field: String },
+    DeprecatedField {
+        /// The name of the deprecated field
+        field: String
+    },
     /// Performance concern
-    PerformanceWarning { description: String },
+    PerformanceWarning {
+        /// Description of the performance concern
+        description: String
+    },
 }
 
 /// Validation metrics
@@ -102,7 +136,7 @@ pub struct ValidationPipeline {
     /// Validation configuration
     config: ValidationConfig,
     /// Duplicate detection cache
-    seen_events: Arc<tokio::sync::RwLock<HashMap<String, Instant>>>,
+    seen_events: Arc<DashMap<String, Instant>>,
     /// Validation rule registry
     rules: Vec<Arc<dyn ValidationRule>>,
 }
@@ -112,7 +146,7 @@ impl ValidationPipeline {
     pub fn new(config: ValidationConfig) -> Self {
         let mut pipeline = Self {
             config,
-            seen_events: Arc::new(tokio::sync::RwLock::new(HashMap::new())),
+            seen_events: Arc::new(DashMap::new()),
             rules: Vec::new(),
         };
 
@@ -223,23 +257,21 @@ impl ValidationPipeline {
     async fn check_duplicate(&self, event: &ZeroCopyEvent<'_>) -> Option<ValidationError> {
         let event_id = format!("{}_{}", event.signature(), event.index());
 
-        let mut seen = self.seen_events.write().await;
-
         // Clean up old entries (older than max_event_age)
         let cutoff = std::time::Instant::now()
             .checked_sub(self.config.max_event_age)
             .unwrap_or_else(std::time::Instant::now);
-        seen.retain(|_, &mut timestamp| timestamp > cutoff);
+        self.seen_events.retain(|_, timestamp| *timestamp > cutoff);
 
         // Check if we've seen this event before
-        if let Some(&_original_time) = seen.get(&event_id) {
+        if let Some(_original_time) = self.seen_events.get(&event_id) {
             return Some(ValidationError::Duplicate {
                 original_id: event_id.clone(),
             });
         }
 
         // Record this event
-        seen.insert(event_id, Instant::now());
+        self.seen_events.insert(event_id, Instant::now());
 
         None
     }
@@ -340,11 +372,9 @@ impl ValidationPipeline {
 
     /// Get pipeline statistics
     pub async fn get_stats(&self) -> ValidationStats {
-        let seen_events = self.seen_events.read().await;
-
         ValidationStats {
             total_rules: self.rules.len(),
-            cached_events: seen_events.len(),
+            cached_events: self.seen_events.len(),
             strict_mode: self.config.strict_mode,
         }
     }
@@ -353,8 +383,11 @@ impl ValidationPipeline {
 /// Validation pipeline statistics
 #[derive(Debug, Clone)]
 pub struct ValidationStats {
+    /// Total number of validation rules registered
     pub total_rules: usize,
+    /// Number of events currently cached for duplicate detection
     pub cached_events: usize,
+    /// Whether strict mode is enabled
     pub strict_mode: bool,
 }
 
@@ -371,8 +404,11 @@ pub trait ValidationRule: Send + Sync {
 /// Result from a validation rule
 #[derive(Debug, Default)]
 pub struct RuleResult {
+    /// Validation errors found by the rule
     pub errors: Vec<ValidationError>,
+    /// Validation warnings found by the rule
     pub warnings: Vec<ValidationWarning>,
+    /// Number of consistency checks performed
     pub consistency_checks: usize,
 }
 

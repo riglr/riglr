@@ -30,10 +30,12 @@ pub struct EventKindMatcher {
 }
 
 impl EventKindMatcher {
+    /// Create a new EventKindMatcher with multiple event kinds
     pub fn new(event_kinds: Vec<EventKind>) -> Self {
         Self { event_kinds }
     }
 
+    /// Create a new EventKindMatcher for a single event kind
     pub fn single(event_kind: EventKind) -> Self {
         Self {
             event_kinds: vec![event_kind],
@@ -62,10 +64,12 @@ pub struct SourceMatcher {
 }
 
 impl SourceMatcher {
+    /// Create a new SourceMatcher with multiple sources
     pub fn new(sources: Vec<String>) -> Self {
         Self { sources }
     }
 
+    /// Create a new SourceMatcher for a single source
     pub fn single(source: String) -> Self {
         Self {
             sources: vec![source],
@@ -95,6 +99,7 @@ pub struct TimestampRangeMatcher {
 }
 
 impl TimestampRangeMatcher {
+    /// Create a new TimestampRangeMatcher with optional min and max timestamps
     pub fn new(
         min_timestamp: Option<std::time::SystemTime>,
         max_timestamp: Option<std::time::SystemTime>,
@@ -105,6 +110,7 @@ impl TimestampRangeMatcher {
         }
     }
 
+    /// Create a TimestampRangeMatcher that matches events after the given timestamp
     pub fn after(timestamp: std::time::SystemTime) -> Self {
         Self {
             min_timestamp: Some(timestamp),
@@ -112,6 +118,7 @@ impl TimestampRangeMatcher {
         }
     }
 
+    /// Create a TimestampRangeMatcher that matches events before the given timestamp
     pub fn before(timestamp: std::time::SystemTime) -> Self {
         Self {
             min_timestamp: None,
@@ -167,6 +174,7 @@ impl<F> CustomCondition<F>
 where
     F: Fn(&(dyn Any + Send + Sync)) -> bool + Send + Sync,
 {
+    /// Create a new CustomCondition with a predicate function and description
     pub fn new(predicate: F, description: impl Into<String>) -> Self {
         Self {
             predicate,
@@ -196,6 +204,7 @@ pub struct CompositeCondition {
 }
 
 impl CompositeCondition {
+    /// Create a new CompositeCondition with the specified combinator
     pub fn new(combinator: ConditionCombinator) -> Self {
         Self {
             conditions: Vec::new(),
@@ -203,6 +212,7 @@ impl CompositeCondition {
         }
     }
 
+    /// Add a condition to this composite condition
     pub fn add_condition(mut self, condition: Box<dyn EventCondition>) -> Self {
         self.conditions.push(condition);
         self

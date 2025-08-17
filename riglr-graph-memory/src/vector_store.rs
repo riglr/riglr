@@ -231,11 +231,7 @@ impl GraphRetriever {
                                 if similarity_score >= self.similarity_threshold {
                                     let metadata: HashMap<String, Value> = row_data[2]
                                         .as_object()
-                                        .map(|obj| {
-                                            obj.iter()
-                                                .map(|(k, v)| (k.clone(), v.clone()))
-                                                .collect()
-                                        })
+                                        .map(|obj| obj.iter().map(|(k, v)| (k.clone(), v.clone())).collect())
                                         .unwrap_or_default();
 
                                     let entities: Vec<String> = row_data[3]
@@ -262,9 +258,7 @@ impl GraphRetriever {
                                         });
 
                                     // Collect entities for graph expansion
-                                    for entity in &entities {
-                                        entity_set.insert(entity.clone());
-                                    }
+                                    entity_set.extend(entities.iter().cloned());
 
                                     documents.push(GraphDocument {
                                         id: id.to_string(),
@@ -299,8 +293,9 @@ impl GraphRetriever {
             metrics.relationships_traversed = related_entities.len() as u32;
 
             // Update documents with relationship information
+            let relationships = related_entities;
             for doc in &mut documents {
-                doc.relationships = related_entities.clone();
+                doc.relationships.clone_from(&relationships);
             }
         }
 
@@ -409,14 +404,14 @@ impl GraphRetriever {
                 RETURN d.id as id
             ";
 
-            // Store doc.id for use after moving doc fields
-            let doc_id = doc.id.clone();
-
             let mut params = HashMap::new();
             params.insert("id".to_string(), json!(doc.id));
             params.insert("content".to_string(), json!(doc.content));
             params.insert("created_at".to_string(), json!(doc.created_at.to_rfc3339()));
             params.insert("source".to_string(), json!(format!("{:?}", doc.source)));
+
+            // Store doc.id for use after moving doc fields
+            let doc_id = doc.id;
 
             match self
                 .client

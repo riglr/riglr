@@ -134,7 +134,7 @@ mod entity_extractor_tests {
 
     #[test]
     fn test_extract_wallet_addresses() {
-        let extractor = EntityExtractor::new();
+        let extractor = EntityExtractor::default();
         let text = "Wallet 0x742d35Cc6634C0532925a3b844Bc9e7595f0eA4B transferred 100 ETH";
 
         let entities = extractor.extract(text);
@@ -148,7 +148,7 @@ mod entity_extractor_tests {
 
     #[test]
     fn test_extract_tokens() {
-        let extractor = EntityExtractor::new();
+        let extractor = EntityExtractor::default();
         let text = "Swapped 100 USDC for 0.05 ETH on Uniswap";
 
         let entities = extractor.extract(text);
@@ -162,7 +162,7 @@ mod entity_extractor_tests {
 
     #[test]
     fn test_extract_protocols() {
-        let extractor = EntityExtractor::new();
+        let extractor = EntityExtractor::default();
         let text = "Used Uniswap to swap tokens, then deposited on Aave for lending";
 
         let entities = extractor.extract(text);
@@ -180,7 +180,7 @@ mod entity_extractor_tests {
 
     #[test]
     fn test_extract_transactions() {
-        let extractor = EntityExtractor::new();
+        let extractor = EntityExtractor::default();
         let text = "Transaction 0xabc123def456 confirmed: swapped 100 USDC for ETH";
 
         let entities = extractor.extract(text);
@@ -196,7 +196,7 @@ mod entity_extractor_tests {
 
     #[test]
     fn test_extract_relationships() {
-        let extractor = EntityExtractor::new();
+        let extractor = EntityExtractor::default();
         let text =
             "Wallet 0x742d35Cc6634C0532925a3b844Bc9e7595f0eA4B holds 1000 USDC and staked on Aave";
 

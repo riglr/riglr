@@ -57,7 +57,9 @@ pub type SolanaStreamEvent = DynamicStreamedEvent;
 /// Simple transaction event for fallback cases
 #[derive(Debug, Clone)]
 pub struct TransactionEvent {
+    /// Transaction signature hash
     pub signature: String,
+    /// Slot number where the transaction was confirmed
     pub slot: u64,
 }
 

@@ -61,48 +61,71 @@ use std::collections::HashMap;
 /// Represents the output from a tool execution
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ToolOutput {
+    /// Name of the tool that produced this output
     pub tool_name: String,
+    /// Whether the tool execution was successful
     pub success: bool,
+    /// The actual result data from the tool execution
     pub result: serde_json::Value,
+    /// Error message if the tool execution failed
     pub error: Option<String>,
+    /// Execution time in milliseconds
     pub execution_time_ms: u64,
+    /// Additional metadata about the tool execution
     pub metadata: HashMap<String, String>,
 }
 
 /// Processed output after going through a processor
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProcessedOutput {
+    /// The original tool output before processing
     pub original: ToolOutput,
+    /// The result after processing (transformed, formatted, etc.)
     pub processed_result: serde_json::Value,
+    /// The format of the processed result
     pub format: OutputFormat,
+    /// Optional summary or description of the processed output
     pub summary: Option<String>,
+    /// Optional routing information for notifications
     pub routing_info: Option<RoutingInfo>,
 }
 
 /// Output format types
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum OutputFormat {
+    /// JSON format output
     Json,
+    /// Markdown format output
     Markdown,
+    /// Plain text format output
     PlainText,
+    /// HTML format output
     Html,
+    /// Custom format with specified type name
     Custom(String),
 }
 
 /// Routing information for notifications
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RoutingInfo {
+    /// The target channel for notification routing
     pub channel: String,
+    /// List of recipients to notify
     pub recipients: Vec<String>,
+    /// Priority level for the notification
     pub priority: NotificationPriority,
 }
 
 /// Notification priority levels
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum NotificationPriority {
+    /// Low priority notification
     Low,
+    /// Normal priority notification
     Normal,
+    /// High priority notification
     High,
+    /// Critical priority notification
     Critical,
 }
 
@@ -157,8 +180,9 @@ impl ProcessorPipeline {
 
     /// Process output through the entire pipeline
     pub async fn process(&self, mut output: ToolOutput) -> Result<ProcessedOutput> {
+        let original = output.clone();
         let mut current = ProcessedOutput {
-            original: output.clone(),
+            original,
             processed_result: output.result.clone(),
             format: OutputFormat::Json,
             summary: None,
@@ -168,11 +192,11 @@ impl ProcessorPipeline {
         for processor in &self.processors {
             if processor.can_process(&output) {
                 // Update the tool output with the processed result for the next processor
-                output.result = current.processed_result.clone();
+                output.result = std::mem::take(&mut current.processed_result);
                 let processed = processor.process(output.clone()).await?;
 
                 // Preserve summary from previous processors if current processor doesn't provide one
-                let summary = processed.summary.or(current.summary.clone());
+                let summary = processed.summary.or_else(|| current.summary.take());
 
                 current = ProcessedOutput {
                     summary,
@@ -190,13 +214,6 @@ impl ProcessorPipeline {
     }
 }
 
-impl Default for ProcessorPipeline {
-    fn default() -> Self {
-        Self {
-            processors: Vec::new(),
-        }
-    }
-}
 
 /// Utility functions for working with tool outputs
 pub mod utils {

@@ -1,3 +1,11 @@
+//! Performance benchmarks for riglr-agents functionality.
+//!
+//! This module contains benchmarks for testing the performance of key agent
+//! operations including agent registration, task dispatching, and message
+//! passing between agents.
+
+#![allow(missing_docs)]
+
 use criterion::{criterion_group, criterion_main, Criterion};
 use riglr_agents::*;
 use std::hint::black_box;
@@ -38,13 +46,14 @@ impl Agent for BenchmarkAgent {
     }
 }
 
+/// Benchmarks agent registration performance with batch agent creation.
 fn benchmark_agent_registration(c: &mut Criterion) {
     let rt = Runtime::new().unwrap();
 
     c.bench_function("agent_registration", |b| {
         b.iter(|| {
             rt.block_on(async {
-                let registry = LocalAgentRegistry::new();
+                let registry = LocalAgentRegistry::default();
 
                 for i in 0..black_box(100) {
                     let agent = Arc::new(BenchmarkAgent {
@@ -59,12 +68,13 @@ fn benchmark_agent_registration(c: &mut Criterion) {
     });
 }
 
+/// Benchmarks task dispatching performance including agent lookup and execution.
 fn benchmark_task_dispatch(c: &mut Criterion) {
     let rt = Runtime::new().unwrap();
 
     c.bench_function("task_dispatch", |b| {
         b.to_async(&rt).iter(|| async {
-            let registry = Arc::new(LocalAgentRegistry::new());
+            let registry = Arc::new(LocalAgentRegistry::default());
             let dispatcher = AgentDispatcher::new(registry.clone());
 
             // Register an agent
@@ -83,6 +93,7 @@ fn benchmark_task_dispatch(c: &mut Criterion) {
     });
 }
 
+/// Benchmarks inter-agent message passing performance via channels.
 fn benchmark_message_passing(c: &mut Criterion) {
     let rt = Runtime::new().unwrap();
 

@@ -1,3 +1,21 @@
+//! Multi-Chain Agent Example
+//!
+//! This example demonstrates how to build a comprehensive multi-chain cryptocurrency agent
+//! using the Riglr framework. The agent showcases capabilities across multiple blockchain
+//! ecosystems including Solana and Ethereum.
+//!
+//! Key Features:
+//! - Multi-chain portfolio analysis and management
+//! - Cross-chain arbitrage opportunity identification
+//! - Risk assessment across different blockchain ecosystems
+//! - Chain-specific operation patterns and optimizations
+//! - Advanced multi-chain strategies (yield farming, governance, diversification)
+//!
+//! Run with:
+//! ```
+//! cargo run --example multi_chain_agent
+//! ```
+
 use riglr_solana_tools::LocalSolanaSigner;
 // TODO: Re-enable when rig tools are updated
 // use riglr_solana_tools::{get_sol_balance, get_spl_token_balance};

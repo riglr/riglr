@@ -102,6 +102,7 @@ hyperliquid = ["riglr-hyperliquid-tools"]
 
 [dev-dependencies]
 tokio-test = { workspace = true }
+serial_test = "3.1"
 
 [[example]]
 name = "yield_monitor"

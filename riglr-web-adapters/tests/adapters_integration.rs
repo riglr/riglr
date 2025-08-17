@@ -1,3 +1,8 @@
+//! Integration tests for riglr-web-adapters module
+//! 
+//! This module provides comprehensive integration tests for the web adapter functionality,
+//! including agent completion handling, streaming responses, and authentication.
+
 use riglr_core::signer::{EvmClient, SignerError, TransactionSigner};
 use riglr_web_adapters::core::{
     handle_agent_completion, handle_agent_stream, CompletionResponse, PromptRequest,
@@ -44,8 +49,8 @@ impl riglr_web_adapters::core::Agent for MockAgent {
         Ok(self
             .responses
             .first()
-            .unwrap_or(&"Mock response".to_string())
-            .clone())
+            .cloned()
+            .unwrap_or_else(|| "Mock response".to_string()))
     }
 
     async fn prompt_stream(

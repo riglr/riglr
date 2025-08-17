@@ -1,3 +1,11 @@
+//! Performance benchmarks for riglr-graph-memory functionality.
+//!
+//! This module contains comprehensive benchmarks for testing the performance
+//! of graph memory operations including document creation, entity extraction,
+//! error handling, serialization, and throughput scenarios.
+
+#![allow(missing_docs)]
+
 use chrono::Utc;
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use riglr_graph_memory::{
@@ -64,7 +72,7 @@ fn entity_extractor_benchmarks(c: &mut Criterion) {
 
     group.bench_function("extractor_creation", |b| {
         b.iter(|| {
-            let _extractor = EntityExtractor::new();
+            let _extractor = EntityExtractor::default();
             black_box(_extractor)
         })
     });

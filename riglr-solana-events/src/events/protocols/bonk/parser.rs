@@ -5,8 +5,8 @@ use borsh::BorshDeserialize;
 use solana_sdk::{instruction::CompiledInstruction, pubkey::Pubkey};
 use solana_transaction_status::UiCompiledInstruction;
 
+use crate::types::{EventMetadata, EventType, ProtocolType};
 use crate::events::{
-    common::{EventMetadata, EventType, ProtocolType},
     core::traits::{EventParser, GenericEventParseConfig, GenericEventParser},
     protocols::bonk::{discriminators, BonkPoolCreateEvent, BonkTradeEvent, TradeDirection},
 };
@@ -22,12 +22,6 @@ pub struct BonkEventParser {
 
 impl Default for BonkEventParser {
     fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl BonkEventParser {
-    pub fn new() -> Self {
         // Configure all event types
         let configs = vec![
             GenericEventParseConfig {
@@ -99,6 +93,13 @@ impl BonkEventParser {
 
         Self { inner }
     }
+}
+
+impl BonkEventParser {
+    /// Creates a new Bonk event parser with configured discriminators and parsers
+    pub fn new() -> Self {
+        Self::default()
+    }
 
     /// Parse trade log event
     fn parse_trade_inner_instruction(
@@ -165,7 +166,7 @@ impl BonkEventParser {
         ));
 
         Some(Box::new(BonkTradeEvent {
-            metadata,
+            metadata: metadata.core,
             pool_state: accounts[0],
             amount_in,
             minimum_amount_out,
@@ -201,7 +202,7 @@ impl BonkEventParser {
         ));
 
         Some(Box::new(BonkTradeEvent {
-            metadata,
+            metadata: metadata.core,
             pool_state: accounts[0],
             amount_out,
             maximum_amount_in,
@@ -237,7 +238,7 @@ impl BonkEventParser {
         ));
 
         Some(Box::new(BonkTradeEvent {
-            metadata,
+            metadata: metadata.core,
             pool_state: accounts[0],
             amount_in,
             minimum_amount_out,
@@ -273,7 +274,7 @@ impl BonkEventParser {
         ));
 
         Some(Box::new(BonkTradeEvent {
-            metadata,
+            metadata: metadata.core,
             pool_state: accounts[0],
             amount_out,
             maximum_amount_in,
@@ -306,7 +307,7 @@ impl BonkEventParser {
         ));
 
         Some(Box::new(BonkPoolCreateEvent {
-            metadata,
+            metadata: metadata.core,
             pool_state: accounts[0],
             creator: accounts[1],
             config: accounts[2],
@@ -337,7 +338,7 @@ impl BonkEventParser {
         ));
 
         Some(Box::new(BonkPoolCreateEvent {
-            metadata,
+            metadata: metadata.core,
             pool_state: accounts[0],
             creator: accounts[1],
             config: accounts[2],
@@ -364,7 +365,7 @@ impl BonkEventParser {
         ));
 
         Some(Box::new(BonkPoolCreateEvent {
-            metadata,
+            metadata: metadata.core,
             pool_state: accounts[0],
             creator: accounts[1],
             config: accounts[2],

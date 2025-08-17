@@ -16,6 +16,7 @@ const TWITTER_BEARER_TOKEN: &str = "TWITTER_BEARER_TOKEN";
 /// Configuration for Twitter API access
 #[derive(Debug, Clone)]
 pub struct TwitterConfig {
+    /// Twitter API Bearer Token for authentication
     pub bearer_token: String,
     /// API base URL (default: https://api.twitter.com/2)
     pub base_url: String,
@@ -134,6 +135,7 @@ pub struct SearchMetadata {
     pub result_count: u32,
     /// Search query used
     pub query: String,
+    /// Token for pagination to fetch next set of results
     pub next_token: Option<String>,
     /// Search timestamp
     pub searched_at: DateTime<Utc>,

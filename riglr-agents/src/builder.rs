@@ -25,7 +25,7 @@ use std::time::Duration;
 /// use std::time::Duration;
 ///
 /// # async fn example() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-/// let system = AgentBuilder::new()
+/// let system = AgentBuilder::default()
 ///     .with_max_agents(50)
 ///     .with_routing_strategy(RoutingStrategy::LeastLoaded)
 ///     .with_task_timeout(Duration::from_secs(300))
@@ -42,10 +42,6 @@ pub struct AgentBuilder {
 }
 
 impl AgentBuilder {
-    /// Create a new agent builder with default configuration.
-    pub fn new() -> Self {
-        Self::default()
-    }
 
     /// Set the maximum number of agents in the registry.
     pub fn with_max_agents(mut self, max_agents: usize) -> Self {
@@ -312,10 +308,6 @@ pub struct SingleAgentBuilder {
 }
 
 impl SingleAgentBuilder {
-    /// Create a new single agent builder.
-    pub fn new() -> Self {
-        Self::default()
-    }
 
     /// Set the agent ID.
     pub fn with_id(mut self, id: impl Into<String>) -> Self {
@@ -378,7 +370,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_agent_builder_default() {
-        let system = AgentBuilder::new().build().await.unwrap();
+        let system = AgentBuilder::default().build().await.unwrap();
 
         assert_eq!(system.agent_count().await.unwrap(), 0);
 
@@ -390,7 +382,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_agent_builder_with_config() {
-        let system = AgentBuilder::new()
+        let system = AgentBuilder::default()
             .with_max_agents(10)
             .with_task_timeout(Duration::from_secs(60))
             .with_max_retries(5)
@@ -438,7 +430,7 @@ mod tests {
             }
         }
 
-        let system = AgentBuilder::new().build().await.unwrap();
+        let system = AgentBuilder::default().build().await.unwrap();
 
         let agent = Arc::new(TestAgent {
             id: crate::AgentId::new("test-agent"),
@@ -454,7 +446,7 @@ mod tests {
 
     #[test]
     fn test_single_agent_builder() {
-        let builder = SingleAgentBuilder::new()
+        let builder = SingleAgentBuilder::default()
             .with_id("test-agent")
             .with_capability("trading")
             .with_capability("research")
@@ -473,15 +465,15 @@ mod tests {
     #[test]
     fn test_single_agent_builder_validation() {
         // Missing ID should fail validation
-        let builder = SingleAgentBuilder::new().with_capability("trading");
+        let builder = SingleAgentBuilder::default().with_capability("trading");
         assert!(builder.validate().is_err());
 
         // Missing capabilities should fail validation
-        let builder = SingleAgentBuilder::new().with_id("test-agent");
+        let builder = SingleAgentBuilder::default().with_id("test-agent");
         assert!(builder.validate().is_err());
 
         // Valid configuration should pass
-        let builder = SingleAgentBuilder::new()
+        let builder = SingleAgentBuilder::default()
             .with_id("test-agent")
             .with_capability("trading");
         assert!(builder.validate().is_ok());
@@ -489,7 +481,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_agent_system_stats() {
-        let system = AgentBuilder::new().build().await.unwrap();
+        let system = AgentBuilder::default().build().await.unwrap();
         let stats = system.stats().await.unwrap();
 
         assert_eq!(stats.registry_stats.total_agents, 0);

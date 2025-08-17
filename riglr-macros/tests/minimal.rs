@@ -1,5 +1,7 @@
-// Temporarily disabled due to macro compilation issues in test environment
-// The tool macro is tested through actual usage in other crates
+//! Minimal test for riglr-macros
+//!
+//! Temporarily disabled due to macro compilation issues in test environment
+//! The tool macro is tested through actual usage in other crates
 
 #[test]
 fn test_minimal() {

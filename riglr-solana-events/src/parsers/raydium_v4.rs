@@ -3,6 +3,7 @@
 //! This parser provides zero-copy parsing for Raydium AMM V4 swap and liquidity operations
 //! using discriminator-based instruction identification and custom deserialization.
 
+use crate::metadata_helpers::{create_solana_metadata, set_event_type, set_protocol_type};
 use crate::types::{EventMetadata, EventType, ProtocolType};
 use crate::zero_copy::{ByteSliceEventParser, CustomDeserializer, ParseError, ZeroCopyEvent};
 use borsh::{BorshDeserialize, BorshSerialize};
@@ -17,11 +18,17 @@ pub const RAYDIUM_AMM_V4_PROGRAM_ID: &str = "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RaydiumV4Discriminator {
+    /// Swap with base input amount (discriminator 0x09)
     SwapBaseIn = 0x09,
+    /// Swap with base output amount (discriminator 0x0a)
     SwapBaseOut = 0x0a,
+    /// Deposit liquidity to pool (discriminator 0x03)
     Deposit = 0x03,
+    /// Withdraw liquidity from pool (discriminator 0x04)
     Withdraw = 0x04,
+    /// Initialize pool version 2 (discriminator 0x00)
     Initialize2 = 0x00,
+    /// Withdraw profit and loss (discriminator 0x05)
     WithdrawPnl = 0x05,
 }
 
@@ -116,15 +123,6 @@ impl Default for RaydiumV4Parser {
 }
 
 impl RaydiumV4Parser {
-    /// Create new Raydium V4 parser
-    pub fn new() -> Self {
-        Self {
-            program_id: RAYDIUM_AMM_V4_PROGRAM_ID
-                .parse()
-                .expect("Valid Raydium program ID"),
-            zero_copy: true,
-        }
-    }
 
     /// Create parser with zero-copy disabled
     pub fn new_standard() -> Self {
@@ -300,7 +298,7 @@ impl ByteSliceEventParser for RaydiumV4Parser {
         }
 
         // Update metadata with protocol info
-        metadata.protocol_type = ProtocolType::RaydiumAmmV4;
+        set_protocol_type(&mut metadata, ProtocolType::RaydiumAmmV4);
 
         // Parse discriminator
         let discriminator = RaydiumV4Discriminator::from_byte(data[0]).ok_or_else(|| {
@@ -310,7 +308,7 @@ impl ByteSliceEventParser for RaydiumV4Parser {
         })?;
 
         // Update event type based on discriminator
-        metadata.event_type = discriminator.event_type();
+        set_event_type(&mut metadata, discriminator.event_type());
 
         let event = match discriminator {
             RaydiumV4Discriminator::SwapBaseIn => self.parse_swap_base_in(data, metadata)?,
@@ -371,7 +369,7 @@ pub struct RaydiumV4ParserFactory;
 impl RaydiumV4ParserFactory {
     /// Create a new high-performance zero-copy parser
     pub fn create_zero_copy() -> Arc<dyn ByteSliceEventParser> {
-        Arc::new(RaydiumV4Parser::new())
+        Arc::new(RaydiumV4Parser::default())
     }
 
     /// Create a standard parser
@@ -400,14 +398,25 @@ mod tests {
 
     #[test]
     fn test_swap_base_in_parsing() {
-        let parser = RaydiumV4Parser::new();
+        let parser = RaydiumV4Parser::default();
 
         // Create test data: discriminator (1 byte) + amount_in (8 bytes) + min_amount_out (8 bytes)
         let mut data = vec![0x09]; // SwapBaseIn discriminator
         data.extend_from_slice(&1000u64.to_le_bytes()); // amount_in
         data.extend_from_slice(&900u64.to_le_bytes()); // minimum_amount_out
 
-        let metadata = EventMetadata::default();
+        let metadata = create_solana_metadata(
+            String::default(),
+            riglr_events_core::EventKind::Transaction,
+            "test".to_string(),
+            0,
+            None,
+            None,
+            None,
+            None,
+            ProtocolType::RaydiumAmmV4,
+            EventType::default(),
+        );
         let events = parser.parse_from_slice(&data, metadata).unwrap();
 
         assert_eq!(events.len(), 1);
@@ -422,7 +431,7 @@ mod tests {
 
     #[test]
     fn test_can_parse() {
-        let parser = RaydiumV4Parser::new();
+        let parser = RaydiumV4Parser::default();
 
         assert!(parser.can_parse(&[0x09])); // SwapBaseIn
         assert!(parser.can_parse(&[0x0a])); // SwapBaseOut

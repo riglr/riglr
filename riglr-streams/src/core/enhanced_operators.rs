@@ -17,9 +17,13 @@ use riglr_events_core::prelude::*;
 /// Wrapper for batched events that implements Event
 #[derive(Debug, Clone)]
 pub struct BatchEvent<E: Event> {
+    /// The collection of events that are batched together
     pub events: Vec<E>,
+    /// When the batch was created
     pub batch_timestamp: SystemTime,
+    /// Unique identifier for this batch
     pub batch_id: String,
+    /// Event metadata for the batch event
     pub metadata: EventMetadata,
 }
 

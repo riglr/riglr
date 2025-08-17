@@ -26,14 +26,14 @@ impl Default for ChatContext {
     fn default() -> Self {
         Self {
             session_id: format!("chat_{}", chrono::Utc::now().timestamp()),
-            user_preferences: HashMap::new(),
-            conversation_history: Vec::new(),
+            user_preferences: HashMap::default(),
+            conversation_history: Vec::default(),
         }
     }
 }
 
 impl ChatContext {
-    fn new() -> Self {
+    pub fn new() -> Self {
         Self::default()
     }
 
@@ -65,7 +65,7 @@ pub async fn run_chat(config: Arc<Config>) -> Result<()> {
     );
 
     // Initialize chat context
-    let mut context = ChatContext::new();
+    let mut context = ChatContext::default();
 
     // Setup agent with tools
     println!(
@@ -240,7 +240,7 @@ async fn handle_swap_query(_config: &Config, _input: &str) -> Result<String> {
 }
 
 async fn handle_news_query(_config: &Config, input: &str) -> Result<String> {
-    let mut response = String::new();
+    let mut response = String::default();
     response.push_str("📰 Fetching latest crypto news...\n\n");
 
     // Extract search term if any

@@ -6,22 +6,30 @@ use crate::{
 use serde::{Deserialize, Serialize};
 use std::any::Any;
 
-// Import new Event trait from riglr-events-core
-use riglr_events_core::{Event, EventKind, EventMetadata as CoreEventMetadata};
+// Import Event trait and EventMetadata from riglr-events-core
+use riglr_events_core::{Event, EventKind, EventMetadata};
 
 /// Parameters for creating event metadata, reducing function parameter count
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct EventParameters {
+    /// Unique identifier for the event
     pub id: String,
+    /// Transaction signature
     pub signature: String,
+    /// Solana slot number
     pub slot: u64,
+    /// Block timestamp in seconds
     pub block_time: i64,
+    /// Block timestamp in milliseconds
     pub block_time_ms: i64,
+    /// Time when the program received the event in milliseconds
     pub program_received_time_ms: i64,
+    /// Event index within the transaction
     pub index: String,
 }
 
 impl EventParameters {
+    /// Creates a new EventParameters instance with the provided values
     pub fn new(
         id: String,
         signature: String,
@@ -44,24 +52,42 @@ impl EventParameters {
 }
 
 /// Orca Whirlpool swap event
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct OrcaSwapEvent {
+    /// Unique identifier for the event
     pub id: String,
+    /// Transaction signature
     pub signature: String,
+    /// Solana slot number
     pub slot: u64,
+    /// Block timestamp in seconds
     pub block_time: i64,
+    /// Block timestamp in milliseconds
     pub block_time_ms: i64,
+    /// Time when the program received the event in milliseconds
     pub program_received_time_ms: i64,
+    /// Time spent handling the event in milliseconds
     pub program_handle_time_consuming_ms: i64,
+    /// Event index within the transaction
     pub index: String,
+    /// Orca-specific swap data
     pub swap_data: OrcaSwapData,
+    /// Associated token transfer data
     pub transfer_data: Vec<TransferData>,
+    /// Event metadata (excluded from serialization)
     #[serde(skip)]
-    pub core_metadata: Option<CoreEventMetadata>,
+    pub metadata: EventMetadata,
 }
 
 impl OrcaSwapEvent {
+    /// Creates a new OrcaSwapEvent with the provided parameters and swap data
     pub fn new(params: EventParameters, swap_data: OrcaSwapData) -> Self {
+        use crate::types::metadata_helpers;
+        use crate::types::{ProtocolType, EventType};
+        use solana_sdk::pubkey::Pubkey;
+        
+        let metadata = EventMetadata::default();
+        
         Self {
             id: params.id,
             signature: params.signature,
@@ -73,10 +99,11 @@ impl OrcaSwapEvent {
             index: params.index,
             swap_data,
             transfer_data: Vec::new(),
-            core_metadata: None,
+            metadata,
         }
     }
 
+    /// Sets the transfer data for this swap event
     pub fn with_transfer_data(mut self, transfer_data: Vec<TransferData>) -> Self {
         self.transfer_data = transfer_data;
         self
@@ -84,81 +111,142 @@ impl OrcaSwapEvent {
 }
 
 /// Orca position event (open/close)
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct OrcaPositionEvent {
+    /// Unique identifier for the event
     pub id: String,
+    /// Transaction signature
     pub signature: String,
+    /// Solana slot number
     pub slot: u64,
+    /// Block timestamp in seconds
     pub block_time: i64,
+    /// Block timestamp in milliseconds
     pub block_time_ms: i64,
+    /// Time when the program received the event in milliseconds
     pub program_received_time_ms: i64,
+    /// Time spent handling the event in milliseconds
     pub program_handle_time_consuming_ms: i64,
+    /// Event index within the transaction
     pub index: String,
+    /// Orca-specific position data
     pub position_data: OrcaPositionData,
+    /// Whether the position is being opened (true) or closed (false)
     pub is_open: bool,
+    /// Associated token transfer data
     pub transfer_data: Vec<TransferData>,
+    /// Event metadata (excluded from serialization)
     #[serde(skip)]
-    pub core_metadata: Option<CoreEventMetadata>,
+    pub metadata: EventMetadata,
+}
+
+impl OrcaPositionEvent {
+    /// Creates a new OrcaPositionEvent with the provided parameters and position data
+    pub fn new(params: EventParameters, position_data: OrcaPositionData, is_open: bool) -> Self {
+        use crate::types::metadata_helpers;
+        use crate::types::{ProtocolType, EventType};
+        use solana_sdk::pubkey::Pubkey;
+        
+        let metadata = EventMetadata::default();
+        
+        Self {
+            id: params.id,
+            signature: params.signature,
+            slot: params.slot,
+            block_time: params.block_time,
+            block_time_ms: params.block_time_ms,
+            program_received_time_ms: params.program_received_time_ms,
+            program_handle_time_consuming_ms: 0,
+            index: params.index,
+            position_data,
+            is_open,
+            transfer_data: Vec::new(),
+            metadata,
+        }
+    }
+
+    /// Sets the transfer data for this position event
+    pub fn with_transfer_data(mut self, transfer_data: Vec<TransferData>) -> Self {
+        self.transfer_data = transfer_data;
+        self
+    }
 }
 
 /// Orca liquidity event (increase/decrease)
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct OrcaLiquidityEvent {
+    /// Unique identifier for the event
     pub id: String,
+    /// Transaction signature
     pub signature: String,
+    /// Solana slot number
     pub slot: u64,
+    /// Block timestamp in seconds
     pub block_time: i64,
+    /// Block timestamp in milliseconds
     pub block_time_ms: i64,
+    /// Time when the program received the event in milliseconds
     pub program_received_time_ms: i64,
+    /// Time spent handling the event in milliseconds
     pub program_handle_time_consuming_ms: i64,
+    /// Event index within the transaction
     pub index: String,
+    /// Orca-specific liquidity data
     pub liquidity_data: OrcaLiquidityData,
+    /// Associated token transfer data
     pub transfer_data: Vec<TransferData>,
+    /// Event metadata (excluded from serialization)
     #[serde(skip)]
-    pub core_metadata: Option<CoreEventMetadata>,
+    pub metadata: EventMetadata,
+}
+
+impl OrcaLiquidityEvent {
+    /// Creates a new OrcaLiquidityEvent with the provided parameters and liquidity data
+    pub fn new(params: EventParameters, liquidity_data: OrcaLiquidityData) -> Self {
+        use crate::types::metadata_helpers;
+        use crate::types::{ProtocolType, EventType};
+        use solana_sdk::pubkey::Pubkey;
+        
+        let metadata = EventMetadata::default();
+        
+        Self {
+            id: params.id,
+            signature: params.signature,
+            slot: params.slot,
+            block_time: params.block_time,
+            block_time_ms: params.block_time_ms,
+            program_received_time_ms: params.program_received_time_ms,
+            program_handle_time_consuming_ms: 0,
+            index: params.index,
+            liquidity_data,
+            transfer_data: Vec::new(),
+            metadata,
+        }
+    }
+
+    /// Sets the transfer data for this liquidity event
+    pub fn with_transfer_data(mut self, transfer_data: Vec<TransferData>) -> Self {
+        self.transfer_data = transfer_data;
+        self
+    }
 }
 
 // New Event trait implementation for OrcaSwapEvent
 impl Event for OrcaSwapEvent {
     fn id(&self) -> &str {
-        &self.id
+        &self.metadata.id
     }
 
     fn kind(&self) -> &EventKind {
-        if let Some(ref core_metadata) = self.core_metadata {
-            &core_metadata.kind
-        } else {
-            &EventKind::Swap
-        }
+        &self.metadata.kind
     }
 
-    fn metadata(&self) -> &CoreEventMetadata {
-        self.core_metadata
-            .as_ref()
-            .unwrap_or_else(|| panic!("Core metadata not initialized for OrcaSwapEvent"))
+    fn metadata(&self) -> &EventMetadata {
+        &self.metadata
     }
 
-    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
-        if self.core_metadata.is_none() {
-            let chain_data = riglr_events_core::types::ChainData::Solana {
-                slot: self.slot,
-                signature: Some(self.signature.clone()),
-                program_id: None,
-                instruction_index: self.index.parse::<usize>().ok(),
-            };
-
-            self.core_metadata = Some(
-                CoreEventMetadata::with_timestamp(
-                    self.id.clone(),
-                    EventKind::Swap,
-                    "orca".to_string(),
-                    chrono::DateTime::from_timestamp(self.block_time, 0)
-                        .unwrap_or_else(chrono::Utc::now),
-                )
-                .with_chain_data(chain_data),
-            );
-        }
-        self.core_metadata.as_mut().unwrap()
+    fn metadata_mut(&mut self) -> &mut EventMetadata {
+        &mut self.metadata
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -181,44 +269,19 @@ impl Event for OrcaSwapEvent {
 // New Event trait implementation for OrcaPositionEvent
 impl Event for OrcaPositionEvent {
     fn id(&self) -> &str {
-        &self.id
+        &self.metadata.id
     }
 
     fn kind(&self) -> &EventKind {
-        if let Some(ref core_metadata) = self.core_metadata {
-            &core_metadata.kind
-        } else {
-            &EventKind::Contract
-        }
+        &self.metadata.kind
     }
 
-    fn metadata(&self) -> &CoreEventMetadata {
-        self.core_metadata
-            .as_ref()
-            .unwrap_or_else(|| panic!("Core metadata not initialized for OrcaPositionEvent"))
+    fn metadata(&self) -> &EventMetadata {
+        &self.metadata
     }
 
-    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
-        if self.core_metadata.is_none() {
-            let chain_data = riglr_events_core::types::ChainData::Solana {
-                slot: self.slot,
-                signature: Some(self.signature.clone()),
-                program_id: None,
-                instruction_index: self.index.parse::<usize>().ok(),
-            };
-
-            self.core_metadata = Some(
-                CoreEventMetadata::with_timestamp(
-                    self.id.clone(),
-                    EventKind::Contract,
-                    "orca".to_string(),
-                    chrono::DateTime::from_timestamp(self.block_time, 0)
-                        .unwrap_or_else(chrono::Utc::now),
-                )
-                .with_chain_data(chain_data),
-            );
-        }
-        self.core_metadata.as_mut().unwrap()
+    fn metadata_mut(&mut self) -> &mut EventMetadata {
+        &mut self.metadata
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -241,44 +304,19 @@ impl Event for OrcaPositionEvent {
 // New Event trait implementation for OrcaLiquidityEvent
 impl Event for OrcaLiquidityEvent {
     fn id(&self) -> &str {
-        &self.id
+        &self.metadata.id
     }
 
     fn kind(&self) -> &EventKind {
-        if let Some(ref core_metadata) = self.core_metadata {
-            &core_metadata.kind
-        } else {
-            &EventKind::Liquidity
-        }
+        &self.metadata.kind
     }
 
-    fn metadata(&self) -> &CoreEventMetadata {
-        self.core_metadata
-            .as_ref()
-            .unwrap_or_else(|| panic!("Core metadata not initialized for OrcaLiquidityEvent"))
+    fn metadata(&self) -> &EventMetadata {
+        &self.metadata
     }
 
-    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
-        if self.core_metadata.is_none() {
-            let chain_data = riglr_events_core::types::ChainData::Solana {
-                slot: self.slot,
-                signature: Some(self.signature.clone()),
-                program_id: None,
-                instruction_index: self.index.parse::<usize>().ok(),
-            };
-
-            self.core_metadata = Some(
-                CoreEventMetadata::with_timestamp(
-                    self.id.clone(),
-                    EventKind::Liquidity,
-                    "orca".to_string(),
-                    chrono::DateTime::from_timestamp(self.block_time, 0)
-                        .unwrap_or_else(chrono::Utc::now),
-                )
-                .with_chain_data(chain_data),
-            );
-        }
-        self.core_metadata.as_mut().unwrap()
+    fn metadata_mut(&mut self) -> &mut EventMetadata {
+        &mut self.metadata
     }
 
     fn as_any(&self) -> &dyn Any {

@@ -69,7 +69,7 @@ pub struct Metric {
 }
 
 /// Indexer-specific metrics
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct IndexerMetrics {
     /// Total events processed
     pub events_processed_total: u64,
@@ -90,7 +90,7 @@ pub struct IndexerMetrics {
 }
 
 /// Performance metrics summary
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct PerformanceMetrics {
     /// Throughput metrics
     pub throughput: ThroughputMetrics,
@@ -103,7 +103,7 @@ pub struct PerformanceMetrics {
 }
 
 /// Throughput metrics
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct ThroughputMetrics {
     /// Events per second (current)
     pub events_per_second: f64,
@@ -116,7 +116,7 @@ pub struct ThroughputMetrics {
 }
 
 /// Latency metrics
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct LatencyMetrics {
     /// Average latency in milliseconds
     pub avg_latency_ms: f64,
@@ -131,7 +131,7 @@ pub struct LatencyMetrics {
 }
 
 /// Resource utilization metrics
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct ResourceMetrics {
     /// CPU usage percentage
     pub cpu_usage_percent: f64,
@@ -146,7 +146,7 @@ pub struct ResourceMetrics {
 }
 
 /// Error metrics
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct ErrorMetrics {
     /// Total error count
     pub total_errors: u64,
@@ -184,7 +184,7 @@ impl MetricsRegistry {
 
     /// Get a metric by name
     pub fn get_metric(&self, name: &str) -> Option<Metric> {
-        self.metrics.get(name).map(|entry| entry.clone())
+        self.metrics.get(name).map(|entry| entry.value().clone())
     }
 
     /// Get all metrics
@@ -281,7 +281,7 @@ impl MetricsRegistry {
 
     /// Export metrics in Prometheus format
     pub fn export_prometheus(&self) -> String {
-        let mut output = String::new();
+        let mut output = String::default();
 
         for entry in self.metrics.iter() {
             let metric = entry.value();
@@ -357,24 +357,4 @@ impl MetricsRegistry {
     }
 }
 
-impl IndexerMetrics {
-    /// Create new IndexerMetrics with default values
-    pub fn new() -> Self {
-        Self::default()
-    }
-}
 
-impl Default for IndexerMetrics {
-    fn default() -> Self {
-        Self {
-            events_processed_total: 0,
-            events_processing_rate: 0.0,
-            processing_latency_ms: 0.0,
-            queue_depth: 0,
-            active_workers: 0,
-            error_rate: 0.0,
-            storage_size_bytes: 0,
-            cache_hit_rate: 0.0,
-        }
-    }
-}

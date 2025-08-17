@@ -19,9 +19,11 @@ use tracing::{debug, info};
 pub struct JupiterConfig {
     /// Jupiter API base URL
     pub api_url: String,
+    /// Maximum acceptable slippage in basis points (e.g., 50 = 0.5%)
     pub slippage_bps: u16,
     /// Whether to use only direct routes
     pub only_direct_routes: bool,
+    /// Maximum number of accounts to use in the transaction
     pub max_accounts: Option<usize>,
 }
 
@@ -424,52 +426,70 @@ fn calculate_price_impact(quote: &JupiterQuoteResponse) -> f64 {
 
 /// Jupiter quote response
 #[derive(Debug, Clone, Serialize, Deserialize)]
-
 struct JupiterQuoteResponse {
+    /// Input amount in smallest token units
     pub in_amount: u64,
+    /// Output amount in smallest token units
     pub out_amount: u64,
+    /// Minimum output amount after slippage
     pub other_amount_threshold: u64,
+    /// Detailed routing plan through DEXs
     pub route_plan: Vec<RoutePlanStep>,
+    /// Solana slot context for quote freshness
     pub context_slot: Option<u64>,
+    /// Time taken to compute the quote in seconds
     pub time_taken: Option<f64>,
+    /// Price impact percentage for the swap
     pub price_impact_pct: Option<f64>,
 }
 
 /// Jupiter swap response
 #[derive(Debug, Clone, Serialize, Deserialize)]
-
 struct JupiterSwapResponse {
+    /// Base64 encoded transaction ready for signing
     pub swap_transaction: String,
+    /// Last valid block height for transaction expiry
     pub last_valid_block_height: u64,
+    /// Optional prioritization fee in lamports
     pub prioritization_fee: Option<u64>,
 }
 
 /// Route plan step in Jupiter quote
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-
 pub struct RoutePlanStep {
+    /// Detailed swap information for this step
     pub swap_info: SwapInfo,
+    /// Percentage of input amount for this route step
     pub percent: u8,
 }
 
 /// Swap information for a route step
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-
 pub struct SwapInfo {
+    /// AMM program public key performing the swap
     pub amm_key: String,
+    /// Human-readable DEX name (e.g., "Raydium", "Orca")
     pub label: Option<String>,
+    /// Input token mint address for this step
     pub input_mint: String,
+    /// Output token mint address for this step
     pub output_mint: String,
+    /// Input amount for this swap step
     pub in_amount: String,
+    /// Output amount for this swap step
     pub out_amount: String,
+    /// Fee amount charged by the DEX
     pub fee_amount: String,
+    /// Token mint address for the fee
     pub fee_mint: String,
 }
 
 /// Result of a swap quote from Jupiter
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct SwapQuote {
+    /// Source token mint address
     pub input_mint: String,
+    /// Destination token mint address
     pub output_mint: String,
     /// Input amount
     pub in_amount: u64,
@@ -492,7 +512,9 @@ pub struct SwapQuote {
 pub struct SwapResult {
     /// Transaction signature
     pub signature: String,
+    /// Source token mint address
     pub input_mint: String,
+    /// Destination token mint address
     pub output_mint: String,
     /// Input amount
     pub in_amount: u64,
@@ -509,7 +531,9 @@ pub struct SwapResult {
 /// Token price information
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct PriceInfo {
+    /// Token being priced (the asset)
     pub base_mint: String,
+    /// Token used for pricing (usually USDC or SOL)
     pub quote_mint: String,
     /// Price of base in terms of quote
     pub price: f64,

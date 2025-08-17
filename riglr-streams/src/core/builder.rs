@@ -21,41 +21,52 @@ use crate::solana::geyser::{GeyserConfig, SolanaGeyserStream};
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(tag = "type")]
 pub enum StreamConfig {
+    /// Solana Geyser stream configuration for monitoring Solana blockchain events
     SolanaGeyser {
+        /// Unique name identifier for the stream
         name: String,
+        /// Geyser-specific configuration parameters
         config: GeyserConfig,
     },
+    /// EVM WebSocket stream configuration for monitoring EVM-compatible blockchain events
     EvmWebSocket {
+        /// Unique name identifier for the stream
         name: String,
+        /// EVM WebSocket-specific configuration parameters
         config: EvmStreamConfig,
     },
+    /// Binance stream configuration for monitoring Binance exchange data
     Binance {
+        /// Unique name identifier for the stream
         name: String,
+        /// Binance-specific configuration parameters
         config: BinanceConfig,
     },
+    /// Mempool.space stream configuration for monitoring Bitcoin mempool data
     MempoolSpace {
+        /// Unique name identifier for the stream
         name: String,
+        /// Mempool.space-specific configuration parameters
         config: MempoolConfig,
     },
 }
 
 /// Builder for StreamManager with configuration loading
 pub struct StreamManagerBuilder {
+    /// Handler execution mode for processing stream events
     execution_mode: HandlerExecutionMode,
+    /// Collection of configured streams to be managed
     streams: Vec<StreamConfig>,
+    /// Flag to enable or disable metrics collection
     enable_metrics: bool,
+    /// Optional custom metrics collector instance
     metrics_collector: Option<Arc<MetricsCollector>>,
 }
 
 impl StreamManagerBuilder {
     /// Create a new builder
     pub fn new() -> Self {
-        Self {
-            execution_mode: HandlerExecutionMode::default(),
-            streams: Vec::default(),
-            enable_metrics: true,
-            metrics_collector: None,
-        }
+        Self::default()
     }
 
     /// Set the handler execution mode
@@ -207,7 +218,7 @@ impl StreamManagerBuilder {
         // Set up metrics collector if enabled
         let metrics = if self.enable_metrics {
             self.metrics_collector
-                .or_else(|| Some(Arc::new(MetricsCollector::new())))
+                .or_else(|| Some(Arc::new(MetricsCollector::default())))
         } else {
             None
         };
@@ -272,14 +283,17 @@ impl Default for StreamManagerBuilder {
 /// Configuration structure for loading from TOML
 #[derive(Debug, Deserialize)]
 pub struct StreamManagerConfig {
+    /// Optional handler execution mode override
     pub execution_mode: Option<HandlerExecutionMode>,
+    /// Optional flag to enable or disable metrics collection
     pub enable_metrics: Option<bool>,
+    /// Collection of stream configurations to load
     pub streams: Vec<StreamConfig>,
 }
 
 /// Helper to load and build a StreamManager from a TOML file
 pub async fn from_config_file(path: &str) -> Result<StreamManager, Box<dyn std::error::Error>> {
-    StreamManagerBuilder::new()
+    StreamManagerBuilder::default()
         .from_toml_file(path)
         .await?
         .build()
@@ -288,7 +302,7 @@ pub async fn from_config_file(path: &str) -> Result<StreamManager, Box<dyn std::
 
 /// Helper to load and build a StreamManager from environment variables
 pub async fn from_env() -> Result<StreamManager, Box<dyn std::error::Error>> {
-    StreamManagerBuilder::new().from_env()?.build().await
+    StreamManagerBuilder::default().from_env()?.build().await
 }
 
 #[cfg(test)]
@@ -297,7 +311,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_builder_basic() {
-        let manager = StreamManagerBuilder::new()
+        let manager = StreamManagerBuilder::default()
             .with_execution_mode(HandlerExecutionMode::Concurrent)
             .with_metrics(true)
             .build()
@@ -318,7 +332,7 @@ mod tests {
             },
         };
 
-        let _manager = StreamManagerBuilder::new()
+        let _manager = StreamManagerBuilder::default()
             .add_stream(config)
             .with_metrics(false)
             .build()

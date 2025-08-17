@@ -4,6 +4,7 @@
 //! where possible, providing significant performance improvements for high-throughput
 //! parsing scenarios.
 
+use crate::metadata_helpers::{get_event_type, get_instruction_index, get_protocol_type, get_signature, get_slot};
 use crate::types::{EventMetadata, EventType, ProtocolType};
 use solana_sdk::pubkey::Pubkey;
 use std::borrow::Cow;
@@ -89,38 +90,38 @@ impl<'a> ZeroCopyEvent<'a> {
 
     /// Get event type for any lifetime
     pub fn event_type(&self) -> EventType {
-        self.metadata.event_type.clone()
+        get_event_type(&self.metadata).unwrap_or_default()
     }
 
     /// Get signature for any lifetime
     pub fn signature(&self) -> &str {
-        &self.metadata.signature
+        get_signature(&self.metadata).unwrap_or("")
     }
 
     /// Get slot for any lifetime
     pub fn slot(&self) -> u64 {
-        self.metadata.slot
+        get_slot(&self.metadata).unwrap_or(0)
     }
 
     /// Get protocol type for any lifetime
     pub fn protocol_type(&self) -> ProtocolType {
-        self.metadata.protocol_type.clone()
+        get_protocol_type(&self.metadata).unwrap_or_default()
     }
 
     /// Get index for any lifetime
     pub fn index(&self) -> String {
-        self.metadata.index.clone()
+        get_instruction_index(&self.metadata).map(|i| i.to_string()).unwrap_or_default()
     }
 
     /// Get timestamp for any lifetime
     pub fn timestamp(&self) -> std::time::SystemTime {
-        std::time::UNIX_EPOCH
-            + std::time::Duration::from_millis(self.metadata.program_received_time_ms as u64)
+        // Use the timestamp from metadata which is already a DateTime<Utc>
+        std::time::SystemTime::from(self.metadata.timestamp)
     }
 
     /// Get block number for any lifetime
     pub fn block_number(&self) -> Option<u64> {
-        Some(self.metadata.slot)
+        get_slot(&self.metadata)
     }
 }
 

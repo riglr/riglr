@@ -7,68 +7,88 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct ProvidersConfig {
     // AI Providers
+    /// API key for Anthropic Claude
     #[serde(default)]
     pub anthropic_api_key: Option<String>,
 
+    /// API key for OpenAI
     #[serde(default)]
     pub openai_api_key: Option<String>,
 
+    /// API key for Groq
     #[serde(default)]
     pub groq_api_key: Option<String>,
 
+    /// API key for Perplexity AI
     #[serde(default)]
     pub perplexity_api_key: Option<String>,
 
     // Blockchain Data Providers
+    /// API key for Alchemy
     #[serde(default)]
     pub alchemy_api_key: Option<String>,
 
+    /// API key for Infura
     #[serde(default)]
     pub infura_api_key: Option<String>,
 
+    /// API key for QuickNode
     #[serde(default)]
     pub quicknode_api_key: Option<String>,
 
+    /// API key for Moralis
     #[serde(default)]
     pub moralis_api_key: Option<String>,
 
     // Cross-chain and DeFi
+    /// API key for LI.FI
     #[serde(default)]
     pub lifi_api_key: Option<String>,
 
+    /// API key for 1inch
     #[serde(default)]
     pub one_inch_api_key: Option<String>,
 
+    /// API key for 0x Protocol
     #[serde(default)]
     pub zerox_api_key: Option<String>,
 
     // Market Data
+    /// API key for DexScreener
     #[serde(default)]
     pub dexscreener_api_key: Option<String>,
 
+    /// API key for CoinGecko
     #[serde(default)]
     pub coingecko_api_key: Option<String>,
 
+    /// API key for CoinMarketCap
     #[serde(default)]
     pub coinmarketcap_api_key: Option<String>,
 
+    /// API key for Pump.fun
     #[serde(default)]
     pub pump_api_key: Option<String>,
 
     // Social and Web Data
+    /// Bearer token for Twitter API
     #[serde(default)]
     pub twitter_bearer_token: Option<String>,
 
+    /// API key for Exa
     #[serde(default)]
     pub exa_api_key: Option<String>,
 
+    /// API key for Serper
     #[serde(default)]
     pub serper_api_key: Option<String>,
 
     // News and Analytics
+    /// API key for LunarCrush
     #[serde(default)]
     pub lunarcrush_api_key: Option<String>,
 
+    /// API key for NewsAPI
     #[serde(default)]
     pub newsapi_key: Option<String>,
 }
@@ -125,6 +145,7 @@ impl ProvidersConfig {
         }
     }
 
+    /// Validate API key formats and configurations
     pub fn validate(&self) -> ConfigResult<()> {
         // Validate API key formats
         if let Some(ref key) = self.anthropic_api_key {
@@ -147,27 +168,40 @@ impl ProvidersConfig {
 /// AI provider enumeration
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AiProvider {
+    /// Anthropic Claude AI provider
     Anthropic,
+    /// OpenAI provider
     OpenAI,
+    /// Groq provider
     Groq,
+    /// Perplexity AI provider
     Perplexity,
 }
 
 /// Blockchain data provider enumeration
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BlockchainProvider {
+    /// Alchemy blockchain data provider
     Alchemy,
+    /// Infura blockchain infrastructure provider
     Infura,
+    /// QuickNode blockchain infrastructure provider
     QuickNode,
+    /// Moralis Web3 development platform
     Moralis,
 }
 
 /// Data provider enumeration
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DataProvider {
+    /// DexScreener DEX analytics provider
     DexScreener,
+    /// CoinGecko cryptocurrency data provider
     CoinGecko,
+    /// CoinMarketCap cryptocurrency market data provider
     CoinMarketCap,
+    /// Twitter social media data provider
     Twitter,
+    /// LunarCrush social analytics provider
     LunarCrush,
 }

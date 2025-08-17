@@ -18,7 +18,7 @@ fn test_raw_text_document_new() {
 
 #[test]
 fn test_raw_text_document_with_metadata() {
-    let mut metadata = DocumentMetadata::new();
+    let mut metadata = DocumentMetadata::default();
     metadata.title = Some("Test Document".to_string());
     metadata.add_tag("test");
 
@@ -128,7 +128,7 @@ fn test_raw_text_document_serialization() {
 
 #[test]
 fn test_document_metadata_new() {
-    let metadata = DocumentMetadata::new();
+    let metadata = DocumentMetadata::default();
 
     assert!(metadata.title.is_none());
     assert!(metadata.tags.is_empty());
@@ -144,7 +144,7 @@ fn test_document_metadata_new() {
 
 #[test]
 fn test_document_metadata_add_tag() {
-    let mut metadata = DocumentMetadata::new();
+    let mut metadata = DocumentMetadata::default();
 
     metadata.add_tag("defi");
     metadata.add_tag("ethereum");
@@ -155,7 +155,7 @@ fn test_document_metadata_add_tag() {
 
 #[test]
 fn test_document_metadata_add_wallet() {
-    let mut metadata = DocumentMetadata::new();
+    let mut metadata = DocumentMetadata::default();
 
     metadata.add_wallet("0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb");
     metadata.add_wallet("0x123456789abcdef");
@@ -168,7 +168,7 @@ fn test_document_metadata_add_wallet() {
 
 #[test]
 fn test_document_metadata_add_token() {
-    let mut metadata = DocumentMetadata::new();
+    let mut metadata = DocumentMetadata::default();
 
     metadata.add_token("0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48");
     metadata.add_token("0xdAC17F958D2ee523a2206206994597C13D831ec7");
@@ -178,7 +178,7 @@ fn test_document_metadata_add_token() {
 
 #[test]
 fn test_document_metadata_add_protocol() {
-    let mut metadata = DocumentMetadata::new();
+    let mut metadata = DocumentMetadata::default();
 
     metadata.add_protocol("Uniswap");
     metadata.add_protocol("Aave");
@@ -189,7 +189,7 @@ fn test_document_metadata_add_protocol() {
 
 #[test]
 fn test_document_metadata_complex() {
-    let mut metadata = DocumentMetadata::new();
+    let mut metadata = DocumentMetadata::default();
 
     metadata.title = Some("DeFi Transaction Analysis".to_string());
     metadata.chain = Some("ethereum".to_string());
@@ -221,7 +221,7 @@ fn test_document_metadata_complex() {
 
 #[test]
 fn test_document_metadata_serialization() {
-    let mut metadata = DocumentMetadata::new();
+    let mut metadata = DocumentMetadata::default();
     metadata.title = Some("Test".to_string());
     metadata.chain = Some("solana".to_string());
     metadata.add_tag("test");
@@ -509,7 +509,7 @@ fn test_complex_extracted_entities() {
 #[test]
 fn test_all_serialization_roundtrip() {
     // Test complete serialization/deserialization
-    let mut metadata = DocumentMetadata::new();
+    let mut metadata = DocumentMetadata::default();
     metadata.title = Some("Test".to_string());
     metadata.add_tag("blockchain");
     metadata
@@ -605,7 +605,7 @@ fn test_document_clone() {
 
 #[test]
 fn test_metadata_clone() {
-    let mut metadata = DocumentMetadata::new();
+    let mut metadata = DocumentMetadata::default();
     metadata.title = Some("Test".to_string());
     metadata.add_tag("tag1");
 

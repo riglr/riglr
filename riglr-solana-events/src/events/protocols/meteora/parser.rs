@@ -12,7 +12,7 @@ use super::{
 use crate::{
     events::common::utils::{has_discriminator, parse_u32_le, parse_u64_le},
     events::core::{EventParser, GenericEventParseConfig},
-    types::{EventMetadata, EventType, ProtocolType},
+    types::{metadata_helpers, EventMetadata, EventType, ProtocolType},
 };
 use riglr_events_core::Event;
 use solana_sdk::pubkey::Pubkey;
@@ -26,7 +26,110 @@ pub struct MeteoraEventParser {
 }
 
 impl MeteoraEventParser {
+    /// Creates a new Meteora event parser with default configurations
     pub fn new() -> Self {
+        Self::default()
+    }
+}
+
+#[async_trait::async_trait]
+impl EventParser for MeteoraEventParser {
+    fn inner_instruction_configs(&self) -> HashMap<&'static str, Vec<GenericEventParseConfig>> {
+        self.inner_instruction_configs.clone()
+    }
+
+    fn instruction_configs(&self) -> HashMap<Vec<u8>, Vec<GenericEventParseConfig>> {
+        self.instruction_configs.clone()
+    }
+
+    fn parse_events_from_inner_instruction(
+        &self,
+        inner_instruction: &solana_transaction_status::UiCompiledInstruction,
+        signature: &str,
+        slot: u64,
+        block_time: Option<i64>,
+        program_received_time_ms: i64,
+        index: String,
+    ) -> Vec<Box<dyn Event>> {
+        let mut events = Vec::new();
+
+        // For inner instructions, we'll use the data to identify the instruction type
+        if let Ok(data) = bs58::decode(&inner_instruction.data).into_vec() {
+            for configs in self.inner_instruction_configs.values() {
+                for config in configs {
+                    let metadata = metadata_helpers::create_solana_metadata(
+                        format!("{}_{}", signature, index),
+                        signature.to_string(),
+                        slot,
+                        block_time.unwrap_or(0),
+                        config.protocol_type.clone(),
+                        config.event_type.clone(),
+                        config.program_id,
+                        index.clone(),
+                        program_received_time_ms,
+                    );
+
+                    if let Some(event) = (config.inner_instruction_parser)(&data, metadata) {
+                        events.push(event);
+                    }
+                }
+            }
+        }
+
+        events
+    }
+
+    fn parse_events_from_instruction(
+        &self,
+        instruction: &solana_sdk::instruction::CompiledInstruction,
+        accounts: &[Pubkey],
+        signature: &str,
+        slot: u64,
+        block_time: Option<i64>,
+        program_received_time_ms: i64,
+        index: String,
+    ) -> Vec<Box<dyn Event>> {
+        let mut events = Vec::new();
+
+        // Check each discriminator
+        for (discriminator, configs) in &self.instruction_configs {
+            if has_discriminator(&instruction.data, discriminator) {
+                for config in configs {
+                    let metadata = metadata_helpers::create_solana_metadata(
+                        format!("{}_{}", signature, index),
+                        signature.to_string(),
+                        slot,
+                        block_time.unwrap_or(0),
+                        config.protocol_type.clone(),
+                        config.event_type.clone(),
+                        config.program_id,
+                        index.clone(),
+                        program_received_time_ms,
+                    );
+
+                    if let Some(event) =
+                        (config.instruction_parser)(&instruction.data, accounts, metadata)
+                    {
+                        events.push(event);
+                    }
+                }
+            }
+        }
+
+        events
+    }
+
+    fn should_handle(&self, program_id: &Pubkey) -> bool {
+        self.program_ids.contains(program_id)
+    }
+
+    fn supported_program_ids(&self) -> Vec<Pubkey> {
+        self.program_ids.clone()
+    }
+}
+
+impl Default for MeteoraEventParser {
+    fn default() -> Self {
         let program_ids = vec![meteora_dlmm_program_id(), meteora_dynamic_program_id()];
 
         let configs = vec![
@@ -101,110 +204,6 @@ impl MeteoraEventParser {
     }
 }
 
-#[async_trait::async_trait]
-impl EventParser for MeteoraEventParser {
-    fn inner_instruction_configs(&self) -> HashMap<&'static str, Vec<GenericEventParseConfig>> {
-        self.inner_instruction_configs.clone()
-    }
-
-    fn instruction_configs(&self) -> HashMap<Vec<u8>, Vec<GenericEventParseConfig>> {
-        self.instruction_configs.clone()
-    }
-
-    fn parse_events_from_inner_instruction(
-        &self,
-        inner_instruction: &solana_transaction_status::UiCompiledInstruction,
-        signature: &str,
-        slot: u64,
-        block_time: Option<i64>,
-        program_received_time_ms: i64,
-        index: String,
-    ) -> Vec<Box<dyn Event>> {
-        let mut events = Vec::new();
-
-        // For inner instructions, we'll use the data to identify the instruction type
-        if let Ok(data) = bs58::decode(&inner_instruction.data).into_vec() {
-            for configs in self.inner_instruction_configs.values() {
-                for config in configs {
-                    let metadata = EventMetadata::new(
-                        format!("{}_{}", signature, index),
-                        signature.to_string(),
-                        slot,
-                        block_time.unwrap_or(0),
-                        block_time.unwrap_or(0) * 1000,
-                        config.protocol_type.clone(),
-                        config.event_type.clone(),
-                        config.program_id,
-                        index.clone(),
-                        program_received_time_ms,
-                    );
-
-                    if let Some(event) = (config.inner_instruction_parser)(&data, metadata) {
-                        events.push(event);
-                    }
-                }
-            }
-        }
-
-        events
-    }
-
-    fn parse_events_from_instruction(
-        &self,
-        instruction: &solana_sdk::instruction::CompiledInstruction,
-        accounts: &[Pubkey],
-        signature: &str,
-        slot: u64,
-        block_time: Option<i64>,
-        program_received_time_ms: i64,
-        index: String,
-    ) -> Vec<Box<dyn Event>> {
-        let mut events = Vec::new();
-
-        // Check each discriminator
-        for (discriminator, configs) in &self.instruction_configs {
-            if has_discriminator(&instruction.data, discriminator) {
-                for config in configs {
-                    let metadata = EventMetadata::new(
-                        format!("{}_{}", signature, index),
-                        signature.to_string(),
-                        slot,
-                        block_time.unwrap_or(0),
-                        block_time.unwrap_or(0) * 1000,
-                        config.protocol_type.clone(),
-                        config.event_type.clone(),
-                        config.program_id,
-                        index.clone(),
-                        program_received_time_ms,
-                    );
-
-                    if let Some(event) =
-                        (config.instruction_parser)(&instruction.data, accounts, metadata)
-                    {
-                        events.push(event);
-                    }
-                }
-            }
-        }
-
-        events
-    }
-
-    fn should_handle(&self, program_id: &Pubkey) -> bool {
-        self.program_ids.contains(program_id)
-    }
-
-    fn supported_program_ids(&self) -> Vec<Pubkey> {
-        self.program_ids.clone()
-    }
-}
-
-impl Default for MeteoraEventParser {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 // Parser functions for DLMM instructions
 
 fn parse_meteora_dlmm_swap_inner_instruction(
@@ -214,13 +213,13 @@ fn parse_meteora_dlmm_swap_inner_instruction(
     parse_meteora_dlmm_swap_data(data).map(|swap_data| {
         Box::new(MeteoraSwapEvent::new(
             EventParameters::new(
-                metadata.id,
-                metadata.signature,
+                metadata.id().to_string(),
+                metadata.signature.clone(),
                 metadata.slot,
-                metadata.block_time,
-                metadata.block_time_ms,
+                0, // block_time - not available in SolanaEventMetadata
+                0, // block_time_ms - not available in SolanaEventMetadata
                 metadata.program_received_time_ms,
-                metadata.index,
+                metadata.index.clone(),
             ),
             swap_data,
         )) as Box<dyn Event>
@@ -235,13 +234,13 @@ fn parse_meteora_dlmm_swap_instruction(
     parse_meteora_dlmm_swap_data_from_instruction(data, accounts).map(|swap_data| {
         Box::new(MeteoraSwapEvent::new(
             EventParameters::new(
-                metadata.id,
-                metadata.signature,
+                metadata.id().to_string(),
+                metadata.signature.clone(),
                 metadata.slot,
-                metadata.block_time,
-                metadata.block_time_ms,
+                0, // block_time - not available in SolanaEventMetadata
+                0, // block_time_ms - not available in SolanaEventMetadata
                 metadata.program_received_time_ms,
-                metadata.index,
+                metadata.index.clone(),
             ),
             swap_data,
         )) as Box<dyn Event>
@@ -254,17 +253,17 @@ fn parse_meteora_dlmm_add_liquidity_inner_instruction(
 ) -> Option<Box<dyn Event>> {
     parse_meteora_dlmm_liquidity_data(data, true).map(|liquidity_data| {
         Box::new(MeteoraLiquidityEvent {
-            id: metadata.id,
-            signature: metadata.signature,
+            id: metadata.id().to_string(),
+            signature: metadata.signature.clone(),
             slot: metadata.slot,
-            block_time: metadata.block_time,
-            block_time_ms: metadata.block_time_ms,
+            block_time: 0, // Not available in SolanaEventMetadata
+            block_time_ms: 0, // Not available in SolanaEventMetadata,
             program_received_time_ms: metadata.program_received_time_ms,
             program_handle_time_consuming_ms: 0,
-            index: metadata.index,
+            index: metadata.index.clone(),
             liquidity_data,
             transfer_data: Vec::new(),
-            core_metadata: None,
+            metadata: metadata.core,
         }) as Box<dyn Event>
     })
 }
@@ -276,17 +275,17 @@ fn parse_meteora_dlmm_add_liquidity_instruction(
 ) -> Option<Box<dyn Event>> {
     parse_meteora_dlmm_liquidity_data_from_instruction(data, accounts, true).map(|liquidity_data| {
         Box::new(MeteoraLiquidityEvent {
-            id: metadata.id,
-            signature: metadata.signature,
+            id: metadata.id().to_string(),
+            signature: metadata.signature.clone(),
             slot: metadata.slot,
-            block_time: metadata.block_time,
-            block_time_ms: metadata.block_time_ms,
+            block_time: 0, // Not available in SolanaEventMetadata
+            block_time_ms: 0, // Not available in SolanaEventMetadata,
             program_received_time_ms: metadata.program_received_time_ms,
             program_handle_time_consuming_ms: 0,
-            index: metadata.index,
+            index: metadata.index.clone(),
             liquidity_data,
             transfer_data: Vec::new(),
-            core_metadata: None,
+            metadata: metadata.core,
         }) as Box<dyn Event>
     })
 }
@@ -297,17 +296,17 @@ fn parse_meteora_dlmm_remove_liquidity_inner_instruction(
 ) -> Option<Box<dyn Event>> {
     parse_meteora_dlmm_liquidity_data(data, false).map(|liquidity_data| {
         Box::new(MeteoraLiquidityEvent {
-            id: metadata.id,
-            signature: metadata.signature,
+            id: metadata.id().to_string(),
+            signature: metadata.signature.clone(),
             slot: metadata.slot,
-            block_time: metadata.block_time,
-            block_time_ms: metadata.block_time_ms,
+            block_time: 0, // Not available in SolanaEventMetadata
+            block_time_ms: 0, // Not available in SolanaEventMetadata,
             program_received_time_ms: metadata.program_received_time_ms,
             program_handle_time_consuming_ms: 0,
-            index: metadata.index,
+            index: metadata.index.clone(),
             liquidity_data,
             transfer_data: Vec::new(),
-            core_metadata: None,
+            metadata: metadata.core,
         }) as Box<dyn Event>
     })
 }
@@ -320,17 +319,17 @@ fn parse_meteora_dlmm_remove_liquidity_instruction(
     parse_meteora_dlmm_liquidity_data_from_instruction(data, accounts, false).map(
         |liquidity_data| {
             Box::new(MeteoraLiquidityEvent {
-                id: metadata.id,
-                signature: metadata.signature,
+                id: metadata.id().to_string(),
+                signature: metadata.signature.clone(),
                 slot: metadata.slot,
-                block_time: metadata.block_time,
-                block_time_ms: metadata.block_time_ms,
+                block_time: 0, // Not available in SolanaEventMetadata
+                block_time_ms: 0, // Not available in SolanaEventMetadata,
                 program_received_time_ms: metadata.program_received_time_ms,
                 program_handle_time_consuming_ms: 0,
-                index: metadata.index,
+                index: metadata.index.clone(),
                 liquidity_data,
                 transfer_data: Vec::new(),
-                core_metadata: None,
+                metadata: metadata.core,
             }) as Box<dyn Event>
         },
     )
@@ -344,17 +343,17 @@ fn parse_meteora_dynamic_add_liquidity_inner_instruction(
 ) -> Option<Box<dyn Event>> {
     parse_meteora_dynamic_liquidity_data(data, true).map(|liquidity_data| {
         Box::new(MeteoraDynamicLiquidityEvent {
-            id: metadata.id,
-            signature: metadata.signature,
+            id: metadata.id().to_string(),
+            signature: metadata.signature.clone(),
             slot: metadata.slot,
-            block_time: metadata.block_time,
-            block_time_ms: metadata.block_time_ms,
+            block_time: 0, // Not available in SolanaEventMetadata
+            block_time_ms: 0, // Not available in SolanaEventMetadata,
             program_received_time_ms: metadata.program_received_time_ms,
             program_handle_time_consuming_ms: 0,
-            index: metadata.index,
+            index: metadata.index.clone(),
             liquidity_data,
             transfer_data: Vec::new(),
-            core_metadata: None,
+            metadata: metadata.core,
         }) as Box<dyn Event>
     })
 }
@@ -374,10 +373,10 @@ fn parse_meteora_dynamic_add_liquidity_instruction(
                 block_time_ms: metadata.block_time_ms,
                 program_received_time_ms: metadata.program_received_time_ms,
                 program_handle_time_consuming_ms: 0,
-                index: metadata.index,
+                index: metadata.index.clone(),
                 liquidity_data,
                 transfer_data: Vec::new(),
-                core_metadata: None,
+                metadata: metadata.core,
             }) as Box<dyn Event>
         },
     )
@@ -389,17 +388,17 @@ fn parse_meteora_dynamic_remove_liquidity_inner_instruction(
 ) -> Option<Box<dyn Event>> {
     parse_meteora_dynamic_liquidity_data(data, false).map(|liquidity_data| {
         Box::new(MeteoraDynamicLiquidityEvent {
-            id: metadata.id,
-            signature: metadata.signature,
+            id: metadata.id().to_string(),
+            signature: metadata.signature.clone(),
             slot: metadata.slot,
-            block_time: metadata.block_time,
-            block_time_ms: metadata.block_time_ms,
+            block_time: 0, // Not available in SolanaEventMetadata
+            block_time_ms: 0, // Not available in SolanaEventMetadata,
             program_received_time_ms: metadata.program_received_time_ms,
             program_handle_time_consuming_ms: 0,
-            index: metadata.index,
+            index: metadata.index.clone(),
             liquidity_data,
             transfer_data: Vec::new(),
-            core_metadata: None,
+            metadata: metadata.core,
         }) as Box<dyn Event>
     })
 }
@@ -419,10 +418,10 @@ fn parse_meteora_dynamic_remove_liquidity_instruction(
                 block_time_ms: metadata.block_time_ms,
                 program_received_time_ms: metadata.program_received_time_ms,
                 program_handle_time_consuming_ms: 0,
-                index: metadata.index,
+                index: metadata.index.clone(),
                 liquidity_data,
                 transfer_data: Vec::new(),
-                core_metadata: None,
+                metadata: metadata.core,
             }) as Box<dyn Event>
         },
     )

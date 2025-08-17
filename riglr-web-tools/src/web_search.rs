@@ -275,7 +275,7 @@ pub struct SimilarityMetadata {
 impl Default for WebSearchConfig {
     fn default() -> Self {
         Self {
-            exa_api_key: std::env::var(EXA_API_KEY).unwrap_or_default(),
+            exa_api_key: std::env::var(EXA_API_KEY).unwrap_or_else(|_| String::default()),
             exa_base_url: "https://api.exa.ai".to_string(),
             max_results: 20,
             timeout_seconds: 30,
@@ -311,8 +311,7 @@ pub async fn search_web(
         ));
     }
 
-    let client = WebClient::new()
-        .map_err(|e| WebToolError::Client(format!("Failed to create client: {}", e)))?
+    let client = WebClient::default()
         .with_exa_key(config.exa_api_key.clone());
 
     // Build search parameters
@@ -413,8 +412,7 @@ pub async fn find_similar_pages(
         ));
     }
 
-    let client = WebClient::new()
-        .map_err(|e| WebToolError::Client(format!("Failed to create client: {}", e)))?
+    let client = WebClient::default()
         .with_exa_key(config.exa_api_key.clone());
 
     // Build similarity search parameters
@@ -489,8 +487,7 @@ pub async fn summarize_web_content(
     debug!("Summarizing content from {} URLs", urls.len());
 
     let config = WebSearchConfig::default();
-    let client = WebClient::new()
-        .map_err(|e| WebToolError::Client(format!("Failed to create client: {}", e)))?
+    let client = WebClient::default()
         .with_exa_key(config.exa_api_key.clone());
 
     let mut summaries = Vec::new();
@@ -536,8 +533,7 @@ pub async fn search_recent_news(
     );
 
     let config = WebSearchConfig::default();
-    let client = WebClient::new()
-        .map_err(|e| WebToolError::Client(format!("Failed to create client: {}", e)))?
+    let client = WebClient::default()
         .with_exa_key(config.exa_api_key.clone());
 
     // Build news-specific search parameters
@@ -664,7 +660,7 @@ async fn parse_exa_search_response(
         let id = r
             .get("id")
             .and_then(|v| v.as_str())
-            .unwrap_or(url.as_str())
+            .unwrap_or_else(|| url.as_str())
             .to_string();
         let description = r
             .get("description")
@@ -856,7 +852,7 @@ async fn extract_and_summarize_page(
     })
 }
 
-// Extract main content using HTML parsing and content-density heuristics
+/// Extract main content using HTML parsing and content-density heuristics
 fn extract_main_content(
     html: &str,
     fallback_url: &str,
@@ -893,7 +889,7 @@ fn extract_main_content(
         "div#main-content",
     ];
 
-    let mut best_text = String::new();
+    let mut best_text = String::default();
     let mut best_headings: Vec<String> = Vec::new();
     for css in candidates {
         if let Ok(sel) = Selector::parse(css) {
@@ -927,6 +923,7 @@ fn extract_main_content(
     (title, best_text, sentences, best_headings)
 }
 
+/// Extract text and headings from an HTML element node
 fn extract_text_from_node(root: ElementRef) -> (String, Vec<String>) {
     let sel_exclude = [
         "script", "style", "noscript", "template", "header", "footer", "nav", "aside",
@@ -958,6 +955,7 @@ fn extract_text_from_node(root: ElementRef) -> (String, Vec<String>) {
     (full, headings)
 }
 
+/// Check if a node has any excluded ancestor elements
 fn has_excluded_ancestor(mut node: ElementRef, excluded: &[&str]) -> bool {
     while let Some(parent) = node.ancestors().find_map(ElementRef::wrap) {
         let name = parent.value().name();
@@ -973,15 +971,17 @@ fn has_excluded_ancestor(mut node: ElementRef, excluded: &[&str]) -> bool {
     false
 }
 
+/// Normalize whitespace in text by collapsing multiple spaces into single spaces
 fn normalize_whitespace(s: &str) -> String {
     let s = html_escape::decode_html_entities(s);
     let re = regex::Regex::new(r"\s+").unwrap();
     re.replace_all(&s, " ").trim().to_string()
 }
 
+/// Split text into sentences based on punctuation
 fn split_sentences(text: &str) -> Vec<String> {
     let mut v = Vec::new();
-    let mut current = String::new();
+    let mut current = String::default();
     for ch in text.chars() {
         current.push(ch);
         if matches!(ch, '.' | '!' | '?') {
@@ -998,7 +998,7 @@ fn split_sentences(text: &str) -> Vec<String> {
     v
 }
 
-// Rank sentences with simple TF scoring + positional + heading/topic boosts
+/// Rank sentences with simple TF scoring + positional + heading/topic boosts
 fn rank_sentences(
     sentences: &[String],
     full_text: &str,
@@ -1069,6 +1069,7 @@ fn rank_sentences(
     scored
 }
 
+/// Calculate Jaccard similarity between two strings
 fn jaccard(a: &str, b: &str) -> f64 {
     let set_a: std::collections::HashSet<_> = a.split_whitespace().collect();
     let set_b: std::collections::HashSet<_> = b.split_whitespace().collect();
@@ -1081,6 +1082,7 @@ fn jaccard(a: &str, b: &str) -> f64 {
     }
 }
 
+/// Select diverse sentences from ranked list to avoid redundancy
 fn select_diverse(scored: &[(String, f64)], k: usize, max_sim: f64) -> Vec<String> {
     let mut out: Vec<String> = Vec::new();
     for (s, _) in scored {
@@ -1229,7 +1231,7 @@ fn format_date_filter(window: &str) -> String {
     date.format("%Y-%m-%d").to_string()
 }
 
-// Simple keyword topic extraction from text
+/// Simple keyword topic extraction from text
 fn extract_topics_from_text(text: &str) -> Vec<String> {
     let stopwords = [
         "the", "and", "for", "with", "that", "this", "from", "have", "your", "you", "are", "was",

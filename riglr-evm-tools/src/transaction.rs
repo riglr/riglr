@@ -99,6 +99,7 @@ pub struct TransactionResult {
 /// # Ok(())
 /// # }
 /// ```
+#[allow(missing_docs)]
 #[tool]
 pub async fn transfer_eth(
     to_address: String,
@@ -217,6 +218,7 @@ pub async fn transfer_eth(
 /// # Ok(())
 /// # }
 /// ```
+#[allow(missing_docs)]
 #[tool]
 pub async fn transfer_erc20(
     token_address: String,
@@ -338,6 +340,7 @@ pub async fn transfer_erc20(
 /// # Ok(())
 /// # }
 /// ```
+#[allow(missing_docs)]
 #[tool]
 pub async fn get_transaction_receipt(
     tx_hash: String,

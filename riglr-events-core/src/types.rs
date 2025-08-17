@@ -29,6 +29,12 @@ pub enum EventKind {
     Custom(String),
 }
 
+impl Default for EventKind {
+    fn default() -> Self {
+        EventKind::Transaction
+    }
+}
+
 impl fmt::Display for EventKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -122,6 +128,21 @@ impl EventMetadata {
     }
 }
 
+impl Default for EventMetadata {
+    fn default() -> Self {
+        let now = Utc::now();
+        Self {
+            id: String::new(),
+            kind: EventKind::default(),
+            timestamp: now,
+            received_at: now,
+            source: String::new(),
+            chain_data: None,
+            custom: HashMap::new(),
+        }
+    }
+}
+
 /// Blockchain-specific data that can be attached to events.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "chain", content = "data")]
@@ -137,6 +158,10 @@ pub enum ChainData {
         program_id: Option<solana_sdk::pubkey::Pubkey>,
         /// Instruction index within transaction
         instruction_index: Option<usize>,
+        /// Block time in Unix seconds
+        block_time: Option<i64>,
+        /// Custom protocol-specific data (e.g., protocol_type, event_type)
+        protocol_data: Option<serde_json::Value>,
     },
     /// EVM-specific data
     #[cfg(feature = "evm")]
@@ -517,6 +542,8 @@ mod tests {
             signature: Some("test-signature".to_string()),
             program_id: Some(Pubkey::new_unique()),
             instruction_index: Some(0),
+            block_time: Some(1234567890),
+            protocol_data: None,
         };
 
         assert_eq!(chain_data.chain_id(), "solana");

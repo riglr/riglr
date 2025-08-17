@@ -14,6 +14,32 @@ use riglr_config::Config;
 use riglr_core::SignerContext;
 use std::sync::Arc;
 
+/// Runs a multi-agent coordination demonstration based on the specified scenario.
+///
+/// This function demonstrates the riglr-agents framework through various predefined scenarios:
+/// - `"trading"`: Real-world trading coordination with blockchain operations
+/// - `"risk"`: Risk management system with coordinated assessment across multiple agents  
+/// - `"basic"`: Fundamental multi-agent communication and workflow patterns
+///
+/// # Arguments
+/// * `config` - Shared configuration for all agents and blockchain operations
+/// * `scenario` - The demonstration scenario to execute
+///
+/// # Returns
+/// Returns `Ok(())` on successful demonstration completion, or an error if the scenario
+/// is unknown or the demonstration fails.
+///
+/// # Examples
+/// ```
+/// use std::sync::Arc;
+/// use riglr_config::Config;
+/// 
+/// # async fn example() -> anyhow::Result<()> {
+/// let config = Arc::new(Config::default());
+/// run_demo(config, "basic".to_string()).await?;
+/// # Ok(())
+/// # }
+/// ```
 pub async fn run_demo(config: Arc<Config>, scenario: String) -> Result<()> {
     println!("🤖 Starting Multi-Agent Coordination Demo");
     println!("📋 Scenario: {}", scenario);

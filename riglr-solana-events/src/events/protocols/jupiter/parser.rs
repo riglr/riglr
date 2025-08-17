@@ -7,7 +7,7 @@ use super::{
 };
 use crate::{
     events::core::{EventParser, GenericEventParseConfig},
-    types::{EventMetadata, EventType, ProtocolType},
+    types::{metadata_helpers, EventMetadata, EventType, ProtocolType},
 };
 use borsh::BorshDeserialize;
 use riglr_events_core::Event;
@@ -22,6 +22,7 @@ pub struct JupiterEventParser {
 }
 
 impl JupiterEventParser {
+    /// Creates a new Jupiter event parser with default configurations for routing and exact-out routing
     pub fn new() -> Self {
         let program_ids = vec![jupiter_v6_program_id()];
 
@@ -94,12 +95,11 @@ impl EventParser for JupiterEventParser {
         if let Ok(data) = bs58::decode(&inner_instruction.data).into_vec() {
             for configs in self.inner_instruction_configs.values() {
                 for config in configs {
-                    let metadata = EventMetadata::new(
+                    let metadata = metadata_helpers::create_solana_metadata(
                         format!("{}_{}", signature, index),
                         signature.to_string(),
                         slot,
                         block_time.unwrap_or(0),
-                        block_time.unwrap_or(0) * 1000,
                         config.protocol_type.clone(),
                         config.event_type.clone(),
                         config.program_id,
@@ -220,13 +220,13 @@ fn parse_jupiter_swap_inner_instruction(
     parse_jupiter_swap_with_borsh(data).map(|swap_data| {
         Box::new(JupiterSwapEvent::new(
             EventParameters::new(
-                metadata.id,
-                metadata.signature,
+                metadata.id().to_string(),
+                metadata.signature.clone(),
                 metadata.slot,
-                metadata.block_time,
-                metadata.block_time_ms,
+                0, // block_time - not available in SolanaEventMetadata
+                0, // block_time_ms - not available in SolanaEventMetadata
                 metadata.program_received_time_ms,
-                metadata.index,
+                metadata.index.clone(),
             ),
             swap_data,
         )) as Box<dyn Event>
@@ -241,13 +241,13 @@ fn parse_jupiter_swap_instruction(
     parse_jupiter_swap_with_borsh(data).map(|swap_data| {
         Box::new(JupiterSwapEvent::new(
             EventParameters::new(
-                metadata.id,
-                metadata.signature,
+                metadata.id().to_string(),
+                metadata.signature.clone(),
                 metadata.slot,
-                metadata.block_time,
-                metadata.block_time_ms,
+                0, // block_time - not available in SolanaEventMetadata
+                0, // block_time_ms - not available in SolanaEventMetadata
                 metadata.program_received_time_ms,
-                metadata.index,
+                metadata.index.clone(),
             ),
             swap_data,
         )) as Box<dyn Event>
@@ -261,13 +261,13 @@ fn parse_jupiter_exact_out_inner_instruction(
     parse_jupiter_exact_out_with_borsh(data).map(|swap_data| {
         Box::new(JupiterSwapEvent::new(
             EventParameters::new(
-                metadata.id,
-                metadata.signature,
+                metadata.id().to_string(),
+                metadata.signature.clone(),
                 metadata.slot,
-                metadata.block_time,
-                metadata.block_time_ms,
+                0, // block_time - not available in SolanaEventMetadata
+                0, // block_time_ms - not available in SolanaEventMetadata
                 metadata.program_received_time_ms,
-                metadata.index,
+                metadata.index.clone(),
             ),
             swap_data,
         )) as Box<dyn Event>
@@ -282,13 +282,13 @@ fn parse_jupiter_exact_out_instruction(
     parse_jupiter_exact_out_with_borsh(data).map(|swap_data| {
         Box::new(JupiterSwapEvent::new(
             EventParameters::new(
-                metadata.id,
-                metadata.signature,
+                metadata.id().to_string(),
+                metadata.signature.clone(),
                 metadata.slot,
-                metadata.block_time,
-                metadata.block_time_ms,
+                0, // block_time - not available in SolanaEventMetadata
+                0, // block_time_ms - not available in SolanaEventMetadata
                 metadata.program_received_time_ms,
-                metadata.index,
+                metadata.index.clone(),
             ),
             swap_data,
         )) as Box<dyn Event>

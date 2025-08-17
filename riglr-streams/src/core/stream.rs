@@ -109,6 +109,7 @@ pub struct DynamicStreamWrapper<S: Stream> {
 }
 
 impl<S: Stream + 'static> DynamicStreamWrapper<S> {
+    /// Create a new dynamic stream wrapper around the given stream
     pub fn new(stream: S) -> Self {
         let (tx, _) = broadcast::channel(10000);
         Self {
@@ -118,6 +119,7 @@ impl<S: Stream + 'static> DynamicStreamWrapper<S> {
         }
     }
 
+    /// Forward events from the inner stream to the type-erased channel
     async fn forward_events(&self) {
         let mut rx = self.inner.subscribe();
         let tx = self.event_forwarder.clone();

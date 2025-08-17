@@ -72,66 +72,93 @@ pub enum BinanceEventData {
     Unknown(serde_json::Value),
 }
 
+/// 24-hour ticker price change statistics data
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct TickerData {
+    /// Trading pair symbol (e.g., "BTCUSDT")
     #[serde(rename = "s")]
     pub symbol: String,
+    /// Last price
     #[serde(rename = "c")]
     pub close_price: String,
+    /// Total traded base asset volume
     #[serde(rename = "v")]
     pub volume: String,
+    /// Price change percent
     #[serde(rename = "P")]
     pub price_change_percent: String,
+    /// Event time timestamp
     #[serde(rename = "E")]
     pub event_time: u64,
 }
 
+/// Order book depth update data
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct OrderBookData {
+    /// Trading pair symbol (e.g., "BTCUSDT")
     #[serde(rename = "s")]
     pub symbol: String,
+    /// Bids to be updated (price, quantity pairs)
     #[serde(rename = "b")]
     pub bids: Vec<Vec<String>>,
+    /// Asks to be updated (price, quantity pairs)
     #[serde(rename = "a")]
     pub asks: Vec<Vec<String>>,
+    /// Event time timestamp
     #[serde(rename = "E")]
     pub event_time: u64,
 }
 
+/// Individual trade execution data
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct TradeData {
+    /// Trading pair symbol (e.g., "BTCUSDT")
     #[serde(rename = "s")]
     pub symbol: String,
+    /// Trade price
     #[serde(rename = "p")]
     pub price: String,
+    /// Trade quantity
     #[serde(rename = "q")]
     pub quantity: String,
+    /// Trade time timestamp
     #[serde(rename = "T")]
     pub trade_time: u64,
+    /// Whether the buyer is the market maker
     #[serde(rename = "m")]
     pub is_buyer_maker: bool,
 }
 
+/// Kline/candlestick stream data
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct KlineData {
+    /// Trading pair symbol (e.g., "BTCUSDT")
     #[serde(rename = "s")]
     pub symbol: String,
+    /// Kline details
     #[serde(rename = "k")]
     pub kline: KlineDetails,
 }
 
+/// Detailed kline/candlestick data
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct KlineDetails {
+    /// Kline start time timestamp
     #[serde(rename = "t")]
     pub open_time: u64,
+    /// Open price
     #[serde(rename = "o")]
     pub open: String,
+    /// High price
     #[serde(rename = "h")]
     pub high: String,
+    /// Low price
     #[serde(rename = "l")]
     pub low: String,
+    /// Close price
     #[serde(rename = "c")]
     pub close: String,
+    /// Volume
     #[serde(rename = "v")]
     pub volume: String,
 }

@@ -426,6 +426,18 @@ pub async fn set_leverage(
 }
 
 /// Helper function to find asset ID by symbol
+/// 
+/// Searches through the market metadata to find the asset ID for a given symbol.
+/// Supports both exact matches and normalized symbols (with/without -PERP suffix).
+/// 
+/// # Arguments
+/// 
+/// * `meta` - Market metadata containing asset information
+/// * `symbol` - Trading symbol to search for (e.g., "ETH", "BTC-PERP")
+/// 
+/// # Returns
+/// 
+/// Asset ID as u32 index, or ToolError if symbol not found
 fn find_asset_id(meta: &Meta, symbol: &str) -> Result<u32, ToolError> {
     // Normalize symbol (remove -PERP suffix if present)
     let normalized_symbol = symbol.trim_end_matches("-PERP").trim_end_matches("-perp");
@@ -454,43 +466,78 @@ fn find_asset_id(meta: &Meta, symbol: &str) -> Result<u32, ToolError> {
 
 // Result structures
 
+/// Result returned after placing an order on Hyperliquid
+/// 
+/// Contains all relevant information about the placed order including
+/// the original parameters and the exchange's response.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct HyperliquidOrderResult {
+    /// Trading pair symbol (e.g., "ETH-PERP", "BTC")
     pub symbol: String,
+    /// Order side: "buy"/"long" or "sell"/"short"
     pub side: String,
+    /// Position size as decimal string
     pub size: String,
+    /// Order type: "market" or "limit"
     pub order_type: String,
+    /// Limit price (for limit orders only)
     pub price: Option<String>,
+    /// Exchange response status
     pub status: String,
+    /// Unique order identifier from exchange
     pub order_id: Option<String>,
+    /// Human-readable result message
     pub message: String,
 }
 
+/// Result returned after canceling an order on Hyperliquid
+/// 
+/// Contains confirmation details about the canceled order.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct HyperliquidCancelResult {
+    /// Trading pair symbol that the order belonged to
     pub symbol: String,
+    /// Order ID that was canceled
     pub order_id: String,
+    /// Exchange response status
     pub status: String,
+    /// Human-readable result message
     pub message: String,
 }
 
+/// Account information retrieved from Hyperliquid
+/// 
+/// Contains balance, margin usage, and position information for the account.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct HyperliquidAccountResult {
+    /// Account's Ethereum address
     pub user_address: String,
+    /// Available balance that can be withdrawn
     pub withdrawable_balance: String,
+    /// Amount of balance used for cross-margin positions
     pub cross_margin_used: String,
+    /// Maintenance margin requirements for cross-margin
     pub cross_maintenance_margin_used: String,
+    /// Number of active positions
     pub positions_count: usize,
 }
 
+/// Result returned after setting leverage on Hyperliquid
+/// 
+/// Contains confirmation details about the leverage update.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct HyperliquidLeverageResult {
+    /// Trading pair symbol that leverage was set for
     pub symbol: String,
+    /// Leverage multiplier (1-100x)
     pub leverage: u32,
+    /// Exchange response status
     pub status: String,
+    /// Human-readable result message
     pub message: String,
 }
 
+/// Unit tests for trading functionality
 #[cfg(test)]
 mod tests {
     use super::*;

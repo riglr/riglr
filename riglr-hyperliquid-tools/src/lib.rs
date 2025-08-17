@@ -13,11 +13,15 @@
 //! All tools are built with the `#[tool]` macro for seamless integration with rig agents
 //! and include comprehensive error handling and retry logic.
 
+/// Error types and handling for Hyperliquid tools
 pub mod error;
 pub use error::HyperliquidToolError;
 
+/// HTTP client for Hyperliquid API interactions
 pub mod client;
+/// Position management tools and utilities
 pub mod positions;
+/// Trading tools for order placement and management
 pub mod trading;
 
 // Re-export commonly used tools

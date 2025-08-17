@@ -461,6 +461,23 @@ pub async fn get_hyperliquid_portfolio_risk() -> Result<HyperliquidRiskMetrics, 
 }
 
 /// Helper function to calculate overall risk level
+///
+/// Determines portfolio risk based on margin utilization, maximum leverage,
+/// and the ratio of positions considered at risk.
+///
+/// # Arguments
+///
+/// * `margin_util` - Margin utilization percentage (0-100)
+/// * `max_lev` - Maximum leverage across all positions
+/// * `at_risk` - Number of positions considered at risk
+/// * `total` - Total number of positions
+///
+/// # Returns
+///
+/// Returns risk level as:
+/// - "HIGH" if margin >80%, leverage >50x, or >75% positions at risk
+/// - "MEDIUM" if margin >50%, leverage >20x, or >50% positions at risk  
+/// - "LOW" for all other scenarios
 fn calculate_risk_level(margin_util: f64, max_lev: u32, at_risk: usize, total: usize) -> String {
     let at_risk_ratio = if total > 0 {
         (at_risk as f64 / total as f64) * 100.0
@@ -479,46 +496,84 @@ fn calculate_risk_level(margin_util: f64, max_lev: u32, at_risk: usize, total: u
 
 // Result structures
 
+/// Represents a trading position on Hyperliquid
+///
+/// Contains comprehensive position data including size, prices, leverage,
+/// profit/loss metrics, and risk information for a perpetual futures position.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct HyperliquidPosition {
+    /// Trading pair symbol (e.g., "ETH-PERP", "BTC-PERP")
     pub symbol: String,
+    /// Position size in contracts (positive for long, negative for short)
     pub size: String,
+    /// Average entry price of the position in USD
     pub entry_price: String,
+    /// Current market price from Hyperliquid API
     pub mark_price: String,
+    /// Unrealized profit/loss in USD
     pub unrealized_pnl: String,
+    /// Total position value in USD (size * mark_price)
     pub position_value: String,
+    /// Current leverage multiplier (e.g., 10 for 10x leverage)
     pub leverage: u32,
+    /// Price level at which position gets liquidated
     pub liquidation_price: String,
+    /// Amount of margin allocated to this position in USD
     pub margin_used: String,
+    /// Return on equity percentage
     pub return_on_equity: String,
+    /// Position mode type (e.g., "oneWay", "hedge")
     pub position_type: String,
 }
 
+/// Result of closing a position on Hyperliquid
+///
+/// Contains the outcome details when a position is closed,
+/// including order information and execution status.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct HyperliquidCloseResult {
+    /// Trading pair symbol that was closed
     pub symbol: String,
+    /// Amount of the position that was closed
     pub closed_size: String,
+    /// Direction of the closing order ("buy" or "sell")
     pub order_side: String,
+    /// Order ID returned by Hyperliquid API, if available
     pub order_id: Option<String>,
+    /// Order execution status from the API
     pub status: String,
+    /// Human-readable confirmation message
     pub message: String,
 }
 
+/// Portfolio risk analysis metrics for Hyperliquid positions
+///
+/// Provides comprehensive risk assessment including exposure,
+/// margin utilization, leverage analysis, and overall risk rating.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct HyperliquidRiskMetrics {
+    /// Total number of active positions in the portfolio
     pub total_positions: usize,
+    /// Combined value of all positions in USD
     pub total_position_value: String,
+    /// Sum of unrealized profit/loss across all positions
     pub total_unrealized_pnl: String,
+    /// Percentage of available margin currently being used (0-100)
     pub margin_utilization_percent: f64,
+    /// Highest leverage multiplier across all positions
     pub max_leverage: u32,
+    /// Number of positions with high leverage or negative P&L
     pub positions_at_risk: usize,
+    /// Overall risk assessment ("LOW", "MEDIUM", "HIGH")
     pub risk_level: String,
 }
 
 #[cfg(test)]
+/// Unit tests for position management functionality
 mod tests {
     use super::*;
 
+    /// Test that HyperliquidPosition struct can be created and accessed correctly
     #[test]
     fn test_position_structure() {
         let position = HyperliquidPosition {
@@ -539,6 +594,7 @@ mod tests {
         assert_eq!(position.leverage, 10);
     }
 
+    /// Test risk level calculation logic with various input scenarios
     #[test]
     fn test_risk_level_calculation() {
         assert_eq!(calculate_risk_level(90.0, 100, 8, 10), "HIGH");

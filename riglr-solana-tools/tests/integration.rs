@@ -1,3 +1,9 @@
+//! Integration tests for riglr-solana-tools.
+//!
+//! This module contains integration tests that verify the core functionality
+//! of Solana tools including signer context integration, balance checking,
+//! error propagation, and client access patterns.
+
 use riglr_core::signer::{SignerContext, TransactionSigner};
 use riglr_solana_tools::LocalSolanaSigner;
 use solana_sdk::signature::Keypair;
@@ -88,10 +94,7 @@ async fn test_solana_tool_error_propagation() {
         let core_error: ToolError = tool_error.into();
 
         match core_error {
-            ToolError::Retriable {
-                context: _,
-                source: _,
-            } => Ok::<String, riglr_core::signer::SignerError>(
+            ToolError::Retriable { .. } => Ok::<String, riglr_core::signer::SignerError>(
                 "Error correctly converted to Retriable".to_string(),
             ),
             _ => Err(riglr_core::signer::SignerError::Configuration(

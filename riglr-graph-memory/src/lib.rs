@@ -72,7 +72,12 @@ pub mod extractor;
 pub mod graph;
 pub mod vector_store;
 
-// rig integration - experimental implementation
+/// Rig integration module providing VectorStore implementation
+/// 
+/// This module provides experimental integration with the rig framework,
+/// implementing `VectorStore` trait to enable seamless use of graph memory
+/// with rig-based AI agents. The implementation bridges between rig's
+/// document model and our graph-based storage system.
 pub mod rig_vector_store;
 
 // Re-export main types

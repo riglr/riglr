@@ -11,20 +11,33 @@ use thiserror::Error;
 pub enum AgentError {
     /// Agent not found in registry
     #[error("Agent '{agent_id}' not found in registry")]
-    AgentNotFound { agent_id: String },
+    AgentNotFound { 
+        /// The identifier of the agent that was not found
+        agent_id: String 
+    },
 
     /// No suitable agent found for task
     #[error("No agent found capable of handling task type '{task_type}'")]
-    NoSuitableAgent { task_type: String },
+    NoSuitableAgent { 
+        /// The type of task that no agent could handle
+        task_type: String 
+    },
 
     /// Agent is not available
     #[error("Agent '{agent_id}' is not available (status: {status})")]
-    AgentUnavailable { agent_id: String, status: String },
+    AgentUnavailable { 
+        /// The identifier of the unavailable agent
+        agent_id: String, 
+        /// The current status of the agent
+        status: String 
+    },
 
     /// Task execution failed
     #[error("Task execution failed: {message}")]
     TaskExecution {
+        /// The error message describing the failure
         message: String,
+        /// The underlying cause of the execution failure
         #[source]
         source: Option<Box<dyn std::error::Error + Send + Sync>>,
     },
@@ -32,22 +45,34 @@ pub enum AgentError {
     /// Task timeout
     #[error("Task '{task_id}' timed out after {duration:?}")]
     TaskTimeout {
+        /// The identifier of the task that timed out
         task_id: String,
+        /// The duration after which the task timed out
         duration: std::time::Duration,
     },
 
     /// Task cancelled
     #[error("Task '{task_id}' was cancelled: {reason}")]
-    TaskCancelled { task_id: String, reason: String },
+    TaskCancelled { 
+        /// The identifier of the cancelled task
+        task_id: String, 
+        /// The reason for the cancellation
+        reason: String 
+    },
 
     /// Invalid routing rule
     #[error("Invalid routing rule: {rule}")]
-    InvalidRoutingRule { rule: String },
+    InvalidRoutingRule { 
+        /// The invalid routing rule that was provided
+        rule: String 
+    },
 
     /// Communication error
     #[error("Communication error: {message}")]
     Communication {
+        /// The error message describing the communication failure
         message: String,
+        /// The underlying cause of the communication error
         #[source]
         source: Option<Box<dyn std::error::Error + Send + Sync>>,
     },
@@ -55,14 +80,18 @@ pub enum AgentError {
     /// Message delivery failed
     #[error("Failed to deliver message '{message_id}' to agent '{agent_id}'")]
     MessageDeliveryFailed {
+        /// The identifier of the message that failed to deliver
         message_id: String,
+        /// The identifier of the target agent
         agent_id: String,
     },
 
     /// Registry operation failed
     #[error("Registry operation failed: {operation}")]
     Registry {
+        /// The registry operation that failed
         operation: String,
+        /// The underlying cause of the registry operation failure
         #[source]
         source: Option<Box<dyn std::error::Error + Send + Sync>>,
     },
@@ -70,18 +99,24 @@ pub enum AgentError {
     /// Dispatcher error
     #[error("Dispatcher error: {message}")]
     Dispatcher {
+        /// The error message describing the dispatcher failure
         message: String,
+        /// The underlying cause of the dispatcher error
         #[source]
         source: Option<Box<dyn std::error::Error + Send + Sync>>,
     },
 
     /// Configuration error
     #[error("Configuration error: {message}")]
-    Configuration { message: String },
+    Configuration { 
+        /// The error message describing the configuration issue
+        message: String 
+    },
 
     /// Serialization error
     #[error("Serialization error")]
     Serialization {
+        /// The underlying JSON serialization error
         #[from]
         source: serde_json::Error,
     },
@@ -89,6 +124,7 @@ pub enum AgentError {
     /// Tool error (from riglr-core)
     #[error("Tool error")]
     Tool {
+        /// The underlying tool error from riglr-core
         #[from]
         source: ToolError,
     },
@@ -96,7 +132,9 @@ pub enum AgentError {
     /// Generic error
     #[error("Agent system error: {message}")]
     Generic {
+        /// The error message describing the generic failure
         message: String,
+        /// The underlying cause of the generic error
         #[source]
         source: Option<Box<dyn std::error::Error + Send + Sync>>,
     },

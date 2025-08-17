@@ -10,24 +10,33 @@ use std::collections::HashMap;
 /// Type-safe RPC configuration for blockchain networks
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RpcConfig {
+    /// Collection of EVM-compatible blockchain network configurations indexed by lowercase network name
     pub evm_networks: HashMap<String, EvmNetworkConfig>,
+    /// Collection of Solana network configurations indexed by network name
     pub solana_networks: HashMap<String, SolanaNetworkConfig>,
 }
 
 /// EVM network configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EvmNetworkConfig {
+    /// Human-readable display name for the network (e.g., "Ethereum Mainnet", "Polygon")
     pub name: String,
+    /// EIP-155 chain identifier for the network (e.g., 1 for Ethereum, 137 for Polygon)
     pub chain_id: u64,
+    /// HTTP(S) URL endpoint for JSON-RPC communication with the network
     pub rpc_url: String,
+    /// Optional URL for the network's block explorer (e.g., Etherscan, Polygonscan)
     pub explorer_url: Option<String>,
 }
 
 /// Solana network configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SolanaNetworkConfig {
+    /// Human-readable display name for the Solana network (e.g., "Solana Mainnet", "Solana Devnet")
     pub name: String,
+    /// HTTP(S) URL endpoint for JSON-RPC communication with the Solana network
     pub rpc_url: String,
+    /// Optional URL for the Solana network's block explorer
     pub explorer_url: Option<String>,
 }
 

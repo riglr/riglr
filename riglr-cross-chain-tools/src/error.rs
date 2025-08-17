@@ -1,6 +1,7 @@
 use riglr_core::error::ToolError;
 use thiserror::Error;
 
+/// Errors that can occur during cross-chain operations
 #[derive(Error, Debug)]
 pub enum CrossChainError {
     /// Core tool error
@@ -26,13 +27,18 @@ pub enum CrossChainError {
     /// Unsupported chain pair
     #[error("Unsupported chain pair: {from_chain} -> {to_chain}")]
     UnsupportedChainPair {
+        /// Source chain identifier
         from_chain: String,
+        /// Destination chain identifier
         to_chain: String,
     },
 
     /// Insufficient liquidity for amount
     #[error("Insufficient liquidity for amount: {amount}")]
-    InsufficientLiquidity { amount: String },
+    InsufficientLiquidity { 
+        /// Amount that was requested but unavailable
+        amount: String 
+    },
 }
 
 impl From<CrossChainError> for ToolError {

@@ -9,6 +9,7 @@
 //!
 //! It integrates the SignerFactory pattern, structured logging, and room for metrics.
 
+/// Server implementation providing HTTP endpoints for riglr agents.
 pub mod server;
 
 pub use server::{start_axum, ServerConfig};
