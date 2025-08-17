@@ -61,24 +61,30 @@ Comprehensive API documentation for the `riglr-solana-tools` crate.
 - [`TransactionErrorType`](#transactionerrortype)
 - [`TransactionStatus`](#transactionstatus)
 
-### Functions
+### Functions (error)
+
+- [`classify_transaction_error`](#classify_transaction_error)
+- [`is_rate_limited`](#is_rate_limited)
+- [`is_rate_limited`](#is_rate_limited)
+- [`is_retriable`](#is_retriable)
+- [`is_retryable`](#is_retryable)
+- [`retry_delay`](#retry_delay)
+
+### Functions (pump)
+
+- [`create_token_with_mint_keypair`](#create_token_with_mint_keypair)
+- [`generate_mint_keypair`](#generate_mint_keypair)
+
+### Functions (client)
 
 - [`call_rpc`](#call_rpc)
-- [`classify_transaction_error`](#classify_transaction_error)
-- [`create_token_with_mint_keypair`](#create_token_with_mint_keypair)
-- [`create_token_with_mint_keypair`](#create_token_with_mint_keypair)
 - [`devnet`](#devnet)
-- [`execute_solana_transaction`](#execute_solana_transaction)
-- [`from_seed_phrase`](#from_seed_phrase)
 - [`from_signer`](#from_signer)
-- [`generate_mint_keypair`](#generate_mint_keypair)
-- [`generate_mint_keypair`](#generate_mint_keypair)
 - [`get_balance`](#get_balance)
 - [`get_block_height`](#get_block_height)
 - [`get_cluster_info`](#get_cluster_info)
 - [`get_latest_blockhash`](#get_latest_blockhash)
 - [`get_recent_transactions_for_token`](#get_recent_transactions_for_token)
-- [`get_rpc_url`](#get_rpc_url)
 - [`get_signature_statuses`](#get_signature_statuses)
 - [`get_token_account_balance`](#get_token_account_balance)
 - [`get_token_accounts_by_owner`](#get_token_accounts_by_owner)
@@ -87,28 +93,43 @@ Comprehensive API documentation for the `riglr-solana-tools` crate.
 - [`get_transaction_with_meta`](#get_transaction_with_meta)
 - [`has_signer`](#has_signer)
 - [`is_connected`](#is_connected)
-- [`is_rate_limited`](#is_rate_limited)
-- [`is_rate_limited`](#is_rate_limited)
-- [`is_retriable`](#is_retriable)
-- [`is_retryable`](#is_retryable)
-- [`keypair`](#keypair)
 - [`mainnet`](#mainnet)
 - [`new`](#new)
-- [`new`](#new)
 - [`require_signer`](#require_signer)
-- [`retry_delay`](#retry_delay)
-- [`rpc_url`](#rpc_url)
 - [`send_and_confirm_transaction`](#send_and_confirm_transaction)
 - [`send_transaction`](#send_transaction)
-- [`send_transaction`](#send_transaction)
-- [`send_transaction_with_retry`](#send_transaction_with_retry)
 - [`signer`](#signer)
 - [`testnet`](#testnet)
-- [`validate_address`](#validate_address)
 - [`with_commitment`](#with_commitment)
 - [`with_rpc_url`](#with_rpc_url)
 - [`with_signer`](#with_signer)
 - [`with_signer_from_bytes`](#with_signer_from_bytes)
+
+### Functions (local)
+
+- [`from_seed_phrase`](#from_seed_phrase)
+- [`keypair`](#keypair)
+- [`new`](#new)
+- [`rpc_url`](#rpc_url)
+
+### Functions (keypair)
+
+- [`generate_mint_keypair`](#generate_mint_keypair)
+
+### Functions (transaction)
+
+- [`create_token_with_mint_keypair`](#create_token_with_mint_keypair)
+- [`execute_solana_transaction`](#execute_solana_transaction)
+- [`send_transaction`](#send_transaction)
+- [`send_transaction_with_retry`](#send_transaction_with_retry)
+
+### Functions (validation)
+
+- [`validate_address`](#validate_address)
+
+### Functions (config)
+
+- [`get_rpc_url`](#get_rpc_url)
 
 ## Tools
 
@@ -1433,19 +1454,7 @@ Transaction status
 
 ---
 
-## Functions
-
-### call_rpc
-
-**Source**: `src/client.rs`
-
-```rust
-pub async fn call_rpc( &self, method: &str, params: serde_json::Value, ) -> Result<serde_json::Value>
-```
-
-Make a custom RPC call
-
----
+## Functions (error)
 
 ### classify_transaction_error
 
@@ -1464,6 +1473,68 @@ retry guidance.
 
 ---
 
+### is_rate_limited
+
+**Source**: `src/error.rs`
+
+```rust
+pub fn is_rate_limited(&self) -> bool
+```
+
+Check if this error is rate-limited.
+
+---
+
+### is_rate_limited
+
+**Source**: `src/error.rs`
+
+```rust
+pub fn is_rate_limited(&self) -> bool
+```
+
+Check if this is a rate limiting error (special case of retryable)
+
+---
+
+### is_retriable
+
+**Source**: `src/error.rs`
+
+```rust
+pub fn is_retriable(&self) -> bool
+```
+
+Check if this error is retriable.
+
+---
+
+### is_retryable
+
+**Source**: `src/error.rs`
+
+```rust
+pub fn is_retryable(&self) -> bool
+```
+
+Check if this error type is retryable
+
+---
+
+### retry_delay
+
+**Source**: `src/error.rs`
+
+```rust
+pub fn retry_delay(&self) -> Option<std::time::Duration>
+```
+
+Get appropriate retry delay for rate-limited errors.
+
+---
+
+## Functions (pump)
+
 ### create_token_with_mint_keypair
 
 **Source**: `src/pump.rs`
@@ -1476,130 +1547,6 @@ Creates properly signed Solana transaction with mint keypair
 
 This function creates a transaction with the given instructions and signs it
 using both the payer from signer context and the provided mint keypair.
-
----
-
-### create_token_with_mint_keypair
-
-**Source**: `utils/transaction.rs`
-
-```rust
-pub async fn create_token_with_mint_keypair( instructions: Vec<Instruction>, mint_keypair: &Keypair, ) -> std::result::Result<String, SolanaToolError>
-```
-
-Creates properly signed Solana transaction with mint keypair
-
-This function handles the complex case where a transaction needs to be signed by both
-the signer context (for fees) and a mint keypair (for token creation).
-
-# Arguments
-
-* `instructions` - The instructions to include in the transaction
-* `mint_keypair` - The keypair for the mint account (must sign the transaction)
-
-# Returns
-
-Returns the transaction signature on success
-
-# Examples
-
-```rust,ignore
-use riglr_solana_tools::utils::transaction::create_token_with_mint_keypair;
-use solana_sdk::{instruction::Instruction, signature::Keypair};
-
-# async fn example() -> Result<(), Box<dyn std::error::Error>> {
-let mint_keypair = Keypair::new();
-let instructions = vec![
-// Token creation instructions here
-];
-
-let signature = create_token_with_mint_keypair(instructions, &mint_keypair).await?;
-println!("Token created with signature: {}", signature);
-# Ok(())
-# }
-```
-
----
-
-### devnet
-
-**Source**: `src/client.rs`
-
-```rust
-pub fn devnet() -> Self
-```
-
-Create a new Solana client with devnet configuration
-
----
-
-### execute_solana_transaction
-
-**Source**: `utils/transaction.rs`
-
-```rust
-pub async fn execute_solana_transaction<F, Fut>( tx_creator: F, ) -> std::result::Result<String, SolanaToolError> where F: FnOnce(Pubkey, Arc<RpcClient>) -> Fut + Send + 'static, Fut: Future<Output = std::result::Result<Transaction, SolanaToolError>> + Send + 'static,
-```
-
-Higher-order function to execute Solana transactions
-
-Abstracts signer context retrieval and transaction signing, following the established
-riglr pattern of using SignerContext for multi-tenant operation.
-
-# Arguments
-
-* `tx_creator` - Function that creates the transaction given a pubkey and RPC client
-
-# Returns
-
-Returns the transaction signature on success
-
-# Examples
-
-```rust,ignore
-use riglr_solana_tools::utils::transaction::execute_solana_transaction;
-use solana_sdk::{transaction::Transaction, system_instruction};
-
-# async fn example() -> Result<(), Box<dyn std::error::Error>> {
-let signature = execute_solana_transaction(|pubkey, client| async move {
-let to = "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM".parse()?;
-let instruction = system_instruction::transfer(&pubkey, &to, 1000000);
-
-let recent_blockhash = client.get_latest_blockhash()?;
-let mut tx = Transaction::new_with_payer(&[instruction], Some(&pubkey));
-tx.sign(&[], recent_blockhash);
-
-Ok(tx)
-}).await?;
-
-println!("Transaction sent: {}", signature);
-# Ok(())
-# }
-```
-
----
-
-### from_seed_phrase
-
-**Source**: `signer/local.rs`
-
-```rust
-pub fn from_seed_phrase(seed_phrase: &str, rpc_url: String) -> Result<Self, SignerError>
-```
-
-Create a new LocalSolanaSigner from a seed phrase
-
----
-
-### from_signer
-
-**Source**: `src/client.rs`
-
-```rust
-pub fn from_signer(signer: &dyn riglr_core::signer::TransactionSigner) -> Result<Self>
-```
-
-Create a SolanaClient from a TransactionSigner
 
 ---
 
@@ -1617,37 +1564,41 @@ Returns a fresh keypair that can be used as the mint address for a new token.
 
 ---
 
-### generate_mint_keypair
+## Functions (client)
 
-**Source**: `utils/keypair.rs`
+### call_rpc
+
+**Source**: `src/client.rs`
 
 ```rust
-pub fn generate_mint_keypair() -> Keypair
+pub async fn call_rpc( &self, method: &str, params: serde_json::Value, ) -> Result<serde_json::Value>
 ```
 
-Generates new mint keypair for token creation
+Make a custom RPC call
 
-Creates a new randomly generated keypair suitable for use as a mint account
-in SPL token creation operations.
+---
 
-# Returns
+### devnet
 
-Returns a new `Keypair` with a randomly generated public/private key pair.
+**Source**: `src/client.rs`
 
-# Examples
-
-```rust,ignore
-use riglr_solana_tools::utils::keypair::generate_mint_keypair;
-
-let mint_keypair = generate_mint_keypair();
-println!("New mint pubkey: {}", mint_keypair.pubkey());
+```rust
+pub fn devnet() -> Self
 ```
 
-# Security Notes
+Create a new Solana client with devnet configuration
 
-- Each call generates a completely new keypair
-- The private key should be handled securely
-- For production use, consider proper key management practices
+---
+
+### from_signer
+
+**Source**: `src/client.rs`
+
+```rust
+pub fn from_signer(signer: &dyn riglr_core::signer::TransactionSigner) -> Result<Self>
+```
+
+Create a SolanaClient from a TransactionSigner
 
 ---
 
@@ -1708,53 +1659,6 @@ pub async fn get_recent_transactions_for_token( &self, _token_address: &str, lim
 ```
 
 Get recent transactions for a token (simplified implementation)
-
----
-
-### get_rpc_url
-
-**Source**: `utils/config.rs`
-
-```rust
-pub fn get_rpc_url() -> Result<String>
-```
-
-Get RPC URL from environment or use default
-
-Retrieves the Solana RPC URL from the `SOLANA_RPC_URL` environment variable.
-If not set or empty, defaults to mainnet-beta. Validates URL format to ensure
-it's a proper HTTP/HTTPS/WebSocket URL.
-
-# Returns
-
-Returns the RPC URL string on success, or a `SolanaToolError::Generic` if
-the URL format is invalid.
-
-# Environment Variables
-
-* `SOLANA_RPC_URL` - The RPC endpoint URL (optional)
-
-# Examples
-
-```rust,ignore
-use riglr_solana_tools::utils::config::get_rpc_url;
-
-// With environment variable set
-std::env::set_var("SOLANA_RPC_URL", "https://api.devnet.solana.com");
-let url = get_rpc_url()?;
-assert_eq!(url, "https://api.devnet.solana.com");
-
-// Without environment variable (uses default)
-std::env::remove_var("SOLANA_RPC_URL");
-let url = get_rpc_url()?;
-assert_eq!(url, "https://api.mainnet-beta.solana.com");
-```
-
-# Security Notes
-
-- Always validates URL format to prevent injection attacks
-- Logs only the first 50 characters of custom URLs for privacy
-- Defaults to mainnet for production safety
 
 ---
 
@@ -1854,66 +1758,6 @@ Check if the client is connected
 
 ---
 
-### is_rate_limited
-
-**Source**: `src/error.rs`
-
-```rust
-pub fn is_rate_limited(&self) -> bool
-```
-
-Check if this error is rate-limited.
-
----
-
-### is_rate_limited
-
-**Source**: `src/error.rs`
-
-```rust
-pub fn is_rate_limited(&self) -> bool
-```
-
-Check if this is a rate limiting error (special case of retryable)
-
----
-
-### is_retriable
-
-**Source**: `src/error.rs`
-
-```rust
-pub fn is_retriable(&self) -> bool
-```
-
-Check if this error is retriable.
-
----
-
-### is_retryable
-
-**Source**: `src/error.rs`
-
-```rust
-pub fn is_retryable(&self) -> bool
-```
-
-Check if this error type is retryable
-
----
-
-### keypair
-
-**Source**: `signer/local.rs`
-
-```rust
-pub fn keypair(&self) -> &solana_sdk::signature::Keypair
-```
-
-Get the keypair (for advanced use cases)
-
----
-
 ### mainnet
 
 **Source**: `src/client.rs`
@@ -1938,18 +1782,6 @@ Create a new Solana client with the given configuration
 
 ---
 
-### new
-
-**Source**: `signer/local.rs`
-
-```rust
-pub fn new(keypair: solana_sdk::signature::Keypair, rpc_url: String) -> Self
-```
-
-Create a new LocalSolanaSigner with the given keypair and RPC URL
-
----
-
 ### require_signer
 
 **Source**: `src/client.rs`
@@ -1959,30 +1791,6 @@ pub fn require_signer(&self) -> Result<&Arc<Keypair>>
 ```
 
 Get signer or return error if not configured
-
----
-
-### retry_delay
-
-**Source**: `src/error.rs`
-
-```rust
-pub fn retry_delay(&self) -> Option<std::time::Duration>
-```
-
-Get appropriate retry delay for rate-limited errors.
-
----
-
-### rpc_url
-
-**Source**: `signer/local.rs`
-
-```rust
-pub fn rpc_url(&self) -> &str
-```
-
-Get the RPC URL
 
 ---
 
@@ -2007,6 +1815,254 @@ pub async fn send_transaction(&self, transaction: Transaction) -> Result<String>
 ```
 
 Send a transaction
+
+---
+
+### signer
+
+**Source**: `src/client.rs`
+
+```rust
+pub fn signer(&self) -> Option<&Arc<Keypair>>
+```
+
+Get reference to the signer if configured
+
+---
+
+### testnet
+
+**Source**: `src/client.rs`
+
+```rust
+pub fn testnet() -> Self
+```
+
+Create a new Solana client with testnet configuration
+
+---
+
+### with_commitment
+
+**Source**: `src/client.rs`
+
+```rust
+pub fn with_commitment(mut self, commitment: CommitmentLevel) -> Self
+```
+
+Set commitment level
+
+---
+
+### with_rpc_url
+
+**Source**: `src/client.rs`
+
+```rust
+pub fn with_rpc_url(rpc_url: impl Into<String>) -> Self
+```
+
+Create a new Solana client with custom RPC URL
+
+---
+
+### with_signer
+
+**Source**: `src/client.rs`
+
+```rust
+pub fn with_signer(mut self, keypair: Keypair) -> Self
+```
+
+Configure client with a keypair signer for transactions
+
+---
+
+### with_signer_from_bytes
+
+**Source**: `src/client.rs`
+
+```rust
+pub fn with_signer_from_bytes(self, private_key_bytes: &[u8]) -> Result<Self>
+```
+
+Configure client with a signer from private key bytes
+
+---
+
+## Functions (local)
+
+### from_seed_phrase
+
+**Source**: `signer/local.rs`
+
+```rust
+pub fn from_seed_phrase(seed_phrase: &str, rpc_url: String) -> Result<Self, SignerError>
+```
+
+Create a new LocalSolanaSigner from a seed phrase
+
+---
+
+### keypair
+
+**Source**: `signer/local.rs`
+
+```rust
+pub fn keypair(&self) -> &solana_sdk::signature::Keypair
+```
+
+Get the keypair (for advanced use cases)
+
+---
+
+### new
+
+**Source**: `signer/local.rs`
+
+```rust
+pub fn new(keypair: solana_sdk::signature::Keypair, rpc_url: String) -> Self
+```
+
+Create a new LocalSolanaSigner with the given keypair and RPC URL
+
+---
+
+### rpc_url
+
+**Source**: `signer/local.rs`
+
+```rust
+pub fn rpc_url(&self) -> &str
+```
+
+Get the RPC URL
+
+---
+
+## Functions (keypair)
+
+### generate_mint_keypair
+
+**Source**: `utils/keypair.rs`
+
+```rust
+pub fn generate_mint_keypair() -> Keypair
+```
+
+Generates new mint keypair for token creation
+
+Creates a new randomly generated keypair suitable for use as a mint account
+in SPL token creation operations.
+
+# Returns
+
+Returns a new `Keypair` with a randomly generated public/private key pair.
+
+# Examples
+
+```rust,ignore
+use riglr_solana_tools::utils::keypair::generate_mint_keypair;
+
+let mint_keypair = generate_mint_keypair();
+println!("New mint pubkey: {}", mint_keypair.pubkey());
+```
+
+# Security Notes
+
+- Each call generates a completely new keypair
+- The private key should be handled securely
+- For production use, consider proper key management practices
+
+---
+
+## Functions (transaction)
+
+### create_token_with_mint_keypair
+
+**Source**: `utils/transaction.rs`
+
+```rust
+pub async fn create_token_with_mint_keypair( instructions: Vec<Instruction>, mint_keypair: &Keypair, ) -> std::result::Result<String, SolanaToolError>
+```
+
+Creates properly signed Solana transaction with mint keypair
+
+This function handles the complex case where a transaction needs to be signed by both
+the signer context (for fees) and a mint keypair (for token creation).
+
+# Arguments
+
+* `instructions` - The instructions to include in the transaction
+* `mint_keypair` - The keypair for the mint account (must sign the transaction)
+
+# Returns
+
+Returns the transaction signature on success
+
+# Examples
+
+```rust,ignore
+use riglr_solana_tools::utils::transaction::create_token_with_mint_keypair;
+use solana_sdk::{instruction::Instruction, signature::Keypair};
+
+# async fn example() -> Result<(), Box<dyn std::error::Error>> {
+let mint_keypair = Keypair::new();
+let instructions = vec![
+// Token creation instructions here
+];
+
+let signature = create_token_with_mint_keypair(instructions, &mint_keypair).await?;
+println!("Token created with signature: {}", signature);
+# Ok(())
+# }
+```
+
+---
+
+### execute_solana_transaction
+
+**Source**: `utils/transaction.rs`
+
+```rust
+pub async fn execute_solana_transaction<F, Fut>( tx_creator: F, ) -> std::result::Result<String, SolanaToolError> where F: FnOnce(Pubkey, Arc<RpcClient>) -> Fut + Send + 'static, Fut: Future<Output = std::result::Result<Transaction, SolanaToolError>> + Send + 'static,
+```
+
+Higher-order function to execute Solana transactions
+
+Abstracts signer context retrieval and transaction signing, following the established
+riglr pattern of using SignerContext for multi-tenant operation.
+
+# Arguments
+
+* `tx_creator` - Function that creates the transaction given a pubkey and RPC client
+
+# Returns
+
+Returns the transaction signature on success
+
+# Examples
+
+```rust,ignore
+use riglr_solana_tools::utils::transaction::execute_solana_transaction;
+use solana_sdk::{transaction::Transaction, system_instruction};
+
+# async fn example() -> Result<(), Box<dyn std::error::Error>> {
+let signature = execute_solana_transaction(|pubkey, client| async move {
+let to = "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM".parse()?;
+let instruction = system_instruction::transfer(&pubkey, &to, 1000000);
+
+let recent_blockhash = client.get_latest_blockhash()?;
+let mut tx = Transaction::new_with_payer(&[instruction], Some(&pubkey));
+tx.sign(&[], recent_blockhash);
+
+Ok(tx)
+}).await?;
+
+println!("Transaction sent: {}", signature);
+# Ok(())
+# }
+```
 
 ---
 
@@ -2124,29 +2180,7 @@ result.signature, result.attempts);
 
 ---
 
-### signer
-
-**Source**: `src/client.rs`
-
-```rust
-pub fn signer(&self) -> Option<&Arc<Keypair>>
-```
-
-Get reference to the signer if configured
-
----
-
-### testnet
-
-**Source**: `src/client.rs`
-
-```rust
-pub fn testnet() -> Self
-```
-
-Create a new Solana client with testnet configuration
-
----
+## Functions (validation)
 
 ### validate_address
 
@@ -2182,51 +2216,52 @@ assert!(validate_address("invalid").is_err());
 
 ---
 
-### with_commitment
+## Functions (config)
 
-**Source**: `src/client.rs`
+### get_rpc_url
 
-```rust
-pub fn with_commitment(mut self, commitment: CommitmentLevel) -> Self
-```
-
-Set commitment level
-
----
-
-### with_rpc_url
-
-**Source**: `src/client.rs`
+**Source**: `utils/config.rs`
 
 ```rust
-pub fn with_rpc_url(rpc_url: impl Into<String>) -> Self
+pub fn get_rpc_url() -> Result<String>
 ```
 
-Create a new Solana client with custom RPC URL
+Get RPC URL from environment or use default
 
----
+Retrieves the Solana RPC URL from the `SOLANA_RPC_URL` environment variable.
+If not set or empty, defaults to mainnet-beta. Validates URL format to ensure
+it's a proper HTTP/HTTPS/WebSocket URL.
 
-### with_signer
+# Returns
 
-**Source**: `src/client.rs`
+Returns the RPC URL string on success, or a `SolanaToolError::Generic` if
+the URL format is invalid.
 
-```rust
-pub fn with_signer(mut self, keypair: Keypair) -> Self
+# Environment Variables
+
+* `SOLANA_RPC_URL` - The RPC endpoint URL (optional)
+
+# Examples
+
+```rust,ignore
+use riglr_solana_tools::utils::config::get_rpc_url;
+
+// With environment variable set
+std::env::set_var("SOLANA_RPC_URL", "https://api.devnet.solana.com");
+let url = get_rpc_url()?;
+assert_eq!(url, "https://api.devnet.solana.com");
+
+// Without environment variable (uses default)
+std::env::remove_var("SOLANA_RPC_URL");
+let url = get_rpc_url()?;
+assert_eq!(url, "https://api.mainnet-beta.solana.com");
 ```
 
-Configure client with a keypair signer for transactions
+# Security Notes
 
----
-
-### with_signer_from_bytes
-
-**Source**: `src/client.rs`
-
-```rust
-pub fn with_signer_from_bytes(self, private_key_bytes: &[u8]) -> Result<Self>
-```
-
-Configure client with a signer from private key bytes
+- Always validates URL format to prevent injection attacks
+- Logs only the first 50 characters of custom URLs for privacy
+- Defaults to mainnet for production safety
 
 ---
 

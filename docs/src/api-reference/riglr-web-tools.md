@@ -136,19 +136,23 @@ Comprehensive API documentation for the `riglr-web-tools` crate.
 - [`search_web`](#search_web)
 - [`summarize_web_content`](#summarize_web_content)
 
-### Functions
+### Functions (dexscreener_api)
+
+- [`find_best_liquidity_pair`](#find_best_liquidity_pair)
+- [`get_pair_by_address`](#get_pair_by_address)
+- [`get_pairs_by_token`](#get_pairs_by_token)
+- [`get_token_price`](#get_token_price)
+- [`search_ticker`](#search_ticker)
+
+### Functions (client)
 
 - [`contains_key`](#contains_key)
 - [`delete`](#delete)
-- [`find_best_liquidity_pair`](#find_best_liquidity_pair)
 - [`get`](#get)
 - [`get`](#get)
 - [`get`](#get)
 - [`get_api_key`](#get_api_key)
 - [`get_config`](#get_config)
-- [`get_pair_by_address`](#get_pair_by_address)
-- [`get_pairs_by_token`](#get_pairs_by_token)
-- [`get_token_price`](#get_token_price)
 - [`get_with_headers`](#get_with_headers)
 - [`get_with_params`](#get_with_params)
 - [`get_with_params_and_headers`](#get_with_params_and_headers)
@@ -161,7 +165,6 @@ Comprehensive API documentation for the `riglr-web-tools` crate.
 - [`new`](#new)
 - [`post`](#post)
 - [`post_with_headers`](#post_with_headers)
-- [`search_ticker`](#search_ticker)
 - [`set_config`](#set_config)
 - [`with_api_key`](#with_api_key)
 - [`with_config`](#with_config)
@@ -2433,7 +2436,69 @@ creating a comprehensive overview of a topic from multiple sources.
 
 ---
 
-## Functions
+## Functions (dexscreener_api)
+
+### find_best_liquidity_pair
+
+**Source**: `src/dexscreener_api.rs`
+
+```rust
+pub fn find_best_liquidity_pair(pairs: Vec<PairInfo>) -> Option<PairInfo>
+```
+
+Find the best liquidity pair for a token
+
+---
+
+### get_pair_by_address
+
+**Source**: `src/dexscreener_api.rs`
+
+```rust
+pub async fn get_pair_by_address(pair_address: &str) -> Result<PairInfo>
+```
+
+Get pairs by pair address
+
+---
+
+### get_pairs_by_token
+
+**Source**: `src/dexscreener_api.rs`
+
+```rust
+pub async fn get_pairs_by_token(token_address: &str) -> Result<DexScreenerResponse>
+```
+
+Get token pairs by token address
+
+---
+
+### get_token_price
+
+**Source**: `src/dexscreener_api.rs`
+
+```rust
+pub fn get_token_price(pairs: &[PairInfo], token_address: &str) -> Option<String>
+```
+
+Extract token price from the best pair
+
+---
+
+### search_ticker
+
+**Source**: `src/dexscreener_api.rs`
+
+```rust
+pub async fn search_ticker(ticker: String) -> Result<DexScreenerResponse>
+```
+
+Search for tokens or pairs on DexScreener
+
+---
+
+## Functions (client)
 
 ### contains_key
 
@@ -2456,18 +2521,6 @@ pub async fn delete(&self, url: &str) -> Result<()>
 ```
 
 Make a DELETE request
-
----
-
-### find_best_liquidity_pair
-
-**Source**: `src/dexscreener_api.rs`
-
-```rust
-pub fn find_best_liquidity_pair(pairs: Vec<PairInfo>) -> Option<PairInfo>
-```
-
-Find the best liquidity pair for a token
 
 ---
 
@@ -2528,42 +2581,6 @@ pub fn get_config(&self, key: &str) -> Option<String>
 ```
 
 Get config value (for backwards compatibility)
-
----
-
-### get_pair_by_address
-
-**Source**: `src/dexscreener_api.rs`
-
-```rust
-pub async fn get_pair_by_address(pair_address: &str) -> Result<PairInfo>
-```
-
-Get pairs by pair address
-
----
-
-### get_pairs_by_token
-
-**Source**: `src/dexscreener_api.rs`
-
-```rust
-pub async fn get_pairs_by_token(token_address: &str) -> Result<DexScreenerResponse>
-```
-
-Get token pairs by token address
-
----
-
-### get_token_price
-
-**Source**: `src/dexscreener_api.rs`
-
-```rust
-pub fn get_token_price(pairs: &[PairInfo], token_address: &str) -> Option<String>
-```
-
-Extract token price from the best pair
 
 ---
 
@@ -2708,18 +2725,6 @@ pub async fn post_with_headers<T: Serialize>( &self, url: &str, body: &T, header
 ```
 
 Make a POST request with JSON body and headers
-
----
-
-### search_ticker
-
-**Source**: `src/dexscreener_api.rs`
-
-```rust
-pub async fn search_ticker(ticker: String) -> Result<DexScreenerResponse>
-```
-
-Search for tokens or pairs on DexScreener
 
 ---
 

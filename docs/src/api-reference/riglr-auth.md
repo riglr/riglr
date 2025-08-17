@@ -41,30 +41,45 @@ Comprehensive API documentation for the `riglr-auth` crate.
 - [`AuthProviderType`](#authprovidertype)
 - [`LinkedAccount`](#linkedaccount)
 
-### Functions
+### Functions (error)
+
+- [`is_retriable`](#is_retriable)
+
+### Functions (provider)
 
 - [`as_str`](#as_str)
 - [`auth_type`](#auth_type)
 - [`create_privy_provider`](#create_privy_provider)
-- [`email`](#email)
-- [`evm_wallet`](#evm_wallet)
-- [`is_retriable`](#is_retriable)
 - [`magic`](#magic)
 - [`new`](#new)
 - [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
-- [`new`](#new)
 - [`privy`](#privy)
-- [`solana_wallet`](#solana_wallet)
 - [`web3auth`](#web3auth)
+
+### Functions (mod)
+
+- [`new`](#new)
+- [`new`](#new)
+- [`new`](#new)
+- [`new`](#new)
+
+### Functions (signer)
+
+- [`new`](#new)
+- [`new`](#new)
+
+### Functions (config)
+
+- [`new`](#new)
 - [`with_api_url`](#with_api_url)
 - [`with_auth_url`](#with_auth_url)
 - [`with_cache`](#with_cache)
+
+### Functions (types)
+
+- [`email`](#email)
+- [`evm_wallet`](#evm_wallet)
+- [`solana_wallet`](#solana_wallet)
 
 ## Structs
 
@@ -609,7 +624,21 @@ Linked account types in Privy
 
 ---
 
-## Functions
+## Functions (error)
+
+### is_retriable
+
+**Source**: `src/error.rs`
+
+```rust
+pub fn is_retriable(&self) -> bool
+```
+
+Check if error is retriable (network/transient issues)
+
+---
+
+## Functions (provider)
 
 ### as_str
 
@@ -647,42 +676,6 @@ Convenience function to create a Privy provider from environment variables
 
 ---
 
-### email
-
-**Source**: `privy/types.rs`
-
-```rust
-pub fn email(&self) -> Option<String>
-```
-
-Get email if available
-
----
-
-### evm_wallet
-
-**Source**: `privy/types.rs`
-
-```rust
-pub fn evm_wallet(&self) -> Option<&PrivyWallet>
-```
-
-Get EVM wallet if available
-
----
-
-### is_retriable
-
-**Source**: `src/error.rs`
-
-```rust
-pub fn is_retriable(&self) -> bool
-```
-
-Check if error is retriable (network/transient issues)
-
----
-
 ### magic
 
 **Source**: `src/provider.rs`
@@ -714,6 +707,54 @@ Create a new authentication provider
 
 ### new
 
+**Source**: `privy/provider.rs`
+
+```rust
+pub fn new(config: PrivyConfig) -> Self
+```
+
+Create a new Privy provider
+
+---
+
+### privy
+
+**Source**: `src/provider.rs`
+
+**Attributes**:
+```rust
+#[cfg(feature = "privy")]
+```
+
+```rust
+pub fn privy(config: crate::privy::PrivyConfig) -> Self
+```
+
+Create a Privy authentication provider
+
+---
+
+### web3auth
+
+**Source**: `src/provider.rs`
+
+**Attributes**:
+```rust
+#[cfg(feature = "web3auth")]
+```
+
+```rust
+pub fn web3auth(config: crate::web3auth::Web3AuthConfig) -> Self
+```
+
+Create a Web3Auth authentication provider
+
+---
+
+## Functions (mod)
+
+### new
+
 **Source**: `magic/mod.rs`
 
 ```rust
@@ -733,50 +774,6 @@ pub fn new(config: MagicConfig) -> Self
 ```
 
 Create a new Magic provider
-
----
-
-### new
-
-**Source**: `privy/signer.rs`
-
-```rust
-pub fn new(client: reqwest::Client, address: String, network: SolanaNetworkConfig) -> Self
-```
-
----
-
-### new
-
-**Source**: `privy/signer.rs`
-
-```rust
-pub fn new( client: reqwest::Client, address: String, wallet_id: String, network: EvmNetworkConfig, ) -> Self
-```
-
----
-
-### new
-
-**Source**: `privy/config.rs`
-
-```rust
-pub fn new(app_id: String, app_secret: String) -> Self
-```
-
-Create a new Privy configuration
-
----
-
-### new
-
-**Source**: `privy/provider.rs`
-
-```rust
-pub fn new(config: PrivyConfig) -> Self
-```
-
-Create a new Privy provider
 
 ---
 
@@ -804,49 +801,39 @@ Create a new Web3Auth provider
 
 ---
 
-### privy
+## Functions (signer)
 
-**Source**: `src/provider.rs`
+### new
 
-**Attributes**:
-```rust
-#[cfg(feature = "privy")]
-```
+**Source**: `privy/signer.rs`
 
 ```rust
-pub fn privy(config: crate::privy::PrivyConfig) -> Self
+pub fn new(client: reqwest::Client, address: String, network: SolanaNetworkConfig) -> Self
 ```
-
-Create a Privy authentication provider
 
 ---
 
-### solana_wallet
+### new
 
-**Source**: `privy/types.rs`
+**Source**: `privy/signer.rs`
 
 ```rust
-pub fn solana_wallet(&self) -> Option<&PrivyWallet>
+pub fn new( client: reqwest::Client, address: String, wallet_id: String, network: EvmNetworkConfig, ) -> Self
 ```
-
-Get Solana wallet if available
 
 ---
 
-### web3auth
+## Functions (config)
 
-**Source**: `src/provider.rs`
+### new
 
-**Attributes**:
-```rust
-#[cfg(feature = "web3auth")]
-```
+**Source**: `privy/config.rs`
 
 ```rust
-pub fn web3auth(config: crate::web3auth::Web3AuthConfig) -> Self
+pub fn new(app_id: String, app_secret: String) -> Self
 ```
 
-Create a Web3Auth authentication provider
+Create a new Privy configuration
 
 ---
 
@@ -883,6 +870,44 @@ pub fn with_cache(mut self, enabled: bool) -> Self
 ```
 
 Enable or disable caching
+
+---
+
+## Functions (types)
+
+### email
+
+**Source**: `privy/types.rs`
+
+```rust
+pub fn email(&self) -> Option<String>
+```
+
+Get email if available
+
+---
+
+### evm_wallet
+
+**Source**: `privy/types.rs`
+
+```rust
+pub fn evm_wallet(&self) -> Option<&PrivyWallet>
+```
+
+Get EVM wallet if available
+
+---
+
+### solana_wallet
+
+**Source**: `privy/types.rs`
+
+```rust
+pub fn solana_wallet(&self) -> Option<&PrivyWallet>
+```
+
+Get Solana wallet if available
 
 ---
 

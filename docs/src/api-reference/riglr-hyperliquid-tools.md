@@ -56,7 +56,7 @@ Comprehensive API documentation for the `riglr-hyperliquid-tools` crate.
 - [`ResponseData`](#responsedata)
 - [`RestingOrder`](#restingorder)
 
-### Functions
+### Functions (client)
 
 - [`cancel_order`](#cancel_order)
 - [`get`](#get)
@@ -1204,7 +1204,7 @@ the order for cancellation or modification operations.
 
 ---
 
-## Functions
+## Functions (client)
 
 ### cancel_order
 

@@ -483,7 +483,9 @@ def organize_items_by_category(items: List[DocItem]) -> Dict[str, List[DocItem]]
         elif item.kind == 'trait':
             categories['Traits'].append(item)
         elif item.kind == 'function':
-            categories['Functions'].append(item)
+            # Group functions by their file/module
+            module_name = item.file.split('/')[-1].replace('.rs', '') if item.file else 'unknown'
+            categories[f'Functions ({module_name})'].append(item)
         elif item.kind == 'impl':
             categories['Implementations'].append(item)
         elif item.kind == 'type':
