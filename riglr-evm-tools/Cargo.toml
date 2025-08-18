@@ -1,64 +1,42 @@
 [package]
 name = "riglr-evm-tools"
-version.workspace = true
-edition.workspace = true
-license.workspace = true
-authors.workspace = true
-repository.workspace = true
-homepage.workspace = true
-description = "A suite of rig-compatible tools for interacting with EVM-based blockchains"
-readme = "README.md"
-keywords = ["ethereum", "evm", "ai", "agent", "blockchain", "rig"]
-categories = ["cryptography::cryptocurrencies", "web-programming::api-bindings"]
-documentation = "https://docs.rs/riglr-evm-tools"
-
-[lints]
-workspace = true
+version = "0.2.0"
+edition = "2021"
+authors = ["Riglr Contributors"]
+license = "MIT OR Apache-2.0"
+description = "EVM blockchain tools for the Riglr framework"
+repository = "https://github.com/riglr/riglr"
+keywords = ["evm", "ethereum", "blockchain", "web3", "tools"]
+categories = ["cryptography::cryptocurrencies", "api-bindings"]
 
 [dependencies]
-# Core riglr and rig dependencies
-rig-core = { workspace = true }
-riglr-core = { workspace = true }
-riglr-config = { workspace = true }
-riglr-macros = { workspace = true }
+# Core dependencies
+riglr-config = { path = "../riglr-config" }
+riglr-core = { path = "../riglr-core" }
+riglr-macros = { path = "../riglr-macros" }
 
-# Async and Error Handling
+# Async runtime
 tokio = { workspace = true }
-anyhow = { workspace = true }
-thiserror = { workspace = true }
 async-trait = { workspace = true }
 
-# Serialization and Schema
+# Ethereum/EVM
+alloy = { workspace = true }
+
+# Serialization
 serde = { workspace = true }
 serde_json = { workspace = true }
 schemars = { workspace = true }
 
-# EVM Dependencies (using alloy-rs)
-alloy = { workspace = true }
-hex = "0.4"
-
-# HTTP client
-reqwest = { workspace = true }
-
-# Utility
-uuid = { workspace = true }
+# Error handling
+anyhow = { workspace = true }
+thiserror = { workspace = true }
 
 # Logging
 tracing = { workspace = true }
 
+# HTTP client
+reqwest = { workspace = true }
+
 [dev-dependencies]
-tokio-test = { workspace = true }
+tokio = { workspace = true, features = ["full", "test-util"] }
 tracing-subscriber = { workspace = true }
-mockito = "1.0"
-criterion = { workspace = true }
-# riglr-showcase = { path = "../riglr-showcase" }  # REMOVED - unnecessary dev dependency
-solana-client = { workspace = true }
-solana-sdk = { workspace = true }
-futures = "0.3"
-tempfile = "3.8"
-
-# Removed workspace definition to be part of parent workspace
-
-[[bench]]
-name = "evm_benchmarks"
-harness = false

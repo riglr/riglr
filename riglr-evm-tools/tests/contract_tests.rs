@@ -1,1 +1,0 @@
-//! Tests for contract module that don't require external dependencies

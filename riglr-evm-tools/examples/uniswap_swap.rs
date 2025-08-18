@@ -1,19 +1,20 @@
 //! Example: Get Uniswap quotes and execute swaps
 
-use riglr_evm_tools::{get_uniswap_quote, EvmClient};
+use riglr_core::provider::ApplicationContext;
+use riglr_evm_tools::get_uniswap_quote;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Initialize tracing
     tracing_subscriber::fmt::init();
 
+    // Create application context
+    let context = ApplicationContext::from_env();
+
     // Token addresses on Ethereum mainnet
     let usdc = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48".to_string();
     let weth = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2".to_string();
     let dai = "0x6B175474E89094C44Da98b954EedeAC495271d0F".to_string();
-
-    // Create EVM client
-    let _client = EvmClient::mainnet().await?;
 
     println!("Getting Uniswap V3 quotes...\n");
 
@@ -27,6 +28,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         18,                 // WETH decimals
         Some(3000),         // 0.3% fee tier
         Some(50),           // 0.5% slippage
+        Some(1),            // Ethereum mainnet
+        &context,
     )
     .await
     {
@@ -34,7 +37,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("✓ Input: {} {}", quote.amount_in, quote.token_in);
             println!("  Output: {} {}", quote.amount_out, quote.token_out);
             println!("  Price: {:.6}", quote.price);
-            println!("  Fee tier: {:.2}%", quote.fee_tier as f64 / 10000.0);
+            println!(
+                "  Fee tier: {:.2}%",
+                quote.fee_tier.parse::<f64>().unwrap_or(0.0) / 10000.0
+            );
             println!("  Min output: {}", quote.amount_out_minimum);
         }
         Err(e) => {
@@ -55,6 +61,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         6,               // USDC decimals
         Some(3000),      // 0.3% fee tier
         Some(50),        // 0.5% slippage
+        Some(1),         // Ethereum mainnet
+        &context,
     )
     .await
     {
@@ -78,6 +86,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         6,                  // USDC decimals
         Some(500),          // 0.05% fee tier for stablecoins
         Some(10),           // 0.1% slippage for stablecoins
+        Some(1),            // Ethereum mainnet
+        &context,
     )
     .await
     {
