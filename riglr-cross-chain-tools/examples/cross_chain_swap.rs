@@ -10,8 +10,9 @@
 //!
 //! The example uses riglr's SignerContext pattern for secure multi-tenant operation.
 
+use riglr_config::SolanaNetworkConfig;
 use riglr_core::signer::LocalSolanaSigner;
-use riglr_core::{config::SolanaNetworkConfig, SignerContext};
+use riglr_core::{provider::ApplicationContext, SignerContext};
 use riglr_cross_chain_tools::{
     estimate_bridge_fees, execute_cross_chain_bridge, get_bridge_status, get_cross_chain_routes,
     get_supported_chains,
@@ -32,6 +33,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let network_config = SolanaNetworkConfig {
         name: "devnet".to_string(),
         rpc_url: "https://api.devnet.solana.com".to_string(),
+        ws_url: None,
         explorer_url: Some("https://explorer.solana.com".to_string()),
     };
     let signer = Arc::new(LocalSolanaSigner::from_keypair(keypair, network_config));
@@ -54,9 +56,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 async fn demonstrate_cross_chain_operations() -> Result<(), riglr_core::signer::SignerError> {
+    // Create application context
+    let context = ApplicationContext::from_env();
+
     // Step 1: Get supported chains
     info!("\n=== Step 1: Discovering supported chains ===");
-    match get_supported_chains().await {
+    match get_supported_chains(&context).await {
         Ok(chains) => {
             info!("Found {} supported chains:", chains.len());
             for chain in chains.iter().take(5) {
@@ -73,6 +78,7 @@ async fn demonstrate_cross_chain_operations() -> Result<(), riglr_core::signer::
     // Step 2: Discover cross-chain routes
     info!("\n=== Step 2: Discovering cross-chain routes ===");
     let route_result = get_cross_chain_routes(
+        &context,
         "ethereum".to_string(),
         "polygon".to_string(),
         "0xA0b86a33E6417c5d6d6bE6C2e0C6C3e5d6c7D8E9".to_string(), // USDC on Ethereum
@@ -111,6 +117,7 @@ async fn demonstrate_cross_chain_operations() -> Result<(), riglr_core::signer::
             if let Some(best_route) = routes.routes.first() {
                 info!("\n=== Step 3: Estimating fees for best route ===");
                 match estimate_bridge_fees(
+                    &context,
                     "ethereum".to_string(),
                     "polygon".to_string(),
                     "0xA0b86a33E6417c5d6d6bE6C2e0C6C3e5d6c7D8E9".to_string(),
@@ -147,6 +154,7 @@ async fn demonstrate_cross_chain_operations() -> Result<(), riglr_core::signer::
                 // Step 4: Execute bridge (simulation)
                 info!("\n=== Step 4: Executing bridge transaction ===");
                 match execute_cross_chain_bridge(
+                    &context,
                     best_route.id.clone(),
                     "ethereum".to_string(),
                     "polygon".to_string(),
@@ -164,6 +172,7 @@ async fn demonstrate_cross_chain_operations() -> Result<(), riglr_core::signer::
                         // Step 5: Check bridge status
                         info!("\n=== Step 5: Checking bridge status ===");
                         match get_bridge_status(
+                            &context,
                             bridge_result.bridge_id.clone(),
                             bridge_result.source_tx_hash.clone(),
                         )
@@ -197,6 +206,7 @@ async fn demonstrate_cross_chain_operations() -> Result<(), riglr_core::signer::
     // Step 6: Demonstrate error handling - invalid chain
     info!("\n=== Step 6: Demonstrating error handling ===");
     match get_cross_chain_routes(
+        &context,
         "invalid_chain".to_string(),
         "ethereum".to_string(),
         "USDC".to_string(),
@@ -257,7 +267,7 @@ mod rig_integration {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use riglr_core::SignerContext;
+    use riglr_core::{provider::ApplicationContext, SignerContext};
 
     // Mock signer for testing
     #[derive(Debug)]
@@ -305,7 +315,9 @@ mod tests {
 
         let result = SignerContext::with_signer(signer, async {
             // Test that tools can be called within signer context
+            let context = ApplicationContext::from_env();
             let routes = get_cross_chain_routes(
+                &context,
                 "ethereum".to_string(),
                 "polygon".to_string(),
                 "USDC".to_string(),
@@ -322,7 +334,7 @@ mod tests {
                 Err(e) => info!("Route discovery failed (expected in test): {}", e),
             }
 
-            Ok(())
+            Ok::<(), riglr_core::signer::SignerError>(())
         })
         .await;
 
