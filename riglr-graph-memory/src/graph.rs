@@ -557,3 +557,456 @@ impl GraphMemory {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_graph_memory_config_default() {
+        let config = GraphMemoryConfig::default();
+
+        assert_eq!(config.neo4j_url, "http://localhost:7474");
+        assert_eq!(config.username, Some("neo4j".to_string()));
+        assert_eq!(config.password, Some("password".to_string()));
+        assert_eq!(config.database, Some("neo4j".to_string()));
+        assert!(config.auto_extract_entities);
+        assert!(config.auto_generate_embeddings);
+        assert_eq!(config.batch_size, 100);
+    }
+
+    #[test]
+    fn test_graph_memory_config_custom() {
+        let retriever_config = GraphRetrieverConfig::new_default();
+        let config = GraphMemoryConfig {
+            neo4j_url: "bolt://custom:7687".to_string(),
+            username: Some("admin".to_string()),
+            password: Some("secret".to_string()),
+            database: Some("testdb".to_string()),
+            retriever_config: retriever_config.clone(),
+            auto_extract_entities: false,
+            auto_generate_embeddings: false,
+            batch_size: 50,
+        };
+
+        assert_eq!(config.neo4j_url, "bolt://custom:7687");
+        assert_eq!(config.username, Some("admin".to_string()));
+        assert_eq!(config.password, Some("secret".to_string()));
+        assert_eq!(config.database, Some("testdb".to_string()));
+        assert!(!config.auto_extract_entities);
+        assert!(!config.auto_generate_embeddings);
+        assert_eq!(config.batch_size, 50);
+    }
+
+    #[test]
+    fn test_graph_memory_stats_creation() {
+        let stats = GraphMemoryStats {
+            document_count: 100,
+            entity_count: 500,
+            relationship_count: 250,
+            wallet_count: 150,
+            token_count: 200,
+            protocol_count: 150,
+            avg_entities_per_doc: 5.0,
+            storage_size_bytes: 1024,
+        };
+
+        assert_eq!(stats.document_count, 100);
+        assert_eq!(stats.entity_count, 500);
+        assert_eq!(stats.relationship_count, 250);
+        assert_eq!(stats.wallet_count, 150);
+        assert_eq!(stats.token_count, 200);
+        assert_eq!(stats.protocol_count, 150);
+        assert_eq!(stats.avg_entities_per_doc, 5.0);
+        assert_eq!(stats.storage_size_bytes, 1024);
+    }
+
+    // Mock tests for async functions would require more complex setup
+    // These tests focus on the synchronous logic and data structures
+
+    #[tokio::test]
+    async fn test_process_single_document_without_auto_extract() {
+        // This test would require setting up mock clients
+        // For now, we'll test the data structure logic
+        let config = GraphMemoryConfig {
+            auto_extract_entities: false,
+            auto_generate_embeddings: false,
+            ..Default::default()
+        };
+
+        // Test that config disables auto extraction
+        assert!(!config.auto_extract_entities);
+        assert!(!config.auto_generate_embeddings);
+    }
+
+    #[test]
+    fn test_openai_api_key_constant() {
+        assert_eq!(OPENAI_API_KEY, "OPENAI_API_KEY");
+    }
+
+    #[test]
+    fn test_graph_memory_config_clone() {
+        let config1 = GraphMemoryConfig::default();
+        let config2 = config1.clone();
+
+        assert_eq!(config1.neo4j_url, config2.neo4j_url);
+        assert_eq!(config1.username, config2.username);
+        assert_eq!(config1.password, config2.password);
+        assert_eq!(config1.database, config2.database);
+        assert_eq!(config1.auto_extract_entities, config2.auto_extract_entities);
+        assert_eq!(
+            config1.auto_generate_embeddings,
+            config2.auto_generate_embeddings
+        );
+        assert_eq!(config1.batch_size, config2.batch_size);
+    }
+
+    #[test]
+    fn test_graph_memory_stats_clone() {
+        let stats1 = GraphMemoryStats {
+            document_count: 10,
+            entity_count: 50,
+            relationship_count: 25,
+            wallet_count: 15,
+            token_count: 20,
+            protocol_count: 15,
+            avg_entities_per_doc: 5.0,
+            storage_size_bytes: 512,
+        };
+
+        let stats2 = stats1.clone();
+
+        assert_eq!(stats1.document_count, stats2.document_count);
+        assert_eq!(stats1.entity_count, stats2.entity_count);
+        assert_eq!(stats1.relationship_count, stats2.relationship_count);
+        assert_eq!(stats1.wallet_count, stats2.wallet_count);
+        assert_eq!(stats1.token_count, stats2.token_count);
+        assert_eq!(stats1.protocol_count, stats2.protocol_count);
+        assert_eq!(stats1.avg_entities_per_doc, stats2.avg_entities_per_doc);
+        assert_eq!(stats1.storage_size_bytes, stats2.storage_size_bytes);
+    }
+
+    #[test]
+    fn test_graph_memory_config_debug() {
+        let config = GraphMemoryConfig::default();
+        let debug_str = format!("{:?}", config);
+
+        assert!(debug_str.contains("GraphMemoryConfig"));
+        assert!(debug_str.contains("neo4j_url"));
+        assert!(debug_str.contains("http://localhost:7474"));
+    }
+
+    #[test]
+    fn test_graph_memory_stats_debug() {
+        let stats = GraphMemoryStats {
+            document_count: 10,
+            entity_count: 50,
+            relationship_count: 25,
+            wallet_count: 15,
+            token_count: 20,
+            protocol_count: 15,
+            avg_entities_per_doc: 5.0,
+            storage_size_bytes: 512,
+        };
+
+        let debug_str = format!("{:?}", stats);
+
+        assert!(debug_str.contains("GraphMemoryStats"));
+        assert!(debug_str.contains("document_count"));
+        assert!(debug_str.contains("10"));
+    }
+
+    #[test]
+    fn test_graph_memory_config_with_none_values() {
+        let config = GraphMemoryConfig {
+            neo4j_url: "http://test:7474".to_string(),
+            username: None,
+            password: None,
+            database: None,
+            retriever_config: GraphRetrieverConfig::new_default(),
+            auto_extract_entities: true,
+            auto_generate_embeddings: true,
+            batch_size: 200,
+        };
+
+        assert_eq!(config.neo4j_url, "http://test:7474");
+        assert_eq!(config.username, None);
+        assert_eq!(config.password, None);
+        assert_eq!(config.database, None);
+        assert!(config.auto_extract_entities);
+        assert!(config.auto_generate_embeddings);
+        assert_eq!(config.batch_size, 200);
+    }
+
+    #[test]
+    fn test_graph_memory_stats_zero_values() {
+        let stats = GraphMemoryStats {
+            document_count: 0,
+            entity_count: 0,
+            relationship_count: 0,
+            wallet_count: 0,
+            token_count: 0,
+            protocol_count: 0,
+            avg_entities_per_doc: 0.0,
+            storage_size_bytes: 0,
+        };
+
+        assert_eq!(stats.document_count, 0);
+        assert_eq!(stats.entity_count, 0);
+        assert_eq!(stats.relationship_count, 0);
+        assert_eq!(stats.wallet_count, 0);
+        assert_eq!(stats.token_count, 0);
+        assert_eq!(stats.protocol_count, 0);
+        assert_eq!(stats.avg_entities_per_doc, 0.0);
+        assert_eq!(stats.storage_size_bytes, 0);
+    }
+
+    #[test]
+    fn test_graph_memory_stats_large_values() {
+        let stats = GraphMemoryStats {
+            document_count: u64::MAX,
+            entity_count: u64::MAX,
+            relationship_count: u64::MAX,
+            wallet_count: u64::MAX,
+            token_count: u64::MAX,
+            protocol_count: u64::MAX,
+            avg_entities_per_doc: f64::MAX,
+            storage_size_bytes: u64::MAX,
+        };
+
+        assert_eq!(stats.document_count, u64::MAX);
+        assert_eq!(stats.entity_count, u64::MAX);
+        assert_eq!(stats.relationship_count, u64::MAX);
+        assert_eq!(stats.wallet_count, u64::MAX);
+        assert_eq!(stats.token_count, u64::MAX);
+        assert_eq!(stats.protocol_count, u64::MAX);
+        assert_eq!(stats.avg_entities_per_doc, f64::MAX);
+        assert_eq!(stats.storage_size_bytes, u64::MAX);
+    }
+
+    #[test]
+    fn test_graph_memory_config_empty_strings() {
+        let config = GraphMemoryConfig {
+            neo4j_url: "".to_string(),
+            username: Some("".to_string()),
+            password: Some("".to_string()),
+            database: Some("".to_string()),
+            retriever_config: GraphRetrieverConfig::new_default(),
+            auto_extract_entities: false,
+            auto_generate_embeddings: false,
+            batch_size: 1,
+        };
+
+        assert_eq!(config.neo4j_url, "");
+        assert_eq!(config.username, Some("".to_string()));
+        assert_eq!(config.password, Some("".to_string()));
+        assert_eq!(config.database, Some("".to_string()));
+        assert!(!config.auto_extract_entities);
+        assert!(!config.auto_generate_embeddings);
+        assert_eq!(config.batch_size, 1);
+    }
+
+    #[test]
+    fn test_graph_memory_config_max_batch_size() {
+        let config = GraphMemoryConfig {
+            batch_size: usize::MAX,
+            ..Default::default()
+        };
+
+        assert_eq!(config.batch_size, usize::MAX);
+    }
+
+    #[test]
+    fn test_graph_memory_stats_negative_avg_entities() {
+        let stats = GraphMemoryStats {
+            document_count: 10,
+            entity_count: 50,
+            relationship_count: 25,
+            wallet_count: 15,
+            token_count: 20,
+            protocol_count: 15,
+            avg_entities_per_doc: -1.0,
+            storage_size_bytes: 512,
+        };
+
+        assert_eq!(stats.avg_entities_per_doc, -1.0);
+    }
+
+    #[test]
+    fn test_graph_memory_stats_infinite_avg_entities() {
+        let stats = GraphMemoryStats {
+            document_count: 10,
+            entity_count: 50,
+            relationship_count: 25,
+            wallet_count: 15,
+            token_count: 20,
+            protocol_count: 15,
+            avg_entities_per_doc: f64::INFINITY,
+            storage_size_bytes: 512,
+        };
+
+        assert_eq!(stats.avg_entities_per_doc, f64::INFINITY);
+    }
+
+    #[test]
+    fn test_graph_memory_stats_nan_avg_entities() {
+        let stats = GraphMemoryStats {
+            document_count: 10,
+            entity_count: 50,
+            relationship_count: 25,
+            wallet_count: 15,
+            token_count: 20,
+            protocol_count: 15,
+            avg_entities_per_doc: f64::NAN,
+            storage_size_bytes: 512,
+        };
+
+        assert!(stats.avg_entities_per_doc.is_nan());
+    }
+
+    // Test edge cases for batch processing logic
+    #[test]
+    fn test_batch_size_edge_cases() {
+        // Test minimum batch size
+        let config = GraphMemoryConfig {
+            batch_size: 1,
+            ..Default::default()
+        };
+        assert_eq!(config.batch_size, 1);
+
+        // Test zero batch size (edge case that might cause issues)
+        let config = GraphMemoryConfig {
+            batch_size: 0,
+            ..Default::default()
+        };
+        assert_eq!(config.batch_size, 0);
+    }
+
+    // Test configuration combinations
+    #[test]
+    fn test_config_all_auto_features_disabled() {
+        let config = GraphMemoryConfig {
+            auto_extract_entities: false,
+            auto_generate_embeddings: false,
+            ..Default::default()
+        };
+
+        assert!(!config.auto_extract_entities);
+        assert!(!config.auto_generate_embeddings);
+    }
+
+    #[test]
+    fn test_config_all_auto_features_enabled() {
+        let config = GraphMemoryConfig {
+            auto_extract_entities: true,
+            auto_generate_embeddings: true,
+            ..Default::default()
+        };
+
+        assert!(config.auto_extract_entities);
+        assert!(config.auto_generate_embeddings);
+    }
+
+    #[test]
+    fn test_config_mixed_auto_features() {
+        let config = GraphMemoryConfig {
+            auto_extract_entities: true,
+            auto_generate_embeddings: false,
+            ..Default::default()
+        };
+
+        assert!(config.auto_extract_entities);
+        assert!(!config.auto_generate_embeddings);
+
+        let config2 = GraphMemoryConfig {
+            auto_extract_entities: false,
+            auto_generate_embeddings: true,
+            ..Default::default()
+        };
+
+        assert!(!config2.auto_extract_entities);
+        assert!(config2.auto_generate_embeddings);
+    }
+
+    // Test URL variations
+    #[test]
+    fn test_config_different_url_formats() {
+        let configs = vec![
+            "http://localhost:7474",
+            "https://remote.neo4j.com:7473",
+            "bolt://localhost:7687",
+            "bolt+s://secure.neo4j.com:7687",
+            "neo4j://cluster.neo4j.com:7687",
+            "neo4j+s://secure-cluster.neo4j.com:7687",
+        ];
+
+        for url in configs {
+            let config = GraphMemoryConfig {
+                neo4j_url: url.to_string(),
+                ..Default::default()
+            };
+            assert_eq!(config.neo4j_url, url);
+        }
+    }
+
+    // Test database name variations
+    #[test]
+    fn test_config_different_database_names() {
+        let database_names = vec![
+            Some("neo4j".to_string()),
+            Some("system".to_string()),
+            Some("production".to_string()),
+            Some("test_db".to_string()),
+            Some("blockchain-data".to_string()),
+            None,
+        ];
+
+        for db_name in database_names {
+            let config = GraphMemoryConfig {
+                database: db_name.clone(),
+                ..Default::default()
+            };
+            assert_eq!(config.database, db_name);
+        }
+    }
+
+    // Test username/password combinations
+    #[test]
+    fn test_config_auth_combinations() {
+        // Both provided
+        let config = GraphMemoryConfig {
+            username: Some("admin".to_string()),
+            password: Some("secret".to_string()),
+            ..Default::default()
+        };
+        assert_eq!(config.username, Some("admin".to_string()));
+        assert_eq!(config.password, Some("secret".to_string()));
+
+        // Only username
+        let config = GraphMemoryConfig {
+            username: Some("admin".to_string()),
+            password: None,
+            ..Default::default()
+        };
+        assert_eq!(config.username, Some("admin".to_string()));
+        assert_eq!(config.password, None);
+
+        // Only password
+        let config = GraphMemoryConfig {
+            username: None,
+            password: Some("secret".to_string()),
+            ..Default::default()
+        };
+        assert_eq!(config.username, None);
+        assert_eq!(config.password, Some("secret".to_string()));
+
+        // Neither provided
+        let config = GraphMemoryConfig {
+            username: None,
+            password: None,
+            ..Default::default()
+        };
+        assert_eq!(config.username, None);
+        assert_eq!(config.password, None);
+    }
+}
