@@ -461,3 +461,560 @@ async fn handle_metrics_command(
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use clap::CommandFactory;
+
+    #[test]
+    fn test_cli_command_factory_should_not_panic() {
+        // Test that the CLI command structure is valid
+        let _cmd = Cli::command();
+    }
+
+    #[test]
+    fn test_cli_parse_database_init_should_succeed() {
+        let args = vec!["riglr-indexer-cli", "database", "init"];
+        let cli = Cli::try_parse_from(args).unwrap();
+
+        match cli.command {
+            Commands::Database(DatabaseCommands::Init) => {}
+            _ => panic!("Expected Database Init command"),
+        }
+        assert!(!cli.verbose);
+        assert!(cli.config.is_none());
+    }
+
+    #[test]
+    fn test_cli_parse_database_migrate_should_succeed() {
+        let args = vec!["riglr-indexer-cli", "database", "migrate"];
+        let cli = Cli::try_parse_from(args).unwrap();
+
+        match cli.command {
+            Commands::Database(DatabaseCommands::Migrate) => {}
+            _ => panic!("Expected Database Migrate command"),
+        }
+    }
+
+    #[test]
+    fn test_cli_parse_database_stats_should_succeed() {
+        let args = vec!["riglr-indexer-cli", "database", "stats"];
+        let cli = Cli::try_parse_from(args).unwrap();
+
+        match cli.command {
+            Commands::Database(DatabaseCommands::Stats) => {}
+            _ => panic!("Expected Database Stats command"),
+        }
+    }
+
+    #[test]
+    fn test_cli_parse_database_cleanup_with_defaults_should_succeed() {
+        let args = vec!["riglr-indexer-cli", "database", "cleanup"];
+        let cli = Cli::try_parse_from(args).unwrap();
+
+        match cli.command {
+            Commands::Database(DatabaseCommands::Cleanup { days, dry_run }) => {
+                assert_eq!(days, 30);
+                assert!(!dry_run);
+            }
+            _ => panic!("Expected Database Cleanup command"),
+        }
+    }
+
+    #[test]
+    fn test_cli_parse_database_cleanup_with_custom_values_should_succeed() {
+        let args = vec![
+            "riglr-indexer-cli",
+            "database",
+            "cleanup",
+            "--days",
+            "7",
+            "--dry-run",
+        ];
+        let cli = Cli::try_parse_from(args).unwrap();
+
+        match cli.command {
+            Commands::Database(DatabaseCommands::Cleanup { days, dry_run }) => {
+                assert_eq!(days, 7);
+                assert!(dry_run);
+            }
+            _ => panic!("Expected Database Cleanup command"),
+        }
+    }
+
+    #[test]
+    fn test_cli_parse_query_events_with_defaults_should_succeed() {
+        let args = vec!["riglr-indexer-cli", "query", "events"];
+        let cli = Cli::try_parse_from(args).unwrap();
+
+        match cli.command {
+            Commands::Query(QueryCommands::Events {
+                event_types,
+                sources,
+                start_time,
+                end_time,
+                limit,
+                format,
+            }) => {
+                assert!(event_types.is_none());
+                assert!(sources.is_none());
+                assert!(start_time.is_none());
+                assert!(end_time.is_none());
+                assert_eq!(limit, 100);
+                assert_eq!(format, "table");
+            }
+            _ => panic!("Expected Query Events command"),
+        }
+    }
+
+    #[test]
+    fn test_cli_parse_query_events_with_all_options_should_succeed() {
+        let args = vec![
+            "riglr-indexer-cli",
+            "query",
+            "events",
+            "--event-types",
+            "swap,transfer",
+            "--sources",
+            "ethereum,polygon",
+            "--start-time",
+            "2023-01-01T00:00:00Z",
+            "--end-time",
+            "2023-12-31T23:59:59Z",
+            "--limit",
+            "500",
+            "--format",
+            "json",
+        ];
+        let cli = Cli::try_parse_from(args).unwrap();
+
+        match cli.command {
+            Commands::Query(QueryCommands::Events {
+                event_types,
+                sources,
+                start_time,
+                end_time,
+                limit,
+                format,
+            }) => {
+                assert_eq!(event_types.unwrap(), "swap,transfer");
+                assert_eq!(sources.unwrap(), "ethereum,polygon");
+                assert_eq!(start_time.unwrap(), "2023-01-01T00:00:00Z");
+                assert_eq!(end_time.unwrap(), "2023-12-31T23:59:59Z");
+                assert_eq!(limit, 500);
+                assert_eq!(format, "json");
+            }
+            _ => panic!("Expected Query Events command"),
+        }
+    }
+
+    #[test]
+    fn test_cli_parse_query_get_with_defaults_should_succeed() {
+        let args = vec!["riglr-indexer-cli", "query", "get", "event123"];
+        let cli = Cli::try_parse_from(args).unwrap();
+
+        match cli.command {
+            Commands::Query(QueryCommands::Get { id, format }) => {
+                assert_eq!(id, "event123");
+                assert_eq!(format, "json");
+            }
+            _ => panic!("Expected Query Get command"),
+        }
+    }
+
+    #[test]
+    fn test_cli_parse_query_get_with_custom_format_should_succeed() {
+        let args = vec![
+            "riglr-indexer-cli",
+            "query",
+            "get",
+            "event456",
+            "--format",
+            "yaml",
+        ];
+        let cli = Cli::try_parse_from(args).unwrap();
+
+        match cli.command {
+            Commands::Query(QueryCommands::Get { id, format }) => {
+                assert_eq!(id, "event456");
+                assert_eq!(format, "yaml");
+            }
+            _ => panic!("Expected Query Get command"),
+        }
+    }
+
+    #[test]
+    fn test_cli_parse_query_stats_should_succeed() {
+        let args = vec!["riglr-indexer-cli", "query", "stats"];
+        let cli = Cli::try_parse_from(args).unwrap();
+
+        match cli.command {
+            Commands::Query(QueryCommands::Stats) => {}
+            _ => panic!("Expected Query Stats command"),
+        }
+    }
+
+    #[test]
+    fn test_cli_parse_health_with_default_endpoint_should_succeed() {
+        let args = vec!["riglr-indexer-cli", "health"];
+        let cli = Cli::try_parse_from(args).unwrap();
+
+        match cli.command {
+            Commands::Health { endpoint } => {
+                assert_eq!(endpoint, "http://localhost:8080");
+            }
+            _ => panic!("Expected Health command"),
+        }
+    }
+
+    #[test]
+    fn test_cli_parse_health_with_custom_endpoint_should_succeed() {
+        let args = vec![
+            "riglr-indexer-cli",
+            "health",
+            "--endpoint",
+            "https://api.example.com:9090",
+        ];
+        let cli = Cli::try_parse_from(args).unwrap();
+
+        match cli.command {
+            Commands::Health { endpoint } => {
+                assert_eq!(endpoint, "https://api.example.com:9090");
+            }
+            _ => panic!("Expected Health command"),
+        }
+    }
+
+    #[test]
+    fn test_cli_parse_config_validate_should_succeed() {
+        let args = vec!["riglr-indexer-cli", "config", "validate"];
+        let cli = Cli::try_parse_from(args).unwrap();
+
+        match cli.command {
+            Commands::Config(ConfigCommands::Validate) => {}
+            _ => panic!("Expected Config Validate command"),
+        }
+    }
+
+    #[test]
+    fn test_cli_parse_config_show_should_succeed() {
+        let args = vec!["riglr-indexer-cli", "config", "show"];
+        let cli = Cli::try_parse_from(args).unwrap();
+
+        match cli.command {
+            Commands::Config(ConfigCommands::Show) => {}
+            _ => panic!("Expected Config Show command"),
+        }
+    }
+
+    #[test]
+    fn test_cli_parse_config_example_should_succeed() {
+        let args = vec!["riglr-indexer-cli", "config", "example"];
+        let cli = Cli::try_parse_from(args).unwrap();
+
+        match cli.command {
+            Commands::Config(ConfigCommands::Example) => {}
+            _ => panic!("Expected Config Example command"),
+        }
+    }
+
+    #[test]
+    fn test_cli_parse_metrics_show_should_succeed() {
+        let args = vec!["riglr-indexer-cli", "metrics", "show"];
+        let cli = Cli::try_parse_from(args).unwrap();
+
+        match cli.command {
+            Commands::Metrics(MetricsCommands::Show) => {}
+            _ => panic!("Expected Metrics Show command"),
+        }
+    }
+
+    #[test]
+    fn test_cli_parse_metrics_export_should_succeed() {
+        let args = vec!["riglr-indexer-cli", "metrics", "export"];
+        let cli = Cli::try_parse_from(args).unwrap();
+
+        match cli.command {
+            Commands::Metrics(MetricsCommands::Export) => {}
+            _ => panic!("Expected Metrics Export command"),
+        }
+    }
+
+    #[test]
+    fn test_cli_parse_with_verbose_flag_should_succeed() {
+        let args = vec!["riglr-indexer-cli", "--verbose", "health"];
+        let cli = Cli::try_parse_from(args).unwrap();
+
+        assert!(cli.verbose);
+        match cli.command {
+            Commands::Health { .. } => {}
+            _ => panic!("Expected Health command"),
+        }
+    }
+
+    #[test]
+    fn test_cli_parse_with_short_verbose_flag_should_succeed() {
+        let args = vec!["riglr-indexer-cli", "-v", "health"];
+        let cli = Cli::try_parse_from(args).unwrap();
+
+        assert!(cli.verbose);
+    }
+
+    #[test]
+    fn test_cli_parse_with_config_flag_should_succeed() {
+        let args = vec![
+            "riglr-indexer-cli",
+            "--config",
+            "/path/to/config.toml",
+            "health",
+        ];
+        let cli = Cli::try_parse_from(args).unwrap();
+
+        assert_eq!(cli.config.unwrap(), "/path/to/config.toml");
+        match cli.command {
+            Commands::Health { .. } => {}
+            _ => panic!("Expected Health command"),
+        }
+    }
+
+    #[test]
+    fn test_cli_parse_with_short_config_flag_should_succeed() {
+        let args = vec!["riglr-indexer-cli", "-c", "/path/to/config.toml", "health"];
+        let cli = Cli::try_parse_from(args).unwrap();
+
+        assert_eq!(cli.config.unwrap(), "/path/to/config.toml");
+    }
+
+    #[test]
+    fn test_cli_parse_with_both_flags_should_succeed() {
+        let args = vec![
+            "riglr-indexer-cli",
+            "--verbose",
+            "--config",
+            "/custom/config.toml",
+            "database",
+            "init",
+        ];
+        let cli = Cli::try_parse_from(args).unwrap();
+
+        assert!(cli.verbose);
+        assert_eq!(cli.config.unwrap(), "/custom/config.toml");
+        match cli.command {
+            Commands::Database(DatabaseCommands::Init) => {}
+            _ => panic!("Expected Database Init command"),
+        }
+    }
+
+    #[test]
+    fn test_cli_parse_invalid_command_should_fail() {
+        let args = vec!["riglr-indexer-cli", "invalid-command"];
+        let result = Cli::try_parse_from(args);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_cli_parse_missing_subcommand_should_fail() {
+        let args = vec!["riglr-indexer-cli"];
+        let result = Cli::try_parse_from(args);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_cli_parse_database_without_subcommand_should_fail() {
+        let args = vec!["riglr-indexer-cli", "database"];
+        let result = Cli::try_parse_from(args);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_cli_parse_query_without_subcommand_should_fail() {
+        let args = vec!["riglr-indexer-cli", "query"];
+        let result = Cli::try_parse_from(args);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_cli_parse_config_without_subcommand_should_fail() {
+        let args = vec!["riglr-indexer-cli", "config"];
+        let result = Cli::try_parse_from(args);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_cli_parse_metrics_without_subcommand_should_fail() {
+        let args = vec!["riglr-indexer-cli", "metrics"];
+        let result = Cli::try_parse_from(args);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_cli_parse_query_get_without_id_should_fail() {
+        let args = vec!["riglr-indexer-cli", "query", "get"];
+        let result = Cli::try_parse_from(args);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_cli_parse_invalid_database_subcommand_should_fail() {
+        let args = vec!["riglr-indexer-cli", "database", "invalid"];
+        let result = Cli::try_parse_from(args);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_cli_parse_invalid_query_subcommand_should_fail() {
+        let args = vec!["riglr-indexer-cli", "query", "invalid"];
+        let result = Cli::try_parse_from(args);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_cli_parse_invalid_config_subcommand_should_fail() {
+        let args = vec!["riglr-indexer-cli", "config", "invalid"];
+        let result = Cli::try_parse_from(args);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_cli_parse_invalid_metrics_subcommand_should_fail() {
+        let args = vec!["riglr-indexer-cli", "metrics", "invalid"];
+        let result = Cli::try_parse_from(args);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_cli_parse_database_cleanup_with_invalid_days_should_fail() {
+        let args = vec![
+            "riglr-indexer-cli",
+            "database",
+            "cleanup",
+            "--days",
+            "invalid",
+        ];
+        let result = Cli::try_parse_from(args);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_cli_parse_query_events_with_invalid_limit_should_fail() {
+        let args = vec!["riglr-indexer-cli", "query", "events", "--limit", "invalid"];
+        let result = Cli::try_parse_from(args);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_cli_parse_with_unknown_flag_should_fail() {
+        let args = vec!["riglr-indexer-cli", "--unknown-flag", "health"];
+        let result = Cli::try_parse_from(args);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_cli_parse_database_cleanup_with_zero_days_should_succeed() {
+        let args = vec!["riglr-indexer-cli", "database", "cleanup", "--days", "0"];
+        let cli = Cli::try_parse_from(args).unwrap();
+
+        match cli.command {
+            Commands::Database(DatabaseCommands::Cleanup { days, .. }) => {
+                assert_eq!(days, 0);
+            }
+            _ => panic!("Expected Database Cleanup command"),
+        }
+    }
+
+    #[test]
+    fn test_cli_parse_database_cleanup_with_large_days_should_succeed() {
+        let args = vec![
+            "riglr-indexer-cli",
+            "database",
+            "cleanup",
+            "--days",
+            "999999",
+        ];
+        let cli = Cli::try_parse_from(args).unwrap();
+
+        match cli.command {
+            Commands::Database(DatabaseCommands::Cleanup { days, .. }) => {
+                assert_eq!(days, 999999);
+            }
+            _ => panic!("Expected Database Cleanup command"),
+        }
+    }
+
+    #[test]
+    fn test_cli_parse_query_events_with_zero_limit_should_succeed() {
+        let args = vec!["riglr-indexer-cli", "query", "events", "--limit", "0"];
+        let cli = Cli::try_parse_from(args).unwrap();
+
+        match cli.command {
+            Commands::Query(QueryCommands::Events { limit, .. }) => {
+                assert_eq!(limit, 0);
+            }
+            _ => panic!("Expected Query Events command"),
+        }
+    }
+
+    #[test]
+    fn test_cli_parse_query_events_with_large_limit_should_succeed() {
+        let args = vec!["riglr-indexer-cli", "query", "events", "--limit", "999999"];
+        let cli = Cli::try_parse_from(args).unwrap();
+
+        match cli.command {
+            Commands::Query(QueryCommands::Events { limit, .. }) => {
+                assert_eq!(limit, 999999);
+            }
+            _ => panic!("Expected Query Events command"),
+        }
+    }
+
+    #[test]
+    fn test_cli_parse_empty_strings_should_succeed() {
+        let args = vec!["riglr-indexer-cli", "query", "get", ""];
+        let cli = Cli::try_parse_from(args).unwrap();
+
+        match cli.command {
+            Commands::Query(QueryCommands::Get { id, .. }) => {
+                assert_eq!(id, "");
+            }
+            _ => panic!("Expected Query Get command"),
+        }
+    }
+
+    #[test]
+    fn test_cli_parse_special_characters_in_id_should_succeed() {
+        let args = vec!["riglr-indexer-cli", "query", "get", "event-123_$%@"];
+        let cli = Cli::try_parse_from(args).unwrap();
+
+        match cli.command {
+            Commands::Query(QueryCommands::Get { id, .. }) => {
+                assert_eq!(id, "event-123_$%@");
+            }
+            _ => panic!("Expected Query Get command"),
+        }
+    }
+
+    #[test]
+    fn test_cli_parse_unicode_characters_should_succeed() {
+        let args = vec!["riglr-indexer-cli", "query", "get", "event-ñáéíóú-123"];
+        let cli = Cli::try_parse_from(args).unwrap();
+
+        match cli.command {
+            Commands::Query(QueryCommands::Get { id, .. }) => {
+                assert_eq!(id, "event-ñáéíóú-123");
+            }
+            _ => panic!("Expected Query Get command"),
+        }
+    }
+
+    #[test]
+    fn test_env_constants_should_have_expected_values() {
+        assert_eq!(ENV_RUST_LOG, "RUST_LOG");
+        assert_eq!(ENV_RIGLR_INDEXER_CONFIG, "RIGLR_INDEXER_CONFIG");
+    }
+
+    // Note: Testing the main function and handler functions requires mocking external dependencies
+    // (database, HTTP clients, environment variables) which would require additional test infrastructure.
+    // These tests focus on the CLI parsing logic which can be tested in isolation.
+    // Integration tests for the handler functions should be placed in the tests/ directory.
+}
