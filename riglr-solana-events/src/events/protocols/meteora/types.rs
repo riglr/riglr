@@ -275,3 +275,375 @@ pub fn calculate_liquidity_distribution(
 
     distribution
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use solana_sdk::pubkey::Pubkey;
+    use std::str::FromStr;
+
+    #[test]
+    fn test_meteora_dlmm_program_id_when_called_should_return_valid_pubkey() {
+        let program_id = meteora_dlmm_program_id();
+        assert_eq!(
+            program_id.to_string(),
+            "LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo"
+        );
+    }
+
+    #[test]
+    fn test_meteora_dynamic_program_id_when_called_should_return_valid_pubkey() {
+        let program_id = meteora_dynamic_program_id();
+        assert_eq!(
+            program_id.to_string(),
+            "Dooar9JkhdZ7J3LHN3A7YCuoGRUggXhQaG4kijfLGU2j"
+        );
+    }
+
+    #[test]
+    fn test_is_meteora_dlmm_program_when_correct_pubkey_should_return_true() {
+        let correct_pubkey = meteora_dlmm_program_id();
+        assert!(is_meteora_dlmm_program(&correct_pubkey));
+    }
+
+    #[test]
+    fn test_is_meteora_dlmm_program_when_incorrect_pubkey_should_return_false() {
+        let incorrect_pubkey = Pubkey::from_str("11111111111111111111111111111112").unwrap();
+        assert!(!is_meteora_dlmm_program(&incorrect_pubkey));
+    }
+
+    #[test]
+    fn test_is_meteora_dynamic_program_when_correct_pubkey_should_return_true() {
+        let correct_pubkey = meteora_dynamic_program_id();
+        assert!(is_meteora_dynamic_program(&correct_pubkey));
+    }
+
+    #[test]
+    fn test_is_meteora_dynamic_program_when_incorrect_pubkey_should_return_false() {
+        let incorrect_pubkey = Pubkey::from_str("11111111111111111111111111111112").unwrap();
+        assert!(!is_meteora_dynamic_program(&incorrect_pubkey));
+    }
+
+    #[test]
+    fn test_bin_id_to_price_when_center_bin_should_return_one() {
+        let price = bin_id_to_price(8388608, 100); // Center bin with 1% step
+        assert!((price - 1.0).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn test_bin_id_to_price_when_higher_bin_should_return_higher_price() {
+        let price = bin_id_to_price(8388609, 100); // One bin above center
+        assert!(price > 1.0);
+        let expected = (1.0 + 0.01_f64).powi(1);
+        assert!((price - expected).abs() < 0.0001);
+    }
+
+    #[test]
+    fn test_bin_id_to_price_when_lower_bin_should_return_lower_price() {
+        let price = bin_id_to_price(8388607, 100); // One bin below center
+        assert!(price < 1.0);
+        let expected = (1.0 + 0.01_f64).powi(-1);
+        assert!((price - expected).abs() < 0.0001);
+    }
+
+    #[test]
+    fn test_bin_id_to_price_when_zero_bin_step_should_return_one() {
+        let price = bin_id_to_price(8388608, 0);
+        assert!((price - 1.0).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn test_bin_id_to_price_when_max_bin_step_should_work() {
+        let price = bin_id_to_price(8388608, u16::MAX);
+        assert!(price.is_finite());
+    }
+
+    #[test]
+    fn test_calculate_active_bin_price_when_called_should_match_bin_id_to_price() {
+        let active_id = 8388610;
+        let bin_step = 50;
+        let price1 = calculate_active_bin_price(active_id, bin_step);
+        let price2 = bin_id_to_price(active_id, bin_step);
+        assert!((price1 - price2).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn test_calculate_liquidity_distribution_when_equal_range_should_distribute_evenly() {
+        let distribution = calculate_liquidity_distribution(1000, 2000, 100, 102, 101);
+        assert_eq!(distribution.len(), 3);
+
+        // Check bin 100 (below active): only Y tokens
+        assert_eq!(distribution[0], (100, 333, 0));
+        // Check bin 101 (active): both X and Y
+        assert_eq!(distribution[1], (101, 333, 666));
+        // Check bin 102 (above active): only X tokens
+        assert_eq!(distribution[2], (102, 0, 666));
+    }
+
+    #[test]
+    fn test_calculate_liquidity_distribution_when_single_bin_should_contain_all() {
+        let distribution = calculate_liquidity_distribution(1000, 2000, 100, 100, 100);
+        assert_eq!(distribution.len(), 1);
+        assert_eq!(distribution[0], (100, 1000, 2000));
+    }
+
+    #[test]
+    fn test_calculate_liquidity_distribution_when_active_below_range_should_only_have_y() {
+        let distribution = calculate_liquidity_distribution(1000, 2000, 100, 102, 99);
+        assert_eq!(distribution.len(), 3);
+
+        for (_, x_amount, y_amount) in distribution {
+            assert_eq!(x_amount, 0);
+            assert_eq!(y_amount, 666);
+        }
+    }
+
+    #[test]
+    fn test_calculate_liquidity_distribution_when_active_above_range_should_only_have_x() {
+        let distribution = calculate_liquidity_distribution(1000, 2000, 100, 102, 103);
+        assert_eq!(distribution.len(), 3);
+
+        for (_, x_amount, y_amount) in distribution {
+            assert_eq!(x_amount, 333);
+            assert_eq!(y_amount, 0);
+        }
+    }
+
+    #[test]
+    fn test_calculate_liquidity_distribution_when_invalid_range_should_return_empty() {
+        let distribution = calculate_liquidity_distribution(1000, 2000, 102, 100, 101);
+        assert!(distribution.is_empty());
+    }
+
+    #[test]
+    fn test_calculate_liquidity_distribution_when_zero_amounts_should_work() {
+        let distribution = calculate_liquidity_distribution(0, 0, 100, 102, 101);
+        assert_eq!(distribution.len(), 3);
+
+        for (_, x_amount, y_amount) in distribution {
+            assert_eq!(x_amount, 0);
+            assert_eq!(y_amount, 0);
+        }
+    }
+
+    #[test]
+    fn test_dlmm_bin_creation_and_serialization() {
+        let bin = DlmmBin {
+            bin_id: 123,
+            reserve_x: 1000,
+            reserve_y: 2000,
+            price: 1.5,
+            liquidity_supply: 50000,
+        };
+
+        // Test that the struct can be serialized and deserialized
+        let serialized = serde_json::to_string(&bin).unwrap();
+        let deserialized: DlmmBin = serde_json::from_str(&serialized).unwrap();
+
+        assert_eq!(bin.bin_id, deserialized.bin_id);
+        assert_eq!(bin.reserve_x, deserialized.reserve_x);
+        assert_eq!(bin.reserve_y, deserialized.reserve_y);
+        assert!((bin.price - deserialized.price).abs() < f64::EPSILON);
+        assert_eq!(bin.liquidity_supply, deserialized.liquidity_supply);
+    }
+
+    #[test]
+    fn test_dlmm_pair_config_creation_and_serialization() {
+        let pair_config = DlmmPairConfig {
+            pair: Pubkey::from_str("11111111111111111111111111111112").unwrap(),
+            token_mint_x: Pubkey::from_str("11111111111111111111111111111113").unwrap(),
+            token_mint_y: Pubkey::from_str("11111111111111111111111111111114").unwrap(),
+            bin_step: 100,
+            base_fee_percentage: 50,
+            max_fee_percentage: 1000,
+            protocol_fee_percentage: 25,
+            liquidity_fee_percentage: 25,
+            volatility_accumulator: 10000,
+            volatility_reference: 5000,
+            id_reference: 8388608,
+            time_of_last_update: 1234567890,
+            active_id: 8388610,
+            base_key: Pubkey::from_str("11111111111111111111111111111115").unwrap(),
+        };
+
+        let serialized = serde_json::to_string(&pair_config).unwrap();
+        let deserialized: DlmmPairConfig = serde_json::from_str(&serialized).unwrap();
+
+        assert_eq!(pair_config.pair, deserialized.pair);
+        assert_eq!(pair_config.bin_step, deserialized.bin_step);
+        assert_eq!(pair_config.active_id, deserialized.active_id);
+    }
+
+    #[test]
+    fn test_meteora_swap_data_default() {
+        let swap_data = MeteoraSwapData::default();
+        assert_eq!(swap_data.amount_in, 0);
+        assert_eq!(swap_data.min_amount_out, 0);
+        assert_eq!(swap_data.actual_amount_out, 0);
+        assert!(!swap_data.swap_for_y);
+        assert_eq!(swap_data.active_id_before, 0);
+        assert_eq!(swap_data.active_id_after, 0);
+        assert_eq!(swap_data.fee_amount, 0);
+        assert_eq!(swap_data.protocol_fee, 0);
+        assert!(swap_data.bins_traversed.is_empty());
+    }
+
+    #[test]
+    fn test_meteora_swap_data_serialization() {
+        let mut swap_data = MeteoraSwapData::default();
+        swap_data.amount_in = 1000;
+        swap_data.swap_for_y = true;
+        swap_data.bins_traversed = vec![100, 101, 102];
+
+        let serialized = serde_json::to_string(&swap_data).unwrap();
+        let deserialized: MeteoraSwapData = serde_json::from_str(&serialized).unwrap();
+
+        assert_eq!(swap_data.amount_in, deserialized.amount_in);
+        assert_eq!(swap_data.swap_for_y, deserialized.swap_for_y);
+        assert_eq!(swap_data.bins_traversed, deserialized.bins_traversed);
+    }
+
+    #[test]
+    fn test_meteora_liquidity_data_default() {
+        let liquidity_data = MeteoraLiquidityData::default();
+        assert_eq!(liquidity_data.bin_id_from, 0);
+        assert_eq!(liquidity_data.bin_id_to, 0);
+        assert_eq!(liquidity_data.amount_x, 0);
+        assert_eq!(liquidity_data.amount_y, 0);
+        assert_eq!(liquidity_data.liquidity_minted, 0);
+        assert_eq!(liquidity_data.active_id, 0);
+        assert!(!liquidity_data.is_add);
+        assert!(liquidity_data.bins_affected.is_empty());
+    }
+
+    #[test]
+    fn test_meteora_liquidity_data_serialization() {
+        let mut liquidity_data = MeteoraLiquidityData::default();
+        liquidity_data.is_add = true;
+        liquidity_data.amount_x = 1000;
+        liquidity_data.amount_y = 2000;
+        liquidity_data.bins_affected = vec![DlmmBin {
+            bin_id: 100,
+            reserve_x: 500,
+            reserve_y: 1000,
+            price: 1.0,
+            liquidity_supply: 25000,
+        }];
+
+        let serialized = serde_json::to_string(&liquidity_data).unwrap();
+        let deserialized: MeteoraLiquidityData = serde_json::from_str(&serialized).unwrap();
+
+        assert_eq!(liquidity_data.is_add, deserialized.is_add);
+        assert_eq!(liquidity_data.amount_x, deserialized.amount_x);
+        assert_eq!(liquidity_data.amount_y, deserialized.amount_y);
+        assert_eq!(
+            liquidity_data.bins_affected.len(),
+            deserialized.bins_affected.len()
+        );
+        assert_eq!(
+            liquidity_data.bins_affected[0].bin_id,
+            deserialized.bins_affected[0].bin_id
+        );
+    }
+
+    #[test]
+    fn test_meteora_dynamic_pool_data_serialization() {
+        let pool_data = MeteoraDynamicPoolData {
+            pool: Pubkey::from_str("11111111111111111111111111111112").unwrap(),
+            token_mint_a: Pubkey::from_str("11111111111111111111111111111113").unwrap(),
+            token_mint_b: Pubkey::from_str("11111111111111111111111111111114").unwrap(),
+            vault_a: Pubkey::from_str("11111111111111111111111111111115").unwrap(),
+            vault_b: Pubkey::from_str("11111111111111111111111111111116").unwrap(),
+            lp_mint: Pubkey::from_str("11111111111111111111111111111117").unwrap(),
+            fee_rate: 300,
+            admin_fee_rate: 50,
+            trade_fee_numerator: 25,
+            trade_fee_denominator: 10000,
+            owner_trade_fee_numerator: 5,
+            owner_trade_fee_denominator: 10000,
+            owner_withdraw_fee_numerator: 0,
+            owner_withdraw_fee_denominator: 10000,
+            host_fee_numerator: 20,
+            host_fee_denominator: 10000,
+        };
+
+        let serialized = serde_json::to_string(&pool_data).unwrap();
+        let deserialized: MeteoraDynamicPoolData = serde_json::from_str(&serialized).unwrap();
+
+        assert_eq!(pool_data.pool, deserialized.pool);
+        assert_eq!(pool_data.fee_rate, deserialized.fee_rate);
+        assert_eq!(
+            pool_data.trade_fee_numerator,
+            deserialized.trade_fee_numerator
+        );
+        assert_eq!(
+            pool_data.trade_fee_denominator,
+            deserialized.trade_fee_denominator
+        );
+    }
+
+    #[test]
+    fn test_meteora_dynamic_liquidity_data_default() {
+        let liquidity_data = MeteoraDynamicLiquidityData::default();
+        assert_eq!(liquidity_data.pool_token_amount, 0);
+        assert_eq!(liquidity_data.token_a_amount, 0);
+        assert_eq!(liquidity_data.token_b_amount, 0);
+        assert_eq!(liquidity_data.minimum_pool_token_amount, 0);
+        assert_eq!(liquidity_data.maximum_token_a_amount, 0);
+        assert_eq!(liquidity_data.maximum_token_b_amount, 0);
+        assert!(!liquidity_data.is_deposit);
+    }
+
+    #[test]
+    fn test_meteora_dynamic_liquidity_data_serialization() {
+        let mut liquidity_data = MeteoraDynamicLiquidityData::default();
+        liquidity_data.is_deposit = true;
+        liquidity_data.pool_token_amount = 1000;
+        liquidity_data.token_a_amount = 500;
+        liquidity_data.token_b_amount = 750;
+
+        let serialized = serde_json::to_string(&liquidity_data).unwrap();
+        let deserialized: MeteoraDynamicLiquidityData = serde_json::from_str(&serialized).unwrap();
+
+        assert_eq!(liquidity_data.is_deposit, deserialized.is_deposit);
+        assert_eq!(
+            liquidity_data.pool_token_amount,
+            deserialized.pool_token_amount
+        );
+        assert_eq!(liquidity_data.token_a_amount, deserialized.token_a_amount);
+        assert_eq!(liquidity_data.token_b_amount, deserialized.token_b_amount);
+    }
+
+    #[test]
+    fn test_constants_values() {
+        assert_eq!(
+            METEORA_DLMM_PROGRAM_ID,
+            "LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo"
+        );
+        assert_eq!(
+            METEORA_DYNAMIC_PROGRAM_ID,
+            "Dooar9JkhdZ7J3LHN3A7YCuoGRUggXhQaG4kijfLGU2j"
+        );
+
+        assert_eq!(
+            DLMM_SWAP_DISCRIMINATOR,
+            [0x14, 0x65, 0x32, 0x1f, 0x7a, 0x43, 0x2a, 0x9f]
+        );
+        assert_eq!(
+            DLMM_ADD_LIQUIDITY_DISCRIMINATOR,
+            [0x4c, 0x1c, 0x9b, 0x2d, 0xe3, 0x7a, 0x8b, 0x12]
+        );
+        assert_eq!(
+            DLMM_REMOVE_LIQUIDITY_DISCRIMINATOR,
+            [0xa2, 0xfd, 0x67, 0xe3, 0x45, 0x1b, 0x8c, 0x9a]
+        );
+        assert_eq!(
+            DYNAMIC_ADD_LIQUIDITY_DISCRIMINATOR,
+            [0x85, 0x72, 0x1a, 0x5f, 0x9d, 0x4e, 0x23, 0x7c]
+        );
+        assert_eq!(
+            DYNAMIC_REMOVE_LIQUIDITY_DISCRIMINATOR,
+            [0x6a, 0x8b, 0x47, 0x2e, 0x1c, 0x93, 0x5f, 0x4d]
+        );
+    }
+}
