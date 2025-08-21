@@ -39,20 +39,164 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_validate_address() {
-        // Valid address (system program)
+    fn test_validate_address_when_valid_system_program_should_return_ok() {
+        // Happy Path: Valid system program address
         let valid = "11111111111111111111111111111111";
-        assert!(validate_address(valid).is_ok());
+        let result = validate_address(valid);
+        assert!(result.is_ok());
+        let pubkey = result.unwrap();
+        assert_eq!(pubkey.to_string(), valid);
+    }
 
-        // Another valid address (native mint)
-        let valid2 = "So11111111111111111111111111111111111111112";
-        assert!(validate_address(valid2).is_ok());
+    #[test]
+    fn test_validate_address_when_valid_native_mint_should_return_ok() {
+        // Happy Path: Valid native mint address
+        let valid = "So11111111111111111111111111111111111111112";
+        let result = validate_address(valid);
+        assert!(result.is_ok());
+        let pubkey = result.unwrap();
+        assert_eq!(pubkey.to_string(), valid);
+    }
 
-        // Invalid address
-        let invalid = "invalid";
-        assert!(validate_address(invalid).is_err());
+    #[test]
+    fn test_validate_address_when_valid_typical_pubkey_should_return_ok() {
+        // Happy Path: Another valid typical pubkey
+        let valid = "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM";
+        let result = validate_address(valid);
+        assert!(result.is_ok());
+        let pubkey = result.unwrap();
+        assert_eq!(pubkey.to_string(), valid);
+    }
 
-        // Empty string
-        assert!(validate_address("").is_err());
+    #[test]
+    fn test_validate_address_when_empty_string_should_return_err() {
+        // Error Path: Empty string
+        let result = validate_address("");
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            SolanaToolError::InvalidAddress(msg) => {
+                assert!(msg.contains("Invalid address"));
+            }
+            _ => panic!("Expected InvalidAddress error"),
+        }
+    }
+
+    #[test]
+    fn test_validate_address_when_invalid_characters_should_return_err() {
+        // Error Path: Invalid characters
+        let result = validate_address("invalid");
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            SolanaToolError::InvalidAddress(msg) => {
+                assert!(msg.contains("Invalid address"));
+            }
+            _ => panic!("Expected InvalidAddress error"),
+        }
+    }
+
+    #[test]
+    fn test_validate_address_when_too_short_should_return_err() {
+        // Error Path: Too short
+        let result = validate_address("123");
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            SolanaToolError::InvalidAddress(msg) => {
+                assert!(msg.contains("Invalid address"));
+            }
+            _ => panic!("Expected InvalidAddress error"),
+        }
+    }
+
+    #[test]
+    fn test_validate_address_when_too_long_should_return_err() {
+        // Error Path: Too long
+        let result = validate_address(
+            "111111111111111111111111111111111111111111111111111111111111111111111",
+        );
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            SolanaToolError::InvalidAddress(msg) => {
+                assert!(msg.contains("Invalid address"));
+            }
+            _ => panic!("Expected InvalidAddress error"),
+        }
+    }
+
+    #[test]
+    fn test_validate_address_when_invalid_base58_characters_should_return_err() {
+        // Error Path: Invalid base58 characters (contains 0, O, I, l)
+        let result = validate_address("0OIl1111111111111111111111111111111");
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            SolanaToolError::InvalidAddress(msg) => {
+                assert!(msg.contains("Invalid address"));
+            }
+            _ => panic!("Expected InvalidAddress error"),
+        }
+    }
+
+    #[test]
+    fn test_validate_address_when_special_characters_should_return_err() {
+        // Error Path: Special characters
+        let result = validate_address("11111111111111111111111111111!@#");
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            SolanaToolError::InvalidAddress(msg) => {
+                assert!(msg.contains("Invalid address"));
+            }
+            _ => panic!("Expected InvalidAddress error"),
+        }
+    }
+
+    #[test]
+    fn test_validate_address_when_whitespace_should_return_err() {
+        // Error Path: Contains whitespace
+        let result = validate_address("11111111111111111111111111111111 ");
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            SolanaToolError::InvalidAddress(msg) => {
+                assert!(msg.contains("Invalid address"));
+            }
+            _ => panic!("Expected InvalidAddress error"),
+        }
+    }
+
+    #[test]
+    fn test_validate_address_when_leading_whitespace_should_return_err() {
+        // Error Path: Leading whitespace
+        let result = validate_address(" 11111111111111111111111111111111");
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            SolanaToolError::InvalidAddress(msg) => {
+                assert!(msg.contains("Invalid address"));
+            }
+            _ => panic!("Expected InvalidAddress error"),
+        }
+    }
+
+    #[test]
+    fn test_validate_address_when_mixed_case_invalid_should_return_err() {
+        // Error Path: Mixed case that results in invalid base58
+        let result = validate_address("AbCdEfGhIjKlMnOpQrStUvWxYz123456");
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            SolanaToolError::InvalidAddress(msg) => {
+                assert!(msg.contains("Invalid address"));
+            }
+            _ => panic!("Expected InvalidAddress error"),
+        }
+    }
+
+    #[test]
+    fn test_validate_address_when_unicode_characters_should_return_err() {
+        // Error Path: Unicode characters
+        let result = validate_address("1111111111111111111111111111111🚀");
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            SolanaToolError::InvalidAddress(msg) => {
+                assert!(msg.contains("Invalid address"));
+            }
+            _ => panic!("Expected InvalidAddress error"),
+        }
     }
 }
