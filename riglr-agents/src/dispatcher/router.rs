@@ -14,11 +14,6 @@ pub struct Router {
 }
 
 impl Router {
-    /// Create a new router with default strategy.
-    pub fn new() -> Self {
-        Self::default()
-    }
-
     /// Create a new router with the specified strategy.
     pub fn with_strategy(strategy: RoutingStrategy) -> Self {
         Self {
@@ -153,7 +148,7 @@ mod tests {
     use super::*;
     use crate::types::*;
 
-    #[derive(Clone)]
+    #[derive(Clone, Debug)]
     struct MockAgent {
         id: AgentId,
         capabilities: Vec<String>,
@@ -330,5 +325,194 @@ mod tests {
 
         router.set_strategy(RoutingStrategy::LeastLoaded);
         assert_eq!(router.strategy(), RoutingStrategy::LeastLoaded);
+    }
+
+    #[test]
+    fn test_router_default() {
+        let router = Router::default();
+        assert_eq!(router.strategy(), RoutingStrategy::Capability); // Default strategy
+    }
+
+    #[tokio::test]
+    async fn test_capability_strategy_no_suitable_agent() {
+        let router = Router::with_strategy(RoutingStrategy::Capability);
+
+        let agents = vec![Arc::new(MockAgent {
+            id: AgentId::new("agent1"),
+            capabilities: vec!["research".to_string()],
+            load: 0.5,
+        }) as Arc<dyn Agent>];
+
+        // Task that no agent can handle
+        let unsupported_task = Task::new(TaskType::Trading, serde_json::json!({}));
+        let result = router.select_agent(&agents, &unsupported_task).await;
+        assert!(result.is_err());
+
+        if let Err(AgentError::NoSuitableAgent { task_type }) = result {
+            assert_eq!(task_type, "trading");
+        } else {
+            panic!("Expected NoSuitableAgent error");
+        }
+    }
+
+    #[tokio::test]
+    async fn test_direct_strategy_target_agent_not_string() {
+        let router = Router::with_strategy(RoutingStrategy::Direct);
+
+        let agents = vec![Arc::new(MockAgent {
+            id: AgentId::new("agent1"),
+            capabilities: vec!["trading".to_string()],
+            load: 0.5,
+        }) as Arc<dyn Agent>];
+
+        // Task with non-string target_agent_id
+        let task = Task::new(TaskType::Trading, serde_json::json!({}))
+            .with_metadata("target_agent_id", serde_json::json!(123));
+
+        let selected = router.select_agent(&agents, &task).await.unwrap();
+        // Should fall back to capability-based selection
+        assert_eq!(selected.id().as_str(), "agent1");
+    }
+
+    #[tokio::test]
+    async fn test_direct_strategy_target_agent_not_found() {
+        let router = Router::with_strategy(RoutingStrategy::Direct);
+
+        let agents = vec![Arc::new(MockAgent {
+            id: AgentId::new("agent1"),
+            capabilities: vec!["trading".to_string()],
+            load: 0.5,
+        }) as Arc<dyn Agent>];
+
+        // Task with target agent that doesn't exist
+        let task = Task::new(TaskType::Trading, serde_json::json!({}))
+            .with_metadata("target_agent_id", serde_json::json!("nonexistent"));
+
+        let result = router.select_agent(&agents, &task).await;
+        assert!(result.is_err());
+
+        if let Err(AgentError::AgentNotFound { agent_id }) = result {
+            assert_eq!(agent_id, "nonexistent");
+        } else {
+            panic!("Expected AgentNotFound error");
+        }
+    }
+
+    #[tokio::test]
+    async fn test_least_loaded_strategy_equal_loads() {
+        let router = Router::with_strategy(RoutingStrategy::LeastLoaded);
+
+        let agents = vec![
+            Arc::new(MockAgent {
+                id: AgentId::new("agent1"),
+                capabilities: vec!["trading".to_string()],
+                load: 0.5,
+            }) as Arc<dyn Agent>,
+            Arc::new(MockAgent {
+                id: AgentId::new("agent2"),
+                capabilities: vec!["trading".to_string()],
+                load: 0.5,
+            }) as Arc<dyn Agent>,
+        ];
+
+        let task = Task::new(TaskType::Trading, serde_json::json!({}));
+        let selected = router.select_agent(&agents, &task).await.unwrap();
+
+        // Should select the first agent when loads are equal
+        assert_eq!(selected.id().as_str(), "agent1");
+    }
+
+    #[tokio::test]
+    async fn test_round_robin_with_single_agent() {
+        let router = Router::with_strategy(RoutingStrategy::RoundRobin);
+
+        let agents = vec![Arc::new(MockAgent {
+            id: AgentId::new("only-agent"),
+            capabilities: vec!["trading".to_string()],
+            load: 0.5,
+        }) as Arc<dyn Agent>];
+
+        let task = Task::new(TaskType::Trading, serde_json::json!({}));
+
+        // Should always select the only agent
+        let selected1 = router.select_agent(&agents, &task).await.unwrap();
+        let selected2 = router.select_agent(&agents, &task).await.unwrap();
+
+        assert_eq!(selected1.id().as_str(), "only-agent");
+        assert_eq!(selected2.id().as_str(), "only-agent");
+    }
+
+    #[tokio::test]
+    async fn test_random_strategy_with_single_agent() {
+        let router = Router::with_strategy(RoutingStrategy::Random);
+
+        let agents = vec![Arc::new(MockAgent {
+            id: AgentId::new("only-agent"),
+            capabilities: vec!["trading".to_string()],
+            load: 0.5,
+        }) as Arc<dyn Agent>];
+
+        let task = Task::new(TaskType::Trading, serde_json::json!({}));
+        let selected = router.select_agent(&agents, &task).await.unwrap();
+
+        assert_eq!(selected.id().as_str(), "only-agent");
+    }
+
+    #[tokio::test]
+    async fn test_round_robin_counter_increment() {
+        let router = Router::with_strategy(RoutingStrategy::RoundRobin);
+
+        let agents = vec![
+            Arc::new(MockAgent {
+                id: AgentId::new("agent1"),
+                capabilities: vec!["trading".to_string()],
+                load: 0.5,
+            }) as Arc<dyn Agent>,
+            Arc::new(MockAgent {
+                id: AgentId::new("agent2"),
+                capabilities: vec!["trading".to_string()],
+                load: 0.5,
+            }) as Arc<dyn Agent>,
+            Arc::new(MockAgent {
+                id: AgentId::new("agent3"),
+                capabilities: vec!["trading".to_string()],
+                load: 0.5,
+            }) as Arc<dyn Agent>,
+        ];
+
+        let task = Task::new(TaskType::Trading, serde_json::json!({}));
+
+        // Test that round-robin cycles through all agents
+        let selected1 = router.select_agent(&agents, &task).await.unwrap();
+        let selected2 = router.select_agent(&agents, &task).await.unwrap();
+        let selected3 = router.select_agent(&agents, &task).await.unwrap();
+        let selected4 = router.select_agent(&agents, &task).await.unwrap(); // Should cycle back
+
+        assert_eq!(selected1.id().as_str(), "agent1");
+        assert_eq!(selected2.id().as_str(), "agent2");
+        assert_eq!(selected3.id().as_str(), "agent3");
+        assert_eq!(selected4.id().as_str(), "agent1"); // Cycles back
+    }
+
+    #[tokio::test]
+    async fn test_direct_strategy_fallback_no_suitable_agent() {
+        let router = Router::with_strategy(RoutingStrategy::Direct);
+
+        let agents = vec![Arc::new(MockAgent {
+            id: AgentId::new("agent1"),
+            capabilities: vec!["research".to_string()], // Cannot handle trading
+            load: 0.5,
+        }) as Arc<dyn Agent>];
+
+        // Task without target_agent_id, should fall back to capability-based
+        let task = Task::new(TaskType::Trading, serde_json::json!({}));
+        let result = router.select_agent(&agents, &task).await;
+
+        assert!(result.is_err());
+        if let Err(AgentError::NoSuitableAgent { task_type }) = result {
+            assert_eq!(task_type, "trading");
+        } else {
+            panic!("Expected NoSuitableAgent error");
+        }
     }
 }

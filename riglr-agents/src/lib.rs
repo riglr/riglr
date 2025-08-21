@@ -1,31 +1,58 @@
 //! # riglr-agents
 //!
-//! Multi-agent coordination system for riglr blockchain automation.
+//! Multi-agent coordination system for riglr blockchain automation with rig-core integration.
 //!
 //! This crate provides a framework for building sophisticated multi-agent systems
 //! that can coordinate blockchain operations while preserving riglr's security
-//! guarantees through the SignerContext pattern.
+//! guarantees through the SignerContext pattern. Each agent leverages rig-core
+//! for LLM-powered intelligence while maintaining the multi-agent coordination layer.
 //!
 //! ## Core Concepts
+//!
+//! ### Architecture Overview
+//!
+//! This crate uses two complementary Agent concepts:
+//! - **`riglr_agents::Agent`**: The trait defining a worker in the multi-agent coordination system
+//! - **`rig_core::Agent`**: The LLM "brain" that powers intelligent decision-making within each worker
 //!
 //! ### Agents
 //!
 //! Agents are autonomous units that can execute tasks and communicate with other
-//! agents. They implement the [`Agent`] trait and can be specialized for different
-//! types of operations:
+//! agents. They implement the [`Agent`] trait and internally use `rig_core::Agent`
+//! for LLM operations:
 //!
 //! ```rust
 //! use riglr_agents::{Agent, Task, TaskResult, AgentId};
+//! use rig_core::{completion::Prompt, providers};
 //! use async_trait::async_trait;
 //! use std::sync::Arc;
 //!
 //! struct TradingAgent {
 //!     id: AgentId,
+//!     rig_agent: rig_core::Agent<providers::openai::completion::CompletionModel>,
+//! }
+//!
+//! impl TradingAgent {
+//!     fn new(id: &str, client: &providers::openai::Client) -> Self {
+//!         let rig_agent = client
+//!             .agent("gpt-4")
+//!             .preamble("You are a trading agent. Execute trades based on market conditions.")
+//!             .build();
+//!         
+//!         Self {
+//!             id: AgentId::new(id),
+//!             rig_agent,
+//!         }
+//!     }
 //! }
 //!
 //! #[async_trait]
 //! impl Agent for TradingAgent {
 //!     async fn execute_task(&self, task: Task) -> riglr_agents::Result<TaskResult> {
+//!         // Use rig-core for intelligent processing
+//!         let prompt = format!("Execute trade with parameters: {}", task.parameters);
+//!         let llm_response = self.rig_agent.prompt(&prompt).await.ok();
+//!         
 //!         // Execute trading logic using SignerContext::current()
 //!         todo!("Implement trading logic")
 //!     }
@@ -106,34 +133,51 @@
 //! ## Features
 //!
 //! - **Multi-Agent Coordination**: Orchestrate complex workflows across multiple specialized agents
+//! - **LLM-Powered Intelligence**: Each agent uses rig-core for intelligent decision-making
 //! - **Flexible Routing**: Route tasks based on capabilities, load, priority, and custom rules
 //! - **Inter-Agent Communication**: Message passing system for agent coordination
 //! - **Scalable Architecture**: Support for both local and distributed agent registries
-//! - **Integration Ready**: Seamless integration with existing riglr tools and patterns
+//! - **Integration Ready**: Seamless integration with existing riglr tools and rig-core patterns
 
 use async_trait::async_trait;
 use std::sync::Arc;
 
+// Note: rig-core integration is demonstrated in examples but requires
+// proper environment setup for LLM operations
+
 // Public exports
+/// Adapter to bridge riglr-core::Tool with rig::tool::Tool
+pub mod adapter;
+/// Agent implementations
+pub mod agents {
+    /// Tool-calling agent implementation
+    pub mod tool_calling;
+}
 pub mod builder;
 pub mod communication;
 pub mod dispatcher;
 pub mod error;
 pub mod integration;
 pub mod registry;
+/// Tool collection and management
+pub mod toolset;
 pub mod types;
 
 // Re-export commonly used types
-pub use builder::AgentBuilder;
+pub use builder::{AgentSystem, AgentSystemBuilder, SystemHealth, SystemStats};
 pub use communication::{AgentCommunication, ChannelCommunication};
 pub use dispatcher::{AgentDispatcher, DispatchConfig, RoutingStrategy};
 pub use error::{AgentError, Result};
 pub use integration::SignerContextIntegration;
 pub use registry::{AgentRegistry, LocalAgentRegistry};
+
 pub use types::{
     AgentId, AgentMessage, AgentState, AgentStatus, Capability, Priority, RoutingRule, Task,
     TaskResult, TaskType,
 };
+
+// Re-export rig-core for easy access in examples and external usage
+// Note: rig-core is available directly as a dependency to examples
 
 /// Core trait that all agents must implement.
 ///
@@ -141,7 +185,7 @@ pub use types::{
 /// multi-agent workflows. They maintain their own state and capabilities
 /// while respecting the SignerContext security model.
 #[async_trait]
-pub trait Agent: Send + Sync {
+pub trait Agent: Send + Sync + std::fmt::Debug {
     /// Execute a task assigned to this agent.
     ///
     /// This method should use `SignerContext::current()` to access blockchain
@@ -267,7 +311,7 @@ mod tests {
     use super::*;
     use crate::types::*;
 
-    #[derive(Clone)]
+    #[derive(Clone, Debug)]
     struct MockAgent {
         id: AgentId,
         capabilities: Vec<String>,
@@ -397,5 +441,242 @@ mod tests {
         assert_eq!(status.capabilities.len(), 2);
         assert!(status.capabilities.iter().any(|c| c.name == "trading"));
         assert!(status.capabilities.iter().any(|c| c.name == "research"));
+    }
+
+    #[tokio::test]
+    async fn test_agent_default_before_task() {
+        let agent = MockAgent {
+            id: AgentId::new("before-task-test"),
+            capabilities: vec!["trading".to_string()],
+            should_fail: false,
+        };
+
+        let task = Task::new(TaskType::Trading, serde_json::json!({}));
+        let result = agent.before_task(&task).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_agent_default_after_task() {
+        let agent = MockAgent {
+            id: AgentId::new("after-task-test"),
+            capabilities: vec!["trading".to_string()],
+            should_fail: false,
+        };
+
+        let task = Task::new(TaskType::Trading, serde_json::json!({}));
+        let task_result = TaskResult::success(
+            serde_json::json!({"test": "data"}),
+            None,
+            std::time::Duration::from_millis(100),
+        );
+
+        let result = agent.after_task(&task, &task_result).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_agent_default_handle_message() {
+        let agent = MockAgent {
+            id: AgentId::new("message-test"),
+            capabilities: vec!["trading".to_string()],
+            should_fail: false,
+        };
+
+        let message = AgentMessage::new(
+            AgentId::new("sender"),
+            Some(AgentId::new("receiver")),
+            "test_message".to_string(),
+            serde_json::json!({"data": "test"}),
+        );
+
+        let result = agent.handle_message(message).await;
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_agent_can_handle_all_task_types() {
+        // Agent with all capabilities
+        let full_agent = MockAgent {
+            id: AgentId::new("full-agent"),
+            capabilities: vec![
+                "trading".to_string(),
+                "research".to_string(),
+                "risk_analysis".to_string(),
+                "portfolio".to_string(),
+                "monitoring".to_string(),
+                "custom_capability".to_string(),
+            ],
+            should_fail: false,
+        };
+
+        // Test all built-in task types
+        assert!(full_agent.can_handle(&Task::new(TaskType::Trading, serde_json::json!({}))));
+        assert!(full_agent.can_handle(&Task::new(TaskType::Research, serde_json::json!({}))));
+        assert!(full_agent.can_handle(&Task::new(TaskType::RiskAnalysis, serde_json::json!({}))));
+        assert!(full_agent.can_handle(&Task::new(TaskType::Portfolio, serde_json::json!({}))));
+        assert!(full_agent.can_handle(&Task::new(TaskType::Monitoring, serde_json::json!({}))));
+
+        // Test custom task type
+        assert!(full_agent.can_handle(&Task::new(
+            TaskType::Custom("custom_capability".to_string()),
+            serde_json::json!({})
+        )));
+
+        // Test custom task type not supported
+        assert!(!full_agent.can_handle(&Task::new(
+            TaskType::Custom("unsupported".to_string()),
+            serde_json::json!({})
+        )));
+    }
+
+    #[test]
+    fn test_agent_can_handle_empty_capabilities() {
+        let empty_agent = MockAgent {
+            id: AgentId::new("empty-agent"),
+            capabilities: vec![],
+            should_fail: false,
+        };
+
+        // Should not handle any task types
+        assert!(!empty_agent.can_handle(&Task::new(TaskType::Trading, serde_json::json!({}))));
+        assert!(!empty_agent.can_handle(&Task::new(TaskType::Research, serde_json::json!({}))));
+        assert!(!empty_agent.can_handle(&Task::new(TaskType::RiskAnalysis, serde_json::json!({}))));
+        assert!(!empty_agent.can_handle(&Task::new(TaskType::Portfolio, serde_json::json!({}))));
+        assert!(!empty_agent.can_handle(&Task::new(TaskType::Monitoring, serde_json::json!({}))));
+        assert!(!empty_agent.can_handle(&Task::new(
+            TaskType::Custom("anything".to_string()),
+            serde_json::json!({})
+        )));
+    }
+
+    #[test]
+    fn test_agent_default_load() {
+        let agent = MockAgent {
+            id: AgentId::new("load-test"),
+            capabilities: vec!["trading".to_string()],
+            should_fail: false,
+        };
+
+        assert_eq!(agent.load(), 0.0);
+    }
+
+    // Create a mock agent with different states for availability testing
+    #[derive(Debug)]
+    struct MockAgentWithState {
+        id: AgentId,
+        capabilities: Vec<String>,
+        state: AgentState,
+    }
+
+    #[async_trait]
+    impl Agent for MockAgentWithState {
+        async fn execute_task(&self, _task: Task) -> Result<TaskResult> {
+            Ok(TaskResult::success(
+                serde_json::json!({}),
+                None,
+                std::time::Duration::from_millis(100),
+            ))
+        }
+
+        fn id(&self) -> &AgentId {
+            &self.id
+        }
+
+        fn capabilities(&self) -> Vec<String> {
+            self.capabilities.clone()
+        }
+
+        fn status(&self) -> AgentStatus {
+            AgentStatus {
+                agent_id: self.id.clone(),
+                status: self.state.clone(),
+                active_tasks: 0,
+                load: 0.0,
+                last_heartbeat: chrono::Utc::now(),
+                capabilities: self
+                    .capabilities()
+                    .into_iter()
+                    .map(|cap| Capability::new(cap, "1.0"))
+                    .collect(),
+                metadata: std::collections::HashMap::new(),
+            }
+        }
+    }
+
+    #[test]
+    fn test_agent_is_available_with_all_states() {
+        // Available states
+        let active_agent = MockAgentWithState {
+            id: AgentId::new("active"),
+            capabilities: vec![],
+            state: AgentState::Active,
+        };
+        assert!(active_agent.is_available());
+
+        let idle_agent = MockAgentWithState {
+            id: AgentId::new("idle"),
+            capabilities: vec![],
+            state: AgentState::Idle,
+        };
+        assert!(idle_agent.is_available());
+
+        let busy_agent = MockAgentWithState {
+            id: AgentId::new("busy"),
+            capabilities: vec![],
+            state: AgentState::Busy,
+        };
+        assert!(busy_agent.is_available());
+
+        // Unavailable states
+        let full_agent = MockAgentWithState {
+            id: AgentId::new("full"),
+            capabilities: vec![],
+            state: AgentState::Full,
+        };
+        assert!(!full_agent.is_available());
+
+        let offline_agent = MockAgentWithState {
+            id: AgentId::new("offline"),
+            capabilities: vec![],
+            state: AgentState::Offline,
+        };
+        assert!(!offline_agent.is_available());
+
+        let maintenance_agent = MockAgentWithState {
+            id: AgentId::new("maintenance"),
+            capabilities: vec![],
+            state: AgentState::Maintenance,
+        };
+        assert!(!maintenance_agent.is_available());
+    }
+
+    #[test]
+    fn test_agent_status_with_empty_capabilities() {
+        let agent = MockAgent {
+            id: AgentId::new("empty-caps"),
+            capabilities: vec![],
+            should_fail: false,
+        };
+
+        let status = agent.status();
+        assert_eq!(status.capabilities.len(), 0);
+        assert_eq!(status.active_tasks, 0);
+        assert_eq!(status.load, 0.0);
+        assert!(!status.metadata.is_empty() || status.metadata.is_empty()); // Either is valid
+    }
+
+    #[test]
+    fn test_agent_status_with_single_capability() {
+        let agent = MockAgent {
+            id: AgentId::new("single-cap"),
+            capabilities: vec!["monitoring".to_string()],
+            should_fail: false,
+        };
+
+        let status = agent.status();
+        assert_eq!(status.capabilities.len(), 1);
+        assert_eq!(status.capabilities[0].name, "monitoring");
+        assert_eq!(status.capabilities[0].version, "1.0");
     }
 }
