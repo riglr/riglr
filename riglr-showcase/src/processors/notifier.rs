@@ -12,6 +12,7 @@ use serde_json::json;
 use std::collections::HashMap;
 
 /// Notification router that sends outputs to various channels
+#[derive(Default)]
 pub struct NotificationRouter {
     /// Map of channel names to notification channel implementations
     channels: HashMap<String, Box<dyn NotificationChannel>>,
@@ -710,16 +711,6 @@ impl NotificationChannel for ConsoleChannel {
     }
 }
 
-impl Default for NotificationRouter {
-    fn default() -> Self {
-        Self {
-            channels: HashMap::new(),
-            routing_rules: Vec::new(),
-            default_channel: None,
-        }
-    }
-}
-
 impl Default for ConsoleChannel {
     fn default() -> Self {
         Self { use_colors: true }
@@ -733,8 +724,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_notification_router() {
-        let router = NotificationRouter::new()
-            .add_channel("console", ConsoleChannel::new())
+        let router = NotificationRouter::default()
+            .add_channel("console", ConsoleChannel::default())
             .set_default_channel("console")
             .add_routing_rule(RoutingRule::new(
                 "error_routing",
@@ -858,5 +849,622 @@ mod tests {
                 );
             }
         }
+    }
+
+    // Additional comprehensive tests for 100% code coverage
+
+    #[test]
+    fn test_notification_router_new() {
+        let router = NotificationRouter::default();
+        assert!(router.channels.is_empty());
+        assert!(router.routing_rules.is_empty());
+        assert!(router.default_channel.is_none());
+    }
+
+    #[test]
+    fn test_notification_router_default() {
+        let router = NotificationRouter::default();
+        assert!(router.channels.is_empty());
+        assert!(router.routing_rules.is_empty());
+        assert!(router.default_channel.is_none());
+    }
+
+    #[test]
+    fn test_notification_router_builder_methods() {
+        let console = ConsoleChannel::default();
+        let router = NotificationRouter::default()
+            .add_channel("test", console)
+            .set_default_channel("test")
+            .add_routing_rule(RoutingRule::new(
+                "test_rule",
+                RoutingCondition::Always,
+                vec!["test".to_string()],
+            ));
+
+        assert_eq!(router.channels.len(), 1);
+        assert_eq!(router.default_channel, Some("test".to_string()));
+        assert_eq!(router.routing_rules.len(), 1);
+    }
+
+    #[test]
+    fn test_notification_router_can_process() {
+        let router = NotificationRouter::default();
+        let output = utils::success_output("test", json!({}));
+        assert!(!router.can_process(&output));
+
+        let router = router.add_channel("console", ConsoleChannel::default());
+        assert!(router.can_process(&output));
+    }
+
+    #[test]
+    fn test_notification_router_name_and_config() {
+        let router = NotificationRouter::default()
+            .add_channel("console", ConsoleChannel::default())
+            .set_default_channel("console");
+
+        assert_eq!(router.name(), "NotificationRouter");
+
+        let config = router.config();
+        assert_eq!(config["name"], "NotificationRouter");
+        assert_eq!(config["type"], "notifier");
+        assert_eq!(config["default_channel"], "console");
+        assert_eq!(config["routing_rules"], 0);
+    }
+
+    #[test]
+    fn test_determine_routes_with_default_channel() {
+        let router = NotificationRouter::default()
+            .add_channel("console", ConsoleChannel::default())
+            .set_default_channel("console");
+
+        let output = utils::success_output("test", json!({}));
+        let routes = router.determine_routes(&output);
+
+        assert_eq!(routes.len(), 1);
+        assert_eq!(routes[0], "console");
+    }
+
+    #[test]
+    fn test_determine_routes_with_matching_rules() {
+        let router = NotificationRouter::default()
+            .add_channel("console", ConsoleChannel::default())
+            .add_channel("discord", DiscordChannel::new("https://example.com"))
+            .add_routing_rule(RoutingRule::new(
+                "success_rule",
+                RoutingCondition::OnSuccess,
+                vec!["console".to_string(), "discord".to_string()],
+            ));
+
+        let output = utils::success_output("test", json!({}));
+        let routes = router.determine_routes(&output);
+
+        assert_eq!(routes.len(), 2);
+        assert!(routes.contains(&"console".to_string()));
+        assert!(routes.contains(&"discord".to_string()));
+    }
+
+    #[test]
+    fn test_determine_routes_removes_duplicates() {
+        let router = NotificationRouter::default()
+            .add_channel("console", ConsoleChannel::default())
+            .add_routing_rule(RoutingRule::new(
+                "rule1",
+                RoutingCondition::Always,
+                vec!["console".to_string()],
+            ))
+            .add_routing_rule(RoutingRule::new(
+                "rule2",
+                RoutingCondition::Always,
+                vec!["console".to_string()],
+            ));
+
+        let output = utils::success_output("test", json!({}));
+        let routes = router.determine_routes(&output);
+
+        assert_eq!(routes.len(), 1);
+        assert_eq!(routes[0], "console");
+    }
+
+    #[test]
+    fn test_determine_routes_no_match_no_default() {
+        let router = NotificationRouter::default()
+            .add_channel("console", ConsoleChannel::default())
+            .add_routing_rule(RoutingRule::new(
+                "error_only",
+                RoutingCondition::OnError,
+                vec!["console".to_string()],
+            ));
+
+        let output = utils::success_output("test", json!({}));
+        let routes = router.determine_routes(&output);
+
+        assert!(routes.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_send_notifications_channel_not_found() {
+        let router = NotificationRouter::default();
+        let output = utils::success_output("test", json!({}));
+        let routes = vec!["nonexistent".to_string()];
+
+        let results = router.send_notifications(&output, &routes).await.unwrap();
+
+        assert_eq!(results.len(), 1);
+        assert!(!results[0].success);
+        assert_eq!(results[0].channel, "nonexistent");
+        assert!(results[0]
+            .error
+            .as_ref()
+            .unwrap()
+            .contains("Channel 'nonexistent' not found"));
+    }
+
+    #[test]
+    fn test_determine_priority() {
+        let router = NotificationRouter::default();
+
+        // Test error case
+        let error_output = utils::error_output("test", "error");
+        assert_eq!(
+            router.determine_priority(&error_output),
+            NotificationPriority::High
+        );
+
+        // Test trading tool
+        let trading_output = utils::success_output("trading_bot", json!({}));
+        assert_eq!(
+            router.determine_priority(&trading_output),
+            NotificationPriority::Normal
+        );
+
+        // Test swap tool
+        let swap_output = utils::success_output("swap_tokens", json!({}));
+        assert_eq!(
+            router.determine_priority(&swap_output),
+            NotificationPriority::Normal
+        );
+
+        // Test other tool
+        let other_output = utils::success_output("get_balance", json!({}));
+        assert_eq!(
+            router.determine_priority(&other_output),
+            NotificationPriority::Low
+        );
+    }
+
+    #[test]
+    fn test_routing_rule_new_and_matches() {
+        let rule = RoutingRule::new(
+            "test_rule",
+            RoutingCondition::OnSuccess,
+            vec!["console".to_string()],
+        );
+
+        assert_eq!(rule.name, "test_rule");
+        assert_eq!(rule.channels, vec!["console".to_string()]);
+
+        let success_output = utils::success_output("test", json!({}));
+        let error_output = utils::error_output("test", "error");
+
+        assert!(rule.matches(&success_output));
+        assert!(!rule.matches(&error_output));
+    }
+
+    #[test]
+    fn test_routing_condition_execution_time_over() {
+        let mut output = utils::success_output("test", json!({}));
+        output.execution_time_ms = 1000;
+
+        let condition = RoutingCondition::ExecutionTimeOver(500);
+        assert!(condition.matches(&output));
+
+        let condition = RoutingCondition::ExecutionTimeOver(1500);
+        assert!(!condition.matches(&output));
+    }
+
+    #[test]
+    fn test_routing_condition_has_metadata() {
+        let mut output = utils::success_output("test", json!({}));
+        output
+            .metadata
+            .insert("priority".to_string(), "high".to_string());
+
+        let condition = RoutingCondition::HasMetadata("priority".to_string());
+        assert!(condition.matches(&output));
+
+        let condition = RoutingCondition::HasMetadata("level".to_string());
+        assert!(!condition.matches(&output));
+    }
+
+    #[test]
+    fn test_routing_condition_and_empty() {
+        let output = utils::success_output("test", json!({}));
+        let condition = RoutingCondition::And(vec![]);
+        assert!(condition.matches(&output));
+    }
+
+    #[test]
+    fn test_routing_condition_or_empty() {
+        let output = utils::success_output("test", json!({}));
+        let condition = RoutingCondition::Or(vec![]);
+        assert!(!condition.matches(&output));
+    }
+
+    #[test]
+    fn test_discord_channel_new() {
+        let channel = DiscordChannel::new("https://discord.com/api/webhooks/test");
+        assert_eq!(channel.webhook_url, "https://discord.com/api/webhooks/test");
+        assert!(channel.username.is_none());
+        assert!(channel.avatar_url.is_none());
+    }
+
+    #[test]
+    fn test_discord_channel_with_identity() {
+        let channel = DiscordChannel::new("https://discord.com/api/webhooks/test")
+            .with_identity("TestBot", Some("https://example.com/avatar.png"));
+
+        assert_eq!(channel.username, Some("TestBot".to_string()));
+        assert_eq!(
+            channel.avatar_url,
+            Some("https://example.com/avatar.png".to_string())
+        );
+    }
+
+    #[test]
+    fn test_discord_channel_with_identity_no_avatar() {
+        let channel = DiscordChannel::new("https://discord.com/api/webhooks/test")
+            .with_identity("TestBot", None);
+
+        assert_eq!(channel.username, Some("TestBot".to_string()));
+        assert!(channel.avatar_url.is_none());
+    }
+
+    #[test]
+    fn test_discord_channel_name() {
+        let channel = DiscordChannel::new("https://discord.com/api/webhooks/test");
+        assert_eq!(channel.name(), "Discord");
+    }
+
+    #[test]
+    fn test_discord_title_case() {
+        let channel = DiscordChannel::new("https://discord.com/api/webhooks/test");
+
+        assert_eq!(channel.title_case("hello_world"), "Hello World");
+        assert_eq!(channel.title_case("test"), "Test");
+        assert_eq!(channel.title_case(""), "");
+        assert_eq!(channel.title_case("a"), "A");
+        assert_eq!(channel.title_case("one_two_three"), "One Two Three");
+    }
+
+    #[test]
+    fn test_discord_format_error_output() {
+        let channel = DiscordChannel::new("https://discord.com/api/webhooks/test");
+        let output = utils::error_output("test_tool", "Something went wrong");
+
+        let formatted = channel.format_for_discord(&output);
+
+        assert_eq!(formatted["embeds"][0]["color"], 0xff0000); // Red for error
+        assert!(formatted["embeds"][0]["title"]
+            .as_str()
+            .unwrap()
+            .contains("❌"));
+    }
+
+    #[test]
+    fn test_discord_format_with_metadata() {
+        let channel = DiscordChannel::new("https://discord.com/api/webhooks/test");
+        let mut output = utils::success_output("test_tool", json!({"key": "value", "number": 42}));
+        output.execution_time_ms = 1500;
+
+        let formatted = channel.format_for_discord(&output);
+
+        let embed = &formatted["embeds"][0];
+        assert!(embed["fields"].is_array());
+        assert!(embed["footer"]["text"].as_str().unwrap().contains("1500ms"));
+    }
+
+    #[test]
+    fn test_discord_format_null_result() {
+        let channel = DiscordChannel::new("https://discord.com/api/webhooks/test");
+        let output = utils::success_output("test_tool", json!(null));
+
+        let formatted = channel.format_for_discord(&output);
+
+        let fields = formatted["embeds"][0]["fields"].as_array().unwrap();
+        assert!(fields.is_empty());
+    }
+
+    #[test]
+    fn test_telegram_channel_new() {
+        let channel = TelegramChannel::new("bot_token", "chat_id");
+        assert_eq!(channel.bot_token, "bot_token");
+        assert_eq!(channel.chat_id, "chat_id");
+        assert_eq!(channel.parse_mode, "Markdown");
+    }
+
+    #[test]
+    fn test_telegram_channel_with_html_mode() {
+        let channel = TelegramChannel::new("bot_token", "chat_id").with_html_mode();
+        assert_eq!(channel.parse_mode, "HTML");
+    }
+
+    #[test]
+    fn test_telegram_channel_name() {
+        let channel = TelegramChannel::new("bot_token", "chat_id");
+        assert_eq!(channel.name(), "Telegram");
+    }
+
+    #[test]
+    fn test_telegram_escape_markdown() {
+        let channel = TelegramChannel::new("bot_token", "chat_id");
+
+        let text = "*bold* _italic_ [link](url) `code` > quote # header + plus - minus = equal | pipe { } . ! () ~tilde~";
+        let escaped = channel.escape_markdown(text);
+
+        assert!(escaped.contains(r"\*bold\*"));
+        assert!(escaped.contains(r"\_italic\_"));
+        assert!(escaped.contains(r"\[link\]"));
+        assert!(escaped.contains(r"\`code\`"));
+        assert!(escaped.contains(r"\> quote"));
+        assert!(escaped.contains(r"\# header"));
+        assert!(escaped.contains(r"\+ plus"));
+        assert!(escaped.contains(r"\- minus"));
+        assert!(escaped.contains(r"\= equal"));
+        assert!(escaped.contains(r"\| pipe"));
+        assert!(escaped.contains(r"\{") && escaped.contains(r"\}"));
+        assert!(escaped.contains(r"\.") && escaped.contains(r"\!"));
+        assert!(escaped.contains(r"\(") && escaped.contains(r"\)"));
+        assert!(escaped.contains(r"\~tilde\~"));
+    }
+
+    #[test]
+    fn test_telegram_format_success() {
+        let channel = TelegramChannel::new("bot_token", "chat_id");
+        let output = utils::success_output("test_tool", json!({"balance": "1.5 SOL"}));
+
+        let formatted = channel.format_for_telegram(&output);
+
+        assert!(formatted.contains("✅"));
+        assert!(formatted.contains("test\\_tool"));
+        assert!(formatted.contains("📊 *Result:*"));
+        assert!(formatted.contains("```json"));
+        assert!(formatted.contains("1.5 SOL"));
+    }
+
+    #[test]
+    fn test_telegram_format_error() {
+        let channel = TelegramChannel::new("bot_token", "chat_id");
+        let output = utils::error_output("test_tool", "Connection failed");
+
+        let formatted = channel.format_for_telegram(&output);
+
+        assert!(formatted.contains("❌"));
+        assert!(formatted.contains("test\\_tool"));
+        assert!(formatted.contains("❌ *Error:*"));
+        assert!(formatted.contains("Connection failed"));
+    }
+
+    #[test]
+    fn test_telegram_format_with_execution_time() {
+        let channel = TelegramChannel::new("bot_token", "chat_id");
+        let mut output = utils::success_output("test_tool", json!({}));
+        output.execution_time_ms = 2500;
+
+        let formatted = channel.format_for_telegram(&output);
+
+        assert!(formatted.contains("⏱️ Executed in 2500ms"));
+    }
+
+    #[test]
+    fn test_telegram_format_null_result() {
+        let channel = TelegramChannel::new("bot_token", "chat_id");
+        let output = utils::success_output("test_tool", json!(null));
+
+        let formatted = channel.format_for_telegram(&output);
+
+        assert!(!formatted.contains("📊 *Result:*"));
+    }
+
+    #[test]
+    fn test_webhook_channel_new() {
+        let channel = WebhookChannel::new("test_webhook", "https://example.com/webhook");
+        assert_eq!(channel.name, "test_webhook");
+        assert_eq!(channel.url, "https://example.com/webhook");
+        assert!(channel.headers.is_empty());
+        assert_eq!(channel.format_template, "{\"message\": \"{{message}}\"}");
+    }
+
+    #[test]
+    fn test_webhook_channel_with_header() {
+        let channel = WebhookChannel::new("test", "https://example.com")
+            .with_header("Authorization", "Bearer token")
+            .with_header("X-API-Key", "secret");
+
+        assert_eq!(
+            channel.headers.get("Authorization"),
+            Some(&"Bearer token".to_string())
+        );
+        assert_eq!(
+            channel.headers.get("X-API-Key"),
+            Some(&"secret".to_string())
+        );
+    }
+
+    #[test]
+    fn test_webhook_channel_with_format_template() {
+        let template =
+            r#"{"text": "{{message}}", "tool": "{{tool_name}}", "status": "{{status}}"}"#;
+        let channel =
+            WebhookChannel::new("test", "https://example.com").with_format_template(template);
+
+        assert_eq!(channel.format_template, template);
+    }
+
+    #[test]
+    fn test_webhook_channel_name() {
+        let channel = WebhookChannel::new("my_webhook", "https://example.com");
+        assert_eq!(channel.name(), "my_webhook");
+    }
+
+    #[test]
+    fn test_webhook_format_message_success() {
+        let channel = WebhookChannel::new("test", "https://example.com")
+            .with_format_template(r#"{"message": "{{message}}", "tool": "{{tool_name}}", "status": "{{status}}", "result": "{{result}}"}"#);
+
+        let output = utils::success_output("test_tool", json!({"balance": "1.5"}));
+        let formatted = channel.format_message(&output);
+
+        assert!(formatted.contains("\"tool\": \"test_tool\""));
+        assert!(formatted.contains("\"status\": \"SUCCESS\""));
+        assert!(formatted.contains("Operation completed successfully"));
+        assert!(formatted.contains("\"balance\":\"1.5\""));
+    }
+
+    #[test]
+    fn test_webhook_format_message_error() {
+        let channel = WebhookChannel::new("test", "https://example.com");
+        let output = utils::error_output("test_tool", "Connection timeout");
+        let formatted = channel.format_message(&output);
+
+        assert!(formatted.contains("FAILED"));
+        assert!(formatted.contains("Connection timeout"));
+    }
+
+    #[test]
+    fn test_webhook_format_message_error_without_message() {
+        let channel = WebhookChannel::new("test", "https://example.com");
+        let mut output = utils::success_output("test_tool", json!({}));
+        output.success = false;
+        output.error = None;
+
+        let formatted = channel.format_message(&output);
+
+        assert!(formatted.contains("FAILED"));
+        assert!(formatted.contains("Unknown error"));
+    }
+
+    #[test]
+    fn test_console_channel_new() {
+        let channel = ConsoleChannel::default();
+        assert!(channel.use_colors);
+    }
+
+    #[test]
+    fn test_console_channel_default() {
+        let channel = ConsoleChannel::default();
+        assert!(channel.use_colors);
+    }
+
+    #[test]
+    fn test_console_channel_without_colors() {
+        let channel = ConsoleChannel::default().without_colors();
+        assert!(!channel.use_colors);
+    }
+
+    #[test]
+    fn test_console_channel_name() {
+        let channel = ConsoleChannel::default();
+        assert_eq!(channel.name(), "Console");
+    }
+
+    #[tokio::test]
+    async fn test_console_channel_send_notification_success_with_colors() {
+        let channel = ConsoleChannel::default();
+        let output = utils::success_output("test_tool", json!({"result": "success"}));
+
+        let result = channel.send_notification(&output).await.unwrap();
+        assert!(result.starts_with("console_"));
+    }
+
+    #[tokio::test]
+    async fn test_console_channel_send_notification_error_with_colors() {
+        let channel = ConsoleChannel::default();
+        let output = utils::error_output("test_tool", "Something went wrong");
+
+        let result = channel.send_notification(&output).await.unwrap();
+        assert!(result.starts_with("console_"));
+    }
+
+    #[tokio::test]
+    async fn test_console_channel_send_notification_success_without_colors() {
+        let channel = ConsoleChannel::default().without_colors();
+        let output = utils::success_output("test_tool", json!({"result": "success"}));
+
+        let result = channel.send_notification(&output).await.unwrap();
+        assert!(result.starts_with("console_"));
+    }
+
+    #[tokio::test]
+    async fn test_console_channel_send_notification_error_without_colors() {
+        let channel = ConsoleChannel::default().without_colors();
+        let output = utils::error_output("test_tool", "Something went wrong");
+
+        let result = channel.send_notification(&output).await.unwrap();
+        assert!(result.starts_with("console_"));
+    }
+
+    #[tokio::test]
+    async fn test_console_channel_send_notification_null_result() {
+        let channel = ConsoleChannel::default();
+        let output = utils::success_output("test_tool", json!(null));
+
+        let result = channel.send_notification(&output).await.unwrap();
+        assert!(result.starts_with("console_"));
+    }
+
+    #[test]
+    fn test_notification_channel_supports_formatting_default() {
+        let channel = ConsoleChannel::default();
+        assert!(channel.supports_formatting());
+    }
+
+    #[test]
+    fn test_notification_result_serialization() {
+        let result = NotificationResult {
+            channel: "test".to_string(),
+            success: true,
+            message_id: Some("msg_123".to_string()),
+            error: None,
+        };
+
+        let serialized = serde_json::to_string(&result).unwrap();
+        let deserialized: NotificationResult = serde_json::from_str(&serialized).unwrap();
+
+        assert_eq!(result.channel, deserialized.channel);
+        assert_eq!(result.success, deserialized.success);
+        assert_eq!(result.message_id, deserialized.message_id);
+        assert_eq!(result.error, deserialized.error);
+    }
+
+    #[tokio::test]
+    async fn test_notification_router_process_complete_flow() {
+        let router = NotificationRouter::default()
+            .add_channel("console", ConsoleChannel::default())
+            .add_channel(
+                "webhook",
+                WebhookChannel::new("test", "https://httpbin.org/post"),
+            )
+            .set_default_channel("console")
+            .add_routing_rule(RoutingRule::new(
+                "success_to_all",
+                RoutingCondition::OnSuccess,
+                vec!["console".to_string(), "webhook".to_string()],
+            ));
+
+        let output = utils::success_output("test_tool", json!({"result": "test"}));
+        let processed = router.process(output).await.unwrap();
+
+        assert_eq!(processed.format, OutputFormat::Json);
+        assert!(processed.summary.is_some());
+        assert!(processed.routing_info.is_some());
+        assert_eq!(
+            processed.routing_info.as_ref().unwrap().priority,
+            NotificationPriority::Low
+        );
+
+        let results = processed.processed_result["notification_results"]
+            .as_array()
+            .unwrap();
+        assert_eq!(results.len(), 2);
     }
 }

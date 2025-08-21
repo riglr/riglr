@@ -8,8 +8,10 @@
 pub mod privy_impl {
     use async_trait::async_trait;
     use base64::{engine::general_purpose::STANDARD, Engine as _};
-    use riglr_core::config::{EvmNetworkConfig, RpcConfig, SolanaNetworkConfig};
-    use riglr_core::signer::{EvmClient, SignerError, TransactionSigner};
+    use riglr_config::{EvmNetworkConfig, SolanaNetworkConfig};
+    use riglr_core::signer::{
+        EvmClient, EvmSigner, SignerBase, SignerError, SolanaSigner, UnifiedSigner,
+    };
     use riglr_web_adapters::factory::{AuthenticationData, SignerFactory};
     use serde::{Deserialize, Serialize};
     use solana_client::rpc_client::RpcClient;
@@ -166,8 +168,7 @@ pub mod privy_impl {
         async fn create_signer(
             &self,
             auth_data: AuthenticationData,
-            config: &RpcConfig,
-        ) -> Result<Box<dyn TransactionSigner>, Box<dyn std::error::Error + Send + Sync>> {
+        ) -> Result<Box<dyn UnifiedSigner>, Box<dyn std::error::Error + Send + Sync>> {
             // Validate Privy token
             let token = auth_data
                 .credentials
@@ -183,15 +184,12 @@ pub mod privy_impl {
 
             // Create appropriate signer based on linked delegated wallets
             if let Some(sol_addr) = user_data.solana_address {
-                let sol_cfg = config
-                    .solana_networks
-                    .get(&auth_data.network)
-                    .cloned()
-                    .unwrap_or_else(|| SolanaNetworkConfig {
-                        name: "mainnet".into(),
-                        rpc_url: "https://api.mainnet-beta.solana.com".into(),
-                        explorer_url: None,
-                    });
+                let sol_cfg = SolanaNetworkConfig {
+                    name: auth_data.network.clone(),
+                    rpc_url: "https://api.mainnet-beta.solana.com".into(),
+                    ws_url: None,
+                    explorer_url: Some("https://explorer.solana.com".into()),
+                };
                 let client = create_privy_client(&self.privy_app_id, &self.privy_app_secret);
                 let signer = PrivySolanaSigner::new(client, sol_addr, sol_cfg);
                 return Ok(Box::new(signer));
@@ -200,14 +198,15 @@ pub mod privy_impl {
             if let (Some(evm_addr), Some(evm_wallet_id)) =
                 (user_data.evm_address, user_data.evm_wallet_id)
             {
-                let evm_cfg = config
-                    .evm_networks
-                    .get(&auth_data.network)
-                    .cloned()
-                    .ok_or_else(|| format!("Unsupported EVM network: {}", auth_data.network))?;
+                let evm_cfg = EvmNetworkConfig {
+                    name: auth_data.network.clone(),
+                    chain_id: 1, // TODO: Map network name to chain ID
+                    rpc_url: "https://eth.llamarpc.com".into(),
+                    explorer_url: Some("https://etherscan.io".into()),
+                    native_token: Some("ETH".into()),
+                };
                 let client = create_privy_client(&self.privy_app_id, &self.privy_app_secret);
-                let signer =
-                    PrivyEvmSigner::new(client, evm_addr, evm_wallet_id, evm_cfg);
+                let signer = PrivyEvmSigner::new(client, evm_addr, evm_wallet_id, evm_cfg);
                 return Ok(Box::new(signer));
             }
 
@@ -270,7 +269,7 @@ pub mod privy_impl {
 
     impl PrivySolanaSigner {
         fn new(client: reqwest::Client, address: String, network: SolanaNetworkConfig) -> Self {
-            let rpc = Arc::new(RpcClient::new(network.rpc_url));
+            let rpc = Arc::new(RpcClient::new(network.rpc_url.clone()));
             Self {
                 client,
                 address,
@@ -281,15 +280,24 @@ pub mod privy_impl {
     }
 
     #[async_trait]
-    impl TransactionSigner for PrivySolanaSigner {
-        fn address(&self) -> Option<String> {
-            Some(self.address.clone())
+
+    impl SignerBase for PrivySolanaSigner {
+        fn as_any(&self) -> &dyn std::any::Any {
+            self
         }
-        fn pubkey(&self) -> Option<String> {
-            Some(self.address.clone())
+    }
+
+    #[async_trait]
+    impl SolanaSigner for PrivySolanaSigner {
+        fn address(&self) -> String {
+            self.address.clone()
         }
 
-        async fn sign_and_send_solana_transaction(
+        fn pubkey(&self) -> String {
+            self.address.clone()
+        }
+
+        async fn sign_and_send_transaction(
             &self,
             tx: &mut Transaction,
         ) -> Result<String, SignerError> {
@@ -355,22 +363,30 @@ pub mod privy_impl {
             Ok(parsed.data.hash)
         }
 
-        async fn sign_and_send_evm_transaction(
-            &self,
-            _tx: TransactionRequest,
-        ) -> Result<String, SignerError> {
-            Err(SignerError::UnsupportedOperation(
-                "EVM not supported by PrivySolanaSigner".into(),
-            ))
+        fn client(&self) -> Arc<RpcClient> {
+            self.rpc.clone()
+        }
+    }
+
+    impl UnifiedSigner for PrivySolanaSigner {
+        fn supports_solana(&self) -> bool {
+            true
         }
 
-        fn solana_client(&self) -> Option<Arc<solana_client::rpc_client::RpcClient>> {
-            Some(self.rpc.clone())
+        fn supports_evm(&self) -> bool {
+            false
         }
-        fn evm_client(&self) -> Result<Arc<dyn EvmClient>, SignerError> {
-            Err(SignerError::UnsupportedOperation(
-                "EVM client not available for PrivySolanaSigner".into(),
-            ))
+
+        fn as_solana(&self) -> Option<&dyn SolanaSigner> {
+            Some(self)
+        }
+
+        fn as_evm(&self) -> Option<&dyn riglr_core::signer::EvmSigner> {
+            None
+        }
+
+        fn as_multi_chain(&self) -> Option<&dyn riglr_core::signer::MultiChainSigner> {
+            None
         }
     }
 
@@ -398,22 +414,23 @@ pub mod privy_impl {
         }
     }
 
+    impl SignerBase for PrivyEvmSigner {
+        fn as_any(&self) -> &dyn std::any::Any {
+            self
+        }
+    }
+
     #[async_trait]
-    impl TransactionSigner for PrivyEvmSigner {
-        fn address(&self) -> Option<String> {
-            Some(self.address.clone())
+    impl EvmSigner for PrivyEvmSigner {
+        fn chain_id(&self) -> u64 {
+            self.network.chain_id
         }
 
-        async fn sign_and_send_solana_transaction(
-            &self,
-            _tx: &mut Transaction,
-        ) -> Result<String, SignerError> {
-            Err(SignerError::UnsupportedOperation(
-                "Solana not supported by PrivyEvmSigner".into(),
-            ))
+        fn address(&self) -> String {
+            self.address.clone()
         }
 
-        async fn sign_and_send_evm_transaction(
+        async fn sign_and_send_transaction(
             &self,
             tx: TransactionRequest,
         ) -> Result<String, SignerError> {
@@ -514,16 +531,33 @@ pub mod privy_impl {
             Ok(parsed.data.hash)
         }
 
-        fn solana_client(&self) -> Option<Arc<solana_client::rpc_client::RpcClient>> {
-            Some(Arc::new(RpcClient::new(
-                "https://api.mainnet-beta.solana.com",
-            )))
-        }
-
-        fn evm_client(&self) -> Result<Arc<dyn EvmClient>, SignerError> {
+        fn client(&self) -> Result<Arc<dyn EvmClient>, SignerError> {
+            // Privy handles RPC internally, so we don't provide direct client access
             Err(SignerError::UnsupportedOperation(
                 "Direct EVM client not provided by PrivyEvmSigner".into(),
             ))
+        }
+    }
+
+    impl UnifiedSigner for PrivyEvmSigner {
+        fn supports_solana(&self) -> bool {
+            false
+        }
+
+        fn supports_evm(&self) -> bool {
+            true
+        }
+
+        fn as_solana(&self) -> Option<&dyn SolanaSigner> {
+            None
+        }
+
+        fn as_evm(&self) -> Option<&dyn riglr_core::signer::EvmSigner> {
+            Some(self)
+        }
+
+        fn as_multi_chain(&self) -> Option<&dyn riglr_core::signer::MultiChainSigner> {
+            None
         }
     }
 }
@@ -536,11 +570,18 @@ mod tests {
     #[cfg(feature = "web-server")]
     use super::privy_impl::*;
     #[cfg(feature = "web-server")]
-    use riglr_core::config::RpcConfig;
+    use alloy::rpc::types::TransactionRequest;
+    #[cfg(feature = "web-server")]
+    #[cfg(feature = "web-server")]
+    use riglr_core::signer::{SignerError, UnifiedSigner};
     #[cfg(feature = "web-server")]
     use riglr_web_adapters::factory::{AuthenticationData, SignerFactory};
     #[cfg(feature = "web-server")]
+    use solana_sdk::transaction::Transaction;
+    #[cfg(feature = "web-server")]
     use std::collections::HashMap;
+    #[cfg(feature = "web-server")]
+    use std::sync::Arc;
 
     #[tokio::test]
     #[cfg(feature = "web-server")]
@@ -566,8 +607,7 @@ mod tests {
             network: "devnet".to_string(),
         };
 
-        let config = RpcConfig::default();
-        let result = factory.create_signer(auth_data, &config).await;
+        let result = factory.create_signer(auth_data).await;
 
         // Should fail without a valid token/JWKS in tests
         assert!(result.is_err());
@@ -585,11 +625,373 @@ mod tests {
             network: "devnet".to_string(),
         };
 
-        let config = RpcConfig::default();
-        let result = factory.create_signer(auth_data, &config).await;
+        let result = factory.create_signer(auth_data).await;
 
         assert!(result.is_err());
         let error_msg = result.unwrap_err().to_string();
         assert!(error_msg.contains("Missing Privy token"));
+    }
+
+    #[test]
+    #[cfg(feature = "web-server")]
+    fn test_privy_user_data_creation() {
+        let user_data = PrivyUserData {
+            id: "test_user_id".to_string(),
+            solana_address: Some("test_sol_address".to_string()),
+            evm_address: Some("test_evm_address".to_string()),
+            evm_wallet_id: Some("test_wallet_id".to_string()),
+            verified: true,
+        };
+
+        assert_eq!(user_data.id, "test_user_id");
+        assert_eq!(
+            user_data.solana_address,
+            Some("test_sol_address".to_string())
+        );
+        assert_eq!(user_data.evm_address, Some("test_evm_address".to_string()));
+        assert_eq!(user_data.evm_wallet_id, Some("test_wallet_id".to_string()));
+        assert!(user_data.verified);
+    }
+
+    #[test]
+    #[cfg(feature = "web-server")]
+    fn test_privy_user_data_with_none_values() {
+        let user_data = PrivyUserData {
+            id: "test_user_id".to_string(),
+            solana_address: None,
+            evm_address: None,
+            evm_wallet_id: None,
+            verified: false,
+        };
+
+        assert_eq!(user_data.id, "test_user_id");
+        assert_eq!(user_data.solana_address, None);
+        assert_eq!(user_data.evm_address, None);
+        assert_eq!(user_data.evm_wallet_id, None);
+        assert!(!user_data.verified);
+    }
+
+    #[test]
+    #[cfg(feature = "web-server")]
+    fn test_create_privy_client() {
+        let client = create_privy_client("test_app_id", "test_app_secret");
+
+        // Just verify the client was created successfully
+        assert!(format!("{:?}", client).contains("Client"));
+    }
+
+    #[test]
+    #[cfg(feature = "web-server")]
+    fn test_privy_solana_signer_new() {
+        let client = reqwest::Client::new();
+        let network = SolanaNetworkConfig {
+            name: "devnet".to_string(),
+            rpc_url: "https://api.devnet.solana.com".to_string(),
+            explorer_url: Some("https://explorer.solana.com".to_string()),
+        };
+
+        let signer = PrivySolanaSigner::new(client, "test_address".to_string(), network.clone());
+
+        assert_eq!(signer.address, "test_address");
+        assert_eq!(signer.network.name, "devnet");
+        assert_eq!(signer.network.rpc_url, "https://api.devnet.solana.com");
+    }
+
+    #[test]
+    #[cfg(feature = "web-server")]
+    fn test_privy_solana_signer_debug() {
+        let client = reqwest::Client::new();
+        let network = SolanaNetworkConfig {
+            name: "devnet".to_string(),
+            rpc_url: "https://api.devnet.solana.com".to_string(),
+            explorer_url: None,
+        };
+
+        let signer = PrivySolanaSigner::new(client, "test_address".to_string(), network);
+
+        let debug_str = format!("{:?}", signer);
+        assert!(debug_str.contains("PrivySolanaSigner"));
+        assert!(debug_str.contains("test_address"));
+    }
+
+    #[test]
+    #[cfg(feature = "web-server")]
+    fn test_privy_solana_signer_address() {
+        let client = reqwest::Client::new();
+        let network = SolanaNetworkConfig {
+            name: "devnet".to_string(),
+            rpc_url: "https://api.devnet.solana.com".to_string(),
+            explorer_url: None,
+        };
+
+        let signer = PrivySolanaSigner::new(client, "test_address".to_string(), network);
+
+        assert_eq!(signer.address(), Some("test_address".to_string()));
+    }
+
+    #[test]
+    #[cfg(feature = "web-server")]
+    fn test_privy_solana_signer_pubkey() {
+        let client = reqwest::Client::new();
+        let network = SolanaNetworkConfig {
+            name: "devnet".to_string(),
+            rpc_url: "https://api.devnet.solana.com".to_string(),
+            explorer_url: None,
+        };
+
+        let signer = PrivySolanaSigner::new(client, "test_pubkey".to_string(), network);
+
+        assert_eq!(signer.pubkey(), Some("test_pubkey".to_string()));
+    }
+
+    #[tokio::test]
+    #[cfg(feature = "web-server")]
+    async fn test_privy_solana_signer_evm_transaction_unsupported() {
+        let client = reqwest::Client::new();
+        let network = SolanaNetworkConfig {
+            name: "devnet".to_string(),
+            rpc_url: "https://api.devnet.solana.com".to_string(),
+            explorer_url: None,
+        };
+
+        let signer = PrivySolanaSigner::new(client, "test_address".to_string(), network);
+
+        let tx = TransactionRequest::default();
+        let result = signer.sign_and_send_evm_transaction(tx).await;
+
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            SignerError::UnsupportedOperation(msg) => {
+                assert!(msg.contains("EVM not supported by PrivySolanaSigner"));
+            }
+            _ => panic!("Expected UnsupportedOperation error"),
+        }
+    }
+
+    #[test]
+    #[cfg(feature = "web-server")]
+    fn test_privy_solana_signer_solana_client() {
+        let client = reqwest::Client::new();
+        let network = SolanaNetworkConfig {
+            name: "devnet".to_string(),
+            rpc_url: "https://api.devnet.solana.com".to_string(),
+            explorer_url: None,
+        };
+
+        let signer = PrivySolanaSigner::new(client, "test_address".to_string(), network);
+
+        let solana_client = signer.solana_client();
+        assert!(solana_client.is_some());
+    }
+
+    #[test]
+    #[cfg(feature = "web-server")]
+    fn test_privy_solana_signer_evm_client_unsupported() {
+        let client = reqwest::Client::new();
+        let network = SolanaNetworkConfig {
+            name: "devnet".to_string(),
+            rpc_url: "https://api.devnet.solana.com".to_string(),
+            explorer_url: None,
+        };
+
+        let signer = PrivySolanaSigner::new(client, "test_address".to_string(), network);
+
+        let result = signer.evm_client();
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            SignerError::UnsupportedOperation(msg) => {
+                assert!(msg.contains("EVM client not available for PrivySolanaSigner"));
+            }
+            _ => panic!("Expected UnsupportedOperation error"),
+        }
+    }
+
+    #[test]
+    #[cfg(feature = "web-server")]
+    fn test_privy_evm_signer_new() {
+        let client = reqwest::Client::new();
+        let network = EvmNetworkConfig {
+            name: "ethereum".to_string(),
+            rpc_url: "https://eth-mainnet.alchemyapi.io/v2/test".to_string(),
+            chain_id: 1,
+            explorer_url: Some("https://etherscan.io".to_string()),
+        };
+
+        let signer = PrivyEvmSigner::new(
+            client,
+            "0x123".to_string(),
+            "wallet_123".to_string(),
+            network.clone(),
+        );
+
+        assert_eq!(signer.address, "0x123");
+        assert_eq!(signer.wallet_id, "wallet_123");
+        assert_eq!(signer.network.name, "ethereum");
+        assert_eq!(signer.network.chain_id, 1);
+    }
+
+    #[test]
+    #[cfg(feature = "web-server")]
+    fn test_privy_evm_signer_address() {
+        let client = reqwest::Client::new();
+        let network = EvmNetworkConfig {
+            name: "ethereum".to_string(),
+            rpc_url: "https://eth-mainnet.alchemyapi.io/v2/test".to_string(),
+            chain_id: 1,
+            explorer_url: None,
+        };
+
+        let signer = PrivyEvmSigner::new(
+            client,
+            "0x456".to_string(),
+            "wallet_456".to_string(),
+            network,
+        );
+
+        assert_eq!(signer.address(), Some("0x456".to_string()));
+    }
+
+    #[tokio::test]
+    #[cfg(feature = "web-server")]
+    async fn test_privy_evm_signer_solana_transaction_unsupported() {
+        let client = reqwest::Client::new();
+        let network = EvmNetworkConfig {
+            name: "ethereum".to_string(),
+            rpc_url: "https://eth-mainnet.alchemyapi.io/v2/test".to_string(),
+            chain_id: 1,
+            explorer_url: None,
+        };
+
+        let signer = PrivyEvmSigner::new(
+            client,
+            "0x123".to_string(),
+            "wallet_123".to_string(),
+            network,
+        );
+
+        let mut tx = Transaction::default();
+        let result = signer.sign_and_send_solana_transaction(&mut tx).await;
+
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            SignerError::UnsupportedOperation(msg) => {
+                assert!(msg.contains("Solana not supported by PrivyEvmSigner"));
+            }
+            _ => panic!("Expected UnsupportedOperation error"),
+        }
+    }
+
+    #[test]
+    #[cfg(feature = "web-server")]
+    fn test_privy_evm_signer_solana_client() {
+        let client = reqwest::Client::new();
+        let network = EvmNetworkConfig {
+            name: "ethereum".to_string(),
+            rpc_url: "https://eth-mainnet.alchemyapi.io/v2/test".to_string(),
+            chain_id: 1,
+            explorer_url: None,
+        };
+
+        let signer = PrivyEvmSigner::new(
+            client,
+            "0x123".to_string(),
+            "wallet_123".to_string(),
+            network,
+        );
+
+        let solana_client = signer.solana_client();
+        assert!(solana_client.is_some());
+    }
+
+    #[test]
+    #[cfg(feature = "web-server")]
+    fn test_privy_evm_signer_evm_client_unsupported() {
+        let client = reqwest::Client::new();
+        let network = EvmNetworkConfig {
+            name: "ethereum".to_string(),
+            rpc_url: "https://eth-mainnet.alchemyapi.io/v2/test".to_string(),
+            chain_id: 1,
+            explorer_url: None,
+        };
+
+        let signer = PrivyEvmSigner::new(
+            client,
+            "0x123".to_string(),
+            "wallet_123".to_string(),
+            network,
+        );
+
+        let result = signer.evm_client();
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            SignerError::UnsupportedOperation(msg) => {
+                assert!(msg.contains("Direct EVM client not provided by PrivyEvmSigner"));
+            }
+            _ => panic!("Expected UnsupportedOperation error"),
+        }
+    }
+
+    #[test]
+    #[cfg(feature = "web-server")]
+    fn test_privy_evm_signer_debug() {
+        let client = reqwest::Client::new();
+        let network = EvmNetworkConfig {
+            name: "ethereum".to_string(),
+            rpc_url: "https://eth-mainnet.alchemyapi.io/v2/test".to_string(),
+            chain_id: 1,
+            explorer_url: None,
+        };
+
+        let signer = PrivyEvmSigner::new(
+            client,
+            "0x123".to_string(),
+            "wallet_123".to_string(),
+            network,
+        );
+
+        let debug_str = format!("{:?}", signer);
+        assert!(debug_str.contains("PrivyEvmSigner"));
+        assert!(debug_str.contains("0x123"));
+        assert!(debug_str.contains("wallet_123"));
+    }
+
+    #[test]
+    #[cfg(feature = "web-server")]
+    fn test_privy_evm_signer_clone() {
+        let client = reqwest::Client::new();
+        let network = EvmNetworkConfig {
+            name: "ethereum".to_string(),
+            rpc_url: "https://eth-mainnet.alchemyapi.io/v2/test".to_string(),
+            chain_id: 1,
+            explorer_url: None,
+        };
+
+        let signer = PrivyEvmSigner::new(
+            client,
+            "0x123".to_string(),
+            "wallet_123".to_string(),
+            network,
+        );
+
+        let cloned_signer = signer.clone();
+        assert_eq!(signer.address, cloned_signer.address);
+        assert_eq!(signer.wallet_id, cloned_signer.wallet_id);
+    }
+
+    #[test]
+    #[cfg(feature = "web-server")]
+    fn test_privy_solana_signer_clone() {
+        let client = reqwest::Client::new();
+        let network = SolanaNetworkConfig {
+            name: "devnet".to_string(),
+            rpc_url: "https://api.devnet.solana.com".to_string(),
+            explorer_url: None,
+        };
+
+        let signer = PrivySolanaSigner::new(client, "test_address".to_string(), network);
+
+        let cloned_signer = signer.clone();
+        assert_eq!(signer.address, cloned_signer.address);
+        assert_eq!(signer.network.name, cloned_signer.network.name);
     }
 }
