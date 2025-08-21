@@ -73,3 +73,234 @@ pub enum WebToolError {
 
 /// Result type alias for web tool operations.
 pub type Result<T> = std::result::Result<T, WebToolError>;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json;
+    use std::error::Error;
+
+    #[test]
+    fn test_network_error_display() {
+        let error = WebToolError::Network("Connection failed".to_string());
+        assert_eq!(error.to_string(), "Network error: Connection failed");
+    }
+
+    #[test]
+    fn test_network_error_debug() {
+        let error = WebToolError::Network("Connection failed".to_string());
+        let debug_str = format!("{:?}", error);
+        assert!(debug_str.contains("Network"));
+        assert!(debug_str.contains("Connection failed"));
+    }
+
+    #[test]
+    fn test_http_error_conversion() {
+        // Test that we can convert from reqwest::Error to WebToolError::Http
+        // Since creating a reqwest::Error requires network calls or complex setup,
+        // we'll just test that the type conversion compiles and displays correctly
+
+        // Create a URL parsing error to demonstrate error conversion
+        let url_error = reqwest::Url::parse("not a valid url").unwrap_err();
+        let web_error = WebToolError::Url(url_error);
+        assert!(web_error.to_string().contains("URL error:"));
+
+        // Verify that our HTTP error variant exists and formats correctly
+        // We can't easily create a reqwest::Error in unit tests without network I/O
+        // So we'll test the display format with a mock description
+        let mock_http_error = WebToolError::Network("HTTP connection failed".to_string());
+        assert!(mock_http_error
+            .to_string()
+            .contains("Network error: HTTP connection failed"));
+    }
+
+    #[test]
+    fn test_api_error_display() {
+        let error = WebToolError::Api("Invalid API key".to_string());
+        assert_eq!(error.to_string(), "API error: Invalid API key");
+    }
+
+    #[test]
+    fn test_rate_limit_error_display() {
+        let error = WebToolError::RateLimit("Too many requests".to_string());
+        assert_eq!(error.to_string(), "Rate limit exceeded: Too many requests");
+    }
+
+    #[test]
+    fn test_auth_error_display() {
+        let error = WebToolError::Auth("Invalid credentials".to_string());
+        assert_eq!(
+            error.to_string(),
+            "Authentication error: Invalid credentials"
+        );
+    }
+
+    #[test]
+    fn test_parsing_error_display() {
+        let error = WebToolError::Parsing("JSON malformed".to_string());
+        assert_eq!(error.to_string(), "Parsing error: JSON malformed");
+    }
+
+    #[test]
+    fn test_serialization_error_from_serde_json() {
+        // Create a serde_json error by trying to serialize something that can't be serialized
+        let json_error = serde_json::from_str::<serde_json::Value>("invalid json").unwrap_err();
+        let error = WebToolError::from(json_error);
+
+        assert!(error.to_string().contains("Serialization error:"));
+        assert!(matches!(error, WebToolError::Serialization(_)));
+    }
+
+    #[test]
+    fn test_url_error_from_parse_error() {
+        let parse_error = url::Url::parse("not a valid url").unwrap_err();
+        let error = WebToolError::from(parse_error);
+
+        assert!(error.to_string().contains("URL error:"));
+        assert!(matches!(error, WebToolError::Url(_)));
+    }
+
+    #[test]
+    fn test_config_error_display() {
+        let error = WebToolError::Config("Missing configuration".to_string());
+        assert_eq!(
+            error.to_string(),
+            "Configuration error: Missing configuration"
+        );
+    }
+
+    #[test]
+    fn test_client_error_display() {
+        let error = WebToolError::Client("Failed to create client".to_string());
+        assert_eq!(error.to_string(), "Client error: Failed to create client");
+    }
+
+    #[test]
+    fn test_invalid_input_error_display() {
+        let error = WebToolError::InvalidInput("Empty parameter".to_string());
+        assert_eq!(error.to_string(), "Invalid input: Empty parameter");
+    }
+
+    #[test]
+    fn test_core_error_from_riglr_core() {
+        // Since we can't easily create a riglr_core::CoreError in tests without importing it,
+        // we'll test the variant directly if possible, or skip this test if CoreError is not accessible
+        // For now, we'll test that the variant exists and displays correctly
+        use riglr_core::CoreError;
+
+        // Create a CoreError - we'll use whatever variant is available
+        let core_error = CoreError::Generic("test config error".to_string());
+        let error = WebToolError::from(core_error);
+
+        assert!(error.to_string().contains("Core error:"));
+        assert!(matches!(error, WebToolError::Core(_)));
+    }
+
+    #[test]
+    fn test_error_source_chain() {
+        // Test that errors properly implement the Error trait and maintain source chains
+        let json_error = serde_json::from_str::<serde_json::Value>("invalid json").unwrap_err();
+        let error = WebToolError::from(json_error);
+
+        // The error should have a source
+        assert!(error.source().is_some());
+    }
+
+    #[test]
+    fn test_error_debug_impl() {
+        // Test that all error variants can be debug printed
+        let errors = vec![
+            WebToolError::Network("test".to_string()),
+            WebToolError::Api("test".to_string()),
+            WebToolError::RateLimit("test".to_string()),
+            WebToolError::Auth("test".to_string()),
+            WebToolError::Parsing("test".to_string()),
+            WebToolError::Config("test".to_string()),
+            WebToolError::Client("test".to_string()),
+            WebToolError::InvalidInput("test".to_string()),
+        ];
+
+        for error in errors {
+            let debug_str = format!("{:?}", error);
+            assert!(!debug_str.is_empty());
+        }
+    }
+
+    #[test]
+    fn test_result_type_alias() {
+        // Test that our Result type alias works correctly
+        let ok_result: Result<i32> = Ok(42);
+        let err_result: Result<i32> = Err(WebToolError::Network("test".to_string()));
+
+        assert!(ok_result.is_ok());
+        assert_eq!(ok_result.unwrap(), 42);
+
+        assert!(err_result.is_err());
+        assert!(matches!(err_result.unwrap_err(), WebToolError::Network(_)));
+    }
+
+    #[test]
+    fn test_error_equality() {
+        // Test that errors can be compared (though they don't implement PartialEq by default,
+        // we can test that they're consistent in their string representation)
+        let error1 = WebToolError::Network("same message".to_string());
+        let error2 = WebToolError::Network("same message".to_string());
+        let error3 = WebToolError::Network("different message".to_string());
+
+        assert_eq!(error1.to_string(), error2.to_string());
+        assert_ne!(error1.to_string(), error3.to_string());
+    }
+
+    #[test]
+    fn test_empty_string_errors() {
+        // Test edge case with empty strings
+        let errors = vec![
+            WebToolError::Network("".to_string()),
+            WebToolError::Api("".to_string()),
+            WebToolError::RateLimit("".to_string()),
+            WebToolError::Auth("".to_string()),
+            WebToolError::Parsing("".to_string()),
+            WebToolError::Config("".to_string()),
+            WebToolError::Client("".to_string()),
+            WebToolError::InvalidInput("".to_string()),
+        ];
+
+        for error in errors {
+            let error_str = error.to_string();
+            assert!(!error_str.is_empty());
+            // Each should still have the prefix even with empty message
+            assert!(error_str.contains("error:"));
+        }
+    }
+
+    #[test]
+    fn test_very_long_error_messages() {
+        // Test edge case with very long error messages
+        let long_message = "a".repeat(1000);
+        let error = WebToolError::Network(long_message.clone());
+        let error_str = error.to_string();
+
+        assert!(error_str.contains(&long_message));
+        assert!(error_str.len() > 1000);
+    }
+
+    #[test]
+    fn test_special_characters_in_error_messages() {
+        // Test edge case with special characters
+        let special_message = "Error with special chars: 你好 🚀 \n\t\"quotes\"";
+        let error = WebToolError::InvalidInput(special_message.to_string());
+        let error_str = error.to_string();
+
+        assert!(error_str.contains(&special_message));
+    }
+
+    #[test]
+    fn test_error_is_send_and_sync() {
+        // Test that our error type implements Send and Sync (important for async code)
+        fn assert_send<T: Send>() {}
+        fn assert_sync<T: Sync>() {}
+
+        assert_send::<WebToolError>();
+        assert_sync::<WebToolError>();
+    }
+}

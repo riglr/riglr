@@ -268,11 +268,6 @@ impl Default for WebClient {
 }
 
 impl WebClient {
-    /// Create a new web client
-    pub fn new() -> Result<Self> {
-        Ok(Self::default())
-    }
-
     /// Create with custom HTTP configuration
     pub fn with_config(http_config: HttpConfig) -> Result<Self> {
         let http_client = ClientBuilder::new()
@@ -669,7 +664,6 @@ impl WebClient {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -702,5 +696,466 @@ mod tests {
 
         // Config no longer stores arbitrary test keys, only predefined URLs
         assert_eq!(client.get_config("unknown"), None);
+    }
+
+    #[test]
+    fn test_http_config_default() {
+        let config = HttpConfig::default();
+        assert_eq!(config.timeout, Duration::from_secs(30));
+        assert_eq!(config.max_retries, 3);
+        assert_eq!(config.retry_delay, Duration::from_millis(500));
+        assert_eq!(config.user_agent, "riglr-web-tools/0.1.0");
+        assert!(config.exponential_backoff);
+        assert_eq!(config.jitter_factor, 0.1);
+    }
+
+    #[test]
+    fn test_api_keys_default() {
+        let keys = ApiKeys::default();
+        assert!(keys.is_empty());
+        assert!(keys.twitter.is_none());
+        assert!(keys.exa.is_none());
+        assert!(keys.dexscreener.is_none());
+        assert!(keys.newsapi.is_none());
+        assert!(keys.cryptopanic.is_none());
+        assert!(keys.lunarcrush.is_none());
+        assert!(keys.alternative.is_none());
+        assert!(keys.other.is_empty());
+    }
+
+    #[test]
+    fn test_api_keys_is_empty() {
+        let mut keys = ApiKeys::default();
+        assert!(keys.is_empty());
+
+        keys.twitter = Some("token".to_string());
+        assert!(!keys.is_empty());
+
+        keys = ApiKeys::default();
+        keys.other.insert("custom".to_string(), "value".to_string());
+        assert!(!keys.is_empty());
+    }
+
+    #[test]
+    fn test_api_keys_get() {
+        let mut keys = ApiKeys::default();
+        keys.twitter = Some("twitter_token".to_string());
+        keys.exa = Some("exa_key".to_string());
+        keys.dexscreener = Some("dex_key".to_string());
+        keys.newsapi = Some("news_key".to_string());
+        keys.cryptopanic = Some("crypto_key".to_string());
+        keys.lunarcrush = Some("lunar_key".to_string());
+        keys.alternative = Some("alt_key".to_string());
+        keys.other
+            .insert("custom".to_string(), "custom_key".to_string());
+
+        assert_eq!(keys.get("twitter"), Some(&"twitter_token".to_string()));
+        assert_eq!(keys.get("exa"), Some(&"exa_key".to_string()));
+        assert_eq!(keys.get("dexscreener"), Some(&"dex_key".to_string()));
+        assert_eq!(keys.get("newsapi"), Some(&"news_key".to_string()));
+        assert_eq!(keys.get("cryptopanic"), Some(&"crypto_key".to_string()));
+        assert_eq!(keys.get("lunarcrush"), Some(&"lunar_key".to_string()));
+        assert_eq!(keys.get("alternative"), Some(&"alt_key".to_string()));
+        assert_eq!(keys.get("custom"), Some(&"custom_key".to_string()));
+        assert_eq!(keys.get("unknown"), None);
+    }
+
+    #[test]
+    fn test_api_keys_len() {
+        let mut keys = ApiKeys::default();
+        assert_eq!(keys.len(), 0);
+
+        keys.twitter = Some("token".to_string());
+        assert_eq!(keys.len(), 1);
+
+        keys.exa = Some("key".to_string());
+        keys.dexscreener = Some("key".to_string());
+        keys.newsapi = Some("key".to_string());
+        keys.cryptopanic = Some("key".to_string());
+        keys.lunarcrush = Some("key".to_string());
+        keys.alternative = Some("key".to_string());
+        assert_eq!(keys.len(), 7);
+
+        keys.other
+            .insert("custom1".to_string(), "value1".to_string());
+        keys.other
+            .insert("custom2".to_string(), "value2".to_string());
+        assert_eq!(keys.len(), 9);
+    }
+
+    #[test]
+    fn test_api_keys_contains_key() {
+        let mut keys = ApiKeys::default();
+        assert!(!keys.contains_key("twitter"));
+
+        keys.twitter = Some("token".to_string());
+        assert!(keys.contains_key("twitter"));
+        assert!(!keys.contains_key("exa"));
+
+        keys.other.insert("custom".to_string(), "value".to_string());
+        assert!(keys.contains_key("custom"));
+        assert!(!keys.contains_key("unknown"));
+    }
+
+    #[test]
+    fn test_api_keys_insert() {
+        let mut keys = ApiKeys::default();
+
+        keys.insert("twitter".to_string(), "token".to_string());
+        assert_eq!(keys.twitter, Some("token".to_string()));
+
+        keys.insert("exa".to_string(), "key".to_string());
+        assert_eq!(keys.exa, Some("key".to_string()));
+
+        keys.insert("dexscreener".to_string(), "key".to_string());
+        assert_eq!(keys.dexscreener, Some("key".to_string()));
+
+        keys.insert("newsapi".to_string(), "key".to_string());
+        assert_eq!(keys.newsapi, Some("key".to_string()));
+
+        keys.insert("cryptopanic".to_string(), "key".to_string());
+        assert_eq!(keys.cryptopanic, Some("key".to_string()));
+
+        keys.insert("lunarcrush".to_string(), "key".to_string());
+        assert_eq!(keys.lunarcrush, Some("key".to_string()));
+
+        keys.insert("alternative".to_string(), "key".to_string());
+        assert_eq!(keys.alternative, Some("key".to_string()));
+
+        keys.insert("custom".to_string(), "value".to_string());
+        assert_eq!(keys.other.get("custom"), Some(&"value".to_string()));
+    }
+
+    #[test]
+    fn test_client_config_default() {
+        let config = ClientConfig::default();
+        assert!(!config.is_empty()); // Always returns false
+        assert_eq!(config.len(), 6); // Fixed number of URLs
+    }
+
+    #[test]
+    fn test_client_config_get() {
+        let config = ClientConfig::default();
+        assert!(config.get("dexscreener_url").is_some());
+        assert!(config.get("exa_url").is_some());
+        assert!(config.get("newsapi_url").is_some());
+        assert!(config.get("cryptopanic_url").is_some());
+        assert!(config.get("lunarcrush_url").is_some());
+        assert!(config.get("twitter_url").is_some());
+        assert_eq!(config.get("unknown"), None);
+    }
+
+    #[test]
+    fn test_client_config_insert() {
+        let mut config = ClientConfig::default();
+        let old_dex_url = config.base_urls.dexscreener.clone();
+
+        config.insert(
+            "dexscreener_url".to_string(),
+            "https://custom.com".to_string(),
+        );
+        assert_eq!(config.base_urls.dexscreener, "https://custom.com");
+        assert_ne!(config.base_urls.dexscreener, old_dex_url);
+
+        config.insert("exa_url".to_string(), "https://exa.custom.com".to_string());
+        assert_eq!(config.base_urls.exa, "https://exa.custom.com");
+
+        config.insert(
+            "newsapi_url".to_string(),
+            "https://news.custom.com".to_string(),
+        );
+        assert_eq!(config.base_urls.newsapi, "https://news.custom.com");
+
+        config.insert(
+            "cryptopanic_url".to_string(),
+            "https://crypto.custom.com".to_string(),
+        );
+        assert_eq!(config.base_urls.cryptopanic, "https://crypto.custom.com");
+
+        config.insert(
+            "lunarcrush_url".to_string(),
+            "https://lunar.custom.com".to_string(),
+        );
+        assert_eq!(config.base_urls.lunarcrush, "https://lunar.custom.com");
+
+        config.insert(
+            "twitter_url".to_string(),
+            "https://twitter.custom.com".to_string(),
+        );
+        assert_eq!(config.base_urls.twitter, "https://twitter.custom.com");
+
+        // Test unknown key does nothing
+        let old_dex_url = config.base_urls.dexscreener.clone();
+        config.insert("unknown".to_string(), "value".to_string());
+        assert_eq!(config.base_urls.dexscreener, old_dex_url);
+    }
+
+    #[test]
+    fn test_base_urls_default() {
+        let urls = BaseUrls::default();
+        assert_eq!(urls.dexscreener, "https://api.dexscreener.com/latest");
+        assert_eq!(urls.exa, "https://api.exa.ai");
+        assert_eq!(urls.newsapi, "https://newsapi.org/v2");
+        assert_eq!(urls.cryptopanic, "https://cryptopanic.com/api/v1");
+        assert_eq!(urls.lunarcrush, "https://lunarcrush.com/api/3");
+        assert_eq!(urls.twitter, "https://api.twitter.com/2");
+    }
+
+    #[test]
+    fn test_rate_limits_default() {
+        let limits = RateLimits::default();
+        assert_eq!(limits.dexscreener_per_minute, 300);
+        assert_eq!(limits.twitter_per_minute, 300);
+        assert_eq!(limits.newsapi_per_minute, 500);
+        assert_eq!(limits.exa_per_minute, 100);
+    }
+
+    #[test]
+    fn test_web_client_default() {
+        let client = WebClient::default();
+        assert!(client.api_keys.is_empty());
+        assert!(!client.config.is_empty());
+        assert_eq!(client.http_config.max_retries, 3);
+    }
+
+    #[test]
+    fn test_web_client_with_config() {
+        let config = HttpConfig {
+            timeout: Duration::from_secs(60),
+            max_retries: 5,
+            retry_delay: Duration::from_millis(1000),
+            user_agent: "custom-agent".to_string(),
+            exponential_backoff: false,
+            jitter_factor: 0.2,
+        };
+
+        let client = WebClient::with_config(config.clone()).unwrap();
+        assert_eq!(client.http_config.timeout, Duration::from_secs(60));
+        assert_eq!(client.http_config.max_retries, 5);
+        assert_eq!(client.http_config.retry_delay, Duration::from_millis(1000));
+        assert_eq!(client.http_config.user_agent, "custom-agent");
+        assert!(!client.http_config.exponential_backoff);
+        assert_eq!(client.http_config.jitter_factor, 0.2);
+    }
+
+    #[test]
+    fn test_web_client_with_api_key() {
+        let client = WebClient::default()
+            .with_api_key("twitter", "twitter_key")
+            .with_api_key("exa", "exa_key")
+            .with_api_key("dexscreener", "dex_key")
+            .with_api_key("newsapi", "news_key")
+            .with_api_key("cryptopanic", "crypto_key")
+            .with_api_key("lunarcrush", "lunar_key")
+            .with_api_key("alternative", "alt_key")
+            .with_api_key("custom", "custom_key");
+
+        assert_eq!(client.api_keys.twitter, Some("twitter_key".to_string()));
+        assert_eq!(client.api_keys.exa, Some("exa_key".to_string()));
+        assert_eq!(client.api_keys.dexscreener, Some("dex_key".to_string()));
+        assert_eq!(client.api_keys.newsapi, Some("news_key".to_string()));
+        assert_eq!(client.api_keys.cryptopanic, Some("crypto_key".to_string()));
+        assert_eq!(client.api_keys.lunarcrush, Some("lunar_key".to_string()));
+        assert_eq!(client.api_keys.alternative, Some("alt_key".to_string()));
+        assert_eq!(
+            client.api_keys.other.get("custom"),
+            Some(&"custom_key".to_string())
+        );
+    }
+
+    #[test]
+    fn test_web_client_builder_methods() {
+        let client = WebClient::default()
+            .with_twitter_token("twitter_token")
+            .with_exa_key("exa_key")
+            .with_dexscreener_key("dex_key")
+            .with_news_api_key("news_key");
+
+        assert_eq!(client.api_keys.twitter, Some("twitter_token".to_string()));
+        assert_eq!(client.api_keys.exa, Some("exa_key".to_string()));
+        assert_eq!(client.api_keys.dexscreener, Some("dex_key".to_string()));
+        assert_eq!(client.api_keys.newsapi, Some("news_key".to_string()));
+    }
+
+    #[test]
+    fn test_web_client_set_config() {
+        let mut client = WebClient::default();
+        let original_dex_url = client.config.base_urls.dexscreener.clone();
+
+        client.set_config("base_url", "https://custom-dex.com");
+        assert_eq!(
+            client.config.base_urls.dexscreener,
+            "https://custom-dex.com"
+        );
+        assert_ne!(client.config.base_urls.dexscreener, original_dex_url);
+
+        client.set_config("dexscreener_base_url", "https://dex.custom.com");
+        assert_eq!(
+            client.config.base_urls.dexscreener,
+            "https://dex.custom.com"
+        );
+
+        client.set_config("exa_base_url", "https://exa.custom.com");
+        assert_eq!(client.config.base_urls.exa, "https://exa.custom.com");
+
+        client.set_config("newsapi_base_url", "https://news.custom.com");
+        assert_eq!(client.config.base_urls.newsapi, "https://news.custom.com");
+
+        client.set_config("cryptopanic_base_url", "https://crypto.custom.com");
+        assert_eq!(
+            client.config.base_urls.cryptopanic,
+            "https://crypto.custom.com"
+        );
+
+        client.set_config("lunarcrush_base_url", "https://lunar.custom.com");
+        assert_eq!(
+            client.config.base_urls.lunarcrush,
+            "https://lunar.custom.com"
+        );
+
+        client.set_config("twitter_base_url", "https://twitter.custom.com");
+        assert_eq!(
+            client.config.base_urls.twitter,
+            "https://twitter.custom.com"
+        );
+
+        // Test unknown key (should log warning)
+        let old_dex_url = client.config.base_urls.dexscreener.clone();
+        client.set_config("unknown_key", "value");
+        assert_eq!(client.config.base_urls.dexscreener, old_dex_url);
+    }
+
+    #[test]
+    fn test_web_client_get_api_key() {
+        let client = WebClient::default()
+            .with_api_key("twitter", "twitter_key")
+            .with_api_key("exa", "exa_key")
+            .with_api_key("dexscreener", "dex_key")
+            .with_api_key("newsapi", "news_key")
+            .with_api_key("cryptopanic", "crypto_key")
+            .with_api_key("lunarcrush", "lunar_key")
+            .with_api_key("alternative", "alt_key")
+            .with_api_key("custom", "custom_key");
+
+        assert_eq!(
+            client.get_api_key("twitter"),
+            Some(&"twitter_key".to_string())
+        );
+        assert_eq!(client.get_api_key("exa"), Some(&"exa_key".to_string()));
+        assert_eq!(
+            client.get_api_key("dexscreener"),
+            Some(&"dex_key".to_string())
+        );
+        assert_eq!(client.get_api_key("newsapi"), Some(&"news_key".to_string()));
+        assert_eq!(
+            client.get_api_key("cryptopanic"),
+            Some(&"crypto_key".to_string())
+        );
+        assert_eq!(
+            client.get_api_key("lunarcrush"),
+            Some(&"lunar_key".to_string())
+        );
+        assert_eq!(
+            client.get_api_key("alternative"),
+            Some(&"alt_key".to_string())
+        );
+        assert_eq!(
+            client.get_api_key("custom"),
+            Some(&"custom_key".to_string())
+        );
+        assert_eq!(client.get_api_key("unknown"), None);
+    }
+
+    #[test]
+    fn test_web_client_get_config() {
+        let client = WebClient::default();
+
+        assert!(client.get_config("dexscreener_base_url").is_some());
+        assert!(client.get_config("base_url").is_some());
+        assert!(client.get_config("exa_base_url").is_some());
+        assert!(client.get_config("newsapi_base_url").is_some());
+        assert!(client.get_config("cryptopanic_base_url").is_some());
+        assert!(client.get_config("lunarcrush_base_url").is_some());
+        assert!(client.get_config("twitter_base_url").is_some());
+        assert_eq!(client.get_config("unknown"), None);
+
+        // Test that base_url and dexscreener_base_url return the same value
+        assert_eq!(
+            client.get_config("base_url"),
+            client.get_config("dexscreener_base_url")
+        );
+    }
+
+    #[test]
+    fn test_calculate_retry_delay_exponential_backoff() {
+        let config = HttpConfig {
+            retry_delay: Duration::from_millis(100),
+            exponential_backoff: true,
+            jitter_factor: 0.0, // No jitter for predictable testing
+            ..Default::default()
+        };
+        let client = WebClient::with_config(config).unwrap();
+
+        // Test exponential backoff: delay * 2^(attempt - 1)
+        let delay1 = client.calculate_retry_delay(1);
+        assert_eq!(delay1, Duration::from_millis(100)); // 100 * 2^0 = 100
+
+        let delay2 = client.calculate_retry_delay(2);
+        assert_eq!(delay2, Duration::from_millis(200)); // 100 * 2^1 = 200
+
+        let delay3 = client.calculate_retry_delay(3);
+        assert_eq!(delay3, Duration::from_millis(400)); // 100 * 2^2 = 400
+    }
+
+    #[test]
+    fn test_calculate_retry_delay_linear_backoff() {
+        let config = HttpConfig {
+            retry_delay: Duration::from_millis(100),
+            exponential_backoff: false,
+            jitter_factor: 0.0, // No jitter for predictable testing
+            ..Default::default()
+        };
+        let client = WebClient::with_config(config).unwrap();
+
+        // Test linear backoff: delay * attempt
+        let delay1 = client.calculate_retry_delay(1);
+        assert_eq!(delay1, Duration::from_millis(100)); // 100 * 1 = 100
+
+        let delay2 = client.calculate_retry_delay(2);
+        assert_eq!(delay2, Duration::from_millis(200)); // 100 * 2 = 200
+
+        let delay3 = client.calculate_retry_delay(3);
+        assert_eq!(delay3, Duration::from_millis(300)); // 100 * 3 = 300
+    }
+
+    #[test]
+    fn test_calculate_retry_delay_with_jitter() {
+        let config = HttpConfig {
+            retry_delay: Duration::from_millis(100),
+            exponential_backoff: false,
+            jitter_factor: 0.5, // 50% jitter
+            ..Default::default()
+        };
+        let client = WebClient::with_config(config).unwrap();
+
+        // With jitter, the delay should vary but be within expected range
+        let delay = client.calculate_retry_delay(1);
+        // The delay should be around 100ms but with jitter (50ms range)
+        assert!(delay.as_millis() >= 50 && delay.as_millis() <= 150);
+    }
+
+    #[test]
+    fn test_calculate_retry_delay_saturating_sub() {
+        let config = HttpConfig {
+            retry_delay: Duration::from_millis(100),
+            exponential_backoff: true,
+            jitter_factor: 0.0,
+            ..Default::default()
+        };
+        let client = WebClient::with_config(config).unwrap();
+
+        // Test with attempt = 0 (should not panic due to saturating_sub)
+        let delay = client.calculate_retry_delay(0);
+        assert_eq!(delay, Duration::from_millis(100)); // 100 * 2^0 = 100
     }
 }

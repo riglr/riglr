@@ -57,6 +57,3 @@ tracing-subscriber = { workspace = true }
 criterion = { workspace = true }
 wiremock = "0.6"
 
-[[bench]]
-name = "web_benchmarks"
-harness = false

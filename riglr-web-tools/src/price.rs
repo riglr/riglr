@@ -116,6 +116,7 @@ pub struct TokenPriceResult {
 /// ```
 #[tool]
 pub async fn get_token_price(
+    _context: &riglr_core::provider::ApplicationContext,
     token_address: String,
     chain: Option<String>,
 ) -> Result<TokenPriceResult, ToolError> {
@@ -143,8 +144,7 @@ pub async fn get_token_price(
     debug!("Fetching price data from: {}", url);
 
     // Use WebClient for HTTP request with retry logic
-    let client = WebClient::new()
-        .map_err(|e| ToolError::retriable_string(format!("Failed to create client: {}", e)))?;
+    let client = WebClient::default();
 
     let response_text = client
         .get(&url)
@@ -246,6 +246,7 @@ pub async fn get_token_price(
 /// ```
 #[tool]
 pub async fn get_token_prices_batch(
+    context: &riglr_core::provider::ApplicationContext,
     token_addresses: Vec<String>,
     chain: Option<String>,
 ) -> Result<Vec<TokenPriceResult>, ToolError> {
@@ -260,7 +261,7 @@ pub async fn get_token_prices_batch(
     // Create futures for concurrent requests
     let futures: Vec<_> = token_addresses
         .into_iter()
-        .map(|addr| get_token_price(addr, chain.clone()))
+        .map(|addr| get_token_price(context, addr, chain.clone()))
         .collect();
 
     // Execute all requests concurrently
@@ -306,15 +307,226 @@ mod tests {
 
     #[tokio::test]
     async fn test_empty_token_address_validation() {
-        let result = get_token_price("".to_string(), None).await;
+        let context = riglr_core::provider::ApplicationContext::from_env();
+        let result = get_token_price(&context, "".to_string(), None).await;
         assert!(result.is_err());
         assert!(matches!(result, Err(ToolError::InvalidInput { .. })));
     }
 
     #[tokio::test]
     async fn test_batch_empty_addresses() {
-        let result = get_token_prices_batch(vec![], None).await;
+        let context = riglr_core::provider::ApplicationContext::from_env();
+        let result = get_token_prices_batch(&context, vec![], None).await;
         assert!(result.is_err());
         assert!(matches!(result, Err(ToolError::InvalidInput { .. })));
+    }
+
+    #[tokio::test]
+    async fn test_get_token_price_with_chain() {
+        // This will test the query building with chain
+        let context = riglr_core::provider::ApplicationContext::from_env();
+        let result =
+            get_token_price(&context, "0x123".to_string(), Some("ethereum".to_string())).await;
+        // This will likely fail due to no mock, but tests the path with chain
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_get_token_price_without_chain() {
+        // This will test the query building without chain
+        let context = riglr_core::provider::ApplicationContext::from_env();
+        let result = get_token_price(&context, "0x123".to_string(), None).await;
+        // This will likely fail due to no mock, but tests the path without chain
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_batch_with_single_address() {
+        let context = riglr_core::provider::ApplicationContext::from_env();
+        let addresses = vec!["0x123".to_string()];
+        let result = get_token_prices_batch(&context, addresses, None).await;
+        // Will test the batch functionality with one address
+        assert!(result.is_ok()); // Should return empty vec due to failed individual requests
+        assert_eq!(result.unwrap().len(), 0);
+    }
+
+    #[tokio::test]
+    async fn test_batch_with_multiple_addresses() {
+        let context = riglr_core::provider::ApplicationContext::from_env();
+        let addresses = vec![
+            "0x123".to_string(),
+            "0x456".to_string(),
+            "0x789".to_string(),
+        ];
+        let result =
+            get_token_prices_batch(&context, addresses, Some("ethereum".to_string())).await;
+        // Will test the batch functionality with multiple addresses
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap().len(), 0); // All will fail but function succeeds
+    }
+
+    #[test]
+    fn test_dexscreener_response_deserialization_empty_pairs() {
+        let json = r#"{"pairs": []}"#;
+        let response: DexScreenerResponse = serde_json::from_str(json).unwrap();
+        assert!(response.pairs.is_some());
+        assert!(response.pairs.unwrap().is_empty());
+    }
+
+    #[test]
+    fn test_dexscreener_response_deserialization_no_pairs() {
+        let json = r#"{"pairs": null}"#;
+        let response: DexScreenerResponse = serde_json::from_str(json).unwrap();
+        assert!(response.pairs.is_none());
+    }
+
+    #[test]
+    fn test_pair_info_deserialization_complete() {
+        let json = r#"{
+            "priceUsd": "1.0000",
+            "liquidity": {"usd": 10000.0},
+            "baseToken": {"address": "0x123", "symbol": "TEST"},
+            "dexId": "uniswap_v2",
+            "pairAddress": "0x456"
+        }"#;
+        let pair: PairInfo = serde_json::from_str(json).unwrap();
+        assert_eq!(pair.price_usd, Some("1.0000".to_string()));
+        assert_eq!(pair.liquidity.unwrap().usd, Some(10000.0));
+        assert_eq!(pair.base_token.symbol, "TEST");
+        assert_eq!(pair.dex_id, "uniswap_v2");
+        assert_eq!(pair.pair_address, "0x456");
+    }
+
+    #[test]
+    fn test_pair_info_deserialization_minimal() {
+        let json = r#"{
+            "priceUsd": null,
+            "liquidity": null,
+            "baseToken": {"address": "0x123", "symbol": "TEST"},
+            "dexId": "uniswap_v2",
+            "pairAddress": "0x456"
+        }"#;
+        let pair: PairInfo = serde_json::from_str(json).unwrap();
+        assert_eq!(pair.price_usd, None);
+        assert!(pair.liquidity.is_none());
+        assert_eq!(pair.base_token.symbol, "TEST");
+    }
+
+    #[test]
+    fn test_liquidity_info_deserialization_with_usd() {
+        let json = r#"{"usd": 50000.0}"#;
+        let liquidity: LiquidityInfo = serde_json::from_str(json).unwrap();
+        assert_eq!(liquidity.usd, Some(50000.0));
+    }
+
+    #[test]
+    fn test_liquidity_info_deserialization_without_usd() {
+        let json = r#"{"usd": null}"#;
+        let liquidity: LiquidityInfo = serde_json::from_str(json).unwrap();
+        assert_eq!(liquidity.usd, None);
+    }
+
+    #[test]
+    fn test_token_info_deserialization() {
+        let json = r#"{"address": "0x123", "symbol": "BTC"}"#;
+        let token: TokenInfo = serde_json::from_str(json).unwrap();
+        assert_eq!(token._address, "0x123");
+        assert_eq!(token.symbol, "BTC");
+    }
+
+    #[test]
+    fn test_token_price_result_serialization() {
+        let result = TokenPriceResult {
+            token_address: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48".to_string(),
+            token_symbol: Some("USDC".to_string()),
+            price_usd: "1.0000".to_string(),
+            source_dex: Some("uniswap_v2".to_string()),
+            source_pair: Some("0xB4e16d0168e52d35CaCD2c6185b44281Ec28C9Dc".to_string()),
+            source_liquidity_usd: Some(10000000.0),
+            chain: Some("ethereum".to_string()),
+            fetched_at: chrono::DateTime::parse_from_rfc3339("2023-01-01T00:00:00Z")
+                .unwrap()
+                .with_timezone(&chrono::Utc),
+        };
+
+        let serialized = serde_json::to_string(&result).unwrap();
+        assert!(serialized.contains("USDC"));
+        assert!(serialized.contains("1.0000"));
+        assert!(serialized.contains("ethereum"));
+    }
+
+    #[test]
+    fn test_token_price_result_deserialization() {
+        let json = r#"{
+            "token_address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+            "token_symbol": "USDC",
+            "price_usd": "1.0000",
+            "source_dex": "uniswap_v2",
+            "source_pair": "0xB4e16d0168e52d35CaCD2c6185b44281Ec28C9Dc",
+            "source_liquidity_usd": 10000000.0,
+            "chain": "ethereum",
+            "fetched_at": "2023-01-01T00:00:00Z"
+        }"#;
+
+        let result: TokenPriceResult = serde_json::from_str(json).unwrap();
+        assert_eq!(
+            result.token_address,
+            "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
+        );
+        assert_eq!(result.token_symbol, Some("USDC".to_string()));
+        assert_eq!(result.price_usd, "1.0000");
+        assert_eq!(result.source_dex, Some("uniswap_v2".to_string()));
+        assert_eq!(
+            result.source_pair,
+            Some("0xB4e16d0168e52d35CaCD2c6185b44281Ec28C9Dc".to_string())
+        );
+        assert_eq!(result.source_liquidity_usd, Some(10000000.0));
+        assert_eq!(result.chain, Some("ethereum".to_string()));
+    }
+
+    #[test]
+    fn test_token_price_result_with_optional_none_fields() {
+        let result = TokenPriceResult {
+            token_address: "0x123".to_string(),
+            token_symbol: None,
+            price_usd: "0.5".to_string(),
+            source_dex: None,
+            source_pair: None,
+            source_liquidity_usd: None,
+            chain: None,
+            fetched_at: chrono::Utc::now(),
+        };
+
+        assert_eq!(result.token_symbol, None);
+        assert_eq!(result.source_dex, None);
+        assert_eq!(result.source_pair, None);
+        assert_eq!(result.source_liquidity_usd, None);
+        assert_eq!(result.chain, None);
+        assert_eq!(result.price_usd, "0.5");
+    }
+
+    #[test]
+    fn test_clone_and_debug_traits() {
+        let result = TokenPriceResult {
+            token_address: "0x123".to_string(),
+            token_symbol: Some("TEST".to_string()),
+            price_usd: "1.0".to_string(),
+            source_dex: Some("test_dex".to_string()),
+            source_pair: Some("0x456".to_string()),
+            source_liquidity_usd: Some(1000.0),
+            chain: Some("test_chain".to_string()),
+            fetched_at: chrono::Utc::now(),
+        };
+
+        // Test Clone trait
+        let cloned = result.clone();
+        assert_eq!(result.token_address, cloned.token_address);
+        assert_eq!(result.token_symbol, cloned.token_symbol);
+        assert_eq!(result.price_usd, cloned.price_usd);
+
+        // Test Debug trait
+        let debug_str = format!("{:?}", result);
+        assert!(debug_str.contains("TokenPriceResult"));
+        assert!(debug_str.contains("TEST"));
     }
 }

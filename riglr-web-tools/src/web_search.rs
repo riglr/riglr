@@ -285,18 +285,15 @@ impl Default for WebSearchConfig {
     }
 }
 
-/// Perform web search with content extraction
-///
-/// This tool performs web search and returns results with extracted content and metadata.
-/// Uses traditional search APIs rather than semantic understanding.
-#[tool]
-pub async fn search_web(
+/// Internal function to perform web search with ApplicationContext
+pub async fn search_web_with_context(
     query: String,
     max_results: Option<u32>,
     include_content: Option<bool>,
     domain_filter: Option<Vec<String>>,
     date_filter: Option<String>,         // "day", "week", "month", "year"
     content_type_filter: Option<String>, // "news", "academic", "blog"
+    app_context: &riglr_core::provider::ApplicationContext,
 ) -> crate::error::Result<WebSearchResult> {
     debug!(
         "Performing web search for query: '{}' with {} max results",
@@ -304,15 +301,26 @@ pub async fn search_web(
         max_results.unwrap_or(20)
     );
 
-    let config = WebSearchConfig::default();
-    if config.exa_api_key.is_empty() {
+    // Try to get EXA_API_KEY from ApplicationContext extensions first, fall back to env var
+    let exa_api_key = app_context
+        .get_extension::<String>()
+        .and_then(|s| {
+            if s.starts_with("exa_") {
+                Some(s.as_ref().clone())
+            } else {
+                None
+            }
+        })
+        .unwrap_or_else(|| std::env::var(EXA_API_KEY).unwrap_or_else(|_| String::default()));
+
+    if exa_api_key.is_empty() {
         return Err(WebToolError::Config(
-            "EXA_API_KEY environment variable not set".to_string(),
+            "EXA_API_KEY not found in context or environment".to_string(),
         ));
     }
 
-    let client = WebClient::default()
-        .with_exa_key(config.exa_api_key.clone());
+    let config = WebSearchConfig::default();
+    let client = WebClient::default().with_exa_key(exa_api_key.clone());
 
     // Build search parameters
     let mut params = HashMap::new();
@@ -342,7 +350,7 @@ pub async fn search_web(
     // Make API request to Exa with API key header
     let url = format!("{}/search", config.exa_base_url);
     let mut headers = HashMap::new();
-    headers.insert("x-api-key".to_string(), config.exa_api_key.clone());
+    headers.insert("x-api-key".to_string(), exa_api_key.clone());
     headers.insert("accept".to_string(), "application/json".to_string());
     let response = client
         .get_with_params_and_headers(&url, &params, headers)
@@ -392,12 +400,39 @@ pub async fn search_web(
     Ok(search_result)
 }
 
+/// Perform web search with content extraction
+///
+/// This tool performs web search and returns results with extracted content and metadata.
+/// Uses traditional search APIs rather than semantic understanding.
+#[tool]
+pub async fn search_web(
+    context: &riglr_core::provider::ApplicationContext,
+    query: String,
+    max_results: Option<u32>,
+    include_content: Option<bool>,
+    domain_filter: Option<Vec<String>>,
+    date_filter: Option<String>,         // "day", "week", "month", "year"
+    content_type_filter: Option<String>, // "news", "academic", "blog"
+) -> crate::error::Result<WebSearchResult> {
+    search_web_with_context(
+        query,
+        max_results,
+        include_content,
+        domain_filter,
+        date_filter,
+        content_type_filter,
+        context,
+    )
+    .await
+}
+
 /// Search for pages similar to a given URL
 ///
 /// This tool finds web pages that are similar in content and topic to a source URL,
 /// useful for finding related information or alternative perspectives.
 #[tool]
 pub async fn find_similar_pages(
+    context: &riglr_core::provider::ApplicationContext,
     source_url: String,
     max_results: Option<u32>,
     include_content: Option<bool>,
@@ -405,15 +440,25 @@ pub async fn find_similar_pages(
 ) -> crate::error::Result<SimilarPagesResult> {
     debug!("Finding pages similar to: {}", source_url);
 
-    let config = WebSearchConfig::default();
-    if config.exa_api_key.is_empty() {
+    // Try to get EXA_API_KEY from ApplicationContext extensions first, fall back to env var
+    let exa_api_key = context
+        .get_extension::<String>()
+        .and_then(|s| {
+            if s.starts_with("exa_") {
+                Some(s.as_ref().clone())
+            } else {
+                None
+            }
+        })
+        .unwrap_or_else(|| std::env::var(EXA_API_KEY).unwrap_or_else(|_| String::default()));
+
+    if exa_api_key.is_empty() {
         return Err(WebToolError::Config(
-            "EXA_API_KEY environment variable not set".to_string(),
+            "EXA_API_KEY not found in context or environment".to_string(),
         ));
     }
 
-    let client = WebClient::default()
-        .with_exa_key(config.exa_api_key.clone());
+    let client = WebClient::default().with_exa_key(exa_api_key.clone());
 
     // Build similarity search parameters
     let mut params = HashMap::new();
@@ -432,9 +477,10 @@ pub async fn find_similar_pages(
     }
 
     // Make API request with API key header
+    let config = WebSearchConfig::default();
     let url = format!("{}/find_similar", config.exa_base_url);
     let mut headers = HashMap::new();
-    headers.insert("x-api-key".to_string(), config.exa_api_key.clone());
+    headers.insert("x-api-key".to_string(), exa_api_key.clone());
     headers.insert("accept".to_string(), "application/json".to_string());
     let response = client
         .get_with_params_and_headers(&url, &params, headers)
@@ -479,6 +525,7 @@ pub async fn find_similar_pages(
 /// creating a comprehensive overview of a topic from multiple sources.
 #[tool]
 pub async fn summarize_web_content(
+    context: &riglr_core::provider::ApplicationContext,
     urls: Vec<String>,
     summary_length: Option<String>, // "brief", "detailed", "comprehensive"
     focus_topics: Option<Vec<String>>,
@@ -486,9 +533,19 @@ pub async fn summarize_web_content(
 ) -> crate::error::Result<Vec<ContentSummary>> {
     debug!("Summarizing content from {} URLs", urls.len());
 
-    let config = WebSearchConfig::default();
-    let client = WebClient::default()
-        .with_exa_key(config.exa_api_key.clone());
+    // Try to get EXA_API_KEY from ApplicationContext extensions first, fall back to env var
+    let exa_api_key = context
+        .get_extension::<String>()
+        .and_then(|s| {
+            if s.starts_with("exa_") {
+                Some(s.as_ref().clone())
+            } else {
+                None
+            }
+        })
+        .unwrap_or_else(|| std::env::var(EXA_API_KEY).unwrap_or_else(|_| String::default()));
+
+    let client = WebClient::default().with_exa_key(exa_api_key);
 
     let mut summaries = Vec::new();
 
@@ -520,6 +577,7 @@ pub async fn summarize_web_content(
 /// optimized for finding current information and trending discussions.
 #[tool]
 pub async fn search_recent_news(
+    context: &riglr_core::provider::ApplicationContext,
     topic: String,
     time_window: Option<String>,       // "24h", "week", "month"
     source_types: Option<Vec<String>>, // "news", "blog", "social"
@@ -532,9 +590,25 @@ pub async fn search_recent_news(
         time_window.as_deref().unwrap_or("week")
     );
 
-    let config = WebSearchConfig::default();
-    let client = WebClient::default()
-        .with_exa_key(config.exa_api_key.clone());
+    // Try to get EXA_API_KEY from ApplicationContext extensions first, fall back to env var
+    let exa_api_key = context
+        .get_extension::<String>()
+        .and_then(|s| {
+            if s.starts_with("exa_") {
+                Some(s.as_ref().clone())
+            } else {
+                None
+            }
+        })
+        .unwrap_or_else(|| std::env::var(EXA_API_KEY).unwrap_or_else(|_| String::default()));
+
+    if exa_api_key.is_empty() {
+        return Err(WebToolError::Config(
+            "EXA_API_KEY not found in context or environment".to_string(),
+        ));
+    }
+
+    let client = WebClient::default().with_exa_key(exa_api_key.clone());
 
     // Build news-specific search parameters
     let mut params = HashMap::new();
@@ -560,9 +634,10 @@ pub async fn search_recent_news(
         }
     }
 
+    let config = WebSearchConfig::default();
     let url = format!("{}/search", config.exa_base_url);
     let mut headers = HashMap::new();
-    headers.insert("x-api-key".to_string(), config.exa_api_key.clone());
+    headers.insert("x-api-key".to_string(), exa_api_key.clone());
     headers.insert("accept".to_string(), "application/json".to_string());
     let response = client
         .get_with_params_and_headers(&url, &params, headers)
@@ -660,7 +735,7 @@ async fn parse_exa_search_response(
         let id = r
             .get("id")
             .and_then(|v| v.as_str())
-            .unwrap_or(url.as_str())
+            .unwrap_or_else(|| url.as_str())
             .to_string();
         let description = r
             .get("description")
