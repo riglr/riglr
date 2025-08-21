@@ -536,4 +536,376 @@ mod tests {
         let cloned = event.clone_boxed();
         assert_eq!(cloned.id(), event.id());
     }
+
+    // Additional comprehensive tests for 100% coverage
+
+    #[test]
+    fn test_parser_info_new() {
+        let info = ParserInfo::new("test-parser".to_string(), "2.0.0".to_string());
+
+        assert_eq!(info.name, "test-parser");
+        assert_eq!(info.version, "2.0.0");
+        assert!(info.supported_kinds.is_empty());
+        assert!(info.supported_formats.is_empty());
+    }
+
+    #[test]
+    fn test_parser_info_with_multiple_kinds() {
+        let info = ParserInfo::new("parser".to_string(), "1.0".to_string())
+            .with_kind(EventKind::Transaction)
+            .with_kind(EventKind::Block)
+            .with_kind(EventKind::Swap);
+
+        assert_eq!(info.supported_kinds.len(), 3);
+        assert!(info.supported_kinds.contains(&EventKind::Transaction));
+        assert!(info.supported_kinds.contains(&EventKind::Block));
+        assert!(info.supported_kinds.contains(&EventKind::Swap));
+    }
+
+    #[test]
+    fn test_parser_info_with_multiple_formats() {
+        let info = ParserInfo::new("parser".to_string(), "1.0".to_string())
+            .with_format("json".to_string())
+            .with_format("xml".to_string())
+            .with_format("protobuf".to_string());
+
+        assert_eq!(info.supported_formats.len(), 3);
+        assert!(info.supported_formats.contains(&"json".to_string()));
+        assert!(info.supported_formats.contains(&"xml".to_string()));
+        assert!(info.supported_formats.contains(&"protobuf".to_string()));
+    }
+
+    #[test]
+    fn test_handler_info_new() {
+        let info = HandlerInfo::new("test-handler".to_string(), "3.0.0".to_string());
+
+        assert_eq!(info.name, "test-handler");
+        assert_eq!(info.version, "3.0.0");
+        assert!(info.handled_kinds.is_empty());
+        assert_eq!(info.timeout, None);
+    }
+
+    #[test]
+    fn test_handler_info_with_multiple_kinds() {
+        let info = HandlerInfo::new("handler".to_string(), "1.0".to_string())
+            .with_kind(EventKind::Transaction)
+            .with_kind(EventKind::Block);
+
+        assert_eq!(info.handled_kinds.len(), 2);
+        assert!(info.handled_kinds.contains(&EventKind::Transaction));
+        assert!(info.handled_kinds.contains(&EventKind::Block));
+    }
+
+    #[test]
+    fn test_handler_info_with_timeout() {
+        let timeout_duration = Duration::from_secs(60);
+        let info = HandlerInfo::new("handler".to_string(), "1.0".to_string())
+            .with_timeout(timeout_duration);
+
+        assert_eq!(info.timeout, Some(timeout_duration));
+    }
+
+    #[test]
+    fn test_kind_filter_new() {
+        let kinds = vec![EventKind::Transaction, EventKind::Block];
+        let filter = KindFilter::new(kinds.clone());
+
+        assert_eq!(filter.kinds, kinds);
+    }
+
+    #[test]
+    fn test_kind_filter_multiple_kinds() {
+        let filter = KindFilter::new(vec![
+            EventKind::Transaction,
+            EventKind::Block,
+            EventKind::Swap,
+        ]);
+
+        let tx_event = GenericEvent::new("tx".to_string(), EventKind::Transaction, json!({}));
+        let block_event = GenericEvent::new("block".to_string(), EventKind::Block, json!({}));
+        let swap_event = GenericEvent::new("swap".to_string(), EventKind::Swap, json!({}));
+        let other_event = GenericEvent::new(
+            "other".to_string(),
+            EventKind::Custom("test".to_string()),
+            json!({}),
+        );
+
+        assert!(filter.matches(&tx_event));
+        assert!(filter.matches(&block_event));
+        assert!(filter.matches(&swap_event));
+        assert!(!filter.matches(&other_event));
+    }
+
+    #[test]
+    fn test_kind_filter_description() {
+        let filter = KindFilter::new(vec![EventKind::Transaction, EventKind::Block]);
+        let description = filter.description();
+
+        assert!(description.contains("Filter events by kind"));
+        assert!(description.contains("Transaction"));
+        assert!(description.contains("Block"));
+    }
+
+    #[test]
+    fn test_source_filter_new() {
+        let sources = vec!["source1".to_string(), "source2".to_string()];
+        let filter = SourceFilter::new(sources.clone());
+
+        assert_eq!(filter.sources, sources);
+    }
+
+    #[test]
+    fn test_source_filter_multiple_sources() {
+        let filter = SourceFilter::new(vec!["source1".to_string(), "source2".to_string()]);
+
+        let mut event1 = GenericEvent::new("test1".to_string(), EventKind::Transaction, json!({}));
+        event1.metadata.source = "source1".to_string();
+
+        let mut event2 = GenericEvent::new("test2".to_string(), EventKind::Transaction, json!({}));
+        event2.metadata.source = "source2".to_string();
+
+        let mut event3 = GenericEvent::new("test3".to_string(), EventKind::Transaction, json!({}));
+        event3.metadata.source = "source3".to_string();
+
+        assert!(filter.matches(&event1));
+        assert!(filter.matches(&event2));
+        assert!(!filter.matches(&event3));
+    }
+
+    #[test]
+    fn test_source_filter_description() {
+        let filter = SourceFilter::new(vec!["test-source".to_string()]);
+        let description = filter.description();
+
+        assert!(description.contains("Filter events by source"));
+        assert!(description.contains("test-source"));
+    }
+
+    #[test]
+    fn test_and_filter_empty_filters() {
+        let and_filter = AndFilter::new(vec![]);
+        let event = GenericEvent::new("test".to_string(), EventKind::Transaction, json!({}));
+
+        // Empty AND filter should return true (vacuous truth)
+        assert!(and_filter.matches(&event));
+    }
+
+    #[test]
+    fn test_and_filter_description() {
+        let kind_filter = Box::new(KindFilter::single(EventKind::Transaction));
+        let source_filter = Box::new(SourceFilter::single("test".to_string()));
+        let and_filter = AndFilter::new(vec![kind_filter, source_filter]);
+
+        let description = and_filter.description();
+        assert!(description.contains("AND("));
+        assert!(description.contains("Filter events by kind"));
+        assert!(description.contains("Filter events by source"));
+    }
+
+    #[test]
+    fn test_or_filter_empty_filters() {
+        let or_filter = OrFilter::new(vec![]);
+        let event = GenericEvent::new("test".to_string(), EventKind::Transaction, json!({}));
+
+        // Empty OR filter should return false
+        assert!(!or_filter.matches(&event));
+    }
+
+    #[test]
+    fn test_or_filter_description() {
+        let kind_filter = Box::new(KindFilter::single(EventKind::Transaction));
+        let source_filter = Box::new(SourceFilter::single("test".to_string()));
+        let or_filter = OrFilter::new(vec![kind_filter, source_filter]);
+
+        let description = or_filter.description();
+        assert!(description.contains("OR("));
+        assert!(description.contains("Filter events by kind"));
+        assert!(description.contains("Filter events by source"));
+    }
+
+    #[test]
+    fn test_event_timestamp() {
+        let event = GenericEvent::new("test".to_string(), EventKind::Transaction, json!({}));
+        let timestamp = event.timestamp();
+
+        // Should be a valid SystemTime
+        assert!(timestamp.duration_since(SystemTime::UNIX_EPOCH).is_ok());
+    }
+
+    #[test]
+    fn test_event_to_json_default() {
+        let event = GenericEvent::new("test".to_string(), EventKind::Transaction, json!({}));
+        let result = event.to_json();
+
+        // Default implementation should return an error
+        assert!(result.is_err());
+        if let Err(e) = result {
+            assert!(e
+                .to_string()
+                .contains("Event serialization not implemented"));
+        }
+    }
+
+    #[test]
+    fn test_event_matches_filter() {
+        let event = GenericEvent::new("test".to_string(), EventKind::Transaction, json!({}));
+        let filter = KindFilter::single(EventKind::Transaction);
+
+        assert!(event.matches_filter(&filter));
+
+        let other_filter = KindFilter::single(EventKind::Block);
+        assert!(!event.matches_filter(&other_filter));
+    }
+
+    #[test]
+    fn test_box_event_clone() {
+        let event = GenericEvent::new("test".to_string(), EventKind::Transaction, json!({}));
+        let boxed: Box<dyn Event> = Box::new(event);
+        let cloned = boxed.clone();
+
+        assert_eq!(boxed.id(), cloned.id());
+        assert_eq!(boxed.kind(), cloned.kind());
+    }
+
+    // Test struct for EventBatchProcessor
+    struct MockBatchProcessor;
+
+    #[async_trait]
+    impl EventBatchProcessor for MockBatchProcessor {
+        async fn process_batch(
+            &self,
+            _events: Vec<Box<dyn Event>>,
+        ) -> EventResult<Vec<EventResult<()>>> {
+            Ok(vec![])
+        }
+    }
+
+    #[test]
+    fn test_event_batch_processor_defaults() {
+        let processor = MockBatchProcessor;
+
+        assert_eq!(processor.optimal_batch_size(), 10);
+        assert_eq!(processor.batch_timeout(), Duration::from_millis(100));
+    }
+
+    // Test struct for EventHandler default methods
+    struct MockHandlerForDefaults {
+        info: HandlerInfo,
+    }
+
+    #[async_trait]
+    impl EventHandler for MockHandlerForDefaults {
+        async fn handle(&self, _event: Box<dyn Event>) -> EventResult<()> {
+            Ok(())
+        }
+
+        fn can_handle(&self, _event: &dyn Event) -> bool {
+            true
+        }
+
+        fn info(&self) -> HandlerInfo {
+            self.info.clone()
+        }
+    }
+
+    #[tokio::test]
+    async fn test_event_handler_default_initialize() {
+        let mut handler = MockHandlerForDefaults {
+            info: HandlerInfo::new("test".to_string(), "1.0".to_string()),
+        };
+
+        let result = handler.initialize().await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_event_handler_default_shutdown() {
+        let mut handler = MockHandlerForDefaults {
+            info: HandlerInfo::new("test".to_string(), "1.0".to_string()),
+        };
+
+        let result = handler.shutdown().await;
+        assert!(result.is_ok());
+    }
+
+    // Test struct for EventStream restart method
+    struct MockEventStream {
+        active: bool,
+        start_called: bool,
+        stop_called: bool,
+        info: StreamInfo,
+    }
+
+    impl MockEventStream {
+        fn new() -> Self {
+            Self {
+                active: false,
+                start_called: false,
+                stop_called: false,
+                info: StreamInfo::new(
+                    "mock-id".to_string(),
+                    "mock".to_string(),
+                    "test".to_string(),
+                    "mock://test".to_string(),
+                ),
+            }
+        }
+    }
+
+    #[async_trait]
+    impl EventStream for MockEventStream {
+        async fn start(
+            &mut self,
+        ) -> EventResult<Pin<Box<dyn Stream<Item = EventResult<Box<dyn Event>>> + Send>>> {
+            self.active = true;
+            self.start_called = true;
+            self.info.active = true;
+            Err(EventError::generic("Mock stream"))
+        }
+
+        async fn stop(&mut self) -> EventResult<()> {
+            self.active = false;
+            self.stop_called = true;
+            self.info.active = false;
+            Ok(())
+        }
+
+        fn is_active(&self) -> bool {
+            self.active
+        }
+
+        fn info(&self) -> &StreamInfo {
+            &self.info
+        }
+
+        fn info_mut(&mut self) -> &mut StreamInfo {
+            &mut self.info
+        }
+    }
+
+    #[tokio::test]
+    async fn test_event_stream_restart_when_active() {
+        let mut stream = MockEventStream::new();
+        stream.active = true; // Set as active initially
+
+        let result = stream.restart().await;
+
+        // Should have called stop then start
+        assert!(stream.stop_called);
+        assert!(stream.start_called);
+        assert!(result.is_err()); // Mock implementation returns error
+    }
+
+    #[tokio::test]
+    async fn test_event_stream_restart_when_inactive() {
+        let mut stream = MockEventStream::new();
+        stream.active = false; // Set as inactive initially
+
+        let result = stream.restart().await;
+
+        // Should only have called start (not stop since it wasn't active)
+        assert!(!stream.stop_called);
+        assert!(stream.start_called);
+        assert!(result.is_err()); // Mock implementation returns error
+    }
 }

@@ -337,7 +337,6 @@ pub struct EventPerformanceMetrics {
 }
 
 impl EventPerformanceMetrics {
-
     /// Record an event processing time
     pub async fn record_processing_time(&self, duration: Duration) {
         self.total_events.fetch_add(1, Ordering::SeqCst);
@@ -607,4 +606,264 @@ mod tests {
         assert!(percentiles[2] >= Duration::from_millis(98));
         assert!(percentiles[2] <= Duration::from_millis(100));
     }
+
+    // Additional comprehensive tests for 100% coverage
+
+    #[test]
+    fn test_event_id_generator_next_with_context() {
+        let generator = EventIdGenerator::new("test".to_string());
+
+        let id = generator.next_with_context("custom_context");
+        assert!(id.contains("test_"));
+        assert!(id.contains("custom_context"));
+        assert!(id.len() > 50); // Should be longer due to UUID
+    }
+
+    #[test]
+    fn test_event_id_generator_clone() {
+        let generator = EventIdGenerator::new("prefix".to_string());
+        let cloned = generator.clone();
+
+        let id1 = generator.next();
+        let id2 = cloned.next();
+
+        assert_ne!(id1, id2);
+        assert!(id1.starts_with("prefix_"));
+        assert!(id2.starts_with("prefix_"));
+    }
+
+    #[test]
+    fn test_event_batcher_should_flush_by_size() {
+        let batcher = EventBatcher::new(2, Duration::from_secs(10));
+        assert!(!batcher.should_flush());
+
+        let mut batcher = EventBatcher::new(1, Duration::from_secs(10));
+        let event = Box::new(GenericEvent::new(
+            "1".to_string(),
+            EventKind::Transaction,
+            json!({}),
+        ));
+        batcher.add(event);
+        assert!(batcher.should_flush());
+    }
+
+    #[test]
+    fn test_event_batcher_should_flush_by_timeout() {
+        let mut batcher = EventBatcher::new(10, Duration::from_millis(1));
+        let event = Box::new(GenericEvent::new(
+            "1".to_string(),
+            EventKind::Transaction,
+            json!({}),
+        ));
+        batcher.add(event);
+
+        // Wait for timeout
+        std::thread::sleep(Duration::from_millis(2));
+        assert!(batcher.should_flush());
+    }
+
+    #[test]
+    fn test_event_batcher_flush_empty() {
+        let mut batcher = EventBatcher::new(3, Duration::from_secs(10));
+        assert!(batcher.flush().is_none());
+        assert!(batcher.is_empty());
+    }
+
+    #[test]
+    fn test_event_batcher_current_size_and_is_empty() {
+        let mut batcher = EventBatcher::new(3, Duration::from_secs(10));
+        assert_eq!(batcher.current_size(), 0);
+        assert!(batcher.is_empty());
+
+        let event = Box::new(GenericEvent::new(
+            "1".to_string(),
+            EventKind::Transaction,
+            json!({}),
+        ));
+        batcher.add(event);
+
+        assert_eq!(batcher.current_size(), 1);
+        assert!(!batcher.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_event_deduplicator_cleanup() {
+        let deduplicator =
+            EventDeduplicator::new(Duration::from_millis(10), Duration::from_secs(1));
+
+        let event = GenericEvent::new("test-event".to_string(), EventKind::Transaction, json!({}));
+        deduplicator.mark_seen(&event).await;
+        assert!(deduplicator.is_duplicate(&event).await);
+
+        // Wait for TTL to expire
+        tokio::time::sleep(Duration::from_millis(20)).await;
+        deduplicator.cleanup().await;
+
+        assert!(!deduplicator.is_duplicate(&event).await);
+    }
+
+    #[tokio::test]
+    async fn test_event_deduplicator_start_cleanup_task() {
+        let deduplicator =
+            EventDeduplicator::new(Duration::from_millis(50), Duration::from_millis(10));
+
+        let handle = deduplicator.start_cleanup_task();
+
+        let event = GenericEvent::new(
+            "cleanup-test".to_string(),
+            EventKind::Transaction,
+            json!({}),
+        );
+        deduplicator.mark_seen(&event).await;
+        assert!(deduplicator.is_duplicate(&event).await);
+
+        // Wait for cleanup task to run
+        tokio::time::sleep(Duration::from_millis(100)).await;
+
+        // Event should be cleaned up
+        assert!(!deduplicator.is_duplicate(&event).await);
+
+        handle.abort();
+    }
+
+    #[tokio::test]
+    async fn test_rate_limiter_wait_for_capacity() {
+        let rate_limiter = RateLimiter::new(1, Duration::from_millis(100));
+
+        // Fill capacity
+        rate_limiter.record_event().await;
+        assert!(!rate_limiter.can_process().await);
+
+        // Test wait_for_capacity (should return quickly after window expires)
+        let start = Instant::now();
+        rate_limiter.wait_for_capacity().await;
+        let elapsed = start.elapsed();
+
+        // Should wait at least a short time but not too long
+        assert!(elapsed >= Duration::from_millis(10));
+        assert!(elapsed < Duration::from_millis(200));
+    }
+
+    #[tokio::test]
+    async fn test_rate_limiter_current_rate_calculation() {
+        let rate_limiter = RateLimiter::new(10, Duration::from_secs(1));
+
+        // No events initially
+        assert_eq!(rate_limiter.current_rate().await, 0.0);
+
+        // Add some events
+        rate_limiter.record_event().await;
+        rate_limiter.record_event().await;
+
+        let rate = rate_limiter.current_rate().await;
+        assert!(rate > 0.0);
+        assert!(rate <= 10.0);
+    }
+
+    #[tokio::test]
+    async fn test_performance_metrics_empty_percentiles() {
+        let metrics = EventPerformanceMetrics::default();
+
+        let percentiles = metrics
+            .processing_time_percentiles(&[50.0, 95.0, 99.0])
+            .await;
+
+        assert_eq!(percentiles.len(), 3);
+        assert_eq!(percentiles[0], Duration::ZERO);
+        assert_eq!(percentiles[1], Duration::ZERO);
+        assert_eq!(percentiles[2], Duration::ZERO);
+    }
+
+    #[tokio::test]
+    async fn test_performance_metrics_empty_avg() {
+        let metrics = EventPerformanceMetrics::default();
+
+        let avg = metrics.avg_processing_time().await;
+        assert_eq!(avg, Duration::ZERO);
+    }
+
+    #[tokio::test]
+    async fn test_performance_metrics_error_rate_zero_events() {
+        let metrics = EventPerformanceMetrics::default();
+        metrics.record_error();
+
+        assert_eq!(metrics.error_rate(), 0.0);
+        assert_eq!(metrics.total_events(), 0);
+        assert_eq!(metrics.total_errors(), 1);
+    }
+
+    #[tokio::test]
+    async fn test_performance_metrics_reset() {
+        let metrics = EventPerformanceMetrics::default();
+
+        metrics
+            .record_processing_time(Duration::from_millis(10))
+            .await;
+        metrics.record_error();
+
+        assert_eq!(metrics.total_events(), 1);
+        assert_eq!(metrics.total_errors(), 1);
+
+        metrics.reset().await;
+
+        assert_eq!(metrics.total_events(), 0);
+        assert_eq!(metrics.total_errors(), 0);
+        assert_eq!(metrics.avg_processing_time().await, Duration::ZERO);
+    }
+
+    #[tokio::test]
+    async fn test_performance_metrics_memory_management() {
+        let metrics = EventPerformanceMetrics::default();
+
+        // Add more than 10,000 measurements to test memory management
+        for i in 1..=10_050 {
+            metrics
+                .record_processing_time(Duration::from_millis(i % 100))
+                .await;
+        }
+
+        let times = metrics.processing_times.read().await;
+        assert!(times.len() <= 10_000);
+        assert_eq!(metrics.total_events(), 10_050);
+    }
+
+    #[tokio::test]
+    async fn test_performance_metrics_summary_empty() {
+        let metrics = EventPerformanceMetrics::default();
+
+        let summary = metrics.summary().await;
+        assert_eq!(summary.total_events, 0);
+        assert_eq!(summary.total_errors, 0);
+        assert_eq!(summary.error_rate, 0.0);
+        assert_eq!(summary.avg_processing_time, Duration::ZERO);
+        assert_eq!(summary.p95_processing_time, Duration::ZERO);
+        assert_eq!(summary.p99_processing_time, Duration::ZERO);
+    }
+
+    #[test]
+    fn test_metrics_summary_serialization() {
+        let summary = MetricsSummary {
+            total_events: 100,
+            total_errors: 5,
+            error_rate: 5.0,
+            avg_processing_time: Duration::from_millis(10),
+            p95_processing_time: Duration::from_millis(50),
+            p99_processing_time: Duration::from_millis(100),
+            uptime: Duration::from_secs(3600),
+        };
+
+        let serialized = serde_json::to_string(&summary);
+        assert!(serialized.is_ok());
+
+        let deserialized: Result<MetricsSummary, _> = serde_json::from_str(&serialized.unwrap());
+        assert!(deserialized.is_ok());
+
+        let deserialized = deserialized.unwrap();
+        assert_eq!(deserialized.total_events, 100);
+        assert_eq!(deserialized.total_errors, 5);
+        assert_eq!(deserialized.error_rate, 5.0);
+    }
+
+    // Tests for StreamUtils would require complex mock streams and are already tested through integration
+    // The StreamUtils methods are static utility methods that primarily compose existing stream operations
 }

@@ -127,11 +127,11 @@ impl Default for EventMetadata {
     fn default() -> Self {
         let now = Utc::now();
         Self {
-            id: String::new(),
+            id: String::default(),
             kind: EventKind::default(),
             timestamp: now,
             received_at: now,
-            source: String::new(),
+            source: String::default(),
             chain_data: None,
             custom: HashMap::new(),
         }
@@ -410,6 +410,7 @@ impl crate::traits::Event for GenericEvent {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::traits::Event;
     use serde_json::json;
 
     #[test]
@@ -561,5 +562,533 @@ mod tests {
         assert_eq!(chain_data.chain_id(), "custom-chain");
         assert_eq!(chain_data.block_id(), "block-abc");
         assert_eq!(chain_data.transaction_id(), Some("tx-def".to_string()));
+    }
+
+    // Additional comprehensive tests for 100% coverage
+
+    #[test]
+    fn test_event_kind_display_all_variants() {
+        assert_eq!(EventKind::Transaction.to_string(), "transaction");
+        assert_eq!(EventKind::Block.to_string(), "block");
+        assert_eq!(EventKind::Contract.to_string(), "contract");
+        assert_eq!(EventKind::Transfer.to_string(), "transfer");
+        assert_eq!(EventKind::Swap.to_string(), "swap");
+        assert_eq!(EventKind::Liquidity.to_string(), "liquidity");
+        assert_eq!(EventKind::Price.to_string(), "price");
+        assert_eq!(EventKind::External.to_string(), "external");
+        assert_eq!(
+            EventKind::Custom("custom-event".to_string()).to_string(),
+            "custom-event"
+        );
+        assert_eq!(EventKind::Custom("".to_string()).to_string(), "");
+    }
+
+    #[test]
+    fn test_event_kind_default() {
+        assert_eq!(EventKind::default(), EventKind::Transaction);
+    }
+
+    #[test]
+    fn test_event_kind_serialization() {
+        let transaction = EventKind::Transaction;
+        let json = serde_json::to_string(&transaction).unwrap();
+        let deserialized: EventKind = serde_json::from_str(&json).unwrap();
+        assert_eq!(transaction, deserialized);
+
+        let custom = EventKind::Custom("test".to_string());
+        let json = serde_json::to_string(&custom).unwrap();
+        let deserialized: EventKind = serde_json::from_str(&json).unwrap();
+        assert_eq!(custom, deserialized);
+    }
+
+    #[test]
+    fn test_event_metadata_with_timestamp() {
+        let timestamp = DateTime::from_timestamp(1234567890, 0).unwrap();
+        let metadata = EventMetadata::with_timestamp(
+            "test-id".to_string(),
+            EventKind::Block,
+            "rpc-source".to_string(),
+            timestamp,
+        );
+
+        assert_eq!(metadata.id, "test-id");
+        assert_eq!(metadata.kind, EventKind::Block);
+        assert_eq!(metadata.source, "rpc-source");
+        assert_eq!(metadata.timestamp, timestamp);
+        assert!(metadata.received_at > timestamp);
+        assert!(metadata.chain_data.is_none());
+        assert!(metadata.custom.is_empty());
+    }
+
+    #[test]
+    fn test_event_metadata_with_chain_data() {
+        let chain_data = ChainData::Generic {
+            chain_id: "test-chain".to_string(),
+            block_id: "123".to_string(),
+            transaction_id: None,
+            data: HashMap::new(),
+        };
+
+        let metadata = EventMetadata::new(
+            "test-id".to_string(),
+            EventKind::Transaction,
+            "test-source".to_string(),
+        )
+        .with_chain_data(chain_data.clone());
+
+        assert_eq!(metadata.chain_data, Some(chain_data));
+    }
+
+    #[test]
+    fn test_event_metadata_with_custom_serialization_error() {
+        // Test a type that fails to serialize
+        struct NonSerializable;
+
+        impl serde::Serialize for NonSerializable {
+            fn serialize<S>(&self, _serializer: S) -> Result<S::Ok, S::Error>
+            where
+                S: serde::Serializer,
+            {
+                use serde::ser::Error;
+                Err(S::Error::custom("intentional serialization failure"))
+            }
+        }
+
+        let metadata = EventMetadata::new(
+            "test-id".to_string(),
+            EventKind::Transaction,
+            "test-source".to_string(),
+        )
+        .with_custom("invalid".to_string(), NonSerializable);
+
+        // The custom field should not be added if serialization fails
+        assert!(!metadata.custom.contains_key("invalid"));
+    }
+
+    #[test]
+    fn test_event_metadata_get_custom_invalid_type() {
+        let metadata = EventMetadata::new(
+            "test-id".to_string(),
+            EventKind::Transaction,
+            "test-source".to_string(),
+        )
+        .with_custom("number".to_string(), 42);
+
+        // Trying to get as wrong type should return None
+        assert_eq!(metadata.get_custom::<String>("number"), None);
+    }
+
+    #[test]
+    fn test_event_metadata_default() {
+        let metadata = EventMetadata::default();
+        assert_eq!(metadata.id, "");
+        assert_eq!(metadata.kind, EventKind::Transaction);
+        assert_eq!(metadata.source, "");
+        assert!(metadata.chain_data.is_none());
+        assert!(metadata.custom.is_empty());
+    }
+
+    #[test]
+    fn test_generic_chain_data_with_no_transaction() {
+        let chain_data = ChainData::Generic {
+            chain_id: "test-chain".to_string(),
+            block_id: "block-123".to_string(),
+            transaction_id: None,
+            data: HashMap::new(),
+        };
+
+        assert_eq!(chain_data.chain_id(), "test-chain");
+        assert_eq!(chain_data.block_id(), "block-123");
+        assert_eq!(chain_data.transaction_id(), None);
+    }
+
+    #[cfg(feature = "evm")]
+    #[test]
+    fn test_evm_chain_data() {
+        let chain_data = ChainData::Evm {
+            block_number: 12345,
+            transaction_hash: Some("0xabc123".to_string()),
+            contract_address: Some("0xdef456".to_string()),
+            log_index: Some(1),
+            chain_id: 1,
+        };
+
+        assert_eq!(chain_data.chain_id(), "1");
+        assert_eq!(chain_data.block_id(), "12345");
+        assert_eq!(chain_data.transaction_id(), Some("0xabc123".to_string()));
+    }
+
+    #[cfg(feature = "evm")]
+    #[test]
+    fn test_evm_chain_data_no_transaction() {
+        let chain_data = ChainData::Evm {
+            block_number: 12345,
+            transaction_hash: None,
+            contract_address: None,
+            log_index: None,
+            chain_id: 137,
+        };
+
+        assert_eq!(chain_data.chain_id(), "137");
+        assert_eq!(chain_data.block_id(), "12345");
+        assert_eq!(chain_data.transaction_id(), None);
+    }
+
+    #[cfg(feature = "solana")]
+    #[test]
+    fn test_solana_chain_data_no_signature() {
+        let chain_data = ChainData::Solana {
+            slot: 98765,
+            signature: None,
+            program_id: None,
+            instruction_index: None,
+            block_time: None,
+            protocol_data: None,
+        };
+
+        assert_eq!(chain_data.chain_id(), "solana");
+        assert_eq!(chain_data.block_id(), "98765");
+        assert_eq!(chain_data.transaction_id(), None);
+    }
+
+    #[test]
+    fn test_generic_event_with_source() {
+        let event = GenericEvent::with_source(
+            "test-id".to_string(),
+            EventKind::Price,
+            "price-feed".to_string(),
+            json!({"symbol": "BTC", "price": 50000}),
+        );
+
+        assert_eq!(event.metadata.id, "test-id");
+        assert_eq!(event.metadata.kind, EventKind::Price);
+        assert_eq!(event.metadata.source, "price-feed");
+        assert_eq!(event.data["symbol"], "BTC");
+        assert_eq!(event.data["price"], 50000);
+    }
+
+    #[test]
+    fn test_generic_event_with_metadata() {
+        let metadata = EventMetadata::new(
+            "custom-id".to_string(),
+            EventKind::Liquidity,
+            "dex-source".to_string(),
+        );
+        let event = GenericEvent::with_metadata(
+            metadata.clone(),
+            json!({"pool": "ETH/USDC", "amount": 1000}),
+        );
+
+        assert_eq!(event.metadata, metadata);
+        assert_eq!(event.data["pool"], "ETH/USDC");
+        assert_eq!(event.data["amount"], 1000);
+    }
+
+    #[test]
+    fn test_generic_event_extract_data_error() {
+        #[derive(Deserialize)]
+        struct InvalidData {
+            #[allow(dead_code)]
+            required_field: String,
+        }
+
+        let event = GenericEvent::new(
+            "test-id".to_string(),
+            EventKind::Transaction,
+            json!({"wrong_field": "value"}),
+        );
+
+        let result = event.extract_data::<InvalidData>();
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_generic_event_update_data_success() {
+        #[derive(Serialize)]
+        struct NewData {
+            field: String,
+            value: i32,
+        }
+
+        let mut event = GenericEvent::new(
+            "test-id".to_string(),
+            EventKind::Contract,
+            json!({"old": "data"}),
+        );
+
+        let new_data = NewData {
+            field: "test".to_string(),
+            value: 42,
+        };
+
+        let result = event.update_data(new_data);
+        assert!(result.is_ok());
+        assert_eq!(event.data["field"], "test");
+        assert_eq!(event.data["value"], 42);
+    }
+
+    #[test]
+    fn test_generic_event_update_data_error() {
+        struct NonSerializable;
+
+        impl serde::Serialize for NonSerializable {
+            fn serialize<S>(&self, _serializer: S) -> Result<S::Ok, S::Error>
+            where
+                S: serde::Serializer,
+            {
+                use serde::ser::Error;
+                Err(S::Error::custom("intentional serialization failure"))
+            }
+        }
+
+        let mut event = GenericEvent::new(
+            "test-id".to_string(),
+            EventKind::Contract,
+            json!({"old": "data"}),
+        );
+
+        let result = event.update_data(NonSerializable);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_stream_info_new() {
+        let stream = StreamInfo::new(
+            "stream-1".to_string(),
+            "Test Stream".to_string(),
+            "rpc".to_string(),
+            "https://api.test.com".to_string(),
+        );
+
+        assert_eq!(stream.id, "stream-1");
+        assert_eq!(stream.name, "Test Stream");
+        assert_eq!(stream.source_type, "rpc");
+        assert_eq!(stream.endpoint, "https://api.test.com");
+        assert!(!stream.active);
+        assert!(stream.last_event_at.is_none());
+        assert_eq!(stream.metrics, StreamMetrics::default());
+    }
+
+    #[test]
+    fn test_stream_info_set_active_false() {
+        let mut stream = StreamInfo::new(
+            "stream-1".to_string(),
+            "Test Stream".to_string(),
+            "websocket".to_string(),
+            "wss://api.test.com".to_string(),
+        );
+
+        stream.set_active(false);
+        assert!(!stream.active);
+        assert_eq!(stream.metrics.connection_count, 0);
+    }
+
+    #[test]
+    fn test_stream_info_multiple_activations() {
+        let mut stream = StreamInfo::new(
+            "stream-1".to_string(),
+            "Test Stream".to_string(),
+            "websocket".to_string(),
+            "wss://api.test.com".to_string(),
+        );
+
+        stream.set_active(true);
+        stream.set_active(true);
+        stream.set_active(false);
+        stream.set_active(true);
+
+        assert!(stream.active);
+        assert_eq!(stream.metrics.connection_count, 3);
+    }
+
+    #[test]
+    fn test_stream_metrics_default() {
+        let metrics = StreamMetrics::default();
+        assert_eq!(metrics.event_count, 0);
+        assert_eq!(metrics.error_count, 0);
+        assert_eq!(metrics.connection_count, 0);
+        assert_eq!(metrics.avg_processing_time_us, 0);
+        assert_eq!(metrics.uptime_percentage, 0.0);
+    }
+
+    #[test]
+    fn test_stream_metrics_error_rate_zero_events() {
+        let metrics = StreamMetrics {
+            event_count: 0,
+            error_count: 5,
+            ..Default::default()
+        };
+
+        assert_eq!(metrics.error_rate(), 0.0);
+    }
+
+    #[test]
+    fn test_stream_metrics_error_rate_with_events() {
+        let metrics = StreamMetrics {
+            event_count: 200,
+            error_count: 10,
+            ..Default::default()
+        };
+
+        assert_eq!(metrics.error_rate(), 5.0);
+    }
+
+    #[test]
+    fn test_stream_metrics_is_healthy_true() {
+        let metrics = StreamMetrics {
+            event_count: 1000,
+            error_count: 10, // 1% error rate
+            uptime_percentage: 99.5,
+            ..Default::default()
+        };
+
+        assert!(metrics.is_healthy());
+    }
+
+    #[test]
+    fn test_stream_metrics_is_healthy_false_high_error_rate() {
+        let metrics = StreamMetrics {
+            event_count: 100,
+            error_count: 10, // 10% error rate
+            uptime_percentage: 99.0,
+            ..Default::default()
+        };
+
+        assert!(!metrics.is_healthy());
+    }
+
+    #[test]
+    fn test_stream_metrics_is_healthy_false_low_uptime() {
+        let metrics = StreamMetrics {
+            event_count: 1000,
+            error_count: 10, // 1% error rate
+            uptime_percentage: 90.0,
+            ..Default::default()
+        };
+
+        assert!(!metrics.is_healthy());
+    }
+
+    #[test]
+    fn test_generic_event_trait_implementations() {
+        let event = GenericEvent::new(
+            "trait-test".to_string(),
+            EventKind::External,
+            json!({"test": "data"}),
+        );
+
+        // Test Event trait methods
+        assert_eq!(event.id(), "trait-test");
+        assert_eq!(event.kind(), &EventKind::External);
+        assert_eq!(event.metadata().id, "trait-test");
+
+        // Test as_any
+        let any_ref = event.as_any();
+        assert!(any_ref.downcast_ref::<GenericEvent>().is_some());
+
+        // Test clone_boxed
+        let boxed_clone = event.clone_boxed();
+        assert_eq!(boxed_clone.id(), "trait-test");
+
+        // Test to_json
+        let json_result = event.to_json();
+        assert!(json_result.is_ok());
+        let json_value = json_result.unwrap();
+        assert_eq!(json_value["metadata"]["id"], "trait-test");
+        assert_eq!(json_value["data"]["test"], "data");
+    }
+
+    #[test]
+    fn test_generic_event_trait_mutable_metadata() {
+        let mut event = GenericEvent::new(
+            "mutable-test".to_string(),
+            EventKind::Transfer,
+            json!({"amount": 100}),
+        );
+
+        // Test metadata_mut
+        let metadata_mut = event.metadata_mut();
+        metadata_mut.source = "updated-source".to_string();
+
+        assert_eq!(event.metadata.source, "updated-source");
+
+        // Test as_any_mut
+        let any_mut = event.as_any_mut();
+        assert!(any_mut.downcast_mut::<GenericEvent>().is_some());
+    }
+
+    #[test]
+    fn test_event_kind_hash_and_eq() {
+        let kind1 = EventKind::Transaction;
+        let kind2 = EventKind::Transaction;
+        let kind3 = EventKind::Block;
+        let custom1 = EventKind::Custom("test".to_string());
+        let custom2 = EventKind::Custom("test".to_string());
+        let custom3 = EventKind::Custom("different".to_string());
+
+        assert_eq!(kind1, kind2);
+        assert_ne!(kind1, kind3);
+        assert_eq!(custom1, custom2);
+        assert_ne!(custom1, custom3);
+
+        // Test in HashMap to verify Hash implementation
+        let mut map = HashMap::new();
+        map.insert(kind1, "transaction");
+        map.insert(custom1, "custom");
+
+        assert_eq!(map.get(&kind2), Some(&"transaction"));
+        assert_eq!(map.get(&custom2), Some(&"custom"));
+    }
+
+    #[test]
+    fn test_stream_info_multiple_events_and_errors() {
+        let mut stream = StreamInfo::new(
+            "multi-test".to_string(),
+            "Multi Test Stream".to_string(),
+            "kafka".to_string(),
+            "kafka://localhost:9092".to_string(),
+        );
+
+        // Process multiple events
+        for _ in 0..5 {
+            stream.update_last_event();
+        }
+
+        // Record multiple errors
+        for _ in 0..2 {
+            stream.record_error();
+        }
+
+        assert_eq!(stream.metrics.event_count, 5);
+        assert_eq!(stream.metrics.error_count, 2);
+        assert!(stream.last_event_at.is_some());
+    }
+
+    #[test]
+    fn test_event_metadata_complex_custom_data() {
+        #[derive(Serialize, Deserialize, PartialEq, Debug)]
+        struct ComplexData {
+            nested: HashMap<String, i32>,
+            array: Vec<String>,
+        }
+
+        let mut nested = HashMap::new();
+        nested.insert("key1".to_string(), 42);
+        nested.insert("key2".to_string(), 24);
+
+        let complex_data = ComplexData {
+            nested,
+            array: vec!["a".to_string(), "b".to_string()],
+        };
+
+        let metadata = EventMetadata::new(
+            "complex-test".to_string(),
+            EventKind::Custom("complex".to_string()),
+            "test-source".to_string(),
+        )
+        .with_custom("complex_field".to_string(), &complex_data);
+
+        let retrieved: Option<ComplexData> = metadata.get_custom("complex_field");
+        assert_eq!(retrieved, Some(complex_data));
     }
 }
