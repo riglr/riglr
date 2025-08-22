@@ -114,7 +114,7 @@ Releases follow semantic versioning:
 
 - Discord: [Join our community](https://discord.gg/riglr)
 - GitHub Discussions: Ask questions
-- Documentation: [docs.riglr.dev](https://docs.riglr.dev)
+- Documentation: [riglr.com/docs](https://riglr.com/docs)
 
 ## License
 

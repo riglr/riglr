@@ -5,7 +5,7 @@ This directory contains the source for the official riglr documentation site, bu
 ## 📚 Viewing Documentation
 
 ### Online
-Visit [docs.riglr.dev](https://docs.riglr.dev) for the latest published documentation.
+Visit [riglr.com/docs](https://riglr.com/docs) for the latest published documentation.
 
 ### Local Development
 To view and edit the documentation locally:
@@ -95,7 +95,7 @@ The documentation is automatically deployed when changes are pushed to the main 
 1. GitHub Actions runs `build.sh`
 2. Static site is generated in `book/`
 3. Site is deployed to GitHub Pages / Netlify / Vercel
-4. Available at docs.riglr.dev
+4. Available at riglr.com/docs
 
 ### Manual Deployment
 
