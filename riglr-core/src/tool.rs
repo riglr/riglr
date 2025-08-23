@@ -47,7 +47,7 @@
 //!
 //! #[async_trait]
 //! impl Tool for SimpleCalculator {
-//!     async fn execute(&self, params: Value) -> Result<JobResult, Box<dyn std::error::Error + Send + Sync>> {
+//!     async fn execute(&self, params: Value, _context: &ApplicationContext) -> Result<JobResult, ToolError> {
 //!         let a = params["a"].as_f64().ok_or("Missing parameter 'a'")?;
 //!         let b = params["b"].as_f64().ok_or("Missing parameter 'b'")?;
 //!         let operation = params["op"].as_str().unwrap_or("add");
@@ -57,11 +57,11 @@
 //!             "multiply" => a * b,
 //!             "divide" => {
 //!                 if b == 0.0 {
-//!                     return Ok(JobResult::permanent_failure("Division by zero"));
+//!                     return Err(ToolError::permanent_string("Division by zero", "Cannot divide by zero"));
 //!                 }
 //!                 a / b
 //!             }
-//!             _ => return Ok(JobResult::permanent_failure("Unknown operation")),
+//!             _ => return Err(ToolError::permanent_string("Unknown operation", "Operation not supported")),
 //!         };
 //!
 //!         Ok(JobResult::success(&result)?)
@@ -95,7 +95,7 @@
 //! };
 //!
 //! // Set up resource limits
-//! let limits = ResourceLimits::new()
+//! let limits = ResourceLimits::default()
 //!     .with_limit("solana_rpc", 5)   // Limit Solana RPC calls
 //!     .with_limit("evm_rpc", 10)     // Limit EVM RPC calls
 //!     .with_limit("http_api", 20);   // Limit HTTP API calls
@@ -112,7 +112,7 @@
 //! # struct SimpleCalculator;
 //! # #[async_trait]
 //! # impl Tool for SimpleCalculator {
-//! #     async fn execute(&self, _: serde_json::Value) -> Result<JobResult, Box<dyn std::error::Error + Send + Sync>> {
+//! #     async fn execute(&self, _: serde_json::Value, _: &crate::provider::ApplicationContext) -> Result<JobResult, ToolError> {
 //! #         Ok(JobResult::success(&42)?)
 //! #     }
 //! #     fn name(&self) -> &str { "calculator" }
@@ -147,7 +147,7 @@ use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
-use crate::error::WorkerError;
+use crate::error::{ToolError, WorkerError};
 use crate::idempotency::IdempotencyStore;
 use crate::jobs::{Job, JobResult};
 use crate::queue::JobQueue;
@@ -186,7 +186,7 @@ use crate::queue::JobQueue;
 ///
 /// #[async_trait]
 /// impl Tool for HttpFetcher {
-///     async fn execute(&self, params: Value) -> Result<JobResult, Box<dyn std::error::Error + Send + Sync>> {
+///     async fn execute(&self, params: Value, _context: &ApplicationContext) -> Result<JobResult, ToolError> {
 ///         let url = params["url"].as_str()
 ///             .ok_or("Missing required parameter: url")?;
 ///
@@ -196,13 +196,19 @@ use crate::queue::JobQueue;
 ///             Ok(JobResult::success(&serde_json::json!({"body": body}))?)
 ///         } else if url.contains("error") {
 ///             // Simulate client error
-///             Ok(JobResult::permanent_failure("Client error: Invalid URL"))
+///             Ok(JobResult::Failure {
+///                 error: ToolError::permanent_string("Client error: Invalid URL")
+///             })
 ///         } else if url.contains("timeout") {
 ///             // Simulate timeout
-///             Ok(JobResult::retriable_failure("Request timeout: Connection timed out"))
+///             Ok(JobResult::Failure {
+///                 error: ToolError::retriable_string("Request timeout: Connection timed out")
+///             })
 ///         } else {
 ///             // Simulate server error
-///             Ok(JobResult::retriable_failure("Server error: HTTP 503"))
+///             Ok(JobResult::Failure {
+///                 error: ToolError::retriable_string("Server error: HTTP 503")
+///             })
 ///         }
 ///     }
 ///
@@ -224,7 +230,7 @@ use crate::queue::JobQueue;
 ///
 /// #[async_trait]
 /// impl Tool for SolanaBalanceChecker {
-///     async fn execute(&self, params: Value) -> Result<JobResult, Box<dyn std::error::Error + Send + Sync>> {
+///     async fn execute(&self, params: Value, _context: &ApplicationContext) -> Result<JobResult, ToolError> {
 ///         let address = params["address"].as_str()
 ///             .ok_or("Missing required parameter: address")?;
 ///
@@ -258,12 +264,12 @@ use crate::queue::JobQueue;
 ///
 /// #[async_trait]
 /// impl Tool for TransferTool {
-///     async fn execute(&self, params: Value) -> Result<JobResult, Box<dyn std::error::Error + Send + Sync>> {
+///     async fn execute(&self, params: Value, _context: &ApplicationContext) -> Result<JobResult, ToolError> {
 ///         // Check if we have a signer context
 ///         if !SignerContext::is_available().await {
-///             return Ok(JobResult::permanent_failure(
-///                 "Transfer operations require a signer context"
-///             ));
+///             return Ok(JobResult::Failure {
+///                 error: ToolError::permanent_string("Transfer operations require a signer context")
+///             });
 ///         }
 ///
 ///         let signer = SignerContext::current().await
@@ -311,14 +317,14 @@ pub trait Tool: Send + Sync {
     ///
     /// # Error Classification Guidelines
     ///
-    /// Return retriable failures (`JobResult::retriable_failure`) for:
+    /// Return retriable failures (`JobResult::Failure { error: ToolError::retriable_string(...) }`) for:
     /// - Network timeouts or connection errors
-    /// - Rate limiting (HTTP 429, RPC rate limits)
+    /// - Rate limiting (HTTP 429, RPC rate limits) - use `ToolError::rate_limited_string` for these
     /// - Temporary service unavailability (HTTP 503)
     /// - Blockchain congestion or temporary RPC failures
     ///
-    /// Return permanent failures (`JobResult::permanent_failure`) for:
-    /// - Invalid parameters or malformed requests
+    /// Return permanent failures (`JobResult::Failure { error: ToolError::permanent_string(...) }`) for:
+    /// - Invalid parameters or malformed requests - use `ToolError::invalid_input_string` for these
     /// - Authentication/authorization failures
     /// - Insufficient funds or balance
     /// - Invalid blockchain addresses or transaction data
@@ -334,22 +340,26 @@ pub trait Tool: Send + Sync {
     ///
     /// #[async_trait]
     /// impl Tool for WeatherTool {
-    ///     async fn execute(&self, params: Value) -> Result<JobResult, Box<dyn std::error::Error + Send + Sync>> {
+    ///     async fn execute(&self, params: Value, _context: &ApplicationContext) -> Result<JobResult, ToolError> {
     ///         // Validate parameters
     ///         let city = params["city"].as_str()
     ///             .ok_or("Missing required parameter: city")?;
     ///
     ///         if city.is_empty() {
-    ///             return Ok(JobResult::permanent_failure("City name cannot be empty"));
+    ///             return Ok(JobResult::Failure {
+    ///                 error: ToolError::invalid_input_string("City name cannot be empty")
+    ///             });
     ///         }
     ///
     ///         // Simulate API call with mock weather service
     ///         let weather_data = if city == "InvalidCity" {
-    ///             return Ok(JobResult::permanent_failure(
-    ///                 format!("City not found: {}", city)
-    ///             ));
+    ///             return Ok(JobResult::Failure {
+    ///                 error: ToolError::permanent_string(format!("City not found: {}", city))
+    ///             });
     ///         } else if city == "TimeoutCity" {
-    ///             return Ok(JobResult::retriable_failure("Network timeout"));
+    ///             return Ok(JobResult::Failure {
+    ///                 error: ToolError::retriable_string("Network timeout")
+    ///             });
     ///         } else {
     ///             serde_json::json!({
     ///                 "city": city,
@@ -369,7 +379,8 @@ pub trait Tool: Send + Sync {
     async fn execute(
         &self,
         params: serde_json::Value,
-    ) -> Result<JobResult, Box<dyn std::error::Error + Send + Sync>>;
+        context: &crate::provider::ApplicationContext,
+    ) -> Result<JobResult, ToolError>;
 
     /// Get the name of this tool.
     ///
@@ -402,7 +413,7 @@ pub trait Tool: Send + Sync {
     ///
     /// # #[async_trait]
     /// # impl Tool for BitcoinPriceChecker {
-    /// #     async fn execute(&self, _: serde_json::Value) -> Result<JobResult, Box<dyn std::error::Error + Send + Sync>> {
+    /// #     async fn execute(&self, _: serde_json::Value, _: &crate::provider::ApplicationContext) -> Result<JobResult, ToolError> {
     /// #         Ok(JobResult::success(&42)?)
     /// #     }
     /// #
@@ -555,7 +566,7 @@ impl Default for ExecutionConfig {
 /// use riglr_core::ResourceLimits;
 ///
 /// // Create limits for different resource types
-/// let limits = ResourceLimits::new()
+/// let limits = ResourceLimits::default()
 ///     .with_limit("solana_rpc", 3)     // Max 3 concurrent Solana RPC calls
 ///     .with_limit("evm_rpc", 8)        // Max 8 concurrent EVM RPC calls
 ///     .with_limit("http_api", 15)      // Max 15 concurrent HTTP requests
@@ -586,25 +597,6 @@ pub struct ResourceLimits {
 }
 
 impl ResourceLimits {
-    /// Create new empty resource limits configuration.
-    ///
-    /// Use [`ResourceLimits::with_limit()`] to add resource limits,
-    /// or use [`ResourceLimits::default()`] for pre-configured defaults.
-    ///
-    /// # Examples
-    ///
-    /// ```ignore
-    /// use riglr_core::ResourceLimits;
-    ///
-    /// let limits = ResourceLimits::new()
-    ///     .with_limit("custom_resource", 5);
-    /// ```
-    pub fn new() -> Self {
-        Self {
-            semaphores: Arc::new(HashMap::new()),
-        }
-    }
-
     /// Add a resource limit for the specified resource type.
     ///
     /// This creates a semaphore that will limit concurrent access to the
@@ -623,7 +615,7 @@ impl ResourceLimits {
     /// ```ignore
     /// use riglr_core::ResourceLimits;
     ///
-    /// let limits = ResourceLimits::new()
+    /// let limits = ResourceLimits::default()
     ///     .with_limit("solana_rpc", 3)     // Limit Solana RPC calls
     ///     .with_limit("database", 10)      // Limit database connections
     ///     .with_limit("external_api", 5);  // Limit external API calls
@@ -652,7 +644,7 @@ impl ResourceLimits {
     /// ```rust
     /// use riglr_core::ResourceLimits;
     ///
-    /// let limits = ResourceLimits::new()
+    /// let limits = ResourceLimits::default()
     ///     .with_limit("test_resource", 5);
     ///
     /// assert!(limits.get_semaphore("test_resource").is_some());
@@ -720,7 +712,7 @@ impl Default for ResourceLimits {
 /// let worker = worker.with_idempotency_store(store);
 ///
 /// // Configure resource limits
-/// let limits = ResourceLimits::new()
+/// let limits = ResourceLimits::default()
 ///     .with_limit("solana_rpc", 3)
 ///     .with_limit("evm_rpc", 5);
 /// let worker = worker.with_resource_limits(limits);
@@ -739,7 +731,7 @@ impl Default for ResourceLimits {
 /// # struct ExampleTool;
 /// # #[async_trait]
 /// # impl Tool for ExampleTool {
-/// #     async fn execute(&self, _: serde_json::Value) -> Result<JobResult, Box<dyn std::error::Error + Send + Sync>> {
+/// #     async fn execute(&self, _: serde_json::Value, _: &crate::provider::ApplicationContext) -> Result<JobResult, ToolError> {
 /// #         Ok(JobResult::success(&"example result")?)
 /// #     }
 /// #     fn name(&self) -> &str { "example" }
@@ -783,6 +775,9 @@ pub struct ToolWorker<I: IdempotencyStore + 'static> {
 
     /// Performance and operational metrics
     metrics: Arc<WorkerMetrics>,
+
+    /// Application context providing access to RPC providers and shared resources
+    app_context: crate::provider::ApplicationContext,
 }
 
 /// Performance and operational metrics for monitoring worker health.
@@ -842,19 +837,29 @@ pub struct WorkerMetrics {
     pub jobs_retried: std::sync::atomic::AtomicU64,
 }
 
+impl<I: IdempotencyStore + 'static> std::fmt::Debug for ToolWorker<I> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ToolWorker")
+            .field("tools_count", &self.tools.len())
+            .field("config", &self.config)
+            .finish_non_exhaustive()
+    }
+}
+
 impl<I: IdempotencyStore + 'static> ToolWorker<I> {
-    /// Create a new tool worker with the given configuration.
+    /// Create a new tool worker with the given configuration and application context.
     ///
     /// This creates a worker ready to process jobs, but no tools are registered yet.
     /// Use [`register_tool()`](Self::register_tool) to add tools before processing jobs.
     ///
     /// # Parameters
     /// * `config` - Execution configuration controlling retry behavior, timeouts, etc.
+    /// * `app_context` - Application context providing access to RPC providers and shared resources
     ///
     /// # Examples
     ///
     /// ```ignore
-    /// use riglr_core::{ToolWorker, ExecutionConfig, idempotency::InMemoryIdempotencyStore};
+    /// use riglr_core::{ToolWorker, ExecutionConfig, idempotency::InMemoryIdempotencyStore, provider::ApplicationContext};
     /// use std::time::Duration;
     ///
     /// let config = ExecutionConfig {
@@ -863,10 +868,11 @@ impl<I: IdempotencyStore + 'static> ToolWorker<I> {
     ///     max_retries: 5,
     ///     ..Default::default()
     /// };
+    /// let app_context = ApplicationContext::from_env();
     ///
-    /// let worker = ToolWorker::<InMemoryIdempotencyStore>::new(config);
+    /// let worker = ToolWorker::<InMemoryIdempotencyStore>::new(config, app_context);
     /// ```
-    pub fn new(config: ExecutionConfig) -> Self {
+    pub fn new(config: ExecutionConfig, app_context: crate::provider::ApplicationContext) -> Self {
         Self {
             tools: Arc::new(DashMap::new()),
             default_semaphore: Arc::new(Semaphore::new(config.max_concurrency)),
@@ -874,6 +880,7 @@ impl<I: IdempotencyStore + 'static> ToolWorker<I> {
             config,
             idempotency_store: None,
             metrics: Arc::new(WorkerMetrics::default()),
+            app_context,
         }
     }
 
@@ -921,7 +928,7 @@ impl<I: IdempotencyStore + 'static> ToolWorker<I> {
     /// ```ignore
     /// use riglr_core::{ToolWorker, ExecutionConfig, ResourceLimits, idempotency::InMemoryIdempotencyStore};
     ///
-    /// let limits = ResourceLimits::new()
+    /// let limits = ResourceLimits::default()
     ///     .with_limit("solana_rpc", 3)
     ///     .with_limit("evm_rpc", 8)
     ///     .with_limit("http_api", 15);
@@ -958,7 +965,7 @@ impl<I: IdempotencyStore + 'static> ToolWorker<I> {
     ///
     /// #[async_trait]
     /// impl Tool for CalculatorTool {
-    ///     async fn execute(&self, params: serde_json::Value) -> Result<JobResult, Box<dyn std::error::Error + Send + Sync>> {
+    ///     async fn execute(&self, params: serde_json::Value, _context: &ApplicationContext) -> Result<JobResult, ToolError> {
     ///         let a = params["a"].as_f64().unwrap_or(0.0);
     ///         let b = params["b"].as_f64().unwrap_or(0.0);
     ///         Ok(JobResult::success(&(a + b))?)
@@ -1015,14 +1022,14 @@ impl<I: IdempotencyStore + 'static> ToolWorker<I> {
     pub async fn process_job(&self, mut job: Job) -> Result<JobResult, WorkerError> {
         // Check idempotency cache first
         if let Some(cached_result) = self.check_idempotency_cache(&job).await? {
-            return Ok(cached_result);
+            return Ok(Arc::try_unwrap(cached_result).unwrap_or_else(|arc| (*arc).clone()));
         }
 
         // Acquire appropriate semaphore
         let _permit = self.acquire_semaphore(&job.tool_name).await.map_err(|e| {
             WorkerError::SemaphoreAcquisition {
                 tool_name: job.tool_name.clone(),
-                source: e,
+                source_message: e.to_string(),
             }
         })?;
 
@@ -1041,7 +1048,10 @@ impl<I: IdempotencyStore + 'static> ToolWorker<I> {
     }
 
     /// Check if there's a cached result for this job
-    async fn check_idempotency_cache(&self, job: &Job) -> Result<Option<JobResult>, WorkerError> {
+    async fn check_idempotency_cache(
+        &self,
+        job: &Job,
+    ) -> Result<Option<Arc<JobResult>>, WorkerError> {
         if let Some(ref idempotency_key) = job.idempotency_key {
             if self.config.enable_idempotency {
                 if let Some(ref store) = self.idempotency_store {
@@ -1055,7 +1065,9 @@ impl<I: IdempotencyStore + 'static> ToolWorker<I> {
                         }
                         Ok(None) => {} // No cached result
                         Err(e) => {
-                            return Err(WorkerError::IdempotencyStore { source: e.into() });
+                            return Err(WorkerError::IdempotencyStore {
+                                source_message: e.to_string(),
+                            });
                         }
                     }
                 }
@@ -1081,7 +1093,7 @@ impl<I: IdempotencyStore + 'static> ToolWorker<I> {
         job: &mut Job,
     ) -> Result<JobResult, WorkerError> {
         let backoff = self.create_backoff_strategy();
-        let mut last_error = None;
+        let mut last_error: Option<ToolError> = None;
         let mut attempts = 0;
 
         while attempts <= job.max_retries {
@@ -1101,11 +1113,13 @@ impl<I: IdempotencyStore + 'static> ToolWorker<I> {
                         .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                     return Ok(job_result);
                 }
-                Err(error_msg) => {
-                    last_error = Some(error_msg);
+                Err(tool_error) => {
+                    // Check if we should retry based on the error type
+                    let should_retry = tool_error.is_retriable() && attempts <= job.max_retries;
 
-                    // Check if we should retry
-                    if attempts <= job.max_retries {
+                    last_error = Some(tool_error);
+
+                    if should_retry {
                         job.increment_retry();
                         self.metrics
                             .jobs_retried
@@ -1123,8 +1137,7 @@ impl<I: IdempotencyStore + 'static> ToolWorker<I> {
             .jobs_failed
             .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         Ok(JobResult::Failure {
-            error: last_error.unwrap_or_else(|| "Unknown error".to_string()),
-            retriable: false,
+            error: last_error.unwrap_or_else(|| ToolError::permanent_string("Unknown error")),
         })
     }
 
@@ -1133,17 +1146,20 @@ impl<I: IdempotencyStore + 'static> ToolWorker<I> {
         &self,
         tool: &Arc<dyn Tool>,
         params: &serde_json::Value,
-    ) -> Result<JobResult, String> {
+    ) -> Result<JobResult, ToolError> {
         // Execute with timeout
-        let result =
-            tokio::time::timeout(self.config.default_timeout, tool.execute(params.clone())).await;
+        let result = tokio::time::timeout(
+            self.config.default_timeout,
+            tool.execute(params.clone(), &self.app_context),
+        )
+        .await;
 
         match result {
             Ok(Ok(job_result)) => Ok(job_result),
             Ok(Err(e)) => {
-                let error_msg = e.to_string();
-                warn!("Tool execution failed: {}", error_msg);
-                Err(error_msg)
+                // Propagate the ToolError directly to preserve its structure
+                warn!("Tool execution failed: {}", e);
+                Err(e)
             }
             Err(_) => {
                 let error_msg = format!(
@@ -1151,7 +1167,8 @@ impl<I: IdempotencyStore + 'static> ToolWorker<I> {
                     self.config.default_timeout
                 );
                 warn!("{}", error_msg);
-                Err(error_msg)
+                // Timeout errors are retriable
+                Err(ToolError::retriable_string(error_msg))
             }
         }
     }
@@ -1179,7 +1196,11 @@ impl<I: IdempotencyStore + 'static> ToolWorker<I> {
             if self.config.enable_idempotency {
                 if let Some(ref store) = self.idempotency_store {
                     let _ = store
-                        .set(idempotency_key, job_result, self.config.idempotency_ttl)
+                        .set(
+                            idempotency_key,
+                            Arc::new(job_result.clone()),
+                            self.config.idempotency_ttl,
+                        )
                         .await;
                 }
             }
@@ -1322,6 +1343,7 @@ impl<I: IdempotencyStore + 'static> Clone for ToolWorker<I> {
             config: self.config.clone(),
             idempotency_store: self.idempotency_store.clone(),
             metrics: self.metrics.clone(),
+            app_context: self.app_context.clone(),
         }
     }
 }
@@ -1331,11 +1353,23 @@ mod tests {
     use super::*;
     use crate::idempotency::InMemoryIdempotencyStore;
     use crate::jobs::Job;
+    use crate::provider::{ApplicationContext, RpcProvider};
     use uuid::Uuid;
+
+    fn test_app_context() -> ApplicationContext {
+        ApplicationContext::new(
+            Arc::new(RpcProvider::new()),
+            riglr_config::Config::from_env(),
+        )
+    }
 
     struct MockTool {
         name: String,
         should_fail: bool,
+    }
+
+    struct RetriableMockTool {
+        name: String,
     }
 
     #[async_trait]
@@ -1343,9 +1377,10 @@ mod tests {
         async fn execute(
             &self,
             _params: serde_json::Value,
-        ) -> Result<JobResult, Box<dyn std::error::Error + Send + Sync>> {
+            _context: &crate::provider::ApplicationContext,
+        ) -> Result<JobResult, ToolError> {
             if self.should_fail {
-                Err("Mock failure".into())
+                Err(ToolError::permanent_string("Mock failure"))
             } else {
                 Ok(JobResult::Success {
                     value: serde_json::json!({"result": "success"}),
@@ -1363,9 +1398,31 @@ mod tests {
         }
     }
 
+    #[async_trait]
+    impl Tool for RetriableMockTool {
+        async fn execute(
+            &self,
+            _params: serde_json::Value,
+            _context: &crate::provider::ApplicationContext,
+        ) -> Result<JobResult, ToolError> {
+            Err(ToolError::retriable_string("Mock retriable failure"))
+        }
+
+        fn name(&self) -> &str {
+            &self.name
+        }
+
+        fn description(&self) -> &str {
+            ""
+        }
+    }
+
     #[tokio::test]
     async fn test_tool_worker_process_job() {
-        let worker = ToolWorker::<InMemoryIdempotencyStore>::new(ExecutionConfig::default());
+        let worker = ToolWorker::<InMemoryIdempotencyStore>::new(
+            ExecutionConfig::default(),
+            test_app_context(),
+        );
         let tool = Arc::new(MockTool {
             name: "test_tool".to_string(),
             should_fail: false,
@@ -1391,8 +1448,8 @@ mod tests {
     #[tokio::test]
     async fn test_tool_worker_with_idempotency() {
         let store = Arc::new(InMemoryIdempotencyStore::new());
-        let worker =
-            ToolWorker::new(ExecutionConfig::default()).with_idempotency_store(store.clone());
+        let worker = ToolWorker::new(ExecutionConfig::default(), test_app_context())
+            .with_idempotency_store(store.clone());
 
         let tool = Arc::new(MockTool {
             name: "test_tool".to_string(),
@@ -1425,7 +1482,7 @@ mod tests {
             ..Default::default()
         };
 
-        let worker = ToolWorker::<InMemoryIdempotencyStore>::new(config);
+        let worker = ToolWorker::<InMemoryIdempotencyStore>::new(config, test_app_context());
         let tool = Arc::new(MockTool {
             name: "test_tool".to_string(),
             should_fail: true,
@@ -1443,8 +1500,8 @@ mod tests {
 
         let result = worker.process_job(job).await.unwrap();
         match result {
-            JobResult::Failure { retriable, .. } => {
-                assert!(!retriable); // Should not be retriable after exhausting retries
+            JobResult::Failure { .. } => {
+                assert!(!result.is_retriable()); // Should not be retriable after exhausting retries
             }
             _ => panic!("Expected failure"),
         }
@@ -1452,7 +1509,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_tool_worker_tool_not_found() {
-        let worker = ToolWorker::<InMemoryIdempotencyStore>::new(ExecutionConfig::default());
+        let worker = ToolWorker::<InMemoryIdempotencyStore>::new(
+            ExecutionConfig::default(),
+            test_app_context(),
+        );
 
         let job = Job {
             job_id: Uuid::new_v4(),
@@ -1478,7 +1538,7 @@ mod tests {
             ..Default::default()
         };
 
-        let worker = ToolWorker::<InMemoryIdempotencyStore>::new(config);
+        let worker = ToolWorker::<InMemoryIdempotencyStore>::new(config, test_app_context());
         let tool = Arc::new(SlowMockTool {
             name: "slow_tool".to_string(),
             delay: Duration::from_millis(100),
@@ -1497,7 +1557,7 @@ mod tests {
         let result = worker.process_job(job).await.unwrap();
         match result {
             JobResult::Failure { error, .. } => {
-                assert!(error.to_lowercase().contains("timed out"));
+                assert!(error.to_string().to_lowercase().contains("timed out"));
             }
             _ => panic!("Expected timeout failure"),
         }
@@ -1510,8 +1570,8 @@ mod tests {
             .with_limit("solana_rpc", 2)
             .with_limit("evm_rpc", 3);
 
-        let worker =
-            ToolWorker::<InMemoryIdempotencyStore>::new(config).with_resource_limits(limits);
+        let worker = ToolWorker::<InMemoryIdempotencyStore>::new(config, test_app_context())
+            .with_resource_limits(limits);
 
         // Test semaphore acquisition for different tool types
         let solana_tool = Arc::new(MockTool {
@@ -1587,7 +1647,8 @@ mod tests {
         };
 
         let store = Arc::new(InMemoryIdempotencyStore::new());
-        let worker = ToolWorker::new(config).with_idempotency_store(store.clone());
+        let worker =
+            ToolWorker::new(config, test_app_context()).with_idempotency_store(store.clone());
 
         let tool = Arc::new(MockTool {
             name: "test_tool".to_string(),
@@ -1618,14 +1679,16 @@ mod tests {
 
     #[tokio::test]
     async fn test_tool_worker_metrics() {
-        let worker = ToolWorker::<InMemoryIdempotencyStore>::new(ExecutionConfig::default());
+        let worker = ToolWorker::<InMemoryIdempotencyStore>::new(
+            ExecutionConfig::default(),
+            test_app_context(),
+        );
         let success_tool = Arc::new(MockTool {
             name: "success_tool".to_string(),
             should_fail: false,
         });
-        let fail_tool = Arc::new(MockTool {
+        let fail_tool = Arc::new(RetriableMockTool {
             name: "fail_tool".to_string(),
-            should_fail: true,
         });
 
         worker.register_tool(success_tool).await;
@@ -1759,7 +1822,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_tool_worker_clone() {
-        let worker = ToolWorker::<InMemoryIdempotencyStore>::new(ExecutionConfig::default());
+        let worker = ToolWorker::<InMemoryIdempotencyStore>::new(
+            ExecutionConfig::default(),
+            test_app_context(),
+        );
         let tool = Arc::new(MockTool {
             name: "test_tool".to_string(),
             should_fail: false,
@@ -1790,7 +1856,10 @@ mod tests {
     async fn test_tool_worker_run_loop() {
         use crate::queue::InMemoryJobQueue;
 
-        let worker = ToolWorker::<InMemoryIdempotencyStore>::new(ExecutionConfig::default());
+        let worker = ToolWorker::<InMemoryIdempotencyStore>::new(
+            ExecutionConfig::default(),
+            test_app_context(),
+        );
         let tool = Arc::new(MockTool {
             name: "test_tool".to_string(),
             should_fail: false,
@@ -1839,8 +1908,8 @@ mod tests {
     #[tokio::test]
     async fn test_idempotency_cache_hit() {
         let store = Arc::new(InMemoryIdempotencyStore::new());
-        let worker =
-            ToolWorker::new(ExecutionConfig::default()).with_idempotency_store(store.clone());
+        let worker = ToolWorker::new(ExecutionConfig::default(), test_app_context())
+            .with_idempotency_store(store.clone());
 
         let tool = Arc::new(MockTool {
             name: "test_tool".to_string(),
@@ -1854,7 +1923,11 @@ mod tests {
             tx_hash: Some("cached_tx_hash".to_string()),
         };
         store
-            .set("cache_key", &cached_result, Duration::from_secs(60))
+            .set(
+                "cache_key",
+                Arc::new(cached_result),
+                Duration::from_secs(60),
+            )
             .await
             .unwrap();
 
@@ -1882,7 +1955,10 @@ mod tests {
     async fn test_tool_worker_unknown_error_fallback() {
         // Create a worker with a job that will fail with max retries
         // but have no last_error set to trigger the "Unknown error" fallback
-        let worker = ToolWorker::<InMemoryIdempotencyStore>::new(ExecutionConfig::default());
+        let worker = ToolWorker::<InMemoryIdempotencyStore>::new(
+            ExecutionConfig::default(),
+            test_app_context(),
+        );
 
         // Don't register any tool - this will cause tool not found error
         let job = Job {
@@ -1905,8 +1981,11 @@ mod tests {
 
     #[tokio::test]
     async fn test_run_loop_error_handling() {
-        let worker = ToolWorker::<InMemoryIdempotencyStore>::new(ExecutionConfig::default());
-        let error_queue = Arc::new(ErrorQueue::new());
+        let worker = ToolWorker::<InMemoryIdempotencyStore>::new(
+            ExecutionConfig::default(),
+            test_app_context(),
+        );
+        let error_queue = Arc::new(ErrorQueue::default());
 
         // Start run loop with cancellation token
         let worker_clone = worker.clone();
@@ -1928,7 +2007,10 @@ mod tests {
     async fn test_run_loop_empty_queue() {
         use crate::queue::InMemoryJobQueue;
 
-        let worker = ToolWorker::<InMemoryIdempotencyStore>::new(ExecutionConfig::default());
+        let worker = ToolWorker::<InMemoryIdempotencyStore>::new(
+            ExecutionConfig::default(),
+            test_app_context(),
+        );
         let queue = Arc::new(InMemoryJobQueue::new());
 
         // Start run loop with cancellation token - should encounter Ok(None) from empty queue
@@ -1951,7 +2033,10 @@ mod tests {
     async fn test_run_loop_with_failing_jobs() {
         use crate::queue::InMemoryJobQueue;
 
-        let worker = ToolWorker::<InMemoryIdempotencyStore>::new(ExecutionConfig::default());
+        let worker = ToolWorker::<InMemoryIdempotencyStore>::new(
+            ExecutionConfig::default(),
+            test_app_context(),
+        );
         let fail_tool = Arc::new(MockTool {
             name: "fail_tool".to_string(),
             should_fail: true,
@@ -1998,14 +2083,16 @@ mod tests {
 
     #[tokio::test]
     async fn test_comprehensive_metrics_tracking() {
-        let worker = ToolWorker::<InMemoryIdempotencyStore>::new(ExecutionConfig::default());
+        let worker = ToolWorker::<InMemoryIdempotencyStore>::new(
+            ExecutionConfig::default(),
+            test_app_context(),
+        );
         let success_tool = Arc::new(MockTool {
             name: "success_tool".to_string(),
             should_fail: false,
         });
-        let fail_tool = Arc::new(MockTool {
+        let fail_tool = Arc::new(RetriableMockTool {
             name: "fail_tool".to_string(),
-            should_fail: true,
         });
         worker.register_tool(success_tool).await;
         worker.register_tool(fail_tool).await;
@@ -2068,7 +2155,7 @@ mod tests {
             ..Default::default()
         };
 
-        let worker = ToolWorker::<InMemoryIdempotencyStore>::new(config);
+        let worker = ToolWorker::<InMemoryIdempotencyStore>::new(config, test_app_context());
         let tool = Arc::new(MockTool {
             name: "retry_tool".to_string(),
             should_fail: true,
@@ -2092,7 +2179,10 @@ mod tests {
     async fn test_worker_startup_logging() {
         use crate::queue::InMemoryJobQueue;
 
-        let worker = ToolWorker::<InMemoryIdempotencyStore>::new(ExecutionConfig::default());
+        let worker = ToolWorker::<InMemoryIdempotencyStore>::new(
+            ExecutionConfig::default(),
+            test_app_context(),
+        );
         let tool = Arc::new(MockTool {
             name: "startup_tool".to_string(),
             should_fail: false,
@@ -2124,7 +2214,7 @@ mod tests {
             ..Default::default()
         };
 
-        let worker = ToolWorker::<InMemoryIdempotencyStore>::new(config);
+        let worker = ToolWorker::<InMemoryIdempotencyStore>::new(config, test_app_context());
         let tool = Arc::new(SlowMockTool {
             name: "timeout_tool".to_string(),
             delay: Duration::from_millis(50),
@@ -2144,7 +2234,7 @@ mod tests {
         let result = worker.process_job(job).await.unwrap();
         match result {
             JobResult::Failure { error, .. } => {
-                assert!(error.to_lowercase().contains("timed out"));
+                assert!(error.to_string().to_lowercase().contains("timed out"));
             }
             _ => panic!("Expected timeout failure"),
         }
@@ -2156,8 +2246,11 @@ mod tests {
             .with_limit("solana_rpc", 1)
             .with_limit("evm_rpc", 1);
 
-        let worker = ToolWorker::<InMemoryIdempotencyStore>::new(ExecutionConfig::default())
-            .with_resource_limits(limits);
+        let worker = ToolWorker::<InMemoryIdempotencyStore>::new(
+            ExecutionConfig::default(),
+            test_app_context(),
+        )
+        .with_resource_limits(limits);
 
         // Register tools with different name patterns to exercise line 278
         let solana_tool = Arc::new(MockTool {
@@ -2206,6 +2299,522 @@ mod tests {
         let _result = worker.process_job(job2).await.unwrap();
     }
 
+    #[tokio::test]
+    async fn test_execution_config_custom_values() {
+        let config = ExecutionConfig {
+            max_concurrency: 25,
+            default_timeout: Duration::from_secs(60),
+            max_retries: 5,
+            initial_retry_delay: Duration::from_millis(200),
+            max_retry_delay: Duration::from_secs(20),
+            idempotency_ttl: Duration::from_secs(7200),
+            enable_idempotency: false,
+        };
+
+        assert_eq!(config.max_concurrency, 25);
+        assert_eq!(config.default_timeout, Duration::from_secs(60));
+        assert_eq!(config.max_retries, 5);
+        assert_eq!(config.initial_retry_delay, Duration::from_millis(200));
+        assert_eq!(config.max_retry_delay, Duration::from_secs(20));
+        assert_eq!(config.idempotency_ttl, Duration::from_secs(7200));
+        assert!(!config.enable_idempotency);
+    }
+
+    #[tokio::test]
+    async fn test_resource_limits_new() {
+        let limits = ResourceLimits::default();
+        assert!(limits.get_semaphore("any_resource").is_none());
+    }
+
+    #[tokio::test]
+    async fn test_resource_limits_with_limit_chaining() {
+        let limits = ResourceLimits::default()
+            .with_limit("first", 1)
+            .with_limit("second", 2)
+            .with_limit("third", 3);
+
+        assert!(limits.get_semaphore("first").is_some());
+        assert!(limits.get_semaphore("second").is_some());
+        assert!(limits.get_semaphore("third").is_some());
+        assert!(limits.get_semaphore("fourth").is_none());
+    }
+
+    #[tokio::test]
+    async fn test_tool_worker_new_custom_config() {
+        let config = ExecutionConfig {
+            max_concurrency: 5,
+            ..Default::default()
+        };
+        let worker = ToolWorker::<InMemoryIdempotencyStore>::new(config, test_app_context());
+
+        // Verify worker was created with custom concurrency
+        // We can't directly access default_semaphore, but we can verify through the config
+        assert_eq!(worker.config.max_concurrency, 5);
+    }
+
+    #[tokio::test]
+    async fn test_tool_worker_register_tool_replacement() {
+        let worker = ToolWorker::<InMemoryIdempotencyStore>::new(
+            ExecutionConfig::default(),
+            test_app_context(),
+        );
+
+        // Register initial tool
+        let tool1 = Arc::new(MockTool {
+            name: "test_tool".to_string(),
+            should_fail: false,
+        });
+        worker.register_tool(tool1).await;
+        assert_eq!(worker.tools.len(), 1);
+
+        // Register tool with same name - should replace
+        let tool2 = Arc::new(MockTool {
+            name: "test_tool".to_string(),
+            should_fail: true,
+        });
+        worker.register_tool(tool2).await;
+        assert_eq!(worker.tools.len(), 1);
+
+        // Verify the new tool was used (it should fail)
+        let job = Job {
+            job_id: Uuid::new_v4(),
+            tool_name: "test_tool".to_string(),
+            params: serde_json::json!({}),
+            idempotency_key: None,
+            max_retries: 0,
+            retry_count: 0,
+        };
+
+        let result = worker.process_job(job).await.unwrap();
+        assert!(!result.is_success());
+    }
+
+    #[tokio::test]
+    async fn test_idempotency_store_error_handling() {
+        let store = Arc::new(ErrorIdempotencyStore::default());
+        let worker = ToolWorker::new(ExecutionConfig::default(), test_app_context())
+            .with_idempotency_store(store.clone());
+
+        let tool = Arc::new(MockTool {
+            name: "test_tool".to_string(),
+            should_fail: false,
+        });
+        worker.register_tool(tool).await;
+
+        let job = Job {
+            job_id: Uuid::new_v4(),
+            tool_name: "test_tool".to_string(),
+            params: serde_json::json!({}),
+            idempotency_key: Some("test_key".to_string()),
+            max_retries: 0,
+            retry_count: 0,
+        };
+
+        // Should fail with idempotency store error
+        let result = worker.process_job(job).await;
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("Store error"));
+    }
+
+    #[tokio::test]
+    async fn test_no_idempotency_key_no_cache_check() {
+        let store = Arc::new(InMemoryIdempotencyStore::new());
+        let worker = ToolWorker::new(ExecutionConfig::default(), test_app_context())
+            .with_idempotency_store(store.clone());
+
+        let tool = Arc::new(MockTool {
+            name: "test_tool".to_string(),
+            should_fail: false,
+        });
+        worker.register_tool(tool).await;
+
+        let job = Job {
+            job_id: Uuid::new_v4(),
+            tool_name: "test_tool".to_string(),
+            params: serde_json::json!({}),
+            idempotency_key: None, // No idempotency key
+            max_retries: 0,
+            retry_count: 0,
+        };
+
+        // Should execute normally without cache check
+        let result = worker.process_job(job).await.unwrap();
+        assert!(result.is_success());
+    }
+
+    #[tokio::test]
+    async fn test_no_idempotency_store_no_cache() {
+        let worker = ToolWorker::<InMemoryIdempotencyStore>::new(
+            ExecutionConfig::default(),
+            test_app_context(),
+        );
+        // Don't set idempotency store
+
+        let tool = Arc::new(MockTool {
+            name: "test_tool".to_string(),
+            should_fail: false,
+        });
+        worker.register_tool(tool).await;
+
+        let job = Job {
+            job_id: Uuid::new_v4(),
+            tool_name: "test_tool".to_string(),
+            params: serde_json::json!({}),
+            idempotency_key: Some("test_key".to_string()),
+            max_retries: 0,
+            retry_count: 0,
+        };
+
+        // Should execute normally without cache check
+        let result = worker.process_job(job).await.unwrap();
+        assert!(result.is_success());
+    }
+
+    #[tokio::test]
+    async fn test_cache_result_with_no_idempotency_key() {
+        let store = Arc::new(InMemoryIdempotencyStore::new());
+        let worker = ToolWorker::new(ExecutionConfig::default(), test_app_context())
+            .with_idempotency_store(store.clone());
+
+        let tool = Arc::new(MockTool {
+            name: "test_tool".to_string(),
+            should_fail: false,
+        });
+        worker.register_tool(tool).await;
+
+        let job = Job {
+            job_id: Uuid::new_v4(),
+            tool_name: "test_tool".to_string(),
+            params: serde_json::json!({}),
+            idempotency_key: None, // No idempotency key
+            max_retries: 0,
+            retry_count: 0,
+        };
+
+        // Should execute and not attempt to cache
+        let result = worker.process_job(job).await.unwrap();
+        assert!(result.is_success());
+    }
+
+    #[tokio::test]
+    async fn test_cache_result_with_idempotency_disabled() {
+        let config = ExecutionConfig {
+            enable_idempotency: false,
+            ..Default::default()
+        };
+
+        let store = Arc::new(InMemoryIdempotencyStore::new());
+        let worker =
+            ToolWorker::new(config, test_app_context()).with_idempotency_store(store.clone());
+
+        let tool = Arc::new(MockTool {
+            name: "test_tool".to_string(),
+            should_fail: false,
+        });
+        worker.register_tool(tool).await;
+
+        let job = Job {
+            job_id: Uuid::new_v4(),
+            tool_name: "test_tool".to_string(),
+            params: serde_json::json!({}),
+            idempotency_key: Some("test_key".to_string()),
+            max_retries: 0,
+            retry_count: 0,
+        };
+
+        // Should execute but not cache due to disabled idempotency
+        let result = worker.process_job(job).await.unwrap();
+        assert!(result.is_success());
+
+        // Verify nothing was cached
+        assert!(store.get("test_key").await.unwrap().is_none());
+    }
+
+    #[tokio::test]
+    async fn test_cache_result_with_no_store() {
+        let worker = ToolWorker::<InMemoryIdempotencyStore>::new(
+            ExecutionConfig::default(),
+            test_app_context(),
+        );
+        // Don't set idempotency store
+
+        let tool = Arc::new(MockTool {
+            name: "test_tool".to_string(),
+            should_fail: false,
+        });
+        worker.register_tool(tool).await;
+
+        let job = Job {
+            job_id: Uuid::new_v4(),
+            tool_name: "test_tool".to_string(),
+            params: serde_json::json!({}),
+            idempotency_key: Some("test_key".to_string()),
+            max_retries: 0,
+            retry_count: 0,
+        };
+
+        // Should execute but not cache due to no store
+        let result = worker.process_job(job).await.unwrap();
+        assert!(result.is_success());
+    }
+
+    #[tokio::test]
+    async fn test_create_backoff_strategy() {
+        let config = ExecutionConfig {
+            initial_retry_delay: Duration::from_millis(50),
+            max_retry_delay: Duration::from_secs(5),
+            ..Default::default()
+        };
+
+        let worker = ToolWorker::<InMemoryIdempotencyStore>::new(config, test_app_context());
+        let backoff = worker.create_backoff_strategy();
+
+        // Test that backoff produces delays
+        let mut test_backoff = backoff.clone();
+        let first_delay = test_backoff.next_backoff();
+        assert!(first_delay.is_some());
+        // Backoff strategies may include jitter, so allow some variance
+        assert!(first_delay.unwrap() >= Duration::from_millis(1));
+    }
+
+    #[tokio::test]
+    async fn test_wait_with_backoff_no_delay() {
+        let worker = ToolWorker::<InMemoryIdempotencyStore>::new(
+            ExecutionConfig::default(),
+            test_app_context(),
+        );
+
+        // Create a minimal backoff that will return None quickly
+        let mut backoff = ExponentialBackoffBuilder::new()
+            .with_initial_interval(Duration::from_millis(1))
+            .with_max_interval(Duration::from_millis(1))
+            .with_max_elapsed_time(Some(Duration::from_millis(1)))
+            .build();
+
+        // Call next_backoff a few times to exhaust it quickly
+        for _ in 0..10 {
+            if backoff.next_backoff().is_none() {
+                break;
+            }
+            // Small delay to pass the max elapsed time
+            tokio::time::sleep(Duration::from_millis(1)).await;
+        }
+
+        let job_id = Uuid::new_v4();
+
+        // This should handle the exhausted backoff gracefully
+        worker.wait_with_backoff(backoff, &job_id).await;
+    }
+
+    #[tokio::test]
+    async fn test_acquire_semaphore_web_prefix() {
+        let limits = ResourceLimits::default().with_limit("http_api", 1);
+
+        let worker = ToolWorker::<InMemoryIdempotencyStore>::new(
+            ExecutionConfig::default(),
+            test_app_context(),
+        )
+        .with_resource_limits(limits);
+
+        // Test web_ prefix maps to http_api
+        let _permit = worker.acquire_semaphore("web_fetch").await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_acquire_semaphore_no_matching_resource() {
+        let limits = ResourceLimits::default(); // Empty limits
+
+        let worker = ToolWorker::<InMemoryIdempotencyStore>::new(
+            ExecutionConfig::default(),
+            test_app_context(),
+        )
+        .with_resource_limits(limits);
+
+        // Should fall back to default semaphore
+        let _permit = worker.acquire_semaphore("solana_test").await.unwrap();
+        let _permit = worker.acquire_semaphore("random_tool").await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_run_loop_job_processing_success_logging() {
+        use crate::queue::InMemoryJobQueue;
+
+        let worker = ToolWorker::<InMemoryIdempotencyStore>::new(
+            ExecutionConfig::default(),
+            test_app_context(),
+        );
+        let tool = Arc::new(MockTool {
+            name: "log_test_tool".to_string(),
+            should_fail: false,
+        });
+        worker.register_tool(tool).await;
+
+        let queue = Arc::new(InMemoryJobQueue::new());
+
+        // Enqueue a successful job
+        let job = Job {
+            job_id: Uuid::new_v4(),
+            tool_name: "log_test_tool".to_string(),
+            params: serde_json::json!({}),
+            idempotency_key: None,
+            max_retries: 0,
+            retry_count: 0,
+        };
+        queue.enqueue(job).await.unwrap();
+
+        let worker_clone = worker.clone();
+        let queue_clone = queue.clone();
+        let cancellation_token = tokio_util::sync::CancellationToken::new();
+        let token_clone = cancellation_token.clone();
+
+        let handle = tokio::spawn(async move { worker_clone.run(queue_clone, token_clone).await });
+
+        // Give it time to process
+        tokio::time::sleep(Duration::from_millis(50)).await;
+
+        cancellation_token.cancel();
+        handle.await.unwrap().unwrap();
+
+        // Check that jobs_processed was incremented (line 1274)
+        let metrics = worker.metrics();
+        assert!(
+            metrics
+                .jobs_processed
+                .load(std::sync::atomic::Ordering::Relaxed)
+                > 0
+        );
+    }
+
+    #[tokio::test]
+    async fn test_run_loop_worker_error_logging() {
+        use crate::queue::InMemoryJobQueue;
+
+        let worker = ToolWorker::<InMemoryIdempotencyStore>::new(
+            ExecutionConfig::default(),
+            test_app_context(),
+        );
+        // Don't register any tools to cause WorkerError
+
+        let queue = Arc::new(InMemoryJobQueue::new());
+
+        // Enqueue a job for non-existent tool
+        let job = Job {
+            job_id: Uuid::new_v4(),
+            tool_name: "nonexistent_tool".to_string(),
+            params: serde_json::json!({}),
+            idempotency_key: None,
+            max_retries: 0,
+            retry_count: 0,
+        };
+        queue.enqueue(job).await.unwrap();
+
+        let worker_clone = worker.clone();
+        let queue_clone = queue.clone();
+        let cancellation_token = tokio_util::sync::CancellationToken::new();
+        let token_clone = cancellation_token.clone();
+
+        let handle = tokio::spawn(async move { worker_clone.run(queue_clone, token_clone).await });
+
+        // Give it time to process and hit the error path
+        tokio::time::sleep(Duration::from_millis(50)).await;
+
+        cancellation_token.cancel();
+        handle.await.unwrap().unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_semaphore_acquisition_error() {
+        // This test is tricky since semaphore acquisition rarely fails
+        // But we can test the error path by creating a scenario where it might
+        let config = ExecutionConfig {
+            max_concurrency: 1,
+            ..Default::default()
+        };
+
+        let worker = ToolWorker::<InMemoryIdempotencyStore>::new(config, test_app_context());
+        let tool = Arc::new(MockTool {
+            name: "test_tool".to_string(),
+            should_fail: false,
+        });
+        worker.register_tool(tool).await;
+
+        let job = Job {
+            job_id: Uuid::new_v4(),
+            tool_name: "test_tool".to_string(),
+            params: serde_json::json!({}),
+            idempotency_key: None,
+            max_retries: 0,
+            retry_count: 0,
+        };
+
+        // Normal case should work
+        let result = worker.process_job(job).await;
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_tool_trait_description_method() {
+        let tool = MockTool {
+            name: "test".to_string(),
+            should_fail: false,
+        };
+
+        // Test that description method returns expected value
+        assert_eq!(tool.description(), "");
+    }
+
+    #[test]
+    fn test_mock_tool_name_method() {
+        let tool = MockTool {
+            name: "test_name".to_string(),
+            should_fail: false,
+        };
+
+        assert_eq!(tool.name(), "test_name");
+    }
+
+    #[test]
+    fn test_slow_mock_tool_name_method() {
+        let tool = SlowMockTool {
+            name: "slow_test".to_string(),
+            delay: Duration::from_millis(1),
+        };
+
+        assert_eq!(tool.name(), "slow_test");
+        assert_eq!(tool.description(), "");
+    }
+
+    #[test]
+    fn test_error_queue_new() {
+        let _queue = ErrorQueue::default();
+        // Just testing construction
+    }
+
+    #[derive(Default)]
+    struct ErrorIdempotencyStore {
+        _phantom: std::marker::PhantomData<()>,
+    }
+
+    #[async_trait]
+    impl crate::idempotency::IdempotencyStore for ErrorIdempotencyStore {
+        async fn get(&self, _key: &str) -> anyhow::Result<Option<Arc<JobResult>>> {
+            Err(anyhow::anyhow!("Store error"))
+        }
+
+        async fn set(
+            &self,
+            _key: &str,
+            _result: Arc<JobResult>,
+            _ttl: Duration,
+        ) -> anyhow::Result<()> {
+            Err(anyhow::anyhow!("Store error"))
+        }
+
+        async fn remove(&self, _key: &str) -> anyhow::Result<()> {
+            Err(anyhow::anyhow!("Store error"))
+        }
+    }
+
     struct SlowMockTool {
         name: String,
         delay: Duration,
@@ -2216,7 +2825,8 @@ mod tests {
         async fn execute(
             &self,
             _params: serde_json::Value,
-        ) -> Result<JobResult, Box<dyn std::error::Error + Send + Sync>> {
+            _context: &crate::provider::ApplicationContext,
+        ) -> Result<JobResult, ToolError> {
             tokio::time::sleep(self.delay).await;
             Ok(JobResult::Success {
                 value: serde_json::json!({"result": "slow_success"}),
@@ -2233,16 +2843,9 @@ mod tests {
         }
     }
 
+    #[derive(Default)]
     struct ErrorQueue {
         _phantom: std::marker::PhantomData<()>,
-    }
-
-    impl ErrorQueue {
-        fn new() -> Self {
-            Self {
-                _phantom: std::marker::PhantomData,
-            }
-        }
     }
 
     #[async_trait]

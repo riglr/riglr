@@ -2,7 +2,7 @@
 //!
 //! This shows how the refactored API provides better type safety and chain-specific capabilities
 
-use riglr_core::config::SolanaNetworkConfig;
+use riglr_config::{Config, SolanaNetworkConfig};
 use riglr_core::error::ToolError;
 use riglr_core::signer::{LocalSolanaSigner, SignerContext, UnifiedSigner};
 use std::sync::Arc;
@@ -44,20 +44,23 @@ async fn evm_specific_tool() -> Result<String, ToolError> {
     ))
 }
 
-/// Example of using the new unified signer context
+/// Example of using the new unified signer context with configuration
 async fn demonstrate_unified_context() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    // Create a Solana signer
-    let solana_config = SolanaNetworkConfig {
-        name: "Solana Devnet".to_string(),
-        rpc_url: "https://api.devnet.solana.com".to_string(),
-        explorer_url: Some("https://explorer.solana.com".to_string()),
-    };
+    // Load configuration from environment (or use builder for testing)
+    let config = Config::try_global().unwrap_or_else(|| {
+        // If no global config, create a test config
+        Arc::new(Config::builder().build().expect("Failed to build config"))
+    });
+
+    // Create network configuration
+    // In production, this would come from Config::from_env()
+    let network_config = SolanaNetworkConfig::new("devnet", config.network.solana_rpc_url.clone());
 
     let keypair = solana_sdk::signature::Keypair::new();
-    let solana_signer = Arc::new(LocalSolanaSigner::from_keypair(keypair, solana_config));
+    let solana_signer = Arc::new(LocalSolanaSigner::from_keypair(keypair, network_config));
 
     // Use the new unified signer context
-    SignerContext::with_unified_signer(solana_signer as Arc<dyn UnifiedSigner>, async {
+    SignerContext::with_signer(solana_signer as Arc<dyn UnifiedSigner>, async {
         // Inside this context, tools can access the signer with type safety
 
         // This will succeed because we have a Solana signer
@@ -72,7 +75,7 @@ async fn demonstrate_unified_context() -> Result<(), Box<dyn std::error::Error +
             Err(e) => println!("Expected error for EVM tool: {}", e),
         }
 
-        Ok(())
+        Ok::<(), riglr_core::signer::SignerError>(())
     })
     .await?;
 
@@ -106,16 +109,23 @@ async fn flexible_tool() -> Result<String, ToolError> {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    println!("Demonstrating granular signer traits and typed SignerContext access\n");
+    println!("Demonstrating granular signer traits with configuration injection\n");
+
+    // In production, load configuration from environment
+    // This would typically be done once at application startup
+    // Config::from_env();
+
+    println!("Loading configuration from environment (or using defaults)...");
 
     // Demonstrate the unified context with type-safe access
     demonstrate_unified_context().await?;
 
     println!("\nRefactoring complete! The new API provides:");
+    println!("✅ Configuration-driven signer initialization");
     println!("✅ Type-safe access to chain-specific capabilities");
     println!("✅ Compile-time guarantees for tool requirements");
     println!("✅ Clear separation between Solana and EVM operations");
-    println!("✅ Backward compatibility with existing TransactionSigner");
+    println!("✅ No direct env::var calls in tools");
 
     Ok(())
 }
