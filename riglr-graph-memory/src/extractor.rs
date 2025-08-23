@@ -30,9 +30,11 @@ pub struct EntityExtractor {
 static ETH_ADDRESS_REGEX: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"0x[a-fA-F0-9]{40}\b").expect("Invalid Ethereum address regex"));
 
-/// Solana address regex pattern
-static SOL_ADDRESS_REGEX: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"[1-9A-HJ-NP-Za-km-z]{32,44}").expect("Invalid Solana address regex"));
+/// Solana address regex pattern (Base58 without 0, O, I, l)
+static SOL_ADDRESS_REGEX: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r"\b[123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz]{32,44}\b")
+        .expect("Invalid Solana address regex")
+});
 
 /// Amount pattern (e.g., "123.45 ETH", "$1,234.56", "1K USDC", "$1.2B")
 static AMOUNT_REGEX: Lazy<Regex> = Lazy::new(|| {
@@ -46,7 +48,6 @@ static TX_HASH_REGEX: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"0x[a-fA-F0-9]{64}").expect("Invalid transaction hash regex"));
 
 impl EntityExtractor {
-
     /// Initialize known patterns for entity recognition
     fn initialize_patterns(&mut self) {
         // DeFi Protocol patterns
@@ -414,10 +415,17 @@ impl EntityExtractor {
     /// Helper function to find pattern positions in text
     fn find_pattern_positions(&self, text: &str, pattern: &str) -> Vec<(usize, usize)> {
         let mut positions = Vec::new();
+
+        // Early return for empty pattern to avoid infinite loop
+        if pattern.is_empty() {
+            return positions;
+        }
+
         let pattern_lower = pattern.to_lowercase();
+        let text_lower = text.to_lowercase();
 
         let mut start = 0;
-        while let Some(pos) = text[start..].find(&pattern_lower) {
+        while let Some(pos) = text_lower[start..].find(&pattern_lower) {
             let actual_start = start + pos;
             let actual_end = actual_start + pattern.len();
             positions.push((actual_start, actual_end));
@@ -524,5 +532,711 @@ impl Default for EntityExtractor {
         };
         extractor.initialize_patterns();
         extractor
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::document::{AmountType, EntityType};
+
+    fn create_test_extractor() -> EntityExtractor {
+        EntityExtractor::default()
+    }
+
+    #[test]
+    fn test_default_creates_extractor_with_patterns() {
+        let extractor = EntityExtractor::default();
+        assert!(!extractor.protocol_patterns.is_empty());
+        assert!(!extractor.token_patterns.is_empty());
+        assert!(!extractor.chain_patterns.is_empty());
+    }
+
+    #[test]
+    fn test_initialize_patterns_populates_all_maps() {
+        let mut extractor = EntityExtractor {
+            protocol_patterns: HashMap::new(),
+            token_patterns: HashMap::new(),
+            chain_patterns: HashMap::new(),
+            regex_cache: HashMap::new(),
+        };
+
+        assert!(extractor.protocol_patterns.is_empty());
+        assert!(extractor.token_patterns.is_empty());
+        assert!(extractor.chain_patterns.is_empty());
+
+        extractor.initialize_patterns();
+
+        assert!(!extractor.protocol_patterns.is_empty());
+        assert!(!extractor.token_patterns.is_empty());
+        assert!(!extractor.chain_patterns.is_empty());
+
+        // Verify specific patterns exist
+        assert!(extractor.protocol_patterns.contains_key("uniswap"));
+        assert!(extractor.protocol_patterns.contains_key("aave"));
+        assert!(extractor.protocol_patterns.contains_key("compound"));
+        assert!(extractor.protocol_patterns.contains_key("jupiter"));
+        assert!(extractor.protocol_patterns.contains_key("solend"));
+
+        assert!(extractor.token_patterns.contains_key("ethereum"));
+        assert!(extractor.token_patterns.contains_key("bitcoin"));
+        assert!(extractor.token_patterns.contains_key("usdc"));
+        assert!(extractor.token_patterns.contains_key("usdt"));
+        assert!(extractor.token_patterns.contains_key("solana"));
+
+        assert!(extractor.chain_patterns.contains_key("ethereum"));
+        assert!(extractor.chain_patterns.contains_key("solana"));
+        assert!(extractor.chain_patterns.contains_key("polygon"));
+        assert!(extractor.chain_patterns.contains_key("arbitrum"));
+    }
+
+    #[test]
+    fn test_extract_empty_text_returns_empty_entities() {
+        let extractor = create_test_extractor();
+        let result = extractor.extract("");
+
+        assert!(result.wallets.is_empty());
+        assert!(result.tokens.is_empty());
+        assert!(result.protocols.is_empty());
+        assert!(result.chains.is_empty());
+        assert!(result.amounts.is_empty());
+        assert!(result.relationships.is_empty());
+    }
+
+    #[test]
+    fn test_extract_with_valid_ethereum_address() {
+        let extractor = create_test_extractor();
+        let text = "Send ETH to 0x742d35cc6645c0532eb5d65c8092a7b8ab27d1de";
+        let result = extractor.extract(text);
+
+        assert_eq!(result.wallets.len(), 1);
+        let wallet = &result.wallets[0];
+        assert_eq!(wallet.text, "0x742d35cc6645c0532eb5d65c8092a7b8ab27d1de");
+        assert_eq!(
+            wallet.canonical,
+            "0x742d35cc6645c0532eb5d65c8092a7b8ab27d1de"
+        );
+        assert_eq!(wallet.entity_type, EntityType::Wallet);
+        assert_eq!(wallet.confidence, 0.95);
+        assert_eq!(
+            wallet.properties.get("chain"),
+            Some(&"ethereum".to_string())
+        );
+        assert_eq!(
+            wallet.properties.get("format"),
+            Some(&"ethereum".to_string())
+        );
+    }
+
+    #[test]
+    fn test_extract_with_valid_solana_address() {
+        let extractor = create_test_extractor();
+        let text = "Transfer SOL to 9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM";
+        let result = extractor.extract(text);
+
+        assert_eq!(result.wallets.len(), 1);
+        let wallet = &result.wallets[0];
+        assert_eq!(wallet.text, "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM");
+        assert_eq!(
+            wallet.canonical,
+            "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM"
+        );
+        assert_eq!(wallet.entity_type, EntityType::Wallet);
+        assert_eq!(wallet.confidence, 0.85);
+        assert_eq!(wallet.properties.get("chain"), Some(&"solana".to_string()));
+        assert_eq!(wallet.properties.get("format"), Some(&"base58".to_string()));
+    }
+
+    #[test]
+    fn test_extract_tokens_finds_known_tokens() {
+        let extractor = create_test_extractor();
+        let text = "I swapped ETH for USDC on ethereum";
+        let result = extractor.extract(text);
+
+        assert!(!result.tokens.is_empty());
+        let token_names: Vec<&str> = result.tokens.iter().map(|t| t.canonical.as_str()).collect();
+        assert!(token_names.contains(&"ethereum"));
+        assert!(token_names.contains(&"usdc"));
+
+        for token in &result.tokens {
+            assert_eq!(token.entity_type, EntityType::Token);
+            assert_eq!(token.confidence, 0.90);
+            assert!(token.properties.contains_key("symbol"));
+        }
+    }
+
+    #[test]
+    fn test_extract_protocols_finds_known_protocols() {
+        let extractor = create_test_extractor();
+        let text = "I used Uniswap and Aave for DeFi trading";
+        let result = extractor.extract(text);
+
+        assert!(!result.protocols.is_empty());
+        let protocol_names: Vec<&str> = result
+            .protocols
+            .iter()
+            .map(|p| p.canonical.as_str())
+            .collect();
+        assert!(protocol_names.contains(&"uniswap"));
+        assert!(protocol_names.contains(&"aave"));
+
+        for protocol in &result.protocols {
+            assert_eq!(protocol.entity_type, EntityType::Protocol);
+            assert_eq!(protocol.confidence, 0.88);
+            assert_eq!(
+                protocol.properties.get("category"),
+                Some(&"defi".to_string())
+            );
+        }
+    }
+
+    #[test]
+    fn test_extract_chains_finds_known_chains() {
+        let extractor = create_test_extractor();
+        let text = "Deploy on Ethereum and Solana networks";
+        let result = extractor.extract(text);
+
+        assert!(!result.chains.is_empty());
+        let chain_names: Vec<&str> = result.chains.iter().map(|c| c.canonical.as_str()).collect();
+        assert!(chain_names.contains(&"ethereum"));
+        assert!(chain_names.contains(&"solana"));
+
+        for chain in &result.chains {
+            assert_eq!(chain.entity_type, EntityType::Chain);
+            assert_eq!(chain.confidence, 0.92);
+            assert_eq!(chain.properties.get("layer"), Some(&"l1".to_string()));
+        }
+    }
+
+    #[test]
+    fn test_extract_amounts_with_various_formats() {
+        let extractor = create_test_extractor();
+        let text = "Price is $1,234.56 and volume is 1.5K ETH, market cap 2.1B";
+        let result = extractor.extract(text);
+
+        assert!(!result.amounts.is_empty());
+
+        // Should find multiple amounts
+        let amount_texts: Vec<&str> = result.amounts.iter().map(|a| a.text.as_str()).collect();
+        assert!(amount_texts.iter().any(|&text| text.contains("1,234.56")));
+        assert!(amount_texts.iter().any(|&text| text.contains("1.5K")));
+        assert!(amount_texts.iter().any(|&text| text.contains("2.1B")));
+    }
+
+    #[test]
+    fn test_is_likely_solana_address_valid_cases() {
+        let extractor = create_test_extractor();
+
+        // Valid Solana addresses
+        assert!(extractor.is_likely_solana_address("9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM"));
+        assert!(extractor.is_likely_solana_address("SoLEao8wTzSfqhuou8dpYXGcoyGVDEBWwgEBpAEpDWe"));
+
+        // Edge cases - minimum length
+        assert!(extractor.is_likely_solana_address("ABCDEFGHJKMNPQRSTUVWXYZabcdefghjk"));
+
+        // Maximum length (44 chars)
+        assert!(extractor.is_likely_solana_address("ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuv"));
+    }
+
+    #[test]
+    fn test_is_likely_solana_address_invalid_cases() {
+        let extractor = create_test_extractor();
+
+        // Too short
+        assert!(!extractor.is_likely_solana_address("short"));
+        assert!(!extractor.is_likely_solana_address("ABCDEFGHJKMNPQRSTUVWXYZabcdefgh")); // 31 chars, too short
+
+        // Too long (45 chars)
+        assert!(
+            !extractor.is_likely_solana_address("ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxy")
+        );
+
+        // Contains 0x (Ethereum-like)
+        assert!(!extractor.is_likely_solana_address("0x742d35cc6645c0532eb5d65c8092a7b8ab27d1de"));
+
+        // Contains excluded characters (0, O, I, l)
+        assert!(!extractor.is_likely_solana_address("9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYt0WWM"));
+        assert!(!extractor.is_likely_solana_address("9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVLOzYtAWWM"));
+        assert!(!extractor.is_likely_solana_address("9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVLIzYtAWWM"));
+        assert!(!extractor.is_likely_solana_address("9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVLlzYtAWWM"));
+
+        // Non-alphanumeric characters
+        assert!(!extractor.is_likely_solana_address("9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL-zYtAWWM"));
+    }
+
+    #[test]
+    fn test_find_pattern_positions_multiple_matches() {
+        let extractor = create_test_extractor();
+        let text = "eth trading with eth and more eth";
+        let positions = extractor.find_pattern_positions(text, "eth");
+
+        assert_eq!(positions.len(), 3);
+        assert_eq!(positions[0], (0, 3));
+        assert_eq!(positions[1], (17, 20));
+        assert_eq!(positions[2], (30, 33));
+    }
+
+    #[test]
+    fn test_find_pattern_positions_no_matches() {
+        let extractor = create_test_extractor();
+        let text = "bitcoin only here";
+        let positions = extractor.find_pattern_positions(text, "ethereum");
+
+        assert!(positions.is_empty());
+    }
+
+    #[test]
+    fn test_find_pattern_positions_case_insensitive() {
+        let extractor = create_test_extractor();
+        let text = "ETH and Eth and eth";
+        let positions = extractor.find_pattern_positions(text, "eth");
+
+        assert_eq!(positions.len(), 3);
+    }
+
+    #[test]
+    fn test_parse_amount_match_with_space() {
+        let extractor = create_test_extractor();
+        let (value, unit) = extractor.parse_amount_match("123.45 ETH");
+
+        assert_eq!(value, "123.45");
+        assert_eq!(unit, Some("ETH".to_string()));
+    }
+
+    #[test]
+    fn test_parse_amount_match_without_space() {
+        let extractor = create_test_extractor();
+        let (value, unit) = extractor.parse_amount_match("$1,234.56");
+
+        assert_eq!(value, "$1,234.56");
+        assert_eq!(unit, None);
+    }
+
+    #[test]
+    fn test_parse_amount_match_multiple_spaces() {
+        let extractor = create_test_extractor();
+        let (value, unit) = extractor.parse_amount_match("100   USD");
+
+        assert_eq!(value, "100");
+        assert_eq!(unit, Some("USD".to_string()));
+    }
+
+    #[test]
+    fn test_parse_numeric_value_basic_numbers() {
+        let extractor = create_test_extractor();
+
+        assert_eq!(extractor.parse_numeric_value("123"), Some(123.0));
+        assert_eq!(extractor.parse_numeric_value("123.45"), Some(123.45));
+        assert_eq!(extractor.parse_numeric_value("0"), Some(0.0));
+    }
+
+    #[test]
+    fn test_parse_numeric_value_with_k_suffix() {
+        let extractor = create_test_extractor();
+
+        assert_eq!(extractor.parse_numeric_value("1K"), Some(1000.0));
+        assert_eq!(extractor.parse_numeric_value("1k"), Some(1000.0));
+        assert_eq!(extractor.parse_numeric_value("1.5K"), Some(1500.0));
+        assert_eq!(extractor.parse_numeric_value("0.5k"), Some(500.0));
+    }
+
+    #[test]
+    fn test_parse_numeric_value_with_m_suffix() {
+        let extractor = create_test_extractor();
+
+        assert_eq!(extractor.parse_numeric_value("1M"), Some(1_000_000.0));
+        assert_eq!(extractor.parse_numeric_value("1m"), Some(1_000_000.0));
+        assert_eq!(extractor.parse_numeric_value("2.5M"), Some(2_500_000.0));
+    }
+
+    #[test]
+    fn test_parse_numeric_value_with_b_suffix() {
+        let extractor = create_test_extractor();
+
+        assert_eq!(extractor.parse_numeric_value("1B"), Some(1_000_000_000.0));
+        assert_eq!(extractor.parse_numeric_value("1b"), Some(1_000_000_000.0));
+        assert_eq!(extractor.parse_numeric_value("1.2B"), Some(1_200_000_000.0));
+    }
+
+    #[test]
+    fn test_parse_numeric_value_with_dollar_and_comma() {
+        let extractor = create_test_extractor();
+
+        assert_eq!(extractor.parse_numeric_value("$1,234"), Some(1234.0));
+        assert_eq!(extractor.parse_numeric_value("$1,234.56"), Some(1234.56));
+        assert_eq!(
+            extractor.parse_numeric_value("$1,000,000"),
+            Some(1_000_000.0)
+        );
+    }
+
+    #[test]
+    fn test_parse_numeric_value_invalid_input() {
+        let extractor = create_test_extractor();
+
+        assert_eq!(extractor.parse_numeric_value("abc"), None);
+        assert_eq!(extractor.parse_numeric_value(""), None);
+        assert_eq!(extractor.parse_numeric_value("$"), None);
+        assert_eq!(extractor.parse_numeric_value("1.2.3"), None);
+        assert_eq!(extractor.parse_numeric_value("K"), None);
+    }
+
+    #[test]
+    fn test_classify_amount_type_balance() {
+        let extractor = create_test_extractor();
+
+        assert_eq!(
+            extractor.classify_amount_type("100 ETH", "My balance is 100 ETH"),
+            AmountType::Balance
+        );
+        assert_eq!(
+            extractor.classify_amount_type("50 USDC", "Account holds 50 USDC"),
+            AmountType::Balance
+        );
+    }
+
+    #[test]
+    fn test_classify_amount_type_fee() {
+        let extractor = create_test_extractor();
+
+        assert_eq!(
+            extractor.classify_amount_type("0.001 ETH", "Transaction fee 0.001 ETH"),
+            AmountType::Fee
+        );
+        assert_eq!(
+            extractor.classify_amount_type("20 gwei", "Gas price is 20 gwei"),
+            AmountType::Fee
+        );
+    }
+
+    #[test]
+    fn test_classify_amount_type_volume() {
+        let extractor = create_test_extractor();
+
+        assert_eq!(
+            extractor.classify_amount_type("1M USDC", "Daily volume 1M USDC"),
+            AmountType::Volume
+        );
+        assert_eq!(
+            extractor.classify_amount_type("500K", "Trading volume reached 500K"),
+            AmountType::Volume
+        );
+    }
+
+    #[test]
+    fn test_classify_amount_type_market_cap() {
+        let extractor = create_test_extractor();
+
+        assert_eq!(
+            extractor.classify_amount_type("1B", "Market cap is 1B"),
+            AmountType::MarketCap
+        );
+        assert_eq!(
+            extractor.classify_amount_type("500M", "The mcap reached 500M"),
+            AmountType::MarketCap
+        );
+    }
+
+    #[test]
+    fn test_classify_amount_type_price() {
+        let extractor = create_test_extractor();
+
+        assert_eq!(
+            extractor.classify_amount_type("$50", "ETH price is $50"),
+            AmountType::Price
+        );
+        assert_eq!(
+            extractor.classify_amount_type("$1000", "Token worth $1000"),
+            AmountType::Price
+        );
+        assert_eq!(
+            extractor.classify_amount_type("$100", "Cost $100"),
+            AmountType::Price
+        );
+    }
+
+    #[test]
+    fn test_classify_amount_type_other() {
+        let extractor = create_test_extractor();
+
+        assert_eq!(
+            extractor.classify_amount_type("100", "Random number 100"),
+            AmountType::Other("unknown".to_string())
+        );
+        assert_eq!(
+            extractor.classify_amount_type("42", "The answer is 42"),
+            AmountType::Other("unknown".to_string())
+        );
+    }
+
+    #[test]
+    fn test_find_nearby_entity_found_in_first_list() {
+        let extractor = create_test_extractor();
+
+        let entity1 = EntityMention {
+            text: "ETH".to_string(),
+            canonical: "ethereum".to_string(),
+            entity_type: EntityType::Token,
+            confidence: 0.9,
+            span: (0, 3),
+            properties: HashMap::new(),
+        };
+
+        let entities = vec![entity1];
+        let result = extractor.find_nearby_entity("trading ethereum today", &entities, &[], &[]);
+
+        assert!(result.is_some());
+        assert_eq!(result.unwrap().canonical, "ethereum");
+    }
+
+    #[test]
+    fn test_find_nearby_entity_found_in_alt_lists() {
+        let extractor = create_test_extractor();
+
+        let entity1 = EntityMention {
+            text: "USDC".to_string(),
+            canonical: "usdc".to_string(),
+            entity_type: EntityType::Token,
+            confidence: 0.9,
+            span: (0, 4),
+            properties: HashMap::new(),
+        };
+
+        let alt1 = vec![entity1];
+        let result = extractor.find_nearby_entity("swapping for usdc", &[], &alt1, &[]);
+
+        assert!(result.is_some());
+        assert_eq!(result.unwrap().canonical, "usdc");
+    }
+
+    #[test]
+    fn test_find_nearby_entity_not_found() {
+        let extractor = create_test_extractor();
+
+        let entity1 = EntityMention {
+            text: "BTC".to_string(),
+            canonical: "bitcoin".to_string(),
+            entity_type: EntityType::Token,
+            confidence: 0.9,
+            span: (0, 3),
+            properties: HashMap::new(),
+        };
+
+        let entities = vec![entity1];
+        let result = extractor.find_nearby_entity("trading ethereum today", &entities, &[], &[]);
+
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_extract_wallet_addresses_empty_text() {
+        let extractor = create_test_extractor();
+        let wallets = extractor.extract_wallet_addresses("");
+        assert!(wallets.is_empty());
+    }
+
+    #[test]
+    fn test_extract_wallet_addresses_no_addresses() {
+        let extractor = create_test_extractor();
+        let wallets = extractor.extract_wallet_addresses("Just some random text without addresses");
+        assert!(wallets.is_empty());
+    }
+
+    #[test]
+    fn test_extract_wallet_addresses_mixed_addresses() {
+        let extractor = create_test_extractor();
+        let text = "Send ETH to 0x742d35cc6645c0532eb5d65c8092a7b8ab27d1de and SOL to 9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM";
+        let wallets = extractor.extract_wallet_addresses(text);
+
+        assert_eq!(wallets.len(), 2);
+
+        // Find Ethereum address
+        let eth_wallet = wallets
+            .iter()
+            .find(|w| w.canonical.starts_with("0x"))
+            .unwrap();
+        assert_eq!(
+            eth_wallet.properties.get("chain"),
+            Some(&"ethereum".to_string())
+        );
+
+        // Find Solana address
+        let sol_wallet = wallets
+            .iter()
+            .find(|w| !w.canonical.starts_with("0x"))
+            .unwrap();
+        assert_eq!(
+            sol_wallet.properties.get("chain"),
+            Some(&"solana".to_string())
+        );
+    }
+
+    #[test]
+    fn test_extract_wallet_addresses_invalid_solana() {
+        let extractor = create_test_extractor();
+        // This looks like Solana format but has excluded characters
+        let text = "Invalid address: 9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL0zYtAWWM";
+        let wallets = extractor.extract_wallet_addresses(text);
+
+        assert!(wallets.is_empty());
+    }
+
+    #[test]
+    fn test_extract_tokens_empty_text() {
+        let extractor = create_test_extractor();
+        let tokens = extractor.extract_tokens("");
+        assert!(tokens.is_empty());
+    }
+
+    #[test]
+    fn test_extract_tokens_no_known_tokens() {
+        let extractor = create_test_extractor();
+        let tokens = extractor.extract_tokens("trading some unknown coin");
+        assert!(tokens.is_empty());
+    }
+
+    #[test]
+    fn test_extract_tokens_duplicate_prevention() {
+        let extractor = create_test_extractor();
+        let tokens = extractor.extract_tokens("eth and ethereum and eth again");
+
+        // Should only find one instance due to duplicate prevention
+        assert_eq!(tokens.len(), 1);
+        assert_eq!(tokens[0].canonical, "ethereum");
+    }
+
+    #[test]
+    fn test_extract_protocols_empty_text() {
+        let extractor = create_test_extractor();
+        let protocols = extractor.extract_protocols("");
+        assert!(protocols.is_empty());
+    }
+
+    #[test]
+    fn test_extract_protocols_no_known_protocols() {
+        let extractor = create_test_extractor();
+        let protocols = extractor.extract_protocols("using some unknown protocol");
+        assert!(protocols.is_empty());
+    }
+
+    #[test]
+    fn test_extract_protocols_duplicate_prevention() {
+        let extractor = create_test_extractor();
+        let protocols = extractor.extract_protocols("uniswap and uni and uniswap v2");
+
+        // Should only find one instance due to duplicate prevention
+        assert_eq!(protocols.len(), 1);
+        assert_eq!(protocols[0].canonical, "uniswap");
+    }
+
+    #[test]
+    fn test_extract_chains_empty_text() {
+        let extractor = create_test_extractor();
+        let chains = extractor.extract_chains("");
+        assert!(chains.is_empty());
+    }
+
+    #[test]
+    fn test_extract_chains_no_known_chains() {
+        let extractor = create_test_extractor();
+        let chains = extractor.extract_chains("deploying on unknown network");
+        assert!(chains.is_empty());
+    }
+
+    #[test]
+    fn test_extract_chains_duplicate_prevention() {
+        let extractor = create_test_extractor();
+        let chains = extractor.extract_chains("ethereum and ethereum mainnet and eth mainnet");
+
+        // Should only find one instance due to duplicate prevention
+        assert_eq!(chains.len(), 1);
+        assert_eq!(chains[0].canonical, "ethereum");
+    }
+
+    #[test]
+    fn test_extract_amounts_empty_text() {
+        let extractor = create_test_extractor();
+        let amounts = extractor.extract_amounts("");
+        assert!(amounts.is_empty());
+    }
+
+    #[test]
+    fn test_extract_amounts_no_amounts() {
+        let extractor = create_test_extractor();
+        let amounts = extractor.extract_amounts("Just some text without numbers");
+        assert!(amounts.is_empty());
+    }
+
+    #[test]
+    fn test_extract_amounts_invalid_numeric_values() {
+        let extractor = create_test_extractor();
+        // These should match the regex but fail numeric parsing
+        let amounts = extractor.extract_amounts("Invalid amounts: abc.def xyz");
+        assert!(amounts.is_empty());
+    }
+
+    #[test]
+    fn test_extract_relationships_empty_inputs() {
+        let extractor = create_test_extractor();
+        let relationships = extractor.extract_relationships("", &[], &[], &[]);
+        assert!(relationships.is_empty());
+    }
+
+    #[test]
+    fn test_extract_relationships_no_patterns() {
+        let extractor = create_test_extractor();
+        let relationships = extractor.extract_relationships("just random text", &[], &[], &[]);
+        assert!(relationships.is_empty());
+    }
+
+    #[test]
+    fn test_static_regex_patterns() {
+        // Test that static regex patterns compile and work
+        assert!(ETH_ADDRESS_REGEX.is_match("0x742d35cc6645c0532eb5d65c8092a7b8ab27d1de"));
+        assert!(!ETH_ADDRESS_REGEX.is_match("0x742d35cc6645c0532eb5d65c8092a7b8ab27d1def")); // Too long
+        assert!(!ETH_ADDRESS_REGEX.is_match("742d35cc6645c0532eb5d65c8092a7b8ab27d1de")); // Missing 0x
+
+        assert!(SOL_ADDRESS_REGEX.is_match("9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM"));
+        assert!(!SOL_ADDRESS_REGEX.is_match("0x742d35cc6645c0532eb5d65c8092a7b8ab27d1de")); // Ethereum format
+
+        assert!(AMOUNT_REGEX.is_match("123.45"));
+        assert!(AMOUNT_REGEX.is_match("$1,234.56"));
+        assert!(AMOUNT_REGEX.is_match("1K ETH"));
+        assert!(AMOUNT_REGEX.is_match("1.2B"));
+
+        assert!(TX_HASH_REGEX
+            .is_match("0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"));
+        assert!(!TX_HASH_REGEX.is_match("0x742d35cc6645c0532eb5d65c8092a7b8ab27d1de"));
+        // Too short for tx hash
+    }
+
+    #[test]
+    fn test_debug_implementation() {
+        let extractor = create_test_extractor();
+        let debug_str = format!("{:?}", extractor);
+        assert!(debug_str.contains("EntityExtractor"));
+    }
+
+    #[test]
+    fn test_edge_case_find_pattern_positions_empty_pattern() {
+        let extractor = create_test_extractor();
+        let positions = extractor.find_pattern_positions("some text", "");
+        assert!(positions.is_empty());
+    }
+
+    #[test]
+    fn test_edge_case_parse_amount_match_empty_string() {
+        let extractor = create_test_extractor();
+        let (value, unit) = extractor.parse_amount_match("");
+        assert_eq!(value, "");
+        assert_eq!(unit, None);
+    }
+
+    #[test]
+    fn test_edge_case_parse_numeric_value_single_character() {
+        let extractor = create_test_extractor();
+        assert_eq!(extractor.parse_numeric_value("5"), Some(5.0));
+        assert_eq!(extractor.parse_numeric_value("K"), None);
+        assert_eq!(extractor.parse_numeric_value("$"), None);
     }
 }

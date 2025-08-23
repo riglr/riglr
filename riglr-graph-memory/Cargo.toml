@@ -60,6 +60,3 @@ default = ["rig-core"]
 rig = ["rig-core", "rig-neo4j"]
 rig-neo4j = ["dep:rig-neo4j"]
 
-[[bench]]
-name = "graph_benchmarks"
-harness = false

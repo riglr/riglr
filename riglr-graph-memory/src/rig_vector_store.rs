@@ -278,9 +278,7 @@ impl GraphVectorStore {
             .map_err(|e| GraphMemoryError::Database(format!("Failed to get documents: {}", e)))?;
 
         // Parse response using serde deserialization
-        let response: Neo4jQueryResponse = serde_json::from_value(result).map_err(|e| {
-            GraphMemoryError::Database(format!("Failed to parse Neo4j response: {}", e))
-        })?;
+        let response: Neo4jQueryResponse = serde_json::from_value(result)?;
 
         let documents = response.extract_documents();
 
@@ -319,9 +317,7 @@ impl GraphVectorStore {
             })?;
 
         // Parse response using serde deserialization
-        let response: Neo4jQueryResponse = serde_json::from_value(result).map_err(|e| {
-            GraphMemoryError::Database(format!("Failed to parse search results: {}", e))
-        })?;
+        let response: Neo4jQueryResponse = serde_json::from_value(result)?;
 
         let search_results = response.extract_documents_with_scores();
 
@@ -515,5 +511,590 @@ impl From<RigDocument> for RawTextDocument {
             created_at,
             source: crate::document::DocumentSource::UserInput, // Default
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::document::{DocumentMetadata, DocumentSource};
+    use chrono::Utc;
+    use serde_json::json;
+    use std::collections::HashMap;
+    use std::sync::Arc;
+
+    fn create_test_rig_document() -> RigDocument {
+        let mut metadata = HashMap::new();
+        metadata.insert("title".to_string(), json!("Test Document"));
+        metadata.insert("tags".to_string(), json!(["test", "document"]));
+
+        RigDocument {
+            id: "test-doc-1".to_string(),
+            content: "This is test content".to_string(),
+            embedding: vec![0.1, 0.2, 0.3],
+            metadata,
+        }
+    }
+
+    fn create_test_raw_document() -> RawTextDocument {
+        let mut metadata = DocumentMetadata::default();
+        metadata.title = Some("Test Title".to_string());
+        metadata.tags = vec!["tag1".to_string(), "tag2".to_string()];
+        metadata.chain = Some("ethereum".to_string());
+        metadata
+            .custom_fields
+            .insert("custom".to_string(), json!("value"));
+
+        RawTextDocument {
+            id: "raw-doc-1".to_string(),
+            content: "Raw document content".to_string(),
+            embedding: Some(vec![0.4, 0.5, 0.6]),
+            metadata: Some(metadata),
+            created_at: Utc::now(),
+            source: DocumentSource::UserInput,
+        }
+    }
+
+    // Tests for RigDocument
+    #[test]
+    fn test_rig_document_creation() {
+        let doc = create_test_rig_document();
+        assert_eq!(doc.id, "test-doc-1");
+        assert_eq!(doc.content, "This is test content");
+        assert_eq!(doc.embedding, vec![0.1, 0.2, 0.3]);
+        assert!(doc.metadata.contains_key("title"));
+    }
+
+    #[test]
+    fn test_rig_document_empty_fields() {
+        let doc = RigDocument {
+            id: "".to_string(),
+            content: "".to_string(),
+            embedding: vec![],
+            metadata: HashMap::new(),
+        };
+        assert!(doc.id.is_empty());
+        assert!(doc.content.is_empty());
+        assert!(doc.embedding.is_empty());
+        assert!(doc.metadata.is_empty());
+    }
+
+    // Tests for Neo4jQueryResponse
+    #[test]
+    fn test_neo4j_query_response_extract_documents_empty_results() {
+        let response = Neo4jQueryResponse {
+            results: vec![],
+            errors: vec![],
+        };
+        let documents = response.extract_documents();
+        assert!(documents.is_empty());
+    }
+
+    #[test]
+    fn test_neo4j_query_response_extract_documents_valid_data() {
+        let response = Neo4jQueryResponse {
+            results: vec![Neo4jResult {
+                columns: vec![
+                    "id".to_string(),
+                    "content".to_string(),
+                    "embedding".to_string(),
+                    "metadata".to_string(),
+                ],
+                data: vec![Neo4jDataRow {
+                    row: vec![
+                        json!("doc-1"),
+                        json!("content text"),
+                        json!([0.1, 0.2, 0.3]),
+                        json!({"title": "Test"}),
+                    ],
+                    meta: None,
+                }],
+            }],
+            errors: vec![],
+        };
+
+        let documents = response.extract_documents();
+        assert_eq!(documents.len(), 1);
+        assert_eq!(documents[0].id, "doc-1");
+        assert_eq!(documents[0].content, "content text");
+        assert_eq!(documents[0].embedding, vec![0.1, 0.2, 0.3]);
+    }
+
+    #[test]
+    fn test_neo4j_query_response_extract_documents_missing_columns() {
+        let response = Neo4jQueryResponse {
+            results: vec![Neo4jResult {
+                columns: vec!["other".to_string()],
+                data: vec![Neo4jDataRow {
+                    row: vec![json!("value")],
+                    meta: None,
+                }],
+            }],
+            errors: vec![],
+        };
+
+        let documents = response.extract_documents();
+        assert!(documents.is_empty());
+    }
+
+    #[test]
+    fn test_neo4j_query_response_extract_documents_with_scores_empty() {
+        let response = Neo4jQueryResponse {
+            results: vec![],
+            errors: vec![],
+        };
+        let results = response.extract_documents_with_scores();
+        assert!(results.is_empty());
+    }
+
+    #[test]
+    fn test_neo4j_query_response_extract_documents_with_scores_valid() {
+        let response = Neo4jQueryResponse {
+            results: vec![Neo4jResult {
+                columns: vec![
+                    "id".to_string(),
+                    "content".to_string(),
+                    "embedding".to_string(),
+                    "metadata".to_string(),
+                    "score".to_string(),
+                ],
+                data: vec![Neo4jDataRow {
+                    row: vec![
+                        json!("doc-1"),
+                        json!("content"),
+                        json!([0.1, 0.2]),
+                        json!({}),
+                        json!(0.85),
+                    ],
+                    meta: None,
+                }],
+            }],
+            errors: vec![],
+        };
+
+        let results = response.extract_documents_with_scores();
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].1, 0.85);
+    }
+
+    #[test]
+    fn test_neo4j_query_response_extract_documents_with_scores_missing_score() {
+        let response = Neo4jQueryResponse {
+            results: vec![Neo4jResult {
+                columns: vec![
+                    "id".to_string(),
+                    "content".to_string(),
+                    "embedding".to_string(),
+                    "metadata".to_string(),
+                ],
+                data: vec![Neo4jDataRow {
+                    row: vec![
+                        json!("doc-1"),
+                        json!("content"),
+                        json!([0.1, 0.2]),
+                        json!({}),
+                    ],
+                    meta: None,
+                }],
+            }],
+            errors: vec![],
+        };
+
+        let results = response.extract_documents_with_scores();
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].1, 0.0); // Default score when missing
+    }
+
+    #[test]
+    fn test_parse_document_row_all_none_indices() {
+        let row = vec![json!("value1"), json!("value2")];
+        let result = Neo4jQueryResponse::parse_document_row(&row, None, None, None, None, None);
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_parse_document_row_valid_id_only() {
+        let row = vec![
+            json!("doc-id"),
+            json!("content"),
+            json!([0.1, 0.2]),
+            json!({}),
+        ];
+        let result =
+            Neo4jQueryResponse::parse_document_row(&row, Some(0), Some(1), Some(2), Some(3), None);
+        assert!(result.is_some());
+        let doc = result.unwrap();
+        assert_eq!(doc.id, "doc-id");
+        assert_eq!(doc.content, "content");
+        assert_eq!(doc.embedding, vec![0.1, 0.2]);
+    }
+
+    #[test]
+    fn test_parse_document_row_missing_content() {
+        let row = vec![json!("doc-id")];
+        let result =
+            Neo4jQueryResponse::parse_document_row(&row, Some(0), Some(1), None, None, None);
+        assert!(result.is_some());
+        let doc = result.unwrap();
+        assert_eq!(doc.content, ""); // Default empty content
+    }
+
+    #[test]
+    fn test_parse_document_row_invalid_embedding() {
+        let row = vec![
+            json!("doc-id"),
+            json!("content"),
+            json!("not-an-array"),
+            json!({}),
+        ];
+        let result =
+            Neo4jQueryResponse::parse_document_row(&row, Some(0), Some(1), Some(2), Some(3), None);
+        assert!(result.is_some());
+        let doc = result.unwrap();
+        assert!(doc.embedding.is_empty()); // Default empty embedding
+    }
+
+    #[test]
+    fn test_parse_document_row_invalid_metadata() {
+        let row = vec![
+            json!("doc-id"),
+            json!("content"),
+            json!([0.1]),
+            json!("not-an-object"),
+        ];
+        let result =
+            Neo4jQueryResponse::parse_document_row(&row, Some(0), Some(1), Some(2), Some(3), None);
+        assert!(result.is_some());
+        let doc = result.unwrap();
+        assert!(doc.metadata.is_empty()); // Default empty metadata
+    }
+
+    // Tests for GraphVectorStore creation
+    #[test]
+    fn test_graph_vector_store_new() {
+        let client = Arc::new(crate::client::Neo4jClient::default());
+        let store = GraphVectorStore::new(client, "test_index".to_string());
+        assert_eq!(store.index_name, "test_index");
+        assert_eq!(store.embedding_dimension, 1536); // Default dimension
+    }
+
+    #[test]
+    fn test_graph_vector_store_with_dimension() {
+        let client = Arc::new(crate::client::Neo4jClient::default());
+        let store = GraphVectorStore::with_dimension(client, "test_index".to_string(), 768);
+        assert_eq!(store.index_name, "test_index");
+        assert_eq!(store.embedding_dimension, 768);
+    }
+
+    #[test]
+    fn test_graph_vector_store_with_zero_dimension() {
+        let client = Arc::new(crate::client::Neo4jClient::default());
+        let store = GraphVectorStore::with_dimension(client, "test_index".to_string(), 0);
+        assert_eq!(store.embedding_dimension, 0);
+    }
+
+    #[test]
+    fn test_graph_vector_store_empty_index_name() {
+        let client = Arc::new(crate::client::Neo4jClient::default());
+        let store = GraphVectorStore::new(client, "".to_string());
+        assert_eq!(store.index_name, "");
+    }
+
+    // Tests for From implementations
+    #[test]
+    fn test_from_raw_text_document_to_rig_document_with_metadata() {
+        let raw_doc = create_test_raw_document();
+        let rig_doc: RigDocument = raw_doc.into();
+
+        assert_eq!(rig_doc.id, "raw-doc-1");
+        assert_eq!(rig_doc.content, "Raw document content");
+        assert_eq!(rig_doc.embedding, vec![0.4, 0.5, 0.6]);
+        assert!(rig_doc.metadata.contains_key("title"));
+        assert!(rig_doc.metadata.contains_key("tags"));
+        assert!(rig_doc.metadata.contains_key("chain"));
+        assert!(rig_doc.metadata.contains_key("custom"));
+    }
+
+    #[test]
+    fn test_from_raw_text_document_to_rig_document_no_metadata() {
+        let raw_doc = RawTextDocument {
+            id: "simple-doc".to_string(),
+            content: "Simple content".to_string(),
+            embedding: None,
+            metadata: None,
+            created_at: Utc::now(),
+            source: DocumentSource::UserInput,
+        };
+
+        let rig_doc: RigDocument = raw_doc.into();
+        assert_eq!(rig_doc.id, "simple-doc");
+        assert_eq!(rig_doc.content, "Simple content");
+        assert!(rig_doc.embedding.is_empty());
+        assert!(rig_doc.metadata.contains_key("source"));
+        assert!(rig_doc.metadata.contains_key("created_at"));
+    }
+
+    #[test]
+    fn test_from_raw_text_document_to_rig_document_empty_tags() {
+        let mut metadata = DocumentMetadata::default();
+        metadata.tags = vec![]; // Empty tags
+
+        let raw_doc = RawTextDocument {
+            id: "doc-empty-tags".to_string(),
+            content: "Content".to_string(),
+            embedding: Some(vec![0.1]),
+            metadata: Some(metadata),
+            created_at: Utc::now(),
+            source: DocumentSource::UserInput,
+        };
+
+        let rig_doc: RigDocument = raw_doc.into();
+        // Empty tags should not be added to metadata
+        assert!(!rig_doc.metadata.contains_key("tags"));
+    }
+
+    #[test]
+    fn test_from_rig_document_to_raw_text_document_with_metadata() {
+        let rig_doc = create_test_rig_document();
+        let raw_doc: RawTextDocument = rig_doc.into();
+
+        assert_eq!(raw_doc.id, "test-doc-1");
+        assert_eq!(raw_doc.content, "This is test content");
+        assert_eq!(raw_doc.embedding, Some(vec![0.1, 0.2, 0.3]));
+        assert!(raw_doc.metadata.is_some());
+
+        let metadata = raw_doc.metadata.unwrap();
+        assert_eq!(metadata.title, Some("Test Document".to_string()));
+        assert_eq!(metadata.tags, vec!["test", "document"]);
+    }
+
+    #[test]
+    fn test_from_rig_document_to_raw_text_document_empty_metadata() {
+        let rig_doc = RigDocument {
+            id: "simple".to_string(),
+            content: "Simple".to_string(),
+            embedding: vec![],
+            metadata: HashMap::new(),
+        };
+
+        let raw_doc: RawTextDocument = rig_doc.into();
+        assert_eq!(raw_doc.embedding, None); // Empty embedding becomes None
+        assert!(raw_doc.metadata.is_none()); // Empty metadata becomes None
+    }
+
+    #[test]
+    fn test_from_rig_document_to_raw_text_document_invalid_created_at() {
+        let mut metadata = HashMap::new();
+        metadata.insert("created_at".to_string(), json!("invalid-date"));
+
+        let rig_doc = RigDocument {
+            id: "test".to_string(),
+            content: "content".to_string(),
+            embedding: vec![0.1],
+            metadata,
+        };
+
+        let raw_doc: RawTextDocument = rig_doc.into();
+        // Should use current time when created_at is invalid
+        assert!(raw_doc.created_at <= Utc::now());
+    }
+
+    #[test]
+    fn test_from_rig_document_to_raw_text_document_custom_fields() {
+        let mut metadata = HashMap::new();
+        metadata.insert("custom1".to_string(), json!("value1"));
+        metadata.insert("custom2".to_string(), json!(42));
+        metadata.insert("title".to_string(), json!("Title")); // This should NOT go to custom_fields
+
+        let rig_doc = RigDocument {
+            id: "test".to_string(),
+            content: "content".to_string(),
+            embedding: vec![0.1],
+            metadata,
+        };
+
+        let raw_doc: RawTextDocument = rig_doc.into();
+        let doc_metadata = raw_doc.metadata.unwrap();
+
+        assert_eq!(doc_metadata.title, Some("Title".to_string()));
+        assert!(doc_metadata.custom_fields.contains_key("custom1"));
+        assert!(doc_metadata.custom_fields.contains_key("custom2"));
+        assert!(!doc_metadata.custom_fields.contains_key("title")); // Should not be in custom_fields
+    }
+
+    #[test]
+    fn test_from_rig_document_to_raw_text_document_invalid_tags() {
+        let mut metadata = HashMap::new();
+        metadata.insert("tags".to_string(), json!([123, true, null])); // Invalid tag types
+
+        let rig_doc = RigDocument {
+            id: "test".to_string(),
+            content: "content".to_string(),
+            embedding: vec![],
+            metadata,
+        };
+
+        let raw_doc: RawTextDocument = rig_doc.into();
+        let doc_metadata = raw_doc.metadata.unwrap();
+        assert!(doc_metadata.tags.is_empty()); // Invalid tags should be filtered out
+    }
+
+    // Additional edge case tests
+    #[test]
+    fn test_rig_document_clone() {
+        let doc = create_test_rig_document();
+        let cloned = doc.clone();
+        assert_eq!(doc.id, cloned.id);
+        assert_eq!(doc.content, cloned.content);
+        assert_eq!(doc.embedding, cloned.embedding);
+    }
+
+    #[test]
+    fn test_rig_document_debug() {
+        let doc = create_test_rig_document();
+        let debug_str = format!("{:?}", doc);
+        assert!(debug_str.contains("RigDocument"));
+        assert!(debug_str.contains("test-doc-1"));
+    }
+
+    #[test]
+    fn test_neo4j_error_struct() {
+        let error = Neo4jError {
+            code: "Neo.ClientError.Statement.SyntaxError".to_string(),
+            message: "Invalid syntax".to_string(),
+        };
+        assert_eq!(error.code, "Neo.ClientError.Statement.SyntaxError");
+        assert_eq!(error.message, "Invalid syntax");
+    }
+
+    #[test]
+    fn test_neo4j_data_row_with_meta() {
+        let row = Neo4jDataRow {
+            row: vec![json!("value")],
+            meta: Some(vec![json!("meta_value")]),
+        };
+        assert_eq!(row.row.len(), 1);
+        assert!(row.meta.is_some());
+    }
+
+    #[test]
+    fn test_neo4j_result_empty_columns() {
+        let result = Neo4jResult {
+            columns: vec![],
+            data: vec![],
+        };
+        assert!(result.columns.is_empty());
+        assert!(result.data.is_empty());
+    }
+
+    #[test]
+    fn test_parse_document_row_index_out_of_bounds() {
+        let row = vec![json!("value1")];
+        // Try to access index 5 when row only has 1 element
+        let result = Neo4jQueryResponse::parse_document_row(&row, Some(5), None, None, None, None);
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_parse_document_row_non_string_id() {
+        let row = vec![json!(123), json!("content")]; // ID is number, not string
+        let result =
+            Neo4jQueryResponse::parse_document_row(&row, Some(0), Some(1), None, None, None);
+        assert!(result.is_none()); // Should return None because ID must be string
+    }
+
+    #[test]
+    fn test_extract_documents_multiple_results() {
+        let response = Neo4jQueryResponse {
+            results: vec![
+                Neo4jResult {
+                    columns: vec!["id".to_string(), "content".to_string()],
+                    data: vec![Neo4jDataRow {
+                        row: vec![json!("doc-1"), json!("content-1")],
+                        meta: None,
+                    }],
+                },
+                Neo4jResult {
+                    columns: vec!["id".to_string(), "content".to_string()],
+                    data: vec![Neo4jDataRow {
+                        row: vec![json!("doc-2"), json!("content-2")],
+                        meta: None,
+                    }],
+                },
+            ],
+            errors: vec![],
+        };
+
+        let documents = response.extract_documents();
+        assert_eq!(documents.len(), 2);
+        assert_eq!(documents[0].id, "doc-1");
+        assert_eq!(documents[1].id, "doc-2");
+    }
+
+    #[test]
+    fn test_extract_documents_multiple_data_rows() {
+        let response = Neo4jQueryResponse {
+            results: vec![Neo4jResult {
+                columns: vec!["id".to_string(), "content".to_string()],
+                data: vec![
+                    Neo4jDataRow {
+                        row: vec![json!("doc-1"), json!("content-1")],
+                        meta: None,
+                    },
+                    Neo4jDataRow {
+                        row: vec![json!("doc-2"), json!("content-2")],
+                        meta: None,
+                    },
+                ],
+            }],
+            errors: vec![],
+        };
+
+        let documents = response.extract_documents();
+        assert_eq!(documents.len(), 2);
+    }
+
+    #[test]
+    fn test_rig_document_serialization() {
+        let doc = create_test_rig_document();
+        let serialized = serde_json::to_string(&doc);
+        assert!(serialized.is_ok());
+
+        let deserialized: std::result::Result<RigDocument, _> =
+            serde_json::from_str(&serialized.unwrap());
+        assert!(deserialized.is_ok());
+        let deserialized_doc = deserialized.unwrap();
+        assert_eq!(doc.id, deserialized_doc.id);
+    }
+
+    #[test]
+    fn test_embedding_conversion_mixed_types() {
+        let row = vec![
+            json!("doc-1"),
+            json!("content"),
+            json!([1, 2.5, "3", null, true]),
+            json!({}),
+        ];
+        let result =
+            Neo4jQueryResponse::parse_document_row(&row, Some(0), Some(1), Some(2), Some(3), None);
+        assert!(result.is_some());
+        let doc = result.unwrap();
+        // Should only convert valid f64 values
+        assert_eq!(doc.embedding, vec![1.0, 2.5]); // Only valid numbers are converted
+    }
+
+    // Additional tests for comprehensive coverage
+    #[test]
+    fn test_graph_vector_store_large_embedding_dimension() {
+        let client = Arc::new(crate::client::Neo4jClient::default());
+        let store = GraphVectorStore::with_dimension(client, "test_index".to_string(), usize::MAX);
+        assert_eq!(store.embedding_dimension, usize::MAX);
+    }
+
+    #[test]
+    fn test_graph_vector_store_special_characters_in_index_name() {
+        let client = Arc::new(crate::client::Neo4jClient::default());
+        let store = GraphVectorStore::new(client, "test_index_with_special-chars.123".to_string());
+        assert_eq!(store.index_name, "test_index_with_special-chars.123");
     }
 }
