@@ -10,35 +10,51 @@
 //!
 //! The riglr-core crate provides three main components:
 //!
-//! ### 1. `SignerContext` Pattern
+//! ### 1. Unified Tool Architecture with ApplicationContext
 //!
-//! Thread-local storage for multi-tenant blockchain client management:
+//! All tools now use a single `ApplicationContext` parameter that provides access to RPC clients,
+//! configuration, and other shared resources. Tools are defined with the `#[tool]` macro:
 //!
 //! ```ignore
-//! use riglr_core::signer::SignerContext;
+//! use riglr_core::{Tool, ToolError, provider::ApplicationContext};
+//! use riglr_macros::tool;
 //!
-//! # async fn example() -> Result<(), Box<dyn std::error::Error>> {
-//! // Set context for current operation
-//! // Create your signer implementation
-//! // SignerContext::with_signer(signer, async_code).await;
+//! #[tool]
+//! async fn my_tool(
+//!     param1: String,
+//!     param2: u64,
+//!     context: &ApplicationContext,
+//! ) -> Result<serde_json::Value, ToolError> {
+//!     // Access RPC client from context
+//!     let rpc_client = context.get_extension::<Arc<solana_client::rpc_client::RpcClient>>()
+//!         .ok_or_else(|| ToolError::permanent_string("RPC client not available"))?;
 //!
-//! // Tools automatically use the context
-//! // No need to pass clients as parameters
-//! # Ok(())
-//! # }
+//!     // Access configuration
+//!     let config = &context.config;
+//!
+//!     // Perform operations...
+//!     Ok(serde_json::json!({ "result": "success" }))
+//! }
 //! ```
 //!
 //! ### 2. `ToolWorker` Lifecycle
 //!
-//! Orchestrates tool execution with proper error handling:
+//! Orchestrates tool execution with proper error handling and ApplicationContext:
 //!
 //! ```ignore
-//! use riglr_core::{ToolWorker, ExecutionConfig};
+//! use riglr_core::{ToolWorker, ExecutionConfig, provider::{ApplicationContext, RpcProvider}};
 //! use riglr_core::idempotency::InMemoryIdempotencyStore;
+//! use riglr_config::Config;
+//! use std::sync::Arc;
 //!
 //! # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+//! let config = Config::from_env();
+//! let rpc_provider = Arc::new(RpcProvider::new());
+//! let context = ApplicationContext::new(rpc_provider, config);
+//!
 //! let worker = ToolWorker::<InMemoryIdempotencyStore>::new(
-//!     ExecutionConfig::default()
+//!     ExecutionConfig::default(),
+//!     context
 //! );
 //!
 //! // Execute tools with automatic retry logic
@@ -47,12 +63,14 @@
 //! # }
 //! ```
 //!
-//! ### 3. `ToolError` Classification Philosophy
+//! ### 3. `ToolError` Structure and Classification
 //!
-//! Errors are classified for intelligent retry logic:
-//! - `Permanent`: Requires human intervention (invalid parameters, auth failures)
-//! - `Retriable`: Temporary issues (network timeouts, service unavailable)
-//! - `RateLimited`: Specific rate limiting with backoff strategies
+//! The new ToolError structure provides rich error classification with context:
+//! - `Permanent { source, source_message, context }`: Non-retriable errors
+//! - `Retriable { source, source_message, context }`: Temporary issues that can be retried
+//! - `RateLimited { source, source_message, context, retry_after }`: Rate limiting with optional backoff
+//! - `InvalidInput { source, source_message, context }`: Input validation failures
+//! - `SignerContext(String)`: Signer-related errors
 //!
 //! ## Integration with rig
 //!
@@ -61,55 +79,56 @@
 //!
 //! ### Key Components
 //!
-//! - **[`SignerContext`]** - Thread-safe signer management for multi-tenant operations
-//! - **[`TransactionSigner`]** - Trait for blockchain transaction signing across chains
+//! - **[`SignerContext`]** - Thread-safe signer management for transactional operations
+//! - **[`UnifiedSigner`]** - Trait for blockchain transaction signing across chains
+//! - **[`RpcProvider`]** - Read-only blockchain operations provider (no signing required)
 //! - **[`ToolWorker`]** - Resilient tool execution engine with retry logic and timeouts
 //! - **[`JobQueue`]** - Distributed job processing with Redis backend
 //! - **[`Tool`]** - Core trait for defining executable tools with error handling
 //! - **[`Job`]** - Work unit representation with retry and idempotency support
 //! - **[`JobResult`]** - Structured results distinguishing success, retriable, and permanent failures
+//! - **[`retry_async`]** - Centralized retry logic with exponential backoff
 //!
 //! ### Quick Start Example
 //!
 //! ```ignore
-//! use riglr_core::{ToolWorker, ExecutionConfig, Tool, Job, JobResult, idempotency::InMemoryIdempotencyStore};
-//! use async_trait::async_trait;
+//! use riglr_core::{ToolWorker, ExecutionConfig, Job, JobResult, ToolError};
+//! use riglr_core::{idempotency::InMemoryIdempotencyStore, provider::{ApplicationContext, RpcProvider}};
+//! use riglr_macros::tool;
+//! use riglr_config::Config;
 //! use std::sync::Arc;
 //!
-//! // Define a simple tool
-//! struct GreetingTool;
-//!
-//! #[async_trait]
-//! impl Tool for GreetingTool {
-//!     async fn execute(
-//!         &self,
-//!         params: serde_json::Value,
-//!     ) -> Result<JobResult, Box<dyn std::error::Error + Send + Sync>> {
-//!         let name = params["name"].as_str().unwrap_or("World");
-//!         Ok(JobResult::success(&format!("Hello, {}!", name))?)
-//!     }
-//!
-//!     fn name(&self) -> &str {
-//!         "greeting"
-//!     }
-//!
-//!     fn description(&self) -> &str {
-//!         "Greets a user by name with a friendly message."
-//!     }
+//! // Define a simple tool using the #[tool] macro
+//! #[tool]
+//! async fn greeting_tool(
+//!     name: Option<String>,
+//!     context: &ApplicationContext,
+//! ) -> Result<serde_json::Value, ToolError> {
+//!     let name = name.unwrap_or_else(|| "World".to_string());
+//!     Ok(serde_json::json!({
+//!         "message": format!("Hello, {}!", name),
+//!         "timestamp": chrono::Utc::now()
+//!     }))
 //! }
 //!
 //! # async fn example() -> anyhow::Result<()> {
-//! // Set up worker with default configuration
+//! // Set up ApplicationContext
+//! let config = Config::from_env();
+//! let rpc_provider = Arc::new(RpcProvider::new());
+//! let context = ApplicationContext::new(rpc_provider, config);
+//!
+//! // Set up worker with context
 //! let worker = ToolWorker::<InMemoryIdempotencyStore>::new(
-//!     ExecutionConfig::default()
+//!     ExecutionConfig::default(),
+//!     context
 //! );
 //!
 //! // Register your tool
-//! worker.register_tool(Arc::new(GreetingTool)).await;
+//! worker.register_tool(Arc::new(greeting_tool)).await;
 //!
 //! // Create and process a job
 //! let job = Job::new(
-//!     "greeting",
+//!     "greeting_tool",
 //!     &serde_json::json!({"name": "riglr"}),
 //!     3 // max retries
 //! )?;
@@ -122,31 +141,45 @@
 //!
 //! ### Architecture Patterns
 //!
-//! #### 1. Signer Context Pattern
+//! #### 1. Unified Tool Architecture
 //!
-//! The [`SignerContext`] provides secure, thread-local access to cryptographic signers,
-//! enabling tools to perform blockchain operations without directly handling private keys:
+//! All tools now use ApplicationContext for consistent access to resources:
 //!
 //! ```ignore
-//! use riglr_solana_tools::LocalSolanaSigner;
+//! use riglr_core::{ToolError, provider::ApplicationContext};
+//! use riglr_macros::tool;
 //! use std::sync::Arc;
-//! # use solana_sdk::signer::keypair::Keypair;
 //!
-//! # async fn signer_example() -> anyhow::Result<()> {
-//! let keypair = Keypair::new();
-//! let signer = Arc::new(LocalSolanaSigner::new(
-//!     keypair,
-//!     "https://api.devnet.solana.com".to_string()
-//! ));
+//! // READ-ONLY OPERATIONS: Access RPC client from context
+//! #[tool]
+//! async fn get_sol_balance(
+//!     address: String,
+//!     context: &ApplicationContext,
+//! ) -> Result<serde_json::Value, ToolError> {
+//!     let rpc_client = context.get_extension::<Arc<solana_client::rpc_client::RpcClient>>()
+//!         .ok_or_else(|| ToolError::permanent_string("RPC client not available"))?;
+//!     
+//!     // Query balance using RPC client
+//!     // ...
+//!     Ok(serde_json::json!({ "balance_sol": 1.5 }))
+//! }
 //!
-//! // Execute code with signer context
-//! SignerContext::with_signer(signer, async {
-//!     // Tools can now access the signer via SignerContext::current()
-//!     let current_signer = SignerContext::current().await?;
-//!     Ok(())
-//! }).await?;
-//! # Ok(())
-//! # }
+//! // TRANSACTIONAL OPERATIONS: Use SignerContext within tools
+//! #[tool]
+//! async fn transfer_sol(
+//!     recipient: String,
+//!     amount: f64,
+//!     context: &ApplicationContext,
+//! ) -> Result<serde_json::Value, ToolError> {
+//!     // Access signer through SignerContext::current()
+//!     // Perform transaction signing and submission
+//!     // ...
+//!     Ok(serde_json::json!({
+//!         "transaction_hash": "ABC123",
+//!         "amount": amount,
+//!         "recipient": recipient
+//!     }))
+//! }
 //! ```
 //!
 //! #### 2. Resilient Tool Execution
@@ -184,23 +217,29 @@
 //! - Using structured logging with correlation IDs for debugging
 //! - Setting up dead letter queues for failed job analysis
 
-pub mod config;
 pub mod error;
 pub mod idempotency;
 pub mod jobs;
+pub mod provider;
 pub mod queue;
+pub mod retry;
 pub mod signer;
 pub mod tool;
 pub mod transactions;
 pub mod util;
 
-pub use config::{EvmNetworkConfig, RpcConfig, SolanaNetworkConfig};
+// Re-export configuration types from riglr-config
+pub use riglr_config::{
+    AppConfig, Config, DatabaseConfig, Environment, FeaturesConfig, NetworkConfig, ProvidersConfig,
+};
+
 pub use error::{CoreError, ToolError};
 pub use idempotency::*;
 pub use jobs::*;
 pub use queue::*;
+pub use signer::SignerContext;
 pub use signer::SignerError;
-pub use signer::{SignerContext, TransactionSigner};
+pub use signer::UnifiedSigner;
 pub use tool::*;
 // Note: util functions are for internal use only
 // Environment variable functions should not be used by library consumers
@@ -221,7 +260,8 @@ mod tests {
         async fn execute(
             &self,
             params: serde_json::Value,
-        ) -> std::result::Result<JobResult, Box<dyn std::error::Error + Send + Sync>> {
+            _context: &crate::provider::ApplicationContext,
+        ) -> Result<JobResult, ToolError> {
             if self.should_fail {
                 return Err("Mock tool failure".into());
             }
@@ -265,12 +305,14 @@ mod tests {
 
     #[tokio::test]
     async fn test_job_result_failure() {
-        let result = JobResult::retriable_failure("test error");
+        let result = JobResult::Failure {
+            error: crate::error::ToolError::retriable_string("test error"),
+        };
 
         match result {
-            JobResult::Failure { error, retriable } => {
-                assert_eq!(error, "test error");
-                assert!(retriable);
+            JobResult::Failure { ref error } => {
+                assert!(error.contains("test error"));
+                assert!(result.is_retriable());
             }
             _ => panic!("Expected failure result"),
         }
@@ -278,14 +320,26 @@ mod tests {
 
     #[tokio::test]
     async fn test_tool_worker_creation() {
-        let _worker = ToolWorker::<InMemoryIdempotencyStore>::new(ExecutionConfig::default());
+        let _worker = ToolWorker::<InMemoryIdempotencyStore>::new(
+            ExecutionConfig::default(),
+            provider::ApplicationContext::new(
+                Arc::new(provider::RpcProvider::new()),
+                riglr_config::Config::from_env(),
+            ),
+        );
 
         // Verify worker was created successfully - creation itself is the test
     }
 
     #[tokio::test]
     async fn test_tool_registration_and_execution() -> anyhow::Result<()> {
-        let worker = ToolWorker::<InMemoryIdempotencyStore>::new(ExecutionConfig::default());
+        let worker = ToolWorker::<InMemoryIdempotencyStore>::new(
+            ExecutionConfig::default(),
+            provider::ApplicationContext::new(
+                Arc::new(provider::RpcProvider::new()),
+                riglr_config::Config::from_env(),
+            ),
+        );
 
         let tool = Arc::new(MockTool {
             name: "test_tool".to_string(),
@@ -315,7 +369,13 @@ mod tests {
 
     #[tokio::test]
     async fn test_tool_error_handling() -> anyhow::Result<()> {
-        let worker = ToolWorker::<InMemoryIdempotencyStore>::new(ExecutionConfig::default());
+        let worker = ToolWorker::<InMemoryIdempotencyStore>::new(
+            ExecutionConfig::default(),
+            provider::ApplicationContext::new(
+                Arc::new(provider::RpcProvider::new()),
+                riglr_config::Config::from_env(),
+            ),
+        );
 
         let tool = Arc::new(MockTool {
             name: "failing_tool".to_string(),
@@ -391,18 +451,406 @@ mod tests {
         // Store a value
         let job_result = JobResult::success(&value)?;
         store
-            .set(key, &job_result, std::time::Duration::from_secs(60))
+            .set(
+                key,
+                Arc::new(job_result),
+                std::time::Duration::from_secs(60),
+            )
             .await?;
 
         // Retrieve the value
         let retrieved = store.get(key).await?;
         assert!(retrieved.is_some());
         // Verify the stored result matches what we expect
-        if let Some(JobResult::Success { value, .. }) = retrieved {
-            assert_eq!(value, serde_json::json!({"test": "value"}));
-        } else {
-            panic!("Expected Success variant");
+        if let Some(arc_result) = retrieved {
+            if let JobResult::Success { value, .. } = arc_result.as_ref() {
+                assert_eq!(*value, serde_json::json!({"test": "value"}));
+            } else {
+                panic!("Expected Success variant");
+            }
         }
+
+        Ok(())
+    }
+
+    // Additional comprehensive tests for 100% coverage
+
+    #[test]
+    fn test_job_result_success_with_tx_hash() -> anyhow::Result<()> {
+        let result = JobResult::success_with_tx(&"test result", "0x123abc")?;
+
+        match result {
+            JobResult::Success { value, tx_hash } => {
+                assert_eq!(value, serde_json::json!("test result"));
+                assert_eq!(tx_hash, Some("0x123abc".to_string()));
+            }
+            _ => panic!("Expected success result with tx hash"),
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn test_job_result_permanent_failure() {
+        let result = JobResult::Failure {
+            error: crate::error::ToolError::permanent_string("invalid parameters"),
+        };
+
+        match result {
+            JobResult::Failure { ref error } => {
+                assert!(error.contains("invalid parameters"));
+                assert!(!result.is_retriable());
+            }
+            _ => panic!("Expected permanent failure result"),
+        }
+    }
+
+    #[test]
+    fn test_job_retry_logic() -> anyhow::Result<()> {
+        let mut job = Job::new("test_tool", &serde_json::json!({"test": "data"}), 3)?;
+
+        assert!(job.can_retry());
+        assert_eq!(job.retry_count, 0);
+
+        // Simulate retries
+        job.retry_count = 1;
+        assert!(job.can_retry());
+
+        job.retry_count = 2;
+        assert!(job.can_retry());
+
+        job.retry_count = 3;
+        assert!(!job.can_retry());
+
+        job.retry_count = 4;
+        assert!(!job.can_retry());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_job_new_idempotent() -> anyhow::Result<()> {
+        let job = Job::new_idempotent(
+            "test_tool",
+            &serde_json::json!({"message": "test"}),
+            5,
+            "unique_key_123",
+        )?;
+
+        assert_eq!(job.tool_name, "test_tool");
+        assert_eq!(job.max_retries, 5);
+        assert_eq!(job.retry_count, 0);
+        assert_eq!(job.idempotency_key, Some("unique_key_123".to_string()));
+        Ok(())
+    }
+
+    #[test]
+    fn test_job_new_idempotent_without_key() -> anyhow::Result<()> {
+        let job = Job::new("test_tool", &serde_json::json!({"message": "test"}), 2)?;
+
+        assert_eq!(job.tool_name, "test_tool");
+        assert_eq!(job.max_retries, 2);
+        assert_eq!(job.retry_count, 0);
+        assert!(job.idempotency_key.is_none());
+        Ok(())
+    }
+
+    #[test]
+    fn test_core_error_display() {
+        let queue_error = CoreError::Queue("Failed to connect".to_string());
+        assert!(queue_error
+            .to_string()
+            .contains("Queue error: Failed to connect"));
+
+        let job_error = CoreError::JobExecution("Timeout occurred".to_string());
+        assert!(job_error
+            .to_string()
+            .contains("Job execution error: Timeout occurred"));
+
+        let generic_error = CoreError::Generic("Something went wrong".to_string());
+        assert!(generic_error
+            .to_string()
+            .contains("Core error: Something went wrong"));
+    }
+
+    #[test]
+    fn test_core_error_from_serde_json() {
+        let json_error = serde_json::from_str::<serde_json::Value>("invalid json").unwrap_err();
+        let core_error: CoreError = json_error.into();
+
+        match core_error {
+            CoreError::Serialization(_) => (),
+            _ => panic!("Expected Serialization error"),
+        }
+    }
+
+    #[test]
+    fn test_tool_error_permanent() {
+        let error = ToolError::permanent_string("Authorization failed");
+        assert!(!error.is_retriable());
+        assert!(!error.is_rate_limited());
+        assert!(error.to_string().contains("Authorization failed"));
+    }
+
+    #[test]
+    fn test_tool_error_retriable() {
+        let error = ToolError::retriable_string("Connection timeout");
+        assert!(error.is_retriable());
+        assert!(!error.is_rate_limited());
+        assert!(error.to_string().contains("Connection timeout"));
+    }
+
+    #[test]
+    fn test_tool_error_rate_limited() {
+        let error = ToolError::rate_limited_string("Too many requests");
+        assert!(error.is_retriable());
+        assert!(error.is_rate_limited());
+        assert!(error.to_string().contains("Too many requests"));
+    }
+
+    #[test]
+    fn test_tool_error_from_anyhow() {
+        let anyhow_error = anyhow::anyhow!("Test anyhow error");
+        let tool_error: ToolError = anyhow_error.into();
+        assert!(!tool_error.is_retriable());
+        assert!(!tool_error.is_rate_limited());
+    }
+
+    #[test]
+    fn test_tool_error_from_str() {
+        let str_error = "Test str error";
+        let tool_error: ToolError = str_error.into();
+        assert!(!tool_error.is_retriable());
+        assert!(!tool_error.is_rate_limited());
+        assert!(tool_error.to_string().contains("Test str error"));
+    }
+
+    #[test]
+    fn test_tool_error_from_string() {
+        let string_error = "Test string error".to_string();
+        let tool_error: ToolError = string_error.into();
+        assert!(!tool_error.is_retriable());
+        assert!(!tool_error.is_rate_limited());
+        assert!(tool_error.to_string().contains("Test string error"));
+    }
+
+    #[test]
+    fn test_execution_config_customization() {
+        let mut config = ExecutionConfig::default();
+
+        // Test default values exist
+        assert!(config.default_timeout > std::time::Duration::from_millis(0));
+        assert!(config.max_concurrency > 0);
+        assert!(config.initial_retry_delay > std::time::Duration::from_millis(0));
+
+        // Test that we can modify the config
+        config.max_concurrency = 10;
+        config.default_timeout = std::time::Duration::from_secs(30);
+        config.initial_retry_delay = std::time::Duration::from_millis(100);
+
+        assert_eq!(config.max_concurrency, 10);
+        assert_eq!(config.default_timeout, std::time::Duration::from_secs(30));
+        assert_eq!(
+            config.initial_retry_delay,
+            std::time::Duration::from_millis(100)
+        );
+    }
+
+    #[tokio::test]
+    async fn test_tool_worker_with_non_existent_tool() -> anyhow::Result<()> {
+        let worker = ToolWorker::<InMemoryIdempotencyStore>::new(
+            ExecutionConfig::default(),
+            provider::ApplicationContext::new(
+                Arc::new(provider::RpcProvider::new()),
+                riglr_config::Config::from_env(),
+            ),
+        );
+
+        let job = Job::new(
+            "non_existent_tool",
+            &serde_json::json!({"message": "test"}),
+            1,
+        )?;
+
+        let result = worker.process_job(job).await;
+
+        // Should return error for missing tool
+        assert!(result.is_err());
+
+        let error = result.unwrap_err();
+        assert!(error.to_string().contains("not found") || error.to_string().contains("Tool"));
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_job_with_empty_parameters() -> anyhow::Result<()> {
+        let job = Job::new("test_tool", &serde_json::json!({}), 1)?;
+
+        assert_eq!(job.tool_name, "test_tool");
+        assert_eq!(job.params, serde_json::json!({}));
+        assert_eq!(job.max_retries, 1);
+        assert_eq!(job.retry_count, 0);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_job_with_null_parameters() -> anyhow::Result<()> {
+        let job = Job::new("test_tool", &serde_json::Value::Null, 1)?;
+
+        assert_eq!(job.tool_name, "test_tool");
+        assert_eq!(job.params, serde_json::Value::Null);
+        assert_eq!(job.max_retries, 1);
+        assert_eq!(job.retry_count, 0);
+        Ok(())
+    }
+
+    #[test]
+    fn test_job_retry_boundary_conditions() -> anyhow::Result<()> {
+        // Test with max_retries = 0
+        let job = Job::new("test_tool", &serde_json::json!({}), 0)?;
+        assert!(!job.can_retry());
+
+        // Test with max_retries = 1
+        let mut job = Job::new("test_tool", &serde_json::json!({}), 1)?;
+        assert!(job.can_retry());
+        job.retry_count = 1;
+        assert!(!job.can_retry());
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_mock_tool_with_empty_message() -> anyhow::Result<()> {
+        let tool = MockTool {
+            name: "test_tool".to_string(),
+            should_fail: false,
+        };
+
+        let context = provider::ApplicationContext::new(
+            Arc::new(provider::RpcProvider::new()),
+            riglr_config::Config::from_env(),
+        );
+        let result = tool.execute(serde_json::json!({}), &context).await.unwrap();
+
+        match result {
+            JobResult::Success { value, .. } => {
+                assert!(value.as_str().unwrap().contains("test_tool"));
+                assert!(value.as_str().unwrap().contains("Hello")); // Default message
+            }
+            _ => panic!("Expected success result"),
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_mock_tool_name_and_description() {
+        let tool = MockTool {
+            name: "custom_tool".to_string(),
+            should_fail: false,
+        };
+
+        assert_eq!(tool.name(), "custom_tool");
+        assert_eq!(tool.description(), "");
+    }
+
+    #[tokio::test]
+    async fn test_worker_multiple_tool_registration() -> anyhow::Result<()> {
+        let worker = ToolWorker::<InMemoryIdempotencyStore>::new(
+            ExecutionConfig::default(),
+            provider::ApplicationContext::new(
+                Arc::new(provider::RpcProvider::new()),
+                riglr_config::Config::from_env(),
+            ),
+        );
+
+        let tool1 = Arc::new(MockTool {
+            name: "tool1".to_string(),
+            should_fail: false,
+        });
+
+        let tool2 = Arc::new(MockTool {
+            name: "tool2".to_string(),
+            should_fail: false,
+        });
+
+        worker.register_tool(tool1).await;
+        worker.register_tool(tool2).await;
+
+        // Test both tools work
+        let job1 = Job::new("tool1", &serde_json::json!({"message": "test1"}), 1)?;
+        let result1 = worker.process_job(job1).await?;
+
+        let job2 = Job::new("tool2", &serde_json::json!({"message": "test2"}), 1)?;
+        let result2 = worker.process_job(job2).await?;
+
+        match (&result1, &result2) {
+            (JobResult::Success { .. }, JobResult::Success { .. }) => (),
+            _ => panic!("Both tools should succeed"),
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_job_result_serialization() -> anyhow::Result<()> {
+        let success_result = JobResult::success(&"test data")?;
+        let serialized = serde_json::to_string(&success_result)?;
+        let deserialized: JobResult = serde_json::from_str(&serialized)?;
+
+        match deserialized {
+            JobResult::Success { value, tx_hash } => {
+                assert_eq!(value, serde_json::json!("test data"));
+                assert!(tx_hash.is_none());
+            }
+            _ => panic!("Expected success result after deserialization"),
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_job_result_failure_serialization() -> anyhow::Result<()> {
+        let failure_result = JobResult::Failure {
+            error: crate::error::ToolError::retriable_string("network error"),
+        };
+        let serialized = serde_json::to_string(&failure_result)?;
+        let deserialized: JobResult = serde_json::from_str(&serialized)?;
+
+        match deserialized {
+            JobResult::Failure { ref error } => {
+                assert!(error.contains("network error"));
+                assert!(deserialized.is_retriable());
+            }
+            _ => panic!("Expected failure result after deserialization"),
+        }
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_idempotency_store_expiration() -> anyhow::Result<()> {
+        let store = InMemoryIdempotencyStore::new();
+        let key = "expiring_key";
+        let value = serde_json::json!({"test": "expiry"});
+
+        let job_result = JobResult::success(&value)?;
+
+        // Set with very short expiration
+        store
+            .set(
+                key,
+                Arc::new(job_result),
+                std::time::Duration::from_millis(1),
+            )
+            .await?;
+
+        // Wait for expiration
+        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+
+        // Key should be expired/removed
+        let retrieved = store.get(key).await?;
+        assert!(retrieved.is_none());
 
         Ok(())
     }
