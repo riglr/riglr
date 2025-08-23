@@ -19,8 +19,8 @@ workspace = true
 # Core riglr and rig dependencies
 rig-core = { workspace = true }
 riglr-core = { workspace = true }
+riglr-config = { workspace = true }
 riglr-macros = { workspace = true }
-riglr-solana-common = { workspace = true }
 
 # Async and Error Handling
 tokio = { workspace = true }
@@ -36,10 +36,13 @@ schemars = { workspace = true }
 # Solana Dependencies
 solana-sdk = { workspace = true }
 solana-client = { workspace = true }
+solana-commitment-config = { workspace = true }
+solana-compute-budget-interface = { workspace = true }
+solana-system-interface = { workspace = true }
 spl-token = { workspace = true }
-spl-associated-token-account = "7.0.0"
-solana-transaction-status = "2.3.7"
-solana-account-decoder = "2.3.7"
+spl-associated-token-account = { workspace = true }
+solana-transaction-status = { workspace = true }
+solana-account-decoder = "3.0.0"
 
 # For EVM transaction types in TransactionSigner trait
 alloy = { workspace = true }
@@ -78,7 +81,5 @@ tracing-subscriber = { workspace = true }
 criterion = { workspace = true }
 mockito = "1.0"
 proptest = "1.0"
+lazy_static = "1.4"
 
-[[bench]]
-name = "solana_benchmarks"
-harness = false
