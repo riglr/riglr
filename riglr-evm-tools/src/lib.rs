@@ -1,38 +1,66 @@
-//! EVM tools for interacting with Ethereum and EVM-compatible chains
+//! # riglr-evm-tools
 //!
-//! This crate provides a suite of tools for interacting with EVM-based blockchains,
-//! including balance checking, transactions, and DeFi operations.
+//! A comprehensive suite of tools for interacting with EVM-compatible blockchains.
+//!
+//! This crate provides ready-to-use tools for building EVM-native AI agents, including:
+//!
+//! - **Balance Tools**: Check ETH and ERC20 token balances
+//! - **Transaction Tools**: Send ETH and token transfers
+//! - **DeFi Tools**: Interact with Uniswap, Sushiswap, and other DEXs
+//! - **Contract Tools**: Deploy and interact with smart contracts
+//! - **Network Tools**: Query blockchain state and transaction details
+//!
+//! All tools are built with the `#[tool]` macro for seamless integration with rig agents
+//! and include comprehensive error handling and retry logic.
 
+// New module structure following solana-tools pattern
+pub mod common;
+pub mod utils;
+
+// Existing modules remain unchanged
 pub mod balance;
-pub mod client;
 pub mod contract;
 pub mod error;
 pub mod network;
+pub mod signer;
 pub mod swap;
 pub mod transaction;
-pub mod util;
+pub mod util; // Keep temporarily during migration
 
-pub use balance::{get_erc20_balance, get_eth_balance, BalanceResult, TokenBalanceResult};
-pub use client::{eth_to_wei, validate_address, wei_to_eth, EvmClient, EvmConfig};
-pub use contract::{call_contract_read, call_contract_write, read_erc20_info};
-pub use error::{EvmToolError, Result};
-pub use network::{get_block_number, get_transaction_receipt as get_transaction_receipt_network};
-pub use swap::{
-    get_uniswap_quote, perform_uniswap_swap, UniswapConfig, UniswapQuote, UniswapSwapResult,
+// Re-export common functionality at crate root (following solana-tools pattern)
+pub use common::{
+    // Address utilities
+    address::{
+        ensure_0x_prefix, format_address, format_address_string, is_checksummed, known_addresses,
+        parse_evm_address, strip_0x_prefix, validate_evm_address,
+    },
+    // Chain mapping
+    chain::{
+        chain_id_to_name, chain_id_to_rpc_url, chain_name_to_id, get_address_url,
+        get_block_explorer_url, get_chain_info, get_supported_chains, get_transaction_url,
+        is_supported_chain, ChainInfo,
+    },
+    // Error types
+    error::{EvmCommonError, EvmResult},
+    // Core types
+    types::{EvmAccount, EvmConfig, EvmToken, EvmTransactionData},
 };
-pub use transaction::{get_transaction_receipt, transfer_erc20, transfer_eth, TransactionResult};
-pub use util::{chain_id_to_rpc_url, is_supported_chain};
 
-// Re-export signer types for convenience
-pub use riglr_core::{signer::TransactionSigner, SignerContext};
+// Re-export main functionality
+pub use balance::{
+    get_erc20_balance, get_eth_balance, get_token_decimals, get_token_name, get_token_symbol,
+    EthBalance, TokenBalance,
+};
+pub use contract::*;
+pub use error::EvmToolError;
+pub use network::*;
+pub use signer::LocalEvmSigner;
+pub use swap::{get_uniswap_quote, SwapQuote};
+pub use transaction::*;
+pub use utils::*;
 
-/// Current version
+// Re-export from riglr-core for convenience
+pub use riglr_core::{signer::UnifiedSigner, SignerContext};
+
+/// Current version of riglr-evm-tools
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn test_version() {
-        assert_eq!(super::VERSION, "0.1.0");
-    }
-}

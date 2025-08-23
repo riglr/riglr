@@ -1,6 +1,6 @@
 //! Generic smart contract interaction tools
 
-// use crate::error::Result;
+use crate::error::EvmToolError;
 use alloy::dyn_abi::{DynSolType, DynSolValue, JsonAbiExt};
 use alloy::json_abi::Function;
 use alloy::primitives::{self, Address, Bytes, I256, U256};
@@ -60,24 +60,23 @@ pub async fn call_contract_read(
     contract_address: String,
     function_selector: String,
     params: Vec<String>,
-) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+    _context: &riglr_core::provider::ApplicationContext,
+) -> std::result::Result<String, Box<dyn std::error::Error + Send + Sync>> {
     debug!(
         "Calling contract read function {} at {} with params: {:?}",
         function_selector, contract_address, params
     );
 
     // Get signer context and EVM client
-    let signer = riglr_core::SignerContext::current()
+    let signer = riglr_core::SignerContext::current_as_evm()
         .await
-        .map_err(|e| format!("No signer context: {}", e))?;
-    let client = signer
-        .evm_client()
-        .map_err(|e| format!("Failed to get EVM client: {}", e))?;
+        .map_err(|e| EvmToolError::Generic(format!("No EVM signer context: {}", e)))?;
+    let client = signer.client()?;
 
     // Validate contract address
     let contract_addr = contract_address
         .parse::<alloy::primitives::Address>()
-        .map_err(|e| format!("Invalid contract address: {}", e))?;
+        .map_err(|e| EvmToolError::InvalidAddress(format!("Invalid contract address: {}", e)))?;
 
     // Encode calldata using proper ABI encoding
     let (calldata, output_types) = encode_function_call_with_types(&function_selector, &params)?;
@@ -96,11 +95,10 @@ pub async fn call_contract_read(
             Err(e) => {
                 retries += 1;
                 if retries >= max_retries {
-                    return Err(format!(
+                    return Err(Box::new(EvmToolError::Rpc(format!(
                         "Contract call failed after {} retries: {}",
                         max_retries, e
-                    )
-                    .into());
+                    ))));
                 }
                 // Exponential backoff
                 tokio::time::sleep(std::time::Duration::from_millis(100 * (1 << retries))).await;
@@ -162,30 +160,29 @@ pub async fn call_contract_write(
     function_selector: String,
     params: Vec<String>,
     gas_limit: Option<u64>,
-) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+    _context: &riglr_core::provider::ApplicationContext,
+) -> std::result::Result<String, Box<dyn std::error::Error + Send + Sync>> {
     debug!(
         "Calling contract write function {} at {} with params: {:?}",
         function_selector, contract_address, params
     );
 
     // Get signer context and EVM client
-    let signer = riglr_core::SignerContext::current()
+    let signer = riglr_core::SignerContext::current_as_evm()
         .await
-        .map_err(|e| format!("No signer context: {}", e))?;
-    let _client = signer
-        .evm_client()
-        .map_err(|e| format!("Failed to get EVM client: {}", e))?;
+        .map_err(|e| EvmToolError::Generic(format!("No EVM signer context: {}", e)))?;
+    let _client = signer.client()?;
 
     // Get signer address
-    let from_addr_str = signer.address().ok_or("Signer has no address")?;
+    let from_addr_str = signer.address();
     let from_addr = from_addr_str
         .parse::<alloy::primitives::Address>()
-        .map_err(|e| format!("Invalid signer address: {}", e))?;
+        .map_err(|e| EvmToolError::InvalidAddress(format!("Invalid signer address: {}", e)))?;
 
     // Validate contract address
     let contract_addr = contract_address
         .parse::<alloy::primitives::Address>()
-        .map_err(|e| format!("Invalid contract address: {}", e))?;
+        .map_err(|e| EvmToolError::InvalidAddress(format!("Invalid contract address: {}", e)))?;
 
     // Build transaction with encoded calldata
     let (calldata, _) = encode_function_call_with_types(&function_selector, &params)?;
@@ -207,7 +204,7 @@ pub async fn call_contract_write(
     let max_retries = 3;
 
     let tx_hash = loop {
-        match signer.sign_and_send_evm_transaction(tx.clone()).await {
+        match signer.sign_and_send_transaction(tx.clone()).await {
             Ok(hash) => {
                 // TODO: Implement transaction receipt verification
                 // For now, assume transaction succeeded
@@ -217,7 +214,7 @@ pub async fn call_contract_write(
                 let error_msg = format!("Failed to send transaction: {}", e);
                 retries += 1;
                 if retries >= max_retries {
-                    return Err(error_msg.into());
+                    return Err(Box::new(EvmToolError::Transaction(error_msg)));
                 }
                 debug!("Transaction attempt {} failed, retrying: {}", retries, e);
                 // Exponential backoff
@@ -266,7 +263,7 @@ pub async fn call_contract_write(
 /// let token_info = read_erc20_info(
 ///     "0xA0b86a33E6441b8e606Fd25d43b2b6eaa8071CdB".to_string()
 /// ).await?;
-/// 
+///
 /// println!("Token: {} ({})", token_info["name"], token_info["symbol"]);
 /// println!("Decimals: {}", token_info["decimals"]);
 /// ```
@@ -274,13 +271,14 @@ pub async fn call_contract_write(
 #[tool]
 pub async fn read_erc20_info(
     token_address: String,
-) -> Result<serde_json::Value, Box<dyn std::error::Error + Send + Sync>> {
+    _context: &riglr_core::provider::ApplicationContext,
+) -> std::result::Result<serde_json::Value, Box<dyn std::error::Error + Send + Sync>> {
     // Get signer context and EVM client
-    let signer = riglr_core::SignerContext::current()
+    let signer = riglr_core::SignerContext::current_as_evm()
         .await
-        .map_err(|e| format!("No signer context: {}", e))?;
+        .map_err(|e| format!("No EVM signer context: {}", e))?;
     let client = signer
-        .evm_client()
+        .client()
         .map_err(|e| format!("Failed to get EVM client: {}", e))?;
 
     let token_addr = token_address
@@ -330,7 +328,7 @@ pub async fn read_erc20_info(
 fn encode_function_call_with_types(
     function_or_selector: &str,
     params: &[String],
-) -> Result<(Bytes, Vec<String>), Box<dyn std::error::Error + Send + Sync>> {
+) -> std::result::Result<(Bytes, Vec<String>), Box<dyn std::error::Error + Send + Sync>> {
     // Check if it's a 4-byte selector
     if function_or_selector.starts_with("0x") && function_or_selector.len() == 10 {
         // Handle selector-based encoding directly
@@ -452,7 +450,7 @@ fn parse_param_to_dyn_sol_value(
         DynSolType::Array(inner) => parse_array(param, &inner),
         DynSolType::FixedArray(inner, size) => parse_fixed_array(param, &inner, size),
         DynSolType::Tuple(types) => parse_tuple(param, &types),
-        _ => Err(format!("Unsupported type: {}", expected_type).into()),
+        _ => Err(EvmToolError::Contract(format!("Unsupported type: {}", expected_type)).into()),
     }
 }
 
@@ -501,7 +499,12 @@ fn parse_fixed_bytes(
         param.as_bytes().to_vec()
     };
     if bytes.len() != size {
-        return Err(format!("Expected {} bytes, got {}", size, bytes.len()).into());
+        return Err(EvmToolError::Contract(format!(
+            "Expected {} bytes, got {}",
+            size,
+            bytes.len()
+        ))
+        .into());
     }
     Ok(DynSolValue::FixedBytes(
         alloy::primitives::FixedBytes::from_slice(&bytes),
@@ -526,7 +529,11 @@ fn parse_uint(
         (U256::from(1u64) << bits) - U256::from(1u64)
     };
     if value > max {
-        return Err(format!("Value {} exceeds max for uint{}", value, bits).into());
+        return Err(EvmToolError::Contract(format!(
+            "Value {} exceeds max for uint{}",
+            value, bits
+        ))
+        .into());
     }
     Ok(DynSolValue::Uint(value, bits))
 }
@@ -596,7 +603,12 @@ fn parse_fixed_array(
     };
 
     if values.len() != size {
-        return Err(format!("Expected {} elements, got {}", size, values.len()).into());
+        return Err(EvmToolError::Contract(format!(
+            "Expected {} elements, got {}",
+            size,
+            values.len()
+        ))
+        .into());
     }
 
     let mut parsed = Vec::default();
@@ -648,7 +660,7 @@ fn parse_tuple(
 fn decode_contract_result(
     result: &[u8],
     output_types: &[String],
-) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+) -> std::result::Result<String, Box<dyn std::error::Error + Send + Sync>> {
     // If no output types specified, return as hex
     if output_types.is_empty() || (output_types.len() == 1 && output_types[0] == "bytes") {
         return Ok(format!("0x{}", primitives::hex::encode(result)));
@@ -659,8 +671,9 @@ fn decode_contract_result(
     let mut offset = 0;
 
     for output_type in output_types {
-        let sol_type = DynSolType::parse(output_type)
-            .map_err(|e| format!("Invalid output type '{}': {}", output_type, e))?;
+        let sol_type = DynSolType::parse(output_type).map_err(|e| {
+            EvmToolError::Contract(format!("Invalid output type '{}': {}", output_type, e))
+        })?;
 
         // Decode based on type
         match decode_single_type(result, &mut offset, &sol_type) {
@@ -687,7 +700,7 @@ fn decode_single_type(
     data: &[u8],
     offset: &mut usize,
     sol_type: &DynSolType,
-) -> Result<DynSolValue, Box<dyn std::error::Error + Send + Sync>> {
+) -> std::result::Result<DynSolValue, Box<dyn std::error::Error + Send + Sync>> {
     // For simple 32-byte types, decode directly
     if matches!(
         sol_type,
@@ -710,20 +723,23 @@ fn decode_single_type(
                     let value = chunk[31] != 0;
                     Ok(DynSolValue::Bool(value))
                 }
-                _ => Err("Unsupported type for simple decode".into()),
+                _ => Err(Box::new(EvmToolError::Contract(
+                    "Unsupported type for simple decode".to_string(),
+                ))),
             }
         } else {
-            Err("Insufficient data for decoding".into())
+            Err(Box::new(EvmToolError::Contract(
+                "Insufficient data for decoding".to_string(),
+            )))
         }
     } else {
         // For complex types, we need to handle them differently
         // Since DynSolValue doesn't have abi_decode, we'll return an error for now
         // In a full implementation, this would require more complex decoding logic
-        Err(format!(
+        Err(Box::new(EvmToolError::Contract(format!(
             "Complex type decoding not fully implemented for: {:?}",
             sol_type
-        )
-        .into())
+        ))))
     }
 }
 
@@ -754,7 +770,7 @@ fn format_decoded_value(value: &DynSolValue) -> String {
 async fn wait_for_receipt(
     client: &(dyn std::any::Any + Send + Sync),
     tx_hash: &str,
-) -> Result<TransactionReceipt, Box<dyn std::error::Error + Send + Sync>> {
+) -> std::result::Result<TransactionReceipt, Box<dyn std::error::Error + Send + Sync>> {
     use alloy::primitives::FixedBytes;
 
     // Parse transaction hash
@@ -815,6 +831,7 @@ async fn wait_for_receipt(
 
 /// Transaction receipt info
 #[allow(dead_code)]
+#[derive(Debug)]
 struct TransactionReceipt {
     success: bool,
     block_number: Option<u64>,
@@ -824,6 +841,8 @@ struct TransactionReceipt {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use alloy::dyn_abi::DynSolValue;
+    use alloy::primitives::{Address, I256, U256};
 
     #[test]
     fn test_decode_uint256() {
@@ -853,5 +872,888 @@ mod tests {
         let formatted = format_decoded_value(&val);
         assert!(formatted.starts_with("0x"));
         assert_eq!(formatted.len(), 42); // 0x + 40 hex chars
+    }
+
+    // Test encode_function_call_with_types with function signature
+    #[test]
+    fn test_encode_function_call_with_types_when_function_signature_should_encode_correctly() {
+        let result = encode_function_call_with_types(
+            "transfer(address,uint256)",
+            &[
+                "0x742d35Cc6490C85F2c04D7b0C0E7b7C7A6B22fC3".to_string(),
+                "1000".to_string(),
+            ],
+        );
+        assert!(result.is_ok());
+        let (calldata, output_types) = result.unwrap();
+        assert!(!calldata.is_empty());
+        assert_eq!(output_types, vec!["bool".to_string()]);
+    }
+
+    #[test]
+    fn test_encode_function_call_with_types_when_4_byte_selector_should_encode_correctly() {
+        let result = encode_function_call_with_types(
+            "0xa9059cbb",
+            &[
+                "0x742d35Cc6490C85F2c04D7b0C0E7b7C7A6B22fC3".to_string(),
+                "1000".to_string(),
+            ],
+        );
+        assert!(result.is_ok());
+        let (calldata, output_types) = result.unwrap();
+        assert!(!calldata.is_empty());
+        assert_eq!(output_types, vec!["bytes".to_string()]);
+    }
+
+    #[test]
+    fn test_encode_function_call_with_types_when_invalid_selector_should_return_err() {
+        let result = encode_function_call_with_types("0x123", &[]);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Function selector must be 4 bytes"));
+    }
+
+    #[test]
+    fn test_encode_function_call_with_types_when_invalid_function_signature_should_return_err() {
+        let result = encode_function_call_with_types("invalid_function", &[]);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Invalid function signature"));
+    }
+
+    #[test]
+    fn test_encode_function_call_with_types_when_too_many_params_should_return_err() {
+        let result = encode_function_call_with_types(
+            "balanceOf(address)",
+            &[
+                "0x742d35Cc6490C85F2c04D7b0C0E7b7C7A6B22fC3".to_string(),
+                "extra_param".to_string(),
+            ],
+        );
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Too many parameters"));
+    }
+
+    #[test]
+    fn test_encode_function_call_with_types_when_wrong_param_count_should_return_err() {
+        let result = encode_function_call_with_types(
+            "transfer(address,uint256)",
+            &["0x742d35Cc6490C85F2c04D7b0C0E7b7C7A6B22fC3".to_string()],
+        );
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Parameter count mismatch"));
+    }
+
+    // Test parse_address
+    #[test]
+    fn test_parse_address_when_valid_should_return_ok() {
+        let result = parse_address("0x742d35Cc6490C85F2c04D7b0C0E7b7C7A6B22fC3");
+        assert!(result.is_ok());
+        if let DynSolValue::Address(addr) = result.unwrap() {
+            assert_eq!(
+                format!("{:?}", addr),
+                "0x742d35cc6490c85f2c04d7b0c0e7b7c7a6b22fc3"
+            );
+        }
+    }
+
+    #[test]
+    fn test_parse_address_when_invalid_should_return_err() {
+        let result = parse_address("invalid_address");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("Invalid address"));
+    }
+
+    #[test]
+    fn test_parse_address_when_empty_should_return_err() {
+        let result = parse_address("");
+        assert!(result.is_err());
+    }
+
+    // Test parse_bool
+    #[test]
+    fn test_parse_bool_when_true_should_return_ok() {
+        let result = parse_bool("true");
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), DynSolValue::Bool(true));
+    }
+
+    #[test]
+    fn test_parse_bool_when_false_should_return_ok() {
+        let result = parse_bool("false");
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), DynSolValue::Bool(false));
+    }
+
+    #[test]
+    fn test_parse_bool_when_one_should_return_true() {
+        let result = parse_bool("1");
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), DynSolValue::Bool(true));
+    }
+
+    #[test]
+    fn test_parse_bool_when_zero_should_return_false() {
+        let result = parse_bool("0");
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), DynSolValue::Bool(false));
+    }
+
+    #[test]
+    fn test_parse_bool_when_invalid_should_return_err() {
+        let result = parse_bool("invalid");
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Invalid bool value"));
+    }
+
+    // Test parse_bytes
+    #[test]
+    fn test_parse_bytes_when_hex_should_return_ok() {
+        let result = parse_bytes("0x1234");
+        assert!(result.is_ok());
+        if let DynSolValue::Bytes(bytes) = result.unwrap() {
+            assert_eq!(bytes, vec![0x12, 0x34]);
+        }
+    }
+
+    #[test]
+    fn test_parse_bytes_when_string_should_return_ok() {
+        let result = parse_bytes("hello");
+        assert!(result.is_ok());
+        if let DynSolValue::Bytes(bytes) = result.unwrap() {
+            assert_eq!(bytes, "hello".as_bytes());
+        }
+    }
+
+    #[test]
+    fn test_parse_bytes_when_invalid_hex_should_return_err() {
+        let result = parse_bytes("0xinvalid");
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Invalid hex bytes"));
+    }
+
+    #[test]
+    fn test_parse_bytes_when_empty_string_should_return_ok() {
+        let result = parse_bytes("");
+        assert!(result.is_ok());
+        if let DynSolValue::Bytes(bytes) = result.unwrap() {
+            assert!(bytes.is_empty());
+        }
+    }
+
+    // Test parse_fixed_bytes
+    #[test]
+    fn test_parse_fixed_bytes_when_correct_size_should_return_ok() {
+        let result = parse_fixed_bytes("0x1234", 2);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_parse_fixed_bytes_when_wrong_size_should_return_err() {
+        let result = parse_fixed_bytes("0x1234", 4);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Expected 4 bytes, got 2"));
+    }
+
+    #[test]
+    fn test_parse_fixed_bytes_when_string_correct_size_should_return_ok() {
+        let result = parse_fixed_bytes("ab", 2);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_parse_fixed_bytes_when_invalid_hex_should_return_err() {
+        let result = parse_fixed_bytes("0xinvalid", 4);
+        assert!(result.is_err());
+    }
+
+    // Test parse_uint
+    #[test]
+    fn test_parse_uint_when_decimal_should_return_ok() {
+        let result = parse_uint("1000", 256);
+        assert!(result.is_ok());
+        if let DynSolValue::Uint(val, bits) = result.unwrap() {
+            assert_eq!(val, U256::from(1000u64));
+            assert_eq!(bits, 256);
+        }
+    }
+
+    #[test]
+    fn test_parse_uint_when_hex_should_return_ok() {
+        let result = parse_uint("0x3e8", 256);
+        assert!(result.is_ok());
+        if let DynSolValue::Uint(val, _) = result.unwrap() {
+            assert_eq!(val, U256::from(1000u64));
+        }
+    }
+
+    #[test]
+    fn test_parse_uint_when_exceeds_max_should_return_err() {
+        let result = parse_uint("340282366920938463463374607431768211456", 128); // 2^128
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("exceeds max for uint128"));
+    }
+
+    #[test]
+    fn test_parse_uint_when_invalid_decimal_should_return_err() {
+        let result = parse_uint("invalid", 256);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Invalid decimal uint"));
+    }
+
+    #[test]
+    fn test_parse_uint_when_invalid_hex_should_return_err() {
+        let result = parse_uint("0xinvalid", 256);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("Invalid hex uint"));
+    }
+
+    #[test]
+    fn test_parse_uint_when_zero_should_return_ok() {
+        let result = parse_uint("0", 256);
+        assert!(result.is_ok());
+        if let DynSolValue::Uint(val, _) = result.unwrap() {
+            assert_eq!(val, U256::ZERO);
+        }
+    }
+
+    // Test parse_int
+    #[test]
+    fn test_parse_int_when_positive_decimal_should_return_ok() {
+        let result = parse_int("1000", 256);
+        assert!(result.is_ok());
+        if let DynSolValue::Int(val, bits) = result.unwrap() {
+            assert_eq!(val, I256::try_from(1000u64).unwrap());
+            assert_eq!(bits, 256);
+        }
+    }
+
+    #[test]
+    fn test_parse_int_when_negative_decimal_should_return_ok() {
+        let result = parse_int("-1000", 256);
+        assert!(result.is_ok());
+        if let DynSolValue::Int(val, _) = result.unwrap() {
+            assert_eq!(val, I256::ZERO - I256::try_from(1000u64).unwrap());
+        }
+    }
+
+    #[test]
+    fn test_parse_int_when_positive_hex_should_return_ok() {
+        let result = parse_int("0x3e8", 256);
+        assert!(result.is_ok());
+        if let DynSolValue::Int(val, _) = result.unwrap() {
+            assert_eq!(val, I256::try_from(1000u64).unwrap());
+        }
+    }
+
+    #[test]
+    fn test_parse_int_when_negative_hex_should_return_ok() {
+        let result = parse_int("-0x3e8", 256);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_parse_int_when_invalid_decimal_should_return_err() {
+        let result = parse_int("invalid", 256);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Invalid decimal int"));
+    }
+
+    #[test]
+    fn test_parse_int_when_invalid_hex_should_return_err() {
+        let result = parse_int("0xinvalid", 256);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("Invalid hex int"));
+    }
+
+    #[test]
+    fn test_parse_int_when_zero_should_return_ok() {
+        let result = parse_int("0", 256);
+        assert!(result.is_ok());
+        if let DynSolValue::Int(val, _) = result.unwrap() {
+            assert_eq!(val, I256::ZERO);
+        }
+    }
+
+    // Test parse_array
+    #[test]
+    fn test_parse_array_when_json_format_should_return_ok() {
+        let inner = alloy::dyn_abi::DynSolType::Uint(256);
+        let result = parse_array("[\"1\", \"2\", \"3\"]", &inner);
+        assert!(result.is_ok());
+        if let DynSolValue::Array(arr) = result.unwrap() {
+            assert_eq!(arr.len(), 3);
+        }
+    }
+
+    #[test]
+    fn test_parse_array_when_comma_separated_should_return_ok() {
+        let inner = alloy::dyn_abi::DynSolType::Uint(256);
+        let result = parse_array("1,2,3", &inner);
+        assert!(result.is_ok());
+        if let DynSolValue::Array(arr) = result.unwrap() {
+            assert_eq!(arr.len(), 3);
+        }
+    }
+
+    #[test]
+    fn test_parse_array_when_empty_should_return_ok() {
+        let inner = alloy::dyn_abi::DynSolType::Uint(256);
+        let result = parse_array("[]", &inner);
+        assert!(result.is_ok());
+        if let DynSolValue::Array(arr) = result.unwrap() {
+            assert!(arr.is_empty());
+        }
+    }
+
+    #[test]
+    fn test_parse_array_when_invalid_json_should_return_err() {
+        let inner = alloy::dyn_abi::DynSolType::Uint(256);
+        let result = parse_array("[invalid json", &inner);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Invalid JSON array"));
+    }
+
+    // Test parse_fixed_array
+    #[test]
+    fn test_parse_fixed_array_when_correct_size_should_return_ok() {
+        let inner = alloy::dyn_abi::DynSolType::Uint(256);
+        let result = parse_fixed_array("[\"1\", \"2\"]", &inner, 2);
+        assert!(result.is_ok());
+        if let DynSolValue::FixedArray(arr) = result.unwrap() {
+            assert_eq!(arr.len(), 2);
+        }
+    }
+
+    #[test]
+    fn test_parse_fixed_array_when_wrong_size_should_return_err() {
+        let inner = alloy::dyn_abi::DynSolType::Uint(256);
+        let result = parse_fixed_array("[\"1\", \"2\", \"3\"]", &inner, 2);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Expected 2 elements, got 3"));
+    }
+
+    #[test]
+    fn test_parse_fixed_array_when_comma_separated_should_return_ok() {
+        let inner = alloy::dyn_abi::DynSolType::Uint(256);
+        let result = parse_fixed_array("1,2", &inner, 2);
+        assert!(result.is_ok());
+    }
+
+    // Test parse_tuple
+    #[test]
+    fn test_parse_tuple_when_json_format_should_return_ok() {
+        let types = vec![
+            alloy::dyn_abi::DynSolType::Address,
+            alloy::dyn_abi::DynSolType::Uint(256),
+        ];
+        let result = parse_tuple(
+            "[\"0x742d35Cc6490C85F2c04D7b0C0E7b7C7A6B22fC3\", \"1000\"]",
+            &types,
+        );
+        assert!(result.is_ok());
+        if let DynSolValue::Tuple(vals) = result.unwrap() {
+            assert_eq!(vals.len(), 2);
+        }
+    }
+
+    #[test]
+    fn test_parse_tuple_when_parentheses_format_should_return_ok() {
+        let types = vec![
+            alloy::dyn_abi::DynSolType::Address,
+            alloy::dyn_abi::DynSolType::Uint(256),
+        ];
+        let result = parse_tuple("(0x742d35Cc6490C85F2c04D7b0C0E7b7C7A6B22fC3, 1000)", &types);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_parse_tuple_when_comma_separated_should_return_ok() {
+        let types = vec![
+            alloy::dyn_abi::DynSolType::Address,
+            alloy::dyn_abi::DynSolType::Uint(256),
+        ];
+        let result = parse_tuple("0x742d35Cc6490C85F2c04D7b0C0E7b7C7A6B22fC3, 1000", &types);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_parse_tuple_when_wrong_element_count_should_return_err() {
+        let types = vec![
+            alloy::dyn_abi::DynSolType::Address,
+            alloy::dyn_abi::DynSolType::Uint(256),
+        ];
+        let result = parse_tuple("0x742d35Cc6490C85F2c04D7b0C0E7b7C7A6B22fC3", &types);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Expected 2 tuple elements, got 1"));
+    }
+
+    // Test parse_param_to_dyn_sol_value
+    #[test]
+    fn test_parse_param_to_dyn_sol_value_when_address_should_return_ok() {
+        let result =
+            parse_param_to_dyn_sol_value("0x742d35Cc6490C85F2c04D7b0C0E7b7C7A6B22fC3", "address");
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_parse_param_to_dyn_sol_value_when_bool_should_return_ok() {
+        let result = parse_param_to_dyn_sol_value("true", "bool");
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_parse_param_to_dyn_sol_value_when_string_should_return_ok() {
+        let result = parse_param_to_dyn_sol_value("hello", "string");
+        assert!(result.is_ok());
+        if let DynSolValue::String(s) = result.unwrap() {
+            assert_eq!(s, "hello");
+        }
+    }
+
+    #[test]
+    fn test_parse_param_to_dyn_sol_value_when_bytes_should_return_ok() {
+        let result = parse_param_to_dyn_sol_value("0x1234", "bytes");
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_parse_param_to_dyn_sol_value_when_uint256_should_return_ok() {
+        let result = parse_param_to_dyn_sol_value("1000", "uint256");
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_parse_param_to_dyn_sol_value_when_int256_should_return_ok() {
+        let result = parse_param_to_dyn_sol_value("-1000", "int256");
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_parse_param_to_dyn_sol_value_when_bytes32_should_return_ok() {
+        let result = parse_param_to_dyn_sol_value(
+            "0x1234567890123456789012345678901234567890123456789012345678901234",
+            "bytes32",
+        );
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_parse_param_to_dyn_sol_value_when_array_should_return_ok() {
+        let result = parse_param_to_dyn_sol_value("[\"1\", \"2\"]", "uint256[]");
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_parse_param_to_dyn_sol_value_when_fixed_array_should_return_ok() {
+        let result = parse_param_to_dyn_sol_value("[\"1\", \"2\"]", "uint256[2]");
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_parse_param_to_dyn_sol_value_when_tuple_should_return_ok() {
+        let result = parse_param_to_dyn_sol_value(
+            "[\"0x742d35Cc6490C85F2c04D7b0C0E7b7C7A6B22fC3\", \"1000\"]",
+            "(address,uint256)",
+        );
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_parse_param_to_dyn_sol_value_when_invalid_type_should_return_err() {
+        let result = parse_param_to_dyn_sol_value("test", "invalid_type");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("Invalid type"));
+    }
+
+    #[test]
+    fn test_parse_param_to_dyn_sol_value_when_unsupported_type_should_return_err() {
+        let result = parse_param_to_dyn_sol_value("test", "function");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("Unsupported type"));
+    }
+
+    // Test decode_contract_result
+    #[test]
+    fn test_decode_contract_result_when_empty_types_should_return_hex() {
+        let data = vec![0x12, 0x34];
+        let result = decode_contract_result(&data, &[]);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "0x1234");
+    }
+
+    #[test]
+    fn test_decode_contract_result_when_bytes_type_should_return_hex() {
+        let data = vec![0x12, 0x34];
+        let result = decode_contract_result(&data, &["bytes".to_string()]);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "0x1234");
+    }
+
+    #[test]
+    fn test_decode_contract_result_when_multiple_types_should_return_json() {
+        let mut data = vec![0u8; 32]; // First uint256 (0)
+        data.extend_from_slice(&[0u8; 12]); // Address padding
+        data.extend_from_slice(&[0x11; 20]); // Address
+        data.extend_from_slice(&[0u8; 4]); // Padding
+
+        let result = decode_contract_result(&data, &["uint256".to_string(), "address".to_string()]);
+        assert!(result.is_ok());
+        let result_str = result.unwrap();
+        assert!(result_str.starts_with('[') && result_str.ends_with(']'));
+    }
+
+    #[test]
+    fn test_decode_contract_result_when_invalid_type_should_fallback_to_hex() {
+        let data = vec![0x12, 0x34];
+        let result = decode_contract_result(&data, &["invalid_type".to_string()]);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "0x1234");
+    }
+
+    #[test]
+    fn test_decode_contract_result_when_decode_fails_should_fallback_to_hex() {
+        let data = vec![0x12]; // Insufficient data for uint256
+        let result = decode_contract_result(&data, &["uint256".to_string()]);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "0x12");
+    }
+
+    // Test decode_single_type
+    #[test]
+    fn test_decode_single_type_when_uint256_should_return_ok() {
+        let mut data = vec![0u8; 31];
+        data.push(42);
+        let mut offset = 0;
+        let sol_type = alloy::dyn_abi::DynSolType::Uint(256);
+
+        let result = decode_single_type(&data, &mut offset, &sol_type);
+        assert!(result.is_ok());
+        assert_eq!(offset, 32);
+        if let DynSolValue::Uint(val, _) = result.unwrap() {
+            assert_eq!(val, U256::from(42u64));
+        }
+    }
+
+    #[test]
+    fn test_decode_single_type_when_address_should_return_ok() {
+        let mut data = vec![0u8; 12];
+        data.extend_from_slice(&[0x42; 20]);
+        let mut offset = 0;
+        let sol_type = alloy::dyn_abi::DynSolType::Address;
+
+        let result = decode_single_type(&data, &mut offset, &sol_type);
+        assert!(result.is_ok());
+        assert_eq!(offset, 32);
+    }
+
+    #[test]
+    fn test_decode_single_type_when_bool_should_return_ok() {
+        let mut data = vec![0u8; 31];
+        data.push(1);
+        let mut offset = 0;
+        let sol_type = alloy::dyn_abi::DynSolType::Bool;
+
+        let result = decode_single_type(&data, &mut offset, &sol_type);
+        assert!(result.is_ok());
+        if let DynSolValue::Bool(val) = result.unwrap() {
+            assert!(val);
+        }
+    }
+
+    #[test]
+    fn test_decode_single_type_when_insufficient_data_should_return_err() {
+        let data = vec![0u8; 16]; // Not enough for 32 bytes
+        let mut offset = 0;
+        let sol_type = alloy::dyn_abi::DynSolType::Uint(256);
+
+        let result = decode_single_type(&data, &mut offset, &sol_type);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Insufficient data"));
+    }
+
+    #[test]
+    fn test_decode_single_type_when_complex_type_should_return_err() {
+        let data = vec![0u8; 32];
+        let mut offset = 0;
+        let sol_type = alloy::dyn_abi::DynSolType::String;
+
+        let result = decode_single_type(&data, &mut offset, &sol_type);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Complex type decoding not fully implemented"));
+    }
+
+    // Test format_decoded_value for all DynSolValue variants
+    #[test]
+    fn test_format_decoded_value_when_address_should_format_hex() {
+        let addr = Address::from([0x42; 20]);
+        let val = DynSolValue::Address(addr);
+        let formatted = format_decoded_value(&val);
+        assert!(formatted.starts_with("0x"));
+        assert_eq!(formatted.len(), 42);
+    }
+
+    #[test]
+    fn test_format_decoded_value_when_uint_should_format_decimal() {
+        let val = DynSolValue::Uint(U256::from(1000u64), 256);
+        let formatted = format_decoded_value(&val);
+        assert_eq!(formatted, "1000");
+    }
+
+    #[test]
+    fn test_format_decoded_value_when_int_should_format_decimal() {
+        let val = DynSolValue::Int(I256::try_from(1000u64).unwrap(), 256);
+        let formatted = format_decoded_value(&val);
+        assert_eq!(formatted, "1000");
+    }
+
+    #[test]
+    fn test_format_decoded_value_when_bool_should_format_bool() {
+        let val = DynSolValue::Bool(true);
+        let formatted = format_decoded_value(&val);
+        assert_eq!(formatted, "true");
+    }
+
+    #[test]
+    fn test_format_decoded_value_when_string_should_return_string() {
+        let val = DynSolValue::String("hello".to_string());
+        let formatted = format_decoded_value(&val);
+        assert_eq!(formatted, "hello");
+    }
+
+    #[test]
+    fn test_format_decoded_value_when_bytes_should_format_hex() {
+        let val = DynSolValue::Bytes(vec![0x12, 0x34]);
+        let formatted = format_decoded_value(&val);
+        assert_eq!(formatted, "0x1234");
+    }
+
+    #[test]
+    fn test_format_decoded_value_when_fixed_bytes_should_format_hex() {
+        let val =
+            DynSolValue::FixedBytes(alloy::primitives::FixedBytes::from_slice(&[0x12, 0x34]), 2);
+        let formatted = format_decoded_value(&val);
+        assert_eq!(formatted, "0x1234");
+    }
+
+    #[test]
+    fn test_format_decoded_value_when_array_should_format_brackets() {
+        let val = DynSolValue::Array(vec![
+            DynSolValue::Uint(U256::from(1u64), 256),
+            DynSolValue::Uint(U256::from(2u64), 256),
+        ]);
+        let formatted = format_decoded_value(&val);
+        assert_eq!(formatted, "[1, 2]");
+    }
+
+    #[test]
+    fn test_format_decoded_value_when_tuple_should_format_parentheses() {
+        let val = DynSolValue::Tuple(vec![
+            DynSolValue::Uint(U256::from(1u64), 256),
+            DynSolValue::Bool(true),
+        ]);
+        let formatted = format_decoded_value(&val);
+        assert_eq!(formatted, "(1, true)");
+    }
+
+    #[test]
+    fn test_format_decoded_value_when_empty_array_should_format_empty_brackets() {
+        let val = DynSolValue::Array(vec![]);
+        let formatted = format_decoded_value(&val);
+        assert_eq!(formatted, "[]");
+    }
+
+    #[test]
+    fn test_format_decoded_value_when_empty_tuple_should_format_empty_parentheses() {
+        let val = DynSolValue::Tuple(vec![]);
+        let formatted = format_decoded_value(&val);
+        assert_eq!(formatted, "()");
+    }
+
+    // Test wait_for_receipt
+    #[tokio::test]
+    async fn test_wait_for_receipt_when_invalid_hash_should_return_err() {
+        let client = Box::new("test".to_string()) as Box<dyn std::any::Any + Send + Sync>;
+        let result = wait_for_receipt(&*client, "invalid_hash").await;
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Invalid transaction hash"));
+    }
+
+    #[tokio::test]
+    async fn test_wait_for_receipt_when_wrong_length_hash_should_return_err() {
+        let client = Box::new("test".to_string()) as Box<dyn std::any::Any + Send + Sync>;
+        let result = wait_for_receipt(&*client, "0x1234").await;
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Transaction hash must be 32 bytes"));
+    }
+
+    #[tokio::test]
+    async fn test_wait_for_receipt_when_valid_hash_should_return_receipt() {
+        let client = Box::new("test".to_string()) as Box<dyn std::any::Any + Send + Sync>;
+        let valid_hash = "0x1234567890123456789012345678901234567890123456789012345678901234";
+        let result = wait_for_receipt(&*client, valid_hash).await;
+        assert!(result.is_ok());
+        let receipt = result.unwrap();
+        assert!(receipt.success);
+    }
+
+    #[tokio::test]
+    async fn test_wait_for_receipt_when_no_prefix_should_return_receipt() {
+        let client = Box::new("test".to_string()) as Box<dyn std::any::Any + Send + Sync>;
+        let valid_hash = "1234567890123456789012345678901234567890123456789012345678901234";
+        let result = wait_for_receipt(&*client, valid_hash).await;
+        assert!(result.is_ok());
+    }
+
+    // Edge cases and error conditions
+    #[test]
+    fn test_encode_function_call_with_types_when_hex_address_param_should_encode() {
+        let result = encode_function_call_with_types(
+            "0xa9059cbb",
+            &["0x742d35Cc6490C85F2c04D7b0C0E7b7C7A6B22fC3".to_string()],
+        );
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_encode_function_call_with_types_when_bytes32_param_should_encode() {
+        let result = encode_function_call_with_types(
+            "0xa9059cbb",
+            &["0x1234567890123456789012345678901234567890123456789012345678901234".to_string()],
+        );
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_encode_function_call_with_types_when_hex_bytes_param_should_encode() {
+        let result = encode_function_call_with_types("0xa9059cbb", &["0x1234".to_string()]);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_encode_function_call_with_types_when_numeric_param_should_encode() {
+        let result = encode_function_call_with_types("0xa9059cbb", &["1234".to_string()]);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_encode_function_call_with_types_when_negative_numeric_param_should_encode() {
+        let result = encode_function_call_with_types("0xa9059cbb", &["-1234".to_string()]);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_encode_function_call_with_types_when_unsupported_param_should_return_err() {
+        let result =
+            encode_function_call_with_types("0xa9059cbb", &["unsupported_format".to_string()]);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Unsupported param format"));
+    }
+
+    #[test]
+    fn test_encode_function_call_with_types_when_invalid_selector_format_should_return_err() {
+        let result = encode_function_call_with_types("0xGG", &[]);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Invalid function selector"));
+    }
+
+    #[test]
+    fn test_parse_uint_when_u256_max_should_return_ok() {
+        let result = parse_uint(&U256::MAX.to_string(), 256);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_parse_int_when_negative_hex_with_invalid_abs_should_return_err() {
+        let result = parse_int("-0xinvalid", 256);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_parse_fixed_bytes_when_empty_hex_should_return_ok() {
+        let result = parse_fixed_bytes("0x", 0);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_decode_single_type_when_bool_false_should_return_false() {
+        let data = vec![0u8; 32];
+        let mut offset = 0;
+        let sol_type = alloy::dyn_abi::DynSolType::Bool;
+
+        let result = decode_single_type(&data, &mut offset, &sol_type);
+        assert!(result.is_ok());
+        if let DynSolValue::Bool(val) = result.unwrap() {
+            assert!(!val);
+        }
+    }
+
+    #[test]
+    fn test_decode_single_type_when_int256_should_return_err() {
+        let data = vec![0u8; 32];
+        let mut offset = 0;
+        let sol_type = alloy::dyn_abi::DynSolType::Int(256);
+
+        let result = decode_single_type(&data, &mut offset, &sol_type);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Unsupported type for simple decode"));
     }
 }
