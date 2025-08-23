@@ -706,7 +706,7 @@
                 <li><a href="#architecture">Architecture</a></li>
                 <li><a href="#features">Features</a></li>
                 <li><a href="#getting-started">Get Started</a></li>
-                <li><a href="/docs/"><i class="fas fa-book"></i> Docs</a></li>
+                <li><a href="https://riglr.com/docs"><i class="fas fa-book"></i> Docs</a></li>
                 <li><a href="https://github.com/riglr/riglr" target="_blank"><i class="fab fa-github"></i> GitHub</a></li>
             </ul>
         </div>
@@ -722,13 +722,13 @@
                 <img src="https://img.shields.io/badge/version-0.2.0-50fa7b?style=flat-square" alt="Version">
                 <img src="https://img.shields.io/badge/rust-1.82%2B-orange?style=flat-square" alt="Rust">
                 <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="License">
-                <img src="https://img.shields.io/badge/crates-23-purple?style=flat-square" alt="Crates">
+                <img src="https://img.shields.io/badge/crates-19-purple?style=flat-square" alt="Crates">
                 <img src="https://img.shields.io/badge/tools-50%2B-green?style=flat-square" alt="Tools">
             </div>
             <p class="subtitle">
                 <code>riglr</code> extends the <code>rig</code> framework with production-ready blockchain capabilities. 
-                With 23 specialized crates, 50+ verified blockchain tools, and the innovative SignerContext pattern 
-                for secure multi-tenant operations, riglr seamlessly adds cross-chain automation to rig agents.
+                With 19 specialized crates, 50+ verified blockchain tools, and secure key management 
+                for multi-tenant operations, riglr seamlessly adds cross-chain automation to rig agents.
             </p>
             
             <div class="cta-buttons">
@@ -755,34 +755,35 @@
                     <div class="code-dot"></div>
                     <div class="code-dot"></div>
                 </div>
-                <pre><code class="language-rust">use riglr_solana_tools::{GetJupiterQuote, PerformJupiterSwap, DeployPumpToken};
-use riglr_web_tools::{GetTokenInfo, AnalyzeCryptoSentiment};
-use riglr_graph_memory::GraphMemory;
-use rig::agent::AgentBuilder;
+                <pre><code class="language-rust">use riglr_agents::{ToolCallingAgentBuilder, AgentDispatcher, Task};
+use riglr_agents::toolset::Toolset;
+use riglr_core::signer::{SignerContext, UnifiedSigner};
+use riglr_solana_tools::signer::LocalSolanaSigner;
 
-// Multi-chain trading agent with graph memory
-let trading_agent = AgentBuilder::new(model)
-    .preamble("Expert DeFi trader with cross-chain capabilities")
-    .tool(GetJupiterQuote)      // Routes through 30+ Solana DEXs
-    .tool(PerformJupiterSwap)   // Optimal swap execution
-    .tool(GetTokenInfo)         // Real-time market data from DexScreener
-    .dynamic_context(GraphMemory::new().await?) // Neo4j knowledge graph
-    .build();
+// 1. Discover all available tools with one line
+let toolset = Toolset::new()
+    .with_solana_tools()    // 20+ Solana operations
+    .with_evm_tools()        // Uniswap, transfers, gas optimization
+    .with_web_tools();       // DexScreener, Twitter sentiment
 
-// Pump.fun token launcher with sentiment analysis  
-let meme_launcher = AgentBuilder::new(model)
-    .preamble("Analyzes social sentiment and launches trending tokens")
-    .tool(AnalyzeCryptoSentiment)  // Twitter/X sentiment via LunarCrush
-    .tool(DeployPumpToken)         // Full token deployment on Pump.fun
-    .build();
-
-// Example: AI-driven token analysis and potential launch
-let sentiment = trading_agent
-    .prompt("Analyze current sentiment for dog-themed memecoins")
+// 2. Build the AI agent with clean, fluent API
+let agent = ToolCallingAgentBuilder::new(toolset, app_context)
+    .build(openai_client.agent("gpt-4o"))
     .await?;
 
-// SignerContext automatically isolates user operations
-// No manual key management - production-ready security</code></pre>
+// 3. Execute blockchain operations with natural language
+let dispatcher = AgentDispatcher::new(registry);
+
+// READ: Query on-chain data
+let balance_task = Task::new("What is the SOL balance of alice.sol?");
+let result = dispatcher.dispatch_task(balance_task).await?;
+
+// WRITE: Execute transactions with secure context
+SignerContext::with_signer(signer, async {
+    let transfer_task = Task::new("Send 0.5 SOL to bob.sol");
+    let tx_result = dispatcher.dispatch_task(transfer_task).await?;
+    println!("Transaction: {}", tx_result.signature);
+}).await?;</code></pre>
             </div>
         </div>
     </section>
@@ -811,12 +812,12 @@ let sentiment = trading_agent
             <div class="why-item">
                 <div class="why-number">2</div>
                 <div class="why-content">
-                    <h3>Production-Grade Security & Concurrency by Design</h3>
-                    <p class="tagline">Stop worrying about private key management and race conditions. Start building secure, multi-tenant services from day one.</p>
-                    <p>riglr is built around the <strong>SignerContext</strong>, a battle-tested pattern for secure, multi-tenant blockchain operations. 
-                       It uses thread-local storage to ensure that every user request is handled in a cryptographically isolated context. 
-                       This makes building complex, concurrent applications that handle multiple user wallets simultaneously not just possible, 
-                       but simple and safe.</p>
+                    <h3>Production-Grade Security & Concurrency</h3>
+                    <p class="tagline">Build secure, multi-tenant blockchain services with confidence.</p>
+                    <p>riglr provides a <strong>SignerContext</strong> system that uses thread-local storage to isolate user operations. 
+                       Each request automatically uses the correct user's credentials without manual key management. 
+                       This approach simplifies building concurrent applications that safely handle multiple user wallets, 
+                       reducing the complexity and potential security issues common in blockchain applications.</p>
                 </div>
             </div>
 
@@ -890,9 +891,10 @@ let result = defi_agent
 
         <div class="architecture-content">
             <div class="architecture-text">
-                <h3>The SignerContext Pattern</h3>
-                <p>At the heart of riglr is the SignerContext. It provides a secure, thread-local container for the current user's cryptographic signer. 
-                   This allows your tools to be completely stateless—they simply ask the context for the current signer when they need to perform a transaction.</p>
+                <h3>Secure Key Management</h3>
+                <p>riglr uses a SignerContext to provide thread-local storage for user credentials. 
+                   This allows tools to remain stateless while safely accessing the appropriate signer for transactions, 
+                   simplifying multi-tenant application development.</p>
                 
                 <h3>Modular Crates</h3>
                 <p>riglr is organized into a workspace of independent crates. This design means you only compile and depend on the functionality you need. 
@@ -953,22 +955,22 @@ let result = defi_agent
             </div>
         </div>
         
-        <!-- Enhanced SignerContext Section -->
+        <!-- Key Management Section -->
         <div style="background: var(--bg-card); border: 1px solid var(--primary); border-radius: 1rem; padding: 2rem; margin: 2rem 0;">
             <h3 style="color: var(--primary); margin-bottom: 1.5rem; text-align: center;">
-                <i class="fas fa-shield-alt"></i> SignerContext: Multi-Tenant Security Innovation
+                <i class="fas fa-shield-alt"></i> Simplified Multi-Tenant Security
             </h3>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; align-items: center;">
                 <div>
-                    <h4 style="color: var(--text-primary); margin-bottom: 1rem;">The Problem</h4>
+                    <h4 style="color: var(--text-primary); margin-bottom: 1rem;">The Challenge</h4>
                     <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">
-                        Traditional blockchain applications struggle with secure multi-tenant operations. 
-                        Managing multiple user wallets safely while preventing cross-user access is complex and error-prone.
+                        Blockchain applications need to manage multiple user wallets safely while preventing cross-user access. 
+                        This typically requires complex key management and careful isolation.
                     </p>
-                    <h4 style="color: var(--text-primary); margin-bottom: 1rem;">riglr's Solution</h4>
+                    <h4 style="color: var(--text-primary); margin-bottom: 1rem;">How riglr Helps</h4>
                     <p style="color: var(--text-secondary);">
-                        The SignerContext pattern uses thread-local storage to ensure cryptographic isolation. 
-                        Every blockchain operation automatically uses the correct user's credentials without manual key management.
+                        riglr provides a SignerContext that uses thread-local storage to isolate user operations. 
+                        Tools can access the appropriate signer without explicit key passing, reducing boilerplate and potential errors.
                     </p>
                 </div>
                 <div style="background: var(--bg-darker); border-radius: 0.5rem; padding: 1.5rem;">
@@ -1404,7 +1406,7 @@ riglr-solana-tools = "0.2.0"  # Or riglr-evm-tools, riglr-web-tools, etc.</code>
         </div>
 
         <div class="cta-buttons" style="justify-content: center; margin-top: 3rem;">
-            <a href="/docs/" class="btn btn-primary">
+            <a href="https://riglr.com/docs" class="btn btn-primary">
                 <i class="fas fa-book"></i> Read the Docs
             </a>
             <a href="https://github.com/riglr/riglr" class="btn btn-secondary" target="_blank">
