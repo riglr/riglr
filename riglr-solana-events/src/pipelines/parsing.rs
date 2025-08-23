@@ -401,7 +401,6 @@ impl ParsingPipelineBuilder {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -442,5 +441,525 @@ mod tests {
 
         assert_eq!(input.data.len(), 3);
         assert!(input.program_id_hint.is_none());
+    }
+
+    #[test]
+    fn test_parsing_pipeline_config_default() {
+        let config = ParsingPipelineConfig::default();
+        assert_eq!(config.max_batch_size, 100);
+        assert_eq!(config.batch_timeout, Duration::from_millis(50));
+        assert_eq!(config.max_concurrent_tasks, 4);
+        assert_eq!(config.output_buffer_size, 1000);
+        assert!(config.enable_metrics);
+        assert!(config.parser_configs.is_empty());
+    }
+
+    #[test]
+    fn test_parser_config_default() {
+        let config = ParserConfig::default();
+        assert!(config.zero_copy);
+        assert!(config.detailed_analysis);
+        assert_eq!(config.priority, 1);
+    }
+
+    #[test]
+    fn test_parsing_metrics_default() {
+        let metrics = ParsingMetrics::default();
+        assert_eq!(metrics.processing_time, Duration::default());
+        assert_eq!(metrics.events_parsed, 0);
+        assert_eq!(metrics.bytes_processed, 0);
+        assert_eq!(metrics.error_count, 0);
+        assert!(metrics.parser_metrics.is_empty());
+    }
+
+    #[test]
+    fn test_parser_metrics_default() {
+        let metrics = ParserMetrics::default();
+        assert_eq!(metrics.parse_time, Duration::default());
+        assert_eq!(metrics.events_count, 0);
+        assert_eq!(metrics.success_rate, 0.0);
+    }
+
+    #[test]
+    fn test_parsing_pipeline_builder_default() {
+        let builder = ParsingPipelineBuilder::default();
+        assert_eq!(builder.config.max_batch_size, 100);
+        assert!(builder.parsers.is_empty());
+    }
+
+    #[test]
+    fn test_parsing_pipeline_builder_with_batch_size() {
+        let builder = ParsingPipelineBuilder::default().with_batch_size(200);
+        assert_eq!(builder.config.max_batch_size, 200);
+    }
+
+    #[test]
+    fn test_parsing_pipeline_builder_with_batch_timeout() {
+        let timeout = Duration::from_millis(100);
+        let builder = ParsingPipelineBuilder::default().with_batch_timeout(timeout);
+        assert_eq!(builder.config.batch_timeout, timeout);
+    }
+
+    #[test]
+    fn test_parsing_pipeline_builder_with_concurrency_limit() {
+        let builder = ParsingPipelineBuilder::default().with_concurrency_limit(8);
+        assert_eq!(builder.config.max_concurrent_tasks, 8);
+    }
+
+    #[test]
+    fn test_parsing_pipeline_builder_with_metrics() {
+        let builder = ParsingPipelineBuilder::default().with_metrics(false);
+        assert!(!builder.config.enable_metrics);
+    }
+
+    #[test]
+    fn test_parsing_pipeline_builder_with_parser_config() {
+        let parser_config = ParserConfig {
+            zero_copy: false,
+            detailed_analysis: false,
+            priority: 5,
+        };
+        let builder = ParsingPipelineBuilder::default()
+            .with_parser_config(ProtocolType::Jupiter, parser_config.clone());
+
+        assert_eq!(builder.config.parser_configs.len(), 1);
+        let config = builder
+            .config
+            .parser_configs
+            .get(&ProtocolType::Jupiter)
+            .unwrap();
+        assert!(!config.zero_copy);
+        assert!(!config.detailed_analysis);
+        assert_eq!(config.priority, 5);
+    }
+
+    #[test]
+    fn test_parsing_pipeline_builder_add_parser() {
+        let parser = RaydiumV4ParserFactory::create_zero_copy();
+        let builder = ParsingPipelineBuilder::default().add_parser(parser);
+        assert_eq!(builder.parsers.len(), 1);
+    }
+
+    #[test]
+    fn test_parsing_pipeline_builder_chaining() {
+        let parser1 = RaydiumV4ParserFactory::create_zero_copy();
+        let parser2 = JupiterParserFactory::create_zero_copy();
+        let parser_config = ParserConfig {
+            zero_copy: false,
+            detailed_analysis: true,
+            priority: 3,
+        };
+
+        let builder = ParsingPipelineBuilder::default()
+            .with_batch_size(150)
+            .with_batch_timeout(Duration::from_millis(75))
+            .with_concurrency_limit(6)
+            .with_metrics(false)
+            .add_parser(parser1)
+            .add_parser(parser2)
+            .with_parser_config(ProtocolType::RaydiumAmmV4, parser_config);
+
+        assert_eq!(builder.config.max_batch_size, 150);
+        assert_eq!(builder.config.batch_timeout, Duration::from_millis(75));
+        assert_eq!(builder.config.max_concurrent_tasks, 6);
+        assert!(!builder.config.enable_metrics);
+        assert_eq!(builder.parsers.len(), 2);
+        assert_eq!(builder.config.parser_configs.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn test_parsing_pipeline_new() {
+        let config = ParsingPipelineConfig {
+            max_batch_size: 50,
+            batch_timeout: Duration::from_millis(25),
+            max_concurrent_tasks: 2,
+            output_buffer_size: 500,
+            enable_metrics: false,
+            parser_configs: HashMap::new(),
+        };
+
+        let pipeline = ParsingPipeline::new(config);
+        let stats = pipeline.get_stats();
+
+        assert_eq!(stats.max_batch_size, 50);
+        assert_eq!(stats.max_concurrent_tasks, 2);
+        assert_eq!(stats.registered_parsers, 0);
+        assert_eq!(stats.available_permits, 2);
+    }
+
+    #[tokio::test]
+    async fn test_parsing_pipeline_add_parser() {
+        let config = ParsingPipelineConfig::default();
+        let mut pipeline = ParsingPipeline::new(config);
+
+        let parser = RaydiumV4ParserFactory::create_zero_copy();
+        pipeline.add_parser(parser);
+
+        let stats = pipeline.get_stats();
+        assert_eq!(stats.registered_parsers, 1);
+    }
+
+    #[tokio::test]
+    async fn test_parsing_pipeline_take_output_receiver() {
+        let config = ParsingPipelineConfig::default();
+        let mut pipeline = ParsingPipeline::new(config);
+
+        let _receiver = pipeline.take_output_receiver();
+        // After taking the receiver, a new one should be created internally
+        // This is verified by the function not panicking
+    }
+
+    #[test]
+    fn test_parsing_input_with_program_id_hint() {
+        use solana_sdk::pubkey::Pubkey;
+
+        let program_id = Pubkey::new_unique();
+        let input = ParsingInput {
+            data: vec![0x01, 0x02, 0x03, 0x04],
+            metadata: EventMetadata::default(),
+            program_id_hint: Some(program_id),
+        };
+
+        assert_eq!(input.data.len(), 4);
+        assert_eq!(input.program_id_hint, Some(program_id));
+    }
+
+    #[test]
+    fn test_pipeline_error_display() {
+        let semaphore_error = PipelineError::SemaphoreError(());
+        let channel_error = PipelineError::ChannelError;
+        let config_error = PipelineError::ConfigError("Invalid config".to_string());
+
+        assert_eq!(format!("{}", semaphore_error), "Semaphore error");
+        assert_eq!(format!("{}", channel_error), "Channel error");
+        assert_eq!(
+            format!("{}", config_error),
+            "Configuration error: Invalid config"
+        );
+    }
+
+    #[test]
+    fn test_pipeline_error_from_parse_error() {
+        let parse_error = ParseError::InvalidInstructionData("Invalid data".to_string());
+        let pipeline_error = PipelineError::from(parse_error);
+
+        match pipeline_error {
+            PipelineError::ParseError(ParseError::InvalidInstructionData(_)) => {}
+            _ => panic!("Expected ParseError variant"),
+        }
+    }
+
+    #[test]
+    fn test_pipeline_stats_debug() {
+        let stats = PipelineStats {
+            max_batch_size: 100,
+            max_concurrent_tasks: 4,
+            registered_parsers: 2,
+            available_permits: 3,
+        };
+
+        let debug_str = format!("{:?}", stats);
+        assert!(debug_str.contains("max_batch_size: 100"));
+        assert!(debug_str.contains("max_concurrent_tasks: 4"));
+        assert!(debug_str.contains("registered_parsers: 2"));
+        assert!(debug_str.contains("available_permits: 3"));
+    }
+
+    #[test]
+    fn test_parsing_output_debug() {
+        let output = ParsingOutput {
+            events: Vec::new(),
+            metrics: ParsingMetrics::default(),
+            errors: Vec::new(),
+        };
+
+        let debug_str = format!("{:?}", output);
+        assert!(debug_str.contains("events"));
+        assert!(debug_str.contains("metrics"));
+        assert!(debug_str.contains("errors"));
+    }
+
+    #[test]
+    fn test_parsing_metrics_with_parser_metrics() {
+        let mut parser_metrics = HashMap::new();
+        parser_metrics.insert(
+            ProtocolType::Jupiter,
+            ParserMetrics {
+                parse_time: Duration::from_millis(10),
+                events_count: 5,
+                success_rate: 0.9,
+            },
+        );
+
+        let metrics = ParsingMetrics {
+            processing_time: Duration::from_millis(100),
+            events_parsed: 10,
+            bytes_processed: 1024,
+            error_count: 1,
+            parser_metrics,
+        };
+
+        assert_eq!(metrics.processing_time, Duration::from_millis(100));
+        assert_eq!(metrics.events_parsed, 10);
+        assert_eq!(metrics.bytes_processed, 1024);
+        assert_eq!(metrics.error_count, 1);
+        assert_eq!(metrics.parser_metrics.len(), 1);
+
+        let jupiter_metrics = metrics.parser_metrics.get(&ProtocolType::Jupiter).unwrap();
+        assert_eq!(jupiter_metrics.parse_time, Duration::from_millis(10));
+        assert_eq!(jupiter_metrics.events_count, 5);
+        assert_eq!(jupiter_metrics.success_rate, 0.9);
+    }
+
+    #[test]
+    fn test_parser_config_custom_values() {
+        let config = ParserConfig {
+            zero_copy: false,
+            detailed_analysis: false,
+            priority: 10,
+        };
+
+        assert!(!config.zero_copy);
+        assert!(!config.detailed_analysis);
+        assert_eq!(config.priority, 10);
+    }
+
+    #[test]
+    fn test_parsing_pipeline_config_custom_values() {
+        let mut parser_configs = HashMap::new();
+        parser_configs.insert(ProtocolType::Jupiter, ParserConfig::default());
+
+        let config = ParsingPipelineConfig {
+            max_batch_size: 250,
+            batch_timeout: Duration::from_millis(200),
+            max_concurrent_tasks: 8,
+            output_buffer_size: 2000,
+            enable_metrics: false,
+            parser_configs,
+        };
+
+        assert_eq!(config.max_batch_size, 250);
+        assert_eq!(config.batch_timeout, Duration::from_millis(200));
+        assert_eq!(config.max_concurrent_tasks, 8);
+        assert_eq!(config.output_buffer_size, 2000);
+        assert!(!config.enable_metrics);
+        assert_eq!(config.parser_configs.len(), 1);
+    }
+
+    #[test]
+    fn test_parsing_input_clone() {
+        let input = ParsingInput {
+            data: vec![0x05, 0x06],
+            metadata: EventMetadata::default(),
+            program_id_hint: None,
+        };
+
+        let cloned = input.clone();
+        assert_eq!(input.data, cloned.data);
+        assert_eq!(input.program_id_hint, cloned.program_id_hint);
+    }
+
+    #[test]
+    fn test_parsing_pipeline_config_clone() {
+        let config = ParsingPipelineConfig::default();
+        let cloned = config.clone();
+
+        assert_eq!(config.max_batch_size, cloned.max_batch_size);
+        assert_eq!(config.batch_timeout, cloned.batch_timeout);
+        assert_eq!(config.max_concurrent_tasks, cloned.max_concurrent_tasks);
+        assert_eq!(config.output_buffer_size, cloned.output_buffer_size);
+        assert_eq!(config.enable_metrics, cloned.enable_metrics);
+    }
+
+    #[test]
+    fn test_parser_config_clone() {
+        let config = ParserConfig::default();
+        let cloned = config.clone();
+
+        assert_eq!(config.zero_copy, cloned.zero_copy);
+        assert_eq!(config.detailed_analysis, cloned.detailed_analysis);
+        assert_eq!(config.priority, cloned.priority);
+    }
+
+    #[test]
+    fn test_parsing_metrics_clone() {
+        let metrics = ParsingMetrics::default();
+        let cloned = metrics.clone();
+
+        assert_eq!(metrics.processing_time, cloned.processing_time);
+        assert_eq!(metrics.events_parsed, cloned.events_parsed);
+        assert_eq!(metrics.bytes_processed, cloned.bytes_processed);
+        assert_eq!(metrics.error_count, cloned.error_count);
+    }
+
+    #[test]
+    fn test_parser_metrics_clone() {
+        let metrics = ParserMetrics::default();
+        let cloned = metrics.clone();
+
+        assert_eq!(metrics.parse_time, cloned.parse_time);
+        assert_eq!(metrics.events_count, cloned.events_count);
+        assert_eq!(metrics.success_rate, cloned.success_rate);
+    }
+
+    #[test]
+    fn test_pipeline_stats_clone() {
+        let stats = PipelineStats {
+            max_batch_size: 100,
+            max_concurrent_tasks: 4,
+            registered_parsers: 2,
+            available_permits: 3,
+        };
+        let cloned = stats.clone();
+
+        assert_eq!(stats.max_batch_size, cloned.max_batch_size);
+        assert_eq!(stats.max_concurrent_tasks, cloned.max_concurrent_tasks);
+        assert_eq!(stats.registered_parsers, cloned.registered_parsers);
+        assert_eq!(stats.available_permits, cloned.available_permits);
+    }
+
+    // Edge cases and error paths
+    #[test]
+    fn test_parsing_input_empty_data() {
+        let input = ParsingInput {
+            data: Vec::new(),
+            metadata: EventMetadata::default(),
+            program_id_hint: None,
+        };
+
+        assert!(input.data.is_empty());
+    }
+
+    #[test]
+    fn test_parsing_input_large_data() {
+        let large_data = vec![0xFF; 10000];
+        let input = ParsingInput {
+            data: large_data.clone(),
+            metadata: EventMetadata::default(),
+            program_id_hint: None,
+        };
+
+        assert_eq!(input.data.len(), 10000);
+        assert_eq!(input.data, large_data);
+    }
+
+    #[test]
+    fn test_parsing_pipeline_config_zero_batch_size() {
+        let config = ParsingPipelineConfig {
+            max_batch_size: 0,
+            ..Default::default()
+        };
+
+        assert_eq!(config.max_batch_size, 0);
+    }
+
+    #[test]
+    fn test_parsing_pipeline_config_zero_timeout() {
+        let config = ParsingPipelineConfig {
+            batch_timeout: Duration::from_millis(0),
+            ..Default::default()
+        };
+
+        assert_eq!(config.batch_timeout, Duration::from_millis(0));
+    }
+
+    #[test]
+    fn test_parsing_pipeline_config_zero_concurrency() {
+        let config = ParsingPipelineConfig {
+            max_concurrent_tasks: 0,
+            ..Default::default()
+        };
+
+        assert_eq!(config.max_concurrent_tasks, 0);
+    }
+
+    #[test]
+    fn test_parser_config_zero_priority() {
+        let config = ParserConfig {
+            priority: 0,
+            ..Default::default()
+        };
+
+        assert_eq!(config.priority, 0);
+    }
+
+    #[test]
+    fn test_parser_config_max_priority() {
+        let config = ParserConfig {
+            priority: u8::MAX,
+            ..Default::default()
+        };
+
+        assert_eq!(config.priority, u8::MAX);
+    }
+
+    #[test]
+    fn test_parser_metrics_zero_success_rate() {
+        let metrics = ParserMetrics {
+            success_rate: 0.0,
+            ..Default::default()
+        };
+
+        assert_eq!(metrics.success_rate, 0.0);
+    }
+
+    #[test]
+    fn test_parser_metrics_full_success_rate() {
+        let metrics = ParserMetrics {
+            success_rate: 1.0,
+            ..Default::default()
+        };
+
+        assert_eq!(metrics.success_rate, 1.0);
+    }
+
+    #[test]
+    fn test_parsing_pipeline_builder_multiple_parser_configs() {
+        let jupiter_config = ParserConfig {
+            zero_copy: true,
+            detailed_analysis: false,
+            priority: 1,
+        };
+        let raydium_config = ParserConfig {
+            zero_copy: false,
+            detailed_analysis: true,
+            priority: 2,
+        };
+
+        let builder = ParsingPipelineBuilder::default()
+            .with_parser_config(ProtocolType::Jupiter, jupiter_config)
+            .with_parser_config(ProtocolType::RaydiumAmmV4, raydium_config);
+
+        assert_eq!(builder.config.parser_configs.len(), 2);
+        assert!(builder
+            .config
+            .parser_configs
+            .contains_key(&ProtocolType::Jupiter));
+        assert!(builder
+            .config
+            .parser_configs
+            .contains_key(&ProtocolType::RaydiumAmmV4));
+    }
+
+    #[tokio::test]
+    async fn test_parsing_pipeline_builder_build_with_all_options() {
+        let parser1 = RaydiumV4ParserFactory::create_zero_copy();
+        let parser2 = JupiterParserFactory::create_zero_copy();
+
+        let pipeline = ParsingPipelineBuilder::default()
+            .with_batch_size(75)
+            .with_batch_timeout(Duration::from_millis(30))
+            .with_concurrency_limit(3)
+            .with_metrics(true)
+            .add_parser(parser1)
+            .add_parser(parser2)
+            .with_parser_config(ProtocolType::Jupiter, ParserConfig::default())
+            .build();
+
+        let stats = pipeline.get_stats();
+        assert_eq!(stats.max_batch_size, 75);
+        assert_eq!(stats.max_concurrent_tasks, 3);
+        assert_eq!(stats.registered_parsers, 2);
+        assert_eq!(stats.available_permits, 3);
     }
 }

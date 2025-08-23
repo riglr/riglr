@@ -103,6 +103,7 @@ pub struct WithdrawInstruction {
 }
 
 /// High-performance Raydium V4 parser
+#[derive(Debug)]
 pub struct RaydiumV4Parser {
     /// Program ID for validation
     #[allow(dead_code)]
@@ -123,6 +124,15 @@ impl Default for RaydiumV4Parser {
 }
 
 impl RaydiumV4Parser {
+    /// Create new Raydium V4 parser with zero-copy enabled
+    pub fn new() -> Self {
+        Self {
+            program_id: RAYDIUM_AMM_V4_PROGRAM_ID
+                .parse()
+                .expect("Valid Raydium program ID"),
+            zero_copy: true,
+        }
+    }
 
     /// Create parser with zero-copy disabled
     pub fn new_standard() -> Self {
@@ -434,5 +444,435 @@ mod tests {
 
         assert_eq!(zero_copy_parser.protocol_type(), ProtocolType::RaydiumAmmV4);
         assert_eq!(standard_parser.protocol_type(), ProtocolType::RaydiumAmmV4);
+    }
+
+    // Additional comprehensive tests for 100% coverage
+
+    #[test]
+    fn test_discriminator_from_byte_all_variants() {
+        // Test all valid discriminators
+        assert_eq!(
+            RaydiumV4Discriminator::from_byte(0x09),
+            Some(RaydiumV4Discriminator::SwapBaseIn)
+        );
+        assert_eq!(
+            RaydiumV4Discriminator::from_byte(0x0a),
+            Some(RaydiumV4Discriminator::SwapBaseOut)
+        );
+        assert_eq!(
+            RaydiumV4Discriminator::from_byte(0x03),
+            Some(RaydiumV4Discriminator::Deposit)
+        );
+        assert_eq!(
+            RaydiumV4Discriminator::from_byte(0x04),
+            Some(RaydiumV4Discriminator::Withdraw)
+        );
+        assert_eq!(
+            RaydiumV4Discriminator::from_byte(0x00),
+            Some(RaydiumV4Discriminator::Initialize2)
+        );
+        assert_eq!(
+            RaydiumV4Discriminator::from_byte(0x05),
+            Some(RaydiumV4Discriminator::WithdrawPnl)
+        );
+
+        // Test invalid discriminators
+        assert_eq!(RaydiumV4Discriminator::from_byte(0x01), None);
+        assert_eq!(RaydiumV4Discriminator::from_byte(0x02), None);
+        assert_eq!(RaydiumV4Discriminator::from_byte(0x06), None);
+        assert_eq!(RaydiumV4Discriminator::from_byte(0xFF), None);
+    }
+
+    #[test]
+    fn test_discriminator_event_type() {
+        assert_eq!(
+            RaydiumV4Discriminator::SwapBaseIn.event_type(),
+            EventType::RaydiumAmmV4SwapBaseIn
+        );
+        assert_eq!(
+            RaydiumV4Discriminator::SwapBaseOut.event_type(),
+            EventType::RaydiumAmmV4SwapBaseIn
+        );
+        assert_eq!(
+            RaydiumV4Discriminator::Deposit.event_type(),
+            EventType::RaydiumAmmV4Deposit
+        );
+        assert_eq!(
+            RaydiumV4Discriminator::Withdraw.event_type(),
+            EventType::RaydiumAmmV4Withdraw
+        );
+        assert_eq!(
+            RaydiumV4Discriminator::Initialize2.event_type(),
+            EventType::RaydiumAmmV4Initialize2
+        );
+        assert_eq!(
+            RaydiumV4Discriminator::WithdrawPnl.event_type(),
+            EventType::RaydiumAmmV4WithdrawPnl
+        );
+    }
+
+    #[test]
+    fn test_raydium_v4_parser_default() {
+        let parser = RaydiumV4Parser::default();
+        assert_eq!(parser.program_id.to_string(), RAYDIUM_AMM_V4_PROGRAM_ID);
+        assert!(parser.zero_copy);
+    }
+
+    #[test]
+    fn test_raydium_v4_parser_new_standard() {
+        let parser = RaydiumV4Parser::new_standard();
+        assert_eq!(parser.program_id.to_string(), RAYDIUM_AMM_V4_PROGRAM_ID);
+        assert!(!parser.zero_copy);
+    }
+
+    #[test]
+    fn test_swap_base_in_parsing_zero_copy_disabled() {
+        let parser = RaydiumV4Parser::new_standard();
+
+        let mut data = vec![0x09];
+        data.extend_from_slice(&u64::MAX.to_le_bytes());
+        data.extend_from_slice(&0u64.to_le_bytes());
+
+        let metadata = EventMetadata::default();
+        let events = parser.parse_from_slice(&data, metadata).unwrap();
+
+        assert_eq!(events.len(), 1);
+        let event = &events[0];
+
+        let parsed = event.get_parsed_data::<SwapBaseInInstruction>().unwrap();
+        assert_eq!(parsed.discriminator, 0x09);
+        assert_eq!(parsed.amount_in, u64::MAX);
+        assert_eq!(parsed.minimum_amount_out, 0);
+    }
+
+    #[test]
+    fn test_swap_base_out_parsing() {
+        let parser = RaydiumV4Parser::default();
+
+        let mut data = vec![0x0a];
+        data.extend_from_slice(&2000u64.to_le_bytes());
+        data.extend_from_slice(&1800u64.to_le_bytes());
+
+        let metadata = EventMetadata::default();
+        let events = parser.parse_from_slice(&data, metadata).unwrap();
+
+        assert_eq!(events.len(), 1);
+        let event = &events[0];
+        assert_eq!(event.protocol_type(), ProtocolType::RaydiumAmmV4);
+
+        let parsed = event.get_parsed_data::<SwapBaseOutInstruction>().unwrap();
+        assert_eq!(parsed.discriminator, 0x0a);
+        assert_eq!(parsed.max_amount_in, 2000);
+        assert_eq!(parsed.amount_out, 1800);
+    }
+
+    #[test]
+    fn test_swap_base_out_parsing_zero_copy_disabled() {
+        let parser = RaydiumV4Parser::new_standard();
+
+        let mut data = vec![0x0a];
+        data.extend_from_slice(&0u64.to_le_bytes());
+        data.extend_from_slice(&u64::MAX.to_le_bytes());
+
+        let metadata = EventMetadata::default();
+        let events = parser.parse_from_slice(&data, metadata).unwrap();
+
+        assert_eq!(events.len(), 1);
+        let parsed = events[0]
+            .get_parsed_data::<SwapBaseOutInstruction>()
+            .unwrap();
+        assert_eq!(parsed.max_amount_in, 0);
+        assert_eq!(parsed.amount_out, u64::MAX);
+    }
+
+    #[test]
+    fn test_deposit_parsing() {
+        let parser = RaydiumV4Parser::default();
+
+        let mut data = vec![0x03];
+        data.extend_from_slice(&5000u64.to_le_bytes());
+        data.extend_from_slice(&3000u64.to_le_bytes());
+        data.extend_from_slice(&1u64.to_le_bytes());
+
+        let metadata = EventMetadata::default();
+        let events = parser.parse_from_slice(&data, metadata).unwrap();
+
+        assert_eq!(events.len(), 1);
+        let event = &events[0];
+        assert_eq!(event.protocol_type(), ProtocolType::RaydiumAmmV4);
+
+        let parsed = event.get_parsed_data::<DepositInstruction>().unwrap();
+        assert_eq!(parsed.discriminator, 0x03);
+        assert_eq!(parsed.max_coin_amount, 5000);
+        assert_eq!(parsed.max_pc_amount, 3000);
+        assert_eq!(parsed.base_side, 1);
+    }
+
+    #[test]
+    fn test_deposit_parsing_zero_copy_disabled() {
+        let parser = RaydiumV4Parser::new_standard();
+
+        let mut data = vec![0x03];
+        data.extend_from_slice(&u64::MAX.to_le_bytes());
+        data.extend_from_slice(&0u64.to_le_bytes());
+        data.extend_from_slice(&0u64.to_le_bytes());
+
+        let metadata = EventMetadata::default();
+        let events = parser.parse_from_slice(&data, metadata).unwrap();
+
+        assert_eq!(events.len(), 1);
+        let parsed = events[0].get_parsed_data::<DepositInstruction>().unwrap();
+        assert_eq!(parsed.max_coin_amount, u64::MAX);
+        assert_eq!(parsed.max_pc_amount, 0);
+        assert_eq!(parsed.base_side, 0);
+    }
+
+    #[test]
+    fn test_withdraw_parsing() {
+        let parser = RaydiumV4Parser::default();
+
+        let mut data = vec![0x04];
+        data.extend_from_slice(&1500u64.to_le_bytes());
+
+        let metadata = EventMetadata::default();
+        let events = parser.parse_from_slice(&data, metadata).unwrap();
+
+        assert_eq!(events.len(), 1);
+        let event = &events[0];
+        assert_eq!(event.protocol_type(), ProtocolType::RaydiumAmmV4);
+
+        let parsed = event.get_parsed_data::<WithdrawInstruction>().unwrap();
+        assert_eq!(parsed.discriminator, 0x04);
+        assert_eq!(parsed.amount, 1500);
+    }
+
+    #[test]
+    fn test_withdraw_parsing_zero_copy_disabled() {
+        let parser = RaydiumV4Parser::new_standard();
+
+        let mut data = vec![0x04];
+        data.extend_from_slice(&u64::MAX.to_le_bytes());
+
+        let metadata = EventMetadata::default();
+        let events = parser.parse_from_slice(&data, metadata).unwrap();
+
+        assert_eq!(events.len(), 1);
+        let parsed = events[0].get_parsed_data::<WithdrawInstruction>().unwrap();
+        assert_eq!(parsed.amount, u64::MAX);
+    }
+
+    #[test]
+    fn test_initialize2_parsing() {
+        let parser = RaydiumV4Parser::default();
+
+        let data = vec![0x00];
+
+        let metadata = EventMetadata::default();
+        let events = parser.parse_from_slice(&data, metadata).unwrap();
+
+        assert_eq!(events.len(), 1);
+        let event = &events[0];
+        assert_eq!(event.protocol_type(), ProtocolType::RaydiumAmmV4);
+    }
+
+    #[test]
+    fn test_initialize2_parsing_zero_copy_disabled() {
+        let parser = RaydiumV4Parser::new_standard();
+
+        let data = vec![0x00];
+
+        let metadata = EventMetadata::default();
+        let events = parser.parse_from_slice(&data, metadata).unwrap();
+
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].protocol_type(), ProtocolType::RaydiumAmmV4);
+    }
+
+    #[test]
+    fn test_withdraw_pnl_parsing() {
+        let parser = RaydiumV4Parser::default();
+
+        let data = vec![0x05];
+
+        let metadata = EventMetadata::default();
+        let events = parser.parse_from_slice(&data, metadata).unwrap();
+
+        assert_eq!(events.len(), 1);
+        let event = &events[0];
+        assert_eq!(event.protocol_type(), ProtocolType::RaydiumAmmV4);
+    }
+
+    #[test]
+    fn test_withdraw_pnl_parsing_zero_copy_disabled() {
+        let parser = RaydiumV4Parser::new_standard();
+
+        let data = vec![0x05];
+
+        let metadata = EventMetadata::default();
+        let events = parser.parse_from_slice(&data, metadata).unwrap();
+
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].protocol_type(), ProtocolType::RaydiumAmmV4);
+    }
+
+    #[test]
+    fn test_parse_from_slice_empty_data() {
+        let parser = RaydiumV4Parser::default();
+        let metadata = EventMetadata::default();
+
+        let result = parser.parse_from_slice(&[], metadata).unwrap();
+        assert_eq!(result.len(), 0);
+    }
+
+    #[test]
+    fn test_parse_from_slice_unknown_discriminator() {
+        let parser = RaydiumV4Parser::default();
+        let data = vec![0xFF]; // Unknown discriminator
+        let metadata = EventMetadata::default();
+
+        let result = parser.parse_from_slice(&data, metadata);
+        assert!(result.is_err());
+
+        match result.unwrap_err() {
+            ParseError::UnknownDiscriminator { discriminator } => {
+                assert_eq!(discriminator, vec![0xFF]);
+            }
+            _ => panic!("Expected UnknownDiscriminator error"),
+        }
+    }
+
+    #[test]
+    fn test_can_parse_all_valid_discriminators() {
+        let parser = RaydiumV4Parser::default();
+
+        assert!(parser.can_parse(&[0x09])); // SwapBaseIn
+        assert!(parser.can_parse(&[0x0a])); // SwapBaseOut
+        assert!(parser.can_parse(&[0x03])); // Deposit
+        assert!(parser.can_parse(&[0x04])); // Withdraw
+        assert!(parser.can_parse(&[0x00])); // Initialize2
+        assert!(parser.can_parse(&[0x05])); // WithdrawPnl
+    }
+
+    #[test]
+    fn test_can_parse_invalid_cases() {
+        let parser = RaydiumV4Parser::default();
+
+        assert!(!parser.can_parse(&[])); // Empty
+        assert!(!parser.can_parse(&[0x01])); // Invalid
+        assert!(!parser.can_parse(&[0x02])); // Invalid
+        assert!(!parser.can_parse(&[0x06])); // Invalid
+        assert!(!parser.can_parse(&[0xFF])); // Invalid
+    }
+
+    #[test]
+    fn test_protocol_type() {
+        let parser = RaydiumV4Parser::default();
+        assert_eq!(parser.protocol_type(), ProtocolType::RaydiumAmmV4);
+    }
+
+    #[test]
+    fn test_instruction_serialization_deserialization() {
+        // Test SwapBaseInInstruction
+        let swap_in = SwapBaseInInstruction {
+            discriminator: 0x09,
+            amount_in: 1000,
+            minimum_amount_out: 900,
+        };
+        let serialized = borsh::to_vec(&swap_in).unwrap();
+        let deserialized: SwapBaseInInstruction = borsh::from_slice(&serialized).unwrap();
+        assert_eq!(deserialized.discriminator, swap_in.discriminator);
+        assert_eq!(deserialized.amount_in, swap_in.amount_in);
+        assert_eq!(deserialized.minimum_amount_out, swap_in.minimum_amount_out);
+
+        // Test SwapBaseOutInstruction
+        let swap_out = SwapBaseOutInstruction {
+            discriminator: 0x0a,
+            max_amount_in: 2000,
+            amount_out: 1800,
+        };
+        let serialized = borsh::to_vec(&swap_out).unwrap();
+        let deserialized: SwapBaseOutInstruction = borsh::from_slice(&serialized).unwrap();
+        assert_eq!(deserialized.discriminator, swap_out.discriminator);
+        assert_eq!(deserialized.max_amount_in, swap_out.max_amount_in);
+        assert_eq!(deserialized.amount_out, swap_out.amount_out);
+
+        // Test DepositInstruction
+        let deposit = DepositInstruction {
+            discriminator: 0x03,
+            max_coin_amount: 5000,
+            max_pc_amount: 3000,
+            base_side: 1,
+        };
+        let serialized = borsh::to_vec(&deposit).unwrap();
+        let deserialized: DepositInstruction = borsh::from_slice(&serialized).unwrap();
+        assert_eq!(deserialized.discriminator, deposit.discriminator);
+        assert_eq!(deserialized.max_coin_amount, deposit.max_coin_amount);
+        assert_eq!(deserialized.max_pc_amount, deposit.max_pc_amount);
+        assert_eq!(deserialized.base_side, deposit.base_side);
+
+        // Test WithdrawInstruction
+        let withdraw = WithdrawInstruction {
+            discriminator: 0x04,
+            amount: 1500,
+        };
+        let serialized = borsh::to_vec(&withdraw).unwrap();
+        let deserialized: WithdrawInstruction = borsh::from_slice(&serialized).unwrap();
+        assert_eq!(deserialized.discriminator, withdraw.discriminator);
+        assert_eq!(deserialized.amount, withdraw.amount);
+    }
+
+    #[test]
+    fn test_discriminator_clone_debug_partialeq() {
+        let disc1 = RaydiumV4Discriminator::SwapBaseIn;
+        let disc2 = disc1.clone();
+
+        assert_eq!(disc1, disc2);
+        assert_eq!(format!("{:?}", disc1), "SwapBaseIn");
+    }
+
+    #[test]
+    fn test_instruction_clone_debug() {
+        let swap_in = SwapBaseInInstruction {
+            discriminator: 0x09,
+            amount_in: 1000,
+            minimum_amount_out: 900,
+        };
+        let cloned = swap_in.clone();
+        assert_eq!(cloned.amount_in, swap_in.amount_in);
+
+        // Test debug formatting exists
+        let debug_str = format!("{:?}", swap_in);
+        assert!(debug_str.contains("SwapBaseInInstruction"));
+    }
+
+    #[test]
+    fn test_parse_insufficient_data_error() {
+        let parser = RaydiumV4Parser::default();
+
+        // Test with insufficient data for SwapBaseIn (needs 17 bytes: 1 + 8 + 8)
+        let data = vec![0x09, 0x01]; // Only 2 bytes
+        let metadata = EventMetadata::default();
+
+        let result = parser.parse_from_slice(&data, metadata);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_edge_case_values() {
+        let parser = RaydiumV4Parser::default();
+
+        // Test with zero values
+        let mut data = vec![0x09];
+        data.extend_from_slice(&0u64.to_le_bytes());
+        data.extend_from_slice(&0u64.to_le_bytes());
+
+        let metadata = EventMetadata::default();
+        let events = parser.parse_from_slice(&data, metadata).unwrap();
+
+        let parsed = events[0]
+            .get_parsed_data::<SwapBaseInInstruction>()
+            .unwrap();
+        assert_eq!(parsed.amount_in, 0);
+        assert_eq!(parsed.minimum_amount_out, 0);
     }
 }

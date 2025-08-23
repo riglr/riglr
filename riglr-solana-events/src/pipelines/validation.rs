@@ -5,12 +5,12 @@
 
 use crate::types::{EventType, ProtocolType};
 use crate::zero_copy::ZeroCopyEvent;
+use dashmap::DashMap;
 use serde_json::Value;
 use solana_sdk::pubkey::Pubkey;
 use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use dashmap::DashMap;
 // UnifiedEvent trait has been removed
 
 /// Configuration for validation pipeline
@@ -65,36 +65,36 @@ pub enum ValidationError {
     /// Missing required field
     MissingField {
         /// The name of the missing field
-        field: String
+        field: String,
     },
     /// Invalid field value
     InvalidValue {
         /// The name of the invalid field
         field: String,
         /// The reason why the value is invalid
-        reason: String
+        reason: String,
     },
     /// Data inconsistency
     Inconsistency {
         /// Description of the inconsistency
-        description: String
+        description: String,
     },
     /// Business logic violation
     BusinessLogicError {
         /// The business rule that was violated
         rule: String,
         /// Description of the violation
-        description: String
+        description: String,
     },
     /// Event too old
     StaleEvent {
         /// How old the event is
-        age: Duration
+        age: Duration,
     },
     /// Duplicate event detected
     Duplicate {
         /// ID of the original event
-        original_id: String
+        original_id: String,
     },
 }
 
@@ -106,17 +106,17 @@ pub enum ValidationWarning {
         /// The name of the field with unusual value
         field: String,
         /// The unusual value
-        value: String
+        value: String,
     },
     /// Deprecated field usage
     DeprecatedField {
         /// The name of the deprecated field
-        field: String
+        field: String,
     },
     /// Performance concern
     PerformanceWarning {
         /// Description of the performance concern
-        description: String
+        description: String,
     },
 }
 
@@ -724,5 +724,1330 @@ mod tests {
 
         rule.validate_pubkeys_in_json(&invalid_json, &mut result);
         assert!(!result.errors.is_empty());
+    }
+
+    // Additional comprehensive unit tests for 100% coverage
+
+    #[test]
+    fn test_validation_config_default() {
+        let config = ValidationConfig::default();
+        assert!(!config.strict_mode);
+        assert!(config.enable_consistency_checks);
+        assert!(config.enable_business_validation);
+        assert!(config.enable_duplicate_detection);
+        assert_eq!(config.max_event_age, Duration::from_secs(3600));
+        assert!(config.known_tokens.is_empty());
+        assert!(config.known_programs.is_empty());
+    }
+
+    #[test]
+    fn test_validation_config_custom() {
+        let mut known_tokens = HashSet::new();
+        known_tokens.insert(Pubkey::default());
+        let mut known_programs = HashSet::new();
+        known_programs.insert(Pubkey::default());
+
+        let config = ValidationConfig {
+            strict_mode: true,
+            enable_consistency_checks: false,
+            enable_business_validation: false,
+            enable_duplicate_detection: false,
+            max_event_age: Duration::from_secs(7200),
+            known_tokens,
+            known_programs,
+        };
+
+        assert!(config.strict_mode);
+        assert!(!config.enable_consistency_checks);
+        assert!(!config.enable_business_validation);
+        assert!(!config.enable_duplicate_detection);
+        assert_eq!(config.max_event_age, Duration::from_secs(7200));
+        assert_eq!(config.known_tokens.len(), 1);
+        assert_eq!(config.known_programs.len(), 1);
+    }
+
+    #[test]
+    fn test_validation_error_variants() {
+        let missing_field_error = ValidationError::MissingField {
+            field: "test_field".to_string(),
+        };
+        assert!(matches!(
+            missing_field_error,
+            ValidationError::MissingField { .. }
+        ));
+
+        let invalid_value_error = ValidationError::InvalidValue {
+            field: "test_field".to_string(),
+            reason: "test_reason".to_string(),
+        };
+        assert!(matches!(
+            invalid_value_error,
+            ValidationError::InvalidValue { .. }
+        ));
+
+        let inconsistency_error = ValidationError::Inconsistency {
+            description: "test_description".to_string(),
+        };
+        assert!(matches!(
+            inconsistency_error,
+            ValidationError::Inconsistency { .. }
+        ));
+
+        let business_logic_error = ValidationError::BusinessLogicError {
+            rule: "test_rule".to_string(),
+            description: "test_description".to_string(),
+        };
+        assert!(matches!(
+            business_logic_error,
+            ValidationError::BusinessLogicError { .. }
+        ));
+
+        let stale_event_error = ValidationError::StaleEvent {
+            age: Duration::from_secs(100),
+        };
+        assert!(matches!(
+            stale_event_error,
+            ValidationError::StaleEvent { .. }
+        ));
+
+        let duplicate_error = ValidationError::Duplicate {
+            original_id: "test_id".to_string(),
+        };
+        assert!(matches!(duplicate_error, ValidationError::Duplicate { .. }));
+    }
+
+    #[test]
+    fn test_validation_warning_variants() {
+        let unusual_value_warning = ValidationWarning::UnusualValue {
+            field: "test_field".to_string(),
+            value: "test_value".to_string(),
+        };
+        assert!(matches!(
+            unusual_value_warning,
+            ValidationWarning::UnusualValue { .. }
+        ));
+
+        let deprecated_field_warning = ValidationWarning::DeprecatedField {
+            field: "test_field".to_string(),
+        };
+        assert!(matches!(
+            deprecated_field_warning,
+            ValidationWarning::DeprecatedField { .. }
+        ));
+
+        let performance_warning = ValidationWarning::PerformanceWarning {
+            description: "test_description".to_string(),
+        };
+        assert!(matches!(
+            performance_warning,
+            ValidationWarning::PerformanceWarning { .. }
+        ));
+    }
+
+    #[test]
+    fn test_validation_metrics_default() {
+        let metrics = ValidationMetrics::default();
+        assert_eq!(metrics.validation_time, Duration::ZERO);
+        assert_eq!(metrics.rules_checked, 0);
+        assert_eq!(metrics.consistency_checks, 0);
+    }
+
+    #[test]
+    fn test_validation_metrics_custom() {
+        let metrics = ValidationMetrics {
+            validation_time: Duration::from_millis(100),
+            rules_checked: 5,
+            consistency_checks: 3,
+        };
+        assert_eq!(metrics.validation_time, Duration::from_millis(100));
+        assert_eq!(metrics.rules_checked, 5);
+        assert_eq!(metrics.consistency_checks, 3);
+    }
+
+    #[test]
+    fn test_rule_result_default() {
+        let result = RuleResult::default();
+        assert!(result.errors.is_empty());
+        assert!(result.warnings.is_empty());
+        assert_eq!(result.consistency_checks, 0);
+    }
+
+    #[test]
+    fn test_rule_result_with_data() {
+        let mut result = RuleResult::default();
+        result.errors.push(ValidationError::MissingField {
+            field: "test".to_string(),
+        });
+        result.warnings.push(ValidationWarning::UnusualValue {
+            field: "test".to_string(),
+            value: "test".to_string(),
+        });
+        result.consistency_checks = 5;
+
+        assert_eq!(result.errors.len(), 1);
+        assert_eq!(result.warnings.len(), 1);
+        assert_eq!(result.consistency_checks, 5);
+    }
+
+    #[test]
+    fn test_validation_pipeline_with_custom_config() {
+        let config = ValidationConfig {
+            strict_mode: true,
+            enable_duplicate_detection: false,
+            ..Default::default()
+        };
+        let pipeline = ValidationPipeline::new(config);
+
+        assert!(pipeline.config.strict_mode);
+        assert!(!pipeline.config.enable_duplicate_detection);
+        assert!(!pipeline.rules.is_empty());
+    }
+
+    #[test]
+    fn test_validation_pipeline_add_rule() {
+        let config = ValidationConfig::default();
+        let mut pipeline = ValidationPipeline::new(config);
+        let initial_rules_count = pipeline.rules.len();
+
+        let custom_rule = Arc::new(RequiredFieldsRule);
+        pipeline.add_rule(custom_rule);
+
+        assert_eq!(pipeline.rules.len(), initial_rules_count + 1);
+    }
+
+    #[tokio::test]
+    async fn test_validation_pipeline_strict_mode_false() {
+        let config = ValidationConfig {
+            strict_mode: false,
+            ..Default::default()
+        };
+        let pipeline = ValidationPipeline::new(config);
+
+        // Create an event with missing required fields
+        let metadata = EventMetadata::default();
+        let event = ZeroCopyEvent::new_owned(metadata, vec![]);
+
+        let result = pipeline.validate_event(&event).await;
+
+        // With strict_mode false, should be valid even with errors
+        assert!(result.is_valid);
+        assert!(!result.errors.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_validation_pipeline_strict_mode_true() {
+        let config = ValidationConfig {
+            strict_mode: true,
+            ..Default::default()
+        };
+        let pipeline = ValidationPipeline::new(config);
+
+        // Create an event with missing required fields
+        let metadata = EventMetadata::default();
+        let event = ZeroCopyEvent::new_owned(metadata, vec![]);
+
+        let result = pipeline.validate_event(&event).await;
+
+        // With strict_mode true, should be invalid when there are errors
+        assert!(!result.is_valid);
+        assert!(!result.errors.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_validation_pipeline_disabled_duplicate_detection() {
+        let config = ValidationConfig {
+            enable_duplicate_detection: false,
+            ..Default::default()
+        };
+        let pipeline = ValidationPipeline::new(config);
+
+        let core_metadata = riglr_events_core::EventMetadata::default();
+        let metadata = crate::solana_metadata::SolanaEventMetadata::new(
+            "test-signature".to_string(),
+            0,
+            EventType::default(),
+            ProtocolType::default(),
+            "0".to_string(),
+            0,
+            core_metadata,
+        );
+
+        let event = ZeroCopyEvent::new_owned(metadata.clone(), vec![]);
+
+        // Both validations should not detect duplicates
+        let result1 = pipeline.validate_event(&event).await;
+        let result2 = pipeline.validate_event(&event).await;
+
+        // Should not find duplicate errors
+        let has_duplicate_errors = result1
+            .errors
+            .iter()
+            .any(|e| matches!(e, ValidationError::Duplicate { .. }))
+            || result2
+                .errors
+                .iter()
+                .any(|e| matches!(e, ValidationError::Duplicate { .. }));
+        assert!(!has_duplicate_errors);
+    }
+
+    #[tokio::test]
+    async fn test_validate_events_multiple() {
+        let config = ValidationConfig::default();
+        let pipeline = ValidationPipeline::new(config);
+
+        let metadata1 = EventMetadata::default();
+        let metadata2 = EventMetadata::default();
+        let events = vec![
+            ZeroCopyEvent::new_owned(metadata1, vec![]),
+            ZeroCopyEvent::new_owned(metadata2, vec![]),
+        ];
+
+        let results = pipeline.validate_events(&events).await;
+        assert_eq!(results.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn test_validate_events_empty() {
+        let config = ValidationConfig::default();
+        let pipeline = ValidationPipeline::new(config);
+
+        let events = vec![];
+        let results = pipeline.validate_events(&events).await;
+        assert!(results.is_empty());
+    }
+
+    #[test]
+    fn test_check_event_age_stale() {
+        let config = ValidationConfig {
+            max_event_age: Duration::from_secs(1),
+            ..Default::default()
+        };
+        let pipeline = ValidationPipeline::new(config);
+
+        // Create an event with old timestamp
+        let old_time = chrono::Utc::now() - chrono::Duration::seconds(10);
+        let core_metadata = riglr_events_core::EventMetadata {
+            timestamp: old_time,
+            ..Default::default()
+        };
+        let metadata = crate::solana_metadata::SolanaEventMetadata::new(
+            "test-signature".to_string(),
+            0,
+            EventType::default(),
+            ProtocolType::default(),
+            "0".to_string(),
+            0,
+            core_metadata,
+        );
+        let event = ZeroCopyEvent::new_owned(metadata, vec![]);
+
+        let error = pipeline.check_event_age(&event);
+        assert!(error.is_some());
+        assert!(matches!(error.unwrap(), ValidationError::StaleEvent { .. }));
+    }
+
+    #[test]
+    fn test_check_event_age_fresh() {
+        let config = ValidationConfig {
+            max_event_age: Duration::from_secs(3600),
+            ..Default::default()
+        };
+        let pipeline = ValidationPipeline::new(config);
+
+        // Create an event with recent timestamp
+        let recent_time = chrono::Utc::now() - chrono::Duration::seconds(10);
+        let core_metadata = riglr_events_core::EventMetadata {
+            timestamp: recent_time,
+            ..Default::default()
+        };
+        let metadata = crate::solana_metadata::SolanaEventMetadata::new(
+            "test-signature".to_string(),
+            0,
+            EventType::default(),
+            ProtocolType::default(),
+            "0".to_string(),
+            0,
+            core_metadata,
+        );
+        let event = ZeroCopyEvent::new_owned(metadata, vec![]);
+
+        let error = pipeline.check_event_age(&event);
+        assert!(error.is_none());
+    }
+
+    #[test]
+    fn test_check_event_age_future_timestamp() {
+        let config = ValidationConfig::default();
+        let pipeline = ValidationPipeline::new(config);
+
+        // Create an event with future timestamp
+        let future_time = chrono::Utc::now() + chrono::Duration::seconds(10);
+        let core_metadata = riglr_events_core::EventMetadata {
+            timestamp: future_time,
+            ..Default::default()
+        };
+        let metadata = crate::solana_metadata::SolanaEventMetadata::new(
+            "test-signature".to_string(),
+            0,
+            EventType::default(),
+            ProtocolType::default(),
+            "0".to_string(),
+            0,
+            core_metadata,
+        );
+        let event = ZeroCopyEvent::new_owned(metadata, vec![]);
+
+        // Should not return error for future timestamps in check_event_age
+        let error = pipeline.check_event_age(&event);
+        assert!(error.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_check_duplicate_cache_cleanup() {
+        let config = ValidationConfig {
+            max_event_age: Duration::from_millis(100),
+            enable_duplicate_detection: true,
+            ..Default::default()
+        };
+        let pipeline = ValidationPipeline::new(config);
+
+        let core_metadata = riglr_events_core::EventMetadata::default();
+        let metadata = crate::solana_metadata::SolanaEventMetadata::new(
+            "test-signature".to_string(),
+            0,
+            EventType::default(),
+            ProtocolType::default(),
+            "0".to_string(),
+            0,
+            core_metadata,
+        );
+        let event = ZeroCopyEvent::new_owned(metadata, vec![]);
+
+        // First check should not find duplicate
+        let error1 = pipeline.check_duplicate(&event).await;
+        assert!(error1.is_none());
+
+        // Wait for cache cleanup
+        tokio::time::sleep(Duration::from_millis(150)).await;
+
+        // Second check should not find duplicate because cache was cleaned
+        let error2 = pipeline.check_duplicate(&event).await;
+        assert!(error2.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_jupiter_validation_missing_fields() {
+        let config = ValidationConfig::default();
+        let pipeline = ValidationPipeline::new(config);
+
+        let json_data = serde_json::json!({
+            "some_other_field": "value"
+        });
+        let core_metadata = riglr_events_core::EventMetadata::default();
+        let metadata = crate::solana_metadata::SolanaEventMetadata::new(
+            "test-signature".to_string(),
+            0,
+            EventType::default(),
+            ProtocolType::Jupiter,
+            "0".to_string(),
+            0,
+            core_metadata,
+        );
+        let event = ZeroCopyEvent::new_owned_with_json(metadata, vec![], json_data);
+
+        let error = pipeline.validate_jupiter_event(&event).await;
+        assert!(error.is_some());
+        assert!(matches!(
+            error.unwrap(),
+            ValidationError::MissingField { .. }
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_jupiter_validation_valid_fields() {
+        let config = ValidationConfig::default();
+        let pipeline = ValidationPipeline::new(config);
+
+        let json_data = serde_json::json!({
+            "total_amount_in": "1000",
+            "total_amount_out": "900"
+        });
+        let core_metadata = riglr_events_core::EventMetadata::default();
+        let metadata = crate::solana_metadata::SolanaEventMetadata::new(
+            "test-signature".to_string(),
+            0,
+            EventType::default(),
+            ProtocolType::Jupiter,
+            "0".to_string(),
+            0,
+            core_metadata,
+        );
+        let event = ZeroCopyEvent::new_owned_with_json(metadata, vec![], json_data);
+
+        let error = pipeline.validate_jupiter_event(&event).await;
+        assert!(error.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_jupiter_validation_zero_amount() {
+        let config = ValidationConfig::default();
+        let pipeline = ValidationPipeline::new(config);
+
+        let json_data = serde_json::json!({
+            "total_amount_in": "0",
+            "total_amount_out": "900"
+        });
+        let core_metadata = riglr_events_core::EventMetadata::default();
+        let metadata = crate::solana_metadata::SolanaEventMetadata::new(
+            "test-signature".to_string(),
+            0,
+            EventType::default(),
+            ProtocolType::Jupiter,
+            "0".to_string(),
+            0,
+            core_metadata,
+        );
+        let event = ZeroCopyEvent::new_owned_with_json(metadata, vec![], json_data);
+
+        let error = pipeline.validate_jupiter_event(&event).await;
+        assert!(error.is_some());
+        assert!(matches!(
+            error.unwrap(),
+            ValidationError::InvalidValue { .. }
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_jupiter_validation_no_json_data() {
+        let config = ValidationConfig::default();
+        let pipeline = ValidationPipeline::new(config);
+
+        let core_metadata = riglr_events_core::EventMetadata::default();
+        let metadata = crate::solana_metadata::SolanaEventMetadata::new(
+            "test-signature".to_string(),
+            0,
+            EventType::default(),
+            ProtocolType::Jupiter,
+            "0".to_string(),
+            0,
+            core_metadata,
+        );
+        let event = ZeroCopyEvent::new_owned(metadata, vec![]);
+
+        let error = pipeline.validate_jupiter_event(&event).await;
+        assert!(error.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_raydium_validation_swap_missing_amounts() {
+        let config = ValidationConfig::default();
+        let pipeline = ValidationPipeline::new(config);
+
+        let json_data = serde_json::json!({
+            "some_other_field": "value"
+        });
+        let core_metadata = riglr_events_core::EventMetadata::default();
+        let metadata = crate::solana_metadata::SolanaEventMetadata::new(
+            "test-signature".to_string(),
+            0,
+            EventType::RaydiumAmmV4SwapBaseIn,
+            ProtocolType::RaydiumAmmV4,
+            "0".to_string(),
+            0,
+            core_metadata,
+        );
+        let event = ZeroCopyEvent::new_owned_with_json(metadata, vec![], json_data);
+
+        let error = pipeline.validate_raydium_event(&event).await;
+        assert!(error.is_some());
+        assert!(matches!(
+            error.unwrap(),
+            ValidationError::MissingField { .. }
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_raydium_validation_swap_with_amount_in() {
+        let config = ValidationConfig::default();
+        let pipeline = ValidationPipeline::new(config);
+
+        let json_data = serde_json::json!({
+            "amount_in": "1000"
+        });
+        let core_metadata = riglr_events_core::EventMetadata::default();
+        let metadata = crate::solana_metadata::SolanaEventMetadata::new(
+            "test-signature".to_string(),
+            0,
+            EventType::RaydiumAmmV4SwapBaseOut,
+            ProtocolType::RaydiumAmmV4,
+            "0".to_string(),
+            0,
+            core_metadata,
+        );
+        let event = ZeroCopyEvent::new_owned_with_json(metadata, vec![], json_data);
+
+        let error = pipeline.validate_raydium_event(&event).await;
+        assert!(error.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_raydium_validation_swap_with_max_amount_in() {
+        let config = ValidationConfig::default();
+        let pipeline = ValidationPipeline::new(config);
+
+        let json_data = serde_json::json!({
+            "max_amount_in": "1000"
+        });
+        let core_metadata = riglr_events_core::EventMetadata::default();
+        let metadata = crate::solana_metadata::SolanaEventMetadata::new(
+            "test-signature".to_string(),
+            0,
+            EventType::RaydiumAmmV4SwapBaseIn,
+            ProtocolType::RaydiumAmmV4,
+            "0".to_string(),
+            0,
+            core_metadata,
+        );
+        let event = ZeroCopyEvent::new_owned_with_json(metadata, vec![], json_data);
+
+        let error = pipeline.validate_raydium_event(&event).await;
+        assert!(error.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_raydium_validation_non_swap_event() {
+        let config = ValidationConfig::default();
+        let pipeline = ValidationPipeline::new(config);
+
+        let core_metadata = riglr_events_core::EventMetadata::default();
+        let metadata = crate::solana_metadata::SolanaEventMetadata::new(
+            "test-signature".to_string(),
+            0,
+            EventType::AddLiquidity,
+            ProtocolType::RaydiumAmmV4,
+            "0".to_string(),
+            0,
+            core_metadata,
+        );
+        let event = ZeroCopyEvent::new_owned(metadata, vec![]);
+
+        let error = pipeline.validate_raydium_event(&event).await;
+        assert!(error.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_pump_fun_validation_valid_discriminator() {
+        let config = ValidationConfig::default();
+        let pipeline = ValidationPipeline::new(config);
+
+        let json_data = serde_json::json!({
+            "discriminator": 0x66063d1201daebeau64
+        });
+        let core_metadata = riglr_events_core::EventMetadata::default();
+        let metadata = crate::solana_metadata::SolanaEventMetadata::new(
+            "test-signature".to_string(),
+            0,
+            EventType::default(),
+            ProtocolType::PumpSwap,
+            "0".to_string(),
+            0,
+            core_metadata,
+        );
+        let event = ZeroCopyEvent::new_owned_with_json(metadata, vec![], json_data);
+
+        let error = pipeline.validate_pump_fun_event(&event).await;
+        assert!(error.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_pump_fun_validation_invalid_discriminator() {
+        let config = ValidationConfig::default();
+        let pipeline = ValidationPipeline::new(config);
+
+        let json_data = serde_json::json!({
+            "discriminator": 0x123456789abcdefu64
+        });
+        let core_metadata = riglr_events_core::EventMetadata::default();
+        let metadata = crate::solana_metadata::SolanaEventMetadata::new(
+            "test-signature".to_string(),
+            0,
+            EventType::default(),
+            ProtocolType::PumpSwap,
+            "0".to_string(),
+            0,
+            core_metadata,
+        );
+        let event = ZeroCopyEvent::new_owned_with_json(metadata, vec![], json_data);
+
+        let error = pipeline.validate_pump_fun_event(&event).await;
+        assert!(error.is_some());
+        assert!(matches!(
+            error.unwrap(),
+            ValidationError::InvalidValue { .. }
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_pump_fun_validation_no_discriminator() {
+        let config = ValidationConfig::default();
+        let pipeline = ValidationPipeline::new(config);
+
+        let json_data = serde_json::json!({
+            "some_other_field": "value"
+        });
+        let core_metadata = riglr_events_core::EventMetadata::default();
+        let metadata = crate::solana_metadata::SolanaEventMetadata::new(
+            "test-signature".to_string(),
+            0,
+            EventType::default(),
+            ProtocolType::PumpSwap,
+            "0".to_string(),
+            0,
+            core_metadata,
+        );
+        let event = ZeroCopyEvent::new_owned_with_json(metadata, vec![], json_data);
+
+        let error = pipeline.validate_pump_fun_event(&event).await;
+        assert!(error.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_pump_fun_validation_no_json_data() {
+        let config = ValidationConfig::default();
+        let pipeline = ValidationPipeline::new(config);
+
+        let core_metadata = riglr_events_core::EventMetadata::default();
+        let metadata = crate::solana_metadata::SolanaEventMetadata::new(
+            "test-signature".to_string(),
+            0,
+            EventType::default(),
+            ProtocolType::PumpSwap,
+            "0".to_string(),
+            0,
+            core_metadata,
+        );
+        let event = ZeroCopyEvent::new_owned(metadata, vec![]);
+
+        let error = pipeline.validate_pump_fun_event(&event).await;
+        assert!(error.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_required_fields_rule_name() {
+        let rule = RequiredFieldsRule;
+        assert_eq!(rule.name(), "required_fields");
+    }
+
+    #[tokio::test]
+    async fn test_required_fields_rule_valid_event() {
+        let rule = RequiredFieldsRule;
+        let config = ValidationConfig::default();
+
+        let core_metadata = riglr_events_core::EventMetadata::default();
+        let metadata = crate::solana_metadata::SolanaEventMetadata::new(
+            "valid-signature".to_string(),
+            0,
+            EventType::default(),
+            ProtocolType::default(),
+            "valid-id".to_string(),
+            0,
+            core_metadata,
+        );
+        let event = ZeroCopyEvent::new_owned(metadata, vec![]);
+
+        let result = rule.validate(&event, &config).await;
+        assert!(result.errors.is_empty());
+        assert_eq!(result.consistency_checks, 2);
+    }
+
+    #[tokio::test]
+    async fn test_data_types_rule_name() {
+        let rule = DataTypesRule;
+        assert_eq!(rule.name(), "data_types");
+    }
+
+    #[tokio::test]
+    async fn test_data_types_rule_zero_slot() {
+        let rule = DataTypesRule;
+        let config = ValidationConfig::default();
+
+        let core_metadata = riglr_events_core::EventMetadata::default();
+        let metadata = crate::solana_metadata::SolanaEventMetadata::new(
+            "test-signature".to_string(),
+            0, // slot = 0
+            EventType::default(),
+            ProtocolType::default(),
+            "test-id".to_string(),
+            0,
+            core_metadata,
+        );
+        let event = ZeroCopyEvent::new_owned(metadata, vec![]);
+
+        let result = rule.validate(&event, &config).await;
+        assert!(!result.warnings.is_empty());
+        assert!(matches!(
+            result.warnings[0],
+            ValidationWarning::UnusualValue { .. }
+        ));
+        assert_eq!(result.consistency_checks, 1);
+    }
+
+    #[tokio::test]
+    async fn test_data_types_rule_non_zero_slot() {
+        let rule = DataTypesRule;
+        let config = ValidationConfig::default();
+
+        let core_metadata = riglr_events_core::EventMetadata::default();
+        let metadata = crate::solana_metadata::SolanaEventMetadata::new(
+            "test-signature".to_string(),
+            123, // slot = 123
+            EventType::default(),
+            ProtocolType::default(),
+            "test-id".to_string(),
+            0,
+            core_metadata,
+        );
+        let event = ZeroCopyEvent::new_owned(metadata, vec![]);
+
+        let result = rule.validate(&event, &config).await;
+        assert!(result.warnings.is_empty());
+        assert_eq!(result.consistency_checks, 1);
+    }
+
+    #[tokio::test]
+    async fn test_numeric_ranges_rule_name() {
+        let rule = NumericRangesRule;
+        assert_eq!(rule.name(), "numeric_ranges");
+    }
+
+    #[tokio::test]
+    async fn test_numeric_ranges_rule_large_amount() {
+        let rule = NumericRangesRule;
+        let config = ValidationConfig::default();
+
+        let json_data = serde_json::json!({
+            "amount_in": format!("{}", u64::MAX / 2 + 1)
+        });
+        let core_metadata = riglr_events_core::EventMetadata::default();
+        let metadata = crate::solana_metadata::SolanaEventMetadata::new(
+            "test-signature".to_string(),
+            0,
+            EventType::default(),
+            ProtocolType::default(),
+            "test-id".to_string(),
+            0,
+            core_metadata,
+        );
+        let event = ZeroCopyEvent::new_owned_with_json(metadata, vec![], json_data);
+
+        let result = rule.validate(&event, &config).await;
+        assert!(!result.warnings.is_empty());
+        assert!(matches!(
+            result.warnings[0],
+            ValidationWarning::UnusualValue { .. }
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_numeric_ranges_rule_normal_amount() {
+        let rule = NumericRangesRule;
+        let config = ValidationConfig::default();
+
+        let json_data = serde_json::json!({
+            "amount_in": "1000"
+        });
+        let core_metadata = riglr_events_core::EventMetadata::default();
+        let metadata = crate::solana_metadata::SolanaEventMetadata::new(
+            "test-signature".to_string(),
+            0,
+            EventType::default(),
+            ProtocolType::default(),
+            "test-id".to_string(),
+            0,
+            core_metadata,
+        );
+        let event = ZeroCopyEvent::new_owned_with_json(metadata, vec![], json_data);
+
+        let result = rule.validate(&event, &config).await;
+        assert!(result.warnings.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_numeric_ranges_rule_no_json() {
+        let rule = NumericRangesRule;
+        let config = ValidationConfig::default();
+
+        let metadata = EventMetadata::default();
+        let event = ZeroCopyEvent::new_owned(metadata, vec![]);
+
+        let result = rule.validate(&event, &config).await;
+        assert!(result.warnings.is_empty());
+        assert_eq!(result.consistency_checks, 0);
+    }
+
+    #[tokio::test]
+    async fn test_numeric_ranges_rule_non_string_amount() {
+        let rule = NumericRangesRule;
+        let config = ValidationConfig::default();
+
+        let json_data = serde_json::json!({
+            "amount_in": 1000
+        });
+        let core_metadata = riglr_events_core::EventMetadata::default();
+        let metadata = crate::solana_metadata::SolanaEventMetadata::new(
+            "test-signature".to_string(),
+            0,
+            EventType::default(),
+            ProtocolType::default(),
+            "test-id".to_string(),
+            0,
+            core_metadata,
+        );
+        let event = ZeroCopyEvent::new_owned_with_json(metadata, vec![], json_data);
+
+        let result = rule.validate(&event, &config).await;
+        assert!(result.warnings.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_pubkey_validation_rule_name() {
+        let rule = PubkeyValidationRule;
+        assert_eq!(rule.name(), "pubkey_validation");
+    }
+
+    #[tokio::test]
+    async fn test_pubkey_validation_rule_valid_event() {
+        let rule = PubkeyValidationRule;
+        let config = ValidationConfig::default();
+
+        let json_data = serde_json::json!({
+            "mint": "So11111111111111111111111111111111111111112"
+        });
+        let core_metadata = riglr_events_core::EventMetadata::default();
+        let metadata = crate::solana_metadata::SolanaEventMetadata::new(
+            "test-signature".to_string(),
+            0,
+            EventType::default(),
+            ProtocolType::default(),
+            "test-id".to_string(),
+            0,
+            core_metadata,
+        );
+        let event = ZeroCopyEvent::new_owned_with_json(metadata, vec![], json_data);
+
+        let result = rule.validate(&event, &config).await;
+        assert!(result.errors.is_empty());
+    }
+
+    #[test]
+    fn test_pubkey_validation_json_array() {
+        let rule = PubkeyValidationRule;
+        let mut result = RuleResult::default();
+
+        let json_array = serde_json::json!([
+            "So11111111111111111111111111111111111111112",
+            "InvalidPubkeyStringWithExactly44Characters!"
+        ]);
+
+        rule.validate_pubkeys_in_json(&json_array, &mut result);
+        assert!(!result.errors.is_empty());
+    }
+
+    #[test]
+    fn test_pubkey_validation_json_object_nested() {
+        let rule = PubkeyValidationRule;
+        let mut result = RuleResult::default();
+
+        let json_nested = serde_json::json!({
+            "data": {
+                "mint": "So11111111111111111111111111111111111111112",
+                "address": "InvalidPubkeyStringWithExactly44Characters!"
+            }
+        });
+
+        rule.validate_pubkeys_in_json(&json_nested, &mut result);
+        assert!(!result.errors.is_empty());
+    }
+
+    #[test]
+    fn test_pubkey_validation_json_non_string() {
+        let rule = PubkeyValidationRule;
+        let mut result = RuleResult::default();
+
+        let json_non_string = serde_json::json!({
+            "mint": 12345
+        });
+
+        rule.validate_pubkeys_in_json(&json_non_string, &mut result);
+        assert!(result.errors.is_empty());
+    }
+
+    #[test]
+    fn test_pubkey_validation_json_short_string() {
+        let rule = PubkeyValidationRule;
+        let mut result = RuleResult::default();
+
+        let json_short = serde_json::json!({
+            "mint": "short"
+        });
+
+        rule.validate_pubkeys_in_json(&json_short, &mut result);
+        assert!(result.errors.is_empty());
+    }
+
+    #[test]
+    fn test_pubkey_validation_json_43_char_valid() {
+        let rule = PubkeyValidationRule;
+        let mut result = RuleResult::default();
+
+        let json_43_char = serde_json::json!({
+            "mint": "11111111111111111111111111111111111111111"
+        });
+
+        rule.validate_pubkeys_in_json(&json_43_char, &mut result);
+        // 43 char string will be checked but likely fail validation
+        assert!(result.consistency_checks > 0);
+    }
+
+    #[tokio::test]
+    async fn test_swap_consistency_rule_name() {
+        let rule = SwapConsistencyRule;
+        assert_eq!(rule.name(), "swap_consistency");
+    }
+
+    #[tokio::test]
+    async fn test_swap_consistency_rule_valid_swap() {
+        let rule = SwapConsistencyRule;
+        let config = ValidationConfig::default();
+
+        let json_data = serde_json::json!({
+            "amount_in": "1000",
+            "amount_out": "900"
+        });
+        let core_metadata = riglr_events_core::EventMetadata::default();
+        let metadata = crate::solana_metadata::SolanaEventMetadata::new(
+            "test-signature".to_string(),
+            0,
+            EventType::Swap,
+            ProtocolType::default(),
+            "test-id".to_string(),
+            0,
+            core_metadata,
+        );
+        let event = ZeroCopyEvent::new_owned_with_json(metadata, vec![], json_data);
+
+        let result = rule.validate(&event, &config).await;
+        assert!(result.errors.is_empty());
+        assert_eq!(result.consistency_checks, 1);
+    }
+
+    #[tokio::test]
+    async fn test_swap_consistency_rule_zero_amounts() {
+        let rule = SwapConsistencyRule;
+        let config = ValidationConfig::default();
+
+        let json_data = serde_json::json!({
+            "amount_in": "0",
+            "amount_out": "900"
+        });
+        let core_metadata = riglr_events_core::EventMetadata::default();
+        let metadata = crate::solana_metadata::SolanaEventMetadata::new(
+            "test-signature".to_string(),
+            0,
+            EventType::Swap,
+            ProtocolType::default(),
+            "test-id".to_string(),
+            0,
+            core_metadata,
+        );
+        let event = ZeroCopyEvent::new_owned_with_json(metadata, vec![], json_data);
+
+        let result = rule.validate(&event, &config).await;
+        assert!(!result.errors.is_empty());
+        assert!(matches!(
+            result.errors[0],
+            ValidationError::InvalidValue { .. }
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_swap_consistency_rule_non_swap_event() {
+        let rule = SwapConsistencyRule;
+        let config = ValidationConfig::default();
+
+        let core_metadata = riglr_events_core::EventMetadata::default();
+        let metadata = crate::solana_metadata::SolanaEventMetadata::new(
+            "test-signature".to_string(),
+            0,
+            EventType::AddLiquidity,
+            ProtocolType::default(),
+            "test-id".to_string(),
+            0,
+            core_metadata,
+        );
+        let event = ZeroCopyEvent::new_owned(metadata, vec![]);
+
+        let result = rule.validate(&event, &config).await;
+        assert!(result.errors.is_empty());
+        assert_eq!(result.consistency_checks, 0);
+    }
+
+    #[tokio::test]
+    async fn test_swap_consistency_rule_missing_amounts() {
+        let rule = SwapConsistencyRule;
+        let config = ValidationConfig::default();
+
+        let json_data = serde_json::json!({
+            "some_other_field": "value"
+        });
+        let core_metadata = riglr_events_core::EventMetadata::default();
+        let metadata = crate::solana_metadata::SolanaEventMetadata::new(
+            "test-signature".to_string(),
+            0,
+            EventType::Swap,
+            ProtocolType::default(),
+            "test-id".to_string(),
+            0,
+            core_metadata,
+        );
+        let event = ZeroCopyEvent::new_owned_with_json(metadata, vec![], json_data);
+
+        let result = rule.validate(&event, &config).await;
+        assert!(result.errors.is_empty());
+        assert_eq!(result.consistency_checks, 0);
+    }
+
+    #[tokio::test]
+    async fn test_swap_consistency_rule_invalid_amount_format() {
+        let rule = SwapConsistencyRule;
+        let config = ValidationConfig::default();
+
+        let json_data = serde_json::json!({
+            "amount_in": "invalid",
+            "amount_out": "900"
+        });
+        let core_metadata = riglr_events_core::EventMetadata::default();
+        let metadata = crate::solana_metadata::SolanaEventMetadata::new(
+            "test-signature".to_string(),
+            0,
+            EventType::Swap,
+            ProtocolType::default(),
+            "test-id".to_string(),
+            0,
+            core_metadata,
+        );
+        let event = ZeroCopyEvent::new_owned_with_json(metadata, vec![], json_data);
+
+        let result = rule.validate(&event, &config).await;
+        assert!(result.errors.is_empty());
+        assert_eq!(result.consistency_checks, 0);
+    }
+
+    #[tokio::test]
+    async fn test_liquidity_validation_rule_name() {
+        let rule = LiquidityValidationRule;
+        assert_eq!(rule.name(), "liquidity_validation");
+    }
+
+    #[tokio::test]
+    async fn test_liquidity_validation_rule_add_liquidity() {
+        let rule = LiquidityValidationRule;
+        let config = ValidationConfig::default();
+
+        let core_metadata = riglr_events_core::EventMetadata::default();
+        let metadata = crate::solana_metadata::SolanaEventMetadata::new(
+            "test-signature".to_string(),
+            0,
+            EventType::AddLiquidity,
+            ProtocolType::default(),
+            "test-id".to_string(),
+            0,
+            core_metadata,
+        );
+        let event = ZeroCopyEvent::new_owned(metadata, vec![]);
+
+        let result = rule.validate(&event, &config).await;
+        assert!(result.errors.is_empty());
+        assert_eq!(result.consistency_checks, 1);
+    }
+
+    #[tokio::test]
+    async fn test_liquidity_validation_rule_remove_liquidity() {
+        let rule = LiquidityValidationRule;
+        let config = ValidationConfig::default();
+
+        let core_metadata = riglr_events_core::EventMetadata::default();
+        let metadata = crate::solana_metadata::SolanaEventMetadata::new(
+            "test-signature".to_string(),
+            0,
+            EventType::RemoveLiquidity,
+            ProtocolType::default(),
+            "test-id".to_string(),
+            0,
+            core_metadata,
+        );
+        let event = ZeroCopyEvent::new_owned(metadata, vec![]);
+
+        let result = rule.validate(&event, &config).await;
+        assert!(result.errors.is_empty());
+        assert_eq!(result.consistency_checks, 1);
+    }
+
+    #[tokio::test]
+    async fn test_liquidity_validation_rule_other_event() {
+        let rule = LiquidityValidationRule;
+        let config = ValidationConfig::default();
+
+        let core_metadata = riglr_events_core::EventMetadata::default();
+        let metadata = crate::solana_metadata::SolanaEventMetadata::new(
+            "test-signature".to_string(),
+            0,
+            EventType::Swap,
+            ProtocolType::default(),
+            "test-id".to_string(),
+            0,
+            core_metadata,
+        );
+        let event = ZeroCopyEvent::new_owned(metadata, vec![]);
+
+        let result = rule.validate(&event, &config).await;
+        assert!(result.errors.is_empty());
+        assert_eq!(result.consistency_checks, 0);
+    }
+
+    #[tokio::test]
+    async fn test_timestamp_validation_rule_name() {
+        let rule = TimestampValidationRule;
+        assert_eq!(rule.name(), "timestamp_validation");
+    }
+
+    #[tokio::test]
+    async fn test_timestamp_validation_rule_future_timestamp() {
+        let rule = TimestampValidationRule;
+        let config = ValidationConfig::default();
+
+        let future_time = chrono::Utc::now() + chrono::Duration::seconds(10);
+        let core_metadata = riglr_events_core::EventMetadata {
+            timestamp: future_time,
+            ..Default::default()
+        };
+        let metadata = crate::solana_metadata::SolanaEventMetadata::new(
+            "test-signature".to_string(),
+            0,
+            EventType::default(),
+            ProtocolType::default(),
+            "test-id".to_string(),
+            0,
+            core_metadata,
+        );
+        let event = ZeroCopyEvent::new_owned(metadata, vec![]);
+
+        let result = rule.validate(&event, &config).await;
+        assert!(!result.warnings.is_empty());
+        assert!(matches!(
+            result.warnings[0],
+            ValidationWarning::UnusualValue { .. }
+        ));
+        assert_eq!(result.consistency_checks, 1);
+    }
+
+    #[tokio::test]
+    async fn test_timestamp_validation_rule_past_timestamp() {
+        let rule = TimestampValidationRule;
+        let config = ValidationConfig::default();
+
+        let past_time = chrono::Utc::now() - chrono::Duration::seconds(10);
+        let core_metadata = riglr_events_core::EventMetadata {
+            timestamp: past_time,
+            ..Default::default()
+        };
+        let metadata = crate::solana_metadata::SolanaEventMetadata::new(
+            "test-signature".to_string(),
+            0,
+            EventType::default(),
+            ProtocolType::default(),
+            "test-id".to_string(),
+            0,
+            core_metadata,
+        );
+        let event = ZeroCopyEvent::new_owned(metadata, vec![]);
+
+        let result = rule.validate(&event, &config).await;
+        assert!(result.warnings.is_empty());
+        assert_eq!(result.consistency_checks, 1);
+    }
+
+    #[tokio::test]
+    async fn test_protocol_specific_validation_other_protocol() {
+        let config = ValidationConfig::default();
+        let pipeline = ValidationPipeline::new(config);
+
+        let core_metadata = riglr_events_core::EventMetadata::default();
+        let metadata = crate::solana_metadata::SolanaEventMetadata::new(
+            "test-signature".to_string(),
+            0,
+            EventType::default(),
+            ProtocolType::OrcaWhirlpool, // Other protocol
+            "0".to_string(),
+            0,
+            core_metadata,
+        );
+        let event = ZeroCopyEvent::new_owned(metadata, vec![]);
+
+        let result = pipeline.validate_event(&event).await;
+
+        // Should complete validation without protocol-specific errors
+        assert!(result.metrics.validation_time > Duration::ZERO);
+        assert!(result.metrics.rules_checked > 0);
+    }
+
+    #[test]
+    fn test_validation_stats_debug() {
+        let stats = ValidationStats {
+            total_rules: 5,
+            cached_events: 10,
+            strict_mode: true,
+        };
+
+        let debug_str = format!("{:?}", stats);
+        assert!(debug_str.contains("total_rules: 5"));
+        assert!(debug_str.contains("cached_events: 10"));
+        assert!(debug_str.contains("strict_mode: true"));
+    }
+
+    #[test]
+    fn test_validation_result_debug() {
+        let result = ValidationResult {
+            is_valid: true,
+            errors: vec![],
+            warnings: vec![],
+            metrics: ValidationMetrics::default(),
+        };
+
+        let debug_str = format!("{:?}", result);
+        assert!(debug_str.contains("is_valid: true"));
+    }
+
+    #[test]
+    fn test_validation_error_debug() {
+        let error = ValidationError::MissingField {
+            field: "test".to_string(),
+        };
+
+        let debug_str = format!("{:?}", error);
+        assert!(debug_str.contains("MissingField"));
+        assert!(debug_str.contains("test"));
+    }
+
+    #[test]
+    fn test_validation_warning_debug() {
+        let warning = ValidationWarning::UnusualValue {
+            field: "test".to_string(),
+            value: "value".to_string(),
+        };
+
+        let debug_str = format!("{:?}", warning);
+        assert!(debug_str.contains("UnusualValue"));
+        assert!(debug_str.contains("test"));
     }
 }

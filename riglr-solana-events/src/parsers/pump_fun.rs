@@ -116,6 +116,7 @@ pub struct PumpWithdrawInstruction {
 }
 
 /// High-performance PumpFun parser
+#[derive(Debug)]
 pub struct PumpFunParser {
     /// Program ID for validation
     #[allow(dead_code)]
@@ -429,7 +430,7 @@ pub struct PumpFunParserFactory;
 impl PumpFunParserFactory {
     /// Create a new high-performance zero-copy parser
     pub fn create_zero_copy() -> Arc<dyn ByteSliceEventParser> {
-        Arc::new(PumpFunParser::new())
+        Arc::new(PumpFunParser::default())
     }
 
     /// Create a standard parser
@@ -458,7 +459,7 @@ mod tests {
 
     #[test]
     fn test_buy_instruction_parsing() {
-        let parser = PumpFunParser::new();
+        let parser = PumpFunParser::default();
 
         let mut data = Vec::new();
         data.extend_from_slice(&0x66063d1201daebeau64.to_le_bytes()); // Buy discriminator
@@ -480,7 +481,7 @@ mod tests {
 
     #[test]
     fn test_can_parse() {
-        let parser = PumpFunParser::new();
+        let parser = PumpFunParser::default();
 
         let mut buy_data = Vec::new();
         buy_data.extend_from_slice(&0x66063d1201daebeau64.to_le_bytes());
@@ -500,5 +501,426 @@ mod tests {
 
         assert_eq!(zero_copy_parser.protocol_type(), ProtocolType::PumpSwap);
         assert_eq!(standard_parser.protocol_type(), ProtocolType::PumpSwap);
+    }
+
+    #[test]
+    fn test_discriminator_event_type_mapping() {
+        assert_eq!(
+            PumpFunDiscriminator::Buy.event_type(),
+            EventType::PumpSwapBuy
+        );
+        assert_eq!(
+            PumpFunDiscriminator::Sell.event_type(),
+            EventType::PumpSwapSell
+        );
+        assert_eq!(
+            PumpFunDiscriminator::CreatePool.event_type(),
+            EventType::PumpSwapCreatePool
+        );
+        assert_eq!(
+            PumpFunDiscriminator::Deposit.event_type(),
+            EventType::PumpSwapDeposit
+        );
+        assert_eq!(
+            PumpFunDiscriminator::Withdraw.event_type(),
+            EventType::PumpSwapWithdraw
+        );
+        assert_eq!(
+            PumpFunDiscriminator::SetParams.event_type(),
+            EventType::PumpSwapSetParams
+        );
+    }
+
+    #[test]
+    fn test_all_discriminator_values() {
+        assert_eq!(
+            PumpFunDiscriminator::from_u64(0x181ec828051c0777),
+            Some(PumpFunDiscriminator::CreatePool)
+        );
+        assert_eq!(
+            PumpFunDiscriminator::from_u64(0xf223c68952e1f2b6),
+            Some(PumpFunDiscriminator::Deposit)
+        );
+        assert_eq!(
+            PumpFunDiscriminator::from_u64(0x2e2d8d4ec43b1d79),
+            Some(PumpFunDiscriminator::Withdraw)
+        );
+        assert_eq!(
+            PumpFunDiscriminator::from_u64(0xa6f0308f80e7b5c9),
+            Some(PumpFunDiscriminator::SetParams)
+        );
+    }
+
+    #[test]
+    fn test_pump_fun_parser_default() {
+        let parser = PumpFunParser::default();
+        assert!(parser.zero_copy);
+        assert_eq!(parser.protocol_type(), ProtocolType::PumpSwap);
+    }
+
+    #[test]
+    fn test_pump_fun_parser_new_standard() {
+        let parser = PumpFunParser::new_standard();
+        assert!(!parser.zero_copy);
+        assert_eq!(parser.protocol_type(), ProtocolType::PumpSwap);
+    }
+
+    #[test]
+    fn test_sell_instruction_parsing() {
+        let parser = PumpFunParser::default();
+
+        let mut data = Vec::new();
+        data.extend_from_slice(&0x33e685a4017f83adu64.to_le_bytes()); // Sell discriminator
+        data.extend_from_slice(&5000u64.to_le_bytes()); // amount
+        data.extend_from_slice(&1500u64.to_le_bytes()); // min_price_per_token
+
+        let metadata = EventMetadata::default();
+        let events = parser.parse_from_slice(&data, metadata).unwrap();
+
+        assert_eq!(events.len(), 1);
+        let event = &events[0];
+        assert_eq!(event.protocol_type(), ProtocolType::PumpSwap);
+
+        let parsed = event.get_parsed_data::<PumpSellInstruction>().unwrap();
+        assert_eq!(parsed.amount, 5000);
+        assert_eq!(parsed.min_price_per_token, 1500);
+    }
+
+    #[test]
+    fn test_sell_instruction_parsing_standard() {
+        let parser = PumpFunParser::new_standard();
+
+        let mut data = Vec::new();
+        data.extend_from_slice(&0x33e685a4017f83adu64.to_le_bytes()); // Sell discriminator
+        data.extend_from_slice(&5000u64.to_le_bytes()); // amount
+        data.extend_from_slice(&1500u64.to_le_bytes()); // min_price_per_token
+
+        let metadata = EventMetadata::default();
+        let events = parser.parse_from_slice(&data, metadata).unwrap();
+
+        assert_eq!(events.len(), 1);
+        let event = &events[0];
+        assert_eq!(event.protocol_type(), ProtocolType::PumpSwap);
+
+        let parsed = event.get_parsed_data::<PumpSellInstruction>().unwrap();
+        assert_eq!(parsed.amount, 5000);
+        assert_eq!(parsed.min_price_per_token, 1500);
+    }
+
+    #[test]
+    fn test_create_pool_instruction_parsing() {
+        let parser = PumpFunParser::default();
+
+        let mut data = Vec::new();
+        data.extend_from_slice(&0x181ec828051c0777u64.to_le_bytes()); // CreatePool discriminator
+                                                                      // Add some dummy data for the strings (simplified)
+        data.extend_from_slice(&[0u8; 32]); // name placeholder
+        data.extend_from_slice(&[0u8; 16]); // symbol and uri placeholder
+
+        let metadata = EventMetadata::default();
+        let events = parser.parse_from_slice(&data, metadata).unwrap();
+
+        assert_eq!(events.len(), 1);
+        let event = &events[0];
+        assert_eq!(event.protocol_type(), ProtocolType::PumpSwap);
+    }
+
+    #[test]
+    fn test_deposit_instruction_parsing() {
+        let parser = PumpFunParser::default();
+
+        let mut data = Vec::new();
+        data.extend_from_slice(&0xf223c68952e1f2b6u64.to_le_bytes()); // Deposit discriminator
+        data.extend_from_slice(&3000u64.to_le_bytes()); // amount
+        data.extend_from_slice(&2500u64.to_le_bytes()); // min_lp_tokens
+
+        let metadata = EventMetadata::default();
+        let events = parser.parse_from_slice(&data, metadata).unwrap();
+
+        assert_eq!(events.len(), 1);
+        let event = &events[0];
+        assert_eq!(event.protocol_type(), ProtocolType::PumpSwap);
+
+        let parsed = event.get_parsed_data::<PumpDepositInstruction>().unwrap();
+        assert_eq!(parsed.amount, 3000);
+        assert_eq!(parsed.min_lp_tokens, 2500);
+    }
+
+    #[test]
+    fn test_withdraw_instruction_parsing() {
+        let parser = PumpFunParser::default();
+
+        let mut data = Vec::new();
+        data.extend_from_slice(&0x2e2d8d4ec43b1d79u64.to_le_bytes()); // Withdraw discriminator
+        data.extend_from_slice(&4000u64.to_le_bytes()); // lp_tokens
+        data.extend_from_slice(&3500u64.to_le_bytes()); // min_amount_out
+
+        let metadata = EventMetadata::default();
+        let events = parser.parse_from_slice(&data, metadata).unwrap();
+
+        assert_eq!(events.len(), 1);
+        let event = &events[0];
+        assert_eq!(event.protocol_type(), ProtocolType::PumpSwap);
+
+        let parsed = event.get_parsed_data::<PumpWithdrawInstruction>().unwrap();
+        assert_eq!(parsed.lp_tokens, 4000);
+        assert_eq!(parsed.min_amount_out, 3500);
+    }
+
+    #[test]
+    fn test_set_params_instruction_parsing() {
+        let parser = PumpFunParser::default();
+
+        let mut data = Vec::new();
+        data.extend_from_slice(&0xa6f0308f80e7b5c9u64.to_le_bytes()); // SetParams discriminator
+        data.extend_from_slice(&[0u8; 16]); // Some dummy parameter data
+
+        let metadata = EventMetadata::default();
+        let events = parser.parse_from_slice(&data, metadata).unwrap();
+
+        assert_eq!(events.len(), 1);
+        let event = &events[0];
+        assert_eq!(event.protocol_type(), ProtocolType::PumpSwap);
+    }
+
+    #[test]
+    fn test_parse_from_slice_insufficient_data() {
+        let parser = PumpFunParser::default();
+        let data = vec![0x66, 0x06, 0x3d]; // Only 3 bytes, need at least 8
+        let metadata = EventMetadata::default();
+
+        let result = parser.parse_from_slice(&data, metadata);
+        assert!(result.is_err());
+
+        match result.unwrap_err() {
+            ParseError::InsufficientData { expected, actual } => {
+                assert_eq!(expected, 8);
+                assert_eq!(actual, 3);
+            }
+            _ => panic!("Expected InsufficientData error"),
+        }
+    }
+
+    #[test]
+    fn test_parse_from_slice_unknown_discriminator() {
+        let parser = PumpFunParser::default();
+
+        let mut data = Vec::new();
+        data.extend_from_slice(&0xDEADBEEFCAFEBABEu64.to_le_bytes()); // Unknown discriminator
+        data.extend_from_slice(&[0u8; 16]); // Some dummy data
+
+        let metadata = EventMetadata::default();
+        let result = parser.parse_from_slice(&data, metadata);
+
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            ParseError::UnknownDiscriminator { discriminator } => {
+                assert_eq!(
+                    discriminator,
+                    vec![0xBE, 0xBA, 0xFE, 0xCA, 0xEF, 0xBE, 0xAD, 0xDE]
+                );
+            }
+            _ => panic!("Expected UnknownDiscriminator error"),
+        }
+    }
+
+    #[test]
+    fn test_buy_instruction_parsing_standard_parser() {
+        let parser = PumpFunParser::new_standard();
+
+        let mut data = Vec::new();
+        data.extend_from_slice(&0x66063d1201daebeau64.to_le_bytes()); // Buy discriminator
+        data.extend_from_slice(&1000u64.to_le_bytes()); // amount
+        data.extend_from_slice(&2000u64.to_le_bytes()); // max_price_per_token
+
+        let metadata = EventMetadata::default();
+        let events = parser.parse_from_slice(&data, metadata).unwrap();
+
+        assert_eq!(events.len(), 1);
+        let event = &events[0];
+        assert_eq!(event.protocol_type(), ProtocolType::PumpSwap);
+
+        let parsed = event.get_parsed_data::<PumpBuyInstruction>().unwrap();
+        assert_eq!(parsed.amount, 1000);
+        assert_eq!(parsed.max_price_per_token, 2000);
+    }
+
+    #[test]
+    fn test_create_pool_standard_parser() {
+        let parser = PumpFunParser::new_standard();
+
+        let mut data = Vec::new();
+        data.extend_from_slice(&0x181ec828051c0777u64.to_le_bytes()); // CreatePool discriminator
+        data.extend_from_slice(&[0u8; 32]); // name placeholder
+
+        let metadata = EventMetadata::default();
+        let events = parser.parse_from_slice(&data, metadata).unwrap();
+
+        assert_eq!(events.len(), 1);
+        let event = &events[0];
+        assert_eq!(event.protocol_type(), ProtocolType::PumpSwap);
+    }
+
+    #[test]
+    fn test_deposit_standard_parser() {
+        let parser = PumpFunParser::new_standard();
+
+        let mut data = Vec::new();
+        data.extend_from_slice(&0xf223c68952e1f2b6u64.to_le_bytes()); // Deposit discriminator
+        data.extend_from_slice(&3000u64.to_le_bytes()); // amount
+        data.extend_from_slice(&2500u64.to_le_bytes()); // min_lp_tokens
+
+        let metadata = EventMetadata::default();
+        let events = parser.parse_from_slice(&data, metadata).unwrap();
+
+        assert_eq!(events.len(), 1);
+        let event = &events[0];
+        assert_eq!(event.protocol_type(), ProtocolType::PumpSwap);
+
+        let parsed = event.get_parsed_data::<PumpDepositInstruction>().unwrap();
+        assert_eq!(parsed.amount, 3000);
+        assert_eq!(parsed.min_lp_tokens, 2500);
+    }
+
+    #[test]
+    fn test_withdraw_standard_parser() {
+        let parser = PumpFunParser::new_standard();
+
+        let mut data = Vec::new();
+        data.extend_from_slice(&0x2e2d8d4ec43b1d79u64.to_le_bytes()); // Withdraw discriminator
+        data.extend_from_slice(&4000u64.to_le_bytes()); // lp_tokens
+        data.extend_from_slice(&3500u64.to_le_bytes()); // min_amount_out
+
+        let metadata = EventMetadata::default();
+        let events = parser.parse_from_slice(&data, metadata).unwrap();
+
+        assert_eq!(events.len(), 1);
+        let event = &events[0];
+        assert_eq!(event.protocol_type(), ProtocolType::PumpSwap);
+
+        let parsed = event.get_parsed_data::<PumpWithdrawInstruction>().unwrap();
+        assert_eq!(parsed.lp_tokens, 4000);
+        assert_eq!(parsed.min_amount_out, 3500);
+    }
+
+    #[test]
+    fn test_set_params_standard_parser() {
+        let parser = PumpFunParser::new_standard();
+
+        let mut data = Vec::new();
+        data.extend_from_slice(&0xa6f0308f80e7b5c9u64.to_le_bytes()); // SetParams discriminator
+        data.extend_from_slice(&[0u8; 16]); // Some dummy parameter data
+
+        let metadata = EventMetadata::default();
+        let events = parser.parse_from_slice(&data, metadata).unwrap();
+
+        assert_eq!(events.len(), 1);
+        let event = &events[0];
+        assert_eq!(event.protocol_type(), ProtocolType::PumpSwap);
+    }
+
+    #[test]
+    fn test_can_parse_all_valid_discriminators() {
+        let parser = PumpFunParser::default();
+
+        let discriminators = [
+            0x66063d1201daebeau64, // Buy
+            0x33e685a4017f83adu64, // Sell
+            0x181ec828051c0777u64, // CreatePool
+            0xf223c68952e1f2b6u64, // Deposit
+            0x2e2d8d4ec43b1d79u64, // Withdraw
+            0xa6f0308f80e7b5c9u64, // SetParams
+        ];
+
+        for disc in discriminators.iter() {
+            let mut data = Vec::new();
+            data.extend_from_slice(&disc.to_le_bytes());
+            assert!(
+                parser.can_parse(&data),
+                "Should be able to parse discriminator: {:x}",
+                disc
+            );
+        }
+    }
+
+    #[test]
+    fn test_can_parse_empty_data() {
+        let parser = PumpFunParser::default();
+        let data = vec![];
+        assert!(!parser.can_parse(&data));
+    }
+
+    #[test]
+    fn test_instruction_data_structures() {
+        // Test PumpBuyInstruction
+        let buy_instruction = PumpBuyInstruction {
+            discriminator: 0x66063d1201daebeau64,
+            amount: 1000,
+            max_price_per_token: 2000,
+        };
+        assert_eq!(buy_instruction.discriminator, 0x66063d1201daebeau64);
+        assert_eq!(buy_instruction.amount, 1000);
+        assert_eq!(buy_instruction.max_price_per_token, 2000);
+
+        // Test PumpSellInstruction
+        let sell_instruction = PumpSellInstruction {
+            discriminator: 0x33e685a4017f83adu64,
+            amount: 5000,
+            min_price_per_token: 1500,
+        };
+        assert_eq!(sell_instruction.discriminator, 0x33e685a4017f83adu64);
+        assert_eq!(sell_instruction.amount, 5000);
+        assert_eq!(sell_instruction.min_price_per_token, 1500);
+
+        // Test PumpCreatePoolInstruction
+        let create_pool_instruction = PumpCreatePoolInstruction {
+            discriminator: 0x181ec828051c0777u64,
+            name: "Test Token".to_string(),
+            symbol: "TEST".to_string(),
+            uri: "https://example.com".to_string(),
+        };
+        assert_eq!(create_pool_instruction.discriminator, 0x181ec828051c0777u64);
+        assert_eq!(create_pool_instruction.name, "Test Token");
+        assert_eq!(create_pool_instruction.symbol, "TEST");
+        assert_eq!(create_pool_instruction.uri, "https://example.com");
+
+        // Test PumpDepositInstruction
+        let deposit_instruction = PumpDepositInstruction {
+            discriminator: 0xf223c68952e1f2b6u64,
+            amount: 3000,
+            min_lp_tokens: 2500,
+        };
+        assert_eq!(deposit_instruction.discriminator, 0xf223c68952e1f2b6u64);
+        assert_eq!(deposit_instruction.amount, 3000);
+        assert_eq!(deposit_instruction.min_lp_tokens, 2500);
+
+        // Test PumpWithdrawInstruction
+        let withdraw_instruction = PumpWithdrawInstruction {
+            discriminator: 0x2e2d8d4ec43b1d79u64,
+            lp_tokens: 4000,
+            min_amount_out: 3500,
+        };
+        assert_eq!(withdraw_instruction.discriminator, 0x2e2d8d4ec43b1d79u64);
+        assert_eq!(withdraw_instruction.lp_tokens, 4000);
+        assert_eq!(withdraw_instruction.min_amount_out, 3500);
+    }
+
+    #[test]
+    fn test_discriminator_clone_and_debug() {
+        let disc = PumpFunDiscriminator::Buy;
+        let cloned = disc.clone();
+        assert_eq!(disc, cloned);
+
+        // Test debug format
+        let debug_str = format!("{:?}", disc);
+        assert!(debug_str.contains("Buy"));
+    }
+
+    #[test]
+    fn test_program_id_constant() {
+        assert_eq!(
+            PUMP_FUN_PROGRAM_ID,
+            "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P"
+        );
     }
 }

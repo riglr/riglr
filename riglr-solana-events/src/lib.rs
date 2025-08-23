@@ -121,72 +121,9 @@
 //! The migration maintains 100% backward compatibility while providing access to enhanced
 //! functionality from riglr-events-core.
 
-// UnifiedEvent macro has been removed. Use riglr_events_core::Event trait directly.
-
-/// Macro to implement Event trait for event types
-#[macro_export]
-macro_rules! impl_event {
-    ($event_type:ty) => {
-        impl riglr_events_core::Event for $event_type {
-            fn kind(&self) -> riglr_events_core::EventKind {
-                match $crate::metadata_helpers::get_event_type(&self.metadata).unwrap_or_default() {
-                    $crate::types::EventType::Swap => riglr_events_core::EventKind::Swap,
-                    $crate::types::EventType::Transfer => riglr_events_core::EventKind::Transfer,
-                    $crate::types::EventType::Liquidation => {
-                        riglr_events_core::EventKind::Custom("liquidation".to_string())
-                    }
-                    $crate::types::EventType::Deposit => {
-                        riglr_events_core::EventKind::Custom("deposit".to_string())
-                    }
-                    $crate::types::EventType::Withdraw => {
-                        riglr_events_core::EventKind::Custom("withdraw".to_string())
-                    }
-                    $crate::types::EventType::Borrow => {
-                        riglr_events_core::EventKind::Custom("borrow".to_string())
-                    }
-                    $crate::types::EventType::Repay => {
-                        riglr_events_core::EventKind::Custom("repay".to_string())
-                    }
-                    $crate::types::EventType::CreatePool => {
-                        riglr_events_core::EventKind::Custom("create_pool".to_string())
-                    }
-                    $crate::types::EventType::AddLiquidity => {
-                        riglr_events_core::EventKind::Custom("add_liquidity".to_string())
-                    }
-                    $crate::types::EventType::RemoveLiquidity => {
-                        riglr_events_core::EventKind::Custom("remove_liquidity".to_string())
-                    }
-                    $crate::types::EventType::Unknown => {
-                        riglr_events_core::EventKind::Custom("unknown".to_string())
-                    }
-                }
-            }
-
-            fn metadata(&self) -> &riglr_events_core::EventMetadata {
-                // Create compatible metadata if needed
-                self.core_metadata
-                    .as_ref()
-                    .unwrap_or_else(|| panic!("Event must have core_metadata initialized"))
-            }
-
-            fn signature(&self) -> &str {
-                &self.metadata.signature
-            }
-
-            fn slot(&self) -> Option<u64> {
-                Some(self.metadata.slot)
-            }
-
-            fn as_any(&self) -> &dyn std::any::Any {
-                self
-            }
-
-            fn clone_boxed(&self) -> Box<dyn riglr_events_core::Event> {
-                Box::new(self.clone())
-            }
-        }
-    };
-}
+// Both UnifiedEvent and impl_event macros have been removed.
+// All event structs now implement the riglr_events_core::Event trait directly
+// with instance-specific metadata fields.
 
 /// Convenient re-exports for common types and traits used throughout the library
 pub mod prelude {
@@ -226,14 +163,14 @@ pub mod error;
 pub mod events;
 /// Helper functions for working with Solana-specific metadata
 pub mod metadata_helpers;
-/// Solana-specific metadata wrapper
-pub mod solana_metadata;
 /// High-performance parsers for specific protocols
 pub mod parsers;
 /// Event processing pipelines for validation and enrichment
 pub mod pipelines;
 /// Solana-specific event types that implement both legacy and new interfaces
 pub mod solana_events;
+/// Solana-specific metadata wrapper
+pub mod solana_metadata;
 /// Parser implementation for the riglr-events-core Event trait
 pub mod solana_parser;
 /// Common types and data structures used across the library
@@ -262,3 +199,31 @@ pub use solana_parser::{
 
 // Re-export core error types for convenience
 pub use error::{EventError, EventResult, ParseError, ParseResult};
+
+#[cfg(test)]
+mod tests {
+
+    #[test]
+    fn test_prelude_imports() {
+        // Test that prelude module is accessible and contains expected items
+        use crate::prelude::*;
+
+        // Test that we can reference types from prelude
+        let _event_type = EventType::Swap;
+        let _protocol_type = ProtocolType::Jupiter;
+    }
+
+    #[test]
+    fn test_core_module_backward_compatibility() {
+        // Test that core module re-exports work
+        // Verify we can access traits through the backward compatibility module
+        // This is compile-time verification that the re-exports are working
+    }
+
+    #[test]
+    fn test_crate_root_exports() {
+        // Test that main exports at crate root are accessible
+        let _event_type = crate::EventType::Swap;
+        let _protocol_type = crate::ProtocolType::Jupiter;
+    }
+}

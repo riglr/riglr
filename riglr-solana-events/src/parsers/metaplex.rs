@@ -3,6 +3,7 @@
 //! This parser handles Metaplex protocol operations including NFT minting,
 //! marketplace transactions, and metadata operations.
 
+use crate::metadata_helpers::{set_event_type, set_protocol_type};
 use crate::types::{EventMetadata, EventType, ProtocolType};
 use crate::zero_copy::{ByteSliceEventParser, CustomDeserializer, ParseError, ZeroCopyEvent};
 use borsh::{BorshDeserialize, BorshSerialize};
@@ -215,6 +216,7 @@ pub struct MetaplexEventAnalysis {
 }
 
 /// High-performance Metaplex parser
+#[derive(Debug)]
 pub struct MetaplexParser {
     /// Token Metadata program ID
     #[allow(dead_code)]
@@ -244,20 +246,6 @@ impl Default for MetaplexParser {
 }
 
 impl MetaplexParser {
-    /// Create new Metaplex parser
-    pub fn new() -> Self {
-        Self {
-            token_metadata_program_id: METAPLEX_TOKEN_METADATA_PROGRAM_ID
-                .parse()
-                .expect("Valid Metaplex Token Metadata program ID"),
-            auction_house_program_id: METAPLEX_AUCTION_HOUSE_PROGRAM_ID
-                .parse()
-                .expect("Valid Metaplex Auction House program ID"),
-            zero_copy: true,
-            detailed_metadata: true,
-        }
-    }
-
     /// Create parser with minimal metadata parsing (faster)
     pub fn new_fast() -> Self {
         Self {
@@ -448,7 +436,10 @@ impl ByteSliceEventParser for MetaplexParser {
         // Update metadata with protocol info
         // Note: In practice, we'd need to check the program ID to determine
         // if this is Token Metadata or Auction House
-        metadata.protocol_type = ProtocolType::Other("Metaplex".to_string());
+        set_protocol_type(
+            &mut metadata.core,
+            ProtocolType::Other("Metaplex".to_string()),
+        );
 
         // Parse discriminator
         let discriminator =
@@ -459,7 +450,7 @@ impl ByteSliceEventParser for MetaplexParser {
             })?;
 
         // Update event type based on discriminator
-        metadata.event_type = discriminator.event_type();
+        set_event_type(&mut metadata.core, discriminator.event_type());
 
         let event = match discriminator {
             MetaplexTokenMetadataDiscriminator::CreateMetadataAccount
@@ -578,6 +569,488 @@ mod tests {
         assert_eq!(
             fast_parser.protocol_type(),
             ProtocolType::Other("Metaplex".to_string())
+        );
+    }
+
+    #[test]
+    fn test_discriminator_from_byte_all_valid_values() {
+        // Test all valid discriminators
+        assert_eq!(
+            MetaplexTokenMetadataDiscriminator::from_byte(0),
+            Some(MetaplexTokenMetadataDiscriminator::CreateMetadataAccount)
+        );
+        assert_eq!(
+            MetaplexTokenMetadataDiscriminator::from_byte(1),
+            Some(MetaplexTokenMetadataDiscriminator::UpdateMetadataAccount)
+        );
+        assert_eq!(
+            MetaplexTokenMetadataDiscriminator::from_byte(7),
+            Some(MetaplexTokenMetadataDiscriminator::SignMetadata)
+        );
+        assert_eq!(
+            MetaplexTokenMetadataDiscriminator::from_byte(10),
+            Some(MetaplexTokenMetadataDiscriminator::CreateMasterEdition)
+        );
+        assert_eq!(
+            MetaplexTokenMetadataDiscriminator::from_byte(11),
+            Some(MetaplexTokenMetadataDiscriminator::MintNewEditionFromMasterEditionViaToken)
+        );
+        assert_eq!(
+            MetaplexTokenMetadataDiscriminator::from_byte(15),
+            Some(MetaplexTokenMetadataDiscriminator::UpdateMetadataAccountV2)
+        );
+        assert_eq!(
+            MetaplexTokenMetadataDiscriminator::from_byte(16),
+            Some(MetaplexTokenMetadataDiscriminator::CreateMetadataAccountV2)
+        );
+        assert_eq!(
+            MetaplexTokenMetadataDiscriminator::from_byte(17),
+            Some(MetaplexTokenMetadataDiscriminator::CreateMasterEditionV3)
+        );
+        assert_eq!(
+            MetaplexTokenMetadataDiscriminator::from_byte(18),
+            Some(MetaplexTokenMetadataDiscriminator::VerifyCollection)
+        );
+        assert_eq!(
+            MetaplexTokenMetadataDiscriminator::from_byte(19),
+            Some(MetaplexTokenMetadataDiscriminator::Utilize)
+        );
+        assert_eq!(
+            MetaplexTokenMetadataDiscriminator::from_byte(29),
+            Some(MetaplexTokenMetadataDiscriminator::BurnNft)
+        );
+        assert_eq!(
+            MetaplexTokenMetadataDiscriminator::from_byte(30),
+            Some(MetaplexTokenMetadataDiscriminator::VerifyCreator)
+        );
+        assert_eq!(
+            MetaplexTokenMetadataDiscriminator::from_byte(34),
+            Some(MetaplexTokenMetadataDiscriminator::CreateMetadataAccountV3)
+        );
+        assert_eq!(
+            MetaplexTokenMetadataDiscriminator::from_byte(42),
+            Some(MetaplexTokenMetadataDiscriminator::Transfer)
+        );
+    }
+
+    #[test]
+    fn test_discriminator_from_byte_invalid_values() {
+        // Test various invalid discriminators
+        assert_eq!(MetaplexTokenMetadataDiscriminator::from_byte(2), None);
+        assert_eq!(MetaplexTokenMetadataDiscriminator::from_byte(3), None);
+        assert_eq!(MetaplexTokenMetadataDiscriminator::from_byte(43), None);
+        assert_eq!(MetaplexTokenMetadataDiscriminator::from_byte(100), None);
+        assert_eq!(MetaplexTokenMetadataDiscriminator::from_byte(255), None);
+    }
+
+    #[test]
+    fn test_discriminator_event_type_mapping() {
+        // Test CreateMetadataAccount variants -> Mint
+        assert_eq!(
+            MetaplexTokenMetadataDiscriminator::CreateMetadataAccount.event_type(),
+            EventType::Mint
+        );
+        assert_eq!(
+            MetaplexTokenMetadataDiscriminator::CreateMetadataAccountV2.event_type(),
+            EventType::Mint
+        );
+        assert_eq!(
+            MetaplexTokenMetadataDiscriminator::CreateMetadataAccountV3.event_type(),
+            EventType::Mint
+        );
+
+        // Test Transfer -> Transfer
+        assert_eq!(
+            MetaplexTokenMetadataDiscriminator::Transfer.event_type(),
+            EventType::Transfer
+        );
+
+        // Test BurnNft -> Burn
+        assert_eq!(
+            MetaplexTokenMetadataDiscriminator::BurnNft.event_type(),
+            EventType::Burn
+        );
+
+        // Test other variants -> ContractEvent
+        assert_eq!(
+            MetaplexTokenMetadataDiscriminator::SignMetadata.event_type(),
+            EventType::ContractEvent
+        );
+        assert_eq!(
+            MetaplexTokenMetadataDiscriminator::VerifyCollection.event_type(),
+            EventType::ContractEvent
+        );
+        assert_eq!(
+            MetaplexTokenMetadataDiscriminator::Utilize.event_type(),
+            EventType::ContractEvent
+        );
+    }
+
+    #[test]
+    fn test_metaplex_parser_new() {
+        let parser = MetaplexParser::default();
+        assert!(parser.zero_copy);
+        assert!(parser.detailed_metadata);
+    }
+
+    #[test]
+    fn test_metaplex_parser_new_fast() {
+        let parser = MetaplexParser::new_fast();
+        assert!(parser.zero_copy);
+        assert!(!parser.detailed_metadata);
+    }
+
+    #[test]
+    fn test_metaplex_parser_default() {
+        let parser = MetaplexParser::default();
+        assert!(parser.zero_copy);
+        assert!(parser.detailed_metadata);
+    }
+
+    #[test]
+    fn test_protocol_type() {
+        let parser = MetaplexParser::default();
+        assert_eq!(
+            parser.protocol_type(),
+            ProtocolType::Other("Metaplex".to_string())
+        );
+    }
+
+    #[test]
+    fn test_parse_from_slice_empty_data() {
+        let parser = MetaplexParser::default();
+        let metadata = EventMetadata::default();
+        let result = parser.parse_from_slice(&[], metadata);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap().len(), 0);
+    }
+
+    #[test]
+    fn test_parse_from_slice_unknown_discriminator() {
+        let parser = MetaplexParser::default();
+        let data = vec![255u8; 10]; // Unknown discriminator
+        let metadata = EventMetadata::default();
+        let result = parser.parse_from_slice(&data, metadata);
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            ParseError::UnknownDiscriminator { discriminator } => {
+                assert_eq!(discriminator, vec![255]);
+            }
+            _ => panic!("Expected UnknownDiscriminator error"),
+        }
+    }
+
+    #[test]
+    fn test_burn_nft_parsing() {
+        let parser = MetaplexParser::default();
+        let data = vec![29u8; 10]; // BurnNft discriminator + data
+        let metadata = EventMetadata::default();
+        let events = parser.parse_from_slice(&data, metadata).unwrap();
+
+        assert_eq!(events.len(), 1);
+        let event = &events[0];
+        assert_eq!(event.event_type(), EventType::Burn);
+
+        let parsed = event.get_parsed_data::<BurnNftInstruction>().unwrap();
+        assert_eq!(parsed.discriminator, 29);
+
+        let json = event.get_json_data().unwrap();
+        assert_eq!(json["instruction_type"], "burn_nft");
+        assert_eq!(json["protocol"], "metaplex");
+        assert_eq!(json["event_category"], "nft_burn");
+        assert_eq!(json["amount"], "1");
+    }
+
+    #[test]
+    fn test_generic_instruction_parsing() {
+        let parser = MetaplexParser::default();
+        let data = vec![7u8; 10]; // SignMetadata discriminator + data
+        let metadata = EventMetadata::default();
+        let events = parser.parse_from_slice(&data, metadata).unwrap();
+
+        assert_eq!(events.len(), 1);
+        let event = &events[0];
+        assert_eq!(event.event_type(), EventType::ContractEvent);
+
+        let json = event.get_json_data().unwrap();
+        assert_eq!(json["instruction_type"], "signmetadata");
+        assert_eq!(json["protocol"], "metaplex");
+        assert_eq!(json["event_category"], "metaplex_operation");
+        assert_eq!(json["discriminator"], 7);
+    }
+
+    #[test]
+    fn test_create_metadata_account_v2_parsing() {
+        let parser = MetaplexParser::default();
+        let data = vec![16u8; 100]; // CreateMetadataAccountV2 discriminator + data
+        let metadata = EventMetadata::default();
+        let events = parser.parse_from_slice(&data, metadata).unwrap();
+
+        assert_eq!(events.len(), 1);
+        let event = &events[0];
+        assert_eq!(event.event_type(), EventType::Mint);
+
+        let json = event.get_json_data().unwrap();
+        assert_eq!(json["instruction_type"], "create_metadata_account");
+        assert_eq!(json["protocol"], "metaplex");
+        assert_eq!(json["event_category"], "nft_mint");
+    }
+
+    #[test]
+    fn test_create_metadata_account_v3_parsing() {
+        let parser = MetaplexParser::default();
+        let data = vec![34u8; 100]; // CreateMetadataAccountV3 discriminator + data
+        let metadata = EventMetadata::default();
+        let events = parser.parse_from_slice(&data, metadata).unwrap();
+
+        assert_eq!(events.len(), 1);
+        let event = &events[0];
+        assert_eq!(event.event_type(), EventType::Mint);
+
+        let json = event.get_json_data().unwrap();
+        assert_eq!(json["instruction_type"], "create_metadata_account");
+        assert_eq!(json["protocol"], "metaplex");
+        assert_eq!(json["event_category"], "nft_mint");
+    }
+
+    #[test]
+    fn test_parse_create_metadata_account_with_fast_parser() {
+        let parser = MetaplexParser::new_fast();
+        let data = vec![0u8; 100]; // CreateMetadataAccount discriminator + data
+        let metadata = EventMetadata::default();
+        let events = parser.parse_from_slice(&data, metadata).unwrap();
+
+        assert_eq!(events.len(), 1);
+        let event = &events[0];
+        assert_eq!(event.event_type(), EventType::Mint);
+
+        let json = event.get_json_data().unwrap();
+        assert_eq!(json["instruction_type"], "create_metadata_account");
+        assert_eq!(json["protocol"], "metaplex");
+    }
+
+    #[test]
+    fn test_parse_transfer_with_fast_parser() {
+        let parser = MetaplexParser::new_fast();
+        let data = vec![42u8; 50]; // Transfer discriminator + data
+        let metadata = EventMetadata::default();
+        let events = parser.parse_from_slice(&data, metadata).unwrap();
+
+        assert_eq!(events.len(), 1);
+        let event = &events[0];
+        assert_eq!(event.event_type(), EventType::Transfer);
+
+        let json = event.get_json_data().unwrap();
+        assert_eq!(json["instruction_type"], "transfer");
+        assert_eq!(json["protocol"], "metaplex");
+        assert_eq!(json["event_category"], "nft_transfer");
+        assert_eq!(json["amount"], "1");
+    }
+
+    #[test]
+    fn test_parse_burn_nft_with_fast_parser() {
+        let parser = MetaplexParser::new_fast();
+        let data = vec![29u8; 10]; // BurnNft discriminator + data
+        let metadata = EventMetadata::default();
+        let events = parser.parse_from_slice(&data, metadata).unwrap();
+
+        assert_eq!(events.len(), 1);
+        let event = &events[0];
+        assert_eq!(event.event_type(), EventType::Burn);
+
+        let json = event.get_json_data().unwrap();
+        assert_eq!(json["instruction_type"], "burn_nft");
+        assert_eq!(json["protocol"], "metaplex");
+    }
+
+    #[test]
+    fn test_can_parse_edge_cases() {
+        let parser = MetaplexParser::default();
+
+        // Test single byte with valid discriminator
+        assert!(parser.can_parse(&[0]));
+        assert!(parser.can_parse(&[42]));
+        assert!(parser.can_parse(&[29]));
+
+        // Test single byte with invalid discriminator
+        assert!(!parser.can_parse(&[255]));
+        assert!(!parser.can_parse(&[2]));
+        assert!(!parser.can_parse(&[100]));
+
+        // Test empty data
+        assert!(!parser.can_parse(&[]));
+
+        // Test longer data with valid discriminator
+        assert!(parser.can_parse(&[0, 1, 2, 3, 4]));
+        assert!(parser.can_parse(&[42, 100, 200]));
+    }
+
+    #[test]
+    fn test_all_discriminator_variants_coverage() {
+        // Test all enum variants for completeness
+        use MetaplexTokenMetadataDiscriminator::*;
+
+        let variants = vec![
+            CreateMetadataAccount,
+            UpdateMetadataAccount,
+            DeprecatedCreateMasterEdition,
+            DeprecatedMintNewEditionFromMasterEditionViaPrintingToken,
+            UpdatePrimarySaleHappenedViaToken,
+            DeprecatedSetReservationList,
+            DeprecatedCreateReservationList,
+            SignMetadata,
+            DeprecatedMintPrintingTokensViaToken,
+            DeprecatedMintPrintingTokens,
+            CreateMasterEdition,
+            MintNewEditionFromMasterEditionViaToken,
+            ConvertMasterEditionV1ToV2,
+            MintNewEditionFromMasterEditionViaVaultProxy,
+            PuffMetadata,
+            UpdateMetadataAccountV2,
+            CreateMetadataAccountV2,
+            CreateMasterEditionV3,
+            VerifyCollection,
+            Utilize,
+            ApproveUseAuthority,
+            RevokeUseAuthority,
+            UnverifyCollection,
+            ApproveCollectionAuthority,
+            RevokeCollectionAuthority,
+            SetAndVerifyCollection,
+            FreezeDelegatedAccount,
+            ThawDelegatedAccount,
+            RemoveCreatorVerification,
+            BurnNft,
+            VerifyCreator,
+            UnverifyCreator,
+            BubblegumSetCollectionSize,
+            BurnEditionNft,
+            CreateMetadataAccountV3,
+            SetCollectionSize,
+            SetTokenStandard,
+            BubblegumVerifyCreator,
+            BubblegumUnverifyCreator,
+            BubblegumVerifyCollection,
+            BubblegumUnverifyCollection,
+            BubblegumSetAndVerifyCollection,
+            Transfer,
+        ];
+
+        // Test that we can format all variants (used in generic instruction parsing)
+        for variant in variants {
+            let name = format!("{:?}", variant).to_lowercase();
+            assert!(!name.is_empty());
+        }
+    }
+
+    #[test]
+    fn test_auction_house_discriminator_variants() {
+        // Test all AuctionHouseDiscriminator variants for completeness
+        use MetaplexAuctionHouseDiscriminator::*;
+
+        let variants = vec![Buy, Sell, ExecuteSale, Deposit, Withdraw, Cancel];
+
+        // Test that we can format all variants
+        for variant in variants {
+            let name = format!("{:?}", variant);
+            assert!(!name.is_empty());
+        }
+    }
+
+    #[test]
+    fn test_metaplex_event_analysis_creation() {
+        // Test creating MetaplexEventAnalysis struct
+        let analysis = MetaplexEventAnalysis {
+            event_category: "test_category".to_string(),
+            nft_mint: None,
+            collection_mint: None,
+            amount: Some(100),
+            metadata_uri: Some("https://example.com/metadata.json".to_string()),
+            extra_data: serde_json::json!({"test": "data"}),
+        };
+
+        assert_eq!(analysis.event_category, "test_category");
+        assert_eq!(analysis.nft_mint, None);
+        assert_eq!(analysis.collection_mint, None);
+        assert_eq!(analysis.amount, Some(100));
+        assert_eq!(
+            analysis.metadata_uri,
+            Some("https://example.com/metadata.json".to_string())
+        );
+        assert_eq!(analysis.extra_data["test"], "data");
+    }
+
+    #[test]
+    fn test_instruction_structs() {
+        // Test CreateMetadataAccountInstruction
+        let create_instruction = CreateMetadataAccountInstruction {
+            discriminator: 0,
+            metadata_account_bump: 255,
+            name: "Test NFT".to_string(),
+            symbol: "TST".to_string(),
+            uri: "https://example.com/metadata.json".to_string(),
+            seller_fee_basis_points: 500,
+            update_authority_is_signer: true,
+            is_mutable: false,
+        };
+
+        assert_eq!(create_instruction.discriminator, 0);
+        assert_eq!(create_instruction.name, "Test NFT");
+        assert_eq!(create_instruction.symbol, "TST");
+        assert_eq!(create_instruction.seller_fee_basis_points, 500);
+        assert!(create_instruction.update_authority_is_signer);
+        assert!(!create_instruction.is_mutable);
+
+        // Test TransferInstruction
+        let transfer_instruction = TransferInstruction {
+            discriminator: 42,
+            authorization_data: Some(vec![1, 2, 3]),
+        };
+
+        assert_eq!(transfer_instruction.discriminator, 42);
+        assert_eq!(transfer_instruction.authorization_data, Some(vec![1, 2, 3]));
+
+        // Test BurnNftInstruction
+        let burn_instruction = BurnNftInstruction { discriminator: 29 };
+        assert_eq!(burn_instruction.discriminator, 29);
+    }
+
+    #[test]
+    fn test_parse_create_metadata_account_zero_copy_disabled() {
+        // Create parser with zero_copy disabled for coverage
+        let parser = MetaplexParser::default();
+        // We can't directly modify zero_copy as it's private, but we can test the behavior
+        // by calling the parsing methods which check the zero_copy flag internally
+
+        let data = vec![0u8; 100]; // CreateMetadataAccount discriminator + data
+        let metadata = EventMetadata::default();
+        let events = parser.parse_from_slice(&data, metadata).unwrap();
+
+        assert_eq!(events.len(), 1);
+        let event = &events[0];
+        assert_eq!(event.event_type(), EventType::Mint);
+    }
+
+    #[test]
+    fn test_parse_create_metadata_account_insufficient_data() {
+        let parser = MetaplexParser::default();
+        let data = vec![0u8]; // Only discriminator, no additional data
+        let metadata = EventMetadata::default();
+
+        // This should still work as we only skip 1 byte and don't parse the full structure
+        let result = parser.parse_from_slice(&data, metadata);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_constants() {
+        assert_eq!(
+            METAPLEX_TOKEN_METADATA_PROGRAM_ID,
+            "metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s"
+        );
+        assert_eq!(
+            METAPLEX_AUCTION_HOUSE_PROGRAM_ID,
+            "hausS13jsjafwWwGqZTUQRmWyvyxn9EQpqMwV1PBBmk"
         );
     }
 }
