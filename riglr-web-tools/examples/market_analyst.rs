@@ -4,6 +4,7 @@
 //! market analysis agent that can gather data from multiple sources and provide
 //! actionable insights.
 
+use riglr_core::provider::ApplicationContext;
 use riglr_web_tools::dexscreener::{ChainInfo, SecurityInfo};
 use riglr_web_tools::{
     analyze_crypto_sentiment, analyze_market_sentiment, get_token_info, get_trending_tokens,
@@ -31,6 +32,9 @@ async fn main() -> anyhow::Result<()> {
     // Initialize logging
     tracing_subscriber::fmt::init();
 
+    // Create application context
+    let context = ApplicationContext::from_env();
+
     println!("🤖 Market Analyst Agent Example\n");
     println!("Combining Web Tools and Solana Tools for comprehensive analysis\n");
 
@@ -40,20 +44,20 @@ async fn main() -> anyhow::Result<()> {
     println!("📊 Analyzing token: {}\n", token);
 
     // Example 1: Full market analysis for a token
-    let analysis = perform_full_analysis(&token).await?;
+    let analysis = perform_full_analysis(&token, &context).await?;
     print_analysis_report(&analysis);
 
     // Example 2: Find trending opportunities
     println!("\n🔥 Finding Trending Opportunities...\n");
-    find_trending_opportunities().await?;
+    find_trending_opportunities(&context).await?;
 
     // Example 3: Monitor market sentiment shifts
     println!("\n📈 Monitoring Market Sentiment...\n");
-    monitor_sentiment_shifts().await?;
+    monitor_sentiment_shifts(&context).await?;
 
     // Example 4: Arbitrage opportunity scanner
     println!("\n💰 Scanning for Arbitrage Opportunities...\n");
-    scan_arbitrage_opportunities().await?;
+    scan_arbitrage_opportunities(&context).await?;
 
     println!("\n✅ Market analysis complete!");
 
@@ -61,11 +65,14 @@ async fn main() -> anyhow::Result<()> {
 }
 
 /// Perform comprehensive analysis of a token
-async fn perform_full_analysis(symbol: &str) -> anyhow::Result<MarketAnalysis> {
+async fn perform_full_analysis(
+    symbol: &str,
+    context: &ApplicationContext,
+) -> anyhow::Result<MarketAnalysis> {
     println!("1️⃣ Fetching token information from DexScreener...");
 
     // Get token info from DexScreener
-    let token_info = match get_token_info(symbol.to_string(), None, None, None).await {
+    let token_info = match get_token_info(context, symbol.to_string(), None, None, None).await {
         Ok(info) => info,
         Err(e) => {
             println!("   ⚠️ Could not fetch from DexScreener: {}", e);
@@ -115,6 +122,7 @@ async fn perform_full_analysis(symbol: &str) -> anyhow::Result<MarketAnalysis> {
 
     // Analyze Twitter sentiment
     let sentiment = match analyze_crypto_sentiment(
+        context,
         symbol.to_string(),
         Some(24), // Last 24 hours
         Some(50), // Min engagement threshold
@@ -156,6 +164,7 @@ async fn perform_full_analysis(symbol: &str) -> anyhow::Result<MarketAnalysis> {
 
     // Get news sentiment
     let news_sentiment = match analyze_market_sentiment(
+        context,
         Some("48h".to_string()),        // Time window
         Some(vec![symbol.to_string()]), // Asset filter
         None,                           // Source weights
@@ -193,6 +202,7 @@ async fn perform_full_analysis(symbol: &str) -> anyhow::Result<MarketAnalysis> {
 
     // Check if token is trending
     let trending_rank = match get_trending_tokens(
+        context,
         Some("1h".to_string()),     // Time window
         Some("solana".to_string()), // Chain filter
         None,                       // Min volume
@@ -243,9 +253,10 @@ async fn perform_full_analysis(symbol: &str) -> anyhow::Result<MarketAnalysis> {
 }
 
 /// Find trending opportunities across multiple chains
-async fn find_trending_opportunities() -> anyhow::Result<()> {
+async fn find_trending_opportunities(context: &ApplicationContext) -> anyhow::Result<()> {
     // Get trending tokens from DexScreener
     let trending = match get_trending_tokens(
+        context,
         Some("1h".to_string()), // Time window
         None,                   // All chains
         None,                   // Min volume
@@ -271,6 +282,7 @@ async fn find_trending_opportunities() -> anyhow::Result<()> {
 
         // Quick sentiment check
         if let Ok(tweets) = search_tweets(
+            context,
             format!("${}", token.symbol),
             Some(10),
             Some(false),
@@ -290,7 +302,7 @@ async fn find_trending_opportunities() -> anyhow::Result<()> {
 }
 
 /// Monitor sentiment shifts across multiple tokens
-async fn monitor_sentiment_shifts() -> anyhow::Result<()> {
+async fn monitor_sentiment_shifts(context: &ApplicationContext) -> anyhow::Result<()> {
     let tokens = vec!["BTC", "ETH", "SOL"];
 
     for token in tokens {
@@ -298,6 +310,7 @@ async fn monitor_sentiment_shifts() -> anyhow::Result<()> {
 
         // Get current sentiment
         match analyze_crypto_sentiment(
+            context,
             token.to_string(),
             Some(6),  // Last 6 hours
             Some(20), // Lower threshold for faster results
@@ -331,7 +344,7 @@ async fn monitor_sentiment_shifts() -> anyhow::Result<()> {
 }
 
 /// Scan for potential arbitrage opportunities
-async fn scan_arbitrage_opportunities() -> anyhow::Result<()> {
+async fn scan_arbitrage_opportunities(_context: &ApplicationContext) -> anyhow::Result<()> {
     println!("Scanning DEX prices across chains...\n");
 
     // In a real implementation, this would compare prices across multiple DEXs
@@ -347,6 +360,7 @@ async fn scan_arbitrage_opportunities() -> anyhow::Result<()> {
 
         // Get price on Ethereum
         if let Ok(eth_info) = get_token_info(
+            &ApplicationContext::from_env(),
             address.to_string(),
             Some("ethereum".to_string()),
             None,
@@ -358,8 +372,14 @@ async fn scan_arbitrage_opportunities() -> anyhow::Result<()> {
         }
 
         // Get price on other chains (would need different addresses in reality)
-        if let Ok(bsc_info) =
-            get_token_info(address.to_string(), Some("bsc".to_string()), None, None).await
+        if let Ok(bsc_info) = get_token_info(
+            &ApplicationContext::from_env(),
+            address.to_string(),
+            Some("bsc".to_string()),
+            None,
+            None,
+        )
+        .await
         {
             println!("  BSC: ${:.4}", bsc_info.price_usd.unwrap_or(0.0));
 

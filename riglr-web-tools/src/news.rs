@@ -359,6 +359,7 @@ impl Default for NewsConfig {
 /// and assesses market impact for cryptocurrency-related topics.
 #[tool]
 pub async fn get_crypto_news(
+    _context: &riglr_core::provider::ApplicationContext,
     topic: String,
     time_window: Option<String>,       // "1h", "6h", "24h", "week"
     source_types: Option<Vec<String>>, // "mainstream", "crypto", "analysis"
@@ -378,8 +379,7 @@ pub async fn get_crypto_news(
         ));
     }
 
-    let client = WebClient::new()
-        .map_err(|e| WebToolError::Client(format!("Failed to create client: {}", e)))?;
+    let client = WebClient::default();
 
     // Query multiple news sources
     let mut all_articles = Vec::new();
@@ -473,6 +473,7 @@ pub async fn get_crypto_news(
 /// useful for staying updated on breaking developments and market movements.
 #[tool]
 pub async fn get_trending_news(
+    _context: &riglr_core::provider::ApplicationContext,
     time_window: Option<String>,     // "1h", "6h", "24h"
     categories: Option<Vec<String>>, // "defi", "nft", "regulation", "tech"
     min_impact_score: Option<u32>,
@@ -484,8 +485,7 @@ pub async fn get_trending_news(
     );
 
     let config = NewsConfig::default();
-    let client = WebClient::new()
-        .map_err(|e| WebToolError::Client(format!("Failed to create client: {}", e)))?;
+    let client = WebClient::default();
 
     // Get trending articles from multiple sources
     let trending_articles = fetch_trending_articles(
@@ -536,6 +536,7 @@ pub async fn get_trending_news(
 /// and generates alerts based on severity and market impact criteria.
 #[tool]
 pub async fn monitor_breaking_news(
+    _context: &riglr_core::provider::ApplicationContext,
     keywords: Vec<String>,
     severity_threshold: Option<String>, // "Critical", "High", "Medium"
     impact_threshold: Option<u32>,      // 0-100
@@ -544,8 +545,7 @@ pub async fn monitor_breaking_news(
     debug!("Monitoring breaking news for keywords: {:?}", keywords);
 
     let config = NewsConfig::default();
-    let client = WebClient::new()
-        .map_err(|e| WebToolError::Client(format!("Failed to create client: {}", e)))?;
+    let client = WebClient::default();
 
     let mut alerts = Vec::new();
 
@@ -584,6 +584,7 @@ pub async fn monitor_breaking_news(
 /// helping to gauge overall market mood and potential price impact.
 #[tool]
 pub async fn analyze_market_sentiment(
+    context: &riglr_core::provider::ApplicationContext,
     time_window: Option<String>,       // "1h", "6h", "24h", "week"
     asset_filter: Option<Vec<String>>, // Specific cryptocurrencies to focus on
     _source_weights: Option<HashMap<String, f64>>, // Weight different sources
@@ -595,14 +596,14 @@ pub async fn analyze_market_sentiment(
     );
 
     let _config = NewsConfig::default();
-    let _client = WebClient::new()
-        .map_err(|e| WebToolError::Client(format!("Failed to create client: {}", e)))?;
+    let _client = WebClient::default();
 
     // Gather recent news for sentiment analysis
     let recent_news = if let Some(assets) = &asset_filter {
         let mut all_news = Vec::new();
         for asset in assets {
             match get_crypto_news(
+                context,
                 asset.clone(),
                 time_window.clone(),
                 None,
@@ -618,7 +619,7 @@ pub async fn analyze_market_sentiment(
         all_news
     } else {
         // Get general market news
-        match get_trending_news(time_window, None, Some(50), Some(100)).await {
+        match get_trending_news(context, time_window, None, Some(50), Some(100)).await {
             Ok(result) => result.articles,
             Err(_) => vec![], // Fallback to empty if trending fails
         }
@@ -2140,5 +2141,661 @@ mod tests {
         assert!(is_above_severity_threshold("High", "Medium"));
         assert!(!is_above_severity_threshold("Medium", "High"));
         assert!(is_above_severity_threshold("Critical", "High"));
+    }
+
+    // Additional comprehensive tests for 100% coverage
+
+    #[test]
+    fn test_parse_time_window_all_cases() {
+        assert_eq!(parse_time_window("6h"), 6);
+        assert_eq!(parse_time_window("invalid"), 24); // Default case
+        assert_eq!(parse_time_window(""), 24); // Empty string
+        assert_eq!(parse_time_window("random_text"), 24);
+    }
+
+    #[test]
+    fn test_hash64_function() {
+        let test_string = "test_string";
+        let hash1 = hash64(test_string);
+        let hash2 = hash64(test_string);
+        assert_eq!(hash1, hash2); // Same input should produce same hash
+
+        let different_hash = hash64("different_string");
+        assert_ne!(hash1, different_hash); // Different inputs should produce different hashes
+
+        let empty_hash = hash64("");
+        assert_ne!(hash1, empty_hash); // Empty string should produce different hash
+    }
+
+    #[test]
+    fn test_severity_threshold_edge_cases() {
+        // Test all valid severity levels
+        assert!(is_above_severity_threshold("Critical", "Critical"));
+        assert!(is_above_severity_threshold("High", "High"));
+        assert!(is_above_severity_threshold("Medium", "Medium"));
+        assert!(is_above_severity_threshold("Low", "Low"));
+
+        // Test invalid severities (should default to position 0 and 1)
+        assert!(!is_above_severity_threshold("Invalid", "Medium"));
+        assert!(is_above_severity_threshold("Medium", "Invalid"));
+        assert!(is_above_severity_threshold("Invalid", "Invalid"));
+    }
+
+    #[test]
+    fn test_calculate_avg_credibility() {
+        // Test with empty articles
+        let empty_articles: Vec<NewsArticle> = vec![];
+        assert_eq!(calculate_avg_credibility(&empty_articles), 0.0);
+
+        // Test with single article
+        let single_article = vec![create_test_article_with_credibility(75)];
+        assert_eq!(calculate_avg_credibility(&single_article), 75.0);
+
+        // Test with multiple articles
+        let multiple_articles = vec![
+            create_test_article_with_credibility(80),
+            create_test_article_with_credibility(60),
+            create_test_article_with_credibility(70),
+        ];
+        assert_eq!(calculate_avg_credibility(&multiple_articles), 70.0);
+    }
+
+    #[test]
+    fn test_deduplicate_articles() {
+        // Test with no articles
+        let empty_articles: Vec<NewsArticle> = vec![];
+        let result = deduplicate_articles(empty_articles);
+        assert!(result.is_empty());
+
+        // Test with unique articles
+        let unique_articles = vec![
+            create_test_article_with_url("https://example1.com"),
+            create_test_article_with_url("https://example2.com"),
+        ];
+        let result = deduplicate_articles(unique_articles);
+        assert_eq!(result.len(), 2);
+
+        // Test with duplicate URLs
+        let duplicate_articles = vec![
+            create_test_article_with_url("https://example.com"),
+            create_test_article_with_url("https://example.com"),
+            create_test_article_with_url("https://different.com"),
+        ];
+        let result = deduplicate_articles(duplicate_articles);
+        assert_eq!(result.len(), 2);
+    }
+
+    #[test]
+    fn test_determine_sentiment_trend() {
+        // Test improving trend
+        let improving_articles = vec![
+            create_test_article_with_sentiment(0.5),
+            create_test_article_with_sentiment(0.6),
+        ];
+        assert_eq!(determine_sentiment_trend(&improving_articles), "Improving");
+
+        // Test declining trend
+        let declining_articles = vec![
+            create_test_article_with_sentiment(-0.5),
+            create_test_article_with_sentiment(-0.6),
+        ];
+        assert_eq!(determine_sentiment_trend(&declining_articles), "Declining");
+
+        // Test stable trend
+        let stable_articles = vec![
+            create_test_article_with_sentiment(0.05),
+            create_test_article_with_sentiment(-0.05),
+        ];
+        assert_eq!(determine_sentiment_trend(&stable_articles), "Stable");
+
+        // Test edge cases for thresholds
+        let edge_positive = vec![create_test_article_with_sentiment(0.1)];
+        assert_eq!(determine_sentiment_trend(&edge_positive), "Stable");
+
+        let edge_negative = vec![create_test_article_with_sentiment(-0.1)];
+        assert_eq!(determine_sentiment_trend(&edge_negative), "Stable");
+
+        let just_above_positive = vec![create_test_article_with_sentiment(0.11)];
+        assert_eq!(determine_sentiment_trend(&just_above_positive), "Improving");
+
+        let just_below_negative = vec![create_test_article_with_sentiment(-0.11)];
+        assert_eq!(determine_sentiment_trend(&just_below_negative), "Declining");
+    }
+
+    #[test]
+    fn test_analyze_sentiment_comprehensive() {
+        // Test positive sentiment
+        let positive_sentiment = analyze_sentiment(
+            "Bitcoin surge brings bullish sentiment to crypto markets",
+            &Some("Strong gains and positive developments".to_string()),
+            &Some("The rally continues with strong adoption and growth".to_string()),
+        );
+        assert!(positive_sentiment.overall_score > 0.0);
+        assert_eq!(positive_sentiment.classification, "Bullish");
+        assert!(positive_sentiment.confidence > 0.0);
+
+        // Test negative sentiment
+        let negative_sentiment = analyze_sentiment(
+            "Bitcoin crash brings bearish sentiment and market fears",
+            &Some("Major decline and concerns about future".to_string()),
+            &Some("The drop causes risk and threats to vulnerable markets".to_string()),
+        );
+        assert!(negative_sentiment.overall_score < 0.0);
+        assert_eq!(negative_sentiment.classification, "Bearish");
+
+        // Test neutral sentiment
+        let neutral_sentiment = analyze_sentiment(
+            "Bitcoin price analysis report",
+            &Some("Regular market update".to_string()),
+            &None,
+        );
+        assert_eq!(neutral_sentiment.classification, "Neutral");
+
+        // Test edge case classifications
+        let slightly_bullish =
+            analyze_sentiment("Bitcoin shows mild growth and positive signs", &None, &None);
+        assert!(slightly_bullish.classification.contains("Bullish"));
+
+        // Test emotional indicators
+        let fear_content =
+            analyze_sentiment("Market crash panic fear worried investors", &None, &None);
+        assert!(fear_content.emotions.fear > 0.0);
+
+        let greed_content = analyze_sentiment(
+            "Moon lambo rich massive explosive gains profit",
+            &None,
+            &None,
+        );
+        assert!(greed_content.emotions.greed > 0.0);
+
+        let uncertainty_content = analyze_sentiment(
+            "Maybe perhaps unclear uncertain volatile unpredictable",
+            &None,
+            &None,
+        );
+        assert!(uncertainty_content.emotions.uncertainty > 0.0);
+
+        // Test topic-specific sentiments
+        let bitcoin_surge = analyze_sentiment("Bitcoin surge hits new highs", &None, &None);
+        assert!(bitcoin_surge.topic_sentiments.contains_key("bitcoin"));
+        assert!(bitcoin_surge.topic_sentiments["bitcoin"] > 0.0);
+
+        let ethereum_crash = analyze_sentiment("Ethereum crash causes major losses", &None, &None);
+        assert!(ethereum_crash.topic_sentiments.contains_key("ethereum"));
+        assert!(ethereum_crash.topic_sentiments["ethereum"] < 0.0);
+    }
+
+    #[test]
+    fn test_analyze_sentiment_edge_cases() {
+        // Test empty content
+        let empty_sentiment = analyze_sentiment("", &None, &None);
+        assert_eq!(empty_sentiment.overall_score, 0.0);
+        assert_eq!(empty_sentiment.classification, "Neutral");
+
+        // Test content with no sentiment words
+        let neutral_words = analyze_sentiment(
+            "The weather is nice today",
+            &Some("Random content".to_string()),
+            &None,
+        );
+        assert_eq!(neutral_words.overall_score, 0.0);
+
+        // Test very long content
+        let long_content = "bullish ".repeat(100);
+        let long_sentiment = analyze_sentiment(&long_content, &None, &None);
+        assert!(long_sentiment.overall_score > 0.0);
+        assert!(long_sentiment.confidence > 0.0);
+    }
+
+    #[test]
+    fn test_calculate_market_impact() {
+        let sentiment = NewsSentiment {
+            overall_score: 0.5,
+            confidence: 0.8,
+            classification: "Bullish".to_string(),
+            topic_sentiments: HashMap::new(),
+            emotions: EmotionalIndicators {
+                fear: 0.0,
+                greed: 0.0,
+                excitement: 0.0,
+                uncertainty: 0.0,
+                urgency: 0.9, // High urgency
+            },
+            key_phrases: vec![],
+        };
+
+        let source = NewsSource {
+            id: "test".to_string(),
+            name: "Test Source".to_string(),
+            url: "https://test.com".to_string(),
+            category: "Mainstream".to_string(),
+            credibility_score: 80,
+            accuracy_rating: None,
+            bias_score: None,
+            is_verified: true,
+            logo_url: None,
+        };
+
+        // Test breaking news category with high urgency
+        let breaking_category = NewsCategory {
+            primary: "Breaking".to_string(),
+            sub_category: None,
+            tags: vec!["hack".to_string()],
+            geographic_scope: vec!["Global".to_string()],
+            target_audience: "Retail".to_string(),
+        };
+
+        let impact = calculate_market_impact(&sentiment, &source, &breaking_category);
+        assert_eq!(impact.time_horizon, "Immediate");
+        assert!(impact.impact_score > 0);
+        assert!(impact.risk_factors.len() > 0);
+
+        // Test different categories
+        let regulation_category = NewsCategory {
+            primary: "Regulation".to_string(),
+            sub_category: None,
+            tags: vec!["regulation".to_string()],
+            geographic_scope: vec!["US".to_string()],
+            target_audience: "Institutional".to_string(),
+        };
+
+        let reg_impact = calculate_market_impact(&sentiment, &source, &regulation_category);
+        assert!(reg_impact
+            .risk_factors
+            .contains(&"Regulatory risk".to_string()));
+
+        // Test with different sentiment emotions
+        let fearful_sentiment = NewsSentiment {
+            overall_score: -0.5,
+            confidence: 0.8,
+            classification: "Bearish".to_string(),
+            topic_sentiments: HashMap::new(),
+            emotions: EmotionalIndicators {
+                fear: 0.8,
+                greed: 0.0,
+                excitement: 0.0,
+                uncertainty: 0.7,
+                urgency: 0.0,
+            },
+            key_phrases: vec![],
+        };
+
+        let fear_impact = calculate_market_impact(&fearful_sentiment, &source, &breaking_category);
+        assert!(fear_impact
+            .risk_factors
+            .contains(&"Market fear".to_string()));
+        assert!(fear_impact
+            .risk_factors
+            .contains(&"High uncertainty".to_string()));
+    }
+
+    #[test]
+    fn test_calculate_market_impact_simple() {
+        // Test high impact keywords
+        let hack_impact = calculate_market_impact_simple("Major hack exploit discovered");
+        assert_eq!(hack_impact.impact_level, "High");
+        assert_eq!(hack_impact.impact_score, 70);
+
+        let sec_impact = calculate_market_impact_simple("SEC announces new ban");
+        assert_eq!(sec_impact.impact_level, "High");
+        assert_eq!(sec_impact.impact_score, 70);
+
+        // Test medium impact keywords
+        let launch_impact = calculate_market_impact_simple("Company announces new launch");
+        assert_eq!(launch_impact.impact_level, "Medium");
+        assert_eq!(launch_impact.impact_score, 50);
+
+        // Test low impact (no special keywords)
+        let normal_impact = calculate_market_impact_simple("Regular news update");
+        assert_eq!(normal_impact.impact_level, "Low");
+        assert_eq!(normal_impact.impact_score, 30);
+
+        // Test case insensitivity
+        let case_impact = calculate_market_impact_simple("HACK discovered in PROTOCOL");
+        assert_eq!(case_impact.impact_level, "High");
+    }
+
+    #[test]
+    fn test_extract_entities_from_text() {
+        // Test cryptocurrency entities
+        let crypto_text = "Bitcoin and Ethereum are leading cryptocurrencies";
+        let entities = extract_entities_from_text(
+            crypto_text,
+            &Some("BTC and ETH analysis".to_string()),
+            &Some("Solana SOL also mentioned".to_string()),
+            "crypto",
+        );
+
+        let crypto_names: Vec<&str> = entities.iter().map(|e| e.name.as_str()).collect();
+        assert!(crypto_names.contains(&"Bitcoin"));
+        assert!(crypto_names.contains(&"Ethereum"));
+        assert!(crypto_names.contains(&"Solana"));
+
+        // Test company entities
+        let company_text = "Coinbase and Binance are major exchanges";
+        let company_entities = extract_entities_from_text(company_text, &None, &None, "exchanges");
+
+        let company_names: Vec<&str> = company_entities.iter().map(|e| e.name.as_str()).collect();
+        assert!(company_names.contains(&"Coinbase"));
+        assert!(company_names.contains(&"Binance"));
+
+        // Test person entities
+        let person_text = "Vitalik Buterin and CZ discussed the future";
+        let person_entities = extract_entities_from_text(person_text, &None, &None, "crypto");
+
+        let person_names: Vec<&str> = person_entities.iter().map(|e| e.name.as_str()).collect();
+        assert!(person_names.contains(&"Vitalik Buterin"));
+        assert!(person_names.contains(&"CZ"));
+
+        // Test protocol entities
+        let protocol_text = "DeFi and NFT protocols are growing";
+        let protocol_entities =
+            extract_entities_from_text(protocol_text, &None, &None, "protocols");
+
+        let protocol_names: Vec<&str> = protocol_entities.iter().map(|e| e.name.as_str()).collect();
+        assert!(protocol_names.contains(&"DeFi"));
+        assert!(protocol_names.contains(&"NFT"));
+
+        // Test default topic when no entities found
+        let no_entities =
+            extract_entities_from_text("Random news content", &None, &None, "default_topic");
+        assert_eq!(no_entities.len(), 1);
+        assert_eq!(no_entities[0].name, "default_topic");
+        assert_eq!(no_entities[0].entity_type, "Topic");
+
+        // Test sorting by relevance
+        let multi_mention_text = "Bitcoin Bitcoin Bitcoin Ethereum";
+        let sorted_entities =
+            extract_entities_from_text(multi_mention_text, &None, &None, "crypto");
+        // Bitcoin should be first due to higher mention count
+        assert_eq!(sorted_entities[0].name, "Bitcoin");
+        assert!(sorted_entities[0].mention_count > sorted_entities[1].mention_count);
+    }
+
+    #[test]
+    fn test_extract_tags_from_text() {
+        // Test various tag extractions
+        let defi_text = "DeFi protocols are revolutionizing finance";
+        let defi_tags = extract_tags_from_text(defi_text, &None);
+        assert!(defi_tags.contains(&"defi".to_string()));
+
+        let nft_text = "NFT marketplace sees growth";
+        let nft_tags = extract_tags_from_text(nft_text, &Some("NFT content".to_string()));
+        assert!(nft_tags.contains(&"nft".to_string()));
+
+        let multi_tag_text = "Layer 2 solutions improve smart contract efficiency";
+        let multi_tags = extract_tags_from_text(multi_tag_text, &None);
+        assert!(multi_tags.contains(&"layer2".to_string()));
+        assert!(multi_tags.contains(&"smart-contracts".to_string()));
+
+        // Test case insensitivity
+        let case_text = "DEFI and NFT protocols";
+        let case_tags = extract_tags_from_text(case_text, &None);
+        assert!(case_tags.contains(&"defi".to_string()));
+        assert!(case_tags.contains(&"nft".to_string()));
+
+        // Test no tags found
+        let no_tag_text = "Random content without keywords";
+        let no_tags = extract_tags_from_text(no_tag_text, &None);
+        assert!(no_tags.is_empty());
+
+        // Test duplicate removal
+        let duplicate_text = "DeFi DeFi protocols and DeFi systems";
+        let dup_tags = extract_tags_from_text(duplicate_text, &None);
+        assert_eq!(dup_tags.iter().filter(|&t| t == "defi").count(), 1);
+    }
+
+    #[test]
+    fn test_extract_crypto_mentions() {
+        // Test various crypto mentions
+        let crypto_text = "Bitcoin BTC Ethereum ETH prices";
+        let cryptos = extract_crypto_mentions(
+            crypto_text,
+            &Some("Solana SOL analysis".to_string()),
+            &Some("Cardano ADA update".to_string()),
+        );
+
+        assert!(cryptos.contains(&"bitcoin".to_string()));
+        assert!(cryptos.contains(&"ethereum".to_string()));
+        assert!(cryptos.contains(&"solana".to_string()));
+        assert!(cryptos.contains(&"cardano".to_string()));
+
+        // Test case insensitivity
+        let case_text = "BITCOIN and ethereum prices";
+        let case_cryptos = extract_crypto_mentions(case_text, &None, &None);
+        assert!(case_cryptos.contains(&"bitcoin".to_string()));
+        assert!(case_cryptos.contains(&"ethereum".to_string()));
+
+        // Test symbol vs name deduplication
+        let symbol_text = "BTC Bitcoin analysis";
+        let symbol_cryptos = extract_crypto_mentions(symbol_text, &None, &None);
+        assert_eq!(symbol_cryptos.iter().filter(|&c| c == "bitcoin").count(), 1);
+
+        // Test no crypto mentions
+        let no_crypto_text = "Weather news today";
+        let no_cryptos = extract_crypto_mentions(no_crypto_text, &None, &None);
+        assert!(no_cryptos.is_empty());
+    }
+
+    #[test]
+    fn test_calculate_quality_metrics() {
+        // Test high quality metrics
+        let high_quality = calculate_quality_metrics(
+            "Comprehensive Analysis of Market Trends",
+            &Some("Detailed description of market conditions".to_string()),
+            &Some("a".repeat(2500)), // Long content > 2000 chars
+            90,                      // High source credibility
+        );
+        assert_eq!(high_quality.depth_score, 85);
+        assert_eq!(high_quality.writing_quality, 75);
+        assert_eq!(high_quality.factual_accuracy, 90);
+        assert!(high_quality.overall_score > 70);
+
+        // Test medium quality metrics
+        let medium_quality = calculate_quality_metrics(
+            "Market Update",
+            &Some("Brief description".to_string()),
+            &Some("a".repeat(1500)), // Medium content length
+            70,
+        );
+        assert_eq!(medium_quality.depth_score, 70);
+
+        // Test low quality metrics
+        let low_quality = calculate_quality_metrics("News", &None, &None, 50);
+        assert_eq!(low_quality.depth_score, 25);
+        assert_eq!(low_quality.writing_quality, 50);
+
+        // Test edge cases
+        let edge_case = calculate_quality_metrics(
+            "Short title with exactly five words here",
+            &Some("Description present".to_string()),
+            &Some("a".repeat(500)), // Exactly 500 chars
+            75,
+        );
+        assert_eq!(edge_case.depth_score, 55);
+        assert_eq!(edge_case.writing_quality, 75);
+    }
+
+    #[test]
+    fn test_calculate_market_impact_from_content() {
+        // Test critical impact keywords
+        let critical_content = calculate_market_impact_from_content(
+            "Major hack exploit discovered",
+            &Some("Criminal fraud investigation".to_string()),
+            &Some("SEC enforcement action bankruptcy".to_string()),
+        );
+        assert_eq!(critical_content.impact_level, "Critical");
+        assert_eq!(critical_content.time_horizon, "Immediate");
+        assert!(critical_content.impact_score >= 85);
+
+        // Test high impact keywords
+        let high_content = calculate_market_impact_from_content(
+            "Partnership announcement",
+            &Some("Major adoption integration".to_string()),
+            &Some("New launch acquisition".to_string()),
+        );
+        assert_eq!(high_content.impact_level, "High");
+
+        // Test medium impact keywords
+        let medium_content = calculate_market_impact_from_content(
+            "Update announcement",
+            &Some("Upgrade report".to_string()),
+            &Some("Analysis of trends".to_string()),
+        );
+        assert_eq!(medium_content.impact_level, "Medium");
+
+        // Test low impact (no keywords)
+        let low_content = calculate_market_impact_from_content(
+            "Regular news",
+            &Some("Standard content".to_string()),
+            &None,
+        );
+        assert_eq!(low_content.impact_level, "Low");
+
+        // Test sentiment impact on score
+        let positive_sentiment_content = calculate_market_impact_from_content(
+            "Partnership bullish surge rally",
+            &Some("Strong positive growth".to_string()),
+            &None,
+        );
+        assert!(positive_sentiment_content.impact_score > 70);
+
+        // Test potential price impact calculation
+        assert!(critical_content.potential_price_impact.is_some());
+        assert!(high_content.potential_price_impact.is_some());
+        assert!(low_content.potential_price_impact.is_none());
+    }
+
+    #[test]
+    fn test_extract_affected_sectors() {
+        // Test single sector
+        let defi_text = "defi protocols are growing";
+        let defi_sectors = extract_affected_sectors(defi_text);
+        assert!(defi_sectors.contains(&"DeFi".to_string()));
+
+        // Test multiple sectors
+        let multi_text = "nft marketplace and exchange listing";
+        let multi_sectors = extract_affected_sectors(multi_text);
+        assert!(multi_sectors.contains(&"NFT".to_string()));
+        assert!(multi_sectors.contains(&"CEX".to_string()));
+
+        // Test no sectors (should default to General)
+        let general_text = "random news content";
+        let general_sectors = extract_affected_sectors(general_text);
+        assert_eq!(general_sectors, vec!["General".to_string()]);
+
+        // Test deduplication
+        let dup_text = "defi and defi protocols";
+        let dup_sectors = extract_affected_sectors(dup_text);
+        assert_eq!(dup_sectors.iter().filter(|&s| s == "DeFi").count(), 1);
+    }
+
+    #[test]
+    fn test_extract_risk_factors() {
+        // Test various risk factors
+        let risk_text = "regulation SEC hack exploit volatile uncertain lawsuit investigation";
+        let risks = extract_risk_factors(risk_text);
+
+        assert!(risks.contains(&"Regulatory uncertainty".to_string()));
+        assert!(risks.contains(&"Regulatory action".to_string()));
+        assert!(risks.contains(&"Security vulnerability".to_string()));
+        assert!(risks.contains(&"Protocol vulnerability".to_string()));
+        assert!(risks.contains(&"Market volatility".to_string()));
+        assert!(risks.contains(&"Market uncertainty".to_string()));
+        assert!(risks.contains(&"Legal risk".to_string()));
+        assert!(risks.contains(&"Regulatory investigation".to_string()));
+
+        // Test no risk factors
+        let safe_text = "positive news about growth";
+        let no_risks = extract_risk_factors(safe_text);
+        assert!(no_risks.is_empty());
+
+        // Test deduplication
+        let dup_risk_text = "regulation and regulation concerns";
+        let dup_risks = extract_risk_factors(dup_risk_text);
+        assert_eq!(
+            dup_risks
+                .iter()
+                .filter(|&r| r == "Regulatory uncertainty")
+                .count(),
+            1
+        );
+    }
+
+    // Helper functions for creating test data
+    fn create_test_article_with_credibility(credibility: u32) -> NewsArticle {
+        NewsArticle {
+            id: "test".to_string(),
+            title: "Test Article".to_string(),
+            url: "https://test.com".to_string(),
+            description: None,
+            content: None,
+            published_at: Utc::now(),
+            source: NewsSource {
+                id: "test".to_string(),
+                name: "Test Source".to_string(),
+                url: "https://test.com".to_string(),
+                category: "Test".to_string(),
+                credibility_score: credibility,
+                accuracy_rating: None,
+                bias_score: None,
+                is_verified: true,
+                logo_url: None,
+            },
+            category: NewsCategory {
+                primary: "Test".to_string(),
+                sub_category: None,
+                tags: vec![],
+                geographic_scope: vec![],
+                target_audience: "Test".to_string(),
+            },
+            sentiment: NewsSentiment {
+                overall_score: 0.0,
+                confidence: 0.5,
+                classification: "Neutral".to_string(),
+                topic_sentiments: HashMap::new(),
+                emotions: EmotionalIndicators {
+                    fear: 0.0,
+                    greed: 0.0,
+                    excitement: 0.0,
+                    uncertainty: 0.0,
+                    urgency: 0.0,
+                },
+                key_phrases: vec![],
+            },
+            market_impact: MarketImpact {
+                impact_level: "Low".to_string(),
+                impact_score: 30,
+                time_horizon: "Short-term".to_string(),
+                affected_sectors: vec![],
+                potential_price_impact: None,
+                historical_correlation: None,
+                risk_factors: vec![],
+            },
+            entities: vec![],
+            related_assets: vec![],
+            quality_metrics: QualityMetrics {
+                overall_score: 50,
+                depth_score: 50,
+                factual_accuracy: 50,
+                writing_quality: 50,
+                citation_quality: 50,
+                uniqueness_score: 50,
+                reading_difficulty: 5,
+            },
+            social_metrics: None,
+        }
+    }
+
+    fn create_test_article_with_url(url: &str) -> NewsArticle {
+        let mut article = create_test_article_with_credibility(70);
+        article.url = url.to_string();
+        article
+    }
+
+    fn create_test_article_with_sentiment(sentiment_score: f64) -> NewsArticle {
+        let mut article = create_test_article_with_credibility(70);
+        article.sentiment.overall_score = sentiment_score;
+        article
     }
 }

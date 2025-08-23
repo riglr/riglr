@@ -329,6 +329,7 @@ impl Default for DexScreenerConfig {
 /// market cap, trading pairs, and security analysis.
 #[tool]
 pub async fn get_token_info(
+    _context: &riglr_core::provider::ApplicationContext,
     token_address: String,
     chain_id: Option<String>,
     include_pairs: Option<bool>,
@@ -341,8 +342,7 @@ pub async fn get_token_info(
     );
 
     let config = DexScreenerConfig::default();
-    let client = WebClient::new()
-        .map_err(|e| WebToolError::Client(format!("Failed to create client: {}", e)))?;
+    let client = WebClient::default();
 
     // Build API endpoint
     let chain = chain_id.unwrap_or_else(|| "ethereum".to_string());
@@ -385,6 +385,7 @@ pub async fn get_token_info(
 /// with support for filtering by chain and market cap.
 #[tool]
 pub async fn search_tokens(
+    _context: &riglr_core::provider::ApplicationContext,
     query: String,
     chain_filter: Option<String>,
     min_market_cap: Option<f64>,
@@ -394,8 +395,7 @@ pub async fn search_tokens(
     debug!("Searching tokens for query: '{}' with filters", query);
 
     let config = DexScreenerConfig::default();
-    let client = WebClient::new()
-        .map_err(|e| WebToolError::Client(format!("Failed to create client: {}", e)))?;
+    let client = WebClient::default();
 
     // Build search parameters
     let mut params = HashMap::new();
@@ -454,6 +454,7 @@ pub async fn search_tokens(
 /// price changes, and social activity.
 #[tool]
 pub async fn get_trending_tokens(
+    _context: &riglr_core::provider::ApplicationContext,
     time_window: Option<String>, // "5m", "1h", "24h"
     chain_filter: Option<String>,
     min_volume: Option<f64>,
@@ -465,8 +466,7 @@ pub async fn get_trending_tokens(
     );
 
     let config = DexScreenerConfig::default();
-    let client = WebClient::new()
-        .map_err(|e| WebToolError::Client(format!("Failed to create client: {}", e)))?;
+    let client = WebClient::default();
 
     // Build trending endpoint
     let window = time_window.unwrap_or_else(|| "1h".to_string());
@@ -509,6 +509,7 @@ pub async fn get_trending_tokens(
 /// machine learning models. All calculations are rule-based heuristics.
 #[tool]
 pub async fn analyze_token_market(
+    _context: &riglr_core::provider::ApplicationContext,
     token_address: String,
     chain_id: Option<String>,
     _include_technical: Option<bool>,
@@ -517,8 +518,14 @@ pub async fn analyze_token_market(
     debug!("Performing market analysis for token: {}", token_address);
 
     // Get basic token info first
-    let token_info =
-        get_token_info(token_address.clone(), chain_id, Some(true), include_risk).await?;
+    let token_info = get_token_info(
+        _context,
+        token_address.clone(),
+        chain_id,
+        Some(true),
+        include_risk,
+    )
+    .await?;
 
     // Perform trend analysis
     let trend_analysis = analyze_price_trends(&token_info)
@@ -579,6 +586,7 @@ pub async fn analyze_token_market(
 /// useful for identifying active markets and arbitrage opportunities.
 #[tool]
 pub async fn get_top_pairs(
+    _context: &riglr_core::provider::ApplicationContext,
     time_window: Option<String>, // "5m", "1h", "24h"
     chain_filter: Option<String>,
     dex_filter: Option<String>,
@@ -591,8 +599,7 @@ pub async fn get_top_pairs(
     );
 
     let config = DexScreenerConfig::default();
-    let client = WebClient::new()
-        .map_err(|e| WebToolError::Client(format!("Failed to create client: {}", e)))?;
+    let client = WebClient::default();
 
     let mut params = HashMap::new();
     params.insert("sort".to_string(), "volume".to_string());
@@ -1019,8 +1026,8 @@ async fn analyze_price_trends(token: &TokenInfo) -> crate::error::Result<TrendAn
     }
     .to_string();
 
-    let strength = price_change_24h
-        .map_or(5, |change| ((change.abs() / 10.0).clamp(1.0, 10.0)) as u32); // Default to medium strength if no data
+    let strength =
+        price_change_24h.map_or(5, |change| ((change.abs() / 10.0).clamp(1.0, 10.0)) as u32); // Default to medium strength if no data
 
     // Calculate momentum and velocity only if we have data
     let momentum = match (price_change_1h, price_change_24h) {
@@ -1263,5 +1270,736 @@ mod tests {
 
         let json = serde_json::to_string(&token).unwrap();
         assert!(json.contains("Test Token"));
+    }
+
+    #[test]
+    fn test_dexscreener_config_custom_values() {
+        let config = DexScreenerConfig {
+            base_url: "https://custom.api.com".to_string(),
+            rate_limit_per_minute: 100,
+            request_timeout: 60,
+        };
+        assert_eq!(config.base_url, "https://custom.api.com");
+        assert_eq!(config.rate_limit_per_minute, 100);
+        assert_eq!(config.request_timeout, 60);
+    }
+
+    #[test]
+    fn test_format_dex_name_when_known_dex_should_return_formatted_name() {
+        assert_eq!(format_dex_name("uniswap"), "Uniswap V2");
+        assert_eq!(format_dex_name("uniswapv3"), "Uniswap V3");
+        assert_eq!(format_dex_name("pancakeswap"), "PancakeSwap");
+        assert_eq!(format_dex_name("sushiswap"), "SushiSwap");
+        assert_eq!(format_dex_name("curve"), "Curve");
+        assert_eq!(format_dex_name("balancer"), "Balancer");
+        assert_eq!(format_dex_name("quickswap"), "QuickSwap");
+        assert_eq!(format_dex_name("raydium"), "Raydium");
+        assert_eq!(format_dex_name("orca"), "Orca");
+    }
+
+    #[test]
+    fn test_format_dex_name_when_unknown_dex_should_return_original() {
+        assert_eq!(format_dex_name("unknown-dex"), "unknown-dex");
+        assert_eq!(format_dex_name("custom_dex"), "custom_dex");
+        assert_eq!(format_dex_name(""), "");
+    }
+
+    #[test]
+    fn test_format_chain_name_when_known_chain_should_return_formatted_name() {
+        assert_eq!(format_chain_name("ethereum"), "Ethereum");
+        assert_eq!(format_chain_name("bsc"), "Binance Smart Chain");
+        assert_eq!(format_chain_name("polygon"), "Polygon");
+        assert_eq!(format_chain_name("arbitrum"), "Arbitrum");
+        assert_eq!(format_chain_name("optimism"), "Optimism");
+        assert_eq!(format_chain_name("avalanche"), "Avalanche");
+        assert_eq!(format_chain_name("fantom"), "Fantom");
+        assert_eq!(format_chain_name("solana"), "Solana");
+    }
+
+    #[test]
+    fn test_format_chain_name_when_unknown_chain_should_return_original() {
+        assert_eq!(format_chain_name("unknown-chain"), "unknown-chain");
+        assert_eq!(format_chain_name("custom_chain"), "custom_chain");
+        assert_eq!(format_chain_name(""), "");
+    }
+
+    #[test]
+    fn test_get_native_token_when_known_chain_should_return_correct_token() {
+        assert_eq!(get_native_token("ethereum"), "ETH");
+        assert_eq!(get_native_token("bsc"), "BNB");
+        assert_eq!(get_native_token("polygon"), "MATIC");
+        assert_eq!(get_native_token("arbitrum"), "ETH");
+        assert_eq!(get_native_token("optimism"), "ETH");
+        assert_eq!(get_native_token("avalanche"), "AVAX");
+        assert_eq!(get_native_token("fantom"), "FTM");
+        assert_eq!(get_native_token("solana"), "SOL");
+    }
+
+    #[test]
+    fn test_get_native_token_when_unknown_chain_should_return_native() {
+        assert_eq!(get_native_token("unknown-chain"), "NATIVE");
+        assert_eq!(get_native_token("custom_chain"), "NATIVE");
+        assert_eq!(get_native_token(""), "NATIVE");
+    }
+
+    #[tokio::test]
+    async fn test_analyze_price_trends_when_bullish_data_should_return_bullish_trend() {
+        let token = create_test_token_info(Some(10.0), Some(2.0), Some(1.0));
+        let result = analyze_price_trends(&token).await.unwrap();
+
+        assert_eq!(result.direction, "Bullish");
+        assert_eq!(result.strength, 1); // 10.0 / 10.0 = 1.0, clamped to 1
+        assert_eq!(result.momentum, 26.0); // 2.0 * 24.0 - 10.0
+        assert_eq!(result.velocity, 10.0 / 24.0);
+        assert_eq!(result.support_levels.len(), 1);
+        assert_eq!(result.resistance_levels.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn test_analyze_price_trends_when_bearish_data_should_return_bearish_trend() {
+        let token = create_test_token_info(Some(-10.0), Some(-1.0), Some(1.0));
+        let result = analyze_price_trends(&token).await.unwrap();
+
+        assert_eq!(result.direction, "Bearish");
+        assert_eq!(result.strength, 1); // 10.0 / 10.0 = 1.0, clamped to 1
+        assert_eq!(result.momentum, -14.0); // -1.0 * 24.0 - (-10.0)
+        assert_eq!(result.velocity, -10.0 / 24.0);
+    }
+
+    #[tokio::test]
+    async fn test_analyze_price_trends_when_neutral_data_should_return_neutral_trend() {
+        let token = create_test_token_info(Some(2.0), Some(0.5), Some(1.0));
+        let result = analyze_price_trends(&token).await.unwrap();
+
+        assert_eq!(result.direction, "Neutral");
+        assert_eq!(result.strength, 1); // 2.0 / 10.0 = 0.2, clamped to 1.0
+        assert_eq!(result.momentum, 10.0); // 0.5 * 24.0 - 2.0
+    }
+
+    #[tokio::test]
+    async fn test_analyze_price_trends_when_no_data_should_return_unknown_trend() {
+        let token = create_test_token_info(None, None, Some(1.0));
+        let result = analyze_price_trends(&token).await.unwrap();
+
+        assert_eq!(result.direction, "Unknown");
+        assert_eq!(result.strength, 5); // Default when no data
+        assert_eq!(result.momentum, 0.0);
+        assert_eq!(result.velocity, 0.0);
+        assert_eq!(result.support_levels.len(), 0);
+        assert_eq!(result.resistance_levels.len(), 0);
+    }
+
+    #[tokio::test]
+    async fn test_analyze_price_trends_when_no_price_should_return_empty_levels() {
+        let token = create_test_token_info(Some(5.0), Some(1.0), None);
+        let result = analyze_price_trends(&token).await.unwrap();
+
+        assert_eq!(result.support_levels.len(), 0);
+        assert_eq!(result.resistance_levels.len(), 0);
+    }
+
+    #[tokio::test]
+    async fn test_analyze_volume_patterns_when_valid_data_should_calculate_ratio() {
+        let mut token = create_test_token_info(Some(5.0), Some(1.0), Some(1.0));
+        token.volume_24h = Some(50000.0);
+        token.market_cap = Some(1000000.0);
+
+        let result = analyze_volume_patterns(&token).await.unwrap();
+
+        assert_eq!(result.volume_mcap_ratio, Some(0.05)); // 50000 / 1000000
+        assert_eq!(result.volume_trend, "Unknown");
+        assert_eq!(result.volume_rank, None);
+        assert_eq!(result.avg_volume_7d, None);
+        assert_eq!(result.spike_factor, None);
+    }
+
+    #[tokio::test]
+    async fn test_analyze_volume_patterns_when_zero_market_cap_should_return_none_ratio() {
+        let mut token = create_test_token_info(Some(5.0), Some(1.0), Some(1.0));
+        token.volume_24h = Some(50000.0);
+        token.market_cap = Some(0.0);
+
+        let result = analyze_volume_patterns(&token).await.unwrap();
+
+        assert_eq!(result.volume_mcap_ratio, None);
+    }
+
+    #[tokio::test]
+    async fn test_analyze_volume_patterns_when_missing_data_should_return_none_ratio() {
+        let mut token = create_test_token_info(Some(5.0), Some(1.0), Some(1.0));
+        token.volume_24h = None;
+        token.market_cap = None;
+
+        let result = analyze_volume_patterns(&token).await.unwrap();
+
+        assert_eq!(result.volume_mcap_ratio, None);
+    }
+
+    #[tokio::test]
+    async fn test_analyze_liquidity_when_multiple_pairs_should_aggregate_liquidity() {
+        let mut token = create_test_token_info(Some(5.0), Some(1.0), Some(1.0));
+        token.pairs = vec![
+            create_test_token_pair("dex1", 100000.0),
+            create_test_token_pair("dex2", 200000.0),
+        ];
+
+        let result = analyze_liquidity(&token).await.unwrap();
+
+        assert_eq!(result.total_liquidity_usd, 300000.0);
+        assert_eq!(result.dex_distribution.len(), 2);
+        assert_eq!(result.dex_distribution.get("dex1"), Some(&100000.0));
+        assert_eq!(result.dex_distribution.get("dex2"), Some(&200000.0));
+        assert_eq!(result.depth_score, 60); // Less than 1M threshold
+    }
+
+    #[tokio::test]
+    async fn test_analyze_liquidity_when_high_liquidity_should_return_high_depth_score() {
+        let mut token = create_test_token_info(Some(5.0), Some(1.0), Some(1.0));
+        token.pairs = vec![create_test_token_pair("dex1", 2000000.0)];
+
+        let result = analyze_liquidity(&token).await.unwrap();
+
+        assert_eq!(result.total_liquidity_usd, 2000000.0);
+        assert_eq!(result.depth_score, 85); // Above 1M threshold
+    }
+
+    #[tokio::test]
+    async fn test_analyze_liquidity_when_no_pairs_should_return_zero_liquidity() {
+        let token = create_test_token_info(Some(5.0), Some(1.0), Some(1.0));
+
+        let result = analyze_liquidity(&token).await.unwrap();
+
+        assert_eq!(result.total_liquidity_usd, 0.0);
+        assert_eq!(result.dex_distribution.len(), 0);
+        assert_eq!(result.depth_score, 60);
+    }
+
+    #[tokio::test]
+    async fn test_analyze_price_levels_when_positive_change_should_estimate_at_high() {
+        let token = create_test_token_info(Some(10.0), Some(1.0), Some(100.0));
+
+        let result = analyze_price_levels(&token).await.unwrap();
+
+        assert_eq!(result.high_24h, Some(100.0));
+        assert!(result.low_24h.is_some());
+        assert!(result.low_24h.unwrap() < 100.0);
+        assert_eq!(result.range_position, Some(1.0)); // At high
+        assert_eq!(result.ath, None);
+        assert_eq!(result.atl, None);
+    }
+
+    #[tokio::test]
+    async fn test_analyze_price_levels_when_negative_change_should_estimate_at_low() {
+        let token = create_test_token_info(Some(-10.0), Some(1.0), Some(90.0));
+
+        let result = analyze_price_levels(&token).await.unwrap();
+
+        assert!(result.high_24h.is_some());
+        assert!(result.high_24h.unwrap() > 90.0);
+        assert_eq!(result.low_24h, Some(90.0));
+        assert_eq!(result.range_position, Some(0.0)); // At low
+    }
+
+    #[tokio::test]
+    async fn test_analyze_price_levels_when_no_price_change_should_return_none() {
+        let mut token = create_test_token_info(None, Some(1.0), Some(100.0));
+        token.price_change_24h = None;
+
+        let result = analyze_price_levels(&token).await.unwrap();
+
+        assert_eq!(result.high_24h, None);
+        assert_eq!(result.low_24h, None);
+        assert_eq!(result.range_position, None);
+    }
+
+    #[tokio::test]
+    async fn test_analyze_price_levels_when_no_price_should_return_none() {
+        let token = create_test_token_info(Some(10.0), Some(1.0), None);
+
+        let result = analyze_price_levels(&token).await.unwrap();
+
+        assert_eq!(result.high_24h, None);
+        assert_eq!(result.low_24h, None);
+        assert_eq!(result.range_position, None);
+    }
+
+    #[tokio::test]
+    async fn test_assess_token_risks_when_low_liquidity_should_add_liquidity_risk() {
+        let mut token = create_test_token_info(Some(5.0), Some(1.0), Some(1.0));
+        token.pairs = vec![create_test_token_pair("dex1", 50000.0)]; // Low liquidity
+
+        let result = assess_token_risks(&token).await.unwrap();
+
+        assert_eq!(result.liquidity_risk, 75);
+        assert!(result
+            .risk_factors
+            .iter()
+            .any(|r| r.category == "Liquidity"));
+        assert!(matches!(result.risk_level.as_str(), "High" | "Extreme"));
+    }
+
+    #[tokio::test]
+    async fn test_assess_token_risks_when_high_liquidity_should_have_low_liquidity_risk() {
+        let mut token = create_test_token_info(Some(5.0), Some(1.0), Some(1.0));
+        token.pairs = vec![create_test_token_pair("dex1", 500000.0)]; // High liquidity
+
+        let result = assess_token_risks(&token).await.unwrap();
+
+        assert_eq!(result.liquidity_risk, 25);
+    }
+
+    #[tokio::test]
+    async fn test_assess_token_risks_when_unverified_contract_should_add_contract_risk() {
+        let mut token = create_test_token_info(Some(5.0), Some(1.0), Some(1.0));
+        token.security.is_verified = false;
+        token.pairs = vec![create_test_token_pair("dex1", 500000.0)];
+
+        let result = assess_token_risks(&token).await.unwrap();
+
+        assert_eq!(result.contract_risk, 80);
+        assert!(result.risk_factors.iter().any(|r| r.category == "Contract"));
+    }
+
+    #[tokio::test]
+    async fn test_assess_token_risks_when_verified_contract_should_have_low_contract_risk() {
+        let mut token = create_test_token_info(Some(5.0), Some(1.0), Some(1.0));
+        token.security.is_verified = true;
+        token.pairs = vec![create_test_token_pair("dex1", 500000.0)];
+
+        let result = assess_token_risks(&token).await.unwrap();
+
+        assert_eq!(result.contract_risk, 20);
+    }
+
+    #[tokio::test]
+    async fn test_assess_token_risks_when_high_volatility_should_add_volatility_risk() {
+        let mut token = create_test_token_info(Some(25.0), Some(1.0), Some(1.0)); // High volatility
+        token.security.is_verified = true;
+        token.pairs = vec![create_test_token_pair("dex1", 500000.0)];
+
+        let result = assess_token_risks(&token).await.unwrap();
+
+        assert_eq!(result.volatility_risk, 60);
+        assert!(result
+            .risk_factors
+            .iter()
+            .any(|r| r.category == "Volatility"));
+    }
+
+    #[tokio::test]
+    async fn test_assess_token_risks_when_normal_volatility_should_have_medium_volatility_risk() {
+        let mut token = create_test_token_info(Some(5.0), Some(1.0), Some(1.0)); // Normal volatility
+        token.security.is_verified = true;
+        token.pairs = vec![create_test_token_pair("dex1", 500000.0)];
+
+        let result = assess_token_risks(&token).await.unwrap();
+
+        assert_eq!(result.volatility_risk, 30);
+    }
+
+    #[tokio::test]
+    async fn test_assess_token_risks_when_no_volatility_data_should_add_data_risk() {
+        let mut token = create_test_token_info(None, Some(1.0), Some(1.0));
+        token.security.is_verified = true;
+        token.pairs = vec![create_test_token_pair("dex1", 500000.0)];
+
+        let result = assess_token_risks(&token).await.unwrap();
+
+        assert_eq!(result.volatility_risk, 20);
+        assert!(result.risk_factors.iter().any(|r| r.category == "Data"));
+    }
+
+    #[tokio::test]
+    async fn test_assess_token_risks_when_low_risk_should_return_low_risk_level() {
+        let mut token = create_test_token_info(Some(5.0), Some(1.0), Some(1.0));
+        token.security.is_verified = true;
+        token.pairs = vec![create_test_token_pair("dex1", 500000.0)];
+
+        let result = assess_token_risks(&token).await.unwrap();
+
+        assert_eq!(result.risk_level, "Low");
+    }
+
+    #[tokio::test]
+    async fn test_parse_search_results_when_invalid_json_should_return_error() {
+        let invalid_json = "invalid json";
+        let result = parse_search_results(invalid_json).await;
+
+        assert!(result.is_err());
+        if let Err(crate::error::WebToolError::Parsing(msg)) = result {
+            assert!(msg.contains("expected"));
+        }
+    }
+
+    #[tokio::test]
+    async fn test_parse_trending_response_when_invalid_json_should_return_error() {
+        let invalid_json = "invalid json";
+        let result = parse_trending_response(invalid_json).await;
+
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_parse_pairs_response_when_invalid_json_should_return_error() {
+        let invalid_json = "invalid json";
+        let result = parse_pairs_response(invalid_json).await;
+
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_parse_token_response_when_invalid_json_should_return_parsing_error() {
+        let invalid_json = "invalid json";
+        let result = parse_token_response(invalid_json, "0x123", "ethereum", Some(true)).await;
+
+        assert!(result.is_err());
+        if let Err(crate::error::WebToolError::Parsing(msg)) = result {
+            assert!(msg.contains("Failed to parse DexScreener response"));
+        }
+    }
+
+    #[tokio::test]
+    async fn test_parse_token_response_when_no_pairs_found_should_return_api_error() {
+        let valid_json_no_pairs = r#"{"pairs": []}"#;
+        let result =
+            parse_token_response(valid_json_no_pairs, "0x123", "ethereum", Some(true)).await;
+
+        assert!(result.is_err());
+        if let Err(crate::error::WebToolError::Api(msg)) = result {
+            assert!(msg.contains("No pairs found for token address"));
+        }
+    }
+
+    #[tokio::test]
+    async fn test_parse_token_response_when_no_valid_pairs_should_return_api_error() {
+        let json_with_unmatched_pairs = r#"{"pairs": [{"base_token": {"address": "0x456", "name": "Other Token", "symbol": "OTHER"}, "quote_token": {"address": "0x789", "name": "USDC", "symbol": "USDC"}, "pair_address": "0xabc", "dex_id": "uniswap", "url": "https://example.com", "price_usd": "1.0", "price_native": "1.0"}]}"#;
+        let result =
+            parse_token_response(json_with_unmatched_pairs, "0x123", "ethereum", Some(true)).await;
+
+        assert!(result.is_err());
+        if let Err(crate::error::WebToolError::Api(msg)) = result {
+            assert!(msg.contains("No pairs found for token address"));
+        }
+    }
+
+    #[tokio::test]
+    async fn test_parse_token_response_when_valid_data_should_return_token_info() {
+        let valid_json = create_valid_dexscreener_response();
+        let result = parse_token_response(&valid_json, "0x123", "ethereum", Some(true)).await;
+
+        assert!(result.is_ok());
+        let token = result.unwrap();
+        assert_eq!(token.address, "0x123");
+        assert_eq!(token.symbol, "TEST");
+        assert_eq!(token.name, "Test Token");
+        assert_eq!(token.chain.id, "ethereum");
+        assert_eq!(token.chain.name, "Ethereum");
+        assert_eq!(token.chain.native_token, "ETH");
+        assert_eq!(token.pair_count, 1);
+        assert!(!token.pairs.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_parse_token_response_when_multiple_pairs_should_use_highest_liquidity() {
+        let json_with_multiple_pairs = create_dexscreener_response_with_multiple_pairs();
+        let result =
+            parse_token_response(&json_with_multiple_pairs, "0x123", "ethereum", Some(true)).await;
+
+        assert!(result.is_ok());
+        let token = result.unwrap();
+        assert_eq!(token.pair_count, 2);
+        // Should have aggregated volume from both pairs
+        assert!(token.volume_24h.unwrap() > 10000.0);
+        // Primary pair should be the one with higher liquidity
+        assert_eq!(token.price_usd, Some(2.0)); // From high liquidity pair
+    }
+
+    #[tokio::test]
+    async fn test_parse_token_response_when_case_insensitive_address_should_match() {
+        let valid_json = create_valid_dexscreener_response();
+        let result = parse_token_response(&valid_json, "0X123", "ethereum", Some(true)).await; // Uppercase
+
+        assert!(result.is_ok());
+        let token = result.unwrap();
+        assert_eq!(token.address, "0X123"); // Should preserve input case
+    }
+
+    #[tokio::test]
+    async fn test_parse_token_response_when_no_liquidity_data_should_handle_gracefully() {
+        let json_no_liquidity = create_dexscreener_response_without_liquidity();
+        let result =
+            parse_token_response(&json_no_liquidity, "0x123", "ethereum", Some(true)).await;
+
+        assert!(result.is_ok());
+        let token = result.unwrap();
+        assert_eq!(token.pairs[0].liquidity_usd, None);
+    }
+
+    #[tokio::test]
+    async fn test_parse_token_response_when_transaction_data_available_should_calculate_totals() {
+        let json_with_txns = create_dexscreener_response_with_transaction_data();
+        let result = parse_token_response(&json_with_txns, "0x123", "ethereum", Some(true)).await;
+
+        assert!(result.is_ok());
+        let token = result.unwrap();
+        let pair = &token.pairs[0];
+        assert_eq!(pair.txns_24h.buys, Some(100));
+        assert_eq!(pair.txns_24h.sells, Some(50));
+        assert_eq!(pair.txns_24h.total, Some(150)); // Should calculate total
+        assert!(pair.txns_24h.buy_volume_usd.is_some());
+        assert!(pair.txns_24h.sell_volume_usd.is_some());
+    }
+
+    #[tokio::test]
+    async fn test_parse_token_response_when_unknown_chain_should_use_default_formatting() {
+        let valid_json = create_valid_dexscreener_response();
+        let result = parse_token_response(&valid_json, "0x123", "unknown-chain", Some(true)).await;
+
+        assert!(result.is_ok());
+        let token = result.unwrap();
+        assert_eq!(token.chain.id, "unknown-chain");
+        assert_eq!(token.chain.name, "unknown-chain");
+        assert_eq!(token.chain.native_token, "NATIVE");
+    }
+
+    #[tokio::test]
+    async fn test_parse_token_response_when_price_parsing_fails_should_handle_gracefully() {
+        let json_invalid_price = create_dexscreener_response_with_invalid_price();
+        let result =
+            parse_token_response(&json_invalid_price, "0x123", "ethereum", Some(true)).await;
+
+        assert!(result.is_ok());
+        let token = result.unwrap();
+        assert_eq!(token.price_usd, None); // Should handle parse failure
+    }
+
+    // Helper functions for parse_token_response tests
+    fn create_valid_dexscreener_response() -> String {
+        r#"{
+            "pairs": [{
+                "base_token": {
+                    "address": "0x123",
+                    "name": "Test Token",
+                    "symbol": "TEST"
+                },
+                "quote_token": {
+                    "address": "0x456",
+                    "name": "USD Coin",
+                    "symbol": "USDC"
+                },
+                "pair_address": "0xabc",
+                "dex_id": "uniswap",
+                "url": "https://example.com",
+                "price_usd": "1.5",
+                "price_native": "1.5",
+                "market_cap": 1000000.0,
+                "liquidity": {"usd": 500000.0},
+                "volume": {"h24": 50000.0},
+                "price_change": {"h24": 5.0, "h1": 1.0, "m5": 0.5},
+                "fdv": 2000000.0
+            }]
+        }"#
+        .to_string()
+    }
+
+    fn create_dexscreener_response_with_multiple_pairs() -> String {
+        r#"{
+            "pairs": [{
+                "base_token": {
+                    "address": "0x123",
+                    "name": "Test Token",
+                    "symbol": "TEST"
+                },
+                "quote_token": {
+                    "address": "0x456",
+                    "name": "USD Coin",
+                    "symbol": "USDC"
+                },
+                "pair_address": "0xabc",
+                "dex_id": "uniswap",
+                "url": "https://example.com",
+                "price_usd": "1.0",
+                "price_native": "1.0",
+                "market_cap": 1000000.0,
+                "liquidity": {"usd": 300000.0},
+                "volume": {"h24": 30000.0},
+                "price_change": {"h24": 3.0}
+            }, {
+                "base_token": {
+                    "address": "0x123",
+                    "name": "Test Token",
+                    "symbol": "TEST"
+                },
+                "quote_token": {
+                    "address": "0x789",
+                    "name": "Ethereum",
+                    "symbol": "ETH"
+                },
+                "pair_address": "0xdef",
+                "dex_id": "sushiswap",
+                "url": "https://sushi.example.com",
+                "price_usd": "2.0",
+                "price_native": "2.0",
+                "market_cap": 1500000.0,
+                "liquidity": {"usd": 800000.0},
+                "volume": {"h24": 80000.0},
+                "price_change": {"h24": 8.0}
+            }]
+        }"#
+        .to_string()
+    }
+
+    fn create_dexscreener_response_without_liquidity() -> String {
+        r#"{
+            "pairs": [{
+                "base_token": {
+                    "address": "0x123",
+                    "name": "Test Token",
+                    "symbol": "TEST"
+                },
+                "quote_token": {
+                    "address": "0x456",
+                    "name": "USD Coin",
+                    "symbol": "USDC"
+                },
+                "pair_address": "0xabc",
+                "dex_id": "uniswap",
+                "url": "https://example.com",
+                "price_usd": "1.5",
+                "price_native": "1.5"
+            }]
+        }"#
+        .to_string()
+    }
+
+    fn create_dexscreener_response_with_transaction_data() -> String {
+        r#"{
+            "pairs": [{
+                "base_token": {
+                    "address": "0x123",
+                    "name": "Test Token",
+                    "symbol": "TEST"
+                },
+                "quote_token": {
+                    "address": "0x456",
+                    "name": "USD Coin",
+                    "symbol": "USDC"
+                },
+                "pair_address": "0xabc",
+                "dex_id": "uniswap",
+                "url": "https://example.com",
+                "price_usd": "1.5",
+                "price_native": "1.5",
+                "volume": {"h24": 60000.0},
+                "txns": {
+                    "h24": {
+                        "buys": 100,
+                        "sells": 50
+                    }
+                }
+            }]
+        }"#
+        .to_string()
+    }
+
+    fn create_dexscreener_response_with_invalid_price() -> String {
+        r#"{
+            "pairs": [{
+                "base_token": {
+                    "address": "0x123",
+                    "name": "Test Token",
+                    "symbol": "TEST"
+                },
+                "quote_token": {
+                    "address": "0x456",
+                    "name": "USD Coin",
+                    "symbol": "USDC"
+                },
+                "pair_address": "0xabc",
+                "dex_id": "uniswap",
+                "url": "https://example.com",
+                "price_usd": "invalid_price",
+                "price_native": "invalid_price"
+            }]
+        }"#
+        .to_string()
+    }
+
+    // Helper functions for tests
+    fn create_test_token_info(
+        price_change_24h: Option<f64>,
+        price_change_1h: Option<f64>,
+        price_usd: Option<f64>,
+    ) -> TokenInfo {
+        TokenInfo {
+            address: "0x123".to_string(),
+            name: "Test Token".to_string(),
+            symbol: "TEST".to_string(),
+            decimals: 18,
+            price_usd,
+            market_cap: Some(1000000.0),
+            volume_24h: Some(50000.0),
+            price_change_24h,
+            price_change_1h,
+            price_change_5m: Some(0.5),
+            circulating_supply: Some(1000000.0),
+            total_supply: Some(10000000.0),
+            pair_count: 0,
+            pairs: vec![],
+            chain: ChainInfo {
+                id: "ethereum".to_string(),
+                name: "Ethereum".to_string(),
+                logo: None,
+                native_token: "ETH".to_string(),
+            },
+            security: SecurityInfo {
+                is_verified: true,
+                liquidity_locked: Some(true),
+                audit_status: None,
+                honeypot_status: None,
+                ownership_status: None,
+                risk_score: Some(25),
+            },
+            socials: vec![],
+            updated_at: Utc::now(),
+        }
+    }
+
+    fn create_test_token_pair(dex_name: &str, liquidity: f64) -> TokenPair {
+        TokenPair {
+            pair_id: "pair123".to_string(),
+            dex: DexInfo {
+                id: dex_name.to_string(),
+                name: dex_name.to_string(),
+                url: Some("https://dex.com".to_string()),
+                logo: None,
+            },
+            base_token: PairToken {
+                address: "0x123".to_string(),
+                name: "Test Token".to_string(),
+                symbol: "TEST".to_string(),
+            },
+            quote_token: PairToken {
+                address: "0x456".to_string(),
+                name: "USD Coin".to_string(),
+                symbol: "USDC".to_string(),
+            },
+            price_usd: Some(1.0),
+            price_native: Some(1.0),
+            volume_24h: Some(10000.0),
+            price_change_24h: Some(5.0),
+            liquidity_usd: Some(liquidity),
+            fdv: Some(2000000.0),
+            created_at: None,
+            last_trade_at: Utc::now(),
+            txns_24h: TransactionStats {
+                buys: Some(100),
+                sells: Some(80),
+                total: Some(180),
+                buy_volume_usd: Some(6000.0),
+                sell_volume_usd: Some(4000.0),
+            },
+            url: "https://dex.com/pair/123".to_string(),
+        }
     }
 }
