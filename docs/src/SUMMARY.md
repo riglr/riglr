@@ -21,6 +21,9 @@
 # Conceptual Guides
 - [Overview](concepts/index.md)
 - [Core Architecture](concepts/architecture.md)
+- [Architecture Overview](concepts/architecture-overview.md)
+- [Under the Hood: Brain to Blockchain](concepts/under-the-hood.md)
+- [Dependency Graph](concepts/dependency-graph.md)
 - [The SignerContext Pattern](concepts/signer-context.md)
 - [Error Handling Philosophy](concepts/error-handling.md)
 - [Event Parsing System](concepts/event-parsing.md)
