@@ -19,8 +19,8 @@ workspace = true
 # Core riglr and rig dependencies
 rig-core = { workspace = true }
 riglr-core = { workspace = true }
+riglr-config = { workspace = true }
 riglr-macros = { workspace = true }
-riglr-solana-tools = { workspace = true }
 
 # Async and Error Handling
 tokio = { workspace = true }
@@ -65,3 +65,5 @@ tracing-subscriber = { workspace = true }
 criterion = { workspace = true }
 mockito = "1.0"
 solana-sdk = { workspace = true }
+solana-client = { workspace = true }
+alloy = { workspace = true }
