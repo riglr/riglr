@@ -43,11 +43,8 @@ impl SignerFactory for DevSignerFactory {
     async fn create_signer(
         &self,
         auth_data: riglr_web_adapters::AuthenticationData,
-        config: &riglr_core::config::RpcConfig,
-    ) -> Result<
-        Box<dyn riglr_core::signer::TransactionSigner>,
-        Box<dyn std::error::Error + Send + Sync>,
-    > {
+    ) -> Result<Box<dyn riglr_core::signer::UnifiedSigner>, Box<dyn std::error::Error + Send + Sync>>
+    {
         // Create a LocalSolanaSigner from a fresh keypair using the requested network (default devnet)
         let kp = solana_sdk::signature::Keypair::new();
         let network = if auth_data.network.is_empty() {
@@ -55,17 +52,15 @@ impl SignerFactory for DevSignerFactory {
         } else {
             auth_data.network
         };
-        let net_cfg = config
-            .solana_networks
-            .get(&network)
-            .cloned()
-            .unwrap_or_else(|| riglr_core::config::SolanaNetworkConfig {
-                name: "Solana Devnet".to_string(),
-                rpc_url: "https://api.devnet.solana.com".to_string(),
-                explorer_url: Some("https://explorer.solana.com".to_string()),
-            });
+        let rpc_url = match network.as_str() {
+            "mainnet" | "mainnet-beta" => "https://api.mainnet-beta.solana.com".to_string(),
+            "devnet" => "https://api.devnet.solana.com".to_string(),
+            "testnet" => "https://api.testnet.solana.com".to_string(),
+            _ => "https://api.devnet.solana.com".to_string(),
+        };
 
-        let signer = riglr_core::signer::LocalSolanaSigner::from_keypair(kp, net_cfg);
+        let config = riglr_config::SolanaNetworkConfig::new(network.clone(), rpc_url);
+        let signer = riglr_core::signer::LocalSolanaSigner::from_keypair(kp, config);
         Ok(Box::new(signer))
     }
 
@@ -88,4 +83,253 @@ async fn main() -> anyhow::Result<()> {
 
     let cfg = ServerConfig::default();
     start_axum(cfg, EchoAgent, Arc::new(composite)).await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use futures_util::stream::StreamExt;
+    use riglr_web_adapters::AuthenticationData;
+    use std::collections::HashMap;
+
+    #[tokio::test]
+    async fn test_echo_agent_prompt_when_valid_input_should_return_echo() {
+        let agent = EchoAgent;
+        let result = agent.prompt("hello").await;
+
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "echo: hello");
+    }
+
+    #[tokio::test]
+    async fn test_echo_agent_prompt_when_empty_input_should_return_echo_empty() {
+        let agent = EchoAgent;
+        let result = agent.prompt("").await;
+
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "echo: ");
+    }
+
+    #[tokio::test]
+    async fn test_echo_agent_prompt_when_special_characters_should_return_echo() {
+        let agent = EchoAgent;
+        let result = agent.prompt("hello\nworld\t!@#$%^&*()").await;
+
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "echo: hello\nworld\t!@#$%^&*()");
+    }
+
+    #[tokio::test]
+    async fn test_echo_agent_prompt_when_unicode_should_return_echo() {
+        let agent = EchoAgent;
+        let result = agent.prompt("こんにちは🦀").await;
+
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "echo: こんにちは🦀");
+    }
+
+    #[tokio::test]
+    async fn test_echo_agent_prompt_stream_when_valid_input_should_return_stream() {
+        let agent = EchoAgent;
+        let result = agent.prompt_stream("test").await;
+
+        assert!(result.is_ok());
+
+        let stream = result.unwrap();
+        let chunks: Vec<_> = stream.collect().await;
+
+        assert_eq!(chunks.len(), 3);
+        assert_eq!(chunks[0].as_ref().unwrap(), "start:");
+        assert_eq!(chunks[1].as_ref().unwrap(), " ");
+        assert_eq!(chunks[2].as_ref().unwrap(), "test");
+    }
+
+    #[tokio::test]
+    async fn test_echo_agent_prompt_stream_when_empty_input_should_return_stream() {
+        let agent = EchoAgent;
+        let result = agent.prompt_stream("").await;
+
+        assert!(result.is_ok());
+
+        let stream = result.unwrap();
+        let chunks: Vec<_> = stream.collect().await;
+
+        assert_eq!(chunks.len(), 3);
+        assert_eq!(chunks[0].as_ref().unwrap(), "start:");
+        assert_eq!(chunks[1].as_ref().unwrap(), " ");
+        assert_eq!(chunks[2].as_ref().unwrap(), "");
+    }
+
+    #[tokio::test]
+    async fn test_echo_agent_prompt_stream_when_special_characters_should_return_stream() {
+        let agent = EchoAgent;
+        let result = agent.prompt_stream("hello\nworld").await;
+
+        assert!(result.is_ok());
+
+        let stream = result.unwrap();
+        let chunks: Vec<_> = stream.collect().await;
+
+        assert_eq!(chunks.len(), 3);
+        assert_eq!(chunks[0].as_ref().unwrap(), "start:");
+        assert_eq!(chunks[1].as_ref().unwrap(), " ");
+        assert_eq!(chunks[2].as_ref().unwrap(), "hello\nworld");
+    }
+
+    #[tokio::test]
+    async fn test_dev_signer_factory_create_signer_when_empty_network_should_use_devnet() {
+        let factory = DevSignerFactory;
+        let mut credentials = HashMap::new();
+        credentials.insert("user_id".to_string(), "test_user".to_string());
+        let auth_data = AuthenticationData {
+            auth_type: "dev".to_string(),
+            credentials,
+            network: "".to_string(),
+        };
+
+        let result = factory.create_signer(auth_data).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_dev_signer_factory_create_signer_when_specified_network_should_use_it() {
+        let factory = DevSignerFactory;
+        let mut credentials = HashMap::new();
+        credentials.insert("user_id".to_string(), "test_user".to_string());
+        let auth_data = AuthenticationData {
+            auth_type: "dev".to_string(),
+            credentials,
+            network: "mainnet".to_string(),
+        };
+
+        let result = factory.create_signer(auth_data).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_dev_signer_factory_create_signer_when_network_not_in_config_should_use_default() {
+        let factory = DevSignerFactory;
+        let mut credentials = HashMap::new();
+        credentials.insert("user_id".to_string(), "test_user".to_string());
+        let auth_data = AuthenticationData {
+            auth_type: "dev".to_string(),
+            credentials,
+            network: "nonexistent".to_string(),
+        };
+
+        let result = factory.create_signer(auth_data).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_dev_signer_factory_create_signer_when_different_auth_types_should_work() {
+        let factory = DevSignerFactory;
+
+        // Test with different auth types
+        for auth_type in &["dev", "privy", "other"] {
+            let mut credentials = HashMap::new();
+            credentials.insert("user_id".to_string(), "test_user".to_string());
+            let auth_data = AuthenticationData {
+                auth_type: auth_type.to_string(),
+                credentials,
+                network: "devnet".to_string(),
+            };
+
+            let result = factory.create_signer(auth_data).await;
+            assert!(result.is_ok());
+        }
+    }
+
+    #[tokio::test]
+    async fn test_dev_signer_factory_create_signer_when_with_token_should_work() {
+        let factory = DevSignerFactory;
+        let mut credentials = HashMap::new();
+        credentials.insert("user_id".to_string(), "test_user".to_string());
+        credentials.insert("token".to_string(), "test_token".to_string());
+        let auth_data = AuthenticationData {
+            auth_type: "dev".to_string(),
+            credentials,
+            network: "devnet".to_string(),
+        };
+
+        let result = factory.create_signer(auth_data).await;
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_dev_signer_factory_supported_auth_types_should_return_dev_and_privy() {
+        let factory = DevSignerFactory;
+        let auth_types = factory.supported_auth_types();
+
+        assert_eq!(auth_types.len(), 2);
+        assert!(auth_types.contains(&"dev".to_string()));
+        assert!(auth_types.contains(&"privy".to_string()));
+    }
+
+    #[test]
+    fn test_echo_agent_clone_should_work() {
+        let agent1 = EchoAgent;
+        let agent2 = agent1.clone();
+
+        // Both should be usable (compile-time test mostly)
+        let _ = agent1;
+        let _ = agent2;
+    }
+
+    #[test]
+    fn test_dev_signer_factory_clone_not_implemented() {
+        // DevSignerFactory doesn't implement Clone, this tests that it's a conscious decision
+        // This test just ensures we can create multiple instances
+        let _factory1 = DevSignerFactory;
+        let _factory2 = DevSignerFactory;
+    }
+
+    // Test edge cases for network configuration
+    #[tokio::test]
+    async fn test_dev_signer_factory_create_signer_when_network_config_has_no_explorer_url() {
+        let factory = DevSignerFactory;
+        let mut credentials = HashMap::new();
+        credentials.insert("user_id".to_string(), "test_user".to_string());
+        let auth_data = AuthenticationData {
+            auth_type: "dev".to_string(),
+            credentials,
+            network: "testnet".to_string(),
+        };
+
+        let result = factory.create_signer(auth_data).await;
+        assert!(result.is_ok());
+    }
+
+    // Test with very long network name
+    #[tokio::test]
+    async fn test_dev_signer_factory_create_signer_when_long_network_name_should_work() {
+        let factory = DevSignerFactory;
+        let long_network_name = "a".repeat(1000);
+        let mut credentials = HashMap::new();
+        credentials.insert("user_id".to_string(), "test_user".to_string());
+        let auth_data = AuthenticationData {
+            auth_type: "dev".to_string(),
+            credentials,
+            network: long_network_name.clone(),
+        };
+
+        let result = factory.create_signer(auth_data).await;
+        assert!(result.is_ok());
+    }
+
+    // Test with special characters in user_id
+    #[tokio::test]
+    async fn test_dev_signer_factory_create_signer_when_special_user_id_should_work() {
+        let factory = DevSignerFactory;
+        let mut credentials = HashMap::new();
+        credentials.insert("user_id".to_string(), "test@user.com!@#$%^&*()".to_string());
+        let auth_data = AuthenticationData {
+            auth_type: "dev".to_string(),
+            credentials,
+            network: "devnet".to_string(),
+        };
+
+        let result = factory.create_signer(auth_data).await;
+        assert!(result.is_ok());
+    }
 }
