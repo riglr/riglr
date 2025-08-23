@@ -7,7 +7,7 @@ use anyhow::Result;
 use riglr_showcase::processors::{
     utils, ConsoleChannel, DiscordChannel, DistillationProcessor, HtmlFormatter, JsonFormatter,
     MarkdownFormatter, MultiFormatProcessor, NotificationRouter, OutputProcessor,
-    ProcessorPipeline, RoutingCondition, RoutingRule, TelegramChannel,
+    ProcessorPipeline, RoutingCondition, RoutingRule, SmartDistiller, TelegramChannel,
 };
 use serde_json::json;
 use std::time::SystemTime;
@@ -135,7 +135,6 @@ async fn llm_distillation() -> Result<()> {
 
     // Smart distiller that chooses the right model
     println!("  🎯 Smart Distillation (auto-selects model):");
-    use riglr_showcase::processors::distiller::SmartDistiller;
     let smart_distiller = SmartDistiller::new();
     let smart_result = smart_distiller.process(complex_output).await?;
     if let Some(summary) = &smart_result.summary {

@@ -19,8 +19,9 @@
 //! - Shows how to build complex analytical workflows
 //! - Educational showcase of riglr's analytical capabilities
 use anyhow::Result;
-use riglr_core::config::SolanaNetworkConfig;
-use riglr_core::signer::{LocalSolanaSigner, SignerContext, SignerError, TransactionSigner};
+use riglr_config::{Config, SolanaNetworkConfig};
+use riglr_core::provider::ApplicationContext;
+use riglr_core::signer::{LocalSolanaSigner, SignerContext, SignerError, UnifiedSigner};
 use riglr_solana_tools::{get_sol_balance, get_spl_token_balance};
 use solana_sdk::signature::Keypair;
 use solana_sdk::signer::Signer;
@@ -41,24 +42,31 @@ async fn main() -> Result<()> {
     let network_config = SolanaNetworkConfig {
         name: "mainnet".to_string(),
         rpc_url: "https://api.mainnet-beta.solana.com".to_string(),
+        ws_url: None,
         explorer_url: Some("https://explorer.solana.com".to_string()),
     };
     let solana_signer = Arc::new(LocalSolanaSigner::from_keypair(
         solana_keypair.insecure_clone(),
         network_config,
-    ));
+    )) as Arc<dyn UnifiedSigner>;
 
     println!("Using wallet: {}", solana_keypair.pubkey());
+
+    // Create ApplicationContext for tool invocations
+    let config = Config::from_env();
+    let context = ApplicationContext::from_config(&config);
 
     // Execute analytics workflow within signer context
     SignerContext::with_signer(solana_signer.clone(), async {
         println!("\n🔍 Starting on-chain data analysis...");
 
         // Demonstrate real analytics operations using current tools
-        let wallet_pubkey = solana_signer.pubkey().unwrap_or_default();
+        // Get the pubkey from the current Solana signer
+        let signer = SignerContext::current_as_solana().await?;
+        let wallet_pubkey = signer.pubkey();
 
         // Get SOL balance
-        match get_sol_balance(wallet_pubkey.clone()).await {
+        match get_sol_balance(wallet_pubkey.clone(), &context).await {
             Ok(balance) => {
                 println!("📊 SOL Balance Analysis:");
                 println!("  • Wallet: {}", wallet_pubkey);
@@ -77,7 +85,7 @@ async fn main() -> Result<()> {
 
         // Example token balance check (using SOL mint address)
         let sol_mint = "So11111111111111111111111111111111111111112";
-        match get_spl_token_balance(wallet_pubkey.clone(), sol_mint.to_string()).await {
+        match get_spl_token_balance(wallet_pubkey.clone(), sol_mint.to_string(), &context).await {
             Ok(token_balance) => {
                 println!("\n📈 Token Balance Analysis:");
                 println!("  • Mint: {}", token_balance.mint_address);

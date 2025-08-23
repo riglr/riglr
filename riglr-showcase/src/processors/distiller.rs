@@ -11,7 +11,6 @@ use rig::completion::Prompt;
 use rig::providers::{anthropic, gemini, openai};
 use serde_json::json;
 
-
 /// LLM-based output distiller
 ///
 /// Uses a separate LLM call to summarize complex tool outputs.
@@ -238,7 +237,13 @@ pub struct SmartDistiller {
 impl SmartDistiller {
     /// Create a new SmartDistiller with default processors
     pub fn new() -> Self {
-        Self::default()
+        Self {
+            processors: vec![
+                DistillationProcessor::new("gpt-4o-mini"), // Fast for simple summaries
+                DistillationProcessor::new("claude-3-5-haiku"), // Good for technical content
+                DistillationProcessor::new("gemini-1.5-flash"), // Cost-effective option
+            ],
+        }
     }
 
     /// Choose the best processor for the given output
@@ -281,7 +286,24 @@ impl MockDistiller {
     /// Create a new MockDistiller with default responses
     #[must_use]
     pub fn new() -> Self {
-        Self::default()
+        let mut responses = std::collections::HashMap::default();
+        responses.insert(
+            "get_sol_balance".to_string(),
+            "Successfully retrieved SOL balance for the specified address.".to_string(),
+        );
+        responses.insert(
+            "swap_tokens".to_string(),
+            "Token swap completed successfully.".to_string(),
+        );
+        responses.insert(
+            "error".to_string(),
+            "An error occurred while processing the request.".to_string(),
+        );
+        responses.insert(
+            "test_tool".to_string(),
+            "Test tool executed successfully.".to_string(),
+        );
+        Self { responses }
     }
 
     /// Add a custom response for a specific tool name
@@ -366,10 +388,14 @@ mod tests {
     use super::*;
     use crate::processors::utils;
 
+    // Constants for environment variable names used in tests
+    const OPENAI_API_KEY: &str = "OPENAI_API_KEY";
+    const ANTHROPIC_API_KEY: &str = "ANTHROPIC_API_KEY";
+
     #[tokio::test]
     async fn test_distillation_processor() {
         // Skip test if OPENAI_API_KEY is not set
-        if std::env::var("OPENAI_API_KEY").is_err() {
+        if std::env::var(OPENAI_API_KEY).is_err() {
             eprintln!("Skipping test: OPENAI_API_KEY not set");
             return;
         }
@@ -386,7 +412,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_mock_distiller() {
-        let processor = MockDistiller::default().with_response("test_tool", "This is a test summary");
+        let processor =
+            MockDistiller::default().with_response("test_tool", "This is a test summary");
 
         let output = utils::success_output("test_tool", json!({"result": "success"}));
         let processed = processor.process(output).await.unwrap();
@@ -400,7 +427,7 @@ mod tests {
     #[tokio::test]
     async fn test_smart_distiller() {
         // Skip test if ANTHROPIC_API_KEY is not set
-        if std::env::var("ANTHROPIC_API_KEY").is_err() {
+        if std::env::var(ANTHROPIC_API_KEY).is_err() {
             eprintln!("Skipping test: ANTHROPIC_API_KEY not set");
             return;
         }
@@ -429,5 +456,360 @@ mod tests {
         assert_eq!(trading_processor.model, "claude-3-5-haiku");
         assert_eq!(balance_processor.model, "gemini-1.5-flash");
         assert_eq!(general_processor.model, "gpt-4o-mini");
+    }
+
+    // Additional comprehensive tests for 100% coverage
+
+    #[test]
+    fn test_distillation_processor_new() {
+        let processor = DistillationProcessor::new("test-model");
+        assert_eq!(processor.model, "test-model");
+        assert_eq!(processor.max_tokens, Some(150));
+        assert_eq!(processor.temperature, Some(0.3));
+        assert!(!processor.system_prompt.is_empty());
+    }
+
+    #[test]
+    fn test_distillation_processor_with_config_all_params() {
+        let custom_prompt = "Custom prompt".to_string();
+        let processor = DistillationProcessor::with_config(
+            "custom-model",
+            Some(200),
+            Some(0.7),
+            Some(custom_prompt.clone()),
+        );
+        assert_eq!(processor.model, "custom-model");
+        assert_eq!(processor.max_tokens, Some(200));
+        assert_eq!(processor.temperature, Some(0.7));
+        assert_eq!(processor.system_prompt, custom_prompt);
+    }
+
+    #[test]
+    fn test_distillation_processor_with_config_none_params() {
+        let processor = DistillationProcessor::with_config("model", None, None, None);
+        assert_eq!(processor.model, "model");
+        assert_eq!(processor.max_tokens, None);
+        assert_eq!(processor.temperature, None);
+        assert_eq!(
+            processor.system_prompt,
+            DistillationProcessor::default_system_prompt()
+        );
+    }
+
+    #[test]
+    fn test_default_system_prompt() {
+        let prompt = DistillationProcessor::default_system_prompt();
+        assert!(prompt.contains("summarizing technical tool outputs"));
+        assert!(prompt.contains("Extract the key information"));
+        assert!(prompt.contains("user-friendly way"));
+    }
+
+    #[test]
+    fn test_distillation_processor_name() {
+        let processor = DistillationProcessor::new("test");
+        assert_eq!(processor.name(), "DistillationProcessor");
+    }
+
+    #[test]
+    fn test_distillation_processor_can_process_with_result() {
+        let processor = DistillationProcessor::new("test");
+        let output = utils::success_output("test", json!({"key": "value"}));
+        assert!(processor.can_process(&output));
+    }
+
+    #[test]
+    fn test_distillation_processor_can_process_with_error() {
+        let processor = DistillationProcessor::new("test");
+        let output = utils::error_output("test", "Some error");
+        assert!(processor.can_process(&output));
+    }
+
+    #[test]
+    fn test_distillation_processor_can_process_null_result_no_error() {
+        let processor = DistillationProcessor::new("test");
+        let mut output = utils::success_output("test", json!(null));
+        output.error = None;
+        assert!(!processor.can_process(&output));
+    }
+
+    #[test]
+    fn test_distillation_processor_config() {
+        let processor =
+            DistillationProcessor::with_config("test-model", Some(100), Some(0.5), None);
+        let config = processor.config();
+        assert_eq!(config["name"], "DistillationProcessor");
+        assert_eq!(config["type"], "distiller");
+        assert_eq!(config["model"], "test-model");
+        assert_eq!(config["max_tokens"], 100);
+        assert_eq!(config["temperature"], 0.5);
+    }
+
+    #[tokio::test]
+    async fn test_distillation_processor_process_error_output() {
+        let processor = DistillationProcessor::new("test");
+        let output = utils::error_output("test_tool", "Test error message");
+
+        let result = processor.process(output).await.unwrap();
+        assert!(result.summary.is_some());
+        assert!(result.summary.as_ref().unwrap().contains("test_tool"));
+        assert!(result.summary.as_ref().unwrap().contains("error"));
+        assert_eq!(result.format, OutputFormat::PlainText);
+        assert!(result.routing_info.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_call_llm_unsupported_model() {
+        let processor = DistillationProcessor::new("unsupported-model");
+        let output = utils::success_output("test", json!({"key": "value"}));
+
+        let result = processor.call_llm(&output).await;
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Unsupported model"));
+    }
+
+    #[tokio::test]
+    async fn test_call_llm_with_error_in_output() {
+        let processor = DistillationProcessor::new("unsupported-model");
+        let mut output = utils::success_output("test", json!({"key": "value"}));
+        output.error = Some("Test error".to_string());
+
+        let result = processor.call_llm(&output).await;
+        assert!(result.is_err());
+        // The error should still be about unsupported model, but the prompt should include error info
+    }
+
+    #[test]
+    fn test_smart_distiller_new() {
+        let distiller = SmartDistiller::default();
+        assert_eq!(distiller.processors.len(), 3);
+    }
+
+    #[test]
+    fn test_smart_distiller_default() {
+        let distiller = SmartDistiller::default();
+        assert_eq!(distiller.processors.len(), 3);
+        assert_eq!(distiller.processors[0].model, "gpt-4o-mini");
+        assert_eq!(distiller.processors[1].model, "claude-3-5-haiku");
+        assert_eq!(distiller.processors[2].model, "gemini-1.5-flash");
+    }
+
+    #[test]
+    fn test_smart_distiller_choose_processor_trading() {
+        let distiller = SmartDistiller::default();
+        let output = utils::success_output("trading_analysis", json!({}));
+        let processor = distiller.choose_processor(&output);
+        assert_eq!(processor.model, "claude-3-5-haiku");
+    }
+
+    #[test]
+    fn test_smart_distiller_choose_processor_swap() {
+        let distiller = SmartDistiller::default();
+        let output = utils::success_output("swap_tokens", json!({}));
+        let processor = distiller.choose_processor(&output);
+        assert_eq!(processor.model, "claude-3-5-haiku");
+    }
+
+    #[test]
+    fn test_smart_distiller_choose_processor_balance() {
+        let distiller = SmartDistiller::default();
+        let output = utils::success_output("balance_check", json!({}));
+        let processor = distiller.choose_processor(&output);
+        assert_eq!(processor.model, "gemini-1.5-flash");
+    }
+
+    #[test]
+    fn test_smart_distiller_choose_processor_transaction() {
+        let distiller = SmartDistiller::default();
+        let output = utils::success_output("transaction_history", json!({}));
+        let processor = distiller.choose_processor(&output);
+        assert_eq!(processor.model, "gemini-1.5-flash");
+    }
+
+    #[test]
+    fn test_smart_distiller_name() {
+        let distiller = SmartDistiller::default();
+        assert_eq!(distiller.name(), "SmartDistiller");
+    }
+
+    #[test]
+    fn test_smart_distiller_config() {
+        let distiller = SmartDistiller::default();
+        let config = distiller.config();
+        assert_eq!(config["name"], "SmartDistiller");
+        assert_eq!(config["type"], "smart_distiller");
+        assert!(config["available_models"].is_array());
+        assert_eq!(config["available_models"].as_array().unwrap().len(), 3);
+    }
+
+    #[test]
+    fn test_mock_distiller_new() {
+        let distiller = MockDistiller::default();
+        assert!(!distiller.responses.is_empty());
+    }
+
+    #[test]
+    fn test_mock_distiller_with_response() {
+        let distiller = MockDistiller::default().with_response("custom_tool", "Custom response");
+        assert_eq!(
+            distiller.responses.get("custom_tool"),
+            Some(&"Custom response".to_string())
+        );
+    }
+
+    #[test]
+    fn test_mock_distiller_default() {
+        let distiller = MockDistiller::default();
+        assert!(distiller.responses.contains_key("get_sol_balance"));
+        assert!(distiller.responses.contains_key("swap_tokens"));
+        assert!(distiller.responses.contains_key("error"));
+        assert!(distiller.responses.contains_key("test_tool"));
+    }
+
+    #[tokio::test]
+    async fn test_mock_distiller_process_success_with_known_tool() {
+        let distiller = MockDistiller::default();
+        let output = utils::success_output("get_sol_balance", json!({"balance": 1.5}));
+
+        let result = distiller.process(output).await.unwrap();
+        assert_eq!(
+            result.summary,
+            Some("Successfully retrieved SOL balance for the specified address.".to_string())
+        );
+        assert_eq!(result.format, OutputFormat::PlainText);
+    }
+
+    #[tokio::test]
+    async fn test_mock_distiller_process_success_with_unknown_tool() {
+        let distiller = MockDistiller::default();
+        let output = utils::success_output("unknown_tool", json!({"data": "test"}));
+
+        let result = distiller.process(output).await.unwrap();
+        // Should fall back to None since no default response is set for unknown tools
+        assert!(result.summary.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_mock_distiller_process_success_with_default_response() {
+        let distiller = MockDistiller::default().with_response("default", "Default summary");
+        let output = utils::success_output("unknown_tool", json!({"data": "test"}));
+
+        let result = distiller.process(output).await.unwrap();
+        assert_eq!(result.summary, Some("Default summary".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_mock_distiller_process_error() {
+        let distiller = MockDistiller::default();
+        let output = utils::error_output("any_tool", "Some error");
+
+        let result = distiller.process(output).await.unwrap();
+        assert_eq!(
+            result.summary,
+            Some("An error occurred while processing the request.".to_string())
+        );
+    }
+
+    #[tokio::test]
+    async fn test_mock_distiller_process_error_no_error_response() {
+        let mut distiller = MockDistiller::default();
+        distiller.responses.remove("error");
+        let output = utils::error_output("any_tool", "Some error");
+
+        let result = distiller.process(output).await.unwrap();
+        assert!(result.summary.is_none());
+    }
+
+    #[test]
+    fn test_mock_distiller_name() {
+        let distiller = MockDistiller::default();
+        assert_eq!(distiller.name(), "MockDistiller");
+    }
+
+    #[test]
+    fn test_mock_distiller_config() {
+        let distiller = MockDistiller::default();
+        let config = distiller.config();
+        assert_eq!(config["name"], "MockDistiller");
+        assert_eq!(config["type"], "mock_distiller");
+        assert!(config["responses"].is_number());
+        assert!(config["responses"].as_u64().unwrap() > 0);
+    }
+
+    // Test with various model name patterns for call_llm routing
+    #[tokio::test]
+    async fn test_call_llm_gpt_model_routing() {
+        let processor = DistillationProcessor::new("gpt-3.5-turbo");
+        let output = utils::success_output("test", json!({"key": "value"}));
+
+        // This will fail because we don't have API keys in test, but it should route to OpenAI
+        let result = processor.call_llm(&output).await;
+        assert!(result.is_err());
+        // Error should be about OpenAI API, not unsupported model
+        assert!(result.unwrap_err().to_string().contains("OpenAI API"));
+    }
+
+    #[tokio::test]
+    async fn test_call_llm_claude_model_routing() {
+        let processor = DistillationProcessor::new("claude-3-opus");
+        let output = utils::success_output("test", json!({"key": "value"}));
+
+        // This will fail because we don't have API keys in test, but it should route to Anthropic
+        let result = processor.call_llm(&output).await;
+        assert!(result.is_err());
+        // Error should be about Anthropic API, not unsupported model
+        assert!(result.unwrap_err().to_string().contains("Anthropic API"));
+    }
+
+    #[tokio::test]
+    async fn test_call_llm_gemini_model_routing() {
+        let processor = DistillationProcessor::new("gemini-pro");
+        let output = utils::success_output("test", json!({"key": "value"}));
+
+        // This will fail because we don't have API keys in test, but it should route to Google
+        let result = processor.call_llm(&output).await;
+        assert!(result.is_err());
+        // Error should be about Gemini API, not unsupported model
+        assert!(result.unwrap_err().to_string().contains("Gemini API"));
+    }
+
+    // Test the model mapping in call_anthropic
+    #[tokio::test]
+    async fn test_call_anthropic_model_mapping() {
+        // Test different model name mappings
+        let models_to_test = vec![
+            "claude-3-5-sonnet",
+            "claude-3-5-haiku",
+            "claude-3-haiku",
+            "claude-3-opus",
+            "custom-claude-model",
+        ];
+
+        for model in models_to_test {
+            let processor = DistillationProcessor::new(model);
+            let result = processor.call_anthropic("test prompt").await;
+            // All should fail due to missing API key, but should not panic
+            assert!(result.is_err());
+            assert!(result.unwrap_err().to_string().contains("Anthropic API"));
+        }
+    }
+
+    // Test edge cases for choose_processor logic
+    #[test]
+    fn test_choose_processor_edge_cases() {
+        let distiller = SmartDistiller::default();
+
+        // Test empty tool name
+        let empty_output = utils::success_output("", json!({}));
+        let processor = distiller.choose_processor(&empty_output);
+        assert_eq!(processor.model, "gpt-4o-mini"); // Should default to GPT
+
+        // Test tool name with multiple keywords
+        let multi_output = utils::success_output("trading_balance_transaction", json!({}));
+        let processor = distiller.choose_processor(&multi_output);
+        // Should match first pattern (trading)
+        assert_eq!(processor.model, "claude-3-5-haiku");
     }
 }
