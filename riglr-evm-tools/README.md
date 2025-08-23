@@ -4,13 +4,15 @@ Production-grade EVM blockchain tools for riglr agents, providing comprehensive 
 
 ## Features
 
-- 🔐 **Secure Transaction Management**: Built-in signer context for safe key management
-- 💰 **Balance Operations**: Check ETH and ERC20 token balances
-- 📤 **Token Transfers**: Send ETH and ERC20 tokens with automatic gas estimation
+- 🔐 **Secure Transaction Management**: Thread-safe SignerContext pattern for multi-tenant key management
+- 💰 **Balance Operations**: Check ETH and ERC20 token balances with ApplicationContext
+- 📤 **Token Transfers**: Send ETH and ERC20 tokens with SignerContext and automatic gas estimation
 - 🔄 **DeFi Integration**: Uniswap V3 support for token swaps and liquidity operations
 - 🌐 **Multi-Chain Support**: Works with Ethereum, Polygon, Arbitrum, Optimism, Base, and more
 - ⚡ **High Performance**: Async/await with connection pooling and retry logic
-- 🛡️ **Error Handling**: Distinguishes between retriable and permanent failures
+- 🛡️ **Error Handling**: Type-safe ToolError for distinguishing retriable and permanent failures
+- 🔒 **Multi-Tenant Safe**: Automatic isolation between concurrent user requests
+- 📖 **Clear Separation**: ApplicationContext for read operations, SignerContext for write operations
 
 ## Installation
 
@@ -23,109 +25,134 @@ riglr-evm-tools = "0.1.0"
 
 ## Quick Start
 
-### Setting up the Client
+### Read Operations with ApplicationContext
+
+Read-only operations (like checking balances) use the ApplicationContext pattern:
 
 ```rust
-use riglr_evm_tools::EvmClient;
+use riglr_core::provider::ApplicationContext;
+use riglr_evm_tools::balance::{get_eth_balance_with_context, get_erc20_balance_with_context};
+use alloy::providers::{Provider, ProviderBuilder};
+use std::sync::Arc;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    // Create a client for Ethereum mainnet
-    let client = EvmClient::mainnet().await?;
+    // Create application context with provider
+    let app_context = ApplicationContext::from_env();
     
-    // Or use a custom RPC endpoint
-    let client = EvmClient::new("https://your-rpc-endpoint.com".to_string()).await?;
+    // Add a Provider to the context for EVM operations
+    let provider = ProviderBuilder::new()
+        .on_http("https://eth.llamarpc.com".parse()?)
+        .boxed();
+    app_context.add_extension(Arc::new(provider) as Arc<dyn Provider>);
     
-    // Add a signer for transactions (optional, only needed for sending transactions)
-    let client_with_signer = client.with_signer("YOUR_PRIVATE_KEY");
+    // Check ETH balance
+    let balance = get_eth_balance_with_context(
+        "0x742d35Cc6634C0532925a3b844Bc9e7595f0eA4B".to_string(),
+        Some(1), // Ethereum mainnet
+        &app_context
+    ).await?;
     
+    println!("Balance: {}", balance.balance_formatted);
     Ok(())
 }
 ```
 
-### Checking Balances
+### Write Operations with SignerContext
+
+Write operations (like transfers) require a SignerContext with proper signing capabilities:
 
 ```rust
-use riglr_evm_tools::{EvmClient, get_eth_balance};
+use riglr_core::signer::{SignerContext, UnifiedSigner};
+use riglr_evm_tools::signer::LocalEvmSigner;
+use riglr_evm_tools::transaction::send_eth;
+use alloy::primitives::{Address, U256};
+use std::sync::Arc;
+use std::str::FromStr;
 
-// Create client
-let client = EvmClient::mainnet().await?;
-
-// Get ETH balance
-let balance = get_eth_balance(
-    &client,
-    "0x742d35Cc6634C0532925a3b844Bc9e7595f0eA4B".to_string(),
-    None, // Latest block
-).await?;
-
-println!("Balance: {} ETH", balance.balance_formatted);
-```
-
-### Transferring Tokens
-
-```rust
-use riglr_evm_tools::{EvmClient, transfer_eth, transfer_erc20};
-
-// Create client with signer for transactions
-let client = EvmClient::mainnet().await?
-    .with_signer("YOUR_PRIVATE_KEY");
-
-// Transfer ETH
-let tx = transfer_eth(
-    &client,
-    "0xRecipientAddress".to_string(),
-    0.1, // Amount in ETH
-    None, // Auto gas price
-    None, // Auto nonce
-).await?;
-
-println!("Transaction hash: {}", tx.tx_hash);
-
-// Transfer ERC20 tokens
-let tx = transfer_erc20(
-    &client,
-    "0xUSDC_CONTRACT".to_string(),
-    "0xRecipientAddress".to_string(),
-    "100".to_string(), // Amount
-    6, // USDC has 6 decimals
-    None, // Auto gas price
-).await?;
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    // Create configuration for the network
+    let config = riglr_config::EvmNetworkConfig::new(
+        "mainnet",
+        1,
+        "https://eth.llamarpc.com".to_string()
+    );
+    
+    // Create a signer with private key
+    let signer = Arc::new(LocalEvmSigner::new(
+        std::env::var("EVM_PRIVATE_KEY")?,
+        config
+    )?) as Arc<dyn UnifiedSigner>;
+    
+    // Execute transfer within SignerContext
+    let tx_hash = SignerContext::with_signer(signer, async {
+        let to = Address::from_str("0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb5")?;
+        let amount = U256::from(1_000_000_000_000_000u64); // 0.001 ETH in wei
+        
+        let hash = send_eth(to, amount).await?;
+        Ok::<_, anyhow::Error>(hash)
+    }).await?;
+    
+    println!("Transaction sent: {}", tx_hash);
+    Ok(())
+}
 ```
 
 ### DeFi Operations (Uniswap)
 
 ```rust
-use riglr_evm_tools::{EvmClient, get_uniswap_quote, perform_uniswap_swap};
+use riglr_core::signer::{SignerContext, UnifiedSigner};
+use riglr_evm_tools::signer::LocalEvmSigner;
+use riglr_evm_tools::swap::{get_uniswap_quote, perform_uniswap_swap};
+use std::sync::Arc;
 
-// Create client with signer for swaps
-let client = EvmClient::mainnet().await?
-    .with_signer("YOUR_PRIVATE_KEY");
-
-// Get a swap quote
-let quote = get_uniswap_quote(
-    &client,
-    "0xUSDC".to_string(),     // Token in
-    "0xWETH".to_string(),     // Token out
-    "1000".to_string(),       // Amount in
-    6,                        // USDC decimals
-    18,                       // WETH decimals
-    Some(3000),              // 0.3% fee tier
-    Some(50),                // 0.5% slippage
-).await?;
-
-println!("Expected output: {} WETH", quote.amount_out);
-
-// Execute the swap
-let swap = perform_uniswap_swap(
-    &client,
-    "0xUSDC".to_string(),
-    "0xWETH".to_string(),
-    "1000".to_string(),
-    6,
-    quote.amount_out_minimum,
-    Some(3000),
-    Some(300), // 5 minute deadline
-).await?;
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    // Create signer for swap operations
+    let config = riglr_config::EvmNetworkConfig::new(
+        "mainnet",
+        1,
+        "https://eth.llamarpc.com".to_string()
+    );
+    
+    let signer = Arc::new(LocalEvmSigner::new(
+        std::env::var("EVM_PRIVATE_KEY")?,
+        config
+    )?) as Arc<dyn UnifiedSigner>;
+    
+    // Execute swap within SignerContext
+    SignerContext::with_signer(signer, async {
+        // Get a swap quote (read operation)
+        let quote = get_uniswap_quote(
+            "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48".to_string(), // USDC
+            "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2".to_string(), // WETH
+            "1000".to_string(),       // Amount in
+            6,                        // USDC decimals
+            18,                       // WETH decimals
+            Some(3000),              // 0.3% fee tier
+            Some(50),                // 0.5% slippage
+        ).await?;
+        
+        println!("Expected output: {} WETH", quote.amount_out);
+        
+        // Execute the swap (write operation)
+        let swap = perform_uniswap_swap(
+            "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48".to_string(), // USDC
+            "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2".to_string(), // WETH
+            "1000".to_string(),
+            6,
+            quote.amount_out_minimum,
+            Some(3000),
+            Some(300), // 5 minute deadline
+        ).await?;
+        
+        println!("Swap executed: {}", swap.tx_hash);
+        Ok(())
+    }).await?;
+    
+    Ok(())
+}
 ```
 
 ## Available Tools
@@ -187,22 +214,88 @@ if riglr_evm_tools::util::is_chain_supported(10) {
 - Avalanche C-Chain
 - Any EVM-compatible chain with custom RPC
 
+## Architecture Patterns
+
+### ApplicationContext for Read Operations
+
+Read-only operations use ApplicationContext with a Provider extension:
+
+```rust
+use riglr_core::provider::ApplicationContext;
+use alloy::providers::Provider;
+
+// Setup once in your application
+let app_context = ApplicationContext::from_env();
+let provider = /* create provider */;
+app_context.add_extension(Arc::new(provider) as Arc<dyn Provider>);
+
+// Tools use the provider from context
+let balance = get_eth_balance_with_context(address, chain_id, &app_context).await?;
+```
+
+### SignerContext for Write Operations
+
+Write operations require SignerContext with proper signing capabilities:
+
+```rust
+use riglr_core::signer::{SignerContext, UnifiedSigner};
+
+// Create signer with private key
+let signer = Arc::new(LocalEvmSigner::new(key, config)?) as Arc<dyn UnifiedSigner>;
+
+// Execute within context
+SignerContext::with_signer(signer, async {
+    // Operations here have access to signing capabilities
+    let tx_hash = send_eth(to, amount).await?;
+    Ok(tx_hash)
+}).await?;
+```
+
+### Key Benefits
+
+1. **Clear Separation**: Read vs write operations are clearly distinguished
+2. **Thread Safety**: Each async task has its own isolated context
+3. **Multi-Tenant Support**: Multiple users can execute operations concurrently
+4. **Type Safety**: Operations are type-checked at compile time
+5. **Automatic Context Propagation**: Tools automatically access the current context
+
+### Type-Safe Chain Access
+
+```rust
+use riglr_core::signer::SignerContext;
+
+// Get EVM-specific signer (fails if current signer doesn't support EVM)
+let evm_signer = SignerContext::current_as_evm().await?;
+let address = evm_signer.address();
+let chain_id = evm_signer.chain_id();
+
+// Check capabilities before operations
+let signer = SignerContext::current().await?;
+if signer.supports_evm() {
+    // Perform EVM operations
+}
+```
+
 ## Error Handling
 
 All tools use the `ToolError` pattern to distinguish between retriable and permanent failures:
 
 ```rust
-let client = EvmClient::mainnet().await?;
+use riglr_core::ToolError;
+use riglr_evm_tools::balance::get_eth_balance_with_context;
 
-match get_eth_balance(&client, address, None).await {
+match get_eth_balance_with_context(address, chain_id, &app_context).await {
     Ok(balance) => println!("Success: {}", balance.balance_formatted),
-    Err(ToolError::Retriable(msg)) => {
-        // Network issues, can retry
-        println!("Temporary error: {}", msg);
-    }
-    Err(ToolError::Permanent(msg)) => {
-        // Invalid input, don't retry
-        println!("Permanent error: {}", msg);
+    Err(e) => match e {
+        ToolError::Permanent { message, .. } => {
+            // Invalid input, don't retry
+            println!("Permanent error: {}", message);
+        }
+        ToolError::Retriable { message, .. } => {
+            // Network issues, can retry
+            println!("Temporary error: {}", message);
+        }
+        _ => println!("Other error: {:?}", e),
     }
 }
 ```

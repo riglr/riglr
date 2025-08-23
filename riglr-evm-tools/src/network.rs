@@ -1,61 +1,70 @@
 //! Network and blockchain query tools for EVM chains
 
-use crate::{client::EvmClient, error::Result};
-use alloy::primitives::TxHash;
+use riglr_core::{provider::ApplicationContext, ToolError};
+use riglr_macros::tool;
+use std::sync::Arc;
 use tracing::{debug, info};
 
-/// Get the current block number
-pub async fn get_block_number(_client: &EvmClient) -> Result<u64> {
+/// Internal function to get block number using ApplicationContext
+pub async fn get_block_number_with_context(
+    _chain_id: Option<u64>,
+    app_context: &ApplicationContext,
+) -> Result<u64, ToolError> {
     debug!("Getting current block number");
 
-    // Use the underlying provider via the client
-    let block_number = _client.get_block_number().await?;
+    // Get Provider from the ApplicationContext's extensions
+    let provider = app_context
+        .get_extension::<Arc<dyn alloy::providers::Provider>>()
+        .ok_or_else(|| ToolError::permanent_string("Provider not found in context".to_string()))?;
+
+    let block_number = provider
+        .get_block_number()
+        .await
+        .map_err(|e| ToolError::retriable_string(format!("Failed to get block number: {}", e)))?;
 
     info!("Current block number: {}", block_number);
     Ok(block_number)
 }
 
-/// Get a transaction receipt by hash
-pub async fn get_transaction_receipt(
-    _client: &EvmClient,
-    tx_hash: &str,
-) -> Result<serde_json::Value> {
-    debug!("Getting transaction receipt for: {}", tx_hash);
+/// Get current block number
+#[tool]
+pub async fn get_block_number(
+    chain_id: Option<u64>,
+    context: &riglr_core::provider::ApplicationContext,
+) -> Result<u64, ToolError> {
+    get_block_number_with_context(chain_id, context).await
+}
 
-    // Parse transaction hash
-    let hash: TxHash = tx_hash
-        .parse()
-        .map_err(|e| crate::error::EvmToolError::Rpc(format!("Invalid tx hash: {}", e)))?;
+/// Internal function to get gas price using ApplicationContext
+pub async fn get_gas_price_with_context(
+    _chain_id: Option<u64>,
+    app_context: &ApplicationContext,
+) -> Result<String, ToolError> {
+    debug!("Getting current gas price");
 
-    // Query provider for receipt
-    let provider = _client.provider();
-    let receipt_opt = provider.get_transaction_receipt(hash).await.map_err(|e| {
-        crate::error::EvmToolError::Rpc(format!("Failed to get transaction receipt: {}", e))
-    })?;
+    // Get Provider from the ApplicationContext's extensions
+    let provider = app_context
+        .get_extension::<Arc<dyn alloy::providers::Provider>>()
+        .ok_or_else(|| ToolError::permanent_string("Provider not found in context".to_string()))?;
 
-    let json = match receipt_opt {
-        Some(receipt) => {
-            // Build a compact JSON with common fields; serialize the rest for completeness
-            let status = receipt.status();
-            let block_number = receipt.block_number;
-            let gas_used = receipt.gas_used;
-            let full = serde_json::to_value(&receipt)?;
-            serde_json::json!({
-                "transactionHash": tx_hash,
-                "status": if status { "0x1" } else { "0x0" },
-                "blockNumber": block_number,
-                "gasUsed": gas_used,
-                "raw": full
-            })
-        }
-        None => serde_json::json!({
-            "transactionHash": tx_hash,
-            "status": null,
-            "blockNumber": null,
-            "gasUsed": null
-        }),
-    };
+    let gas_price = provider
+        .get_gas_price()
+        .await
+        .map_err(|e| ToolError::retriable_string(format!("Failed to get gas price: {}", e)))?;
 
-    info!("Transaction receipt retrieved for: {}", tx_hash);
-    Ok(json)
+    // Convert to Gwei for readability
+    let gas_price_gwei = gas_price.to_string().parse::<f64>().unwrap_or(0.0) / 1e9;
+    let formatted_price = format!("{:.2} Gwei", gas_price_gwei);
+
+    info!("Current gas price: {}", formatted_price);
+    Ok(formatted_price)
+}
+
+/// Get gas price
+#[tool]
+pub async fn get_gas_price(
+    chain_id: Option<u64>,
+    context: &riglr_core::provider::ApplicationContext,
+) -> Result<String, ToolError> {
+    get_gas_price_with_context(chain_id, context).await
 }

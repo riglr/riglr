@@ -104,14 +104,12 @@ where
     Fut: Future<Output = Result<TransactionRequest, EvmToolError>> + Send + 'static,
 {
     // Get signer from context
-    let signer = SignerContext::current()
+    let signer = SignerContext::current_as_evm()
         .await
         .map_err(EvmToolError::SignerError)?;
 
     // Get EVM address
-    let address_str = signer.address().ok_or_else(|| {
-        EvmToolError::InvalidAddress("No EVM address in signer context".to_string())
-    })?;
+    let address_str = signer.address();
     let address = Address::from_str(&address_str)
         .map_err(|e| EvmToolError::InvalidAddress(format!("Invalid address format: {}", e)))?;
 
@@ -123,7 +121,7 @@ where
 
     // Sign and send via signer context
     signer
-        .sign_and_send_evm_transaction(tx)
+        .sign_and_send_transaction(tx)
         .await
         .map_err(EvmToolError::SignerError)
 }
@@ -233,5 +231,188 @@ mod tests {
         env::set_var("RPC_URL_8453", "https://base.example.com");
         assert!(is_supported_chain(8453));
         env::remove_var("RPC_URL_8453");
+    }
+
+    #[test]
+    fn test_chain_id_to_rpc_url_when_empty_url_should_return_err() {
+        // Test empty URL
+        env::set_var("RPC_URL_997", "");
+        let result = chain_id_to_rpc_url(997);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("RPC URL for chain 997 is empty"));
+        env::remove_var("RPC_URL_997");
+    }
+
+    #[test]
+    fn test_chain_id_to_rpc_url_when_whitespace_only_url_should_return_err() {
+        // Test whitespace-only URL
+        env::set_var("RPC_URL_996", "   ");
+        let result = chain_id_to_rpc_url(996);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("RPC URL for chain 996 is empty"));
+        env::remove_var("RPC_URL_996");
+    }
+
+    #[test]
+    fn test_chain_id_to_rpc_url_when_http_protocol_should_return_ok() {
+        // Test HTTP protocol
+        env::set_var("RPC_URL_995", "http://test-rpc.example.com");
+        let result = chain_id_to_rpc_url(995);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "http://test-rpc.example.com");
+        env::remove_var("RPC_URL_995");
+    }
+
+    #[test]
+    fn test_chain_id_to_rpc_url_when_https_protocol_should_return_ok() {
+        // Test HTTPS protocol
+        env::set_var("RPC_URL_994", "https://test-rpc.example.com");
+        let result = chain_id_to_rpc_url(994);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "https://test-rpc.example.com");
+        env::remove_var("RPC_URL_994");
+    }
+
+    #[test]
+    fn test_chain_id_to_rpc_url_when_wss_protocol_should_return_ok() {
+        // Test WSS protocol
+        env::set_var("RPC_URL_993", "wss://test-rpc.example.com");
+        let result = chain_id_to_rpc_url(993);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "wss://test-rpc.example.com");
+        env::remove_var("RPC_URL_993");
+    }
+
+    #[test]
+    fn test_chain_id_to_rpc_url_when_ftp_protocol_should_return_err() {
+        // Test invalid protocol (FTP)
+        env::set_var("RPC_URL_992", "ftp://test-rpc.example.com");
+        let result = chain_id_to_rpc_url(992);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Invalid RPC URL format for chain 992"));
+        env::remove_var("RPC_URL_992");
+    }
+
+    #[test]
+    fn test_chain_id_to_rpc_url_when_no_protocol_should_return_err() {
+        // Test URL without protocol
+        env::set_var("RPC_URL_991", "test-rpc.example.com");
+        let result = chain_id_to_rpc_url(991);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Invalid RPC URL format for chain 991"));
+        env::remove_var("RPC_URL_991");
+    }
+
+    #[test]
+    fn test_get_supported_chains_when_no_rpc_vars_should_return_empty() {
+        // Clean all RPC_URL_ vars first
+        for (key, _) in env::vars() {
+            if key.starts_with("RPC_URL_") {
+                env::remove_var(&key);
+            }
+        }
+
+        let chains = get_supported_chains();
+        assert!(chains.is_empty());
+    }
+
+    #[test]
+    fn test_get_supported_chains_when_malformed_chain_ids_should_ignore() {
+        // Clean state first
+        for (key, _) in env::vars() {
+            if key.starts_with("RPC_URL_") {
+                env::remove_var(&key);
+            }
+        }
+
+        // Set valid and invalid chain IDs
+        env::set_var("RPC_URL_1", "https://eth.example.com");
+        env::set_var("RPC_URL_abc", "https://invalid.example.com"); // Invalid chain ID
+        env::set_var("RPC_URL_", "https://empty.example.com"); // Empty chain ID
+        env::set_var("RPC_URL_42", "https://valid.example.com");
+
+        let chains = get_supported_chains();
+        assert!(chains.contains(&1));
+        assert!(chains.contains(&42));
+        assert!(!chains.contains(&0)); // abc and empty should be ignored
+        assert_eq!(chains.len(), 2);
+
+        // Clean up
+        env::remove_var("RPC_URL_1");
+        env::remove_var("RPC_URL_abc");
+        env::remove_var("RPC_URL_");
+        env::remove_var("RPC_URL_42");
+    }
+
+    #[test]
+    fn test_get_supported_chains_when_non_rpc_vars_should_ignore() {
+        // Clean state first
+        for (key, _) in env::vars() {
+            if key.starts_with("RPC_URL_") {
+                env::remove_var(&key);
+            }
+        }
+
+        // Set non-RPC variables and one RPC variable
+        env::set_var("OTHER_VAR_1", "value");
+        env::set_var("RPC_URL_1", "https://eth.example.com");
+        env::set_var("NOT_RPC_URL_2", "value");
+
+        let chains = get_supported_chains();
+        assert!(chains.contains(&1));
+        assert_eq!(chains.len(), 1);
+
+        // Clean up
+        env::remove_var("OTHER_VAR_1");
+        env::remove_var("RPC_URL_1");
+        env::remove_var("NOT_RPC_URL_2");
+    }
+
+    #[test]
+    fn test_make_provider_when_unsupported_chain_should_return_err() {
+        // Test with chain that has no RPC URL configured
+        env::remove_var("RPC_URL_999999");
+        let result = make_provider(999999);
+        assert!(result.is_err());
+        if let Err(EvmToolError::UnsupportedChain(chain_id)) = result {
+            assert_eq!(chain_id, 999999);
+        } else {
+            panic!("Expected UnsupportedChain error");
+        }
+    }
+
+    #[test]
+    fn test_make_provider_when_valid_chain_should_return_ok() {
+        // Test with valid RPC URL
+        env::set_var("RPC_URL_1337", "https://test-rpc.example.com");
+        let result = make_provider(1337);
+        assert!(result.is_ok());
+        env::remove_var("RPC_URL_1337");
+    }
+
+    #[test]
+    fn test_make_provider_when_invalid_url_format_should_return_err() {
+        // Test with malformed URL that will fail parsing
+        env::set_var("RPC_URL_1338", "https://[invalid-url");
+        let result = make_provider(1338);
+        assert!(result.is_err());
+        if let Err(EvmToolError::ProviderError(msg)) = result {
+            assert!(msg.contains("Invalid RPC URL"));
+        } else {
+            panic!("Expected ProviderError");
+        }
+        env::remove_var("RPC_URL_1338");
     }
 }
