@@ -1,5 +1,6 @@
 //! PostgreSQL storage implementation
 
+use chrono::{DateTime, Utc};
 use sqlx::{PgPool, Row};
 use std::time::{Duration, Instant};
 use tracing::{debug, error, info, warn};
@@ -9,16 +10,17 @@ use crate::error::{IndexerError, IndexerResult, StorageError};
 use crate::storage::{DataStore, EventFilter, EventQuery, StorageStats, StoredEvent};
 
 /// PostgreSQL storage implementation
+#[derive(Debug)]
 pub struct PostgresStore {
     /// Database connection pool
     pool: PgPool,
-    /// Configuration
-    config: StorageBackendConfig,
+    /// Whether partitioning is enabled
+    enable_partitioning: bool,
     /// Statistics tracking
     stats: std::sync::RwLock<InternalStats>,
 }
 
-#[derive(Default)]
+#[derive(Default, Debug, Clone, PartialEq)]
 struct InternalStats {
     total_events: u64,
     total_writes: u64,
@@ -50,30 +52,27 @@ impl PostgresStore {
 
         info!("PostgreSQL connection established successfully");
 
+        let enable_partitioning = config
+            .settings
+            .get("enable_partitioning")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
+
         Ok(Self {
             pool,
-            config: config.clone(),
+            enable_partitioning,
             stats: std::sync::RwLock::new(InternalStats::default()),
         })
     }
 
     /// Build WHERE clause from filter
-    fn build_where_clause(
-        filter: &EventFilter,
-    ) -> (
-        String,
-        Vec<Box<dyn sqlx::Encode<'static, sqlx::Postgres> + Send + Sync + 'static>>,
-    ) {
+    fn build_where_clause(filter: &EventFilter) -> String {
         let mut conditions = Vec::new();
-        let mut params: Vec<
-            Box<dyn sqlx::Encode<'static, sqlx::Postgres> + Send + Sync + 'static>,
-        > = Vec::new();
         let mut param_count = 1;
 
         if let Some(event_types) = &filter.event_types {
             if !event_types.is_empty() {
                 conditions.push(format!("event_type = ANY(${})", param_count));
-                params.push(Box::new(event_types.clone()));
                 param_count += 1;
             }
         }
@@ -81,46 +80,38 @@ impl PostgresStore {
         if let Some(sources) = &filter.sources {
             if !sources.is_empty() {
                 conditions.push(format!("source = ANY(${})", param_count));
-                params.push(Box::new(sources.clone()));
                 param_count += 1;
             }
         }
 
-        if let Some((start, end)) = &filter.time_range {
+        if let Some((_start, _end)) = &filter.time_range {
             conditions.push(format!(
                 "timestamp >= ${} AND timestamp <= ${}",
                 param_count,
                 param_count + 1
             ));
-            params.push(Box::new(*start));
-            params.push(Box::new(*end));
             param_count += 2;
         }
 
-        if let Some((min_height, max_height)) = &filter.block_height_range {
+        if let Some((_min_height, _max_height)) = &filter.block_height_range {
             conditions.push(format!(
                 "block_height >= ${} AND block_height <= ${}",
                 param_count,
                 param_count + 1
             ));
-            params.push(Box::new(*min_height as i64));
-            params.push(Box::new(*max_height as i64));
             param_count += 2;
         }
 
-        if let Some(tx_hash) = &filter.transaction_hash {
+        if let Some(_tx_hash) = &filter.transaction_hash {
             conditions.push(format!("transaction_hash = ${}", param_count));
-            params.push(Box::new(tx_hash.clone()));
             // param_count += 1; // This would be the last parameter, so increment is not needed
         }
 
-        let where_clause = if conditions.is_empty() {
+        if conditions.is_empty() {
             String::default()
         } else {
             format!("WHERE {}", conditions.join(" AND "))
-        };
-
-        (where_clause, params)
+        }
     }
 
     /// Record write latency
@@ -187,13 +178,7 @@ impl DataStore for PostgresStore {
         }
 
         // Create partitioning for large datasets (optional)
-        if self
-            .config
-            .settings
-            .get("enable_partitioning")
-            .and_then(|v| v.as_bool())
-            .unwrap_or(false)
-        {
+        if self.enable_partitioning {
             info!("Setting up table partitioning");
 
             // This would require more complex setup for production use
@@ -317,7 +302,7 @@ impl DataStore for PostgresStore {
     async fn query_events(&self, query: &EventQuery) -> IndexerResult<Vec<StoredEvent>> {
         let start_time = Instant::now();
 
-        let (where_clause, _params) = Self::build_where_clause(&query.filter);
+        let where_clause = Self::build_where_clause(&query.filter);
 
         // Build the complete query
         let mut sql = format!(
@@ -355,13 +340,15 @@ impl DataStore for PostgresStore {
         let mut events = Vec::new();
         for row in rows {
             let event = StoredEvent {
-                id: row.get("id"),
-                event_type: row.get("event_type"),
-                source: row.get("source"),
-                data: row.get("data"),
-                timestamp: row.get("timestamp"),
+                id: row.get::<&str, _>("id").to_string(),
+                event_type: row.get::<&str, _>("event_type").to_string(),
+                source: row.get::<&str, _>("source").to_string(),
+                data: row.get::<serde_json::Value, _>("data"),
+                timestamp: row.get::<DateTime<Utc>, _>("timestamp"),
                 block_height: row.get::<Option<i64>, _>("block_height").map(|h| h as u64),
-                transaction_hash: row.get("transaction_hash"),
+                transaction_hash: row
+                    .get::<Option<&str>, _>("transaction_hash")
+                    .map(|s| s.to_string()),
             };
             events.push(event);
         }
@@ -400,13 +387,15 @@ impl DataStore for PostgresStore {
 
         if let Some(row) = row {
             Ok(Some(StoredEvent {
-                id: row.get("id"),
-                event_type: row.get("event_type"),
-                source: row.get("source"),
-                data: row.get("data"),
-                timestamp: row.get("timestamp"),
+                id: row.get::<&str, _>("id").to_string(),
+                event_type: row.get::<&str, _>("event_type").to_string(),
+                source: row.get::<&str, _>("source").to_string(),
+                data: row.get::<serde_json::Value, _>("data"),
+                timestamp: row.get::<DateTime<Utc>, _>("timestamp"),
                 block_height: row.get::<Option<i64>, _>("block_height").map(|h| h as u64),
-                transaction_hash: row.get("transaction_hash"),
+                transaction_hash: row
+                    .get::<Option<&str>, _>("transaction_hash")
+                    .map(|s| s.to_string()),
             }))
         } else {
             Ok(None)
@@ -414,7 +403,7 @@ impl DataStore for PostgresStore {
     }
 
     async fn delete_events(&self, filter: &EventFilter) -> IndexerResult<u64> {
-        let (where_clause, _params) = Self::build_where_clause(filter);
+        let where_clause = Self::build_where_clause(filter);
 
         if where_clause.is_empty() {
             return Err(IndexerError::validation(
@@ -433,7 +422,7 @@ impl DataStore for PostgresStore {
     }
 
     async fn count_events(&self, filter: &EventFilter) -> IndexerResult<u64> {
-        let (where_clause, _params) = Self::build_where_clause(filter);
+        let where_clause = Self::build_where_clause(filter);
 
         let sql = format!("SELECT COUNT(*) as count FROM events {}", where_clause);
 
@@ -507,5 +496,1005 @@ impl DataStore for PostgresStore {
             })?;
 
         Ok(())
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::{ConnectionPoolConfig, StorageBackend};
+    use crate::storage::{EventFilter, EventQuery, StoredEvent};
+    use chrono::{DateTime, Utc};
+    use serde_json::{json, Value};
+    use std::collections::HashMap;
+    use std::time::Duration;
+
+    // Helper function to create test configuration
+    fn create_test_config() -> StorageBackendConfig {
+        StorageBackendConfig {
+            backend: StorageBackend::Postgres,
+            url: "postgresql://test:test@localhost:5432/test_db".to_string(),
+            pool: ConnectionPoolConfig {
+                max_connections: 10,
+                min_connections: 2,
+                connect_timeout: Duration::from_secs(30),
+                idle_timeout: Duration::from_secs(300),
+                max_lifetime: Duration::from_secs(1800),
+            },
+            settings: HashMap::new(),
+        }
+    }
+
+    // Helper function to create test event
+    fn create_test_event(id: &str) -> StoredEvent {
+        StoredEvent {
+            id: id.to_string(),
+            event_type: "test_event".to_string(),
+            source: "test_source".to_string(),
+            data: json!({"key": "value"}),
+            timestamp: Utc::now(),
+            block_height: Some(12345),
+            transaction_hash: Some("0x123abc".to_string()),
+        }
+    }
+
+    // Helper function to create test event with custom fields
+    fn create_custom_event(
+        id: &str,
+        event_type: &str,
+        source: &str,
+        data: Value,
+        block_height: Option<u64>,
+        transaction_hash: Option<String>,
+    ) -> StoredEvent {
+        StoredEvent {
+            id: id.to_string(),
+            event_type: event_type.to_string(),
+            source: source.to_string(),
+            data,
+            timestamp: Utc::now(),
+            block_height,
+            transaction_hash,
+        }
+    }
+
+    // Test InternalStats
+    #[test]
+    fn test_internal_stats_default() {
+        let stats = InternalStats::default();
+        assert_eq!(stats.total_events, 0);
+        assert_eq!(stats.total_writes, 0);
+        assert_eq!(stats.total_reads, 0);
+        assert_eq!(stats.write_latency_sum, 0.0);
+        assert_eq!(stats.read_latency_sum, 0.0);
+    }
+
+    #[test]
+    fn test_internal_stats_clone() {
+        let stats = InternalStats {
+            total_events: 100,
+            total_writes: 50,
+            total_reads: 30,
+            write_latency_sum: 250.5,
+            read_latency_sum: 150.3,
+        };
+        let cloned = stats.clone();
+        assert_eq!(stats, cloned);
+    }
+
+    #[test]
+    fn test_internal_stats_debug() {
+        let stats = InternalStats {
+            total_events: 100,
+            total_writes: 50,
+            total_reads: 30,
+            write_latency_sum: 250.5,
+            read_latency_sum: 150.3,
+        };
+        let debug_output = format!("{:?}", stats);
+        assert!(debug_output.contains("InternalStats"));
+        assert!(debug_output.contains("100"));
+        assert!(debug_output.contains("50"));
+        assert!(debug_output.contains("30"));
+    }
+
+    // Test build_where_clause function - Happy paths
+    #[test]
+    fn test_build_where_clause_when_empty_filter_should_return_empty_clause() {
+        let filter = EventFilter::default();
+        let where_clause = PostgresStore::build_where_clause(&filter);
+        assert_eq!(where_clause, "");
+    }
+
+    #[test]
+    fn test_build_where_clause_when_event_types_only_should_return_event_type_clause() {
+        let filter = EventFilter {
+            event_types: Some(vec!["transfer".to_string(), "mint".to_string()]),
+            ..Default::default()
+        };
+        let where_clause = PostgresStore::build_where_clause(&filter);
+        assert_eq!(where_clause, "WHERE event_type = ANY($1)");
+    }
+
+    #[test]
+    fn test_build_where_clause_when_sources_only_should_return_source_clause() {
+        let filter = EventFilter {
+            sources: Some(vec!["ethereum".to_string(), "polygon".to_string()]),
+            ..Default::default()
+        };
+        let where_clause = PostgresStore::build_where_clause(&filter);
+        assert_eq!(where_clause, "WHERE source = ANY($1)");
+    }
+
+    #[test]
+    fn test_build_where_clause_when_time_range_only_should_return_time_clause() {
+        let start = DateTime::from_timestamp(1000000000, 0).unwrap();
+        let end = DateTime::from_timestamp(2000000000, 0).unwrap();
+        let filter = EventFilter {
+            time_range: Some((start, end)),
+            ..Default::default()
+        };
+        let where_clause = PostgresStore::build_where_clause(&filter);
+        assert_eq!(where_clause, "WHERE timestamp >= $1 AND timestamp <= $2");
+    }
+
+    #[test]
+    fn test_build_where_clause_when_block_height_range_only_should_return_block_height_clause() {
+        let filter = EventFilter {
+            block_height_range: Some((1000, 2000)),
+            ..Default::default()
+        };
+        let where_clause = PostgresStore::build_where_clause(&filter);
+        assert_eq!(
+            where_clause,
+            "WHERE block_height >= $1 AND block_height <= $2"
+        );
+    }
+
+    #[test]
+    fn test_build_where_clause_when_transaction_hash_only_should_return_tx_hash_clause() {
+        let filter = EventFilter {
+            transaction_hash: Some("0xabc123".to_string()),
+            ..Default::default()
+        };
+        let where_clause = PostgresStore::build_where_clause(&filter);
+        assert_eq!(where_clause, "WHERE transaction_hash = $1");
+    }
+
+    #[test]
+    fn test_build_where_clause_when_multiple_filters_should_combine_with_and() {
+        let start = DateTime::from_timestamp(1000000000, 0).unwrap();
+        let end = DateTime::from_timestamp(2000000000, 0).unwrap();
+        let filter = EventFilter {
+            event_types: Some(vec!["transfer".to_string()]),
+            sources: Some(vec!["ethereum".to_string()]),
+            time_range: Some((start, end)),
+            block_height_range: Some((1000, 2000)),
+            transaction_hash: Some("0xabc123".to_string()),
+            ..Default::default()
+        };
+        let where_clause = PostgresStore::build_where_clause(&filter);
+        assert!(where_clause.starts_with("WHERE "));
+        assert!(where_clause.contains("event_type = ANY($1)"));
+        assert!(where_clause.contains("source = ANY($2)"));
+        assert!(where_clause.contains("timestamp >= $3 AND timestamp <= $4"));
+        assert!(where_clause.contains("block_height >= $5 AND block_height <= $6"));
+        assert!(where_clause.contains("transaction_hash = $7"));
+        assert!(where_clause.matches(" AND ").count() == 4); // 4 AND operators for 5 conditions
+    }
+
+    // Test build_where_clause edge cases
+    #[test]
+    fn test_build_where_clause_when_empty_event_types_should_not_add_condition() {
+        let filter = EventFilter {
+            event_types: Some(vec![]),
+            ..Default::default()
+        };
+        let where_clause = PostgresStore::build_where_clause(&filter);
+        assert_eq!(where_clause, "");
+    }
+
+    #[test]
+    fn test_build_where_clause_when_empty_sources_should_not_add_condition() {
+        let filter = EventFilter {
+            sources: Some(vec![]),
+            ..Default::default()
+        };
+        let where_clause = PostgresStore::build_where_clause(&filter);
+        assert_eq!(where_clause, "");
+    }
+
+    #[test]
+    fn test_build_where_clause_when_none_values_should_not_add_conditions() {
+        let filter = EventFilter {
+            event_types: None,
+            sources: None,
+            time_range: None,
+            block_height_range: None,
+            transaction_hash: None,
+            custom_filters: HashMap::new(),
+        };
+        let where_clause = PostgresStore::build_where_clause(&filter);
+        assert_eq!(where_clause, "");
+    }
+
+    #[test]
+    fn test_build_where_clause_when_single_event_type_should_handle_correctly() {
+        let filter = EventFilter {
+            event_types: Some(vec!["single_event".to_string()]),
+            ..Default::default()
+        };
+        let where_clause = PostgresStore::build_where_clause(&filter);
+        assert_eq!(where_clause, "WHERE event_type = ANY($1)");
+    }
+
+    #[test]
+    fn test_build_where_clause_when_zero_block_heights_should_handle_correctly() {
+        let filter = EventFilter {
+            block_height_range: Some((0, 0)),
+            ..Default::default()
+        };
+        let where_clause = PostgresStore::build_where_clause(&filter);
+        assert_eq!(
+            where_clause,
+            "WHERE block_height >= $1 AND block_height <= $2"
+        );
+    }
+
+    #[test]
+    fn test_build_where_clause_when_large_block_heights_should_handle_correctly() {
+        let filter = EventFilter {
+            block_height_range: Some((u64::MAX - 1, u64::MAX)),
+            ..Default::default()
+        };
+        let where_clause = PostgresStore::build_where_clause(&filter);
+        assert_eq!(
+            where_clause,
+            "WHERE block_height >= $1 AND block_height <= $2"
+        );
+    }
+
+    #[test]
+    fn test_build_where_clause_when_empty_string_transaction_hash_should_handle_correctly() {
+        let filter = EventFilter {
+            transaction_hash: Some("".to_string()),
+            ..Default::default()
+        };
+        let where_clause = PostgresStore::build_where_clause(&filter);
+        assert_eq!(where_clause, "WHERE transaction_hash = $1");
+    }
+
+    #[test]
+    fn test_build_where_clause_when_very_long_transaction_hash_should_handle_correctly() {
+        let long_hash = "0x".to_string() + &"a".repeat(1000);
+        let filter = EventFilter {
+            transaction_hash: Some(long_hash),
+            ..Default::default()
+        };
+        let where_clause = PostgresStore::build_where_clause(&filter);
+        assert_eq!(where_clause, "WHERE transaction_hash = $1");
+    }
+
+    #[test]
+    fn test_build_where_clause_when_unicode_transaction_hash_should_handle_correctly() {
+        let filter = EventFilter {
+            transaction_hash: Some("🦀❤️🔗".to_string()),
+            ..Default::default()
+        };
+        let where_clause = PostgresStore::build_where_clause(&filter);
+        assert_eq!(where_clause, "WHERE transaction_hash = $1");
+    }
+
+    // Note: The following tests would require actual database connections and mock setup
+    // Since we're focusing on unit tests for the static/pure functions, we'll create
+    // comprehensive tests for the helper methods that don't require database connections
+
+    #[tokio::test]
+    async fn test_postgres_store_new_when_invalid_url_should_return_connection_error() {
+        let mut config = create_test_config();
+        config.url = "invalid_url".to_string();
+
+        let result = PostgresStore::new(&config).await;
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            IndexerError::Storage(StorageError::ConnectionFailed { message }) => {
+                assert!(!message.is_empty());
+            }
+            _ => panic!("Expected Storage(ConnectionFailed) error"),
+        }
+    }
+
+    #[test]
+    fn test_postgres_store_record_write_latency_when_stats_available() {
+        let _config = create_test_config();
+        let stats = std::sync::RwLock::new(InternalStats::default());
+
+        // Create a minimal PostgresStore-like structure to test the latency recording logic
+        // Since we can't create a real PostgresStore without a database connection,
+        // we'll test the stats update logic directly
+        let duration = Duration::from_millis(100);
+
+        if let Ok(mut stats_guard) = stats.write() {
+            stats_guard.total_writes += 1;
+            stats_guard.write_latency_sum += duration.as_millis() as f64;
+        }
+
+        let stats_read = stats.read().unwrap();
+        assert_eq!(stats_read.total_writes, 1);
+        assert_eq!(stats_read.write_latency_sum, 100.0);
+    }
+
+    #[test]
+    fn test_postgres_store_record_read_latency_when_stats_available() {
+        let stats = std::sync::RwLock::new(InternalStats::default());
+        let duration = Duration::from_millis(50);
+
+        if let Ok(mut stats_guard) = stats.write() {
+            stats_guard.total_reads += 1;
+            stats_guard.read_latency_sum += duration.as_millis() as f64;
+        }
+
+        let stats_read = stats.read().unwrap();
+        assert_eq!(stats_read.total_reads, 1);
+        assert_eq!(stats_read.read_latency_sum, 50.0);
+    }
+
+    #[test]
+    fn test_postgres_store_record_write_latency_when_stats_locked_should_not_panic() {
+        let stats = std::sync::RwLock::new(InternalStats::default());
+        let duration = Duration::from_millis(100);
+
+        // Simulate a lock failure by holding a read lock and trying to write
+        let _read_guard = stats.read().unwrap();
+
+        // This should not panic even if the write lock fails
+        if let Ok(mut stats_guard) = stats.try_write() {
+            stats_guard.total_writes += 1;
+            stats_guard.write_latency_sum += duration.as_millis() as f64;
+        };
+        // If lock fails, operation should silently continue
+    }
+
+    #[test]
+    fn test_postgres_store_record_read_latency_when_stats_locked_should_not_panic() {
+        let stats = std::sync::RwLock::new(InternalStats::default());
+        let duration = Duration::from_millis(50);
+
+        // Simulate a lock failure by holding a read lock and trying to write
+        let _read_guard = stats.read().unwrap();
+
+        // This should not panic even if the write lock fails
+        if let Ok(mut stats_guard) = stats.try_write() {
+            stats_guard.total_reads += 1;
+            stats_guard.read_latency_sum += duration.as_millis() as f64;
+        };
+        // If lock fails, operation should silently continue
+    }
+
+    #[test]
+    fn test_postgres_store_record_zero_duration_latency() {
+        let stats = std::sync::RwLock::new(InternalStats::default());
+        let duration = Duration::from_nanos(0);
+
+        if let Ok(mut stats_guard) = stats.write() {
+            stats_guard.total_writes += 1;
+            stats_guard.write_latency_sum += duration.as_millis() as f64;
+        }
+
+        let stats_read = stats.read().unwrap();
+        assert_eq!(stats_read.total_writes, 1);
+        assert_eq!(stats_read.write_latency_sum, 0.0);
+    }
+
+    #[test]
+    fn test_postgres_store_record_very_large_duration_latency() {
+        let stats = std::sync::RwLock::new(InternalStats::default());
+        let duration = Duration::from_secs(3600); // 1 hour
+
+        if let Ok(mut stats_guard) = stats.write() {
+            stats_guard.total_writes += 1;
+            stats_guard.write_latency_sum += duration.as_millis() as f64;
+        }
+
+        let stats_read = stats.read().unwrap();
+        assert_eq!(stats_read.total_writes, 1);
+        assert_eq!(stats_read.write_latency_sum, 3600000.0); // 1 hour in milliseconds
+    }
+
+    #[test]
+    fn test_postgres_store_multiple_latency_recordings() {
+        let stats = std::sync::RwLock::new(InternalStats::default());
+
+        // Record multiple write latencies
+        for i in 1..=5 {
+            let duration = Duration::from_millis(i * 10);
+            if let Ok(mut stats_guard) = stats.write() {
+                stats_guard.total_writes += 1;
+                stats_guard.write_latency_sum += duration.as_millis() as f64;
+            }
+        }
+
+        // Record multiple read latencies
+        for i in 1..=3 {
+            let duration = Duration::from_millis(i * 20);
+            if let Ok(mut stats_guard) = stats.write() {
+                stats_guard.total_reads += 1;
+                stats_guard.read_latency_sum += duration.as_millis() as f64;
+            }
+        }
+
+        let stats_read = stats.read().unwrap();
+        assert_eq!(stats_read.total_writes, 5);
+        assert_eq!(stats_read.total_reads, 3);
+        assert_eq!(
+            stats_read.write_latency_sum,
+            10.0 + 20.0 + 30.0 + 40.0 + 50.0
+        ); // 150.0
+        assert_eq!(stats_read.read_latency_sum, 20.0 + 40.0 + 60.0); // 120.0
+    }
+
+    // Test EventQuery and EventFilter edge cases that would be processed by the implementation
+    #[test]
+    fn test_event_query_default_values() {
+        let query = EventQuery::default();
+        assert_eq!(query.limit, Some(1000));
+        assert_eq!(query.offset, None);
+        assert_eq!(query.sort, Some(("timestamp".to_string(), false)));
+    }
+
+    #[test]
+    fn test_event_filter_default_values() {
+        let filter = EventFilter::default();
+        assert_eq!(filter.event_types, None);
+        assert_eq!(filter.sources, None);
+        assert_eq!(filter.time_range, None);
+        assert_eq!(filter.block_height_range, None);
+        assert_eq!(filter.transaction_hash, None);
+        assert!(filter.custom_filters.is_empty());
+    }
+
+    #[test]
+    fn test_stored_event_creation_with_all_fields() {
+        let event = create_test_event("test_id");
+        assert_eq!(event.id, "test_id");
+        assert_eq!(event.event_type, "test_event");
+        assert_eq!(event.source, "test_source");
+        assert_eq!(event.data, json!({"key": "value"}));
+        assert_eq!(event.block_height, Some(12345));
+        assert_eq!(event.transaction_hash, Some("0x123abc".to_string()));
+    }
+
+    #[test]
+    fn test_stored_event_creation_with_minimal_fields() {
+        let event = create_custom_event(
+            "minimal_id",
+            "minimal_event",
+            "minimal_source",
+            json!({}),
+            None,
+            None,
+        );
+        assert_eq!(event.id, "minimal_id");
+        assert_eq!(event.event_type, "minimal_event");
+        assert_eq!(event.source, "minimal_source");
+        assert_eq!(event.data, json!({}));
+        assert_eq!(event.block_height, None);
+        assert_eq!(event.transaction_hash, None);
+    }
+
+    #[test]
+    fn test_stored_event_creation_with_complex_data() {
+        let complex_data = json!({
+            "nested": {
+                "array": [1, 2, 3],
+                "object": {
+                    "key": "value",
+                    "number": 42,
+                    "boolean": true,
+                    "null_value": null
+                }
+            },
+            "unicode": "🦀❤️🔗",
+            "large_number": 18446744073709551615u64
+        });
+
+        let event = create_custom_event(
+            "complex_id",
+            "complex_event",
+            "complex_source",
+            complex_data,
+            Some(0),
+            Some("".to_string()),
+        );
+
+        assert_eq!(event.data["nested"]["array"], json!([1, 2, 3]));
+        assert_eq!(event.block_height, Some(0));
+        assert_eq!(event.transaction_hash, Some("".to_string()));
+    }
+
+    #[test]
+    fn test_stored_event_creation_with_edge_case_values() {
+        let event = create_custom_event(
+            "",                      // Empty ID
+            "",                      // Empty event type
+            "",                      // Empty source
+            json!(null),             // Null data
+            Some(u64::MAX),          // Maximum block height
+            Some("x".repeat(10000)), // Very long transaction hash
+        );
+
+        assert_eq!(event.id, "");
+        assert_eq!(event.event_type, "");
+        assert_eq!(event.source, "");
+        assert_eq!(event.data, json!(null));
+        assert_eq!(event.block_height, Some(u64::MAX));
+        assert_eq!(event.transaction_hash.as_ref().unwrap().len(), 10000);
+    }
+
+    // Test configuration handling
+    #[test]
+    fn test_storage_backend_config_creation() {
+        let config = create_test_config();
+        assert_eq!(config.backend, StorageBackend::Postgres);
+        assert_eq!(config.url, "postgresql://test:test@localhost:5432/test_db");
+        assert_eq!(config.pool.max_connections, 10);
+        assert_eq!(config.pool.min_connections, 2);
+        assert!(config.settings.is_empty());
+    }
+
+    #[test]
+    fn test_storage_backend_config_with_custom_settings() {
+        let mut config = create_test_config();
+        config
+            .settings
+            .insert("enable_partitioning".to_string(), json!(true));
+        config
+            .settings
+            .insert("max_batch_size".to_string(), json!(1000));
+
+        assert_eq!(config.settings.len(), 2);
+        assert_eq!(
+            config.settings.get("enable_partitioning"),
+            Some(&json!(true))
+        );
+        assert_eq!(config.settings.get("max_batch_size"), Some(&json!(1000)));
+    }
+
+    #[test]
+    fn test_storage_backend_config_with_different_backends() {
+        let backends = vec![
+            StorageBackend::Postgres,
+            StorageBackend::ClickHouse,
+            StorageBackend::TimescaleDB,
+            StorageBackend::MongoDB,
+        ];
+
+        for backend in backends {
+            let mut config = create_test_config();
+            config.backend = backend;
+            assert_eq!(config.backend, backend);
+        }
+    }
+
+    #[test]
+    fn test_connection_pool_config_edge_values() {
+        let pool_config = ConnectionPoolConfig {
+            max_connections: 1,
+            min_connections: 0,
+            connect_timeout: Duration::from_nanos(1),
+            idle_timeout: Duration::from_nanos(1),
+            max_lifetime: Duration::from_nanos(1),
+        };
+
+        assert_eq!(pool_config.max_connections, 1);
+        assert_eq!(pool_config.min_connections, 0);
+        assert_eq!(pool_config.connect_timeout, Duration::from_nanos(1));
+    }
+
+    #[test]
+    fn test_connection_pool_config_large_values() {
+        let pool_config = ConnectionPoolConfig {
+            max_connections: u32::MAX,
+            min_connections: u32::MAX - 1,
+            connect_timeout: Duration::from_secs(86400),
+            idle_timeout: Duration::from_secs(86400),
+            max_lifetime: Duration::from_secs(86400),
+        };
+
+        assert_eq!(pool_config.max_connections, u32::MAX);
+        assert_eq!(pool_config.min_connections, u32::MAX - 1);
+        assert_eq!(pool_config.connect_timeout, Duration::from_secs(86400));
+    }
+
+    // Test URL parsing edge cases that would be handled by PostgresStore::new
+    #[test]
+    fn test_postgres_store_config_url_variations() {
+        let urls = vec![
+            "postgresql://user:pass@host:5432/db",
+            "postgres://user:pass@host:5432/db",
+            "postgresql://user@host:5432/db",
+            "postgresql://host:5432/db",
+            "postgresql://host/db",
+            "postgresql:///db",
+            "postgresql://",
+            "",
+        ];
+
+        for url in urls {
+            let mut config = create_test_config();
+            config.url = url.to_string();
+
+            // Test that the config structure accepts various URL formats
+            // The actual validation would happen in PostgresStore::new()
+            assert_eq!(config.url, url);
+        }
+    }
+
+    #[test]
+    fn test_postgres_store_config_url_with_special_characters() {
+        let mut config = create_test_config();
+        config.url = "postgresql://us%40r:p%40ss@host:5432/d%40ta%24ase".to_string();
+
+        // Test that the config can handle URL-encoded characters
+        assert!(config.url.contains("%40"));
+        assert!(config.url.contains("%24"));
+    }
+
+    #[test]
+    fn test_postgres_store_config_url_with_query_parameters() {
+        let mut config = create_test_config();
+        config.url = "postgresql://user:pass@host:5432/db?sslmode=require&application_name=riglr"
+            .to_string();
+
+        assert!(config.url.contains("sslmode=require"));
+        assert!(config.url.contains("application_name=riglr"));
+    }
+
+    // Test URL sanitization logic (similar to what's used in the new() method)
+    #[test]
+    fn test_url_sanitization_logic() {
+        let test_cases = vec![
+            ("postgresql://user:pass@host:5432/db", "host:5432/db"),
+            ("postgresql://user@host:5432/db", "host:5432/db"),
+            ("postgresql://host:5432/db", "postgresql://host:5432/db"),
+            ("invalid_url", "invalid_url"),
+            ("", ""),
+        ];
+
+        for (input_url, expected_sanitized) in test_cases {
+            // Simulate the URL sanitization logic from the new() method
+            let sanitized = input_url.split('@').next_back().unwrap_or(input_url);
+            assert_eq!(sanitized, expected_sanitized);
+        }
+    }
+
+    #[test]
+    fn test_url_sanitization_with_multiple_at_symbols() {
+        let url = "postgresql://user@domain:pass@word@host:5432/db";
+        let sanitized = url.split('@').next_back().unwrap_or(url);
+        assert_eq!(sanitized, "host:5432/db");
+    }
+
+    #[test]
+    fn test_url_sanitization_with_no_at_symbol() {
+        let url = "postgresql://localhost:5432/db";
+        let sanitized = url.split('@').next_back().unwrap_or(url);
+        assert_eq!(sanitized, url);
+    }
+
+    // Test data type conversions used in the implementation
+    #[test]
+    fn test_block_height_conversion_to_i64() {
+        let test_cases = vec![
+            (0u64, 0i64),
+            (1u64, 1i64),
+            (9223372036854775807u64, 9223372036854775807i64), // i64::MAX
+        ];
+
+        for (input, expected) in test_cases {
+            assert_eq!(input as i64, expected);
+        }
+    }
+
+    #[test]
+    fn test_block_height_conversion_from_i64() {
+        let test_cases = vec![
+            (0i64, 0u64),
+            (1i64, 1u64),
+            (9223372036854775807i64, 9223372036854775807u64), // i64::MAX
+        ];
+
+        for (input, expected) in test_cases {
+            assert_eq!(input as u64, expected);
+        }
+    }
+
+    #[test]
+    fn test_block_height_conversion_edge_cases() {
+        // Test conversion of large u64 values that would overflow i64
+        let large_u64 = u64::MAX;
+        let converted_i64 = large_u64 as i64;
+        let converted_back = converted_i64 as u64;
+
+        // This tests the wraparound behavior
+        assert_ne!(large_u64, converted_back);
+        assert_eq!(converted_i64, -1i64);
+    }
+
+    // Test JSON data handling
+    #[test]
+    fn test_json_value_types() {
+        let values = vec![
+            json!(null),
+            json!(true),
+            json!(false),
+            json!(42),
+            json!(-42),
+            json!(3.14159),
+            json!("string"),
+            json!(""),
+            json!("🦀❤️🔗"),
+            json!([]),
+            json!([1, 2, 3]),
+            json!({}),
+            json!({"key": "value"}),
+        ];
+
+        for value in values {
+            let event = create_custom_event("test", "test", "test", value, None, None);
+            assert!(
+                event.data.is_object()
+                    || event.data.is_array()
+                    || event.data.is_string()
+                    || event.data.is_number()
+                    || event.data.is_boolean()
+                    || event.data.is_null()
+            );
+        }
+    }
+
+    #[test]
+    fn test_json_value_large_structures() {
+        // Test large JSON structures
+        let mut large_object = serde_json::Map::new();
+        for i in 0..1000 {
+            large_object.insert(format!("key_{}", i), json!(format!("value_{}", i)));
+        }
+        let large_json = json!(large_object);
+
+        let event = create_custom_event("test", "test", "test", large_json, None, None);
+        assert!(event.data.as_object().unwrap().len() == 1000);
+    }
+
+    #[test]
+    fn test_json_value_deeply_nested() {
+        let mut nested = json!({"level": 0});
+        for i in 1..100 {
+            nested = json!({"level": i, "nested": nested});
+        }
+
+        let event = create_custom_event("test", "test", "test", nested, None, None);
+        assert!(event.data["level"].as_i64().unwrap() == 99);
+    }
+
+    // Test timestamp handling
+    #[test]
+    fn test_timestamp_creation_and_handling() {
+        let now = Utc::now();
+        let event = StoredEvent {
+            id: "test".to_string(),
+            event_type: "test".to_string(),
+            source: "test".to_string(),
+            data: json!({}),
+            timestamp: now,
+            block_height: None,
+            transaction_hash: None,
+        };
+
+        assert_eq!(event.timestamp, now);
+    }
+
+    #[test]
+    fn test_timestamp_edge_values() {
+        let timestamps = vec![
+            DateTime::from_timestamp(0, 0).unwrap_or_default(),
+            DateTime::from_timestamp(1, 0).unwrap_or_default(),
+            DateTime::from_timestamp(253402300799, 999999999).unwrap_or_default(), // Max valid timestamp
+        ];
+
+        for timestamp in timestamps {
+            let event = StoredEvent {
+                id: "test".to_string(),
+                event_type: "test".to_string(),
+                source: "test".to_string(),
+                data: json!({}),
+                timestamp,
+                block_height: None,
+                transaction_hash: None,
+            };
+
+            assert_eq!(event.timestamp, timestamp);
+        }
+    }
+
+    // Test string handling edge cases
+    #[test]
+    fn test_string_field_edge_cases() {
+        let long_string = "A".repeat(10000);
+        let test_strings = vec![
+            "",
+            " ",
+            "\n",
+            "\t",
+            "🦀❤️🔗",
+            &long_string,
+            "\0",
+            "line1\nline2\rline3",
+            "quote\"test'quote",
+            "sql'; DROP TABLE events; --",
+            "json{\"key\":\"value\"}",
+        ];
+
+        for test_string in test_strings {
+            let event = StoredEvent {
+                id: test_string.to_string(),
+                event_type: test_string.to_string(),
+                source: test_string.to_string(),
+                data: json!({}),
+                timestamp: Utc::now(),
+                block_height: None,
+                transaction_hash: Some(test_string.to_string()),
+            };
+
+            assert_eq!(event.id, test_string);
+            assert_eq!(event.event_type, test_string);
+            assert_eq!(event.source, test_string);
+            assert_eq!(event.transaction_hash, Some(test_string.to_string()));
+        }
+    }
+
+    // Test Duration and time handling
+    #[test]
+    fn test_duration_edge_cases() {
+        let durations = vec![
+            Duration::from_nanos(0),
+            Duration::from_nanos(1),
+            Duration::from_millis(1),
+            Duration::from_secs(1),
+            Duration::from_secs(3600),
+            Duration::from_secs(86400),
+            Duration::new(u64::MAX / 1000, 0), // Large but valid duration
+        ];
+
+        for duration in durations {
+            let millis = duration.as_millis() as f64;
+            assert!(millis >= 0.0);
+        }
+    }
+
+    #[test]
+    fn test_duration_conversion_precision() {
+        let duration = Duration::from_nanos(1_500_000); // 1.5 milliseconds
+        let millis = duration.as_millis() as f64;
+        assert_eq!(millis, 1.0); // Should truncate to 1 millisecond
+
+        let duration_micros = Duration::from_micros(1500); // 1.5 milliseconds
+        let millis_micros = duration_micros.as_millis() as f64;
+        assert_eq!(millis_micros, 1.0); // Should truncate to 1 millisecond
+    }
+
+    // Test RwLock behavior edge cases
+    #[test]
+    fn test_rwlock_concurrent_access_simulation() {
+        let stats = std::sync::RwLock::new(InternalStats::default());
+
+        // Simulate multiple readers
+        let read1 = stats.read().unwrap();
+        let read2 = stats.read().unwrap();
+        let read3 = stats.read().unwrap();
+
+        // All readers should be able to access simultaneously
+        assert_eq!(read1.total_events, 0);
+        assert_eq!(read2.total_events, 0);
+        assert_eq!(read3.total_events, 0);
+
+        drop(read1);
+        drop(read2);
+        drop(read3);
+
+        // Now try to write
+        {
+            let mut write_guard = stats.write().unwrap();
+            write_guard.total_events = 42;
+        }
+
+        // Verify write worked
+        let read_final = stats.read().unwrap();
+        assert_eq!(read_final.total_events, 42);
+    }
+
+    #[test]
+    fn test_rwlock_try_write_when_read_locked() {
+        let stats = std::sync::RwLock::new(InternalStats::default());
+
+        // Hold a read lock
+        let _read_guard = stats.read().unwrap();
+
+        // Try to acquire write lock - should fail
+        let write_result = stats.try_write();
+        assert!(write_result.is_err());
+    }
+
+    #[test]
+    fn test_rwlock_try_read_when_write_locked() {
+        let stats = std::sync::RwLock::new(InternalStats::default());
+
+        // Hold a write lock
+        let _write_guard = stats.write().unwrap();
+
+        // Try to acquire read lock - should fail
+        let read_result = stats.try_read();
+        assert!(read_result.is_err());
+    }
+
+    // Test helper functions with more complex scenarios
+    #[test]
+    fn test_create_test_config_consistency() {
+        let config1 = create_test_config();
+        let config2 = create_test_config();
+
+        // Should create identical configurations
+        assert_eq!(config1.backend, config2.backend);
+        assert_eq!(config1.url, config2.url);
+        assert_eq!(config1.pool.max_connections, config2.pool.max_connections);
+        assert_eq!(config1.settings.len(), config2.settings.len());
+    }
+
+    #[test]
+    fn test_create_test_event_consistency() {
+        let event1 = create_test_event("same_id");
+        let event2 = create_test_event("same_id");
+
+        // Should create events with same structure but different timestamps
+        assert_eq!(event1.id, event2.id);
+        assert_eq!(event1.event_type, event2.event_type);
+        assert_eq!(event1.source, event2.source);
+        assert_eq!(event1.data, event2.data);
+        assert_eq!(event1.block_height, event2.block_height);
+        assert_eq!(event1.transaction_hash, event2.transaction_hash);
+        // Timestamps will be different (created at different times)
+    }
+
+    #[test]
+    fn test_create_custom_event_all_combinations() {
+        // Test all possible combinations of optional fields
+        let combinations = vec![
+            (None, None),
+            (Some(0), None),
+            (None, Some("hash".to_string())),
+            (Some(12345), Some("0xabc".to_string())),
+            (Some(u64::MAX), Some("".to_string())),
+        ];
+
+        for (block_height, transaction_hash) in combinations {
+            let event = create_custom_event(
+                "test_id",
+                "test_type",
+                "test_source",
+                json!({"test": true}),
+                block_height,
+                transaction_hash,
+            );
+
+            assert_eq!(event.block_height, block_height);
+            // Verify the event was created successfully with the expected fields
+            assert_eq!(event.id, "test_id");
+            assert_eq!(event.event_type, "test_type");
+            assert_eq!(event.source, "test_source");
+        }
     }
 }

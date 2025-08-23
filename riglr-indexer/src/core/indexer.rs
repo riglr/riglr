@@ -436,3 +436,527 @@ impl EventProcessing for IndexerService {
         self.stats.read().await.clone()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::{
+        BatchConfig, MetricsConfig, ProcessingConfig, QueueConfig, QueueType, RateLimitConfig,
+        RetryConfig, ServiceConfig, StorageConfig,
+    };
+    use crate::config::{CacheConfig, StorageBackend, StorageBackendConfig};
+    use riglr_events_core::{Event, EventKind, EventMetadata};
+    use std::collections::HashMap;
+    use std::time::Duration;
+    use std::time::SystemTime;
+
+    // Mock Event implementation for testing
+    #[allow(dead_code)]
+    #[derive(Debug, Clone)]
+    struct MockEvent {
+        metadata: EventMetadata,
+        #[allow(dead_code)]
+        data: String,
+    }
+
+    impl MockEvent {
+        fn new(id: String, data: String) -> Self {
+            Self {
+                metadata: EventMetadata::new(
+                    id,
+                    EventKind::Custom("mock".to_string()),
+                    "test".to_string(),
+                ),
+                data,
+            }
+        }
+    }
+
+    impl Event for MockEvent {
+        fn id(&self) -> &str {
+            &self.metadata.id
+        }
+
+        fn kind(&self) -> &EventKind {
+            &self.metadata.kind
+        }
+
+        fn metadata(&self) -> &EventMetadata {
+            &self.metadata
+        }
+
+        fn metadata_mut(&mut self) -> &mut EventMetadata {
+            &mut self.metadata
+        }
+
+        fn timestamp(&self) -> SystemTime {
+            self.metadata.timestamp.into()
+        }
+
+        fn source(&self) -> &str {
+            &self.metadata.source
+        }
+
+        fn as_any(&self) -> &dyn std::any::Any {
+            self
+        }
+
+        fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+            self
+        }
+
+        fn clone_boxed(&self) -> Box<dyn Event> {
+            Box::new(self.clone())
+        }
+    }
+
+    // Helper function to create test config
+    fn create_test_config() -> IndexerConfig {
+        IndexerConfig {
+            service: ServiceConfig {
+                name: "test-indexer".to_string(),
+                version: "1.0.0".to_string(),
+                environment: "test".to_string(),
+                node_id: None,
+                shutdown_timeout: Duration::from_secs(30),
+                health_check_interval: Duration::from_secs(30),
+            },
+            processing: ProcessingConfig {
+                workers: 4,
+                batch: BatchConfig {
+                    max_size: 100,
+                    max_age: Duration::from_millis(500),
+                    target_size: 50,
+                },
+                queue: QueueConfig {
+                    capacity: 1000,
+                    queue_type: QueueType::Memory,
+                    disk_settings: None,
+                },
+                retry: RetryConfig {
+                    max_attempts: 3,
+                    base_delay: Duration::from_millis(100),
+                    max_delay: Duration::from_secs(5),
+                    backoff_multiplier: 2.0,
+                    jitter: 0.1,
+                },
+                rate_limit: RateLimitConfig {
+                    enabled: false,
+                    max_events_per_second: 1000,
+                    burst_capacity: 100,
+                },
+            },
+            storage: StorageConfig {
+                primary: StorageBackendConfig {
+                    backend: StorageBackend::Postgres,
+                    url: "postgresql://localhost:5432/test".to_string(),
+                    pool: crate::config::ConnectionPoolConfig {
+                        max_connections: 10,
+                        min_connections: 1,
+                        connect_timeout: Duration::from_secs(5),
+                        idle_timeout: Duration::from_secs(300),
+                        max_lifetime: Duration::from_secs(1800),
+                    },
+                    settings: HashMap::new(),
+                },
+                secondary: None,
+                cache: CacheConfig {
+                    backend: crate::config::CacheBackend::Redis,
+                    redis_url: Some("redis://localhost:6379".to_string()),
+                    ttl: crate::config::CacheTtlConfig {
+                        default: Duration::from_secs(300),
+                        events: Duration::from_secs(3600),
+                        aggregates: Duration::from_secs(1800),
+                    },
+                    memory: crate::config::MemoryCacheConfig {
+                        max_size_bytes: 100_000_000,
+                        max_entries: 10_000,
+                    },
+                },
+                retention: crate::config::RetentionConfig {
+                    default: Duration::from_secs(30 * 24 * 3600),
+                    by_event_type: HashMap::new(),
+                    archive: crate::config::ArchiveConfig {
+                        enabled: false,
+                        backend: None,
+                        compression: crate::config::CompressionConfig {
+                            algorithm: crate::config::CompressionAlgorithm::Zstd,
+                            level: 3,
+                        },
+                    },
+                },
+            },
+            api: crate::config::ApiConfig {
+                http: crate::config::HttpConfig {
+                    bind: "127.0.0.1".to_string(),
+                    port: 8080,
+                    timeout: Duration::from_secs(30),
+                    max_request_size: 1_000_000,
+                    keep_alive: Duration::from_secs(60),
+                },
+                websocket: crate::config::WebSocketConfig {
+                    enabled: false,
+                    max_connections: 100,
+                    buffer_size: 1024,
+                    heartbeat_interval: Duration::from_secs(30),
+                },
+                graphql: None,
+                auth: crate::config::AuthConfig {
+                    enabled: false,
+                    method: crate::config::AuthMethod::None,
+                    jwt: None,
+                    api_key: None,
+                },
+                cors: crate::config::CorsConfig {
+                    enabled: false,
+                    allowed_origins: vec!["*".to_string()],
+                    allowed_methods: vec!["GET".to_string(), "POST".to_string()],
+                    allowed_headers: vec!["*".to_string()],
+                    max_age: Duration::from_secs(3600),
+                },
+            },
+            metrics: MetricsConfig {
+                enabled: true,
+                port: 9090,
+                endpoint: "/metrics".to_string(),
+                collection_interval: Duration::from_secs(15),
+                histogram_buckets: vec![
+                    0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0,
+                ],
+                custom: HashMap::new(),
+            },
+            logging: crate::config::LoggingConfig {
+                level: "info".to_string(),
+                format: crate::config::LogFormat::Json,
+                outputs: vec![crate::config::LogOutput::Stdout],
+                structured: crate::config::StructuredLoggingConfig {
+                    include_location: false,
+                    include_thread: true,
+                    include_service_metadata: true,
+                    custom_fields: HashMap::new(),
+                },
+            },
+            features: crate::config::FeatureConfig {
+                realtime_streaming: true,
+                archival: false,
+                graphql_api: false,
+                experimental: false,
+                custom: HashMap::new(),
+            },
+        }
+    }
+
+    #[tokio::test]
+    async fn test_indexer_service_new_when_valid_config_should_create_successfully() {
+        let config = create_test_config();
+        let result = IndexerService::new(config).await;
+        assert!(result.is_ok());
+
+        let service = result.unwrap();
+        assert!(service.ingester.is_none());
+        assert!(service.processor.is_none());
+        assert!(service.health_task.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_indexer_service_new_when_invalid_storage_config_should_return_err() {
+        let mut config = create_test_config();
+        config.storage.primary.url = "invalid://url".to_string();
+        config.storage.primary.backend = StorageBackend::Postgres;
+
+        let result = IndexerService::new(config).await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_config_when_service_created_should_return_config() {
+        let config = create_test_config();
+        let service = IndexerService::new(config.clone()).await.unwrap();
+
+        let returned_config = service.config();
+        assert_eq!(returned_config.service.version, config.service.version);
+        assert_eq!(
+            returned_config.processing.workers,
+            config.processing.workers
+        );
+    }
+
+    #[tokio::test]
+    async fn test_context_when_service_created_should_return_context() {
+        let config = create_test_config();
+        let service = IndexerService::new(config).await.unwrap();
+
+        let context = service.context();
+        assert_eq!(context.config.service.version, "1.0.0");
+    }
+
+    #[tokio::test]
+    async fn test_is_running_when_components_not_initialized_should_return_false() {
+        let config = create_test_config();
+        let service = IndexerService::new(config).await.unwrap();
+
+        assert!(!service.is_running());
+    }
+
+    #[tokio::test]
+    async fn test_is_running_when_only_ingester_initialized_should_return_false() {
+        let config = create_test_config();
+        let mut service = IndexerService::new(config).await.unwrap();
+
+        // Initialize only ingester
+        let ingester_config = crate::core::IngesterConfig {
+            workers: 1,
+            batch_size: 10,
+            queue_capacity: 100,
+        };
+        service.ingester = Some(
+            EventIngester::new(ingester_config, service.context.clone())
+                .await
+                .unwrap(),
+        );
+
+        assert!(!service.is_running());
+    }
+
+    #[tokio::test]
+    async fn test_initialize_components_when_called_should_initialize_ingester_and_processor() {
+        let config = create_test_config();
+        let mut service = IndexerService::new(config).await.unwrap();
+
+        let result = service.initialize_components().await;
+        assert!(result.is_ok());
+        assert!(service.ingester.is_some());
+        assert!(service.processor.is_some());
+    }
+
+    #[tokio::test]
+    async fn test_start_health_monitoring_when_called_should_create_health_task() {
+        let config = create_test_config();
+        let mut service = IndexerService::new(config).await.unwrap();
+
+        service.start_health_monitoring();
+        assert!(service.health_task.is_some());
+
+        // Clean up the task
+        if let Some(task) = service.health_task.take() {
+            task.abort();
+        }
+    }
+
+    #[tokio::test]
+    async fn test_process_event_when_processor_not_initialized_should_return_err() {
+        let config = create_test_config();
+        let service = IndexerService::new(config).await.unwrap();
+
+        let event = Box::new(MockEvent::new(
+            "test-1".to_string(),
+            "test data".to_string(),
+        ));
+
+        let result = service.process_event(event).await;
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Processor not initialized"));
+    }
+
+    #[tokio::test]
+    async fn test_process_batch_when_processor_not_initialized_should_return_err() {
+        let config = create_test_config();
+        let service = IndexerService::new(config).await.unwrap();
+
+        let events = vec![Box::new(MockEvent::new(
+            "test-1".to_string(),
+            "test data".to_string(),
+        )) as Box<dyn Event>];
+
+        let result = service.process_batch(events).await;
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Processor not initialized"));
+    }
+
+    #[tokio::test]
+    async fn test_processing_stats_when_called_should_return_stats() {
+        let config = create_test_config();
+        let service = IndexerService::new(config).await.unwrap();
+
+        let stats = service.processing_stats().await;
+        assert_eq!(stats.total_processed, 0);
+        assert_eq!(stats.events_per_second, 0.0);
+        assert_eq!(stats.queue_depth, 0);
+        assert_eq!(stats.active_workers, 0);
+    }
+
+    #[tokio::test]
+    async fn test_process_events_when_ingester_not_initialized_should_return_err() {
+        let config = create_test_config();
+        let service = IndexerService::new(config).await.unwrap();
+
+        let result = service.process_events().await;
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Ingester not initialized"));
+    }
+
+    #[tokio::test]
+    async fn test_process_events_when_processor_not_initialized_should_return_err() {
+        let config = create_test_config();
+        let mut service = IndexerService::new(config).await.unwrap();
+
+        // Initialize only ingester
+        let ingester_config = crate::core::IngesterConfig {
+            workers: 1,
+            batch_size: 10,
+            queue_capacity: 100,
+        };
+        service.ingester = Some(
+            EventIngester::new(ingester_config, service.context.clone())
+                .await
+                .unwrap(),
+        );
+
+        let result = service.process_events().await;
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Processor not initialized"));
+    }
+
+    #[tokio::test]
+    async fn test_update_processing_stats_when_called_should_update_stats() {
+        let config = create_test_config();
+        let service = IndexerService::new(config).await.unwrap();
+
+        // Update total processed to test stats calculation
+        {
+            let mut stats = service.stats.write().await;
+            stats.total_processed = 100;
+        }
+
+        service.update_processing_stats().await;
+
+        let stats = service.stats.read().await;
+        assert_eq!(stats.total_processed, 100);
+    }
+
+    #[tokio::test]
+    async fn test_update_processing_stats_when_ingester_exists_should_update_queue_depth() {
+        let config = create_test_config();
+        let mut service = IndexerService::new(config).await.unwrap();
+
+        // Initialize ingester
+        let ingester_config = crate::core::IngesterConfig {
+            workers: 1,
+            batch_size: 10,
+            queue_capacity: 100,
+        };
+        service.ingester = Some(
+            EventIngester::new(ingester_config, service.context.clone())
+                .await
+                .unwrap(),
+        );
+
+        service.update_processing_stats().await;
+
+        let stats = service.stats.read().await;
+        // Queue depth should be updated (even if it's 0)
+        assert_eq!(stats.queue_depth, 0);
+    }
+
+    #[tokio::test]
+    async fn test_update_processing_stats_when_processor_exists_should_update_active_workers() {
+        let config = create_test_config();
+        let mut service = IndexerService::new(config).await.unwrap();
+
+        // Initialize processor
+        let processor_config = crate::core::ProcessorConfig {
+            workers: 4,
+            batch_config: service.context.config.processing.batch.clone(),
+            retry_config: service.context.config.processing.retry.clone(),
+        };
+        service.processor = Some(
+            EventProcessor::new(processor_config, service.context.clone())
+                .await
+                .unwrap(),
+        );
+
+        service.update_processing_stats().await;
+
+        let stats = service.stats.read().await;
+        // Active workers should be updated (even if it's 0)
+        assert_eq!(stats.active_workers, 0);
+    }
+
+    #[tokio::test]
+    async fn test_health_when_called_should_return_health_status() {
+        let config = create_test_config();
+        let service = IndexerService::new(config).await.unwrap();
+
+        let result = service.health().await;
+        assert!(result.is_ok());
+
+        let health_status = result.unwrap();
+        assert!(health_status.components.is_empty()); // No components initialized yet
+    }
+
+    #[tokio::test]
+    async fn test_start_when_called_should_initialize_and_start_components() {
+        let config = create_test_config();
+        let mut service = IndexerService::new(config).await.unwrap();
+
+        let result = service.start().await;
+        assert!(result.is_ok());
+
+        assert!(service.ingester.is_some());
+        assert!(service.processor.is_some());
+        assert!(service.health_task.is_some());
+        assert!(service.is_running());
+
+        // Clean up
+        let _ = service.stop().await;
+    }
+
+    #[tokio::test]
+    async fn test_stop_when_called_should_stop_all_components() {
+        let config = create_test_config();
+        let mut service = IndexerService::new(config).await.unwrap();
+
+        // Start the service first
+        let _ = service.start().await;
+
+        let result = service.stop().await;
+        assert!(result.is_ok());
+
+        assert!(service.health_task.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_stop_when_components_not_initialized_should_still_succeed() {
+        let config = create_test_config();
+        let mut service = IndexerService::new(config).await.unwrap();
+
+        let result = service.stop().await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_stop_when_health_task_exists_should_abort_task() {
+        let config = create_test_config();
+        let mut service = IndexerService::new(config).await.unwrap();
+
+        // Start health monitoring
+        service.start_health_monitoring();
+        assert!(service.health_task.is_some());
+
+        let result = service.stop().await;
+        assert!(result.is_ok());
+        assert!(service.health_task.is_none());
+    }
+}

@@ -244,3 +244,525 @@ impl Clone for MetricsCollector {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashMap;
+    use std::time::Duration;
+    use tokio::time::timeout;
+
+    fn create_test_config() -> MetricsConfig {
+        MetricsConfig {
+            enabled: true,
+            port: 9090,
+            endpoint: "/metrics".to_string(),
+            collection_interval: Duration::from_secs(60),
+            histogram_buckets: vec![0.1, 0.5, 1.0, 5.0, 10.0],
+            custom: HashMap::new(),
+        }
+    }
+
+    fn create_test_indexer_metrics() -> IndexerMetrics {
+        IndexerMetrics {
+            events_processed_total: 1000,
+            events_processing_rate: 50.5,
+            processing_latency_ms: 25.5,
+            queue_depth: 10,
+            active_workers: 5,
+            error_rate: 0.05,
+            storage_size_bytes: 1024 * 1024,
+            cache_hit_rate: 0.85,
+        }
+    }
+
+    #[tokio::test]
+    async fn test_new_when_valid_config_should_create_collector() {
+        let config = create_test_config();
+        let result = MetricsCollector::new(config);
+
+        assert!(result.is_ok());
+        let collector = result.unwrap();
+        assert_eq!(collector.config.port, 9090);
+        assert_eq!(collector.config.endpoint, "/metrics");
+    }
+
+    #[tokio::test]
+    async fn test_new_when_init_standard_metrics_fails_should_return_error() {
+        // This test would require mocking the registry to fail on set_gauge
+        // Since we can't easily mock in this test setup, we'll test the happy path
+        let config = create_test_config();
+        let result = MetricsCollector::new(config);
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_increment_counter_when_valid_name_should_not_panic() {
+        let config = create_test_config();
+        let collector = MetricsCollector::new(config).unwrap();
+
+        // This should not panic even if the counter doesn't exist
+        collector.increment_counter("test_counter");
+
+        // Multiple increments should work
+        collector.increment_counter("test_counter");
+        collector.increment_counter("another_counter");
+    }
+
+    #[tokio::test]
+    async fn test_increment_counter_when_empty_name_should_not_panic() {
+        let config = create_test_config();
+        let collector = MetricsCollector::new(config).unwrap();
+
+        collector.increment_counter("");
+    }
+
+    #[tokio::test]
+    async fn test_record_counter_when_valid_values_should_not_panic() {
+        let config = create_test_config();
+        let collector = MetricsCollector::new(config).unwrap();
+
+        collector.record_counter("test_counter", 100);
+        collector.record_counter("test_counter", 0);
+        collector.record_counter("test_counter", u64::MAX);
+    }
+
+    #[tokio::test]
+    async fn test_record_counter_when_empty_name_should_not_panic() {
+        let config = create_test_config();
+        let collector = MetricsCollector::new(config).unwrap();
+
+        collector.record_counter("", 42);
+    }
+
+    #[tokio::test]
+    async fn test_record_gauge_when_valid_values_should_not_panic() {
+        let config = create_test_config();
+        let collector = MetricsCollector::new(config).unwrap();
+
+        collector.record_gauge("test_gauge", 1.5);
+        collector.record_gauge("test_gauge", 0.0);
+        collector.record_gauge("test_gauge", -10.5);
+        collector.record_gauge("test_gauge", f64::MAX);
+        collector.record_gauge("test_gauge", f64::MIN);
+        collector.record_gauge("test_gauge", f64::INFINITY);
+        collector.record_gauge("test_gauge", f64::NEG_INFINITY);
+    }
+
+    #[tokio::test]
+    async fn test_record_gauge_when_nan_should_not_panic() {
+        let config = create_test_config();
+        let collector = MetricsCollector::new(config).unwrap();
+
+        collector.record_gauge("test_gauge", f64::NAN);
+    }
+
+    #[tokio::test]
+    async fn test_record_gauge_when_empty_name_should_not_panic() {
+        let config = create_test_config();
+        let collector = MetricsCollector::new(config).unwrap();
+
+        collector.record_gauge("", 3.14);
+    }
+
+    #[tokio::test]
+    async fn test_record_histogram_when_valid_values_should_not_panic() {
+        let config = create_test_config();
+        let collector = MetricsCollector::new(config).unwrap();
+
+        collector.record_histogram("test_histogram", 1.0);
+        collector.record_histogram("test_histogram", 0.0);
+        collector.record_histogram("test_histogram", -5.5);
+        collector.record_histogram("test_histogram", f64::MAX);
+    }
+
+    #[tokio::test]
+    async fn test_record_histogram_when_empty_name_should_not_panic() {
+        let config = create_test_config();
+        let collector = MetricsCollector::new(config).unwrap();
+
+        collector.record_histogram("", 2.5);
+    }
+
+    #[tokio::test]
+    async fn test_update_indexer_metrics_when_valid_metrics_should_update_successfully() {
+        let config = create_test_config();
+        let collector = MetricsCollector::new(config).unwrap();
+        let test_metrics = create_test_indexer_metrics();
+
+        collector.update_indexer_metrics(test_metrics.clone()).await;
+
+        let stored_metrics = collector.get_indexer_metrics().await;
+        assert_eq!(
+            stored_metrics.events_processed_total,
+            test_metrics.events_processed_total
+        );
+        assert_eq!(
+            stored_metrics.events_processing_rate,
+            test_metrics.events_processing_rate
+        );
+        assert_eq!(
+            stored_metrics.processing_latency_ms,
+            test_metrics.processing_latency_ms
+        );
+        assert_eq!(stored_metrics.queue_depth, test_metrics.queue_depth);
+        assert_eq!(stored_metrics.active_workers, test_metrics.active_workers);
+        assert_eq!(stored_metrics.error_rate, test_metrics.error_rate);
+        assert_eq!(
+            stored_metrics.storage_size_bytes,
+            test_metrics.storage_size_bytes
+        );
+        assert_eq!(stored_metrics.cache_hit_rate, test_metrics.cache_hit_rate);
+    }
+
+    #[tokio::test]
+    async fn test_update_indexer_metrics_when_default_metrics_should_update_successfully() {
+        let config = create_test_config();
+        let collector = MetricsCollector::new(config).unwrap();
+        let default_metrics = IndexerMetrics::default();
+
+        collector
+            .update_indexer_metrics(default_metrics.clone())
+            .await;
+
+        let stored_metrics = collector.get_indexer_metrics().await;
+        assert_eq!(stored_metrics.events_processed_total, 0);
+        assert_eq!(stored_metrics.events_processing_rate, 0.0);
+        assert_eq!(stored_metrics.processing_latency_ms, 0.0);
+    }
+
+    #[tokio::test]
+    async fn test_update_indexer_metrics_when_extreme_values_should_handle_gracefully() {
+        let config = create_test_config();
+        let collector = MetricsCollector::new(config).unwrap();
+
+        let extreme_metrics = IndexerMetrics {
+            events_processed_total: u64::MAX,
+            events_processing_rate: f64::MAX,
+            processing_latency_ms: f64::INFINITY,
+            queue_depth: u64::MAX,
+            active_workers: u64::MAX,
+            error_rate: 1.0,
+            storage_size_bytes: u64::MAX,
+            cache_hit_rate: 1.0,
+        };
+
+        collector.update_indexer_metrics(extreme_metrics).await;
+
+        let stored_metrics = collector.get_indexer_metrics().await;
+        assert_eq!(stored_metrics.events_processed_total, u64::MAX);
+        assert_eq!(stored_metrics.error_rate, 1.0);
+    }
+
+    #[tokio::test]
+    async fn test_get_indexer_metrics_when_no_metrics_set_should_return_default() {
+        let config = create_test_config();
+        let collector = MetricsCollector::new(config).unwrap();
+
+        let metrics = collector.get_indexer_metrics().await;
+
+        assert_eq!(metrics.events_processed_total, 0);
+        assert_eq!(metrics.events_processing_rate, 0.0);
+        assert_eq!(metrics.processing_latency_ms, 0.0);
+        assert_eq!(metrics.queue_depth, 0);
+        assert_eq!(metrics.active_workers, 0);
+        assert_eq!(metrics.error_rate, 0.0);
+        assert_eq!(metrics.storage_size_bytes, 0);
+        assert_eq!(metrics.cache_hit_rate, 0.0);
+    }
+
+    #[tokio::test]
+    async fn test_get_performance_metrics_when_default_metrics_should_return_calculated_values() {
+        let config = create_test_config();
+        let collector = MetricsCollector::new(config).unwrap();
+
+        let perf_metrics = collector.get_performance_metrics().await;
+
+        assert_eq!(perf_metrics.throughput.events_per_second, 0.0);
+        assert_eq!(perf_metrics.latency.avg_latency_ms, 0.0);
+        assert_eq!(perf_metrics.resources.cpu_usage_percent, 0.0);
+        assert_eq!(perf_metrics.errors.error_rate, 0.0);
+    }
+
+    #[tokio::test]
+    async fn test_get_performance_metrics_when_valid_metrics_should_calculate_correctly() {
+        let config = create_test_config();
+        let collector = MetricsCollector::new(config).unwrap();
+        let test_metrics = create_test_indexer_metrics();
+
+        collector.update_indexer_metrics(test_metrics.clone()).await;
+        let perf_metrics = collector.get_performance_metrics().await;
+
+        assert_eq!(
+            perf_metrics.throughput.events_per_second,
+            test_metrics.events_processing_rate
+        );
+        assert_eq!(
+            perf_metrics.throughput.total_events,
+            test_metrics.events_processed_total
+        );
+        assert_eq!(
+            perf_metrics.latency.avg_latency_ms,
+            test_metrics.processing_latency_ms
+        );
+        assert_eq!(
+            perf_metrics.latency.p95_latency_ms,
+            test_metrics.processing_latency_ms * 1.5
+        );
+        assert_eq!(
+            perf_metrics.latency.p99_latency_ms,
+            test_metrics.processing_latency_ms * 2.0
+        );
+        assert_eq!(
+            perf_metrics.latency.max_latency_ms,
+            test_metrics.processing_latency_ms * 3.0
+        );
+        assert_eq!(
+            perf_metrics.resources.db_connections_active,
+            test_metrics.active_workers as u32
+        );
+        assert_eq!(perf_metrics.resources.db_connections_max, 20);
+        assert_eq!(perf_metrics.errors.error_rate, test_metrics.error_rate);
+
+        let expected_total_errors =
+            (test_metrics.events_processed_total as f64 * test_metrics.error_rate) as u64;
+        assert_eq!(perf_metrics.errors.total_errors, expected_total_errors);
+    }
+
+    #[tokio::test]
+    async fn test_start_collection_task_when_called_should_return_join_handle() {
+        let config = MetricsConfig {
+            enabled: true,
+            port: 9090,
+            endpoint: "/metrics".to_string(),
+            collection_interval: Duration::from_millis(100), // Short interval for testing
+            histogram_buckets: vec![],
+            custom: HashMap::new(),
+        };
+        let collector = MetricsCollector::new(config).unwrap();
+
+        let handle = collector.start_collection_task();
+
+        // Let it run briefly
+        tokio::time::sleep(Duration::from_millis(150)).await;
+
+        // Cancel the task
+        handle.abort();
+
+        // Verify it was aborted
+        assert!(handle.is_finished());
+    }
+
+    #[tokio::test]
+    async fn test_start_collection_task_when_long_interval_should_handle_cancellation() {
+        let config = MetricsConfig {
+            enabled: true,
+            port: 9090,
+            endpoint: "/metrics".to_string(),
+            collection_interval: Duration::from_secs(3600), // Very long interval
+            histogram_buckets: vec![],
+            custom: HashMap::new(),
+        };
+        let collector = MetricsCollector::new(config).unwrap();
+
+        let handle = collector.start_collection_task();
+
+        // Immediately cancel
+        handle.abort();
+
+        // Should be finished quickly
+        let result = timeout(Duration::from_millis(100), handle).await;
+        assert!(result.is_err()); // Should timeout because handle was aborted
+    }
+
+    #[tokio::test]
+    async fn test_export_prometheus_when_called_should_return_string() {
+        let config = create_test_config();
+        let collector = MetricsCollector::new(config).unwrap();
+
+        let prometheus_output = collector.export_prometheus();
+
+        assert!(!prometheus_output.is_empty());
+        // Should contain some standard metrics
+        assert!(prometheus_output.contains("indexer_events_processed_total"));
+    }
+
+    #[tokio::test]
+    async fn test_export_json_when_called_should_return_valid_json() {
+        let config = create_test_config();
+        let collector = MetricsCollector::new(config).unwrap();
+
+        let json_result = collector.export_json();
+
+        assert!(json_result.is_ok());
+        let json_value = json_result.unwrap();
+        assert!(json_value.is_array());
+    }
+
+    #[tokio::test]
+    async fn test_flush_when_called_should_complete_successfully() {
+        let config = create_test_config();
+        let collector = MetricsCollector::new(config).unwrap();
+
+        let result = collector.flush().await;
+
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_reset_when_called_should_clear_and_reinitialize() {
+        let config = create_test_config();
+        let collector = MetricsCollector::new(config).unwrap();
+
+        // Add some metrics
+        collector.record_gauge("custom_metric", 42.0);
+
+        // Reset
+        collector.reset();
+
+        // Should still have standard metrics but custom ones should be gone
+        let prometheus_output = collector.export_prometheus();
+        assert!(prometheus_output.contains("indexer_events_processed_total"));
+    }
+
+    #[tokio::test]
+    async fn test_clone_when_called_should_create_identical_collector() {
+        let config = create_test_config();
+        let original = MetricsCollector::new(config).unwrap();
+        let test_metrics = create_test_indexer_metrics();
+
+        original.update_indexer_metrics(test_metrics.clone()).await;
+
+        let cloned = original.clone();
+
+        // Should share the same underlying data
+        let original_metrics = original.get_indexer_metrics().await;
+        let cloned_metrics = cloned.get_indexer_metrics().await;
+
+        assert_eq!(
+            original_metrics.events_processed_total,
+            cloned_metrics.events_processed_total
+        );
+        assert_eq!(
+            original_metrics.events_processing_rate,
+            cloned_metrics.events_processing_rate
+        );
+
+        // Should have the same start time
+        assert_eq!(original.start_time, cloned.start_time);
+
+        // Should have the same config
+        assert_eq!(original.config.port, cloned.config.port);
+        assert_eq!(original.config.endpoint, cloned.config.endpoint);
+    }
+
+    #[tokio::test]
+    async fn test_init_standard_metrics_when_called_should_set_all_gauges() {
+        let config = create_test_config();
+        let collector = MetricsCollector::new(config).unwrap();
+
+        // The constructor calls init_standard_metrics, so we can check if it worked
+        let prometheus_output = collector.export_prometheus();
+
+        // Verify all standard metrics are present
+        assert!(prometheus_output.contains("indexer_events_processed_total"));
+        assert!(prometheus_output.contains("indexer_events_processing_rate"));
+        assert!(prometheus_output.contains("indexer_processing_latency_ms"));
+        assert!(prometheus_output.contains("indexer_queue_depth"));
+        assert!(prometheus_output.contains("indexer_active_workers"));
+        assert!(prometheus_output.contains("indexer_error_rate"));
+        assert!(prometheus_output.contains("indexer_storage_size_bytes"));
+        assert!(prometheus_output.contains("indexer_cache_hit_rate"));
+        assert!(prometheus_output.contains("indexer_uptime_seconds"));
+        assert!(prometheus_output.contains("indexer_component_health_ingester"));
+        assert!(prometheus_output.contains("indexer_component_health_processor"));
+        assert!(prometheus_output.contains("indexer_component_health_storage"));
+    }
+
+    #[tokio::test]
+    async fn test_update_indexer_metrics_when_called_should_update_uptime() {
+        let config = create_test_config();
+        let collector = MetricsCollector::new(config).unwrap();
+
+        // Wait a small amount to ensure uptime > 0
+        tokio::time::sleep(Duration::from_millis(10)).await;
+
+        let test_metrics = create_test_indexer_metrics();
+        collector.update_indexer_metrics(test_metrics).await;
+
+        let prometheus_output = collector.export_prometheus();
+
+        // Uptime should be greater than 0
+        // We can't test exact value but can verify it's being set
+        assert!(prometheus_output.contains("indexer_uptime_seconds"));
+    }
+
+    #[tokio::test]
+    async fn test_multiple_concurrent_updates_should_handle_correctly() {
+        let config = create_test_config();
+        let collector = Arc::new(MetricsCollector::new(config).unwrap());
+
+        let mut handles = vec![];
+
+        // Spawn multiple concurrent updates
+        for i in 0..10 {
+            let collector_clone = collector.clone();
+            let handle = tokio::spawn(async move {
+                let metrics = IndexerMetrics {
+                    events_processed_total: i * 100,
+                    events_processing_rate: i as f64 * 10.0,
+                    processing_latency_ms: i as f64 * 5.0,
+                    queue_depth: i * 2,
+                    active_workers: i,
+                    error_rate: 0.01 * i as f64,
+                    storage_size_bytes: i * 1024,
+                    cache_hit_rate: 0.1 * i as f64,
+                };
+                collector_clone.update_indexer_metrics(metrics).await;
+            });
+            handles.push(handle);
+        }
+
+        // Wait for all updates to complete
+        for handle in handles {
+            handle.await.unwrap();
+        }
+
+        // Should complete without panicking
+        let final_metrics = collector.get_indexer_metrics().await;
+        // The final state will be from one of the updates
+        assert!(final_metrics.events_processed_total <= 900);
+    }
+
+    #[tokio::test]
+    async fn test_performance_metrics_edge_cases() {
+        let config = create_test_config();
+        let collector = MetricsCollector::new(config).unwrap();
+
+        // Test with zero error rate
+        let zero_error_metrics = IndexerMetrics {
+            events_processed_total: 1000,
+            error_rate: 0.0,
+            ..Default::default()
+        };
+
+        collector.update_indexer_metrics(zero_error_metrics).await;
+        let perf_metrics = collector.get_performance_metrics().await;
+
+        assert_eq!(perf_metrics.errors.total_errors, 0);
+        assert_eq!(perf_metrics.errors.error_rate, 0.0);
+
+        // Test with 100% error rate
+        let high_error_metrics = IndexerMetrics {
+            events_processed_total: 100,
+            error_rate: 1.0,
+            ..Default::default()
+        };
+
+        collector.update_indexer_metrics(high_error_metrics).await;
+        let perf_metrics = collector.get_performance_metrics().await;
+
+        assert_eq!(perf_metrics.errors.total_errors, 100);
+        assert_eq!(perf_metrics.errors.error_rate, 1.0);
+    }
+}

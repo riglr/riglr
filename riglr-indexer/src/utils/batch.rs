@@ -165,7 +165,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_batch_processor_size_based_flush() {
-        let processor = BatchProcessor::new(3, Duration::from_secs(10));
+        let processor: BatchProcessor<String> = BatchProcessor::new(3, Duration::from_secs(10));
 
         // Add items one by one
         processor.add_item("item1".to_string()).await.unwrap();
@@ -192,7 +192,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_batch_processor_age_based_flush() {
-        let processor = BatchProcessor::new(10, Duration::from_millis(100));
+        let processor: BatchProcessor<String> = BatchProcessor::new(10, Duration::from_millis(100));
         processor.start_age_flusher();
 
         // Add an item
@@ -210,7 +210,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_batch_processor_manual_flush() {
-        let processor = BatchProcessor::new(10, Duration::from_secs(10));
+        let processor: BatchProcessor<String> = BatchProcessor::new(10, Duration::from_secs(10));
 
         // Add items
         processor.add_item("item1".to_string()).await.unwrap();
@@ -227,5 +227,258 @@ mod tests {
 
         assert_eq!(batch.len(), 2);
         assert_eq!(batch, vec!["item1", "item2"]);
+    }
+
+    #[tokio::test]
+    async fn test_flush_empty_batch() {
+        let processor: BatchProcessor<String> = BatchProcessor::new(10, Duration::from_secs(10));
+
+        // Flush empty batch should succeed
+        processor.flush().await.unwrap();
+
+        // Should not receive any batch
+        let result = timeout(Duration::from_millis(100), processor.next_batch()).await;
+        assert!(result.is_err()); // Should timeout since no batch was sent
+    }
+
+    #[tokio::test]
+    async fn test_try_next_batch_with_items() {
+        let processor: BatchProcessor<String> = BatchProcessor::new(2, Duration::from_secs(10));
+
+        // Add items to trigger a flush
+        processor.add_item("item1".to_string()).await.unwrap();
+        processor.add_item("item2".to_string()).await.unwrap();
+
+        // Should immediately have a batch available
+        let batch = processor.try_next_batch().await.unwrap();
+        assert_eq!(batch.len(), 2);
+        assert_eq!(batch, vec!["item1", "item2"]);
+    }
+
+    #[tokio::test]
+    async fn test_try_next_batch_without_items() {
+        let processor: BatchProcessor<String> = BatchProcessor::new(10, Duration::from_secs(10));
+
+        // Should return None when no batch is available
+        let batch = processor.try_next_batch().await;
+        assert!(batch.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_oldest_item_age_empty_batch() {
+        let processor: BatchProcessor<String> = BatchProcessor::new(10, Duration::from_secs(10));
+
+        // Empty batch should return None
+        let age = processor.oldest_item_age().await;
+        assert!(age.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_oldest_item_age_with_items() {
+        let processor: BatchProcessor<String> = BatchProcessor::new(10, Duration::from_secs(10));
+
+        // Add item and check age
+        processor.add_item("item1".to_string()).await.unwrap();
+
+        // Small delay to ensure some age
+        tokio::time::sleep(Duration::from_millis(10)).await;
+
+        let age = processor.oldest_item_age().await;
+        assert!(age.is_some());
+        assert!(age.unwrap() >= Duration::from_millis(10));
+    }
+
+    #[tokio::test]
+    async fn test_is_empty_method() {
+        let processor: BatchProcessor<String> = BatchProcessor::new(10, Duration::from_secs(10));
+
+        // Should be empty initially
+        assert!(processor.is_empty().await);
+
+        // Add item
+        processor.add_item("item1".to_string()).await.unwrap();
+        assert!(!processor.is_empty().await);
+
+        // Flush and should be empty again
+        processor.flush().await.unwrap();
+        assert!(processor.is_empty().await);
+    }
+
+    #[tokio::test]
+    async fn test_current_batch_size() {
+        let processor: BatchProcessor<String> = BatchProcessor::new(10, Duration::from_secs(10));
+
+        // Should be 0 initially
+        assert_eq!(processor.current_batch_size().await, 0);
+
+        // Add items
+        processor.add_item("item1".to_string()).await.unwrap();
+        assert_eq!(processor.current_batch_size().await, 1);
+
+        processor.add_item("item2".to_string()).await.unwrap();
+        assert_eq!(processor.current_batch_size().await, 2);
+
+        // Flush and should be 0 again
+        processor.flush().await.unwrap();
+        assert_eq!(processor.current_batch_size().await, 0);
+    }
+
+    #[tokio::test]
+    async fn test_age_flusher_with_empty_batch() {
+        let processor: BatchProcessor<String> = BatchProcessor::new(10, Duration::from_millis(50));
+        processor.start_age_flusher();
+
+        // Wait longer than max_age but no items added
+        tokio::time::sleep(Duration::from_millis(100)).await;
+
+        // Should not receive any batch
+        let result = timeout(Duration::from_millis(50), processor.next_batch()).await;
+        assert!(result.is_err()); // Should timeout since no batch was sent
+    }
+
+    #[tokio::test]
+    async fn test_age_flusher_multiple_items() {
+        let processor: BatchProcessor<String> = BatchProcessor::new(10, Duration::from_millis(100));
+        processor.start_age_flusher();
+
+        // Add items at different times
+        processor.add_item("item1".to_string()).await.unwrap();
+        tokio::time::sleep(Duration::from_millis(20)).await;
+        processor.add_item("item2".to_string()).await.unwrap();
+
+        // Wait for age-based flush
+        let batch = timeout(Duration::from_millis(200), processor.next_batch())
+            .await
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(batch.len(), 2);
+        assert_eq!(batch, vec!["item1", "item2"]);
+    }
+
+    #[tokio::test]
+    async fn test_next_batch_with_dropped_receiver() {
+        let processor: BatchProcessor<String> = BatchProcessor::new(10, Duration::from_secs(10));
+
+        // Simulate dropping the receiver by taking it out
+        {
+            let mut receiver_guard = processor.batch_receiver.write().await;
+            let _ = receiver_guard.take();
+        }
+
+        // next_batch should return None when receiver is taken
+        let result = processor.next_batch().await;
+        assert!(result.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_try_next_batch_with_dropped_receiver() {
+        let processor: BatchProcessor<String> = BatchProcessor::new(10, Duration::from_secs(10));
+
+        // Simulate dropping the receiver by taking it out
+        {
+            let mut receiver_guard = processor.batch_receiver.write().await;
+            let _ = receiver_guard.take();
+        }
+
+        // try_next_batch should return None when receiver is taken
+        let result = processor.try_next_batch().await;
+        assert!(result.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_batch_processor_new_initialization() {
+        let max_size = 5;
+        let max_age = Duration::from_secs(30);
+        let processor: BatchProcessor<String> = BatchProcessor::new(max_size, max_age);
+
+        // Verify initial state
+        assert_eq!(processor.max_size, max_size);
+        assert_eq!(processor.max_age, max_age);
+        assert!(processor.is_empty().await);
+        assert_eq!(processor.current_batch_size().await, 0);
+        assert!(processor.oldest_item_age().await.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_size_based_flush_exact_boundary() {
+        let processor: BatchProcessor<String> = BatchProcessor::new(1, Duration::from_secs(10));
+
+        // Adding single item should trigger immediate flush
+        processor.add_item("item1".to_string()).await.unwrap();
+
+        // Batch should be empty immediately
+        assert_eq!(processor.current_batch_size().await, 0);
+
+        // Should receive the batch
+        let batch = timeout(Duration::from_millis(100), processor.next_batch())
+            .await
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(batch.len(), 1);
+        assert_eq!(batch, vec!["item1"]);
+    }
+
+    #[tokio::test]
+    async fn test_multiple_size_based_flushes() {
+        let processor: BatchProcessor<String> = BatchProcessor::new(2, Duration::from_secs(10));
+
+        // First batch
+        processor.add_item("item1".to_string()).await.unwrap();
+        processor.add_item("item2".to_string()).await.unwrap();
+
+        // Second batch
+        processor.add_item("item3".to_string()).await.unwrap();
+        processor.add_item("item4".to_string()).await.unwrap();
+
+        // Should receive first batch
+        let batch1 = timeout(Duration::from_millis(100), processor.next_batch())
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(batch1, vec!["item1", "item2"]);
+
+        // Should receive second batch
+        let batch2 = timeout(Duration::from_millis(100), processor.next_batch())
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(batch2, vec!["item3", "item4"]);
+    }
+
+    #[tokio::test]
+    async fn test_age_flusher_check_interval_calculation() {
+        let max_age = Duration::from_millis(400);
+        let processor: BatchProcessor<String> = BatchProcessor::new(10, max_age);
+
+        // The check interval should be max_age / 4
+        let _expected_check_interval = max_age / 4; // 100ms
+
+        processor.start_age_flusher();
+        processor.add_item("item1".to_string()).await.unwrap();
+
+        // Should flush within approximately check_interval * some_factor
+        // Allow some margin for timing variability
+        let batch = timeout(Duration::from_millis(500), processor.next_batch())
+            .await
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(batch.len(), 1);
+        assert_eq!(batch, vec!["item1"]);
+    }
+
+    #[test]
+    fn test_batch_processor_error_display() {
+        let error = BatchProcessorError::SendFailed;
+        assert_eq!(error.to_string(), "Failed to send batch");
+    }
+
+    #[test]
+    fn test_batch_processor_error_debug() {
+        let error = BatchProcessorError::SendFailed;
+        let debug_str = format!("{:?}", error);
+        assert!(debug_str.contains("SendFailed"));
     }
 }
