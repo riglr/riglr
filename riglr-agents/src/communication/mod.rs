@@ -67,7 +67,7 @@ pub trait AgentCommunication: Send + Sync {
 
 /// Trait for receiving messages from the communication system.
 #[async_trait]
-pub trait MessageReceiver: Send + Sync {
+pub trait MessageReceiver: Send + Sync + std::fmt::Debug {
     /// Receive the next message.
     ///
     /// # Returns
@@ -316,5 +316,287 @@ mod tests {
         assert!(filter.matches(&message1));
         assert!(filter.matches(&message2));
         assert!(!filter.matches(&message3));
+    }
+
+    #[test]
+    fn test_message_filter_and_empty() {
+        let filter = MessageFilter::And(vec![]);
+        let message = AgentMessage::new(
+            AgentId::new("sender"),
+            Some(AgentId::new("receiver")),
+            "test".to_string(),
+            serde_json::json!({}),
+        );
+
+        // Empty And filter should return true (all conditions met vacuously)
+        assert!(filter.matches(&message));
+    }
+
+    #[test]
+    fn test_message_filter_or_empty() {
+        let filter = MessageFilter::Or(vec![]);
+        let message = AgentMessage::new(
+            AgentId::new("sender"),
+            Some(AgentId::new("receiver")),
+            "test".to_string(),
+            serde_json::json!({}),
+        );
+
+        // Empty Or filter should return false (no conditions to satisfy)
+        assert!(!filter.matches(&message));
+    }
+
+    #[test]
+    fn test_message_filter_nested_combinations() {
+        let filter = MessageFilter::And(vec![
+            MessageFilter::Or(vec![
+                MessageFilter::MessageType("type1".to_string()),
+                MessageFilter::MessageType("type2".to_string()),
+            ]),
+            MessageFilter::Priority(Priority::Normal),
+        ]);
+
+        let matching_message = AgentMessage::new(
+            AgentId::new("sender"),
+            Some(AgentId::new("receiver")),
+            "type1".to_string(),
+            serde_json::json!({}),
+        )
+        .with_priority(Priority::High);
+
+        let non_matching_message = AgentMessage::new(
+            AgentId::new("sender"),
+            Some(AgentId::new("receiver")),
+            "type3".to_string(),
+            serde_json::json!({}),
+        )
+        .with_priority(Priority::High);
+
+        assert!(filter.matches(&matching_message));
+        assert!(!filter.matches(&non_matching_message));
+    }
+
+    #[test]
+    fn test_message_filter_priority_exact_match() {
+        let filter = MessageFilter::Priority(Priority::Normal);
+
+        let medium_priority_message = AgentMessage::new(
+            AgentId::new("sender"),
+            Some(AgentId::new("receiver")),
+            "test".to_string(),
+            serde_json::json!({}),
+        )
+        .with_priority(Priority::Normal);
+
+        assert!(filter.matches(&medium_priority_message));
+    }
+
+    #[test]
+    fn test_communication_config_default() {
+        let config = CommunicationConfig::default();
+
+        assert_eq!(config.max_pending_messages, 1000);
+        assert_eq!(config.message_ttl, std::time::Duration::from_secs(3600));
+        assert!(!config.enable_persistence);
+        assert_eq!(config.channel_buffer_size, 100);
+        assert_eq!(config.max_subscriptions, None);
+    }
+
+    #[test]
+    fn test_communication_config_custom() {
+        let config = CommunicationConfig {
+            max_pending_messages: 500,
+            message_ttl: std::time::Duration::from_secs(1800),
+            enable_persistence: true,
+            channel_buffer_size: 50,
+            max_subscriptions: Some(10),
+        };
+
+        assert_eq!(config.max_pending_messages, 500);
+        assert_eq!(config.message_ttl, std::time::Duration::from_secs(1800));
+        assert!(config.enable_persistence);
+        assert_eq!(config.channel_buffer_size, 50);
+        assert_eq!(config.max_subscriptions, Some(10));
+    }
+
+    #[test]
+    fn test_communication_config_clone() {
+        let config = CommunicationConfig::default();
+        let cloned_config = config.clone();
+
+        assert_eq!(
+            config.max_pending_messages,
+            cloned_config.max_pending_messages
+        );
+        assert_eq!(config.message_ttl, cloned_config.message_ttl);
+        assert_eq!(config.enable_persistence, cloned_config.enable_persistence);
+        assert_eq!(
+            config.channel_buffer_size,
+            cloned_config.channel_buffer_size
+        );
+        assert_eq!(config.max_subscriptions, cloned_config.max_subscriptions);
+    }
+
+    #[test]
+    fn test_communication_stats_creation() {
+        let stats = CommunicationStats {
+            active_subscriptions: 5,
+            messages_sent: 100,
+            messages_received: 95,
+            failed_deliveries: 3,
+            expired_messages: 2,
+        };
+
+        assert_eq!(stats.active_subscriptions, 5);
+        assert_eq!(stats.messages_sent, 100);
+        assert_eq!(stats.messages_received, 95);
+        assert_eq!(stats.failed_deliveries, 3);
+        assert_eq!(stats.expired_messages, 2);
+    }
+
+    #[test]
+    fn test_communication_stats_clone() {
+        let stats = CommunicationStats {
+            active_subscriptions: 5,
+            messages_sent: 100,
+            messages_received: 95,
+            failed_deliveries: 3,
+            expired_messages: 2,
+        };
+
+        let cloned_stats = stats.clone();
+
+        assert_eq!(
+            stats.active_subscriptions,
+            cloned_stats.active_subscriptions
+        );
+        assert_eq!(stats.messages_sent, cloned_stats.messages_sent);
+        assert_eq!(stats.messages_received, cloned_stats.messages_received);
+        assert_eq!(stats.failed_deliveries, cloned_stats.failed_deliveries);
+        assert_eq!(stats.expired_messages, cloned_stats.expired_messages);
+    }
+
+    #[test]
+    fn test_message_filter_clone() {
+        let filter = MessageFilter::MessageType("test".to_string());
+        let cloned_filter = filter.clone();
+
+        let message = AgentMessage::new(
+            AgentId::new("sender"),
+            Some(AgentId::new("receiver")),
+            "test".to_string(),
+            serde_json::json!({}),
+        );
+
+        assert!(filter.matches(&message));
+        assert!(cloned_filter.matches(&message));
+    }
+
+    #[test]
+    fn test_message_filter_and_single_condition() {
+        let filter = MessageFilter::And(vec![MessageFilter::MessageType("test".to_string())]);
+
+        let matching_message = AgentMessage::new(
+            AgentId::new("sender"),
+            Some(AgentId::new("receiver")),
+            "test".to_string(),
+            serde_json::json!({}),
+        );
+
+        let non_matching_message = AgentMessage::new(
+            AgentId::new("sender"),
+            Some(AgentId::new("receiver")),
+            "other".to_string(),
+            serde_json::json!({}),
+        );
+
+        assert!(filter.matches(&matching_message));
+        assert!(!filter.matches(&non_matching_message));
+    }
+
+    #[test]
+    fn test_message_filter_or_single_condition() {
+        let filter = MessageFilter::Or(vec![MessageFilter::MessageType("test".to_string())]);
+
+        let matching_message = AgentMessage::new(
+            AgentId::new("sender"),
+            Some(AgentId::new("receiver")),
+            "test".to_string(),
+            serde_json::json!({}),
+        );
+
+        let non_matching_message = AgentMessage::new(
+            AgentId::new("sender"),
+            Some(AgentId::new("receiver")),
+            "other".to_string(),
+            serde_json::json!({}),
+        );
+
+        assert!(filter.matches(&matching_message));
+        assert!(!filter.matches(&non_matching_message));
+    }
+
+    #[test]
+    fn test_message_filter_priority_all_levels() {
+        let low_filter = MessageFilter::Priority(Priority::Low);
+        let medium_filter = MessageFilter::Priority(Priority::Normal);
+        let high_filter = MessageFilter::Priority(Priority::High);
+        let critical_filter = MessageFilter::Priority(Priority::Critical);
+
+        let low_message = AgentMessage::new(
+            AgentId::new("sender"),
+            Some(AgentId::new("receiver")),
+            "test".to_string(),
+            serde_json::json!({}),
+        )
+        .with_priority(Priority::Low);
+
+        let medium_message = AgentMessage::new(
+            AgentId::new("sender"),
+            Some(AgentId::new("receiver")),
+            "test".to_string(),
+            serde_json::json!({}),
+        )
+        .with_priority(Priority::Normal);
+
+        let high_message = AgentMessage::new(
+            AgentId::new("sender"),
+            Some(AgentId::new("receiver")),
+            "test".to_string(),
+            serde_json::json!({}),
+        )
+        .with_priority(Priority::High);
+
+        let critical_message = AgentMessage::new(
+            AgentId::new("sender"),
+            Some(AgentId::new("receiver")),
+            "test".to_string(),
+            serde_json::json!({}),
+        )
+        .with_priority(Priority::Critical);
+
+        // Low filter accepts all
+        assert!(low_filter.matches(&low_message));
+        assert!(low_filter.matches(&medium_message));
+        assert!(low_filter.matches(&high_message));
+        assert!(low_filter.matches(&critical_message));
+
+        // Medium filter accepts medium and above
+        assert!(!medium_filter.matches(&low_message));
+        assert!(medium_filter.matches(&medium_message));
+        assert!(medium_filter.matches(&high_message));
+        assert!(medium_filter.matches(&critical_message));
+
+        // High filter accepts high and above
+        assert!(!high_filter.matches(&low_message));
+        assert!(!high_filter.matches(&medium_message));
+        assert!(high_filter.matches(&high_message));
+        assert!(high_filter.matches(&critical_message));
+
+        // Critical filter accepts only critical
+        assert!(!critical_filter.matches(&low_message));
+        assert!(!critical_filter.matches(&medium_message));
+        assert!(!critical_filter.matches(&high_message));
+        assert!(critical_filter.matches(&critical_message));
     }
 }

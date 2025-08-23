@@ -1,10 +1,10 @@
 //! Risk Management System Example
 //!
 //! This example demonstrates a comprehensive risk management system using
-//! multiple coordinated agents:
-//! - Position Risk Analyzer: Evaluates individual trade risks
-//! - Portfolio Risk Monitor: Tracks overall portfolio exposure
-//! - Compliance Agent: Ensures regulatory compliance
+//! multiple coordinated agents with mock implementations:
+//! - Position Risk Analyzer: Evaluates individual trade risks using mock analysis
+//! - Portfolio Risk Monitor: Tracks overall portfolio exposure with mock insights
+//! - Compliance Agent: Ensures regulatory compliance with rule checking
 //! - Alert Manager: Handles risk alerts and notifications
 //! - Emergency Response Agent: Takes corrective actions
 //!
@@ -20,6 +20,7 @@ use riglr_agents::{
     ChannelCommunication, DispatchConfig, LocalAgentRegistry, Priority, RoutingStrategy, Task,
     TaskResult, TaskType,
 };
+// Removed rig_core imports - using mock implementations
 use serde_json::json;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -92,8 +93,8 @@ impl Default for RiskState {
     }
 }
 
-/// Position risk analysis agent
-#[derive(Clone)]
+/// Position risk analysis agent with mock implementations
+#[derive(Debug)]
 struct PositionRiskAgent {
     id: AgentId,
     communication: Arc<ChannelCommunication>,
@@ -117,6 +118,9 @@ impl PositionRiskAgent {
     }
 
     async fn analyze_position_risk(&self, position_data: &serde_json::Value) -> serde_json::Value {
+        // Use mock risk analysis
+        let llm_analysis = Some(format!("Mock risk analysis: Position shows moderate risk levels within acceptable parameters for: {}", position_data));
+
         let symbol = position_data
             .get("symbol")
             .and_then(|s| s.as_str())
@@ -175,6 +179,7 @@ impl PositionRiskAgent {
             } else {
                 vec!["REJECT", "REDUCE_SIZE", "ADD_HEDGING"]
             },
+            "llm_analysis": llm_analysis,
             "analyzer": self.id.as_str(),
             "timestamp": chrono::Utc::now().timestamp()
         })
@@ -185,6 +190,12 @@ impl PositionRiskAgent {
 impl Agent for PositionRiskAgent {
     async fn execute_task(&self, task: Task) -> riglr_agents::Result<TaskResult> {
         println!("🎯 Position Risk Agent {} analyzing position", self.id);
+
+        // Use mock task context analysis
+        let llm_context = Some(format!(
+            "Mock context analysis for risk management task: {}",
+            task.parameters
+        ));
 
         let position_data = task
             .parameters
@@ -258,8 +269,18 @@ impl Agent for PositionRiskAgent {
             .await
             .map_err(|e| riglr_agents::AgentError::communication(e.to_string()))?;
 
+        let mut result_data = risk_analysis;
+        if let Some(context) = llm_context {
+            if let serde_json::Value::Object(ref mut map) = result_data {
+                map.insert(
+                    "llm_context".to_string(),
+                    serde_json::Value::String(context),
+                );
+            }
+        }
+
         Ok(TaskResult::success(
-            risk_analysis,
+            result_data,
             None,
             Duration::from_millis(150),
         ))
@@ -279,8 +300,8 @@ impl Agent for PositionRiskAgent {
     }
 }
 
-/// Portfolio-level risk monitoring agent
-#[derive(Clone)]
+/// Portfolio-level risk monitoring agent with mock implementations
+#[derive(Debug)]
 struct PortfolioRiskMonitor {
     id: AgentId,
     communication: Arc<ChannelCommunication>,
@@ -500,7 +521,7 @@ impl Agent for PortfolioRiskMonitor {
 }
 
 /// Compliance checking agent
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 struct ComplianceAgent {
     id: AgentId,
     communication: Arc<ChannelCommunication>,
@@ -650,7 +671,7 @@ impl Agent for ComplianceAgent {
 }
 
 /// Emergency response agent that takes corrective actions
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 struct EmergencyResponseAgent {
     id: AgentId,
     communication: Arc<ChannelCommunication>,
@@ -854,7 +875,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let risk_state = Arc::new(Mutex::new(RiskState::default()));
 
     // Initialize communication system
-    let communication = Arc::new(ChannelCommunication::new());
+    let communication = Arc::new(ChannelCommunication::default());
 
     // Create specialized risk management agents
     let position_risk_agent = Arc::new(PositionRiskAgent::new(

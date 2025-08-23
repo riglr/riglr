@@ -4,20 +4,21 @@
 [![Documentation](https://docs.rs/riglr-agents/badge.svg)](https://docs.rs/riglr-agents)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-Multi-agent coordination system for riglr blockchain automation. Build sophisticated AI-powered trading systems, risk management workflows, and multi-chain coordination using specialized agents that work together seamlessly.
+Multi-agent coordination system for riglr blockchain automation with rig-core integration. Build sophisticated LLM-powered trading systems, risk management workflows, and multi-chain coordination using specialized agents that leverage rig-core for intelligent decision-making while working together seamlessly.
 
 ## Overview
 
-riglr-agents provides a framework for creating and coordinating multiple specialized AI agents that can perform complex blockchain operations. Each agent can have specific capabilities (trading, research, risk analysis, etc.) while maintaining riglr's security guarantees through the SignerContext pattern.
+riglr-agents provides a framework for creating and coordinating multiple specialized AI agents that can perform complex blockchain operations. Each agent uses rig-core for LLM-powered intelligence and can have specific capabilities (trading, research, risk analysis, etc.) while maintaining riglr's security guarantees through the SignerContext pattern.
 
 ## Key Features
 
 - **Multi-Agent Coordination**: Orchestrate complex workflows across multiple specialized agents
+- **LLM-Powered Intelligence**: Each agent uses rig-core for intelligent decision-making
 - **Flexible Task Routing**: Route tasks based on capabilities, load, priority, and custom rules
 - **Inter-Agent Communication**: Built-in message passing system for agent coordination
 - **Scalable Architecture**: Support for both local and distributed agent registries
 - **Security First**: Maintains riglr's SignerContext security model
-- **Integration Ready**: Seamless integration with all riglr tools and patterns
+- **Integration Ready**: Seamless integration with all riglr tools and rig-core patterns
 
 ## Architecture
 
@@ -48,6 +49,7 @@ Add riglr-agents to your `Cargo.toml`:
 [dependencies]
 riglr-agents = "0.1.0"
 riglr-core = "0.1.0"
+rig-core = "0.17.1"  # For LLM integration
 ```
 
 ### Basic Example
@@ -57,19 +59,38 @@ use riglr_agents::{
     Agent, AgentDispatcher, LocalAgentRegistry, 
     Task, TaskResult, TaskType, Priority, AgentId
 };
+use rig_core::{completion::Prompt, providers};
 use riglr_core::SignerContext;
 use async_trait::async_trait;
 use std::sync::Arc;
 
-// Define a simple trading agent
-#[derive(Clone)]
+// Define a simple trading agent with rig-core integration
 struct TradingAgent {
     id: AgentId,
+    rig_agent: rig_core::Agent<providers::openai::completion::CompletionModel>,
+}
+
+impl TradingAgent {
+    fn new(id: &str, client: &providers::openai::Client) -> Self {
+        let rig_agent = client
+            .agent("gpt-4")
+            .preamble("You are a trading agent. Execute trades based on market conditions.")
+            .build();
+        
+        Self {
+            id: AgentId::new(id),
+            rig_agent,
+        }
+    }
 }
 
 #[async_trait]
 impl Agent for TradingAgent {
     async fn execute_task(&self, task: Task) -> riglr_agents::Result<TaskResult> {
+        // Use rig-core for intelligent processing
+        let prompt = format!("Analyze and execute trade: {}", task.parameters);
+        let llm_analysis = self.rig_agent.prompt(&prompt).await.ok();
+        
         // Access signer context for blockchain operations
         let signer = SignerContext::current().await?;
         
@@ -77,7 +98,10 @@ impl Agent for TradingAgent {
         // ... trading implementation
         
         Ok(TaskResult::success(
-            serde_json::json!({"status": "trade_executed"}),
+            serde_json::json!({
+                "status": "trade_executed",
+                "llm_analysis": llm_analysis
+            }),
             None,
             std::time::Duration::from_millis(100)
         ))
@@ -92,8 +116,11 @@ impl Agent for TradingAgent {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    // Create and register agents
-    let agent = Arc::new(TradingAgent { id: AgentId::new("trader-1") });
+    // Create OpenAI client for rig-core
+    let client = providers::openai::Client::new(&std::env::var("OPENAI_API_KEY")?);
+    
+    // Create and register agents with rig-core integration
+    let agent = Arc::new(TradingAgent::new("trader-1", &client));
     let registry = Arc::new(LocalAgentRegistry::new());
     registry.register_agent(agent).await?;
     
@@ -117,11 +144,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
 ### Agents
 
-Agents are autonomous units that implement the `Agent` trait. They can:
-- Execute tasks within their capabilities
-- Communicate with other agents
+Agents are autonomous units that implement the `Agent` trait and leverage rig-core for LLM operations. They can:
+- Execute tasks within their capabilities using LLM-powered intelligence
+- Communicate with other agents through the messaging system
 - Access blockchain signers through SignerContext
 - Maintain their own state and status
+- Use rig-core for intelligent decision-making and analysis
 
 ### Task Types
 

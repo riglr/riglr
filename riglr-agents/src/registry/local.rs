@@ -25,7 +25,7 @@ pub struct LocalAgentRegistry {
 impl LocalAgentRegistry {
     /// Create a new local agent registry with default configuration.
     pub fn new() -> Self {
-        Self::default()
+        Self::with_config(RegistryConfig::default())
     }
 
     /// Create a new local agent registry with custom configuration.
@@ -250,7 +250,7 @@ mod tests {
     use super::*;
     use crate::types::*;
 
-    #[derive(Clone)]
+    #[derive(Clone, Debug)]
     struct TestAgent {
         id: AgentId,
         capabilities: Vec<String>,
@@ -472,5 +472,373 @@ mod tests {
     async fn test_local_registry_health_check() {
         let registry = LocalAgentRegistry::default();
         assert!(registry.health_check().await.unwrap());
+    }
+
+    #[tokio::test]
+    async fn test_local_registry_new() {
+        let registry = LocalAgentRegistry::default();
+        assert_eq!(registry.agent_count().await.unwrap(), 0);
+        assert!(registry.health_check().await.unwrap());
+    }
+
+    #[tokio::test]
+    async fn test_local_registry_config() {
+        let config = RegistryConfig {
+            max_agents: Some(10),
+            ..RegistryConfig::default()
+        };
+        let registry = LocalAgentRegistry::with_config(config.clone());
+
+        let retrieved_config = registry.config();
+        assert_eq!(retrieved_config.max_agents, Some(10));
+    }
+
+    #[tokio::test]
+    async fn test_stats_with_all_agent_states() {
+        let registry = LocalAgentRegistry::default();
+
+        // Create agents with different states
+        let agent1 = Arc::new(TestAgent {
+            id: AgentId::new("active-agent"),
+            capabilities: vec!["trading".to_string()],
+        });
+        let agent2 = Arc::new(TestAgent {
+            id: AgentId::new("busy-agent"),
+            capabilities: vec!["research".to_string()],
+        });
+        let agent3 = Arc::new(TestAgent {
+            id: AgentId::new("idle-agent"),
+            capabilities: vec!["monitoring".to_string()],
+        });
+        let agent4 = Arc::new(TestAgent {
+            id: AgentId::new("offline-agent"),
+            capabilities: vec!["analysis".to_string()],
+        });
+
+        registry.register_agent(agent1).await.unwrap();
+        registry.register_agent(agent2).await.unwrap();
+        registry.register_agent(agent3).await.unwrap();
+        registry.register_agent(agent4).await.unwrap();
+
+        // Update statuses to different states
+        let active_status = AgentStatus {
+            agent_id: AgentId::new("active-agent"),
+            status: AgentState::Active,
+            active_tasks: 1,
+            load: 0.3,
+            last_heartbeat: chrono::Utc::now(),
+            capabilities: vec![],
+            metadata: HashMap::default(),
+        };
+
+        let busy_status = AgentStatus {
+            agent_id: AgentId::new("busy-agent"),
+            status: AgentState::Busy,
+            active_tasks: 5,
+            load: 0.9,
+            last_heartbeat: chrono::Utc::now(),
+            capabilities: vec![],
+            metadata: HashMap::default(),
+        };
+
+        let idle_status = AgentStatus {
+            agent_id: AgentId::new("idle-agent"),
+            status: AgentState::Idle,
+            active_tasks: 0,
+            load: 0.0,
+            last_heartbeat: chrono::Utc::now(),
+            capabilities: vec![],
+            metadata: HashMap::default(),
+        };
+
+        let offline_status = AgentStatus {
+            agent_id: AgentId::new("offline-agent"),
+            status: AgentState::Offline,
+            active_tasks: 0,
+            load: 0.0,
+            last_heartbeat: chrono::Utc::now(),
+            capabilities: vec![],
+            metadata: HashMap::default(),
+        };
+
+        registry.update_agent_status(active_status).await.unwrap();
+        registry.update_agent_status(busy_status).await.unwrap();
+        registry.update_agent_status(idle_status).await.unwrap();
+        registry.update_agent_status(offline_status).await.unwrap();
+
+        let stats = registry.stats().await;
+        assert_eq!(stats.total_agents, 4);
+        assert_eq!(stats.active_agents, 1);
+        assert_eq!(stats.busy_agents, 1);
+        assert_eq!(stats.idle_agents, 1);
+        assert_eq!(stats.offline_agents, 1);
+    }
+
+    #[tokio::test]
+    async fn test_stats_with_empty_registry() {
+        let registry = LocalAgentRegistry::default();
+        let stats = registry.stats().await;
+
+        assert_eq!(stats.total_agents, 0);
+        assert_eq!(stats.active_agents, 0);
+        assert_eq!(stats.busy_agents, 0);
+        assert_eq!(stats.idle_agents, 0);
+        assert_eq!(stats.offline_agents, 0);
+    }
+
+    #[tokio::test]
+    async fn test_get_agent_existing() {
+        let registry = LocalAgentRegistry::default();
+        let agent = Arc::new(TestAgent {
+            id: AgentId::new("test-agent"),
+            capabilities: vec!["trading".to_string()],
+        });
+
+        registry.register_agent(agent.clone()).await.unwrap();
+
+        let retrieved_agent = registry
+            .get_agent(&AgentId::new("test-agent"))
+            .await
+            .unwrap();
+        assert!(retrieved_agent.is_some());
+        assert_eq!(retrieved_agent.unwrap().id().as_str(), "test-agent");
+    }
+
+    #[tokio::test]
+    async fn test_get_agent_non_existing() {
+        let registry = LocalAgentRegistry::default();
+
+        let retrieved_agent = registry
+            .get_agent(&AgentId::new("non-existent"))
+            .await
+            .unwrap();
+        assert!(retrieved_agent.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_list_agents_empty() {
+        let registry = LocalAgentRegistry::default();
+
+        let agents = registry.list_agents().await.unwrap();
+        assert_eq!(agents.len(), 0);
+    }
+
+    #[tokio::test]
+    async fn test_list_agents_populated() {
+        let registry = LocalAgentRegistry::default();
+
+        let agent1 = Arc::new(TestAgent {
+            id: AgentId::new("agent1"),
+            capabilities: vec!["trading".to_string()],
+        });
+        let agent2 = Arc::new(TestAgent {
+            id: AgentId::new("agent2"),
+            capabilities: vec!["research".to_string()],
+        });
+
+        registry.register_agent(agent1).await.unwrap();
+        registry.register_agent(agent2).await.unwrap();
+
+        let agents = registry.list_agents().await.unwrap();
+        assert_eq!(agents.len(), 2);
+
+        let agent_ids: Vec<String> = agents.iter().map(|a| a.id().to_string()).collect();
+        assert!(agent_ids.contains(&"agent1".to_string()));
+        assert!(agent_ids.contains(&"agent2".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_list_agent_statuses_empty() {
+        let registry = LocalAgentRegistry::default();
+
+        let statuses = registry.list_agent_statuses().await.unwrap();
+        assert_eq!(statuses.len(), 0);
+    }
+
+    #[tokio::test]
+    async fn test_list_agent_statuses_populated() {
+        let registry = LocalAgentRegistry::default();
+
+        let agent1 = Arc::new(TestAgent {
+            id: AgentId::new("agent1"),
+            capabilities: vec!["trading".to_string()],
+        });
+        let agent2 = Arc::new(TestAgent {
+            id: AgentId::new("agent2"),
+            capabilities: vec!["research".to_string()],
+        });
+
+        registry.register_agent(agent1).await.unwrap();
+        registry.register_agent(agent2).await.unwrap();
+
+        let statuses = registry.list_agent_statuses().await.unwrap();
+        assert_eq!(statuses.len(), 2);
+
+        let status_agent_ids: Vec<String> =
+            statuses.iter().map(|s| s.agent_id.to_string()).collect();
+        assert!(status_agent_ids.contains(&"agent1".to_string()));
+        assert!(status_agent_ids.contains(&"agent2".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_update_agent_status_non_existent_agent() {
+        let registry = LocalAgentRegistry::default();
+
+        let status = AgentStatus {
+            agent_id: AgentId::new("non-existent"),
+            status: AgentState::Active,
+            active_tasks: 1,
+            load: 0.5,
+            last_heartbeat: chrono::Utc::now(),
+            capabilities: vec![],
+            metadata: HashMap::default(),
+        };
+
+        let result = registry.update_agent_status(status).await;
+        assert!(result.is_err());
+
+        if let Err(AgentError::AgentNotFound { agent_id }) = result {
+            assert_eq!(agent_id, "non-existent");
+        } else {
+            panic!("Expected AgentNotFound error");
+        }
+    }
+
+    #[tokio::test]
+    async fn test_get_agent_status_non_existent() {
+        let registry = LocalAgentRegistry::default();
+
+        let status = registry
+            .get_agent_status(&AgentId::new("non-existent"))
+            .await
+            .unwrap();
+        assert!(status.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_find_agents_by_capability_empty_capability() {
+        let registry = LocalAgentRegistry::default();
+
+        let agent = Arc::new(TestAgent {
+            id: AgentId::new("test-agent"),
+            capabilities: vec!["trading".to_string()],
+        });
+        registry.register_agent(agent).await.unwrap();
+
+        let agents = registry.find_agents_by_capability("").await.unwrap();
+        assert_eq!(agents.len(), 0);
+    }
+
+    #[tokio::test]
+    async fn test_find_agents_by_capability_no_matching_agents() {
+        let registry = LocalAgentRegistry::default();
+
+        let agent = Arc::new(TestAgent {
+            id: AgentId::new("test-agent"),
+            capabilities: vec!["trading".to_string()],
+        });
+        registry.register_agent(agent).await.unwrap();
+
+        let agents = registry
+            .find_agents_by_capability("non_existent_capability")
+            .await
+            .unwrap();
+        assert_eq!(agents.len(), 0);
+    }
+
+    #[tokio::test]
+    async fn test_registry_with_no_max_agents_limit() {
+        let config = RegistryConfig {
+            max_agents: None,
+            ..RegistryConfig::default()
+        };
+        let registry = LocalAgentRegistry::with_config(config);
+
+        // Should be able to register many agents without limit
+        for i in 0..100 {
+            let agent = Arc::new(TestAgent {
+                id: AgentId::new(&format!("agent{}", i)),
+                capabilities: vec!["trading".to_string()],
+            });
+            registry.register_agent(agent).await.unwrap();
+        }
+
+        assert_eq!(registry.agent_count().await.unwrap(), 100);
+    }
+
+    #[tokio::test]
+    async fn test_capacity_limit_edge_case_exact_limit() {
+        let config = RegistryConfig {
+            max_agents: Some(1),
+            ..RegistryConfig::default()
+        };
+        let registry = LocalAgentRegistry::with_config(config);
+
+        let agent1 = Arc::new(TestAgent {
+            id: AgentId::new("agent1"),
+            capabilities: vec!["trading".to_string()],
+        });
+        let agent2 = Arc::new(TestAgent {
+            id: AgentId::new("agent2"),
+            capabilities: vec!["research".to_string()],
+        });
+
+        // First registration should succeed
+        registry.register_agent(agent1).await.unwrap();
+        assert_eq!(registry.agent_count().await.unwrap(), 1);
+
+        // Second registration should fail
+        let result = registry.register_agent(agent2).await;
+        assert!(result.is_err());
+        assert_eq!(registry.agent_count().await.unwrap(), 1);
+    }
+
+    #[tokio::test]
+    async fn test_is_agent_registered_false() {
+        let registry = LocalAgentRegistry::default();
+
+        let is_registered = registry
+            .is_agent_registered(&AgentId::new("non-existent"))
+            .await
+            .unwrap();
+        assert!(!is_registered);
+    }
+
+    #[tokio::test]
+    async fn test_agent_count_after_operations() {
+        let registry = LocalAgentRegistry::default();
+
+        // Initially empty
+        assert_eq!(registry.agent_count().await.unwrap(), 0);
+
+        // Add one agent
+        let agent1 = Arc::new(TestAgent {
+            id: AgentId::new("agent1"),
+            capabilities: vec!["trading".to_string()],
+        });
+        registry.register_agent(agent1).await.unwrap();
+        assert_eq!(registry.agent_count().await.unwrap(), 1);
+
+        // Add another agent
+        let agent2 = Arc::new(TestAgent {
+            id: AgentId::new("agent2"),
+            capabilities: vec!["research".to_string()],
+        });
+        registry.register_agent(agent2).await.unwrap();
+        assert_eq!(registry.agent_count().await.unwrap(), 2);
+
+        // Remove one agent
+        registry
+            .unregister_agent(&AgentId::new("agent1"))
+            .await
+            .unwrap();
+        assert_eq!(registry.agent_count().await.unwrap(), 1);
+
+        // Remove last agent
+        registry
+            .unregister_agent(&AgentId::new("agent2"))
+            .await
+            .unwrap();
+        assert_eq!(registry.agent_count().await.unwrap(), 0);
     }
 }

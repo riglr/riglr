@@ -7,7 +7,7 @@ use crate::{
     communication::{AgentCommunication, CommunicationConfig},
     dispatcher::RoutingStrategy,
     registry::RegistryConfig,
-    Agent, AgentDispatcher, AgentError, AgentRegistry, ChannelCommunication, DispatchConfig,
+    Agent, AgentDispatcher, AgentRegistry, ChannelCommunication, DispatchConfig,
     LocalAgentRegistry, Result,
 };
 use std::sync::Arc;
@@ -15,17 +15,17 @@ use std::time::Duration;
 
 /// Builder for creating and configuring agent systems.
 ///
-/// The AgentBuilder provides a fluent API for setting up complete
+/// The AgentSystemBuilder provides a fluent API for setting up complete
 /// multi-agent systems with registries, dispatchers, and communication.
 ///
 /// # Examples
 ///
 /// ```rust
-/// use riglr_agents::{AgentBuilder, RoutingStrategy};
+/// use riglr_agents::{AgentSystemBuilder, RoutingStrategy};
 /// use std::time::Duration;
 ///
 /// # async fn example() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-/// let system = AgentBuilder::default()
+/// let system = AgentSystemBuilder::default()
 ///     .with_max_agents(50)
 ///     .with_routing_strategy(RoutingStrategy::LeastLoaded)
 ///     .with_task_timeout(Duration::from_secs(300))
@@ -35,14 +35,13 @@ use std::time::Duration;
 /// # }
 /// ```
 #[derive(Default)]
-pub struct AgentBuilder {
+pub struct AgentSystemBuilder {
     registry_config: RegistryConfig,
     dispatch_config: DispatchConfig,
     communication_config: CommunicationConfig,
 }
 
-impl AgentBuilder {
-
+impl AgentSystemBuilder {
     /// Set the maximum number of agents in the registry.
     pub fn with_max_agents(mut self, max_agents: usize) -> Self {
         self.registry_config.max_agents = Some(max_agents);
@@ -299,78 +298,13 @@ pub struct SystemStats {
     pub communication_stats: crate::communication::CommunicationStats,
 }
 
-/// Builder for creating individual agents with common patterns.
-#[derive(Default)]
-pub struct SingleAgentBuilder {
-    agent_id: Option<String>,
-    capabilities: Vec<String>,
-    metadata: std::collections::HashMap<String, serde_json::Value>,
-}
-
-impl SingleAgentBuilder {
-
-    /// Set the agent ID.
-    pub fn with_id(mut self, id: impl Into<String>) -> Self {
-        self.agent_id = Some(id.into());
-        self
-    }
-
-    /// Add a capability to the agent.
-    pub fn with_capability(mut self, capability: impl Into<String>) -> Self {
-        self.capabilities.push(capability.into());
-        self
-    }
-
-    /// Add multiple capabilities to the agent.
-    pub fn with_capabilities(mut self, capabilities: Vec<String>) -> Self {
-        self.capabilities.extend(capabilities);
-        self
-    }
-
-    /// Add metadata to the agent.
-    pub fn with_metadata(mut self, key: impl Into<String>, value: serde_json::Value) -> Self {
-        self.metadata.insert(key.into(), value);
-        self
-    }
-
-    /// Validate the builder configuration.
-    pub fn validate(&self) -> Result<()> {
-        if self.agent_id.is_none() {
-            return Err(AgentError::configuration("Agent ID is required"));
-        }
-
-        if self.capabilities.is_empty() {
-            return Err(AgentError::configuration(
-                "At least one capability is required",
-            ));
-        }
-
-        Ok(())
-    }
-
-    /// Get the configured agent ID.
-    pub fn agent_id(&self) -> Option<&str> {
-        self.agent_id.as_deref()
-    }
-
-    /// Get the configured capabilities.
-    pub fn capabilities(&self) -> &[String] {
-        &self.capabilities
-    }
-
-    /// Get the configured metadata.
-    pub fn metadata(&self) -> &std::collections::HashMap<String, serde_json::Value> {
-        &self.metadata
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[tokio::test]
     async fn test_agent_builder_default() {
-        let system = AgentBuilder::default().build().await.unwrap();
+        let system = AgentSystemBuilder::default().build().await.unwrap();
 
         assert_eq!(system.agent_count().await.unwrap(), 0);
 
@@ -382,7 +316,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_agent_builder_with_config() {
-        let system = AgentBuilder::default()
+        let system = AgentSystemBuilder::default()
             .with_max_agents(10)
             .with_task_timeout(Duration::from_secs(60))
             .with_max_retries(5)
@@ -405,7 +339,7 @@ mod tests {
     async fn test_agent_system_with_agents() {
         use crate::types::*;
 
-        #[derive(Clone)]
+        #[derive(Clone, Debug)]
         struct TestAgent {
             id: crate::AgentId,
             capabilities: Vec<String>,
@@ -430,7 +364,7 @@ mod tests {
             }
         }
 
-        let system = AgentBuilder::default().build().await.unwrap();
+        let system = AgentSystemBuilder::default().build().await.unwrap();
 
         let agent = Arc::new(TestAgent {
             id: crate::AgentId::new("test-agent"),
@@ -444,48 +378,378 @@ mod tests {
         assert!(health.overall_healthy);
     }
 
-    #[test]
-    fn test_single_agent_builder() {
-        let builder = SingleAgentBuilder::default()
-            .with_id("test-agent")
-            .with_capability("trading")
-            .with_capability("research")
-            .with_metadata("version", serde_json::json!("1.0"));
-
-        assert_eq!(builder.agent_id(), Some("test-agent"));
-        assert_eq!(builder.capabilities(), ["trading", "research"]);
-        assert_eq!(
-            builder.metadata().get("version"),
-            Some(&serde_json::json!("1.0"))
-        );
-
-        assert!(builder.validate().is_ok());
-    }
-
-    #[test]
-    fn test_single_agent_builder_validation() {
-        // Missing ID should fail validation
-        let builder = SingleAgentBuilder::default().with_capability("trading");
-        assert!(builder.validate().is_err());
-
-        // Missing capabilities should fail validation
-        let builder = SingleAgentBuilder::default().with_id("test-agent");
-        assert!(builder.validate().is_err());
-
-        // Valid configuration should pass
-        let builder = SingleAgentBuilder::default()
-            .with_id("test-agent")
-            .with_capability("trading");
-        assert!(builder.validate().is_ok());
-    }
-
     #[tokio::test]
     async fn test_agent_system_stats() {
-        let system = AgentBuilder::default().build().await.unwrap();
+        let system = AgentSystemBuilder::default().build().await.unwrap();
         let stats = system.stats().await.unwrap();
 
         assert_eq!(stats.registry_stats.total_agents, 0);
         assert_eq!(stats.dispatcher_stats.registered_agents, 0);
         assert_eq!(stats.communication_stats.active_subscriptions, 0);
+    }
+
+    // Additional tests for 100% coverage
+
+    #[test]
+    fn test_agent_builder_with_registry_timeout() {
+        let builder = AgentSystemBuilder::default().with_registry_timeout(Duration::from_secs(30));
+        assert_eq!(
+            builder.registry_config.operation_timeout,
+            Duration::from_secs(30)
+        );
+    }
+
+    #[test]
+    fn test_agent_builder_with_health_checks_enabled() {
+        let builder = AgentSystemBuilder::default().with_health_checks(true);
+        assert!(builder.registry_config.enable_health_checks);
+    }
+
+    #[test]
+    fn test_agent_builder_with_health_checks_disabled() {
+        let builder = AgentSystemBuilder::default().with_health_checks(false);
+        assert!(!builder.registry_config.enable_health_checks);
+    }
+
+    #[test]
+    fn test_agent_builder_with_maintenance_interval() {
+        let builder =
+            AgentSystemBuilder::default().with_maintenance_interval(Duration::from_secs(120));
+        assert_eq!(
+            builder.registry_config.maintenance_interval,
+            Duration::from_secs(120)
+        );
+    }
+
+    #[test]
+    fn test_agent_builder_with_retry_delay() {
+        let builder = AgentSystemBuilder::default().with_retry_delay(Duration::from_millis(500));
+        assert_eq!(
+            builder.dispatch_config.retry_delay,
+            Duration::from_millis(500)
+        );
+    }
+
+    #[test]
+    fn test_agent_builder_with_max_concurrent_tasks() {
+        let builder = AgentSystemBuilder::default().with_max_concurrent_tasks(10);
+        assert_eq!(builder.dispatch_config.max_concurrent_tasks_per_agent, 10);
+    }
+
+    #[test]
+    fn test_agent_builder_with_load_balancing_enabled() {
+        let builder = AgentSystemBuilder::default().with_load_balancing(true);
+        assert!(builder.dispatch_config.enable_load_balancing);
+    }
+
+    #[test]
+    fn test_agent_builder_with_load_balancing_disabled() {
+        let builder = AgentSystemBuilder::default().with_load_balancing(false);
+        assert!(!builder.dispatch_config.enable_load_balancing);
+    }
+
+    #[test]
+    fn test_agent_builder_with_message_ttl() {
+        let builder = AgentSystemBuilder::default().with_message_ttl(Duration::from_secs(600));
+        assert_eq!(
+            builder.communication_config.message_ttl,
+            Duration::from_secs(600)
+        );
+    }
+
+    #[test]
+    fn test_agent_builder_with_message_persistence_enabled() {
+        let builder = AgentSystemBuilder::default().with_message_persistence(true);
+        assert!(builder.communication_config.enable_persistence);
+    }
+
+    #[test]
+    fn test_agent_builder_with_message_persistence_disabled() {
+        let builder = AgentSystemBuilder::default().with_message_persistence(false);
+        assert!(!builder.communication_config.enable_persistence);
+    }
+
+    #[test]
+    fn test_agent_builder_with_channel_buffer_size() {
+        let builder = AgentSystemBuilder::default().with_channel_buffer_size(1024);
+        assert_eq!(builder.communication_config.channel_buffer_size, 1024);
+    }
+
+    #[test]
+    fn test_agent_builder_with_max_subscriptions() {
+        let builder = AgentSystemBuilder::default().with_max_subscriptions(200);
+        assert_eq!(builder.communication_config.max_subscriptions, Some(200));
+    }
+
+    #[tokio::test]
+    async fn test_agent_builder_build_with_registry() {
+        use crate::registry::LocalAgentRegistry;
+
+        let custom_registry = Arc::new(LocalAgentRegistry::default());
+        let builder = AgentSystemBuilder::default();
+
+        let system = builder
+            .build_with_registry(custom_registry.clone())
+            .await
+            .unwrap();
+
+        assert_eq!(system.agent_count().await.unwrap(), 0);
+
+        let health = system.health_check().await.unwrap();
+        assert!(health.registry_healthy);
+        assert!(health.communication_healthy);
+    }
+
+    #[tokio::test]
+    async fn test_agent_system_register_agents_multiple() {
+        use crate::types::*;
+
+        #[derive(Clone, Debug)]
+        struct TestAgent {
+            id: crate::AgentId,
+            capabilities: Vec<String>,
+        }
+
+        #[async_trait::async_trait]
+        impl Agent for TestAgent {
+            async fn execute_task(&self, _task: crate::Task) -> Result<crate::TaskResult> {
+                Ok(TaskResult::success(
+                    serde_json::json!({}),
+                    None,
+                    Duration::from_millis(10),
+                ))
+            }
+
+            fn id(&self) -> &crate::AgentId {
+                &self.id
+            }
+
+            fn capabilities(&self) -> Vec<String> {
+                self.capabilities.clone()
+            }
+        }
+
+        let system = AgentSystemBuilder::default().build().await.unwrap();
+
+        let agents = vec![
+            Arc::new(TestAgent {
+                id: crate::AgentId::new("test-agent-1"),
+                capabilities: vec!["trading".to_string()],
+            }) as Arc<dyn Agent>,
+            Arc::new(TestAgent {
+                id: crate::AgentId::new("test-agent-2"),
+                capabilities: vec!["research".to_string()],
+            }) as Arc<dyn Agent>,
+        ];
+
+        system.register_agents(agents).await.unwrap();
+        assert_eq!(system.agent_count().await.unwrap(), 2);
+    }
+
+    #[tokio::test]
+    async fn test_agent_system_register_agents_empty_vec() {
+        let system = AgentSystemBuilder::default().build().await.unwrap();
+
+        let agents: Vec<Arc<dyn Agent>> = vec![];
+        system.register_agents(agents).await.unwrap();
+
+        assert_eq!(system.agent_count().await.unwrap(), 0);
+    }
+
+    #[tokio::test]
+    async fn test_custom_agent_system_register_agent() {
+        use crate::registry::LocalAgentRegistry;
+        use crate::types::*;
+
+        #[derive(Clone, Debug)]
+        struct TestAgent {
+            id: crate::AgentId,
+            capabilities: Vec<String>,
+        }
+
+        #[async_trait::async_trait]
+        impl Agent for TestAgent {
+            async fn execute_task(&self, _task: crate::Task) -> Result<crate::TaskResult> {
+                Ok(TaskResult::success(
+                    serde_json::json!({}),
+                    None,
+                    Duration::from_millis(10),
+                ))
+            }
+
+            fn id(&self) -> &crate::AgentId {
+                &self.id
+            }
+
+            fn capabilities(&self) -> Vec<String> {
+                self.capabilities.clone()
+            }
+        }
+
+        let custom_registry = Arc::new(LocalAgentRegistry::default());
+        let system = AgentSystemBuilder::default()
+            .build_with_registry(custom_registry)
+            .await
+            .unwrap();
+
+        let agent = Arc::new(TestAgent {
+            id: crate::AgentId::new("test-agent"),
+            capabilities: vec!["trading".to_string()],
+        });
+
+        system.register_agent(agent).await.unwrap();
+        assert_eq!(system.agent_count().await.unwrap(), 1);
+    }
+
+    #[tokio::test]
+    async fn test_custom_agent_system_register_agents() {
+        use crate::registry::LocalAgentRegistry;
+        use crate::types::*;
+
+        #[derive(Clone, Debug)]
+        struct TestAgent {
+            id: crate::AgentId,
+            capabilities: Vec<String>,
+        }
+
+        #[async_trait::async_trait]
+        impl Agent for TestAgent {
+            async fn execute_task(&self, _task: crate::Task) -> Result<crate::TaskResult> {
+                Ok(TaskResult::success(
+                    serde_json::json!({}),
+                    None,
+                    Duration::from_millis(10),
+                ))
+            }
+
+            fn id(&self) -> &crate::AgentId {
+                &self.id
+            }
+
+            fn capabilities(&self) -> Vec<String> {
+                self.capabilities.clone()
+            }
+        }
+
+        let custom_registry = Arc::new(LocalAgentRegistry::default());
+        let system = AgentSystemBuilder::default()
+            .build_with_registry(custom_registry)
+            .await
+            .unwrap();
+
+        let agents = vec![
+            Arc::new(TestAgent {
+                id: crate::AgentId::new("test-agent-1"),
+                capabilities: vec!["trading".to_string()],
+            }) as Arc<dyn Agent>,
+            Arc::new(TestAgent {
+                id: crate::AgentId::new("test-agent-2"),
+                capabilities: vec!["research".to_string()],
+            }) as Arc<dyn Agent>,
+        ];
+
+        system.register_agents(agents).await.unwrap();
+        assert_eq!(system.agent_count().await.unwrap(), 2);
+    }
+
+    #[tokio::test]
+    async fn test_custom_agent_system_health_check() {
+        use crate::registry::LocalAgentRegistry;
+
+        let custom_registry = Arc::new(LocalAgentRegistry::default());
+        let system = AgentSystemBuilder::default()
+            .build_with_registry(custom_registry)
+            .await
+            .unwrap();
+
+        let health = system.health_check().await.unwrap();
+        assert!(health.registry_healthy);
+        assert!(health.communication_healthy);
+        // overall_healthy depends on dispatcher health which may be false without agents
+    }
+
+    #[test]
+    fn test_system_health_all_components_healthy() {
+        let health = SystemHealth {
+            registry_healthy: true,
+            dispatcher_healthy: true,
+            communication_healthy: true,
+            overall_healthy: true,
+        };
+
+        assert!(health.registry_healthy);
+        assert!(health.dispatcher_healthy);
+        assert!(health.communication_healthy);
+        assert!(health.overall_healthy);
+    }
+
+    #[test]
+    fn test_system_health_some_components_unhealthy() {
+        let health = SystemHealth {
+            registry_healthy: true,
+            dispatcher_healthy: false,
+            communication_healthy: true,
+            overall_healthy: false,
+        };
+
+        assert!(health.registry_healthy);
+        assert!(!health.dispatcher_healthy);
+        assert!(health.communication_healthy);
+        assert!(!health.overall_healthy);
+    }
+
+    #[test]
+    fn test_agent_builder_chaining_all_methods() {
+        let builder = AgentSystemBuilder::default()
+            .with_max_agents(100)
+            .with_registry_timeout(Duration::from_secs(45))
+            .with_health_checks(true)
+            .with_maintenance_interval(Duration::from_secs(300))
+            .with_task_timeout(Duration::from_secs(120))
+            .with_max_retries(3)
+            .with_retry_delay(Duration::from_millis(1000))
+            .with_max_concurrent_tasks(5)
+            .with_load_balancing(true)
+            .with_routing_strategy(RoutingStrategy::RoundRobin)
+            .with_max_pending_messages(1000)
+            .with_message_ttl(Duration::from_secs(3600))
+            .with_message_persistence(true)
+            .with_channel_buffer_size(512)
+            .with_max_subscriptions(150);
+
+        // Verify all configurations are applied
+        assert_eq!(builder.registry_config.max_agents, Some(100));
+        assert_eq!(
+            builder.registry_config.operation_timeout,
+            Duration::from_secs(45)
+        );
+        assert!(builder.registry_config.enable_health_checks);
+        assert_eq!(
+            builder.registry_config.maintenance_interval,
+            Duration::from_secs(300)
+        );
+        assert_eq!(
+            builder.dispatch_config.default_task_timeout,
+            Duration::from_secs(120)
+        );
+        assert_eq!(builder.dispatch_config.max_retries, 3);
+        assert_eq!(
+            builder.dispatch_config.retry_delay,
+            Duration::from_millis(1000)
+        );
+        assert_eq!(builder.dispatch_config.max_concurrent_tasks_per_agent, 5);
+        assert!(builder.dispatch_config.enable_load_balancing);
+        assert_eq!(
+            builder.dispatch_config.routing_strategy,
+            RoutingStrategy::RoundRobin
+        );
+        assert_eq!(builder.communication_config.max_pending_messages, 1000);
+        assert_eq!(
+            builder.communication_config.message_ttl,
+            Duration::from_secs(3600)
+        );
+        assert!(builder.communication_config.enable_persistence);
+        assert_eq!(builder.communication_config.channel_buffer_size, 512);
+        assert_eq!(builder.communication_config.max_subscriptions, Some(150));
     }
 }

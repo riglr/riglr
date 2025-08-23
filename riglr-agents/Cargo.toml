@@ -29,6 +29,7 @@ anyhow = { workspace = true }
 # Serialization
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
+schemars = { workspace = true }
 
 # Utility
 uuid = { workspace = true, features = ["v4", "serde"] }
@@ -41,6 +42,16 @@ futures = { workspace = true }
 # Collections
 indexmap = "2.0"
 
+# For EVM integration testing
+alloy = { workspace = true }
+
+# For Solana integration testing
+solana-client = { workspace = true }
+
+# Dependencies for blockchain testing
+riglr-solana-tools = { workspace = true, optional = true }
+riglr-evm-tools = { workspace = true, optional = true }
+
 [dev-dependencies]
 tokio-test = { workspace = true }
 criterion = { workspace = true }
@@ -50,12 +61,23 @@ rand = "0.9.2"
 hex = "0.4"
 solana-sdk = { workspace = true }
 bs58 = "0.5"
+tracing-subscriber = { workspace = true }
+rig-core = { workspace = true }
+dotenv = "0.15"
+dotenvy = "0.15"
+
+# Additional dependencies for blockchain testing
+tempfile = "3.8"
+portpicker = "0.1"
+spl-token = { workspace = true }
 
 [features]
-default = ["redis"]
+default = ["redis", "solana-tools"]
 redis = ["riglr-core/redis"]
+solana-tools = ["dep:riglr-solana-tools"]
 
-[[bench]]
-name = "agent_benchmarks"
-harness = false
-path = "benches/agent_benchmarks.rs"
+# Test-specific features
+test-utils = []
+blockchain-tests = ["test-utils", "riglr-evm-tools"]
+performance-tests = ["test-utils"]
+

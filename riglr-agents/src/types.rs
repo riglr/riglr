@@ -174,7 +174,7 @@ impl Task {
     /// Check if the task has exceeded its deadline.
     pub fn is_past_deadline(&self) -> bool {
         self.deadline
-            .map_or(false, |deadline| chrono::Utc::now() > deadline)
+            .is_some_and(|deadline| chrono::Utc::now() > deadline)
     }
 
     /// Check if the task can be retried.
@@ -347,7 +347,7 @@ impl AgentMessage {
     /// Check if the message has expired.
     pub fn is_expired(&self) -> bool {
         self.expires_at
-            .map_or(false, |expiry| chrono::Utc::now() > expiry)
+            .is_some_and(|expiry| chrono::Utc::now() > expiry)
     }
 }
 
@@ -633,5 +633,493 @@ mod tests {
             TaskType::Custom("arbitrage".to_string()).to_string(),
             "custom:arbitrage"
         );
+    }
+
+    // Additional tests for 100% coverage
+
+    #[test]
+    fn test_agent_id_display() {
+        let id = AgentId::new("test-display");
+        assert_eq!(format!("{}", id), "test-display");
+    }
+
+    #[test]
+    fn test_agent_id_from_string() {
+        let string_id = String::from("string-agent");
+        let agent_id = AgentId::from(string_id);
+        assert_eq!(agent_id.as_str(), "string-agent");
+    }
+
+    #[test]
+    fn test_task_type_matches() {
+        let trading = TaskType::Trading;
+        let research = TaskType::Research;
+        let custom1 = TaskType::Custom("test".to_string());
+        let custom2 = TaskType::Custom("test".to_string());
+        let custom3 = TaskType::Custom("different".to_string());
+
+        assert!(trading.matches(&TaskType::Trading));
+        assert!(!trading.matches(&research));
+        assert!(custom1.matches(&custom2));
+        assert!(!custom1.matches(&custom3));
+    }
+
+    #[test]
+    fn test_task_type_display_all_variants() {
+        assert_eq!(TaskType::Research.to_string(), "research");
+        assert_eq!(TaskType::RiskAnalysis.to_string(), "risk_analysis");
+        assert_eq!(TaskType::Portfolio.to_string(), "portfolio");
+        assert_eq!(TaskType::Monitoring.to_string(), "monitoring");
+    }
+
+    #[test]
+    fn test_priority_default() {
+        assert_eq!(Priority::default(), Priority::Normal);
+    }
+
+    #[test]
+    fn test_task_is_past_deadline_no_deadline() {
+        let task = Task::new(TaskType::Trading, serde_json::json!({}));
+        assert!(!task.is_past_deadline());
+    }
+
+    #[test]
+    fn test_task_is_past_deadline_future() {
+        let future_deadline = chrono::Utc::now() + chrono::Duration::minutes(10);
+        let task =
+            Task::new(TaskType::Trading, serde_json::json!({})).with_deadline(future_deadline);
+        assert!(!task.is_past_deadline());
+    }
+
+    #[test]
+    fn test_task_is_past_deadline_past() {
+        let past_deadline = chrono::Utc::now() - chrono::Duration::minutes(10);
+        let task = Task::new(TaskType::Trading, serde_json::json!({})).with_deadline(past_deadline);
+        assert!(task.is_past_deadline());
+    }
+
+    #[test]
+    fn test_task_result_cancelled() {
+        let cancelled = TaskResult::cancelled("User requested".to_string());
+        assert!(!cancelled.is_success());
+        assert!(!cancelled.is_retriable());
+        assert!(cancelled.data().is_none());
+        assert!(cancelled.error().is_none());
+    }
+
+    #[test]
+    fn test_task_result_timeout() {
+        let timeout = TaskResult::timeout(Duration::from_secs(30));
+        assert!(!timeout.is_success());
+        assert!(!timeout.is_retriable());
+        assert!(timeout.data().is_none());
+        assert!(timeout.error().is_none());
+    }
+
+    #[test]
+    fn test_task_result_data_extraction() {
+        let data = serde_json::json!({"key": "value"});
+        let success = TaskResult::success(data.clone(), None, Duration::from_millis(100));
+        assert_eq!(success.data(), Some(&data));
+
+        let failure = TaskResult::failure("error".to_string(), false, Duration::from_millis(50));
+        assert!(failure.data().is_none());
+    }
+
+    #[test]
+    fn test_task_result_error_extraction() {
+        let error_msg = "Something went wrong";
+        let failure = TaskResult::failure(error_msg.to_string(), true, Duration::from_millis(100));
+        assert_eq!(failure.error(), Some(error_msg));
+
+        let success = TaskResult::success(serde_json::json!({}), None, Duration::from_millis(100));
+        assert!(success.error().is_none());
+    }
+
+    #[test]
+    fn test_agent_message_with_priority() {
+        let from = AgentId::new("sender");
+        let message = AgentMessage::new(from, None, "test".to_string(), serde_json::json!({}))
+            .with_priority(Priority::Critical);
+
+        assert_eq!(message.priority, Priority::Critical);
+    }
+
+    #[test]
+    fn test_agent_message_with_expiration() {
+        let from = AgentId::new("sender");
+        let expiry = chrono::Utc::now() + chrono::Duration::minutes(5);
+        let message = AgentMessage::new(from, None, "test".to_string(), serde_json::json!({}))
+            .with_expiration(expiry);
+
+        assert_eq!(message.expires_at, Some(expiry));
+        assert!(!message.is_expired());
+    }
+
+    #[test]
+    fn test_agent_message_is_expired_no_expiry() {
+        let from = AgentId::new("sender");
+        let message = AgentMessage::new(from, None, "test".to_string(), serde_json::json!({}));
+
+        assert!(!message.is_expired());
+    }
+
+    #[test]
+    fn test_agent_message_is_expired_past() {
+        let from = AgentId::new("sender");
+        let past_expiry = chrono::Utc::now() - chrono::Duration::minutes(5);
+        let message = AgentMessage::new(from, None, "test".to_string(), serde_json::json!({}))
+            .with_expiration(past_expiry);
+
+        assert!(message.is_expired());
+    }
+
+    #[test]
+    fn test_routing_rule_task_type_no_match() {
+        let task = Task::new(TaskType::Trading, serde_json::json!({}));
+        let agent_id = AgentId::new("agent");
+        let capabilities = vec![];
+
+        let rule = RoutingRule::TaskType(TaskType::Research);
+        assert!(!rule.matches(&task, &agent_id, &capabilities));
+    }
+
+    #[test]
+    fn test_routing_rule_capability_no_match() {
+        let task = Task::new(TaskType::Trading, serde_json::json!({}));
+        let agent_id = AgentId::new("agent");
+        let capabilities = vec!["research".to_string()];
+
+        let rule = RoutingRule::Capability("trading".to_string());
+        assert!(!rule.matches(&task, &agent_id, &capabilities));
+    }
+
+    #[test]
+    fn test_routing_rule_agent_no_match() {
+        let task = Task::new(TaskType::Trading, serde_json::json!({}));
+        let agent_id = AgentId::new("agent1");
+        let capabilities = vec![];
+
+        let rule = RoutingRule::Agent(AgentId::new("agent2"));
+        assert!(!rule.matches(&task, &agent_id, &capabilities));
+    }
+
+    #[test]
+    fn test_routing_rule_priority_no_match() {
+        let task = Task::new(TaskType::Trading, serde_json::json!({})).with_priority(Priority::Low);
+        let agent_id = AgentId::new("agent");
+        let capabilities = vec![];
+
+        let rule = RoutingRule::Priority(Priority::High);
+        assert!(!rule.matches(&task, &agent_id, &capabilities));
+    }
+
+    #[test]
+    fn test_routing_rule_all_partial_match() {
+        let task = Task::new(TaskType::Trading, serde_json::json!({}));
+        let agent_id = AgentId::new("agent");
+        let capabilities = vec!["trading".to_string()];
+
+        let rule = RoutingRule::All(vec![
+            RoutingRule::TaskType(TaskType::Trading),
+            RoutingRule::Capability("research".to_string()), // This will fail
+        ]);
+        assert!(!rule.matches(&task, &agent_id, &capabilities));
+    }
+
+    #[test]
+    fn test_routing_rule_any_partial_match() {
+        let task = Task::new(TaskType::Trading, serde_json::json!({}));
+        let agent_id = AgentId::new("agent");
+        let capabilities = vec!["trading".to_string()];
+
+        let rule = RoutingRule::Any(vec![
+            RoutingRule::TaskType(TaskType::Research), // This will fail
+            RoutingRule::Capability("trading".to_string()), // This will succeed
+        ]);
+        assert!(rule.matches(&task, &agent_id, &capabilities));
+    }
+
+    #[test]
+    fn test_routing_rule_any_no_match() {
+        let task = Task::new(TaskType::Trading, serde_json::json!({}));
+        let agent_id = AgentId::new("agent");
+        let capabilities = vec!["trading".to_string()];
+
+        let rule = RoutingRule::Any(vec![
+            RoutingRule::TaskType(TaskType::Research),
+            RoutingRule::Capability("research".to_string()),
+        ]);
+        assert!(!rule.matches(&task, &agent_id, &capabilities));
+    }
+
+    #[test]
+    fn test_routing_rule_round_robin() {
+        let task = Task::new(TaskType::Trading, serde_json::json!({}));
+        let agent_id = AgentId::new("agent");
+        let capabilities = vec![];
+
+        let rule = RoutingRule::RoundRobin;
+        assert!(!rule.matches(&task, &agent_id, &capabilities));
+    }
+
+    #[test]
+    fn test_routing_rule_least_loaded() {
+        let task = Task::new(TaskType::Trading, serde_json::json!({}));
+        let agent_id = AgentId::new("agent");
+        let capabilities = vec![];
+
+        let rule = RoutingRule::LeastLoaded;
+        assert!(!rule.matches(&task, &agent_id, &capabilities));
+    }
+
+    #[test]
+    fn test_routing_rule_custom() {
+        let task = Task::new(TaskType::Trading, serde_json::json!({}));
+        let agent_id = AgentId::new("agent");
+        let capabilities = vec![];
+
+        let rule = RoutingRule::Custom("custom_logic".to_string());
+        assert!(!rule.matches(&task, &agent_id, &capabilities));
+    }
+
+    #[test]
+    fn test_capability_with_parameter() {
+        let capability = Capability::new("test", "1.0")
+            .with_parameter("param1", serde_json::json!("value1"))
+            .with_parameter("param2", serde_json::json!(42));
+
+        assert_eq!(capability.name, "test");
+        assert_eq!(capability.version, "1.0");
+        assert_eq!(capability.parameters.len(), 2);
+        assert_eq!(
+            capability.parameters.get("param1"),
+            Some(&serde_json::json!("value1"))
+        );
+        assert_eq!(
+            capability.parameters.get("param2"),
+            Some(&serde_json::json!(42))
+        );
+    }
+
+    #[test]
+    fn test_agent_state_default() {
+        assert_eq!(AgentState::default(), AgentState::Idle);
+    }
+
+    #[test]
+    fn test_agent_state_all_variants() {
+        // Test all variants can be created and are distinct
+        let states = [
+            AgentState::Active,
+            AgentState::Busy,
+            AgentState::Full,
+            AgentState::Idle,
+            AgentState::Offline,
+            AgentState::Maintenance,
+        ];
+
+        // Ensure all variants are distinct
+        for (i, state1) in states.iter().enumerate() {
+            for (j, state2) in states.iter().enumerate() {
+                if i == j {
+                    assert_eq!(state1, state2);
+                } else {
+                    assert_ne!(state1, state2);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_task_retry_at_limit() {
+        let mut task = Task::new(TaskType::Trading, serde_json::json!({})).with_max_retries(0);
+
+        assert!(!task.can_retry()); // Already at limit
+        task.increment_retry();
+        assert_eq!(task.retry_count, 1);
+        assert!(!task.can_retry());
+    }
+
+    #[test]
+    fn test_task_with_metadata_multiple() {
+        let task = Task::new(TaskType::Trading, serde_json::json!({}))
+            .with_metadata("key1", serde_json::json!("value1"))
+            .with_metadata("key2", serde_json::json!(42))
+            .with_metadata("key3", serde_json::json!({"nested": "object"}));
+
+        assert_eq!(task.metadata.len(), 3);
+        assert_eq!(
+            task.metadata.get("key1"),
+            Some(&serde_json::json!("value1"))
+        );
+        assert_eq!(task.metadata.get("key2"), Some(&serde_json::json!(42)));
+        assert_eq!(
+            task.metadata.get("key3"),
+            Some(&serde_json::json!({"nested": "object"}))
+        );
+    }
+
+    #[test]
+    fn test_task_result_success_with_tx_hash() {
+        let data = serde_json::json!({"amount": 100});
+        let tx_hash = Some("0xabcdef".to_string());
+        let duration = Duration::from_millis(200);
+
+        let result = TaskResult::success(data.clone(), tx_hash.clone(), duration);
+
+        match &result {
+            TaskResult::Success {
+                data: result_data,
+                tx_hash: result_tx_hash,
+                duration: result_duration,
+            } => {
+                assert_eq!(*result_data, data);
+                assert_eq!(*result_tx_hash, tx_hash);
+                assert_eq!(*result_duration, duration);
+            }
+            _ => panic!("Expected Success variant"),
+        }
+
+        assert!(result.is_success());
+        assert!(!result.is_retriable());
+    }
+
+    #[test]
+    fn test_task_result_success_without_tx_hash() {
+        let data = serde_json::json!({"amount": 100});
+        let duration = Duration::from_millis(200);
+
+        let result = TaskResult::success(data.clone(), None, duration);
+
+        match &result {
+            TaskResult::Success {
+                data: result_data,
+                tx_hash: result_tx_hash,
+                duration: result_duration,
+            } => {
+                assert_eq!(*result_data, data);
+                assert_eq!(*result_tx_hash, None);
+                assert_eq!(*result_duration, duration);
+            }
+            _ => panic!("Expected Success variant"),
+        }
+    }
+
+    #[test]
+    fn test_task_result_failure_retriable() {
+        let error = "Network timeout".to_string();
+        let duration = Duration::from_millis(150);
+
+        let result = TaskResult::failure(error.clone(), true, duration);
+
+        match &result {
+            TaskResult::Failure {
+                error: result_error,
+                retriable: result_retriable,
+                duration: result_duration,
+            } => {
+                assert_eq!(result_error, &error);
+                assert!(*result_retriable);
+                assert_eq!(*result_duration, duration);
+            }
+            _ => panic!("Expected Failure variant"),
+        }
+
+        assert!(!result.is_success());
+        assert!(result.is_retriable());
+    }
+
+    #[test]
+    fn test_task_result_failure_not_retriable() {
+        let error = "Invalid input".to_string();
+        let duration = Duration::from_millis(50);
+
+        let result = TaskResult::failure(error.clone(), false, duration);
+
+        match &result {
+            TaskResult::Failure {
+                error: result_error,
+                retriable: result_retriable,
+                duration: result_duration,
+            } => {
+                assert_eq!(result_error, &error);
+                assert!(!*result_retriable);
+                assert_eq!(*result_duration, duration);
+            }
+            _ => panic!("Expected Failure variant"),
+        }
+
+        assert!(!result.is_success());
+        assert!(!result.is_retriable());
+    }
+
+    #[test]
+    fn test_task_result_cancelled_variant() {
+        let reason = "User cancelled".to_string();
+
+        let result = TaskResult::cancelled(reason.clone());
+
+        match &result {
+            TaskResult::Cancelled {
+                reason: result_reason,
+            } => {
+                assert_eq!(result_reason, &reason);
+            }
+            _ => panic!("Expected Cancelled variant"),
+        }
+
+        assert!(!result.is_success());
+        assert!(!result.is_retriable());
+    }
+
+    #[test]
+    fn test_task_result_timeout_variant() {
+        let duration = Duration::from_secs(30);
+
+        let result = TaskResult::timeout(duration);
+
+        match &result {
+            TaskResult::Timeout {
+                duration: result_duration,
+            } => {
+                assert_eq!(*result_duration, duration);
+            }
+            _ => panic!("Expected Timeout variant"),
+        }
+
+        assert!(!result.is_success());
+        assert!(!result.is_retriable());
+    }
+
+    #[test]
+    fn test_routing_rule_priority_equal_match() {
+        let task =
+            Task::new(TaskType::Trading, serde_json::json!({})).with_priority(Priority::High);
+        let agent_id = AgentId::new("agent");
+        let capabilities = vec![];
+
+        let rule = RoutingRule::Priority(Priority::High);
+        assert!(rule.matches(&task, &agent_id, &capabilities));
+    }
+
+    #[test]
+    fn test_routing_rule_all_empty() {
+        let task = Task::new(TaskType::Trading, serde_json::json!({}));
+        let agent_id = AgentId::new("agent");
+        let capabilities = vec![];
+
+        let rule = RoutingRule::All(vec![]);
+        assert!(rule.matches(&task, &agent_id, &capabilities)); // Empty All should match
+    }
+
+    #[test]
+    fn test_routing_rule_any_empty() {
+        let task = Task::new(TaskType::Trading, serde_json::json!({}));
+        let agent_id = AgentId::new("agent");
+        let capabilities = vec![];
+
+        let rule = RoutingRule::Any(vec![]);
+        assert!(!rule.matches(&task, &agent_id, &capabilities)); // Empty Any should not match
     }
 }
