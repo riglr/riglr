@@ -3,8 +3,9 @@
 //! This example demonstrates how to use riglr-hyperliquid-tools to build
 //! a derivatives trading agent using the rig framework.
 
+use riglr_config::SolanaNetworkConfig;
 use riglr_core::signer::LocalSolanaSigner;
-use riglr_core::{config::SolanaNetworkConfig, signer::SignerError, SignerContext};
+use riglr_core::{provider::ApplicationContext, signer::SignerError, SignerContext};
 use riglr_hyperliquid_tools::{
     cancel_hyperliquid_order, close_hyperliquid_position, get_hyperliquid_account_info,
     get_hyperliquid_portfolio_risk, get_hyperliquid_positions, place_hyperliquid_order,
@@ -26,15 +27,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let network_config = SolanaNetworkConfig {
         name: "devnet".to_string(),
         rpc_url: "https://api.devnet.solana.com".to_string(),
+        ws_url: None,
         explorer_url: Some("https://explorer.solana.com".to_string()),
     };
     let signer = Arc::new(LocalSolanaSigner::from_keypair(keypair, network_config));
 
     // Execute trading operations within signer context
     SignerContext::with_signer(signer, async {
+        // Create application context
+        let context = ApplicationContext::from_env();
+
         // Example 1: Get account information
         info!("=== Getting Account Information ===");
-        match get_hyperliquid_account_info().await {
+        match get_hyperliquid_account_info(&context).await {
             Ok(account) => {
                 info!("Account: {}", account.user_address);
                 info!("Withdrawable: {}", account.withdrawable_balance);
@@ -46,7 +51,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         // Example 2: Check current positions
         info!("\n=== Getting Current Positions ===");
-        match get_hyperliquid_positions().await {
+        match get_hyperliquid_positions(&context).await {
             Ok(positions) => {
                 if positions.is_empty() {
                     info!("No open positions");
@@ -68,7 +73,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         // Example 3: Set leverage for ETH-PERP
         info!("\n=== Setting Leverage ===");
-        match set_leverage("ETH-PERP".to_string(), 10).await {
+        match set_leverage(&context, "ETH-PERP".to_string(), 10).await {
             Ok(result) => {
                 info!("Leverage result: {} - {}", result.status, result.message);
             }
@@ -78,6 +83,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         // Example 4: Place a limit buy order
         info!("\n=== Placing Limit Buy Order ===");
         match place_hyperliquid_order(
+            &context,
             "ETH-PERP".to_string(),
             "buy".to_string(),
             "0.1".to_string(),
@@ -103,6 +109,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         // Example 5: Place a market sell order
         info!("\n=== Placing Market Sell Order ===");
         match place_hyperliquid_order(
+            &context,
             "BTC-PERP".to_string(),
             "sell".to_string(),
             "0.01".to_string(),
@@ -123,7 +130,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 // Example 6: Cancel the order (if it's not immediately filled)
                 if let Some(order_id) = order.order_id {
                     info!("\n=== Canceling Order ===");
-                    match cancel_hyperliquid_order(order.symbol.clone(), order_id).await {
+                    match cancel_hyperliquid_order(&context, order.symbol.clone(), order_id).await {
                         Ok(cancel_result) => {
                             info!(
                                 "Cancel result: {} - {}",
@@ -139,7 +146,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         // Example 7: Get portfolio risk metrics
         info!("\n=== Portfolio Risk Analysis ===");
-        match get_hyperliquid_portfolio_risk().await {
+        match get_hyperliquid_portfolio_risk(&context).await {
             Ok(risk) => {
                 info!("Portfolio Risk Metrics:");
                 info!("  Total Positions: {}", risk.total_positions);
@@ -158,7 +165,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         // Example 8: Close a position (if any exists)
         info!("\n=== Closing Position (if exists) ===");
-        match close_hyperliquid_position("ETH-PERP".to_string(), None).await {
+        match close_hyperliquid_position(&context, "ETH-PERP".to_string(), None).await {
             Ok(close_result) => {
                 info!("Position close order placed:");
                 info!("  Symbol: {}", close_result.symbol);

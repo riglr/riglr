@@ -52,7 +52,9 @@ use tracing::{debug, info};
 /// # }
 /// ```
 #[tool]
-pub async fn get_hyperliquid_positions() -> Result<Vec<HyperliquidPosition>, ToolError> {
+pub async fn get_hyperliquid_positions(
+    _context: &riglr_core::provider::ApplicationContext,
+) -> Result<Vec<HyperliquidPosition>, ToolError> {
     debug!("Getting Hyperliquid positions");
 
     // Get signer context
@@ -169,13 +171,14 @@ pub async fn get_hyperliquid_positions() -> Result<Vec<HyperliquidPosition>, Too
 /// ```
 #[tool]
 pub async fn close_hyperliquid_position(
+    _context: &riglr_core::provider::ApplicationContext,
     symbol: String,
     size: Option<String>,
 ) -> Result<HyperliquidCloseResult, ToolError> {
     debug!("Closing Hyperliquid position for {}", symbol);
 
     // Get current positions to determine position direction and size
-    let positions = get_hyperliquid_positions().await?;
+    let positions = get_hyperliquid_positions(_context).await?;
 
     let position = positions
         .iter()
@@ -222,6 +225,7 @@ pub async fn close_hyperliquid_position(
 
     // Use the trading module to place a market order
     let order_result = crate::trading::place_hyperliquid_order(
+        _context,
         position.symbol.clone(),
         order_side.to_string(),
         close_size.to_string(),
@@ -304,11 +308,12 @@ pub async fn close_hyperliquid_position(
 /// ```
 #[tool]
 pub async fn get_hyperliquid_position_details(
+    _context: &riglr_core::provider::ApplicationContext,
     symbol: String,
 ) -> Result<Option<HyperliquidPosition>, ToolError> {
     debug!("Getting position details for {}", symbol);
 
-    let positions = get_hyperliquid_positions().await?;
+    let positions = get_hyperliquid_positions(_context).await?;
 
     let position = positions.into_iter().find(|p| {
         p.symbol.eq_ignore_ascii_case(&symbol)
@@ -389,14 +394,16 @@ pub async fn get_hyperliquid_position_details(
 /// # }
 /// ```
 #[tool]
-pub async fn get_hyperliquid_portfolio_risk() -> Result<HyperliquidRiskMetrics, ToolError> {
+pub async fn get_hyperliquid_portfolio_risk(
+    _context: &riglr_core::provider::ApplicationContext,
+) -> Result<HyperliquidRiskMetrics, ToolError> {
     debug!("Calculating portfolio risk metrics");
 
     // Get all positions
-    let positions = get_hyperliquid_positions().await?;
+    let positions = get_hyperliquid_positions(_context).await?;
 
     // Get account info for margin data
-    let account_info = crate::trading::get_hyperliquid_account_info().await?;
+    let account_info = crate::trading::get_hyperliquid_account_info(_context).await?;
 
     let mut total_position_value = 0.0;
     let mut total_unrealized_pnl = 0.0;
