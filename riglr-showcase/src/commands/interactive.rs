@@ -5,13 +5,12 @@ use colored::Colorize;
 use dialoguer::{Input, Select};
 use indicatif::{ProgressBar, ProgressStyle};
 use riglr_config::Config;
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 // Temporarily disabled due to compilation issues
 // use riglr_core::{Agent, ModelBuilder};
 // use riglr_solana_tools::{get_sol_balance, get_jupiter_quote};
 // use riglr_evm_tools::{get_eth_balance, get_erc20_balance}; // Temporarily disabled
 // use riglr_web_tools::{search_tokens, get_crypto_news, search_tweets}; // Temporarily disabled
-use std::collections::HashMap;
 // use tracing::{info, warn}; // Temporarily disabled
 
 /// Chat session context to maintain conversation state
@@ -482,4 +481,379 @@ fn create_agent_description(config: &Config) -> String {
         "Multi-chain AI agent with access to:\n{}\n\nReady to help with blockchain analysis and DeFi operations!",
         capabilities.join("\n")
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use riglr_config::Config;
+
+    fn create_test_config() -> Config {
+        use riglr_config::*;
+
+        Config {
+            app: AppConfig::default(),
+            database: DatabaseConfig::default(),
+            network: NetworkConfig::default(),
+            providers: ProvidersConfig::default(),
+            features: FeaturesConfig::default(),
+        }
+    }
+
+    #[test]
+    fn test_chat_context_default() {
+        let context = ChatContext::default();
+        assert!(!context.session_id.is_empty());
+        assert!(context.session_id.starts_with("chat_"));
+        assert!(context.user_preferences.is_empty());
+        assert!(context.conversation_history.is_empty());
+    }
+
+    #[test]
+    fn test_chat_context_add_exchange_single() {
+        let mut context = ChatContext::default();
+        context.add_exchange("test input".to_string(), "test response".to_string());
+
+        assert_eq!(context.conversation_history.len(), 1);
+        assert_eq!(context.conversation_history[0].0, "test input");
+        assert_eq!(context.conversation_history[0].1, "test response");
+    }
+
+    #[test]
+    fn test_chat_context_add_exchange_limit_history() {
+        let mut context = ChatContext::default();
+
+        // Add 12 exchanges (exceeds the 10 limit)
+        for i in 0..12 {
+            context.add_exchange(format!("input {}", i), format!("response {}", i));
+        }
+
+        // Should only keep the last 10
+        assert_eq!(context.conversation_history.len(), 10);
+        assert_eq!(context.conversation_history[0].0, "input 2"); // First exchange should be from index 2
+        assert_eq!(context.conversation_history[9].0, "input 11"); // Last exchange should be from index 11
+    }
+
+    #[tokio::test]
+    async fn test_handle_balance_query_with_ethereum_address() {
+        let config = create_test_config();
+        let input = "Check balance for 0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045";
+
+        let result = handle_balance_query(&config, input).await.unwrap();
+
+        assert!(result.contains("0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"));
+        assert!(result.contains("⚡ Ethereum"));
+        assert!(!result.contains("🌟 Solana"));
+    }
+
+    #[tokio::test]
+    async fn test_handle_balance_query_with_solana_address() {
+        let config = create_test_config();
+        let input = "Check balance for 9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM";
+
+        let result = handle_balance_query(&config, input).await.unwrap();
+
+        assert!(result.contains("9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM"));
+        assert!(result.contains("🌟 Solana"));
+        assert!(!result.contains("⚡ Ethereum"));
+    }
+
+    #[tokio::test]
+    async fn test_handle_balance_query_no_address() {
+        let config = create_test_config();
+        let input = "Check my balance";
+
+        let result = handle_balance_query(&config, input).await.unwrap();
+
+        assert!(result.contains("Please provide a wallet address"));
+        assert!(result.contains("For example"));
+    }
+
+    #[tokio::test]
+    async fn test_handle_swap_query() {
+        let config = create_test_config();
+        let input = "Get quote for 1 SOL to USDC";
+
+        let result = handle_swap_query(&config, input).await.unwrap();
+
+        assert!(result.contains("🔄 I can help you with swap information"));
+        assert!(result.contains("Jupiter DEX"));
+        assert!(result.contains("Uniswap"));
+    }
+
+    #[tokio::test]
+    async fn test_handle_news_query_general() {
+        let config = create_test_config();
+        let input = "Latest news";
+
+        let result = handle_news_query(&config, input).await.unwrap();
+
+        assert!(result.contains("📰 Fetching latest crypto news"));
+        assert!(result.contains("Bitcoin reaches new all-time high"));
+        assert!(result.contains("Ethereum 2.0 staking"));
+    }
+
+    #[tokio::test]
+    async fn test_handle_news_query_with_search_term() {
+        let config = create_test_config();
+        let input = "Latest news about Bitcoin";
+
+        let result = handle_news_query(&config, input).await.unwrap();
+
+        assert!(result.contains("🔍 Searching news about: Bitcoin"));
+        assert!(result.contains("📰 Fetching latest crypto news"));
+    }
+
+    #[tokio::test]
+    async fn test_handle_social_query_with_twitter_token() {
+        let mut config = create_test_config();
+        config.providers.twitter_bearer_token = Some("test_token".to_string());
+        let input = "What's the sentiment around Solana?";
+
+        let result = handle_social_query(&config, input).await.unwrap();
+
+        assert!(result.contains("🐦 Social Sentiment Analysis Available"));
+        assert!(result.contains("Twitter sentiment"));
+    }
+
+    #[tokio::test]
+    async fn test_handle_social_query_without_twitter_token() {
+        let config = create_test_config();
+        let input = "What's the sentiment around Solana?";
+
+        let result = handle_social_query(&config, input).await.unwrap();
+
+        assert!(result.contains("requires Twitter API configuration"));
+        assert!(result.contains("TWITTER_BEARER_TOKEN"));
+    }
+
+    #[tokio::test]
+    async fn test_handle_token_info_query_with_token() {
+        let config = create_test_config();
+        let input = "Tell me about SOL token";
+
+        let result = handle_token_info_query(&config, input).await.unwrap();
+
+        assert!(result.contains("🪙 Token Analysis for SOL"));
+        assert!(result.contains("📊 Market Data"));
+        assert!(result.contains("⛓️ Cross-Chain Presence"));
+    }
+
+    #[tokio::test]
+    async fn test_handle_token_info_query_with_uppercase_token() {
+        let config = create_test_config();
+        let input = "What's the USDC price?";
+
+        let result = handle_token_info_query(&config, input).await.unwrap();
+
+        assert!(result.contains("🪙 Token Analysis for USDC"));
+    }
+
+    #[tokio::test]
+    async fn test_handle_token_info_query_no_token() {
+        let config = create_test_config();
+        let input = "Tell me about token information";
+
+        let result = handle_token_info_query(&config, input).await.unwrap();
+
+        assert!(result.contains("Please specify a token symbol"));
+        assert!(result.contains("For example"));
+    }
+
+    #[tokio::test]
+    async fn test_handle_cross_chain_query() {
+        let config = create_test_config();
+        let input = "Compare liquidity across chains";
+
+        let result = handle_cross_chain_query(&config, input).await.unwrap();
+
+        assert!(result.contains("🌐 Cross-Chain Analysis Available"));
+        assert!(result.contains("Multi-chain token presence"));
+        assert!(result.contains("🌟 Solana"));
+        assert!(result.contains("⚡ Ethereum"));
+    }
+
+    #[tokio::test]
+    async fn test_process_user_input_balance_intent() {
+        let config = create_test_config();
+        let mut context = ChatContext::default();
+        let input = "Check my wallet balance";
+
+        let result = process_user_input(&config, input, &mut context)
+            .await
+            .unwrap();
+
+        assert!(result.contains("Please provide a wallet address"));
+    }
+
+    #[tokio::test]
+    async fn test_process_user_input_swap_intent() {
+        let config = create_test_config();
+        let mut context = ChatContext::default();
+        let input = "I want to swap some tokens";
+
+        let result = process_user_input(&config, input, &mut context)
+            .await
+            .unwrap();
+
+        assert!(result.contains("🔄 I can help you with swap information"));
+    }
+
+    #[tokio::test]
+    async fn test_process_user_input_news_intent() {
+        let config = create_test_config();
+        let mut context = ChatContext::default();
+        let input = "Show me the latest crypto news";
+
+        let result = process_user_input(&config, input, &mut context)
+            .await
+            .unwrap();
+
+        assert!(result.contains("📰 Fetching latest crypto news"));
+    }
+
+    #[tokio::test]
+    async fn test_process_user_input_twitter_intent() {
+        let config = create_test_config();
+        let mut context = ChatContext::default();
+        let input = "What's the Twitter sentiment about Bitcoin?";
+
+        let result = process_user_input(&config, input, &mut context)
+            .await
+            .unwrap();
+
+        assert!(result.contains("requires Twitter API configuration"));
+    }
+
+    #[tokio::test]
+    async fn test_process_user_input_token_info_intent() {
+        let config = create_test_config();
+        let mut context = ChatContext::default();
+        let input = "Give me token info for SOL";
+
+        let result = process_user_input(&config, input, &mut context)
+            .await
+            .unwrap();
+
+        assert!(result.contains("🪙 Token Analysis for SOL"));
+    }
+
+    #[tokio::test]
+    async fn test_process_user_input_cross_chain_intent() {
+        let config = create_test_config();
+        let mut context = ChatContext::default();
+        let input = "Show me cross chain opportunities";
+
+        let result = process_user_input(&config, input, &mut context)
+            .await
+            .unwrap();
+
+        assert!(result.contains("🌐 Cross-Chain Analysis Available"));
+    }
+
+    #[tokio::test]
+    async fn test_process_user_input_general_conversation() {
+        let config = create_test_config();
+        let mut context = ChatContext::default();
+        let input = "Hello, how are you?";
+
+        let result = process_user_input(&config, input, &mut context)
+            .await
+            .unwrap();
+
+        assert!(result.contains("Hello, how are you?"));
+        assert!(result.contains("riglr-powered agent"));
+    }
+
+    #[test]
+    fn test_generate_conversational_response_cycles_responses() {
+        let mut context = ChatContext::default();
+        let input = "test input";
+
+        let response1 = generate_conversational_response(input, &context);
+        context.add_exchange("test".to_string(), "test".to_string());
+        let response2 = generate_conversational_response(input, &context);
+        context.add_exchange("test".to_string(), "test".to_string());
+        let response3 = generate_conversational_response(input, &context);
+        context.add_exchange("test".to_string(), "test".to_string());
+        let response4 = generate_conversational_response(input, &context);
+
+        // Should cycle through different responses
+        assert_ne!(response1, response2);
+        assert_ne!(response2, response3);
+        assert_eq!(response1, response4); // Should cycle back to first
+    }
+
+    #[test]
+    fn test_should_offer_quick_actions() {
+        let mut context = ChatContext::default();
+
+        // Should not offer actions initially (0 % 3 != 2)
+        assert!(!should_offer_quick_actions(&context));
+
+        // Add one exchange (1 % 3 != 2)
+        context.add_exchange("test".to_string(), "test".to_string());
+        assert!(!should_offer_quick_actions(&context));
+
+        // Add second exchange (2 % 3 == 2)
+        context.add_exchange("test".to_string(), "test".to_string());
+        assert!(should_offer_quick_actions(&context));
+
+        // Add third exchange (3 % 3 != 2)
+        context.add_exchange("test".to_string(), "test".to_string());
+        assert!(!should_offer_quick_actions(&context));
+    }
+
+    #[test]
+    fn test_create_agent_description_basic() {
+        let config = create_test_config();
+
+        let description = create_agent_description(&config);
+
+        assert!(description.contains("Multi-chain AI agent"));
+        assert!(description.contains("🌟 Solana blockchain queries"));
+        assert!(description.contains("⚡ EVM-compatible chains"));
+        assert!(description.contains("🌐 Web intelligence"));
+        assert!(description.contains("🧠 Graph memory"));
+        assert!(!description.contains("🐦 Twitter sentiment"));
+        assert!(!description.contains("🔍 Advanced web search"));
+    }
+
+    #[test]
+    fn test_create_agent_description_with_twitter() {
+        let mut config = create_test_config();
+        config.providers.twitter_bearer_token = Some("test_token".to_string());
+
+        let description = create_agent_description(&config);
+
+        assert!(description.contains("🐦 Twitter sentiment analysis"));
+    }
+
+    #[test]
+    fn test_create_agent_description_with_exa() {
+        let mut config = create_test_config();
+        config.providers.exa_api_key = Some("test_key".to_string());
+
+        let description = create_agent_description(&config);
+
+        assert!(description.contains("🔍 Advanced web search"));
+    }
+
+    #[test]
+    fn test_create_agent_description_with_all_providers() {
+        let mut config = create_test_config();
+        config.providers.twitter_bearer_token = Some("test_token".to_string());
+        config.providers.exa_api_key = Some("test_key".to_string());
+
+        let description = create_agent_description(&config);
+
+        assert!(description.contains("🐦 Twitter sentiment analysis"));
+        assert!(description.contains("🔍 Advanced web search"));
+    }
+
+    // Note: The show_help, show_context, and offer_quick_actions functions primarily print to stdout
+    // and are difficult to test without mocking the print macros. They contain mostly display logic
+    // with minimal business logic that would benefit from unit testing.
+    // The run_chat function is also an interactive loop that would require complex mocking
+    // of user input to test effectively and is better suited for integration testing.
 }

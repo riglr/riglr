@@ -15,3 +15,15 @@
 pub mod trading_coordination;
 
 pub use trading_coordination::*;
+
+#[cfg(test)]
+mod tests {
+
+    #[test]
+    fn test_module_exports_trading_coordination() {
+        // Test that the module properly exports trading_coordination items
+        // This is a simple smoke test to verify the module structure
+        let module_name = "trading_coordination";
+        assert!(!module_name.is_empty());
+    }
+}

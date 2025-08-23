@@ -8,11 +8,11 @@
 use crate::config::Config;
 use async_trait::async_trait;
 use riglr_agents::{
-    Agent, AgentCommunication, AgentDispatcher, AgentId, AgentMessage, AgentRegistry,
-    ChannelCommunication, DispatchConfig, LocalAgentRegistry, Priority, RoutingStrategy, Task,
-    TaskResult, TaskType,
+    communication::CommunicationConfig, Agent, AgentCommunication, AgentDispatcher, AgentId,
+    AgentMessage, AgentRegistry, ChannelCommunication, DispatchConfig, LocalAgentRegistry,
+    Priority, RoutingStrategy, Task, TaskResult, TaskType,
 };
-use riglr_core::{SignerContext, ToolError};
+use riglr_core::{provider::ApplicationContext, SignerContext, ToolError};
 use riglr_evm_tools::balance::get_eth_balance;
 use riglr_solana_tools::{
     balance::get_sol_balance,
@@ -130,8 +130,20 @@ pub struct MarketIntelligenceAgent {
     communication: Arc<ChannelCommunication>,
     /// Configuration settings
     _config: Config,
+    /// Application context for tool invocations
+    context: ApplicationContext,
     /// Shared trading state reference
     _trading_state: Arc<Mutex<TradingState>>,
+}
+
+impl std::fmt::Debug for MarketIntelligenceAgent {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("MarketIntelligenceAgent")
+            .field("id", &self.id)
+            .field("_config", &"<Config>")
+            .field("context", &"<ApplicationContext>")
+            .finish()
+    }
 }
 
 impl MarketIntelligenceAgent {
@@ -142,10 +154,12 @@ impl MarketIntelligenceAgent {
         config: Config,
         trading_state: Arc<Mutex<TradingState>>,
     ) -> Self {
+        let context = ApplicationContext::from_config(&config);
         Self {
             id: AgentId::new(id),
             communication,
             _config: config,
+            context,
             _trading_state: trading_state,
         }
     }
@@ -155,7 +169,7 @@ impl MarketIntelligenceAgent {
         token_address: &str,
     ) -> Result<serde_json::Value, ToolError> {
         // Use real riglr-solana-tools to get pump.fun token info
-        let token_info = match get_pump_token_info(token_address.to_string()).await {
+        let token_info = match get_pump_token_info(token_address.to_string(), &self.context).await {
             Ok(info) => info,
             Err(e) => {
                 return Err(ToolError::retriable_string(format!(
@@ -167,6 +181,7 @@ impl MarketIntelligenceAgent {
 
         // Use riglr-web-tools to get additional market data
         let dex_data = match get_token_info(
+            &self.context,
             token_address.to_string(),
             Some("solana".to_string()),
             None,
@@ -208,14 +223,19 @@ impl MarketIntelligenceAgent {
         let price_info = 0.0; // Placeholder
 
         // Get additional web data
-        let web_price =
-            match get_web_price("ethereum".to_string(), Some(token_address.to_string())).await {
-                Ok(price) => Some(price),
-                Err(e) => {
-                    tracing::warn!("Failed to get web price: {}", e);
-                    None
-                }
-            };
+        let web_price = match get_web_price(
+            &self.context,
+            token_address.to_string(),
+            Some("ethereum".to_string()),
+        )
+        .await
+        {
+            Ok(price) => Some(price),
+            Err(e) => {
+                tracing::warn!("Failed to get web price: {}", e);
+                None
+            }
+        };
 
         Ok(json!({
             "network": "ethereum",
@@ -334,12 +354,26 @@ pub struct RiskManagementAgent {
     communication: Arc<ChannelCommunication>,
     /// Configuration settings
     _config: Config,
+    /// Application context for tool invocations
+    context: ApplicationContext,
     /// Shared trading state reference
     trading_state: Arc<Mutex<TradingState>>,
     /// Maximum position size as percentage of portfolio
     max_position_size: f64,
     /// Maximum daily loss as percentage of portfolio
     max_daily_loss: f64,
+}
+
+impl std::fmt::Debug for RiskManagementAgent {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("RiskManagementAgent")
+            .field("id", &self.id)
+            .field("_config", &"<Config>")
+            .field("context", &"<ApplicationContext>")
+            .field("max_position_size", &self.max_position_size)
+            .field("max_daily_loss", &self.max_daily_loss)
+            .finish()
+    }
 }
 
 impl RiskManagementAgent {
@@ -350,10 +384,12 @@ impl RiskManagementAgent {
         config: Config,
         trading_state: Arc<Mutex<TradingState>>,
     ) -> Self {
+        let context = ApplicationContext::from_config(&config);
         Self {
             id: AgentId::new(id),
             communication,
             _config: config,
+            context,
             trading_state,
             max_position_size: 0.20, // 20% max per position
             max_daily_loss: 0.05,    // 5% max daily loss
@@ -367,10 +403,11 @@ impl RiskManagementAgent {
             .map_err(|e| ToolError::permanent_string(format!("No signer context: {}", e)))?;
 
         // Get SOL balance
-        let sol_address = signer.address().ok_or_else(|| {
-            ToolError::permanent_string("No Solana address available".to_string())
-        })?;
-        let sol_balance = match get_sol_balance(sol_address).await {
+        let sol_address = signer
+            .as_solana()
+            .ok_or_else(|| ToolError::permanent_string("No Solana signer available".to_string()))?
+            .address();
+        let sol_balance = match get_sol_balance(sol_address, &self.context).await {
             Ok(balance_result) => {
                 // Parse the formatted balance string to f64
                 balance_result.formatted.parse::<f64>().unwrap_or(0.0)
@@ -384,7 +421,7 @@ impl RiskManagementAgent {
         // Get ETH balance - need to provide a default EVM address since signer may not have one
         // In a real implementation, this would get the actual EVM address from the signer
         let default_eth_address = "0x742d35Cc2F5f8a89A0D2EAd5a53c97c49444E34F".to_string();
-        let eth_balance = match get_eth_balance(default_eth_address, None).await {
+        let eth_balance = match get_eth_balance(default_eth_address, None, &self.context).await {
             Ok(balance_result) => {
                 // Parse the formatted balance string to f64
                 balance_result
@@ -546,8 +583,20 @@ pub struct TradeExecutionAgent {
     communication: Arc<ChannelCommunication>,
     /// Configuration settings
     _config: Config,
+    /// Application context for tool invocations
+    context: ApplicationContext,
     /// Shared trading state reference
     _trading_state: Arc<Mutex<TradingState>>,
+}
+
+impl std::fmt::Debug for TradeExecutionAgent {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("TradeExecutionAgent")
+            .field("id", &self.id)
+            .field("_config", &"<Config>")
+            .field("context", &"<ApplicationContext>")
+            .finish()
+    }
 }
 
 impl TradeExecutionAgent {
@@ -558,10 +607,12 @@ impl TradeExecutionAgent {
         config: Config,
         trading_state: Arc<Mutex<TradingState>>,
     ) -> Self {
+        let context = ApplicationContext::from_config(&config);
         Self {
             id: AgentId::new(id),
             communication,
             _config: config,
+            context,
             _trading_state: trading_state,
         }
     }
@@ -589,6 +640,7 @@ impl TradeExecutionAgent {
             token_address.to_string(),
             amount_sol,
             Some(0.05), // 5% slippage
+            &self.context,
         )
         .await?;
 
@@ -777,7 +829,9 @@ pub async fn demonstrate_trading_coordination(
     let trading_state = Arc::new(Mutex::new(TradingState::default()));
 
     // Initialize communication
-    let communication = Arc::new(ChannelCommunication::new());
+    let communication = Arc::new(ChannelCommunication::with_config(
+        CommunicationConfig::default(),
+    ));
 
     // Create real trading agents
     let intelligence_agent = Arc::new(MarketIntelligenceAgent::new(
@@ -947,4 +1001,870 @@ pub async fn demonstrate_trading_coordination(
     println!("  ✅ Production-ready error handling");
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use riglr_agents::TaskType;
+    use riglr_web_tools::dexscreener::TokenInfo;
+
+    // Mock config for testing
+    fn mock_config() -> Config {
+        Config::builder().build().unwrap()
+    }
+
+    // Helper to create test trading state
+    fn test_trading_state() -> Arc<Mutex<TradingState>> {
+        let mut state = TradingState::default();
+        state.portfolio_value_usd = 10000.0;
+        state.available_balance_eth = 5.0;
+        state.available_balance_sol = 100.0;
+        state.daily_pnl = 0.02; // 2% gain
+        state.risk_exposure = 0.1; // 10%
+
+        // Add a test position
+        let position = Position {
+            symbol: "BTC".to_string(),
+            amount: 0.1,
+            avg_price: 45000.0,
+            current_price: 46000.0,
+            pnl: 100.0,
+            network: "ethereum".to_string(),
+            entry_time: chrono::Utc::now(),
+        };
+        state.active_positions.insert("BTC".to_string(), position);
+
+        Arc::new(Mutex::new(state))
+    }
+
+    #[test]
+    fn test_trading_state_default() {
+        let state = TradingState::default();
+        assert!(state.active_positions.is_empty());
+        assert!(state.pending_orders.is_empty());
+        assert_eq!(state.portfolio_value_usd, 0.0);
+        assert_eq!(state.available_balance_eth, 0.0);
+        assert_eq!(state.available_balance_sol, 0.0);
+        assert_eq!(state.daily_pnl, 0.0);
+        assert_eq!(state.risk_exposure, 0.0);
+    }
+
+    #[test]
+    fn test_position_creation() {
+        let entry_time = chrono::Utc::now();
+        let position = Position {
+            symbol: "ETH".to_string(),
+            amount: 10.0,
+            avg_price: 2000.0,
+            current_price: 2100.0,
+            pnl: 1000.0,
+            network: "ethereum".to_string(),
+            entry_time,
+        };
+
+        assert_eq!(position.symbol, "ETH");
+        assert_eq!(position.amount, 10.0);
+        assert_eq!(position.avg_price, 2000.0);
+        assert_eq!(position.current_price, 2100.0);
+        assert_eq!(position.pnl, 1000.0);
+        assert_eq!(position.network, "ethereum");
+        assert_eq!(position.entry_time, entry_time);
+    }
+
+    #[test]
+    fn test_order_creation() {
+        let order = Order {
+            id: "order-123".to_string(),
+            symbol: "SOL".to_string(),
+            side: OrderSide::Buy,
+            amount: 50.0,
+            price: Some(120.0),
+            network: "solana".to_string(),
+            status: OrderStatus::Pending,
+        };
+
+        assert_eq!(order.id, "order-123");
+        assert_eq!(order.symbol, "SOL");
+        assert!(matches!(order.side, OrderSide::Buy));
+        assert_eq!(order.amount, 50.0);
+        assert_eq!(order.price, Some(120.0));
+        assert_eq!(order.network, "solana");
+        assert!(matches!(order.status, OrderStatus::Pending));
+    }
+
+    #[test]
+    fn test_order_side_variants() {
+        let buy_order = OrderSide::Buy;
+        let sell_order = OrderSide::Sell;
+
+        assert!(matches!(buy_order, OrderSide::Buy));
+        assert!(matches!(sell_order, OrderSide::Sell));
+    }
+
+    #[test]
+    fn test_order_status_variants() {
+        assert!(matches!(OrderStatus::Pending, OrderStatus::Pending));
+        assert!(matches!(OrderStatus::Executing, OrderStatus::Executing));
+        assert!(matches!(OrderStatus::Completed, OrderStatus::Completed));
+        assert!(matches!(OrderStatus::Failed, OrderStatus::Failed));
+    }
+
+    #[tokio::test]
+    async fn test_market_intelligence_agent_new() {
+        let communication = Arc::new(ChannelCommunication::with_config(
+            CommunicationConfig::default(),
+        ));
+        let config = mock_config();
+        let trading_state = test_trading_state();
+
+        let agent =
+            MarketIntelligenceAgent::new("test-intel", communication, config, trading_state);
+
+        assert_eq!(agent.id.as_str(), "test-intel");
+        assert_eq!(
+            agent.capabilities(),
+            vec![
+                "research",
+                "market_analysis",
+                "solana_analysis",
+                "ethereum_analysis"
+            ]
+        );
+    }
+
+    #[tokio::test]
+    async fn test_market_intelligence_agent_calculate_liquidity_score() {
+        let communication = Arc::new(ChannelCommunication::with_config(
+            CommunicationConfig::default(),
+        ));
+        let config = mock_config();
+        let trading_state = test_trading_state();
+
+        let agent =
+            MarketIntelligenceAgent::new("test-intel", communication, config, trading_state);
+
+        let empty_value = serde_json::json!({});
+        let score = agent.calculate_liquidity_score(&empty_value).await;
+        assert_eq!(score, 0.75);
+    }
+
+    #[tokio::test]
+    async fn test_market_intelligence_agent_calculate_momentum_score_with_data() {
+        let communication = Arc::new(ChannelCommunication::with_config(
+            CommunicationConfig::default(),
+        ));
+        let config = mock_config();
+        let trading_state = test_trading_state();
+
+        let agent =
+            MarketIntelligenceAgent::new("test-intel", communication, config, trading_state);
+
+        let token_info = TokenInfo {
+            address: "test".to_string(),
+            name: "Test Token".to_string(),
+            symbol: "TEST".to_string(),
+            decimals: 18,
+            price_usd: Some(1.5),
+            price_change_24h: Some(0.8),
+            market_cap: None,
+            volume_24h: None,
+            price_change_1h: None,
+            price_change_5m: None,
+            circulating_supply: None,
+            total_supply: None,
+            pair_count: 0,
+            pairs: vec![],
+            chain: riglr_web_tools::dexscreener::ChainInfo {
+                id: "solana".to_string(),
+                name: "Solana".to_string(),
+                logo: None,
+                native_token: "SOL".to_string(),
+            },
+            security: riglr_web_tools::dexscreener::SecurityInfo {
+                is_verified: false,
+                liquidity_locked: None,
+                audit_status: None,
+                honeypot_status: None,
+                ownership_status: None,
+                risk_score: None,
+            },
+            socials: vec![],
+            updated_at: chrono::Utc::now(),
+        };
+
+        let score = agent.calculate_momentum_score(&Some(token_info)).await;
+        assert_eq!(score, 0.8);
+    }
+
+    #[tokio::test]
+    async fn test_market_intelligence_agent_calculate_momentum_score_without_data() {
+        let communication = Arc::new(ChannelCommunication::with_config(
+            CommunicationConfig::default(),
+        ));
+        let config = mock_config();
+        let trading_state = test_trading_state();
+
+        let agent =
+            MarketIntelligenceAgent::new("test-intel", communication, config, trading_state);
+
+        let score = agent.calculate_momentum_score(&None).await;
+        assert_eq!(score, 0.5);
+    }
+
+    #[tokio::test]
+    async fn test_market_intelligence_agent_calculate_momentum_score_with_high_change() {
+        let communication = Arc::new(ChannelCommunication::with_config(
+            CommunicationConfig::default(),
+        ));
+        let config = mock_config();
+        let trading_state = test_trading_state();
+
+        let agent =
+            MarketIntelligenceAgent::new("test-intel", communication, config, trading_state);
+
+        let token_info = TokenInfo {
+            address: "test".to_string(),
+            name: "Test Token".to_string(),
+            symbol: "TEST".to_string(),
+            decimals: 18,
+            price_usd: Some(1.5),
+            price_change_24h: Some(2.5), // High change that should be capped at 1.0
+            market_cap: None,
+            volume_24h: None,
+            price_change_1h: None,
+            price_change_5m: None,
+            circulating_supply: None,
+            total_supply: None,
+            pair_count: 0,
+            pairs: vec![],
+            chain: riglr_web_tools::dexscreener::ChainInfo {
+                id: "solana".to_string(),
+                name: "Solana".to_string(),
+                logo: None,
+                native_token: "SOL".to_string(),
+            },
+            security: riglr_web_tools::dexscreener::SecurityInfo {
+                is_verified: false,
+                liquidity_locked: None,
+                audit_status: None,
+                honeypot_status: None,
+                ownership_status: None,
+                risk_score: None,
+            },
+            socials: vec![],
+            updated_at: chrono::Utc::now(),
+        };
+
+        let score = agent.calculate_momentum_score(&Some(token_info)).await;
+        assert_eq!(score, 1.0); // Should be capped at 1.0
+    }
+
+    #[tokio::test]
+    async fn test_market_intelligence_agent_execute_task_missing_network() {
+        let communication = Arc::new(ChannelCommunication::with_config(
+            CommunicationConfig::default(),
+        ));
+        let config = mock_config();
+        let trading_state = test_trading_state();
+
+        let agent =
+            MarketIntelligenceAgent::new("test-intel", communication, config, trading_state);
+
+        let task = Task::new(
+            TaskType::Research,
+            json!({
+                "token_address": "test-token"
+            }),
+        );
+
+        let result = agent.execute_task(task).await;
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Missing network parameter"));
+    }
+
+    #[tokio::test]
+    async fn test_market_intelligence_agent_execute_task_missing_token_address() {
+        let communication = Arc::new(ChannelCommunication::with_config(
+            CommunicationConfig::default(),
+        ));
+        let config = mock_config();
+        let trading_state = test_trading_state();
+
+        let agent =
+            MarketIntelligenceAgent::new("test-intel", communication, config, trading_state);
+
+        let task = Task::new(
+            TaskType::Research,
+            json!({
+                "network": "solana"
+            }),
+        );
+
+        let result = agent.execute_task(task).await;
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Missing token_address parameter"));
+    }
+
+    #[tokio::test]
+    async fn test_market_intelligence_agent_execute_task_unsupported_network() {
+        let communication = Arc::new(ChannelCommunication::with_config(
+            CommunicationConfig::default(),
+        ));
+        let config = mock_config();
+        let trading_state = test_trading_state();
+
+        let agent =
+            MarketIntelligenceAgent::new("test-intel", communication, config, trading_state);
+
+        let task = Task::new(
+            TaskType::Research,
+            json!({
+                "network": "unsupported",
+                "token_address": "test-token"
+            }),
+        );
+
+        let result = agent.execute_task(task).await;
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Unsupported network: unsupported"));
+    }
+
+    #[tokio::test]
+    async fn test_risk_management_agent_new() {
+        let communication = Arc::new(ChannelCommunication::with_config(
+            CommunicationConfig::default(),
+        ));
+        let config = mock_config();
+        let trading_state = test_trading_state();
+
+        let agent = RiskManagementAgent::new("test-risk", communication, config, trading_state);
+
+        assert_eq!(agent.id.as_str(), "test-risk");
+        assert_eq!(agent.max_position_size, 0.20);
+        assert_eq!(agent.max_daily_loss, 0.05);
+        assert_eq!(
+            agent.capabilities(),
+            vec![
+                "risk_analysis",
+                "portfolio_management",
+                "balance_tracking",
+                "limit_monitoring"
+            ]
+        );
+    }
+
+    #[tokio::test]
+    async fn test_risk_management_agent_assess_trade_risk_approved() {
+        let communication = Arc::new(ChannelCommunication::with_config(
+            CommunicationConfig::default(),
+        ));
+        let config = mock_config();
+        let trading_state = test_trading_state();
+
+        let agent = RiskManagementAgent::new("test-risk", communication, config, trading_state);
+
+        let trade_params = json!({
+            "network": "ethereum",
+            "amount": 100.0,
+            "symbol": "ETH"
+        });
+
+        let market_analysis = json!({});
+
+        let assessment = agent
+            .assess_trade_risk(&trade_params, &market_analysis)
+            .await;
+        assert_eq!(assessment.get("symbol").unwrap().as_str().unwrap(), "ETH");
+        assert_eq!(
+            assessment.get("network").unwrap().as_str().unwrap(),
+            "ethereum"
+        );
+        assert_eq!(assessment.get("amount").unwrap().as_f64().unwrap(), 100.0);
+        assert!(assessment.get("approved").unwrap().as_bool().unwrap());
+    }
+
+    #[tokio::test]
+    async fn test_risk_management_agent_assess_trade_risk_rejected_large_position() {
+        let communication = Arc::new(ChannelCommunication::with_config(
+            CommunicationConfig::default(),
+        ));
+        let config = mock_config();
+        let trading_state = test_trading_state();
+
+        let agent = RiskManagementAgent::new("test-risk", communication, config, trading_state);
+
+        let trade_params = json!({
+            "network": "solana",
+            "amount": 5000.0, // Large position that should be rejected
+            "symbol": "SOL"
+        });
+
+        let market_analysis = json!({});
+
+        let assessment = agent
+            .assess_trade_risk(&trade_params, &market_analysis)
+            .await;
+        assert_eq!(assessment.get("symbol").unwrap().as_str().unwrap(), "SOL");
+        assert_eq!(
+            assessment.get("network").unwrap().as_str().unwrap(),
+            "solana"
+        );
+        assert!(!assessment.get("approved").unwrap().as_bool().unwrap());
+
+        let recommendations = assessment
+            .get("recommendations")
+            .unwrap()
+            .as_array()
+            .unwrap();
+        assert!(recommendations
+            .iter()
+            .any(|r| r.as_str().unwrap() == "REJECT"));
+    }
+
+    #[tokio::test]
+    async fn test_risk_management_agent_assess_trade_risk_concentration_risk() {
+        let communication = Arc::new(ChannelCommunication::with_config(
+            CommunicationConfig::default(),
+        ));
+        let config = mock_config();
+        let trading_state = test_trading_state();
+
+        let agent = RiskManagementAgent::new("test-risk", communication, config, trading_state);
+
+        let trade_params = json!({
+            "network": "ethereum",
+            "amount": 100.0,
+            "symbol": "BTC" // Already have position in BTC
+        });
+
+        let market_analysis = json!({});
+
+        let assessment = agent
+            .assess_trade_risk(&trade_params, &market_analysis)
+            .await;
+        let risk_factors = assessment.get("risk_factors").unwrap();
+        assert!(risk_factors
+            .get("concentration_risk")
+            .unwrap()
+            .as_bool()
+            .unwrap());
+    }
+
+    #[tokio::test]
+    async fn test_risk_management_agent_assess_trade_risk_default_values() {
+        let communication = Arc::new(ChannelCommunication::with_config(
+            CommunicationConfig::default(),
+        ));
+        let config = mock_config();
+        let trading_state = test_trading_state();
+
+        let agent = RiskManagementAgent::new("test-risk", communication, config, trading_state);
+
+        let trade_params = json!({}); // Empty params to test defaults
+        let market_analysis = json!({});
+
+        let assessment = agent
+            .assess_trade_risk(&trade_params, &market_analysis)
+            .await;
+        assert_eq!(
+            assessment.get("symbol").unwrap().as_str().unwrap(),
+            "UNKNOWN"
+        );
+        assert_eq!(
+            assessment.get("network").unwrap().as_str().unwrap(),
+            "unknown"
+        );
+        assert_eq!(assessment.get("amount").unwrap().as_f64().unwrap(), 0.0);
+    }
+
+    #[tokio::test]
+    async fn test_risk_management_agent_execute_task_missing_trade_params() {
+        let communication = Arc::new(ChannelCommunication::with_config(
+            CommunicationConfig::default(),
+        ));
+        let config = mock_config();
+        let trading_state = test_trading_state();
+
+        let agent = RiskManagementAgent::new("test-risk", communication, config, trading_state);
+
+        let task = Task::new(
+            TaskType::RiskAnalysis,
+            json!({
+                "market_analysis": {}
+            }),
+        );
+
+        let result = agent.execute_task(task).await;
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Missing trade_params"));
+    }
+
+    #[tokio::test]
+    async fn test_risk_management_agent_execute_task_missing_market_analysis() {
+        let communication = Arc::new(ChannelCommunication::with_config(
+            CommunicationConfig::default(),
+        ));
+        let config = mock_config();
+        let trading_state = test_trading_state();
+
+        let agent = RiskManagementAgent::new("test-risk", communication, config, trading_state);
+
+        let task = Task::new(
+            TaskType::RiskAnalysis,
+            json!({
+                "trade_params": {}
+            }),
+        );
+
+        let result = agent.execute_task(task).await;
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Missing market_analysis"));
+    }
+
+    #[tokio::test]
+    async fn test_trade_execution_agent_new() {
+        let communication = Arc::new(ChannelCommunication::with_config(
+            CommunicationConfig::default(),
+        ));
+        let config = mock_config();
+        let trading_state = test_trading_state();
+
+        let agent = TradeExecutionAgent::new("test-exec", communication, config, trading_state);
+
+        assert_eq!(agent.id.as_str(), "test-exec");
+        assert_eq!(
+            agent.capabilities(),
+            vec![
+                "trading",
+                "blockchain_execution",
+                "solana_trading",
+                "ethereum_trading"
+            ]
+        );
+    }
+
+    #[tokio::test]
+    async fn test_trade_execution_agent_execute_solana_trade_missing_token_address() {
+        let communication = Arc::new(ChannelCommunication::with_config(
+            CommunicationConfig::default(),
+        ));
+        let config = mock_config();
+        let trading_state = test_trading_state();
+
+        let agent = TradeExecutionAgent::new("test-exec", communication, config, trading_state);
+
+        let trade_params = json!({
+            "amount": 1.0
+        });
+
+        let result = agent.execute_solana_trade(&trade_params).await;
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Missing token_address for Solana trade"));
+    }
+
+    #[tokio::test]
+    async fn test_trade_execution_agent_execute_solana_trade_missing_amount() {
+        let communication = Arc::new(ChannelCommunication::with_config(
+            CommunicationConfig::default(),
+        ));
+        let config = mock_config();
+        let trading_state = test_trading_state();
+
+        let agent = TradeExecutionAgent::new("test-exec", communication, config, trading_state);
+
+        let trade_params = json!({
+            "token_address": "test-address"
+        });
+
+        let result = agent.execute_solana_trade(&trade_params).await;
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Missing amount for Solana trade"));
+    }
+
+    #[tokio::test]
+    async fn test_trade_execution_agent_execute_ethereum_trade_missing_token_address() {
+        let communication = Arc::new(ChannelCommunication::with_config(
+            CommunicationConfig::default(),
+        ));
+        let config = mock_config();
+        let trading_state = test_trading_state();
+
+        let agent = TradeExecutionAgent::new("test-exec", communication, config, trading_state);
+
+        let trade_params = json!({
+            "amount": 1.0
+        });
+
+        let result = agent.execute_ethereum_trade(&trade_params).await;
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Missing token_address for Ethereum trade"));
+    }
+
+    #[tokio::test]
+    async fn test_trade_execution_agent_execute_ethereum_trade_missing_amount() {
+        let communication = Arc::new(ChannelCommunication::with_config(
+            CommunicationConfig::default(),
+        ));
+        let config = mock_config();
+        let trading_state = test_trading_state();
+
+        let agent = TradeExecutionAgent::new("test-exec", communication, config, trading_state);
+
+        let trade_params = json!({
+            "token_address": "test-address"
+        });
+
+        let result = agent.execute_ethereum_trade(&trade_params).await;
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Missing amount for Ethereum trade"));
+    }
+
+    #[tokio::test]
+    async fn test_trade_execution_agent_execute_ethereum_trade_success() {
+        let communication = Arc::new(ChannelCommunication::with_config(
+            CommunicationConfig::default(),
+        ));
+        let config = mock_config();
+        let trading_state = test_trading_state();
+
+        let agent = TradeExecutionAgent::new("test-exec", communication, config, trading_state);
+
+        let trade_params = json!({
+            "token_address": "0x1234567890123456789012345678901234567890",
+            "amount": 1.5
+        });
+
+        let result = agent.execute_ethereum_trade(&trade_params).await;
+        assert!(result.is_ok());
+
+        let trade_result = result.unwrap();
+        assert_eq!(
+            trade_result.get("network").unwrap().as_str().unwrap(),
+            "ethereum"
+        );
+        assert_eq!(
+            trade_result.get("token_address").unwrap().as_str().unwrap(),
+            "0x1234567890123456789012345678901234567890"
+        );
+        assert_eq!(
+            trade_result.get("amount_eth").unwrap().as_f64().unwrap(),
+            1.5
+        );
+        assert_eq!(
+            trade_result.get("status").unwrap().as_str().unwrap(),
+            "completed"
+        );
+        assert_eq!(
+            trade_result.get("executor").unwrap().as_str().unwrap(),
+            "test-exec"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_trade_execution_agent_update_portfolio_state() {
+        let communication = Arc::new(ChannelCommunication::with_config(
+            CommunicationConfig::default(),
+        ));
+        let config = mock_config();
+        let trading_state = test_trading_state();
+
+        let agent =
+            TradeExecutionAgent::new("test-exec", communication, config, trading_state.clone());
+
+        let trade_result = json!({
+            "token_address": "NEW_TOKEN",
+            "tokens_received": 500.0,
+            "price_paid": 2.5,
+            "network": "solana"
+        });
+
+        agent.update_portfolio_state(&trade_result).await;
+
+        let state = trading_state.lock().unwrap();
+        assert!(state.active_positions.contains_key("NEW_TOKEN"));
+
+        let position = state.active_positions.get("NEW_TOKEN").unwrap();
+        assert_eq!(position.symbol, "NEW_TOKEN");
+        assert_eq!(position.amount, 500.0);
+        assert_eq!(position.avg_price, 2.5);
+        assert_eq!(position.current_price, 2.5);
+        assert_eq!(position.pnl, 0.0);
+        assert_eq!(position.network, "solana");
+    }
+
+    #[tokio::test]
+    async fn test_trade_execution_agent_update_portfolio_state_missing_data() {
+        let communication = Arc::new(ChannelCommunication::with_config(
+            CommunicationConfig::default(),
+        ));
+        let config = mock_config();
+        let trading_state = test_trading_state();
+
+        let agent =
+            TradeExecutionAgent::new("test-exec", communication, config, trading_state.clone());
+
+        let trade_result = json!({
+            "some_other_field": "value"
+        });
+
+        let initial_count = trading_state.lock().unwrap().active_positions.len();
+        agent.update_portfolio_state(&trade_result).await;
+        let final_count = trading_state.lock().unwrap().active_positions.len();
+
+        // Should not add any new positions
+        assert_eq!(initial_count, final_count);
+    }
+
+    #[tokio::test]
+    async fn test_trade_execution_agent_execute_task_risk_rejected() {
+        let communication = Arc::new(ChannelCommunication::with_config(
+            CommunicationConfig::default(),
+        ));
+        let config = mock_config();
+        let trading_state = test_trading_state();
+
+        let agent = TradeExecutionAgent::new("test-exec", communication, config, trading_state);
+
+        let task = Task::new(
+            TaskType::Trading,
+            json!({
+                "risk_assessment": {
+                    "approved": false
+                },
+                "trade_params": {
+                    "network": "solana",
+                    "token_address": "test-token",
+                    "amount": 1.0
+                }
+            }),
+        );
+
+        let result = agent.execute_task(task).await;
+        assert!(result.is_ok());
+
+        let task_result = result.unwrap();
+        assert!(!task_result.is_success());
+        assert_eq!(
+            task_result.error().unwrap(),
+            "Trade rejected by risk management"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_trade_execution_agent_execute_task_missing_trade_params() {
+        let communication = Arc::new(ChannelCommunication::with_config(
+            CommunicationConfig::default(),
+        ));
+        let config = mock_config();
+        let trading_state = test_trading_state();
+
+        let agent = TradeExecutionAgent::new("test-exec", communication, config, trading_state);
+
+        let task = Task::new(
+            TaskType::Trading,
+            json!({
+                "risk_assessment": {
+                    "approved": true
+                }
+            }),
+        );
+
+        let result = agent.execute_task(task).await;
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Missing trade_params"));
+    }
+
+    #[tokio::test]
+    async fn test_trade_execution_agent_execute_task_missing_network() {
+        let communication = Arc::new(ChannelCommunication::with_config(
+            CommunicationConfig::default(),
+        ));
+        let config = mock_config();
+        let trading_state = test_trading_state();
+
+        let agent = TradeExecutionAgent::new("test-exec", communication, config, trading_state);
+
+        let task = Task::new(
+            TaskType::Trading,
+            json!({
+                "risk_assessment": {
+                    "approved": true
+                },
+                "trade_params": {
+                    "token_address": "test-token",
+                    "amount": 1.0
+                }
+            }),
+        );
+
+        let result = agent.execute_task(task).await;
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Missing network in trade_params"));
+    }
+
+    #[tokio::test]
+    async fn test_trade_execution_agent_execute_task_unsupported_network() {
+        let communication = Arc::new(ChannelCommunication::with_config(
+            CommunicationConfig::default(),
+        ));
+        let config = mock_config();
+        let trading_state = test_trading_state();
+
+        let agent = TradeExecutionAgent::new("test-exec", communication, config, trading_state);
+
+        let task = Task::new(
+            TaskType::Trading,
+            json!({
+                "risk_assessment": {
+                    "approved": true
+                },
+                "trade_params": {
+                    "network": "unsupported",
+                    "token_address": "test-token",
+                    "amount": 1.0
+                }
+            }),
+        );
+
+        let result = agent.execute_task(task).await;
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Unsupported network: unsupported"));
+    }
 }

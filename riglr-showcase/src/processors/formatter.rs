@@ -21,7 +21,9 @@ pub struct MarkdownFormatter {
 
 impl MarkdownFormatter {
     /// Create a new MarkdownFormatter with default settings
-    #[must_use]
+    ///
+    /// This is provided for API consistency. You can also use `MarkdownFormatter::default()`.
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         Self::default()
     }
@@ -114,7 +116,7 @@ impl MarkdownFormatter {
                     serde_json::to_string_pretty(&output.result).unwrap_or_default()
                 ),
             )
-            .replace("{error}", &output.error.as_deref().unwrap_or_default())
+            .replace("{error}", output.error.as_deref().unwrap_or_default())
             .replace("{execution_time}", &output.execution_time_ms.to_string())
     }
 
@@ -202,8 +204,10 @@ pub struct HtmlFormatter {
 }
 
 impl HtmlFormatter {
-    /// Create a new HtmlFormatter with default CSS classes and styles
-    #[must_use]
+    /// Create a new HtmlFormatter with default settings
+    ///
+    /// This is provided for API consistency. You can also use `HtmlFormatter::default()`.
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         Self::default()
     }
@@ -369,7 +373,9 @@ pub struct JsonFormatter {
 
 impl JsonFormatter {
     /// Create a new JsonFormatter with default settings
-    #[must_use]
+    ///
+    /// This is provided for API consistency. You can also use `JsonFormatter::default()`.
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         Self::default()
     }
@@ -473,13 +479,13 @@ impl OutputProcessor for JsonFormatter {
 }
 
 /// Multi-format processor that can output in multiple formats simultaneously
+#[derive(Default)]
 pub struct MultiFormatProcessor {
     formats: Vec<Box<dyn OutputProcessor>>,
 }
 
 impl MultiFormatProcessor {
-    /// Create a new MultiFormatProcessor with no formatters
-    #[must_use]
+    /// Create a new MultiFormatProcessor with no formats
     pub fn new() -> Self {
         Self::default()
     }
@@ -492,7 +498,7 @@ impl MultiFormatProcessor {
 
     /// Create a MultiFormatProcessor with standard formatters (Markdown, HTML, JSON)
     pub fn standard_formats() -> Self {
-        Self::default()
+        Self::new()
             .add_format(MarkdownFormatter::default())
             .add_format(HtmlFormatter::default())
             .add_format(JsonFormatter::default())
@@ -511,7 +517,7 @@ impl OutputProcessor for MultiFormatProcessor {
             // Extract the formatted content and add to combined result
             if let Value::Object(obj) = &formatted.processed_result {
                 for (key, value) in obj {
-                    combined_result[key].clone_from(&value);
+                    combined_result[key].clone_from(value);
                 }
             }
 
@@ -584,14 +590,6 @@ impl Default for JsonFormatter {
     }
 }
 
-impl Default for MultiFormatProcessor {
-    fn default() -> Self {
-        Self {
-            formats: Vec::new(),
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -638,7 +636,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_json_formatter() {
-        let formatter = JsonFormatter::default().with_field_mapping("balance_sol", "balance_solana");
+        let formatter =
+            JsonFormatter::default().with_field_mapping("balance_sol", "balance_solana");
 
         let output = utils::success_output("get_balance", json!({"balance_sol": 1.5}));
 
@@ -680,5 +679,724 @@ mod tests {
             html_escape("Quotes \"test\" & ampersand"),
             "Quotes &quot;test&quot; &amp; ampersand"
         );
+    }
+
+    // Comprehensive tests for MarkdownFormatter
+    #[test]
+    fn test_markdown_formatter_new() {
+        let formatter = MarkdownFormatter::default();
+        assert!(formatter.include_metadata);
+        assert!(formatter.include_timing);
+        assert!(formatter.custom_templates.is_empty());
+    }
+
+    #[test]
+    fn test_markdown_formatter_with_options() {
+        let formatter = MarkdownFormatter::with_options(false, false);
+        assert!(!formatter.include_metadata);
+        assert!(!formatter.include_timing);
+        assert!(formatter.custom_templates.is_empty());
+    }
+
+    #[test]
+    fn test_markdown_formatter_with_template() {
+        let formatter = MarkdownFormatter::default()
+            .with_template("test_tool", "Custom template for {tool_name}");
+
+        assert!(formatter.custom_templates.contains_key("test_tool"));
+        assert_eq!(
+            formatter.custom_templates.get("test_tool").unwrap(),
+            "Custom template for {tool_name}"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_markdown_formatter_with_custom_template() {
+        let formatter = MarkdownFormatter::default()
+            .with_template("test_tool", "## {tool_name}\nStatus: {status}\nResult: {result}\nError: {error}\nTime: {execution_time}ms");
+
+        let output = utils::success_output("test_tool", json!({"key": "value"}));
+        let processed = formatter.process(output).await.unwrap();
+
+        if let Some(markdown) = processed.processed_result.get("markdown") {
+            let content = markdown.as_str().unwrap();
+            assert!(content.contains("## test_tool"));
+            assert!(content.contains("Status: ✅ Success"));
+            assert!(content.contains("Time: 0ms"));
+        }
+    }
+
+    #[tokio::test]
+    async fn test_markdown_formatter_with_error() {
+        let formatter = MarkdownFormatter::default();
+        let output = utils::error_output("test_tool", "Test error message");
+
+        let processed = formatter.process(output).await.unwrap();
+
+        if let Some(markdown) = processed.processed_result.get("markdown") {
+            let content = markdown.as_str().unwrap();
+            assert!(content.contains("❌ Failed"));
+            assert!(content.contains("### Error Details"));
+            assert!(content.contains("Test error message"));
+        }
+    }
+
+    #[tokio::test]
+    async fn test_markdown_formatter_without_metadata() {
+        let formatter = MarkdownFormatter::with_options(false, true);
+        let mut output = utils::success_output("test_tool", json!({"key": "value"}));
+        output
+            .metadata
+            .insert("test_key".to_string(), "test_value".to_string());
+
+        let processed = formatter.process(output).await.unwrap();
+
+        if let Some(markdown) = processed.processed_result.get("markdown") {
+            let content = markdown.as_str().unwrap();
+            assert!(!content.contains("### Metadata"));
+            assert!(!content.contains("test_key"));
+        }
+    }
+
+    #[tokio::test]
+    async fn test_markdown_formatter_without_timing() {
+        let formatter = MarkdownFormatter::with_options(true, false);
+        let mut output = utils::success_output("test_tool", json!({"key": "value"}));
+        output.execution_time_ms = 100;
+
+        let processed = formatter.process(output).await.unwrap();
+
+        if let Some(markdown) = processed.processed_result.get("markdown") {
+            let content = markdown.as_str().unwrap();
+            assert!(!content.contains("Executed in"));
+            assert!(!content.contains("100ms"));
+        }
+    }
+
+    #[tokio::test]
+    async fn test_markdown_formatter_with_null_result() {
+        let formatter = MarkdownFormatter::default();
+        let mut output = utils::success_output("test_tool", json!(null));
+        output.result = serde_json::Value::Null;
+
+        let processed = formatter.process(output).await.unwrap();
+
+        if let Some(markdown) = processed.processed_result.get("markdown") {
+            let content = markdown.as_str().unwrap();
+            assert!(!content.contains("### Result"));
+        }
+    }
+
+    #[test]
+    fn test_markdown_formatter_title_case() {
+        let formatter = MarkdownFormatter::default();
+        assert_eq!(formatter.title_case("hello_world"), "Hello World");
+        assert_eq!(formatter.title_case("single"), "Single");
+        assert_eq!(formatter.title_case(""), "");
+        assert_eq!(
+            formatter.title_case("already_formatted_string"),
+            "Already Formatted String"
+        );
+        assert_eq!(formatter.title_case("a"), "A");
+    }
+
+    #[test]
+    fn test_markdown_formatter_format_json_as_markdown_object() {
+        let formatter = MarkdownFormatter::default();
+        let json_obj = json!({
+            "string_field": "test_value",
+            "number_field": 42,
+            "bool_true": true,
+            "bool_false": false,
+            "complex_field": {"nested": "value"}
+        });
+
+        let result = formatter.format_json_as_markdown(&json_obj);
+        assert!(result.contains("- **String Field:** test_value"));
+        assert!(result.contains("- **Number Field:** `42`"));
+        assert!(result.contains("- **Bool True:** ✅ Yes"));
+        assert!(result.contains("- **Bool False:** ❌ No"));
+        assert!(result.contains("- **Complex Field:** `{\"nested\":\"value\"}`"));
+    }
+
+    #[test]
+    fn test_markdown_formatter_format_json_as_markdown_non_object() {
+        let formatter = MarkdownFormatter::default();
+        let json_array = json!(["item1", "item2"]);
+
+        let result = formatter.format_json_as_markdown(&json_array);
+        assert!(result.contains("```json"));
+        assert!(result.contains("\"item1\""));
+        assert!(result.contains("\"item2\""));
+    }
+
+    #[test]
+    fn test_markdown_formatter_apply_template() {
+        let formatter = MarkdownFormatter::default();
+        let template = "Tool: {tool_name}, Status: {status}, Result: {result}, Error: {error}, Time: {execution_time}";
+        let output = ToolOutput {
+            tool_name: "test_tool".to_string(),
+            success: false,
+            result: json!({"key": "value"}),
+            error: Some("Test error".to_string()),
+            execution_time_ms: 150,
+            metadata: HashMap::new(),
+        };
+
+        let result = formatter.apply_template(template, &output);
+        assert!(result.contains("Tool: test_tool"));
+        assert!(result.contains("Status: ❌ Failed"));
+        assert!(result.contains("Error: Test error"));
+        assert!(result.contains("Time: 150"));
+        assert!(result.contains("```json"));
+    }
+
+    #[test]
+    fn test_markdown_formatter_apply_template_no_error() {
+        let formatter = MarkdownFormatter::default();
+        let template = "Error: {error}";
+        let output = ToolOutput {
+            tool_name: "test_tool".to_string(),
+            success: true,
+            result: json!({}),
+            error: None,
+            execution_time_ms: 0,
+            metadata: HashMap::new(),
+        };
+
+        let result = formatter.apply_template(template, &output);
+        assert_eq!(result, "Error: ");
+    }
+
+    #[test]
+    fn test_markdown_formatter_config() {
+        let formatter = MarkdownFormatter::with_options(false, true)
+            .with_template("tool1", "template1")
+            .with_template("tool2", "template2");
+
+        let config = formatter.config();
+        assert_eq!(config["name"], "MarkdownFormatter");
+        assert_eq!(config["type"], "formatter");
+        assert_eq!(config["format"], "markdown");
+        assert!(!config["include_metadata"].as_bool().unwrap());
+        assert!(config["include_timing"].as_bool().unwrap());
+        assert_eq!(config["custom_templates"], 2);
+    }
+
+    // Comprehensive tests for HtmlFormatter
+    #[test]
+    fn test_html_formatter_new() {
+        let formatter = HtmlFormatter::default();
+        assert!(!formatter.css_classes.is_empty());
+        assert!(formatter.include_styles);
+    }
+
+    #[test]
+    fn test_html_formatter_with_css_classes() {
+        let mut custom_classes = HashMap::new();
+        custom_classes.insert("custom".to_string(), "custom-class".to_string());
+        custom_classes.insert("container".to_string(), "override-container".to_string());
+
+        let formatter = HtmlFormatter::default().with_css_classes(custom_classes);
+
+        assert_eq!(formatter.css_classes.get("custom").unwrap(), "custom-class");
+        assert_eq!(
+            formatter.css_classes.get("container").unwrap(),
+            "override-container"
+        );
+    }
+
+    #[test]
+    fn test_html_formatter_without_styles() {
+        let formatter = HtmlFormatter::default().without_styles();
+        assert!(!formatter.include_styles);
+    }
+
+    #[tokio::test]
+    async fn test_html_formatter_with_styles() {
+        let formatter = HtmlFormatter::default();
+        let output = utils::success_output("test_tool", json!({"key": "value"}));
+
+        let processed = formatter.process(output).await.unwrap();
+
+        if let Some(html) = processed.processed_result.get("html") {
+            let content = html.as_str().unwrap();
+            assert!(content.contains("<style>"));
+            assert!(content.contains(".tool-output"));
+            assert!(content.contains(".status-success"));
+        }
+    }
+
+    #[tokio::test]
+    async fn test_html_formatter_without_styles_content() {
+        let formatter = HtmlFormatter::default().without_styles();
+        let output = utils::success_output("test_tool", json!({"key": "value"}));
+
+        let processed = formatter.process(output).await.unwrap();
+
+        if let Some(html) = processed.processed_result.get("html") {
+            let content = html.as_str().unwrap();
+            assert!(!content.contains("<style>"));
+        }
+    }
+
+    #[tokio::test]
+    async fn test_html_formatter_with_metadata() {
+        let formatter = HtmlFormatter::default();
+        let mut output = utils::success_output("test_tool", json!({"key": "value"}));
+        output
+            .metadata
+            .insert("test_key".to_string(), "test_value".to_string());
+        output
+            .metadata
+            .insert("another_key".to_string(), "another_value".to_string());
+
+        let processed = formatter.process(output).await.unwrap();
+
+        if let Some(html) = processed.processed_result.get("html") {
+            let content = html.as_str().unwrap();
+            assert!(content.contains("<h3>Metadata</h3>"));
+            assert!(content.contains("<ul>"));
+            assert!(content.contains("Test Key"));
+            assert!(content.contains("test_value"));
+        }
+    }
+
+    #[tokio::test]
+    async fn test_html_formatter_with_timing() {
+        let formatter = HtmlFormatter::default();
+        let mut output = utils::success_output("test_tool", json!({"key": "value"}));
+        output.execution_time_ms = 250;
+
+        let processed = formatter.process(output).await.unwrap();
+
+        if let Some(html) = processed.processed_result.get("html") {
+            let content = html.as_str().unwrap();
+            assert!(content.contains("<hr>"));
+            assert!(content.contains("Executed in 250ms"));
+        }
+    }
+
+    #[tokio::test]
+    async fn test_html_formatter_with_null_result() {
+        let formatter = HtmlFormatter::default();
+        let mut output = utils::success_output("test_tool", json!(null));
+        output.result = serde_json::Value::Null;
+
+        let processed = formatter.process(output).await.unwrap();
+
+        if let Some(html) = processed.processed_result.get("html") {
+            let content = html.as_str().unwrap();
+            assert!(!content.contains("<h3>Result</h3>"));
+        }
+    }
+
+    #[test]
+    fn test_html_formatter_title_case() {
+        let formatter = HtmlFormatter::default();
+        assert_eq!(formatter.title_case("hello_world"), "Hello World");
+        assert_eq!(formatter.title_case("single"), "Single");
+        assert_eq!(formatter.title_case(""), "");
+        assert_eq!(formatter.title_case("test_case"), "Test Case");
+    }
+
+    #[test]
+    fn test_html_formatter_config() {
+        let formatter = HtmlFormatter::default().without_styles();
+        let config = formatter.config();
+
+        assert_eq!(config["name"], "HtmlFormatter");
+        assert_eq!(config["type"], "formatter");
+        assert_eq!(config["format"], "html");
+        assert!(!config["include_styles"].as_bool().unwrap());
+        assert!(config["css_classes"].as_u64().unwrap() > 0);
+    }
+
+    // Comprehensive tests for JsonFormatter
+    #[test]
+    fn test_json_formatter_new() {
+        let formatter = JsonFormatter::default();
+        assert!(formatter.pretty_print);
+        assert!(formatter.include_metadata);
+        assert!(formatter.field_mappings.is_empty());
+    }
+
+    #[test]
+    fn test_json_formatter_compact() {
+        let formatter = JsonFormatter::default().compact();
+        assert!(!formatter.pretty_print);
+    }
+
+    #[test]
+    fn test_json_formatter_without_metadata() {
+        let formatter = JsonFormatter::default().without_metadata();
+        assert!(!formatter.include_metadata);
+    }
+
+    #[test]
+    fn test_json_formatter_with_field_mapping() {
+        let formatter = JsonFormatter::default()
+            .with_field_mapping("old_field", "new_field")
+            .with_field_mapping("another_old", "another_new");
+
+        assert_eq!(
+            formatter.field_mappings.get("old_field").unwrap(),
+            "new_field"
+        );
+        assert_eq!(
+            formatter.field_mappings.get("another_old").unwrap(),
+            "another_new"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_json_formatter_compact_output() {
+        let formatter = JsonFormatter::default().compact();
+        let output = utils::success_output("test_tool", json!({"key": "value"}));
+
+        let processed = formatter.process(output).await.unwrap();
+
+        if let Some(json_str) = processed.processed_result.get("json") {
+            let content = json_str.as_str().unwrap();
+            // Compact JSON should not have pretty formatting
+            assert!(!content.contains("  "));
+            assert!(!content.contains("\n"));
+        }
+    }
+
+    #[tokio::test]
+    async fn test_json_formatter_without_metadata_content() {
+        let formatter = JsonFormatter::default().without_metadata();
+        let mut output = utils::success_output("test_tool", json!({"key": "value"}));
+        output
+            .metadata
+            .insert("test_key".to_string(), "test_value".to_string());
+
+        let processed = formatter.process(output).await.unwrap();
+
+        if let Some(structured) = processed.processed_result.get("structured") {
+            assert!(structured.get("metadata").is_none());
+        }
+    }
+
+    #[tokio::test]
+    async fn test_json_formatter_with_metadata_content() {
+        let formatter = JsonFormatter::default();
+        let mut output = utils::success_output("test_tool", json!({"key": "value"}));
+        output
+            .metadata
+            .insert("test_key".to_string(), "test_value".to_string());
+
+        let processed = formatter.process(output).await.unwrap();
+
+        if let Some(structured) = processed.processed_result.get("structured") {
+            assert!(structured.get("metadata").is_some());
+            assert_eq!(structured["metadata"]["test_key"], "test_value");
+        }
+    }
+
+    #[tokio::test]
+    async fn test_json_formatter_with_null_result() {
+        let formatter = JsonFormatter::default();
+        let mut output = utils::success_output("test_tool", json!(null));
+        output.result = serde_json::Value::Null;
+
+        let processed = formatter.process(output).await.unwrap();
+
+        if let Some(structured) = processed.processed_result.get("structured") {
+            assert!(structured.get("data").is_none());
+        }
+    }
+
+    #[tokio::test]
+    async fn test_json_formatter_with_execution_time() {
+        let formatter = JsonFormatter::default();
+        let mut output = utils::success_output("test_tool", json!({"key": "value"}));
+        output.execution_time_ms = 300;
+
+        let processed = formatter.process(output).await.unwrap();
+
+        if let Some(structured) = processed.processed_result.get("structured") {
+            assert_eq!(structured["execution_time_ms"], 300);
+        }
+    }
+
+    #[tokio::test]
+    async fn test_json_formatter_without_execution_time() {
+        let formatter = JsonFormatter::default();
+        let mut output = utils::success_output("test_tool", json!({"key": "value"}));
+        output.execution_time_ms = 0;
+
+        let processed = formatter.process(output).await.unwrap();
+
+        if let Some(structured) = processed.processed_result.get("structured") {
+            assert!(structured.get("execution_time_ms").is_none());
+        }
+    }
+
+    #[test]
+    fn test_json_formatter_remap_fields_object() {
+        let formatter = JsonFormatter::default()
+            .with_field_mapping("old_key", "new_key")
+            .with_field_mapping("another_old", "another_new");
+
+        let input = json!({
+            "old_key": "value1",
+            "another_old": "value2",
+            "unchanged": "value3"
+        });
+
+        let result = formatter.remap_fields(&input);
+
+        assert_eq!(result["new_key"], "value1");
+        assert_eq!(result["another_new"], "value2");
+        assert_eq!(result["unchanged"], "value3");
+        assert!(result.get("old_key").is_none());
+    }
+
+    #[test]
+    fn test_json_formatter_remap_fields_array() {
+        let formatter = JsonFormatter::default().with_field_mapping("old_key", "new_key");
+
+        let input = json!([
+            {"old_key": "value1"},
+            {"old_key": "value2"}
+        ]);
+
+        let result = formatter.remap_fields(&input);
+
+        if let Value::Array(arr) = result {
+            assert_eq!(arr[0]["new_key"], "value1");
+            assert_eq!(arr[1]["new_key"], "value2");
+            assert!(arr[0].get("old_key").is_none());
+        } else {
+            panic!("Expected array result");
+        }
+    }
+
+    #[test]
+    fn test_json_formatter_remap_fields_primitive() {
+        let formatter = JsonFormatter::default();
+        let input = json!("simple_string");
+
+        let result = formatter.remap_fields(&input);
+        assert_eq!(result, "simple_string");
+    }
+
+    #[test]
+    fn test_json_formatter_remap_fields_nested() {
+        let formatter = JsonFormatter::default().with_field_mapping("nested_old", "nested_new");
+
+        let input = json!({
+            "outer": {
+                "nested_old": "value"
+            }
+        });
+
+        let result = formatter.remap_fields(&input);
+        assert_eq!(result["outer"]["nested_new"], "value");
+        assert!(result["outer"].get("nested_old").is_none());
+    }
+
+    #[test]
+    fn test_json_formatter_config() {
+        let formatter = JsonFormatter::default()
+            .compact()
+            .without_metadata()
+            .with_field_mapping("old", "new");
+
+        let config = formatter.config();
+        assert_eq!(config["name"], "JsonFormatter");
+        assert_eq!(config["type"], "formatter");
+        assert_eq!(config["format"], "json");
+        assert!(!config["pretty_print"].as_bool().unwrap());
+        assert!(!config["include_metadata"].as_bool().unwrap());
+        assert_eq!(config["field_mappings"], 1);
+    }
+
+    // Comprehensive tests for MultiFormatProcessor
+    #[test]
+    fn test_multi_format_processor_new() {
+        let processor = MultiFormatProcessor::default();
+        assert!(processor.formats.is_empty());
+    }
+
+    #[test]
+    fn test_multi_format_processor_add_format() {
+        let processor = MultiFormatProcessor::default()
+            .add_format(MarkdownFormatter::default())
+            .add_format(JsonFormatter::default());
+
+        assert_eq!(processor.formats.len(), 2);
+    }
+
+    #[test]
+    fn test_multi_format_processor_standard_formats() {
+        let processor = MultiFormatProcessor::standard_formats();
+        assert_eq!(processor.formats.len(), 3); // Markdown, HTML, JSON
+    }
+
+    #[tokio::test]
+    async fn test_multi_format_processor_empty_formats() {
+        let processor = MultiFormatProcessor::default();
+        let output = utils::success_output("test", json!({"key": "value"}));
+
+        let processed = processor.process(output).await.unwrap();
+
+        assert!(matches!(processed.format, OutputFormat::Custom(_)));
+        assert_eq!(processed.processed_result, json!({}));
+        assert_eq!(processed.summary.unwrap(), "Generated formats: ");
+    }
+
+    #[tokio::test]
+    async fn test_multi_format_processor_single_format() {
+        let processor = MultiFormatProcessor::default().add_format(JsonFormatter::default());
+
+        let output = utils::success_output("test", json!({"key": "value"}));
+        let processed = processor.process(output).await.unwrap();
+
+        assert!(processed.processed_result.get("json").is_some());
+        assert!(processed.summary.unwrap().contains("Json"));
+    }
+
+    #[test]
+    fn test_multi_format_processor_config() {
+        let processor = MultiFormatProcessor::default()
+            .add_format(MarkdownFormatter::default())
+            .add_format(JsonFormatter::default());
+
+        let config = processor.config();
+        assert_eq!(config["name"], "MultiFormatProcessor");
+        assert_eq!(config["type"], "multi_formatter");
+
+        if let Value::Array(formatters) = &config["formatters"] {
+            assert_eq!(formatters.len(), 2);
+        } else {
+            panic!("Expected formatters array in config");
+        }
+    }
+
+    // Tests for Default trait implementations
+    #[test]
+    fn test_markdown_formatter_default() {
+        let formatter = MarkdownFormatter::default();
+        assert!(formatter.include_metadata);
+        assert!(formatter.include_timing);
+        assert!(formatter.custom_templates.is_empty());
+    }
+
+    #[test]
+    fn test_html_formatter_default() {
+        let formatter = HtmlFormatter::default();
+        assert!(formatter.include_styles);
+        assert!(!formatter.css_classes.is_empty());
+        assert_eq!(
+            formatter.css_classes.get("container").unwrap(),
+            "tool-output"
+        );
+        assert_eq!(
+            formatter.css_classes.get("success").unwrap(),
+            "status-success"
+        );
+        assert_eq!(formatter.css_classes.get("error").unwrap(), "status-error");
+        assert_eq!(
+            formatter.css_classes.get("result").unwrap(),
+            "result-content"
+        );
+    }
+
+    #[test]
+    fn test_json_formatter_default() {
+        let formatter = JsonFormatter::default();
+        assert!(formatter.pretty_print);
+        assert!(formatter.include_metadata);
+        assert!(formatter.field_mappings.is_empty());
+    }
+
+    #[test]
+    fn test_multi_format_processor_default() {
+        let processor = MultiFormatProcessor::default();
+        assert!(processor.formats.is_empty());
+    }
+
+    // Edge case tests
+    #[test]
+    fn test_html_escape_empty_string() {
+        assert_eq!(html_escape(""), "");
+    }
+
+    #[test]
+    fn test_html_escape_all_special_chars() {
+        assert_eq!(html_escape("&<>\"'"), "&amp;&lt;&gt;&quot;&#x27;");
+    }
+
+    #[tokio::test]
+    async fn test_markdown_formatter_empty_metadata() {
+        let formatter = MarkdownFormatter::default();
+        let output = utils::success_output("test_tool", json!({"key": "value"}));
+
+        let processed = formatter.process(output).await.unwrap();
+
+        if let Some(markdown) = processed.processed_result.get("markdown") {
+            let content = markdown.as_str().unwrap();
+            assert!(!content.contains("### Metadata"));
+        }
+    }
+
+    #[tokio::test]
+    async fn test_html_formatter_empty_metadata() {
+        let formatter = HtmlFormatter::default();
+        let output = utils::success_output("test_tool", json!({"key": "value"}));
+
+        let processed = formatter.process(output).await.unwrap();
+
+        if let Some(html) = processed.processed_result.get("html") {
+            let content = html.as_str().unwrap();
+            assert!(!content.contains("<h3>Metadata</h3>"));
+        }
+    }
+
+    #[test]
+    fn test_title_case_edge_cases() {
+        let formatter = MarkdownFormatter::default();
+
+        // Test empty string
+        assert_eq!(formatter.title_case(""), "");
+
+        // Test single character
+        assert_eq!(formatter.title_case("a"), "A");
+
+        // Test multiple underscores
+        assert_eq!(formatter.title_case("a__b"), "A  B");
+
+        // Test trailing underscore
+        assert_eq!(formatter.title_case("test_"), "Test ");
+
+        // Test leading underscore
+        assert_eq!(formatter.title_case("_test"), " Test");
+    }
+
+    #[tokio::test]
+    async fn test_formatters_name_method() {
+        let md_formatter = MarkdownFormatter::default();
+        let html_formatter = HtmlFormatter::default();
+        let json_formatter = JsonFormatter::default();
+        let multi_formatter = MultiFormatProcessor::default();
+
+        assert_eq!(md_formatter.name(), "MarkdownFormatter");
+        assert_eq!(html_formatter.name(), "HtmlFormatter");
+        assert_eq!(json_formatter.name(), "JsonFormatter");
+        assert_eq!(multi_formatter.name(), "MultiFormatProcessor");
+    }
+
+    #[tokio::test]
+    async fn test_json_serialization_error_handling() {
+        // Test that the formatter handles serialization gracefully
+        let formatter = JsonFormatter::default();
+        let output = utils::success_output("test_tool", json!({"key": "value"}));
+
+        // This should not panic and should return a valid result
+        let result = formatter.process(output).await;
+        assert!(result.is_ok());
     }
 }
