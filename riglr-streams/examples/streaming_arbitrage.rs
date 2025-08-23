@@ -13,7 +13,8 @@ use riglr_streams::external::{BinanceConfig, BinanceStream};
 use riglr_streams::prelude::*;
 use riglr_streams::solana::{GeyserConfig, SolanaGeyserStream};
 use riglr_streams::tools::condition::EventKindMatcher;
-use riglr_streams::tools::{ConditionCombinator, EventTriggerBuilder, StreamingTool};
+use riglr_streams::tools::event_triggered::EventTriggerBuilder;
+use riglr_streams::tools::{ConditionCombinator, StreamingTool};
 use std::sync::Arc;
 use tracing::info;
 

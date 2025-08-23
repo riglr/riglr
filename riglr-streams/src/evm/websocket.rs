@@ -264,7 +264,6 @@ impl EvmWebSocketStream {
         tokio::spawn(async move {
             crate::impl_resilient_websocket!(
                 stream_name,
-                url.clone(),
                 running,
                 health,
                 event_tx,
@@ -379,5 +378,567 @@ impl EvmWebSocketStream {
             transaction_hash,
             data: json,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use riglr_events_core::prelude::{EventKind, EventMetadata};
+    use serde_json::json;
+    use std::collections::HashMap;
+
+    // Tests for ChainId enum
+
+    #[test]
+    fn test_chain_id_display_when_ethereum_should_return_1() {
+        assert_eq!(ChainId::Ethereum.to_string(), "1");
+    }
+
+    #[test]
+    fn test_chain_id_display_when_polygon_should_return_137() {
+        assert_eq!(ChainId::Polygon.to_string(), "137");
+    }
+
+    #[test]
+    fn test_chain_id_display_when_bsc_should_return_56() {
+        assert_eq!(ChainId::BSC.to_string(), "56");
+    }
+
+    #[test]
+    fn test_chain_id_display_when_arbitrum_should_return_42161() {
+        assert_eq!(ChainId::Arbitrum.to_string(), "42161");
+    }
+
+    #[test]
+    fn test_chain_id_display_when_optimism_should_return_10() {
+        assert_eq!(ChainId::Optimism.to_string(), "10");
+    }
+
+    #[test]
+    fn test_chain_id_display_when_avalanche_should_return_43114() {
+        assert_eq!(ChainId::Avalanche.to_string(), "43114");
+    }
+
+    #[test]
+    fn test_chain_id_display_when_base_should_return_8453() {
+        assert_eq!(ChainId::Base.to_string(), "8453");
+    }
+
+    #[test]
+    fn test_chain_id_from_when_ethereum_should_return_1() {
+        let chain_id: u64 = ChainId::Ethereum.into();
+        assert_eq!(chain_id, 1);
+    }
+
+    #[test]
+    fn test_chain_id_from_when_polygon_should_return_137() {
+        let chain_id: u64 = ChainId::Polygon.into();
+        assert_eq!(chain_id, 137);
+    }
+
+    #[test]
+    fn test_chain_id_from_when_bsc_should_return_56() {
+        let chain_id: u64 = ChainId::BSC.into();
+        assert_eq!(chain_id, 56);
+    }
+
+    #[test]
+    fn test_chain_id_from_when_arbitrum_should_return_42161() {
+        let chain_id: u64 = ChainId::Arbitrum.into();
+        assert_eq!(chain_id, 42161);
+    }
+
+    #[test]
+    fn test_chain_id_from_when_optimism_should_return_10() {
+        let chain_id: u64 = ChainId::Optimism.into();
+        assert_eq!(chain_id, 10);
+    }
+
+    #[test]
+    fn test_chain_id_from_when_avalanche_should_return_43114() {
+        let chain_id: u64 = ChainId::Avalanche.into();
+        assert_eq!(chain_id, 43114);
+    }
+
+    #[test]
+    fn test_chain_id_from_when_base_should_return_8453() {
+        let chain_id: u64 = ChainId::Base.into();
+        assert_eq!(chain_id, 8453);
+    }
+
+    // Tests for EvmStreamConfig
+
+    #[test]
+    fn test_evm_stream_config_default_when_called_should_return_expected_values() {
+        let config = EvmStreamConfig::default();
+
+        assert_eq!(config.ws_url, String::default());
+        assert_eq!(config.chain_id, ChainId::Ethereum);
+        assert!(!config.subscribe_pending_transactions);
+        assert!(config.subscribe_new_blocks);
+        assert_eq!(config.contract_addresses, Vec::<String>::new());
+        assert_eq!(config.buffer_size, 10000);
+    }
+
+    // Tests for EvmStreamEvent
+
+    #[test]
+    fn test_evm_stream_event_stream_metadata_when_called_should_return_some() {
+        let event = create_test_event();
+        let result = event.stream_metadata();
+        assert!(result.is_some());
+        assert_eq!(result.unwrap().stream_source, "test-source");
+    }
+
+    #[test]
+    fn test_evm_stream_event_id_when_called_should_return_metadata_id() {
+        let event = create_test_event();
+        assert_eq!(event.id(), "test-id");
+    }
+
+    #[test]
+    fn test_evm_stream_event_kind_when_called_should_return_metadata_kind() {
+        let event = create_test_event();
+        assert_eq!(event.kind(), &EventKind::Block);
+    }
+
+    #[test]
+    fn test_evm_stream_event_metadata_when_called_should_return_metadata_ref() {
+        let event = create_test_event();
+        let metadata = event.metadata();
+        assert_eq!(metadata.id, "test-id");
+        assert_eq!(metadata.kind, EventKind::Block);
+    }
+
+    #[test]
+    fn test_evm_stream_event_metadata_mut_when_called_should_return_mutable_metadata() {
+        let mut event = create_test_event();
+        let metadata_mut = event.metadata_mut();
+        metadata_mut.id = "modified-id".to_string();
+        assert_eq!(event.metadata().id, "modified-id");
+    }
+
+    #[test]
+    fn test_evm_stream_event_as_any_when_called_should_return_self() {
+        let event = create_test_event();
+        let any = event.as_any();
+        assert!(any.downcast_ref::<EvmStreamEvent>().is_some());
+    }
+
+    #[test]
+    fn test_evm_stream_event_as_any_mut_when_called_should_return_mutable_self() {
+        let mut event = create_test_event();
+        let any_mut = event.as_any_mut();
+        assert!(any_mut.downcast_mut::<EvmStreamEvent>().is_some());
+    }
+
+    #[test]
+    fn test_evm_stream_event_clone_boxed_when_called_should_return_boxed_clone() {
+        let event = create_test_event();
+        let boxed = event.clone_boxed();
+        assert_eq!(boxed.id(), "test-id");
+    }
+
+    #[test]
+    fn test_evm_stream_event_to_json_when_called_should_return_json_value() {
+        let event = create_test_event();
+        let result = event.to_json();
+        assert!(result.is_ok());
+
+        let json = result.unwrap();
+        assert!(json.get("metadata").is_some());
+        assert!(json.get("event_type").is_some());
+        assert!(json.get("stream_meta").is_some());
+        assert!(json.get("chain_id").is_some());
+        assert!(json.get("block_number").is_some());
+        assert!(json.get("transaction_hash").is_some());
+        assert!(json.get("data").is_some());
+    }
+
+    // Tests for EvmWebSocketStream
+
+    #[test]
+    fn test_evm_websocket_stream_new_when_called_should_create_stream() {
+        let stream = EvmWebSocketStream::new("test-stream");
+
+        assert_eq!(stream.name(), "test-stream");
+        assert!(!stream.is_running());
+        assert_eq!(stream.config.chain_id, ChainId::Ethereum);
+    }
+
+    #[test]
+    fn test_evm_websocket_stream_new_when_string_provided_should_convert_to_string() {
+        let stream = EvmWebSocketStream::new("test".to_string());
+        assert_eq!(stream.name(), "test");
+    }
+
+    #[tokio::test]
+    async fn test_evm_websocket_stream_start_when_not_running_should_start() {
+        let mut stream = EvmWebSocketStream::new("test");
+        let config = EvmStreamConfig {
+            ws_url: "ws://test.com".to_string(),
+            chain_id: ChainId::Ethereum,
+            subscribe_pending_transactions: true,
+            subscribe_new_blocks: true,
+            contract_addresses: vec!["0x123".to_string()],
+            buffer_size: 1000,
+        };
+
+        let result = stream.start(config.clone()).await;
+
+        // The start will fail due to invalid WebSocket URL, but we test the initial setup
+        assert!(result.is_err() || stream.is_running());
+        assert_eq!(stream.config.ws_url, "ws://test.com");
+        assert_eq!(stream.config.chain_id, ChainId::Ethereum);
+    }
+
+    #[tokio::test]
+    async fn test_evm_websocket_stream_start_when_already_running_should_return_error() {
+        let mut stream = EvmWebSocketStream::new("test");
+        stream.running.store(true, Ordering::Relaxed);
+
+        let config = EvmStreamConfig::default();
+        let result = stream.start(config).await;
+
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            StreamError::AlreadyRunning { name } => {
+                assert_eq!(name, "test");
+            }
+            _ => panic!("Expected AlreadyRunning error"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_evm_websocket_stream_stop_when_running_should_stop() {
+        let mut stream = EvmWebSocketStream::new("test");
+        stream.running.store(true, Ordering::Relaxed);
+
+        let result = stream.stop().await;
+
+        assert!(result.is_ok());
+        assert!(!stream.is_running());
+    }
+
+    #[tokio::test]
+    async fn test_evm_websocket_stream_stop_when_not_running_should_return_ok() {
+        let mut stream = EvmWebSocketStream::new("test");
+
+        let result = stream.stop().await;
+
+        assert!(result.is_ok());
+        assert!(!stream.is_running());
+    }
+
+    #[test]
+    fn test_evm_websocket_stream_subscribe_when_called_should_return_receiver() {
+        let stream = EvmWebSocketStream::new("test");
+        let mut receiver = stream.subscribe();
+
+        // Test that we can try to receive (it will be empty but shouldn't panic)
+        let result = receiver.try_recv();
+        assert!(result.is_err()); // Should be empty
+    }
+
+    #[test]
+    fn test_evm_websocket_stream_is_running_when_false_should_return_false() {
+        let stream = EvmWebSocketStream::new("test");
+        assert!(!stream.is_running());
+    }
+
+    #[test]
+    fn test_evm_websocket_stream_is_running_when_true_should_return_true() {
+        let stream = EvmWebSocketStream::new("test");
+        stream.running.store(true, Ordering::Relaxed);
+        assert!(stream.is_running());
+    }
+
+    #[tokio::test]
+    async fn test_evm_websocket_stream_health_when_called_should_return_health() {
+        let stream = EvmWebSocketStream::new("test");
+        let health = stream.health().await;
+
+        assert!(!health.is_connected);
+        assert!(health.last_event_time.is_none());
+    }
+
+    #[test]
+    fn test_evm_websocket_stream_name_when_called_should_return_name() {
+        let stream = EvmWebSocketStream::new("my-test-stream");
+        assert_eq!(stream.name(), "my-test-stream");
+    }
+
+    // Tests for parse_websocket_message function
+
+    #[test]
+    fn test_parse_websocket_message_when_new_block_should_return_block_event() {
+        let json = json!({
+            "params": {
+                "subscription": "0x123",
+                "result": {
+                    "number": "0xa",
+                    "hash": "0xabc"
+                }
+            }
+        });
+
+        let result = EvmWebSocketStream::parse_websocket_message(json, 1, ChainId::Ethereum);
+
+        assert!(result.is_some());
+        let event = result.unwrap();
+        assert_eq!(event.chain_id, ChainId::Ethereum);
+        assert_eq!(event.block_number, Some(10)); // 0xa = 10
+        assert!(event.transaction_hash.is_none());
+        assert!(matches!(event.event_type, EvmEventType::NewBlock));
+        assert_eq!(event.metadata.kind, EventKind::Block);
+    }
+
+    #[test]
+    fn test_parse_websocket_message_when_contract_event_should_return_contract_event() {
+        let json = json!({
+            "params": {
+                "subscription": "0x456",
+                "result": {
+                    "transactionHash": "0xdef456",
+                    "blockNumber": "0x64",
+                    "address": "0x123"
+                }
+            }
+        });
+
+        let result = EvmWebSocketStream::parse_websocket_message(json, 2, ChainId::Polygon);
+
+        assert!(result.is_some());
+        let event = result.unwrap();
+        assert_eq!(event.chain_id, ChainId::Polygon);
+        assert_eq!(event.block_number, Some(100)); // 0x64 = 100
+        assert_eq!(event.transaction_hash, Some("0xdef456".to_string()));
+        assert!(matches!(event.event_type, EvmEventType::ContractEvent));
+        assert_eq!(event.metadata.kind, EventKind::Contract);
+    }
+
+    #[test]
+    fn test_parse_websocket_message_when_pending_transaction_should_return_pending_event() {
+        let json = json!({
+            "params": {
+                "subscription": "0x789",
+                "result": "0xabc123def456"
+            }
+        });
+
+        let result = EvmWebSocketStream::parse_websocket_message(json, 3, ChainId::BSC);
+
+        assert!(result.is_some());
+        let event = result.unwrap();
+        assert_eq!(event.chain_id, ChainId::BSC);
+        assert!(event.block_number.is_none());
+        assert_eq!(event.transaction_hash, Some("0xabc123def456".to_string()));
+        assert!(matches!(event.event_type, EvmEventType::PendingTransaction));
+        assert_eq!(event.metadata.kind, EventKind::Transaction);
+    }
+
+    #[test]
+    fn test_parse_websocket_message_when_missing_params_should_return_none() {
+        let json = json!({
+            "method": "eth_subscription"
+        });
+
+        let result = EvmWebSocketStream::parse_websocket_message(json, 1, ChainId::Ethereum);
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_parse_websocket_message_when_missing_subscription_should_return_none() {
+        let json = json!({
+            "params": {
+                "result": {
+                    "number": "0xa"
+                }
+            }
+        });
+
+        let result = EvmWebSocketStream::parse_websocket_message(json, 1, ChainId::Ethereum);
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_parse_websocket_message_when_missing_result_should_return_none() {
+        let json = json!({
+            "params": {
+                "subscription": "0x123"
+            }
+        });
+
+        let result = EvmWebSocketStream::parse_websocket_message(json, 1, ChainId::Ethereum);
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_parse_websocket_message_when_invalid_block_number_should_return_none() {
+        let json = json!({
+            "params": {
+                "subscription": "0x123",
+                "result": {
+                    "number": "invalid_hex"
+                }
+            }
+        });
+
+        let result = EvmWebSocketStream::parse_websocket_message(json, 1, ChainId::Ethereum);
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_parse_websocket_message_when_block_number_missing_hex_prefix_should_return_none() {
+        let json = json!({
+            "params": {
+                "subscription": "0x123",
+                "result": {
+                    "number": "a"
+                }
+            }
+        });
+
+        let result = EvmWebSocketStream::parse_websocket_message(json, 1, ChainId::Ethereum);
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_parse_websocket_message_when_contract_event_invalid_block_number_should_return_none() {
+        let json = json!({
+            "params": {
+                "subscription": "0x456",
+                "result": {
+                    "transactionHash": "0xdef456",
+                    "blockNumber": "invalid_hex"
+                }
+            }
+        });
+
+        let result = EvmWebSocketStream::parse_websocket_message(json, 2, ChainId::Polygon);
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_parse_websocket_message_when_contract_event_missing_block_hex_prefix_should_return_none(
+    ) {
+        let json = json!({
+            "params": {
+                "subscription": "0x456",
+                "result": {
+                    "transactionHash": "0xdef456",
+                    "blockNumber": "64"
+                }
+            }
+        });
+
+        let result = EvmWebSocketStream::parse_websocket_message(json, 2, ChainId::Polygon);
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_parse_websocket_message_when_unknown_format_should_return_none() {
+        let json = json!({
+            "params": {
+                "subscription": "0x123",
+                "result": {
+                    "unknownField": "value"
+                }
+            }
+        });
+
+        let result = EvmWebSocketStream::parse_websocket_message(json, 1, ChainId::Ethereum);
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_parse_websocket_message_when_subscription_not_string_should_return_none() {
+        let json = json!({
+            "params": {
+                "subscription": 123,
+                "result": {
+                    "number": "0xa"
+                }
+            }
+        });
+
+        let result = EvmWebSocketStream::parse_websocket_message(json, 1, ChainId::Ethereum);
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_parse_websocket_message_when_pending_tx_not_string_should_return_none() {
+        let json = json!({
+            "params": {
+                "subscription": "0x789",
+                "result": 123
+            }
+        });
+
+        let result = EvmWebSocketStream::parse_websocket_message(json, 3, ChainId::BSC);
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_parse_websocket_message_when_contract_event_missing_tx_hash_should_return_none() {
+        let json = json!({
+            "params": {
+                "subscription": "0x456",
+                "result": {
+                    "blockNumber": "0x64",
+                    "address": "0x123"
+                }
+            }
+        });
+
+        let result = EvmWebSocketStream::parse_websocket_message(json, 2, ChainId::Polygon);
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_parse_websocket_message_when_contract_event_missing_block_number_should_return_none() {
+        let json = json!({
+            "params": {
+                "subscription": "0x456",
+                "result": {
+                    "transactionHash": "0xdef456",
+                    "address": "0x123"
+                }
+            }
+        });
+
+        let result = EvmWebSocketStream::parse_websocket_message(json, 2, ChainId::Polygon);
+        assert!(result.is_none());
+    }
+
+    // Helper function to create test events
+    fn create_test_event() -> EvmStreamEvent {
+        let metadata = EventMetadata {
+            id: "test-id".to_string(),
+            kind: EventKind::Block,
+            timestamp: Utc::now(),
+            received_at: Utc::now(),
+            source: "test-source".to_string(),
+            chain_data: None,
+            custom: HashMap::new(),
+        };
+
+        let stream_meta = StreamMetadata {
+            stream_source: "test-source".to_string(),
+            received_at: SystemTime::now(),
+            sequence_number: Some(1),
+            custom_data: Some(json!({"test": "data"})),
+        };
+
+        EvmStreamEvent {
+            metadata,
+            event_type: EvmEventType::NewBlock,
+            stream_meta,
+            chain_id: ChainId::Ethereum,
+            block_number: Some(12345),
+            transaction_hash: Some("0xtest".to_string()),
+            data: json!({"block": "data"}),
+        }
     }
 }

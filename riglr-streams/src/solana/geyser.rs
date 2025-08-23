@@ -355,3 +355,520 @@ impl SolanaGeyserStream {
         None
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::Duration;
+    use tokio::time::timeout;
+
+    #[test]
+    fn test_geyser_config_default() {
+        let config = GeyserConfig::default();
+        assert_eq!(config.ws_url, "wss://api.mainnet-beta.solana.com");
+        assert_eq!(config.auth_token, None);
+        assert_eq!(config.program_ids, Vec::<String>::new());
+        assert_eq!(config.buffer_size, 10000);
+    }
+
+    #[test]
+    fn test_geyser_config_clone_debug_serialize_deserialize() {
+        let config = GeyserConfig {
+            ws_url: "wss://test.com".to_string(),
+            auth_token: Some("token123".to_string()),
+            program_ids: vec!["program1".to_string(), "program2".to_string()],
+            buffer_size: 5000,
+        };
+
+        // Test Clone
+        let cloned = config.clone();
+        assert_eq!(config.ws_url, cloned.ws_url);
+        assert_eq!(config.auth_token, cloned.auth_token);
+        assert_eq!(config.program_ids, cloned.program_ids);
+        assert_eq!(config.buffer_size, cloned.buffer_size);
+
+        // Test Debug
+        let debug_str = format!("{:?}", config);
+        assert!(debug_str.contains("wss://test.com"));
+        assert!(debug_str.contains("token123"));
+
+        // Test Serialize/Deserialize
+        let json = serde_json::to_string(&config).unwrap();
+        let deserialized: GeyserConfig = serde_json::from_str(&json).unwrap();
+        assert_eq!(config.ws_url, deserialized.ws_url);
+        assert_eq!(config.auth_token, deserialized.auth_token);
+        assert_eq!(config.program_ids, deserialized.program_ids);
+        assert_eq!(config.buffer_size, deserialized.buffer_size);
+    }
+
+    #[test]
+    fn test_transaction_event_new() {
+        let event = TransactionEvent {
+            signature: "test_signature".to_string(),
+            slot: 12345,
+        };
+
+        assert_eq!(event.signature, "test_signature");
+        assert_eq!(event.slot, 12345);
+    }
+
+    #[test]
+    fn test_transaction_event_clone() {
+        let event = TransactionEvent {
+            signature: "test_signature".to_string(),
+            slot: 12345,
+        };
+
+        let cloned = event.clone();
+        assert_eq!(event.signature, cloned.signature);
+        assert_eq!(event.slot, cloned.slot);
+    }
+
+    #[test]
+    fn test_transaction_event_debug() {
+        let event = TransactionEvent {
+            signature: "test_signature".to_string(),
+            slot: 12345,
+        };
+
+        let debug_str = format!("{:?}", event);
+        assert!(debug_str.contains("test_signature"));
+        assert!(debug_str.contains("12345"));
+    }
+
+    #[test]
+    fn test_transaction_event_id() {
+        let event = TransactionEvent {
+            signature: "test_signature".to_string(),
+            slot: 12345,
+        };
+
+        assert_eq!(event.id(), "test_signature");
+    }
+
+    #[test]
+    fn test_transaction_event_kind() {
+        let event = TransactionEvent {
+            signature: "test_signature".to_string(),
+            slot: 12345,
+        };
+
+        let kind = event.kind();
+        assert_eq!(*kind, riglr_events_core::EventKind::Transaction);
+    }
+
+    #[test]
+    fn test_transaction_event_metadata() {
+        let event = TransactionEvent {
+            signature: "test_signature".to_string(),
+            slot: 12345,
+        };
+
+        let metadata = event.metadata();
+        assert_eq!(metadata.kind.to_string(), "transaction");
+        assert_eq!(metadata.kind, riglr_events_core::EventKind::Transaction);
+        assert_eq!(metadata.source, "geyser-stream");
+    }
+
+    #[test]
+    #[should_panic(expected = "metadata_mut not supported for TransactionEvent")]
+    fn test_transaction_event_metadata_mut_panics() {
+        let mut event = TransactionEvent {
+            signature: "test_signature".to_string(),
+            slot: 12345,
+        };
+
+        event.metadata_mut();
+    }
+
+    #[test]
+    fn test_transaction_event_as_any() {
+        let event = TransactionEvent {
+            signature: "test_signature".to_string(),
+            slot: 12345,
+        };
+
+        let any = event.as_any();
+        assert!(any.downcast_ref::<TransactionEvent>().is_some());
+    }
+
+    #[test]
+    fn test_transaction_event_as_any_mut() {
+        let mut event = TransactionEvent {
+            signature: "test_signature".to_string(),
+            slot: 12345,
+        };
+
+        let any_mut = event.as_any_mut();
+        assert!(any_mut.downcast_mut::<TransactionEvent>().is_some());
+    }
+
+    #[test]
+    fn test_transaction_event_clone_boxed() {
+        let event = TransactionEvent {
+            signature: "test_signature".to_string(),
+            slot: 12345,
+        };
+
+        let boxed = event.clone_boxed();
+        assert_eq!(boxed.id(), "test_signature");
+    }
+
+    #[test]
+    fn test_solana_geyser_stream_new() {
+        let stream = SolanaGeyserStream::new("test_stream");
+        assert_eq!(stream.name(), "test_stream");
+        assert!(!stream.is_running());
+        assert_eq!(stream.config.ws_url, "wss://api.mainnet-beta.solana.com");
+    }
+
+    #[test]
+    fn test_solana_geyser_stream_new_with_string() {
+        let stream = SolanaGeyserStream::new("test_stream".to_string());
+        assert_eq!(stream.name(), "test_stream");
+    }
+
+    #[tokio::test]
+    async fn test_solana_geyser_stream_start_when_not_running_should_start() {
+        let mut stream = SolanaGeyserStream::new("test_stream");
+        let config = GeyserConfig {
+            ws_url: "wss://invalid-url-for-testing.com".to_string(),
+            auth_token: None,
+            program_ids: vec!["program1".to_string()],
+            buffer_size: 1000,
+        };
+
+        let result = stream.start(config.clone()).await;
+        assert!(result.is_ok());
+        assert!(stream.is_running());
+        assert_eq!(stream.config.ws_url, config.ws_url);
+        assert_eq!(stream.config.program_ids, config.program_ids);
+        assert_eq!(stream.config.buffer_size, config.buffer_size);
+
+        // Clean up
+        let _ = stream.stop().await;
+    }
+
+    #[tokio::test]
+    async fn test_solana_geyser_stream_start_when_already_running_should_return_error() {
+        let mut stream = SolanaGeyserStream::new("test_stream");
+        let config = GeyserConfig::default();
+
+        // Start first time
+        let result1 = stream.start(config.clone()).await;
+        assert!(result1.is_ok());
+        assert!(stream.is_running());
+
+        // Try to start again - should fail
+        let result2 = stream.start(config).await;
+        assert!(result2.is_err());
+
+        if let Err(StreamError::AlreadyRunning { name }) = result2 {
+            assert_eq!(name, "test_stream");
+        } else {
+            panic!("Expected AlreadyRunning error");
+        }
+
+        // Clean up
+        let _ = stream.stop().await;
+    }
+
+    #[tokio::test]
+    async fn test_solana_geyser_stream_stop_when_running_should_stop() {
+        let mut stream = SolanaGeyserStream::new("test_stream");
+        let config = GeyserConfig::default();
+
+        // Start stream
+        let _ = stream.start(config).await;
+        assert!(stream.is_running());
+
+        // Stop stream
+        let result = stream.stop().await;
+        assert!(result.is_ok());
+        assert!(!stream.is_running());
+    }
+
+    #[tokio::test]
+    async fn test_solana_geyser_stream_stop_when_not_running_should_be_ok() {
+        let mut stream = SolanaGeyserStream::new("test_stream");
+        assert!(!stream.is_running());
+
+        let result = stream.stop().await;
+        assert!(result.is_ok());
+        assert!(!stream.is_running());
+    }
+
+    #[tokio::test]
+    async fn test_solana_geyser_stream_subscribe() {
+        let stream = SolanaGeyserStream::new("test_stream");
+        let mut receiver = stream.subscribe();
+
+        // Should not block and should be ready to receive
+        assert!(timeout(Duration::from_millis(100), receiver.recv())
+            .await
+            .is_err());
+    }
+
+    #[tokio::test]
+    async fn test_solana_geyser_stream_health() {
+        let stream = SolanaGeyserStream::new("test_stream");
+        let health = stream.health().await;
+
+        // Default health state
+        assert!(!health.is_connected);
+        assert_eq!(health.events_processed, 0);
+        assert_eq!(health.error_count, 0);
+        assert!(health.last_event_time.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_solana_geyser_stream_health_after_start() {
+        let mut stream = SolanaGeyserStream::new("test_stream");
+        let config = GeyserConfig::default();
+
+        let _ = stream.start(config).await;
+
+        // Give it a moment to update health
+        tokio::time::sleep(Duration::from_millis(10)).await;
+
+        let health = stream.health().await;
+        assert!(health.is_connected);
+        assert!(health.last_event_time.is_some());
+
+        // Clean up
+        let _ = stream.stop().await;
+    }
+
+    #[test]
+    fn test_parse_websocket_message_to_events_with_valid_transaction() {
+        let json = serde_json::json!({
+            "params": {
+                "result": {
+                    "signature": "test_signature_123",
+                    "slot": 12345,
+                    "transaction": {
+                        "message": {
+                            "instructions": []
+                        }
+                    }
+                }
+            }
+        });
+
+        let events = SolanaGeyserStream::parse_websocket_message_to_events(json, 1);
+        assert!(events.is_some());
+
+        let events = events.unwrap();
+        assert_eq!(events.len(), 1);
+
+        let event = &events[0];
+        assert_eq!(event.stream_metadata.stream_source, "solana-ws");
+        assert_eq!(event.stream_metadata.sequence_number, Some(1));
+        assert!(event.stream_metadata.custom_data.is_some());
+        assert!(event.stream_metadata.received_at <= SystemTime::now());
+    }
+
+    #[test]
+    fn test_parse_websocket_message_to_events_with_missing_signature() {
+        let json = serde_json::json!({
+            "params": {
+                "result": {
+                    "slot": 12345,
+                    "transaction": {
+                        "message": {
+                            "instructions": []
+                        }
+                    }
+                }
+            }
+        });
+
+        let events = SolanaGeyserStream::parse_websocket_message_to_events(json, 1);
+        assert!(events.is_none());
+    }
+
+    #[test]
+    fn test_parse_websocket_message_to_events_with_missing_slot() {
+        let json = serde_json::json!({
+            "params": {
+                "result": {
+                    "signature": "test_signature_123",
+                    "transaction": {
+                        "message": {
+                            "instructions": []
+                        }
+                    }
+                }
+            }
+        });
+
+        let events = SolanaGeyserStream::parse_websocket_message_to_events(json, 1);
+        assert!(events.is_none());
+    }
+
+    #[test]
+    fn test_parse_websocket_message_to_events_with_missing_params() {
+        let json = serde_json::json!({
+            "result": {
+                "signature": "test_signature_123",
+                "slot": 12345,
+                "transaction": {
+                    "message": {
+                        "instructions": []
+                    }
+                }
+            }
+        });
+
+        let events = SolanaGeyserStream::parse_websocket_message_to_events(json, 1);
+        assert!(events.is_none());
+    }
+
+    #[test]
+    fn test_parse_websocket_message_to_events_with_missing_result() {
+        let json = serde_json::json!({
+            "params": {
+                "signature": "test_signature_123",
+                "slot": 12345,
+                "transaction": {
+                    "message": {
+                        "instructions": []
+                    }
+                }
+            }
+        });
+
+        let events = SolanaGeyserStream::parse_websocket_message_to_events(json, 1);
+        assert!(events.is_none());
+    }
+
+    #[test]
+    fn test_parse_websocket_message_to_events_with_zero_slot() {
+        let json = serde_json::json!({
+            "params": {
+                "result": {
+                    "signature": "test_signature_123",
+                    "slot": 0,
+                    "transaction": {
+                        "message": {
+                            "instructions": []
+                        }
+                    }
+                }
+            }
+        });
+
+        let events = SolanaGeyserStream::parse_websocket_message_to_events(json, 1);
+        assert!(events.is_some());
+
+        let events = events.unwrap();
+        assert_eq!(events.len(), 1);
+
+        // slot should be max(0, 1) = 1
+        let event_data = events[0].stream_metadata.custom_data.as_ref().unwrap();
+        let slot = event_data["params"]["result"]["slot"].as_u64().unwrap();
+        assert!(slot >= 1); // The max(1) operation should ensure slot is at least 1
+    }
+
+    #[test]
+    fn test_parse_websocket_message_to_events_without_transaction() {
+        let json = serde_json::json!({
+            "params": {
+                "result": {
+                    "signature": "test_signature_123",
+                    "slot": 12345
+                }
+            }
+        });
+
+        let events = SolanaGeyserStream::parse_websocket_message_to_events(json, 1);
+        assert!(events.is_none());
+    }
+
+    #[test]
+    fn test_parse_websocket_message_to_events_with_large_slot() {
+        let json = serde_json::json!({
+            "params": {
+                "result": {
+                    "signature": "test_signature_123",
+                    "slot": u64::MAX,
+                    "transaction": {
+                        "message": {
+                            "instructions": []
+                        }
+                    }
+                }
+            }
+        });
+
+        let events = SolanaGeyserStream::parse_websocket_message_to_events(json, u64::MAX);
+        assert!(events.is_some());
+
+        let events = events.unwrap();
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].stream_metadata.sequence_number, Some(u64::MAX));
+    }
+
+    #[test]
+    fn test_parse_websocket_message_to_events_with_empty_signature() {
+        let json = serde_json::json!({
+            "params": {
+                "result": {
+                    "signature": "",
+                    "slot": 12345,
+                    "transaction": {
+                        "message": {
+                            "instructions": []
+                        }
+                    }
+                }
+            }
+        });
+
+        let events = SolanaGeyserStream::parse_websocket_message_to_events(json, 1);
+        assert!(events.is_some());
+
+        let events = events.unwrap();
+        assert_eq!(events.len(), 1);
+    }
+
+    #[test]
+    fn test_parse_websocket_message_to_events_with_non_string_signature() {
+        let json = serde_json::json!({
+            "params": {
+                "result": {
+                    "signature": 123,
+                    "slot": 12345,
+                    "transaction": {
+                        "message": {
+                            "instructions": []
+                        }
+                    }
+                }
+            }
+        });
+
+        let events = SolanaGeyserStream::parse_websocket_message_to_events(json, 1);
+        assert!(events.is_none());
+    }
+
+    #[test]
+    fn test_parse_websocket_message_to_events_with_non_number_slot() {
+        let json = serde_json::json!({
+            "params": {
+                "result": {
+                    "signature": "test_signature_123",
+                    "slot": "not_a_number",
+                    "transaction": {
+                        "message": {
+                            "instructions": []
+                        }
+                    }
+                }
+            }
+        });
+
+        let events = SolanaGeyserStream::parse_websocket_message_to_events(json, 1);
+        assert!(events.is_none());
+    }
+}

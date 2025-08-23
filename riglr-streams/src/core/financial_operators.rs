@@ -359,7 +359,7 @@ impl<S: Stream> BollingerBandsStream<S> {
         let mean: f64 = values.iter().sum::<f64>() / values.len() as f64;
         let variance: f64 =
             values.iter().map(|v| (v - mean).powi(2)).sum::<f64>() / values.len() as f64;
-        let std_dev = variance.sqrt();
+        let std_dev: f64 = variance.sqrt();
 
         BollingerBands {
             upper: mean + self.std_dev_multiplier * std_dev,
@@ -606,7 +606,7 @@ struct TransactionPattern {
 }
 
 /// Types of MEV (Maximum Extractable Value) patterns
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum MevType {
     /// Sandwich attack - placing transactions before and after a target
     Sandwich,
@@ -792,3 +792,1351 @@ pub trait FinancialStreamExt: ComposableStream {
 
 /// Implement the extension trait for all composable streams
 impl<T> FinancialStreamExt for T where T: ComposableStream {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use riglr_events_core::{EventKind, EventMetadata};
+    use std::time::{Duration, SystemTime, UNIX_EPOCH};
+    use tokio::time::timeout;
+
+    // Mock event for testing AsNumeric trait
+    #[derive(Clone, Debug)]
+    struct MockEvent {
+        id: String,
+        kind: EventKind,
+        price: Option<f64>,
+        volume: Option<f64>,
+        market_cap: Option<f64>,
+        timestamp_ms: Option<i64>,
+        metadata: EventMetadata,
+    }
+
+    impl Event for MockEvent {
+        fn id(&self) -> &str {
+            &self.id
+        }
+
+        fn kind(&self) -> &EventKind {
+            &self.kind
+        }
+
+        fn metadata(&self) -> &EventMetadata {
+            &self.metadata
+        }
+
+        fn metadata_mut(&mut self) -> &mut EventMetadata {
+            &mut self.metadata
+        }
+
+        fn as_any(&self) -> &dyn Any {
+            self
+        }
+
+        fn as_any_mut(&mut self) -> &mut dyn Any {
+            self
+        }
+
+        fn clone_boxed(&self) -> Box<dyn Event> {
+            Box::new(self.clone())
+        }
+
+        fn to_json(&self) -> riglr_events_core::EventResult<serde_json::Value> {
+            Ok(serde_json::json!({
+                "id": self.id,
+                "kind": self.kind,
+                "price": self.price,
+                "volume": self.volume
+            }))
+        }
+    }
+
+    impl AsNumeric for MockEvent {
+        fn as_price(&self) -> Option<f64> {
+            self.price
+        }
+
+        fn as_volume(&self) -> Option<f64> {
+            self.volume
+        }
+
+        fn as_market_cap(&self) -> Option<f64> {
+            self.market_cap
+        }
+
+        fn as_timestamp_ms(&self) -> Option<i64> {
+            self.timestamp_ms
+        }
+
+        fn as_custom_numeric(&self, field: &str) -> Option<f64> {
+            match field {
+                "test_field" => Some(42.0),
+                _ => None,
+            }
+        }
+    }
+
+    // Mock stream for testing
+    struct MockStream {
+        name: String,
+        running: bool,
+    }
+
+    impl MockStream {
+        fn new(name: &str) -> Self {
+            Self {
+                name: name.to_string(),
+                running: false,
+            }
+        }
+    }
+
+    #[async_trait]
+    impl Stream for MockStream {
+        type Event = MockEvent;
+        type Config = ();
+
+        async fn start(&mut self, _config: Self::Config) -> Result<(), StreamError> {
+            self.running = true;
+            Ok(())
+        }
+
+        async fn stop(&mut self) -> Result<(), StreamError> {
+            self.running = false;
+            Ok(())
+        }
+
+        fn subscribe(&self) -> broadcast::Receiver<Arc<Self::Event>> {
+            let (tx, rx) = broadcast::channel(10);
+
+            let event = MockEvent {
+                id: "test".to_string(),
+                kind: EventKind::Price,
+                price: Some(100.0),
+                volume: Some(1000.0),
+                market_cap: Some(1_000_000.0),
+                timestamp_ms: Some(1234567890),
+                metadata: EventMetadata::new(
+                    "test".to_string(),
+                    EventKind::Price,
+                    "test".to_string(),
+                ),
+            };
+
+            tokio::spawn(async move {
+                let _ = tx.send(Arc::new(event));
+            });
+
+            rx
+        }
+
+        fn is_running(&self) -> bool {
+            self.running
+        }
+
+        async fn health(&self) -> StreamHealth {
+            StreamHealth::Healthy
+        }
+
+        fn name(&self) -> &str {
+            &self.name
+        }
+    }
+
+    // Tests for AsNumeric trait default implementations
+    #[test]
+    fn test_as_numeric_default_market_cap_should_return_none() {
+        struct TestEvent;
+        impl AsNumeric for TestEvent {
+            fn as_price(&self) -> Option<f64> {
+                Some(100.0)
+            }
+            fn as_volume(&self) -> Option<f64> {
+                Some(1000.0)
+            }
+        }
+
+        let event = TestEvent;
+        assert_eq!(event.as_market_cap(), None);
+    }
+
+    #[test]
+    fn test_as_numeric_default_timestamp_ms_should_return_none() {
+        struct TestEvent;
+        impl AsNumeric for TestEvent {
+            fn as_price(&self) -> Option<f64> {
+                Some(100.0)
+            }
+            fn as_volume(&self) -> Option<f64> {
+                Some(1000.0)
+            }
+        }
+
+        let event = TestEvent;
+        assert_eq!(event.as_timestamp_ms(), None);
+    }
+
+    #[test]
+    fn test_as_numeric_default_custom_numeric_should_return_none() {
+        struct TestEvent;
+        impl AsNumeric for TestEvent {
+            fn as_price(&self) -> Option<f64> {
+                Some(100.0)
+            }
+            fn as_volume(&self) -> Option<f64> {
+                Some(1000.0)
+            }
+        }
+
+        let event = TestEvent;
+        assert_eq!(event.as_custom_numeric("any_field"), None);
+    }
+
+    #[test]
+    fn test_as_numeric_custom_implementations_should_return_values() {
+        let event = MockEvent {
+            id: "test".to_string(),
+            kind: EventKind::Price,
+            price: Some(150.0),
+            volume: Some(2000.0),
+            market_cap: Some(5_000_000.0),
+            timestamp_ms: Some(9876543210),
+            metadata: EventMetadata::new("test".to_string(), EventKind::Price, "test".to_string()),
+        };
+
+        assert_eq!(event.as_price(), Some(150.0));
+        assert_eq!(event.as_volume(), Some(2000.0));
+        assert_eq!(event.as_market_cap(), Some(5_000_000.0));
+        assert_eq!(event.as_timestamp_ms(), Some(9876543210));
+        assert_eq!(event.as_custom_numeric("test_field"), Some(42.0));
+        assert_eq!(event.as_custom_numeric("unknown_field"), None);
+    }
+
+    // Tests for FinancialEvent
+    #[test]
+    fn test_financial_event_creation_should_initialize_correctly() {
+        let metadata = EventMetadata::new(
+            "test-id".to_string(),
+            EventKind::Price,
+            "test-source".to_string(),
+        );
+        let original_event = Arc::new(MockEvent {
+            id: "orig".to_string(),
+            kind: EventKind::Swap,
+            price: Some(100.0),
+            volume: Some(1000.0),
+            market_cap: None,
+            timestamp_ms: None,
+            metadata: EventMetadata::new("orig".to_string(), EventKind::Swap, "test".to_string()),
+        });
+        let timestamp = SystemTime::now();
+
+        let financial_event = FinancialEvent {
+            metadata: metadata.clone(),
+            indicator_value: 42.5,
+            original_event: original_event.clone(),
+            indicator_type: "TEST".to_string(),
+            timestamp,
+        };
+
+        assert_eq!(financial_event.id(), "test-id");
+        assert_eq!(financial_event.kind(), &EventKind::Price);
+        assert_eq!(financial_event.indicator_value, 42.5);
+        assert_eq!(financial_event.indicator_type, "TEST");
+        assert_eq!(financial_event.original_event.id(), "orig");
+    }
+
+    #[test]
+    fn test_financial_event_metadata_mut_should_allow_modification() {
+        let metadata = EventMetadata::new(
+            "test-id".to_string(),
+            EventKind::Price,
+            "test-source".to_string(),
+        );
+        let original_event = Arc::new(MockEvent {
+            id: "orig".to_string(),
+            kind: EventKind::Swap,
+            price: Some(100.0),
+            volume: Some(1000.0),
+            market_cap: None,
+            timestamp_ms: None,
+            metadata: EventMetadata::new("orig".to_string(), EventKind::Swap, "test".to_string()),
+        });
+
+        let mut financial_event = FinancialEvent {
+            metadata,
+            indicator_value: 42.5,
+            original_event,
+            indicator_type: "TEST".to_string(),
+            timestamp: SystemTime::now(),
+        };
+
+        let metadata_mut = financial_event.metadata_mut();
+        metadata_mut.id = "new-id".to_string();
+        assert_eq!(financial_event.id(), "new-id");
+    }
+
+    #[test]
+    fn test_financial_event_as_any_should_return_self() {
+        let metadata = EventMetadata::new(
+            "test-id".to_string(),
+            EventKind::Price,
+            "test-source".to_string(),
+        );
+        let original_event = Arc::new(MockEvent {
+            id: "orig".to_string(),
+            kind: EventKind::Swap,
+            price: Some(100.0),
+            volume: Some(1000.0),
+            market_cap: None,
+            timestamp_ms: None,
+            metadata: EventMetadata::new("orig".to_string(), EventKind::Swap, "test".to_string()),
+        });
+
+        let financial_event = FinancialEvent {
+            metadata,
+            indicator_value: 42.5,
+            original_event,
+            indicator_type: "TEST".to_string(),
+            timestamp: SystemTime::now(),
+        };
+
+        let any_ref = financial_event.as_any();
+        assert!(any_ref
+            .downcast_ref::<FinancialEvent<f64, MockEvent>>()
+            .is_some());
+    }
+
+    #[test]
+    fn test_financial_event_as_any_mut_should_return_mutable_self() {
+        let metadata = EventMetadata::new(
+            "test-id".to_string(),
+            EventKind::Price,
+            "test-source".to_string(),
+        );
+        let original_event = Arc::new(MockEvent {
+            id: "orig".to_string(),
+            kind: EventKind::Swap,
+            price: Some(100.0),
+            volume: Some(1000.0),
+            market_cap: None,
+            timestamp_ms: None,
+            metadata: EventMetadata::new("orig".to_string(), EventKind::Swap, "test".to_string()),
+        });
+
+        let mut financial_event = FinancialEvent {
+            metadata,
+            indicator_value: 42.5,
+            original_event,
+            indicator_type: "TEST".to_string(),
+            timestamp: SystemTime::now(),
+        };
+
+        let any_mut = financial_event.as_any_mut();
+        assert!(any_mut
+            .downcast_mut::<FinancialEvent<f64, MockEvent>>()
+            .is_some());
+    }
+
+    #[test]
+    fn test_financial_event_clone_boxed_should_create_boxed_clone() {
+        let metadata = EventMetadata::new(
+            "test-id".to_string(),
+            EventKind::Price,
+            "test-source".to_string(),
+        );
+        let original_event = Arc::new(MockEvent {
+            id: "orig".to_string(),
+            kind: EventKind::Swap,
+            price: Some(100.0),
+            volume: Some(1000.0),
+            market_cap: None,
+            timestamp_ms: None,
+            metadata: EventMetadata::new("orig".to_string(), EventKind::Swap, "test".to_string()),
+        });
+
+        let financial_event = FinancialEvent {
+            metadata,
+            indicator_value: 42.5,
+            original_event,
+            indicator_type: "TEST".to_string(),
+            timestamp: SystemTime::now(),
+        };
+
+        let boxed_clone = financial_event.clone_boxed();
+        assert_eq!(boxed_clone.id(), "test-id");
+    }
+
+    #[test]
+    fn test_financial_event_to_json_should_serialize_correctly() {
+        let metadata = EventMetadata::new(
+            "test-id".to_string(),
+            EventKind::Price,
+            "test-source".to_string(),
+        );
+        let original_event = Arc::new(MockEvent {
+            id: "orig".to_string(),
+            kind: EventKind::Swap,
+            price: Some(100.0),
+            volume: Some(1000.0),
+            market_cap: None,
+            timestamp_ms: None,
+            metadata: EventMetadata::new("orig".to_string(), EventKind::Swap, "test".to_string()),
+        });
+        let timestamp = UNIX_EPOCH + Duration::from_millis(1234567890);
+
+        let financial_event = FinancialEvent {
+            metadata,
+            indicator_value: 42.5,
+            original_event,
+            indicator_type: "TEST".to_string(),
+            timestamp,
+        };
+
+        let json = financial_event.to_json().unwrap();
+        assert!(json["metadata"].is_object());
+        assert_eq!(json["indicator_value"], "42.5");
+        assert_eq!(json["indicator_type"], "TEST");
+        assert_eq!(json["timestamp"], 1234567890);
+    }
+
+    #[test]
+    fn test_financial_event_to_json_when_timestamp_before_epoch_should_use_default() {
+        let metadata = EventMetadata::new(
+            "test-id".to_string(),
+            EventKind::Price,
+            "test-source".to_string(),
+        );
+        let original_event = Arc::new(MockEvent {
+            id: "orig".to_string(),
+            kind: EventKind::Swap,
+            price: Some(100.0),
+            volume: Some(1000.0),
+            market_cap: None,
+            timestamp_ms: None,
+            metadata: EventMetadata::new("orig".to_string(), EventKind::Swap, "test".to_string()),
+        });
+        // Set timestamp before epoch
+        let timestamp = UNIX_EPOCH - Duration::from_secs(1);
+
+        let financial_event = FinancialEvent {
+            metadata,
+            indicator_value: 42.5,
+            original_event,
+            indicator_type: "TEST".to_string(),
+            timestamp,
+        };
+
+        let json = financial_event.to_json().unwrap();
+        assert_eq!(json["timestamp"], 0);
+    }
+
+    // Tests for VwapStream
+    #[test]
+    fn test_vwap_stream_new_should_create_correctly() {
+        let mock_stream = MockStream::new("test");
+        let window = Duration::from_secs(60);
+        let vwap_stream = VwapStream::new(mock_stream, window);
+
+        assert_eq!(vwap_stream.name(), "vwap(test)");
+        assert_eq!(vwap_stream.window, window);
+    }
+
+    #[tokio::test]
+    async fn test_vwap_stream_calculate_vwap_when_empty_should_return_zero() {
+        let mock_stream = MockStream::new("test");
+        let window = Duration::from_secs(60);
+        let vwap_stream = VwapStream::new(mock_stream, window);
+
+        let vwap = vwap_stream.calculate_vwap().await;
+        assert_eq!(vwap, 0.0);
+    }
+
+    #[tokio::test]
+    async fn test_vwap_stream_calculate_vwap_with_data_should_return_weighted_average() {
+        let mock_stream = MockStream::new("test");
+        let window = Duration::from_secs(60);
+        let vwap_stream = VwapStream::new(mock_stream, window);
+
+        // Add some price-volume pairs
+        {
+            let mut pairs = vwap_stream.price_volume_pairs.write().await;
+            pairs.push_back((100.0, 1000.0, SystemTime::now()));
+            pairs.push_back((110.0, 500.0, SystemTime::now()));
+        }
+
+        let vwap = vwap_stream.calculate_vwap().await;
+        // VWAP = (100*1000 + 110*500) / (1000+500) = 155000 / 1500 = 103.33...
+        assert!((vwap - 103.33333333333333).abs() < 0.0001);
+    }
+
+    #[tokio::test]
+    async fn test_vwap_stream_calculate_vwap_should_remove_old_entries() {
+        let mock_stream = MockStream::new("test");
+        let window = Duration::from_millis(100);
+        let vwap_stream = VwapStream::new(mock_stream, window);
+
+        // Add old entry
+        {
+            let mut pairs = vwap_stream.price_volume_pairs.write().await;
+            pairs.push_back((50.0, 1000.0, SystemTime::now() - Duration::from_secs(1)));
+            pairs.push_back((100.0, 1000.0, SystemTime::now()));
+        }
+
+        let vwap = vwap_stream.calculate_vwap().await;
+        // Should only consider the recent entry
+        assert_eq!(vwap, 100.0);
+    }
+
+    #[test]
+    fn test_vwap_stream_extract_price_volume_when_both_present_should_return_some() {
+        let event = MockEvent {
+            id: "test".to_string(),
+            kind: EventKind::Price,
+            price: Some(100.0),
+            volume: Some(1000.0),
+            market_cap: None,
+            timestamp_ms: None,
+            metadata: EventMetadata::new("test".to_string(), EventKind::Price, "test".to_string()),
+        };
+
+        let result = VwapStream::<MockStream>::extract_price_volume(&event);
+        assert_eq!(result, Some((100.0, 1000.0)));
+    }
+
+    #[test]
+    fn test_vwap_stream_extract_price_volume_when_price_missing_should_return_none() {
+        let event = MockEvent {
+            id: "test".to_string(),
+            kind: EventKind::Price,
+            price: None,
+            volume: Some(1000.0),
+            market_cap: None,
+            timestamp_ms: None,
+            metadata: EventMetadata::new("test".to_string(), EventKind::Price, "test".to_string()),
+        };
+
+        let result = VwapStream::<MockStream>::extract_price_volume(&event);
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_vwap_stream_extract_price_volume_when_volume_missing_should_return_none() {
+        let event = MockEvent {
+            id: "test".to_string(),
+            kind: EventKind::Price,
+            price: Some(100.0),
+            volume: None,
+            market_cap: None,
+            timestamp_ms: None,
+            metadata: EventMetadata::new("test".to_string(), EventKind::Price, "test".to_string()),
+        };
+
+        let result = VwapStream::<MockStream>::extract_price_volume(&event);
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_vwap_stream_extract_price_volume_when_both_missing_should_return_none() {
+        let event = MockEvent {
+            id: "test".to_string(),
+            kind: EventKind::Price,
+            price: None,
+            volume: None,
+            market_cap: None,
+            timestamp_ms: None,
+            metadata: EventMetadata::new("test".to_string(), EventKind::Price, "test".to_string()),
+        };
+
+        let result = VwapStream::<MockStream>::extract_price_volume(&event);
+        assert_eq!(result, None);
+    }
+
+    #[tokio::test]
+    async fn test_vwap_stream_start_should_delegate_to_inner() {
+        let mock_stream = MockStream::new("test");
+        let mut vwap_stream = VwapStream::new(mock_stream, Duration::from_secs(60));
+
+        let result = vwap_stream.start(()).await;
+        assert!(result.is_ok());
+        assert!(vwap_stream.inner.is_running());
+    }
+
+    #[tokio::test]
+    async fn test_vwap_stream_stop_should_delegate_to_inner() {
+        let mut mock_stream = MockStream::new("test");
+        mock_stream.running = true;
+        let mut vwap_stream = VwapStream::new(mock_stream, Duration::from_secs(60));
+
+        let result = vwap_stream.stop().await;
+        assert!(result.is_ok());
+        assert!(!vwap_stream.inner.is_running());
+    }
+
+    #[test]
+    fn test_vwap_stream_is_running_should_delegate_to_inner() {
+        let mut mock_stream = MockStream::new("test");
+        mock_stream.running = true;
+        let vwap_stream = VwapStream::new(mock_stream, Duration::from_secs(60));
+
+        assert!(vwap_stream.is_running());
+    }
+
+    #[tokio::test]
+    async fn test_vwap_stream_health_should_delegate_to_inner() {
+        let mock_stream = MockStream::new("test");
+        let vwap_stream = VwapStream::new(mock_stream, Duration::from_secs(60));
+
+        let health = vwap_stream.health().await;
+        assert_eq!(health, StreamHealth::Healthy);
+    }
+
+    #[tokio::test]
+    async fn test_vwap_stream_subscribe_should_process_events() {
+        let mock_stream = MockStream::new("test");
+        let vwap_stream = VwapStream::new(mock_stream, Duration::from_secs(60));
+
+        let mut rx = vwap_stream.subscribe();
+
+        // Wait for event with timeout
+        let result = timeout(Duration::from_millis(100), rx.recv()).await;
+        assert!(result.is_ok());
+
+        let event = result.unwrap().unwrap();
+        assert_eq!(event.indicator_type, "VWAP");
+        assert_eq!(event.indicator_value, 100.0); // Single event with price 100, volume 1000
+    }
+
+    // Tests for MovingAverageStream
+    #[test]
+    fn test_moving_average_stream_new_should_create_correctly() {
+        let mock_stream = MockStream::new("test");
+        let window_size = 5;
+        let ma_stream = MovingAverageStream::new(mock_stream, window_size);
+
+        assert_eq!(ma_stream.window_size, window_size);
+    }
+
+    #[tokio::test]
+    async fn test_moving_average_stream_add_value_when_empty_should_return_value() {
+        let mock_stream = MockStream::new("test");
+        let ma_stream = MovingAverageStream::new(mock_stream, 3);
+
+        let avg = ma_stream.add_value(100.0).await;
+        assert_eq!(avg, 100.0);
+    }
+
+    #[tokio::test]
+    async fn test_moving_average_stream_add_value_should_calculate_average() {
+        let mock_stream = MockStream::new("test");
+        let ma_stream = MovingAverageStream::new(mock_stream, 3);
+
+        let avg1 = ma_stream.add_value(100.0).await;
+        assert_eq!(avg1, 100.0);
+
+        let avg2 = ma_stream.add_value(200.0).await;
+        assert_eq!(avg2, 150.0);
+
+        let avg3 = ma_stream.add_value(300.0).await;
+        assert_eq!(avg3, 200.0);
+    }
+
+    #[tokio::test]
+    async fn test_moving_average_stream_add_value_should_maintain_window_size() {
+        let mock_stream = MockStream::new("test");
+        let ma_stream = MovingAverageStream::new(mock_stream, 2);
+
+        ma_stream.add_value(100.0).await;
+        ma_stream.add_value(200.0).await;
+        let avg = ma_stream.add_value(300.0).await; // Should drop 100.0
+
+        assert_eq!(avg, 250.0); // (200 + 300) / 2
+    }
+
+    // Tests for EmaStream
+    #[test]
+    fn test_ema_stream_new_should_calculate_alpha_correctly() {
+        let mock_stream = MockStream::new("test");
+        let periods = 10;
+        let ema_stream = EmaStream::new(mock_stream, periods);
+
+        let expected_alpha = 2.0 / (periods as f64 + 1.0);
+        assert_eq!(ema_stream.alpha, expected_alpha);
+    }
+
+    #[tokio::test]
+    async fn test_ema_stream_update_when_first_value_should_return_value() {
+        let mock_stream = MockStream::new("test");
+        let ema_stream = EmaStream::new(mock_stream, 10);
+
+        let ema = ema_stream.update(100.0).await;
+        assert_eq!(ema, 100.0);
+    }
+
+    #[tokio::test]
+    async fn test_ema_stream_update_should_calculate_ema() {
+        let mock_stream = MockStream::new("test");
+        let ema_stream = EmaStream::new(mock_stream, 10);
+        let alpha = ema_stream.alpha;
+
+        let ema1 = ema_stream.update(100.0).await;
+        assert_eq!(ema1, 100.0);
+
+        let ema2 = ema_stream.update(110.0).await;
+        let expected = alpha * 110.0 + (1.0 - alpha) * 100.0;
+        assert_eq!(ema2, expected);
+    }
+
+    // Tests for BollingerBandsStream and BollingerBands
+    #[test]
+    fn test_bollinger_bands_stream_new_should_create_correctly() {
+        let mock_stream = MockStream::new("test");
+        let window = 20;
+        let std_dev_multiplier = 2.0;
+        let bb_stream = BollingerBandsStream::new(mock_stream, window, std_dev_multiplier);
+
+        assert_eq!(bb_stream.window, window);
+        assert_eq!(bb_stream.std_dev_multiplier, std_dev_multiplier);
+    }
+
+    #[tokio::test]
+    async fn test_bollinger_bands_stream_calculate_bands_with_single_value() {
+        let mock_stream = MockStream::new("test");
+        let bb_stream = BollingerBandsStream::new(mock_stream, 3, 2.0);
+
+        let bands = bb_stream.calculate_bands(100.0).await;
+
+        assert_eq!(bands.middle, 100.0);
+        assert_eq!(bands.upper, 100.0); // No deviation with single value
+        assert_eq!(bands.lower, 100.0);
+        assert_eq!(bands.current_value, 100.0);
+    }
+
+    #[tokio::test]
+    async fn test_bollinger_bands_stream_calculate_bands_with_multiple_values() {
+        let mock_stream = MockStream::new("test");
+        let bb_stream = BollingerBandsStream::new(mock_stream, 3, 2.0);
+
+        bb_stream.calculate_bands(100.0).await;
+        bb_stream.calculate_bands(110.0).await;
+        let bands = bb_stream.calculate_bands(90.0).await;
+
+        // Mean = (100 + 110 + 90) / 3 = 100
+        assert_eq!(bands.middle, 100.0);
+        assert_eq!(bands.current_value, 90.0);
+
+        // Variance = ((100-100)^2 + (110-100)^2 + (90-100)^2) / 3 = (0 + 100 + 100) / 3 = 66.666...
+        // Std dev = sqrt(66.666...) ≈ 8.164
+        // Upper = 100 + 2 * 8.164 ≈ 116.33
+        // Lower = 100 - 2 * 8.164 ≈ 83.67
+        let expected_variance: f64 = 200.0 / 3.0;
+        let expected_std_dev: f64 = expected_variance.sqrt();
+        assert!((bands.upper - (100.0 + 2.0 * expected_std_dev)).abs() < 0.0001);
+        assert!((bands.lower - (100.0 - 2.0 * expected_std_dev)).abs() < 0.0001);
+    }
+
+    #[tokio::test]
+    async fn test_bollinger_bands_stream_should_maintain_window_size() {
+        let mock_stream = MockStream::new("test");
+        let bb_stream = BollingerBandsStream::new(mock_stream, 2, 2.0);
+
+        bb_stream.calculate_bands(100.0).await;
+        bb_stream.calculate_bands(110.0).await;
+        let bands = bb_stream.calculate_bands(120.0).await; // Should drop 100.0
+
+        // Mean should be (110 + 120) / 2 = 115
+        assert_eq!(bands.middle, 115.0);
+    }
+
+    // Tests for RsiStream
+    #[test]
+    fn test_rsi_stream_new_should_create_correctly() {
+        let mock_stream = MockStream::new("test");
+        let period = 14;
+        let rsi_stream = RsiStream::new(mock_stream, period);
+
+        assert_eq!(rsi_stream.period, period);
+    }
+
+    #[tokio::test]
+    async fn test_rsi_stream_calculate_rsi_when_first_value_should_return_none() {
+        let mock_stream = MockStream::new("test");
+        let rsi_stream = RsiStream::new(mock_stream, 14);
+
+        let rsi = rsi_stream.calculate_rsi(100.0).await;
+        assert_eq!(rsi, None);
+    }
+
+    #[tokio::test]
+    async fn test_rsi_stream_calculate_rsi_insufficient_data_should_return_none() {
+        let mock_stream = MockStream::new("test");
+        let rsi_stream = RsiStream::new(mock_stream, 3);
+
+        rsi_stream.calculate_rsi(100.0).await;
+        let rsi = rsi_stream.calculate_rsi(110.0).await;
+        assert_eq!(rsi, None); // Only 1 price change, need 3
+    }
+
+    #[tokio::test]
+    async fn test_rsi_stream_calculate_rsi_with_sufficient_data_should_return_value() {
+        let mock_stream = MockStream::new("test");
+        let rsi_stream = RsiStream::new(mock_stream, 2);
+
+        rsi_stream.calculate_rsi(100.0).await;
+        rsi_stream.calculate_rsi(110.0).await; // +10 gain
+        let rsi = rsi_stream.calculate_rsi(105.0).await; // -5 loss
+
+        // Gains: [10, 0], Losses: [0, 5]
+        // Avg gain = 5, Avg loss = 2.5
+        // RS = 5 / 2.5 = 2
+        // RSI = 100 - (100 / (1 + 2)) = 100 - 33.333... = 66.666...
+        assert!(rsi.is_some());
+        let rsi_value = rsi.unwrap();
+        assert!((rsi_value - 66.66666666666667).abs() < 0.0001);
+    }
+
+    #[tokio::test]
+    async fn test_rsi_stream_calculate_rsi_when_no_losses_should_return_100() {
+        let mock_stream = MockStream::new("test");
+        let rsi_stream = RsiStream::new(mock_stream, 2);
+
+        rsi_stream.calculate_rsi(100.0).await;
+        rsi_stream.calculate_rsi(110.0).await; // +10 gain
+        let rsi = rsi_stream.calculate_rsi(120.0).await; // +10 gain
+
+        // All gains, no losses
+        assert_eq!(rsi, Some(100.0));
+    }
+
+    #[tokio::test]
+    async fn test_rsi_stream_should_maintain_period_window() {
+        let mock_stream = MockStream::new("test");
+        let rsi_stream = RsiStream::new(mock_stream, 2);
+
+        rsi_stream.calculate_rsi(100.0).await;
+        rsi_stream.calculate_rsi(110.0).await;
+        rsi_stream.calculate_rsi(105.0).await;
+        let rsi = rsi_stream.calculate_rsi(115.0).await; // Should drop first gain
+
+        // Latest changes: 105->115 (+10), previous: 110->105 (-5)
+        // Gains: [0, 10], Losses: [5, 0]
+        // Avg gain = 5, Avg loss = 2.5
+        assert!(rsi.is_some());
+    }
+
+    // Tests for OrderBookImbalanceStream
+    #[test]
+    fn test_order_book_imbalance_stream_new_should_create_correctly() {
+        let mock_stream = MockStream::new("test");
+        let depth_levels = 5;
+        let imbalance_stream = OrderBookImbalanceStream::new(mock_stream, depth_levels);
+
+        assert_eq!(imbalance_stream.depth_levels, depth_levels);
+    }
+
+    #[test]
+    fn test_order_book_imbalance_calculate_imbalance_balanced_should_return_zero() {
+        let bids = vec![(100.0, 1000.0), (99.0, 1000.0)];
+        let asks = vec![(101.0, 1000.0), (102.0, 1000.0)];
+
+        let imbalance = OrderBookImbalanceStream::<MockStream>::calculate_imbalance(&bids, &asks);
+        assert_eq!(imbalance, 0.0);
+    }
+
+    #[test]
+    fn test_order_book_imbalance_calculate_imbalance_bid_heavy_should_return_positive() {
+        let bids = vec![(100.0, 2000.0), (99.0, 1000.0)];
+        let asks = vec![(101.0, 500.0), (102.0, 500.0)];
+
+        let imbalance = OrderBookImbalanceStream::<MockStream>::calculate_imbalance(&bids, &asks);
+        // Bid volume = 3000, Ask volume = 1000
+        // Imbalance = (3000 - 1000) / (3000 + 1000) = 2000 / 4000 = 0.5
+        assert_eq!(imbalance, 0.5);
+    }
+
+    #[test]
+    fn test_order_book_imbalance_calculate_imbalance_ask_heavy_should_return_negative() {
+        let bids = vec![(100.0, 500.0), (99.0, 500.0)];
+        let asks = vec![(101.0, 2000.0), (102.0, 1000.0)];
+
+        let imbalance = OrderBookImbalanceStream::<MockStream>::calculate_imbalance(&bids, &asks);
+        // Bid volume = 1000, Ask volume = 3000
+        // Imbalance = (1000 - 3000) / (1000 + 3000) = -2000 / 4000 = -0.5
+        assert_eq!(imbalance, -0.5);
+    }
+
+    #[test]
+    fn test_order_book_imbalance_calculate_imbalance_empty_books_should_return_zero() {
+        let bids = vec![];
+        let asks = vec![];
+
+        let imbalance = OrderBookImbalanceStream::<MockStream>::calculate_imbalance(&bids, &asks);
+        assert_eq!(imbalance, 0.0);
+    }
+
+    #[test]
+    fn test_order_book_imbalance_calculate_imbalance_should_limit_to_five_levels() {
+        let bids = vec![(100.0, 100.0); 10]; // 10 levels
+        let asks = vec![(101.0, 100.0); 10]; // 10 levels
+
+        let imbalance = OrderBookImbalanceStream::<MockStream>::calculate_imbalance(&bids, &asks);
+        // Should only consider first 5 levels: 5*100 vs 5*100
+        assert_eq!(imbalance, 0.0);
+    }
+
+    // Tests for MomentumStream
+    #[test]
+    fn test_momentum_stream_new_should_create_correctly() {
+        let mock_stream = MockStream::new("test");
+        let lookback_period = 10;
+        let momentum_stream = MomentumStream::new(mock_stream, lookback_period);
+
+        assert_eq!(momentum_stream.lookback_period, lookback_period);
+    }
+
+    #[tokio::test]
+    async fn test_momentum_stream_calculate_momentum_insufficient_data_should_return_none() {
+        let mock_stream = MockStream::new("test");
+        let momentum_stream = MomentumStream::new(mock_stream, 2);
+
+        let momentum = momentum_stream.calculate_momentum(100.0).await;
+        assert_eq!(momentum, None);
+
+        let momentum = momentum_stream.calculate_momentum(110.0).await;
+        assert_eq!(momentum, None);
+    }
+
+    #[tokio::test]
+    async fn test_momentum_stream_calculate_momentum_with_sufficient_data_should_return_percentage()
+    {
+        let mock_stream = MockStream::new("test");
+        let momentum_stream = MomentumStream::new(mock_stream, 2);
+
+        momentum_stream.calculate_momentum(100.0).await;
+        momentum_stream.calculate_momentum(105.0).await;
+        let momentum = momentum_stream.calculate_momentum(110.0).await;
+
+        // Momentum = ((110 - 100) / 100) * 100 = 10%
+        assert_eq!(momentum, Some(10.0));
+    }
+
+    #[tokio::test]
+    async fn test_momentum_stream_calculate_momentum_negative_change_should_return_negative() {
+        let mock_stream = MockStream::new("test");
+        let momentum_stream = MomentumStream::new(mock_stream, 2);
+
+        momentum_stream.calculate_momentum(100.0).await;
+        momentum_stream.calculate_momentum(105.0).await;
+        let momentum = momentum_stream.calculate_momentum(90.0).await;
+
+        // Momentum = ((90 - 100) / 100) * 100 = -10%
+        assert_eq!(momentum, Some(-10.0));
+    }
+
+    #[tokio::test]
+    async fn test_momentum_stream_should_maintain_lookback_window() {
+        let mock_stream = MockStream::new("test");
+        let momentum_stream = MomentumStream::new(mock_stream, 2);
+
+        momentum_stream.calculate_momentum(100.0).await;
+        momentum_stream.calculate_momentum(105.0).await;
+        momentum_stream.calculate_momentum(110.0).await;
+        let momentum = momentum_stream.calculate_momentum(120.0).await;
+
+        // Should compare 120 with 105 (dropped 100)
+        // Momentum = ((120 - 105) / 105) * 100 ≈ 14.29%
+        let expected = ((120.0 - 105.0) / 105.0) * 100.0;
+        assert_eq!(momentum, Some(expected));
+    }
+
+    // Tests for LiquidityPoolStream and PoolState
+    #[test]
+    fn test_liquidity_pool_stream_new_should_create_correctly() {
+        let mock_stream = MockStream::new("test");
+        let pool_stream = LiquidityPoolStream::new(mock_stream);
+
+        assert!(pool_stream.pools.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_liquidity_pool_stream_update_pool_should_create_pool_state() {
+        let mock_stream = MockStream::new("test");
+        let pool_stream = LiquidityPoolStream::new(mock_stream);
+
+        pool_stream
+            .update_pool("pool1".to_string(), 1000.0, 2000.0)
+            .await;
+
+        let pool = pool_stream.pools.get("pool1").unwrap();
+        assert_eq!(pool.token_a_reserve, 1000.0);
+        assert_eq!(pool.token_b_reserve, 2000.0);
+        assert_eq!(pool.k_constant, 2_000_000.0);
+    }
+
+    #[tokio::test]
+    async fn test_liquidity_pool_stream_calculate_price_impact_existing_pool_should_return_impact()
+    {
+        let mock_stream = MockStream::new("test");
+        let pool_stream = LiquidityPoolStream::new(mock_stream);
+
+        pool_stream
+            .update_pool("pool1".to_string(), 1000.0, 2000.0)
+            .await;
+        let impact = pool_stream.calculate_price_impact("pool1", 100.0).await;
+
+        // k = 1000 * 2000 = 2,000,000
+        // new_reserve_a = 1000 + 100 = 1100
+        // new_reserve_b = 2,000,000 / 1100 ≈ 1818.18
+        // amount_out = 2000 - 1818.18 = 181.82
+        // price_impact = (181.82 / 2000) * 100 = 9.091%
+        assert!(impact.is_some());
+        let impact_value = impact.unwrap();
+        assert!((impact_value - 9.090909090909092).abs() < 0.0001);
+    }
+
+    #[tokio::test]
+    async fn test_liquidity_pool_stream_calculate_price_impact_nonexistent_pool_should_return_none()
+    {
+        let mock_stream = MockStream::new("test");
+        let pool_stream = LiquidityPoolStream::new(mock_stream);
+
+        let impact = pool_stream
+            .calculate_price_impact("nonexistent", 100.0)
+            .await;
+        assert_eq!(impact, None);
+    }
+
+    // Tests for MevDetectionStream and related types
+    #[test]
+    fn test_mev_detection_stream_new_should_create_correctly() {
+        let mock_stream = MockStream::new("test");
+        let window = Duration::from_secs(60);
+        let mev_stream = MevDetectionStream::new(mock_stream, window);
+
+        assert_eq!(mev_stream.window, window);
+    }
+
+    #[tokio::test]
+    async fn test_mev_detection_stream_detect_mev_non_swap_event_should_return_none() {
+        let mock_stream = MockStream::new("test");
+        let mev_stream = MevDetectionStream::new(mock_stream, Duration::from_secs(60));
+
+        let event = MockEvent {
+            id: "test".to_string(),
+            kind: EventKind::Price, // Not a swap
+            price: Some(100.0),
+            volume: Some(1000.0),
+            market_cap: None,
+            timestamp_ms: None,
+            metadata: EventMetadata::new("test".to_string(), EventKind::Price, "test".to_string()),
+        };
+
+        let mev_type = mev_stream.detect_mev(&event).await;
+        assert_eq!(mev_type, None);
+    }
+
+    #[tokio::test]
+    async fn test_mev_detection_stream_detect_mev_swap_insufficient_patterns_should_return_none() {
+        let mock_stream = MockStream::new("test");
+        let mev_stream = MevDetectionStream::new(mock_stream, Duration::from_secs(60));
+
+        let event = MockEvent {
+            id: "test".to_string(),
+            kind: EventKind::Swap,
+            price: Some(100.0),
+            volume: Some(1000.0),
+            market_cap: None,
+            timestamp_ms: None,
+            metadata: EventMetadata::new("test".to_string(), EventKind::Swap, "test".to_string()),
+        };
+
+        let mev_type = mev_stream.detect_mev(&event).await;
+        assert_eq!(mev_type, None);
+    }
+
+    #[tokio::test]
+    async fn test_mev_detection_stream_detect_mev_should_clean_old_transactions() {
+        let mock_stream = MockStream::new("test");
+        let mev_stream = MevDetectionStream::new(mock_stream, Duration::from_millis(100));
+
+        // Add old transaction
+        {
+            let mut txs = mev_stream.transactions.write().await;
+            txs.push_back(TransactionPattern {
+                tx_hash: "old".to_string(),
+                timestamp: SystemTime::now() - Duration::from_secs(1),
+                pattern_type: MevType::Sandwich,
+            });
+        }
+
+        let event = MockEvent {
+            id: "test".to_string(),
+            kind: EventKind::Swap,
+            price: Some(100.0),
+            volume: Some(1000.0),
+            market_cap: None,
+            timestamp_ms: None,
+            metadata: EventMetadata::new("test".to_string(), EventKind::Swap, "test".to_string()),
+        };
+
+        mev_stream.detect_mev(&event).await;
+
+        // Old transaction should be removed
+        let txs = mev_stream.transactions.read().await;
+        assert!(txs.is_empty());
+    }
+
+    // Tests for MevType enum (Debug trait coverage)
+    #[test]
+    fn test_mev_type_debug_should_format_correctly() {
+        assert_eq!(format!("{:?}", MevType::Sandwich), "Sandwich");
+        assert_eq!(format!("{:?}", MevType::Frontrun), "Frontrun");
+        assert_eq!(format!("{:?}", MevType::Backrun), "Backrun");
+        assert_eq!(format!("{:?}", MevType::Arbitrage), "Arbitrage");
+    }
+
+    #[test]
+    fn test_mev_type_clone_should_create_copy() {
+        let original = MevType::Sandwich;
+        let cloned = original.clone();
+        matches!(cloned, MevType::Sandwich);
+    }
+
+    // Tests for GasPriceOracleStream and GasPriceEstimate
+    #[test]
+    fn test_gas_price_oracle_stream_new_should_create_correctly() {
+        let mock_stream = MockStream::new("test");
+        let window_size = 100;
+        let gas_stream = GasPriceOracleStream::new(mock_stream, window_size);
+
+        assert_eq!(gas_stream.window_size, window_size);
+        assert_eq!(gas_stream.percentiles, vec![25, 50, 75, 95]);
+    }
+
+    #[tokio::test]
+    async fn test_gas_price_oracle_stream_update_gas_price_single_value() {
+        let mock_stream = MockStream::new("test");
+        let gas_stream = GasPriceOracleStream::new(mock_stream, 100);
+
+        let estimate = gas_stream.update_gas_price(100.0).await;
+
+        // With single value, all percentiles should be the same
+        assert_eq!(estimate.slow, 100.0);
+        assert_eq!(estimate.standard, 100.0);
+        assert_eq!(estimate.fast, 100.0);
+        assert_eq!(estimate.instant, 100.0);
+    }
+
+    #[tokio::test]
+    async fn test_gas_price_oracle_stream_update_gas_price_multiple_values() {
+        let mock_stream = MockStream::new("test");
+        let gas_stream = GasPriceOracleStream::new(mock_stream, 100);
+
+        // Add values: 10, 20, 30, 40, 50, 60, 70, 80, 90, 100
+        for i in 1..=10 {
+            gas_stream.update_gas_price(i as f64 * 10.0).await;
+        }
+
+        let estimate = gas_stream.update_gas_price(100.0).await;
+
+        // Sorted: [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]
+        // 25th percentile (index 2): 30
+        // 50th percentile (index 5): 60
+        // 75th percentile (index 7): 80
+        // 95th percentile (index 9): 100
+        assert_eq!(estimate.slow, 30.0);
+        assert_eq!(estimate.standard, 60.0);
+        assert_eq!(estimate.fast, 80.0);
+        assert_eq!(estimate.instant, 100.0);
+    }
+
+    #[tokio::test]
+    async fn test_gas_price_oracle_stream_should_maintain_window_size() {
+        let mock_stream = MockStream::new("test");
+        let gas_stream = GasPriceOracleStream::new(mock_stream, 2);
+
+        gas_stream.update_gas_price(10.0).await;
+        gas_stream.update_gas_price(20.0).await;
+        let estimate = gas_stream.update_gas_price(30.0).await; // Should drop 10.0
+
+        // Should only have [20.0, 30.0]
+        // All percentiles will be either 20 or 30
+        assert!(estimate.slow >= 20.0 && estimate.slow <= 30.0);
+        assert!(estimate.instant >= 20.0 && estimate.instant <= 30.0);
+    }
+
+    // Tests for GasPriceEstimate (Debug and Clone traits)
+    #[test]
+    fn test_gas_price_estimate_debug_should_format_correctly() {
+        let estimate = GasPriceEstimate {
+            slow: 10.0,
+            standard: 20.0,
+            fast: 30.0,
+            instant: 40.0,
+        };
+
+        let debug_str = format!("{:?}", estimate);
+        assert!(debug_str.contains("slow: 10.0"));
+        assert!(debug_str.contains("standard: 20.0"));
+        assert!(debug_str.contains("fast: 30.0"));
+        assert!(debug_str.contains("instant: 40.0"));
+    }
+
+    #[test]
+    fn test_gas_price_estimate_clone_should_create_copy() {
+        let original = GasPriceEstimate {
+            slow: 10.0,
+            standard: 20.0,
+            fast: 30.0,
+            instant: 40.0,
+        };
+
+        let cloned = original.clone();
+        assert_eq!(cloned.slow, 10.0);
+        assert_eq!(cloned.standard, 20.0);
+        assert_eq!(cloned.fast, 30.0);
+        assert_eq!(cloned.instant, 40.0);
+    }
+
+    // Tests for PoolState (Debug and Clone traits)
+    #[test]
+    fn test_pool_state_debug_should_format_correctly() {
+        let pool_state = PoolState {
+            token_a_reserve: 1000.0,
+            token_b_reserve: 2000.0,
+            k_constant: 2_000_000.0,
+            last_updated: SystemTime::UNIX_EPOCH,
+        };
+
+        let debug_str = format!("{:?}", pool_state);
+        assert!(debug_str.contains("token_a_reserve: 1000.0"));
+        assert!(debug_str.contains("token_b_reserve: 2000.0"));
+        assert!(debug_str.contains("k_constant: 2000000.0"));
+    }
+
+    #[test]
+    fn test_pool_state_clone_should_create_copy() {
+        let original = PoolState {
+            token_a_reserve: 1000.0,
+            token_b_reserve: 2000.0,
+            k_constant: 2_000_000.0,
+            last_updated: SystemTime::UNIX_EPOCH,
+        };
+
+        let cloned = original.clone();
+        assert_eq!(cloned.token_a_reserve, 1000.0);
+        assert_eq!(cloned.token_b_reserve, 2000.0);
+        assert_eq!(cloned.k_constant, 2_000_000.0);
+        assert_eq!(cloned.last_updated, SystemTime::UNIX_EPOCH);
+    }
+
+    // Tests for BollingerBands (Debug and Clone traits)
+    #[test]
+    fn test_bollinger_bands_debug_should_format_correctly() {
+        let bands = BollingerBands {
+            upper: 110.0,
+            middle: 100.0,
+            lower: 90.0,
+            current_value: 105.0,
+        };
+
+        let debug_str = format!("{:?}", bands);
+        assert!(debug_str.contains("upper: 110.0"));
+        assert!(debug_str.contains("middle: 100.0"));
+        assert!(debug_str.contains("lower: 90.0"));
+        assert!(debug_str.contains("current_value: 105.0"));
+    }
+
+    #[test]
+    fn test_bollinger_bands_clone_should_create_copy() {
+        let original = BollingerBands {
+            upper: 110.0,
+            middle: 100.0,
+            lower: 90.0,
+            current_value: 105.0,
+        };
+
+        let cloned = original.clone();
+        assert_eq!(cloned.upper, 110.0);
+        assert_eq!(cloned.middle, 100.0);
+        assert_eq!(cloned.lower, 90.0);
+        assert_eq!(cloned.current_value, 105.0);
+    }
+
+    // Tests for FinancialStreamExt trait methods
+    #[test]
+    fn test_financial_stream_ext_vwap_should_create_vwap_stream() {
+        let mock_stream = MockStream::new("test");
+        let window = Duration::from_secs(60);
+        let vwap_stream = mock_stream.vwap(window);
+
+        assert_eq!(vwap_stream.name(), "vwap(test)");
+    }
+
+    #[test]
+    fn test_financial_stream_ext_moving_average_should_create_ma_stream() {
+        let mock_stream = MockStream::new("test");
+        let ma_stream = mock_stream.moving_average(10);
+
+        assert_eq!(ma_stream.window_size, 10);
+    }
+
+    #[test]
+    fn test_financial_stream_ext_ema_should_create_ema_stream() {
+        let mock_stream = MockStream::new("test");
+        let ema_stream = mock_stream.ema(14);
+
+        let expected_alpha = 2.0 / 15.0;
+        assert_eq!(ema_stream.alpha, expected_alpha);
+    }
+
+    #[test]
+    fn test_financial_stream_ext_bollinger_bands_should_create_bb_stream() {
+        let mock_stream = MockStream::new("test");
+        let bb_stream = mock_stream.bollinger_bands(20, 2.0);
+
+        assert_eq!(bb_stream.window, 20);
+        assert_eq!(bb_stream.std_dev_multiplier, 2.0);
+    }
+
+    #[test]
+    fn test_financial_stream_ext_rsi_should_create_rsi_stream() {
+        let mock_stream = MockStream::new("test");
+        let rsi_stream = mock_stream.rsi(14);
+
+        assert_eq!(rsi_stream.period, 14);
+    }
+
+    #[test]
+    fn test_financial_stream_ext_momentum_should_create_momentum_stream() {
+        let mock_stream = MockStream::new("test");
+        let momentum_stream = mock_stream.momentum(10);
+
+        assert_eq!(momentum_stream.lookback_period, 10);
+    }
+
+    #[test]
+    fn test_financial_stream_ext_liquidity_pools_should_create_pool_stream() {
+        let mock_stream = MockStream::new("test");
+        let pool_stream = mock_stream.liquidity_pools();
+
+        assert!(pool_stream.pools.is_empty());
+    }
+
+    #[test]
+    fn test_financial_stream_ext_mev_detection_should_create_mev_stream() {
+        let mock_stream = MockStream::new("test");
+        let window = Duration::from_secs(30);
+        let mev_stream = mock_stream.mev_detection(window);
+
+        assert_eq!(mev_stream.window, window);
+    }
+
+    #[test]
+    fn test_financial_stream_ext_gas_oracle_should_create_gas_stream() {
+        let mock_stream = MockStream::new("test");
+        let gas_stream = mock_stream.gas_oracle(100);
+
+        assert_eq!(gas_stream.window_size, 100);
+    }
+}

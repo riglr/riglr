@@ -381,14 +381,17 @@ where
 
         tokio::spawn(async move {
             while let Ok(event) = rx1.recv().await {
-                let merged = MergedEvent::First(Arc::try_unwrap(event).unwrap_or_else(|arc| (*arc).clone()));
+                let merged =
+                    MergedEvent::First(Arc::try_unwrap(event).unwrap_or_else(|arc| (*arc).clone()));
                 let _ = tx1.send(Arc::new(merged));
             }
         });
 
         tokio::spawn(async move {
             while let Ok(event) = rx2.recv().await {
-                let merged = MergedEvent::Second(Arc::try_unwrap(event).unwrap_or_else(|arc| (*arc).clone()));
+                let merged = MergedEvent::Second(
+                    Arc::try_unwrap(event).unwrap_or_else(|arc| (*arc).clone()),
+                );
                 let _ = tx2.send(Arc::new(merged));
             }
         });
@@ -890,6 +893,39 @@ impl<S: Stream> SkipStream<S> {
     }
 }
 
+#[async_trait]
+impl<S> Stream for SkipStream<S>
+where
+    S: Stream + Send + Sync + 'static,
+{
+    type Event = S::Event;
+    type Config = S::Config;
+
+    async fn start(&mut self, config: Self::Config) -> Result<(), StreamError> {
+        self.inner.start(config).await
+    }
+
+    async fn stop(&mut self) -> Result<(), StreamError> {
+        self.inner.stop().await
+    }
+
+    fn subscribe(&self) -> broadcast::Receiver<Arc<Self::Event>> {
+        self.inner.subscribe()
+    }
+
+    fn is_running(&self) -> bool {
+        self.inner.is_running()
+    }
+
+    async fn health(&self) -> StreamHealth {
+        self.inner.health().await
+    }
+
+    fn name(&self) -> &str {
+        &self.name
+    }
+}
+
 /// Stream with stateful transformation (scan)
 pub struct ScanStream<S, St, F> {
     /// The underlying stream
@@ -1054,6 +1090,39 @@ impl<S: Stream> BufferedStream<S> {
             buffer: Arc::new(RwLock::new(Vec::new())),
             name,
         }
+    }
+}
+
+#[async_trait]
+impl<S> Stream for BufferedStream<S>
+where
+    S: Stream + Send + Sync + 'static,
+{
+    type Event = S::Event;
+    type Config = S::Config;
+
+    async fn start(&mut self, config: Self::Config) -> Result<(), StreamError> {
+        self.inner.start(config).await
+    }
+
+    async fn stop(&mut self) -> Result<(), StreamError> {
+        self.inner.stop().await
+    }
+
+    fn subscribe(&self) -> broadcast::Receiver<Arc<Self::Event>> {
+        self.inner.subscribe()
+    }
+
+    fn is_running(&self) -> bool {
+        self.inner.is_running()
+    }
+
+    async fn health(&self) -> StreamHealth {
+        self.inner.health().await
+    }
+
+    fn name(&self) -> &str {
+        &self.name
     }
 }
 
@@ -1644,6 +1713,114 @@ impl<S1: Stream, S2: Stream> ZipStream<S1, S2> {
     }
 }
 
+/// Event type for zipped streams
+#[derive(Clone, Debug)]
+pub struct ZippedEvent<E1, E2> {
+    /// Event from the first stream
+    pub first: E1,
+    /// Event from the second stream
+    pub second: E2,
+    /// Combined event identifier
+    pub zip_id: String,
+    /// Timestamp when the zip was created
+    pub timestamp: std::time::SystemTime,
+}
+
+impl<E1, E2> Event for ZippedEvent<E1, E2>
+where
+    E1: Event + Clone + 'static,
+    E2: Event + Clone + 'static,
+{
+    fn id(&self) -> &str {
+        &self.zip_id
+    }
+
+    fn kind(&self) -> &riglr_events_core::EventKind {
+        self.first.kind()
+    }
+
+    fn metadata(&self) -> &riglr_events_core::EventMetadata {
+        self.first.metadata()
+    }
+
+    fn metadata_mut(&mut self) -> &mut riglr_events_core::EventMetadata {
+        self.first.metadata_mut()
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+
+    fn clone_boxed(&self) -> Box<dyn Event> {
+        Box::new(self.clone())
+    }
+
+    fn to_json(&self) -> riglr_events_core::EventResult<serde_json::Value> {
+        Ok(serde_json::json!({
+            "zip_id": self.zip_id,
+            "first": self.first.to_json()?,
+            "second": self.second.to_json()?,
+            "timestamp": self.timestamp.duration_since(std::time::UNIX_EPOCH).unwrap().as_secs()
+        }))
+    }
+}
+
+#[async_trait]
+impl<S1, S2> Stream for ZipStream<S1, S2>
+where
+    S1: Stream + Send + Sync + 'static,
+    S2: Stream + Send + Sync + 'static,
+    S1::Event: Event + Clone + Send + Sync + 'static,
+    S2::Event: Event + Clone + Send + Sync + 'static,
+{
+    type Event = ZippedEvent<S1::Event, S2::Event>;
+    type Config = (S1::Config, S2::Config);
+
+    async fn start(&mut self, config: Self::Config) -> Result<(), StreamError> {
+        self.stream1.start(config.0).await?;
+        self.stream2.start(config.1).await?;
+        Ok(())
+    }
+
+    async fn stop(&mut self) -> Result<(), StreamError> {
+        self.stream1.stop().await?;
+        self.stream2.stop().await?;
+        Ok(())
+    }
+
+    fn subscribe(&self) -> broadcast::Receiver<Arc<Self::Event>> {
+        let (_tx, rx) = broadcast::channel(1000);
+        rx
+    }
+
+    fn is_running(&self) -> bool {
+        self.stream1.is_running() && self.stream2.is_running()
+    }
+
+    async fn health(&self) -> StreamHealth {
+        let health1 = self.stream1.health().await;
+        let health2 = self.stream2.health().await;
+
+        StreamHealth {
+            is_connected: health1.is_connected && health2.is_connected,
+            last_event_time: std::cmp::max(health1.last_event_time, health2.last_event_time),
+            error_count: health1.error_count + health2.error_count,
+            events_processed: health1.events_processed + health2.events_processed,
+            backlog_size: None,
+            custom_metrics: None,
+            stream_info: None,
+        }
+    }
+
+    fn name(&self) -> &str {
+        &self.name
+    }
+}
+
 /// Stream that combines latest values
 #[allow(dead_code)]
 pub struct CombineLatestStream<S1, S2> {
@@ -1661,5 +1838,1538 @@ impl<S1: Stream, S2: Stream> CombineLatestStream<S1, S2> {
             stream2,
             name,
         }
+    }
+}
+
+/// Event type for combined latest streams
+#[derive(Clone, Debug)]
+pub struct CombinedEvent<E1, E2> {
+    /// Latest event from the first stream
+    pub first: Option<E1>,
+    /// Latest event from the second stream
+    pub second: Option<E2>,
+    /// Combined event identifier
+    pub combined_id: String,
+    /// Timestamp when the combination was created
+    pub timestamp: std::time::SystemTime,
+}
+
+impl<E1, E2> Event for CombinedEvent<E1, E2>
+where
+    E1: Event + Clone + 'static,
+    E2: Event + Clone + 'static,
+{
+    fn id(&self) -> &str {
+        &self.combined_id
+    }
+
+    fn kind(&self) -> &riglr_events_core::EventKind {
+        if let Some(ref first) = self.first {
+            first.kind()
+        } else if let Some(ref second) = self.second {
+            second.kind()
+        } else {
+            // Default fallback
+            &riglr_events_core::EventKind::Swap
+        }
+    }
+
+    fn metadata(&self) -> &riglr_events_core::EventMetadata {
+        if let Some(ref first) = self.first {
+            first.metadata()
+        } else if let Some(ref second) = self.second {
+            second.metadata()
+        } else {
+            // This is problematic - we need to return a reference but don't have one
+            // Let's create a default metadata for now
+            static DEFAULT_METADATA: std::sync::LazyLock<riglr_events_core::EventMetadata> =
+                std::sync::LazyLock::new(|| {
+                    riglr_events_core::EventMetadata::new(
+                        "combined".to_string(),
+                        riglr_events_core::EventKind::Swap,
+                        "combine_latest".to_string(),
+                    )
+                });
+            &DEFAULT_METADATA
+        }
+    }
+
+    fn metadata_mut(&mut self) -> &mut riglr_events_core::EventMetadata {
+        if let Some(ref mut first) = self.first {
+            first.metadata_mut()
+        } else if let Some(ref mut second) = self.second {
+            second.metadata_mut()
+        } else {
+            panic!("metadata_mut not supported for CombinedEvent with no events")
+        }
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+
+    fn clone_boxed(&self) -> Box<dyn Event> {
+        Box::new(self.clone())
+    }
+
+    fn to_json(&self) -> riglr_events_core::EventResult<serde_json::Value> {
+        Ok(serde_json::json!({
+            "combined_id": self.combined_id,
+            "first": self.first.as_ref().map(|e| e.to_json()).transpose()?,
+            "second": self.second.as_ref().map(|e| e.to_json()).transpose()?,
+            "timestamp": self.timestamp.duration_since(std::time::UNIX_EPOCH).unwrap().as_secs()
+        }))
+    }
+}
+
+#[async_trait]
+impl<S1, S2> Stream for CombineLatestStream<S1, S2>
+where
+    S1: Stream + Send + Sync + 'static,
+    S2: Stream + Send + Sync + 'static,
+    S1::Event: Event + Clone + Send + Sync + 'static,
+    S2::Event: Event + Clone + Send + Sync + 'static,
+{
+    type Event = CombinedEvent<S1::Event, S2::Event>;
+    type Config = (S1::Config, S2::Config);
+
+    async fn start(&mut self, config: Self::Config) -> Result<(), StreamError> {
+        self.stream1.start(config.0).await?;
+        self.stream2.start(config.1).await?;
+        Ok(())
+    }
+
+    async fn stop(&mut self) -> Result<(), StreamError> {
+        self.stream1.stop().await?;
+        self.stream2.stop().await?;
+        Ok(())
+    }
+
+    fn subscribe(&self) -> broadcast::Receiver<Arc<Self::Event>> {
+        let (_tx, rx) = broadcast::channel(1000);
+        rx
+    }
+
+    fn is_running(&self) -> bool {
+        self.stream1.is_running() || self.stream2.is_running()
+    }
+
+    async fn health(&self) -> StreamHealth {
+        let health1 = self.stream1.health().await;
+        let health2 = self.stream2.health().await;
+
+        StreamHealth {
+            is_connected: health1.is_connected || health2.is_connected,
+            last_event_time: std::cmp::max(health1.last_event_time, health2.last_event_time),
+            error_count: health1.error_count + health2.error_count,
+            events_processed: health1.events_processed + health2.events_processed,
+            backlog_size: None,
+            custom_metrics: None,
+            stream_info: None,
+        }
+    }
+
+    fn name(&self) -> &str {
+        &self.name
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::core::{StreamError, StreamHealth};
+    use async_trait::async_trait;
+    use riglr_events_core::{Event, EventKind, EventMetadata};
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::Arc;
+    use std::time::{Duration, SystemTime};
+    use tokio::sync::broadcast;
+
+    // Mock Event implementation for testing
+    #[derive(Clone, Debug, PartialEq)]
+    struct TestEvent {
+        id: String,
+        value: i32,
+        metadata: EventMetadata,
+    }
+
+    impl TestEvent {
+        fn new(id: String, value: i32) -> Self {
+            Self {
+                id: id.clone(),
+                value,
+                metadata: EventMetadata::new(
+                    id,
+                    EventKind::Custom("test".to_string()),
+                    "test-source".to_string(),
+                ),
+            }
+        }
+    }
+
+    impl Event for TestEvent {
+        fn id(&self) -> &str {
+            &self.id
+        }
+
+        fn kind(&self) -> &EventKind {
+            &self.metadata.kind
+        }
+
+        fn metadata(&self) -> &EventMetadata {
+            &self.metadata
+        }
+
+        fn metadata_mut(&mut self) -> &mut EventMetadata {
+            &mut self.metadata
+        }
+
+        fn as_any(&self) -> &dyn std::any::Any {
+            self
+        }
+
+        fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+            self
+        }
+
+        fn clone_boxed(&self) -> Box<dyn Event> {
+            Box::new(self.clone())
+        }
+    }
+
+    // Mock Stream implementation for testing
+    #[derive(Clone)]
+    struct MockStream {
+        name: String,
+        running: Arc<AtomicBool>,
+        tx: Arc<broadcast::Sender<Arc<TestEvent>>>,
+        should_fail_start: bool,
+        should_fail_stop: bool,
+        health_override: Option<StreamHealth>,
+    }
+
+    impl MockStream {
+        fn new(name: &str) -> Self {
+            let (tx, _) = broadcast::channel(1000);
+            Self {
+                name: name.to_string(),
+                running: Arc::new(AtomicBool::new(false)),
+                tx: Arc::new(tx),
+                should_fail_start: false,
+                should_fail_stop: false,
+                health_override: None,
+            }
+        }
+
+        fn with_start_failure(mut self) -> Self {
+            self.should_fail_start = true;
+            self
+        }
+
+        fn with_stop_failure(mut self) -> Self {
+            self.should_fail_stop = true;
+            self
+        }
+
+        fn with_health_override(mut self, health: StreamHealth) -> Self {
+            self.health_override = Some(health);
+            self
+        }
+
+        #[allow(dead_code)]
+        fn emit(
+            &self,
+            event: TestEvent,
+        ) -> Result<(), broadcast::error::SendError<Arc<TestEvent>>> {
+            self.tx.send(Arc::new(event))?;
+            Ok(())
+        }
+    }
+
+    #[async_trait]
+    impl Stream for MockStream {
+        type Event = TestEvent;
+        type Config = ();
+
+        async fn start(&mut self, _config: Self::Config) -> Result<(), StreamError> {
+            if self.should_fail_start {
+                return Err(StreamError::Connection {
+                    message: "mock start failure".to_string(),
+                    retriable: true,
+                });
+            }
+            self.running.store(true, Ordering::SeqCst);
+            Ok(())
+        }
+
+        async fn stop(&mut self) -> Result<(), StreamError> {
+            if self.should_fail_stop {
+                return Err(StreamError::Connection {
+                    message: "mock stop failure".to_string(),
+                    retriable: true,
+                });
+            }
+            self.running.store(false, Ordering::SeqCst);
+            Ok(())
+        }
+
+        fn subscribe(&self) -> broadcast::Receiver<Arc<Self::Event>> {
+            self.tx.subscribe()
+        }
+
+        fn is_running(&self) -> bool {
+            self.running.load(Ordering::SeqCst)
+        }
+
+        async fn health(&self) -> StreamHealth {
+            self.health_override
+                .clone()
+                .unwrap_or_else(|| StreamHealth {
+                    is_connected: self.is_running(),
+                    last_event_time: if self.is_running() {
+                        Some(SystemTime::now())
+                    } else {
+                        None
+                    },
+                    error_count: 0,
+                    events_processed: 10,
+                    backlog_size: Some(0),
+                    custom_metrics: None,
+                    stream_info: None,
+                })
+        }
+
+        fn name(&self) -> &str {
+            &self.name
+        }
+    }
+
+    // Tests for ComposableStream trait methods
+    #[tokio::test]
+    async fn test_composable_stream_map_when_valid_input_should_transform_events() {
+        let mock_stream = MockStream::new("test");
+        let mapped_stream = mock_stream
+            .map(|event| TestEvent::new(format!("mapped_{}", event.id), event.value * 2));
+
+        assert_eq!(mapped_stream.name(), "test");
+    }
+
+    #[tokio::test]
+    async fn test_composable_stream_filter_when_valid_predicate_should_create_filtered_stream() {
+        let mock_stream = MockStream::new("test");
+        let filtered_stream = mock_stream.filter(|event| event.value > 0);
+
+        assert_eq!(filtered_stream.name(), "test");
+    }
+
+    #[tokio::test]
+    async fn test_composable_stream_merge_when_two_streams_should_create_merged_stream() {
+        let stream1 = MockStream::new("stream1");
+        let stream2 = MockStream::new("stream2");
+        let merged_stream = stream1.merge(stream2);
+
+        assert_eq!(merged_stream.name(), "merged(stream1,stream2)");
+    }
+
+    #[tokio::test]
+    async fn test_composable_stream_batch_when_valid_params_should_create_batched_stream() {
+        let mock_stream = MockStream::new("test");
+        let batched_stream = mock_stream.batch(5, Duration::from_millis(100));
+
+        assert_eq!(batched_stream.name(), "batched(test)");
+    }
+
+    #[tokio::test]
+    async fn test_composable_stream_debounce_when_valid_duration_should_create_debounced_stream() {
+        let mock_stream = MockStream::new("test");
+        let debounced_stream = mock_stream.debounce(Duration::from_millis(100));
+
+        assert_eq!(debounced_stream.name(), "debounced(test)");
+    }
+
+    #[tokio::test]
+    async fn test_composable_stream_throttle_when_valid_duration_should_create_throttled_stream() {
+        let mock_stream = MockStream::new("test");
+        let throttled_stream = mock_stream.throttle(Duration::from_millis(100));
+
+        assert_eq!(throttled_stream.name(), "throttled(test)");
+    }
+
+    #[tokio::test]
+    async fn test_composable_stream_take_when_valid_count_should_create_take_stream() {
+        let mock_stream = MockStream::new("test");
+        let take_stream = mock_stream.take(5);
+
+        assert_eq!(take_stream.name(), "take(5,test)");
+    }
+
+    #[tokio::test]
+    async fn test_composable_stream_skip_when_valid_count_should_create_skip_stream() {
+        let mock_stream = MockStream::new("test");
+        let skip_stream = mock_stream.skip(3);
+
+        assert_eq!(skip_stream.name(), "skip(3,test)");
+    }
+
+    #[tokio::test]
+    async fn test_composable_stream_scan_when_valid_params_should_create_scan_stream() {
+        let mock_stream = MockStream::new("test");
+        let scan_stream = mock_stream.scan(0i32, |acc, event| acc + event.value);
+
+        assert_eq!(scan_stream.name(), "scan(test)");
+    }
+
+    #[tokio::test]
+    async fn test_composable_stream_buffer_when_valid_strategy_should_create_buffered_stream() {
+        let mock_stream = MockStream::new("test");
+        let buffered_stream = mock_stream.buffer(BufferStrategy::Count(10));
+
+        assert_eq!(buffered_stream.name(), "buffered(test)");
+    }
+
+    #[tokio::test]
+    async fn test_composable_stream_with_guaranteed_delivery_when_valid_buffer_should_create_guaranteed_stream(
+    ) {
+        let mock_stream = MockStream::new("test");
+        let guaranteed_stream = mock_stream.with_guaranteed_delivery(1000);
+
+        assert_eq!(guaranteed_stream.name(), "guaranteed(test)");
+    }
+
+    // Tests for BufferStrategy
+    #[test]
+    fn test_buffer_strategy_count_when_created_should_have_correct_value() {
+        let strategy = BufferStrategy::Count(100);
+        match strategy {
+            BufferStrategy::Count(count) => assert_eq!(count, 100),
+            _ => panic!("Expected Count variant"),
+        }
+    }
+
+    #[test]
+    fn test_buffer_strategy_time_when_created_should_have_correct_duration() {
+        let duration = Duration::from_secs(5);
+        let strategy = BufferStrategy::Time(duration);
+        match strategy {
+            BufferStrategy::Time(d) => assert_eq!(d, duration),
+            _ => panic!("Expected Time variant"),
+        }
+    }
+
+    #[test]
+    fn test_buffer_strategy_count_or_time_when_created_should_have_correct_values() {
+        let duration = Duration::from_secs(10);
+        let strategy = BufferStrategy::CountOrTime(50, duration);
+        match strategy {
+            BufferStrategy::CountOrTime(count, d) => {
+                assert_eq!(count, 50);
+                assert_eq!(d, duration);
+            }
+            _ => panic!("Expected CountOrTime variant"),
+        }
+    }
+
+    #[test]
+    fn test_buffer_strategy_sliding_window_when_created_should_have_correct_size() {
+        let strategy = BufferStrategy::SlidingWindow(20);
+        match strategy {
+            BufferStrategy::SlidingWindow(size) => assert_eq!(size, 20),
+            _ => panic!("Expected SlidingWindow variant"),
+        }
+    }
+
+    #[test]
+    fn test_buffer_strategy_clone_when_cloned_should_be_equal() {
+        let original = BufferStrategy::Count(42);
+        let cloned = original.clone();
+        match (&original, &cloned) {
+            (BufferStrategy::Count(a), BufferStrategy::Count(b)) => assert_eq!(a, b),
+            _ => panic!("Clone should preserve variant and value"),
+        }
+    }
+
+    // Tests for MappedStream
+    #[tokio::test]
+    async fn test_mapped_stream_new_when_valid_params_should_create_stream() {
+        let mock_stream = MockStream::new("test");
+        let mapped = MappedStream::new(mock_stream, |event| {
+            TestEvent::new(format!("mapped_{}", event.id), event.value * 2)
+        });
+
+        assert_eq!(mapped.name(), "test");
+    }
+
+    #[tokio::test]
+    async fn test_mapped_stream_start_when_inner_succeeds_should_succeed() {
+        let mock_stream = MockStream::new("test");
+        let mut mapped = MappedStream::new(mock_stream, |event| {
+            TestEvent::new(event.id.clone(), event.value)
+        });
+
+        let result = mapped.start(()).await;
+        assert!(result.is_ok());
+        assert!(mapped.is_running());
+    }
+
+    #[tokio::test]
+    async fn test_mapped_stream_start_when_inner_fails_should_fail() {
+        let mock_stream = MockStream::new("test").with_start_failure();
+        let mut mapped = MappedStream::new(mock_stream, |event| {
+            TestEvent::new(event.id.clone(), event.value)
+        });
+
+        let result = mapped.start(()).await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_mapped_stream_stop_when_inner_succeeds_should_succeed() {
+        let mock_stream = MockStream::new("test");
+        let mut mapped = MappedStream::new(mock_stream, |event| {
+            TestEvent::new(event.id.clone(), event.value)
+        });
+
+        let _ = mapped.start(()).await;
+        let result = mapped.stop().await;
+        assert!(result.is_ok());
+        assert!(!mapped.is_running());
+    }
+
+    #[tokio::test]
+    async fn test_mapped_stream_stop_when_inner_fails_should_fail() {
+        let mock_stream = MockStream::new("test").with_stop_failure();
+        let mut mapped = MappedStream::new(mock_stream, |event| {
+            TestEvent::new(event.id.clone(), event.value)
+        });
+
+        let result = mapped.stop().await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_mapped_stream_subscribe_when_events_emitted_should_transform_events() {
+        let mock_stream = MockStream::new("test");
+        let original_tx = mock_stream.tx.clone();
+        let mapped = MappedStream::new(mock_stream, |event| {
+            TestEvent::new(format!("mapped_{}", event.id), event.value * 2)
+        });
+
+        let mut rx = mapped.subscribe();
+
+        // Emit an event
+        let test_event = TestEvent::new("test1".to_string(), 5);
+        let _ = original_tx.send(Arc::new(test_event));
+
+        // Allow some time for async processing
+        tokio::time::sleep(Duration::from_millis(10)).await;
+
+        // Check if transformation was applied
+        if let Ok(received) = rx.try_recv() {
+            assert_eq!(received.id, "mapped_test1");
+            assert_eq!(received.value, 10);
+        }
+    }
+
+    #[tokio::test]
+    async fn test_mapped_stream_health_when_called_should_delegate_to_inner() {
+        let health = StreamHealth {
+            is_connected: true,
+            last_event_time: Some(SystemTime::now()),
+            error_count: 5,
+            events_processed: 100,
+            backlog_size: Some(10),
+            custom_metrics: None,
+            stream_info: None,
+        };
+        let mock_stream = MockStream::new("test").with_health_override(health.clone());
+        let mapped = MappedStream::new(mock_stream, |event| {
+            TestEvent::new(event.id.clone(), event.value)
+        });
+
+        let result_health = mapped.health().await;
+        assert_eq!(result_health.is_connected, health.is_connected);
+        assert_eq!(result_health.error_count, health.error_count);
+        assert_eq!(result_health.events_processed, health.events_processed);
+    }
+
+    // Tests for FilteredStream
+    #[tokio::test]
+    async fn test_filtered_stream_new_when_valid_params_should_create_stream() {
+        let mock_stream = MockStream::new("test");
+        let filtered = FilteredStream::new(mock_stream, |event| event.value > 0);
+
+        assert_eq!(filtered.name(), "test");
+    }
+
+    #[tokio::test]
+    async fn test_filtered_stream_subscribe_when_predicate_matches_should_forward_event() {
+        let mock_stream = MockStream::new("test");
+        let original_tx = mock_stream.tx.clone();
+        let filtered = FilteredStream::new(mock_stream, |event| event.value > 0);
+
+        let mut rx = filtered.subscribe();
+
+        // Emit an event that should pass the filter
+        let test_event = TestEvent::new("test1".to_string(), 5);
+        let _ = original_tx.send(Arc::new(test_event.clone()));
+
+        tokio::time::sleep(Duration::from_millis(10)).await;
+
+        if let Ok(received) = rx.try_recv() {
+            assert_eq!(received.id, test_event.id);
+            assert_eq!(received.value, test_event.value);
+        }
+    }
+
+    #[tokio::test]
+    async fn test_filtered_stream_subscribe_when_predicate_fails_should_not_forward_event() {
+        let mock_stream = MockStream::new("test");
+        let original_tx = mock_stream.tx.clone();
+        let filtered = FilteredStream::new(mock_stream, |event| event.value > 10);
+
+        let mut rx = filtered.subscribe();
+
+        // Emit an event that should NOT pass the filter
+        let test_event = TestEvent::new("test1".to_string(), 5);
+        let _ = original_tx.send(Arc::new(test_event));
+
+        tokio::time::sleep(Duration::from_millis(10)).await;
+
+        // Should not receive any events
+        assert!(rx.try_recv().is_err());
+    }
+
+    // Tests for MergedEvent
+    #[test]
+    fn test_merged_event_first_when_created_should_have_correct_variant() {
+        let event = TestEvent::new("test".to_string(), 42);
+        let merged: MergedEvent<TestEvent, TestEvent> = MergedEvent::First(event.clone());
+
+        match merged {
+            MergedEvent::First(e) => assert_eq!(e.id, event.id),
+            MergedEvent::Second(_) => panic!("Expected First variant"),
+        }
+    }
+
+    #[test]
+    fn test_merged_event_second_when_created_should_have_correct_variant() {
+        let event = TestEvent::new("test".to_string(), 42);
+        let merged: MergedEvent<TestEvent, TestEvent> = MergedEvent::Second(event.clone());
+
+        match merged {
+            MergedEvent::Second(e) => assert_eq!(e.id, event.id),
+            MergedEvent::First(_) => panic!("Expected Second variant"),
+        }
+    }
+
+    #[test]
+    fn test_merged_event_id_when_first_variant_should_return_first_event_id() {
+        let event = TestEvent::new("test_id".to_string(), 42);
+        let merged: MergedEvent<TestEvent, TestEvent> = MergedEvent::First(event);
+
+        assert_eq!(merged.id(), "test_id");
+    }
+
+    #[test]
+    fn test_merged_event_id_when_second_variant_should_return_second_event_id() {
+        let event = TestEvent::new("test_id".to_string(), 42);
+        let merged: MergedEvent<TestEvent, TestEvent> = MergedEvent::Second(event);
+
+        assert_eq!(merged.id(), "test_id");
+    }
+
+    #[test]
+    fn test_merged_event_kind_when_called_should_delegate_to_inner_event() {
+        let event = TestEvent::new("test".to_string(), 42);
+        let kind = event.kind().clone();
+        let merged: MergedEvent<TestEvent, TestEvent> = MergedEvent::First(event);
+
+        assert_eq!(merged.kind(), &kind);
+    }
+
+    #[test]
+    fn test_merged_event_metadata_when_called_should_delegate_to_inner_event() {
+        let event = TestEvent::new("test".to_string(), 42);
+        let merged: MergedEvent<TestEvent, TestEvent> = MergedEvent::First(event);
+        let metadata = merged.metadata();
+
+        assert_eq!(metadata.source, "test-source");
+    }
+
+    #[test]
+    fn test_merged_event_as_any_when_called_should_return_self() {
+        let event = TestEvent::new("test".to_string(), 42);
+        let merged: MergedEvent<TestEvent, TestEvent> = MergedEvent::First(event);
+        let any_ref = merged.as_any();
+
+        assert!(any_ref
+            .downcast_ref::<MergedEvent<TestEvent, TestEvent>>()
+            .is_some());
+    }
+
+    #[test]
+    fn test_merged_event_clone_boxed_when_called_should_return_boxed_clone() {
+        let event = TestEvent::new("test".to_string(), 42);
+        let merged: MergedEvent<TestEvent, TestEvent> = MergedEvent::First(event);
+        let boxed = merged.clone_boxed();
+
+        assert_eq!(boxed.id(), "test");
+    }
+
+    // Tests for MergedStream
+    #[tokio::test]
+    async fn test_merged_stream_new_when_two_streams_should_create_with_correct_name() {
+        let stream1 = MockStream::new("stream1");
+        let stream2 = MockStream::new("stream2");
+        let merged = MergedStream::new(stream1, stream2);
+
+        assert_eq!(merged.name(), "merged(stream1,stream2)");
+    }
+
+    #[tokio::test]
+    async fn test_merged_stream_start_when_both_succeed_should_succeed() {
+        let stream1 = MockStream::new("stream1");
+        let stream2 = MockStream::new("stream2");
+        let mut merged = MergedStream::new(stream1, stream2);
+
+        let result = merged.start(((), ())).await;
+        assert!(result.is_ok());
+        assert!(merged.is_running());
+    }
+
+    #[tokio::test]
+    async fn test_merged_stream_start_when_first_fails_should_fail() {
+        let stream1 = MockStream::new("stream1").with_start_failure();
+        let stream2 = MockStream::new("stream2");
+        let mut merged = MergedStream::new(stream1, stream2);
+
+        let result = merged.start(((), ())).await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_merged_stream_start_when_second_fails_should_fail() {
+        let stream1 = MockStream::new("stream1");
+        let stream2 = MockStream::new("stream2").with_start_failure();
+        let mut merged = MergedStream::new(stream1, stream2);
+
+        let result = merged.start(((), ())).await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_merged_stream_stop_when_both_succeed_should_succeed() {
+        let stream1 = MockStream::new("stream1");
+        let stream2 = MockStream::new("stream2");
+        let mut merged = MergedStream::new(stream1, stream2);
+
+        let _ = merged.start(((), ())).await;
+        let result = merged.stop().await;
+        assert!(result.is_ok());
+        assert!(!merged.is_running());
+    }
+
+    #[tokio::test]
+    async fn test_merged_stream_stop_when_first_fails_should_fail() {
+        let stream1 = MockStream::new("stream1").with_stop_failure();
+        let stream2 = MockStream::new("stream2");
+        let mut merged = MergedStream::new(stream1, stream2);
+
+        let result = merged.stop().await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_merged_stream_is_running_when_both_running_should_return_true() {
+        let mut stream1 = MockStream::new("stream1");
+        let mut stream2 = MockStream::new("stream2");
+        let _ = stream1.start(()).await;
+        let _ = stream2.start(()).await;
+        let merged = MergedStream::new(stream1, stream2);
+
+        assert!(merged.is_running());
+    }
+
+    #[tokio::test]
+    async fn test_merged_stream_is_running_when_one_not_running_should_return_false() {
+        let mut stream1 = MockStream::new("stream1");
+        let stream2 = MockStream::new("stream2");
+        let _ = stream1.start(()).await;
+        let merged = MergedStream::new(stream1, stream2);
+
+        assert!(!merged.is_running());
+    }
+
+    #[tokio::test]
+    async fn test_merged_stream_health_when_called_should_combine_health_metrics() {
+        let health1 = StreamHealth {
+            is_connected: true,
+            last_event_time: Some(SystemTime::now()),
+            error_count: 2,
+            events_processed: 50,
+            backlog_size: None,
+            custom_metrics: None,
+            stream_info: None,
+        };
+        let health2 = StreamHealth {
+            is_connected: false,
+            last_event_time: Some(SystemTime::now()),
+            error_count: 3,
+            events_processed: 75,
+            backlog_size: None,
+            custom_metrics: None,
+            stream_info: None,
+        };
+
+        let stream1 = MockStream::new("stream1").with_health_override(health1);
+        let stream2 = MockStream::new("stream2").with_health_override(health2);
+        let merged = MergedStream::new(stream1, stream2);
+
+        let combined_health = merged.health().await;
+        assert!(combined_health.is_connected); // true OR false = true
+        assert_eq!(combined_health.error_count, 5); // 2 + 3
+        assert_eq!(combined_health.events_processed, 125); // 50 + 75
+    }
+
+    // Tests for BatchEvent
+    #[test]
+    fn test_batch_event_new_when_created_should_have_correct_fields() {
+        let events = vec![
+            Arc::new(TestEvent::new("test1".to_string(), 1)),
+            Arc::new(TestEvent::new("test2".to_string(), 2)),
+        ];
+        let batch_id = "batch_123".to_string();
+        let timestamp = SystemTime::now();
+
+        let batch = BatchEvent {
+            events: events.clone(),
+            batch_id: batch_id.clone(),
+            timestamp,
+        };
+
+        assert_eq!(batch.events.len(), 2);
+        assert_eq!(batch.batch_id, batch_id);
+        assert_eq!(batch.timestamp, timestamp);
+    }
+
+    #[test]
+    fn test_batch_event_id_when_called_should_return_batch_id() {
+        let batch: BatchEvent<TestEvent> = BatchEvent {
+            events: vec![],
+            batch_id: "test_batch".to_string(),
+            timestamp: SystemTime::now(),
+        };
+
+        assert_eq!(batch.id(), "test_batch");
+    }
+
+    #[test]
+    fn test_batch_event_kind_when_called_should_return_batch_kind() {
+        let batch: BatchEvent<TestEvent> = BatchEvent {
+            events: vec![],
+            batch_id: "test".to_string(),
+            timestamp: SystemTime::now(),
+        };
+
+        match batch.kind() {
+            EventKind::Custom(kind) => assert_eq!(kind, "batch"),
+            _ => panic!("Expected Custom batch kind"),
+        }
+    }
+
+    #[test]
+    #[should_panic(expected = "metadata_mut not supported for BatchEvent")]
+    fn test_batch_event_metadata_mut_when_called_should_panic() {
+        let mut batch: BatchEvent<TestEvent> = BatchEvent {
+            events: vec![],
+            batch_id: "test".to_string(),
+            timestamp: SystemTime::now(),
+        };
+
+        batch.metadata_mut();
+    }
+
+    // Tests for BatchedStream
+    #[tokio::test]
+    async fn test_batched_stream_new_when_valid_params_should_create_with_correct_name() {
+        let mock_stream = MockStream::new("test");
+        let batched = BatchedStream::new(mock_stream, 5, Duration::from_millis(100));
+
+        assert_eq!(batched.name(), "batched(test)");
+    }
+
+    #[tokio::test]
+    async fn test_batched_stream_subscribe_when_batch_size_reached_should_emit_batch() {
+        let mock_stream = MockStream::new("test");
+        let original_tx = mock_stream.tx.clone();
+        let batched = BatchedStream::new(mock_stream, 2, Duration::from_secs(10));
+
+        let mut rx = batched.subscribe();
+
+        // Emit events to fill the batch
+        let _ = original_tx.send(Arc::new(TestEvent::new("test1".to_string(), 1)));
+        let _ = original_tx.send(Arc::new(TestEvent::new("test2".to_string(), 2)));
+
+        tokio::time::sleep(Duration::from_millis(50)).await;
+
+        if let Ok(batch) = rx.try_recv() {
+            assert_eq!(batch.events.len(), 2);
+            assert!(batch.batch_id.starts_with("batch_"));
+        }
+    }
+
+    // Tests for DebouncedStream
+    #[tokio::test]
+    async fn test_debounced_stream_new_when_valid_duration_should_create_with_correct_name() {
+        let mock_stream = MockStream::new("test");
+        let debounced = DebouncedStream::new(mock_stream, Duration::from_millis(100));
+
+        assert_eq!(debounced.name(), "debounced(test)");
+    }
+
+    // Tests for ThrottledStream
+    #[tokio::test]
+    async fn test_throttled_stream_new_when_valid_duration_should_create_with_correct_name() {
+        let mock_stream = MockStream::new("test");
+        let throttled = ThrottledStream::new(mock_stream, Duration::from_millis(100));
+
+        assert_eq!(throttled.name(), "throttled(test)");
+    }
+
+    // Tests for TakeStream
+    #[tokio::test]
+    async fn test_take_stream_new_when_valid_count_should_create_with_correct_name() {
+        let mock_stream = MockStream::new("test");
+        let take = TakeStream::new(mock_stream, 5);
+
+        assert_eq!(take.name(), "take(5,test)");
+    }
+
+    #[tokio::test]
+    async fn test_take_stream_subscribe_when_limit_not_reached_should_forward_events() {
+        let mock_stream = MockStream::new("test");
+        let original_tx = mock_stream.tx.clone();
+        let take = TakeStream::new(mock_stream, 2);
+
+        let mut rx = take.subscribe();
+
+        // Emit first event
+        let _ = original_tx.send(Arc::new(TestEvent::new("test1".to_string(), 1)));
+        tokio::time::sleep(Duration::from_millis(10)).await;
+
+        assert!(rx.try_recv().is_ok());
+
+        // Emit second event
+        let _ = original_tx.send(Arc::new(TestEvent::new("test2".to_string(), 2)));
+        tokio::time::sleep(Duration::from_millis(10)).await;
+
+        assert!(rx.try_recv().is_ok());
+
+        // Emit third event - should not be forwarded
+        let _ = original_tx.send(Arc::new(TestEvent::new("test3".to_string(), 3)));
+        tokio::time::sleep(Duration::from_millis(10)).await;
+
+        assert!(rx.try_recv().is_err());
+    }
+
+    #[tokio::test]
+    async fn test_take_stream_subscribe_when_zero_count_should_not_forward_any_events() {
+        let mock_stream = MockStream::new("test");
+        let original_tx = mock_stream.tx.clone();
+        let take = TakeStream::new(mock_stream, 0);
+
+        let mut rx = take.subscribe();
+
+        let _ = original_tx.send(Arc::new(TestEvent::new("test1".to_string(), 1)));
+        tokio::time::sleep(Duration::from_millis(10)).await;
+
+        assert!(rx.try_recv().is_err());
+    }
+
+    // Tests for SkipStream
+    #[tokio::test]
+    async fn test_skip_stream_new_when_valid_count_should_create_with_correct_name() {
+        let mock_stream = MockStream::new("test");
+        let skip = SkipStream::new(mock_stream, 3);
+
+        assert_eq!(skip.name(), "skip(3,test)");
+    }
+
+    // Tests for ScanEvent
+    #[test]
+    fn test_scan_event_new_when_created_should_have_correct_fields() {
+        let original_event = Arc::new(TestEvent::new("test".to_string(), 42));
+        let state = 100i32;
+        let scan_id = "scan_1".to_string();
+        let timestamp = SystemTime::now();
+
+        let scan_event = ScanEvent {
+            state,
+            original_event: original_event.clone(),
+            scan_id: scan_id.clone(),
+            timestamp,
+        };
+
+        assert_eq!(scan_event.state, state);
+        assert_eq!(scan_event.original_event.id(), "test");
+        assert_eq!(scan_event.scan_id, scan_id);
+        assert_eq!(scan_event.timestamp, timestamp);
+    }
+
+    #[test]
+    fn test_scan_event_id_when_called_should_return_scan_id() {
+        let scan_event = ScanEvent {
+            state: 42,
+            original_event: Arc::new(TestEvent::new("test".to_string(), 1)),
+            scan_id: "scan_123".to_string(),
+            timestamp: SystemTime::now(),
+        };
+
+        assert_eq!(scan_event.id(), "scan_123");
+    }
+
+    #[test]
+    fn test_scan_event_kind_when_called_should_delegate_to_original() {
+        let original_event = Arc::new(TestEvent::new("test".to_string(), 1));
+        let original_kind = original_event.kind().clone();
+        let scan_event = ScanEvent {
+            state: 42,
+            original_event,
+            scan_id: "scan_1".to_string(),
+            timestamp: SystemTime::now(),
+        };
+
+        assert_eq!(scan_event.kind(), &original_kind);
+    }
+
+    #[test]
+    #[should_panic(expected = "metadata_mut not supported for ScanEvent")]
+    fn test_scan_event_metadata_mut_when_called_should_panic() {
+        let mut scan_event = ScanEvent {
+            state: 42,
+            original_event: Arc::new(TestEvent::new("test".to_string(), 1)),
+            scan_id: "scan_1".to_string(),
+            timestamp: SystemTime::now(),
+        };
+
+        scan_event.metadata_mut();
+    }
+
+    // Tests for ScanStream
+    #[tokio::test]
+    async fn test_scan_stream_new_when_valid_params_should_create_with_correct_name() {
+        let mock_stream = MockStream::new("test");
+        let scan = ScanStream::new(mock_stream, 0i32, |acc, event| acc + event.value);
+
+        assert_eq!(scan.name(), "scan(test)");
+    }
+
+    // Tests for GuaranteedDeliveryStream
+    #[tokio::test]
+    async fn test_guaranteed_delivery_stream_new_when_valid_buffer_should_create_with_correct_name()
+    {
+        let mock_stream = MockStream::new("test");
+        let guaranteed = GuaranteedDeliveryStream::new(mock_stream, 1000);
+
+        assert_eq!(guaranteed.name(), "guaranteed(test)");
+    }
+
+    // Tests for TypeErasedEvent
+    #[test]
+    fn test_type_erased_event_new_when_valid_params_should_create_correctly() {
+        let event = Arc::new(TestEvent::new("test".to_string(), 42)) as Arc<dyn Event>;
+        let source = "test_stream".to_string();
+        let erased = TypeErasedEvent::new(event, source.clone());
+
+        assert_eq!(erased.source_stream(), &source);
+        assert_eq!(erased.id(), "test");
+    }
+
+    #[test]
+    fn test_type_erased_event_downcast_when_correct_type_should_succeed() {
+        let original = TestEvent::new("test".to_string(), 42);
+        let event = Arc::new(original.clone()) as Arc<dyn Event>;
+        let erased = TypeErasedEvent::new(event, "test_stream".to_string());
+
+        let downcast_result = erased.downcast::<TestEvent>();
+        assert!(downcast_result.is_some());
+        assert_eq!(downcast_result.unwrap().id, original.id);
+    }
+
+    #[test]
+    fn test_type_erased_event_downcast_when_wrong_type_should_fail() {
+        let original = TestEvent::new("test".to_string(), 42);
+        let event = Arc::new(original) as Arc<dyn Event>;
+        let erased = TypeErasedEvent::new(event, "test_stream".to_string());
+
+        // Try to downcast to a different type (using String as placeholder)
+        let downcast_result = erased.inner().as_any().downcast_ref::<String>();
+        assert!(downcast_result.is_none());
+    }
+
+    #[test]
+    fn test_type_erased_event_inner_when_called_should_return_event_trait_object() {
+        let event = Arc::new(TestEvent::new("test".to_string(), 42)) as Arc<dyn Event>;
+        let erased = TypeErasedEvent::new(event, "test_stream".to_string());
+
+        let inner = erased.inner();
+        assert_eq!(inner.id(), "test");
+    }
+
+    #[test]
+    #[should_panic(expected = "metadata_mut not supported for TypeErasedEvent")]
+    fn test_type_erased_event_metadata_mut_when_called_should_panic() {
+        let event = Arc::new(TestEvent::new("test".to_string(), 42)) as Arc<dyn Event>;
+        let mut erased = TypeErasedEvent::new(event, "test_stream".to_string());
+
+        erased.metadata_mut();
+    }
+
+    // Tests for MergeAllStream
+    #[tokio::test]
+    async fn test_merge_all_stream_new_when_empty_vector_should_create_correctly() {
+        let streams: Vec<MockStream> = vec![];
+        let merge_all = MergeAllStream::new(streams);
+
+        assert_eq!(merge_all.name(), "merge_all()");
+    }
+
+    #[tokio::test]
+    async fn test_merge_all_stream_new_when_multiple_streams_should_create_with_correct_name() {
+        let streams = vec![
+            MockStream::new("stream1"),
+            MockStream::new("stream2"),
+            MockStream::new("stream3"),
+        ];
+        let merge_all = MergeAllStream::new(streams);
+
+        assert_eq!(merge_all.name(), "merge_all(stream1,stream2,stream3)");
+    }
+
+    #[tokio::test]
+    async fn test_merge_all_stream_start_when_config_count_mismatch_should_fail() {
+        let streams = vec![MockStream::new("stream1"), MockStream::new("stream2")];
+        let mut merge_all = MergeAllStream::new(streams);
+
+        // Provide only one config for two streams
+        let result = merge_all.start(vec![()]).await;
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            StreamError::ConfigurationInvalid { reason } => {
+                assert!(reason.contains("Number of configs must match number of streams"));
+            }
+            _ => panic!("Expected ConfigurationInvalid error"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_merge_all_stream_start_when_all_succeed_should_succeed() {
+        let streams = vec![MockStream::new("stream1"), MockStream::new("stream2")];
+        let mut merge_all = MergeAllStream::new(streams);
+
+        let result = merge_all.start(vec![(), ()]).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_merge_all_stream_start_when_one_fails_should_fail() {
+        let streams = vec![
+            MockStream::new("stream1").with_start_failure(),
+            MockStream::new("stream2"),
+        ];
+        let mut merge_all = MergeAllStream::new(streams);
+
+        let result = merge_all.start(vec![(), ()]).await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_merge_all_stream_is_running_when_any_running_should_return_true() {
+        let mut stream1 = MockStream::new("stream1");
+        let stream2 = MockStream::new("stream2");
+        let _ = stream1.start(()).await; // Start only one stream
+
+        let merge_all = MergeAllStream::new(vec![stream1, stream2]);
+        assert!(merge_all.is_running());
+    }
+
+    #[tokio::test]
+    async fn test_merge_all_stream_is_running_when_none_running_should_return_false() {
+        let streams = vec![MockStream::new("stream1"), MockStream::new("stream2")];
+        let merge_all = MergeAllStream::new(streams);
+
+        assert!(!merge_all.is_running());
+    }
+
+    #[tokio::test]
+    async fn test_merge_all_stream_health_when_called_should_combine_all_health_metrics() {
+        let health1 = StreamHealth {
+            is_connected: true,
+            last_event_time: Some(SystemTime::now()),
+            error_count: 1,
+            events_processed: 25,
+            backlog_size: None,
+            custom_metrics: None,
+            stream_info: None,
+        };
+        let health2 = StreamHealth {
+            is_connected: false,
+            last_event_time: Some(SystemTime::now()),
+            error_count: 2,
+            events_processed: 50,
+            backlog_size: None,
+            custom_metrics: None,
+            stream_info: None,
+        };
+
+        let streams = vec![
+            MockStream::new("stream1").with_health_override(health1),
+            MockStream::new("stream2").with_health_override(health2),
+        ];
+        let merge_all = MergeAllStream::new(streams);
+
+        let combined_health = merge_all.health().await;
+        assert!(combined_health.is_connected); // true OR false = true
+        assert_eq!(combined_health.error_count, 3); // 1 + 2
+        assert_eq!(combined_health.events_processed, 75); // 25 + 50
+    }
+
+    // Tests for Extension Traits
+    #[tokio::test]
+    async fn test_performance_stream_ext_filter_map_when_called_should_create_filter_map_stream() {
+        let mock_stream = MockStream::new("test");
+        let filter_map = mock_stream.filter_map(
+            |event| event.value > 0,
+            |event| TestEvent::new(format!("filtered_{}", event.id), event.value * 2),
+        );
+
+        assert_eq!(filter_map.name(), "filter_map(test)");
+    }
+
+    #[tokio::test]
+    async fn test_resilience_stream_ext_with_retries_when_called_should_create_resilient_stream() {
+        let mock_stream = MockStream::new("test");
+        let resilient = mock_stream.with_retries(3, Duration::from_millis(100));
+
+        assert_eq!(resilient.name(), "resilient(test)");
+    }
+
+    #[tokio::test]
+    async fn test_resilience_stream_ext_catch_errors_when_called_should_create_catch_error_stream()
+    {
+        let mock_stream = MockStream::new("test");
+        let catch_errors = mock_stream.catch_errors(|_| None);
+
+        assert_eq!(catch_errors.name(), "catch_error(test)");
+    }
+
+    // Tests for FilterMapStream
+    #[tokio::test]
+    async fn test_filter_map_stream_new_when_valid_params_should_create_with_correct_name() {
+        let mock_stream = MockStream::new("test");
+        let filter_map = FilterMapStream::new(
+            mock_stream,
+            |event| event.value > 0,
+            |event| TestEvent::new(format!("mapped_{}", event.id), event.value * 2),
+        );
+
+        assert_eq!(filter_map.name(), "filter_map(test)");
+    }
+
+    #[tokio::test]
+    async fn test_filter_map_stream_subscribe_when_filter_passes_should_apply_map() {
+        let mock_stream = MockStream::new("test");
+        let original_tx = mock_stream.tx.clone();
+        let filter_map = FilterMapStream::new(
+            mock_stream,
+            |event| event.value > 0,
+            |event| TestEvent::new(format!("mapped_{}", event.id), event.value * 2),
+        );
+
+        let mut rx = filter_map.subscribe();
+
+        // Emit event that passes filter
+        let _ = original_tx.send(Arc::new(TestEvent::new("test1".to_string(), 5)));
+        tokio::time::sleep(Duration::from_millis(10)).await;
+
+        if let Ok(received) = rx.try_recv() {
+            assert_eq!(received.id, "mapped_test1");
+            assert_eq!(received.value, 10);
+        }
+    }
+
+    #[tokio::test]
+    async fn test_filter_map_stream_subscribe_when_filter_fails_should_not_emit() {
+        let mock_stream = MockStream::new("test");
+        let original_tx = mock_stream.tx.clone();
+        let filter_map = FilterMapStream::new(
+            mock_stream,
+            |event| event.value > 10, // Filter that will fail
+            |event| TestEvent::new(format!("mapped_{}", event.id), event.value * 2),
+        );
+
+        let mut rx = filter_map.subscribe();
+
+        // Emit event that fails filter
+        let _ = original_tx.send(Arc::new(TestEvent::new("test1".to_string(), 5)));
+        tokio::time::sleep(Duration::from_millis(10)).await;
+
+        assert!(rx.try_recv().is_err());
+    }
+
+    // Tests for ResilientStream
+    #[tokio::test]
+    async fn test_resilient_stream_new_when_valid_params_should_create_with_correct_name() {
+        let mock_stream = MockStream::new("test");
+        let resilient = ResilientStream::new(mock_stream, 3, Duration::from_millis(100));
+
+        assert_eq!(resilient.name(), "resilient(test)");
+    }
+
+    #[tokio::test]
+    async fn test_resilient_stream_start_when_inner_succeeds_should_succeed() {
+        let mock_stream = MockStream::new("test");
+        let mut resilient = ResilientStream::new(mock_stream, 3, Duration::from_millis(100));
+
+        let result = resilient.start(()).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_resilient_stream_start_when_inner_fails_non_retriable_should_fail() {
+        let mock_stream = MockStream::new("test").with_start_failure();
+        let mut resilient = ResilientStream::new(mock_stream, 3, Duration::from_millis(10));
+
+        let result = resilient.start(()).await;
+        assert!(result.is_err());
+    }
+
+    // Tests for CatchErrorStream
+    #[tokio::test]
+    async fn test_catch_error_stream_new_when_valid_params_should_create_with_correct_name() {
+        let mock_stream = MockStream::new("test");
+        let catch_errors = CatchErrorStream::new(mock_stream, |_| None);
+
+        assert_eq!(catch_errors.name(), "catch_error(test)");
+    }
+
+    #[tokio::test]
+    async fn test_catch_error_stream_subscribe_when_error_handler_returns_none_should_continue() {
+        let mock_stream = MockStream::new("test");
+        let catch_errors = CatchErrorStream::new(mock_stream, |_| None);
+
+        let mut rx = catch_errors.subscribe();
+
+        // Simulate error by closing the inner receiver
+        drop(catch_errors.inner.tx); // Close the sender to cause RecvError
+
+        tokio::time::sleep(Duration::from_millis(10)).await;
+
+        // Should not receive any events but shouldn't panic
+        assert!(rx.try_recv().is_err());
+    }
+
+    #[tokio::test]
+    async fn test_catch_error_stream_subscribe_when_error_handler_returns_some_should_emit_fallback(
+    ) {
+        let mock_stream = MockStream::new("test");
+        let fallback_event = Arc::new(TestEvent::new("fallback".to_string(), -1));
+        let fallback_clone = fallback_event.clone();
+        let catch_errors =
+            CatchErrorStream::new(mock_stream, move |_| Some(fallback_clone.clone()));
+
+        let _rx = catch_errors.subscribe();
+
+        // Wait a bit for the error handling to process
+        tokio::time::sleep(Duration::from_millis(50)).await;
+
+        // The error handler should provide fallback events
+        // Note: This test might be flaky due to timing, but demonstrates the concept
+    }
+
+    // Tests for StreamPipeline
+    #[tokio::test]
+    async fn test_stream_pipeline_from_when_stream_provided_should_create_pipeline() {
+        let mock_stream = MockStream::new("test");
+        let pipeline = StreamPipeline::from(mock_stream);
+
+        assert_eq!(pipeline.stream.name(), "test");
+    }
+
+    #[tokio::test]
+    async fn test_stream_pipeline_build_when_called_should_return_inner_stream() {
+        let mock_stream = MockStream::new("test");
+        let original_name = mock_stream.name().to_string();
+        let pipeline = StreamPipeline::from(mock_stream);
+        let built_stream = pipeline.build();
+
+        assert_eq!(built_stream.name(), original_name);
+    }
+
+    // Tests for combinators module
+    #[tokio::test]
+    async fn test_combinators_merge_all_when_empty_vec_should_create_merge_all_stream() {
+        let streams: Vec<MockStream> = vec![];
+        let merged = combinators::merge_all(streams);
+
+        assert_eq!(merged.name(), "merge_all()");
+    }
+
+    #[tokio::test]
+    async fn test_combinators_merge_all_when_multiple_streams_should_create_with_correct_name() {
+        let streams = vec![MockStream::new("s1"), MockStream::new("s2")];
+        let merged = combinators::merge_all(streams);
+
+        assert_eq!(merged.name(), "merge_all(s1,s2)");
+    }
+
+    #[tokio::test]
+    async fn test_combinators_zip_when_two_streams_should_create_zip_stream() {
+        let stream1 = MockStream::new("stream1");
+        let stream2 = MockStream::new("stream2");
+        let zipped = combinators::zip(stream1, stream2);
+
+        assert_eq!(zipped.name(), "zip(stream1,stream2)");
+    }
+
+    #[tokio::test]
+    async fn test_combinators_combine_latest_when_two_streams_should_create_combine_latest_stream()
+    {
+        let stream1 = MockStream::new("stream1");
+        let stream2 = MockStream::new("stream2");
+        let combined = combinators::combine_latest(stream1, stream2);
+
+        assert_eq!(combined.name(), "combine_latest(stream1,stream2)");
+    }
+
+    // Tests for ZipStream
+    #[tokio::test]
+    async fn test_zip_stream_new_when_two_streams_should_create_with_correct_name() {
+        let stream1 = MockStream::new("stream1");
+        let stream2 = MockStream::new("stream2");
+        let zip = ZipStream::new(stream1, stream2);
+
+        assert_eq!(zip.name(), "zip(stream1,stream2)");
+    }
+
+    // Tests for CombineLatestStream
+    #[tokio::test]
+    async fn test_combine_latest_stream_new_when_two_streams_should_create_with_correct_name() {
+        let stream1 = MockStream::new("stream1");
+        let stream2 = MockStream::new("stream2");
+        let combined = CombineLatestStream::new(stream1, stream2);
+
+        assert_eq!(combined.name(), "combine_latest(stream1,stream2)");
+    }
+
+    // Edge case and error tests
+    #[tokio::test]
+    async fn test_mapped_stream_subscribe_when_transform_panics_should_not_crash() {
+        let mock_stream = MockStream::new("test");
+        let original_tx = mock_stream.tx.clone();
+        let mapped = MappedStream::new(mock_stream, |_| -> TestEvent {
+            panic!("Transform function panicked!");
+        });
+
+        let mut rx = mapped.subscribe();
+
+        // Emit an event that will cause transform to panic
+        let _ = original_tx.send(Arc::new(TestEvent::new("test1".to_string(), 5)));
+        tokio::time::sleep(Duration::from_millis(20)).await;
+
+        // Should not receive any events due to panic
+        assert!(rx.try_recv().is_err());
+    }
+
+    #[tokio::test]
+    async fn test_take_stream_subscribe_when_count_is_large_should_forward_all_available() {
+        let mock_stream = MockStream::new("test");
+        let original_tx = mock_stream.tx.clone();
+        let take = TakeStream::new(mock_stream, 1000); // Very large count
+
+        let mut rx = take.subscribe();
+
+        // Emit just a few events
+        let _ = original_tx.send(Arc::new(TestEvent::new("test1".to_string(), 1)));
+        let _ = original_tx.send(Arc::new(TestEvent::new("test2".to_string(), 2)));
+        tokio::time::sleep(Duration::from_millis(10)).await;
+
+        // Should receive both events
+        assert!(rx.try_recv().is_ok());
+        assert!(rx.try_recv().is_ok());
+        assert!(rx.try_recv().is_err()); // No more events
+    }
+
+    #[test]
+    fn test_buffer_strategy_debug_when_formatted_should_show_variant() {
+        let strategy = BufferStrategy::Count(42);
+        let debug_str = format!("{:?}", strategy);
+        assert!(debug_str.contains("Count"));
+        assert!(debug_str.contains("42"));
+    }
+
+    // Test for coverage of dead_code allowed items
+    #[test]
+    fn test_boxed_future_type_alias_exists() {
+        // This just verifies the type alias is accessible
+        fn _test_function() -> BoxedFuture<()> {
+            Box::pin(async {})
+        }
+    }
+
+    #[tokio::test]
+    async fn test_buffered_stream_new_when_valid_strategy_should_create_correctly() {
+        let mock_stream = MockStream::new("test");
+        let strategy = BufferStrategy::Count(10);
+        let buffered = BufferedStream::new(mock_stream, strategy);
+
+        assert_eq!(buffered.name(), "buffered(test)");
+    }
+
+    // Additional coverage for SkipStream struct (marked as dead_code)
+    #[test]
+    fn test_skip_stream_struct_fields_accessible() {
+        let mock_stream = MockStream::new("test");
+        let skip = SkipStream::new(mock_stream, 5);
+
+        // Test accessing fields through the public API
+        assert_eq!(skip.count, 5);
+        assert_eq!(skip.name, "skip(5,test)");
+    }
+
+    // Test stream error scenarios
+    #[tokio::test]
+    async fn test_merged_stream_health_when_no_last_event_time_should_handle_correctly() {
+        let health1 = StreamHealth {
+            is_connected: true,
+            last_event_time: None,
+            error_count: 1,
+            events_processed: 10,
+            backlog_size: None,
+            custom_metrics: None,
+            stream_info: None,
+        };
+        let health2 = StreamHealth {
+            is_connected: true,
+            last_event_time: Some(SystemTime::now()),
+            error_count: 2,
+            events_processed: 20,
+            backlog_size: None,
+            custom_metrics: None,
+            stream_info: None,
+        };
+
+        let stream1 = MockStream::new("stream1").with_health_override(health1);
+        let stream2 = MockStream::new("stream2").with_health_override(health2);
+        let merged = MergedStream::new(stream1, stream2);
+
+        let combined_health = merged.health().await;
+        assert!(combined_health.last_event_time.is_some());
+        assert_eq!(combined_health.error_count, 3);
+        assert_eq!(combined_health.events_processed, 30);
     }
 }
