@@ -9,32 +9,32 @@ use thiserror::Error;
 pub enum StreamError {
     /// Connection-related errors
     #[error("Connection failed: {message}")]
-    Connection { 
+    Connection {
         /// Error message describing the connection failure
-        message: String, 
+        message: String,
         /// Whether this connection error can be retried
-        retriable: bool 
+        retriable: bool,
     },
 
     /// Configuration errors
     #[error("Configuration error: {message}")]
-    Configuration { 
+    Configuration {
         /// Error message describing the configuration issue
-        message: String 
+        message: String,
     },
 
     /// Invalid configuration
     #[error("Invalid configuration: {reason}")]
-    ConfigurationInvalid { 
+    ConfigurationInvalid {
         /// Reason why the configuration is invalid
-        reason: String 
+        reason: String,
     },
 
     /// Authentication failures
     #[error("Authentication failed: {message}")]
-    Authentication { 
+    Authentication {
         /// Error message describing the authentication failure
-        message: String 
+        message: String,
     },
 
     /// Rate limiting errors
@@ -48,60 +48,60 @@ pub enum StreamError {
 
     /// Data parsing errors
     #[error("Parse error: {message}")]
-    Parse { 
+    Parse {
         /// Error message describing the parsing failure
-        message: String, 
+        message: String,
         /// The raw data that failed to parse
-        data: String 
+        data: String,
     },
 
     /// Resource exhaustion
     #[error("Resource exhausted: {message}")]
-    ResourceExhausted { 
+    ResourceExhausted {
         /// Error message describing the resource exhaustion
-        message: String 
+        message: String,
     },
 
     /// Stream already running
     #[error("Stream already running: {name}")]
-    AlreadyRunning { 
+    AlreadyRunning {
         /// Name of the stream that is already running
-        name: String 
+        name: String,
     },
 
     /// Stream not running
     #[error("Stream not running: {name}")]
-    NotRunning { 
+    NotRunning {
         /// Name of the stream that is not running
-        name: String 
+        name: String,
     },
 
     /// Channel errors
     #[error("Channel error: {message}")]
-    Channel { 
+    Channel {
         /// Error message describing the channel failure
-        message: String 
+        message: String,
     },
 
     /// Timeout errors
     #[error("Operation timed out: {message}")]
-    Timeout { 
+    Timeout {
         /// Error message describing the timeout
-        message: String 
+        message: String,
     },
 
     /// Processing errors
     #[error("Processing error: {message}")]
-    Processing { 
+    Processing {
         /// Error message describing the processing failure
-        message: String 
+        message: String,
     },
 
     /// Backpressure errors
     #[error("Backpressure error: {message}")]
-    Backpressure { 
+    Backpressure {
         /// Error message describing the backpressure issue
-        message: String 
+        message: String,
     },
 
     /// Internal errors
@@ -215,9 +215,7 @@ impl StreamError {
                 std::io::Error::new(std::io::ErrorKind::BrokenPipe, message.clone()),
                 format!("Channel error: {}", message),
             ),
-            StreamError::Timeout { .. } => {
-                EventError::timeout(std::time::Duration::from_secs(30))
-            }
+            StreamError::Timeout { .. } => EventError::timeout(std::time::Duration::from_secs(30)),
             StreamError::Processing { message } => {
                 EventError::generic(format!("Processing error: {}", message))
             }
@@ -339,5 +337,698 @@ mod tests {
 
         let err = StreamError::retriable_connection("test");
         assert_eq!(err.retry_after(), None);
+    }
+
+    #[test]
+    fn test_is_retriable_all_variants() {
+        // Test all retriable cases
+        assert!(StreamError::Connection {
+            message: "test".to_string(),
+            retriable: true
+        }
+        .is_retriable());
+        assert!(StreamError::RateLimit {
+            message: "test".to_string(),
+            retry_after: None
+        }
+        .is_retriable());
+        assert!(StreamError::ResourceExhausted {
+            message: "test".to_string()
+        }
+        .is_retriable());
+        assert!(StreamError::Timeout {
+            message: "test".to_string()
+        }
+        .is_retriable());
+        assert!(StreamError::Channel {
+            message: "test".to_string()
+        }
+        .is_retriable());
+        assert!(StreamError::Processing {
+            message: "test".to_string()
+        }
+        .is_retriable());
+        assert!(StreamError::Backpressure {
+            message: "test".to_string()
+        }
+        .is_retriable());
+
+        // Test all non-retriable cases
+        assert!(!StreamError::Connection {
+            message: "test".to_string(),
+            retriable: false
+        }
+        .is_retriable());
+        assert!(!StreamError::Configuration {
+            message: "test".to_string()
+        }
+        .is_retriable());
+        assert!(!StreamError::ConfigurationInvalid {
+            reason: "test".to_string()
+        }
+        .is_retriable());
+        assert!(!StreamError::Authentication {
+            message: "test".to_string()
+        }
+        .is_retriable());
+        assert!(!StreamError::Parse {
+            message: "test".to_string(),
+            data: "data".to_string()
+        }
+        .is_retriable());
+        assert!(!StreamError::AlreadyRunning {
+            name: "test".to_string()
+        }
+        .is_retriable());
+        assert!(!StreamError::NotRunning {
+            name: "test".to_string()
+        }
+        .is_retriable());
+        assert!(!StreamError::Internal {
+            source: Box::new(std::io::Error::new(std::io::ErrorKind::Other, "test"))
+        }
+        .is_retriable());
+    }
+
+    #[test]
+    fn test_retriable_connection_creation() {
+        let error = StreamError::retriable_connection("connection failed");
+        match error {
+            StreamError::Connection { message, retriable } => {
+                assert_eq!(message, "connection failed");
+                assert!(retriable);
+            }
+            _ => panic!("Expected Connection variant"),
+        }
+
+        // Test with String
+        let error = StreamError::retriable_connection("test".to_string());
+        match error {
+            StreamError::Connection { message, retriable } => {
+                assert_eq!(message, "test");
+                assert!(retriable);
+            }
+            _ => panic!("Expected Connection variant"),
+        }
+    }
+
+    #[test]
+    fn test_permanent_connection_creation() {
+        let error = StreamError::permanent_connection("permanent failure");
+        match error {
+            StreamError::Connection { message, retriable } => {
+                assert_eq!(message, "permanent failure");
+                assert!(!retriable);
+            }
+            _ => panic!("Expected Connection variant"),
+        }
+
+        // Test with String
+        let error = StreamError::permanent_connection("test".to_string());
+        match error {
+            StreamError::Connection { message, retriable } => {
+                assert_eq!(message, "test");
+                assert!(!retriable);
+            }
+            _ => panic!("Expected Connection variant"),
+        }
+    }
+
+    #[test]
+    fn test_rate_limited_creation() {
+        let error = StreamError::rate_limited("too many requests", 120);
+        match error {
+            StreamError::RateLimit {
+                message,
+                retry_after,
+            } => {
+                assert_eq!(message, "too many requests");
+                assert_eq!(retry_after, Some(120));
+            }
+            _ => panic!("Expected RateLimit variant"),
+        }
+
+        // Test with String
+        let error = StreamError::rate_limited("test".to_string(), 0);
+        match error {
+            StreamError::RateLimit {
+                message,
+                retry_after,
+            } => {
+                assert_eq!(message, "test");
+                assert_eq!(retry_after, Some(0));
+            }
+            _ => panic!("Expected RateLimit variant"),
+        }
+    }
+
+    #[test]
+    fn test_retry_after_all_variants() {
+        // Test RateLimit with retry_after
+        let error = StreamError::RateLimit {
+            message: "test".to_string(),
+            retry_after: Some(30),
+        };
+        assert_eq!(
+            error.retry_after(),
+            Some(std::time::Duration::from_secs(30))
+        );
+
+        // Test RateLimit without retry_after
+        let error = StreamError::RateLimit {
+            message: "test".to_string(),
+            retry_after: None,
+        };
+        assert_eq!(error.retry_after(), None);
+
+        // Test all other variants return None
+        assert_eq!(
+            StreamError::Connection {
+                message: "test".to_string(),
+                retriable: true
+            }
+            .retry_after(),
+            None
+        );
+        assert_eq!(
+            StreamError::Configuration {
+                message: "test".to_string()
+            }
+            .retry_after(),
+            None
+        );
+        assert_eq!(
+            StreamError::ConfigurationInvalid {
+                reason: "test".to_string()
+            }
+            .retry_after(),
+            None
+        );
+        assert_eq!(
+            StreamError::Authentication {
+                message: "test".to_string()
+            }
+            .retry_after(),
+            None
+        );
+        assert_eq!(
+            StreamError::Parse {
+                message: "test".to_string(),
+                data: "data".to_string()
+            }
+            .retry_after(),
+            None
+        );
+        assert_eq!(
+            StreamError::ResourceExhausted {
+                message: "test".to_string()
+            }
+            .retry_after(),
+            None
+        );
+        assert_eq!(
+            StreamError::AlreadyRunning {
+                name: "test".to_string()
+            }
+            .retry_after(),
+            None
+        );
+        assert_eq!(
+            StreamError::NotRunning {
+                name: "test".to_string()
+            }
+            .retry_after(),
+            None
+        );
+        assert_eq!(
+            StreamError::Channel {
+                message: "test".to_string()
+            }
+            .retry_after(),
+            None
+        );
+        assert_eq!(
+            StreamError::Timeout {
+                message: "test".to_string()
+            }
+            .retry_after(),
+            None
+        );
+        assert_eq!(
+            StreamError::Processing {
+                message: "test".to_string()
+            }
+            .retry_after(),
+            None
+        );
+        assert_eq!(
+            StreamError::Backpressure {
+                message: "test".to_string()
+            }
+            .retry_after(),
+            None
+        );
+        assert_eq!(
+            StreamError::Internal {
+                source: Box::new(std::io::Error::new(std::io::ErrorKind::Other, "test"))
+            }
+            .retry_after(),
+            None
+        );
+    }
+
+    #[test]
+    fn test_to_event_error_all_variants() {
+        // Test retriable connection
+        let error = StreamError::Connection {
+            message: "connection failed".to_string(),
+            retriable: true,
+        };
+        let event_error = error.to_event_error();
+        assert!(event_error.to_string().contains("connection failed"));
+
+        // Test permanent connection
+        let error = StreamError::Connection {
+            message: "permanent failure".to_string(),
+            retriable: false,
+        };
+        let event_error = error.to_event_error();
+        assert!(event_error
+            .to_string()
+            .contains("Permanent connection error"));
+
+        // Test Configuration
+        let error = StreamError::Configuration {
+            message: "config error".to_string(),
+        };
+        let event_error = error.to_event_error();
+        assert!(event_error.to_string().contains("config error"));
+
+        // Test ConfigurationInvalid
+        let error = StreamError::ConfigurationInvalid {
+            reason: "invalid config".to_string(),
+        };
+        let event_error = error.to_event_error();
+        assert!(event_error.to_string().contains("invalid config"));
+
+        // Test Authentication
+        let error = StreamError::Authentication {
+            message: "auth failed".to_string(),
+        };
+        let event_error = error.to_event_error();
+        assert!(event_error.to_string().contains("Authentication error"));
+
+        // Test RateLimit
+        let error = StreamError::RateLimit {
+            message: "rate limited".to_string(),
+            retry_after: Some(60),
+        };
+        let event_error = error.to_event_error();
+        assert!(event_error.to_string().contains("Rate limit"));
+
+        // Test Parse
+        let error = StreamError::Parse {
+            message: "parse failed".to_string(),
+            data: "invalid data".to_string(),
+        };
+        let event_error = error.to_event_error();
+        assert!(event_error.to_string().contains("parse failed"));
+
+        // Test ResourceExhausted
+        let error = StreamError::ResourceExhausted {
+            message: "out of memory".to_string(),
+        };
+        let event_error = error.to_event_error();
+        assert!(event_error.to_string().contains("Resource exhausted"));
+
+        // Test AlreadyRunning
+        let error = StreamError::AlreadyRunning {
+            name: "stream1".to_string(),
+        };
+        let event_error = error.to_event_error();
+        assert!(event_error.to_string().contains("Stream already running"));
+
+        // Test NotRunning
+        let error = StreamError::NotRunning {
+            name: "stream2".to_string(),
+        };
+        let event_error = error.to_event_error();
+        assert!(event_error.to_string().contains("Stream not running"));
+
+        // Test Channel
+        let error = StreamError::Channel {
+            message: "channel closed".to_string(),
+        };
+        let event_error = error.to_event_error();
+        assert!(event_error.to_string().contains("Channel error"));
+
+        // Test Timeout
+        let error = StreamError::Timeout {
+            message: "operation timeout".to_string(),
+        };
+        let event_error = error.to_event_error();
+        // Timeout creates a timeout error with 30 seconds duration - verify it's created properly
+        assert!(event_error.to_string().len() > 0);
+
+        // Test Processing
+        let error = StreamError::Processing {
+            message: "processing failed".to_string(),
+        };
+        let event_error = error.to_event_error();
+        assert!(event_error.to_string().contains("Processing error"));
+
+        // Test Backpressure
+        let error = StreamError::Backpressure {
+            message: "backpressure detected".to_string(),
+        };
+        let event_error = error.to_event_error();
+        assert!(event_error.to_string().contains("Backpressure error"));
+
+        // Test Internal
+        let error = StreamError::Internal {
+            source: Box::new(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                "internal error",
+            )),
+        };
+        let event_error = error.to_event_error();
+        assert!(event_error.to_string().contains("Internal streaming error"));
+    }
+
+    #[test]
+    fn test_from_event_error_all_variants() {
+        // Test StreamError conversion
+        let event_error = EventError::stream_error(
+            std::io::Error::new(std::io::ErrorKind::ConnectionRefused, "connection failed"),
+            "stream context".to_string(),
+        );
+        let stream_error = StreamError::from_event_error(event_error);
+        match stream_error {
+            StreamError::Connection { message, retriable } => {
+                assert!(message.contains("stream context"));
+                assert!(retriable);
+            }
+            _ => panic!("Expected Connection variant"),
+        }
+
+        // Test ParseError conversion
+        let event_error = EventError::parse_error(
+            serde_json::Error::io(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "parse error",
+            )),
+            "parse context".to_string(),
+        );
+        let stream_error = StreamError::from_event_error(event_error);
+        match stream_error {
+            StreamError::Parse { message, data } => {
+                assert_eq!(message, "parse context");
+                assert_eq!(data, String::default());
+            }
+            _ => panic!("Expected Parse variant"),
+        }
+
+        // Test Timeout conversion
+        let event_error = EventError::timeout(std::time::Duration::from_secs(30));
+        let stream_error = StreamError::from_event_error(event_error);
+        match stream_error {
+            StreamError::Timeout { message } => {
+                assert!(message.contains("timed out after"));
+            }
+            _ => panic!("Expected Timeout variant"),
+        }
+
+        // Test InvalidConfig conversion
+        let event_error = EventError::invalid_config("invalid configuration".to_string());
+        let stream_error = StreamError::from_event_error(event_error);
+        match stream_error {
+            StreamError::Configuration { message } => {
+                assert_eq!(message, "invalid configuration");
+            }
+            _ => panic!("Expected Configuration variant"),
+        }
+
+        // Test NotFound conversion
+        let event_error = EventError::not_found("missing resource".to_string());
+        let stream_error = StreamError::from_event_error(event_error);
+        match stream_error {
+            StreamError::Configuration { message } => {
+                assert!(message.contains("Resource not found"));
+            }
+            _ => panic!("Expected Configuration variant"),
+        }
+
+        // Test other event error conversion to Internal
+        let event_error = EventError::generic("generic error".to_string());
+        let stream_error = StreamError::from_event_error(event_error);
+        match stream_error {
+            StreamError::Internal { source } => {
+                assert!(source.to_string().contains("generic error"));
+            }
+            _ => panic!("Expected Internal variant"),
+        }
+    }
+
+    #[test]
+    fn test_from_io_error() {
+        // Test connection-related IO errors
+        let io_error =
+            std::io::Error::new(std::io::ErrorKind::ConnectionRefused, "connection refused");
+        let stream_error = StreamError::from(io_error);
+        match stream_error {
+            StreamError::Connection { message, retriable } => {
+                assert!(message.contains("connection refused"));
+                assert!(retriable);
+            }
+            _ => panic!("Expected Connection variant"),
+        }
+
+        let io_error = std::io::Error::new(std::io::ErrorKind::ConnectionReset, "connection reset");
+        let stream_error = StreamError::from(io_error);
+        match stream_error {
+            StreamError::Connection { message, retriable } => {
+                assert!(message.contains("connection reset"));
+                assert!(retriable);
+            }
+            _ => panic!("Expected Connection variant"),
+        }
+
+        let io_error =
+            std::io::Error::new(std::io::ErrorKind::ConnectionAborted, "connection aborted");
+        let stream_error = StreamError::from(io_error);
+        match stream_error {
+            StreamError::Connection { message, retriable } => {
+                assert!(message.contains("connection aborted"));
+                assert!(retriable);
+            }
+            _ => panic!("Expected Connection variant"),
+        }
+
+        // Test timeout IO error
+        let io_error = std::io::Error::new(std::io::ErrorKind::TimedOut, "operation timed out");
+        let stream_error = StreamError::from(io_error);
+        match stream_error {
+            StreamError::Timeout { message } => {
+                assert!(message.contains("operation timed out"));
+            }
+            _ => panic!("Expected Timeout variant"),
+        }
+
+        // Test other IO error kinds
+        let io_error =
+            std::io::Error::new(std::io::ErrorKind::PermissionDenied, "permission denied");
+        let stream_error = StreamError::from(io_error);
+        match stream_error {
+            StreamError::Internal { source } => {
+                assert!(source.to_string().contains("permission denied"));
+            }
+            _ => panic!("Expected Internal variant"),
+        }
+    }
+
+    #[test]
+    fn test_from_serde_json_error() {
+        let json_error = serde_json::Error::io(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            "invalid json",
+        ));
+        let stream_error = StreamError::from(json_error);
+        match stream_error {
+            StreamError::Parse { message, data } => {
+                assert!(message.contains("invalid"));
+                assert_eq!(data, String::default());
+            }
+            _ => panic!("Expected Parse variant"),
+        }
+    }
+
+    #[test]
+    fn test_from_tokio_broadcast_send_error() {
+        let (tx, _rx) = tokio::sync::broadcast::channel(1);
+        drop(_rx); // Close receiver to cause send error
+        let send_result = tx.send("test message");
+        let send_error = send_result.unwrap_err();
+        let stream_error = StreamError::from(send_error);
+        match stream_error {
+            StreamError::Channel { message } => {
+                assert!(message.contains("Failed to send to broadcast channel"));
+            }
+            _ => panic!("Expected Channel variant"),
+        }
+    }
+
+    #[test]
+    fn test_stream_error_to_event_error_conversion() {
+        let stream_error = StreamError::retriable_connection("test connection error");
+        let event_error: EventError = stream_error.into();
+        assert!(event_error.to_string().contains("test connection error"));
+    }
+
+    #[test]
+    fn test_event_error_to_stream_error_conversion() {
+        let event_error = EventError::timeout(std::time::Duration::from_secs(10));
+        let stream_error: StreamError = event_error.into();
+        match stream_error {
+            StreamError::Timeout { message } => {
+                assert!(message.contains("timed out after"));
+            }
+            _ => panic!("Expected Timeout variant"),
+        }
+    }
+
+    #[test]
+    fn test_error_display_formatting() {
+        // Test error display messages for each variant
+        let error = StreamError::Connection {
+            message: "test connection".to_string(),
+            retriable: true,
+        };
+        assert_eq!(format!("{}", error), "Connection failed: test connection");
+
+        let error = StreamError::Configuration {
+            message: "test config".to_string(),
+        };
+        assert_eq!(format!("{}", error), "Configuration error: test config");
+
+        let error = StreamError::ConfigurationInvalid {
+            reason: "test reason".to_string(),
+        };
+        assert_eq!(format!("{}", error), "Invalid configuration: test reason");
+
+        let error = StreamError::Authentication {
+            message: "test auth".to_string(),
+        };
+        assert_eq!(format!("{}", error), "Authentication failed: test auth");
+
+        let error = StreamError::RateLimit {
+            message: "test rate".to_string(),
+            retry_after: Some(60),
+        };
+        assert_eq!(format!("{}", error), "Rate limit exceeded: test rate");
+
+        let error = StreamError::Parse {
+            message: "test parse".to_string(),
+            data: "test data".to_string(),
+        };
+        assert_eq!(format!("{}", error), "Parse error: test parse");
+
+        let error = StreamError::ResourceExhausted {
+            message: "test resource".to_string(),
+        };
+        assert_eq!(format!("{}", error), "Resource exhausted: test resource");
+
+        let error = StreamError::AlreadyRunning {
+            name: "test stream".to_string(),
+        };
+        assert_eq!(format!("{}", error), "Stream already running: test stream");
+
+        let error = StreamError::NotRunning {
+            name: "test stream".to_string(),
+        };
+        assert_eq!(format!("{}", error), "Stream not running: test stream");
+
+        let error = StreamError::Channel {
+            message: "test channel".to_string(),
+        };
+        assert_eq!(format!("{}", error), "Channel error: test channel");
+
+        let error = StreamError::Timeout {
+            message: "test timeout".to_string(),
+        };
+        assert_eq!(format!("{}", error), "Operation timed out: test timeout");
+
+        let error = StreamError::Processing {
+            message: "test processing".to_string(),
+        };
+        assert_eq!(format!("{}", error), "Processing error: test processing");
+
+        let error = StreamError::Backpressure {
+            message: "test backpressure".to_string(),
+        };
+        assert_eq!(
+            format!("{}", error),
+            "Backpressure error: test backpressure"
+        );
+
+        let error = StreamError::Internal {
+            source: Box::new(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                "test internal",
+            )),
+        };
+        assert!(format!("{}", error).starts_with("Internal error:"));
+    }
+
+    #[test]
+    fn test_stream_result_type_alias() {
+        // Test that StreamResult type alias works correctly
+        let success: StreamResult<String> = Ok("success".to_string());
+        assert!(success.is_ok());
+        assert_eq!(success.unwrap(), "success");
+
+        let failure: StreamResult<String> = Err(StreamError::retriable_connection("test error"));
+        assert!(failure.is_err());
+        match failure.unwrap_err() {
+            StreamError::Connection { message, retriable } => {
+                assert_eq!(message, "test error");
+                assert!(retriable);
+            }
+            _ => panic!("Expected Connection variant"),
+        }
+    }
+
+    #[test]
+    fn test_edge_cases() {
+        // Test empty strings
+        let error = StreamError::retriable_connection("");
+        match error {
+            StreamError::Connection { message, .. } => {
+                assert_eq!(message, "");
+            }
+            _ => panic!("Expected Connection variant"),
+        }
+
+        // Test very long strings
+        let long_message = "a".repeat(1000);
+        let error = StreamError::Configuration {
+            message: long_message.clone(),
+        };
+        match error {
+            StreamError::Configuration { message } => {
+                assert_eq!(message, long_message);
+            }
+            _ => panic!("Expected Configuration variant"),
+        }
+
+        // Test zero retry_after
+        let error = StreamError::rate_limited("test", 0);
+        assert_eq!(error.retry_after(), Some(std::time::Duration::from_secs(0)));
+
+        // Test maximum u64 retry_after
+        let error = StreamError::rate_limited("test", u64::MAX);
+        assert_eq!(
+            error.retry_after(),
+            Some(std::time::Duration::from_secs(u64::MAX))
+        );
     }
 }

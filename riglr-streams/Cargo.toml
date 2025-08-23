@@ -1,6 +1,6 @@
 [package]
 name = "riglr-streams"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 authors = ["RIGLR Contributors"]
 description = "Event-driven streaming capabilities for the RIGLR blockchain agent framework"
@@ -52,3 +52,4 @@ tokio-test = "0.4"
 criterion = { version = "0.7.0", features = ["async_tokio"] }
 tracing-test = "0.2"
 tracing-subscriber = "0.3"
+tempfile = "3.8"

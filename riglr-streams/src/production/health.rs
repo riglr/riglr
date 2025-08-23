@@ -324,3 +324,654 @@ impl HealthMonitor {
         self.health_history.read().await.clone()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::core::{StreamHealth, StreamManager};
+    use std::collections::HashMap;
+    use std::time::{Duration, SystemTime, UNIX_EPOCH};
+
+    fn create_test_stream_manager() -> Arc<StreamManager> {
+        Arc::new(StreamManager::new())
+    }
+
+    #[test]
+    fn test_health_status_equality() {
+        assert_eq!(HealthStatus::Healthy, HealthStatus::Healthy);
+        assert_eq!(HealthStatus::Degraded, HealthStatus::Degraded);
+        assert_eq!(HealthStatus::Unhealthy, HealthStatus::Unhealthy);
+        assert_eq!(HealthStatus::Down, HealthStatus::Down);
+
+        assert_ne!(HealthStatus::Healthy, HealthStatus::Degraded);
+        assert_ne!(HealthStatus::Degraded, HealthStatus::Unhealthy);
+        assert_ne!(HealthStatus::Unhealthy, HealthStatus::Down);
+    }
+
+    #[test]
+    fn test_alert_severity_equality() {
+        assert_eq!(AlertSeverity::Info, AlertSeverity::Info);
+        assert_eq!(AlertSeverity::Warning, AlertSeverity::Warning);
+        assert_eq!(AlertSeverity::Error, AlertSeverity::Error);
+        assert_eq!(AlertSeverity::Critical, AlertSeverity::Critical);
+
+        assert_ne!(AlertSeverity::Info, AlertSeverity::Warning);
+        assert_ne!(AlertSeverity::Warning, AlertSeverity::Error);
+        assert_ne!(AlertSeverity::Error, AlertSeverity::Critical);
+    }
+
+    #[test]
+    fn test_health_thresholds_default() {
+        let thresholds = HealthThresholds::default();
+
+        assert_eq!(thresholds.max_event_age, Duration::from_secs(300));
+        assert_eq!(thresholds.max_error_rate, 10.0);
+        assert_eq!(thresholds.min_event_rate, 0.1);
+        assert_eq!(thresholds.max_consecutive_errors, 5);
+    }
+
+    #[test]
+    fn test_health_monitor_new() {
+        let stream_manager = create_test_stream_manager();
+        let monitor = HealthMonitor::new(stream_manager.clone());
+
+        assert_eq!(monitor.check_interval, Duration::from_secs(30));
+        assert!(Arc::ptr_eq(&monitor.stream_manager, &stream_manager));
+    }
+
+    #[test]
+    fn test_health_monitor_with_thresholds() {
+        let stream_manager = create_test_stream_manager();
+        let custom_thresholds = HealthThresholds {
+            max_event_age: Duration::from_secs(600),
+            max_error_rate: 20.0,
+            min_event_rate: 0.5,
+            max_consecutive_errors: 10,
+        };
+
+        let monitor = HealthMonitor::new(stream_manager).with_thresholds(custom_thresholds.clone());
+
+        assert_eq!(monitor.thresholds.max_event_age, Duration::from_secs(600));
+        assert_eq!(monitor.thresholds.max_error_rate, 20.0);
+        assert_eq!(monitor.thresholds.min_event_rate, 0.5);
+        assert_eq!(monitor.thresholds.max_consecutive_errors, 10);
+    }
+
+    #[test]
+    fn test_health_monitor_with_check_interval() {
+        let stream_manager = create_test_stream_manager();
+        let custom_interval = Duration::from_secs(60);
+
+        let monitor = HealthMonitor::new(stream_manager).with_check_interval(custom_interval);
+
+        assert_eq!(monitor.check_interval, custom_interval);
+    }
+
+    #[test]
+    fn test_health_monitor_builder_chaining() {
+        let stream_manager = create_test_stream_manager();
+        let custom_thresholds = HealthThresholds {
+            max_event_age: Duration::from_secs(600),
+            max_error_rate: 20.0,
+            min_event_rate: 0.5,
+            max_consecutive_errors: 10,
+        };
+        let custom_interval = Duration::from_secs(45);
+
+        let monitor = HealthMonitor::new(stream_manager)
+            .with_thresholds(custom_thresholds.clone())
+            .with_check_interval(custom_interval);
+
+        assert_eq!(monitor.check_interval, custom_interval);
+        assert_eq!(monitor.thresholds.max_event_age, Duration::from_secs(600));
+    }
+
+    #[tokio::test]
+    async fn test_current_health_when_no_streams_should_return_healthy() {
+        let stream_manager = create_test_stream_manager();
+        let monitor = HealthMonitor::new(stream_manager);
+
+        let snapshot = monitor.current_health().await;
+
+        assert_eq!(snapshot.overall_status, HealthStatus::Healthy);
+        assert!(snapshot.components.is_empty());
+        assert!(snapshot.alerts.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_health_history_when_empty_should_return_empty_vector() {
+        let stream_manager = create_test_stream_manager();
+        let monitor = HealthMonitor::new(stream_manager);
+
+        let history = monitor.health_history().await;
+
+        assert!(history.is_empty());
+    }
+
+    #[test]
+    fn test_check_component_health_when_connected_and_healthy_should_return_healthy() {
+        let health = StreamHealth {
+            is_connected: true,
+            events_processed: 100,
+            error_count: 0,
+            last_event_time: Some(SystemTime::now()),
+            backlog_size: None,
+            custom_metrics: None,
+            stream_info: None,
+        };
+        let thresholds = HealthThresholds::default();
+        let mut alerts = Vec::new();
+
+        let component_health =
+            HealthMonitor::check_component_health("test_stream", &health, &thresholds, &mut alerts);
+
+        assert_eq!(component_health.status, HealthStatus::Healthy);
+        assert_eq!(component_health.name, "test_stream");
+        assert!(component_health.is_connected);
+        assert_eq!(component_health.events_processed, 100);
+        assert_eq!(component_health.error_count, 0);
+        assert!(component_health.last_event_time.is_some());
+        assert!(alerts.is_empty());
+        assert!(component_health.metrics.contains_key("event_age_seconds"));
+        assert!(component_health.metrics.contains_key("event_rate"));
+    }
+
+    #[test]
+    fn test_check_component_health_when_not_connected_should_return_down() {
+        let health = StreamHealth {
+            is_connected: false,
+            events_processed: 50,
+            error_count: 0,
+            last_event_time: Some(SystemTime::now()),
+            backlog_size: None,
+            custom_metrics: None,
+            stream_info: None,
+        };
+        let thresholds = HealthThresholds::default();
+        let mut alerts = Vec::new();
+
+        let component_health =
+            HealthMonitor::check_component_health("test_stream", &health, &thresholds, &mut alerts);
+
+        assert_eq!(component_health.status, HealthStatus::Down);
+        assert!(!component_health.is_connected);
+        assert_eq!(alerts.len(), 1);
+        assert_eq!(alerts[0].severity, AlertSeverity::Critical);
+        assert_eq!(alerts[0].component, "test_stream");
+        assert_eq!(alerts[0].message, "Stream is not connected");
+    }
+
+    #[test]
+    fn test_check_component_health_when_old_events_should_return_degraded() {
+        let old_time = SystemTime::now() - Duration::from_secs(400); // Older than 300s threshold
+        let health = StreamHealth {
+            is_connected: true,
+            events_processed: 100,
+            error_count: 0,
+            last_event_time: Some(old_time),
+            backlog_size: None,
+            custom_metrics: None,
+            stream_info: None,
+        };
+        let thresholds = HealthThresholds::default();
+        let mut alerts = Vec::new();
+
+        let component_health =
+            HealthMonitor::check_component_health("test_stream", &health, &thresholds, &mut alerts);
+
+        assert_eq!(component_health.status, HealthStatus::Degraded);
+        assert_eq!(alerts.len(), 1);
+        assert_eq!(alerts[0].severity, AlertSeverity::Warning);
+        assert!(alerts[0].message.contains("No events for"));
+    }
+
+    #[test]
+    fn test_check_component_health_when_no_last_event_time_should_not_create_age_alert() {
+        let health = StreamHealth {
+            is_connected: true,
+            events_processed: 100,
+            error_count: 0,
+            last_event_time: None,
+            backlog_size: None,
+            custom_metrics: None,
+            stream_info: None,
+        };
+        let thresholds = HealthThresholds::default();
+        let mut alerts = Vec::new();
+
+        let component_health =
+            HealthMonitor::check_component_health("test_stream", &health, &thresholds, &mut alerts);
+
+        assert_eq!(component_health.status, HealthStatus::Healthy);
+        assert_eq!(component_health.last_event_time, None);
+        assert!(alerts.is_empty());
+        assert!(!component_health.metrics.contains_key("event_age_seconds"));
+        assert!(component_health.metrics.contains_key("event_rate"));
+    }
+
+    #[test]
+    fn test_check_component_health_when_high_error_count_should_return_unhealthy() {
+        let health = StreamHealth {
+            is_connected: true,
+            events_processed: 100,
+            error_count: 10, // Higher than default threshold of 5
+            last_event_time: Some(SystemTime::now()),
+            backlog_size: None,
+            custom_metrics: None,
+            stream_info: None,
+        };
+        let thresholds = HealthThresholds::default();
+        let mut alerts = Vec::new();
+
+        let component_health =
+            HealthMonitor::check_component_health("test_stream", &health, &thresholds, &mut alerts);
+
+        assert_eq!(component_health.status, HealthStatus::Unhealthy);
+        assert_eq!(component_health.error_count, 10);
+        assert_eq!(alerts.len(), 1);
+        assert_eq!(alerts[0].severity, AlertSeverity::Error);
+        assert!(alerts[0].message.contains("High error count: 10"));
+    }
+
+    #[test]
+    fn test_check_component_health_when_disconnected_takes_precedence_over_errors() {
+        let health = StreamHealth {
+            is_connected: false,
+            events_processed: 100,
+            error_count: 10, // High errors, but disconnected should take precedence
+            last_event_time: Some(SystemTime::now()),
+            backlog_size: None,
+            custom_metrics: None,
+            stream_info: None,
+        };
+        let thresholds = HealthThresholds::default();
+        let mut alerts = Vec::new();
+
+        let component_health =
+            HealthMonitor::check_component_health("test_stream", &health, &thresholds, &mut alerts);
+
+        assert_eq!(component_health.status, HealthStatus::Down);
+        // Should have both alerts - one for disconnection, one for errors
+        assert_eq!(alerts.len(), 2);
+    }
+
+    #[test]
+    fn test_check_component_health_when_old_events_but_disconnected_should_return_down() {
+        let old_time = SystemTime::now() - Duration::from_secs(400);
+        let health = StreamHealth {
+            is_connected: false,
+            events_processed: 100,
+            error_count: 0,
+            last_event_time: Some(old_time),
+            backlog_size: None,
+            custom_metrics: None,
+            stream_info: None,
+        };
+        let thresholds = HealthThresholds::default();
+        let mut alerts = Vec::new();
+
+        let component_health =
+            HealthMonitor::check_component_health("test_stream", &health, &thresholds, &mut alerts);
+
+        assert_eq!(component_health.status, HealthStatus::Down);
+        // Should only have disconnect alert, event age check shouldn't run for Down status
+        assert_eq!(alerts.len(), 1);
+        assert_eq!(alerts[0].severity, AlertSeverity::Critical);
+    }
+
+    #[test]
+    fn test_check_component_health_when_duration_since_fails_should_use_zero() {
+        // Test edge case where duration_since might fail
+        let future_time = SystemTime::now() + Duration::from_secs(100);
+        let health = StreamHealth {
+            is_connected: true,
+            events_processed: 100,
+            error_count: 0,
+            last_event_time: Some(future_time),
+            backlog_size: None,
+            custom_metrics: None,
+            stream_info: None,
+        };
+        let thresholds = HealthThresholds::default();
+        let mut alerts = Vec::new();
+
+        let component_health =
+            HealthMonitor::check_component_health("test_stream", &health, &thresholds, &mut alerts);
+
+        assert_eq!(component_health.status, HealthStatus::Healthy);
+        assert!(component_health.metrics.contains_key("event_age_seconds"));
+        // Should be 0.0 when duration_since fails
+        assert_eq!(component_health.metrics["event_age_seconds"], 0.0);
+    }
+
+    #[test]
+    fn test_determine_overall_status_when_empty_components_should_return_healthy() {
+        let components = HashMap::new();
+
+        let status = HealthMonitor::determine_overall_status(&components);
+
+        assert_eq!(status, HealthStatus::Healthy);
+    }
+
+    #[test]
+    fn test_determine_overall_status_when_all_healthy_should_return_healthy() {
+        let mut components = HashMap::new();
+        components.insert(
+            "stream1".to_string(),
+            ComponentHealth {
+                name: "stream1".to_string(),
+                status: HealthStatus::Healthy,
+                is_connected: true,
+                events_processed: 100,
+                error_count: 0,
+                last_event_time: Some(SystemTime::now()),
+                metrics: HashMap::new(),
+            },
+        );
+        components.insert(
+            "stream2".to_string(),
+            ComponentHealth {
+                name: "stream2".to_string(),
+                status: HealthStatus::Healthy,
+                is_connected: true,
+                events_processed: 50,
+                error_count: 0,
+                last_event_time: Some(SystemTime::now()),
+                metrics: HashMap::new(),
+            },
+        );
+
+        let status = HealthMonitor::determine_overall_status(&components);
+
+        assert_eq!(status, HealthStatus::Healthy);
+    }
+
+    #[test]
+    fn test_determine_overall_status_when_has_degraded_should_return_degraded() {
+        let mut components = HashMap::new();
+        components.insert(
+            "stream1".to_string(),
+            ComponentHealth {
+                name: "stream1".to_string(),
+                status: HealthStatus::Healthy,
+                is_connected: true,
+                events_processed: 100,
+                error_count: 0,
+                last_event_time: Some(SystemTime::now()),
+                metrics: HashMap::new(),
+            },
+        );
+        components.insert(
+            "stream2".to_string(),
+            ComponentHealth {
+                name: "stream2".to_string(),
+                status: HealthStatus::Degraded,
+                is_connected: true,
+                events_processed: 50,
+                error_count: 0,
+                last_event_time: Some(SystemTime::now()),
+                metrics: HashMap::new(),
+            },
+        );
+
+        let status = HealthMonitor::determine_overall_status(&components);
+
+        assert_eq!(status, HealthStatus::Degraded);
+    }
+
+    #[test]
+    fn test_determine_overall_status_when_has_unhealthy_should_return_unhealthy() {
+        let mut components = HashMap::new();
+        components.insert(
+            "stream1".to_string(),
+            ComponentHealth {
+                name: "stream1".to_string(),
+                status: HealthStatus::Degraded,
+                is_connected: true,
+                events_processed: 100,
+                error_count: 0,
+                last_event_time: Some(SystemTime::now()),
+                metrics: HashMap::new(),
+            },
+        );
+        components.insert(
+            "stream2".to_string(),
+            ComponentHealth {
+                name: "stream2".to_string(),
+                status: HealthStatus::Unhealthy,
+                is_connected: true,
+                events_processed: 50,
+                error_count: 10,
+                last_event_time: Some(SystemTime::now()),
+                metrics: HashMap::new(),
+            },
+        );
+
+        let status = HealthMonitor::determine_overall_status(&components);
+
+        assert_eq!(status, HealthStatus::Unhealthy);
+    }
+
+    #[test]
+    fn test_determine_overall_status_when_has_down_should_return_down() {
+        let mut components = HashMap::new();
+        components.insert(
+            "stream1".to_string(),
+            ComponentHealth {
+                name: "stream1".to_string(),
+                status: HealthStatus::Unhealthy,
+                is_connected: true,
+                events_processed: 100,
+                error_count: 10,
+                last_event_time: Some(SystemTime::now()),
+                metrics: HashMap::new(),
+            },
+        );
+        components.insert(
+            "stream2".to_string(),
+            ComponentHealth {
+                name: "stream2".to_string(),
+                status: HealthStatus::Down,
+                is_connected: false,
+                events_processed: 50,
+                error_count: 0,
+                last_event_time: Some(SystemTime::now()),
+                metrics: HashMap::new(),
+            },
+        );
+
+        let status = HealthMonitor::determine_overall_status(&components);
+
+        assert_eq!(status, HealthStatus::Down);
+    }
+
+    #[test]
+    fn test_determine_overall_status_priority_order() {
+        // Test that Down has highest priority, then Unhealthy, then Degraded
+        let mut components = HashMap::new();
+        components.insert(
+            "stream1".to_string(),
+            ComponentHealth {
+                name: "stream1".to_string(),
+                status: HealthStatus::Healthy,
+                is_connected: true,
+                events_processed: 100,
+                error_count: 0,
+                last_event_time: Some(SystemTime::now()),
+                metrics: HashMap::new(),
+            },
+        );
+        components.insert(
+            "stream2".to_string(),
+            ComponentHealth {
+                name: "stream2".to_string(),
+                status: HealthStatus::Degraded,
+                is_connected: true,
+                events_processed: 50,
+                error_count: 0,
+                last_event_time: Some(SystemTime::now()),
+                metrics: HashMap::new(),
+            },
+        );
+        components.insert(
+            "stream3".to_string(),
+            ComponentHealth {
+                name: "stream3".to_string(),
+                status: HealthStatus::Unhealthy,
+                is_connected: true,
+                events_processed: 25,
+                error_count: 10,
+                last_event_time: Some(SystemTime::now()),
+                metrics: HashMap::new(),
+            },
+        );
+        components.insert(
+            "stream4".to_string(),
+            ComponentHealth {
+                name: "stream4".to_string(),
+                status: HealthStatus::Down,
+                is_connected: false,
+                events_processed: 0,
+                error_count: 0,
+                last_event_time: None,
+                metrics: HashMap::new(),
+            },
+        );
+
+        let status = HealthMonitor::determine_overall_status(&components);
+
+        assert_eq!(status, HealthStatus::Down);
+    }
+
+    #[test]
+    fn test_health_snapshot_serialization() {
+        let snapshot = HealthSnapshot {
+            timestamp: UNIX_EPOCH,
+            overall_status: HealthStatus::Healthy,
+            components: HashMap::new(),
+            alerts: Vec::new(),
+        };
+
+        // Test that it can be serialized (this will panic if serialization fails)
+        let _serialized = serde_json::to_string(&snapshot).expect("Should serialize");
+    }
+
+    #[test]
+    fn test_component_health_serialization() {
+        let component = ComponentHealth {
+            name: "test".to_string(),
+            status: HealthStatus::Healthy,
+            is_connected: true,
+            events_processed: 100,
+            error_count: 0,
+            last_event_time: Some(UNIX_EPOCH),
+            metrics: HashMap::new(),
+        };
+
+        let _serialized = serde_json::to_string(&component).expect("Should serialize");
+    }
+
+    #[test]
+    fn test_health_alert_serialization() {
+        let alert = HealthAlert {
+            severity: AlertSeverity::Warning,
+            component: "test".to_string(),
+            message: "Test message".to_string(),
+            triggered_at: UNIX_EPOCH,
+        };
+
+        let _serialized = serde_json::to_string(&alert).expect("Should serialize");
+    }
+
+    #[test]
+    fn test_debug_implementations() {
+        // Test Debug implementations
+        let status = HealthStatus::Healthy;
+        let _debug_str = format!("{:?}", status);
+
+        let severity = AlertSeverity::Warning;
+        let _debug_str = format!("{:?}", severity);
+
+        let thresholds = HealthThresholds::default();
+        let _debug_str = format!("{:?}", thresholds);
+
+        let snapshot = HealthSnapshot {
+            timestamp: UNIX_EPOCH,
+            overall_status: HealthStatus::Healthy,
+            components: HashMap::new(),
+            alerts: Vec::new(),
+        };
+        let _debug_str = format!("{:?}", snapshot);
+
+        let component = ComponentHealth {
+            name: "test".to_string(),
+            status: HealthStatus::Healthy,
+            is_connected: true,
+            events_processed: 100,
+            error_count: 0,
+            last_event_time: Some(UNIX_EPOCH),
+            metrics: HashMap::new(),
+        };
+        let _debug_str = format!("{:?}", component);
+
+        let alert = HealthAlert {
+            severity: AlertSeverity::Warning,
+            component: "test".to_string(),
+            message: "Test message".to_string(),
+            triggered_at: UNIX_EPOCH,
+        };
+        let _debug_str = format!("{:?}", alert);
+    }
+
+    #[test]
+    fn test_clone_implementations() {
+        // Test Clone implementations
+        let status = HealthStatus::Healthy;
+        let _cloned = status.clone();
+
+        let severity = AlertSeverity::Warning;
+        let _cloned = severity.clone();
+
+        let thresholds = HealthThresholds::default();
+        let _cloned = thresholds.clone();
+
+        let snapshot = HealthSnapshot {
+            timestamp: UNIX_EPOCH,
+            overall_status: HealthStatus::Healthy,
+            components: HashMap::new(),
+            alerts: Vec::new(),
+        };
+        let _cloned = snapshot.clone();
+
+        let component = ComponentHealth {
+            name: "test".to_string(),
+            status: HealthStatus::Healthy,
+            is_connected: true,
+            events_processed: 100,
+            error_count: 0,
+            last_event_time: Some(UNIX_EPOCH),
+            metrics: HashMap::new(),
+        };
+        let _cloned = component.clone();
+
+        let alert = HealthAlert {
+            severity: AlertSeverity::Warning,
+            component: "test".to_string(),
+            message: "Test message".to_string(),
+            triggered_at: UNIX_EPOCH,
+        };
+        let _cloned = alert.clone();
+    }
+
+    #[test]
+    fn test_copy_implementations() {
+        // Test Copy implementations for enums
+        let status = HealthStatus::Healthy;
+        let _copied = status;
+        let _also_copied = status; // Should work due to Copy trait
+
+        let severity = AlertSeverity::Warning;
+        let _copied = severity;
+        let _also_copied = severity; // Should work due to Copy trait
+    }
+}

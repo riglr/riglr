@@ -21,26 +21,26 @@ use tracing::{info, warn};
 #[derive(Debug, Clone)]
 pub enum WindowType {
     /// Fixed-size tumbling windows
-    Tumbling { 
+    Tumbling {
         /// Duration of each tumbling window
-        duration: Duration 
+        duration: Duration,
     },
     /// Sliding windows with overlap
-    Sliding { 
+    Sliding {
         /// Size of the sliding window
-        size: Duration, 
+        size: Duration,
         /// Step size between windows
-        step: Duration 
+        step: Duration,
     },
     /// Session windows that close after inactivity
-    Session { 
+    Session {
         /// Timeout duration for session inactivity
-        timeout: Duration 
+        timeout: Duration,
     },
     /// Count-based windows
-    Count { 
+    Count {
         /// Number of events per window
-        size: usize 
+        size: usize,
     },
 }
 
@@ -427,7 +427,10 @@ impl FlowController {
                     Ok(())
                 } else {
                     // Try to acquire, but don't wait too long
-                    if let Ok(Ok(permit)) = tokio::time::timeout(Duration::from_millis(10), self.semaphore.acquire()).await {
+                    if let Ok(Ok(permit)) =
+                        tokio::time::timeout(Duration::from_millis(10), self.semaphore.acquire())
+                            .await
+                    {
                         permit.forget();
                         Ok(())
                     } else {
@@ -656,7 +659,7 @@ mod tests {
         let window_type = WindowType::Tumbling {
             duration: Duration::from_millis(100),
         };
-        let mut manager = WindowManager::new(window_type);
+        let mut manager: WindowManager<TestEvent> = WindowManager::new(window_type);
 
         let event = TestEvent {
             _id: 1,
@@ -724,7 +727,7 @@ mod tests {
             zero_copy: false,
         };
 
-        let mut processor = BatchProcessor::new(config);
+        let mut processor: BatchProcessor<TestEvent> = BatchProcessor::new(config);
 
         // Add events, should not flush until batch size reached
         assert!(processor
@@ -746,5 +749,651 @@ mod tests {
         });
         assert!(batch.is_some());
         assert_eq!(batch.unwrap().len(), 3);
+    }
+
+    // Additional tests for 100% coverage
+
+    #[test]
+    fn test_window_new() {
+        let start_time = Instant::now();
+        let window: Window<TestEvent> = Window::new(42, start_time);
+
+        assert_eq!(window.id, 42);
+        assert_eq!(window.start_time, start_time);
+        assert!(window.end_time.is_none());
+        assert!(window.events.is_empty());
+        assert!(!window.is_closed);
+    }
+
+    #[test]
+    fn test_window_close() {
+        let mut window: Window<TestEvent> = Window::new(1, Instant::now());
+        assert!(!window.is_closed);
+        assert!(window.end_time.is_none());
+
+        window.close();
+        assert!(window.is_closed);
+        assert!(window.end_time.is_some());
+    }
+
+    #[test]
+    fn test_window_add_event_when_open() {
+        let mut window = Window::new(1, Instant::now());
+        let event = TestEvent {
+            _id: 1,
+            _event_type: "test".into(),
+        };
+
+        window.add_event(event);
+        assert_eq!(window.events.len(), 1);
+    }
+
+    #[test]
+    fn test_window_add_event_when_closed() {
+        let mut window = Window::new(1, Instant::now());
+        let event = TestEvent {
+            _id: 1,
+            _event_type: "test".into(),
+        };
+
+        window.close();
+        window.add_event(event);
+        assert!(window.events.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_window_manager_sliding() {
+        let window_type = WindowType::Sliding {
+            size: Duration::from_millis(200),
+            step: Duration::from_millis(50),
+        };
+        let mut manager: WindowManager<TestEvent> = WindowManager::new(window_type);
+
+        let event = TestEvent {
+            _id: 1,
+            _event_type: "test".into(),
+        };
+        let windows = manager.add_event(event);
+        assert!(windows.is_empty());
+
+        tokio::time::sleep(Duration::from_millis(250)).await;
+
+        let event2 = TestEvent {
+            _id: 2,
+            _event_type: "test".into(),
+        };
+        let windows = manager.add_event(event2);
+        assert!(!windows.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_window_manager_session() {
+        let window_type = WindowType::Session {
+            timeout: Duration::from_millis(100),
+        };
+        let mut manager: WindowManager<TestEvent> = WindowManager::new(window_type);
+
+        let event = TestEvent {
+            _id: 1,
+            _event_type: "test".into(),
+        };
+        let windows = manager.add_event(event);
+        assert!(windows.is_empty());
+
+        tokio::time::sleep(Duration::from_millis(150)).await;
+
+        let event2 = TestEvent {
+            _id: 2,
+            _event_type: "test".into(),
+        };
+        let windows = manager.add_event(event2);
+        assert!(!windows.is_empty());
+    }
+
+    #[test]
+    fn test_window_manager_count() {
+        let window_type = WindowType::Count { size: 2 };
+        let mut manager: WindowManager<TestEvent> = WindowManager::new(window_type);
+
+        let event1 = TestEvent {
+            _id: 1,
+            _event_type: "test".into(),
+        };
+        let windows = manager.add_event(event1);
+        assert!(windows.is_empty());
+
+        let event2 = TestEvent {
+            _id: 2,
+            _event_type: "test".into(),
+        };
+        let windows = manager.add_event(event2);
+        assert_eq!(windows.len(), 1);
+        assert_eq!(windows[0].events.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn test_window_manager_cleanup() {
+        let window_type = WindowType::Count { size: 5 };
+        let mut manager: WindowManager<TestEvent> = WindowManager::new(window_type);
+
+        // Force cleanup by setting last_cleanup to a very old time
+        manager.last_cleanup = Instant::now()
+            .checked_sub(Duration::from_secs(120))
+            .unwrap_or_else(Instant::now);
+
+        let event = TestEvent {
+            _id: 1,
+            _event_type: "test".into(),
+        };
+        let _windows = manager.add_event(event);
+
+        // Cleanup should have been triggered
+        assert!(manager.last_cleanup.elapsed() < Duration::from_secs(1));
+    }
+
+    #[test]
+    fn test_window_manager_cleanup_old_windows() {
+        let window_type = WindowType::Count { size: 5 };
+        let mut manager: WindowManager<TestEvent> = WindowManager::new(window_type);
+
+        // Manually add a very old window
+        let old_time = Instant::now()
+            .checked_sub(Duration::from_secs(7200))
+            .unwrap_or_else(Instant::now); // 2 hours ago
+        manager
+            .active_windows
+            .insert(999, Window::new(999, old_time));
+
+        manager.cleanup_old_windows();
+
+        // Old window should be removed
+        assert!(!manager.active_windows.contains_key(&999));
+    }
+
+    #[tokio::test]
+    async fn test_stateful_processor_remove_state() {
+        let processor = StatefulProcessor::<String, u64>::new(Duration::from_secs(1));
+
+        // Insert some state
+        processor
+            .update_state("key1".to_string(), |_| (42, ()))
+            .await;
+
+        // Remove and verify
+        let removed = processor.remove_state(&"key1".to_string()).await;
+        assert_eq!(removed, Some(42));
+
+        // Should be None after removal
+        let state = processor.get_state(&"key1".to_string()).await;
+        assert_eq!(state, None);
+    }
+
+    #[tokio::test]
+    async fn test_stateful_processor_checkpoint_not_ready() {
+        let processor = StatefulProcessor::<String, u64>::new(Duration::from_secs(10));
+
+        // Checkpoint should succeed but not actually checkpoint
+        let result = processor.checkpoint().await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_stateful_processor_checkpoint_ready() {
+        let processor = StatefulProcessor::<String, u64>::new(Duration::from_millis(1));
+
+        // Wait for checkpoint interval to pass
+        tokio::time::sleep(Duration::from_millis(2)).await;
+
+        let result = processor.checkpoint().await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_flow_controller_drop_strategy() {
+        let config = BackpressureConfig {
+            channel_size: 1,
+            strategy: BackpressureStrategy::Drop,
+            ..Default::default()
+        };
+
+        let controller = FlowController::new(config);
+
+        // Fill up the semaphore
+        let _permit = controller.acquire_permit().await;
+
+        // Update queue size to trigger drop
+        controller.update_queue_size(1000).await;
+
+        // Should drop event
+        let result = controller.acquire_permit().await;
+        assert!(result.is_err());
+
+        let (_queue_size, drop_count) = controller.get_stats().await;
+        assert_eq!(drop_count, 1);
+    }
+
+    #[tokio::test]
+    async fn test_flow_controller_retry_strategy() {
+        let config = BackpressureConfig {
+            channel_size: 1,
+            strategy: BackpressureStrategy::Retry {
+                max_attempts: 2,
+                base_wait_ms: 1,
+            },
+            ..Default::default()
+        };
+
+        let controller = FlowController::new(config);
+
+        // Should succeed on first try
+        let result = controller.acquire_permit().await;
+        assert!(result.is_ok());
+
+        // Should fail after retries
+        let result = controller.acquire_permit().await;
+        assert!(result.is_err());
+
+        let (_, drop_count) = controller.get_stats().await;
+        assert_eq!(drop_count, 1);
+    }
+
+    #[tokio::test]
+    async fn test_flow_controller_adaptive_high_load() {
+        let config = BackpressureConfig {
+            channel_size: 10,
+            strategy: BackpressureStrategy::Adaptive,
+            ..Default::default()
+        };
+
+        let controller = FlowController::new(config);
+
+        // Set high queue size to trigger drop mode
+        controller.update_queue_size(1000).await;
+
+        let result = controller.acquire_permit().await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_flow_controller_adaptive_low_load() {
+        let config = BackpressureConfig {
+            channel_size: 100,
+            strategy: BackpressureStrategy::Adaptive,
+            ..Default::default()
+        };
+
+        let controller = FlowController::new(config);
+
+        // Low load should allow blocking
+        let result = controller.acquire_permit().await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_flow_controller_adaptive_medium_load() {
+        let config = BackpressureConfig {
+            channel_size: 10,
+            strategy: BackpressureStrategy::Adaptive,
+            ..Default::default()
+        };
+
+        let controller = FlowController::new(config);
+
+        // Fill semaphore to make timeout likely
+        for _ in 0..10 {
+            let _ = controller.acquire_permit().await;
+        }
+
+        // Set medium queue size
+        controller.update_queue_size(5).await;
+
+        let result = controller.acquire_permit().await;
+        // Should timeout and fail
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_flow_controller_update_queue_size_negative() {
+        let config = BackpressureConfig::default();
+        let controller = FlowController::new(config);
+
+        // Increase size first
+        controller.update_queue_size(10).await;
+        let (size, _) = controller.get_stats().await;
+        assert_eq!(size, 10);
+
+        // Decrease size
+        controller.update_queue_size(-5).await;
+        let (size, _) = controller.get_stats().await;
+        assert_eq!(size, 5);
+
+        // Try to decrease more than available
+        controller.update_queue_size(-10).await;
+        let (size, _) = controller.get_stats().await;
+        assert_eq!(size, 0);
+    }
+
+    #[tokio::test]
+    async fn test_flow_controller_release_permit() {
+        let config = BackpressureConfig::default();
+        let controller = FlowController::new(config);
+
+        controller.update_queue_size(5).await;
+        controller.release_permit().await;
+
+        let (size, _) = controller.get_stats().await;
+        assert_eq!(size, 4);
+
+        // Release when size is 0
+        controller.update_queue_size(-10).await;
+        controller.release_permit().await;
+        let (size, _) = controller.get_stats().await;
+        assert_eq!(size, 0);
+    }
+
+    #[test]
+    fn test_batch_processor_disabled() {
+        let config = BatchConfig {
+            batch_size: 3,
+            batch_timeout_ms: 100,
+            enabled: false,
+            zero_copy: false,
+        };
+
+        let mut processor: BatchProcessor<TestEvent> = BatchProcessor::new(config);
+
+        // When disabled, should return single event immediately
+        let result = processor.add_event(TestEvent {
+            _id: 1,
+            _event_type: "test".into(),
+        });
+
+        assert!(result.is_some());
+        assert_eq!(result.unwrap().len(), 1);
+    }
+
+    #[test]
+    fn test_batch_processor_flush_empty() {
+        let config = BatchConfig {
+            batch_size: 3,
+            batch_timeout_ms: 100,
+            enabled: true,
+            zero_copy: false,
+        };
+
+        let mut processor: BatchProcessor<TestEvent> = BatchProcessor::new(config);
+
+        // Flush empty buffer should return None
+        let result = processor.flush_batch();
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_batch_processor_pending_count() {
+        let config = BatchConfig {
+            batch_size: 5,
+            batch_timeout_ms: 100,
+            enabled: true,
+            zero_copy: false,
+        };
+
+        let mut processor: BatchProcessor<TestEvent> = BatchProcessor::new(config);
+
+        assert_eq!(processor.pending_count(), 0);
+
+        processor.add_event(TestEvent {
+            _id: 1,
+            _event_type: "test".into(),
+        });
+        assert_eq!(processor.pending_count(), 1);
+
+        processor.add_event(TestEvent {
+            _id: 2,
+            _event_type: "test".into(),
+        });
+        assert_eq!(processor.pending_count(), 2);
+    }
+
+    #[test]
+    fn test_batch_processor_timeout_flush() {
+        let config = BatchConfig {
+            batch_size: 10,
+            batch_timeout_ms: 1, // Very short timeout
+            enabled: true,
+            zero_copy: false,
+        };
+
+        let mut processor: BatchProcessor<TestEvent> = BatchProcessor::new(config);
+
+        // Add one event
+        processor.add_event(TestEvent {
+            _id: 1,
+            _event_type: "test".into(),
+        });
+
+        // Force timeout by setting last_flush to old time
+        processor.last_flush = Instant::now()
+            .checked_sub(Duration::from_millis(10))
+            .unwrap_or_else(Instant::now);
+
+        // Next event should trigger timeout flush
+        let result = processor.add_event(TestEvent {
+            _id: 2,
+            _event_type: "test".into(),
+        });
+        assert!(result.is_some());
+        assert_eq!(result.unwrap().len(), 2);
+    }
+
+    #[test]
+    fn test_pattern_matcher_single() {
+        let patterns = vec![EventPattern::Single(|e: &TestEvent| e._id == 1)];
+        let mut matcher = PatternMatcher::new(patterns, 10);
+
+        let event1 = TestEvent {
+            _id: 1,
+            _event_type: "test".into(),
+        };
+        let matches = matcher.match_event(event1);
+        assert_eq!(matches, vec![0]);
+
+        let event2 = TestEvent {
+            _id: 2,
+            _event_type: "test".into(),
+        };
+        let matches = matcher.match_event(event2);
+        assert!(matches.is_empty());
+    }
+
+    #[test]
+    fn test_pattern_matcher_sequence() {
+        let patterns = vec![EventPattern::Sequence(vec![
+            |e: &TestEvent| e._id == 1,
+            |e: &TestEvent| e._id == 2,
+        ])];
+        let mut matcher = PatternMatcher::new(patterns, 10);
+
+        // First event
+        let event1 = TestEvent {
+            _id: 1,
+            _event_type: "test".into(),
+        };
+        let matches = matcher.match_event(event1);
+        assert!(matches.is_empty());
+
+        // Second event should complete sequence
+        let event2 = TestEvent {
+            _id: 2,
+            _event_type: "test".into(),
+        };
+        let matches = matcher.match_event(event2);
+        assert_eq!(matches, vec![0]);
+    }
+
+    #[test]
+    fn test_pattern_matcher_sequence_empty() {
+        let patterns = vec![EventPattern::Sequence(vec![])];
+        let mut matcher = PatternMatcher::new(patterns, 10);
+
+        let event = TestEvent {
+            _id: 1,
+            _event_type: "test".into(),
+        };
+        let matches = matcher.match_event(event);
+        assert!(matches.is_empty());
+    }
+
+    #[test]
+    fn test_pattern_matcher_any() {
+        let patterns = vec![EventPattern::Any(vec![
+            EventPattern::Single(|e: &TestEvent| e._id == 1),
+            EventPattern::Single(|e: &TestEvent| e._id == 2),
+        ])];
+        let mut matcher = PatternMatcher::new(patterns, 10);
+
+        let event1 = TestEvent {
+            _id: 1,
+            _event_type: "test".into(),
+        };
+        let matches = matcher.match_event(event1);
+        assert_eq!(matches, vec![0]);
+
+        let event2 = TestEvent {
+            _id: 2,
+            _event_type: "test".into(),
+        };
+        let matches = matcher.match_event(event2);
+        assert_eq!(matches, vec![0]);
+
+        let event3 = TestEvent {
+            _id: 3,
+            _event_type: "test".into(),
+        };
+        let matches = matcher.match_event(event3);
+        assert!(matches.is_empty());
+    }
+
+    #[test]
+    fn test_pattern_matcher_all() {
+        let patterns = vec![EventPattern::All(vec![
+            EventPattern::Single(|e: &TestEvent| e._id > 0),
+            EventPattern::Single(|e: &TestEvent| e._event_type == "test"),
+        ])];
+        let mut matcher = PatternMatcher::new(patterns, 10);
+
+        let event = TestEvent {
+            _id: 1,
+            _event_type: "test".into(),
+        };
+        let matches = matcher.match_event(event);
+        assert_eq!(matches, vec![0]);
+
+        let event2 = TestEvent {
+            _id: 0,
+            _event_type: "test".into(),
+        };
+        let matches = matcher.match_event(event2);
+        assert!(matches.is_empty());
+    }
+
+    #[test]
+    fn test_pattern_matcher_within() {
+        let inner_pattern = EventPattern::Single(|e: &TestEvent| e._id == 1);
+        let patterns = vec![EventPattern::Within {
+            pattern: Box::new(inner_pattern),
+            duration: Duration::from_millis(100),
+        }];
+        let mut matcher = PatternMatcher::new(patterns, 10);
+
+        let event = TestEvent {
+            _id: 1,
+            _event_type: "test".into(),
+        };
+        let matches = matcher.match_event(event);
+        assert_eq!(matches, vec![0]);
+    }
+
+    #[test]
+    fn test_pattern_matcher_history_limit() {
+        let patterns = vec![EventPattern::Single(|_: &TestEvent| true)];
+        let mut matcher = PatternMatcher::new(patterns, 2);
+
+        // Add more events than history limit
+        for i in 1..=5 {
+            let event = TestEvent {
+                _id: i,
+                _event_type: "test".into(),
+            };
+            matcher.match_event(event);
+        }
+
+        // History should be limited to 2 events
+        assert_eq!(matcher.event_history.len(), 2);
+    }
+
+    #[test]
+    fn test_window_type_variants() {
+        // Test that all WindowType variants can be created
+        let _tumbling = WindowType::Tumbling {
+            duration: Duration::from_secs(1),
+        };
+        let _sliding = WindowType::Sliding {
+            size: Duration::from_secs(2),
+            step: Duration::from_secs(1),
+        };
+        let _session = WindowType::Session {
+            timeout: Duration::from_secs(5),
+        };
+        let _count = WindowType::Count { size: 100 };
+    }
+
+    #[test]
+    fn test_event_pattern_variants() {
+        // Test that all EventPattern variants can be created
+        let _single = EventPattern::<TestEvent>::Single(|_| true);
+        let _sequence = EventPattern::<TestEvent>::Sequence(vec![|_| true]);
+        let _within = EventPattern::<TestEvent>::Within {
+            pattern: Box::new(EventPattern::Single(|_| true)),
+            duration: Duration::from_secs(1),
+        };
+        let _any = EventPattern::<TestEvent>::Any(vec![]);
+        let _all = EventPattern::<TestEvent>::All(vec![]);
+    }
+
+    #[test]
+    fn test_window_manager_tumbling_with_system_time_error() {
+        let window_type = WindowType::Tumbling {
+            duration: Duration::from_secs(1),
+        };
+        let mut manager: WindowManager<TestEvent> = WindowManager::new(window_type);
+
+        // This test checks the error handling path for SystemTime
+        // The actual error case is hard to trigger in tests, but the code path exists
+        let event = TestEvent {
+            _id: 1,
+            _event_type: "test".into(),
+        };
+        let _windows = manager.add_event(event);
+
+        // Should not panic and should handle the error gracefully
+        assert!(manager.active_windows.len() <= 1);
+    }
+
+    #[test]
+    fn test_window_manager_sliding_with_system_time_error() {
+        let window_type = WindowType::Sliding {
+            size: Duration::from_secs(2),
+            step: Duration::from_secs(1),
+        };
+        let mut manager: WindowManager<TestEvent> = WindowManager::new(window_type);
+
+        let event = TestEvent {
+            _id: 1,
+            _event_type: "test".into(),
+        };
+        let _windows = manager.add_event(event);
+
+        // Should not panic and should handle the error gracefully
+        assert!(manager.active_windows.len() <= 1);
     }
 }
