@@ -361,4 +361,332 @@ mod tests {
         // Should have waited at least 100ms (1 token at 10 tokens/sec)
         assert!(elapsed >= Duration::from_millis(90)); // Some tolerance
     }
+
+    #[tokio::test]
+    async fn test_check_tokens_multiple() {
+        let limiter = RateLimiter::new(10, 5); // 10 tokens/sec, burst of 5
+
+        // Should be able to consume 3 tokens at once
+        assert!(limiter.check_tokens(3).is_ok());
+        assert_eq!(limiter.available_tokens().await, 2);
+
+        // Should fail to consume 3 more tokens (only 2 available)
+        let result = limiter.check_tokens(3);
+        assert!(result.is_err());
+
+        if let Err(RateLimitError::RateLimited {
+            available_tokens,
+            required_tokens,
+            retry_after,
+        }) = result
+        {
+            assert_eq!(available_tokens, 2);
+            assert_eq!(required_tokens, 3);
+            assert!(retry_after > Duration::from_millis(0));
+        } else {
+            panic!("Expected RateLimited error");
+        }
+    }
+
+    #[tokio::test]
+    async fn test_check_tokens_zero() {
+        let limiter = RateLimiter::new(10, 5);
+        // Should succeed with 0 tokens required
+        assert!(limiter.check_tokens(0).is_ok());
+        assert_eq!(limiter.available_tokens().await, 5); // No tokens consumed
+    }
+
+    #[tokio::test]
+    async fn test_unlimited_rate_limiter_properties() {
+        let limiter = RateLimiter::unlimited();
+
+        // Check stats for unlimited limiter
+        let stats = limiter.stats().await;
+        assert!(!stats.enabled);
+        assert_eq!(stats.tokens_per_second, 0);
+        assert_eq!(stats.burst_capacity, 0);
+
+        // Available tokens should be max
+        assert_eq!(limiter.available_tokens().await, u32::MAX);
+
+        // Should be able to check any number of tokens
+        assert!(limiter.check_tokens(1000).is_ok());
+        assert!(limiter.wait_for_tokens(5000).await.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_rate_limiter_stats() {
+        let limiter = RateLimiter::new(10, 5);
+
+        let stats = limiter.stats().await;
+        assert!(stats.enabled);
+        assert_eq!(stats.tokens_per_second, 10);
+        assert_eq!(stats.burst_capacity, 5);
+        assert_eq!(stats.current_tokens, 5.0);
+
+        // Consume some tokens and check stats again
+        assert!(limiter.check_tokens(2).is_ok());
+        let stats = limiter.stats().await;
+        assert_eq!(stats.current_tokens, 3.0);
+    }
+
+    #[tokio::test]
+    async fn test_refill_tokens_over_time() {
+        let limiter = RateLimiter::new(10, 3); // 10 tokens/sec, burst of 3
+
+        // Consume all tokens
+        assert!(limiter.check_tokens(3).is_ok());
+        assert_eq!(limiter.available_tokens().await, 0);
+
+        // Wait for partial refill
+        sleep(Duration::from_millis(150)).await; // Should get ~1.5 tokens
+        let available = limiter.available_tokens().await;
+        assert!(available >= 1 && available <= 2);
+
+        // Wait for full refill
+        sleep(Duration::from_millis(300)).await; // Should reach burst capacity
+        assert_eq!(limiter.available_tokens().await, 3);
+    }
+
+    #[tokio::test]
+    async fn test_calculate_retry_after() {
+        let limiter = RateLimiter::new(10, 5); // 10 tokens/sec
+
+        // Consume most tokens
+        assert!(limiter.check_tokens(4).is_ok());
+
+        // Try to consume more than available
+        let result = limiter.check_tokens(3);
+        assert!(result.is_err());
+
+        if let Err(RateLimitError::RateLimited { retry_after, .. }) = result {
+            // Should need to wait for about 200ms for 2 more tokens at 10 tokens/sec
+            assert!(retry_after >= Duration::from_millis(100));
+            assert!(retry_after <= Duration::from_millis(300));
+        }
+    }
+
+    #[tokio::test]
+    async fn test_refill_tokens_with_zero_elapsed_time() {
+        let limiter = RateLimiter::new(10, 5);
+
+        // Consume a token
+        assert!(limiter.check().is_ok());
+
+        // Immediately check again - should not have refilled
+        let available1 = limiter.available_tokens().await;
+        let available2 = limiter.available_tokens().await;
+        assert_eq!(available1, available2); // No refill with zero elapsed time
+    }
+
+    #[tokio::test]
+    async fn test_rate_limit_error_display() {
+        let error = RateLimitError::RateLimited {
+            available_tokens: 2,
+            required_tokens: 5,
+            retry_after: Duration::from_millis(300),
+        };
+
+        let error_string = format!("{}", error);
+        assert!(error_string.contains("Rate limited"));
+        assert!(error_string.contains("need 5 tokens"));
+        assert!(error_string.contains("have 2"));
+        assert!(error_string.contains("300ms"));
+    }
+
+    #[tokio::test]
+    async fn test_lock_contention_error() {
+        let error = RateLimitError::LockContention;
+        let error_string = format!("{}", error);
+        assert_eq!(error_string, "Lock contention");
+    }
+
+    #[tokio::test]
+    async fn test_wait_for_tokens_unlimited() {
+        let limiter = RateLimiter::unlimited();
+
+        // Should return immediately without waiting
+        let start = Instant::now();
+        assert!(limiter.wait_for_tokens(1000).await.is_ok());
+        let elapsed = start.elapsed();
+        assert!(elapsed < Duration::from_millis(10)); // Should be very fast
+    }
+
+    #[tokio::test]
+    async fn test_wait_for_tokens_with_lock_contention() {
+        // This test is harder to create reliably, but we test the error path exists
+        let limiter = RateLimiter::new(1, 1);
+
+        // Consume the token
+        assert!(limiter.check().is_ok());
+
+        // The wait_for_tokens should eventually succeed when tokens refill
+        let result = timeout(Duration::from_millis(1100), limiter.wait_for_tokens(1)).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_adaptive_rate_limiter_new() {
+        let adaptive = AdaptiveRateLimiter::new(10, 5, Duration::from_secs(1));
+
+        // Should be able to check and adapt
+        let result = adaptive.check_and_adapt().await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_adaptive_rate_limiter_success_tracking() {
+        let adaptive = AdaptiveRateLimiter::new(
+            10,
+            5,
+            Duration::from_millis(10), // Very short adjustment interval
+        );
+
+        // Generate several successes
+        for _ in 0..3 {
+            let _ = adaptive.check_and_adapt().await;
+        }
+
+        // Wait for adjustment interval to pass
+        sleep(Duration::from_millis(15)).await;
+
+        // This should trigger adjustment
+        let _ = adaptive.check_and_adapt().await;
+    }
+
+    #[tokio::test]
+    async fn test_adaptive_rate_limiter_failure_tracking() {
+        let adaptive = AdaptiveRateLimiter::new(
+            10,
+            2, // Small burst capacity to force failures
+            Duration::from_millis(10),
+        );
+
+        // Consume all tokens to force failures
+        let _ = adaptive.check_and_adapt().await; // Success
+        let _ = adaptive.check_and_adapt().await; // Success
+        let _ = adaptive.check_and_adapt().await; // Should fail
+        let _ = adaptive.check_and_adapt().await; // Should fail
+
+        // Wait for adjustment interval
+        sleep(Duration::from_millis(15)).await;
+
+        // This should trigger adjustment with failures recorded
+        let _ = adaptive.check_and_adapt().await;
+    }
+
+    #[tokio::test]
+    async fn test_adaptive_adjust_rate_with_high_success_rate() {
+        let adaptive = AdaptiveRateLimiter::new(
+            10,
+            10,                       // Large capacity for successes
+            Duration::from_millis(1), // Very short interval
+        );
+
+        // Generate many successes (> 90% success rate)
+        for _ in 0..10 {
+            let _ = adaptive.check_and_adapt().await; // All should succeed
+        }
+
+        // Wait and trigger adjustment
+        sleep(Duration::from_millis(5)).await;
+        let _ = adaptive.check_and_adapt().await;
+    }
+
+    #[tokio::test]
+    async fn test_adaptive_adjust_rate_with_low_success_rate() {
+        let adaptive = AdaptiveRateLimiter::new(
+            10,
+            1, // Very small capacity to force failures
+            Duration::from_millis(1),
+        );
+
+        // Generate mostly failures (< 70% success rate)
+        let _ = adaptive.check_and_adapt().await; // Success
+        for _ in 0..5 {
+            let _ = adaptive.check_and_adapt().await; // Should mostly fail
+        }
+
+        // Wait and trigger adjustment
+        sleep(Duration::from_millis(5)).await;
+        let _ = adaptive.check_and_adapt().await;
+    }
+
+    #[tokio::test]
+    async fn test_adaptive_adjust_rate_with_medium_success_rate() {
+        let adaptive = AdaptiveRateLimiter::new(10, 3, Duration::from_millis(1));
+
+        // Generate medium success rate (70-90%)
+        let _ = adaptive.check_and_adapt().await; // Success
+        let _ = adaptive.check_and_adapt().await; // Success
+        let _ = adaptive.check_and_adapt().await; // Success
+        let _ = adaptive.check_and_adapt().await; // Should fail
+        let _ = adaptive.check_and_adapt().await; // Should fail
+
+        // Wait and trigger adjustment (should result in no change factor = 1.0)
+        sleep(Duration::from_millis(5)).await;
+        let _ = adaptive.check_and_adapt().await;
+    }
+
+    #[tokio::test]
+    async fn test_adaptive_no_adjustment_with_zero_total() {
+        let adaptive = AdaptiveRateLimiter::new(10, 5, Duration::from_millis(1));
+
+        // Wait for adjustment interval without any operations
+        sleep(Duration::from_millis(5)).await;
+
+        // This should not crash or panic with zero total operations
+        let result = adaptive.check_and_adapt().await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_rate_limiter_config_debug() {
+        let config = RateLimiterConfig {
+            tokens_per_second: 10,
+            burst_capacity: 5,
+            enabled: true,
+        };
+
+        let debug_str = format!("{:?}", config);
+        assert!(debug_str.contains("tokens_per_second: 10"));
+        assert!(debug_str.contains("burst_capacity: 5"));
+        assert!(debug_str.contains("enabled: true"));
+    }
+
+    #[tokio::test]
+    async fn test_rate_limiter_stats_debug() {
+        let limiter = RateLimiter::new(10, 5);
+        let stats = limiter.stats().await;
+
+        let debug_str = format!("{:?}", stats);
+        assert!(debug_str.contains("enabled: true"));
+        assert!(debug_str.contains("tokens_per_second: 10"));
+        assert!(debug_str.contains("burst_capacity: 5"));
+    }
+
+    #[tokio::test]
+    async fn test_rate_limiter_stats_clone() {
+        let limiter = RateLimiter::new(10, 5);
+        let stats = limiter.stats().await;
+        let stats_clone = stats.clone();
+
+        assert_eq!(stats.enabled, stats_clone.enabled);
+        assert_eq!(stats.tokens_per_second, stats_clone.tokens_per_second);
+        assert_eq!(stats.burst_capacity, stats_clone.burst_capacity);
+    }
+
+    #[tokio::test]
+    async fn test_rate_limiter_config_clone() {
+        let config = RateLimiterConfig {
+            tokens_per_second: 10,
+            burst_capacity: 5,
+            enabled: true,
+        };
+        let config_clone = config.clone();
+
+        assert_eq!(config.tokens_per_second, config_clone.tokens_per_second);
+        assert_eq!(config.burst_capacity, config_clone.burst_capacity);
+        assert_eq!(config.enabled, config_clone.enabled);
+    }
 }

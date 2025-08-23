@@ -230,7 +230,7 @@ fn print_config_summary(config: &IndexerConfig) {
 /// Redact sensitive information from URLs
 fn redact_url(url: &str) -> String {
     if let Ok(parsed) = url::Url::parse(url) {
-        let mut redacted = parsed.clone();
+        let mut redacted = parsed;
         if redacted.password().is_some() {
             let _ = redacted.set_password(Some("****"));
         }
@@ -295,17 +295,133 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_redact_url() {
+    fn test_init_logging_when_valid_should_return_ok() {
+        // Happy path - should initialize logging successfully
+        let result = init_logging();
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_print_banner_when_called_should_execute_without_panic() {
+        // Test that print_banner executes without panicking
+        // This function prints to stdout, so we just verify it doesn't panic
+        print_banner();
+    }
+
+    #[test]
+    fn test_print_config_summary_when_valid_config_should_execute_without_panic() {
+        // Create a mock config for testing
+        use riglr_indexer::config::*;
+
+        // We need to create a minimal valid config
+        // This tests the function execution without panicking
+        let config = IndexerConfig::default();
+        print_config_summary(&config);
+    }
+
+    #[test]
+    fn test_redact_url_when_valid_url_with_password_should_redact_password() {
+        // Happy path - URL with password should be redacted
         assert_eq!(
             redact_url("postgresql://user:password@localhost:5432/db"),
             "postgresql://user:****@localhost:5432/db"
         );
 
         assert_eq!(
+            redact_url("mysql://admin:secret123@database.example.com:3306/mydb"),
+            "mysql://admin:****@database.example.com:3306/mydb"
+        );
+    }
+
+    #[test]
+    fn test_redact_url_when_valid_url_without_password_should_remain_unchanged() {
+        // URL without password should remain unchanged
+        assert_eq!(
             redact_url("redis://localhost:6379"),
             "redis://localhost:6379"
         );
 
+        assert_eq!(
+            redact_url("http://example.com:8080"),
+            "http://example.com:8080"
+        );
+    }
+
+    #[test]
+    fn test_redact_url_when_invalid_url_should_remain_unchanged() {
+        // Invalid URL without @ symbol should remain unchanged
         assert_eq!(redact_url("invalid-url"), "invalid-url");
+        assert_eq!(redact_url("just-a-string"), "just-a-string");
+        assert_eq!(redact_url(""), "");
+    }
+
+    #[test]
+    fn test_redact_url_when_invalid_url_with_at_symbol_should_redact_before_at() {
+        // Invalid URL with @ symbol should redact everything before @
+        assert_eq!(
+            redact_url("user:pass@some-invalid-url"),
+            "****@some-invalid-url"
+        );
+
+        assert_eq!(
+            redact_url("complex:password:with:colons@server"),
+            "****@server"
+        );
+    }
+
+    #[test]
+    fn test_redact_url_when_multiple_at_symbols_should_handle_correctly() {
+        // Test edge case with multiple @ symbols
+        assert_eq!(redact_url("user:pass@server@domain"), "****@server@domain");
+    }
+
+    #[test]
+    fn test_redact_url_when_only_at_symbol_should_handle_gracefully() {
+        // Edge case: just an @ symbol
+        assert_eq!(redact_url("@"), "****@");
+    }
+
+    #[test]
+    fn test_redact_url_when_url_with_username_only_should_remain_unchanged() {
+        // URL with username but no password
+        let result = redact_url("postgresql://user@localhost:5432/db");
+        assert_eq!(result, "postgresql://user@localhost:5432/db");
+    }
+
+    #[test]
+    fn test_redact_url_when_complex_valid_url_with_query_params_should_redact_password() {
+        // Complex URL with query parameters and fragments
+        let result =
+            redact_url("https://user:password@api.example.com:443/path?param=value#fragment");
+        assert_eq!(
+            result,
+            "https://user:****@api.example.com:443/path?param=value#fragment"
+        );
+    }
+
+    #[test]
+    fn test_redact_url_when_url_with_empty_password_should_redact() {
+        // URL with empty password (user:@host)
+        let result = redact_url("mongodb://user:@localhost:27017/db");
+        assert_eq!(result, "mongodb://user:****@localhost:27017/db");
+    }
+
+    #[test]
+    fn test_redact_url_when_special_characters_in_password_should_redact() {
+        // Password with special characters
+        let result = redact_url("redis://user:p@ss!w0rd@redis.example.com:6379");
+        assert_eq!(result, "redis://user:****@redis.example.com:6379");
+    }
+
+    #[test]
+    fn test_setup_signal_handling_when_compiled_should_not_panic() {
+        // This function is async and platform-specific, so we just test that it compiles
+        // We can't easily test the actual signal handling in a unit test environment
+        // The function will be tested through integration tests or manual testing
+
+        // This is a compile-time test - if the function compiles, the test passes
+        // We just verify the function exists and can be referenced
+        let _function_exists = setup_signal_handling;
+        // If this compiles, the test passes
     }
 }

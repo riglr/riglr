@@ -318,4 +318,347 @@ mod tests {
         assert!((*node1_load as i32 - expected).abs() < tolerance);
         assert!((*node2_load as i32 - expected).abs() < tolerance);
     }
+
+    // Additional comprehensive tests for 100% code coverage
+
+    #[test]
+    fn test_consistent_hash_new() {
+        let ring = ConsistentHash::new(50);
+        assert_eq!(ring.virtual_nodes, 50);
+        assert_eq!(ring.node_count(), 0);
+        assert!(ring.ring.is_empty());
+        assert!(ring.nodes.is_empty());
+    }
+
+    #[test]
+    fn test_add_node_with_different_weights() {
+        let mut ring = ConsistentHash::new(100);
+
+        let mut metadata = HashMap::new();
+        metadata.insert("region".to_string(), "us-east".to_string());
+
+        ring.add_node("high_weight".to_string(), 200, metadata.clone());
+        ring.add_node("low_weight".to_string(), 50, HashMap::new());
+        ring.add_node("zero_weight".to_string(), 0, HashMap::new());
+
+        assert_eq!(ring.node_count(), 3);
+        assert!(ring.has_node("high_weight"));
+        assert!(ring.has_node("low_weight"));
+        assert!(ring.has_node("zero_weight"));
+
+        // Check metadata is stored correctly
+        let node_info = ring.nodes.get("high_weight").unwrap();
+        assert_eq!(node_info.weight, 200);
+        assert_eq!(node_info.metadata.get("region").unwrap(), "us-east");
+    }
+
+    #[test]
+    fn test_remove_node_nonexistent() {
+        let mut ring = ConsistentHash::new(100);
+        ring.add_node("node1".to_string(), 100, HashMap::new());
+
+        // Try to remove a node that doesn't exist
+        assert!(!ring.remove_node("nonexistent"));
+        assert_eq!(ring.node_count(), 1);
+        assert!(ring.has_node("node1"));
+    }
+
+    #[test]
+    fn test_remove_node_success() {
+        let mut ring = ConsistentHash::new(100);
+        ring.add_node("node1".to_string(), 100, HashMap::new());
+        ring.add_node("node2".to_string(), 100, HashMap::new());
+
+        assert_eq!(ring.node_count(), 2);
+        assert!(ring.remove_node("node1"));
+        assert_eq!(ring.node_count(), 1);
+        assert!(!ring.has_node("node1"));
+        assert!(ring.has_node("node2"));
+    }
+
+    #[test]
+    fn test_get_node_empty_ring() {
+        let ring = ConsistentHash::new(100);
+        assert!(ring.get_node("any_key").is_none());
+    }
+
+    #[test]
+    fn test_get_node_single_node() {
+        let mut ring = ConsistentHash::new(100);
+        ring.add_node("only_node".to_string(), 100, HashMap::new());
+
+        let node = ring.get_node("test_key").unwrap();
+        assert_eq!(node.id, "only_node");
+    }
+
+    #[test]
+    fn test_get_node_wrap_around() {
+        let mut ring = ConsistentHash::new(100);
+        ring.add_node("node1".to_string(), 100, HashMap::new());
+        ring.add_node("node2".to_string(), 100, HashMap::new());
+
+        // Test that we can get a node for any key (testing wrap-around logic)
+        let node = ring.get_node("test_key_for_wraparound");
+        assert!(node.is_some());
+    }
+
+    #[test]
+    fn test_get_nodes_empty_ring() {
+        let ring = ConsistentHash::new(100);
+        let nodes = ring.get_nodes("any_key", 3);
+        assert!(nodes.is_empty());
+    }
+
+    #[test]
+    fn test_get_nodes_single_node() {
+        let mut ring = ConsistentHash::new(100);
+        ring.add_node("only_node".to_string(), 100, HashMap::new());
+
+        let nodes = ring.get_nodes("test_key", 3);
+        assert_eq!(nodes.len(), 1);
+        assert_eq!(nodes[0].id, "only_node");
+    }
+
+    #[test]
+    fn test_get_nodes_multiple_nodes() {
+        let mut ring = ConsistentHash::new(100);
+        ring.add_node("node1".to_string(), 100, HashMap::new());
+        ring.add_node("node2".to_string(), 100, HashMap::new());
+        ring.add_node("node3".to_string(), 100, HashMap::new());
+
+        let nodes = ring.get_nodes("test_key", 2);
+        assert_eq!(nodes.len(), 2);
+
+        // Should return unique nodes
+        assert_ne!(nodes[0].id, nodes[1].id);
+    }
+
+    #[test]
+    fn test_get_nodes_request_more_than_available() {
+        let mut ring = ConsistentHash::new(100);
+        ring.add_node("node1".to_string(), 100, HashMap::new());
+        ring.add_node("node2".to_string(), 100, HashMap::new());
+
+        let nodes = ring.get_nodes("test_key", 5);
+        assert_eq!(nodes.len(), 2); // Should only return available nodes
+    }
+
+    #[test]
+    fn test_get_all_nodes() {
+        let mut ring = ConsistentHash::new(100);
+        assert!(ring.get_all_nodes().is_empty());
+
+        ring.add_node("node1".to_string(), 100, HashMap::new());
+        ring.add_node("node2".to_string(), 100, HashMap::new());
+
+        let all_nodes = ring.get_all_nodes();
+        assert_eq!(all_nodes.len(), 2);
+
+        let node_ids: std::collections::HashSet<_> = all_nodes.iter().map(|n| &n.id).collect();
+        assert!(node_ids.contains(&"node1".to_string()));
+        assert!(node_ids.contains(&"node2".to_string()));
+    }
+
+    #[test]
+    fn test_node_count() {
+        let mut ring = ConsistentHash::new(100);
+        assert_eq!(ring.node_count(), 0);
+
+        ring.add_node("node1".to_string(), 100, HashMap::new());
+        assert_eq!(ring.node_count(), 1);
+
+        ring.add_node("node2".to_string(), 100, HashMap::new());
+        assert_eq!(ring.node_count(), 2);
+
+        ring.remove_node("node1");
+        assert_eq!(ring.node_count(), 1);
+    }
+
+    #[test]
+    fn test_has_node() {
+        let mut ring = ConsistentHash::new(100);
+        assert!(!ring.has_node("node1"));
+
+        ring.add_node("node1".to_string(), 100, HashMap::new());
+        assert!(ring.has_node("node1"));
+        assert!(!ring.has_node("node2"));
+
+        ring.remove_node("node1");
+        assert!(!ring.has_node("node1"));
+    }
+
+    #[test]
+    fn test_get_load_distribution_empty_ring() {
+        let ring = ConsistentHash::new(100);
+        let sample_keys = vec!["key1".to_string(), "key2".to_string()];
+        let distribution = ring.get_load_distribution(&sample_keys);
+        assert!(distribution.is_empty());
+    }
+
+    #[test]
+    fn test_get_load_distribution_no_keys() {
+        let mut ring = ConsistentHash::new(100);
+        ring.add_node("node1".to_string(), 100, HashMap::new());
+        ring.add_node("node2".to_string(), 100, HashMap::new());
+
+        let sample_keys = vec![];
+        let distribution = ring.get_load_distribution(&sample_keys);
+
+        assert_eq!(distribution.len(), 2);
+        assert_eq!(*distribution.get("node1").unwrap(), 0);
+        assert_eq!(*distribution.get("node2").unwrap(), 0);
+    }
+
+    #[test]
+    fn test_hash_key_consistency() {
+        let ring = ConsistentHash::new(100);
+        let key = "test_key";
+
+        let hash1 = ring.hash_key(key);
+        let hash2 = ring.hash_key(key);
+
+        assert_eq!(hash1, hash2); // Same key should produce same hash
+    }
+
+    #[test]
+    fn test_hash_key_different_keys() {
+        let ring = ConsistentHash::new(100);
+
+        let hash1 = ring.hash_key("key1");
+        let hash2 = ring.hash_key("key2");
+
+        assert_ne!(hash1, hash2); // Different keys should produce different hashes
+    }
+
+    #[test]
+    fn test_node_info_creation() {
+        let mut metadata = HashMap::new();
+        metadata.insert("datacenter".to_string(), "dc1".to_string());
+        metadata.insert("rack".to_string(), "rack42".to_string());
+
+        let node_info = NodeInfo {
+            id: "test_node".to_string(),
+            weight: 150,
+            metadata: metadata.clone(),
+        };
+
+        assert_eq!(node_info.id, "test_node");
+        assert_eq!(node_info.weight, 150);
+        assert_eq!(node_info.metadata.get("datacenter").unwrap(), "dc1");
+        assert_eq!(node_info.metadata.get("rack").unwrap(), "rack42");
+    }
+
+    #[test]
+    fn test_consistent_hash_builder_default() {
+        let builder = ConsistentHashBuilder::default();
+        assert_eq!(builder.virtual_nodes, 100);
+        assert!(builder.nodes.is_empty());
+    }
+
+    #[test]
+    fn test_consistent_hash_builder_virtual_nodes() {
+        let builder = ConsistentHashBuilder::default().virtual_nodes(50);
+        assert_eq!(builder.virtual_nodes, 50);
+    }
+
+    #[test]
+    fn test_consistent_hash_builder_add_node() {
+        let mut metadata = HashMap::new();
+        metadata.insert("type".to_string(), "ssd".to_string());
+
+        let builder =
+            ConsistentHashBuilder::default().add_node("node1".to_string(), 120, metadata.clone());
+
+        assert_eq!(builder.nodes.len(), 1);
+        assert_eq!(builder.nodes[0].0, "node1");
+        assert_eq!(builder.nodes[0].1, 120);
+        assert_eq!(builder.nodes[0].2.get("type").unwrap(), "ssd");
+    }
+
+    #[test]
+    fn test_consistent_hash_builder_add_simple_node() {
+        let builder = ConsistentHashBuilder::default().add_simple_node("simple_node".to_string());
+
+        assert_eq!(builder.nodes.len(), 1);
+        assert_eq!(builder.nodes[0].0, "simple_node");
+        assert_eq!(builder.nodes[0].1, 100); // Default weight
+        assert!(builder.nodes[0].2.is_empty()); // Default empty metadata
+    }
+
+    #[test]
+    fn test_consistent_hash_builder_build() {
+        let ring = ConsistentHashBuilder::default()
+            .virtual_nodes(50)
+            .add_simple_node("node1".to_string())
+            .add_node("node2".to_string(), 150, HashMap::new())
+            .build();
+
+        assert_eq!(ring.virtual_nodes, 50);
+        assert_eq!(ring.node_count(), 2);
+        assert!(ring.has_node("node1"));
+        assert!(ring.has_node("node2"));
+
+        let node2 = ring.nodes.get("node2").unwrap();
+        assert_eq!(node2.weight, 150);
+    }
+
+    #[test]
+    fn test_consistent_hash_builder_chaining() {
+        let ring = ConsistentHashBuilder::default()
+            .virtual_nodes(75)
+            .add_simple_node("node1".to_string())
+            .add_simple_node("node2".to_string())
+            .add_simple_node("node3".to_string())
+            .build();
+
+        assert_eq!(ring.node_count(), 3);
+        assert!(ring.has_node("node1"));
+        assert!(ring.has_node("node2"));
+        assert!(ring.has_node("node3"));
+    }
+
+    #[test]
+    fn test_virtual_node_minimum() {
+        let mut ring = ConsistentHash::new(100);
+
+        // Add node with zero weight - should still get at least 1 virtual node
+        ring.add_node("zero_weight_node".to_string(), 0, HashMap::new());
+
+        // The node should be findable, proving it has at least 1 virtual node
+        let node = ring.get_node("test_key");
+        assert!(node.is_some());
+        assert_eq!(node.unwrap().id, "zero_weight_node");
+    }
+
+    #[test]
+    fn test_edge_case_empty_string_key() {
+        let mut ring = ConsistentHash::new(100);
+        ring.add_node("node1".to_string(), 100, HashMap::new());
+
+        let node = ring.get_node("");
+        assert!(node.is_some());
+        assert_eq!(node.unwrap().id, "node1");
+    }
+
+    #[test]
+    fn test_edge_case_very_long_key() {
+        let mut ring = ConsistentHash::new(100);
+        ring.add_node("node1".to_string(), 100, HashMap::new());
+
+        let long_key = "a".repeat(10000);
+        let node = ring.get_node(&long_key);
+        assert!(node.is_some());
+        assert_eq!(node.unwrap().id, "node1");
+    }
+
+    #[test]
+    fn test_edge_case_unicode_key() {
+        let mut ring = ConsistentHash::new(100);
+        ring.add_node("node1".to_string(), 100, HashMap::new());
+
+        let unicode_key = "测试🚀日本語";
+        let node = ring.get_node(unicode_key);
+        assert!(node.is_some());
+        assert_eq!(node.unwrap().id, "node1");
+    }
 }

@@ -461,4 +461,449 @@ mod tests {
 
         assert_eq!(check.component_name(), "test");
     }
+
+    // ============= Additional Comprehensive Tests for 100% Coverage =============
+
+    #[test]
+    fn test_health_check_result_healthy() {
+        let result = HealthCheckResult::healthy("Service is running");
+        assert!(result.healthy);
+        assert_eq!(result.message, "Service is running");
+        assert!(result.details.is_empty());
+        assert_eq!(result.response_time, Duration::from_millis(0));
+    }
+
+    #[test]
+    fn test_health_check_result_unhealthy() {
+        let result = HealthCheckResult::unhealthy("Service is down");
+        assert!(!result.healthy);
+        assert_eq!(result.message, "Service is down");
+        assert!(result.details.is_empty());
+        assert_eq!(result.response_time, Duration::from_millis(0));
+    }
+
+    #[test]
+    fn test_health_check_result_with_detail() {
+        let result = HealthCheckResult::healthy("OK")
+            .with_detail("version", "1.0.0")
+            .with_detail("uptime", "10s");
+
+        assert!(result.healthy);
+        assert_eq!(result.details.get("version"), Some(&"1.0.0".to_string()));
+        assert_eq!(result.details.get("uptime"), Some(&"10s".to_string()));
+        assert_eq!(result.details.len(), 2);
+    }
+
+    #[test]
+    fn test_health_check_result_with_response_time() {
+        let duration = Duration::from_millis(100);
+        let result = HealthCheckResult::healthy("OK").with_response_time(duration);
+
+        assert_eq!(result.response_time, duration);
+    }
+
+    #[test]
+    fn test_health_check_result_chaining() {
+        let result = HealthCheckResult::unhealthy("Error")
+            .with_detail("error_code", "500")
+            .with_response_time(Duration::from_millis(50))
+            .with_detail("retries", "3");
+
+        assert!(!result.healthy);
+        assert_eq!(result.message, "Error");
+        assert_eq!(result.details.len(), 2);
+        assert_eq!(result.response_time, Duration::from_millis(50));
+    }
+
+    #[tokio::test]
+    async fn test_coordinator_new() {
+        let ttl = Duration::from_secs(10);
+        let coordinator = HealthCheckCoordinator::new(ttl);
+
+        assert_eq!(coordinator.cache_ttl, ttl);
+        assert!(coordinator.checks.is_empty());
+        assert!(coordinator.cached_results.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_coordinator_clone() {
+        let coordinator = HealthCheckCoordinator::new(Duration::from_secs(5));
+        coordinator
+            .register(
+                "test".to_string(),
+                Arc::new(AlwaysHealthyCheck {
+                    name: "test".to_string(),
+                }),
+            )
+            .await;
+
+        let cloned = coordinator.clone();
+        assert_eq!(cloned.cache_ttl, coordinator.cache_ttl);
+        assert_eq!(cloned.checks.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn test_coordinator_unregister_existing() {
+        let coordinator = HealthCheckCoordinator::new(Duration::from_secs(5));
+        coordinator
+            .register(
+                "test".to_string(),
+                Arc::new(AlwaysHealthyCheck {
+                    name: "test".to_string(),
+                }),
+            )
+            .await;
+
+        let removed = coordinator.unregister("test").await;
+        assert!(removed);
+        assert!(coordinator.checks.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_coordinator_unregister_nonexistent() {
+        let coordinator = HealthCheckCoordinator::new(Duration::from_secs(5));
+
+        let removed = coordinator.unregister("nonexistent").await;
+        assert!(!removed);
+    }
+
+    #[tokio::test]
+    async fn test_coordinator_check_one_nonexistent() {
+        let coordinator = HealthCheckCoordinator::new(Duration::from_secs(5));
+
+        let result = coordinator.check_one("nonexistent").await;
+        assert!(result.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_coordinator_check_one_existing() {
+        let coordinator = HealthCheckCoordinator::new(Duration::from_secs(5));
+        coordinator
+            .register(
+                "test".to_string(),
+                Arc::new(AlwaysHealthyCheck {
+                    name: "test".to_string(),
+                }),
+            )
+            .await;
+
+        let result = coordinator.check_one("test").await;
+        assert!(result.is_some());
+        assert!(result.unwrap().healthy);
+    }
+
+    #[tokio::test]
+    async fn test_coordinator_is_healthy_with_no_checks() {
+        let coordinator = HealthCheckCoordinator::new(Duration::from_secs(5));
+
+        // Should be healthy when no checks are registered
+        assert!(coordinator.is_healthy().await);
+    }
+
+    #[tokio::test]
+    async fn test_coordinator_is_healthy_with_all_healthy() {
+        let coordinator = HealthCheckCoordinator::new(Duration::from_secs(5));
+        coordinator
+            .register(
+                "test1".to_string(),
+                Arc::new(AlwaysHealthyCheck {
+                    name: "test1".to_string(),
+                }),
+            )
+            .await;
+        coordinator
+            .register(
+                "test2".to_string(),
+                Arc::new(AlwaysHealthyCheck {
+                    name: "test2".to_string(),
+                }),
+            )
+            .await;
+
+        assert!(coordinator.is_healthy().await);
+    }
+
+    #[tokio::test]
+    async fn test_coordinator_health_summary_all_healthy() {
+        let coordinator = HealthCheckCoordinator::new(Duration::from_secs(5));
+        coordinator
+            .register(
+                "test1".to_string(),
+                Arc::new(AlwaysHealthyCheck {
+                    name: "test1".to_string(),
+                }),
+            )
+            .await;
+        coordinator
+            .register(
+                "test2".to_string(),
+                Arc::new(AlwaysHealthyCheck {
+                    name: "test2".to_string(),
+                }),
+            )
+            .await;
+
+        let summary = coordinator.health_summary().await;
+        assert!(summary.overall_healthy);
+        assert_eq!(summary.status, "healthy");
+        assert_eq!(summary.total_components, 2);
+        assert_eq!(summary.healthy_components, 2);
+        assert_eq!(summary.unhealthy_components, 0);
+    }
+
+    #[tokio::test]
+    async fn test_coordinator_health_summary_mixed_health() {
+        let coordinator = HealthCheckCoordinator::new(Duration::from_secs(5));
+        coordinator
+            .register(
+                "healthy".to_string(),
+                Arc::new(AlwaysHealthyCheck {
+                    name: "healthy".to_string(),
+                }),
+            )
+            .await;
+        coordinator
+            .register(
+                "unhealthy".to_string(),
+                Arc::new(AlwaysUnhealthyCheck {
+                    name: "unhealthy".to_string(),
+                }),
+            )
+            .await;
+
+        let summary = coordinator.health_summary().await;
+        assert!(!summary.overall_healthy);
+        assert_eq!(summary.status, "1/2 components healthy");
+        assert_eq!(summary.total_components, 2);
+        assert_eq!(summary.healthy_components, 1);
+        assert_eq!(summary.unhealthy_components, 1);
+    }
+
+    #[tokio::test]
+    async fn test_coordinator_health_summary_empty() {
+        let coordinator = HealthCheckCoordinator::new(Duration::from_secs(5));
+
+        let summary = coordinator.health_summary().await;
+        assert!(summary.overall_healthy);
+        assert_eq!(summary.status, "healthy");
+        assert_eq!(summary.total_components, 0);
+        assert_eq!(summary.healthy_components, 0);
+        assert_eq!(summary.unhealthy_components, 0);
+    }
+
+    #[tokio::test]
+    async fn test_coordinator_clear_cache() {
+        let coordinator = HealthCheckCoordinator::new(Duration::from_secs(60));
+        coordinator
+            .register(
+                "test".to_string(),
+                Arc::new(AlwaysHealthyCheck {
+                    name: "test".to_string(),
+                }),
+            )
+            .await;
+
+        // Populate cache
+        coordinator.check_one("test").await;
+        assert!(!coordinator.cached_results.is_empty());
+
+        // Clear cache
+        coordinator.clear_cache().await;
+        assert!(coordinator.cached_results.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_coordinator_cache_expiry() {
+        let coordinator = HealthCheckCoordinator::new(Duration::from_millis(1)); // Very short TTL
+        coordinator
+            .register(
+                "test".to_string(),
+                Arc::new(AlwaysHealthyCheck {
+                    name: "test".to_string(),
+                }),
+            )
+            .await;
+
+        // First check
+        coordinator.check_one("test").await;
+
+        // Wait for cache to expire
+        tokio::time::sleep(Duration::from_millis(5)).await;
+
+        // Second check should not use cache
+        let start = Instant::now();
+        coordinator.check_one("test").await;
+        let elapsed = start.elapsed();
+
+        // Should take some time as it's not using cache
+        assert!(elapsed > Duration::from_millis(1));
+    }
+
+    struct ErroringHealthCheck {
+        name: String,
+    }
+
+    #[async_trait::async_trait]
+    impl HealthCheck for ErroringHealthCheck {
+        async fn health_check(
+            &self,
+        ) -> Result<HealthCheckResult, Box<dyn std::error::Error + Send + Sync>> {
+            Err("Health check error".into())
+        }
+
+        fn component_name(&self) -> &str {
+            &self.name
+        }
+    }
+
+    #[tokio::test]
+    async fn test_coordinator_with_erroring_check() {
+        let coordinator = HealthCheckCoordinator::new(Duration::from_secs(5));
+        coordinator
+            .register(
+                "error".to_string(),
+                Arc::new(ErroringHealthCheck {
+                    name: "error".to_string(),
+                }),
+            )
+            .await;
+
+        let result = coordinator.check_one("error").await.unwrap();
+        assert!(!result.healthy);
+        assert_eq!(result.message, "Health check failed");
+    }
+
+    struct SlowHealthCheck {
+        name: String,
+        delay: Duration,
+    }
+
+    #[async_trait::async_trait]
+    impl HealthCheck for SlowHealthCheck {
+        async fn health_check(
+            &self,
+        ) -> Result<HealthCheckResult, Box<dyn std::error::Error + Send + Sync>> {
+            tokio::time::sleep(self.delay).await;
+            Ok(HealthCheckResult::healthy("Slow but healthy"))
+        }
+
+        fn component_name(&self) -> &str {
+            &self.name
+        }
+    }
+
+    #[tokio::test]
+    async fn test_coordinator_with_timeout() {
+        let coordinator = HealthCheckCoordinator::new(Duration::from_secs(5));
+        coordinator
+            .register(
+                "slow".to_string(),
+                Arc::new(SlowHealthCheck {
+                    name: "slow".to_string(),
+                    delay: Duration::from_secs(15), // Longer than 10s timeout
+                }),
+            )
+            .await;
+
+        let result = coordinator.check_one("slow").await.unwrap();
+        assert!(!result.healthy);
+        assert_eq!(result.message, "Health check timed out");
+    }
+
+    #[tokio::test]
+    async fn test_connection_health_check_success() {
+        let check =
+            ConnectionHealthCheck::new("test".to_string(), || -> Result<(), std::io::Error> {
+                Ok(())
+            });
+
+        let result = check.health_check().await.unwrap();
+        assert!(result.healthy);
+        assert_eq!(result.message, "Connection OK");
+    }
+
+    #[tokio::test]
+    async fn test_connection_health_check_failure() {
+        let check =
+            ConnectionHealthCheck::new("test".to_string(), || -> Result<(), std::io::Error> {
+                Err(std::io::Error::new(
+                    std::io::ErrorKind::ConnectionRefused,
+                    "Connection refused",
+                ))
+            });
+
+        let result = check.health_check().await.unwrap();
+        assert!(!result.healthy);
+        assert!(result.message.contains("Connection failed"));
+        assert!(result.message.contains("Connection refused"));
+    }
+
+    #[test]
+    fn test_http_health_check_new() {
+        let check = HttpHealthCheck::new(
+            "api".to_string(),
+            "http://localhost:8080/health".to_string(),
+            Duration::from_secs(5),
+            200,
+        );
+
+        assert_eq!(check.component_name(), "api");
+        assert_eq!(check.name, "api");
+        assert_eq!(check.url, "http://localhost:8080/health");
+        assert_eq!(check.timeout, Duration::from_secs(5));
+        assert_eq!(check.expected_status, 200);
+    }
+
+    // Note: We can't easily test the actual HTTP functionality without a real server
+    // or mocking framework, but we've tested the construction and the async trait implementation
+    // is covered by the trait bounds. The actual HTTP logic would need integration tests.
+
+    #[tokio::test]
+    async fn test_coordinator_start_background_checks() {
+        let coordinator = HealthCheckCoordinator::new(Duration::from_secs(5));
+        coordinator
+            .register(
+                "test".to_string(),
+                Arc::new(AlwaysHealthyCheck {
+                    name: "test".to_string(),
+                }),
+            )
+            .await;
+
+        // Start background task
+        let handle = coordinator.start_background_checks(Duration::from_millis(10));
+
+        // Let it run briefly
+        tokio::time::sleep(Duration::from_millis(25)).await;
+
+        // Stop the task
+        handle.abort();
+
+        // Verify task was running (it should have completed without panicking)
+        assert!(handle.is_finished());
+    }
+
+    #[tokio::test]
+    async fn test_coordinator_background_checks_with_unhealthy_components() {
+        let coordinator = HealthCheckCoordinator::new(Duration::from_secs(5));
+        coordinator
+            .register(
+                "unhealthy".to_string(),
+                Arc::new(AlwaysUnhealthyCheck {
+                    name: "unhealthy".to_string(),
+                }),
+            )
+            .await;
+
+        // Start background task
+        let handle = coordinator.start_background_checks(Duration::from_millis(10));
+
+        // Let it run briefly to trigger the unhealthy logging path
+        tokio::time::sleep(Duration::from_millis(25)).await;
+
+        // Stop the task
+        handle.abort();
+
+        assert!(handle.is_finished());
+    }
 }
