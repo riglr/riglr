@@ -3,7 +3,6 @@
 use axum::{http::StatusCode, routing::post, Json, Router};
 use riglr_auth::config::ProviderConfig;
 use riglr_auth::{AuthProvider, CompositeSignerFactoryExt, PrivyConfig};
-use riglr_core::config::RpcConfig;
 use riglr_web_adapters::factory::CompositeSignerFactory;
 use serde::{Deserialize, Serialize};
 
@@ -32,9 +31,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create composite factory and register Privy provider
     let mut _factory = CompositeSignerFactory::new();
     _factory.register_provider(AuthProvider::privy(privy_config));
-
-    // Create RPC configuration
-    let _rpc_config = RpcConfig::from_env().expect("Failed to load RPC configuration");
 
     // Build Axum router
     let app = Router::new().route("/auth", post(handle_auth));

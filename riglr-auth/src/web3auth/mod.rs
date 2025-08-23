@@ -5,8 +5,7 @@
 use crate::config::ProviderConfig;
 use crate::error::AuthError;
 use async_trait::async_trait;
-use riglr_core::config::RpcConfig;
-use riglr_core::signer::TransactionSigner;
+use riglr_core::signer::UnifiedSigner;
 use riglr_web_adapters::factory::{AuthenticationData, SignerFactory};
 use serde::{Deserialize, Serialize};
 
@@ -106,8 +105,7 @@ impl SignerFactory for Web3AuthProvider {
     async fn create_signer(
         &self,
         auth_data: AuthenticationData,
-        _config: &RpcConfig,
-    ) -> Result<Box<dyn TransactionSigner>, Box<dyn std::error::Error + Send + Sync>> {
+    ) -> Result<Box<dyn UnifiedSigner>, Box<dyn std::error::Error + Send + Sync>> {
         let _token = auth_data
             .credentials
             .get("token")
@@ -135,4 +133,276 @@ fn default_network() -> String {
 
 fn default_api_url() -> String {
     "https://api.openlogin.com".to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashMap;
+    use tokio;
+
+    #[test]
+    fn test_web3auth_config_new_when_valid_params_should_create_config() {
+        let client_id = "test_client_id".to_string();
+        let verifier = "test_verifier".to_string();
+
+        let config = Web3AuthConfig::new(client_id.clone(), verifier.clone());
+
+        assert_eq!(config.client_id, client_id);
+        assert_eq!(config.verifier, verifier);
+        assert_eq!(config.network, "mainnet");
+        assert_eq!(config.api_url, "https://api.openlogin.com");
+    }
+
+    #[test]
+    fn test_web3auth_config_validate_when_valid_should_return_ok() {
+        let config =
+            Web3AuthConfig::new("valid_client_id".to_string(), "valid_verifier".to_string());
+
+        let result = config.validate();
+
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_web3auth_config_validate_when_empty_client_id_should_return_err() {
+        let config = Web3AuthConfig::new("".to_string(), "valid_verifier".to_string());
+
+        let result = config.validate();
+
+        assert!(result.is_err());
+        if let Err(AuthError::ConfigError(msg)) = result {
+            assert_eq!(msg, "Web3Auth client ID required");
+        } else {
+            panic!("Expected ConfigError with client ID message");
+        }
+    }
+
+    #[test]
+    fn test_web3auth_config_validate_when_empty_verifier_should_return_err() {
+        let config = Web3AuthConfig::new("valid_client_id".to_string(), "".to_string());
+
+        let result = config.validate();
+
+        assert!(result.is_err());
+        if let Err(AuthError::ConfigError(msg)) = result {
+            assert_eq!(msg, "Web3Auth verifier required");
+        } else {
+            panic!("Expected ConfigError with verifier message");
+        }
+    }
+
+    #[test]
+    fn test_web3auth_config_validate_when_both_empty_should_return_client_id_err() {
+        let config = Web3AuthConfig::new("".to_string(), "".to_string());
+
+        let result = config.validate();
+
+        assert!(result.is_err());
+        if let Err(AuthError::ConfigError(msg)) = result {
+            assert_eq!(msg, "Web3Auth client ID required");
+        } else {
+            panic!("Expected ConfigError with client ID message");
+        }
+    }
+
+    #[test]
+    fn test_web3auth_config_provider_name_should_return_web3auth() {
+        let config = Web3AuthConfig::new("test_client_id".to_string(), "test_verifier".to_string());
+
+        assert_eq!(config.provider_name(), "web3auth");
+    }
+
+    #[test]
+    fn test_web3auth_config_from_env_when_missing_client_id_should_return_err() {
+        // Clear environment variables
+        std::env::remove_var(WEB3AUTH_CLIENT_ID);
+        std::env::remove_var(WEB3AUTH_VERIFIER);
+        std::env::remove_var(WEB3AUTH_NETWORK);
+        std::env::remove_var(WEB3AUTH_API_URL);
+
+        let result = Web3AuthConfig::from_env();
+
+        assert!(result.is_err());
+        if let Err(AuthError::ConfigError(msg)) = result {
+            assert_eq!(msg, "WEB3AUTH_CLIENT_ID not found");
+        } else {
+            panic!("Expected ConfigError with client ID not found message");
+        }
+    }
+
+    #[test]
+    fn test_web3auth_config_from_env_when_missing_verifier_should_return_err() {
+        std::env::set_var(WEB3AUTH_CLIENT_ID, "test_client_id");
+        std::env::remove_var(WEB3AUTH_VERIFIER);
+        std::env::remove_var(WEB3AUTH_NETWORK);
+        std::env::remove_var(WEB3AUTH_API_URL);
+
+        let result = Web3AuthConfig::from_env();
+
+        assert!(result.is_err());
+        if let Err(AuthError::ConfigError(msg)) = result {
+            assert_eq!(msg, "WEB3AUTH_VERIFIER not found");
+        } else {
+            panic!("Expected ConfigError with verifier not found message");
+        }
+
+        // Cleanup
+        std::env::remove_var(WEB3AUTH_CLIENT_ID);
+    }
+
+    #[test]
+    fn test_web3auth_config_from_env_when_required_vars_present_should_create_config() {
+        std::env::set_var(WEB3AUTH_CLIENT_ID, "test_client_id");
+        std::env::set_var(WEB3AUTH_VERIFIER, "test_verifier");
+        std::env::remove_var(WEB3AUTH_NETWORK);
+        std::env::remove_var(WEB3AUTH_API_URL);
+
+        let result = Web3AuthConfig::from_env();
+
+        assert!(result.is_ok());
+        let config = result.unwrap();
+        assert_eq!(config.client_id, "test_client_id");
+        assert_eq!(config.verifier, "test_verifier");
+        assert_eq!(config.network, "mainnet"); // default
+        assert_eq!(config.api_url, "https://api.openlogin.com"); // default
+
+        // Cleanup
+        std::env::remove_var(WEB3AUTH_CLIENT_ID);
+        std::env::remove_var(WEB3AUTH_VERIFIER);
+    }
+
+    #[test]
+    fn test_web3auth_config_from_env_when_all_vars_present_should_use_custom_values() {
+        std::env::set_var(WEB3AUTH_CLIENT_ID, "test_client_id");
+        std::env::set_var(WEB3AUTH_VERIFIER, "test_verifier");
+        std::env::set_var(WEB3AUTH_NETWORK, "testnet");
+        std::env::set_var(WEB3AUTH_API_URL, "https://custom.api.url");
+
+        let result = Web3AuthConfig::from_env();
+
+        assert!(result.is_ok());
+        let config = result.unwrap();
+        assert_eq!(config.client_id, "test_client_id");
+        assert_eq!(config.verifier, "test_verifier");
+        assert_eq!(config.network, "testnet");
+        assert_eq!(config.api_url, "https://custom.api.url");
+
+        // Cleanup
+        std::env::remove_var(WEB3AUTH_CLIENT_ID);
+        std::env::remove_var(WEB3AUTH_VERIFIER);
+        std::env::remove_var(WEB3AUTH_NETWORK);
+        std::env::remove_var(WEB3AUTH_API_URL);
+    }
+
+    #[test]
+    fn test_web3auth_config_from_env_when_empty_client_id_should_fail_validation() {
+        std::env::set_var(WEB3AUTH_CLIENT_ID, "");
+        std::env::set_var(WEB3AUTH_VERIFIER, "test_verifier");
+        std::env::remove_var(WEB3AUTH_NETWORK);
+        std::env::remove_var(WEB3AUTH_API_URL);
+
+        let result = Web3AuthConfig::from_env();
+
+        assert!(result.is_err());
+        if let Err(AuthError::ConfigError(msg)) = result {
+            assert_eq!(msg, "Web3Auth client ID required");
+        } else {
+            panic!("Expected ConfigError with client ID required message");
+        }
+
+        // Cleanup
+        std::env::remove_var(WEB3AUTH_CLIENT_ID);
+        std::env::remove_var(WEB3AUTH_VERIFIER);
+    }
+
+    #[test]
+    fn test_web3auth_config_from_env_when_empty_verifier_should_fail_validation() {
+        std::env::set_var(WEB3AUTH_CLIENT_ID, "test_client_id");
+        std::env::set_var(WEB3AUTH_VERIFIER, "");
+        std::env::remove_var(WEB3AUTH_NETWORK);
+        std::env::remove_var(WEB3AUTH_API_URL);
+
+        let result = Web3AuthConfig::from_env();
+
+        assert!(result.is_err());
+        if let Err(AuthError::ConfigError(msg)) = result {
+            assert_eq!(msg, "Web3Auth verifier required");
+        } else {
+            panic!("Expected ConfigError with verifier required message");
+        }
+
+        // Cleanup
+        std::env::remove_var(WEB3AUTH_CLIENT_ID);
+        std::env::remove_var(WEB3AUTH_VERIFIER);
+    }
+
+    #[test]
+    fn test_web3auth_provider_new_when_valid_config_should_create_provider() {
+        let config = Web3AuthConfig::new("test_client_id".to_string(), "test_verifier".to_string());
+
+        let provider = Web3AuthProvider::new(config.clone());
+
+        assert_eq!(provider.config.client_id, config.client_id);
+        assert_eq!(provider.config.verifier, config.verifier);
+        assert_eq!(provider.config.network, config.network);
+        assert_eq!(provider.config.api_url, config.api_url);
+    }
+
+    #[tokio::test]
+    async fn test_web3auth_provider_create_signer_when_missing_token_should_return_err() {
+        let config = Web3AuthConfig::new("test_client_id".to_string(), "test_verifier".to_string());
+        let provider = Web3AuthProvider::new(config);
+        let auth_data = AuthenticationData {
+            auth_type: "web3auth".to_string(),
+            credentials: HashMap::new(),
+            network: "mainnet".to_string(),
+        };
+
+        let result = provider.create_signer(auth_data).await;
+
+        assert!(result.is_err());
+        let error_str = result.unwrap_err().to_string();
+        assert!(error_str.contains("Missing credential: token"));
+    }
+
+    #[tokio::test]
+    async fn test_web3auth_provider_create_signer_when_token_present_should_return_unsupported_err()
+    {
+        let config = Web3AuthConfig::new("test_client_id".to_string(), "test_verifier".to_string());
+        let provider = Web3AuthProvider::new(config);
+        let mut credentials = HashMap::new();
+        credentials.insert("token".to_string(), "test_token".to_string());
+        let auth_data = AuthenticationData {
+            auth_type: "web3auth".to_string(),
+            credentials,
+            network: "mainnet".to_string(),
+        };
+
+        let result = provider.create_signer(auth_data).await;
+
+        assert!(result.is_err());
+        let error_str = result.unwrap_err().to_string();
+        assert!(error_str.contains("Web3Auth provider implementation pending"));
+    }
+
+    #[test]
+    fn test_web3auth_provider_supported_auth_types_should_return_web3auth() {
+        let config = Web3AuthConfig::new("test_client_id".to_string(), "test_verifier".to_string());
+        let provider = Web3AuthProvider::new(config);
+
+        let auth_types = provider.supported_auth_types();
+
+        assert_eq!(auth_types, vec!["web3auth".to_string()]);
+    }
+
+    #[test]
+    fn test_default_network_should_return_mainnet() {
+        assert_eq!(default_network(), "mainnet");
+    }
+
+    #[test]
+    fn test_default_api_url_should_return_openlogin_url() {
+        assert_eq!(default_api_url(), "https://api.openlogin.com");
+    }
 }
