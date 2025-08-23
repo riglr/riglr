@@ -1,1 +1,26 @@
-// Routes module
+//! API Routes module
+
+pub mod health;
+pub mod agent;
+
+{{#if (eq server_framework "actix")}}
+use actix_web::web;
+
+pub fn configure(cfg: &mut web::ServiceConfig) {
+    cfg.service(
+        web::scope("/api/v1")
+            .configure(health::configure)
+            .configure(agent::configure)
+    );
+}
+{{/if}}
+
+{{#if (eq server_framework "axum")}}
+use axum::Router;
+
+pub fn router() -> Router {
+    Router::new()
+        .nest("/api/v1/health", health::router())
+        .nest("/api/v1/agent", agent::router())
+}
+{{/if}}
