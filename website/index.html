@@ -755,34 +755,53 @@
                     <div class="code-dot"></div>
                     <div class="code-dot"></div>
                 </div>
-                <pre><code class="language-rust">use riglr_agents::{ToolCallingAgentBuilder, AgentDispatcher, Task};
+                <pre><code class="language-rust">use riglr_agents::agents::tool_calling::ToolCallingAgentBuilder;
 use riglr_agents::toolset::Toolset;
+use riglr_agents::*;
+use riglr_core::provider::ApplicationContext;
 use riglr_core::signer::{SignerContext, UnifiedSigner};
 use riglr_solana_tools::signer::LocalSolanaSigner;
+use serde_json::json;
+use solana_sdk::signature::{Keypair, Signer};
+use std::sync::Arc;
 
-// 1. Discover all available tools with one line
-let toolset = Toolset::new()
-    .with_solana_tools()    // 20+ Solana operations
-    .with_evm_tools()        // Uniswap, transfers, gas optimization
-    .with_web_tools();       // DexScreener, Twitter sentiment
+// 1. Load environment and setup context
+let app_context = ApplicationContext::from_env();
+app_context.set_extension(Arc::new(
+    solana_client::rpc_client::RpcClient::new(devnet_rpc)
+));
 
-// 2. Build the AI agent with clean, fluent API
-let agent = ToolCallingAgentBuilder::new(toolset, app_context)
+// 2. Discover all available tools with one line
+let toolset = Toolset::new().with_solana_tools();
+
+// 3. Build the entire agent with one clean, fluent call
+let openai_client = rig::providers::openai::Client::new(&openai_api_key);
+let live_agent = ToolCallingAgentBuilder::new(toolset, app_context)
     .build(openai_client.agent("gpt-4o"))
     .await?;
 
-// 3. Execute blockchain operations with natural language
-let dispatcher = AgentDispatcher::new(registry);
+// 4. Setup signer and execute operations
+let solana_signer = LocalSolanaSigner::new(signer_keypair, devnet_rpc);
+let unified_signer: Arc<dyn UnifiedSigner> = Arc::new(solana_signer);
 
-// READ: Query on-chain data
-let balance_task = Task::new("What is the SOL balance of alice.sol?");
-let result = dispatcher.dispatch_task(balance_task).await?;
-
-// WRITE: Execute transactions with secure context
-SignerContext::with_signer(signer, async {
-    let transfer_task = Task::new("Send 0.5 SOL to bob.sol");
-    let tx_result = dispatcher.dispatch_task(transfer_task).await?;
-    println!("Transaction: {}", tx_result.signature);
+SignerContext::with_signer(unified_signer, async {
+    let registry = LocalAgentRegistry::new();
+    registry.register_agent(live_agent).await.unwrap();
+    let dispatcher = AgentDispatcher::new(Arc::new(registry));
+    
+    // READ: Query on-chain data  
+    let read_task = Task::new(
+        TaskType::Custom("tool_calling".to_string()),
+        json!({ "prompt": "What is the SOL balance of alice.sol?" })
+    );
+    let result = dispatcher.dispatch_task(read_task).await?;
+    
+    // WRITE: Execute transactions
+    let write_task = Task::new(
+        TaskType::Custom("tool_calling".to_string()),
+        json!({ "prompt": "Send 0.001 SOL to bob.sol" })
+    );
+    let tx_result = dispatcher.dispatch_task(write_task).await?;
 }).await?;</code></pre>
             </div>
         </div>
@@ -861,22 +880,34 @@ SignerContext::with_signer(signer, async {
                     <p style="color: var(--text-secondary);">LLM orchestration, agent framework, and reasoning capabilities</p>
                 </div>
                 <div style="background: var(--bg-darker); border-radius: 0.5rem; padding: 1.5rem;">
-                    <pre><code class="language-rust">use rig::agent::AgentBuilder;
-use riglr_solana_tools::{TransferSol, GetSolBalance};
-use riglr_evm_tools::{UniswapV3Swap};
+                    <pre><code class="language-rust">use riglr_agents::agents::tool_calling::ToolCallingAgentBuilder;
+use riglr_agents::toolset::Toolset;
+use riglr_core::provider::ApplicationContext;
 
-// rig's AgentBuilder + riglr's blockchain tools
-let defi_agent = AgentBuilder::new(model)
-    .preamble("You are a DeFi expert")
-    .tool(TransferSol)      // riglr adds Solana
-    .tool(GetSolBalance)    // riglr adds queries
-    .tool(UniswapV3Swap)    // riglr adds EVM
-    .build();
+// Setup application context with RPC client
+let app_context = ApplicationContext::from_env();
+app_context.set_extension(Arc::new(
+    solana_client::rpc_client::RpcClient::new(rpc_url)
+));
+
+// Discover and configure tools
+let toolset = Toolset::new()
+    .with_solana_tools()    // 20+ Solana operations
+    .with_evm_tools()        // Uniswap, transfers, gas optimization
+    .with_web_tools();       // DexScreener, Twitter sentiment
+
+// Build the agent with rig integration
+let openai_client = rig::providers::openai::Client::new(&api_key);
+let agent = ToolCallingAgentBuilder::new(toolset, app_context)
+    .build(openai_client.agent("gpt-4o"))
+    .await?;
 
 // Natural language -> Blockchain actions
-let result = defi_agent
-    .prompt("Send 1 SOL to alice.sol")
-    .await?;</code></pre>
+let task = Task::new(
+    TaskType::Custom("tool_calling".to_string()),
+    json!({ "prompt": "Send 1 SOL to alice.sol" })
+);
+let result = dispatcher.dispatch_task(task).await?;</code></pre>
                 </div>
             </div>
         </div>
