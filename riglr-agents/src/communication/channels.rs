@@ -4,6 +4,7 @@ use super::{AgentCommunication, CommunicationConfig, CommunicationStats, Message
 use crate::{AgentError, AgentId, AgentMessage, Result};
 use async_trait::async_trait;
 use std::collections::HashMap;
+use std::fmt;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use tokio::sync::{mpsc, RwLock};
@@ -29,8 +30,34 @@ pub struct ChannelCommunication {
     expired_messages: AtomicU64,
 }
 
+impl fmt::Debug for ChannelCommunication {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("ChannelCommunication")
+            .field(
+                "channels_count",
+                &self.channels.try_read().map(|c| c.len()).unwrap_or(0),
+            )
+            .field("config", &self.config)
+            .field("messages_sent", &self.messages_sent.load(Ordering::Relaxed))
+            .field(
+                "messages_received",
+                &self.messages_received.load(Ordering::Relaxed),
+            )
+            .field(
+                "failed_deliveries",
+                &self.failed_deliveries.load(Ordering::Relaxed),
+            )
+            .field(
+                "expired_messages",
+                &self.expired_messages.load(Ordering::Relaxed),
+            )
+            .finish()
+    }
+}
+
 impl ChannelCommunication {
-    /// Create a new channel-based communication system.
+    /// Create a new channel-based communication system with default configuration.
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         Self::default()
     }
@@ -287,6 +314,7 @@ impl AgentCommunication for ChannelCommunication {
 }
 
 /// Channel-based message receiver.
+#[derive(Debug)]
 struct ChannelReceiver {
     receiver: mpsc::UnboundedReceiver<AgentMessage>,
     closed: bool,
@@ -546,5 +574,401 @@ mod tests {
 
         let stats = comm.stats().await;
         assert_eq!(stats.expired_messages, 1);
+    }
+
+    #[test]
+    fn test_default_constructor() {
+        let comm = ChannelCommunication::default();
+        assert_eq!(
+            comm.config.message_ttl,
+            CommunicationConfig::default().message_ttl
+        );
+    }
+
+    #[test]
+    fn test_with_config_constructor() {
+        let config = CommunicationConfig {
+            message_ttl: std::time::Duration::from_secs(300),
+            max_subscriptions: Some(10),
+            ..Default::default()
+        };
+        let comm = ChannelCommunication::with_config(config.clone());
+        assert_eq!(comm.config.message_ttl, config.message_ttl);
+        assert_eq!(comm.config.max_subscriptions, config.max_subscriptions);
+    }
+
+    #[test]
+    fn test_is_message_expired_with_expires_at() {
+        let comm = ChannelCommunication::default();
+
+        // Test message with expires_at in the future
+        let mut message = AgentMessage::new(
+            AgentId::new("sender"),
+            Some(AgentId::new("target")),
+            "test".to_string(),
+            serde_json::json!({}),
+        );
+        message.expires_at = Some(chrono::Utc::now() + chrono::Duration::seconds(10));
+        assert!(!comm.is_message_expired(&message));
+
+        // Test message with expires_at in the past
+        message.expires_at = Some(chrono::Utc::now() - chrono::Duration::seconds(10));
+        assert!(comm.is_message_expired(&message));
+    }
+
+    #[test]
+    fn test_is_message_expired_with_default_ttl() {
+        let config = CommunicationConfig {
+            message_ttl: std::time::Duration::from_millis(1), // Very short TTL
+            ..Default::default()
+        };
+        let comm = ChannelCommunication::with_config(config);
+
+        // Create an old message without expires_at
+        let mut message = AgentMessage::new(
+            AgentId::new("sender"),
+            Some(AgentId::new("target")),
+            "test".to_string(),
+            serde_json::json!({}),
+        );
+        message.timestamp = chrono::Utc::now() - chrono::Duration::seconds(10);
+        message.expires_at = None;
+
+        assert!(comm.is_message_expired(&message));
+    }
+
+    #[test]
+    fn test_is_message_expired_fresh_message() {
+        let comm = ChannelCommunication::default();
+
+        // Test fresh message without expires_at
+        let message = AgentMessage::new(
+            AgentId::new("sender"),
+            Some(AgentId::new("target")),
+            "test".to_string(),
+            serde_json::json!({}),
+        );
+
+        assert!(!comm.is_message_expired(&message));
+    }
+
+    #[tokio::test]
+    async fn test_cleanup_with_closed_channels() {
+        let comm = ChannelCommunication::default();
+        let agent_id = AgentId::new("test-agent");
+
+        // Subscribe and then drop the receiver to close the channel
+        let receiver = comm.subscribe(&agent_id).await.unwrap();
+        drop(receiver);
+
+        // Allow some time for channel to be marked as closed
+        tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
+
+        // Cleanup should remove the closed channel
+        let removed_count = comm.cleanup().await.unwrap();
+        assert_eq!(removed_count, 1);
+        assert_eq!(comm.subscription_count().await.unwrap(), 0);
+    }
+
+    #[tokio::test]
+    async fn test_cleanup_with_no_closed_channels() {
+        let comm = ChannelCommunication::default();
+        let agent_id = AgentId::new("test-agent");
+
+        let _receiver = comm.subscribe(&agent_id).await.unwrap();
+
+        // Cleanup should not remove any channels
+        let removed_count = comm.cleanup().await.unwrap();
+        assert_eq!(removed_count, 0);
+        assert_eq!(comm.subscription_count().await.unwrap(), 1);
+    }
+
+    #[tokio::test]
+    async fn test_send_message_without_target() {
+        let comm = ChannelCommunication::default();
+
+        // Create message without target
+        let message = AgentMessage::broadcast(
+            AgentId::new("sender"),
+            "test".to_string(),
+            serde_json::json!({}),
+        );
+        // This should have to = None for broadcast
+
+        let result = comm.send_message(message).await;
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Cannot send point-to-point message without target agent"));
+    }
+
+    #[tokio::test]
+    async fn test_send_message_to_closed_channel() {
+        let comm = ChannelCommunication::default();
+        let agent_id = AgentId::new("test-agent");
+
+        // Subscribe and then drop the receiver to close the channel
+        let receiver = comm.subscribe(&agent_id).await.unwrap();
+        drop(receiver);
+
+        // Allow some time for channel to be marked as closed
+        tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
+
+        let message = AgentMessage::new(
+            AgentId::new("sender"),
+            Some(agent_id.clone()),
+            "test".to_string(),
+            serde_json::json!({}),
+        );
+
+        let result = comm.send_message(message).await;
+        assert!(result.is_err());
+
+        let stats = comm.stats().await;
+        assert_eq!(stats.failed_deliveries, 1);
+    }
+
+    #[tokio::test]
+    async fn test_broadcast_message_expired() {
+        let comm = ChannelCommunication::default();
+
+        // Create an expired broadcast message
+        let mut message = AgentMessage::broadcast(
+            AgentId::new("sender"),
+            "test".to_string(),
+            serde_json::json!({}),
+        );
+        message.expires_at = Some(chrono::Utc::now() - chrono::Duration::seconds(1));
+
+        let result = comm.broadcast_message(message).await;
+        assert!(result.is_err());
+
+        let stats = comm.stats().await;
+        assert_eq!(stats.expired_messages, 1);
+    }
+
+    #[tokio::test]
+    async fn test_broadcast_message_with_self_filtering() {
+        let comm = ChannelCommunication::default();
+
+        let sender_id = AgentId::new("sender");
+        let agent1 = AgentId::new("agent1");
+        let agent2 = AgentId::new("agent2");
+
+        let mut receiver_sender = comm.subscribe(&sender_id).await.unwrap();
+        let mut receiver1 = comm.subscribe(&agent1).await.unwrap();
+        let mut receiver2 = comm.subscribe(&agent2).await.unwrap();
+
+        // Create broadcast message with 'to' field set (this is used for self-filtering)
+        let mut message =
+            AgentMessage::broadcast(sender_id.clone(), "test".to_string(), serde_json::json!({}));
+        message.to = Some(sender_id.clone()); // Set to sender to test self-filtering
+
+        comm.broadcast_message(message.clone()).await.unwrap();
+
+        // Sender should not receive the message due to self-filtering
+        assert!(receiver_sender.try_receive().is_none());
+
+        // Other agents should receive the message
+        assert!(receiver1.try_receive().is_some());
+        assert!(receiver2.try_receive().is_some());
+    }
+
+    #[tokio::test]
+    async fn test_broadcast_message_to_empty_channels() {
+        let comm = ChannelCommunication::default();
+
+        let message = AgentMessage::broadcast(
+            AgentId::new("sender"),
+            "test".to_string(),
+            serde_json::json!({}),
+        );
+
+        // Broadcasting to no channels should succeed
+        let result = comm.broadcast_message(message).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_broadcast_message_all_channels_closed() {
+        let comm = ChannelCommunication::default();
+        let agent1 = AgentId::new("agent1");
+        let agent2 = AgentId::new("agent2");
+
+        // Subscribe and then drop receivers to close channels
+        let receiver1 = comm.subscribe(&agent1).await.unwrap();
+        let receiver2 = comm.subscribe(&agent2).await.unwrap();
+        drop(receiver1);
+        drop(receiver2);
+
+        // Allow some time for channels to be marked as closed
+        tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
+
+        let message = AgentMessage::broadcast(
+            AgentId::new("sender"),
+            "test".to_string(),
+            serde_json::json!({}),
+        );
+
+        let result = comm.broadcast_message(message).await;
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Failed to deliver broadcast message to any agent"));
+
+        let stats = comm.stats().await;
+        assert_eq!(stats.failed_deliveries, 2);
+    }
+
+    #[tokio::test]
+    async fn test_subscription_limit_exceeded() {
+        let config = CommunicationConfig {
+            max_subscriptions: Some(1),
+            ..Default::default()
+        };
+        let comm = ChannelCommunication::with_config(config);
+
+        let agent1 = AgentId::new("agent1");
+        let agent2 = AgentId::new("agent2");
+
+        // First subscription should succeed
+        let _receiver1 = comm.subscribe(&agent1).await.unwrap();
+
+        // Second subscription should fail due to limit
+        let result = comm.subscribe(&agent2).await;
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Maximum subscriptions reached"));
+    }
+
+    #[tokio::test]
+    async fn test_subscription_with_no_limit() {
+        let config = CommunicationConfig {
+            max_subscriptions: None,
+            ..Default::default()
+        };
+        let comm = ChannelCommunication::with_config(config);
+
+        let agent1 = AgentId::new("agent1");
+        let agent2 = AgentId::new("agent2");
+
+        // Both subscriptions should succeed
+        let _receiver1 = comm.subscribe(&agent1).await.unwrap();
+        let _receiver2 = comm.subscribe(&agent2).await.unwrap();
+
+        assert_eq!(comm.subscription_count().await.unwrap(), 2);
+    }
+
+    #[tokio::test]
+    async fn test_channel_receiver_after_disconnection() {
+        let comm = ChannelCommunication::default();
+        let agent_id = AgentId::new("test-agent");
+
+        let mut receiver = comm.subscribe(&agent_id).await.unwrap();
+
+        // Unsubscribe to close the channel
+        comm.unsubscribe(&agent_id).await.unwrap();
+
+        // Receiver should detect disconnection
+        let result = receiver.receive().await;
+        assert!(result.is_none());
+        assert!(receiver.is_closed());
+
+        // Further receives should return None
+        assert!(receiver.receive().await.is_none());
+        assert!(receiver.try_receive().is_none());
+    }
+
+    #[tokio::test]
+    async fn test_channel_receiver_try_receive_after_disconnection() {
+        let comm = ChannelCommunication::default();
+        let agent_id = AgentId::new("test-agent");
+
+        let mut receiver = comm.subscribe(&agent_id).await.unwrap();
+
+        // Unsubscribe to close the channel
+        comm.unsubscribe(&agent_id).await.unwrap();
+
+        // try_receive should detect disconnection
+        let result = receiver.try_receive();
+        assert!(result.is_none());
+        assert!(receiver.is_closed());
+    }
+
+    #[test]
+    fn test_channel_receiver_new() {
+        let (_, rx) = mpsc::unbounded_channel();
+        let receiver = ChannelReceiver::new(rx);
+        assert!(!receiver.is_closed());
+    }
+
+    #[tokio::test]
+    async fn test_stats_with_multiple_operations() {
+        let comm = ChannelCommunication::default();
+        let agent1 = AgentId::new("agent1");
+        let agent2 = AgentId::new("agent2");
+
+        let mut _receiver1 = comm.subscribe(&agent1).await.unwrap();
+        let mut _receiver2 = comm.subscribe(&agent2).await.unwrap();
+
+        // Send successful message
+        let message1 = AgentMessage::new(
+            AgentId::new("sender"),
+            Some(agent1.clone()),
+            "test".to_string(),
+            serde_json::json!({}),
+        );
+        comm.send_message(message1).await.unwrap();
+
+        // Send to non-existent agent
+        let message2 = AgentMessage::new(
+            AgentId::new("sender"),
+            Some(AgentId::new("nonexistent")),
+            "test".to_string(),
+            serde_json::json!({}),
+        );
+        let _ = comm.send_message(message2).await;
+
+        // Send expired message
+        let mut message3 = AgentMessage::new(
+            AgentId::new("sender"),
+            Some(agent2.clone()),
+            "test".to_string(),
+            serde_json::json!({}),
+        );
+        message3.expires_at = Some(chrono::Utc::now() - chrono::Duration::seconds(1));
+        let _ = comm.send_message(message3).await;
+
+        let stats = comm.stats().await;
+        assert_eq!(stats.active_subscriptions, 2);
+        assert_eq!(stats.messages_sent, 1);
+        assert_eq!(stats.failed_deliveries, 1);
+        assert_eq!(stats.expired_messages, 1);
+    }
+
+    #[tokio::test]
+    async fn test_broadcast_stats_tracking() {
+        let comm = ChannelCommunication::default();
+        let agent1 = AgentId::new("agent1");
+        let agent2 = AgentId::new("agent2");
+
+        let mut _receiver1 = comm.subscribe(&agent1).await.unwrap();
+        let mut _receiver2 = comm.subscribe(&agent2).await.unwrap();
+
+        let message = AgentMessage::broadcast(
+            AgentId::new("sender"),
+            "test".to_string(),
+            serde_json::json!({}),
+        );
+
+        comm.broadcast_message(message).await.unwrap();
+
+        let stats = comm.stats().await;
+        assert_eq!(stats.messages_sent, 2); // Sent to both agents
+        assert_eq!(stats.failed_deliveries, 0);
     }
 }

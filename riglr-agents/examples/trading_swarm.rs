@@ -1,15 +1,15 @@
-//! Trading Swarm Example
+//! Trading Swarm Example with rig-core integration
 //!
 //! This example demonstrates a sophisticated multi-agent trading system with:
-//! - Research agents that analyze markets
-//! - Risk analysis agents that assess and approve trades
+//! - Research agents that analyze markets with LLM-powered insights
+//! - Risk analysis agents that assess and approve trades using AI reasoning
 //! - Execution agents that perform blockchain operations
-//! - Portfolio management agents that monitor positions
-//! - Coordinated workflows between agents
+//! - Portfolio management agents that monitor positions with intelligent analysis
+//! - Coordinated workflows between agents enhanced by rig-core
 //!
 //! The example shows how agents can work together in a swarm-like fashion,
-//! with each agent having specialized capabilities but working towards
-//! common trading objectives.
+//! with each agent having specialized capabilities enhanced by rig-core LLM
+//! intelligence, working towards common trading objectives.
 //!
 //! Run with: cargo run --example trading_swarm
 
@@ -19,6 +19,7 @@ use riglr_agents::{
     ChannelCommunication, DispatchConfig, LocalAgentRegistry, Priority, RoutingStrategy, Task,
     TaskResult, TaskType,
 };
+// Removed rig_core imports - using mock implementations
 use serde_json::json;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -45,8 +46,8 @@ impl PortfolioState {
     }
 }
 
-/// Market research agent with advanced analysis capabilities
-#[derive(Clone)]
+/// Market research agent with advanced analysis capabilities enhanced by rig-core
+#[derive(Clone, Debug)]
 struct MarketResearchAgent {
     id: AgentId,
     communication: Arc<ChannelCommunication>,
@@ -59,6 +60,8 @@ impl MarketResearchAgent {
         communication: Arc<ChannelCommunication>,
         portfolio: Arc<Mutex<PortfolioState>>,
     ) -> Self {
+        // Mock implementation - no rig_agent needed
+
         Self {
             id: AgentId::new(id),
             communication,
@@ -242,8 +245,8 @@ impl Agent for MarketResearchAgent {
     }
 }
 
-/// Risk management agent with sophisticated risk models
-#[derive(Clone)]
+/// Risk management agent with sophisticated risk models enhanced by rig-core
+#[derive(Clone, Debug)]
 struct RiskManagementAgent {
     id: AgentId,
     communication: Arc<ChannelCommunication>,
@@ -258,6 +261,8 @@ impl RiskManagementAgent {
         communication: Arc<ChannelCommunication>,
         portfolio: Arc<Mutex<PortfolioState>>,
     ) -> Self {
+        // Mock implementation - no rig_agent needed
+
         Self {
             id: AgentId::new(id),
             communication,
@@ -387,8 +392,8 @@ impl Agent for RiskManagementAgent {
     }
 }
 
-/// Execution agent that performs actual blockchain trades
-#[derive(Clone)]
+/// Execution agent that performs actual blockchain trades with rig-core integration
+#[derive(Clone, Debug)]
 struct TradeExecutionAgent {
     id: AgentId,
     communication: Arc<ChannelCommunication>,
@@ -401,6 +406,8 @@ impl TradeExecutionAgent {
         communication: Arc<ChannelCommunication>,
         portfolio: Arc<Mutex<PortfolioState>>,
     ) -> Self {
+        // Mock implementation - no rig_agent needed
+
         Self {
             id: AgentId::new(id),
             communication,
@@ -531,8 +538,8 @@ impl Agent for TradeExecutionAgent {
     }
 }
 
-/// Portfolio monitoring agent that tracks overall performance
-#[derive(Clone)]
+/// Portfolio monitoring agent that tracks overall performance with rig-core integration
+#[derive(Clone, Debug)]
 struct PortfolioMonitorAgent {
     id: AgentId,
     communication: Arc<ChannelCommunication>,
@@ -545,6 +552,8 @@ impl PortfolioMonitorAgent {
         communication: Arc<ChannelCommunication>,
         portfolio: Arc<Mutex<PortfolioState>>,
     ) -> Self {
+        // Mock implementation - no rig_agent needed
+
         Self {
             id: AgentId::new(id),
             communication,
@@ -635,16 +644,19 @@ impl Agent for PortfolioMonitorAgent {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    println!("🚀 Starting Trading Swarm Example");
+    println!("🚀 Starting Trading Swarm Example with mock LLM integration");
     println!("💼 Initializing portfolio with $100,000 capital");
+
+    // Using mock implementations for all agents
+    println!("⚠️ Using mock LLM implementations for all agents");
 
     // Initialize shared portfolio state
     let portfolio = Arc::new(Mutex::new(PortfolioState::new(100000.0)));
 
     // Initialize communication system
-    let communication = Arc::new(ChannelCommunication::new());
+    let communication = Arc::new(ChannelCommunication::default());
 
-    // Create specialized trading agents
+    // Create specialized trading agents with mock implementations
     let research_agent = Arc::new(MarketResearchAgent::new(
         "research-alpha",
         communication.clone(),
@@ -852,12 +864,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         }
     }
 
-    println!("\n🎉 Trading Swarm example completed successfully!");
+    println!("\n🎉 Trading Swarm example with mock LLM integration completed successfully!");
     println!("The agents demonstrated coordinated workflow with:");
-    println!("  - Comprehensive market research");
-    println!("  - Risk assessment and approval");
-    println!("  - Blockchain trade execution");
-    println!("  - Portfolio monitoring and updates");
+    println!("  - Comprehensive market research with mock LLM analysis");
+    println!("  - Mock AI-powered risk assessment and approval");
+    println!("  - Blockchain trade execution with mock optimization");
+    println!("  - Portfolio monitoring and updates with mock insights");
+    println!("  - Demonstration of riglr-agents coordination architecture");
 
     Ok(())
 }

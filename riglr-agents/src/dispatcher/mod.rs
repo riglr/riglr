@@ -321,7 +321,7 @@ mod tests {
     use crate::registry::LocalAgentRegistry;
     use crate::types::*;
 
-    #[derive(Clone)]
+    #[derive(Clone, Debug)]
     struct MockAgent {
         id: AgentId,
         capabilities: Vec<String>,
@@ -535,5 +535,449 @@ mod tests {
 
         // Should be healthy now
         assert!(dispatcher.health_check().await.unwrap());
+    }
+
+    // Additional tests for 100% coverage
+
+    #[test]
+    fn test_dispatch_config_default() {
+        let config = DispatchConfig::default();
+        assert_eq!(config.default_task_timeout, Duration::from_secs(300));
+        assert_eq!(config.max_retries, 3);
+        assert_eq!(config.retry_delay, Duration::from_secs(1));
+        assert_eq!(config.max_concurrent_tasks_per_agent, 10);
+        assert!(config.enable_load_balancing);
+        assert_eq!(config.routing_strategy, RoutingStrategy::Capability);
+    }
+
+    #[test]
+    fn test_routing_strategy_variants() {
+        assert_eq!(RoutingStrategy::default(), RoutingStrategy::Capability);
+
+        // Test all variants exist and can be compared
+        let strategies = vec![
+            RoutingStrategy::Capability,
+            RoutingStrategy::RoundRobin,
+            RoutingStrategy::LeastLoaded,
+            RoutingStrategy::Random,
+            RoutingStrategy::Direct,
+        ];
+
+        for strategy in strategies {
+            assert_eq!(strategy, strategy); // Test PartialEq
+        }
+    }
+
+    #[test]
+    fn test_dispatcher_config_getter() {
+        let registry = Arc::new(LocalAgentRegistry::default());
+        let custom_config = DispatchConfig {
+            default_task_timeout: Duration::from_secs(120),
+            max_retries: 5,
+            retry_delay: Duration::from_millis(500),
+            max_concurrent_tasks_per_agent: 20,
+            enable_load_balancing: false,
+            routing_strategy: RoutingStrategy::RoundRobin,
+        };
+        let dispatcher = AgentDispatcher::with_config(registry, custom_config.clone());
+
+        let config = dispatcher.config();
+        assert_eq!(config.default_task_timeout, Duration::from_secs(120));
+        assert_eq!(config.max_retries, 5);
+        assert_eq!(config.retry_delay, Duration::from_millis(500));
+        assert_eq!(config.max_concurrent_tasks_per_agent, 20);
+        assert!(!config.enable_load_balancing);
+        assert_eq!(config.routing_strategy, RoutingStrategy::RoundRobin);
+    }
+
+    #[test]
+    fn test_task_type_to_capability_all_variants() {
+        let registry = Arc::new(LocalAgentRegistry::default());
+        let dispatcher = AgentDispatcher::new(registry);
+
+        assert_eq!(
+            dispatcher.task_type_to_capability(&TaskType::Trading),
+            "trading"
+        );
+        assert_eq!(
+            dispatcher.task_type_to_capability(&TaskType::Research),
+            "research"
+        );
+        assert_eq!(
+            dispatcher.task_type_to_capability(&TaskType::RiskAnalysis),
+            "risk_analysis"
+        );
+        assert_eq!(
+            dispatcher.task_type_to_capability(&TaskType::Portfolio),
+            "portfolio"
+        );
+        assert_eq!(
+            dispatcher.task_type_to_capability(&TaskType::Monitoring),
+            "monitoring"
+        );
+        assert_eq!(
+            dispatcher.task_type_to_capability(&TaskType::Custom("custom_capability".to_string())),
+            "custom_capability"
+        );
+    }
+
+    #[derive(Clone, Debug)]
+    struct UnavailableMockAgent {
+        id: AgentId,
+        capabilities: Vec<String>,
+    }
+
+    #[async_trait::async_trait]
+    impl Agent for UnavailableMockAgent {
+        async fn execute_task(&self, _task: Task) -> Result<TaskResult> {
+            unreachable!("Unavailable agent should not execute tasks")
+        }
+
+        fn id(&self) -> &AgentId {
+            &self.id
+        }
+
+        fn capabilities(&self) -> Vec<String> {
+            self.capabilities.clone()
+        }
+
+        fn is_available(&self) -> bool {
+            false // Always unavailable
+        }
+    }
+
+    #[derive(Clone, Debug)]
+    struct CannotHandleMockAgent {
+        id: AgentId,
+        capabilities: Vec<String>,
+    }
+
+    #[async_trait::async_trait]
+    impl Agent for CannotHandleMockAgent {
+        async fn execute_task(&self, _task: Task) -> Result<TaskResult> {
+            unreachable!("Agent that cannot handle should not execute tasks")
+        }
+
+        fn id(&self) -> &AgentId {
+            &self.id
+        }
+
+        fn capabilities(&self) -> Vec<String> {
+            self.capabilities.clone()
+        }
+
+        fn can_handle(&self, _task: &Task) -> bool {
+            false // Cannot handle any tasks
+        }
+    }
+
+    #[tokio::test]
+    async fn test_find_suitable_agents_unavailable_agents() {
+        let registry = Arc::new(LocalAgentRegistry::default());
+        let dispatcher = AgentDispatcher::new(registry.clone());
+
+        // Register an unavailable agent
+        let agent = Arc::new(UnavailableMockAgent {
+            id: AgentId::new("unavailable-agent"),
+            capabilities: vec!["trading".to_string()],
+        });
+        registry.register_agent(agent).await.unwrap();
+
+        let task = Task::new(TaskType::Trading, serde_json::json!({"symbol": "BTC/USD"}));
+
+        // Should fail to find suitable agents because the agent is unavailable
+        let result = dispatcher.dispatch_task(task).await;
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            AgentError::NoSuitableAgent { .. }
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_find_suitable_agents_cannot_handle() {
+        let registry = Arc::new(LocalAgentRegistry::default());
+        let dispatcher = AgentDispatcher::new(registry.clone());
+
+        // Register an agent that cannot handle tasks
+        let agent = Arc::new(CannotHandleMockAgent {
+            id: AgentId::new("cannot-handle-agent"),
+            capabilities: vec!["trading".to_string()],
+        });
+        registry.register_agent(agent).await.unwrap();
+
+        let task = Task::new(TaskType::Trading, serde_json::json!({"symbol": "BTC/USD"}));
+
+        // Should fail to find suitable agents because the agent cannot handle the task
+        let result = dispatcher.dispatch_task(task).await;
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            AgentError::NoSuitableAgent { .. }
+        ));
+    }
+
+    #[derive(Clone, Debug)]
+    struct NonRetriableMockAgent {
+        id: AgentId,
+        capabilities: Vec<String>,
+    }
+
+    #[async_trait::async_trait]
+    impl Agent for NonRetriableMockAgent {
+        async fn execute_task(&self, _task: Task) -> Result<TaskResult> {
+            Err(AgentError::task_execution(
+                "Non-retriable error".to_string(),
+            ))
+        }
+
+        fn id(&self) -> &AgentId {
+            &self.id
+        }
+
+        fn capabilities(&self) -> Vec<String> {
+            self.capabilities.clone()
+        }
+    }
+
+    #[tokio::test]
+    async fn test_dispatcher_non_retriable_error() {
+        let registry = Arc::new(LocalAgentRegistry::default());
+        let config = DispatchConfig {
+            max_retries: 2,
+            ..Default::default()
+        };
+        let dispatcher = AgentDispatcher::with_config(registry.clone(), config);
+
+        // Register an agent that returns non-retriable errors
+        let agent = Arc::new(NonRetriableMockAgent {
+            id: AgentId::new("non-retriable-agent"),
+            capabilities: vec!["trading".to_string()],
+        });
+        registry.register_agent(agent).await.unwrap();
+
+        let task = Task::new(TaskType::Trading, serde_json::json!({"symbol": "BTC/USD"}));
+
+        // Should fail immediately without retries for non-retriable errors
+        let result = dispatcher.dispatch_task(task).await;
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            AgentError::TaskExecution { .. }
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_dispatcher_custom_task_timeout() {
+        let registry = Arc::new(LocalAgentRegistry::default());
+        let config = DispatchConfig {
+            default_task_timeout: Duration::from_secs(300), // Long default
+            ..Default::default()
+        };
+        let dispatcher = AgentDispatcher::with_config(registry.clone(), config);
+
+        // Register an agent with delay
+        let agent = Arc::new(MockAgent {
+            id: AgentId::new("slow-agent"),
+            capabilities: vec!["trading".to_string()],
+            should_fail: false,
+            execution_delay: Duration::from_millis(100),
+        });
+        registry.register_agent(agent).await.unwrap();
+
+        // Create task with custom short timeout
+        let mut task = Task::new(TaskType::Trading, serde_json::json!({"symbol": "BTC/USD"}));
+        task.timeout = Some(Duration::from_millis(50)); // Shorter than execution delay
+
+        let result = dispatcher.dispatch_task(task).await;
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            AgentError::TaskTimeout { .. }
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_dispatcher_load_balancing_disabled() {
+        let registry = Arc::new(LocalAgentRegistry::default());
+        let config = DispatchConfig {
+            enable_load_balancing: false,
+            ..Default::default()
+        };
+        let dispatcher = AgentDispatcher::with_config(registry.clone(), config);
+
+        // Register agents with different loads
+        for i in 0..3 {
+            let agent = Arc::new(MockAgent {
+                id: AgentId::new(format!("agent-{}", i)),
+                capabilities: vec!["trading".to_string()],
+                should_fail: false,
+                execution_delay: Duration::from_millis(10),
+            });
+            registry.register_agent(agent).await.unwrap();
+        }
+
+        let task = Task::new(TaskType::Trading, serde_json::json!({"symbol": "BTC/USD"}));
+
+        // Should succeed even with load balancing disabled
+        let result = dispatcher.dispatch_task(task).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_dispatcher_stats_with_empty_registry() {
+        let registry = Arc::new(LocalAgentRegistry::default());
+        let dispatcher = AgentDispatcher::new(registry);
+
+        let stats = dispatcher.stats().await.unwrap();
+        assert_eq!(stats.registered_agents, 0);
+        assert_eq!(stats.total_active_tasks, 0);
+        assert_eq!(stats.average_agent_load, 0.0);
+        assert_eq!(stats.routing_strategy, RoutingStrategy::Capability);
+    }
+
+    #[test]
+    fn test_dispatcher_stats_struct() {
+        let stats = DispatcherStats {
+            registered_agents: 5,
+            total_active_tasks: 10,
+            average_agent_load: 2.5,
+            routing_strategy: RoutingStrategy::LeastLoaded,
+        };
+
+        // Test the struct can be cloned and debugged
+        let cloned_stats = stats.clone();
+        assert_eq!(cloned_stats.registered_agents, 5);
+        assert_eq!(cloned_stats.total_active_tasks, 10);
+        assert_eq!(cloned_stats.average_agent_load, 2.5);
+        assert_eq!(cloned_stats.routing_strategy, RoutingStrategy::LeastLoaded);
+
+        // Test debug format
+        let debug_str = format!("{:?}", stats);
+        assert!(debug_str.contains("DispatcherStats"));
+    }
+
+    #[tokio::test]
+    async fn test_dispatch_tasks_empty_vector() {
+        let registry = Arc::new(LocalAgentRegistry::default());
+        let dispatcher = AgentDispatcher::new(registry);
+
+        let results = dispatcher.dispatch_tasks(vec![]).await;
+        assert_eq!(results.len(), 0);
+    }
+
+    #[tokio::test]
+    async fn test_dispatch_task_max_retries_exhausted() {
+        let registry = Arc::new(LocalAgentRegistry::default());
+        let config = DispatchConfig {
+            max_retries: 1, // Only 1 retry
+            retry_delay: Duration::from_millis(1),
+            ..Default::default()
+        };
+        let dispatcher = AgentDispatcher::with_config(registry.clone(), config);
+
+        // Register an agent that always fails retriably
+        let agent = Arc::new(MockAgent {
+            id: AgentId::new("always-failing-agent"),
+            capabilities: vec!["trading".to_string()],
+            should_fail: true, // Always return retriable failures
+            execution_delay: Duration::from_millis(0),
+        });
+        registry.register_agent(agent).await.unwrap();
+
+        let task = Task::new(TaskType::Trading, serde_json::json!({"symbol": "BTC/USD"}));
+
+        // Should exhaust retries and get the failure result (not an error)
+        let result = dispatcher.dispatch_task(task).await.unwrap();
+        assert!(!result.is_success());
+        assert!(result.is_retriable());
+    }
+
+    #[derive(Clone, Debug)]
+    struct LoadedMockAgent {
+        id: AgentId,
+        capabilities: Vec<String>,
+        load: f64,
+    }
+
+    #[async_trait::async_trait]
+    impl Agent for LoadedMockAgent {
+        async fn execute_task(&self, task: Task) -> Result<TaskResult> {
+            Ok(TaskResult::success(
+                serde_json::json!({
+                    "agent_id": self.id.as_str(),
+                    "task_id": task.id
+                }),
+                None,
+                Duration::from_millis(100),
+            ))
+        }
+
+        fn id(&self) -> &AgentId {
+            &self.id
+        }
+
+        fn capabilities(&self) -> Vec<String> {
+            self.capabilities.clone()
+        }
+
+        fn load(&self) -> f64 {
+            self.load
+        }
+    }
+
+    #[tokio::test]
+    async fn test_find_suitable_agents_with_load_balancing() {
+        let registry = Arc::new(LocalAgentRegistry::default());
+        let config = DispatchConfig {
+            enable_load_balancing: true,
+            ..Default::default()
+        };
+        let dispatcher = AgentDispatcher::with_config(registry.clone(), config);
+
+        // Register agents with different loads
+        let high_load_agent = Arc::new(LoadedMockAgent {
+            id: AgentId::new("high-load-agent"),
+            capabilities: vec!["trading".to_string()],
+            load: 0.9,
+        });
+        let low_load_agent = Arc::new(LoadedMockAgent {
+            id: AgentId::new("low-load-agent"),
+            capabilities: vec!["trading".to_string()],
+            load: 0.1,
+        });
+
+        registry.register_agent(high_load_agent).await.unwrap();
+        registry.register_agent(low_load_agent).await.unwrap();
+
+        let task = Task::new(TaskType::Trading, serde_json::json!({"symbol": "BTC/USD"}));
+
+        // Should succeed and prefer lower load agent
+        let result = dispatcher.dispatch_task(task).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_dispatch_task_success_with_duration() {
+        let registry = Arc::new(LocalAgentRegistry::default());
+        let dispatcher = AgentDispatcher::new(registry.clone());
+
+        let agent = Arc::new(MockAgent {
+            id: AgentId::new("duration-agent"),
+            capabilities: vec!["trading".to_string()],
+            should_fail: false,
+            execution_delay: Duration::from_millis(10),
+        });
+        registry.register_agent(agent).await.unwrap();
+
+        let task = Task::new(TaskType::Trading, serde_json::json!({"symbol": "BTC/USD"}));
+
+        let result = dispatcher.dispatch_task(task).await.unwrap();
+        assert!(result.is_success());
+
+        // Verify the success result contains duration information
+        if let TaskResult::Success { duration, .. } = result {
+            assert!(duration > Duration::from_millis(0));
+        }
     }
 }

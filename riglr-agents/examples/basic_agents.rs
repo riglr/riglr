@@ -18,7 +18,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 /// A simple trading agent
-#[derive(Clone)]
+#[derive(Debug)]
 struct TradingAgent {
     id: AgentId,
 }
@@ -48,10 +48,13 @@ impl Agent for TradingAgent {
             .and_then(|s| s.as_str())
             .unwrap_or("buy");
 
+        // Simulate trading logic
+        println!("  🔹 Analyzing {} order for {}", action, symbol);
+
         // Simulate trade execution
         tokio::time::sleep(Duration::from_millis(100)).await;
 
-        println!("  🔹 Executing {} order for {}", action, symbol);
+        println!("  ✅ Executing {} order for {}", action, symbol);
 
         Ok(TaskResult::success(
             json!({
@@ -76,8 +79,8 @@ impl Agent for TradingAgent {
     }
 }
 
-/// A simple research agent
-#[derive(Clone)]
+/// A simple research agent with mock LLM operations
+#[derive(Debug)]
 struct ResearchAgent {
     id: AgentId,
 }
@@ -101,6 +104,13 @@ impl Agent for ResearchAgent {
             .and_then(|s| s.as_str())
             .unwrap_or("BTC");
 
+        // Simulate intelligent analysis with mock data
+        let llm_analysis = Some(
+            "Mock analysis: The market shows bullish trends with strong momentum indicators."
+                .to_string(),
+        );
+        println!("  ℹ️ Using simulated analysis for {}", symbol);
+
         // Simulate research work
         tokio::time::sleep(Duration::from_millis(50)).await;
 
@@ -118,6 +128,7 @@ impl Agent for ResearchAgent {
                 "confidence": 0.85,
                 "recommendation": "BUY",
                 "analyst": self.id.as_str(),
+                "llm_insights": llm_analysis,
                 "timestamp": chrono::Utc::now().timestamp()
             }),
             None,
@@ -134,8 +145,8 @@ impl Agent for ResearchAgent {
     }
 }
 
-/// A simple risk management agent
-#[derive(Clone)]
+/// A simple risk management agent with mock LLM operations
+#[derive(Debug)]
 struct RiskAgent {
     id: AgentId,
 }
@@ -165,6 +176,16 @@ impl Agent for RiskAgent {
             .and_then(|a| a.as_f64())
             .unwrap_or(1.0);
 
+        // Simulate intelligent risk assessment with mock data
+        let llm_assessment = Some(
+            "Mock assessment: Risk level is moderate, position size is within acceptable limits."
+                .to_string(),
+        );
+        println!(
+            "  ℹ️ Using simulated risk assessment for {} {}",
+            amount, symbol
+        );
+
         // Simulate risk assessment
         tokio::time::sleep(Duration::from_millis(30)).await;
 
@@ -185,6 +206,7 @@ impl Agent for RiskAgent {
                 "max_position": 10.0,
                 "recommendation": if approved { "APPROVE" } else { "REDUCE_SIZE" },
                 "assessor": self.id.as_str(),
+                "llm_assessment": llm_assessment,
                 "timestamp": chrono::Utc::now().timestamp()
             }),
             None,
@@ -204,9 +226,11 @@ impl Agent for RiskAgent {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     println!("🚀 Starting Basic Agents Example");
-    println!("🤖 Demonstrating multi-agent task coordination\n");
+    println!("🤖 Demonstrating multi-agent task coordination with mock LLM integration\n");
 
-    // Create agents with different capabilities
+    // Create agents with different capabilities using mock implementations
+    println!("ℹ️ Using simulated LLM responses for all agents");
+
     let trading_agent = Arc::new(TradingAgent::new("trader-001"));
     let research_agent = Arc::new(ResearchAgent::new("researcher-001"));
     let risk_agent = Arc::new(RiskAgent::new("risk-001"));
@@ -337,6 +361,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     println!("  ✅ Sequential task coordination (research → risk → trading)");
     println!("  ✅ Conditional execution based on previous results");
     println!("  ✅ Agent registry management and status reporting");
+    println!("  ✅ Mock integration for LLM-powered agent intelligence");
 
     Ok(())
 }

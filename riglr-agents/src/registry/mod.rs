@@ -163,7 +163,7 @@ mod tests {
     use super::*;
     use crate::types::*;
 
-    #[derive(Clone)]
+    #[derive(Clone, Debug)]
     struct MockAgent {
         id: AgentId,
         capabilities: Vec<String>,
@@ -238,5 +238,336 @@ mod tests {
     async fn test_local_registry() {
         let registry = LocalAgentRegistry::default();
         test_registry_basic_operations(registry).await;
+    }
+
+    #[test]
+    fn test_registry_config_default() {
+        let config = RegistryConfig::default();
+
+        assert_eq!(config.max_agents, None);
+        assert_eq!(config.operation_timeout, std::time::Duration::from_secs(30));
+        assert!(config.enable_health_checks);
+        assert_eq!(
+            config.maintenance_interval,
+            std::time::Duration::from_secs(60)
+        );
+    }
+
+    #[test]
+    fn test_registry_config_custom_values() {
+        let config = RegistryConfig {
+            max_agents: Some(100),
+            operation_timeout: std::time::Duration::from_secs(60),
+            enable_health_checks: false,
+            maintenance_interval: std::time::Duration::from_secs(120),
+        };
+
+        assert_eq!(config.max_agents, Some(100));
+        assert_eq!(config.operation_timeout, std::time::Duration::from_secs(60));
+        assert!(!config.enable_health_checks);
+        assert_eq!(
+            config.maintenance_interval,
+            std::time::Duration::from_secs(120)
+        );
+    }
+
+    #[test]
+    fn test_registry_config_edge_cases() {
+        let config = RegistryConfig {
+            max_agents: Some(0),
+            operation_timeout: std::time::Duration::from_millis(1),
+            enable_health_checks: true,
+            maintenance_interval: std::time::Duration::from_millis(1),
+        };
+
+        assert_eq!(config.max_agents, Some(0));
+        assert_eq!(
+            config.operation_timeout,
+            std::time::Duration::from_millis(1)
+        );
+        assert!(config.enable_health_checks);
+        assert_eq!(
+            config.maintenance_interval,
+            std::time::Duration::from_millis(1)
+        );
+    }
+
+    #[test]
+    fn test_registry_config_clone() {
+        let config = RegistryConfig::default();
+        let cloned_config = config.clone();
+
+        assert_eq!(config.max_agents, cloned_config.max_agents);
+        assert_eq!(config.operation_timeout, cloned_config.operation_timeout);
+        assert_eq!(
+            config.enable_health_checks,
+            cloned_config.enable_health_checks
+        );
+        assert_eq!(
+            config.maintenance_interval,
+            cloned_config.maintenance_interval
+        );
+    }
+
+    #[test]
+    fn test_mock_agent_capabilities() {
+        let agent = MockAgent {
+            id: AgentId::new("test"),
+            capabilities: vec!["trading".to_string(), "research".to_string()],
+        };
+
+        let caps = agent.capabilities();
+        assert_eq!(caps.len(), 2);
+        assert!(caps.contains(&"trading".to_string()));
+        assert!(caps.contains(&"research".to_string()));
+    }
+
+    #[test]
+    fn test_mock_agent_id() {
+        let agent = MockAgent {
+            id: AgentId::new("test-id"),
+            capabilities: vec![],
+        };
+
+        assert_eq!(agent.id(), &AgentId::new("test-id"));
+    }
+
+    #[test]
+    fn test_mock_agent_clone() {
+        let agent = MockAgent {
+            id: AgentId::new("test"),
+            capabilities: vec!["trading".to_string()],
+        };
+
+        let cloned = agent.clone();
+        assert_eq!(agent.id(), cloned.id());
+        assert_eq!(agent.capabilities(), cloned.capabilities());
+    }
+
+    #[tokio::test]
+    async fn test_mock_agent_execute_task() {
+        let agent = MockAgent {
+            id: AgentId::new("test"),
+            capabilities: vec!["trading".to_string()],
+        };
+
+        let task = crate::Task {
+            id: "test-task".to_string(),
+            task_type: crate::TaskType::Custom("test".to_string()),
+            parameters: serde_json::json!({}),
+            priority: crate::Priority::Normal,
+            timeout: Some(std::time::Duration::from_secs(30)),
+            max_retries: 3,
+            retry_count: 0,
+            created_at: chrono::Utc::now(),
+            deadline: None,
+            metadata: std::collections::HashMap::new(),
+        };
+
+        let result = agent.execute_task(task).await.unwrap();
+        assert!(result.is_success());
+        // Check if result has a duration field (depends on the enum variant)
+        match &result {
+            crate::TaskResult::Success { duration, .. } => {
+                assert!(duration.as_millis() >= 10);
+            }
+            _ => panic!("Expected successful task result"),
+        }
+    }
+
+    // Mock registry for testing trait default implementations
+    struct MockRegistry {
+        should_error: bool,
+        agents: Vec<Arc<dyn Agent>>,
+    }
+
+    #[async_trait]
+    impl AgentRegistry for MockRegistry {
+        async fn register_agent(&self, _agent: Arc<dyn Agent>) -> Result<()> {
+            if self.should_error {
+                return Err(crate::AgentError::configuration("Mock error".to_string()));
+            }
+            Ok(())
+        }
+
+        async fn unregister_agent(&self, _agent_id: &AgentId) -> Result<()> {
+            if self.should_error {
+                return Err(crate::AgentError::configuration("Mock error".to_string()));
+            }
+            Ok(())
+        }
+
+        async fn get_agent(&self, agent_id: &AgentId) -> Result<Option<Arc<dyn Agent>>> {
+            if self.should_error {
+                return Err(crate::AgentError::configuration("Mock error".to_string()));
+            }
+
+            Ok(self.agents.iter().find(|a| a.id() == agent_id).cloned())
+        }
+
+        async fn list_agents(&self) -> Result<Vec<Arc<dyn Agent>>> {
+            if self.should_error {
+                return Err(crate::AgentError::configuration("Mock error".to_string()));
+            }
+            Ok(self.agents.clone())
+        }
+
+        async fn find_agents_by_capability(&self, capability: &str) -> Result<Vec<Arc<dyn Agent>>> {
+            if self.should_error {
+                return Err(crate::AgentError::configuration("Mock error".to_string()));
+            }
+
+            Ok(self
+                .agents
+                .iter()
+                .filter(|a| a.capabilities().contains(&capability.to_string()))
+                .cloned()
+                .collect())
+        }
+
+        async fn get_agent_status(&self, _agent_id: &AgentId) -> Result<Option<AgentStatus>> {
+            if self.should_error {
+                return Err(crate::AgentError::configuration("Mock error".to_string()));
+            }
+            Ok(None)
+        }
+
+        async fn update_agent_status(&self, _status: AgentStatus) -> Result<()> {
+            if self.should_error {
+                return Err(crate::AgentError::configuration("Mock error".to_string()));
+            }
+            Ok(())
+        }
+
+        async fn list_agent_statuses(&self) -> Result<Vec<AgentStatus>> {
+            if self.should_error {
+                return Err(crate::AgentError::configuration("Mock error".to_string()));
+            }
+            Ok(vec![])
+        }
+    }
+
+    #[tokio::test]
+    async fn test_agent_registry_is_agent_registered_when_agent_exists_should_return_true() {
+        let agent = Arc::new(MockAgent {
+            id: AgentId::new("test-agent"),
+            capabilities: vec!["trading".to_string()],
+        });
+
+        let registry = MockRegistry {
+            should_error: false,
+            agents: vec![agent],
+        };
+
+        let result = registry
+            .is_agent_registered(&AgentId::new("test-agent"))
+            .await
+            .unwrap();
+        assert!(result);
+    }
+
+    #[tokio::test]
+    async fn test_agent_registry_is_agent_registered_when_agent_not_exists_should_return_false() {
+        let registry = MockRegistry {
+            should_error: false,
+            agents: vec![],
+        };
+
+        let result = registry
+            .is_agent_registered(&AgentId::new("non-existent"))
+            .await
+            .unwrap();
+        assert!(!result);
+    }
+
+    #[tokio::test]
+    async fn test_agent_registry_is_agent_registered_when_get_agent_fails_should_return_err() {
+        let registry = MockRegistry {
+            should_error: true,
+            agents: vec![],
+        };
+
+        let result = registry.is_agent_registered(&AgentId::new("test")).await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_agent_registry_agent_count_when_no_agents_should_return_zero() {
+        let registry = MockRegistry {
+            should_error: false,
+            agents: vec![],
+        };
+
+        let count = registry.agent_count().await.unwrap();
+        assert_eq!(count, 0);
+    }
+
+    #[tokio::test]
+    async fn test_agent_registry_agent_count_when_multiple_agents_should_return_correct_count() {
+        let agent1 = Arc::new(MockAgent {
+            id: AgentId::new("agent1"),
+            capabilities: vec!["trading".to_string()],
+        });
+        let agent2 = Arc::new(MockAgent {
+            id: AgentId::new("agent2"),
+            capabilities: vec!["research".to_string()],
+        });
+
+        let registry = MockRegistry {
+            should_error: false,
+            agents: vec![agent1, agent2],
+        };
+
+        let count = registry.agent_count().await.unwrap();
+        assert_eq!(count, 2);
+    }
+
+    #[tokio::test]
+    async fn test_agent_registry_agent_count_when_list_agents_fails_should_return_err() {
+        let registry = MockRegistry {
+            should_error: true,
+            agents: vec![],
+        };
+
+        let result = registry.agent_count().await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_agent_registry_health_check_when_list_agents_succeeds_should_return_true() {
+        let registry = MockRegistry {
+            should_error: false,
+            agents: vec![],
+        };
+
+        let health = registry.health_check().await.unwrap();
+        assert!(health);
+    }
+
+    #[tokio::test]
+    async fn test_agent_registry_health_check_when_list_agents_fails_should_return_err() {
+        let registry = MockRegistry {
+            should_error: true,
+            agents: vec![],
+        };
+
+        let result = registry.health_check().await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_agent_registry_health_check_when_has_agents_should_return_true() {
+        let agent = Arc::new(MockAgent {
+            id: AgentId::new("test-agent"),
+            capabilities: vec!["trading".to_string()],
+        });
+
+        let registry = MockRegistry {
+            should_error: false,
+            agents: vec![agent],
+        };
+
+        let health = registry.health_check().await.unwrap();
+        assert!(health);
     }
 }
