@@ -17,7 +17,7 @@ RIGLR (pronounced "riggler") is a modular Rust framework for building sophistica
 
 ## 🗺️ Quick Navigation
 
-> **New to RIGLR?** Check out our comprehensive [Documentation](./docs) for detailed guides, tutorials, and API references.
+> **New to RIGLR?** Check out our comprehensive [Documentation](https://riglr.com/docs) for detailed guides, tutorials, and API references.
 
 ### What is RIGLR?
 RIGLR is a modular framework organized into specialized crates:
@@ -26,7 +26,7 @@ RIGLR is a modular framework organized into specialized crates:
 - **Data & Coordination Layer**: Real-time event streaming (`riglr-streams`), data indexing (`riglr-indexer`), multi-agent systems (`riglr-agents`), and external web APIs (`riglr-web-tools`).
 - **Application Layer**: Production server (`riglr-server`), pre-built agents (`riglr-showcase`), and authentication (`riglr-auth`).
 
-See the [Documentation](./docs) for the complete architecture overview, dependency graphs, and detailed explanations.
+See the [Documentation](https://riglr.com/docs) for the complete architecture overview, dependency graphs, and detailed explanations.
 
 ## 🚀 Key Features
 
@@ -103,16 +103,16 @@ SignerContext::with_signer(signer, async {
 
 ## 📚 Documentation
 
-The RIGLR documentation is built with mdBook and includes:
+The RIGLR documentation is available at [riglr.com/docs](https://riglr.com/docs) and includes:
 
-- **[Getting Started Guide](./docs/src/getting-started/quick-start.md)** - Quick introduction to RIGLR
-- **[Architecture Overview](./docs/src/concepts/architecture-overview.md)** - Comprehensive system design
-- **[Under the Hood](./docs/src/concepts/under-the-hood.md)** - From brain to blockchain flow
-- **[Dependency Graph](./docs/src/concepts/dependency-graph.md)** - Visual crate relationships
-- **[API Reference](./docs/src/api-reference)** - Complete API documentation
-- **[Tutorials](./docs/src/tutorials)** - Step-by-step guides for common use cases
+- **[Getting Started Guide](https://riglr.com/docs/getting-started/quick-start)** - Quick introduction to RIGLR
+- **[Architecture Overview](https://riglr.com/docs/concepts/architecture-overview)** - Comprehensive system design
+- **[Under the Hood](https://riglr.com/docs/concepts/under-the-hood)** - From brain to blockchain flow
+- **[Dependency Graph](https://riglr.com/docs/concepts/dependency-graph)** - Visual crate relationships
+- **[API Reference](https://riglr.com/docs/api-reference)** - Complete API documentation
+- **[Tutorials](https://riglr.com/docs/tutorials)** - Step-by-step guides for common use cases
 
-### Building the Documentation
+### Building the Documentation Locally
 
 ```bash
 # Install mdBook
@@ -170,6 +170,138 @@ cargo run
 | [riglr-hyperliquid-tools](./riglr-hyperliquid-tools) | Tools for the Hyperliquid perpetuals DEX. | 0.1.0 |
 | [riglr-server](./riglr-server) | Turnkey, production-ready HTTP server for agents. | 0.1.0 |
 | [riglr-showcase](./riglr-showcase) | Example agents and demonstrations. | 0.1.0 |
+
+## 🗺️ Project Roadmap: Powering the Next Generation of On-Chain AI Agents
+
+This roadmap outlines the strategic vision for `riglr`, a professional-grade Rust framework for building the entire spectrum of on-chain AI agents. From simple, reactive bots to sophisticated, proactive multi-agent systems, `riglr` will provide a modular, high-performance, and secure foundation that scales with developer ambition.
+
+### **Pillar 1: Radically Improve Developer Experience & Onboarding**
+
+A seamless and intuitive developer journey is paramount. Our goal is to not only match but exceed the ease of use and quality of documentation of existing solutions.
+
+**1. Comprehensive Documentation Hub (`mdbook`):** To centralize and streamline access to information, we will create an official documentation website. This hub, built with `mdbook`, will serve as the single source of truth for developers. It will feature:
+- **Tutorials:** Step-by-step guides for building common agent types, such as "Building a Solana Arbitrage Bot" and "Creating a Cross-Chain Portfolio Manager."
+- **Conceptual Guides:** In-depth explanations of core concepts like `SignerContext`, our error handling philosophy, and the event parsing architecture.
+- **Tool Reference:** Auto-generated, searchable documentation for every tool across all official crates, complete with practical examples.
+- **Deployment Guides:** Actionable blueprints for deploying `riglr`-based agents to platforms like Fly.io, Docker, and Kubernetes.
+
+**2. Enhanced Scaffolding with `create-riglr-app`:** The initial project setup will be made more powerful and flexible through significant enhancements to our scaffolding tool. These improvements will include:
+- **Expanded Template Library:** A wider range of templates for diverse use cases, including "API Service Backend," "Data Analytics Bot," and "Event-Driven Trading Engine."
+- **Pre-configured Server Integration:** An option to scaffold projects with a ready-to-run Actix or Axum server, providing an immediate, robust backend.
+- **Interactive Command-Line Interface:** A more engaging and guided CLI experience that helps users select the specific tools and protocols they need for their project.
+
+**3. Interactive Learning Resources:** To foster a more effective and active learning environment, we will develop a `riglr-by-example` repository. This will feature interactive, in-browser tutorials, allowing developers to write and run `riglr` code without the need for any local environment setup.
+
+### **Pillar 2: Provide Turnkey Production-Ready Services**
+
+We will equip developers with the components necessary to deploy production-grade services with minimal friction.
+
+**1. The `riglr-server` Crate:** To simplify the process of deploying a web-facing service, we will introduce a dedicated `riglr-server` crate. This will offer a pre-built, configurable, and production-ready server using either Actix or Axum. Key features will include:
+- Pre-configured endpoints for streaming and completion.
+- Built-in middleware for authentication, logging, and metrics.
+- Seamless integration with the `SignerFactory` pattern.
+
+**2. First-Class Authentication with `riglr-auth`:** Recognizing the critical importance of secure and flexible authentication, we will create a `riglr-auth` crate. This crate will provide official, maintained `SignerFactory` implementations for leading authentication services, including:
+- **Privy:** A simple library for beautiful authentication flows and embedded wallets.
+- **Web3Auth:** An infrastructure for Web3 apps and wallets that provides seamless user logins.
+- **Magic.link:** A passwordless authentication method that uses unique, time-sensitive URLs.
+
+**3. Official Deployment Blueprints:** To provide a clear and reliable path to production, we will establish a `riglr-deploy` repository. This will contain official, production-grade templates for a variety of deployment targets:
+- **Docker Compose:** A multi-container setup for managing dependencies like Redis, Neo4j, and the `riglr-server`.
+- **Fly.io:** Simplified `fly.toml` configurations for effortless deployments.
+- **Kubernetes:** Foundational Helm charts for deploying to any Kubernetes cluster.
+
+### **Pillar 3: Double Down on Unique Strengths & Advanced Capabilities**
+
+We will continue to invest in and expand upon the features that set `riglr` apart as a high-performance, professional-grade framework.
+
+**1. Expanded Solana Event Parsing System:** Our unique and powerful Solana event parsing capabilities will be enhanced by:
+- Adding parsers for a broader range of protocols.
+- Creating tools that enable agents to subscribe to real-time streams of parsed events, facilitating proactive, event-driven strategies.
+- Publishing the parser as a standalone, high-performance library to establish it as an industry standard.
+
+**2. Evolved `riglr-graph-memory`:** The Neo4j-based knowledge graph, a key differentiator, will be improved with:
+- More sophisticated graph analytics tools for pathfinding, community detection, and fraud analysis.
+- A "Graph RAG" agent template within `create-riglr-app`, pre-configured to build and query a knowledge graph from on-chain data.
+
+**3. Proactive, Event-Driven Tooling:** A new `riglr-streams` or `riglr-ingest` crate will provide the components for developers to build their own proactive agents. This will include:
+- A Solana Geyser plugin connector for low-latency data access.
+- EVM WebSocket subscription helpers for events like `pendingTransactions`.
+- Connectors for real-time data sources such as Binance and Mempool.space streams.
+
+**4. Formalized Advanced Agentic Patterns:** To support the development of more complex systems, we will introduce a `riglr-agents` module or crate. This will provide helpers and examples for building multi-agent systems, such as a `DispatcherAgent` that routes tasks to specialized agents.
+
+### **Pillar 4: Foster a Thriving Ecosystem**
+
+Building a vibrant and collaborative community is essential for long-term success.
+
+**1. Community Tool Registry:** We will create a platform for the community to publish and share their own `riglr`-compatible tools. This will foster a network effect, making `riglr` the framework of choice due to its extensive library of community-vetted tools.
+
+**2. Sharpened Project Positioning:** The project's vision will be clearly and concisely articulated in the main `README.md`:
+
+> "Riglr is the professional-grade Rust framework for building any on-chain AI agent imaginable—from simple, reactive bots to complex, proactive, multi-agent systems. It provides a modular, high-performance, and secure foundation that scales with your ambition."
+
+### **Summary of the Winning Strategy**
+
+By executing on these pillars, `riglr` will establish itself as the premier framework for on-chain AI agent development by offering:
+
+- **The Best Onboarding:** A developer experience and documentation that sets a new industry standard.
+- **The Easiest Path to Production:** Turnkey server and authentication components that simplify deployment.
+- **The Most Powerful Capabilities:** Unmatched, specialized tools for event parsing and graph memory, alongside components for building proactive, event-driven systems.
+- **The Strongest Ecosystem:** A flourishing community built around a shared registry of tools and a collaborative spirit.
+
+## 🧪 Testing Strategy
+
+A comprehensive unit and integration testing strategy is crucial for ensuring the reliability and robustness of the `riglr` codebase. Our approach will focus on creating an isolated, deterministic, and realistic testing environment.
+
+### Test Environment and Infrastructure
+
+Building upon our existing use of `.env.test` and a `Dockerfile.test`, we will enhance our testing infrastructure with:
+
+- **Containerized Services:** Docker Compose will be used to define and manage all external services required for testing, including a Solana test validator, an Anvil node for EVM, Redis, and PostgreSQL. This will guarantee a consistent and clean environment for every test run.
+- **Test Runner Configuration:** We will leverage `cargo test` with test workspaces and feature flags to segregate different test types, such as `unit`, `integration`, and `e2e`.
+- **CI/CD Pipeline Integration:** Our CI/CD pipeline will be expanded to execute different test suites based on the context. Quick unit tests will run on every commit, while full integration tests that require forked data will be reserved for pull requests to the main branch and nightly builds.
+
+### Test Data Strategy: Downloading and Simulating Blockchain Data
+
+To test against realistic and complex on-chain states, we will implement mainnet forking and transaction replay.
+
+**Implementation:**
+
+1. **Mainnet Forking:** We will create local test environments that mirror the state of a public network at a specific block, enabling fast and deterministic execution against real-world data.
+2. **Transaction Replay:** Historical transactions will be fetched and replayed against a local test validator to thoroughly test indexers, event parsers, and streaming systems.
+3. **State Seeding:** Scripts will be developed to programmatically set up specific on-chain states on a local validator before tests are executed.
+
+**Available Resources:**
+
+- **For EVM Chains:** We will utilize **Foundry Anvil** for its built-in mainnet forking capabilities.
+- **For Solana:** The **Solana Test Validator** will be used with the `--clone` flag to pull down specific accounts and protocols. We will also explore using the **Geyser plugin** interface for replaying transactions.
+
+### Multi-Layered Testing Approach
+
+We will formalize our testing into the following distinct layers:
+
+- **Unit Tests:** Fast, isolated tests for individual functions and components, utilizing mocks for external dependencies.
+- **Integration Tests:** Verification that different components of the system work together correctly, leveraging a forked blockchain environment.
+- **End-to-End (E2E) Tests:** Simulation of full user workflows to validate the entire system from start to finish.
+- **Property-Based Testing:** Expansion of our existing property-based tests to cover a wider range of inputs and ensure the logical correctness of our code.
+
+### Actionable Plan to Get Ready
+
+1. **Develop a Test Data Management Service:**
+   - Create a new internal crate, `riglr-test-utils`, to house utilities for programmatically starting and stopping forked test environments with Anvil and `solana-test-validator`.
+   - Add functions to fetch and replay a specific number of historical blocks or transactions.
+
+2. **Standardize Environment Orchestration:**
+   - Create a `docker-compose.test.yml` file to define all necessary services for a fully provisioned, isolated testing environment.
+   - Integrate this with our CI pipeline for automated integration and E2E testing.
+
+3. **Enhance Mocking Capabilities:**
+   - Introduce a mock HTTP server like `wiremock-rs` to simulate responses from external APIs, allowing for comprehensive testing of various scenarios, including API errors and rate limits.
+
+4. **Expand Test Scenario Coverage:**
+   - Develop a "scenario" testing framework to define specific on-chain states, agent actions, and expected outcomes.
+   - Add tests for complex DeFi interactions and expand security tests to cover scenarios like transaction front-running and oracle manipulation on our local forked testnet.
 
 ---
 
