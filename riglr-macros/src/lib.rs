@@ -747,10 +747,7 @@ fn is_serializable_type(ty: &syn::Type) -> bool {
         syn::Type::Slice(type_slice) => is_serializable_type(&type_slice.elem),
 
         // Tuples are serializable if all elements are
-        syn::Type::Tuple(type_tuple) => type_tuple
-            .elems
-            .iter()
-            .all(is_serializable_type),
+        syn::Type::Tuple(type_tuple) => type_tuple.elems.iter().all(is_serializable_type),
 
         // Other types - be conservative and reject
         _ => false,

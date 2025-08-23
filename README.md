@@ -17,7 +17,7 @@ RIGLR (pronounced "riggler") is a modular Rust framework for building sophistica
 
 ## 🗺️ Quick Navigation
 
-> **New to RIGLR?** Check out our comprehensive [Architecture Guide](./ARCHITECTURE.md) for a detailed map of all crates and how they fit together.
+> **New to RIGLR?** Check out our comprehensive [Documentation](./docs) for detailed guides, tutorials, and API references.
 
 ### What is RIGLR?
 RIGLR is a modular framework organized into specialized crates:
@@ -26,7 +26,7 @@ RIGLR is a modular framework organized into specialized crates:
 - **Data & Coordination Layer**: Real-time event streaming (`riglr-streams`), data indexing (`riglr-indexer`), multi-agent systems (`riglr-agents`), and external web APIs (`riglr-web-tools`).
 - **Application Layer**: Production server (`riglr-server`), pre-built agents (`riglr-showcase`), and authentication (`riglr-auth`).
 
-See the [Architecture Guide](./ARCHITECTURE.md) for the complete crate dependency graph and detailed explanations.
+See the [Documentation](./docs) for the complete architecture overview, dependency graphs, and detailed explanations.
 
 ## 🚀 Key Features
 
@@ -41,7 +41,90 @@ See the [Architecture Guide](./ARCHITECTURE.md) for the complete crate dependenc
 - ** COORDINATION**: Build complex systems with multiple, specialized agents using `riglr-agents`.
 - **⚡ REAL-TIME**: Process high-throughput, low-latency event streams with `riglr-streams`.
 - **💾 INDEXING**: Create custom, high-performance data indexers with `riglr-indexer`.
-- **🔐 SECURITY**: The `SignerContext` pattern ensures cryptographic keys are handled safely and isolated between requests.
+- **🔐 SECURITY**: Configuration-driven signers with type-safe network configs ensure secure key management.
+
+## 🏗️ Architecture
+
+RIGLR uses a multi-crate architecture with clear separation of concerns:
+
+### Core Foundation
+- **`riglr-config`**: Unified configuration management for all crates
+- **`riglr-core`**: Core abstractions, ToolWorker, SignerContext, and ApplicationContext patterns
+- **`riglr-macros`**: Code generation with the `#[tool]` macro
+
+### Blockchain Integration
+- **`riglr-solana-tools`**: Solana-specific tools (balance queries, swaps, Pump.fun)
+- **`riglr-evm-tools`**: EVM-specific tools (balance queries, Uniswap, contract interactions)
+- **`riglr-cross-chain-tools`**: Cross-chain bridging and multi-chain operations
+
+### Application Layer
+- **`riglr-agents`**: Multi-agent coordination and communication
+- **`riglr-streams`**: Real-time event processing and data pipelines
+- **`riglr-indexer`**: Production blockchain data indexing
+- **`riglr-web-tools`**: External API integrations (price feeds, news, social)
+- **`riglr-auth`**: Authentication providers (Privy, Web3Auth, Magic)
+
+### Dual-Pattern Architecture
+
+RIGLR implements two complementary patterns:
+
+**Client Injection Pattern** (Read-only operations):
+```rust
+// Application creates and injects all clients
+let config = Config::from_env();
+let app_context = ApplicationContext::from_config(&config);
+
+// Inject blockchain clients
+let solana_client = Arc::new(RpcClient::new(config.network.solana_rpc_url));
+app_context.set_extension(solana_client);
+
+let evm_client = Arc::new(EvmClient::new("https://eth.llamarpc.com").await?);
+app_context.set_extension(evm_client);
+
+// Tools retrieve clients from context's extensions
+#[tool]
+async fn get_balance(address: String) -> Result<Balance, ToolError> {
+    let app_context = ApplicationContext::from_env();
+    let client = app_context.get_extension::<Arc<RpcClient>>()?;
+    // Use client...
+}
+```
+
+**SignerContext Pattern** (Transactional operations):
+```rust
+// Create signer with network configuration
+let signer = Arc::new(LocalSolanaSigner::from_keypair(keypair, network_config));
+
+// Execute transactions within signer context
+SignerContext::with_signer(signer, async {
+    transfer_sol(recipient, amount).await
+}).await?;
+```
+
+## 📚 Documentation
+
+The RIGLR documentation is built with mdBook and includes:
+
+- **[Getting Started Guide](./docs/src/getting-started/quick-start.md)** - Quick introduction to RIGLR
+- **[Architecture Overview](./docs/src/concepts/architecture-overview.md)** - Comprehensive system design
+- **[Under the Hood](./docs/src/concepts/under-the-hood.md)** - From brain to blockchain flow
+- **[Dependency Graph](./docs/src/concepts/dependency-graph.md)** - Visual crate relationships
+- **[API Reference](./docs/src/api-reference)** - Complete API documentation
+- **[Tutorials](./docs/src/tutorials)** - Step-by-step guides for common use cases
+
+### Building the Documentation
+
+```bash
+# Install mdBook
+cargo install mdbook
+
+# Build the documentation
+cd docs
+mdbook build
+
+# Serve locally
+mdbook serve --open
+```
 
 ## 🔧 Quick Start with `create-riglr-app`
 
