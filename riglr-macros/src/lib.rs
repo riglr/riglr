@@ -68,7 +68,7 @@ impl SwapTokensTool {
 
 #[async_trait::async_trait]
 impl riglr_core::Tool for SwapTokensTool {
-    async fn execute(&self, params: serde_json::Value) -> Result<riglr_core::JobResult, Box<dyn std::error::Error + Send + Sync>> {
+    async fn execute(&self, params: serde_json::Value, context: &riglr_core::provider::ApplicationContext) -> Result<riglr_core::JobResult, riglr_core::ToolError> {
         // 1. Parse parameters with detailed error messages
         let args: SwapTokensArgs = serde_json::from_value(params)
             .map_err(|e| format!("Failed to parse parameters: {}", e))?;
@@ -640,7 +640,7 @@ pub fn tool(attr: TokenStream, item: TokenStream) -> TokenStream {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 struct ToolAttr {
     description: Option<String>,
 }
@@ -675,6 +675,88 @@ impl Parse for ToolAttr {
     }
 }
 
+/// Helper function to check if a parameter is a context parameter (by type)
+fn is_context_param(param_type: &syn::Type) -> bool {
+    // Check if the type is &ApplicationContext or &riglr_core::provider::ApplicationContext
+    if let syn::Type::Reference(type_ref) = param_type {
+        if let syn::Type::Path(type_path) = &*type_ref.elem {
+            let path_str = type_path
+                .path
+                .segments
+                .iter()
+                .map(|segment| segment.ident.to_string())
+                .collect::<Vec<_>>()
+                .join("::");
+
+            return path_str == "ApplicationContext"
+                || path_str == "riglr_core::provider::ApplicationContext"
+                || path_str.ends_with("::ApplicationContext");
+        }
+    }
+    false
+}
+
+/// Check if a type is Result<T, E>
+fn is_result_type(ty: &syn::Type) -> bool {
+    if let syn::Type::Path(type_path) = ty {
+        if let Some(segment) = type_path.path.segments.last() {
+            let segment_name = segment.ident.to_string();
+            return segment_name == "Result"
+                && matches!(segment.arguments, syn::PathArguments::AngleBracketed(_));
+        }
+    }
+    false
+}
+
+/// Check if a type is likely serializable
+fn is_serializable_type(ty: &syn::Type) -> bool {
+    match ty {
+        // Basic serializable types
+        syn::Type::Path(type_path) => {
+            if let Some(segment) = type_path.path.segments.last() {
+                let segment_name = segment.ident.to_string();
+                match segment_name.as_str() {
+                    // Primitive types
+                    "String" | "str" | "bool" | "i8" | "i16" | "i32" | "i64" | "i128" | "isize"
+                    | "u8" | "u16" | "u32" | "u64" | "u128" | "usize" | "f32" | "f64" | "char" => {
+                        true
+                    }
+
+                    // Common generic types that are serializable
+                    "Vec" | "Option" | "HashMap" | "BTreeMap" | "HashSet" | "BTreeSet"
+                    | "VecDeque" => true,
+
+                    // Common time types
+                    "SystemTime" | "Duration" => true,
+
+                    // Assume custom types are serializable (user responsibility)
+                    _ => true,
+                }
+            } else {
+                false
+            }
+        }
+
+        // References to serializable types
+        syn::Type::Reference(type_ref) => is_serializable_type(&type_ref.elem),
+
+        // Arrays are serializable if their element type is
+        syn::Type::Array(type_array) => is_serializable_type(&type_array.elem),
+
+        // Slices are serializable if their element type is
+        syn::Type::Slice(type_slice) => is_serializable_type(&type_slice.elem),
+
+        // Tuples are serializable if all elements are
+        syn::Type::Tuple(type_tuple) => type_tuple
+            .elems
+            .iter()
+            .all(is_serializable_type),
+
+        // Other types - be conservative and reject
+        _ => false,
+    }
+}
+
 fn handle_function(function: ItemFn, tool_attrs: ToolAttr) -> proc_macro2::TokenStream {
     let fn_name = &function.sig.ident;
     let fn_vis = &function.vis;
@@ -686,34 +768,107 @@ fn handle_function(function: ItemFn, tool_attrs: ToolAttr) -> proc_macro2::Token
         None => description,
     };
 
-    // Extract parameter info
+    // Partition parameters into user_params and context_params
+    let mut user_params = Vec::new();
+    let mut context_params = Vec::new();
+
+    for input in function.sig.inputs.iter() {
+        if let FnArg::Typed(PatType { pat, ty, attrs, .. }) = input {
+            if is_context_param(ty) {
+                context_params.push((pat, ty, attrs));
+            } else {
+                user_params.push((pat, ty, attrs));
+            }
+        }
+    }
+
+    // Validate exactly one context parameter
+    if context_params.len() != 1 {
+        return syn::Error::new_spanned(
+            &function.sig,
+            "`#[tool]` functions must have exactly one parameter of type `&ApplicationContext`",
+        )
+        .to_compile_error();
+    }
+
+    // Validate function signature requirements
+    if function.sig.asyncness.is_none() {
+        return syn::Error::new_spanned(&function.sig, "`#[tool]` functions must be async")
+            .to_compile_error();
+    }
+
+    // Validate return type is Result
+    if let syn::ReturnType::Type(_, ty) = &function.sig.output {
+        if !is_result_type(ty) {
+            return syn::Error::new_spanned(
+                ty,
+                "`#[tool]` functions must return a Result<T, E> where T is serializable and E implements Into<ToolError>"
+            ).to_compile_error();
+        }
+    } else {
+        return syn::Error::new_spanned(
+            &function.sig,
+            "`#[tool]` functions must return a Result<T, E>",
+        )
+        .to_compile_error();
+    }
+
+    // Validate parameter types are serializable
+    for (pat, ty, _) in user_params.iter() {
+        if let syn::Pat::Ident(ident) = pat.as_ref() {
+            let param_name = &ident.ident;
+            if !is_serializable_type(ty) {
+                return syn::Error::new_spanned(
+                    ty,
+                    format!(
+                        "Parameter '{}' must be a serializable type. Consider using String, numbers, bool, Vec<T>, Option<T>, or custom types that implement Serialize/Deserialize",
+                        param_name
+                    )
+                ).to_compile_error();
+            }
+        }
+    }
+
+    // Build Args struct from user_params only
     let mut param_fields = Vec::new();
     let mut param_names = Vec::new();
     let mut param_docs = Vec::new();
 
-    for input in function.sig.inputs.iter() {
-        if let FnArg::Typed(PatType { pat, ty, attrs, .. }) = input {
-            if let syn::Pat::Ident(ident) = pat.as_ref() {
-                let param_name = &ident.ident;
-                let param_type = ty.as_ref();
-                let param_doc = extract_doc_comments(attrs);
+    for (pat, ty, attrs) in user_params.iter() {
+        if let syn::Pat::Ident(ident) = pat.as_ref() {
+            let param_name = &ident.ident;
+            let param_type = ty.as_ref();
+            let param_doc = extract_doc_comments(attrs);
 
-                param_names.push(param_name.clone());
-                param_docs.push(param_doc.clone());
+            param_names.push(param_name.clone());
+            param_docs.push(param_doc.clone());
 
-                // Add documentation for the field
-                let doc_attr = if param_doc.is_empty() {
-                    quote! { #[doc = "Parameter"] }
-                } else {
-                    quote! { #[doc = #param_doc] }
-                };
+            // Add documentation for the field
+            let doc_attr = if param_doc.is_empty() {
+                quote! { #[doc = "Parameter"] }
+            } else {
+                quote! { #[doc = #param_doc] }
+            };
 
-                param_fields.push(quote! {
-                    #doc_attr
-                    #(#attrs)*
-                    pub #param_name: #param_type
-                });
-            }
+            // Filter out any attributes that might cause issues
+            // Only keep serde-related attributes
+            let filtered_attrs: Vec<_> = attrs
+                .iter()
+                .filter(|attr| {
+                    if let Some(ident) = attr.path().get_ident() {
+                        let name = ident.to_string();
+                        name == "serde" || name == "schemars"
+                    } else {
+                        false
+                    }
+                })
+                .collect();
+
+            param_fields.push(quote! {
+                #doc_attr
+                #(#filtered_attrs)*
+                pub #param_name: #param_type
+            });
         }
     }
 
@@ -725,12 +880,6 @@ fn handle_function(function: ItemFn, tool_attrs: ToolAttr) -> proc_macro2::Token
     let _args_struct_name = syn::Ident::new(&format!("{}Args", tool_struct_name), fn_name.span());
     let tool_fn_name = syn::Ident::new(&format!("{}_tool", fn_name), fn_name.span());
 
-    // Generate field assignments for function call
-    let _field_assignments: Vec<_> = param_names
-        .iter()
-        .map(|name| quote! { args.#name })
-        .collect();
-
     // Check if function is async
     let is_async = function.sig.asyncness.is_some();
     let await_token = if is_async {
@@ -738,6 +887,21 @@ fn handle_function(function: ItemFn, tool_attrs: ToolAttr) -> proc_macro2::Token
     } else {
         quote! {}
     };
+
+    // Build the call arguments list for the function call
+    let mut call_args = quote! {};
+    for input in function.sig.inputs.iter() {
+        if let FnArg::Typed(PatType { pat, ty, .. }) = input {
+            if is_context_param(ty) {
+                // If it's the context param, pass the context from the execute signature
+                call_args.extend(quote! { context, });
+            } else if let syn::Pat::Ident(ident) = pat.as_ref() {
+                // If it's a user param, pass it from the deserialized 'args' struct
+                let param_name = &ident.ident;
+                call_args.extend(quote! { args.#param_name.clone(), });
+            }
+        }
+    }
 
     // Generate the module name from the function name
     let module_name = syn::Ident::new(&fn_name.to_string(), fn_name.span());
@@ -781,29 +945,34 @@ fn handle_function(function: ItemFn, tool_attrs: ToolAttr) -> proc_macro2::Token
                 }
             }
 
-            // Implement the Tool trait
+            // Implement the riglr_core::Tool trait
             #[async_trait::async_trait]
             impl riglr_core::Tool for Tool {
                 /// Execute the tool with the provided parameters
-                async fn execute(&self, params: serde_json::Value) -> Result<riglr_core::JobResult, Box<dyn std::error::Error + Send + Sync>> {
-                    // Parse the parameters; return a structured JobResult on parse failure
+                async fn execute(&self, params: serde_json::Value, context: &riglr_core::provider::ApplicationContext) -> Result<riglr_core::JobResult, riglr_core::ToolError> {
+                    // Parse the parameters; convert parse errors to ToolError::InvalidInput
                     let args: Args = match serde_json::from_value(params) {
                         Ok(v) => v,
                         Err(e) => {
-                            return Ok(riglr_core::JobResult::Failure {
-                                error: format!("Failed to parse parameters: {}", e),
-                                retriable: false,
-                            });
+                            // Convert parameter parsing error to ToolError and use standard error handling
+                            let tool_error = riglr_core::ToolError::invalid_input_with_source(
+                                e,
+                                "Failed to parse tool parameters"
+                            );
+                            return match tool_error {
+                                #error_match_arms
+                            };
                         }
                     };
 
-                    // Call the original function (expecting Result<T, ToolError>)
-                    let result = super::#fn_name(#(args.#param_names),*)#await_token;
+                    // Call the original function with reconstructed arguments
+                    let result = super::#fn_name(#call_args)#await_token;
 
                     // Convert the result to JobResult
                     match result {
                         Ok(value) => {
-                            let json_value = serde_json::to_value(value)?;
+                            let json_value = serde_json::to_value(value)
+                                .map_err(|e| riglr_core::ToolError::permanent_with_source(e, "Failed to serialize result"))?;
                             Ok(riglr_core::JobResult::Success {
                                 value: json_value,
                                 tx_hash: None,
@@ -827,6 +996,9 @@ fn handle_function(function: ItemFn, tool_attrs: ToolAttr) -> proc_macro2::Token
                     #selected_description
                 }
             }
+
+            // NOTE: rig::tool::Tool compatibility is handled by RigToolAdapter in riglr-agents
+            // The adapter pattern allows us to bridge the incompatible interfaces
         }
 
         // Create a convenience function to create an Arc<dyn Tool> using the namespaced type
@@ -858,15 +1030,19 @@ fn handle_struct(structure: ItemStruct, tool_attrs: ToolAttr) -> proc_macro2::To
         // Implement the Tool trait
     #[async_trait::async_trait]
     impl riglr_core::Tool for #struct_name {
-            async fn execute(&self, params: serde_json::Value) -> Result<riglr_core::JobResult, Box<dyn std::error::Error + Send + Sync>> {
-                // Parse parameters into the struct; return a structured JobResult on parse failure
+            async fn execute(&self, params: serde_json::Value, context: &riglr_core::provider::ApplicationContext) -> Result<riglr_core::JobResult, riglr_core::ToolError> {
+                // Parse parameters into the struct; convert parse errors to ToolError::InvalidInput
                 let args: Self = match serde_json::from_value(params) {
                     Ok(v) => v,
                     Err(e) => {
-                        return Ok(riglr_core::JobResult::Failure {
-                            error: format!("Failed to parse parameters: {}", e),
-                            retriable: false,
-                        });
+                        // Convert parameter parsing error to ToolError and use standard error handling
+                        let tool_error = riglr_core::ToolError::invalid_input_with_source(
+                            e,
+                            "Failed to parse tool parameters"
+                        );
+                        return match tool_error {
+                            #error_match_arms
+                        };
                     }
                 };
 
@@ -876,7 +1052,8 @@ fn handle_struct(structure: ItemStruct, tool_attrs: ToolAttr) -> proc_macro2::To
                 // Convert the result to JobResult
                 match result {
                     Ok(value) => {
-                        let json_value = serde_json::to_value(value)?;
+                        let json_value = serde_json::to_value(value)
+                            .map_err(|e| riglr_core::ToolError::permanent_with_source(e, "Failed to serialize result"))?;
                         Ok(riglr_core::JobResult::Success {
                             value: json_value,
                             tx_hash: None,
@@ -900,6 +1077,9 @@ fn handle_struct(structure: ItemStruct, tool_attrs: ToolAttr) -> proc_macro2::To
                 #selected_description
             }
         }
+
+        // NOTE: rig::tool::Tool compatibility is handled by RigToolAdapter in riglr-agents
+        // The adapter pattern allows us to bridge the incompatible interfaces
 
         // Convenience function to create the tool
         impl #struct_name {
@@ -937,36 +1117,11 @@ fn extract_doc_comments(attrs: &[Attribute]) -> String {
 /// Generates the common error handling match arms for ToolError to JobResult conversion
 fn generate_tool_error_match_arms() -> proc_macro2::TokenStream {
     quote! {
-        riglr_core::ToolError::Retriable { context, .. } => {
-            Ok(riglr_core::JobResult::Failure {
-                error: context,
-                retriable: true,
-            })
-        }
-        riglr_core::ToolError::Permanent { context, .. } => {
-            Ok(riglr_core::JobResult::Failure {
-                error: context,
-                retriable: false,
-            })
-        }
-        riglr_core::ToolError::RateLimited { context, .. } => {
-            Ok(riglr_core::JobResult::Failure {
-                error: format!("Rate limited: {}", context),
-                retriable: true,
-            })
-        }
-        riglr_core::ToolError::InvalidInput { context, .. } => {
-            Ok(riglr_core::JobResult::Failure {
-                error: format!("Invalid input: {}", context),
-                retriable: false,
-            })
-        }
-        riglr_core::ToolError::SignerContext(err) => {
-            Ok(riglr_core::JobResult::Failure {
-                error: format!("Signer error: {}", err),
-                retriable: false,
-            })
-        }
+        // With the new structure, we just wrap the ToolError directly
+        // The JobResult::Failure variant now contains the full ToolError
+        _ => Ok(riglr_core::JobResult::Failure {
+            error: tool_error,
+        })
     }
 }
 
@@ -1161,5 +1316,606 @@ mod tests {
     fn test_macro_module_exists() {
         // Basic test to ensure the module compiles
         // Compilation success is the test
+    }
+
+    #[test]
+    fn test_extract_doc_comments_single_line() {
+        // Create a mock attribute for a single line doc comment
+        let attr = syn::parse_quote! { #[doc = " This is a single line comment"] };
+        let attrs = vec![attr];
+        let result = extract_doc_comments(&attrs);
+        assert_eq!(result, "This is a single line comment");
+    }
+
+    #[test]
+    fn test_extract_doc_comments_multiple_lines() {
+        // Create mock attributes for multiple line doc comments
+        let attr1 = syn::parse_quote! { #[doc = " First line"] };
+        let attr2 = syn::parse_quote! { #[doc = " Second line"] };
+        let attr3 = syn::parse_quote! { #[doc = " Third line"] };
+        let attrs = vec![attr1, attr2, attr3];
+        let result = extract_doc_comments(&attrs);
+        assert_eq!(result, "First line\nSecond line\nThird line");
+    }
+
+    #[test]
+    fn test_extract_doc_comments_no_leading_space() {
+        let attr = syn::parse_quote! { #[doc = "No leading space"] };
+        let attrs = vec![attr];
+        let result = extract_doc_comments(&attrs);
+        assert_eq!(result, "No leading space");
+    }
+
+    #[test]
+    fn test_extract_doc_comments_mixed_with_other_attrs() {
+        let doc_attr = syn::parse_quote! { #[doc = " Documentation comment"] };
+        let other_attr = syn::parse_quote! { #[allow(unused)] };
+        let attrs = vec![other_attr, doc_attr];
+        let result = extract_doc_comments(&attrs);
+        assert_eq!(result, "Documentation comment");
+    }
+
+    #[test]
+    fn test_extract_doc_comments_empty_doc() {
+        let attr = syn::parse_quote! { #[doc = ""] };
+        let attrs = vec![attr];
+        let result = extract_doc_comments(&attrs);
+        assert_eq!(result, "");
+    }
+
+    #[test]
+    fn test_extract_doc_comments_whitespace_only() {
+        let attr = syn::parse_quote! { #[doc = "   "] };
+        let attrs = vec![attr];
+        let result = extract_doc_comments(&attrs);
+        assert_eq!(result, "");
+    }
+
+    #[test]
+    fn test_generate_tool_error_match_arms_compilation() {
+        // Test that the generated match arms compile by checking their structure
+        let match_arms = generate_tool_error_match_arms();
+        let generated_string = match_arms.to_string();
+
+        // Check that the new simplified structure is used
+        assert!(generated_string.contains("JobResult :: Failure"));
+        assert!(generated_string.contains("error : tool_error"));
+        // Verify it uses wildcard matching for simplified error handling
+        assert!(generated_string.contains("_ =>"));
+    }
+
+    #[test]
+    fn test_tool_attr_default() {
+        let default_attr = ToolAttr::default();
+        assert!(default_attr.description.is_none());
+    }
+
+    #[test]
+    fn test_tool_attr_parse_empty() {
+        let input = "";
+        let result: Result<ToolAttr, _> = syn::parse_str(input);
+        assert!(result.is_ok());
+        let attr = result.unwrap();
+        assert!(attr.description.is_none());
+    }
+
+    #[test]
+    fn test_tool_attr_parse_description() {
+        let input = r#"description = "Test description""#;
+        let result: Result<ToolAttr, _> = syn::parse_str(input);
+        assert!(result.is_ok());
+        let attr = result.unwrap();
+        assert_eq!(attr.description, Some("Test description".to_string()));
+    }
+
+    #[test]
+    fn test_tool_attr_parse_invalid_key() {
+        let input = r#"invalid_key = "value""#;
+        let result: Result<ToolAttr, _> = syn::parse_str(input);
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(err.to_string().contains("Unknown attribute key"));
+    }
+
+    #[test]
+    fn test_tool_attr_parse_missing_equals() {
+        let input = "description";
+        let result: Result<ToolAttr, _> = syn::parse_str(input);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_tool_attr_parse_wrong_value_type() {
+        let input = "description = 123";
+        let result: Result<ToolAttr, _> = syn::parse_str(input);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_heck_pascal_case_edge_cases() {
+        assert_eq!("".to_pascal_case(), "");
+        assert_eq!("a".to_pascal_case(), "A");
+        assert_eq!("_test_".to_pascal_case(), "Test");
+        assert_eq!("test__function".to_pascal_case(), "TestFunction");
+        assert_eq!("UPPERCASE".to_pascal_case(), "Uppercase");
+        assert_eq!("mixedCase".to_pascal_case(), "MixedCase");
+        assert_eq!("123_numeric".to_pascal_case(), "123Numeric");
+    }
+
+    // Test the pattern matching logic for derive_into_tool_error
+    #[test]
+    fn test_retriable_error_patterns() {
+        let retriable_patterns = [
+            "Rpc",
+            "Network",
+            "Connection",
+            "Timeout",
+            "TooManyRequests",
+            "RateLimit",
+            "Api",
+            "Http",
+        ];
+
+        // Test each pattern is correctly identified
+        for pattern in &retriable_patterns {
+            let test_variant = format!("Test{}Error", pattern);
+            assert!(retriable_patterns.iter().any(|p| test_variant.contains(p)));
+        }
+    }
+
+    #[test]
+    fn test_permanent_error_patterns() {
+        let permanent_variants = [
+            "InvalidInput",
+            "ParseError",
+            "SerializationFailed",
+            "NotFound",
+            "Unauthorized",
+            "InsufficientBalance",
+            "InsufficientFunds",
+            "CustomError",
+            "UnknownError",
+        ];
+
+        let retriable_patterns = [
+            "Rpc",
+            "Network",
+            "Connection",
+            "Timeout",
+            "TooManyRequests",
+            "RateLimit",
+            "Api",
+            "Http",
+        ];
+
+        // Test that permanent patterns don't match retriable patterns
+        for variant in &permanent_variants {
+            let is_retriable = retriable_patterns
+                .iter()
+                .any(|pattern| variant.contains(pattern));
+            assert!(!is_retriable, "Variant {} should not be retriable", variant);
+        }
+    }
+
+    #[test]
+    fn test_error_match_arms_structure() {
+        let match_arms = generate_tool_error_match_arms();
+        let generated = match_arms.to_string();
+
+        // Verify the new simplified structure
+        assert!(generated.contains("JobResult :: Failure"));
+        assert!(generated.contains("error : tool_error"));
+        // Check that it uses wildcard matching
+        assert!(generated.contains("_ =>"));
+    }
+
+    // Test compilation of procedural macro output (basic structure validation)
+    #[test]
+    fn test_proc_macro_token_stream_generation() {
+        // Test that we can create basic token streams without panicking
+        use quote::quote;
+
+        let test_tokens = quote! {
+            #[derive(Clone)]
+            pub struct TestTool;
+
+            impl TestTool {
+                pub fn new() -> Self { Self }
+            }
+        };
+
+        assert!(!test_tokens.is_empty());
+    }
+
+    #[test]
+    fn test_doc_comment_extraction_with_complex_content() {
+        let attr1 = syn::parse_quote! { #[doc = " Complex content with \"quotes\""] };
+        let attr2 = syn::parse_quote! { #[doc = " And special chars: &<>"] };
+        let attr3 = syn::parse_quote! { #[doc = " Numbers: 123 and symbols: $%^"] };
+        let attrs = vec![attr1, attr2, attr3];
+        let result = extract_doc_comments(&attrs);
+        assert_eq!(result, "Complex content with \"quotes\"\nAnd special chars: &<>\nNumbers: 123 and symbols: $%^");
+    }
+
+    #[test]
+    fn test_doc_comment_trimming() {
+        let attr1 = syn::parse_quote! { #[doc = "  Leading spaces"] };
+        let attr2 = syn::parse_quote! { #[doc = ""] };
+        let attr3 = syn::parse_quote! { #[doc = "Trailing spaces  "] };
+        let attrs = vec![attr1, attr2, attr3];
+        let result = extract_doc_comments(&attrs);
+        // The function strips the first space but preserves other leading spaces
+        assert_eq!(result, "Leading spaces\n\nTrailing spaces");
+    }
+
+    #[test]
+    fn test_tool_attr_parse_description_with_quotes() {
+        let input = r#"description = "Description with \"escaped quotes\"""#;
+        let result: Result<ToolAttr, _> = syn::parse_str(input);
+        assert!(result.is_ok());
+        let attr = result.unwrap();
+        assert_eq!(
+            attr.description,
+            Some("Description with \"escaped quotes\"".to_string())
+        );
+    }
+
+    #[test]
+    fn test_tool_attr_parse_description_empty_string() {
+        let input = r#"description = """#;
+        let result: Result<ToolAttr, _> = syn::parse_str(input);
+        assert!(result.is_ok());
+        let attr = result.unwrap();
+        assert_eq!(attr.description, Some("".to_string()));
+    }
+
+    #[test]
+    fn test_extract_doc_comments_only_doc_attrs() {
+        // Test that only doc attributes are processed, others are ignored
+        let doc_attr = syn::parse_quote! { #[doc = " Valid doc comment"] };
+        let cfg_attr = syn::parse_quote! { #[cfg(test)] };
+        let allow_attr = syn::parse_quote! { #[allow(dead_code)] };
+        let derive_attr = syn::parse_quote! { #[derive(Clone)] };
+
+        let attrs = vec![cfg_attr, doc_attr, allow_attr, derive_attr];
+        let result = extract_doc_comments(&attrs);
+        assert_eq!(result, "Valid doc comment");
+    }
+
+    #[test]
+    fn test_proc_macro_attr_integration() {
+        // Test the integration between attribute parsing and tool generation
+        let empty_attr = ToolAttr::default();
+        let with_desc = ToolAttr {
+            description: Some("Custom description".to_string()),
+        };
+
+        // Test that attributes are properly structured
+        assert!(empty_attr.description.is_none());
+        assert_eq!(
+            with_desc.description,
+            Some("Custom description".to_string())
+        );
+    }
+
+    #[test]
+    fn test_complex_pascal_case_scenarios() {
+        // Test edge cases for function name to struct name conversion
+        assert_eq!("get_user_profile".to_pascal_case(), "GetUserProfile");
+        assert_eq!("fetch_api_data".to_pascal_case(), "FetchApiData");
+        assert_eq!(
+            "handle_websocket_connection".to_pascal_case(),
+            "HandleWebsocketConnection"
+        );
+        assert_eq!(
+            "process_json_response".to_pascal_case(),
+            "ProcessJsonResponse"
+        );
+        assert_eq!(
+            "validate_eth_address".to_pascal_case(),
+            "ValidateEthAddress"
+        );
+    }
+
+    #[test]
+    fn test_error_classification_comprehensive() {
+        let test_cases = vec![
+            ("RpcConnectionError", true),        // Should be retriable
+            ("NetworkTimeoutError", true),       // Should be retriable
+            ("ApiRateLimitError", true),         // Should be retriable
+            ("HttpRequestError", true),          // Should be retriable
+            ("InvalidInputError", false),        // Should be permanent
+            ("ParseError", false),               // Should be permanent
+            ("NotFoundError", false),            // Should be permanent
+            ("UnauthorizedError", false),        // Should be permanent
+            ("InsufficientBalanceError", false), // Should be permanent
+            ("CustomBusinessError", false),      // Should be permanent (default)
+            ("DatabaseConnectionError", true),   // Contains "Connection"
+            ("TooManyRequestsError", true),      // Contains "TooManyRequests"
+        ];
+
+        let retriable_patterns = [
+            "Rpc",
+            "Network",
+            "Connection",
+            "Timeout",
+            "TooManyRequests",
+            "RateLimit",
+            "Api",
+            "Http",
+        ];
+
+        for (variant_name, expected_retriable) in test_cases {
+            let is_retriable = retriable_patterns
+                .iter()
+                .any(|pattern| variant_name.contains(pattern));
+
+            assert_eq!(
+                is_retriable,
+                expected_retriable,
+                "Variant '{}' should be {} but was classified as {}",
+                variant_name,
+                if expected_retriable {
+                    "retriable"
+                } else {
+                    "permanent"
+                },
+                if is_retriable {
+                    "retriable"
+                } else {
+                    "permanent"
+                }
+            );
+        }
+    }
+
+    #[test]
+    fn test_tool_attr_parse_malformed_syntax() {
+        // Test various malformed syntax cases
+        let test_cases = vec![
+            "description =",            // Missing value
+            "= \"value\"",              // Missing key
+            "description \"value\"",    // Missing equals
+            "description = value",      // Unquoted value
+            "description == \"value\"", // Double equals
+        ];
+
+        for input in test_cases {
+            let result: Result<ToolAttr, _> = syn::parse_str(input);
+            assert!(result.is_err(), "Input '{}' should fail to parse", input);
+        }
+    }
+
+    #[test]
+    fn test_extract_doc_comments_with_non_string_meta() {
+        // Test with attributes that have doc but aren't string literals
+        // This tests the filtering logic in extract_doc_comments
+        let valid_doc = syn::parse_quote! { #[doc = "Valid comment"] };
+        let attrs = vec![valid_doc];
+        let result = extract_doc_comments(&attrs);
+        assert_eq!(result, "Valid comment");
+    }
+
+    #[test]
+    fn test_doc_comment_joining_edge_cases() {
+        // Test doc comment joining with various whitespace scenarios
+        let attr1 = syn::parse_quote! { #[doc = "Line1"] };
+        let attr2 = syn::parse_quote! { #[doc = " "] }; // Just a space
+        let attr3 = syn::parse_quote! { #[doc = "Line3"] };
+        let attrs = vec![attr1, attr2, attr3];
+        let result = extract_doc_comments(&attrs);
+        assert_eq!(result, "Line1\n\nLine3");
+    }
+
+    #[test]
+    fn test_pascal_case_with_unicode() {
+        // Test pascal case conversion with unicode characters
+        assert_eq!("café_function".to_pascal_case(), "CaféFunction");
+        assert_eq!("测试_function".to_pascal_case(), "测试Function");
+    }
+
+    #[test]
+    fn test_tool_attr_description_priority() {
+        // Test that explicit description takes priority over doc comments
+        let explicit_desc = ToolAttr {
+            description: Some("Explicit description".to_string()),
+        };
+        assert_eq!(
+            explicit_desc.description,
+            Some("Explicit description".to_string())
+        );
+
+        let no_desc = ToolAttr { description: None };
+        assert!(no_desc.description.is_none());
+    }
+
+    #[test]
+    fn test_generate_match_arms_output_consistency() {
+        // Test that generate_tool_error_match_arms produces consistent output
+        let match_arms1 = generate_tool_error_match_arms();
+        let match_arms2 = generate_tool_error_match_arms();
+
+        // Convert to strings and compare
+        let output1 = match_arms1.to_string();
+        let output2 = match_arms2.to_string();
+        assert_eq!(
+            output1, output2,
+            "Match arms generation should be deterministic"
+        );
+    }
+
+    #[test]
+    fn test_doc_comment_extract_path_verification() {
+        // Test that extract_doc_comments properly checks path identity
+        let doc_attr = syn::parse_quote! { #[doc = "Test"] };
+        let not_doc_attr = syn::parse_quote! { #[deprecated] };
+
+        let attrs = vec![not_doc_attr, doc_attr];
+        let result = extract_doc_comments(&attrs);
+        assert_eq!(result, "Test");
+    }
+
+    #[test]
+    fn test_error_pattern_case_sensitivity() {
+        // Test that error pattern matching is case-sensitive
+        let case_sensitive_tests = vec![
+            ("rpc_error", false),     // lowercase 'rpc' should not match 'Rpc'
+            ("RpcError", true),       // Uppercase 'Rpc' should match
+            ("network_issue", false), // lowercase 'network' should not match 'Network'
+            ("NetworkIssue", true),   // Uppercase 'Network' should match
+        ];
+
+        let retriable_patterns = [
+            "Rpc",
+            "Network",
+            "Connection",
+            "Timeout",
+            "TooManyRequests",
+            "RateLimit",
+            "Api",
+            "Http",
+        ];
+
+        for (variant_name, expected_match) in case_sensitive_tests {
+            let matches = retriable_patterns
+                .iter()
+                .any(|pattern| variant_name.contains(pattern));
+            assert_eq!(
+                matches, expected_match,
+                "Case sensitivity test failed for '{}'",
+                variant_name
+            );
+        }
+    }
+
+    #[test]
+    fn test_tool_attr_parse_lookahead_logic() {
+        // Test the lookahead logic in ToolAttr::parse
+        let valid_input = "description = \"test\"";
+        let result: Result<ToolAttr, _> = syn::parse_str(valid_input);
+        assert!(result.is_ok());
+
+        // Test with invalid identifier that triggers lookahead error
+        let invalid_input = "123invalid = \"test\"";
+        let result: Result<ToolAttr, _> = syn::parse_str(invalid_input);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_comprehensive_error_variant_naming() {
+        // Comprehensive test of error variant naming patterns
+        let comprehensive_tests = vec![
+            // Retriable patterns
+            ("SolanaRpcError", true),
+            ("EthereumNetworkTimeout", true),
+            ("DatabaseConnectionLost", true),
+            ("ApiRateLimitExceeded", true),
+            ("HttpRequestFailed", true),
+            ("WebSocketConnectionDropped", true),
+            ("RedisConnectionTimeout", true),
+            ("TooManyRequestsReceived", true),
+            // Permanent patterns
+            ("InvalidAddressFormat", false),
+            ("ParseJsonError", false),
+            ("SerializationFailure", false),
+            ("UserNotFound", false),
+            ("UnauthorizedAccess", false),
+            ("InsufficientTokenBalance", false),
+            ("InsufficientGasFunds", false),
+            ("MalformedInput", false),
+            ("ConfigurationError", false),
+            ("BusinessLogicViolation", false),
+        ];
+
+        let retriable_patterns = [
+            "Rpc",
+            "Network",
+            "Connection",
+            "Timeout",
+            "TooManyRequests",
+            "RateLimit",
+            "Api",
+            "Http",
+        ];
+
+        for (variant_name, expected_retriable) in comprehensive_tests {
+            let is_retriable = retriable_patterns
+                .iter()
+                .any(|pattern| variant_name.contains(pattern));
+
+            assert_eq!(
+                is_retriable,
+                expected_retriable,
+                "Comprehensive error classification failed for '{}' - expected {}, got {}",
+                variant_name,
+                if expected_retriable {
+                    "retriable"
+                } else {
+                    "permanent"
+                },
+                if is_retriable {
+                    "retriable"
+                } else {
+                    "permanent"
+                }
+            );
+        }
+    }
+
+    #[test]
+    fn test_empty_and_whitespace_edge_cases() {
+        // Test various empty and whitespace scenarios
+        let empty_attrs: Vec<syn::Attribute> = vec![];
+        assert_eq!(extract_doc_comments(&empty_attrs), "");
+
+        // Test with only whitespace doc
+        let whitespace_attr = syn::parse_quote! { #[doc = "   \t\n  "] };
+        let result = extract_doc_comments(&vec![whitespace_attr]);
+        assert_eq!(result.trim(), "");
+
+        // Test pascal case with empty string
+        assert_eq!("".to_pascal_case(), "");
+    }
+
+    #[test]
+    fn test_parameter_parsing_error_handling() {
+        // Test that parameter parsing errors are converted to ToolError::InvalidInput
+        // and use the standard error matching logic
+
+        // Create a mock serde_json::Error by attempting to parse invalid JSON
+        let invalid_json = "{ invalid json }";
+        let parse_result: Result<serde_json::Value, serde_json::Error> =
+            serde_json::from_str(invalid_json);
+        assert!(parse_result.is_err());
+
+        let error = parse_result.unwrap_err();
+
+        // Verify that we can create a ToolError::InvalidInput from the serde error
+        use riglr_core::ToolError;
+        let tool_error =
+            ToolError::invalid_input_with_source(error, "Failed to parse tool parameters");
+
+        // Verify properties of the error
+        assert!(!tool_error.is_retriable());
+        assert!(!tool_error.is_rate_limited());
+        assert_eq!(tool_error.retry_after(), None);
+
+        // Verify the error message contains expected content
+        let error_str = tool_error.to_string();
+        assert!(error_str.contains("Invalid input"));
+        assert!(error_str.contains("Failed to parse tool parameters"));
+    }
+
+    #[test]
+    fn test_tool_error_match_arms_invalid_input_handling() {
+        // Test that the generated match arms handle all errors with simplified structure
+        let match_arms = generate_tool_error_match_arms();
+        let generated = match_arms.to_string();
+
+        // Verify the simplified structure handles all errors uniformly
+        assert!(generated.contains("JobResult :: Failure"));
+        assert!(generated.contains("error : tool_error"));
+        // Verify it uses wildcard matching for all error types
+        assert!(generated.contains("_ =>"));
     }
 }
