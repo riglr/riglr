@@ -1,6 +1,6 @@
 [package]
 name = "riglr-web-adapters"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 license = "MIT"
 authors = ["riglr project contributors"]
@@ -14,6 +14,7 @@ workspace = true
 [dependencies]
 # Core dependencies
 riglr-core = { path = "../riglr-core" }
+riglr-config = { path = "../riglr-config" }
 riglr-solana-tools = { path = "../riglr-solana-tools" }
  rig-core = { workspace = true }
 tokio = { workspace = true }
