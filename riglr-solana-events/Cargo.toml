@@ -1,6 +1,6 @@
 [package]
 name = "riglr-solana-events"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["riglr project contributors"]
 edition = "2021"
 description = "Standalone, high-performance Solana event parsing library used by riglr and other projects."
@@ -44,10 +44,8 @@ dashmap = "6.1"
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }
 tokio-test = "0.4"
+tempfile = "3.0"
 
-[[bench]]
-name = "parsing_benchmarks"
-harness = false
 
 [features]
 default = []

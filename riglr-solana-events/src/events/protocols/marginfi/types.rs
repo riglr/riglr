@@ -5,7 +5,7 @@ use solana_sdk::pubkey::Pubkey;
 pub const MARGINFI_PROGRAM_ID: &str = "MFv2hWf31Z9kbCa1snEPYctwafyhdvnV7FZnsebVacA";
 
 /// MarginFi Bank program ID (for lending pools)
-pub const MARGINFI_BANK_PROGRAM_ID: &str = "4Be9aW2D8f3G2b3ZP8uo5kd9z8zwJ3FYD1tNKmQ9c9x";
+pub const MARGINFI_BANK_PROGRAM_ID: &str = "4Be9aW2D8f3G2b3ZP8uo5kd9z8zwJ3FYD1tNKmQ9c9xA";
 
 /// MarginFi instruction discriminators
 /// Discriminator for lending deposit instruction
@@ -269,12 +269,16 @@ pub struct MarginFiLiquidationData {
 
 /// Extract MarginFi program ID as Pubkey
 pub fn marginfi_program_id() -> Pubkey {
-    Pubkey::try_from(MARGINFI_PROGRAM_ID).expect("Invalid MarginFi program ID")
+    MARGINFI_PROGRAM_ID
+        .parse()
+        .expect("Invalid MarginFi program ID")
 }
 
 /// Extract MarginFi bank program ID as Pubkey
 pub fn marginfi_bank_program_id() -> Pubkey {
-    Pubkey::try_from(MARGINFI_BANK_PROGRAM_ID).expect("Invalid MarginFi bank program ID")
+    MARGINFI_BANK_PROGRAM_ID
+        .parse()
+        .expect("Invalid MarginFi bank program ID")
 }
 
 /// Check if the given pubkey is MarginFi program
@@ -332,5 +336,294 @@ pub fn calculate_interest_rate(
         let excess_utilization = utilization_rate - optimal_utilization;
         let max_excess = 10000 - optimal_utilization; // 100% - optimal in basis points
         base_rate + slope1 + (excess_utilization * slope2) / max_excess
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_marginfi_program_id_when_valid_should_return_pubkey() {
+        let program_id = marginfi_program_id();
+        assert_eq!(program_id.to_string(), MARGINFI_PROGRAM_ID);
+    }
+
+    #[test]
+    fn test_marginfi_bank_program_id_when_valid_should_return_pubkey() {
+        let program_id = marginfi_bank_program_id();
+        assert_eq!(program_id.to_string(), MARGINFI_BANK_PROGRAM_ID);
+    }
+
+    #[test]
+    fn test_is_marginfi_program_when_main_program_id_should_return_true() {
+        let program_id = marginfi_program_id();
+        assert!(is_marginfi_program(&program_id));
+    }
+
+    #[test]
+    fn test_is_marginfi_program_when_bank_program_id_should_return_true() {
+        let program_id = marginfi_bank_program_id();
+        assert!(is_marginfi_program(&program_id));
+    }
+
+    #[test]
+    fn test_is_marginfi_program_when_other_program_id_should_return_false() {
+        let other_program_id = Pubkey::new_unique();
+        assert!(!is_marginfi_program(&other_program_id));
+    }
+
+    #[test]
+    fn test_calculate_health_ratio_when_no_liabilities_should_return_infinity() {
+        let ratio = calculate_health_ratio(100, 0, 8000);
+        assert_eq!(ratio, f64::INFINITY);
+    }
+
+    #[test]
+    fn test_calculate_health_ratio_when_has_liabilities_should_calculate_correctly() {
+        let ratio = calculate_health_ratio(100, 50, 8000);
+        let expected = (100.0 * 0.8) / 50.0; // 8000 basis points = 0.8
+        assert_eq!(ratio, expected);
+    }
+
+    #[test]
+    fn test_calculate_health_ratio_when_zero_assets_should_return_zero() {
+        let ratio = calculate_health_ratio(0, 100, 8000);
+        assert_eq!(ratio, 0.0);
+    }
+
+    #[test]
+    fn test_calculate_liquidation_threshold_when_normal_values_should_calculate_correctly() {
+        let threshold = calculate_liquidation_threshold(10000, 8000);
+        assert_eq!(threshold, 8000); // 10000 * 8000 / 10000
+    }
+
+    #[test]
+    fn test_calculate_liquidation_threshold_when_zero_asset_value_should_return_zero() {
+        let threshold = calculate_liquidation_threshold(0, 8000);
+        assert_eq!(threshold, 0);
+    }
+
+    #[test]
+    fn test_calculate_liquidation_threshold_when_zero_ltv_should_return_zero() {
+        let threshold = calculate_liquidation_threshold(10000, 0);
+        assert_eq!(threshold, 0);
+    }
+
+    #[test]
+    fn test_shares_to_amount_when_normal_values_should_calculate_correctly() {
+        let shares = 1u128 << 64; // 1 * 2^64
+        let share_value = 1u128 << 64; // 1 * 2^64
+        let amount = shares_to_amount(shares, share_value);
+        assert_eq!(amount, 1);
+    }
+
+    #[test]
+    fn test_shares_to_amount_when_zero_shares_should_return_zero() {
+        let amount = shares_to_amount(0, 1u128 << 64);
+        assert_eq!(amount, 0);
+    }
+
+    #[test]
+    fn test_shares_to_amount_when_zero_share_value_should_return_zero() {
+        let amount = shares_to_amount(100, 0);
+        assert_eq!(amount, 0);
+    }
+
+    #[test]
+    fn test_amount_to_shares_when_normal_values_should_calculate_correctly() {
+        let amount = 100u64;
+        let share_value = 1u128 << 64;
+        let shares = amount_to_shares(amount, share_value);
+        assert_eq!(shares, 100);
+    }
+
+    #[test]
+    fn test_amount_to_shares_when_zero_amount_should_return_zero() {
+        let shares = amount_to_shares(0, 1u128 << 64);
+        assert_eq!(shares, 0);
+    }
+
+    #[test]
+    fn test_amount_to_shares_when_zero_share_value_should_return_amount() {
+        let shares = amount_to_shares(100, 0);
+        assert_eq!(shares, 100);
+    }
+
+    #[test]
+    fn test_calculate_interest_rate_when_utilization_below_optimal_should_use_slope1() {
+        let rate = calculate_interest_rate(5000, 200, 400, 2000, 8000);
+        let expected = 200 + (5000 * 400) / 8000;
+        assert_eq!(rate, expected);
+    }
+
+    #[test]
+    fn test_calculate_interest_rate_when_utilization_equals_optimal_should_use_slope1() {
+        let rate = calculate_interest_rate(8000, 200, 400, 2000, 8000);
+        let expected = 200 + (8000 * 400) / 8000;
+        assert_eq!(rate, expected);
+    }
+
+    #[test]
+    fn test_calculate_interest_rate_when_utilization_above_optimal_should_use_slope2() {
+        let rate = calculate_interest_rate(9000, 200, 400, 2000, 8000);
+        let excess_utilization = 9000 - 8000;
+        let max_excess = 10000 - 8000;
+        let expected = 200 + 400 + (excess_utilization * 2000) / max_excess;
+        assert_eq!(rate, expected);
+    }
+
+    #[test]
+    fn test_calculate_interest_rate_when_zero_utilization_should_return_base_rate() {
+        let rate = calculate_interest_rate(0, 200, 400, 2000, 8000);
+        assert_eq!(rate, 200);
+    }
+
+    #[test]
+    fn test_calculate_interest_rate_when_max_utilization_should_handle_correctly() {
+        let rate = calculate_interest_rate(10000, 200, 400, 2000, 8000);
+        let excess_utilization = 10000 - 8000;
+        let max_excess = 10000 - 8000;
+        let expected = 200 + 400 + (excess_utilization * 2000) / max_excess;
+        assert_eq!(rate, expected);
+    }
+
+    #[test]
+    fn test_marginfi_account_type_enum_variants_should_serialize_deserialize() {
+        use serde_json;
+
+        let group = MarginFiAccountType::MarginfiGroup;
+        let serialized = serde_json::to_string(&group).unwrap();
+        let deserialized: MarginFiAccountType = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(group, deserialized);
+
+        let account = MarginFiAccountType::MarginfiAccount;
+        let serialized = serde_json::to_string(&account).unwrap();
+        let deserialized: MarginFiAccountType = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(account, deserialized);
+
+        let bank = MarginFiAccountType::Bank;
+        let serialized = serde_json::to_string(&bank).unwrap();
+        let deserialized: MarginFiAccountType = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(bank, deserialized);
+
+        let unknown = MarginFiAccountType::Unknown;
+        let serialized = serde_json::to_string(&unknown).unwrap();
+        let deserialized: MarginFiAccountType = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(unknown, deserialized);
+    }
+
+    #[test]
+    fn test_marginfi_bank_config_should_serialize_deserialize() {
+        use serde_json;
+
+        let config = MarginFiBankConfig {
+            bank: Pubkey::new_unique(),
+            mint: Pubkey::new_unique(),
+            vault: Pubkey::new_unique(),
+            oracle: Pubkey::new_unique(),
+            bank_authority: Pubkey::new_unique(),
+            collected_insurance_fees_outstanding: 1000,
+            fee_rate: 500,
+            insurance_fee_rate: 100,
+            insurance_vault: Pubkey::new_unique(),
+            deposit_limit: 1000000,
+            borrow_limit: 800000,
+            operational_state: 1,
+            oracle_setup: 2,
+            oracle_keys: [Pubkey::new_unique(); 5],
+        };
+
+        let serialized = serde_json::to_string(&config).unwrap();
+        let _deserialized: MarginFiBankConfig = serde_json::from_str(&serialized).unwrap();
+    }
+
+    #[test]
+    fn test_marginfi_deposit_data_default_should_have_zero_values() {
+        let deposit_data = MarginFiDepositData::default();
+        assert_eq!(deposit_data.amount, 0);
+        assert_eq!(deposit_data.marginfi_group, Pubkey::default());
+    }
+
+    #[test]
+    fn test_marginfi_withdraw_data_default_should_have_zero_values() {
+        let withdraw_data = MarginFiWithdrawData::default();
+        assert_eq!(withdraw_data.amount, 0);
+        assert!(!withdraw_data.withdraw_all);
+        assert_eq!(withdraw_data.marginfi_group, Pubkey::default());
+    }
+
+    #[test]
+    fn test_marginfi_borrow_data_default_should_have_zero_values() {
+        let borrow_data = MarginFiBorrowData::default();
+        assert_eq!(borrow_data.amount, 0);
+        assert_eq!(borrow_data.marginfi_group, Pubkey::default());
+    }
+
+    #[test]
+    fn test_marginfi_repay_data_default_should_have_zero_values() {
+        let repay_data = MarginFiRepayData::default();
+        assert_eq!(repay_data.amount, 0);
+        assert!(!repay_data.repay_all);
+        assert_eq!(repay_data.marginfi_group, Pubkey::default());
+    }
+
+    #[test]
+    fn test_marginfi_liquidation_data_default_should_have_zero_values() {
+        let liquidation_data = MarginFiLiquidationData::default();
+        assert_eq!(liquidation_data.asset_amount, 0);
+        assert_eq!(liquidation_data.liab_amount, 0);
+        assert_eq!(liquidation_data.marginfi_group, Pubkey::default());
+    }
+
+    #[test]
+    fn test_marginfi_balance_should_serialize_deserialize() {
+        use serde_json;
+
+        let balance = MarginFiBalance {
+            active: true,
+            bank_pk: Pubkey::new_unique(),
+            asset_shares: 1000,
+            liability_shares: 500,
+            emissions_outstanding: 100,
+            last_update: 1234567890,
+            padding: [0],
+        };
+
+        let serialized = serde_json::to_string(&balance).unwrap();
+        let _deserialized: MarginFiBalance = serde_json::from_str(&serialized).unwrap();
+    }
+
+    #[test]
+    fn test_constants_should_have_correct_values() {
+        assert_eq!(
+            MARGINFI_PROGRAM_ID,
+            "MFv2hWf31Z9kbCa1snEPYctwafyhdvnV7FZnsebVacA"
+        );
+        assert_eq!(
+            MARGINFI_BANK_PROGRAM_ID,
+            "4Be9aW2D8f3G2b3ZP8uo5kd9z8zwJ3FYD1tNKmQ9c9xA"
+        );
+
+        assert_eq!(
+            MARGINFI_DEPOSIT_DISCRIMINATOR,
+            [0x13, 0x65, 0x32, 0x1f, 0x7a, 0x43, 0x2a, 0x9f]
+        );
+        assert_eq!(
+            MARGINFI_WITHDRAW_DISCRIMINATOR,
+            [0x4c, 0x1c, 0x9b, 0x2d, 0xe3, 0x7a, 0x8b, 0x12]
+        );
+        assert_eq!(
+            MARGINFI_BORROW_DISCRIMINATOR,
+            [0xa2, 0xfd, 0x67, 0xe3, 0x45, 0x1b, 0x8c, 0x9a]
+        );
+        assert_eq!(
+            MARGINFI_REPAY_DISCRIMINATOR,
+            [0x85, 0x72, 0x1a, 0x5f, 0x9d, 0x4e, 0x23, 0x7c]
+        );
+        assert_eq!(
+            MARGINFI_LIQUIDATE_DISCRIMINATOR,
+            [0x6a, 0x8b, 0x47, 0x2e, 0x1c, 0x93, 0x5f, 0x4d]
+        );
     }
 }

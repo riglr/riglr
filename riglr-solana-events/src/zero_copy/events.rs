@@ -4,7 +4,9 @@
 //! where possible, providing significant performance improvements for high-throughput
 //! parsing scenarios.
 
-use crate::metadata_helpers::{get_event_type, get_instruction_index, get_protocol_type, get_signature, get_slot};
+use crate::metadata_helpers::{
+    get_event_type, get_instruction_index, get_protocol_type, get_signature, get_slot,
+};
 use crate::types::{EventMetadata, EventType, ProtocolType};
 use solana_sdk::pubkey::Pubkey;
 use std::borrow::Cow;
@@ -42,6 +44,20 @@ impl<'a> ZeroCopyEvent<'a> {
             raw_data: Cow::Owned(raw_data),
             parsed_data: None,
             json_data: None,
+        }
+    }
+
+    /// Create a new zero-copy event with owned data and JSON
+    pub fn new_owned_with_json(
+        metadata: EventMetadata,
+        raw_data: Vec<u8>,
+        json_data: serde_json::Value,
+    ) -> Self {
+        Self {
+            metadata,
+            raw_data: Cow::Owned(raw_data),
+            parsed_data: None,
+            json_data: Some(json_data),
         }
     }
 
@@ -110,7 +126,9 @@ impl<'a> ZeroCopyEvent<'a> {
 
     /// Get index for any lifetime
     pub fn index(&self) -> String {
-        get_instruction_index(&self.metadata.core).map(|i| i.to_string()).unwrap_or_default()
+        get_instruction_index(&self.metadata.core)
+            .map(|i| i.to_string())
+            .unwrap_or_default()
     }
 
     /// Get timestamp for any lifetime
@@ -282,5 +300,441 @@ impl<'a> ZeroCopyLiquidityEvent<'a> {
 
     fn parse_token_b_amount(&self) -> Option<u64> {
         None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::types::{EventType, ProtocolType};
+    use serde_json::json;
+
+    fn create_test_solana_metadata() -> crate::types::EventMetadata {
+        use crate::solana_metadata::create_metadata;
+        create_metadata(
+            "test_id".to_string(),
+            "test_signature".to_string(),
+            12345,
+            Some(1234567890),
+            0,
+            "0".to_string(),
+            EventType::Swap,
+            ProtocolType::OrcaWhirlpool,
+        )
+    }
+
+    #[test]
+    fn test_zerocopy_event_new_borrowed_should_create_with_borrowed_data() {
+        let metadata = create_test_solana_metadata();
+        let raw_data = b"test_data";
+
+        let event = ZeroCopyEvent::new_borrowed(metadata.clone(), raw_data);
+
+        assert_eq!(event.metadata.signature, "test_signature");
+        assert_eq!(event.raw_data(), raw_data);
+        assert!(event.parsed_data.is_none());
+        assert!(event.json_data.is_none());
+        // Verify it's borrowed
+        matches!(event.raw_data, Cow::Borrowed(_));
+    }
+
+    #[test]
+    fn test_zerocopy_event_new_owned_should_create_with_owned_data() {
+        let metadata = create_test_solana_metadata();
+        let raw_data = vec![1, 2, 3, 4, 5];
+
+        let event = ZeroCopyEvent::new_owned(metadata.clone(), raw_data.clone());
+
+        assert_eq!(event.metadata.signature, "test_signature");
+        assert_eq!(event.raw_data(), &raw_data);
+        assert!(event.parsed_data.is_none());
+        assert!(event.json_data.is_none());
+        // Verify it's owned
+        matches!(event.raw_data, Cow::Owned(_));
+    }
+
+    #[test]
+    fn test_zerocopy_event_raw_data_should_return_slice() {
+        let metadata = create_test_solana_metadata();
+        let raw_data = vec![10, 20, 30];
+
+        let event = ZeroCopyEvent::new_owned(metadata, raw_data.clone());
+
+        assert_eq!(event.raw_data(), &raw_data);
+    }
+
+    #[test]
+    fn test_zerocopy_event_set_and_get_parsed_data_should_work_with_valid_type() {
+        let metadata = create_test_solana_metadata();
+        let mut event = ZeroCopyEvent::new_owned(metadata, vec![]);
+
+        let test_data = "test_parsed_data".to_string();
+        event.set_parsed_data(test_data.clone());
+
+        let retrieved = event.get_parsed_data::<String>();
+        assert!(retrieved.is_some());
+        assert_eq!(retrieved.unwrap(), &test_data);
+    }
+
+    #[test]
+    fn test_zerocopy_event_get_parsed_data_should_return_none_for_wrong_type() {
+        let metadata = create_test_solana_metadata();
+        let mut event = ZeroCopyEvent::new_owned(metadata, vec![]);
+
+        event.set_parsed_data("string_data".to_string());
+
+        let retrieved = event.get_parsed_data::<u64>();
+        assert!(retrieved.is_none());
+    }
+
+    #[test]
+    fn test_zerocopy_event_get_parsed_data_should_return_none_when_no_data() {
+        let metadata = create_test_solana_metadata();
+        let event = ZeroCopyEvent::new_owned(metadata, vec![]);
+
+        let retrieved = event.get_parsed_data::<String>();
+        assert!(retrieved.is_none());
+    }
+
+    #[test]
+    fn test_zerocopy_event_set_and_get_json_data_should_work() {
+        let metadata = create_test_solana_metadata();
+        let mut event = ZeroCopyEvent::new_owned(metadata, vec![]);
+
+        let json_value = json!({"key": "value", "number": 42});
+        event.set_json_data(json_value.clone());
+
+        let retrieved = event.get_json_data();
+        assert!(retrieved.is_some());
+        assert_eq!(retrieved.unwrap(), &json_value);
+    }
+
+    #[test]
+    fn test_zerocopy_event_get_json_data_should_return_none_when_no_data() {
+        let metadata = create_test_solana_metadata();
+        let event = ZeroCopyEvent::new_owned(metadata, vec![]);
+
+        let retrieved = event.get_json_data();
+        assert!(retrieved.is_none());
+    }
+
+    #[test]
+    fn test_zerocopy_event_to_owned_should_clone_all_data() {
+        let metadata = create_test_solana_metadata();
+        let raw_data = b"borrowed_data";
+        let mut event = ZeroCopyEvent::new_borrowed(metadata.clone(), raw_data);
+
+        let json_value = json!({"test": true});
+        event.set_json_data(json_value.clone());
+        event.set_parsed_data(42u64);
+
+        let owned_event = event.to_owned();
+
+        assert_eq!(owned_event.metadata.signature, metadata.signature);
+        assert_eq!(owned_event.raw_data(), raw_data);
+        assert_eq!(owned_event.get_json_data(), Some(&json_value));
+        assert_eq!(owned_event.get_parsed_data::<u64>(), Some(&42));
+        // Verify it's owned
+        matches!(owned_event.raw_data, Cow::Owned(_));
+    }
+
+    #[test]
+    fn test_zerocopy_event_id_should_return_metadata_id() {
+        let metadata = create_test_solana_metadata();
+        let event = ZeroCopyEvent::new_owned(metadata, vec![]);
+
+        assert_eq!(event.id(), "test_id");
+    }
+
+    #[test]
+    fn test_zerocopy_event_event_type_should_return_type() {
+        let metadata = create_test_solana_metadata();
+        let event = ZeroCopyEvent::new_owned(metadata, vec![]);
+
+        let event_type = event.event_type();
+        assert_eq!(event_type, EventType::Swap);
+    }
+
+    #[test]
+    fn test_zerocopy_event_signature_should_return_signature() {
+        let metadata = create_test_solana_metadata();
+        let event = ZeroCopyEvent::new_owned(metadata, vec![]);
+
+        assert_eq!(event.signature(), "test_signature");
+    }
+
+    #[test]
+    fn test_zerocopy_event_slot_should_return_slot() {
+        let metadata = create_test_solana_metadata();
+        let event = ZeroCopyEvent::new_owned(metadata, vec![]);
+
+        assert_eq!(event.slot(), 12345);
+    }
+
+    #[test]
+    fn test_zerocopy_event_protocol_type_should_return_protocol() {
+        let metadata = create_test_solana_metadata();
+        let event = ZeroCopyEvent::new_owned(metadata, vec![]);
+
+        assert_eq!(event.protocol_type(), ProtocolType::OrcaWhirlpool);
+    }
+
+    #[test]
+    fn test_zerocopy_event_index_should_return_index_as_string() {
+        let metadata = create_test_solana_metadata();
+        let event = ZeroCopyEvent::new_owned(metadata, vec![]);
+
+        assert_eq!(event.index(), "0");
+    }
+
+    #[test]
+    fn test_zerocopy_event_timestamp_should_return_system_time() {
+        let metadata = create_test_solana_metadata();
+        let event = ZeroCopyEvent::new_owned(metadata, vec![]);
+
+        let timestamp = event.timestamp();
+        // Just verify it's a SystemTime and doesn't panic
+        assert!(timestamp.duration_since(std::time::UNIX_EPOCH).is_ok());
+    }
+
+    #[test]
+    fn test_zerocopy_event_block_number_should_return_slot() {
+        let metadata = create_test_solana_metadata();
+        let event = ZeroCopyEvent::new_owned(metadata, vec![]);
+
+        assert_eq!(event.block_number(), Some(12345));
+    }
+
+    #[test]
+    fn test_zerocopy_swap_event_new_should_create_with_none_values() {
+        let metadata = create_test_solana_metadata();
+        let base = ZeroCopyEvent::new_owned(metadata, vec![]);
+
+        let swap_event = ZeroCopySwapEvent::new(base);
+
+        assert!(swap_event.input_mint.is_none());
+        assert!(swap_event.output_mint.is_none());
+        assert!(swap_event.amount_in.is_none());
+        assert!(swap_event.amount_out.is_none());
+    }
+
+    #[test]
+    fn test_zerocopy_swap_event_input_mint_should_call_parse_and_cache() {
+        let metadata = create_test_solana_metadata();
+        let base = ZeroCopyEvent::new_owned(metadata, vec![]);
+        let mut swap_event = ZeroCopySwapEvent::new(base);
+
+        // First call should parse (returns None due to stub implementation)
+        let result1 = swap_event.input_mint();
+        assert!(result1.is_none());
+
+        // Second call should use cached value
+        let result2 = swap_event.input_mint();
+        assert!(result2.is_none());
+        assert_eq!(result1, result2);
+    }
+
+    #[test]
+    fn test_zerocopy_swap_event_output_mint_should_call_parse_and_cache() {
+        let metadata = create_test_solana_metadata();
+        let base = ZeroCopyEvent::new_owned(metadata, vec![]);
+        let mut swap_event = ZeroCopySwapEvent::new(base);
+
+        let result1 = swap_event.output_mint();
+        assert!(result1.is_none());
+
+        let result2 = swap_event.output_mint();
+        assert!(result2.is_none());
+        assert_eq!(result1, result2);
+    }
+
+    #[test]
+    fn test_zerocopy_swap_event_amount_in_should_call_parse_and_cache() {
+        let metadata = create_test_solana_metadata();
+        let base = ZeroCopyEvent::new_owned(metadata, vec![]);
+        let mut swap_event = ZeroCopySwapEvent::new(base);
+
+        let result1 = swap_event.amount_in();
+        assert!(result1.is_none());
+
+        let result2 = swap_event.amount_in();
+        assert!(result2.is_none());
+        assert_eq!(result1, result2);
+    }
+
+    #[test]
+    fn test_zerocopy_swap_event_amount_out_should_call_parse_and_cache() {
+        let metadata = create_test_solana_metadata();
+        let base = ZeroCopyEvent::new_owned(metadata, vec![]);
+        let mut swap_event = ZeroCopySwapEvent::new(base);
+
+        let result1 = swap_event.amount_out();
+        assert!(result1.is_none());
+
+        let result2 = swap_event.amount_out();
+        assert!(result2.is_none());
+        assert_eq!(result1, result2);
+    }
+
+    #[test]
+    fn test_zerocopy_swap_event_parse_methods_should_return_none() {
+        let metadata = create_test_solana_metadata();
+        let base = ZeroCopyEvent::new_owned(metadata, vec![]);
+        let swap_event = ZeroCopySwapEvent::new(base);
+
+        // Test all private parse methods through reflection of their behavior
+        assert!(swap_event.parse_input_mint().is_none());
+        assert!(swap_event.parse_output_mint().is_none());
+        assert!(swap_event.parse_amount_in().is_none());
+        assert!(swap_event.parse_amount_out().is_none());
+    }
+
+    #[test]
+    fn test_zerocopy_liquidity_event_new_should_create_with_none_values() {
+        let metadata = create_test_solana_metadata();
+        let base = ZeroCopyEvent::new_owned(metadata, vec![]);
+
+        let liquidity_event = ZeroCopyLiquidityEvent::new(base);
+
+        assert!(liquidity_event.pool_address.is_none());
+        assert!(liquidity_event.lp_amount.is_none());
+        assert!(liquidity_event.token_a_amount.is_none());
+        assert!(liquidity_event.token_b_amount.is_none());
+    }
+
+    #[test]
+    fn test_zerocopy_liquidity_event_pool_address_should_call_parse_and_cache() {
+        let metadata = create_test_solana_metadata();
+        let base = ZeroCopyEvent::new_owned(metadata, vec![]);
+        let mut liquidity_event = ZeroCopyLiquidityEvent::new(base);
+
+        let result1 = liquidity_event.pool_address();
+        assert!(result1.is_none());
+
+        let result2 = liquidity_event.pool_address();
+        assert!(result2.is_none());
+        assert_eq!(result1, result2);
+    }
+
+    #[test]
+    fn test_zerocopy_liquidity_event_lp_amount_should_call_parse_and_cache() {
+        let metadata = create_test_solana_metadata();
+        let base = ZeroCopyEvent::new_owned(metadata, vec![]);
+        let mut liquidity_event = ZeroCopyLiquidityEvent::new(base);
+
+        let result1 = liquidity_event.lp_amount();
+        assert!(result1.is_none());
+
+        let result2 = liquidity_event.lp_amount();
+        assert!(result2.is_none());
+        assert_eq!(result1, result2);
+    }
+
+    #[test]
+    fn test_zerocopy_liquidity_event_token_a_amount_should_call_parse_and_cache() {
+        let metadata = create_test_solana_metadata();
+        let base = ZeroCopyEvent::new_owned(metadata, vec![]);
+        let mut liquidity_event = ZeroCopyLiquidityEvent::new(base);
+
+        let result1 = liquidity_event.token_a_amount();
+        assert!(result1.is_none());
+
+        let result2 = liquidity_event.token_a_amount();
+        assert!(result2.is_none());
+        assert_eq!(result1, result2);
+    }
+
+    #[test]
+    fn test_zerocopy_liquidity_event_token_b_amount_should_call_parse_and_cache() {
+        let metadata = create_test_solana_metadata();
+        let base = ZeroCopyEvent::new_owned(metadata, vec![]);
+        let mut liquidity_event = ZeroCopyLiquidityEvent::new(base);
+
+        let result1 = liquidity_event.token_b_amount();
+        assert!(result1.is_none());
+
+        let result2 = liquidity_event.token_b_amount();
+        assert!(result2.is_none());
+        assert_eq!(result1, result2);
+    }
+
+    #[test]
+    fn test_zerocopy_liquidity_event_parse_methods_should_return_none() {
+        let metadata = create_test_solana_metadata();
+        let base = ZeroCopyEvent::new_owned(metadata, vec![]);
+        let liquidity_event = ZeroCopyLiquidityEvent::new(base);
+
+        // Test all private parse methods through reflection of their behavior
+        assert!(liquidity_event.parse_pool_address().is_none());
+        assert!(liquidity_event.parse_lp_amount().is_none());
+        assert!(liquidity_event.parse_token_a_amount().is_none());
+        assert!(liquidity_event.parse_token_b_amount().is_none());
+    }
+
+    #[test]
+    fn test_zerocopy_event_with_empty_raw_data() {
+        let metadata = create_test_solana_metadata();
+        let event = ZeroCopyEvent::new_owned(metadata, vec![]);
+
+        assert_eq!(event.raw_data(), &[] as &[u8]);
+    }
+
+    #[test]
+    fn test_zerocopy_event_with_large_raw_data() {
+        let metadata = create_test_solana_metadata();
+        let large_data = vec![42u8; 10000];
+        let event = ZeroCopyEvent::new_owned(metadata, large_data.clone());
+
+        assert_eq!(event.raw_data(), &large_data);
+        assert_eq!(event.raw_data().len(), 10000);
+    }
+
+    #[test]
+    fn test_zerocopy_event_clone_should_work() {
+        let metadata = create_test_solana_metadata();
+        let raw_data = vec![1, 2, 3];
+        let mut event = ZeroCopyEvent::new_owned(metadata, raw_data);
+
+        event.set_parsed_data("test".to_string());
+        event.set_json_data(json!({"test": true}));
+
+        let cloned = event.clone();
+
+        assert_eq!(cloned.raw_data(), event.raw_data());
+        assert_eq!(
+            cloned.get_parsed_data::<String>(),
+            event.get_parsed_data::<String>()
+        );
+        assert_eq!(cloned.get_json_data(), event.get_json_data());
+    }
+
+    #[test]
+    fn test_zerocopy_swap_event_clone_should_work() {
+        let metadata = create_test_solana_metadata();
+        let base = ZeroCopyEvent::new_owned(metadata, vec![1, 2, 3]);
+        let swap_event = ZeroCopySwapEvent::new(base);
+
+        let cloned = swap_event.clone();
+
+        assert_eq!(cloned.base.raw_data(), swap_event.base.raw_data());
+        assert_eq!(cloned.input_mint, swap_event.input_mint);
+        assert_eq!(cloned.output_mint, swap_event.output_mint);
+        assert_eq!(cloned.amount_in, swap_event.amount_in);
+        assert_eq!(cloned.amount_out, swap_event.amount_out);
+    }
+
+    #[test]
+    fn test_zerocopy_liquidity_event_clone_should_work() {
+        let metadata = create_test_solana_metadata();
+        let base = ZeroCopyEvent::new_owned(metadata, vec![1, 2, 3]);
+        let liquidity_event = ZeroCopyLiquidityEvent::new(base);
+
+        let cloned = liquidity_event.clone();
+
+        assert_eq!(cloned.base.raw_data(), liquidity_event.base.raw_data());
+        assert_eq!(cloned.pool_address, liquidity_event.pool_address);
+        assert_eq!(cloned.lp_amount, liquidity_event.lp_amount);
+        assert_eq!(cloned.token_a_amount, liquidity_event.token_a_amount);
+        assert_eq!(cloned.token_b_amount, liquidity_event.token_b_amount);
     }
 }

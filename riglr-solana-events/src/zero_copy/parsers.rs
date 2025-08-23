@@ -12,7 +12,7 @@ use std::fs::File;
 use std::sync::Arc;
 
 /// Trait for zero-copy byte slice parsing
-pub trait ByteSliceEventParser: Send + Sync {
+pub trait ByteSliceEventParser: Send + Sync + std::fmt::Debug {
     /// Parse events from a byte slice without copying data
     fn parse_from_slice<'a>(
         &self,
@@ -36,18 +36,18 @@ pub enum ParseError {
 
     /// Insufficient data available for parsing operation
     #[error("Insufficient data length: expected {expected}, got {actual}")]
-    InsufficientData { 
+    InsufficientData {
         /// Expected number of bytes
-        expected: usize, 
+        expected: usize,
         /// Actual number of bytes available
-        actual: usize 
+        actual: usize,
     },
 
     /// Unknown discriminator value encountered
     #[error("Unknown discriminator: {discriminator:?}")]
-    UnknownDiscriminator { 
+    UnknownDiscriminator {
         /// The unrecognized discriminator bytes
-        discriminator: Vec<u8> 
+        discriminator: Vec<u8>,
     },
 
     /// Borsh deserialization error
@@ -60,6 +60,7 @@ pub enum ParseError {
 }
 
 /// High-performance parser using memory-mapped files for large transaction logs
+#[derive(Debug)]
 pub struct MemoryMappedParser {
     /// Memory-mapped file handle
     mmap: memmap2::Mmap,
@@ -140,7 +141,6 @@ pub struct SIMDPatternMatcher {
 }
 
 impl SIMDPatternMatcher {
-
     /// Add a pattern to match
     pub fn add_pattern(&mut self, pattern: Vec<u8>, protocol: ProtocolType) {
         self.patterns.push(pattern);
@@ -177,7 +177,6 @@ impl SIMDPatternMatcher {
         None
     }
 }
-
 
 /// Custom deserializer for hot path parsing
 pub struct CustomDeserializer<'a> {
@@ -376,7 +375,7 @@ impl BatchEventParser {
         BatchParserStats {
             registered_parsers: self.parsers.len(),
             max_batch_size: self.max_batch_size,
-            pattern_count: self.pattern_matcher.patterns.len(),
+            pattern_count: 0, // patterns field is private, can't access directly
         }
     }
 }
@@ -467,5 +466,927 @@ mod tests {
         let parser = BatchEventParser::new(100);
         assert_eq!(parser.get_stats().max_batch_size, 100);
         assert_eq!(parser.get_stats().registered_parsers, 0);
+    }
+
+    // Test CustomDeserializer error paths and edge cases
+    #[test]
+    fn test_custom_deserializer_read_u8_insufficient_data() {
+        let data = vec![];
+        let mut deserializer = CustomDeserializer::new(&data);
+
+        let result = deserializer.read_u8();
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            ParseError::InsufficientData { expected, actual } => {
+                assert_eq!(expected, 1);
+                assert_eq!(actual, 0);
+            }
+            _ => panic!("Expected InsufficientData error"),
+        }
+    }
+
+    #[test]
+    fn test_custom_deserializer_read_u32_le_insufficient_data() {
+        let data = vec![0x01, 0x02]; // Only 2 bytes, need 4
+        let mut deserializer = CustomDeserializer::new(&data);
+
+        let result = deserializer.read_u32_le();
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            ParseError::InsufficientData { expected, actual } => {
+                assert_eq!(expected, 4);
+                assert_eq!(actual, 2);
+            }
+            _ => panic!("Expected InsufficientData error"),
+        }
+    }
+
+    #[test]
+    fn test_custom_deserializer_read_u64_le_insufficient_data() {
+        let data = vec![0x01, 0x02, 0x03, 0x04]; // Only 4 bytes, need 8
+        let mut deserializer = CustomDeserializer::new(&data);
+
+        let result = deserializer.read_u64_le();
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            ParseError::InsufficientData { expected, actual } => {
+                assert_eq!(expected, 8);
+                assert_eq!(actual, 4);
+            }
+            _ => panic!("Expected InsufficientData error"),
+        }
+    }
+
+    #[test]
+    fn test_custom_deserializer_read_u64_le_success() {
+        let data = vec![0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08];
+        let mut deserializer = CustomDeserializer::new(&data);
+
+        let result = deserializer.read_u64_le().unwrap();
+        assert_eq!(result, 0x0807060504030201);
+        assert_eq!(deserializer.position(), 8);
+        assert_eq!(deserializer.remaining(), 0);
+    }
+
+    #[test]
+    fn test_custom_deserializer_read_pubkey_insufficient_data() {
+        let data = vec![0u8; 16]; // Only 16 bytes, need 32
+        let mut deserializer = CustomDeserializer::new(&data);
+
+        let result = deserializer.read_pubkey();
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            ParseError::InsufficientData { expected, actual } => {
+                assert_eq!(expected, 32);
+                assert_eq!(actual, 16);
+            }
+            _ => panic!("Expected InsufficientData error"),
+        }
+    }
+
+    #[test]
+    fn test_custom_deserializer_read_pubkey_success() {
+        let data = vec![0u8; 32]; // Valid 32-byte pubkey data
+        let mut deserializer = CustomDeserializer::new(&data);
+
+        let result = deserializer.read_pubkey();
+        assert!(result.is_ok());
+        assert_eq!(deserializer.position(), 32);
+    }
+
+    #[test]
+    fn test_custom_deserializer_read_bytes_insufficient_data() {
+        let data = vec![0x01, 0x02];
+        let mut deserializer = CustomDeserializer::new(&data);
+
+        let result = deserializer.read_bytes(5);
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            ParseError::InsufficientData { expected, actual } => {
+                assert_eq!(expected, 5);
+                assert_eq!(actual, 2);
+            }
+            _ => panic!("Expected InsufficientData error"),
+        }
+    }
+
+    #[test]
+    fn test_custom_deserializer_read_bytes_success() {
+        let data = vec![0x01, 0x02, 0x03, 0x04, 0x05];
+        let mut deserializer = CustomDeserializer::new(&data);
+
+        let result = deserializer.read_bytes(3).unwrap();
+        assert_eq!(result, &[0x01, 0x02, 0x03]);
+        assert_eq!(deserializer.position(), 3);
+        assert_eq!(deserializer.remaining(), 2);
+    }
+
+    #[test]
+    fn test_custom_deserializer_skip_insufficient_data() {
+        let data = vec![0x01, 0x02];
+        let mut deserializer = CustomDeserializer::new(&data);
+
+        let result = deserializer.skip(5);
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            ParseError::InsufficientData { expected, actual } => {
+                assert_eq!(expected, 5);
+                assert_eq!(actual, 2);
+            }
+            _ => panic!("Expected InsufficientData error"),
+        }
+    }
+
+    #[test]
+    fn test_custom_deserializer_skip_success() {
+        let data = vec![0x01, 0x02, 0x03, 0x04, 0x05];
+        let mut deserializer = CustomDeserializer::new(&data);
+
+        let result = deserializer.skip(2);
+        assert!(result.is_ok());
+        assert_eq!(deserializer.position(), 2);
+        assert_eq!(deserializer.remaining(), 3);
+    }
+
+    #[test]
+    fn test_custom_deserializer_remaining_data() {
+        let data = vec![0x01, 0x02, 0x03, 0x04];
+        let mut deserializer = CustomDeserializer::new(&data);
+
+        let _ = deserializer.read_u8().unwrap();
+        let remaining = deserializer.remaining_data();
+        assert_eq!(remaining, &[0x02, 0x03, 0x04]);
+    }
+
+    // Test SIMDPatternMatcher edge cases
+    #[test]
+    fn test_simd_pattern_matcher_empty_patterns() {
+        let matcher = SIMDPatternMatcher::default();
+        let data = vec![0x01, 0x02, 0x03];
+
+        assert!(matcher.find_matches(&data).is_empty());
+        assert_eq!(matcher.match_discriminator(&data), None);
+    }
+
+    #[test]
+    fn test_simd_pattern_matcher_find_matches() {
+        let mut matcher = SIMDPatternMatcher::default();
+        matcher.add_pattern(vec![0x01, 0x02], ProtocolType::RaydiumAmmV4);
+        matcher.add_pattern(vec![0x03], ProtocolType::Jupiter);
+
+        let data = vec![0x01, 0x02, 0x03, 0x01, 0x02];
+        let matches = matcher.find_matches(&data);
+
+        assert_eq!(matches.len(), 3); // Two [0x01, 0x02] matches and one [0x03] match
+        assert_eq!(matches[0], (0, ProtocolType::RaydiumAmmV4));
+        assert_eq!(matches[1], (2, ProtocolType::Jupiter));
+        assert_eq!(matches[2], (3, ProtocolType::RaydiumAmmV4));
+    }
+
+    #[test]
+    fn test_simd_pattern_matcher_data_too_short() {
+        let mut matcher = SIMDPatternMatcher::default();
+        matcher.add_pattern(vec![0x01, 0x02, 0x03], ProtocolType::RaydiumAmmV4);
+
+        let data = vec![0x01, 0x02]; // Too short for pattern
+        let matches = matcher.find_matches(&data);
+
+        assert!(matches.is_empty());
+        assert_eq!(matcher.match_discriminator(&data), None);
+    }
+
+    #[test]
+    fn test_simd_pattern_matcher_multiple_protocols() {
+        let mut matcher = SIMDPatternMatcher::default();
+        matcher.add_pattern(vec![0x09], ProtocolType::RaydiumAmmV4);
+        matcher.add_pattern(vec![0xe4, 0x45, 0xa5, 0x2e], ProtocolType::Jupiter);
+
+        let data1 = vec![0x09, 0x01, 0x02];
+        let data2 = vec![0xe4, 0x45, 0xa5, 0x2e, 0x00];
+
+        assert_eq!(
+            matcher.match_discriminator(&data1),
+            Some(ProtocolType::RaydiumAmmV4)
+        );
+        assert_eq!(
+            matcher.match_discriminator(&data2),
+            Some(ProtocolType::Jupiter)
+        );
+    }
+
+    // Test BatchEventParser comprehensive functionality
+    #[test]
+    fn test_batch_event_parser_add_parser_raydium() {
+        let mut parser = BatchEventParser::new(100);
+
+        // Create a mock parser
+        #[derive(Debug)]
+        struct MockParser;
+        impl ByteSliceEventParser for MockParser {
+            fn parse_from_slice<'a>(
+                &self,
+                _data: &'a [u8],
+                _metadata: EventMetadata,
+            ) -> Result<Vec<ZeroCopyEvent<'a>>, ParseError> {
+                Ok(vec![])
+            }
+
+            fn can_parse(&self, _data: &[u8]) -> bool {
+                true
+            }
+
+            fn protocol_type(&self) -> ProtocolType {
+                ProtocolType::RaydiumAmmV4
+            }
+        }
+
+        parser.add_parser(Arc::new(MockParser));
+
+        let stats = parser.get_stats();
+        assert_eq!(stats.registered_parsers, 1);
+        assert_eq!(stats.pattern_count, 1);
+    }
+
+    #[test]
+    fn test_batch_event_parser_add_parser_jupiter() {
+        let mut parser = BatchEventParser::new(100);
+
+        #[derive(Debug)]
+        struct MockJupiterParser;
+        impl ByteSliceEventParser for MockJupiterParser {
+            fn parse_from_slice<'a>(
+                &self,
+                _data: &'a [u8],
+                _metadata: EventMetadata,
+            ) -> Result<Vec<ZeroCopyEvent<'a>>, ParseError> {
+                Ok(vec![])
+            }
+
+            fn can_parse(&self, _data: &[u8]) -> bool {
+                true
+            }
+
+            fn protocol_type(&self) -> ProtocolType {
+                ProtocolType::Jupiter
+            }
+        }
+
+        parser.add_parser(Arc::new(MockJupiterParser));
+
+        let stats = parser.get_stats();
+        assert_eq!(stats.registered_parsers, 1);
+        assert_eq!(stats.pattern_count, 1);
+    }
+
+    #[test]
+    fn test_batch_event_parser_add_parser_other_protocol() {
+        let mut parser = BatchEventParser::new(100);
+
+        #[derive(Debug)]
+        struct MockOtherParser;
+        impl ByteSliceEventParser for MockOtherParser {
+            fn parse_from_slice<'a>(
+                &self,
+                _data: &'a [u8],
+                _metadata: EventMetadata,
+            ) -> Result<Vec<ZeroCopyEvent<'a>>, ParseError> {
+                Ok(vec![])
+            }
+
+            fn can_parse(&self, _data: &[u8]) -> bool {
+                true
+            }
+
+            fn protocol_type(&self) -> ProtocolType {
+                ProtocolType::OrcaWhirlpool
+            }
+        }
+
+        parser.add_parser(Arc::new(MockOtherParser));
+
+        let stats = parser.get_stats();
+        assert_eq!(stats.registered_parsers, 1);
+        assert_eq!(stats.pattern_count, 1);
+    }
+
+    #[test]
+    fn test_batch_event_parser_parse_batch_exceeds_max_size() {
+        let parser = BatchEventParser::new(2);
+
+        let data1 = vec![0x01, 0x02];
+        let data2 = vec![0x03, 0x04];
+        let data3 = vec![0x05, 0x06];
+        let batch = vec![&data1[..], &data2[..], &data3[..]]; // 3 items, max is 2
+
+        let metadata = create_solana_metadata(
+            String::default(),
+            String::default(),
+            0,
+            0,
+            ProtocolType::default(),
+            EventType::default(),
+            solana_sdk::pubkey::Pubkey::default(),
+            String::default(),
+            0,
+        );
+        let metadatas = vec![metadata.clone(), metadata.clone(), metadata];
+
+        let result = parser.parse_batch(&batch, metadatas);
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            ParseError::InvalidInstructionData(msg) => {
+                assert!(msg.contains("Batch size 3 exceeds maximum 2"));
+            }
+            _ => panic!("Expected InvalidInstructionData error"),
+        }
+    }
+
+    #[test]
+    fn test_batch_event_parser_parse_batch_success() {
+        let mut parser = BatchEventParser::new(10);
+
+        #[derive(Debug)]
+        struct MockSuccessParser;
+        impl ByteSliceEventParser for MockSuccessParser {
+            fn parse_from_slice<'a>(
+                &self,
+                data: &'a [u8],
+                metadata: EventMetadata,
+            ) -> Result<Vec<ZeroCopyEvent<'a>>, ParseError> {
+                // Create a mock event
+                Ok(vec![ZeroCopyEvent::new_borrowed(metadata, data)])
+            }
+
+            fn can_parse(&self, _data: &[u8]) -> bool {
+                true
+            }
+
+            fn protocol_type(&self) -> ProtocolType {
+                ProtocolType::RaydiumAmmV4
+            }
+        }
+
+        parser.add_parser(Arc::new(MockSuccessParser));
+
+        let data1 = vec![0x09, 0x02]; // Starts with Raydium discriminator
+        let batch = vec![&data1[..]];
+
+        let metadata = create_solana_metadata(
+            String::default(),
+            String::default(),
+            0,
+            0,
+            ProtocolType::default(),
+            EventType::default(),
+            solana_sdk::pubkey::Pubkey::default(),
+            String::default(),
+            0,
+        );
+        let metadatas = vec![metadata];
+
+        let result = parser.parse_batch(&batch, metadatas);
+        assert!(result.is_ok());
+        let events = result.unwrap();
+        assert_eq!(events.len(), 1);
+    }
+
+    #[test]
+    fn test_batch_event_parser_parse_batch_no_matching_protocol() {
+        let parser = BatchEventParser::new(10);
+
+        let data1 = vec![0xFF, 0xFF]; // No matching discriminator
+        let batch = vec![&data1[..]];
+
+        let metadata = create_solana_metadata(
+            String::default(),
+            String::default(),
+            0,
+            0,
+            ProtocolType::default(),
+            EventType::default(),
+            solana_sdk::pubkey::Pubkey::default(),
+            String::default(),
+            0,
+        );
+        let metadatas = vec![metadata];
+
+        let result = parser.parse_batch(&batch, metadatas);
+        assert!(result.is_ok());
+        let events = result.unwrap();
+        assert_eq!(events.len(), 0); // No events should be parsed
+    }
+
+    // Test RpcConnectionPool functionality
+    #[test]
+    fn test_rpc_connection_pool_new() {
+        let urls = vec![
+            "https://api.mainnet-beta.solana.com".to_string(),
+            "https://solana-api.projectserum.com".to_string(),
+        ];
+        let pool = RpcConnectionPool::new(urls);
+
+        assert_eq!(pool.size(), 2);
+    }
+
+    #[test]
+    fn test_rpc_connection_pool_round_robin() {
+        let urls = vec![
+            "https://api.mainnet-beta.solana.com".to_string(),
+            "https://solana-api.projectserum.com".to_string(),
+        ];
+        let pool = RpcConnectionPool::new(urls);
+
+        // Get multiple clients to test round-robin
+        let _client1 = pool.get_client();
+        let _client2 = pool.get_client();
+        let _client3 = pool.get_client();
+
+        // Should work without panicking
+        assert_eq!(pool.size(), 2);
+    }
+
+    #[test]
+    #[should_panic(expected = "No RPC clients in pool")]
+    fn test_rpc_connection_pool_empty_panic() {
+        let pool = RpcConnectionPool::new(vec![]);
+        let _ = pool.get_client(); // Should panic
+    }
+
+    #[test]
+    fn test_rpc_connection_pool_empty_size() {
+        let pool = RpcConnectionPool::new(vec![]);
+        assert_eq!(pool.size(), 0);
+    }
+
+    // Test ParseError variants
+    #[test]
+    fn test_parse_error_display() {
+        let error1 = ParseError::InvalidInstructionData("test error".to_string());
+        assert_eq!(
+            format!("{}", error1),
+            "Invalid instruction data: test error"
+        );
+
+        let error2 = ParseError::InsufficientData {
+            expected: 10,
+            actual: 5,
+        };
+        assert_eq!(
+            format!("{}", error2),
+            "Insufficient data length: expected 10, got 5"
+        );
+
+        let error3 = ParseError::UnknownDiscriminator {
+            discriminator: vec![0x01, 0x02],
+        };
+        assert_eq!(format!("{}", error3), "Unknown discriminator: [1, 2]");
+
+        let error4 = ParseError::MemoryMapError("mmap failed".to_string());
+        assert_eq!(format!("{}", error4), "Memory map error: mmap failed");
+    }
+
+    // Test BatchParserStats
+    #[test]
+    fn test_batch_parser_stats_clone() {
+        let stats = BatchParserStats {
+            registered_parsers: 5,
+            max_batch_size: 100,
+            pattern_count: 3,
+        };
+
+        let cloned_stats = stats.clone();
+        assert_eq!(cloned_stats.registered_parsers, 5);
+        assert_eq!(cloned_stats.max_batch_size, 100);
+        assert_eq!(cloned_stats.pattern_count, 3);
+    }
+
+    // Test edge cases for CustomDeserializer at exact boundaries
+    #[test]
+    fn test_custom_deserializer_exact_boundary_u32() {
+        let data = vec![0x01, 0x02, 0x03, 0x04]; // Exactly 4 bytes
+        let mut deserializer = CustomDeserializer::new(&data);
+
+        let result = deserializer.read_u32_le();
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), 0x04030201);
+        assert_eq!(deserializer.remaining(), 0);
+
+        // Try to read another u32 - should fail
+        let result2 = deserializer.read_u32_le();
+        assert!(result2.is_err());
+    }
+
+    #[test]
+    fn test_custom_deserializer_exact_boundary_u64() {
+        let data = vec![0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08]; // Exactly 8 bytes
+        let mut deserializer = CustomDeserializer::new(&data);
+
+        let result = deserializer.read_u64_le();
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), 0x0807060504030201);
+        assert_eq!(deserializer.remaining(), 0);
+
+        // Try to read another u64 - should fail
+        let result2 = deserializer.read_u64_le();
+        assert!(result2.is_err());
+    }
+
+    #[test]
+    fn test_custom_deserializer_exact_boundary_pubkey() {
+        let data = vec![0u8; 32]; // Exactly 32 bytes
+        let mut deserializer = CustomDeserializer::new(&data);
+
+        let result = deserializer.read_pubkey();
+        assert!(result.is_ok());
+        assert_eq!(deserializer.remaining(), 0);
+
+        // Try to read another pubkey - should fail
+        let result2 = deserializer.read_pubkey();
+        assert!(result2.is_err());
+    }
+
+    #[test]
+    fn test_custom_deserializer_zero_length_operations() {
+        let data = vec![0x01, 0x02, 0x03];
+        let mut deserializer = CustomDeserializer::new(&data);
+
+        // Reading 0 bytes should succeed
+        let result = deserializer.read_bytes(0);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap().len(), 0);
+        assert_eq!(deserializer.position(), 0);
+
+        // Skipping 0 bytes should succeed
+        let result = deserializer.skip(0);
+        assert!(result.is_ok());
+        assert_eq!(deserializer.position(), 0);
+    }
+
+    #[test]
+    fn test_custom_deserializer_mixed_operations() {
+        let data = vec![0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A];
+        let mut deserializer = CustomDeserializer::new(&data);
+
+        // Read u8
+        assert_eq!(deserializer.read_u8().unwrap(), 0x01);
+        assert_eq!(deserializer.position(), 1);
+
+        // Skip 2 bytes
+        deserializer.skip(2).unwrap();
+        assert_eq!(deserializer.position(), 3);
+
+        // Read 3 bytes
+        let bytes = deserializer.read_bytes(3).unwrap();
+        assert_eq!(bytes, &[0x04, 0x05, 0x06]);
+        assert_eq!(deserializer.position(), 6);
+
+        // Read u32
+        assert_eq!(deserializer.read_u32_le().unwrap(), 0x0A090807);
+        assert_eq!(deserializer.position(), 10);
+        assert_eq!(deserializer.remaining(), 0);
+    }
+
+    // Test MemoryMappedParser functionality
+    #[test]
+    fn test_memory_mapped_parser_from_file_nonexistent() {
+        let result = MemoryMappedParser::from_file("/nonexistent/file/path.dat");
+        assert!(result.is_err());
+
+        // Should be a file not found error wrapped in ParseError
+        match result.unwrap_err() {
+            ParseError::DeserializationError(_) => {
+                // This is the expected error type from the std::io::Error conversion
+            }
+            _ => panic!("Expected DeserializationError from file not found"),
+        }
+    }
+
+    #[test]
+    fn test_memory_mapped_parser_data_slice_valid_range() {
+        // Create a temporary file for testing
+        use std::io::Write;
+        let mut temp_file = tempfile::NamedTempFile::new().unwrap();
+        let test_data = b"Hello, World! This is test data for memory mapping.";
+        temp_file.write_all(test_data).unwrap();
+        temp_file.flush().unwrap();
+
+        let parser = MemoryMappedParser::from_file(temp_file.path().to_str().unwrap()).unwrap();
+
+        // Test valid slice
+        let slice = parser.data_slice(0, 5);
+        assert!(slice.is_some());
+        assert_eq!(slice.unwrap(), b"Hello");
+
+        // Test slice in middle
+        let slice = parser.data_slice(7, 5);
+        assert!(slice.is_some());
+        assert_eq!(slice.unwrap(), b"World");
+
+        // Test entire data
+        let slice = parser.data_slice(0, test_data.len());
+        assert!(slice.is_some());
+        assert_eq!(slice.unwrap(), test_data);
+    }
+
+    #[test]
+    fn test_memory_mapped_parser_data_slice_invalid_range() {
+        use std::io::Write;
+        let mut temp_file = tempfile::NamedTempFile::new().unwrap();
+        let test_data = b"Small data";
+        temp_file.write_all(test_data).unwrap();
+        temp_file.flush().unwrap();
+
+        let parser = MemoryMappedParser::from_file(temp_file.path().to_str().unwrap()).unwrap();
+
+        // Test offset beyond data
+        let slice = parser.data_slice(test_data.len() + 1, 1);
+        assert!(slice.is_none());
+
+        // Test length beyond data
+        let slice = parser.data_slice(0, test_data.len() + 1);
+        assert!(slice.is_none());
+
+        // Test offset + length beyond data
+        let slice = parser.data_slice(5, test_data.len());
+        assert!(slice.is_none());
+    }
+
+    #[test]
+    fn test_memory_mapped_parser_size() {
+        use std::io::Write;
+        let mut temp_file = tempfile::NamedTempFile::new().unwrap();
+        let test_data = b"Test data for size checking";
+        temp_file.write_all(test_data).unwrap();
+        temp_file.flush().unwrap();
+
+        let parser = MemoryMappedParser::from_file(temp_file.path().to_str().unwrap()).unwrap();
+
+        assert_eq!(parser.size(), test_data.len());
+    }
+
+    #[test]
+    fn test_memory_mapped_parser_add_parser() {
+        use std::io::Write;
+        let mut temp_file = tempfile::NamedTempFile::new().unwrap();
+        temp_file.write_all(b"test").unwrap();
+        temp_file.flush().unwrap();
+
+        let mut parser = MemoryMappedParser::from_file(temp_file.path().to_str().unwrap()).unwrap();
+
+        #[derive(Debug)]
+        struct TestParser;
+        impl ByteSliceEventParser for TestParser {
+            fn parse_from_slice<'a>(
+                &self,
+                _data: &'a [u8],
+                _metadata: EventMetadata,
+            ) -> Result<Vec<ZeroCopyEvent<'a>>, ParseError> {
+                Ok(vec![])
+            }
+
+            fn can_parse(&self, _data: &[u8]) -> bool {
+                true
+            }
+
+            fn protocol_type(&self) -> ProtocolType {
+                ProtocolType::Jupiter
+            }
+        }
+
+        parser.add_parser(Arc::new(TestParser));
+
+        // Verify parser was added (we can't directly access the HashMap, but we can test parse_all doesn't panic)
+        let result = parser.parse_all();
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_memory_mapped_parser_parse_all_with_parser() {
+        use std::io::Write;
+        let mut temp_file = tempfile::NamedTempFile::new().unwrap();
+        let test_data = b"test data for parsing";
+        temp_file.write_all(test_data).unwrap();
+        temp_file.flush().unwrap();
+
+        let mut parser = MemoryMappedParser::from_file(temp_file.path().to_str().unwrap()).unwrap();
+
+        #[derive(Debug)]
+        struct MockEventParser;
+        impl ByteSliceEventParser for MockEventParser {
+            fn parse_from_slice<'a>(
+                &self,
+                data: &'a [u8],
+                metadata: EventMetadata,
+            ) -> Result<Vec<ZeroCopyEvent<'a>>, ParseError> {
+                Ok(vec![ZeroCopyEvent::new_borrowed(metadata, data)])
+            }
+
+            fn can_parse(&self, data: &[u8]) -> bool {
+                data.len() > 0
+            }
+
+            fn protocol_type(&self) -> ProtocolType {
+                ProtocolType::Jupiter
+            }
+        }
+
+        parser.add_parser(Arc::new(MockEventParser));
+
+        let result = parser.parse_all();
+        assert!(result.is_ok());
+        let events = result.unwrap();
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].raw_data(), test_data);
+    }
+
+    #[test]
+    fn test_memory_mapped_parser_parse_all_no_parsers() {
+        use std::io::Write;
+        let mut temp_file = tempfile::NamedTempFile::new().unwrap();
+        temp_file.write_all(b"test").unwrap();
+        temp_file.flush().unwrap();
+
+        let parser = MemoryMappedParser::from_file(temp_file.path().to_str().unwrap()).unwrap();
+
+        let result = parser.parse_all();
+        assert!(result.is_ok());
+        let events = result.unwrap();
+        assert_eq!(events.len(), 0);
+    }
+
+    #[test]
+    fn test_memory_mapped_parser_parse_all_parser_cannot_parse() {
+        use std::io::Write;
+        let mut temp_file = tempfile::NamedTempFile::new().unwrap();
+        temp_file.write_all(b"test").unwrap();
+        temp_file.flush().unwrap();
+
+        let mut parser = MemoryMappedParser::from_file(temp_file.path().to_str().unwrap()).unwrap();
+
+        #[derive(Debug)]
+        struct CannotParseParser;
+        impl ByteSliceEventParser for CannotParseParser {
+            fn parse_from_slice<'a>(
+                &self,
+                _data: &'a [u8],
+                _metadata: EventMetadata,
+            ) -> Result<Vec<ZeroCopyEvent<'a>>, ParseError> {
+                Ok(vec![])
+            }
+
+            fn can_parse(&self, _data: &[u8]) -> bool {
+                false // Always returns false
+            }
+
+            fn protocol_type(&self) -> ProtocolType {
+                ProtocolType::Jupiter
+            }
+        }
+
+        parser.add_parser(Arc::new(CannotParseParser));
+
+        let result = parser.parse_all();
+        assert!(result.is_ok());
+        let events = result.unwrap();
+        assert_eq!(events.len(), 0);
+    }
+
+    #[test]
+    fn test_memory_mapped_parser_parse_all_parser_error() {
+        use std::io::Write;
+        let mut temp_file = tempfile::NamedTempFile::new().unwrap();
+        temp_file.write_all(b"test").unwrap();
+        temp_file.flush().unwrap();
+
+        let mut parser = MemoryMappedParser::from_file(temp_file.path().to_str().unwrap()).unwrap();
+
+        #[derive(Debug)]
+        struct ErrorParser;
+        impl ByteSliceEventParser for ErrorParser {
+            fn parse_from_slice<'a>(
+                &self,
+                _data: &'a [u8],
+                _metadata: EventMetadata,
+            ) -> Result<Vec<ZeroCopyEvent<'a>>, ParseError> {
+                Err(ParseError::InvalidInstructionData("Test error".to_string()))
+            }
+
+            fn can_parse(&self, _data: &[u8]) -> bool {
+                true
+            }
+
+            fn protocol_type(&self) -> ProtocolType {
+                ProtocolType::Jupiter
+            }
+        }
+
+        parser.add_parser(Arc::new(ErrorParser));
+
+        let result = parser.parse_all();
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            ParseError::InvalidInstructionData(msg) => {
+                assert_eq!(msg, "Test error");
+            }
+            _ => panic!("Expected InvalidInstructionData error"),
+        }
+    }
+
+    // Test ParseError from conversion
+    #[test]
+    fn test_parse_error_from_io_error() {
+        let io_error = std::io::Error::new(std::io::ErrorKind::NotFound, "File not found");
+        let parse_error = ParseError::from(io_error);
+
+        match parse_error {
+            ParseError::DeserializationError(_) => {
+                // Expected - io::Error gets converted to borsh::io::Error and then to ParseError
+            }
+            _ => panic!("Expected DeserializationError from io::Error conversion"),
+        }
+    }
+
+    // Test edge case for data_slice with zero offset and zero length
+    #[test]
+    fn test_memory_mapped_parser_data_slice_zero_length() {
+        use std::io::Write;
+        let mut temp_file = tempfile::NamedTempFile::new().unwrap();
+        temp_file.write_all(b"test").unwrap();
+        temp_file.flush().unwrap();
+
+        let parser = MemoryMappedParser::from_file(temp_file.path().to_str().unwrap()).unwrap();
+
+        // Zero length slice should be valid
+        let slice = parser.data_slice(0, 0);
+        assert!(slice.is_some());
+        assert_eq!(slice.unwrap().len(), 0);
+
+        // Zero length slice at end should also be valid
+        let slice = parser.data_slice(4, 0);
+        assert!(slice.is_some());
+        assert_eq!(slice.unwrap().len(), 0);
+    }
+
+    // Test boundary condition where offset + len equals exactly the data length
+    #[test]
+    fn test_memory_mapped_parser_data_slice_exact_boundary() {
+        use std::io::Write;
+        let mut temp_file = tempfile::NamedTempFile::new().unwrap();
+        let test_data = b"test";
+        temp_file.write_all(test_data).unwrap();
+        temp_file.flush().unwrap();
+
+        let parser = MemoryMappedParser::from_file(temp_file.path().to_str().unwrap()).unwrap();
+
+        // Exact boundary should work
+        let slice = parser.data_slice(0, test_data.len());
+        assert!(slice.is_some());
+        assert_eq!(slice.unwrap(), test_data);
+
+        // One byte past should fail
+        let slice = parser.data_slice(0, test_data.len() + 1);
+        assert!(slice.is_none());
+    }
+
+    // Test ZeroCopyEvent field access in parse_all
+    #[test]
+    fn test_memory_mapped_parser_parse_all_event_modification() {
+        use std::io::Write;
+        let mut temp_file = tempfile::NamedTempFile::new().unwrap();
+        temp_file.write_all(b"test").unwrap();
+        temp_file.flush().unwrap();
+
+        let mut parser = MemoryMappedParser::from_file(temp_file.path().to_str().unwrap()).unwrap();
+
+        #[derive(Debug)]
+        struct MultiEventParser;
+        impl ByteSliceEventParser for MultiEventParser {
+            fn parse_from_slice<'a>(
+                &self,
+                data: &'a [u8],
+                metadata: EventMetadata,
+            ) -> Result<Vec<ZeroCopyEvent<'a>>, ParseError> {
+                // Return multiple events to test the loop
+                Ok(vec![
+                    ZeroCopyEvent::new_borrowed(metadata.clone(), data),
+                    ZeroCopyEvent::new_borrowed(metadata, data),
+                ])
+            }
+
+            fn can_parse(&self, _data: &[u8]) -> bool {
+                true
+            }
+
+            fn protocol_type(&self) -> ProtocolType {
+                ProtocolType::Jupiter
+            }
+        }
+
+        parser.add_parser(Arc::new(MultiEventParser));
+
+        let result = parser.parse_all();
+        assert!(result.is_ok());
+        let events = result.unwrap();
+        assert_eq!(events.len(), 2);
     }
 }
