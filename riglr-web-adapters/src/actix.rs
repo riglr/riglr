@@ -9,24 +9,19 @@ use crate::core::{handle_agent_completion, handle_agent_stream, PromptRequest};
 use crate::factory::{AuthenticationData, SignerFactory};
 use actix_web::{HttpRequest, HttpResponse, Result as ActixResult};
 use futures_util::StreamExt;
-use riglr_core::config::RpcConfig;
-use riglr_core::signer::TransactionSigner;
+use riglr_core::signer::UnifiedSigner;
 use std::sync::Arc;
 
 /// Actix Web adapter that uses SignerFactory for authentication
 #[derive(Clone)]
 pub struct ActixRiglrAdapter {
     signer_factory: Arc<dyn SignerFactory>,
-    rpc_config: RpcConfig,
 }
 
 impl ActixRiglrAdapter {
-    /// Create a new Actix adapter with the given signer factory and RPC config
-    pub fn new(signer_factory: Arc<dyn SignerFactory>, rpc_config: RpcConfig) -> Self {
-        Self {
-            signer_factory,
-            rpc_config,
-        }
+    /// Create a new Actix adapter with the given signer factory
+    pub fn new(signer_factory: Arc<dyn SignerFactory>) -> Self {
+        Self { signer_factory }
     }
 
     /// Detect authentication type from request headers
@@ -85,15 +80,12 @@ impl ActixRiglrAdapter {
     async fn authenticate_request(
         &self,
         req: &HttpRequest,
-    ) -> Result<Box<dyn TransactionSigner>, Box<dyn std::error::Error + Send + Sync>> {
+    ) -> Result<Box<dyn UnifiedSigner>, Box<dyn std::error::Error + Send + Sync>> {
         // Extract authentication data from request headers
         let auth_data = self.extract_auth_data(req)?;
 
         // Use factory to create appropriate signer
-        let signer = self
-            .signer_factory
-            .create_signer(auth_data, &self.rpc_config)
-            .await?;
+        let signer = self.signer_factory.create_signer(auth_data).await?;
 
         Ok(signer)
     }
@@ -118,7 +110,7 @@ impl ActixRiglrAdapter {
 
         // Extract authentication data and create signer
         let signer = match self.authenticate_request(req).await {
-            Ok(s) => std::sync::Arc::<dyn riglr_core::TransactionSigner>::from(s),
+            Ok(s) => std::sync::Arc::<dyn riglr_core::signer::UnifiedSigner>::from(s),
             Err(e) => {
                 tracing::error!(error = %e, "Authentication failed");
                 return Ok(HttpResponse::Unauthorized().json(serde_json::json!({
@@ -185,7 +177,7 @@ impl ActixRiglrAdapter {
 
         // Extract authentication data and create signer
         let signer = match self.authenticate_request(req).await {
-            Ok(s) => std::sync::Arc::<dyn riglr_core::TransactionSigner>::from(s),
+            Ok(s) => std::sync::Arc::<dyn riglr_core::signer::UnifiedSigner>::from(s),
             Err(e) => {
                 tracing::error!(error = %e, "Authentication failed");
                 return Ok(HttpResponse::Unauthorized().json(serde_json::json!({
@@ -257,10 +249,14 @@ pub async fn info_handler() -> ActixResult<HttpResponse> {
 mod tests {
     use super::*;
     use actix_web::{test, web, App};
+    use riglr_core::signer::{
+        EvmSigner, MultiChainSigner, SignerBase, SolanaSigner, UnifiedSigner,
+    };
     #[allow(unused_imports)]
     use riglr_solana_tools::signer::LocalSolanaSigner;
     #[allow(unused_imports)]
     use solana_sdk::signature::Keypair;
+    use std::any::Any;
     #[allow(unused_imports)]
     use std::error::Error as StdError;
 
@@ -297,6 +293,114 @@ mod tests {
         }
     }
 
+    // Mock signer for testing
+    #[derive(Debug)]
+    struct MockSigner {
+        should_fail: bool,
+    }
+
+    impl MockSigner {
+        fn new() -> Self {
+            Self { should_fail: false }
+        }
+
+        #[allow(dead_code)]
+        fn new_failing() -> Self {
+            Self { should_fail: true }
+        }
+    }
+
+    impl SignerBase for MockSigner {
+        fn as_any(&self) -> &dyn Any {
+            self
+        }
+    }
+
+    #[async_trait::async_trait]
+    impl SolanaSigner for MockSigner {
+        fn address(&self) -> String {
+            "mock_address".to_string()
+        }
+
+        fn pubkey(&self) -> String {
+            "mock_public_key".to_string()
+        }
+
+        async fn sign_and_send_transaction(
+            &self,
+            _tx: &mut solana_sdk::transaction::Transaction,
+        ) -> Result<String, riglr_core::signer::SignerError> {
+            if self.should_fail {
+                return Err(riglr_core::signer::SignerError::Signing(
+                    "Mock Solana signing error".to_string(),
+                ));
+            }
+            Ok("mock_solana_signature".to_string())
+        }
+
+        fn client(&self) -> std::sync::Arc<solana_client::rpc_client::RpcClient> {
+            std::sync::Arc::new(solana_client::rpc_client::RpcClient::new(
+                "http://localhost:8899",
+            ))
+        }
+    }
+
+    #[async_trait::async_trait]
+    impl EvmSigner for MockSigner {
+        fn chain_id(&self) -> u64 {
+            1337
+        }
+
+        fn address(&self) -> String {
+            "0xmock_evm_address".to_string()
+        }
+
+        async fn sign_and_send_transaction(
+            &self,
+            _tx: alloy::rpc::types::TransactionRequest,
+        ) -> Result<String, riglr_core::signer::SignerError> {
+            if self.should_fail {
+                return Err(riglr_core::signer::SignerError::Signing(
+                    "Mock EVM signing error".to_string(),
+                ));
+            }
+            Ok("0xmock_evm_hash".to_string())
+        }
+
+        fn client(
+            &self,
+        ) -> Result<
+            std::sync::Arc<dyn riglr_core::signer::traits::EvmClient>,
+            riglr_core::signer::SignerError,
+        > {
+            Err(riglr_core::signer::SignerError::UnsupportedOperation(
+                "Mock EVM client not available".to_string(),
+            ))
+        }
+    }
+
+    impl UnifiedSigner for MockSigner {
+        fn supports_solana(&self) -> bool {
+            true
+        }
+
+        fn supports_evm(&self) -> bool {
+            true
+        }
+
+        fn as_solana(&self) -> Option<&dyn SolanaSigner> {
+            Some(self)
+        }
+
+        fn as_evm(&self) -> Option<&dyn EvmSigner> {
+            Some(self)
+        }
+
+        fn as_multi_chain(&self) -> Option<&dyn MultiChainSigner> {
+            None
+        }
+    }
+
     #[actix_web::test]
     async fn test_health_handler() {
         let app =
@@ -329,5 +433,398 @@ mod tests {
         assert_eq!(info_response["service"], "riglr-web-adapters");
         assert!(info_response["version"].is_string());
         assert!(info_response["endpoints"].is_array());
+    }
+
+    // Mock SignerFactory for testing
+    #[derive(Clone)]
+    struct MockSignerFactory {
+        supported_types: Vec<String>,
+        should_fail_create_signer: bool,
+    }
+
+    impl MockSignerFactory {
+        fn new() -> Self {
+            Self {
+                supported_types: vec!["privy".to_string()],
+                should_fail_create_signer: false,
+            }
+        }
+
+        fn with_no_auth_types() -> Self {
+            Self {
+                supported_types: vec![],
+                should_fail_create_signer: false,
+            }
+        }
+
+        fn with_signer_creation_failure() -> Self {
+            Self {
+                supported_types: vec!["privy".to_string()],
+                should_fail_create_signer: true,
+            }
+        }
+    }
+
+    #[async_trait::async_trait]
+    impl SignerFactory for MockSignerFactory {
+        fn supported_auth_types(&self) -> Vec<String> {
+            self.supported_types.clone()
+        }
+
+        async fn create_signer(
+            &self,
+            _auth_data: AuthenticationData,
+        ) -> Result<Box<dyn UnifiedSigner>, Box<dyn StdError + Send + Sync>> {
+            if self.should_fail_create_signer {
+                return Err("Failed to create signer".into());
+            }
+
+            Ok(Box::new(MockSigner::new()))
+        }
+    }
+
+    #[test]
+    async fn test_actix_riglr_adapter_new() {
+        let signer_factory = Arc::new(MockSignerFactory::new());
+
+        let adapter = ActixRiglrAdapter::new(signer_factory.clone());
+
+        // Just verify the adapter was created successfully
+        assert_eq!(
+            adapter.signer_factory.supported_auth_types(),
+            vec!["privy".to_string()]
+        );
+    }
+
+    #[test]
+    async fn test_detect_auth_type_with_explicit_header() {
+        let signer_factory = Arc::new(MockSignerFactory::new());
+        let adapter = ActixRiglrAdapter::new(signer_factory);
+
+        let req = test::TestRequest::default()
+            .insert_header(("x-auth-type", "custom"))
+            .to_http_request();
+
+        let auth_type = adapter.detect_auth_type(&req).unwrap();
+        assert_eq!(auth_type, "custom");
+    }
+
+    #[test]
+    async fn test_detect_auth_type_fallback_to_first_supported() {
+        let signer_factory = Arc::new(MockSignerFactory::new());
+        let adapter = ActixRiglrAdapter::new(signer_factory);
+
+        let req = test::TestRequest::default().to_http_request();
+
+        let auth_type = adapter.detect_auth_type(&req).unwrap();
+        assert_eq!(auth_type, "privy");
+    }
+
+    #[test]
+    async fn test_detect_auth_type_no_providers_registered() {
+        let signer_factory = Arc::new(MockSignerFactory::with_no_auth_types());
+        let adapter = ActixRiglrAdapter::new(signer_factory);
+
+        let req = test::TestRequest::default().to_http_request();
+
+        let result = adapter.detect_auth_type(&req);
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err().to_string(),
+            "No authentication providers registered"
+        );
+    }
+
+    #[test]
+    async fn test_detect_auth_type_invalid_header_value() {
+        let signer_factory = Arc::new(MockSignerFactory::new());
+        let adapter = ActixRiglrAdapter::new(signer_factory);
+
+        let req = test::TestRequest::default()
+            .insert_header(("x-auth-type", "invalid-type"))
+            .to_http_request();
+
+        let result = adapter.detect_auth_type(&req);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    async fn test_extract_auth_data_success_with_bearer() {
+        let signer_factory = Arc::new(MockSignerFactory::new());
+        let adapter = ActixRiglrAdapter::new(signer_factory);
+
+        let req = test::TestRequest::default()
+            .insert_header(("authorization", "Bearer test_token"))
+            .insert_header(("x-network", "testnet"))
+            .to_http_request();
+
+        let auth_data = adapter.extract_auth_data(&req).unwrap();
+        assert_eq!(auth_data.auth_type, "privy");
+        assert_eq!(auth_data.credentials.get("token").unwrap(), "test_token");
+        assert_eq!(auth_data.network, "testnet");
+    }
+
+    #[test]
+    async fn test_extract_auth_data_success_default_network() {
+        let signer_factory = Arc::new(MockSignerFactory::new());
+        let adapter = ActixRiglrAdapter::new(signer_factory);
+
+        let req = test::TestRequest::default()
+            .insert_header(("authorization", "Bearer test_token"))
+            .to_http_request();
+
+        let auth_data = adapter.extract_auth_data(&req).unwrap();
+        assert_eq!(auth_data.network, "mainnet");
+    }
+
+    #[test]
+    async fn test_extract_auth_data_missing_authorization_header() {
+        let signer_factory = Arc::new(MockSignerFactory::new());
+        let adapter = ActixRiglrAdapter::new(signer_factory);
+
+        let req = test::TestRequest::default().to_http_request();
+
+        let result = adapter.extract_auth_data(&req);
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err().to_string(),
+            "Missing authorization header"
+        );
+    }
+
+    #[test]
+    async fn test_extract_auth_data_unsupported_auth_format() {
+        let signer_factory = Arc::new(MockSignerFactory::new());
+        let adapter = ActixRiglrAdapter::new(signer_factory);
+
+        let req = test::TestRequest::default()
+            .insert_header(("authorization", "Basic dGVzdDp0ZXN0"))
+            .to_http_request();
+
+        let result = adapter.extract_auth_data(&req);
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err().to_string(),
+            "Unsupported authentication format"
+        );
+    }
+
+    #[test]
+    async fn test_extract_auth_data_invalid_header_value() {
+        let signer_factory = Arc::new(MockSignerFactory::new());
+        let adapter = ActixRiglrAdapter::new(signer_factory);
+
+        let req = test::TestRequest::default()
+            .insert_header(("authorization", "Invalid-Auth-Header"))
+            .to_http_request();
+
+        let result = adapter.extract_auth_data(&req);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    async fn test_extract_auth_data_invalid_network_header() {
+        let signer_factory = Arc::new(MockSignerFactory::new());
+        let adapter = ActixRiglrAdapter::new(signer_factory);
+
+        let req = test::TestRequest::default()
+            .insert_header(("authorization", "Bearer test_token"))
+            .insert_header(("x-network", "invalid-network"))
+            .to_http_request();
+
+        let auth_data = adapter.extract_auth_data(&req).unwrap();
+        // Should use the provided network value
+        assert_eq!(auth_data.network, "invalid-network");
+    }
+
+    #[actix_web::test]
+    async fn test_authenticate_request_success() {
+        let signer_factory = Arc::new(MockSignerFactory::new());
+        let adapter = ActixRiglrAdapter::new(signer_factory);
+
+        let req = test::TestRequest::default()
+            .insert_header(("authorization", "Bearer test_token"))
+            .to_http_request();
+
+        let result = adapter.authenticate_request(&req).await;
+        assert!(result.is_ok());
+    }
+
+    #[actix_web::test]
+    async fn test_authenticate_request_extract_auth_data_failure() {
+        let signer_factory = Arc::new(MockSignerFactory::new());
+        let adapter = ActixRiglrAdapter::new(signer_factory);
+
+        let req = test::TestRequest::default().to_http_request();
+
+        let result = adapter.authenticate_request(&req).await;
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err().to_string(),
+            "Missing authorization header"
+        );
+    }
+
+    #[actix_web::test]
+    async fn test_authenticate_request_signer_creation_failure() {
+        let signer_factory = Arc::new(MockSignerFactory::with_signer_creation_failure());
+        let adapter = ActixRiglrAdapter::new(signer_factory);
+
+        let req = test::TestRequest::default()
+            .insert_header(("authorization", "Bearer test_token"))
+            .to_http_request();
+
+        let result = adapter.authenticate_request(&req).await;
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err().to_string(), "Failed to create signer");
+    }
+
+    #[actix_web::test]
+    async fn test_sse_handler_authentication_failure() {
+        let signer_factory = Arc::new(MockSignerFactory::new());
+        let adapter = ActixRiglrAdapter::new(signer_factory);
+        let agent = MockAgent::new("test response".to_string());
+        let prompt = PromptRequest {
+            text: "test prompt".to_string(),
+            conversation_id: Some("conv-123".to_string()),
+            request_id: Some("req-456".to_string()),
+        };
+
+        let req = test::TestRequest::default().to_http_request();
+
+        let result = adapter.sse_handler(&req, &agent, prompt).await.unwrap();
+        assert_eq!(result.status(), actix_web::http::StatusCode::UNAUTHORIZED);
+    }
+
+    #[actix_web::test]
+    async fn test_sse_handler_success() {
+        let signer_factory = Arc::new(MockSignerFactory::new());
+        let adapter = ActixRiglrAdapter::new(signer_factory);
+        let agent = MockAgent::new("test response".to_string());
+        let prompt = PromptRequest {
+            text: "test prompt".to_string(),
+            conversation_id: Some("conv-123".to_string()),
+            request_id: Some("req-456".to_string()),
+        };
+
+        let req = test::TestRequest::default()
+            .insert_header(("authorization", "Bearer test_token"))
+            .to_http_request();
+
+        let result = adapter.sse_handler(&req, &agent, prompt).await.unwrap();
+        assert_eq!(result.status(), actix_web::http::StatusCode::OK);
+        assert_eq!(
+            result.headers().get("content-type").unwrap(),
+            "text/event-stream"
+        );
+        assert_eq!(result.headers().get("cache-control").unwrap(), "no-cache");
+        assert_eq!(result.headers().get("connection").unwrap(), "keep-alive");
+    }
+
+    #[actix_web::test]
+    async fn test_completion_handler_authentication_failure() {
+        let signer_factory = Arc::new(MockSignerFactory::new());
+        let adapter = ActixRiglrAdapter::new(signer_factory);
+        let agent = MockAgent::new("test response".to_string());
+        let prompt = PromptRequest {
+            text: "test prompt".to_string(),
+            conversation_id: Some("conv-123".to_string()),
+            request_id: Some("req-456".to_string()),
+        };
+
+        let req = test::TestRequest::default().to_http_request();
+
+        let result = adapter
+            .completion_handler(&req, &agent, prompt)
+            .await
+            .unwrap();
+        assert_eq!(result.status(), actix_web::http::StatusCode::UNAUTHORIZED);
+    }
+
+    #[actix_web::test]
+    async fn test_completion_handler_success() {
+        let signer_factory = Arc::new(MockSignerFactory::new());
+        let adapter = ActixRiglrAdapter::new(signer_factory);
+        let agent = MockAgent::new("test response".to_string());
+        let prompt = PromptRequest {
+            text: "test prompt".to_string(),
+            conversation_id: Some("conv-123".to_string()),
+            request_id: Some("req-456".to_string()),
+        };
+
+        let req = test::TestRequest::default()
+            .insert_header(("authorization", "Bearer test_token"))
+            .to_http_request();
+
+        let result = adapter
+            .completion_handler(&req, &agent, prompt)
+            .await
+            .unwrap();
+        assert_eq!(result.status(), actix_web::http::StatusCode::OK);
+    }
+
+    // Test for failing agent to trigger stream error path
+    #[derive(Clone)]
+    struct FailingMockAgent;
+
+    #[async_trait::async_trait]
+    impl Agent for FailingMockAgent {
+        type Error = std::io::Error;
+
+        async fn prompt(&self, _prompt: &str) -> Result<String, Self::Error> {
+            Err(std::io::Error::other("Agent failed"))
+        }
+
+        async fn prompt_stream(
+            &self,
+            _prompt: &str,
+        ) -> Result<futures_util::stream::BoxStream<'_, Result<String, Self::Error>>, Self::Error>
+        {
+            Err(std::io::Error::other("Stream failed"))
+        }
+    }
+
+    #[actix_web::test]
+    async fn test_sse_handler_agent_stream_error() {
+        let signer_factory = Arc::new(MockSignerFactory::new());
+        let adapter = ActixRiglrAdapter::new(signer_factory);
+        let agent = FailingMockAgent;
+        let prompt = PromptRequest {
+            text: "test prompt".to_string(),
+            conversation_id: Some("conv-123".to_string()),
+            request_id: Some("req-456".to_string()),
+        };
+
+        let req = test::TestRequest::default()
+            .insert_header(("authorization", "Bearer test_token"))
+            .to_http_request();
+
+        let result = adapter.sse_handler(&req, &agent, prompt).await.unwrap();
+        assert_eq!(result.status(), actix_web::http::StatusCode::OK);
+    }
+
+    #[actix_web::test]
+    async fn test_completion_handler_agent_error() {
+        let signer_factory = Arc::new(MockSignerFactory::new());
+        let adapter = ActixRiglrAdapter::new(signer_factory);
+        let agent = FailingMockAgent;
+        let prompt = PromptRequest {
+            text: "test prompt".to_string(),
+            conversation_id: Some("conv-123".to_string()),
+            request_id: Some("req-456".to_string()),
+        };
+
+        let req = test::TestRequest::default()
+            .insert_header(("authorization", "Bearer test_token"))
+            .to_http_request();
+
+        let result = adapter
+            .completion_handler(&req, &agent, prompt)
+            .await
+            .unwrap();
+        assert_eq!(
+            result.status(),
+            actix_web::http::StatusCode::INTERNAL_SERVER_ERROR
+        );
     }
 }

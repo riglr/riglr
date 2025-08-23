@@ -6,7 +6,7 @@
 
 use futures_util::{Stream, StreamExt};
 // Note: Agent trait abstracted to allow any implementation
-use riglr_core::signer::{SignerContext, TransactionSigner};
+use riglr_core::signer::{SignerContext, UnifiedSigner};
 use serde::{Deserialize, Serialize};
 use std::error::Error as StdError;
 use std::pin::Pin;
@@ -142,7 +142,7 @@ pub enum AgentEvent {
 /// A stream of formatted SSE events as JSON strings
 pub async fn handle_agent_stream<A>(
     agent: A,
-    signer: std::sync::Arc<dyn TransactionSigner>,
+    signer: std::sync::Arc<dyn UnifiedSigner>,
     prompt: PromptRequest,
 ) -> Result<AgentStream, Box<dyn StdError + Send + Sync>>
 where
@@ -257,7 +257,7 @@ where
 /// A completion response with the agent's answer
 pub async fn handle_agent_completion<A>(
     agent: A,
-    signer: std::sync::Arc<dyn TransactionSigner>,
+    signer: std::sync::Arc<dyn UnifiedSigner>,
     prompt: PromptRequest,
 ) -> Result<CompletionResponse, Box<dyn StdError + Send + Sync>>
 where
@@ -310,6 +310,13 @@ mod tests {
     use riglr_solana_tools::signer::LocalSolanaSigner;
     use solana_sdk::signature::Keypair;
 
+    // Test constants
+    const TEST_RPC_URL: &str = "https://api.devnet.solana.com";
+    const TEST_RESPONSE: &str = "Test response";
+    const TEST_PROMPT: &str = "Test prompt";
+    const TEST_CONV_ID: &str = "test-conv";
+    const TEST_REQ_ID: &str = "test-req";
+
     // Mock agent for testing
     #[derive(Clone)]
     struct MockAgent {
@@ -343,26 +350,23 @@ mod tests {
 
     #[tokio::test]
     async fn test_handle_agent_completion() {
-        let agent = MockAgent::new("Test response".to_string());
+        let agent = MockAgent::new(TEST_RESPONSE.to_string());
         let keypair = Keypair::new();
-        let signer = std::sync::Arc::new(LocalSolanaSigner::new(
-            keypair,
-            "https://api.devnet.solana.com".to_string(),
-        ));
+        let signer = std::sync::Arc::new(LocalSolanaSigner::new(keypair, TEST_RPC_URL.to_string()));
 
         let prompt = PromptRequest {
-            text: "Test prompt".to_string(),
-            conversation_id: Some("test-conv".to_string()),
-            request_id: Some("test-req".to_string()),
+            text: TEST_PROMPT.to_string(),
+            conversation_id: Some(TEST_CONV_ID.to_string()),
+            request_id: Some(TEST_REQ_ID.to_string()),
         };
 
         let result = handle_agent_completion(agent, signer, prompt).await;
         assert!(result.is_ok());
 
         let response = result.unwrap();
-        assert_eq!(response.response, "Test response");
-        assert_eq!(response.conversation_id, "test-conv");
-        assert_eq!(response.request_id, "test-req");
+        assert_eq!(response.response, TEST_RESPONSE);
+        assert_eq!(response.conversation_id, TEST_CONV_ID);
+        assert_eq!(response.request_id, TEST_REQ_ID);
     }
 
     #[tokio::test]
@@ -417,5 +421,526 @@ mod tests {
         assert_eq!(parsed["type"], "start");
         assert_eq!(parsed["conversation_id"], "test-conv");
         assert_eq!(parsed["request_id"], "test-req");
+    }
+
+    // Mock agent that returns custom model name
+    #[derive(Clone)]
+    struct MockAgentWithModel {
+        response: String,
+        model: Option<String>,
+    }
+
+    impl MockAgentWithModel {
+        fn new(response: String, model: Option<String>) -> Self {
+            Self { response, model }
+        }
+    }
+
+    #[async_trait::async_trait]
+    impl Agent for MockAgentWithModel {
+        type Error = std::io::Error;
+
+        async fn prompt(&self, _prompt: &str) -> Result<String, Self::Error> {
+            Ok(self.response.clone())
+        }
+
+        async fn prompt_stream(
+            &self,
+            _prompt: &str,
+        ) -> Result<futures_util::stream::BoxStream<'_, Result<String, Self::Error>>, Self::Error>
+        {
+            let chunks = vec!["chunk1", "chunk2"];
+            let stream = futures_util::stream::iter(chunks).map(|chunk| Ok(chunk.to_string()));
+            Ok(Box::pin(stream))
+        }
+
+        fn model_name(&self) -> Option<String> {
+            self.model.clone()
+        }
+    }
+
+    // Mock agent that fails on prompt
+    #[derive(Clone)]
+    struct FailingMockAgent;
+
+    #[async_trait::async_trait]
+    impl Agent for FailingMockAgent {
+        type Error = std::io::Error;
+
+        async fn prompt(&self, _prompt: &str) -> Result<String, Self::Error> {
+            Err(std::io::Error::other("Agent failed"))
+        }
+
+        async fn prompt_stream(
+            &self,
+            _prompt: &str,
+        ) -> Result<futures_util::stream::BoxStream<'_, Result<String, Self::Error>>, Self::Error>
+        {
+            Err(std::io::Error::other("Stream failed"))
+        }
+    }
+
+    // Mock agent that fails during streaming
+    #[derive(Clone)]
+    struct StreamFailingMockAgent;
+
+    #[async_trait::async_trait]
+    impl Agent for StreamFailingMockAgent {
+        type Error = std::io::Error;
+
+        async fn prompt(&self, _prompt: &str) -> Result<String, Self::Error> {
+            Ok("success".to_string())
+        }
+
+        async fn prompt_stream(
+            &self,
+            _prompt: &str,
+        ) -> Result<futures_util::stream::BoxStream<'_, Result<String, Self::Error>>, Self::Error>
+        {
+            let stream = futures_util::stream::iter(vec![
+                Ok("chunk1".to_string()),
+                Err(std::io::Error::other("Stream chunk failed")),
+            ]);
+            Ok(Box::pin(stream))
+        }
+    }
+
+    #[test]
+    fn test_get_model_name_with_agent_model() {
+        let agent = MockAgentWithModel::new("test".to_string(), Some("custom-model".to_string()));
+        let result = get_model_name(&agent);
+        assert_eq!(result, Some("custom-model".to_string()));
+    }
+
+    #[test]
+    fn test_get_model_name_with_no_agent_model_no_env() {
+        let agent = MockAgentWithModel::new("test".to_string(), None);
+
+        // Ensure environment variable is not set
+        std::env::remove_var(RIGLR_DEFAULT_MODEL);
+
+        let result = get_model_name(&agent);
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_get_model_name_with_no_agent_model_with_env() {
+        let agent = MockAgentWithModel::new("test".to_string(), None);
+
+        // Set environment variable
+        std::env::set_var(RIGLR_DEFAULT_MODEL, "env-model");
+
+        let result = get_model_name(&agent);
+        assert_eq!(result, Some("env-model".to_string()));
+
+        // Clean up
+        std::env::remove_var(RIGLR_DEFAULT_MODEL);
+    }
+
+    #[test]
+    fn test_prompt_request_serialization() {
+        let request = PromptRequest {
+            text: "test prompt".to_string(),
+            conversation_id: Some("conv-123".to_string()),
+            request_id: Some("req-456".to_string()),
+        };
+
+        let json = serde_json::to_string(&request).unwrap();
+        let parsed: PromptRequest = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(parsed.text, "test prompt");
+        assert_eq!(parsed.conversation_id, Some("conv-123".to_string()));
+        assert_eq!(parsed.request_id, Some("req-456".to_string()));
+    }
+
+    #[test]
+    fn test_prompt_request_with_none_values() {
+        let request = PromptRequest {
+            text: "test".to_string(),
+            conversation_id: None,
+            request_id: None,
+        };
+
+        let json = serde_json::to_string(&request).unwrap();
+        let parsed: PromptRequest = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(parsed.text, "test");
+        assert_eq!(parsed.conversation_id, None);
+        assert_eq!(parsed.request_id, None);
+    }
+
+    #[test]
+    fn test_completion_response_serialization() {
+        let response = CompletionResponse {
+            response: "test response".to_string(),
+            model: "test-model".to_string(),
+            conversation_id: "conv-123".to_string(),
+            request_id: "req-456".to_string(),
+            timestamp: chrono::Utc::now(),
+        };
+
+        let json = serde_json::to_string(&response).unwrap();
+        let parsed: CompletionResponse = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(parsed.response, "test response");
+        assert_eq!(parsed.model, "test-model");
+        assert_eq!(parsed.conversation_id, "conv-123");
+        assert_eq!(parsed.request_id, "req-456");
+    }
+
+    #[test]
+    fn test_agent_event_content_serialization() {
+        let event = AgentEvent::Content {
+            content: "test content".to_string(),
+            conversation_id: "conv-123".to_string(),
+            request_id: "req-456".to_string(),
+        };
+
+        let json = serde_json::to_string(&event).unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(parsed["type"], "content");
+        assert_eq!(parsed["content"], "test content");
+        assert_eq!(parsed["conversation_id"], "conv-123");
+        assert_eq!(parsed["request_id"], "req-456");
+    }
+
+    #[test]
+    fn test_agent_event_complete_serialization() {
+        let event = AgentEvent::Complete {
+            conversation_id: "conv-123".to_string(),
+            request_id: "req-456".to_string(),
+            timestamp: chrono::Utc::now(),
+        };
+
+        let json = serde_json::to_string(&event).unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(parsed["type"], "complete");
+        assert_eq!(parsed["conversation_id"], "conv-123");
+        assert_eq!(parsed["request_id"], "req-456");
+        assert!(parsed["timestamp"].is_string());
+    }
+
+    #[test]
+    fn test_agent_event_error_serialization() {
+        let event = AgentEvent::Error {
+            error: "test error".to_string(),
+            conversation_id: "conv-123".to_string(),
+            request_id: "req-456".to_string(),
+            timestamp: chrono::Utc::now(),
+        };
+
+        let json = serde_json::to_string(&event).unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(parsed["type"], "error");
+        assert_eq!(parsed["error"], "test error");
+        assert_eq!(parsed["conversation_id"], "conv-123");
+        assert_eq!(parsed["request_id"], "req-456");
+        assert!(parsed["timestamp"].is_string());
+    }
+
+    #[test]
+    fn test_agent_event_deserialization() {
+        let json = r#"{"type":"start","conversation_id":"conv-123","request_id":"req-456","timestamp":"2023-01-01T00:00:00Z"}"#;
+        let event: AgentEvent = serde_json::from_str(json).unwrap();
+
+        match event {
+            AgentEvent::Start {
+                conversation_id,
+                request_id,
+                ..
+            } => {
+                assert_eq!(conversation_id, "conv-123");
+                assert_eq!(request_id, "req-456");
+            }
+            _ => panic!("Expected Start event"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_handle_agent_completion_with_custom_model() {
+        let agent = MockAgentWithModel::new(
+            "Test response".to_string(),
+            Some("custom-model".to_string()),
+        );
+        let keypair = Keypair::new();
+        let signer = std::sync::Arc::new(LocalSolanaSigner::new(
+            keypair,
+            "https://api.devnet.solana.com".to_string(),
+        ));
+
+        let prompt = PromptRequest {
+            text: "Test prompt".to_string(),
+            conversation_id: Some("test-conv".to_string()),
+            request_id: Some("test-req".to_string()),
+        };
+
+        let result = handle_agent_completion(agent, signer, prompt).await;
+        assert!(result.is_ok());
+
+        let response = result.unwrap();
+        assert_eq!(response.response, "Test response");
+        assert_eq!(response.model, "custom-model");
+        assert_eq!(response.conversation_id, "test-conv");
+        assert_eq!(response.request_id, "test-req");
+    }
+
+    #[tokio::test]
+    async fn test_handle_agent_completion_with_no_ids() {
+        let agent = MockAgent::new("Test response".to_string());
+        let keypair = Keypair::new();
+        let signer = std::sync::Arc::new(LocalSolanaSigner::new(
+            keypair,
+            "https://api.devnet.solana.com".to_string(),
+        ));
+
+        let prompt = PromptRequest {
+            text: "Test prompt".to_string(),
+            conversation_id: None,
+            request_id: None,
+        };
+
+        let result = handle_agent_completion(agent, signer, prompt).await;
+        assert!(result.is_ok());
+
+        let response = result.unwrap();
+        assert_eq!(response.response, "Test response");
+        assert_eq!(response.model, "claude-3-5-sonnet"); // default fallback
+                                                         // conversation_id and request_id should be generated UUIDs
+        assert!(!response.conversation_id.is_empty());
+        assert!(!response.request_id.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_handle_agent_completion_failure() {
+        let agent = FailingMockAgent;
+        let keypair = Keypair::new();
+        let signer = std::sync::Arc::new(LocalSolanaSigner::new(
+            keypair,
+            "https://api.devnet.solana.com".to_string(),
+        ));
+
+        let prompt = PromptRequest {
+            text: "Test prompt".to_string(),
+            conversation_id: Some("test-conv".to_string()),
+            request_id: Some("test-req".to_string()),
+        };
+
+        let result = handle_agent_completion(agent, signer, prompt).await;
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("Agent failed"));
+    }
+
+    #[tokio::test]
+    async fn test_handle_agent_stream_with_no_ids() {
+        let agent = MockAgent::new("Test response".to_string());
+        let keypair = Keypair::new();
+        let signer = std::sync::Arc::new(LocalSolanaSigner::new(
+            keypair,
+            "https://api.devnet.solana.com".to_string(),
+        ));
+
+        let prompt = PromptRequest {
+            text: "Test prompt".to_string(),
+            conversation_id: None,
+            request_id: None,
+        };
+
+        let result = handle_agent_stream(agent, signer, prompt).await;
+        assert!(result.is_ok());
+
+        let mut stream = result.unwrap();
+        let mut events = Vec::new();
+
+        while let Some(event_result) = stream.next().await {
+            let event_json = event_result.unwrap();
+            events.push(event_json);
+        }
+
+        // Should have start + content chunks + complete events
+        assert!(events.len() >= 3);
+
+        // First event should be start with generated IDs
+        let first_event: AgentEvent = serde_json::from_str(&events[0]).unwrap();
+        match first_event {
+            AgentEvent::Start {
+                conversation_id,
+                request_id,
+                ..
+            } => {
+                assert!(!conversation_id.is_empty());
+                assert!(!request_id.is_empty());
+            }
+            _ => panic!("Expected Start event"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_handle_agent_stream_failure() {
+        let agent = FailingMockAgent;
+        let keypair = Keypair::new();
+        let signer = std::sync::Arc::new(LocalSolanaSigner::new(
+            keypair,
+            "https://api.devnet.solana.com".to_string(),
+        ));
+
+        let prompt = PromptRequest {
+            text: "Test prompt".to_string(),
+            conversation_id: Some("test-conv".to_string()),
+            request_id: Some("test-req".to_string()),
+        };
+
+        let result = handle_agent_stream(agent, signer, prompt).await;
+        assert!(result.is_ok());
+
+        let mut stream = result.unwrap();
+        let mut events = Vec::new();
+
+        while let Some(event_result) = stream.next().await {
+            let event_json = event_result.unwrap();
+            events.push(event_json);
+        }
+
+        // Should have start + error events
+        assert_eq!(events.len(), 2);
+
+        // First event should be start
+        let first_event: AgentEvent = serde_json::from_str(&events[0]).unwrap();
+        assert!(matches!(first_event, AgentEvent::Start { .. }));
+
+        // Second event should be error
+        let error_event: AgentEvent = serde_json::from_str(&events[1]).unwrap();
+        match error_event {
+            AgentEvent::Error { error, .. } => {
+                assert!(error.contains("Stream failed"));
+            }
+            _ => panic!("Expected Error event"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_handle_agent_stream_chunk_failure() {
+        let agent = StreamFailingMockAgent;
+        let keypair = Keypair::new();
+        let signer = std::sync::Arc::new(LocalSolanaSigner::new(
+            keypair,
+            "https://api.devnet.solana.com".to_string(),
+        ));
+
+        let prompt = PromptRequest {
+            text: "Test prompt".to_string(),
+            conversation_id: Some("test-conv".to_string()),
+            request_id: Some("test-req".to_string()),
+        };
+
+        let result = handle_agent_stream(agent, signer, prompt).await;
+        assert!(result.is_ok());
+
+        let mut stream = result.unwrap();
+        let mut events = Vec::new();
+
+        while let Some(event_result) = stream.next().await {
+            let event_json = event_result.unwrap();
+            events.push(event_json);
+        }
+
+        // Should have start + content + error events (no complete due to error)
+        assert_eq!(events.len(), 3);
+
+        // First event should be start
+        let first_event: AgentEvent = serde_json::from_str(&events[0]).unwrap();
+        assert!(matches!(first_event, AgentEvent::Start { .. }));
+
+        // Second event should be content
+        let content_event: AgentEvent = serde_json::from_str(&events[1]).unwrap();
+        match content_event {
+            AgentEvent::Content { content, .. } => {
+                assert_eq!(content, "chunk1");
+            }
+            _ => panic!("Expected Content event"),
+        }
+
+        // Third event should be error
+        let error_event: AgentEvent = serde_json::from_str(&events[2]).unwrap();
+        match error_event {
+            AgentEvent::Error { error, .. } => {
+                assert!(error.contains("Stream chunk failed"));
+            }
+            _ => panic!("Expected Error event"),
+        }
+    }
+
+    #[test]
+    fn test_prompt_request_with_empty_text() {
+        let request = PromptRequest {
+            text: String::default(),
+            conversation_id: Some("conv-123".to_string()),
+            request_id: Some("req-456".to_string()),
+        };
+
+        assert_eq!(request.text, "");
+        assert_eq!(request.conversation_id, Some("conv-123".to_string()));
+        assert_eq!(request.request_id, Some("req-456".to_string()));
+    }
+
+    #[test]
+    fn test_prompt_request_clone() {
+        let request = PromptRequest {
+            text: "test".to_string(),
+            conversation_id: Some("conv-123".to_string()),
+            request_id: Some("req-456".to_string()),
+        };
+
+        let cloned = request.clone();
+        assert_eq!(request.text, cloned.text);
+        assert_eq!(request.conversation_id, cloned.conversation_id);
+        assert_eq!(request.request_id, cloned.request_id);
+    }
+
+    #[test]
+    fn test_prompt_request_debug() {
+        let request = PromptRequest {
+            text: "test".to_string(),
+            conversation_id: Some("conv-123".to_string()),
+            request_id: Some("req-456".to_string()),
+        };
+
+        let debug_str = format!("{:?}", request);
+        assert!(debug_str.contains("test"));
+        assert!(debug_str.contains("conv-123"));
+        assert!(debug_str.contains("req-456"));
+    }
+
+    #[test]
+    fn test_completion_response_debug() {
+        let response = CompletionResponse {
+            response: "test response".to_string(),
+            model: "test-model".to_string(),
+            conversation_id: "conv-123".to_string(),
+            request_id: "req-456".to_string(),
+            timestamp: chrono::Utc::now(),
+        };
+
+        let debug_str = format!("{:?}", response);
+        assert!(debug_str.contains("test response"));
+        assert!(debug_str.contains("test-model"));
+        assert!(debug_str.contains("conv-123"));
+        assert!(debug_str.contains("req-456"));
+    }
+
+    #[test]
+    fn test_agent_event_debug() {
+        let event = AgentEvent::Start {
+            conversation_id: "conv-123".to_string(),
+            request_id: "req-456".to_string(),
+            timestamp: chrono::Utc::now(),
+        };
+
+        let debug_str = format!("{:?}", event);
+        assert!(debug_str.contains("Start"));
+        assert!(debug_str.contains("conv-123"));
+        assert!(debug_str.contains("req-456"));
     }
 }
