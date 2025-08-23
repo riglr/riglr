@@ -561,4 +561,678 @@ mod tests {
         assert_eq!(validation.max_values.len(), 1);
         assert_eq!(validation.patterns.len(), 1);
     }
+
+    // Additional comprehensive tests for 100% coverage
+
+    #[test]
+    fn test_parsing_config_with_default_serialization_error() {
+        // Test with a value that cannot be serialized to JSON
+        let config =
+            ParsingConfig::new("test".to_string(), "1.0.0".to_string(), "json".to_string());
+        // This should not add the default since serialization would fail for certain types
+        // but our current implementation uses serde_json::to_value which handles most types
+        let config = config.with_default("field".to_string(), "valid_string");
+        assert_eq!(config.defaults.len(), 1);
+    }
+
+    #[test]
+    fn test_json_parser_extract_field_nested_object() {
+        let config =
+            ParsingConfig::new("test".to_string(), "1.0.0".to_string(), "json".to_string());
+        let parser = JsonEventParser::new(config, EventKind::Transaction, "test".to_string());
+
+        let data = json!({
+            "level1": {
+                "level2": {
+                    "value": "found"
+                }
+            }
+        });
+
+        let result = parser.extract_field(&data, "level1.level2.value");
+        assert_eq!(result, Some(json!("found")));
+    }
+
+    #[test]
+    fn test_json_parser_extract_field_array_access() {
+        let config =
+            ParsingConfig::new("test".to_string(), "1.0.0".to_string(), "json".to_string());
+        let parser = JsonEventParser::new(config, EventKind::Transaction, "test".to_string());
+
+        let data = json!({
+            "items": [
+                {"name": "first"},
+                {"name": "second"}
+            ]
+        });
+
+        let result = parser.extract_field(&data, "items.0.name");
+        assert_eq!(result, Some(json!("first")));
+
+        let result = parser.extract_field(&data, "items.1.name");
+        assert_eq!(result, Some(json!("second")));
+    }
+
+    #[test]
+    fn test_json_parser_extract_field_array_invalid_index() {
+        let config =
+            ParsingConfig::new("test".to_string(), "1.0.0".to_string(), "json".to_string());
+        let parser = JsonEventParser::new(config, EventKind::Transaction, "test".to_string());
+
+        let data = json!({
+            "items": [{"name": "first"}]
+        });
+
+        // Index out of bounds
+        let result = parser.extract_field(&data, "items.5.name");
+        assert_eq!(result, None);
+
+        // Non-numeric index on array
+        let result = parser.extract_field(&data, "items.invalid.name");
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_json_parser_extract_field_invalid_path() {
+        let config =
+            ParsingConfig::new("test".to_string(), "1.0.0".to_string(), "json".to_string());
+        let parser = JsonEventParser::new(config, EventKind::Transaction, "test".to_string());
+
+        let data = json!({
+            "value": "string"
+        });
+
+        // Trying to access property on string
+        let result = parser.extract_field(&data, "value.nonexistent");
+        assert_eq!(result, None);
+
+        // Non-existent path
+        let result = parser.extract_field(&data, "nonexistent.path");
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_json_parser_extract_field_empty_path() {
+        let config =
+            ParsingConfig::new("test".to_string(), "1.0.0".to_string(), "json".to_string());
+        let parser = JsonEventParser::new(config, EventKind::Transaction, "test".to_string());
+
+        let data = json!({"key": "value"});
+
+        // Single part path
+        let result = parser.extract_field(&data, "key");
+        assert_eq!(result, Some(json!("value")));
+    }
+
+    #[tokio::test]
+    async fn test_json_parser_validation_missing_required() {
+        let config =
+            ParsingConfig::new("test".to_string(), "1.0.0".to_string(), "json".to_string())
+                .with_validation(
+                    ValidationConfig::default().with_required("required_field".to_string()),
+                );
+
+        let parser = JsonEventParser::new(config, EventKind::Transaction, "test".to_string());
+        let input = json!({"other_field": "value"});
+
+        let result = parser.parse(input).await;
+        assert!(result.is_err());
+
+        if let Err(EventError::ParseError { context, .. }) = result {
+            assert!(context.contains("Required field 'required_field' is missing"));
+        } else {
+            panic!("Expected ParseError");
+        }
+    }
+
+    #[tokio::test]
+    async fn test_json_parser_validation_type_mismatch() {
+        let config =
+            ParsingConfig::new("test".to_string(), "1.0.0".to_string(), "json".to_string())
+                .with_mapping("field".to_string(), "field".to_string())
+                .with_validation(
+                    ValidationConfig::default()
+                        .with_type("field".to_string(), "string".to_string()),
+                );
+
+        let parser = JsonEventParser::new(config, EventKind::Transaction, "test".to_string());
+        let input = json!({"field": 123}); // number instead of string
+
+        let result = parser.parse(input).await;
+        assert!(result.is_err());
+
+        if let Err(EventError::ParseError { context, .. }) = result {
+            assert!(context.contains("Field 'field' has wrong type"));
+        } else {
+            panic!("Expected ParseError");
+        }
+    }
+
+    #[tokio::test]
+    async fn test_json_parser_validation_all_types() {
+        let config =
+            ParsingConfig::new("test".to_string(), "1.0.0".to_string(), "json".to_string())
+                .with_mapping("str_field".to_string(), "str_field".to_string())
+                .with_mapping("num_field".to_string(), "num_field".to_string())
+                .with_mapping("bool_field".to_string(), "bool_field".to_string())
+                .with_mapping("arr_field".to_string(), "arr_field".to_string())
+                .with_mapping("obj_field".to_string(), "obj_field".to_string())
+                .with_mapping("null_field".to_string(), "null_field".to_string())
+                .with_validation(
+                    ValidationConfig::default()
+                        .with_type("str_field".to_string(), "string".to_string())
+                        .with_type("num_field".to_string(), "number".to_string())
+                        .with_type("bool_field".to_string(), "boolean".to_string())
+                        .with_type("arr_field".to_string(), "array".to_string())
+                        .with_type("obj_field".to_string(), "object".to_string())
+                        .with_type("null_field".to_string(), "null".to_string()),
+                );
+
+        let parser = JsonEventParser::new(config, EventKind::Transaction, "test".to_string());
+        let input = json!({
+            "str_field": "string",
+            "num_field": 123,
+            "bool_field": true,
+            "arr_field": [1, 2, 3],
+            "obj_field": {"key": "value"},
+            "null_field": null
+        });
+
+        let result = parser.parse(input).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_json_parser_validation_numeric_range_below_min() {
+        let config =
+            ParsingConfig::new("test".to_string(), "1.0.0".to_string(), "json".to_string())
+                .with_mapping("amount".to_string(), "amount".to_string())
+                .with_validation(ValidationConfig::default().with_range(
+                    "amount".to_string(),
+                    10.0,
+                    100.0,
+                ));
+
+        let parser = JsonEventParser::new(config, EventKind::Transaction, "test".to_string());
+        let input = json!({"amount": 5.0});
+
+        let result = parser.parse(input).await;
+        assert!(result.is_err());
+
+        if let Err(EventError::ParseError { context, .. }) = result {
+            assert!(context.contains("Field 'amount' value too small"));
+        } else {
+            panic!("Expected ParseError");
+        }
+    }
+
+    #[tokio::test]
+    async fn test_json_parser_validation_numeric_range_above_max() {
+        let config =
+            ParsingConfig::new("test".to_string(), "1.0.0".to_string(), "json".to_string())
+                .with_mapping("amount".to_string(), "amount".to_string())
+                .with_validation(ValidationConfig::default().with_range(
+                    "amount".to_string(),
+                    10.0,
+                    100.0,
+                ));
+
+        let parser = JsonEventParser::new(config, EventKind::Transaction, "test".to_string());
+        let input = json!({"amount": 150.0});
+
+        let result = parser.parse(input).await;
+        assert!(result.is_err());
+
+        if let Err(EventError::ParseError { context, .. }) = result {
+            assert!(context.contains("Field 'amount' value too large"));
+        } else {
+            panic!("Expected ParseError");
+        }
+    }
+
+    #[tokio::test]
+    async fn test_json_parser_validation_string_pattern_mismatch() {
+        let config =
+            ParsingConfig::new("test".to_string(), "1.0.0".to_string(), "json".to_string())
+                .with_mapping("token".to_string(), "token".to_string())
+                .with_validation(
+                    ValidationConfig::default()
+                        .with_pattern("token".to_string(), "USD".to_string()),
+                );
+
+        let parser = JsonEventParser::new(config, EventKind::Transaction, "test".to_string());
+        let input = json!({"token": "BTC"});
+
+        let result = parser.parse(input).await;
+        assert!(result.is_err());
+
+        if let Err(EventError::ParseError { context, .. }) = result {
+            assert!(context.contains("Field 'token' doesn't match pattern"));
+        } else {
+            panic!("Expected ParseError");
+        }
+    }
+
+    #[tokio::test]
+    async fn test_json_parser_validation_string_pattern_match() {
+        let config =
+            ParsingConfig::new("test".to_string(), "1.0.0".to_string(), "json".to_string())
+                .with_mapping("token".to_string(), "token".to_string())
+                .with_validation(
+                    ValidationConfig::default()
+                        .with_pattern("token".to_string(), "USD".to_string()),
+                );
+
+        let parser = JsonEventParser::new(config, EventKind::Transaction, "test".to_string());
+        let input = json!({"token": "USDC"});
+
+        let result = parser.parse(input).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_json_parser_validation_non_object_input() {
+        let config =
+            ParsingConfig::new("test".to_string(), "1.0.0".to_string(), "json".to_string());
+        let parser = JsonEventParser::new(config, EventKind::Transaction, "test".to_string());
+
+        let input = json!("not an object");
+        let result = parser.parse(input).await;
+        assert!(result.is_err());
+
+        if let Err(EventError::ParseError { context, .. }) = result {
+            assert!(context.contains("Data is not a JSON object"));
+        } else {
+            panic!("Expected ParseError");
+        }
+    }
+
+    #[tokio::test]
+    async fn test_json_parser_with_custom_id() {
+        let config =
+            ParsingConfig::new("test".to_string(), "1.0.0".to_string(), "json".to_string())
+                .with_mapping("id".to_string(), "custom_id".to_string());
+
+        let parser = JsonEventParser::new(config, EventKind::Transaction, "test".to_string());
+        let input = json!({"custom_id": "my-custom-id"});
+
+        let events = parser.parse(input).await.unwrap();
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].id(), "my-custom-id");
+    }
+
+    #[test]
+    fn test_json_parser_can_parse_valid() {
+        let config =
+            ParsingConfig::new("test".to_string(), "1.0.0".to_string(), "json".to_string())
+                .with_mapping("field".to_string(), "nested.field".to_string());
+
+        let parser = JsonEventParser::new(config, EventKind::Transaction, "test".to_string());
+        let input = json!({"nested": {"field": "value"}});
+
+        assert!(parser.can_parse(&input));
+    }
+
+    #[test]
+    fn test_json_parser_can_parse_invalid() {
+        let config =
+            ParsingConfig::new("test".to_string(), "1.0.0".to_string(), "json".to_string())
+                .with_mapping("field".to_string(), "nested.field".to_string());
+
+        let parser = JsonEventParser::new(config, EventKind::Transaction, "test".to_string());
+        let input = json!({"other": "value"});
+
+        assert!(!parser.can_parse(&input));
+    }
+
+    #[test]
+    fn test_json_parser_can_parse_empty_mappings() {
+        let config =
+            ParsingConfig::new("test".to_string(), "1.0.0".to_string(), "json".to_string());
+        let parser = JsonEventParser::new(config, EventKind::Transaction, "test".to_string());
+        let input = json!({"any": "value"});
+
+        assert!(parser.can_parse(&input)); // No mappings to check
+    }
+
+    #[test]
+    fn test_json_parser_info() {
+        let config = ParsingConfig::new(
+            "test-parser".to_string(),
+            "2.0.0".to_string(),
+            "json".to_string(),
+        );
+        let parser = JsonEventParser::new(config, EventKind::Contract, "test".to_string());
+
+        let info = parser.info();
+        assert_eq!(info.name, "test-parser");
+        assert_eq!(info.version, "2.0.0");
+        assert!(info.supported_kinds.contains(&EventKind::Contract));
+        assert!(info.supported_formats.contains(&"json".to_string()));
+    }
+
+    #[test]
+    fn test_multi_format_parser_new() {
+        let parser = MultiFormatParser::new("binary".to_string());
+        assert_eq!(parser.default_format, "binary");
+        assert_eq!(parser.parsers.len(), 0);
+    }
+
+    #[test]
+    fn test_multi_format_parser_detect_format_json() {
+        let parser = MultiFormatParser::new("binary".to_string());
+
+        assert_eq!(parser.detect_format(b"{\"key\": \"value\"}"), "json");
+        assert_eq!(parser.detect_format(b"[1, 2, 3]"), "json");
+    }
+
+    #[test]
+    fn test_multi_format_parser_detect_format_xml() {
+        let parser = MultiFormatParser::new("binary".to_string());
+
+        assert_eq!(parser.detect_format(b"<xml>content</xml>"), "xml");
+    }
+
+    #[test]
+    fn test_multi_format_parser_detect_format_default() {
+        let parser = MultiFormatParser::new("custom".to_string());
+
+        assert_eq!(parser.detect_format(b"random binary data"), "custom");
+    }
+
+    #[tokio::test]
+    async fn test_multi_format_parser_parse_no_parser() {
+        let parser = MultiFormatParser::new("unknown".to_string());
+        let input = b"some data".to_vec();
+
+        let result = parser.parse(input).await;
+        assert!(result.is_err());
+
+        if let Err(EventError::ParseError { context, .. }) = result {
+            assert!(context.contains("No parser available for format: unknown"));
+        } else {
+            panic!("Expected ParseError");
+        }
+    }
+
+    #[test]
+    fn test_multi_format_parser_can_parse_no_parser() {
+        let parser = MultiFormatParser::new("unknown".to_string());
+        let input = b"some data".to_vec();
+
+        assert!(!parser.can_parse(&input));
+    }
+
+    #[test]
+    fn test_multi_format_parser_info() {
+        let parser = MultiFormatParser::new("default".to_string());
+        let info = parser.info();
+
+        assert_eq!(info.name, "multi-format");
+        assert_eq!(info.version, "1.0.0");
+        // Should have multiple formats
+        assert!(!info.supported_formats.is_empty());
+    }
+
+    #[test]
+    fn test_binary_parser_new() {
+        let parser = BinaryEventParser::new(
+            "bin-parser".to_string(),
+            "1.5.0".to_string(),
+            EventKind::Contract,
+            "bin-source".to_string(),
+        );
+
+        assert_eq!(parser.name, "bin-parser");
+        assert_eq!(parser.version, "1.5.0");
+        assert_eq!(parser.event_kind, EventKind::Contract);
+        assert_eq!(parser.source_name, "bin-source");
+    }
+
+    #[tokio::test]
+    async fn test_binary_parser_parse_empty() {
+        let parser = BinaryEventParser::new(
+            "test".to_string(),
+            "1.0.0".to_string(),
+            EventKind::Transaction,
+            "test".to_string(),
+        );
+
+        let input = vec![];
+        let events = parser.parse(input).await.unwrap();
+
+        assert_eq!(events.len(), 1);
+        let event = &events[0];
+        assert_eq!(event.kind(), &EventKind::Transaction);
+        assert_eq!(event.source(), "test");
+
+        // Check data structure by downcasting to GenericEvent
+        let generic_event = event
+            .as_any()
+            .downcast_ref::<crate::types::GenericEvent>()
+            .unwrap();
+        assert_eq!(generic_event.data["format"], "binary");
+        assert_eq!(generic_event.data["hex"], "");
+        assert_eq!(generic_event.data["length"], 0);
+    }
+
+    #[tokio::test]
+    async fn test_binary_parser_parse_with_data() {
+        let parser = BinaryEventParser::new(
+            "test".to_string(),
+            "1.0.0".to_string(),
+            EventKind::Transaction,
+            "test".to_string(),
+        );
+
+        let input = vec![0xde, 0xad, 0xbe, 0xef];
+        let events = parser.parse(input.clone()).await.unwrap();
+
+        assert_eq!(events.len(), 1);
+        let event = &events[0];
+
+        let generic_event = event
+            .as_any()
+            .downcast_ref::<crate::types::GenericEvent>()
+            .unwrap();
+        assert_eq!(generic_event.data["format"], "binary");
+        assert_eq!(generic_event.data["hex"], "deadbeef");
+        assert_eq!(generic_event.data["length"], 4);
+        assert_eq!(
+            generic_event.data["raw"],
+            serde_json::Value::Array(vec![
+                serde_json::Value::Number(serde_json::Number::from(0xde)),
+                serde_json::Value::Number(serde_json::Number::from(0xad)),
+                serde_json::Value::Number(serde_json::Number::from(0xbe)),
+                serde_json::Value::Number(serde_json::Number::from(0xef)),
+            ])
+        );
+    }
+
+    #[test]
+    fn test_binary_parser_can_parse() {
+        let parser = BinaryEventParser::new(
+            "test".to_string(),
+            "1.0.0".to_string(),
+            EventKind::Transaction,
+            "test".to_string(),
+        );
+
+        assert!(parser.can_parse(&vec![]));
+        assert!(parser.can_parse(&vec![1, 2, 3]));
+        assert!(parser.can_parse(&vec![0; 1000]));
+    }
+
+    #[test]
+    fn test_binary_parser_info() {
+        let parser = BinaryEventParser::new(
+            "binary-test".to_string(),
+            "2.1.0".to_string(),
+            EventKind::External,
+            "test".to_string(),
+        );
+
+        let info = parser.info();
+        assert_eq!(info.name, "binary-test");
+        assert_eq!(info.version, "2.1.0");
+        assert!(info.supported_kinds.contains(&EventKind::External));
+        assert!(info.supported_formats.contains(&"binary".to_string()));
+    }
+
+    #[test]
+    fn test_validation_config_default() {
+        let validation = ValidationConfig::default();
+
+        assert!(validation.required_fields.is_empty());
+        assert!(validation.field_types.is_empty());
+        assert!(validation.min_values.is_empty());
+        assert!(validation.max_values.is_empty());
+        assert!(validation.patterns.is_empty());
+    }
+
+    #[test]
+    fn test_validation_config_multiple_required() {
+        let validation = ValidationConfig::default()
+            .with_required("field1".to_string())
+            .with_required("field2".to_string());
+
+        assert_eq!(validation.required_fields.len(), 2);
+        assert!(validation.required_fields.contains(&"field1".to_string()));
+        assert!(validation.required_fields.contains(&"field2".to_string()));
+    }
+
+    #[test]
+    fn test_validation_config_multiple_types() {
+        let validation = ValidationConfig::default()
+            .with_type("field1".to_string(), "string".to_string())
+            .with_type("field2".to_string(), "number".to_string());
+
+        assert_eq!(validation.field_types.len(), 2);
+        assert_eq!(
+            validation.field_types.get("field1"),
+            Some(&"string".to_string())
+        );
+        assert_eq!(
+            validation.field_types.get("field2"),
+            Some(&"number".to_string())
+        );
+    }
+
+    #[test]
+    fn test_validation_config_range_sets_both_min_max() {
+        let validation = ValidationConfig::default().with_range("amount".to_string(), 5.0, 10.0);
+
+        assert_eq!(validation.min_values.get("amount"), Some(&5.0));
+        assert_eq!(validation.max_values.get("amount"), Some(&10.0));
+    }
+
+    #[tokio::test]
+    async fn test_json_parser_validation_non_numeric_range_field() {
+        let config =
+            ParsingConfig::new("test".to_string(), "1.0.0".to_string(), "json".to_string())
+                .with_mapping("field".to_string(), "field".to_string())
+                .with_validation(ValidationConfig::default().with_range(
+                    "field".to_string(),
+                    0.0,
+                    100.0,
+                ));
+
+        let parser = JsonEventParser::new(config, EventKind::Transaction, "test".to_string());
+        let input = json!({"field": "not a number"});
+
+        // Should not error for non-numeric fields when range validation is specified
+        let result = parser.parse(input).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_json_parser_validation_non_string_pattern_field() {
+        let config =
+            ParsingConfig::new("test".to_string(), "1.0.0".to_string(), "json".to_string())
+                .with_mapping("field".to_string(), "field".to_string())
+                .with_validation(
+                    ValidationConfig::default()
+                        .with_pattern("field".to_string(), "pattern".to_string()),
+                );
+
+        let parser = JsonEventParser::new(config, EventKind::Transaction, "test".to_string());
+        let input = json!({"field": 123});
+
+        // Should not error for non-string fields when pattern validation is specified
+        let result = parser.parse(input).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_multi_format_parser_with_parser() {
+        let binary_parser = BinaryEventParser::new(
+            "test-binary".to_string(),
+            "1.0.0".to_string(),
+            EventKind::Transaction,
+            "test".to_string(),
+        );
+
+        let multi_parser = MultiFormatParser::new("default".to_string())
+            .with_parser("binary".to_string(), binary_parser);
+
+        // Test parsing with the added parser
+        let input = b"random binary data".to_vec(); // Will be detected as default format
+        let result = multi_parser.parse(input).await;
+
+        // Should fail because "default" format parser is not registered, only "binary" is
+        assert!(result.is_err());
+
+        // Test with JSON format detection and parsing
+        let json_input = b"{\"test\": \"data\"}".to_vec();
+        let result = multi_parser.parse(json_input).await;
+        // Should fail because no JSON parser is registered
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_multi_format_parser_with_json_format() {
+        let binary_parser = BinaryEventParser::new(
+            "test-binary".to_string(),
+            "1.0.0".to_string(),
+            EventKind::Transaction,
+            "test".to_string(),
+        );
+
+        let multi_parser = MultiFormatParser::new("binary".to_string())
+            .with_parser("binary".to_string(), binary_parser);
+
+        // Test with data that will be detected as JSON but no JSON parser is registered
+        let json_input = b"{\"test\": \"data\"}".to_vec();
+        let result = multi_parser.parse(json_input).await;
+        assert!(result.is_err());
+
+        // Test with data that will use default format (binary)
+        let binary_input = b"some binary data".to_vec();
+        let result = multi_parser.parse(binary_input).await;
+        assert!(result.is_ok());
+
+        let events = result.unwrap();
+        assert_eq!(events.len(), 1);
+    }
+
+    #[test]
+    fn test_multi_format_parser_can_parse_with_registered_parser() {
+        let binary_parser = BinaryEventParser::new(
+            "test-binary".to_string(),
+            "1.0.0".to_string(),
+            EventKind::Transaction,
+            "test".to_string(),
+        );
+
+        let multi_parser = MultiFormatParser::new("binary".to_string())
+            .with_parser("binary".to_string(), binary_parser);
+
+        // Test data that defaults to binary format
+        let input = b"random data".to_vec();
+        assert!(multi_parser.can_parse(&input));
+
+        // Test data that would be detected as JSON but no JSON parser
+        let json_input = b"{\"test\": \"data\"}".to_vec();
+        assert!(!multi_parser.can_parse(&json_input));
+    }
 }

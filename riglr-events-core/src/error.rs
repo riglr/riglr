@@ -279,4 +279,420 @@ mod tests {
         let generic_err = EventError::generic("something went wrong");
         matches!(generic_err, EventError::Generic { .. });
     }
+
+    // Additional comprehensive tests for 100% coverage
+
+    #[test]
+    fn test_parse_error_constructor() {
+        let source_error = TestError;
+        let context = "Failed to parse JSON event";
+        let error = EventError::parse_error(source_error, context);
+
+        match error {
+            EventError::ParseError { context: ctx, .. } => {
+                assert_eq!(ctx, "Failed to parse JSON event");
+            }
+            _ => panic!("Expected ParseError variant"),
+        }
+    }
+
+    #[test]
+    fn test_parse_error_constructor_with_string_context() {
+        let error = EventError::parse_error(TestError, String::from("String context"));
+        match error {
+            EventError::ParseError { context, .. } => {
+                assert_eq!(context, "String context");
+            }
+            _ => panic!("Expected ParseError variant"),
+        }
+    }
+
+    #[test]
+    fn test_stream_error_constructor() {
+        let source_error = TestError;
+        let context = "Connection lost to event stream";
+        let error = EventError::stream_error(source_error, context);
+
+        match error {
+            EventError::StreamError { context: ctx, .. } => {
+                assert_eq!(ctx, "Connection lost to event stream");
+            }
+            _ => panic!("Expected StreamError variant"),
+        }
+    }
+
+    #[test]
+    fn test_filter_error_constructor() {
+        let source_error = TestError;
+        let context = "Invalid filter expression";
+        let error = EventError::filter_error(source_error, context);
+
+        match error {
+            EventError::FilterError { context: ctx, .. } => {
+                assert_eq!(ctx, "Invalid filter expression");
+            }
+            _ => panic!("Expected FilterError variant"),
+        }
+    }
+
+    #[test]
+    fn test_handler_error_constructor() {
+        let source_error = TestError;
+        let context = "Handler execution failed";
+        let error = EventError::handler_error(source_error, context);
+
+        match error {
+            EventError::HandlerError { context: ctx, .. } => {
+                assert_eq!(ctx, "Handler execution failed");
+            }
+            _ => panic!("Expected HandlerError variant"),
+        }
+    }
+
+    #[test]
+    fn test_invalid_config_constructor() {
+        let message = "Missing required configuration field";
+        let error = EventError::invalid_config(message);
+
+        match error {
+            EventError::InvalidConfig { message: msg } => {
+                assert_eq!(msg, "Missing required configuration field");
+            }
+            _ => panic!("Expected InvalidConfig variant"),
+        }
+    }
+
+    #[test]
+    fn test_invalid_config_constructor_with_string() {
+        let error = EventError::invalid_config(String::from("String message"));
+        match error {
+            EventError::InvalidConfig { message } => {
+                assert_eq!(message, "String message");
+            }
+            _ => panic!("Expected InvalidConfig variant"),
+        }
+    }
+
+    #[test]
+    fn test_not_found_constructor() {
+        let resource = "event-handler-123";
+        let error = EventError::not_found(resource);
+
+        match error {
+            EventError::NotFound { resource: res } => {
+                assert_eq!(res, "event-handler-123");
+            }
+            _ => panic!("Expected NotFound variant"),
+        }
+    }
+
+    #[test]
+    fn test_not_found_constructor_with_string() {
+        let error = EventError::not_found(String::from("resource-456"));
+        match error {
+            EventError::NotFound { resource } => {
+                assert_eq!(resource, "resource-456");
+            }
+            _ => panic!("Expected NotFound variant"),
+        }
+    }
+
+    #[test]
+    fn test_timeout_constructor() {
+        let duration = std::time::Duration::from_millis(500);
+        let error = EventError::timeout(duration);
+
+        match error {
+            EventError::Timeout { duration: dur } => {
+                assert_eq!(dur, std::time::Duration::from_millis(500));
+            }
+            _ => panic!("Expected Timeout variant"),
+        }
+    }
+
+    #[test]
+    fn test_generic_constructor() {
+        let message = "General event processing error";
+        let error = EventError::generic(message);
+
+        match error {
+            EventError::Generic { message: msg } => {
+                assert_eq!(msg, "General event processing error");
+            }
+            _ => panic!("Expected Generic variant"),
+        }
+    }
+
+    #[test]
+    fn test_generic_constructor_with_string() {
+        let error = EventError::generic(String::from("String error message"));
+        match error {
+            EventError::Generic { message } => {
+                assert_eq!(message, "String error message");
+            }
+            _ => panic!("Expected Generic variant"),
+        }
+    }
+
+    #[test]
+    fn test_is_retriable_all_variants() {
+        // Retriable errors
+        assert!(EventError::stream_error(TestError, "test").is_retriable());
+        assert!(EventError::Io(std::io::Error::new(
+            std::io::ErrorKind::ConnectionRefused,
+            "test"
+        ))
+        .is_retriable());
+        assert!(EventError::timeout(std::time::Duration::from_secs(1)).is_retriable());
+
+        // Non-retriable errors
+        assert!(!EventError::parse_error(TestError, "test").is_retriable());
+        assert!(!EventError::filter_error(TestError, "test").is_retriable());
+        assert!(!EventError::handler_error(TestError, "test").is_retriable());
+        assert!(
+            !EventError::Serialization(serde_json::Error::io(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "test"
+            )))
+            .is_retriable()
+        );
+        assert!(!EventError::invalid_config("test").is_retriable());
+        assert!(!EventError::not_found("test").is_retriable());
+        assert!(!EventError::generic("test").is_retriable());
+    }
+
+    #[test]
+    fn test_from_string_implementation() {
+        let error_msg = String::from("Error from String");
+        let error: EventError = error_msg.into();
+
+        match error {
+            EventError::Generic { message } => {
+                assert_eq!(message, "Error from String");
+            }
+            _ => panic!("Expected Generic variant"),
+        }
+    }
+
+    #[test]
+    fn test_from_str_implementation() {
+        let error_msg = "Error from &str";
+        let error: EventError = error_msg.into();
+
+        match error {
+            EventError::Generic { message } => {
+                assert_eq!(message, "Error from &str");
+            }
+            _ => panic!("Expected Generic variant"),
+        }
+    }
+
+    #[test]
+    fn test_from_anyhow_error_implementation() {
+        let anyhow_error = anyhow::anyhow!("Anyhow error message");
+        let error: EventError = anyhow_error.into();
+
+        match error {
+            EventError::Generic { message } => {
+                assert!(message.contains("Anyhow error message"));
+            }
+            _ => panic!("Expected Generic variant"),
+        }
+    }
+
+    #[test]
+    fn test_from_serde_json_error_implementation() {
+        let json_error = serde_json::from_str::<serde_json::Value>("invalid json").unwrap_err();
+        let error: EventError = json_error.into();
+
+        match error {
+            EventError::Serialization(_) => {
+                // Successfully converted
+            }
+            _ => panic!("Expected Serialization variant"),
+        }
+    }
+
+    #[test]
+    fn test_from_io_error_implementation() {
+        let io_error = std::io::Error::new(std::io::ErrorKind::NotFound, "File not found");
+        let error: EventError = io_error.into();
+
+        match error {
+            EventError::Io(_) => {
+                // Successfully converted
+            }
+            _ => panic!("Expected Io variant"),
+        }
+    }
+
+    #[test]
+    fn test_event_error_to_tool_error_conversion() {
+        let event_error = EventError::stream_error(TestError, "Stream failed");
+        let tool_error: ToolError = event_error.into();
+        assert!(tool_error.is_retriable());
+    }
+
+    #[test]
+    fn test_all_error_display_formats() {
+        let parse_error = EventError::parse_error(TestError, "parsing failed");
+        assert!(parse_error
+            .to_string()
+            .contains("Event parsing error: parsing failed"));
+
+        let stream_error = EventError::stream_error(TestError, "stream failed");
+        assert!(stream_error
+            .to_string()
+            .contains("Event stream error: stream failed"));
+
+        let filter_error = EventError::filter_error(TestError, "filter failed");
+        assert!(filter_error
+            .to_string()
+            .contains("Event filtering error: filter failed"));
+
+        let handler_error = EventError::handler_error(TestError, "handler failed");
+        assert!(handler_error
+            .to_string()
+            .contains("Event handler error: handler failed"));
+
+        let serialization_error = EventError::Serialization(serde_json::Error::io(
+            std::io::Error::new(std::io::ErrorKind::InvalidData, "test"),
+        ));
+        assert!(serialization_error
+            .to_string()
+            .contains("Serialization error:"));
+
+        let io_error = EventError::Io(std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            "file not found",
+        ));
+        assert!(io_error.to_string().contains("I/O error:"));
+
+        let config_error = EventError::invalid_config("config invalid");
+        assert!(config_error
+            .to_string()
+            .contains("Invalid configuration: config invalid"));
+
+        let not_found_error = EventError::not_found("resource-123");
+        assert!(not_found_error
+            .to_string()
+            .contains("Resource not found: resource-123"));
+
+        let timeout_error = EventError::timeout(std::time::Duration::from_secs(30));
+        assert!(timeout_error
+            .to_string()
+            .contains("Operation timed out after"));
+        assert!(timeout_error.to_string().contains("30s"));
+
+        let generic_error = EventError::generic("generic message");
+        assert!(generic_error
+            .to_string()
+            .contains("Event error: generic message"));
+    }
+
+    #[test]
+    fn test_to_tool_error_retriable_variants() {
+        let stream_error = EventError::stream_error(TestError, "network issue");
+        let tool_error = stream_error.to_tool_error();
+        assert!(tool_error.is_retriable());
+
+        let io_error = EventError::Io(std::io::Error::new(std::io::ErrorKind::TimedOut, "timeout"));
+        let tool_error = io_error.to_tool_error();
+        assert!(tool_error.is_retriable());
+
+        let timeout_error = EventError::timeout(std::time::Duration::from_secs(10));
+        let tool_error = timeout_error.to_tool_error();
+        assert!(tool_error.is_retriable());
+    }
+
+    #[test]
+    fn test_to_tool_error_permanent_variants() {
+        let parse_error = EventError::parse_error(TestError, "bad data");
+        let tool_error = parse_error.to_tool_error();
+        assert!(!tool_error.is_retriable());
+
+        let filter_error = EventError::filter_error(TestError, "invalid regex");
+        let tool_error = filter_error.to_tool_error();
+        assert!(!tool_error.is_retriable());
+
+        let handler_error = EventError::handler_error(TestError, "handler crash");
+        let tool_error = handler_error.to_tool_error();
+        assert!(!tool_error.is_retriable());
+
+        let serialization_error = EventError::Serialization(serde_json::Error::io(
+            std::io::Error::new(std::io::ErrorKind::InvalidData, "bad json"),
+        ));
+        let tool_error = serialization_error.to_tool_error();
+        assert!(!tool_error.is_retriable());
+
+        let config_error = EventError::invalid_config("missing field");
+        let tool_error = config_error.to_tool_error();
+        assert!(!tool_error.is_retriable());
+
+        let not_found_error = EventError::not_found("missing-resource");
+        let tool_error = not_found_error.to_tool_error();
+        assert!(!tool_error.is_retriable());
+
+        let generic_error = EventError::generic("unknown error");
+        let tool_error = generic_error.to_tool_error();
+        assert!(!tool_error.is_retriable());
+    }
+
+    #[test]
+    fn test_edge_cases_empty_strings() {
+        let error = EventError::invalid_config("");
+        assert_eq!(error.to_string(), "Invalid configuration: ");
+
+        let error = EventError::not_found("");
+        assert_eq!(error.to_string(), "Resource not found: ");
+
+        let error = EventError::generic("");
+        assert_eq!(error.to_string(), "Event error: ");
+
+        let error: EventError = "".into();
+        assert_eq!(error.to_string(), "Event error: ");
+
+        let error: EventError = "".into();
+        assert_eq!(error.to_string(), "Event error: ");
+    }
+
+    #[test]
+    fn test_edge_cases_special_characters() {
+        let special_msg = "Error with special chars: üñîçødé 123!@#$%^&*()";
+        let error = EventError::generic(special_msg);
+        assert!(error.to_string().contains(special_msg));
+
+        let error: EventError = special_msg.into();
+        assert!(error.to_string().contains(special_msg));
+    }
+
+    #[test]
+    fn test_edge_cases_very_long_strings() {
+        let long_msg = "a".repeat(10000);
+        let error = EventError::generic(&long_msg);
+        assert!(error.to_string().contains(&long_msg));
+    }
+
+    #[test]
+    fn test_zero_duration_timeout() {
+        let error = EventError::timeout(std::time::Duration::from_secs(0));
+        assert!(error.to_string().contains("0s"));
+        assert!(error.is_retriable());
+    }
+
+    #[test]
+    fn test_very_large_duration_timeout() {
+        let error = EventError::timeout(std::time::Duration::from_secs(u64::MAX));
+        assert!(error.is_retriable());
+    }
+
+    #[test]
+    fn test_event_result_type_alias() {
+        // Test that EventResult type alias works correctly
+        let success: EventResult<i32> = Ok(42);
+        assert_eq!(success.unwrap(), 42);
+
+        let failure: EventResult<i32> = Err(EventError::generic("test error"));
+        assert!(failure.is_err());
+    }
 }
