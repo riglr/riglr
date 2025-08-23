@@ -30,6 +30,34 @@ if let Some(rpc_url) = config.network.get_rpc_url(1) {
 }
 ```
 
+### Library Usage
+
+For library usage where you want to handle configuration errors gracefully:
+
+```rust
+use riglr_config::Config;
+use std::sync::Arc;
+
+// Use try_from_env() for Result-based error handling
+match Config::try_from_env() {
+    Ok(config) => {
+        // Config loaded successfully as Arc<Config>
+        println!("Redis URL: {}", config.database.redis_url);
+    }
+    Err(e) => {
+        // Handle configuration error gracefully
+        eprintln!("Failed to load config: {}", e);
+        // Use defaults or alternative configuration
+    }
+}
+```
+
+The `try_from_env()` method:
+- Returns `Result<Arc<Config>, ConfigError>` for library-friendly error handling
+- Automatically loads `.env` file if present
+- Returns an Arc-wrapped Config for efficient sharing
+- Validates all required fields
+
 ### Migrating from Existing Configuration
 
 If you're currently using configuration in `riglr-showcase`, `create-riglr-app`, or other crates:
