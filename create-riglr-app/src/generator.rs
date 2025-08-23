@@ -16,6 +16,7 @@ pub struct ProjectGenerator {
 }
 
 impl ProjectGenerator {
+    /// Create a new ProjectGenerator with the given configuration
     pub fn new(config: ProjectConfig) -> Self {
         let mut handlebars = Handlebars::new();
         handlebars.set_strict_mode(false);
@@ -72,7 +73,7 @@ impl ProjectGenerator {
 
     /// Generate source files
     pub fn generate_source_files(&self, output_dir: &Path) -> Result<()> {
-        let manager = TemplateManager::new();
+        let manager = TemplateManager::default();
         let template_content = manager.get_template_content(&self.config.template)?;
 
         // Prepare template data
@@ -110,7 +111,7 @@ impl ProjectGenerator {
 
     /// Generate configuration files
     pub fn generate_config_files(&self, output_dir: &Path) -> Result<()> {
-        let manager = TemplateManager::new();
+        let manager = TemplateManager::default();
         let template_content = manager.get_template_content(&self.config.template)?;
 
         let data = self.prepare_template_data();
@@ -454,5 +455,629 @@ Dockerfile
         fs::write(output_dir.join(".dockerignore"), dockerignore)?;
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::{ProjectConfig, ServerFramework, Template};
+    use std::fs;
+    use std::path::PathBuf;
+    use tempfile::TempDir;
+
+    fn create_test_config() -> ProjectConfig {
+        ProjectConfig {
+            name: "test_project".to_string(),
+            description: "A test project".to_string(),
+            author_name: "Test Author".to_string(),
+            author_email: "test@example.com".to_string(),
+            template: Template::Custom,
+            chains: vec!["solana".to_string()],
+            features: vec![
+                "database".to_string(),
+                "cicd".to_string(),
+                "docker".to_string(),
+            ],
+            server_framework: Some(ServerFramework::Axum),
+            include_tests: true,
+            include_examples: true,
+            include_docs: true,
+        }
+    }
+
+    fn create_minimal_config() -> ProjectConfig {
+        ProjectConfig {
+            name: "minimal_project".to_string(),
+            description: "A minimal project".to_string(),
+            author_name: "Minimal Author".to_string(),
+            author_email: "minimal@example.com".to_string(),
+            template: Template::Custom,
+            chains: vec![],
+            features: vec![],
+            server_framework: None,
+            include_tests: false,
+            include_examples: false,
+            include_docs: false,
+        }
+    }
+
+    #[test]
+    fn test_new_should_create_generator_with_config() {
+        let config = create_test_config();
+        let generator = ProjectGenerator::new(config.clone());
+
+        assert_eq!(generator.config.name, config.name);
+        assert_eq!(generator.config.description, config.description);
+        assert_eq!(generator.config.author_name, config.author_name);
+        assert_eq!(generator.config.author_email, config.author_email);
+    }
+
+    #[test]
+    fn test_create_structure_when_default_template_should_create_basic_dirs() -> Result<()> {
+        let config = create_minimal_config();
+        let generator = ProjectGenerator::new(config);
+        let temp_dir = TempDir::new()?;
+        let output_path = temp_dir.path();
+
+        generator.create_structure(output_path)?;
+
+        assert!(output_path.join("src").exists());
+        assert!(output_path.join("src/bin").exists());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_create_structure_when_api_service_template_should_create_api_dirs() -> Result<()> {
+        let mut config = create_test_config();
+        config.template = Template::ApiServiceBackend;
+        let generator = ProjectGenerator::new(config);
+        let temp_dir = TempDir::new()?;
+        let output_path = temp_dir.path();
+
+        generator.create_structure(output_path)?;
+
+        assert!(output_path.join("src/routes").exists());
+        assert!(output_path.join("src/middleware").exists());
+        assert!(output_path.join("src/handlers").exists());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_create_structure_when_data_analytics_template_should_create_analytics_dirs(
+    ) -> Result<()> {
+        let mut config = create_test_config();
+        config.template = Template::DataAnalyticsBot;
+        let generator = ProjectGenerator::new(config);
+        let temp_dir = TempDir::new()?;
+        let output_path = temp_dir.path();
+
+        generator.create_structure(output_path)?;
+
+        assert!(output_path.join("src/analytics").exists());
+        assert!(output_path.join("src/data").exists());
+        assert!(output_path.join("src/reports").exists());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_create_structure_when_event_driven_template_should_create_trading_dirs() -> Result<()> {
+        let mut config = create_test_config();
+        config.template = Template::EventDrivenTradingEngine;
+        let generator = ProjectGenerator::new(config);
+        let temp_dir = TempDir::new()?;
+        let output_path = temp_dir.path();
+
+        generator.create_structure(output_path)?;
+
+        assert!(output_path.join("src/events").exists());
+        assert!(output_path.join("src/strategies").exists());
+        assert!(output_path.join("src/execution").exists());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_create_structure_when_include_tests_true_should_create_tests_dir() -> Result<()> {
+        let config = create_test_config();
+        let generator = ProjectGenerator::new(config);
+        let temp_dir = TempDir::new()?;
+        let output_path = temp_dir.path();
+
+        generator.create_structure(output_path)?;
+
+        assert!(output_path.join("tests").exists());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_create_structure_when_include_examples_true_should_create_examples_dir() -> Result<()> {
+        let config = create_test_config();
+        let generator = ProjectGenerator::new(config);
+        let temp_dir = TempDir::new()?;
+        let output_path = temp_dir.path();
+
+        generator.create_structure(output_path)?;
+
+        assert!(output_path.join("examples").exists());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_create_structure_when_include_docs_true_should_create_docs_dir() -> Result<()> {
+        let config = create_test_config();
+        let generator = ProjectGenerator::new(config);
+        let temp_dir = TempDir::new()?;
+        let output_path = temp_dir.path();
+
+        generator.create_structure(output_path)?;
+
+        assert!(output_path.join("docs").exists());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_create_structure_when_database_feature_should_create_migrations_dir() -> Result<()> {
+        let config = create_test_config();
+        let generator = ProjectGenerator::new(config);
+        let temp_dir = TempDir::new()?;
+        let output_path = temp_dir.path();
+
+        generator.create_structure(output_path)?;
+
+        assert!(output_path.join("migrations").exists());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_create_structure_when_minimal_config_should_not_create_optional_dirs() -> Result<()> {
+        let config = create_minimal_config();
+        let generator = ProjectGenerator::new(config);
+        let temp_dir = TempDir::new()?;
+        let output_path = temp_dir.path();
+
+        generator.create_structure(output_path)?;
+
+        assert!(!output_path.join("tests").exists());
+        assert!(!output_path.join("examples").exists());
+        assert!(!output_path.join("docs").exists());
+        assert!(!output_path.join("migrations").exists());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_prepare_template_data_should_include_basic_project_info() {
+        let config = create_test_config();
+        let generator = ProjectGenerator::new(config);
+
+        let data = generator.prepare_template_data();
+
+        assert_eq!(
+            data.get("project_name").unwrap(),
+            &serde_json::json!("test_project")
+        );
+        assert_eq!(
+            data.get("description").unwrap(),
+            &serde_json::json!("A test project")
+        );
+        assert_eq!(
+            data.get("author_name").unwrap(),
+            &serde_json::json!("Test Author")
+        );
+        assert_eq!(
+            data.get("author_email").unwrap(),
+            &serde_json::json!("test@example.com")
+        );
+    }
+
+    #[test]
+    fn test_prepare_template_data_should_include_template_info() {
+        let config = create_test_config();
+        let generator = ProjectGenerator::new(config);
+
+        let data = generator.prepare_template_data();
+
+        assert_eq!(data.get("template").unwrap(), &serde_json::json!("custom"));
+        assert!(data.contains_key("template_description"));
+    }
+
+    #[test]
+    fn test_prepare_template_data_should_include_chain_info() {
+        let config = create_test_config();
+        let generator = ProjectGenerator::new(config);
+
+        let data = generator.prepare_template_data();
+
+        assert_eq!(
+            data.get("chains").unwrap(),
+            &serde_json::json!(vec!["solana"])
+        );
+        assert_eq!(data.get("has_solana").unwrap(), &serde_json::json!(true));
+        assert_eq!(data.get("has_evm").unwrap(), &serde_json::json!(false));
+    }
+
+    #[test]
+    fn test_prepare_template_data_when_evm_chains_should_set_has_evm_true() {
+        let mut config = create_test_config();
+        config.chains = vec!["ethereum".to_string(), "polygon".to_string()];
+        let generator = ProjectGenerator::new(config);
+
+        let data = generator.prepare_template_data();
+
+        assert_eq!(data.get("has_evm").unwrap(), &serde_json::json!(true));
+        assert_eq!(data.get("has_solana").unwrap(), &serde_json::json!(false));
+    }
+
+    #[test]
+    fn test_prepare_template_data_when_mixed_chains_should_set_both_true() {
+        let mut config = create_test_config();
+        config.chains = vec!["solana".to_string(), "ethereum".to_string()];
+        let generator = ProjectGenerator::new(config);
+
+        let data = generator.prepare_template_data();
+
+        assert_eq!(data.get("has_evm").unwrap(), &serde_json::json!(true));
+        assert_eq!(data.get("has_solana").unwrap(), &serde_json::json!(true));
+    }
+
+    #[test]
+    fn test_prepare_template_data_should_include_server_info() {
+        let config = create_test_config();
+        let generator = ProjectGenerator::new(config);
+
+        let data = generator.prepare_template_data();
+
+        assert_eq!(data.get("has_server").unwrap(), &serde_json::json!(true));
+        assert_eq!(
+            data.get("server_framework").unwrap(),
+            &serde_json::json!("axum")
+        );
+    }
+
+    #[test]
+    fn test_prepare_template_data_when_no_server_should_set_has_server_false() {
+        let config = create_minimal_config();
+        let generator = ProjectGenerator::new(config);
+
+        let data = generator.prepare_template_data();
+
+        assert_eq!(data.get("has_server").unwrap(), &serde_json::json!(false));
+        assert!(!data.contains_key("server_framework"));
+    }
+
+    #[test]
+    fn test_prepare_template_data_should_include_feature_flags() {
+        let config = create_test_config();
+        let generator = ProjectGenerator::new(config);
+
+        let data = generator.prepare_template_data();
+
+        assert_eq!(data.get("has_database").unwrap(), &serde_json::json!(true));
+        assert_eq!(data.get("has_cicd").unwrap(), &serde_json::json!(true));
+        assert_eq!(data.get("has_docker").unwrap(), &serde_json::json!(true));
+    }
+
+    #[test]
+    fn test_prepare_template_data_should_include_boolean_flags() {
+        let config = create_test_config();
+        let generator = ProjectGenerator::new(config);
+
+        let data = generator.prepare_template_data();
+
+        assert_eq!(
+            data.get("include_examples").unwrap(),
+            &serde_json::json!(true)
+        );
+        assert_eq!(data.get("include_tests").unwrap(), &serde_json::json!(true));
+        assert_eq!(data.get("include_docs").unwrap(), &serde_json::json!(true));
+    }
+
+    #[test]
+    fn test_generate_gitignore_should_return_standard_content() {
+        let config = create_test_config();
+        let generator = ProjectGenerator::new(config);
+
+        let gitignore = generator.generate_gitignore();
+
+        assert!(gitignore.contains("/target/"));
+        assert!(gitignore.contains(".env"));
+        assert!(gitignore.contains(".DS_Store"));
+        assert!(gitignore.contains("*.log"));
+        assert!(gitignore.contains("node_modules/"));
+    }
+
+    #[test]
+    fn test_generate_examples_when_api_service_should_call_api_examples() -> Result<()> {
+        let mut config = create_test_config();
+        config.template = Template::ApiServiceBackend;
+        let generator = ProjectGenerator::new(config);
+        let temp_dir = TempDir::new()?;
+        let output_path = temp_dir.path();
+
+        fs::create_dir_all(output_path.join("examples"))?;
+
+        generator.generate_examples(output_path)?;
+
+        assert!(output_path.join("examples/api_client.rs").exists());
+        let content = fs::read_to_string(output_path.join("examples/api_client.rs"))?;
+        assert!(content.contains("Example API client"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_generate_examples_when_trading_bot_should_call_trading_examples() -> Result<()> {
+        let mut config = create_test_config();
+        config.template = Template::TradingBot;
+        let generator = ProjectGenerator::new(config);
+        let temp_dir = TempDir::new()?;
+        let output_path = temp_dir.path();
+
+        fs::create_dir_all(output_path.join("examples"))?;
+
+        generator.generate_examples(output_path)?;
+
+        assert!(output_path.join("examples/trading_strategy.rs").exists());
+        let content = fs::read_to_string(output_path.join("examples/trading_strategy.rs"))?;
+        assert!(content.contains("Example trading strategy"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_generate_examples_when_default_template_should_call_basic_example() -> Result<()> {
+        let config = create_test_config();
+        let generator = ProjectGenerator::new(config);
+        let temp_dir = TempDir::new()?;
+        let output_path = temp_dir.path();
+
+        fs::create_dir_all(output_path.join("examples"))?;
+
+        generator.generate_examples(output_path)?;
+
+        assert!(output_path.join("examples/basic.rs").exists());
+        let content = fs::read_to_string(output_path.join("examples/basic.rs"))?;
+        assert!(content.contains("Basic usage example"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_generate_api_examples_should_create_api_client_file() -> Result<()> {
+        let config = create_test_config();
+        let generator = ProjectGenerator::new(config);
+        let temp_dir = TempDir::new()?;
+        let output_path = temp_dir.path();
+
+        fs::create_dir_all(output_path.join("examples"))?;
+
+        generator.generate_api_examples(output_path)?;
+
+        assert!(output_path.join("examples/api_client.rs").exists());
+        let content = fs::read_to_string(output_path.join("examples/api_client.rs"))?;
+        assert!(content.contains("reqwest::Client"));
+        assert!(content.contains("health"));
+        assert!(content.contains("agent/query"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_generate_trading_examples_should_create_trading_strategy_file() -> Result<()> {
+        let config = create_test_config();
+        let generator = ProjectGenerator::new(config);
+        let temp_dir = TempDir::new()?;
+        let output_path = temp_dir.path();
+
+        fs::create_dir_all(output_path.join("examples"))?;
+
+        generator.generate_trading_examples(output_path)?;
+
+        assert!(output_path.join("examples/trading_strategy.rs").exists());
+        let content = fs::read_to_string(output_path.join("examples/trading_strategy.rs"))?;
+        assert!(content.contains("riglr_core::Job"));
+        assert!(content.contains("Trading example"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_generate_basic_example_should_create_basic_file() -> Result<()> {
+        let config = create_test_config();
+        let generator = ProjectGenerator::new(config);
+        let temp_dir = TempDir::new()?;
+        let output_path = temp_dir.path();
+
+        fs::create_dir_all(output_path.join("examples"))?;
+
+        generator.generate_basic_example(output_path)?;
+
+        assert!(output_path.join("examples/basic.rs").exists());
+        let content = fs::read_to_string(output_path.join("examples/basic.rs"))?;
+        assert!(content.contains("Basic RIGLR example"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_generate_cicd_config_should_create_workflow_file() -> Result<()> {
+        let config = create_test_config();
+        let generator = ProjectGenerator::new(config);
+        let temp_dir = TempDir::new()?;
+        let output_path = temp_dir.path();
+
+        generator.generate_cicd_config(output_path)?;
+
+        assert!(output_path.join(".github/workflows").exists());
+        assert!(output_path.join(".github/workflows/ci.yml").exists());
+        let content = fs::read_to_string(output_path.join(".github/workflows/ci.yml"))?;
+        assert!(content.contains("name: CI"));
+        assert!(content.contains("cargo test"));
+        assert!(content.contains("cargo clippy"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_generate_docker_files_should_create_dockerfile_and_dockerignore() -> Result<()> {
+        let config = create_test_config();
+        let generator = ProjectGenerator::new(config);
+        let temp_dir = TempDir::new()?;
+        let output_path = temp_dir.path();
+
+        generator.generate_docker_files(output_path)?;
+
+        assert!(output_path.join("Dockerfile").exists());
+        assert!(output_path.join(".dockerignore").exists());
+
+        let dockerfile_content = fs::read_to_string(output_path.join("Dockerfile"))?;
+        assert!(dockerfile_content.contains("FROM rust:1.75"));
+        assert!(dockerfile_content.contains("cargo build --release"));
+
+        let dockerignore_content = fs::read_to_string(output_path.join(".dockerignore"))?;
+        assert!(dockerignore_content.contains("target/"));
+        assert!(dockerignore_content.contains(".git"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_generate_server_files_when_actix_should_call_generate_actix() -> Result<()> {
+        let mut config = create_test_config();
+        config.server_framework = Some(ServerFramework::Actix);
+        let generator = ProjectGenerator::new(config);
+        let temp_dir = TempDir::new()?;
+        let output_path = temp_dir.path();
+
+        fs::create_dir_all(output_path.join("src"))?;
+
+        generator.generate_server_files(output_path, &ServerFramework::Actix)?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_generate_server_files_when_axum_should_call_generate_axum() -> Result<()> {
+        let config = create_test_config();
+        let generator = ProjectGenerator::new(config);
+        let temp_dir = TempDir::new()?;
+        let output_path = temp_dir.path();
+
+        fs::create_dir_all(output_path.join("src"))?;
+
+        generator.generate_server_files(output_path, &ServerFramework::Axum)?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_generate_server_files_when_warp_should_call_generate_warp() -> Result<()> {
+        let config = create_test_config();
+        let generator = ProjectGenerator::new(config);
+        let temp_dir = TempDir::new()?;
+        let output_path = temp_dir.path();
+
+        fs::create_dir_all(output_path.join("src"))?;
+
+        generator.generate_server_files(output_path, &ServerFramework::Warp)?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_generate_server_files_when_rocket_should_call_generate_rocket() -> Result<()> {
+        let config = create_test_config();
+        let generator = ProjectGenerator::new(config);
+        let temp_dir = TempDir::new()?;
+        let output_path = temp_dir.path();
+
+        fs::create_dir_all(output_path.join("src"))?;
+
+        generator.generate_server_files(output_path, &ServerFramework::Rocket)?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_generate_actix_server_should_create_server_file() -> Result<()> {
+        let config = create_test_config();
+        let generator = ProjectGenerator::new(config);
+        let temp_dir = TempDir::new()?;
+        let output_path = temp_dir.path();
+
+        fs::create_dir_all(output_path.join("src"))?;
+
+        generator.generate_actix_server(output_path)?;
+
+        assert!(output_path.join("src/server.rs").exists());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_generate_axum_server_should_create_server_file() -> Result<()> {
+        let config = create_test_config();
+        let generator = ProjectGenerator::new(config);
+        let temp_dir = TempDir::new()?;
+        let output_path = temp_dir.path();
+
+        fs::create_dir_all(output_path.join("src"))?;
+
+        generator.generate_axum_server(output_path)?;
+
+        assert!(output_path.join("src/server.rs").exists());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_generate_warp_server_should_create_server_file() -> Result<()> {
+        let config = create_test_config();
+        let generator = ProjectGenerator::new(config);
+        let temp_dir = TempDir::new()?;
+        let output_path = temp_dir.path();
+
+        fs::create_dir_all(output_path.join("src"))?;
+
+        generator.generate_warp_server(output_path)?;
+
+        assert!(output_path.join("src/server.rs").exists());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_generate_rocket_server_should_create_server_file() -> Result<()> {
+        let config = create_test_config();
+        let generator = ProjectGenerator::new(config);
+        let temp_dir = TempDir::new()?;
+        let output_path = temp_dir.path();
+
+        fs::create_dir_all(output_path.join("src"))?;
+
+        generator.generate_rocket_server(output_path)?;
+
+        assert!(output_path.join("src/server.rs").exists());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_create_structure_when_directory_creation_fails_should_propagate_error() {
+        let config = create_test_config();
+        let generator = ProjectGenerator::new(config);
+        let invalid_path = PathBuf::from("/this/path/does/not/exist/and/cannot/be/created");
+
+        let result = generator.create_structure(&invalid_path);
+
+        assert!(result.is_err());
     }
 }
