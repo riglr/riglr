@@ -1,305 +1,334 @@
 # riglr-solana-tools
 
-A production-grade Rust library for building on-chain AI agents on Solana. Part of the riglr ecosystem, this crate provides high-level, secure, and efficient tools for interacting with the Solana blockchain.
+Production-grade Solana blockchain tools for riglr agents, providing comprehensive Solana network interactions.
+
+[![Crates.io](https://img.shields.io/crates/v/riglr-solana-tools.svg)](https://crates.io/crates/riglr-solana-tools)
+[![Documentation](https://docs.rs/riglr-solana-tools/badge.svg)](https://docs.rs/riglr-solana-tools)
 
 ## Features
 
-- **Balance Queries**: Check SOL and SPL token balances
-- **Network State**: Query blockchain state and transaction status
-- **Secure Transactions**: Transfer SOL and SPL tokens with built-in security patterns
-- **DeFi Integration**: Swap tokens via Jupiter aggregator
-- **Production Ready**: Battle-tested patterns with comprehensive error handling
-- **Developer Friendly**: Intuitive API with extensive documentation
+- 🔐 **Secure Transaction Management**: Thread-safe ApplicationContext with automatic client injection
+- 💰 **Balance Operations**: Check SOL and SPL token balances with clean #[tool] functions
+- 📤 **Token Transfers**: Send SOL and SPL tokens with automatic signer context management
+- 🔄 **DeFi Integration**: Jupiter aggregator for token swaps and liquidity operations
+- 🚀 **Pump.fun Integration**: Deploy and trade meme tokens on Solana's latest platform
+- ⚡ **High Performance**: Async/await with connection pooling and retry logic
+- 🛡️ **Error Handling**: Type-safe ToolError for distinguishing retriable and permanent failures
+- 🔒 **Multi-Tenant Safe**: Automatic isolation between concurrent user requests
+- 📖 **Clean Architecture**: Single #[tool] functions with automatic context injection
 
-## Installation
+## Architecture
 
-Add to your `Cargo.toml`:
+riglr-solana-tools uses the modern ApplicationContext pattern from riglr-core with automatic dependency injection:
 
-```toml
-[dependencies]
-riglr-solana-tools = "0.1.0"
-```
+### Clean Tool Functions
 
-## Quick Start
-
-### Basic Setup
+All tools use the same clean pattern with automatic context injection:
 
 ```rust
-use riglr_solana_tools::client::SolanaClient;
+use riglr_core::provider::ApplicationContext;
 use riglr_solana_tools::balance::get_sol_balance;
+use std::sync::Arc;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Create a client for mainnet
-    let client = SolanaClient::mainnet();
+    // Setup ApplicationContext with Solana client
+    let context = ApplicationContext::from_env();
     
-    // Query SOL balance
-    let address = "11111111111111111111111111111111".to_string();
-    let balance = get_sol_balance(&client, address).await?;
+    // Tools automatically use context.solana_client()
+    let balance = get_sol_balance(
+        "So11111111111111111111111111111111111111112".to_string(),
+        &context,
+    ).await?;
     
     println!("Balance: {} SOL", balance.sol);
     Ok(())
 }
 ```
 
-### Secure Transaction Signing
+### Transaction Operations
 
-The library uses a client-first pattern with signers configured per-client:
+Transaction tools work with SignerContext automatically detected from ApplicationContext:
 
 ```rust
-use riglr_solana_tools::client::SolanaClient;
+use riglr_core::provider::ApplicationContext;
 use riglr_solana_tools::transaction::transfer_sol;
-use solana_sdk::signature::Keypair;
 
-// Create a client with signer for transactions
-let keypair = Keypair::new(); // In production, load from secure storage
-let client = SolanaClient::mainnet()
-    .with_signer(keypair);
-
-// Transfer SOL
-let result = transfer_sol(
-    &client,
-    "recipient_address".to_string(),
-    1.0, // Amount in SOL
-    Some("Payment for services".to_string()), // Optional memo
-    None, // Optional priority fee
-).await?;
-
-println!("Transaction signature: {}", result.signature);
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let context = ApplicationContext::from_env();
+    
+    // Tool automatically uses signer context for transactions
+    let result = transfer_sol(
+        "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM".to_string(),
+        0.1, // 0.1 SOL
+        Some("Payment".to_string()),
+        None,
+        &context,
+    ).await?;
+    
+    println!("Transaction signature: {}", result.signature);
+    Ok(())
+}
 ```
+
+## Tool Integration
+
+All tools follow the `#[tool]` macro pattern and integrate seamlessly with ToolWorker:
+
+```rust
+use riglr_core::{ToolWorker, ExecutionConfig, Job, JobResult};
+use riglr_core::provider::ApplicationContext;
+use serde_json::json;
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let context = ApplicationContext::from_env();
+    
+    let worker = ToolWorker::new(
+        ExecutionConfig::default(),
+        context
+    );
+
+    // Execute tools via job system
+    let job = Job::new("get_sol_balance", &json!({
+        "address": "So11111111111111111111111111111111111111112"
+    }), 3)?;
+
+    let result: JobResult = worker.process_job(job).await?;
+    println!("Job result: {:?}", result);
+    Ok(())
+}
+```
+
+## Tool Implementation Pattern
+
+All tools follow a consistent pattern with ApplicationContext automatic injection:
+
+```rust
+use riglr_core::provider::ApplicationContext;
+use riglr_core::ToolError;
+use riglr_macros::tool;
+use std::sync::Arc;
+
+#[tool]
+pub async fn my_solana_tool(
+    param: String,
+    context: &ApplicationContext,
+) -> Result<MyResult, ToolError> {
+    // Get Solana RPC client from context extensions
+    let rpc_client = context
+        .get_extension::<Arc<solana_client::rpc_client::RpcClient>>()
+        .ok_or_else(|| {
+            ToolError::permanent_string("Solana RpcClient not found in context".to_string())
+        })?;
+    
+    // Use the client for operations
+    let result = rpc_client.get_account(&pubkey)
+        .map_err(|e| ToolError::retriable_string(format!("Network error: {}", e)))?;
+    
+    Ok(MyResult { data: result })
+}
+```
+
+**Key Points:**
+- All tools use `context: &ApplicationContext` as the last parameter
+- Solana RPC clients are injected via `context.get_extension()`
+- Transaction tools automatically access `SignerContext` when needed
+- Error handling distinguishes between retriable and permanent failures
 
 ## Available Tools
 
-### Balance Tools
+All tools use the new clean signature pattern:
 
-#### `get_sol_balance`
-Query SOL balance for an address.
-
+### Balance Operations
 ```rust
-let balance = get_sol_balance(&client, address).await?;
+#[tool]
+pub async fn get_sol_balance(
+    address: String,
+    context: &ApplicationContext,
+) -> Result<BalanceResult, ToolError>
+
+#[tool] 
+pub async fn get_spl_token_balance(
+    owner_address: String,
+    mint_address: String,
+    context: &ApplicationContext,
+) -> Result<TokenBalanceResult, ToolError>
+
+#[tool]
+pub async fn get_multiple_balances(
+    addresses: Vec<String>,
+    context: &ApplicationContext,
+) -> Result<Vec<BalanceResult>, ToolError>
 ```
 
-#### `get_spl_token_balance`
-Query SPL token balance for an address and mint.
-
+### Transaction Operations
 ```rust
-let balance = get_spl_token_balance(
-    &client,
-    owner_address,
-    mint_address,
-).await?;
+#[tool]
+pub async fn transfer_sol(
+    to_address: String,
+    amount_sol: f64,
+    memo: Option<String>,
+    priority_fee: Option<u64>,
+    context: &ApplicationContext,
+) -> Result<TransactionResult, ToolError>
+
+#[tool]
+pub async fn transfer_spl_token(
+    mint_address: String,
+    to_address: String,
+    amount: u64,
+    memo: Option<String>,
+    context: &ApplicationContext,
+) -> Result<TransactionResult, ToolError>
 ```
 
-### Network Tools
-
-#### `get_block_height`
-Get the current block height.
-
+### Trading Operations
 ```rust
-let height = get_block_height(&client).await?;
+#[tool]
+pub async fn get_jupiter_quote(
+    input_mint: String,
+    output_mint: String,
+    amount: u64,
+    slippage_bps: u16,
+    only_direct_routes: bool,
+    jupiter_api_url: Option<String>,
+    context: &ApplicationContext,
+) -> Result<SwapQuote, ToolError>
+
+#[tool]
+pub async fn perform_jupiter_swap(
+    input_mint: String,
+    output_mint: String,
+    amount: u64,
+    slippage_bps: u16,
+    jupiter_api_url: Option<String>,
+    use_versioned_transaction: bool,
+    context: &ApplicationContext,
+) -> Result<SwapResult, ToolError>
+
+#[tool]
+pub async fn get_token_price(
+    base_mint: String,
+    quote_mint: String,
+    context: &ApplicationContext,
+) -> Result<PriceResult, ToolError>
 ```
 
-#### `get_transaction_status`
-Check the status of a transaction.
-
+### Pump.fun Operations
 ```rust
-let status = get_transaction_status(&client, signature).await?;
+#[tool]
+pub async fn deploy_pump_token(
+    name: String,
+    symbol: String,
+    description: String,
+    image_url: Option<String>,
+    initial_buy_sol: Option<f64>,
+    context: &ApplicationContext,
+) -> Result<PumpTokenResult, ToolError>
+
+#[tool]
+pub async fn buy_pump_token(
+    token_mint: String,
+    sol_amount: f64,
+    slippage_bps: u16,
+    max_sol_cost: Option<f64>,
+    context: &ApplicationContext,
+) -> Result<PumpTradeResult, ToolError>
+
+#[tool]
+pub async fn sell_pump_token(
+    token_mint: String,
+    token_amount: u64,
+    slippage_bps: u16,
+    min_sol_output: Option<f64>,
+    context: &ApplicationContext,
+) -> Result<PumpTradeResult, ToolError>
+
+#[tool]
+pub async fn get_pump_token_info(
+    token_mint: String,
+    context: &ApplicationContext,
+) -> Result<PumpTokenInfo, ToolError>
 ```
 
-### Transaction Tools
-
-#### `transfer_sol`
-Transfer SOL between accounts.
-
+### Network Operations
 ```rust
-// Client must have a signer configured
-let client = SolanaClient::mainnet()
-    .with_signer(keypair);
+#[tool]
+pub async fn get_block_height(
+    context: &ApplicationContext,
+) -> Result<u64, ToolError>
 
-let result = transfer_sol(
-    &client,
-    to_address,
-    amount_sol,
-    memo,
-    priority_fee,
-).await?;
-```
-
-#### `transfer_spl_token`
-Transfer SPL tokens between accounts.
-
-```rust
-// Client must have a signer configured
-let client = SolanaClient::mainnet()
-    .with_signer(keypair);
-
-let result = transfer_spl_token(
-    &client,
-    to_address,
-    mint_address,
-    amount,
-    decimals,
-    create_ata_if_needed,
-).await?;
-```
-
-### DeFi Tools (Jupiter Integration)
-
-#### `get_jupiter_quote`
-Get a swap quote from Jupiter aggregator.
-
-```rust
-let quote = get_jupiter_quote(
-    input_mint,
-    output_mint,
-    amount,
-    slippage_bps,
-    only_direct_routes,
-    jupiter_api_url,
-).await?;
-```
-
-#### `perform_jupiter_swap`
-Execute a token swap via Jupiter.
-
-```rust
-// Client must have a signer configured
-let client = SolanaClient::mainnet()
-    .with_signer(keypair);
-
-let result = perform_jupiter_swap(
-    &client,
-    input_mint,
-    output_mint,
-    amount,
-    slippage_bps,
-    jupiter_api_url,
-    use_versioned_transaction,
-).await?;
-```
-
-#### `get_token_price`
-Get current price for a token pair.
-
-```rust
-let price = get_token_price(
-    base_mint,
-    quote_mint,
-    jupiter_api_url,
-).await?;
-```
-
-## Security Considerations
-
-### Private Key Management
-- **Never** expose private keys in code
-- Configure signers per-client instance, not globally
-- Load keys from secure storage (environment variables, HSM, etc.)
-- Client instances with signers can be cloned safely
-
-### Transaction Safety
-- All transactions require explicit signer authorization
-- Built-in idempotency support prevents duplicate transactions
-- Comprehensive error handling for network issues
-
-### Best Practices
-1. Create client instances with signers as needed
-2. Use appropriate commitment levels for your use case
-3. Implement proper error handling and retries
-4. Monitor transaction status after submission
-5. Clone client instances to share across threads safely
-
-## Network Configuration
-
-### Using Different Networks
-
-```rust
-// Mainnet (default)
-let client = SolanaClient::mainnet();
-
-// Devnet
-let client = SolanaClient::devnet();
-
-// Testnet
-let client = SolanaClient::testnet();
-
-// Custom RPC
-let client = SolanaClient::with_rpc_url("https://your-rpc-endpoint.com");
-```
-
-### Commitment Levels
-
-```rust
-use solana_sdk::commitment_config::CommitmentLevel;
-
-let client = SolanaClient::mainnet()
-    .with_commitment(CommitmentLevel::Finalized);
+#[tool]
+pub async fn get_transaction_status(
+    signature: String,
+    context: &ApplicationContext,
+) -> Result<TransactionStatusResult, ToolError>
 ```
 
 ## Error Handling
 
-The library uses a custom error type `SolanaToolError` with detailed error variants:
+All tools use structured error handling with retry classification:
 
 ```rust
-use riglr_solana_tools::error::SolanaToolError;
+use riglr_core::{ToolError, provider::ApplicationContext};
+use riglr_solana_tools::balance::get_sol_balance;
 
-match transfer_sol(...).await {
-    Ok(result) => println!("Success: {}", result.signature),
-    Err(SolanaToolError::InvalidAddress(msg)) => println!("Invalid address: {}", msg),
-    Err(SolanaToolError::InsufficientBalance) => println!("Insufficient balance"),
-    Err(SolanaToolError::Transaction(msg)) => println!("Transaction failed: {}", msg),
-    Err(e) => println!("Other error: {}", e),
+async fn handle_balance_check(context: &ApplicationContext, address: String) {
+    match get_sol_balance(address, context).await {
+        Ok(balance) => println!("Balance: {} SOL", balance.sol),
+        Err(ToolError::Retriable { message, .. }) => {
+            // Network errors - safe to retry
+            eprintln!("Temporary error: {}", message);
+        },
+        Err(ToolError::Permanent { message, .. }) => {
+            // Invalid input or permanent failures  
+            eprintln!("Permanent error: {}", message);
+        },
+    }
 }
 ```
 
-## Examples
+## Configuration
 
-See the `examples/` directory for complete working examples:
-
-- `solana_balance_checker.rs` - Query balances across multiple addresses
-- `simple_swapper.rs` - Perform token swaps via Jupiter
-
-Run examples with:
+Configure Solana endpoints and API keys via environment variables or riglr-config:
 
 ```bash
-cargo run --example solana_balance_checker
-cargo run --example simple_swapper
+# Solana RPC
+SOLANA_RPC_URL=https://api.mainnet-beta.solana.com
+
+# Jupiter API (optional)
+JUPITER_API_URL=https://quote-api.jup.ag
+
+# Pump.fun API (optional)  
+PUMP_API_URL=https://pumpapi.fun/api
 ```
 
-## Testing
+ApplicationContext automatically loads these configurations and injects the appropriate clients into tools.
 
-Run the test suite:
+See [riglr-config](../riglr-config) for complete configuration options.
 
-```bash
-# Unit tests
-cargo test --lib
+## Migration from Legacy Patterns
 
-# Integration tests (requires network connection)
-cargo test --test '*'
+If you're upgrading from the dual-API pattern:
 
-# All tests
-cargo test --workspace
+### Before (Legacy)
+```rust
+// OLD - dual API pattern
+get_sol_balance_with_context(address, &app_context).await?;
+get_sol_balance(address, rpc_client).await?;
 ```
 
-## Contributing
+### After (Current)  
+```rust
+// NEW - clean single API
+get_sol_balance(address, &context).await?;
+```
 
-Contributions are welcome! Please ensure:
-
-1. All tests pass
-2. Code follows Rust idioms
-3. Documentation is updated
-4. Changes are covered by tests
-
-## License
-
-MIT License - see LICENSE file for details
-
-## Support
-
-For issues and questions:
-- GitHub Issues: [riglr/issues](https://github.com/riglr/riglr/issues)
-- Documentation: [riglr.dev](https://riglr.dev)
-
-## Acknowledgments
-
-Built with battle-tested patterns from production Solana applications. Special thanks to the Solana and Jupiter teams for their excellent APIs and documentation.
+The new pattern:
+- ✅ Single function per tool 
+- ✅ Automatic context injection
+- ✅ Cleaner signatures
+- ✅ Better error handling
+- ✅ Consistent across all tools

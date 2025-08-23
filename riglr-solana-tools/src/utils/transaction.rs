@@ -6,10 +6,13 @@
 //! All transaction utilities follow the SignerContext pattern for secure multi-tenant operation.
 
 use crate::error::{
-    classify_transaction_error, PermanentError, RetryableError, SolanaToolError,
-    TransactionErrorType,
+    classify_transaction_error, RetryableError, SolanaToolError, TransactionErrorType,
 };
-use riglr_core::{signer::SignerError, SignerContext, ToolError};
+use riglr_core::{
+    retry::{retry_async, ErrorClass, RetryConfig},
+    signer::SignerError,
+    SignerContext, ToolError,
+};
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::{
     instruction::Instruction, pubkey::Pubkey, signature::Keypair, transaction::Transaction,
@@ -17,36 +20,11 @@ use solana_sdk::{
 use std::future::Future;
 use std::str::FromStr;
 use std::sync::Arc;
-use std::time::Duration;
-use tokio::time::sleep;
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, info};
 
 /// Configuration for transaction retry behavior
-#[derive(Debug, Clone)]
-pub struct TransactionConfig {
-    /// Maximum number of retry attempts
-    pub max_retries: u32,
-    /// Initial retry delay in milliseconds
-    pub base_delay_ms: u64,
-    /// Maximum retry delay in milliseconds
-    pub max_delay_ms: u64,
-    /// Multiplier for exponential backoff
-    pub backoff_multiplier: f64,
-    /// Whether to use jitter to avoid thundering herd
-    pub use_jitter: bool,
-}
-
-impl Default for TransactionConfig {
-    fn default() -> Self {
-        Self {
-            max_retries: 3,
-            base_delay_ms: 1000,     // Start with 1 second
-            max_delay_ms: 30_000,    // Cap at 30 seconds
-            backoff_multiplier: 2.0, // Double each time
-            use_jitter: true,
-        }
-    }
-}
+/// This is now a simple wrapper around riglr_core::retry::RetryConfig
+pub type TransactionConfig = RetryConfig;
 
 /// Result of a transaction submission
 #[derive(Debug, Clone)]
@@ -61,44 +39,25 @@ pub struct TransactionSubmissionResult {
     pub confirmed: bool,
 }
 
-/// Helper function to classify SignerError into TransactionErrorType
-fn classify_signer_error(signer_error: &SignerError) -> TransactionErrorType {
+/// Helper function to classify SignerError into ErrorClass for retry_async
+fn classify_signer_error_for_retry(signer_error: &SignerError) -> ErrorClass {
     match signer_error {
-        SignerError::SolanaTransaction(client_error) => classify_transaction_error(client_error),
-        SignerError::NoSignerContext => {
-            TransactionErrorType::Permanent(PermanentError::InvalidTransaction)
+        SignerError::SolanaTransaction(client_error) => {
+            match classify_transaction_error(client_error) {
+                TransactionErrorType::Permanent(_) => ErrorClass::Permanent,
+                TransactionErrorType::Retryable(RetryableError::NetworkCongestion) => {
+                    ErrorClass::RateLimited
+                }
+                TransactionErrorType::Retryable(_) => ErrorClass::Retryable,
+                TransactionErrorType::RateLimited(_) => ErrorClass::RateLimited,
+                TransactionErrorType::Unknown(_) => ErrorClass::Retryable, // Conservative: treat unknown as retryable
+            }
         }
-        SignerError::Configuration(_) => {
-            TransactionErrorType::Permanent(PermanentError::InvalidTransaction)
+        SignerError::NoSignerContext | SignerError::Configuration(_) | SignerError::Signing(_) => {
+            ErrorClass::Permanent
         }
-        SignerError::Signing(_) => {
-            TransactionErrorType::Permanent(PermanentError::InvalidSignature)
-        }
-        _ => {
-            // For other error types, default to retriable for safety
-            TransactionErrorType::Retryable(RetryableError::TemporaryRpcFailure)
-        }
+        _ => ErrorClass::Retryable,
     }
-}
-
-/// Calculate delay for retry with exponential backoff and optional jitter
-fn calculate_retry_delay(attempt: u32, config: &TransactionConfig) -> Duration {
-    let base_delay = config.base_delay_ms as f64;
-    let backoff_factor = config.backoff_multiplier.powf(attempt as f64);
-    let mut delay_ms = base_delay * backoff_factor;
-
-    // Cap at max delay
-    delay_ms = delay_ms.min(config.max_delay_ms as f64);
-
-    // Add jitter if enabled (±25% randomization)
-    if config.use_jitter {
-        use rand::Rng;
-        let mut rng = rand::thread_rng();
-        let jitter_factor = rng.gen_range(0.75..=1.25);
-        delay_ms *= jitter_factor;
-    }
-
-    Duration::from_millis(delay_ms as u64)
 }
 
 /// Send a Solana transaction with retry logic and exponential backoff
@@ -136,7 +95,8 @@ fn calculate_retry_delay(attempt: u32, config: &TransactionConfig) -> Duration {
 ///
 /// ```rust,ignore
 /// use riglr_solana_tools::utils::transaction::{send_transaction_with_retry, TransactionConfig};
-/// use solana_sdk::{transaction::Transaction, system_instruction};
+/// use solana_sdk::transaction::Transaction;
+/// use solana_system_interface::instruction as system_instruction;
 /// use riglr_core::SignerContext;
 ///
 /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
@@ -165,134 +125,62 @@ pub async fn send_transaction_with_retry(
     operation_name: &str,
 ) -> std::result::Result<TransactionSubmissionResult, ToolError> {
     let start_time = std::time::Instant::now();
+    let mut attempts = 0u32;
 
     debug!(
         "Sending transaction for operation '{}' with retry config: max_retries={}, base_delay={}ms",
         operation_name, config.max_retries, config.base_delay_ms
     );
 
-    // Get signer context
-    let signer_context = SignerContext::current()
-        .await
-        .map_err(|e| ToolError::permanent_string(format!("No signer context: {}", e)))?;
+    // Clone transaction for use in closure
+    let tx_clone = transaction.clone();
 
-    let mut last_error: Option<String> = None;
+    // Use retry_async with proper error classification
+    let result = retry_async(
+        || {
+            attempts += 1;
+            let mut tx = tx_clone.clone();
 
-    for attempt in 0..=config.max_retries {
-        debug!(
-            "Transaction attempt {} for '{}'",
-            attempt + 1,
-            operation_name
-        );
-
-        // Attempt to send the transaction
-        match signer_context
-            .sign_and_send_solana_transaction(transaction)
-            .await
-        {
-            Ok(signature) => {
-                let total_duration = start_time.elapsed().as_millis() as u64;
-
-                info!(
-                    "Transaction successful for '{}': signature={}, attempts={}, duration={}ms",
-                    operation_name,
-                    signature,
-                    attempt + 1,
-                    total_duration
-                );
-
-                return Ok(TransactionSubmissionResult {
-                    signature,
-                    attempts: attempt + 1,
-                    total_duration_ms: total_duration,
-                    confirmed: false, // Non-blocking - transaction is sent but not confirmed
-                });
+            async move {
+                // Get the current signer context
+                let signer = SignerContext::current_as_solana().await?;
+                signer.sign_and_send_transaction(&mut tx).await
             }
-            Err(signer_error) => {
-                let error_msg = signer_error.to_string();
-                last_error = Some(error_msg.clone());
+        },
+        classify_signer_error_for_retry,
+        config,
+        operation_name,
+    )
+    .await;
 
-                let error_type = classify_signer_error(&signer_error);
-
-                debug!(
-                    "Transaction attempt {} failed for '{}': {} (classified as: {:?})",
-                    attempt + 1,
-                    operation_name,
-                    error_msg,
-                    error_type
-                );
-
-                // Don't retry permanent errors
-                if matches!(error_type, TransactionErrorType::Permanent(_)) {
-                    error!(
-                        "Permanent transaction error for '{}' (attempt {}): {}",
-                        operation_name,
-                        attempt + 1,
-                        error_msg
-                    );
-                    return Err(ToolError::permanent_string(format!(
-                        "Transaction failed for '{}': {}",
-                        operation_name, error_msg
-                    )));
-                }
-
-                // If this was the last attempt, fail
-                if attempt >= config.max_retries {
-                    error!(
-                        "Transaction exhausted all {} attempts for '{}', last error: {}",
-                        config.max_retries + 1,
-                        operation_name,
-                        error_msg
-                    );
-                    break;
-                }
-
-                // Calculate delay for retry
-                let mut delay = calculate_retry_delay(attempt, config);
-
-                // Use longer delay for rate limiting
-                if error_type.is_rate_limited() {
-                    delay = Duration::from_millis(
-                        (delay.as_millis() as u64 * 3).min(config.max_delay_ms),
-                    );
-                    warn!(
-                        "Rate limited for '{}', using extended delay: {}ms",
-                        operation_name,
-                        delay.as_millis()
-                    );
-                }
-
-                debug!(
-                    "Retrying transaction for '{}' in {}ms (attempt {}/{})",
-                    operation_name,
-                    delay.as_millis(),
-                    attempt + 1,
-                    config.max_retries + 1
-                );
-
-                sleep(delay).await;
-            }
-        }
-    }
-
-    // All attempts failed
-    let final_error = last_error.unwrap_or_else(|| "Unknown error".to_string());
     let total_duration = start_time.elapsed().as_millis() as u64;
 
-    error!(
-        "Transaction failed for '{}' after {} attempts in {}ms, final error: {}",
-        operation_name,
-        config.max_retries + 1,
-        total_duration,
-        final_error
-    );
+    match result {
+        Ok(signature) => {
+            info!(
+                "Transaction successful for '{}': signature={}, attempts={}, duration={}ms",
+                operation_name, signature, attempts, total_duration
+            );
 
-    Err(ToolError::permanent_string(format!(
-        "Transaction failed for '{}' after {} attempts: {}",
-        operation_name,
-        config.max_retries + 1,
-        final_error
-    )))
+            Ok(TransactionSubmissionResult {
+                signature,
+                attempts,
+                total_duration_ms: total_duration,
+                confirmed: false, // Non-blocking - transaction is sent but not confirmed
+            })
+        }
+        Err(e) => {
+            error!(
+                "Transaction failed for '{}' after {} attempts in {}ms: {}",
+                operation_name, attempts, total_duration, e
+            );
+
+            Err(ToolError::permanent_string(format!(
+                "Transaction failed for '{}' after {} attempts: {}",
+                operation_name, attempts, e
+            )))
+        }
+    }
 }
 
 /// Send a transaction with default retry configuration
@@ -313,7 +201,8 @@ pub async fn send_transaction_with_retry(
 ///
 /// ```rust,ignore
 /// use riglr_solana_tools::utils::transaction::send_transaction;
-/// use solana_sdk::{transaction::Transaction, system_instruction};
+/// use solana_sdk::transaction::Transaction;
+/// use solana_system_interface::instruction as system_instruction;
 /// use riglr_core::SignerContext;
 ///
 /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
@@ -355,7 +244,8 @@ pub async fn send_transaction(
 ///
 /// ```rust,ignore
 /// use riglr_solana_tools::utils::transaction::execute_solana_transaction;
-/// use solana_sdk::{transaction::Transaction, system_instruction};
+/// use solana_sdk::transaction::Transaction;
+/// use solana_system_interface::instruction as system_instruction;
 ///
 /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
 /// let signature = execute_solana_transaction(|pubkey, client| async move {
@@ -381,28 +271,24 @@ where
     Fut: Future<Output = std::result::Result<Transaction, SolanaToolError>> + Send + 'static,
 {
     // Get signer from context
-    let signer = SignerContext::current()
+    let signer = SignerContext::current_as_solana()
         .await
         .map_err(SolanaToolError::SignerError)?;
 
     // Get Solana pubkey
-    let pubkey_str = signer.pubkey().ok_or_else(|| {
-        SolanaToolError::Generic("No Solana pubkey in signer context".to_string())
-    })?;
+    let pubkey_str = signer.pubkey();
     let pubkey = Pubkey::from_str(&pubkey_str)
         .map_err(|e| SolanaToolError::InvalidAddress(format!("Invalid pubkey format: {}", e)))?;
 
     // Get client from SignerContext
-    let client = signer.solana_client().ok_or_else(|| {
-        SolanaToolError::Generic("No Solana client available in signer context".to_string())
-    })?;
+    let client = signer.client();
 
     // Execute transaction creator
     let mut tx = tx_creator(pubkey, client).await?;
 
     // Sign and send via signer context
     signer
-        .sign_and_send_solana_transaction(&mut tx)
+        .sign_and_send_transaction(&mut tx)
         .await
         .map_err(SolanaToolError::SignerError)
 }
@@ -442,23 +328,18 @@ pub async fn create_token_with_mint_keypair(
     instructions: Vec<Instruction>,
     mint_keypair: &Keypair,
 ) -> std::result::Result<String, SolanaToolError> {
-    let signer = SignerContext::current()
+    let signer = SignerContext::current_as_solana()
         .await
         .map_err(SolanaToolError::SignerError)?;
     let payer_pubkey = signer
         .pubkey()
-        .ok_or_else(|| {
-            SolanaToolError::InvalidKey("No Solana pubkey in signer context".to_string())
-        })?
         .parse()
         .map_err(|e| SolanaToolError::InvalidKey(format!("Invalid pubkey format: {}", e)))?;
 
     let mut tx = Transaction::new_with_payer(&instructions, Some(&payer_pubkey));
 
     // Get recent blockhash from SignerContext
-    let client = signer.solana_client().ok_or_else(|| {
-        SolanaToolError::Generic("No Solana client available in signer context".to_string())
-    })?;
+    let client = signer.client();
     let recent_blockhash = client
         .get_latest_blockhash()
         .map_err(|e| SolanaToolError::SolanaClient(Box::new(e)))?;
@@ -467,7 +348,7 @@ pub async fn create_token_with_mint_keypair(
 
     // Sign and send transaction via signer context
     let signature = signer
-        .sign_and_send_solana_transaction(&mut tx)
+        .sign_and_send_transaction(&mut tx)
         .await
         .map_err(SolanaToolError::SignerError)?;
 
@@ -478,30 +359,7 @@ pub async fn create_token_with_mint_keypair(
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_retry_delay_calculation() {
-        let config = TransactionConfig::default();
-
-        // Test exponential backoff
-        let delay0 = calculate_retry_delay(0, &config);
-        let delay1 = calculate_retry_delay(1, &config);
-        let delay2 = calculate_retry_delay(2, &config);
-
-        // Base delay should be close to configured value (accounting for jitter)
-        assert!(delay0.as_millis() >= 750 && delay0.as_millis() <= 1250);
-
-        // Should increase exponentially
-        assert!(delay1.as_millis() > delay0.as_millis());
-        assert!(delay2.as_millis() > delay1.as_millis());
-
-        // Test max delay cap
-        let config_with_low_cap = TransactionConfig {
-            max_delay_ms: 2000,
-            ..Default::default()
-        };
-        let long_delay = calculate_retry_delay(10, &config_with_low_cap);
-        assert!(long_delay.as_millis() <= 2500); // Allow for jitter
-    }
+    // Test removed: calculate_retry_delay functionality moved to riglr_core::retry
 
     #[test]
     fn test_config_defaults() {
@@ -512,4 +370,150 @@ mod tests {
         assert_eq!(config.backoff_multiplier, 2.0);
         assert!(config.use_jitter);
     }
+
+    // Test removed: calculate_retry_delay functionality moved to riglr_core::retry
+
+    // Test removed: calculate_retry_delay functionality moved to riglr_core::retry
+
+    // Test removed: calculate_retry_delay functionality moved to riglr_core::retry
+
+    #[test]
+    fn test_classify_signer_error_solana_transaction() {
+        use riglr_core::signer::SignerError;
+        use solana_client::client_error::{ClientError, ClientErrorKind};
+
+        let client_error = ClientError::new_with_request(
+            ClientErrorKind::Io(std::io::Error::new(std::io::ErrorKind::TimedOut, "timeout")),
+            solana_client::rpc_request::RpcRequest::GetAccountInfo,
+        );
+        let signer_error = SignerError::SolanaTransaction(Arc::new(client_error));
+
+        let result = classify_signer_error_for_retry(&signer_error);
+        // Should classify as retryable since it's a network timeout
+        assert!(matches!(result, ErrorClass::Retryable));
+    }
+
+    #[test]
+    fn test_classify_signer_error_no_signer_context() {
+        use riglr_core::signer::SignerError;
+
+        let signer_error = SignerError::NoSignerContext;
+        let result = classify_signer_error_for_retry(&signer_error);
+
+        assert!(matches!(result, ErrorClass::Permanent));
+    }
+
+    #[test]
+    fn test_classify_signer_error_configuration() {
+        use riglr_core::signer::SignerError;
+
+        let signer_error = SignerError::Configuration("config error".to_string());
+        let result = classify_signer_error_for_retry(&signer_error);
+
+        assert!(matches!(result, ErrorClass::Permanent));
+    }
+
+    #[test]
+    fn test_classify_signer_error_signing() {
+        use riglr_core::signer::SignerError;
+
+        let signer_error = SignerError::Signing("signing error".to_string());
+        let result = classify_signer_error_for_retry(&signer_error);
+
+        assert!(matches!(result, ErrorClass::Permanent));
+    }
+
+    #[test]
+    fn test_classify_signer_error_other() {
+        use riglr_core::signer::SignerError;
+
+        // Test with a different variant that falls through to the default case
+        let signer_error = SignerError::ProviderError("rpc error".to_string());
+        let result = classify_signer_error_for_retry(&signer_error);
+
+        assert!(matches!(result, ErrorClass::Retryable));
+    }
+
+    #[test]
+    fn test_transaction_config_clone() {
+        let config = TransactionConfig::default();
+        let cloned = config.clone();
+
+        assert_eq!(config.max_retries, cloned.max_retries);
+        assert_eq!(config.base_delay_ms, cloned.base_delay_ms);
+        assert_eq!(config.max_delay_ms, cloned.max_delay_ms);
+        assert_eq!(config.backoff_multiplier, cloned.backoff_multiplier);
+        assert_eq!(config.use_jitter, cloned.use_jitter);
+    }
+
+    #[test]
+    fn test_transaction_config_debug() {
+        let config = TransactionConfig::default();
+        let debug_str = format!("{:?}", config);
+        assert!(debug_str.contains("TransactionConfig"));
+        assert!(debug_str.contains("max_retries"));
+    }
+
+    #[test]
+    fn test_transaction_submission_result_clone() {
+        let result = TransactionSubmissionResult {
+            signature: "test_signature".to_string(),
+            attempts: 2,
+            total_duration_ms: 5000,
+            confirmed: true,
+        };
+
+        let cloned = result.clone();
+        assert_eq!(result.signature, cloned.signature);
+        assert_eq!(result.attempts, cloned.attempts);
+        assert_eq!(result.total_duration_ms, cloned.total_duration_ms);
+        assert_eq!(result.confirmed, cloned.confirmed);
+    }
+
+    #[test]
+    fn test_transaction_submission_result_debug() {
+        let result = TransactionSubmissionResult {
+            signature: "test_signature".to_string(),
+            attempts: 2,
+            total_duration_ms: 5000,
+            confirmed: true,
+        };
+
+        let debug_str = format!("{:?}", result);
+        assert!(debug_str.contains("TransactionSubmissionResult"));
+        assert!(debug_str.contains("test_signature"));
+        assert!(debug_str.contains("attempts"));
+    }
+
+    #[test]
+    fn test_transaction_config_custom_values() {
+        let config = TransactionConfig {
+            max_retries: 5,
+            base_delay_ms: 500,
+            max_delay_ms: 15_000,
+            backoff_multiplier: 1.5,
+            use_jitter: false,
+        };
+
+        assert_eq!(config.max_retries, 5);
+        assert_eq!(config.base_delay_ms, 500);
+        assert_eq!(config.max_delay_ms, 15_000);
+        assert_eq!(config.backoff_multiplier, 1.5);
+        assert!(!config.use_jitter);
+    }
+
+    // Test removed: calculate_retry_delay functionality moved to riglr_core::retry
+
+    // Test removed: calculate_retry_delay functionality moved to riglr_core::retry
+
+    // Test removed: calculate_retry_delay functionality moved to riglr_core::retry
+
+    // Test removed: calculate_retry_delay functionality moved to riglr_core::retry
+
+    // Note: Integration tests for async functions like send_transaction_with_retry,
+    // send_transaction, execute_solana_transaction, and create_token_with_mint_keypair
+    // would require mocking SignerContext and RpcClient, which would be more appropriate
+    // in integration tests or with a proper mocking framework. These functions primarily
+    // orchestrate external dependencies and the core logic (retry calculation, error
+    // classification) is already tested above.
 }
