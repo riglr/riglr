@@ -5,12 +5,14 @@
 ---
 
 # Getting Started
+
 - [Quick Start](getting-started/quick-start.md)
 - [Create Your First Agent](getting-started/create-riglr-app.md)
 
 ---
 
 # Tutorials
+
 - [Overview](tutorials/index.md)
 - [Building a Solana Arbitrage Bot](tutorials/solana-arbitrage-bot.md)
 - [Creating a Cross-Chain Portfolio Manager](tutorials/cross-chain-portfolio-manager.md)
@@ -19,6 +21,7 @@
 ---
 
 # Conceptual Guides
+
 - [Overview](concepts/index.md)
 - [Core Architecture](concepts/architecture.md)
 - [Architecture Overview](concepts/architecture-overview.md)
@@ -32,10 +35,10 @@
 - [Data Indexing](concepts/indexer.md)
 - [Unified Configuration](concepts/configuration.md)
 
-
 ---
 
 # API Reference
+
 - [Agents (`riglr-agents`)](api-reference/riglr-agents.md)
 - [Auth (`riglr-auth`)](api-reference/riglr-auth.md)
 - [Config (`riglr-config`)](api-reference/riglr-config.md)
@@ -60,6 +63,7 @@
 ---
 
 # Tool Reference
+
 - [Overview](tool-reference/index.md)
 - [Agents (`riglr-agents`)](tool-reference/riglr-agents.md)
 - [Auth (`riglr-auth`)](tool-reference/riglr-auth.md)
@@ -85,6 +89,7 @@
 ---
 
 # Deployment Guides
+
 - [Overview](deployment/index.md)
 - [Docker](deployment/docker.md)
 - [Fly.io](deployment/fly-io.md)
