@@ -1,9 +1,8 @@
 //! Routing engine for selecting agents based on different strategies.
 
-use super::RoutingStrategy;
-use crate::{Agent, AgentError, Result, Task};
+use super::{proxy::AgentProxy, RoutingStrategy};
+use crate::{AgentError, Result, Task};
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::Arc;
 use tracing::debug;
 
 /// Router for selecting agents based on routing strategies.
@@ -26,17 +25,13 @@ impl Router {
     ///
     /// # Arguments
     ///
-    /// * `agents` - Available agents to choose from
+    /// * `agents` - Available agent proxies to choose from
     /// * `task` - The task to be executed (used for routing decisions)
     ///
     /// # Returns
     ///
-    /// The selected agent.
-    pub async fn select_agent(
-        &self,
-        agents: &[Arc<dyn Agent>],
-        task: &Task,
-    ) -> Result<Arc<dyn Agent>> {
+    /// The selected agent proxy.
+    pub async fn select_agent(&self, agents: &[AgentProxy], task: &Task) -> Result<AgentProxy> {
         if agents.is_empty() {
             return Err(AgentError::no_suitable_agent(task.task_type.to_string()));
         }
@@ -50,20 +45,21 @@ impl Router {
         };
 
         debug!(
-            "Router selected agent {} using strategy {:?}",
+            "Router selected agent {} using strategy {:?} ({})",
             selected.id(),
-            self.strategy
+            self.strategy,
+            if selected.is_local() {
+                "local"
+            } else {
+                "remote"
+            }
         );
 
         Ok(selected)
     }
 
     /// Select agent based on capabilities (first capable agent).
-    async fn select_by_capability(
-        &self,
-        agents: &[Arc<dyn Agent>],
-        task: &Task,
-    ) -> Result<Arc<dyn Agent>> {
+    async fn select_by_capability(&self, agents: &[AgentProxy], task: &Task) -> Result<AgentProxy> {
         for agent in agents {
             if agent.can_handle(task) {
                 return Ok(agent.clone());
@@ -74,13 +70,13 @@ impl Router {
     }
 
     /// Select agent using round-robin strategy.
-    fn select_round_robin(&self, agents: &[Arc<dyn Agent>]) -> Arc<dyn Agent> {
+    fn select_round_robin(&self, agents: &[AgentProxy]) -> AgentProxy {
         let index = self.round_robin_counter.fetch_add(1, Ordering::Relaxed) % agents.len();
         agents[index].clone()
     }
 
     /// Select the least loaded agent.
-    fn select_least_loaded(&self, agents: &[Arc<dyn Agent>]) -> Arc<dyn Agent> {
+    fn select_least_loaded(&self, agents: &[AgentProxy]) -> AgentProxy {
         agents
             .iter()
             .min_by(|a, b| {
@@ -93,7 +89,7 @@ impl Router {
     }
 
     /// Select a random agent.
-    fn select_random(&self, agents: &[Arc<dyn Agent>]) -> Arc<dyn Agent> {
+    fn select_random(&self, agents: &[AgentProxy]) -> AgentProxy {
         use std::collections::hash_map::DefaultHasher;
         use std::hash::{Hash, Hasher};
 
@@ -110,11 +106,7 @@ impl Router {
     }
 
     /// Select agent directly (for directed task routing).
-    async fn select_direct(
-        &self,
-        agents: &[Arc<dyn Agent>],
-        task: &Task,
-    ) -> Result<Arc<dyn Agent>> {
+    async fn select_direct(&self, agents: &[AgentProxy], task: &Task) -> Result<AgentProxy> {
         // Look for agent ID in task metadata
         if let Some(target_agent_id) = task.metadata.get("target_agent_id") {
             if let Some(agent_id_str) = target_agent_id.as_str() {
@@ -147,11 +139,13 @@ impl Router {
 mod tests {
     use super::*;
     use crate::types::*;
+    use crate::Agent;
+    use std::sync::Arc;
 
     #[derive(Clone, Debug)]
     struct MockAgent {
         id: AgentId,
-        capabilities: Vec<String>,
+        capabilities: Vec<CapabilityType>,
         load: f64,
     }
 
@@ -169,7 +163,7 @@ mod tests {
             &self.id
         }
 
-        fn capabilities(&self) -> Vec<String> {
+        fn capabilities(&self) -> Vec<CapabilityType> {
             self.capabilities.clone()
         }
 
@@ -183,16 +177,16 @@ mod tests {
         let router = Router::with_strategy(RoutingStrategy::Capability);
 
         let agents = vec![
-            Arc::new(MockAgent {
+            AgentProxy::Local(Arc::new(MockAgent {
                 id: AgentId::new("agent1"),
-                capabilities: vec!["research".to_string()],
+                capabilities: vec![CapabilityType::Research],
                 load: 0.5,
-            }) as Arc<dyn Agent>,
-            Arc::new(MockAgent {
+            })),
+            AgentProxy::Local(Arc::new(MockAgent {
                 id: AgentId::new("agent2"),
-                capabilities: vec!["trading".to_string()],
+                capabilities: vec![CapabilityType::Trading],
                 load: 0.3,
-            }) as Arc<dyn Agent>,
+            })),
         ];
 
         let trading_task = Task::new(TaskType::Trading, serde_json::json!({}));
@@ -209,16 +203,16 @@ mod tests {
         let router = Router::with_strategy(RoutingStrategy::RoundRobin);
 
         let agents = vec![
-            Arc::new(MockAgent {
+            AgentProxy::Local(Arc::new(MockAgent {
                 id: AgentId::new("agent1"),
-                capabilities: vec!["trading".to_string()],
+                capabilities: vec![CapabilityType::Trading],
                 load: 0.8,
-            }) as Arc<dyn Agent>,
-            Arc::new(MockAgent {
+            })),
+            AgentProxy::Local(Arc::new(MockAgent {
                 id: AgentId::new("agent2"),
-                capabilities: vec!["trading".to_string()],
+                capabilities: vec![CapabilityType::Trading],
                 load: 0.2,
-            }) as Arc<dyn Agent>,
+            })),
         ];
 
         let task = Task::new(TaskType::Trading, serde_json::json!({}));
@@ -235,16 +229,16 @@ mod tests {
         let router = Router::with_strategy(RoutingStrategy::LeastLoaded);
 
         let agents = vec![
-            Arc::new(MockAgent {
+            AgentProxy::Local(Arc::new(MockAgent {
                 id: AgentId::new("high-load"),
-                capabilities: vec!["trading".to_string()],
+                capabilities: vec![CapabilityType::Trading],
                 load: 0.8,
-            }) as Arc<dyn Agent>,
-            Arc::new(MockAgent {
+            })),
+            AgentProxy::Local(Arc::new(MockAgent {
                 id: AgentId::new("low-load"),
-                capabilities: vec!["trading".to_string()],
+                capabilities: vec![CapabilityType::Trading],
                 load: 0.2,
-            }) as Arc<dyn Agent>,
+            })),
         ];
 
         let task = Task::new(TaskType::Trading, serde_json::json!({}));
@@ -259,16 +253,16 @@ mod tests {
         let router = Router::with_strategy(RoutingStrategy::Direct);
 
         let agents = vec![
-            Arc::new(MockAgent {
+            AgentProxy::Local(Arc::new(MockAgent {
                 id: AgentId::new("agent1"),
-                capabilities: vec!["trading".to_string()],
+                capabilities: vec![CapabilityType::Trading],
                 load: 0.5,
-            }) as Arc<dyn Agent>,
-            Arc::new(MockAgent {
+            })),
+            AgentProxy::Local(Arc::new(MockAgent {
                 id: AgentId::new("agent2"),
-                capabilities: vec!["trading".to_string()],
+                capabilities: vec![CapabilityType::Trading],
                 load: 0.3,
-            }) as Arc<dyn Agent>,
+            })),
         ];
 
         // Task with direct agent targeting
@@ -289,16 +283,16 @@ mod tests {
         let router = Router::with_strategy(RoutingStrategy::Random);
 
         let agents = vec![
-            Arc::new(MockAgent {
+            AgentProxy::Local(Arc::new(MockAgent {
                 id: AgentId::new("agent1"),
-                capabilities: vec!["trading".to_string()],
+                capabilities: vec![CapabilityType::Trading],
                 load: 0.5,
-            }) as Arc<dyn Agent>,
-            Arc::new(MockAgent {
+            })),
+            AgentProxy::Local(Arc::new(MockAgent {
                 id: AgentId::new("agent2"),
-                capabilities: vec!["trading".to_string()],
+                capabilities: vec![CapabilityType::Trading],
                 load: 0.3,
-            }) as Arc<dyn Agent>,
+            })),
         ];
 
         let task = Task::new(TaskType::Trading, serde_json::json!({}));
@@ -311,7 +305,7 @@ mod tests {
     #[tokio::test]
     async fn test_router_empty_agents() {
         let router = Router::with_strategy(RoutingStrategy::Capability);
-        let agents: Vec<Arc<dyn Agent>> = vec![];
+        let agents: Vec<AgentProxy> = vec![];
         let task = Task::new(TaskType::Trading, serde_json::json!({}));
 
         let result = router.select_agent(&agents, &task).await;
@@ -337,11 +331,11 @@ mod tests {
     async fn test_capability_strategy_no_suitable_agent() {
         let router = Router::with_strategy(RoutingStrategy::Capability);
 
-        let agents = vec![Arc::new(MockAgent {
+        let agents = vec![AgentProxy::Local(Arc::new(MockAgent {
             id: AgentId::new("agent1"),
-            capabilities: vec!["research".to_string()],
+            capabilities: vec![CapabilityType::Research],
             load: 0.5,
-        }) as Arc<dyn Agent>];
+        }))];
 
         // Task that no agent can handle
         let unsupported_task = Task::new(TaskType::Trading, serde_json::json!({}));
@@ -359,11 +353,11 @@ mod tests {
     async fn test_direct_strategy_target_agent_not_string() {
         let router = Router::with_strategy(RoutingStrategy::Direct);
 
-        let agents = vec![Arc::new(MockAgent {
+        let agents = vec![AgentProxy::Local(Arc::new(MockAgent {
             id: AgentId::new("agent1"),
-            capabilities: vec!["trading".to_string()],
+            capabilities: vec![CapabilityType::Trading],
             load: 0.5,
-        }) as Arc<dyn Agent>];
+        }))];
 
         // Task with non-string target_agent_id
         let task = Task::new(TaskType::Trading, serde_json::json!({}))
@@ -378,11 +372,11 @@ mod tests {
     async fn test_direct_strategy_target_agent_not_found() {
         let router = Router::with_strategy(RoutingStrategy::Direct);
 
-        let agents = vec![Arc::new(MockAgent {
+        let agents = vec![AgentProxy::Local(Arc::new(MockAgent {
             id: AgentId::new("agent1"),
-            capabilities: vec!["trading".to_string()],
+            capabilities: vec![CapabilityType::Trading],
             load: 0.5,
-        }) as Arc<dyn Agent>];
+        }))];
 
         // Task with target agent that doesn't exist
         let task = Task::new(TaskType::Trading, serde_json::json!({}))
@@ -403,16 +397,16 @@ mod tests {
         let router = Router::with_strategy(RoutingStrategy::LeastLoaded);
 
         let agents = vec![
-            Arc::new(MockAgent {
+            AgentProxy::Local(Arc::new(MockAgent {
                 id: AgentId::new("agent1"),
-                capabilities: vec!["trading".to_string()],
+                capabilities: vec![CapabilityType::Trading],
                 load: 0.5,
-            }) as Arc<dyn Agent>,
-            Arc::new(MockAgent {
+            })),
+            AgentProxy::Local(Arc::new(MockAgent {
                 id: AgentId::new("agent2"),
-                capabilities: vec!["trading".to_string()],
+                capabilities: vec![CapabilityType::Trading],
                 load: 0.5,
-            }) as Arc<dyn Agent>,
+            })),
         ];
 
         let task = Task::new(TaskType::Trading, serde_json::json!({}));
@@ -426,11 +420,11 @@ mod tests {
     async fn test_round_robin_with_single_agent() {
         let router = Router::with_strategy(RoutingStrategy::RoundRobin);
 
-        let agents = vec![Arc::new(MockAgent {
+        let agents = vec![AgentProxy::Local(Arc::new(MockAgent {
             id: AgentId::new("only-agent"),
-            capabilities: vec!["trading".to_string()],
+            capabilities: vec![CapabilityType::Trading],
             load: 0.5,
-        }) as Arc<dyn Agent>];
+        }))];
 
         let task = Task::new(TaskType::Trading, serde_json::json!({}));
 
@@ -446,11 +440,11 @@ mod tests {
     async fn test_random_strategy_with_single_agent() {
         let router = Router::with_strategy(RoutingStrategy::Random);
 
-        let agents = vec![Arc::new(MockAgent {
+        let agents = vec![AgentProxy::Local(Arc::new(MockAgent {
             id: AgentId::new("only-agent"),
-            capabilities: vec!["trading".to_string()],
+            capabilities: vec![CapabilityType::Trading],
             load: 0.5,
-        }) as Arc<dyn Agent>];
+        }))];
 
         let task = Task::new(TaskType::Trading, serde_json::json!({}));
         let selected = router.select_agent(&agents, &task).await.unwrap();
@@ -463,21 +457,21 @@ mod tests {
         let router = Router::with_strategy(RoutingStrategy::RoundRobin);
 
         let agents = vec![
-            Arc::new(MockAgent {
+            AgentProxy::Local(Arc::new(MockAgent {
                 id: AgentId::new("agent1"),
-                capabilities: vec!["trading".to_string()],
+                capabilities: vec![CapabilityType::Trading],
                 load: 0.5,
-            }) as Arc<dyn Agent>,
-            Arc::new(MockAgent {
+            })),
+            AgentProxy::Local(Arc::new(MockAgent {
                 id: AgentId::new("agent2"),
-                capabilities: vec!["trading".to_string()],
+                capabilities: vec![CapabilityType::Trading],
                 load: 0.5,
-            }) as Arc<dyn Agent>,
-            Arc::new(MockAgent {
+            })),
+            AgentProxy::Local(Arc::new(MockAgent {
                 id: AgentId::new("agent3"),
-                capabilities: vec!["trading".to_string()],
+                capabilities: vec![CapabilityType::Trading],
                 load: 0.5,
-            }) as Arc<dyn Agent>,
+            })),
         ];
 
         let task = Task::new(TaskType::Trading, serde_json::json!({}));
@@ -498,11 +492,11 @@ mod tests {
     async fn test_direct_strategy_fallback_no_suitable_agent() {
         let router = Router::with_strategy(RoutingStrategy::Direct);
 
-        let agents = vec![Arc::new(MockAgent {
+        let agents = vec![AgentProxy::Local(Arc::new(MockAgent {
             id: AgentId::new("agent1"),
-            capabilities: vec!["research".to_string()], // Cannot handle trading
+            capabilities: vec![CapabilityType::Research], // Cannot handle trading
             load: 0.5,
-        }) as Arc<dyn Agent>];
+        }))];
 
         // Task without target_agent_id, should fall back to capability-based
         let task = Task::new(TaskType::Trading, serde_json::json!({}));

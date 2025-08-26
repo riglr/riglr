@@ -11,7 +11,7 @@ use std::sync::Arc;
 pub mod distributed;
 pub mod local;
 
-pub use distributed::DistributedAgentRegistry;
+pub use distributed::RedisAgentRegistry;
 pub use local::LocalAgentRegistry;
 
 /// Trait for agent registry implementations.
@@ -101,6 +101,22 @@ pub trait AgentRegistry: Send + Sync {
     /// A vector of all agent statuses.
     async fn list_agent_statuses(&self) -> Result<Vec<AgentStatus>>;
 
+    /// Find agent statuses by capability (local and remote).
+    ///
+    /// This method returns status information for all agents that support
+    /// the given capability, including both local agents in this process
+    /// and remote agents in other processes (for distributed registries).
+    ///
+    /// # Arguments
+    ///
+    /// * `capability` - The capability to search for
+    ///
+    /// # Returns
+    ///
+    /// A vector of agent statuses for agents that support the given capability.
+    async fn find_agent_statuses_by_capability(&self, capability: &str)
+        -> Result<Vec<AgentStatus>>;
+
     /// Check if an agent is registered.
     ///
     /// # Arguments
@@ -134,6 +150,65 @@ pub trait AgentRegistry: Send + Sync {
     }
 }
 
+/// Trait for distributed agent registry implementations.
+///
+/// This trait extends the base `AgentRegistry` trait with additional methods
+/// specific to distributed coordination across multiple processes or machines.
+///
+/// Distributed registries provide capabilities for:
+/// - Cross-process agent discovery
+/// - Remote agent status monitoring
+/// - Distributed capability-based routing
+/// - Load balancing across multiple nodes
+///
+/// # Implementation Note
+///
+/// Implementations of this trait should handle network partitions gracefully
+/// and provide eventual consistency guarantees for distributed operations.
+#[async_trait]
+pub trait DistributedAgentRegistry: AgentRegistry {
+    /// List all agent statuses from the distributed registry.
+    ///
+    /// This method queries the distributed backend (e.g., Redis, NATS, database)
+    /// to get status information for all registered agents across all processes
+    /// and machines in the distributed system.
+    ///
+    /// # Returns
+    ///
+    /// A vector of all agent statuses in the distributed system.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the distributed backend is unavailable or
+    /// if there's a network/serialization issue.
+    async fn list_agent_statuses_distributed(&self) -> Result<Vec<AgentStatus>>;
+
+    /// Find agent statuses by capability from the distributed registry.
+    ///
+    /// This method queries the distributed backend to find all agents
+    /// (both local and remote) that support the specified capability.
+    /// This is useful for load balancing and discovering agents across
+    /// the entire distributed system.
+    ///
+    /// # Arguments
+    ///
+    /// * `capability` - The capability to search for
+    ///
+    /// # Returns
+    ///
+    /// A vector of agent statuses for agents that support the given capability
+    /// across all processes and machines.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the distributed backend is unavailable or
+    /// if there's a network/serialization issue.
+    async fn find_agent_statuses_by_capability_distributed(
+        &self,
+        capability: &str,
+    ) -> Result<Vec<AgentStatus>>;
+}
+
 /// Configuration for agent registry implementations.
 #[derive(Debug, Clone)]
 pub struct RegistryConfig {
@@ -145,6 +220,8 @@ pub struct RegistryConfig {
     pub enable_health_checks: bool,
     /// Interval for background maintenance tasks
     pub maintenance_interval: std::time::Duration,
+    /// TTL for heartbeat entries in distributed registries
+    pub heartbeat_ttl: std::time::Duration,
 }
 
 impl Default for RegistryConfig {
@@ -154,6 +231,7 @@ impl Default for RegistryConfig {
             operation_timeout: std::time::Duration::from_secs(30),
             enable_health_checks: true,
             maintenance_interval: std::time::Duration::from_secs(60),
+            heartbeat_ttl: std::time::Duration::from_secs(600), // 10 minutes
         }
     }
 }
@@ -162,11 +240,12 @@ impl Default for RegistryConfig {
 mod tests {
     use super::*;
     use crate::types::*;
+    use std::str::FromStr;
 
     #[derive(Clone, Debug)]
     struct MockAgent {
         id: AgentId,
-        capabilities: Vec<String>,
+        capabilities: Vec<CapabilityType>,
     }
 
     #[async_trait::async_trait]
@@ -183,7 +262,7 @@ mod tests {
             &self.id
         }
 
-        fn capabilities(&self) -> Vec<String> {
+        fn capabilities(&self) -> Vec<CapabilityType> {
             self.capabilities.clone()
         }
     }
@@ -191,7 +270,7 @@ mod tests {
     async fn test_registry_basic_operations<R: AgentRegistry>(registry: R) {
         let agent = Arc::new(MockAgent {
             id: AgentId::new("test-agent"),
-            capabilities: vec!["trading".to_string()],
+            capabilities: vec![CapabilityType::Trading],
         });
 
         // Test registration
@@ -260,6 +339,7 @@ mod tests {
             operation_timeout: std::time::Duration::from_secs(60),
             enable_health_checks: false,
             maintenance_interval: std::time::Duration::from_secs(120),
+            heartbeat_ttl: std::time::Duration::from_secs(300),
         };
 
         assert_eq!(config.max_agents, Some(100));
@@ -278,6 +358,7 @@ mod tests {
             operation_timeout: std::time::Duration::from_millis(1),
             enable_health_checks: true,
             maintenance_interval: std::time::Duration::from_millis(1),
+            heartbeat_ttl: std::time::Duration::from_millis(1),
         };
 
         assert_eq!(config.max_agents, Some(0));
@@ -313,13 +394,13 @@ mod tests {
     fn test_mock_agent_capabilities() {
         let agent = MockAgent {
             id: AgentId::new("test"),
-            capabilities: vec!["trading".to_string(), "research".to_string()],
+            capabilities: vec![CapabilityType::Trading, CapabilityType::Research],
         };
 
         let caps = agent.capabilities();
         assert_eq!(caps.len(), 2);
-        assert!(caps.contains(&"trading".to_string()));
-        assert!(caps.contains(&"research".to_string()));
+        assert!(caps.contains(&CapabilityType::Trading));
+        assert!(caps.contains(&CapabilityType::Research));
     }
 
     #[test]
@@ -336,7 +417,7 @@ mod tests {
     fn test_mock_agent_clone() {
         let agent = MockAgent {
             id: AgentId::new("test"),
-            capabilities: vec!["trading".to_string()],
+            capabilities: vec![CapabilityType::Trading],
         };
 
         let cloned = agent.clone();
@@ -348,7 +429,7 @@ mod tests {
     async fn test_mock_agent_execute_task() {
         let agent = MockAgent {
             id: AgentId::new("test"),
-            capabilities: vec!["trading".to_string()],
+            capabilities: vec![CapabilityType::Trading],
         };
 
         let task = crate::Task {
@@ -420,7 +501,10 @@ mod tests {
             Ok(self
                 .agents
                 .iter()
-                .filter(|a| a.capabilities().contains(&capability.to_string()))
+                .filter(|a| {
+                    let cap_type = CapabilityType::from_str(capability).unwrap();
+                    a.capabilities().contains(&cap_type)
+                })
                 .cloned()
                 .collect())
         }
@@ -445,13 +529,23 @@ mod tests {
             }
             Ok(vec![])
         }
+
+        async fn find_agent_statuses_by_capability(
+            &self,
+            _capability: &str,
+        ) -> Result<Vec<AgentStatus>> {
+            if self.should_error {
+                return Err(crate::AgentError::configuration("Mock error".to_string()));
+            }
+            Ok(vec![])
+        }
     }
 
     #[tokio::test]
     async fn test_agent_registry_is_agent_registered_when_agent_exists_should_return_true() {
         let agent = Arc::new(MockAgent {
             id: AgentId::new("test-agent"),
-            capabilities: vec!["trading".to_string()],
+            capabilities: vec![CapabilityType::Trading],
         });
 
         let registry = MockRegistry {
@@ -506,11 +600,11 @@ mod tests {
     async fn test_agent_registry_agent_count_when_multiple_agents_should_return_correct_count() {
         let agent1 = Arc::new(MockAgent {
             id: AgentId::new("agent1"),
-            capabilities: vec!["trading".to_string()],
+            capabilities: vec![CapabilityType::Trading],
         });
         let agent2 = Arc::new(MockAgent {
             id: AgentId::new("agent2"),
-            capabilities: vec!["research".to_string()],
+            capabilities: vec![CapabilityType::Research],
         });
 
         let registry = MockRegistry {
@@ -559,7 +653,7 @@ mod tests {
     async fn test_agent_registry_health_check_when_has_agents_should_return_true() {
         let agent = Arc::new(MockAgent {
             id: AgentId::new("test-agent"),
-            capabilities: vec!["trading".to_string()],
+            capabilities: vec![CapabilityType::Trading],
         });
 
         let registry = MockRegistry {

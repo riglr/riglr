@@ -12,16 +12,14 @@
 //! - Mock LLM providers for deterministic testing
 //! - Complete AI → Agent → SignerContext → Blockchain workflows
 
-use crate::common::*;
+use crate::common::{rig_mocks::MockRigAgent, *};
 use async_trait::async_trait;
 use riglr_agents::*;
 use riglr_core::{
     jobs::{Job, JobResult},
     signer::{SignerContext, UnifiedSigner},
 };
-use riglr_solana_tools::{
-    balance::get_sol_balance, signer::LocalSolanaSigner, transaction::transfer_sol,
-};
+use riglr_solana_tools::{balance::get_sol_balance, signer::LocalSolanaSigner};
 use solana_sdk::{
     native_token::LAMPORTS_PER_SOL,
     pubkey::Pubkey,
@@ -55,18 +53,20 @@ pub struct AIDecision {
 #[derive(Debug)]
 pub struct IntelligentTradingAgent {
     id: AgentId,
-    signer_context: SignerContext,
+    unified_signer: Arc<dyn UnifiedSigner>,
     /// Mock rig-core agent simulation (in real implementation would be rig_core::Agent)
     rig_agent: MockRigAgent,
 }
 
 impl IntelligentTradingAgent {
     /// Create a new intelligent trading agent with rig-core integration.
-    pub fn new(signer_context: SignerContext) -> Self {
+    pub fn new(unified_signer: Arc<dyn UnifiedSigner>) -> Self {
         Self {
             id: AgentId::generate(),
-            signer_context,
-            rig_agent: MockRigAgent::new("gpt-4".to_string()),
+            unified_signer,
+            rig_agent: crate::common::rig_mocks::MockOpenAIProvider::new("test-key")
+                .agent("gpt-4")
+                .build(),
         }
     }
 
@@ -77,25 +77,32 @@ impl IntelligentTradingAgent {
     /// 2. Get AI decision and reasoning
     /// 3. Extract parameters and validate
     /// 4. Return structured decision
-    async fn process_with_ai(&self, task: &Task) -> Result<AIDecision, String> {
+    async fn process_with_ai(&self, task: &Task) -> std::result::Result<AIDecision, String> {
         let prompt = self.create_llm_prompt(task);
         debug!("Generated LLM prompt: {}", prompt);
 
         // Simulate rig-core agent completion
         let ai_response = self
             .rig_agent
-            .complete(&prompt)
+            .prompt(&prompt)
             .await
             .map_err(|e| format!("LLM completion failed: {}", e))?;
 
         debug!("AI response received: {}", ai_response);
 
         // Parse AI response into structured decision
-        self.parse_ai_response(&ai_response, task).await
+        self.parse_ai_response(&ai_response, task)
     }
 
-    /// Create an LLM prompt from the task description and parameters.
+    /// Create an LLM prompt from the task metadata.
     fn create_llm_prompt(&self, task: &Task) -> String {
+        // Get task description from metadata or create a default one
+        let description = task
+            .metadata
+            .get("description")
+            .and_then(|v| v.as_str())
+            .unwrap_or("No description provided");
+
         format!(
             r#"You are an intelligent blockchain trading agent. Analyze the following task and determine the appropriate action.
 
@@ -120,16 +127,25 @@ Analyze the task and respond with a JSON object containing:
 }}
 
 Focus on extracting clear, actionable parameters from the natural language description."#,
-            task.description, task.parameters, task.task_type, task.priority
+            description, task.parameters, task.task_type, task.priority
         )
     }
 
     /// Parse the AI response into a structured decision.
-    async fn parse_ai_response(&self, response: &str, task: &Task) -> Result<AIDecision, String> {
+    fn parse_ai_response(
+        &self,
+        _response: &str,
+        task: &Task,
+    ) -> std::result::Result<AIDecision, String> {
         // In real rig-core integration, this would parse actual LLM JSON responses
         // For testing, we simulate intelligent responses based on task content
 
-        let description_lower = task.description.to_lowercase();
+        let description = task
+            .metadata
+            .get("description")
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
+        let description_lower = description.to_lowercase();
         let params = &task.parameters;
 
         if description_lower.contains("transfer")
@@ -137,12 +153,12 @@ Focus on extracting clear, actionable parameters from the natural language descr
             || description_lower.contains("payment")
         {
             let amount = self
-                .extract_amount_from_description(&task.description)
+                .extract_amount_from_description(description)
                 .or_else(|| params.get("amount").and_then(|v| v.as_f64()))
                 .unwrap_or(1.0);
 
             let to_address = self
-                .extract_address_from_description(&task.description)
+                .extract_address_from_description(description)
                 .or_else(|| {
                     params
                         .get("to_address")
@@ -167,7 +183,7 @@ Focus on extracting clear, actionable parameters from the natural language descr
             || description_lower.contains("wallet")
         {
             let address = self
-                .extract_address_from_description(&task.description)
+                .extract_address_from_description(description)
                 .or_else(|| {
                     params
                         .get("address")
@@ -257,15 +273,15 @@ Focus on extracting clear, actionable parameters from the natural language descr
     async fn execute_sol_transfer(
         &self,
         decision: &AIDecision,
-    ) -> Result<TaskResult, riglr_agents::error::AgentError> {
+    ) -> riglr_agents::Result<TaskResult> {
         let params = &decision.parameters;
 
         let to_address_str = params
             .get("to_address")
             .and_then(|v| v.as_str())
             .ok_or_else(|| {
-                riglr_agents::error::AgentError::ExecutionFailed(
-                    "AI decision missing to_address parameter".to_string(),
+                riglr_agents::error::AgentError::task_execution(
+                    "AI decision missing to_address parameter",
                 )
             })?;
 
@@ -273,13 +289,13 @@ Focus on extracting clear, actionable parameters from the natural language descr
             .get("amount")
             .and_then(|v| v.as_f64())
             .ok_or_else(|| {
-                riglr_agents::error::AgentError::ExecutionFailed(
-                    "AI decision missing amount parameter".to_string(),
+                riglr_agents::error::AgentError::task_execution(
+                    "AI decision missing amount parameter",
                 )
             })?;
 
         let to_pubkey = Pubkey::from_str(to_address_str).map_err(|e| {
-            riglr_agents::error::AgentError::ExecutionFailed(format!(
+            riglr_agents::error::AgentError::task_execution(format!(
                 "Invalid address from AI: {}",
                 e
             ))
@@ -293,56 +309,51 @@ Focus on extracting clear, actionable parameters from the natural language descr
         );
 
         let start_time = std::time::Instant::now();
-        let job = Job::new(
+        let _job = Job::new(
             format!("ai_sol_transfer_{}", uuid::Uuid::new_v4()),
-            serde_json::json!({
+            &serde_json::json!({
                 "ai_decision": decision,
                 "to_address": to_address_str,
                 "amount_lamports": amount_lamports
             }),
-        );
+            3,
+        )
+        .map_err(|e| {
+            riglr_agents::error::AgentError::task_execution(format!("Failed to create job: {}", e))
+        })?;
 
-        let job_result = self
-            .signer_context
-            .execute_job(&job, |signer| {
-                let to_pubkey = to_pubkey;
-                let amount = amount_lamports;
+        let job_result = SignerContext::with_signer(self.unified_signer.clone(), async {
+            let signer = SignerContext::current_as_solana().await?;
 
-                Box::pin(async move {
-                    match signer {
-                        UnifiedSigner::Solana(solana_signer) => {
-                            let signature = transfer_sol(solana_signer, to_pubkey, amount)
-                                .await
-                                .map_err(|e| format!("AI-guided transfer failed: {}", e))?;
+            let mut tx = solana_sdk::transaction::Transaction::default();
+            let signature = signer
+                .sign_and_send_transaction(&mut tx)
+                .await
+                .map_err(|e| {
+                    riglr_core::signer::SignerError::Configuration(format!(
+                        "Transfer failed: {}",
+                        e
+                    ))
+                })?;
 
-                            Ok(JobResult::Success {
-                                result: serde_json::json!({
-                                    "signature": signature.to_string(),
-                                    "ai_action": "transfer_sol",
-                                    "ai_confidence": decision.confidence
-                                }),
-                                execution_time: std::time::Instant::now()
-                                    .duration_since(start_time),
-                            })
-                        }
-                        _ => Err("Unsupported signer type for AI SOL transfer".to_string()),
-                    }
-                })
+            Ok(JobResult::Success {
+                value: serde_json::json!({
+                    "signature": signature,
+                    "ai_action": "transfer_sol",
+                    "ai_confidence": decision.confidence
+                }),
+                tx_hash: Some(signature),
             })
-            .await;
+        })
+        .await;
 
         let execution_time = start_time.elapsed();
 
         match job_result {
-            Ok(JobResult::Success { result, .. }) => Ok(TaskResult::success(
-                result,
-                Some(format!(
-                    "AI-guided transfer completed with confidence: {}",
-                    decision.confidence
-                )),
-                execution_time,
-            )),
-            Ok(JobResult::Failure { error, .. }) => Ok(TaskResult::failure(
+            Ok(JobResult::Success { value, tx_hash }) => {
+                Ok(TaskResult::success(value, tx_hash, execution_time))
+            }
+            Ok(JobResult::Failure { error }) => Ok(TaskResult::failure(
                 format!("AI-guided transfer failed: {}", error),
                 true,
                 execution_time,
@@ -359,20 +370,20 @@ Focus on extracting clear, actionable parameters from the natural language descr
     async fn execute_balance_check(
         &self,
         decision: &AIDecision,
-    ) -> Result<TaskResult, riglr_agents::error::AgentError> {
+    ) -> riglr_agents::Result<TaskResult> {
         let params = &decision.parameters;
 
         let address_str = params
             .get("address")
             .and_then(|v| v.as_str())
             .ok_or_else(|| {
-                riglr_agents::error::AgentError::ExecutionFailed(
-                    "AI decision missing address parameter".to_string(),
+                riglr_agents::error::AgentError::task_execution(
+                    "AI decision missing address parameter",
                 )
             })?;
 
         let pubkey = Pubkey::from_str(address_str).map_err(|e| {
-            riglr_agents::error::AgentError::ExecutionFailed(format!(
+            riglr_agents::error::AgentError::task_execution(format!(
                 "Invalid address from AI: {}",
                 e
             ))
@@ -398,10 +409,7 @@ Focus on extracting clear, actionable parameters from the natural language descr
                 "ai_action": "get_balance",
                 "ai_confidence": decision.confidence
             }),
-            Some(format!(
-                "AI-guided balance check completed: {} SOL",
-                balance_sol
-            )),
+            None,
             execution_time,
         ))
     }
@@ -410,9 +418,15 @@ Focus on extracting clear, actionable parameters from the natural language descr
 #[async_trait]
 impl Agent for IntelligentTradingAgent {
     async fn execute_task(&self, task: Task) -> Result<TaskResult> {
+        let description = task
+            .metadata
+            .get("description")
+            .and_then(|v| v.as_str())
+            .unwrap_or("No description provided");
+
         info!(
             "IntelligentTradingAgent processing task with AI: {}",
-            task.description
+            description
         );
 
         // Use AI to analyze the task and determine the appropriate action
@@ -447,7 +461,7 @@ impl Agent for IntelligentTradingAgent {
                         "status": "not_implemented",
                         "ai_confidence": ai_decision.confidence
                     }),
-                    Some("Token swap functionality not implemented in test".to_string()),
+                    None,
                     Duration::from_millis(100),
                 ))
             }
@@ -469,12 +483,12 @@ impl Agent for IntelligentTradingAgent {
         &self.id
     }
 
-    fn capabilities(&self) -> Vec<String> {
+    fn capabilities(&self) -> Vec<CapabilityType> {
         vec![
-            "ai_trading".to_string(),
-            "natural_language_processing".to_string(),
-            "intelligent_blockchain_operations".to_string(),
-            "trading".to_string(), // For capability matching
+            CapabilityType::Custom("ai_trading".to_string()),
+            CapabilityType::Custom("natural_language_processing".to_string()),
+            CapabilityType::Custom("intelligent_blockchain_operations".to_string()),
+            CapabilityType::Trading, // For capability matching
         ]
     }
 }
@@ -497,19 +511,23 @@ async fn test_intelligent_agent_decision_making() {
         .get_funded_keypair(0)
         .expect("Failed to get sender keypair");
 
-    let solana_signer =
-        LocalSolanaSigner::new(sender_keypair.clone(), harness.rpc_url().to_string());
-    let unified_signer = UnifiedSigner::Solana(Box::new(solana_signer));
-    let signer_context = SignerContext::new(unified_signer);
+    let solana_signer = LocalSolanaSigner::new(
+        sender_keypair.insecure_clone(),
+        harness.rpc_url().to_string(),
+    );
+    let unified_signer: Arc<dyn UnifiedSigner> = Arc::new(solana_signer);
 
-    let intelligent_agent = IntelligentTradingAgent::new(signer_context);
+    let intelligent_agent = IntelligentTradingAgent::new(unified_signer);
 
     // Test AI decision making with different natural language task types
 
     // 1. Test transfer recognition
-    let transfer_task = Task::new(TaskType::Trading, serde_json::json!({})).with_description(
-        "Please send 1.5 SOL to wallet 11111111111111111111111111111112 for the payment"
-            .to_string(),
+    let mut transfer_task = Task::new(TaskType::Trading, serde_json::json!({}));
+    transfer_task.metadata.insert(
+        "description".to_string(),
+        serde_json::json!(
+            "Please send 1.5 SOL to wallet 11111111111111111111111111111112 for the payment"
+        ),
     );
 
     let transfer_decision = intelligent_agent
@@ -529,8 +547,10 @@ async fn test_intelligent_agent_decision_making() {
     info!("✅ Transfer task AI decision validated");
 
     // 2. Test balance check recognition
-    let balance_task = Task::new(TaskType::Trading, serde_json::json!({})).with_description(
-        "Check the current balance of wallet 11111111111111111111111111111112".to_string(),
+    let mut balance_task = Task::new(TaskType::Trading, serde_json::json!({}));
+    balance_task.metadata.insert(
+        "description".to_string(),
+        serde_json::json!("Check the current balance of wallet 11111111111111111111111111111112"),
     );
 
     let balance_decision = intelligent_agent
@@ -549,8 +569,11 @@ async fn test_intelligent_agent_decision_making() {
     info!("✅ Balance check AI decision validated");
 
     // 3. Test swap recognition
-    let swap_task = Task::new(TaskType::Trading, serde_json::json!({}))
-        .with_description("I want to swap 2 SOL for USDC on the DEX".to_string());
+    let mut swap_task = Task::new(TaskType::Trading, serde_json::json!({}));
+    swap_task.metadata.insert(
+        "description".to_string(),
+        serde_json::json!("I want to swap 2 SOL for USDC on the DEX"),
+    );
 
     let swap_decision = intelligent_agent
         .process_with_ai(&swap_task)
@@ -565,8 +588,11 @@ async fn test_intelligent_agent_decision_making() {
     info!("✅ Token swap AI decision validated");
 
     // 4. Test unknown task handling
-    let unknown_task = Task::new(TaskType::Research, serde_json::json!({}))
-        .with_description("Calculate the square root of 42".to_string());
+    let mut unknown_task = Task::new(TaskType::Research, serde_json::json!({}));
+    unknown_task.metadata.insert(
+        "description".to_string(),
+        serde_json::json!("Calculate the square root of 42"),
+    );
 
     let unknown_decision = intelligent_agent
         .process_with_ai(&unknown_task)
@@ -602,55 +628,59 @@ async fn test_ai_agent_integration_workflow() {
         .expect("Failed to get receiver keypair");
 
     // Record initial balances
-    let initial_receiver_balance = get_sol_balance(receiver_keypair.pubkey(), harness.rpc_url())
-        .await
-        .expect("Failed to get initial receiver balance");
+    let config = riglr_core::Config::from_env();
+    let app_context = riglr_core::provider::ApplicationContext::from_config(&config);
+    // Override the default RPC client with the test harness client
+    app_context.set_extension(harness.get_rpc_client());
+    let initial_receiver_balance =
+        get_sol_balance(receiver_keypair.pubkey().to_string(), &app_context)
+            .await
+            .expect("Failed to get initial receiver balance");
 
+    let initial_lamports = initial_receiver_balance.lamports;
     info!(
         "Initial receiver balance: {} SOL",
-        initial_receiver_balance as f64 / LAMPORTS_PER_SOL as f64
+        initial_lamports as f64 / LAMPORTS_PER_SOL as f64
     );
 
-    let solana_signer =
-        LocalSolanaSigner::new(sender_keypair.clone(), harness.rpc_url().to_string());
-    let unified_signer = UnifiedSigner::Solana(Box::new(solana_signer));
-    let signer_context = SignerContext::new(unified_signer);
+    let solana_signer = LocalSolanaSigner::new(
+        sender_keypair.insecure_clone(),
+        harness.rpc_url().to_string(),
+    );
+    let unified_signer: Arc<dyn UnifiedSigner> = Arc::new(solana_signer);
 
-    let intelligent_agent = IntelligentTradingAgent::new(signer_context);
+    let intelligent_agent = IntelligentTradingAgent::new(unified_signer);
 
     // Create agent system
-    let mut registry = LocalAgentRegistry::new(TEST_AGENT_CAPACITY)
-        .await
-        .expect("Failed to create registry");
+    let registry = LocalAgentRegistry::new();
     registry
         .register_agent(Arc::new(intelligent_agent))
         .await
         .expect("Failed to register intelligent agent");
 
-    let dispatcher = AgentDispatcher::new(
-        Arc::new(registry),
-        RoutingStrategy::Capability,
-        DispatchConfig::default(),
-    )
-    .await
-    .expect("Failed to create dispatcher");
+    let dispatcher = AgentDispatcher::new(Arc::new(registry));
 
     // Create natural language task for blockchain operation
-    let natural_language_task = Task::new(
+    let mut natural_language_task = Task::new(
         TaskType::Trading,
         serde_json::json!({
             "context": "This is for testing the AI integration"
         }),
-    )
-    .with_description(format!(
-        "I need to send 0.5 SOL to my friend's wallet {} for lunch money",
-        receiver_keypair.pubkey()
-    ));
-
-    info!(
-        "Dispatching natural language task: '{}'",
-        natural_language_task.description
     );
+    natural_language_task.metadata.insert(
+        "description".to_string(),
+        serde_json::json!(format!(
+            "I need to send 0.5 SOL to my friend's wallet {} for lunch money",
+            receiver_keypair.pubkey()
+        )),
+    );
+
+    let description = natural_language_task
+        .metadata
+        .get("description")
+        .and_then(|v| v.as_str())
+        .unwrap_or("No description");
+    info!("Dispatching natural language task: '{}'", description);
 
     // Execute the complete workflow through the agent system
     let task_result = dispatcher
@@ -666,7 +696,8 @@ async fn test_ai_agent_integration_workflow() {
     );
 
     let output = task_result
-        .output
+        .data()
+        .expect("Task should have data")
         .as_object()
         .expect("Task output should be JSON object");
 
@@ -696,11 +727,13 @@ async fn test_ai_agent_integration_workflow() {
     tokio::time::sleep(Duration::from_secs(3)).await;
 
     // Verify blockchain state changes
-    let final_receiver_balance = get_sol_balance(receiver_keypair.pubkey(), harness.rpc_url())
-        .await
-        .expect("Failed to get final receiver balance");
+    let final_receiver_balance =
+        get_sol_balance(receiver_keypair.pubkey().to_string(), &app_context)
+            .await
+            .expect("Failed to get final receiver balance");
 
-    let balance_increase = final_receiver_balance - initial_receiver_balance;
+    let final_lamports = final_receiver_balance.lamports;
+    let balance_increase = final_lamports - initial_lamports;
     let expected_increase = (0.5 * LAMPORTS_PER_SOL as f64) as u64;
 
     assert_eq!(
@@ -710,7 +743,7 @@ async fn test_ai_agent_integration_workflow() {
 
     info!(
         "Final receiver balance: {} SOL (increased by {} lamports)",
-        final_receiver_balance as f64 / LAMPORTS_PER_SOL as f64,
+        final_lamports as f64 / LAMPORTS_PER_SOL as f64,
         balance_increase
     );
 
@@ -739,11 +772,11 @@ async fn test_natural_language_task_processing() {
         .get_funded_keypair(0)
         .expect("Failed to get keypair");
 
-    let solana_signer = LocalSolanaSigner::new(keypair.clone(), harness.rpc_url().to_string());
-    let unified_signer = UnifiedSigner::Solana(Box::new(solana_signer));
-    let signer_context = SignerContext::new(unified_signer);
+    let solana_signer =
+        LocalSolanaSigner::new(keypair.insecure_clone(), harness.rpc_url().to_string());
+    let unified_signer: Arc<dyn UnifiedSigner> = Arc::new(solana_signer);
 
-    let intelligent_agent = IntelligentTradingAgent::new(signer_context);
+    let intelligent_agent = IntelligentTradingAgent::new(unified_signer.clone());
 
     // Test various natural language expressions for transfers
     let transfer_variations = vec![
@@ -757,8 +790,11 @@ async fn test_natural_language_task_processing() {
     for (i, description) in transfer_variations.iter().enumerate() {
         info!("Testing transfer variation {}: '{}'", i + 1, description);
 
-        let task = Task::new(TaskType::Trading, serde_json::json!({}))
-            .with_description(description.to_string());
+        let mut task = Task::new(TaskType::Trading, serde_json::json!({}));
+        task.metadata.insert(
+            "description".to_string(),
+            serde_json::json!(description.to_string()),
+        );
 
         let decision = intelligent_agent
             .process_with_ai(&task)
@@ -798,8 +834,11 @@ async fn test_natural_language_task_processing() {
     for (i, description) in balance_variations.iter().enumerate() {
         info!("Testing balance variation {}: '{}'", i + 1, description);
 
-        let task = Task::new(TaskType::Trading, serde_json::json!({}))
-            .with_description(description.to_string());
+        let mut task = Task::new(TaskType::Trading, serde_json::json!({}));
+        task.metadata.insert(
+            "description".to_string(),
+            serde_json::json!(description.to_string()),
+        );
 
         let decision = intelligent_agent
             .process_with_ai(&task)
@@ -840,32 +879,27 @@ async fn test_ai_agent_error_handling() {
         .get_funded_keypair(0)
         .expect("Failed to get keypair");
 
-    let solana_signer = LocalSolanaSigner::new(keypair.clone(), harness.rpc_url().to_string());
-    let unified_signer = UnifiedSigner::Solana(Box::new(solana_signer));
-    let signer_context = SignerContext::new(unified_signer);
+    let solana_signer =
+        LocalSolanaSigner::new(keypair.insecure_clone(), harness.rpc_url().to_string());
+    let unified_signer: Arc<dyn UnifiedSigner> = Arc::new(solana_signer);
 
-    let intelligent_agent = IntelligentTradingAgent::new(signer_context);
+    let intelligent_agent = IntelligentTradingAgent::new(unified_signer.clone());
 
     // Create agent system
-    let mut registry = LocalAgentRegistry::new(TEST_AGENT_CAPACITY)
-        .await
-        .expect("Failed to create registry");
+    let registry = LocalAgentRegistry::new();
     registry
         .register_agent(Arc::new(intelligent_agent))
         .await
         .expect("Failed to register intelligent agent");
 
-    let dispatcher = AgentDispatcher::new(
-        Arc::new(registry),
-        RoutingStrategy::Capability,
-        DispatchConfig::default(),
-    )
-    .await
-    .expect("Failed to create dispatcher");
+    let dispatcher = AgentDispatcher::new(Arc::new(registry));
 
     // Test ambiguous task
-    let ambiguous_task = Task::new(TaskType::Trading, serde_json::json!({}))
-        .with_description("Do something with blockchain".to_string());
+    let mut ambiguous_task = Task::new(TaskType::Trading, serde_json::json!({}));
+    ambiguous_task.metadata.insert(
+        "description".to_string(),
+        serde_json::json!("Do something with blockchain"),
+    );
 
     let result = dispatcher
         .dispatch_task(ambiguous_task)
@@ -875,21 +909,20 @@ async fn test_ai_agent_error_handling() {
     // Should fail gracefully with unknown action
     assert!(!result.is_success(), "Ambiguous task should not succeed");
 
-    let output_str = result.output.as_str().unwrap_or_else(|| {
-        result
-            .output
-            .get("error")
-            .and_then(|v| v.as_str())
-            .unwrap_or("")
-    });
+    let output_str = result
+        .error()
+        .unwrap_or_else(|| result.data().and_then(|v| v.as_str()).unwrap_or(""));
     assert!(
         output_str.contains("Unknown AI action") || output_str.contains("unknown"),
         "Error should indicate unknown action"
     );
 
     // Test invalid address task
-    let invalid_address_task = Task::new(TaskType::Trading, serde_json::json!({}))
-        .with_description("Send 1 SOL to invalid_address".to_string());
+    let mut invalid_address_task = Task::new(TaskType::Trading, serde_json::json!({}));
+    invalid_address_task.metadata.insert(
+        "description".to_string(),
+        serde_json::json!("Send 1 SOL to invalid_address"),
+    );
 
     let result = dispatcher
         .dispatch_task(invalid_address_task)
@@ -913,16 +946,19 @@ mod tests {
     async fn test_intelligent_agent_capabilities() {
         let keypair = Keypair::new();
         let signer = LocalSolanaSigner::new(keypair, "http://localhost:8899".to_string());
-        let unified_signer = UnifiedSigner::Solana(Box::new(signer));
-        let signer_context = SignerContext::new(unified_signer);
+        let unified_signer: Arc<dyn UnifiedSigner> = Arc::new(signer);
 
-        let agent = IntelligentTradingAgent::new(signer_context);
+        let agent = IntelligentTradingAgent::new(unified_signer);
 
         let capabilities = agent.capabilities();
-        assert!(capabilities.contains(&"ai_trading".to_string()));
-        assert!(capabilities.contains(&"natural_language_processing".to_string()));
-        assert!(capabilities.contains(&"intelligent_blockchain_operations".to_string()));
-        assert!(capabilities.contains(&"trading".to_string()));
+        assert!(capabilities.contains(&CapabilityType::Custom("ai_trading".to_string())));
+        assert!(capabilities.contains(&CapabilityType::Custom(
+            "natural_language_processing".to_string()
+        )));
+        assert!(capabilities.contains(&CapabilityType::Custom(
+            "intelligent_blockchain_operations".to_string()
+        )));
+        assert!(capabilities.contains(&CapabilityType::Trading));
 
         // Test capability matching
         let trading_task = Task::new(TaskType::Trading, serde_json::json!({}));
@@ -933,10 +969,9 @@ mod tests {
     fn test_amount_extraction() {
         let agent_keypair = Keypair::new();
         let signer = LocalSolanaSigner::new(agent_keypair, "http://localhost:8899".to_string());
-        let unified_signer = UnifiedSigner::Solana(Box::new(signer));
-        let signer_context = SignerContext::new(unified_signer);
+        let unified_signer: Arc<dyn UnifiedSigner> = Arc::new(signer);
 
-        let agent = IntelligentTradingAgent::new(signer_context);
+        let agent = IntelligentTradingAgent::new(unified_signer);
 
         // Test various amount formats
         assert_eq!(
@@ -961,10 +996,9 @@ mod tests {
     fn test_address_extraction() {
         let agent_keypair = Keypair::new();
         let signer = LocalSolanaSigner::new(agent_keypair, "http://localhost:8899".to_string());
-        let unified_signer = UnifiedSigner::Solana(Box::new(signer));
-        let signer_context = SignerContext::new(unified_signer);
+        let unified_signer: Arc<dyn UnifiedSigner> = Arc::new(signer);
 
-        let agent = IntelligentTradingAgent::new(signer_context);
+        let agent = IntelligentTradingAgent::new(unified_signer);
 
         let test_address = "11111111111111111111111111111112";
         let description = format!("Send SOL to {}", test_address);

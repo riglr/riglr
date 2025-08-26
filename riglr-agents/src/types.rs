@@ -6,8 +6,88 @@
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::fmt;
+use std::str::FromStr;
 use std::time::Duration;
 use uuid::Uuid;
+
+/// Agent capability types with strong typing.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum CapabilityType {
+    /// Trading-related capabilities
+    Trading,
+    /// Research and analysis capabilities
+    Research,
+    /// Risk assessment and management capabilities
+    RiskAnalysis,
+    /// Portfolio management capabilities
+    Portfolio,
+    /// Market monitoring capabilities
+    Monitoring,
+    /// Tool calling capabilities for interacting with external systems
+    ToolCalling,
+    /// Custom capability type
+    Custom(String),
+}
+
+impl fmt::Display for CapabilityType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            CapabilityType::Trading => write!(f, "trading"),
+            CapabilityType::Research => write!(f, "research"),
+            CapabilityType::RiskAnalysis => write!(f, "risk_analysis"),
+            CapabilityType::Portfolio => write!(f, "portfolio"),
+            CapabilityType::Monitoring => write!(f, "monitoring"),
+            CapabilityType::ToolCalling => write!(f, "tool_calling"),
+            CapabilityType::Custom(name) => write!(f, "{}", name),
+        }
+    }
+}
+
+impl FromStr for CapabilityType {
+    type Err = std::convert::Infallible;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(match s {
+            "trading" => CapabilityType::Trading,
+            "research" => CapabilityType::Research,
+            "risk_analysis" => CapabilityType::RiskAnalysis,
+            "portfolio" => CapabilityType::Portfolio,
+            "monitoring" => CapabilityType::Monitoring,
+            "tool_calling" => CapabilityType::ToolCalling,
+            custom => CapabilityType::Custom(custom.to_string()),
+        })
+    }
+}
+
+impl PartialEq<&str> for CapabilityType {
+    fn eq(&self, other: &&str) -> bool {
+        match self {
+            CapabilityType::Trading => *other == "trading",
+            CapabilityType::Research => *other == "research",
+            CapabilityType::RiskAnalysis => *other == "risk_analysis",
+            CapabilityType::Portfolio => *other == "portfolio",
+            CapabilityType::Monitoring => *other == "monitoring",
+            CapabilityType::ToolCalling => *other == "tool_calling",
+            CapabilityType::Custom(name) => name == *other,
+        }
+    }
+}
+
+impl PartialEq<str> for CapabilityType {
+    fn eq(&self, other: &str) -> bool {
+        match self {
+            CapabilityType::Trading => other == "trading",
+            CapabilityType::Research => other == "research",
+            CapabilityType::RiskAnalysis => other == "risk_analysis",
+            CapabilityType::Portfolio => other == "portfolio",
+            CapabilityType::Monitoring => other == "monitoring",
+            CapabilityType::ToolCalling => other == "tool_calling",
+            CapabilityType::Custom(name) => name == other,
+        }
+    }
+}
 
 /// Unique identifier for an agent in the system.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -403,6 +483,9 @@ pub struct Capability {
     pub version: String,
     /// Optional capability parameters
     pub parameters: HashMap<String, serde_json::Value>,
+    /// Optional JSON schema for the capability
+    #[serde(default)]
+    pub schema: Option<serde_json::Value>,
 }
 
 impl Capability {
@@ -412,12 +495,19 @@ impl Capability {
             name: name.into(),
             version: version.into(),
             parameters: HashMap::new(),
+            schema: None,
         }
     }
 
     /// Add a parameter to the capability.
     pub fn with_parameter(mut self, key: impl Into<String>, value: serde_json::Value) -> Self {
         self.parameters.insert(key.into(), value);
+        self
+    }
+
+    /// Set the JSON schema for the capability.
+    pub fn with_schema(mut self, schema: serde_json::Value) -> Self {
+        self.schema = Some(schema);
         self
     }
 }
@@ -900,6 +990,25 @@ mod tests {
             capability.parameters.get("param2"),
             Some(&serde_json::json!(42))
         );
+        assert!(capability.schema.is_none());
+    }
+
+    #[test]
+    fn test_capability_with_schema() {
+        let schema = serde_json::json!({
+            "type": "object",
+            "properties": {
+                "symbol": {"type": "string"},
+                "amount": {"type": "number"}
+            },
+            "required": ["symbol", "amount"]
+        });
+
+        let capability = Capability::new("trading", "2.0").with_schema(schema.clone());
+
+        assert_eq!(capability.name, "trading");
+        assert_eq!(capability.version, "2.0");
+        assert_eq!(capability.schema, Some(schema));
     }
 
     #[test]
@@ -1121,5 +1230,38 @@ mod tests {
 
         let rule = RoutingRule::Any(vec![]);
         assert!(!rule.matches(&task, &agent_id, &capabilities)); // Empty Any should not match
+    }
+
+    #[test]
+    fn test_capability_type_partial_eq_str() {
+        // Test PartialEq<&str> implementation
+        assert_eq!(CapabilityType::Trading, "trading");
+        assert_eq!(CapabilityType::Research, "research");
+        assert_eq!(CapabilityType::RiskAnalysis, "risk_analysis");
+        assert_eq!(CapabilityType::Portfolio, "portfolio");
+        assert_eq!(CapabilityType::Monitoring, "monitoring");
+        assert_eq!(CapabilityType::ToolCalling, "tool_calling");
+        assert_eq!(
+            CapabilityType::Custom("custom_name".to_string()),
+            "custom_name"
+        );
+
+        // Test inequality
+        assert_ne!(CapabilityType::Trading, "research");
+        assert_ne!(CapabilityType::Custom("foo".to_string()), "bar");
+    }
+
+    #[test]
+    fn test_capability_type_vec_comparison() {
+        // Test Vec<CapabilityType> comparison with Vec<&str>
+        let capabilities = vec![
+            CapabilityType::Trading,
+            CapabilityType::Research,
+            CapabilityType::Custom("custom".to_string()),
+        ];
+
+        let expected = vec!["trading", "research", "custom"];
+
+        assert_eq!(capabilities, expected);
     }
 }

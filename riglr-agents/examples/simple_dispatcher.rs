@@ -11,8 +11,8 @@
 
 use async_trait::async_trait;
 use riglr_agents::{
-    Agent, AgentDispatcher, AgentId, AgentRegistry, LocalAgentRegistry, Priority, Task, TaskResult,
-    TaskType,
+    Agent, AgentDispatcher, AgentId, AgentRegistry, CapabilityType, LocalAgentRegistry, Priority,
+    Task, TaskResult, TaskType,
 };
 // Removed riglr_core and rig_core imports - using mock implementations
 use serde_json::json;
@@ -92,8 +92,8 @@ impl Agent for TradingAgent {
         &self.id
     }
 
-    fn capabilities(&self) -> Vec<String> {
-        vec!["trading".to_string()]
+    fn capabilities(&self) -> Vec<CapabilityType> {
+        vec![CapabilityType::Trading]
     }
 }
 
@@ -171,8 +171,8 @@ impl Agent for ResearchAgent {
         &self.id
     }
 
-    fn capabilities(&self) -> Vec<String> {
-        vec!["research".to_string()]
+    fn capabilities(&self) -> Vec<CapabilityType> {
+        vec![CapabilityType::Research]
     }
 }
 

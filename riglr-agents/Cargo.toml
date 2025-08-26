@@ -41,6 +41,7 @@ futures = { workspace = true }
 
 # Collections
 indexmap = "2.0"
+dashmap = "6.1"
 
 # For EVM integration testing
 alloy = { workspace = true }
@@ -51,6 +52,9 @@ solana-client = { workspace = true }
 # Dependencies for blockchain testing
 riglr-solana-tools = { workspace = true, optional = true }
 riglr-evm-tools = { workspace = true, optional = true }
+
+# Redis for distributed registry
+redis = { workspace = true, optional = true }
 
 [dev-dependencies]
 tokio-test = { workspace = true }
@@ -63,6 +67,7 @@ solana-sdk = { workspace = true }
 bs58 = "0.5"
 tracing-subscriber = { workspace = true }
 rig-core = { workspace = true }
+riglr-config = { workspace = true }
 dotenv = "0.15"
 dotenvy = "0.15"
 
@@ -70,14 +75,31 @@ dotenvy = "0.15"
 tempfile = "3.8"
 portpicker = "0.1"
 spl-token = { workspace = true }
+solana-system-interface = { workspace = true }
+solana-commitment-config = { workspace = true }
+
+# Testcontainers for integration tests
+testcontainers = "0.24.0"
+testcontainers-modules = { version = "0.12.1", features = ["redis"] }
+
+
+[[bench]]
+name = "adapter_benchmark"
+harness = false
+
+[[bench]]
+name = "redis_queue_benchmark"
+harness = false
+required-features = ["redis"]
 
 [features]
 default = ["redis", "solana-tools"]
-redis = ["riglr-core/redis"]
+redis = ["dep:redis", "riglr-core/redis"]
 solana-tools = ["dep:riglr-solana-tools"]
 
 # Test-specific features
 test-utils = []
-blockchain-tests = ["test-utils", "riglr-evm-tools"]
+blockchain-tests = ["test-utils", "riglr-evm-tools", "solana-tools"]
 performance-tests = ["test-utils"]
+e2e-tests = []
 

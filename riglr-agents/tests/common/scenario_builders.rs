@@ -361,7 +361,7 @@ impl BlockchainScenarioBuilder {
                         name: "research_agent".to_string(),
                         agent_type: AgentType::Research,
                         wallet_index: 0,
-                        capabilities: vec!["market_analysis".to_string()],
+                        capabilities: vec![CapabilityType::Custom("market_analysis".to_string())],
                         ai_model_config: Some(AIModelConfig {
                             provider: "mock".to_string(),
                             model: "gpt-4".to_string(),
@@ -373,7 +373,7 @@ impl BlockchainScenarioBuilder {
                         name: "trading_agent".to_string(),
                         agent_type: AgentType::Trading,
                         wallet_index: 1,
-                        capabilities: vec!["trade_execution".to_string()],
+                        capabilities: vec![CapabilityType::Custom("trade_execution".to_string())],
                         ai_model_config: Some(AIModelConfig {
                             provider: "mock".to_string(),
                             model: "gpt-4".to_string(),
@@ -609,4 +609,343 @@ impl BlockchainTestScenario {
               result.validation_results.len());
         
         Ok(result)
-    }\n    \n    // Private implementation methods\n    \n    fn topological_sort(&self) -> Result<Vec<usize>, ScenarioError> {\n        let mut in_degree = vec![0; self.operations.len()];\n        let mut adj_list = vec![Vec::new(); self.operations.len()];\n        \n        // Build adjacency list and calculate in-degrees\n        for &(dependent, dependency) in &self.dependencies {\n            if dependent >= self.operations.len() || dependency >= self.operations.len() {\n                return Err(ScenarioError::SetupFailed(\n                    format!(\"Invalid dependency: {} -> {}\", dependency, dependent)\n                ));\n            }\n            adj_list[dependency].push(dependent);\n            in_degree[dependent] += 1;\n        }\n        \n        // Kahn's algorithm\n        let mut queue = VecDeque::new();\n        for i in 0..self.operations.len() {\n            if in_degree[i] == 0 {\n                queue.push_back(i);\n            }\n        }\n        \n        let mut result = Vec::new();\n        while let Some(node) = queue.pop_front() {\n            result.push(node);\n            \n            for &neighbor in &adj_list[node] {\n                in_degree[neighbor] -= 1;\n                if in_degree[neighbor] == 0 {\n                    queue.push_back(neighbor);\n                }\n            }\n        }\n        \n        if result.len() != self.operations.len() {\n            return Err(ScenarioError::SetupFailed(\n                \"Circular dependency detected in scenario operations\".to_string()\n            ));\n        }\n        \n        Ok(result)\n    }\n    \n    fn identify_parallel_groups(&self, execution_order: &[usize]) -> Vec<Vec<usize>> {\n        // Simple parallel grouping: operations with no dependencies can run in parallel\n        let mut groups = Vec::new();\n        let mut processed = std::collections::HashSet::new();\n        \n        for &op_index in execution_order {\n            if processed.contains(&op_index) {\n                continue;\n            }\n            \n            // Find all operations that can run in parallel with this one\n            let mut group = vec![op_index];\n            processed.insert(op_index);\n            \n            // For now, keep it simple and don't actually parallelize\n            // Real implementation would analyze dependencies more carefully\n            groups.push(group);\n        }\n        \n        groups\n    }\n    \n    fn estimate_execution_duration(&self, parallel_groups: &[Vec<usize>]) -> Duration {\n        // Rough estimation based on operation types\n        let mut total_duration = Duration::ZERO;\n        \n        for group in parallel_groups {\n            let mut group_duration = Duration::ZERO;\n            \n            for &op_index in group {\n                if let Some(operation) = self.operations.get(op_index) {\n                    let op_duration = match operation {\n                        ScenarioOperation::InitializeEnvironment { .. } => Duration::from_secs(10),\n                        ScenarioOperation::SolTransfer { .. } => Duration::from_secs(2),\n                        ScenarioOperation::CreateSplToken { .. } => Duration::from_secs(3),\n                        ScenarioOperation::CreateTokenAccount { .. } => Duration::from_secs(2),\n                        ScenarioOperation::MintTokens { .. } => Duration::from_secs(2),\n                        ScenarioOperation::TransferTokens { .. } => Duration::from_secs(2),\n                        ScenarioOperation::DefiSwap { .. } => Duration::from_secs(5),\n                        ScenarioOperation::CreateAgents { .. } => Duration::from_secs(3),\n                        ScenarioOperation::ExecuteAgentTask { .. } => Duration::from_secs(5),\n                        ScenarioOperation::VerifyState { .. } => Duration::from_secs(1),\n                        ScenarioOperation::Wait { duration } => *duration,\n                        ScenarioOperation::SimulateNetworkConditions { duration, .. } => *duration,\n                    };\n                    \n                    // For parallel execution, take the maximum duration in the group\n                    group_duration = std::cmp::max(group_duration, op_duration);\n                }\n            }\n            \n            total_duration += group_duration;\n        }\n        \n        total_duration\n    }\n    \n    async fn execute_parallel_group(\n        &self,\n        group: &[usize],\n        harness: &BlockchainTestHarness,\n        resources: &mut HashMap<String, ScenarioResource>,\n    ) -> Vec<OperationResult> {\n        // For now, execute sequentially even in \"parallel\" groups\n        // Real implementation would use tokio::spawn for true parallelism\n        let mut results = Vec::new();\n        \n        for &op_index in group {\n            let result = self.execute_operation(op_index, harness, resources).await;\n            results.push(result);\n        }\n        \n        results\n    }\n    \n    async fn execute_operation(\n        &self,\n        operation_index: usize,\n        harness: &BlockchainTestHarness,\n        resources: &mut HashMap<String, ScenarioResource>,\n    ) -> OperationResult {\n        let start_time = Instant::now();\n        let operation = &self.operations[operation_index];\n        \n        debug!(\"Executing operation {}: {:?}\", operation_index, operation);\n        \n        let (success, result_data, error, resources_created) = match operation {\n            ScenarioOperation::InitializeEnvironment { .. } => {\n                // Environment is already initialized by harness\n                (true, Some(serde_json::json!({\"initialized\": true})), None, vec![])\n            },\n            \n            ScenarioOperation::SolTransfer { from_wallet_index, to_wallet_index, amount_lamports, .. } => {\n                match self.execute_sol_transfer(harness, *from_wallet_index, *to_wallet_index, *amount_lamports).await {\n                    Ok(signature) => {\n                        let resource_key = format!(\"tx_{}\", operation_index);\n                        resources.insert(resource_key.clone(), ScenarioResource::Transaction {\n                            signature,\n                            confirmed: true,\n                        });\n                        (true, Some(serde_json::json!({\"signature\": signature.to_string()})), None, vec![resource_key])\n                    },\n                    Err(e) => (false, None, Some(e.to_string()), vec![]),\n                }\n            },\n            \n            // Add implementations for other operation types...\n            _ => {\n                warn!(\"Operation type not yet implemented: {:?}\", operation);\n                (false, None, Some(\"Operation not implemented\".to_string()), vec![])\n            },\n        };\n        \n        let end_time = Instant::now();\n        \n        OperationResult {\n            operation_index,\n            operation_type: format!(\"{:?}\", operation).split('{')\n                .next().unwrap_or(\"Unknown\").to_string(),\n            start_time,\n            end_time,\n            duration: end_time.duration_since(start_time),\n            success,\n            result_data,\n            error,\n            resources_created,\n        }\n    }\n    \n    async fn execute_sol_transfer(\n        &self,\n        harness: &BlockchainTestHarness,\n        from_index: usize,\n        to_index: usize,\n        amount_lamports: u64,\n    ) -> Result<Signature, ScenarioError> {\n        let to_pubkey = harness.get_funded_keypair(to_index)\n            .ok_or_else(|| ScenarioError::ResourceNotFound(\n                format!(\"Wallet {} not found\", to_index)\n            ))?\n            .pubkey();\n            \n        let tx_info = harness.transfer_sol(from_index, &to_pubkey, amount_lamports)\n            .await\n            .map_err(|e| ScenarioError::OperationFailed(format!(\"SOL transfer failed: {}\", e)))?;\n            \n        Ok(tx_info.signature)\n    }\n    \n    async fn run_validations(\n        &self,\n        harness: &BlockchainTestHarness,\n        resources: &HashMap<String, ScenarioResource>,\n    ) -> Vec<ValidationResult> {\n        let mut results = Vec::new();\n        \n        for validation in &self.validations {\n            let result = match validation {\n                ScenarioValidation::AllOperationsSucceed => {\n                    ValidationResult {\n                        validation_type: \"AllOperationsSucceed\".to_string(),\n                        success: true, // This is checked at the scenario level\n                        message: \"All operations completed successfully\".to_string(),\n                        details: None,\n                    }\n                },\n                \n                ScenarioValidation::BalancesConsistent => {\n                    // Check that all wallet balances are reasonable\n                    ValidationResult {\n                        validation_type: \"BalancesConsistent\".to_string(),\n                        success: true,\n                        message: \"Balance consistency check passed\".to_string(),\n                        details: None,\n                    }\n                },\n                \n                _ => {\n                    ValidationResult {\n                        validation_type: format!(\"{:?}\", validation),\n                        success: true,\n                        message: \"Validation not implemented\".to_string(),\n                        details: None,\n                    }\n                },\n            };\n            \n            results.push(result);\n        }\n        \n        results\n    }\n}\n\n#[cfg(test)]\nmod tests {\n    use super::*;\n    \n    #[test]\n    fn test_scenario_builder_creation() {\n        let scenario = BlockchainScenarioBuilder::new(\"test\")\n            .add_operation(ScenarioOperation::InitializeEnvironment {\n                num_wallets: 3,\n                funding_amount_sol: 10.0,\n            })\n            .build();\n            \n        assert!(!scenario.id.is_empty());\n        assert_eq!(scenario.operations.len(), 1);\n        assert!(scenario.id.starts_with(\"test_\"));\n    }\n    \n    #[test]\n    fn test_simple_sol_transfer_scenario() {\n        let scenario = BlockchainScenarioBuilder::simple_sol_transfer(0, 1, 1.5).build();\n        \n        assert_eq!(scenario.operations.len(), 2);\n        assert_eq!(scenario.dependencies.len(), 1);\n        assert_eq!(scenario.validations.len(), 1);\n    }\n    \n    #[test]\n    fn test_token_creation_scenario() {\n        let recipients = vec![(1, 1000), (2, 2000)];\n        let scenario = BlockchainScenarioBuilder::token_creation_scenario(0, recipients).build();\n        \n        // Should have: env init + token creation + 2 account creations + 2 minting operations\n        assert_eq!(scenario.operations.len(), 6);\n        assert!(scenario.dependencies.len() > 0);\n    }\n    \n    #[test]\n    fn test_multi_agent_trading_scenario() {\n        let scenario = BlockchainScenarioBuilder::multi_agent_trading_scenario().build();\n        \n        assert_eq!(scenario.operations.len(), 4);\n        assert_eq!(scenario.dependencies.len(), 3);\n        assert_eq!(scenario.validations.len(), 2);\n    }\n    \n    #[test]\n    fn test_dependency_validation() {\n        let mut scenario = BlockchainScenarioBuilder::new(\"test\")\n            .add_operation(ScenarioOperation::InitializeEnvironment {\n                num_wallets: 2,\n                funding_amount_sol: 5.0,\n            })\n            .add_operation(ScenarioOperation::SolTransfer {\n                from_wallet_index: 0,\n                to_wallet_index: 1,\n                amount_lamports: 1_000_000_000,\n                expected_fee_range: None,\n            })\n            .add_dependency(1, 0)\n            .build();\n            \n        assert!(scenario.generate_execution_plan().is_ok());\n        \n        let plan = scenario.execution_plan.unwrap();\n        assert_eq!(plan.execution_order, vec![0, 1]);\n    }\n    \n    #[test]\n    fn test_circular_dependency_detection() {\n        let mut scenario = BlockchainScenarioBuilder::new(\"test\")\n            .add_operation(ScenarioOperation::Wait { duration: Duration::from_millis(100) })\n            .add_operation(ScenarioOperation::Wait { duration: Duration::from_millis(100) })\n            .add_dependency(0, 1)\n            .add_dependency(1, 0) // Circular dependency\n            .build();\n            \n        assert!(scenario.generate_execution_plan().is_err());\n    }\n    \n    #[test]\n    fn test_execution_duration_estimation() {\n        let scenario = BlockchainScenarioBuilder::new(\"test\")\n            .add_operation(ScenarioOperation::InitializeEnvironment {\n                num_wallets: 2,\n                funding_amount_sol: 5.0,\n            })\n            .add_operation(ScenarioOperation::Wait { duration: Duration::from_secs(5) })\n            .build();\n            \n        let parallel_groups = vec![vec![0], vec![1]];\n        let estimated = scenario.estimate_execution_duration(&parallel_groups);\n        \n        // Should be approximately 10 seconds (env init) + 5 seconds (wait)\n        assert!(estimated >= Duration::from_secs(15));\n        assert!(estimated <= Duration::from_secs(20));\n    }\n}"
+    }
+    
+    // Private implementation methods
+    
+    fn topological_sort(&self) -> Result<Vec<usize>, ScenarioError> {
+        let mut in_degree = vec![0; self.operations.len()];
+        let mut adj_list = vec![Vec::new(); self.operations.len()];
+        
+        // Build adjacency list and calculate in-degrees
+        for &(dependent, dependency) in &self.dependencies {
+            if dependent >= self.operations.len() || dependency >= self.operations.len() {
+                return Err(ScenarioError::SetupFailed(
+                    format!("Invalid dependency: {} -> {}", dependency, dependent)
+                ));
+            }
+            adj_list[dependency].push(dependent);
+            in_degree[dependent] += 1;
+        }
+        
+        // Kahn's algorithm
+        let mut queue = VecDeque::new();
+        for i in 0..self.operations.len() {
+            if in_degree[i] == 0 {
+                queue.push_back(i);
+            }
+        }
+        
+        let mut result = Vec::new();
+        while let Some(node) = queue.pop_front() {
+            result.push(node);
+            
+            for &neighbor in &adj_list[node] {
+                in_degree[neighbor] -= 1;
+                if in_degree[neighbor] == 0 {
+                    queue.push_back(neighbor);
+                }
+            }
+        }
+        
+        if result.len() != self.operations.len() {
+            return Err(ScenarioError::SetupFailed(
+                "Circular dependency detected in scenario operations".to_string()
+            ));
+        }
+        
+        Ok(result)
+    }
+    
+    fn identify_parallel_groups(&self, execution_order: &[usize]) -> Vec<Vec<usize>> {
+        // Simple parallel grouping: operations with no dependencies can run in parallel
+        let mut groups = Vec::new();
+        let mut processed = std::collections::HashSet::new();
+        
+        for &op_index in execution_order {
+            if processed.contains(&op_index) {
+                continue;
+            }
+            
+            // Find all operations that can run in parallel with this one
+            let mut group = vec![op_index];
+            processed.insert(op_index);
+            
+            // For now, keep it simple and don't actually parallelize
+            // Real implementation would analyze dependencies more carefully
+            groups.push(group);
+        }
+        
+        groups
+    }
+    
+    fn estimate_execution_duration(&self, parallel_groups: &[Vec<usize>]) -> Duration {
+        // Rough estimation based on operation types
+        let mut total_duration = Duration::ZERO;
+        
+        for group in parallel_groups {
+            let mut group_duration = Duration::ZERO;
+            
+            for &op_index in group {
+                if let Some(operation) = self.operations.get(op_index) {
+                    let op_duration = match operation {
+                        ScenarioOperation::InitializeEnvironment { .. } => Duration::from_secs(10),
+                        ScenarioOperation::SolTransfer { .. } => Duration::from_secs(2),
+                        ScenarioOperation::CreateSplToken { .. } => Duration::from_secs(3),
+                        ScenarioOperation::CreateTokenAccount { .. } => Duration::from_secs(2),
+                        ScenarioOperation::MintTokens { .. } => Duration::from_secs(2),
+                        ScenarioOperation::TransferTokens { .. } => Duration::from_secs(2),
+                        ScenarioOperation::DefiSwap { .. } => Duration::from_secs(5),
+                        ScenarioOperation::CreateAgents { .. } => Duration::from_secs(3),
+                        ScenarioOperation::ExecuteAgentTask { .. } => Duration::from_secs(5),
+                        ScenarioOperation::VerifyState { .. } => Duration::from_secs(1),
+                        ScenarioOperation::Wait { duration } => *duration,
+                        ScenarioOperation::SimulateNetworkConditions { duration, .. } => *duration,
+                    };
+                    
+                    // For parallel execution, take the maximum duration in the group
+                    group_duration = std::cmp::max(group_duration, op_duration);
+                }
+            }
+            
+            total_duration += group_duration;
+        }
+        
+        total_duration
+    }
+    
+    async fn execute_parallel_group(
+        &self,
+        group: &[usize],
+        harness: &BlockchainTestHarness,
+        resources: &mut HashMap<String, ScenarioResource>,
+    ) -> Vec<OperationResult> {
+        // For now, execute sequentially even in "parallel" groups
+        // Real implementation would use tokio::spawn for true parallelism
+        let mut results = Vec::new();
+        
+        for &op_index in group {
+            let result = self.execute_operation(op_index, harness, resources).await;
+            results.push(result);
+        }
+        
+        results
+    }
+    
+    async fn execute_operation(
+        &self,
+        operation_index: usize,
+        harness: &BlockchainTestHarness,
+        resources: &mut HashMap<String, ScenarioResource>,
+    ) -> OperationResult {
+        let start_time = Instant::now();
+        let operation = &self.operations[operation_index];
+        
+        debug!("Executing operation {}: {:?}", operation_index, operation);
+        
+        let (success, result_data, error, resources_created) = match operation {
+            ScenarioOperation::InitializeEnvironment { .. } => {
+                // Environment is already initialized by harness
+                (true, Some(serde_json::json!({"initialized": true})), None, vec![])
+            },
+            
+            ScenarioOperation::SolTransfer { from_wallet_index, to_wallet_index, amount_lamports, .. } => {
+                match self.execute_sol_transfer(harness, *from_wallet_index, *to_wallet_index, *amount_lamports).await {
+                    Ok(signature) => {
+                        let resource_key = format!("tx_{}", operation_index);
+                        resources.insert(resource_key.clone(), ScenarioResource::Transaction {
+                            signature,
+                            confirmed: true,
+                        });
+                        (true, Some(serde_json::json!({"signature": signature.to_string()})), None, vec![resource_key])
+                    },
+                    Err(e) => (false, None, Some(e.to_string()), vec![]),
+                }
+            },
+            
+            // Add implementations for other operation types...
+            _ => {
+                warn!("Operation type not yet implemented: {:?}", operation);
+                (false, None, Some("Operation not implemented".to_string()), vec![])
+            },
+        };
+        
+        let end_time = Instant::now();
+        
+        OperationResult {
+            operation_index,
+            operation_type: format!("{:?}", operation).split('{')
+                .next().unwrap_or("Unknown").to_string(),
+            start_time,
+            end_time,
+            duration: end_time.duration_since(start_time),
+            success,
+            result_data,
+            error,
+            resources_created,
+        }
+    }
+    
+    async fn execute_sol_transfer(
+        &self,
+        harness: &BlockchainTestHarness,
+        from_index: usize,
+        to_index: usize,
+        amount_lamports: u64,
+    ) -> Result<Signature, ScenarioError> {
+        let to_pubkey = harness.get_funded_keypair(to_index)
+            .ok_or_else(|| ScenarioError::ResourceNotFound(
+                format!("Wallet {} not found", to_index)
+            ))?
+            .pubkey();
+            
+        let tx_info = harness.transfer_sol(from_index, &to_pubkey, amount_lamports)
+            .await
+            .map_err(|e| ScenarioError::OperationFailed(format!("SOL transfer failed: {}", e)))?;
+            
+        Ok(tx_info.signature)
+    }
+    
+    async fn run_validations(
+        &self,
+        harness: &BlockchainTestHarness,
+        resources: &HashMap<String, ScenarioResource>,
+    ) -> Vec<ValidationResult> {
+        let mut results = Vec::new();
+        
+        for validation in &self.validations {
+            let result = match validation {
+                ScenarioValidation::AllOperationsSucceed => {
+                    ValidationResult {
+                        validation_type: "AllOperationsSucceed".to_string(),
+                        success: true, // This is checked at the scenario level
+                        message: "All operations completed successfully".to_string(),
+                        details: None,
+                    }
+                },
+                
+                ScenarioValidation::BalancesConsistent => {
+                    // Check that all wallet balances are reasonable
+                    ValidationResult {
+                        validation_type: "BalancesConsistent".to_string(),
+                        success: true,
+                        message: "Balance consistency check passed".to_string(),
+                        details: None,
+                    }
+                },
+                
+                _ => {
+                    ValidationResult {
+                        validation_type: format!("{:?}", validation),
+                        success: true,
+                        message: "Validation not implemented".to_string(),
+                        details: None,
+                    }
+                },
+            };
+            
+            results.push(result);
+        }
+        
+        results
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    
+    #[test]
+    fn test_scenario_builder_creation() {
+        let scenario = BlockchainScenarioBuilder::new("test")
+            .add_operation(ScenarioOperation::InitializeEnvironment {
+                num_wallets: 3,
+                funding_amount_sol: 10.0,
+            })
+            .build();
+            
+        assert!(!scenario.id.is_empty());
+        assert_eq!(scenario.operations.len(), 1);
+        assert!(scenario.id.starts_with("test_"));
+    }
+    
+    #[test]
+    fn test_simple_sol_transfer_scenario() {
+        let scenario = BlockchainScenarioBuilder::simple_sol_transfer(0, 1, 1.5).build();
+        
+        assert_eq!(scenario.operations.len(), 2);
+        assert_eq!(scenario.dependencies.len(), 1);
+        assert_eq!(scenario.validations.len(), 1);
+    }
+    
+    #[test]
+    fn test_token_creation_scenario() {
+        let recipients = vec![(1, 1000), (2, 2000)];
+        let scenario = BlockchainScenarioBuilder::token_creation_scenario(0, recipients).build();
+        
+        // Should have: env init + token creation + 2 account creations + 2 minting operations
+        assert_eq!(scenario.operations.len(), 6);
+        assert!(scenario.dependencies.len() > 0);
+    }
+    
+    #[test]
+    fn test_multi_agent_trading_scenario() {
+        let scenario = BlockchainScenarioBuilder::multi_agent_trading_scenario().build();
+        
+        assert_eq!(scenario.operations.len(), 4);
+        assert_eq!(scenario.dependencies.len(), 3);
+        assert_eq!(scenario.validations.len(), 2);
+    }
+    
+    #[test]
+    fn test_dependency_validation() {
+        let mut scenario = BlockchainScenarioBuilder::new("test")
+            .add_operation(ScenarioOperation::InitializeEnvironment {
+                num_wallets: 2,
+                funding_amount_sol: 5.0,
+            })
+            .add_operation(ScenarioOperation::SolTransfer {
+                from_wallet_index: 0,
+                to_wallet_index: 1,
+                amount_lamports: 1_000_000_000,
+                expected_fee_range: None,
+            })
+            .add_dependency(1, 0)
+            .build();
+            
+        assert!(scenario.generate_execution_plan().is_ok());
+        
+        let plan = scenario.execution_plan.unwrap();
+        assert_eq!(plan.execution_order, vec![0, 1]);
+    }
+    
+    #[test]
+    fn test_circular_dependency_detection() {
+        let mut scenario = BlockchainScenarioBuilder::new("test")
+            .add_operation(ScenarioOperation::Wait { duration: Duration::from_millis(100) })
+            .add_operation(ScenarioOperation::Wait { duration: Duration::from_millis(100) })
+            .add_dependency(0, 1)
+            .add_dependency(1, 0) // Circular dependency
+            .build();
+            
+        assert!(scenario.generate_execution_plan().is_err());
+    }
+    
+    #[test]
+    fn test_execution_duration_estimation() {
+        let scenario = BlockchainScenarioBuilder::new("test")
+            .add_operation(ScenarioOperation::InitializeEnvironment {
+                num_wallets: 2,
+                funding_amount_sol: 5.0,
+            })
+            .add_operation(ScenarioOperation::Wait { duration: Duration::from_secs(5) })
+            .build();
+            
+        let parallel_groups = vec![vec![0], vec![1]];
+        let estimated = scenario.estimate_execution_duration(&parallel_groups);
+        
+        // Should be approximately 10 seconds (env init) + 5 seconds (wait)
+        assert!(estimated >= Duration::from_secs(15));
+        assert!(estimated <= Duration::from_secs(20));
+    }
+}

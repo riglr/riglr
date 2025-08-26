@@ -16,8 +16,8 @@
 use async_trait::async_trait;
 use riglr_agents::{
     Agent, AgentCommunication, AgentDispatcher, AgentId, AgentMessage, AgentRegistry,
-    ChannelCommunication, DispatchConfig, LocalAgentRegistry, Priority, RoutingStrategy, Task,
-    TaskResult, TaskType,
+    CapabilityType, ChannelCommunication, DispatchConfig, LocalAgentRegistry, Priority,
+    RoutingStrategy, Task, TaskResult, TaskType,
 };
 // Removed rig_core imports - using mock implementations
 use serde_json::json;
@@ -144,9 +144,7 @@ impl Agent for MarketResearchAgent {
             .parameters
             .get("symbol")
             .and_then(|s| s.as_str())
-            .ok_or_else(|| {
-                riglr_agents::AgentError::task_execution("Missing symbol".to_string())
-            })?;
+            .ok_or_else(|| riglr_agents::AgentError::task_execution("Missing symbol"))?;
 
         let _analysis_type = task
             .parameters
@@ -235,12 +233,12 @@ impl Agent for MarketResearchAgent {
         &self.id
     }
 
-    fn capabilities(&self) -> Vec<String> {
+    fn capabilities(&self) -> Vec<CapabilityType> {
         vec![
-            "research".to_string(),
-            "technical_analysis".to_string(),
-            "sentiment_analysis".to_string(),
-            "market_intelligence".to_string(),
+            CapabilityType::Research,
+            CapabilityType::Custom("technical_analysis".to_string()),
+            CapabilityType::Custom("sentiment_analysis".to_string()),
+            CapabilityType::Custom("market_intelligence".to_string()),
         ]
     }
 }
@@ -340,13 +338,15 @@ impl Agent for RiskManagementAgent {
     async fn execute_task(&self, task: Task) -> riglr_agents::Result<TaskResult> {
         println!("⚖️ Risk Agent {} assessing trade risk", self.id);
 
-        let analysis = task.parameters.get("analysis").ok_or_else(|| {
-            riglr_agents::AgentError::task_execution("Missing analysis data".to_string())
-        })?;
+        let analysis = task
+            .parameters
+            .get("analysis")
+            .ok_or_else(|| riglr_agents::AgentError::task_execution("Missing analysis data"))?;
 
-        let trade_params = task.parameters.get("trade_params").ok_or_else(|| {
-            riglr_agents::AgentError::task_execution("Missing trade parameters".to_string())
-        })?;
+        let trade_params = task
+            .parameters
+            .get("trade_params")
+            .ok_or_else(|| riglr_agents::AgentError::task_execution("Missing trade parameters"))?;
 
         let risk_assessment = self.validate_trade(analysis, trade_params).await;
 
@@ -374,12 +374,12 @@ impl Agent for RiskManagementAgent {
         &self.id
     }
 
-    fn capabilities(&self) -> Vec<String> {
+    fn capabilities(&self) -> Vec<CapabilityType> {
         vec![
-            "risk_analysis".to_string(),
-            "position_sizing".to_string(),
-            "portfolio_risk".to_string(),
-            "compliance_check".to_string(),
+            CapabilityType::RiskAnalysis,
+            CapabilityType::Custom("position_sizing".to_string()),
+            CapabilityType::Custom("portfolio_risk".to_string()),
+            CapabilityType::Custom("compliance_check".to_string()),
         ]
     }
 
@@ -493,9 +493,10 @@ impl Agent for TradeExecutionAgent {
             ));
         }
 
-        let trade_params = task.parameters.get("trade_params").ok_or_else(|| {
-            riglr_agents::AgentError::task_execution("Missing trade parameters".to_string())
-        })?;
+        let trade_params = task
+            .parameters
+            .get("trade_params")
+            .ok_or_else(|| riglr_agents::AgentError::task_execution("Missing trade parameters"))?;
 
         let trade_result = self.execute_blockchain_trade(trade_params).await?;
 
@@ -528,12 +529,12 @@ impl Agent for TradeExecutionAgent {
         &self.id
     }
 
-    fn capabilities(&self) -> Vec<String> {
+    fn capabilities(&self) -> Vec<CapabilityType> {
         vec![
-            "trading".to_string(),
-            "blockchain_execution".to_string(),
-            "order_management".to_string(),
-            "transaction_processing".to_string(),
+            CapabilityType::Trading,
+            CapabilityType::Custom("blockchain_execution".to_string()),
+            CapabilityType::Custom("order_management".to_string()),
+            CapabilityType::Custom("transaction_processing".to_string()),
         ]
     }
 }
@@ -625,12 +626,12 @@ impl Agent for PortfolioMonitorAgent {
         &self.id
     }
 
-    fn capabilities(&self) -> Vec<String> {
+    fn capabilities(&self) -> Vec<CapabilityType> {
         vec![
-            "portfolio".to_string(),
-            "monitoring".to_string(),
-            "performance_tracking".to_string(),
-            "reporting".to_string(),
+            CapabilityType::Portfolio,
+            CapabilityType::Monitoring,
+            CapabilityType::Custom("performance_tracking".to_string()),
+            CapabilityType::Custom("reporting".to_string()),
         ]
     }
 
@@ -698,6 +699,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         enable_load_balancing: false, // Sequential execution for trading workflow
         retry_delay: Duration::from_secs(1),
         max_concurrent_tasks_per_agent: 10,
+        response_wait_timeout: Duration::from_secs(30), // Timeout for distributed responses
     };
 
     let dispatcher = Arc::new(AgentDispatcher::with_config(

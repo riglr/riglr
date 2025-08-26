@@ -4,9 +4,16 @@
 //! based on capabilities, load, and routing rules. It maintains the
 //! SignerContext security model while enabling sophisticated task routing.
 
+pub mod proxy;
+pub mod queue;
+pub mod queue_trait;
 pub mod router;
 
-use crate::{Agent, AgentError, AgentRegistry, Result, Task, TaskResult, TaskType};
+// Re-export the trait for external use
+pub use queue_trait::DistributedTaskQueue;
+
+use crate::{Agent, AgentError, AgentRegistry, Result, Task, TaskResult};
+use proxy::AgentProxy;
 use router::Router;
 use std::sync::Arc;
 use std::time::Duration;
@@ -28,6 +35,8 @@ pub struct DispatchConfig {
     pub enable_load_balancing: bool,
     /// Routing strategy to use
     pub routing_strategy: RoutingStrategy,
+    /// Timeout for waiting for queue responses (for distributed execution)
+    pub response_wait_timeout: Duration,
 }
 
 impl Default for DispatchConfig {
@@ -39,6 +48,7 @@ impl Default for DispatchConfig {
             max_concurrent_tasks_per_agent: 10,
             enable_load_balancing: true,
             routing_strategy: RoutingStrategy::default(),
+            response_wait_timeout: Duration::from_secs(300), // 5 minutes
         }
     }
 }
@@ -72,6 +82,8 @@ pub struct AgentDispatcher<R: AgentRegistry> {
     router: Router,
     /// Dispatcher configuration
     config: DispatchConfig,
+    /// Optional distributed task queue for remote execution
+    distributed_queue: Option<Arc<dyn DistributedTaskQueue>>,
 }
 
 impl<R: AgentRegistry> AgentDispatcher<R> {
@@ -87,7 +99,25 @@ impl<R: AgentRegistry> AgentDispatcher<R> {
             registry,
             router: Router::with_strategy(config.routing_strategy),
             config,
+            distributed_queue: None,
         }
+    }
+
+    /// Set the distributed task queue for remote task execution.
+    pub fn with_distributed_queue<Q>(mut self, queue: Q) -> Self
+    where
+        Q: DistributedTaskQueue + 'static,
+    {
+        self.distributed_queue = Some(Arc::new(queue));
+        self
+    }
+
+    /// Set a Redis connection for distributed task execution.
+    /// This is a convenience method that creates a RedisTaskQueue internally.
+    pub fn with_redis_connection(mut self, connection: redis::aio::MultiplexedConnection) -> Self {
+        let redis_queue = queue::RedisTaskQueue::new(connection);
+        self.distributed_queue = Some(Arc::new(redis_queue));
+        self
     }
 
     /// Get the current configuration.
@@ -164,20 +194,39 @@ impl<R: AgentRegistry> AgentDispatcher<R> {
         let selected_agent = self.router.select_agent(&agents, task).await?;
 
         debug!(
-            "Selected agent {} for task {}",
+            "Selected agent {} for task {} ({})",
             selected_agent.id(),
-            task.id
+            task.id,
+            if selected_agent.is_local() {
+                "local execution"
+            } else {
+                "remote execution"
+            }
         );
 
-        // Execute the task with timeout
+        // Handle local vs remote execution differently
+        match selected_agent {
+            AgentProxy::Local(agent) => {
+                // Local agent - execute directly
+                self.execute_local_task(agent, task).await
+            }
+            AgentProxy::Remote(status) => {
+                // Remote agent - enqueue task for remote execution
+                self.execute_remote_task(status, task).await
+            }
+        }
+    }
+
+    /// Execute a task on a local agent.
+    async fn execute_local_task(&self, agent: Arc<dyn Agent>, task: &Task) -> Result<TaskResult> {
         let task_timeout = task.timeout.unwrap_or(self.config.default_task_timeout);
 
-        match timeout(task_timeout, selected_agent.execute_task(task.clone())).await {
+        match timeout(task_timeout, agent.execute_task(task.clone())).await {
             Ok(Ok(result)) => {
                 info!(
-                    "Task {} completed by agent {} in {:?}",
+                    "Task {} completed locally by agent {} in {:?}",
                     task.id,
-                    selected_agent.id(),
+                    agent.id(),
                     if let TaskResult::Success { duration, .. } = &result {
                         Some(*duration)
                     } else {
@@ -188,38 +237,90 @@ impl<R: AgentRegistry> AgentDispatcher<R> {
             }
             Ok(Err(err)) => {
                 warn!(
-                    "Task {} failed in agent {}: {}",
+                    "Task {} failed locally in agent {}: {}",
                     task.id,
-                    selected_agent.id(),
+                    agent.id(),
                     err
                 );
                 Err(err)
             }
             Err(_) => {
                 error!(
-                    "Task {} timed out after {:?} in agent {}",
+                    "Task {} timed out after {:?} in local agent {}",
                     task.id,
                     task_timeout,
-                    selected_agent.id()
+                    agent.id()
                 );
                 Err(AgentError::task_timeout(task.id.clone(), task_timeout))
             }
         }
     }
 
+    /// Execute a task on a remote agent.
+    async fn execute_remote_task(
+        &self,
+        status: crate::AgentStatus,
+        task: &Task,
+    ) -> Result<TaskResult> {
+        // Check if we have a distributed queue for remote execution
+        if let Some(queue) = &self.distributed_queue {
+            // Determine task timeout
+            let task_timeout = task.timeout.unwrap_or(self.config.default_task_timeout);
+
+            // Dispatch the task to the remote agent via queue
+            info!(
+                "Dispatching task {} to remote agent {} via distributed queue",
+                task.id, status.agent_id
+            );
+
+            queue
+                .dispatch_remote_task(&status.agent_id, task.clone(), task_timeout)
+                .await
+        } else {
+            // No distributed queue available, return an error
+            warn!(
+                "Cannot execute task {} on remote agent {} - no distributed queue configured",
+                task.id, status.agent_id
+            );
+
+            Err(AgentError::configuration(
+                "Remote task execution requires a distributed task queue".to_string(),
+            ))
+        }
+    }
+
     /// Find agents suitable for executing the given task.
-    async fn find_suitable_agents(&self, task: &Task) -> Result<Vec<Arc<dyn Agent>>> {
+    async fn find_suitable_agents(&self, task: &Task) -> Result<Vec<AgentProxy>> {
         debug!("Finding suitable agents for task type {:?}", task.task_type);
 
-        let capability = self.task_type_to_capability(&task.task_type);
-        let mut suitable_agents = self.registry.find_agents_by_capability(&capability).await?;
+        let capability = crate::util::task_type_to_capability(&task.task_type);
+
+        // Get all agent statuses (local and remote) with the required capability
+        let agent_statuses = self
+            .registry
+            .find_agent_statuses_by_capability(&capability.to_string())
+            .await?;
+
+        let mut suitable_proxies = Vec::new();
+
+        // For each status, check if we have a local instance
+        for status in agent_statuses {
+            // Try to get local agent instance
+            if let Ok(Some(local_agent)) = self.registry.get_agent(&status.agent_id).await {
+                // We have a local instance
+                suitable_proxies.push(AgentProxy::Local(local_agent));
+            } else {
+                // This is a remote agent
+                suitable_proxies.push(AgentProxy::Remote(status));
+            }
+        }
 
         // Filter by availability and other criteria
-        suitable_agents.retain(|agent| agent.is_available() && agent.can_handle(task));
+        suitable_proxies.retain(|proxy| proxy.is_available() && proxy.can_handle(task));
 
         if self.config.enable_load_balancing {
             // Sort by load for load-aware routing strategies
-            suitable_agents.sort_by(|a, b| {
+            suitable_proxies.sort_by(|a, b| {
                 a.load()
                     .partial_cmp(&b.load())
                     .unwrap_or(std::cmp::Ordering::Equal)
@@ -227,24 +328,14 @@ impl<R: AgentRegistry> AgentDispatcher<R> {
         }
 
         debug!(
-            "Found {} suitable agents for task {}",
-            suitable_agents.len(),
-            task.id
+            "Found {} suitable agents for task {} ({} local, {} remote)",
+            suitable_proxies.len(),
+            task.id,
+            suitable_proxies.iter().filter(|p| p.is_local()).count(),
+            suitable_proxies.iter().filter(|p| p.is_remote()).count()
         );
 
-        Ok(suitable_agents)
-    }
-
-    /// Convert task type to capability string.
-    fn task_type_to_capability(&self, task_type: &TaskType) -> String {
-        match task_type {
-            TaskType::Trading => "trading".to_string(),
-            TaskType::Research => "research".to_string(),
-            TaskType::RiskAnalysis => "risk_analysis".to_string(),
-            TaskType::Portfolio => "portfolio".to_string(),
-            TaskType::Monitoring => "monitoring".to_string(),
-            TaskType::Custom(name) => name.clone(),
-        }
+        Ok(suitable_proxies)
     }
 
     /// Dispatch multiple tasks concurrently.
@@ -303,7 +394,7 @@ impl<R: AgentRegistry> AgentDispatcher<R> {
 }
 
 /// Statistics about dispatcher state.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct DispatcherStats {
     /// Number of registered agents
     pub registered_agents: usize,
@@ -324,7 +415,7 @@ mod tests {
     #[derive(Clone, Debug)]
     struct MockAgent {
         id: AgentId,
-        capabilities: Vec<String>,
+        capabilities: Vec<CapabilityType>,
         should_fail: bool,
         execution_delay: Duration,
     }
@@ -358,7 +449,7 @@ mod tests {
             &self.id
         }
 
-        fn capabilities(&self) -> Vec<String> {
+        fn capabilities(&self) -> Vec<crate::CapabilityType> {
             self.capabilities.clone()
         }
     }
@@ -371,7 +462,7 @@ mod tests {
         // Register a trading agent
         let agent = Arc::new(MockAgent {
             id: AgentId::new("trading-agent"),
-            capabilities: vec!["trading".to_string()],
+            capabilities: vec![CapabilityType::Trading],
             should_fail: false,
             execution_delay: Duration::from_millis(10),
         });
@@ -392,7 +483,7 @@ mod tests {
         // Register a trading agent
         let agent = Arc::new(MockAgent {
             id: AgentId::new("trading-agent"),
-            capabilities: vec!["trading".to_string()],
+            capabilities: vec![CapabilityType::Trading],
             should_fail: false,
             execution_delay: Duration::from_millis(0),
         });
@@ -425,7 +516,7 @@ mod tests {
         // Register an agent that always fails
         let agent = Arc::new(MockAgent {
             id: AgentId::new("failing-agent"),
-            capabilities: vec!["trading".to_string()],
+            capabilities: vec![CapabilityType::Trading],
             should_fail: true,
             execution_delay: Duration::from_millis(0),
         });
@@ -451,7 +542,7 @@ mod tests {
         // Register an agent with long execution delay
         let agent = Arc::new(MockAgent {
             id: AgentId::new("slow-agent"),
-            capabilities: vec!["trading".to_string()],
+            capabilities: vec![CapabilityType::Trading],
             should_fail: false,
             execution_delay: Duration::from_millis(100), // Longer than timeout
         });
@@ -476,7 +567,7 @@ mod tests {
         for i in 0..3 {
             let agent = Arc::new(MockAgent {
                 id: AgentId::new(format!("agent-{}", i)),
-                capabilities: vec!["trading".to_string()],
+                capabilities: vec![CapabilityType::Trading],
                 should_fail: false,
                 execution_delay: Duration::from_millis(10),
             });
@@ -505,7 +596,7 @@ mod tests {
 
         let agent = Arc::new(MockAgent {
             id: AgentId::new("test-agent"),
-            capabilities: vec!["trading".to_string()],
+            capabilities: vec![CapabilityType::Trading],
             should_fail: false,
             execution_delay: Duration::from_millis(0),
         });
@@ -527,7 +618,7 @@ mod tests {
         // Register an agent
         let agent = Arc::new(MockAgent {
             id: AgentId::new("test-agent"),
-            capabilities: vec!["trading".to_string()],
+            capabilities: vec![CapabilityType::Trading],
             should_fail: false,
             execution_delay: Duration::from_millis(0),
         });
@@ -548,6 +639,7 @@ mod tests {
         assert_eq!(config.max_concurrent_tasks_per_agent, 10);
         assert!(config.enable_load_balancing);
         assert_eq!(config.routing_strategy, RoutingStrategy::Capability);
+        assert_eq!(config.response_wait_timeout, Duration::from_secs(300));
     }
 
     #[test]
@@ -578,6 +670,7 @@ mod tests {
             max_concurrent_tasks_per_agent: 20,
             enable_load_balancing: false,
             routing_strategy: RoutingStrategy::RoundRobin,
+            response_wait_timeout: Duration::from_secs(600),
         };
         let dispatcher = AgentDispatcher::with_config(registry, custom_config.clone());
 
@@ -588,43 +681,43 @@ mod tests {
         assert_eq!(config.max_concurrent_tasks_per_agent, 20);
         assert!(!config.enable_load_balancing);
         assert_eq!(config.routing_strategy, RoutingStrategy::RoundRobin);
+        assert_eq!(config.response_wait_timeout, Duration::from_secs(600));
     }
 
     #[test]
     fn test_task_type_to_capability_all_variants() {
-        let registry = Arc::new(LocalAgentRegistry::default());
-        let dispatcher = AgentDispatcher::new(registry);
-
         assert_eq!(
-            dispatcher.task_type_to_capability(&TaskType::Trading),
-            "trading"
+            crate::util::task_type_to_capability(&TaskType::Trading),
+            crate::CapabilityType::Trading
         );
         assert_eq!(
-            dispatcher.task_type_to_capability(&TaskType::Research),
-            "research"
+            crate::util::task_type_to_capability(&TaskType::Research),
+            crate::CapabilityType::Research
         );
         assert_eq!(
-            dispatcher.task_type_to_capability(&TaskType::RiskAnalysis),
-            "risk_analysis"
+            crate::util::task_type_to_capability(&TaskType::RiskAnalysis),
+            crate::CapabilityType::RiskAnalysis
         );
         assert_eq!(
-            dispatcher.task_type_to_capability(&TaskType::Portfolio),
-            "portfolio"
+            crate::util::task_type_to_capability(&TaskType::Portfolio),
+            crate::CapabilityType::Portfolio
         );
         assert_eq!(
-            dispatcher.task_type_to_capability(&TaskType::Monitoring),
-            "monitoring"
+            crate::util::task_type_to_capability(&TaskType::Monitoring),
+            crate::CapabilityType::Monitoring
         );
         assert_eq!(
-            dispatcher.task_type_to_capability(&TaskType::Custom("custom_capability".to_string())),
-            "custom_capability"
+            crate::util::task_type_to_capability(&TaskType::Custom(
+                "custom_capability".to_string()
+            )),
+            crate::CapabilityType::Custom("custom_capability".to_string())
         );
     }
 
     #[derive(Clone, Debug)]
     struct UnavailableMockAgent {
         id: AgentId,
-        capabilities: Vec<String>,
+        capabilities: Vec<CapabilityType>,
     }
 
     #[async_trait::async_trait]
@@ -637,7 +730,7 @@ mod tests {
             &self.id
         }
 
-        fn capabilities(&self) -> Vec<String> {
+        fn capabilities(&self) -> Vec<crate::CapabilityType> {
             self.capabilities.clone()
         }
 
@@ -649,7 +742,7 @@ mod tests {
     #[derive(Clone, Debug)]
     struct CannotHandleMockAgent {
         id: AgentId,
-        capabilities: Vec<String>,
+        capabilities: Vec<CapabilityType>,
     }
 
     #[async_trait::async_trait]
@@ -662,7 +755,7 @@ mod tests {
             &self.id
         }
 
-        fn capabilities(&self) -> Vec<String> {
+        fn capabilities(&self) -> Vec<crate::CapabilityType> {
             self.capabilities.clone()
         }
 
@@ -679,7 +772,7 @@ mod tests {
         // Register an unavailable agent
         let agent = Arc::new(UnavailableMockAgent {
             id: AgentId::new("unavailable-agent"),
-            capabilities: vec!["trading".to_string()],
+            capabilities: vec![CapabilityType::Trading],
         });
         registry.register_agent(agent).await.unwrap();
 
@@ -702,7 +795,7 @@ mod tests {
         // Register an agent that cannot handle tasks
         let agent = Arc::new(CannotHandleMockAgent {
             id: AgentId::new("cannot-handle-agent"),
-            capabilities: vec!["trading".to_string()],
+            capabilities: vec![CapabilityType::Trading],
         });
         registry.register_agent(agent).await.unwrap();
 
@@ -720,7 +813,7 @@ mod tests {
     #[derive(Clone, Debug)]
     struct NonRetriableMockAgent {
         id: AgentId,
-        capabilities: Vec<String>,
+        capabilities: Vec<CapabilityType>,
     }
 
     #[async_trait::async_trait]
@@ -735,7 +828,7 @@ mod tests {
             &self.id
         }
 
-        fn capabilities(&self) -> Vec<String> {
+        fn capabilities(&self) -> Vec<crate::CapabilityType> {
             self.capabilities.clone()
         }
     }
@@ -752,7 +845,7 @@ mod tests {
         // Register an agent that returns non-retriable errors
         let agent = Arc::new(NonRetriableMockAgent {
             id: AgentId::new("non-retriable-agent"),
-            capabilities: vec!["trading".to_string()],
+            capabilities: vec![CapabilityType::Trading],
         });
         registry.register_agent(agent).await.unwrap();
 
@@ -779,7 +872,7 @@ mod tests {
         // Register an agent with delay
         let agent = Arc::new(MockAgent {
             id: AgentId::new("slow-agent"),
-            capabilities: vec!["trading".to_string()],
+            capabilities: vec![CapabilityType::Trading],
             should_fail: false,
             execution_delay: Duration::from_millis(100),
         });
@@ -810,7 +903,7 @@ mod tests {
         for i in 0..3 {
             let agent = Arc::new(MockAgent {
                 id: AgentId::new(format!("agent-{}", i)),
-                capabilities: vec!["trading".to_string()],
+                capabilities: vec![CapabilityType::Trading],
                 should_fail: false,
                 execution_delay: Duration::from_millis(10),
             });
@@ -879,7 +972,7 @@ mod tests {
         // Register an agent that always fails retriably
         let agent = Arc::new(MockAgent {
             id: AgentId::new("always-failing-agent"),
-            capabilities: vec!["trading".to_string()],
+            capabilities: vec![CapabilityType::Trading],
             should_fail: true, // Always return retriable failures
             execution_delay: Duration::from_millis(0),
         });
@@ -896,7 +989,7 @@ mod tests {
     #[derive(Clone, Debug)]
     struct LoadedMockAgent {
         id: AgentId,
-        capabilities: Vec<String>,
+        capabilities: Vec<CapabilityType>,
         load: f64,
     }
 
@@ -917,7 +1010,7 @@ mod tests {
             &self.id
         }
 
-        fn capabilities(&self) -> Vec<String> {
+        fn capabilities(&self) -> Vec<crate::CapabilityType> {
             self.capabilities.clone()
         }
 
@@ -938,12 +1031,12 @@ mod tests {
         // Register agents with different loads
         let high_load_agent = Arc::new(LoadedMockAgent {
             id: AgentId::new("high-load-agent"),
-            capabilities: vec!["trading".to_string()],
+            capabilities: vec![CapabilityType::Trading],
             load: 0.9,
         });
         let low_load_agent = Arc::new(LoadedMockAgent {
             id: AgentId::new("low-load-agent"),
-            capabilities: vec!["trading".to_string()],
+            capabilities: vec![CapabilityType::Trading],
             load: 0.1,
         });
 
@@ -964,7 +1057,7 @@ mod tests {
 
         let agent = Arc::new(MockAgent {
             id: AgentId::new("duration-agent"),
-            capabilities: vec!["trading".to_string()],
+            capabilities: vec![CapabilityType::Trading],
             should_fail: false,
             execution_delay: Duration::from_millis(10),
         });

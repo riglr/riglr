@@ -6,6 +6,7 @@
 
 use crate::{Agent, AgentError, Result, Task, TaskResult};
 use riglr_core::{signer::UnifiedSigner, Job, JobResult, SignerContext, ToolError};
+use std::str::FromStr;
 use std::sync::Arc;
 use tracing::{debug, info, warn};
 
@@ -49,8 +50,11 @@ impl SignerContextIntegration {
 
             // Call agent hooks
             agent.before_task(&task).await.map_err(|e| match e {
-                AgentError::Tool { source } => {
-                    riglr_core::SignerError::Configuration(format!("Agent hook failed: {}", source))
+                AgentError::ToolExecutionFailed(tool_error) => {
+                    riglr_core::SignerError::Configuration(format!(
+                        "Agent hook failed: {}",
+                        tool_error
+                    ))
                 }
                 _ => riglr_core::SignerError::Configuration(format!("Agent hook failed: {}", e)),
             })?;
@@ -71,13 +75,13 @@ impl SignerContextIntegration {
 
             match result {
                 Ok(task_result) => Ok(task_result),
-                Err(AgentError::Tool { source }) => match source {
+                Err(AgentError::ToolExecutionFailed(tool_error)) => match tool_error {
                     riglr_core::ToolError::SignerContext(signer_err) => {
                         Err(riglr_core::SignerError::Configuration(signer_err))
                     }
                     _ => Err(riglr_core::SignerError::Configuration(format!(
                         "Agent execution failed: {}",
-                        source
+                        tool_error
                     ))),
                 },
                 Err(e) => Err(riglr_core::SignerError::Configuration(format!(
@@ -271,7 +275,7 @@ impl SignerContextIntegration {
     ///
     /// An AgentError representation.
     pub fn tool_error_to_agent_error(tool_error: ToolError) -> AgentError {
-        AgentError::Tool { source: tool_error }
+        AgentError::ToolExecutionFailed(tool_error)
     }
 
     /// Check if an agent can execute riglr-core tools.
@@ -289,9 +293,11 @@ impl SignerContextIntegration {
     /// true if the agent can execute the tools, false otherwise.
     pub fn can_execute_tools(agent: &dyn Agent, required_capabilities: &[String]) -> bool {
         let agent_capabilities = agent.capabilities();
-        required_capabilities
-            .iter()
-            .all(|cap| agent_capabilities.contains(cap))
+        required_capabilities.iter().all(|cap| {
+            // Convert string capability to CapabilityType using FromStr
+            let cap_type = crate::CapabilityType::from_str(cap).unwrap();
+            agent_capabilities.contains(&cap_type)
+        })
     }
 
     /// Validate that an agent is compatible with riglr-core patterns.
@@ -394,7 +400,7 @@ mod tests {
     #[derive(Clone, Debug)]
     struct MockAgent {
         id: AgentId,
-        capabilities: Vec<String>,
+        capabilities: Vec<CapabilityType>,
     }
 
     #[async_trait::async_trait]
@@ -414,7 +420,7 @@ mod tests {
             &self.id
         }
 
-        fn capabilities(&self) -> Vec<String> {
+        fn capabilities(&self) -> Vec<CapabilityType> {
             self.capabilities.clone()
         }
     }
@@ -501,12 +507,12 @@ mod tests {
     fn test_agent_compatibility_validation() {
         let good_agent = MockAgent {
             id: AgentId::new("good-agent"),
-            capabilities: vec!["trading".to_string()],
+            capabilities: vec![CapabilityType::Trading],
         };
 
         let empty_id_agent = MockAgent {
             id: AgentId::new(""),
-            capabilities: vec!["trading".to_string()],
+            capabilities: vec![CapabilityType::Trading],
         };
 
         // Good agent should pass validation
@@ -520,7 +526,7 @@ mod tests {
     fn test_can_execute_tools() {
         let agent = MockAgent {
             id: AgentId::new("test-agent"),
-            capabilities: vec!["trading".to_string(), "risk_analysis".to_string()],
+            capabilities: vec![CapabilityType::Trading, CapabilityType::RiskAnalysis],
         };
 
         // Should return true for capabilities the agent has
@@ -550,7 +556,7 @@ mod tests {
     async fn test_tool_executor() {
         let agent = Arc::new(MockAgent {
             id: AgentId::new("executor-agent"),
-            capabilities: vec!["trading".to_string()],
+            capabilities: vec![CapabilityType::Trading],
         });
 
         let executor = ToolExecutor::new(agent.clone());
@@ -582,7 +588,7 @@ mod tests {
 
         let tool_error = ToolError::retriable_string("Network timeout");
         let agent_error = SignerContextIntegration::tool_error_to_agent_error(tool_error);
-        assert!(matches!(agent_error, AgentError::Tool { .. }));
+        assert!(matches!(agent_error, AgentError::ToolExecutionFailed(_)));
     }
 
     // Additional comprehensive tests for 100% coverage
@@ -590,7 +596,7 @@ mod tests {
     #[derive(Clone, Debug)]
     struct FailingAgent {
         id: AgentId,
-        capabilities: Vec<String>,
+        capabilities: Vec<CapabilityType>,
         fail_before_task: bool,
         fail_execute_task: bool,
         fail_after_task: bool,
@@ -611,17 +617,17 @@ mod tests {
         async fn execute_task(&self, _task: Task) -> Result<TaskResult> {
             if self.fail_execute_task {
                 match self.agent_error_type {
-                    AgentErrorType::ToolSignerContext => Err(AgentError::Tool {
-                        source: ToolError::SignerContext(
+                    AgentErrorType::ToolSignerContext => {
+                        Err(AgentError::ToolExecutionFailed(ToolError::SignerContext(
                             riglr_core::SignerError::Configuration(
                                 "Signer context error".to_string(),
                             )
                             .to_string(),
-                        ),
-                    }),
-                    AgentErrorType::ToolOther => Err(AgentError::Tool {
-                        source: ToolError::retriable_string("Tool error"),
-                    }),
+                        )))
+                    }
+                    AgentErrorType::ToolOther => Err(AgentError::ToolExecutionFailed(
+                        ToolError::retriable_string("Tool error"),
+                    )),
                     AgentErrorType::Other => Err(AgentError::agent_not_found("test")),
                 }
             } else {
@@ -636,17 +642,17 @@ mod tests {
         async fn before_task(&self, _task: &Task) -> Result<()> {
             if self.fail_before_task {
                 match self.agent_error_type {
-                    AgentErrorType::ToolSignerContext => Err(AgentError::Tool {
-                        source: ToolError::SignerContext(
+                    AgentErrorType::ToolSignerContext => {
+                        Err(AgentError::ToolExecutionFailed(ToolError::SignerContext(
                             riglr_core::SignerError::Configuration(
                                 "Before task signer error".to_string(),
                             )
                             .to_string(),
-                        ),
-                    }),
-                    AgentErrorType::ToolOther => Err(AgentError::Tool {
-                        source: ToolError::retriable_string("Before task tool error"),
-                    }),
+                        )))
+                    }
+                    AgentErrorType::ToolOther => Err(AgentError::ToolExecutionFailed(
+                        ToolError::retriable_string("Before task tool error"),
+                    )),
                     AgentErrorType::Other => Err(AgentError::agent_not_found("before_task")),
                 }
             } else {
@@ -666,7 +672,7 @@ mod tests {
             &self.id
         }
 
-        fn capabilities(&self) -> Vec<String> {
+        fn capabilities(&self) -> Vec<CapabilityType> {
             self.capabilities.clone()
         }
 
@@ -783,7 +789,7 @@ mod tests {
         let signer = Arc::new(MockSigner);
         let agent = Arc::new(FailingAgent {
             id: AgentId::new("failing-agent"),
-            capabilities: vec!["test".to_string()],
+            capabilities: vec![CapabilityType::Custom("test".to_string())],
             fail_before_task: true,
             fail_execute_task: false,
             fail_after_task: false,
@@ -810,7 +816,7 @@ mod tests {
         let signer = Arc::new(MockSigner);
         let agent = Arc::new(FailingAgent {
             id: AgentId::new("failing-agent"),
-            capabilities: vec!["test".to_string()],
+            capabilities: vec![CapabilityType::Custom("test".to_string())],
             fail_before_task: true,
             fail_execute_task: false,
             fail_after_task: false,
@@ -837,7 +843,7 @@ mod tests {
         let signer = Arc::new(MockSigner);
         let agent = Arc::new(FailingAgent {
             id: AgentId::new("failing-agent"),
-            capabilities: vec!["test".to_string()],
+            capabilities: vec![CapabilityType::Custom("test".to_string())],
             fail_before_task: true,
             fail_execute_task: false,
             fail_after_task: false,
@@ -864,7 +870,7 @@ mod tests {
         let signer = Arc::new(MockSigner);
         let agent = Arc::new(FailingAgent {
             id: AgentId::new("failing-agent"),
-            capabilities: vec!["test".to_string()],
+            capabilities: vec![CapabilityType::Custom("test".to_string())],
             fail_before_task: false,
             fail_execute_task: true,
             fail_after_task: false,
@@ -891,7 +897,7 @@ mod tests {
         let signer = Arc::new(MockSigner);
         let agent = Arc::new(FailingAgent {
             id: AgentId::new("failing-agent"),
-            capabilities: vec!["test".to_string()],
+            capabilities: vec![CapabilityType::Custom("test".to_string())],
             fail_before_task: false,
             fail_execute_task: true,
             fail_after_task: false,
@@ -918,7 +924,7 @@ mod tests {
         let signer = Arc::new(MockSigner);
         let agent = Arc::new(FailingAgent {
             id: AgentId::new("failing-agent"),
-            capabilities: vec!["test".to_string()],
+            capabilities: vec![CapabilityType::Custom("test".to_string())],
             fail_before_task: false,
             fail_execute_task: true,
             fail_after_task: false,
@@ -945,7 +951,7 @@ mod tests {
         let signer = Arc::new(MockSigner);
         let agent = Arc::new(FailingAgent {
             id: AgentId::new("failing-agent"),
-            capabilities: vec!["test".to_string()],
+            capabilities: vec![CapabilityType::Custom("test".to_string())],
             fail_before_task: false,
             fail_execute_task: false,
             fail_after_task: true,
@@ -1178,7 +1184,7 @@ mod tests {
     fn test_validate_agent_compatibility_unavailable_agent() {
         let unavailable_agent = FailingAgent {
             id: AgentId::new("unavailable-agent"),
-            capabilities: vec!["test".to_string()],
+            capabilities: vec![CapabilityType::Custom("test".to_string())],
             fail_before_task: false,
             fail_execute_task: false,
             fail_after_task: false,
@@ -1204,7 +1210,7 @@ mod tests {
     fn test_can_execute_tools_empty_requirements() {
         let agent = MockAgent {
             id: AgentId::new("test-agent"),
-            capabilities: vec!["trading".to_string()],
+            capabilities: vec![CapabilityType::Trading],
         };
 
         // Should return true for empty requirements
@@ -1215,7 +1221,7 @@ mod tests {
     async fn test_tool_executor_job_conversion_error() {
         let agent = Arc::new(MockAgent {
             id: AgentId::new("executor-agent"),
-            capabilities: vec!["test".to_string()],
+            capabilities: vec![CapabilityType::Custom("test".to_string())],
         });
 
         let executor = ToolExecutor::new(agent.clone());
@@ -1232,7 +1238,7 @@ mod tests {
     async fn test_tool_executor_agent_execution_error() {
         let agent = Arc::new(FailingAgent {
             id: AgentId::new("failing-executor-agent"),
-            capabilities: vec!["test".to_string()],
+            capabilities: vec![CapabilityType::Custom("test".to_string())],
             fail_before_task: false,
             fail_execute_task: true,
             fail_after_task: false,
@@ -1264,7 +1270,7 @@ mod tests {
     fn test_tool_executor_agent_getter() {
         let agent = Arc::new(MockAgent {
             id: AgentId::new("test-agent"),
-            capabilities: vec!["test".to_string()],
+            capabilities: vec![CapabilityType::Custom("test".to_string())],
         });
 
         let executor = ToolExecutor::new(agent.clone());
