@@ -22,7 +22,7 @@ fn test_client_error_to_signer_error_conversion() {
     match signer_error {
         SignerError::SolanaTransaction(arc_error) => {
             assert!(arc_error.to_string().contains("Connection timed out"));
-            assert!(matches!(arc_error.kind, ClientErrorKind::Io(_)));
+            assert!(matches!(*arc_error.kind, ClientErrorKind::Io(_)));
         }
         _ => panic!("Expected SignerError::SolanaTransaction variant"),
     }
@@ -42,7 +42,7 @@ fn test_boxed_client_error_to_signer_error_conversion() {
     match signer_error {
         SignerError::SolanaTransaction(arc_error) => {
             assert!(arc_error.to_string().contains("Connection refused"));
-            assert!(matches!(arc_error.kind, ClientErrorKind::Io(_)));
+            assert!(matches!(*arc_error.kind, ClientErrorKind::Io(_)));
         }
         _ => panic!("Expected SignerError::SolanaTransaction variant"),
     }
@@ -311,7 +311,7 @@ fn test_arc_preserves_error_source() {
 
     // Test that we can still extract the source error through Arc
     if let SignerError::SolanaTransaction(arc_error) = signer_error {
-        match &arc_error.kind {
+        match &*arc_error.kind {
             ClientErrorKind::Io(inner_io_error) => {
                 assert_eq!(inner_io_error.kind(), std::io::ErrorKind::PermissionDenied);
                 assert!(inner_io_error.to_string().contains("Access denied"));

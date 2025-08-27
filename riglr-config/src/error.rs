@@ -36,6 +36,10 @@ pub enum ConfigError {
     #[error("Provider {0} is not configured")]
     ProviderNotConfigured(String),
 
+    /// Configuration already locked
+    #[error("Configuration locked: {0}")]
+    ConfigLocked(String),
+
     /// Generic error
     #[error("{0}")]
     Generic(String),

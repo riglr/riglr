@@ -138,19 +138,18 @@
 //! ```
 
 use async_trait::async_trait;
-use backoff::{backoff::Backoff, ExponentialBackoff, ExponentialBackoffBuilder};
 use dashmap::DashMap;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 use tracing::{debug, error, info, warn};
-use uuid::Uuid;
 
 use crate::error::{ToolError, WorkerError};
 use crate::idempotency::IdempotencyStore;
 use crate::jobs::{Job, JobResult};
 use crate::queue::JobQueue;
+use crate::signer::SignerContext;
 
 /// A trait defining the execution interface for tools.
 ///
@@ -435,6 +434,23 @@ pub trait Tool: Send + Sync {
     /// - Otherwise derived from the item's doc comments
     /// - Falls back to an empty string if neither is present
     fn description(&self) -> &str;
+
+    /// Returns the JSON schema for this tool's parameters.
+    ///
+    /// This schema is used by AI models to understand what parameters
+    /// the tool accepts and their types. It should be a valid JSON Schema
+    /// object describing the parameters structure.
+    ///
+    /// The default implementation returns a generic object schema that
+    /// accepts any properties, which may not work well with all AI providers.
+    /// Tools should override this to provide their actual parameter schema.
+    fn schema(&self) -> serde_json::Value {
+        // Default to a generic object schema
+        serde_json::json!({
+            "type": "object",
+            "additionalProperties": true
+        })
+    }
 }
 
 /// Configuration for tool execution behavior.
@@ -861,16 +877,18 @@ impl<I: IdempotencyStore + 'static> ToolWorker<I> {
     /// ```ignore
     /// use riglr_core::{ToolWorker, ExecutionConfig, idempotency::InMemoryIdempotencyStore, provider::ApplicationContext};
     /// use std::time::Duration;
+    /// use riglr_config::Config;
     ///
-    /// let config = ExecutionConfig {
+    /// let exec_config = ExecutionConfig {
     ///     max_concurrency: 20,
     ///     default_timeout: Duration::from_secs(60),
     ///     max_retries: 5,
     ///     ..Default::default()
     /// };
-    /// let app_context = ApplicationContext::from_env();
+    /// let config = Config::from_env();
+    /// let app_context = ApplicationContext::from_config(&config);
     ///
-    /// let worker = ToolWorker::<InMemoryIdempotencyStore>::new(config, app_context);
+    /// let worker = ToolWorker::<InMemoryIdempotencyStore>::new(exec_config, app_context);
     /// ```
     pub fn new(config: ExecutionConfig, app_context: crate::provider::ApplicationContext) -> Self {
         Self {
@@ -1025,6 +1043,20 @@ impl<I: IdempotencyStore + 'static> ToolWorker<I> {
             return Ok(Arc::try_unwrap(cached_result).unwrap_or_else(|arc| (*arc).clone()));
         }
 
+        // Apply rate limiting for operations within a SignerContext that has a user_id
+        if let Ok(signer) = SignerContext::current().await {
+            if let Some(user_id) = signer.user_id() {
+                if let Err(rate_limit_error) =
+                    self.app_context.rate_limiter.check_rate_limit(&user_id)
+                {
+                    // Convert rate limit error to a JobResult::Failure
+                    return Ok(JobResult::Failure {
+                        error: rate_limit_error,
+                    });
+                }
+            }
+        }
+
         // Acquire appropriate semaphore
         let _permit = self.acquire_semaphore(&job.tool_name).await.map_err(|e| {
             WorkerError::SemaphoreAcquisition {
@@ -1086,59 +1118,60 @@ impl<I: IdempotencyStore + 'static> ToolWorker<I> {
             .map(|entry| (*entry).clone())
     }
 
-    /// Execute a tool with retry logic
+    /// Execute a tool with retry logic using unified retry helper
     async fn execute_with_retries(
         &self,
         tool: Arc<dyn Tool>,
         job: &mut Job,
     ) -> Result<JobResult, WorkerError> {
-        let backoff = self.create_backoff_strategy();
-        let mut last_error: Option<ToolError> = None;
-        let mut attempts = 0;
+        use crate::retry::{retry_async, ErrorClass, RetryConfig};
 
-        while attempts <= job.max_retries {
-            attempts += 1;
-            debug!(
-                "Attempting job {} (attempt {}/{})",
-                job.job_id,
-                attempts,
-                job.max_retries + 1
-            );
+        // Create retry config from worker config
+        let retry_config = RetryConfig {
+            max_retries: job.max_retries,
+            base_delay_ms: self.config.initial_retry_delay.as_millis() as u64,
+            max_delay_ms: self.config.max_retry_delay.as_millis() as u64,
+            backoff_multiplier: 2.0,
+            use_jitter: true,
+        };
 
-            // Execute single attempt
-            match self.execute_single_attempt(&tool, &job.params).await {
-                Ok(job_result) => {
+        // Use unified retry helper
+        let result = retry_async(
+            || async { self.execute_single_attempt(&tool, &job.params).await },
+            |error| {
+                // Classify error based on ToolError's is_retriable
+                if error.is_retriable() {
+                    ErrorClass::Retryable
+                } else {
+                    ErrorClass::Permanent
+                }
+            },
+            &retry_config,
+            &format!("job_{}", job.job_id),
+        )
+        .await;
+
+        // Update metrics based on result
+        match result {
+            Ok(job_result) => {
+                self.metrics
+                    .jobs_succeeded
+                    .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                Ok(job_result)
+            }
+            Err(tool_error) => {
+                self.metrics
+                    .jobs_failed
+                    .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                // Track retries that occurred - the retry helper manages the actual retries
+                if retry_config.max_retries > 0 {
                     self.metrics
-                        .jobs_succeeded
+                        .jobs_retried
                         .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                    return Ok(job_result);
                 }
-                Err(tool_error) => {
-                    // Check if we should retry based on the error type
-                    let should_retry = tool_error.is_retriable() && attempts <= job.max_retries;
-
-                    last_error = Some(tool_error);
-
-                    if should_retry {
-                        job.increment_retry();
-                        self.metrics
-                            .jobs_retried
-                            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-
-                        // Wait with exponential backoff
-                        self.wait_with_backoff(backoff.clone(), &job.job_id).await;
-                    }
-                }
+                Ok(JobResult::Failure { error: tool_error })
             }
         }
-
-        // All retries exhausted
-        self.metrics
-            .jobs_failed
-            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-        Ok(JobResult::Failure {
-            error: last_error.unwrap_or_else(|| ToolError::permanent_string("Unknown error")),
-        })
     }
 
     /// Execute a single attempt of a tool
@@ -1173,22 +1206,8 @@ impl<I: IdempotencyStore + 'static> ToolWorker<I> {
         }
     }
 
-    /// Create exponential backoff strategy
-    fn create_backoff_strategy(&self) -> ExponentialBackoff {
-        ExponentialBackoffBuilder::new()
-            .with_initial_interval(self.config.initial_retry_delay)
-            .with_max_interval(self.config.max_retry_delay)
-            .with_max_elapsed_time(Some(Duration::from_secs(300)))
-            .build()
-    }
-
-    /// Wait with exponential backoff
-    async fn wait_with_backoff(&self, mut backoff: ExponentialBackoff, job_id: &Uuid) {
-        if let Some(delay) = backoff.next_backoff() {
-            info!("Retrying job {} after {:?}", job_id, delay);
-            tokio::time::sleep(delay).await;
-        }
-    }
+    // Note: create_backoff_strategy and wait_with_backoff methods removed
+    // as they are now handled by the unified retry helper in retry.rs
 
     /// Cache a successful result
     async fn cache_result(&self, job: &Job, job_result: &JobResult) {
@@ -1353,14 +1372,12 @@ mod tests {
     use super::*;
     use crate::idempotency::InMemoryIdempotencyStore;
     use crate::jobs::Job;
-    use crate::provider::{ApplicationContext, RpcProvider};
+    use crate::provider::ApplicationContext;
     use uuid::Uuid;
 
     fn test_app_context() -> ApplicationContext {
-        ApplicationContext::new(
-            Arc::new(RpcProvider::new()),
-            riglr_config::Config::from_env(),
-        )
+        // Use default configuration for tests
+        ApplicationContext::default()
     }
 
     struct MockTool {
@@ -1396,6 +1413,13 @@ mod tests {
         fn description(&self) -> &str {
             ""
         }
+
+        fn schema(&self) -> serde_json::Value {
+            serde_json::json!({
+                "type": "object",
+                "additionalProperties": true
+            })
+        }
     }
 
     #[async_trait]
@@ -1414,6 +1438,13 @@ mod tests {
 
         fn description(&self) -> &str {
             ""
+        }
+
+        fn schema(&self) -> serde_json::Value {
+            serde_json::json!({
+                "type": "object",
+                "additionalProperties": true
+            })
         }
     }
 
@@ -2558,53 +2589,8 @@ mod tests {
         assert!(result.is_success());
     }
 
-    #[tokio::test]
-    async fn test_create_backoff_strategy() {
-        let config = ExecutionConfig {
-            initial_retry_delay: Duration::from_millis(50),
-            max_retry_delay: Duration::from_secs(5),
-            ..Default::default()
-        };
-
-        let worker = ToolWorker::<InMemoryIdempotencyStore>::new(config, test_app_context());
-        let backoff = worker.create_backoff_strategy();
-
-        // Test that backoff produces delays
-        let mut test_backoff = backoff.clone();
-        let first_delay = test_backoff.next_backoff();
-        assert!(first_delay.is_some());
-        // Backoff strategies may include jitter, so allow some variance
-        assert!(first_delay.unwrap() >= Duration::from_millis(1));
-    }
-
-    #[tokio::test]
-    async fn test_wait_with_backoff_no_delay() {
-        let worker = ToolWorker::<InMemoryIdempotencyStore>::new(
-            ExecutionConfig::default(),
-            test_app_context(),
-        );
-
-        // Create a minimal backoff that will return None quickly
-        let mut backoff = ExponentialBackoffBuilder::new()
-            .with_initial_interval(Duration::from_millis(1))
-            .with_max_interval(Duration::from_millis(1))
-            .with_max_elapsed_time(Some(Duration::from_millis(1)))
-            .build();
-
-        // Call next_backoff a few times to exhaust it quickly
-        for _ in 0..10 {
-            if backoff.next_backoff().is_none() {
-                break;
-            }
-            // Small delay to pass the max elapsed time
-            tokio::time::sleep(Duration::from_millis(1)).await;
-        }
-
-        let job_id = Uuid::new_v4();
-
-        // This should handle the exhausted backoff gracefully
-        worker.wait_with_backoff(backoff, &job_id).await;
-    }
+    // Tests for create_backoff_strategy and wait_with_backoff removed
+    // These methods are now handled by the unified retry helper in retry.rs
 
     #[tokio::test]
     async fn test_acquire_semaphore_web_prefix() {
@@ -2840,6 +2826,13 @@ mod tests {
 
         fn description(&self) -> &str {
             ""
+        }
+
+        fn schema(&self) -> serde_json::Value {
+            serde_json::json!({
+                "type": "object",
+                "additionalProperties": true
+            })
         }
     }
 

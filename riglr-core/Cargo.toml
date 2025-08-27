@@ -44,20 +44,22 @@ backoff = "0.4"
 # Concurrent hashmap for better performance
 dashmap = "6.1"
 
+# Directory utilities for secure key loading
+dirs = "5.0"
+
+# Temporary files for testing
+tempfile = { version = "3.8", optional = true }
+
 # Signer infrastructure dependencies - needed for TransactionSigner trait
 solana-sdk = { workspace = true }
 solana-client = { workspace = true }
 solana-transaction-status = { workspace = true }
 solana-commitment-config = { workspace = true }
 solana-compute-budget-interface = { workspace = true }
+solana-system-interface = { workspace = true }
 alloy = { workspace = true }
 bincode = "1.3"
 reqwest = { workspace = true }
-
-# Config loading dependencies
-dotenvy = { workspace = true }
-envy = "0.4"
-toml = "0.8"
 
 # For testing
 [dev-dependencies]
@@ -70,6 +72,7 @@ mockito = "1.0"
 proptest = "1.0"
 futures = "0.3"
 chrono = "0.4"
+tempfile = "3.8"
 # riglr-solana-tools = { path = "../riglr-solana-tools" } # Temporarily disabled for debugging
 
 

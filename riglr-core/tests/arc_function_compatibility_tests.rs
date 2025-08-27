@@ -23,7 +23,7 @@ enum TestErrorType {
 
 /// Simplified classify function that takes &ClientError (like the real one)
 fn classify_client_error(error: &ClientError) -> TestErrorType {
-    match &error.kind {
+    match &*error.kind {
         ClientErrorKind::Io(_) => TestErrorType::Retryable,
         ClientErrorKind::SerdeJson(_) => TestErrorType::Permanent,
         ClientErrorKind::RpcError(rpc_error) => match rpc_error {
@@ -198,7 +198,7 @@ fn test_complex_error_information_preservation() {
         assert_eq!(dereferenced.request, Some(RpcRequest::GetAccountInfo));
 
         // Verify error kind is preserved
-        match &dereferenced.kind {
+        match &*dereferenced.kind {
             ClientErrorKind::RpcError(RpcError::RpcResponseError { code, message, .. }) => {
                 assert_eq!(*code, -32602);
                 assert!(message.contains("Invalid params"));
@@ -267,7 +267,7 @@ fn test_pattern_matching_with_arc() {
 
         if let SignerError::SolanaTransaction(arc_error) = signer_error {
             // Test pattern matching on dereferenced Arc
-            let classification = match &arc_error.kind {
+            let classification = match &*arc_error.kind {
                 ClientErrorKind::Io(_) => "IO Error",
                 ClientErrorKind::Custom(_) => "Custom Error",
                 ClientErrorKind::RpcError(_) => "RPC Error",
@@ -299,7 +299,7 @@ fn test_error_chain_traversal_through_arc() {
         // Test traversing the error chain through Arc
         let dereferenced: &ClientError = &*arc_error;
 
-        match &dereferenced.kind {
+        match &*dereferenced.kind {
             ClientErrorKind::Io(inner_io_error) => {
                 // We can access the inner IO error through Arc dereferencing
                 assert_eq!(inner_io_error.kind(), std::io::ErrorKind::PermissionDenied);
@@ -335,7 +335,7 @@ fn test_error_source_chain_through_arc() {
         assert!(!debug_string.is_empty());
 
         // Test accessing the inner error
-        if let ClientErrorKind::Io(inner_error) = &error_ref.kind {
+        if let ClientErrorKind::Io(inner_error) = &*error_ref.kind {
             assert_eq!(inner_error.kind(), std::io::ErrorKind::BrokenPipe);
         }
     }

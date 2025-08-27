@@ -163,8 +163,10 @@ impl ProvidersConfig {
         }
 
         if let Some(ref token) = self.twitter_bearer_token {
-            if !token.starts_with("Bearer ") && !token.is_empty() {
-                tracing::warn!("Twitter bearer token should start with 'Bearer '");
+            if !token.is_empty() && !token.starts_with("Bearer ") {
+                return Err(ConfigError::validation(
+                    "TWITTER_BEARER_TOKEN must start with 'Bearer ' if it is set",
+                ));
             }
         }
 
@@ -447,13 +449,18 @@ mod tests {
     }
 
     #[test]
-    fn test_validate_when_twitter_token_missing_bearer_prefix_should_return_ok_with_warning() {
+    fn test_validate_when_twitter_token_missing_bearer_prefix_should_return_err() {
         let config = ProvidersConfig {
             twitter_bearer_token: Some("valid_token_without_bearer".to_string()),
             ..Default::default()
         };
-        // This should still return Ok but log a warning
-        assert!(config.validate_config().is_ok());
+        // This should now return an error
+        let result = config.validate_config();
+        assert!(result.is_err());
+        if let Err(error) = result {
+            let error_message = format!("{}", error);
+            assert!(error_message.contains("TWITTER_BEARER_TOKEN must start with 'Bearer '"));
+        }
     }
 
     #[test]

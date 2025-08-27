@@ -1,9 +1,20 @@
-//! Utility functions for riglr-core
+//! Utility modules and functions for riglr-core
 
-use crate::CoreError;
-use alloy::primitives::Address;
+pub mod rate_limit_strategy;
+pub mod rate_limiter;
+pub mod secure_keys;
+pub mod token_bucket;
+
+// Re-export main types for convenience
+pub use rate_limit_strategy::{FixedWindowStrategy, RateLimitStrategy};
+pub use rate_limiter::{RateLimitStrategyType, RateLimiter, RateLimiterBuilder};
+pub use secure_keys::{
+    ensure_key_directory, get_default_key_directory, load_private_key_from_file,
+    load_private_key_with_fallback,
+};
+pub use token_bucket::TokenBucketStrategy;
+
 use std::env;
-use std::str::FromStr;
 
 // Constants for doctest environment variables
 #[doc(hidden)]
@@ -145,75 +156,6 @@ pub fn init_env_from_file(path: &str) -> std::io::Result<()> {
             .map_err(|e| std::io::Error::other(format!("Failed to load .env file: {}", e)))?;
     }
     Ok(())
-}
-
-/// Parse an EVM address from various formats
-///
-/// This function accepts addresses in the following formats:
-/// - Full hex with 0x prefix: "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb5"
-/// - Hex without prefix (40 chars): "742d35Cc6634C0532925a3b844Bc9e7595f0bEb5"
-/// - Will add 0x prefix if missing and string is 40 chars
-///
-/// # Arguments
-/// * `address` - The address string to parse
-///
-/// # Returns
-/// * `Ok(Address)` - Parsed and validated EVM address
-/// * `Err(CoreError)` - If the address format is invalid
-///
-/// # Examples
-/// ```ignore
-/// use riglr_core::util::parse_evm_address;
-///
-/// // With 0x prefix
-/// let addr = parse_evm_address("0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb5")?;
-///
-/// // Without prefix (will be added)
-/// let addr2 = parse_evm_address("742d35Cc6634C0532925a3b844Bc9e7595f0bEb5")?;
-///
-/// assert_eq!(addr, addr2);
-/// ```
-pub fn parse_evm_address(address: &str) -> Result<Address, CoreError> {
-    let clean_address = if address.starts_with("0x") {
-        address.to_string()
-    } else if address.len() == 40 {
-        format!("0x{}", address)
-    } else {
-        return Err(CoreError::InvalidInput(format!(
-            "Invalid address format: {}. Expected 40 hex chars with optional 0x prefix",
-            address
-        )));
-    };
-
-    Address::from_str(&clean_address).map_err(|e| {
-        CoreError::InvalidInput(format!("Failed to parse EVM address '{}': {}", address, e))
-    })
-}
-
-/// Format an EVM address to checksummed format
-///
-/// Converts an address to the standard checksummed format with 0x prefix.
-///
-/// # Arguments
-/// * `address` - The address to format
-///
-/// # Returns
-/// * Formatted address string with 0x prefix and proper checksumming
-pub fn format_evm_address(address: &Address) -> String {
-    format!("{:#x}", address)
-}
-
-/// Validate an EVM address string
-///
-/// Checks if the provided string is a valid EVM address.
-///
-/// # Arguments
-/// * `address` - The address string to validate
-///
-/// # Returns
-/// * `true` if the address is valid, `false` otherwise
-pub fn is_valid_evm_address(address: &str) -> bool {
-    parse_evm_address(address).is_ok()
 }
 
 #[cfg(test)]
@@ -458,41 +400,5 @@ mod tests {
         );
 
         env::remove_var(TEST_SPECIAL_CHARS);
-    }
-
-    #[test]
-    fn test_parse_evm_address_with_prefix() {
-        let addr = parse_evm_address("0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb5").unwrap();
-        assert_eq!(
-            format_evm_address(&addr),
-            "0x742d35cc6634c0532925a3b844bc9e7595f0beb5"
-        );
-    }
-
-    #[test]
-    fn test_parse_evm_address_without_prefix() {
-        let addr = parse_evm_address("742d35Cc6634C0532925a3b844Bc9e7595f0bEb5").unwrap();
-        assert_eq!(
-            format_evm_address(&addr),
-            "0x742d35cc6634c0532925a3b844bc9e7595f0beb5"
-        );
-    }
-
-    #[test]
-    fn test_parse_evm_address_invalid() {
-        assert!(parse_evm_address("invalid").is_err());
-        assert!(parse_evm_address("0xinvalid").is_err());
-        assert!(parse_evm_address("").is_err());
-    }
-
-    #[test]
-    fn test_is_valid_evm_address() {
-        assert!(is_valid_evm_address(
-            "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb5"
-        ));
-        assert!(is_valid_evm_address(
-            "742d35Cc6634C0532925a3b844Bc9e7595f0bEb5"
-        ));
-        assert!(!is_valid_evm_address("invalid"));
     }
 }

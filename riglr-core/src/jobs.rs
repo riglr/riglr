@@ -568,6 +568,35 @@ pub enum JobResult {
     },
 }
 
+/// Manual Clone implementation for JobResult
+///
+/// # Why Manual Implementation Is Necessary
+///
+/// A manual Clone implementation is required because `ToolError` contains a
+/// `source: Option<Arc<dyn Error + Send + Sync>>` field. The `dyn Error` trait object
+/// doesn't automatically implement Clone, which prevents the compiler from deriving
+/// Clone automatically for types containing it.
+///
+/// # Performance Characteristics
+///
+/// This implementation is extremely efficient:
+/// - For `Success` variants: Clones the JSON value and optional string (standard clones)
+/// - For `Failure` variants: Uses `Arc::clone` on the error's source field
+///   
+/// The use of `Arc::clone` is critical - it's a cheap, pointer-copying operation that
+/// increments the reference count, NOT a deep clone of the error itself. This means
+/// cloning a JobResult with an error is as fast as cloning a pointer, regardless of
+/// the error's complexity.
+///
+/// # Maintenance Warning
+///
+/// If you modify the `ToolError` enum (adding new variants or fields), you MUST ensure
+/// the Clone implementation remains correct. There is an exhaustive "canary" test in
+/// `riglr-core/tests/arc_error_cloning_test.rs` that will fail to compile if the
+/// ToolError enum is modified without corresponding updates to its Clone logic.
+///
+/// Always run `cargo test --package riglr-core arc_error_cloning_test` after modifying
+/// ToolError to ensure your changes are properly handled.
 impl Clone for JobResult {
     fn clone(&self) -> Self {
         match self {
@@ -576,58 +605,8 @@ impl Clone for JobResult {
                 tx_hash: tx_hash.clone(),
             },
             Self::Failure { error } => {
-                // Clone the ToolError by reconstructing it without the source
-                let cloned_error = match error {
-                    crate::error::ToolError::Retriable {
-                        source_message,
-                        context,
-                        ..
-                    } => {
-                        crate::error::ToolError::Retriable {
-                            source: None, // Drop the source for cloning
-                            source_message: source_message.clone(),
-                            context: context.clone(),
-                        }
-                    }
-                    crate::error::ToolError::RateLimited {
-                        source_message,
-                        context,
-                        retry_after,
-                        ..
-                    } => {
-                        crate::error::ToolError::RateLimited {
-                            source: None, // Drop the source for cloning
-                            source_message: source_message.clone(),
-                            context: context.clone(),
-                            retry_after: *retry_after,
-                        }
-                    }
-                    crate::error::ToolError::Permanent {
-                        source_message,
-                        context,
-                        ..
-                    } => {
-                        crate::error::ToolError::Permanent {
-                            source: None, // Drop the source for cloning
-                            source_message: source_message.clone(),
-                            context: context.clone(),
-                        }
-                    }
-                    crate::error::ToolError::InvalidInput {
-                        source_message,
-                        context,
-                        ..
-                    } => {
-                        crate::error::ToolError::InvalidInput {
-                            source: None, // Drop the source for cloning
-                            source_message: source_message.clone(),
-                            context: context.clone(),
-                        }
-                    }
-                    crate::error::ToolError::SignerContext(msg) => {
-                        crate::error::ToolError::SignerContext(msg.clone())
-                    }
-                };
+                // Clone the ToolError - now cheap with Arc
+                let cloned_error = error.clone();
                 Self::Failure {
                     error: cloned_error,
                 }
@@ -838,6 +817,78 @@ impl JobResult {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Compile-time test to ensure JobResult remains cloneable.
+    /// This test will fail to compile if JobResult or any of its fields
+    /// don't implement Clone, preventing the maintenance risk of manual
+    /// Clone implementations getting out of sync.
+    #[test]
+    fn test_job_result_clone_trait_bound() {
+        fn assert_clone<T: Clone>() {}
+
+        // Assert that JobResult implements Clone
+        assert_clone::<JobResult>();
+
+        // Assert that all field types implement Clone
+        assert_clone::<serde_json::Value>();
+        assert_clone::<Option<String>>();
+        assert_clone::<crate::error::ToolError>();
+
+        // Test actual cloning to ensure it works at runtime
+        let success = JobResult::Success {
+            value: serde_json::json!({"test": "data"}),
+            tx_hash: Some("0x123".to_string()),
+        };
+        let _cloned_success = success.clone();
+
+        let failure = JobResult::Failure {
+            error: crate::error::ToolError::retriable_string("test error"),
+        };
+        let _cloned_failure = failure.clone();
+    }
+
+    /// Test that cloning JobResult preserves error sources with Arc.
+    /// This ensures that error chains are preserved efficiently.
+    #[test]
+    fn test_job_result_clone_preserves_error_source() {
+        use std::error::Error;
+
+        // Create a source error
+        #[derive(Debug)]
+        struct SourceError(String);
+        impl std::fmt::Display for SourceError {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                write!(f, "{}", self.0)
+            }
+        }
+        impl Error for SourceError {}
+
+        // Create a JobResult with an error containing a source
+        let error_with_source = crate::error::ToolError::retriable_with_source(
+            SourceError("original error".to_string()),
+            "operation failed",
+        );
+
+        let result = JobResult::Failure {
+            error: error_with_source,
+        };
+
+        // Clone the result
+        let cloned = result.clone();
+
+        // Verify the clone has the same error source
+        match (&result, &cloned) {
+            (JobResult::Failure { error: original }, JobResult::Failure { error: cloned_err }) => {
+                assert!(original.source().is_some());
+                assert!(cloned_err.source().is_some());
+                assert_eq!(
+                    original.source().unwrap().to_string(),
+                    cloned_err.source().unwrap().to_string()
+                );
+            }
+            _ => panic!("Expected both to be Failure variants"),
+        }
+    }
 
     #[test]
     fn test_job_creation() {
