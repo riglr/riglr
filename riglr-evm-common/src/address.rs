@@ -3,7 +3,7 @@
 //! This module provides common address validation, parsing, and formatting
 //! functions to ensure consistent address handling across the workspace.
 
-use crate::common::error::{EvmCommonError, EvmResult};
+use crate::error::{EvmCommonError, EvmResult};
 use alloy::primitives::Address;
 use std::str::FromStr;
 

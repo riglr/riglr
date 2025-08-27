@@ -4,7 +4,7 @@
 //! and chain validation functions that eliminate duplication between
 //! riglr-evm-tools and riglr-cross-chain-tools.
 
-use crate::common::error::{EvmCommonError, EvmResult};
+use crate::error::{EvmCommonError, EvmResult};
 
 /// Chain information structure
 #[derive(Debug, Clone)]
@@ -372,7 +372,7 @@ pub fn get_transaction_url(chain_id: u64, tx_hash: &str) -> EvmResult<String> {
 /// ```
 pub fn get_address_url(chain_id: u64, address: &str) -> EvmResult<String> {
     let base_url = get_block_explorer_url(chain_id)?;
-    let addr = crate::common::address::ensure_0x_prefix(address);
+    let addr = crate::address::ensure_0x_prefix(address);
     Ok(format!("{}/address/{}", base_url, addr))
 }
 

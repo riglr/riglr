@@ -1,0 +1,44 @@
+[package]
+name = "riglr-evm-common"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Common EVM utilities shared across Riglr crates"
+keywords = ["evm", "ethereum", "blockchain", "utilities", "common"]
+categories = ["cryptography::cryptocurrencies"]
+
+[dependencies]
+# Configuration for address validation trait
+riglr-config = { path = "../riglr-config" }
+
+# Ethereum/EVM
+alloy = { workspace = true }
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+schemars = { workspace = true }
+
+# Error handling
+thiserror = { workspace = true }
+
+# Logging
+tracing = { workspace = true }
+
+# Optional high-precision math support
+rust_decimal = { version = "1.36", features = ["serde-with-str"], optional = true }
+
+[features]
+# Enable high-precision decimal math instead of f64 for financial calculations
+high-precision = ["dep:rust_decimal"]
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["full", "test-util"] }
+rust_decimal = "1.36"
+criterion = "0.5"
+
+[lints]
+workspace = true

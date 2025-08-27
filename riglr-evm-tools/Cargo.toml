@@ -13,6 +13,7 @@ categories = ["cryptography::cryptocurrencies", "api-bindings"]
 # Core dependencies
 riglr-config = { path = "../riglr-config" }
 riglr-core = { path = "../riglr-core" }
+riglr-evm-common = { path = "../riglr-evm-common" }
 riglr-macros = { path = "../riglr-macros" }
 
 # Async runtime
