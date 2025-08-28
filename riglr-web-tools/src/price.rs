@@ -287,6 +287,19 @@ pub async fn get_token_prices_batch(
 mod tests {
     use super::*;
 
+    fn create_test_context() -> riglr_core::provider::ApplicationContext {
+        // Create a minimal config with bridging disabled to avoid LIFI_API_KEY requirement
+        let mut features = riglr_core::FeaturesConfig::default();
+        features.enable_bridging = false; // Disable bridging to avoid requiring LIFI_API_KEY
+
+        let config = riglr_config::ConfigBuilder::new()
+            .features(features)
+            .build()
+            .expect("Test config should be valid");
+
+        riglr_core::provider::ApplicationContext::from_config(&config)
+    }
+
     #[test]
     fn test_token_price_result_creation() {
         let result = TokenPriceResult {
@@ -307,7 +320,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_empty_token_address_validation() {
-        let context = riglr_core::provider::ApplicationContext::from_env();
+        let context = create_test_context();
         let result = get_token_price(&context, "".to_string(), None).await;
         assert!(result.is_err());
         assert!(matches!(result, Err(ToolError::InvalidInput { .. })));
@@ -315,7 +328,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_batch_empty_addresses() {
-        let context = riglr_core::provider::ApplicationContext::from_env();
+        let context = create_test_context();
         let result = get_token_prices_batch(&context, vec![], None).await;
         assert!(result.is_err());
         assert!(matches!(result, Err(ToolError::InvalidInput { .. })));
@@ -324,7 +337,7 @@ mod tests {
     #[tokio::test]
     async fn test_get_token_price_with_chain() {
         // This will test the query building with chain
-        let context = riglr_core::provider::ApplicationContext::from_env();
+        let context = create_test_context();
         let result =
             get_token_price(&context, "0x123".to_string(), Some("ethereum".to_string())).await;
         // This will likely fail due to no mock, but tests the path with chain
@@ -334,7 +347,7 @@ mod tests {
     #[tokio::test]
     async fn test_get_token_price_without_chain() {
         // This will test the query building without chain
-        let context = riglr_core::provider::ApplicationContext::from_env();
+        let context = create_test_context();
         let result = get_token_price(&context, "0x123".to_string(), None).await;
         // This will likely fail due to no mock, but tests the path without chain
         assert!(result.is_err());
@@ -342,7 +355,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_batch_with_single_address() {
-        let context = riglr_core::provider::ApplicationContext::from_env();
+        let context = create_test_context();
         let addresses = vec!["0x123".to_string()];
         let result = get_token_prices_batch(&context, addresses, None).await;
         // Will test the batch functionality with one address
@@ -352,7 +365,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_batch_with_multiple_addresses() {
-        let context = riglr_core::provider::ApplicationContext::from_env();
+        let context = create_test_context();
         let addresses = vec![
             "0x123".to_string(),
             "0x456".to_string(),

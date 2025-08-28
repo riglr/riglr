@@ -635,7 +635,8 @@ mod tests {
         );
 
         // Test with invalid address to trigger error path
-        let context = riglr_core::provider::ApplicationContext::from_env();
+        let config = riglr_config::Config::from_env();
+        let context = riglr_core::provider::ApplicationContext::from_config(&config);
         let result = display_native_balance("invalid_address", &chain_info, &pb, &context).await;
 
         // Should not panic and should return Ok (error handling is internal)
@@ -656,7 +657,8 @@ mod tests {
         );
 
         // Test with invalid address to trigger error path
-        let context = riglr_core::provider::ApplicationContext::from_env();
+        let config = riglr_config::Config::from_env();
+        let context = riglr_core::provider::ApplicationContext::from_config(&config);
         let result = display_token_balances("invalid_address", 1, &pb, &context).await;
 
         // Should not panic and should return Ok (error handling is internal)
@@ -677,7 +679,8 @@ mod tests {
         );
 
         // This will likely trigger the error path due to network/API issues
-        let context = riglr_core::provider::ApplicationContext::from_env();
+        let config = riglr_config::Config::from_env();
+        let context = riglr_core::provider::ApplicationContext::from_config(&config);
         let result = display_uniswap_quote(&pb, &context).await;
 
         // Should not panic and should return Ok (error handling is internal)

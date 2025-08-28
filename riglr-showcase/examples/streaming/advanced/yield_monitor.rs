@@ -742,7 +742,7 @@ async fn main() -> Result<()> {
         let _ = Config::from_env();
     } else {
         info!("ℹ️ No REDIS_URL in env; using default Config for example");
-        let _ = ConfigBuilder::new().build();
+        let _ = ConfigBuilder::default().build();
     }
 
     // Create yield monitor with custom configuration

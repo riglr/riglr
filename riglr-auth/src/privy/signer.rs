@@ -485,10 +485,10 @@ mod tests {
     #[cfg(any(feature = "solana", feature = "evm"))]
     use serde_json::json;
     #[cfg(feature = "solana")]
-    #[allow(deprecated)]
-    use solana_sdk::system_instruction;
-    #[cfg(feature = "solana")]
     use solana_sdk::{message::Message, pubkey::Pubkey, signature::Signature};
+    #[cfg(feature = "solana")]
+    #[allow(deprecated)]
+    use solana_system_interface::instruction as system_instruction;
 
     #[cfg(feature = "solana")]
     mod solana_signer_tests {

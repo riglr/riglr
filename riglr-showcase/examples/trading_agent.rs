@@ -49,7 +49,7 @@ async fn main() -> Result<()> {
 
     // Create signer with devnet RPC
     let signer = Arc::new(LocalSolanaSigner::new(
-        keypair,
+        keypair.insecure_clone(),
         "https://api.devnet.solana.com".to_string(),
     ));
 

@@ -61,7 +61,7 @@
 //! flush_interval = "5s"
 //!
 //! [storage.postgres]
-//! url = "postgresql://user:pass@localhost/riglr_indexer"
+//! url = "postgresql://localhost/riglr_indexer"  # Set via DATABASE_URL env var
 //! max_connections = 20
 //!
 //! [metrics]

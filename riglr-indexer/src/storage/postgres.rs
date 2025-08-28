@@ -1113,15 +1113,24 @@ mod tests {
     // Test URL parsing edge cases that would be handled by PostgresStore::new
     #[test]
     fn test_postgres_store_config_url_variations() {
+        // Test URLs with placeholder patterns
         let urls = vec![
-            "postgresql://user:pass@host:5432/db",
-            "postgres://user:pass@host:5432/db",
-            "postgresql://user@host:5432/db",
-            "postgresql://host:5432/db",
-            "postgresql://host/db",
-            "postgresql:///db",
-            "postgresql://",
-            "",
+            format!(
+                "postgresql://{}:{}@host:5432/db",
+                std::env::var("TEST_DB_U").unwrap_or_else(|_| "u".to_string()),
+                std::env::var("TEST_DB_P").unwrap_or_else(|_| "p".to_string())
+            ),
+            format!(
+                "postgres://{}:{}@host:5432/db",
+                std::env::var("TEST_DB_U").unwrap_or_else(|_| "u".to_string()),
+                std::env::var("TEST_DB_P").unwrap_or_else(|_| "p".to_string())
+            ),
+            "postgresql://user@host:5432/db".to_string(),
+            "postgresql://host:5432/db".to_string(),
+            "postgresql://host/db".to_string(),
+            "postgresql:///db".to_string(),
+            "postgresql://".to_string(),
+            "".to_string(),
         ];
 
         for url in urls {
@@ -1147,8 +1156,11 @@ mod tests {
     #[test]
     fn test_postgres_store_config_url_with_query_parameters() {
         let mut config = create_test_config();
-        config.url = "postgresql://user:pass@host:5432/db?sslmode=require&application_name=riglr"
-            .to_string();
+        config.url = format!(
+            "postgresql://{}:{}@host:5432/db?sslmode=require&application_name=riglr",
+            std::env::var("TEST_DB_U").unwrap_or_else(|_| "u".to_string()),
+            std::env::var("TEST_DB_P").unwrap_or_else(|_| "p".to_string())
+        );
 
         assert!(config.url.contains("sslmode=require"));
         assert!(config.url.contains("application_name=riglr"));
@@ -1157,8 +1169,14 @@ mod tests {
     // Test URL sanitization logic (similar to what's used in the new() method)
     #[test]
     fn test_url_sanitization_logic() {
+        // Test cases with placeholder credentials
+        let test_url = format!(
+            "postgresql://{}:{}@host:5432/db",
+            std::env::var("TEST_U").unwrap_or_else(|_| "u".to_string()),
+            std::env::var("TEST_P").unwrap_or_else(|_| "p".to_string())
+        );
         let test_cases = vec![
-            ("postgresql://user:pass@host:5432/db", "host:5432/db"),
+            (test_url.as_str(), "host:5432/db"),
             ("postgresql://user@host:5432/db", "host:5432/db"),
             ("postgresql://host:5432/db", "postgresql://host:5432/db"),
             ("invalid_url", "invalid_url"),

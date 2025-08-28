@@ -10,7 +10,7 @@
 //!
 //! The example uses riglr's SignerContext pattern for secure multi-tenant operation.
 
-use riglr_config::SolanaNetworkConfig;
+use riglr_config::{Config, SolanaNetworkConfig};
 use riglr_core::signer::LocalSolanaSigner;
 use riglr_core::{provider::ApplicationContext, SignerContext};
 use riglr_cross_chain_tools::{
@@ -57,7 +57,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 async fn demonstrate_cross_chain_operations() -> Result<(), riglr_core::signer::SignerError> {
     // Create application context
-    let context = ApplicationContext::from_env();
+    let config = Config::from_env();
+    let context = ApplicationContext::from_config(&config);
 
     // Step 1: Get supported chains
     info!("\n=== Step 1: Discovering supported chains ===");
@@ -315,7 +316,8 @@ mod tests {
 
         let result = SignerContext::with_signer(signer, async {
             // Test that tools can be called within signer context
-            let context = ApplicationContext::from_env();
+            let config = Config::from_env();
+            let context = ApplicationContext::from_config(&config);
             let routes = get_cross_chain_routes(
                 &context,
                 "ethereum".to_string(),

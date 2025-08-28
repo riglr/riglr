@@ -93,8 +93,8 @@ impl Agent for SimpleRiskAgent {
         &self.id
     }
 
-    fn capabilities(&self) -> Vec<String> {
-        vec!["risk_analysis".to_string()]
+    fn capabilities(&self) -> Vec<riglr_agents::CapabilityType> {
+        vec![riglr_agents::CapabilityType::RiskAnalysis]
     }
 }
 
@@ -170,8 +170,11 @@ impl Agent for CoordinatorAgent {
         &self.id
     }
 
-    fn capabilities(&self) -> Vec<String> {
-        vec!["portfolio".to_string(), "coordination".to_string()]
+    fn capabilities(&self) -> Vec<riglr_agents::CapabilityType> {
+        vec![
+            riglr_agents::CapabilityType::Portfolio,
+            riglr_agents::CapabilityType::Custom("coordination".to_string()),
+        ]
     }
 }
 
@@ -234,8 +237,11 @@ impl Agent for WorkerAgent {
         &self.id
     }
 
-    fn capabilities(&self) -> Vec<String> {
-        vec!["research".to_string(), "monitoring".to_string()]
+    fn capabilities(&self) -> Vec<riglr_agents::CapabilityType> {
+        vec![
+            riglr_agents::CapabilityType::Research,
+            riglr_agents::CapabilityType::Monitoring,
+        ]
     }
 
     async fn handle_message(&self, message: AgentMessage) -> riglr_agents::Result<()> {
@@ -361,6 +367,7 @@ async fn run_risk_management_demo(_config: Arc<Config>) -> Result<()> {
             retry_delay: Duration::from_secs(1),
             max_concurrent_tasks_per_agent: 3,
             enable_load_balancing: false,
+            response_wait_timeout: Duration::from_secs(300),
         },
     );
 
@@ -445,6 +452,7 @@ async fn run_basic_coordination_demo(_config: Arc<Config>) -> Result<()> {
             retry_delay: Duration::from_secs(1),
             max_concurrent_tasks_per_agent: 2,
             enable_load_balancing: true,
+            response_wait_timeout: Duration::from_secs(300),
         },
     );
 
@@ -674,7 +682,7 @@ mod tests {
 
         let capabilities = agent.capabilities();
         assert_eq!(capabilities.len(), 1);
-        assert_eq!(capabilities[0], "risk_analysis");
+        assert_eq!(capabilities[0], riglr_agents::CapabilityType::RiskAnalysis);
     }
 
     #[tokio::test]
@@ -717,8 +725,10 @@ mod tests {
 
         let capabilities = agent.capabilities();
         assert_eq!(capabilities.len(), 2);
-        assert!(capabilities.contains(&"portfolio".to_string()));
-        assert!(capabilities.contains(&"coordination".to_string()));
+        assert!(capabilities.contains(&riglr_agents::CapabilityType::Portfolio));
+        assert!(capabilities.contains(&riglr_agents::CapabilityType::Custom(
+            "coordination".to_string()
+        )));
     }
 
     #[tokio::test]
@@ -785,8 +795,8 @@ mod tests {
 
         let capabilities = agent.capabilities();
         assert_eq!(capabilities.len(), 2);
-        assert!(capabilities.contains(&"research".to_string()));
-        assert!(capabilities.contains(&"monitoring".to_string()));
+        assert!(capabilities.contains(&riglr_agents::CapabilityType::Research));
+        assert!(capabilities.contains(&riglr_agents::CapabilityType::Monitoring));
     }
 
     #[tokio::test]

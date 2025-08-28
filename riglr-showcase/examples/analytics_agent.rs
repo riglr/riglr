@@ -39,18 +39,15 @@ async fn main() -> Result<()> {
 
     // Setup Solana signer for data gathering
     let solana_keypair = Keypair::new();
-    let network_config = SolanaNetworkConfig {
-        name: "mainnet".to_string(),
-        rpc_url: "https://api.mainnet-beta.solana.com".to_string(),
-        ws_url: None,
-        explorer_url: Some("https://explorer.solana.com".to_string()),
-    };
+    let wallet_pubkey = solana_keypair.pubkey();
+    let network_config =
+        SolanaNetworkConfig::new("mainnet", "https://api.mainnet-beta.solana.com".to_string());
     let solana_signer = Arc::new(LocalSolanaSigner::from_keypair(
-        solana_keypair.insecure_clone(),
+        solana_keypair,
         network_config,
     )) as Arc<dyn UnifiedSigner>;
 
-    println!("Using wallet: {}", solana_keypair.pubkey());
+    println!("Using wallet: {}", wallet_pubkey);
 
     // Create ApplicationContext for tool invocations
     let config = Config::from_env();

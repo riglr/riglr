@@ -358,7 +358,9 @@ impl GraphVectorStore {
 #[cfg(feature = "rig")]
 #[async_trait]
 pub trait VectorStore: Send + Sync {
+    /// The document type that this vector store manages
     type Document;
+    /// The error type that vector store operations can return
     type Error: std::error::Error + Send + Sync + 'static;
 
     /// Add documents to the vector store

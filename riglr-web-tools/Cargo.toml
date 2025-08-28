@@ -19,6 +19,7 @@ workspace = true
 # Core riglr and rig dependencies
 rig-core = { workspace = true }
 riglr-core = { workspace = true }
+riglr-config = { workspace = true }
 riglr-macros = { workspace = true }
 
 # Async and Error Handling
