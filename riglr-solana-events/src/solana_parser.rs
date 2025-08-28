@@ -19,7 +19,7 @@ use riglr_events_core::prelude::*;
 #[derive(Debug, Clone)]
 pub struct SolanaTransactionInput {
     /// Solana instruction data
-    pub instruction: solana_sdk::instruction::CompiledInstruction,
+    pub instruction: solana_message::compiled_instruction::CompiledInstruction,
     /// Account keys from the transaction
     pub accounts: Vec<Pubkey>,
     /// Transaction signature
@@ -247,7 +247,7 @@ impl SolanaEventParser {
     fn extract_program_id(
         &self,
         accounts: &[Pubkey],
-        instruction: &solana_sdk::instruction::CompiledInstruction,
+        instruction: &solana_message::compiled_instruction::CompiledInstruction,
     ) -> EventResult<Pubkey> {
         accounts
             .get(instruction.program_id_index as usize)
@@ -343,7 +343,7 @@ impl EventParser for SolanaInnerInstructionParser {
 impl SolanaTransactionInput {
     /// Create a new Solana transaction input
     pub fn new(
-        instruction: solana_sdk::instruction::CompiledInstruction,
+        instruction: solana_message::compiled_instruction::CompiledInstruction,
         accounts: Vec<Pubkey>,
         signature: String,
         slot: u64,
@@ -397,7 +397,7 @@ impl SolanaInnerInstructionInput {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use solana_sdk::instruction::CompiledInstruction;
+    use solana_message::compiled_instruction::CompiledInstruction;
 
     #[tokio::test]
     async fn test_solana_parser_creation() {

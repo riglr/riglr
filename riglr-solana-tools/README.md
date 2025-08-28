@@ -269,7 +269,9 @@ pub async fn get_transaction_status(
 
 ## Error Handling
 
-All tools use structured error handling with retry classification:
+All tools use structured error handling with retry classification and preserve the original error context for downcasting:
+
+### Basic Error Handling
 
 ```rust
 use riglr_core::{ToolError, provider::ApplicationContext};
@@ -289,6 +291,47 @@ async fn handle_balance_check(context: &ApplicationContext, address: String) {
     }
 }
 ```
+
+### Structured Error Context Preservation
+
+riglr-solana-tools preserves the original `SolanaToolError` as the source when converting to `ToolError`, enabling downcasting for detailed error handling:
+
+```rust
+use riglr_core::ToolError;
+use riglr_solana_tools::error::SolanaToolError;
+use riglr_solana_tools::balance::get_sol_balance;
+
+async fn handle_with_downcasting(context: &ApplicationContext, address: String) {
+    match get_sol_balance(address, context).await {
+        Ok(balance) => println!("Balance: {} SOL", balance.sol),
+        Err(tool_error) => {
+            // Access the structured error context via downcasting
+            if let Some(source) = tool_error.source() {
+                if let Some(solana_error) = source.downcast_ref::<SolanaToolError>() {
+                    match solana_error {
+                        SolanaToolError::InvalidAddress(addr) => {
+                            eprintln!("Invalid Solana address format: {}", addr);
+                        },
+                        SolanaToolError::InsufficientBalance { required, available } => {
+                            eprintln!("Need {} SOL but only have {} SOL", required, available);
+                        },
+                        SolanaToolError::TransactionFailed(msg) => {
+                            eprintln!("Transaction failed: {}", msg);
+                        },
+                        _ => eprintln!("Solana error: {}", solana_error),
+                    }
+                }
+            }
+        },
+    }
+}
+```
+
+This pattern enables:
+- **Retry Logic**: Use ToolError's classification for retry decisions
+- **Detailed Diagnostics**: Downcast to SolanaToolError for specific error details
+- **Backwards Compatibility**: Code using basic error handling continues to work
+- **Type Safety**: Compile-time guarantees for error handling
 
 ## Configuration
 

@@ -200,10 +200,14 @@ fn parse_orca_swap_inner_instruction(
 
     let params = EventParameters {
         id: metadata.id().to_string(),
-        signature: metadata.signature.clone(),
-        slot: metadata.slot,
-        block_time: 0,    // Default to 0 when not available
-        block_time_ms: 0, // Default to 0 when not available
+        signature: crate::metadata_helpers::get_signature(&metadata.core)
+            .unwrap_or("")
+            .to_string(),
+        slot: crate::metadata_helpers::get_slot(&metadata.core).unwrap_or(0),
+        block_time: crate::metadata_helpers::get_block_time(&metadata.core).unwrap_or(0),
+        block_time_ms: crate::metadata_helpers::get_block_time(&metadata.core)
+            .map(|t| t * 1000)
+            .unwrap_or(0),
         program_received_time_ms: metadata.program_received_time_ms,
         index: metadata.index.clone(),
     };
@@ -222,10 +226,14 @@ fn parse_orca_swap_instruction(
 
     let params = EventParameters {
         id: metadata.id().to_string(),
-        signature: metadata.signature.clone(),
-        slot: metadata.slot,
-        block_time: 0,    // Default to 0 when not available
-        block_time_ms: 0, // Default to 0 when not available
+        signature: crate::metadata_helpers::get_signature(&metadata.core)
+            .unwrap_or("")
+            .to_string(),
+        slot: crate::metadata_helpers::get_slot(&metadata.core).unwrap_or(0),
+        block_time: crate::metadata_helpers::get_block_time(&metadata.core).unwrap_or(0),
+        block_time_ms: crate::metadata_helpers::get_block_time(&metadata.core)
+            .map(|t| t * 1000)
+            .unwrap_or(0),
         program_received_time_ms: metadata.program_received_time_ms,
         index: metadata.index.clone(),
     };
@@ -245,10 +253,14 @@ fn parse_orca_open_position_inner_instruction(
 
     let params = EventParameters {
         id: metadata.id().to_string(),
-        signature: metadata.signature.clone(),
-        slot: metadata.slot,
-        block_time: 0,    // Default to 0 when not available
-        block_time_ms: 0, // Default to 0 when not available
+        signature: crate::metadata_helpers::get_signature(&metadata.core)
+            .unwrap_or("")
+            .to_string(),
+        slot: crate::metadata_helpers::get_slot(&metadata.core).unwrap_or(0),
+        block_time: crate::metadata_helpers::get_block_time(&metadata.core).unwrap_or(0),
+        block_time_ms: crate::metadata_helpers::get_block_time(&metadata.core)
+            .map(|t| t * 1000)
+            .unwrap_or(0),
         program_received_time_ms: metadata.program_received_time_ms,
         index: metadata.index.clone(),
     };
@@ -270,10 +282,14 @@ fn parse_orca_open_position_instruction(
 
     let params = EventParameters {
         id: metadata.id().to_string(),
-        signature: metadata.signature.clone(),
-        slot: metadata.slot,
-        block_time: 0,    // Default to 0 when not available
-        block_time_ms: 0, // Default to 0 when not available
+        signature: crate::metadata_helpers::get_signature(&metadata.core)
+            .unwrap_or("")
+            .to_string(),
+        slot: crate::metadata_helpers::get_slot(&metadata.core).unwrap_or(0),
+        block_time: crate::metadata_helpers::get_block_time(&metadata.core).unwrap_or(0),
+        block_time_ms: crate::metadata_helpers::get_block_time(&metadata.core)
+            .map(|t| t * 1000)
+            .unwrap_or(0),
         program_received_time_ms: metadata.program_received_time_ms,
         index: metadata.index.clone(),
     };
@@ -293,10 +309,14 @@ fn parse_orca_close_position_inner_instruction(
 
     let params = EventParameters {
         id: metadata.id().to_string(),
-        signature: metadata.signature.clone(),
-        slot: metadata.slot,
-        block_time: 0,    // Default to 0 when not available
-        block_time_ms: 0, // Default to 0 when not available
+        signature: crate::metadata_helpers::get_signature(&metadata.core)
+            .unwrap_or("")
+            .to_string(),
+        slot: crate::metadata_helpers::get_slot(&metadata.core).unwrap_or(0),
+        block_time: crate::metadata_helpers::get_block_time(&metadata.core).unwrap_or(0),
+        block_time_ms: crate::metadata_helpers::get_block_time(&metadata.core)
+            .map(|t| t * 1000)
+            .unwrap_or(0),
         program_received_time_ms: metadata.program_received_time_ms,
         index: metadata.index.clone(),
     };
@@ -318,10 +338,14 @@ fn parse_orca_close_position_instruction(
 
     let params = EventParameters {
         id: metadata.id().to_string(),
-        signature: metadata.signature.clone(),
-        slot: metadata.slot,
-        block_time: 0,    // Default to 0 when not available
-        block_time_ms: 0, // Default to 0 when not available
+        signature: crate::metadata_helpers::get_signature(&metadata.core)
+            .unwrap_or("")
+            .to_string(),
+        slot: crate::metadata_helpers::get_slot(&metadata.core).unwrap_or(0),
+        block_time: crate::metadata_helpers::get_block_time(&metadata.core).unwrap_or(0),
+        block_time_ms: crate::metadata_helpers::get_block_time(&metadata.core)
+            .map(|t| t * 1000)
+            .unwrap_or(0),
         program_received_time_ms: metadata.program_received_time_ms,
         index: metadata.index.clone(),
     };
@@ -341,10 +365,14 @@ fn parse_orca_increase_liquidity_inner_instruction(
 
     let params = EventParameters {
         id: metadata.id().to_string(),
-        signature: metadata.signature.clone(),
-        slot: metadata.slot,
-        block_time: 0,    // Default to 0 when not available
-        block_time_ms: 0, // Default to 0 when not available
+        signature: crate::metadata_helpers::get_signature(&metadata.core)
+            .unwrap_or("")
+            .to_string(),
+        slot: crate::metadata_helpers::get_slot(&metadata.core).unwrap_or(0),
+        block_time: crate::metadata_helpers::get_block_time(&metadata.core).unwrap_or(0),
+        block_time_ms: crate::metadata_helpers::get_block_time(&metadata.core)
+            .map(|t| t * 1000)
+            .unwrap_or(0),
         program_received_time_ms: metadata.program_received_time_ms,
         index: metadata.index.clone(),
     };
@@ -365,10 +393,14 @@ fn parse_orca_increase_liquidity_instruction(
 
     let params = EventParameters {
         id: metadata.id().to_string(),
-        signature: metadata.signature.clone(),
-        slot: metadata.slot,
-        block_time: 0,    // Default to 0 when not available
-        block_time_ms: 0, // Default to 0 when not available
+        signature: crate::metadata_helpers::get_signature(&metadata.core)
+            .unwrap_or("")
+            .to_string(),
+        slot: crate::metadata_helpers::get_slot(&metadata.core).unwrap_or(0),
+        block_time: crate::metadata_helpers::get_block_time(&metadata.core).unwrap_or(0),
+        block_time_ms: crate::metadata_helpers::get_block_time(&metadata.core)
+            .map(|t| t * 1000)
+            .unwrap_or(0),
         program_received_time_ms: metadata.program_received_time_ms,
         index: metadata.index.clone(),
     };
@@ -387,10 +419,14 @@ fn parse_orca_decrease_liquidity_inner_instruction(
 
     let params = EventParameters {
         id: metadata.id().to_string(),
-        signature: metadata.signature.clone(),
-        slot: metadata.slot,
-        block_time: 0,    // Default to 0 when not available
-        block_time_ms: 0, // Default to 0 when not available
+        signature: crate::metadata_helpers::get_signature(&metadata.core)
+            .unwrap_or("")
+            .to_string(),
+        slot: crate::metadata_helpers::get_slot(&metadata.core).unwrap_or(0),
+        block_time: crate::metadata_helpers::get_block_time(&metadata.core).unwrap_or(0),
+        block_time_ms: crate::metadata_helpers::get_block_time(&metadata.core)
+            .map(|t| t * 1000)
+            .unwrap_or(0),
         program_received_time_ms: metadata.program_received_time_ms,
         index: metadata.index.clone(),
     };
@@ -411,10 +447,14 @@ fn parse_orca_decrease_liquidity_instruction(
 
     let params = EventParameters {
         id: metadata.id().to_string(),
-        signature: metadata.signature.clone(),
-        slot: metadata.slot,
-        block_time: 0,    // Default to 0 when not available
-        block_time_ms: 0, // Default to 0 when not available
+        signature: crate::metadata_helpers::get_signature(&metadata.core)
+            .unwrap_or("")
+            .to_string(),
+        slot: crate::metadata_helpers::get_slot(&metadata.core).unwrap_or(0),
+        block_time: crate::metadata_helpers::get_block_time(&metadata.core).unwrap_or(0),
+        block_time_ms: crate::metadata_helpers::get_block_time(&metadata.core)
+            .map(|t| t * 1000)
+            .unwrap_or(0),
         program_received_time_ms: metadata.program_received_time_ms,
         index: metadata.index.clone(),
     };
@@ -586,23 +626,26 @@ mod tests {
     use super::*;
     use crate::types::{EventMetadata, EventType, ProtocolType};
     use riglr_events_core::{EventKind, EventMetadata as CoreMetadata};
+    use solana_message::compiled_instruction::CompiledInstruction;
     use solana_transaction_status::UiCompiledInstruction;
     use std::str::FromStr;
 
     fn create_test_metadata() -> EventMetadata {
-        EventMetadata {
-            signature: "test_sig".to_string(),
-            slot: 12345,
-            event_type: EventType::Swap,
-            protocol_type: ProtocolType::OrcaWhirlpool,
-            index: "0".to_string(),
-            program_received_time_ms: 1000,
-            core: CoreMetadata::new(
-                "test_id".to_string(),
-                EventKind::Swap,
-                "orca_whirlpool".to_string(),
-            ),
-        }
+        let core = CoreMetadata::new(
+            "test_id".to_string(),
+            EventKind::Swap,
+            "orca_whirlpool".to_string(),
+        );
+
+        EventMetadata::new(
+            "test_sig".to_string(),
+            12345,
+            EventType::Swap,
+            ProtocolType::OrcaWhirlpool,
+            "0".to_string(),
+            1000,
+            core,
+        )
     }
 
     fn create_test_accounts() -> Vec<Pubkey> {
@@ -764,7 +807,7 @@ mod tests {
         data[40] = 1;
         data[41] = 1;
 
-        let instruction = solana_sdk::instruction::CompiledInstruction {
+        let instruction = CompiledInstruction {
             program_id_index: 0,
             accounts: vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
             data,
@@ -789,7 +832,7 @@ mod tests {
         let parser = OrcaEventParser::default();
         let accounts = create_test_accounts();
 
-        let instruction = solana_sdk::instruction::CompiledInstruction {
+        let instruction = CompiledInstruction {
             program_id_index: 0,
             accounts: vec![0, 1, 2],
             data: vec![99, 99, 99, 99, 99, 99, 99, 99], // Non-matching discriminator
@@ -1226,7 +1269,7 @@ mod tests {
         data[40] = 1;
         data[41] = 1;
 
-        let instruction = solana_sdk::instruction::CompiledInstruction {
+        let instruction = CompiledInstruction {
             program_id_index: 0,
             accounts: vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
             data,

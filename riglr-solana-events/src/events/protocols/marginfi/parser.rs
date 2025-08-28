@@ -664,7 +664,7 @@ fn parse_marginfi_liquidate_data_from_instruction(
 mod tests {
     use super::*;
     use crate::types::{EventMetadata, EventType, ProtocolType};
-    use solana_sdk::instruction::CompiledInstruction;
+    use solana_message::compiled_instruction::CompiledInstruction;
     use solana_transaction_status::UiCompiledInstruction;
 
     fn create_test_metadata() -> EventMetadata {

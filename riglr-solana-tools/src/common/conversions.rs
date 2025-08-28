@@ -1,4 +1,53 @@
 //! Type conversion utilities for bridging Solana SDK v3 with SPL libraries built on v2
+//!
+//! # Background
+//!
+//! This module provides critical type conversion utilities that work around a significant
+//! dependency version mismatch in the Solana ecosystem:
+//!
+//! - **riglr-solana-tools** uses `solana-sdk` v3.x (the latest stable version)
+//! - **SPL libraries** (`spl-token`, `spl-associated-token-account`) internally bundle
+//!   older versions of `solana-sdk` (typically v2.x)
+//!
+//! # The Problem
+//!
+//! SPL libraries don't use the main `solana-sdk` crate as a regular dependency. Instead,
+//! they bundle their own copy of Solana types under their own module paths (e.g.,
+//! `spl_token::solana_program::pubkey::Pubkey`). This creates incompatible types even
+//! though they represent the same underlying data.
+//!
+//! # The Solution
+//!
+//! These conversion functions bridge the gap by:
+//! 1. Converting v3 types to strings (a common format)
+//! 2. Parsing the strings back into the SPL-bundled v2 types
+//! 3. Providing convenience wrappers for common operations
+//!
+//! # Maintenance Warning
+//!
+//! This workaround is necessary until SPL libraries update to use `solana-sdk` v3.x
+//! directly. When that happens, this module can be removed and direct type usage
+//! can be restored throughout the codebase.
+//!
+//! # Example
+//!
+//! ```rust,ignore
+//! use solana_sdk::pubkey::Pubkey;
+//! use riglr_solana_tools::common::conversions::{to_spl_pubkey, from_spl_pubkey};
+//!
+//! // Convert v3 Pubkey to SPL-compatible Pubkey
+//! let v3_pubkey = Pubkey::new_unique();
+//! let spl_pubkey = to_spl_pubkey(&v3_pubkey);
+//!
+//! // Use with SPL functions
+//! let ata = spl_associated_token_account::get_associated_token_address(
+//!     &spl_pubkey,
+//!     &spl_mint_pubkey,
+//! );
+//!
+//! // Convert back to v3
+//! let v3_ata = from_spl_pubkey(&ata);
+//! ```
 
 use solana_sdk::pubkey::Pubkey;
 use std::str::FromStr;

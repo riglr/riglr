@@ -11,59 +11,61 @@ use thiserror::Error;
 #[allow(clippy::result_large_err)]
 #[allow(clippy::large_enum_variant)]
 pub enum SolanaToolError {
-    /// Core tool error
+    /// Core tool error - passthrough
     #[error("Core tool error: {0}")]
     ToolError(#[from] ToolError),
 
-    /// Signer context error
+    /// Signer context error - configuration issue
     #[error("Signer context error: {0}")]
     SignerError(#[from] SignerError),
 
-    /// RPC client error
+    /// RPC client error - network issues are typically retriable
+    /// Note: May be rate-limited if message contains "429" or "rate limit"
     #[error("RPC error: {0}")]
     Rpc(String),
 
-    /// Solana client error
+    /// Solana client error - classification depends on inner error
     #[error("Solana client error: {0}")]
     SolanaClient(Box<ClientError>),
 
-    /// Invalid address format
+    /// Invalid address format - user input error
     #[error("Invalid address: {0}")]
     InvalidAddress(String),
 
-    /// Invalid key format
+    /// Invalid key format - user input error
     #[error("Invalid key: {0}")]
     InvalidKey(String),
 
-    /// Invalid signature format
+    /// Invalid signature format - user input error  
     #[error("Invalid signature: {0}")]
     InvalidSignature(String),
 
-    /// Transaction failed
+    /// Transaction failed - may be retriable depending on message
     #[error("Transaction error: {0}")]
     Transaction(String),
 
-    /// Insufficient funds for operation
+    /// Insufficient funds for operation - permanent error
     #[error("Insufficient funds for operation")]
     InsufficientFunds,
 
-    /// Invalid token mint
+    /// Invalid token mint - user input error
     #[error("Invalid token mint: {0}")]
     InvalidTokenMint(String),
 
-    /// Serialization error
+    /// Serialization error - data corruption/format issue
     #[error("Serialization error: {0}")]
     Serialization(#[from] serde_json::Error),
 
-    /// HTTP request error
+    /// HTTP request error - network issues are typically retriable
+    /// Note: May be rate-limited if status is 429
     #[error("HTTP error: {0}")]
     Http(#[from] reqwest::Error),
 
-    /// Core riglr error
+    /// Core riglr error - typically retriable
     #[error("Core error: {0}")]
     Core(#[from] riglr_core::CoreError),
 
-    /// Generic error
+    /// Generic error - default to retriable
     #[error("Solana tool error: {0}")]
     Generic(String),
 }
@@ -71,8 +73,125 @@ pub enum SolanaToolError {
 /// Result type alias for Solana tool operations.
 pub type Result<T> = std::result::Result<T, SolanaToolError>;
 
+/// Internal classification of errors for conversion to ToolError
+#[derive(Debug, PartialEq)]
+enum ErrorClassification {
+    /// Permanent errors that should not be retried
+    Permanent,
+    /// Errors that can be retried
+    Retriable,
+    /// Rate-limited errors with optional retry delay
+    RateLimited { delay: Option<std::time::Duration> },
+    /// Invalid input errors
+    InvalidInput,
+    /// Signer context errors (special case)
+    SignerContext,
+    /// Pass through an existing ToolError without re-wrapping
+    ToolErrorPassthrough(ToolError),
+}
+
 impl SolanaToolError {
+    /// Classify this error for conversion to ToolError
+    ///
+    /// This method encapsulates all the complex classification logic,
+    /// including dynamic checks based on message content and error types.
+    fn classify(&self) -> ErrorClassification {
+        match self {
+            // Passthrough ToolError without re-wrapping
+            SolanaToolError::ToolError(e) => ErrorClassification::ToolErrorPassthrough(e.clone()),
+
+            // Signer errors are configuration issues
+            SolanaToolError::SignerError(_) => ErrorClassification::SignerContext,
+
+            // Input validation errors
+            SolanaToolError::InvalidAddress(_)
+            | SolanaToolError::InvalidKey(_)
+            | SolanaToolError::InvalidSignature(_)
+            | SolanaToolError::InvalidTokenMint(_) => ErrorClassification::InvalidInput,
+
+            // Insufficient funds is always permanent
+            SolanaToolError::InsufficientFunds => ErrorClassification::Permanent,
+
+            // Serialization errors are permanent
+            SolanaToolError::Serialization(_) => ErrorClassification::Permanent,
+
+            // RPC errors - check for rate limiting indicators
+            SolanaToolError::Rpc(msg) => {
+                if msg.contains("429")
+                    || msg.contains("rate limit")
+                    || msg.contains("too many requests")
+                {
+                    ErrorClassification::RateLimited {
+                        delay: Some(std::time::Duration::from_secs(1)),
+                    }
+                } else {
+                    ErrorClassification::Retriable
+                }
+            }
+
+            // HTTP errors - check status code for rate limiting
+            SolanaToolError::Http(http_err) => {
+                if http_err.status() == Some(reqwest::StatusCode::TOO_MANY_REQUESTS) {
+                    ErrorClassification::RateLimited {
+                        delay: Some(std::time::Duration::from_secs(1)),
+                    }
+                } else if http_err.is_timeout() || http_err.is_connect() {
+                    ErrorClassification::Retriable
+                } else if matches!(
+                    http_err.status(),
+                    Some(
+                        reqwest::StatusCode::BAD_REQUEST
+                            | reqwest::StatusCode::UNAUTHORIZED
+                            | reqwest::StatusCode::FORBIDDEN
+                    )
+                ) {
+                    ErrorClassification::Permanent
+                } else {
+                    ErrorClassification::Retriable
+                }
+            }
+
+            // Solana client errors - use the classify_transaction_error helper
+            SolanaToolError::SolanaClient(client_err) => {
+                let error_type = classify_transaction_error(client_err);
+                match error_type {
+                    TransactionErrorType::RateLimited(_) => ErrorClassification::RateLimited {
+                        delay: Some(std::time::Duration::from_secs(1)),
+                    },
+                    TransactionErrorType::Retryable(_) => ErrorClassification::Retriable,
+                    TransactionErrorType::Permanent(PermanentError::InsufficientFunds) => {
+                        ErrorClassification::Permanent
+                    }
+                    TransactionErrorType::Permanent(_) => ErrorClassification::Permanent,
+                    TransactionErrorType::Unknown(_) => ErrorClassification::Retriable,
+                }
+            }
+
+            // Transaction errors - check message for patterns
+            SolanaToolError::Transaction(msg) => {
+                if msg.contains("insufficient") || msg.contains("InsufficientFunds") {
+                    ErrorClassification::Permanent
+                } else if msg.contains("rate limit") || msg.contains("429") {
+                    ErrorClassification::RateLimited {
+                        delay: Some(std::time::Duration::from_secs(1)),
+                    }
+                } else {
+                    ErrorClassification::Retriable
+                }
+            }
+
+            // Core errors are typically retriable
+            SolanaToolError::Core(_) => ErrorClassification::Retriable,
+
+            // Generic errors default to retriable
+            SolanaToolError::Generic(_) => ErrorClassification::Retriable,
+        }
+    }
+
     /// Check if this error is retriable.
+    /// Note: The IntoToolError macro generates a basic From implementation, but for complex
+    /// cases that need runtime logic (like checking message content), we keep this method
+    /// for backward compatibility and to support custom logic.
     pub fn is_retriable(&self) -> bool {
         match self {
             // Core errors inherit their retriable nature
@@ -303,43 +422,31 @@ fn classify_rpc_error(rpc_error: &RpcError) -> TransactionErrorType {
 }
 
 // Implement From conversion to riglr_core::ToolError for proper error handling
+// This implementation preserves the source error for downcasting and uses
+// the classification methods to determine retriability.
 impl From<SolanaToolError> for ToolError {
     fn from(err: SolanaToolError) -> Self {
-        // Handle the consuming case first to avoid borrow checker issues.
-        if let SolanaToolError::ToolError(tool_err) = err {
-            return tool_err;
-        }
+        // Use the classify method to determine error handling
+        match err.classify() {
+            ErrorClassification::ToolErrorPassthrough(tool_err) => tool_err,
 
-        // Now that the consuming case is handled, we can safely borrow.
-        if err.is_rate_limited() {
-            if let Some(delay) = err.retry_delay() {
-                return ToolError::rate_limited_with_source(err, "Solana operation", Some(delay));
-            } else {
-                return ToolError::rate_limited_with_source(err, "Solana operation", None);
-            }
-        }
-
-        if err.is_retriable() {
-            return ToolError::retriable_with_source(err, "Solana operation");
-        }
-
-        // Handle remaining non-consuming, permanent error cases.
-        match err {
-            // Signer errors are configuration issues
-            SolanaToolError::SignerError(signer_err) => {
-                ToolError::SignerContext(signer_err.to_string())
+            ErrorClassification::Permanent => {
+                ToolError::permanent_with_source(err, "Solana operation failed")
             }
 
-            // Input validation errors - now preserve the full error object
-            SolanaToolError::InvalidAddress(_)
-            | SolanaToolError::InvalidKey(_)
-            | SolanaToolError::InvalidSignature(_)
-            | SolanaToolError::InvalidTokenMint(_) => {
-                ToolError::invalid_input_with_source(err, "Solana input validation")
+            ErrorClassification::Retriable => {
+                ToolError::retriable_with_source(err, "Solana operation can be retried")
             }
 
-            // This catch-all now correctly handles all other permanent errors.
-            _ => ToolError::permanent_with_source(err, "Solana operation"),
+            ErrorClassification::RateLimited { delay } => {
+                ToolError::rate_limited_with_source(err, "Solana rate limit exceeded", delay)
+            }
+
+            ErrorClassification::InvalidInput => {
+                ToolError::invalid_input_with_source(err, "Invalid input for Solana operation")
+            }
+
+            ErrorClassification::SignerContext => ToolError::SignerContext(err.to_string()),
         }
     }
 }
@@ -355,6 +462,118 @@ mod tests {
     use super::*;
     use solana_client::client_error::{ClientError, ClientErrorKind};
     use solana_client::rpc_request::RpcError;
+
+    // Test the classify method for all SolanaToolError variants
+    #[test]
+    fn test_classify_tool_error_passthrough() {
+        let tool_err = ToolError::permanent_string("test error");
+        let solana_err = SolanaToolError::ToolError(tool_err.clone());
+
+        match solana_err.classify() {
+            ErrorClassification::ToolErrorPassthrough(e) => {
+                assert_eq!(e.to_string(), tool_err.to_string());
+            }
+            _ => panic!("Expected ToolErrorPassthrough"),
+        }
+    }
+
+    #[test]
+    fn test_classify_signer_error() {
+        let signer_err = SignerError::NoSignerContext;
+        let solana_err = SolanaToolError::SignerError(signer_err);
+
+        assert_eq!(solana_err.classify(), ErrorClassification::SignerContext);
+    }
+
+    #[test]
+    fn test_classify_invalid_input_errors() {
+        let test_cases = vec![
+            SolanaToolError::InvalidAddress("bad address".to_string()),
+            SolanaToolError::InvalidKey("bad key".to_string()),
+            SolanaToolError::InvalidSignature("bad sig".to_string()),
+            SolanaToolError::InvalidTokenMint("bad mint".to_string()),
+        ];
+
+        for error in test_cases {
+            assert_eq!(
+                error.classify(),
+                ErrorClassification::InvalidInput,
+                "Failed for error: {:?}",
+                error
+            );
+        }
+    }
+
+    #[test]
+    fn test_classify_permanent_errors() {
+        let test_cases = vec![
+            SolanaToolError::InsufficientFunds,
+            SolanaToolError::Serialization(serde_json::from_str::<String>("invalid").unwrap_err()),
+        ];
+
+        for error in test_cases {
+            assert_eq!(
+                error.classify(),
+                ErrorClassification::Permanent,
+                "Failed for error: {:?}",
+                error
+            );
+        }
+    }
+
+    #[test]
+    fn test_classify_rpc_error_rate_limited() {
+        let test_cases = vec![
+            SolanaToolError::Rpc("Error 429: Too many requests".to_string()),
+            SolanaToolError::Rpc("rate limit exceeded".to_string()),
+            SolanaToolError::Rpc("too many requests".to_string()),
+        ];
+
+        for error in test_cases {
+            match error.classify() {
+                ErrorClassification::RateLimited { delay } => {
+                    assert!(delay.is_some(), "Expected delay for rate limited error");
+                }
+                _ => panic!("Expected RateLimited classification for: {:?}", error),
+            }
+        }
+    }
+
+    #[test]
+    fn test_classify_rpc_error_retriable() {
+        let error = SolanaToolError::Rpc("Connection timeout".to_string());
+        assert_eq!(error.classify(), ErrorClassification::Retriable);
+    }
+
+    #[test]
+    fn test_classify_transaction_error() {
+        // Test insufficient funds detection
+        let insufficient =
+            SolanaToolError::Transaction("insufficient funds for transaction".to_string());
+        assert_eq!(insufficient.classify(), ErrorClassification::Permanent);
+
+        // Test rate limit detection
+        let rate_limited = SolanaToolError::Transaction("rate limit exceeded".to_string());
+        match rate_limited.classify() {
+            ErrorClassification::RateLimited { delay } => {
+                assert!(delay.is_some());
+            }
+            _ => panic!("Expected RateLimited classification"),
+        }
+
+        // Test retriable transaction error
+        let retriable = SolanaToolError::Transaction("network congestion".to_string());
+        assert_eq!(retriable.classify(), ErrorClassification::Retriable);
+    }
+
+    #[test]
+    fn test_classify_core_and_generic_errors() {
+        let core_err = SolanaToolError::Core(riglr_core::CoreError::Queue("test".to_string()));
+        assert_eq!(core_err.classify(), ErrorClassification::Retriable);
+
+        let generic_err = SolanaToolError::Generic("some error".to_string());
+        assert_eq!(generic_err.classify(), ErrorClassification::Retriable);
+    }
 
     #[test]
     fn test_transaction_error_type_methods() {
@@ -1068,5 +1287,118 @@ mod tests {
 
         let transaction_error = TransactionErrorType::Unknown("test".to_string());
         assert!(!format!("{:?}", transaction_error).is_empty());
+    }
+
+    #[test]
+    fn test_error_downcasting_preserves_structured_context() {
+        use std::error::Error;
+
+        // Test Case 1: InvalidAddress error should be downcastable
+        let solana_error = SolanaToolError::InvalidAddress("bad_address".to_string());
+        let tool_error: ToolError = solana_error.into();
+
+        // Verify the ToolError has a source
+        assert!(
+            tool_error.source().is_some(),
+            "ToolError should have a source"
+        );
+
+        // Downcast the source back to SolanaToolError
+        let source = tool_error.source().unwrap();
+        let downcasted = source.downcast_ref::<SolanaToolError>();
+        assert!(
+            downcasted.is_some(),
+            "Should be able to downcast source to SolanaToolError"
+        );
+
+        // Verify the downcast error matches the original
+        if let Some(SolanaToolError::InvalidAddress(msg)) = downcasted {
+            assert_eq!(msg, "bad_address", "Downcast should preserve error details");
+        } else {
+            panic!("Downcast error should be InvalidAddress variant");
+        }
+
+        // Test Case 2: InsufficientFunds error should be downcastable
+        let solana_error = SolanaToolError::InsufficientFunds;
+        let tool_error: ToolError = solana_error.into();
+
+        assert!(
+            tool_error.source().is_some(),
+            "ToolError should have a source for InsufficientFunds"
+        );
+
+        let source = tool_error.source().unwrap();
+        let downcasted = source.downcast_ref::<SolanaToolError>();
+        assert!(
+            downcasted.is_some(),
+            "Should be able to downcast InsufficientFunds error"
+        );
+
+        assert!(
+            matches!(downcasted, Some(SolanaToolError::InsufficientFunds)),
+            "Downcast should preserve InsufficientFunds variant"
+        );
+
+        // Test Case 3: Rate-limited RPC error should be downcastable
+        let solana_error = SolanaToolError::Rpc("429 Too Many Requests".to_string());
+        let tool_error: ToolError = solana_error.into();
+
+        assert!(
+            tool_error.source().is_some(),
+            "ToolError should have a source for rate-limited error"
+        );
+
+        let source = tool_error.source().unwrap();
+        let downcasted = source.downcast_ref::<SolanaToolError>();
+        assert!(
+            downcasted.is_some(),
+            "Should be able to downcast rate-limited error"
+        );
+
+        if let Some(SolanaToolError::Rpc(msg)) = downcasted {
+            assert_eq!(
+                msg, "429 Too Many Requests",
+                "Downcast should preserve RPC error message"
+            );
+        } else {
+            panic!("Downcast error should be Rpc variant");
+        }
+
+        // Test Case 4: SolanaClient error should be downcastable
+        let client_error = ClientError::new_with_request(
+            ClientErrorKind::Custom("test error".to_string()),
+            solana_client::rpc_request::RpcRequest::GetAccountInfo,
+        );
+        let solana_error = SolanaToolError::SolanaClient(Box::new(client_error));
+        let tool_error: ToolError = solana_error.into();
+
+        assert!(
+            tool_error.source().is_some(),
+            "ToolError should have a source for SolanaClient error"
+        );
+
+        let source = tool_error.source().unwrap();
+        let downcasted = source.downcast_ref::<SolanaToolError>();
+        assert!(
+            downcasted.is_some(),
+            "Should be able to downcast SolanaClient error"
+        );
+
+        assert!(
+            matches!(downcasted, Some(SolanaToolError::SolanaClient(_))),
+            "Downcast should preserve SolanaClient variant"
+        );
+
+        // Test Case 5: Verify ToolError passthrough doesn't add extra layer
+        let inner_tool_error = ToolError::permanent_string("inner error".to_string());
+        let solana_error = SolanaToolError::ToolError(inner_tool_error.clone());
+        let converted: ToolError = solana_error.into();
+
+        // The converted error should be the inner ToolError, not wrapped again
+        assert_eq!(
+            converted.to_string(),
+            inner_tool_error.to_string(),
+            "ToolError passthrough should not add extra wrapping"
+        );
     }
 }

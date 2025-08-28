@@ -132,10 +132,7 @@ impl BonkEventParser {
             ));
         }
 
-        Ok(Box::new(BonkTradeEvent {
-            metadata: metadata,
-            ..event
-        }))
+        Ok(Box::new(BonkTradeEvent { metadata, ..event }))
     }
 
     /// Parse pool create log event
@@ -149,10 +146,7 @@ impl BonkEventParser {
 
         let mut metadata = metadata;
         metadata.set_id(format!("{}-{}", metadata.signature, event.pool_state));
-        Ok(Box::new(BonkPoolCreateEvent {
-            metadata: metadata,
-            ..event
-        }))
+        Ok(Box::new(BonkPoolCreateEvent { metadata, ..event }))
     }
 
     /// Parse buy exact in instruction event
@@ -186,7 +180,7 @@ impl BonkEventParser {
         ));
 
         Ok(Box::new(BonkTradeEvent {
-            metadata: metadata,
+            metadata,
             pool_state,
             amount_in,
             minimum_amount_out,
@@ -233,7 +227,7 @@ impl BonkEventParser {
         ));
 
         Ok(Box::new(BonkTradeEvent {
-            metadata: metadata,
+            metadata,
             pool_state,
             amount_out,
             maximum_amount_in,
@@ -267,7 +261,7 @@ impl BonkEventParser {
         ));
 
         Ok(Box::new(BonkTradeEvent {
-            metadata: metadata,
+            metadata,
             pool_state: accounts[0],
             amount_in,
             minimum_amount_out,
@@ -301,7 +295,7 @@ impl BonkEventParser {
         ));
 
         Ok(Box::new(BonkTradeEvent {
-            metadata: metadata,
+            metadata,
             pool_state: accounts[0],
             amount_out,
             maximum_amount_in,
@@ -340,7 +334,7 @@ impl BonkEventParser {
         metadata.set_id(format!("{}-{}-{}", metadata.signature, pool_state, creator));
 
         Ok(Box::new(BonkPoolCreateEvent {
-            metadata: metadata,
+            metadata,
             pool_state,
             creator,
             config,
@@ -369,7 +363,7 @@ impl BonkEventParser {
         ));
 
         Ok(Box::new(BonkPoolCreateEvent {
-            metadata: metadata,
+            metadata,
             pool_state: accounts[0],
             creator: accounts[1],
             config: accounts[2],
@@ -394,7 +388,7 @@ impl BonkEventParser {
         ));
 
         Ok(Box::new(BonkPoolCreateEvent {
-            metadata: metadata,
+            metadata,
             pool_state: accounts[0],
             creator: accounts[1],
             config: accounts[2],
@@ -445,6 +439,7 @@ mod tests {
     use crate::solana_metadata::SolanaEventMetadata;
     use crate::types::{EventMetadata, EventType, ProtocolType};
     use riglr_events_core::EventKind;
+    use solana_message::compiled_instruction::CompiledInstruction;
     use solana_sdk::pubkey::Pubkey;
     use solana_transaction_status::UiCompiledInstruction;
 
@@ -1030,7 +1025,7 @@ mod tests {
     #[test]
     fn test_parse_events_from_instruction_when_called_should_delegate_to_inner() {
         let parser = BonkEventParser::default();
-        let instruction = solana_sdk::instruction::CompiledInstruction {
+        let instruction = CompiledInstruction {
             program_id_index: 0,
             accounts: vec![],
             data: vec![],

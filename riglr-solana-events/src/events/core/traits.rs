@@ -647,7 +647,7 @@ mod tests {
 
         let parser = GenericEventParser::new(vec![program_id], vec![config]);
 
-        let instruction = solana_sdk::instruction::CompiledInstruction {
+        let instruction = solana_message::compiled_instruction::CompiledInstruction {
             program_id_index: 0,
             accounts: vec![],
             data: vec![1, 2, 3],
@@ -685,7 +685,7 @@ mod tests {
 
         let parser = GenericEventParser::new(vec![program_id], vec![config]);
 
-        let instruction = solana_sdk::instruction::CompiledInstruction {
+        let instruction = solana_message::compiled_instruction::CompiledInstruction {
             program_id_index: 0,
             accounts: vec![],
             data: vec![4, 5, 6], // Different data that doesn't match config
@@ -722,7 +722,7 @@ mod tests {
 
         let parser = GenericEventParser::new(vec![program_id], vec![config]);
 
-        let instruction = solana_sdk::instruction::CompiledInstruction {
+        let instruction = solana_message::compiled_instruction::CompiledInstruction {
             program_id_index: 0,
             accounts: vec![],
             data: vec![1, 2, 3],
@@ -759,7 +759,7 @@ mod tests {
 
         let parser = GenericEventParser::new(vec![program_id], vec![config]);
 
-        let instruction = solana_sdk::instruction::CompiledInstruction {
+        let instruction = solana_message::compiled_instruction::CompiledInstruction {
             program_id_index: 0,
             accounts: vec![],
             data: vec![1, 2, 3],

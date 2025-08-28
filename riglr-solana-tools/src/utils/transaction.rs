@@ -450,7 +450,8 @@ mod tests {
     fn test_transaction_config_debug() {
         let config = TransactionConfig::default();
         let debug_str = format!("{:?}", config);
-        assert!(debug_str.contains("TransactionConfig"));
+        // TransactionConfig is now a type alias for RetryConfig
+        assert!(debug_str.contains("RetryConfig"));
         assert!(debug_str.contains("max_retries"));
     }
 

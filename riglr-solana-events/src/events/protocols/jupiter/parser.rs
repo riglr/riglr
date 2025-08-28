@@ -349,7 +349,7 @@ fn parse_jupiter_swap_with_borsh(data: &[u8]) -> ParseResult<JupiterSwapData> {
 mod tests {
     use super::*;
     use crate::types::{EventType, ProtocolType};
-    use solana_sdk::instruction::CompiledInstruction;
+    use solana_message::compiled_instruction::CompiledInstruction;
     use solana_transaction_status::UiCompiledInstruction;
     use std::str::FromStr;
 

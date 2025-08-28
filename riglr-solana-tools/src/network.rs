@@ -1,6 +1,6 @@
 //! Network state and blockchain query tools
 //!
-//! These tools use RpcProvider for read-only blockchain queries and don't require transaction signing.
+//! These tools use ApplicationContext extensions for read-only blockchain queries and don't require transaction signing.
 
 use riglr_core::ToolError;
 use riglr_macros::tool;
@@ -12,11 +12,11 @@ use tracing::{debug, info};
 /// This tool queries the Solana network to retrieve the most recent block height,
 /// which represents the number of blocks that have been processed by the network.
 /// Essential for checking network activity and determining transaction finality.
-/// This is a read-only operation that uses RpcProvider instead of requiring transaction signing.
+/// This is a read-only operation that uses ApplicationContext extensions instead of requiring transaction signing.
 ///
 /// # Arguments
 ///
-/// * `rpc_client` - The Solana RPC client to use for the query (from RpcProvider)
+/// * `context` - The ApplicationContext containing the RPC client
 ///
 /// # Returns
 ///
@@ -31,14 +31,20 @@ use tracing::{debug, info};
 ///
 /// ```rust,ignore
 /// use riglr_solana_tools::network::get_block_height;
-/// use riglr_core::provider::RpcProvider;
+/// use riglr_core::provider::ApplicationContext;
+/// use riglr_config::Config;
+/// use solana_client::rpc_client::RpcClient;
 /// use std::sync::Arc;
 ///
 /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
-/// let provider = RpcProvider::from_env();
-/// let client = provider.get_solana_client("mainnet").unwrap();
+/// let config = Config::from_env();
+/// let context = ApplicationContext::from_config(&config);
 ///
-/// let height = get_block_height(client).await?;
+/// // Add Solana RPC client as an extension
+/// let solana_client = Arc::new(RpcClient::new("https://api.mainnet-beta.solana.com"));
+/// context.set_extension(solana_client);
+///
+/// let height = get_block_height(&context).await?;
 /// println!("Current block height: {}", height);
 ///
 /// // Use block height for transaction confirmation checks
@@ -77,12 +83,12 @@ pub async fn get_block_height(
 /// This tool queries the Solana network to check the confirmation status of a transaction
 /// using its signature. Essential for monitoring transaction progress and ensuring operations
 /// have been confirmed by the network before proceeding with dependent actions.
-/// This is a read-only operation that uses RpcProvider instead of requiring transaction signing.
+/// This is a read-only operation that uses ApplicationContext extensions instead of requiring transaction signing.
 ///
 /// # Arguments
 ///
 /// * `signature` - The transaction signature to check (base58-encoded string)
-/// * `rpc_client` - The Solana RPC client to use for the query (from RpcProvider)
+/// * `context` - The ApplicationContext containing the RPC client
 ///
 /// # Returns
 ///
@@ -102,16 +108,22 @@ pub async fn get_block_height(
 ///
 /// ```rust,ignore
 /// use riglr_solana_tools::network::get_transaction_status;
-/// use riglr_core::provider::RpcProvider;
+/// use riglr_core::provider::ApplicationContext;
+/// use riglr_config::Config;
+/// use solana_client::rpc_client::RpcClient;
 /// use std::sync::Arc;
 ///
 /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
-/// let provider = RpcProvider::from_env();
-/// let client = provider.get_solana_client("mainnet").unwrap();
+/// let config = Config::from_env();
+/// let context = ApplicationContext::from_config(&config);
+///
+/// // Add Solana RPC client as an extension
+/// let solana_client = Arc::new(RpcClient::new("https://api.mainnet-beta.solana.com"));
+/// context.set_extension(solana_client);
 ///
 /// let status = get_transaction_status(
 ///     "5j7s88CkzQeE6EN5HiV7CqkYsL3x6PbJmSjYpJjm1J2v3z4x8K7b".to_string(),
-///     client
+///     &context
 /// ).await?;
 ///
 /// match status.as_str() {
@@ -186,17 +198,34 @@ mod tests {
     use std::str::FromStr;
     use tokio;
 
+    // Helper function to create a test context with ApiClients
+    fn create_test_context() -> riglr_core::provider::ApplicationContext {
+        // Load .env.test for test environment
+        dotenvy::from_filename(".env.test").ok();
+
+        let config = riglr_config::Config::from_env();
+        let context = riglr_core::provider::ApplicationContext::from_config(&std::sync::Arc::new(
+            config.clone(),
+        ));
+
+        // Create and inject ApiClients
+        let api_clients = crate::clients::ApiClients::new(&config.providers);
+        context.set_extension(std::sync::Arc::new(api_clients));
+
+        context
+    }
+
     #[tokio::test]
     async fn test_get_block_height_when_no_signer_context_should_return_permanent_error() {
         // Test error path: No signer context available
-        let context = riglr_core::provider::ApplicationContext::from_env();
+        let context = create_test_context();
         let result = get_block_height(&context).await;
 
         assert!(result.is_err());
         let error = result.unwrap_err();
         match error {
             ToolError::Permanent { context, .. } => {
-                assert!(context.contains("No signer context"));
+                assert!(context.contains("Solana RpcClient not found in context"));
             }
             _ => panic!("Expected permanent error, got: {:?}", error),
         }
@@ -205,15 +234,15 @@ mod tests {
     #[tokio::test]
     async fn test_get_transaction_status_when_no_signer_context_should_return_permanent_error() {
         // Test error path: No signer context available
-        let signature = "5VfydnLu4XwV6le3gymzvp8vwhHTacoj1srdy24Y3DgDDn1uqfM3Md6J6WtE7URwmgQJw8B9V2DFGq7f4M7P3bQA".to_string();
-        let context = riglr_core::provider::ApplicationContext::from_env();
+        let signature = "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d5XioYFMQvCWpJFWzPr6z6vWckNg1E1YiLqA3MmRZ5jV9".to_string();
+        let context = create_test_context();
         let result = get_transaction_status(signature, &context).await;
 
         assert!(result.is_err());
         let error = result.unwrap_err();
         match error {
             ToolError::Permanent { context, .. } => {
-                assert!(context.contains("No signer context"));
+                assert!(context.contains("Solana RpcClient not found in context"));
             }
             _ => panic!("Expected permanent error, got: {:?}", error),
         }
@@ -223,7 +252,7 @@ mod tests {
     async fn test_get_transaction_status_when_invalid_signature_should_return_permanent_error() {
         // Test error path: Invalid signature format
         let invalid_signature = "invalid_signature_format".to_string();
-        let context = riglr_core::provider::ApplicationContext::from_env();
+        let context = create_test_context();
         let result = get_transaction_status(invalid_signature, &context).await;
 
         assert!(result.is_err());
@@ -249,7 +278,7 @@ mod tests {
     #[test]
     fn test_signature_parsing_when_valid_format_should_succeed() {
         // Test the signature parsing logic with a valid signature
-        let valid_signature = "5VfydnLu4XwV6le3gymzvp8vwhHTacoj1srdy24Y3DgDDn1uqfM3Md6J6WtE7URwmgQJw8B9V2DFGq7f4M7P3bQA";
+        let valid_signature = "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d5XioYFMQvCWpJFWzPr6z6vWckNg1E1YiLqA3MmRZ5jV9";
         let parse_result = valid_signature.parse::<Signature>();
         assert!(parse_result.is_ok());
     }
@@ -273,7 +302,7 @@ mod tests {
     #[test]
     fn test_signature_parsing_when_too_long_should_fail() {
         // Test edge case: signature too long
-        let long_signature = "5VfydnLu4XwV6le3gymzvp8vwhHTacoj1srdy24Y3DgDDn1uqfM3Md6J6WtE7URwmgQJw8B9V2DFGq7f4M7P3bQAextra";
+        let long_signature = "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d5XioYFMQvCWpJFWzPr6z6vWckNg1E1YiLqA3MmRZ5jV9extra";
         let parse_result = long_signature.parse::<Signature>();
         assert!(parse_result.is_err());
     }
@@ -281,7 +310,7 @@ mod tests {
     #[test]
     fn test_signature_parsing_when_contains_invalid_chars_should_fail() {
         // Test edge case: signature with invalid base58 characters
-        let invalid_chars_signature = "5VfydnLu4XwV6le3gymzvp8vwhHTacoj1srdy24Y3DgDDn1uqfM3Md6J6WtE7URwmgQJw8B9V2DFGq7f4M7P3bQ0"; // contains '0'
+        let invalid_chars_signature = "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d5XioYFMQvCWpJFWzPr6z6vWckNg1E1YiLqA3MmRZ5j00"; // contains '0' which is invalid in base58
         let parse_result = invalid_chars_signature.parse::<Signature>();
         assert!(parse_result.is_err());
     }
@@ -467,10 +496,11 @@ mod tests {
     #[test]
     fn test_valid_signature_examples() {
         // Test various valid signature formats
+        // These are actual valid base58-encoded 64-byte signatures
         let valid_signatures = vec![
-            "5VfydnLu4XwV6le3gymzvp8vwhHTacoj1srdy24Y3DgDDn1uqfM3Md6J6WtE7URwmgQJw8B9V2DFGq7f4M7P3bQA",
-            "3MJeNsKMG2QrKoHLrpMRFjwWdB8Eze4iKuBa5BVrDVBD8z7TQQtJCQYsKz2ndNwmzXJq9QRK8fzKGzz8VtHfZ",
-            "2tLRKZ3y7M9sMNqY8wdBBKfV3nhBqZr7jFjLU5kGHZeK4C8xNr7TgSwsNAT4u8wkxq7m2vBJ9HfP4ZqCqKRqVm",
+            // Real transaction signatures from Solana mainnet
+            "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d5XioYFMQvCWpJFWzPr6z6vWckNg1E1YiLqA3MmRZ5jV9",
+            "3AsdoALgZFuq2oUVWrDYhg2pNeaLJKPLf8hU2mQ6U8qJxeJ6hsrPVpMn9ma39DtfYCrDQSvngWRP8CxCnjPYjqun",
         ];
 
         for signature in valid_signatures {
@@ -485,8 +515,8 @@ mod tests {
 
     #[test]
     fn test_signature_from_str_trait() {
-        // Test using FromStr trait directly
-        let signature_str = "5VfydnLu4XwV6le3gymzvp8vwhHTacoj1srdy24Y3DgDDn1uqfM3Md6J6WtE7URwmgQJw8B9V2DFGq7f4M7P3bQA";
+        // Test using FromStr trait directly with a valid signature
+        let signature_str = "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d5XioYFMQvCWpJFWzPr6z6vWckNg1E1YiLqA3MmRZ5jV9";
         let signature = Signature::from_str(signature_str);
         assert!(signature.is_ok());
     }
@@ -531,7 +561,7 @@ mod tests {
     #[tokio::test]
     async fn test_get_transaction_status_when_empty_signature_should_return_permanent_error() {
         let empty_signature = "".to_string();
-        let context = riglr_core::provider::ApplicationContext::from_env();
+        let context = create_test_context();
         let result = get_transaction_status(empty_signature, &context).await;
 
         assert!(result.is_err());
@@ -549,7 +579,7 @@ mod tests {
     #[tokio::test]
     async fn test_get_transaction_status_when_very_long_signature_should_return_permanent_error() {
         let very_long_signature = "a".repeat(1000);
-        let context = riglr_core::provider::ApplicationContext::from_env();
+        let context = create_test_context();
         let result = get_transaction_status(very_long_signature, &context).await;
 
         assert!(result.is_err());
@@ -567,7 +597,7 @@ mod tests {
     async fn test_get_transaction_status_when_signature_with_special_chars_should_return_permanent_error(
     ) {
         let special_char_signature = "5VfydnLu4XwV6le3gymz!@#$%^&*()".to_string();
-        let context = riglr_core::provider::ApplicationContext::from_env();
+        let context = create_test_context();
         let result = get_transaction_status(special_char_signature, &context).await;
 
         assert!(result.is_err());

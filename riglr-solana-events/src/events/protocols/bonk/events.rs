@@ -4,6 +4,7 @@ use crate::events::protocols::bonk::types::{ConstantCurve, FixedCurve, LinearCur
 use crate::events::protocols::bonk::types::{
     CurveParams, MintParams, PoolStatus, TradeDirection, VestingParams,
 };
+#[cfg(test)]
 use crate::solana_metadata::SolanaEventMetadata;
 use crate::types::EventMetadata;
 use borsh::{BorshDeserialize, BorshSerialize};
