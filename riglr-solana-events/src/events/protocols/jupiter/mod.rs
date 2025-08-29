@@ -12,7 +12,7 @@ pub use types::*;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::events::core::EventParser;
+    use crate::events::parser_types::LegacyEventParser;
     use solana_sdk::pubkey::Pubkey;
 
     #[test]

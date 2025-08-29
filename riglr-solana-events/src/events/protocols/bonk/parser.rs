@@ -11,8 +11,8 @@ use solana_sdk::pubkey::Pubkey;
 use crate::error::ParseResult;
 use crate::events::{
     common::{parse_swap_amounts, validate_account_count, validate_data_length},
-    core::traits::{EventParser as LegacyEventParser, GenericEventParseConfig, GenericEventParser},
     factory::SolanaTransactionInput,
+    parser_types::{GenericEventParseConfig, GenericEventParser, LegacyEventParser},
     protocols::bonk::{discriminators, BonkPoolCreateEvent, BonkTradeEvent, TradeDirection},
 };
 use crate::solana_metadata::SolanaEventMetadata;

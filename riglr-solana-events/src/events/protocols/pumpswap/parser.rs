@@ -11,8 +11,8 @@ use solana_sdk::pubkey::Pubkey;
 use crate::error::ParseResult;
 use crate::events::{
     common::read_u64_le,
-    core::traits::{EventParser as LegacyEventParser, GenericEventParseConfig, GenericEventParser},
     factory::SolanaTransactionInput,
+    parser_types::{GenericEventParseConfig, GenericEventParser, LegacyEventParser},
     protocols::pumpswap::{
         discriminators, PumpSwapBuyEvent, PumpSwapCreatePoolEvent, PumpSwapDepositEvent,
         PumpSwapSellEvent, PumpSwapWithdrawEvent,
@@ -21,7 +21,7 @@ use crate::events::{
 use crate::solana_metadata::SolanaEventMetadata;
 use crate::types::{EventType, ProtocolType};
 
-type EventMetadata = SolanaEventMetadata;
+// Removed unused type alias
 
 /// PumpSwap program ID
 pub const PUMPSWAP_PROGRAM_ID: Pubkey =
@@ -95,25 +95,7 @@ impl PumpSwapEventParser {
         Self::default()
     }
 
-    /// Helper method to get inner instruction configs
-    fn inner_instruction_configs(&self) -> HashMap<&'static str, Vec<GenericEventParseConfig>> {
-        self.inner.inner_instruction_configs()
-    }
-
-    /// Helper method to get instruction configs
-    fn instruction_configs(&self) -> HashMap<Vec<u8>, Vec<GenericEventParseConfig>> {
-        self.inner.instruction_configs()
-    }
-
-    /// Helper method to check if should handle program ID
-    fn should_handle(&self, program_id: &Pubkey) -> bool {
-        self.inner.should_handle(program_id)
-    }
-
-    /// Helper method to get supported program IDs
-    fn supported_program_ids(&self) -> Vec<Pubkey> {
-        self.inner.supported_program_ids()
-    }
+    // Removed unused helper methods - functionality available through trait implementation
 
     /// Parse buy log event as static method
     fn parse_buy_inner_instruction(
@@ -755,7 +737,7 @@ mod tests {
         let metadata = create_test_metadata();
         let invalid_data = vec![0x00, 0x01, 0x02]; // Invalid borsh data
 
-        let result = parse_buy_inner_instruction(&invalid_data, metadata);
+        let result = PumpSwapEventParser::parse_buy_inner_instruction(&invalid_data, metadata);
         assert!(result.is_err());
     }
 
@@ -764,7 +746,7 @@ mod tests {
         let metadata = create_test_metadata();
         let empty_data = vec![];
 
-        let result = parse_buy_inner_instruction(&empty_data, metadata);
+        let result = PumpSwapEventParser::parse_buy_inner_instruction(&empty_data, metadata);
         assert!(result.is_err());
     }
 
@@ -815,7 +797,7 @@ mod tests {
         let metadata = create_test_metadata();
         let invalid_data = vec![0xFF, 0xEE, 0xDD];
 
-        let result = parse_sell_inner_instruction(&invalid_data, metadata);
+        let result = PumpSwapEventParser::parse_sell_inner_instruction(&invalid_data, metadata);
         assert!(result.is_err());
     }
 
@@ -860,7 +842,7 @@ mod tests {
         let metadata = create_test_metadata();
         let invalid_data = vec![0x11, 0x22];
 
-        let result = parse_create_pool_inner_instruction(&invalid_data, metadata);
+        let result = PumpSwapEventParser::parse_create_pool_inner_instruction(&invalid_data, metadata);
         assert!(result.is_err());
     }
 
@@ -902,7 +884,7 @@ mod tests {
         let metadata = create_test_metadata();
         let invalid_data = vec![0xAA, 0xBB, 0xCC];
 
-        let result = parse_deposit_inner_instruction(&invalid_data, metadata);
+        let result = PumpSwapEventParser::parse_deposit_inner_instruction(&invalid_data, metadata);
         assert!(result.is_err());
     }
 
@@ -944,7 +926,7 @@ mod tests {
         let metadata = create_test_metadata();
         let invalid_data = vec![0x33, 0x44, 0x55];
 
-        let result = parse_withdraw_inner_instruction(&invalid_data, metadata);
+        let result = PumpSwapEventParser::parse_withdraw_inner_instruction(&invalid_data, metadata);
         assert!(result.is_err());
     }
 
@@ -975,7 +957,7 @@ mod tests {
         let accounts = create_test_accounts();
         let short_data = vec![0u8; 15]; // Less than 16 bytes required
 
-        let result = parse_buy_instruction(&short_data, &accounts, metadata);
+        let result = PumpSwapEventParser::parse_buy_instruction(&short_data, &accounts, metadata);
         assert!(result.is_err());
     }
 
@@ -985,7 +967,7 @@ mod tests {
         let data = vec![0u8; 16];
         let short_accounts = vec![Pubkey::new_unique(); 10]; // Less than 11 required
 
-        let result = parse_buy_instruction(&data, &short_accounts, metadata);
+        let result = PumpSwapEventParser::parse_buy_instruction(&data, &short_accounts, metadata);
         assert!(result.is_err());
     }
 
@@ -995,7 +977,7 @@ mod tests {
         let accounts = create_test_accounts();
         let empty_data = vec![];
 
-        let result = parse_buy_instruction(&empty_data, &accounts, metadata);
+        let result = PumpSwapEventParser::parse_buy_instruction(&empty_data, &accounts, metadata);
         assert!(result.is_err());
     }
 
@@ -1063,7 +1045,7 @@ mod tests {
         let accounts = create_test_accounts();
         let short_data = vec![0u8; 15];
 
-        let result = parse_sell_instruction(&short_data, &accounts, metadata);
+        let result = PumpSwapEventParser::parse_sell_instruction(&short_data, &accounts, metadata);
         assert!(result.is_err());
     }
 
@@ -1073,7 +1055,7 @@ mod tests {
         let data = vec![0u8; 16];
         let short_accounts = vec![Pubkey::new_unique(); 10];
 
-        let result = parse_sell_instruction(&data, &short_accounts, metadata);
+        let result = PumpSwapEventParser::parse_sell_instruction(&data, &short_accounts, metadata);
         assert!(result.is_err());
     }
 
@@ -1111,7 +1093,7 @@ mod tests {
         let accounts = create_test_accounts();
         let short_data = vec![0u8; 17]; // Less than 18 bytes required
 
-        let result = parse_create_pool_instruction(&short_data, &accounts, metadata);
+        let result = PumpSwapEventParser::parse_create_pool_instruction(&short_data, &accounts, metadata);
         assert!(result.is_err());
     }
 
@@ -1121,7 +1103,7 @@ mod tests {
         let data = vec![0u8; 18];
         let short_accounts = vec![Pubkey::new_unique(); 10];
 
-        let result = parse_create_pool_instruction(&data, &short_accounts, metadata);
+        let result = PumpSwapEventParser::parse_create_pool_instruction(&data, &short_accounts, metadata);
         assert!(result.is_err());
     }
 
@@ -1191,7 +1173,7 @@ mod tests {
         let accounts = create_test_accounts();
         let short_data = vec![0u8; 23]; // Less than 24 bytes required
 
-        let result = parse_deposit_instruction(&short_data, &accounts, metadata);
+        let result = PumpSwapEventParser::parse_deposit_instruction(&short_data, &accounts, metadata);
         assert!(result.is_err());
     }
 
@@ -1201,7 +1183,7 @@ mod tests {
         let data = vec![0u8; 24];
         let short_accounts = vec![Pubkey::new_unique(); 10];
 
-        let result = parse_deposit_instruction(&data, &short_accounts, metadata);
+        let result = PumpSwapEventParser::parse_deposit_instruction(&data, &short_accounts, metadata);
         assert!(result.is_err());
     }
 
@@ -1236,7 +1218,7 @@ mod tests {
         let accounts = create_test_accounts();
         let short_data = vec![0u8; 23];
 
-        let result = parse_withdraw_instruction(&short_data, &accounts, metadata);
+        let result = PumpSwapEventParser::parse_withdraw_instruction(&short_data, &accounts, metadata);
         assert!(result.is_err());
     }
 
@@ -1246,7 +1228,7 @@ mod tests {
         let data = vec![0u8; 24];
         let short_accounts = vec![Pubkey::new_unique(); 10];
 
-        let result = parse_withdraw_instruction(&data, &short_accounts, metadata);
+        let result = PumpSwapEventParser::parse_withdraw_instruction(&data, &short_accounts, metadata);
         assert!(result.is_err());
     }
 
@@ -1472,7 +1454,7 @@ mod tests {
         // by providing exactly 16 bytes but making read_u64_le fail on bounds
         let short_data = vec![0u8; 7]; // Less than 8 bytes needed for first u64
 
-        let result = parse_buy_instruction(&short_data, &accounts, metadata);
+        let result = PumpSwapEventParser::parse_buy_instruction(&short_data, &accounts, metadata);
         assert!(result.is_err());
     }
 
@@ -1483,7 +1465,7 @@ mod tests {
 
         let short_data = vec![0u8; 7]; // Less than 8 bytes needed for first u64
 
-        let result = parse_sell_instruction(&short_data, &accounts, metadata);
+        let result = PumpSwapEventParser::parse_sell_instruction(&short_data, &accounts, metadata);
         assert!(result.is_err());
     }
 
@@ -1824,24 +1806,24 @@ mod tests {
         // Test buy instruction with exactly 16 bytes and 11 accounts
         let accounts = vec![Pubkey::new_unique(); 11];
         let data = vec![0u8; 16];
-        let result = parse_buy_instruction(&data, &accounts, metadata.clone());
+        let result = PumpSwapEventParser::parse_buy_instruction(&data, &accounts, metadata.clone());
         assert!(result.is_ok());
 
         // Test sell instruction with exactly 16 bytes and 11 accounts
-        let result = parse_sell_instruction(&data, &accounts, metadata.clone());
+        let result = PumpSwapEventParser::parse_sell_instruction(&data, &accounts, metadata.clone());
         assert!(result.is_ok());
 
         // Test create pool instruction with exactly 18 bytes and 11 accounts
         let data_18 = vec![0u8; 18];
-        let result = parse_create_pool_instruction(&data_18, &accounts, metadata.clone());
+        let result = PumpSwapEventParser::parse_create_pool_instruction(&data_18, &accounts, metadata.clone());
         assert!(result.is_ok());
 
         // Test deposit/withdraw instructions with exactly 24 bytes and 11 accounts
         let data_24 = vec![0u8; 24];
-        let result = parse_deposit_instruction(&data_24, &accounts, metadata.clone());
+        let result = PumpSwapEventParser::parse_deposit_instruction(&data_24, &accounts, metadata.clone());
         assert!(result.is_ok());
 
-        let result = parse_withdraw_instruction(&data_24, &accounts, metadata);
+        let result = PumpSwapEventParser::parse_withdraw_instruction(&data_24, &accounts, metadata);
         assert!(result.is_ok());
     }
 
@@ -1854,20 +1836,20 @@ mod tests {
 
         // Test with excess data
         let data = vec![0u8; 32]; // More than required 16
-        let result = parse_buy_instruction(&data, &accounts, metadata.clone());
+        let result = PumpSwapEventParser::parse_buy_instruction(&data, &accounts, metadata.clone());
         assert!(result.is_ok());
 
-        let result = parse_sell_instruction(&data, &accounts, metadata.clone());
+        let result = PumpSwapEventParser::parse_sell_instruction(&data, &accounts, metadata.clone());
         assert!(result.is_ok());
 
         let data_large = vec![0u8; 100]; // Much more than required
-        let result = parse_create_pool_instruction(&data_large, &accounts, metadata.clone());
+        let result = PumpSwapEventParser::parse_create_pool_instruction(&data_large, &accounts, metadata.clone());
         assert!(result.is_ok());
 
-        let result = parse_deposit_instruction(&data_large, &accounts, metadata.clone());
+        let result = PumpSwapEventParser::parse_deposit_instruction(&data_large, &accounts, metadata.clone());
         assert!(result.is_ok());
 
-        let result = parse_withdraw_instruction(&data_large, &accounts, metadata);
+        let result = PumpSwapEventParser::parse_withdraw_instruction(&data_large, &accounts, metadata);
         assert!(result.is_ok());
     }
 
@@ -1885,7 +1867,7 @@ mod tests {
         // we test with insufficient data length which is caught earlier
         let short_data = vec![0u8; 7]; // Less than 8 bytes for first u64
 
-        let result = parse_deposit_instruction(&short_data, &accounts, metadata);
+        let result = PumpSwapEventParser::parse_deposit_instruction(&short_data, &accounts, metadata);
         assert!(result.is_err());
     }
 
@@ -1896,7 +1878,7 @@ mod tests {
 
         let short_data = vec![0u8; 15]; // Between 8 and 16 bytes - will fail on second u64
 
-        let result = parse_withdraw_instruction(&short_data, &accounts, metadata);
+        let result = PumpSwapEventParser::parse_withdraw_instruction(&short_data, &accounts, metadata);
         assert!(result.is_err());
     }
 
@@ -1908,7 +1890,7 @@ mod tests {
         let accounts = vec![Pubkey::default(); 25]; // All default pubkeys
 
         let data = vec![0u8; 16];
-        let result = parse_buy_instruction(&data, &accounts, metadata.clone());
+        let result = PumpSwapEventParser::parse_buy_instruction(&data, &accounts, metadata.clone());
         assert!(result.is_ok());
 
         let event = result.unwrap();
@@ -1961,14 +1943,14 @@ mod tests {
 
         // Create data that will cause read_u64_le to fail at different offsets
         let data_7_bytes = vec![0u8; 7]; // Fails on first read_u64_le
-        let result = parse_sell_instruction(&data_7_bytes, &accounts, metadata.clone());
+        let result = PumpSwapEventParser::parse_sell_instruction(&data_7_bytes, &accounts, metadata.clone());
         assert!(result.is_err());
         if let Err(e) = result {
             assert!(e.to_string().contains("Failed to read"));
         }
 
         let data_15_bytes = vec![0u8; 15]; // Fails on second read_u64_le
-        let result = parse_sell_instruction(&data_15_bytes, &accounts, metadata);
+        let result = PumpSwapEventParser::parse_sell_instruction(&data_15_bytes, &accounts, metadata);
         assert!(result.is_err());
         if let Err(e) = result {
             assert!(e.to_string().contains("Failed to read"));

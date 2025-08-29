@@ -13,8 +13,10 @@ pub fn as_event(event: &(dyn Any + Send + Sync)) -> Option<&dyn Event> {
     if let Some(mempool_event) = event.downcast_ref::<crate::external::MempoolStreamEvent>() {
         return Some(mempool_event);
     }
+    
     None
 }
+
 
 /// Macro to simplify adding new event types
 /// Usage: register_event_types!(NewEventType1, NewEventType2);
@@ -46,7 +48,7 @@ mod tests {
     use std::any::Any;
 
     // Mock event type for testing
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, serde::Serialize)]
     struct MockEvent {
         metadata: riglr_events_core::EventMetadata,
     }
@@ -91,10 +93,14 @@ mod tests {
         fn clone_boxed(&self) -> Box<dyn Event> {
             Box::new(self.clone())
         }
+
+        fn to_json(&self) -> riglr_events_core::error::EventResult<serde_json::Value> {
+            serde_json::to_value(self).map_err(|e| riglr_events_core::error::EventError::generic(e.to_string()))
+        }
     }
 
     // Another mock event type for macro testing
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, serde::Serialize)]
     struct CustomEvent {
         metadata: riglr_events_core::EventMetadata,
     }
@@ -138,6 +144,10 @@ mod tests {
 
         fn clone_boxed(&self) -> Box<dyn Event> {
             Box::new(self.clone())
+        }
+
+        fn to_json(&self) -> riglr_events_core::error::EventResult<serde_json::Value> {
+            serde_json::to_value(self).map_err(|e| riglr_events_core::error::EventError::generic(e.to_string()))
         }
     }
 

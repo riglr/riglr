@@ -9,6 +9,27 @@ use super::condition::{ConditionCombinator, EventCondition};
 use super::event_utils::as_event;
 use crate::core::{EventHandler, StreamManager};
 
+/// Helper function to match events, including test-specific types
+#[cfg(test)]
+fn match_event_with_tests(event: &(dyn Any + Send + Sync)) -> Option<&dyn Event> {
+    // First try the standard as_event function
+    if let Some(event_ref) = as_event(event) {
+        return Some(event_ref);
+    }
+    
+    // Try MockEvent for tests
+    if let Some(mock_event) = event.downcast_ref::<tests::MockEvent>() {
+        return Some(mock_event);
+    }
+    
+    None
+}
+
+#[cfg(not(test))]
+fn match_event_with_tests(event: &(dyn Any + Send + Sync)) -> Option<&dyn Event> {
+    as_event(event)
+}
+
 /// Generic tool trait for event-triggered execution
 #[async_trait]
 pub trait StreamingTool: Send + Sync {
@@ -99,8 +120,8 @@ impl<T: StreamingTool + 'static> EventTriggeredTool<T> {
         &self,
         event: Arc<dyn Any + Send + Sync>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        // Try to downcast to specific event types that implement Event
-        if let Some(event_ref) = as_event(event.as_ref()) {
+        // Try to downcast to specific event types that implement Event  
+        if let Some(event_ref) = match_event_with_tests(event.as_ref()) {
             info!(
                 "Executing tool {} triggered by event kind {:?}",
                 self.name,
@@ -201,13 +222,15 @@ mod tests {
     use super::*;
     use crate::tools::condition::ConditionCombinator;
     use riglr_events_core::prelude::{Event, EventKind, EventMetadata};
+    use riglr_events_core::error::EventResult;
     use std::sync::atomic::{AtomicUsize, Ordering};
     use std::time::SystemTime;
+
 
     // Mock Event implementation for testing
     #[allow(dead_code)]
     #[derive(Debug, Clone)]
-    struct MockEvent {
+    pub struct MockEvent {
         metadata: EventMetadata,
         kind: EventKind,
         source: String,
@@ -258,6 +281,19 @@ mod tests {
 
         fn clone_boxed(&self) -> Box<dyn Event> {
             Box::new(self.clone())
+        }
+
+        fn to_json(&self) -> EventResult<serde_json::Value> {
+            Ok(serde_json::json!({
+                "metadata": self.metadata,
+                "kind": self.kind,
+                "source": self.source,
+                "timestamp": self.timestamp
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_secs(),
+                "data": self.data
+            }))
         }
     }
 

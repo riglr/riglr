@@ -10,14 +10,12 @@ use solana_sdk::pubkey::Pubkey;
 
 use crate::error::ParseResult;
 use crate::events::{
-    core::traits::{EventParser as LegacyEventParser, GenericEventParseConfig, GenericEventParser},
     factory::SolanaTransactionInput,
+    parser_types::{GenericEventParseConfig, GenericEventParser, LegacyEventParser},
     protocols::raydium_cpmm::{discriminators, RaydiumCpmmDepositEvent, RaydiumCpmmSwapEvent},
 };
 use crate::solana_metadata::SolanaEventMetadata;
 use crate::types::{EventType, ProtocolType};
-
-type EventMetadata = SolanaEventMetadata;
 
 /// Raydium CPMM program ID
 pub const RAYDIUM_CPMM_PROGRAM_ID: Pubkey =
@@ -69,26 +67,6 @@ impl RaydiumCpmmEventParser {
     /// Create a new RaydiumCpmmEventParser
     pub fn new() -> Self {
         Self::default()
-    }
-
-    /// Helper method to get inner instruction configs
-    fn inner_instruction_configs(&self) -> HashMap<&'static str, Vec<GenericEventParseConfig>> {
-        self.inner.inner_instruction_configs()
-    }
-
-    /// Helper method to get instruction configs
-    fn instruction_configs(&self) -> HashMap<Vec<u8>, Vec<GenericEventParseConfig>> {
-        self.inner.instruction_configs()
-    }
-
-    /// Helper method to check if should handle program ID
-    fn should_handle(&self, program_id: &Pubkey) -> bool {
-        self.inner.should_handle(program_id)
-    }
-
-    /// Helper method to get supported program IDs
-    fn supported_program_ids(&self) -> Vec<Pubkey> {
-        self.inner.supported_program_ids()
     }
 
     /// Parse swap log event
@@ -382,14 +360,14 @@ mod tests {
         let parser = RaydiumCpmmEventParser::default();
 
         // Check that inner parser has correct configurations
-        let inner_configs = parser.inner_instruction_configs();
-        let instruction_configs = parser.instruction_configs();
+        let inner_configs = parser.inner.inner_instruction_configs();
+        let instruction_configs = parser.inner.instruction_configs();
 
         assert!(!inner_configs.is_empty());
         assert!(!instruction_configs.is_empty());
 
         // Verify supported program IDs
-        let supported_ids = parser.supported_program_ids();
+        let supported_ids = parser.inner.supported_program_ids();
         assert_eq!(supported_ids.len(), 1);
         assert_eq!(supported_ids[0], RAYDIUM_CPMM_PROGRAM_ID);
     }
@@ -401,22 +379,22 @@ mod tests {
 
         // Both should have the same configurations
         assert_eq!(
-            parser1.supported_program_ids(),
-            parser2.supported_program_ids()
+            parser1.inner.supported_program_ids(),
+            parser2.inner.supported_program_ids()
         );
     }
 
     #[test]
     fn test_should_handle_with_correct_program_id() {
         let parser = RaydiumCpmmEventParser::default();
-        assert!(parser.should_handle(&RAYDIUM_CPMM_PROGRAM_ID));
+        assert!(parser.inner.should_handle(&RAYDIUM_CPMM_PROGRAM_ID));
     }
 
     #[test]
     fn test_should_handle_with_incorrect_program_id() {
         let parser = RaydiumCpmmEventParser::default();
         let wrong_program_id = Pubkey::new_from_array([1; 32]);
-        assert!(!parser.should_handle(&wrong_program_id));
+        assert!(!parser.inner.should_handle(&wrong_program_id));
     }
 
     #[test]
@@ -787,15 +765,15 @@ mod tests {
         let parser = RaydiumCpmmEventParser::default();
 
         // Test inner_instruction_configs
-        let inner_configs = parser.inner_instruction_configs();
+        let inner_configs = parser.inner.inner_instruction_configs();
         assert!(!inner_configs.is_empty());
 
         // Test instruction_configs
-        let instruction_configs = parser.instruction_configs();
+        let instruction_configs = parser.inner.instruction_configs();
         assert!(!instruction_configs.is_empty());
 
         // Test supported_program_ids
-        let program_ids = parser.supported_program_ids();
+        let program_ids = parser.inner.supported_program_ids();
         assert_eq!(program_ids.len(), 1);
         assert_eq!(program_ids[0], RAYDIUM_CPMM_PROGRAM_ID);
     }

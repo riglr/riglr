@@ -1,21 +1,21 @@
 //! Core event parsing traits and utilities for Solana blockchain events.
 //!
-//! This module provides the fundamental building blocks for parsing events from Solana
-//! transactions, including traits for event parsers and generic parsing configurations.
+//! This module previously provided event parsing traits, but these have been moved to
+//! riglr_events_core to avoid duplication and conflicts.
 
-/// Core traits for event parsing functionality and configuration
+/// Legacy traits module - deprecated and removed
 pub mod traits;
 
-pub use traits::*;
+// No longer re-exporting traits as they have been removed
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use crate::{
         events::factory::{InnerInstructionParseParams, InstructionParseParams},
+        events::parser_types::{GenericEventParseConfig, GenericEventParser},
         types::{EventType, ProtocolType},
     };
-    use riglr_events_core::Event;
+    use riglr_events_core::{Event, error::EventResult};
     use solana_message::compiled_instruction::CompiledInstruction;
     use solana_sdk::pubkey::Pubkey;
     use solana_transaction_status::UiCompiledInstruction;
@@ -65,6 +65,17 @@ mod tests {
 
         fn clone_boxed(&self) -> Box<dyn Event> {
             Box::new(self.clone())
+        }
+
+        fn to_json(&self) -> EventResult<serde_json::Value> {
+            Ok(serde_json::json!({
+                "id": self.id(),
+                "kind": format!("{:?}", self.kind()),
+                "metadata": {
+                    "id": self.metadata().id,
+                    "source": self.metadata().source
+                }
+            }))
         }
     }
 

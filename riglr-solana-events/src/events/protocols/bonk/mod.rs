@@ -12,7 +12,7 @@ pub use types::*;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::events::core::traits::EventParser;
+    use crate::events::parser_types::LegacyEventParser;
 
     #[test]
     fn test_module_exports_events() {

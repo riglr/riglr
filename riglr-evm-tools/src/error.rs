@@ -73,14 +73,6 @@ pub enum ErrorClass {
     RateLimited,
 }
 
-/// Classify network error messages for retry behavior
-fn classify_network_message(msg: &str) -> ErrorClass {
-    if msg.contains("rate limit") || msg.contains("429") {
-        ErrorClass::RateLimited
-    } else {
-        ErrorClass::Retriable
-    }
-}
 
 /// Classify provider error messages for retry behavior
 fn classify_provider_message(msg: &str) -> ErrorClass {
@@ -93,27 +85,7 @@ fn classify_provider_message(msg: &str) -> ErrorClass {
     }
 }
 
-/// Classify transaction error messages for retry behavior
-fn classify_transaction_message(msg: &str) -> ErrorClass {
-    if msg.contains("nonce") || msg.contains("pending") {
-        ErrorClass::Retriable
-    } else if msg.contains("insufficient funds") || msg.contains("reverted") {
-        ErrorClass::Permanent
-    } else {
-        ErrorClass::Retriable
-    }
-}
 
-/// Classify RPC error messages for retry behavior
-fn classify_rpc_message(msg: &str) -> ErrorClass {
-    if msg.contains("timeout") || msg.contains("connection") {
-        ErrorClass::Retriable
-    } else if msg.contains("rate limit") || msg.contains("429") {
-        ErrorClass::RateLimited
-    } else {
-        ErrorClass::Retriable
-    }
-}
 
 /// Classify generic error messages for retry behavior
 fn classify_generic_message(msg: &str) -> ErrorClass {
@@ -226,13 +198,7 @@ pub fn classify_evm_error(error: &EvmToolError) -> ErrorClass {
         EvmToolError::InvalidParameter(_) => ErrorClass::Permanent,
 
         // Network errors are typically retriable
-        EvmToolError::NetworkError(msg) => {
-            if msg.contains("timeout") || msg.contains("connection") {
-                ErrorClass::Retriable
-            } else {
-                ErrorClass::Retriable
-            }
-        }
+        EvmToolError::NetworkError(_msg) => ErrorClass::Retriable,
 
         // Provider errors need string matching as fallback
         EvmToolError::ProviderError(msg) => {
@@ -491,7 +457,6 @@ mod tests {
 
     #[test]
     fn test_downcast_from_tool_error_source() {
-        use std::error::Error;
 
         // Create a structured EvmToolError
         let evm_error = EvmToolError::InsufficientFunds;

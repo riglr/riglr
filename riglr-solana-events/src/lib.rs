@@ -127,12 +127,10 @@
 
 /// Convenient re-exports for common types and traits used throughout the library
 pub mod prelude {
-    pub use crate::events::core::traits::{
-        EventParser, GenericEventParseConfig, GenericEventParser,
-    };
-    // Re-export types but exclude EventMetadata as it conflicts with riglr_events_core
-    pub use crate::events::core::traits::*;
     pub use crate::events::factory::{EventParserRegistry, Protocol};
+    pub use crate::events::parser_types::{
+        GenericEventParseConfig, GenericEventParser, LegacyEventParser,
+    };
     pub use crate::solana_events::{SolanaEvent, ToSolanaEvent};
     pub use crate::solana_parser::{
         SolanaEventParser, SolanaInnerInstructionInput, SolanaInnerInstructionParser,
@@ -180,14 +178,9 @@ pub mod utils;
 /// Zero-copy parsing implementations for high-performance scenarios
 pub mod zero_copy;
 
-/// Backward compatibility module that re-exports core traits from events::core::traits
-pub mod core {
-    pub use crate::events::core::traits::*;
-}
-
 // Re-export key types at crate root
-pub use events::core::traits::{EventParser, GenericEventParseConfig, GenericEventParser};
 pub use events::factory::{EventParserRegistry, Protocol};
+pub use events::parser_types::{GenericEventParseConfig, GenericEventParser};
 pub use types::{EventType, ProtocolType, StreamMetadata, SwapData, TransferData};
 
 // New riglr-events-core integration

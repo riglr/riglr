@@ -68,6 +68,20 @@ mod tests {
         fn clone_boxed(&self) -> Box<dyn riglr_events_core::Event> {
             Box::new(self.clone())
         }
+
+        fn to_json(&self) -> riglr_events_core::error::EventResult<serde_json::Value> {
+            Ok(serde_json::json!({
+                "id": self.id(),
+                "kind": format!("{:?}", self.kind()),
+                "metadata": {
+                    "id": self.metadata.id,
+                    "kind": format!("{:?}", self.metadata.kind),
+                    "source": self.metadata.source,
+                    "timestamp": self.metadata.timestamp
+                },
+                "data": self.data
+            }))
+        }
     }
 
     // Mock implementation of EventConversion trait for testing

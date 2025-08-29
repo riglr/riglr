@@ -8,9 +8,9 @@ use solana_sdk::pubkey::Pubkey;
 use solana_transaction_status::UiCompiledInstruction;
 use std::sync::Arc;
 
-use crate::events::core::traits::EventParser as LegacyEventParser;
+// Legacy EventParser trait has been removed - using riglr_events_core::traits::EventParser
 use crate::events::factory::{
-    EventParserRegistry, InnerInstructionParseParams, InstructionParseParams, Protocol,
+    EventParserRegistry, InnerInstructionParseParams, InstructionParseParams,
 };
 use crate::solana_events::SolanaEvent;
 use riglr_events_core::prelude::*;
@@ -114,17 +114,8 @@ impl SolanaEventParser {
         }
     }
 
-    /// Add a protocol parser
-    pub fn add_protocol_parser<P>(
-        &mut self,
-        _protocol: Protocol,
-        _parser: Arc<dyn LegacyEventParser>,
-    ) where
-        P: LegacyEventParser + 'static,
-    {
-        // Note: This would require modifying MultiEventParser to be mutable
-        // For now, we'll focus on using pre-built parsers
-    }
+    // Method removed: add_protocol_parser used the legacy EventParser trait which has been removed.
+    // Use the riglr_events_core::traits::EventParser directly instead.
 
     /// Check if a program ID is supported
     pub fn supports_program(&self, program_id: &Pubkey) -> bool {
@@ -537,13 +528,8 @@ mod tests {
         assert!(!parser.info.supported_kinds.is_empty());
     }
 
-    #[tokio::test]
-    async fn test_add_protocol_parser() {
-        let mut parser = SolanaEventParser::default();
-        let mock_parser = Arc::new(MockEventParser {});
-        // This method currently does nothing but we test it doesn't panic
-        parser.add_protocol_parser::<MockEventParser>(Protocol::Jupiter, mock_parser);
-    }
+    // Test removed: add_protocol_parser method and MockEventParser struct were part of the legacy
+    // EventParser trait which has been removed. Tests should use riglr_events_core::traits::EventParser implementations instead.
 
     #[tokio::test]
     async fn test_supports_program_true() {
@@ -1040,48 +1026,6 @@ mod tests {
         );
     }
 
-    // Mock event parser for testing
-    struct MockEventParser;
-
-    impl LegacyEventParser for MockEventParser {
-        fn inner_instruction_configs(
-            &self,
-        ) -> std::collections::HashMap<
-            &'static str,
-            Vec<crate::events::core::traits::GenericEventParseConfig>,
-        > {
-            std::collections::HashMap::new()
-        }
-
-        fn instruction_configs(
-            &self,
-        ) -> std::collections::HashMap<
-            Vec<u8>,
-            Vec<crate::events::core::traits::GenericEventParseConfig>,
-        > {
-            std::collections::HashMap::new()
-        }
-
-        fn parse_events_from_inner_instruction(
-            &self,
-            _params: &crate::events::factory::InnerInstructionParseParams,
-        ) -> Vec<Box<dyn riglr_events_core::Event>> {
-            vec![]
-        }
-
-        fn parse_events_from_instruction(
-            &self,
-            _params: &crate::events::factory::InstructionParseParams,
-        ) -> Vec<Box<dyn riglr_events_core::Event>> {
-            vec![]
-        }
-
-        fn should_handle(&self, _program_id: &solana_sdk::pubkey::Pubkey) -> bool {
-            false
-        }
-
-        fn supported_program_ids(&self) -> Vec<Pubkey> {
-            vec![Pubkey::new_unique()]
-        }
-    }
+    // MockEventParser removed: Used the legacy EventParser trait which has been removed.
+    // Tests should use riglr_events_core::traits::EventParser implementations instead.
 }

@@ -8,13 +8,11 @@ use std::collections::HashMap;
 use solana_sdk::pubkey::Pubkey;
 
 use crate::error::ParseResult;
+use crate::{EventType, ProtocolType};
 use crate::events::{
-    common::{
-        read_i32_le, read_option_bool, read_u128_le, read_u64_le, read_u8_le, EventType,
-        ProtocolType,
-    },
-    core::traits::{EventParser as LegacyEventParser, GenericEventParseConfig, GenericEventParser},
+    common::{read_i32_le, read_option_bool, read_u128_le, read_u64_le, read_u8_le},
     factory::SolanaTransactionInput,
+    parser_types::{GenericEventParseConfig, GenericEventParser, LegacyEventParser},
     protocols::raydium_clmm::{
         discriminators, RaydiumClmmClosePositionEvent, RaydiumClmmCreatePoolEvent,
         RaydiumClmmDecreaseLiquidityV2Event, RaydiumClmmIncreaseLiquidityV2Event,
@@ -22,9 +20,6 @@ use crate::events::{
         RaydiumClmmSwapEvent, RaydiumClmmSwapV2Event,
     },
 };
-use crate::solana_metadata::SolanaEventMetadata;
-
-type EventMetadata = SolanaEventMetadata;
 
 /// Raydium CLMM program ID
 pub const RAYDIUM_CLMM_PROGRAM_ID: Pubkey =
@@ -152,26 +147,6 @@ impl RaydiumClmmEventParser {
     /// including swaps, position management, and pool creation operations.
     pub fn new() -> Self {
         Self::default()
-    }
-
-    /// Helper method to get inner instruction configs
-    fn inner_instruction_configs(&self) -> HashMap<&'static str, Vec<GenericEventParseConfig>> {
-        self.inner.inner_instruction_configs()
-    }
-
-    /// Helper method to get instruction configs
-    fn instruction_configs(&self) -> HashMap<Vec<u8>, Vec<GenericEventParseConfig>> {
-        self.inner.instruction_configs()
-    }
-
-    /// Helper method to check if should handle program ID
-    fn should_handle(&self, program_id: &Pubkey) -> bool {
-        self.inner.should_handle(program_id)
-    }
-
-    /// Helper method to get supported program IDs
-    fn supported_program_ids(&self) -> Vec<Pubkey> {
-        self.inner.supported_program_ids()
     }
 
     /// Empty parser for inner instructions
@@ -707,7 +682,6 @@ impl LegacyEventParser for RaydiumClmmEventParser {
 #[cfg(test)]
 mod tests {
     use super::*;
-    // EventMetadata is now SolanaEventMetadata
     use solana_sdk::pubkey::Pubkey;
 
     fn create_test_metadata() -> crate::solana_metadata::SolanaEventMetadata {

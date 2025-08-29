@@ -13,8 +13,8 @@ use crate::{
     error::ParseResult,
     events::{
         common::utils::{has_discriminator, parse_u32_le, parse_u64_le},
-        core::{EventParser as LegacyEventParser, GenericEventParseConfig},
         factory::SolanaTransactionInput,
+        parser_types::{GenericEventParseConfig, LegacyEventParser},
     },
     solana_metadata::SolanaEventMetadata,
     types::{metadata_helpers, EventType, ProtocolType},

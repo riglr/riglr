@@ -154,7 +154,9 @@ pub async fn get_erc20_balance_with_context(
     );
 
     // Smart chain_id resolution with SignerContext fallback
-    let resolved_chain_id = if let Some(id) = chain_id {
+    // Note: Currently resolved_chain_id is not used in the balance query,
+    // but may be needed for future multi-chain token tracking or validation
+    let _resolved_chain_id = if let Some(id) = chain_id {
         debug!("Using explicit chain_id: {}", id);
         id
     } else if let Ok(signer) = SignerContext::current_as_evm().await {
@@ -166,8 +168,7 @@ pub async fn get_erc20_balance_with_context(
         1 // Fallback to Ethereum mainnet
     };
 
-    // Note: Currently resolved_chain_id is not used in the balance query,
-    // but may be needed for future multi-chain token tracking or validation
+    let _ = _resolved_chain_id; // Explicitly acknowledge unused variable for future use
 
     // Parse addresses
     let token_addr = Address::from_str(&token_address)
@@ -418,7 +419,7 @@ mod tests {
         // This tests that we correctly get chain name from common/chain.rs
         // Fantom (chain ID 250) was not in the original hardcoded list
         let config = ConfigBuilder::default().build().unwrap();
-        let context = ApplicationContext::from_config(&config);
+        let _context = ApplicationContext::from_config(&config);
 
         // Create a mock balance response structure
         let balance = EthBalance {

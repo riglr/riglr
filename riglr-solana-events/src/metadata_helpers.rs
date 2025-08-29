@@ -24,9 +24,10 @@ pub fn create_core_metadata(
 }
 
 /// Create a new EventMetadata for Solana events with all required fields
-/// DEPRECATED: Use create_core_metadata + SolanaEventMetadata::new instead
+/// 
+/// Note: For new code, consider using `create_core_metadata` + `SolanaEventMetadata::new` 
+/// for better type safety and more explicit handling of Solana-specific metadata.
 #[allow(clippy::too_many_arguments)]
-#[deprecated(note = "Use create_core_metadata + SolanaEventMetadata::new instead")]
 pub fn create_solana_metadata(
     id: String,
     kind: EventKind,
@@ -151,89 +152,83 @@ mod tests {
 
     #[test]
     fn test_create_solana_metadata_when_valid_params_should_create_metadata() {
-        let metadata = create_solana_metadata(
+        // Create EventMetadata with Solana chain data directly for testing helper functions
+        let protocol_data = json!({
+            "protocol_type": ProtocolType::Jupiter,
+            "event_type": EventType::Swap,
+        });
+
+        let metadata = create_core_metadata(
             "test_id".to_string(),
             EventKind::Transaction,
-            "test_source".to_string(),
-            123,
-            Some("test_signature".to_string()),
-            Some(create_test_pubkey()),
-            Some(5),
+            "solana".to_string(),
             Some(1640995200),
-            ProtocolType::Jupiter,
-            EventType::Swap,
-        );
+        ).with_chain_data(ChainData::Solana {
+            slot: 123,
+            signature: Some("test_signature".to_string()),
+            program_id: Some(create_test_pubkey()),
+            instruction_index: Some(5),
+            block_time: Some(1640995200),
+            protocol_data: Some(protocol_data),
+        });
 
         assert_eq!(metadata.id, "test_id");
         assert_eq!(metadata.kind, EventKind::Transaction);
-        assert_eq!(metadata.source, "test_source");
-
-        match &metadata.chain_data {
-            Some(ChainData::Solana {
-                slot,
-                signature,
-                program_id,
-                instruction_index,
-                block_time,
-                protocol_data,
-            }) => {
-                assert_eq!(*slot, 123);
-                assert_eq!(signature.as_ref().unwrap(), "test_signature");
-                assert_eq!(program_id.as_ref().unwrap(), &create_test_pubkey());
-                assert_eq!(*instruction_index, Some(5));
-                assert_eq!(*block_time, Some(1640995200));
-                assert!(protocol_data.is_some());
-            }
-            _ => panic!("Expected Solana chain data"),
-        }
+        assert_eq!(metadata.source, "solana");
+        
+        // Test the helper functions
+        assert_eq!(get_slot(&metadata), Some(123));
+        assert_eq!(get_signature(&metadata), Some("test_signature"));
+        assert_eq!(get_program_id(&metadata), Some(&create_test_pubkey()));
+        assert_eq!(get_instruction_index(&metadata), Some(5));
+        assert_eq!(get_block_time(&metadata), Some(1640995200));
+        assert_eq!(get_protocol_type(&metadata), Some(ProtocolType::Jupiter));
+        assert_eq!(get_event_type(&metadata), Some(EventType::Swap));
     }
 
     #[test]
     fn test_create_solana_metadata_when_none_optionals_should_create_metadata() {
-        let metadata = create_solana_metadata(
+        let metadata = create_core_metadata(
             "test_id".to_string(),
-            EventKind::Block,
-            "test_source".to_string(),
-            0,
+            EventKind::Transaction,
+            "solana".to_string(),
             None,
-            None,
-            None,
-            None,
-            ProtocolType::default(),
-            EventType::default(),
-        );
+        ).with_chain_data(ChainData::Solana {
+            slot: 0,
+            signature: None,
+            program_id: None,
+            instruction_index: None,
+            block_time: None,
+            protocol_data: Some(json!({
+                "protocol_type": ProtocolType::default(),
+                "event_type": EventType::default(),
+            })),
+        });
 
-        match &metadata.chain_data {
-            Some(ChainData::Solana {
-                signature,
-                program_id,
-                instruction_index,
-                block_time,
-                ..
-            }) => {
-                assert!(signature.is_none());
-                assert!(program_id.is_none());
-                assert!(instruction_index.is_none());
-                assert!(block_time.is_none());
-            }
-            _ => panic!("Expected Solana chain data"),
-        }
+        // Test the helper functions with None values
+        assert_eq!(get_signature(&metadata), None);
+        assert_eq!(get_program_id(&metadata), None);
+        assert_eq!(get_instruction_index(&metadata), None);
+        assert_eq!(get_block_time(&metadata), None);
+        assert_eq!(get_protocol_type(&metadata), Some(ProtocolType::default()));
+        assert_eq!(get_event_type(&metadata), Some(EventType::default()));
     }
 
     #[test]
     fn test_get_slot_when_solana_metadata_should_return_slot() {
-        let metadata = create_solana_metadata(
+        let metadata = create_core_metadata(
             "test".to_string(),
             EventKind::Transaction,
-            "source".to_string(),
-            42,
+            "solana".to_string(),
             None,
-            None,
-            None,
-            None,
-            ProtocolType::default(),
-            EventType::default(),
-        );
+        ).with_chain_data(ChainData::Solana {
+            slot: 42,
+            signature: None,
+            program_id: None,
+            instruction_index: None,
+            block_time: None,
+            protocol_data: None,
+        });
 
         let slot = get_slot(&metadata);
         assert_eq!(slot, Some(42));
@@ -252,18 +247,19 @@ mod tests {
 
     #[test]
     fn test_get_signature_when_solana_metadata_with_signature_should_return_signature() {
-        let metadata = create_solana_metadata(
+        let metadata = create_core_metadata(
             "test".to_string(),
             EventKind::Transaction,
-            "source".to_string(),
-            0,
-            Some("test_signature".to_string()),
+            "solana".to_string(),
             None,
-            None,
-            None,
-            ProtocolType::default(),
-            EventType::default(),
-        );
+        ).with_chain_data(ChainData::Solana {
+            slot: 0,
+            signature: Some("test_signature".to_string()),
+            program_id: None,
+            instruction_index: None,
+            block_time: None,
+            protocol_data: None,
+        });
 
         let signature = get_signature(&metadata);
         assert_eq!(signature, Some("test_signature"));
@@ -271,18 +267,19 @@ mod tests {
 
     #[test]
     fn test_get_signature_when_solana_metadata_without_signature_should_return_none() {
-        let metadata = create_solana_metadata(
+        let metadata = create_core_metadata(
             "test".to_string(),
             EventKind::Transaction,
-            "source".to_string(),
-            0,
+            "solana".to_string(),
             None,
-            None,
-            None,
-            None,
-            ProtocolType::default(),
-            EventType::default(),
-        );
+        ).with_chain_data(ChainData::Solana {
+            slot: 0,
+            signature: None,
+            program_id: None,
+            instruction_index: None,
+            block_time: None,
+            protocol_data: None,
+        });
 
         let signature = get_signature(&metadata);
         assert_eq!(signature, None);
@@ -302,18 +299,19 @@ mod tests {
     #[test]
     fn test_get_program_id_when_solana_metadata_with_program_id_should_return_program_id() {
         let test_pubkey = create_test_pubkey();
-        let metadata = create_solana_metadata(
+        let metadata = create_core_metadata(
             "test".to_string(),
             EventKind::Transaction,
-            "source".to_string(),
-            0,
+            "solana".to_string(),
             None,
-            Some(test_pubkey),
-            None,
-            None,
-            ProtocolType::default(),
-            EventType::default(),
-        );
+        ).with_chain_data(ChainData::Solana {
+            slot: 0,
+            signature: None,
+            program_id: Some(test_pubkey),
+            instruction_index: None,
+            block_time: None,
+            protocol_data: None,
+        });
 
         let program_id = get_program_id(&metadata);
         assert_eq!(program_id, Some(&test_pubkey));

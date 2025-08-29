@@ -508,6 +508,15 @@ mod tests {
         fn clone_boxed(&self) -> Box<dyn Event> {
             Box::new(self.clone())
         }
+
+        fn to_json(&self) -> riglr_events_core::error::EventResult<serde_json::Value> {
+            Ok(serde_json::json!({
+                "id": self.id(),
+                "kind": format!("{:?}", self.kind()),
+                "source": self.source(),
+                "data": self.data
+            }))
+        }
     }
 
     // Helper function to create test config

@@ -46,9 +46,10 @@ pub trait Event: Debug + Send + Sync {
     fn clone_boxed(&self) -> Box<dyn Event>;
 
     /// Serialize the event to JSON
-    fn to_json(&self) -> EventResult<serde_json::Value> {
-        Err(EventError::generic("Event serialization not implemented"))
-    }
+    ///
+    /// Events should implement serde::Serialize and use this method to provide
+    /// a standardized JSON representation.
+    fn to_json(&self) -> EventResult<serde_json::Value>;
 
     /// Check if this event matches a given filter criteria
     fn matches_filter(&self, filter: &dyn EventFilter) -> bool
@@ -730,20 +731,6 @@ mod tests {
 
         // Should be a valid SystemTime
         assert!(timestamp.duration_since(SystemTime::UNIX_EPOCH).is_ok());
-    }
-
-    #[test]
-    fn test_event_to_json_default() {
-        let event = GenericEvent::new("test".to_string(), EventKind::Transaction, json!({}));
-        let result = event.to_json();
-
-        // Default implementation should return an error
-        assert!(result.is_err());
-        if let Err(e) = result {
-            assert!(e
-                .to_string()
-                .contains("Event serialization not implemented"));
-        }
     }
 
     #[test]

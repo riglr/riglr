@@ -14,10 +14,9 @@ use crate::events::{
         utils::{
             parse_liquidity_amounts, safe_get_account, validate_account_count, validate_data_length,
         },
-        EventType, ProtocolType,
     },
-    core::traits::{EventParser as LegacyEventParser, GenericEventParseConfig, GenericEventParser},
     factory::SolanaTransactionInput,
+    parser_types::{GenericEventParseConfig, GenericEventParser, LegacyEventParser},
     protocols::raydium_amm_v4::{
         discriminators, RaydiumAmmV4DepositEvent, RaydiumAmmV4Initialize2Event,
         RaydiumAmmV4SwapEvent, RaydiumAmmV4WithdrawEvent, RaydiumAmmV4WithdrawPnlEvent,
@@ -25,8 +24,7 @@ use crate::events::{
     },
 };
 use crate::solana_metadata::SolanaEventMetadata;
-
-type EventMetadata = SolanaEventMetadata;
+use crate::types::{EventType, ProtocolType};
 
 /// Raydium AMM V4 program ID
 pub const RAYDIUM_AMM_V4_PROGRAM_ID: Pubkey =
@@ -107,25 +105,6 @@ impl RaydiumAmmV4EventParser {
         Self::default()
     }
 
-    /// Helper method to get inner instruction configs
-    fn inner_instruction_configs(&self) -> HashMap<&'static str, Vec<GenericEventParseConfig>> {
-        self.inner.inner_instruction_configs()
-    }
-
-    /// Helper method to get instruction configs
-    fn instruction_configs(&self) -> HashMap<Vec<u8>, Vec<GenericEventParseConfig>> {
-        self.inner.instruction_configs()
-    }
-
-    /// Helper method to check if should handle program ID
-    fn should_handle(&self, program_id: &Pubkey) -> bool {
-        self.inner.should_handle(program_id)
-    }
-
-    /// Helper method to get supported program IDs
-    fn supported_program_ids(&self) -> Vec<Pubkey> {
-        self.inner.supported_program_ids()
-    }
 
     /// Empty parser for inner instructions
     ///
@@ -139,7 +118,7 @@ impl RaydiumAmmV4EventParser {
     /// that need to be parsed from inner instructions.
     fn empty_parse(
         _data: &[u8],
-        _metadata: crate::solana_metadata::SolanaEventMetadata,
+        _metadata: SolanaEventMetadata,
     ) -> ParseResult<Box<dyn Event>> {
         Err(crate::error::ParseError::InvalidInstructionType(
             "Raydium AMM V4 does not emit events through inner instructions".to_string(),
@@ -150,7 +129,7 @@ impl RaydiumAmmV4EventParser {
     fn parse_swap_base_input_instruction(
         data: &[u8],
         accounts: &[Pubkey],
-        metadata: crate::solana_metadata::SolanaEventMetadata,
+        metadata: SolanaEventMetadata,
     ) -> ParseResult<Box<dyn Event>> {
         validate_data_length(data, 16, "RaydiumAmmV4 swap base input instruction")?;
         validate_account_count(accounts, 17, "RaydiumAmmV4 swap base input instruction")?;
@@ -192,7 +171,7 @@ impl RaydiumAmmV4EventParser {
     fn parse_swap_base_output_instruction(
         data: &[u8],
         accounts: &[Pubkey],
-        metadata: crate::solana_metadata::SolanaEventMetadata,
+        metadata: SolanaEventMetadata,
     ) -> ParseResult<Box<dyn Event>> {
         validate_data_length(data, 16, "RaydiumAmmV4 swap base output instruction")?;
         validate_account_count(accounts, 17, "RaydiumAmmV4 swap base output instruction")?;
@@ -232,7 +211,7 @@ impl RaydiumAmmV4EventParser {
     fn parse_deposit_instruction(
         data: &[u8],
         accounts: &[Pubkey],
-        metadata: crate::solana_metadata::SolanaEventMetadata,
+        metadata: SolanaEventMetadata,
     ) -> ParseResult<Box<dyn Event>> {
         validate_data_length(data, 24, "RaydiumAmmV4 deposit instruction")?;
         validate_account_count(accounts, 13, "RaydiumAmmV4 deposit instruction")?;
@@ -273,7 +252,7 @@ impl RaydiumAmmV4EventParser {
     fn parse_initialize2_instruction(
         data: &[u8],
         accounts: &[Pubkey],
-        metadata: crate::solana_metadata::SolanaEventMetadata,
+        metadata: SolanaEventMetadata,
     ) -> ParseResult<Box<dyn Event>> {
         if data.len() < 25 {
             return Err(crate::error::ParseError::not_enough_bytes(
@@ -340,7 +319,7 @@ impl RaydiumAmmV4EventParser {
     fn parse_withdraw_instruction(
         data: &[u8],
         accounts: &[Pubkey],
-        metadata: crate::solana_metadata::SolanaEventMetadata,
+        metadata: SolanaEventMetadata,
     ) -> ParseResult<Box<dyn Event>> {
         if data.len() < 8 {
             return Err(crate::error::ParseError::not_enough_bytes(8, data.len(), 0));
@@ -393,7 +372,7 @@ impl RaydiumAmmV4EventParser {
     fn parse_withdraw_pnl_instruction(
         _data: &[u8],
         accounts: &[Pubkey],
-        metadata: crate::solana_metadata::SolanaEventMetadata,
+        metadata: SolanaEventMetadata,
     ) -> ParseResult<Box<dyn Event>> {
         if accounts.len() < 17 {
             return Err(crate::error::ParseError::invalid_account_index(
@@ -528,12 +507,13 @@ impl LegacyEventParser for RaydiumAmmV4EventParser {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::events::common::{EventType, ProtocolType};
+    use crate::events::parser_types::LegacyEventParser;
+    use crate::types::{EventType, ProtocolType};
     use solana_message::compiled_instruction::CompiledInstruction;
     use solana_transaction_status::UiCompiledInstruction;
     use std::str::FromStr;
 
-    fn create_test_metadata() -> crate::solana_metadata::SolanaEventMetadata {
+    fn create_test_metadata() -> SolanaEventMetadata {
         let core = crate::metadata_helpers::create_core_metadata(
             "test-signature-test-index".to_string(),
             riglr_events_core::EventKind::Transaction,
@@ -541,7 +521,7 @@ mod tests {
             Some(1640995200),
         );
 
-        crate::solana_metadata::SolanaEventMetadata::new(
+        SolanaEventMetadata::new(
             "test-signature-test-index".to_string(),
             100,
             EventType::RaydiumAmmV4SwapBaseIn,
