@@ -3,7 +3,7 @@
 //! This example demonstrates the client injection pattern where the application
 //! creates and injects the EVM client into the ApplicationContext.
 
-use alloy::providers::{Provider, ProviderBuilder};
+use alloy::providers::ProviderBuilder;
 use riglr_config::Config;
 use riglr_core::provider::ApplicationContext;
 use riglr_evm_tools::{
@@ -28,7 +28,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create and inject EVM provider for Ethereum mainnet
     let url = "https://eth.llamarpc.com".parse()?;
     let provider = ProviderBuilder::new().connect_http(url);
-    app_context.set_extension(Arc::new(provider) as Arc<dyn Provider>);
+    app_context.set_extension(Arc::new(provider));
 
     println!("Connected to Ethereum mainnet via injection pattern\n");
 
