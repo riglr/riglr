@@ -11,12 +11,12 @@
 //! The example uses riglr's SignerContext pattern for secure multi-tenant operation.
 
 use riglr_config::{Config, SolanaNetworkConfig};
-use riglr_core::signer::LocalSolanaSigner;
 use riglr_core::{provider::ApplicationContext, SignerContext};
 use riglr_cross_chain_tools::{
     estimate_bridge_fees, execute_cross_chain_bridge, get_bridge_status, get_cross_chain_routes,
     get_supported_chains,
 };
+use riglr_solana_tools::signer::LocalSolanaSigner;
 use solana_sdk::signer::keypair::Keypair;
 use std::sync::Arc;
 use tracing::{info, warn};
