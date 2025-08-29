@@ -37,7 +37,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Create and inject API clients for external services
     let api_clients = ApiClients::new(&config.providers);
-    app_context.set_extension(api_clients);
+    app_context.set_extension(Arc::new(api_clients));
 
     // Create ToolWorker with default configuration
     let worker =

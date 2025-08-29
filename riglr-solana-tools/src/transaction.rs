@@ -560,6 +560,23 @@ mod tests {
     use super::*;
     use riglr_core::ToolError;
     use std::str::FromStr;
+    use std::sync::Arc;
+
+    // Helper function to create a test context with ApiClients
+    fn create_test_context() -> riglr_core::provider::ApplicationContext {
+        // Load .env.test for test environment
+        dotenvy::from_filename(".env.test").ok();
+
+        let config = riglr_config::Config::from_env();
+        let context =
+            riglr_core::provider::ApplicationContext::from_config(&Arc::new(config.clone()));
+
+        // Create and inject ApiClients
+        let api_clients = crate::clients::ApiClients::new(&config.providers);
+        context.set_extension(Arc::new(api_clients));
+
+        context
+    }
 
     #[test]
     fn test_transaction_status_serialization() {
@@ -850,7 +867,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_transfer_sol_negative_amount() {
-        let context = riglr_core::provider::ApplicationContext::from_env();
+        let context = create_test_context();
         let result = transfer_sol(
             "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM".to_string(),
             -0.001,
@@ -870,7 +887,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_transfer_sol_zero_amount() {
-        let context = riglr_core::provider::ApplicationContext::from_env();
+        let context = create_test_context();
         let result = transfer_sol(
             "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM".to_string(),
             0.0,
@@ -890,7 +907,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_transfer_sol_invalid_address() {
-        let context = riglr_core::provider::ApplicationContext::from_env();
+        let context = create_test_context();
         let result = transfer_sol("invalid_address".to_string(), 0.001, None, None, &context).await;
 
         assert!(result.is_err());
@@ -903,7 +920,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_transfer_sol_empty_address() {
-        let context = riglr_core::provider::ApplicationContext::from_env();
+        let context = create_test_context();
         let result = transfer_sol("".to_string(), 0.001, None, None, &context).await;
 
         assert!(result.is_err());
@@ -916,7 +933,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_transfer_sol_very_large_amount() {
-        let context = riglr_core::provider::ApplicationContext::from_env();
+        let context = create_test_context();
         let result = transfer_sol(
             "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM".to_string(),
             f64::MAX,
@@ -936,7 +953,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_transfer_spl_token_invalid_recipient() {
-        let context = riglr_core::provider::ApplicationContext::from_env();
+        let context = create_test_context();
         let result = transfer_spl_token(
             "invalid_recipient".to_string(),
             "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v".to_string(),
@@ -957,7 +974,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_transfer_spl_token_invalid_mint() {
-        let context = riglr_core::provider::ApplicationContext::from_env();
+        let context = create_test_context();
         let result = transfer_spl_token(
             "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM".to_string(),
             "invalid_mint".to_string(),
@@ -978,7 +995,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_transfer_spl_token_empty_addresses() {
-        let context = riglr_core::provider::ApplicationContext::from_env();
+        let context = create_test_context();
         let result =
             transfer_spl_token("".to_string(), "".to_string(), 1000000, 6, false, &context).await;
 
@@ -992,7 +1009,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_transfer_spl_token_zero_amount() {
-        let context = riglr_core::provider::ApplicationContext::from_env();
+        let context = create_test_context();
         let result = transfer_spl_token(
             "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM".to_string(),
             "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v".to_string(),
@@ -1012,7 +1029,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_transfer_spl_token_max_amount() {
-        let context = riglr_core::provider::ApplicationContext::from_env();
+        let context = create_test_context();
         let result = transfer_spl_token(
             "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM".to_string(),
             "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v".to_string(),
@@ -1032,7 +1049,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_transfer_spl_token_max_decimals() {
-        let context = riglr_core::provider::ApplicationContext::from_env();
+        let context = create_test_context();
         let result = transfer_spl_token(
             "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM".to_string(),
             "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v".to_string(),
@@ -1052,7 +1069,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_create_spl_token_mint_invalid_decimals() {
-        let context = riglr_core::provider::ApplicationContext::from_env();
+        let context = create_test_context();
         let result = create_spl_token_mint(
             10, // Invalid: > 9
             1000000, true, &context,
@@ -1069,7 +1086,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_create_spl_token_mint_decimals_boundary_valid() {
-        let context = riglr_core::provider::ApplicationContext::from_env();
+        let context = create_test_context();
         // Test boundary values
         let result_0 = create_spl_token_mint(0, 1000000, true, &context).await;
         let result_9 = create_spl_token_mint(9, 1000000, false, &context).await;
@@ -1088,7 +1105,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_create_spl_token_mint_decimals_boundary_invalid() {
-        let context = riglr_core::provider::ApplicationContext::from_env();
+        let context = create_test_context();
         let result = create_spl_token_mint(
             255, // Much larger than 9
             0, false, &context,
@@ -1103,7 +1120,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_create_spl_token_mint_zero_initial_supply() {
-        let context = riglr_core::provider::ApplicationContext::from_env();
+        let context = create_test_context();
         let result = create_spl_token_mint(
             6, 0, // Zero initial supply should be valid
             true, &context,
@@ -1119,7 +1136,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_create_spl_token_mint_max_initial_supply() {
-        let context = riglr_core::provider::ApplicationContext::from_env();
+        let context = create_test_context();
         let result = create_spl_token_mint(9, u64::MAX, false, &context).await;
 
         // Should fail at signer context, not supply validation

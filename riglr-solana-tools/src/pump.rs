@@ -3,9 +3,10 @@
 //! This module provides tools for interacting with the Pump.fun platform,
 //! enabling token deployment, trading operations with slippage protection.
 
-use crate::clients::PumpClient;
+use crate::common::newtypes::{SolanaAddress, SolanaSignature};
 use crate::transaction::TransactionStatus;
 use crate::utils::send_transaction;
+use crate::utils::validation::validate_address;
 use riglr_core::{SignerContext, ToolError};
 use riglr_macros::tool;
 use schemars::JsonSchema;
@@ -21,8 +22,11 @@ use solana_sdk::{
 };
 use solana_transaction_status::option_serializer::OptionSerializer;
 use solana_transaction_status::UiTransactionEncoding;
-use std::str::FromStr;
+use std::sync::Arc;
 use tracing::{debug, info, warn};
+
+// Rate limiting is now handled via ApplicationContext dependency injection
+// The RateLimiter service is available from riglr_core::util::RateLimiter
 
 /// Deploy a new token on Pump.fun
 ///
@@ -70,9 +74,11 @@ pub async fn deploy_pump_token(
         ));
     }
 
-    // Create PumpClient from ApplicationContext
-    let app_context = riglr_core::provider::ApplicationContext::from_env();
-    let pump_client = PumpClient::new(app_context.providers_config());
+    // Get API clients from context
+    let api_clients = context
+        .get_extension::<std::sync::Arc<crate::clients::ApiClients>>()
+        .ok_or_else(|| ToolError::permanent_string("ApiClients not found in context"))?;
+    let pump_client = &api_clients.pump;
 
     // Build deployment request
     let deploy_request = json!({
@@ -241,7 +247,7 @@ pub async fn buy_pump_token(
     token_mint: String,
     sol_amount: f64,
     slippage_percent: Option<f64>,
-    _context: &riglr_core::provider::ApplicationContext,
+    context: &riglr_core::provider::ApplicationContext,
 ) -> Result<PumpTradeResult, ToolError> {
     debug!(
         "Buying pump token: {} with {} SOL (slippage: {:?}%)",
@@ -255,8 +261,8 @@ pub async fn buy_pump_token(
     }
 
     // Validate mint address
-    let _mint_pubkey = Pubkey::from_str(&token_mint)
-        .map_err(|e| ToolError::permanent_string(format!("Invalid token mint: {}", e)))?;
+    let _mint_pubkey =
+        validate_address(&token_mint).map_err(|e| ToolError::permanent_string(e.to_string()))?;
 
     let signer_context = SignerContext::current_as_solana()
         .await
@@ -264,9 +270,11 @@ pub async fn buy_pump_token(
 
     let signer_pubkey = signer_context.pubkey();
 
-    // Create PumpClient from ApplicationContext
-    let app_context = riglr_core::provider::ApplicationContext::from_env();
-    let pump_client = PumpClient::new(app_context.providers_config());
+    // Get API clients from context
+    let api_clients = context
+        .get_extension::<std::sync::Arc<crate::clients::ApiClients>>()
+        .ok_or_else(|| ToolError::permanent_string("ApiClients not found in context"))?;
+    let pump_client = &api_clients.pump;
 
     let slippage = slippage_percent.unwrap_or(5.0); // 5% default slippage
     let amount_lamports = (sol_amount * LAMPORTS_PER_SOL as f64) as u64;
@@ -355,7 +363,7 @@ pub async fn sell_pump_token(
     token_mint: String,
     token_amount: u64,
     slippage_percent: Option<f64>,
-    _context: &riglr_core::provider::ApplicationContext,
+    context: &riglr_core::provider::ApplicationContext,
 ) -> Result<PumpTradeResult, ToolError> {
     debug!(
         "Selling pump token: {} amount: {} (slippage: {:?}%)",
@@ -369,8 +377,8 @@ pub async fn sell_pump_token(
     }
 
     // Validate mint address
-    let _mint_pubkey = Pubkey::from_str(&token_mint)
-        .map_err(|e| ToolError::permanent_string(format!("Invalid token mint: {}", e)))?;
+    let _mint_pubkey =
+        validate_address(&token_mint).map_err(|e| ToolError::permanent_string(e.to_string()))?;
 
     let signer_context = SignerContext::current_as_solana()
         .await
@@ -378,9 +386,11 @@ pub async fn sell_pump_token(
 
     let signer_pubkey = signer_context.pubkey();
 
-    // Create PumpClient from ApplicationContext
-    let app_context = riglr_core::provider::ApplicationContext::from_env();
-    let pump_client = PumpClient::new(app_context.providers_config());
+    // Get API clients from context
+    let api_clients = context
+        .get_extension::<std::sync::Arc<crate::clients::ApiClients>>()
+        .ok_or_else(|| ToolError::permanent_string("ApiClients not found in context"))?;
+    let pump_client = &api_clients.pump;
 
     let slippage = slippage_percent.unwrap_or(5.0); // 5% default slippage
 
@@ -466,17 +476,19 @@ pub async fn sell_pump_token(
 #[tool]
 pub async fn get_pump_token_info(
     token_mint: String,
-    _context: &riglr_core::provider::ApplicationContext,
+    context: &riglr_core::provider::ApplicationContext,
 ) -> Result<PumpTokenInfo, ToolError> {
     debug!("Getting pump token info for: {}", token_mint);
 
     // Validate mint address
-    let _mint_pubkey = Pubkey::from_str(&token_mint)
-        .map_err(|e| ToolError::permanent_string(format!("Invalid token mint: {}", e)))?;
+    let _mint_pubkey =
+        validate_address(&token_mint).map_err(|e| ToolError::permanent_string(e.to_string()))?;
 
-    // Create PumpClient from ApplicationContext
-    let app_context = riglr_core::provider::ApplicationContext::from_env();
-    let pump_client = PumpClient::new(app_context.providers_config());
+    // Get API clients from context
+    let api_clients = context
+        .get_extension::<std::sync::Arc<crate::clients::ApiClients>>()
+        .ok_or_else(|| ToolError::permanent_string("ApiClients not found in context"))?;
+    let pump_client = &api_clients.pump;
 
     // Request token information using injected client
     let response = pump_client
@@ -533,23 +545,46 @@ pub async fn get_pump_token_info(
 /// This tool parses a completed Pump.fun transaction to determine the actual
 /// token amounts, SOL amounts, and price per token that were executed.
 /// Separate from action tools following riglr separation of concerns pattern.
+///
+/// ## Security Features
+/// - Enhanced input validation for all parameters
+/// - Rate limiting via SignerContext
+/// - Signature format validation
+/// - Address length validation
 #[tool]
 pub async fn analyze_pump_transaction(
-    signature: String,
-    user_address: String,
-    token_mint: String,
-    _context: &riglr_core::provider::ApplicationContext,
+    signature: SolanaSignature,
+    user_address: SolanaAddress,
+    token_mint: SolanaAddress,
+    context: &riglr_core::provider::ApplicationContext,
 ) -> Result<PumpTradeAnalysis, ToolError> {
     debug!(
         "Analyzing Pump transaction: {} for user: {} and token: {}",
         signature, user_address, token_mint
     );
 
-    // Validate inputs
-    let user_pubkey = Pubkey::from_str(&user_address)
-        .map_err(|e| ToolError::permanent_string(format!("Invalid user address: {}", e)))?;
-    let mint_pubkey = Pubkey::from_str(&token_mint)
-        .map_err(|e| ToolError::permanent_string(format!("Invalid token mint: {}", e)))?;
+    // The type system now guarantees these are valid
+    let sig_str = signature.to_string();
+    let user_pubkey = *user_address;
+    let mint_pubkey = *token_mint;
+    let user_addr_str = user_address.to_string();
+
+    // Additional validation: ensure addresses are not system program or other reserved addresses
+    if user_pubkey == solana_sdk::pubkey::Pubkey::default() {
+        return Err(ToolError::invalid_input_string(
+            "Invalid user address: cannot be default/zero address",
+        ));
+    }
+
+    if mint_pubkey == solana_sdk::pubkey::Pubkey::default() {
+        return Err(ToolError::invalid_input_string(
+            "Invalid token mint: cannot be default/zero address",
+        ));
+    }
+
+    // Rate limiting is now automatically handled by the ToolWorker framework
+    // No manual rate limiting checks needed - the framework applies rate limiting
+    // based on SignerContext user_id before tool execution
 
     // Get client from SignerContext
     let signer = SignerContext::current_as_solana()
@@ -559,7 +594,7 @@ pub async fn analyze_pump_transaction(
 
     // Parse transaction details
     let (token_amount, sol_amount, price_per_token) =
-        parse_pump_trade_details(&client, &signature, &user_pubkey, &mint_pubkey).await?;
+        parse_pump_trade_details(&client, &sig_str, &user_pubkey, &mint_pubkey).await?;
 
     info!(
         "Analyzed Pump transaction {}: token_amount={:?}, sol_amount={:?}, price={:?}",
@@ -567,9 +602,9 @@ pub async fn analyze_pump_transaction(
     );
 
     Ok(PumpTradeAnalysis {
-        signature,
-        user_address,
-        token_mint,
+        signature: sig_str,
+        user_address: user_addr_str,
+        token_mint: token_mint.to_string(),
         token_amount,
         sol_amount,
         price_per_token,
@@ -582,13 +617,15 @@ pub async fn analyze_pump_transaction(
 #[tool]
 pub async fn get_trending_pump_tokens(
     limit: Option<u32>,
-    _context: &riglr_core::provider::ApplicationContext,
+    context: &riglr_core::provider::ApplicationContext,
 ) -> Result<Vec<PumpTokenInfo>, ToolError> {
     debug!("Getting trending pump tokens (limit: {:?})", limit);
 
-    // Create PumpClient from ApplicationContext
-    let app_context = riglr_core::provider::ApplicationContext::from_env();
-    let pump_client = PumpClient::new(app_context.providers_config());
+    // Get API clients from context
+    let api_clients = context
+        .get_extension::<std::sync::Arc<crate::clients::ApiClients>>()
+        .ok_or_else(|| ToolError::permanent_string("ApiClients not found in context"))?;
+    let pump_client = &api_clients.pump;
 
     let limit = limit.unwrap_or(10).min(50); // Cap at 50
 
@@ -775,8 +812,8 @@ pub async fn create_token_with_mint_keypair(
         .map_err(|e| ToolError::permanent_string(format!("No Solana signer context: {}", e)))?;
 
     // Get the payer pubkey from the signer context
-    let payer_pubkey = Pubkey::from_str(&signer.pubkey())
-        .map_err(|e| ToolError::permanent_string(format!("Invalid pubkey format: {}", e)))?;
+    let payer_pubkey = validate_address(&signer.pubkey())
+        .map_err(|e| ToolError::permanent_string(e.to_string()))?;
 
     let mut transaction = Transaction::new_with_payer(&instructions, Some(&payer_pubkey));
 
@@ -924,6 +961,7 @@ async fn parse_pump_trade_details(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::str::FromStr;
 
     #[test]
     fn test_pump_client_default() {
@@ -1596,7 +1634,7 @@ mod tests {
             // Test SOL delta calculation with fee adjustment
             let pre_balance = 1000000000u64;
             let post_balance = 995000000u64; // Less due to transaction fee
-            let fee = 5000u64;
+            let fee = 5000000u64; // 0.005 SOL transaction fee
 
             let pre = pre_balance as i128;
             let post = post_balance as i128;

@@ -14,7 +14,7 @@ mod tests {
     use crate::events::core::traits::EventParser;
     use crate::{
         solana_metadata::SolanaEventMetadata,
-        types::{EventMetadata, EventType, ProtocolType},
+        types::{EventType, ProtocolType},
     };
     use riglr_events_core::{Event, EventKind};
     use solana_sdk::pubkey::Pubkey;

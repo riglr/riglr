@@ -16,7 +16,7 @@ mod tests {
         types::{EventType, ProtocolType},
     };
     use riglr_events_core::Event;
-    use solana_sdk::instruction::CompiledInstruction;
+    use solana_message::compiled_instruction::CompiledInstruction;
     use solana_sdk::pubkey::Pubkey;
     use solana_transaction_status::UiCompiledInstruction;
     use std::str::FromStr;

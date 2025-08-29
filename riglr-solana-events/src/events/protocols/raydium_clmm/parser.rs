@@ -200,7 +200,7 @@ impl RaydiumClmmEventParser {
         ));
 
         Ok(Box::new(RaydiumClmmSwapEvent {
-            metadata: metadata,
+            metadata,
             amount0: if is_base_input {
                 amount
             } else {
@@ -261,7 +261,7 @@ impl RaydiumClmmEventParser {
         ));
 
         Ok(Box::new(RaydiumClmmSwapV2Event {
-            metadata: metadata,
+            metadata,
             amount0: if is_base_input {
                 amount
             } else {
@@ -314,7 +314,7 @@ impl RaydiumClmmEventParser {
         ));
 
         Ok(Box::new(RaydiumClmmCreatePoolEvent {
-            metadata: metadata,
+            metadata,
             sqrt_price_x64,
             tick_current: Self::sqrt_price_to_tick(sqrt_price_x64), // Calculate from sqrt_price
             observation_index: 0,
@@ -347,7 +347,7 @@ impl RaydiumClmmEventParser {
         ));
 
         Ok(Box::new(RaydiumClmmOpenPositionV2Event {
-            metadata: metadata,
+            metadata,
             tick_lower_index: read_i32_le(data, 0).map_err(|_| {
                 crate::error::ParseError::InvalidDataFormat(
                     "Failed to read tick_lower_index".to_string(),
@@ -414,7 +414,7 @@ impl RaydiumClmmEventParser {
         metadata.set_id(format!("{}-{}-close", metadata.signature, accounts[1]));
 
         Ok(Box::new(RaydiumClmmClosePositionEvent {
-            metadata: metadata,
+            metadata,
             nft_owner: accounts[0],
             position_nft_mint: accounts[1],
             position_nft_account: accounts[2],
@@ -455,7 +455,7 @@ impl RaydiumClmmEventParser {
         ));
 
         Ok(Box::new(RaydiumClmmIncreaseLiquidityV2Event {
-            metadata: metadata,
+            metadata,
             liquidity,
             amount0_max,
             amount1_max,
@@ -496,7 +496,7 @@ impl RaydiumClmmEventParser {
         ));
 
         Ok(Box::new(RaydiumClmmDecreaseLiquidityV2Event {
-            metadata: metadata,
+            metadata,
             liquidity,
             amount0_min,
             amount1_min,
@@ -523,7 +523,7 @@ impl RaydiumClmmEventParser {
         ));
 
         Ok(Box::new(RaydiumClmmOpenPositionWithToken22NftEvent {
-            metadata: metadata,
+            metadata,
             tick_lower_index: read_i32_le(data, 0).map_err(|_| {
                 crate::error::ParseError::InvalidDataFormat(
                     "Failed to read tick_lower_index".to_string(),

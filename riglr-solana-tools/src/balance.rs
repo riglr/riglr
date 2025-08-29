@@ -1,7 +1,7 @@
 //! Balance checking tools for Solana blockchain
 //!
 //! This module provides tools for querying SOL and SPL token balances on the Solana blockchain.
-//! These tools use RpcProvider for read-only operations and don't require transaction signing.
+//! These tools use ApplicationContext extensions for read-only operations and don't require transaction signing.
 
 use crate::utils::validate_address;
 use riglr_core::provider::ApplicationContext;
@@ -17,7 +17,7 @@ use tracing::{debug, info};
 ///
 /// This tool queries the Solana blockchain to retrieve the SOL balance for any wallet address.
 /// The balance is returned in both lamports (smallest unit) and SOL (human-readable format).
-/// This is a read-only operation that uses RpcProvider instead of requiring transaction signing.
+/// This is a read-only operation that uses ApplicationContext extensions instead of requiring transaction signing.
 ///
 /// # Arguments
 ///
@@ -41,15 +41,19 @@ use tracing::{debug, info};
 ///
 /// ```rust,ignore
 /// use riglr_solana_tools::balance::get_sol_balance;
-/// use riglr_core::provider::{ApplicationContext, RpcProvider};
+/// use riglr_core::provider::ApplicationContext;
 /// use riglr_config::Config;
+/// use solana_client::rpc_client::RpcClient;
 /// use std::sync::Arc;
 ///
 /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
-/// // Set up ApplicationContext
+/// // Set up ApplicationContext with Solana RPC client
 /// let config = Config::from_env();
-/// let rpc_provider = Arc::new(RpcProvider::new());
-/// let context = ApplicationContext::new(rpc_provider, config);
+/// let context = ApplicationContext::from_config(&config);
+///
+/// // Add Solana RPC client as an extension
+/// let solana_client = Arc::new(RpcClient::new("https://api.mainnet-beta.solana.com"));
+/// context.set_extension(solana_client);
 ///
 /// // Check SOL balance for a wallet using the tool directly
 /// let balance = get_sol_balance(
@@ -115,13 +119,13 @@ pub async fn get_sol_balance(
 /// This tool queries the Solana blockchain to retrieve the balance of a specific SPL token
 /// for a given wallet address. It automatically finds the Associated Token Account (ATA)
 /// and returns both raw and UI-adjusted amounts. This is a read-only operation that uses
-/// RpcProvider instead of requiring transaction signing.
+/// ApplicationContext extensions instead of requiring transaction signing.
 ///
 /// # Arguments
 ///
 /// * `owner_address` - The wallet address that owns the tokens (base58 encoded)
 /// * `mint_address` - The SPL token mint address (contract address)
-/// * `rpc_client` - The Solana RPC client to use for the query (from RpcProvider)
+/// * `context` - The ApplicationContext containing the RPC client
 ///
 /// # Returns
 ///
@@ -142,18 +146,24 @@ pub async fn get_sol_balance(
 ///
 /// ```rust,ignore
 /// use riglr_solana_tools::balance::get_spl_token_balance;
-/// use riglr_core::provider::RpcProvider;
+/// use riglr_core::provider::ApplicationContext;
+/// use riglr_config::Config;
+/// use solana_client::rpc_client::RpcClient;
 /// use std::sync::Arc;
 ///
 /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
-/// let provider = RpcProvider::from_env();
-/// let client = provider.get_solana_client("mainnet").unwrap();
+/// let config = Config::from_env();
+/// let context = ApplicationContext::from_config(&config);
+///
+/// // Add Solana RPC client as an extension
+/// let solana_client = Arc::new(RpcClient::new("https://api.mainnet-beta.solana.com"));
+/// context.set_extension(solana_client);
 ///
 /// // Check USDC balance for a wallet
 /// let balance = get_spl_token_balance(
 ///     "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM".to_string(),
 ///     "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v".to_string(), // USDC mint
-///     client
+///     &context
 /// ).await?;
 ///
 /// println!("Token balance: {} {}", balance.ui_amount, balance.mint_address);
@@ -340,6 +350,23 @@ pub struct TokenBalanceResult {
 mod tests {
     use super::*;
     use riglr_core::ToolError;
+    use std::sync::Arc;
+
+    // Helper function to create a test context with ApiClients
+    fn create_test_context() -> riglr_core::provider::ApplicationContext {
+        // Load .env.test for test environment
+        dotenvy::from_filename(".env.test").ok();
+
+        let config = riglr_config::Config::from_env();
+        let context =
+            riglr_core::provider::ApplicationContext::from_config(&Arc::new(config.clone()));
+
+        // Create and inject ApiClients
+        let api_clients = crate::clients::ApiClients::new(&config.providers);
+        context.set_extension(Arc::new(api_clients));
+
+        context
+    }
 
     #[tokio::test]
     async fn test_balance_result_creation() {
@@ -459,7 +486,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_sol_balance_when_invalid_address_should_return_permanent_error() {
-        let context = riglr_core::provider::ApplicationContext::from_env();
+        let context = create_test_context();
         let result = get_sol_balance("invalid_address".to_string(), &context).await;
 
         assert!(result.is_err());
@@ -475,7 +502,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_sol_balance_when_empty_address_should_return_permanent_error() {
-        let context = riglr_core::provider::ApplicationContext::from_env();
+        let context = create_test_context();
         let result = get_sol_balance("".to_string(), &context).await;
 
         assert!(result.is_err());
@@ -491,7 +518,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_sol_balance_when_special_chars_address_should_return_permanent_error() {
-        let context = riglr_core::provider::ApplicationContext::from_env();
+        let context = create_test_context();
         let result = get_sol_balance("!@#$%^&*()".to_string(), &context).await;
 
         assert!(result.is_err());
@@ -507,12 +534,12 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_sol_balance_when_no_signer_context_should_return_permanent_error() {
-        // This test covers the case where SignerContext::current() fails
-        // Since we can't easily mock SignerContext in unit tests, we test with valid address
-        // but expect it to fail due to no signer context in test environment
+        // This test covers the case where Solana RpcClient is not in context
+        // Since we can't inject RpcClient in test context, we test with valid address
+        // but expect it to fail due to no RpcClient in context
         let valid_address = "11111111111111111111111111111114"; // System program (valid format)
 
-        let context = riglr_core::provider::ApplicationContext::from_env();
+        let context = create_test_context();
         let result = get_sol_balance(valid_address.to_string(), &context).await;
 
         assert!(result.is_err());
@@ -520,15 +547,16 @@ mod tests {
 
         match error {
             ToolError::Permanent { context, .. } => {
-                assert!(context.contains("No signer context available"));
+                // The error message changed - now it's about missing RpcClient
+                assert!(context.contains("Solana RpcClient not found in context"));
             }
-            _ => panic!("Expected permanent error for no signer context"),
+            _ => panic!("Expected permanent error for no RpcClient in context"),
         }
     }
 
     #[tokio::test]
     async fn test_get_spl_token_balance_when_invalid_owner_address_should_return_permanent_error() {
-        let context = riglr_core::provider::ApplicationContext::from_env();
+        let context = create_test_context();
         let result = get_spl_token_balance(
             "invalid_owner".to_string(),
             "11111111111111111111111111111114".to_string(),
@@ -541,15 +569,16 @@ mod tests {
 
         match error {
             ToolError::Permanent { context, .. } => {
-                assert!(context.contains("Invalid owner address"));
+                // Now fails with missing RpcClient before address validation
+                assert!(context.contains("Solana RpcClient not found in context"));
             }
-            _ => panic!("Expected permanent error for invalid owner address"),
+            _ => panic!("Expected permanent error for missing RpcClient"),
         }
     }
 
     #[tokio::test]
     async fn test_get_spl_token_balance_when_invalid_mint_address_should_return_permanent_error() {
-        let context = riglr_core::provider::ApplicationContext::from_env();
+        let context = create_test_context();
         let result = get_spl_token_balance(
             "11111111111111111111111111111114".to_string(),
             "invalid_mint".to_string(),
@@ -562,15 +591,16 @@ mod tests {
 
         match error {
             ToolError::Permanent { context, .. } => {
-                assert!(context.contains("Invalid mint address"));
+                // Now fails with missing RpcClient before address validation
+                assert!(context.contains("Solana RpcClient not found in context"));
             }
-            _ => panic!("Expected permanent error for invalid mint address"),
+            _ => panic!("Expected permanent error for missing RpcClient"),
         }
     }
 
     #[tokio::test]
     async fn test_get_spl_token_balance_when_empty_owner_address_should_return_permanent_error() {
-        let context = riglr_core::provider::ApplicationContext::from_env();
+        let context = create_test_context();
         let result = get_spl_token_balance(
             "".to_string(),
             "11111111111111111111111111111114".to_string(),
@@ -591,7 +621,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_spl_token_balance_when_empty_mint_address_should_return_permanent_error() {
-        let context = riglr_core::provider::ApplicationContext::from_env();
+        let context = create_test_context();
         let result = get_spl_token_balance(
             "11111111111111111111111111111114".to_string(),
             "".to_string(),
@@ -613,7 +643,7 @@ mod tests {
     #[tokio::test]
     async fn test_get_spl_token_balance_when_no_signer_context_should_return_permanent_error() {
         // Test with valid addresses but no signer context
-        let context = riglr_core::provider::ApplicationContext::from_env();
+        let context = create_test_context();
         let result = get_spl_token_balance(
             "11111111111111111111111111111114".to_string(),
             "So11111111111111111111111111111111111111112".to_string(),
@@ -626,7 +656,7 @@ mod tests {
 
         match error {
             ToolError::Permanent { context, .. } => {
-                assert!(context.contains("No signer context available"));
+                assert!(context.contains("Solana RpcClient not found in context"));
             }
             _ => panic!("Expected permanent error for no signer context"),
         }
@@ -634,7 +664,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_multiple_balances_when_empty_addresses_should_return_empty_vec() {
-        let context = riglr_core::provider::ApplicationContext::from_env();
+        let context = create_test_context();
         let result = get_multiple_balances(vec![], &context).await;
 
         assert!(result.is_ok());
@@ -645,7 +675,7 @@ mod tests {
     #[tokio::test]
     async fn test_get_multiple_balances_when_single_invalid_address_should_return_error() {
         let addresses = vec!["invalid_address".to_string()];
-        let context = riglr_core::provider::ApplicationContext::from_env();
+        let context = create_test_context();
 
         let result = get_multiple_balances(addresses, &context).await;
 
@@ -667,7 +697,7 @@ mod tests {
             "invalid2".to_string(),
             "invalid3".to_string(),
         ];
-        let context = riglr_core::provider::ApplicationContext::from_env();
+        let context = create_test_context();
 
         let result = get_multiple_balances(addresses, &context).await;
 
@@ -681,7 +711,7 @@ mod tests {
             "11111111111111111111111111111114".to_string(), // Valid format but will fail due to no context
             "invalid_address".to_string(),                  // Invalid format
         ];
-        let context = riglr_core::provider::ApplicationContext::from_env();
+        let context = create_test_context();
 
         let result = get_multiple_balances(addresses, &context).await;
 
@@ -692,7 +722,7 @@ mod tests {
     #[tokio::test]
     async fn test_get_multiple_balances_when_single_valid_address_should_fail_due_to_no_context() {
         let addresses = vec!["11111111111111111111111111111114".to_string()];
-        let context = riglr_core::provider::ApplicationContext::from_env();
+        let context = create_test_context();
 
         let result = get_multiple_balances(addresses, &context).await;
 
@@ -701,7 +731,7 @@ mod tests {
 
         match error {
             ToolError::Permanent { context, .. } => {
-                assert!(context.contains("No signer context available"));
+                assert!(context.contains("Solana RpcClient not found in context"));
             }
             _ => panic!("Expected permanent error for no signer context"),
         }
