@@ -735,7 +735,7 @@ async fn parse_exa_search_response(
         let id = r
             .get("id")
             .and_then(|v| v.as_str())
-            .unwrap_or_else(|| url.as_str())
+            .unwrap_or(url.as_str())
             .to_string();
         let description = r
             .get("description")

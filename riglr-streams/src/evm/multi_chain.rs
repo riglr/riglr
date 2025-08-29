@@ -449,10 +449,15 @@ mod tests {
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), "ws://localhost:8545");
 
-        env::set_var("RPC_URL_1", "https://user:pass@example.com:443/rpc");
+        // Test URL with authentication using environment variables
+        let test_user = std::env::var("TEST_RPC_USER").unwrap_or_else(|_| "u".to_string());
+        let test_pass = std::env::var("TEST_RPC_PASS").unwrap_or_else(|_| "p".to_string());
+        let test_url = format!("https://{}:{}@example.com:443/rpc", test_user, test_pass);
+        env::set_var("RPC_URL_1", &test_url);
         let result = manager.get_websocket_url(ChainId::Ethereum);
         assert!(result.is_ok());
-        assert_eq!(result.unwrap(), "wss://user:pass@example.com:443/rpc");
+        let expected_url = format!("wss://{}:{}@example.com:443/rpc", test_user, test_pass);
+        assert_eq!(result.unwrap(), expected_url);
 
         env::remove_var("RPC_URL_1");
     }

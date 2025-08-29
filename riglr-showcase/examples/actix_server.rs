@@ -32,8 +32,6 @@ use actix_web::{middleware::Logger, web, App, HttpRequest, HttpResponse, HttpSer
 #[cfg(feature = "web-server")]
 use rig::providers::anthropic;
 #[cfg(feature = "web-server")]
-use riglr_core::config::RpcConfig;
-#[cfg(feature = "web-server")]
 use riglr_core::util::get_required_env;
 #[cfg(feature = "web-server")]
 use riglr_showcase::auth::privy::PrivySignerFactory;
@@ -124,16 +122,12 @@ async fn main() -> std::io::Result<()> {
         .unwrap_or_else(|e| panic!("Failed to get PRIVY_APP_ID: {}", e));
     let privy_app_secret = get_required_env("PRIVY_APP_SECRET")
         .unwrap_or_else(|e| panic!("Failed to get PRIVY_APP_SECRET: {}", e));
-    let rpc_config = RpcConfig::default();
     let mut composite = CompositeSignerFactory::default();
     composite.add_factory(
         "privy".to_string(),
         std::sync::Arc::new(PrivySignerFactory::new(privy_app_id, privy_app_secret)),
     );
-    let adapter = std::sync::Arc::new(ActixRiglrAdapter::new(
-        std::sync::Arc::new(composite),
-        rpc_config,
-    ));
+    let adapter = std::sync::Arc::new(ActixRiglrAdapter::new(std::sync::Arc::new(composite)));
 
     tracing::info!("Actix adapter initialized with Privy authentication");
 

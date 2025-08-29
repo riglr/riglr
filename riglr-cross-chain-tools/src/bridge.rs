@@ -14,6 +14,9 @@ use riglr_macros::tool;
 use serde::{Deserialize, Serialize};
 use tracing::info;
 
+#[cfg(test)]
+use riglr_config::Config;
+
 const LIFI_API_KEY: &str = "LIFI_API_KEY";
 
 // ============================================================================
@@ -995,7 +998,7 @@ async fn execute_evm_bridge_transaction(
 ) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
     use alloy::primitives::{Bytes, U256};
     use alloy::rpc::types::TransactionRequest;
-    use riglr_core::util::parse_evm_address;
+    use riglr_evm_common::parse_evm_address;
     use std::str::FromStr;
 
     tracing::info!(
@@ -1174,7 +1177,8 @@ mod tests {
     #[tokio::test]
     async fn test_cross_chain_tools_require_signer_context() {
         // Test that tools fail without signer context
-        let context = riglr_core::provider::ApplicationContext::from_env();
+        let config = Config::from_env();
+        let context = riglr_core::provider::ApplicationContext::from_config(&config);
         let result = get_cross_chain_routes(
             &context,
             "ethereum".to_string(),
@@ -1551,7 +1555,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_execute_cross_chain_bridge_when_no_signer_context_should_fail() {
-        let context = riglr_core::provider::ApplicationContext::from_env();
+        let config = Config::from_env();
+        let context = riglr_core::provider::ApplicationContext::from_config(&config);
         let result = execute_cross_chain_bridge(
             &context,
             "route123".to_string(),
@@ -1569,7 +1574,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_bridge_status_when_no_bridge_found_should_return_appropriate_error() {
-        let context = riglr_core::provider::ApplicationContext::from_env();
+        let config = Config::from_env();
+        let context = riglr_core::provider::ApplicationContext::from_config(&config);
         let result = get_bridge_status(
             &context,
             "nonexistent-bridge".to_string(),
@@ -1583,7 +1589,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_estimate_bridge_fees_when_no_routes_should_fail() {
-        let context = riglr_core::provider::ApplicationContext::from_env();
+        let config = Config::from_env();
+        let context = riglr_core::provider::ApplicationContext::from_config(&config);
         let result = estimate_bridge_fees(
             &context,
             "ethereum".to_string(),
@@ -1600,7 +1607,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_supported_chains_when_no_connection_should_fail() {
-        let context = riglr_core::provider::ApplicationContext::from_env();
+        let config = Config::from_env();
+        let context = riglr_core::provider::ApplicationContext::from_config(&config);
         let result = get_supported_chains(&context).await;
 
         // This will fail because there's no real LiFi connection

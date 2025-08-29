@@ -687,6 +687,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::unnecessary_literal_unwrap)]
     fn test_event_result_type_alias() {
         // Test that EventResult type alias works correctly
         let success: EventResult<i32> = Ok(42);
