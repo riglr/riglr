@@ -341,6 +341,22 @@ impl ToolError {
     pub fn contains(&self, needle: &str) -> bool {
         self.to_string().contains(needle)
     }
+
+    /// Creates a retriable error from any error type.
+    pub fn retriable_from_error<E: std::error::Error + Send + Sync + 'static>(
+        source: E,
+        context: impl Into<String>,
+    ) -> Self {
+        Self::retriable_with_source(source, context)
+    }
+
+    /// Creates a permanent error from any error type.
+    pub fn permanent_from_error<E: std::error::Error + Send + Sync + 'static>(
+        source: E,
+        context: impl Into<String>,
+    ) -> Self {
+        Self::permanent_with_source(source, context)
+    }
 }
 
 impl std::fmt::Display for ToolError {
@@ -412,41 +428,30 @@ impl From<crate::signer::SignerError> for ToolError {
     }
 }
 
-// Common error conversions for tool usage
-impl From<anyhow::Error> for ToolError {
-    fn from(err: anyhow::Error) -> Self {
-        // anyhow::Error doesn't implement std::error::Error directly, use string conversion
-        Self::permanent_string(err.to_string())
-    }
-}
-
-/// Converts any boxed error into a `ToolError::Permanent`.
+/// # Error Classification: Explicit is Better
 ///
-/// ## Default Permanent Classification Rationale
+/// Generic `From` implementations for common error types like `anyhow::Error` and `String`
+/// have been intentionally removed. This is a deliberate design choice to enforce
+/// explicit error classification at the point of creation.
 ///
-/// By default, all unknown errors are classified as **Permanent** rather than Retriable.
-/// This conservative approach serves as a safety measure to prevent unexpected retry loops
-/// that could:
+/// Automatically classifying unknown errors as `Permanent` is a safe default but can hide
+/// bugs where transient, retriable errors are not handled correctly. By requiring
+/// explicit classification, developers are forced to make a conscious decision about
+/// the nature of the error.
 ///
-/// - Consume excessive resources through endless retries
-/// - Mask underlying issues that require immediate attention
-/// - Create cascading failures in production systems
-/// - Generate excessive load on external services
+/// ## Best Practices
 ///
-/// ## Developer Guidance
-///
-/// Developers should **explicitly classify** known error types using the appropriate
-/// ToolError constructors:
+/// Always use the explicit constructors to create `ToolError` instances:
 ///
 /// ```rust
 /// use riglr_core::ToolError;
 /// use std::io::Error as IoError;
 ///
-/// // ✅ Explicitly classify known transient errors as retriable
+/// // ✅ Explicitly classify known transient errors as retriable.
 /// let network_error = IoError::new(std::io::ErrorKind::TimedOut, "Connection timeout");
 /// let tool_error = ToolError::retriable_with_source(network_error, "API call failed");
 ///
-/// // ✅ Explicitly classify rate limiting errors
+/// // ✅ Explicitly classify rate limiting errors.
 /// let rate_limit_error = IoError::new(std::io::ErrorKind::Other, "Rate limited");
 /// let tool_error = ToolError::rate_limited_with_source(
 ///     rate_limit_error,
@@ -454,53 +459,22 @@ impl From<anyhow::Error> for ToolError {
 ///     Some(std::time::Duration::from_secs(60))
 /// );
 ///
-/// // ✅ Explicitly classify authentication/authorization errors as permanent
+/// // ✅ Explicitly classify user input errors.
+/// let input_error = IoError::new(std::io::ErrorKind::InvalidInput, "Bad address");
+/// let tool_error = ToolError::invalid_input_with_source(input_error, "Invalid address format");
+///
+/// // ✅ Explicitly classify all other unrecoverable errors as permanent.
 /// let auth_error = IoError::new(std::io::ErrorKind::PermissionDenied, "Invalid API key");
 /// let tool_error = ToolError::permanent_with_source(auth_error, "Authentication failed");
 /// ```
-///
-/// ## Best Practices
-///
-/// 1. **Catch and classify** specific error types in your tool implementations
-/// 2. **Use the `*_with_source` methods** to preserve error context and source chains
-/// 3. **Reserve Retriable classification** for errors you are confident can be resolved by retrying
-/// 4. **Use RateLimited** for errors with explicit backoff requirements
-/// 5. **Document your error classification decisions** in tool implementations
-///
-/// This default behavior ensures that unhandled errors fail fast rather than creating
-/// resource-intensive retry loops, maintaining system stability and performance.
-impl From<Box<dyn std::error::Error + Send + Sync>> for ToolError {
-    fn from(err: Box<dyn std::error::Error + Send + Sync>) -> Self {
-        let source_message = err.to_string();
-        tracing::warn!(
-            "Generic error converted to ToolError::Permanent. Consider adding specific error handling for: {}",
-            source_message
-        );
-        Self::Permanent {
-            source: Some(err.into()), // Convert Box to Arc
-            source_message,
-            context: "Generic error".to_string(),
-        }
-    }
-}
-
-impl From<String> for ToolError {
-    fn from(err: String) -> Self {
-        Self::permanent_string(err)
-    }
-}
-
 impl From<serde_json::Error> for ToolError {
     fn from(err: serde_json::Error) -> Self {
         Self::permanent_with_source(err, "JSON serialization/deserialization failed")
     }
 }
 
-impl From<&str> for ToolError {
-    fn from(err: &str) -> Self {
-        Self::permanent_string(err.to_string())
-    }
-}
+
+// Removed generic From<&str> implementation - use explicit error constructors instead
 
 #[cfg(test)]
 mod tests {
@@ -730,56 +704,56 @@ mod tests {
         assert_eq!(error.retry_after(), None);
     }
 
-    // Tests for From trait implementations
+    // Tests for explicit error constructors (replacing removed From implementations)
     #[test]
-    fn test_tool_error_from_anyhow_error() {
+    fn test_tool_error_explicit_anyhow_error() {
         let anyhow_error = anyhow::anyhow!("Something went wrong");
-        let tool_error = ToolError::from(anyhow_error);
+        let tool_error = ToolError::permanent_string(format!("An unknown error occurred: {}", anyhow_error));
         assert!(!tool_error.is_retriable());
         assert!(!tool_error.is_rate_limited());
-        assert!(tool_error.to_string().contains("Something went wrong"));
+        assert!(tool_error.to_string().contains("An unknown error occurred"));
     }
 
     #[test]
-    fn test_tool_error_from_boxed_error() {
-        let boxed_error: Box<dyn std::error::Error + Send + Sync> = Box::new(TestError);
-        let tool_error = ToolError::from(boxed_error);
+    fn test_tool_error_explicit_boxed_error() {
+        let test_error = TestError;
+        let tool_error = ToolError::permanent_with_source(test_error, "A required resource was not found");
         assert!(!tool_error.is_retriable());
         assert!(!tool_error.is_rate_limited());
         assert_eq!(tool_error.retry_after(), None);
         assert!(
-            matches!(tool_error, ToolError::Permanent { ref context, .. } if context == "Generic error")
+            matches!(tool_error, ToolError::Permanent { ref context, .. } if context == "A required resource was not found")
         );
     }
 
     #[test]
-    fn test_tool_error_from_string() {
+    fn test_tool_error_explicit_string() {
         let error_msg = "Database connection failed".to_string();
-        let tool_error = ToolError::from(error_msg.clone());
-        assert!(!tool_error.is_retriable());
+        let tool_error = ToolError::retriable_string(error_msg);
+        assert!(tool_error.is_retriable());
         assert!(!tool_error.is_rate_limited());
-        assert!(tool_error.to_string().contains(&error_msg));
+        assert!(tool_error.to_string().contains("Database connection failed"));
     }
 
     #[test]
-    fn test_tool_error_from_str_ref() {
+    fn test_tool_error_explicit_str_ref() {
         let error_msg = "Authentication token expired";
-        let tool_error = ToolError::from(error_msg);
+        let tool_error = ToolError::permanent_string(error_msg);
         assert!(!tool_error.is_retriable());
         assert!(!tool_error.is_rate_limited());
         assert!(tool_error.to_string().contains(error_msg));
     }
 
     #[test]
-    fn test_tool_error_from_empty_string() {
-        let tool_error = ToolError::from("");
+    fn test_tool_error_explicit_empty_string() {
+        let tool_error = ToolError::permanent_string("");
         assert!(!tool_error.is_retriable());
         assert!(!tool_error.is_rate_limited());
     }
 
     #[test]
-    fn test_tool_error_from_empty_str() {
-        let tool_error = ToolError::from("");
+    fn test_tool_error_explicit_empty_str() {
+        let tool_error = ToolError::permanent_string("");
         assert!(!tool_error.is_retriable());
         assert!(!tool_error.is_rate_limited());
     }

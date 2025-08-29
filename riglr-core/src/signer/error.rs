@@ -3,7 +3,6 @@
 //! This module defines all error conditions that can occur during signer operations,
 //! including context management, transaction signing, and blockchain interactions.
 
-use std::sync::Arc;
 use thiserror::Error;
 
 /// Error types for signer operations
@@ -13,9 +12,9 @@ pub enum SignerError {
     #[error("No signer context available - must be called within SignerContext::with_signer")]
     NoSignerContext,
 
-    /// Solana blockchain transaction error
-    #[error("Solana transaction error: {0}")]
-    SolanaTransaction(Arc<solana_client::client_error::ClientError>),
+    /// Blockchain transaction error (generic, preserves error as string)
+    #[error("Blockchain transaction error: {0}")]
+    BlockchainTransaction(String),
 
     /// EVM blockchain transaction error
     #[error("EVM transaction error: {0}")]
@@ -62,30 +61,12 @@ pub enum SignerError {
     InvalidRpcUrl(String),
 }
 
-// From implementations for converting Solana client errors to SignerError
-impl From<solana_client::client_error::ClientError> for SignerError {
-    fn from(err: solana_client::client_error::ClientError) -> Self {
-        SignerError::SolanaTransaction(Arc::new(err))
-    }
-}
-
-impl From<Box<solana_client::client_error::ClientError>> for SignerError {
-    fn from(err: Box<solana_client::client_error::ClientError>) -> Self {
-        SignerError::SolanaTransaction(Arc::from(err))
-    }
-}
-
-impl From<solana_sdk::signer::SignerError> for SignerError {
-    fn from(err: solana_sdk::signer::SignerError) -> Self {
-        SignerError::Signing(err.to_string())
-    }
-}
+// Note: Chain-specific From implementations have been moved to their respective
+// tools crates to maintain chain-agnostic nature of riglr-core
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use solana_client::client_error::{ClientError, ClientErrorKind};
-    use solana_client::rpc_request::RpcRequest;
 
     #[test]
     fn test_no_signer_context_error_display() {
@@ -97,16 +78,10 @@ mod tests {
     }
 
     #[test]
-    fn test_solana_transaction_error_display() {
-        let client_error = ClientError::new_with_request(
-            ClientErrorKind::Io(std::io::Error::new(
-                std::io::ErrorKind::ConnectionRefused,
-                "Connection refused",
-            )),
-            RpcRequest::GetAccountInfo,
-        );
-        let error = SignerError::SolanaTransaction(Arc::new(client_error));
-        assert!(error.to_string().contains("Solana transaction error:"));
+    fn test_blockchain_transaction_error_display() {
+        let error = SignerError::BlockchainTransaction("Connection refused".to_string());
+        assert!(error.to_string().contains("Blockchain transaction error:"));
+        assert!(error.to_string().contains("Connection refused"));
     }
 
     #[test]
@@ -190,32 +165,7 @@ mod tests {
         assert_eq!(error.to_string(), "Invalid RPC URL: malformed://url");
     }
 
-    #[test]
-    fn test_from_solana_signer_error() {
-        let solana_error =
-            solana_sdk::signer::SignerError::Custom("Custom signing error".to_string());
-        let signer_error: SignerError = solana_error.into();
-
-        match signer_error {
-            SignerError::Signing(msg) => {
-                assert!(msg.contains("Custom signing error"));
-            }
-            _ => panic!("Expected SignerError::Signing variant"),
-        }
-    }
-
-    #[test]
-    fn test_from_solana_signer_error_keypair_type() {
-        let solana_error = solana_sdk::signer::SignerError::Custom("keypair not found".to_string());
-        let signer_error: SignerError = solana_error.into();
-
-        match signer_error {
-            SignerError::Signing(msg) => {
-                assert!(msg.contains("keypair not found"));
-            }
-            _ => panic!("Expected SignerError::Signing variant"),
-        }
-    }
+    // Chain-specific From trait tests have been moved to their respective tools crates
 
     #[test]
     fn test_error_variants_are_debug() {
@@ -248,19 +198,13 @@ mod tests {
     }
 
     #[test]
-    fn test_solana_transaction_error_from_conversion() {
-        let io_error = std::io::Error::new(std::io::ErrorKind::TimedOut, "Request timed out");
-        let client_error = ClientError::new_with_request(
-            ClientErrorKind::Io(io_error),
-            RpcRequest::GetAccountInfo,
-        );
-        let signer_error: SignerError = client_error.into();
-
-        match signer_error {
-            SignerError::SolanaTransaction(_) => {
-                // Success - the From trait worked correctly
+    fn test_blockchain_transaction_error_creation() {
+        let error = SignerError::BlockchainTransaction("Request timed out".to_string());
+        match error {
+            SignerError::BlockchainTransaction(msg) => {
+                assert_eq!(msg, "Request timed out");
             }
-            _ => panic!("Expected SignerError::SolanaTransaction variant"),
+            _ => panic!("Expected SignerError::BlockchainTransaction variant"),
         }
     }
 

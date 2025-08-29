@@ -45,7 +45,6 @@ mod test_env_vars {
     }
 }
 
-
 /// Network configuration
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct NetworkConfig {
@@ -167,6 +166,18 @@ pub struct ChainContract {
     #[serde(default)]
     pub balancer_vault: Option<String>,
 
+    /// QuickSwap router address (Polygon-specific)
+    #[serde(default)]
+    pub quickswap_router: Option<String>,
+
+    /// GMX router address (Arbitrum-specific)
+    #[serde(default)]
+    pub gmx_router: Option<String>,
+
+    /// MakerDAO DAI token address
+    #[serde(default)]
+    pub maker_dai: Option<String>,
+
     /// Additional custom contracts
     #[serde(default)]
     pub custom: HashMap<String, String>,
@@ -188,13 +199,63 @@ pub struct NetworkTimeouts {
     pub http_timeout_secs: u64,
 }
 
+/// Resolve network name aliases to chain IDs
+fn resolve_network_name(name: &str) -> Option<u64> {
+    match name.to_lowercase().as_str() {
+        // Ethereum networks
+        "ethereum" | "mainnet" | "eth" => Some(1),
+        "goerli" => Some(5),
+        "sepolia" => Some(11155111),
+
+        // Layer 2 networks
+        "optimism" | "op" => Some(10),
+        "arbitrum" | "arb" => Some(42161),
+        "arbitrum_goerli" => Some(421613),
+        "base" => Some(8453),
+        "base_goerli" => Some(84531),
+
+        // Other EVM chains
+        "polygon" | "matic" => Some(137),
+        "polygon_mumbai" | "mumbai" => Some(80001),
+        "bsc" | "binance" | "bnb" => Some(56),
+        "bsc_testnet" => Some(97),
+        "avalanche" | "avax" => Some(43114),
+        "avalanche_fuji" | "fuji" => Some(43113),
+        "fantom" | "ftm" => Some(250),
+        "fantom_testnet" => Some(4002),
+        "gnosis" | "xdai" => Some(100),
+        "celo" => Some(42220),
+        "moonbeam" => Some(1284),
+        "moonriver" => Some(1285),
+        "aurora" => Some(1313161554),
+        "harmony" => Some(1666600000),
+        "metis" => Some(1088),
+        "cronos" => Some(25),
+        "kava" => Some(2222),
+        "scroll" => Some(534352),
+        "scroll_sepolia" => Some(534351),
+        "zksync" | "zksync_era" => Some(324),
+        "zksync_testnet" => Some(280),
+        "linea" => Some(59144),
+        "linea_goerli" => Some(59140),
+        "mantle" => Some(5000),
+        "mantle_testnet" => Some(5001),
+
+        _ => None,
+    }
+}
+
 impl NetworkConfig {
-    /// Extract RPC URLs from environment using RPC_URL_{CHAIN_ID} convention
+    /// Extract RPC URLs from environment using RPC_URL_{CHAIN_ID} or RPC_URL_{NETWORK_NAME} convention
     pub fn extract_rpc_urls(&mut self) {
         for (key, value) in std::env::vars() {
-            if let Some(chain_id_str) = key.strip_prefix("RPC_URL_") {
-                if chain_id_str.parse::<u64>().is_ok() {
-                    self.rpc_urls.insert(chain_id_str.to_string(), value);
+            if let Some(chain_identifier) = key.strip_prefix("RPC_URL_") {
+                // First try to parse as a numeric chain ID
+                if let Ok(chain_id) = chain_identifier.parse::<u64>() {
+                    self.rpc_urls.insert(chain_id.to_string(), value);
+                } else if let Some(chain_id) = resolve_network_name(chain_identifier) {
+                    // If not numeric, try to resolve as a network name
+                    self.rpc_urls.insert(chain_id.to_string(), value);
                 }
             }
         }
@@ -277,6 +338,15 @@ impl NetworkConfig {
             if let Ok(balancer_vault) = std::env::var(format!("BALANCER_VAULT_{}", chain.id)) {
                 chain.contracts.balancer_vault = Some(balancer_vault);
             }
+            if let Ok(quickswap_router) = std::env::var(format!("QUICKSWAP_ROUTER_{}", chain.id)) {
+                chain.contracts.quickswap_router = Some(quickswap_router);
+            }
+            if let Ok(gmx_router) = std::env::var(format!("GMX_ROUTER_{}", chain.id)) {
+                chain.contracts.gmx_router = Some(gmx_router);
+            }
+            if let Ok(maker_dai) = std::env::var(format!("MAKER_DAI_{}", chain.id)) {
+                chain.contracts.maker_dai = Some(maker_dai);
+            }
 
             self.chains.insert(chain.id, chain);
         }
@@ -284,8 +354,19 @@ impl NetworkConfig {
         Ok(())
     }
 
-    /// Get RPC URL for a specific chain ID
-    pub fn get_rpc_url(&self, chain_id: u64) -> Option<String> {
+    /// Get RPC URL for a specific chain ID or network name
+    pub fn get_rpc_url(&self, chain_identifier: &str) -> Option<String> {
+        // First try to parse as a numeric chain ID
+        let chain_id = if let Ok(id) = chain_identifier.parse::<u64>() {
+            id
+        } else if let Some(id) = resolve_network_name(chain_identifier) {
+            // If not numeric, try to resolve as a network name
+            id
+        } else {
+            // Unknown identifier
+            return None;
+        };
+
         // First check chain-specific config
         if let Some(chain) = self.chains.get(&chain_id) {
             if let Some(ref url) = chain.rpc_url {
@@ -295,6 +376,11 @@ impl NetworkConfig {
 
         // Then check dynamic RPC URLs
         self.rpc_urls.get(&chain_id.to_string()).cloned()
+    }
+
+    /// Get RPC URL for a specific numeric chain ID (backward compatibility)
+    pub fn get_rpc_url_by_id(&self, chain_id: u64) -> Option<String> {
+        self.get_rpc_url(&chain_id.to_string())
     }
 
     /// Get chain configuration
@@ -410,6 +496,15 @@ impl NetworkConfig {
                 }
                 if let Some(ref addr) = chain.contracts.balancer_vault {
                     validator.validate(addr, "balancer_vault")?;
+                }
+                if let Some(ref addr) = chain.contracts.quickswap_router {
+                    validator.validate(addr, "quickswap_router")?;
+                }
+                if let Some(ref addr) = chain.contracts.gmx_router {
+                    validator.validate(addr, "gmx_router")?;
+                }
+                if let Some(ref addr) = chain.contracts.maker_dai {
+                    validator.validate(addr, "maker_dai")?;
                 }
             }
         }
@@ -560,6 +655,12 @@ struct ChainFromToml {
     #[serde(default)]
     balancer_vault: Option<String>,
     #[serde(default)]
+    quickswap_router: Option<String>,
+    #[serde(default)]
+    gmx_router: Option<String>,
+    #[serde(default)]
+    maker_dai: Option<String>,
+    #[serde(default)]
     explorer_url: Option<String>,
     #[serde(default)]
     native_token: Option<String>,
@@ -589,6 +690,9 @@ impl From<ChainFromToml> for ChainConfig {
                 curve_registry: toml.curve_registry,
                 oneinch_aggregation_router: toml.oneinch_aggregation_router,
                 balancer_vault: toml.balancer_vault,
+                quickswap_router: toml.quickswap_router,
+                gmx_router: toml.gmx_router,
+                maker_dai: toml.maker_dai,
                 custom: HashMap::new(),
             },
             explorer_url: toml.explorer_url,
@@ -736,6 +840,9 @@ is_testnet = false
             curve_registry: None,
             oneinch_aggregation_router: None,
             balancer_vault: None,
+            quickswap_router: None,
+            gmx_router: None,
+            maker_dai: None,
             explorer_url: Some("https://etherscan.io".to_string()),
             native_token: Some("ETH".to_string()),
             is_testnet: false,
@@ -781,6 +888,9 @@ is_testnet = false
             curve_registry: None,
             oneinch_aggregation_router: None,
             balancer_vault: None,
+            quickswap_router: None,
+            gmx_router: None,
+            maker_dai: None,
             explorer_url: None,
             native_token: None,
             is_testnet: true,
@@ -859,7 +969,7 @@ is_testnet = false
         config.chains.insert(1, chain_config);
 
         assert_eq!(
-            config.get_rpc_url(1),
+            config.get_rpc_url("1"),
             Some("https://custom-rpc.com".to_string())
         );
     }
@@ -872,7 +982,7 @@ is_testnet = false
             .insert("137".to_string(), "https://polygon-rpc.com".to_string());
 
         assert_eq!(
-            config.get_rpc_url(137),
+            config.get_rpc_url("137"),
             Some("https://polygon-rpc.com".to_string())
         );
     }
@@ -897,7 +1007,7 @@ is_testnet = false
         config.chains.insert(1, chain_config);
 
         assert_eq!(
-            config.get_rpc_url(1),
+            config.get_rpc_url("1"),
             Some("https://priority-rpc.com".to_string())
         );
     }
@@ -905,7 +1015,7 @@ is_testnet = false
     #[test]
     fn test_get_rpc_url_not_found() {
         let config = NetworkConfig::default();
-        assert_eq!(config.get_rpc_url(999), None);
+        assert_eq!(config.get_rpc_url("999"), None);
     }
 
     #[test]
@@ -928,7 +1038,7 @@ is_testnet = false
         config.chains.insert(1, chain_config);
 
         assert_eq!(
-            config.get_rpc_url(1),
+            config.get_rpc_url("1"),
             Some("https://fallback-rpc.com".to_string())
         );
     }

@@ -1,78 +1,163 @@
-//! Granular signer traits for better separation of concerns
+//! Chain-agnostic signer traits for multi-blockchain support
 //!
-//! This module provides more specific traits that can be composed
-//! to create signers for different blockchain architectures.
+//! This module provides a hierarchy of traits that enable riglr-core to remain
+//! blockchain-agnostic while supporting multiple chain implementations. The traits
+//! use serialization and type erasure to avoid direct dependencies on blockchain SDKs.
+//!
+//! # Architecture
+//!
+//! The trait hierarchy follows a composition pattern:
+//! - `SignerBase`: Common functionality for all signers
+//! - `SolanaSigner`: Solana-specific operations
+//! - `EvmSigner`: EVM-compatible chain operations
+//! - `MultiChainSigner`: Unified interface for multi-chain support
+//!
+//! # Chain-Agnostic Design
+//!
+//! To maintain chain-agnosticism:
+//! - Transactions are passed as serialized bytes (Solana) or JSON (EVM)
+//! - Clients are exposed as `Arc<dyn Any>` for type erasure
+//! - Concrete implementations live in chain-specific crates
 
 use super::error::SignerError;
-use alloy::rpc::types::TransactionRequest;
 use async_trait::async_trait;
-use solana_sdk::transaction::Transaction;
 use std::any::Any;
 use std::sync::Arc;
 
-/// Base trait for all signers providing common metadata and type erasure
+/// Base trait for all signers providing common metadata and type erasure.
+///
+/// This trait provides the foundation for all signer implementations,
+/// enabling multi-tenant support and runtime type identification.
 pub trait SignerBase: Send + Sync + std::fmt::Debug + Any {
-    /// User locale for localized responses
+    /// Returns the user's locale for localized error messages and responses.
+    ///
+    /// Defaults to "en" for English.
     fn locale(&self) -> String {
         "en".to_string()
     }
 
-    /// Optional user identifier for multi-tenant scenarios
+    /// Returns an optional user identifier for multi-tenant scenarios.
+    ///
+    /// This is used to isolate operations between different users
+    /// in a shared application context.
     fn user_id(&self) -> Option<String> {
         None
     }
 
-    /// Get this signer as Any for downcasting
+    /// Returns a reference to self as `Any` for downcasting to concrete types.
+    ///
+    /// This enables runtime type checking and casting when needed.
     fn as_any(&self) -> &dyn Any;
 }
 
-/// Trait for Solana-specific signing capabilities
+/// Trait for Solana blockchain signing capabilities.
+///
+/// Implementations of this trait handle Solana-specific operations
+/// without exposing Solana SDK types to riglr-core.
+///
+/// # Chain-Agnostic Design
+///
+/// Transactions are passed as serialized byte arrays using bincode,
+/// avoiding direct dependency on solana-sdk types.
 #[async_trait]
 pub trait SolanaSigner: SignerBase {
-    /// Solana wallet address (base58 encoded)
+    /// Returns the Solana wallet address in base58 encoding.
     fn address(&self) -> String;
 
-    /// Solana public key string (base58 encoded)
+    /// Returns the Solana public key in base58 encoding.
     fn pubkey(&self) -> String;
 
-    /// Sign and send a Solana transaction
-    async fn sign_and_send_transaction(&self, tx: &mut Transaction) -> Result<String, SignerError>;
+    /// Signs and sends a Solana transaction to the network.
+    ///
+    /// # Parameters
+    /// * `tx` - Mutable byte array containing a bincode-serialized Solana transaction
+    ///
+    /// # Returns
+    /// * `Ok(String)` - Transaction signature on success
+    /// * `Err(SignerError)` - Error details on failure
+    ///
+    /// # Implementation Notes
+    /// Implementations should deserialize the bytes, sign the transaction,
+    /// and submit it to the Solana network.
+    async fn sign_and_send_transaction(&self, tx: &mut Vec<u8>) -> Result<String, SignerError>;
 
-    /// Sign and send a Solana transaction with retry logic
-    async fn sign_and_send_with_retry(&self, tx: &mut Transaction) -> Result<String, SignerError> {
+    /// Signs and sends a transaction with automatic retry on transient failures.
+    ///
+    /// Default implementation delegates to `sign_and_send_transaction`.
+    /// Override for custom retry logic.
+    async fn sign_and_send_with_retry(&self, tx: &mut Vec<u8>) -> Result<String, SignerError> {
         // Default implementation just calls the regular method
         self.sign_and_send_transaction(tx).await
     }
 
-    /// Get Solana RPC client
-    fn client(&self) -> Arc<solana_client::rpc_client::RpcClient>;
+    /// Returns the underlying Solana RPC client as a type-erased trait object.
+    ///
+    /// The client should be downcast to the appropriate type
+    /// (e.g., `solana_client::rpc_client::RpcClient`) by the caller.
+    fn client(&self) -> Arc<dyn std::any::Any + Send + Sync>;
 }
 
-/// Trait for EVM-specific signing capabilities
+/// Trait for EVM-compatible blockchain signing capabilities.
+///
+/// Implementations of this trait handle operations for Ethereum
+/// and EVM-compatible chains (Polygon, Arbitrum, Optimism, etc.)
+/// without exposing alloy or ethers types to riglr-core.
+///
+/// # Chain-Agnostic Design
+///
+/// Transactions are passed as JSON values to avoid dependency on
+/// specific Ethereum libraries (alloy, ethers-rs, etc.).
 #[async_trait]
 pub trait EvmSigner: SignerBase {
-    /// EVM chain ID for this signer
+    /// Returns the EVM chain ID this signer is configured for.
+    ///
+    /// Common chain IDs:
+    /// - 1: Ethereum Mainnet
+    /// - 137: Polygon
+    /// - 42161: Arbitrum One
+    /// - 10: Optimism
     fn chain_id(&self) -> u64;
 
-    /// EVM wallet address (0x prefixed hex string)
+    /// Returns the EVM wallet address in checksummed hex format.
+    ///
+    /// The address should be 0x-prefixed and follow EIP-55 checksum encoding.
     fn address(&self) -> String;
 
-    /// Sign and send an EVM transaction
-    async fn sign_and_send_transaction(
-        &self,
-        tx: TransactionRequest,
-    ) -> Result<String, SignerError>;
+    /// Signs and sends an EVM transaction to the network.
+    ///
+    /// # Parameters
+    /// * `tx` - JSON object representing the transaction request
+    ///
+    /// # Returns
+    /// * `Ok(String)` - Transaction hash (0x-prefixed) on success
+    /// * `Err(SignerError)` - Error details on failure
+    ///
+    /// # Transaction Format
+    /// The JSON should conform to the standard Ethereum transaction format:
+    /// ```json
+    /// {
+    ///   "to": "0x...",
+    ///   "value": "0x...",
+    ///   "data": "0x...",
+    ///   "gas": "0x...",
+    ///   "gasPrice": "0x..." // or maxFeePerGas/maxPriorityFeePerGas for EIP-1559
+    /// }
+    /// ```
+    async fn sign_and_send_transaction(&self, tx: serde_json::Value)
+        -> Result<String, SignerError>;
 
-    /// Sign and send an EVM transaction with retry logic
-    async fn sign_and_send_with_retry(
-        &self,
-        tx: TransactionRequest,
-    ) -> Result<String, SignerError> {
+    /// Signs and sends a transaction with automatic retry on transient failures.
+    ///
+    /// Default implementation delegates to `sign_and_send_transaction`.
+    /// Override for custom retry logic with exponential backoff.
+    async fn sign_and_send_with_retry(&self, tx: serde_json::Value) -> Result<String, SignerError> {
         // Default implementation just calls the regular method
         self.sign_and_send_transaction(tx).await
     }
 
-    /// Get EVM RPC client
+    /// Returns the underlying EVM RPC client.
+    ///
+    /// The client trait provides chain-agnostic EVM operations.
     fn client(&self) -> Result<Arc<dyn super::traits::EvmClient>, SignerError>;
 }
 

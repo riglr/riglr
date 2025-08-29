@@ -114,37 +114,36 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Example 4: Error conversion patterns
     println!("\n📋 4. Error Conversion Examples\n");
 
-    // From anyhow::Error
+    // From anyhow::Error (now requires explicit classification)
     let anyhow_error = anyhow::anyhow!("Something went wrong");
-    let converted_anyhow: ToolError = anyhow_error.into();
+    let converted_anyhow = ToolError::permanent_string(format!("An unknown error occurred: {}", anyhow_error));
     println!(
         "🔀 From anyhow: {} (retriable: {})",
         converted_anyhow,
         converted_anyhow.is_retriable()
     );
 
-    // From String
+    // From String (now requires explicit classification)
     let string_error = "Database connection failed".to_string();
-    let converted_string: ToolError = string_error.into();
+    let converted_string = ToolError::retriable_string(string_error); // Assuming this is retriable
     println!(
         "🔀 From String: {} (retriable: {})",
         converted_string,
         converted_string.is_retriable()
     );
 
-    // From &str
+    // From &str (now requires explicit classification)
     let str_error = "Configuration file not found";
-    let converted_str: ToolError = str_error.into();
+    let converted_str = ToolError::permanent_string(str_error); // This is a permanent config issue
     println!(
         "🔀 From &str: {} (retriable: {})",
         converted_str,
         converted_str.is_retriable()
     );
 
-    // From Box<dyn Error>
-    let boxed_error: Box<dyn std::error::Error + Send + Sync> =
-        Box::new(io::Error::new(io::ErrorKind::NotFound, "File not found"));
-    let converted_boxed: ToolError = boxed_error.into();
+    // From Box<dyn Error> (now requires explicit classification)
+    let io_error = io::Error::new(io::ErrorKind::NotFound, "File not found");
+    let converted_boxed = ToolError::permanent_with_source(io_error, "A required file was not found");
     println!(
         "🔀 From Box<Error>: {} (retriable: {})",
         converted_boxed,

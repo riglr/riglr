@@ -24,7 +24,7 @@
 //! println!("Environment: {:?}", config.app.environment);
 //!
 //! // Get RPC URL for a specific chain
-//! if let Some(rpc_url) = config.network.get_rpc_url(1) {
+//! if let Some(rpc_url) = config.network.get_rpc_url("1") {
 //!     println!("Ethereum RPC: {}", rpc_url);
 //! }
 //! ```

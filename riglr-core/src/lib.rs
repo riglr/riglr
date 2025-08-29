@@ -1,14 +1,19 @@
 //! # riglr-core
 //!
-//! The foundational crate for the riglr ecosystem, providing core abstractions for
-//! multi-chain tool orchestration and execution within the rig framework.
+//! Chain-agnostic foundation for the riglr ecosystem, providing core abstractions
+//! for multi-blockchain tool orchestration without SDK dependencies.
 //!
-//! This crate provides the foundational components for building resilient AI agents,
-//! including job queues, execution engines, and core data structures.
+//! ## Design Philosophy
+//!
+//! riglr-core maintains strict chain-agnosticism through:
+//! - **Type Erasure**: Blockchain clients stored as `Arc<dyn Any>`
+//! - **Serialization Boundaries**: Transactions passed as bytes/JSON
+//! - **Dependency Injection**: ApplicationContext pattern for runtime injection
+//! - **Unidirectional Flow**: Tools depend on core, never the reverse
 //!
 //! ## Architecture Overview
 //!
-//! The riglr-core crate provides three main components:
+//! The riglr-core crate provides three main architectural patterns:
 //!
 //! ### 1. Unified Tool Architecture with ApplicationContext
 //!
@@ -26,8 +31,9 @@
 //!     context: &ApplicationContext,
 //! ) -> Result<serde_json::Value, ToolError> {
 //!     // Access RPC client from context
-//!     let rpc_client = context.get_extension::<Arc<solana_client::rpc_client::RpcClient>>()
-//!         .ok_or_else(|| ToolError::permanent_string("RPC client not available"))?;
+//!     // In practice, use concrete types from blockchain SDKs:
+//!     // let rpc_client = context.get_extension::<Arc<MyRpcClient>>()
+//!     //     .ok_or_else(|| ToolError::permanent_string("RPC client not available"))?;
 //!
 //!     // Access configuration
 //!     let config = &context.config;
@@ -154,8 +160,9 @@
 //!     address: String,
 //!     context: &ApplicationContext,
 //! ) -> Result<serde_json::Value, ToolError> {
-//!     let rpc_client = context.get_extension::<Arc<solana_client::rpc_client::RpcClient>>()
-//!         .ok_or_else(|| ToolError::permanent_string("RPC client not available"))?;
+//!     // In practice, use concrete RPC client types from blockchain SDKs:
+//!     // let rpc_client = context.get_extension::<Arc<MyRpcClient>>()
+//!     //     .ok_or_else(|| ToolError::permanent_string("RPC client not available"))?;
 //!     
 //!     // Query balance using RPC client
 //!     // ...
@@ -273,7 +280,7 @@ mod tests {
             _context: &crate::provider::ApplicationContext,
         ) -> Result<JobResult, ToolError> {
             if self.should_fail {
-                return Err("Mock tool failure".into());
+                return Err(ToolError::permanent_string("Mock tool failure"));
             }
 
             let message = params["message"].as_str().unwrap_or("Hello");
@@ -419,15 +426,15 @@ mod tests {
     #[test]
     fn test_error_conversions() {
         let anyhow_error = anyhow::anyhow!("Test error");
-        let tool_error: ToolError = anyhow_error.into();
+        let tool_error: ToolError = ToolError::permanent_string(anyhow_error.to_string());
         assert!(!tool_error.is_retriable());
 
         let string_error = "Test string error".to_string();
-        let tool_error: ToolError = string_error.into();
+        let tool_error: ToolError = ToolError::permanent_string(string_error);
         assert!(!tool_error.is_retriable());
 
         let str_error = "Test str error";
-        let tool_error: ToolError = str_error.into();
+        let tool_error: ToolError = ToolError::permanent_string(str_error);
         assert!(!tool_error.is_retriable());
     }
 
@@ -611,7 +618,7 @@ mod tests {
     #[test]
     fn test_tool_error_from_anyhow() {
         let anyhow_error = anyhow::anyhow!("Test anyhow error");
-        let tool_error: ToolError = anyhow_error.into();
+        let tool_error: ToolError = ToolError::permanent_string(anyhow_error.to_string());
         assert!(!tool_error.is_retriable());
         assert!(!tool_error.is_rate_limited());
     }
@@ -619,7 +626,7 @@ mod tests {
     #[test]
     fn test_tool_error_from_str() {
         let str_error = "Test str error";
-        let tool_error: ToolError = str_error.into();
+        let tool_error: ToolError = ToolError::permanent_string(str_error);
         assert!(!tool_error.is_retriable());
         assert!(!tool_error.is_rate_limited());
         assert!(tool_error.to_string().contains("Test str error"));
@@ -628,7 +635,7 @@ mod tests {
     #[test]
     fn test_tool_error_from_string() {
         let string_error = "Test string error".to_string();
-        let tool_error: ToolError = string_error.into();
+        let tool_error: ToolError = ToolError::permanent_string(string_error);
         assert!(!tool_error.is_retriable());
         assert!(!tool_error.is_rate_limited());
         assert!(tool_error.to_string().contains("Test string error"));
