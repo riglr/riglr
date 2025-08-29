@@ -38,8 +38,8 @@ impl Default for EvmConfig {
 
 impl EvmConfig {
     /// Create config for a specific chain ID
-    pub fn for_chain(chain_id: u64) -> Result<Self, crate::common::error::EvmCommonError> {
-        let rpc_url = crate::common::chain::chain_id_to_rpc_url(chain_id)?;
+    pub fn for_chain(chain_id: u64) -> Result<Self, crate::error::EvmCommonError> {
+        let rpc_url = crate::chain::chain_id_to_rpc_url(chain_id)?;
 
         Ok(Self {
             rpc_url,
@@ -56,9 +56,9 @@ impl EvmConfig {
     }
 
     /// Validate configuration
-    pub fn validate(&self) -> Result<(), crate::common::error::EvmCommonError> {
+    pub fn validate(&self) -> Result<(), crate::error::EvmCommonError> {
         if self.rpc_url.is_empty() {
-            return Err(crate::common::error::EvmCommonError::InvalidConfig(
+            return Err(crate::error::EvmCommonError::InvalidConfig(
                 "RPC URL cannot be empty".to_string(),
             ));
         }
@@ -67,26 +67,26 @@ impl EvmConfig {
             && !self.rpc_url.starts_with("https://")
             && !self.rpc_url.starts_with("wss://")
         {
-            return Err(crate::common::error::EvmCommonError::InvalidConfig(
+            return Err(crate::error::EvmCommonError::InvalidConfig(
                 "RPC URL must start with http://, https://, or wss://".to_string(),
             ));
         }
 
         if self.chain_id == 0 {
-            return Err(crate::common::error::EvmCommonError::InvalidConfig(
+            return Err(crate::error::EvmCommonError::InvalidConfig(
                 "Chain ID cannot be 0".to_string(),
             ));
         }
 
         if self.timeout_seconds == 0 {
-            return Err(crate::common::error::EvmCommonError::InvalidConfig(
+            return Err(crate::error::EvmCommonError::InvalidConfig(
                 "Timeout cannot be 0".to_string(),
             ));
         }
 
         if let Some(multiplier) = self.gas_price_multiplier {
             if multiplier <= 0.0 {
-                return Err(crate::common::error::EvmCommonError::InvalidConfig(
+                return Err(crate::error::EvmCommonError::InvalidConfig(
                     "Gas price multiplier must be positive".to_string(),
                 ));
             }
@@ -109,9 +109,9 @@ pub struct EvmAccount {
 
 impl EvmAccount {
     /// Create new EVM account with validation
-    pub fn new(address: &str, chain_id: u64) -> Result<Self, crate::common::error::EvmCommonError> {
+    pub fn new(address: &str, chain_id: u64) -> Result<Self, crate::error::EvmCommonError> {
         // Validate address format
-        crate::common::address::validate_evm_address(address)?;
+        crate::address::validate_evm_address(address)?;
 
         Ok(Self {
             address: address.to_string(),
@@ -125,19 +125,19 @@ impl EvmAccount {
         address: &str,
         chain_id: u64,
         name: String,
-    ) -> Result<Self, crate::common::error::EvmCommonError> {
+    ) -> Result<Self, crate::error::EvmCommonError> {
         let mut account = Self::new(address, chain_id)?;
         account.name = Some(name);
         Ok(account)
     }
 
     /// Get address as Alloy Address type
-    pub fn to_address(&self) -> Result<Address, crate::common::error::EvmCommonError> {
-        crate::common::address::parse_evm_address(&self.address)
+    pub fn to_address(&self) -> Result<Address, crate::error::EvmCommonError> {
+        crate::address::parse_evm_address(&self.address)
     }
 
     /// Format address for display (checksummed)
-    pub fn display_address(&self) -> Result<String, crate::common::error::EvmCommonError> {
+    pub fn display_address(&self) -> Result<String, crate::error::EvmCommonError> {
         let addr = self.to_address()?;
         Ok(format!("0x{:x}", addr))
     }
@@ -169,13 +169,13 @@ impl EvmTransactionData {
         gas_limit: u64,
         gas_price: U256,
         chain_id: u64,
-    ) -> Result<Self, crate::common::error::EvmCommonError> {
+    ) -> Result<Self, crate::error::EvmCommonError> {
         // Validate to address
-        crate::common::address::validate_evm_address(to)?;
+        crate::address::validate_evm_address(to)?;
 
         // Validate data is hex
         if !data.starts_with("0x") {
-            return Err(crate::common::error::EvmCommonError::InvalidData(
+            return Err(crate::error::EvmCommonError::InvalidData(
                 "Transaction data must start with 0x".to_string(),
             ));
         }
@@ -191,60 +191,46 @@ impl EvmTransactionData {
     }
 
     /// Parse to address as Alloy Address
-    pub fn to_address(&self) -> Result<Address, crate::common::error::EvmCommonError> {
-        crate::common::address::parse_evm_address(&self.to)
+    pub fn to_address(&self) -> Result<Address, crate::error::EvmCommonError> {
+        crate::address::parse_evm_address(&self.to)
     }
 
     /// Parse data as Alloy Bytes
-    pub fn data_bytes(&self) -> Result<Bytes, crate::common::error::EvmCommonError> {
+    pub fn data_bytes(&self) -> Result<Bytes, crate::error::EvmCommonError> {
         let hex_str = self.data.strip_prefix("0x").unwrap_or(&self.data);
         alloy::hex::decode(hex_str)
             .map_err(|e| {
-                crate::common::error::EvmCommonError::InvalidData(format!(
-                    "Invalid hex data: {}",
-                    e
-                ))
+                crate::error::EvmCommonError::InvalidData(format!("Invalid hex data: {}", e))
             })
             .map(Bytes::from)
     }
 
     /// Parse value as U256
-    pub fn value_u256(&self) -> Result<U256, crate::common::error::EvmCommonError> {
+    pub fn value_u256(&self) -> Result<U256, crate::error::EvmCommonError> {
         U256::from_str_radix(self.value.strip_prefix("0x").unwrap_or(&self.value), 16).map_err(
-            |e| {
-                crate::common::error::EvmCommonError::InvalidData(format!(
-                    "Invalid value format: {}",
-                    e
-                ))
-            },
+            |e| crate::error::EvmCommonError::InvalidData(format!("Invalid value format: {}", e)),
         )
     }
 
     /// Parse gas limit as u64
-    pub fn gas_limit_u64(&self) -> Result<u64, crate::common::error::EvmCommonError> {
+    pub fn gas_limit_u64(&self) -> Result<u64, crate::error::EvmCommonError> {
         u64::from_str_radix(
             self.gas_limit.strip_prefix("0x").unwrap_or(&self.gas_limit),
             16,
         )
         .map_err(|e| {
-            crate::common::error::EvmCommonError::InvalidData(format!(
-                "Invalid gas limit format: {}",
-                e
-            ))
+            crate::error::EvmCommonError::InvalidData(format!("Invalid gas limit format: {}", e))
         })
     }
 
     /// Parse gas price as U256
-    pub fn gas_price_u256(&self) -> Result<U256, crate::common::error::EvmCommonError> {
+    pub fn gas_price_u256(&self) -> Result<U256, crate::error::EvmCommonError> {
         U256::from_str_radix(
             self.gas_price.strip_prefix("0x").unwrap_or(&self.gas_price),
             16,
         )
         .map_err(|e| {
-            crate::common::error::EvmCommonError::InvalidData(format!(
-                "Invalid gas price format: {}",
-                e
-            ))
+            crate::error::EvmCommonError::InvalidData(format!("Invalid gas price format: {}", e))
         })
     }
 }
@@ -272,10 +258,10 @@ impl EvmToken {
         name: String,
         decimals: u8,
         chain_id: u64,
-    ) -> Result<Self, crate::common::error::EvmCommonError> {
+    ) -> Result<Self, crate::error::EvmCommonError> {
         // Validate address (allow 0x0 for native token)
         if address != "0x0000000000000000000000000000000000000000" && address != "0x0" {
-            crate::common::address::validate_evm_address(address)?;
+            crate::address::validate_evm_address(address)?;
         }
 
         Ok(Self {
@@ -293,15 +279,11 @@ impl EvmToken {
     }
 
     /// Get contract address as Alloy Address (for non-native tokens)
-    pub fn contract_address(
-        &self,
-    ) -> Result<Option<Address>, crate::common::error::EvmCommonError> {
+    pub fn contract_address(&self) -> Result<Option<Address>, crate::error::EvmCommonError> {
         if self.is_native() {
             Ok(None)
         } else {
-            Ok(Some(crate::common::address::parse_evm_address(
-                &self.address,
-            )?))
+            Ok(Some(crate::address::parse_evm_address(&self.address)?))
         }
     }
 
@@ -431,7 +413,7 @@ mod tests {
         };
         let result = config.validate();
         assert!(result.is_err());
-        if let Err(crate::common::error::EvmCommonError::InvalidConfig(msg)) = result {
+        if let Err(crate::error::EvmCommonError::InvalidConfig(msg)) = result {
             assert_eq!(msg, "RPC URL cannot be empty");
         }
     }
@@ -447,7 +429,7 @@ mod tests {
         };
         let result = config.validate();
         assert!(result.is_err());
-        if let Err(crate::common::error::EvmCommonError::InvalidConfig(msg)) = result {
+        if let Err(crate::error::EvmCommonError::InvalidConfig(msg)) = result {
             assert_eq!(msg, "RPC URL must start with http://, https://, or wss://");
         }
     }
@@ -463,7 +445,7 @@ mod tests {
         };
         let result = config.validate();
         assert!(result.is_err());
-        if let Err(crate::common::error::EvmCommonError::InvalidConfig(msg)) = result {
+        if let Err(crate::error::EvmCommonError::InvalidConfig(msg)) = result {
             assert_eq!(msg, "Chain ID cannot be 0");
         }
     }
@@ -479,7 +461,7 @@ mod tests {
         };
         let result = config.validate();
         assert!(result.is_err());
-        if let Err(crate::common::error::EvmCommonError::InvalidConfig(msg)) = result {
+        if let Err(crate::error::EvmCommonError::InvalidConfig(msg)) = result {
             assert_eq!(msg, "Timeout cannot be 0");
         }
     }
@@ -495,7 +477,7 @@ mod tests {
         };
         let result = config.validate();
         assert!(result.is_err());
-        if let Err(crate::common::error::EvmCommonError::InvalidConfig(msg)) = result {
+        if let Err(crate::error::EvmCommonError::InvalidConfig(msg)) = result {
             assert_eq!(msg, "Gas price multiplier must be positive");
         }
     }
@@ -511,7 +493,7 @@ mod tests {
         };
         let result = config.validate();
         assert!(result.is_err());
-        if let Err(crate::common::error::EvmCommonError::InvalidConfig(msg)) = result {
+        if let Err(crate::error::EvmCommonError::InvalidConfig(msg)) = result {
             assert_eq!(msg, "Gas price multiplier must be positive");
         }
     }
@@ -644,7 +626,7 @@ mod tests {
             1,
         );
         assert!(result.is_err());
-        if let Err(crate::common::error::EvmCommonError::InvalidData(msg)) = result {
+        if let Err(crate::error::EvmCommonError::InvalidData(msg)) = result {
             assert_eq!(msg, "Transaction data must start with 0x");
         }
     }

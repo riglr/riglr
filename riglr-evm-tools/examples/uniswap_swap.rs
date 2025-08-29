@@ -1,5 +1,6 @@
 //! Example: Get Uniswap quotes and execute swaps
 
+use riglr_config::Config;
 use riglr_core::provider::ApplicationContext;
 use riglr_evm_tools::get_uniswap_quote;
 
@@ -9,7 +10,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing_subscriber::fmt::init();
 
     // Create application context
-    let context = ApplicationContext::from_env();
+    let config = Config::from_env();
+    let context = ApplicationContext::from_config(&config);
 
     // Token addresses on Ethereum mainnet
     let usdc = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48".to_string();
