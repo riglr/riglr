@@ -10,13 +10,13 @@ use thiserror::Error;
 enum FileOperationError {
     #[error("File I/O error: {0}")]
     Io(#[from] std::io::Error),
-    
+
     #[error("JSON parsing error: {0}")]
     JsonError(#[from] serde_json::Error),
-    
+
     #[error("Invalid file format")]
     InvalidFormat,
-    
+
     #[tool_error(retriable)]
     #[error("Network timeout during file upload")]
     NetworkTimeout,
@@ -30,15 +30,15 @@ async fn read_and_parse_file(
 ) -> Result<serde_json::Value, FileOperationError> {
     // Simulate file operations that could produce std::io::Error
     let content = std::fs::read_to_string(&file_path)?; // std::io::Error gets wrapped
-    
+
     // Simulate JSON parsing that could produce serde_json::Error
     let parsed: serde_json::Value = serde_json::from_str(&content)?; // serde_json::Error gets wrapped
-    
+
     // Manual error creation
     if !parsed.is_object() {
         return Err(FileOperationError::InvalidFormat);
     }
-    
+
     Ok(parsed)
 }
 
@@ -46,36 +46,35 @@ async fn read_and_parse_file(
 #[derive(Error, Debug, IntoToolError)]
 enum HttpClientError {
     #[error("HTTP request failed: {0}")]
-    #[tool_error(retriable)]  // Override default classification
+    #[tool_error(retriable)] // Override default classification
     RequestError(String), // Wrapped reqwest::Error as String for simplicity
-    
+
     #[error("Invalid URL format: {0}")]
     InvalidUrl(String),
-    
+
     #[error("Authentication failed")]
     Unauthorized,
 }
 
 /// A tool that demonstrates HTTP error handling without direct reqwest::Error usage
 #[tool]
-async fn fetch_data(
-    url: String,
-    context: &ApplicationContext,
-) -> Result<String, HttpClientError> {
+async fn fetch_data(url: String, context: &ApplicationContext) -> Result<String, HttpClientError> {
     // Validate URL format
     if !url.starts_with("http") {
         return Err(HttpClientError::InvalidUrl(url));
     }
-    
+
     // Simulate network request (in real code, you'd catch and wrap reqwest::Error)
     if url.contains("unauthorized") {
         return Err(HttpClientError::Unauthorized);
     }
-    
+
     if url.contains("timeout") {
-        return Err(HttpClientError::RequestError("Connection timeout".to_string()));
+        return Err(HttpClientError::RequestError(
+            "Connection timeout".to_string(),
+        ));
     }
-    
+
     Ok("Mock response data".to_string())
 }
 

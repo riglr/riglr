@@ -66,9 +66,9 @@ async fn parse_json_direct_error(
 fn main() {
     // This file should FAIL to compile with clear error messages indicating that:
     // - std::io::Error doesn't implement Into<ToolError>
-    // - MockRequestError doesn't implement Into<ToolError> 
+    // - MockRequestError doesn't implement Into<ToolError>
     // - serde_json::Error doesn't implement Into<ToolError>
-    // 
+    //
     // The error messages should guide users to wrap these errors in custom types
     // that implement Into<ToolError> via the IntoToolError derive macro.
 }
