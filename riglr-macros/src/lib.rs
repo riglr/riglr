@@ -150,14 +150,24 @@ This enables AI models to understand exactly what each tool does and how to use 
 
 1. **Return Type**: Must be `Result<T, E>` where `E: Into<riglr_core::ToolError>`
    ```rust,ignore
-   // ✅ Valid
+   // ✅ Valid - custom error type with derive
+   #[derive(Error, Debug, IntoToolError)]
+   enum MyError { NetworkError(String), InvalidInput(String) }
    async fn valid_tool() -> Result<String, MyError> { ... }
 
    // ❌ Invalid - not a Result
    async fn invalid_tool() -> String { ... }
 
-   // ❌ Invalid - error type doesn't implement Into<ToolError>
+   // ❌ Invalid - std::io::Error doesn't implement Into<ToolError>
    async fn bad_error() -> Result<String, std::io::Error> { ... }
+
+   // ✅ Valid - wrap std library errors in custom types
+   #[derive(Error, Debug, IntoToolError)]
+   enum FileError {
+       #[error("IO error: {0}")]
+       Io(#[from] std::io::Error)
+   }
+   async fn good_file_tool() -> Result<String, FileError> { ... }
    ```
 
 2. **Parameters**: All parameters must implement `serde::Deserialize + schemars::JsonSchema`
@@ -420,17 +430,27 @@ async fn bridge_tokens(
 
 ### Error Handling and Retry Logic
 
-The macro automatically integrates with riglr's structured error handling:
+The macro automatically integrates with riglr's structured error handling.
+
+**IMPORTANT REQUIREMENT:** The `#[tool]` macro requires that all error types implement `Into<ToolError>`.
+There is no automatic conversion for standard library error types like `std::io::Error` or `reqwest::Error`.
+You must define custom error types that provide proper classification and context.
+
+#### Recommended Pattern: Custom Error Types with `#[derive(IntoToolError)]`
+
+The required practice is to use the `IntoToolError` derive macro for automatic error handling:
 
 ```rust,ignore
-use riglr_core::ToolError;
+use riglr_macros::IntoToolError;
+use thiserror::Error;
 
-#[derive(thiserror::Error, Debug)]
+#[derive(Error, Debug, IntoToolError)]
 enum SwapError {
     #[error("Insufficient balance: need {required}, have {available}")]
     InsufficientBalance { required: u64, available: u64 },
 
     #[error("Network congestion, retry in {retry_after_seconds}s")]
+    #[tool_error(retriable)]  // Override default classification
     NetworkCongestion { retry_after_seconds: u64 },
 
     #[error("Slippage too high: expected {expected}%, got {actual}%")]
@@ -440,7 +460,20 @@ enum SwapError {
     InvalidToken { mint: String },
 }
 
-// Implement conversion to ToolError for automatic retry logic
+// The IntoToolError derive macro automatically generates the From<SwapError> for ToolError impl
+```
+
+See the `trybuild` tests in `riglr-macros/tests/trybuild/` for examples:
+- `pass/custom_error_into.rs` - Correct usage with custom error types
+- `fail/unconvertible_error.rs` - What happens when error types don't implement Into<ToolError>
+
+#### Alternative: Manual Implementation
+
+If you need more control, you can manually implement the conversion:
+
+```rust,ignore
+use riglr_core::ToolError;
+
 impl From<SwapError> for ToolError {
     fn from(error: SwapError) -> Self {
         match error {
@@ -544,6 +577,115 @@ mod tests {
 - Consider caching for expensive operations that don't change frequently
 - Use appropriate timeouts for network operations
 
+### 5. Security and Business Logic Validation
+
+**⚠️ IMPORTANT SECURITY NOTE:** While the `#[tool]` macro and `serde` automatically handle parameter *format* validation (JSON schema, type conversion, required fields), your tool implementation is still responsible for all *business logic* validation and security checks.
+
+#### Critical Business Logic Validations:
+
+**Financial Operations:**
+```rust,ignore
+#[tool]
+async fn transfer_tokens(
+    to_address: String,
+    amount: f64,
+    slippage_percent: f64,
+) -> Result<String, ToolError> {
+    // ✅ Business logic validation (your responsibility)
+    if amount <= 0.0 {
+        return Err(ToolError::invalid_input_string(
+            "Transfer amount must be positive"
+        ));
+    }
+
+    if slippage_percent >= 5.0 {
+        return Err(ToolError::invalid_input_string(
+            "Slippage tolerance too high (max 5%). Consider if this is intentional"
+        ));
+    }
+
+    // ✅ Address validation
+    if !is_valid_address(&to_address) {
+        return Err(ToolError::invalid_input_string(
+            "Invalid recipient address format"
+        ));
+    }
+
+    // ✅ Balance check before executing
+    let balance = get_current_balance().await?;
+    if balance < amount {
+        return Err(ToolError::permanent_string(
+            format!("Insufficient balance: {} < {}", balance, amount)
+        ));
+    }
+
+    // Proceed with transfer...
+}
+```
+
+**Smart Contract Interactions:**
+```rust,ignore
+#[tool]
+async fn execute_contract_call(
+    contract_address: String,
+    function_name: String,
+    gas_limit: u64,
+) -> Result<String, ToolError> {
+    // ✅ Contract address validation
+    if !is_trusted_contract(&contract_address) {
+        return Err(ToolError::permanent_string(
+            "Contract not in approved whitelist"
+        ));
+    }
+
+    // ✅ Re-entrancy protection
+    if is_contract_execution_in_progress(&contract_address) {
+        return Err(ToolError::retriable_string(
+            "Contract execution already in progress, avoiding re-entrancy"
+        ));
+    }
+
+    // ✅ Gas limit safety check
+    if gas_limit > MAX_SAFE_GAS_LIMIT {
+        return Err(ToolError::invalid_input_string(
+            "Gas limit exceeds safety threshold"
+        ));
+    }
+
+    // Proceed with contract call...
+}
+```
+
+**Data Integrity Checks:**
+```rust,ignore
+#[tool]
+async fn process_transaction_data(
+    tx_hash: String,
+    expected_amount: f64,
+) -> Result<TransactionResult, ToolError> {
+    // ✅ Transaction hash format validation
+    if tx_hash.len() != 64 || !tx_hash.chars().all(|c| c.is_ascii_hexdigit()) {
+        return Err(ToolError::invalid_input_string(
+            "Invalid transaction hash format"
+        ));
+    }
+
+    // ✅ Cross-reference with external data
+    let actual_amount = fetch_transaction_amount(&tx_hash).await?;
+    if (actual_amount - expected_amount).abs() > 0.001 {
+        return Err(ToolError::permanent_string(
+            "Transaction amount mismatch detected"
+        ));
+    }
+
+    // Proceed with processing...
+}
+```
+
+#### Remember: The Macro Handles Format, You Handle Business Logic
+- **Macro + Serde**: Validates JSON structure, types, required fields
+- **Your Code**: Validates ranges, business rules, security constraints, data relationships
+
 ## Macro Limitations
 
 ### Current Limitations
@@ -633,7 +775,9 @@ pub fn tool(attr: TokenStream, item: TokenStream) -> TokenStream {
     } else {
         syn::Error::new_spanned(
             proc_macro2::TokenStream::from(item),
-            "#[tool] can only be applied to async functions or structs",
+            "#[tool] can only be applied to async functions or structs.\n\
+            For functions: Must be async and return Result<T, E> where E: Into<ToolError>\n\
+            For structs: Must implement Clone, Serialize, Deserialize, JsonSchema and have an async execute(&self) method",
         )
         .to_compile_error()
         .into()
@@ -752,6 +896,59 @@ fn is_serializable_type(ty: &syn::Type) -> bool {
         // Other types - be conservative and reject
         _ => false,
     }
+}
+
+/// Extract the error type from a Result<T, E> return type
+fn extract_error_type(return_type: &syn::ReturnType) -> Option<syn::Type> {
+    if let syn::ReturnType::Type(_, ty) = return_type {
+        if let syn::Type::Path(type_path) = ty.as_ref() {
+            if let Some(segment) = type_path.path.segments.last() {
+                if segment.ident == "Result" {
+                    if let syn::PathArguments::AngleBracketed(args) = &segment.arguments {
+                        // Result<T, E> - get the second type argument (E)
+                        if args.args.len() == 2 {
+                            if let syn::GenericArgument::Type(error_type) = &args.args[1] {
+                                return Some(error_type.clone());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    None
+}
+
+/// Generate error conversion code based on the error type
+fn generate_error_conversion(error_type: &Option<syn::Type>) -> proc_macro2::TokenStream {
+    let Some(_err_type) = error_type else {
+        // No error type specified - use standard Into conversion
+        // This relies on the user's type implementing Into<ToolError>
+        return quote! { error.into() };
+    };
+
+    // REFACTORED: Strict error handling - only use Into<ToolError> trait
+    //
+    // ERROR CONVERSION LOGIC:
+    // All error types must implement Into<ToolError> to be used with the #[tool] macro.
+    // This enforces a consistent error handling pattern and encourages users to:
+    //
+    // 1. Define custom error enums with #[derive(IntoToolError)] for automatic conversion
+    // 2. Manually implement From<MyError> for ToolError for fine-grained control
+    // 3. Wrap standard library errors in custom types that provide better context
+    //
+    // This removes the special-case handling for std::io::Error and reqwest::Error
+    // that previously existed as fallbacks. Users must now explicitly handle these
+    // error types by wrapping them in custom error enums.
+    //
+    // IMPORTANT: If your function returns Result<T, std::io::Error> or similar,
+    // the compilation will now fail with a clear error message directing you to
+    // implement Into<ToolError> for your error type.
+
+    // Use Into<ToolError> conversion for all error types
+    // If the error type doesn't implement Into<ToolError>, this will produce
+    // a compile error with a clear message about the missing trait implementation
+    quote! { error.into() }
 }
 
 fn handle_function(function: ItemFn, tool_attrs: ToolAttr) -> proc_macro2::TokenStream {
@@ -900,8 +1097,15 @@ fn handle_function(function: ItemFn, tool_attrs: ToolAttr) -> proc_macro2::Token
         }
     }
 
-    // Generate the module name from the function name
-    let module_name = syn::Ident::new(&fn_name.to_string(), fn_name.span());
+    // Generate a unique module name to avoid namespace collisions
+    // Prefix with __riglr_tool_ to make it highly unlikely to collide with user code
+    let module_name = syn::Ident::new(&format!("__riglr_tool_{}", fn_name), fn_name.span());
+
+    // Extract the error type from the function's Result<T, E>
+    let error_type = extract_error_type(&function.sig.output);
+
+    // Generate the error conversion code based on the error type
+    let error_conversion = generate_error_conversion(&error_type);
 
     // Generate the error handling match arms
     let error_match_arms = generate_tool_error_match_arms();
@@ -919,7 +1123,6 @@ fn handle_function(function: ItemFn, tool_attrs: ToolAttr) -> proc_macro2::Token
             // Generate the args struct if there are parameters
             #[doc = "Arguments structure for the tool"]
             #[derive(serde::Serialize, serde::Deserialize, schemars::JsonSchema, Debug, Clone)]
-            #[serde(rename_all = "camelCase")]
             pub struct Args {
                 #(#param_fields),*
             }
@@ -975,9 +1178,9 @@ fn handle_function(function: ItemFn, tool_attrs: ToolAttr) -> proc_macro2::Token
                                 tx_hash: None,
                             })
                         }
-                        Err(tool_error) => {
-                            // Convert any error to ToolError, then match on it
-                            let tool_error: riglr_core::ToolError = tool_error.into();
+                        Err(error) => {
+                            // Convert error to ToolError using automatic mapping for known types
+                            let tool_error: riglr_core::ToolError = #error_conversion;
                             match tool_error {
                                 #error_match_arms
                             }
@@ -991,6 +1194,21 @@ fn handle_function(function: ItemFn, tool_attrs: ToolAttr) -> proc_macro2::Token
 
                 fn description(&self) -> &str {
                     #selected_description
+                }
+            }
+
+            impl Tool {
+                /// Get the JSON schema for this tool's parameters
+                fn schema(&self) -> serde_json::Value {
+                    // Generate the schema for the Args struct
+                    let schema = schemars::schema_for!(Args);
+                    serde_json::to_value(schema).unwrap_or_else(|_| {
+                        // Fallback to a generic object schema if serialization fails
+                        serde_json::json!({
+                            "type": "object",
+                            "additionalProperties": true
+                        })
+                    })
                 }
             }
 
@@ -1010,6 +1228,11 @@ fn handle_struct(structure: ItemStruct, tool_attrs: ToolAttr) -> proc_macro2::To
     let struct_name = &structure.ident;
     let struct_vis = &structure.vis;
 
+    // Validate that the struct meets requirements for #[tool]
+    // Note: We can't easily validate that the struct has an execute() method at macro time
+    // because the impl block might be defined elsewhere. Instead, we'll generate a
+    // compile-time assertion that will fail if the method doesn't exist.
+
     // Extract documentation from struct
     let description = extract_doc_comments(&structure.attrs);
     let selected_description = match tool_attrs.description {
@@ -1020,13 +1243,32 @@ fn handle_struct(structure: ItemStruct, tool_attrs: ToolAttr) -> proc_macro2::To
     // Generate the error handling match arms
     let error_match_arms = generate_tool_error_match_arms();
 
+    // Generate a compile-time check for required traits
+    let compile_time_checks = quote! {
+        // This constant will fail to compile if the struct doesn't have the required traits
+        const _: () = {
+            fn assert_has_required_traits<T>()
+            where
+                T: Clone + serde::Serialize + serde::de::DeserializeOwned + schemars::JsonSchema,
+            {}
+
+            // This will be checked when the Tool trait is implemented
+            fn _check() {
+                assert_has_required_traits::<#struct_name>();
+            }
+        };
+    };
+
     quote! {
         // Keep the original struct
         #structure
 
+        // Compile-time validation
+        #compile_time_checks
+
         // Implement the Tool trait
-    #[async_trait::async_trait]
-    impl riglr_core::Tool for #struct_name {
+        #[async_trait::async_trait]
+        impl riglr_core::Tool for #struct_name {
             async fn execute(&self, params: serde_json::Value, context: &riglr_core::provider::ApplicationContext) -> Result<riglr_core::JobResult, riglr_core::ToolError> {
                 // Parse parameters into the struct; convert parse errors to ToolError::InvalidInput
                 let args: Self = match serde_json::from_value(params) {
@@ -1044,6 +1286,9 @@ fn handle_struct(structure: ItemStruct, tool_attrs: ToolAttr) -> proc_macro2::To
                 };
 
                 // Call the execute method (expecting Result<T, ToolError>)
+                // IMPORTANT: This will fail at compile time if the struct doesn't have an execute() method
+                // The struct must have: pub async fn execute(&self) -> Result<T, E>
+                // where T: Serialize and E: Into<ToolError>
                 let result = args.execute().await;
 
                 // Convert the result to JobResult
@@ -1073,6 +1318,19 @@ fn handle_struct(structure: ItemStruct, tool_attrs: ToolAttr) -> proc_macro2::To
             fn description(&self) -> &str {
                 #selected_description
             }
+        }
+
+        /// Get the JSON schema for this tool's parameters
+        fn schema(&self) -> serde_json::Value {
+            // Generate the schema for the struct itself
+            let schema = schemars::schema_for!(#struct_name);
+            serde_json::to_value(schema).unwrap_or_else(|_| {
+                // Fallback to a generic object schema if serialization fails
+                serde_json::json!({
+                    "type": "object",
+                    "additionalProperties": true
+                })
+            })
         }
 
         // NOTE: rig::tool::Tool compatibility is handled by RigToolAdapter in riglr-agents
@@ -1140,6 +1398,17 @@ fn generate_tool_error_match_arms() -> proc_macro2::TokenStream {
 /// - `InsufficientBalance`, `InsufficientFunds`
 /// - All other unmatched variants (conservative default)
 ///
+/// # Best Practices
+///
+/// **This derive macro is the recommended way to handle custom errors for tools.** It provides:
+/// - Automatic error classification based on variant names
+/// - Override capabilities for fine-grained control
+/// - Type-safe error handling
+/// - Consistent error conversion across your codebase
+///
+/// Using this macro instead of string-based error handling ensures that your errors are properly
+/// structured and can be downcast by upstream consumers for specific error handling logic.
+///
 /// # Custom Classification
 ///
 /// You can override the automatic classification using attributes:
@@ -1159,6 +1428,8 @@ fn generate_tool_error_match_arms() -> proc_macro2::TokenStream {
 /// ```
 ///
 /// # Examples
+///
+/// ## Recommended Usage with thiserror
 ///
 /// ```rust,ignore
 /// use riglr_macros::IntoToolError;

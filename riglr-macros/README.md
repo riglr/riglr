@@ -84,6 +84,90 @@ impl riglr_core::Tool for CheckSolBalanceTool {
 }
 ```
 
+## Generated Code Example
+
+This section shows exactly what code the `#[tool]` macro generates for you. Understanding this helps you debug issues and understand the macro's behavior.
+
+### User-Written Code
+```rust
+use riglr_macros::tool;
+use riglr_core::{ToolError, provider::ApplicationContext};
+
+/// Transfer SOL tokens between accounts
+#[tool]
+async fn transfer_sol(
+    context: &ApplicationContext,  // This will be injected
+    to_address: String,           // These become the Args struct
+    amount: f64,                  
+) -> Result<String, ToolError> {
+    let client = context.solana_client()?;
+    let tx_hash = client.transfer(&to_address, amount).await?;
+    Ok(tx_hash)
+}
+```
+
+### Generated Code (What the Macro Creates)
+```rust
+// 1. Args struct for user parameters (context excluded)
+#[derive(serde::Deserialize, schemars::JsonSchema)]
+struct TransferSolArgs {
+    to_address: String,
+    amount: f64,
+}
+
+// 2. Tool struct
+struct TransferSolTool;
+
+// 3. Tool trait implementation
+#[async_trait::async_trait]
+impl riglr_core::Tool for TransferSolTool {
+    async fn execute(
+        &self,
+        params: serde_json::Value,
+        context: &ApplicationContext,  // Context passed by framework
+    ) -> Result<riglr_core::JobResult, ToolError> {
+        // Deserialize user parameters
+        let args: TransferSolArgs = serde_json::from_value(params)
+            .map_err(|e| ToolError::invalid_input_with_source(
+                e, 
+                "Failed to parse parameters"
+            ))?;
+        
+        // Call the original function with injected context
+        let result = transfer_sol(
+            context,           // Injected from execute
+            args.to_address,   // From deserialized args
+            args.amount,
+        ).await?;
+        
+        // Package the result
+        Ok(riglr_core::JobResult::Success {
+            value: serde_json::to_value(result)?,
+            tx_hash: None,
+        })
+    }
+    
+    fn name(&self) -> &str {
+        "transfer_sol"
+    }
+    
+    fn description(&self) -> &str {
+        "Transfer SOL tokens between accounts"
+    }
+}
+
+// 4. Factory function to create tool instances
+pub fn transfer_sol_tool() -> Arc<dyn riglr_core::Tool> {
+    Arc::new(TransferSolTool)
+}
+```
+
+### Key Points About Generated Code:
+1. **Args Struct**: Only includes user parameters, ApplicationContext is excluded
+2. **Tool Implementation**: Handles deserialization, context injection, and result packaging
+3. **Error Mapping**: Automatically converts errors to ToolError with proper classification
+4. **Factory Function**: Creates Arc-wrapped instances for use with ToolWorker
+
 ## How Type-Based Detection Works
 
 The macro automatically identifies parameters by their type signature:
@@ -477,6 +561,8 @@ fn default_slippage() -> u16 {
 
 ### 2. Error Handling
 
+**REQUIRED**: All tool functions must return error types that implement `Into<ToolError>`. The `#[tool]` macro no longer provides automatic conversion for standard library error types like `std::io::Error` or `reqwest::Error`. You must define custom error enums using the `#[derive(IntoToolError)]` macro or manually implement `From<YourError> for ToolError`.
+
 Use the structured error types for better retry logic:
 
 ```rust
@@ -530,6 +616,105 @@ async fn make_network_call(
 fn is_network_error(_e: &dyn std::error::Error) -> bool { false }
 fn is_rate_limited(_e: &dyn std::error::Error) -> bool { false }
 ```
+
+#### Best Practice: Custom Error Types with IntoToolError
+
+For production applications, define custom error types with the `#[derive(IntoToolError)]` macro when appropriate:
+
+```rust
+use riglr_core::ToolError;
+use riglr_macros::{tool, IntoToolError};
+use thiserror::Error;
+
+#[derive(Debug, Error, IntoToolError)]
+enum MyToolError {
+    #[error("Invalid input: {reason}")]
+    #[permanent]  // Won't be retried
+    InvalidInput { reason: String },
+    
+    #[error("Network timeout after {attempts} attempts")]
+    #[retriable]  // Will be retried with exponential backoff
+    NetworkTimeout { attempts: u32 },
+    
+    #[error("API rate limit exceeded")]
+    #[rate_limited(retry_after = 60)]  // Retry after 60 seconds
+    RateLimited,
+    
+    #[error("Blockchain error: {0}")]
+    #[retriable]
+    BlockchainError(String),
+}
+
+#[tool]
+async fn production_ready_tool(
+    input: String,
+    retries: u32,
+) -> Result<String, MyToolError> {
+    // Validation returns permanent errors
+    if input.is_empty() {
+        return Err(MyToolError::InvalidInput {
+            reason: "Input cannot be empty".to_string(),
+        });
+    }
+    
+    // Network operations return retriable errors
+    for attempt in 1..=retries {
+        match perform_operation(&input).await {
+            Ok(result) => return Ok(result),
+            Err(_) if attempt == retries => {
+                return Err(MyToolError::NetworkTimeout { attempts: retries });
+            }
+            Err(_) => continue,
+        }
+    }
+    
+    Err(MyToolError::NetworkTimeout { attempts: retries })
+}
+```
+
+This approach provides:
+- **Type safety**: Compile-time checking of all error paths
+- **Clear semantics**: Each error variant explicitly declares its retry behavior
+- **Maintainability**: All error handling logic centralized in the error enum
+- **Production readiness**: Fine-grained control over retry strategies
+
+#### When to Use Manual Implementation
+
+Some error types require more complex logic than the `IntoToolError` macro can provide. For example, `SolanaToolError` in `riglr-solana-tools` uses a manual `From<SolanaToolError> for ToolError` implementation because it needs:
+
+1. **Dynamic rate-limit detection**: Checking message content at runtime to determine if an error is rate-limited
+2. **Source error preservation**: Keeping the original error for downcasting capabilities
+3. **Complex classification logic**: Different behavior based on inner error types
+4. **Passthrough handling**: Special handling for wrapped `ToolError` variants
+
+Example of when manual implementation is needed:
+
+```rust
+// SolanaToolError requires manual implementation due to complex requirements
+impl From<SolanaToolError> for ToolError {
+    fn from(err: SolanaToolError) -> Self {
+        // Passthrough ToolError without re-wrapping
+        if let SolanaToolError::ToolError(tool_err) = err {
+            return tool_err;
+        }
+
+        // Dynamic rate-limit detection based on message content
+        if err.is_rate_limited() {
+            return ToolError::rate_limited_with_source(err, "Solana operation", err.retry_delay());
+        }
+
+        // Complex retriability logic based on error type
+        if err.is_retriable() {
+            return ToolError::retriable_with_source(err, "Solana operation");
+        }
+
+        // Preserve source for downcasting
+        ToolError::permanent_with_source(err, "Solana operation")
+    }
+}
+```
+
+Use the `IntoToolError` macro for simpler error enums with static classification. Use manual implementation when you need runtime logic or special handling.
 
 ### 3. ApplicationContext Usage
 
@@ -704,7 +889,7 @@ See the `examples/` directory in the riglr-core crate for complete working examp
 ## Requirements
 
 - **Rust 1.70+**: For async trait support and modern language features
-- **Function Requirements**: Tools must be async functions returning `Result<T, E>` where `E: Into<ToolError>`
+- **Function Requirements**: Tools must be async functions returning `Result<T, E>` where `E: Into<ToolError>`. Standard library errors like `std::io::Error` do not implement this automatically - you must wrap them in custom error types.
 - **Context Requirements**: Exactly one `ApplicationContext` parameter is required for dependency injection
 - **Parameter Requirements**: All user parameters must implement `Serialize + Deserialize + JsonSchema`
 
