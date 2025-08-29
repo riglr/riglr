@@ -335,12 +335,12 @@ impl Agent for MarketIntelligenceAgent {
         &self.id
     }
 
-    fn capabilities(&self) -> Vec<String> {
+    fn capabilities(&self) -> Vec<riglr_agents::CapabilityType> {
         vec![
-            "research".to_string(),
-            "market_analysis".to_string(),
-            "solana_analysis".to_string(),
-            "ethereum_analysis".to_string(),
+            riglr_agents::CapabilityType::Research,
+            riglr_agents::CapabilityType::Custom("market_analysis".to_string()),
+            riglr_agents::CapabilityType::Custom("solana_analysis".to_string()),
+            riglr_agents::CapabilityType::Custom("ethereum_analysis".to_string()),
         ]
     }
 }
@@ -564,12 +564,12 @@ impl Agent for RiskManagementAgent {
         &self.id
     }
 
-    fn capabilities(&self) -> Vec<String> {
+    fn capabilities(&self) -> Vec<riglr_agents::CapabilityType> {
         vec![
-            "risk_analysis".to_string(),
-            "portfolio_management".to_string(),
-            "balance_tracking".to_string(),
-            "limit_monitoring".to_string(),
+            riglr_agents::CapabilityType::RiskAnalysis,
+            riglr_agents::CapabilityType::Portfolio,
+            riglr_agents::CapabilityType::Custom("balance_tracking".to_string()),
+            riglr_agents::CapabilityType::Custom("limit_monitoring".to_string()),
         ]
     }
 }
@@ -808,12 +808,12 @@ impl Agent for TradeExecutionAgent {
         &self.id
     }
 
-    fn capabilities(&self) -> Vec<String> {
+    fn capabilities(&self) -> Vec<riglr_agents::CapabilityType> {
         vec![
-            "trading".to_string(),
-            "blockchain_execution".to_string(),
-            "solana_trading".to_string(),
-            "ethereum_trading".to_string(),
+            riglr_agents::CapabilityType::Trading,
+            riglr_agents::CapabilityType::Custom("blockchain_execution".to_string()),
+            riglr_agents::CapabilityType::Custom("solana_trading".to_string()),
+            riglr_agents::CapabilityType::Custom("ethereum_trading".to_string()),
         ]
     }
 }
@@ -875,6 +875,7 @@ pub async fn demonstrate_trading_coordination(
         retry_delay: Duration::from_millis(500),
         max_concurrent_tasks_per_agent: 5,
         enable_load_balancing: false,
+        response_wait_timeout: Duration::from_secs(30), // 30 second timeout for responses
     };
 
     let dispatcher = AgentDispatcher::with_config(registry.clone(), dispatch_config);
@@ -1011,7 +1012,15 @@ mod tests {
 
     // Mock config for testing
     fn mock_config() -> Config {
-        Config::builder().build().unwrap()
+        use riglr_config::{ConfigBuilder, FeaturesConfig};
+
+        // Disable bridging to avoid LIFI_API_KEY requirement
+        let features = FeaturesConfig {
+            enable_bridging: false,
+            ..Default::default()
+        };
+
+        ConfigBuilder::new().features(features).build().unwrap()
     }
 
     // Helper to create test trading state
@@ -1356,7 +1365,7 @@ mod tests {
             agent.capabilities(),
             vec![
                 "risk_analysis",
-                "portfolio_management",
+                "portfolio",
                 "balance_tracking",
                 "limit_monitoring"
             ]

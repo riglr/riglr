@@ -17,6 +17,7 @@ workspace = true
 riglr-config = { workspace = true }
 riglr-core = { workspace = true }
 riglr-macros = { workspace = true }
+riglr-evm-common = { workspace = true }
 riglr-evm-tools = { workspace = true }
 rig-core = { workspace = true }
 reqwest = { workspace = true }

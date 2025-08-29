@@ -44,8 +44,9 @@ base64 = "0.22"
 hex = "0.4"
 
 # Blockchain support
-solana-sdk = { version = "2", optional = true }
-solana-client = { version = "2", optional = true }
+solana-sdk = { workspace = true, optional = true }
+solana-client = { workspace = true, optional = true }
+solana-system-interface = { workspace = true, optional = true }
 alloy = { workspace = true, optional = true }
 ethers = { version = "2", optional = true }
 bincode = { version = "1.3.3", optional = true }
@@ -68,7 +69,7 @@ default = ["privy", "web3auth", "magic", "solana", "evm"]
 privy = ["dep:jsonwebtoken", "dep:lru"]
 web3auth = ["dep:jsonwebtoken", "dep:dashmap"]
 magic = ["dep:jsonwebtoken"]
-solana = ["dep:solana-sdk", "dep:solana-client", "dep:riglr-solana-tools", "dep:bincode"]
+solana = ["dep:solana-sdk", "dep:solana-client", "dep:solana-system-interface", "dep:riglr-solana-tools", "dep:bincode"]
 evm = ["dep:alloy", "dep:ethers", "dep:riglr-evm-tools"]
 caching = ["dep:lru", "dep:dashmap"]
 

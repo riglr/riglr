@@ -3,7 +3,7 @@
 //! This example demonstrates how to use riglr-hyperliquid-tools to build
 //! a derivatives trading agent using the rig framework.
 
-use riglr_config::SolanaNetworkConfig;
+use riglr_config::{Config, SolanaNetworkConfig};
 use riglr_core::signer::LocalSolanaSigner;
 use riglr_core::{provider::ApplicationContext, signer::SignerError, SignerContext};
 use riglr_hyperliquid_tools::{
@@ -35,7 +35,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Execute trading operations within signer context
     SignerContext::with_signer(signer, async {
         // Create application context
-        let context = ApplicationContext::from_env();
+        let config = Config::from_env();
+        let context = ApplicationContext::from_config(&config);
 
         // Example 1: Get account information
         info!("=== Getting Account Information ===");

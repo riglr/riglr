@@ -1200,7 +1200,6 @@ This will:
 3. Apply convention-based patterns (RPC_URL_{CHAIN_ID})
 4. Load chains.toml if specified
 5. Validate all configuration
-6. Store globally for access via Config::global()
 
 ---
 

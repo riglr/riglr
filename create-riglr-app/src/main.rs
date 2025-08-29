@@ -95,7 +95,7 @@ async fn main() -> Result<()> {
         Some(Commands::Info { template }) => {
             show_template_info(&template).await?;
         }
-        None => {
+        Option::None => {
             // Interactive mode
             let config = if cli.yes {
                 create_default_config(cli.project_name)?
@@ -236,7 +236,7 @@ fn prompt_server_framework(theme: &ColorfulTheme) -> Result<Option<ServerFramewo
         .interact()?;
 
     if !include_server {
-        return Ok(None);
+        return Ok(Option::None);
     }
 
     let frameworks = vec![
@@ -258,7 +258,7 @@ fn prompt_server_framework(theme: &ColorfulTheme) -> Result<Option<ServerFramewo
         1 => Some(ServerFramework::Axum),
         2 => Some(ServerFramework::Warp),
         3 => Some(ServerFramework::Rocket),
-        _ => None,
+        _ => Option::None,
     })
 }
 
@@ -780,7 +780,7 @@ mod tests {
                 1 => Some(ServerFramework::Axum),
                 2 => Some(ServerFramework::Warp),
                 3 => Some(ServerFramework::Rocket),
-                _ => None,
+                _ => Option::None,
             };
             assert_eq!(result, expected_framework);
         }

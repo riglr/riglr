@@ -4,7 +4,7 @@
 //! market analysis agent that can gather data from multiple sources and provide
 //! actionable insights.
 
-use riglr_core::provider::ApplicationContext;
+use riglr_core::{provider::ApplicationContext, Config};
 use riglr_web_tools::dexscreener::{ChainInfo, SecurityInfo};
 use riglr_web_tools::{
     analyze_crypto_sentiment, analyze_market_sentiment, get_token_info, get_trending_tokens,
@@ -33,7 +33,8 @@ async fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt::init();
 
     // Create application context
-    let context = ApplicationContext::from_env();
+    let config = Config::from_env();
+    let context = ApplicationContext::from_config(&config);
 
     println!("🤖 Market Analyst Agent Example\n");
     println!("Combining Web Tools and Solana Tools for comprehensive analysis\n");
@@ -359,8 +360,10 @@ async fn scan_arbitrage_opportunities(_context: &ApplicationContext) -> anyhow::
         println!("Checking {} arbitrage opportunities:", symbol);
 
         // Get price on Ethereum
+        let config = Config::from_env();
+        let context = ApplicationContext::from_config(&config);
         if let Ok(eth_info) = get_token_info(
-            &ApplicationContext::from_env(),
+            &context,
             address.to_string(),
             Some("ethereum".to_string()),
             None,
@@ -372,8 +375,10 @@ async fn scan_arbitrage_opportunities(_context: &ApplicationContext) -> anyhow::
         }
 
         // Get price on other chains (would need different addresses in reality)
+        let config = Config::from_env();
+        let context = ApplicationContext::from_config(&config);
         if let Ok(bsc_info) = get_token_info(
-            &ApplicationContext::from_env(),
+            &context,
             address.to_string(),
             Some("bsc".to_string()),
             None,

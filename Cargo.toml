@@ -19,11 +19,11 @@ members = [
     "riglr-events-core",
     "riglr-indexer",
     "riglr-agents"
-]
+, "riglr-evm-common"]
 resolver = "2"
 
 [workspace.package]
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 license = "MIT"
 authors = ["riglr project contributors"]
@@ -38,6 +38,7 @@ riglr-config = { path = "riglr-config" }
 riglr-macros = { path = "riglr-macros" }
 riglr-solana-tools = { path = "riglr-solana-tools" }
 riglr-evm-tools = { path = "riglr-evm-tools" }
+riglr-evm-common = { path = "riglr-evm-common" }
 riglr-web-tools = { path = "riglr-web-tools" }
 riglr-graph-memory = { path = "riglr-graph-memory" }
 riglr-web-adapters = { path = "riglr-web-adapters" }
@@ -112,6 +113,7 @@ dotenvy = "0.15"
 solana-sdk = "3.0.0"
 solana-client = "3.0.0"
 solana-transaction-status = "3.0.0"
+solana-message = "3.0.0"
 solana-commitment-config = "3.0.0"
 solana-compute-budget-interface = "3.0.0"
 solana-system-interface = "2.0.0"

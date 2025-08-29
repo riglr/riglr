@@ -256,7 +256,7 @@ mod tests {
         AppConfig, Config, DatabaseConfig, FeaturesConfig, NetworkConfig, ProvidersConfig,
     };
     use riglr_solana_tools::common::types::SolanaConfig;
-    use solana_sdk::commitment_config::CommitmentLevel;
+    use solana_commitment_config::CommitmentLevel;
     use std::sync::Arc;
     use tokio;
 

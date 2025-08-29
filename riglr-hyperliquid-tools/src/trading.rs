@@ -65,6 +65,7 @@ use tracing::{debug, info};
 /// # }
 /// ```
 #[tool]
+#[allow(clippy::too_many_arguments)]
 pub async fn place_hyperliquid_order(
     _context: &riglr_core::provider::ApplicationContext,
     symbol: String,

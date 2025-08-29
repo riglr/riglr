@@ -4,6 +4,7 @@
 //! for Privy authentication. This serves as an example of how to implement
 //! a custom authentication provider for the riglr web adapters.
 
+/// Privy authentication provider implementation module
 #[cfg(feature = "web-server")]
 pub mod privy_impl {
     use async_trait::async_trait;
@@ -142,7 +143,7 @@ pub mod privy_impl {
                                 }
                                 if *delegated && chain_type == "ethereum" {
                                     evm_address.clone_from(&Some(address.clone()));
-                                    evm_wallet_id.clone_from(&id);
+                                    evm_wallet_id.clone_from(id);
                                 }
                             }
                         }
@@ -221,10 +222,15 @@ pub mod privy_impl {
     /// Privy user data structure
     #[derive(Debug, Clone, Serialize, Deserialize)]
     pub struct PrivyUserData {
+        /// Unique user identifier from Privy
         pub id: String,
+        /// Solana wallet address if available
         pub solana_address: Option<String>,
+        /// EVM wallet address if available
         pub evm_address: Option<String>,
+        /// EVM wallet identifier in Privy
         pub evm_wallet_id: Option<String>,
+        /// Whether the user has been verified
         pub verified: bool,
     }
 
@@ -232,7 +238,7 @@ pub mod privy_impl {
     // Internal Privy Signers
     // ---------------------------
 
-    fn create_privy_client(app_id: &str, app_secret: &str) -> reqwest::Client {
+    pub(super) fn create_privy_client(app_id: &str, app_secret: &str) -> reqwest::Client {
         let auth = format!("{}:{}", app_id, app_secret);
         let basic = format!("Basic {}", STANDARD.encode(auth.as_bytes()));
         reqwest::Client::builder()
@@ -249,7 +255,7 @@ pub mod privy_impl {
     }
 
     #[derive(Clone)]
-    struct PrivySolanaSigner {
+    pub(super) struct PrivySolanaSigner {
         client: reqwest::Client,
         address: String,
         rpc: Arc<RpcClient>,
@@ -571,6 +577,8 @@ mod tests {
     use super::privy_impl::*;
     #[cfg(feature = "web-server")]
     use alloy::rpc::types::TransactionRequest;
+    #[cfg(feature = "web-server")]
+    use riglr_config::SolanaNetworkConfig;
     #[cfg(feature = "web-server")]
     #[cfg(feature = "web-server")]
     use riglr_core::signer::{SignerError, UnifiedSigner};

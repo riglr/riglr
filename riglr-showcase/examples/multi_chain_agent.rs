@@ -16,10 +16,11 @@
 //! cargo run --example multi_chain_agent
 //! ```
 
-use riglr_solana_tools::LocalSolanaSigner;
+use riglr_core::signer::LocalSolanaSigner;
 // TODO: Re-enable when rig tools are updated
 // use riglr_solana_tools::{get_sol_balance, get_spl_token_balance};
 use anyhow::Result;
+use riglr_config::SolanaNetworkConfig;
 use serde::{Deserialize, Serialize};
 use solana_sdk::signature::Keypair;
 use solana_sdk::signer::Signer;
@@ -35,9 +36,11 @@ async fn main() -> Result<()> {
 
     // Setup multi-chain signers
     let solana_keypair = Keypair::new();
-    let _solana_signer = Arc::new(LocalSolanaSigner::new(
+    let network_config =
+        SolanaNetworkConfig::new("devnet", "https://api.devnet.solana.com".to_string());
+    let _solana_signer = Arc::new(LocalSolanaSigner::from_keypair(
         solana_keypair.insecure_clone(),
-        "https://api.devnet.solana.com".to_string(),
+        network_config,
     ));
 
     // Note: In a production setup, you'd have separate signers for each chain
