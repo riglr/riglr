@@ -121,12 +121,27 @@ pub enum AgentError {
         source: serde_json::Error,
     },
 
-    /// Tool error (from riglr-core)
-    #[error("Tool error")]
-    Tool {
-        /// The underlying tool error from riglr-core
-        #[from]
-        source: ToolError,
+    /// A tool executed by the agent failed. This wraps the original
+    /// `ToolError` to preserve its rich context and classification,
+    /// including retriability information and detailed error context.
+    #[error("Tool execution failed: {0}")]
+    ToolExecutionFailed(#[from] ToolError),
+
+    /// Storage error (e.g., Redis operations)
+    #[error("Storage error: {message}")]
+    Storage {
+        /// The error message describing the storage failure
+        message: String,
+        /// The underlying cause of the storage error
+        #[source]
+        source: Option<Box<dyn std::error::Error + Send + Sync>>,
+    },
+
+    /// Capacity error (e.g., registry full)
+    #[error("Capacity error: {message}")]
+    Capacity {
+        /// The error message describing the capacity issue
+        message: String,
     },
 
     /// Generic error
@@ -297,6 +312,32 @@ impl AgentError {
         }
     }
 
+    /// Create a storage error.
+    pub fn storage(message: impl Into<String>) -> Self {
+        Self::Storage {
+            message: message.into(),
+            source: None,
+        }
+    }
+
+    /// Create a storage error with source.
+    pub fn storage_with_source<E>(message: impl Into<String>, source: E) -> Self
+    where
+        E: std::error::Error + Send + Sync + 'static,
+    {
+        Self::Storage {
+            message: message.into(),
+            source: Some(Box::new(source)),
+        }
+    }
+
+    /// Create a capacity error.
+    pub fn capacity(message: impl Into<String>) -> Self {
+        Self::Capacity {
+            message: message.into(),
+        }
+    }
+
     /// Check if this error is retriable.
     ///
     /// Some agent errors represent temporary conditions that may succeed on retry.
@@ -319,7 +360,7 @@ impl AgentError {
             AgentError::Dispatcher { .. } => false, // Generally configuration issues
 
             // Tool errors delegate to ToolError's retriable logic
-            AgentError::Tool { source } => source.is_retriable(),
+            AgentError::ToolExecutionFailed(tool_error) => tool_error.is_retriable(),
 
             // These are permanent failures
             AgentError::AgentNotFound { .. } => false,
@@ -329,19 +370,24 @@ impl AgentError {
             AgentError::Configuration { .. } => false,
             AgentError::Serialization { .. } => false,
 
+            // Storage errors might be retriable
+            AgentError::Storage { .. } => true,
+
             // Task execution and generic errors depend on context
             AgentError::TaskExecution { .. } => false, // Generally permanent
             AgentError::Generic { .. } => false,       // Conservative default
+            AgentError::Capacity { .. } => false,      // Capacity issues are permanent
         }
     }
 
     /// Get the retry delay for retriable errors.
     pub fn retry_delay(&self) -> Option<std::time::Duration> {
         match self {
-            AgentError::Tool { source } => source.retry_after(),
+            AgentError::ToolExecutionFailed(tool_error) => tool_error.retry_after(),
             AgentError::Communication { .. } => Some(std::time::Duration::from_secs(1)),
             AgentError::MessageDeliveryFailed { .. } => Some(std::time::Duration::from_millis(500)),
             AgentError::Registry { .. } => Some(std::time::Duration::from_millis(100)),
+            AgentError::Storage { .. } => Some(std::time::Duration::from_millis(200)),
             _ => None,
         }
     }
@@ -351,7 +397,8 @@ impl AgentError {
 impl From<AgentError> for ToolError {
     fn from(err: AgentError) -> Self {
         match err {
-            AgentError::Tool { source } => source,
+            // If it's already a ToolError wrapped in AgentError, unwrap it to preserve context
+            AgentError::ToolExecutionFailed(tool_error) => tool_error,
             err if err.is_retriable() => {
                 if let Some(delay) = err.retry_delay() {
                     ToolError::rate_limited_with_source(err, "Agent error", Some(delay))
@@ -778,12 +825,13 @@ mod tests {
         let tool_error = ToolError::permanent_string("Test tool error");
         let agent_error: AgentError = tool_error.into();
         match agent_error {
-            AgentError::Tool { .. } => {
+            AgentError::ToolExecutionFailed(_) => {
                 // Success, the conversion worked
             }
-            _ => panic!("Expected Tool variant"),
+            _ => panic!("Expected ToolExecutionFailed variant"),
         }
-        assert_eq!(format!("{}", agent_error), "Tool error");
+        // The ToolError's Display includes "Permanent error: " prefix
+        assert!(format!("{}", agent_error).starts_with("Tool execution failed:"));
     }
 
     #[tokio::test]
@@ -838,16 +886,12 @@ mod tests {
     fn test_tool_error_retriability_delegation() {
         // Test retriable tool error
         let retriable_tool_error = ToolError::retriable_string("Temporary tool failure");
-        let agent_error = AgentError::Tool {
-            source: retriable_tool_error,
-        };
+        let agent_error = AgentError::ToolExecutionFailed(retriable_tool_error);
         assert!(agent_error.is_retriable());
 
         // Test permanent tool error
         let permanent_tool_error = ToolError::permanent_string("Permanent tool failure");
-        let agent_error = AgentError::Tool {
-            source: permanent_tool_error,
-        };
+        let agent_error = AgentError::ToolExecutionFailed(permanent_tool_error);
         assert!(!agent_error.is_retriable());
     }
 
@@ -922,9 +966,7 @@ mod tests {
             "Tool rate limited",
             Some(std::time::Duration::from_secs(5)),
         );
-        let agent_error = AgentError::Tool {
-            source: tool_error_with_delay,
-        };
+        let agent_error = AgentError::ToolExecutionFailed(tool_error_with_delay);
         assert_eq!(
             agent_error.retry_delay(),
             Some(std::time::Duration::from_secs(5))
@@ -932,27 +974,21 @@ mod tests {
 
         // Test tool error without retry_after (rate_limited_string creates None)
         let tool_error_rate_limited = ToolError::rate_limited_string("Tool rate limited");
-        let agent_error = AgentError::Tool {
-            source: tool_error_rate_limited,
-        };
+        let agent_error = AgentError::ToolExecutionFailed(tool_error_rate_limited);
         assert_eq!(agent_error.retry_delay(), None);
 
         // Test retriable tool error without retry_after
         let tool_error_no_delay = ToolError::retriable_string("Tool error without delay");
-        let agent_error = AgentError::Tool {
-            source: tool_error_no_delay,
-        };
+        let agent_error = AgentError::ToolExecutionFailed(tool_error_no_delay);
         assert_eq!(agent_error.retry_delay(), None);
     }
 
     #[test]
     fn test_from_agent_error_to_tool_error_all_cases() {
-        // Test Tool variant - should return the inner ToolError
+        // Test ToolExecutionFailed variant - should return the inner ToolError
         let original_tool_error = ToolError::permanent_string("Original tool error");
         let expected_format = format!("{}", original_tool_error);
-        let agent_error = AgentError::Tool {
-            source: original_tool_error,
-        };
+        let agent_error = AgentError::ToolExecutionFailed(original_tool_error);
         let converted: ToolError = agent_error.into();
         assert_eq!(format!("{}", converted), expected_format);
 

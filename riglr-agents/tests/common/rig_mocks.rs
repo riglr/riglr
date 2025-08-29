@@ -28,7 +28,7 @@ pub struct MockCompletionModel {
 impl MockCompletionModel {
     /// Create a new mock completion model with default responses.
     pub fn new() -> Self {
-        let mut responses = HashMap::new();
+        let mut responses = HashMap::with_capacity(4);
 
         // Default responses for common trading scenarios
         responses.insert(
@@ -135,25 +135,83 @@ impl MockCompletionModel {
 
 impl Default for MockCompletionModel {
     fn default() -> Self {
-        Self::new()
+        let mut responses = HashMap::with_capacity(4);
+
+        // Default responses for common trading scenarios
+        responses.insert(
+            "transfer".to_string(),
+            json!({
+                "action": "transfer_sol",
+                "reasoning": "User wants to transfer SOL",
+                "confidence": 0.9
+            })
+            .to_string(),
+        );
+
+        responses.insert(
+            "balance".to_string(),
+            json!({
+                "action": "get_balance",
+                "reasoning": "User wants to check balance",
+                "confidence": 0.95
+            })
+            .to_string(),
+        );
+
+        responses.insert(
+            "trade".to_string(),
+            json!({
+                "action": "execute_trade",
+                "reasoning": "User wants to execute a trade",
+                "confidence": 0.85
+            })
+            .to_string(),
+        );
+
+        responses.insert(
+            "analyze".to_string(),
+            json!({
+                "action": "market_analysis",
+                "reasoning": "User wants market analysis",
+                "confidence": 0.8
+            })
+            .to_string(),
+        );
+
+        Self {
+            responses,
+            default_response: json!({
+                "action": "unknown",
+                "reasoning": "Could not determine user intent",
+                "confidence": 0.1
+            })
+            .to_string(),
+            should_fail: false,
+            response_delay: Duration::from_millis(100),
+        }
     }
 }
 
 /// Mock LLM errors for testing error handling.
 #[derive(Debug, thiserror::Error)]
 pub enum MockLLMError {
+    /// Request to the mock LLM failed
     #[error("Request failed: {0}")]
     RequestFailed(String),
 
+    /// Rate limit was exceeded for the mock LLM
     #[error("Rate limit exceeded")]
     RateLimitExceeded,
 
+    /// Invalid API key was provided
     #[error("Invalid API key")]
     InvalidApiKey,
 
+    /// Requested model was not found
     #[error("Model not found: {0}")]
     ModelNotFound(String),
 
+    /// Request timed out after the specified duration
     #[error("Timeout after {0:?}")]
     Timeout(Duration),
 }
@@ -164,17 +222,20 @@ pub enum MockLLMError {
 #[derive(Debug)]
 pub struct MockOpenAIProvider {
     model: MockCompletionModel,
+    #[allow(dead_code)]
     api_key: String,
 }
 
 impl MockOpenAIProvider {
+    /// Create a new mock OpenAI provider with the given API key.
     pub fn new(api_key: impl Into<String>) -> Self {
         Self {
-            model: MockCompletionModel::new(),
+            model: MockCompletionModel::default(),
             api_key: api_key.into(),
         }
     }
 
+    /// Set a custom completion model for this provider.
     pub fn with_model(mut self, model: MockCompletionModel) -> Self {
         self.model = model;
         self
@@ -194,22 +255,26 @@ impl MockOpenAIProvider {
 #[derive(Debug)]
 pub struct MockClaudeProvider {
     model: MockCompletionModel,
+    #[allow(dead_code)]
     api_key: String,
 }
 
 impl MockClaudeProvider {
+    /// Create a new mock Claude provider with the given API key.
     pub fn new(api_key: impl Into<String>) -> Self {
         Self {
-            model: MockCompletionModel::new(),
+            model: MockCompletionModel::default(),
             api_key: api_key.into(),
         }
     }
 
+    /// Set a custom completion model for this provider.
     pub fn with_model(mut self, model: MockCompletionModel) -> Self {
         self.model = model;
         self
     }
 
+    /// Create a mock agent builder using this provider.
     pub fn agent(&self, model_name: &str) -> MockAgentBuilder {
         MockAgentBuilder::new(model_name, self.model.clone())
     }
@@ -227,25 +292,29 @@ pub struct MockAgentBuilder {
 }
 
 impl MockAgentBuilder {
+    /// Create a new mock agent builder with the specified model name and completion model.
     pub fn new(model_name: impl Into<String>, completion_model: MockCompletionModel) -> Self {
         Self {
             model_name: model_name.into(),
             completion_model,
             preamble: None,
-            tools: Vec::new(),
+            tools: Vec::with_capacity(0),
         }
     }
 
+    /// Set a preamble for the agent to provide context before user prompts.
     pub fn preamble(mut self, preamble: impl Into<String>) -> Self {
         self.preamble = Some(preamble.into());
         self
     }
 
+    /// Add a tool that the agent can use.
     pub fn tool(mut self, tool_name: impl Into<String>) -> Self {
         self.tools.push(tool_name.into());
         self
     }
 
+    /// Build the mock rig agent with the configured settings.
     pub fn build(self) -> MockRigAgent {
         MockRigAgent {
             model_name: self.model_name,
@@ -387,7 +456,7 @@ pub mod test_utils {
 
     /// Create a mock completion model with trading-specific responses.
     pub fn trading_completion_model() -> MockCompletionModel {
-        let mut model = MockCompletionModel::new();
+        let mut model = MockCompletionModel::default();
 
         for (prompt, response) in AIResponseScenarios::trading_responses() {
             model = model.with_response(prompt, response);
@@ -398,12 +467,12 @@ pub mod test_utils {
 
     /// Create a mock completion model that always fails.
     pub fn failing_completion_model() -> MockCompletionModel {
-        MockCompletionModel::new().with_failure()
+        MockCompletionModel::default().with_failure()
     }
 
     /// Create a mock completion model with slow responses.
     pub fn slow_completion_model() -> MockCompletionModel {
-        MockCompletionModel::new().with_delay(Duration::from_secs(2))
+        MockCompletionModel::default().with_delay(Duration::from_secs(2))
     }
 
     /// Extract action from a JSON response string.
@@ -429,7 +498,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_mock_completion_model_basic() {
-        let model = MockCompletionModel::new();
+        let model = MockCompletionModel::default();
 
         let response = model.complete("transfer some SOL").await.unwrap();
         let action = extract_action(&response).unwrap();
@@ -438,7 +507,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_mock_completion_model_balance_query() {
-        let model = MockCompletionModel::new();
+        let model = MockCompletionModel::default();
 
         let response = model.complete("what is my balance?").await.unwrap();
         let action = extract_action(&response).unwrap();
@@ -447,7 +516,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_mock_completion_model_unknown_intent() {
-        let model = MockCompletionModel::new();
+        let model = MockCompletionModel::default();
 
         let response = model.complete("random gibberish xyz").await.unwrap();
         let action = extract_action(&response).unwrap();
@@ -456,7 +525,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_mock_completion_model_failure() {
-        let model = MockCompletionModel::new().with_failure();
+        let model = MockCompletionModel::default().with_failure();
 
         let result = model.complete("test prompt").await;
         assert!(result.is_err());
@@ -468,7 +537,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_mock_completion_model_custom_response() {
-        let model = MockCompletionModel::new().with_response(
+        let model = MockCompletionModel::default().with_response(
             "custom_pattern",
             json!({"action": "custom_action"}).to_string(),
         );
@@ -486,7 +555,7 @@ mod tests {
         use std::time::Instant;
 
         let delay = Duration::from_millis(200);
-        let model = MockCompletionModel::new().with_delay(delay);
+        let model = MockCompletionModel::default().with_delay(delay);
 
         let start = Instant::now();
         let _response = model.complete("test").await.unwrap();
@@ -521,7 +590,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_mock_rig_agent_with_preamble() {
-        let model = MockCompletionModel::new();
+        let model = MockCompletionModel::default();
         let agent = MockAgentBuilder::new("gpt-4", model)
             .preamble("You are a trading agent.")
             .build();

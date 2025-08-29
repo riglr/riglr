@@ -15,19 +15,10 @@
 
 use crate::common::*;
 use async_trait::async_trait;
-use riglr_agents::*;
-use riglr_core::{
-    jobs::{Job, JobResult},
-    signer::{SignerContext, UnifiedSigner},
-};
-use riglr_solana_tools::{
-    balance::get_sol_balance, signer::LocalSolanaSigner, transaction::transfer_sol,
-};
-use solana_sdk::{
-    native_token::LAMPORTS_PER_SOL,
-    pubkey::Pubkey,
-    signature::{Keypair, Signer},
-};
+use riglr_agents::{registry::RegistryConfig, CapabilityType, *};
+use riglr_core::signer::{SignerContext, SignerError, UnifiedSigner};
+use riglr_solana_tools::signer::LocalSolanaSigner;
+use solana_sdk::signature::Keypair;
 use std::{
     collections::VecDeque,
     sync::{
@@ -40,7 +31,7 @@ use tokio::{
     sync::{RwLock, Semaphore},
     time::{sleep, timeout},
 };
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, info};
 
 /// Performance metrics collector for analyzing system behavior under load.
 #[derive(Debug, Default)]
@@ -54,6 +45,7 @@ pub struct PerformanceMetrics {
     /// Latency measurements (stored as nanoseconds)
     latencies: RwLock<VecDeque<u64>>,
     /// Peak memory usage (estimated)
+    #[allow(dead_code)]
     peak_memory_usage: AtomicUsize,
     /// Active agent count
     active_agents: AtomicUsize,
@@ -62,14 +54,17 @@ pub struct PerformanceMetrics {
 }
 
 impl PerformanceMetrics {
+    /// Creates a new PerformanceMetrics instance.
     pub fn new() -> Self {
         Self::default()
     }
 
-    pub fn start_test(&self) {
-        *self.start_time.blocking_write() = Some(Instant::now());
+    /// Starts the performance test timer.
+    pub async fn start_test(&self) {
+        *self.start_time.write().await = Some(Instant::now());
     }
 
+    /// Records the completion of a task with its execution time and success status.
     pub async fn record_task_completion(&self, execution_time: Duration, success: bool) {
         if success {
             self.tasks_processed.fetch_add(1, Ordering::SeqCst);
@@ -89,9 +84,11 @@ impl PerformanceMetrics {
         latencies.push_back(execution_ns);
     }
 
+    /// Gets a comprehensive performance summary of the test run.
     pub async fn get_performance_summary(&self) -> PerformanceSummary {
-        let total_tasks = self.tasks_processed.load(Ordering::SeqCst);
+        let successful_tasks = self.tasks_processed.load(Ordering::SeqCst);
         let failed_tasks = self.tasks_failed.load(Ordering::SeqCst);
+        let total_tasks = successful_tasks + failed_tasks;
         let total_time_ns = self.total_execution_time_ns.load(Ordering::SeqCst);
 
         let latencies = self.latencies.read().await;
@@ -132,7 +129,7 @@ impl PerformanceMetrics {
             total_tasks,
             failed_tasks,
             success_rate: if total_tasks > 0 {
-                (total_tasks - failed_tasks) as f64 / total_tasks as f64
+                successful_tasks as f64 / total_tasks as f64
             } else {
                 0.0
             },
@@ -146,30 +143,42 @@ impl PerformanceMetrics {
         }
     }
 
+    /// Sets the number of active agents for reporting purposes.
     pub fn set_active_agents(&self, count: usize) {
         self.active_agents.store(count, Ordering::SeqCst);
     }
 }
 
+/// Summary of performance metrics for a test run.
 #[derive(Debug, Clone)]
 pub struct PerformanceSummary {
+    /// Total number of tasks processed
     pub total_tasks: usize,
+    /// Number of tasks that failed
     pub failed_tasks: usize,
+    /// Success rate as a fraction (0.0 to 1.0)
     pub success_rate: f64,
+    /// Throughput in tasks per second
     pub throughput_tps: f64,
+    /// Average latency in milliseconds
     pub avg_latency_ms: f64,
+    /// 50th percentile latency in milliseconds
     pub p50_latency_ms: f64,
+    /// 95th percentile latency in milliseconds
     pub p95_latency_ms: f64,
+    /// 99th percentile latency in milliseconds
     pub p99_latency_ms: f64,
+    /// Total duration of the test
     pub test_duration: Duration,
+    /// Number of active agents during the test
     pub active_agents: usize,
 }
 
 /// A high-performance agent optimized for load testing.
-#[derive(Debug)]
+#[derive(Clone)]
 pub struct LoadTestAgent {
     id: AgentId,
-    signer_context: SignerContext,
+    signer_context: Arc<dyn UnifiedSigner>,
     metrics: Arc<PerformanceMetrics>,
     /// Simulated processing delay (for testing different load scenarios)
     processing_delay: Duration,
@@ -177,9 +186,25 @@ pub struct LoadTestAgent {
     concurrency_limit: Arc<Semaphore>,
 }
 
+impl std::fmt::Debug for LoadTestAgent {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("LoadTestAgent")
+            .field("id", &self.id)
+            .field("signer_context", &"Arc<dyn UnifiedSigner>")
+            .field("metrics", &self.metrics)
+            .field("processing_delay", &self.processing_delay)
+            .field(
+                "concurrency_limit",
+                &self.concurrency_limit.available_permits(),
+            )
+            .finish()
+    }
+}
+
 impl LoadTestAgent {
+    /// Creates a new LoadTestAgent with specified configuration.
     pub fn new(
-        signer_context: SignerContext,
+        signer_context: Arc<dyn UnifiedSigner>,
         metrics: Arc<PerformanceMetrics>,
         processing_delay: Duration,
         max_concurrent_tasks: usize,
@@ -194,18 +219,12 @@ impl LoadTestAgent {
     }
 
     /// Process a lightweight task for performance testing.
-    async fn process_performance_task(
-        &self,
-        task: &Task,
-    ) -> Result<TaskResult, riglr_agents::error::AgentError> {
+    async fn process_performance_task(&self, task: &Task) -> Result<TaskResult> {
         let start_time = Instant::now();
 
         // Acquire semaphore permit for concurrency control
         let _permit = self.concurrency_limit.acquire().await.map_err(|e| {
-            riglr_agents::error::AgentError::ExecutionFailed(format!(
-                "Failed to acquire concurrency permit: {}",
-                e
-            ))
+            AgentError::task_execution(format!("Failed to acquire concurrency permit: {}", e))
         })?;
 
         // Simulate processing time
@@ -256,48 +275,39 @@ impl LoadTestAgent {
 
     async fn simulate_blockchain_operation(
         &self,
-        task: &Task,
+        _task: &Task,
         start_time: Instant,
-    ) -> Result<TaskResult, riglr_agents::error::AgentError> {
-        // Simulate SignerContext operation without actual blockchain call
-        let job = Job::new(format!("perf_test_{}", task.id), task.parameters.clone());
+    ) -> Result<TaskResult> {
+        // Simulate SignerContext operation using with_signer pattern
+        let signer_context = self.signer_context.clone();
 
-        let job_result = self
-            .signer_context
-            .execute_job(&job, |signer| {
-                Box::pin(async move {
-                    // Simulate blockchain operation processing time
-                    sleep(Duration::from_millis(50)).await;
+        let job_result = SignerContext::with_signer(signer_context, async {
+            // Simulate blockchain operation processing time
+            sleep(Duration::from_millis(50)).await;
 
-                    match signer {
-                        UnifiedSigner::Solana(_) => Ok(JobResult::Success {
-                            result: serde_json::json!({
-                                "simulated": true,
-                                "operation": "blockchain_sim",
-                                "signature": "simulated_signature"
-                            }),
-                            execution_time: Duration::from_millis(50),
-                        }),
-                        _ => Err("Unsupported signer type for simulation".to_string()),
-                    }
-                })
-            })
-            .await;
+            let current_signer = SignerContext::current().await?;
+            match current_signer.as_solana() {
+                Some(_) => Ok(serde_json::json!({
+                    "simulated": true,
+                    "operation": "blockchain_sim",
+                    "signature": "simulated_signature"
+                })),
+                None => Err(SignerError::UnsupportedOperation(
+                    "Simulation requires Solana signer".to_string(),
+                )),
+            }
+        })
+        .await;
 
         match job_result {
-            Ok(JobResult::Success { result, .. }) => Ok(TaskResult::success(
+            Ok(result) => Ok(TaskResult::success(
                 result,
                 Some("Blockchain simulation completed".to_string()),
                 start_time.elapsed(),
             )),
-            Ok(JobResult::Failure { error, .. }) => Ok(TaskResult::failure(
-                format!("Blockchain simulation failed: {}", error),
-                true,
-                start_time.elapsed(),
-            )),
             Err(e) => Ok(TaskResult::failure(
-                format!("SignerContext error: {}", e),
-                false,
+                format!("Blockchain simulation failed: {}", e),
+                true,
                 start_time.elapsed(),
             )),
         }
@@ -307,7 +317,7 @@ impl LoadTestAgent {
         &self,
         _task: &Task,
         start_time: Instant,
-    ) -> Result<TaskResult, riglr_agents::error::AgentError> {
+    ) -> Result<TaskResult> {
         // Simulate memory allocation and processing
         let data_size = 1024 * 1024; // 1MB
         let mut data = Vec::with_capacity(data_size);
@@ -336,7 +346,7 @@ impl LoadTestAgent {
         &self,
         _task: &Task,
         start_time: Instant,
-    ) -> Result<TaskResult, riglr_agents::error::AgentError> {
+    ) -> Result<TaskResult> {
         // Simulate CPU-intensive computation
         let mut result = 0u64;
         let iterations = 100_000;
@@ -374,9 +384,16 @@ impl Agent for LoadTestAgent {
                 )
             });
 
-        // Record metrics
+        // Record metrics - extract duration from TaskResult
+        let duration = match &result {
+            TaskResult::Success { duration, .. } => *duration,
+            TaskResult::Failure { duration, .. } => *duration,
+            TaskResult::Timeout { duration } => *duration,
+            TaskResult::Cancelled { .. } => start_time.elapsed(),
+        };
+
         self.metrics
-            .record_task_completion(result.execution_time, result.is_success())
+            .record_task_completion(duration, result.is_success())
             .await;
 
         Ok(result)
@@ -386,12 +403,12 @@ impl Agent for LoadTestAgent {
         &self.id
     }
 
-    fn capabilities(&self) -> Vec<String> {
+    fn capabilities(&self) -> Vec<CapabilityType> {
         vec![
-            "performance_testing".to_string(),
-            "load_testing".to_string(),
-            "high_throughput".to_string(),
-            "trading".to_string(), // For capability matching
+            CapabilityType::Custom("performance_testing".to_string()),
+            CapabilityType::Custom("load_testing".to_string()),
+            CapabilityType::Custom("high_throughput".to_string()),
+            CapabilityType::Trading, // For capability matching
         ]
     }
 
@@ -417,25 +434,25 @@ async fn test_high_throughput_task_processing() {
         .await
         .expect("Failed to create blockchain test harness");
 
-    let metrics = Arc::new(PerformanceMetrics::new());
-    metrics.start_test();
+    let metrics = Arc::new(PerformanceMetrics::default());
+    metrics.start_test().await;
 
     // Create multiple high-performance agents
     let num_agents = 5;
     let max_concurrent_per_agent = 10;
-    let mut agents = Vec::new();
+    let mut agents = Vec::with_capacity(num_agents);
 
     for i in 0..num_agents {
         let keypair = harness
             .get_funded_keypair(i % 3) // Reuse some keypairs
             .expect("Failed to get keypair");
 
-        let signer = LocalSolanaSigner::new(keypair.clone(), harness.rpc_url().to_string());
-        let unified_signer = UnifiedSigner::Solana(Box::new(signer));
-        let signer_context = SignerContext::new(unified_signer);
+        let signer =
+            LocalSolanaSigner::new(keypair.insecure_clone(), harness.rpc_url().to_string());
+        let unified_signer: Arc<dyn UnifiedSigner> = Arc::new(signer);
 
         let agent = Arc::new(LoadTestAgent::new(
-            signer_context,
+            unified_signer,
             metrics.clone(),
             Duration::from_millis(1), // Minimal processing delay for throughput
             max_concurrent_per_agent,
@@ -448,9 +465,7 @@ async fn test_high_throughput_task_processing() {
     metrics.set_active_agents(num_agents);
 
     // Create agent system
-    let mut registry = LocalAgentRegistry::new(num_agents * 2)
-        .await
-        .expect("Failed to create registry");
+    let registry = LocalAgentRegistry::with_config(RegistryConfig::default());
 
     for agent in &agents {
         registry
@@ -459,13 +474,13 @@ async fn test_high_throughput_task_processing() {
             .expect("Failed to register agent");
     }
 
-    let dispatcher = AgentDispatcher::new(
+    let dispatcher = Arc::new(AgentDispatcher::with_config(
         Arc::new(registry),
-        RoutingStrategy::LeastLoaded, // Distribute load efficiently
-        DispatchConfig::default(),
-    )
-    .await
-    .expect("Failed to create dispatcher");
+        DispatchConfig {
+            routing_strategy: RoutingStrategy::LeastLoaded, // Distribute load efficiently
+            ..DispatchConfig::default()
+        },
+    ));
 
     // Generate high volume of lightweight tasks
     let num_tasks = 1000;
@@ -486,9 +501,9 @@ async fn test_high_throughput_task_processing() {
         debug!("Processing batch {}-{}", batch_start, batch_end);
 
         // Create batch of tasks
-        let mut task_handles = Vec::new();
+        let mut task_handles = Vec::with_capacity(batch_size_actual);
         for task_idx in batch_start..batch_end {
-            let dispatcher = dispatcher.clone();
+            let dispatcher_clone = dispatcher.clone();
 
             let task = Task::new(
                 TaskType::Trading,
@@ -500,7 +515,7 @@ async fn test_high_throughput_task_processing() {
             )
             .with_priority(Priority::Normal);
 
-            let handle = tokio::spawn(async move { dispatcher.dispatch_task(task).await });
+            let handle = tokio::spawn(async move { dispatcher_clone.dispatch_task(task).await });
 
             task_handles.push(handle);
         }
@@ -602,28 +617,28 @@ async fn test_agent_system_under_load() {
         .await
         .expect("Failed to create blockchain test harness");
 
-    let metrics = Arc::new(PerformanceMetrics::new());
-    metrics.start_test();
+    let metrics = Arc::new(PerformanceMetrics::default());
+    metrics.start_test().await;
 
     // Create fewer agents with higher processing delays for stress testing
     let num_agents = 3;
     let max_concurrent_per_agent = 20; // Higher concurrency for stress
-    let mut agents = Vec::new();
+    let mut agents = Vec::with_capacity(num_agents);
 
     for i in 0..num_agents {
         let keypair = harness
             .get_funded_keypair(i)
             .expect("Failed to get keypair");
 
-        let signer = LocalSolanaSigner::new(keypair.clone(), harness.rpc_url().to_string());
-        let unified_signer = UnifiedSigner::Solana(Box::new(signer));
-        let signer_context = SignerContext::new(unified_signer);
+        let signer =
+            LocalSolanaSigner::new(keypair.insecure_clone(), harness.rpc_url().to_string());
+        let unified_signer: Arc<dyn UnifiedSigner> = Arc::new(signer);
 
         // Longer processing delay for stress testing
         let processing_delay = Duration::from_millis(50 + i as u64 * 10);
 
         let agent = Arc::new(LoadTestAgent::new(
-            signer_context,
+            unified_signer,
             metrics.clone(),
             processing_delay,
             max_concurrent_per_agent,
@@ -636,9 +651,7 @@ async fn test_agent_system_under_load() {
     metrics.set_active_agents(num_agents);
 
     // Create agent system
-    let mut registry = LocalAgentRegistry::new(num_agents * 3)
-        .await
-        .expect("Failed to create registry");
+    let registry = LocalAgentRegistry::with_config(RegistryConfig::default());
 
     for agent in &agents {
         registry
@@ -647,13 +660,13 @@ async fn test_agent_system_under_load() {
             .expect("Failed to register agent");
     }
 
-    let dispatcher = AgentDispatcher::new(
+    let dispatcher = Arc::new(AgentDispatcher::with_config(
         Arc::new(registry),
-        RoutingStrategy::RoundRobin, // Even distribution for stress testing
-        DispatchConfig::default(),
-    )
-    .await
-    .expect("Failed to create dispatcher");
+        DispatchConfig {
+            routing_strategy: RoutingStrategy::RoundRobin, // Even distribution for stress testing
+            ..DispatchConfig::default()
+        },
+    ));
 
     // Create mix of task types for comprehensive stress testing
     let task_types = vec![
@@ -663,7 +676,7 @@ async fn test_agent_system_under_load() {
         ("cpu_intensive", 50),
     ];
 
-    let mut all_task_handles = Vec::new();
+    let mut all_task_handles = Vec::with_capacity(400); // Approximate total based on task_types
     let mut expected_total_tasks = 0;
 
     for (task_type, count) in task_types {
@@ -671,7 +684,7 @@ async fn test_agent_system_under_load() {
         expected_total_tasks += count;
 
         for task_idx in 0..count {
-            let dispatcher = dispatcher.clone();
+            let dispatcher_clone = dispatcher.clone();
             let task_type = task_type.to_string();
 
             let task = Task::new(
@@ -689,7 +702,7 @@ async fn test_agent_system_under_load() {
                 let delay_ms = (task_idx % 10) * 5;
                 sleep(Duration::from_millis(delay_ms as u64)).await;
 
-                dispatcher.dispatch_task(task).await
+                dispatcher_clone.dispatch_task(task).await
             });
 
             all_task_handles.push((task_type.clone(), handle));
@@ -725,7 +738,7 @@ async fn test_agent_system_under_load() {
     // Analyze stress test results
     let mut successful_tasks = 0;
     let mut failed_tasks = 0;
-    let mut task_type_counts = std::collections::HashMap::new();
+    let mut task_type_counts = std::collections::HashMap::with_capacity(4);
 
     for result in task_results {
         match result {
@@ -734,7 +747,7 @@ async fn test_agent_system_under_load() {
                     successful_tasks += 1;
 
                     // Count by task type
-                    if let Some(output_obj) = task_result.output.as_object() {
+                    if let Some(output_obj) = task_result.data().and_then(|v| v.as_object()) {
                         if let Some(task_type) =
                             output_obj.get("task_type").and_then(|v| v.as_str())
                         {
@@ -817,24 +830,24 @@ async fn test_memory_and_resource_management() {
         .await
         .expect("Failed to create blockchain test harness");
 
-    let metrics = Arc::new(PerformanceMetrics::new());
-    metrics.start_test();
+    let metrics = Arc::new(PerformanceMetrics::default());
+    metrics.start_test().await;
 
     // Create agents for memory testing
     let num_agents = 2;
-    let mut agents = Vec::new();
+    let mut agents = Vec::with_capacity(num_agents);
 
     for i in 0..num_agents {
         let keypair = harness
             .get_funded_keypair(i)
             .expect("Failed to get keypair");
 
-        let signer = LocalSolanaSigner::new(keypair.clone(), harness.rpc_url().to_string());
-        let unified_signer = UnifiedSigner::Solana(Box::new(signer));
-        let signer_context = SignerContext::new(unified_signer);
+        let signer =
+            LocalSolanaSigner::new(keypair.insecure_clone(), harness.rpc_url().to_string());
+        let unified_signer: Arc<dyn UnifiedSigner> = Arc::new(signer);
 
         let agent = Arc::new(LoadTestAgent::new(
-            signer_context,
+            unified_signer,
             metrics.clone(),
             Duration::from_millis(10),
             5, // Lower concurrency to focus on memory usage
@@ -847,9 +860,7 @@ async fn test_memory_and_resource_management() {
     metrics.set_active_agents(num_agents);
 
     // Create agent system
-    let mut registry = LocalAgentRegistry::new(num_agents * 2)
-        .await
-        .expect("Failed to create registry");
+    let registry = LocalAgentRegistry::with_config(RegistryConfig::default());
 
     for agent in &agents {
         registry
@@ -858,13 +869,13 @@ async fn test_memory_and_resource_management() {
             .expect("Failed to register agent");
     }
 
-    let dispatcher = AgentDispatcher::new(
+    let dispatcher = Arc::new(AgentDispatcher::with_config(
         Arc::new(registry),
-        RoutingStrategy::LeastLoaded,
-        DispatchConfig::default(),
-    )
-    .await
-    .expect("Failed to create dispatcher");
+        DispatchConfig {
+            routing_strategy: RoutingStrategy::LeastLoaded,
+            ..DispatchConfig::default()
+        },
+    ));
 
     // Run multiple rounds of memory-intensive tasks
     let num_rounds = 5;
@@ -873,10 +884,10 @@ async fn test_memory_and_resource_management() {
     for round in 0..num_rounds {
         info!("Starting memory test round {}/{}", round + 1, num_rounds);
 
-        let mut round_handles = Vec::new();
+        let mut round_handles = Vec::with_capacity(tasks_per_round);
 
         for task_idx in 0..tasks_per_round {
-            let dispatcher = dispatcher.clone();
+            let dispatcher_clone = dispatcher.clone();
 
             let task = Task::new(
                 TaskType::Trading,
@@ -887,7 +898,7 @@ async fn test_memory_and_resource_management() {
                 }),
             );
 
-            let handle = tokio::spawn(async move { dispatcher.dispatch_task(task).await });
+            let handle = tokio::spawn(async move { dispatcher_clone.dispatch_task(task).await });
 
             round_handles.push(handle);
         }
@@ -914,10 +925,11 @@ async fn test_memory_and_resource_management() {
         }
 
         info!(
-            "Round {} completed: {}/{} successful",
+            "Round {} completed: {}/{} successful, {} failed",
             round + 1,
             round_successful,
-            tasks_per_round
+            tasks_per_round,
+            round_failed
         );
 
         // Verify round success rate
@@ -964,20 +976,19 @@ async fn test_system_latency_benchmarks() {
         .await
         .expect("Failed to create blockchain test harness");
 
-    let metrics = Arc::new(PerformanceMetrics::new());
-    metrics.start_test();
+    let metrics = Arc::new(PerformanceMetrics::default());
+    metrics.start_test().await;
 
     // Create single agent for latency testing
     let keypair = harness
         .get_funded_keypair(0)
         .expect("Failed to get keypair");
 
-    let signer = LocalSolanaSigner::new(keypair.clone(), harness.rpc_url().to_string());
-    let unified_signer = UnifiedSigner::Solana(Box::new(signer));
-    let signer_context = SignerContext::new(unified_signer);
+    let signer = LocalSolanaSigner::new(keypair.insecure_clone(), harness.rpc_url().to_string());
+    let unified_signer: Arc<dyn UnifiedSigner> = Arc::new(signer);
 
     let agent = Arc::new(LoadTestAgent::new(
-        signer_context,
+        unified_signer,
         metrics.clone(),
         Duration::from_millis(1), // Minimal delay for latency testing
         1,                        // Single concurrent task for accurate latency measurement
@@ -987,26 +998,24 @@ async fn test_system_latency_benchmarks() {
     metrics.set_active_agents(1);
 
     // Create agent system
-    let mut registry = LocalAgentRegistry::new(2)
-        .await
-        .expect("Failed to create registry");
+    let registry = LocalAgentRegistry::with_config(RegistryConfig::default());
 
     registry
         .register_agent(agent.clone())
         .await
         .expect("Failed to register agent");
 
-    let dispatcher = AgentDispatcher::new(
+    let dispatcher = AgentDispatcher::with_config(
         Arc::new(registry),
-        RoutingStrategy::Direct,
-        DispatchConfig::default(),
-    )
-    .await
-    .expect("Failed to create dispatcher");
+        DispatchConfig {
+            routing_strategy: RoutingStrategy::Direct,
+            ..DispatchConfig::default()
+        },
+    );
 
     // Run sequential tasks to measure pure latency
     let num_tasks = 100;
-    let mut latencies = Vec::new();
+    let mut latencies = Vec::with_capacity(num_tasks);
 
     for task_idx in 0..num_tasks {
         let start_time = Instant::now();
@@ -1073,8 +1082,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_performance_metrics_basic_functionality() {
-        let metrics = PerformanceMetrics::new();
-        metrics.start_test();
+        let metrics = PerformanceMetrics::default();
+        metrics.start_test().await;
 
         // Record some task completions
         metrics
@@ -1100,21 +1109,20 @@ mod tests {
     async fn test_load_test_agent_capabilities() {
         let keypair = Keypair::new();
         let signer = LocalSolanaSigner::new(keypair, "http://localhost:8899".to_string());
-        let unified_signer = UnifiedSigner::Solana(Box::new(signer));
-        let signer_context = SignerContext::new(unified_signer);
-        let metrics = Arc::new(PerformanceMetrics::new());
+        let unified_signer: Arc<dyn UnifiedSigner> = Arc::new(signer);
+        let metrics = Arc::new(PerformanceMetrics::default());
 
-        let agent = LoadTestAgent::new(signer_context, metrics, Duration::from_millis(0), 5);
+        let agent = LoadTestAgent::new(unified_signer, metrics, Duration::from_millis(0), 5);
 
         let capabilities = agent.capabilities();
-        assert!(capabilities.contains(&"performance_testing".to_string()));
-        assert!(capabilities.contains(&"load_testing".to_string()));
-        assert!(capabilities.contains(&"high_throughput".to_string()));
-        assert!(capabilities.contains(&"trading".to_string()));
+        assert!(capabilities.contains(&CapabilityType::Custom("performance_testing".to_string())));
+        assert!(capabilities.contains(&CapabilityType::Custom("load_testing".to_string())));
+        assert!(capabilities.contains(&CapabilityType::Custom("high_throughput".to_string())));
+        assert!(capabilities.contains(&CapabilityType::Trading));
 
-        // Test capability matching
-        let trading_task = Task::new(TaskType::Trading, serde_json::json!({}));
-        assert!(agent.can_handle(&trading_task));
+        // Test load calculation
+        let load = agent.load();
+        assert!((0.0..=1.0).contains(&load));
     }
 
     #[test]

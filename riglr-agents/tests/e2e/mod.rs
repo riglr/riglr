@@ -72,7 +72,6 @@ mod tests {
         assert!(task_id.contains("test-task-e2e_health"));
 
         // This confirms our test infrastructure is ready for e2e tests
-        assert!(true);
     }
 
     #[tokio::test]
@@ -96,10 +95,14 @@ mod tests {
         use crate::common::{MockCompletionModel, MockOpenAIProvider};
 
         let model = MockCompletionModel::new();
-        let response = model.complete("test trading prompt").await.unwrap();
+        let response = model.complete("transfer some tokens").await.unwrap();
 
-        // Should get a trading-related response
-        assert!(response.contains("transfer_sol") || response.contains("unknown"));
+        // Should get a trading-related response (contains "transfer" keyword so will match transfer pattern)
+        assert!(
+            response.contains("transfer_sol"),
+            "Expected transfer_sol action in response: {}",
+            response
+        );
 
         let provider = MockOpenAIProvider::new("test-key");
         let agent = provider.agent("gpt-4").build();

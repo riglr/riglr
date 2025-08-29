@@ -14,8 +14,8 @@ use async_trait::async_trait;
 // Removed rig_core and riglr_core imports - using mock implementations
 use riglr_agents::{
     Agent, AgentCommunication, AgentDispatcher, AgentId, AgentMessage, AgentRegistry,
-    ChannelCommunication, DispatchConfig, LocalAgentRegistry, Priority, RoutingStrategy, Task,
-    TaskResult, TaskType,
+    CapabilityType, ChannelCommunication, DispatchConfig, LocalAgentRegistry, Priority,
+    RoutingStrategy, Task, TaskResult, TaskType,
 };
 use serde_json::json;
 use std::sync::Arc;
@@ -101,11 +101,11 @@ impl Agent for ResearchAgent {
         &self.id
     }
 
-    fn capabilities(&self) -> Vec<String> {
+    fn capabilities(&self) -> Vec<CapabilityType> {
         vec![
-            "research".to_string(),
-            "market_analysis".to_string(),
-            "sentiment_analysis".to_string(),
+            CapabilityType::Research,
+            CapabilityType::Custom("market_analysis".to_string()),
+            CapabilityType::Custom("sentiment_analysis".to_string()),
         ]
     }
 
@@ -210,11 +210,11 @@ impl Agent for TradingAgent {
         &self.id
     }
 
-    fn capabilities(&self) -> Vec<String> {
+    fn capabilities(&self) -> Vec<CapabilityType> {
         vec![
-            "trading".to_string(),
-            "execution".to_string(),
-            "order_management".to_string(),
+            CapabilityType::Trading,
+            CapabilityType::Custom("execution".to_string()),
+            CapabilityType::Custom("order_management".to_string()),
         ]
     }
 
@@ -326,11 +326,11 @@ impl Agent for RiskAgent {
         &self.id
     }
 
-    fn capabilities(&self) -> Vec<String> {
+    fn capabilities(&self) -> Vec<CapabilityType> {
         vec![
-            "risk_analysis".to_string(),
-            "compliance".to_string(),
-            "position_monitoring".to_string(),
+            CapabilityType::RiskAnalysis,
+            CapabilityType::Custom("compliance".to_string()),
+            CapabilityType::Custom("position_monitoring".to_string()),
         ]
     }
 
@@ -384,6 +384,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         retry_delay: Duration::from_secs(1),
         max_concurrent_tasks_per_agent: 5,
         enable_load_balancing: true,
+        response_wait_timeout: Duration::from_secs(300),
     };
 
     let dispatcher = AgentDispatcher::with_config(registry.clone(), dispatch_config);

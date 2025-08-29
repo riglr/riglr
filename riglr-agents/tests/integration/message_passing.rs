@@ -90,7 +90,7 @@ async fn test_broadcast_messaging() {
 #[tokio::test]
 async fn test_agent_coordination_through_messaging() {
     let comm_system = ChannelCommunication::new();
-    let registry = Arc::new(LocalAgentRegistry::new());
+    let _registry = Arc::new(LocalAgentRegistry::new());
 
     // Create coordinating agents
     let coordinator_id = AgentId::new("coordinator");
@@ -338,7 +338,7 @@ async fn test_large_scale_message_passing() {
     assert_eq!(stats.failed_deliveries, 0);
 
     // Each agent should receive messages from all other agents
-    for (agent_idx, mut receiver) in receivers.into_iter().enumerate() {
+    for (_agent_idx, mut receiver) in receivers.into_iter().enumerate() {
         let mut received_count = 0;
 
         // Try to receive all messages for this agent
@@ -355,7 +355,7 @@ async fn test_large_scale_message_passing() {
 async fn test_message_delivery_reliability() {
     let comm_system = ChannelCommunication::new();
 
-    let sender_id = AgentId::new("reliable-sender");
+    let _sender_id = AgentId::new("reliable-sender");
     let receiver_id = AgentId::new("reliable-receiver");
 
     let mut receiver = comm_system.subscribe(&receiver_id).await.unwrap();
@@ -457,7 +457,7 @@ async fn test_agent_message_handling_workflow() {
     #[derive(Debug)]
     struct MessageHandlingAgent {
         id: AgentId,
-        capabilities: Vec<String>,
+        capabilities: Vec<CapabilityType>,
         received_messages: Arc<tokio::sync::Mutex<Vec<AgentMessage>>>,
     }
 
@@ -465,7 +465,7 @@ async fn test_agent_message_handling_workflow() {
         fn new(id: &str) -> Self {
             Self {
                 id: AgentId::new(id),
-                capabilities: vec!["message_handler".to_string()],
+                capabilities: vec![CapabilityType::Custom("message_handler".to_string())],
                 received_messages: Arc::new(tokio::sync::Mutex::new(Vec::new())),
             }
         }
@@ -489,7 +489,7 @@ async fn test_agent_message_handling_workflow() {
             &self.id
         }
 
-        fn capabilities(&self) -> Vec<String> {
+        fn capabilities(&self) -> Vec<CapabilityType> {
             self.capabilities.clone()
         }
 

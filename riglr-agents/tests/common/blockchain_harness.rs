@@ -9,12 +9,12 @@
 use riglr_core::signer::UnifiedSigner;
 use riglr_solana_tools::signer::LocalSolanaSigner;
 use solana_client::rpc_client::RpcClient;
+use solana_commitment_config::CommitmentConfig;
 use solana_sdk::{
-    commitment_config::CommitmentConfig,
     pubkey::Pubkey,
     signature::{Keypair, Signature, Signer},
 };
-// use solana_system_interface::instruction as system_instruction;
+use solana_system_interface::instruction as system_instruction;
 // use solana_transaction_status::UiTransactionEncoding;
 use std::{
     process::{Child, Command, Stdio},
@@ -29,27 +29,35 @@ use tracing::{debug, error, info, warn};
 /// Errors that can occur during blockchain test harness operations.
 #[derive(Debug, Error)]
 pub enum BlockchainHarnessError {
+    /// Error during harness setup or initialization
     #[error("Setup error: {0}")]
     Setup(String),
 
+    /// Failed to start the solana-test-validator process
     #[error("Failed to start validator: {0}")]
     ValidatorStart(String),
 
+    /// Validator did not become ready within the specified timeout
     #[error("Validator not ready within timeout: {0}")]
     ValidatorTimeout(String),
 
+    /// Failed to fund a keypair with SOL
     #[error("Funding failed: {0}")]
     FundingFailed(String),
 
+    /// Attempted to access a keypair with an invalid index
     #[error("Invalid keypair index: {0}")]
     InvalidKeypair(usize),
 
+    /// RPC client operation failed
     #[error("RPC error: {0}")]
     RpcError(String),
 
+    /// Transaction submission or processing failed
     #[error("Transaction failed: {0}")]
     TransactionFailed(String),
 
+    /// Transaction confirmation timed out
     #[error("Transaction timeout: {0}")]
     TransactionTimeout(String),
 }
@@ -81,8 +89,8 @@ impl Default for BlockchainTestConfig {
             faucet_sol: 1000.0,
             startup_timeout: Duration::from_secs(30),
             verbose: false,
-            programs: Vec::new(),
-            accounts: Vec::new(),
+            programs: vec![],
+            accounts: vec![],
         }
     }
 }
@@ -90,36 +98,52 @@ impl Default for BlockchainTestConfig {
 /// Configuration for loading custom programs in test validator.
 #[derive(Debug, Clone)]
 pub struct ProgramConfig {
+    /// Program ID as a string
     pub id: String,
+    /// Path to the compiled program file
     pub path: String,
 }
 
 /// Configuration for loading custom accounts in test validator.
 #[derive(Debug, Clone)]
 pub struct AccountConfig {
+    /// Account public key as a string
     pub pubkey: String,
+    /// Filename containing the account data
     pub filename: String,
 }
 
 /// Result of balance verification.
 #[derive(Debug, Clone)]
 pub struct BalanceVerificationResult {
+    /// The account being verified
     pub account: Pubkey,
+    /// Balance before the transaction
     pub initial_balance: u64,
+    /// Balance after the transaction
     pub current_balance: u64,
+    /// Expected change in balance (negative for outgoing)
     pub expected_change: i64,
+    /// Actual change in balance
     pub actual_change: i64,
+    /// Whether the balance change was verified as expected
     pub verified: bool,
+    /// Estimated transaction fees if applicable
     pub fee_estimate: Option<u64>,
 }
 
 /// Information about a confirmed transaction.
 #[derive(Debug, Clone)]
 pub struct TransactionInfo {
+    /// The transaction signature
     pub signature: Signature,
+    /// Whether the transaction was confirmed
     pub confirmed: bool,
+    /// The slot number where the transaction was confirmed
     pub slot: u64,
+    /// Transaction fees in lamports
     pub fees: u64,
+    /// Time taken for confirmation
     pub confirmation_time: Duration,
 }
 
@@ -132,18 +156,27 @@ pub struct TransactionInfo {
 /// - Clean state between test runs
 /// - Proper cleanup and teardown procedures
 pub struct BlockchainTestHarness {
+    /// RPC URL for connecting to the test validator
     rpc_url: String,
+    /// WebSocket URL for connecting to the test validator
     websocket_url: String,
+    /// Pre-funded keypairs for testing
     funded_keypairs: Vec<Keypair>,
+    /// The running validator process handle
     validator_process: Option<Child>,
+    /// Temporary directory for the validator ledger
+    #[allow(dead_code)]
     ledger_dir: TempDir,
+    /// Port number for RPC connections
     rpc_port: u16,
+    /// Port number for WebSocket connections
     websocket_port: u16,
+    /// Solana RPC client for blockchain operations
     client: Arc<RpcClient>,
 }
 
 impl BlockchainTestHarness {
-    /// Create a new blockchain test harness.
+    /// Create a new blockchain test harness with default configuration.
     ///
     /// This implementation:
     /// - Starts solana-test-validator process with unique ports
@@ -155,6 +188,8 @@ impl BlockchainTestHarness {
     }
 
     /// Create a new blockchain test harness with custom configuration.
+    ///
+    /// Sets up a test validator with the specified configuration parameters.
     pub async fn new_with_config(
         config: BlockchainTestConfig,
     ) -> Result<Self, BlockchainHarnessError> {
@@ -220,21 +255,29 @@ impl BlockchainTestHarness {
     }
 
     /// Get the RPC URL for the test validator.
+    ///
+    /// Returns the URL that can be used to connect to the test validator's RPC interface.
     pub fn rpc_url(&self) -> &str {
         &self.rpc_url
     }
 
     /// Get the WebSocket URL for the test validator.
+    ///
+    /// Returns the URL that can be used to connect to the test validator's WebSocket interface.
     pub fn websocket_url(&self) -> &str {
         &self.websocket_url
     }
 
     /// Get the RPC port.
+    ///
+    /// Returns the port number used by the test validator for RPC connections.
     pub fn rpc_port(&self) -> u16 {
         self.rpc_port
     }
 
     /// Get the WebSocket port.
+    ///
+    /// Returns the port number used by the test validator for WebSocket connections.
     pub fn websocket_port(&self) -> u16 {
         self.websocket_port
     }
@@ -347,7 +390,7 @@ impl BlockchainTestHarness {
         while start_time.elapsed() < timeout_duration {
             match self.client.get_signature_status(tx_signature) {
                 Ok(Some(status)) => {
-                    if let Ok(()) = status {
+                    if status.is_ok() {
                         return Ok(TransactionInfo {
                             signature: *tx_signature,
                             confirmed: true,
@@ -409,11 +452,8 @@ impl BlockchainTestHarness {
             .ok_or_else(|| BlockchainHarnessError::InvalidKeypair(from_keypair_index))?;
 
         // Create system transfer instruction
-        let instruction = solana_sdk::system_instruction::transfer(
-            &from_keypair.pubkey(),
-            to_pubkey,
-            amount_lamports,
-        );
+        let instruction =
+            system_instruction::transfer(&from_keypair.pubkey(), to_pubkey, amount_lamports);
 
         // Create transaction
         let mut transaction = solana_sdk::transaction::Transaction::new_with_payer(
@@ -703,9 +743,13 @@ impl Drop for BlockchainTestHarness {
 /// Legacy mock transaction information for backwards compatibility.
 #[derive(Debug, Clone)]
 pub struct MockTransactionInfo {
+    /// Transaction signature as a string
     pub signature: String,
+    /// Whether the transaction was confirmed
     pub confirmed: bool,
+    /// The slot number where the transaction was processed
     pub slot: u64,
+    /// Transaction fees in lamports
     pub fees: u64,
 }
 
@@ -778,23 +822,28 @@ pub mod utils {
 
 /// Builder for creating blockchain test scenarios.
 pub struct BlockchainScenarioBuilder {
+    /// Funding amounts in SOL for each test wallet
     funding_amounts: Vec<f64>,
+    /// List of operations to perform in the scenario
     operations: Vec<MockOperation>,
 }
 
 impl BlockchainScenarioBuilder {
-    pub fn new() -> Self {
-        Self {
-            funding_amounts: vec![10.0], // Default 10 SOL per wallet
-            operations: Vec::new(),
-        }
-    }
-
+    /// Set custom funding amounts for test wallets.
+    ///
+    /// # Arguments
+    /// * `sol_amounts` - Vector of SOL amounts to fund each wallet with
     pub fn with_funding(mut self, sol_amounts: Vec<f64>) -> Self {
         self.funding_amounts = sol_amounts;
         self
     }
 
+    /// Add a transfer operation to the scenario.
+    ///
+    /// # Arguments
+    /// * `from_index` - Index of the sender wallet
+    /// * `to_index` - Index of the recipient wallet
+    /// * `amount_sol` - Amount to transfer in SOL
     pub fn add_transfer(mut self, from_index: usize, to_index: usize, amount_sol: f64) -> Self {
         self.operations.push(MockOperation::Transfer {
             from_index,
@@ -804,12 +853,19 @@ impl BlockchainScenarioBuilder {
         self
     }
 
+    /// Add a balance check operation to the scenario.
+    ///
+    /// # Arguments
+    /// * `wallet_index` - Index of the wallet to check balance for
     pub fn add_balance_check(mut self, wallet_index: usize) -> Self {
         self.operations
             .push(MockOperation::BalanceCheck { wallet_index });
         self
     }
 
+    /// Build the final test scenario.
+    ///
+    /// Returns a configured `BlockchainTestScenario` ready for execution.
     pub fn build(self) -> BlockchainTestScenario {
         BlockchainTestScenario {
             funding_amounts: self.funding_amounts,
@@ -820,26 +876,37 @@ impl BlockchainScenarioBuilder {
 
 impl Default for BlockchainScenarioBuilder {
     fn default() -> Self {
-        Self::new()
+        Self {
+            funding_amounts: vec![10.0], // Default 10 SOL per wallet
+            operations: vec![],
+        }
     }
 }
 
 /// Test scenario for blockchain operations.
 #[derive(Debug)]
 pub struct BlockchainTestScenario {
+    /// Funding amounts in SOL for each test wallet
     pub funding_amounts: Vec<f64>,
+    /// List of operations to perform in the scenario
     pub operations: Vec<MockOperation>,
 }
 
 /// Mock blockchain operations for testing.
 #[derive(Debug, Clone)]
 pub enum MockOperation {
+    /// Transfer SOL between wallets
     Transfer {
+        /// Index of the sender wallet
         from_index: usize,
+        /// Index of the recipient wallet
         to_index: usize,
+        /// Amount to transfer in SOL
         amount_sol: f64,
     },
+    /// Check the balance of a wallet
     BalanceCheck {
+        /// Index of the wallet to check
         wallet_index: usize,
     },
 }
@@ -911,7 +978,7 @@ mod tests {
 
     #[test]
     fn test_scenario_builder() {
-        let scenario = BlockchainScenarioBuilder::new()
+        let scenario = BlockchainScenarioBuilder::default()
             .with_funding(vec![10.0, 5.0, 15.0])
             .add_transfer(0, 1, 2.0)
             .add_balance_check(1)

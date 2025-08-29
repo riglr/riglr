@@ -57,7 +57,6 @@ impl fmt::Debug for ChannelCommunication {
 
 impl ChannelCommunication {
     /// Create a new channel-based communication system with default configuration.
-    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         Self::default()
     }

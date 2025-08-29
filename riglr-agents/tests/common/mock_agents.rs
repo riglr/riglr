@@ -6,10 +6,14 @@ use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
 use tokio::time::{sleep, Duration};
 
+/// A mock trading agent used for testing agent coordination and execution.
+///
+/// This agent simulates trading behavior with configurable delay, failure modes,
+/// load factors, and execution counting for comprehensive testing scenarios.
 #[derive(Debug)]
 pub struct MockTradingAgent {
     id: AgentId,
-    capabilities: Vec<String>,
+    capabilities: Vec<CapabilityType>,
     execution_delay: Duration,
     should_fail: bool,
     execution_count: AtomicU32,
@@ -18,7 +22,12 @@ pub struct MockTradingAgent {
 }
 
 impl MockTradingAgent {
-    pub fn new(id: &str, capabilities: Vec<String>) -> Self {
+    /// Creates a new mock trading agent with specified ID and capabilities.
+    ///
+    /// # Arguments
+    /// * `id` - Unique identifier for the agent
+    /// * `capabilities` - List of capabilities this agent supports
+    pub fn new(id: &str, capabilities: Vec<CapabilityType>) -> Self {
         Self {
             id: AgentId::new(id),
             capabilities,
@@ -30,26 +39,41 @@ impl MockTradingAgent {
         }
     }
 
+    /// Configures the agent to fail on task execution for testing error scenarios.
     pub fn with_failure(mut self) -> Self {
         self.should_fail = true;
         self
     }
 
+    /// Sets the execution delay for simulating processing time.
+    ///
+    /// # Arguments
+    /// * `delay` - Duration to wait before completing task execution
     pub fn with_delay(mut self, delay: Duration) -> Self {
         self.execution_delay = delay;
         self
     }
 
+    /// Sets the load factor for the agent to simulate varying workloads.
+    ///
+    /// # Arguments
+    /// * `load` - Load factor between 0.0 and 1.0
     pub fn with_load(mut self, load: f64) -> Self {
         self.load_factor = load;
         self
     }
 
+    /// Sets the initial state of the agent.
+    ///
+    /// # Arguments
+    /// * `state` - The agent state to set (Active, Idle, Busy, etc.)
     pub fn with_state(mut self, state: AgentState) -> Self {
         self.state = state;
         self
     }
 
+    /// Returns the number of times this agent has executed tasks.
+    /// Useful for verifying agent behavior in tests.
     pub fn execution_count(&self) -> u32 {
         self.execution_count.load(Ordering::Relaxed)
     }
@@ -100,7 +124,7 @@ impl Agent for MockTradingAgent {
         &self.id
     }
 
-    fn capabilities(&self) -> Vec<String> {
+    fn capabilities(&self) -> Vec<CapabilityType> {
         self.capabilities.clone()
     }
 
@@ -114,9 +138,9 @@ impl Agent for MockTradingAgent {
             capabilities: self
                 .capabilities()
                 .into_iter()
-                .map(|cap| Capability::new(cap, "1.0"))
+                .map(|cap| Capability::new(cap.to_string(), "1.0"))
                 .collect(),
-            metadata: HashMap::new(),
+            metadata: HashMap::default(),
         }
     }
 
@@ -132,22 +156,37 @@ impl Agent for MockTradingAgent {
     }
 }
 
+/// A mock research agent that simulates market analysis and research capabilities.
+///
+/// This agent can optionally share state with other agents in the system to simulate
+/// collaborative workflows where research results are shared between agents.
 #[derive(Debug)]
 pub struct MockResearchAgent {
     id: AgentId,
-    capabilities: Vec<String>,
+    capabilities: Vec<CapabilityType>,
     shared_state: Option<Arc<tokio::sync::RwLock<SharedTradingState>>>,
 }
 
 impl MockResearchAgent {
+    /// Creates a new mock research agent with research and market analysis capabilities.
+    ///
+    /// # Arguments
+    /// * `id` - Unique identifier for the agent
     pub fn new(id: &str) -> Self {
         Self {
             id: AgentId::new(id),
-            capabilities: vec!["research".to_string(), "market_analysis".to_string()],
+            capabilities: vec![
+                CapabilityType::Research,
+                CapabilityType::Custom("market_analysis".to_string()),
+            ],
             shared_state: None,
         }
     }
 
+    /// Configures the agent to use shared state for inter-agent communication.
+    ///
+    /// # Arguments
+    /// * `state` - Shared state container for coordinating with other agents
     pub fn with_shared_state(
         mut self,
         state: Arc<tokio::sync::RwLock<SharedTradingState>>,
@@ -196,27 +235,39 @@ impl Agent for MockResearchAgent {
         &self.id
     }
 
-    fn capabilities(&self) -> Vec<String> {
+    fn capabilities(&self) -> Vec<CapabilityType> {
         self.capabilities.clone()
     }
 }
 
+/// A mock risk management agent that performs risk analysis on trading decisions.
+///
+/// This agent simulates risk assessment workflows and can depend on market analysis
+/// from other agents when using shared state.
 #[derive(Debug)]
 pub struct MockRiskAgent {
     id: AgentId,
-    capabilities: Vec<String>,
+    capabilities: Vec<CapabilityType>,
     shared_state: Option<Arc<tokio::sync::RwLock<SharedTradingState>>>,
 }
 
 impl MockRiskAgent {
+    /// Creates a new mock risk agent with risk analysis capabilities.
+    ///
+    /// # Arguments
+    /// * `id` - Unique identifier for the agent
     pub fn new(id: &str) -> Self {
         Self {
             id: AgentId::new(id),
-            capabilities: vec!["risk_analysis".to_string()],
+            capabilities: vec![CapabilityType::RiskAnalysis],
             shared_state: None,
         }
     }
 
+    /// Configures the agent to use shared state for accessing market analysis data.
+    ///
+    /// # Arguments
+    /// * `state` - Shared state container for accessing analysis from other agents
     pub fn with_shared_state(
         mut self,
         state: Arc<tokio::sync::RwLock<SharedTradingState>>,
@@ -277,27 +328,42 @@ impl Agent for MockRiskAgent {
         &self.id
     }
 
-    fn capabilities(&self) -> Vec<String> {
+    fn capabilities(&self) -> Vec<CapabilityType> {
         self.capabilities.clone()
     }
 }
 
+/// A mock execution agent that simulates trade execution with dependency checking.
+///
+/// This agent requires both market analysis and risk assessment to be completed
+/// before executing trades, demonstrating workflow coordination.
 #[derive(Debug)]
 pub struct MockExecutionAgent {
     id: AgentId,
-    capabilities: Vec<String>,
+    capabilities: Vec<CapabilityType>,
     shared_state: Option<Arc<tokio::sync::RwLock<SharedTradingState>>>,
 }
 
 impl MockExecutionAgent {
+    /// Creates a new mock execution agent with trading and execution capabilities.
+    ///
+    /// # Arguments
+    /// * `id` - Unique identifier for the agent
     pub fn new(id: &str) -> Self {
         Self {
             id: AgentId::new(id),
-            capabilities: vec!["trading".to_string(), "trade_execution".to_string()],
+            capabilities: vec![
+                CapabilityType::Trading,
+                CapabilityType::Custom("trade_execution".to_string()),
+            ],
             shared_state: None,
         }
     }
 
+    /// Configures the agent to use shared state for workflow coordination.
+    ///
+    /// # Arguments
+    /// * `state` - Shared state container for checking prerequisites before execution
     pub fn with_shared_state(
         mut self,
         state: Arc<tokio::sync::RwLock<SharedTradingState>>,
@@ -360,24 +426,36 @@ impl Agent for MockExecutionAgent {
         &self.id
     }
 
-    fn capabilities(&self) -> Vec<String> {
+    fn capabilities(&self) -> Vec<CapabilityType> {
         self.capabilities.clone()
     }
 }
 
+/// Shared state container for coordinating multi-agent trading workflows.
+///
+/// This structure allows agents to share information and coordinate their actions
+/// in a typical trading workflow: research → risk analysis → execution.
 #[derive(Debug, Clone, Default)]
 pub struct SharedTradingState {
+    /// Market analysis results from research agents
     pub market_analysis: Option<String>,
+    /// Risk assessment results from risk management agents  
     pub risk_assessment: Option<String>,
+    /// Flag indicating whether trade execution has completed
     pub trade_executed: bool,
+    /// Results of the trade execution
     pub execution_result: Option<String>,
 }
 
 impl SharedTradingState {
+    /// Creates a new empty shared trading state.
     pub fn new() -> Self {
-        Default::default()
+        Self::default()
     }
 
+    /// Checks if the complete trading workflow has been executed.
+    ///
+    /// Returns `true` if all stages (analysis, risk assessment, execution) are complete.
     pub fn is_workflow_complete(&self) -> bool {
         self.market_analysis.is_some()
             && self.risk_assessment.is_some()
@@ -386,12 +464,15 @@ impl SharedTradingState {
     }
 }
 
-// Helper function to create a set of agents for testing
+/// Helper function to create a set of agents for testing basic agent functionality.
+///
+/// Creates a collection of different agent types for testing agent registration,
+/// capability matching, and basic task execution scenarios.
 pub fn create_test_agent_set() -> Vec<Arc<dyn Agent>> {
     vec![
         Arc::new(MockTradingAgent::new(
             "trader-1",
-            vec!["trading".to_string()],
+            vec![CapabilityType::Trading],
         )),
         Arc::new(MockResearchAgent::new("researcher-1")),
         Arc::new(MockRiskAgent::new("risk-1")),
@@ -399,12 +480,20 @@ pub fn create_test_agent_set() -> Vec<Arc<dyn Agent>> {
     ]
 }
 
-// Helper function to create agents with shared state for workflow testing
+/// Helper function to create agents with shared state for workflow testing.
+///
+/// Creates a set of agents that share state for testing complex multi-agent
+/// workflows and coordination scenarios.
+///
+/// # Returns
+/// A tuple containing:
+/// * Vector of agents configured with shared state
+/// * The shared state container for external monitoring
 pub fn create_workflow_agents() -> (
     Vec<Arc<dyn Agent>>,
     Arc<tokio::sync::RwLock<SharedTradingState>>,
 ) {
-    let shared_state = Arc::new(tokio::sync::RwLock::new(SharedTradingState::new()));
+    let shared_state = Arc::new(tokio::sync::RwLock::new(SharedTradingState::default()));
 
     let agents: Vec<Arc<dyn Agent>> = vec![
         Arc::new(MockResearchAgent::new("researcher").with_shared_state(shared_state.clone())),

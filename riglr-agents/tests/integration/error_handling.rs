@@ -11,12 +11,12 @@ async fn test_agent_failure_recovery() {
 
     // Register agents, including one configured to fail
     let failing_agent = Arc::new(
-        MockTradingAgent::new("failing-trader", vec!["trading".to_string()]).with_failure(),
+        MockTradingAgent::new("failing-trader", vec![CapabilityType::Trading]).with_failure(),
     );
 
     let backup_agent = Arc::new(MockTradingAgent::new(
         "backup-trader",
-        vec!["trading".to_string()],
+        vec![CapabilityType::Trading],
     ));
 
     registry.register_agent(failing_agent).await.unwrap();
@@ -55,8 +55,14 @@ async fn test_registry_capacity_errors() {
     };
     let registry = LocalAgentRegistry::with_config(config);
 
-    let agent1 = Arc::new(MockTradingAgent::new("agent1", vec!["test".to_string()]));
-    let agent2 = Arc::new(MockTradingAgent::new("agent2", vec!["test".to_string()]));
+    let agent1 = Arc::new(MockTradingAgent::new(
+        "agent1",
+        vec![CapabilityType::Custom("test".to_string())],
+    ));
+    let agent2 = Arc::new(MockTradingAgent::new(
+        "agent2",
+        vec![CapabilityType::Custom("test".to_string())],
+    ));
 
     // First registration should succeed
     assert!(registry.register_agent(agent1).await.is_ok());
@@ -73,7 +79,6 @@ async fn test_registry_capacity_errors() {
 #[tokio::test]
 async fn test_communication_error_handling() {
     let comm_system = ChannelCommunication::new();
-    let agent_id = AgentId::new("test-agent");
 
     // Try to send message without subscription
     let message = create_test_message("sender", Some("nonexistent"), "test", serde_json::json!({}));
@@ -91,7 +96,7 @@ async fn test_task_timeout_error_handling() {
 
     // Register an agent with very long execution delay
     let slow_agent = Arc::new(
-        MockTradingAgent::new("very-slow", vec!["trading".to_string()])
+        MockTradingAgent::new("very-slow", vec![CapabilityType::Trading])
             .with_delay(Duration::from_millis(500)),
     );
 
@@ -117,7 +122,10 @@ async fn test_no_suitable_agent_error() {
     let registry = Arc::new(LocalAgentRegistry::new());
 
     // Register only trading agents
-    let trading_agent = Arc::new(MockTradingAgent::new("trader", vec!["trading".to_string()]));
+    let trading_agent = Arc::new(MockTradingAgent::new(
+        "trader",
+        vec![CapabilityType::Trading],
+    ));
     registry.register_agent(trading_agent).await.unwrap();
 
     let dispatcher = AgentDispatcher::new(registry);
@@ -137,17 +145,17 @@ async fn test_agent_unavailability_error() {
 
     // Register agents in various unavailable states
     let offline_agent = Arc::new(
-        MockTradingAgent::new("offline", vec!["trading".to_string()])
+        MockTradingAgent::new("offline", vec![CapabilityType::Trading])
             .with_state(AgentState::Offline),
     );
 
     let maintenance_agent = Arc::new(
-        MockTradingAgent::new("maintenance", vec!["trading".to_string()])
+        MockTradingAgent::new("maintenance", vec![CapabilityType::Trading])
             .with_state(AgentState::Maintenance),
     );
 
     let full_agent = Arc::new(
-        MockTradingAgent::new("full", vec!["trading".to_string()]).with_state(AgentState::Full),
+        MockTradingAgent::new("full", vec![CapabilityType::Trading]).with_state(AgentState::Full),
     );
 
     registry.register_agent(offline_agent).await.unwrap();
@@ -222,8 +230,9 @@ async fn test_retry_exhaustion() {
     let registry = Arc::new(LocalAgentRegistry::new());
 
     // Register an agent that always fails
-    let always_failing_agent =
-        Arc::new(MockTradingAgent::new("always-fails", vec!["trading".to_string()]).with_failure());
+    let always_failing_agent = Arc::new(
+        MockTradingAgent::new("always-fails", vec![CapabilityType::Trading]).with_failure(),
+    );
 
     registry.register_agent(always_failing_agent).await.unwrap();
 
@@ -252,11 +261,11 @@ async fn test_concurrent_error_handling() {
     // Register mix of working and failing agents
     let working_agent = Arc::new(MockTradingAgent::new(
         "working",
-        vec!["trading".to_string()],
+        vec![CapabilityType::Trading],
     ));
 
     let failing_agent =
-        Arc::new(MockTradingAgent::new("failing", vec!["trading".to_string()]).with_failure());
+        Arc::new(MockTradingAgent::new("failing", vec![CapabilityType::Trading]).with_failure());
 
     registry.register_agent(working_agent).await.unwrap();
     registry.register_agent(failing_agent).await.unwrap();
@@ -326,11 +335,11 @@ async fn test_error_recovery_with_graceful_degradation() {
     // Register agents with different failure rates
     let reliable_agent = Arc::new(MockTradingAgent::new(
         "reliable",
-        vec!["trading".to_string()],
+        vec![CapabilityType::Trading],
     ));
 
     let unreliable_agent =
-        Arc::new(MockTradingAgent::new("unreliable", vec!["trading".to_string()]).with_failure());
+        Arc::new(MockTradingAgent::new("unreliable", vec![CapabilityType::Trading]).with_failure());
 
     registry.register_agent(reliable_agent).await.unwrap();
     registry.register_agent(unreliable_agent).await.unwrap();
@@ -367,7 +376,10 @@ async fn test_dispatcher_health_check_with_failures() {
     assert!(!health);
 
     // Add an agent - should become healthy
-    let agent = Arc::new(MockTradingAgent::new("trader", vec!["trading".to_string()]));
+    let agent = Arc::new(MockTradingAgent::new(
+        "trader",
+        vec![CapabilityType::Trading],
+    ));
     registry.register_agent(agent).await.unwrap();
 
     let health = dispatcher.health_check().await.unwrap();
@@ -379,7 +391,7 @@ async fn test_error_context_preservation() {
     let registry = Arc::new(LocalAgentRegistry::new());
 
     let failing_agent = Arc::new(
-        MockTradingAgent::new("context-failing", vec!["trading".to_string()]).with_failure(),
+        MockTradingAgent::new("context-failing", vec![CapabilityType::Trading]).with_failure(),
     );
 
     registry.register_agent(failing_agent).await.unwrap();
@@ -396,7 +408,6 @@ async fn test_error_context_preservation() {
         .with_metadata("test_id", serde_json::json!("error_context_123"))
         .build();
 
-    let task_id = task.id.clone();
     let result = dispatcher.dispatch_task(task).await.unwrap();
 
     // Error should preserve context about the failed task

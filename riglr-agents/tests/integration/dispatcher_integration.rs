@@ -14,14 +14,14 @@ async fn test_dispatcher_registry_router_integration() {
     // Register agents with different capabilities
     let trading_agent = Arc::new(MockTradingAgent::new(
         "trader-1",
-        vec!["trading".to_string()],
+        vec![CapabilityType::Trading],
     ));
     let research_agent = Arc::new(MockResearchAgent::new("researcher-1"));
     let risk_agent = Arc::new(MockRiskAgent::new("risk-1"));
 
     let trading_id = trading_agent.id().clone();
-    let research_id = research_agent.id().clone();
-    let risk_id = risk_agent.id().clone();
+    let _research_id = research_agent.id().clone();
+    let _risk_id = risk_agent.id().clone();
 
     registry.register_agent(trading_agent).await.unwrap();
     registry.register_agent(research_agent).await.unwrap();
@@ -94,7 +94,7 @@ async fn test_least_loaded_routing(registry: &Arc<LocalAgentRegistry>) {
     assert_eq!(data["agent_id"], "trader-1");
 }
 
-async fn test_direct_routing(registry: &Arc<LocalAgentRegistry>, agent_id: &AgentId) {
+async fn test_direct_routing(registry: &Arc<LocalAgentRegistry>, _agent_id: &AgentId) {
     let config = DispatchConfig {
         routing_strategy: RoutingStrategy::Direct,
         ..create_test_dispatch_config()
@@ -153,7 +153,7 @@ async fn test_dispatcher_concurrent_execution() {
     for i in 0..3 {
         let agent = Arc::new(MockTradingAgent::new(
             &format!("trader-{}", i),
-            vec!["trading".to_string()],
+            vec![CapabilityType::Trading],
         ));
         registry.register_agent(agent).await.unwrap();
     }
@@ -180,10 +180,10 @@ async fn test_dispatcher_load_balancing() {
 
     // Register agents with different load levels
     let high_load_agent =
-        Arc::new(MockTradingAgent::new("high-load", vec!["trading".to_string()]).with_load(0.9));
+        Arc::new(MockTradingAgent::new("high-load", vec![CapabilityType::Trading]).with_load(0.9));
 
     let low_load_agent =
-        Arc::new(MockTradingAgent::new("low-load", vec!["trading".to_string()]).with_load(0.1));
+        Arc::new(MockTradingAgent::new("low-load", vec![CapabilityType::Trading]).with_load(0.1));
 
     registry.register_agent(high_load_agent).await.unwrap();
     registry.register_agent(low_load_agent).await.unwrap();
@@ -233,7 +233,10 @@ async fn test_dispatcher_no_suitable_agent_error() {
     let registry = Arc::new(LocalAgentRegistry::new());
 
     // Register only a trading agent
-    let trading_agent = Arc::new(MockTradingAgent::new("trader", vec!["trading".to_string()]));
+    let trading_agent = Arc::new(MockTradingAgent::new(
+        "trader",
+        vec![CapabilityType::Trading],
+    ));
     registry.register_agent(trading_agent).await.unwrap();
 
     let dispatcher = AgentDispatcher::new(registry.clone());
@@ -253,7 +256,7 @@ async fn test_dispatcher_agent_unavailability() {
 
     // Register an offline agent
     let offline_agent = Arc::new(
-        MockTradingAgent::new("offline", vec!["trading".to_string()])
+        MockTradingAgent::new("offline", vec![CapabilityType::Trading])
             .with_state(AgentState::Offline),
     );
 
@@ -276,7 +279,7 @@ async fn test_dispatcher_task_timeout() {
 
     // Register an agent with long execution delay
     let slow_agent = Arc::new(
-        MockTradingAgent::new("slow", vec!["trading".to_string()])
+        MockTradingAgent::new("slow", vec![CapabilityType::Trading])
             .with_delay(Duration::from_millis(200)),
     );
 
@@ -304,7 +307,7 @@ async fn test_dispatcher_routing_strategy_changes() {
     for i in 0..3 {
         let agent = Arc::new(MockTradingAgent::new(
             &format!("trader-{}", i),
-            vec!["trading".to_string()],
+            vec![CapabilityType::Trading],
         ));
         registry.register_agent(agent).await.unwrap();
     }
@@ -350,7 +353,7 @@ async fn test_dispatcher_custom_task_type() {
     // Register an agent with custom capability
     let custom_agent = Arc::new(MockTradingAgent::new(
         "custom-agent",
-        vec!["custom_capability".to_string()],
+        vec![CapabilityType::Custom("custom_capability".to_string())],
     ));
 
     registry.register_agent(custom_agent).await.unwrap();
@@ -372,8 +375,8 @@ async fn test_dispatcher_with_disabled_load_balancing() {
 
     // Register agents with different loads
     let agents = vec![
-        Arc::new(MockTradingAgent::new("trader-1", vec!["trading".to_string()]).with_load(0.8)),
-        Arc::new(MockTradingAgent::new("trader-2", vec!["trading".to_string()]).with_load(0.2)),
+        Arc::new(MockTradingAgent::new("trader-1", vec![CapabilityType::Trading]).with_load(0.8)),
+        Arc::new(MockTradingAgent::new("trader-2", vec![CapabilityType::Trading]).with_load(0.2)),
     ];
 
     for agent in agents {

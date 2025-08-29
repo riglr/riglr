@@ -17,8 +17,8 @@
 use async_trait::async_trait;
 use riglr_agents::{
     Agent, AgentCommunication, AgentDispatcher, AgentId, AgentMessage, AgentRegistry,
-    ChannelCommunication, DispatchConfig, LocalAgentRegistry, Priority, RoutingStrategy, Task,
-    TaskResult, TaskType,
+    CapabilityType, ChannelCommunication, DispatchConfig, LocalAgentRegistry, Priority,
+    RoutingStrategy, Task, TaskResult, TaskType,
 };
 // Removed rig_core imports - using mock implementations
 use serde_json::json;
@@ -290,12 +290,12 @@ impl Agent for PositionRiskAgent {
         &self.id
     }
 
-    fn capabilities(&self) -> Vec<String> {
+    fn capabilities(&self) -> Vec<CapabilityType> {
         vec![
-            "position_risk_analysis".to_string(),
-            "position_analysis".to_string(),
-            "volatility_analysis".to_string(),
-            "var_calculation".to_string(),
+            CapabilityType::Custom("position_risk_analysis".to_string()),
+            CapabilityType::Custom("position_analysis".to_string()),
+            CapabilityType::Custom("volatility_analysis".to_string()),
+            CapabilityType::Custom("var_calculation".to_string()),
         ]
     }
 }
@@ -510,12 +510,12 @@ impl Agent for PortfolioRiskMonitor {
         &self.id
     }
 
-    fn capabilities(&self) -> Vec<String> {
+    fn capabilities(&self) -> Vec<CapabilityType> {
         vec![
-            "portfolio".to_string(),
-            "risk_monitoring".to_string(),
-            "alert_management".to_string(),
-            "limit_monitoring".to_string(),
+            CapabilityType::Portfolio,
+            CapabilityType::Custom("risk_monitoring".to_string()),
+            CapabilityType::Custom("alert_management".to_string()),
+            CapabilityType::Custom("limit_monitoring".to_string()),
         ]
     }
 }
@@ -660,12 +660,12 @@ impl Agent for ComplianceAgent {
         &self.id
     }
 
-    fn capabilities(&self) -> Vec<String> {
+    fn capabilities(&self) -> Vec<CapabilityType> {
         vec![
-            "compliance_risk_analysis".to_string(),
-            "compliance".to_string(),
-            "regulatory_check".to_string(),
-            "legal_validation".to_string(),
+            CapabilityType::Custom("compliance_risk_analysis".to_string()),
+            CapabilityType::Custom("compliance".to_string()),
+            CapabilityType::Custom("regulatory_check".to_string()),
+            CapabilityType::Custom("legal_validation".to_string()),
         ]
     }
 }
@@ -834,12 +834,12 @@ impl Agent for EmergencyResponseAgent {
         &self.id
     }
 
-    fn capabilities(&self) -> Vec<String> {
+    fn capabilities(&self) -> Vec<CapabilityType> {
         vec![
-            "monitoring".to_string(),
-            "emergency_response".to_string(),
-            "risk_mitigation".to_string(),
-            "incident_management".to_string(),
+            CapabilityType::Monitoring,
+            CapabilityType::Custom("emergency_response".to_string()),
+            CapabilityType::Custom("risk_mitigation".to_string()),
+            CapabilityType::Custom("incident_management".to_string()),
         ]
     }
 
@@ -915,6 +915,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         retry_delay: Duration::from_millis(500),
         max_concurrent_tasks_per_agent: 5,
         enable_load_balancing: false,
+        response_wait_timeout: Duration::from_secs(30), // Wait up to 30 seconds for responses
     };
 
     let dispatcher = Arc::new(AgentDispatcher::with_config(

@@ -4,14 +4,15 @@
 //! scenario builder. It provides basic functionality for E2E tests.
 
 use crate::common::BlockchainTestHarness;
-use riglr_agents::*;
 
 /// Simple scenario builder for E2E testing.
 pub struct SimpleScenarioBuilder {
+    /// The name of the scenario being built.
     pub name: String,
 }
 
 impl SimpleScenarioBuilder {
+    /// Creates a new scenario builder with the given name.
     pub fn new(name: &str) -> Self {
         Self {
             name: name.to_string(),

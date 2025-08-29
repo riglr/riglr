@@ -1,9 +1,10 @@
 //! Local in-memory agent registry implementation.
 
 use super::{AgentRegistry, RegistryConfig};
-use crate::{Agent, AgentError, AgentId, AgentStatus, Result};
+use crate::{Agent, AgentError, AgentId, AgentStatus, CapabilityType, Result};
 use async_trait::async_trait;
 use std::collections::HashMap;
+use std::str::FromStr;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{debug, info, warn};
@@ -25,7 +26,7 @@ pub struct LocalAgentRegistry {
 impl LocalAgentRegistry {
     /// Create a new local agent registry with default configuration.
     pub fn new() -> Self {
-        Self::with_config(RegistryConfig::default())
+        Self::default()
     }
 
     /// Create a new local agent registry with custom configuration.
@@ -167,7 +168,10 @@ impl AgentRegistry for LocalAgentRegistry {
         let agents = self.agents.read().await;
         let matching_agents: Vec<Arc<dyn Agent>> = agents
             .values()
-            .filter(|agent| agent.capabilities().contains(&capability.to_string()))
+            .filter(|agent| {
+                let cap_type = CapabilityType::from_str(capability).unwrap();
+                agent.capabilities().contains(&cap_type)
+            })
             .cloned()
             .collect();
 
@@ -212,6 +216,27 @@ impl AgentRegistry for LocalAgentRegistry {
         Ok(statuses.values().cloned().collect())
     }
 
+    async fn find_agent_statuses_by_capability(
+        &self,
+        capability: &str,
+    ) -> Result<Vec<AgentStatus>> {
+        let agents = self.agents.read().await;
+        let statuses = self.statuses.read().await;
+
+        let mut matching_statuses = Vec::new();
+
+        for (agent_id, agent) in agents.iter() {
+            let cap_type = CapabilityType::from_str(capability).unwrap();
+            if agent.capabilities().contains(&cap_type) {
+                if let Some(status) = statuses.get(agent_id) {
+                    matching_statuses.push(status.clone());
+                }
+            }
+        }
+
+        Ok(matching_statuses)
+    }
+
     async fn is_agent_registered(&self, agent_id: &AgentId) -> Result<bool> {
         let agents = self.agents.read().await;
         Ok(agents.contains_key(agent_id))
@@ -253,7 +278,7 @@ mod tests {
     #[derive(Clone, Debug)]
     struct TestAgent {
         id: AgentId,
-        capabilities: Vec<String>,
+        capabilities: Vec<CapabilityType>,
     }
 
     #[async_trait]
@@ -270,7 +295,7 @@ mod tests {
             &self.id
         }
 
-        fn capabilities(&self) -> Vec<String> {
+        fn capabilities(&self) -> Vec<CapabilityType> {
             self.capabilities.clone()
         }
     }
@@ -280,7 +305,7 @@ mod tests {
         let registry = LocalAgentRegistry::default();
         let agent = Arc::new(TestAgent {
             id: AgentId::new("test-agent"),
-            capabilities: vec!["trading".to_string()],
+            capabilities: vec![CapabilityType::Custom("trading".to_string())],
         });
 
         // Test successful registration
@@ -301,7 +326,7 @@ mod tests {
         let registry = LocalAgentRegistry::default();
         let agent = Arc::new(TestAgent {
             id: AgentId::new("test-agent"),
-            capabilities: vec!["trading".to_string()],
+            capabilities: vec![CapabilityType::Custom("trading".to_string())],
         });
 
         // Register then unregister
@@ -328,12 +353,12 @@ mod tests {
 
         let trading_agent = Arc::new(TestAgent {
             id: AgentId::new("trading-agent"),
-            capabilities: vec!["trading".to_string(), "risk_analysis".to_string()],
+            capabilities: vec![CapabilityType::Trading, CapabilityType::RiskAnalysis],
         });
 
         let research_agent = Arc::new(TestAgent {
             id: AgentId::new("research-agent"),
-            capabilities: vec!["research".to_string(), "monitoring".to_string()],
+            capabilities: vec![CapabilityType::Research, CapabilityType::Monitoring],
         });
 
         registry.register_agent(trading_agent).await.unwrap();
@@ -369,7 +394,7 @@ mod tests {
         let registry = LocalAgentRegistry::default();
         let agent = Arc::new(TestAgent {
             id: AgentId::new("test-agent"),
-            capabilities: vec!["trading".to_string()],
+            capabilities: vec![CapabilityType::Custom("trading".to_string())],
         });
 
         registry.register_agent(agent).await.unwrap();
@@ -414,15 +439,15 @@ mod tests {
         // Register up to capacity
         let agent1 = Arc::new(TestAgent {
             id: AgentId::new("agent1"),
-            capabilities: vec!["trading".to_string()],
+            capabilities: vec![CapabilityType::Custom("trading".to_string())],
         });
         let agent2 = Arc::new(TestAgent {
             id: AgentId::new("agent2"),
-            capabilities: vec!["research".to_string()],
+            capabilities: vec![CapabilityType::Custom("research".to_string())],
         });
         let agent3 = Arc::new(TestAgent {
             id: AgentId::new("agent3"),
-            capabilities: vec!["monitoring".to_string()],
+            capabilities: vec![CapabilityType::Custom("monitoring".to_string())],
         });
 
         registry.register_agent(agent1).await.unwrap();
@@ -440,11 +465,11 @@ mod tests {
 
         let agent1 = Arc::new(TestAgent {
             id: AgentId::new("agent1"),
-            capabilities: vec!["trading".to_string()],
+            capabilities: vec![CapabilityType::Custom("trading".to_string())],
         });
         let agent2 = Arc::new(TestAgent {
             id: AgentId::new("agent2"),
-            capabilities: vec!["research".to_string()],
+            capabilities: vec![CapabilityType::Custom("research".to_string())],
         });
 
         registry.register_agent(agent1).await.unwrap();
@@ -500,19 +525,19 @@ mod tests {
         // Create agents with different states
         let agent1 = Arc::new(TestAgent {
             id: AgentId::new("active-agent"),
-            capabilities: vec!["trading".to_string()],
+            capabilities: vec![CapabilityType::Custom("trading".to_string())],
         });
         let agent2 = Arc::new(TestAgent {
             id: AgentId::new("busy-agent"),
-            capabilities: vec!["research".to_string()],
+            capabilities: vec![CapabilityType::Custom("research".to_string())],
         });
         let agent3 = Arc::new(TestAgent {
             id: AgentId::new("idle-agent"),
-            capabilities: vec!["monitoring".to_string()],
+            capabilities: vec![CapabilityType::Custom("monitoring".to_string())],
         });
         let agent4 = Arc::new(TestAgent {
             id: AgentId::new("offline-agent"),
-            capabilities: vec!["analysis".to_string()],
+            capabilities: vec![CapabilityType::Custom("analysis".to_string())],
         });
 
         registry.register_agent(agent1).await.unwrap();
@@ -591,7 +616,7 @@ mod tests {
         let registry = LocalAgentRegistry::default();
         let agent = Arc::new(TestAgent {
             id: AgentId::new("test-agent"),
-            capabilities: vec!["trading".to_string()],
+            capabilities: vec![CapabilityType::Custom("trading".to_string())],
         });
 
         registry.register_agent(agent.clone()).await.unwrap();
@@ -629,11 +654,11 @@ mod tests {
 
         let agent1 = Arc::new(TestAgent {
             id: AgentId::new("agent1"),
-            capabilities: vec!["trading".to_string()],
+            capabilities: vec![CapabilityType::Custom("trading".to_string())],
         });
         let agent2 = Arc::new(TestAgent {
             id: AgentId::new("agent2"),
-            capabilities: vec!["research".to_string()],
+            capabilities: vec![CapabilityType::Custom("research".to_string())],
         });
 
         registry.register_agent(agent1).await.unwrap();
@@ -661,11 +686,11 @@ mod tests {
 
         let agent1 = Arc::new(TestAgent {
             id: AgentId::new("agent1"),
-            capabilities: vec!["trading".to_string()],
+            capabilities: vec![CapabilityType::Custom("trading".to_string())],
         });
         let agent2 = Arc::new(TestAgent {
             id: AgentId::new("agent2"),
-            capabilities: vec!["research".to_string()],
+            capabilities: vec![CapabilityType::Custom("research".to_string())],
         });
 
         registry.register_agent(agent1).await.unwrap();
@@ -721,7 +746,7 @@ mod tests {
 
         let agent = Arc::new(TestAgent {
             id: AgentId::new("test-agent"),
-            capabilities: vec!["trading".to_string()],
+            capabilities: vec![CapabilityType::Custom("trading".to_string())],
         });
         registry.register_agent(agent).await.unwrap();
 
@@ -735,7 +760,7 @@ mod tests {
 
         let agent = Arc::new(TestAgent {
             id: AgentId::new("test-agent"),
-            capabilities: vec!["trading".to_string()],
+            capabilities: vec![CapabilityType::Custom("trading".to_string())],
         });
         registry.register_agent(agent).await.unwrap();
 
@@ -757,8 +782,8 @@ mod tests {
         // Should be able to register many agents without limit
         for i in 0..100 {
             let agent = Arc::new(TestAgent {
-                id: AgentId::new(&format!("agent{}", i)),
-                capabilities: vec!["trading".to_string()],
+                id: AgentId::new(format!("agent{}", i)),
+                capabilities: vec![CapabilityType::Custom("trading".to_string())],
             });
             registry.register_agent(agent).await.unwrap();
         }
@@ -776,11 +801,11 @@ mod tests {
 
         let agent1 = Arc::new(TestAgent {
             id: AgentId::new("agent1"),
-            capabilities: vec!["trading".to_string()],
+            capabilities: vec![CapabilityType::Custom("trading".to_string())],
         });
         let agent2 = Arc::new(TestAgent {
             id: AgentId::new("agent2"),
-            capabilities: vec!["research".to_string()],
+            capabilities: vec![CapabilityType::Custom("research".to_string())],
         });
 
         // First registration should succeed
@@ -814,7 +839,7 @@ mod tests {
         // Add one agent
         let agent1 = Arc::new(TestAgent {
             id: AgentId::new("agent1"),
-            capabilities: vec!["trading".to_string()],
+            capabilities: vec![CapabilityType::Custom("trading".to_string())],
         });
         registry.register_agent(agent1).await.unwrap();
         assert_eq!(registry.agent_count().await.unwrap(), 1);
@@ -822,7 +847,7 @@ mod tests {
         // Add another agent
         let agent2 = Arc::new(TestAgent {
             id: AgentId::new("agent2"),
-            capabilities: vec!["research".to_string()],
+            capabilities: vec![CapabilityType::Custom("research".to_string())],
         });
         registry.register_agent(agent2).await.unwrap();
         assert_eq!(registry.agent_count().await.unwrap(), 2);

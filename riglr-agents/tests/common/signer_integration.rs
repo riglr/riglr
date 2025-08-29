@@ -14,21 +14,28 @@ use tokio::sync::RwLock;
 use tracing::{debug, error, warn};
 use uuid::Uuid;
 
+const SIMULATE_ISOLATION_VIOLATION: &str = "SIMULATE_ISOLATION_VIOLATION";
+
 /// Errors that can occur during signer context testing.
 #[derive(Debug, Error)]
 pub enum SignerTestError {
+    /// Unauthorized access attempt was detected during testing
     #[error("Unauthorized access attempt detected: {0}")]
     UnauthorizedAccess(String),
 
+    /// Signer isolation boundary was violated
     #[error("Signer isolation violation: {0}")]
     IsolationViolation(String),
 
+    /// Context validation failed during operation
     #[error("Context validation failed: {0}")]
     ValidationFailed(String),
 
+    /// Concurrent access limit exceeded or race condition detected
     #[error("Concurrent access error: {0}")]
     ConcurrentAccessError(String),
 
+    /// Test setup or configuration error occurred
     #[error("Test setup error: {0}")]
     TestSetup(String),
 }
@@ -36,46 +43,67 @@ pub enum SignerTestError {
 /// Mock signer context with enhanced testing capabilities.
 #[derive(Debug)]
 pub struct MockSignerContext {
+    /// Unique identifier for this mock signer instance
     signer_id: String,
+    /// Thread-safe access log for tracking signer operations
     access_log: Arc<Mutex<Vec<AccessLogEntry>>>,
+    /// Security monitor for detecting violations and unauthorized access
     security_monitor: Arc<SecurityMonitor>,
+    /// Whether isolation boundaries are enforced
     isolation_enabled: bool,
 }
 
 /// Log entry for signer access tracking.
 #[derive(Debug, Clone)]
 pub struct AccessLogEntry {
+    /// When the access attempt occurred
     pub timestamp: Instant,
+    /// Name of the operation being performed
     pub operation: String,
+    /// Whether the access was authorized
     pub authorized: bool,
+    /// ID of the signer context being accessed
     pub context_id: String,
+    /// Optional information about the caller
     pub caller_info: Option<String>,
 }
 
 /// Security monitor for tracking access patterns and violations.
 #[derive(Debug)]
 pub struct SecurityMonitor {
+    /// Flag indicating if unauthorized access attempts were detected
     unauthorized_attempts: AtomicBool,
+    /// Current count of concurrent access operations
     concurrent_access_count: Arc<RwLock<u32>>,
+    /// List of detected isolation violations
     isolation_violations: Arc<Mutex<Vec<IsolationViolation>>>,
+    /// Maximum allowed concurrent access operations
     max_concurrent_access: u32,
 }
 
 /// Details of an isolation violation.
 #[derive(Debug, Clone)]
 pub struct IsolationViolation {
+    /// When the isolation violation occurred
     pub timestamp: Instant,
+    /// Type or category of the violation
     pub violation_type: String,
+    /// Detailed description of the violation
     pub description: String,
+    /// Severity level of the violation
     pub severity: ViolationSeverity,
 }
 
 /// Severity levels for isolation violations.
 #[derive(Debug, Clone, PartialEq)]
 pub enum ViolationSeverity {
+    /// Low severity violation - informational only
     Low,
+    /// Medium severity violation - should be monitored
     Medium,
+    /// High severity violation - requires attention
     High,
+    /// Critical severity violation - immediate action required
     Critical,
 }
 
@@ -280,7 +308,7 @@ impl SecurityMonitor {
         // - Resource access boundaries
 
         // For testing, we can simulate different violation scenarios
-        if std::env::var("SIMULATE_ISOLATION_VIOLATION").is_ok() {
+        if std::env::var(SIMULATE_ISOLATION_VIOLATION).is_ok() {
             self.record_violation(
                 "memory_access".to_string(),
                 "Simulated memory boundary violation".to_string(),
@@ -328,8 +356,11 @@ impl SecurityMonitor {
 /// Mock unified signer with security monitoring.
 #[derive(Debug)]
 pub struct MockUnifiedSigner {
+    /// Unique identifier for this signer instance
     signer_id: String,
+    /// Security monitor for tracking violations
     security_monitor: Arc<SecurityMonitor>,
+    /// Count of operations performed by this signer
     operation_count: Arc<Mutex<u32>>,
 }
 
@@ -543,9 +574,13 @@ pub mod test_utils {
 /// Result of isolation testing.
 #[derive(Debug, Default)]
 pub struct IsolationTestResult {
+    /// Whether normal signer operations completed successfully
     pub normal_operation_success: bool,
+    /// Whether unauthorized access attempts were properly blocked
     pub unauthorized_access_blocked: bool,
+    /// Whether private key access attempts were properly blocked
     pub private_key_access_blocked: bool,
+    /// List of any isolation violations detected during testing
     pub isolation_violations: Vec<IsolationViolation>,
 }
 
@@ -562,10 +597,15 @@ impl IsolationTestResult {
 /// Result of security validation.
 #[derive(Debug, Default)]
 pub struct SecurityValidationResult {
+    /// Whether access logs were generated during testing
     pub has_access_logs: bool,
+    /// Whether unauthorized attempts were properly logged
     pub unauthorized_attempts_logged: bool,
+    /// Whether any isolation violations were detected
     pub isolation_violations_detected: bool,
+    /// Number of critical violations found
     pub critical_violations: usize,
+    /// Whether unauthorized access attempts were detected
     pub unauthorized_access_detected: bool,
 }
 
