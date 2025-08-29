@@ -5,9 +5,6 @@ use solana_sdk::pubkey::Pubkey;
 // Re-export types from riglr-events-core
 pub use riglr_events_core::prelude::*;
 
-// Use SolanaEventMetadata as EventMetadata for all Solana events
-pub use crate::solana_metadata::SolanaEventMetadata as EventMetadata;
-
 /// Enumeration of supported Solana DeFi protocols
 #[derive(
     Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, BorshSerialize, BorshDeserialize,
@@ -306,9 +303,8 @@ pub struct StreamMetadata {
 /// Helper functions to create core EventMetadata with Solana-specific data
 pub mod metadata_helpers {
     use super::*;
-    use riglr_events_core::types::ChainData;
 
-    /// Create a core EventMetadata with Solana chain data
+    /// Create a SolanaEventMetadata without duplication in chain_data
     #[allow(clippy::too_many_arguments)]
     pub fn create_solana_metadata(
         id: String,
@@ -317,34 +313,16 @@ pub mod metadata_helpers {
         block_time: i64,
         protocol_type: ProtocolType,
         event_type: EventType,
-        program_id: Pubkey,
+        _program_id: Pubkey,
         index: String,
         program_received_time_ms: i64,
-    ) -> EventMetadata {
+    ) -> crate::solana_metadata::SolanaEventMetadata {
         let kind = event_type.to_event_kind();
         let source = format!("solana-{}", protocol_type);
 
-        let timestamp =
-            chrono::DateTime::from_timestamp(block_time, 0).unwrap_or_else(chrono::Utc::now);
-
-        let mut metadata =
-            riglr_events_core::EventMetadata::with_timestamp(id, kind, source, timestamp);
-
-        // Add Solana chain data
-        let chain_data = ChainData::Solana {
-            slot,
-            signature: Some(signature.clone()),
-            program_id: Some(program_id),
-            instruction_index: index.parse().ok(),
-            block_time: Some(block_time),
-            protocol_data: Some(serde_json::json!({
-                "protocol_type": protocol_type,
-                "event_type": event_type,
-                "program_received_time_ms": program_received_time_ms,
-            })),
-        };
-
-        metadata = metadata.with_chain_data(chain_data);
+        // Use create_core_metadata to avoid duplication
+        let metadata =
+            crate::metadata_helpers::create_core_metadata(id, kind, source, Some(block_time));
 
         // Create SolanaEventMetadata wrapper with the correct parameters
         crate::solana_metadata::SolanaEventMetadata {

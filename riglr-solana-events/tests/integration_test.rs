@@ -4,6 +4,7 @@
 //! the EventMetadata type system is working correctly.
 
 use riglr_events_core::EventKind;
+use riglr_solana_events::solana_metadata::SolanaEventMetadata;
 use riglr_solana_events::types::{EventType, ProtocolType};
 use solana_sdk::pubkey::Pubkey;
 use std::str::FromStr;
@@ -34,42 +35,54 @@ fn test_event_metadata_creation() {
 }
 
 #[test]
-fn test_metadata_helpers_create_solana_metadata() {
-    let program_id = Pubkey::from_str("11111111111111111111111111111112").unwrap();
-
-    let metadata = riglr_solana_events::metadata_helpers::create_solana_metadata(
+fn test_metadata_helpers_create_core_metadata() {
+    let core_metadata = riglr_solana_events::metadata_helpers::create_core_metadata(
         "test-id".to_string(),
         EventKind::Swap,
         "solana".to_string(),
-        12345,
-        Some("test-signature".to_string()),
-        Some(program_id),
-        Some(0),
         Some(1640995200),
-        ProtocolType::Jupiter,
-        EventType::Swap,
     );
 
-    // Test that the metadata was created successfully
-    assert_eq!(metadata.id, "test-id");
-    assert_eq!(metadata.kind, EventKind::Swap);
-    assert_eq!(metadata.source, "solana");
+    // Test that the core metadata was created successfully without duplication
+    assert_eq!(core_metadata.id, "test-id");
+    assert_eq!(core_metadata.kind, EventKind::Swap);
+    assert_eq!(core_metadata.source, "solana");
 
-    // Test accessing Solana chain data
-    use riglr_events_core::types::ChainData;
-    match &metadata.chain_data {
-        Some(ChainData::Solana {
-            slot,
-            signature,
-            program_id: prog_id,
-            ..
-        }) => {
-            assert_eq!(*slot, 12345);
-            assert_eq!(signature.as_ref().unwrap(), "test-signature");
-            assert_eq!(prog_id.as_ref().unwrap(), &program_id);
-        }
-        _ => panic!("Expected Solana chain data"),
-    }
+    // Verify that chain_data is not populated (eliminating duplication)
+    assert!(core_metadata.chain_data.is_none());
+}
+
+#[test]
+fn test_solana_event_metadata_wrapper() {
+    // Test the new pattern: create core metadata, then wrap in SolanaEventMetadata
+    use riglr_solana_events::solana_metadata::SolanaEventMetadata;
+
+    let core_metadata = riglr_solana_events::metadata_helpers::create_core_metadata(
+        "test-id".to_string(),
+        EventKind::Swap,
+        "solana".to_string(),
+        Some(1640995200),
+    );
+
+    let solana_metadata = SolanaEventMetadata::new(
+        "test-signature".to_string(),
+        12345,
+        EventType::Swap,
+        ProtocolType::Jupiter,
+        "0".to_string(),
+        1640995200000,
+        core_metadata,
+    );
+
+    // Test that both core and Solana-specific fields are accessible
+    assert_eq!(solana_metadata.id(), "test-id");
+    assert_eq!(solana_metadata.signature, "test-signature");
+    assert_eq!(solana_metadata.slot, 12345);
+    assert_eq!(solana_metadata.event_type, EventType::Swap);
+    assert_eq!(solana_metadata.protocol_type, ProtocolType::Jupiter);
+
+    // Verify no duplication: chain_data should be empty
+    assert!(solana_metadata.core().chain_data.is_none());
 }
 
 #[test]
@@ -290,7 +303,7 @@ fn test_solana_event_metadata_borsh_serialization() {
 
     // Test Borsh serialization
     let serialized = borsh::to_vec(&metadata).expect("Should serialize");
-    let deserialized: riglr_solana_events::types::EventMetadata =
+    let deserialized: SolanaEventMetadata =
         borsh::from_slice(&serialized).expect("Should deserialize");
 
     assert_eq!(metadata.signature, deserialized.signature);
@@ -318,7 +331,7 @@ fn test_solana_event_metadata_json_serialization() {
 
     // Test JSON serialization
     let json = serde_json::to_string(&metadata).expect("Should serialize to JSON");
-    let deserialized: riglr_solana_events::types::EventMetadata =
+    let deserialized: SolanaEventMetadata =
         serde_json::from_str(&json).expect("Should deserialize from JSON");
 
     assert_eq!(metadata.signature, deserialized.signature);

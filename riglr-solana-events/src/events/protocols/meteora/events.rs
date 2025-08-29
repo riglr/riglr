@@ -1,5 +1,7 @@
 use super::types::{MeteoraDynamicLiquidityData, MeteoraLiquidityData, MeteoraSwapData};
-use crate::types::{metadata_helpers, EventMetadata, EventType, ProtocolType, TransferData};
+use crate::solana_metadata::SolanaEventMetadata;
+use crate::types::{metadata_helpers, EventType, ProtocolType, TransferData};
+use riglr_events_core::EventMetadata as CoreEventMetadata;
 use serde::{Deserialize, Serialize};
 use std::any::Any;
 
@@ -52,7 +54,7 @@ impl EventParameters {
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct MeteoraSwapEvent {
     /// Event metadata
-    pub metadata: EventMetadata,
+    pub metadata: SolanaEventMetadata,
     /// Meteora swap-specific data
     pub swap_data: MeteoraSwapData,
     /// Token transfer data associated with the swap
@@ -95,14 +97,15 @@ impl Event for MeteoraSwapEvent {
     }
 
     fn kind(&self) -> &EventKind {
-        &self.metadata.core.kind
+        static SWAP_KIND: EventKind = EventKind::Swap;
+        &SWAP_KIND
     }
 
-    fn metadata(&self) -> &riglr_events_core::EventMetadata {
+    fn metadata(&self) -> &CoreEventMetadata {
         &self.metadata.core
     }
 
-    fn metadata_mut(&mut self) -> &mut riglr_events_core::EventMetadata {
+    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
         &mut self.metadata.core
     }
 
@@ -123,7 +126,7 @@ impl Event for MeteoraSwapEvent {
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct MeteoraLiquidityEvent {
     /// Event metadata
-    pub metadata: EventMetadata,
+    pub metadata: SolanaEventMetadata,
     /// Meteora liquidity-specific data
     pub liquidity_data: MeteoraLiquidityData,
     /// Token transfer data associated with the liquidity operation
@@ -166,14 +169,15 @@ impl Event for MeteoraLiquidityEvent {
     }
 
     fn kind(&self) -> &EventKind {
-        &self.metadata.core.kind
+        static LIQUIDITY_KIND: EventKind = EventKind::Liquidity;
+        &LIQUIDITY_KIND
     }
 
-    fn metadata(&self) -> &riglr_events_core::EventMetadata {
+    fn metadata(&self) -> &CoreEventMetadata {
         &self.metadata.core
     }
 
-    fn metadata_mut(&mut self) -> &mut riglr_events_core::EventMetadata {
+    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
         &mut self.metadata.core
     }
 
@@ -194,7 +198,7 @@ impl Event for MeteoraLiquidityEvent {
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct MeteoraDynamicLiquidityEvent {
     /// Event metadata
-    pub metadata: EventMetadata,
+    pub metadata: SolanaEventMetadata,
     /// Meteora dynamic liquidity-specific data
     pub liquidity_data: MeteoraDynamicLiquidityData,
     /// Token transfer data associated with the liquidity operation
@@ -237,14 +241,15 @@ impl Event for MeteoraDynamicLiquidityEvent {
     }
 
     fn kind(&self) -> &EventKind {
-        &self.metadata.core.kind
+        static LIQUIDITY_KIND: EventKind = EventKind::Liquidity;
+        &LIQUIDITY_KIND
     }
 
-    fn metadata(&self) -> &riglr_events_core::EventMetadata {
+    fn metadata(&self) -> &CoreEventMetadata {
         &self.metadata.core
     }
 
-    fn metadata_mut(&mut self) -> &mut riglr_events_core::EventMetadata {
+    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
         &mut self.metadata.core
     }
 

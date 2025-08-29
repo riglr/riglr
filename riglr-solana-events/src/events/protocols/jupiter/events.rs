@@ -1,6 +1,8 @@
 use super::types::JupiterSwapData;
-use crate::types::{metadata_helpers, EventMetadata, EventType, ProtocolType, TransferData};
+use crate::solana_metadata::SolanaEventMetadata;
+use crate::types::{metadata_helpers, EventType, ProtocolType, TransferData};
 use borsh::BorshDeserialize;
+use riglr_events_core::EventMetadata as CoreEventMetadata;
 use serde::{Deserialize, Serialize};
 use solana_sdk::pubkey::Pubkey;
 use std::any::Any;
@@ -54,7 +56,7 @@ impl EventParameters {
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct JupiterSwapEvent {
     /// Event metadata
-    pub metadata: EventMetadata,
+    pub metadata: SolanaEventMetadata,
     /// Jupiter-specific swap data
     pub swap_data: JupiterSwapData,
     /// Associated token transfer data
@@ -160,7 +162,7 @@ impl JupiterLiquidityEvent {
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct JupiterLiquidityEvent {
     /// Event metadata
-    pub metadata: EventMetadata,
+    pub metadata: SolanaEventMetadata,
     /// User account providing/removing liquidity
     pub user: solana_sdk::pubkey::Pubkey,
     /// First token mint address
@@ -187,7 +189,7 @@ pub struct JupiterSwapBorshEvent {
     /// Event metadata (skipped during serialization)
     #[serde(skip)]
     #[borsh(skip)]
-    pub metadata: EventMetadata,
+    pub metadata: SolanaEventMetadata,
     /// User account performing the swap
     pub user: Pubkey,
     /// Input token mint address
@@ -213,14 +215,15 @@ impl Event for JupiterSwapEvent {
     }
 
     fn kind(&self) -> &EventKind {
-        &self.metadata.core.kind
+        static SWAP_KIND: EventKind = EventKind::Swap;
+        &SWAP_KIND
     }
 
-    fn metadata(&self) -> &riglr_events_core::EventMetadata {
+    fn metadata(&self) -> &CoreEventMetadata {
         &self.metadata.core
     }
 
-    fn metadata_mut(&mut self) -> &mut riglr_events_core::EventMetadata {
+    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
         &mut self.metadata.core
     }
 
@@ -244,14 +247,15 @@ impl Event for JupiterLiquidityEvent {
     }
 
     fn kind(&self) -> &EventKind {
-        &self.metadata.core.kind
+        static LIQUIDITY_KIND: EventKind = EventKind::Liquidity;
+        &LIQUIDITY_KIND
     }
 
-    fn metadata(&self) -> &riglr_events_core::EventMetadata {
+    fn metadata(&self) -> &CoreEventMetadata {
         &self.metadata.core
     }
 
-    fn metadata_mut(&mut self) -> &mut riglr_events_core::EventMetadata {
+    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
         &mut self.metadata.core
     }
 
@@ -275,14 +279,15 @@ impl Event for JupiterSwapBorshEvent {
     }
 
     fn kind(&self) -> &EventKind {
-        &self.metadata.core.kind
+        static SWAP_KIND: EventKind = EventKind::Swap;
+        &SWAP_KIND
     }
 
-    fn metadata(&self) -> &riglr_events_core::EventMetadata {
+    fn metadata(&self) -> &CoreEventMetadata {
         &self.metadata.core
     }
 
-    fn metadata_mut(&mut self) -> &mut riglr_events_core::EventMetadata {
+    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
         &mut self.metadata.core
     }
 
@@ -541,7 +546,7 @@ mod tests {
     #[test]
     fn test_jupiter_swap_borsh_event_partial_eq_when_equal_should_return_true() {
         let event1 = JupiterSwapBorshEvent {
-            metadata: EventMetadata::default(),
+            metadata: SolanaEventMetadata::default(),
             user: create_test_pubkey(),
             input_mint: create_test_pubkey(),
             output_mint: create_test_pubkey(),

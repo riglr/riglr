@@ -1,5 +1,6 @@
-use crate::types::EventMetadata;
+use crate::solana_metadata::SolanaEventMetadata;
 use borsh::{BorshDeserialize, BorshSerialize};
+use riglr_events_core::EventMetadata as CoreEventMetadata;
 use riglr_events_core::{Event, EventKind};
 use serde::{Deserialize, Serialize};
 use solana_sdk::pubkey::Pubkey;
@@ -14,7 +15,7 @@ pub struct RaydiumCpmmSwapEvent {
     /// Event metadata (excluded from serialization)
     #[serde(skip)]
     #[borsh(skip)]
-    pub metadata: EventMetadata,
+    pub metadata: SolanaEventMetadata,
     /// Public key of the CPMM pool state account
     pub pool_state: Pubkey,
     /// Public key of the account that initiated the swap
@@ -49,14 +50,15 @@ impl Event for RaydiumCpmmSwapEvent {
     }
 
     fn kind(&self) -> &EventKind {
-        &self.metadata.core.kind
+        static SWAP_KIND: EventKind = EventKind::Swap;
+        &SWAP_KIND
     }
 
-    fn metadata(&self) -> &riglr_events_core::EventMetadata {
+    fn metadata(&self) -> &CoreEventMetadata {
         &self.metadata.core
     }
 
-    fn metadata_mut(&mut self) -> &mut riglr_events_core::EventMetadata {
+    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
         &mut self.metadata.core
     }
 
@@ -81,7 +83,7 @@ pub struct RaydiumCpmmDepositEvent {
     /// Event metadata (excluded from serialization)
     #[serde(skip)]
     #[borsh(skip)]
-    pub metadata: EventMetadata,
+    pub metadata: SolanaEventMetadata,
     /// Public key of the CPMM pool state account
     pub pool_state: Pubkey,
     /// Public key of the user depositing liquidity
@@ -101,14 +103,15 @@ impl Event for RaydiumCpmmDepositEvent {
     }
 
     fn kind(&self) -> &EventKind {
-        &self.metadata.core.kind
+        static LIQUIDITY_KIND: EventKind = EventKind::Liquidity;
+        &LIQUIDITY_KIND
     }
 
-    fn metadata(&self) -> &riglr_events_core::EventMetadata {
+    fn metadata(&self) -> &CoreEventMetadata {
         &self.metadata.core
     }
 
-    fn metadata_mut(&mut self) -> &mut riglr_events_core::EventMetadata {
+    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
         &mut self.metadata.core
     }
 
@@ -157,7 +160,7 @@ pub mod discriminators {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::types::EventMetadata;
+    use crate::solana_metadata::SolanaEventMetadata;
     use riglr_events_core::{Event, EventKind};
 
     // Helper function to create a test Pubkey
@@ -196,7 +199,7 @@ mod tests {
         let output_token_mint = test_pubkey();
 
         let event = RaydiumCpmmSwapEvent {
-            metadata: EventMetadata::default(),
+            metadata: SolanaEventMetadata::default(),
             pool_state,
             payer,
             input_token_account,
@@ -228,7 +231,7 @@ mod tests {
     #[test]
     fn test_raydium_cpmm_swap_event_clone() {
         let event = RaydiumCpmmSwapEvent {
-            metadata: EventMetadata::default(),
+            metadata: SolanaEventMetadata::default(),
             pool_state: test_pubkey(),
             payer: test_pubkey(),
             input_token_account: test_pubkey(),
@@ -342,7 +345,7 @@ mod tests {
         let user = test_pubkey();
 
         let event = RaydiumCpmmDepositEvent {
-            metadata: EventMetadata::default(),
+            metadata: SolanaEventMetadata::default(),
             pool_state,
             user,
             lp_token_amount: 500,
@@ -360,7 +363,7 @@ mod tests {
     #[test]
     fn test_raydium_cpmm_deposit_event_clone() {
         let event = RaydiumCpmmDepositEvent {
-            metadata: EventMetadata::default(),
+            metadata: SolanaEventMetadata::default(),
             pool_state: test_pubkey(),
             user: test_pubkey(),
             lp_token_amount: 500,
@@ -521,7 +524,7 @@ mod tests {
     #[test]
     fn test_raydium_cpmm_swap_event_with_max_values() {
         let event = RaydiumCpmmSwapEvent {
-            metadata: EventMetadata::default(),
+            metadata: SolanaEventMetadata::default(),
             pool_state: test_pubkey(),
             payer: test_pubkey(),
             input_token_account: test_pubkey(),
@@ -545,7 +548,7 @@ mod tests {
     #[test]
     fn test_raydium_cpmm_deposit_event_with_max_values() {
         let event = RaydiumCpmmDepositEvent {
-            metadata: EventMetadata::default(),
+            metadata: SolanaEventMetadata::default(),
             pool_state: test_pubkey(),
             user: test_pubkey(),
             lp_token_amount: u64::MAX,
@@ -562,7 +565,7 @@ mod tests {
     #[test]
     fn test_raydium_cpmm_swap_event_serialization() {
         let event = RaydiumCpmmSwapEvent {
-            metadata: EventMetadata::default(),
+            metadata: SolanaEventMetadata::default(),
             pool_state: test_pubkey(),
             payer: test_pubkey(),
             input_token_account: test_pubkey(),
@@ -588,7 +591,7 @@ mod tests {
     #[test]
     fn test_raydium_cpmm_deposit_event_serialization() {
         let event = RaydiumCpmmDepositEvent {
-            metadata: EventMetadata::default(),
+            metadata: SolanaEventMetadata::default(),
             pool_state: test_pubkey(),
             user: test_pubkey(),
             lp_token_amount: 500,

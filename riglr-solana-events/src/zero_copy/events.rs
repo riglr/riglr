@@ -7,7 +7,10 @@
 use crate::metadata_helpers::{
     get_event_type, get_instruction_index, get_protocol_type, get_signature, get_slot,
 };
-use crate::types::{EventMetadata, EventType, ProtocolType};
+use crate::solana_metadata::SolanaEventMetadata;
+use crate::types::{EventType, ProtocolType};
+
+type EventMetadata = SolanaEventMetadata;
 use solana_sdk::pubkey::Pubkey;
 use std::borrow::Cow;
 use std::sync::Arc;
@@ -309,7 +312,7 @@ mod tests {
     use crate::types::{EventType, ProtocolType};
     use serde_json::json;
 
-    fn create_test_solana_metadata() -> crate::types::EventMetadata {
+    fn create_test_solana_metadata() -> SolanaEventMetadata {
         use crate::solana_metadata::create_metadata;
         create_metadata(
             "test_id".to_string(),

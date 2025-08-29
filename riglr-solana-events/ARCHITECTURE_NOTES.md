@@ -73,14 +73,25 @@ impl Event for SomeEvent {
 }
 ```
 
-### Migration Strategy
+### Implementation Status
 
-When refactoring existing code:
+✅ **Migration Complete (2025-01-03)**
 
-1. Replace `use crate::types::EventMetadata` with `use crate::types::SolanaEventMetadata`
-2. Update struct definitions to use `SolanaEventMetadata` explicitly
-3. In Event trait implementations, return `&self.metadata.core` instead of `&self.metadata`
-4. For field access, rely on Deref (no changes needed for core fields)
+The entire codebase now uses the explicit wrapper pattern:
+
+1. All imports use `SolanaEventMetadata` explicitly - no type alias confusion
+2. All struct definitions use `SolanaEventMetadata` for their metadata field
+3. All Event trait implementations correctly return `&self.metadata.core`
+4. Field access leverages Deref for seamless access to core metadata fields
+
+✅ **Duplication Elimination Complete (2025-01-03)**
+
+Eliminated data duplication between `SolanaEventMetadata` fields and `core.chain_data`:
+
+1. Introduced `create_core_metadata()` function that creates base `EventMetadata` without Solana-specific chain data
+2. Refactored all `create_solana_metadata()` usage to use the new non-duplicating pattern
+3. Updated all protocol event constructors to avoid putting Solana fields in both wrapper and chain_data
+4. Maintained backward compatibility by deprecating the old duplication-prone functions
 
 ### Data Flow
 
@@ -112,6 +123,32 @@ The `chain_data` field in core `EventMetadata` should NOT contain the same infor
 ### Best Practices
 
 1. **Be Explicit**: Always use `SolanaEventMetadata` in Solana-specific code
-2. **Use Helper Functions**: Create helper functions that construct `SolanaEventMetadata` properly
-3. **Document Intent**: Make it clear in comments when you're working with Solana-specific vs core metadata
-4. **Test Both Layers**: Ensure tests verify both Solana fields and core fields work correctly
+2. **Use Non-Duplicating Constructors**: Use `create_core_metadata()` + `SolanaEventMetadata::new()` instead of deprecated functions that duplicate data
+3. **Avoid Chain Data Duplication**: Don't put Solana-specific fields in both the wrapper and `core.chain_data`
+4. **Document Intent**: Make it clear in comments when you're working with Solana-specific vs core metadata
+5. **Test Both Layers**: Ensure tests verify both Solana fields and core fields work correctly
+
+#### Recommended Creation Pattern
+
+```rust
+// GOOD: Non-duplicating pattern
+let core = create_core_metadata(
+    id,
+    kind,
+    source,
+    block_time,
+);
+
+let solana_metadata = SolanaEventMetadata::new(
+    signature,
+    slot,
+    event_type,
+    protocol_type,
+    index,
+    received_time_ms,
+    core,
+);
+
+// AVOID: Deprecated functions that duplicate data
+let metadata = create_solana_metadata(/* many params that duplicate between wrapper and chain_data */);
+```

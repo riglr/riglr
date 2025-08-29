@@ -188,7 +188,7 @@ pub mod core {
 // Re-export key types at crate root
 pub use events::core::traits::{EventParser, GenericEventParseConfig, GenericEventParser};
 pub use events::factory::{EventParserRegistry, Protocol};
-pub use types::{EventMetadata, EventType, ProtocolType, StreamMetadata, SwapData, TransferData};
+pub use types::{EventType, ProtocolType, StreamMetadata, SwapData, TransferData};
 
 // New riglr-events-core integration
 pub use solana_events::{SolanaEvent, ToSolanaEvent};

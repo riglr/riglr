@@ -1,4 +1,3 @@
-use crate::events::core::EventParser;
 use crate::events::protocols::{
     bonk_parser::BonkEventParser, jupiter_parser::JupiterEventParser,
     marginfi_parser::MarginFiEventParser, meteora_parser::MeteoraEventParser,
@@ -7,7 +6,7 @@ use crate::events::protocols::{
     raydium_v4_parser::RaydiumAmmV4EventParser,
 };
 use crate::types::ProtocolType;
-use riglr_events_core::Event;
+use riglr_events_core::{traits::EventParser, Event};
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -45,6 +44,51 @@ pub struct InnerInstructionParseParams<'a> {
     pub program_received_time_ms: i64,
     /// Index string for event identification
     pub index: String,
+}
+
+/// Owned parameters for parsing events from instructions
+#[derive(Debug, Clone)]
+pub struct OwnedInstructionParseParams {
+    /// Compiled instruction data
+    pub instruction_data: Vec<u8>,
+    /// Account keys from the transaction
+    pub accounts: Vec<solana_sdk::pubkey::Pubkey>,
+    /// Transaction signature
+    pub signature: String,
+    /// Solana slot number
+    pub slot: u64,
+    /// Block time (optional)
+    pub block_time: Option<i64>,
+    /// Time when the program received the transaction in milliseconds
+    pub program_received_time_ms: i64,
+    /// Index string for event identification
+    pub index: String,
+}
+
+/// Owned parameters for parsing events from inner instructions
+#[derive(Debug, Clone)]
+pub struct OwnedInnerInstructionParseParams {
+    /// Inner instruction data as base58 string
+    pub inner_instruction_data: String,
+    /// Transaction signature
+    pub signature: String,
+    /// Solana slot number
+    pub slot: u64,
+    /// Block time (optional)
+    pub block_time: Option<i64>,
+    /// Time when the program received the transaction in milliseconds
+    pub program_received_time_ms: i64,
+    /// Index string for event identification
+    pub index: String,
+}
+
+/// Unified owned input type for Solana transaction parsing
+#[derive(Debug, Clone)]
+pub enum SolanaTransactionInput {
+    /// Regular instruction parsing input
+    Instruction(OwnedInstructionParseParams),
+    /// Inner instruction parsing input
+    InnerInstruction(OwnedInnerInstructionParseParams),
 }
 
 /// Protocol enum for supported protocols
@@ -124,9 +168,10 @@ impl From<Protocol> for ProtocolType {
 #[derive(Default)]
 pub struct EventParserRegistry {
     /// Map of protocols to their respective event parsers
-    parsers: HashMap<Protocol, Arc<dyn EventParser>>,
+    parsers: HashMap<Protocol, Arc<dyn EventParser<Input = SolanaTransactionInput>>>,
     /// Map of program IDs to their respective event parsers for fast lookup
-    program_id_to_parser: HashMap<solana_sdk::pubkey::Pubkey, Arc<dyn EventParser>>,
+    program_id_to_parser:
+        HashMap<solana_sdk::pubkey::Pubkey, Arc<dyn EventParser<Input = SolanaTransactionInput>>>,
 }
 
 impl EventParserRegistry {
@@ -139,16 +184,21 @@ impl EventParserRegistry {
     }
 
     /// Add a parser for a specific protocol
-    pub fn add_parser(&mut self, protocol: Protocol, parser: Arc<dyn EventParser>) {
-        // Map all supported program IDs to this parser
-        for program_id in parser.supported_program_ids() {
-            self.program_id_to_parser.insert(program_id, parser.clone());
-        }
+    pub fn add_parser(
+        &mut self,
+        protocol: Protocol,
+        parser: Arc<dyn EventParser<Input = SolanaTransactionInput>>,
+    ) {
+        // Note: We can't easily call supported_program_ids() on the core trait
+        // This will need to be handled differently or the caller will need to provide program IDs
         self.parsers.insert(protocol, parser);
     }
 
     /// Get parser for a specific protocol
-    pub fn get_parser(&self, protocol: &Protocol) -> Option<&Arc<dyn EventParser>> {
+    pub fn get_parser(
+        &self,
+        protocol: &Protocol,
+    ) -> Option<&Arc<dyn EventParser<Input = SolanaTransactionInput>>> {
         self.parsers.get(protocol)
     }
 
@@ -156,37 +206,64 @@ impl EventParserRegistry {
     pub fn get_parser_for_program(
         &self,
         program_id: &solana_sdk::pubkey::Pubkey,
-    ) -> Option<&Arc<dyn EventParser>> {
+    ) -> Option<&Arc<dyn EventParser<Input = SolanaTransactionInput>>> {
         self.program_id_to_parser.get(program_id)
     }
 
     /// Parse events from inner instruction using the appropriate parser
-    pub fn parse_events_from_inner_instruction(
+    pub async fn parse_events_from_inner_instruction(
         &self,
-        params: InnerInstructionParseParams,
+        params: InnerInstructionParseParams<'_>,
     ) -> Vec<Box<dyn Event>> {
+        // Convert to owned params
+        let owned_params = OwnedInnerInstructionParseParams {
+            inner_instruction_data: params.inner_instruction.data.clone(),
+            signature: params.signature.to_string(),
+            slot: params.slot,
+            block_time: params.block_time,
+            program_received_time_ms: params.program_received_time_ms,
+            index: params.index,
+        };
+        let input = SolanaTransactionInput::InnerInstruction(owned_params);
+
         // Try to identify the program and use the appropriate parser
         for parser in self.parsers.values() {
-            let events = parser.parse_events_from_inner_instruction(&params);
-            if !events.is_empty() {
-                return events;
+            if parser.can_parse(&input) {
+                if let Ok(events) = parser.parse(input.clone()).await {
+                    if !events.is_empty() {
+                        return events;
+                    }
+                }
             }
         }
         vec![]
     }
 
     /// Parse events from instruction using the appropriate parser
-    pub fn parse_events_from_instruction(
+    pub async fn parse_events_from_instruction(
         &self,
-        params: InstructionParseParams,
+        params: InstructionParseParams<'_>,
     ) -> Vec<Box<dyn Event>> {
-        // Get the program ID from the instruction
-        if let Some(program_id) = params
-            .accounts
-            .get(params.instruction.program_id_index as usize)
-        {
-            if let Some(parser) = self.get_parser_for_program(program_id) {
-                return parser.parse_events_from_instruction(&params);
+        // Convert to owned params
+        let owned_params = OwnedInstructionParseParams {
+            instruction_data: params.instruction.data.clone(),
+            accounts: params.accounts.to_vec(),
+            signature: params.signature.to_string(),
+            slot: params.slot,
+            block_time: params.block_time,
+            program_received_time_ms: params.program_received_time_ms,
+            index: params.index,
+        };
+        let input = SolanaTransactionInput::Instruction(owned_params);
+
+        // Try each parser until one succeeds
+        for parser in self.parsers.values() {
+            if parser.can_parse(&input) {
+                if let Ok(events) = parser.parse(input.clone()).await {
+                    if !events.is_empty() {
+                        return events;
+                    }
+                }
             }
         }
         vec![]
@@ -257,7 +334,7 @@ mod tests {
         }
     }
 
-    impl EventParser for MockEventParser {
+    impl crate::events::core::EventParser for MockEventParser {
         fn inner_instruction_configs(
             &self,
         ) -> std::collections::HashMap<

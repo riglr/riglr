@@ -13,11 +13,18 @@ use crate::{
             has_discriminator, parse_u128_le, parse_u32_le, parse_u64_le, safe_get_account,
             validate_account_count, validate_data_length,
         },
-        core::{EventParser, GenericEventParseConfig},
+        core::{EventParser as LegacyEventParser, GenericEventParseConfig},
+        factory::SolanaTransactionInput,
     },
-    solana_metadata::create_metadata,
-    types::{EventMetadata, EventType, ProtocolType},
+    solana_metadata::{create_metadata, SolanaEventMetadata},
+    types::{EventType, ProtocolType},
 };
+
+use riglr_events_core::{
+    error::EventResult,
+    traits::{EventParser, ParserInfo},
+};
+
 use riglr_events_core::Event;
 use solana_sdk::pubkey::Pubkey;
 use std::collections::HashMap;
@@ -31,6 +38,97 @@ pub struct OrcaEventParser {
 
 #[async_trait::async_trait]
 impl EventParser for OrcaEventParser {
+    type Input = SolanaTransactionInput;
+
+    async fn parse(&self, input: Self::Input) -> EventResult<Vec<Box<dyn Event>>> {
+        let mut events = Vec::new();
+
+        match input {
+            SolanaTransactionInput::InnerInstruction(params) => {
+                // For inner instructions, we'll use the data to identify the instruction type
+                if let Ok(data) = bs58::decode(&params.inner_instruction_data).into_vec() {
+                    for configs in self.inner_instruction_configs.values() {
+                        for config in configs {
+                            let metadata = create_metadata(
+                                format!("{}_{}", params.signature, params.index),
+                                params.signature.clone(),
+                                params.slot,
+                                params.block_time,
+                                params.program_received_time_ms,
+                                params.index.clone(),
+                                config.event_type.clone(),
+                                config.protocol_type.clone(),
+                            );
+
+                            if let Ok(event) = (config.inner_instruction_parser)(&data, metadata) {
+                                events.push(event);
+                            }
+                        }
+                    }
+                }
+            }
+            SolanaTransactionInput::Instruction(params) => {
+                // Check each discriminator
+                for (discriminator, configs) in &self.instruction_configs {
+                    if has_discriminator(&params.instruction_data, discriminator) {
+                        for config in configs {
+                            let metadata = create_metadata(
+                                format!("{}_{}", params.signature, params.index),
+                                params.signature.clone(),
+                                params.slot,
+                                params.block_time,
+                                params.program_received_time_ms,
+                                params.index.clone(),
+                                config.event_type.clone(),
+                                config.protocol_type.clone(),
+                            );
+
+                            if let Ok(event) = (config.instruction_parser)(
+                                &params.instruction_data,
+                                &params.accounts,
+                                metadata,
+                            ) {
+                                events.push(event);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(events)
+    }
+
+    fn can_parse(&self, input: &Self::Input) -> bool {
+        match input {
+            SolanaTransactionInput::InnerInstruction(_) => {
+                // Can always attempt to parse inner instructions for configured protocols
+                !self.inner_instruction_configs.is_empty()
+            }
+            SolanaTransactionInput::Instruction(params) => {
+                // Check if any discriminator matches
+                self.instruction_configs
+                    .keys()
+                    .any(|discriminator| has_discriminator(&params.instruction_data, discriminator))
+            }
+        }
+    }
+
+    fn info(&self) -> ParserInfo {
+        use riglr_events_core::EventKind;
+
+        ParserInfo::new("orca_parser".to_string(), "1.0.0".to_string())
+            .with_kind(EventKind::Swap)
+            .with_kind(EventKind::Custom("position".to_string()))
+            .with_kind(EventKind::Custom("liquidity".to_string()))
+            .with_format("solana_instruction".to_string())
+            .with_format("solana_inner_instruction".to_string())
+    }
+}
+
+// Keep legacy trait implementation for backward compatibility during transition
+#[async_trait::async_trait]
+impl LegacyEventParser for OrcaEventParser {
     fn inner_instruction_configs(&self) -> HashMap<&'static str, Vec<GenericEventParseConfig>> {
         self.inner_instruction_configs.clone()
     }
@@ -192,7 +290,7 @@ impl Default for OrcaEventParser {
 
 fn parse_orca_swap_inner_instruction(
     data: &[u8],
-    metadata: EventMetadata,
+    metadata: SolanaEventMetadata,
 ) -> ParseResult<Box<dyn Event>> {
     let swap_data = parse_orca_swap_data(data).ok_or_else(|| {
         crate::error::ParseError::InvalidDataFormat("Failed to parse Orca swap data".to_string())
@@ -218,7 +316,7 @@ fn parse_orca_swap_inner_instruction(
 fn parse_orca_swap_instruction(
     data: &[u8],
     accounts: &[Pubkey],
-    metadata: EventMetadata,
+    metadata: SolanaEventMetadata,
 ) -> ParseResult<Box<dyn Event>> {
     let swap_data = parse_orca_swap_data_from_instruction(data, accounts).ok_or_else(|| {
         crate::error::ParseError::InvalidDataFormat("Failed to parse Orca swap data".to_string())
@@ -243,7 +341,7 @@ fn parse_orca_swap_instruction(
 
 fn parse_orca_open_position_inner_instruction(
     data: &[u8],
-    metadata: EventMetadata,
+    metadata: SolanaEventMetadata,
 ) -> ParseResult<Box<dyn Event>> {
     let position_data = parse_orca_position_data(data).ok_or_else(|| {
         crate::error::ParseError::InvalidDataFormat(
@@ -271,7 +369,7 @@ fn parse_orca_open_position_inner_instruction(
 fn parse_orca_open_position_instruction(
     data: &[u8],
     accounts: &[Pubkey],
-    metadata: EventMetadata,
+    metadata: SolanaEventMetadata,
 ) -> ParseResult<Box<dyn Event>> {
     let position_data =
         parse_orca_position_data_from_instruction(data, accounts).ok_or_else(|| {
@@ -299,7 +397,7 @@ fn parse_orca_open_position_instruction(
 
 fn parse_orca_close_position_inner_instruction(
     data: &[u8],
-    metadata: EventMetadata,
+    metadata: SolanaEventMetadata,
 ) -> ParseResult<Box<dyn Event>> {
     let position_data = parse_orca_position_data(data).ok_or_else(|| {
         crate::error::ParseError::InvalidDataFormat(
@@ -327,7 +425,7 @@ fn parse_orca_close_position_inner_instruction(
 fn parse_orca_close_position_instruction(
     data: &[u8],
     accounts: &[Pubkey],
-    metadata: EventMetadata,
+    metadata: SolanaEventMetadata,
 ) -> ParseResult<Box<dyn Event>> {
     let position_data =
         parse_orca_position_data_from_instruction(data, accounts).ok_or_else(|| {
@@ -355,7 +453,7 @@ fn parse_orca_close_position_instruction(
 
 fn parse_orca_increase_liquidity_inner_instruction(
     data: &[u8],
-    metadata: EventMetadata,
+    metadata: SolanaEventMetadata,
 ) -> ParseResult<Box<dyn Event>> {
     let liquidity_data = parse_orca_liquidity_data(data, true).ok_or_else(|| {
         crate::error::ParseError::InvalidDataFormat(
@@ -382,7 +480,7 @@ fn parse_orca_increase_liquidity_inner_instruction(
 fn parse_orca_increase_liquidity_instruction(
     data: &[u8],
     accounts: &[Pubkey],
-    metadata: EventMetadata,
+    metadata: SolanaEventMetadata,
 ) -> ParseResult<Box<dyn Event>> {
     let liquidity_data = parse_orca_liquidity_data_from_instruction(data, accounts, true)
         .ok_or_else(|| {
@@ -409,7 +507,7 @@ fn parse_orca_increase_liquidity_instruction(
 
 fn parse_orca_decrease_liquidity_inner_instruction(
     data: &[u8],
-    metadata: EventMetadata,
+    metadata: SolanaEventMetadata,
 ) -> ParseResult<Box<dyn Event>> {
     let liquidity_data = parse_orca_liquidity_data(data, false).ok_or_else(|| {
         crate::error::ParseError::InvalidDataFormat(
@@ -436,7 +534,7 @@ fn parse_orca_decrease_liquidity_inner_instruction(
 fn parse_orca_decrease_liquidity_instruction(
     data: &[u8],
     accounts: &[Pubkey],
-    metadata: EventMetadata,
+    metadata: SolanaEventMetadata,
 ) -> ParseResult<Box<dyn Event>> {
     let liquidity_data = parse_orca_liquidity_data_from_instruction(data, accounts, false)
         .ok_or_else(|| {
@@ -624,20 +722,21 @@ fn parse_orca_liquidity_data_from_instruction(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::types::{EventMetadata, EventType, ProtocolType};
+    use crate::solana_metadata::SolanaEventMetadata;
+    use crate::types::{EventType, ProtocolType};
     use riglr_events_core::{EventKind, EventMetadata as CoreMetadata};
     use solana_message::compiled_instruction::CompiledInstruction;
     use solana_transaction_status::UiCompiledInstruction;
     use std::str::FromStr;
 
-    fn create_test_metadata() -> EventMetadata {
+    fn create_test_metadata() -> SolanaEventMetadata {
         let core = CoreMetadata::new(
             "test_id".to_string(),
             EventKind::Swap,
             "orca_whirlpool".to_string(),
         );
 
-        EventMetadata::new(
+        SolanaEventMetadata::new(
             "test_sig".to_string(),
             12345,
             EventType::Swap,

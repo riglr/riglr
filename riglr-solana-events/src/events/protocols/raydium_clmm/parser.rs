@@ -1,24 +1,30 @@
-use riglr_events_core::Event;
+use riglr_events_core::{
+    error::EventResult,
+    traits::{EventParser, ParserInfo},
+    Event,
+};
 use std::collections::HashMap;
 
 use solana_sdk::pubkey::Pubkey;
 
-use crate::{
-    error::ParseResult,
-    events::{
-        common::{
-            read_i32_le, read_option_bool, read_u128_le, read_u64_le, read_u8_le, EventMetadata,
-            EventType, ProtocolType,
-        },
-        core::traits::{EventParser, GenericEventParseConfig, GenericEventParser},
-        protocols::raydium_clmm::{
-            discriminators, RaydiumClmmClosePositionEvent, RaydiumClmmCreatePoolEvent,
-            RaydiumClmmDecreaseLiquidityV2Event, RaydiumClmmIncreaseLiquidityV2Event,
-            RaydiumClmmOpenPositionV2Event, RaydiumClmmOpenPositionWithToken22NftEvent,
-            RaydiumClmmSwapEvent, RaydiumClmmSwapV2Event,
-        },
+use crate::error::ParseResult;
+use crate::events::{
+    common::{
+        read_i32_le, read_option_bool, read_u128_le, read_u64_le, read_u8_le, EventType,
+        ProtocolType,
+    },
+    core::traits::{EventParser as LegacyEventParser, GenericEventParseConfig, GenericEventParser},
+    factory::SolanaTransactionInput,
+    protocols::raydium_clmm::{
+        discriminators, RaydiumClmmClosePositionEvent, RaydiumClmmCreatePoolEvent,
+        RaydiumClmmDecreaseLiquidityV2Event, RaydiumClmmIncreaseLiquidityV2Event,
+        RaydiumClmmOpenPositionV2Event, RaydiumClmmOpenPositionWithToken22NftEvent,
+        RaydiumClmmSwapEvent, RaydiumClmmSwapV2Event,
     },
 };
+use crate::solana_metadata::SolanaEventMetadata;
+
+type EventMetadata = SolanaEventMetadata;
 
 /// Raydium CLMM program ID
 pub const RAYDIUM_CLMM_PROGRAM_ID: Pubkey =
@@ -148,6 +154,26 @@ impl RaydiumClmmEventParser {
         Self::default()
     }
 
+    /// Helper method to get inner instruction configs
+    fn inner_instruction_configs(&self) -> HashMap<&'static str, Vec<GenericEventParseConfig>> {
+        self.inner.inner_instruction_configs()
+    }
+
+    /// Helper method to get instruction configs
+    fn instruction_configs(&self) -> HashMap<Vec<u8>, Vec<GenericEventParseConfig>> {
+        self.inner.instruction_configs()
+    }
+
+    /// Helper method to check if should handle program ID
+    fn should_handle(&self, program_id: &Pubkey) -> bool {
+        self.inner.should_handle(program_id)
+    }
+
+    /// Helper method to get supported program IDs
+    fn supported_program_ids(&self) -> Vec<Pubkey> {
+        self.inner.supported_program_ids()
+    }
+
     /// Empty parser for inner instructions
     ///
     /// Raydium CLMM does not emit events through inner instructions or program logs.
@@ -158,7 +184,10 @@ impl RaydiumClmmEventParser {
     ///
     /// This differs from protocols like Raydium CPMM which emit events through logs
     /// that need to be parsed from inner instructions.
-    fn empty_parse(_data: &[u8], _metadata: EventMetadata) -> ParseResult<Box<dyn Event>> {
+    fn empty_parse(
+        _data: &[u8],
+        _metadata: crate::solana_metadata::SolanaEventMetadata,
+    ) -> ParseResult<Box<dyn Event>> {
         Err(crate::error::ParseError::InvalidDataFormat(
             "Raydium CLMM does not emit events through inner instructions".to_string(),
         ))
@@ -168,7 +197,7 @@ impl RaydiumClmmEventParser {
     fn parse_swap_instruction(
         data: &[u8],
         accounts: &[Pubkey],
-        metadata: EventMetadata,
+        metadata: crate::solana_metadata::SolanaEventMetadata,
     ) -> ParseResult<Box<dyn Event>> {
         if data.len() < 41 || accounts.len() < 17 {
             return Err(crate::error::ParseError::InvalidDataFormat(
@@ -229,7 +258,7 @@ impl RaydiumClmmEventParser {
     fn parse_swap_v2_instruction(
         data: &[u8],
         accounts: &[Pubkey],
-        metadata: EventMetadata,
+        metadata: crate::solana_metadata::SolanaEventMetadata,
     ) -> ParseResult<Box<dyn Event>> {
         if data.len() < 42 || accounts.len() < 17 {
             return Err(crate::error::ParseError::InvalidDataFormat(
@@ -291,7 +320,7 @@ impl RaydiumClmmEventParser {
     fn parse_create_pool_instruction(
         data: &[u8],
         accounts: &[Pubkey],
-        metadata: EventMetadata,
+        metadata: crate::solana_metadata::SolanaEventMetadata,
     ) -> ParseResult<Box<dyn Event>> {
         if data.len() < 22 || accounts.len() < 10 {
             return Err(crate::error::ParseError::InvalidDataFormat(
@@ -331,7 +360,7 @@ impl RaydiumClmmEventParser {
     fn parse_open_position_v2_instruction(
         data: &[u8],
         accounts: &[Pubkey],
-        metadata: EventMetadata,
+        metadata: crate::solana_metadata::SolanaEventMetadata,
     ) -> ParseResult<Box<dyn Event>> {
         if data.len() < 51 || accounts.len() < 22 {
             return Err(crate::error::ParseError::InvalidDataFormat(
@@ -402,7 +431,7 @@ impl RaydiumClmmEventParser {
     fn parse_close_position_instruction(
         _data: &[u8],
         accounts: &[Pubkey],
-        metadata: EventMetadata,
+        metadata: crate::solana_metadata::SolanaEventMetadata,
     ) -> ParseResult<Box<dyn Event>> {
         if accounts.len() < 9 {
             return Err(crate::error::ParseError::InvalidDataFormat(
@@ -426,7 +455,7 @@ impl RaydiumClmmEventParser {
     fn parse_increase_liquidity_v2_instruction(
         data: &[u8],
         accounts: &[Pubkey],
-        metadata: EventMetadata,
+        metadata: crate::solana_metadata::SolanaEventMetadata,
     ) -> ParseResult<Box<dyn Event>> {
         if data.len() < 33 || accounts.len() < 15 {
             return Err(crate::error::ParseError::InvalidDataFormat(
@@ -470,7 +499,7 @@ impl RaydiumClmmEventParser {
     fn parse_decrease_liquidity_v2_instruction(
         data: &[u8],
         accounts: &[Pubkey],
-        metadata: EventMetadata,
+        metadata: crate::solana_metadata::SolanaEventMetadata,
     ) -> ParseResult<Box<dyn Event>> {
         if data.len() < 32 || accounts.len() < 15 {
             return Err(crate::error::ParseError::InvalidDataFormat(
@@ -510,7 +539,7 @@ impl RaydiumClmmEventParser {
     fn parse_open_position_with_token_22_nft_instruction(
         data: &[u8],
         accounts: &[Pubkey],
-        metadata: EventMetadata,
+        metadata: crate::solana_metadata::SolanaEventMetadata,
     ) -> ParseResult<Box<dyn Event>> {
         if data.len() < 51 || accounts.len() < 20 {
             return Err(crate::error::ParseError::InvalidDataFormat("Insufficient data or accounts for Raydium CLMM open position with token-22 NFT instruction".to_string()));
@@ -574,15 +603,84 @@ impl RaydiumClmmEventParser {
     }
 }
 
+// Implement the new core EventParser trait
+#[async_trait::async_trait]
 impl EventParser for RaydiumClmmEventParser {
+    type Input = SolanaTransactionInput;
+
+    async fn parse(&self, input: Self::Input) -> EventResult<Vec<Box<dyn Event>>> {
+        let events = match input {
+            SolanaTransactionInput::InnerInstruction(params) => {
+                let legacy_params = crate::events::factory::InnerInstructionParseParams {
+                    inner_instruction: &solana_transaction_status::UiCompiledInstruction {
+                        program_id_index: 0,
+                        accounts: vec![],
+                        data: params.inner_instruction_data.clone(),
+                        stack_height: Some(1),
+                    },
+                    signature: &params.signature,
+                    slot: params.slot,
+                    block_time: params.block_time,
+                    program_received_time_ms: params.program_received_time_ms,
+                    index: params.index.clone(),
+                };
+                self.inner
+                    .parse_events_from_inner_instruction(&legacy_params)
+            }
+            SolanaTransactionInput::Instruction(params) => {
+                let instruction = solana_message::compiled_instruction::CompiledInstruction {
+                    program_id_index: 0,
+                    accounts: vec![],
+                    data: params.instruction_data.clone(),
+                };
+                let legacy_params = crate::events::factory::InstructionParseParams {
+                    instruction: &instruction,
+                    accounts: &params.accounts,
+                    signature: &params.signature,
+                    slot: params.slot,
+                    block_time: params.block_time,
+                    program_received_time_ms: params.program_received_time_ms,
+                    index: params.index.clone(),
+                };
+                self.inner.parse_events_from_instruction(&legacy_params)
+            }
+        };
+        Ok(events)
+    }
+
+    fn can_parse(&self, input: &Self::Input) -> bool {
+        match input {
+            SolanaTransactionInput::InnerInstruction(_) => true,
+            SolanaTransactionInput::Instruction(_) => true,
+        }
+    }
+
+    fn info(&self) -> ParserInfo {
+        use riglr_events_core::EventKind;
+        ParserInfo::new("raydium_clmm_parser".to_string(), "1.0.0".to_string())
+            .with_kind(EventKind::Custom("raydium_clmm_swap".to_string()))
+            .with_kind(EventKind::Custom("raydium_clmm_create_pool".to_string()))
+            .with_kind(EventKind::Custom("raydium_clmm_open_position".to_string()))
+            .with_kind(EventKind::Custom("raydium_clmm_close_position".to_string()))
+            .with_kind(EventKind::Custom(
+                "raydium_clmm_increase_liquidity".to_string(),
+            ))
+            .with_kind(EventKind::Custom(
+                "raydium_clmm_decrease_liquidity".to_string(),
+            ))
+            .with_format("solana_instruction".to_string())
+    }
+}
+
+// Keep legacy implementation for backward compatibility
+#[async_trait::async_trait]
+impl LegacyEventParser for RaydiumClmmEventParser {
     fn inner_instruction_configs(&self) -> HashMap<&'static str, Vec<GenericEventParseConfig>> {
         self.inner.inner_instruction_configs()
     }
-
     fn instruction_configs(&self) -> HashMap<Vec<u8>, Vec<GenericEventParseConfig>> {
         self.inner.instruction_configs()
     }
-
     fn parse_events_from_inner_instruction(
         &self,
         params: &crate::events::factory::InnerInstructionParseParams,
@@ -609,10 +707,10 @@ impl EventParser for RaydiumClmmEventParser {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::types::EventMetadata;
+    // EventMetadata is now SolanaEventMetadata
     use solana_sdk::pubkey::Pubkey;
 
-    fn create_test_metadata() -> EventMetadata {
+    fn create_test_metadata() -> crate::solana_metadata::SolanaEventMetadata {
         use crate::solana_metadata::create_metadata;
         create_metadata(
             "test-event-id".to_string(),

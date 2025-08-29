@@ -5,9 +5,8 @@ use solana_sdk::pubkey::Pubkey;
 // UnifiedEvent trait removed - events now implement Event trait directly
 
 // Import new Event trait from riglr-events-core
+use crate::solana_metadata::SolanaEventMetadata;
 use riglr_events_core::{Event, EventKind, EventMetadata as CoreEventMetadata};
-// Import the SolanaEventMetadata which is the correct type for Solana events
-use crate::types::EventMetadata;
 use std::any::Any;
 
 /// Buy event
@@ -18,7 +17,7 @@ pub struct PumpSwapBuyEvent {
     /// Event metadata (excluded from serialization)
     #[serde(skip)]
     #[borsh(skip)]
-    pub metadata: EventMetadata,
+    pub metadata: SolanaEventMetadata,
     /// Block timestamp when the event occurred
     pub timestamp: i64,
     /// Amount of base tokens received from the swap
@@ -104,7 +103,8 @@ impl Event for PumpSwapBuyEvent {
     }
 
     fn kind(&self) -> &EventKind {
-        &self.metadata.core.kind
+        static SWAP_KIND: EventKind = EventKind::Swap;
+        &SWAP_KIND
     }
 
     fn metadata(&self) -> &CoreEventMetadata {
@@ -140,7 +140,7 @@ pub struct PumpSwapSellEvent {
     /// Event metadata (excluded from serialization)
     #[serde(skip)]
     #[borsh(skip)]
-    pub metadata: EventMetadata,
+    pub metadata: SolanaEventMetadata,
     /// Block timestamp when the event occurred
     pub timestamp: i64,
     /// Amount of base tokens being sold
@@ -216,7 +216,8 @@ impl Event for PumpSwapSellEvent {
     }
 
     fn kind(&self) -> &EventKind {
-        &self.metadata.core.kind
+        static SWAP_KIND: EventKind = EventKind::Swap;
+        &SWAP_KIND
     }
 
     fn metadata(&self) -> &CoreEventMetadata {
@@ -252,7 +253,7 @@ pub struct PumpSwapCreatePoolEvent {
     /// Event metadata (excluded from serialization)
     #[serde(skip)]
     #[borsh(skip)]
-    pub metadata: EventMetadata,
+    pub metadata: SolanaEventMetadata,
     /// Block timestamp when the event occurred
     pub timestamp: i64,
     /// Pool index identifier
@@ -311,7 +312,8 @@ impl Event for PumpSwapCreatePoolEvent {
     }
 
     fn kind(&self) -> &EventKind {
-        &self.metadata.core.kind
+        static CONTRACT_KIND: EventKind = EventKind::Contract;
+        &CONTRACT_KIND
     }
 
     fn metadata(&self) -> &CoreEventMetadata {
@@ -347,7 +349,7 @@ pub struct PumpSwapDepositEvent {
     /// Event metadata (excluded from serialization)
     #[serde(skip)]
     #[borsh(skip)]
-    pub metadata: EventMetadata,
+    pub metadata: SolanaEventMetadata,
     /// Block timestamp when the event occurred
     pub timestamp: i64,
     /// Amount of LP tokens minted
@@ -401,7 +403,8 @@ impl Event for PumpSwapDepositEvent {
     }
 
     fn kind(&self) -> &EventKind {
-        &self.metadata.core.kind
+        static LIQUIDITY_KIND: EventKind = EventKind::Liquidity;
+        &LIQUIDITY_KIND
     }
 
     fn metadata(&self) -> &CoreEventMetadata {
@@ -437,7 +440,7 @@ pub struct PumpSwapWithdrawEvent {
     /// Event metadata (excluded from serialization)
     #[serde(skip)]
     #[borsh(skip)]
-    pub metadata: EventMetadata,
+    pub metadata: SolanaEventMetadata,
     /// Block timestamp when the event occurred
     pub timestamp: i64,
     /// Amount of LP tokens burned
@@ -491,7 +494,8 @@ impl Event for PumpSwapWithdrawEvent {
     }
 
     fn kind(&self) -> &EventKind {
-        &self.metadata.core.kind
+        static LIQUIDITY_KIND: EventKind = EventKind::Liquidity;
+        &LIQUIDITY_KIND
     }
 
     fn metadata(&self) -> &CoreEventMetadata {

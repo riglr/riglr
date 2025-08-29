@@ -13,11 +13,18 @@ use crate::{
     error::ParseResult,
     events::{
         common::utils::{has_discriminator, parse_u32_le, parse_u64_le},
-        core::{EventParser, GenericEventParseConfig},
+        core::{EventParser as LegacyEventParser, GenericEventParseConfig},
+        factory::SolanaTransactionInput,
     },
-    types::{metadata_helpers, EventMetadata, EventType, ProtocolType},
+    solana_metadata::SolanaEventMetadata,
+    types::{metadata_helpers, EventType, ProtocolType},
 };
-use riglr_events_core::Event;
+
+use riglr_events_core::{
+    error::EventResult,
+    traits::{EventParser, ParserInfo},
+    Event,
+};
 use solana_sdk::pubkey::Pubkey;
 use std::collections::HashMap;
 
@@ -33,10 +40,84 @@ impl MeteoraEventParser {
     pub fn new() -> Self {
         Self::default()
     }
+
+    /// Helper method to return inner instruction configs (for testing)
+    pub fn inner_instruction_configs(&self) -> HashMap<&'static str, Vec<GenericEventParseConfig>> {
+        self.inner_instruction_configs.clone()
+    }
+
+    /// Helper method to return instruction configs (for testing)
+    pub fn instruction_configs(&self) -> HashMap<Vec<u8>, Vec<GenericEventParseConfig>> {
+        self.instruction_configs.clone()
+    }
 }
 
+// Implement the new core EventParser trait
 #[async_trait::async_trait]
 impl EventParser for MeteoraEventParser {
+    type Input = SolanaTransactionInput;
+
+    async fn parse(&self, input: Self::Input) -> EventResult<Vec<Box<dyn Event>>> {
+        let events = match input {
+            SolanaTransactionInput::InnerInstruction(params) => {
+                let legacy_params = crate::events::factory::InnerInstructionParseParams {
+                    inner_instruction: &solana_transaction_status::UiCompiledInstruction {
+                        program_id_index: 0,
+                        accounts: vec![],
+                        data: params.inner_instruction_data.clone(),
+                        stack_height: Some(1),
+                    },
+                    signature: &params.signature,
+                    slot: params.slot,
+                    block_time: params.block_time,
+                    program_received_time_ms: params.program_received_time_ms,
+                    index: params.index.clone(),
+                };
+                self.parse_events_from_inner_instruction_impl(&legacy_params)
+            }
+            SolanaTransactionInput::Instruction(params) => {
+                let instruction = solana_message::compiled_instruction::CompiledInstruction {
+                    program_id_index: 0,
+                    accounts: vec![],
+                    data: params.instruction_data.clone(),
+                };
+                let legacy_params = crate::events::factory::InstructionParseParams {
+                    instruction: &instruction,
+                    accounts: &params.accounts,
+                    signature: &params.signature,
+                    slot: params.slot,
+                    block_time: params.block_time,
+                    program_received_time_ms: params.program_received_time_ms,
+                    index: params.index.clone(),
+                };
+                self.parse_events_from_instruction_impl(&legacy_params)
+            }
+        };
+        Ok(events)
+    }
+
+    fn can_parse(&self, input: &Self::Input) -> bool {
+        match input {
+            SolanaTransactionInput::InnerInstruction(_) => true,
+            SolanaTransactionInput::Instruction(params) => {
+                // Check if the instruction matches our discriminators
+                self.instruction_configs
+                    .keys()
+                    .any(|disc| params.instruction_data.starts_with(disc))
+            }
+        }
+    }
+
+    fn info(&self) -> ParserInfo {
+        use riglr_events_core::EventKind;
+        ParserInfo::new("meteora_parser".to_string(), "1.0.0".to_string())
+            .with_kind(EventKind::Transaction)
+            .with_format("solana_instruction".to_string())
+    }
+}
+
+// Implement the legacy EventParser trait for backward compatibility
+impl LegacyEventParser for MeteoraEventParser {
     fn inner_instruction_configs(&self) -> HashMap<&'static str, Vec<GenericEventParseConfig>> {
         self.inner_instruction_configs.clone()
     }
@@ -46,6 +127,30 @@ impl EventParser for MeteoraEventParser {
     }
 
     fn parse_events_from_inner_instruction(
+        &self,
+        params: &crate::events::factory::InnerInstructionParseParams,
+    ) -> Vec<Box<dyn Event>> {
+        self.parse_events_from_inner_instruction_impl(params)
+    }
+
+    fn parse_events_from_instruction(
+        &self,
+        params: &crate::events::factory::InstructionParseParams,
+    ) -> Vec<Box<dyn Event>> {
+        self.parse_events_from_instruction_impl(params)
+    }
+
+    fn should_handle(&self, program_id: &Pubkey) -> bool {
+        self.program_ids.contains(program_id)
+    }
+
+    fn supported_program_ids(&self) -> Vec<Pubkey> {
+        self.program_ids.clone()
+    }
+}
+
+impl MeteoraEventParser {
+    fn parse_events_from_inner_instruction_impl(
         &self,
         params: &crate::events::factory::InnerInstructionParseParams,
     ) -> Vec<Box<dyn Event>> {
@@ -77,7 +182,7 @@ impl EventParser for MeteoraEventParser {
         events
     }
 
-    fn parse_events_from_instruction(
+    fn parse_events_from_instruction_impl(
         &self,
         params: &crate::events::factory::InstructionParseParams,
     ) -> Vec<Box<dyn Event>> {
@@ -111,14 +216,6 @@ impl EventParser for MeteoraEventParser {
         }
 
         events
-    }
-
-    fn should_handle(&self, program_id: &Pubkey) -> bool {
-        self.program_ids.contains(program_id)
-    }
-
-    fn supported_program_ids(&self) -> Vec<Pubkey> {
-        self.program_ids.clone()
     }
 }
 
@@ -202,7 +299,7 @@ impl Default for MeteoraEventParser {
 
 fn parse_meteora_dlmm_swap_inner_instruction(
     data: &[u8],
-    metadata: EventMetadata,
+    metadata: SolanaEventMetadata,
 ) -> ParseResult<Box<dyn Event>> {
     let swap_data = parse_meteora_dlmm_swap_data(data).ok_or_else(|| {
         crate::error::ParseError::InvalidDataFormat(
@@ -227,7 +324,7 @@ fn parse_meteora_dlmm_swap_inner_instruction(
 fn parse_meteora_dlmm_swap_instruction(
     data: &[u8],
     accounts: &[Pubkey],
-    metadata: EventMetadata,
+    metadata: SolanaEventMetadata,
 ) -> ParseResult<Box<dyn Event>> {
     let swap_data =
         parse_meteora_dlmm_swap_data_from_instruction(data, accounts).ok_or_else(|| {
@@ -252,7 +349,7 @@ fn parse_meteora_dlmm_swap_instruction(
 
 fn parse_meteora_dlmm_add_liquidity_inner_instruction(
     data: &[u8],
-    metadata: EventMetadata,
+    metadata: SolanaEventMetadata,
 ) -> ParseResult<Box<dyn Event>> {
     let liquidity_data = parse_meteora_dlmm_liquidity_data(data, true).ok_or_else(|| {
         crate::error::ParseError::InvalidDataFormat(
@@ -276,7 +373,7 @@ fn parse_meteora_dlmm_add_liquidity_inner_instruction(
 fn parse_meteora_dlmm_add_liquidity_instruction(
     data: &[u8],
     accounts: &[Pubkey],
-    metadata: EventMetadata,
+    metadata: SolanaEventMetadata,
 ) -> ParseResult<Box<dyn Event>> {
     let liquidity_data = parse_meteora_dlmm_liquidity_data_from_instruction(data, accounts, true)
         .ok_or_else(|| {
@@ -300,7 +397,7 @@ fn parse_meteora_dlmm_add_liquidity_instruction(
 
 fn parse_meteora_dlmm_remove_liquidity_inner_instruction(
     data: &[u8],
-    metadata: EventMetadata,
+    metadata: SolanaEventMetadata,
 ) -> ParseResult<Box<dyn Event>> {
     let liquidity_data = parse_meteora_dlmm_liquidity_data(data, false).ok_or_else(|| {
         crate::error::ParseError::InvalidDataFormat("Failed to parse Meteora data".to_string())
@@ -322,7 +419,7 @@ fn parse_meteora_dlmm_remove_liquidity_inner_instruction(
 fn parse_meteora_dlmm_remove_liquidity_instruction(
     data: &[u8],
     accounts: &[Pubkey],
-    metadata: EventMetadata,
+    metadata: SolanaEventMetadata,
 ) -> ParseResult<Box<dyn Event>> {
     let liquidity_data = parse_meteora_dlmm_liquidity_data_from_instruction(data, accounts, false)
         .ok_or_else(|| {
@@ -346,7 +443,7 @@ fn parse_meteora_dlmm_remove_liquidity_instruction(
 
 fn parse_meteora_dynamic_add_liquidity_inner_instruction(
     data: &[u8],
-    metadata: EventMetadata,
+    metadata: SolanaEventMetadata,
 ) -> ParseResult<Box<dyn Event>> {
     let liquidity_data = parse_meteora_dynamic_liquidity_data(data, true).ok_or_else(|| {
         crate::error::ParseError::InvalidDataFormat("Failed to parse Meteora data".to_string())
@@ -368,7 +465,7 @@ fn parse_meteora_dynamic_add_liquidity_inner_instruction(
 fn parse_meteora_dynamic_add_liquidity_instruction(
     data: &[u8],
     accounts: &[Pubkey],
-    metadata: EventMetadata,
+    metadata: SolanaEventMetadata,
 ) -> ParseResult<Box<dyn Event>> {
     let liquidity_data = parse_meteora_dynamic_liquidity_data_from_instruction(
         data, accounts, true,
@@ -392,7 +489,7 @@ fn parse_meteora_dynamic_add_liquidity_instruction(
 
 fn parse_meteora_dynamic_remove_liquidity_inner_instruction(
     data: &[u8],
-    metadata: EventMetadata,
+    metadata: SolanaEventMetadata,
 ) -> ParseResult<Box<dyn Event>> {
     let liquidity_data = parse_meteora_dynamic_liquidity_data(data, false).ok_or_else(|| {
         crate::error::ParseError::InvalidDataFormat("Failed to parse Meteora data".to_string())
@@ -414,7 +511,7 @@ fn parse_meteora_dynamic_remove_liquidity_inner_instruction(
 fn parse_meteora_dynamic_remove_liquidity_instruction(
     data: &[u8],
     accounts: &[Pubkey],
-    metadata: EventMetadata,
+    metadata: SolanaEventMetadata,
 ) -> ParseResult<Box<dyn Event>> {
     let liquidity_data = parse_meteora_dynamic_liquidity_data_from_instruction(
         data, accounts, false,
@@ -610,7 +707,7 @@ mod tests {
     use solana_message::compiled_instruction::CompiledInstruction;
     use solana_transaction_status::UiCompiledInstruction;
 
-    fn create_test_metadata() -> EventMetadata {
+    fn create_test_metadata() -> SolanaEventMetadata {
         metadata_helpers::create_solana_metadata(
             "test_id".to_string(),
             "test_signature".to_string(),

@@ -3,7 +3,8 @@
 //! This module provides a configurable pipeline for parsing Solana transaction data
 //! with support for batching, parallel processing, and backpressure handling.
 
-use crate::types::{EventMetadata, ProtocolType};
+use crate::solana_metadata::SolanaEventMetadata;
+use crate::types::ProtocolType;
 use crate::zero_copy::{BatchEventParser, ByteSliceEventParser, ParseError, ZeroCopyEvent};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -68,7 +69,7 @@ pub struct ParsingInput {
     /// Raw instruction or transaction data
     pub data: Vec<u8>,
     /// Event metadata
-    pub metadata: EventMetadata,
+    pub metadata: SolanaEventMetadata,
     /// Optional program ID hint for faster parsing
     pub program_id_hint: Option<solana_sdk::pubkey::Pubkey>,
 }
@@ -216,7 +217,7 @@ impl ParsingPipeline {
             })
             .collect();
 
-        let batch_metadata: Vec<EventMetadata> =
+        let batch_metadata: Vec<SolanaEventMetadata> =
             batch.iter().map(|input| input.metadata.clone()).collect();
 
         // Parse the batch
@@ -435,7 +436,7 @@ mod tests {
     fn test_parsing_input_creation() {
         let input = ParsingInput {
             data: vec![0x09, 0x01, 0x02],
-            metadata: EventMetadata::default(),
+            metadata: SolanaEventMetadata::default(),
             program_id_hint: None,
         };
 
@@ -616,7 +617,7 @@ mod tests {
         let program_id = Pubkey::new_unique();
         let input = ParsingInput {
             data: vec![0x01, 0x02, 0x03, 0x04],
-            metadata: EventMetadata::default(),
+            metadata: SolanaEventMetadata::default(),
             program_id_hint: Some(program_id),
         };
 
@@ -750,7 +751,7 @@ mod tests {
     fn test_parsing_input_clone() {
         let input = ParsingInput {
             data: vec![0x05, 0x06],
-            metadata: EventMetadata::default(),
+            metadata: SolanaEventMetadata::default(),
             program_id_hint: None,
         };
 
@@ -823,7 +824,7 @@ mod tests {
     fn test_parsing_input_empty_data() {
         let input = ParsingInput {
             data: Vec::new(),
-            metadata: EventMetadata::default(),
+            metadata: SolanaEventMetadata::default(),
             program_id_hint: None,
         };
 
@@ -835,7 +836,7 @@ mod tests {
         let large_data = vec![0xFF; 10000];
         let input = ParsingInput {
             data: large_data.clone(),
-            metadata: EventMetadata::default(),
+            metadata: SolanaEventMetadata::default(),
             program_id_hint: None,
         };
 

@@ -1,4 +1,5 @@
-use crate::types::EventMetadata;
+use crate::solana_metadata::SolanaEventMetadata;
+use riglr_events_core::EventMetadata as CoreEventMetadata;
 use riglr_events_core::{Event, EventKind};
 use serde::{Deserialize, Serialize};
 use solana_sdk::pubkey::Pubkey;
@@ -8,7 +9,7 @@ use std::any::Any;
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct RaydiumClmmSwapEvent {
     /// Event metadata
-    pub metadata: EventMetadata,
+    pub metadata: SolanaEventMetadata,
     /// Amount of token0 in the swap
     pub amount0: u64,
     /// Amount of token1 in the swap
@@ -43,7 +44,7 @@ pub struct RaydiumClmmSwapEvent {
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct RaydiumClmmSwapV2Event {
     /// Event metadata
-    pub metadata: EventMetadata,
+    pub metadata: SolanaEventMetadata,
     /// Amount of token0 in the swap
     pub amount0: u64,
     /// Amount of token1 in the swap
@@ -80,7 +81,7 @@ pub struct RaydiumClmmSwapV2Event {
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct RaydiumClmmCreatePoolEvent {
     /// Event metadata
-    pub metadata: EventMetadata,
+    pub metadata: SolanaEventMetadata,
     /// Square root of price multiplied by 2^64
     pub sqrt_price_x64: u128,
     /// Current tick of the pool
@@ -107,7 +108,7 @@ pub struct RaydiumClmmCreatePoolEvent {
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct RaydiumClmmOpenPositionV2Event {
     /// Event metadata
-    pub metadata: EventMetadata,
+    pub metadata: SolanaEventMetadata,
     /// Lower tick index for the position
     pub tick_lower_index: i32,
     /// Upper tick index for the position
@@ -146,7 +147,7 @@ pub struct RaydiumClmmOpenPositionV2Event {
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct RaydiumClmmClosePositionEvent {
     /// Event metadata
-    pub metadata: EventMetadata,
+    pub metadata: SolanaEventMetadata,
 
     // Account keys
     /// Owner of the NFT
@@ -163,7 +164,7 @@ pub struct RaydiumClmmClosePositionEvent {
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct RaydiumClmmIncreaseLiquidityV2Event {
     /// Event metadata
-    pub metadata: EventMetadata,
+    pub metadata: SolanaEventMetadata,
     /// Amount of liquidity to add
     pub liquidity: u128,
     /// Maximum amount of token0 to use
@@ -186,7 +187,7 @@ pub struct RaydiumClmmIncreaseLiquidityV2Event {
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct RaydiumClmmDecreaseLiquidityV2Event {
     /// Event metadata
-    pub metadata: EventMetadata,
+    pub metadata: SolanaEventMetadata,
     /// Amount of liquidity to remove
     pub liquidity: u128,
     /// Minimum amount of token0 to receive
@@ -207,7 +208,7 @@ pub struct RaydiumClmmDecreaseLiquidityV2Event {
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct RaydiumClmmOpenPositionWithToken22NftEvent {
     /// Event metadata
-    pub metadata: EventMetadata,
+    pub metadata: SolanaEventMetadata,
     /// Lower tick index for the position
     pub tick_lower_index: i32,
     /// Upper tick index for the position
@@ -252,11 +253,11 @@ impl Event for RaydiumClmmSwapEvent {
         &SWAP_KIND
     }
 
-    fn metadata(&self) -> &riglr_events_core::EventMetadata {
+    fn metadata(&self) -> &CoreEventMetadata {
         &self.metadata.core
     }
 
-    fn metadata_mut(&mut self) -> &mut riglr_events_core::EventMetadata {
+    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
         &mut self.metadata.core
     }
 
@@ -287,11 +288,11 @@ impl Event for RaydiumClmmSwapV2Event {
         &SWAP_KIND
     }
 
-    fn metadata(&self) -> &riglr_events_core::EventMetadata {
+    fn metadata(&self) -> &CoreEventMetadata {
         &self.metadata.core
     }
 
-    fn metadata_mut(&mut self) -> &mut riglr_events_core::EventMetadata {
+    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
         &mut self.metadata.core
     }
 
@@ -322,11 +323,11 @@ impl Event for RaydiumClmmCreatePoolEvent {
         &CONTRACT_KIND
     }
 
-    fn metadata(&self) -> &riglr_events_core::EventMetadata {
+    fn metadata(&self) -> &CoreEventMetadata {
         &self.metadata.core
     }
 
-    fn metadata_mut(&mut self) -> &mut riglr_events_core::EventMetadata {
+    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
         &mut self.metadata.core
     }
 
@@ -357,11 +358,11 @@ impl Event for RaydiumClmmOpenPositionV2Event {
         &LIQUIDITY_KIND
     }
 
-    fn metadata(&self) -> &riglr_events_core::EventMetadata {
+    fn metadata(&self) -> &CoreEventMetadata {
         &self.metadata.core
     }
 
-    fn metadata_mut(&mut self) -> &mut riglr_events_core::EventMetadata {
+    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
         &mut self.metadata.core
     }
 
@@ -392,11 +393,11 @@ impl Event for RaydiumClmmClosePositionEvent {
         &LIQUIDITY_KIND
     }
 
-    fn metadata(&self) -> &riglr_events_core::EventMetadata {
+    fn metadata(&self) -> &CoreEventMetadata {
         &self.metadata.core
     }
 
-    fn metadata_mut(&mut self) -> &mut riglr_events_core::EventMetadata {
+    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
         &mut self.metadata.core
     }
 
@@ -427,11 +428,11 @@ impl Event for RaydiumClmmIncreaseLiquidityV2Event {
         &LIQUIDITY_KIND
     }
 
-    fn metadata(&self) -> &riglr_events_core::EventMetadata {
+    fn metadata(&self) -> &CoreEventMetadata {
         &self.metadata.core
     }
 
-    fn metadata_mut(&mut self) -> &mut riglr_events_core::EventMetadata {
+    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
         &mut self.metadata.core
     }
 
@@ -462,11 +463,11 @@ impl Event for RaydiumClmmDecreaseLiquidityV2Event {
         &LIQUIDITY_KIND
     }
 
-    fn metadata(&self) -> &riglr_events_core::EventMetadata {
+    fn metadata(&self) -> &CoreEventMetadata {
         &self.metadata.core
     }
 
-    fn metadata_mut(&mut self) -> &mut riglr_events_core::EventMetadata {
+    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
         &mut self.metadata.core
     }
 
@@ -497,11 +498,11 @@ impl Event for RaydiumClmmOpenPositionWithToken22NftEvent {
         &LIQUIDITY_KIND
     }
 
-    fn metadata(&self) -> &riglr_events_core::EventMetadata {
+    fn metadata(&self) -> &CoreEventMetadata {
         &self.metadata.core
     }
 
-    fn metadata_mut(&mut self) -> &mut riglr_events_core::EventMetadata {
+    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
         &mut self.metadata.core
     }
 
@@ -532,7 +533,7 @@ mod tests {
     use std::str::FromStr;
 
     // Helper function to create test EventMetadata
-    fn create_test_metadata(id: &str) -> EventMetadata {
+    fn create_test_metadata(id: &str) -> SolanaEventMetadata {
         let core = riglr_events_core::EventMetadata::new(
             id.to_string(),
             EventKind::Swap,

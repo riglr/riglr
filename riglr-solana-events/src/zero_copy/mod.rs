@@ -7,8 +7,10 @@ pub use parsers::*;
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::solana_metadata::SolanaEventMetadata;
     use crate::types::metadata_helpers::create_solana_metadata;
-    use crate::types::{EventMetadata, EventType, ProtocolType};
+    use crate::types::{EventType, ProtocolType};
+    type EventMetadata = SolanaEventMetadata;
     use solana_sdk::pubkey::Pubkey;
     use std::fs::File;
     use std::io::Write;

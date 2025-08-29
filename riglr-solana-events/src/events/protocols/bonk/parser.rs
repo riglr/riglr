@@ -1,4 +1,8 @@
-use riglr_events_core::Event;
+use riglr_events_core::{
+    error::EventResult,
+    traits::{EventParser, ParserInfo},
+    Event,
+};
 use std::collections::HashMap;
 
 use borsh::BorshDeserialize;
@@ -7,10 +11,14 @@ use solana_sdk::pubkey::Pubkey;
 use crate::error::ParseResult;
 use crate::events::{
     common::{parse_swap_amounts, validate_account_count, validate_data_length},
-    core::traits::{EventParser, GenericEventParseConfig, GenericEventParser},
+    core::traits::{EventParser as LegacyEventParser, GenericEventParseConfig, GenericEventParser},
+    factory::SolanaTransactionInput,
     protocols::bonk::{discriminators, BonkPoolCreateEvent, BonkTradeEvent, TradeDirection},
 };
-use crate::types::{EventMetadata, EventType, ProtocolType};
+use crate::solana_metadata::SolanaEventMetadata;
+use crate::types::{EventType, ProtocolType};
+
+type EventMetadata = SolanaEventMetadata;
 
 /// Bonk program ID
 pub const BONK_PROGRAM_ID: Pubkey =
@@ -399,8 +407,70 @@ impl BonkEventParser {
     }
 }
 
+// Implement the new core EventParser trait
 #[async_trait::async_trait]
 impl EventParser for BonkEventParser {
+    type Input = SolanaTransactionInput;
+
+    async fn parse(&self, input: Self::Input) -> EventResult<Vec<Box<dyn Event>>> {
+        let events = match input {
+            SolanaTransactionInput::InnerInstruction(params) => {
+                let legacy_params = crate::events::factory::InnerInstructionParseParams {
+                    inner_instruction: &solana_transaction_status::UiCompiledInstruction {
+                        program_id_index: 0,
+                        accounts: vec![],
+                        data: params.inner_instruction_data.clone(),
+                        stack_height: Some(1),
+                    },
+                    signature: &params.signature,
+                    slot: params.slot,
+                    block_time: params.block_time,
+                    program_received_time_ms: params.program_received_time_ms,
+                    index: params.index.clone(),
+                };
+                self.inner
+                    .parse_events_from_inner_instruction(&legacy_params)
+            }
+            SolanaTransactionInput::Instruction(params) => {
+                let instruction = solana_message::compiled_instruction::CompiledInstruction {
+                    program_id_index: 0,
+                    accounts: vec![],
+                    data: params.instruction_data.clone(),
+                };
+                let legacy_params = crate::events::factory::InstructionParseParams {
+                    instruction: &instruction,
+                    accounts: &params.accounts,
+                    signature: &params.signature,
+                    slot: params.slot,
+                    block_time: params.block_time,
+                    program_received_time_ms: params.program_received_time_ms,
+                    index: params.index.clone(),
+                };
+                self.inner.parse_events_from_instruction(&legacy_params)
+            }
+        };
+        Ok(events)
+    }
+
+    fn can_parse(&self, input: &Self::Input) -> bool {
+        match input {
+            SolanaTransactionInput::InnerInstruction(_) => true,
+            SolanaTransactionInput::Instruction(_) => true,
+        }
+    }
+
+    fn info(&self) -> ParserInfo {
+        use riglr_events_core::EventKind;
+        ParserInfo::new("bonk_parser".to_string(), "1.0.0".to_string())
+            .with_kind(EventKind::Custom("bonk_trade".to_string()))
+            .with_kind(EventKind::Custom("bonk_pool_create".to_string()))
+            .with_format("solana_instruction".to_string())
+    }
+}
+
+// Keep legacy implementation for backward compatibility
+#[async_trait::async_trait]
+impl LegacyEventParser for BonkEventParser {
     fn inner_instruction_configs(&self) -> HashMap<&'static str, Vec<GenericEventParseConfig>> {
         self.inner.inner_instruction_configs()
     }
@@ -437,7 +507,8 @@ mod tests {
         discriminators, BonkPoolCreateEvent, BonkTradeEvent, TradeDirection,
     };
     use crate::solana_metadata::SolanaEventMetadata;
-    use crate::types::{EventMetadata, EventType, ProtocolType};
+    use crate::types::{EventType, ProtocolType};
+    type EventMetadata = crate::solana_metadata::SolanaEventMetadata;
     use riglr_events_core::EventKind;
     use solana_message::compiled_instruction::CompiledInstruction;
     use solana_sdk::pubkey::Pubkey;
