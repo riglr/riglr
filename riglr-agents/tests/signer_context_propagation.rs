@@ -78,7 +78,7 @@ async fn test_signer_context_propagates_through_adapter() {
 
     // Create a mock signer
     let keypair = Keypair::new();
-    let signer: Arc<dyn UnifiedSigner> = Arc::new(LocalSolanaSigner::new(
+    let signer: Arc<dyn UnifiedSigner> = Arc::new(LocalSolanaSigner::from_keypair_with_url(
         keypair,
         "http://localhost:8899".to_string(),
     ));

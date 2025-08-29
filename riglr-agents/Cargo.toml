@@ -70,6 +70,7 @@ rig-core = { workspace = true }
 riglr-config = { workspace = true }
 dotenv = "0.15"
 dotenvy = "0.15"
+bincode = "1.3.3"
 
 # Additional dependencies for blockchain testing
 tempfile = "3.8"

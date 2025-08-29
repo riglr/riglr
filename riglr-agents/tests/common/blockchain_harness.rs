@@ -323,7 +323,10 @@ impl BlockchainTestHarness {
             .ok_or_else(|| BlockchainHarnessError::InvalidKeypair(keypair_index))?;
 
         // Create real LocalSolanaSigner with the test validator
-        let signer = LocalSolanaSigner::new(keypair.insecure_clone(), self.rpc_url.clone());
+        let signer = LocalSolanaSigner::from_keypair_with_url(
+            keypair.insecure_clone(),
+            self.rpc_url.clone(),
+        );
 
         // Wrap in UnifiedSigner
         let unified_signer: std::sync::Arc<dyn UnifiedSigner> = std::sync::Arc::new(signer);

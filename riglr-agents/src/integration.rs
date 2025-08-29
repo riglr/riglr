@@ -719,15 +719,14 @@ mod tests {
 
         async fn sign_and_send_transaction(
             &self,
-            _tx: &mut solana_sdk::transaction::Transaction,
+            _tx: &mut Vec<u8>,
         ) -> std::result::Result<String, riglr_core::SignerError> {
             Ok("mock_signature".to_string())
         }
 
-        fn client(&self) -> std::sync::Arc<solana_client::rpc_client::RpcClient> {
-            std::sync::Arc::new(solana_client::rpc_client::RpcClient::new(
-                "http://localhost:8899",
-            ))
+        fn client(&self) -> std::sync::Arc<dyn std::any::Any + Send + Sync> {
+            let rpc_client = solana_client::rpc_client::RpcClient::new("http://localhost:8899");
+            std::sync::Arc::new(rpc_client)
         }
     }
 
@@ -743,7 +742,7 @@ mod tests {
 
         async fn sign_and_send_transaction(
             &self,
-            _tx: alloy::rpc::types::TransactionRequest,
+            _tx: serde_json::Value,
         ) -> std::result::Result<String, riglr_core::SignerError> {
             Ok("0x1234".to_string())
         }

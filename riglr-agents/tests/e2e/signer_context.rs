@@ -396,11 +396,11 @@ async fn test_signer_context_isolation() {
         .expect("Failed to get keypair 2");
 
     // Use Keypair::new_from_array to create owned copies
-    let signer_1 = Arc::new(LocalSolanaSigner::new(
+    let signer_1 = Arc::new(LocalSolanaSigner::from_keypair_with_url(
         Keypair::new_from_array(*keypair_1.secret_bytes()),
         harness.rpc_url().to_string(),
     ));
-    let signer_2 = Arc::new(LocalSolanaSigner::new(
+    let signer_2 = Arc::new(LocalSolanaSigner::from_keypair_with_url(
         Keypair::new_from_array(*keypair_2.secret_bytes()),
         harness.rpc_url().to_string(),
     ));
@@ -594,7 +594,7 @@ async fn test_concurrent_signer_access() {
             .get_funded_keypair(i)
             .expect("Failed to get keypair");
 
-        let signer = Arc::new(LocalSolanaSigner::new(
+        let signer = Arc::new(LocalSolanaSigner::from_keypair_with_url(
             Keypair::new_from_array(*keypair.secret_bytes()),
             harness.rpc_url().to_string(),
         ));
@@ -751,7 +751,7 @@ async fn test_unauthorized_access_prevention() {
         .get_funded_keypair(0)
         .expect("Failed to get keypair");
 
-    let signer = Arc::new(LocalSolanaSigner::new(
+    let signer = Arc::new(LocalSolanaSigner::from_keypair_with_url(
         Keypair::new_from_array(*keypair.secret_bytes()),
         harness.rpc_url().to_string(),
     ));
@@ -914,11 +914,11 @@ async fn test_signer_permission_boundaries() {
 
     // In a real implementation, these would have different permission levels
     // For this test, we simulate the behavior
-    let readonly_signer = Arc::new(LocalSolanaSigner::new(
+    let readonly_signer = Arc::new(LocalSolanaSigner::from_keypair_with_url(
         Keypair::new_from_array(*readonly_keypair.secret_bytes()),
         harness.rpc_url().to_string(),
     ));
-    let readwrite_signer = Arc::new(LocalSolanaSigner::new(
+    let readwrite_signer = Arc::new(LocalSolanaSigner::from_keypair_with_url(
         Keypair::new_from_array(*readwrite_keypair.secret_bytes()),
         harness.rpc_url().to_string(),
     ));
@@ -1064,7 +1064,7 @@ mod tests {
     #[tokio::test]
     async fn test_security_aware_agent_capabilities() {
         let keypair = Keypair::new();
-        let signer = Arc::new(LocalSolanaSigner::new(
+        let signer = Arc::new(LocalSolanaSigner::from_keypair_with_url(
             Keypair::new_from_array(*keypair.secret_bytes()),
             "http://localhost:8899".to_string(),
         ));
@@ -1095,10 +1095,9 @@ mod tests {
     async fn test_signer_context_propagates_through_adapter() {
         // Setup: Create a mock signer for testing
         let keypair = Keypair::new();
-        let mock_signer: Arc<dyn UnifiedSigner> = Arc::new(LocalSolanaSigner::new(
-            keypair,
-            "http://localhost:8899".to_string(),
-        ));
+        let mock_signer: Arc<dyn UnifiedSigner> = Arc::new(
+            LocalSolanaSigner::from_keypair_with_url(keypair, "http://localhost:8899".to_string()),
+        );
 
         // Create a tool that specifically requires SignerContext to function
         // This tool will fail if SignerContext is not properly propagated

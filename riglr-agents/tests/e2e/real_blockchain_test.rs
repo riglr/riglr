@@ -144,13 +144,22 @@ impl Agent for RealBlockchainTradingAgent {
                 system_instruction::transfer(&from_pubkey, &to_pubkey, amount_lamports);
 
             // Create REAL transaction
-            let mut transaction = Transaction::new_with_payer(&[instruction], Some(&from_pubkey));
+            let transaction = Transaction::new_with_payer(&[instruction], Some(&from_pubkey));
 
             info!("Signing and sending REAL transaction to blockchain...");
 
+            // Serialize transaction to bytes for the signer
+            use bincode::serialize;
+            let mut tx_bytes = serialize(&transaction).map_err(|e| {
+                riglr_core::signer::SignerError::Configuration(format!(
+                    "Failed to serialize transaction: {}",
+                    e
+                ))
+            })?;
+
             // Sign and send the REAL transaction using the signer
             let signature = signer
-                .sign_and_send_transaction(&mut transaction)
+                .sign_and_send_transaction(&mut tx_bytes)
                 .await
                 .map_err(|e| {
                     riglr_core::signer::SignerError::Configuration(format!(
@@ -570,7 +579,8 @@ mod tests {
     #[tokio::test]
     async fn test_real_blockchain_agent_capabilities() {
         let keypair = Keypair::new();
-        let signer = LocalSolanaSigner::new(keypair, "http://localhost:8899".to_string());
+        let signer =
+            LocalSolanaSigner::from_keypair_with_url(keypair, "http://localhost:8899".to_string());
         let unified_signer: Arc<dyn riglr_core::signer::UnifiedSigner> = Arc::new(signer);
 
         let agent = RealBlockchainTradingAgent::new(unified_signer);
