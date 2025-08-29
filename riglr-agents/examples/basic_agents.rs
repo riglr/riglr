@@ -10,8 +10,8 @@
 
 use async_trait::async_trait;
 use riglr_agents::{
-    Agent, AgentDispatcher, AgentId, AgentRegistry, LocalAgentRegistry, Priority, Task, TaskResult,
-    TaskType,
+    Agent, AgentDispatcher, AgentId, AgentRegistry, CapabilityType, LocalAgentRegistry, Priority,
+    Task, TaskResult, TaskType,
 };
 use serde_json::json;
 use std::sync::Arc;
@@ -74,8 +74,11 @@ impl Agent for TradingAgent {
         &self.id
     }
 
-    fn capabilities(&self) -> Vec<String> {
-        vec!["trading".to_string(), "execution".to_string()]
+    fn capabilities(&self) -> Vec<CapabilityType> {
+        vec![
+            CapabilityType::Trading,
+            CapabilityType::Custom("execution".to_string()),
+        ]
     }
 }
 
@@ -140,8 +143,11 @@ impl Agent for ResearchAgent {
         &self.id
     }
 
-    fn capabilities(&self) -> Vec<String> {
-        vec!["research".to_string(), "analysis".to_string()]
+    fn capabilities(&self) -> Vec<CapabilityType> {
+        vec![
+            CapabilityType::Research,
+            CapabilityType::Custom("analysis".to_string()),
+        ]
     }
 }
 
@@ -218,8 +224,11 @@ impl Agent for RiskAgent {
         &self.id
     }
 
-    fn capabilities(&self) -> Vec<String> {
-        vec!["risk_analysis".to_string(), "compliance".to_string()]
+    fn capabilities(&self) -> Vec<CapabilityType> {
+        vec![
+            CapabilityType::RiskAnalysis,
+            CapabilityType::Custom("compliance".to_string()),
+        ]
     }
 }
 

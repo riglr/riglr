@@ -22,7 +22,7 @@
 //! for LLM operations:
 //!
 //! ```rust
-//! use riglr_agents::{Agent, Task, TaskResult, AgentId};
+//! use riglr_agents::{Agent, Task, TaskResult, AgentId, CapabilityType};
 //! use rig_core::{completion::Prompt, providers};
 //! use async_trait::async_trait;
 //! use std::sync::Arc;
@@ -61,8 +61,8 @@
 //!         &self.id
 //!     }
 //!
-//!     fn capabilities(&self) -> Vec<String> {
-//!         vec!["trading".to_string(), "risk_management".to_string()]
+//!     fn capabilities(&self) -> Vec<CapabilityType> {
+//!         vec![CapabilityType::Trading, CapabilityType::Custom("risk_management".to_string())]
 //!     }
 //! }
 //! ```
@@ -152,8 +152,11 @@ pub mod adapter;
 pub mod agents {
     /// Tool-calling agent implementation
     pub mod tool_calling;
+    // Re-export the ToolCallingAgent for convenience
+    pub use tool_calling::ToolCallingAgent;
 }
 pub mod builder;
+pub mod capabilities;
 pub mod communication;
 pub mod dispatcher;
 pub mod error;
@@ -162,8 +165,10 @@ pub mod registry;
 /// Tool collection and management
 pub mod toolset;
 pub mod types;
+pub mod util;
 
 // Re-export commonly used types
+pub use agents::tool_calling::{DebuggableCompletionModel, ToolCallingAgent};
 pub use builder::{AgentSystem, AgentSystemBuilder, SystemHealth, SystemStats};
 pub use communication::{AgentCommunication, ChannelCommunication};
 pub use dispatcher::{AgentDispatcher, DispatchConfig, RoutingStrategy};
@@ -172,8 +177,8 @@ pub use integration::SignerContextIntegration;
 pub use registry::{AgentRegistry, LocalAgentRegistry};
 
 pub use types::{
-    AgentId, AgentMessage, AgentState, AgentStatus, Capability, Priority, RoutingRule, Task,
-    TaskResult, TaskType,
+    AgentId, AgentMessage, AgentState, AgentStatus, Capability, CapabilityType, Priority,
+    RoutingRule, Task, TaskResult, TaskType,
 };
 
 // Re-export rig-core for easy access in examples and external usage
@@ -208,7 +213,7 @@ pub trait Agent: Send + Sync + std::fmt::Debug {
     ///
     /// Capabilities are used by the routing system to determine which
     /// agents can handle specific tasks.
-    fn capabilities(&self) -> Vec<String>;
+    fn capabilities(&self) -> Vec<CapabilityType>;
 
     /// Get the current status of this agent.
     ///
@@ -223,7 +228,7 @@ pub trait Agent: Send + Sync + std::fmt::Debug {
             capabilities: self
                 .capabilities()
                 .into_iter()
-                .map(|cap| Capability::new(cap, "1.0"))
+                .map(|cap| Capability::new(cap.to_string(), "1.0"))
                 .collect(),
             metadata: std::collections::HashMap::new(),
         }
@@ -257,14 +262,8 @@ pub trait Agent: Send + Sync + std::fmt::Debug {
     /// match the task type. Agents can override this for custom logic.
     fn can_handle(&self, task: &Task) -> bool {
         let capabilities = self.capabilities();
-        match &task.task_type {
-            TaskType::Trading => capabilities.contains(&"trading".to_string()),
-            TaskType::Research => capabilities.contains(&"research".to_string()),
-            TaskType::RiskAnalysis => capabilities.contains(&"risk_analysis".to_string()),
-            TaskType::Portfolio => capabilities.contains(&"portfolio".to_string()),
-            TaskType::Monitoring => capabilities.contains(&"monitoring".to_string()),
-            TaskType::Custom(name) => capabilities.contains(name),
-        }
+        let required_capability = util::task_type_to_capability(&task.task_type);
+        capabilities.contains(&required_capability)
     }
 
     /// Get the agent's current load factor (0.0 to 1.0).
@@ -314,7 +313,7 @@ mod tests {
     #[derive(Clone, Debug)]
     struct MockAgent {
         id: AgentId,
-        capabilities: Vec<String>,
+        capabilities: Vec<CapabilityType>,
         should_fail: bool,
     }
 
@@ -344,7 +343,7 @@ mod tests {
             &self.id
         }
 
-        fn capabilities(&self) -> Vec<String> {
+        fn capabilities(&self) -> Vec<CapabilityType> {
             self.capabilities.clone()
         }
     }
@@ -353,7 +352,7 @@ mod tests {
     async fn test_agent_basic_functionality() {
         let agent = MockAgent {
             id: AgentId::new("test-agent"),
-            capabilities: vec!["trading".to_string()],
+            capabilities: vec![CapabilityType::Trading],
             should_fail: false,
         };
 
@@ -370,13 +369,13 @@ mod tests {
     async fn test_agent_capability_matching() {
         let trading_agent = MockAgent {
             id: AgentId::new("trading-agent"),
-            capabilities: vec!["trading".to_string(), "risk_analysis".to_string()],
+            capabilities: vec![CapabilityType::Trading, CapabilityType::RiskAnalysis],
             should_fail: false,
         };
 
         let research_agent = MockAgent {
             id: AgentId::new("research-agent"),
-            capabilities: vec!["research".to_string(), "monitoring".to_string()],
+            capabilities: vec![CapabilityType::Research, CapabilityType::Monitoring],
             should_fail: false,
         };
 
@@ -394,7 +393,7 @@ mod tests {
     async fn test_agent_error_handling() {
         let agent = MockAgent {
             id: AgentId::new("failing-agent"),
-            capabilities: vec!["trading".to_string()],
+            capabilities: vec![CapabilityType::Trading],
             should_fail: true,
         };
 
@@ -431,7 +430,7 @@ mod tests {
     fn test_agent_status() {
         let agent = MockAgent {
             id: AgentId::new("status-test"),
-            capabilities: vec!["trading".to_string(), "research".to_string()],
+            capabilities: vec![CapabilityType::Trading, CapabilityType::Research],
             should_fail: false,
         };
 
@@ -447,7 +446,7 @@ mod tests {
     async fn test_agent_default_before_task() {
         let agent = MockAgent {
             id: AgentId::new("before-task-test"),
-            capabilities: vec!["trading".to_string()],
+            capabilities: vec![CapabilityType::Trading],
             should_fail: false,
         };
 
@@ -460,7 +459,7 @@ mod tests {
     async fn test_agent_default_after_task() {
         let agent = MockAgent {
             id: AgentId::new("after-task-test"),
-            capabilities: vec!["trading".to_string()],
+            capabilities: vec![CapabilityType::Trading],
             should_fail: false,
         };
 
@@ -479,7 +478,7 @@ mod tests {
     async fn test_agent_default_handle_message() {
         let agent = MockAgent {
             id: AgentId::new("message-test"),
-            capabilities: vec!["trading".to_string()],
+            capabilities: vec![CapabilityType::Trading],
             should_fail: false,
         };
 
@@ -500,12 +499,12 @@ mod tests {
         let full_agent = MockAgent {
             id: AgentId::new("full-agent"),
             capabilities: vec![
-                "trading".to_string(),
-                "research".to_string(),
-                "risk_analysis".to_string(),
-                "portfolio".to_string(),
-                "monitoring".to_string(),
-                "custom_capability".to_string(),
+                CapabilityType::Trading,
+                CapabilityType::Research,
+                CapabilityType::RiskAnalysis,
+                CapabilityType::Portfolio,
+                CapabilityType::Monitoring,
+                CapabilityType::Custom("custom_capability".to_string()),
             ],
             should_fail: false,
         };
@@ -554,7 +553,7 @@ mod tests {
     fn test_agent_default_load() {
         let agent = MockAgent {
             id: AgentId::new("load-test"),
-            capabilities: vec!["trading".to_string()],
+            capabilities: vec![CapabilityType::Trading],
             should_fail: false,
         };
 
@@ -565,7 +564,7 @@ mod tests {
     #[derive(Debug)]
     struct MockAgentWithState {
         id: AgentId,
-        capabilities: Vec<String>,
+        capabilities: Vec<CapabilityType>,
         state: AgentState,
     }
 
@@ -583,21 +582,21 @@ mod tests {
             &self.id
         }
 
-        fn capabilities(&self) -> Vec<String> {
+        fn capabilities(&self) -> Vec<CapabilityType> {
             self.capabilities.clone()
         }
 
         fn status(&self) -> AgentStatus {
             AgentStatus {
                 agent_id: self.id.clone(),
-                status: self.state.clone(),
+                status: self.state,
                 active_tasks: 0,
                 load: 0.0,
                 last_heartbeat: chrono::Utc::now(),
                 capabilities: self
                     .capabilities()
                     .into_iter()
-                    .map(|cap| Capability::new(cap, "1.0"))
+                    .map(|cap| Capability::new(cap.to_string(), "1.0"))
                     .collect(),
                 metadata: std::collections::HashMap::new(),
             }
@@ -670,7 +669,7 @@ mod tests {
     fn test_agent_status_with_single_capability() {
         let agent = MockAgent {
             id: AgentId::new("single-cap"),
-            capabilities: vec!["monitoring".to_string()],
+            capabilities: vec![CapabilityType::Monitoring],
             should_fail: false,
         };
 

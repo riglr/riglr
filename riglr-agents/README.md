@@ -125,7 +125,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     registry.register_agent(agent).await?;
     
     // Create dispatcher
-    let dispatcher = AgentDispatcher::new(registry, Default::default());
+    let dispatcher = AgentDispatcher::new(registry);
     
     // Dispatch a trading task
     let task = Task::new(
@@ -360,7 +360,7 @@ async fn test_agent_coordination() {
     let registry = LocalAgentRegistry::new();
     registry.register_agent(Arc::new(mock_agent)).await.unwrap();
     
-    let dispatcher = AgentDispatcher::new(registry, Default::default());
+    let dispatcher = AgentDispatcher::new(registry);
     
     let task = Task::new(TaskType::Trading, serde_json::json!({}));
     let result = dispatcher.dispatch_task(task).await.unwrap();

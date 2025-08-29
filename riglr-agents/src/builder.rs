@@ -275,7 +275,7 @@ impl<R: AgentRegistry> CustomAgentSystem<R> {
 }
 
 /// Health status of the agent system.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct SystemHealth {
     /// Registry health status
     pub registry_healthy: bool,
@@ -342,7 +342,7 @@ mod tests {
         #[derive(Clone, Debug)]
         struct TestAgent {
             id: crate::AgentId,
-            capabilities: Vec<String>,
+            capabilities: Vec<crate::types::CapabilityType>,
         }
 
         #[async_trait::async_trait]
@@ -359,7 +359,7 @@ mod tests {
                 &self.id
             }
 
-            fn capabilities(&self) -> Vec<String> {
+            fn capabilities(&self) -> Vec<crate::types::CapabilityType> {
                 self.capabilities.clone()
             }
         }
@@ -368,7 +368,7 @@ mod tests {
 
         let agent = Arc::new(TestAgent {
             id: crate::AgentId::new("test-agent"),
-            capabilities: vec!["trading".to_string()],
+            capabilities: vec![crate::types::CapabilityType::Trading],
         });
 
         system.register_agent(agent).await.unwrap();
@@ -507,7 +507,7 @@ mod tests {
         #[derive(Clone, Debug)]
         struct TestAgent {
             id: crate::AgentId,
-            capabilities: Vec<String>,
+            capabilities: Vec<crate::types::CapabilityType>,
         }
 
         #[async_trait::async_trait]
@@ -524,7 +524,7 @@ mod tests {
                 &self.id
             }
 
-            fn capabilities(&self) -> Vec<String> {
+            fn capabilities(&self) -> Vec<crate::types::CapabilityType> {
                 self.capabilities.clone()
             }
         }
@@ -534,11 +534,11 @@ mod tests {
         let agents = vec![
             Arc::new(TestAgent {
                 id: crate::AgentId::new("test-agent-1"),
-                capabilities: vec!["trading".to_string()],
+                capabilities: vec![crate::types::CapabilityType::Trading],
             }) as Arc<dyn Agent>,
             Arc::new(TestAgent {
                 id: crate::AgentId::new("test-agent-2"),
-                capabilities: vec!["research".to_string()],
+                capabilities: vec![crate::types::CapabilityType::Research],
             }) as Arc<dyn Agent>,
         ];
 
@@ -564,7 +564,7 @@ mod tests {
         #[derive(Clone, Debug)]
         struct TestAgent {
             id: crate::AgentId,
-            capabilities: Vec<String>,
+            capabilities: Vec<crate::types::CapabilityType>,
         }
 
         #[async_trait::async_trait]
@@ -581,7 +581,7 @@ mod tests {
                 &self.id
             }
 
-            fn capabilities(&self) -> Vec<String> {
+            fn capabilities(&self) -> Vec<crate::types::CapabilityType> {
                 self.capabilities.clone()
             }
         }
@@ -594,7 +594,7 @@ mod tests {
 
         let agent = Arc::new(TestAgent {
             id: crate::AgentId::new("test-agent"),
-            capabilities: vec!["trading".to_string()],
+            capabilities: vec![crate::types::CapabilityType::Trading],
         });
 
         system.register_agent(agent).await.unwrap();
@@ -609,7 +609,7 @@ mod tests {
         #[derive(Clone, Debug)]
         struct TestAgent {
             id: crate::AgentId,
-            capabilities: Vec<String>,
+            capabilities: Vec<crate::types::CapabilityType>,
         }
 
         #[async_trait::async_trait]
@@ -626,7 +626,7 @@ mod tests {
                 &self.id
             }
 
-            fn capabilities(&self) -> Vec<String> {
+            fn capabilities(&self) -> Vec<crate::types::CapabilityType> {
                 self.capabilities.clone()
             }
         }
@@ -640,11 +640,11 @@ mod tests {
         let agents = vec![
             Arc::new(TestAgent {
                 id: crate::AgentId::new("test-agent-1"),
-                capabilities: vec!["trading".to_string()],
+                capabilities: vec![crate::types::CapabilityType::Trading],
             }) as Arc<dyn Agent>,
             Arc::new(TestAgent {
                 id: crate::AgentId::new("test-agent-2"),
-                capabilities: vec!["research".to_string()],
+                capabilities: vec![crate::types::CapabilityType::Research],
             }) as Arc<dyn Agent>,
         ];
 

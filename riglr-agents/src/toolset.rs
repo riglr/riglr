@@ -7,25 +7,12 @@ use std::sync::Arc;
 
 /// A collection of tools that can be used by an agent.
 /// This is the single source of truth for an agent's capabilities.
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct Toolset {
     tools: HashMap<String, Arc<dyn Tool>>,
 }
 
-impl Default for Toolset {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl Toolset {
-    /// Creates a new, empty toolset.
-    pub fn new() -> Self {
-        Self {
-            tools: HashMap::new(),
-        }
-    }
-
     /// Adds a tool to the set.
     pub fn add_tool(mut self, tool: Arc<dyn Tool>) -> Self {
         self.tools.insert(tool.name().to_string(), tool);
@@ -45,10 +32,11 @@ impl Toolset {
     pub(crate) fn register_with_brain<M: rig::completion::CompletionModel>(
         &self,
         mut builder: rig::agent::AgentBuilder<M>,
+        context: &riglr_core::provider::ApplicationContext,
     ) -> rig::agent::AgentBuilder<M> {
         for tool in self.tools.values() {
-            // THE FIX: Wrap our internal tool in the adapter before giving it to the rig brain.
-            let adapted_tool = RigToolAdapter::new(tool.clone());
+            // Wrap our internal tool in the adapter with the context
+            let adapted_tool = RigToolAdapter::new(tool.clone(), context.clone());
             builder = builder.tool(adapted_tool);
         }
         builder

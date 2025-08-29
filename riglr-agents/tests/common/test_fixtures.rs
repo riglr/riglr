@@ -2,6 +2,8 @@ use riglr_agents::*;
 use serde_json::json;
 use std::time::Duration;
 
+/// Builder for creating test tasks with customizable parameters.
+/// Provides a fluent interface for constructing tasks with various configurations.
 pub struct TestTaskBuilder {
     task_type: TaskType,
     parameters: serde_json::Value,
@@ -13,6 +15,7 @@ pub struct TestTaskBuilder {
 }
 
 impl TestTaskBuilder {
+    /// Creates a new test task builder with default values.
     pub fn new(task_type: TaskType) -> Self {
         Self {
             task_type,
@@ -25,36 +28,43 @@ impl TestTaskBuilder {
         }
     }
 
+    /// Sets the task parameters.
     pub fn with_parameters(mut self, parameters: serde_json::Value) -> Self {
         self.parameters = parameters;
         self
     }
 
+    /// Sets the task priority.
     pub fn with_priority(mut self, priority: Priority) -> Self {
         self.priority = priority;
         self
     }
 
+    /// Sets the task timeout duration.
     pub fn with_timeout(mut self, timeout: Duration) -> Self {
         self.timeout = Some(timeout);
         self
     }
 
+    /// Sets the maximum number of retry attempts.
     pub fn with_max_retries(mut self, max_retries: u32) -> Self {
         self.max_retries = max_retries;
         self
     }
 
+    /// Sets the task deadline.
     pub fn with_deadline(mut self, deadline: chrono::DateTime<chrono::Utc>) -> Self {
         self.deadline = Some(deadline);
         self
     }
 
+    /// Adds a metadata key-value pair to the task.
     pub fn with_metadata(mut self, key: impl Into<String>, value: serde_json::Value) -> Self {
         self.metadata.insert(key.into(), value);
         self
     }
 
+    /// Builds and returns the configured task.
     pub fn build(self) -> Task {
         let mut task = Task::new(self.task_type, self.parameters)
             .with_priority(self.priority)
@@ -75,10 +85,12 @@ impl TestTaskBuilder {
         task
     }
 
+    /// Creates a builder for a trading task with default configuration.
     pub fn trading() -> Self {
         Self::new(TaskType::Trading)
     }
 
+    /// Adds a single parameter to the task's parameters object.
     pub fn with_parameter(mut self, key: &str, value: serde_json::Value) -> Self {
         if let serde_json::Value::Object(ref mut obj) = self.parameters {
             obj.insert(key.to_string(), value);
@@ -90,18 +102,20 @@ impl TestTaskBuilder {
         self
     }
 
+    /// Sets the task priority to High.
     pub fn high_priority(mut self) -> Self {
         self.priority = Priority::High;
         self
     }
 
+    /// Sets the task deadline to the current time plus the given duration.
     pub fn with_deadline_in(mut self, duration: Duration) -> Self {
         self.deadline = Some(chrono::Utc::now() + chrono::Duration::from_std(duration).unwrap());
         self
     }
 }
 
-// Test scenarios based on trading workflows
+/// Creates a scenario with multiple related trading tasks (research, risk analysis, and trading).
 pub fn create_trading_task_scenario() -> Vec<Task> {
     vec![
         TestTaskBuilder::new(TaskType::Research)
@@ -119,6 +133,7 @@ pub fn create_trading_task_scenario() -> Vec<Task> {
     ]
 }
 
+/// Creates a research task for market analysis.
 pub fn create_research_task() -> Task {
     TestTaskBuilder::new(TaskType::Research)
         .with_parameters(json!({"query": "BONK market conditions"}))
@@ -126,6 +141,7 @@ pub fn create_research_task() -> Task {
         .build()
 }
 
+/// Creates a trading task for buying BTC.
 pub fn create_trading_task() -> Task {
     TestTaskBuilder::new(TaskType::Trading)
         .with_parameters(json!({"symbol": "BTC/USD", "action": "buy"}))
@@ -133,6 +149,7 @@ pub fn create_trading_task() -> Task {
         .build()
 }
 
+/// Creates a risk analysis task for portfolio evaluation.
 pub fn create_risk_analysis_task() -> Task {
     TestTaskBuilder::new(TaskType::RiskAnalysis)
         .with_parameters(json!({"portfolio": "main", "risk_level": "moderate"}))
@@ -140,6 +157,7 @@ pub fn create_risk_analysis_task() -> Task {
         .build()
 }
 
+/// Creates a portfolio rebalancing task with target allocations.
 pub fn create_portfolio_task() -> Task {
     TestTaskBuilder::new(TaskType::Portfolio)
         .with_parameters(
@@ -149,6 +167,7 @@ pub fn create_portfolio_task() -> Task {
         .build()
 }
 
+/// Creates a monitoring task for tracking price movements.
 pub fn create_monitoring_task() -> Task {
     TestTaskBuilder::new(TaskType::Monitoring)
         .with_parameters(json!({"targets": ["BTC/USD", "ETH/USD"], "interval": "1m"}))
@@ -156,6 +175,7 @@ pub fn create_monitoring_task() -> Task {
         .build()
 }
 
+/// Creates a custom task with the specified capability.
 pub fn create_custom_task(capability: &str) -> Task {
     TestTaskBuilder::new(TaskType::Custom(capability.to_string()))
         .with_parameters(json!({"custom_param": "test_value"}))
@@ -163,7 +183,7 @@ pub fn create_custom_task(capability: &str) -> Task {
         .build()
 }
 
-// Message builders for communication testing
+/// Creates a test message for agent communication testing.
 pub fn create_test_message(
     from: &str,
     to: Option<&str>,
@@ -178,6 +198,7 @@ pub fn create_test_message(
     )
 }
 
+/// Creates a broadcast message sent to all agents.
 pub fn create_broadcast_message(
     from: &str,
     message_type: &str,
@@ -186,6 +207,7 @@ pub fn create_broadcast_message(
     AgentMessage::broadcast(AgentId::new(from), message_type.to_string(), payload)
 }
 
+/// Creates a market update message with sample price data.
 pub fn create_market_update_message(from: &str, to: Option<&str>) -> AgentMessage {
     create_test_message(
         from,
@@ -200,6 +222,7 @@ pub fn create_market_update_message(from: &str, to: Option<&str>) -> AgentMessag
     )
 }
 
+/// Creates a task completion notification message.
 pub fn create_task_completion_message(from: &str, to: &str, task_id: &str) -> AgentMessage {
     create_test_message(
         from,
@@ -213,7 +236,7 @@ pub fn create_task_completion_message(from: &str, to: &str, task_id: &str) -> Ag
     )
 }
 
-// Test configuration builders
+/// Creates a standard dispatch configuration for testing.
 pub fn create_test_dispatch_config() -> DispatchConfig {
     DispatchConfig {
         default_task_timeout: Duration::from_secs(10),
@@ -222,9 +245,11 @@ pub fn create_test_dispatch_config() -> DispatchConfig {
         max_concurrent_tasks_per_agent: 5,
         enable_load_balancing: true,
         routing_strategy: RoutingStrategy::Capability,
+        response_wait_timeout: Duration::from_secs(30),
     }
 }
 
+/// Creates a fast dispatch configuration with reduced timeouts for performance testing.
 pub fn create_fast_dispatch_config() -> DispatchConfig {
     DispatchConfig {
         default_task_timeout: Duration::from_millis(500),
@@ -233,10 +258,11 @@ pub fn create_fast_dispatch_config() -> DispatchConfig {
         max_concurrent_tasks_per_agent: 10,
         enable_load_balancing: false,
         routing_strategy: RoutingStrategy::RoundRobin,
+        response_wait_timeout: Duration::from_secs(10),
     }
 }
 
-// Test data validation helpers
+/// Validates that a task result indicates success.
 pub fn validate_task_result_success(result: &TaskResult) -> bool {
     match result {
         TaskResult::Success { .. } => true,
@@ -244,6 +270,7 @@ pub fn validate_task_result_success(result: &TaskResult) -> bool {
     }
 }
 
+/// Validates that a task result indicates failure.
 pub fn validate_task_result_failure(result: &TaskResult) -> bool {
     match result {
         TaskResult::Failure { .. } => true,
@@ -251,6 +278,7 @@ pub fn validate_task_result_failure(result: &TaskResult) -> bool {
     }
 }
 
+/// Extracts the data from a successful task result.
 pub fn extract_task_result_data(result: &TaskResult) -> Option<&serde_json::Value> {
     match result {
         TaskResult::Success { data, .. } => Some(data),
@@ -258,6 +286,7 @@ pub fn extract_task_result_data(result: &TaskResult) -> Option<&serde_json::Valu
     }
 }
 
+/// Extracts the transaction hash from a successful task result.
 pub fn extract_task_result_tx_hash(result: &TaskResult) -> Option<&str> {
     match result {
         TaskResult::Success {
@@ -268,6 +297,7 @@ pub fn extract_task_result_tx_hash(result: &TaskResult) -> Option<&str> {
     }
 }
 
+/// Extracts the error message from a failed task result.
 pub fn extract_task_result_error(result: &TaskResult) -> Option<&str> {
     match result {
         TaskResult::Failure { error, .. } => Some(error),
@@ -275,7 +305,7 @@ pub fn extract_task_result_error(result: &TaskResult) -> Option<&str> {
     }
 }
 
-// Performance testing helpers
+/// Creates a batch of identical tasks for load testing.
 pub fn create_load_test_tasks(count: usize, task_type: TaskType) -> Vec<Task> {
     (0..count)
         .map(|i| {
@@ -287,6 +317,7 @@ pub fn create_load_test_tasks(count: usize, task_type: TaskType) -> Vec<Task> {
         .collect()
 }
 
+/// Creates a batch of tasks with varying priorities and types for comprehensive testing.
 pub fn create_mixed_priority_tasks(count: usize) -> Vec<Task> {
     let priorities = [
         Priority::Low,

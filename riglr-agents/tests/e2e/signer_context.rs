@@ -15,18 +15,9 @@
 use crate::common::*;
 use async_trait::async_trait;
 use riglr_agents::*;
-use riglr_core::{
-    jobs::{Job, JobResult},
-    signer::{SignerContext, UnifiedSigner},
-};
-use riglr_solana_tools::{
-    balance::get_sol_balance, signer::LocalSolanaSigner, transaction::transfer_sol,
-};
-use solana_sdk::{
-    native_token::LAMPORTS_PER_SOL,
-    pubkey::Pubkey,
-    signature::{Keypair, Signer},
-};
+use riglr_core::signer::{SignerContext, UnifiedSigner};
+use riglr_solana_tools::signer::LocalSolanaSigner;
+use solana_sdk::signature::Keypair;
 use std::{
     collections::HashMap,
     sync::{
@@ -51,30 +42,50 @@ pub struct SecurityMonitor {
     active_contexts: RwLock<HashMap<String, ContextInfo>>,
 }
 
+/// Log entry for tracking security-related access attempts and operations.
 #[derive(Debug, Clone)]
 pub struct AccessLogEntry {
+    /// When this access occurred
     pub timestamp: Instant,
+    /// Identifier for the security context
     pub context_id: String,
+    /// Agent that performed this operation
     pub agent_id: String,
+    /// Type of operation attempted
     pub operation: String,
+    /// Whether the operation succeeded
     pub success: bool,
+    /// Error message if operation failed
     pub error: Option<String>,
 }
 
+/// Information about an active signer context being monitored.
 #[derive(Debug, Clone)]
 pub struct ContextInfo {
+    /// Unique identifier for this context
     pub context_id: String,
+    /// Agent associated with this context
     pub agent_id: String,
+    /// When this context was created
     pub created_at: Instant,
+    /// When this context was last accessed
     pub last_access: Instant,
+    /// Number of times this context has been accessed
     pub access_count: usize,
 }
 
 impl SecurityMonitor {
+    /// Creates a new SecurityMonitor instance.
     pub fn new() -> Self {
-        Self::default()
+        Self {
+            unauthorized_attempts: AtomicUsize::new(0),
+            security_violation: AtomicBool::new(false),
+            access_log: Mutex::new(Vec::new()),
+            active_contexts: RwLock::new(HashMap::new()),
+        }
     }
 
+    /// Logs an access attempt and checks for security violations.
     pub fn log_access(&self, entry: AccessLogEntry) {
         debug!("Security Monitor - Access logged: {:?}", entry);
 
@@ -94,6 +105,7 @@ impl SecurityMonitor {
         self.access_log.lock().unwrap().push(entry);
     }
 
+    /// Registers a new signer context for monitoring.
     pub fn register_context(&self, context_id: String, agent_id: String) {
         let info = ContextInfo {
             context_id: context_id.clone(),
@@ -110,30 +122,51 @@ impl SecurityMonitor {
         });
     }
 
+    /// Returns whether any security violations have been detected.
     pub fn has_violations(&self) -> bool {
         self.security_violation.load(Ordering::SeqCst)
     }
 
+    /// Returns the count of unauthorized access attempts.
     pub fn unauthorized_attempts(&self) -> usize {
         self.unauthorized_attempts.load(Ordering::SeqCst)
     }
 
+    /// Returns a copy of the complete access log.
     pub fn get_access_log(&self) -> Vec<AccessLogEntry> {
         self.access_log.lock().unwrap().clone()
     }
 }
 
 /// A security-aware agent that monitors signer access and detects violations.
-#[derive(Debug)]
+///
+/// This agent is designed for testing the security properties of the SignerContext
+/// system by attempting various operations and monitoring for violations.
 pub struct SecurityAwareAgent {
+    /// Unique identifier for this agent
     id: AgentId,
-    signer_context: SignerContext,
+    /// The signer this agent has access to
+    signer: Arc<dyn UnifiedSigner>,
+    /// Security monitor for tracking access patterns
     security_monitor: Arc<SecurityMonitor>,
+    /// This agent's security context identifier
     context_id: String,
 }
 
+impl std::fmt::Debug for SecurityAwareAgent {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SecurityAwareAgent")
+            .field("id", &self.id)
+            .field("signer", &"<UnifiedSigner>")
+            .field("security_monitor", &self.security_monitor)
+            .field("context_id", &self.context_id)
+            .finish()
+    }
+}
+
 impl SecurityAwareAgent {
-    pub fn new(signer_context: SignerContext, security_monitor: Arc<SecurityMonitor>) -> Self {
+    /// Creates a new SecurityAwareAgent with the given signer and monitor.
+    pub fn new(signer: Arc<dyn UnifiedSigner>, security_monitor: Arc<SecurityMonitor>) -> Self {
         let id = AgentId::generate();
         let context_id = format!("context_{}", uuid::Uuid::new_v4());
 
@@ -141,14 +174,16 @@ impl SecurityAwareAgent {
 
         Self {
             id,
-            signer_context,
+            signer,
             security_monitor,
             context_id,
         }
     }
+}
 
+impl SecurityAwareAgent {
     /// Attempt to perform an operation within the proper SignerContext.
-    async fn perform_authorized_operation(&self, operation: &str) -> Result<String, String> {
+    async fn perform_authorized_operation(&self, operation: &str) -> Result<String> {
         let start_time = Instant::now();
 
         info!(
@@ -156,35 +191,26 @@ impl SecurityAwareAgent {
             self.id, operation
         );
 
-        let result = self
-            .signer_context
-            .execute_job(
-                &Job::new(
-                    format!("security_test_{}", operation),
-                    serde_json::json!({}),
-                ),
-                |signer| {
-                    let operation = operation.to_string();
-                    Box::pin(async move {
-                        // Simulate authorized signer access
-                        match signer {
-                            UnifiedSigner::Solana(_) => {
-                                debug!("Authorized access to Solana signer for: {}", operation);
-                                Ok(JobResult::Success {
-                                    result: serde_json::json!({
-                                        "operation": operation,
-                                        "status": "authorized_success",
-                                        "access_type": "signer_context"
-                                    }),
-                                    execution_time: Duration::from_millis(10),
-                                })
-                            }
-                            _ => Err("Unsupported signer type".to_string()),
-                        }
-                    })
-                },
-            )
-            .await;
+        let signer = self.signer.clone();
+        let operation_clone = operation.to_string();
+
+        let result = SignerContext::with_signer(signer, async move {
+            // Simulate authorized signer access
+            let current_signer = SignerContext::current().await?;
+
+            if current_signer.supports_solana() {
+                debug!(
+                    "Authorized access to Solana signer for: {}",
+                    operation_clone
+                );
+                Ok(format!("authorized_success_{}", operation_clone))
+            } else {
+                Err(riglr_core::signer::SignerError::UnsupportedOperation(
+                    "Unsupported signer type".to_string(),
+                ))
+            }
+        })
+        .await;
 
         // Log the access attempt
         let access_entry = AccessLogEntry {
@@ -198,13 +224,9 @@ impl SecurityAwareAgent {
 
         self.security_monitor.log_access(access_entry);
 
-        match result {
-            Ok(JobResult::Success { result, .. }) => {
-                Ok(result["status"].as_str().unwrap_or("success").to_string())
-            }
-            Ok(JobResult::Failure { error, .. }) => Err(error),
-            Err(e) => Err(e),
-        }
+        result.map_err(|e| {
+            riglr_agents::AgentError::task_execution(format!("Signer operation failed: {}", e))
+        })
     }
 
     /// Simulate an attempt to access signers outside the proper context.
@@ -235,7 +257,7 @@ impl SecurityAwareAgent {
     }
 
     /// Test concurrent access to the same signer context.
-    async fn test_concurrent_access(&self, operation_id: usize) -> Result<String, String> {
+    async fn test_concurrent_access(&self, operation_id: usize) -> Result<String> {
         let operation = format!("concurrent_op_{}", operation_id);
 
         // Add some random delay to simulate concurrent access patterns
@@ -339,12 +361,12 @@ impl Agent for SecurityAwareAgent {
         &self.id
     }
 
-    fn capabilities(&self) -> Vec<String> {
+    fn capabilities(&self) -> Vec<CapabilityType> {
         vec![
-            "security_testing".to_string(),
-            "signer_isolation".to_string(),
-            "concurrent_access".to_string(),
-            "trading".to_string(), // For capability matching
+            CapabilityType::Custom("security_testing".to_string()),
+            CapabilityType::Custom("signer_isolation".to_string()),
+            CapabilityType::Custom("concurrent_access".to_string()),
+            CapabilityType::Trading, // For capability matching
         ]
     }
 }
@@ -363,7 +385,7 @@ async fn test_signer_context_isolation() {
         .await
         .expect("Failed to create blockchain test harness");
 
-    let security_monitor = Arc::new(SecurityMonitor::new());
+    let security_monitor = Arc::new(SecurityMonitor::default());
 
     // Create two agents with different signer contexts (different keypairs)
     let keypair_1 = harness
@@ -373,16 +395,18 @@ async fn test_signer_context_isolation() {
         .get_funded_keypair(1)
         .expect("Failed to get keypair 2");
 
-    let signer_1 = LocalSolanaSigner::new(keypair_1.clone(), harness.rpc_url().to_string());
-    let unified_signer_1 = UnifiedSigner::Solana(Box::new(signer_1));
-    let signer_context_1 = SignerContext::new(unified_signer_1);
+    // Use Keypair::new_from_array to create owned copies
+    let signer_1 = Arc::new(LocalSolanaSigner::new(
+        Keypair::new_from_array(*keypair_1.secret_bytes()),
+        harness.rpc_url().to_string(),
+    ));
+    let signer_2 = Arc::new(LocalSolanaSigner::new(
+        Keypair::new_from_array(*keypair_2.secret_bytes()),
+        harness.rpc_url().to_string(),
+    ));
 
-    let signer_2 = LocalSolanaSigner::new(keypair_2.clone(), harness.rpc_url().to_string());
-    let unified_signer_2 = UnifiedSigner::Solana(Box::new(signer_2));
-    let signer_context_2 = SignerContext::new(unified_signer_2);
-
-    let agent_1 = SecurityAwareAgent::new(signer_context_1, security_monitor.clone());
-    let agent_2 = SecurityAwareAgent::new(signer_context_2, security_monitor.clone());
+    let agent_1 = SecurityAwareAgent::new(signer_1, security_monitor.clone());
+    let agent_2 = SecurityAwareAgent::new(signer_2, security_monitor.clone());
 
     let agent_1_id = agent_1.id().clone();
     let agent_2_id = agent_2.id().clone();
@@ -393,9 +417,7 @@ async fn test_signer_context_isolation() {
     );
 
     // Create agent system
-    let mut registry = LocalAgentRegistry::new(TEST_AGENT_CAPACITY)
-        .await
-        .expect("Failed to create registry");
+    let registry = LocalAgentRegistry::default();
 
     registry
         .register_agent(Arc::new(agent_1))
@@ -406,13 +428,13 @@ async fn test_signer_context_isolation() {
         .await
         .expect("Failed to register agent 2");
 
-    let dispatcher = AgentDispatcher::new(
+    let dispatcher = AgentDispatcher::with_config(
         Arc::new(registry),
-        RoutingStrategy::RoundRobin, // Ensure different agents get different tasks
-        DispatchConfig::default(),
-    )
-    .await
-    .expect("Failed to create dispatcher");
+        DispatchConfig {
+            routing_strategy: RoutingStrategy::RoundRobin,
+            ..DispatchConfig::default()
+        },
+    );
 
     // Test 1: Both agents perform authorized operations in their own contexts
     info!("Testing authorized operations in isolated contexts");
@@ -560,7 +582,7 @@ async fn test_concurrent_signer_access() {
         .await
         .expect("Failed to create blockchain test harness");
 
-    let security_monitor = Arc::new(SecurityMonitor::new());
+    let security_monitor = Arc::new(SecurityMonitor::default());
 
     // Create multiple agents with different signer contexts
     let num_agents = 3;
@@ -572,14 +594,12 @@ async fn test_concurrent_signer_access() {
             .get_funded_keypair(i)
             .expect("Failed to get keypair");
 
-        let signer = LocalSolanaSigner::new(keypair.clone(), harness.rpc_url().to_string());
-        let unified_signer = UnifiedSigner::Solana(Box::new(signer));
-        let signer_context = SignerContext::new(unified_signer);
-
-        let agent = Arc::new(SecurityAwareAgent::new(
-            signer_context,
-            security_monitor.clone(),
+        let signer = Arc::new(LocalSolanaSigner::new(
+            Keypair::new_from_array(*keypair.secret_bytes()),
+            harness.rpc_url().to_string(),
         ));
+
+        let agent = Arc::new(SecurityAwareAgent::new(signer, security_monitor.clone()));
         agents.push(agent);
     }
 
@@ -589,9 +609,7 @@ async fn test_concurrent_signer_access() {
     );
 
     // Create agent system
-    let mut registry = LocalAgentRegistry::new(TEST_AGENT_CAPACITY)
-        .await
-        .expect("Failed to create registry");
+    let registry = LocalAgentRegistry::default();
 
     for agent in &agents {
         registry
@@ -600,20 +618,20 @@ async fn test_concurrent_signer_access() {
             .expect("Failed to register agent");
     }
 
-    let dispatcher = AgentDispatcher::new(
+    let dispatcher = Arc::new(AgentDispatcher::with_config(
         Arc::new(registry),
-        RoutingStrategy::RoundRobin,
-        DispatchConfig::default(),
-    )
-    .await
-    .expect("Failed to create dispatcher");
+        DispatchConfig {
+            routing_strategy: RoutingStrategy::RoundRobin,
+            ..DispatchConfig::default()
+        },
+    ));
 
     // Create multiple concurrent tasks for each agent
     let mut task_handles = Vec::new();
 
     for agent_idx in 0..num_agents {
         for op_idx in 0..num_operations_per_agent {
-            let dispatcher = dispatcher.clone();
+            let dispatcher = Arc::clone(&dispatcher);
             let operation_id = agent_idx * num_operations_per_agent + op_idx;
 
             let task = Task::new(
@@ -643,7 +661,7 @@ async fn test_concurrent_signer_access() {
     // Analyze results
     let mut successful_operations = 0;
     let mut failed_operations = 0;
-    let mut unique_agents = std::collections::HashSet::new();
+    let mut unique_agents = std::collections::HashSet::<String>::new();
 
     for (i, result) in results.into_iter().enumerate() {
         let task_result = result
@@ -653,9 +671,11 @@ async fn test_concurrent_signer_access() {
         if task_result.is_success() {
             successful_operations += 1;
 
-            if let Some(output_obj) = task_result.output.as_object() {
-                if let Some(agent_id) = output_obj.get("agent_id").and_then(|v| v.as_str()) {
-                    unique_agents.insert(agent_id.to_string());
+            if let TaskResult::Success { data, .. } = &task_result {
+                if let Some(output_obj) = data.as_object() {
+                    if let Some(agent_id) = output_obj.get("agent_id").and_then(|v| v.as_str()) {
+                        unique_agents.insert(agent_id.to_string());
+                    }
                 }
             }
         } else {
@@ -724,42 +744,38 @@ async fn test_unauthorized_access_prevention() {
         .await
         .expect("Failed to create blockchain test harness");
 
-    let security_monitor = Arc::new(SecurityMonitor::new());
+    let security_monitor = Arc::new(SecurityMonitor::default());
 
     // Create a single agent for testing unauthorized access scenarios
     let keypair = harness
         .get_funded_keypair(0)
         .expect("Failed to get keypair");
 
-    let signer = LocalSolanaSigner::new(keypair.clone(), harness.rpc_url().to_string());
-    let unified_signer = UnifiedSigner::Solana(Box::new(signer));
-    let signer_context = SignerContext::new(unified_signer);
-
-    let agent = Arc::new(SecurityAwareAgent::new(
-        signer_context,
-        security_monitor.clone(),
+    let signer = Arc::new(LocalSolanaSigner::new(
+        Keypair::new_from_array(*keypair.secret_bytes()),
+        harness.rpc_url().to_string(),
     ));
+
+    let agent = Arc::new(SecurityAwareAgent::new(signer, security_monitor.clone()));
     let agent_id = agent.id().clone();
 
     info!("Created security test agent: {}", agent_id);
 
     // Create agent system
-    let mut registry = LocalAgentRegistry::new(TEST_AGENT_CAPACITY)
-        .await
-        .expect("Failed to create registry");
+    let registry = LocalAgentRegistry::default();
 
     registry
         .register_agent(agent.clone())
         .await
         .expect("Failed to register agent");
 
-    let dispatcher = AgentDispatcher::new(
+    let dispatcher = AgentDispatcher::with_config(
         Arc::new(registry),
-        RoutingStrategy::Direct, // Direct routing for predictable testing
-        DispatchConfig::default(),
-    )
-    .await
-    .expect("Failed to create dispatcher");
+        DispatchConfig {
+            routing_strategy: RoutingStrategy::Direct,
+            ..DispatchConfig::default()
+        },
+    );
 
     // Test multiple types of unauthorized access attempts
     let unauthorized_scenarios = vec![
@@ -777,7 +793,7 @@ async fn test_unauthorized_access_prevention() {
         unauthorized_scenarios.len()
     );
 
-    for (scenario_type, description) in unauthorized_scenarios {
+    for (scenario_type, description) in &unauthorized_scenarios {
         info!("Testing unauthorized scenario: {}", description);
 
         let task = Task::new(
@@ -801,10 +817,11 @@ async fn test_unauthorized_access_prevention() {
             scenario_type
         );
 
-        let output = result
-            .output
-            .as_object()
-            .expect("Task output should be JSON object");
+        let output = if let TaskResult::Success { data, .. } = &result {
+            data.as_object().expect("Task output should be JSON object")
+        } else {
+            panic!("Expected successful task result");
+        };
 
         assert_eq!(
             output["status"], "unauthorized_access_blocked",
@@ -885,7 +902,7 @@ async fn test_signer_permission_boundaries() {
         .await
         .expect("Failed to create blockchain test harness");
 
-    let security_monitor = Arc::new(SecurityMonitor::new());
+    let security_monitor = Arc::new(SecurityMonitor::default());
 
     // Create agents with different permission levels (simulated)
     let readonly_keypair = harness
@@ -897,22 +914,21 @@ async fn test_signer_permission_boundaries() {
 
     // In a real implementation, these would have different permission levels
     // For this test, we simulate the behavior
-    let readonly_signer =
-        LocalSolanaSigner::new(readonly_keypair.clone(), harness.rpc_url().to_string());
-    let readonly_unified = UnifiedSigner::Solana(Box::new(readonly_signer));
-    let readonly_context = SignerContext::new(readonly_unified);
-
-    let readwrite_signer =
-        LocalSolanaSigner::new(readwrite_keypair.clone(), harness.rpc_url().to_string());
-    let readwrite_unified = UnifiedSigner::Solana(Box::new(readwrite_signer));
-    let readwrite_context = SignerContext::new(readwrite_unified);
+    let readonly_signer = Arc::new(LocalSolanaSigner::new(
+        Keypair::new_from_array(*readonly_keypair.secret_bytes()),
+        harness.rpc_url().to_string(),
+    ));
+    let readwrite_signer = Arc::new(LocalSolanaSigner::new(
+        Keypair::new_from_array(*readwrite_keypair.secret_bytes()),
+        harness.rpc_url().to_string(),
+    ));
 
     let readonly_agent = Arc::new(SecurityAwareAgent::new(
-        readonly_context,
+        readonly_signer,
         security_monitor.clone(),
     ));
     let readwrite_agent = Arc::new(SecurityAwareAgent::new(
-        readwrite_context,
+        readwrite_signer,
         security_monitor.clone(),
     ));
 
@@ -920,9 +936,7 @@ async fn test_signer_permission_boundaries() {
     info!("Created readwrite agent: {}", readwrite_agent.id());
 
     // Create agent system
-    let mut registry = LocalAgentRegistry::new(TEST_AGENT_CAPACITY)
-        .await
-        .expect("Failed to create registry");
+    let registry = LocalAgentRegistry::default();
 
     registry
         .register_agent(readonly_agent.clone())
@@ -933,13 +947,13 @@ async fn test_signer_permission_boundaries() {
         .await
         .expect("Failed to register readwrite agent");
 
-    let dispatcher = AgentDispatcher::new(
+    let dispatcher = AgentDispatcher::with_config(
         Arc::new(registry),
-        RoutingStrategy::RoundRobin,
-        DispatchConfig::default(),
-    )
-    .await
-    .expect("Failed to create dispatcher");
+        DispatchConfig {
+            routing_strategy: RoutingStrategy::RoundRobin,
+            ..DispatchConfig::default()
+        },
+    );
 
     // Test that both agents can perform their authorized operations
     let readonly_task = Task::new(
@@ -1011,7 +1025,7 @@ mod tests {
 
     #[test]
     fn test_security_monitor_basic_functionality() {
-        let monitor = SecurityMonitor::new();
+        let monitor = SecurityMonitor::default();
 
         assert_eq!(monitor.unauthorized_attempts(), 0);
         assert!(!monitor.has_violations());
@@ -1050,21 +1064,212 @@ mod tests {
     #[tokio::test]
     async fn test_security_aware_agent_capabilities() {
         let keypair = Keypair::new();
-        let signer = LocalSolanaSigner::new(keypair, "http://localhost:8899".to_string());
-        let unified_signer = UnifiedSigner::Solana(Box::new(signer));
-        let signer_context = SignerContext::new(unified_signer);
-        let security_monitor = Arc::new(SecurityMonitor::new());
+        let signer = Arc::new(LocalSolanaSigner::new(
+            Keypair::new_from_array(*keypair.secret_bytes()),
+            "http://localhost:8899".to_string(),
+        ));
+        let security_monitor = Arc::new(SecurityMonitor::default());
 
-        let agent = SecurityAwareAgent::new(signer_context, security_monitor);
+        let agent = SecurityAwareAgent::new(signer, security_monitor);
 
         let capabilities = agent.capabilities();
-        assert!(capabilities.contains(&"security_testing".to_string()));
-        assert!(capabilities.contains(&"signer_isolation".to_string()));
-        assert!(capabilities.contains(&"concurrent_access".to_string()));
-        assert!(capabilities.contains(&"trading".to_string()));
+        assert!(capabilities.contains(&CapabilityType::Custom("security_testing".to_string())));
+        assert!(capabilities.contains(&CapabilityType::Custom("signer_isolation".to_string())));
+        assert!(capabilities.contains(&CapabilityType::Custom("concurrent_access".to_string())));
+        assert!(capabilities.contains(&CapabilityType::Trading));
 
         // Test capability matching
         let trading_task = Task::new(TaskType::Trading, serde_json::json!({}));
         assert!(agent.can_handle(&trading_task));
+    }
+
+    /// Critical test to verify SignerContext propagation through RigToolAdapter.
+    ///
+    /// This test ensures that the security fix for SignerContext propagation is working.
+    /// Without this fix, tools requiring signing operations would fail or potentially
+    /// use incorrect signers, which is a critical security vulnerability.
+    ///
+    /// This test was added as part of Major Task 1.1 to verify the fix for the
+    /// SignerContext propagation failure that was discovered in the RigToolAdapter.
+    #[tokio::test]
+    async fn test_signer_context_propagates_through_adapter() {
+        // Setup: Create a mock signer for testing
+        let keypair = Keypair::new();
+        let mock_signer: Arc<dyn UnifiedSigner> = Arc::new(LocalSolanaSigner::new(
+            keypair,
+            "http://localhost:8899".to_string(),
+        ));
+
+        // Create a tool that specifically requires SignerContext to function
+        // This tool will fail if SignerContext is not properly propagated
+        let tool = Arc::new(SignerContextRequiringTool {
+            name: "signer_context_test_tool".to_string(),
+            requires_signer: true,
+        });
+
+        // Create the RigToolAdapter with the tool
+        let config = riglr_core::Config::from_env();
+        let context = riglr_core::provider::ApplicationContext::from_config(&config);
+        let adapter = riglr_agents::adapter::RigToolAdapter::new(tool, context);
+
+        // Test arguments for the tool
+        let args = serde_json::json!({
+            "action": "verify_signer_context",
+            "test_id": "propagation_test_001"
+        });
+
+        // Execute the tool within a SignerContext
+        // This simulates how the agent framework would call tools that require signing
+        let result = SignerContext::with_signer(mock_signer.clone(), async move {
+            // Use the rig Tool trait to call through the adapter
+            use rig::tool::Tool;
+            // The adapter.call returns a Result<Value, ToolError>, we need to wrap it
+            adapter
+                .call(args)
+                .await
+                .map_err(|e| riglr_core::SignerError::TransactionFailed(e.to_string()))
+        })
+        .await;
+
+        // Verify the result - the tool should succeed when SignerContext is available
+        assert!(
+            result.is_ok(),
+            "Tool execution should succeed when SignerContext is properly propagated through the adapter. Error: {:?}",
+            result.err()
+        );
+
+        let json_result = result.unwrap();
+        assert_eq!(
+            json_result["signer_context_available"],
+            serde_json::Value::Bool(true),
+            "Tool should confirm that SignerContext was successfully propagated"
+        );
+        assert_eq!(
+            json_result["security_check"],
+            serde_json::Value::String("PASSED".to_string()),
+            "Security check should pass when SignerContext is properly propagated"
+        );
+
+        info!("✓ SignerContext propagation test passed - security vulnerability is fixed");
+    }
+
+    /// Test that adapter handles cases where no SignerContext is needed.
+    ///
+    /// This verifies that the fix doesn't break tools that don't require SignerContext.
+    #[tokio::test]
+    async fn test_adapter_works_without_signer_context_for_non_signing_tools() {
+        // Create a tool that doesn't require SignerContext
+        let tool = Arc::new(SignerContextRequiringTool {
+            name: "non_signing_tool".to_string(),
+            requires_signer: false,
+        });
+
+        // Create the adapter
+        let config = riglr_core::Config::from_env();
+        let context = riglr_core::provider::ApplicationContext::from_config(&config);
+        let adapter = riglr_agents::adapter::RigToolAdapter::new(tool, context);
+
+        // Test arguments
+        let args = serde_json::json!({
+            "action": "basic_operation",
+            "test_id": "no_signer_test"
+        });
+
+        // Execute WITHOUT a SignerContext - should work for tools that don't need it
+        use rig::tool::Tool;
+        let result = adapter.call(args).await;
+
+        // The tool should succeed even without SignerContext if it doesn't require it
+        assert!(
+            result.is_ok(),
+            "Tool should execute successfully when it doesn't require SignerContext. Error: {:?}",
+            result.err()
+        );
+
+        let json_result = result.unwrap();
+        assert_eq!(
+            json_result["requires_signer"],
+            serde_json::Value::Bool(false),
+            "Tool should indicate it doesn't require a signer"
+        );
+    }
+}
+
+/// Test tool that explicitly requires or checks for SignerContext
+#[derive(Debug, Clone)]
+struct SignerContextRequiringTool {
+    name: String,
+    requires_signer: bool,
+}
+
+#[async_trait]
+impl riglr_core::Tool for SignerContextRequiringTool {
+    fn name(&self) -> &str {
+        &self.name
+    }
+
+    fn description(&self) -> &str {
+        if self.requires_signer {
+            "A tool that requires SignerContext for security-critical operations"
+        } else {
+            "A tool that doesn't require SignerContext"
+        }
+    }
+
+    fn schema(&self) -> serde_json::Value {
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": { "type": "string" },
+                "test_id": { "type": "string" }
+            }
+        })
+    }
+
+    async fn execute(
+        &self,
+        args: serde_json::Value,
+        _context: &riglr_core::provider::ApplicationContext,
+    ) -> std::result::Result<riglr_core::JobResult, riglr_core::ToolError> {
+        if self.requires_signer {
+            // This tool REQUIRES SignerContext - critical security check
+            match SignerContext::current().await {
+                Ok(_signer) => {
+                    // Success! SignerContext was properly propagated
+                    info!("✓ SignerContext successfully propagated through RigToolAdapter");
+                    Ok(riglr_core::JobResult::Success {
+                        value: serde_json::json!({
+                            "success": true,
+                            "signer_context_available": true,
+                            "security_check": "PASSED",
+                            "args": args,
+                            "message": "SignerContext was properly propagated through the adapter"
+                        }),
+                        tx_hash: None,
+                    })
+                }
+                Err(_) => {
+                    // CRITICAL FAILURE - SignerContext was not propagated
+                    // This indicates the security vulnerability still exists
+                    error!("✗ CRITICAL: SignerContext not propagated! Security vulnerability detected!");
+                    Err(riglr_core::ToolError::permanent_string(
+                        "CRITICAL SECURITY FAILURE: SignerContext not available! \
+                         The adapter failed to propagate the signing context, \
+                         which is a critical security vulnerability.",
+                    ))
+                }
+            }
+        } else {
+            // This tool doesn't require SignerContext
+            Ok(riglr_core::JobResult::Success {
+                value: serde_json::json!({
+                    "success": true,
+                    "requires_signer": false,
+                    "args": args,
+                    "message": "Tool executed successfully without requiring SignerContext"
+                }),
+                tx_hash: None,
+            })
+        }
     }
 }

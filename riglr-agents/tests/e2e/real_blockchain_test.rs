@@ -22,9 +22,9 @@ use solana_sdk::{
     native_token::LAMPORTS_PER_SOL,
     pubkey::Pubkey,
     signature::{Keypair, Signer},
-    system_instruction,
     transaction::Transaction,
 };
+use solana_system_interface::instruction as system_instruction;
 use std::{str::FromStr, sync::Arc, time::Duration};
 use tokio::time::sleep;
 use tracing::{error, info};
@@ -200,11 +200,11 @@ impl Agent for RealBlockchainTradingAgent {
         &self.id
     }
 
-    fn capabilities(&self) -> Vec<String> {
+    fn capabilities(&self) -> Vec<CapabilityType> {
         vec![
-            "real_solana_transfer".to_string(),
-            "real_blockchain_operations".to_string(),
-            "real_trading".to_string(),
+            CapabilityType::Custom("real_solana_transfer".to_string()),
+            CapabilityType::Custom("real_blockchain_operations".to_string()),
+            CapabilityType::Custom("real_trading".to_string()),
         ]
     }
 }
@@ -340,9 +340,8 @@ async fn test_grand_unified_real_blockchain_transfer() {
         .as_str()
         .expect("REAL task output should contain transaction signature");
 
-    assert_eq!(
+    assert!(
         output_json["real_transaction"].as_bool().unwrap_or(false),
-        true,
         "Task should indicate this was a REAL transaction"
     );
 
@@ -577,9 +576,11 @@ mod tests {
         let agent = RealBlockchainTradingAgent::new(unified_signer);
 
         let capabilities = agent.capabilities();
-        assert!(capabilities.contains(&"real_solana_transfer".to_string()));
-        assert!(capabilities.contains(&"real_blockchain_operations".to_string()));
-        assert!(capabilities.contains(&"real_trading".to_string()));
+        assert!(capabilities.contains(&CapabilityType::Custom("real_solana_transfer".to_string())));
+        assert!(capabilities.contains(&CapabilityType::Custom(
+            "real_blockchain_operations".to_string()
+        )));
+        assert!(capabilities.contains(&CapabilityType::Custom("real_trading".to_string())));
 
         // Test capability matching
         let trading_task = Task::new(TaskType::Trading, serde_json::json!({}));
