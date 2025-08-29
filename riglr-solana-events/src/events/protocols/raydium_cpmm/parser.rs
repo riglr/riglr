@@ -79,10 +79,7 @@ impl RaydiumCpmmEventParser {
 
         let mut metadata = metadata;
         metadata.set_id(format!("{}-{}-swap", metadata.signature, event.pool_state));
-        Ok(Box::new(RaydiumCpmmSwapEvent {
-            metadata: metadata,
-            ..event
-        }))
+        Ok(Box::new(RaydiumCpmmSwapEvent { metadata, ..event }))
     }
 
     /// Parse deposit log event
@@ -102,10 +99,7 @@ impl RaydiumCpmmEventParser {
             "{}-{}-deposit",
             metadata.signature, event.pool_state
         ));
-        Ok(Box::new(RaydiumCpmmDepositEvent {
-            metadata: metadata,
-            ..event
-        }))
+        Ok(Box::new(RaydiumCpmmDepositEvent { metadata, ..event }))
     }
 
     /// Parse swap base input instruction event
@@ -137,7 +131,7 @@ impl RaydiumCpmmEventParser {
         ));
 
         Ok(Box::new(RaydiumCpmmSwapEvent {
-            metadata: metadata,
+            metadata,
             pool_state: accounts[0],
             payer: accounts[1],
             input_token_account: accounts[2],
@@ -180,7 +174,7 @@ impl RaydiumCpmmEventParser {
         ));
 
         Ok(Box::new(RaydiumCpmmSwapEvent {
-            metadata: metadata,
+            metadata,
             pool_state: accounts[0],
             payer: accounts[1],
             input_token_account: accounts[2],
@@ -227,7 +221,7 @@ impl RaydiumCpmmEventParser {
         ));
 
         Ok(Box::new(RaydiumCpmmDepositEvent {
-            metadata: metadata,
+            metadata,
             pool_state: accounts[0],
             user: accounts[1],
             lp_token_amount,
@@ -738,7 +732,7 @@ mod tests {
             stack_height: None,
         };
 
-        let instruction = solana_sdk::instruction::CompiledInstruction {
+        let instruction = solana_message::compiled_instruction::CompiledInstruction {
             program_id_index: 0,
             accounts: vec![0, 1, 2],
             data: vec![1, 2, 3],

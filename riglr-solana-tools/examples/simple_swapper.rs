@@ -2,10 +2,17 @@
 //!
 //! Demonstrates how to use riglr-solana-tools to perform token swaps via Jupiter
 //! using the canonical ToolWorker pattern for tool execution.
+//!
+//! ## Security Note
+//! This example loads private keys securely from `~/.riglr/keys/solana.key`
+//! with fallback to SOLANA_PRIVATE_KEY environment variable for compatibility.
 
 use riglr_config::{Config, SolanaNetworkConfig};
 use riglr_core::{
-    idempotency::InMemoryIdempotencyStore, provider::ApplicationContext, signer::LocalSolanaSigner,
+    idempotency::InMemoryIdempotencyStore,
+    provider::ApplicationContext,
+    signer::LocalSolanaSigner,
+    util::{ensure_key_directory, load_private_key_with_fallback},
     ExecutionConfig, Job, SignerContext, ToolWorker,
 };
 use riglr_solana_tools::{
@@ -14,10 +21,10 @@ use riglr_solana_tools::{
 };
 use serde_json::json;
 use solana_sdk::signature::Keypair;
-use std::{env, sync::Arc};
+use std::sync::Arc;
 use uuid::Uuid;
 
-const SOLANA_PRIVATE_KEY: &str = "SOLANA_PRIVATE_KEY";
+const SOLANA_PRIVATE_KEY_ENV: &str = "SOLANA_PRIVATE_KEY";
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -42,7 +49,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Create and inject API clients for external services
     let api_clients = ApiClients::new(&config.providers);
-    app_context.set_extension(api_clients);
+    app_context.set_extension(Arc::new(api_clients));
 
     // Create ToolWorker with default configuration
     let worker =
@@ -157,15 +164,30 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Step 3: Execute swap (requires funded wallet)
     println!("Step 3: Executing swap (demo only - requires funded wallet)...\n");
 
-    // Check for private key in environment variable (for demo purposes only!)
-    if let Ok(private_key) = env::var(SOLANA_PRIVATE_KEY) {
-        println!("Private key found in environment. Initializing signer...");
+    // Load private key securely from file with environment variable fallback
+    let key_dir = ensure_key_directory().expect("Failed to create key directory");
+    let key_path = key_dir.join("solana.key");
 
-        // Parse private key (this is just for demo - use secure key management in production!)
-        let key_bytes: Vec<u8> = private_key
-            .split(',')
-            .filter_map(|s| s.parse().ok())
-            .collect();
+    if let Ok(private_key) = load_private_key_with_fallback(&key_path, SOLANA_PRIVATE_KEY_ENV) {
+        println!("Private key loaded. Initializing signer...");
+        println!(
+            "(Loaded from file: {}, or env var fallback)",
+            key_path.display()
+        );
+
+        // Parse private key - supports both base58 and comma-separated formats
+        let key_bytes: Vec<u8> = if private_key.contains(',') {
+            // Comma-separated format
+            private_key
+                .split(',')
+                .filter_map(|s| s.parse().ok())
+                .collect()
+        } else {
+            // Try base58 format
+            bs58::decode(&private_key)
+                .into_vec()
+                .unwrap_or_else(|_| Vec::new())
+        };
 
         if key_bytes.len() == 64 {
             let keypair = Keypair::try_from(key_bytes.as_slice())?;
@@ -236,10 +258,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("Invalid private key format in environment variable.");
         }
     } else {
-        println!("No private key found in SOLANA_PRIVATE_KEY environment variable.");
+        println!("No private key found.");
         println!("Skipping actual swap execution.");
-        println!("\nTo run the swap, set your private key:");
-        println!("  export SOLANA_PRIVATE_KEY='1,2,3,...,64' (comma-separated bytes)");
+        println!("\nTo run the swap, either:");
+        println!("  1. Place your key in: {}", key_path.display());
+        println!("  2. Set {} environment variable", SOLANA_PRIVATE_KEY_ENV);
+        println!("\nSupported formats: base58 or comma-separated bytes");
         println!("\nWARNING: Only use test wallets! Never expose production keys!");
     }
 

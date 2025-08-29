@@ -607,7 +607,7 @@ fn parse_meteora_dynamic_liquidity_data_from_instruction(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use solana_sdk::instruction::CompiledInstruction;
+    use solana_message::compiled_instruction::CompiledInstruction;
     use solana_transaction_status::UiCompiledInstruction;
 
     fn create_test_metadata() -> EventMetadata {

@@ -137,14 +137,13 @@ impl RaydiumAmmV4EventParser {
         })?;
 
         let amm = safe_get_account(accounts, 1)?;
-        let mut metadata = metadata;
-        metadata.set_id(format!(
-            "{}-{}-swap-in-{}",
-            metadata.signature, amm, amount_in
-        ));
+        let mut event_metadata = metadata;
+        let signature =
+            crate::metadata_helpers::get_signature(&event_metadata.core).unwrap_or("unknown");
+        event_metadata.set_id(format!("{}-{}-swap-in-{}", signature, amm, amount_in));
 
         Ok(Box::new(RaydiumAmmV4SwapEvent {
-            metadata: metadata,
+            metadata: event_metadata,
             amount_in,
             amount_out: minimum_amount_out, // Use minimum as estimate, actual amount determined on-chain
             direction: SwapDirection::BaseIn,
@@ -178,14 +177,13 @@ impl RaydiumAmmV4EventParser {
         })?;
 
         let amm = safe_get_account(accounts, 1)?;
-        let mut metadata = metadata;
-        metadata.set_id(format!(
-            "{}-{}-swap-out-{}",
-            metadata.signature, amm, amount_out
-        ));
+        let mut event_metadata = metadata;
+        let signature =
+            crate::metadata_helpers::get_signature(&event_metadata.core).unwrap_or("unknown");
+        event_metadata.set_id(format!("{}-{}-swap-out-{}", signature, amm, amount_out));
 
         Ok(Box::new(RaydiumAmmV4SwapEvent {
-            metadata: metadata,
+            metadata: event_metadata,
             amount_in: max_amount_in, // Use maximum as estimate, actual amount determined on-chain
             amount_out,
             direction: SwapDirection::BaseOut,
@@ -214,14 +212,16 @@ impl RaydiumAmmV4EventParser {
         let (max_coin_amount, max_pc_amount, base_side) = parse_liquidity_amounts(data)?;
 
         let amm = safe_get_account(accounts, 1)?;
-        let mut metadata = metadata;
-        metadata.set_id(format!(
+        let mut event_metadata = metadata;
+        let signature =
+            crate::metadata_helpers::get_signature(&event_metadata.core).unwrap_or("unknown");
+        event_metadata.set_id(format!(
             "{}-{}-deposit-{}-{}",
-            metadata.signature, amm, max_coin_amount, max_pc_amount
+            signature, amm, max_coin_amount, max_pc_amount
         ));
 
         Ok(Box::new(RaydiumAmmV4DepositEvent {
-            metadata: metadata,
+            metadata: event_metadata,
             max_coin_amount,
             max_pc_amount,
             base_side,
@@ -276,14 +276,16 @@ impl RaydiumAmmV4EventParser {
             )
         })?;
 
-        let mut metadata = metadata;
-        metadata.set_id(format!(
+        let mut event_metadata = metadata;
+        let signature =
+            crate::metadata_helpers::get_signature(&event_metadata.core).unwrap_or("unknown");
+        event_metadata.set_id(format!(
             "{}-{}-init-{}-{}",
-            metadata.signature, accounts[4], init_coin_amount, init_pc_amount
+            signature, accounts[4], init_coin_amount, init_pc_amount
         ));
 
         Ok(Box::new(RaydiumAmmV4Initialize2Event {
-            metadata: metadata,
+            metadata: event_metadata,
             nonce,
             open_time,
             init_pc_amount,
@@ -326,14 +328,13 @@ impl RaydiumAmmV4EventParser {
             crate::error::ParseError::InvalidDataFormat("Failed to read amount".to_string())
         })?;
 
-        let mut metadata = metadata;
-        metadata.set_id(format!(
-            "{}-{}-withdraw-{}",
-            metadata.signature, accounts[1], amount
-        ));
+        let mut event_metadata = metadata;
+        let signature =
+            crate::metadata_helpers::get_signature(&event_metadata.core).unwrap_or("unknown");
+        event_metadata.set_id(format!("{}-{}-withdraw-{}", signature, accounts[1], amount));
 
         Ok(Box::new(RaydiumAmmV4WithdrawEvent {
-            metadata: metadata,
+            metadata: event_metadata,
             amount,
             token_program: accounts[0],
             amm: accounts[1],
@@ -373,14 +374,13 @@ impl RaydiumAmmV4EventParser {
             ));
         }
 
-        let mut metadata = metadata;
-        metadata.set_id(format!(
-            "{}-{}-withdraw-pnl",
-            metadata.signature, accounts[1]
-        ));
+        let mut event_metadata = metadata;
+        let signature =
+            crate::metadata_helpers::get_signature(&event_metadata.core).unwrap_or("unknown");
+        event_metadata.set_id(format!("{}-{}-withdraw-pnl", signature, accounts[1]));
 
         Ok(Box::new(RaydiumAmmV4WithdrawPnlEvent {
-            metadata: metadata,
+            metadata: event_metadata,
             token_program: accounts[0],
             amm: accounts[1],
             amm_config: accounts[2],
@@ -438,7 +438,7 @@ impl EventParser for RaydiumAmmV4EventParser {
 mod tests {
     use super::*;
     use crate::events::common::{EventMetadata, EventType, ProtocolType};
-    use solana_sdk::instruction::CompiledInstruction;
+    use solana_message::compiled_instruction::CompiledInstruction;
     use solana_transaction_status::UiCompiledInstruction;
     use std::str::FromStr;
 

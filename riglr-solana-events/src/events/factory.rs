@@ -15,7 +15,7 @@ use std::sync::Arc;
 #[derive(Debug)]
 pub struct InstructionParseParams<'a> {
     /// Compiled instruction data
-    pub instruction: &'a solana_sdk::instruction::CompiledInstruction,
+    pub instruction: &'a solana_message::compiled_instruction::CompiledInstruction,
     /// Account keys from the transaction
     pub accounts: &'a [solana_sdk::pubkey::Pubkey],
     /// Transaction signature
@@ -237,7 +237,7 @@ impl EventParserRegistry {
 mod tests {
     use super::*;
     use riglr_events_core::Event;
-    use solana_sdk::instruction::CompiledInstruction;
+    use solana_message::compiled_instruction::CompiledInstruction;
     use solana_sdk::pubkey::Pubkey;
     use solana_transaction_status::UiCompiledInstruction;
     use std::collections::HashMap;
