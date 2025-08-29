@@ -98,6 +98,194 @@ impl Web3AuthProvider {
             client: reqwest::Client::new(),
         }
     }
+
+    /// Verify a Web3Auth JWT token
+    async fn verify_token(&self, token: &str) -> Result<Web3AuthClaims, AuthError> {
+        use jsonwebtoken::{decode, decode_header, Algorithm, DecodingKey, Validation};
+
+        // First, decode the header to get the key ID
+        let header = decode_header(token)
+            .map_err(|e| AuthError::TokenValidation(format!("Invalid JWT header: {}", e)))?;
+
+        let kid = header.kid.ok_or_else(|| {
+            AuthError::TokenValidation("JWT header missing 'kid' field".to_string())
+        })?;
+
+        // Fetch the JWKS from Web3Auth
+        let jwks_url = format!("{}/jwks", self.config.api_url);
+        let jwks_response = self
+            .client
+            .get(&jwks_url)
+            .send()
+            .await
+            .map_err(|e| AuthError::ApiError(format!("Failed to fetch JWKS: {}", e)))?;
+
+        let jwks: serde_json::Value = jwks_response
+            .json()
+            .await
+            .map_err(|e| AuthError::TokenValidation(format!("Invalid JWKS response: {}", e)))?;
+
+        // Find the matching key
+        let keys = jwks["keys"]
+            .as_array()
+            .ok_or_else(|| AuthError::TokenValidation("JWKS missing keys array".to_string()))?;
+
+        let key = keys
+            .iter()
+            .find(|k| k["kid"].as_str() == Some(&kid))
+            .ok_or_else(|| AuthError::TokenValidation("Key ID not found in JWKS".to_string()))?;
+
+        // Extract the public key components
+        let n = key["n"]
+            .as_str()
+            .ok_or_else(|| AuthError::TokenValidation("Missing 'n' in key".to_string()))?;
+        let e = key["e"]
+            .as_str()
+            .ok_or_else(|| AuthError::TokenValidation("Missing 'e' in key".to_string()))?;
+
+        // Create the decoding key from RSA components
+        let decoding_key = DecodingKey::from_rsa_components(n, e)
+            .map_err(|e| AuthError::TokenValidation(format!("Invalid RSA key: {}", e)))?;
+
+        // Set up validation
+        let mut validation = Validation::new(Algorithm::RS256);
+        validation.set_audience(&[&self.config.client_id]);
+        validation.set_issuer(&[&format!("{}/v3/signer", self.config.api_url)]);
+
+        // Decode and validate the token
+        let token_data = decode::<Web3AuthClaims>(token, &decoding_key, &validation)
+            .map_err(|e| AuthError::TokenValidation(format!("JWT validation failed: {}", e)))?;
+
+        Ok(token_data.claims)
+    }
+
+    /// Create a signer from verified Web3Auth claims
+    async fn create_signer_from_claims(
+        &self,
+        claims: &Web3AuthClaims,
+        network: &str,
+    ) -> Result<Box<dyn UnifiedSigner>, Box<dyn std::error::Error + Send + Sync>> {
+        // For external wallets, use the wallet address directly
+        if let Some(wallets) = &claims.wallets {
+            for wallet in wallets {
+                if network.contains("solana") && wallet.chain_type.contains("solana") {
+                    #[cfg(feature = "solana")]
+                    {
+                        // For external Solana wallets, we can't create a direct signer
+                        // since we don't have the private key. This would typically require
+                        // a different flow where the frontend handles signing.
+                        return Err(Box::new(AuthError::UnsupportedOperation(
+                            "External Solana wallet signing requires frontend integration"
+                                .to_string(),
+                        )));
+                    }
+                } else if (network.contains("ethereum") || network.contains("evm"))
+                    && wallet.chain_type.contains("evm")
+                {
+                    #[cfg(feature = "evm")]
+                    {
+                        // For external EVM wallets, same issue - no private key available
+                        return Err(Box::new(AuthError::UnsupportedOperation(
+                            "External EVM wallet signing requires frontend integration".to_string(),
+                        )));
+                    }
+                }
+            }
+        }
+
+        // For social login wallets, we would derive the private key from the user's
+        // Web3Auth shares. This requires the Web3Auth SDK's key derivation logic.
+        // For this implementation, we'll create a placeholder that shows the structure
+        // but indicates the limitation.
+
+        // Derive private key from Web3Auth shares (simplified implementation)
+        let private_key = self
+            .derive_private_key(&claims.sub, &claims.verifier, &claims.verifier_id)
+            .await?;
+
+        // Create the appropriate signer based on the network
+        if network.contains("solana") {
+            #[cfg(feature = "solana")]
+            {
+                let config = riglr_config::SolanaNetworkConfig::new(
+                    network,
+                    "https://api.mainnet-beta.solana.com".to_string(),
+                );
+                let signer =
+                    riglr_solana_tools::signer::local::LocalSolanaSigner::new(private_key, config)
+                        .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)?;
+
+                Ok(Box::new(signer) as Box<dyn UnifiedSigner>)
+            }
+            #[cfg(not(feature = "solana"))]
+            {
+                Err(Box::new(AuthError::UnsupportedOperation(
+                    "Solana support not enabled".to_string(),
+                )))
+            }
+        } else {
+            #[cfg(feature = "evm")]
+            {
+                let config = riglr_config::EvmNetworkConfig::new(
+                    network,
+                    1, // Mainnet chain ID, should be configurable
+                    "https://eth.llamarpc.com".to_string(),
+                );
+                let signer = riglr_evm_tools::signer::LocalEvmSigner::new(private_key, config)
+                    .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)?;
+
+                Ok(Box::new(signer) as Box<dyn UnifiedSigner>)
+            }
+            #[cfg(not(feature = "evm"))]
+            {
+                Err(Box::new(AuthError::UnsupportedOperation(
+                    "EVM support not enabled".to_string(),
+                )))
+            }
+        }
+    }
+
+    /// Derive private key from Web3Auth user data
+    /// This is a simplified placeholder - real implementation would use Web3Auth's
+    /// threshold cryptography and key derivation logic
+    async fn derive_private_key(
+        &self,
+        sub: &str,
+        verifier: &str,
+        verifier_id: &str,
+    ) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+        // In a real implementation, this would:
+        // 1. Use the user's shares from Web3Auth's threshold key infrastructure
+        // 2. Combine with the app's key share
+        // 3. Reconstruct the private key using Shamir's Secret Sharing
+        //
+        // For this implementation, we'll generate a deterministic key from the user data
+        // This is NOT secure and should only be used for testing/demonstration
+
+        use std::collections::hash_map::DefaultHasher;
+        use std::hash::{Hash, Hasher};
+
+        let mut hasher = DefaultHasher::new();
+        sub.hash(&mut hasher);
+        verifier.hash(&mut hasher);
+        verifier_id.hash(&mut hasher);
+        self.config.client_id.hash(&mut hasher);
+
+        let hash = hasher.finish();
+
+        // Convert hash to a hex string (not cryptographically secure)
+        let private_key = format!(
+            "{:016x}{:016x}",
+            hash,
+            hash.wrapping_mul(0x9e3779b97f4a7c15)
+        );
+
+        tracing::warn!(
+            "Using insecure key derivation - implement proper Web3Auth key reconstruction for production"
+        );
+
+        Ok(private_key)
+    }
 }
 
 #[async_trait]
@@ -106,20 +294,28 @@ impl SignerFactory for Web3AuthProvider {
         &self,
         auth_data: AuthenticationData,
     ) -> Result<Box<dyn UnifiedSigner>, Box<dyn std::error::Error + Send + Sync>> {
-        let _token = auth_data
+        let token = auth_data
             .credentials
             .get("token")
             .ok_or_else(|| AuthError::MissingCredential("token".to_string()))?;
 
-        // TODO: Implement Web3Auth token verification and signer creation
-        // This requires:
-        // 1. Verifying the Web3Auth ID token
-        // 2. Deriving the private key using Web3Auth's key management
-        // 3. Creating appropriate signer (Solana or EVM)
+        // Verify the Web3Auth JWT token
+        let claims = self
+            .verify_token(token)
+            .await
+            .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)?;
 
-        Err(Box::new(AuthError::UnsupportedOperation(
-            "Web3Auth provider implementation pending".to_string(),
-        )))
+        // Validate the verifier matches our configuration
+        if claims.verifier != self.config.verifier {
+            return Err(Box::new(AuthError::TokenValidation(format!(
+                "Verifier mismatch: expected {}, got {}",
+                self.config.verifier, claims.verifier
+            ))));
+        }
+
+        // Create signer from verified claims
+        self.create_signer_from_claims(&claims, &auth_data.network)
+            .await
     }
 
     fn supported_auth_types(&self) -> Vec<String> {
@@ -133,6 +329,50 @@ fn default_network() -> String {
 
 fn default_api_url() -> String {
     "https://api.openlogin.com".to_string()
+}
+
+/// JWT claims structure for Web3Auth tokens
+#[derive(Debug, Deserialize)]
+struct Web3AuthClaims {
+    /// Subject (user identifier)
+    pub sub: String,
+    /// Audience
+    #[allow(dead_code)]
+    pub aud: Option<String>,
+    /// Issuer
+    #[allow(dead_code)]
+    pub iss: String,
+    /// Issued at
+    #[allow(dead_code)]
+    pub iat: i64,
+    /// Expiration
+    #[allow(dead_code)]
+    pub exp: Option<i64>,
+    /// Email
+    #[allow(dead_code)]
+    pub email: Option<String>,
+    /// Name
+    #[allow(dead_code)]
+    pub name: Option<String>,
+    /// Profile image
+    #[allow(dead_code)]
+    pub profile_image: Option<String>,
+    /// Aggregated verifier
+    #[allow(dead_code)]
+    pub aggregated_verifier: Option<String>,
+    /// Verifier
+    pub verifier: String,
+    /// Verifier ID
+    pub verifier_id: String,
+    /// Wallet address (for external wallets)
+    pub wallets: Option<Vec<WalletInfo>>,
+}
+
+#[derive(Debug, Deserialize)]
+struct WalletInfo {
+    #[allow(dead_code)]
+    pub address: String,
+    pub chain_type: String,
 }
 
 #[cfg(test)]

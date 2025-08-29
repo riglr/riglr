@@ -97,12 +97,227 @@ impl MagicProvider {
             .default_headers({
                 let mut headers = reqwest::header::HeaderMap::new();
                 headers.insert("X-Magic-Secret-Key", config.secret_key.parse().unwrap());
+                headers.insert("Content-Type", "application/json".parse().unwrap());
                 headers
             })
             .build()
             .expect("Failed to build Magic HTTP client");
 
         Self { config, client }
+    }
+
+    /// Decode and validate a Magic DID token
+    async fn validate_did_token(&self, did_token: &str) -> Result<DIDClaim, AuthError> {
+        // Decode the base64-encoded DID token
+        use base64::{engine::general_purpose::STANDARD, Engine};
+        let decoded_bytes = STANDARD
+            .decode(did_token)
+            .map_err(|e| AuthError::TokenValidation(format!("Invalid base64 DID token: {}", e)))?;
+
+        let token_str = String::from_utf8(decoded_bytes).map_err(|e| {
+            AuthError::TokenValidation(format!("Invalid UTF-8 in DID token: {}", e))
+        })?;
+
+        // Parse the [proof, claim] tuple
+        let token_tuple: serde_json::Value = serde_json::from_str(&token_str)
+            .map_err(|e| AuthError::TokenValidation(format!("Invalid JSON in DID token: {}", e)))?;
+
+        let token_array = token_tuple
+            .as_array()
+            .ok_or_else(|| AuthError::TokenValidation("DID token must be an array".to_string()))?;
+
+        if token_array.len() != 2 {
+            return Err(AuthError::TokenValidation(
+                "DID token must have exactly 2 elements".to_string(),
+            ));
+        }
+
+        let _proof = token_array[0].as_str().ok_or_else(|| {
+            AuthError::TokenValidation("DID token proof must be a string".to_string())
+        })?;
+
+        let claim_str = token_array[1].as_str().ok_or_else(|| {
+            AuthError::TokenValidation("DID token claim must be a string".to_string())
+        })?;
+
+        // Parse the claim
+        let claim: DIDClaim = serde_json::from_str(claim_str)
+            .map_err(|e| AuthError::TokenValidation(format!("Invalid claim format: {}", e)))?;
+
+        // Validate token timestamp
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs() as i64;
+
+        if claim.iat > now {
+            return Err(AuthError::TokenValidation(
+                "Token issued in the future".to_string(),
+            ));
+        }
+
+        if claim.ext < now {
+            return Err(AuthError::TokenValidation("Token has expired".to_string()));
+        }
+
+        // Validate JWT claims
+        if claim.aud != self.config.publishable_key {
+            return Err(AuthError::TokenValidation(format!(
+                "Token audience mismatch. Expected: {}, Got: {}",
+                self.config.publishable_key, claim.aud
+            )));
+        }
+
+        if claim.iss.is_empty() {
+            return Err(AuthError::TokenValidation(
+                "Token issuer (user public key) cannot be empty".to_string(),
+            ));
+        }
+
+        if claim.sub.is_empty() {
+            return Err(AuthError::TokenValidation(
+                "Token subject (user ID) cannot be empty".to_string(),
+            ));
+        }
+
+        if claim.tid.is_empty() {
+            return Err(AuthError::TokenValidation(
+                "Token ID cannot be empty".to_string(),
+            ));
+        }
+
+        // Validate via Magic's API
+        self.validate_token_with_api(did_token).await?;
+
+        Ok(claim)
+    }
+
+    /// Validate token using Magic's API
+    async fn validate_token_with_api(&self, did_token: &str) -> Result<(), AuthError> {
+        let request = MagicRPCRequest {
+            jsonrpc: "2.0".to_string(),
+            method: "magic_token_validate".to_string(),
+            params: serde_json::json!([did_token]),
+            id: 1,
+        };
+
+        let response = self
+            .client
+            .post(format!(
+                "{}/v1/admin/auth/token/validate",
+                self.config.api_url
+            ))
+            .json(&request)
+            .send()
+            .await
+            .map_err(|e| {
+                AuthError::ApiError(format!("Failed to validate token with Magic API: {}", e))
+            })?;
+
+        let rpc_response: MagicRPCResponse<bool> = response
+            .json()
+            .await
+            .map_err(|e| AuthError::ApiError(format!("Invalid response from Magic API: {}", e)))?;
+
+        if let Some(error) = rpc_response.error {
+            return Err(AuthError::TokenValidation(format!(
+                "Magic API validation failed (code {}): {}",
+                error.code, error.message
+            )));
+        }
+
+        if rpc_response.result != Some(true) {
+            return Err(AuthError::TokenValidation(
+                "Token validation failed".to_string(),
+            ));
+        }
+
+        Ok(())
+    }
+
+    /// Get user metadata from Magic
+    async fn get_user_metadata(&self, did_token: &str) -> Result<MagicUserData, AuthError> {
+        let request = MagicRPCRequest {
+            jsonrpc: "2.0".to_string(),
+            method: "magic_token_get_public_address".to_string(),
+            params: serde_json::json!([did_token]),
+            id: 2,
+        };
+
+        let response = self
+            .client
+            .post(format!("{}/v1/admin/auth/user/get", self.config.api_url))
+            .json(&request)
+            .send()
+            .await
+            .map_err(|e| AuthError::ApiError(format!("Failed to fetch user metadata: {}", e)))?;
+
+        let rpc_response: MagicRPCResponse<MagicUserResponse> = response
+            .json()
+            .await
+            .map_err(|e| AuthError::ApiError(format!("Invalid response from Magic API: {}", e)))?;
+
+        if let Some(error) = rpc_response.error {
+            return Err(AuthError::ApiError(format!(
+                "Magic API error (code {}): {}",
+                error.code, error.message
+            )));
+        }
+
+        let user_response = rpc_response.result.ok_or_else(|| {
+            AuthError::ApiError("No user data returned from Magic API".to_string())
+        })?;
+
+        Ok(user_response.data)
+    }
+
+    /// Create a signer from Magic user data
+    async fn create_signer_from_user(
+        &self,
+        user_data: &MagicUserData,
+        network: &str,
+    ) -> Result<Box<dyn UnifiedSigner>, Box<dyn std::error::Error + Send + Sync>> {
+        // Magic.link manages the private keys, so we can't create a traditional LocalSigner
+        // Instead, we would need to implement a delegated signer that makes API calls to Magic
+        // for signing operations. For this implementation, we'll return an error explaining
+        // the architectural limitation.
+
+        let wallet_address = user_data
+            .public_address
+            .as_ref()
+            .ok_or_else(|| AuthError::NoWallet("No wallet address found for user".to_string()))?;
+
+        // For a real implementation, you would create a Magic-specific signer that:
+        // 1. Stores the user's public address and Magic metadata
+        // 2. Implements UnifiedSigner trait methods
+        // 3. Makes API calls to Magic for signing operations
+        // 4. Handles transaction submission through Magic's infrastructure
+
+        tracing::info!(
+            "Magic user authenticated - address: {}, email: {:?}, wallet_type: {:?} (network: {})",
+            wallet_address,
+            user_data.email,
+            user_data.wallet_type,
+            network
+        );
+
+        // Return an informative error for now
+        let user_info = match (&user_data.email, &user_data.wallet_type) {
+            (Some(email), Some(wallet_type)) => {
+                format!("email: {}, wallet_type: {}", email, wallet_type)
+            }
+            (Some(email), None) => format!("email: {}", email),
+            (None, Some(wallet_type)) => format!("wallet_type: {}", wallet_type),
+            (None, None) => "no additional user info".to_string(),
+        };
+
+        Err(Box::new(AuthError::UnsupportedOperation(
+            format!(
+                "Magic.link signers require custom implementation for delegated signing. User address: {}, {}",
+                wallet_address,
+                user_info
+            )
+        )))
     }
 }
 
@@ -112,20 +327,26 @@ impl SignerFactory for MagicProvider {
         &self,
         auth_data: AuthenticationData,
     ) -> Result<Box<dyn UnifiedSigner>, Box<dyn std::error::Error + Send + Sync>> {
-        let _token = auth_data
+        let did_token = auth_data
             .credentials
             .get("token")
             .ok_or_else(|| AuthError::MissingCredential("token".to_string()))?;
 
-        // TODO: Implement Magic.link token verification and signer creation
-        // This requires:
-        // 1. Verifying the DID token with Magic Admin SDK
-        // 2. Getting user metadata and wallet addresses
-        // 3. Creating delegated signers for transactions
+        // Validate the DID token
+        let _claim = self
+            .validate_did_token(did_token)
+            .await
+            .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)?;
 
-        Err(Box::new(AuthError::UnsupportedOperation(
-            "Magic.link provider implementation pending".to_string(),
-        )))
+        // Get user metadata
+        let user_data = self
+            .get_user_metadata(did_token)
+            .await
+            .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)?;
+
+        // Create signer from user data
+        self.create_signer_from_user(&user_data, &auth_data.network)
+            .await
     }
 
     fn supported_auth_types(&self) -> Vec<String> {
@@ -139,6 +360,58 @@ fn default_api_url() -> String {
 
 fn default_network() -> String {
     "mainnet".to_string()
+}
+
+/// DID token claim structure
+#[derive(Debug, Deserialize)]
+struct DIDClaim {
+    /// Issued at timestamp
+    pub iat: i64,
+    /// Expiration timestamp
+    pub ext: i64,
+    /// Issuer (user's Ethereum public key)
+    pub iss: String,
+    /// User's Magic entity ID
+    pub sub: String,
+    /// Application's Magic entity ID
+    pub aud: String,
+    /// Unique token identifier
+    pub tid: String,
+}
+
+/// Magic user metadata response
+#[derive(Debug, Deserialize)]
+struct MagicUserResponse {
+    data: MagicUserData,
+}
+
+#[derive(Debug, Deserialize)]
+struct MagicUserData {
+    email: Option<String>,
+    public_address: Option<String>,
+    wallet_type: Option<String>,
+}
+
+/// Magic RPC request structure
+#[derive(Debug, Serialize)]
+struct MagicRPCRequest {
+    jsonrpc: String,
+    method: String,
+    params: serde_json::Value,
+    id: u64,
+}
+
+/// Magic RPC response structure
+#[derive(Debug, Deserialize)]
+struct MagicRPCResponse<T> {
+    result: Option<T>,
+    error: Option<MagicRPCError>,
+}
+
+#[derive(Debug, Deserialize)]
+struct MagicRPCError {
+    code: i32,
+    message: String,
 }
 
 #[cfg(test)]

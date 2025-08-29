@@ -80,12 +80,9 @@ impl CompositeSignerFactoryExt for riglr_web_adapters::factory::CompositeSignerF
 #[cfg(test)]
 mod tests {
     use super::*;
-    use alloy::primitives::{Bytes, TxHash, U256};
-    use alloy::rpc::types::TransactionRequest;
     use async_trait::async_trait;
     use riglr_core::signer::{EvmClient, SignerError, UnifiedSigner};
     use riglr_web_adapters::factory::{AuthenticationData, CompositeSignerFactory};
-    use solana_sdk::transaction::Transaction;
     use std::collections::HashMap;
 
     // Mock SignerFactory implementation for testing
@@ -153,15 +150,15 @@ mod tests {
 
         async fn sign_and_send_transaction(
             &self,
-            _tx: &mut Transaction,
+            _tx_bytes: &mut Vec<u8>,
         ) -> Result<String, SignerError> {
             Ok("mock_signature".to_string())
         }
 
-        fn client(&self) -> std::sync::Arc<solana_client::rpc_client::RpcClient> {
+        fn client(&self) -> std::sync::Arc<dyn std::any::Any + Send + Sync> {
             std::sync::Arc::new(solana_client::rpc_client::RpcClient::new(
                 "mock".to_string(),
-            ))
+            )) as std::sync::Arc<dyn std::any::Any + Send + Sync>
         }
     }
 
@@ -200,7 +197,7 @@ mod tests {
 
         async fn sign_and_send_transaction(
             &self,
-            _tx: TransactionRequest,
+            _tx_json: serde_json::Value,
         ) -> Result<String, SignerError> {
             Ok("0xmock_tx_hash".to_string())
         }
@@ -244,16 +241,19 @@ mod tests {
 
     #[async_trait]
     impl EvmClient for MockEvmClient {
-        async fn get_balance(&self, _address: &str) -> Result<U256, SignerError> {
-            Ok(U256::from(1000))
+        async fn get_balance(&self, _address: &str) -> Result<String, SignerError> {
+            Ok("1000".to_string())
         }
 
-        async fn send_transaction(&self, _tx: &TransactionRequest) -> Result<TxHash, SignerError> {
-            Ok(TxHash::default())
+        async fn send_transaction(
+            &self,
+            _tx_json: &serde_json::Value,
+        ) -> Result<String, SignerError> {
+            Ok("0xmock_tx_hash".to_string())
         }
 
-        async fn call(&self, _tx: &TransactionRequest) -> Result<Bytes, SignerError> {
-            Ok(Bytes::default())
+        async fn call(&self, _tx_json: &serde_json::Value) -> Result<String, SignerError> {
+            Ok("0x".to_string())
         }
     }
 
