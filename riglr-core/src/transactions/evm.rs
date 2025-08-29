@@ -46,14 +46,17 @@ pub struct EvmTransactionProcessor<P: Provider> {
     provider: Arc<P>,
     /// Gas configuration settings for transaction optimization
     gas_config: GasConfig,
+    /// Retry configuration for transaction processing
+    _retry_config: super::RetryConfig,
 }
 
 impl<P: Provider> EvmTransactionProcessor<P> {
     /// Create a new EVM transaction processor
-    pub fn new(provider: Arc<P>, gas_config: GasConfig) -> Self {
+    pub fn new(provider: Arc<P>, gas_config: GasConfig, retry_config: super::RetryConfig) -> Self {
         Self {
             provider,
             gas_config,
+            _retry_config: retry_config,
         }
     }
 
@@ -178,9 +181,24 @@ impl<P: Provider + Send + Sync> TransactionProcessor for EvmTransactionProcessor
         F: Fn() -> Fut + Send,
         Fut: std::future::Future<Output = Result<T, ToolError>> + Send,
     {
-        // Use the generic implementation
-        let processor = super::GenericTransactionProcessor;
-        processor.process_with_retry(operation, config).await
+        // Use the retry function directly
+        crate::retry::retry_async(
+            operation,
+            |error| {
+                if error.is_retriable() {
+                    if error.is_rate_limited() {
+                        crate::retry::ErrorClass::RateLimited
+                    } else {
+                        crate::retry::ErrorClass::Retryable
+                    }
+                } else {
+                    crate::retry::ErrorClass::Permanent
+                }
+            },
+            &config,
+            "evm_transaction",
+        )
+        .await
     }
 
     async fn get_status(&self, tx_hash: &str) -> Result<TransactionStatus, ToolError> {
@@ -220,11 +238,65 @@ impl<P: Provider + Send + Sync> TransactionProcessor for EvmTransactionProcessor
         tx_hash: &str,
         required_confirmations: u64,
     ) -> Result<TransactionStatus, ToolError> {
-        // Use the generic implementation with custom status checking
-        let processor = super::GenericTransactionProcessor;
-        processor
-            .wait_for_confirmation(tx_hash, required_confirmations)
-            .await
+        use std::time::Duration;
+        use tokio::time::sleep;
+
+        if tx_hash.is_empty() {
+            return Err(ToolError::permanent_string(
+                "Transaction hash cannot be empty",
+            ));
+        }
+
+        let check_interval = Duration::from_secs(2);
+        let max_wait = Duration::from_secs(300); // 5 minutes max
+        let start = std::time::Instant::now();
+
+        loop {
+            let status = self.get_status(tx_hash).await?;
+
+            match status {
+                TransactionStatus::Confirmed { ref hash, block } => {
+                    // Check if we have enough confirmations
+                    if let Ok(current_block) = self.provider.get_block_number().await {
+                        let confirmations = current_block.saturating_sub(block);
+                        if confirmations >= required_confirmations {
+                            return Ok(status);
+                        }
+                        debug!(
+                            "Transaction {} has {} confirmations, waiting for {}",
+                            hash, confirmations, required_confirmations
+                        );
+                    }
+                }
+                TransactionStatus::Failed { ref reason } => {
+                    return Err(ToolError::permanent_string(format!(
+                        "Transaction failed: {}",
+                        reason
+                    )));
+                }
+                TransactionStatus::Submitted { .. } | TransactionStatus::Pending => {
+                    debug!("Transaction {} is still pending", tx_hash);
+                }
+                TransactionStatus::Confirming { confirmations, .. } => {
+                    if confirmations >= required_confirmations {
+                        return Ok(status);
+                    }
+                    debug!(
+                        "Transaction {} has {} confirmations, waiting for {}",
+                        tx_hash, confirmations, required_confirmations
+                    );
+                }
+            }
+
+            if start.elapsed() > max_wait {
+                return Err(ToolError::permanent_string(format!(
+                    "Transaction {} not confirmed after {:?}",
+                    tx_hash, max_wait
+                )));
+            }
+
+            sleep(check_interval).await;
+        }
     }
 }
 

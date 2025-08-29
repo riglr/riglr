@@ -21,7 +21,6 @@ envy = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 url = { workspace = true }
-once_cell = { workspace = true }
 validator = { version = "0.18", features = ["derive"] }
 lazy_static = "1.4"
 regex = "1.0"
@@ -33,3 +32,4 @@ network-defaults = []
 [dev-dependencies]
 tokio = { workspace = true, features = ["full"] }
 tempfile = "3.8"
+serial_test = "3.0"

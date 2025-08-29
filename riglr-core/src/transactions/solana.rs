@@ -11,12 +11,15 @@ use solana_client::rpc_client::RpcClient;
 use solana_commitment_config::CommitmentConfig;
 use solana_compute_budget_interface::ComputeBudgetInstruction;
 use solana_sdk::{instruction::Instruction, signature::Signature, transaction::Transaction};
+#[cfg(test)]
+use solana_system_interface::instruction as system_instruction;
 use solana_transaction_status::UiTransactionEncoding;
 use std::sync::Arc;
 use tracing::{debug, info};
 
-use super::{RetryConfig, TransactionProcessor, TransactionStatus};
+use super::{TransactionProcessor, TransactionStatus};
 use crate::error::ToolError;
+use crate::retry::RetryConfig;
 use crate::retry::{retry_async, ErrorClass};
 
 /// Solana priority fee configuration
@@ -46,14 +49,21 @@ pub struct SolanaTransactionProcessor {
     client: Arc<RpcClient>,
     /// Priority fee configuration for transaction optimization
     priority_config: PriorityFeeConfig,
+    /// Retry configuration for transaction processing
+    _retry_config: RetryConfig,
 }
 
 impl SolanaTransactionProcessor {
     /// Create a new Solana transaction processor
-    pub fn new(client: Arc<RpcClient>, priority_config: PriorityFeeConfig) -> Self {
+    pub fn new(
+        client: Arc<RpcClient>,
+        priority_config: PriorityFeeConfig,
+        retry_config: RetryConfig,
+    ) -> Self {
         Self {
             client,
             priority_config,
+            _retry_config: retry_config,
         }
     }
 
@@ -220,9 +230,24 @@ impl TransactionProcessor for SolanaTransactionProcessor {
         F: Fn() -> Fut + Send,
         Fut: std::future::Future<Output = Result<T, ToolError>> + Send,
     {
-        // Use the generic implementation
-        let processor = super::GenericTransactionProcessor;
-        processor.process_with_retry(operation, config).await
+        // Use the retry function directly
+        crate::retry::retry_async(
+            operation,
+            |error| {
+                if error.is_retriable() {
+                    if error.is_rate_limited() {
+                        crate::retry::ErrorClass::RateLimited
+                    } else {
+                        crate::retry::ErrorClass::Retryable
+                    }
+                } else {
+                    crate::retry::ErrorClass::Permanent
+                }
+            },
+            &config,
+            "solana_transaction",
+        )
+        .await
     }
 
     async fn get_status(&self, tx_hash: &str) -> Result<TransactionStatus, ToolError> {
@@ -401,9 +426,13 @@ mod tests {
     #[test]
     fn test_add_priority_fee_instructions() {
         let client = Arc::new(RpcClient::new("https://api.devnet.solana.com".to_string()));
-        let processor = SolanaTransactionProcessor::new(client, PriorityFeeConfig::default());
+        let processor = SolanaTransactionProcessor::new(
+            client,
+            PriorityFeeConfig::default(),
+            RetryConfig::default(),
+        );
 
-        let mut instructions = vec![solana_sdk::system_instruction::transfer(
+        let mut instructions = vec![system_instruction::transfer(
             &Pubkey::new_unique(),
             &Pubkey::new_unique(),
             1000,
@@ -426,9 +455,9 @@ mod tests {
             enabled: false,
             ..Default::default()
         };
-        let processor = SolanaTransactionProcessor::new(client, config);
+        let processor = SolanaTransactionProcessor::new(client, config, RetryConfig::default());
 
-        let mut instructions = vec![solana_sdk::system_instruction::transfer(
+        let mut instructions = vec![system_instruction::transfer(
             &Pubkey::new_unique(),
             &Pubkey::new_unique(),
             1000,
@@ -444,12 +473,16 @@ mod tests {
     #[test]
     fn test_transaction_size_validation() {
         let client = Arc::new(RpcClient::new("https://api.devnet.solana.com".to_string()));
-        let processor = SolanaTransactionProcessor::new(client, PriorityFeeConfig::default());
+        let processor = SolanaTransactionProcessor::new(
+            client,
+            PriorityFeeConfig::default(),
+            RetryConfig::default(),
+        );
 
         // Create a normal-sized transaction
         let payer = Pubkey::new_unique();
         let mut tx = Transaction::new_with_payer(
-            &[solana_sdk::system_instruction::transfer(
+            &[system_instruction::transfer(
                 &payer,
                 &Pubkey::new_unique(),
                 1000,
@@ -495,9 +528,9 @@ mod tests {
             microlamports_per_cu: 1500,
             additional_compute_units: None,
         };
-        let processor = SolanaTransactionProcessor::new(client, config);
+        let processor = SolanaTransactionProcessor::new(client, config, RetryConfig::default());
 
-        let mut instructions = vec![solana_sdk::system_instruction::transfer(
+        let mut instructions = vec![system_instruction::transfer(
             &Pubkey::new_unique(),
             &Pubkey::new_unique(),
             1000,
@@ -513,7 +546,11 @@ mod tests {
     #[test]
     fn test_add_priority_fee_instructions_with_empty_list() {
         let client = Arc::new(RpcClient::new("https://api.devnet.solana.com".to_string()));
-        let processor = SolanaTransactionProcessor::new(client, PriorityFeeConfig::default());
+        let processor = SolanaTransactionProcessor::new(
+            client,
+            PriorityFeeConfig::default(),
+            RetryConfig::default(),
+        );
 
         let mut instructions = vec![];
         processor.add_priority_fee_instructions(&mut instructions);
@@ -525,7 +562,11 @@ mod tests {
     #[test]
     fn test_optimize_transaction_with_oversized_transaction() {
         let client = Arc::new(RpcClient::new("https://api.devnet.solana.com".to_string()));
-        let processor = SolanaTransactionProcessor::new(client, PriorityFeeConfig::default());
+        let processor = SolanaTransactionProcessor::new(
+            client,
+            PriorityFeeConfig::default(),
+            RetryConfig::default(),
+        );
 
         // Create a transaction with many instructions to exceed size limit
         let payer = Pubkey::new_unique();
@@ -533,7 +574,7 @@ mod tests {
 
         // Add many instructions to create an oversized transaction
         for _ in 0..100 {
-            instructions.push(solana_sdk::system_instruction::transfer(
+            instructions.push(system_instruction::transfer(
                 &payer,
                 &Pubkey::new_unique(),
                 1000,
@@ -567,7 +608,8 @@ mod tests {
             additional_compute_units: Some(150_000),
         };
 
-        let processor = SolanaTransactionProcessor::new(client.clone(), config.clone());
+        let processor =
+            SolanaTransactionProcessor::new(client.clone(), config.clone(), RetryConfig::default());
 
         // Verify the processor is created with correct configuration
         assert_eq!(processor.priority_config.enabled, config.enabled);
@@ -585,7 +627,11 @@ mod tests {
     #[tokio::test]
     async fn test_process_with_retry_delegation() {
         let client = Arc::new(RpcClient::new("https://api.devnet.solana.com".to_string()));
-        let processor = SolanaTransactionProcessor::new(client, PriorityFeeConfig::default());
+        let processor = SolanaTransactionProcessor::new(
+            client,
+            PriorityFeeConfig::default(),
+            RetryConfig::default(),
+        );
 
         let config = RetryConfig::default();
         let operation = || async { Ok::<i32, ToolError>(42) };
@@ -599,7 +645,11 @@ mod tests {
     #[tokio::test]
     async fn test_get_status_with_invalid_signature() {
         let client = Arc::new(RpcClient::new("https://api.devnet.solana.com".to_string()));
-        let processor = SolanaTransactionProcessor::new(client, PriorityFeeConfig::default());
+        let processor = SolanaTransactionProcessor::new(
+            client,
+            PriorityFeeConfig::default(),
+            RetryConfig::default(),
+        );
 
         // Test with invalid signature string
         let result = processor.get_status("invalid_signature").await;
@@ -615,7 +665,11 @@ mod tests {
     #[tokio::test]
     async fn test_wait_for_confirmation_with_invalid_signature() {
         let client = Arc::new(RpcClient::new("https://api.devnet.solana.com".to_string()));
-        let processor = SolanaTransactionProcessor::new(client, PriorityFeeConfig::default());
+        let processor = SolanaTransactionProcessor::new(
+            client,
+            PriorityFeeConfig::default(),
+            RetryConfig::default(),
+        );
 
         // Test with invalid signature string
         let result = processor
@@ -651,7 +705,11 @@ mod tests {
         // This exercises the error handling logic without needing actual RPC failures
 
         let client = Arc::new(RpcClient::new("https://api.devnet.solana.com".to_string()));
-        let processor = SolanaTransactionProcessor::new(client, PriorityFeeConfig::default());
+        let processor = SolanaTransactionProcessor::new(
+            client,
+            PriorityFeeConfig::default(),
+            RetryConfig::default(),
+        );
 
         // Verify that we can create the processor and it has the expected structure
         assert!(processor.priority_config.enabled);

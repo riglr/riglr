@@ -4,6 +4,28 @@ use crate::{ConfigError, ConfigResult};
 use serde::{Deserialize, Serialize};
 use validator::{Validate, ValidationError};
 
+/// Log level configuration
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum LogLevel {
+    /// Trace level - most verbose
+    Trace,
+    /// Debug level - detailed debugging
+    Debug,
+    /// Info level - general information
+    Info,
+    /// Warning level - warnings
+    Warn,
+    /// Error level - only errors
+    Error,
+}
+
+impl Default for LogLevel {
+    fn default() -> Self {
+        Self::Info
+    }
+}
+
 /// Application configuration
 #[derive(Debug, Clone, Deserialize, Serialize, Validate)]
 pub struct AppConfig {
@@ -16,9 +38,9 @@ pub struct AppConfig {
     #[serde(default)]
     pub environment: Environment,
 
-    /// Log level (trace, debug, info, warn, error)
-    #[serde(default = "default_log_level")]
-    pub log_level: String,
+    /// Log level
+    #[serde(default)]
+    pub log_level: LogLevel,
 
     /// Whether to use testnet chains
     #[serde(default)]
@@ -119,17 +141,6 @@ impl AppConfig {
         Validate::validate(self)
             .map_err(|e| ConfigError::validation(format!("Validation failed: {}", e)))?;
 
-        // Validate log level (custom validation not covered by validator attributes)
-        match self.log_level.as_str() {
-            "trace" | "debug" | "info" | "warn" | "error" => {}
-            _ => {
-                return Err(ConfigError::validation(format!(
-                    "Invalid log level: {}",
-                    self.log_level
-                )))
-            }
-        }
-
         // Additional custom validation for retry config
         if self.retry.max_retry_delay_ms < self.retry.retry_delay_ms {
             return Err(ConfigError::validation(
@@ -161,9 +172,6 @@ impl RetryConfig {
 fn default_port() -> u16 {
     8080
 }
-fn default_log_level() -> String {
-    "info".to_string()
-}
 fn default_max_gas_price() -> u64 {
     100
 }
@@ -194,7 +202,7 @@ impl Default for AppConfig {
         Self {
             port: default_port(),
             environment: Environment::default(),
-            log_level: default_log_level(),
+            log_level: LogLevel::default(),
             use_testnet: false,
             transaction: TransactionConfig::default(),
             retry: RetryConfig::default(),
@@ -247,7 +255,6 @@ mod tests {
     #[test]
     fn test_default_functions() {
         assert_eq!(default_port(), 8080);
-        assert_eq!(default_log_level(), "info");
         assert_eq!(default_max_gas_price(), 100);
         assert_eq!(default_priority_fee(), 2);
         assert_eq!(default_slippage(), 0.5);
@@ -263,7 +270,7 @@ mod tests {
         let config = AppConfig::default();
         assert_eq!(config.port, 8080);
         assert_eq!(config.environment, Environment::Development);
-        assert_eq!(config.log_level, "info");
+        assert_eq!(config.log_level, LogLevel::Info);
         assert!(!config.use_testnet);
         assert_eq!(config.transaction.max_gas_price_gwei, 100);
         assert_eq!(config.retry.max_retry_attempts, 3);
@@ -294,26 +301,22 @@ mod tests {
     }
 
     #[test]
-    fn test_app_config_validate_when_invalid_log_level_should_return_err() {
-        let mut config = AppConfig::default();
-        config.log_level = "invalid".to_string();
+    fn test_log_level_enum_values() {
+        // Test that all log level enum values work correctly
+        let levels = [
+            LogLevel::Trace,
+            LogLevel::Debug,
+            LogLevel::Info,
+            LogLevel::Warn,
+            LogLevel::Error,
+        ];
 
-        let result = config.validate();
-        assert!(result.is_err());
-        let error = result.unwrap_err();
-        assert!(error.to_string().contains("Invalid log level: invalid"));
-    }
-
-    #[test]
-    fn test_app_config_validate_when_valid_log_levels_should_return_ok() {
-        let valid_levels = ["trace", "debug", "info", "warn", "error"];
-
-        for level in valid_levels {
+        for level in levels {
             let mut config = AppConfig::default();
-            config.log_level = level.to_string();
+            config.log_level = level;
             assert!(
                 config.validate().is_ok(),
-                "Log level {} should be valid",
+                "Log level {:?} should be valid",
                 level
             );
         }
@@ -518,7 +521,7 @@ mod tests {
         let mut config = AppConfig::default();
         config.port = 3000;
         config.environment = Environment::Production;
-        config.log_level = "debug".to_string();
+        config.log_level = LogLevel::Debug;
         config.use_testnet = true;
         config.transaction.max_gas_price_gwei = 200;
         config.retry.max_retry_attempts = 5;
@@ -526,7 +529,7 @@ mod tests {
         assert!(config.validate().is_ok());
         assert_eq!(config.port, 3000);
         assert_eq!(config.environment, Environment::Production);
-        assert_eq!(config.log_level, "debug");
+        assert_eq!(config.log_level, LogLevel::Debug);
         assert!(config.use_testnet);
         assert_eq!(config.transaction.max_gas_price_gwei, 200);
         assert_eq!(config.retry.max_retry_attempts, 5);

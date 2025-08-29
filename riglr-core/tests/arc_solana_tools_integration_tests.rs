@@ -60,7 +60,7 @@ fn test_arc_dereferencing_pattern() {
             assert_eq!(_error_ref1.request, _error_ref2.request);
 
             // Test pattern matching on the dereferenced Arc
-            match &_error_ref1.kind {
+            match &*_error_ref1.kind {
                 ClientErrorKind::Io(_) => {
                     assert!(_error_ref1.to_string().contains("Connection timed out"));
                 }
@@ -101,7 +101,7 @@ fn test_exact_riglr_solana_tools_pattern() {
         assert!(error_ref.to_string().contains("Connection refused"));
         assert_eq!(error_ref.request, Some(RpcRequest::GetAccountInfo));
 
-        match &error_ref.kind {
+        match &*error_ref.kind {
             ClientErrorKind::Io(io_error) => {
                 assert_eq!(io_error.kind(), std::io::ErrorKind::ConnectionRefused);
             }
@@ -193,7 +193,7 @@ fn test_complete_error_information_preservation() {
         assert!(dereferenced.to_string().contains("not found"));
 
         // Structured error data preserved
-        match &dereferenced.kind {
+        match &*dereferenced.kind {
             ClientErrorKind::RpcError(RpcError::RpcResponseError { code, message, .. }) => {
                 assert_eq!(*code, -32602);
                 assert!(message.contains("Invalid params"));
@@ -209,7 +209,7 @@ fn test_complete_error_information_preservation() {
 fn test_error_classification_compatibility() {
     // This simulates the classify_transaction_error function usage patterns
     fn mock_classify_transaction_error(error: &ClientError) -> &'static str {
-        match &error.kind {
+        match &*error.kind {
             ClientErrorKind::Io(_) => "Retryable",
             ClientErrorKind::SerdeJson(_) => "Permanent",
             ClientErrorKind::RpcError(rpc_error) => match rpc_error {
@@ -296,7 +296,7 @@ fn test_riglr_solana_tools_error_patterns() {
         assert_eq!(error_ref.request, Some(RpcRequest::SendTransaction));
 
         // Test that we can still access all ClientError functionality
-        match &error_ref.kind {
+        match &*error_ref.kind {
             ClientErrorKind::Io(inner_io_error) => {
                 assert_eq!(inner_io_error.kind(), std::io::ErrorKind::TimedOut);
                 assert!(inner_io_error.to_string().contains("Request timeout"));
@@ -378,7 +378,7 @@ fn test_std_error_trait_compatibility() {
         assert!(!debug.is_empty());
 
         // Test that we can still access the source error
-        match &error_ref.kind {
+        match &*error_ref.kind {
             ClientErrorKind::Io(inner_io_error) => {
                 // std::error::Error methods should still work
                 assert_eq!(inner_io_error.kind(), std::io::ErrorKind::PermissionDenied);

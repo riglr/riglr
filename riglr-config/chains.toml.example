@@ -1,0 +1,201 @@
+# RIGLR Chain Configuration Example
+# This file defines contract addresses and chain-specific parameters
+# 
+# Copy this file to the project root as 'chains.toml' or set RIGLR_CHAINS_CONFIG 
+# environment variable to point to your configuration file.
+#
+# Environment variables can override these values using the pattern:
+# - ROUTER_{chain_id}: Override router address
+# - QUOTER_{chain_id}: Override quoter address  
+# - FACTORY_{chain_id}: Override factory address
+# - WETH_{chain_id}: Override WETH address
+# - USDC_{chain_id}: Override USDC address
+# - USDT_{chain_id}: Override USDT address
+# - SUSHISWAP_ROUTER_{chain_id}: Override SushiSwap router address
+# - SUSHISWAP_FACTORY_{chain_id}: Override SushiSwap factory address
+# - AAVE_V3_POOL_{chain_id}: Override Aave V3 pool address
+# - AAVE_V3_POOL_DATA_PROVIDER_{chain_id}: Override Aave V3 pool data provider address
+# - AAVE_V3_ORACLE_{chain_id}: Override Aave V3 oracle address
+# - COMPOUND_V3_USDC_{chain_id}: Override Compound V3 USDC comet address
+# - CURVE_REGISTRY_{chain_id}: Override Curve registry address
+# - ONEINCH_AGGREGATION_ROUTER_{chain_id}: Override 1inch aggregation router address
+# - BALANCER_VAULT_{chain_id}: Override Balancer V2 vault address
+#
+# Additional custom contract addresses can be accessed via the ChainContract.custom HashMap:
+# - config.chains[chain_id].contracts.custom["custom_protocol"]
+# Override custom contracts via environment variables:
+# - CUSTOM_{chain_id}_{contract_name}: e.g., CUSTOM_1_MAKER_DAO
+
+[chains]
+
+[chains.ethereum]
+id = 1
+name = "Ethereum Mainnet"
+# Uniswap V3 SwapRouter02
+router = "0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45"
+# Uniswap V3 QuoterV2 
+quoter = "0x61fFE014bA17989E743c5F6cB21bF9697530B21e"
+# Uniswap V3 Factory
+factory = "0x1F98431c8aD98523631AE4a59f267346ea31F984"
+# Common token addresses
+weth = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
+usdc = "0xA0b86a33E6417efE3CF1AA5bAdC34a6a2C2d0BE0"
+usdt = "0xdAC17F958D2ee523a2206206994597C13D831ec7"
+# Additional DeFi protocol contracts (now struct fields)
+sushiswap_router = "0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F"
+sushiswap_factory = "0xC0AEe478e3658e2610c5F7A4A2E1777cE9e4f2Ac"
+aave_v3_pool = "0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2"
+aave_v3_pool_data_provider = "0x7B4EB56E7CD4b454BA8ff71E4518426369a138a3"
+aave_v3_oracle = "0x54586bE62E3c3580375aE3723C145253060Ca0C2"
+compound_v3_usdc = "0xc3d688B66703497DAA19211EEdff47f25384cdc3"
+curve_registry = "0x90E00ACe148ca3b23Ac1bC8C240C2a7Dd9c2d7f5"
+oneinch_aggregation_router = "0x1111111254EEB25477B68fb85Ed929f73A960582"
+balancer_vault = "0xBA12222222228d8Ba445958a75a0704d566BF2C8"
+explorer_url = "https://etherscan.io"
+native_token = "ETH"
+is_testnet = false
+
+# Additional custom contracts (not in struct)
+[chains.ethereum.custom]
+compound_v3_rewards = "0x1B0e765F6224C21223AeA2af16c1C46E38885a40"
+curve_address_provider = "0x0000000022D53366457F9d5E68Ec105046FC4383"
+maker_dai = "0x6B175474E89094C44Da98b954EedeAC495271d0F"
+maker_dssproxy_registry = "0x4678f0a6958e4D2Bc4F1BAF7Bc52E8F3564f3fE4"
+
+[chains.polygon]
+id = 137
+name = "Polygon"
+router = "0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45"
+quoter = "0x61fFE014bA17989E743c5F6cB21bF9697530B21e"
+factory = "0x1F98431c8aD98523631AE4a59f267346ea31F984"
+weth = "0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270"  # WMATIC
+usdc = "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174"
+usdt = "0xc2132D05D31c914a87C6611C10748AEb04B58e8F"
+sushiswap_router = "0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506"
+sushiswap_factory = "0xc35DADB65012eC5796536bD9864eD8773aBc74C4"
+aave_v3_pool = "0x794a61358D6845594F94dc1DB02A252b5b4814aD"
+aave_v3_pool_data_provider = "0x69FA688f1Dc47d4B5d8029D5a35FB7a548310654"
+aave_v3_oracle = "0xb023e699F5a33916Ea823A16485e259257cA8Bd1"
+oneinch_aggregation_router = "0x1111111254EEB25477B68fb85Ed929f73A960582"
+balancer_vault = "0xBA12222222228d8Ba445958a75a0704d566BF2C8"
+explorer_url = "https://polygonscan.com"
+native_token = "MATIC"
+is_testnet = false
+
+[chains.polygon.custom]
+# QuickSwap (Polygon-specific)
+quickswap_router = "0xa5E0829CaCEd8fFDD4De3c43696c57F7D7A678ff"
+quickswap_factory = "0x5757371414417b8C6CAad45bAeF941aBc7d3Ab32"
+curve_address_provider = "0x0000000022D53366457F9d5E68Ec105046FC4383"
+
+[chains.arbitrum]
+id = 42161
+name = "Arbitrum One"
+router = "0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45"
+quoter = "0x61fFE014bA17989E743c5F6cB21bF9697530B21e"
+factory = "0x1F98431c8aD98523631AE4a59f267346ea31F984"
+weth = "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1"
+usdc = "0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8"
+usdt = "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9"
+explorer_url = "https://arbiscan.io"
+native_token = "ETH"
+is_testnet = false
+
+[chains.arbitrum.custom]
+# SushiSwap
+sushiswap_router = "0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506"
+sushiswap_factory = "0xc35DADB65012eC5796536bD9864eD8773aBc74C4"
+# Aave V3
+aave_v3_pool = "0x794a61358D6845594F94dc1DB02A252b5b4814aD"
+aave_v3_pool_data_provider = "0x69FA688f1Dc47d4B5d8029D5a35FB7a548310654"
+aave_v3_oracle = "0xb56c2F0B653B2e0b10C9b928C8580Ac5Df02C7C7"
+# GMX
+gmx_router = "0xaBBc5F99639c9B6bCb58544ddf04EFA6802F4064"
+gmx_vault = "0x489ee077994B6658eAfA855C308275EAd8097C4A"
+gmx_position_router = "0xb87a436B93fFE9D75c5cFA7bAcFff96430b09868"
+# Camelot DEX
+camelot_router = "0xc873fEcbd354f5A56E00E710B90EF4201db2448d"
+camelot_factory = "0x6EcCab422D763aC031210895C81787E87B43A652"
+# Curve
+curve_address_provider = "0x0000000022D53366457F9d5E68Ec105046FC4383"
+# 1inch
+oneinch_aggregation_router = "0x1111111254EEB25477B68fb85Ed929f73A960582"
+# Balancer V2
+balancer_vault = "0xBA12222222228d8Ba445958a75a0704d566BF2C8"
+
+[chains.optimism]
+id = 10
+name = "Optimism"
+router = "0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45"
+quoter = "0x61fFE014bA17989E743c5F6cB21bF9697530B21e"
+factory = "0x1F98431c8aD98523631AE4a59f267346ea31F984"
+weth = "0x4200000000000000000000000000000000000006"
+usdc = "0x7F5c764cBc14f9669B88837ca1490cCa17c31607"
+usdt = "0x94b008aA00579c1307B0EF2c499aD98a8ce58e58"
+explorer_url = "https://optimistic.etherscan.io"
+native_token = "ETH"
+is_testnet = false
+
+[chains.base]
+id = 8453
+name = "Base"
+router = "0x2626664c2603336E57B271c5C0b26F421741e481"
+quoter = "0x3d4e44Eb1374240CE5F1B871ab261CD16335B76a"
+factory = "0x33128a8fC17869897dcE68Ed026d694621f6FDfD"
+weth = "0x4200000000000000000000000000000000000006"
+usdc = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
+usdt = "0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2"
+explorer_url = "https://basescan.org"
+native_token = "ETH"
+is_testnet = false
+
+[chains.bsc]
+id = 56
+name = "BNB Smart Chain"
+router = "0x13f4EA83D0bd40E75C8222255bc855a974568Dd4"
+quoter = "0x78D78E420Da98ad378D7799bE8f4AF69033EB077"
+factory = "0xdB1d10011AD0Ff90774D0C6Bb92e5C5c8b4461F7"
+weth = "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c"  # WBNB
+usdc = "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d"
+usdt = "0x55d398326f99059fF775485246999027B3197955"
+explorer_url = "https://bscscan.com"
+native_token = "BNB"
+is_testnet = false
+
+[chains.avalanche]
+id = 43114
+name = "Avalanche C-Chain"
+router = "0xbb00FF08d01D300023C629E8fFfFcb65A5a578cE"
+quoter = "0xbe0F5544EC67e9B3b2D979aaA43f18Fd87E6257F"
+factory = "0x740b1c1de25031C31FF4fC9A62f554A55cdC1baD"
+weth = "0xB31f66AA3C1e785363F0875A1B74E27b85FD66c7"  # WAVAX
+usdc = "0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E"
+usdt = "0x9702230A8Ea53601f5cD2dc00fDBc13d4dF4A8c7"
+explorer_url = "https://snowtrace.io"
+native_token = "AVAX"
+is_testnet = false
+
+# Testnet examples
+[chains.sepolia]
+id = 11155111
+name = "Sepolia Testnet"
+router = "0x3bFA4769FB09eefC5a80d6E87c3B9C650f7Ae48E"
+quoter = "0xEd1f6473345F45b75F8179591dd5bA1888cf2FB3"
+factory = "0x0227628f3F023bb0B980b67D528571c95c6DaC1c"
+weth = "0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14"
+usdc = "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238"
+usdt = "0xaA8E23Fb1079EA71e0a56F48a2aA51851D8433D0"
+explorer_url = "https://sepolia.etherscan.io"
+native_token = "ETH"
+is_testnet = true
+
+[chains.goerli]
+id = 5
+name = "Goerli Testnet"
+router = "0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45"
+quoter = "0x61fFE014bA17989E743c5F6cB21bF9697530B21e"
+factory = "0x1F98431c8aD98523631AE4a59f267346ea31F984"
+weth = "0xB4FBF271143F4FBf7B91A5ded31805e42b2208d6"
+explorer_url = "https://goerli.etherscan.io"
+native_token = "ETH"
+is_testnet = true

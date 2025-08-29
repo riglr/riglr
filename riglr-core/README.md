@@ -5,6 +5,51 @@ The foundational crate for the riglr ecosystem, providing core abstractions for 
 [![Crates.io](https://img.shields.io/crates/v/riglr-core.svg)](https://crates.io/crates/riglr-core)
 [![Documentation](https://docs.rs/riglr-core/badge.svg)](https://docs.rs/riglr-core)
 
+## 🔒 Production Security Notice
+
+**⚠️ CRITICAL: The file-based key management utilities in riglr-core are for DEVELOPMENT ONLY.**
+
+### For Production Applications, Use Secure Key Management:
+
+#### Option 1: Operating System Keychains (Recommended for desktop apps)
+```toml
+[dependencies]
+keyring = "2.0"
+```
+
+```rust
+use keyring::Entry;
+
+// One-time key storage
+let entry = Entry::new("riglr", "solana_private_key")?;
+entry.set_password("your_private_key_here")?;
+
+// Runtime key retrieval
+let private_key = entry.get_password()?;
+```
+
+#### Option 2: Cloud Secret Managers (Recommended for cloud deployments)
+- **AWS Secrets Manager**: Managed secrets with automatic rotation
+- **Google Cloud Secret Manager**: Secure secret storage with IAM integration  
+- **Azure Key Vault**: Enterprise key management with audit trails
+- **HashiCorp Vault**: Open-source secret management platform
+
+#### Option 3: Hardware Security Modules (Enterprise)
+- **AWS CloudHSM**: FIPS 140-2 Level 3 validated HSMs
+- **YubiHSM**: Compact hardware security modules
+- **Ledger/Trezor**: Hardware wallet integration
+
+### Security Principles:
+- 🔑 **Never store private keys in code or configuration files**
+- 🔒 **Use encrypted storage with access controls**
+- 📋 **Implement audit logging for key access**
+- 🔄 **Enable automatic key rotation where possible**
+- 🌐 **Isolate production and development key storage**
+
+See [`riglr-core::util::secure_keys`] for detailed guidance and examples.
+
+---
+
 ## Architecture Overview
 
 riglr-core provides the foundation for building resilient AI agents with clean dependency injection and no circular dependencies. The architecture enforces a unidirectional flow: `tools` -> `core`.

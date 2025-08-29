@@ -3,9 +3,9 @@
 //! This module provides a centralized retry mechanism with exponential backoff,
 //! jitter, and error classification for any async operation.
 
+use backoff::{backoff::Backoff, ExponentialBackoff, ExponentialBackoffBuilder};
 use std::future::Future;
 use std::time::Duration;
-use tokio::time::sleep;
 use tracing::{debug, warn};
 
 /// Configuration for retry behavior
@@ -70,24 +70,22 @@ pub enum ErrorClass {
     RateLimited,
 }
 
-/// Calculate delay for retry with exponential backoff and optional jitter
-fn calculate_retry_delay(attempt: u32, config: &RetryConfig) -> Duration {
-    let base_delay = config.base_delay_ms as f64;
-    let backoff_factor = config.backoff_multiplier.powf(attempt as f64);
-    let mut delay_ms = base_delay * backoff_factor;
+/// Create a backoff instance from our config
+fn create_backoff(config: &RetryConfig) -> ExponentialBackoff {
+    let mut builder = ExponentialBackoffBuilder::new();
+    builder.with_initial_interval(Duration::from_millis(config.base_delay_ms));
+    builder.with_max_interval(Duration::from_millis(config.max_delay_ms));
+    builder.with_multiplier(config.backoff_multiplier);
+    builder.with_max_elapsed_time(None); // We handle max retries manually
 
-    // Cap at max delay
-    delay_ms = delay_ms.min(config.max_delay_ms as f64);
-
-    // Add jitter if enabled (±25% randomization)
-    if config.use_jitter {
-        use rand::Rng;
-        let mut rng = rand::rng();
-        let jitter_factor = rng.random_range(0.75..=1.25);
-        delay_ms *= jitter_factor;
+    if !config.use_jitter {
+        builder.with_randomization_factor(0.0);
+    } else {
+        // Default randomization factor is 0.5 (±50%)
+        builder.with_randomization_factor(0.25);
     }
 
-    Duration::from_millis(delay_ms as u64)
+    builder.build()
 }
 
 /// Execute an async operation with retry logic
@@ -147,7 +145,7 @@ pub async fn retry_async<F, Fut, T, E, C>(
 where
     F: FnMut() -> Fut,
     Fut: Future<Output = Result<T, E>>,
-    E: std::fmt::Display,
+    E: std::fmt::Display + Clone,
     C: Fn(&E) -> ErrorClass,
 {
     debug!(
@@ -155,18 +153,19 @@ where
         operation_name, config.max_retries, config.base_delay_ms
     );
 
-    let mut last_error: Option<E> = None;
+    let mut backoff = create_backoff(config);
+    let mut attempts = 0u32;
 
-    for attempt in 0..=config.max_retries {
-        debug!("Attempt {} for '{}'", attempt + 1, operation_name);
+    loop {
+        attempts += 1;
+        debug!("Attempt {} for '{}'", attempts, operation_name);
 
         match operation().await {
             Ok(result) => {
-                if attempt > 0 {
+                if attempts > 1 {
                     debug!(
                         "Operation '{}' succeeded after {} attempts",
-                        operation_name,
-                        attempt + 1
+                        operation_name, attempts
                     );
                 }
                 return Ok(result);
@@ -176,10 +175,7 @@ where
 
                 warn!(
                     "Operation '{}' failed (attempt {}): {} (class: {:?})",
-                    operation_name,
-                    attempt + 1,
-                    error,
-                    error_class
+                    operation_name, attempts, error, error_class
                 );
 
                 // Check if we should retry
@@ -189,32 +185,35 @@ where
                         return Err(error);
                     }
                     ErrorClass::Retryable | ErrorClass::RateLimited => {
-                        if attempt < config.max_retries {
-                            let mut delay = calculate_retry_delay(attempt, config);
-
-                            // For rate-limited errors, use a longer delay
-                            if error_class == ErrorClass::RateLimited {
-                                delay *= 2;
-                            }
-
-                            debug!("Retrying '{}' after {:?}", operation_name, delay);
-                            sleep(delay).await;
+                        if attempts > config.max_retries {
+                            warn!(
+                                "Operation '{}' failed after {} attempts",
+                                operation_name, attempts
+                            );
+                            return Err(error);
                         }
-                        last_error = Some(error);
+
+                        // Get next backoff duration
+                        let delay = if let Some(duration) = backoff.next_backoff() {
+                            // For rate-limited errors, double the delay
+                            if error_class == ErrorClass::RateLimited {
+                                duration * 2
+                            } else {
+                                duration
+                            }
+                        } else {
+                            // Backoff exhausted (shouldn't happen with our config)
+                            warn!("Backoff exhausted for '{}'", operation_name);
+                            return Err(error);
+                        };
+
+                        debug!("Retrying '{}' after {:?}", operation_name, delay);
+                        tokio::time::sleep(delay).await;
                     }
                 }
             }
         }
     }
-
-    // All retries exhausted
-    warn!(
-        "Operation '{}' failed after {} attempts",
-        operation_name,
-        config.max_retries + 1
-    );
-
-    Err(last_error.expect("Should have an error after failed retries"))
 }
 
 /// Simplified retry for operations that return std::result::Result
@@ -340,7 +339,8 @@ mod tests {
     }
 
     #[test]
-    fn test_calculate_retry_delay_exponential() {
+    fn test_create_backoff_config() {
+        // Test that create_backoff produces correct ExponentialBackoff from our config
         let config = RetryConfig {
             max_retries: 5,
             base_delay_ms: 100,
@@ -349,27 +349,25 @@ mod tests {
             use_jitter: false,
         };
 
-        let delay0 = calculate_retry_delay(0, &config);
-        let delay1 = calculate_retry_delay(1, &config);
-        let delay2 = calculate_retry_delay(2, &config);
-
-        assert_eq!(delay0.as_millis(), 100);
-        assert_eq!(delay1.as_millis(), 200);
-        assert_eq!(delay2.as_millis(), 400);
+        let backoff = create_backoff(&config);
+        assert_eq!(backoff.initial_interval, Duration::from_millis(100));
+        assert_eq!(backoff.max_interval, Duration::from_millis(10_000));
+        assert_eq!(backoff.multiplier, 2.0);
+        assert_eq!(backoff.randomization_factor, 0.0); // No jitter
     }
 
     #[test]
-    fn test_calculate_retry_delay_max_cap() {
+    fn test_create_backoff_with_jitter() {
         let config = RetryConfig {
-            max_retries: 10,
-            base_delay_ms: 1000,
-            max_delay_ms: 5000,
+            max_retries: 5,
+            base_delay_ms: 100,
+            max_delay_ms: 10_000,
             backoff_multiplier: 2.0,
-            use_jitter: false,
+            use_jitter: true,
         };
 
-        let delay10 = calculate_retry_delay(10, &config);
-        assert_eq!(delay10.as_millis(), 5000); // Should be capped at max
+        let backoff = create_backoff(&config);
+        assert_eq!(backoff.randomization_factor, 0.25); // 25% jitter
     }
 
     #[test]

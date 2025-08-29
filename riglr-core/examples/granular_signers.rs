@@ -47,8 +47,8 @@ async fn evm_specific_tool() -> Result<String, ToolError> {
 /// Example of using the new unified signer context with configuration
 async fn demonstrate_unified_context() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // Load configuration from environment (or use builder for testing)
-    let config = Config::try_global().unwrap_or_else(|| {
-        // If no global config, create a test config
+    let config = Config::try_from_env().unwrap_or_else(|_| {
+        // If no environment config, create a test config
         Arc::new(Config::builder().build().expect("Failed to build config"))
     });
 

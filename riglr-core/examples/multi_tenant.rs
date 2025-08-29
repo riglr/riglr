@@ -4,6 +4,7 @@
 //! can use the same tools safely without any risk of signer leakage between requests.
 
 use async_trait::async_trait;
+use riglr_config::Config;
 use riglr_core::{
     idempotency::InMemoryIdempotencyStore,
     provider::ApplicationContext,
@@ -183,9 +184,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     println!("=== riglr-core Multi-Tenant Example ===\n");
 
     // Create a shared worker
-    let config = ExecutionConfig::default();
-    let app_context = ApplicationContext::from_env();
-    let worker = ToolWorker::<InMemoryIdempotencyStore>::new(config, app_context);
+    let exec_config = ExecutionConfig::default();
+    let config = Config::from_env();
+    let app_context = ApplicationContext::from_config(&config);
+    let worker = ToolWorker::<InMemoryIdempotencyStore>::new(exec_config, app_context);
     worker.register_tool(Arc::new(WalletTool)).await;
 
     println!("✅ Created shared worker (serves all tenants)\n");

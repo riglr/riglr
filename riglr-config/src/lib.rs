@@ -30,31 +30,32 @@
 //! ```
 
 mod app;
+mod builder;
 mod database;
 mod environment;
 mod error;
 mod features;
 mod network;
 mod providers;
-mod validation;
 
-pub use app::{AppConfig, Environment, RetryConfig};
+pub use app::{AppConfig, Environment, LogLevel, RetryConfig};
+pub use builder::ConfigBuilder;
 pub use database::DatabaseConfig;
 pub use environment::EnvironmentSource;
 pub use error::{ConfigError, ConfigResult};
 pub use features::{Feature, FeaturesConfig};
 pub use network::{
-    ChainConfig, ChainContract, EvmNetworkConfig, NetworkConfig, SolanaNetworkConfig,
+    AddressValidator, ChainConfig, ChainContract, EvmNetworkConfig, NetworkConfig,
+    SolanaNetworkConfig,
 };
 pub use providers::{AiProvider, BlockchainProvider, DataProvider, ProvidersConfig};
-pub use validation::Validator;
+// Validator trait removed - configs now directly implement validate_config()
 
-use once_cell::sync::OnceCell;
+#[cfg(test)]
+pub mod test_helpers;
+
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-
-/// Global configuration instance
-static CONFIG: OnceCell<Arc<Config>> = OnceCell::new();
 
 /// Main configuration structure that aggregates all subsystems
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -89,7 +90,6 @@ impl Config {
     /// 3. Apply convention-based patterns (RPC_URL_{CHAIN_ID})
     /// 4. Load chains.toml if specified
     /// 5. Validate all configuration
-    /// 6. Store globally for access via Config::global()
     ///
     /// Returns a Result instead of exiting on failure, making it suitable
     /// for library usage and programmatic configuration building.
@@ -114,11 +114,7 @@ impl Config {
 
         tracing::info!("✅ Configuration loaded and validated successfully");
 
-        // Store globally
-        let arc_config = Arc::new(config);
-        CONFIG.set(arc_config.clone()).ok();
-
-        Ok(arc_config)
+        Ok(Arc::new(config))
     }
 
     /// Load configuration from environment variables (fail-fast)
@@ -129,7 +125,6 @@ impl Config {
     /// 3. Apply convention-based patterns (RPC_URL_{CHAIN_ID})
     /// 4. Load chains.toml if specified
     /// 5. Validate all configuration
-    /// 6. Store globally for access via Config::global()
     ///
     /// This is a wrapper around `try_from_env()` that exits the process
     /// on failure, suitable for application main binaries.
@@ -145,26 +140,11 @@ impl Config {
         }
     }
 
-    /// Get the global configuration instance
-    ///
-    /// Panics if configuration hasn't been loaded via from_env()
-    pub fn global() -> Arc<Self> {
-        CONFIG
-            .get()
-            .expect("Configuration not initialized. Call Config::from_env() first")
-            .clone()
-    }
-
-    /// Try to get the global configuration instance
-    pub fn try_global() -> Option<Arc<Self>> {
-        CONFIG.get().cloned()
-    }
-
     /// Validate the entire configuration
     pub fn validate_config(&self) -> ConfigResult<()> {
         self.app.validate_config()?;
         self.database.validate_config()?;
-        self.network.validate_config()?;
+        self.network.validate_config(None)?;
         self.providers.validate_config()?;
         self.features.validate_config()?;
 
@@ -192,7 +172,9 @@ impl Config {
 
             // Ensure critical features are configured
             if self.features.enable_trading && self.providers.alchemy_api_key.is_none() {
-                tracing::warn!("Trading enabled in production without Alchemy API key");
+                return Err(ConfigError::validation(
+                    "Trading is enabled in production, but ALCHEMY_API_KEY is not set",
+                ));
             }
         }
 
@@ -200,6 +182,12 @@ impl Config {
         if self.features.enable_graph_memory && self.database.neo4j_url.is_none() {
             return Err(ConfigError::validation(
                 "Graph memory feature requires NEO4J_URL to be configured",
+            ));
+        }
+
+        if self.features.enable_bridging && self.providers.lifi_api_key.is_none() {
+            return Err(ConfigError::validation(
+                "Bridging feature requires LIFI_API_KEY to be configured",
             ));
         }
 
@@ -212,76 +200,16 @@ impl Config {
 
     /// Create a builder for constructing configuration programmatically
     pub fn builder() -> ConfigBuilder {
-        ConfigBuilder::default()
-    }
-}
-
-/// Builder for constructing configuration programmatically
-#[derive(Default)]
-pub struct ConfigBuilder {
-    app: AppConfig,
-    database: DatabaseConfig,
-    network: NetworkConfig,
-    providers: ProvidersConfig,
-    features: FeaturesConfig,
-}
-
-impl ConfigBuilder {
-    /// Create a new configuration builder with defaults
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    /// Set application configuration
-    pub fn app(mut self, config: AppConfig) -> Self {
-        self.app = config;
-        self
-    }
-
-    /// Set database configuration
-    pub fn database(mut self, config: DatabaseConfig) -> Self {
-        self.database = config;
-        self
-    }
-
-    /// Set network configuration
-    pub fn network(mut self, config: NetworkConfig) -> Self {
-        self.network = config;
-        self
-    }
-
-    /// Set providers configuration
-    pub fn providers(mut self, config: ProvidersConfig) -> Self {
-        self.providers = config;
-        self
-    }
-
-    /// Set features configuration
-    pub fn features(mut self, config: FeaturesConfig) -> Self {
-        self.features = config;
-        self
-    }
-
-    /// Build the configuration
-    pub fn build(self) -> ConfigResult<Config> {
-        let config = Config {
-            app: self.app,
-            database: self.database,
-            network: self.network,
-            providers: self.providers,
-            features: self.features,
-        };
-
-        config.validate_config()?;
-        Ok(config)
+        ConfigBuilder::new()
     }
 }
 
 /// Re-export commonly used types
 pub mod prelude {
     pub use crate::{
-        AppConfig, ChainConfig, Config, ConfigBuilder, ConfigError, ConfigResult, DatabaseConfig,
-        Environment, Feature, FeaturesConfig, NetworkConfig, ProvidersConfig, RetryConfig,
+        AddressValidator, AppConfig, ChainConfig, Config, ConfigBuilder, ConfigError, ConfigResult,
+        DatabaseConfig, Environment, Feature, FeaturesConfig, NetworkConfig, ProvidersConfig,
+        RetryConfig,
     };
 }
 
@@ -290,12 +218,17 @@ mod tests {
     use super::*;
 
     fn create_test_config() -> Config {
+        let mut features = FeaturesConfig::default();
+        // Disable features that require external dependencies for basic tests
+        features.enable_bridging = false; // Requires lifi_api_key
+        features.enable_graph_memory = false; // Requires neo4j_url
+
         Config {
             app: AppConfig::default(),
             database: DatabaseConfig::default(),
             network: NetworkConfig::default(),
             providers: ProvidersConfig::default(),
-            features: FeaturesConfig::default(),
+            features,
         }
     }
 
@@ -303,19 +236,6 @@ mod tests {
         let mut config = create_test_config();
         config.app.environment = Environment::Production;
         config
-    }
-
-    #[test]
-    fn test_config_try_global_when_not_initialized_should_return_none() {
-        // This test assumes CONFIG might not be initialized in this context
-        // In practice, try_global returns None when CONFIG is not set
-        let result = Config::try_global();
-        // This might return Some if global config was set by other tests
-        // So we'll just verify the function doesn't panic
-        match result {
-            Some(_) => { /* Config is initialized - test passes */ }
-            None => { /* Config is not initialized - test passes */ }
-        }
     }
 
     #[test]
@@ -367,14 +287,29 @@ mod tests {
     }
 
     #[test]
-    fn test_config_validate_cross_dependencies_when_production_trading_without_alchemy_should_warn()
-    {
+    fn test_prod_config_missing_alchemy_key_fails() {
         let mut config = create_production_config();
         config.features.enable_trading = true;
         config.providers.alchemy_api_key = None;
         config.database.redis_url = "redis://production-redis.example.com:6379".to_string(); // Avoid localhost validation error
 
-        // This should succeed but log a warning
+        // This should now fail in production
+        let result = config.validate_cross_dependencies();
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Trading is enabled in production, but ALCHEMY_API_KEY is not set"));
+    }
+
+    #[test]
+    fn test_dev_config_missing_alchemy_key_succeeds() {
+        let mut config = create_test_config();
+        config.app.environment = Environment::Development;
+        config.features.enable_trading = true;
+        config.providers.alchemy_api_key = None;
+
+        // This should succeed in development (no error)
         let result = config.validate_cross_dependencies();
         assert!(result.is_ok());
     }
@@ -396,64 +331,16 @@ mod tests {
         let mut config = create_production_config();
         config.database.redis_url = "redis://production-server:6379".to_string();
         config.app.use_testnet = false;
+        // Either provide an Alchemy key or disable trading for production validation
+        config.providers.alchemy_api_key = Some("test-alchemy-key".to_string());
 
         let result = config.validate_cross_dependencies();
-        assert!(result.is_ok());
-    }
-
-    #[test]
-    fn test_config_builder_new_should_create_default() {
-        let builder = ConfigBuilder::default();
-        assert_eq!(builder.app.environment, Environment::Development);
-    }
-
-    #[test]
-    fn test_config_builder_app_should_set_app_config() {
-        let app_config = AppConfig::default();
-        let builder = ConfigBuilder::default().app(app_config.clone());
-        assert_eq!(builder.app.environment, app_config.environment);
-    }
-
-    #[test]
-    fn test_config_builder_database_should_set_database_config() {
-        let database_config = DatabaseConfig::default();
-        let builder = ConfigBuilder::default().database(database_config.clone());
-        assert_eq!(builder.database.redis_url, database_config.redis_url);
-    }
-
-    #[test]
-    fn test_config_builder_network_should_set_network_config() {
-        let network_config = NetworkConfig::default();
-        let builder = ConfigBuilder::default().network(network_config.clone());
-        assert_eq!(
-            builder.network.default_chain_id,
-            network_config.default_chain_id
-        );
-    }
-
-    #[test]
-    fn test_config_builder_providers_should_set_providers_config() {
-        let providers_config = ProvidersConfig::default();
-        let builder = ConfigBuilder::default().providers(providers_config.clone());
-        assert_eq!(
-            builder.providers.alchemy_api_key,
-            providers_config.alchemy_api_key
-        );
-    }
-
-    #[test]
-    fn test_config_builder_features_should_set_features_config() {
-        let features_config = FeaturesConfig::default();
-        let builder = ConfigBuilder::default().features(features_config.clone());
-        assert_eq!(
-            builder.features.enable_trading,
-            features_config.enable_trading
-        );
+        assert!(result.is_ok(), "Validation failed: {:?}", result);
     }
 
     #[test]
     fn test_config_builder_build_when_valid_should_return_ok() {
-        let result = ConfigBuilder::default().build();
+        let result = ConfigBuilder::new().build();
         assert!(result.is_ok());
     }
 
@@ -465,7 +352,7 @@ mod tests {
         let mut database_config = DatabaseConfig::default();
         database_config.redis_url = "redis://localhost:6379".to_string();
 
-        let result = ConfigBuilder::default()
+        let result = ConfigBuilder::new()
             .app(app_config)
             .database(database_config)
             .build();
@@ -481,7 +368,7 @@ mod tests {
         let providers_config = ProvidersConfig::default();
         let features_config = FeaturesConfig::default();
 
-        let result = ConfigBuilder::default()
+        let result = ConfigBuilder::new()
             .app(app_config)
             .database(database_config)
             .network(network_config)
@@ -494,15 +381,15 @@ mod tests {
 
     #[test]
     fn test_config_builder_default_should_create_valid_builder() {
-        let builder = ConfigBuilder::default();
+        let builder = ConfigBuilder::new();
         let result = builder.build();
         assert!(result.is_ok());
     }
 
     #[test]
     fn test_config_builder_should_create_same_as_new() {
-        let builder1 = ConfigBuilder::default();
-        let builder2 = ConfigBuilder::default();
+        let builder1 = ConfigBuilder::new();
+        let builder2 = ConfigBuilder::new();
 
         let config1 = builder1.build().unwrap();
         let config2 = builder2.build().unwrap();
@@ -561,11 +448,69 @@ mod tests {
         let mut database_config = DatabaseConfig::default();
         database_config.neo4j_url = None; // This should cause validation to fail
 
-        let result = ConfigBuilder::default()
+        let result = ConfigBuilder::new()
             .features(features_config)
             .database(database_config)
             .build();
 
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_config_validate_cross_dependencies_when_bridging_without_lifi_key_should_return_err() {
+        let mut config = create_test_config();
+        config.features.enable_bridging = true;
+        config.providers.lifi_api_key = None;
+
+        let result = config.validate_cross_dependencies();
+        assert!(result.is_err());
+        if let Err(e) = result {
+            assert!(e.to_string().contains("LIFI_API_KEY"));
+        }
+    }
+
+    #[test]
+    fn test_config_validate_cross_dependencies_when_bridging_with_lifi_key_should_return_ok() {
+        let mut config = create_test_config();
+        config.features.enable_bridging = true;
+        config.providers.lifi_api_key = Some("test-lifi-key".to_string());
+
+        let result = config.validate_cross_dependencies();
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_config_validate_cross_dependencies_when_social_monitoring_without_twitter_token_should_return_ok(
+    ) {
+        let mut config = create_test_config();
+        config.features.enable_social_monitoring = true;
+        config.providers.twitter_bearer_token = None;
+
+        // Should return Ok but log a warning (warning is not testable here)
+        let result = config.validate_cross_dependencies();
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_config_validate_cross_dependencies_when_social_monitoring_with_twitter_token_should_return_ok(
+    ) {
+        let mut config = create_test_config();
+        config.features.enable_social_monitoring = true;
+        config.providers.twitter_bearer_token = Some("test-twitter-token".to_string());
+
+        let result = config.validate_cross_dependencies();
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_config_validate_cross_dependencies_when_bridging_disabled_without_lifi_key_should_return_ok(
+    ) {
+        let mut config = create_test_config();
+        config.features.enable_bridging = false;
+        config.providers.lifi_api_key = None;
+
+        // Bridging is disabled, so missing key should be OK
+        let result = config.validate_cross_dependencies();
+        assert!(result.is_ok());
     }
 }

@@ -65,8 +65,8 @@ fn handle_signer_error(error: &SignerError) -> (String, bool, bool) {
     match error {
         SignerError::SolanaTransaction(arc_error) => {
             let error_message = arc_error.to_string();
-            let is_retryable = classify_error_for_retry(&**arc_error);
-            let is_rate_limited = classify_error_for_rate_limit(&**arc_error);
+            let is_retryable = classify_error_for_retry(&*arc_error);
+            let is_rate_limited = classify_error_for_rate_limit(&*arc_error);
             (error_message, is_retryable, is_rate_limited)
         }
         SignerError::NoSignerContext => ("No signer context".to_string(), false, false),
@@ -81,7 +81,7 @@ fn handle_signer_error(error: &SignerError) -> (String, bool, bool) {
 
 /// Helper function to classify if error is retryable (simulates riglr-solana-tools logic)
 fn classify_error_for_retry(error: &ClientError) -> bool {
-    match &error.kind {
+    match &*error.kind {
         ClientErrorKind::Io(_) => true,
         ClientErrorKind::RpcError(rpc_error) => match rpc_error {
             RpcError::RpcResponseError { code: 429, .. } => true,
@@ -98,7 +98,7 @@ fn classify_error_for_retry(error: &ClientError) -> bool {
 
 /// Helper function to classify if error is rate limited
 fn classify_error_for_rate_limit(error: &ClientError) -> bool {
-    match &error.kind {
+    match &*error.kind {
         ClientErrorKind::RpcError(rpc_error) => match rpc_error {
             RpcError::RpcResponseError { code: 429, .. } => true,
             RpcError::RpcRequestError(msg) => {
@@ -242,7 +242,7 @@ fn test_error_serialization_compatibility() {
 
         // Test that we can access structured data
         assert_eq!(arc_error.request, Some(RpcRequest::GetAccountInfo));
-        if let ClientErrorKind::Custom(msg) = &arc_error.kind {
+        if let ClientErrorKind::Custom(msg) = &*arc_error.kind {
             assert_eq!(msg, "Serialization test");
         }
 
@@ -337,7 +337,7 @@ fn extract_error_context(error: &SignerError) -> ErrorContext {
                 None => "Unknown".to_string(),
             };
 
-            let (error_code, error_message) = match &arc_error.kind {
+            let (error_code, error_message) = match &*arc_error.kind {
                 ClientErrorKind::RpcError(RpcError::RpcResponseError { code, message, .. }) => {
                     (Some(*code), message.clone())
                 }
