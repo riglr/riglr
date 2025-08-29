@@ -42,15 +42,14 @@
 //! Orchestrates tool execution with proper error handling and ApplicationContext:
 //!
 //! ```ignore
-//! use riglr_core::{ToolWorker, ExecutionConfig, provider::{ApplicationContext, RpcProvider}};
+//! use riglr_core::{ToolWorker, ExecutionConfig, provider::ApplicationContext};
 //! use riglr_core::idempotency::InMemoryIdempotencyStore;
 //! use riglr_config::Config;
 //! use std::sync::Arc;
 //!
 //! # async fn example() -> Result<(), Box<dyn std::error::Error>> {
 //! let config = Config::from_env();
-//! let rpc_provider = Arc::new(RpcProvider::new());
-//! let context = ApplicationContext::new(rpc_provider, config);
+//! let context = ApplicationContext::from_config(&config);
 //!
 //! let worker = ToolWorker::<InMemoryIdempotencyStore>::new(
 //!     ExecutionConfig::default(),
@@ -81,7 +80,7 @@
 //!
 //! - **[`SignerContext`]** - Thread-safe signer management for transactional operations
 //! - **[`UnifiedSigner`]** - Trait for blockchain transaction signing across chains
-//! - **[`RpcProvider`]** - Read-only blockchain operations provider (no signing required)
+//! - **[`ApplicationContext`]** - Dependency injection container with RPC client extensions
 //! - **[`ToolWorker`]** - Resilient tool execution engine with retry logic and timeouts
 //! - **[`JobQueue`]** - Distributed job processing with Redis backend
 //! - **[`Tool`]** - Core trait for defining executable tools with error handling
@@ -93,7 +92,7 @@
 //!
 //! ```ignore
 //! use riglr_core::{ToolWorker, ExecutionConfig, Job, JobResult, ToolError};
-//! use riglr_core::{idempotency::InMemoryIdempotencyStore, provider::{ApplicationContext, RpcProvider}};
+//! use riglr_core::{idempotency::InMemoryIdempotencyStore, provider::ApplicationContext};
 //! use riglr_macros::tool;
 //! use riglr_config::Config;
 //! use std::sync::Arc;
@@ -114,8 +113,7 @@
 //! # async fn example() -> anyhow::Result<()> {
 //! // Set up ApplicationContext
 //! let config = Config::from_env();
-//! let rpc_provider = Arc::new(RpcProvider::new());
-//! let context = ApplicationContext::new(rpc_provider, config);
+//! let context = ApplicationContext::from_config(&config);
 //!
 //! // Set up worker with context
 //! let worker = ToolWorker::<InMemoryIdempotencyStore>::new(
@@ -217,15 +215,27 @@
 //! - Using structured logging with correlation IDs for debugging
 //! - Setting up dead letter queues for failed job analysis
 
+/// Error types and handling for riglr-core operations.
 pub mod error;
+/// Idempotency store implementations for ensuring operation uniqueness.
 pub mod idempotency;
+/// Job definition and processing structures.
 pub mod jobs;
+/// Application context and RPC provider infrastructure.
 pub mod provider;
+/// Queue implementations for distributed job processing.
 pub mod queue;
+/// Retry logic with exponential backoff for resilient operations.
 pub mod retry;
+/// Thread-safe signer context and transaction signing abstractions.
 pub mod signer;
+/// Task spawning utilities that preserve signer context across async boundaries.
+pub mod spawn;
+/// Core tool trait and execution infrastructure.
 pub mod tool;
+/// Cross-chain transaction building and signing utilities.
 pub mod transactions;
+/// Internal utility functions and helpers.
 pub mod util;
 
 // Re-export configuration types from riglr-config
@@ -322,10 +332,7 @@ mod tests {
     async fn test_tool_worker_creation() {
         let _worker = ToolWorker::<InMemoryIdempotencyStore>::new(
             ExecutionConfig::default(),
-            provider::ApplicationContext::new(
-                Arc::new(provider::RpcProvider::new()),
-                riglr_config::Config::from_env(),
-            ),
+            provider::ApplicationContext::default(),
         );
 
         // Verify worker was created successfully - creation itself is the test
@@ -335,10 +342,7 @@ mod tests {
     async fn test_tool_registration_and_execution() -> anyhow::Result<()> {
         let worker = ToolWorker::<InMemoryIdempotencyStore>::new(
             ExecutionConfig::default(),
-            provider::ApplicationContext::new(
-                Arc::new(provider::RpcProvider::new()),
-                riglr_config::Config::from_env(),
-            ),
+            provider::ApplicationContext::default(),
         );
 
         let tool = Arc::new(MockTool {
@@ -371,10 +375,7 @@ mod tests {
     async fn test_tool_error_handling() -> anyhow::Result<()> {
         let worker = ToolWorker::<InMemoryIdempotencyStore>::new(
             ExecutionConfig::default(),
-            provider::ApplicationContext::new(
-                Arc::new(provider::RpcProvider::new()),
-                riglr_config::Config::from_env(),
-            ),
+            provider::ApplicationContext::default(),
         );
 
         let tool = Arc::new(MockTool {
@@ -659,10 +660,7 @@ mod tests {
     async fn test_tool_worker_with_non_existent_tool() -> anyhow::Result<()> {
         let worker = ToolWorker::<InMemoryIdempotencyStore>::new(
             ExecutionConfig::default(),
-            provider::ApplicationContext::new(
-                Arc::new(provider::RpcProvider::new()),
-                riglr_config::Config::from_env(),
-            ),
+            provider::ApplicationContext::default(),
         );
 
         let job = Job::new(
@@ -726,10 +724,7 @@ mod tests {
             should_fail: false,
         };
 
-        let context = provider::ApplicationContext::new(
-            Arc::new(provider::RpcProvider::new()),
-            riglr_config::Config::from_env(),
-        );
+        let context = provider::ApplicationContext::default();
         let result = tool.execute(serde_json::json!({}), &context).await.unwrap();
 
         match result {
@@ -758,10 +753,7 @@ mod tests {
     async fn test_worker_multiple_tool_registration() -> anyhow::Result<()> {
         let worker = ToolWorker::<InMemoryIdempotencyStore>::new(
             ExecutionConfig::default(),
-            provider::ApplicationContext::new(
-                Arc::new(provider::RpcProvider::new()),
-                riglr_config::Config::from_env(),
-            ),
+            provider::ApplicationContext::default(),
         );
 
         let tool1 = Arc::new(MockTool {

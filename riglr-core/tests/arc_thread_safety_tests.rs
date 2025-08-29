@@ -139,7 +139,7 @@ fn test_arc_sharing_across_threads() {
                         }
                         1 => {
                             // Pattern matching access
-                            match &arc_clone.kind {
+                            match &*arc_clone.kind {
                                 ClientErrorKind::RpcError(RpcError::RpcResponseError {
                                     code,
                                     ..
@@ -255,7 +255,7 @@ enum ErrorType {
 }
 
 fn classify_error_type(error: &ClientError) -> ErrorType {
-    match &error.kind {
+    match &*error.kind {
         ClientErrorKind::Io(_) => ErrorType::Retryable,
         ClientErrorKind::Custom(msg) if msg.contains("InsufficientFunds") => ErrorType::Permanent,
         ClientErrorKind::RpcError(RpcError::RpcResponseError { code: 429, .. }) => {
@@ -290,7 +290,7 @@ fn test_high_concurrency() {
                         SignerError::SolanaTransaction(arc_error) => {
                             // Simulate realistic error handling operations
                             let _message = arc_error.to_string();
-                            let _is_io_error = matches!(arc_error.kind, ClientErrorKind::Io(_));
+                            let _is_io_error = matches!(*arc_error.kind, ClientErrorKind::Io(_));
                             let _request_type = arc_error.request;
 
                             // Verify content integrity

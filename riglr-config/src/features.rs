@@ -11,7 +11,7 @@ pub struct FeaturesConfig {
     pub enable_trading: bool,
 
     /// Enable cross-chain bridging
-    #[serde(default = "default_true")]
+    #[serde(default)]
     pub enable_bridging: bool,
 
     /// Enable social media monitoring
@@ -156,7 +156,7 @@ impl Default for FeaturesConfig {
     fn default() -> Self {
         Self {
             enable_trading: true,
-            enable_bridging: true,
+            enable_bridging: false, // Disabled by default to avoid requiring LIFI_API_KEY
             enable_social_monitoring: false,
             enable_graph_memory: false,
             enable_streaming: true,
@@ -179,7 +179,7 @@ mod tests {
 
         // Test default values
         assert!(config.enable_trading);
-        assert!(config.enable_bridging);
+        assert!(!config.enable_bridging); // Disabled by default to avoid requiring LIFI_API_KEY
         assert!(!config.enable_social_monitoring);
         assert!(!config.enable_graph_memory);
         assert!(config.enable_streaming);
@@ -202,6 +202,9 @@ mod tests {
     #[test]
     fn test_is_enabled_when_bridging_should_return_correct_value() {
         let mut config = FeaturesConfig::default();
+        assert!(!config.is_enabled(Feature::Bridging)); // Default is false
+
+        config.enable_bridging = true;
         assert!(config.is_enabled(Feature::Bridging));
 
         config.enable_bridging = false;
@@ -592,7 +595,7 @@ mod tests {
         let config = config.unwrap();
         // Should use default values
         assert!(config.enable_trading);
-        assert!(config.enable_bridging);
+        assert!(!config.enable_bridging); // Disabled by default
         assert!(!config.enable_social_monitoring);
         assert!(config.enable_streaming);
     }

@@ -76,7 +76,7 @@ impl IdempotencyStore for InMemoryIdempotencyStore {
     async fn set(&self, key: &str, result: Arc<JobResult>, ttl: Duration) -> anyhow::Result<()> {
         let expires_at = SystemTime::now()
             .checked_add(ttl)
-            .unwrap_or(SystemTime::now() + Duration::from_secs(365 * 24 * 60 * 60 * 100)); // 100 years
+            .unwrap_or_else(|| SystemTime::now() + Duration::from_secs(365 * 24 * 60 * 60 * 100)); // 100 years
         self.store
             .insert(key.to_string(), IdempotencyEntry { result, expires_at });
         Ok(())
@@ -106,7 +106,8 @@ impl RedisIdempotencyStore {
         let client = redis::Client::open(redis_url)?;
         Ok(Self {
             client,
-            key_prefix: key_prefix.unwrap_or("riglr:idempotency:").to_string(),
+            key_prefix: key_prefix
+                .map_or_else(|| "riglr:idempotency:".to_string(), |s| s.to_string()),
         })
     }
 

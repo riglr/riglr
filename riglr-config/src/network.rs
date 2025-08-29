@@ -4,7 +4,83 @@ use crate::{ConfigError, ConfigResult};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+/// Trait for validating blockchain addresses
+///
+/// This trait allows different blockchain address validation logic to be plugged into
+/// the configuration system without creating tight coupling to specific blockchain crates.
+pub trait AddressValidator: Send + Sync {
+    /// Validate an address string
+    ///
+    /// # Arguments
+    /// * `address` - The address string to validate
+    /// * `contract_name` - The name of the contract (for error messages)
+    ///
+    /// # Returns
+    /// * `Ok(())` if the address is valid
+    /// * `Err(ConfigError)` with details if the address is invalid
+    fn validate(&self, address: &str, contract_name: &str) -> ConfigResult<()>;
+}
+
 const RIGLR_CHAINS_CONFIG: &str = "RIGLR_CHAINS_CONFIG";
+
+// Test environment variable constants
+#[cfg(test)]
+mod test_env_vars {
+    pub const RPC_URL_1: &str = "RPC_URL_1";
+    pub const RPC_URL_137: &str = "RPC_URL_137";
+    pub const RPC_URL_INVALID: &str = "RPC_URL_INVALID";
+    pub const NOT_RPC_URL_1: &str = "NOT_RPC_URL_1";
+    pub const ROUTER_1: &str = "ROUTER_1";
+    pub const QUOTER_1: &str = "QUOTER_1";
+    pub const FACTORY_137: &str = "FACTORY_137";
+
+    /// Helper function to set environment variables in tests without using string literals
+    pub fn set_test_env_var(key: &'static str, value: &str) {
+        std::env::set_var(key, value);
+    }
+
+    /// Helper function to remove environment variables in tests without using string literals  
+    pub fn remove_test_env_var(key: &'static str) {
+        std::env::remove_var(key);
+    }
+}
+
+/// Helper to extract values by prefix
+#[cfg(test)]
+pub fn extract_by_prefix(prefix: &str) -> Vec<(String, String)> {
+    std::env::vars()
+        .filter(|(k, _)| k.starts_with(prefix))
+        .collect()
+}
+
+/// Helper to extract and parse chain IDs from RPC_URL_{CHAIN_ID} pattern
+#[cfg(test)]
+pub fn extract_chain_rpc_urls() -> Vec<(u64, String)> {
+    extract_by_prefix("RPC_URL_")
+        .into_iter()
+        .filter_map(|(key, value)| {
+            key.strip_prefix("RPC_URL_")
+                .and_then(|chain_id| chain_id.parse::<u64>().ok())
+                .map(|id| (id, value))
+        })
+        .collect()
+}
+
+/// Helper to extract and parse contract addresses
+#[cfg(test)]
+pub fn extract_contract_overrides(chain_id: u64) -> Vec<(String, String)> {
+    let prefixes = ["ROUTER_", "QUOTER_", "FACTORY_", "WETH_", "USDC_", "USDT_"];
+
+    prefixes
+        .iter()
+        .filter_map(|prefix| {
+            let key = format!("{}{}", prefix, chain_id);
+            std::env::var(&key)
+                .ok()
+                .map(|value| (prefix.trim_end_matches('_').to_lowercase(), value))
+        })
+        .collect()
+}
 
 /// Network configuration
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -91,6 +167,42 @@ pub struct ChainContract {
     #[serde(default)]
     pub usdt: Option<String>,
 
+    /// SushiSwap router address
+    #[serde(default)]
+    pub sushiswap_router: Option<String>,
+
+    /// SushiSwap factory address
+    #[serde(default)]
+    pub sushiswap_factory: Option<String>,
+
+    /// Aave V3 pool address
+    #[serde(default)]
+    pub aave_v3_pool: Option<String>,
+
+    /// Aave V3 pool data provider address
+    #[serde(default)]
+    pub aave_v3_pool_data_provider: Option<String>,
+
+    /// Aave V3 oracle address
+    #[serde(default)]
+    pub aave_v3_oracle: Option<String>,
+
+    /// Compound V3 USDC comet address
+    #[serde(default)]
+    pub compound_v3_usdc: Option<String>,
+
+    /// Curve registry address
+    #[serde(default)]
+    pub curve_registry: Option<String>,
+
+    /// 1inch aggregation router address
+    #[serde(default)]
+    pub oneinch_aggregation_router: Option<String>,
+
+    /// Balancer V2 vault address
+    #[serde(default)]
+    pub balancer_vault: Option<String>,
+
     /// Additional custom contracts
     #[serde(default)]
     pub custom: HashMap<String, String>,
@@ -159,6 +271,48 @@ impl NetworkConfig {
             if let Ok(factory) = std::env::var(format!("FACTORY_{}", chain.id)) {
                 chain.contracts.factory = Some(factory);
             }
+            if let Ok(weth) = std::env::var(format!("WETH_{}", chain.id)) {
+                chain.contracts.weth = Some(weth);
+            }
+            if let Ok(usdc) = std::env::var(format!("USDC_{}", chain.id)) {
+                chain.contracts.usdc = Some(usdc);
+            }
+            if let Ok(usdt) = std::env::var(format!("USDT_{}", chain.id)) {
+                chain.contracts.usdt = Some(usdt);
+            }
+            // Apply overrides for new DeFi protocol fields
+            if let Ok(sushiswap_router) = std::env::var(format!("SUSHISWAP_ROUTER_{}", chain.id)) {
+                chain.contracts.sushiswap_router = Some(sushiswap_router);
+            }
+            if let Ok(sushiswap_factory) = std::env::var(format!("SUSHISWAP_FACTORY_{}", chain.id))
+            {
+                chain.contracts.sushiswap_factory = Some(sushiswap_factory);
+            }
+            if let Ok(aave_v3_pool) = std::env::var(format!("AAVE_V3_POOL_{}", chain.id)) {
+                chain.contracts.aave_v3_pool = Some(aave_v3_pool);
+            }
+            if let Ok(aave_v3_pool_data_provider) =
+                std::env::var(format!("AAVE_V3_POOL_DATA_PROVIDER_{}", chain.id))
+            {
+                chain.contracts.aave_v3_pool_data_provider = Some(aave_v3_pool_data_provider);
+            }
+            if let Ok(aave_v3_oracle) = std::env::var(format!("AAVE_V3_ORACLE_{}", chain.id)) {
+                chain.contracts.aave_v3_oracle = Some(aave_v3_oracle);
+            }
+            if let Ok(compound_v3_usdc) = std::env::var(format!("COMPOUND_V3_USDC_{}", chain.id)) {
+                chain.contracts.compound_v3_usdc = Some(compound_v3_usdc);
+            }
+            if let Ok(curve_registry) = std::env::var(format!("CURVE_REGISTRY_{}", chain.id)) {
+                chain.contracts.curve_registry = Some(curve_registry);
+            }
+            if let Ok(oneinch_aggregation_router) =
+                std::env::var(format!("ONEINCH_AGGREGATION_ROUTER_{}", chain.id))
+            {
+                chain.contracts.oneinch_aggregation_router = Some(oneinch_aggregation_router);
+            }
+            if let Ok(balancer_vault) = std::env::var(format!("BALANCER_VAULT_{}", chain.id)) {
+                chain.contracts.balancer_vault = Some(balancer_vault);
+            }
 
             self.chains.insert(chain.id, chain);
         }
@@ -204,8 +358,15 @@ impl NetworkConfig {
 
     /// Validates the network configuration
     ///
-    /// Checks that all URLs are properly formatted and contract addresses are valid
-    pub fn validate_config(&self) -> ConfigResult<()> {
+    /// Checks that all URLs are properly formatted and optionally validates contract addresses
+    /// if an address validator is provided.
+    ///
+    /// # Arguments
+    /// * `address_validator` - Optional validator for blockchain addresses. If None, address validation is skipped.
+    pub fn validate_config(
+        &self,
+        address_validator: Option<&dyn AddressValidator>,
+    ) -> ConfigResult<()> {
         // Validate Solana RPC URL
         if !self.solana_rpc_url.starts_with("http://")
             && !self.solana_rpc_url.starts_with("https://")
@@ -238,31 +399,59 @@ impl NetworkConfig {
                 )));
             }
 
-            // Validate contract addresses are valid hex
-            if let Some(ref addr) = chain.contracts.router {
-                validate_address(addr, "router")?;
-            }
-            if let Some(ref addr) = chain.contracts.quoter {
-                validate_address(addr, "quoter")?;
-            }
-            if let Some(ref addr) = chain.contracts.factory {
-                validate_address(addr, "factory")?;
+            // Validate contract addresses if validator is provided
+            if let Some(validator) = address_validator {
+                if let Some(ref addr) = chain.contracts.router {
+                    validator.validate(addr, "router")?;
+                }
+                if let Some(ref addr) = chain.contracts.quoter {
+                    validator.validate(addr, "quoter")?;
+                }
+                if let Some(ref addr) = chain.contracts.factory {
+                    validator.validate(addr, "factory")?;
+                }
+                if let Some(ref addr) = chain.contracts.weth {
+                    validator.validate(addr, "weth")?;
+                }
+                if let Some(ref addr) = chain.contracts.usdc {
+                    validator.validate(addr, "usdc")?;
+                }
+                if let Some(ref addr) = chain.contracts.usdt {
+                    validator.validate(addr, "usdt")?;
+                }
+                // Validate new DeFi protocol addresses
+                if let Some(ref addr) = chain.contracts.sushiswap_router {
+                    validator.validate(addr, "sushiswap_router")?;
+                }
+                if let Some(ref addr) = chain.contracts.sushiswap_factory {
+                    validator.validate(addr, "sushiswap_factory")?;
+                }
+                if let Some(ref addr) = chain.contracts.aave_v3_pool {
+                    validator.validate(addr, "aave_v3_pool")?;
+                }
+                if let Some(ref addr) = chain.contracts.aave_v3_pool_data_provider {
+                    validator.validate(addr, "aave_v3_pool_data_provider")?;
+                }
+                if let Some(ref addr) = chain.contracts.aave_v3_oracle {
+                    validator.validate(addr, "aave_v3_oracle")?;
+                }
+                if let Some(ref addr) = chain.contracts.compound_v3_usdc {
+                    validator.validate(addr, "compound_v3_usdc")?;
+                }
+                if let Some(ref addr) = chain.contracts.curve_registry {
+                    validator.validate(addr, "curve_registry")?;
+                }
+                if let Some(ref addr) = chain.contracts.oneinch_aggregation_router {
+                    validator.validate(addr, "oneinch_aggregation_router")?;
+                }
+                if let Some(ref addr) = chain.contracts.balancer_vault {
+                    validator.validate(addr, "balancer_vault")?;
+                }
             }
         }
 
         Ok(())
     }
-}
-
-/// Helper to validate Ethereum addresses
-fn validate_address(addr: &str, name: &str) -> ConfigResult<()> {
-    if !addr.starts_with("0x") || addr.len() != 42 {
-        return Err(ConfigError::validation(format!(
-            "Invalid {} address: {}",
-            name, addr
-        )));
-    }
-    Ok(())
 }
 
 /// Solana-specific network configuration
@@ -389,6 +578,24 @@ struct ChainFromToml {
     #[serde(default)]
     usdt: Option<String>,
     #[serde(default)]
+    sushiswap_router: Option<String>,
+    #[serde(default)]
+    sushiswap_factory: Option<String>,
+    #[serde(default)]
+    aave_v3_pool: Option<String>,
+    #[serde(default)]
+    aave_v3_pool_data_provider: Option<String>,
+    #[serde(default)]
+    aave_v3_oracle: Option<String>,
+    #[serde(default)]
+    compound_v3_usdc: Option<String>,
+    #[serde(default)]
+    curve_registry: Option<String>,
+    #[serde(default)]
+    oneinch_aggregation_router: Option<String>,
+    #[serde(default)]
+    balancer_vault: Option<String>,
+    #[serde(default)]
     explorer_url: Option<String>,
     #[serde(default)]
     native_token: Option<String>,
@@ -409,6 +616,15 @@ impl From<ChainFromToml> for ChainConfig {
                 weth: toml.weth,
                 usdc: toml.usdc,
                 usdt: toml.usdt,
+                sushiswap_router: toml.sushiswap_router,
+                sushiswap_factory: toml.sushiswap_factory,
+                aave_v3_pool: toml.aave_v3_pool,
+                aave_v3_pool_data_provider: toml.aave_v3_pool_data_provider,
+                aave_v3_oracle: toml.aave_v3_oracle,
+                compound_v3_usdc: toml.compound_v3_usdc,
+                curve_registry: toml.curve_registry,
+                oneinch_aggregation_router: toml.oneinch_aggregation_router,
+                balancer_vault: toml.balancer_vault,
                 custom: HashMap::new(),
             },
             explorer_url: toml.explorer_url,
@@ -458,7 +674,7 @@ impl Default for NetworkTimeouts {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::env;
+    use serial_test::serial;
     use std::fs;
     use tempfile::TempDir;
 
@@ -547,6 +763,15 @@ is_testnet = false
             weth: Some("0xabc".to_string()),
             usdc: Some("0xdef".to_string()),
             usdt: Some("0x012".to_string()),
+            sushiswap_router: None,
+            sushiswap_factory: None,
+            aave_v3_pool: None,
+            aave_v3_pool_data_provider: None,
+            aave_v3_oracle: None,
+            compound_v3_usdc: None,
+            curve_registry: None,
+            oneinch_aggregation_router: None,
+            balancer_vault: None,
             explorer_url: Some("https://etherscan.io".to_string()),
             native_token: Some("ETH".to_string()),
             is_testnet: false,
@@ -583,6 +808,15 @@ is_testnet = false
             weth: None,
             usdc: None,
             usdt: None,
+            sushiswap_router: None,
+            sushiswap_factory: None,
+            aave_v3_pool: None,
+            aave_v3_pool_data_provider: None,
+            aave_v3_oracle: None,
+            compound_v3_usdc: None,
+            curve_registry: None,
+            oneinch_aggregation_router: None,
+            balancer_vault: None,
             explorer_url: None,
             native_token: None,
             is_testnet: true,
@@ -605,58 +839,14 @@ is_testnet = false
     }
 
     #[test]
-    fn test_validate_address_valid() {
-        assert!(validate_address("0x1234567890123456789012345678901234567890", "test").is_ok());
-        assert!(validate_address("0xA0b86a33E6417efE3CF1AA5bAdC34a6a2C2d0BE0", "router").is_ok());
-    }
-
-    #[test]
-    fn test_validate_address_invalid_no_prefix() {
-        let result = validate_address("1234567890123456789012345678901234567890", "test");
-        assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("Invalid test address"));
-    }
-
-    #[test]
-    fn test_validate_address_invalid_length_too_short() {
-        let result = validate_address("0x123", "test");
-        assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("Invalid test address"));
-    }
-
-    #[test]
-    fn test_validate_address_invalid_length_too_long() {
-        let result = validate_address("0x12345678901234567890123456789012345678901", "test");
-        assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("Invalid test address"));
-    }
-
-    #[test]
-    fn test_validate_address_empty_string() {
-        let result = validate_address("", "test");
-        assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("Invalid test address"));
-    }
-
-    #[test]
+    #[serial]
     fn test_extract_rpc_urls() {
+        use test_env_vars::*;
         // Set up test environment variables
-        env::set_var("RPC_URL_1", "https://mainnet.infura.io");
-        env::set_var("RPC_URL_137", "https://polygon-rpc.com");
-        env::set_var("RPC_URL_INVALID", "https://invalid.com"); // Should be ignored
-        env::set_var("NOT_RPC_URL_1", "https://should-be-ignored.com"); // Should be ignored
+        set_test_env_var(RPC_URL_1, "https://mainnet.infura.io");
+        set_test_env_var(RPC_URL_137, "https://polygon-rpc.com");
+        set_test_env_var(RPC_URL_INVALID, "https://invalid.com"); // Should be ignored
+        set_test_env_var(NOT_RPC_URL_1, "https://should-be-ignored.com"); // Should be ignored
 
         let mut config = NetworkConfig::default();
         config.extract_rpc_urls();
@@ -673,10 +863,10 @@ is_testnet = false
         assert!(!config.rpc_urls.contains_key("NOT_RPC_URL_1"));
 
         // Clean up
-        env::remove_var("RPC_URL_1");
-        env::remove_var("RPC_URL_137");
-        env::remove_var("RPC_URL_INVALID");
-        env::remove_var("NOT_RPC_URL_1");
+        remove_test_env_var(RPC_URL_1);
+        remove_test_env_var(RPC_URL_137);
+        remove_test_env_var(RPC_URL_INVALID);
+        remove_test_env_var(NOT_RPC_URL_1);
     }
 
     #[test]
@@ -937,7 +1127,7 @@ is_testnet = false
 
         config.chains.insert(1, chain_config);
 
-        assert!(config.validate_config().is_ok());
+        assert!(config.validate_config(None).is_ok());
     }
 
     #[test]
@@ -945,7 +1135,7 @@ is_testnet = false
         let mut config = NetworkConfig::default();
         config.solana_rpc_url = "api.mainnet-beta.solana.com".to_string();
 
-        let result = config.validate_config();
+        let result = config.validate_config(None);
         assert!(result.is_err());
         assert!(result
             .unwrap_err()
@@ -958,7 +1148,7 @@ is_testnet = false
         let mut config = NetworkConfig::default();
         config.solana_rpc_url = "ftp://api.mainnet-beta.solana.com".to_string();
 
-        let result = config.validate_config();
+        let result = config.validate_config(None);
         assert!(result.is_err());
         assert!(result
             .unwrap_err()
@@ -973,7 +1163,7 @@ is_testnet = false
             .rpc_urls
             .insert("1".to_string(), "ftp://invalid-protocol.com".to_string());
 
-        let result = config.validate_config();
+        let result = config.validate_config(None);
         assert!(result.is_err());
         assert!(result
             .unwrap_err()
@@ -997,7 +1187,7 @@ is_testnet = false
             .rpc_urls
             .insert("4".to_string(), "wss://mainnet.infura.io/ws".to_string());
 
-        assert!(config.validate_config().is_ok());
+        assert!(config.validate_config(None).is_ok());
     }
 
     #[test]
@@ -1016,7 +1206,7 @@ is_testnet = false
 
         config.chains.insert(1, chain_config);
 
-        let result = config.validate_config();
+        let result = config.validate_config(None);
         assert!(result.is_err());
         assert!(result
             .unwrap_err()
@@ -1025,90 +1215,10 @@ is_testnet = false
     }
 
     #[test]
-    fn test_validate_invalid_router_address() {
-        let mut config = NetworkConfig::default();
-
-        let chain_config = ChainConfig {
-            id: 1,
-            name: "Ethereum".to_string(),
-            rpc_url: None,
-            contracts: ChainContract {
-                router: Some("invalid_address".to_string()),
-                ..ChainContract::default()
-            },
-            explorer_url: None,
-            native_token: None,
-            is_testnet: false,
-        };
-
-        config.chains.insert(1, chain_config);
-
-        let result = config.validate_config();
-        assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("Invalid router address"));
-    }
-
-    #[test]
-    fn test_validate_invalid_quoter_address() {
-        let mut config = NetworkConfig::default();
-
-        let chain_config = ChainConfig {
-            id: 1,
-            name: "Ethereum".to_string(),
-            rpc_url: None,
-            contracts: ChainContract {
-                quoter: Some("0x123".to_string()), // Too short
-                ..ChainContract::default()
-            },
-            explorer_url: None,
-            native_token: None,
-            is_testnet: false,
-        };
-
-        config.chains.insert(1, chain_config);
-
-        let result = config.validate_config();
-        assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("Invalid quoter address"));
-    }
-
-    #[test]
-    fn test_validate_invalid_factory_address() {
-        let mut config = NetworkConfig::default();
-
-        let chain_config = ChainConfig {
-            id: 1,
-            name: "Ethereum".to_string(),
-            rpc_url: None,
-            contracts: ChainContract {
-                factory: Some("0x12345678901234567890123456789012345678901".to_string()), // Too long
-                ..ChainContract::default()
-            },
-            explorer_url: None,
-            native_token: None,
-            is_testnet: false,
-        };
-
-        config.chains.insert(1, chain_config);
-
-        let result = config.validate_config();
-        assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("Invalid factory address"));
-    }
-
-    #[test]
+    #[serial]
     fn test_load_chain_contracts_file_not_exists() {
         // Test with non-existent file (should not error)
-        env::set_var(RIGLR_CHAINS_CONFIG, "/non/existent/path/chains.toml");
+        std::env::set_var(RIGLR_CHAINS_CONFIG, "/non/existent/path/chains.toml");
 
         let mut config = NetworkConfig::default();
         let result = config.load_chain_contracts();
@@ -1116,13 +1226,13 @@ is_testnet = false
         assert!(result.is_ok());
         assert!(config.chains.is_empty());
 
-        env::remove_var(RIGLR_CHAINS_CONFIG);
+        std::env::remove_var(RIGLR_CHAINS_CONFIG);
     }
 
     #[test]
     fn test_load_chain_contracts_default_path_not_exists() {
         // Test with default path when environment variable is not set
-        env::remove_var(RIGLR_CHAINS_CONFIG);
+        std::env::remove_var(RIGLR_CHAINS_CONFIG);
 
         let mut config = NetworkConfig::default();
         let result = config.load_chain_contracts();
@@ -1132,6 +1242,7 @@ is_testnet = false
     }
 
     #[test]
+    #[serial]
     fn test_load_chain_contracts_valid_file() {
         let temp_dir = create_temp_dir();
         let chains_path = temp_dir.path().join("chains.toml");
@@ -1139,7 +1250,7 @@ is_testnet = false
         // Write test chains.toml
         fs::write(&chains_path, create_test_chains_toml()).unwrap();
 
-        env::set_var(RIGLR_CHAINS_CONFIG, chains_path.to_str().unwrap());
+        std::env::set_var(RIGLR_CHAINS_CONFIG, chains_path.to_str().unwrap());
 
         let mut config = NetworkConfig::default();
         let result = config.load_chain_contracts();
@@ -1165,10 +1276,11 @@ is_testnet = false
         assert_eq!(polygon_chain.contracts.quoter, None); // Not specified in TOML
         assert!(!polygon_chain.is_testnet);
 
-        env::remove_var(RIGLR_CHAINS_CONFIG);
+        std::env::remove_var(RIGLR_CHAINS_CONFIG);
     }
 
     #[test]
+    #[serial]
     fn test_load_chain_contracts_invalid_toml() {
         let temp_dir = create_temp_dir();
         let chains_path = temp_dir.path().join("chains.toml");
@@ -1176,7 +1288,7 @@ is_testnet = false
         // Write invalid TOML
         fs::write(&chains_path, "invalid toml content [[[").unwrap();
 
-        env::set_var(RIGLR_CHAINS_CONFIG, chains_path.to_str().unwrap());
+        std::env::set_var(RIGLR_CHAINS_CONFIG, chains_path.to_str().unwrap());
 
         let mut config = NetworkConfig::default();
         let result = config.load_chain_contracts();
@@ -1187,10 +1299,11 @@ is_testnet = false
             .to_string()
             .contains("Failed to parse chains.toml"));
 
-        env::remove_var(RIGLR_CHAINS_CONFIG);
+        std::env::remove_var(RIGLR_CHAINS_CONFIG);
     }
 
     #[test]
+    #[serial]
     fn test_load_chain_contracts_with_environment_overrides() {
         let temp_dir = create_temp_dir();
         let chains_path = temp_dir.path().join("chains.toml");
@@ -1198,12 +1311,13 @@ is_testnet = false
         // Write test chains.toml
         fs::write(&chains_path, create_test_chains_toml()).unwrap();
 
+        use test_env_vars::*;
         // Set environment overrides
-        env::set_var("ROUTER_1", "0x1111111111111111111111111111111111111111");
-        env::set_var("QUOTER_1", "0x2222222222222222222222222222222222222222");
-        env::set_var("FACTORY_137", "0x3333333333333333333333333333333333333333");
+        set_test_env_var(ROUTER_1, "0x1111111111111111111111111111111111111111");
+        set_test_env_var(QUOTER_1, "0x2222222222222222222222222222222222222222");
+        set_test_env_var(FACTORY_137, "0x3333333333333333333333333333333333333333");
 
-        env::set_var(RIGLR_CHAINS_CONFIG, chains_path.to_str().unwrap());
+        std::env::set_var(RIGLR_CHAINS_CONFIG, chains_path.to_str().unwrap());
 
         let mut config = NetworkConfig::default();
         let result = config.load_chain_contracts();
@@ -1238,20 +1352,21 @@ is_testnet = false
         );
 
         // Clean up
-        env::remove_var("ROUTER_1");
-        env::remove_var("QUOTER_1");
-        env::remove_var("FACTORY_137");
-        env::remove_var(RIGLR_CHAINS_CONFIG);
+        remove_test_env_var(ROUTER_1);
+        remove_test_env_var(QUOTER_1);
+        remove_test_env_var(FACTORY_137);
+        std::env::remove_var(RIGLR_CHAINS_CONFIG);
     }
 
     #[test]
+    #[serial]
     fn test_load_chain_contracts_read_error() {
         // Test with a directory instead of a file to trigger read error
         let temp_dir = create_temp_dir();
         let chains_path = temp_dir.path().join("chains_dir");
         fs::create_dir(&chains_path).unwrap();
 
-        env::set_var(RIGLR_CHAINS_CONFIG, chains_path.to_str().unwrap());
+        std::env::set_var(RIGLR_CHAINS_CONFIG, chains_path.to_str().unwrap());
 
         let mut config = NetworkConfig::default();
         let result = config.load_chain_contracts();
@@ -1262,6 +1377,6 @@ is_testnet = false
             .to_string()
             .contains("Failed to read chains config"));
 
-        env::remove_var(RIGLR_CHAINS_CONFIG);
+        std::env::remove_var(RIGLR_CHAINS_CONFIG);
     }
 }

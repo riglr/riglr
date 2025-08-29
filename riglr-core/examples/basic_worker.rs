@@ -7,6 +7,7 @@
 //! - Enhanced error handling with retry classification
 
 use async_trait::async_trait;
+use riglr_config::Config;
 use riglr_core::{
     idempotency::InMemoryIdempotencyStore,
     provider::ApplicationContext,
@@ -153,9 +154,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("=== riglr-core Basic Worker Example ===\n");
 
     // Create a worker with default configuration
-    let config = ExecutionConfig::default();
-    let app_context = ApplicationContext::from_env();
-    let worker = ToolWorker::<InMemoryIdempotencyStore>::new(config, app_context);
+    let exec_config = ExecutionConfig::default();
+    let config = Config::from_env();
+    let app_context = ApplicationContext::from_config(&config);
+    let worker = ToolWorker::<InMemoryIdempotencyStore>::new(exec_config, app_context);
 
     // Register our tools
     worker.register_tool(Arc::new(GreetingTool)).await;

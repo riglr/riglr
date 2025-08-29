@@ -13,8 +13,8 @@ lazy_static! {
     static ref POSTGRES_URL_REGEX: Regex = Regex::new(r"^postgres(ql)?://").unwrap();
 }
 
-/// Validate Redis URL field
-fn validate_redis_url_field(url: &str) -> Result<(), validator::ValidationError> {
+/// Private helper function for Redis URL validation
+fn _validate_redis_url(url: &str) -> Result<(), validator::ValidationError> {
     if !REDIS_URL_REGEX.is_match(url) {
         return Err(validator::ValidationError::new(
             "REDIS_URL must start with redis:// or rediss://",
@@ -24,6 +24,11 @@ fn validate_redis_url_field(url: &str) -> Result<(), validator::ValidationError>
         return Err(validator::ValidationError::new("Invalid Redis URL format"));
     }
     Ok(())
+}
+
+/// Validate Redis URL field (for use with validator crate)
+fn validate_redis_url_field(url: &str) -> Result<(), validator::ValidationError> {
+    _validate_redis_url(url)
 }
 
 /// Database configuration
@@ -91,19 +96,6 @@ pub struct PoolConfig {
     pub max_lifetime_secs: u64,
 }
 
-/// Validates a Redis URL format and scheme
-pub fn validate_redis_url(url: &str) -> ConfigResult<()> {
-    if !REDIS_URL_REGEX.is_match(url) {
-        return Err(ConfigError::validation(
-            "REDIS_URL must start with redis:// or rediss://",
-        ));
-    }
-    if url::Url::parse(url).is_err() {
-        return Err(ConfigError::validation("Invalid Redis URL format"));
-    }
-    Ok(())
-}
-
 /// Validates a Neo4j URL format and scheme
 pub fn validate_neo4j_url(url: &str) -> ConfigResult<()> {
     if !NEO4J_URL_REGEX.is_match(url) {
@@ -157,12 +149,9 @@ impl DatabaseConfig {
     ///
     /// Returns `ConfigError` if any validation fails
     pub fn validate_config(&self) -> ConfigResult<()> {
-        // Use validator crate for field validation
+        // Use validator crate for field validation (this includes Redis URL validation)
         Validate::validate(self)
             .map_err(|e| ConfigError::validation(format!("Validation failed: {}", e)))?;
-
-        // Additional custom validation for URLs
-        validate_redis_url(&self.redis_url)?;
 
         if let Some(ref neo4j_url) = self.neo4j_url {
             validate_neo4j_url(neo4j_url)?;
@@ -392,53 +381,6 @@ mod tests {
         );
     }
 
-    // Test Redis URL validation - Happy Path
-    #[test]
-    fn test_validate_redis_url_when_redis_scheme_should_return_ok() {
-        assert!(validate_redis_url("redis://localhost:6379").is_ok());
-    }
-
-    #[test]
-    fn test_validate_redis_url_when_rediss_scheme_should_return_ok() {
-        assert!(validate_redis_url("rediss://localhost:6380").is_ok());
-    }
-
-    #[test]
-    fn test_validate_redis_url_when_complex_url_should_return_ok() {
-        assert!(validate_redis_url("redis://user:pass@localhost:6379/0").is_ok());
-    }
-
-    // Test Redis URL validation - Error Paths
-    #[test]
-    fn test_validate_redis_url_when_invalid_scheme_should_return_err() {
-        let result = validate_redis_url("http://localhost:6379");
-        assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("REDIS_URL must start with redis:// or rediss://"));
-    }
-
-    #[test]
-    fn test_validate_redis_url_when_empty_should_return_err() {
-        let result = validate_redis_url("");
-        assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("REDIS_URL must start with redis:// or rediss://"));
-    }
-
-    #[test]
-    fn test_validate_redis_url_when_malformed_url_should_return_err() {
-        let result = validate_redis_url("redis://[invalid");
-        assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("Invalid Redis URL"));
-    }
-
     // Test Neo4j URL validation - Happy Path
     #[test]
     fn test_validate_neo4j_url_when_neo4j_scheme_should_return_ok() {
@@ -657,15 +599,6 @@ mod tests {
     }
 
     // Test edge cases for URL validation
-    #[test]
-    fn test_validate_redis_url_when_redis_prefix_in_middle_should_return_err() {
-        let result = validate_redis_url("http://redis://localhost:6379");
-        assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("REDIS_URL must start with redis:// or rediss://"));
-    }
 
     #[test]
     fn test_validate_neo4j_url_when_neo4j_prefix_in_middle_should_return_err() {

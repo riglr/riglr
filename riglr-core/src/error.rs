@@ -107,13 +107,13 @@ impl From<&str> for CoreError {
 }
 
 /// Tool-specific error type for distinguishing retriable vs permanent failures.
-#[derive(Debug, Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Serialize, serde::Deserialize)]
 pub enum ToolError {
     /// Operation can be retried
     Retriable {
         /// The typed error source (not serialized)
         #[serde(skip)]
-        source: Option<Box<dyn std::error::Error + Send + Sync>>,
+        source: Option<std::sync::Arc<dyn std::error::Error + Send + Sync>>,
         /// The error message for serialization
         source_message: String,
         /// Additional context about the error
@@ -124,7 +124,7 @@ pub enum ToolError {
     RateLimited {
         /// The typed error source (not serialized)
         #[serde(skip)]
-        source: Option<Box<dyn std::error::Error + Send + Sync>>,
+        source: Option<std::sync::Arc<dyn std::error::Error + Send + Sync>>,
         /// The error message for serialization
         source_message: String,
         /// Additional context about the rate limiting
@@ -138,7 +138,7 @@ pub enum ToolError {
     Permanent {
         /// The typed error source (not serialized)
         #[serde(skip)]
-        source: Option<Box<dyn std::error::Error + Send + Sync>>,
+        source: Option<std::sync::Arc<dyn std::error::Error + Send + Sync>>,
         /// The error message for serialization
         source_message: String,
         /// Additional context about the permanent error
@@ -149,7 +149,7 @@ pub enum ToolError {
     InvalidInput {
         /// The typed error source (not serialized)
         #[serde(skip)]
-        source: Option<Box<dyn std::error::Error + Send + Sync>>,
+        source: Option<std::sync::Arc<dyn std::error::Error + Send + Sync>>,
         /// The error message for serialization
         source_message: String,
         /// Description of what input was invalid
@@ -228,7 +228,7 @@ impl ToolError {
     ) -> Self {
         let source_message = source.to_string();
         Self::Retriable {
-            source: Some(Box::new(source)),
+            source: Some(std::sync::Arc::new(source)),
             source_message,
             context: context.into(),
         }
@@ -241,7 +241,7 @@ impl ToolError {
     ) -> Self {
         let source_message = source.to_string();
         Self::Permanent {
-            source: Some(Box::new(source)),
+            source: Some(std::sync::Arc::new(source)),
             source_message,
             context: context.into(),
         }
@@ -255,7 +255,7 @@ impl ToolError {
     ) -> Self {
         let source_message = source.to_string();
         Self::RateLimited {
-            source: Some(Box::new(source)),
+            source: Some(std::sync::Arc::new(source)),
             source_message,
             context: context.into(),
             retry_after,
@@ -269,7 +269,7 @@ impl ToolError {
     ) -> Self {
         let source_message = source.to_string();
         Self::InvalidInput {
-            source: Some(Box::new(source)),
+            source: Some(std::sync::Arc::new(source)),
             source_message,
             context: context.into(),
         }
@@ -472,8 +472,12 @@ impl From<anyhow::Error> for ToolError {
 impl From<Box<dyn std::error::Error + Send + Sync>> for ToolError {
     fn from(err: Box<dyn std::error::Error + Send + Sync>) -> Self {
         let source_message = err.to_string();
+        tracing::warn!(
+            "Generic error converted to ToolError::Permanent. Consider adding specific error handling for: {}",
+            source_message
+        );
         Self::Permanent {
-            source: Some(err),
+            source: Some(err.into()), // Convert Box to Arc
             source_message,
             context: "Generic error".to_string(),
         }

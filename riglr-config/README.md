@@ -20,6 +20,21 @@ use riglr_config::Config;
 // Load configuration from environment (fail-fast)
 let config = Config::from_env();
 
+// NEW: Explicitly validate blockchain addresses if needed
+// This step is now required for EVM address validation after architectural decoupling
+#[cfg(feature = "evm")]
+{
+    use riglr_evm_common::validation::EvmAddressValidator;
+    config.network.validate_config(Some(&EvmAddressValidator))
+        .expect("Invalid EVM addresses in configuration");
+}
+#[cfg(not(feature = "evm"))]
+{
+    // Skip address validation when EVM support is not available
+    config.network.validate_config(None)
+        .expect("Configuration validation failed");
+}
+
 // Access configuration values
 println!("Redis URL: {}", config.database.redis_url);
 println!("Environment: {:?}", config.app.environment);
@@ -92,6 +107,68 @@ config.enable_trading
 
 // After
 config.features.enable_trading
+```
+
+## Address Validation (Breaking Change)
+
+**Important**: Starting in v0.3.0, address validation has been decoupled from the core configuration system to maintain architectural purity. This is a **breaking change**.
+
+### New Pattern
+
+The configuration system now uses a trait-based approach for blockchain address validation:
+
+```rust
+use riglr_config::{Config, AddressValidator};
+use riglr_evm_common::validation::EvmAddressValidator;
+
+let config = Config::from_env();
+
+// Explicit validation is now required for address validation
+config.network.validate_config(Some(&EvmAddressValidator))?;
+```
+
+### Custom Validators
+
+You can implement custom address validators:
+
+```rust
+use riglr_config::{AddressValidator, ConfigResult, ConfigError};
+
+struct MyCustomValidator;
+
+impl AddressValidator for MyCustomValidator {
+    fn validate(&self, address: &str, contract_name: &str) -> ConfigResult<()> {
+        // Your validation logic here
+        if address.len() < 10 {
+            return Err(ConfigError::validation(format!(
+                "Invalid {} address: too short", contract_name
+            )));
+        }
+        Ok(())
+    }
+}
+
+// Use your custom validator
+config.network.validate_config(Some(&MyCustomValidator))?;
+```
+
+### Migration Guide
+
+**Before v0.3.0:**
+```rust
+let config = Config::from_env(); // Address validation was automatic
+```
+
+**After v0.3.0:**
+```rust
+let config = Config::from_env();
+
+// Address validation is now explicit and optional
+use riglr_evm_common::validation::EvmAddressValidator;
+config.network.validate_config(Some(&EvmAddressValidator))?;
+
+// Or skip validation entirely
+config.network.validate_config(None)?;
 ```
 
 ## Configuration Structure

@@ -7,36 +7,12 @@
 //! - Transaction status tracking
 
 use async_trait::async_trait;
-use std::time::Duration;
-use tokio::time::sleep;
-use tracing::{error, info, warn};
 
 pub mod evm;
 pub mod solana;
 
-/// Transaction retry configuration
-#[derive(Debug, Clone)]
-pub struct RetryConfig {
-    /// Maximum number of retry attempts
-    pub max_attempts: u32,
-    /// Initial delay between retries
-    pub initial_delay: Duration,
-    /// Maximum delay between retries
-    pub max_delay: Duration,
-    /// Exponential backoff multiplier
-    pub backoff_multiplier: f64,
-}
-
-impl Default for RetryConfig {
-    fn default() -> Self {
-        Self {
-            max_attempts: 3,
-            initial_delay: Duration::from_secs(1),
-            max_delay: Duration::from_secs(30),
-            backoff_multiplier: 2.0,
-        }
-    }
-}
+// Re-export RetryConfig from retry module
+pub use crate::retry::RetryConfig;
 
 /// Transaction status tracking
 #[derive(Debug, Clone)]
@@ -95,141 +71,61 @@ pub trait TransactionProcessor: Send + Sync {
     ) -> Result<TransactionStatus, crate::error::ToolError>;
 }
 
-/// Generic transaction processor implementation
-pub struct GenericTransactionProcessor;
+/// Builder for creating chain-specific transaction processors
+///
+/// This builder ensures that transaction processors are created with the appropriate
+/// chain-specific implementation, enforcing compile-time safety and preventing
+/// runtime errors from incorrect processor usage.
+///
+/// # Example
+///
+/// ```rust,no_run
+/// use riglr_core::transactions::{TransactionProcessorBuilder, RetryConfig};
+/// use std::sync::Arc;
+/// use solana_client::rpc_client::RpcClient;
+///
+/// # #[tokio::main]
+/// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// // Create a Solana processor
+/// let solana_client = Arc::new(RpcClient::new("https://api.mainnet-beta.solana.com".to_string()));
+/// let solana_processor = TransactionProcessorBuilder::new(RetryConfig::default())
+///     .solana(solana_client, Default::default());
+///
+/// // Create an EVM processor
+/// # /*
+/// let evm_provider = Arc::new(/* your provider */);
+/// let evm_processor = TransactionProcessorBuilder::new(RetryConfig::default())
+///     .evm(evm_provider, Default::default());
+/// # */
+/// # Ok(())
+/// # }
+/// ```
+pub struct TransactionProcessorBuilder {
+    retry_config: RetryConfig,
+}
 
-#[async_trait]
-impl TransactionProcessor for GenericTransactionProcessor {
-    async fn process_with_retry<T, F, Fut>(
-        &self,
-        operation: F,
-        config: RetryConfig,
-    ) -> Result<T, crate::error::ToolError>
-    where
-        T: Send,
-        F: Fn() -> Fut + Send,
-        Fut: std::future::Future<Output = Result<T, crate::error::ToolError>> + Send,
-    {
-        let mut attempt = 0;
-        let mut delay = config.initial_delay;
-
-        loop {
-            attempt += 1;
-            info!("Transaction attempt {}/{}", attempt, config.max_attempts);
-
-            match operation().await {
-                Ok(result) => {
-                    info!("Transaction successful on attempt {}", attempt);
-                    return Ok(result);
-                }
-                Err(err) if attempt >= config.max_attempts => {
-                    error!(
-                        "Transaction failed after {} attempts: {}",
-                        config.max_attempts, err
-                    );
-                    return Err(err);
-                }
-                Err(err) => {
-                    // Check if error is retriable
-                    match &err {
-                        crate::error::ToolError::Retriable { .. } => {
-                            warn!("Retriable error on attempt {}: {}", attempt, err);
-                            sleep(delay).await;
-
-                            // Calculate next delay with exponential backoff
-                            delay = Duration::from_secs_f64(
-                                (delay.as_secs_f64() * config.backoff_multiplier)
-                                    .min(config.max_delay.as_secs_f64()),
-                            );
-                        }
-                        crate::error::ToolError::RateLimited { retry_after, .. } => {
-                            let wait_time = retry_after.unwrap_or(delay);
-                            warn!("Rate limited, waiting {:?} before retry", wait_time);
-                            sleep(wait_time).await;
-                        }
-                        _ => {
-                            error!("Non-retriable error: {}", err);
-                            return Err(err);
-                        }
-                    }
-                }
-            }
-        }
+impl TransactionProcessorBuilder {
+    /// Create a new transaction processor builder with the given retry configuration
+    pub fn new(retry_config: RetryConfig) -> Self {
+        Self { retry_config }
     }
 
-    async fn get_status(
-        &self,
-        tx_hash: &str,
-    ) -> Result<TransactionStatus, crate::error::ToolError> {
-        // Generic implementation that returns a pending status
-        // Chain-specific implementations should override this with actual status checking
-
-        // Validate the transaction hash format (basic check)
-        if tx_hash.is_empty() {
-            return Err(crate::error::ToolError::permanent_string(
-                "Transaction hash cannot be empty".to_string(),
-            ));
-        }
-
-        // Return a pending status as a safe default
-        // This indicates the transaction is known but status checking is not implemented
-        warn!(
-            "Generic transaction status check for {}. Chain-specific implementation recommended.",
-            tx_hash
-        );
-
-        Ok(TransactionStatus::Pending)
+    /// Build a Solana transaction processor
+    pub fn solana(
+        self,
+        client: std::sync::Arc<solana_client::rpc_client::RpcClient>,
+        priority_config: solana::PriorityFeeConfig,
+    ) -> solana::SolanaTransactionProcessor {
+        solana::SolanaTransactionProcessor::new(client, priority_config, self.retry_config)
     }
 
-    async fn wait_for_confirmation(
-        &self,
-        tx_hash: &str,
-        required_confirmations: u64,
-    ) -> Result<TransactionStatus, crate::error::ToolError> {
-        let mut confirmations = 0;
-        let check_interval = Duration::from_secs(2);
-        let max_wait = Duration::from_secs(300); // 5 minutes max wait
-        let start = std::time::Instant::now();
-
-        while confirmations < required_confirmations {
-            if start.elapsed() > max_wait {
-                return Err(crate::error::ToolError::permanent_string(format!(
-                    "Transaction {} not confirmed after {:?}",
-                    tx_hash, max_wait
-                )));
-            }
-
-            match self.get_status(tx_hash).await? {
-                TransactionStatus::Confirmed { hash, block } => {
-                    return Ok(TransactionStatus::Confirmed { hash, block });
-                }
-                TransactionStatus::Failed { reason } => {
-                    return Err(crate::error::ToolError::permanent_string(format!(
-                        "Transaction failed: {}",
-                        reason
-                    )));
-                }
-                TransactionStatus::Confirming {
-                    confirmations: conf,
-                    ..
-                } => {
-                    confirmations = conf;
-                    if confirmations < required_confirmations {
-                        info!(
-                            "Transaction {} has {}/{} confirmations",
-                            tx_hash, confirmations, required_confirmations
-                        );
-                    }
-                }
-                _ => {
-                    // Still pending or submitted
-                }
-            }
-
-            sleep(check_interval).await;
-        }
-
-        self.get_status(tx_hash).await
+    /// Build an EVM transaction processor
+    pub fn evm<P: alloy::providers::Provider>(
+        self,
+        provider: std::sync::Arc<P>,
+        gas_config: evm::GasConfig,
+    ) -> evm::EvmTransactionProcessor<P> {
+        evm::EvmTransactionProcessor::new(provider, gas_config, self.retry_config)
     }
 }
 
@@ -237,37 +133,42 @@ impl TransactionProcessor for GenericTransactionProcessor {
 mod tests {
     use super::*;
     use std::sync::Arc;
+    use std::time::Duration;
+    use tokio::time::sleep;
 
-    // Tests for RetryConfig struct
+    // Tests for RetryConfig (from retry module)
     #[test]
     fn test_retry_config_default() {
         let config = RetryConfig::default();
-        assert_eq!(config.max_attempts, 3);
-        assert_eq!(config.initial_delay, Duration::from_secs(1));
-        assert_eq!(config.max_delay, Duration::from_secs(30));
+        assert_eq!(config.max_retries, 3);
+        assert_eq!(config.base_delay_ms, 1000);
+        assert_eq!(config.max_delay_ms, 30_000);
         assert_eq!(config.backoff_multiplier, 2.0);
+        assert!(config.use_jitter);
     }
 
     #[test]
     fn test_retry_config_custom() {
         let config = RetryConfig {
-            max_attempts: 5,
-            initial_delay: Duration::from_millis(500),
-            max_delay: Duration::from_secs(60),
+            max_retries: 5,
+            base_delay_ms: 500,
+            max_delay_ms: 60_000,
             backoff_multiplier: 1.5,
+            use_jitter: false,
         };
-        assert_eq!(config.max_attempts, 5);
-        assert_eq!(config.initial_delay, Duration::from_millis(500));
-        assert_eq!(config.max_delay, Duration::from_secs(60));
+        assert_eq!(config.max_retries, 5);
+        assert_eq!(config.base_delay_ms, 500);
+        assert_eq!(config.max_delay_ms, 60_000);
         assert_eq!(config.backoff_multiplier, 1.5);
+        assert!(!config.use_jitter);
     }
 
     #[test]
     fn test_retry_config_clone() {
         let config = RetryConfig::default();
         let cloned = config.clone();
-        assert_eq!(config.max_attempts, cloned.max_attempts);
-        assert_eq!(config.initial_delay, cloned.initial_delay);
+        assert_eq!(config.max_retries, cloned.max_retries);
+        assert_eq!(config.base_delay_ms, cloned.base_delay_ms);
     }
 
     // Tests for TransactionStatus enum
@@ -349,275 +250,10 @@ mod tests {
         }
     }
 
-    // Tests for GenericTransactionProcessor::get_status
-    #[tokio::test]
-    async fn test_get_status_when_empty_hash_should_return_error() {
-        let processor = GenericTransactionProcessor;
-        let result = processor.get_status("").await;
-        assert!(result.is_err());
-        let error = result.unwrap_err();
-        match error {
-            crate::error::ToolError::Permanent { context, .. } => {
-                assert!(context.contains("Transaction hash cannot be empty"));
-            }
-            _ => panic!("Expected permanent error for empty hash"),
-        }
-    }
+    // Note: GenericTransactionProcessor has been removed in favor of chain-specific implementations
+    // Tests for transaction processing should be implemented in evm.rs and solana.rs
 
-    #[tokio::test]
-    async fn test_get_status_when_valid_hash_should_return_pending() {
-        let processor = GenericTransactionProcessor;
-        let result = processor.get_status("0x123456").await;
-        assert!(result.is_ok());
-        match result.unwrap() {
-            TransactionStatus::Pending => (),
-            _ => panic!("Expected Pending status for valid hash"),
-        }
-    }
-
-    // Tests for GenericTransactionProcessor::process_with_retry
-    #[tokio::test]
-    async fn test_process_with_retry_when_success_on_first_attempt_should_return_ok() {
-        let processor = GenericTransactionProcessor;
-        let result = processor
-            .process_with_retry(
-                || async { Ok("success") },
-                RetryConfig {
-                    max_attempts: 3,
-                    initial_delay: Duration::from_millis(1),
-                    max_delay: Duration::from_secs(1),
-                    backoff_multiplier: 2.0,
-                },
-            )
-            .await;
-
-        assert!(result.is_ok());
-        assert_eq!(result.unwrap(), "success");
-    }
-
-    #[tokio::test]
-    async fn test_process_with_retry_when_retriable_error_should_retry() {
-        let processor = GenericTransactionProcessor;
-        let attempts = Arc::new(std::sync::Mutex::new(0));
-        let attempts_clone = attempts.clone();
-
-        let result = processor
-            .process_with_retry(
-                move || {
-                    let attempts = attempts_clone.clone();
-                    async move {
-                        let mut count = attempts.lock().unwrap();
-                        *count += 1;
-                        if *count < 3 {
-                            Err(crate::error::ToolError::Retriable {
-                                source: None,
-                                source_message: std::io::Error::other("test").to_string(),
-                                context: "test error".to_string(),
-                            })
-                        } else {
-                            Ok("success")
-                        }
-                    }
-                },
-                RetryConfig {
-                    max_attempts: 3,
-                    initial_delay: Duration::from_millis(10),
-                    max_delay: Duration::from_secs(1),
-                    backoff_multiplier: 2.0,
-                },
-            )
-            .await;
-
-        assert!(result.is_ok());
-        assert_eq!(result.unwrap(), "success");
-        assert_eq!(*attempts.lock().unwrap(), 3);
-    }
-
-    #[tokio::test]
-    async fn test_process_with_retry_when_max_attempts_exceeded_should_return_error() {
-        let processor = GenericTransactionProcessor;
-        let result: Result<&str, crate::error::ToolError> = processor
-            .process_with_retry(
-                || async {
-                    Err(crate::error::ToolError::Retriable {
-                        source: None,
-                        source_message: std::io::Error::other("persistent error").to_string(),
-                        context: "always fails".to_string(),
-                    })
-                },
-                RetryConfig {
-                    max_attempts: 2,
-                    initial_delay: Duration::from_millis(1),
-                    max_delay: Duration::from_secs(1),
-                    backoff_multiplier: 2.0,
-                },
-            )
-            .await;
-
-        assert!(result.is_err());
-        match result.unwrap_err() {
-            crate::error::ToolError::Retriable { context, .. } => {
-                assert_eq!(context, "always fails");
-            }
-            _ => panic!("Expected retriable error"),
-        }
-    }
-
-    #[tokio::test]
-    async fn test_process_with_retry_when_rate_limited_with_retry_after_should_wait() {
-        let processor = GenericTransactionProcessor;
-        let attempts = Arc::new(std::sync::Mutex::new(0));
-        let attempts_clone = attempts.clone();
-
-        let result = processor
-            .process_with_retry(
-                move || {
-                    let attempts = attempts_clone.clone();
-                    async move {
-                        let mut count = attempts.lock().unwrap();
-                        *count += 1;
-                        if *count < 2 {
-                            Err(crate::error::ToolError::RateLimited {
-                                source: None,
-                                source_message: std::io::Error::other("rate limited").to_string(),
-                                context: "rate limited".to_string(),
-                                retry_after: Some(Duration::from_millis(1)),
-                            })
-                        } else {
-                            Ok("success after rate limit")
-                        }
-                    }
-                },
-                RetryConfig {
-                    max_attempts: 3,
-                    initial_delay: Duration::from_millis(10),
-                    max_delay: Duration::from_secs(1),
-                    backoff_multiplier: 2.0,
-                },
-            )
-            .await;
-
-        assert!(result.is_ok());
-        assert_eq!(result.unwrap(), "success after rate limit");
-        assert_eq!(*attempts.lock().unwrap(), 2);
-    }
-
-    #[tokio::test]
-    async fn test_process_with_retry_when_rate_limited_without_retry_after_should_use_default_delay(
-    ) {
-        let processor = GenericTransactionProcessor;
-        let attempts = Arc::new(std::sync::Mutex::new(0));
-        let attempts_clone = attempts.clone();
-
-        let result = processor
-            .process_with_retry(
-                move || {
-                    let attempts = attempts_clone.clone();
-                    async move {
-                        let mut count = attempts.lock().unwrap();
-                        *count += 1;
-                        if *count < 2 {
-                            Err(crate::error::ToolError::RateLimited {
-                                source: None,
-                                source_message: std::io::Error::other(
-                                    "rate limited no retry after",
-                                )
-                                .to_string(),
-                                context: "rate limited no retry after".to_string(),
-                                retry_after: None,
-                            })
-                        } else {
-                            Ok("success")
-                        }
-                    }
-                },
-                RetryConfig {
-                    max_attempts: 3,
-                    initial_delay: Duration::from_millis(1),
-                    max_delay: Duration::from_secs(1),
-                    backoff_multiplier: 2.0,
-                },
-            )
-            .await;
-
-        assert!(result.is_ok());
-        assert_eq!(result.unwrap(), "success");
-        assert_eq!(*attempts.lock().unwrap(), 2);
-    }
-
-    #[tokio::test]
-    async fn test_process_with_retry_when_non_retriable_error_should_fail_immediately() {
-        let processor = GenericTransactionProcessor;
-        let result: Result<&str, crate::error::ToolError> = processor
-            .process_with_retry(
-                || async {
-                    Err(crate::error::ToolError::permanent_string(
-                        "non-retriable error".to_string(),
-                    ))
-                },
-                RetryConfig {
-                    max_attempts: 3,
-                    initial_delay: Duration::from_millis(1),
-                    max_delay: Duration::from_secs(1),
-                    backoff_multiplier: 2.0,
-                },
-            )
-            .await;
-
-        assert!(result.is_err());
-        match result.unwrap_err() {
-            crate::error::ToolError::Permanent { context, .. } => {
-                assert_eq!(context, "non-retriable error");
-            }
-            _ => panic!("Expected permanent error"),
-        }
-    }
-
-    #[tokio::test]
-    async fn test_process_with_retry_when_exponential_backoff_reaches_max_delay() {
-        let processor = GenericTransactionProcessor;
-        let attempts = Arc::new(std::sync::Mutex::new(0));
-        let attempts_clone = attempts.clone();
-
-        let result = processor
-            .process_with_retry(
-                move || {
-                    let attempts = attempts_clone.clone();
-                    async move {
-                        let mut count = attempts.lock().unwrap();
-                        *count += 1;
-                        if *count < 4 {
-                            Err(crate::error::ToolError::Retriable {
-                                source: None,
-                                source_message: std::io::Error::other("test").to_string(),
-                                context: "test backoff".to_string(),
-                            })
-                        } else {
-                            Ok("success")
-                        }
-                    }
-                },
-                RetryConfig {
-                    max_attempts: 5,
-                    initial_delay: Duration::from_millis(1),
-                    max_delay: Duration::from_millis(2), // Very small max to test capping
-                    backoff_multiplier: 10.0,            // Large multiplier to test max delay cap
-                },
-            )
-            .await;
-
-        assert!(result.is_ok());
-        assert_eq!(result.unwrap(), "success");
-        assert_eq!(*attempts.lock().unwrap(), 4);
-    }
-
-    // Tests for GenericTransactionProcessor::wait_for_confirmation
-    #[tokio::test]
-    async fn test_wait_for_confirmation_when_empty_hash_should_return_error() {
-        let processor = GenericTransactionProcessor;
-        let result = processor.wait_for_confirmation("", 1).await;
-        assert!(result.is_err());
-    }
+    // Tests for TransactionProcessor trait implementations using mock processors
 
     #[tokio::test]
     async fn test_wait_for_confirmation_when_confirmed_status_should_return_immediately() {
@@ -1004,44 +640,5 @@ mod tests {
             }
             _ => panic!("Expected timeout error"),
         }
-    }
-
-    // Original test preserved
-    #[tokio::test]
-    async fn test_retry_logic() {
-        let processor = GenericTransactionProcessor;
-        let attempts = Arc::new(std::sync::Mutex::new(0));
-        let attempts_clone = attempts.clone();
-
-        let result = processor
-            .process_with_retry(
-                move || {
-                    let attempts = attempts_clone.clone();
-                    async move {
-                        let mut count = attempts.lock().unwrap();
-                        *count += 1;
-                        if *count < 3 {
-                            Err(crate::error::ToolError::Retriable {
-                                source: None,
-                                source_message: std::io::Error::other("test").to_string(),
-                                context: "test error".to_string(),
-                            })
-                        } else {
-                            Ok("success")
-                        }
-                    }
-                },
-                RetryConfig {
-                    max_attempts: 3,
-                    initial_delay: Duration::from_millis(10),
-                    max_delay: Duration::from_secs(1),
-                    backoff_multiplier: 2.0,
-                },
-            )
-            .await;
-
-        assert!(result.is_ok());
-        assert_eq!(result.unwrap(), "success");
-        assert_eq!(*attempts.lock().unwrap(), 3);
     }
 }
