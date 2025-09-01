@@ -41,7 +41,7 @@ pub struct TokenBalance {
 /// 1. Uses the explicit chain_id parameter if provided
 /// 2. Falls back to the chain_id from the active EVM SignerContext if available
 /// 3. Defaults to Ethereum mainnet (chain_id 1) as a final fallback
-pub async fn get_eth_balance_with_context(
+pub(crate) async fn get_eth_balance_with_context(
     address: String,
     chain_id: Option<u64>,
     app_context: &ApplicationContext,
@@ -142,7 +142,7 @@ pub async fn get_eth_balance(
 /// 1. Uses the explicit chain_id parameter if provided
 /// 2. Falls back to the chain_id from the active EVM SignerContext if available
 /// 3. Defaults to Ethereum mainnet (chain_id 1) as a final fallback
-pub async fn get_erc20_balance_with_context(
+pub(crate) async fn get_erc20_balance_with_context(
     token_address: String,
     wallet_address: String,
     chain_id: Option<u64>,

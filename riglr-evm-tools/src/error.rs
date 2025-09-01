@@ -73,7 +73,6 @@ pub enum ErrorClass {
     RateLimited,
 }
 
-
 /// Classify provider error messages for retry behavior
 fn classify_provider_message(msg: &str) -> ErrorClass {
     if msg.contains("timeout") || msg.contains("connection") {
@@ -84,8 +83,6 @@ fn classify_provider_message(msg: &str) -> ErrorClass {
         ErrorClass::Permanent
     }
 }
-
-
 
 /// Classify generic error messages for retry behavior
 fn classify_generic_message(msg: &str) -> ErrorClass {
@@ -457,7 +454,6 @@ mod tests {
 
     #[test]
     fn test_downcast_from_tool_error_source() {
-
         // Create a structured EvmToolError
         let evm_error = EvmToolError::InsufficientFunds;
 

@@ -11,11 +11,11 @@ use tracing::{debug, info};
 #[tool]
 pub async fn send_eth(
     to: String,
-    amount: String,
+    amount_eth: f64,
     _chain_id: Option<u64>,
     _context: &riglr_core::provider::ApplicationContext,
 ) -> Result<String, ToolError> {
-    debug!("Sending {} ETH to {}", amount, to);
+    debug!("Sending {} ETH to {}", amount_eth, to);
 
     // Get the current EVM signer from context
     let signer_context = SignerContext::current_as_evm()
@@ -26,10 +26,7 @@ pub async fn send_eth(
     let to_address = Address::from_str(&to)
         .map_err(|e| ToolError::permanent_string(format!("Invalid destination address: {}", e)))?;
 
-    // Parse the amount (in ETH) and convert to wei
-    let amount_eth: f64 = amount
-        .parse()
-        .map_err(|e| ToolError::permanent_string(format!("Invalid amount: {}", e)))?;
+    // Convert amount from ETH to wei
     let amount_wei = U256::from((amount_eth * 1e18) as u128);
 
     // Build the transaction request
@@ -38,8 +35,11 @@ pub async fn send_eth(
         .value(amount_wei);
 
     // Send the transaction using the signer
+    let tx_json = serde_json::to_value(&tx).map_err(|e| {
+        ToolError::retriable_string(format!("Failed to serialize transaction: {}", e))
+    })?;
     let tx_hash = signer_context
-        .sign_and_send_transaction(tx)
+        .sign_and_send_transaction(tx_json)
         .await
         .map_err(|e| ToolError::retriable_string(format!("Failed to send transaction: {}", e)))?;
 

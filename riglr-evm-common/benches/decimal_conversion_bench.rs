@@ -26,7 +26,7 @@ use rust_decimal::prelude::*;
 use std::str::FromStr;
 
 /// Convert ETH to wei using f64 arithmetic (benchmark version)
-/// 
+///
 /// This function implements the same logic as the production f64-based converter
 /// to enable direct performance comparison with the decimal implementation.
 fn eth_to_wei_f64(eth_amount: f64) -> U256 {

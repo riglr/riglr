@@ -1,6 +1,6 @@
 [package]
 name = "riglr-evm-tools"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 authors = ["Riglr Contributors"]
 license = "MIT OR Apache-2.0"
@@ -41,3 +41,7 @@ reqwest = { workspace = true }
 [dev-dependencies]
 tokio = { workspace = true, features = ["full", "test-util"] }
 tracing-subscriber = { workspace = true }
+testcontainers = "0.24.0"
+
+[features]
+integration-tests = []

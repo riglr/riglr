@@ -59,8 +59,10 @@ where
     let tx = tx_creator(address, provider).await?;
 
     // Sign and send via signer context
+    let tx_json = serde_json::to_value(&tx)
+        .map_err(|e| EvmToolError::Generic(format!("Failed to serialize transaction: {}", e)))?;
     signer
-        .sign_and_send_transaction(tx)
+        .sign_and_send_transaction(tx_json)
         .await
         .map_err(EvmToolError::SignerError)
 }
