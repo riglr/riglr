@@ -20,6 +20,7 @@ workspace = true
 # riglr ecosystem
 riglr-config = { path = "../riglr-config" }
 riglr-core = { path = "../riglr-core" }
+riglr-solana-tools = { path = "../riglr-solana-tools" }
 riglr-web-adapters = { path = "../riglr-web-adapters" }
 rig-core = { workspace = true }
 
