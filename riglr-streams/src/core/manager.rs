@@ -11,6 +11,7 @@ use tokio::time::{sleep, Duration};
 use super::error::{StreamError, StreamResult};
 use super::metrics::{MetricsCollector, MetricsTimer};
 use super::stream::{DynamicStream, DynamicStreamWrapper, Stream, StreamHealth};
+use super::streamed_event::DynamicStreamedEvent;
 
 /// Execution mode for event handlers
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
@@ -41,7 +42,7 @@ pub struct StreamManager {
     /// Event handlers
     event_handlers: Arc<RwLock<Vec<Arc<dyn EventHandler>>>>,
     /// Global event channel for all streams
-    global_event_tx: broadcast::Sender<Arc<dyn Any + Send + Sync>>,
+    global_event_tx: broadcast::Sender<Arc<DynamicStreamedEvent>>,
     /// Shutdown signal
     shutdown_tx: broadcast::Sender<()>,
     /// Manager state
@@ -73,12 +74,12 @@ pub enum ManagerState {
 #[async_trait::async_trait]
 pub trait EventHandler: Send + Sync {
     /// Check if this handler should process the event
-    async fn should_handle(&self, event: &(dyn Any + Send + Sync)) -> bool;
+    async fn should_handle(&self, event: &DynamicStreamedEvent) -> bool;
 
     /// Process the event
     async fn handle(
         &self,
-        event: Arc<dyn Any + Send + Sync>,
+        event: Arc<DynamicStreamedEvent>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>>;
 
     /// Get handler name for logging
@@ -119,7 +120,6 @@ impl StreamManager {
     pub async fn add_stream<S>(&self, name: String, stream: S) -> StreamResult<()>
     where
         S: Stream + Send + Sync + 'static,
-        S::Event: Send + Sync + 'static,
     {
         if self.streams.contains_key(&name) {
             return Err(StreamError::AlreadyRunning { name });
@@ -495,7 +495,7 @@ impl StreamManager {
     /// Forward events from a stream to the global channel
     async fn forward_stream_events(
         mut stream_rx: broadcast::Receiver<Arc<dyn Any + Send + Sync>>,
-        global_tx: broadcast::Sender<Arc<dyn Any + Send + Sync>>,
+        global_tx: broadcast::Sender<Arc<DynamicStreamedEvent>>,
         stream_name: String,
         mut shutdown_rx: broadcast::Receiver<()>,
     ) {
@@ -507,8 +507,14 @@ impl StreamManager {
                     event = stream_rx.recv() => {
                         match event {
                             Ok(event) => {
-                                if let Err(e) = global_tx.send(event) {
-                                    warn!("Failed to forward event from stream {}: {}", stream_name, e);
+                                // Try to downcast to DynamicStreamedEvent
+                                if let Some(streamed_event) = event.downcast_ref::<DynamicStreamedEvent>() {
+                                    let cloned_event = streamed_event.clone();
+                                    if let Err(e) = global_tx.send(Arc::new(cloned_event)) {
+                                        warn!("Failed to forward event from stream {}: {}", stream_name, e);
+                                    }
+                                } else {
+                                    debug!("Received non-DynamicStreamedEvent from stream {}, skipping", stream_name);
                                 }
                             }
                             Err(broadcast::error::RecvError::Lagged(count)) => {
@@ -538,8 +544,14 @@ impl StreamManager {
                     event = stream_rx.recv() => {
                         match event {
                             Ok(event) => {
-                                if let Err(e) = global_tx.send(event) {
-                                    warn!("Failed to forward event from stream {}: {}", stream_name, e);
+                                // Try to downcast to DynamicStreamedEvent
+                                if let Some(streamed_event) = event.downcast_ref::<DynamicStreamedEvent>() {
+                                    let cloned_event = streamed_event.clone();
+                                    if let Err(e) = global_tx.send(Arc::new(cloned_event)) {
+                                        warn!("Failed to forward event from stream {}: {}", stream_name, e);
+                                    }
+                                } else {
+                                    debug!("Received non-DynamicStreamedEvent from stream {}, skipping", stream_name);
                                 }
                             }
                             Err(broadcast::error::RecvError::Lagged(count)) => {
@@ -561,7 +573,7 @@ impl StreamManager {
     }
 
     /// Handle a single event
-    async fn handle_event(&self, event: Arc<dyn Any + Send + Sync>) {
+    async fn handle_event(&self, event: Arc<DynamicStreamedEvent>) {
         let handlers = self.event_handlers.read().await;
         let execution_mode = *self.execution_mode.read().await;
         let metrics = self.metrics_collector.clone();
@@ -721,13 +733,13 @@ impl LoggingEventHandler {
 
 #[async_trait::async_trait]
 impl EventHandler for LoggingEventHandler {
-    async fn should_handle(&self, _event: &(dyn Any + Send + Sync)) -> bool {
+    async fn should_handle(&self, _event: &DynamicStreamedEvent) -> bool {
         true // Handle all events
     }
 
     async fn handle(
         &self,
-        _event: Arc<dyn Any + Send + Sync>,
+        _event: Arc<DynamicStreamedEvent>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         debug!("LoggingEventHandler {} received event", self.name);
         Ok(())
@@ -741,6 +753,8 @@ impl EventHandler for LoggingEventHandler {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::core::streamed_event::IntoDynamicStreamedEvent;
+    use riglr_events_core::Event;
     use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
     use tokio::sync::Notify;
 
@@ -773,8 +787,11 @@ mod tests {
         fn metadata(&self) -> &riglr_events_core::prelude::EventMetadata {
             &self.metadata
         }
-        fn metadata_mut(&mut self) -> &mut riglr_events_core::prelude::EventMetadata {
-            &mut self.metadata
+        fn metadata_mut(
+            &mut self,
+        ) -> riglr_events_core::EventResult<&mut riglr_events_core::prelude::EventMetadata>
+        {
+            Ok(&mut self.metadata)
         }
         fn as_any(&self) -> &dyn Any {
             self
@@ -816,7 +833,7 @@ mod tests {
         is_running: AtomicBool,
         should_fail_start: AtomicBool,
         should_fail_stop: AtomicBool,
-        event_sender: broadcast::Sender<Arc<MockEvent>>,
+        event_sender: broadcast::Sender<Arc<DynamicStreamedEvent>>,
         health: StreamHealth,
     }
 
@@ -841,13 +858,14 @@ mod tests {
 
         #[allow(dead_code)]
         async fn send_event(&self, event: MockEvent) {
-            let _ = self.event_sender.send(Arc::new(event));
+            let dynamic_event =
+                (Box::new(event) as Box<dyn Event>).with_default_stream_metadata(&self.name);
+            let _ = self.event_sender.send(Arc::new(dynamic_event));
         }
     }
 
     #[async_trait::async_trait]
     impl Stream for MockStream {
-        type Event = MockEvent;
         type Config = MockConfig;
 
         async fn start(&mut self, config: Self::Config) -> StreamResult<()> {
@@ -884,7 +902,7 @@ mod tests {
             self.is_running.load(Ordering::SeqCst)
         }
 
-        fn subscribe(&self) -> broadcast::Receiver<Arc<Self::Event>> {
+        fn subscribe(&self) -> broadcast::Receiver<Arc<DynamicStreamedEvent>> {
             self.event_sender.subscribe()
         }
 
@@ -938,13 +956,13 @@ mod tests {
 
     #[async_trait::async_trait]
     impl EventHandler for MockEventHandler {
-        async fn should_handle(&self, _event: &(dyn Any + Send + Sync)) -> bool {
+        async fn should_handle(&self, _event: &DynamicStreamedEvent) -> bool {
             self.should_handle_flag.load(Ordering::SeqCst)
         }
 
         async fn handle(
             &self,
-            _event: Arc<dyn Any + Send + Sync>,
+            _event: Arc<DynamicStreamedEvent>,
         ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             self.handle_count.fetch_add(1, Ordering::SeqCst);
             self.handle_notify.notify_one();
@@ -1570,7 +1588,9 @@ mod tests {
         manager.add_event_handler(handler1.clone()).await;
         manager.add_event_handler(handler2.clone()).await;
 
-        let event = Arc::new("test_event".to_string()) as Arc<dyn Any + Send + Sync>;
+        let mock_event = MockEvent::new("test_event");
+        let event =
+            Arc::new((Box::new(mock_event) as Box<dyn Event>).with_default_stream_metadata("test"));
         manager.handle_event(event).await;
 
         // Both handlers should have processed the event
@@ -1587,7 +1607,9 @@ mod tests {
         manager.add_event_handler(handler1.clone()).await;
         manager.add_event_handler(handler2.clone()).await;
 
-        let event = Arc::new("test_event".to_string()) as Arc<dyn Any + Send + Sync>;
+        let mock_event = MockEvent::new("test_event");
+        let event =
+            Arc::new((Box::new(mock_event) as Box<dyn Event>).with_default_stream_metadata("test"));
         manager.handle_event(event).await;
 
         // Both handlers should have processed the event
@@ -1605,7 +1627,9 @@ mod tests {
         manager.add_event_handler(handler1.clone()).await;
         manager.add_event_handler(handler2.clone()).await;
 
-        let event = Arc::new("test_event".to_string()) as Arc<dyn Any + Send + Sync>;
+        let mock_event = MockEvent::new("test_event");
+        let event =
+            Arc::new((Box::new(mock_event) as Box<dyn Event>).with_default_stream_metadata("test"));
         manager.handle_event(event).await;
 
         // Both handlers should have processed the event
@@ -1621,7 +1645,9 @@ mod tests {
 
         manager.add_event_handler(handler.clone()).await;
 
-        let event = Arc::new("test_event".to_string()) as Arc<dyn Any + Send + Sync>;
+        let mock_event = MockEvent::new("test_event");
+        let event =
+            Arc::new((Box::new(mock_event) as Box<dyn Event>).with_default_stream_metadata("test"));
         manager.handle_event(event).await;
 
         // Handler should not have processed the event
@@ -1636,7 +1662,9 @@ mod tests {
 
         manager.add_event_handler(handler.clone()).await;
 
-        let event = Arc::new("test_event".to_string()) as Arc<dyn Any + Send + Sync>;
+        let mock_event = MockEvent::new("test_event");
+        let event =
+            Arc::new((Box::new(mock_event) as Box<dyn Event>).with_default_stream_metadata("test"));
         manager.handle_event(event).await;
 
         // Handler should have been called despite failure
@@ -1653,14 +1681,17 @@ mod tests {
     #[tokio::test]
     async fn test_logging_event_handler_should_handle() {
         let handler = LoggingEventHandler::new("test_handler");
-        let event = "test_event";
+        let mock_event = MockEvent::new("test_event");
+        let event = (Box::new(mock_event) as Box<dyn Event>).with_default_stream_metadata("test");
         assert!(handler.should_handle(&event).await);
     }
 
     #[tokio::test]
     async fn test_logging_event_handler_handle() {
         let handler = LoggingEventHandler::new("test_handler");
-        let event = Arc::new("test_event".to_string()) as Arc<dyn Any + Send + Sync>;
+        let mock_event = MockEvent::new("test_event");
+        let event =
+            Arc::new((Box::new(mock_event) as Box<dyn Event>).with_default_stream_metadata("test"));
         let result = handler.handle(event).await;
         assert!(result.is_ok());
     }

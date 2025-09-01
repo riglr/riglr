@@ -7,7 +7,7 @@ use tracing::{debug, info};
 
 use super::condition::{ConditionCombinator, EventCondition};
 use super::event_utils::as_event;
-use crate::core::{EventHandler, StreamManager};
+use crate::core::{DynamicStreamedEvent, EventHandler, StreamManager};
 
 /// Helper function to match events, including test-specific types
 #[cfg(test)]
@@ -16,12 +16,12 @@ fn match_event_with_tests(event: &(dyn Any + Send + Sync)) -> Option<&dyn Event>
     if let Some(event_ref) = as_event(event) {
         return Some(event_ref);
     }
-    
+
     // Try MockEvent for tests
     if let Some(mock_event) = event.downcast_ref::<tests::MockEvent>() {
         return Some(mock_event);
     }
-    
+
     None
 }
 
@@ -120,7 +120,7 @@ impl<T: StreamingTool + 'static> EventTriggeredTool<T> {
         &self,
         event: Arc<dyn Any + Send + Sync>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        // Try to downcast to specific event types that implement Event  
+        // Try to downcast to specific event types that implement Event
         if let Some(event_ref) = match_event_with_tests(event.as_ref()) {
             info!(
                 "Executing tool {} triggered by event kind {:?}",
@@ -151,15 +151,19 @@ impl<T: StreamingTool + 'static> EventTriggeredTool<T> {
 
 #[async_trait]
 impl<T: StreamingTool + 'static> EventHandler for EventTriggeredTool<T> {
-    async fn should_handle(&self, event: &(dyn Any + Send + Sync)) -> bool {
-        self.matches_conditions(event).await
+    async fn should_handle(&self, event: &DynamicStreamedEvent) -> bool {
+        // Convert to dyn Any for compatibility with existing condition logic
+        let any_event: &(dyn Any + Send + Sync) = event;
+        self.matches_conditions(any_event).await
     }
 
     async fn handle(
         &self,
-        event: Arc<dyn Any + Send + Sync>,
+        event: Arc<DynamicStreamedEvent>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        self.execute_with_event(event).await
+        // Convert to Arc<dyn Any + Send + Sync> for compatibility
+        let any_event: Arc<dyn Any + Send + Sync> = event.clone();
+        self.execute_with_event(any_event).await
     }
 
     fn name(&self) -> &str {
@@ -220,12 +224,12 @@ impl<T: StreamingTool + 'static> EventTriggerBuilder<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::core::streamed_event::IntoDynamicStreamedEvent;
     use crate::tools::condition::ConditionCombinator;
-    use riglr_events_core::prelude::{Event, EventKind, EventMetadata};
     use riglr_events_core::error::EventResult;
+    use riglr_events_core::prelude::{Event, EventKind, EventMetadata};
     use std::sync::atomic::{AtomicUsize, Ordering};
     use std::time::SystemTime;
-
 
     // Mock Event implementation for testing
     #[allow(dead_code)]
@@ -267,8 +271,8 @@ mod tests {
             &self.metadata
         }
 
-        fn metadata_mut(&mut self) -> &mut EventMetadata {
-            &mut self.metadata
+        fn metadata_mut(&mut self) -> EventResult<&mut EventMetadata> {
+            Ok(&mut self.metadata)
         }
 
         fn as_any(&self) -> &dyn std::any::Any {
@@ -508,7 +512,10 @@ mod tests {
     async fn test_execute_with_event_when_valid_event_should_execute_tool() {
         let tool = MockStreamingTool::new("test-tool");
         let triggered_tool = EventTriggeredTool::new(tool.clone(), "test");
-        let event = Arc::new(MockEvent::new(EventKind::Transaction, "test", "data"));
+        let event = Arc::new(
+            (Box::new(MockEvent::new(EventKind::Transaction, "test", "data")) as Box<dyn Event>)
+                .with_default_stream_metadata("test"),
+        );
 
         let result = triggered_tool.execute_with_event(event).await;
         assert!(result.is_ok());
@@ -519,7 +526,10 @@ mod tests {
     async fn test_execute_with_event_when_tool_fails_should_return_error() {
         let tool = MockStreamingTool::new("test-tool").with_failure();
         let triggered_tool = EventTriggeredTool::new(tool, "test");
-        let event = Arc::new(MockEvent::new(EventKind::Transaction, "test", "data"));
+        let event = Arc::new(
+            (Box::new(MockEvent::new(EventKind::Transaction, "test", "data")) as Box<dyn Event>)
+                .with_default_stream_metadata("test"),
+        );
 
         let result = triggered_tool.execute_with_event(event).await;
         assert!(result.is_err());
@@ -543,7 +553,10 @@ mod tests {
     async fn test_execution_count_should_track_executions() {
         let tool = MockStreamingTool::new("test-tool");
         let triggered_tool = EventTriggeredTool::new(tool, "test");
-        let event = Arc::new(MockEvent::new(EventKind::Transaction, "test", "data"));
+        let event = Arc::new(
+            (Box::new(MockEvent::new(EventKind::Transaction, "test", "data")) as Box<dyn Event>)
+                .with_default_stream_metadata("test"),
+        );
 
         assert_eq!(triggered_tool.execution_count().await, 0);
 
@@ -559,7 +572,8 @@ mod tests {
         let tool = MockStreamingTool::new("test-tool");
         let condition = Box::new(MockCondition::new(true, "mock condition"));
         let triggered_tool = EventTriggeredTool::new(tool, "test").with_condition(condition);
-        let event = MockEvent::new(EventKind::Transaction, "test", "data");
+        let mock_event = MockEvent::new(EventKind::Transaction, "test", "data");
+        let event = (Box::new(mock_event) as Box<dyn Event>).with_default_stream_metadata("test");
 
         let result = triggered_tool.should_handle(&event).await;
         assert!(result);
@@ -570,7 +584,8 @@ mod tests {
         let tool = MockStreamingTool::new("test-tool");
         let condition = Box::new(MockCondition::new(false, "mock condition"));
         let triggered_tool = EventTriggeredTool::new(tool, "test").with_condition(condition);
-        let event = MockEvent::new(EventKind::Transaction, "test", "data");
+        let mock_event = MockEvent::new(EventKind::Transaction, "test", "data");
+        let event = (Box::new(mock_event) as Box<dyn Event>).with_default_stream_metadata("test");
 
         let result = triggered_tool.should_handle(&event).await;
         assert!(!result);
@@ -580,7 +595,10 @@ mod tests {
     async fn test_handle_when_called_should_execute_tool() {
         let tool = MockStreamingTool::new("test-tool");
         let triggered_tool = EventTriggeredTool::new(tool.clone(), "test");
-        let event = Arc::new(MockEvent::new(EventKind::Transaction, "test", "data"));
+        let event = Arc::new(
+            (Box::new(MockEvent::new(EventKind::Transaction, "test", "data")) as Box<dyn Event>)
+                .with_default_stream_metadata("test"),
+        );
 
         let result = triggered_tool.handle(event).await;
         assert!(result.is_ok());
@@ -640,7 +658,10 @@ mod tests {
     async fn test_execution_count_increment_with_concurrent_executions() {
         let tool = MockStreamingTool::new("test-tool");
         let triggered_tool = Arc::new(EventTriggeredTool::new(tool, "test"));
-        let event = Arc::new(MockEvent::new(EventKind::Transaction, "test", "data"));
+        let event = Arc::new(
+            (Box::new(MockEvent::new(EventKind::Transaction, "test", "data")) as Box<dyn Event>)
+                .with_default_stream_metadata("test"),
+        );
 
         // Execute multiple times concurrently
         let mut handles = vec![];

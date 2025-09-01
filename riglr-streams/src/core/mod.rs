@@ -8,8 +8,6 @@ pub mod connection;
 pub mod enhanced_operators;
 /// Error types and result definitions for streaming operations
 pub mod error;
-/// Adapters for converting between different event formats
-pub mod event_adapter;
 /// Financial analysis operators for market data streams
 pub mod financial_operators;
 /// Stream lifecycle management and coordination
@@ -22,13 +20,12 @@ pub mod mock_stream;
 pub mod operators;
 /// Event processing and pattern matching utilities
 pub mod processor;
+/// Resilient WebSocket connector implementation
+pub mod resilient_connector;
 /// Core streaming abstractions and implementations
 pub mod stream;
 /// Event wrapper types for streaming data
 pub mod streamed_event;
-/// Macros for resilience patterns in stream processing
-#[macro_use]
-pub mod resilience_macro;
 
 pub use mock_stream::{MockConfig, MockStream};
 pub use stream::{DynamicStream, DynamicStreamWrapper, Stream, StreamEvent, StreamHealth};
@@ -75,16 +72,22 @@ pub use connection::{
     CircuitBreaker, ConnectionHealth, ConnectionManager, ConnectionPool, ConnectionState,
 };
 pub use error::{StreamError, StreamResult};
-pub use financial_operators::{AsNumeric, FinancialStreamExt};
+// Financial operators - specific exports TBD
+// pub use financial_operators::{AsNumeric, FinancialStreamExt};
 pub use manager::{EventHandler, HandlerExecutionMode, LoggingEventHandler, StreamManager};
 pub use metrics::{GlobalMetrics, HandlerMetrics, MetricsCollector, MetricsTimer, StreamMetrics};
-pub use operators::{
-    combinators, BufferStrategy, ComposableStream, GuaranteedDeliveryStream, PerformanceStreamExt,
-    ResilienceStreamExt, TypeErasedEvent,
-};
+pub use operators::ComposableStream;
+// Additional operators - specific exports TBD
+// pub use operators::{
+//     combinators, BufferStrategy, GuaranteedDeliveryStream, PerformanceStreamExt,
+//     ResilienceStreamExt, TypeErasedEvent,
+// };
 pub use processor::{
     BatchProcessor, EventPattern, FlowController, PatternMatcher, StatefulProcessor, Window,
     WindowManager, WindowType,
+};
+pub use resilient_connector::{
+    ResilientConfig, ResilientWebSocketBuilder, ResilientWebSocketConnector,
 };
 
 #[cfg(test)]

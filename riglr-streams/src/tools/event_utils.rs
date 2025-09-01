@@ -13,10 +13,9 @@ pub fn as_event(event: &(dyn Any + Send + Sync)) -> Option<&dyn Event> {
     if let Some(mempool_event) = event.downcast_ref::<crate::external::MempoolStreamEvent>() {
         return Some(mempool_event);
     }
-    
+
     None
 }
-
 
 /// Macro to simplify adding new event types
 /// Usage: register_event_types!(NewEventType1, NewEventType2);
@@ -78,8 +77,10 @@ mod tests {
             &self.metadata
         }
 
-        fn metadata_mut(&mut self) -> &mut riglr_events_core::EventMetadata {
-            &mut self.metadata
+        fn metadata_mut(
+            &mut self,
+        ) -> riglr_events_core::error::EventResult<&mut riglr_events_core::EventMetadata> {
+            Ok(&mut self.metadata)
         }
 
         fn as_any(&self) -> &dyn Any {
@@ -95,7 +96,8 @@ mod tests {
         }
 
         fn to_json(&self) -> riglr_events_core::error::EventResult<serde_json::Value> {
-            serde_json::to_value(self).map_err(|e| riglr_events_core::error::EventError::generic(e.to_string()))
+            serde_json::to_value(self)
+                .map_err(|e| riglr_events_core::error::EventError::generic(e.to_string()))
         }
     }
 
@@ -130,8 +132,10 @@ mod tests {
             &self.metadata
         }
 
-        fn metadata_mut(&mut self) -> &mut riglr_events_core::EventMetadata {
-            &mut self.metadata
+        fn metadata_mut(
+            &mut self,
+        ) -> riglr_events_core::EventResult<&mut riglr_events_core::EventMetadata> {
+            Ok(&mut self.metadata)
         }
 
         fn as_any(&self) -> &dyn Any {
@@ -147,7 +151,8 @@ mod tests {
         }
 
         fn to_json(&self) -> riglr_events_core::error::EventResult<serde_json::Value> {
-            serde_json::to_value(self).map_err(|e| riglr_events_core::error::EventError::generic(e.to_string()))
+            serde_json::to_value(self)
+                .map_err(|e| riglr_events_core::error::EventError::generic(e.to_string()))
         }
     }
 

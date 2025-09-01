@@ -145,7 +145,6 @@ impl MockStream {
 
 #[async_trait]
 impl Stream for MockStream {
-    type Event = DynamicStreamedEvent;
     type Config = MockConfig;
 
     async fn start(&mut self, config: Self::Config) -> Result<(), StreamError> {
@@ -183,7 +182,7 @@ impl Stream for MockStream {
         Ok(())
     }
 
-    fn subscribe(&self) -> broadcast::Receiver<Arc<Self::Event>> {
+    fn subscribe(&self) -> broadcast::Receiver<Arc<DynamicStreamedEvent>> {
         self.event_tx.subscribe()
     }
 
@@ -227,8 +226,8 @@ impl Event for MockEvent {
         &self.metadata
     }
 
-    fn metadata_mut(&mut self) -> &mut EventMetadata {
-        &mut self.metadata
+    fn metadata_mut(&mut self) -> riglr_events_core::error::EventResult<&mut EventMetadata> {
+        Ok(&mut self.metadata)
     }
 
     fn as_any(&self) -> &dyn std::any::Any {
@@ -515,7 +514,7 @@ mod tests {
     fn test_mock_event_metadata_mut() {
         let mut event = MockEvent::new("test-id".to_string(), EventKind::Transaction);
         {
-            let metadata = event.metadata_mut();
+            let metadata = event.metadata_mut().unwrap();
             metadata.source = "modified-source".to_string();
         }
         assert_eq!(event.metadata().source, "modified-source");

@@ -3,9 +3,10 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::SystemTime;
 use tokio::sync::{broadcast, RwLock};
-use tokio_tungstenite::connect_async;
 use tracing::info;
 
+use crate::core::metrics::MetricsCollector;
+use crate::core::streamed_event::DynamicStreamedEvent;
 use crate::core::StreamMetadata;
 use crate::core::{Stream, StreamError, StreamEvent, StreamHealth};
 use chrono::Utc;
@@ -16,7 +17,9 @@ pub struct BinanceStream {
     /// Stream configuration
     config: BinanceConfig,
     /// Event broadcast channel
-    event_tx: broadcast::Sender<Arc<BinanceStreamEvent>>,
+    event_tx: broadcast::Sender<Arc<DynamicStreamedEvent>>,
+    /// Metrics collector
+    metrics: Option<Arc<MetricsCollector>>,
     /// Running state
     running: Arc<AtomicBool>,
     /// Health metrics
@@ -182,8 +185,8 @@ impl Event for BinanceStreamEvent {
         &self.metadata
     }
 
-    fn metadata_mut(&mut self) -> &mut EventMetadata {
-        &mut self.metadata
+    fn metadata_mut(&mut self) -> riglr_events_core::error::EventResult<&mut EventMetadata> {
+        Ok(&mut self.metadata)
     }
 
     fn as_any(&self) -> &dyn std::any::Any {
@@ -209,7 +212,6 @@ impl Event for BinanceStreamEvent {
 
 #[async_trait::async_trait]
 impl Stream for BinanceStream {
-    type Event = BinanceStreamEvent;
     type Config = BinanceConfig;
 
     async fn start(&mut self, config: Self::Config) -> Result<(), StreamError> {
@@ -254,7 +256,7 @@ impl Stream for BinanceStream {
         Ok(())
     }
 
-    fn subscribe(&self) -> broadcast::Receiver<Arc<Self::Event>> {
+    fn subscribe(&self) -> broadcast::Receiver<Arc<DynamicStreamedEvent>> {
         self.event_tx.subscribe()
     }
 
@@ -283,6 +285,21 @@ impl BinanceStream {
             running: Arc::new(AtomicBool::new(false)),
             health: Arc::new(RwLock::new(StreamHealth::default())),
             name: name.into(),
+            metrics: None,
+        }
+    }
+
+    /// Create a new Binance stream with metrics
+    pub fn new_with_metrics(name: impl Into<String>, metrics: Arc<MetricsCollector>) -> Self {
+        let (event_tx, _) = broadcast::channel(10000);
+
+        Self {
+            config: BinanceConfig::default(),
+            event_tx,
+            running: Arc::new(AtomicBool::new(false)),
+            health: Arc::new(RwLock::new(StreamHealth::default())),
+            name: name.into(),
+            metrics: Some(metrics),
         }
     }
 
@@ -301,48 +318,77 @@ impl BinanceStream {
             format!("{}/{}", base_url, streams_param)
         };
 
-        let event_tx = self.event_tx.clone();
+        let metrics = self.metrics.clone();
         let running = self.running.clone();
         let health = self.health.clone();
         let stream_name = self.name.clone();
 
+        // Create mpsc channel for internal event handling
+        let (internal_tx, mut internal_rx) =
+            tokio::sync::mpsc::unbounded_channel::<Arc<DynamicStreamedEvent>>();
+        let event_tx = self.event_tx.clone();
+
+        // Bridge internal events to broadcast channel
+        let stream_name_clone = stream_name.clone();
+        let metrics_clone = metrics.clone();
         tokio::spawn(async move {
-            crate::impl_resilient_websocket!(
+            while let Some(event) = internal_rx.recv().await {
+                if let Some(ref metrics) = metrics_clone {
+                    metrics
+                        .record_stream_event(&stream_name_clone, 0.0, 0)
+                        .await;
+                }
+                let _ = event_tx.send(event);
+            }
+        });
+
+        let internal_tx_for_connector = internal_tx;
+        tokio::spawn(async move {
+            let connector = crate::core::ResilientWebSocketBuilder::new(
                 stream_name,
                 running,
                 health,
-                event_tx,
-                Option::<crate::core::MetricsCollector>::None, // No metrics for now
-                // Connect function
-                || {
+                internal_tx_for_connector,
+                move || {
                     let url = url.clone();
-                    async move {
-                        connect_async(&url)
+                    Box::pin(async move {
+                        tokio_tungstenite::connect_async(&url)
                             .await
                             .map(|(ws, _)| ws)
-                            .map_err(|e| format!("Failed to connect to Binance: {}", e))
-                    }
+                            .map_err(|e| {
+                                Box::new(std::io::Error::new(
+                                    std::io::ErrorKind::ConnectionRefused,
+                                    format!("Failed to connect to Binance: {}", e),
+                                ))
+                                    as Box<dyn std::error::Error + Send + Sync>
+                            })
+                    })
                 },
-                // Subscribe function
-                move |_write: &mut futures::stream::SplitSink<_, Message>| {
-                    std::future::ready(Ok::<(), String>(()))
+                |_write| {
+                    Box::pin(async move { Ok::<(), Box<dyn std::error::Error + Send + Sync>>(()) })
                 },
-                // Parse function
                 |text: String, sequence_number: u64| {
                     if let Ok(json) = serde_json::from_str::<serde_json::Value>(&text) {
                         Self::parse_message(json, sequence_number)
                     } else {
                         None
                     }
-                }
-            );
+                },
+            )
+            .with_metrics(metrics.unwrap_or_else(|| Arc::new(MetricsCollector::default())))
+            .build();
+
+            connector.run().await;
         });
 
         Ok(())
     }
 
     /// Parse a Binance message into an event
-    fn parse_message(json: serde_json::Value, sequence_number: u64) -> Option<BinanceStreamEvent> {
+    fn parse_message(
+        json: serde_json::Value,
+        sequence_number: u64,
+    ) -> Option<DynamicStreamedEvent> {
         // Check event type
         let event_type = json.get("e")?.as_str()?;
 
@@ -398,7 +444,7 @@ impl BinanceStream {
             custom: std::collections::HashMap::new(),
         };
 
-        // Create stream metadata (legacy)
+        // Create stream metadata
         let stream_meta = StreamMetadata {
             stream_source: "binance".to_string(),
             received_at: SystemTime::now(),
@@ -406,11 +452,18 @@ impl BinanceStream {
             custom_data: Some(json.clone()),
         };
 
-        Some(BinanceStreamEvent {
+        // Create BinanceStreamEvent first
+        let binance_event = BinanceStreamEvent {
             metadata,
             data,
+            stream_meta: stream_meta.clone(),
+        };
+
+        // Convert to DynamicStreamedEvent
+        Some(DynamicStreamedEvent::from_event(
+            Box::new(binance_event),
             stream_meta,
-        })
+        ))
     }
 }
 
@@ -662,23 +715,27 @@ mod tests {
         });
 
         let event = BinanceStream::parse_message(json, 1).unwrap();
-        assert_eq!(event.metadata.id, "BTCUSDT-24hrTicker-1");
-        assert_eq!(event.metadata.kind, EventKind::Price);
-        assert_eq!(event.metadata.source, "binance-ws");
+        assert_eq!(event.metadata().id, "BTCUSDT-24hrTicker-1");
+        assert_eq!(event.metadata().kind, EventKind::Price);
+        assert_eq!(event.metadata().source, "binance-ws");
 
-        match event.data {
-            BinanceEventData::Ticker(ticker) => {
-                assert_eq!(ticker.symbol, "BTCUSDT");
-                assert_eq!(ticker.close_price, "50000.00");
-                assert_eq!(ticker.volume, "1000.5");
-                assert_eq!(ticker.price_change_percent, "2.5");
-                assert_eq!(ticker.event_time, 1234567890);
+        if let Some(binance_event) = event.inner().as_any().downcast_ref::<BinanceStreamEvent>() {
+            match binance_event.data {
+                BinanceEventData::Ticker(ref ticker) => {
+                    assert_eq!(ticker.symbol, "BTCUSDT");
+                    assert_eq!(ticker.close_price, "50000.00");
+                    assert_eq!(ticker.volume, "1000.5");
+                    assert_eq!(ticker.price_change_percent, "2.5");
+                    assert_eq!(ticker.event_time, 1234567890);
+                }
+                _ => panic!("Expected Ticker event"),
             }
-            _ => panic!("Expected Ticker event"),
+        } else {
+            panic!("Expected BinanceStreamEvent");
         }
 
-        assert_eq!(event.stream_meta.stream_source, "binance");
-        assert_eq!(event.stream_meta.sequence_number, Some(1));
+        assert_eq!(event.stream_metadata().unwrap().stream_source, "binance");
+        assert_eq!(event.stream_metadata().unwrap().sequence_number, Some(1));
     }
 
     #[test]
@@ -692,17 +749,21 @@ mod tests {
         });
 
         let event = BinanceStream::parse_message(json, 2).unwrap();
-        assert_eq!(event.metadata.id, "ETHUSDT-depthUpdate-2");
-        assert_eq!(event.metadata.kind, EventKind::External);
+        assert_eq!(event.metadata().id, "ETHUSDT-depthUpdate-2");
+        assert_eq!(event.metadata().kind, EventKind::External);
 
-        match event.data {
-            BinanceEventData::OrderBook(order_book) => {
-                assert_eq!(order_book.symbol, "ETHUSDT");
-                assert_eq!(order_book.bids.len(), 1);
-                assert_eq!(order_book.asks.len(), 1);
-                assert_eq!(order_book.event_time, 1234567890);
+        if let Some(binance_event) = event.inner().as_any().downcast_ref::<BinanceStreamEvent>() {
+            match binance_event.data {
+                BinanceEventData::OrderBook(ref order_book) => {
+                    assert_eq!(order_book.symbol, "ETHUSDT");
+                    assert_eq!(order_book.bids.len(), 1);
+                    assert_eq!(order_book.asks.len(), 1);
+                    assert_eq!(order_book.event_time, 1234567890);
+                }
+                _ => panic!("Expected OrderBook event"),
             }
-            _ => panic!("Expected OrderBook event"),
+        } else {
+            panic!("Expected BinanceStreamEvent");
         }
     }
 
@@ -718,18 +779,22 @@ mod tests {
         });
 
         let event = BinanceStream::parse_message(json, 3).unwrap();
-        assert_eq!(event.metadata.id, "ADAUSDT-trade-3");
-        assert_eq!(event.metadata.kind, EventKind::Transaction);
+        assert_eq!(event.metadata().id, "ADAUSDT-trade-3");
+        assert_eq!(event.metadata().kind, EventKind::Transaction);
 
-        match event.data {
-            BinanceEventData::Trade(trade) => {
-                assert_eq!(trade.symbol, "ADAUSDT");
-                assert_eq!(trade.price, "1.25");
-                assert_eq!(trade.quantity, "100.0");
-                assert_eq!(trade.trade_time, 1234567890);
-                assert!(trade.is_buyer_maker);
+        if let Some(binance_event) = event.inner().as_any().downcast_ref::<BinanceStreamEvent>() {
+            match binance_event.data {
+                BinanceEventData::Trade(ref trade) => {
+                    assert_eq!(trade.symbol, "ADAUSDT");
+                    assert_eq!(trade.price, "1.25");
+                    assert_eq!(trade.quantity, "100.0");
+                    assert_eq!(trade.trade_time, 1234567890);
+                    assert!(trade.is_buyer_maker);
+                }
+                _ => panic!("Expected Trade event"),
             }
-            _ => panic!("Expected Trade event"),
+        } else {
+            panic!("Expected BinanceStreamEvent");
         }
     }
 
@@ -749,20 +814,24 @@ mod tests {
         });
 
         let event = BinanceStream::parse_message(json, 4).unwrap();
-        assert_eq!(event.metadata.id, "DOTUSDT-kline-4");
-        assert_eq!(event.metadata.kind, EventKind::Price);
+        assert_eq!(event.metadata().id, "DOTUSDT-kline-4");
+        assert_eq!(event.metadata().kind, EventKind::Price);
 
-        match event.data {
-            BinanceEventData::Kline(kline) => {
-                assert_eq!(kline.symbol, "DOTUSDT");
-                assert_eq!(kline.kline.open_time, 1234567890);
-                assert_eq!(kline.kline.open, "25.0");
-                assert_eq!(kline.kline.high, "26.0");
-                assert_eq!(kline.kline.low, "24.5");
-                assert_eq!(kline.kline.close, "25.5");
-                assert_eq!(kline.kline.volume, "1000.0");
+        if let Some(binance_event) = event.inner().as_any().downcast_ref::<BinanceStreamEvent>() {
+            match binance_event.data {
+                BinanceEventData::Kline(ref kline) => {
+                    assert_eq!(kline.symbol, "DOTUSDT");
+                    assert_eq!(kline.kline.open_time, 1234567890);
+                    assert_eq!(kline.kline.open, "25.0");
+                    assert_eq!(kline.kline.high, "26.0");
+                    assert_eq!(kline.kline.low, "24.5");
+                    assert_eq!(kline.kline.close, "25.5");
+                    assert_eq!(kline.kline.volume, "1000.0");
+                }
+                _ => panic!("Expected Kline event"),
             }
-            _ => panic!("Expected Kline event"),
+        } else {
+            panic!("Expected BinanceStreamEvent");
         }
     }
 
@@ -774,14 +843,18 @@ mod tests {
         });
 
         let event = BinanceStream::parse_message(json.clone(), 5).unwrap();
-        assert_eq!(event.metadata.id, "unknown-unknownEvent-5");
-        assert_eq!(event.metadata.kind, EventKind::External);
+        assert_eq!(event.metadata().id, "unknown-unknownEvent-5");
+        assert_eq!(event.metadata().kind, EventKind::External);
 
-        match event.data {
-            BinanceEventData::Unknown(data) => {
-                assert_eq!(data, json);
+        if let Some(binance_event) = event.inner().as_any().downcast_ref::<BinanceStreamEvent>() {
+            match binance_event.data {
+                BinanceEventData::Unknown(ref data) => {
+                    assert_eq!(data, &json);
+                }
+                _ => panic!("Expected Unknown event"),
             }
-            _ => panic!("Expected Unknown event"),
+        } else {
+            panic!("Expected BinanceStreamEvent");
         }
     }
 
@@ -887,7 +960,7 @@ mod tests {
     #[test]
     fn test_binance_stream_event_metadata_mut() {
         let mut event = create_test_event();
-        let metadata = event.metadata_mut();
+        let metadata = event.metadata_mut().unwrap();
         metadata.source = "modified-source".to_string();
         assert_eq!(event.metadata().source, "modified-source");
     }

@@ -10,6 +10,7 @@ use tokio::sync::{broadcast, RwLock};
 use tokio_tungstenite::connect_async;
 use tracing::info;
 
+use crate::core::streamed_event::DynamicStreamedEvent;
 use crate::core::StreamMetadata;
 use crate::core::{Stream, StreamError, StreamEvent, StreamHealth};
 use chrono::Utc;
@@ -52,7 +53,7 @@ pub struct EvmWebSocketStream {
     /// Stream configuration
     config: EvmStreamConfig,
     /// Event broadcast channel
-    event_tx: broadcast::Sender<Arc<EvmStreamEvent>>,
+    event_tx: broadcast::Sender<Arc<DynamicStreamedEvent>>,
     /// Running state
     running: Arc<AtomicBool>,
     /// Health metrics
@@ -140,8 +141,10 @@ impl Event for EvmStreamEvent {
         &self.metadata
     }
 
-    fn metadata_mut(&mut self) -> &mut EventMetadata {
-        &mut self.metadata
+    fn metadata_mut(&mut self) -> riglr_events_core::error::EventResult<&mut EventMetadata> {
+        // Note: Always use .unwrap() or proper error handling when calling this method
+        // Accessing fields directly on the Result (e.g., metadata_mut().id) will fail
+        Ok(&mut self.metadata)
     }
 
     fn as_any(&self) -> &dyn std::any::Any {
@@ -171,7 +174,6 @@ impl Event for EvmStreamEvent {
 
 #[async_trait::async_trait]
 impl Stream for EvmWebSocketStream {
-    type Event = EvmStreamEvent;
     type Config = EvmStreamConfig;
 
     async fn start(&mut self, config: Self::Config) -> Result<(), StreamError> {
@@ -219,7 +221,7 @@ impl Stream for EvmWebSocketStream {
         Ok(())
     }
 
-    fn subscribe(&self) -> broadcast::Receiver<Arc<Self::Event>> {
+    fn subscribe(&self) -> broadcast::Receiver<Arc<DynamicStreamedEvent>> {
         self.event_tx.subscribe()
     }
 
@@ -251,49 +253,62 @@ impl EvmWebSocketStream {
         }
     }
 
+    /// Get metrics collector (creates a default one if needed)
+    fn metrics_collector(&self) -> Arc<crate::core::MetricsCollector> {
+        Arc::new(crate::core::MetricsCollector::new())
+    }
+
     /// Start the WebSocket connection with resilience
     async fn start_websocket(&self) -> Result<(), StreamError> {
         let url = self.config.ws_url.clone();
-        let event_tx = self.event_tx.clone();
+        let event_tx_broadcast = self.event_tx.clone();
         let running = self.running.clone();
         let health = self.health.clone();
         let stream_name = self.name.clone();
         let chain_id = self.config.chain_id;
-        let config = self.config.clone();
+        let metrics = self.metrics_collector();
 
         tokio::spawn(async move {
-            crate::impl_resilient_websocket!(
+            // Create an mpsc channel for the connector
+            let (mpsc_tx, mut mpsc_rx) = tokio::sync::mpsc::unbounded_channel();
+
+            // Spawn a task to bridge mpsc to broadcast
+            let event_tx_clone = event_tx_broadcast.clone();
+            tokio::spawn(async move {
+                while let Some(event) = mpsc_rx.recv().await {
+                    let _ = event_tx_clone.send(event);
+                }
+            });
+
+            let connector = crate::core::ResilientWebSocketBuilder::new(
                 stream_name,
                 running,
                 health,
-                event_tx,
-                Option::<crate::core::MetricsCollector>::None, // No metrics for now
-                // Connect function
-                || {
+                mpsc_tx,
+                move || {
                     let url = url.clone();
-                    async move {
+                    Box::pin(async move {
                         connect_async(&url)
                             .await
                             .map(|(ws, _)| ws)
-                            .map_err(|e| format!("Failed to connect: {}", e))
-                    }
+                            .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)
+                    })
                 },
-                // Subscribe function
-                {
-                    let _config = config.clone();
-                    move |_write: &mut futures::stream::SplitSink<_, Message>| {
-                        std::future::ready(Ok::<(), String>(()))
-                    }
+                |_write| {
+                    Box::pin(async move { Ok::<(), Box<dyn std::error::Error + Send + Sync>>(()) })
                 },
-                // Parse function
-                |text: String, sequence_number: u64| {
+                move |text: String, sequence_number: u64| {
                     if let Ok(json) = serde_json::from_str::<serde_json::Value>(&text) {
                         Self::parse_websocket_message(json, sequence_number, chain_id)
                     } else {
                         None
                     }
-                }
-            );
+                },
+            )
+            .with_metrics(metrics)
+            .build();
+
+            connector.run().await;
         });
 
         Ok(())
@@ -304,7 +319,7 @@ impl EvmWebSocketStream {
         json: serde_json::Value,
         sequence_number: u64,
         chain_id: ChainId,
-    ) -> Option<EvmStreamEvent> {
+    ) -> Option<DynamicStreamedEvent> {
         // Check if this is a subscription notification
         let params = json.get("params")?;
         let subscription = params.get("subscription")?.as_str()?;
@@ -361,7 +376,7 @@ impl EvmWebSocketStream {
             custom: std::collections::HashMap::new(),
         };
 
-        // Create stream metadata (legacy)
+        // Create stream metadata
         let stream_meta = StreamMetadata {
             stream_source: format!("evm-ws-{}", chain_id),
             received_at: SystemTime::now(),
@@ -369,15 +384,22 @@ impl EvmWebSocketStream {
             custom_data: Some(json.clone()),
         };
 
-        Some(EvmStreamEvent {
+        // Create EvmStreamEvent first
+        let evm_event = EvmStreamEvent {
             metadata,
             event_type,
-            stream_meta,
+            stream_meta: stream_meta.clone(),
             chain_id,
             block_number,
             transaction_hash,
             data: json,
-        })
+        };
+
+        // Convert to DynamicStreamedEvent
+        Some(DynamicStreamedEvent::from_event(
+            Box::new(evm_event),
+            stream_meta,
+        ))
     }
 }
 
@@ -514,7 +536,7 @@ mod tests {
     #[test]
     fn test_evm_stream_event_metadata_mut_when_called_should_return_mutable_metadata() {
         let mut event = create_test_event();
-        let metadata_mut = event.metadata_mut();
+        let metadata_mut = event.metadata_mut().unwrap();
         metadata_mut.id = "modified-id".to_string();
         assert_eq!(event.metadata().id, "modified-id");
     }
@@ -687,11 +709,20 @@ mod tests {
 
         assert!(result.is_some());
         let event = result.unwrap();
-        assert_eq!(event.chain_id, ChainId::Ethereum);
-        assert_eq!(event.block_number, Some(10)); // 0xa = 10
-        assert!(event.transaction_hash.is_none());
-        assert!(matches!(event.event_type, EvmEventType::NewBlock));
-        assert_eq!(event.metadata.kind, EventKind::Block);
+
+        // Test that we can downcast to the specific event type
+        let inner_event = event
+            .inner()
+            .as_any()
+            .downcast_ref::<EvmStreamEvent>()
+            .unwrap();
+        assert_eq!(inner_event.chain_id, ChainId::Ethereum);
+        assert_eq!(inner_event.block_number, Some(10)); // 0xa = 10
+        assert!(inner_event.transaction_hash.is_none());
+        assert!(matches!(inner_event.event_type, EvmEventType::NewBlock));
+
+        // Test through Event interface
+        assert_eq!(event.kind(), &EventKind::Block);
     }
 
     #[test]
@@ -711,11 +742,23 @@ mod tests {
 
         assert!(result.is_some());
         let event = result.unwrap();
-        assert_eq!(event.chain_id, ChainId::Polygon);
-        assert_eq!(event.block_number, Some(100)); // 0x64 = 100
-        assert_eq!(event.transaction_hash, Some("0xdef456".to_string()));
-        assert!(matches!(event.event_type, EvmEventType::ContractEvent));
-        assert_eq!(event.metadata.kind, EventKind::Contract);
+
+        // Test that we can downcast to the specific event type
+        let inner_event = event
+            .inner()
+            .as_any()
+            .downcast_ref::<EvmStreamEvent>()
+            .unwrap();
+        assert_eq!(inner_event.chain_id, ChainId::Polygon);
+        assert_eq!(inner_event.block_number, Some(100)); // 0x64 = 100
+        assert_eq!(inner_event.transaction_hash, Some("0xdef456".to_string()));
+        assert!(matches!(
+            inner_event.event_type,
+            EvmEventType::ContractEvent
+        ));
+
+        // Test through Event interface
+        assert_eq!(event.kind(), &EventKind::Contract);
     }
 
     #[test]
@@ -731,11 +774,26 @@ mod tests {
 
         assert!(result.is_some());
         let event = result.unwrap();
-        assert_eq!(event.chain_id, ChainId::BSC);
-        assert!(event.block_number.is_none());
-        assert_eq!(event.transaction_hash, Some("0xabc123def456".to_string()));
-        assert!(matches!(event.event_type, EvmEventType::PendingTransaction));
-        assert_eq!(event.metadata.kind, EventKind::Transaction);
+
+        // Test that we can downcast to the specific event type
+        let inner_event = event
+            .inner()
+            .as_any()
+            .downcast_ref::<EvmStreamEvent>()
+            .unwrap();
+        assert_eq!(inner_event.chain_id, ChainId::BSC);
+        assert!(inner_event.block_number.is_none());
+        assert_eq!(
+            inner_event.transaction_hash,
+            Some("0xabc123def456".to_string())
+        );
+        assert!(matches!(
+            inner_event.event_type,
+            EvmEventType::PendingTransaction
+        ));
+
+        // Test through Event interface
+        assert_eq!(event.kind(), &EventKind::Transaction);
     }
 
     #[test]

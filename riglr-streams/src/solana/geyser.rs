@@ -1,14 +1,13 @@
-use futures::StreamExt;
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::SystemTime;
 use tokio::sync::{broadcast, RwLock};
-use tokio_tungstenite::{connect_async, tungstenite::Message};
-use tracing::{error, info, warn};
+use tokio_tungstenite::connect_async;
+use tracing::info;
 
 use crate::core::{DynamicStreamedEvent, IntoDynamicStreamedEvent, StreamMetadata};
-use crate::core::{Stream, StreamError, StreamHealth};
+use crate::core::{MetricsCollector, Stream, StreamError, StreamHealth};
 use riglr_events_core::Event;
 
 /// Solana Geyser stream implementation using WebSocket
@@ -25,6 +24,8 @@ pub struct SolanaGeyserStream {
     health: Arc<RwLock<StreamHealth>>,
     /// Stream name
     name: String,
+    /// Metrics collector for observability
+    metrics_collector: Option<Arc<MetricsCollector>>,
 }
 
 /// Geyser stream configuration
@@ -87,10 +88,14 @@ impl Event for TransactionEvent {
         })
     }
 
-    fn metadata_mut(&mut self) -> &mut riglr_events_core::EventMetadata {
-        // This is a limitation of this simple implementation
-        // In a real implementation, metadata should be stored in the struct
-        panic!("metadata_mut not supported for TransactionEvent")
+    fn metadata_mut(
+        &mut self,
+    ) -> riglr_events_core::error::EventResult<&mut riglr_events_core::EventMetadata> {
+        // TransactionEvent doesn't store mutable metadata, so we return an error
+        Err(riglr_events_core::error::EventError::Generic {
+            message: "TransactionEvent: mutable metadata access not supported - event is immutable"
+                .to_string(),
+        })
     }
 
     fn as_any(&self) -> &dyn std::any::Any {
@@ -115,7 +120,6 @@ impl Event for TransactionEvent {
 
 #[async_trait::async_trait]
 impl Stream for SolanaGeyserStream {
-    type Event = DynamicStreamedEvent;
     type Config = GeyserConfig;
 
     async fn start(&mut self, config: Self::Config) -> Result<(), StreamError> {
@@ -160,7 +164,7 @@ impl Stream for SolanaGeyserStream {
         Ok(())
     }
 
-    fn subscribe(&self) -> broadcast::Receiver<Arc<Self::Event>> {
+    fn subscribe(&self) -> broadcast::Receiver<Arc<DynamicStreamedEvent>> {
         self.event_tx.subscribe()
     }
 
@@ -181,6 +185,14 @@ impl Stream for SolanaGeyserStream {
 impl SolanaGeyserStream {
     /// Create a new Solana Geyser stream
     pub fn new(name: impl Into<String>) -> Self {
+        Self::with_metrics(name, None)
+    }
+
+    /// Create a new Solana Geyser stream with metrics collector
+    pub fn with_metrics(
+        name: impl Into<String>,
+        metrics_collector: Option<Arc<MetricsCollector>>,
+    ) -> Self {
         let (event_tx, _) = broadcast::channel(10000);
 
         Self {
@@ -190,132 +202,79 @@ impl SolanaGeyserStream {
             running: Arc::new(AtomicBool::new(false)),
             health: Arc::new(RwLock::new(StreamHealth::default())),
             name: name.into(),
+            metrics_collector,
         }
     }
 
     /// Start the WebSocket connection with automatic reconnection
     async fn start_websocket(&self) -> Result<(), StreamError> {
         let url = self.config.ws_url.clone();
-        let _program_ids = self.config.program_ids.clone();
-        let event_tx = self.event_tx.clone();
+        let metrics = self.metrics_collector.clone();
         let running = self.running.clone();
         let health = self.health.clone();
         let stream_name = self.name.clone();
 
+        // Create mpsc channel for internal event handling
+        let (internal_tx, mut internal_rx) =
+            tokio::sync::mpsc::unbounded_channel::<Arc<DynamicStreamedEvent>>();
+        let event_tx = self.event_tx.clone();
+
+        // Bridge internal events to broadcast channel
+        let stream_name_clone = stream_name.clone();
+        let metrics_clone = metrics.clone();
         tokio::spawn(async move {
-            let mut sequence_number = 0u64;
-
-            while running.load(Ordering::Relaxed) {
-                info!("Attempting to connect to Solana WebSocket: {}", url);
-
-                match connect_async(&url).await {
-                    Ok((ws_stream, _)) => {
-                        let (_write, mut read) = ws_stream.split();
-                        info!(
-                            "Successfully connected to Solana WebSocket for {}",
-                            stream_name
-                        );
-
-                        // Update health - connected
-                        {
-                            let mut h = health.write().await;
-                            h.is_connected = true;
-                            h.last_event_time = Some(SystemTime::now());
-                        }
-
-                        // Message reading loop
-                        loop {
-                            match tokio::time::timeout(
-                                tokio::time::Duration::from_secs(60),
-                                read.next(),
-                            )
-                            .await
-                            {
-                                Ok(Some(Ok(Message::Text(text)))) => {
-                                    sequence_number += 1;
-
-                                    // Parse the message using proper event parsers
-                                    if let Ok(json) =
-                                        serde_json::from_str::<serde_json::Value>(&text)
-                                    {
-                                        if let Some(events) =
-                                            Self::parse_websocket_message_to_events(
-                                                json,
-                                                sequence_number,
-                                            )
-                                        {
-                                            for event in events {
-                                                // Send event
-                                                if let Err(e) = event_tx.send(Arc::new(event)) {
-                                                    warn!("Failed to send event: {}", e);
-                                                }
-                                            }
-
-                                            // Update health
-                                            let mut h = health.write().await;
-                                            h.last_event_time = Some(SystemTime::now());
-                                            h.events_processed += 1;
-                                        }
-                                    }
-                                }
-                                Ok(Some(Ok(Message::Binary(_)))) => {
-                                    // Ignore binary messages
-                                }
-                                Ok(Some(Ok(Message::Ping(_)))) => {
-                                    // Ping messages are handled automatically by tungstenite
-                                }
-                                Ok(Some(Ok(Message::Pong(_)))) => {
-                                    // Pong messages are handled automatically by tungstenite
-                                }
-                                Ok(Some(Ok(Message::Close(_)))) => {
-                                    info!(
-                                        "WebSocket connection closed gracefully for {}",
-                                        stream_name
-                                    );
-                                    break;
-                                }
-                                Ok(Some(Ok(Message::Frame(_)))) => {
-                                    // Raw frames are not typically handled at this level
-                                }
-                                Ok(Some(Err(e))) => {
-                                    error!("WebSocket error for {}: {}", stream_name, e);
-                                    break;
-                                }
-                                Ok(None) => {
-                                    warn!("WebSocket stream ended for {}", stream_name);
-                                    break;
-                                }
-                                Err(_) => {
-                                    warn!(
-                                        "WebSocket idle timeout for {}. Reconnecting...",
-                                        stream_name
-                                    );
-                                    break;
-                                }
-                            }
-                        }
-
-                        // Connection lost - will retry
-                        let mut h = health.write().await;
-                        h.is_connected = false;
-                        h.error_count += 1;
-                    }
-                    Err(e) => {
-                        error!("Failed to connect: {}", e);
-                        let mut h = health.write().await;
-                        h.is_connected = false;
-                        h.error_count += 1;
-                    }
+            while let Some(event) = internal_rx.recv().await {
+                if let Some(ref metrics) = metrics_clone {
+                    metrics
+                        .record_stream_event(&stream_name_clone, 0.0, 0)
+                        .await;
                 }
-
-                // Wait before retry
-                tokio::time::sleep(tokio::time::Duration::from_secs(30)).await;
+                let _ = event_tx.send(event);
             }
+        });
 
-            info!("WebSocket handler exiting for {}", stream_name);
+        let internal_tx_for_connector = internal_tx;
+        tokio::spawn(async move {
+            let connector = crate::core::ResilientWebSocketBuilder::new(
+                stream_name,
+                running,
+                health,
+                internal_tx_for_connector,
+                move || {
+                    let url = url.clone();
+                    Box::pin(async move {
+                        connect_async(&url).await.map(|(ws, _)| ws).map_err(|e| {
+                            Box::new(std::io::Error::new(
+                                std::io::ErrorKind::ConnectionRefused,
+                                format!("Failed to connect to Solana Geyser: {}", e),
+                            ))
+                                as Box<dyn std::error::Error + Send + Sync>
+                        })
+                    })
+                },
+                |_write| {
+                    Box::pin(async move { Ok::<(), Box<dyn std::error::Error + Send + Sync>>(()) })
+                },
+                Self::parse_message_to_event,
+            )
+            .with_metrics(metrics.unwrap_or_else(|| Arc::new(MetricsCollector::default())))
+            .build();
+
+            connector.run().await;
         });
 
         Ok(())
+    }
+
+    /// Parse a WebSocket message into an event
+    fn parse_message_to_event(data: String, sequence_number: u64) -> Option<DynamicStreamedEvent> {
+        // Parse the message using proper event parsers
+        if let Ok(json) = serde_json::from_str::<serde_json::Value>(&data) {
+            if let Some(events) = Self::parse_websocket_message_to_events(json, sequence_number) {
+                return events.into_iter().next(); // Return first event
+            }
+        }
+        None
     }
 
     /// Parse a WebSocket message into structured events using riglr-solana-events parsers
@@ -478,14 +437,19 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "metadata_mut not supported for TransactionEvent")]
-    fn test_transaction_event_metadata_mut_panics() {
+    fn test_transaction_event_metadata_mut_returns_error() {
         let mut event = TransactionEvent {
             signature: "test_signature".to_string(),
             slot: 12345,
         };
 
-        event.metadata_mut();
+        let result = event.metadata_mut();
+        assert!(result.is_err());
+        if let Err(riglr_events_core::error::EventError::Generic { message }) = result {
+            assert!(message.contains("mutable metadata access not supported"));
+        } else {
+            panic!("Expected Generic error");
+        }
     }
 
     #[test]

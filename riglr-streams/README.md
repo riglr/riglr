@@ -86,7 +86,7 @@ struct MyTool;
 
 #[async_trait]
 impl StreamingTool for MyTool {
-    async fn execute(&self, event: &dyn UnifiedEvent) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    async fn execute(&self, event: &dyn riglr_events_core::prelude::Event) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         // Process event
         Ok(())
     }
@@ -125,18 +125,25 @@ Build complex event matching logic:
 
 ```rust
 use riglr_streams::tools::{EventMatcher, ConditionCombinator};
+use riglr_events_core::prelude::EventKind;
 
-// Match specific event types
-let swap_condition = EventMatcher::event_type(EventType::Swap);
+// The Matcher struct implements the EventMatcher trait
+use riglr_streams::tools::condition::Matcher;
 
-// Match protocol
-let jupiter_condition = EventMatcher::protocol(ProtocolType::Jupiter);
+// Match specific event kinds
+let swap_condition = Matcher::event_kind(EventKind::Swap);
+
+// Match source
+let jupiter_condition = Matcher::source("jupiter".to_string());
+
+// Match timestamp range
+let time_condition = Matcher::timestamp_range(Some(start_time), None);
 
 // Combine conditions
-let complex_condition = EventMatcher::all(vec![
+let complex_condition = Matcher::all(vec![
     swap_condition,
     jupiter_condition,
-    EventMatcher::block_range(Some(100000), None),
+    time_condition,
 ]);
 ```
 
@@ -171,11 +178,20 @@ let circuit_breaker = CircuitBreaker::new("solana-stream")
 ### Metrics
 
 ```rust
-use riglr_streams::production::MetricsCollector;
+use riglr_streams::core::metrics::MetricsCollector;
 
 let metrics = MetricsCollector::new();
+
+// Record events and handler executions
+metrics.record_stream_event("solana", 12.5, 1024).await;
+metrics.record_handler_execution("swap_handler", 15.0, true).await;
+
+// Get metrics snapshots
 let stream_metrics = metrics.get_stream_metrics("solana").await;
-stream_metrics.record_event("swap", 12.5).await;
+let all_metrics = metrics.get_all_stream_metrics().await;
+
+// Enable metrics facade export with the "metrics-facade" feature
+// to export metrics to Prometheus or other backends
 ```
 
 ## Configuration

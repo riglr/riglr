@@ -5,18 +5,27 @@
 //! - Create event-triggered tools
 //! - React to price changes across chains
 //! - Execute arbitrage opportunities
+//!
+//! Note: This example shows production stream configurations.
+//! For testing without real API keys, uncomment the MockStream
+//! sections and comment out the real stream configurations.
 
 use async_trait::async_trait;
 use riglr_events_core::{Event, EventKind};
-use riglr_streams::evm::{ChainId, EvmStreamConfig, EvmWebSocketStream};
-use riglr_streams::external::{BinanceConfig, BinanceStream};
 use riglr_streams::prelude::*;
-use riglr_streams::solana::{GeyserConfig, SolanaGeyserStream};
 use riglr_streams::tools::condition::EventKindMatcher;
 use riglr_streams::tools::event_triggered::EventTriggerBuilder;
 use riglr_streams::tools::{ConditionCombinator, StreamingTool};
 use std::sync::Arc;
 use tracing::info;
+
+// Production streams (require API keys)
+use riglr_streams::evm::{ChainId, EvmStreamConfig, EvmWebSocketStream};
+use riglr_streams::external::{BinanceConfig, BinanceStream};
+use riglr_streams::solana::{GeyserConfig, SolanaGeyserStream};
+
+// For testing without API keys (uncomment when using mock streams)
+// use riglr_streams::core::mock_stream::{MockConfig, MockStream};
 
 /// Example arbitrage tool
 struct ArbitrageBot {
@@ -64,6 +73,29 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     info!("Stream manager configured with bounded concurrent execution (max 5 parallel handlers)");
 
+    // Option 1: Use MockStream for testing (no API keys required)
+    // Uncomment this section and comment out the real stream configurations below
+    /*
+    let mock_config = MockConfig {
+        events_per_second: 5.0,
+        event_kinds: vec![EventKind::Swap, EventKind::Price, EventKind::Transaction],
+        max_events: Some(1000),
+    };
+
+    let mut solana_mock = MockStream::new("solana-mock".to_string(), mock_config.clone());
+    solana_mock.start(()).await?;
+    stream_manager.add_stream("solana".to_string(), solana_mock).await?;
+
+    let mut eth_mock = MockStream::new("ethereum-mock".to_string(), mock_config.clone());
+    eth_mock.start(()).await?;
+    stream_manager.add_stream("ethereum".to_string(), eth_mock).await?;
+
+    let mut binance_mock = MockStream::new("binance-mock".to_string(), mock_config);
+    binance_mock.start(()).await?;
+    stream_manager.add_stream("binance".to_string(), binance_mock).await?;
+    */
+
+    // Option 2: Use real streams (requires valid API keys/endpoints)
     // Configure and start Solana stream
     let mut solana_stream = SolanaGeyserStream::new("solana-mainnet");
     let solana_config = GeyserConfig {
