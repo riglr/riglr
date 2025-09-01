@@ -485,8 +485,8 @@ mod tests {
             &self.metadata
         }
 
-        fn metadata_mut(&mut self) -> &mut EventMetadata {
-            &mut self.metadata
+        fn metadata_mut(&mut self) -> riglr_events_core::error::EventResult<&mut EventMetadata> {
+            Ok(&mut self.metadata)
         }
 
         fn timestamp(&self) -> SystemTime {

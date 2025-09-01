@@ -94,12 +94,14 @@ impl EventIngester {
         // Create rate limiter
         let rate_config = &context.config.processing.rate_limit;
         let rate_limiter = if rate_config.enabled {
-            RateLimiter::new(
-                rate_config.max_events_per_second,
-                rate_config.burst_capacity,
-            )
+            RateLimiter::builder()
+                .max_requests(rate_config.max_events_per_second as usize)
+                .time_window(Duration::from_secs(1))
+                .burst_size(rate_config.burst_capacity as usize)
+                .build()
         } else {
-            RateLimiter::unlimited()
+            // Create effectively unlimited rate limiter
+            RateLimiter::new(1_000_000, Duration::from_secs(1))
         };
 
         let ingester = Self {
@@ -190,7 +192,7 @@ impl EventIngester {
                             // This is where we would pull events from external sources
                             // For now, we'll create a mock event for testing
                             if context.config.features.experimental {
-                                if let Ok(()) = rate_limiter.check() {
+                                if let Ok(()) = rate_limiter.check_rate_limit(&format!("worker_{}", worker_id)) {
                                     let mock_event = create_mock_solana_event();
 
                                     if let Err(e) = tx.send(mock_event) {
@@ -452,8 +454,8 @@ fn create_mock_solana_event() -> Box<dyn Event> {
             &self.metadata
         }
 
-        fn metadata_mut(&mut self) -> &mut EventMetadata {
-            &mut self.metadata
+        fn metadata_mut(&mut self) -> EventResult<&mut EventMetadata> {
+            Ok(&mut self.metadata)
         }
 
         fn as_any(&self) -> &dyn std::any::Any {

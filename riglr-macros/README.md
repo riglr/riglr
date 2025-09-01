@@ -14,6 +14,36 @@ Procedural macros for the riglr ecosystem, providing code generation for tool de
 - **Type safety**: Generate strongly-typed parameter structs with validation
 - **Serde integration**: Automatic serialization/deserialization for tool parameters and results
 
+## Architecture
+
+riglr-macros provides compile-time code generation for the riglr ecosystem, transforming annotated functions into fully-featured tools with dependency injection and error handling.
+
+### Design Principles
+
+- **Type-Based Detection**: Dependencies are identified by type signature, not attributes
+- **Zero-Cost Abstraction**: All macro expansion happens at compile time
+- **Clean Generated Code**: Produces readable, debuggable Rust code
+- **Automatic Context Injection**: ApplicationContext is detected and injected automatically
+- **Error Preservation**: Original error types are preserved for downcasting
+- **rig Framework Compatible**: Generated code integrates seamlessly with rig
+
+### Code Generation Pipeline
+
+1. **AST Analysis**: Parse function signature to identify parameters
+2. **Type Detection**: Identify ApplicationContext parameters by type pattern
+3. **Args Struct Generation**: Create serde-compatible struct for user parameters
+4. **Tool Implementation**: Generate Tool trait implementation with context injection
+5. **Error Mapping**: Wrap error handling with proper ToolError conversion
+6. **Factory Function**: Create convenience function for tool instantiation
+
+### Generated Components
+
+For each `#[tool]` annotated function, the macro generates:
+- **Args Struct**: Serde/JsonSchema struct for parameter validation (excludes context)
+- **Tool Struct**: Empty struct implementing the Tool trait
+- **Tool Implementation**: Complete Tool trait implementation with execute, name, description
+- **Factory Function**: `{name}_tool()` function returning `Arc<dyn Tool>`
+
 ## The `#[tool]` Macro
 
 The `#[tool]` macro transforms async functions and structs into riglr tools with automatic dependency injection by generating:
