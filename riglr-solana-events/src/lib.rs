@@ -129,7 +129,7 @@
 pub mod prelude {
     pub use crate::events::factory::{EventParserRegistry, Protocol};
     pub use crate::events::parser_types::{
-        GenericEventParseConfig, GenericEventParser, LegacyEventParser,
+        GenericEventParseConfig, GenericEventParser, ProtocolParser,
     };
     pub use crate::solana_events::{SolanaEvent, ToSolanaEvent};
     pub use crate::solana_parser::{

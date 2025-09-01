@@ -24,8 +24,8 @@ pub fn create_core_metadata(
 }
 
 /// Create a new EventMetadata for Solana events with all required fields
-/// 
-/// Note: For new code, consider using `create_core_metadata` + `SolanaEventMetadata::new` 
+///
+/// Note: For new code, consider using `create_core_metadata` + `SolanaEventMetadata::new`
 /// for better type safety and more explicit handling of Solana-specific metadata.
 #[allow(clippy::too_many_arguments)]
 pub fn create_solana_metadata(
@@ -163,7 +163,8 @@ mod tests {
             EventKind::Transaction,
             "solana".to_string(),
             Some(1640995200),
-        ).with_chain_data(ChainData::Solana {
+        )
+        .with_chain_data(ChainData::Solana {
             slot: 123,
             signature: Some("test_signature".to_string()),
             program_id: Some(create_test_pubkey()),
@@ -175,7 +176,7 @@ mod tests {
         assert_eq!(metadata.id, "test_id");
         assert_eq!(metadata.kind, EventKind::Transaction);
         assert_eq!(metadata.source, "solana");
-        
+
         // Test the helper functions
         assert_eq!(get_slot(&metadata), Some(123));
         assert_eq!(get_signature(&metadata), Some("test_signature"));
@@ -193,7 +194,8 @@ mod tests {
             EventKind::Transaction,
             "solana".to_string(),
             None,
-        ).with_chain_data(ChainData::Solana {
+        )
+        .with_chain_data(ChainData::Solana {
             slot: 0,
             signature: None,
             program_id: None,
@@ -221,7 +223,8 @@ mod tests {
             EventKind::Transaction,
             "solana".to_string(),
             None,
-        ).with_chain_data(ChainData::Solana {
+        )
+        .with_chain_data(ChainData::Solana {
             slot: 42,
             signature: None,
             program_id: None,
@@ -252,7 +255,8 @@ mod tests {
             EventKind::Transaction,
             "solana".to_string(),
             None,
-        ).with_chain_data(ChainData::Solana {
+        )
+        .with_chain_data(ChainData::Solana {
             slot: 0,
             signature: Some("test_signature".to_string()),
             program_id: None,
@@ -272,7 +276,8 @@ mod tests {
             EventKind::Transaction,
             "solana".to_string(),
             None,
-        ).with_chain_data(ChainData::Solana {
+        )
+        .with_chain_data(ChainData::Solana {
             slot: 0,
             signature: None,
             program_id: None,
@@ -304,7 +309,8 @@ mod tests {
             EventKind::Transaction,
             "solana".to_string(),
             None,
-        ).with_chain_data(ChainData::Solana {
+        )
+        .with_chain_data(ChainData::Solana {
             slot: 0,
             signature: None,
             program_id: Some(test_pubkey),

@@ -11,7 +11,7 @@ use solana_sdk::pubkey::Pubkey;
 use crate::error::ParseResult;
 use crate::events::{
     factory::SolanaTransactionInput,
-    parser_types::{GenericEventParseConfig, GenericEventParser, LegacyEventParser},
+    parser_types::{GenericEventParseConfig, GenericEventParser, ProtocolParser},
     protocols::raydium_cpmm::{discriminators, RaydiumCpmmDepositEvent, RaydiumCpmmSwapEvent},
 };
 use crate::solana_metadata::SolanaEventMetadata;
@@ -298,7 +298,7 @@ impl EventParser for RaydiumCpmmEventParser {
 
 // Keep legacy implementation for backward compatibility
 #[async_trait::async_trait]
-impl LegacyEventParser for RaydiumCpmmEventParser {
+impl ProtocolParser for RaydiumCpmmEventParser {
     fn inner_instruction_configs(&self) -> HashMap<&'static str, Vec<GenericEventParseConfig>> {
         self.inner.inner_instruction_configs()
     }

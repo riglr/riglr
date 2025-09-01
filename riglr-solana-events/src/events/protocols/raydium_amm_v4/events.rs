@@ -103,47 +103,7 @@ pub enum SwapDirection {
     BaseOut,
 }
 
-/// Parameters for creating event metadata, reducing function parameter count
-#[derive(Debug, Clone, Default)]
-pub struct EventParameters {
-    /// Unique identifier for the event
-    pub id: String,
-    /// Transaction signature
-    pub signature: String,
-    /// Solana slot number
-    pub slot: u64,
-    /// Block timestamp in seconds
-    pub block_time: i64,
-    /// Block timestamp in milliseconds
-    pub block_time_ms: i64,
-    /// Time when the program received the event in milliseconds
-    pub program_received_time_ms: i64,
-    /// Event index within the transaction
-    pub index: String,
-}
-
-impl EventParameters {
-    /// Creates a new EventParameters instance with the provided values
-    pub fn new(
-        id: String,
-        signature: String,
-        slot: u64,
-        block_time: i64,
-        block_time_ms: i64,
-        program_received_time_ms: i64,
-        index: String,
-    ) -> Self {
-        Self {
-            id,
-            signature,
-            slot,
-            block_time,
-            block_time_ms,
-            program_received_time_ms,
-            index,
-        }
-    }
-}
+// EventParameters is now imported from crate::events::core
 
 /// Raydium AMM V4 deposit event
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
@@ -629,8 +589,8 @@ impl Event for RaydiumAmmV4SwapEvent {
         &self.metadata.core
     }
 
-    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
-        &mut self.metadata.core
+    fn metadata_mut(&mut self) -> riglr_events_core::error::EventResult<&mut CoreEventMetadata> {
+        Ok(&mut self.metadata.core)
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -664,8 +624,8 @@ impl Event for RaydiumAmmV4DepositEvent {
         &self.metadata.core
     }
 
-    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
-        &mut self.metadata.core
+    fn metadata_mut(&mut self) -> riglr_events_core::error::EventResult<&mut CoreEventMetadata> {
+        Ok(&mut self.metadata.core)
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -699,8 +659,8 @@ impl Event for RaydiumAmmV4Initialize2Event {
         &self.metadata.core
     }
 
-    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
-        &mut self.metadata.core
+    fn metadata_mut(&mut self) -> riglr_events_core::error::EventResult<&mut CoreEventMetadata> {
+        Ok(&mut self.metadata.core)
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -734,8 +694,8 @@ impl Event for RaydiumAmmV4WithdrawEvent {
         &self.metadata.core
     }
 
-    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
-        &mut self.metadata.core
+    fn metadata_mut(&mut self) -> riglr_events_core::error::EventResult<&mut CoreEventMetadata> {
+        Ok(&mut self.metadata.core)
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -769,8 +729,8 @@ impl Event for RaydiumAmmV4WithdrawPnlEvent {
         &self.metadata.core
     }
 
-    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
-        &mut self.metadata.core
+    fn metadata_mut(&mut self) -> riglr_events_core::error::EventResult<&mut CoreEventMetadata> {
+        Ok(&mut self.metadata.core)
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -908,7 +868,7 @@ mod tests {
     #[test]
     fn test_raydium_amm_v4_swap_event_metadata_mut_should_work() {
         let mut event = RaydiumAmmV4SwapEvent::default();
-        let metadata = event.metadata_mut();
+        let metadata = event.metadata_mut().unwrap();
         metadata.id = "test-swap-id".to_string();
         assert_eq!(event.metadata().id, "test-swap-id");
     }
@@ -1008,7 +968,7 @@ mod tests {
     #[test]
     fn test_raydium_amm_v4_deposit_event_metadata_mut_should_work() {
         let mut event = RaydiumAmmV4DepositEvent::default();
-        let metadata = event.metadata_mut();
+        let metadata = event.metadata_mut().unwrap();
         metadata.id = "test-deposit-id".to_string();
         assert_eq!(event.metadata().id, "test-deposit-id");
     }
@@ -1109,7 +1069,7 @@ mod tests {
     #[test]
     fn test_raydium_amm_v4_initialize2_event_metadata_mut_should_work() {
         let mut event = RaydiumAmmV4Initialize2Event::default();
-        let metadata = event.metadata_mut();
+        let metadata = event.metadata_mut().unwrap();
         metadata.id = "test-initialize2-id".to_string();
         assert_eq!(event.metadata().id, "test-initialize2-id");
     }
@@ -1207,7 +1167,7 @@ mod tests {
     #[test]
     fn test_raydium_amm_v4_withdraw_event_metadata_mut_should_work() {
         let mut event = RaydiumAmmV4WithdrawEvent::default();
-        let metadata = event.metadata_mut();
+        let metadata = event.metadata_mut().unwrap();
         metadata.id = "test-withdraw-id".to_string();
         assert_eq!(event.metadata().id, "test-withdraw-id");
     }
@@ -1309,7 +1269,7 @@ mod tests {
     #[test]
     fn test_raydium_amm_v4_withdraw_pnl_event_metadata_mut_should_work() {
         let mut event = RaydiumAmmV4WithdrawPnlEvent::default();
-        let metadata = event.metadata_mut();
+        let metadata = event.metadata_mut().unwrap();
         metadata.id = "test-withdraw-pnl-id".to_string();
         assert_eq!(event.metadata().id, "test-withdraw-pnl-id");
     }
@@ -1450,7 +1410,7 @@ mod metadata_fix_verification {
         let mut event = RaydiumAmmV4SwapEvent::default();
 
         // This should no longer panic
-        let metadata_mut = event.metadata_mut();
+        let metadata_mut = event.metadata_mut().unwrap();
         metadata_mut.id = "test".to_string();
 
         assert_eq!(event.id(), "test");

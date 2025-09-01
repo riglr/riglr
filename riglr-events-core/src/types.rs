@@ -383,8 +383,8 @@ impl crate::traits::Event for GenericEvent {
         &self.metadata
     }
 
-    fn metadata_mut(&mut self) -> &mut EventMetadata {
-        &mut self.metadata
+    fn metadata_mut(&mut self) -> crate::error::EventResult<&mut EventMetadata> {
+        Ok(&mut self.metadata)
     }
 
     fn as_any(&self) -> &dyn std::any::Any {
@@ -1007,7 +1007,7 @@ mod tests {
         );
 
         // Test metadata_mut
-        let metadata_mut = event.metadata_mut();
+        let metadata_mut = event.metadata_mut().expect("metadata_mut should succeed");
         metadata_mut.source = "updated-source".to_string();
 
         assert_eq!(event.metadata.source, "updated-source");

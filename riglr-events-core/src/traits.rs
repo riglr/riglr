@@ -24,7 +24,7 @@ pub trait Event: Debug + Send + Sync {
     fn metadata(&self) -> &EventMetadata;
 
     /// Get mutable access to event metadata
-    fn metadata_mut(&mut self) -> &mut EventMetadata;
+    fn metadata_mut(&mut self) -> EventResult<&mut EventMetadata>;
 
     /// Get the event timestamp
     fn timestamp(&self) -> SystemTime {

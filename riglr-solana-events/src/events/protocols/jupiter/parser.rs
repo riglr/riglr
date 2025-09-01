@@ -1,5 +1,5 @@
 use super::{
-    events::{EventParameters, JupiterSwapEvent},
+    events::JupiterSwapEvent,
     types::{
         jupiter_v6_program_id, JupiterSwapData, RoutePlan, SharedAccountsExactOutRouteData,
         SharedAccountsRouteData, EXACT_OUT_ROUTE_DISCRIMINATOR, ROUTE_DISCRIMINATOR,
@@ -7,10 +7,11 @@ use super::{
 };
 use crate::{
     error::ParseResult,
+    events::core::EventParameters,
     events::{
         common::utils::{validate_account_count, validate_data_length},
         factory::SolanaTransactionInput,
-        parser_types::{GenericEventParseConfig, LegacyEventParser},
+        parser_types::{GenericEventParseConfig, ProtocolParser},
     },
     solana_metadata::SolanaEventMetadata,
     types::{metadata_helpers, EventType, ProtocolType},
@@ -145,7 +146,7 @@ impl EventParser for JupiterEventParser {
 }
 
 // Implement the legacy EventParser trait for backward compatibility
-impl LegacyEventParser for JupiterEventParser {
+impl ProtocolParser for JupiterEventParser {
     fn inner_instruction_configs(&self) -> HashMap<&'static str, Vec<GenericEventParseConfig>> {
         self.inner_instruction_configs.clone()
     }

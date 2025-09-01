@@ -1,4 +1,5 @@
 use super::types::JupiterSwapData;
+use crate::events::core::EventParameters;
 use crate::solana_metadata::SolanaEventMetadata;
 use crate::types::{metadata_helpers, EventType, ProtocolType, TransferData};
 use borsh::BorshDeserialize;
@@ -10,47 +11,7 @@ use std::any::Any;
 // Import new Event trait from riglr-events-core
 use riglr_events_core::{Event, EventKind};
 
-/// Parameters for creating event metadata, reducing function parameter count
-#[derive(Debug, Clone, Default)]
-pub struct EventParameters {
-    /// Unique identifier for the event
-    pub id: String,
-    /// Transaction signature
-    pub signature: String,
-    /// Solana slot number
-    pub slot: u64,
-    /// Block timestamp in seconds
-    pub block_time: i64,
-    /// Block timestamp in milliseconds
-    pub block_time_ms: i64,
-    /// Time when the program received the event in milliseconds
-    pub program_received_time_ms: i64,
-    /// Event index within the transaction
-    pub index: String,
-}
-
-impl EventParameters {
-    /// Creates a new EventParameters instance with the provided values
-    pub fn new(
-        id: String,
-        signature: String,
-        slot: u64,
-        block_time: i64,
-        block_time_ms: i64,
-        program_received_time_ms: i64,
-        index: String,
-    ) -> Self {
-        Self {
-            id,
-            signature,
-            slot,
-            block_time,
-            block_time_ms,
-            program_received_time_ms,
-            index,
-        }
-    }
-}
+// EventParameters is now imported from crate::events::core
 
 /// Jupiter swap event
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -223,8 +184,8 @@ impl Event for JupiterSwapEvent {
         &self.metadata.core
     }
 
-    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
-        &mut self.metadata.core
+    fn metadata_mut(&mut self) -> riglr_events_core::error::EventResult<&mut CoreEventMetadata> {
+        Ok(&mut self.metadata.core)
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -259,8 +220,8 @@ impl Event for JupiterLiquidityEvent {
         &self.metadata.core
     }
 
-    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
-        &mut self.metadata.core
+    fn metadata_mut(&mut self) -> riglr_events_core::error::EventResult<&mut CoreEventMetadata> {
+        Ok(&mut self.metadata.core)
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -295,8 +256,8 @@ impl Event for JupiterSwapBorshEvent {
         &self.metadata.core
     }
 
-    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
-        &mut self.metadata.core
+    fn metadata_mut(&mut self) -> riglr_events_core::error::EventResult<&mut CoreEventMetadata> {
+        Ok(&mut self.metadata.core)
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -619,7 +580,7 @@ mod tests {
         let swap_data = create_test_jupiter_swap_data();
         let mut event = JupiterSwapEvent::new(params, swap_data);
 
-        let metadata = event.metadata_mut();
+        let metadata = event.metadata_mut().unwrap();
         // Verify we can access mutable metadata without panic
         assert_eq!(metadata.kind, EventKind::Swap);
     }
@@ -695,7 +656,7 @@ mod tests {
         let params = create_test_event_parameters();
         let mut event = JupiterLiquidityEvent::new(params);
 
-        let metadata = event.metadata_mut();
+        let metadata = event.metadata_mut().unwrap();
         // Verify we can access mutable metadata without panic
         assert_eq!(metadata.kind, EventKind::Liquidity);
     }
@@ -764,7 +725,7 @@ mod tests {
     fn test_jupiter_swap_borsh_event_metadata_mut_should_work() {
         let mut event = JupiterSwapBorshEvent::default();
 
-        let metadata = event.metadata_mut();
+        let metadata = event.metadata_mut().unwrap();
         // Verify we can access mutable metadata without panic
         assert_eq!(metadata.kind, EventKind::Swap);
     }

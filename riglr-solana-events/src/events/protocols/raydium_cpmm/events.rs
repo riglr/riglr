@@ -9,9 +9,7 @@ use std::any::Any;
 // UnifiedEvent trait removed - events now implement Event trait directly
 
 /// Raydium CPMM Swap event
-#[derive(
-    Clone, Debug, PartialEq, Eq, Serialize, Deserialize, BorshSerialize, BorshDeserialize,
-)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
 pub struct RaydiumCpmmSwapEvent {
     /// Event metadata (excluded from serialization)
     #[serde(skip)]
@@ -59,8 +57,8 @@ impl Event for RaydiumCpmmSwapEvent {
         &self.metadata.core
     }
 
-    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
-        &mut self.metadata.core
+    fn metadata_mut(&mut self) -> riglr_events_core::error::EventResult<&mut CoreEventMetadata> {
+        Ok(&mut self.metadata.core)
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -81,9 +79,7 @@ impl Event for RaydiumCpmmSwapEvent {
 }
 
 /// Raydium CPMM Deposit event
-#[derive(
-    Clone, Debug, PartialEq, Eq, Serialize, Deserialize, BorshSerialize, BorshDeserialize,
-)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
 pub struct RaydiumCpmmDepositEvent {
     /// Event metadata (excluded from serialization)
     #[serde(skip)]
@@ -116,8 +112,8 @@ impl Event for RaydiumCpmmDepositEvent {
         &self.metadata.core
     }
 
-    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
-        &mut self.metadata.core
+    fn metadata_mut(&mut self) -> riglr_events_core::error::EventResult<&mut CoreEventMetadata> {
+        Ok(&mut self.metadata.core)
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -140,10 +136,10 @@ impl Event for RaydiumCpmmDepositEvent {
 // Custom Default implementations with correct EventKind
 impl Default for RaydiumCpmmSwapEvent {
     fn default() -> Self {
-        use riglr_events_core::EventMetadata;
         use chrono::{DateTime, Utc};
+        use riglr_events_core::EventMetadata;
         use std::collections::HashMap;
-        
+
         // Use a fixed timestamp for reproducible tests
         let fixed_timestamp = DateTime::from_timestamp(0, 0).unwrap_or_else(Utc::now);
         let core = EventMetadata {
@@ -157,12 +153,12 @@ impl Default for RaydiumCpmmSwapEvent {
         };
 
         let metadata = SolanaEventMetadata::new(
-            String::default(),                          // signature
-            0,                                         // slot
-            crate::types::EventType::Swap,             // event_type
-            crate::types::ProtocolType::RaydiumCpmm,   // protocol_type
-            String::default(),                         // index
-            0,                                         // program_received_time_ms
+            String::default(),                       // signature
+            0,                                       // slot
+            crate::types::EventType::Swap,           // event_type
+            crate::types::ProtocolType::RaydiumCpmm, // protocol_type
+            String::default(),                       // index
+            0,                                       // program_received_time_ms
             core,
         );
 
@@ -186,10 +182,10 @@ impl Default for RaydiumCpmmSwapEvent {
 
 impl Default for RaydiumCpmmDepositEvent {
     fn default() -> Self {
-        use riglr_events_core::EventMetadata;
         use chrono::{DateTime, Utc};
+        use riglr_events_core::EventMetadata;
         use std::collections::HashMap;
-        
+
         // Use a fixed timestamp for reproducible tests
         let fixed_timestamp = DateTime::from_timestamp(0, 0).unwrap_or_else(Utc::now);
         let core = EventMetadata {
@@ -203,12 +199,12 @@ impl Default for RaydiumCpmmDepositEvent {
         };
 
         let metadata = SolanaEventMetadata::new(
-            String::default(),                          // signature
-            0,                                         // slot
-            crate::types::EventType::AddLiquidity,     // event_type
-            crate::types::ProtocolType::RaydiumCpmm,   // protocol_type
-            String::default(),                         // index
-            0,                                         // program_received_time_ms
+            String::default(),                       // signature
+            0,                                       // slot
+            crate::types::EventType::AddLiquidity,   // event_type
+            crate::types::ProtocolType::RaydiumCpmm, // protocol_type
+            String::default(),                       // index
+            0,                                       // program_received_time_ms
             core,
         );
 
@@ -392,7 +388,7 @@ mod tests {
     #[test]
     fn test_raydium_cpmm_swap_event_metadata_mut_should_work() {
         let mut event = RaydiumCpmmSwapEvent::default();
-        let metadata = event.metadata_mut();
+        let metadata = event.metadata_mut().unwrap();
         metadata.id = "test-cpmm-swap-event-id".to_string();
         assert_eq!(event.metadata().id, "test-cpmm-swap-event-id");
     }
@@ -517,7 +513,7 @@ mod tests {
     #[test]
     fn test_raydium_cpmm_deposit_event_metadata_mut_should_work() {
         let mut event = RaydiumCpmmDepositEvent::default();
-        let metadata = event.metadata_mut();
+        let metadata = event.metadata_mut().unwrap();
         metadata.id = "test-cpmm-deposit-event-id".to_string();
         assert_eq!(event.metadata().id, "test-cpmm-deposit-event-id");
     }
@@ -761,7 +757,7 @@ mod cpmm_metadata_fix_verification {
     #[test]
     fn test_cpmm_metadata_mut_works() {
         let mut event = RaydiumCpmmSwapEvent::default();
-        let metadata_mut = event.metadata_mut();
+        let metadata_mut = event.metadata_mut().unwrap();
         metadata_mut.id = "test_cpmm".to_string();
         assert_eq!(event.id(), "test_cpmm");
     }

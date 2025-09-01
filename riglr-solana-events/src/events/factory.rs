@@ -336,7 +336,10 @@ mod tests {
     impl riglr_events_core::traits::EventParser for MockEventParser {
         type Input = SolanaTransactionInput;
 
-        async fn parse(&self, _input: Self::Input) -> riglr_events_core::error::EventResult<Vec<Box<dyn riglr_events_core::Event>>> {
+        async fn parse(
+            &self,
+            _input: Self::Input,
+        ) -> riglr_events_core::error::EventResult<Vec<Box<dyn riglr_events_core::Event>>> {
             if self.returns_events {
                 Ok(vec![Box::new(MockEvent::default())])
             } else {
@@ -353,7 +356,7 @@ mod tests {
         }
     }
 
-    impl crate::events::parser_types::LegacyEventParser for MockEventParser {
+    impl crate::events::parser_types::ProtocolParser for MockEventParser {
         fn inner_instruction_configs(
             &self,
         ) -> std::collections::HashMap<
@@ -365,8 +368,10 @@ mod tests {
 
         fn instruction_configs(
             &self,
-        ) -> std::collections::HashMap<Vec<u8>, Vec<crate::events::parser_types::GenericEventParseConfig>>
-        {
+        ) -> std::collections::HashMap<
+            Vec<u8>,
+            Vec<crate::events::parser_types::GenericEventParseConfig>,
+        > {
             std::collections::HashMap::new()
         }
 
@@ -432,8 +437,11 @@ mod tests {
             &self.metadata
         }
 
-        fn metadata_mut(&mut self) -> &mut riglr_events_core::types::EventMetadata {
-            &mut self.metadata
+        fn metadata_mut(
+            &mut self,
+        ) -> riglr_events_core::error::EventResult<&mut riglr_events_core::types::EventMetadata>
+        {
+            Ok(&mut self.metadata)
         }
 
         fn as_any(&self) -> &dyn std::any::Any {

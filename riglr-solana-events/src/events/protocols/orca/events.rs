@@ -9,50 +9,11 @@ use std::any::Any;
 // Import Event trait from riglr-events-core
 use riglr_events_core::{Event, EventKind};
 
-/// Parameters for creating Orca events
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct EventParameters {
-    /// Unique identifier for the event
-    pub id: String,
-    /// Transaction signature
-    pub signature: String,
-    /// Solana slot number
-    pub slot: u64,
-    /// Block timestamp in seconds
-    pub block_time: i64,
-    /// Block timestamp in milliseconds
-    pub block_time_ms: i64,
-    /// Time when program received the transaction (in milliseconds)
-    pub program_received_time_ms: i64,
-    /// Instruction index within the transaction
-    pub index: String,
-}
-
-impl EventParameters {
-    /// Create new EventParameters
-    pub fn new(
-        id: String,
-        signature: String,
-        slot: u64,
-        block_time: i64,
-        block_time_ms: i64,
-        program_received_time_ms: i64,
-        index: String,
-    ) -> Self {
-        Self {
-            id,
-            signature,
-            slot,
-            block_time,
-            block_time_ms,
-            program_received_time_ms,
-            index,
-        }
-    }
-}
+// Import EventParameters for use within this module
+use crate::events::core::EventParameters;
 
 /// Orca Whirlpool swap event
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct OrcaSwapEvent {
     /// Event metadata (excluded from serialization)
     #[serde(skip)]
@@ -97,18 +58,8 @@ impl OrcaSwapEvent {
     }
 }
 
-impl Default for OrcaSwapEvent {
-    fn default() -> Self {
-        Self {
-            metadata: SolanaEventMetadata::default(),
-            swap_data: OrcaSwapData::default(),
-            transfer_data: Vec::default(),
-        }
-    }
-}
-
 /// Orca position event (open/close)
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct OrcaPositionEvent {
     /// Event metadata (excluded from serialization)
     #[serde(skip)]
@@ -162,19 +113,8 @@ impl OrcaPositionEvent {
     }
 }
 
-impl Default for OrcaPositionEvent {
-    fn default() -> Self {
-        Self {
-            metadata: SolanaEventMetadata::default(),
-            position_data: OrcaPositionData::default(),
-            is_open: false,
-            transfer_data: Vec::default(),
-        }
-    }
-}
-
 /// Orca liquidity event (increase/decrease)
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct OrcaLiquidityEvent {
     /// Event metadata (excluded from serialization)
     #[serde(skip)]
@@ -219,16 +159,6 @@ impl OrcaLiquidityEvent {
     }
 }
 
-impl Default for OrcaLiquidityEvent {
-    fn default() -> Self {
-        Self {
-            metadata: SolanaEventMetadata::default(),
-            liquidity_data: OrcaLiquidityData::default(),
-            transfer_data: Vec::default(),
-        }
-    }
-}
-
 // Event trait implementation for OrcaSwapEvent
 impl Event for OrcaSwapEvent {
     fn id(&self) -> &str {
@@ -243,8 +173,8 @@ impl Event for OrcaSwapEvent {
         self.metadata.core()
     }
 
-    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
-        self.metadata.core_mut()
+    fn metadata_mut(&mut self) -> riglr_events_core::error::EventResult<&mut CoreEventMetadata> {
+        Ok(self.metadata.core_mut())
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -280,8 +210,8 @@ impl Event for OrcaPositionEvent {
         self.metadata.core()
     }
 
-    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
-        self.metadata.core_mut()
+    fn metadata_mut(&mut self) -> riglr_events_core::error::EventResult<&mut CoreEventMetadata> {
+        Ok(self.metadata.core_mut())
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -317,8 +247,8 @@ impl Event for OrcaLiquidityEvent {
         self.metadata.core()
     }
 
-    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
-        self.metadata.core_mut()
+    fn metadata_mut(&mut self) -> riglr_events_core::error::EventResult<&mut CoreEventMetadata> {
+        Ok(self.metadata.core_mut())
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -812,7 +742,7 @@ mod tests {
         let swap_data = create_test_swap_data();
         let mut event = OrcaSwapEvent::new(params, swap_data);
 
-        let metadata_mut = event.metadata_mut();
+        let metadata_mut = event.metadata_mut().unwrap();
         metadata_mut.id = "updated-swap-id".to_string();
 
         assert_eq!(event.metadata.id(), "updated-swap-id");
@@ -896,7 +826,7 @@ mod tests {
         let position_data = create_test_position_data();
         let mut event = OrcaPositionEvent::new(params, position_data, true);
 
-        let metadata_mut = event.metadata_mut();
+        let metadata_mut = event.metadata_mut().unwrap();
         metadata_mut.id = "updated-position-id".to_string();
 
         assert_eq!(event.metadata.id(), "updated-position-id");
@@ -980,7 +910,7 @@ mod tests {
         let liquidity_data = create_test_liquidity_data();
         let mut event = OrcaLiquidityEvent::new(params, liquidity_data);
 
-        let metadata_mut = event.metadata_mut();
+        let metadata_mut = event.metadata_mut().unwrap();
         metadata_mut.id = "updated-liquidity-id".to_string();
 
         assert_eq!(event.metadata.id(), "updated-liquidity-id");

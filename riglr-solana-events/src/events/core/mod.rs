@@ -1,12 +1,50 @@
 //! Core event parsing traits and utilities for Solana blockchain events.
 //!
-//! This module previously provided event parsing traits, but these have been moved to
-//! riglr_events_core to avoid duplication and conflicts.
+//! This module provides common types used across different protocol event parsers.
 
-/// Legacy traits module - deprecated and removed
-pub mod traits;
+use serde::{Deserialize, Serialize};
 
-// No longer re-exporting traits as they have been removed
+/// Common event parameters shared across all protocol events
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct EventParameters {
+    /// Unique identifier for the event
+    pub id: String,
+    /// Transaction signature
+    pub signature: String,
+    /// Solana slot number
+    pub slot: u64,
+    /// Block timestamp in seconds
+    pub block_time: i64,
+    /// Block timestamp in milliseconds
+    pub block_time_ms: i64,
+    /// Time when the program received the event in milliseconds
+    pub program_received_time_ms: i64,
+    /// Event index within the transaction
+    pub index: String,
+}
+
+impl EventParameters {
+    /// Creates a new EventParameters instance with the provided values
+    pub fn new(
+        id: String,
+        signature: String,
+        slot: u64,
+        block_time: i64,
+        block_time_ms: i64,
+        program_received_time_ms: i64,
+        index: String,
+    ) -> Self {
+        Self {
+            id,
+            signature,
+            slot,
+            block_time,
+            block_time_ms,
+            program_received_time_ms,
+            index,
+        }
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -15,7 +53,7 @@ mod tests {
         events::parser_types::{GenericEventParseConfig, GenericEventParser},
         types::{EventType, ProtocolType},
     };
-    use riglr_events_core::{Event, error::EventResult};
+    use riglr_events_core::{error::EventResult, Event};
     use solana_message::compiled_instruction::CompiledInstruction;
     use solana_sdk::pubkey::Pubkey;
     use solana_transaction_status::UiCompiledInstruction;
@@ -51,8 +89,10 @@ mod tests {
             &self.metadata
         }
 
-        fn metadata_mut(&mut self) -> &mut riglr_events_core::EventMetadata {
-            &mut self.metadata
+        fn metadata_mut(
+            &mut self,
+        ) -> riglr_events_core::error::EventResult<&mut riglr_events_core::EventMetadata> {
+            Ok(&mut self.metadata)
         }
 
         fn as_any(&self) -> &dyn std::any::Any {

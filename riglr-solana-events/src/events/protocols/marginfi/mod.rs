@@ -9,10 +9,13 @@ pub use events::*;
 pub use parser::*;
 pub use types::*;
 
+// Re-export core types
+pub use crate::events::core::EventParameters;
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::events::parser_types::LegacyEventParser;
+    use crate::events::parser_types::ProtocolParser;
     use crate::types::TransferData;
     use riglr_events_core::{Event, EventKind};
     use solana_sdk::pubkey::Pubkey;

@@ -1,5 +1,5 @@
 use super::{
-    events::{EventParameters, OrcaLiquidityEvent, OrcaPositionEvent, OrcaSwapEvent},
+    events::{OrcaLiquidityEvent, OrcaPositionEvent, OrcaSwapEvent},
     types::{
         orca_whirlpool_program_id, OrcaLiquidityData, OrcaPositionData, OrcaSwapData,
         PositionRewardInfo, CLOSE_POSITION_DISCRIMINATOR, DECREASE_LIQUIDITY_DISCRIMINATOR,
@@ -13,8 +13,9 @@ use crate::{
             has_discriminator, parse_u128_le, parse_u32_le, parse_u64_le, safe_get_account,
             validate_account_count, validate_data_length,
         },
+        core::EventParameters,
         factory::SolanaTransactionInput,
-        parser_types::{GenericEventParseConfig, LegacyEventParser},
+        parser_types::{GenericEventParseConfig, ProtocolParser},
     },
     solana_metadata::{create_metadata, SolanaEventMetadata},
     types::{EventType, ProtocolType},
@@ -128,7 +129,7 @@ impl EventParser for OrcaEventParser {
 
 // Keep legacy trait implementation for backward compatibility during transition
 #[async_trait::async_trait]
-impl LegacyEventParser for OrcaEventParser {
+impl ProtocolParser for OrcaEventParser {
     fn inner_instruction_configs(&self) -> HashMap<&'static str, Vec<GenericEventParseConfig>> {
         self.inner_instruction_configs.clone()
     }

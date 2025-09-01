@@ -16,7 +16,7 @@ use crate::events::{
         },
     },
     factory::SolanaTransactionInput,
-    parser_types::{GenericEventParseConfig, GenericEventParser, LegacyEventParser},
+    parser_types::{GenericEventParseConfig, GenericEventParser, ProtocolParser},
     protocols::raydium_amm_v4::{
         discriminators, RaydiumAmmV4DepositEvent, RaydiumAmmV4Initialize2Event,
         RaydiumAmmV4SwapEvent, RaydiumAmmV4WithdrawEvent, RaydiumAmmV4WithdrawPnlEvent,
@@ -105,7 +105,6 @@ impl RaydiumAmmV4EventParser {
         Self::default()
     }
 
-
     /// Empty parser for inner instructions
     ///
     /// Raydium AMM V4 does not emit events through inner instructions or program logs.
@@ -116,10 +115,7 @@ impl RaydiumAmmV4EventParser {
     ///
     /// This differs from protocols like Raydium CPMM which emit events through logs
     /// that need to be parsed from inner instructions.
-    fn empty_parse(
-        _data: &[u8],
-        _metadata: SolanaEventMetadata,
-    ) -> ParseResult<Box<dyn Event>> {
+    fn empty_parse(_data: &[u8], _metadata: SolanaEventMetadata) -> ParseResult<Box<dyn Event>> {
         Err(crate::error::ParseError::InvalidInstructionType(
             "Raydium AMM V4 does not emit events through inner instructions".to_string(),
         ))
@@ -474,7 +470,7 @@ impl EventParser for RaydiumAmmV4EventParser {
 
 // Keep legacy implementation for backward compatibility
 #[async_trait::async_trait]
-impl LegacyEventParser for RaydiumAmmV4EventParser {
+impl ProtocolParser for RaydiumAmmV4EventParser {
     fn inner_instruction_configs(&self) -> HashMap<&'static str, Vec<GenericEventParseConfig>> {
         self.inner.inner_instruction_configs()
     }
@@ -507,7 +503,7 @@ impl LegacyEventParser for RaydiumAmmV4EventParser {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::events::parser_types::LegacyEventParser;
+    use crate::events::parser_types::ProtocolParser;
     use crate::types::{EventType, ProtocolType};
     use solana_message::compiled_instruction::CompiledInstruction;
     use solana_transaction_status::UiCompiledInstruction;

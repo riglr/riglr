@@ -9,7 +9,7 @@ pub use parser::*;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::events::parser_types::LegacyEventParser;
+    use crate::events::parser_types::ProtocolParser;
     use riglr_events_core::Event;
     use solana_sdk::pubkey::Pubkey;
     use std::str::FromStr;

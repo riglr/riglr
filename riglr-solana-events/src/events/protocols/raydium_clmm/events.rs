@@ -257,8 +257,8 @@ impl Event for RaydiumClmmSwapEvent {
         &self.metadata.core
     }
 
-    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
-        &mut self.metadata.core
+    fn metadata_mut(&mut self) -> riglr_events_core::error::EventResult<&mut CoreEventMetadata> {
+        Ok(&mut self.metadata.core)
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -292,8 +292,8 @@ impl Event for RaydiumClmmSwapV2Event {
         &self.metadata.core
     }
 
-    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
-        &mut self.metadata.core
+    fn metadata_mut(&mut self) -> riglr_events_core::error::EventResult<&mut CoreEventMetadata> {
+        Ok(&mut self.metadata.core)
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -327,8 +327,8 @@ impl Event for RaydiumClmmCreatePoolEvent {
         &self.metadata.core
     }
 
-    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
-        &mut self.metadata.core
+    fn metadata_mut(&mut self) -> riglr_events_core::error::EventResult<&mut CoreEventMetadata> {
+        Ok(&mut self.metadata.core)
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -362,8 +362,8 @@ impl Event for RaydiumClmmOpenPositionV2Event {
         &self.metadata.core
     }
 
-    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
-        &mut self.metadata.core
+    fn metadata_mut(&mut self) -> riglr_events_core::error::EventResult<&mut CoreEventMetadata> {
+        Ok(&mut self.metadata.core)
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -397,8 +397,8 @@ impl Event for RaydiumClmmClosePositionEvent {
         &self.metadata.core
     }
 
-    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
-        &mut self.metadata.core
+    fn metadata_mut(&mut self) -> riglr_events_core::error::EventResult<&mut CoreEventMetadata> {
+        Ok(&mut self.metadata.core)
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -432,8 +432,8 @@ impl Event for RaydiumClmmIncreaseLiquidityV2Event {
         &self.metadata.core
     }
 
-    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
-        &mut self.metadata.core
+    fn metadata_mut(&mut self) -> riglr_events_core::error::EventResult<&mut CoreEventMetadata> {
+        Ok(&mut self.metadata.core)
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -467,8 +467,8 @@ impl Event for RaydiumClmmDecreaseLiquidityV2Event {
         &self.metadata.core
     }
 
-    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
-        &mut self.metadata.core
+    fn metadata_mut(&mut self) -> riglr_events_core::error::EventResult<&mut CoreEventMetadata> {
+        Ok(&mut self.metadata.core)
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -502,8 +502,8 @@ impl Event for RaydiumClmmOpenPositionWithToken22NftEvent {
         &self.metadata.core
     }
 
-    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
-        &mut self.metadata.core
+    fn metadata_mut(&mut self) -> riglr_events_core::error::EventResult<&mut CoreEventMetadata> {
+        Ok(&mut self.metadata.core)
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -640,7 +640,7 @@ mod tests {
     #[test]
     fn test_raydium_clmm_swap_event_metadata_mut_should_work() {
         let mut event = RaydiumClmmSwapEvent::default();
-        let metadata = event.metadata_mut();
+        let metadata = event.metadata_mut().unwrap();
         metadata.id = "test-clmm-swap-id".to_string();
         assert_eq!(event.metadata().id, "test-clmm-swap-id");
     }
@@ -707,7 +707,7 @@ mod tests {
     #[test]
     fn test_raydium_clmm_swap_v2_event_metadata_mut_should_work() {
         let mut event = RaydiumClmmSwapV2Event::default();
-        let metadata = event.metadata_mut();
+        let metadata = event.metadata_mut().unwrap();
         metadata.id = "test-clmm-swap-v2-id".to_string();
         assert_eq!(event.metadata().id, "test-clmm-swap-v2-id");
     }
@@ -765,7 +765,7 @@ mod tests {
     #[test]
     fn test_raydium_clmm_create_pool_event_metadata_mut_should_work() {
         let mut event = RaydiumClmmCreatePoolEvent::default();
-        let metadata = event.metadata_mut();
+        let metadata = event.metadata_mut().unwrap();
         metadata.id = "test-clmm-create-pool-id".to_string();
         assert_eq!(event.metadata().id, "test-clmm-create-pool-id");
     }
@@ -852,7 +852,7 @@ mod tests {
     #[test]
     fn test_raydium_clmm_open_position_v2_event_metadata_mut_should_work() {
         let mut event = RaydiumClmmOpenPositionV2Event::default();
-        let metadata = event.metadata_mut();
+        let metadata = event.metadata_mut().unwrap();
         metadata.id = "test-clmm-open-position-v2-id".to_string();
         assert_eq!(event.metadata().id, "test-clmm-open-position-v2-id");
     }
@@ -904,7 +904,7 @@ mod tests {
     #[test]
     fn test_raydium_clmm_close_position_event_metadata_mut_should_work() {
         let mut event = RaydiumClmmClosePositionEvent::default();
-        let metadata = event.metadata_mut();
+        let metadata = event.metadata_mut().unwrap();
         metadata.id = "test-clmm-close-position-id".to_string();
         assert_eq!(event.metadata().id, "test-clmm-close-position-id");
     }
@@ -960,7 +960,7 @@ mod tests {
     #[test]
     fn test_raydium_clmm_increase_liquidity_v2_event_metadata_mut_should_work() {
         let mut event = RaydiumClmmIncreaseLiquidityV2Event::default();
-        let metadata = event.metadata_mut();
+        let metadata = event.metadata_mut().unwrap();
         metadata.id = "test-clmm-increase-liquidity-v2-id".to_string();
         assert_eq!(event.metadata().id, "test-clmm-increase-liquidity-v2-id");
     }
@@ -1015,7 +1015,7 @@ mod tests {
     #[test]
     fn test_raydium_clmm_decrease_liquidity_v2_event_metadata_mut_should_work() {
         let mut event = RaydiumClmmDecreaseLiquidityV2Event::default();
-        let metadata = event.metadata_mut();
+        let metadata = event.metadata_mut().unwrap();
         metadata.id = "test-clmm-decrease-liquidity-v2-id".to_string();
         assert_eq!(event.metadata().id, "test-clmm-decrease-liquidity-v2-id");
     }
@@ -1086,7 +1086,7 @@ mod tests {
     #[test]
     fn test_raydium_clmm_open_position_with_token22_nft_event_metadata_mut_should_work() {
         let mut event = RaydiumClmmOpenPositionWithToken22NftEvent::default();
-        let metadata = event.metadata_mut();
+        let metadata = event.metadata_mut().unwrap();
         metadata.id = "test-clmm-open-position-token22-nft-id".to_string();
         assert_eq!(
             event.metadata().id,
@@ -1206,7 +1206,7 @@ mod clmm_metadata_fix_verification {
     #[test]
     fn test_clmm_metadata_mut_works() {
         let mut event = RaydiumClmmSwapEvent::default();
-        let metadata_mut = event.metadata_mut();
+        let metadata_mut = event.metadata_mut().unwrap();
         metadata_mut.id = "test_clmm".to_string();
         assert_eq!(event.id(), "test_clmm");
     }
