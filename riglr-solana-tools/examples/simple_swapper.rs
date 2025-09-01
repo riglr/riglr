@@ -11,13 +11,13 @@ use riglr_config::{Config, SolanaNetworkConfig};
 use riglr_core::{
     idempotency::InMemoryIdempotencyStore,
     provider::ApplicationContext,
-    signer::LocalSolanaSigner,
     util::{ensure_key_directory, load_private_key_with_fallback},
     ExecutionConfig, Job, SignerContext, ToolWorker,
 };
 use riglr_solana_tools::{
     clients::ApiClients,
     swap::{get_jupiter_quote_tool, get_token_price_tool, perform_jupiter_swap_tool},
+    LocalSolanaSigner,
 };
 use serde_json::json;
 use solana_sdk::signature::Keypair;

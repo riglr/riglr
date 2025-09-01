@@ -22,6 +22,7 @@ use solana_sdk::{
 };
 use solana_transaction_status::option_serializer::OptionSerializer;
 use solana_transaction_status::UiTransactionEncoding;
+use std::sync::Arc;
 use tracing::{debug, info, warn};
 
 // Rate limiting is now handled via ApplicationContext dependency injection
@@ -171,7 +172,10 @@ pub async fn deploy_pump_token(
     let mut tx = transaction;
 
     // Get recent blockhash for partial signing
-    let client = signer_context.client();
+    // Get the RPC client from ApplicationContext
+    let client = context
+        .get_extension::<Arc<solana_client::rpc_client::RpcClient>>()
+        .ok_or_else(|| ToolError::permanent_string("Solana RPC client not found in context"))?;
     let recent_blockhash = client
         .get_latest_blockhash()
         .map_err(|e| ToolError::retriable_string(format!("Failed to get blockhash: {}", e)))?;
@@ -180,8 +184,12 @@ pub async fn deploy_pump_token(
     tx.partial_sign(&[&mint_keypair], recent_blockhash);
 
     // Then sign with the fee payer and send
+    // Serialize transaction to bytes
+    let mut tx_bytes = bincode::serialize(&tx).map_err(|e| {
+        ToolError::permanent_string(format!("Failed to serialize transaction: {}", e))
+    })?;
     let creation_signature = signer_context
-        .sign_and_send_transaction(&mut tx)
+        .sign_and_send_transaction(&mut tx_bytes)
         .await
         .map_err(|e| {
             ToolError::retriable_string(format!("Failed to sign and send transaction: {}", e))
@@ -589,7 +597,12 @@ pub async fn analyze_pump_transaction(
     let signer = SignerContext::current_as_solana()
         .await
         .map_err(|e| ToolError::permanent_string(format!("No Solana signer context: {}", e)))?;
-    let client = signer.client();
+    let client_any = signer.client();
+    // Downcast to RpcClient
+    let client = client_any
+        .clone()
+        .downcast::<RpcClient>()
+        .map_err(|_| ToolError::permanent_string("Signer client is not a Solana RPC client"))?;
 
     // Parse transaction details
     let (token_amount, sol_amount, price_per_token) =
@@ -814,15 +827,19 @@ pub async fn create_token_with_mint_keypair(
     let payer_pubkey = validate_address(&signer.pubkey())
         .map_err(|e| ToolError::permanent_string(e.to_string()))?;
 
-    let mut transaction = Transaction::new_with_payer(&instructions, Some(&payer_pubkey));
+    let transaction = Transaction::new_with_payer(&instructions, Some(&payer_pubkey));
 
     // Get recent blockhash
     let _rpc_client = signer.client();
 
     // In a real implementation, we would sign with both the payer and mint keypair
     // For now, we'll use the signer context to sign and send the transaction
+    // Serialize transaction to bytes
+    let mut tx_bytes = bincode::serialize(&transaction).map_err(|e| {
+        ToolError::permanent_string(format!("Failed to serialize transaction: {}", e))
+    })?;
     let signature = signer
-        .sign_and_send_transaction(&mut transaction)
+        .sign_and_send_transaction(&mut tx_bytes)
         .await
         .map_err(|e| {
             ToolError::retriable_string(format!("Failed to sign and send transaction: {}", e))

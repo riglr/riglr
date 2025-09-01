@@ -5,9 +5,7 @@
 //!
 //! All transaction utilities follow the SignerContext pattern for secure multi-tenant operation.
 
-use crate::error::{
-    classify_transaction_error, RetryableError, SolanaToolError, TransactionErrorType,
-};
+use crate::error::SolanaToolError;
 use riglr_core::{
     retry::{retry_async, ErrorClass, RetryConfig},
     signer::SignerError,
@@ -42,15 +40,15 @@ pub struct TransactionSubmissionResult {
 /// Helper function to classify SignerError into ErrorClass for retry_async
 fn classify_signer_error_for_retry(signer_error: &SignerError) -> ErrorClass {
     match signer_error {
-        SignerError::SolanaTransaction(client_error) => {
-            match classify_transaction_error(client_error) {
-                TransactionErrorType::Permanent(_) => ErrorClass::Permanent,
-                TransactionErrorType::Retryable(RetryableError::NetworkCongestion) => {
-                    ErrorClass::RateLimited
-                }
-                TransactionErrorType::Retryable(_) => ErrorClass::Retryable,
-                TransactionErrorType::RateLimited(_) => ErrorClass::RateLimited,
-                TransactionErrorType::Unknown(_) => ErrorClass::Retryable, // Conservative: treat unknown as retryable
+        SignerError::BlockchainTransaction(error_str) => {
+            // Since we only have the error string now, we need to do basic classification
+            // based on the error message content
+            if error_str.contains("rate limit") || error_str.contains("too many requests") {
+                ErrorClass::RateLimited
+            } else if error_str.contains("network") || error_str.contains("timeout") {
+                ErrorClass::Retryable
+            } else {
+                ErrorClass::Permanent
             }
         }
         SignerError::NoSignerContext | SignerError::Configuration(_) | SignerError::Signing(_) => {
@@ -139,12 +137,15 @@ pub async fn send_transaction_with_retry(
     let result = retry_async(
         || {
             attempts += 1;
-            let mut tx = tx_clone.clone();
+            let tx = tx_clone.clone();
 
             async move {
                 // Get the current signer context
                 let signer = SignerContext::current_as_solana().await?;
-                signer.sign_and_send_transaction(&mut tx).await
+                let mut tx_bytes = bincode::serialize(&tx).map_err(|e| {
+                    SignerError::Signing(format!("Failed to serialize transaction: {}", e))
+                })?;
+                signer.sign_and_send_transaction(&mut tx_bytes).await
             }
         },
         classify_signer_error_for_retry,
@@ -280,15 +281,25 @@ where
     let pubkey = Pubkey::from_str(&pubkey_str)
         .map_err(|e| SolanaToolError::InvalidAddress(format!("Invalid pubkey format: {}", e)))?;
 
-    // Get client from SignerContext
-    let client = signer.client();
+    // Get client from SignerContext and downcast it
+    let client_any = signer.client();
+    // Downcast Arc<dyn Any> to Arc<RpcClient>
+    let client = client_any.clone().downcast::<RpcClient>().map_err(|_| {
+        SolanaToolError::Rpc("Signer client is not a Solana RPC client".to_string())
+    })?;
 
     // Execute transaction creator
-    let mut tx = tx_creator(pubkey, client).await?;
+    let tx = tx_creator(pubkey, client).await?;
 
     // Sign and send via signer context
+    let mut tx_bytes = bincode::serialize(&tx).map_err(|e| {
+        SolanaToolError::from(ToolError::permanent_string(format!(
+            "Failed to serialize transaction: {}",
+            e
+        )))
+    })?;
     signer
-        .sign_and_send_transaction(&mut tx)
+        .sign_and_send_transaction(&mut tx_bytes)
         .await
         .map_err(SolanaToolError::SignerError)
 }
@@ -338,8 +349,12 @@ pub async fn create_token_with_mint_keypair(
 
     let mut tx = Transaction::new_with_payer(&instructions, Some(&payer_pubkey));
 
-    // Get recent blockhash from SignerContext
-    let client = signer.client();
+    // Get client from SignerContext and downcast it
+    let client_any = signer.client();
+    // Downcast Arc<dyn Any> to Arc<RpcClient>
+    let client = client_any.clone().downcast::<RpcClient>().map_err(|_| {
+        SolanaToolError::Rpc("Signer client is not a Solana RPC client".to_string())
+    })?;
     let recent_blockhash = client
         .get_latest_blockhash()
         .map_err(|e| SolanaToolError::SolanaClient(Box::new(e)))?;
@@ -347,8 +362,14 @@ pub async fn create_token_with_mint_keypair(
     tx.partial_sign(&[mint_keypair], recent_blockhash);
 
     // Sign and send transaction via signer context
+    let mut tx_bytes = bincode::serialize(&tx).map_err(|e| {
+        SolanaToolError::from(ToolError::permanent_string(format!(
+            "Failed to serialize transaction: {}",
+            e
+        )))
+    })?;
     let signature = signer
-        .sign_and_send_transaction(&mut tx)
+        .sign_and_send_transaction(&mut tx_bytes)
         .await
         .map_err(SolanaToolError::SignerError)?;
 
@@ -386,7 +407,7 @@ mod tests {
             ClientErrorKind::Io(std::io::Error::new(std::io::ErrorKind::TimedOut, "timeout")),
             solana_client::rpc_request::RpcRequest::GetAccountInfo,
         );
-        let signer_error = SignerError::SolanaTransaction(Arc::new(client_error));
+        let signer_error = SignerError::BlockchainTransaction(client_error.to_string());
 
         let result = classify_signer_error_for_retry(&signer_error);
         // Should classify as retryable since it's a network timeout

@@ -24,6 +24,7 @@ use solana_sdk::{
 use solana_system_interface::instruction as system_instruction;
 use spl_token;
 use std::str::FromStr;
+use std::sync::Arc;
 use tracing::{debug, info};
 
 // Memo program ID constant
@@ -344,7 +345,7 @@ pub async fn create_spl_token_mint(
     decimals: u8,
     initial_supply: u64,
     freezable: bool,
-    _context: &riglr_core::provider::ApplicationContext,
+    context: &riglr_core::provider::ApplicationContext,
 ) -> Result<CreateMintResult, ToolError> {
     debug!(
         "Creating SPL token mint with {} decimals, {} initial supply, freezable: {}",
@@ -371,8 +372,10 @@ pub async fn create_spl_token_mint(
     let mint_keypair = solana_sdk::signature::Keypair::new();
     let mint_pubkey = mint_keypair.pubkey();
 
-    // Get client to check account size and rent
-    let client = signer_context.client();
+    // Get RPC client from ApplicationContext
+    let client = context
+        .get_extension::<Arc<solana_client::rpc_client::RpcClient>>()
+        .ok_or_else(|| ToolError::permanent_string("Solana RPC client not found in context"))?;
 
     // Calculate rent for mint account
     let mint_account_size = std::mem::size_of::<spl_token::state::Mint>();
@@ -459,8 +462,12 @@ pub async fn create_spl_token_mint(
     transaction.sign(&[&mint_keypair], blockhash);
 
     // Send transaction through signer context
+    // Serialize transaction to bytes
+    let mut tx_bytes = bincode::serialize(&transaction).map_err(|e| {
+        ToolError::permanent_string(format!("Failed to serialize transaction: {}", e))
+    })?;
     let signature = signer_context
-        .sign_and_send_transaction(&mut transaction)
+        .sign_and_send_transaction(&mut tx_bytes)
         .await
         .map_err(|e| ToolError::permanent_string(format!("Failed to send transaction: {}", e)))?;
 
