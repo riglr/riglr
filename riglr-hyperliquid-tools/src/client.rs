@@ -1043,28 +1043,19 @@ mod tests {
 
     #[async_trait]
     impl EvmClient for MockEvmClient {
-        async fn get_balance(
-            &self,
-            _address: &str,
-        ) -> std::result::Result<alloy::primitives::U256, SignerError> {
-            use alloy::primitives::U256;
-            Ok(U256::from(1000))
+        async fn get_balance(&self, _address: &str) -> std::result::Result<String, SignerError> {
+            Ok("1000".to_string())
         }
 
         async fn send_transaction(
             &self,
-            _tx: &alloy::rpc::types::TransactionRequest,
-        ) -> std::result::Result<alloy::primitives::TxHash, SignerError> {
-            use alloy::primitives::TxHash;
-            Ok(TxHash::default())
+            _tx: &serde_json::Value,
+        ) -> std::result::Result<String, SignerError> {
+            Ok("0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef".to_string())
         }
 
-        async fn call(
-            &self,
-            _tx: &alloy::rpc::types::TransactionRequest,
-        ) -> std::result::Result<alloy::primitives::Bytes, SignerError> {
-            use alloy::primitives::Bytes;
-            Ok(Bytes::default())
+        async fn call(&self, _tx: &serde_json::Value) -> std::result::Result<String, SignerError> {
+            Ok("0x".to_string())
         }
     }
 
@@ -1086,7 +1077,7 @@ mod tests {
 
         async fn sign_and_send_transaction(
             &self,
-            _tx: alloy::rpc::types::TransactionRequest,
+            _tx: serde_json::Value,
         ) -> std::result::Result<String, SignerError> {
             Ok("0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef".to_string())
         }
