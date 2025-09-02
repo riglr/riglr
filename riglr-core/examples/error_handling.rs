@@ -116,7 +116,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // From anyhow::Error (now requires explicit classification)
     let anyhow_error = anyhow::anyhow!("Something went wrong");
-    let converted_anyhow = ToolError::permanent_string(format!("An unknown error occurred: {}", anyhow_error));
+    let converted_anyhow =
+        ToolError::permanent_string(format!("An unknown error occurred: {}", anyhow_error));
     println!(
         "🔀 From anyhow: {} (retriable: {})",
         converted_anyhow,
@@ -143,7 +144,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // From Box<dyn Error> (now requires explicit classification)
     let io_error = io::Error::new(io::ErrorKind::NotFound, "File not found");
-    let converted_boxed = ToolError::permanent_with_source(io_error, "A required file was not found");
+    let converted_boxed =
+        ToolError::permanent_with_source(io_error, "A required file was not found");
     println!(
         "🔀 From Box<Error>: {} (retriable: {})",
         converted_boxed,
