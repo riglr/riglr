@@ -4,13 +4,10 @@
 
 #[cfg(test)]
 mod tests {
-    use alloy::primitives::{Address, U256};
-    use alloy::providers::{Provider, ProviderBuilder};
-    use testcontainers::{runners::AsyncRunner, GenericImage, ImageExt};
-
     #[cfg(feature = "integration-tests")]
     use {
-        alloy::primitives::utils::format_ether,
+        alloy::primitives::{utils::format_ether, Address, U256},
+        alloy::providers::{Provider, ProviderBuilder},
         alloy::rpc::types::TransactionRequest,
         riglr_config::EvmNetworkConfig,
         riglr_core::provider::ApplicationContext,
@@ -19,6 +16,7 @@ mod tests {
         riglr_evm_tools::{transaction::send_eth, LocalEvmSigner},
         std::str::FromStr,
         std::sync::Arc,
+        testcontainers::{runners::AsyncRunner, GenericImage, ImageExt},
     };
 
     #[cfg(feature = "integration-tests")]
