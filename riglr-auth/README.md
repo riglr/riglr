@@ -92,6 +92,7 @@ if let Ok(config) = MagicConfig::from_env() {
 ### Environment Variables
 
 #### Privy
+
 ```bash
 PRIVY_APP_ID=your_app_id
 PRIVY_APP_SECRET=your_app_secret
@@ -102,6 +103,7 @@ PRIVY_ENABLE_CACHE=true                       # Optional
 ```
 
 #### Web3Auth
+
 ```bash
 WEB3AUTH_CLIENT_ID=your_client_id
 WEB3AUTH_VERIFIER=your_verifier
@@ -110,6 +112,7 @@ WEB3AUTH_API_URL=https://api.openlogin.com   # Optional
 ```
 
 #### Magic.link
+
 ```bash
 MAGIC_PUBLISHABLE_KEY=your_publishable_key
 MAGIC_SECRET_KEY=your_secret_key
@@ -224,6 +227,7 @@ impl SignerFactory for CustomProvider {
 ## Examples
 
 See the `examples` directory for complete examples:
+
 - `privy_auth.rs` - Privy authentication with Axum
 - `multi_provider.rs` - Multiple providers setup
 
