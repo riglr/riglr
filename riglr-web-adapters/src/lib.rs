@@ -460,8 +460,10 @@ mod tests {
                 Box<dyn std::error::Error + Send + Sync>,
             > {
                 let keypair = Keypair::new();
-                let signer =
-                    LocalSolanaSigner::new(keypair, "https://api.devnet.solana.com".to_string());
+                let signer = LocalSolanaSigner::from_keypair_with_url(
+                    keypair,
+                    "https://api.devnet.solana.com".to_string(),
+                );
                 Ok(Box::new(signer))
             }
 

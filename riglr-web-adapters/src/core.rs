@@ -352,7 +352,10 @@ mod tests {
     async fn test_handle_agent_completion() {
         let agent = MockAgent::new(TEST_RESPONSE.to_string());
         let keypair = Keypair::new();
-        let signer = std::sync::Arc::new(LocalSolanaSigner::new(keypair, TEST_RPC_URL.to_string()));
+        let signer = std::sync::Arc::new(LocalSolanaSigner::from_keypair_with_url(
+            keypair,
+            TEST_RPC_URL.to_string(),
+        ));
 
         let prompt = PromptRequest {
             text: TEST_PROMPT.to_string(),
@@ -373,7 +376,7 @@ mod tests {
     async fn test_handle_agent_stream() {
         let agent = MockAgent::new("Test response".to_string());
         let keypair = Keypair::new();
-        let signer = std::sync::Arc::new(LocalSolanaSigner::new(
+        let signer = std::sync::Arc::new(LocalSolanaSigner::from_keypair_with_url(
             keypair,
             "https://api.devnet.solana.com".to_string(),
         ));
@@ -666,7 +669,7 @@ mod tests {
             Some("custom-model".to_string()),
         );
         let keypair = Keypair::new();
-        let signer = std::sync::Arc::new(LocalSolanaSigner::new(
+        let signer = std::sync::Arc::new(LocalSolanaSigner::from_keypair_with_url(
             keypair,
             "https://api.devnet.solana.com".to_string(),
         ));
@@ -691,7 +694,7 @@ mod tests {
     async fn test_handle_agent_completion_with_no_ids() {
         let agent = MockAgent::new("Test response".to_string());
         let keypair = Keypair::new();
-        let signer = std::sync::Arc::new(LocalSolanaSigner::new(
+        let signer = std::sync::Arc::new(LocalSolanaSigner::from_keypair_with_url(
             keypair,
             "https://api.devnet.solana.com".to_string(),
         ));
@@ -717,7 +720,7 @@ mod tests {
     async fn test_handle_agent_completion_failure() {
         let agent = FailingMockAgent;
         let keypair = Keypair::new();
-        let signer = std::sync::Arc::new(LocalSolanaSigner::new(
+        let signer = std::sync::Arc::new(LocalSolanaSigner::from_keypair_with_url(
             keypair,
             "https://api.devnet.solana.com".to_string(),
         ));
@@ -737,7 +740,7 @@ mod tests {
     async fn test_handle_agent_stream_with_no_ids() {
         let agent = MockAgent::new("Test response".to_string());
         let keypair = Keypair::new();
-        let signer = std::sync::Arc::new(LocalSolanaSigner::new(
+        let signer = std::sync::Arc::new(LocalSolanaSigner::from_keypair_with_url(
             keypair,
             "https://api.devnet.solana.com".to_string(),
         ));
@@ -781,7 +784,7 @@ mod tests {
     async fn test_handle_agent_stream_failure() {
         let agent = FailingMockAgent;
         let keypair = Keypair::new();
-        let signer = std::sync::Arc::new(LocalSolanaSigner::new(
+        let signer = std::sync::Arc::new(LocalSolanaSigner::from_keypair_with_url(
             keypair,
             "https://api.devnet.solana.com".to_string(),
         ));
@@ -824,7 +827,7 @@ mod tests {
     async fn test_handle_agent_stream_chunk_failure() {
         let agent = StreamFailingMockAgent;
         let keypair = Keypair::new();
-        let signer = std::sync::Arc::new(LocalSolanaSigner::new(
+        let signer = std::sync::Arc::new(LocalSolanaSigner::from_keypair_with_url(
             keypair,
             "https://api.devnet.solana.com".to_string(),
         ));

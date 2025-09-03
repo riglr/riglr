@@ -30,7 +30,15 @@ impl AxumRiglrAdapter {
         Self { signer_factory }
     }
 
-    /// Detect authentication type from request headers
+    /// Detect authentication type from request headers.
+    ///
+    /// The detection logic is as follows:
+    /// 1. If the `x-auth-type` header is present, its value is used.
+    /// 2. If the header is absent and exactly one `SignerFactory` is registered in the
+    ///    `CompositeSignerFactory`, that factory's auth type is used as the default.
+    /// 3. If the header is absent and multiple factories are registered, a `BAD_REQUEST`
+    ///    error is returned, as the auth type is ambiguous.
+    /// 4. If no factories are registered, an `INTERNAL_SERVER_ERROR` is returned.
     fn detect_auth_type(&self, headers: &HeaderMap) -> Result<String, StatusCode> {
         // First check for explicit auth type header
         if let Some(auth_type) = headers.get("x-auth-type") {
@@ -40,15 +48,23 @@ impl AxumRiglrAdapter {
                 .map_err(|_| StatusCode::BAD_REQUEST);
         }
 
-        // Fall back to registered auth types - use first one as default
+        // Check how many auth providers are registered
         let supported_types = self.signer_factory.supported_auth_types();
-        if supported_types.is_empty() {
-            return Err(StatusCode::INTERNAL_SERVER_ERROR);
-        }
 
-        // For now, return the first registered type
-        // In the future, this could inspect the JWT to determine the issuer
-        Ok(supported_types[0].clone())
+        match supported_types.len() {
+            0 => {
+                // No providers configured
+                Err(StatusCode::INTERNAL_SERVER_ERROR)
+            }
+            1 => {
+                // Single provider - use as default
+                Ok(supported_types[0].clone())
+            }
+            _ => {
+                // Multiple providers - require explicit header
+                Err(StatusCode::BAD_REQUEST)
+            }
+        }
     }
 
     /// Extract authentication data from request headers
@@ -324,7 +340,7 @@ mod tests {
 
         async fn sign_and_send_transaction(
             &self,
-            _tx: &mut solana_sdk::transaction::Transaction,
+            _tx: &mut Vec<u8>,
         ) -> Result<String, SignerError> {
             if self.should_fail {
                 return Err(SignerError::Signing(
@@ -334,8 +350,8 @@ mod tests {
             Ok("mock_solana_signature".to_string())
         }
 
-        fn client(&self) -> std::sync::Arc<solana_client::rpc_client::RpcClient> {
-            std::sync::Arc::new(solana_client::rpc_client::RpcClient::new(
+        fn client(&self) -> Arc<dyn std::any::Any + Send + Sync> {
+            Arc::new(solana_client::rpc_client::RpcClient::new(
                 "http://localhost:8899",
             ))
         }
@@ -353,7 +369,7 @@ mod tests {
 
         async fn sign_and_send_transaction(
             &self,
-            _tx: alloy::rpc::types::TransactionRequest,
+            _tx: serde_json::Value,
         ) -> Result<String, SignerError> {
             if self.should_fail {
                 return Err(SignerError::Signing("Mock EVM signing error".to_string()));
@@ -414,6 +430,17 @@ mod tests {
         fn new_empty() -> Self {
             Self {
                 supported_types: vec![],
+                should_fail: false,
+            }
+        }
+
+        fn new_with_multiple_types() -> Self {
+            Self {
+                supported_types: vec![
+                    "privy".to_string(),
+                    "web3auth".to_string(),
+                    "magic".to_string(),
+                ],
                 should_fail: false,
             }
         }
@@ -495,11 +522,20 @@ mod tests {
 
     // Test detect_auth_type fallback to default
     #[test]
-    fn test_detect_auth_type_when_no_header_should_use_first_supported() {
-        let factory = Arc::new(MockSignerFactory::new(vec![
-            "privy".to_string(),
-            "web3auth".to_string(),
-        ]));
+    fn test_detect_auth_type_when_multiple_providers_and_no_header_should_fail() {
+        let factory = Arc::new(MockSignerFactory::new_with_multiple_types());
+        let adapter = AxumRiglrAdapter::new(factory);
+
+        let headers = HeaderMap::new();
+
+        let result = adapter.detect_auth_type(&headers);
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), StatusCode::BAD_REQUEST);
+    }
+
+    #[test]
+    fn test_detect_auth_type_when_single_provider_and_no_header_should_succeed() {
+        let factory = Arc::new(MockSignerFactory::new(vec!["privy".to_string()]));
         let adapter = AxumRiglrAdapter::new(factory);
 
         let headers = HeaderMap::new();
