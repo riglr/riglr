@@ -4,10 +4,9 @@ use crate::events::protocols::bonk::types::{ConstantCurve, FixedCurve, LinearCur
 use crate::events::protocols::bonk::types::{
     CurveParams, MintParams, PoolStatus, TradeDirection, VestingParams,
 };
-#[cfg(test)]
 use crate::solana_metadata::SolanaEventMetadata;
-use crate::types::EventMetadata;
 use borsh::{BorshDeserialize, BorshSerialize};
+use riglr_events_core::EventMetadata as CoreEventMetadata;
 use serde::{Deserialize, Serialize};
 use solana_sdk::pubkey::Pubkey;
 
@@ -23,7 +22,7 @@ pub struct BonkTradeEvent {
     /// Event metadata
     #[serde(skip)]
     #[borsh(skip)]
-    pub metadata: EventMetadata,
+    pub metadata: SolanaEventMetadata,
     /// Public key of the pool state account
     pub pool_state: Pubkey,
     /// Total amount of base tokens available for sale
@@ -104,11 +103,11 @@ impl Event for BonkTradeEvent {
         &self.metadata.core.kind
     }
 
-    fn metadata(&self) -> &riglr_events_core::EventMetadata {
+    fn metadata(&self) -> &CoreEventMetadata {
         &self.metadata.core
     }
 
-    fn metadata_mut(&mut self) -> &mut riglr_events_core::EventMetadata {
+    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
         &mut self.metadata.core
     }
 
@@ -137,7 +136,7 @@ pub struct BonkPoolCreateEvent {
     /// Event metadata
     #[serde(skip)]
     #[borsh(skip)]
-    pub metadata: EventMetadata,
+    pub metadata: SolanaEventMetadata,
     /// Public key of the pool state account
     pub pool_state: Pubkey,
     /// Public key of the pool creator
@@ -183,11 +182,11 @@ impl Event for BonkPoolCreateEvent {
         &self.metadata.core.kind
     }
 
-    fn metadata(&self) -> &riglr_events_core::EventMetadata {
+    fn metadata(&self) -> &CoreEventMetadata {
         &self.metadata.core
     }
 
-    fn metadata_mut(&mut self) -> &mut riglr_events_core::EventMetadata {
+    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
         &mut self.metadata.core
     }
 
@@ -246,7 +245,7 @@ pub mod discriminators {
 mod tests {
     use super::*;
 
-    fn create_test_event_metadata() -> EventMetadata {
+    fn create_test_event_metadata() -> SolanaEventMetadata {
         use crate::types::{EventType, ProtocolType};
 
         let core = riglr_events_core::EventMetadata::new(
@@ -330,7 +329,7 @@ mod tests {
         assert_eq!(event.quote_token_mint, Pubkey::default());
         assert!(!event.is_dev_create_token_trade);
         assert!(!event.is_bot);
-        assert_eq!(event.metadata, EventMetadata::default());
+        assert_eq!(event.metadata, SolanaEventMetadata::default());
     }
 
     #[test]
@@ -477,7 +476,7 @@ mod tests {
         assert_eq!(event.quote_vault, Pubkey::default());
         assert_eq!(event.global_config, Pubkey::default());
         assert_eq!(event.platform_config, Pubkey::default());
-        assert_eq!(event.metadata, EventMetadata::default());
+        assert_eq!(event.metadata, SolanaEventMetadata::default());
     }
 
     #[test]

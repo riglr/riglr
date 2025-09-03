@@ -1,17 +1,23 @@
-use riglr_events_core::Event;
+use riglr_events_core::{
+    error::EventResult,
+    traits::{EventParser, ParserInfo},
+    Event,
+};
 use std::collections::HashMap;
 
 use borsh::BorshDeserialize;
 use solana_sdk::pubkey::Pubkey;
 
-use crate::{
-    error::ParseResult,
-    events::{
-        core::traits::{EventParser, GenericEventParseConfig, GenericEventParser},
-        protocols::raydium_cpmm::{discriminators, RaydiumCpmmDepositEvent, RaydiumCpmmSwapEvent},
-    },
-    types::{EventMetadata, EventType, ProtocolType},
+use crate::error::ParseResult;
+use crate::events::{
+    core::traits::{EventParser as LegacyEventParser, GenericEventParseConfig, GenericEventParser},
+    factory::SolanaTransactionInput,
+    protocols::raydium_cpmm::{discriminators, RaydiumCpmmDepositEvent, RaydiumCpmmSwapEvent},
 };
+use crate::solana_metadata::SolanaEventMetadata;
+use crate::types::{EventType, ProtocolType};
+
+type EventMetadata = SolanaEventMetadata;
 
 /// Raydium CPMM program ID
 pub const RAYDIUM_CPMM_PROGRAM_ID: Pubkey =
@@ -65,10 +71,30 @@ impl RaydiumCpmmEventParser {
         Self::default()
     }
 
+    /// Helper method to get inner instruction configs
+    fn inner_instruction_configs(&self) -> HashMap<&'static str, Vec<GenericEventParseConfig>> {
+        self.inner.inner_instruction_configs()
+    }
+
+    /// Helper method to get instruction configs
+    fn instruction_configs(&self) -> HashMap<Vec<u8>, Vec<GenericEventParseConfig>> {
+        self.inner.instruction_configs()
+    }
+
+    /// Helper method to check if should handle program ID
+    fn should_handle(&self, program_id: &Pubkey) -> bool {
+        self.inner.should_handle(program_id)
+    }
+
+    /// Helper method to get supported program IDs
+    fn supported_program_ids(&self) -> Vec<Pubkey> {
+        self.inner.supported_program_ids()
+    }
+
     /// Parse swap log event
     fn parse_swap_inner_instruction(
         data: &[u8],
-        metadata: EventMetadata,
+        metadata: SolanaEventMetadata,
     ) -> ParseResult<Box<dyn Event>> {
         // Parse the swap event using borsh deserialization
         let event = RaydiumCpmmSwapEvent::try_from_slice(data).map_err(|_| {
@@ -85,7 +111,7 @@ impl RaydiumCpmmEventParser {
     /// Parse deposit log event
     fn parse_deposit_inner_instruction(
         data: &[u8],
-        metadata: EventMetadata,
+        metadata: SolanaEventMetadata,
     ) -> ParseResult<Box<dyn Event>> {
         // Parse the deposit event using borsh deserialization
         let event = RaydiumCpmmDepositEvent::try_from_slice(data).map_err(|_| {
@@ -106,7 +132,7 @@ impl RaydiumCpmmEventParser {
     fn parse_swap_base_input_instruction(
         data: &[u8],
         accounts: &[Pubkey],
-        metadata: EventMetadata,
+        metadata: SolanaEventMetadata,
     ) -> ParseResult<Box<dyn Event>> {
         if data.len() < 16 || accounts.len() < 10 {
             return Err(crate::error::ParseError::InvalidDataFormat(
@@ -151,7 +177,7 @@ impl RaydiumCpmmEventParser {
     fn parse_swap_base_output_instruction(
         data: &[u8],
         accounts: &[Pubkey],
-        metadata: EventMetadata,
+        metadata: SolanaEventMetadata,
     ) -> ParseResult<Box<dyn Event>> {
         if data.len() < 16 || accounts.len() < 10 {
             return Err(crate::error::ParseError::InvalidDataFormat(
@@ -194,7 +220,7 @@ impl RaydiumCpmmEventParser {
     fn parse_deposit_instruction(
         data: &[u8],
         accounts: &[Pubkey],
-        metadata: EventMetadata,
+        metadata: SolanaEventMetadata,
     ) -> ParseResult<Box<dyn Event>> {
         if data.len() < 24 || accounts.len() < 8 {
             return Err(crate::error::ParseError::InvalidDataFormat(
@@ -231,8 +257,70 @@ impl RaydiumCpmmEventParser {
     }
 }
 
+// Implement the new core EventParser trait
 #[async_trait::async_trait]
 impl EventParser for RaydiumCpmmEventParser {
+    type Input = SolanaTransactionInput;
+
+    async fn parse(&self, input: Self::Input) -> EventResult<Vec<Box<dyn Event>>> {
+        let events = match input {
+            SolanaTransactionInput::InnerInstruction(params) => {
+                let legacy_params = crate::events::factory::InnerInstructionParseParams {
+                    inner_instruction: &solana_transaction_status::UiCompiledInstruction {
+                        program_id_index: 0,
+                        accounts: vec![],
+                        data: params.inner_instruction_data.clone(),
+                        stack_height: Some(1),
+                    },
+                    signature: &params.signature,
+                    slot: params.slot,
+                    block_time: params.block_time,
+                    program_received_time_ms: params.program_received_time_ms,
+                    index: params.index.clone(),
+                };
+                self.inner
+                    .parse_events_from_inner_instruction(&legacy_params)
+            }
+            SolanaTransactionInput::Instruction(params) => {
+                let instruction = solana_message::compiled_instruction::CompiledInstruction {
+                    program_id_index: 0,
+                    accounts: vec![],
+                    data: params.instruction_data.clone(),
+                };
+                let legacy_params = crate::events::factory::InstructionParseParams {
+                    instruction: &instruction,
+                    accounts: &params.accounts,
+                    signature: &params.signature,
+                    slot: params.slot,
+                    block_time: params.block_time,
+                    program_received_time_ms: params.program_received_time_ms,
+                    index: params.index.clone(),
+                };
+                self.inner.parse_events_from_instruction(&legacy_params)
+            }
+        };
+        Ok(events)
+    }
+
+    fn can_parse(&self, input: &Self::Input) -> bool {
+        match input {
+            SolanaTransactionInput::InnerInstruction(_) => true,
+            SolanaTransactionInput::Instruction(_) => true,
+        }
+    }
+
+    fn info(&self) -> ParserInfo {
+        use riglr_events_core::EventKind;
+        ParserInfo::new("raydium_cpmm_parser".to_string(), "1.0.0".to_string())
+            .with_kind(EventKind::Custom("raydium_cpmm_swap".to_string()))
+            .with_kind(EventKind::Custom("raydium_cpmm_deposit".to_string()))
+            .with_format("solana_instruction".to_string())
+    }
+}
+
+// Keep legacy implementation for backward compatibility
+#[async_trait::async_trait]
+impl LegacyEventParser for RaydiumCpmmEventParser {
     fn inner_instruction_configs(&self) -> HashMap<&'static str, Vec<GenericEventParseConfig>> {
         self.inner.inner_instruction_configs()
     }
@@ -268,8 +356,8 @@ mod tests {
     use riglr_events_core::EventKind;
 
     // Helper function to create test metadata
-    fn create_test_metadata() -> EventMetadata {
-        crate::types::EventMetadata::new(
+    fn create_test_metadata() -> SolanaEventMetadata {
+        SolanaEventMetadata::new(
             "test_signature".to_string(),
             123456,
             EventType::RaydiumCpmmSwap,
@@ -339,7 +427,7 @@ mod tests {
             "test".to_string(),
         );
 
-        let swap_metadata = crate::types::EventMetadata::new(
+        let swap_metadata = SolanaEventMetadata::new(
             "test-signature".to_string(),
             12345,
             EventType::RaydiumCpmmSwap,
@@ -409,7 +497,7 @@ mod tests {
             "test".to_string(),
         );
 
-        let deposit_metadata = crate::types::EventMetadata::new(
+        let deposit_metadata = SolanaEventMetadata::new(
             "test-signature".to_string(),
             12346,
             EventType::RaydiumCpmmDeposit,

@@ -3,8 +3,9 @@
 //! This module provides utilities for parsing Solana transaction data with minimal
 //! memory allocations through zero-copy techniques and efficient byte slice operations.
 
+use crate::solana_metadata::SolanaEventMetadata;
 use crate::types::metadata_helpers::create_solana_metadata;
-use crate::types::{EventMetadata, EventType, ProtocolType};
+use crate::types::{EventType, ProtocolType};
 use crate::zero_copy::events::ZeroCopyEvent;
 use memmap2::MmapOptions;
 use std::collections::HashMap;
@@ -17,7 +18,7 @@ pub trait ByteSliceEventParser: Send + Sync + std::fmt::Debug {
     fn parse_from_slice<'a>(
         &self,
         data: &'a [u8],
-        metadata: EventMetadata,
+        metadata: SolanaEventMetadata,
     ) -> Result<Vec<ZeroCopyEvent<'a>>, ParseError>;
 
     /// Check if this parser can handle the given data
@@ -345,7 +346,7 @@ impl BatchEventParser {
     pub fn parse_batch<'a>(
         &self,
         batch: &'a [&'a [u8]],
-        metadatas: Vec<EventMetadata>,
+        metadatas: Vec<SolanaEventMetadata>,
     ) -> Result<Vec<ZeroCopyEvent<'a>>, ParseError> {
         if batch.len() > self.max_batch_size {
             return Err(ParseError::InvalidInstructionData(format!(
@@ -686,7 +687,7 @@ mod tests {
             fn parse_from_slice<'a>(
                 &self,
                 _data: &'a [u8],
-                _metadata: EventMetadata,
+                _metadata: SolanaEventMetadata,
             ) -> Result<Vec<ZeroCopyEvent<'a>>, ParseError> {
                 Ok(vec![])
             }
@@ -717,7 +718,7 @@ mod tests {
             fn parse_from_slice<'a>(
                 &self,
                 _data: &'a [u8],
-                _metadata: EventMetadata,
+                _metadata: SolanaEventMetadata,
             ) -> Result<Vec<ZeroCopyEvent<'a>>, ParseError> {
                 Ok(vec![])
             }
@@ -748,7 +749,7 @@ mod tests {
             fn parse_from_slice<'a>(
                 &self,
                 _data: &'a [u8],
-                _metadata: EventMetadata,
+                _metadata: SolanaEventMetadata,
             ) -> Result<Vec<ZeroCopyEvent<'a>>, ParseError> {
                 Ok(vec![])
             }
@@ -811,7 +812,7 @@ mod tests {
             fn parse_from_slice<'a>(
                 &self,
                 data: &'a [u8],
-                metadata: EventMetadata,
+                metadata: SolanaEventMetadata,
             ) -> Result<Vec<ZeroCopyEvent<'a>>, ParseError> {
                 // Create a mock event
                 Ok(vec![ZeroCopyEvent::new_borrowed(metadata, data)])
@@ -1139,7 +1140,7 @@ mod tests {
             fn parse_from_slice<'a>(
                 &self,
                 _data: &'a [u8],
-                _metadata: EventMetadata,
+                _metadata: SolanaEventMetadata,
             ) -> Result<Vec<ZeroCopyEvent<'a>>, ParseError> {
                 Ok(vec![])
             }
@@ -1176,7 +1177,7 @@ mod tests {
             fn parse_from_slice<'a>(
                 &self,
                 data: &'a [u8],
-                metadata: EventMetadata,
+                metadata: SolanaEventMetadata,
             ) -> Result<Vec<ZeroCopyEvent<'a>>, ParseError> {
                 Ok(vec![ZeroCopyEvent::new_borrowed(metadata, data)])
             }
@@ -1229,7 +1230,7 @@ mod tests {
             fn parse_from_slice<'a>(
                 &self,
                 _data: &'a [u8],
-                _metadata: EventMetadata,
+                _metadata: SolanaEventMetadata,
             ) -> Result<Vec<ZeroCopyEvent<'a>>, ParseError> {
                 Ok(vec![])
             }
@@ -1266,7 +1267,7 @@ mod tests {
             fn parse_from_slice<'a>(
                 &self,
                 _data: &'a [u8],
-                _metadata: EventMetadata,
+                _metadata: SolanaEventMetadata,
             ) -> Result<Vec<ZeroCopyEvent<'a>>, ParseError> {
                 Err(ParseError::InvalidInstructionData("Test error".to_string()))
             }
@@ -1364,7 +1365,7 @@ mod tests {
             fn parse_from_slice<'a>(
                 &self,
                 data: &'a [u8],
-                metadata: EventMetadata,
+                metadata: SolanaEventMetadata,
             ) -> Result<Vec<ZeroCopyEvent<'a>>, ParseError> {
                 // Return multiple events to test the loop
                 Ok(vec![

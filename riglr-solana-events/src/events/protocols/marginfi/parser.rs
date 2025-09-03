@@ -18,12 +18,18 @@ use crate::{
             has_discriminator, parse_u64_le, safe_get_account, validate_account_count,
             validate_data_length,
         },
-        core::{EventParser, GenericEventParseConfig},
+        core::{EventParser as LegacyEventParser, GenericEventParseConfig},
+        factory::SolanaTransactionInput,
     },
     solana_metadata::SolanaEventMetadata,
-    types::{EventMetadata, EventType, ProtocolType},
+    types::{metadata_helpers, EventType, ProtocolType},
 };
-use riglr_events_core::Event;
+
+use riglr_events_core::{
+    error::EventResult,
+    traits::{EventParser, ParserInfo},
+    Event,
+};
 use solana_sdk::pubkey::Pubkey;
 use std::collections::HashMap;
 
@@ -34,10 +40,84 @@ pub struct MarginFiEventParser {
     instruction_configs: HashMap<Vec<u8>, Vec<GenericEventParseConfig>>,
 }
 
-impl MarginFiEventParser {}
+impl MarginFiEventParser {
+    /// Helper method to return inner instruction configs (for testing)
+    pub fn inner_instruction_configs(&self) -> HashMap<&'static str, Vec<GenericEventParseConfig>> {
+        self.inner_instruction_configs.clone()
+    }
 
+    /// Helper method to return instruction configs (for testing)
+    pub fn instruction_configs(&self) -> HashMap<Vec<u8>, Vec<GenericEventParseConfig>> {
+        self.instruction_configs.clone()
+    }
+}
+
+// Implement the new core EventParser trait
 #[async_trait::async_trait]
 impl EventParser for MarginFiEventParser {
+    type Input = SolanaTransactionInput;
+
+    async fn parse(&self, input: Self::Input) -> EventResult<Vec<Box<dyn Event>>> {
+        let events = match input {
+            SolanaTransactionInput::InnerInstruction(params) => {
+                let legacy_params = crate::events::factory::InnerInstructionParseParams {
+                    inner_instruction: &solana_transaction_status::UiCompiledInstruction {
+                        program_id_index: 0,
+                        accounts: vec![],
+                        data: params.inner_instruction_data.clone(),
+                        stack_height: Some(1),
+                    },
+                    signature: &params.signature,
+                    slot: params.slot,
+                    block_time: params.block_time,
+                    program_received_time_ms: params.program_received_time_ms,
+                    index: params.index.clone(),
+                };
+                self.parse_events_from_inner_instruction_impl(&legacy_params)
+            }
+            SolanaTransactionInput::Instruction(params) => {
+                let instruction = solana_message::compiled_instruction::CompiledInstruction {
+                    program_id_index: 0,
+                    accounts: vec![],
+                    data: params.instruction_data.clone(),
+                };
+                let legacy_params = crate::events::factory::InstructionParseParams {
+                    instruction: &instruction,
+                    accounts: &params.accounts,
+                    signature: &params.signature,
+                    slot: params.slot,
+                    block_time: params.block_time,
+                    program_received_time_ms: params.program_received_time_ms,
+                    index: params.index.clone(),
+                };
+                self.parse_events_from_instruction_impl(&legacy_params)
+            }
+        };
+        Ok(events)
+    }
+
+    fn can_parse(&self, input: &Self::Input) -> bool {
+        match input {
+            SolanaTransactionInput::InnerInstruction(_) => true,
+            SolanaTransactionInput::Instruction(params) => {
+                // Check if the instruction matches our discriminators
+                self.instruction_configs
+                    .keys()
+                    .any(|disc| params.instruction_data.starts_with(disc))
+            }
+        }
+    }
+
+    fn info(&self) -> ParserInfo {
+        use riglr_events_core::EventKind;
+        ParserInfo::new("marginfi_parser".to_string(), "1.0.0".to_string())
+            .with_kind(EventKind::Transaction)
+            .with_format("solana_instruction".to_string())
+    }
+}
+
+// Implement the legacy EventParser trait for backward compatibility
+impl LegacyEventParser for MarginFiEventParser {
     fn inner_instruction_configs(&self) -> HashMap<&'static str, Vec<GenericEventParseConfig>> {
         self.inner_instruction_configs.clone()
     }
@@ -50,24 +130,46 @@ impl EventParser for MarginFiEventParser {
         &self,
         params: &crate::events::factory::InnerInstructionParseParams,
     ) -> Vec<Box<dyn Event>> {
+        self.parse_events_from_inner_instruction_impl(params)
+    }
+
+    fn parse_events_from_instruction(
+        &self,
+        params: &crate::events::factory::InstructionParseParams,
+    ) -> Vec<Box<dyn Event>> {
+        self.parse_events_from_instruction_impl(params)
+    }
+
+    fn should_handle(&self, program_id: &Pubkey) -> bool {
+        self.program_ids.contains(program_id)
+    }
+
+    fn supported_program_ids(&self) -> Vec<Pubkey> {
+        self.program_ids.clone()
+    }
+}
+
+impl MarginFiEventParser {
+    fn parse_events_from_inner_instruction_impl(
+        &self,
+        params: &crate::events::factory::InnerInstructionParseParams,
+    ) -> Vec<Box<dyn Event>> {
         let mut events = Vec::new();
 
         // For inner instructions, we'll use the data to identify the instruction type
         if let Ok(data) = bs58::decode(&params.inner_instruction.data).into_vec() {
             for configs in self.inner_instruction_configs.values() {
                 for config in configs {
-                    let metadata = SolanaEventMetadata::new(
+                    let metadata = metadata_helpers::create_solana_metadata(
+                        format!("{}_{}", params.signature, params.index),
                         params.signature.to_string(),
                         params.slot,
-                        config.event_type.clone(),
+                        params.block_time.unwrap_or(0),
                         config.protocol_type.clone(),
-                        params.index.to_string(),
-                        params.block_time.unwrap_or(0) * 1000,
-                        riglr_events_core::EventMetadata::new(
-                            format!("{}_{}", params.signature, params.index),
-                            riglr_events_core::EventKind::Transaction,
-                            "solana".to_string(),
-                        ),
+                        config.event_type.clone(),
+                        config.program_id,
+                        params.index.clone(),
+                        params.program_received_time_ms,
                     );
 
                     if let Ok(event) = (config.inner_instruction_parser)(&data, metadata) {
@@ -80,7 +182,7 @@ impl EventParser for MarginFiEventParser {
         events
     }
 
-    fn parse_events_from_instruction(
+    fn parse_events_from_instruction_impl(
         &self,
         params: &crate::events::factory::InstructionParseParams,
     ) -> Vec<Box<dyn Event>> {
@@ -90,18 +192,16 @@ impl EventParser for MarginFiEventParser {
         for (discriminator, configs) in &self.instruction_configs {
             if has_discriminator(&params.instruction.data, discriminator) {
                 for config in configs {
-                    let metadata = SolanaEventMetadata::new(
+                    let metadata = metadata_helpers::create_solana_metadata(
+                        format!("{}_{}", params.signature, params.index),
                         params.signature.to_string(),
                         params.slot,
-                        config.event_type.clone(),
+                        params.block_time.unwrap_or(0),
                         config.protocol_type.clone(),
-                        params.index.to_string(),
-                        params.block_time.unwrap_or(0) * 1000,
-                        riglr_events_core::EventMetadata::new(
-                            format!("{}_{}", params.signature, params.index),
-                            riglr_events_core::EventKind::Transaction,
-                            "solana".to_string(),
-                        ),
+                        config.event_type.clone(),
+                        config.program_id,
+                        params.index.clone(),
+                        params.program_received_time_ms,
                     );
 
                     if let Ok(event) = (config.instruction_parser)(
@@ -116,14 +216,6 @@ impl EventParser for MarginFiEventParser {
         }
 
         events
-    }
-
-    fn should_handle(&self, program_id: &Pubkey) -> bool {
-        self.program_ids.contains(program_id)
-    }
-
-    fn supported_program_ids(&self) -> Vec<Pubkey> {
-        self.program_ids.clone()
     }
 }
 
@@ -205,7 +297,7 @@ impl Default for MarginFiEventParser {
 
 fn parse_marginfi_deposit_inner_instruction(
     data: &[u8],
-    metadata: EventMetadata,
+    metadata: SolanaEventMetadata,
 ) -> ParseResult<Box<dyn Event>> {
     let deposit_data = parse_marginfi_deposit_data(data).ok_or_else(|| {
         crate::error::ParseError::InvalidDataFormat(
@@ -230,7 +322,7 @@ fn parse_marginfi_deposit_inner_instruction(
 fn parse_marginfi_deposit_instruction(
     data: &[u8],
     accounts: &[Pubkey],
-    metadata: EventMetadata,
+    metadata: SolanaEventMetadata,
 ) -> ParseResult<Box<dyn Event>> {
     let deposit_data =
         parse_marginfi_deposit_data_from_instruction(data, accounts).ok_or_else(|| {
@@ -255,7 +347,7 @@ fn parse_marginfi_deposit_instruction(
 
 fn parse_marginfi_withdraw_inner_instruction(
     data: &[u8],
-    metadata: EventMetadata,
+    metadata: SolanaEventMetadata,
 ) -> ParseResult<Box<dyn Event>> {
     let withdraw_data = parse_marginfi_withdraw_data(data).ok_or_else(|| {
         crate::error::ParseError::InvalidDataFormat(
@@ -279,7 +371,7 @@ fn parse_marginfi_withdraw_inner_instruction(
 fn parse_marginfi_withdraw_instruction(
     data: &[u8],
     accounts: &[Pubkey],
-    metadata: EventMetadata,
+    metadata: SolanaEventMetadata,
 ) -> ParseResult<Box<dyn Event>> {
     let withdraw_data =
         parse_marginfi_withdraw_data_from_instruction(data, accounts).ok_or_else(|| {
@@ -303,7 +395,7 @@ fn parse_marginfi_withdraw_instruction(
 
 fn parse_marginfi_borrow_inner_instruction(
     data: &[u8],
-    metadata: EventMetadata,
+    metadata: SolanaEventMetadata,
 ) -> ParseResult<Box<dyn Event>> {
     let borrow_data = parse_marginfi_borrow_data(data).ok_or_else(|| {
         crate::error::ParseError::InvalidDataFormat(
@@ -327,7 +419,7 @@ fn parse_marginfi_borrow_inner_instruction(
 fn parse_marginfi_borrow_instruction(
     data: &[u8],
     accounts: &[Pubkey],
-    metadata: EventMetadata,
+    metadata: SolanaEventMetadata,
 ) -> ParseResult<Box<dyn Event>> {
     let borrow_data =
         parse_marginfi_borrow_data_from_instruction(data, accounts).ok_or_else(|| {
@@ -351,7 +443,7 @@ fn parse_marginfi_borrow_instruction(
 
 fn parse_marginfi_repay_inner_instruction(
     data: &[u8],
-    metadata: EventMetadata,
+    metadata: SolanaEventMetadata,
 ) -> ParseResult<Box<dyn Event>> {
     let repay_data = parse_marginfi_repay_data(data).ok_or_else(|| {
         crate::error::ParseError::InvalidDataFormat(
@@ -375,7 +467,7 @@ fn parse_marginfi_repay_inner_instruction(
 fn parse_marginfi_repay_instruction(
     data: &[u8],
     accounts: &[Pubkey],
-    metadata: EventMetadata,
+    metadata: SolanaEventMetadata,
 ) -> ParseResult<Box<dyn Event>> {
     let repay_data =
         parse_marginfi_repay_data_from_instruction(data, accounts).ok_or_else(|| {
@@ -399,7 +491,7 @@ fn parse_marginfi_repay_instruction(
 
 fn parse_marginfi_liquidate_inner_instruction(
     data: &[u8],
-    metadata: EventMetadata,
+    metadata: SolanaEventMetadata,
 ) -> ParseResult<Box<dyn Event>> {
     let liquidation_data = parse_marginfi_liquidate_data(data).ok_or_else(|| {
         crate::error::ParseError::InvalidDataFormat(
@@ -423,7 +515,7 @@ fn parse_marginfi_liquidate_inner_instruction(
 fn parse_marginfi_liquidate_instruction(
     data: &[u8],
     accounts: &[Pubkey],
-    metadata: EventMetadata,
+    metadata: SolanaEventMetadata,
 ) -> ParseResult<Box<dyn Event>> {
     let liquidation_data = parse_marginfi_liquidate_data_from_instruction(data, accounts)
         .ok_or_else(|| {
@@ -663,11 +755,11 @@ fn parse_marginfi_liquidate_data_from_instruction(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::types::{EventMetadata, EventType, ProtocolType};
+    use crate::types::{EventType, ProtocolType};
     use solana_message::compiled_instruction::CompiledInstruction;
     use solana_transaction_status::UiCompiledInstruction;
 
-    fn create_test_metadata() -> EventMetadata {
+    fn create_test_metadata() -> SolanaEventMetadata {
         use riglr_events_core::EventKind;
 
         let core = riglr_events_core::EventMetadata::new(

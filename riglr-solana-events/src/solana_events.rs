@@ -8,7 +8,10 @@ use serde::{Deserialize, Serialize};
 use std::any::Any;
 use std::time::SystemTime;
 // UnifiedEvent trait has been removed
-use crate::types::{metadata_helpers, EventMetadata, EventType, ProtocolType, TransferData};
+use crate::solana_metadata::SolanaEventMetadata;
+use crate::types::{metadata_helpers, EventType, ProtocolType, TransferData};
+
+type EventMetadata = SolanaEventMetadata;
 use riglr_events_core::prelude::*;
 
 /// Parameters for creating swap events, reducing function parameter count

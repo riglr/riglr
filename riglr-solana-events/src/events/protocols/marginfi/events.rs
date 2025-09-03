@@ -2,7 +2,9 @@ use super::types::{
     marginfi_program_id, MarginFiBorrowData, MarginFiDepositData, MarginFiLiquidationData,
     MarginFiRepayData, MarginFiWithdrawData,
 };
-use crate::types::{metadata_helpers, EventMetadata, EventType, ProtocolType, TransferData};
+use crate::solana_metadata::SolanaEventMetadata;
+use crate::types::{metadata_helpers, EventType, ProtocolType, TransferData};
+use riglr_events_core::EventMetadata as CoreEventMetadata;
 use serde::{Deserialize, Serialize};
 use std::any::Any;
 
@@ -55,7 +57,7 @@ impl EventParameters {
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct MarginFiDepositEvent {
     /// Event metadata
-    pub metadata: EventMetadata,
+    pub metadata: SolanaEventMetadata,
     /// MarginFi-specific deposit operation data
     pub deposit_data: MarginFiDepositData,
     /// Associated token transfer data for this deposit
@@ -98,14 +100,15 @@ impl Event for MarginFiDepositEvent {
     }
 
     fn kind(&self) -> &EventKind {
-        &self.metadata.core.kind
+        static LIQUIDITY_KIND: EventKind = EventKind::Liquidity;
+        &LIQUIDITY_KIND
     }
 
-    fn metadata(&self) -> &riglr_events_core::EventMetadata {
+    fn metadata(&self) -> &CoreEventMetadata {
         &self.metadata.core
     }
 
-    fn metadata_mut(&mut self) -> &mut riglr_events_core::EventMetadata {
+    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
         &mut self.metadata.core
     }
 
@@ -132,7 +135,7 @@ impl Event for MarginFiDepositEvent {
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct MarginFiWithdrawEvent {
     /// Event metadata
-    pub metadata: EventMetadata,
+    pub metadata: SolanaEventMetadata,
     /// MarginFi-specific withdraw operation data
     pub withdraw_data: MarginFiWithdrawData,
     /// Associated token transfer data for this withdrawal
@@ -175,14 +178,15 @@ impl Event for MarginFiWithdrawEvent {
     }
 
     fn kind(&self) -> &EventKind {
-        &self.metadata.core.kind
+        static LIQUIDITY_KIND: EventKind = EventKind::Liquidity;
+        &LIQUIDITY_KIND
     }
 
-    fn metadata(&self) -> &riglr_events_core::EventMetadata {
+    fn metadata(&self) -> &CoreEventMetadata {
         &self.metadata.core
     }
 
-    fn metadata_mut(&mut self) -> &mut riglr_events_core::EventMetadata {
+    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
         &mut self.metadata.core
     }
 
@@ -209,7 +213,7 @@ impl Event for MarginFiWithdrawEvent {
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct MarginFiBorrowEvent {
     /// Event metadata
-    pub metadata: EventMetadata,
+    pub metadata: SolanaEventMetadata,
     /// MarginFi-specific borrow operation data
     pub borrow_data: MarginFiBorrowData,
     /// Associated token transfer data for this borrow
@@ -249,7 +253,7 @@ impl MarginFiBorrowEvent {
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct MarginFiRepayEvent {
     /// Event metadata
-    pub metadata: EventMetadata,
+    pub metadata: SolanaEventMetadata,
     /// MarginFi-specific repay operation data
     pub repay_data: MarginFiRepayData,
     /// Associated token transfer data for this repayment
@@ -289,7 +293,7 @@ impl MarginFiRepayEvent {
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct MarginFiLiquidationEvent {
     /// Event metadata
-    pub metadata: EventMetadata,
+    pub metadata: SolanaEventMetadata,
     /// MarginFi-specific liquidation operation data
     pub liquidation_data: MarginFiLiquidationData,
     /// Associated token transfer data for this liquidation
@@ -332,14 +336,15 @@ impl Event for MarginFiBorrowEvent {
     }
 
     fn kind(&self) -> &EventKind {
-        &self.metadata.core.kind
+        static TRANSFER_KIND: EventKind = EventKind::Transfer;
+        &TRANSFER_KIND
     }
 
-    fn metadata(&self) -> &riglr_events_core::EventMetadata {
+    fn metadata(&self) -> &CoreEventMetadata {
         &self.metadata.core
     }
 
-    fn metadata_mut(&mut self) -> &mut riglr_events_core::EventMetadata {
+    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
         &mut self.metadata.core
     }
 
@@ -369,14 +374,15 @@ impl Event for MarginFiRepayEvent {
     }
 
     fn kind(&self) -> &EventKind {
-        &self.metadata.core.kind
+        static TRANSFER_KIND: EventKind = EventKind::Transfer;
+        &TRANSFER_KIND
     }
 
-    fn metadata(&self) -> &riglr_events_core::EventMetadata {
+    fn metadata(&self) -> &CoreEventMetadata {
         &self.metadata.core
     }
 
-    fn metadata_mut(&mut self) -> &mut riglr_events_core::EventMetadata {
+    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
         &mut self.metadata.core
     }
 
@@ -406,14 +412,15 @@ impl Event for MarginFiLiquidationEvent {
     }
 
     fn kind(&self) -> &EventKind {
-        &self.metadata.core.kind
+        static TRANSFER_KIND: EventKind = EventKind::Transfer;
+        &TRANSFER_KIND
     }
 
-    fn metadata(&self) -> &riglr_events_core::EventMetadata {
+    fn metadata(&self) -> &CoreEventMetadata {
         &self.metadata.core
     }
 
-    fn metadata_mut(&mut self) -> &mut riglr_events_core::EventMetadata {
+    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
         &mut self.metadata.core
     }
 

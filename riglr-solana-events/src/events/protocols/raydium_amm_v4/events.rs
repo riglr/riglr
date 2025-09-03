@@ -1,4 +1,5 @@
-use crate::types::EventMetadata;
+use crate::solana_metadata::SolanaEventMetadata;
+use riglr_events_core::EventMetadata as CoreEventMetadata;
 use riglr_events_core::{Event, EventKind};
 use serde::{Deserialize, Serialize};
 use solana_sdk::pubkey::Pubkey;
@@ -8,7 +9,7 @@ use std::any::Any;
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct RaydiumAmmV4SwapEvent {
     /// Event metadata
-    pub metadata: EventMetadata,
+    pub metadata: SolanaEventMetadata,
     /// Amount of tokens going into the swap
     pub amount_in: u64,
     /// Amount of tokens coming out of the swap
@@ -72,7 +73,7 @@ pub struct RaydiumAmmV4SwapData {
 
 impl RaydiumAmmV4SwapEvent {
     /// Creates a new RaydiumAmmV4SwapEvent with the provided metadata and swap data
-    pub fn new(metadata: EventMetadata, swap_data: RaydiumAmmV4SwapData) -> Self {
+    pub fn new(metadata: SolanaEventMetadata, swap_data: RaydiumAmmV4SwapData) -> Self {
         Self {
             metadata,
             amount_in: swap_data.amount_in,
@@ -148,7 +149,7 @@ impl EventParameters {
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct RaydiumAmmV4DepositEvent {
     /// Event metadata
-    pub metadata: EventMetadata,
+    pub metadata: SolanaEventMetadata,
     /// Maximum amount of coin tokens to deposit
     pub max_coin_amount: u64,
     /// Maximum amount of PC tokens to deposit
@@ -224,7 +225,7 @@ pub struct RaydiumAmmV4DepositData {
 
 impl RaydiumAmmV4DepositEvent {
     /// Creates a new RaydiumAmmV4DepositEvent with the provided metadata and deposit data
-    pub fn new(metadata: EventMetadata, deposit_data: RaydiumAmmV4DepositData) -> Self {
+    pub fn new(metadata: SolanaEventMetadata, deposit_data: RaydiumAmmV4DepositData) -> Self {
         Self {
             metadata,
             max_coin_amount: deposit_data.max_coin_amount,
@@ -251,7 +252,7 @@ impl RaydiumAmmV4DepositEvent {
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct RaydiumAmmV4Initialize2Event {
     /// Event metadata
-    pub metadata: EventMetadata,
+    pub metadata: SolanaEventMetadata,
     /// Nonce value for initialization
     pub nonce: u8,
     /// Time when the pool opens
@@ -339,7 +340,7 @@ pub struct RaydiumAmmV4Initialize2Data {
 
 impl RaydiumAmmV4Initialize2Event {
     /// Creates a new RaydiumAmmV4Initialize2Event with the provided metadata and initialization data
-    pub fn new(metadata: EventMetadata, init_data: RaydiumAmmV4Initialize2Data) -> Self {
+    pub fn new(metadata: SolanaEventMetadata, init_data: RaydiumAmmV4Initialize2Data) -> Self {
         Self {
             metadata,
             nonce: init_data.nonce,
@@ -369,7 +370,7 @@ impl RaydiumAmmV4Initialize2Event {
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct RaydiumAmmV4WithdrawEvent {
     /// Event metadata
-    pub metadata: EventMetadata,
+    pub metadata: SolanaEventMetadata,
     /// Amount of tokens being withdrawn
     pub amount: u64,
 
@@ -473,7 +474,7 @@ pub struct RaydiumAmmV4WithdrawData {
 
 impl RaydiumAmmV4WithdrawEvent {
     /// Creates a new RaydiumAmmV4WithdrawEvent with the provided metadata and withdrawal data
-    pub fn new(metadata: EventMetadata, withdraw_data: RaydiumAmmV4WithdrawData) -> Self {
+    pub fn new(metadata: SolanaEventMetadata, withdraw_data: RaydiumAmmV4WithdrawData) -> Self {
         Self {
             metadata,
             amount: withdraw_data.amount,
@@ -507,7 +508,7 @@ impl RaydiumAmmV4WithdrawEvent {
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct RaydiumAmmV4WithdrawPnlEvent {
     /// Event metadata
-    pub metadata: EventMetadata,
+    pub metadata: SolanaEventMetadata,
 
     // Account keys
     /// Token program account
@@ -587,7 +588,7 @@ pub struct RaydiumAmmV4WithdrawPnlData {
 
 impl RaydiumAmmV4WithdrawPnlEvent {
     /// Creates a new RaydiumAmmV4WithdrawPnlEvent with the provided metadata and PNL data
-    pub fn new(metadata: EventMetadata, pnl_data: RaydiumAmmV4WithdrawPnlData) -> Self {
+    pub fn new(metadata: SolanaEventMetadata, pnl_data: RaydiumAmmV4WithdrawPnlData) -> Self {
         Self {
             metadata,
             token_program: pnl_data.token_program,
@@ -620,14 +621,15 @@ impl Event for RaydiumAmmV4SwapEvent {
     }
 
     fn kind(&self) -> &EventKind {
-        &self.metadata.core.kind
+        static SWAP_KIND: EventKind = EventKind::Swap;
+        &SWAP_KIND
     }
 
-    fn metadata(&self) -> &riglr_events_core::EventMetadata {
+    fn metadata(&self) -> &CoreEventMetadata {
         &self.metadata.core
     }
 
-    fn metadata_mut(&mut self) -> &mut riglr_events_core::EventMetadata {
+    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
         &mut self.metadata.core
     }
 
@@ -654,14 +656,15 @@ impl Event for RaydiumAmmV4DepositEvent {
     }
 
     fn kind(&self) -> &EventKind {
-        &self.metadata.core.kind
+        static LIQUIDITY_KIND: EventKind = EventKind::Liquidity;
+        &LIQUIDITY_KIND
     }
 
-    fn metadata(&self) -> &riglr_events_core::EventMetadata {
+    fn metadata(&self) -> &CoreEventMetadata {
         &self.metadata.core
     }
 
-    fn metadata_mut(&mut self) -> &mut riglr_events_core::EventMetadata {
+    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
         &mut self.metadata.core
     }
 
@@ -688,14 +691,15 @@ impl Event for RaydiumAmmV4Initialize2Event {
     }
 
     fn kind(&self) -> &EventKind {
-        &self.metadata.core.kind
+        static CONTRACT_KIND: EventKind = EventKind::Contract;
+        &CONTRACT_KIND
     }
 
-    fn metadata(&self) -> &riglr_events_core::EventMetadata {
+    fn metadata(&self) -> &CoreEventMetadata {
         &self.metadata.core
     }
 
-    fn metadata_mut(&mut self) -> &mut riglr_events_core::EventMetadata {
+    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
         &mut self.metadata.core
     }
 
@@ -722,14 +726,15 @@ impl Event for RaydiumAmmV4WithdrawEvent {
     }
 
     fn kind(&self) -> &EventKind {
-        &self.metadata.core.kind
+        static LIQUIDITY_KIND: EventKind = EventKind::Liquidity;
+        &LIQUIDITY_KIND
     }
 
-    fn metadata(&self) -> &riglr_events_core::EventMetadata {
+    fn metadata(&self) -> &CoreEventMetadata {
         &self.metadata.core
     }
 
-    fn metadata_mut(&mut self) -> &mut riglr_events_core::EventMetadata {
+    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
         &mut self.metadata.core
     }
 
@@ -756,14 +761,15 @@ impl Event for RaydiumAmmV4WithdrawPnlEvent {
     }
 
     fn kind(&self) -> &EventKind {
-        &self.metadata.core.kind
+        static TRANSFER_KIND: EventKind = EventKind::Transfer;
+        &TRANSFER_KIND
     }
 
-    fn metadata(&self) -> &riglr_events_core::EventMetadata {
+    fn metadata(&self) -> &CoreEventMetadata {
         &self.metadata.core
     }
 
-    fn metadata_mut(&mut self) -> &mut riglr_events_core::EventMetadata {
+    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
         &mut self.metadata.core
     }
 
@@ -794,7 +800,7 @@ mod tests {
         Pubkey::new_unique()
     }
 
-    fn create_test_metadata() -> EventMetadata {
+    fn create_test_metadata() -> SolanaEventMetadata {
         let core = riglr_events_core::EventMetadata::new(
             "test_id".to_string(),
             EventKind::Swap,
@@ -1251,7 +1257,7 @@ mod tests {
         // All fields are Pubkey or EventMetadata, so just verify structure
         assert_eq!(
             format!("{:?}", event.metadata),
-            format!("{:?}", EventMetadata::default())
+            format!("{:?}", SolanaEventMetadata::default())
         );
     }
 

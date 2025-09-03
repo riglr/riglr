@@ -571,7 +571,6 @@ pub enum EnrichmentError {
 mod tests {
     use super::*;
     use crate::solana_metadata::SolanaEventMetadata;
-    use crate::types::EventMetadata;
 
     #[tokio::test]
     async fn test_enricher_creation() {
@@ -588,7 +587,7 @@ mod tests {
         let config = EnrichmentConfig::default();
         let enricher = EventEnricher::new(config);
 
-        let metadata = EventMetadata::default();
+        let metadata = SolanaEventMetadata::default();
         let mut event = ZeroCopyEvent::new_owned(metadata, vec![]);
 
         // Add JSON data with token addresses
@@ -953,7 +952,7 @@ mod tests {
         let config = EnrichmentConfig::default();
         let enricher = EventEnricher::new(config);
 
-        let metadata = EventMetadata::default();
+        let metadata = SolanaEventMetadata::default();
         let event = ZeroCopyEvent::new_owned(metadata, vec![]);
 
         let addresses = enricher.extract_token_addresses(&event);
@@ -970,7 +969,7 @@ mod tests {
         };
         let enricher = EventEnricher::new(config);
 
-        let metadata = EventMetadata::default();
+        let metadata = SolanaEventMetadata::default();
         let mut event = ZeroCopyEvent::new_owned(metadata, vec![]);
 
         let json = serde_json::json!({
@@ -992,7 +991,7 @@ mod tests {
         let config = EnrichmentConfig::default();
         let enricher = EventEnricher::new(config);
 
-        let metadata = EventMetadata::default();
+        let metadata = SolanaEventMetadata::default();
         let mut event = ZeroCopyEvent::new_owned(metadata, vec![]);
 
         let json = serde_json::json!({
@@ -1009,7 +1008,7 @@ mod tests {
         let config = EnrichmentConfig::default();
         let enricher = EventEnricher::new(config);
 
-        let metadata = EventMetadata::default();
+        let metadata = SolanaEventMetadata::default();
         let event = ZeroCopyEvent::new_owned(metadata, vec![]);
 
         let result = enricher.enrich_event(event).await;
@@ -1031,10 +1030,10 @@ mod tests {
         let config = EnrichmentConfig::default();
         let enricher = EventEnricher::new(config);
 
-        let metadata1 = EventMetadata::default();
+        let metadata1 = SolanaEventMetadata::default();
         let event1 = ZeroCopyEvent::new_owned(metadata1, vec![]);
 
-        let metadata2 = EventMetadata::default();
+        let metadata2 = SolanaEventMetadata::default();
         let event2 = ZeroCopyEvent::new_owned(metadata2, vec![]);
 
         let result = enricher.enrich_events(vec![event1, event2]).await;
@@ -1047,7 +1046,7 @@ mod tests {
         let config = EnrichmentConfig::default();
         let enricher = EventEnricher::new(config);
 
-        let metadata = EventMetadata::default();
+        let metadata = SolanaEventMetadata::default();
         let mut event = ZeroCopyEvent::new_owned(metadata, vec![]);
 
         let json = serde_json::json!({
@@ -1064,7 +1063,7 @@ mod tests {
         let config = EnrichmentConfig::default();
         let enricher = EventEnricher::new(config);
 
-        let metadata = EventMetadata::default();
+        let metadata = SolanaEventMetadata::default();
         let mut event = ZeroCopyEvent::new_owned(metadata, vec![]);
 
         let token_addresses = vec![Pubkey::default()];
@@ -1079,7 +1078,7 @@ mod tests {
         let config = EnrichmentConfig::default();
         let enricher = EventEnricher::new(config);
 
-        let metadata = EventMetadata::default();
+        let metadata = SolanaEventMetadata::default();
         let mut event = ZeroCopyEvent::new_owned(metadata, vec![]);
 
         let json = serde_json::json!({
@@ -1096,7 +1095,7 @@ mod tests {
         let config = EnrichmentConfig::default();
         let enricher = EventEnricher::new(config);
 
-        let metadata = EventMetadata::default();
+        let metadata = SolanaEventMetadata::default();
         let mut event = ZeroCopyEvent::new_owned(metadata, vec![]);
 
         let token_addresses = vec![Pubkey::default()];
@@ -1111,7 +1110,7 @@ mod tests {
         let config = EnrichmentConfig::default();
         let enricher = EventEnricher::new(config);
 
-        let metadata = EventMetadata::default();
+        let metadata = SolanaEventMetadata::default();
         let mut event = ZeroCopyEvent::new_owned(metadata, vec![]);
 
         let result = enricher.enrich_with_transaction_context(&mut event).await;

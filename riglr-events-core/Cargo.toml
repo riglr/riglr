@@ -42,6 +42,7 @@ uuid = { workspace = true, features = ["v4", "serde"] }
 chrono = { workspace = true, features = ["serde"] }
 tracing = { workspace = true }
 hex = "0.4"
+regex = "1.0"
 
 # Optional blockchain-specific dependencies
 solana-sdk = { workspace = true, optional = true }

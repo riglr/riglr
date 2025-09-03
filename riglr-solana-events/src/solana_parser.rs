@@ -136,17 +136,18 @@ impl SolanaEventParser {
         &self,
         input: SolanaTransactionInput,
     ) -> EventResult<Vec<SolanaEvent>> {
-        let legacy_events =
-            self.legacy_parser
-                .parse_events_from_instruction(InstructionParseParams {
-                    instruction: &input.instruction,
-                    accounts: &input.accounts,
-                    signature: &input.signature,
-                    slot: input.slot,
-                    block_time: input.block_time,
-                    program_received_time_ms: input.received_time.timestamp_millis(),
-                    index: input.instruction_index.to_string(),
-                });
+        let legacy_events = self
+            .legacy_parser
+            .parse_events_from_instruction(InstructionParseParams {
+                instruction: &input.instruction,
+                accounts: &input.accounts,
+                signature: &input.signature,
+                slot: input.slot,
+                block_time: input.block_time,
+                program_received_time_ms: input.received_time.timestamp_millis(),
+                index: input.instruction_index.to_string(),
+            })
+            .await;
 
         let solana_events = legacy_events
             .into_iter()
@@ -161,16 +162,17 @@ impl SolanaEventParser {
         &self,
         input: SolanaInnerInstructionInput,
     ) -> EventResult<Vec<SolanaEvent>> {
-        let legacy_events =
-            self.legacy_parser
-                .parse_events_from_inner_instruction(InnerInstructionParseParams {
-                    inner_instruction: &input.inner_instruction,
-                    signature: &input.signature,
-                    slot: input.slot,
-                    block_time: input.block_time,
-                    program_received_time_ms: input.received_time.timestamp_millis(),
-                    index: input.instruction_index.clone(),
-                });
+        let legacy_events = self
+            .legacy_parser
+            .parse_events_from_inner_instruction(InnerInstructionParseParams {
+                inner_instruction: &input.inner_instruction,
+                signature: &input.signature,
+                slot: input.slot,
+                block_time: input.block_time,
+                program_received_time_ms: input.received_time.timestamp_millis(),
+                index: input.instruction_index.clone(),
+            })
+            .await;
 
         let solana_events = legacy_events
             .into_iter()

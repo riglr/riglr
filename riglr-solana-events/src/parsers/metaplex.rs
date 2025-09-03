@@ -4,7 +4,10 @@
 //! marketplace transactions, and metadata operations.
 
 use crate::metadata_helpers::{set_event_type, set_protocol_type};
-use crate::types::{EventMetadata, EventType, ProtocolType};
+use crate::solana_metadata::SolanaEventMetadata;
+use crate::types::{EventType, ProtocolType};
+
+type EventMetadata = SolanaEventMetadata;
 use crate::zero_copy::{ByteSliceEventParser, CustomDeserializer, ParseError, ZeroCopyEvent};
 use borsh::{BorshDeserialize, BorshSerialize};
 use solana_sdk::pubkey::Pubkey;
@@ -497,7 +500,7 @@ impl MetaplexParserFactory {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::types::EventMetadata;
+    type EventMetadata = crate::solana_metadata::SolanaEventMetadata;
 
     #[test]
     fn test_discriminator_parsing() {

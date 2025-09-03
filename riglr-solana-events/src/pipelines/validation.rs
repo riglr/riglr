@@ -651,7 +651,8 @@ impl ValidationRule for TimestampValidationRule {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::types::EventMetadata;
+    use crate::solana_metadata::SolanaEventMetadata;
+    type EventMetadata = SolanaEventMetadata;
 
     #[tokio::test]
     async fn test_validation_pipeline_creation() {
@@ -666,7 +667,7 @@ mod tests {
     #[tokio::test]
     async fn test_required_fields_validation() {
         let rule = RequiredFieldsRule;
-        let metadata = EventMetadata::default();
+        let metadata = SolanaEventMetadata::default();
         let event = ZeroCopyEvent::new_owned(metadata, vec![]);
 
         let config = ValidationConfig::default();
@@ -924,7 +925,7 @@ mod tests {
         let pipeline = ValidationPipeline::new(config);
 
         // Create an event with missing required fields
-        let metadata = EventMetadata::default();
+        let metadata = SolanaEventMetadata::default();
         let event = ZeroCopyEvent::new_owned(metadata, vec![]);
 
         let result = pipeline.validate_event(&event).await;
@@ -943,7 +944,7 @@ mod tests {
         let pipeline = ValidationPipeline::new(config);
 
         // Create an event with missing required fields
-        let metadata = EventMetadata::default();
+        let metadata = SolanaEventMetadata::default();
         let event = ZeroCopyEvent::new_owned(metadata, vec![]);
 
         let result = pipeline.validate_event(&event).await;
@@ -1577,7 +1578,7 @@ mod tests {
         let rule = NumericRangesRule;
         let config = ValidationConfig::default();
 
-        let metadata = EventMetadata::default();
+        let metadata = SolanaEventMetadata::default();
         let event = ZeroCopyEvent::new_owned(metadata, vec![]);
 
         let result = rule.validate(&event, &config).await;

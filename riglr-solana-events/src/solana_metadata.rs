@@ -113,20 +113,13 @@ impl DerefMut for SolanaEventMetadata {
 
 impl Default for SolanaEventMetadata {
     fn default() -> Self {
-        use crate::metadata_helpers::create_solana_metadata;
-        use solana_sdk::pubkey::Pubkey;
+        use crate::metadata_helpers::create_core_metadata;
 
-        let core = create_solana_metadata(
-            String::default(),       // id
-            EventKind::Transaction,  // kind
-            "solana".to_string(),    // source
-            0,                       // slot
-            Some(String::default()), // signature
-            Some(Pubkey::default()), // program_id
-            Some(0),                 // instruction_index
-            Some(0),                 // block_time
-            ProtocolType::default(), // protocol_type
-            EventType::default(),    // event_type
+        let core = create_core_metadata(
+            String::default(),      // id
+            EventKind::Transaction, // kind
+            "solana".to_string(),   // source
+            Some(0),                // block_time
         );
 
         Self {
@@ -153,20 +146,13 @@ pub fn create_metadata(
     event_type: EventType,
     protocol_type: ProtocolType,
 ) -> SolanaEventMetadata {
-    use crate::metadata_helpers::create_solana_metadata;
-    use solana_sdk::pubkey::Pubkey;
+    use crate::metadata_helpers::create_core_metadata;
 
-    let core = create_solana_metadata(
-        id,                      // id
-        EventKind::Transaction,  // kind
-        "solana".to_string(),    // source
-        slot,                    // slot
-        Some(signature.clone()), // signature
-        Some(Pubkey::default()), // program_id
-        Some(0),                 // instruction_index
-        block_time,              // block_time
-        protocol_type.clone(),   // protocol_type
-        event_type.clone(),      // event_type
+    let core = create_core_metadata(
+        id,                     // id
+        EventKind::Transaction, // kind
+        "solana".to_string(),   // source
+        block_time,             // block_time
     );
 
     SolanaEventMetadata {
@@ -186,20 +172,14 @@ mod tests {
     use riglr_events_core::EventKind;
 
     fn create_test_core_metadata() -> EventMetadata {
-        use crate::metadata_helpers::create_solana_metadata;
+        use crate::metadata_helpers::create_core_metadata;
         use riglr_events_core::EventKind;
-        use solana_sdk::pubkey::Pubkey;
-        create_solana_metadata(
+
+        create_core_metadata(
             "test-id".to_string(),
             EventKind::Transaction,
             "test-source".to_string(),
-            12345,
-            Some("test-signature".to_string()),
-            Some(Pubkey::default()),
-            Some(0),
             Some(1234567890),
-            ProtocolType::Jupiter,
-            EventType::Swap,
         )
     }
 

@@ -4,6 +4,7 @@ use crate::error::{EventError, EventResult};
 use crate::traits::{Event, EventParser, ParserInfo};
 use crate::types::{EventKind, EventMetadata, GenericEvent};
 use async_trait::async_trait;
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -251,22 +252,37 @@ impl JsonEventParser {
             }
         }
 
-        // Validate string patterns
+        // Validate string patterns using regex
         for (field, pattern) in &self.config.validation.patterns {
             if let Some(value) = obj.get(field) {
                 if let Some(string_value) = value.as_str() {
-                    // Simple pattern matching - in production, use regex crate
-                    if !string_value.contains(pattern) {
-                        return Err(EventError::parse_error(
-                            std::io::Error::new(
-                                std::io::ErrorKind::InvalidData,
-                                format!(
-                                    "String '{}' for field '{}' doesn't match pattern '{}'",
-                                    string_value, field, pattern
+                    match Regex::new(pattern) {
+                        Ok(regex) => {
+                            if !regex.is_match(string_value) {
+                                return Err(EventError::parse_error(
+                                    std::io::Error::new(
+                                        std::io::ErrorKind::InvalidData,
+                                        format!(
+                                            "String '{}' for field '{}' doesn't match pattern '{}'",
+                                            string_value, field, pattern
+                                        ),
+                                    ),
+                                    format!("Field '{}' doesn't match pattern", field),
+                                ));
+                            }
+                        }
+                        Err(regex_error) => {
+                            return Err(EventError::parse_error(
+                                std::io::Error::new(
+                                    std::io::ErrorKind::InvalidData,
+                                    format!(
+                                        "Invalid regex pattern '{}' for field '{}': {}",
+                                        pattern, field, regex_error
+                                    ),
                                 ),
-                            ),
-                            format!("Field '{}' doesn't match pattern", field),
-                        ));
+                                format!("Invalid regex pattern for field '{}'", field),
+                            ));
+                        }
                     }
                 }
             }
@@ -797,7 +813,7 @@ mod tests {
                 .with_mapping("token".to_string(), "token".to_string())
                 .with_validation(
                     ValidationConfig::default()
-                        .with_pattern("token".to_string(), "USD".to_string()),
+                        .with_pattern("token".to_string(), "^USD[C|T]$".to_string()),
                 );
 
         let parser = JsonEventParser::new(config, EventKind::Transaction, "test".to_string());
@@ -820,7 +836,7 @@ mod tests {
                 .with_mapping("token".to_string(), "token".to_string())
                 .with_validation(
                     ValidationConfig::default()
-                        .with_pattern("token".to_string(), "USD".to_string()),
+                        .with_pattern("token".to_string(), "^USD[C|T]$".to_string()),
                 );
 
         let parser = JsonEventParser::new(config, EventKind::Transaction, "test".to_string());
@@ -828,6 +844,29 @@ mod tests {
 
         let result = parser.parse(input).await;
         assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_json_parser_validation_invalid_regex_pattern() {
+        let config =
+            ParsingConfig::new("test".to_string(), "1.0.0".to_string(), "json".to_string())
+                .with_mapping("token".to_string(), "token".to_string())
+                .with_validation(
+                    ValidationConfig::default()
+                        .with_pattern("token".to_string(), "[invalid".to_string()),
+                );
+
+        let parser = JsonEventParser::new(config, EventKind::Transaction, "test".to_string());
+        let input = json!({"token": "USDC"});
+
+        let result = parser.parse(input).await;
+        assert!(result.is_err());
+
+        if let Err(EventError::ParseError { context, .. }) = result {
+            assert!(context.contains("Invalid regex pattern for field 'token'"));
+        } else {
+            panic!("Expected ParseError");
+        }
     }
 
     #[tokio::test]

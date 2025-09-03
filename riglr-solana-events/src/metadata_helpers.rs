@@ -4,13 +4,29 @@
 //! through the ChainData abstraction from riglr-events-core.
 
 use crate::types::{EventType, ProtocolType};
+use chrono::{DateTime, Utc};
 use riglr_events_core::prelude::ChainData;
 use riglr_events_core::{EventKind, EventMetadata};
 use serde_json::json;
 use solana_sdk::pubkey::Pubkey;
 
+/// Create core EventMetadata without Solana-specific chain data
+pub fn create_core_metadata(
+    id: String,
+    kind: EventKind,
+    source: String,
+    block_time: Option<i64>,
+) -> EventMetadata {
+    let timestamp = block_time
+        .and_then(|t| DateTime::from_timestamp(t, 0))
+        .unwrap_or_else(Utc::now);
+    EventMetadata::with_timestamp(id, kind, source, timestamp)
+}
+
 /// Create a new EventMetadata for Solana events with all required fields
+/// DEPRECATED: Use create_core_metadata + SolanaEventMetadata::new instead
 #[allow(clippy::too_many_arguments)]
+#[deprecated(note = "Use create_core_metadata + SolanaEventMetadata::new instead")]
 pub fn create_solana_metadata(
     id: String,
     kind: EventKind,

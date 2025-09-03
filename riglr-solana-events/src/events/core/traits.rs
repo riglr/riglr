@@ -1,6 +1,9 @@
 use crate::error::ParseResult;
 use crate::metadata_helpers;
-use crate::types::{EventMetadata, EventType, ProtocolType};
+use crate::solana_metadata::SolanaEventMetadata;
+use crate::types::{EventType, ProtocolType};
+
+type EventMetadata = SolanaEventMetadata;
 use riglr_events_core::Event;
 use std::fmt::Debug;
 
@@ -134,20 +137,14 @@ impl EventParser for GenericEventParser {
         if let Ok(data) = bs58::decode(&params.inner_instruction.data).into_vec() {
             for configs in self.inner_instruction_configs.values() {
                 for config in configs {
-                    let core_metadata = metadata_helpers::create_solana_metadata(
+                    let core_metadata = metadata_helpers::create_core_metadata(
                         format!("{}_{}", params.signature, params.index),
                         riglr_events_core::EventKind::Custom(config.event_type.to_string()),
                         "solana".to_string(),
-                        params.slot,
-                        Some(params.signature.to_string()),
-                        Some(config.program_id),
-                        params.index.parse().ok(),
                         params.block_time,
-                        config.protocol_type.clone(),
-                        config.event_type.clone(),
                     );
 
-                    let metadata = crate::types::EventMetadata::new(
+                    let metadata = SolanaEventMetadata::new(
                         params.signature.to_string(),
                         params.slot,
                         config.event_type.clone(),
@@ -179,20 +176,14 @@ impl EventParser for GenericEventParser {
 
         if let Some(configs) = self.instruction_configs.get(&params.instruction.data) {
             for config in configs {
-                let core_metadata = metadata_helpers::create_solana_metadata(
+                let core_metadata = metadata_helpers::create_core_metadata(
                     format!("{}_{}", params.signature, params.index),
                     riglr_events_core::EventKind::Custom(config.event_type.to_string()),
                     "solana".to_string(),
-                    params.slot,
-                    Some(params.signature.to_string()),
-                    Some(config.program_id),
-                    params.index.parse().ok(),
                     params.block_time,
-                    config.protocol_type.clone(),
-                    config.event_type.clone(),
                 );
 
-                let metadata = crate::types::EventMetadata::new(
+                let metadata = SolanaEventMetadata::new(
                     params.signature.to_string(),
                     params.slot,
                     config.event_type.clone(),

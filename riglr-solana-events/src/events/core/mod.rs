@@ -71,7 +71,7 @@ mod tests {
     // Mock parser functions
     fn mock_inner_instruction_parser(
         _data: &[u8],
-        _metadata: crate::types::EventMetadata,
+        _metadata: crate::solana_metadata::SolanaEventMetadata,
     ) -> crate::error::ParseResult<Box<dyn Event>> {
         Ok(Box::new(MockEvent::new("inner_test".to_string())))
     }
@@ -79,14 +79,14 @@ mod tests {
     fn mock_instruction_parser(
         _data: &[u8],
         _accounts: &[Pubkey],
-        _metadata: crate::types::EventMetadata,
+        _metadata: crate::solana_metadata::SolanaEventMetadata,
     ) -> crate::error::ParseResult<Box<dyn Event>> {
         Ok(Box::new(MockEvent::new("instruction_test".to_string())))
     }
 
     fn mock_failing_inner_instruction_parser(
         _data: &[u8],
-        _metadata: crate::types::EventMetadata,
+        _metadata: crate::solana_metadata::SolanaEventMetadata,
     ) -> crate::error::ParseResult<Box<dyn Event>> {
         Err(crate::error::ParseError::InvalidDataFormat(
             "Mock failure".to_string(),
@@ -96,7 +96,7 @@ mod tests {
     fn mock_failing_instruction_parser(
         _data: &[u8],
         _accounts: &[Pubkey],
-        _metadata: crate::types::EventMetadata,
+        _metadata: crate::solana_metadata::SolanaEventMetadata,
     ) -> crate::error::ParseResult<Box<dyn Event>> {
         Err(crate::error::ParseError::InvalidDataFormat(
             "Mock failure".to_string(),
