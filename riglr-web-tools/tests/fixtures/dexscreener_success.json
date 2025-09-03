@@ -1,0 +1,61 @@
+{
+  "schemaVersion": "1.0.0",
+  "pairs": [
+    {
+      "chainId": "ethereum",
+      "dexId": "uniswap-v3",
+      "url": "https://dexscreener.com/ethereum/0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640",
+      "pairAddress": "0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640",
+      "labels": ["v3"],
+      "baseToken": {
+        "address": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+        "name": "USD Coin",
+        "symbol": "USDC"
+      },
+      "quoteToken": {
+        "address": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+        "name": "Wrapped Ether",
+        "symbol": "WETH"
+      },
+      "priceNative": "0.0004285",
+      "priceUsd": "1.00",
+      "txns": {
+        "h24": {
+          "buys": 5234,
+          "sells": 4876
+        },
+        "h6": {
+          "buys": 1245,
+          "sells": 1189
+        },
+        "h1": {
+          "buys": 234,
+          "sells": 212
+        },
+        "m5": {
+          "buys": 18,
+          "sells": 15
+        }
+      },
+      "volume": {
+        "h24": 125000000.0,
+        "h6": 31000000.0,
+        "h1": 5200000.0,
+        "m5": 420000.0
+      },
+      "priceChange": {
+        "h24": 0.05,
+        "h6": 0.02,
+        "h1": -0.01,
+        "m5": 0.0
+      },
+      "liquidity": {
+        "usd": 285000000.0,
+        "base": 142500000.0,
+        "quote": 61223.5
+      },
+      "marketCap": 25890000000.0,
+      "fdv": 25890000000.0
+    }
+  ]
+}

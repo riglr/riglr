@@ -14,6 +14,128 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use tracing::{debug, info};
 
+// Private module for raw API types
+mod api_types {
+    use serde::{Deserialize, Serialize};
+
+    #[derive(Debug, Deserialize, Serialize)]
+    pub struct ApiResponseRaw {
+        pub data: DataRaw,
+        pub success: Option<bool>,
+        pub error: Option<String>,
+    }
+
+    #[derive(Debug, Deserialize, Serialize)]
+    pub struct DataRaw {
+        pub symbol: Option<String>,
+        pub name: Option<String>,
+        pub total_holders: Option<u64>,
+        pub unique_holders: Option<u64>,
+        pub distribution: Option<DistributionRaw>,
+        pub top_holders: Option<Vec<HolderRaw>>,
+        pub concentration_risk: Option<ConcentrationRiskRaw>,
+        pub recent_activity: Option<ActivityRaw>,
+        pub transactions: Option<Vec<WhaleTransactionRaw>>,
+        pub total_buys_usd: Option<f64>,
+        pub total_sells_usd: Option<f64>,
+        pub active_whales: Option<u64>,
+        pub points: Option<Vec<TrendPointRaw>>,
+        pub trend_direction: Option<String>,
+        pub trend_strength: Option<u64>,
+        pub insights: Option<Vec<String>>,
+    }
+
+    #[derive(Debug, Deserialize, Serialize)]
+    pub struct DistributionRaw {
+        pub top_1_percent: Option<f64>,
+        pub top_5_percent: Option<f64>,
+        pub top_10_percent: Option<f64>,
+        pub whale_percentage: Option<f64>,
+        pub retail_percentage: Option<f64>,
+        pub gini_coefficient: Option<f64>,
+    }
+
+    #[derive(Debug, Deserialize, Serialize)]
+    pub struct HolderRaw {
+        pub address: Option<String>,
+        pub balance: Option<f64>,
+        pub percentage: Option<f64>,
+        pub usd_value: Option<f64>,
+        #[serde(rename = "type")]
+        pub wallet_type: Option<String>,
+        pub tx_count: Option<u64>,
+        pub first_acquired: Option<String>,
+        pub last_activity: Option<String>,
+    }
+
+    #[derive(Debug, Deserialize, Serialize)]
+    pub struct ConcentrationRiskRaw {
+        pub level: Option<String>,
+        pub score: Option<u64>,
+        pub wallets_50_percent: Option<u64>,
+        pub largest_holder: Option<f64>,
+        pub exchange_percentage: Option<f64>,
+        pub locked_percentage: Option<f64>,
+        pub risk_factors: Option<Vec<String>>,
+    }
+
+    #[derive(Debug, Deserialize, Serialize)]
+    pub struct ActivityRaw {
+        pub new_holders_24h: Option<u64>,
+        pub exited_holders_24h: Option<u64>,
+        pub net_change_24h: Option<i64>,
+        pub avg_buy_size_24h: Option<f64>,
+        pub avg_sell_size_24h: Option<f64>,
+        pub growth_rate_7d: Option<f64>,
+    }
+
+    #[derive(Debug, Deserialize, Serialize)]
+    pub struct WhaleTransactionRaw {
+        pub hash: Option<String>,
+        pub from: Option<String>,
+        #[serde(rename = "type")]
+        pub transaction_type: Option<String>,
+        pub token_amount: Option<f64>,
+        pub usd_value: Option<f64>,
+        pub timestamp: Option<String>,
+        pub price_impact: Option<f64>,
+        pub gas_fee: Option<f64>,
+    }
+
+    #[derive(Debug, Deserialize, Serialize)]
+    pub struct WhaleStatsRaw {
+        pub total_whale_count: Option<u64>,
+        pub whale_holding_percentage: Option<f64>,
+        pub whale_activity_score: Option<f64>,
+        pub whale_accumulation_trend: Option<String>,
+        pub recent_whale_trend: Option<String>,
+        pub average_whale_balance: Option<f64>,
+        pub whale_dominance: Option<f64>,
+    }
+
+    #[derive(Debug, Deserialize, Serialize)]
+    pub struct TrendPointRaw {
+        pub timestamp: Option<String>,
+        pub holders: Option<u64>,
+        pub change: Option<i64>,
+        pub price: Option<f64>,
+        pub whale_percentage: Option<f64>,
+        pub volume_24h: Option<f64>,
+    }
+
+    #[derive(Debug, Deserialize, Serialize)]
+    pub struct TrendSummaryRaw {
+        pub trend_direction: Option<String>,
+        pub growth_rate_7d: Option<f64>,
+        pub growth_rate_30d: Option<f64>,
+        pub volatility_score: Option<f64>,
+        pub health_score: Option<f64>,
+        pub recommendation: Option<String>,
+        pub risk_factors: Option<Vec<String>>,
+        pub positive_factors: Option<Vec<String>>,
+    }
+}
+
 /// Faster100x API configuration
 #[derive(Debug, Clone)]
 pub struct Faster100xConfig {
@@ -216,6 +338,121 @@ pub struct HolderTrendPoint {
     pub volume_24h: f64,
 }
 
+// Conversion functions from Raw to Clean types
+
+/// Converts raw holder data to clean WalletHolding
+fn convert_raw_holder(raw: &api_types::HolderRaw) -> WalletHolding {
+    let first_acquired = raw
+        .first_acquired
+        .as_ref()
+        .and_then(|s| DateTime::parse_from_rfc3339(s).ok())
+        .map(|dt| dt.with_timezone(&Utc))
+        .unwrap_or_else(|| Utc::now());
+
+    let last_activity = raw
+        .last_activity
+        .as_ref()
+        .and_then(|s| DateTime::parse_from_rfc3339(s).ok())
+        .map(|dt| dt.with_timezone(&Utc))
+        .unwrap_or_else(|| Utc::now());
+
+    WalletHolding {
+        wallet_address: raw.address.clone().unwrap_or_else(|| "unknown".to_string()),
+        token_amount: raw.balance.unwrap_or(0.0),
+        percentage_of_supply: raw.percentage.unwrap_or(0.0),
+        usd_value: raw.usd_value.unwrap_or(0.0),
+        first_acquired,
+        last_activity,
+        wallet_type: raw
+            .wallet_type
+            .clone()
+            .unwrap_or_else(|| "unknown".to_string()),
+        transaction_count: raw.tx_count.unwrap_or(0),
+        avg_holding_time_days: 0.0, // Would be calculated separately
+    }
+}
+
+/// Converts raw distribution data to clean HolderDistribution
+fn convert_raw_distribution(raw: &api_types::DistributionRaw) -> HolderDistribution {
+    HolderDistribution {
+        top_1_percent: raw.top_1_percent.unwrap_or(0.0),
+        top_5_percent: raw.top_5_percent.unwrap_or(0.0),
+        top_10_percent: raw.top_10_percent.unwrap_or(0.0),
+        whale_percentage: raw.whale_percentage.unwrap_or(0.0),
+        retail_percentage: raw.retail_percentage.unwrap_or(0.0),
+        gini_coefficient: raw.gini_coefficient.unwrap_or(0.0),
+        holder_categories: HashMap::new(),
+    }
+}
+
+/// Converts raw concentration risk data to clean ConcentrationRisk
+fn convert_raw_concentration_risk(raw: &api_types::ConcentrationRiskRaw) -> ConcentrationRisk {
+    ConcentrationRisk {
+        risk_level: raw.level.clone().unwrap_or_else(|| "Medium".to_string()),
+        risk_score: raw.score.unwrap_or(50) as u8,
+        wallets_controlling_50_percent: raw.wallets_50_percent.unwrap_or(0),
+        largest_holder_percentage: raw.largest_holder.unwrap_or(0.0),
+        exchange_holdings_percentage: raw.exchange_percentage.unwrap_or(0.0),
+        locked_holdings_percentage: raw.locked_percentage.unwrap_or(0.0),
+        risk_factors: raw.risk_factors.clone().unwrap_or_default(),
+    }
+}
+
+/// Converts raw activity data to clean HolderActivity
+fn convert_raw_activity(raw: &api_types::ActivityRaw) -> HolderActivity {
+    HolderActivity {
+        new_holders_24h: raw.new_holders_24h.unwrap_or(0),
+        exited_holders_24h: raw.exited_holders_24h.unwrap_or(0),
+        net_holder_change_24h: raw.net_change_24h.unwrap_or(0),
+        avg_buy_size_24h: raw.avg_buy_size_24h.unwrap_or(0.0),
+        avg_sell_size_24h: raw.avg_sell_size_24h.unwrap_or(0.0),
+        holder_growth_rate_7d: raw.growth_rate_7d.unwrap_or(0.0),
+    }
+}
+
+/// Converts raw whale transaction to clean WhaleTransaction
+fn convert_raw_whale_transaction(raw: &api_types::WhaleTransactionRaw) -> WhaleTransaction {
+    let timestamp = raw
+        .timestamp
+        .as_ref()
+        .and_then(|s| DateTime::parse_from_rfc3339(s).ok())
+        .map(|dt| dt.with_timezone(&Utc))
+        .unwrap_or_else(|| Utc::now());
+
+    WhaleTransaction {
+        tx_hash: raw.hash.clone().unwrap_or_default(),
+        wallet_address: raw.from.clone().unwrap_or_default(),
+        transaction_type: raw
+            .transaction_type
+            .clone()
+            .unwrap_or_else(|| "unknown".to_string()),
+        token_amount: raw.token_amount.unwrap_or(0.0),
+        usd_value: raw.usd_value.unwrap_or(0.0),
+        timestamp,
+        price_impact: raw.price_impact.unwrap_or(0.0),
+        gas_fee: raw.gas_fee.unwrap_or(0.0),
+    }
+}
+
+/// Converts raw trend point to clean HolderTrendPoint
+fn convert_raw_trend_point(raw: &api_types::TrendPointRaw) -> HolderTrendPoint {
+    let timestamp = raw
+        .timestamp
+        .as_ref()
+        .and_then(|s| DateTime::parse_from_rfc3339(s).ok())
+        .map(|dt| dt.with_timezone(&Utc))
+        .unwrap_or_else(|| Utc::now());
+
+    HolderTrendPoint {
+        timestamp,
+        total_holders: raw.holders.unwrap_or(0),
+        holder_change: raw.change.unwrap_or(0),
+        token_price: raw.price.unwrap_or(0.0),
+        whale_percentage: raw.whale_percentage.unwrap_or(0.0),
+        volume_24h: raw.volume_24h.unwrap_or(0.0),
+    }
+}
+
 /// Creates a Faster100x API client with proper authentication
 ///
 /// Initializes a WebClient configured for the Faster100x API with the API key
@@ -350,186 +587,68 @@ pub async fn analyze_token_holders(
 
     let response_text = client.get_with_params(&url, &params).await?;
 
-    let response_data: serde_json::Value = serde_json::from_str(&response_text)
+    // Deserialize response into raw API types
+    let response: api_types::ApiResponseRaw = serde_json::from_str(&response_text)
         .map_err(|e| WebToolError::Parsing(format!("Invalid JSON response: {}", e)))?;
 
-    let data = response_data
-        .get("data")
-        .ok_or_else(|| WebToolError::Parsing("Missing 'data' field".to_string()))?;
+    let data = response.data;
 
-    // Parse basic token info
-    let token_symbol = data
-        .get("symbol")
-        .and_then(|v| v.as_str())
-        .unwrap_or("UNKNOWN")
-        .to_string();
-    let token_name = data
-        .get("name")
-        .and_then(|v| v.as_str())
-        .unwrap_or("Unknown Token")
-        .to_string();
-    let total_holders = data
-        .get("total_holders")
-        .and_then(|v| v.as_u64())
-        .unwrap_or(0);
-    let unique_holders = data
-        .get("unique_holders")
-        .and_then(|v| v.as_u64())
-        .unwrap_or(total_holders);
+    // Extract basic token info
+    let token_symbol = data.symbol.unwrap_or_else(|| "UNKNOWN".to_string());
+    let token_name = data.name.unwrap_or_else(|| "Unknown Token".to_string());
+    let total_holders = data.total_holders.unwrap_or(0);
+    let unique_holders = data.unique_holders.unwrap_or(total_holders);
 
-    // Parse distribution data
-    let distribution_data = data.get("distribution").unwrap_or(&serde_json::Value::Null);
-    let distribution = HolderDistribution {
-        top_1_percent: distribution_data
-            .get("top_1_percent")
-            .and_then(|v| v.as_f64())
-            .unwrap_or(0.0),
-        top_5_percent: distribution_data
-            .get("top_5_percent")
-            .and_then(|v| v.as_f64())
-            .unwrap_or(0.0),
-        top_10_percent: distribution_data
-            .get("top_10_percent")
-            .and_then(|v| v.as_f64())
-            .unwrap_or(0.0),
-        whale_percentage: distribution_data
-            .get("whale_percentage")
-            .and_then(|v| v.as_f64())
-            .unwrap_or(0.0),
-        retail_percentage: distribution_data
-            .get("retail_percentage")
-            .and_then(|v| v.as_f64())
-            .unwrap_or(0.0),
-        gini_coefficient: distribution_data
-            .get("gini_coefficient")
-            .and_then(|v| v.as_f64())
-            .unwrap_or(0.0),
-        holder_categories: HashMap::new(), // Would be populated from API response
-    };
+    // Convert distribution data
+    let distribution = data
+        .distribution
+        .as_ref()
+        .map(convert_raw_distribution)
+        .unwrap_or_else(|| HolderDistribution {
+            top_1_percent: 0.0,
+            top_5_percent: 0.0,
+            top_10_percent: 0.0,
+            whale_percentage: 0.0,
+            retail_percentage: 0.0,
+            gini_coefficient: 0.0,
+            holder_categories: HashMap::new(),
+        });
 
-    // Parse top holders
-    let mut top_holders = Vec::new();
-    if let Some(holders_array) = data.get("top_holders").and_then(|v| v.as_array()) {
-        for holder in holders_array.iter().take(10) {
-            let wallet_address = holder
-                .get("address")
-                .and_then(|v| v.as_str())
-                .unwrap_or("unknown")
-                .to_string();
-            let token_amount = holder
-                .get("balance")
-                .and_then(|v| v.as_f64())
-                .unwrap_or(0.0);
-            let percentage_of_supply = holder
-                .get("percentage")
-                .and_then(|v| v.as_f64())
-                .unwrap_or(0.0);
-            let usd_value = holder
-                .get("usd_value")
-                .and_then(|v| v.as_f64())
-                .unwrap_or(0.0);
-            let wallet_type = holder
-                .get("type")
-                .and_then(|v| v.as_str())
-                .unwrap_or("unknown")
-                .to_string();
-            let transaction_count = holder.get("tx_count").and_then(|v| v.as_u64()).unwrap_or(0);
+    // Convert top holders
+    let top_holders = data
+        .top_holders
+        .as_ref()
+        .map(|holders| holders.iter().take(10).map(convert_raw_holder).collect())
+        .unwrap_or_default();
 
-            // Parse timestamps
-            let first_acquired_str = holder
-                .get("first_acquired")
-                .and_then(|v| v.as_str())
-                .unwrap_or("1970-01-01T00:00:00Z");
-            let last_activity_str = holder
-                .get("last_activity")
-                .and_then(|v| v.as_str())
-                .unwrap_or("1970-01-01T00:00:00Z");
+    // Convert concentration risk
+    let concentration_risk = data
+        .concentration_risk
+        .as_ref()
+        .map(convert_raw_concentration_risk)
+        .unwrap_or_else(|| ConcentrationRisk {
+            risk_level: "Medium".to_string(),
+            risk_score: 50,
+            wallets_controlling_50_percent: 0,
+            largest_holder_percentage: 0.0,
+            exchange_holdings_percentage: 0.0,
+            locked_holdings_percentage: 0.0,
+            risk_factors: vec![],
+        });
 
-            let first_acquired = DateTime::parse_from_rfc3339(first_acquired_str)
-                .unwrap_or_else(|_| DateTime::from_timestamp(0, 0).unwrap().into())
-                .with_timezone(&Utc);
-
-            let last_activity = DateTime::parse_from_rfc3339(last_activity_str)
-                .unwrap_or_else(|_| DateTime::from_timestamp(0, 0).unwrap().into())
-                .with_timezone(&Utc);
-
-            top_holders.push(WalletHolding {
-                wallet_address,
-                token_amount,
-                percentage_of_supply,
-                usd_value,
-                first_acquired,
-                last_activity,
-                wallet_type,
-                transaction_count,
-                avg_holding_time_days: 0.0, // Would be calculated from API data
-            });
-        }
-    }
-
-    // Parse concentration risk
-    let risk_data = data
-        .get("concentration_risk")
-        .unwrap_or(&serde_json::Value::Null);
-    let concentration_risk = ConcentrationRisk {
-        risk_level: risk_data
-            .get("level")
-            .and_then(|v| v.as_str())
-            .unwrap_or("Medium")
-            .to_string(),
-        risk_score: risk_data
-            .get("score")
-            .and_then(|v| v.as_u64())
-            .unwrap_or(50) as u8,
-        wallets_controlling_50_percent: risk_data
-            .get("wallets_50_percent")
-            .and_then(|v| v.as_u64())
-            .unwrap_or(0),
-        largest_holder_percentage: risk_data
-            .get("largest_holder")
-            .and_then(|v| v.as_f64())
-            .unwrap_or(0.0),
-        exchange_holdings_percentage: risk_data
-            .get("exchange_percentage")
-            .and_then(|v| v.as_f64())
-            .unwrap_or(0.0),
-        locked_holdings_percentage: risk_data
-            .get("locked_percentage")
-            .and_then(|v| v.as_f64())
-            .unwrap_or(0.0),
-        risk_factors: Vec::new(), // Would be populated from API response
-    };
-
-    // Parse recent activity
-    let activity_data = data
-        .get("recent_activity")
-        .unwrap_or(&serde_json::Value::Null);
-    let recent_activity = HolderActivity {
-        new_holders_24h: activity_data
-            .get("new_holders_24h")
-            .and_then(|v| v.as_u64())
-            .unwrap_or(0),
-        exited_holders_24h: activity_data
-            .get("exited_holders_24h")
-            .and_then(|v| v.as_u64())
-            .unwrap_or(0),
-        net_holder_change_24h: activity_data
-            .get("net_change_24h")
-            .and_then(|v| v.as_i64())
-            .unwrap_or(0),
-        avg_buy_size_24h: activity_data
-            .get("avg_buy_size_24h")
-            .and_then(|v| v.as_f64())
-            .unwrap_or(0.0),
-        avg_sell_size_24h: activity_data
-            .get("avg_sell_size_24h")
-            .and_then(|v| v.as_f64())
-            .unwrap_or(0.0),
-        holder_growth_rate_7d: activity_data
-            .get("growth_rate_7d")
-            .and_then(|v| v.as_f64())
-            .unwrap_or(0.0),
-    };
+    // Convert recent activity
+    let recent_activity = data
+        .recent_activity
+        .as_ref()
+        .map(convert_raw_activity)
+        .unwrap_or_else(|| HolderActivity {
+            new_holders_24h: 0,
+            exited_holders_24h: 0,
+            net_holder_change_24h: 0,
+            avg_buy_size_24h: 0.0,
+            avg_sell_size_24h: 0.0,
+            holder_growth_rate_7d: 0.0,
+        });
 
     debug!(
         "Successfully analyzed {} holders for token {} with {}% whale concentration",
@@ -601,78 +720,24 @@ pub async fn get_whale_activity(
 
     let response_text = client.get_with_params(&url, &params).await?;
 
-    let response_data: serde_json::Value = serde_json::from_str(&response_text)
+    // Deserialize response into raw API types
+    let response: api_types::ApiResponseRaw = serde_json::from_str(&response_text)
         .map_err(|e| WebToolError::Parsing(format!("Invalid JSON response: {}", e)))?;
 
-    let data = response_data
-        .get("data")
-        .ok_or_else(|| WebToolError::Parsing("Missing 'data' field".to_string()))?;
+    let data = response.data;
 
-    // Parse whale transactions
-    let mut whale_transactions = Vec::new();
-    if let Some(transactions_array) = data.get("transactions").and_then(|v| v.as_array()) {
-        for tx in transactions_array {
-            let tx_hash = tx
-                .get("hash")
-                .and_then(|v| v.as_str())
-                .unwrap_or("unknown")
-                .to_string();
-            let wallet_address = tx
-                .get("from")
-                .and_then(|v| v.as_str())
-                .unwrap_or("unknown")
-                .to_string();
-            let transaction_type = tx
-                .get("type")
-                .and_then(|v| v.as_str())
-                .unwrap_or("unknown")
-                .to_string();
-            let token_amount = tx
-                .get("token_amount")
-                .and_then(|v| v.as_f64())
-                .unwrap_or(0.0);
-            let usd_value = tx.get("usd_value").and_then(|v| v.as_f64()).unwrap_or(0.0);
-            let gas_fee = tx.get("gas_fee").and_then(|v| v.as_f64()).unwrap_or(0.0);
-            let price_impact = tx
-                .get("price_impact")
-                .and_then(|v| v.as_f64())
-                .unwrap_or(0.0);
+    // Convert whale transactions
+    let whale_transactions: Vec<WhaleTransaction> = data
+        .transactions
+        .as_ref()
+        .map(|txs| txs.iter().map(convert_raw_whale_transaction).collect())
+        .unwrap_or_default();
 
-            let timestamp_str = tx
-                .get("timestamp")
-                .and_then(|v| v.as_str())
-                .unwrap_or("1970-01-01T00:00:00Z");
-            let timestamp = DateTime::parse_from_rfc3339(timestamp_str)
-                .unwrap_or_else(|_| DateTime::from_timestamp(0, 0).unwrap().into())
-                .with_timezone(&Utc);
-
-            whale_transactions.push(WhaleTransaction {
-                tx_hash,
-                wallet_address,
-                transaction_type,
-                token_amount,
-                usd_value,
-                timestamp,
-                gas_fee,
-                price_impact,
-            });
-        }
-    }
-
-    // Parse summary metrics
-    let total_whale_buys = data
-        .get("total_buys_usd")
-        .and_then(|v| v.as_f64())
-        .unwrap_or(0.0);
-    let total_whale_sells = data
-        .get("total_sells_usd")
-        .and_then(|v| v.as_f64())
-        .unwrap_or(0.0);
+    // Extract summary metrics
+    let total_whale_buys = data.total_buys_usd.unwrap_or(0.0);
+    let total_whale_sells = data.total_sells_usd.unwrap_or(0.0);
     let net_whale_flow = total_whale_buys - total_whale_sells;
-    let active_whales = data
-        .get("active_whales")
-        .and_then(|v| v.as_u64())
-        .unwrap_or(0);
+    let active_whales = data.active_whales.unwrap_or(0);
 
     debug!(
         "Found {} whale transactions with net flow of ${:.2} for token {}",
@@ -743,68 +808,23 @@ pub async fn get_holder_trends(
 
     let response_text = client.get_with_params(&url, &params).await?;
 
-    let response_data: serde_json::Value = serde_json::from_str(&response_text)
+    // Deserialize response into raw API types
+    let response: api_types::ApiResponseRaw = serde_json::from_str(&response_text)
         .map_err(|e| WebToolError::Parsing(format!("Invalid JSON response: {}", e)))?;
 
-    let data = response_data
-        .get("data")
-        .ok_or_else(|| WebToolError::Parsing("Missing 'data' field".to_string()))?;
+    let data = response.data;
 
-    // Parse trend data points
-    let mut trend_data_points = Vec::new();
-    if let Some(points_array) = data.get("points").and_then(|v| v.as_array()) {
-        for point in points_array {
-            let timestamp_str = point
-                .get("timestamp")
-                .and_then(|v| v.as_str())
-                .unwrap_or("1970-01-01T00:00:00Z");
-            let timestamp = DateTime::parse_from_rfc3339(timestamp_str)
-                .unwrap_or_else(|_| DateTime::from_timestamp(0, 0).unwrap().into())
-                .with_timezone(&Utc);
-
-            let total_holders = point.get("holders").and_then(|v| v.as_u64()).unwrap_or(0);
-            let holder_change = point.get("change").and_then(|v| v.as_i64()).unwrap_or(0);
-            let token_price = point.get("price").and_then(|v| v.as_f64()).unwrap_or(0.0);
-            let whale_percentage = point
-                .get("whale_percentage")
-                .and_then(|v| v.as_f64())
-                .unwrap_or(0.0);
-            let volume_24h = point
-                .get("volume_24h")
-                .and_then(|v| v.as_f64())
-                .unwrap_or(0.0);
-
-            trend_data_points.push(HolderTrendPoint {
-                timestamp,
-                total_holders,
-                holder_change,
-                token_price,
-                whale_percentage,
-                volume_24h,
-            });
-        }
-    }
-
-    // Parse trend analysis
-    let trend_direction = data
-        .get("trend_direction")
-        .and_then(|v| v.as_str())
-        .unwrap_or("stable")
-        .to_string();
-    let trend_strength = data
-        .get("trend_strength")
-        .and_then(|v| v.as_u64())
-        .unwrap_or(50) as u8;
-
-    let insights = data
-        .get("insights")
-        .and_then(|v| v.as_array())
-        .map(|arr| {
-            arr.iter()
-                .filter_map(|insight| insight.as_str().map(|s| s.to_string()))
-                .collect()
-        })
+    // Convert trend data points
+    let trend_data_points: Vec<HolderTrendPoint> = data
+        .points
+        .as_ref()
+        .map(|points| points.iter().map(convert_raw_trend_point).collect())
         .unwrap_or_default();
+
+    // Extract trend analysis
+    let trend_direction = data.trend_direction.unwrap_or_else(|| "stable".to_string());
+    let trend_strength = data.trend_strength.unwrap_or(50) as u8;
+    let insights = data.insights.unwrap_or_default();
 
     debug!(
         "Analyzed holder trends with {} data points, trend: {} (strength: {})",

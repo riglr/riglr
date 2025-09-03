@@ -642,183 +642,43 @@ async fn parse_token_response(
     chain: &str,
     _include_security: Option<bool>,
 ) -> crate::error::Result<TokenInfo> {
-    // Parse actual DexScreener JSON response
-    let dex_response: crate::dexscreener_api::DexScreenerResponse = serde_json::from_str(response)
-        .map_err(|e| {
+    // Parse actual DexScreener JSON response into raw structs
+    let dex_response_raw: crate::dexscreener_api::DexScreenerResponseRaw =
+        serde_json::from_str(response).map_err(|e| {
             crate::error::WebToolError::Parsing(format!(
                 "Failed to parse DexScreener response: {}",
                 e
             ))
         })?;
 
+    // Convert raw to clean types
+    let dex_response: crate::dexscreener_api::DexScreenerResponse = dex_response_raw.into();
+
     debug!("Parsed response with {} pairs", dex_response.pairs.len());
 
-    // Find pairs for this token and aggregate data
-    let token_pairs: Vec<&crate::dexscreener_api::PairInfo> = dex_response
-        .pairs
-        .iter()
-        .filter(|p| {
-            let matches = p.base_token.address.eq_ignore_ascii_case(token_address);
-            debug!(
-                "Checking pair: base_token={}, looking for={}, matches={}",
-                p.base_token.address, token_address, matches
-            );
-            matches
-        })
-        .collect();
+    // Use the aggregate_token_info helper to create TokenInfo from clean pairs
+    let token_info_opt =
+        crate::dexscreener_api::aggregate_token_info(dex_response.pairs, token_address);
 
-    if token_pairs.is_empty() {
-        return Err(crate::error::WebToolError::Api(format!(
-            "No pairs found for token address: {}",
-            token_address
-        )));
-    }
-
-    // Use the pair with highest liquidity as primary source
-    let primary_pair = token_pairs
-        .iter()
-        .max_by_key(|p| {
-            p.liquidity
-                .as_ref()
-                .and_then(|l| l.usd)
-                .map(|usd| (usd * 1000.0) as u64)
-                .unwrap_or(0)
-        })
-        .ok_or_else(|| crate::error::WebToolError::Api("No valid pairs found".to_string()))?;
-
-    // Aggregate volume across all pairs
-    let total_volume_24h: f64 = token_pairs
-        .iter()
-        .filter_map(|p| p.volume.as_ref())
-        .filter_map(|v| v.h24)
-        .sum();
-
-    debug!(
-        "Found {} pairs for token {}",
-        token_pairs.len(),
-        token_address
-    );
-    debug!(
-        "Primary pair: symbol={}, price_usd={:?}",
-        primary_pair.base_token.symbol, primary_pair.price_usd
-    );
-
-    // Convert pairs to our format
-    let pairs: Vec<TokenPair> = token_pairs
-        .iter()
-        .map(|pair| {
-            TokenPair {
-                pair_id: pair.pair_address.clone(),
-                dex: DexInfo {
-                    id: pair.dex_id.clone(),
-                    name: format_dex_name(&pair.dex_id),
-                    url: Some(pair.url.clone()),
-                    logo: None,
-                },
-                base_token: PairToken {
-                    address: pair.base_token.address.clone(),
-                    name: pair.base_token.name.clone(),
-                    symbol: pair.base_token.symbol.clone(),
-                },
-                quote_token: PairToken {
-                    address: pair.quote_token.address.clone(),
-                    name: pair.quote_token.name.clone(),
-                    symbol: pair.quote_token.symbol.clone(),
-                },
-                price_usd: pair.price_usd.as_ref().and_then(|p| p.parse().ok()),
-                price_native: pair.price_native.parse().ok(),
-                volume_24h: pair.volume.as_ref().and_then(|v| v.h24),
-                price_change_24h: pair.price_change.as_ref().and_then(|pc| pc.h24),
-                liquidity_usd: pair.liquidity.as_ref().and_then(|l| l.usd),
-                fdv: pair.fdv,
-                created_at: None, // DexScreener doesn't provide this in the response
-                last_trade_at: Utc::now(), // Using current time as approximation
-                txns_24h: TransactionStats {
-                    buys: pair
-                        .txns
-                        .as_ref()
-                        .and_then(|t| t.h24.as_ref())
-                        .and_then(|h| h.buys.map(|b| b as u32)),
-                    sells: pair
-                        .txns
-                        .as_ref()
-                        .and_then(|t| t.h24.as_ref())
-                        .and_then(|h| h.sells.map(|s| s as u32)),
-                    total: None, // Will calculate if both buys and sells are available
-                    buy_volume_usd: None, // DexScreener doesn't provide this separately
-                    sell_volume_usd: None, // DexScreener doesn't provide this separately
-                },
-                url: pair.url.clone(),
-            }
-        })
-        .collect();
-
-    // Update total transactions
-    let mut updated_pairs = pairs.clone();
-    for pair in &mut updated_pairs {
-        // Calculate total transactions if both buys and sells are available
-        pair.txns_24h.total = match (pair.txns_24h.buys, pair.txns_24h.sells) {
-            (Some(b), Some(s)) => Some(b + s),
-            _ => None,
-        };
-
-        // Estimate buy/sell volumes (split total volume proportionally) if we have the data
-        if let (Some(total), Some(buys), Some(volume)) =
-            (pair.txns_24h.total, pair.txns_24h.buys, pair.volume_24h)
-        {
-            if total > 0 {
-                let buy_ratio = buys as f64 / total as f64;
-                pair.txns_24h.buy_volume_usd = Some(volume * buy_ratio);
-                pair.txns_24h.sell_volume_usd = Some(volume * (1.0 - buy_ratio));
-            }
-        }
-    }
-
-    let parsed_price = primary_pair.price_usd.as_ref().and_then(|p| {
-        let parsed = p.parse().ok();
-        debug!("Parsing price_usd string '{}' -> {:?}", p, parsed);
-        parsed
-    });
-
-    Ok(TokenInfo {
-        address: token_address.to_string(),
-        name: primary_pair.base_token.name.clone(),
-        symbol: primary_pair.base_token.symbol.clone(),
-        decimals: 18, // Default as DexScreener doesn't provide this
-        price_usd: parsed_price,
-        market_cap: primary_pair.market_cap,
-        volume_24h: Some(total_volume_24h),
-        price_change_24h: primary_pair.price_change.as_ref().and_then(|pc| pc.h24),
-        price_change_1h: primary_pair.price_change.as_ref().and_then(|pc| pc.h1),
-        price_change_5m: primary_pair.price_change.as_ref().and_then(|pc| pc.m5),
-        circulating_supply: None, // DexScreener doesn't provide this
-        total_supply: None,       // DexScreener doesn't provide this
-        pair_count: updated_pairs.len() as u32,
-        pairs: updated_pairs,
-        chain: ChainInfo {
+    if let Some(mut token_info) = token_info_opt {
+        // Override chain info with the provided chain parameter
+        token_info.chain = ChainInfo {
             id: chain.to_string(),
             name: format_chain_name(chain),
             logo: None,
             native_token: get_native_token(chain),
-        },
-        security: {
-            // Future enhancement: Integrate with security API services like GoPlus or Honeypot.is
-            // For now, return basic placeholder data regardless of include_security flag
-            SecurityInfo {
-                is_verified: false,
-                liquidity_locked: None,
-                audit_status: None,
-                honeypot_status: None,
-                ownership_status: None,
-                risk_score: None,
-            }
-        },
-        socials: vec![], // Would need additional API call to get social links
-        updated_at: Utc::now(),
-    })
+        };
+        return Ok(token_info);
+    }
+
+    Err(crate::error::WebToolError::Api(format!(
+        "No pairs found for token address: {}",
+        token_address
+    )))
 }
 
-fn format_dex_name(dex_id: &str) -> String {
+/// Format a DEX ID into a human-readable display name
+pub fn format_dex_name(dex_id: &str) -> String {
     match dex_id {
         "uniswap" => "Uniswap V2".to_string(),
         "uniswapv3" => "Uniswap V3".to_string(),
@@ -833,7 +693,8 @@ fn format_dex_name(dex_id: &str) -> String {
     }
 }
 
-fn format_chain_name(chain_id: &str) -> String {
+/// Format a chain ID into a human-readable display name
+pub fn format_chain_name(chain_id: &str) -> String {
     match chain_id {
         "ethereum" => "Ethereum".to_string(),
         "bsc" => "Binance Smart Chain".to_string(),
@@ -847,7 +708,8 @@ fn format_chain_name(chain_id: &str) -> String {
     }
 }
 
-fn get_native_token(chain_id: &str) -> String {
+/// Get the native token symbol for a given blockchain
+pub fn get_native_token(chain_id: &str) -> String {
     match chain_id {
         "ethereum" => "ETH".to_string(),
         "bsc" => "BNB".to_string(),
@@ -863,8 +725,11 @@ fn get_native_token(chain_id: &str) -> String {
 
 /// Parse search results from DexScreener API
 async fn parse_search_results(response: &str) -> crate::error::Result<Vec<TokenInfo>> {
-    let dex_response: crate::dexscreener_api::DexScreenerResponse = serde_json::from_str(response)
-        .map_err(|e| crate::error::WebToolError::Parsing(e.to_string()))?;
+    // Parse into raw response and convert to clean types
+    let dex_response_raw: crate::dexscreener_api::DexScreenerResponseRaw =
+        serde_json::from_str(response)
+            .map_err(|e| crate::error::WebToolError::Parsing(e.to_string()))?;
+    let dex_response: crate::dexscreener_api::DexScreenerResponse = dex_response_raw.into();
 
     // Group pairs by token and aggregate data
     let mut tokens_map = std::collections::HashMap::new();
@@ -878,7 +743,7 @@ async fn parse_search_results(response: &str) -> crate::error::Result<Vec<TokenI
                 name: pair.base_token.name.clone(),
                 symbol: pair.base_token.symbol.clone(),
                 decimals: 18, // Default, as DexScreener doesn't provide this
-                price_usd: pair.price_usd.as_ref().and_then(|p| p.parse().ok()),
+                price_usd: pair.price_usd,
                 market_cap: pair.market_cap,
                 volume_24h: pair.volume.as_ref().and_then(|v| v.h24),
                 price_change_24h: pair.price_change.as_ref().and_then(|pc| pc.h24),
@@ -925,8 +790,8 @@ async fn parse_search_results(response: &str) -> crate::error::Result<Vec<TokenI
                 name: pair.quote_token.name.clone(),
                 symbol: pair.quote_token.symbol.clone(),
             },
-            price_usd: pair.price_usd.and_then(|p| p.parse().ok()),
-            price_native: pair.price_native.parse().ok(),
+            price_usd: pair.price_usd,
+            price_native: Some(pair.price_native),
             volume_24h: pair.volume.and_then(|v| v.h24),
             price_change_24h: pair.price_change.and_then(|pc| pc.h24),
             liquidity_usd: pair.liquidity.and_then(|l| l.usd),
@@ -961,8 +826,11 @@ async fn parse_trending_response(response: &str) -> crate::error::Result<Vec<Tok
 
 /// Parse trading pairs response
 async fn parse_pairs_response(response: &str) -> crate::error::Result<Vec<TokenPair>> {
-    let dex_response: crate::dexscreener_api::DexScreenerResponse = serde_json::from_str(response)
-        .map_err(|e| crate::error::WebToolError::Parsing(e.to_string()))?;
+    // Parse into raw response and convert to clean types
+    let dex_response_raw: crate::dexscreener_api::DexScreenerResponseRaw =
+        serde_json::from_str(response)
+            .map_err(|e| crate::error::WebToolError::Parsing(e.to_string()))?;
+    let dex_response: crate::dexscreener_api::DexScreenerResponse = dex_response_raw.into();
 
     let pairs: Vec<TokenPair> = dex_response
         .pairs
@@ -985,8 +853,8 @@ async fn parse_pairs_response(response: &str) -> crate::error::Result<Vec<TokenP
                 name: pair.quote_token.name.clone(),
                 symbol: pair.quote_token.symbol.clone(),
             },
-            price_usd: pair.price_usd.and_then(|p| p.parse().ok()),
-            price_native: pair.price_native.parse().ok(),
+            price_usd: pair.price_usd,
+            price_native: Some(pair.price_native),
             volume_24h: pair.volume.and_then(|v| v.h24),
             price_change_24h: pair.price_change.and_then(|pc| pc.h24),
             liquidity_usd: pair.liquidity.and_then(|l| l.usd),
