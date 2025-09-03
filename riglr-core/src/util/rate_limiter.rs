@@ -54,6 +54,14 @@ pub struct RateLimiter {
     strategy: Arc<dyn RateLimitStrategy>,
 }
 
+impl std::fmt::Debug for RateLimiter {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("RateLimiter")
+            .field("strategy", &self.strategy.strategy_name())
+            .finish()
+    }
+}
+
 impl RateLimiter {
     /// Create a new rate limiter with the default token bucket strategy
     pub fn new(max_requests: usize, time_window: Duration) -> Self {
