@@ -21,7 +21,8 @@
 use anyhow::Result;
 use riglr_config::{Config, SolanaNetworkConfig};
 use riglr_core::provider::ApplicationContext;
-use riglr_core::signer::{LocalSolanaSigner, SignerContext, SignerError, UnifiedSigner};
+use riglr_core::signer::{SignerContext, SignerError, UnifiedSigner};
+use riglr_solana_tools::signer::LocalSolanaSigner;
 use riglr_solana_tools::{get_sol_balance, get_spl_token_balance};
 use solana_sdk::signature::Keypair;
 use solana_sdk::signer::Signer;

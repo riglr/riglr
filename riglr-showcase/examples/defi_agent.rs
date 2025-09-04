@@ -43,7 +43,7 @@ async fn main() -> Result<()> {
 
     // Setup DeFi-focused signer
     let keypair = Keypair::new();
-    let signer = Arc::new(LocalSolanaSigner::new(
+    let signer = Arc::new(LocalSolanaSigner::from_keypair_with_url(
         keypair.insecure_clone(),
         "https://api.mainnet-beta.solana.com".to_string(),
     ));
