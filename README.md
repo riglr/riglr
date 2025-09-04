@@ -101,6 +101,57 @@ SignerContext::with_signer(signer, async {
 }).await?;
 ```
 
+## 🔄 Two-Level Error Handling Pattern
+
+RIGLR uses a sophisticated two-level error handling pattern for robust blockchain interactions:
+
+### High-Level: Behavior-Based Retry Logic
+
+At the framework level, errors are classified by behavior (retriable, permanent, rate-limited) not by chain:
+
+```rust
+use riglr_core::ToolError;
+use riglr_core::retry::retry_async;
+
+// Framework automatically retries based on error classification
+let result = retry_async(
+    || async { perform_blockchain_operation().await },
+    |error| match error {
+        ToolError::Retriable(_) => ErrorClass::Retriable,
+        ToolError::RateLimited(_) => ErrorClass::RateLimited,
+        _ => ErrorClass::Permanent,
+    },
+    RetryConfig::default()
+).await?;
+```
+
+### Low-Level: Chain-Specific Error Details
+
+For advanced users who need chain-specific error handling:
+
+```rust
+use riglr_core::ToolError;
+use riglr_solana_tools::SolanaToolError;
+
+match result {
+    Err(tool_error) => {
+        // Try to downcast to get chain-specific error details
+        if let Some(solana_error) = tool_error.source()
+            .and_then(|e| e.downcast_ref::<SolanaToolError>()) {
+            // Access Solana-specific error information
+            match solana_error {
+                SolanaToolError::InsufficientFunds => { /* handle */ },
+                SolanaToolError::BlockhashExpired => { /* retry */ },
+                _ => { /* other handling */ }
+            }
+        }
+    }
+    Ok(value) => { /* success */ }
+}
+```
+
+This pattern provides both simplicity for common cases and power for advanced scenarios.
+
 ## 📚 Documentation
 
 The RIGLR documentation is available at [riglr.com/docs](https://riglr.com/docs) and includes:
