@@ -86,7 +86,10 @@ async fn main() -> anyhow::Result<()> {
     let config = Config::from_env();
 
     let mut composite = CompositeSignerFactory::new();
-    composite.register_factory("dev".into(), Box::new(DevSignerFactory::new(config.clone())));
+    composite.register_factory(
+        "dev".into(),
+        Box::new(DevSignerFactory::new(config.clone())),
+    );
     // Also register as "privy" to match Axum adapter's default auth_type mapping
     composite.register_factory("privy".into(), Box::new(DevSignerFactory::new(config)));
 
