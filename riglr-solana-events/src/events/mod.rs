@@ -10,6 +10,9 @@ pub mod common;
 /// Core event parsing traits and utilities
 pub mod core;
 
+/// Parser types and configurations for Solana events
+pub mod parser_types;
+
 /// Event parser factory and registry for managing protocol-specific parsers
 pub mod factory;
 
@@ -17,8 +20,8 @@ pub mod factory;
 pub mod protocols;
 
 pub use crate::types::{EventMetadata, EventType, ProtocolType, SwapData, TransferData};
-pub use core::{EventParser, GenericEventParser};
 pub use factory::{EventParserRegistry, Protocol};
+pub use parser_types::{GenericEventParseConfig, GenericEventParser, LegacyEventParser};
 
 /// Pattern matching macro for event types with type downcasting.
 ///

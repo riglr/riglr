@@ -108,6 +108,12 @@ impl Event for DummyEvent {
     fn clone_boxed(&self) -> Box<dyn Event> {
         Box::new(self.clone())
     }
+    fn to_json(&self) -> riglr_events_core::error::EventResult<serde_json::Value> {
+        Ok(serde_json::json!({
+            "id": self.id(),
+            "type": "dummy"
+        }))
+    }
 }
 
 /// Build the complete trading pipeline
@@ -292,6 +298,13 @@ impl Event for Transaction {
     fn clone_boxed(&self) -> Box<dyn Event> {
         Box::new(self.clone())
     }
+    fn to_json(&self) -> riglr_events_core::error::EventResult<serde_json::Value> {
+        Ok(serde_json::json!({
+            "from": self.from,
+            "amount": self.amount,
+            "gas_price": self.gas_price
+        }))
+    }
 }
 
 impl AsNumeric for Transaction {
@@ -470,6 +483,13 @@ impl Event for PriceData {
     fn clone_boxed(&self) -> Box<dyn Event> {
         Box::new(self.clone())
     }
+    fn to_json(&self) -> riglr_events_core::error::EventResult<serde_json::Value> {
+        Ok(serde_json::json!({
+            "symbol": self.symbol,
+            "price": self.price,
+            "volume": self.volume
+        }))
+    }
 }
 
 impl AsNumeric for PriceData {
@@ -546,6 +566,14 @@ impl Event for DexTrade {
     }
     fn clone_boxed(&self) -> Box<dyn Event> {
         Box::new(self.clone())
+    }
+    fn to_json(&self) -> riglr_events_core::error::EventResult<serde_json::Value> {
+        Ok(serde_json::json!({
+            "pair": self.pair,
+            "protocol": format!("{:?}", self.protocol),
+            "price": self.price,
+            "volume": self.volume
+        }))
     }
 }
 // impl Event for DexTrade { ... }

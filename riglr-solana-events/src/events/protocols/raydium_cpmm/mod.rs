@@ -9,7 +9,7 @@ pub use parser::*;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::events::core::traits::EventParser;
+    use crate::events::parser_types::LegacyEventParser;
     use riglr_events_core::{Event, EventKind};
     use solana_sdk::pubkey::Pubkey;
     use std::collections::HashMap;

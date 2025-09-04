@@ -120,6 +120,10 @@ impl Event for MeteoraSwapEvent {
     fn clone_boxed(&self) -> Box<dyn Event> {
         Box::new(self.clone())
     }
+
+    fn to_json(&self) -> riglr_events_core::error::EventResult<serde_json::Value> {
+        Ok(serde_json::to_value(self)?)
+    }
 }
 
 /// Meteora DLMM liquidity event
@@ -192,6 +196,10 @@ impl Event for MeteoraLiquidityEvent {
     fn clone_boxed(&self) -> Box<dyn Event> {
         Box::new(self.clone())
     }
+
+    fn to_json(&self) -> riglr_events_core::error::EventResult<serde_json::Value> {
+        Ok(serde_json::to_value(self)?)
+    }
 }
 
 /// Meteora Dynamic AMM liquidity event
@@ -263,6 +271,10 @@ impl Event for MeteoraDynamicLiquidityEvent {
 
     fn clone_boxed(&self) -> Box<dyn Event> {
         Box::new(self.clone())
+    }
+
+    fn to_json(&self) -> riglr_events_core::error::EventResult<serde_json::Value> {
+        Ok(serde_json::to_value(self)?)
     }
 }
 

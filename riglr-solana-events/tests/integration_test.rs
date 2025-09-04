@@ -11,19 +11,22 @@ use std::str::FromStr;
 
 #[test]
 fn test_event_metadata_creation() {
-    // Test creating EventMetadata (which is now SolanaEventMetadata) using the helper
-    let program_id = Pubkey::from_str("11111111111111111111111111111112").unwrap();
-
-    let metadata = riglr_solana_events::types::metadata_helpers::create_solana_metadata(
+    // Test creating SolanaEventMetadata using the new non-duplicating pattern
+    let core_metadata = riglr_solana_events::metadata_helpers::create_core_metadata(
         "test-id".to_string(),
+        EventKind::Swap,
+        "solana".to_string(),
+        Some(1640995200),
+    );
+
+    let metadata = SolanaEventMetadata::new(
         "test-signature".to_string(),
         12345,
-        1640995200,
-        ProtocolType::Jupiter,
         EventType::Swap,
-        program_id,
+        ProtocolType::Jupiter,
         "0".to_string(),
         1640995200000,
+        core_metadata,
     );
 
     assert_eq!(metadata.signature, "test-signature");

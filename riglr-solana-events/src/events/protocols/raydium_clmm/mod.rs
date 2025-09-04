@@ -11,7 +11,7 @@ pub use parser::{RaydiumClmmEventParser, RAYDIUM_CLMM_PROGRAM_ID};
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::events::core::traits::EventParser;
+    use crate::events::parser_types::LegacyEventParser;
     use solana_sdk::pubkey::Pubkey;
 
     #[test]

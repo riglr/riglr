@@ -479,6 +479,13 @@ where
     fn clone_boxed(&self) -> Box<dyn Event> {
         Box::new(self.clone())
     }
+
+    fn to_json(&self) -> riglr_events_core::error::EventResult<serde_json::Value> {
+        match self {
+            MergedEvent::First(e) => e.to_json(),
+            MergedEvent::Second(e) => e.to_json(),
+        }
+    }
 }
 
 /// Event wrapper for batched events
@@ -534,6 +541,22 @@ where
 
     fn clone_boxed(&self) -> Box<dyn Event> {
         Box::new(self.clone())
+    }
+
+    fn to_json(&self) -> riglr_events_core::error::EventResult<serde_json::Value> {
+        let events_json: Result<Vec<_>, _> = self.events
+            .iter()
+            .map(|e| e.to_json())
+            .collect();
+        
+        Ok(serde_json::json!({
+            "batch_id": self.batch_id,
+            "timestamp": self.timestamp.duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs(),
+            "events": events_json?,
+            "event_count": self.events.len()
+        }))
     }
 }
 
@@ -1001,6 +1024,17 @@ where
 
     fn clone_boxed(&self) -> Box<dyn Event> {
         Box::new(self.clone())
+    }
+
+    fn to_json(&self) -> riglr_events_core::error::EventResult<serde_json::Value> {
+        Ok(serde_json::json!({
+            "scan_id": self.scan_id,
+            "state": format!("{:?}", self.state),
+            "original_event": self.original_event.to_json()?,
+            "timestamp": self.timestamp.duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs()
+        }))
     }
 }
 
@@ -1515,6 +1549,13 @@ impl Event for TypeErasedEvent {
 
     fn clone_boxed(&self) -> Box<dyn Event> {
         Box::new(self.clone())
+    }
+
+    fn to_json(&self) -> riglr_events_core::error::EventResult<serde_json::Value> {
+        Ok(serde_json::json!({
+            "source_stream": self.source_stream,
+            "inner_event": self.inner.to_json()?
+        }))
     }
 }
 
@@ -2038,6 +2079,19 @@ mod tests {
 
         fn clone_boxed(&self) -> Box<dyn Event> {
             Box::new(self.clone())
+        }
+
+        fn to_json(&self) -> riglr_events_core::error::EventResult<serde_json::Value> {
+            Ok(serde_json::json!({
+                "id": self.id,
+                "value": self.value,
+                "metadata": {
+                    "kind": format!("{:?}", self.metadata.kind),
+                    "source": self.metadata.source,
+                    "timestamp": self.metadata.timestamp.timestamp(),
+                    "chain_data": self.metadata.chain_data
+                }
+            }))
         }
     }
 

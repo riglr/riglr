@@ -1,5 +1,6 @@
 use crate::solana_metadata::SolanaEventMetadata;
 use borsh::{BorshDeserialize, BorshSerialize};
+use riglr_events_core::error::EventResult;
 use riglr_events_core::EventMetadata as CoreEventMetadata;
 use riglr_events_core::{Event, EventKind};
 use serde::{Deserialize, Serialize};
@@ -9,7 +10,7 @@ use std::any::Any;
 
 /// Raydium CPMM Swap event
 #[derive(
-    Clone, Debug, PartialEq, Eq, Serialize, Deserialize, BorshSerialize, BorshDeserialize, Default,
+    Clone, Debug, PartialEq, Eq, Serialize, Deserialize, BorshSerialize, BorshDeserialize,
 )]
 pub struct RaydiumCpmmSwapEvent {
     /// Event metadata (excluded from serialization)
@@ -73,11 +74,15 @@ impl Event for RaydiumCpmmSwapEvent {
     fn clone_boxed(&self) -> Box<dyn Event> {
         Box::new(self.clone())
     }
+
+    fn to_json(&self) -> EventResult<serde_json::Value> {
+        Ok(serde_json::to_value(self)?)
+    }
 }
 
 /// Raydium CPMM Deposit event
 #[derive(
-    Clone, Debug, PartialEq, Eq, Serialize, Deserialize, BorshSerialize, BorshDeserialize, Default,
+    Clone, Debug, PartialEq, Eq, Serialize, Deserialize, BorshSerialize, BorshDeserialize,
 )]
 pub struct RaydiumCpmmDepositEvent {
     /// Event metadata (excluded from serialization)
@@ -126,7 +131,98 @@ impl Event for RaydiumCpmmDepositEvent {
     fn clone_boxed(&self) -> Box<dyn Event> {
         Box::new(self.clone())
     }
+
+    fn to_json(&self) -> EventResult<serde_json::Value> {
+        Ok(serde_json::to_value(self)?)
+    }
 }
+
+// Custom Default implementations with correct EventKind
+impl Default for RaydiumCpmmSwapEvent {
+    fn default() -> Self {
+        use riglr_events_core::EventMetadata;
+        use chrono::{DateTime, Utc};
+        use std::collections::HashMap;
+        
+        // Use a fixed timestamp for reproducible tests
+        let fixed_timestamp = DateTime::from_timestamp(0, 0).unwrap_or_else(Utc::now);
+        let core = EventMetadata {
+            id: String::default(),
+            kind: EventKind::Swap,
+            timestamp: fixed_timestamp,
+            received_at: fixed_timestamp, // Use same fixed timestamp for received_at
+            source: "solana".to_string(),
+            chain_data: None,
+            custom: HashMap::new(),
+        };
+
+        let metadata = SolanaEventMetadata::new(
+            String::default(),                          // signature
+            0,                                         // slot
+            crate::types::EventType::Swap,             // event_type
+            crate::types::ProtocolType::RaydiumCpmm,   // protocol_type
+            String::default(),                         // index
+            0,                                         // program_received_time_ms
+            core,
+        );
+
+        Self {
+            metadata,
+            pool_state: Default::default(),
+            payer: Default::default(),
+            input_token_account: Default::default(),
+            output_token_account: Default::default(),
+            input_vault: Default::default(),
+            output_vault: Default::default(),
+            input_token_mint: Default::default(),
+            output_token_mint: Default::default(),
+            amount_in: 0,
+            amount_out: 0,
+            trade_fee: 0,
+            transfer_fee: 0,
+        }
+    }
+}
+
+impl Default for RaydiumCpmmDepositEvent {
+    fn default() -> Self {
+        use riglr_events_core::EventMetadata;
+        use chrono::{DateTime, Utc};
+        use std::collections::HashMap;
+        
+        // Use a fixed timestamp for reproducible tests
+        let fixed_timestamp = DateTime::from_timestamp(0, 0).unwrap_or_else(Utc::now);
+        let core = EventMetadata {
+            id: String::default(),
+            kind: EventKind::Liquidity,
+            timestamp: fixed_timestamp,
+            received_at: fixed_timestamp, // Use same fixed timestamp for received_at
+            source: "solana".to_string(),
+            chain_data: None,
+            custom: HashMap::new(),
+        };
+
+        let metadata = SolanaEventMetadata::new(
+            String::default(),                          // signature
+            0,                                         // slot
+            crate::types::EventType::AddLiquidity,     // event_type
+            crate::types::ProtocolType::RaydiumCpmm,   // protocol_type
+            String::default(),                         // index
+            0,                                         // program_received_time_ms
+            core,
+        );
+
+        Self {
+            metadata,
+            pool_state: Default::default(),
+            user: Default::default(),
+            lp_token_amount: 0,
+            token_0_amount: 0,
+            token_1_amount: 0,
+        }
+    }
+}
+
 /// Event discriminators module
 pub mod discriminators {
     /// String identifier for swap events

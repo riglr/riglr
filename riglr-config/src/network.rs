@@ -45,42 +45,6 @@ mod test_env_vars {
     }
 }
 
-/// Helper to extract values by prefix
-#[cfg(test)]
-pub fn extract_by_prefix(prefix: &str) -> Vec<(String, String)> {
-    std::env::vars()
-        .filter(|(k, _)| k.starts_with(prefix))
-        .collect()
-}
-
-/// Helper to extract and parse chain IDs from RPC_URL_{CHAIN_ID} pattern
-#[cfg(test)]
-pub fn extract_chain_rpc_urls() -> Vec<(u64, String)> {
-    extract_by_prefix("RPC_URL_")
-        .into_iter()
-        .filter_map(|(key, value)| {
-            key.strip_prefix("RPC_URL_")
-                .and_then(|chain_id| chain_id.parse::<u64>().ok())
-                .map(|id| (id, value))
-        })
-        .collect()
-}
-
-/// Helper to extract and parse contract addresses
-#[cfg(test)]
-pub fn extract_contract_overrides(chain_id: u64) -> Vec<(String, String)> {
-    let prefixes = ["ROUTER_", "QUOTER_", "FACTORY_", "WETH_", "USDC_", "USDT_"];
-
-    prefixes
-        .iter()
-        .filter_map(|prefix| {
-            let key = format!("{}{}", prefix, chain_id);
-            std::env::var(&key)
-                .ok()
-                .map(|value| (prefix.trim_end_matches('_').to_lowercase(), value))
-        })
-        .collect()
-}
 
 /// Network configuration
 #[derive(Debug, Clone, Deserialize, Serialize)]

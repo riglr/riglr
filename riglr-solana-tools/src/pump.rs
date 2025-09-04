@@ -22,7 +22,6 @@ use solana_sdk::{
 };
 use solana_transaction_status::option_serializer::OptionSerializer;
 use solana_transaction_status::UiTransactionEncoding;
-use std::sync::Arc;
 use tracing::{debug, info, warn};
 
 // Rate limiting is now handled via ApplicationContext dependency injection
@@ -556,7 +555,7 @@ pub async fn analyze_pump_transaction(
     signature: SolanaSignature,
     user_address: SolanaAddress,
     token_mint: SolanaAddress,
-    context: &riglr_core::provider::ApplicationContext,
+    _context: &riglr_core::provider::ApplicationContext,
 ) -> Result<PumpTradeAnalysis, ToolError> {
     debug!(
         "Analyzing Pump transaction: {} for user: {} and token: {}",

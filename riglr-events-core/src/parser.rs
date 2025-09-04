@@ -440,8 +440,7 @@ impl EventParser for BinaryEventParser {
         let data = serde_json::json!({
             "format": "binary",
             "hex": hex_data,
-            "length": input.len(),
-            "raw": input
+            "length": input.len()
         });
 
         let event = GenericEvent::with_metadata(metadata, data);

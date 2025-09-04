@@ -91,7 +91,7 @@ Eliminated data duplication between `SolanaEventMetadata` fields and `core.chain
 1. Introduced `create_core_metadata()` function that creates base `EventMetadata` without Solana-specific chain data
 2. Refactored all `create_solana_metadata()` usage to use the new non-duplicating pattern
 3. Updated all protocol event constructors to avoid putting Solana fields in both wrapper and chain_data
-4. Maintained backward compatibility by deprecating the old duplication-prone functions
+4. **REMOVED** deprecated `create_solana_metadata()` function completely - breaking change for 0.3.0 release
 
 ### Data Flow
 
@@ -149,6 +149,6 @@ let solana_metadata = SolanaEventMetadata::new(
     core,
 );
 
-// AVOID: Deprecated functions that duplicate data
-let metadata = create_solana_metadata(/* many params that duplicate between wrapper and chain_data */);
+// REMOVED: Deprecated function (breaking change in 0.3.0)
+// let metadata = create_solana_metadata(/* many params that duplicate between wrapper and chain_data */);
 ```

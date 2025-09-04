@@ -9,8 +9,8 @@ use crate::{
     error::ParseResult,
     events::{
         common::utils::{validate_account_count, validate_data_length},
-        core::{EventParser as LegacyEventParser, GenericEventParseConfig},
         factory::SolanaTransactionInput,
+        parser_types::{GenericEventParseConfig, LegacyEventParser},
     },
     solana_metadata::SolanaEventMetadata,
     types::{metadata_helpers, EventType, ProtocolType},

@@ -71,17 +71,134 @@ impl SolanaEventMetadata {
     /// Convert event type to event kind
     pub fn event_kind(&self) -> EventKind {
         match self.event_type {
+            // Core transaction types
             EventType::Swap => EventKind::Swap,
             EventType::Transfer => EventKind::Transfer,
-            EventType::Liquidate => EventKind::Custom("liquidation".to_string()),
-            EventType::Deposit => EventKind::Custom("deposit".to_string()),
-            EventType::Withdraw => EventKind::Custom("withdraw".to_string()),
-            EventType::Borrow => EventKind::Custom("borrow".to_string()),
-            EventType::Repay => EventKind::Custom("repay".to_string()),
-            EventType::CreatePool => EventKind::Custom("create_pool".to_string()),
+            EventType::Transaction => EventKind::Transaction,
+            EventType::Block => EventKind::Block,
+            EventType::ContractEvent => EventKind::Contract,
+
+            // Liquidity operations
             EventType::AddLiquidity => EventKind::Custom("add_liquidity".to_string()),
             EventType::RemoveLiquidity => EventKind::Custom("remove_liquidity".to_string()),
-            _ => EventKind::Custom("unknown".to_string()),
+            EventType::LiquidityProvision => EventKind::Custom("liquidity_provision".to_string()),
+            EventType::LiquidityRemoval => EventKind::Custom("liquidity_removal".to_string()),
+            EventType::IncreaseLiquidity => EventKind::Custom("increase_liquidity".to_string()),
+            EventType::DecreaseLiquidity => EventKind::Custom("decrease_liquidity".to_string()),
+
+            // Position management
+            EventType::OpenPosition => EventKind::Custom("open_position".to_string()),
+            EventType::ClosePosition => EventKind::Custom("close_position".to_string()),
+
+            // Lending operations
+            EventType::Borrow => EventKind::Custom("borrow".to_string()),
+            EventType::Repay => EventKind::Custom("repay".to_string()),
+            EventType::Liquidate => EventKind::Custom("liquidation".to_string()),
+
+            // Token operations
+            EventType::Mint => EventKind::Custom("mint".to_string()),
+            EventType::Burn => EventKind::Custom("burn".to_string()),
+
+            // Pool operations
+            EventType::CreatePool => EventKind::Custom("create_pool".to_string()),
+            EventType::UpdatePool => EventKind::Custom("update_pool".to_string()),
+
+            // Trading operations
+            EventType::Trade => EventKind::Swap,
+
+            // Market data
+            EventType::PriceUpdate => EventKind::Custom("price_update".to_string()),
+            EventType::OrderBook => EventKind::Custom("order_book".to_string()),
+            EventType::FeeUpdate => EventKind::Custom("fee_update".to_string()),
+
+            // General operations
+            EventType::Deposit => EventKind::Custom("deposit".to_string()),
+            EventType::Withdraw => EventKind::Custom("withdraw".to_string()),
+
+            // Bonk protocol events
+            EventType::BonkBuyExactIn => EventKind::Custom("bonk_buy_exact_in".to_string()),
+            EventType::BonkBuyExactOut => EventKind::Custom("bonk_buy_exact_out".to_string()),
+            EventType::BonkSellExactIn => EventKind::Custom("bonk_sell_exact_in".to_string()),
+            EventType::BonkSellExactOut => EventKind::Custom("bonk_sell_exact_out".to_string()),
+            EventType::BonkInitialize => EventKind::Custom("bonk_initialize".to_string()),
+            EventType::BonkMigrateToAmm => EventKind::Custom("bonk_migrate_to_amm".to_string()),
+            EventType::BonkMigrateToCpswap => {
+                EventKind::Custom("bonk_migrate_to_cpswap".to_string())
+            }
+
+            // PumpSwap protocol events
+            EventType::PumpSwapBuy => EventKind::Custom("pumpswap_buy".to_string()),
+            EventType::PumpSwapSell => EventKind::Custom("pumpswap_sell".to_string()),
+            EventType::PumpSwapCreatePool => EventKind::Custom("pumpswap_create_pool".to_string()),
+            EventType::PumpSwapDeposit => EventKind::Custom("pumpswap_deposit".to_string()),
+            EventType::PumpSwapWithdraw => EventKind::Custom("pumpswap_withdraw".to_string()),
+            EventType::PumpSwapSetParams => EventKind::Custom("pumpswap_set_params".to_string()),
+
+            // Raydium general events
+            EventType::RaydiumSwap => EventKind::Custom("raydium_swap".to_string()),
+            EventType::RaydiumDeposit => EventKind::Custom("raydium_deposit".to_string()),
+            EventType::RaydiumWithdraw => EventKind::Custom("raydium_withdraw".to_string()),
+
+            // Raydium AMM V4 events
+            EventType::RaydiumAmmV4SwapBaseIn => {
+                EventKind::Custom("raydium_amm_v4_swap_base_in".to_string())
+            }
+            EventType::RaydiumAmmV4SwapBaseOut => {
+                EventKind::Custom("raydium_amm_v4_swap_base_out".to_string())
+            }
+            EventType::RaydiumAmmV4Deposit => {
+                EventKind::Custom("raydium_amm_v4_deposit".to_string())
+            }
+            EventType::RaydiumAmmV4Initialize2 => {
+                EventKind::Custom("raydium_amm_v4_initialize2".to_string())
+            }
+            EventType::RaydiumAmmV4Withdraw => {
+                EventKind::Custom("raydium_amm_v4_withdraw".to_string())
+            }
+            EventType::RaydiumAmmV4WithdrawPnl => {
+                EventKind::Custom("raydium_amm_v4_withdraw_pnl".to_string())
+            }
+
+            // Raydium CLMM events
+            EventType::RaydiumClmmSwap => EventKind::Custom("raydium_clmm_swap".to_string()),
+            EventType::RaydiumClmmSwapV2 => EventKind::Custom("raydium_clmm_swap_v2".to_string()),
+            EventType::RaydiumClmmCreatePool => {
+                EventKind::Custom("raydium_clmm_create_pool".to_string())
+            }
+            EventType::RaydiumClmmOpenPositionV2 => {
+                EventKind::Custom("raydium_clmm_open_position_v2".to_string())
+            }
+            EventType::RaydiumClmmIncreaseLiquidityV2 => {
+                EventKind::Custom("raydium_clmm_increase_liquidity_v2".to_string())
+            }
+            EventType::RaydiumClmmDecreaseLiquidityV2 => {
+                EventKind::Custom("raydium_clmm_decrease_liquidity_v2".to_string())
+            }
+            EventType::RaydiumClmmClosePosition => {
+                EventKind::Custom("raydium_clmm_close_position".to_string())
+            }
+            EventType::RaydiumClmmOpenPositionWithToken22Nft => {
+                EventKind::Custom("raydium_clmm_open_position_with_token22_nft".to_string())
+            }
+
+            // Raydium CPMM events
+            EventType::RaydiumCpmmSwap => EventKind::Custom("raydium_cpmm_swap".to_string()),
+            EventType::RaydiumCpmmSwapBaseInput => {
+                EventKind::Custom("raydium_cpmm_swap_base_input".to_string())
+            }
+            EventType::RaydiumCpmmSwapBaseOutput => {
+                EventKind::Custom("raydium_cpmm_swap_base_output".to_string())
+            }
+            EventType::RaydiumCpmmDeposit => EventKind::Custom("raydium_cpmm_deposit".to_string()),
+            EventType::RaydiumCpmmWithdraw => {
+                EventKind::Custom("raydium_cpmm_withdraw".to_string())
+            }
+            EventType::RaydiumCpmmCreatePool => {
+                EventKind::Custom("raydium_cpmm_create_pool".to_string())
+            }
+
+            // Fallback for unknown events
+            EventType::Unknown => EventKind::Custom("unknown_event_type".to_string()),
         }
     }
 

@@ -104,6 +104,13 @@ impl Event for TransactionEvent {
     fn clone_boxed(&self) -> Box<dyn Event> {
         Box::new(self.clone())
     }
+
+    fn to_json(&self) -> riglr_events_core::error::EventResult<serde_json::Value> {
+        Ok(serde_json::json!({
+            "signature": self.signature,
+            "slot": self.slot
+        }))
+    }
 }
 
 #[async_trait::async_trait]

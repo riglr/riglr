@@ -11,7 +11,7 @@ pub use parser::{RaydiumAmmV4EventParser, RAYDIUM_AMM_V4_PROGRAM_ID};
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::events::core::traits::EventParser;
+    use crate::events::parser_types::LegacyEventParser;
     use crate::{
         solana_metadata::SolanaEventMetadata,
         types::{EventType, ProtocolType},

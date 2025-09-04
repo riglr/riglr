@@ -238,6 +238,13 @@ impl Event for SwapSummary {
     fn clone_boxed(&self) -> Box<dyn Event> {
         Box::new(self.clone())
     }
+    fn to_json(&self) -> riglr_events_core::error::EventResult<serde_json::Value> {
+        Ok(serde_json::json!({
+            "id": self.id(),
+            "protocol": format!("{:?}", self._protocol),
+            "slot": self._slot
+        }))
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -290,6 +297,12 @@ impl Event for SwapMetrics {
     }
     fn clone_boxed(&self) -> Box<dyn Event> {
         Box::new(self.clone())
+    }
+    fn to_json(&self) -> riglr_events_core::error::EventResult<serde_json::Value> {
+        Ok(serde_json::json!({
+            "id": self.id(),
+            "volume": self.volume
+        }))
     }
 }
 
@@ -370,6 +383,12 @@ impl Event for ArbitrageOpportunity {
     fn clone_boxed(&self) -> Box<dyn Event> {
         Box::new(self.clone())
     }
+    fn to_json(&self) -> riglr_events_core::error::EventResult<serde_json::Value> {
+        Ok(serde_json::json!({
+            "id": self.id(),
+            "spread_percentage": self.spread_percentage
+        }))
+    }
 }
 
 async fn _process_price_update(_event: Arc<dyn Any>) {
@@ -421,6 +440,12 @@ impl Event for BatchResult {
     }
     fn clone_boxed(&self) -> Box<dyn Event> {
         Box::new(self.clone())
+    }
+    fn to_json(&self) -> riglr_events_core::error::EventResult<serde_json::Value> {
+        Ok(serde_json::json!({
+            "id": self.id(),
+            "type": "batch_result"
+        }))
     }
 }
 
