@@ -203,7 +203,7 @@ pub struct NetworkTimeouts {
 /// Network name to chain ID mapping
 static NETWORK_NAME_MAP: Lazy<HashMap<&'static str, u64>> = Lazy::new(|| {
     let mut map = HashMap::new();
-    
+
     // Ethereum networks
     map.insert("ethereum", 1);
     map.insert("mainnet", 1);
@@ -490,7 +490,11 @@ impl NetworkConfig {
     }
 
     /// Validates that chain ID in map matches chain config
-    fn validate_chain_id_consistency(&self, chain_id: u64, chain: &ChainConfig) -> ConfigResult<()> {
+    fn validate_chain_id_consistency(
+        &self,
+        chain_id: u64,
+        chain: &ChainConfig,
+    ) -> ConfigResult<()> {
         if chain.id != chain_id {
             return Err(ConfigError::validation(format!(
                 "Chain ID mismatch: {} vs {}",
@@ -544,11 +548,17 @@ impl NetworkConfig {
             (&chain.contracts.sushiswap_router, "sushiswap_router"),
             (&chain.contracts.sushiswap_factory, "sushiswap_factory"),
             (&chain.contracts.aave_v3_pool, "aave_v3_pool"),
-            (&chain.contracts.aave_v3_pool_data_provider, "aave_v3_pool_data_provider"),
+            (
+                &chain.contracts.aave_v3_pool_data_provider,
+                "aave_v3_pool_data_provider",
+            ),
             (&chain.contracts.aave_v3_oracle, "aave_v3_oracle"),
             (&chain.contracts.compound_v3_usdc, "compound_v3_usdc"),
             (&chain.contracts.curve_registry, "curve_registry"),
-            (&chain.contracts.oneinch_aggregation_router, "oneinch_aggregation_router"),
+            (
+                &chain.contracts.oneinch_aggregation_router,
+                "oneinch_aggregation_router",
+            ),
             (&chain.contracts.balancer_vault, "balancer_vault"),
             (&chain.contracts.quickswap_router, "quickswap_router"),
             (&chain.contracts.gmx_router, "gmx_router"),

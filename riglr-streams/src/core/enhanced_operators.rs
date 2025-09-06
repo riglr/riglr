@@ -44,10 +44,7 @@ where
     /// Returns `None` if no group with the given key exists yet.
     /// Once events start flowing through the stream, groups will be created
     /// automatically based on the key function provided during construction.
-    pub fn get_group(
-        &self,
-        key: K,
-    ) -> Option<broadcast::Receiver<Arc<DynamicStreamedEvent>>> {
+    pub fn get_group(&self, key: K) -> Option<broadcast::Receiver<Arc<DynamicStreamedEvent>>> {
         self.groups.get(&key).map(|sender| sender.subscribe())
     }
 }

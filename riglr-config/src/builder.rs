@@ -61,7 +61,7 @@ impl ConfigBuilder {
     /// Merge AppConfig, taking non-default values from other
     fn merge_app_config(&mut self, other: AppConfig) {
         let default_app = AppConfig::default();
-        
+
         // Use non-default values from other, falling back to current values
         if other.port != default_app.port {
             self.app.port = other.port;
@@ -96,7 +96,7 @@ impl ConfigBuilder {
     /// Merge DatabaseConfig, taking non-default values from other
     fn merge_database_config(&mut self, other: DatabaseConfig) {
         let default_database = DatabaseConfig::default();
-        
+
         if other.redis_url != default_database.redis_url {
             self.database.redis_url = other.redis_url;
         }

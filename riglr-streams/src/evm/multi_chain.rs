@@ -74,9 +74,10 @@ impl MultiChainEvmManager {
         let chain_id_num: u64 = chain_id.into();
         let rpc_url_key = format!("RPC_URL_{}", chain_id_num);
 
-        let http_url = std::env::var(rpc_url_key.clone()).map_err(|_| StreamError::Configuration {
-            message: format!("Missing {} environment variable", rpc_url_key),
-        })?;
+        let http_url =
+            std::env::var(rpc_url_key.clone()).map_err(|_| StreamError::Configuration {
+                message: format!("Missing {} environment variable", rpc_url_key),
+            })?;
 
         // Convert HTTP URL to WebSocket URL
         let ws_url = http_url

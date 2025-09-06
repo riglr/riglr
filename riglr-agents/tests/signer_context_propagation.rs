@@ -15,7 +15,6 @@ use serde_json::Value as JsonValue;
 use solana_sdk::signature::Keypair;
 use std::sync::Arc;
 
-
 /// Test tool that requires SignerContext to function
 #[derive(Debug, Clone)]
 struct SignerRequiringTool;
@@ -71,7 +70,6 @@ impl riglr_core::Tool for SignerRequiringTool {
 
 #[tokio::test]
 async fn test_signer_context_propagates_through_adapter() {
-
     println!("\n=== Testing SignerContext Propagation Through RigToolAdapter ===\n");
 
     // Create a mock signer
@@ -131,7 +129,6 @@ async fn test_signer_context_propagates_through_adapter() {
 /// Test that tools work without SignerContext when they don't need it
 #[tokio::test]
 async fn test_adapter_works_without_signer_for_non_signing_tools() {
-
     println!("\n=== Testing Non-Signing Tools Still Work ===\n");
 
     // Create a tool that doesn't check for SignerContext
