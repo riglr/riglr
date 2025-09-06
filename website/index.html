@@ -715,7 +715,7 @@
     <!-- Hero Section -->
     <section class="hero" id="home">
         <div class="hero-content">
-            <h1>Build Blazing-Fast, Secure<br>Blockchain-Enabled AI Agents in Rust.</h1>
+            <h1>Transform rig Agents into<br>Production Blockchain Applications</h1>
             
             <!-- Status Badges -->
             <div style="display: flex; gap: 0.5rem; justify-content: center; margin-bottom: 1.5rem; flex-wrap: wrap;">
@@ -726,9 +726,9 @@
                 <img src="https://img.shields.io/badge/tools-50%2B-green?style=flat-square" alt="Tools">
             </div>
             <p class="subtitle">
-                <code>riglr</code> extends the <code>rig</code> framework with production-ready blockchain capabilities. 
-                With 19 specialized crates, 50+ verified blockchain tools, and secure key management 
-                for multi-tenant operations, riglr seamlessly adds cross-chain automation to rig agents.
+                <code>rig</code> provides the powerful LLM-to-tool "brain". <code>riglr</code> adds the complete "body" and "nervous system" 
+                for secure, scalable blockchain operations. With enterprise patterns like SignerContext, ApplicationContext, 
+                and multi-agent coordination, riglr elevates rig from a framework to a production platform.
             </p>
             
             <div class="cta-buttons">
@@ -807,107 +807,174 @@ SignerContext::with_signer(unified_signer, async {
         </div>
     </section>
 
-    <!-- Why riglr Section -->
+    <!-- How riglr Elevates rig Section -->
     <section id="why" class="reveal">
         <div class="section-header">
-            <h2>The Unfair Advantage for Building Blockchain-Enabled AI</h2>
-            <p>Building AI agents that can safely and reliably interact with blockchains is hard. 
-               riglr provides the foundational toolkit to do it right.</p>
+            <h2>How riglr Takes rig to Production</h2>
+            <p>While rig provides the powerful "brain" for LLM-to-tool orchestration, riglr adds the complete "body" and "nervous system" <br>required for agents to operate securely, reliably, and at scale in the complex blockchain environment.</p>
         </div>
 
         <div class="why-grid">
             <div class="why-item">
                 <div class="why-number">1</div>
                 <div class="why-content">
-                    <h3>A Library, Not a Framework</h3>
-                    <p class="tagline">Alternatives give you a restrictive application. riglr gives you a powerful, unopinionated library.</p>
-                    <p>Our core philosophy is to empower, not constrain. riglr is architected as a collection of modular crates. 
-                       Need only Solana tools? Just import <code>riglr-solana-tools</code>. Building an EVM-only agent? 
-                       Use <code>riglr-evm-tools</code>. This modularity ensures your application remains lean, flexible, 
-                       and free from the technical debt of monolithic frameworks.</p>
+                    <h3>SignerContext: Transactional Security</h3>
+                    <p class="tagline">Solve the hardest problem in blockchain AI: secure key management</p>
+                    <p><strong>The Problem:</strong> How can an LLM-driven agent sign transactions without exposing private keys to the reasoning loop? How do you ensure multi-tenant safety?</p>
+                    <p><strong>The riglr Solution:</strong> Our <code>SignerContext</code> uses task-local storage to scope signers to specific async tasks. Keys are never passed as parameters, they're available only within secure <code>with_signer</code> blocks, and automatically cleaned up on exit. Each concurrent request gets complete isolation.</p>
                 </div>
             </div>
 
             <div class="why-item">
                 <div class="why-number">2</div>
                 <div class="why-content">
-                    <h3>Production-Grade Security & Concurrency</h3>
-                    <p class="tagline">Build secure, multi-tenant blockchain services with confidence.</p>
-                    <p>riglr provides a <strong>SignerContext</strong> system that uses thread-local storage to isolate user operations. 
-                       Each request automatically uses the correct user's credentials without manual key management. 
-                       This approach simplifies building concurrent applications that safely handle multiple user wallets, 
-                       reducing the complexity and potential security issues common in blockchain applications.</p>
+                    <h3>ApplicationContext: Clean Dependency Injection</h3>
+                    <p class="tagline">Decouple tools from concrete implementations</p>
+                    <p><strong>The Problem:</strong> How can tools access shared resources (RPC clients, API keys, databases) without hardcoding or creating circular dependencies?</p>
+                    <p><strong>The riglr Solution:</strong> The <code>ApplicationContext</code> holds shared resources wrapped in Arc. Tools retrieve dependencies as extensions, enforcing a clean dependency graph. This enables easy testing with mock clients and flexible configuration for any number of chains or services.</p>
                 </div>
             </div>
 
             <div class="why-item">
                 <div class="why-number">3</div>
                 <div class="why-content">
-                    <h3>Native rig Integration, Not Reinvention</h3>
-                    <p class="tagline">riglr extends the rig framework, it doesn't replace it. Leverage the full power of rig's reasoning, not a custom-built alternative.</p>
-                    <p>We believe in the power of the rig agent model. riglr is designed to be a pure extension, providing the blockchain tools 
-                       and context that rig agents need to operate. We don't reinvent the reasoning loop or the agent lifecycle. 
-                       This means your riglr-powered agent benefits directly from every improvement and feature added to the core rig framework.</p>
+                    <h3>#[tool] Macro: Superior Developer Experience</h3>
+                    <p class="tagline">Eliminate boilerplate while maintaining type safety</p>
+                    <p><strong>The Problem:</strong> Manually implementing rig's Tool trait requires verbose boilerplate for serialization, schema generation, and error handling.</p>
+                    <p><strong>The riglr Solution:</strong> Our <code>#[tool]</code> macro automates everything: generates serde-compatible args structs, derives JSON schemas, integrates doc comments as descriptions, and handles error conversion. Write async functions, get production-ready tools.</p>
                 </div>
             </div>
 
             <div class="why-item">
                 <div class="why-number">4</div>
                 <div class="why-content">
-                    <h3>Unmatched Developer Experience</h3>
-                    <p class="tagline">Write business logic, not boilerplate. The #[tool] macro is your superpower.</p>
-                    <p>Defining a new blockchain tool in riglr is as simple as writing a single async function. Our powerful <code>#[tool]</code> macro handles everything else:
-                       automatic Tool trait implementation, JSON schema generation, structured error handling, and seamless SignerContext access.</p>
+                    <h3>Two-Level Error Handling</h3>
+                    <p class="tagline">Intelligent error classification for blockchain operations</p>
+                    <p><strong>The Problem:</strong> Blockchain operations fail for many reasons - some temporary (network timeouts), others permanent (invalid address). Simple errors can't distinguish.</p>
+                    <p><strong>The riglr Solution:</strong> High-level <code>ToolError</code> classifies failures as Retriable, Permanent, RateLimited, or InvalidInput. The ToolWorker implements automatic retry with exponential backoff. Chain-specific errors provide detailed context when needed.</p>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- Rig Integration Section -->
+    <!-- Beyond rig: Advanced Systems Section -->
     <section class="reveal">
         <div class="section-header">
-            <h2>Built for rig: Seamless Framework Extension</h2>
-            <p>riglr is designed from the ground up to extend rig's powerful agent framework with blockchain superpowers</p>
+            <h2>Beyond Single Agents: Production Systems</h2>
+            <p>riglr extends rig's single-agent model into comprehensive systems for real-world deployment</p>
         </div>
         
-        <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 1rem; padding: 2rem; margin-bottom: 2rem;">
-            <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 2rem; align-items: center;">
-                <div style="text-align: center;">
-                    <div style="font-size: 3rem; color: var(--primary); margin-bottom: 1rem;">
-                        <i class="fas fa-puzzle-piece"></i>
+        <div style="display: grid; gap: 2rem; margin-bottom: 3rem;">
+            <!-- Multi-Agent Coordination -->
+            <div style="background: var(--bg-card); border: 1px solid var(--primary); border-radius: 1rem; padding: 2rem;">
+                <h3 style="color: var(--primary); margin-bottom: 1.5rem;">
+                    <i class="fas fa-users"></i> Multi-Agent Coordination (riglr-agents)
+                </h3>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; align-items: center;">
+                    <div>
+                        <p style="color: var(--text-secondary); margin-bottom: 1rem;">
+                            Create "swarms" of specialized agents that collaborate on complex tasks:
+                        </p>
+                        <ul style="color: var(--text-secondary); list-style: none; padding-left: 0;">
+                            <li style="margin-bottom: 0.5rem;"><i class="fas fa-check" style="color: var(--primary); margin-right: 0.5rem;"></i><strong>Agent Specialization:</strong> ResearchAgent, RiskAgent, ExecutionAgent</li>
+                            <li style="margin-bottom: 0.5rem;"><i class="fas fa-check" style="color: var(--primary); margin-right: 0.5rem;"></i><strong>Registry System:</strong> Local or Redis-based discovery</li>
+                            <li style="margin-bottom: 0.5rem;"><i class="fas fa-check" style="color: var(--primary); margin-right: 0.5rem;"></i><strong>Smart Dispatcher:</strong> Capability, LeastLoaded, RoundRobin</li>
+                            <li style="margin-bottom: 0.5rem;"><i class="fas fa-check" style="color: var(--primary); margin-right: 0.5rem;"></i><strong>Inter-Agent Communication:</strong> Built-in messaging</li>
+                        </ul>
                     </div>
-                    <h3 style="color: var(--text-primary);">rig provides the brain</h3>
-                    <p style="color: var(--text-secondary);">LLM orchestration, agent framework, and reasoning capabilities</p>
+                    <div style="background: var(--bg-darker); border-radius: 0.5rem; padding: 1rem;">
+                        <pre><code class="language-rust">// Complex workflow with specialized agents
+let research_task = Task::new(
+    TaskType::Research, 
+    json!({ "query": "Analyze SOL price trends" })
+);
+let research = dispatcher.dispatch_task(research_task).await?;
+
+let risk_task = Task::new(
+    TaskType::RiskAnalysis, 
+    research.data()
+);
+let risk = dispatcher.dispatch_task(risk_task).await?;
+
+if risk.is_approved() {
+    let execution_task = Task::new(
+        TaskType::Trading,
+        json!({ "action": "buy", "amount": 100 })
+    );
+    dispatcher.dispatch_task(execution_task).await?;
+}</code></pre>
+                    </div>
                 </div>
-                <div style="background: var(--bg-darker); border-radius: 0.5rem; padding: 1.5rem;">
-                    <pre><code class="language-rust">use riglr_agents::agents::tool_calling::ToolCallingAgentBuilder;
-use riglr_agents::toolset::Toolset;
-use riglr_core::provider::ApplicationContext;
+            </div>
 
-// Setup application context with RPC client
-let app_context = ApplicationContext::from_env();
-app_context.set_extension(Arc::new(
-    solana_client::rpc_client::RpcClient::new(rpc_url)
-));
+            <!-- Real-Time Event Streaming -->
+            <div style="background: var(--bg-card); border: 1px solid var(--secondary); border-radius: 1rem; padding: 2rem;">
+                <h3 style="color: var(--secondary); margin-bottom: 1.5rem;">
+                    <i class="fas fa-stream"></i> Real-Time Event Streaming (riglr-streams)
+                </h3>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; align-items: center;">
+                    <div>
+                        <p style="color: var(--text-secondary); margin-bottom: 1rem;">
+                            Make agents <strong>proactive</strong> rather than reactive:
+                        </p>
+                        <ul style="color: var(--text-secondary); list-style: none; padding-left: 0;">
+                            <li style="margin-bottom: 0.5rem;"><i class="fas fa-check" style="color: var(--primary); margin-right: 0.5rem;"></i><strong>Multi-Source:</strong> Solana Geyser, EVM WebSockets, Binance</li>
+                            <li style="margin-bottom: 0.5rem;"><i class="fas fa-check" style="color: var(--primary); margin-right: 0.5rem;"></i><strong>Resilient:</strong> Auto-reconnect, circuit breakers, backoff</li>
+                            <li style="margin-bottom: 0.5rem;"><i class="fas fa-check" style="color: var(--primary); margin-right: 0.5rem;"></i><strong>Composable:</strong> map, filter, throttle, debounce, batch</li>
+                            <li style="margin-bottom: 0.5rem;"><i class="fas fa-check" style="color: var(--primary); margin-right: 0.5rem;"></i><strong>Event-Triggered:</strong> Auto-execute on conditions</li>
+                        </ul>
+                    </div>
+                    <div style="background: var(--bg-darker); border-radius: 0.5rem; padding: 1rem;">
+                        <pre><code class="language-rust">// Complex pipeline with fluent API
+let solana_stream = SolanaGeyserStream::new(...);
+let processed = solana_stream
+    .filter(|e| matches!(e.kind(), EventKind::Swap))
+    .map(extract_swap_metrics)
+    .throttle(Duration::from_secs(10))
+    .batch(50, Duration::from_secs(60));
 
-// Discover and configure tools
-let toolset = Toolset::new()
-    .with_solana_tools()    // 20+ Solana operations
-    .with_evm_tools()        // Uniswap, transfers, gas optimization
-    .with_web_tools();       // DexScreener, Twitter sentiment
+// React to real-time events
+processed.subscribe(|batch| async {
+    if batch.volume > threshold {
+        agent.execute_strategy(batch).await?;
+    }
+}).await;</code></pre>
+                    </div>
+                </div>
+            </div>
 
-// Build the agent with rig integration
-let openai_client = rig::providers::openai::Client::new(&api_key);
-let agent = ToolCallingAgentBuilder::new(toolset, app_context)
-    .build(openai_client.agent("gpt-4o"))
+            <!-- Production-Grade Indexing -->
+            <div style="background: var(--bg-card); border: 1px solid var(--accent); border-radius: 1rem; padding: 2rem;">
+                <h3 style="color: var(--accent); margin-bottom: 1.5rem;">
+                    <i class="fas fa-database"></i> Production-Grade Indexing (riglr-indexer)
+                </h3>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; align-items: center;">
+                    <div>
+                        <p style="color: var(--text-secondary); margin-bottom: 1rem;">
+                            Give agents historical context and analytics:
+                        </p>
+                        <ul style="color: var(--text-secondary); list-style: none; padding-left: 0;">
+                            <li style="margin-bottom: 0.5rem;"><i class="fas fa-check" style="color: var(--primary); margin-right: 0.5rem;"></i><strong>High-Performance:</strong> Built for high-throughput streams</li>
+                            <li style="margin-bottom: 0.5rem;"><i class="fas fa-check" style="color: var(--primary); margin-right: 0.5rem;"></i><strong>Robust Storage:</strong> PostgreSQL + Redis caching</li>
+                            <li style="margin-bottom: 0.5rem;"><i class="fas fa-check" style="color: var(--primary); margin-right: 0.5rem;"></i><strong>Pluggable Pipeline:</strong> Ingestion, processing, validation</li>
+                            <li style="margin-bottom: 0.5rem;"><i class="fas fa-check" style="color: var(--primary); margin-right: 0.5rem;"></i><strong>Real-Time API:</strong> REST + WebSocket endpoints</li>
+                        </ul>
+                    </div>
+                    <div style="background: var(--bg-darker); border-radius: 0.5rem; padding: 1rem;">
+                        <pre><code class="language-rust">// Agent queries historical data
+let historical = indexer
+    .query_swaps()
+    .wallet("alice.sol")
+    .token("BONK")
+    .time_range(last_24h)
+    .execute()
     .await?;
 
-// Natural language -> Blockchain actions
-let task = Task::new(
-    TaskType::Custom("tool_calling".to_string()),
-    json!({ "prompt": "Send 1 SOL to alice.sol" })
-);
-let result = dispatcher.dispatch_task(task).await?;</code></pre>
+// Make informed decisions
+let avg_price = historical.average_price();
+let volume_trend = historical.volume_trend();
+agent.analyze_and_decide(avg_price, volume_trend).await?;</code></pre>
+                    </div>
                 </div>
             </div>
         </div>
@@ -916,24 +983,27 @@ let result = dispatcher.dispatch_task(task).await?;</code></pre>
     <!-- Architecture Section -->
     <section id="architecture" class="reveal">
         <div class="section-header">
-            <h2>An Architecture for Resilience and Scale</h2>
-            <p>riglr isn't just a collection of functions; it's a thoughtfully designed system for building robust blockchain applications.</p>
+            <h2>Enterprise Architecture Patterns</h2>
+            <p>riglr establishes robust, chain-agnostic patterns that form the foundation for production blockchain applications.</p>
         </div>
 
         <div class="architecture-content">
             <div class="architecture-text">
-                <h3>Secure Key Management</h3>
-                <p>riglr uses a SignerContext to provide thread-local storage for user credentials. 
-                   This allows tools to remain stateless while safely accessing the appropriate signer for transactions, 
-                   simplifying multi-tenant application development.</p>
+                <h3>🔐 Thread-Local Signer Isolation</h3>
+                <p>The <code>SignerContext</code> pattern ensures complete isolation between concurrent users. Each async task gets its own 
+                   signer scope, preventing cross-contamination in multi-tenant environments. Keys are never exposed to the LLM reasoning loop.</p>
                 
-                <h3>Modular Crates</h3>
-                <p>riglr is organized into a workspace of independent crates. This design means you only compile and depend on the functionality you need. 
-                   Building a Solana-only agent? You don't need to pull in any EVM dependencies.</p>
+                <h3>🎯 Dependency Injection Container</h3>
+                <p>The <code>ApplicationContext</code> decouples tools from concrete implementations. RPC clients, API keys, and databases 
+                   are injected as extensions, enabling clean testing with mocks and supporting multiple chains without code changes.</p>
                 
-                <h3>Intelligent Error Handling</h3>
-                <p>Network calls fail. Transactions get reverted. riglr is built for the real world. Our ToolError enum classifies failures into 
-                   Permanent, Retriable, and RateLimited, allowing intelligent decisions about whether to retry failed operations.</p>
+                <h3>🔄 Behavioral Error Classification</h3>
+                <p>Two-level error handling separates high-level behavior (Retriable, Permanent, RateLimited) from low-level details 
+                   (BlockhashExpired, InsufficientFunds). The ToolWorker uses this classification for automatic retry with exponential backoff.</p>
+                
+                <h3>⚙️ Unified Configuration System</h3>
+                <p>Hierarchical, environment-driven config with fail-fast validation. The <code>RPC_URL_{CHAIN_ID}</code> convention allows 
+                   adding new EVM chains via environment variables without any code changes.</p>
             </div>
             
             <div class="architecture-diagram">
