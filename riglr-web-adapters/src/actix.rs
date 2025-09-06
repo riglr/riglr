@@ -24,7 +24,15 @@ impl ActixRiglrAdapter {
         Self { signer_factory }
     }
 
-    /// Detect authentication type from request headers
+    /// Detect authentication type from request headers.
+    ///
+    /// The detection logic is as follows:
+    /// 1. If the `x-auth-type` header is present, its value is used.
+    /// 2. If the header is absent and exactly one `SignerFactory` is registered in the
+    ///    `CompositeSignerFactory`, that factory's auth type is used as the default.
+    /// 3. If the header is absent and multiple factories are registered, an error is
+    ///    returned, as the auth type is ambiguous.
+    /// 4. If no factories are registered, an error is returned.
     fn detect_auth_type(
         &self,
         req: &HttpRequest,
@@ -34,15 +42,26 @@ impl ActixRiglrAdapter {
             return Ok(auth_type.to_str()?.to_string());
         }
 
-        // Fall back to registered auth types - use first one as default
+        // Check how many auth providers are registered
         let supported_types = self.signer_factory.supported_auth_types();
-        if supported_types.is_empty() {
-            return Err("No authentication providers registered".into());
-        }
 
-        // For now, return the first registered type
-        // In the future, this could inspect the JWT to determine the issuer
-        Ok(supported_types[0].clone())
+        match supported_types.len() {
+            0 => {
+                // No providers configured
+                Err("No authentication providers registered".into())
+            }
+            1 => {
+                // Single provider - use as default
+                Ok(supported_types[0].clone())
+            }
+            _ => {
+                // Multiple providers - require explicit header
+                Err(
+                    "`x-auth-type` header is required when multiple auth providers are configured"
+                        .into(),
+                )
+            }
+        }
     }
 
     /// Extract authentication data from request headers
@@ -328,7 +347,7 @@ mod tests {
 
         async fn sign_and_send_transaction(
             &self,
-            _tx: &mut solana_sdk::transaction::Transaction,
+            _tx: &mut Vec<u8>,
         ) -> Result<String, riglr_core::signer::SignerError> {
             if self.should_fail {
                 return Err(riglr_core::signer::SignerError::Signing(
@@ -338,10 +357,9 @@ mod tests {
             Ok("mock_solana_signature".to_string())
         }
 
-        fn client(&self) -> std::sync::Arc<solana_client::rpc_client::RpcClient> {
-            std::sync::Arc::new(solana_client::rpc_client::RpcClient::new(
-                "http://localhost:8899",
-            ))
+        fn client(&self) -> std::sync::Arc<dyn std::any::Any + Send + Sync> {
+            let client = solana_client::rpc_client::RpcClient::new("http://localhost:8899");
+            std::sync::Arc::new(client)
         }
     }
 
@@ -357,7 +375,7 @@ mod tests {
 
         async fn sign_and_send_transaction(
             &self,
-            _tx: alloy::rpc::types::TransactionRequest,
+            _tx: serde_json::Value,
         ) -> Result<String, riglr_core::signer::SignerError> {
             if self.should_fail {
                 return Err(riglr_core::signer::SignerError::Signing(
@@ -463,6 +481,17 @@ mod tests {
                 should_fail_create_signer: true,
             }
         }
+
+        fn with_multiple_auth_types() -> Self {
+            Self {
+                supported_types: vec![
+                    "privy".to_string(),
+                    "web3auth".to_string(),
+                    "magic".to_string(),
+                ],
+                should_fail_create_signer: false,
+            }
+        }
     }
 
     #[async_trait::async_trait]
@@ -546,6 +575,28 @@ mod tests {
 
         let result = adapter.detect_auth_type(&req);
         assert!(result.is_ok());
+    }
+
+    #[test]
+    async fn test_detect_auth_type_multiple_providers_missing_header_should_fail() {
+        let signer_factory = Arc::new(MockSignerFactory::with_multiple_auth_types());
+        let adapter = ActixRiglrAdapter::new(signer_factory);
+        let req = test::TestRequest::default().to_http_request();
+        let result = adapter.detect_auth_type(&req);
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err().to_string(),
+            "`x-auth-type` header is required when multiple auth providers are configured"
+        );
+    }
+
+    #[test]
+    async fn test_detect_auth_type_single_provider_missing_header_should_succeed() {
+        let signer_factory = Arc::new(MockSignerFactory::new());
+        let adapter = ActixRiglrAdapter::new(signer_factory);
+        let req = test::TestRequest::default().to_http_request();
+        let auth_type = adapter.detect_auth_type(&req).unwrap();
+        assert_eq!(auth_type, "privy");
     }
 
     #[test]
