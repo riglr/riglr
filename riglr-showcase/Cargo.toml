@@ -76,7 +76,7 @@ solana-commitment-config = { workspace = true }
 
 # Additional dependencies for processors module
 async-trait = "0.1"
-reqwest = { version = "0.11", features = ["json"] }
+reqwest = { version = "0.12", features = ["json"] }
 
 # Authentication dependencies
 jsonwebtoken = "9.0"
