@@ -325,9 +325,16 @@ Focus on extracting clear, actionable parameters from the natural language descr
         let job_result = SignerContext::with_signer(self.unified_signer.clone(), async {
             let signer = SignerContext::current_as_solana().await?;
 
-            let mut tx = solana_sdk::transaction::Transaction::default();
+            // Create a default transaction and serialize it to bytes
+            let tx = solana_sdk::transaction::Transaction::default();
+            let mut tx_bytes = bincode::serialize(&tx).map_err(|e| {
+                riglr_core::signer::SignerError::Configuration(format!(
+                    "Failed to serialize transaction: {}",
+                    e
+                ))
+            })?;
             let signature = signer
-                .sign_and_send_transaction(&mut tx)
+                .sign_and_send_transaction(&mut tx_bytes)
                 .await
                 .map_err(|e| {
                     riglr_core::signer::SignerError::Configuration(format!(
@@ -511,7 +518,7 @@ async fn test_intelligent_agent_decision_making() {
         .get_funded_keypair(0)
         .expect("Failed to get sender keypair");
 
-    let solana_signer = LocalSolanaSigner::new(
+    let solana_signer = LocalSolanaSigner::from_keypair_with_url(
         sender_keypair.insecure_clone(),
         harness.rpc_url().to_string(),
     );
@@ -643,7 +650,7 @@ async fn test_ai_agent_integration_workflow() {
         initial_lamports as f64 / LAMPORTS_PER_SOL as f64
     );
 
-    let solana_signer = LocalSolanaSigner::new(
+    let solana_signer = LocalSolanaSigner::from_keypair_with_url(
         sender_keypair.insecure_clone(),
         harness.rpc_url().to_string(),
     );
@@ -772,8 +779,10 @@ async fn test_natural_language_task_processing() {
         .get_funded_keypair(0)
         .expect("Failed to get keypair");
 
-    let solana_signer =
-        LocalSolanaSigner::new(keypair.insecure_clone(), harness.rpc_url().to_string());
+    let solana_signer = LocalSolanaSigner::from_keypair_with_url(
+        keypair.insecure_clone(),
+        harness.rpc_url().to_string(),
+    );
     let unified_signer: Arc<dyn UnifiedSigner> = Arc::new(solana_signer);
 
     let intelligent_agent = IntelligentTradingAgent::new(unified_signer.clone());
@@ -879,8 +888,10 @@ async fn test_ai_agent_error_handling() {
         .get_funded_keypair(0)
         .expect("Failed to get keypair");
 
-    let solana_signer =
-        LocalSolanaSigner::new(keypair.insecure_clone(), harness.rpc_url().to_string());
+    let solana_signer = LocalSolanaSigner::from_keypair_with_url(
+        keypair.insecure_clone(),
+        harness.rpc_url().to_string(),
+    );
     let unified_signer: Arc<dyn UnifiedSigner> = Arc::new(solana_signer);
 
     let intelligent_agent = IntelligentTradingAgent::new(unified_signer.clone());
@@ -945,7 +956,8 @@ mod tests {
     #[tokio::test]
     async fn test_intelligent_agent_capabilities() {
         let keypair = Keypair::new();
-        let signer = LocalSolanaSigner::new(keypair, "http://localhost:8899".to_string());
+        let signer =
+            LocalSolanaSigner::from_keypair_with_url(keypair, "http://localhost:8899".to_string());
         let unified_signer: Arc<dyn UnifiedSigner> = Arc::new(signer);
 
         let agent = IntelligentTradingAgent::new(unified_signer);
@@ -968,7 +980,10 @@ mod tests {
     #[test]
     fn test_amount_extraction() {
         let agent_keypair = Keypair::new();
-        let signer = LocalSolanaSigner::new(agent_keypair, "http://localhost:8899".to_string());
+        let signer = LocalSolanaSigner::from_keypair_with_url(
+            agent_keypair,
+            "http://localhost:8899".to_string(),
+        );
         let unified_signer: Arc<dyn UnifiedSigner> = Arc::new(signer);
 
         let agent = IntelligentTradingAgent::new(unified_signer);
@@ -995,7 +1010,10 @@ mod tests {
     #[test]
     fn test_address_extraction() {
         let agent_keypair = Keypair::new();
-        let signer = LocalSolanaSigner::new(agent_keypair, "http://localhost:8899".to_string());
+        let signer = LocalSolanaSigner::from_keypair_with_url(
+            agent_keypair,
+            "http://localhost:8899".to_string(),
+        );
         let unified_signer: Arc<dyn UnifiedSigner> = Arc::new(signer);
 
         let agent = IntelligentTradingAgent::new(unified_signer);

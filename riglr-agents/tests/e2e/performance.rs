@@ -447,8 +447,10 @@ async fn test_high_throughput_task_processing() {
             .get_funded_keypair(i % 3) // Reuse some keypairs
             .expect("Failed to get keypair");
 
-        let signer =
-            LocalSolanaSigner::new(keypair.insecure_clone(), harness.rpc_url().to_string());
+        let signer = LocalSolanaSigner::from_keypair_with_url(
+            keypair.insecure_clone(),
+            harness.rpc_url().to_string(),
+        );
         let unified_signer: Arc<dyn UnifiedSigner> = Arc::new(signer);
 
         let agent = Arc::new(LoadTestAgent::new(
@@ -630,8 +632,10 @@ async fn test_agent_system_under_load() {
             .get_funded_keypair(i)
             .expect("Failed to get keypair");
 
-        let signer =
-            LocalSolanaSigner::new(keypair.insecure_clone(), harness.rpc_url().to_string());
+        let signer = LocalSolanaSigner::from_keypair_with_url(
+            keypair.insecure_clone(),
+            harness.rpc_url().to_string(),
+        );
         let unified_signer: Arc<dyn UnifiedSigner> = Arc::new(signer);
 
         // Longer processing delay for stress testing
@@ -842,8 +846,10 @@ async fn test_memory_and_resource_management() {
             .get_funded_keypair(i)
             .expect("Failed to get keypair");
 
-        let signer =
-            LocalSolanaSigner::new(keypair.insecure_clone(), harness.rpc_url().to_string());
+        let signer = LocalSolanaSigner::from_keypair_with_url(
+            keypair.insecure_clone(),
+            harness.rpc_url().to_string(),
+        );
         let unified_signer: Arc<dyn UnifiedSigner> = Arc::new(signer);
 
         let agent = Arc::new(LoadTestAgent::new(
@@ -984,7 +990,10 @@ async fn test_system_latency_benchmarks() {
         .get_funded_keypair(0)
         .expect("Failed to get keypair");
 
-    let signer = LocalSolanaSigner::new(keypair.insecure_clone(), harness.rpc_url().to_string());
+    let signer = LocalSolanaSigner::from_keypair_with_url(
+        keypair.insecure_clone(),
+        harness.rpc_url().to_string(),
+    );
     let unified_signer: Arc<dyn UnifiedSigner> = Arc::new(signer);
 
     let agent = Arc::new(LoadTestAgent::new(
@@ -1108,7 +1117,8 @@ mod tests {
     #[tokio::test]
     async fn test_load_test_agent_capabilities() {
         let keypair = Keypair::new();
-        let signer = LocalSolanaSigner::new(keypair, "http://localhost:8899".to_string());
+        let signer =
+            LocalSolanaSigner::from_keypair_with_url(keypair, "http://localhost:8899".to_string());
         let unified_signer: Arc<dyn UnifiedSigner> = Arc::new(signer);
         let metrics = Arc::new(PerformanceMetrics::default());
 

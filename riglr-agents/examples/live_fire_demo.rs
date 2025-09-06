@@ -76,24 +76,11 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
 
     let config = riglr_core::Config::from_env();
 
-    // Validate configuration with EVM address validator if needed
-    // This shows the new pattern for address validation after Task 1 architectural changes
-    #[cfg(feature = "evm")]
-    {
-        use riglr_evm_common::validation::EvmAddressValidator;
-        config
-            .network
-            .validate_config(Some(&EvmAddressValidator))
-            .expect("Invalid EVM addresses in configuration");
-    }
-    #[cfg(not(feature = "evm"))]
-    {
-        // Skip EVM address validation when EVM support is disabled
-        config
-            .network
-            .validate_config(None)
-            .expect("Configuration validation failed");
-    }
+    // Validate basic configuration (skip blockchain-specific address validation for this demo)
+    config
+        .network
+        .validate_config(None)
+        .expect("Configuration validation failed");
 
     let app_context = ApplicationContext::from_config(&config);
     app_context.set_extension(Arc::new(solana_client::rpc_client::RpcClient::new(
@@ -113,7 +100,8 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
         .await?;
 
     // --- 3. RUN THE DEMO ---
-    let solana_signer = LocalSolanaSigner::new(signer_keypair, devnet_rpc.to_string());
+    let solana_signer =
+        LocalSolanaSigner::new(solana_b58, riglr_config::SolanaNetworkConfig::devnet())?;
     let unified_signer: Arc<dyn UnifiedSigner> = Arc::new(solana_signer);
 
     SignerContext::with_signer(unified_signer, async {
@@ -166,7 +154,9 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
         info!("Waiting 20 seconds for Devnet to confirm...");
         tokio::time::sleep(std::time::Duration::from_secs(20)).await;
         let rpc_client = solana_client::rpc_client::RpcClient::new("https://api.devnet.solana.com");
-        let final_balance = rpc_client.get_balance(&temp_receiver.pubkey())?;
+        let final_balance = rpc_client
+            .get_balance(&temp_receiver.pubkey())
+            .map_err(|e| riglr_core::signer::SignerError::BlockchainTransaction(e.to_string()))?;
         let expected_balance = (0.001 * LAMPORTS_PER_SOL as f64) as u64;
         assert_eq!(
             final_balance, expected_balance,

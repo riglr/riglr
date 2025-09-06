@@ -230,7 +230,7 @@ async fn test_end_to_end_solana_transfer() {
     );
 
     // Create SignerContext with sender's signer - this is the critical integration point
-    let solana_signer = LocalSolanaSigner::new(
+    let solana_signer = LocalSolanaSigner::from_keypair_with_url(
         sender_keypair.insecure_clone(),
         harness.rpc_url().to_string(),
     );
@@ -411,7 +411,7 @@ async fn test_insufficient_balance_error_handling() {
         .get_funded_keypair(1)
         .expect("Failed to get receiver keypair");
 
-    let solana_signer = LocalSolanaSigner::new(
+    let solana_signer = LocalSolanaSigner::from_keypair_with_url(
         sender_keypair.insecure_clone(),
         harness.rpc_url().to_string(),
     );
@@ -511,7 +511,7 @@ async fn test_concurrent_blockchain_operations() {
             .get_funded_keypair((i + num_agents) % 6)
             .expect("Failed to get receiver keypair");
 
-        let solana_signer = LocalSolanaSigner::new(
+        let solana_signer = LocalSolanaSigner::from_keypair_with_url(
             sender_keypair.insecure_clone(),
             harness.rpc_url().to_string(),
         );
@@ -647,7 +647,7 @@ async fn test_network_error_recovery() {
         .get_funded_keypair(1)
         .expect("Failed to get receiver keypair");
 
-    let solana_signer = LocalSolanaSigner::new(
+    let solana_signer = LocalSolanaSigner::from_keypair_with_url(
         sender_keypair.insecure_clone(),
         harness.rpc_url().to_string(),
     );
