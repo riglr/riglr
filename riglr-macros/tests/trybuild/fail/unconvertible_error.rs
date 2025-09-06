@@ -46,7 +46,11 @@ impl std::fmt::Display for CustomBusinessError {
 
 impl std::fmt::Debug for CustomBusinessError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "CustomBusinessError {{ code: {}, details: {} }}", self.code, self.details)
+        write!(
+            f,
+            "CustomBusinessError {{ code: {}, details: {} }}",
+            self.code, self.details
+        )
     }
 }
 

@@ -9,10 +9,10 @@ use thiserror::Error;
 enum CustomError {
     #[error("Network issue: {0}")]
     NetworkIssue(String),
-    
+
     #[error("Invalid data: {0}")]
     InvalidData(String),
-    
+
     #[error("Rate limit exceeded")]
     RateLimited,
 }

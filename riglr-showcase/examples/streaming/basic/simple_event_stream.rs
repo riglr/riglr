@@ -11,11 +11,11 @@ use anyhow::Result;
 use riglr_core::{ToolError, ToolResult};
 use riglr_events_core::prelude::*;
 use riglr_showcase::config::Config;
-use riglr_streams::prelude::*;
 use riglr_solana_events::prelude::*;
+use riglr_streams::prelude::*;
 use std::sync::Arc;
 use tokio::time::{sleep, Duration};
-use tracing::{info, error, warn, debug};
+use tracing::{debug, error, info, warn};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -42,10 +42,12 @@ async fn main() -> Result<()> {
     let rpc_url = config.network.solana_rpc_url.clone();
     info!("🔗 Connecting to Solana RPC: {}", rpc_url);
 
-    connection_manager.connect({
-        let rpc_url = rpc_url.clone();
-        move || create_solana_connection(rpc_url.clone())
-    }).await?;
+    connection_manager
+        .connect({
+            let rpc_url = rpc_url.clone();
+            move || create_solana_connection(rpc_url.clone())
+        })
+        .await?;
 
     let health = connection_manager.health().await;
     info!("✅ Connection established: {:?}", health);
@@ -140,7 +142,10 @@ fn process_event_batch(connection: &SolanaConnection) -> u64 {
     // Simulate processing time and batch size
     let batch_size = fastrand::u64(1..=10);
 
-    debug!("🔄 Processing batch of {} events on {}", batch_size, connection.rpc_url);
+    debug!(
+        "🔄 Processing batch of {} events on {}",
+        batch_size, connection.rpc_url
+    );
 
     batch_size
 }
@@ -158,7 +163,9 @@ impl UnifiedEventHandler {
     }
 
     async fn handle_event(&self, event: Box<dyn Event>) -> ToolResult<()> {
-        let count = self.processed_count.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let count = self
+            .processed_count
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
 
         // Log event details
         info!("📦 Processing event #{}: {}", count, event.id());
@@ -237,7 +244,8 @@ impl UnifiedEventHandler {
     }
 
     fn get_processed_count(&self) -> u64 {
-        self.processed_count.load(std::sync::atomic::Ordering::Relaxed)
+        self.processed_count
+            .load(std::sync::atomic::Ordering::Relaxed)
     }
 }
 
@@ -267,12 +275,14 @@ mod tests {
         let manager = ConnectionManager::new(config);
 
         // Test connection
-        let result = manager.connect(|| async {
-            Ok(SolanaConnection {
-                rpc_url: "ws://localhost:8900".into(),
-                connected_at: std::time::Instant::now(),
+        let result = manager
+            .connect(|| async {
+                Ok(SolanaConnection {
+                    rpc_url: "ws://localhost:8900".into(),
+                    connected_at: std::time::Instant::now(),
+                })
             })
-        }).await;
+            .await;
 
         assert!(result.is_ok());
 

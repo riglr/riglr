@@ -16,7 +16,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tokio::time::{Duration, Instant};
-use tracing::{info, debug, warn};
+use tracing::{debug, info, warn};
 
 /// Event filter that routes events based on criteria
 #[derive(Debug)]
@@ -51,13 +51,17 @@ impl EventRouter {
 
     pub fn add_filter(&mut self, filter: EventFilterRule) {
         // Insert in priority order (higher priority first)
-        let pos = self.filters
+        let pos = self
+            .filters
             .iter()
             .position(|f| f.priority < filter.priority)
             .unwrap_or_else(|| self.filters.len());
 
         self.filters.insert(pos, filter);
-        info!("📋 Added filter: {} (priority: {})", self.filters[pos].name, self.filters[pos].priority);
+        info!(
+            "📋 Added filter: {} (priority: {})",
+            self.filters[pos].name, self.filters[pos].priority
+        );
     }
 
     pub async fn route_event(&self, event: &dyn Event) -> Vec<String> {
@@ -81,7 +85,10 @@ impl EventRouter {
 
                 // Update filter stats
                 let mut stats = self.stats.write().await;
-                *stats.filtered_events.entry(filter.name.clone()).or_insert(0) += 1;
+                *stats
+                    .filtered_events
+                    .entry(filter.name.clone())
+                    .or_insert(0) += 1;
             }
         }
 
@@ -90,7 +97,10 @@ impl EventRouter {
         {
             let mut stats = self.stats.write().await;
             for filter_name in &matches {
-                *stats.processing_time_ms.entry(filter_name.clone()).or_insert(0) += processing_time;
+                *stats
+                    .processing_time_ms
+                    .entry(filter_name.clone())
+                    .or_insert(0) += processing_time;
             }
         }
 
@@ -140,15 +150,16 @@ impl EventSequenceMatcher {
             // Pattern: DEX swap followed by arbitrage within 5 seconds
             EventPattern::Sequence(vec![
                 |event: &EventSnapshot| {
-                    event.kind == EventKind::Custom &&
-                    event.data.get("event_type") == Some(&serde_json::Value::String("swap".to_string()))
+                    event.kind == EventKind::Custom
+                        && event.data.get("event_type")
+                            == Some(&serde_json::Value::String("swap".to_string()))
                 },
                 |event: &EventSnapshot| {
-                    event.kind == EventKind::Custom &&
-                    event.data.get("event_type") == Some(&serde_json::Value::String("arbitrage".to_string()))
+                    event.kind == EventKind::Custom
+                        && event.data.get("event_type")
+                            == Some(&serde_json::Value::String("arbitrage".to_string()))
                 },
             ]),
-
             // Pattern: High-value transaction (> $10k)
             EventPattern::Single(|event: &EventSnapshot| {
                 if let Some(amount) = event.data.get("amount").and_then(|v| v.as_f64()) {
@@ -157,7 +168,6 @@ impl EventSequenceMatcher {
                     false
                 }
             }),
-
             // Pattern: Multiple transactions from same address within 1 minute
             EventPattern::Within {
                 pattern: Box::new(EventPattern::Single(|event: &EventSnapshot| {
@@ -199,9 +209,12 @@ struct SwapVolumeHandler;
 
 impl WindowHandler for SwapVolumeHandler {
     fn handle_window(&self, window: &Window<EventSnapshot>) -> ToolResult<()> {
-        let swap_events: Vec<_> = window.events
+        let swap_events: Vec<_> = window
+            .events
             .iter()
-            .filter(|e| e.data.get("event_type") == Some(&serde_json::Value::String("swap".to_string())))
+            .filter(|e| {
+                e.data.get("event_type") == Some(&serde_json::Value::String("swap".to_string()))
+            })
             .collect();
 
         if !swap_events.is_empty() {
@@ -210,8 +223,12 @@ impl WindowHandler for SwapVolumeHandler {
                 .filter_map(|e| e.data.get("amount").and_then(|v| v.as_f64()))
                 .sum();
 
-            info!("💹 Window {} - {} swaps, total volume: ${:.2}",
-                 window.id, swap_events.len(), total_volume);
+            info!(
+                "💹 Window {} - {} swaps, total volume: ${:.2}",
+                window.id,
+                swap_events.len(),
+                total_volume
+            );
         }
 
         Ok(())
@@ -222,13 +239,21 @@ struct LiquidityChangeHandler;
 
 impl WindowHandler for LiquidityChangeHandler {
     fn handle_window(&self, window: &Window<EventSnapshot>) -> ToolResult<()> {
-        let liquidity_events: Vec<_> = window.events
+        let liquidity_events: Vec<_> = window
+            .events
             .iter()
-            .filter(|e| e.data.get("event_type") == Some(&serde_json::Value::String("liquidity_change".to_string())))
+            .filter(|e| {
+                e.data.get("event_type")
+                    == Some(&serde_json::Value::String("liquidity_change".to_string()))
+            })
             .collect();
 
         if !liquidity_events.is_empty() {
-            info!("🌊 Window {} - {} liquidity events", window.id, liquidity_events.len());
+            info!(
+                "🌊 Window {} - {} liquidity events",
+                window.id,
+                liquidity_events.len()
+            );
         }
 
         Ok(())
@@ -243,8 +268,13 @@ impl TimeWindowProcessor {
         };
 
         // Register window handlers
-        processor.window_handlers.insert("swap_volume".to_string(), Box::new(SwapVolumeHandler));
-        processor.window_handlers.insert("liquidity_changes".to_string(), Box::new(LiquidityChangeHandler));
+        processor
+            .window_handlers
+            .insert("swap_volume".to_string(), Box::new(SwapVolumeHandler));
+        processor.window_handlers.insert(
+            "liquidity_changes".to_string(),
+            Box::new(LiquidityChangeHandler),
+        );
 
         processor
     }
@@ -255,8 +285,11 @@ impl TimeWindowProcessor {
 
         // Process completed windows
         for window in completed_windows {
-            debug!("⏰ Processing completed window {} with {} events",
-                  window.id, window.events.len());
+            debug!(
+                "⏰ Processing completed window {} with {} events",
+                window.id,
+                window.events.len()
+            );
 
             for (_name, handler) in &self.window_handlers {
                 if let Err(e) = handler.handle_window(&window) {
@@ -304,10 +337,12 @@ async fn main() -> Result<()> {
     event_router.add_filter(EventFilterRule {
         name: "dex_swaps".to_string(),
         predicate: |event| {
-            event.kind() == EventKind::Custom &&
-            event.data()
-                .and_then(|d| d.get("event_type"))
-                .and_then(|t| t.as_str()) == Some("swap")
+            event.kind() == EventKind::Custom
+                && event
+                    .data()
+                    .and_then(|d| d.get("event_type"))
+                    .and_then(|t| t.as_str())
+                    == Some("swap")
         },
         priority: 80,
         enabled: true,
@@ -317,9 +352,11 @@ async fn main() -> Result<()> {
     event_router.add_filter(EventFilterRule {
         name: "error_events".to_string(),
         predicate: |event| {
-            event.data()
+            event
+                .data()
                 .and_then(|d| d.get("status"))
-                .and_then(|s| s.as_str()) == Some("error")
+                .and_then(|s| s.as_str())
+                == Some("error")
         },
         priority: 90,
         enabled: true,
@@ -329,9 +366,9 @@ async fn main() -> Result<()> {
     let mut sequence_matcher = EventSequenceMatcher::new();
 
     // Create time window processor (5-second tumbling windows)
-    let mut window_processor = TimeWindowProcessor::new(
-        WindowType::Tumbling { duration: Duration::from_secs(5) }
-    );
+    let mut window_processor = TimeWindowProcessor::new(WindowType::Tumbling {
+        duration: Duration::from_secs(5),
+    });
 
     // Simulate event processing
     let mut event_count = 0u64;
@@ -348,13 +385,21 @@ async fn main() -> Result<()> {
         // Route event through filters
         let matched_filters = event_router.route_event(&*event).await;
         if !matched_filters.is_empty() {
-            info!("✅ Event {} matched filters: {:?}", event.id(), matched_filters);
+            info!(
+                "✅ Event {} matched filters: {:?}",
+                event.id(),
+                matched_filters
+            );
         }
 
         // Check for pattern matches
         let pattern_matches = sequence_matcher.match_event(&*event);
         if !pattern_matches.is_empty() {
-            info!("🎯 Event {} matched patterns: {:?}", event.id(), pattern_matches);
+            info!(
+                "🎯 Event {} matched patterns: {:?}",
+                event.id(),
+                pattern_matches
+            );
         }
 
         // Process through time windows
@@ -373,13 +418,20 @@ async fn main() -> Result<()> {
     info!("   Events dropped: {}", stats.dropped_events);
 
     for (filter_name, count) in &stats.filtered_events {
-        let avg_processing_time = stats.processing_time_ms.get(filter_name).unwrap_or(&0) / count.max(1);
-        info!("   Filter '{}': {} matches (avg: {}ms)", filter_name, count, avg_processing_time);
+        let avg_processing_time =
+            stats.processing_time_ms.get(filter_name).unwrap_or(&0) / count.max(1);
+        info!(
+            "   Filter '{}': {} matches (avg: {}ms)",
+            filter_name, count, avg_processing_time
+        );
     }
 
     let elapsed = start_time.elapsed();
-    info!("⏱️  Processing completed in {:?} ({:.2} events/sec)",
-         elapsed, event_count as f64 / elapsed.as_secs_f64());
+    info!(
+        "⏱️  Processing completed in {:?} ({:.2} events/sec)",
+        elapsed,
+        event_count as f64 / elapsed.as_secs_f64()
+    );
 
     Ok(())
 }
@@ -508,9 +560,7 @@ mod tests {
 
     #[test]
     fn test_time_window_processor() {
-        let mut processor = TimeWindowProcessor::new(
-            WindowType::Count { size: 2 }
-        );
+        let mut processor = TimeWindowProcessor::new(WindowType::Count { size: 2 });
 
         let event1 = GenericEvent::new(
             "event1".into(),
