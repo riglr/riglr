@@ -54,6 +54,7 @@ impl ConfigBuilder {
     ///
     /// Non-default values from the other config will override current values.
     /// This allows for layered configuration where later sources take precedence.
+    #[must_use]
     pub fn merge(mut self, other: Config) -> Self {
         self.merge_app_config(other.app);
         self.merge_database_config(other.database);
@@ -196,30 +197,35 @@ impl ConfigBuilder {
     // ==== Bulk Setters ====
 
     /// Set application configuration
+    #[must_use]
     pub fn app(mut self, config: AppConfig) -> Self {
         self.app = config;
         self
     }
 
     /// Set database configuration
+    #[must_use]
     pub fn database(mut self, config: DatabaseConfig) -> Self {
         self.database = config;
         self
     }
 
     /// Set network configuration
+    #[must_use]
     pub fn network(mut self, config: NetworkConfig) -> Self {
         self.network = config;
         self
     }
 
     /// Set providers configuration
+    #[must_use]
     pub fn providers(mut self, config: ProvidersConfig) -> Self {
         self.providers = config;
         self
     }
 
     /// Set features configuration
+    #[must_use]
     pub fn features(mut self, config: FeaturesConfig) -> Self {
         self.features = config;
         self
@@ -239,6 +245,7 @@ impl ConfigBuilder {
     ///     .unwrap();
     /// assert_eq!(config.app.port, 8080);
     /// ```
+    #[must_use]
     pub fn port(mut self, port: u16) -> Self {
         self.app.port = port;
         self
@@ -256,6 +263,7 @@ impl ConfigBuilder {
     ///     .unwrap();
     /// assert_eq!(config.app.log_level, LogLevel::Warn);
     /// ```
+    #[must_use]
     pub fn log_level(mut self, level: LogLevel) -> Self {
         self.app.log_level = level;
         self
@@ -273,6 +281,7 @@ impl ConfigBuilder {
     ///     .unwrap();
     /// assert!(config.app.use_testnet);
     /// ```
+    #[must_use]
     pub fn use_testnet(mut self, use_testnet: bool) -> Self {
         self.app.use_testnet = use_testnet;
         self
@@ -292,6 +301,7 @@ impl ConfigBuilder {
     ///     .unwrap();
     /// assert_eq!(config.database.redis_url, "redis://localhost:6379");
     /// ```
+    #[must_use]
     pub fn redis_url(mut self, url: String) -> Self {
         self.database.redis_url = url;
         self
@@ -309,6 +319,7 @@ impl ConfigBuilder {
     ///     .unwrap();
     /// assert_eq!(config.database.neo4j_url, Some("bolt://localhost:7687".to_string()));
     /// ```
+    #[must_use]
     pub fn neo4j_url(mut self, url: Option<String>) -> Self {
         self.database.neo4j_url = url;
         self
@@ -328,6 +339,7 @@ impl ConfigBuilder {
     ///     .unwrap();
     /// assert_eq!(config.network.solana_rpc_url, "https://api.mainnet-beta.solana.com");
     /// ```
+    #[must_use]
     pub fn solana_rpc_url(mut self, url: String) -> Self {
         self.network.solana_rpc_url = url;
         self
@@ -345,6 +357,7 @@ impl ConfigBuilder {
     ///     .unwrap();
     /// assert_eq!(config.network.default_chain_id, 137);
     /// ```
+    #[must_use]
     pub fn default_chain_id(mut self, id: u64) -> Self {
         self.network.default_chain_id = id;
         self
@@ -364,6 +377,7 @@ impl ConfigBuilder {
     ///     .unwrap();
     /// assert!(config.providers.anthropic_api_key.is_some());
     /// ```
+    #[must_use]
     pub fn anthropic_api_key(mut self, key: Option<String>) -> Self {
         self.providers.anthropic_api_key = key;
         self
@@ -381,6 +395,7 @@ impl ConfigBuilder {
     ///     .unwrap();
     /// assert!(config.providers.openai_api_key.is_some());
     /// ```
+    #[must_use]
     pub fn openai_api_key(mut self, key: Option<String>) -> Self {
         self.providers.openai_api_key = key;
         self
@@ -407,6 +422,7 @@ impl ConfigBuilder {
     /// assert_eq!(config.app.log_level, LogLevel::Debug);
     /// assert!(config.app.use_testnet);
     /// ```
+    #[must_use]
     pub fn development(mut self) -> Self {
         use crate::{Environment, LogLevel};
         self.app.environment = Environment::Development;
@@ -434,6 +450,7 @@ impl ConfigBuilder {
     /// assert_eq!(config.app.log_level, LogLevel::Info);
     /// assert!(config.app.use_testnet);
     /// ```
+    #[must_use]
     pub fn staging(mut self) -> Self {
         use crate::{Environment, LogLevel};
         self.app.environment = Environment::Staging;
@@ -461,6 +478,7 @@ impl ConfigBuilder {
     /// assert_eq!(config.app.log_level, LogLevel::Info);
     /// assert!(!config.app.use_testnet);
     /// ```
+    #[must_use]
     pub fn production(mut self) -> Self {
         use crate::{Environment, LogLevel};
         self.app.environment = Environment::Production;
@@ -487,6 +505,7 @@ impl ConfigBuilder {
     /// assert!(config.app.use_testnet);
     /// assert_eq!(config.network.default_chain_id, 5); // Goerli
     /// ```
+    #[must_use]
     pub fn testnet(mut self) -> Self {
         self.app.use_testnet = true;
         self.network.solana_rpc_url = "https://api.devnet.solana.com".to_string();
@@ -512,6 +531,7 @@ impl ConfigBuilder {
     /// assert!(!config.app.use_testnet);
     /// assert_eq!(config.network.default_chain_id, 1); // Ethereum Mainnet
     /// ```
+    #[must_use]
     pub fn mainnet(mut self) -> Self {
         self.app.use_testnet = false;
         self.network.solana_rpc_url = "https://api.mainnet-beta.solana.com".to_string();
@@ -533,6 +553,7 @@ impl ConfigBuilder {
     ///     .unwrap();
     /// assert!(!config.features.enable_trading);
     /// ```
+    #[must_use]
     pub fn enable_trading(mut self, enabled: bool) -> Self {
         self.features.enable_trading = enabled;
         self
@@ -551,6 +572,7 @@ impl ConfigBuilder {
     ///     .unwrap();
     /// assert!(config.features.enable_graph_memory);
     /// ```
+    #[must_use]
     pub fn enable_graph_memory(mut self, enabled: bool) -> Self {
         self.features.enable_graph_memory = enabled;
         self
@@ -574,6 +596,7 @@ impl ConfigBuilder {
     ///     .build()
     ///     .unwrap();
     /// ```
+    #[must_use]
     pub fn from_file<P: AsRef<std::path::Path>>(mut self, path: P) -> ConfigResult<Self> {
         let content = std::fs::read_to_string(path).map_err(|e| {
             crate::ConfigError::validation(format!("Failed to read config file: {}", e))
@@ -609,6 +632,7 @@ impl ConfigBuilder {
     ///     .build()
     ///     .unwrap();
     /// ```
+    #[must_use]
     pub fn from_env(mut self) -> ConfigResult<Self> {
         // Load .env file if present
         dotenvy::dotenv().ok();

@@ -1,7 +1,23 @@
-//! Application context for resource management
+//! Chain-agnostic application context for dependency injection
 //!
-//! This module provides ApplicationContext for managing shared resources
-//! like RPC clients and configuration across the application.
+//! This module provides the `ApplicationContext` pattern for managing shared resources
+//! and dependencies across the application without circular dependencies.
+//!
+//! # Architecture
+//!
+//! The ApplicationContext enables riglr-core to remain chain-agnostic by using
+//! type erasure and dependency injection. Concrete blockchain implementations
+//! are injected at runtime by the application layer.
+//!
+//! # Dependency Flow
+//!
+//! ```text
+//! Application Layer (creates clients)
+//!         ↓
+//! ApplicationContext (stores as Arc<dyn Any>)
+//!         ↓
+//! Tools/Workers (retrieve by type)
+//! ```
 
 use dashmap::DashMap;
 use riglr_config::Config;
@@ -11,34 +27,46 @@ use std::time::Duration;
 
 use crate::util::RateLimiter;
 
-/// Application context that includes RPC providers and other shared resources
+/// Chain-agnostic context for dependency injection and resource management.
 ///
-/// This context can be passed to tools and workers to provide access to
-/// blockchain RPC clients and other shared application resources.
+/// The ApplicationContext serves as a dependency injection container for
+/// the riglr ecosystem, enabling tools and workers to access shared resources
+/// (RPC clients, signers, database connections) without creating circular dependencies.
 ///
-/// The ApplicationContext uses a type-safe extension system that allows
-/// injecting any shared resource (RPC clients, database connections, etc.)
-/// and retrieving them later by type.
+/// # Chain-Agnostic Design
+///
+/// The context uses type erasure (`Arc<dyn Any>`) to store blockchain clients
+/// without depending on their concrete types. This allows riglr-core to remain
+/// independent of blockchain SDKs while still providing access to them at runtime.
+///
+/// # Extension System
+///
+/// Resources are stored as "extensions" - type-erased objects that can be
+/// retrieved by their original type. This enables clean separation between
+/// riglr-core (which defines the interfaces) and chain-specific crates
+/// (which provide the implementations).
 ///
 /// # Examples
 ///
 /// ```rust,no_run
 /// use riglr_core::provider::ApplicationContext;
 /// use riglr_config::Config;
-/// use solana_client::rpc_client::RpcClient;
 /// use std::sync::Arc;
 ///
-/// // Create context with configuration
+/// // Application layer creates context and injects dependencies
 /// let config = Config::default();
 /// let context = ApplicationContext::from_config(&config);
 ///
-/// // Add a Solana RPC client as an extension
-/// let solana_client = Arc::new(RpcClient::new("https://api.mainnet-beta.solana.com"));
-/// context.set_extension(solana_client.clone());
+/// // Inject Solana RPC client (in real code, from riglr-solana-tools)
+/// // let solana_client = Arc::new(solana_client::rpc_client::RpcClient::new(...));
+/// // context.set_extension(solana_client.clone());
 ///
-/// // Later, retrieve the client by type
-/// let retrieved_client: Arc<RpcClient> = context.get_extension()
-///     .expect("Solana RPC client not found");
+/// // Inject EVM provider (in real code, from riglr-evm-tools)  
+/// // let evm_provider = Arc::new(alloy::providers::Provider::new(...));
+/// // context.set_extension(evm_provider.clone());
+///
+/// // Tools retrieve clients by type
+/// // let client: Option<Arc<RpcClient>> = context.get_extension();
 /// ```
 #[derive(Clone, Debug)]
 pub struct ApplicationContext {
@@ -106,17 +134,17 @@ impl ApplicationContext {
     /// ```rust,no_run
     /// use riglr_core::provider::ApplicationContext;
     /// use riglr_config::Config;
-    /// use solana_client::rpc_client::RpcClient;
     /// use std::sync::Arc;
     ///
     /// let context = ApplicationContext::from_config(&Config::default());
     ///
-    /// // Add Solana RPC client
-    /// let solana_client = Arc::new(RpcClient::new("https://api.mainnet-beta.solana.com"));
-    /// context.set_extension(solana_client);
+    /// // Add blockchain RPC clients as extensions
+    /// // Example: Add Solana RPC client
+    /// // let solana_client = Arc::new(solana_client::rpc_client::RpcClient::new(...));
+    /// // context.set_extension(solana_client);
     ///
-    /// // Add EVM provider (example with alloy)
-    /// // let evm_provider = Arc::new(Provider::new(...));
+    /// // Example: Add EVM provider
+    /// // let evm_provider = Arc::new(alloy::Provider::new(...));
     /// // context.set_extension(evm_provider);
     /// ```
     pub fn set_extension<T: Send + Sync + 'static>(&self, extension: Arc<T>) {
@@ -132,16 +160,16 @@ impl ApplicationContext {
     /// ```rust,no_run
     /// use riglr_core::provider::ApplicationContext;
     /// use riglr_config::Config;
-    /// use solana_client::rpc_client::RpcClient;
     /// use std::sync::Arc;
     ///
     /// let context = ApplicationContext::from_config(&Config::default());
-    /// let client = Arc::new(RpcClient::new("https://api.mainnet-beta.solana.com"));
-    /// context.set_extension(client.clone());
+    /// // Add a typed extension (e.g., an RPC client)
+    /// // let client = Arc::new(MyRpcClient::new(...));
+    /// // context.set_extension(client.clone());
     ///
-    /// // Retrieve the client later
-    /// let retrieved: Arc<RpcClient> = context.get_extension()
-    ///     .expect("RPC client not found");
+    /// // Retrieve the client later by type
+    /// // let retrieved: Arc<MyRpcClient> = context.get_extension()
+    ///     // .expect("RPC client not found");
     /// ```
     pub fn get_extension<T: Send + Sync + 'static>(&self) -> Option<Arc<T>> {
         self.extensions

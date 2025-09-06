@@ -67,7 +67,7 @@ impl Tool for WalletTool {
                 let to_user = params["to_user"].as_str().unwrap_or("unknown");
 
                 if amount <= 0.0 {
-                    return Err(ToolError::invalid_input_string("Amount must be positive").into());
+                    return Err(ToolError::invalid_input_string("Amount must be positive"));
                 }
 
                 // Simulate a transfer operation

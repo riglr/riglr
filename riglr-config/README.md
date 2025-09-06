@@ -10,6 +10,51 @@ This crate consolidates all configuration concerns into a single, well-structure
 - Provides hierarchical organization (app, database, network, providers, features)
 - Includes comprehensive validation and error handling
 
+## Architecture
+
+riglr-config provides a unified configuration system for the entire riglr ecosystem, designed to be the single source of truth for all application settings.
+
+### Design Principles
+
+- **Chain-Agnostic Core**: Configuration loading and validation is independent of blockchain SDKs
+- **Fail-Fast Validation**: Invalid configuration is caught at startup, not runtime
+- **Hierarchical Structure**: Related settings are grouped into logical sections
+- **Convention over Configuration**: Uses patterns like `RPC_URL_{CHAIN_ID}` for flexibility
+- **Pluggable Validation**: Address validation is decoupled via trait-based validators
+- **Arc-Wrapped Sharing**: Configs are Arc-wrapped for efficient multi-threaded access
+
+### Configuration Hierarchy
+
+```
+Config (root)
+├── app: ApplicationConfig
+│   ├── Server settings (port, environment)
+│   ├── Transaction settings (gas, slippage)
+│   └── Retry configuration
+├── database: DatabaseConfig
+│   ├── Redis (required)
+│   ├── Neo4j (optional)
+│   └── ClickHouse (optional)
+├── network: NetworkConfig
+│   ├── Solana RPC URLs
+│   ├── EVM RPC URLs (dynamic)
+│   └── Chain contracts (from chains.toml)
+├── providers: ProvidersConfig
+│   ├── AI providers
+│   ├── Blockchain data providers
+│   └── Market data providers
+└── features: FeaturesConfig
+    └── Feature flags
+```
+
+### Validation Strategy
+
+1. **Environment Loading**: Reads from env vars with optional .env file
+2. **Structural Validation**: Ensures required fields are present
+3. **Format Validation**: Validates URLs, numbers, enums
+4. **Address Validation**: Optional blockchain-specific validation via traits
+5. **Post-Load Validation**: Custom business rule validation
+
 ## Usage
 
 ### Basic Usage
@@ -39,9 +84,19 @@ let config = Config::from_env();
 println!("Redis URL: {}", config.database.redis_url);
 println!("Environment: {:?}", config.app.environment);
 
-// Get RPC URL for a specific chain
-if let Some(rpc_url) = config.network.get_rpc_url(1) {
+// Get RPC URL for a specific chain using chain ID
+if let Some(rpc_url) = config.network.get_rpc_url("1") {
     println!("Ethereum RPC: {}", rpc_url);
+}
+
+// Or using network name (new feature)
+if let Some(rpc_url) = config.network.get_rpc_url("ethereum") {
+    println!("Ethereum RPC: {}", rpc_url);
+}
+
+// For backward compatibility with numeric chain IDs
+if let Some(rpc_url) = config.network.get_rpc_url_by_id(137) {
+    println!("Polygon RPC: {}", rpc_url);
 }
 ```
 
@@ -109,9 +164,23 @@ config.enable_trading
 config.features.enable_trading
 ```
 
-## Address Validation (Breaking Change)
+## Address Validation
 
 **Important**: Starting in v0.3.0, address validation has been decoupled from the core configuration system to maintain architectural purity. This is a **breaking change**.
+
+### Design Rationale
+
+The `AddressValidator` trait represents a deliberate architectural choice to maintain the chain-agnostic purity of `riglr-config`. This design pattern provides several critical benefits:
+
+1. **Dependency Inversion**: The config crate defines the validation interface but doesn't depend on any blockchain-specific implementations. This prevents circular dependencies and keeps the dependency graph clean.
+
+2. **Chain Agnosticism**: `riglr-config` remains completely independent of any blockchain SDKs (Solana, Ethereum, etc.), enforcing the project's unidirectional dependency flow where core crates never depend on chain-specific ones.
+
+3. **Single Source of Truth**: The final application binary becomes the single source of truth for validation logic, allowing it to compose validators based on its specific needs without forcing unnecessary dependencies on other applications.
+
+4. **Extensibility**: New blockchain networks can be supported by simply implementing the `AddressValidator` trait, without modifying the configuration crate itself.
+
+5. **Optional Validation**: Applications that don't need address validation (e.g., off-chain tools) aren't forced to include blockchain dependencies, keeping their dependency tree minimal.
 
 ### New Pattern
 
@@ -188,7 +257,7 @@ The configuration is organized into logical sections:
 
 ### Network Configuration
 - Solana RPC URLs
-- EVM RPC URLs (via `RPC_URL_{CHAIN_ID}` convention)
+- EVM RPC URLs (via `RPC_URL_{CHAIN_ID}` or `RPC_URL_{NETWORK_NAME}` convention)
 - Chain-specific contracts (loaded from chains.toml)
 - Network timeouts
 
@@ -273,16 +342,37 @@ factory = "0x1F98431c8aD98523631AE4a59f267346ea31F984"
 
 ## Dynamic Chain Support
 
-Add support for new chains without code changes:
+Add support for new chains without code changes using either chain IDs or network names:
 
 ```bash
-# Add Optimism support
+# Add Optimism support using chain ID
 export RPC_URL_10=https://optimism-mainnet.alchemyapi.io/v2/your-key
 
-# Override contract addresses
+# OR using network name (more readable)
+export RPC_URL_OPTIMISM=https://optimism-mainnet.alchemyapi.io/v2/your-key
+
+# Other examples with network names
+export RPC_URL_ETHEREUM=https://eth-mainnet.alchemyapi.io/v2/your-key
+export RPC_URL_POLYGON=https://polygon-mainnet.alchemyapi.io/v2/your-key
+export RPC_URL_ARBITRUM=https://arb1.arbitrum.io/rpc
+
+# Override contract addresses (still uses chain ID)
 export ROUTER_10=0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45
 export QUOTER_10=0x61fFE014bA17989E743c5F6cB21bF9697530B21e
 ```
+
+### Supported Network Aliases
+
+Common network names are automatically resolved to their chain IDs:
+- **Ethereum**: ethereum, mainnet, eth → 1
+- **Polygon**: polygon, matic → 137
+- **Arbitrum**: arbitrum, arb → 42161
+- **Optimism**: optimism, op → 10
+- **Base**: base → 8453
+- **BSC**: bsc, binance, bnb → 56
+- **Avalanche**: avalanche, avax → 43114
+
+See `network.rs` for the complete list of supported aliases.
 
 ## Migration Guide
 

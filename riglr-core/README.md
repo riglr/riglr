@@ -5,6 +5,23 @@ The foundational crate for the riglr ecosystem, providing core abstractions for 
 [![Crates.io](https://img.shields.io/crates/v/riglr-core.svg)](https://crates.io/crates/riglr-core)
 [![Documentation](https://docs.rs/riglr-core/badge.svg)](https://docs.rs/riglr-core)
 
+## Architecture
+
+riglr-core is designed as a **chain-agnostic foundation layer** that provides pure abstractions for multi-chain tool orchestration. This crate contains no concrete blockchain implementations or SDK dependencies, ensuring clean separation of concerns.
+
+### Design Principles
+
+- **Pure Abstraction**: All blockchain-specific code resides in tools crates (`riglr-solana-tools`, `riglr-evm-tools`)
+- **Unidirectional Dependencies**: Tools crates depend on core, never the reverse
+- **Type Erasure at Boundaries**: Uses `Arc<dyn Any>` and serialization for cross-boundary data passing
+- **Behavior-based Error Handling**: Errors are classified by behavior (retriable, permanent, rate-limited) not by chain
+
+### Where to Find Implementations
+
+- **Solana Signers**: See `riglr-solana-tools` for `LocalSolanaSigner` and Solana-specific tools
+- **EVM Signers**: See `riglr-evm-tools` for `LocalEvmSigner` and EVM-specific tools
+- **Concrete Examples**: Check the examples in each tools crate for usage patterns
+
 ## 🔒 Production Security Notice
 
 **⚠️ CRITICAL: The file-based key management utilities in riglr-core are for DEVELOPMENT ONLY.**
