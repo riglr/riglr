@@ -72,7 +72,7 @@ futures-util = "0.3"
 # New dependencies for event parsing
 borsh = "0.10"
 hex = "0.4"
-bs58 = "0.4"
+bs58 = "0.5"
 lazy_static = "1.4"
 chrono = { version = "0.4", features = ["serde"] }
 
