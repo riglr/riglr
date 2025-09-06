@@ -1,3 +1,6 @@
+// TODO: Remove this module once SPL libraries are updated to use solana-sdk v3.x.
+// See: https://github.com/riglr/riglr/issues/XX
+//
 //! Type conversion utilities for bridging Solana SDK v3 with SPL libraries built on v2
 //!
 //! # Background

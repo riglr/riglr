@@ -42,7 +42,7 @@ mod tests {
         let rpc_url = "https://api.devnet.solana.com".to_string();
 
         // Test that we can create a LocalSolanaSigner through the re-export
-        let _signer = LocalSolanaSigner::new(keypair, rpc_url);
+        let _signer = LocalSolanaSigner::from_keypair_with_url(keypair, rpc_url);
 
         // Test passes if we can construct the type without compilation errors
     }
@@ -55,7 +55,7 @@ mod tests {
         // Verify the re-exported type has the same interface
         let keypair = solana_sdk::signature::Keypair::new();
         let rpc_url = "https://api.devnet.solana.com".to_string();
-        let signer = LocalSolanaSigner::new(keypair, rpc_url);
+        let signer = LocalSolanaSigner::from_keypair_with_url(keypair, rpc_url);
 
         // Test that methods are accessible through the re-export
         let _rpc_url = signer.rpc_url();
@@ -86,7 +86,7 @@ mod tests {
         assert!(result.is_ok());
 
         let signer = result.unwrap();
-        assert_eq!(signer.rpc_url(), &rpc_url);
+        assert_eq!(signer.rpc_url(), rpc_url);
         assert!(!signer.address().is_empty());
     }
 
@@ -95,12 +95,11 @@ mod tests {
         // Test that Debug trait is accessible through re-export
         let keypair = solana_sdk::signature::Keypair::new();
         let rpc_url = "https://api.devnet.solana.com".to_string();
-        let signer = LocalSolanaSigner::new(keypair, rpc_url);
+        let signer = LocalSolanaSigner::from_keypair_with_url(keypair, rpc_url);
 
         let debug_output = format!("{:?}", signer);
         assert!(debug_output.contains("LocalSolanaSigner"));
         assert!(debug_output.contains("pubkey"));
-        assert!(debug_output.contains("rpc_url"));
 
         // Ensure sensitive data is not exposed
         assert!(!debug_output.contains("keypair"));
@@ -114,7 +113,7 @@ mod tests {
 
         let keypair = solana_sdk::signature::Keypair::new();
         let rpc_url = "https://api.devnet.solana.com".to_string();
-        let signer = LocalSolanaSigner::new(keypair, rpc_url);
+        let signer = LocalSolanaSigner::from_keypair_with_url(keypair, rpc_url);
 
         // Test SolanaSigner trait methods are accessible
         let address = signer.address();

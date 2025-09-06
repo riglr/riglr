@@ -5,6 +5,33 @@ Production-grade Solana blockchain tools for riglr agents, providing comprehensi
 [![Crates.io](https://img.shields.io/crates/v/riglr-solana-tools.svg)](https://crates.io/crates/riglr-solana-tools)
 [![Documentation](https://docs.rs/riglr-solana-tools/badge.svg)](https://docs.rs/riglr-solana-tools)
 
+## Quick Start
+
+### Using LocalSolanaSigner
+
+The `LocalSolanaSigner` is the primary concrete implementation for Solana transaction signing:
+
+```rust
+use riglr_solana_tools::LocalSolanaSigner;
+use riglr_core::{ApplicationContext, UnifiedSigner};
+use std::sync::Arc;
+
+// Create a signer from a base58 private key
+let signer = LocalSolanaSigner::new_from_base58(
+    "your_base58_private_key",
+    "https://api.mainnet-beta.solana.com".to_string(),
+)?;
+
+// Set up application context
+let app_context = ApplicationContext::new()?;
+let unified_signer: Arc<dyn UnifiedSigner> = Arc::new(signer);
+app_context.set_signer(unified_signer).await?;
+
+// Now you can use any Solana tool
+use riglr_solana_tools::transaction::transfer_sol;
+let signature = transfer_sol("recipient_address", 1_000_000_000).await?;
+```
+
 ## Features
 
 - 🔐 **Secure Transaction Management**: Thread-safe ApplicationContext with automatic client injection
@@ -332,6 +359,14 @@ This pattern enables:
 - **Detailed Diagnostics**: Downcast to SolanaToolError for specific error details
 - **Backwards Compatibility**: Code using basic error handling continues to work
 - **Type Safety**: Compile-time guarantees for error handling
+
+## Architectural Notes
+
+### Conversions Module
+
+The `common/conversions` module provides type conversion utilities to work around a version mismatch between our Solana SDK (v3.x) and SPL libraries (which bundle v2.x). This is a temporary workaround that will be removed once SPL libraries are updated to use solana-sdk v3.x directly.
+
+The module handles conversions between incompatible but equivalent types, primarily for `Pubkey` types that exist in both SDK versions. See the module documentation for implementation details.
 
 ## Configuration
 
