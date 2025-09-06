@@ -473,7 +473,6 @@ impl From<serde_json::Error> for ToolError {
     }
 }
 
-
 // Removed generic From<&str> implementation - use explicit error constructors instead
 
 #[cfg(test)]
@@ -708,7 +707,8 @@ mod tests {
     #[test]
     fn test_tool_error_explicit_anyhow_error() {
         let anyhow_error = anyhow::anyhow!("Something went wrong");
-        let tool_error = ToolError::permanent_string(format!("An unknown error occurred: {}", anyhow_error));
+        let tool_error =
+            ToolError::permanent_string(format!("An unknown error occurred: {}", anyhow_error));
         assert!(!tool_error.is_retriable());
         assert!(!tool_error.is_rate_limited());
         assert!(tool_error.to_string().contains("An unknown error occurred"));
@@ -717,7 +717,8 @@ mod tests {
     #[test]
     fn test_tool_error_explicit_boxed_error() {
         let test_error = TestError;
-        let tool_error = ToolError::permanent_with_source(test_error, "A required resource was not found");
+        let tool_error =
+            ToolError::permanent_with_source(test_error, "A required resource was not found");
         assert!(!tool_error.is_retriable());
         assert!(!tool_error.is_rate_limited());
         assert_eq!(tool_error.retry_after(), None);
@@ -732,7 +733,9 @@ mod tests {
         let tool_error = ToolError::retriable_string(error_msg);
         assert!(tool_error.is_retriable());
         assert!(!tool_error.is_rate_limited());
-        assert!(tool_error.to_string().contains("Database connection failed"));
+        assert!(tool_error
+            .to_string()
+            .contains("Database connection failed"));
     }
 
     #[test]

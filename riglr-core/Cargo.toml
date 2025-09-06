@@ -67,6 +67,7 @@ mockito = "1.0"
 proptest = "1.0"
 futures = "0.3"
 chrono = "0.4"
+tracing-subscriber = { workspace = true }
 tempfile = "3.8"
 
 

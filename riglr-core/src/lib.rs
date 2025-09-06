@@ -230,6 +230,8 @@ pub mod idempotency;
 pub mod jobs;
 /// Application context and RPC provider infrastructure.
 pub mod provider;
+/// Extension traits for ergonomic client access.
+pub mod provider_extensions;
 /// Queue implementations for distributed job processing.
 pub mod queue;
 /// Retry logic with exponential backoff for resilient operations.
