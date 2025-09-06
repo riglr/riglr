@@ -67,3 +67,4 @@ mockito = "1.0"
 solana-sdk = { workspace = true }
 solana-client = { workspace = true }
 alloy = { workspace = true }
+riglr-solana-tools = { path = "../riglr-solana-tools" }

@@ -12,6 +12,43 @@ Advanced graph-based memory system for riglr agents, providing persistent knowle
 - ⚡ **High Performance**: Optimized indexing and caching strategies
 - 🛡️ **Production Ready**: Connection pooling, retry logic, and error handling
 
+## Architecture
+
+riglr-graph-memory provides a sophisticated graph-based memory system for AI agents, combining knowledge graphs with vector embeddings for enhanced contextual retrieval.
+
+### Design Principles
+
+- **Graph-First**: Relationships are first-class citizens, not afterthoughts
+- **Entity-Centric**: Automatic extraction and linking of blockchain entities
+- **Hybrid Retrieval**: Combines graph traversal with vector similarity search
+- **Blockchain-Aware**: Built-in understanding of wallets, tokens, protocols, and transactions
+- **Extensible**: Custom entity patterns and relationship types can be added
+- **VectorStore Compatible**: Implements rig's VectorStore trait for agent integration
+
+### Core Components
+
+1. **GraphMemory**: High-level interface for document storage and retrieval
+2. **KnowledgeGraph**: Core graph operations and entity relationship management
+3. **EntityExtractor**: Pattern-based extraction of blockchain entities from text
+4. **GraphRetriever**: VectorStore implementation combining embeddings with graph structure
+5. **Neo4jClient**: Low-level Neo4j database interactions with connection pooling
+
+### Data Model
+
+```
+Document ──has_entity──> Entity
+    │                      │
+    └──similar_to──>       └──relates_to──>
+        Document               Entity
+
+Entity Types:
+- Wallet (addresses)
+- Token (symbols, contracts)
+- Protocol (DeFi protocols)
+- Block (block numbers)
+- Transaction (hashes, types)
+```
+
 ## Installation
 
 Add to your `Cargo.toml`:

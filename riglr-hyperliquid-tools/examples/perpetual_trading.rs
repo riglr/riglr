@@ -4,13 +4,13 @@
 //! a derivatives trading agent using the rig framework.
 
 use riglr_config::{Config, SolanaNetworkConfig};
-use riglr_core::signer::LocalSolanaSigner;
 use riglr_core::{provider::ApplicationContext, signer::SignerError, SignerContext};
 use riglr_hyperliquid_tools::{
     cancel_hyperliquid_order, close_hyperliquid_position, get_hyperliquid_account_info,
     get_hyperliquid_portfolio_risk, get_hyperliquid_positions, place_hyperliquid_order,
     set_leverage,
 };
+use riglr_solana_tools::signer::LocalSolanaSigner;
 use std::sync::Arc;
 use tracing::{info, Level};
 
