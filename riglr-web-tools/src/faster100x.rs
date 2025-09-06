@@ -596,10 +596,8 @@ pub async fn analyze_token_holders(
     let unique_holders = data.unique_holders.unwrap_or(total_holders);
 
     // Convert distribution data
-    let distribution = data
-        .distribution
-        .as_ref()
-        .map_or_else(|| HolderDistribution {
+    let distribution = data.distribution.as_ref().map_or_else(
+        || HolderDistribution {
             top_1_percent: 0.0,
             top_5_percent: 0.0,
             top_10_percent: 0.0,
@@ -607,7 +605,9 @@ pub async fn analyze_token_holders(
             retail_percentage: 0.0,
             gini_coefficient: 0.0,
             holder_categories: HashMap::new(),
-        }, convert_raw_distribution);
+        },
+        convert_raw_distribution,
+    );
 
     // Convert top holders
     let top_holders = data
@@ -617,10 +617,8 @@ pub async fn analyze_token_holders(
         .unwrap_or_default();
 
     // Convert concentration risk
-    let concentration_risk = data
-        .concentration_risk
-        .as_ref()
-        .map_or_else(|| ConcentrationRisk {
+    let concentration_risk = data.concentration_risk.as_ref().map_or_else(
+        || ConcentrationRisk {
             risk_level: "Medium".to_string(),
             risk_score: 50,
             wallets_controlling_50_percent: 0,
@@ -628,20 +626,22 @@ pub async fn analyze_token_holders(
             exchange_holdings_percentage: 0.0,
             locked_holdings_percentage: 0.0,
             risk_factors: vec![],
-        }, convert_raw_concentration_risk);
+        },
+        convert_raw_concentration_risk,
+    );
 
     // Convert recent activity
-    let recent_activity = data
-        .recent_activity
-        .as_ref()
-        .map_or_else(|| HolderActivity {
+    let recent_activity = data.recent_activity.as_ref().map_or_else(
+        || HolderActivity {
             new_holders_24h: 0,
             exited_holders_24h: 0,
             net_holder_change_24h: 0,
             avg_buy_size_24h: 0.0,
             avg_sell_size_24h: 0.0,
             holder_growth_rate_7d: 0.0,
-        }, convert_raw_activity);
+        },
+        convert_raw_activity,
+    );
 
     debug!(
         "Successfully analyzed {} holders for token {} with {}% whale concentration",
