@@ -87,25 +87,24 @@ pub trait AppContextExtension<T> {
 mod tests {
     use super::*;
     use crate::provider::ApplicationContext;
-    
+
     // Mock client for testing
     struct MockClient;
-    
+
     // Implementation of the extension trait for testing
     impl AppContextExtension<MockClient> for ApplicationContext {
         fn get_client(&self) -> Result<Arc<MockClient>, ToolError> {
-            self.get_extension::<MockClient>()
-                .ok_or_else(|| ToolError::permanent_string(
-                    "MockClient not configured in ApplicationContext"
-                ))
+            self.get_extension::<MockClient>().ok_or_else(|| {
+                ToolError::permanent_string("MockClient not configured in ApplicationContext")
+            })
         }
     }
-    
+
     #[test]
     fn test_extension_trait_pattern() {
         // This test demonstrates the pattern but won't run without actual implementation
         // It serves as documentation for how to use the extension traits
-        
+
         // Example of how it would be used:
         // let context = ApplicationContext::new(...);
         // context.add_extension(Arc::new(MockClient));
