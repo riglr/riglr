@@ -653,8 +653,8 @@ mod tests {
             &self.metadata
         }
 
-        fn metadata_mut(&mut self) -> &mut EventMetadata {
-            &mut self.metadata
+        fn metadata_mut(&mut self) -> EventResult<&mut EventMetadata> {
+            Ok(&mut self.metadata)
         }
 
         fn as_any(&self) -> &dyn std::any::Any {
@@ -1474,8 +1474,8 @@ mod tests {
             &self.metadata
         }
 
-        fn metadata_mut(&mut self) -> &mut EventMetadata {
-            &mut self.metadata
+        fn metadata_mut(&mut self) -> EventResult<&mut EventMetadata> {
+            Ok(&mut self.metadata)
         }
 
         fn as_any(&self) -> &dyn std::any::Any {

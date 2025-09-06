@@ -10,12 +10,11 @@ use crate::error::{IndexerError, IndexerResult};
 pub mod batch;
 pub mod consistent_hash;
 pub mod health;
-pub mod rate_limiter;
 
 pub use batch::BatchProcessor;
 pub use consistent_hash::ConsistentHash;
 pub use health::HealthCheck;
-pub use rate_limiter::RateLimiter;
+pub use riglr_core::util::RateLimiter;
 
 /// Retry helper with exponential backoff
 pub async fn retry_with_backoff<F, T, E>(
