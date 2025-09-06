@@ -11,6 +11,33 @@ First-class authentication and signer factory implementations for RIGLR, providi
 - Built-in caching and token validation
 - Multi-tenant support
 
+## Architecture
+
+riglr-auth provides official authentication provider integrations for the riglr ecosystem. It acts as a bridge between external authentication services and the core riglr signing infrastructure.
+
+### Design Principles
+
+- **Provider Abstraction**: Each auth service is wrapped in a unified `SignerFactory` interface
+- **Token Validation**: All providers validate authentication tokens before creating signers
+- **Chain Support**: Providers return `UnifiedSigner` implementations that support both Solana and EVM
+- **Caching**: Built-in token caching to reduce API calls and improve performance
+- **Multi-Tenant Ready**: Each request gets its own isolated signer instance
+
+### Integration Flow
+
+1. **Authentication**: User authenticates with their preferred service (Privy, Web3Auth, etc.)
+2. **Token Validation**: Provider validates the authentication token with the service
+3. **Key Retrieval**: Provider fetches or derives the user's private keys
+4. **Signer Creation**: Provider creates appropriate `LocalSolanaSigner` or `LocalEvmSigner`
+5. **Request Execution**: Signer executes blockchain operations in isolated context
+
+### Key Components
+
+- **AuthProvider**: Factory for creating provider instances from configuration
+- **SignerFactory Trait**: Common interface implemented by all providers
+- **CompositeSignerFactory**: Registry that manages multiple providers
+- **Provider Configs**: Type-safe configuration for each auth service
+
 ## Installation
 
 Add to your `Cargo.toml`:

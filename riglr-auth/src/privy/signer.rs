@@ -102,12 +102,19 @@ impl riglr_core::signer::SolanaSigner for PrivySolanaSigner {
         self.address.clone()
     }
 
-    async fn sign_and_send_transaction(&self, tx: &mut Transaction) -> Result<String, SignerError> {
-        self.sign_and_send_solana_transaction_impl(tx).await
+    async fn sign_and_send_transaction(
+        &self,
+        tx_bytes: &mut Vec<u8>,
+    ) -> Result<String, SignerError> {
+        use bincode::deserialize;
+        let mut tx: Transaction = deserialize(tx_bytes).map_err(|e| {
+            SignerError::Signing(format!("Failed to deserialize transaction: {}", e))
+        })?;
+        self.sign_and_send_solana_transaction_impl(&mut tx).await
     }
 
-    fn client(&self) -> Arc<RpcClient> {
-        self.rpc.clone()
+    fn client(&self) -> Arc<dyn std::any::Any + Send + Sync> {
+        self.rpc.clone() as Arc<dyn std::any::Any + Send + Sync>
     }
 }
 
@@ -324,7 +331,9 @@ impl PrivyEvmSigner {
         &self,
         tx: TransactionRequest,
     ) -> Result<String, SignerError> {
-        self.sign_and_send_transaction(tx).await
+        let tx_json = serde_json::to_value(&tx)
+            .map_err(|e| SignerError::Signing(format!("Failed to serialize transaction: {}", e)))?;
+        self.sign_and_send_transaction(tx_json).await
     }
 }
 
@@ -348,9 +357,13 @@ impl EvmSigner for PrivyEvmSigner {
 
     async fn sign_and_send_transaction(
         &self,
-        tx: TransactionRequest,
+        tx_json: serde_json::Value,
     ) -> Result<String, SignerError> {
         info!("Signing and sending EVM transaction via Privy");
+
+        // Convert JSON to TransactionRequest
+        let tx: TransactionRequest = serde_json::from_value(tx_json)
+            .map_err(|e| SignerError::Signing(format!("Failed to parse transaction: {}", e)))?;
 
         // Convert transaction to Privy format
         let from = tx
