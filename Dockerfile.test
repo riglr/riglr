@@ -1,5 +1,5 @@
 # Dockerfile for running tests in a containerized environment
-FROM rust:1.75
+FROM rust:1.89
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
