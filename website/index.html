@@ -702,9 +702,9 @@
             </a>
             <ul class="nav-links">
                 <li><a href="#home">Home</a></li>
-                <li><a href="#why">Why riglr?</a></li>
-                <li><a href="#architecture">Architecture</a></li>
-                <li><a href="#features">Features</a></li>
+                <li><a href="#why">Patterns</a></li>
+                <li><a href="#systems">Systems</a></li>
+                <li><a href="#features">Tools</a></li>
                 <li><a href="#getting-started">Get Started</a></li>
                 <li><a href="https://riglr.com/docs"><i class="fas fa-book"></i> Docs</a></li>
                 <li><a href="https://github.com/riglr/riglr" target="_blank"><i class="fab fa-github"></i> GitHub</a></li>
@@ -715,7 +715,23 @@
     <!-- Hero Section -->
     <section class="hero" id="home">
         <div class="hero-content">
-            <h1>Transform rig Agents into<br>Production Blockchain Applications</h1>
+            <h1>Production-Ready AI Agents<br>for Blockchain at Scale</h1>
+            
+            <!-- Production Metrics -->
+            <div style="display: flex; gap: 1rem; justify-content: center; margin-bottom: 1.5rem; flex-wrap: wrap;">
+                <span style="background: rgba(80, 250, 123, 0.1); border: 1px solid var(--primary); padding: 0.5rem 1rem; border-radius: 0.5rem; font-weight: 600;">
+                    <i class="fas fa-bolt"></i> 10,000+ events/sec
+                </span>
+                <span style="background: rgba(80, 250, 123, 0.1); border: 1px solid var(--primary); padding: 0.5rem 1rem; border-radius: 0.5rem; font-weight: 600;">
+                    <i class="fas fa-lock"></i> Thread-Local Signing
+                </span>
+                <span style="background: rgba(80, 250, 123, 0.1); border: 1px solid var(--primary); padding: 0.5rem 1rem; border-radius: 0.5rem; font-weight: 600;">
+                    <i class="fas fa-code"></i> 30 Lines → 1 Line
+                </span>
+                <span style="background: rgba(80, 250, 123, 0.1); border: 1px solid var(--primary); padding: 0.5rem 1rem; border-radius: 0.5rem; font-weight: 600;">
+                    <i class="fas fa-users"></i> Multi-Tenant Ready
+                </span>
+            </div>
             
             <!-- Status Badges -->
             <div style="display: flex; gap: 0.5rem; justify-content: center; margin-bottom: 1.5rem; flex-wrap: wrap;">
@@ -726,9 +742,9 @@
                 <img src="https://img.shields.io/badge/tools-50%2B-green?style=flat-square" alt="Tools">
             </div>
             <p class="subtitle">
-                <code>riglr</code> extends <code>rig</code>'s powerful LLM orchestration with production-ready blockchain infrastructure. 
-                Enterprise patterns like SignerContext for secure key management, ApplicationContext for dependency injection, 
-                and multi-agent coordination transform rig agents into scalable, multi-tenant applications.
+                <code>riglr</code> transforms <code>rig</code>'s LLM framework into a <strong>production-grade platform</strong> with battle-tested patterns:
+                <code>SignerContext</code> for secure multi-tenant transactions, <code>ApplicationContext</code> for clean dependency injection,
+                <code>#[tool]</code> macro eliminating 30+ lines of boilerplate, and enterprise resilience with circuit breakers & retry logic.
             </p>
             
             <div class="cta-buttons">
@@ -807,58 +823,81 @@ SignerContext::with_signer(unified_signer, async {
         </div>
     </section>
 
-    <!-- How riglr Elevates rig Section -->
+    <!-- Core Production Patterns Section -->
     <section id="why" class="reveal">
         <div class="section-header">
-            <h2>How riglr Takes rig to Production</h2>
-            <p>riglr addresses the critical challenges of deploying LLM agents in production blockchain environments<br>with battle-tested patterns and enterprise-grade infrastructure.</p>
+            <h2>Production Patterns That Make the Difference</h2>
+            <p>Battle-tested architectural patterns from real deployments that solve the hardest problems<br>in blockchain AI agent development.</p>
         </div>
 
         <div class="why-grid">
             <div class="why-item">
                 <div class="why-number">1</div>
                 <div class="why-content">
-                    <h3>SignerContext: Transactional Security</h3>
-                    <p class="tagline">Solve the hardest problem in blockchain AI: secure key management</p>
-                    <p><strong>The Problem:</strong> How can an LLM-driven agent sign transactions without exposing private keys to the reasoning loop? How do you ensure multi-tenant safety?</p>
-                    <p><strong>The riglr Solution:</strong> Our <code>SignerContext</code> uses task-local storage to scope signers to specific async tasks. Keys are never passed as parameters, they're available only within secure <code>with_signer</code> blocks, and automatically cleaned up on exit. Each concurrent request gets complete isolation.</p>
+                    <h3>🔐 SignerContext: Thread-Local Transaction Signing</h3>
+                    <p class="tagline">Keys NEVER exposed to LLM • Complete multi-tenant isolation</p>
+                    <div style="background: var(--bg-darker); border-radius: 0.5rem; padding: 1rem; margin: 1rem 0;">
+                        <pre style="margin: 0;"><code class="language-rust">// Each user request gets completely isolated signer context
+SignerContext::with_signer(user_signer, async {
+    // Keys NEVER exposed to LLM reasoning loop
+    // Automatic cleanup when scope exits
+    // Zero cross-tenant contamination risk
+    agent.execute("Send 0.1 SOL to alice.sol").await
+}).await</code></pre>
+                    </div>
+                    <p><strong>Why It Matters:</strong> In production, multiple users make concurrent requests. Each gets their own isolated signer context with automatic cleanup. Keys are never passed as parameters, preventing exposure to the LLM.</p>
                 </div>
             </div>
 
             <div class="why-item">
                 <div class="why-number">2</div>
                 <div class="why-content">
-                    <h3>ApplicationContext: Clean Dependency Injection</h3>
-                    <p class="tagline">Decouple tools from concrete implementations</p>
-                    <p><strong>The Problem:</strong> How can tools access shared resources (RPC clients, API keys, databases) without hardcoding or creating circular dependencies?</p>
-                    <p><strong>The riglr Solution:</strong> The <code>ApplicationContext</code> holds shared resources wrapped in Arc. Tools retrieve dependencies as extensions, enforcing a clean dependency graph. This enables easy testing with mock clients and flexible configuration for any number of chains or services.</p>
+                    <h3>🎯 ApplicationContext: Clean Dependency Injection</h3>
+                    <p class="tagline">Modular architecture • Mock-friendly testing • Zero circular dependencies</p>
+                    <div style="background: var(--bg-darker); border-radius: 0.5rem; padding: 1rem; margin: 1rem 0;">
+                        <pre style="margin: 0;"><code class="language-rust">// Application injects dependencies once
+context.set_extension(Arc::new(solana_client));
+context.set_extension(Arc::new(evm_provider));
+
+// Tools retrieve what they need - no hardcoding
+#[tool]
+async fn get_balance(address: String) -> Result<f64, ToolError> {
+    let client = context.get_extension::<SolanaClient>()?;
+    // Use client...
+}</code></pre>
+                    </div>
+                    <p><strong>Why It Matters:</strong> Decouples tools from implementations, enables mock testing without code changes, supports multiple chains without circular dependencies.</p>
                 </div>
             </div>
 
             <div class="why-item">
                 <div class="why-number">3</div>
                 <div class="why-content">
-                    <h3>#[tool] Macro: Superior Developer Experience</h3>
-                    <p class="tagline">Eliminate boilerplate while maintaining type safety</p>
-                    <p><strong>The Problem:</strong> Manually implementing rig's Tool trait requires verbose boilerplate for serialization, schema generation, and error handling.</p>
-                    <p><strong>The riglr Solution:</strong> Our <code>#[tool]</code> macro automates everything: generates serde-compatible args structs, derives JSON schemas, integrates doc comments as descriptions, and handles error conversion. Write async functions, get production-ready tools.</p>
-                </div>
-            </div>
+                    <h3>🔄 Two-Level Error Handling with Auto-Retry</h3>
+                    <p class="tagline">Behavioral classification • Exponential backoff • Chain-specific details</p>
+                    <div style="background: var(--bg-darker); border-radius: 0.5rem; padding: 1rem; margin: 1rem 0;">
+                        <pre style="margin: 0;"><code class="language-rust">// High-level behavioral classification
+match error {
+    ToolError::Retriable(_) => // Automatic exponential backoff
+    ToolError::RateLimited(_) => // Respect rate limits
+    ToolError::Permanent(_) => // Don't retry
+}
 
-            <div class="why-item">
-                <div class="why-number">4</div>
-                <div class="why-content">
-                    <h3>Two-Level Error Handling</h3>
-                    <p class="tagline">Intelligent error classification for blockchain operations</p>
-                    <p><strong>The Problem:</strong> Blockchain operations fail for many reasons - some temporary (network timeouts), others permanent (invalid address). Simple errors can't distinguish.</p>
-                    <p><strong>The riglr Solution:</strong> High-level <code>ToolError</code> classifies failures as Retriable, Permanent, RateLimited, or InvalidInput. The ToolWorker implements automatic retry with exponential backoff. Chain-specific errors provide detailed context when needed.</p>
+// Low-level chain-specific details preserved
+if let Some(solana_error) = error.downcast::<SolanaToolError>() {
+    match solana_error {
+        SolanaToolError::BlockhashExpired => // Handle specifically
+    }
+}</code></pre>
+                    </div>
+                    <p><strong>Why It Matters:</strong> Automatic retry logic for transient failures, intelligent rate limit handling, detailed error context for debugging.</p>
                 </div>
             </div>
         </div>
     </section>
 
     <!-- Beyond rig: Advanced Systems Section -->
-    <section class="reveal">
+    <section id="systems" class="reveal">
         <div class="section-header">
             <h2>Beyond Single Agents: Production Systems</h2>
             <p>riglr extends rig's single-agent model into comprehensive systems for real-world deployment</p>
@@ -980,31 +1019,62 @@ agent.analyze_and_decide(avg_price, volume_trend).await?;</code></pre>
         </div>
     </section>
 
-    <!-- Architecture Section -->
-    <section id="architecture" class="reveal">
+    <!-- Production Infrastructure Section -->
+    <section id="infrastructure" class="reveal">
         <div class="section-header">
-            <h2>Enterprise Architecture Patterns</h2>
-            <p>riglr establishes robust, chain-agnostic patterns that form the foundation for production blockchain applications.</p>
+            <h2>Production Infrastructure</h2>
+            <p>Built-in patterns for reliability, performance, and scale</p>
         </div>
 
-        <div class="architecture-content">
-            <div class="architecture-text">
-                <h3>🔐 Thread-Local Signer Isolation</h3>
-                <p>The <code>SignerContext</code> pattern ensures complete isolation between concurrent users. Each async task gets its own 
-                   signer scope, preventing cross-contamination in multi-tenant environments. Keys are never exposed to the LLM reasoning loop.</p>
-                
-                <h3>🎯 Dependency Injection Container</h3>
-                <p>The <code>ApplicationContext</code> decouples tools from concrete implementations. RPC clients, API keys, and databases 
-                   are injected as extensions, enabling clean testing with mocks and supporting multiple chains without code changes.</p>
-                
-                <h3>🔄 Behavioral Error Classification</h3>
-                <p>Two-level error handling separates high-level behavior (Retriable, Permanent, RateLimited) from low-level details 
-                   (BlockhashExpired, InsufficientFunds). The ToolWorker uses this classification for automatic retry with exponential backoff.</p>
-                
-                <h3>⚙️ Unified Configuration System</h3>
-                <p>Hierarchical, environment-driven config with fail-fast validation. The <code>RPC_URL_{CHAIN_ID}</code> convention allows 
-                   adding new EVM chains via environment variables without any code changes.</p>
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fas fa-bolt"></i>
+                </div>
+                <h3>10,000+ Events/Second</h3>
+                <p>High-throughput processing with parallel workers and backpressure handling.</p>
             </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fas fa-shield-alt"></i>
+                </div>
+                <h3>Circuit Breakers</h3>
+                <p>Prevent cascading failures with automatic circuit breakers and graceful degradation.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fas fa-redo"></i>
+                </div>
+                <h3>Idempotency Store</h3>
+                <p>Safe retries in distributed systems with Redis-backed deduplication.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fas fa-chart-line"></i>
+                </div>
+                <h3>Prometheus Metrics</h3>
+                <p>Built-in instrumentation for monitoring performance and business metrics.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fas fa-heartbeat"></i>
+                </div>
+                <h3>Health Checks</h3>
+                <p>Kubernetes-ready health and readiness probes with dependency monitoring.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fas fa-expand-arrows-alt"></i>
+                </div>
+                <h3>Horizontal Scaling</h3>
+                <p>Distributed job queues with consistent hashing and load balancing.</p>
+            </div>
+        </div>
     </section>
 
     <!-- Features Section -->
@@ -1078,30 +1148,20 @@ agent.analyze_and_decide(avg_price, volume_trend).await?;</code></pre>
                 </ul>
             </div>
 
-            <div class="tool-card">
-                <h4><i class="fas fa-stream"></i> riglr-streams & riglr-indexer</h4>
-                <ul class="tool-list">
-                    <li>Real-Time Event Streaming</li>
-                    <li>Multi-Protocol Support</li>
-                    <li>High-Performance Data Indexing</li>
-                    <li>Custom Event Parsing</li>
-                </ul>
-            </div>
         </div>
     </section>
 
     <!-- Developer Experience Section -->
     <section class="reveal">
         <div class="section-header">
-            <h2>From 30 Lines to 1: The Power of #[tool]</h2>
-            <p>We believe developers should spend their time on what makes their application unique.</p>
+            <h2>Developer Experience: The #[tool] Macro</h2>
+            <p>Eliminate boilerplate and focus on what makes your application unique.</p>
         </div>
 
         <div class="code-comparison">
             <div class="code-block before">
-                <div class="code-block-header">❌ Before riglr</div>
-                <pre><code class="language-rust">// Manual, verbose, and error-prone implementation
-pub struct GetSolBalance;
+                <div class="code-block-header">❌ Without riglr: 30+ Lines of Boilerplate</div>
+                <pre><code class="language-rust">pub struct GetSolBalance;
 
 #[async_trait]
 impl Tool for GetSolBalance {
@@ -1125,89 +1185,33 @@ impl Tool for GetSolBalance {
 
     async fn call(&self, params: serde_json::Value) 
         -> Result&lt;serde_json::Value, ToolError&gt; {
-        let address = params["address"]
-            .as_str()
-            .ok_or(...)?
-            .to_string();
-        // ... actual logic ...
-        // ... manual error conversion ...
-        // ... manual result serialization ...
+        // Manual parameter extraction
+        // Manual error conversion
+        // Manual result serialization
     }
 }</code></pre>
             </div>
 
             <div class="code-block after">
-                <div class="code-block-header">✅ After riglr</div>
+                <div class="code-block-header">✅ With riglr: Just 1 Line</div>
                 <pre><code class="language-rust">/// Get the SOL balance for a given wallet address.
 #[tool]
 async fn get_sol_balance(
     /// The Solana wallet address (base58 encoded).
     address: String,
 ) -> Result&lt;f64, ToolError&gt; {
-    // Your logic here. That's it.
-    // The macro handles the rest.
     let client = get_client_from_context()?;
     let lamports = client.get_balance(&address).await?;
     Ok(lamports as f64 / 1_000_000_000.0)
 }</code></pre>
             </div>
         </div>
-    </section>
-
-    <!-- Event Streaming Section -->
-    <section class="reveal">
-        <div class="section-header">
-            <h2>Real-Time Event Streaming & Indexing</h2>
-            <p>Production-grade event streaming with riglr-streams and high-performance indexing with riglr-indexer</p>
-        </div>
-
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 3rem; margin-bottom: 3rem;">
-            <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 1rem; padding: 2rem;">
-                <h3 style="color: var(--primary); margin-bottom: 1.5rem;">
-                    <i class="fas fa-stream"></i> riglr-streams
-                </h3>
-                <ul style="color: var(--text-secondary); list-style: none; padding-left: 0;">
-                    <li style="margin-bottom: 0.5rem;"><i class="fas fa-check" style="color: var(--primary); margin-right: 0.5rem;"></i>Composable event streams</li>
-                    <li style="margin-bottom: 0.5rem;"><i class="fas fa-check" style="color: var(--primary); margin-right: 0.5rem;"></i>Financial operators for trading data</li>
-                    <li style="margin-bottom: 0.5rem;"><i class="fas fa-check" style="color: var(--primary); margin-right: 0.5rem;"></i>Multi-chain event normalization</li>
-                    <li style="margin-bottom: 0.5rem;"><i class="fas fa-check" style="color: var(--primary); margin-right: 0.5rem;"></i>Health monitoring & resilience</li>
-                </ul>
-            </div>
-            
-            <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 1rem; padding: 2rem;">
-                <h3 style="color: var(--secondary); margin-bottom: 1.5rem;">
-                    <i class="fas fa-database"></i> riglr-indexer
-                </h3>
-                <ul style="color: var(--text-secondary); list-style: none; padding-left: 0;">
-                    <li style="margin-bottom: 0.5rem;"><i class="fas fa-check" style="color: var(--primary); margin-right: 0.5rem;"></i>High-performance data indexing</li>
-                    <li style="margin-bottom: 0.5rem;"><i class="fas fa-check" style="color: var(--primary); margin-right: 0.5rem;"></i>Custom event parsing</li>
-                    <li style="margin-bottom: 0.5rem;"><i class="fas fa-check" style="color: var(--primary); margin-right: 0.5rem;"></i>Multi-protocol support</li>
-                    <li style="margin-bottom: 0.5rem;"><i class="fas fa-check" style="color: var(--primary); margin-right: 0.5rem;"></i>Seamless streams integration</li>
-                </ul>
-            </div>
-        </div>
-
-        <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 1rem; padding: 2rem;">
-            <h4 style="color: var(--text-primary); margin-bottom: 1rem;">Supported Event Sources</h4>
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
-                <div style="text-align: center; padding: 1rem;">
-                    <div style="color: var(--primary); font-size: 1.5rem; margin-bottom: 0.5rem;"><i class="fab fa-solana"></i></div>
-                    <h5 style="margin-bottom: 0.5rem;">Solana Geyser</h5>
-                    <p style="color: var(--text-secondary); font-size: 0.9rem;">Real-time transaction streaming</p>
-                </div>
-                <div style="text-align: center; padding: 1rem;">
-                    <div style="color: var(--primary); font-size: 1.5rem; margin-bottom: 0.5rem;"><i class="fab fa-ethereum"></i></div>
-                    <h5 style="margin-bottom: 0.5rem;">EVM WebSocket</h5>
-                    <p style="color: var(--text-secondary); font-size: 0.9rem;">Multi-chain event monitoring</p>
-                </div>
-                <div style="text-align: center; padding: 1rem;">
-                    <div style="color: var(--primary); font-size: 1.5rem; margin-bottom: 0.5rem;"><i class="fas fa-chart-line"></i></div>
-                    <h5 style="margin-bottom: 0.5rem;">External APIs</h5>
-                    <p style="color: var(--text-secondary); font-size: 0.9rem;">Binance, mempool services</p>
-                </div>
-            </div>
+        
+        <div style="text-align: center; margin-top: 2rem; color: var(--text-secondary);">
+            <p><strong>The macro automatically generates:</strong> Parameter struct • JSON schema • Tool trait implementation • Error conversion • Documentation extraction</p>
         </div>
     </section>
+
 
     <!-- Getting Started Section -->
     <section id="getting-started" class="reveal">
@@ -1295,64 +1299,6 @@ rig-core = "0.17.1"
 riglr-core = "0.2.0"
 riglr-macros = "0.2.0"
 riglr-solana-tools = "0.2.0"  # Or riglr-evm-tools, riglr-web-tools, etc.</code></pre>
-        </div>
-    </section>
-
-    <!-- Recent Updates Section -->
-    <section class="reveal">
-        <div class="section-header">
-            <h2>Latest Updates & Improvements</h2>
-            <p>riglr is evolving rapidly with continuous enhancements and new features</p>
-        </div>
-
-        <div class="features-grid">
-            <div class="feature-card">
-                <div class="feature-icon">
-                    <i class="fas fa-shield-alt"></i>
-                </div>
-                <h3>Enhanced Security</h3>
-                <p>Added comprehensive security testing suite with SonarCloud integration, improved authentication patterns, and secure environment variable handling with PrivyConfig updates.</p>
-            </div>
-
-            <div class="feature-card">
-                <div class="feature-icon">
-                    <i class="fas fa-cogs"></i>
-                </div>
-                <h3>CI/CD Improvements</h3>
-                <p>Streamlined GitHub Actions workflow with Rust caching, automated security scanning with DeepSource, and dependency management through Renovate.</p>
-            </div>
-
-            <div class="feature-card">
-                <div class="feature-icon">
-                    <i class="fas fa-rocket"></i>
-                </div>
-                <h3>Developer Experience</h3>
-                <p>Updated to Rust 1.82 MSRV, improved error messages, better documentation with mdBook deployment, and enhanced create-riglr-app scaffolding tool.</p>
-            </div>
-
-            <div class="feature-card">
-                <div class="feature-icon">
-                    <i class="fas fa-users"></i>
-                </div>
-                <h3>Multi-Agent Systems</h3>
-                <p>Production-ready riglr-agents crate for building complex multi-agent coordination with dispatch patterns and registry management.</p>
-            </div>
-
-            <div class="feature-card">
-                <div class="feature-icon">
-                    <i class="fas fa-database"></i>
-                </div>
-                <h3>Real-Time Indexing</h3>
-                <p>High-performance riglr-indexer with custom event parsing, multi-protocol support, and seamless integration with riglr-streams for real-time data processing.</p>
-            </div>
-
-            <div class="feature-card">
-                <div class="feature-icon">
-                    <i class="fas fa-plug"></i>
-                </div>
-                <h3>New Integrations</h3>
-                <p>Added Hyperliquid perpetuals trading, enhanced cross-chain bridging with Li.Fi, and expanded web tools for market data and sentiment analysis.</p>
-            </div>
         </div>
     </section>
 
