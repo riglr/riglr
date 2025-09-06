@@ -32,7 +32,7 @@ homepage = "https://github.com/riglr/riglr"
 
 [workspace.dependencies]
 # Core riglr and rig dependencies
-rig-core = "0.17.1"
+rig-core = "0.19.0"
 riglr-core = { path = "riglr-core" }
 riglr-config = { path = "riglr-config" }
 riglr-macros = { path = "riglr-macros" }
