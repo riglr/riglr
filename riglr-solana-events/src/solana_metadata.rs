@@ -382,10 +382,7 @@ mod tests {
             core,
         );
 
-        assert_eq!(
-            metadata.event_kind(),
-            EventKind::Transfer
-        );
+        assert_eq!(metadata.event_kind(), EventKind::Transfer);
     }
 
     #[test]
@@ -401,10 +398,7 @@ mod tests {
             core,
         );
 
-        assert_eq!(
-            metadata.event_kind(),
-            EventKind::Transfer
-        );
+        assert_eq!(metadata.event_kind(), EventKind::Transfer);
     }
 
     #[test]
@@ -477,10 +471,7 @@ mod tests {
             core,
         );
 
-        assert_eq!(
-            metadata.event_kind(),
-            EventKind::Liquidity
-        );
+        assert_eq!(metadata.event_kind(), EventKind::Liquidity);
     }
 
     #[test]
@@ -496,10 +487,7 @@ mod tests {
             core,
         );
 
-        assert_eq!(
-            metadata.event_kind(),
-            EventKind::Liquidity
-        );
+        assert_eq!(metadata.event_kind(), EventKind::Liquidity);
     }
 
     #[test]
@@ -534,10 +522,7 @@ mod tests {
             core,
         );
 
-        assert_eq!(
-            metadata.event_kind(),
-            EventKind::Block
-        );
+        assert_eq!(metadata.event_kind(), EventKind::Block);
     }
 
     #[test]
