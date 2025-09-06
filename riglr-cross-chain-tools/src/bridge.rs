@@ -982,9 +982,9 @@ async fn execute_solana_bridge_transaction(
 
     // Sign and send via signer
     let sol_signer = signer.as_solana().ok_or("No Solana signer available")?;
-    let signature = sol_signer
-        .sign_and_send_transaction(&mut transaction)
-        .await?;
+    let mut tx_bytes = bincode::serialize(&transaction)
+        .map_err(|e| format!("Failed to serialize transaction: {}", e))?;
+    let signature = sol_signer.sign_and_send_transaction(&mut tx_bytes).await?;
 
     tracing::info!("✅ Solana bridge transaction submitted: {}", signature);
     Ok(signature)
@@ -1051,7 +1051,9 @@ async fn execute_evm_bridge_transaction(
 
     // Sign and send through signer
     let evm_signer = signer.as_evm().ok_or("No EVM signer available")?;
-    let tx_hash = evm_signer.sign_and_send_transaction(evm_tx).await?;
+    let tx_json = serde_json::to_value(&evm_tx)
+        .map_err(|e| format!("Failed to serialize transaction: {}", e))?;
+    let tx_hash = evm_signer.sign_and_send_transaction(tx_json).await?;
 
     tracing::info!(
         "✅ EVM bridge transaction submitted on chain {}: {}",
@@ -1085,6 +1087,7 @@ mod tests {
     use async_trait::async_trait;
     use riglr_core::signer::{EvmSigner, MultiChainSigner, SignerBase, SolanaSigner};
     use std::any::Any;
+    use std::sync::Arc;
 
     // Mock signer for testing
     #[derive(Debug)]
@@ -1094,6 +1097,14 @@ mod tests {
     }
 
     impl SignerBase for MockCrossChainSigner {
+        fn locale(&self) -> String {
+            "en".to_string()
+        }
+
+        fn user_id(&self) -> Option<String> {
+            None
+        }
+
         fn as_any(&self) -> &dyn Any {
             self
         }
@@ -1111,15 +1122,15 @@ mod tests {
 
         async fn sign_and_send_transaction(
             &self,
-            _tx: &mut solana_sdk::transaction::Transaction,
+            _tx: &mut Vec<u8>,
         ) -> Result<String, riglr_core::signer::error::SignerError> {
             Ok("mock_solana_signature".to_string())
         }
 
-        fn client(&self) -> std::sync::Arc<solana_client::rpc_client::RpcClient> {
-            std::sync::Arc::new(solana_client::rpc_client::RpcClient::new(
-                "http://localhost:8899".to_string(),
-            ))
+        fn client(&self) -> Arc<dyn std::any::Any + Send + Sync> {
+            let client =
+                solana_client::rpc_client::RpcClient::new("http://localhost:8899".to_string());
+            Arc::new(client)
         }
     }
 
@@ -1135,9 +1146,9 @@ mod tests {
 
         async fn sign_and_send_transaction(
             &self,
-            _tx: alloy::rpc::types::TransactionRequest,
+            _tx: serde_json::Value,
         ) -> Result<String, riglr_core::signer::error::SignerError> {
-            Ok("0xmock_evm_hash".to_string())
+            Ok("0xmock_evm_signature".to_string())
         }
 
         fn client(
@@ -1634,7 +1645,7 @@ mod tests {
             let signer = MockCrossChainSigner {
                 address: "0x1234567890abcdef".to_string(),
             };
-            let mut mock_tx = solana_sdk::transaction::Transaction::default();
+            let mut mock_tx = Vec::new();
 
             let result = SolanaSigner::sign_and_send_transaction(&signer, &mut mock_tx).await;
 
@@ -1647,12 +1658,12 @@ mod tests {
             let signer = MockCrossChainSigner {
                 address: "0x1234567890abcdef".to_string(),
             };
-            let mock_tx = alloy::rpc::types::TransactionRequest::default();
+            let mock_tx = serde_json::json!({});
 
             let result = EvmSigner::sign_and_send_transaction(&signer, mock_tx).await;
 
             assert!(result.is_ok());
-            assert_eq!(result.unwrap(), "0xmock_evm_hash");
+            assert_eq!(result.unwrap(), "0xmock_evm_signature");
         }
 
         #[test]
@@ -1664,7 +1675,11 @@ mod tests {
             let result = SolanaSigner::client(&signer);
 
             // Client method returns the actual client, not an Option
-            assert!(!result.url().is_empty());
+            // We can't call methods directly on Arc<dyn Any>, but we can verify it's not null
+            assert!(
+                result.as_ref().type_id()
+                    == std::any::TypeId::of::<solana_client::rpc_client::RpcClient>()
+            );
         }
 
         #[test]
