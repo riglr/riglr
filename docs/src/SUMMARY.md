@@ -23,6 +23,7 @@
 # Conceptual Guides
 
 - [Overview](concepts/index.md)
+- [From rig to riglr: Architectural Enhancements](concepts/rig-to-riglr.md)
 - [Core Architecture](concepts/architecture.md)
 - [Architecture Overview](concepts/architecture-overview.md)
 - [Under the Hood: Brain to Blockchain](concepts/under-the-hood.md)

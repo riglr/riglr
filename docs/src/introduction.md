@@ -4,9 +4,21 @@
   <img src="logo.png" alt="riglr logo" width="200">
 </div>
 
-**riglr** (pronounced "riggler") is a production-ready Rust ecosystem for building enterprise-grade on-chain AI agents. More than just a blockchain toolkit, riglr is a complete ecosystem that extends the powerful `rig` AI framework with comprehensive tools for blockchain interaction, real-time data streaming, intelligent coordination, and secure transaction management.
+**riglr** (pronounced "riggler") transforms the powerful `rig` AI framework from a tool-calling "brain" into a complete "body and nervous system" for production blockchain AI agents. While `rig` provides the core LLM-to-tool pipeline, riglr adds the enterprise-grade infrastructure, security patterns, and blockchain-specific tooling needed to build, deploy, and scale real-world AI agents that interact with blockchains.
 
-Whether you're building a sophisticated DeFi trading bot, a market analysis agent, a cross-chain portfolio manager, or a distributed network of autonomous agents, riglr provides the secure, performant, and developer-friendly components you need.
+## From Brain to Blockchain: How riglr Elevates rig
+
+The upstream `rig` crate excels at connecting LLMs to tools, but building production blockchain agents requires much more. riglr provides:
+
+- **Security-First Architecture**: The `SignerContext` pattern ensures cryptographic keys are never exposed to the LLM reasoning loop, with complete multi-tenant isolation
+- **Production Patterns**: Clean dependency injection, unified configuration, and fail-fast validation for enterprise deployments
+- **Developer Velocity**: The `#[tool]` macro eliminates boilerplate while maintaining type safety and automatic documentation
+- **Intelligent Error Handling**: Two-level error system with behavioral classification and automatic retry logic
+- **Multi-Agent Orchestration**: Build swarms of specialized agents that collaborate on complex tasks
+- **Real-Time Capabilities**: Transform agents from reactive to proactive with event streaming and data indexing
+- **Turnkey Infrastructure**: Pre-configured servers, authentication providers, and deployment templates
+
+Whether you're building a sophisticated DeFi trading bot, a market analysis agent, a cross-chain portfolio manager, or a distributed network of autonomous agents, riglr provides the secure, performant, and battle-tested components you need.
 
 ### Key Features
 

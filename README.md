@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="logo.png" alt="RIGLR Logo" width="200" />
+  <img src="logo.png" alt="riglr Logo" width="200" />
   
   # riglr - Production-Ready AI Agent Framework for Blockchain
 
@@ -11,16 +11,55 @@
 
 > ⚠️ **UNDER HEAVY DEVELOPMENT**: This project is being actively developed with frequent updates. APIs may change and things will probably break. Use with caution in production environments.
 
-> **Production-ready Rust ecosystem for building enterprise-grade on-chain AI agents**
+> **Enterprise-grade framework that transforms `rig` into a complete ecosystem for production blockchain AI agents**
 
-RIGLR (pronounced "riggler") is a modular Rust framework for building sophisticated, high-performance AI agents that interact with blockchains. It provides a comprehensive toolkit for everything from real-time event streaming and data indexing to secure transaction execution and multi-agent coordination.
+riglr (pronounced "riggler") elevates the powerful `rig` AI framework from a tool-calling "brain" into a complete "body and nervous system" for sophisticated AI agents that interact with blockchains. While `rig` provides the core LLM-to-tool pipeline, riglr adds the production infrastructure, security patterns, and blockchain-specific tooling needed to build, deploy, and scale real-world blockchain-integrated AI agents.
 
 ## 🗺️ Quick Navigation
 
-> **New to RIGLR?** Check out our comprehensive [Documentation](https://riglr.com/docs) for detailed guides, tutorials, and API references.
+> **New to riglr?** Check out our comprehensive [Documentation](https://riglr.com/docs) for detailed guides, tutorials, and API references.
 
-### What is RIGLR?
-RIGLR is a modular framework organized into specialized crates:
+## 🚀 How riglr Takes `rig` to the Next Level
+
+While the upstream `rig` crate provides excellent LLM-to-tool-call capabilities, riglr transforms it into an enterprise-ready platform by adding:
+
+### 1. **Production Security Patterns**
+- **`SignerContext` Pattern**: Thread-local, transaction-scoped cryptographic signing that keeps private keys secure and isolated in multi-tenant environments
+- **Multi-Tenant Safety**: Each request gets its own isolated signer context, preventing cross-contamination
+- **Chain-Agnostic Signing**: Unified signer interface that works across Solana, EVM, and future chains
+
+### 2. **Clean Dependency Injection**
+- **`ApplicationContext` Pattern**: Decouples tools from concrete implementations, enabling modular architecture and easy testing
+- **Shared Resource Management**: Efficient handling of RPC clients, API keys, and database connections
+- **Mock-Friendly Testing**: Inject test doubles for comprehensive unit and integration testing
+
+### 3. **Superior Developer Experience**
+- **`#[tool]` Macro**: Eliminates boilerplate by automatically generating args structs, schemas, and error handling
+- **Automatic Documentation**: Doc comments become tool descriptions for the LLM
+- **Type-Safe Everything**: Full type safety from tool parameters to blockchain transactions
+
+### 4. **Enterprise-Grade Error Handling**
+- **Two-Level Pattern**: High-level behavioral classification (retriable/permanent) with low-level chain-specific details
+- **Automatic Retry Logic**: Built-in exponential backoff for transient failures
+- **Detailed Error Context**: Rich error information for debugging without losing the abstraction
+
+### 5. **Multi-Agent Coordination**
+- **Agent Specialization**: Create focused agents for research, risk analysis, execution
+- **Intelligent Routing**: Dispatch tasks to the most suitable agent based on capabilities
+- **Inter-Agent Messaging**: Built-in communication system for agent collaboration
+
+### 6. **Real-Time Event Processing**
+- **Proactive Agents**: React to blockchain events in real-time, not just respond to queries
+- **Stream Composition**: Powerful operators for filtering, mapping, throttling, and batching events
+- **Multi-Source Ingestion**: Connect to Solana Geyser, EVM WebSockets, and market data feeds
+
+### 7. **Production Infrastructure**
+- **Unified Configuration**: Centralized, validated configuration with environment-based overrides
+- **Turnkey Server**: Pre-configured HTTP servers with auth, metrics, and health checks
+- **Enterprise Authentication**: Official integrations with Privy, Web3Auth, and Magic.link
+
+### What is riglr?
+riglr is a modular framework organized into specialized crates:
 - **Core Layer**: Foundation (`riglr-core`), code generation (`riglr-macros`), and unified configuration (`riglr-config`).
 - **Blockchain Layer**: Tools for Solana (`riglr-solana-tools`), EVM chains (`riglr-evm-tools`), and cross-chain operations (`riglr-cross-chain-tools`).
 - **Data & Coordination Layer**: Real-time event streaming (`riglr-streams`), data indexing (`riglr-indexer`), multi-agent systems (`riglr-agents`), and external web APIs (`riglr-web-tools`).
@@ -45,7 +84,7 @@ See the [Documentation](https://riglr.com/docs) for the complete architecture ov
 
 ## 🏗️ Architecture
 
-RIGLR uses a multi-crate architecture with clear separation of concerns:
+riglr uses a multi-crate architecture with clear separation of concerns:
 
 ### Core Foundation
 - **`riglr-config`**: Unified configuration management for all crates
@@ -66,7 +105,7 @@ RIGLR uses a multi-crate architecture with clear separation of concerns:
 
 ### Dual-Pattern Architecture
 
-RIGLR implements two complementary patterns:
+riglr implements two complementary patterns:
 
 **Client Injection Pattern** (Read-only operations):
 ```rust
@@ -103,7 +142,7 @@ SignerContext::with_signer(signer, async {
 
 ## 🔄 Two-Level Error Handling Pattern
 
-RIGLR uses a sophisticated two-level error handling pattern for robust blockchain interactions:
+riglr uses a sophisticated two-level error handling pattern for robust blockchain interactions:
 
 ### High-Level: Behavior-Based Retry Logic
 
@@ -154,9 +193,9 @@ This pattern provides both simplicity for common cases and power for advanced sc
 
 ## 📚 Documentation
 
-The RIGLR documentation is available at [riglr.com/docs](https://riglr.com/docs) and includes:
+The riglr documentation is available at [riglr.com/docs](https://riglr.com/docs) and includes:
 
-- **[Getting Started Guide](https://riglr.com/docs/getting-started/quick-start)** - Quick introduction to RIGLR
+- **[Getting Started Guide](https://riglr.com/docs/getting-started/quick-start)** - Quick introduction to riglr
 - **[Architecture Overview](https://riglr.com/docs/concepts/architecture-overview)** - Comprehensive system design
 - **[Under the Hood](https://riglr.com/docs/concepts/under-the-hood)** - From brain to blockchain flow
 - **[Dependency Graph](https://riglr.com/docs/concepts/dependency-graph)** - Visual crate relationships
@@ -222,9 +261,9 @@ cargo run
 | [riglr-server](./riglr-server) | Turnkey, production-ready HTTP server for agents. | 0.1.0 |
 | [riglr-showcase](./riglr-showcase) | Example agents and demonstrations. | 0.1.0 |
 
-## 🗺️ Project Roadmap: Powering the Next Generation of On-Chain AI Agents
+## 🗺️ Project Roadmap: Powering the Next Generation of Blockchain AI Agents
 
-This roadmap outlines the strategic vision for `riglr`, a professional-grade Rust framework for building the entire spectrum of on-chain AI agents. From simple, reactive bots to sophisticated, proactive multi-agent systems, `riglr` will provide a modular, high-performance, and secure foundation that scales with developer ambition.
+This roadmap outlines the strategic vision for `riglr`, a professional-grade Rust framework for building the entire spectrum of AI agents that interact with blockchains. From simple, reactive bots to sophisticated, proactive multi-agent systems, `riglr` will provide a modular, high-performance, and secure foundation that scales with developer ambition.
 
 ### **Pillar 1: Radically Improve Developer Experience & Onboarding**
 
@@ -273,7 +312,7 @@ We will continue to invest in and expand upon the features that set `riglr` apar
 
 **2. Evolved `riglr-graph-memory`:** The Neo4j-based knowledge graph, a key differentiator, will be improved with:
 - More sophisticated graph analytics tools for pathfinding, community detection, and fraud analysis.
-- A "Graph RAG" agent template within `create-riglr-app`, pre-configured to build and query a knowledge graph from on-chain data.
+- A "Graph RAG" agent template within `create-riglr-app`, pre-configured to build and query a knowledge graph from blockchain data.
 
 **3. Proactive, Event-Driven Tooling:** A new `riglr-streams` or `riglr-ingest` crate will provide the components for developers to build their own proactive agents. This will include:
 - A Solana Geyser plugin connector for low-latency data access.
@@ -290,11 +329,11 @@ Building a vibrant and collaborative community is essential for long-term succes
 
 **2. Sharpened Project Positioning:** The project's vision will be clearly and concisely articulated in the main `README.md`:
 
-> "Riglr is the professional-grade Rust framework for building any on-chain AI agent imaginable—from simple, reactive bots to complex, proactive, multi-agent systems. It provides a modular, high-performance, and secure foundation that scales with your ambition."
+> "riglr is the professional-grade Rust framework for building any blockchain AI agent imaginable—from simple, reactive bots to complex, proactive, multi-agent systems. It provides a modular, high-performance, and secure foundation that scales with your ambition."
 
 ### **Summary of the Winning Strategy**
 
-By executing on these pillars, `riglr` will establish itself as the premier framework for on-chain AI agent development by offering:
+By executing on these pillars, `riglr` will establish itself as the premier framework for blockchain AI agent development by offering:
 
 - **The Best Onboarding:** A developer experience and documentation that sets a new industry standard.
 - **The Easiest Path to Production:** Turnkey server and authentication components that simplify deployment.
@@ -315,13 +354,13 @@ Building upon our existing use of `.env.test` and a `Dockerfile.test`, we will e
 
 ### Test Data Strategy: Downloading and Simulating Blockchain Data
 
-To test against realistic and complex on-chain states, we will implement mainnet forking and transaction replay.
+To test against realistic and complex blockchain states, we will implement mainnet forking and transaction replay.
 
 **Implementation:**
 
 1. **Mainnet Forking:** We will create local test environments that mirror the state of a public network at a specific block, enabling fast and deterministic execution against real-world data.
 2. **Transaction Replay:** Historical transactions will be fetched and replayed against a local test validator to thoroughly test indexers, event parsers, and streaming systems.
-3. **State Seeding:** Scripts will be developed to programmatically set up specific on-chain states on a local validator before tests are executed.
+3. **State Seeding:** Scripts will be developed to programmatically set up specific blockchain states on a local validator before tests are executed.
 
 **Available Resources:**
 
@@ -351,7 +390,7 @@ We will formalize our testing into the following distinct layers:
    - Introduce a mock HTTP server like `wiremock-rs` to simulate responses from external APIs, allowing for comprehensive testing of various scenarios, including API errors and rate limits.
 
 4. **Expand Test Scenario Coverage:**
-   - Develop a "scenario" testing framework to define specific on-chain states, agent actions, and expected outcomes.
+   - Develop a "scenario" testing framework to define specific blockchain states, agent actions, and expected outcomes.
    - Add tests for complex DeFi interactions and expand security tests to cover scenarios like transaction front-running and oracle manipulation on our local forked testnet.
 
 ---
