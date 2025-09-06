@@ -4,7 +4,7 @@
 //! filtering, and aggregation operations beyond the basic operators.
 
 use async_trait::async_trait;
-use std::collections::HashMap;
+use dashmap::DashMap;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::{broadcast, RwLock};
@@ -17,7 +17,7 @@ use crate::core::{Stream, StreamError, StreamHealth};
 pub struct GroupedStream<S, F, K> {
     inner: S,
     key_fn: Arc<F>,
-    groups: Arc<RwLock<HashMap<K, broadcast::Sender<Arc<DynamicStreamedEvent>>>>>,
+    groups: Arc<DashMap<K, broadcast::Sender<Arc<DynamicStreamedEvent>>>>,
 }
 
 impl<S, F, K> GroupedStream<S, F, K>
@@ -35,7 +35,7 @@ where
         Self {
             inner,
             key_fn: Arc::new(key_fn),
-            groups: Arc::new(RwLock::new(HashMap::new())),
+            groups: Arc::new(DashMap::new()),
         }
     }
 
@@ -44,12 +44,11 @@ where
     /// Returns `None` if no group with the given key exists yet.
     /// Once events start flowing through the stream, groups will be created
     /// automatically based on the key function provided during construction.
-    pub async fn get_group(
+    pub fn get_group(
         &self,
         key: K,
     ) -> Option<broadcast::Receiver<Arc<DynamicStreamedEvent>>> {
-        let groups = self.groups.read().await;
-        groups.get(&key).map(|sender| sender.subscribe())
+        self.groups.get(&key).map(|sender| sender.subscribe())
     }
 }
 
@@ -74,8 +73,7 @@ where
             while let Ok(event) = inner_rx.recv().await {
                 let key = (key_fn)(event.as_ref());
 
-                let mut groups_guard = groups.write().await;
-                let sender = groups_guard.entry(key).or_insert_with(|| {
+                let sender = groups.entry(key).or_insert_with(|| {
                     let (tx, _) = broadcast::channel(1000);
                     tx
                 });

@@ -20,6 +20,8 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::runtime::Runtime;
 
+const REDIS_URL_ENV_VAR: &str = "REDIS_URL";
+
 /// Count the number of keys in Redis (for monitoring key proliferation)
 async fn count_redis_keys(redis_url: &str) -> Result<usize, Box<dyn std::error::Error>> {
     let client = redis::Client::open(redis_url)?;
@@ -40,7 +42,10 @@ async fn cleanup_redis(redis_url: &str) -> Result<(), Box<dyn std::error::Error>
         .await?;
 
     if !keys.is_empty() {
-        let _: () = redis::cmd("DEL").arg(&keys).query_async(&mut conn).await?;
+        redis::cmd("DEL")
+            .arg(&keys)
+            .query_async::<()>(&mut conn)
+            .await?;
     }
 
     Ok(())
@@ -88,10 +93,10 @@ async fn simulate_remote_agent(
                 let response_key = format!("response:{}", task.id);
                 let result_json = serde_json::to_string(&result).unwrap();
 
-                let _: () = redis::cmd("LPUSH")
+                redis::cmd("LPUSH")
                     .arg(&response_key)
                     .arg(&result_json)
-                    .query_async(&mut conn)
+                    .query_async::<()>(&mut conn)
                     .await
                     .unwrap();
             }
@@ -107,7 +112,7 @@ async fn simulate_remote_agent(
 fn benchmark_single_task_dispatch(c: &mut Criterion) {
     let runtime = Runtime::new().unwrap();
     let redis_url =
-        std::env::var("REDIS_URL").unwrap_or_else(|_| "redis://127.0.0.1:6379".to_string());
+        std::env::var(REDIS_URL_ENV_VAR).unwrap_or_else(|_| "redis://127.0.0.1:6379".to_string());
 
     // Clean up before starting
     runtime.block_on(cleanup_redis(&redis_url)).unwrap();
@@ -158,7 +163,7 @@ fn benchmark_single_task_dispatch(c: &mut Criterion) {
 fn benchmark_concurrent_dispatch_throughput(c: &mut Criterion) {
     let runtime = Runtime::new().unwrap();
     let redis_url =
-        std::env::var("REDIS_URL").unwrap_or_else(|_| "redis://127.0.0.1:6379".to_string());
+        std::env::var(REDIS_URL_ENV_VAR).unwrap_or_else(|_| "redis://127.0.0.1:6379".to_string());
 
     let mut group = c.benchmark_group("concurrent_dispatch");
 
@@ -240,7 +245,7 @@ fn benchmark_concurrent_dispatch_throughput(c: &mut Criterion) {
 fn benchmark_key_proliferation(c: &mut Criterion) {
     let runtime = Runtime::new().unwrap();
     let redis_url =
-        std::env::var("REDIS_URL").unwrap_or_else(|_| "redis://127.0.0.1:6379".to_string());
+        std::env::var(REDIS_URL_ENV_VAR).unwrap_or_else(|_| "redis://127.0.0.1:6379".to_string());
 
     c.bench_function("key_proliferation_1000_tasks", |b| {
         b.iter(|| {
@@ -256,12 +261,12 @@ fn benchmark_key_proliferation(c: &mut Criterion) {
 
                 for i in 0..1000 {
                     let key = format!("response:task_{}", i);
-                    let _: () = redis::cmd("SET")
+                    redis::cmd("SET")
                         .arg(&key)
                         .arg("test_value")
                         .arg("EX")
                         .arg(60) // Expire after 60 seconds
-                        .query_async(&mut conn)
+                        .query_async::<()>(&mut conn)
                         .await
                         .unwrap();
                 }

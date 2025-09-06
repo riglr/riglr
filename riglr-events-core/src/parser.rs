@@ -173,7 +173,16 @@ impl JsonEventParser {
             )
         })?;
 
-        // Check required fields
+        self.validate_required_fields(obj)?;
+        self.validate_field_types(obj)?;
+        self.validate_numeric_ranges(obj)?;
+        self.validate_string_patterns(obj)?;
+
+        Ok(())
+    }
+
+    /// Validate that all required fields are present
+    fn validate_required_fields(&self, obj: &serde_json::Map<String, serde_json::Value>) -> EventResult<()> {
         for required_field in &self.config.validation.required_fields {
             if !obj.contains_key(required_field) {
                 return Err(EventError::parse_error(
@@ -185,19 +194,14 @@ impl JsonEventParser {
                 ));
             }
         }
+        Ok(())
+    }
 
-        // Validate field types
+    /// Validate field types match expected types
+    fn validate_field_types(&self, obj: &serde_json::Map<String, serde_json::Value>) -> EventResult<()> {
         for (field, expected_type) in &self.config.validation.field_types {
             if let Some(value) = obj.get(field) {
-                let actual_type = match value {
-                    serde_json::Value::String(_) => "string",
-                    serde_json::Value::Number(_) => "number",
-                    serde_json::Value::Bool(_) => "boolean",
-                    serde_json::Value::Array(_) => "array",
-                    serde_json::Value::Object(_) => "object",
-                    serde_json::Value::Null => "null",
-                };
-
+                let actual_type = self.get_json_type(value);
                 if actual_type != expected_type {
                     return Err(EventError::parse_error(
                         std::io::Error::new(
@@ -212,8 +216,30 @@ impl JsonEventParser {
                 }
             }
         }
+        Ok(())
+    }
 
-        // Validate numeric ranges
+    /// Get the string representation of a JSON value's type
+    fn get_json_type(&self, value: &serde_json::Value) -> &'static str {
+        match value {
+            serde_json::Value::String(_) => "string",
+            serde_json::Value::Number(_) => "number",
+            serde_json::Value::Bool(_) => "boolean",
+            serde_json::Value::Array(_) => "array",
+            serde_json::Value::Object(_) => "object",
+            serde_json::Value::Null => "null",
+        }
+    }
+
+    /// Validate numeric fields are within specified ranges
+    fn validate_numeric_ranges(&self, obj: &serde_json::Map<String, serde_json::Value>) -> EventResult<()> {
+        self.validate_minimum_values(obj)?;
+        self.validate_maximum_values(obj)?;
+        Ok(())
+    }
+
+    /// Validate minimum values for numeric fields
+    fn validate_minimum_values(&self, obj: &serde_json::Map<String, serde_json::Value>) -> EventResult<()> {
         for (field, min_value) in &self.config.validation.min_values {
             if let Some(value) = obj.get(field) {
                 if let Some(num) = value.as_f64() {
@@ -232,7 +258,11 @@ impl JsonEventParser {
                 }
             }
         }
+        Ok(())
+    }
 
+    /// Validate maximum values for numeric fields
+    fn validate_maximum_values(&self, obj: &serde_json::Map<String, serde_json::Value>) -> EventResult<()> {
         for (field, max_value) in &self.config.validation.max_values {
             if let Some(value) = obj.get(field) {
                 if let Some(num) = value.as_f64() {
@@ -251,43 +281,51 @@ impl JsonEventParser {
                 }
             }
         }
+        Ok(())
+    }
 
-        // Validate string patterns using regex
+    /// Validate string fields match specified regex patterns
+    fn validate_string_patterns(&self, obj: &serde_json::Map<String, serde_json::Value>) -> EventResult<()> {
         for (field, pattern) in &self.config.validation.patterns {
             if let Some(value) = obj.get(field) {
                 if let Some(string_value) = value.as_str() {
-                    match Regex::new(pattern) {
-                        Ok(regex) => {
-                            if !regex.is_match(string_value) {
-                                return Err(EventError::parse_error(
-                                    std::io::Error::new(
-                                        std::io::ErrorKind::InvalidData,
-                                        format!(
-                                            "String '{}' for field '{}' doesn't match pattern '{}'",
-                                            string_value, field, pattern
-                                        ),
-                                    ),
-                                    format!("Field '{}' doesn't match pattern", field),
-                                ));
-                            }
-                        }
-                        Err(regex_error) => {
-                            return Err(EventError::parse_error(
-                                std::io::Error::new(
-                                    std::io::ErrorKind::InvalidData,
-                                    format!(
-                                        "Invalid regex pattern '{}' for field '{}': {}",
-                                        pattern, field, regex_error
-                                    ),
-                                ),
-                                format!("Invalid regex pattern for field '{}'", field),
-                            ));
-                        }
-                    }
+                    self.validate_regex_pattern(field, string_value, pattern)?;
                 }
             }
         }
+        Ok(())
+    }
 
+    /// Validate a single string against a regex pattern
+    fn validate_regex_pattern(&self, field: &str, string_value: &str, pattern: &str) -> EventResult<()> {
+        match Regex::new(pattern) {
+            Ok(regex) => {
+                if !regex.is_match(string_value) {
+                    return Err(EventError::parse_error(
+                        std::io::Error::new(
+                            std::io::ErrorKind::InvalidData,
+                            format!(
+                                "String '{}' for field '{}' doesn't match pattern '{}'",
+                                string_value, field, pattern
+                            ),
+                        ),
+                        format!("Field '{}' doesn't match pattern", field),
+                    ));
+                }
+            }
+            Err(regex_error) => {
+                return Err(EventError::parse_error(
+                    std::io::Error::new(
+                        std::io::ErrorKind::InvalidData,
+                        format!(
+                            "Invalid regex pattern '{}' for field '{}': {}",
+                            pattern, field, regex_error
+                        ),
+                    ),
+                    format!("Invalid regex pattern for field '{}'", field),
+                ));
+            }
+        }
         Ok(())
     }
 }

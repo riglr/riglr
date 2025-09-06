@@ -164,14 +164,14 @@ impl Default for RaydiumCpmmSwapEvent {
 
         Self {
             metadata,
-            pool_state: Default::default(),
-            payer: Default::default(),
-            input_token_account: Default::default(),
-            output_token_account: Default::default(),
-            input_vault: Default::default(),
-            output_vault: Default::default(),
-            input_token_mint: Default::default(),
-            output_token_mint: Default::default(),
+            pool_state: Pubkey::default(),
+            payer: Pubkey::default(),
+            input_token_account: Pubkey::default(),
+            output_token_account: Pubkey::default(),
+            input_vault: Pubkey::default(),
+            output_vault: Pubkey::default(),
+            input_token_mint: Pubkey::default(),
+            output_token_mint: Pubkey::default(),
             amount_in: 0,
             amount_out: 0,
             trade_fee: 0,
@@ -210,8 +210,8 @@ impl Default for RaydiumCpmmDepositEvent {
 
         Self {
             metadata,
-            pool_state: Default::default(),
-            user: Default::default(),
+            pool_state: Pubkey::default(),
+            user: Pubkey::default(),
             lp_token_amount: 0,
             token_0_amount: 0,
             token_1_amount: 0,

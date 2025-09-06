@@ -346,15 +346,13 @@ fn convert_raw_holder(raw: &api_types::HolderRaw) -> WalletHolding {
         .first_acquired
         .as_ref()
         .and_then(|s| DateTime::parse_from_rfc3339(s).ok())
-        .map(|dt| dt.with_timezone(&Utc))
-        .unwrap_or_else(|| Utc::now());
+        .map_or_else(Utc::now, |dt| dt.with_timezone(&Utc));
 
     let last_activity = raw
         .last_activity
         .as_ref()
         .and_then(|s| DateTime::parse_from_rfc3339(s).ok())
-        .map(|dt| dt.with_timezone(&Utc))
-        .unwrap_or_else(|| Utc::now());
+        .map_or_else(Utc::now, |dt| dt.with_timezone(&Utc));
 
     WalletHolding {
         wallet_address: raw.address.clone().unwrap_or_else(|| "unknown".to_string()),
@@ -416,8 +414,7 @@ fn convert_raw_whale_transaction(raw: &api_types::WhaleTransactionRaw) -> WhaleT
         .timestamp
         .as_ref()
         .and_then(|s| DateTime::parse_from_rfc3339(s).ok())
-        .map(|dt| dt.with_timezone(&Utc))
-        .unwrap_or_else(|| Utc::now());
+        .map_or_else(Utc::now, |dt| dt.with_timezone(&Utc));
 
     WhaleTransaction {
         tx_hash: raw.hash.clone().unwrap_or_default(),
@@ -440,8 +437,7 @@ fn convert_raw_trend_point(raw: &api_types::TrendPointRaw) -> HolderTrendPoint {
         .timestamp
         .as_ref()
         .and_then(|s| DateTime::parse_from_rfc3339(s).ok())
-        .map(|dt| dt.with_timezone(&Utc))
-        .unwrap_or_else(|| Utc::now());
+        .map_or_else(Utc::now, |dt| dt.with_timezone(&Utc));
 
     HolderTrendPoint {
         timestamp,
@@ -603,8 +599,7 @@ pub async fn analyze_token_holders(
     let distribution = data
         .distribution
         .as_ref()
-        .map(convert_raw_distribution)
-        .unwrap_or_else(|| HolderDistribution {
+        .map_or_else(|| HolderDistribution {
             top_1_percent: 0.0,
             top_5_percent: 0.0,
             top_10_percent: 0.0,
@@ -612,7 +607,7 @@ pub async fn analyze_token_holders(
             retail_percentage: 0.0,
             gini_coefficient: 0.0,
             holder_categories: HashMap::new(),
-        });
+        }, convert_raw_distribution);
 
     // Convert top holders
     let top_holders = data
@@ -625,8 +620,7 @@ pub async fn analyze_token_holders(
     let concentration_risk = data
         .concentration_risk
         .as_ref()
-        .map(convert_raw_concentration_risk)
-        .unwrap_or_else(|| ConcentrationRisk {
+        .map_or_else(|| ConcentrationRisk {
             risk_level: "Medium".to_string(),
             risk_score: 50,
             wallets_controlling_50_percent: 0,
@@ -634,21 +628,20 @@ pub async fn analyze_token_holders(
             exchange_holdings_percentage: 0.0,
             locked_holdings_percentage: 0.0,
             risk_factors: vec![],
-        });
+        }, convert_raw_concentration_risk);
 
     // Convert recent activity
     let recent_activity = data
         .recent_activity
         .as_ref()
-        .map(convert_raw_activity)
-        .unwrap_or_else(|| HolderActivity {
+        .map_or_else(|| HolderActivity {
             new_holders_24h: 0,
             exited_holders_24h: 0,
             net_holder_change_24h: 0,
             avg_buy_size_24h: 0.0,
             avg_sell_size_24h: 0.0,
             holder_growth_rate_7d: 0.0,
-        });
+        }, convert_raw_activity);
 
     debug!(
         "Successfully analyzed {} holders for token {} with {}% whale concentration",

@@ -469,8 +469,7 @@ pub fn aggregate_token_info(
         p.liquidity
             .as_ref()
             .and_then(|l| l.usd)
-            .map(|usd| (usd * 1000.0) as u64)
-            .unwrap_or(0)
+            .map_or(0, |usd| (usd * 1000.0) as u64)
     })?;
 
     // Aggregate volume across all pairs

@@ -1,6 +1,7 @@
 //! Network and blockchain configuration
 
 use crate::{ConfigError, ConfigResult};
+use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -199,50 +200,68 @@ pub struct NetworkTimeouts {
     pub http_timeout_secs: u64,
 }
 
+/// Network name to chain ID mapping
+static NETWORK_NAME_MAP: Lazy<HashMap<&'static str, u64>> = Lazy::new(|| {
+    let mut map = HashMap::new();
+    
+    // Ethereum networks
+    map.insert("ethereum", 1);
+    map.insert("mainnet", 1);
+    map.insert("eth", 1);
+    map.insert("goerli", 5);
+    map.insert("sepolia", 11155111);
+
+    // Layer 2 networks
+    map.insert("optimism", 10);
+    map.insert("op", 10);
+    map.insert("arbitrum", 42161);
+    map.insert("arb", 42161);
+    map.insert("arbitrum_goerli", 421613);
+    map.insert("base", 8453);
+    map.insert("base_goerli", 84531);
+
+    // Other EVM chains
+    map.insert("polygon", 137);
+    map.insert("matic", 137);
+    map.insert("polygon_mumbai", 80001);
+    map.insert("mumbai", 80001);
+    map.insert("bsc", 56);
+    map.insert("binance", 56);
+    map.insert("bnb", 56);
+    map.insert("bsc_testnet", 97);
+    map.insert("avalanche", 43114);
+    map.insert("avax", 43114);
+    map.insert("avalanche_fuji", 43113);
+    map.insert("fuji", 43113);
+    map.insert("fantom", 250);
+    map.insert("ftm", 250);
+    map.insert("fantom_testnet", 4002);
+    map.insert("gnosis", 100);
+    map.insert("xdai", 100);
+    map.insert("celo", 42220);
+    map.insert("moonbeam", 1284);
+    map.insert("moonriver", 1285);
+    map.insert("aurora", 1313161554);
+    map.insert("harmony", 1666600000);
+    map.insert("metis", 1088);
+    map.insert("cronos", 25);
+    map.insert("kava", 2222);
+    map.insert("scroll", 534352);
+    map.insert("scroll_sepolia", 534351);
+    map.insert("zksync", 324);
+    map.insert("zksync_era", 324);
+    map.insert("zksync_testnet", 280);
+    map.insert("linea", 59144);
+    map.insert("linea_goerli", 59140);
+    map.insert("mantle", 5000);
+    map.insert("mantle_testnet", 5001);
+
+    map
+});
+
 /// Resolve network name aliases to chain IDs
 fn resolve_network_name(name: &str) -> Option<u64> {
-    match name.to_lowercase().as_str() {
-        // Ethereum networks
-        "ethereum" | "mainnet" | "eth" => Some(1),
-        "goerli" => Some(5),
-        "sepolia" => Some(11155111),
-
-        // Layer 2 networks
-        "optimism" | "op" => Some(10),
-        "arbitrum" | "arb" => Some(42161),
-        "arbitrum_goerli" => Some(421613),
-        "base" => Some(8453),
-        "base_goerli" => Some(84531),
-
-        // Other EVM chains
-        "polygon" | "matic" => Some(137),
-        "polygon_mumbai" | "mumbai" => Some(80001),
-        "bsc" | "binance" | "bnb" => Some(56),
-        "bsc_testnet" => Some(97),
-        "avalanche" | "avax" => Some(43114),
-        "avalanche_fuji" | "fuji" => Some(43113),
-        "fantom" | "ftm" => Some(250),
-        "fantom_testnet" => Some(4002),
-        "gnosis" | "xdai" => Some(100),
-        "celo" => Some(42220),
-        "moonbeam" => Some(1284),
-        "moonriver" => Some(1285),
-        "aurora" => Some(1313161554),
-        "harmony" => Some(1666600000),
-        "metis" => Some(1088),
-        "cronos" => Some(25),
-        "kava" => Some(2222),
-        "scroll" => Some(534352),
-        "scroll_sepolia" => Some(534351),
-        "zksync" | "zksync_era" => Some(324),
-        "zksync_testnet" => Some(280),
-        "linea" => Some(59144),
-        "linea_goerli" => Some(59140),
-        "mantle" => Some(5000),
-        "mantle_testnet" => Some(5001),
-
-        _ => None,
-    }
+    NETWORK_NAME_MAP.get(&name.to_lowercase().as_str()).copied()
 }
 
 impl NetworkConfig {
@@ -417,7 +436,14 @@ impl NetworkConfig {
         &self,
         address_validator: Option<&dyn AddressValidator>,
     ) -> ConfigResult<()> {
-        // Validate Solana RPC URL
+        self.validate_solana_rpc_url()?;
+        self.validate_rpc_urls()?;
+        self.validate_chain_configs(address_validator)?;
+        Ok(())
+    }
+
+    /// Validates the Solana RPC URL
+    fn validate_solana_rpc_url(&self) -> ConfigResult<()> {
         if !self.solana_rpc_url.starts_with("http://")
             && !self.solana_rpc_url.starts_with("https://")
         {
@@ -425,90 +451,115 @@ impl NetworkConfig {
                 "SOLANA_RPC_URL must be a valid HTTP(S) URL",
             ));
         }
+        Ok(())
+    }
 
-        // Validate RPC URLs
+    /// Validates all RPC URLs
+    fn validate_rpc_urls(&self) -> ConfigResult<()> {
         for (chain_id, url) in &self.rpc_urls {
-            if !url.starts_with("http://")
-                && !url.starts_with("https://")
-                && !url.starts_with("wss://")
-                && !url.starts_with("ws://")
-            {
+            if !Self::is_valid_rpc_url(url) {
                 return Err(ConfigError::validation(format!(
                     "Invalid RPC URL for chain {}: {}",
                     chain_id, url
                 )));
             }
         }
+        Ok(())
+    }
 
-        // Validate chain configs
+    /// Checks if a URL is a valid RPC URL
+    fn is_valid_rpc_url(url: &str) -> bool {
+        url.starts_with("http://")
+            || url.starts_with("https://")
+            || url.starts_with("wss://")
+            || url.starts_with("ws://")
+    }
+
+    /// Validates all chain configurations
+    fn validate_chain_configs(
+        &self,
+        address_validator: Option<&dyn AddressValidator>,
+    ) -> ConfigResult<()> {
         for (chain_id, chain) in &self.chains {
-            if chain.id != *chain_id {
-                return Err(ConfigError::validation(format!(
-                    "Chain ID mismatch: {} vs {}",
-                    chain_id, chain.id
-                )));
-            }
-
-            // Validate contract addresses if validator is provided
+            self.validate_chain_id_consistency(*chain_id, chain)?;
             if let Some(validator) = address_validator {
-                if let Some(ref addr) = chain.contracts.router {
-                    validator.validate(addr, "router")?;
-                }
-                if let Some(ref addr) = chain.contracts.quoter {
-                    validator.validate(addr, "quoter")?;
-                }
-                if let Some(ref addr) = chain.contracts.factory {
-                    validator.validate(addr, "factory")?;
-                }
-                if let Some(ref addr) = chain.contracts.weth {
-                    validator.validate(addr, "weth")?;
-                }
-                if let Some(ref addr) = chain.contracts.usdc {
-                    validator.validate(addr, "usdc")?;
-                }
-                if let Some(ref addr) = chain.contracts.usdt {
-                    validator.validate(addr, "usdt")?;
-                }
-                // Validate new DeFi protocol addresses
-                if let Some(ref addr) = chain.contracts.sushiswap_router {
-                    validator.validate(addr, "sushiswap_router")?;
-                }
-                if let Some(ref addr) = chain.contracts.sushiswap_factory {
-                    validator.validate(addr, "sushiswap_factory")?;
-                }
-                if let Some(ref addr) = chain.contracts.aave_v3_pool {
-                    validator.validate(addr, "aave_v3_pool")?;
-                }
-                if let Some(ref addr) = chain.contracts.aave_v3_pool_data_provider {
-                    validator.validate(addr, "aave_v3_pool_data_provider")?;
-                }
-                if let Some(ref addr) = chain.contracts.aave_v3_oracle {
-                    validator.validate(addr, "aave_v3_oracle")?;
-                }
-                if let Some(ref addr) = chain.contracts.compound_v3_usdc {
-                    validator.validate(addr, "compound_v3_usdc")?;
-                }
-                if let Some(ref addr) = chain.contracts.curve_registry {
-                    validator.validate(addr, "curve_registry")?;
-                }
-                if let Some(ref addr) = chain.contracts.oneinch_aggregation_router {
-                    validator.validate(addr, "oneinch_aggregation_router")?;
-                }
-                if let Some(ref addr) = chain.contracts.balancer_vault {
-                    validator.validate(addr, "balancer_vault")?;
-                }
-                if let Some(ref addr) = chain.contracts.quickswap_router {
-                    validator.validate(addr, "quickswap_router")?;
-                }
-                if let Some(ref addr) = chain.contracts.gmx_router {
-                    validator.validate(addr, "gmx_router")?;
-                }
-                if let Some(ref addr) = chain.contracts.maker_dai {
-                    validator.validate(addr, "maker_dai")?;
-                }
+                self.validate_chain_contracts(validator, chain)?;
             }
         }
+        Ok(())
+    }
 
+    /// Validates that chain ID in map matches chain config
+    fn validate_chain_id_consistency(&self, chain_id: u64, chain: &ChainConfig) -> ConfigResult<()> {
+        if chain.id != chain_id {
+            return Err(ConfigError::validation(format!(
+                "Chain ID mismatch: {} vs {}",
+                chain_id, chain.id
+            )));
+        }
+        Ok(())
+    }
+
+    /// Validates all contract addresses for a chain
+    fn validate_chain_contracts(
+        &self,
+        validator: &dyn AddressValidator,
+        chain: &ChainConfig,
+    ) -> ConfigResult<()> {
+        self.validate_core_contracts(validator, chain)?;
+        self.validate_defi_protocol_contracts(validator, chain)?;
+        Ok(())
+    }
+
+    /// Validates core contract addresses (router, quoter, factory, tokens)
+    fn validate_core_contracts(
+        &self,
+        validator: &dyn AddressValidator,
+        chain: &ChainConfig,
+    ) -> ConfigResult<()> {
+        let core_contracts = [
+            (&chain.contracts.router, "router"),
+            (&chain.contracts.quoter, "quoter"),
+            (&chain.contracts.factory, "factory"),
+            (&chain.contracts.weth, "weth"),
+            (&chain.contracts.usdc, "usdc"),
+            (&chain.contracts.usdt, "usdt"),
+        ];
+
+        for (address_opt, contract_name) in core_contracts {
+            if let Some(addr) = address_opt {
+                validator.validate(addr, contract_name)?;
+            }
+        }
+        Ok(())
+    }
+
+    /// Validates DeFi protocol contract addresses
+    fn validate_defi_protocol_contracts(
+        &self,
+        validator: &dyn AddressValidator,
+        chain: &ChainConfig,
+    ) -> ConfigResult<()> {
+        let defi_contracts = [
+            (&chain.contracts.sushiswap_router, "sushiswap_router"),
+            (&chain.contracts.sushiswap_factory, "sushiswap_factory"),
+            (&chain.contracts.aave_v3_pool, "aave_v3_pool"),
+            (&chain.contracts.aave_v3_pool_data_provider, "aave_v3_pool_data_provider"),
+            (&chain.contracts.aave_v3_oracle, "aave_v3_oracle"),
+            (&chain.contracts.compound_v3_usdc, "compound_v3_usdc"),
+            (&chain.contracts.curve_registry, "curve_registry"),
+            (&chain.contracts.oneinch_aggregation_router, "oneinch_aggregation_router"),
+            (&chain.contracts.balancer_vault, "balancer_vault"),
+            (&chain.contracts.quickswap_router, "quickswap_router"),
+            (&chain.contracts.gmx_router, "gmx_router"),
+            (&chain.contracts.maker_dai, "maker_dai"),
+        ];
+
+        for (address_opt, contract_name) in defi_contracts {
+            if let Some(addr) = address_opt {
+                validator.validate(addr, contract_name)?;
+            }
+        }
         Ok(())
     }
 }

@@ -93,10 +93,17 @@ pub struct Web3AuthProvider {
 impl Web3AuthProvider {
     /// Create a new Web3Auth provider
     pub fn new(config: Web3AuthConfig) -> Self {
-        Self {
-            config,
-            client: reqwest::Client::new(),
-        }
+        let client = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(30))
+            .default_headers({
+                let mut headers = reqwest::header::HeaderMap::new();
+                headers.insert("Content-Type", "application/json".parse().unwrap());
+                headers
+            })
+            .build()
+            .expect("Failed to build Web3Auth HTTP client");
+
+        Self { config, client }
     }
 
     /// Verify a Web3Auth JWT token

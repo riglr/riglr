@@ -41,13 +41,7 @@ impl ConfigBuilder {
     /// This is equivalent to `ConfigBuilder::default()` but provides a more explicit API
     /// for builder pattern initialization.
     pub fn new() -> Self {
-        Self {
-            app: AppConfig::default(),
-            database: DatabaseConfig::default(),
-            network: NetworkConfig::default(),
-            providers: ProvidersConfig::default(),
-            features: FeaturesConfig::default(),
-        }
+        Self::default()
     }
 
     /// Merge another configuration into this builder
@@ -66,21 +60,22 @@ impl ConfigBuilder {
 
     /// Merge AppConfig, taking non-default values from other
     fn merge_app_config(&mut self, other: AppConfig) {
+        let default_app = AppConfig::default();
+        
         // Use non-default values from other, falling back to current values
-        if other.port != AppConfig::default().port {
+        if other.port != default_app.port {
             self.app.port = other.port;
         }
-        if other.environment != AppConfig::default().environment {
+        if other.environment != default_app.environment {
             self.app.environment = other.environment;
         }
-        if other.log_level != AppConfig::default().log_level {
+        if other.log_level != default_app.log_level {
             self.app.log_level = other.log_level;
         }
-        if other.use_testnet != AppConfig::default().use_testnet {
+        if other.use_testnet != default_app.use_testnet {
             self.app.use_testnet = other.use_testnet;
         }
         // Merge nested configs - for simplicity, replace if they have any non-default values
-        let default_app = AppConfig::default();
         if other.transaction.max_gas_price_gwei != default_app.transaction.max_gas_price_gwei
             || other.transaction.priority_fee_gwei != default_app.transaction.priority_fee_gwei
             || other.transaction.slippage_tolerance_percent
@@ -100,10 +95,12 @@ impl ConfigBuilder {
 
     /// Merge DatabaseConfig, taking non-default values from other
     fn merge_database_config(&mut self, other: DatabaseConfig) {
-        if other.redis_url != DatabaseConfig::default().redis_url {
+        let default_database = DatabaseConfig::default();
+        
+        if other.redis_url != default_database.redis_url {
             self.database.redis_url = other.redis_url;
         }
-        if other.neo4j_url != DatabaseConfig::default().neo4j_url {
+        if other.neo4j_url != default_database.neo4j_url {
             self.database.neo4j_url = other.neo4j_url;
         }
     }
@@ -596,7 +593,6 @@ impl ConfigBuilder {
     ///     .build()
     ///     .unwrap();
     /// ```
-    #[must_use]
     pub fn from_file<P: AsRef<std::path::Path>>(mut self, path: P) -> ConfigResult<Self> {
         let content = std::fs::read_to_string(path).map_err(|e| {
             crate::ConfigError::validation(format!("Failed to read config file: {}", e))
@@ -632,7 +628,6 @@ impl ConfigBuilder {
     ///     .build()
     ///     .unwrap();
     /// ```
-    #[must_use]
     pub fn from_env(mut self) -> ConfigResult<Self> {
         // Load .env file if present
         dotenvy::dotenv().ok();

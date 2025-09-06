@@ -74,7 +74,7 @@ impl MultiChainEvmManager {
         let chain_id_num: u64 = chain_id.into();
         let rpc_url_key = format!("RPC_URL_{}", chain_id_num);
 
-        let http_url = std::env::var(&rpc_url_key).map_err(|_| StreamError::Configuration {
+        let http_url = std::env::var(rpc_url_key.clone()).map_err(|_| StreamError::Configuration {
             message: format!("Missing {} environment variable", rpc_url_key),
         })?;
 
@@ -90,7 +90,7 @@ impl MultiChainEvmManager {
     pub fn is_chain_configured(&self, chain_id: ChainId) -> bool {
         let chain_id_num: u64 = chain_id.into();
         let rpc_url_key = format!("RPC_URL_{}", chain_id_num);
-        std::env::var(&rpc_url_key).is_ok()
+        std::env::var(rpc_url_key).is_ok()
     }
 
     /// Register all configured chains

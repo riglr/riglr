@@ -15,6 +15,7 @@ use serde_json::Value as JsonValue;
 use solana_sdk::signature::Keypair;
 use std::sync::Arc;
 
+
 /// Test tool that requires SignerContext to function
 #[derive(Debug, Clone)]
 struct SignerRequiringTool;
@@ -70,9 +71,6 @@ impl riglr_core::Tool for SignerRequiringTool {
 
 #[tokio::test]
 async fn test_signer_context_propagates_through_adapter() {
-    // Set environment variables needed for testing
-    std::env::set_var("FEATURES_ENABLE_BRIDGING", "false");
-    std::env::set_var("LIFI_API_KEY", "dummy-key-for-testing");
 
     println!("\n=== Testing SignerContext Propagation Through RigToolAdapter ===\n");
 
@@ -86,9 +84,12 @@ async fn test_signer_context_propagates_through_adapter() {
     // Create the tool that requires SignerContext
     let tool = Arc::new(SignerRequiringTool);
 
-    // Create the RigToolAdapter with extensions pattern
-    let config = Config::from_env();
-    let context = ApplicationContext::from_config(&config);
+    // Create the RigToolAdapter with minimal context for testing
+    let minimal_config = Config::builder()
+        .development()
+        .build()
+        .expect("Failed to build test config");
+    let context = ApplicationContext::from_config(&minimal_config);
     let adapter = RigToolAdapter::new(tool, context);
 
     // Test arguments
@@ -130,9 +131,6 @@ async fn test_signer_context_propagates_through_adapter() {
 /// Test that tools work without SignerContext when they don't need it
 #[tokio::test]
 async fn test_adapter_works_without_signer_for_non_signing_tools() {
-    // Set environment variables needed for testing
-    std::env::set_var("FEATURES_ENABLE_BRIDGING", "false");
-    std::env::set_var("LIFI_API_KEY", "dummy-key-for-testing");
 
     println!("\n=== Testing Non-Signing Tools Still Work ===\n");
 
@@ -171,8 +169,11 @@ async fn test_adapter_works_without_signer_for_non_signing_tools() {
     }
 
     let tool = Arc::new(NonSigningTool);
-    let config = Config::from_env();
-    let context = ApplicationContext::from_config(&config);
+    let minimal_config = Config::builder()
+        .development()
+        .build()
+        .expect("Failed to build test config");
+    let context = ApplicationContext::from_config(&minimal_config);
     let adapter = RigToolAdapter::new(tool, context);
 
     let args = serde_json::json!({});

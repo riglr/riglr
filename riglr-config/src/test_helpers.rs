@@ -3,6 +3,18 @@
 //! This module provides placeholder patterns and helper functions for testing
 //! database URLs and other configuration values without hardcoding credentials.
 
+/// Environment variable names for testing
+mod env_vars {
+    /// Test database username environment variable
+    pub const TEST_DB_USER: &str = "TEST_DB_USER";
+    /// Test database password environment variable
+    pub const TEST_DB_PASS: &str = "TEST_DB_PASS";
+    /// Test WebSocket username environment variable
+    pub const TEST_WS_USER: &str = "TEST_WS_USER";
+    /// Test WebSocket password environment variable
+    pub const TEST_WS_PASS: &str = "TEST_WS_PASS";
+}
+
 /// Placeholder patterns for test credentials
 pub mod placeholders {
     /// Placeholder for username in URL templates
@@ -89,18 +101,18 @@ impl TestUrlBuilder {
 
 /// Common test URLs with safe placeholder values
 pub mod test_urls {
-    use super::{templates, TestUrlBuilder};
+    use super::{env_vars, templates, TestUrlBuilder};
 
     /// Get a test PostgreSQL URL
     pub fn postgres() -> String {
         TestUrlBuilder::from_template(templates::POSTGRES_URL)
             .with_username(
-                std::env::var("TEST_DB_USER")
+                std::env::var(env_vars::TEST_DB_USER)
                     .unwrap_or_else(|_| "user".to_string())
                     .as_str(),
             )
             .with_password(
-                std::env::var("TEST_DB_PASS")
+                std::env::var(env_vars::TEST_DB_PASS)
                     .unwrap_or_else(|_| "pass".to_string())
                     .as_str(),
             )
@@ -114,12 +126,12 @@ pub mod test_urls {
     pub fn mysql() -> String {
         TestUrlBuilder::from_template(templates::MYSQL_URL)
             .with_username(
-                std::env::var("TEST_DB_USER")
+                std::env::var(env_vars::TEST_DB_USER)
                     .unwrap_or_else(|_| "user".to_string())
                     .as_str(),
             )
             .with_password(
-                std::env::var("TEST_DB_PASS")
+                std::env::var(env_vars::TEST_DB_PASS)
                     .unwrap_or_else(|_| "pass".to_string())
                     .as_str(),
             )
@@ -133,12 +145,12 @@ pub mod test_urls {
     pub fn mongodb() -> String {
         TestUrlBuilder::from_template(templates::MONGODB_URL)
             .with_username(
-                std::env::var("TEST_DB_USER")
+                std::env::var(env_vars::TEST_DB_USER)
                     .unwrap_or_else(|_| "user".to_string())
                     .as_str(),
             )
             .with_password(
-                std::env::var("TEST_DB_PASS")
+                std::env::var(env_vars::TEST_DB_PASS)
                     .unwrap_or_else(|_| "pass".to_string())
                     .as_str(),
             )
@@ -152,12 +164,12 @@ pub mod test_urls {
     pub fn redis() -> String {
         TestUrlBuilder::from_template(templates::REDIS_URL)
             .with_username(
-                std::env::var("TEST_DB_USER")
+                std::env::var(env_vars::TEST_DB_USER)
                     .unwrap_or_else(|_| "user".to_string())
                     .as_str(),
             )
             .with_password(
-                std::env::var("TEST_DB_PASS")
+                std::env::var(env_vars::TEST_DB_PASS)
                     .unwrap_or_else(|_| "pass".to_string())
                     .as_str(),
             )
@@ -171,12 +183,12 @@ pub mod test_urls {
     pub fn websocket() -> String {
         TestUrlBuilder::from_template(templates::WSS_URL)
             .with_username(
-                std::env::var("TEST_WS_USER")
+                std::env::var(env_vars::TEST_WS_USER)
                     .unwrap_or_else(|_| "user".to_string())
                     .as_str(),
             )
             .with_password(
-                std::env::var("TEST_WS_PASS")
+                std::env::var(env_vars::TEST_WS_PASS)
                     .unwrap_or_else(|_| "pass".to_string())
                     .as_str(),
             )
@@ -205,51 +217,51 @@ mod tests {
 
     #[test]
     fn test_postgres_url() {
-        std::env::set_var("TEST_DB_USER", "u");
-        std::env::set_var("TEST_DB_PASS", "p");
+        std::env::set_var(env_vars::TEST_DB_USER, "u");
+        std::env::set_var(env_vars::TEST_DB_PASS, "p");
         let url = test_urls::postgres();
         assert_eq!(url, "postgresql://u:p@localhost:5432/testdb");
-        std::env::remove_var("TEST_DB_USER");
-        std::env::remove_var("TEST_DB_PASS");
+        std::env::remove_var(env_vars::TEST_DB_USER);
+        std::env::remove_var(env_vars::TEST_DB_PASS);
     }
 
     #[test]
     fn test_mysql_url() {
-        std::env::set_var("TEST_DB_USER", "u");
-        std::env::set_var("TEST_DB_PASS", "p");
+        std::env::set_var(env_vars::TEST_DB_USER, "u");
+        std::env::set_var(env_vars::TEST_DB_PASS, "p");
         let url = test_urls::mysql();
         assert_eq!(url, "mysql://u:p@localhost:3306/testdb");
-        std::env::remove_var("TEST_DB_USER");
-        std::env::remove_var("TEST_DB_PASS");
+        std::env::remove_var(env_vars::TEST_DB_USER);
+        std::env::remove_var(env_vars::TEST_DB_PASS);
     }
 
     #[test]
     fn test_mongodb_url() {
-        std::env::set_var("TEST_DB_USER", "u");
-        std::env::set_var("TEST_DB_PASS", "p");
+        std::env::set_var(env_vars::TEST_DB_USER, "u");
+        std::env::set_var(env_vars::TEST_DB_PASS, "p");
         let url = test_urls::mongodb();
         assert_eq!(url, "mongodb://u:p@localhost:27017/testdb");
-        std::env::remove_var("TEST_DB_USER");
-        std::env::remove_var("TEST_DB_PASS");
+        std::env::remove_var(env_vars::TEST_DB_USER);
+        std::env::remove_var(env_vars::TEST_DB_PASS);
     }
 
     #[test]
     fn test_redis_url() {
-        std::env::set_var("TEST_DB_USER", "u");
-        std::env::set_var("TEST_DB_PASS", "p");
+        std::env::set_var(env_vars::TEST_DB_USER, "u");
+        std::env::set_var(env_vars::TEST_DB_PASS, "p");
         let url = test_urls::redis();
         assert_eq!(url, "redis://u:p@localhost:6379/0");
-        std::env::remove_var("TEST_DB_USER");
-        std::env::remove_var("TEST_DB_PASS");
+        std::env::remove_var(env_vars::TEST_DB_USER);
+        std::env::remove_var(env_vars::TEST_DB_PASS);
     }
 
     #[test]
     fn test_websocket_url() {
-        std::env::set_var("TEST_WS_USER", "u");
-        std::env::set_var("TEST_WS_PASS", "p");
+        std::env::set_var(env_vars::TEST_WS_USER, "u");
+        std::env::set_var(env_vars::TEST_WS_PASS, "p");
         let url = test_urls::websocket();
         assert_eq!(url, "wss://u:p@example.com:443/path");
-        std::env::remove_var("TEST_WS_USER");
-        std::env::remove_var("TEST_WS_PASS");
+        std::env::remove_var(env_vars::TEST_WS_USER);
+        std::env::remove_var(env_vars::TEST_WS_PASS);
     }
 }

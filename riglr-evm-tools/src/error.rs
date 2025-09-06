@@ -119,7 +119,7 @@ fn extract_error_code(msg: &str) -> Option<i32> {
         let code_str = &msg[idx + 6..].trim();
         if let Some(stripped) = code_str.strip_prefix('-') {
             if let Some(end_idx) = stripped.find(|c: char| !c.is_ascii_digit()) {
-                return code_str[..end_idx + 1].parse::<i32>().ok();
+                return code_str[..=end_idx].parse::<i32>().ok();
             }
         }
     }

@@ -396,7 +396,7 @@ impl MetricsCollector {
         if history.len() > self.max_history_size {
             history.drain(0..100);
         }
-        drop(history); // Release the lock
+        // Lock is automatically released when history goes out of scope
 
         // Export current rates to metrics facade if enabled
         #[cfg(feature = "metrics-facade")]
