@@ -67,7 +67,9 @@ where
         self.inner.metadata()
     }
 
-    fn metadata_mut(&mut self) -> &mut riglr_events_core::EventMetadata {
+    fn metadata_mut(
+        &mut self,
+    ) -> riglr_events_core::error::EventResult<&mut riglr_events_core::EventMetadata> {
         self.inner.metadata_mut()
     }
 
@@ -149,7 +151,9 @@ impl Event for DynamicStreamedEvent {
         self.inner.metadata()
     }
 
-    fn metadata_mut(&mut self) -> &mut riglr_events_core::EventMetadata {
+    fn metadata_mut(
+        &mut self,
+    ) -> riglr_events_core::error::EventResult<&mut riglr_events_core::EventMetadata> {
         self.inner.metadata_mut()
     }
 
@@ -257,8 +261,8 @@ mod tests {
         fn metadata(&self) -> &EventMetadata {
             &self.metadata
         }
-        fn metadata_mut(&mut self) -> &mut EventMetadata {
-            &mut self.metadata
+        fn metadata_mut(&mut self) -> riglr_events_core::error::EventResult<&mut EventMetadata> {
+            Ok(&mut self.metadata)
         }
         fn as_any(&self) -> &dyn Any {
             self
@@ -355,7 +359,7 @@ mod tests {
         let inner_mut = streamed.inner_mut();
 
         // Modify the inner event
-        inner_mut.metadata.id = "modified".to_string();
+        inner_mut.metadata_mut().unwrap().id = "modified".to_string();
 
         assert_eq!(streamed.inner().id(), "modified");
     }
@@ -426,7 +430,7 @@ mod tests {
         let mut streamed = StreamedEvent::new(event, metadata);
 
         // Modify metadata through Event trait
-        streamed.metadata_mut().id = "new_id".to_string();
+        streamed.metadata_mut().unwrap().id = "new_id".to_string();
 
         assert_eq!(streamed.id(), "new_id");
     }
@@ -624,7 +628,7 @@ mod tests {
         let mut dynamic = DynamicStreamedEvent::from_event(boxed_event, metadata);
 
         // Modify metadata through Event trait
-        dynamic.metadata_mut().id = "modified_dynamic".to_string();
+        dynamic.metadata_mut().unwrap().id = "modified_dynamic".to_string();
 
         assert_eq!(dynamic.id(), "modified_dynamic");
     }

@@ -1,16 +1,28 @@
 //! Examples demonstrating stream composition patterns in riglr-streams
+//!
+//! Note: This example shows how to compose streams using real implementations.
+//! For testing without API keys, replace the real streams with MockStream:
+//! ```
+//! use riglr_streams::core::mock_stream::{MockStream, MockConfig};
+//! let mock = MockStream::new("test".to_string(), MockConfig::default());
+//! ```
 
 use riglr_events_core::{Event, EventKind, EventMetadata};
 use riglr_solana_events::ProtocolType;
-use riglr_streams::core::DynamicStreamedEvent;
 use riglr_streams::core::{ComposableStream, Stream};
-use riglr_streams::evm::websocket::EvmWebSocketStream;
-use riglr_streams::external::binance::BinanceStream;
-use riglr_streams::solana::geyser::SolanaGeyserStream;
+use riglr_streams::core::{DynamicStreamedEvent, IntoDynamicStreamedEvent};
 use std::any::Any;
 use std::sync::Arc;
 use std::time::Duration;
 use tracing::{info, Level};
+
+// Production streams (comment out if using MockStream)
+use riglr_streams::evm::websocket::EvmWebSocketStream;
+use riglr_streams::external::binance::BinanceStream;
+use riglr_streams::solana::geyser::SolanaGeyserStream;
+
+// For testing (uncomment to use)
+// use riglr_streams::core::mock_stream::{MockStream, MockConfig};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -42,20 +54,31 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 async fn example_filter_map() -> Result<(), Box<dyn std::error::Error>> {
     info!("Example 1: Filter and Map");
 
-    // Create a Solana stream
+    // Option A: Create a Solana stream (requires valid WebSocket endpoint)
     let solana_stream = SolanaGeyserStream::new("solana-mainnet");
+
+    // Option B: Use MockStream for testing (uncomment below, comment above)
+    // use riglr_streams::core::mock_stream::{MockStream, MockConfig};
+    // let config = MockConfig {
+    //     events_per_second: 5.0,
+    //     event_kinds: vec![EventKind::Swap, EventKind::Transaction],
+    //     max_events: Some(100),
+    // };
+    // let solana_stream = MockStream::new("mock-solana".to_string(), config);
 
     // Filter for swap events and map to extract key data
     let _processed_stream = solana_stream
         .filter(|event| matches!(event.inner.kind(), EventKind::Swap))
         .map(|event| {
             // Extract relevant swap data
-            SwapSummary::new(
+            let swap_summary = SwapSummary::new(
                 event.inner.id().to_string(),
                 ProtocolType::Other("solana".to_string()),
                 0, // slot would need to be extracted from chain_data
                 event.inner.timestamp(),
-            )
+            );
+            (Box::new(swap_summary) as Box<dyn Event>)
+                .with_default_stream_metadata("processed_swap")
         });
 
     // Subscribe to processed events
@@ -111,10 +134,12 @@ async fn example_batching() -> Result<(), Box<dyn std::error::Error>> {
     let stream = SolanaGeyserStream::new("solana");
 
     // Batch events: up to 100 events or 5 seconds, whichever comes first
-    let _batched = stream.batch(100, Duration::from_secs(5)).map(|batch| {
-        info!("Processing batch of {} events", batch.events.len());
-        // Process entire batch at once (e.g., bulk database insert)
-        BatchResult::new(batch.events.len())
+    let _batched = stream.batch(100, Duration::from_secs(5)).map(|event| {
+        info!("Processing batched event: {}", event.inner().id());
+        // For now, each event is processed individually as the current BatchedStream
+        // sends individual events rather than true batch objects
+        let result = BatchResult::new(1); // Single event processed
+        (Box::new(result) as Box<dyn Event>).with_default_stream_metadata("batch_processed")
     });
 
     Ok(())
@@ -140,9 +165,14 @@ async fn example_complex_pipeline() -> Result<(), Box<dyn std::error::Error>> {
             true
         })
         .map(extract_swap_metrics)
-        .scan(RunningAverage::new(), |mut avg, metrics| {
-            avg.update(metrics.volume);
-            avg
+        .map(|metrics| {
+            // Instead of scan, just process each metrics event individually
+            // In production, you'd maintain state elsewhere (database, cache, etc.)
+            let mut avg = RunningAverage::new();
+            if let Some(swap_metrics) = metrics.inner().as_any().downcast_ref::<SwapMetrics>() {
+                avg.update(swap_metrics.volume);
+            }
+            (Box::new(avg) as Box<dyn Event>).with_default_stream_metadata("running_average")
         })
         .throttle(Duration::from_secs(10))
         .batch(50, Duration::from_secs(60));
@@ -169,15 +199,23 @@ async fn example_arbitrage_detection() -> Result<(), Box<dyn std::error::Error>>
     // Detect arbitrage opportunities (simplified for demo)
     let _opportunities = combined
         .map(|_price_event| {
-            ArbitrageOpportunity::new(
+            let opportunity = ArbitrageOpportunity::new(
                 "BTC".to_string(),
                 "Binance".to_string(),
                 "Coinbase".to_string(),
                 0.1, // Demo spread
                 std::time::SystemTime::now(),
-            )
+            );
+            (Box::new(opportunity) as Box<dyn Event>)
+                .with_default_stream_metadata("arbitrage_opportunity")
         })
-        .filter(|opp| opp.spread_percentage > 0.1) // Only significant opportunities
+        .filter(|opp| {
+            if let Some(arb_opp) = opp.inner().as_any().downcast_ref::<ArbitrageOpportunity>() {
+                arb_opp.spread_percentage > 0.1 // Only significant opportunities
+            } else {
+                false
+            }
+        })
         .debounce(Duration::from_secs(1)); // Avoid duplicate alerts
 
     // Subscribe to arbitrage opportunities
@@ -226,8 +264,8 @@ impl Event for SwapSummary {
     fn metadata(&self) -> &EventMetadata {
         &self.metadata
     }
-    fn metadata_mut(&mut self) -> &mut EventMetadata {
-        &mut self.metadata
+    fn metadata_mut(&mut self) -> riglr_events_core::error::EventResult<&mut EventMetadata> {
+        Ok(&mut self.metadata)
     }
     fn as_any(&self) -> &dyn Any {
         self
@@ -286,8 +324,8 @@ impl Event for SwapMetrics {
     fn metadata(&self) -> &EventMetadata {
         &self.metadata
     }
-    fn metadata_mut(&mut self) -> &mut EventMetadata {
-        &mut self.metadata
+    fn metadata_mut(&mut self) -> riglr_events_core::error::EventResult<&mut EventMetadata> {
+        Ok(&mut self.metadata)
     }
     fn as_any(&self) -> &dyn Any {
         self
@@ -311,6 +349,7 @@ struct RunningAverage {
     sum: f64,
     count: usize,
     average: f64,
+    metadata: EventMetadata,
 }
 
 impl RunningAverage {
@@ -319,6 +358,17 @@ impl RunningAverage {
             sum: 0.0,
             count: 0,
             average: 0.0,
+            metadata: EventMetadata::new(
+                format!(
+                    "running_average_{}",
+                    std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .unwrap_or_default()
+                        .as_millis()
+                ),
+                EventKind::Custom("running_average".to_string()),
+                "metrics".to_string(),
+            ),
         }
     }
 
@@ -326,6 +376,38 @@ impl RunningAverage {
         self.sum += value;
         self.count += 1;
         self.average = self.sum / self.count as f64;
+    }
+}
+
+impl Event for RunningAverage {
+    fn id(&self) -> &str {
+        &self.metadata.id
+    }
+    fn kind(&self) -> &EventKind {
+        &self.metadata.kind
+    }
+    fn metadata(&self) -> &EventMetadata {
+        &self.metadata
+    }
+    fn metadata_mut(&mut self) -> riglr_events_core::error::EventResult<&mut EventMetadata> {
+        Ok(&mut self.metadata)
+    }
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+    fn clone_boxed(&self) -> Box<dyn Event> {
+        Box::new(self.clone())
+    }
+    fn to_json(&self) -> riglr_events_core::error::EventResult<serde_json::Value> {
+        Ok(serde_json::json!({
+            "id": self.id(),
+            "sum": self.sum,
+            "count": self.count,
+            "average": self.average
+        }))
     }
 }
 
@@ -371,8 +453,8 @@ impl Event for ArbitrageOpportunity {
     fn metadata(&self) -> &EventMetadata {
         &self.metadata
     }
-    fn metadata_mut(&mut self) -> &mut EventMetadata {
-        &mut self.metadata
+    fn metadata_mut(&mut self) -> riglr_events_core::error::EventResult<&mut EventMetadata> {
+        Ok(&mut self.metadata)
     }
     fn as_any(&self) -> &dyn Any {
         self
@@ -429,8 +511,8 @@ impl Event for BatchResult {
     fn metadata(&self) -> &EventMetadata {
         &self.metadata
     }
-    fn metadata_mut(&mut self) -> &mut EventMetadata {
-        &mut self.metadata
+    fn metadata_mut(&mut self) -> riglr_events_core::error::EventResult<&mut EventMetadata> {
+        Ok(&mut self.metadata)
     }
     fn as_any(&self) -> &dyn Any {
         self
@@ -449,12 +531,13 @@ impl Event for BatchResult {
     }
 }
 
-fn extract_swap_metrics(event: Arc<DynamicStreamedEvent>) -> SwapMetrics {
-    SwapMetrics::new(
+fn extract_swap_metrics(event: Arc<DynamicStreamedEvent>) -> DynamicStreamedEvent {
+    let metrics = SwapMetrics::new(
         1000.0, // Would extract from event
         50.0,
         event.inner.timestamp(),
-    )
+    );
+    (Box::new(metrics) as Box<dyn Event>).with_default_stream_metadata("swap_metrics")
 }
 
 async fn _write_to_database(data: Vec<RunningAverage>) {

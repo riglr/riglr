@@ -21,16 +21,16 @@ pub mod tools;
 pub mod prelude {
     // Core streaming abstractions
     pub use crate::core::{
-        combinators, BufferStrategy, ComposableStream, DynamicStreamedEvent, FinancialStreamExt,
-        HandlerExecutionMode, IntoStreamedEvent, MetricsCollector, Stream, StreamError,
-        StreamEvent, StreamHealth, StreamManager, StreamManagerBuilder, StreamedEvent,
+        ComposableStream, DynamicStreamedEvent, HandlerExecutionMode, IntoStreamedEvent,
+        MetricsCollector, Stream, StreamError, StreamEvent, StreamHealth, StreamManager,
+        StreamManagerBuilder, StreamedEvent,
     };
+    // Additional exports - specific items TBD
+    // combinators, BufferStrategy, FinancialStreamExt,
 
-    // Enhanced operators with events-core integration
-    pub use crate::core::enhanced_operators::{BatchedStream, EnhancedStream, EnhancedStreamExt};
-
-    // Re-export BatchEvent for use with specific Event types
-    pub use crate::core::enhanced_operators::BatchEvent;
+    // Enhanced operators with events-core integration - specific exports TBD
+    // pub use crate::core::enhanced_operators::{BatchedStream, EnhancedStream, EnhancedStreamExt};
+    // pub use crate::core::enhanced_operators::BatchEvent;
 
     // Event-triggered tools
     pub use crate::tools::ConditionCombinator;
@@ -46,13 +46,11 @@ mod tests {
     #[test]
     fn test_prelude_core_imports_are_accessible() {
         // Test that all core streaming abstractions are accessible through prelude
-        use crate::prelude::{
-            BufferStrategy, HandlerExecutionMode, StreamError, StreamEvent, StreamHealth,
-        };
+        use crate::prelude::{HandlerExecutionMode, StreamError, StreamEvent, StreamHealth};
 
         // These imports should compile without error, proving they are accessible
         // We use type assertions to ensure the types exist and are correctly re-exported
-        let _buffer_strategy: Option<BufferStrategy> = None;
+        // Note: BufferStrategy has been removed in the new architecture
         let _handler_mode: Option<HandlerExecutionMode> = None;
         let _stream_error: Option<StreamError> = None;
         let _stream_event: Option<Box<dyn StreamEvent>> = None;

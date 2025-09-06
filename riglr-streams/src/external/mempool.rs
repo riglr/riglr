@@ -4,9 +4,10 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::SystemTime;
 use tokio::sync::{broadcast, RwLock};
-use tokio_tungstenite::connect_async;
 use tracing::info;
 
+use crate::core::metrics::MetricsCollector;
+use crate::core::streamed_event::DynamicStreamedEvent;
 use crate::core::StreamMetadata;
 use crate::core::{Stream, StreamError, StreamEvent, StreamHealth};
 use chrono::Utc;
@@ -17,7 +18,9 @@ pub struct MempoolSpaceStream {
     /// Stream configuration
     config: MempoolConfig,
     /// Event broadcast channel
-    event_tx: broadcast::Sender<Arc<MempoolStreamEvent>>,
+    event_tx: broadcast::Sender<Arc<DynamicStreamedEvent>>,
+    /// Metrics collector
+    metrics: Option<Arc<MetricsCollector>>,
     /// Running state
     running: Arc<AtomicBool>,
     /// Health metrics
@@ -204,8 +207,8 @@ impl Event for MempoolStreamEvent {
         &self.metadata
     }
 
-    fn metadata_mut(&mut self) -> &mut EventMetadata {
-        &mut self.metadata
+    fn metadata_mut(&mut self) -> riglr_events_core::error::EventResult<&mut EventMetadata> {
+        Ok(&mut self.metadata)
     }
 
     fn as_any(&self) -> &dyn std::any::Any {
@@ -235,7 +238,6 @@ impl Event for MempoolStreamEvent {
 
 #[async_trait::async_trait]
 impl Stream for MempoolSpaceStream {
-    type Event = MempoolStreamEvent;
     type Config = MempoolConfig;
 
     async fn start(&mut self, config: Self::Config) -> Result<(), StreamError> {
@@ -283,7 +285,7 @@ impl Stream for MempoolSpaceStream {
         Ok(())
     }
 
-    fn subscribe(&self) -> broadcast::Receiver<Arc<Self::Event>> {
+    fn subscribe(&self) -> broadcast::Receiver<Arc<DynamicStreamedEvent>> {
         self.event_tx.subscribe()
     }
 
@@ -312,6 +314,21 @@ impl MempoolSpaceStream {
             running: Arc::new(AtomicBool::default()),
             health: Arc::new(RwLock::new(StreamHealth::default())),
             name: name.into(),
+            metrics: None,
+        }
+    }
+
+    /// Create a new Mempool.space stream with metrics
+    pub fn new_with_metrics(name: impl Into<String>, metrics: Arc<MetricsCollector>) -> Self {
+        let (event_tx, _) = broadcast::channel(10000);
+
+        Self {
+            config: MempoolConfig::default(),
+            event_tx,
+            running: Arc::new(AtomicBool::default()),
+            health: Arc::new(RwLock::new(StreamHealth::default())),
+            name: name.into(),
+            metrics: Some(metrics),
         }
     }
 
@@ -324,46 +341,77 @@ impl MempoolSpaceStream {
         };
 
         let url = base_url.to_string();
-        let event_tx = self.event_tx.clone();
+        let metrics = self.metrics.clone();
         let running = self.running.clone();
         let health = self.health.clone();
         let stream_name = self.name.clone();
 
+        // Create mpsc channel for internal event handling
+        let (internal_tx, mut internal_rx) =
+            tokio::sync::mpsc::unbounded_channel::<Arc<DynamicStreamedEvent>>();
+        let event_tx = self.event_tx.clone();
+
+        // Bridge internal events to broadcast channel
+        let stream_name_clone = stream_name.clone();
+        let metrics_clone = metrics.clone();
         tokio::spawn(async move {
-            crate::impl_resilient_websocket!(
+            while let Some(event) = internal_rx.recv().await {
+                if let Some(ref metrics) = metrics_clone {
+                    metrics
+                        .record_stream_event(&stream_name_clone, 0.0, 0)
+                        .await;
+                }
+                let _ = event_tx.send(event);
+            }
+        });
+
+        let internal_tx_for_connector = internal_tx;
+        tokio::spawn(async move {
+            let connector = crate::core::ResilientWebSocketBuilder::new(
                 stream_name,
                 running,
                 health,
-                event_tx,
-                Option::<crate::core::MetricsCollector>::None, // No metrics for now
-                // Connect function
-                || {
+                internal_tx_for_connector,
+                move || {
                     let url = url.clone();
-                    async move {
-                        connect_async(&url)
+                    Box::pin(async move {
+                        tokio_tungstenite::connect_async(&url)
                             .await
                             .map(|(ws, _)| ws)
-                            .map_err(|e| format!("Failed to connect to Mempool.space: {}", e))
-                    }
+                            .map_err(|e| {
+                                Box::new(std::io::Error::new(
+                                    std::io::ErrorKind::ConnectionRefused,
+                                    format!("Failed to connect to Mempool.space: {}", e),
+                                ))
+                                    as Box<dyn std::error::Error + Send + Sync>
+                            })
+                    })
                 },
-                // Subscribe function
-                move |_write| { std::future::ready(Ok::<(), String>(())) },
-                // Parse function
+                |_write| {
+                    Box::pin(async move { Ok::<(), Box<dyn std::error::Error + Send + Sync>>(()) })
+                },
                 |text: String, sequence_number: u64| {
                     if let Ok(json) = serde_json::from_str::<serde_json::Value>(&text) {
                         Self::parse_message(json, sequence_number)
                     } else {
                         None
                     }
-                }
-            );
+                },
+            )
+            .with_metrics(metrics.unwrap_or_else(|| Arc::new(MetricsCollector::default())))
+            .build();
+
+            connector.run().await;
         });
 
         Ok(())
     }
 
     /// Parse a message from mempool.space
-    fn parse_message(json: serde_json::Value, _sequence_number: u64) -> Option<MempoolStreamEvent> {
+    fn parse_message(
+        json: serde_json::Value,
+        _sequence_number: u64,
+    ) -> Option<DynamicStreamedEvent> {
         // Create unique ID
         let id = format!(
             "mempool_{}",
@@ -396,7 +444,8 @@ impl MempoolSpaceStream {
             custom_data: None,
         };
 
-        Some(MempoolStreamEvent {
+        let stream_meta_clone = stream_meta.clone();
+        let mempool_event = MempoolStreamEvent {
             metadata,
             event_type: MempoolEventType::Block,
             stream_meta,
@@ -404,7 +453,13 @@ impl MempoolSpaceStream {
             block_height: None,
             transaction_count: None,
             data: json,
-        })
+        };
+
+        // Convert to DynamicStreamedEvent
+        Some(DynamicStreamedEvent::from_event(
+            Box::new(mempool_event),
+            stream_meta_clone,
+        ))
     }
 }
 
@@ -612,7 +667,7 @@ mod tests {
         };
 
         let cloned = event.clone();
-        assert_eq!(event.metadata.id, cloned.metadata.id);
+        assert_eq!(event.metadata().id, cloned.metadata.id);
         assert_eq!(event.network, cloned.network);
         assert_eq!(event.block_height, cloned.block_height);
         assert_eq!(event.transaction_count, cloned.transaction_count);
@@ -778,7 +833,7 @@ mod tests {
             transaction_count: None,
         };
 
-        event.metadata_mut().source = "modified".to_string();
+        event.metadata_mut().unwrap().source = "modified".to_string();
         assert_eq!(event.metadata().source, "modified");
     }
 
@@ -975,12 +1030,19 @@ mod tests {
         let event = MempoolSpaceStream::parse_message(json, 1);
         assert!(event.is_some());
         let event = event.unwrap();
-        assert!(event.metadata.id.starts_with("mempool_"));
-        assert_eq!(event.metadata.kind, EventKind::Block);
-        assert_eq!(event.metadata.source, "mempool-space-ws");
-        assert_eq!(event.stream_meta.stream_source, "mempool.space");
-        assert_eq!(event.stream_meta.sequence_number, Some(1));
-        assert_eq!(event.network, BitcoinNetwork::Mainnet);
+        assert!(event.metadata().id.starts_with("mempool_"));
+        assert_eq!(event.metadata().kind, EventKind::Block);
+        assert_eq!(event.metadata().source, "mempool-space-ws");
+        assert_eq!(
+            event.stream_metadata().unwrap().stream_source,
+            "mempool.space"
+        );
+        assert_eq!(event.stream_metadata().unwrap().sequence_number, Some(1));
+        if let Some(mempool_event) = event.inner().as_any().downcast_ref::<MempoolStreamEvent>() {
+            assert_eq!(mempool_event.network, BitcoinNetwork::Mainnet);
+        } else {
+            panic!("Expected MempoolStreamEvent");
+        }
     }
 
     #[test]
@@ -989,7 +1051,7 @@ mod tests {
         let event = MempoolSpaceStream::parse_message(json, 42);
         assert!(event.is_some());
         let event = event.unwrap();
-        assert_eq!(event.stream_meta.sequence_number, Some(42));
+        assert_eq!(event.stream_metadata().unwrap().sequence_number, Some(42));
     }
 
     #[test]

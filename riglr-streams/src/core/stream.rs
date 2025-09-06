@@ -1,6 +1,6 @@
+use super::streamed_event::DynamicStreamedEvent;
 use super::StreamMetadata;
 use async_trait::async_trait;
-use riglr_events_core::prelude::Event;
 use riglr_events_core::StreamInfo;
 use std::any::Any;
 use std::sync::Arc;
@@ -12,9 +12,6 @@ use super::error::StreamError;
 /// Core trait that all streams must implement
 #[async_trait]
 pub trait Stream: Send + Sync {
-    /// The type of events this stream produces
-    type Event: Event + Clone + Send + Sync + 'static;
-
     /// Configuration type for this stream
     type Config: Clone + Send + Sync;
 
@@ -25,7 +22,7 @@ pub trait Stream: Send + Sync {
     async fn stop(&mut self) -> Result<(), StreamError>;
 
     /// Get a receiver for events from this stream
-    fn subscribe(&self) -> broadcast::Receiver<Arc<Self::Event>>;
+    fn subscribe(&self) -> broadcast::Receiver<Arc<DynamicStreamedEvent>>;
 
     /// Check if stream is currently running
     fn is_running(&self) -> bool;
@@ -233,6 +230,7 @@ mod tests {
     use super::*;
     use async_trait::async_trait;
     use riglr_events_core::prelude::{EventKind, EventMetadata};
+    use riglr_events_core::Event;
     use std::any::Any;
     use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
     use std::sync::Arc;
@@ -267,8 +265,8 @@ mod tests {
         fn metadata(&self) -> &EventMetadata {
             &self.metadata
         }
-        fn metadata_mut(&mut self) -> &mut EventMetadata {
-            &mut self.metadata
+        fn metadata_mut(&mut self) -> riglr_events_core::EventResult<&mut EventMetadata> {
+            Ok(&mut self.metadata)
         }
         fn as_any(&self) -> &dyn Any {
             self
@@ -307,7 +305,7 @@ mod tests {
     struct TestStream {
         name: String,
         is_running: Arc<AtomicBool>,
-        event_tx: broadcast::Sender<Arc<MockEvent>>,
+        event_tx: broadcast::Sender<Arc<DynamicStreamedEvent>>,
         events_processed: Arc<AtomicU64>,
         should_fail_start: bool,
         should_fail_stop: bool,
@@ -339,15 +337,21 @@ mod tests {
         fn send_event(
             &self,
             event: MockEvent,
-        ) -> Result<usize, broadcast::error::SendError<Arc<MockEvent>>> {
+        ) -> Result<usize, broadcast::error::SendError<Arc<DynamicStreamedEvent>>> {
             self.events_processed.fetch_add(1, Ordering::Relaxed);
-            self.event_tx.send(Arc::new(event))
+            let metadata = super::StreamMetadata {
+                stream_source: self.name.clone(),
+                received_at: SystemTime::now(),
+                sequence_number: Some(self.events_processed.load(Ordering::Relaxed)),
+                custom_data: None,
+            };
+            let dynamic_event = DynamicStreamedEvent::from_event(Box::new(event), metadata);
+            self.event_tx.send(Arc::new(dynamic_event))
         }
     }
 
     #[async_trait]
     impl Stream for TestStream {
-        type Event = MockEvent;
         type Config = MockConfig;
 
         async fn start(&mut self, config: Self::Config) -> Result<(), StreamError> {
@@ -370,7 +374,7 @@ mod tests {
             Ok(())
         }
 
-        fn subscribe(&self) -> broadcast::Receiver<Arc<Self::Event>> {
+        fn subscribe(&self) -> broadcast::Receiver<Arc<DynamicStreamedEvent>> {
             self.event_tx.subscribe()
         }
 

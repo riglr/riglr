@@ -4,6 +4,9 @@ use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime};
 use tokio::sync::RwLock;
 
+#[cfg(feature = "metrics-facade")]
+use metrics::{counter, gauge, histogram};
+
 /// Performance metrics for a stream
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StreamMetrics {
@@ -171,6 +174,16 @@ impl MetricsCollector {
         processing_time_ms: f64,
         bytes: u64,
     ) {
+        // Export to metrics facade if enabled
+        #[cfg(feature = "metrics-facade")]
+        {
+            counter!("riglr_streams_events_total", "stream" => stream_name.to_string())
+                .increment(1);
+            histogram!("riglr_streams_processing_time_ms", "stream" => stream_name.to_string())
+                .record(processing_time_ms);
+            counter!("riglr_streams_bytes_received", "stream" => stream_name.to_string())
+                .increment(bytes);
+        }
         let mut stream_metrics = self
             .stream_metrics
             .entry(stream_name.to_string())
@@ -215,6 +228,20 @@ impl MetricsCollector {
         execution_time_ms: f64,
         success: bool,
     ) {
+        // Export to metrics facade if enabled
+        #[cfg(feature = "metrics-facade")]
+        {
+            counter!("riglr_streams_handler_invocations", "handler" => handler_name.to_string())
+                .increment(1);
+            histogram!("riglr_streams_handler_execution_time_ms", "handler" => handler_name.to_string()).record(execution_time_ms);
+            if success {
+                counter!("riglr_streams_handler_successes", "handler" => handler_name.to_string())
+                    .increment(1);
+            } else {
+                counter!("riglr_streams_handler_failures", "handler" => handler_name.to_string())
+                    .increment(1);
+            }
+        }
         let mut handler_metrics = self
             .handler_metrics
             .entry(handler_name.to_string())
@@ -253,6 +280,13 @@ impl MetricsCollector {
         if let Some(mut stream_metrics) = self.stream_metrics.get_mut(stream_name) {
             stream_metrics.reconnection_count += 1;
         }
+
+        // Export to metrics facade if enabled
+        #[cfg(feature = "metrics-facade")]
+        {
+            counter!("riglr_streams_reconnections", "stream" => stream_name.to_string())
+                .increment(1);
+        }
     }
 
     /// Record a dropped event
@@ -260,6 +294,31 @@ impl MetricsCollector {
         if let Some(mut stream_metrics) = self.stream_metrics.get_mut(stream_name) {
             stream_metrics.events_dropped += 1;
         }
+
+        // Export to metrics facade if enabled
+        #[cfg(feature = "metrics-facade")]
+        {
+            counter!("riglr_streams_events_dropped", "stream" => stream_name.to_string())
+                .increment(1);
+        }
+    }
+
+    /// Record an error event
+    pub async fn record_error(&self, stream_name: &str, error_type: &str) {
+        // Increment error count for the stream
+        if let Some(mut stream_metrics) = self.stream_metrics.get_mut(stream_name) {
+            stream_metrics.events_dropped += 1; // Using events_dropped as error counter
+        }
+
+        // Export to metrics facade if enabled
+        #[cfg(feature = "metrics-facade")]
+        {
+            counter!("riglr_streams_errors_total", "stream" => stream_name.to_string(), "type" => error_type.to_string()).increment(1);
+        }
+
+        // If metrics-facade is not enabled, we still use error_type for future extensibility
+        #[cfg(not(feature = "metrics-facade"))]
+        let _ = error_type;
     }
 
     /// Get stream metrics
@@ -305,15 +364,15 @@ impl MetricsCollector {
         // Calculate rates for each stream
         for mut entry in self.stream_metrics.iter_mut() {
             let metrics = entry.value_mut();
-            let uptime_secs = SystemTime::now()
+            let uptime = SystemTime::now()
                 .duration_since(metrics.start_time)
-                .unwrap_or_default()
-                .as_secs() as f64;
+                .unwrap_or_default();
+            let uptime_secs = uptime.as_secs_f64();
 
             if uptime_secs > 0.0 {
                 metrics.events_per_second = metrics.events_processed as f64 / uptime_secs;
                 metrics.bytes_per_second = metrics.bytes_received as f64 / uptime_secs;
-                metrics.uptime = Duration::from_secs(uptime_secs as u64);
+                metrics.uptime = uptime;
             }
         }
 
@@ -321,7 +380,7 @@ impl MetricsCollector {
         let system_uptime_secs = SystemTime::now()
             .duration_since(global.system_start_time)
             .unwrap_or_default()
-            .as_secs() as f64;
+            .as_secs_f64();
 
         if system_uptime_secs > 0.0 {
             global.global_events_per_second = global.total_events as f64 / system_uptime_secs;
@@ -336,6 +395,23 @@ impl MetricsCollector {
         history.push((SystemTime::now(), global.clone()));
         if history.len() > self.max_history_size {
             history.drain(0..100);
+        }
+        drop(history); // Release the lock
+
+        // Export current rates to metrics facade if enabled
+        #[cfg(feature = "metrics-facade")]
+        {
+            gauge!("riglr_streams_events_per_second").set(global.global_events_per_second);
+            gauge!("riglr_streams_bytes_per_second").set(global.global_bytes_per_second);
+            gauge!("riglr_streams_active_streams").set(global.active_streams as f64);
+            gauge!("riglr_streams_active_handlers").set(global.active_handlers as f64);
+            gauge!("riglr_streams_total_events").set(global.total_events as f64);
+            gauge!("riglr_streams_total_bytes").set(global.total_bytes as f64);
+
+            let uptime = SystemTime::now()
+                .duration_since(global.system_start_time)
+                .unwrap_or_default();
+            gauge!("riglr_streams_uptime_seconds").set(uptime.as_secs() as f64);
         }
     }
 

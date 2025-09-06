@@ -2,16 +2,23 @@
 //!
 //! This example demonstrates how to build a sophisticated trading bot
 //! using riglr-streams' composition operators.
+//!
+//! Note: This example uses MockStream from core::mock_stream for demonstration.
+//! In production, replace with actual stream implementations like:
+//! - SolanaGeyserStream for Solana blockchain events
+//! - BinanceStream for market data
+//! See the commented imports below for production usage.
 
 use riglr_streams::core::{
-    financial_operators::AsNumeric, operators::BatchEvent, ComposableStream, Stream,
+    mock_stream::{MockConfig, MockStream},
+    ComposableStream, IntoDynamicStreamedEvent, Stream,
 };
 use std::any::Any;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime};
+// Production imports (uncomment for real usage):
 // use riglr_streams::solana::geyser::{SolanaGeyserStream, GeyserConfig};
 // use riglr_streams::external::binance::{BinanceStream, BinanceConfig};
-use async_trait::async_trait;
 use riglr_events_core::{Event, EventKind, EventMetadata};
 use riglr_solana_events::ProtocolType;
 use tracing::{info, Level};
@@ -32,125 +39,56 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-// Dummy Stream trait impl for example
-struct DummyStream;
-
-#[async_trait]
-impl Stream for DummyStream {
-    type Event = DummyEvent;
-    type Config = ();
-
-    async fn start(
-        &mut self,
-        _config: Self::Config,
-    ) -> Result<(), riglr_streams::core::StreamError> {
-        Ok(())
-    }
-
-    async fn stop(&mut self) -> Result<(), riglr_streams::core::StreamError> {
-        Ok(())
-    }
-
-    fn subscribe(&self) -> tokio::sync::broadcast::Receiver<Arc<Self::Event>> {
-        let (_tx, rx) = tokio::sync::broadcast::channel(1);
-        rx
-    }
-
-    fn is_running(&self) -> bool {
-        true
-    }
-
-    async fn health(&self) -> riglr_streams::core::StreamHealth {
-        riglr_streams::core::StreamHealth::default()
-    }
-
-    fn name(&self) -> &str {
-        "dummy"
-    }
-}
-
-#[derive(Clone, Debug)]
-struct DummyEvent {
-    metadata: EventMetadata,
-}
-
-impl DummyEvent {
-    fn _new() -> Self {
-        Self {
-            metadata: EventMetadata::new(
-                "dummy".to_string(),
-                EventKind::Custom("dummy".to_string()),
-                "dummy".to_string(),
-            ),
-        }
-    }
-}
-
-impl Event for DummyEvent {
-    fn id(&self) -> &str {
-        "dummy"
-    }
-    fn kind(&self) -> &EventKind {
-        &self.metadata.kind
-    }
-    fn metadata(&self) -> &EventMetadata {
-        &self.metadata
-    }
-    fn metadata_mut(&mut self) -> &mut EventMetadata {
-        &mut self.metadata
-    }
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-    fn as_any_mut(&mut self) -> &mut dyn Any {
-        self
-    }
-    fn clone_boxed(&self) -> Box<dyn Event> {
-        Box::new(self.clone())
-    }
-    fn to_json(&self) -> riglr_events_core::error::EventResult<serde_json::Value> {
-        Ok(serde_json::json!({
-            "id": self.id(),
-            "type": "dummy"
-        }))
-    }
-}
+// Using MockStream for demonstration
+// In production, replace with actual stream implementations
 
 /// Build the complete trading pipeline
 async fn build_trading_pipeline() -> Result<TradingPipeline, Box<dyn std::error::Error>> {
     // For this demo, we'll use a simplified approach with dummy streams
     // In a real implementation, you would have actual streams with real data
 
-    // 1. Create simple demo streams
-    let dummy_stream = DummyStream;
+    // 1. Create mock streams for demonstration
+    let mock_stream = MockStream::new("price_feed".to_string());
 
     // 2. Create a basic composed stream with technical indicators
-    let price_feed = dummy_stream
-        .map(|_event| PriceData::new("SOL/USDT".to_string(), 100.0, 1000000.0))
+    let price_feed = mock_stream
+        .map(|_event| {
+            let price_data = PriceData::new("SOL/USDT".to_string(), 100.0, 1000000.0);
+            (Box::new(price_data) as Box<dyn Event>).with_default_stream_metadata("price_feed")
+        })
         .throttle(Duration::from_secs(1)) // Throttle to 1 update per second
         .batch(5, Duration::from_secs(10)); // Batch 5 events or 10 seconds
 
     // 3. Create a simple DEX monitor stream
-    let dex_monitor = DummyStream
+    let dex_monitor = MockStream::new("dex_monitor".to_string())
         .filter(|_event| true) // Filter for relevant events
         .map(|_event| {
-            DexTrade::new(
+            let dex_trade = DexTrade::new(
                 ProtocolType::Other("Jupiter".to_string()),
                 "SOL/USDC".to_string(),
                 99.5,
                 10000.0,
-            )
+            );
+            (Box::new(dex_trade) as Box<dyn Event>).with_default_stream_metadata("dex_monitor")
         })
         .debounce(Duration::from_millis(500)); // Debounce events
 
     // 4. Create execution pipeline with batching
-    let execution_pipeline = DummyStream
-        .map(|_event| Transaction {
-            from: "wallet_address".to_string(),
-            _to: "dex_address".to_string(),
-            amount: 100.0,
-            gas_price: 0.001,
-            deadline: SystemTime::now() + Duration::from_secs(60),
+    let execution_pipeline = MockStream::new("execution".to_string())
+        .map(|_event| {
+            let transaction = Transaction {
+                from: "wallet_address".to_string(),
+                _to: "dex_address".to_string(),
+                amount: 100.0,
+                gas_price: 0.001,
+                deadline: SystemTime::now() + Duration::from_secs(60),
+                metadata: EventMetadata::new(
+                    "wallet_address".to_string(),
+                    EventKind::Transaction,
+                    "execution_pipeline".to_string(),
+                ),
+            };
+            (Box::new(transaction) as Box<dyn Event>).with_default_stream_metadata("execution")
         })
         .batch(3, Duration::from_secs(5)); // Batch for efficiency
 
@@ -174,22 +112,31 @@ async fn monitor_pipeline(pipeline: TradingPipeline) -> Result<(), Box<dyn std::
 
     // Spawn monitoring tasks
     tokio::spawn(async move {
-        while let Ok(batch) = execution_rx.recv().await {
-            execute_trades(batch.events.iter().map(|tx| (**tx).clone()).collect()).await;
+        while let Ok(event) = execution_rx.recv().await {
+            // In the current batch implementation, events are sent individually
+            // Try to downcast to Transaction and process
+            if let Some(transaction) = event.inner().as_any().downcast_ref::<Transaction>() {
+                execute_trades(vec![transaction.clone()]).await;
+            }
         }
     });
 
     tokio::spawn(async move {
-        while let Ok(price_batch) = price_rx.recv().await {
-            for price_data in &price_batch.events {
-                update_dashboard((**price_data).clone()).await;
+        while let Ok(price_event) = price_rx.recv().await {
+            // In the current batch implementation, events are sent individually
+            // Try to downcast to PriceData and process
+            if let Some(price_data) = price_event.inner().as_any().downcast_ref::<PriceData>() {
+                update_dashboard(price_data.clone()).await;
             }
         }
     });
 
     tokio::spawn(async move {
         while let Ok(dex_event) = dex_rx.recv().await {
-            log_dex_activity((*dex_event).clone()).await;
+            // Try to downcast to DexTrade and process
+            if let Some(dex_trade) = dex_event.inner().as_any().downcast_ref::<DexTrade>() {
+                log_dex_activity(dex_trade.clone()).await;
+            }
         }
     });
 
@@ -203,9 +150,9 @@ async fn monitor_pipeline(pipeline: TradingPipeline) -> Result<(), Box<dyn std::
 // Helper types and functions
 
 struct TradingPipeline {
-    price_feed: Box<dyn Stream<Event = BatchEvent<PriceData>, Config = ()> + Send + Sync>,
-    dex_monitor: Box<dyn Stream<Event = DexTrade, Config = ()> + Send + Sync>,
-    execution_pipeline: Box<dyn Stream<Event = BatchEvent<Transaction>, Config = ()> + Send + Sync>,
+    price_feed: Box<dyn Stream<Config = MockConfig> + Send + Sync>,
+    dex_monitor: Box<dyn Stream<Config = MockConfig> + Send + Sync>,
+    execution_pipeline: Box<dyn Stream<Config = MockConfig> + Send + Sync>,
 }
 
 #[derive(Clone, Default)]
@@ -272,6 +219,7 @@ struct Transaction {
     amount: f64,
     gas_price: f64,
     deadline: SystemTime,
+    metadata: EventMetadata,
 }
 
 impl Event for Transaction {
@@ -283,11 +231,10 @@ impl Event for Transaction {
         &KIND
     }
     fn metadata(&self) -> &EventMetadata {
-        // Return a dummy metadata - this should ideally be stored in the struct
-        panic!("Transaction metadata not implemented")
+        &self.metadata
     }
-    fn metadata_mut(&mut self) -> &mut EventMetadata {
-        panic!("Transaction metadata not implemented")
+    fn metadata_mut(&mut self) -> riglr_events_core::error::EventResult<&mut EventMetadata> {
+        Ok(&mut self.metadata)
     }
     fn as_any(&self) -> &dyn Any {
         self
@@ -302,27 +249,11 @@ impl Event for Transaction {
         Ok(serde_json::json!({
             "from": self.from,
             "amount": self.amount,
-            "gas_price": self.gas_price
-        }))
-    }
-}
-
-impl AsNumeric for Transaction {
-    fn as_price(&self) -> Option<f64> {
-        Some(self.gas_price)
-    }
-
-    fn as_volume(&self) -> Option<f64> {
-        Some(self.amount)
-    }
-
-    fn as_timestamp_ms(&self) -> Option<i64> {
-        Some(
-            self.deadline
-                .duration_since(SystemTime::UNIX_EPOCH)
+            "gas_price": self.gas_price,
+            "deadline": self.deadline.duration_since(std::time::UNIX_EPOCH)
                 .unwrap_or_default()
-                .as_millis() as i64,
-        )
+                .as_secs()
+        }))
     }
 }
 
@@ -407,6 +338,11 @@ fn _prepare_transaction(decision: _TradingDecision) -> Transaction {
         amount: decision.opportunity.required_capital,
         gas_price: 0.001,
         deadline: SystemTime::now() + Duration::from_secs(60),
+        metadata: EventMetadata::new(
+            "wallet_address".to_string(),
+            EventKind::Transaction,
+            "trading_decision".to_string(),
+        ),
     }
 }
 
@@ -471,8 +407,8 @@ impl Event for PriceData {
     fn metadata(&self) -> &EventMetadata {
         &self.metadata
     }
-    fn metadata_mut(&mut self) -> &mut EventMetadata {
-        &mut self.metadata
+    fn metadata_mut(&mut self) -> riglr_events_core::error::EventResult<&mut EventMetadata> {
+        Ok(&mut self.metadata)
     }
     fn as_any(&self) -> &dyn Any {
         self
@@ -487,27 +423,11 @@ impl Event for PriceData {
         Ok(serde_json::json!({
             "symbol": self.symbol,
             "price": self.price,
-            "volume": self.volume
-        }))
-    }
-}
-
-impl AsNumeric for PriceData {
-    fn as_price(&self) -> Option<f64> {
-        Some(self.price)
-    }
-
-    fn as_volume(&self) -> Option<f64> {
-        Some(self.volume)
-    }
-
-    fn as_timestamp_ms(&self) -> Option<i64> {
-        Some(
-            self.timestamp
-                .duration_since(SystemTime::UNIX_EPOCH)
+            "volume": self.volume,
+            "timestamp": self.timestamp.duration_since(std::time::UNIX_EPOCH)
                 .unwrap_or_default()
-                .as_millis() as i64,
-        )
+                .as_secs()
+        }))
     }
 }
 
@@ -555,8 +475,8 @@ impl Event for DexTrade {
     fn metadata(&self) -> &EventMetadata {
         &self.metadata
     }
-    fn metadata_mut(&mut self) -> &mut EventMetadata {
-        &mut self.metadata
+    fn metadata_mut(&mut self) -> riglr_events_core::error::EventResult<&mut EventMetadata> {
+        Ok(&mut self.metadata)
     }
     fn as_any(&self) -> &dyn Any {
         self
@@ -572,30 +492,14 @@ impl Event for DexTrade {
             "pair": self.pair,
             "protocol": format!("{:?}", self.protocol),
             "price": self.price,
-            "volume": self.volume
+            "volume": self.volume,
+            "timestamp": self.timestamp.duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs()
         }))
     }
 }
 // impl Event for DexTrade { ... }
-
-impl AsNumeric for DexTrade {
-    fn as_price(&self) -> Option<f64> {
-        Some(self.price)
-    }
-
-    fn as_volume(&self) -> Option<f64> {
-        Some(self.volume)
-    }
-
-    fn as_timestamp_ms(&self) -> Option<i64> {
-        Some(
-            self.timestamp
-                .duration_since(SystemTime::UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_millis() as i64,
-        )
-    }
-}
 
 #[derive(Clone)]
 struct _DexData {

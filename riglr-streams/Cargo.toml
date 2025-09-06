@@ -9,6 +9,10 @@ repository = "https://github.com/riglr/riglr"
 keywords = ["blockchain", "streaming", "events", "solana", "ethereum"]
 categories = ["cryptography::cryptocurrencies", "network-programming", "asynchronous"]
 
+[features]
+default = []
+metrics-facade = ["metrics"]
+
 [lints]
 workspace = true
 
@@ -36,7 +40,7 @@ chrono = { workspace = true }
 uuid = { workspace = true, features = ["v4", "serde"] }
 
 # Metrics
-metrics = "0.24.2"
+metrics = { version = "0.24.2", optional = true }
 
 # Streaming infrastructure - using compatible versions
 tungstenite = "0.27.0"

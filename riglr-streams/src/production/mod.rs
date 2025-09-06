@@ -2,18 +2,18 @@
 //!
 //! This module provides essential production features for managing streaming data pipelines:
 //! - Health monitoring and status tracking
-//! - Performance metrics collection and reporting  
 //! - Resilience patterns including circuit breakers and retry policies
 //!
 //! These components work together to ensure reliable operation of streaming systems
 //! in production environments with proper observability and fault tolerance.
+//!
+//! Note: Metrics collection functionality has been consolidated into core::metrics::MetricsCollector.
+//! Enable the "metrics-facade" feature to export metrics to the metrics crate.
 
 pub mod health;
-pub mod monitoring;
 pub mod resilience;
 
 pub use health::{ComponentHealth, HealthMonitor, HealthStatus};
-pub use monitoring::{MetricsCollector, PerformanceStats, StreamMetrics};
 pub use resilience::{BackoffStrategy, CircuitBreaker, RetryPolicy};
 
 #[cfg(test)]
@@ -30,14 +30,6 @@ mod tests {
         let _type_exists: Option<ComponentHealth> = None;
         let _type_exists: Option<HealthMonitor> = None;
         let _type_exists: Option<HealthStatus> = None;
-    }
-
-    #[test]
-    fn test_module_structure_when_imported_should_expose_monitoring_types() {
-        // Test that monitoring module types are properly re-exported
-        let _type_exists: Option<MetricsCollector> = None;
-        let _type_exists: Option<PerformanceStats> = None;
-        let _type_exists: Option<StreamMetrics> = None;
     }
 
     #[test]
@@ -76,15 +68,9 @@ mod tests {
 
         // Count the number of re-exported types from each module
         let health_types = ["ComponentHealth", "HealthMonitor", "HealthStatus"];
-        let monitoring_types = ["MetricsCollector", "PerformanceStats", "StreamMetrics"];
         let resilience_types = ["BackoffStrategy", "CircuitBreaker", "RetryPolicy"];
 
         assert_eq!(health_types.len(), 3, "Should export 3 health types");
-        assert_eq!(
-            monitoring_types.len(),
-            3,
-            "Should export 3 monitoring types"
-        );
         assert_eq!(
             resilience_types.len(),
             3,
@@ -92,11 +78,10 @@ mod tests {
         );
 
         // Total API surface
-        let total_exported_types =
-            health_types.len() + monitoring_types.len() + resilience_types.len();
+        let total_exported_types = health_types.len() + resilience_types.len();
         assert_eq!(
-            total_exported_types, 9,
-            "Should export exactly 9 types total"
+            total_exported_types, 6,
+            "Should export exactly 6 types total"
         );
     }
 
@@ -118,7 +103,7 @@ mod tests {
 
         use crate::production::{
             BackoffStrategy, CircuitBreaker, ComponentHealth, HealthMonitor, HealthStatus,
-            MetricsCollector, PerformanceStats, RetryPolicy, StreamMetrics,
+            RetryPolicy,
         };
 
         // Verify we can reference all types without conflicts
@@ -126,11 +111,6 @@ mod tests {
             Option<ComponentHealth>,
             Option<HealthMonitor>,
             Option<HealthStatus>,
-        ) = (None, None, None);
-        let _monitoring_types: (
-            Option<MetricsCollector>,
-            Option<PerformanceStats>,
-            Option<StreamMetrics>,
         ) = (None, None, None);
         let _resilience_types: (
             Option<BackoffStrategy>,
@@ -146,17 +126,13 @@ mod tests {
         // Test that the module follows proper domain separation
         // Each submodule should handle a specific concern
 
-        let modules = ["health", "monitoring", "resilience"];
-        assert_eq!(modules.len(), 3, "Should have exactly 3 submodules");
+        let modules = ["health", "resilience"];
+        assert_eq!(modules.len(), 2, "Should have exactly 2 submodules");
 
         // Verify each module represents a distinct domain
         assert!(
             modules.contains(&"health"),
             "Should have health monitoring domain"
-        );
-        assert!(
-            modules.contains(&"monitoring"),
-            "Should have metrics monitoring domain"
         );
         assert!(
             modules.contains(&"resilience"),
