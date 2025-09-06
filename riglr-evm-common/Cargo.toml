@@ -38,7 +38,7 @@ high-precision = ["dep:rust_decimal"]
 [dev-dependencies]
 tokio = { workspace = true, features = ["full", "test-util"] }
 rust_decimal = "1.36"
-criterion = "0.5"
+criterion = "0.7"
 
 [lints]
 workspace = true
