@@ -41,7 +41,7 @@ reqwest = { workspace = true }
 [dev-dependencies]
 tokio = { workspace = true, features = ["full", "test-util"] }
 tracing-subscriber = { workspace = true }
-testcontainers = "0.24.0"
+testcontainers = "0.25.0"
 
 [features]
 integration-tests = []

@@ -61,7 +61,7 @@ riglr-solana-tools = { path = "../riglr-solana-tools" }
 riglr-evm-tools = { path = "../riglr-evm-tools" }
 tokio-test = { workspace = true }
 criterion = { workspace = true }
-testcontainers = "0.24.0"
+testcontainers = "0.25.0"
 testcontainers-modules = { version = "0.12.1", features = ["redis"] }
 mockito = "1.0"
 proptest = "1.0"
