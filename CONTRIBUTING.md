@@ -144,26 +144,43 @@ Before starting work, please:
 
 This project uses a two-tiered testing approach:
 
-#### Fast Tests (Default)
+#### Unit Tests (Default)
 Run locally with: `cargo test`
-- Executes in 2-5 minutes
+- Executes quickly (2-5 minutes)
 - Provides quick feedback during development
 - Runs in main CI for every PR
+- Does not require external dependencies
 
-#### Slow Tests (Integration)  
-Run locally with: `cargo test -- --ignored`
-- Includes stress, timeout, and integration tests
-- Executes in 15-30 minutes
-- Runs in dedicated integration CI (nightly/scheduled)
+#### Integration Tests
+Integration tests require Docker and are controlled by a feature flag.
+
+**Prerequisites**: Docker must be running
+
+Run integration tests with:
+```bash
+# Run integration tests for a specific package
+cargo test --package riglr-core --features integration-tests
+cargo test --package riglr-evm-tools --features integration-tests
+cargo test --package riglr-solana-tools --features integration-tests
+
+# Run all tests including integration tests
+cargo test --all-features
+```
+
+Integration tests automatically:
+- Spin up Redis instances for testing queues and idempotency stores
+- Launch Ethereum nodes (Anvil) for EVM integration tests
+- Start Solana validators for Solana integration tests
 
 #### All Tests
-Run locally with: `cargo test -- --include-ignored`
-- Executes all tests (fast + slow)
+Run locally with: `cargo test --all-features`
+- Executes all tests (unit + integration)
 - Use before submitting significant changes
+- Requires Docker to be running
 
 #### Adding New Tests
-- Mark long-running tests (>5 seconds) with `#[ignore]` attribute
-- Do NOT use environment variables to skip tests
+- Use `#[cfg(feature = "integration-tests")]` for tests requiring Docker/external services
+- Do NOT use `#[ignore]` for new integration tests
 - Follow existing patterns in the codebase
 
 ### Unit Tests
