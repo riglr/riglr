@@ -1,5 +1,5 @@
-use riglr_macros::tool;
 use riglr_core::provider::ApplicationContext;
+use riglr_macros::tool;
 
 #[tool]
 async fn basic_tool(

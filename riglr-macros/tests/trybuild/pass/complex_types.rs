@@ -1,6 +1,6 @@
-use riglr_macros::tool;
 use riglr_core::provider::ApplicationContext;
-use serde::{Serialize, Deserialize};
+use riglr_macros::tool;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct CustomData {
