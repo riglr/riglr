@@ -16,11 +16,11 @@
 //! cargo run --example multi_chain_agent
 //! ```
 
-use riglr_core::signer::LocalSolanaSigner;
 // TODO: Re-enable when rig tools are updated
 // use riglr_solana_tools::{get_sol_balance, get_spl_token_balance};
 use anyhow::Result;
 use riglr_config::SolanaNetworkConfig;
+use riglr_solana_tools::signer::LocalSolanaSigner;
 use serde::{Deserialize, Serialize};
 use solana_sdk::signature::Keypair;
 use solana_sdk::signer::Signer;

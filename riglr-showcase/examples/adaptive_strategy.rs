@@ -141,10 +141,10 @@ async fn volatility_adaptive_strategy() -> Result<()> {
         */
 
     let keypair = Keypair::new();
-    let signer = Arc::new(LocalSolanaSigner::new(
+    let signer = Arc::new(LocalSolanaSigner::from_keypair_with_url(
         keypair.insecure_clone(),
         "https://api.devnet.solana.com".to_string(),
-    ));
+    )) as Arc<dyn riglr_core::signer::UnifiedSigner>;
 
     SignerContext::with_signer(signer, async move {
         let user_address = keypair.pubkey().to_string();
@@ -306,10 +306,10 @@ async fn multi_timeframe_adaptation() -> Result<()> {
         */
 
     let keypair = Keypair::new();
-    let signer = Arc::new(LocalSolanaSigner::new(
+    let signer = Arc::new(LocalSolanaSigner::from_keypair_with_url(
         keypair.insecure_clone(),
         "https://api.devnet.solana.com".to_string(),
-    ));
+    )) as Arc<dyn riglr_core::signer::UnifiedSigner>;
 
     SignerContext::with_signer(signer, async move {
         let user_address = keypair.pubkey().to_string();
@@ -459,10 +459,10 @@ async fn performance_based_evolution() -> Result<()> {
         */
 
     let keypair = Keypair::new();
-    let signer = Arc::new(LocalSolanaSigner::new(
+    let signer = Arc::new(LocalSolanaSigner::from_keypair_with_url(
         keypair.insecure_clone(),
         "https://api.devnet.solana.com".to_string(),
-    ));
+    )) as Arc<dyn riglr_core::signer::UnifiedSigner>;
 
     SignerContext::with_signer(signer, async move {
         let user_address = keypair.pubkey().to_string();
@@ -627,10 +627,10 @@ async fn real_time_market_adaptation() -> Result<()> {
         */
 
     let keypair = Keypair::new();
-    let signer = Arc::new(LocalSolanaSigner::new(
+    let signer = Arc::new(LocalSolanaSigner::from_keypair_with_url(
         keypair.insecure_clone(),
         "https://api.devnet.solana.com".to_string(),
-    ));
+    )) as Arc<dyn riglr_core::signer::UnifiedSigner>;
 
     SignerContext::with_signer(signer, async move {
         let user_address = keypair.pubkey().to_string();

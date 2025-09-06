@@ -163,7 +163,7 @@ async fn comprehensive_token_analysis() -> Result<()> {
         */
 
     let keypair = Keypair::new();
-    let signer = Arc::new(LocalSolanaSigner::new(
+    let signer = Arc::new(LocalSolanaSigner::from_keypair_with_url(
         keypair.insecure_clone(),
         "https://api.devnet.solana.com".to_string(),
     ));
@@ -376,7 +376,7 @@ async fn cross_chain_opportunity_analysis() -> Result<()> {
         */
 
     let keypair = Keypair::new();
-    let signer = Arc::new(LocalSolanaSigner::new(
+    let signer = Arc::new(LocalSolanaSigner::from_keypair_with_url(
         keypair.insecure_clone(),
         "https://api.devnet.solana.com".to_string(),
     ));
@@ -613,7 +613,7 @@ async fn risk_adjusted_portfolio_analysis() -> Result<()> {
         */
 
     let keypair = Keypair::new();
-    let signer = Arc::new(LocalSolanaSigner::new(
+    let signer = Arc::new(LocalSolanaSigner::from_keypair_with_url(
         keypair.insecure_clone(),
         "https://api.devnet.solana.com".to_string(),
     ));
@@ -831,7 +831,7 @@ async fn multi_source_intelligence_synthesis() -> Result<()> {
         */
 
     let keypair = Keypair::new();
-    let signer = Arc::new(LocalSolanaSigner::new(
+    let signer = Arc::new(LocalSolanaSigner::from_keypair_with_url(
         keypair.insecure_clone(),
         "https://api.devnet.solana.com".to_string(),
     ));

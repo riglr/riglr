@@ -26,7 +26,7 @@
 //! - Educational showcase of trading agent patterns in Riglr
 //! - Risk management best practices for automated trading
 
-use riglr_core::signer::SignerContext;
+use riglr_core::signer::{SignerContext, UnifiedSigner};
 use riglr_solana_tools::LocalSolanaSigner;
 // TODO: Re-enable when rig tools are updated
 // use riglr_solana_tools::{get_sol_balance, get_spl_token_balance};
@@ -48,10 +48,10 @@ async fn main() -> Result<()> {
     println!("📝 Generated wallet: {}", keypair.pubkey());
 
     // Create signer with devnet RPC
-    let signer = Arc::new(LocalSolanaSigner::new(
+    let signer = Arc::new(LocalSolanaSigner::from_keypair_with_url(
         keypair.insecure_clone(),
         "https://api.devnet.solana.com".to_string(),
-    ));
+    )) as Arc<dyn UnifiedSigner>;
 
     // Build trading agent with comprehensive tool suite
     // TODO: Re-enable when rig provider API is updated
