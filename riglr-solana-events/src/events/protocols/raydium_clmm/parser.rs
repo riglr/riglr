@@ -8,11 +8,10 @@ use std::collections::HashMap;
 use solana_sdk::pubkey::Pubkey;
 
 use crate::error::ParseResult;
-use crate::{EventType, ProtocolType};
 use crate::events::{
     common::{read_i32_le, read_option_bool, read_u128_le, read_u64_le, read_u8_le},
     factory::SolanaTransactionInput,
-    parser_types::{GenericEventParseConfig, GenericEventParser, LegacyEventParser},
+    parser_types::{GenericEventParseConfig, GenericEventParser, ProtocolParser},
     protocols::raydium_clmm::{
         discriminators, RaydiumClmmClosePositionEvent, RaydiumClmmCreatePoolEvent,
         RaydiumClmmDecreaseLiquidityV2Event, RaydiumClmmIncreaseLiquidityV2Event,
@@ -20,6 +19,7 @@ use crate::events::{
         RaydiumClmmSwapEvent, RaydiumClmmSwapV2Event,
     },
 };
+use crate::{EventType, ProtocolType};
 
 /// Raydium CLMM program ID
 pub const RAYDIUM_CLMM_PROGRAM_ID: Pubkey =
@@ -649,7 +649,7 @@ impl EventParser for RaydiumClmmEventParser {
 
 // Keep legacy implementation for backward compatibility
 #[async_trait::async_trait]
-impl LegacyEventParser for RaydiumClmmEventParser {
+impl ProtocolParser for RaydiumClmmEventParser {
     fn inner_instruction_configs(&self) -> HashMap<&'static str, Vec<GenericEventParseConfig>> {
         self.inner.inner_instruction_configs()
     }

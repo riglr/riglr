@@ -2,6 +2,7 @@ use super::types::{
     marginfi_program_id, MarginFiBorrowData, MarginFiDepositData, MarginFiLiquidationData,
     MarginFiRepayData, MarginFiWithdrawData,
 };
+use crate::events::core::EventParameters;
 use crate::solana_metadata::SolanaEventMetadata;
 use crate::types::{metadata_helpers, EventType, ProtocolType, TransferData};
 use riglr_events_core::EventMetadata as CoreEventMetadata;
@@ -11,47 +12,7 @@ use std::any::Any;
 // Import new Event trait from riglr-events-core
 use riglr_events_core::{Event, EventKind};
 
-/// Parameters for creating event metadata, reducing function parameter count
-#[derive(Debug, Clone, Default)]
-pub struct EventParameters {
-    /// Unique identifier for the event
-    pub id: String,
-    /// Transaction signature hash
-    pub signature: String,
-    /// Solana slot number when the transaction was processed
-    pub slot: u64,
-    /// Block timestamp in seconds since Unix epoch
-    pub block_time: i64,
-    /// Block timestamp in milliseconds since Unix epoch
-    pub block_time_ms: i64,
-    /// Timestamp when the program received the transaction in milliseconds
-    pub program_received_time_ms: i64,
-    /// Index of the instruction within the transaction
-    pub index: String,
-}
-
-impl EventParameters {
-    /// Creates a new EventParameters instance with the provided values
-    pub fn new(
-        id: String,
-        signature: String,
-        slot: u64,
-        block_time: i64,
-        block_time_ms: i64,
-        program_received_time_ms: i64,
-        index: String,
-    ) -> Self {
-        Self {
-            id,
-            signature,
-            slot,
-            block_time,
-            block_time_ms,
-            program_received_time_ms,
-            index,
-        }
-    }
-}
+// EventParameters is now imported from crate::events::core
 
 /// MarginFi deposit event
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -108,8 +69,8 @@ impl Event for MarginFiDepositEvent {
         &self.metadata.core
     }
 
-    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
-        &mut self.metadata.core
+    fn metadata_mut(&mut self) -> riglr_events_core::error::EventResult<&mut CoreEventMetadata> {
+        Ok(&mut self.metadata.core)
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -186,8 +147,8 @@ impl Event for MarginFiWithdrawEvent {
         &self.metadata.core
     }
 
-    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
-        &mut self.metadata.core
+    fn metadata_mut(&mut self) -> riglr_events_core::error::EventResult<&mut CoreEventMetadata> {
+        Ok(&mut self.metadata.core)
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -344,8 +305,8 @@ impl Event for MarginFiBorrowEvent {
         &self.metadata.core
     }
 
-    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
-        &mut self.metadata.core
+    fn metadata_mut(&mut self) -> riglr_events_core::error::EventResult<&mut CoreEventMetadata> {
+        Ok(&mut self.metadata.core)
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -382,8 +343,8 @@ impl Event for MarginFiRepayEvent {
         &self.metadata.core
     }
 
-    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
-        &mut self.metadata.core
+    fn metadata_mut(&mut self) -> riglr_events_core::error::EventResult<&mut CoreEventMetadata> {
+        Ok(&mut self.metadata.core)
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -420,8 +381,8 @@ impl Event for MarginFiLiquidationEvent {
         &self.metadata.core
     }
 
-    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
-        &mut self.metadata.core
+    fn metadata_mut(&mut self) -> riglr_events_core::error::EventResult<&mut CoreEventMetadata> {
+        Ok(&mut self.metadata.core)
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -591,7 +552,7 @@ mod tests {
     #[test]
     fn test_marginfi_deposit_event_metadata_mut_when_called_should_return_mutable_metadata() {
         let mut event = MarginFiDepositEvent::default();
-        let metadata_mut = event.metadata_mut();
+        let metadata_mut = event.metadata_mut().unwrap();
         metadata_mut.id = "new_id".to_string();
         assert_eq!(event.metadata.id(), "new_id");
     }
@@ -701,7 +662,7 @@ mod tests {
     #[test]
     fn test_marginfi_withdraw_event_metadata_mut_when_called_should_return_mutable_metadata() {
         let mut event = MarginFiWithdrawEvent::default();
-        let metadata_mut = event.metadata_mut();
+        let metadata_mut = event.metadata_mut().unwrap();
         metadata_mut.id = "withdraw_id".to_string();
         assert_eq!(event.metadata.id(), "withdraw_id");
     }
@@ -809,7 +770,7 @@ mod tests {
     #[test]
     fn test_marginfi_borrow_event_metadata_mut_when_called_should_return_mutable_metadata() {
         let mut event = MarginFiBorrowEvent::default();
-        let metadata_mut = event.metadata_mut();
+        let metadata_mut = event.metadata_mut().unwrap();
         metadata_mut.id = "borrow_id".to_string();
         assert_eq!(event.metadata.id(), "borrow_id");
     }
@@ -918,7 +879,7 @@ mod tests {
     #[test]
     fn test_marginfi_repay_event_metadata_mut_when_called_should_return_mutable_metadata() {
         let mut event = MarginFiRepayEvent::default();
-        let metadata_mut = event.metadata_mut();
+        let metadata_mut = event.metadata_mut().unwrap();
         metadata_mut.id = "repay_id".to_string();
         assert_eq!(event.metadata.id(), "repay_id");
     }
@@ -1037,7 +998,7 @@ mod tests {
     #[test]
     fn test_marginfi_liquidation_event_metadata_mut_when_called_should_return_mutable_metadata() {
         let mut event = MarginFiLiquidationEvent::default();
-        let metadata_mut = event.metadata_mut();
+        let metadata_mut = event.metadata_mut().unwrap();
         metadata_mut.id = "liquidation_id".to_string();
         assert_eq!(event.metadata.id(), "liquidation_id");
     }

@@ -143,8 +143,10 @@ impl riglr_events_core::traits::Event for SolanaEvent {
         &self.metadata.core
     }
 
-    fn metadata_mut(&mut self) -> &mut riglr_events_core::types::EventMetadata {
-        &mut self.metadata.core
+    fn metadata_mut(
+        &mut self,
+    ) -> riglr_events_core::error::EventResult<&mut riglr_events_core::types::EventMetadata> {
+        Ok(&mut self.metadata.core)
     }
 
     fn timestamp(&self) -> SystemTime {
@@ -606,7 +608,7 @@ mod tests {
         let mut event = SolanaEvent::new(metadata, json!({}));
 
         // Test mutable access to metadata
-        let metadata_mut = riglr_events_core::traits::Event::metadata_mut(&mut event);
+        let metadata_mut = riglr_events_core::traits::Event::metadata_mut(&mut event).unwrap();
         let original_id = metadata_mut.id.clone();
         metadata_mut.id = "modified-id".to_string();
 

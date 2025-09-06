@@ -107,8 +107,8 @@ impl Event for BonkTradeEvent {
         &self.metadata.core
     }
 
-    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
-        &mut self.metadata.core
+    fn metadata_mut(&mut self) -> riglr_events_core::error::EventResult<&mut CoreEventMetadata> {
+        Ok(&mut self.metadata.core)
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -186,8 +186,8 @@ impl Event for BonkPoolCreateEvent {
         &self.metadata.core
     }
 
-    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
-        &mut self.metadata.core
+    fn metadata_mut(&mut self) -> riglr_events_core::error::EventResult<&mut CoreEventMetadata> {
+        Ok(&mut self.metadata.core)
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -404,7 +404,7 @@ mod tests {
         let mut event = BonkTradeEvent::default();
         event.metadata = create_test_event_metadata();
 
-        let metadata_mut = event.metadata_mut();
+        let metadata_mut = event.metadata_mut().unwrap();
         metadata_mut.source = "updated-source".to_string();
 
         assert_eq!(event.metadata.source, "updated-source");
@@ -551,7 +551,7 @@ mod tests {
         let mut event = BonkPoolCreateEvent::default();
         event.metadata = create_test_event_metadata();
 
-        let metadata_mut = event.metadata_mut();
+        let metadata_mut = event.metadata_mut().unwrap();
         metadata_mut.source = "pool-source".to_string();
 
         assert_eq!(event.metadata.source, "pool-source");
@@ -1022,11 +1022,11 @@ mod tests {
         pool_event.metadata = create_test_event_metadata();
 
         // Test metadata modification through trait methods
-        let trade_meta_mut = trade_event.metadata_mut();
+        let trade_meta_mut = trade_event.metadata_mut().unwrap();
         trade_meta_mut.id = "modified-trade-id".to_string();
         assert_eq!(trade_event.id(), "modified-trade-id");
 
-        let pool_meta_mut = pool_event.metadata_mut();
+        let pool_meta_mut = pool_event.metadata_mut().unwrap();
         pool_meta_mut.id = "modified-pool-id".to_string();
         assert_eq!(pool_event.id(), "modified-pool-id");
     }

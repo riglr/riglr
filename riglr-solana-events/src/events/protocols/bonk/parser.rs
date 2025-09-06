@@ -12,7 +12,7 @@ use crate::error::ParseResult;
 use crate::events::{
     common::{parse_swap_amounts, validate_account_count, validate_data_length},
     factory::SolanaTransactionInput,
-    parser_types::{GenericEventParseConfig, GenericEventParser, LegacyEventParser},
+    parser_types::{GenericEventParseConfig, GenericEventParser, ProtocolParser},
     protocols::bonk::{discriminators, BonkPoolCreateEvent, BonkTradeEvent, TradeDirection},
 };
 use crate::solana_metadata::SolanaEventMetadata;
@@ -470,7 +470,7 @@ impl EventParser for BonkEventParser {
 
 // Keep legacy implementation for backward compatibility
 #[async_trait::async_trait]
-impl LegacyEventParser for BonkEventParser {
+impl ProtocolParser for BonkEventParser {
     fn inner_instruction_configs(&self) -> HashMap<&'static str, Vec<GenericEventParseConfig>> {
         self.inner.inner_instruction_configs()
     }

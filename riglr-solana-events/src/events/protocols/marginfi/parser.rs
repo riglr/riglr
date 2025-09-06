@@ -1,7 +1,7 @@
 use super::{
     events::{
-        EventParameters, MarginFiBorrowEvent, MarginFiDepositEvent, MarginFiLiquidationEvent,
-        MarginFiRepayEvent, MarginFiWithdrawEvent,
+        MarginFiBorrowEvent, MarginFiDepositEvent, MarginFiLiquidationEvent, MarginFiRepayEvent,
+        MarginFiWithdrawEvent,
     },
     types::{
         marginfi_bank_program_id, marginfi_program_id, MarginFiBorrowData, MarginFiDepositData,
@@ -13,13 +13,14 @@ use super::{
 };
 use crate::{
     error::ParseResult,
+    events::core::EventParameters,
     events::{
         common::utils::{
             has_discriminator, parse_u64_le, safe_get_account, validate_account_count,
             validate_data_length,
         },
         factory::SolanaTransactionInput,
-        parser_types::{GenericEventParseConfig, LegacyEventParser},
+        parser_types::{GenericEventParseConfig, ProtocolParser},
     },
     solana_metadata::SolanaEventMetadata,
     types::{metadata_helpers, EventType, ProtocolType},
@@ -117,7 +118,7 @@ impl EventParser for MarginFiEventParser {
 }
 
 // Implement the legacy EventParser trait for backward compatibility
-impl LegacyEventParser for MarginFiEventParser {
+impl ProtocolParser for MarginFiEventParser {
     fn inner_instruction_configs(&self) -> HashMap<&'static str, Vec<GenericEventParseConfig>> {
         self.inner_instruction_configs.clone()
     }

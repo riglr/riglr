@@ -192,10 +192,10 @@ impl GenericEventParser {
     }
 }
 
-/// Legacy trait for compatibility with existing parsers
+/// Protocol-specific parser trait for Solana events
 /// This trait is used internally by protocol parsers and doesn't conflict with
 /// the core EventParser trait from riglr_events_core.
-pub trait LegacyEventParser: Send + Sync {
+pub trait ProtocolParser: Send + Sync {
     /// Get inner instruction parsing configurations
     fn inner_instruction_configs(
         &self,

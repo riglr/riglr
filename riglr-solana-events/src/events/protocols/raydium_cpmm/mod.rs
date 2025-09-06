@@ -9,7 +9,7 @@ pub use parser::*;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::events::parser_types::LegacyEventParser;
+    use crate::events::parser_types::ProtocolParser;
     use riglr_events_core::{Event, EventKind};
     use solana_sdk::pubkey::Pubkey;
     use std::collections::HashMap;
@@ -107,7 +107,7 @@ mod tests {
     fn test_raydium_cpmm_swap_event_metadata_mut_should_work() {
         // Test that metadata_mut works correctly
         let mut event = RaydiumCpmmSwapEvent::default();
-        let metadata = event.metadata_mut();
+        let metadata = event.metadata_mut().unwrap();
         metadata.id = "test-cpmm-swap-id".to_string();
         assert_eq!(event.metadata().id, "test-cpmm-swap-id");
     }
@@ -167,7 +167,7 @@ mod tests {
     fn test_raydium_cpmm_deposit_event_metadata_mut_should_work() {
         // Test that metadata_mut works correctly
         let mut event = RaydiumCpmmDepositEvent::default();
-        let metadata = event.metadata_mut();
+        let metadata = event.metadata_mut().unwrap();
         metadata.id = "test-cpmm-deposit-id".to_string();
         assert_eq!(event.metadata().id, "test-cpmm-deposit-id");
     }

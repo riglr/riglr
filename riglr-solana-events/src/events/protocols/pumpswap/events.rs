@@ -111,8 +111,8 @@ impl Event for PumpSwapBuyEvent {
         &self.metadata.core
     }
 
-    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
-        &mut self.metadata.core
+    fn metadata_mut(&mut self) -> riglr_events_core::error::EventResult<&mut CoreEventMetadata> {
+        Ok(&mut self.metadata.core)
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -224,8 +224,8 @@ impl Event for PumpSwapSellEvent {
         &self.metadata.core
     }
 
-    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
-        &mut self.metadata.core
+    fn metadata_mut(&mut self) -> riglr_events_core::error::EventResult<&mut CoreEventMetadata> {
+        Ok(&mut self.metadata.core)
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -320,8 +320,8 @@ impl Event for PumpSwapCreatePoolEvent {
         &self.metadata.core
     }
 
-    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
-        &mut self.metadata.core
+    fn metadata_mut(&mut self) -> riglr_events_core::error::EventResult<&mut CoreEventMetadata> {
+        Ok(&mut self.metadata.core)
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -411,8 +411,8 @@ impl Event for PumpSwapDepositEvent {
         &self.metadata.core
     }
 
-    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
-        &mut self.metadata.core
+    fn metadata_mut(&mut self) -> riglr_events_core::error::EventResult<&mut CoreEventMetadata> {
+        Ok(&mut self.metadata.core)
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -502,8 +502,8 @@ impl Event for PumpSwapWithdrawEvent {
         &self.metadata.core
     }
 
-    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
-        &mut self.metadata.core
+    fn metadata_mut(&mut self) -> riglr_events_core::error::EventResult<&mut CoreEventMetadata> {
+        Ok(&mut self.metadata.core)
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -672,7 +672,7 @@ mod tests {
     fn test_pumpswap_buy_event_event_trait_metadata_mut() {
         let mut event = PumpSwapBuyEvent::default();
         event.metadata.core = create_test_metadata();
-        let metadata_mut = event.metadata_mut();
+        let metadata_mut = event.metadata_mut().unwrap();
         metadata_mut.id = "new_id".to_string();
         assert_eq!(event.metadata.core.id, "new_id");
     }
@@ -761,7 +761,7 @@ mod tests {
     fn test_pumpswap_sell_event_event_trait_metadata_mut() {
         let mut event = PumpSwapSellEvent::default();
         event.metadata.core = create_test_metadata();
-        let metadata_mut = event.metadata_mut();
+        let metadata_mut = event.metadata_mut().unwrap();
         metadata_mut.id = "new_id".to_string();
         assert_eq!(event.metadata.core.id, "new_id");
     }
@@ -859,7 +859,7 @@ mod tests {
     fn test_pumpswap_create_pool_event_event_trait_metadata_mut() {
         let mut event = PumpSwapCreatePoolEvent::default();
         event.metadata.core = create_test_metadata();
-        let metadata_mut = event.metadata_mut();
+        let metadata_mut = event.metadata_mut().unwrap();
         metadata_mut.id = "new_id".to_string();
         assert_eq!(event.metadata.core.id, "new_id");
     }
@@ -954,7 +954,7 @@ mod tests {
     fn test_pumpswap_deposit_event_event_trait_metadata_mut() {
         let mut event = PumpSwapDepositEvent::default();
         event.metadata.core = create_test_metadata();
-        let metadata_mut = event.metadata_mut();
+        let metadata_mut = event.metadata_mut().unwrap();
         metadata_mut.id = "new_id".to_string();
         assert_eq!(event.metadata.core.id, "new_id");
     }
@@ -1049,7 +1049,7 @@ mod tests {
     fn test_pumpswap_withdraw_event_event_trait_metadata_mut() {
         let mut event = PumpSwapWithdrawEvent::default();
         event.metadata.core = create_test_metadata();
-        let metadata_mut = event.metadata_mut();
+        let metadata_mut = event.metadata_mut().unwrap();
         metadata_mut.id = "new_id".to_string();
         assert_eq!(event.metadata.core.id, "new_id");
     }

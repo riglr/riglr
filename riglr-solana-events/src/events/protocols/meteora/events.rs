@@ -1,4 +1,5 @@
 use super::types::{MeteoraDynamicLiquidityData, MeteoraLiquidityData, MeteoraSwapData};
+use crate::events::core::EventParameters;
 use crate::solana_metadata::SolanaEventMetadata;
 use crate::types::{metadata_helpers, EventType, ProtocolType, TransferData};
 use riglr_events_core::EventMetadata as CoreEventMetadata;
@@ -8,47 +9,7 @@ use std::any::Any;
 // Import Event trait from riglr-events-core
 use riglr_events_core::{Event, EventKind};
 
-/// Parameters for creating event metadata, reducing function parameter count
-#[derive(Debug, Clone, Default)]
-pub struct EventParameters {
-    /// Unique identifier for the event
-    pub id: String,
-    /// Transaction signature
-    pub signature: String,
-    /// Solana slot number
-    pub slot: u64,
-    /// Block timestamp in seconds
-    pub block_time: i64,
-    /// Block timestamp in milliseconds
-    pub block_time_ms: i64,
-    /// Time when the program received the event in milliseconds
-    pub program_received_time_ms: i64,
-    /// Event index within the transaction
-    pub index: String,
-}
-
-impl EventParameters {
-    /// Creates a new EventParameters instance with the provided values
-    pub fn new(
-        id: String,
-        signature: String,
-        slot: u64,
-        block_time: i64,
-        block_time_ms: i64,
-        program_received_time_ms: i64,
-        index: String,
-    ) -> Self {
-        Self {
-            id,
-            signature,
-            slot,
-            block_time,
-            block_time_ms,
-            program_received_time_ms,
-            index,
-        }
-    }
-}
+// EventParameters is now imported from crate::events::core
 
 /// Meteora DLMM swap event
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -105,8 +66,8 @@ impl Event for MeteoraSwapEvent {
         &self.metadata.core
     }
 
-    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
-        &mut self.metadata.core
+    fn metadata_mut(&mut self) -> riglr_events_core::error::EventResult<&mut CoreEventMetadata> {
+        Ok(&mut self.metadata.core)
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -181,8 +142,8 @@ impl Event for MeteoraLiquidityEvent {
         &self.metadata.core
     }
 
-    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
-        &mut self.metadata.core
+    fn metadata_mut(&mut self) -> riglr_events_core::error::EventResult<&mut CoreEventMetadata> {
+        Ok(&mut self.metadata.core)
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -257,8 +218,8 @@ impl Event for MeteoraDynamicLiquidityEvent {
         &self.metadata.core
     }
 
-    fn metadata_mut(&mut self) -> &mut CoreEventMetadata {
-        &mut self.metadata.core
+    fn metadata_mut(&mut self) -> riglr_events_core::error::EventResult<&mut CoreEventMetadata> {
+        Ok(&mut self.metadata.core)
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -564,7 +525,7 @@ mod tests {
         let swap_data = create_test_meteora_swap_data();
         let mut event = MeteoraSwapEvent::new(params, swap_data);
 
-        let result = event.metadata_mut();
+        let result = event.metadata_mut().unwrap();
         assert_eq!(result as *mut _, &mut event.metadata.core as *mut _);
     }
 
@@ -712,7 +673,7 @@ mod tests {
         let liquidity_data = create_test_meteora_liquidity_data();
         let mut event = MeteoraLiquidityEvent::new(params, liquidity_data);
 
-        let result = event.metadata_mut();
+        let result = event.metadata_mut().unwrap();
         assert_eq!(result as *mut _, &mut event.metadata.core as *mut _);
     }
 
@@ -868,7 +829,7 @@ mod tests {
         let liquidity_data = create_test_meteora_dynamic_liquidity_data();
         let mut event = MeteoraDynamicLiquidityEvent::new(params, liquidity_data);
 
-        let result = event.metadata_mut();
+        let result = event.metadata_mut().unwrap();
         assert_eq!(result as *mut _, &mut event.metadata.core as *mut _);
     }
 

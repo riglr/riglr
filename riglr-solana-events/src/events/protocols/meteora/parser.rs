@@ -1,7 +1,5 @@
 use super::{
-    events::{
-        EventParameters, MeteoraDynamicLiquidityEvent, MeteoraLiquidityEvent, MeteoraSwapEvent,
-    },
+    events::{MeteoraDynamicLiquidityEvent, MeteoraLiquidityEvent, MeteoraSwapEvent},
     types::{
         meteora_dlmm_program_id, meteora_dynamic_program_id, MeteoraDynamicLiquidityData,
         MeteoraLiquidityData, MeteoraSwapData, DLMM_ADD_LIQUIDITY_DISCRIMINATOR,
@@ -13,8 +11,9 @@ use crate::{
     error::ParseResult,
     events::{
         common::utils::{has_discriminator, parse_u32_le, parse_u64_le},
+        core::EventParameters,
         factory::SolanaTransactionInput,
-        parser_types::{GenericEventParseConfig, LegacyEventParser},
+        parser_types::{GenericEventParseConfig, ProtocolParser},
     },
     solana_metadata::SolanaEventMetadata,
     types::{metadata_helpers, EventType, ProtocolType},
@@ -117,7 +116,7 @@ impl EventParser for MeteoraEventParser {
 }
 
 // Implement the legacy EventParser trait for backward compatibility
-impl LegacyEventParser for MeteoraEventParser {
+impl ProtocolParser for MeteoraEventParser {
     fn inner_instruction_configs(&self) -> HashMap<&'static str, Vec<GenericEventParseConfig>> {
         self.inner_instruction_configs.clone()
     }

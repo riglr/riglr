@@ -21,7 +21,7 @@ pub mod protocols;
 
 pub use crate::types::{EventMetadata, EventType, ProtocolType, SwapData, TransferData};
 pub use factory::{EventParserRegistry, Protocol};
-pub use parser_types::{GenericEventParseConfig, GenericEventParser, LegacyEventParser};
+pub use parser_types::{GenericEventParseConfig, GenericEventParser, ProtocolParser};
 
 /// Pattern matching macro for event types with type downcasting.
 ///
