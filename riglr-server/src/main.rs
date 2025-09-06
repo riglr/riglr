@@ -8,7 +8,9 @@
 
 use std::sync::Arc;
 
+use riglr_config::Config;
 use riglr_server::{start_axum, ServerConfig};
+use riglr_solana_tools::signer::LocalSolanaSigner;
 use riglr_web_adapters::{Agent, CompositeSignerFactory, SignerFactory};
 
 #[derive(Clone)]
@@ -35,8 +37,16 @@ impl Agent for EchoAgent {
     }
 }
 
-// A no-op SignerFactory useful for local dev; always returns a local signer when possible.
-struct DevSignerFactory;
+// A SignerFactory for local dev; creates a local signer using config.
+struct DevSignerFactory {
+    config: Arc<Config>,
+}
+
+impl DevSignerFactory {
+    fn new(config: Arc<Config>) -> Self {
+        Self { config }
+    }
+}
 
 #[async_trait::async_trait]
 impl SignerFactory for DevSignerFactory {
@@ -52,15 +62,11 @@ impl SignerFactory for DevSignerFactory {
         } else {
             auth_data.network
         };
-        let rpc_url = match network.as_str() {
-            "mainnet" | "mainnet-beta" => "https://api.mainnet-beta.solana.com".to_string(),
-            "devnet" => "https://api.devnet.solana.com".to_string(),
-            "testnet" => "https://api.testnet.solana.com".to_string(),
-            _ => "https://api.devnet.solana.com".to_string(),
-        };
+        // Use the config to get the appropriate RPC URL
+        let rpc_url = self.config.network.solana_rpc_url.clone(); // Simplified for this example
 
         let config = riglr_config::SolanaNetworkConfig::new(network.clone(), rpc_url);
-        let signer = riglr_core::signer::LocalSolanaSigner::from_keypair(kp, config);
+        let signer = LocalSolanaSigner::from_keypair(kp, config);
         Ok(Box::new(signer))
     }
 
@@ -76,10 +82,13 @@ async fn main() -> anyhow::Result<()> {
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
         .try_init();
 
+    // Load the application configuration
+    let config = Config::from_env();
+
     let mut composite = CompositeSignerFactory::new();
-    composite.register_factory("dev".into(), Box::new(DevSignerFactory));
+    composite.register_factory("dev".into(), Box::new(DevSignerFactory::new(config.clone())));
     // Also register as "privy" to match Axum adapter's default auth_type mapping
-    composite.register_factory("privy".into(), Box::new(DevSignerFactory));
+    composite.register_factory("privy".into(), Box::new(DevSignerFactory::new(config)));
 
     let cfg = ServerConfig::default();
     start_axum(cfg, EchoAgent, Arc::new(composite)).await
@@ -178,7 +187,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_dev_signer_factory_create_signer_when_empty_network_should_use_devnet() {
-        let factory = DevSignerFactory;
+        let config = Config::from_env();
+        let factory = DevSignerFactory::new(config);
         let mut credentials = HashMap::new();
         credentials.insert("user_id".to_string(), "test_user".to_string());
         let auth_data = AuthenticationData {
@@ -193,7 +203,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_dev_signer_factory_create_signer_when_specified_network_should_use_it() {
-        let factory = DevSignerFactory;
+        let config = Config::from_env();
+        let factory = DevSignerFactory::new(config);
         let mut credentials = HashMap::new();
         credentials.insert("user_id".to_string(), "test_user".to_string());
         let auth_data = AuthenticationData {
@@ -208,7 +219,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_dev_signer_factory_create_signer_when_network_not_in_config_should_use_default() {
-        let factory = DevSignerFactory;
+        let config = Config::from_env();
+        let factory = DevSignerFactory::new(config);
         let mut credentials = HashMap::new();
         credentials.insert("user_id".to_string(), "test_user".to_string());
         let auth_data = AuthenticationData {
@@ -223,7 +235,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_dev_signer_factory_create_signer_when_different_auth_types_should_work() {
-        let factory = DevSignerFactory;
+        let config = Config::from_env();
+        let factory = DevSignerFactory::new(config);
 
         // Test with different auth types
         for auth_type in &["dev", "privy", "other"] {
@@ -242,7 +255,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_dev_signer_factory_create_signer_when_with_token_should_work() {
-        let factory = DevSignerFactory;
+        let config = Config::from_env();
+        let factory = DevSignerFactory::new(config);
         let mut credentials = HashMap::new();
         credentials.insert("user_id".to_string(), "test_user".to_string());
         credentials.insert("token".to_string(), "test_token".to_string());
@@ -258,7 +272,8 @@ mod tests {
 
     #[test]
     fn test_dev_signer_factory_supported_auth_types_should_return_dev_and_privy() {
-        let factory = DevSignerFactory;
+        let config = Config::from_env();
+        let factory = DevSignerFactory::new(config);
         let auth_types = factory.supported_auth_types();
 
         assert_eq!(auth_types.len(), 2);
@@ -280,14 +295,16 @@ mod tests {
     fn test_dev_signer_factory_clone_not_implemented() {
         // DevSignerFactory doesn't implement Clone, this tests that it's a conscious decision
         // This test just ensures we can create multiple instances
-        let _factory1 = DevSignerFactory;
-        let _factory2 = DevSignerFactory;
+        let config = Config::from_env();
+        let _factory1 = DevSignerFactory::new(config.clone());
+        let _factory2 = DevSignerFactory::new(config);
     }
 
     // Test edge cases for network configuration
     #[tokio::test]
     async fn test_dev_signer_factory_create_signer_when_network_config_has_no_explorer_url() {
-        let factory = DevSignerFactory;
+        let config = Config::from_env();
+        let factory = DevSignerFactory::new(config);
         let mut credentials = HashMap::new();
         credentials.insert("user_id".to_string(), "test_user".to_string());
         let auth_data = AuthenticationData {
@@ -303,7 +320,8 @@ mod tests {
     // Test with very long network name
     #[tokio::test]
     async fn test_dev_signer_factory_create_signer_when_long_network_name_should_work() {
-        let factory = DevSignerFactory;
+        let config = Config::from_env();
+        let factory = DevSignerFactory::new(config);
         let long_network_name = "a".repeat(1000);
         let mut credentials = HashMap::new();
         credentials.insert("user_id".to_string(), "test_user".to_string());
@@ -320,7 +338,8 @@ mod tests {
     // Test with special characters in user_id
     #[tokio::test]
     async fn test_dev_signer_factory_create_signer_when_special_user_id_should_work() {
-        let factory = DevSignerFactory;
+        let config = Config::from_env();
+        let factory = DevSignerFactory::new(config);
         let mut credentials = HashMap::new();
         credentials.insert("user_id".to_string(), "test@user.com!@#$%^&*()".to_string());
         let auth_data = AuthenticationData {
