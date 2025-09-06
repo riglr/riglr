@@ -726,9 +726,9 @@
                 <img src="https://img.shields.io/badge/tools-50%2B-green?style=flat-square" alt="Tools">
             </div>
             <p class="subtitle">
-                <code>rig</code> provides the powerful LLM-to-tool "brain". <code>riglr</code> adds the complete "body" and "nervous system" 
-                for secure, scalable blockchain operations. With enterprise patterns like SignerContext, ApplicationContext, 
-                and multi-agent coordination, riglr elevates rig from a framework to a production platform.
+                <code>riglr</code> extends <code>rig</code>'s powerful LLM orchestration with production-ready blockchain infrastructure. 
+                Enterprise patterns like SignerContext for secure key management, ApplicationContext for dependency injection, 
+                and multi-agent coordination transform rig agents into scalable, multi-tenant applications.
             </p>
             
             <div class="cta-buttons">
@@ -811,7 +811,7 @@ SignerContext::with_signer(unified_signer, async {
     <section id="why" class="reveal">
         <div class="section-header">
             <h2>How riglr Takes rig to Production</h2>
-            <p>While rig provides the powerful "brain" for LLM-to-tool orchestration, riglr adds the complete "body" and "nervous system" <br>required for agents to operate securely, reliably, and at scale in the complex blockchain environment.</p>
+            <p>riglr addresses the critical challenges of deploying LLM agents in production blockchain environments<br>with battle-tested patterns and enterprise-grade infrastructure.</p>
         </div>
 
         <div class="why-grid">
@@ -1005,149 +1005,6 @@ agent.analyze_and_decide(avg_price, volume_trend).await?;</code></pre>
                 <p>Hierarchical, environment-driven config with fail-fast validation. The <code>RPC_URL_{CHAIN_ID}</code> convention allows 
                    adding new EVM chains via environment variables without any code changes.</p>
             </div>
-            
-            <div class="architecture-diagram">
-                <svg width="100%" height="400" viewBox="0 0 500 400" xmlns="http://www.w3.org/2000/svg">
-                    <defs>
-                        <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
-                            <stop offset="0%" style="stop-color:#50fa7b;stop-opacity:1" />
-                            <stop offset="100%" style="stop-color:#00ff88;stop-opacity:1" />
-                        </linearGradient>
-                    </defs>
-                    
-                    <!-- rig Framework -->
-                    <g transform="translate(200, 30)">
-                        <rect width="100" height="50" fill="#2d2d30" rx="5"/>
-                        <text x="50" y="30" text-anchor="middle" fill="#f9fafb" font-size="14" font-weight="bold">rig Agent</text>
-                    </g>
-                    
-                    <!-- riglr-core -->
-                    <g transform="translate(50, 120)">
-                        <rect width="140" height="80" fill="url(#grad1)" opacity="0.2" rx="5"/>
-                        <text x="70" y="25" text-anchor="middle" fill="#f9fafb" font-size="12" font-weight="bold">riglr-core</text>
-                        <text x="70" y="45" text-anchor="middle" fill="#9ca3af" font-size="10">SignerContext</text>
-                        <text x="70" y="60" text-anchor="middle" fill="#9ca3af" font-size="10">ToolError</text>
-                        <text x="70" y="75" text-anchor="middle" fill="#9ca3af" font-size="10">#[tool] Macro</text>
-                    </g>
-                    
-                    <!-- Tool Crates -->
-                    <g transform="translate(310, 120)">
-                        <rect width="140" height="80" fill="url(#grad1)" opacity="0.2" rx="5"/>
-                        <text x="70" y="25" text-anchor="middle" fill="#f9fafb" font-size="12" font-weight="bold">Tool Crates</text>
-                        <text x="70" y="45" text-anchor="middle" fill="#9ca3af" font-size="10">riglr-solana-tools</text>
-                        <text x="70" y="60" text-anchor="middle" fill="#9ca3af" font-size="10">riglr-evm-tools</text>
-                        <text x="70" y="75" text-anchor="middle" fill="#9ca3af" font-size="10">riglr-web-tools</text>
-                    </g>
-                    
-                    <!-- Your App -->
-                    <g transform="translate(180, 250)">
-                        <rect width="140" height="80" fill="#50fa7b" opacity="0.2" rx="5"/>
-                        <text x="70" y="25" text-anchor="middle" fill="#f9fafb" font-size="12" font-weight="bold">Your Application</text>
-                        <text x="70" y="45" text-anchor="middle" fill="#9ca3af" font-size="10">Agent Logic</text>
-                        <text x="70" y="60" text-anchor="middle" fill="#9ca3af" font-size="10">Web Server</text>
-                    </g>
-                    
-                    <!-- Connections -->
-                    <line x1="250" y1="80" x2="250" y2="250" stroke="#50fa7b" stroke-width="2" stroke-dasharray="5,5" opacity="0.5"/>
-                    <line x1="250" y1="80" x2="380" y2="120" stroke="#50fa7b" stroke-width="2" stroke-dasharray="5,5" opacity="0.5"/>
-                    <line x1="120" y1="200" x2="180" y2="250" stroke="#50fa7b" stroke-width="2" opacity="0.5"/>
-                    <line x1="380" y1="200" x2="320" y2="250" stroke="#50fa7b" stroke-width="2" opacity="0.5"/>
-                </svg>
-            </div>
-        </div>
-        
-        <!-- Key Management Section -->
-        <div style="background: var(--bg-card); border: 1px solid var(--primary); border-radius: 1rem; padding: 2rem; margin: 2rem 0;">
-            <h3 style="color: var(--primary); margin-bottom: 1.5rem; text-align: center;">
-                <i class="fas fa-shield-alt"></i> Simplified Multi-Tenant Security
-            </h3>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; align-items: center;">
-                <div>
-                    <h4 style="color: var(--text-primary); margin-bottom: 1rem;">The Challenge</h4>
-                    <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">
-                        Blockchain applications need to manage multiple user wallets safely while preventing cross-user access. 
-                        This typically requires complex key management and careful isolation.
-                    </p>
-                    <h4 style="color: var(--text-primary); margin-bottom: 1rem;">How riglr Helps</h4>
-                    <p style="color: var(--text-secondary);">
-                        riglr provides a SignerContext that uses thread-local storage to isolate user operations. 
-                        Tools can access the appropriate signer without explicit key passing, reducing boilerplate and potential errors.
-                    </p>
-                </div>
-                <div style="background: var(--bg-darker); border-radius: 0.5rem; padding: 1.5rem;">
-                    <pre><code class="language-rust">// Tools are completely stateless
-#[tool]
-async fn transfer_sol(
-    to: String,
-    amount: f64,
-) -> Result<String, ToolError> {
-    // SignerContext automatically provides
-    // the correct user's signer
-    let signer = get_signer_from_context()?;
-    let tx = create_transfer(&signer, &to, amount).await?;
-    Ok(tx.signature.to_string())
-}
-
-// No manual key management needed!
-// Each user request runs in isolated context</code></pre>
-                </div>
-            </div>
-        </div>
-
-        <!-- Graph Memory System Section -->
-        <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 1rem; padding: 2rem; margin: 2rem 0;">
-            <h3 style="color: var(--secondary); margin-bottom: 1.5rem; text-align: center;">
-                <i class="fas fa-brain"></i> Advanced Graph Memory System
-            </h3>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
-                <div>
-                    <h4 style="color: var(--text-primary); margin-bottom: 1rem;">Hybrid Vector + Graph Search</h4>
-                    <ul style="color: var(--text-secondary); list-style: none; padding-left: 0;">
-                        <li style="margin-bottom: 0.5rem;"><i class="fas fa-check" style="color: var(--primary); margin-right: 0.5rem;"></i>Neo4j knowledge graph backend</li>
-                        <li style="margin-bottom: 0.5rem;"><i class="fas fa-check" style="color: var(--primary); margin-right: 0.5rem;"></i>Automatic blockchain entity extraction</li>
-                        <li style="margin-bottom: 0.5rem;"><i class="fas fa-check" style="color: var(--primary); margin-right: 0.5rem;"></i>Semantic similarity search</li>
-                        <li style="margin-bottom: 0.5rem;"><i class="fas fa-check" style="color: var(--primary); margin-right: 0.5rem;"></i>rig::VectorStore compatibility</li>
-                    </ul>
-                </div>
-                <div>
-                    <h4 style="color: var(--text-primary); margin-bottom: 1rem;">Relationship Modeling</h4>
-                    <p style="color: var(--text-secondary); font-size: 0.9rem;">
-                        <strong>Entities:</strong> Wallets, Tokens, Protocols, Transactions, Blocks<br>
-                        <strong>Relationships:</strong> PERFORMED, INVOLVED, USED, HOLDS<br>
-                        <strong>Queries:</strong> "Find wallets that traded BONK and also hold SOL"
-                    </p>
-                </div>
-            </div>
-        </div>
-
-        <!-- Multi-Agent Framework Section -->
-        <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 1rem; padding: 2rem; margin: 2rem 0;">
-            <h3 style="color: var(--accent); margin-bottom: 1.5rem; text-align: center;">
-                <i class="fas fa-users"></i> Production Multi-Agent Architecture
-            </h3>
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem;">
-                <div style="text-align: center;">
-                    <div style="color: var(--primary); font-size: 1.5rem; margin-bottom: 0.5rem;"><i class="fas fa-sitemap"></i></div>
-                    <h4 style="margin-bottom: 0.5rem;">Agent Registry</h4>
-                    <p style="color: var(--text-secondary); font-size: 0.9rem;">Discovery and lifecycle management</p>
-                </div>
-                <div style="text-align: center;">
-                    <div style="color: var(--primary); font-size: 1.5rem; margin-bottom: 0.5rem;"><i class="fas fa-route"></i></div>
-                    <h4 style="margin-bottom: 0.5rem;">Task Dispatcher</h4>
-                    <p style="color: var(--text-secondary); font-size: 0.9rem;">Load balancing and routing</p>
-                </div>
-                <div style="text-align: center;">
-                    <div style="color: var(--primary); font-size: 1.5rem; margin-bottom: 0.5rem;"><i class="fas fa-comments"></i></div>
-                    <h4 style="margin-bottom: 0.5rem;">Inter-Agent Communication</h4>
-                    <p style="color: var(--text-secondary); font-size: 0.9rem;">Message passing system</p>
-                </div>
-                <div style="text-align: center;">
-                    <div style="color: var(--primary); font-size: 1.5rem; margin-bottom: 0.5rem;"><i class="fas fa-tasks"></i></div>
-                    <h4 style="margin-bottom: 0.5rem;">Task Management</h4>
-                    <p style="color: var(--text-secondary); font-size: 0.9rem;">Priority queues and tracking</p>
-                </div>
-            </div>
-        </div>
     </section>
 
     <!-- Features Section -->
