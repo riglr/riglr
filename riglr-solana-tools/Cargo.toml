@@ -64,7 +64,7 @@ reqwest = { workspace = true }
 tracing = { workspace = true }
 
 # Random number generation for jitter
-rand = "0.8"
+rand = "0.9"
 
 # Futures utilities for async streams
 futures-util = "0.3"
