@@ -81,7 +81,7 @@ solana-commitment-config = { workspace = true }
 
 # Testcontainers for integration tests
 testcontainers = "0.24.0"
-testcontainers-modules = { version = "0.12.1", features = ["redis"] }
+testcontainers-modules = { version = "0.13.0", features = ["redis"] }
 
 
 [[bench]]

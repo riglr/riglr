@@ -85,7 +85,7 @@ proptest = "1.0"
 lazy_static = "1.4"
 dotenvy = { workspace = true }
 testcontainers = "0.24.0"
-testcontainers-modules = "0.12.1"
+testcontainers-modules = "0.13.0"
 
 [features]
 integration-tests = []
