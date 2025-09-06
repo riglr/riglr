@@ -7,19 +7,21 @@ use anyhow::Result;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 
-/// Response from DexScreener API containing token pair information
+/// Raw response from DexScreener API containing token pair information
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct DexScreenerResponse {
+#[serde(rename_all = "camelCase")]
+pub struct DexScreenerResponseRaw {
     /// Schema version of the API response
     #[serde(rename = "schemaVersion")]
     pub schema_version: String,
     /// List of token pairs returned by the API
-    pub pairs: Vec<PairInfo>,
+    pub pairs: Vec<PairInfoRaw>,
 }
 
-/// Information about a trading pair from DexScreener
+/// Raw information about a trading pair from DexScreener
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct PairInfo {
+#[serde(rename_all = "camelCase")]
+pub struct PairInfoRaw {
     /// Blockchain network identifier
     #[serde(rename = "chainId")]
     pub chain_id: String,
@@ -34,11 +36,9 @@ pub struct PairInfo {
     /// Optional labels associated with this pair
     pub labels: Option<Vec<String>>,
     /// Base token information
-    #[serde(rename = "baseToken")]
-    pub base_token: Token,
+    pub base_token: TokenRaw,
     /// Quote token information
-    #[serde(rename = "quoteToken")]
-    pub quote_token: Token,
+    pub quote_token: TokenRaw,
     /// Price in native chain token (e.g., ETH, SOL)
     #[serde(rename = "priceNative")]
     pub price_native: String,
@@ -46,15 +46,13 @@ pub struct PairInfo {
     #[serde(rename = "priceUsd")]
     pub price_usd: Option<String>,
     /// Liquidity information for this pair
-    pub liquidity: Option<Liquidity>,
+    pub liquidity: Option<LiquidityRaw>,
     /// Trading volume statistics
-    pub volume: Option<Volume>,
+    pub volume: Option<VolumeRaw>,
     /// Price change statistics
-    #[serde(rename = "priceChange")]
-    pub price_change: Option<PriceChange>,
+    pub price_change: Option<PriceChangeRaw>,
     /// Transaction statistics
-    #[serde(rename = "txns")]
-    pub txns: Option<Transactions>,
+    pub txns: Option<TransactionsRaw>,
     /// Market capitalization in USD
     #[serde(rename = "marketCap")]
     pub market_cap: Option<f64>,
@@ -63,9 +61,9 @@ pub struct PairInfo {
     pub fdv: Option<f64>,
 }
 
-/// Liquidity information for a trading pair
+/// Raw liquidity information for a trading pair
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Liquidity {
+pub struct LiquidityRaw {
     /// Total liquidity in USD
     pub usd: Option<f64>,
     /// Liquidity of the base token
@@ -74,9 +72,9 @@ pub struct Liquidity {
     pub quote: Option<f64>,
 }
 
-/// Trading volume statistics over different time periods
+/// Raw trading volume statistics over different time periods
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
-pub struct Volume {
+pub struct VolumeRaw {
     /// Trading volume in the last 24 hours
     #[serde(default)]
     pub h24: Option<f64>,
@@ -91,9 +89,9 @@ pub struct Volume {
     pub m5: Option<f64>,
 }
 
-/// Price change statistics over different time periods
+/// Raw price change statistics over different time periods
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct PriceChange {
+pub struct PriceChangeRaw {
     /// Price change percentage in the last 24 hours
     #[serde(default)]
     pub h24: Option<f64>,
@@ -108,35 +106,35 @@ pub struct PriceChange {
     pub m5: Option<f64>,
 }
 
-/// Transaction statistics over different time periods
+/// Raw transaction statistics over different time periods
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Transactions {
+pub struct TransactionsRaw {
     /// Transaction statistics for the last 24 hours
     #[serde(default)]
-    pub h24: Option<TransactionStats>,
+    pub h24: Option<TransactionStatsRaw>,
     /// Transaction statistics for the last 6 hours
     #[serde(default)]
-    pub h6: Option<TransactionStats>,
+    pub h6: Option<TransactionStatsRaw>,
     /// Transaction statistics for the last 1 hour
     #[serde(default)]
-    pub h1: Option<TransactionStats>,
+    pub h1: Option<TransactionStatsRaw>,
     /// Transaction statistics for the last 5 minutes
     #[serde(default)]
-    pub m5: Option<TransactionStats>,
+    pub m5: Option<TransactionStatsRaw>,
 }
 
-/// Buy and sell transaction statistics
+/// Raw buy and sell transaction statistics
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct TransactionStats {
+pub struct TransactionStatsRaw {
     /// Number of buy transactions
     pub buys: Option<u64>,
     /// Number of sell transactions
     pub sells: Option<u64>,
 }
 
-/// Token information
+/// Raw token information
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Token {
+pub struct TokenRaw {
     /// Token contract address
     pub address: String,
     /// Full name of the token
@@ -146,7 +144,7 @@ pub struct Token {
 }
 
 /// Search for tokens or pairs on DexScreener
-pub async fn search_ticker(ticker: String) -> Result<DexScreenerResponse> {
+pub async fn search_ticker(ticker: String) -> Result<DexScreenerResponseRaw> {
     let client = Client::new();
     let url = format!(
         "https://api.dexscreener.com/latest/dex/search/?q={}&limit=8",
@@ -162,7 +160,7 @@ pub async fn search_ticker(ticker: String) -> Result<DexScreenerResponse> {
     }
 
     let data: serde_json::Value = response.json().await?;
-    let mut dex_response: DexScreenerResponse = serde_json::from_value(data)?;
+    let mut dex_response: DexScreenerResponseRaw = serde_json::from_value(data)?;
 
     // Limit results to 8
     dex_response.pairs.truncate(8);
@@ -171,7 +169,7 @@ pub async fn search_ticker(ticker: String) -> Result<DexScreenerResponse> {
 }
 
 /// Get token pairs by token address
-pub async fn get_pairs_by_token(token_address: &str) -> Result<DexScreenerResponse> {
+pub async fn get_pairs_by_token(token_address: &str) -> Result<DexScreenerResponseRaw> {
     let client = Client::new();
     let url = format!(
         "https://api.dexscreener.com/latest/dex/tokens/{}",
@@ -186,13 +184,13 @@ pub async fn get_pairs_by_token(token_address: &str) -> Result<DexScreenerRespon
     }
 
     let data: serde_json::Value = response.json().await?;
-    let dex_response: DexScreenerResponse = serde_json::from_value(data)?;
+    let dex_response: DexScreenerResponseRaw = serde_json::from_value(data)?;
 
     Ok(dex_response)
 }
 
 /// Get pairs by pair address
-pub async fn get_pair_by_address(pair_address: &str) -> Result<PairInfo> {
+pub async fn get_pair_by_address(pair_address: &str) -> Result<PairInfoRaw> {
     let client = Client::new();
     let url = format!(
         "https://api.dexscreener.com/latest/dex/pairs/{}",
@@ -207,7 +205,7 @@ pub async fn get_pair_by_address(pair_address: &str) -> Result<PairInfo> {
     }
 
     let data: serde_json::Value = response.json().await?;
-    let pair_response: DexScreenerResponse = serde_json::from_value(data)?;
+    let pair_response: DexScreenerResponseRaw = serde_json::from_value(data)?;
 
     pair_response
         .pairs
@@ -217,7 +215,7 @@ pub async fn get_pair_by_address(pair_address: &str) -> Result<PairInfo> {
 }
 
 /// Find the best liquidity pair for a token
-pub fn find_best_liquidity_pair(pairs: Vec<PairInfo>) -> Option<PairInfo> {
+pub fn find_best_liquidity_pair(pairs: Vec<PairInfoRaw>) -> Option<PairInfoRaw> {
     pairs.into_iter().max_by_key(|p| {
         p.liquidity
             .as_ref()
@@ -227,7 +225,7 @@ pub fn find_best_liquidity_pair(pairs: Vec<PairInfo>) -> Option<PairInfo> {
 }
 
 /// Extract token price from the best pair
-pub fn get_token_price(pairs: &[PairInfo], token_address: &str) -> Option<String> {
+pub fn get_token_price(pairs: &[PairInfoRaw], token_address: &str) -> Option<String> {
     pairs
         .iter()
         .filter(|p| p.base_token.address.eq_ignore_ascii_case(token_address))
@@ -240,14 +238,341 @@ pub fn get_token_price(pairs: &[PairInfo], token_address: &str) -> Option<String
         .and_then(|p| p.price_usd.clone())
 }
 
+// ==================== Clean Public Types ====================
+
+/// Clean response from DexScreener API
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DexScreenerResponse {
+    /// Schema version of the API response
+    pub schema_version: String,
+    /// List of token pairs returned by the API
+    pub pairs: Vec<PairInfo>,
+}
+
+/// Clean pair information
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PairInfo {
+    /// Blockchain network identifier
+    pub chain_id: String,
+    /// Decentralized exchange identifier
+    pub dex_id: String,
+    /// URL to view this pair on DexScreener
+    pub url: String,
+    /// Smart contract address of the trading pair
+    pub pair_address: String,
+    /// Labels associated with this pair
+    pub labels: Vec<String>,
+    /// Base token information
+    pub base_token: Token,
+    /// Quote token information
+    pub quote_token: Token,
+    /// Price in native chain token (e.g., ETH, SOL)
+    pub price_native: f64,
+    /// Price in USD
+    pub price_usd: Option<f64>,
+    /// Liquidity information for this pair
+    pub liquidity: Option<Liquidity>,
+    /// Trading volume statistics
+    pub volume: Option<Volume>,
+    /// Price change statistics
+    pub price_change: Option<PriceChange>,
+    /// Transaction statistics
+    pub txns: Option<Transactions>,
+    /// Market capitalization in USD
+    pub market_cap: Option<f64>,
+    /// Fully diluted valuation in USD
+    pub fdv: Option<f64>,
+}
+
+/// Clean token information
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Token {
+    /// Token contract address
+    pub address: String,
+    /// Full name of the token
+    pub name: String,
+    /// Token symbol/ticker
+    pub symbol: String,
+}
+
+/// Clean liquidity information
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Liquidity {
+    /// Total liquidity in USD
+    pub usd: Option<f64>,
+    /// Liquidity of the base token
+    pub base: Option<f64>,
+    /// Liquidity of the quote token
+    pub quote: Option<f64>,
+}
+
+/// Clean volume statistics
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct Volume {
+    /// Trading volume in the last 24 hours
+    pub h24: Option<f64>,
+    /// Trading volume in the last 6 hours
+    pub h6: Option<f64>,
+    /// Trading volume in the last 1 hour
+    pub h1: Option<f64>,
+    /// Trading volume in the last 5 minutes
+    pub m5: Option<f64>,
+}
+
+/// Clean price change statistics
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PriceChange {
+    /// Price change percentage in the last 24 hours
+    pub h24: Option<f64>,
+    /// Price change percentage in the last 6 hours
+    pub h6: Option<f64>,
+    /// Price change percentage in the last 1 hour
+    pub h1: Option<f64>,
+    /// Price change percentage in the last 5 minutes
+    pub m5: Option<f64>,
+}
+
+/// Clean transaction statistics
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Transactions {
+    /// Transaction statistics for the last 24 hours
+    pub h24: Option<TransactionStats>,
+    /// Transaction statistics for the last 6 hours
+    pub h6: Option<TransactionStats>,
+    /// Transaction statistics for the last 1 hour
+    pub h1: Option<TransactionStats>,
+    /// Transaction statistics for the last 5 minutes
+    pub m5: Option<TransactionStats>,
+}
+
+/// Clean transaction stats
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TransactionStats {
+    /// Number of buy transactions
+    pub buys: Option<u64>,
+    /// Number of sell transactions
+    pub sells: Option<u64>,
+}
+
+// ==================== From Implementations ====================
+
+impl From<DexScreenerResponseRaw> for DexScreenerResponse {
+    fn from(raw: DexScreenerResponseRaw) -> Self {
+        Self {
+            schema_version: raw.schema_version,
+            pairs: raw.pairs.into_iter().map(Into::into).collect(),
+        }
+    }
+}
+
+impl From<PairInfoRaw> for PairInfo {
+    fn from(raw: PairInfoRaw) -> Self {
+        Self {
+            chain_id: raw.chain_id,
+            dex_id: raw.dex_id,
+            url: raw.url,
+            pair_address: raw.pair_address,
+            labels: raw.labels.unwrap_or_default(),
+            base_token: raw.base_token.into(),
+            quote_token: raw.quote_token.into(),
+            price_native: raw.price_native.parse().unwrap_or(0.0),
+            price_usd: raw.price_usd.and_then(|p| p.parse().ok()),
+            liquidity: raw.liquidity.map(Into::into),
+            volume: raw.volume.map(Into::into),
+            price_change: raw.price_change.map(Into::into),
+            txns: raw.txns.map(Into::into),
+            market_cap: raw.market_cap,
+            fdv: raw.fdv,
+        }
+    }
+}
+
+impl From<TokenRaw> for Token {
+    fn from(raw: TokenRaw) -> Self {
+        Self {
+            address: raw.address,
+            name: raw.name,
+            symbol: raw.symbol,
+        }
+    }
+}
+
+impl From<LiquidityRaw> for Liquidity {
+    fn from(raw: LiquidityRaw) -> Self {
+        Self {
+            usd: raw.usd,
+            base: raw.base,
+            quote: raw.quote,
+        }
+    }
+}
+
+impl From<VolumeRaw> for Volume {
+    fn from(raw: VolumeRaw) -> Self {
+        Self {
+            h24: raw.h24,
+            h6: raw.h6,
+            h1: raw.h1,
+            m5: raw.m5,
+        }
+    }
+}
+
+impl From<PriceChangeRaw> for PriceChange {
+    fn from(raw: PriceChangeRaw) -> Self {
+        Self {
+            h24: raw.h24,
+            h6: raw.h6,
+            h1: raw.h1,
+            m5: raw.m5,
+        }
+    }
+}
+
+impl From<TransactionsRaw> for Transactions {
+    fn from(raw: TransactionsRaw) -> Self {
+        Self {
+            h24: raw.h24.map(Into::into),
+            h6: raw.h6.map(Into::into),
+            h1: raw.h1.map(Into::into),
+            m5: raw.m5.map(Into::into),
+        }
+    }
+}
+
+impl From<TransactionStatsRaw> for TransactionStats {
+    fn from(raw: TransactionStatsRaw) -> Self {
+        Self {
+            buys: raw.buys,
+            sells: raw.sells,
+        }
+    }
+}
+
+/// Helper function to aggregate data from multiple pairs into a single TokenInfo
+pub fn aggregate_token_info(
+    pairs: Vec<PairInfo>,
+    token_address: &str,
+) -> Option<crate::dexscreener::TokenInfo> {
+    // Find pairs for this token
+    let token_pairs: Vec<PairInfo> = pairs
+        .into_iter()
+        .filter(|p| p.base_token.address.eq_ignore_ascii_case(token_address))
+        .collect();
+
+    if token_pairs.is_empty() {
+        return None;
+    }
+
+    // Use the pair with highest liquidity as primary source
+    let primary_pair = token_pairs.iter().max_by_key(|p| {
+        p.liquidity
+            .as_ref()
+            .and_then(|l| l.usd)
+            .map(|usd| (usd * 1000.0) as u64)
+            .unwrap_or(0)
+    })?;
+
+    // Aggregate volume across all pairs
+    let total_volume_24h: f64 = token_pairs
+        .iter()
+        .filter_map(|p| p.volume.as_ref())
+        .filter_map(|v| v.h24)
+        .sum();
+
+    // Convert to TokenInfo (from dexscreener.rs)
+    Some(crate::dexscreener::TokenInfo {
+        address: token_address.to_string(),
+        name: primary_pair.base_token.name.clone(),
+        symbol: primary_pair.base_token.symbol.clone(),
+        decimals: 18, // Default
+        price_usd: primary_pair.price_usd,
+        market_cap: primary_pair.market_cap,
+        volume_24h: Some(total_volume_24h),
+        price_change_24h: primary_pair.price_change.as_ref().and_then(|pc| pc.h24),
+        price_change_1h: primary_pair.price_change.as_ref().and_then(|pc| pc.h1),
+        price_change_5m: primary_pair.price_change.as_ref().and_then(|pc| pc.m5),
+        circulating_supply: None,
+        total_supply: None,
+        pair_count: token_pairs.len() as u32,
+        pairs: token_pairs
+            .iter()
+            .map(|p| convert_to_token_pair(p))
+            .collect(),
+        chain: crate::dexscreener::ChainInfo {
+            id: primary_pair.chain_id.clone(),
+            name: crate::dexscreener::format_chain_name(&primary_pair.chain_id),
+            logo: None,
+            native_token: crate::dexscreener::get_native_token(&primary_pair.chain_id),
+        },
+        security: crate::dexscreener::SecurityInfo {
+            is_verified: false,
+            liquidity_locked: None,
+            audit_status: None,
+            honeypot_status: None,
+            ownership_status: None,
+            risk_score: None,
+        },
+        socials: vec![],
+        updated_at: chrono::Utc::now(),
+    })
+}
+
+/// Converts a PairInfo to a TokenPair for integration with the dexscreener module
+fn convert_to_token_pair(pair: &PairInfo) -> crate::dexscreener::TokenPair {
+    crate::dexscreener::TokenPair {
+        pair_id: pair.pair_address.clone(),
+        dex: crate::dexscreener::DexInfo {
+            id: pair.dex_id.clone(),
+            name: crate::dexscreener::format_dex_name(&pair.dex_id),
+            url: Some(pair.url.clone()),
+            logo: None,
+        },
+        base_token: crate::dexscreener::PairToken {
+            address: pair.base_token.address.clone(),
+            name: pair.base_token.name.clone(),
+            symbol: pair.base_token.symbol.clone(),
+        },
+        quote_token: crate::dexscreener::PairToken {
+            address: pair.quote_token.address.clone(),
+            name: pair.quote_token.name.clone(),
+            symbol: pair.quote_token.symbol.clone(),
+        },
+        price_usd: pair.price_usd,
+        price_native: Some(pair.price_native),
+        volume_24h: pair.volume.as_ref().and_then(|v| v.h24),
+        price_change_24h: pair.price_change.as_ref().and_then(|pc| pc.h24),
+        liquidity_usd: pair.liquidity.as_ref().and_then(|l| l.usd),
+        fdv: pair.fdv,
+        created_at: None,
+        last_trade_at: chrono::Utc::now(),
+        txns_24h: crate::dexscreener::TransactionStats {
+            buys: pair
+                .txns
+                .as_ref()
+                .and_then(|t| t.h24.as_ref())
+                .and_then(|h| h.buys.map(|b| b as u32)),
+            sells: pair
+                .txns
+                .as_ref()
+                .and_then(|t| t.h24.as_ref())
+                .and_then(|h| h.sells.map(|s| s as u32)),
+            total: None,
+            buy_volume_usd: None,
+            sell_volume_usd: None,
+        },
+        url: pair.url.clone(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use serde_json::json;
 
     // Helper function to create test Token
-    fn create_test_token() -> Token {
-        Token {
+    fn create_test_token() -> TokenRaw {
+        TokenRaw {
             address: "0x1234567890123456789012345678901234567890".to_string(),
             name: "Test Token".to_string(),
             symbol: "TEST".to_string(),
@@ -255,52 +580,52 @@ mod tests {
     }
 
     // Helper function to create test PairInfo
-    fn create_test_pair_info() -> PairInfo {
-        PairInfo {
+    fn create_test_pair_info() -> PairInfoRaw {
+        PairInfoRaw {
             chain_id: "ethereum".to_string(),
             dex_id: "uniswap".to_string(),
             url: "https://dexscreener.com/test".to_string(),
             pair_address: "0xabcdef1234567890".to_string(),
             labels: Some(vec!["test".to_string()]),
             base_token: create_test_token(),
-            quote_token: Token {
+            quote_token: TokenRaw {
                 address: "0x9876543210987654321098765432109876543210".to_string(),
                 name: "Quote Token".to_string(),
                 symbol: "QUOTE".to_string(),
             },
             price_native: "0.001".to_string(),
             price_usd: Some("1.50".to_string()),
-            liquidity: Some(Liquidity {
+            liquidity: Some(LiquidityRaw {
                 usd: Some(100000.0),
                 base: Some(50000.0),
                 quote: Some(50000.0),
             }),
-            volume: Some(Volume {
+            volume: Some(VolumeRaw {
                 h24: Some(10000.0),
                 h6: Some(2500.0),
                 h1: Some(416.0),
                 m5: Some(35.0),
             }),
-            price_change: Some(PriceChange {
+            price_change: Some(PriceChangeRaw {
                 h24: Some(5.5),
                 h6: Some(2.1),
                 h1: Some(0.8),
                 m5: Some(0.1),
             }),
-            txns: Some(Transactions {
-                h24: Some(TransactionStats {
+            txns: Some(TransactionsRaw {
+                h24: Some(TransactionStatsRaw {
                     buys: Some(100),
                     sells: Some(80),
                 }),
-                h6: Some(TransactionStats {
+                h6: Some(TransactionStatsRaw {
                     buys: Some(25),
                     sells: Some(20),
                 }),
-                h1: Some(TransactionStats {
+                h1: Some(TransactionStatsRaw {
                     buys: Some(4),
                     sells: Some(3),
                 }),
-                m5: Some(TransactionStats {
+                m5: Some(TransactionStatsRaw {
                     buys: Some(1),
                     sells: Some(0),
                 }),
@@ -316,7 +641,7 @@ mod tests {
     fn test_token_serialization() {
         let token = create_test_token();
         let serialized = serde_json::to_string(&token).unwrap();
-        let deserialized: Token = serde_json::from_str(&serialized).unwrap();
+        let deserialized: TokenRaw = serde_json::from_str(&serialized).unwrap();
 
         assert_eq!(token.address, deserialized.address);
         assert_eq!(token.name, deserialized.name);
@@ -325,13 +650,13 @@ mod tests {
 
     #[test]
     fn test_liquidity_serialization_with_all_fields() {
-        let liquidity = Liquidity {
+        let liquidity = LiquidityRaw {
             usd: Some(100000.0),
             base: Some(50000.0),
             quote: Some(50000.0),
         };
         let serialized = serde_json::to_string(&liquidity).unwrap();
-        let deserialized: Liquidity = serde_json::from_str(&serialized).unwrap();
+        let deserialized: LiquidityRaw = serde_json::from_str(&serialized).unwrap();
 
         assert_eq!(liquidity.usd, deserialized.usd);
         assert_eq!(liquidity.base, deserialized.base);
@@ -340,13 +665,13 @@ mod tests {
 
     #[test]
     fn test_liquidity_serialization_with_none_fields() {
-        let liquidity = Liquidity {
+        let liquidity = LiquidityRaw {
             usd: None,
             base: None,
             quote: None,
         };
         let serialized = serde_json::to_string(&liquidity).unwrap();
-        let deserialized: Liquidity = serde_json::from_str(&serialized).unwrap();
+        let deserialized: LiquidityRaw = serde_json::from_str(&serialized).unwrap();
 
         assert_eq!(liquidity.usd, deserialized.usd);
         assert_eq!(liquidity.base, deserialized.base);
@@ -355,9 +680,9 @@ mod tests {
 
     #[test]
     fn test_volume_default_serialization() {
-        let volume = Volume::default();
+        let volume = VolumeRaw::default();
         let serialized = serde_json::to_string(&volume).unwrap();
-        let deserialized: Volume = serde_json::from_str(&serialized).unwrap();
+        let deserialized: VolumeRaw = serde_json::from_str(&serialized).unwrap();
 
         assert_eq!(volume.h24, deserialized.h24);
         assert_eq!(volume.h6, deserialized.h6);
@@ -367,14 +692,14 @@ mod tests {
 
     #[test]
     fn test_volume_serialization_with_values() {
-        let volume = Volume {
+        let volume = VolumeRaw {
             h24: Some(10000.0),
             h6: Some(2500.0),
             h1: Some(416.0),
             m5: Some(35.0),
         };
         let serialized = serde_json::to_string(&volume).unwrap();
-        let deserialized: Volume = serde_json::from_str(&serialized).unwrap();
+        let deserialized: VolumeRaw = serde_json::from_str(&serialized).unwrap();
 
         assert_eq!(volume.h24, deserialized.h24);
         assert_eq!(volume.h6, deserialized.h6);
@@ -384,14 +709,14 @@ mod tests {
 
     #[test]
     fn test_price_change_serialization() {
-        let price_change = PriceChange {
+        let price_change = PriceChangeRaw {
             h24: Some(5.5),
             h6: Some(2.1),
             h1: Some(0.8),
             m5: Some(0.1),
         };
         let serialized = serde_json::to_string(&price_change).unwrap();
-        let deserialized: PriceChange = serde_json::from_str(&serialized).unwrap();
+        let deserialized: PriceChangeRaw = serde_json::from_str(&serialized).unwrap();
 
         assert_eq!(price_change.h24, deserialized.h24);
         assert_eq!(price_change.h6, deserialized.h6);
@@ -401,12 +726,12 @@ mod tests {
 
     #[test]
     fn test_transaction_stats_serialization() {
-        let stats = TransactionStats {
+        let stats = TransactionStatsRaw {
             buys: Some(100),
             sells: Some(80),
         };
         let serialized = serde_json::to_string(&stats).unwrap();
-        let deserialized: TransactionStats = serde_json::from_str(&serialized).unwrap();
+        let deserialized: TransactionStatsRaw = serde_json::from_str(&serialized).unwrap();
 
         assert_eq!(stats.buys, deserialized.buys);
         assert_eq!(stats.sells, deserialized.sells);
@@ -414,12 +739,12 @@ mod tests {
 
     #[test]
     fn test_transaction_stats_serialization_with_none() {
-        let stats = TransactionStats {
+        let stats = TransactionStatsRaw {
             buys: None,
             sells: None,
         };
         let serialized = serde_json::to_string(&stats).unwrap();
-        let deserialized: TransactionStats = serde_json::from_str(&serialized).unwrap();
+        let deserialized: TransactionStatsRaw = serde_json::from_str(&serialized).unwrap();
 
         assert_eq!(stats.buys, deserialized.buys);
         assert_eq!(stats.sells, deserialized.sells);
@@ -427,20 +752,20 @@ mod tests {
 
     #[test]
     fn test_transactions_serialization() {
-        let transactions = Transactions {
-            h24: Some(TransactionStats {
+        let transactions = TransactionsRaw {
+            h24: Some(TransactionStatsRaw {
                 buys: Some(100),
                 sells: Some(80),
             }),
             h6: None,
-            h1: Some(TransactionStats {
+            h1: Some(TransactionStatsRaw {
                 buys: None,
                 sells: Some(3),
             }),
             m5: None,
         };
         let serialized = serde_json::to_string(&transactions).unwrap();
-        let deserialized: Transactions = serde_json::from_str(&serialized).unwrap();
+        let deserialized: TransactionsRaw = serde_json::from_str(&serialized).unwrap();
 
         assert!(deserialized.h24.is_some());
         assert!(deserialized.h6.is_none());
@@ -452,7 +777,7 @@ mod tests {
     fn test_pair_info_serialization_complete() {
         let pair = create_test_pair_info();
         let serialized = serde_json::to_string(&pair).unwrap();
-        let deserialized: PairInfo = serde_json::from_str(&serialized).unwrap();
+        let deserialized: PairInfoRaw = serde_json::from_str(&serialized).unwrap();
 
         assert_eq!(pair.chain_id, deserialized.chain_id);
         assert_eq!(pair.dex_id, deserialized.dex_id);
@@ -471,7 +796,7 @@ mod tests {
 
     #[test]
     fn test_pair_info_serialization_minimal() {
-        let pair = PairInfo {
+        let pair = PairInfoRaw {
             chain_id: "ethereum".to_string(),
             dex_id: "uniswap".to_string(),
             url: "https://dexscreener.com/test".to_string(),
@@ -489,7 +814,7 @@ mod tests {
             fdv: None,
         };
         let serialized = serde_json::to_string(&pair).unwrap();
-        let deserialized: PairInfo = serde_json::from_str(&serialized).unwrap();
+        let deserialized: PairInfoRaw = serde_json::from_str(&serialized).unwrap();
 
         assert_eq!(pair.chain_id, deserialized.chain_id);
         assert_eq!(pair.dex_id, deserialized.dex_id);
@@ -505,12 +830,12 @@ mod tests {
 
     #[test]
     fn test_dexscreener_response_serialization() {
-        let response = DexScreenerResponse {
+        let response = DexScreenerResponseRaw {
             schema_version: "1.0.0".to_string(),
             pairs: vec![create_test_pair_info()],
         };
         let serialized = serde_json::to_string(&response).unwrap();
-        let deserialized: DexScreenerResponse = serde_json::from_str(&serialized).unwrap();
+        let deserialized: DexScreenerResponseRaw = serde_json::from_str(&serialized).unwrap();
 
         assert_eq!(response.schema_version, deserialized.schema_version);
         assert_eq!(response.pairs.len(), deserialized.pairs.len());
@@ -518,12 +843,12 @@ mod tests {
 
     #[test]
     fn test_dexscreener_response_empty_pairs() {
-        let response = DexScreenerResponse {
+        let response = DexScreenerResponseRaw {
             schema_version: "1.0.0".to_string(),
             pairs: vec![],
         };
         let serialized = serde_json::to_string(&response).unwrap();
-        let deserialized: DexScreenerResponse = serde_json::from_str(&serialized).unwrap();
+        let deserialized: DexScreenerResponseRaw = serde_json::from_str(&serialized).unwrap();
 
         assert_eq!(response.schema_version, deserialized.schema_version);
         assert!(deserialized.pairs.is_empty());
@@ -540,14 +865,10 @@ mod tests {
 
     #[test]
     fn test_find_best_liquidity_pair_when_no_liquidity_should_return_first() {
-        let pair1 = PairInfo {
-            liquidity: None,
-            ..create_test_pair_info()
-        };
-        let pair2 = PairInfo {
-            liquidity: None,
-            ..create_test_pair_info()
-        };
+        let mut pair1 = create_test_pair_info();
+        pair1.liquidity = None;
+        let mut pair2 = create_test_pair_info();
+        pair2.liquidity = None;
         let pairs = vec![pair1.clone(), pair2];
         let result = find_best_liquidity_pair(pairs);
 
@@ -557,22 +878,18 @@ mod tests {
 
     #[test]
     fn test_find_best_liquidity_pair_when_liquidity_none_usd_should_return_first() {
-        let pair1 = PairInfo {
-            liquidity: Some(Liquidity {
-                usd: None,
-                base: Some(100.0),
-                quote: Some(200.0),
-            }),
-            ..create_test_pair_info()
-        };
-        let pair2 = PairInfo {
-            liquidity: Some(Liquidity {
-                usd: None,
-                base: Some(300.0),
-                quote: Some(400.0),
-            }),
-            ..create_test_pair_info()
-        };
+        let mut pair1 = create_test_pair_info();
+        pair1.liquidity = Some(LiquidityRaw {
+            usd: None,
+            base: Some(100.0),
+            quote: Some(200.0),
+        });
+        let mut pair2 = create_test_pair_info();
+        pair2.liquidity = Some(LiquidityRaw {
+            usd: None,
+            base: Some(300.0),
+            quote: Some(400.0),
+        });
         let pairs = vec![pair1.clone(), pair2];
         let result = find_best_liquidity_pair(pairs);
 
@@ -582,33 +899,27 @@ mod tests {
 
     #[test]
     fn test_find_best_liquidity_pair_when_has_liquidity_should_return_highest() {
-        let pair1 = PairInfo {
-            pair_address: "low_liquidity".to_string(),
-            liquidity: Some(Liquidity {
-                usd: Some(50000.0),
-                base: Some(25000.0),
-                quote: Some(25000.0),
-            }),
-            ..create_test_pair_info()
-        };
-        let pair2 = PairInfo {
-            pair_address: "high_liquidity".to_string(),
-            liquidity: Some(Liquidity {
-                usd: Some(200000.0),
-                base: Some(100000.0),
-                quote: Some(100000.0),
-            }),
-            ..create_test_pair_info()
-        };
-        let pair3 = PairInfo {
-            pair_address: "medium_liquidity".to_string(),
-            liquidity: Some(Liquidity {
-                usd: Some(100000.0),
-                base: Some(50000.0),
-                quote: Some(50000.0),
-            }),
-            ..create_test_pair_info()
-        };
+        let mut pair1 = create_test_pair_info();
+        pair1.pair_address = "low_liquidity".to_string();
+        pair1.liquidity = Some(LiquidityRaw {
+            usd: Some(50000.0),
+            base: Some(25000.0),
+            quote: Some(25000.0),
+        });
+        let mut pair2 = create_test_pair_info();
+        pair2.pair_address = "high_liquidity".to_string();
+        pair2.liquidity = Some(LiquidityRaw {
+            usd: Some(200000.0),
+            base: Some(100000.0),
+            quote: Some(100000.0),
+        });
+        let mut pair3 = create_test_pair_info();
+        pair3.pair_address = "medium_liquidity".to_string();
+        pair3.liquidity = Some(LiquidityRaw {
+            usd: Some(100000.0),
+            base: Some(50000.0),
+            quote: Some(50000.0),
+        });
         let pairs = vec![pair1, pair2.clone(), pair3];
         let result = find_best_liquidity_pair(pairs);
 
@@ -618,29 +929,23 @@ mod tests {
 
     #[test]
     fn test_find_best_liquidity_pair_when_mixed_liquidity_should_return_highest() {
-        let pair1 = PairInfo {
-            pair_address: "no_liquidity".to_string(),
-            liquidity: None,
-            ..create_test_pair_info()
-        };
-        let pair2 = PairInfo {
-            pair_address: "has_liquidity".to_string(),
-            liquidity: Some(Liquidity {
-                usd: Some(150000.0),
-                base: Some(75000.0),
-                quote: Some(75000.0),
-            }),
-            ..create_test_pair_info()
-        };
-        let pair3 = PairInfo {
-            pair_address: "none_usd".to_string(),
-            liquidity: Some(Liquidity {
-                usd: None,
-                base: Some(50000.0),
-                quote: Some(50000.0),
-            }),
-            ..create_test_pair_info()
-        };
+        let mut pair1 = create_test_pair_info();
+        pair1.pair_address = "no_liquidity".to_string();
+        pair1.liquidity = None;
+        let mut pair2 = create_test_pair_info();
+        pair2.pair_address = "has_liquidity".to_string();
+        pair2.liquidity = Some(LiquidityRaw {
+            usd: Some(150000.0),
+            base: Some(75000.0),
+            quote: Some(75000.0),
+        });
+        let mut pair3 = create_test_pair_info();
+        pair3.pair_address = "none_usd".to_string();
+        pair3.liquidity = Some(LiquidityRaw {
+            usd: None,
+            base: Some(50000.0),
+            quote: Some(50000.0),
+        });
         let pairs = vec![pair1, pair2.clone(), pair3];
         let result = find_best_liquidity_pair(pairs);
 
@@ -702,7 +1007,7 @@ mod tests {
         let mut pair1 = create_test_pair_info();
         pair1.base_token.address = "0x1234567890123456789012345678901234567890".to_string();
         pair1.price_usd = Some("1.00".to_string());
-        pair1.liquidity = Some(Liquidity {
+        pair1.liquidity = Some(LiquidityRaw {
             usd: Some(50000.0),
             base: Some(25000.0),
             quote: Some(25000.0),
@@ -711,7 +1016,7 @@ mod tests {
         let mut pair2 = create_test_pair_info();
         pair2.base_token.address = "0x1234567890123456789012345678901234567890".to_string();
         pair2.price_usd = Some("1.05".to_string());
-        pair2.liquidity = Some(Liquidity {
+        pair2.liquidity = Some(LiquidityRaw {
             usd: Some(150000.0),
             base: Some(75000.0),
             quote: Some(75000.0),
@@ -753,7 +1058,7 @@ mod tests {
         let mut pair2 = create_test_pair_info();
         pair2.base_token.address = "0x1234567890123456789012345678901234567890".to_string();
         pair2.price_usd = Some("1.05".to_string());
-        pair2.liquidity = Some(Liquidity {
+        pair2.liquidity = Some(LiquidityRaw {
             usd: Some(100000.0),
             base: Some(50000.0),
             quote: Some(50000.0),
@@ -826,7 +1131,7 @@ mod tests {
             "fdv": 1500000.0
         });
 
-        let pair: PairInfo = serde_json::from_value(json).unwrap();
+        let pair: PairInfoRaw = serde_json::from_value(json).unwrap();
         assert_eq!(pair.chain_id, "ethereum");
         assert_eq!(pair.dex_id, "uniswap");
         assert_eq!(pair.pair_address, "0xabcdef1234567890");
@@ -852,7 +1157,7 @@ mod tests {
             "pairs": []
         });
 
-        let response: DexScreenerResponse = serde_json::from_value(json).unwrap();
+        let response: DexScreenerResponseRaw = serde_json::from_value(json).unwrap();
         assert_eq!(response.schema_version, "1.0.0");
         assert!(response.pairs.is_empty());
     }
@@ -860,7 +1165,7 @@ mod tests {
     // Test Volume default behavior
     #[test]
     fn test_volume_default_values() {
-        let volume = Volume::default();
+        let volume = VolumeRaw::default();
         assert!(volume.h24.is_none());
         assert!(volume.h6.is_none());
         assert!(volume.h1.is_none());
@@ -870,7 +1175,7 @@ mod tests {
     #[test]
     fn test_volume_deserialization_with_missing_fields() {
         let json = json!({});
-        let volume: Volume = serde_json::from_value(json).unwrap();
+        let volume: VolumeRaw = serde_json::from_value(json).unwrap();
         assert!(volume.h24.is_none());
         assert!(volume.h6.is_none());
         assert!(volume.h1.is_none());
@@ -880,7 +1185,7 @@ mod tests {
     #[test]
     fn test_price_change_deserialization_with_missing_fields() {
         let json = json!({});
-        let price_change: PriceChange = serde_json::from_value(json).unwrap();
+        let price_change: PriceChangeRaw = serde_json::from_value(json).unwrap();
         assert!(price_change.h24.is_none());
         assert!(price_change.h6.is_none());
         assert!(price_change.h1.is_none());
@@ -890,7 +1195,7 @@ mod tests {
     #[test]
     fn test_transactions_deserialization_with_missing_fields() {
         let json = json!({});
-        let transactions: Transactions = serde_json::from_value(json).unwrap();
+        let transactions: TransactionsRaw = serde_json::from_value(json).unwrap();
         assert!(transactions.h24.is_none());
         assert!(transactions.h6.is_none());
         assert!(transactions.h1.is_none());
@@ -911,24 +1216,20 @@ mod tests {
 
     #[test]
     fn test_find_best_liquidity_pair_with_zero_liquidity() {
-        let pair1 = PairInfo {
-            pair_address: "zero_liquidity_1".to_string(),
-            liquidity: Some(Liquidity {
-                usd: Some(0.0),
-                base: Some(0.0),
-                quote: Some(0.0),
-            }),
-            ..create_test_pair_info()
-        };
-        let pair2 = PairInfo {
-            pair_address: "zero_liquidity_2".to_string(),
-            liquidity: Some(Liquidity {
-                usd: Some(0.0),
-                base: Some(100.0),
-                quote: Some(200.0),
-            }),
-            ..create_test_pair_info()
-        };
+        let mut pair1 = create_test_pair_info();
+        pair1.pair_address = "zero_liquidity_1".to_string();
+        pair1.liquidity = Some(LiquidityRaw {
+            usd: Some(0.0),
+            base: Some(0.0),
+            quote: Some(0.0),
+        });
+        let mut pair2 = create_test_pair_info();
+        pair2.pair_address = "zero_liquidity_2".to_string();
+        pair2.liquidity = Some(LiquidityRaw {
+            usd: Some(0.0),
+            base: Some(100.0),
+            quote: Some(200.0),
+        });
         let pairs = vec![pair1.clone(), pair2];
         let result = find_best_liquidity_pair(pairs);
 
@@ -938,15 +1239,13 @@ mod tests {
 
     #[test]
     fn test_find_best_liquidity_pair_with_negative_liquidity() {
-        let pair = PairInfo {
-            pair_address: "negative_liquidity".to_string(),
-            liquidity: Some(Liquidity {
-                usd: Some(-1000.0),
-                base: Some(-500.0),
-                quote: Some(-500.0),
-            }),
-            ..create_test_pair_info()
-        };
+        let mut pair = create_test_pair_info();
+        pair.pair_address = "negative_liquidity".to_string();
+        pair.liquidity = Some(LiquidityRaw {
+            usd: Some(-1000.0),
+            base: Some(-500.0),
+            quote: Some(-500.0),
+        });
         let pairs = vec![pair.clone()];
         let result = find_best_liquidity_pair(pairs);
 
@@ -1008,7 +1307,7 @@ mod tests {
 
     #[test]
     fn test_liquidity_debug_format() {
-        let liquidity = Liquidity {
+        let liquidity = LiquidityRaw {
             usd: Some(100000.0),
             base: Some(50000.0),
             quote: Some(50000.0),
@@ -1020,7 +1319,7 @@ mod tests {
 
     #[test]
     fn test_volume_debug_format() {
-        let volume = Volume {
+        let volume = VolumeRaw {
             h24: Some(10000.0),
             h6: Some(2500.0),
             h1: Some(416.0),
@@ -1035,7 +1334,7 @@ mod tests {
 
     #[test]
     fn test_price_change_debug_format() {
-        let price_change = PriceChange {
+        let price_change = PriceChangeRaw {
             h24: Some(5.5),
             h6: Some(2.1),
             h1: Some(0.8),
@@ -1050,7 +1349,7 @@ mod tests {
 
     #[test]
     fn test_transaction_stats_debug_format() {
-        let stats = TransactionStats {
+        let stats = TransactionStatsRaw {
             buys: Some(100),
             sells: Some(80),
         };
@@ -1061,8 +1360,8 @@ mod tests {
 
     #[test]
     fn test_transactions_debug_format() {
-        let transactions = Transactions {
-            h24: Some(TransactionStats {
+        let transactions = TransactionsRaw {
+            h24: Some(TransactionStatsRaw {
                 buys: Some(100),
                 sells: Some(80),
             }),
@@ -1086,7 +1385,7 @@ mod tests {
 
     #[test]
     fn test_dexscreener_response_debug_format() {
-        let response = DexScreenerResponse {
+        let response = DexScreenerResponseRaw {
             schema_version: "1.0.0".to_string(),
             pairs: vec![create_test_pair_info()],
         };
@@ -1107,7 +1406,7 @@ mod tests {
 
     #[test]
     fn test_liquidity_clone() {
-        let liquidity = Liquidity {
+        let liquidity = LiquidityRaw {
             usd: Some(100000.0),
             base: Some(50000.0),
             quote: Some(50000.0),
@@ -1120,7 +1419,7 @@ mod tests {
 
     #[test]
     fn test_volume_clone() {
-        let volume = Volume {
+        let volume = VolumeRaw {
             h24: Some(10000.0),
             h6: Some(2500.0),
             h1: Some(416.0),
@@ -1135,7 +1434,7 @@ mod tests {
 
     #[test]
     fn test_price_change_clone() {
-        let price_change = PriceChange {
+        let price_change = PriceChangeRaw {
             h24: Some(5.5),
             h6: Some(2.1),
             h1: Some(0.8),
@@ -1150,7 +1449,7 @@ mod tests {
 
     #[test]
     fn test_transaction_stats_clone() {
-        let stats = TransactionStats {
+        let stats = TransactionStatsRaw {
             buys: Some(100),
             sells: Some(80),
         };
@@ -1161,8 +1460,8 @@ mod tests {
 
     #[test]
     fn test_transactions_clone() {
-        let transactions = Transactions {
-            h24: Some(TransactionStats {
+        let transactions = TransactionsRaw {
+            h24: Some(TransactionStatsRaw {
                 buys: Some(100),
                 sells: Some(80),
             }),
@@ -1189,7 +1488,7 @@ mod tests {
 
     #[test]
     fn test_dexscreener_response_clone() {
-        let response = DexScreenerResponse {
+        let response = DexScreenerResponseRaw {
             schema_version: "1.0.0".to_string(),
             pairs: vec![create_test_pair_info()],
         };
@@ -1201,15 +1500,13 @@ mod tests {
     // Test edge cases for liquidity calculation in find_best_liquidity_pair
     #[test]
     fn test_find_best_liquidity_pair_with_very_large_numbers() {
-        let pair = PairInfo {
-            pair_address: "large_liquidity".to_string(),
-            liquidity: Some(Liquidity {
-                usd: Some(f64::MAX),
-                base: Some(f64::MAX),
-                quote: Some(f64::MAX),
-            }),
-            ..create_test_pair_info()
-        };
+        let mut pair = create_test_pair_info();
+        pair.pair_address = "large_liquidity".to_string();
+        pair.liquidity = Some(LiquidityRaw {
+            usd: Some(f64::MAX),
+            base: Some(f64::MAX),
+            quote: Some(f64::MAX),
+        });
         let pairs = vec![pair.clone()];
         let result = find_best_liquidity_pair(pairs);
 
@@ -1219,15 +1516,13 @@ mod tests {
 
     #[test]
     fn test_find_best_liquidity_pair_with_infinity() {
-        let pair = PairInfo {
-            pair_address: "infinity_liquidity".to_string(),
-            liquidity: Some(Liquidity {
-                usd: Some(f64::INFINITY),
-                base: Some(100.0),
-                quote: Some(200.0),
-            }),
-            ..create_test_pair_info()
-        };
+        let mut pair = create_test_pair_info();
+        pair.pair_address = "infinity_liquidity".to_string();
+        pair.liquidity = Some(LiquidityRaw {
+            usd: Some(f64::INFINITY),
+            base: Some(100.0),
+            quote: Some(200.0),
+        });
         let pairs = vec![pair.clone()];
         let result = find_best_liquidity_pair(pairs);
 
@@ -1237,15 +1532,13 @@ mod tests {
 
     #[test]
     fn test_find_best_liquidity_pair_with_nan() {
-        let pair = PairInfo {
-            pair_address: "nan_liquidity".to_string(),
-            liquidity: Some(Liquidity {
-                usd: Some(f64::NAN),
-                base: Some(100.0),
-                quote: Some(200.0),
-            }),
-            ..create_test_pair_info()
-        };
+        let mut pair = create_test_pair_info();
+        pair.pair_address = "nan_liquidity".to_string();
+        pair.liquidity = Some(LiquidityRaw {
+            usd: Some(f64::NAN),
+            base: Some(100.0),
+            quote: Some(200.0),
+        });
         let pairs = vec![pair.clone()];
         let result = find_best_liquidity_pair(pairs);
 

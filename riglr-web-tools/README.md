@@ -12,6 +12,35 @@ Comprehensive web data tools for riglr agents, bridging on-chain and off-chain i
 - 🛡️ **Error Resilience**: Distinguishes between retriable and permanent failures
 - 🔐 **Secure API Management**: Environment-based configuration for API keys
 
+## Architecture
+
+riglr-web-tools provides off-chain data integration for riglr agents, bridging web2 and web3 data sources with structured tools for market intelligence.
+
+### Design Principles
+
+- **API Abstraction**: Uniform interface across different data providers
+- **Rate Limit Aware**: Built-in rate limiting and backoff strategies
+- **Caching First**: In-memory caching to reduce API calls and costs
+- **Error Classification**: Distinguishes retriable, permanent, and rate-limited errors
+- **Type-Safe Responses**: Strongly typed data models for all API responses
+- **Tool-Ready**: All functions use `#[tool]` macro for agent integration
+
+### Core Components
+
+1. **Twitter Module**: Social media monitoring and sentiment analysis
+2. **DexScreener Module**: DEX market data and token analytics
+3. **Exa Search Module**: Semantic web search with AI-powered relevance
+4. **News Module**: Crypto news aggregation and analysis
+5. **Common Utilities**: Shared HTTP client, rate limiting, error handling
+
+### Data Flow
+
+```
+External API → Rate Limiter → HTTP Client → Response Parser → Cache → Tool Result
+                    ↓              ↓             ↓
+              Retry Logic    Error Mapping   Type Validation
+```
+
 ## Installation
 
 Add to your `Cargo.toml`:
@@ -92,6 +121,7 @@ async fn main() -> anyhow::Result<()> {
 ### Twitter/X Tools
 
 #### `search_tweets`
+
 Search for tweets with advanced filtering and sentiment analysis.
 
 ```rust
@@ -108,6 +138,7 @@ println!("Found {} tweets", result.tweets.len());
 ```
 
 #### `get_user_tweets`
+
 Fetch recent tweets from a specific user.
 
 ```rust
@@ -120,6 +151,7 @@ let tweets = get_user_tweets(
 ```
 
 #### `analyze_crypto_sentiment`
+
 Comprehensive sentiment analysis for cryptocurrency tokens.
 
 ```rust
@@ -138,6 +170,7 @@ println!("ETH sentiment: {:.2} ({:.1}% positive)",
 ### DexScreener Tools
 
 #### `get_token_info`
+
 Get detailed token information and metrics.
 
 ```rust
@@ -152,6 +185,7 @@ println!("Market cap: ${:.2}M", token.market_cap.unwrap_or(0.0) / 1_000_000.0);
 ```
 
 #### `search_tokens`
+
 Search for tokens by name or symbol.
 
 ```rust
@@ -165,6 +199,7 @@ let results = search_tokens(
 ```
 
 #### `get_trending_tokens`
+
 Get currently trending tokens across chains.
 
 ```rust
@@ -177,6 +212,7 @@ let trending = get_trending_tokens(
 ```
 
 #### `analyze_token_market`
+
 Deep market analysis for a specific token.
 
 ```rust
@@ -189,6 +225,7 @@ let analysis = analyze_token_market(
 ```
 
 #### `get_top_pairs`
+
 Get top trading pairs by volume or liquidity.
 
 ```rust
@@ -204,6 +241,7 @@ let pairs = get_top_pairs(
 ### News Tools
 
 #### `get_crypto_news`
+
 Fetch latest cryptocurrency news.
 
 ```rust
@@ -221,6 +259,7 @@ for article in news.articles {
 ```
 
 #### `get_trending_news`
+
 Get currently trending news articles.
 
 ```rust
@@ -231,6 +270,7 @@ let trending = get_trending_news(
 ```
 
 #### `monitor_breaking_news`
+
 Monitor for breaking news with alerts.
 
 ```rust
@@ -245,6 +285,7 @@ if !breaking.alerts.is_empty() {
 ```
 
 #### `analyze_market_sentiment`
+
 Aggregate sentiment analysis across news sources.
 
 ```rust
@@ -262,6 +303,7 @@ println!("Market sentiment: {} ({:.2})",
 ### Web Search Tools
 
 #### `search_web`
+
 Intelligent semantic web search using Exa API.
 
 ```rust
@@ -278,6 +320,7 @@ for result in results.results {
 ```
 
 #### `find_similar_pages`
+
 Find pages similar to a given URL.
 
 ```rust
@@ -289,6 +332,7 @@ let similar = find_similar_pages(
 ```
 
 #### `summarize_web_content`
+
 Get AI-powered summaries of web pages.
 
 ```rust
@@ -301,6 +345,7 @@ println!("Summary: {}", summary.summary);
 ```
 
 #### `search_recent_news`
+
 Search for recent news articles.
 
 ```rust

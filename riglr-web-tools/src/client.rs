@@ -254,7 +254,6 @@ impl Default for WebClient {
         let http_client = ClientBuilder::new()
             .timeout(http_config.timeout)
             .user_agent(&http_config.user_agent)
-            .gzip(true)
             .build()
             .expect("Failed to create default HTTP client");
 
@@ -273,7 +272,6 @@ impl WebClient {
         let http_client = ClientBuilder::new()
             .timeout(http_config.timeout)
             .user_agent(&http_config.user_agent)
-            .gzip(true)
             .build()
             .map_err(|e| WebToolError::Client(format!("Failed to create HTTP client: {}", e)))?;
 

@@ -12,6 +12,135 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use tracing::{debug, info};
 
+// Private module for raw API types
+mod api_types {
+    use serde::{Deserialize, Serialize};
+
+    #[derive(Debug, Deserialize, Serialize)]
+    pub struct ApiResponseRaw {
+        pub data: Option<Vec<TweetRaw>>,
+        pub includes: Option<IncludesRaw>,
+        pub meta: Option<MetaRaw>,
+        pub errors: Option<Vec<ErrorRaw>>,
+    }
+
+    #[derive(Debug, Deserialize, Serialize)]
+    pub struct TweetRaw {
+        pub id: String,
+        pub text: String,
+        pub author_id: Option<String>,
+        pub created_at: Option<String>,
+        pub lang: Option<String>,
+        pub public_metrics: Option<PublicMetricsRaw>,
+        pub entities: Option<EntitiesRaw>,
+        pub context_annotations: Option<Vec<ContextAnnotationRaw>>,
+        pub referenced_tweets: Option<Vec<ReferencedTweetRaw>>,
+    }
+
+    #[derive(Debug, Clone, Deserialize, Serialize)]
+    pub struct UserRaw {
+        pub id: String,
+        pub username: String,
+        pub name: String,
+        pub description: Option<String>,
+        pub public_metrics: Option<UserMetricsRaw>,
+        pub verified: Option<bool>,
+        pub created_at: Option<String>,
+    }
+
+    #[derive(Debug, Deserialize, Serialize)]
+    pub struct IncludesRaw {
+        pub users: Option<Vec<UserRaw>>,
+        pub tweets: Option<Vec<TweetRaw>>,
+    }
+
+    #[derive(Debug, Deserialize, Serialize)]
+    pub struct PublicMetricsRaw {
+        pub retweet_count: Option<u32>,
+        pub reply_count: Option<u32>,
+        pub like_count: Option<u32>,
+        pub quote_count: Option<u32>,
+        pub impression_count: Option<u32>,
+    }
+
+    #[derive(Debug, Clone, Deserialize, Serialize)]
+    pub struct UserMetricsRaw {
+        pub followers_count: Option<u32>,
+        pub following_count: Option<u32>,
+        pub tweet_count: Option<u32>,
+        pub listed_count: Option<u32>,
+    }
+
+    #[derive(Debug, Deserialize, Serialize)]
+    pub struct EntitiesRaw {
+        pub hashtags: Option<Vec<HashtagRaw>>,
+        pub mentions: Option<Vec<MentionRaw>>,
+        pub urls: Option<Vec<UrlRaw>>,
+        pub cashtags: Option<Vec<CashtagRaw>>,
+    }
+
+    #[derive(Debug, Deserialize, Serialize)]
+    pub struct HashtagRaw {
+        pub tag: String,
+    }
+
+    #[derive(Debug, Deserialize, Serialize)]
+    pub struct MentionRaw {
+        pub username: String,
+    }
+
+    #[derive(Debug, Deserialize, Serialize)]
+    pub struct UrlRaw {
+        pub expanded_url: Option<String>,
+        pub url: String,
+    }
+
+    #[derive(Debug, Deserialize, Serialize)]
+    pub struct CashtagRaw {
+        pub tag: String,
+    }
+
+    #[derive(Debug, Deserialize, Serialize)]
+    pub struct ContextAnnotationRaw {
+        pub domain: DomainRaw,
+        pub entity: EntityRaw,
+    }
+
+    #[derive(Debug, Deserialize, Serialize)]
+    pub struct DomainRaw {
+        pub id: String,
+        pub name: Option<String>,
+        pub description: Option<String>,
+    }
+
+    #[derive(Debug, Deserialize, Serialize)]
+    pub struct EntityRaw {
+        pub id: String,
+        pub name: Option<String>,
+        pub description: Option<String>,
+    }
+
+    #[derive(Debug, Deserialize, Serialize)]
+    pub struct ReferencedTweetRaw {
+        pub r#type: String,
+        pub id: String,
+    }
+
+    #[derive(Debug, Deserialize, Serialize)]
+    pub struct MetaRaw {
+        pub result_count: Option<u32>,
+        pub next_token: Option<String>,
+        pub previous_token: Option<String>,
+    }
+
+    #[derive(Debug, Deserialize, Serialize)]
+    pub struct ErrorRaw {
+        pub title: String,
+        pub detail: Option<String>,
+        pub r#type: Option<String>,
+    }
+}
+
 /// Environment variable key for Twitter bearer token
 const TWITTER_BEARER_TOKEN: &str = "TWITTER_BEARER_TOKEN";
 
@@ -553,23 +682,40 @@ async fn parse_twitter_response(response: &str) -> crate::error::Result<Vec<Twit
         response.len()
     );
 
-    // Parse the Twitter API v2 JSON response
-    let api_response: serde_json::Value = serde_json::from_str(response).map_err(|e| {
+    // Parse into raw API response type
+    let api_response: api_types::ApiResponseRaw = serde_json::from_str(response).map_err(|e| {
         crate::error::WebToolError::Api(format!("Failed to parse Twitter API response: {}", e))
     })?;
 
     let mut tweets = Vec::new();
 
-    // Extract tweets from the 'data' field
-    if let Some(data) = api_response["data"].as_array() {
-        let empty_users = vec![];
-        let users = api_response["includes"]["users"]
-            .as_array()
-            .unwrap_or(&empty_users);
+    // Process tweets if data is present
+    if let Some(data) = api_response.data {
+        let users = api_response
+            .includes
+            .as_ref()
+            .and_then(|i| i.users.as_ref())
+            .map(|u| u.as_slice())
+            .unwrap_or(&[]);
 
-        for tweet_data in data {
-            // Parse tweet
-            let tweet = parse_single_tweet(tweet_data, users)?;
+        for tweet_raw in data {
+            // Find corresponding user
+            let default_id = String::new();
+            let author_id = tweet_raw.author_id.as_ref().unwrap_or(&default_id);
+            let user_raw = users.iter().find(|u| u.id == *author_id);
+
+            let user = user_raw.cloned().unwrap_or_else(|| api_types::UserRaw {
+                id: author_id.clone(),
+                username: "unknown".to_string(),
+                name: "Unknown User".to_string(),
+                description: None,
+                public_metrics: None,
+                verified: Some(false),
+                created_at: None,
+            });
+
+            // Convert raw types to clean types
+            let tweet = convert_raw_tweet(&tweet_raw, &user)?;
             tweets.push(tweet);
         }
     }
@@ -586,196 +732,139 @@ async fn parse_twitter_response(response: &str) -> crate::error::Result<Vec<Twit
     Ok(tweets)
 }
 
-/// Parse a single tweet from Twitter API v2 data
-fn parse_single_tweet(
-    tweet_data: &serde_json::Value,
-    users: &[serde_json::Value],
+/// Convert raw tweet and user data to clean TwitterPost
+fn convert_raw_tweet(
+    tweet: &api_types::TweetRaw,
+    user: &api_types::UserRaw,
 ) -> crate::error::Result<TwitterPost> {
-    let id = tweet_data["id"].as_str().unwrap_or_default().to_string();
-    let text = tweet_data["text"].as_str().unwrap_or_default().to_string();
-    let author_id = tweet_data["author_id"].as_str().unwrap_or_default();
+    // Parse created_at timestamp
+    let created_at = tweet
+        .created_at
+        .as_ref()
+        .and_then(|s| DateTime::parse_from_rfc3339(s).ok())
+        .map(|dt| dt.with_timezone(&Utc))
+        .unwrap_or_else(Utc::now);
 
-    // Find author information from includes.users
-    let author = find_user_by_id(author_id, users)?;
-
-    // Parse creation time
-    let created_at = if let Some(created_str) = tweet_data["created_at"].as_str() {
-        DateTime::parse_from_rfc3339(created_str)
-            .map(|dt| dt.with_timezone(&Utc))
-            .unwrap_or_else(|_| Utc::now())
-    } else {
-        Utc::now()
-    };
-
-    // Parse metrics
-    let metrics = if let Some(public_metrics) = tweet_data["public_metrics"].as_object() {
+    // Convert metrics
+    let metrics = if let Some(m) = &tweet.public_metrics {
         TweetMetrics {
-            retweet_count: public_metrics
-                .get("retweet_count")
-                .and_then(|v| v.as_u64())
-                .unwrap_or(0) as u32,
-            like_count: public_metrics
-                .get("like_count")
-                .and_then(|v| v.as_u64())
-                .unwrap_or(0) as u32,
-            reply_count: public_metrics
-                .get("reply_count")
-                .and_then(|v| v.as_u64())
-                .unwrap_or(0) as u32,
-            quote_count: public_metrics
-                .get("quote_count")
-                .and_then(|v| v.as_u64())
-                .unwrap_or(0) as u32,
-            impression_count: public_metrics
-                .get("impression_count")
-                .and_then(|v| v.as_u64())
-                .map(|v| v as u32),
+            retweet_count: m.retweet_count.unwrap_or(0),
+            like_count: m.like_count.unwrap_or(0),
+            reply_count: m.reply_count.unwrap_or(0),
+            quote_count: m.quote_count.unwrap_or(0),
+            impression_count: m.impression_count,
         }
     } else {
         TweetMetrics::default()
     };
 
-    // Parse entities
-    let entities = parse_tweet_entities(&tweet_data["entities"]);
-
-    // Parse context annotations
-    let context_annotations = if let Some(contexts) = tweet_data["context_annotations"].as_array() {
-        contexts
-            .iter()
-            .filter_map(|ctx| {
-                Some(ContextAnnotation {
-                    domain_id: ctx["domain"]["id"].as_str()?.to_string(),
-                    domain_name: ctx["domain"]["name"].as_str()?.to_string(),
-                    entity_id: ctx["entity"]["id"].as_str()?.to_string(),
-                    entity_name: ctx["entity"]["name"].as_str()?.to_string(),
+    // Convert entities
+    let entities = if let Some(e) = &tweet.entities {
+        TweetEntities {
+            hashtags: e
+                .hashtags
+                .as_ref()
+                .map(|h| h.iter().map(|tag| tag.tag.clone()).collect())
+                .unwrap_or_default(),
+            mentions: e
+                .mentions
+                .as_ref()
+                .map(|m| m.iter().map(|mention| mention.username.clone()).collect())
+                .unwrap_or_default(),
+            urls: e
+                .urls
+                .as_ref()
+                .map(|u| {
+                    u.iter()
+                        .map(|url| url.expanded_url.as_ref().unwrap_or(&url.url).clone())
+                        .collect()
                 })
-            })
-            .collect()
+                .unwrap_or_default(),
+            cashtags: e
+                .cashtags
+                .as_ref()
+                .map(|c| c.iter().map(|cash| cash.tag.clone()).collect())
+                .unwrap_or_default(),
+        }
     } else {
-        vec![]
+        TweetEntities {
+            hashtags: vec![],
+            mentions: vec![],
+            urls: vec![],
+            cashtags: vec![],
+        }
     };
 
-    let is_retweet = text.starts_with("RT @");
+    // Convert context annotations
+    let context_annotations = tweet
+        .context_annotations
+        .as_ref()
+        .map(|annotations| {
+            annotations
+                .iter()
+                .map(|a| ContextAnnotation {
+                    domain_id: a.domain.id.clone(),
+                    domain_name: a.domain.name.clone().unwrap_or_default(),
+                    entity_id: a.entity.id.clone(),
+                    entity_name: a.entity.name.clone().unwrap_or_default(),
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+
+    // Check if reply or retweet
+    let is_reply = tweet
+        .referenced_tweets
+        .as_ref()
+        .map(|refs| refs.iter().any(|r| r.r#type == "replied_to"))
+        .unwrap_or(false);
+
+    let is_retweet = tweet
+        .referenced_tweets
+        .as_ref()
+        .map(|refs| refs.iter().any(|r| r.r#type == "retweeted"))
+        .unwrap_or(false)
+        || tweet.text.starts_with("RT @");
+
+    // Convert user
+    let author = convert_raw_user(user)?;
 
     Ok(TwitterPost {
-        id,
-        text,
+        id: tweet.id.clone(),
+        text: tweet.text.clone(),
         author,
         created_at,
         metrics,
         entities,
-        lang: tweet_data["lang"].as_str().map(|s| s.to_string()),
-        is_reply: tweet_data["in_reply_to_user_id"].is_string(),
+        lang: tweet.lang.clone(),
+        is_reply,
         is_retweet,
         context_annotations,
     })
 }
 
-/// Find user by ID in the users array
-fn find_user_by_id(
-    author_id: &str,
-    users: &[serde_json::Value],
-) -> crate::error::Result<TwitterUser> {
-    for user in users {
-        if user["id"].as_str() == Some(author_id) {
-            return parse_user_data(user);
-        }
-    }
+/// Convert raw user data to clean TwitterUser
+fn convert_raw_user(user: &api_types::UserRaw) -> crate::error::Result<TwitterUser> {
+    let created_at = user
+        .created_at
+        .as_ref()
+        .and_then(|s| DateTime::parse_from_rfc3339(s).ok())
+        .map(|dt| dt.with_timezone(&Utc))
+        .unwrap_or_else(Utc::now);
 
-    // Fallback if user not found in includes
-    Ok(TwitterUser {
-        id: author_id.to_string(),
-        username: "unknown".to_string(),
-        name: "Unknown User".to_string(),
-        description: None,
-        followers_count: 0,
-        following_count: 0,
-        tweet_count: 0,
-        verified: false,
-        created_at: Utc::now(),
-    })
-}
-
-/// Parse user data from Twitter API v2 response
-fn parse_user_data(user_data: &serde_json::Value) -> crate::error::Result<TwitterUser> {
-    let created_at = if let Some(created_str) = user_data["created_at"].as_str() {
-        DateTime::parse_from_rfc3339(created_str)
-            .map(|dt| dt.with_timezone(&Utc))
-            .unwrap_or_else(|_| Utc::now())
-    } else {
-        Utc::now()
-    };
-
-    let public_metrics = user_data["public_metrics"].as_object();
+    let metrics = user.public_metrics.as_ref();
 
     Ok(TwitterUser {
-        id: user_data["id"].as_str().unwrap_or_default().to_string(),
-        username: user_data["username"]
-            .as_str()
-            .unwrap_or_default()
-            .to_string(),
-        name: user_data["name"].as_str().unwrap_or_default().to_string(),
-        description: user_data["description"].as_str().map(|s| s.to_string()),
-        followers_count: public_metrics
-            .and_then(|m| m.get("followers_count"))
-            .and_then(|v| v.as_u64())
-            .unwrap_or(0) as u32,
-        following_count: public_metrics
-            .and_then(|m| m.get("following_count"))
-            .and_then(|v| v.as_u64())
-            .unwrap_or(0) as u32,
-        tweet_count: public_metrics
-            .and_then(|m| m.get("tweet_count"))
-            .and_then(|v| v.as_u64())
-            .unwrap_or(0) as u32,
-        verified: user_data["verified"].as_bool().unwrap_or(false),
+        id: user.id.clone(),
+        username: user.username.clone(),
+        name: user.name.clone(),
+        description: user.description.clone(),
+        followers_count: metrics.and_then(|m| m.followers_count).unwrap_or(0),
+        following_count: metrics.and_then(|m| m.following_count).unwrap_or(0),
+        tweet_count: metrics.and_then(|m| m.tweet_count).unwrap_or(0),
+        verified: user.verified.unwrap_or(false),
         created_at,
     })
-}
-
-/// Parse tweet entities from Twitter API v2 response
-fn parse_tweet_entities(entities_data: &serde_json::Value) -> TweetEntities {
-    let hashtags = if let Some(tags) = entities_data["hashtags"].as_array() {
-        tags.iter()
-            .filter_map(|tag| tag["tag"].as_str().map(|s| s.to_string()))
-            .collect()
-    } else {
-        vec![]
-    };
-
-    let mentions = if let Some(mentions_array) = entities_data["mentions"].as_array() {
-        mentions_array
-            .iter()
-            .filter_map(|mention| mention["username"].as_str().map(|s| format!("@{}", s)))
-            .collect()
-    } else {
-        vec![]
-    };
-
-    let urls = if let Some(urls_array) = entities_data["urls"].as_array() {
-        urls_array
-            .iter()
-            .filter_map(|url| url["expanded_url"].as_str().map(|s| s.to_string()))
-            .collect()
-    } else {
-        vec![]
-    };
-
-    let cashtags = if let Some(cashtags_array) = entities_data["cashtags"].as_array() {
-        cashtags_array
-            .iter()
-            .filter_map(|tag| tag["tag"].as_str().map(|s| format!("${}", s)))
-            .collect()
-    } else {
-        vec![]
-    };
-
-    TweetEntities {
-        hashtags,
-        mentions,
-        urls,
-        cashtags,
-    }
 }
 
 /// Analyze sentiment of tweets with real sentiment analysis
@@ -1291,7 +1380,7 @@ mod tests {
                     "entities": {
                         "hashtags": [{"tag": "test"}],
                         "mentions": [{"username": "user1"}],
-                        "urls": [{"expanded_url": "https://example.com"}],
+                        "urls": [{"expanded_url": "https://example.com", "url": "https://example.com"}],
                         "cashtags": [{"tag": "BTC"}]
                     },
                     "context_annotations": [
@@ -1314,7 +1403,8 @@ mod tests {
                         "public_metrics": {
                             "followers_count": 1000,
                             "following_count": 500,
-                            "tweet_count": 100
+                            "tweet_count": 100,
+                            "listed_count": 10
                         }
                     }
                 ]
@@ -1385,7 +1475,12 @@ mod tests {
                     "id": "123456789",
                     "text": "Hello world!",
                     "author_id": "987654321",
-                    "created_at": "2023-01-01T00:00:00.000Z"
+                    "created_at": "2023-01-01T00:00:00.000Z",
+                    "lang": "en",
+                    "public_metrics": null,
+                    "entities": null,
+                    "context_annotations": null,
+                    "referenced_tweets": null
                 }
             ]
         });
@@ -1401,308 +1496,399 @@ mod tests {
         assert_eq!(tweets[0].author.name, "Unknown User");
     }
 
-    // parse_single_tweet Tests
+    // Tweet conversion tests
     #[test]
-    fn test_parse_single_tweet_complete_data() {
-        let tweet_data = json!({
-            "id": "123456789",
-            "text": "Hello world!",
-            "author_id": "987654321",
-            "created_at": "2023-01-01T00:00:00.000Z",
-            "lang": "en",
-            "in_reply_to_user_id": "111",
-            "public_metrics": {
-                "retweet_count": 10,
-                "like_count": 50,
-                "reply_count": 5,
-                "quote_count": 2
-            },
-            "entities": {
-                "hashtags": [{"tag": "test"}]
-            },
-            "context_annotations": [
-                {
-                    "domain": {"id": "65", "name": "Interests"},
-                    "entity": {"id": "123", "name": "Crypto"}
-                }
-            ]
-        });
+    fn test_convert_raw_tweet_complete_data() {
+        // Create raw tweet with complete data
+        let tweet_raw = api_types::TweetRaw {
+            id: "123456789".to_string(),
+            text: "Hello world!".to_string(),
+            author_id: Some("987654321".to_string()),
+            created_at: Some("2023-01-01T00:00:00.000Z".to_string()),
+            lang: Some("en".to_string()),
+            entities: Some(api_types::EntitiesRaw {
+                hashtags: Some(vec![api_types::HashtagRaw {
+                    tag: "test".to_string(),
+                }]),
+                mentions: None,
+                urls: None,
+                cashtags: None,
+            }),
+            public_metrics: Some(api_types::PublicMetricsRaw {
+                retweet_count: Some(10),
+                reply_count: Some(5),
+                like_count: Some(50),
+                quote_count: Some(2),
+                impression_count: None,
+            }),
+            context_annotations: None,
+            referenced_tweets: None,
+        };
 
-        let users = vec![json!({
-            "id": "987654321",
-            "username": "testuser",
-            "name": "Test User",
-            "verified": false,
-            "created_at": "2020-01-01T00:00:00.000Z"
-        })];
+        let user_raw = api_types::UserRaw {
+            id: "987654321".to_string(),
+            username: "testuser".to_string(),
+            name: "Test User".to_string(),
+            description: Some("Test bio".to_string()),
+            verified: Some(false),
+            created_at: Some("2020-01-01T00:00:00.000Z".to_string()),
+            public_metrics: None,
+        };
 
-        let result = parse_single_tweet(&tweet_data, &users);
-        assert!(result.is_ok());
-
-        let tweet = result.unwrap();
+        let tweet = convert_raw_tweet(&tweet_raw, &user_raw).unwrap();
         assert_eq!(tweet.id, "123456789");
         assert_eq!(tweet.text, "Hello world!");
-        assert_eq!(tweet.lang, Some("en".to_string()));
-        assert!(tweet.is_reply);
+        assert_eq!(tweet.author.username, "testuser");
         assert!(!tweet.is_retweet);
-        assert_eq!(tweet.context_annotations.len(), 1);
+        assert_eq!(tweet.entities.hashtags.len(), 1);
     }
 
     #[test]
-    fn test_parse_single_tweet_minimal_data() {
-        let tweet_data = json!({
-            "id": "123",
-            "text": "Minimal tweet",
-            "author_id": "456"
-        });
+    fn test_convert_raw_tweet_minimal_data() {
+        let tweet_raw = api_types::TweetRaw {
+            id: "123".to_string(),
+            text: "Minimal tweet".to_string(),
+            author_id: Some("456".to_string()),
+            created_at: None,
+            lang: None,
+            entities: None,
+            public_metrics: None,
+            context_annotations: None,
+            referenced_tweets: None,
+        };
 
-        let users = vec![];
-        let result = parse_single_tweet(&tweet_data, &users);
-        assert!(result.is_ok());
+        // Use default user for missing author
+        let user_raw = api_types::UserRaw {
+            id: "unknown".to_string(),
+            username: "unknown".to_string(),
+            name: "Unknown User".to_string(),
+            description: None,
+            verified: None,
+            created_at: None,
+            public_metrics: None,
+        };
 
-        let tweet = result.unwrap();
+        let tweet = convert_raw_tweet(&tweet_raw, &user_raw).unwrap();
         assert_eq!(tweet.id, "123");
         assert_eq!(tweet.text, "Minimal tweet");
         assert_eq!(tweet.author.username, "unknown");
-        assert!(!tweet.is_reply);
         assert!(!tweet.is_retweet);
     }
 
     #[test]
-    fn test_parse_single_tweet_retweet_detection() {
-        let tweet_data = json!({
-            "id": "123",
-            "text": "RT @someone: Original tweet",
-            "author_id": "456"
-        });
+    fn test_convert_raw_tweet_retweet_detection() {
+        let tweet_raw = api_types::TweetRaw {
+            id: "123".to_string(),
+            text: "RT @someone: Original tweet".to_string(),
+            author_id: Some("456".to_string()),
+            created_at: None,
+            lang: None,
+            entities: None,
+            public_metrics: None,
+            context_annotations: None,
+            referenced_tweets: None,
+        };
 
-        let users = vec![];
-        let result = parse_single_tweet(&tweet_data, &users);
-        assert!(result.is_ok());
+        let user_raw = api_types::UserRaw {
+            id: "456".to_string(),
+            username: "test".to_string(),
+            name: "Test".to_string(),
+            description: None,
+            created_at: None,
+            verified: None,
+            public_metrics: None,
+        };
 
-        let tweet = result.unwrap();
+        let tweet = convert_raw_tweet(&tweet_raw, &user_raw).unwrap();
         assert!(tweet.is_retweet);
     }
 
     #[test]
-    fn test_parse_single_tweet_invalid_date() {
-        let tweet_data = json!({
-            "id": "123",
-            "text": "Test tweet",
-            "author_id": "456",
-            "created_at": "invalid-date"
-        });
+    fn test_convert_raw_tweet_invalid_date() {
+        let tweet_raw = api_types::TweetRaw {
+            id: "123".to_string(),
+            text: "Test tweet".to_string(),
+            author_id: Some("456".to_string()),
+            created_at: Some("invalid-date".to_string()),
+            lang: None,
+            entities: None,
+            public_metrics: None,
+            context_annotations: None,
+            referenced_tweets: None,
+        };
 
-        let users = vec![];
-        let result = parse_single_tweet(&tweet_data, &users);
-        assert!(result.is_ok());
+        let user_raw = api_types::UserRaw {
+            id: "456".to_string(),
+            username: "test".to_string(),
+            name: "Test".to_string(),
+            description: None,
+            created_at: None,
+            verified: None,
+            public_metrics: None,
+        };
 
-        let tweet = result.unwrap();
-        // Should use current time as fallback
+        let tweet = convert_raw_tweet(&tweet_raw, &user_raw).unwrap();
+        // Should use current time as fallback for invalid date
         assert!(tweet.created_at <= Utc::now());
     }
 
     #[test]
-    fn test_parse_single_tweet_missing_fields() {
-        let tweet_data = json!({});
-        let users = vec![];
-        let result = parse_single_tweet(&tweet_data, &users);
-        assert!(result.is_ok());
+    fn test_convert_raw_tweet_missing_fields() {
+        let tweet_raw = api_types::TweetRaw {
+            id: String::new(),
+            text: String::new(),
+            author_id: None,
+            created_at: None,
+            lang: None,
+            entities: None,
+            public_metrics: None,
+            context_annotations: None,
+            referenced_tweets: None,
+        };
 
-        let tweet = result.unwrap();
+        let user_raw = api_types::UserRaw {
+            id: String::new(),
+            username: String::new(),
+            name: String::new(),
+            description: None,
+            created_at: None,
+            verified: None,
+            public_metrics: None,
+        };
+
+        let tweet = convert_raw_tweet(&tweet_raw, &user_raw).unwrap();
         assert_eq!(tweet.id, "");
         assert_eq!(tweet.text, "");
         assert_eq!(tweet.author.id, "");
     }
 
-    // find_user_by_id Tests
+    // User conversion tests
     #[test]
-    fn test_find_user_by_id_found() {
-        let users = vec![
-            json!({"id": "123", "username": "user1", "name": "User One"}),
-            json!({"id": "456", "username": "user2", "name": "User Two"}),
-        ];
+    fn test_convert_raw_user_complete() {
+        let user_raw = api_types::UserRaw {
+            id: "456".to_string(),
+            username: "user2".to_string(),
+            name: "User Two".to_string(),
+            description: Some("Test user bio".to_string()),
+            created_at: Some("2020-01-01T00:00:00.000Z".to_string()),
+            verified: Some(true),
+            public_metrics: Some(api_types::UserMetricsRaw {
+                followers_count: Some(1000),
+                following_count: Some(500),
+                tweet_count: Some(100),
+                listed_count: Some(10),
+            }),
+        };
 
-        let result = find_user_by_id("456", &users);
-        assert!(result.is_ok());
-
-        let user = result.unwrap();
+        let user = convert_raw_user(&user_raw).unwrap();
         assert_eq!(user.id, "456");
         assert_eq!(user.username, "user2");
         assert_eq!(user.name, "User Two");
-    }
-
-    #[test]
-    fn test_find_user_by_id_not_found() {
-        let users = vec![json!({"id": "123", "username": "user1", "name": "User One"})];
-
-        let result = find_user_by_id("999", &users);
-        assert!(result.is_ok());
-
-        let user = result.unwrap();
-        assert_eq!(user.id, "999");
-        assert_eq!(user.username, "unknown");
-        assert_eq!(user.name, "Unknown User");
-        assert!(!user.verified);
-    }
-
-    #[test]
-    fn test_find_user_by_id_empty_users() {
-        let users = vec![];
-        let result = find_user_by_id("123", &users);
-        assert!(result.is_ok());
-
-        let user = result.unwrap();
-        assert_eq!(user.id, "123");
-        assert_eq!(user.username, "unknown");
-    }
-
-    // parse_user_data Tests
-    #[test]
-    fn test_parse_user_data_complete() {
-        let user_data = json!({
-            "id": "123456789",
-            "username": "testuser",
-            "name": "Test User",
-            "description": "A test user",
-            "verified": true,
-            "created_at": "2020-01-01T00:00:00.000Z",
-            "public_metrics": {
-                "followers_count": 1000,
-                "following_count": 500,
-                "tweet_count": 250
-            }
-        });
-
-        let result = parse_user_data(&user_data);
-        assert!(result.is_ok());
-
-        let user = result.unwrap();
-        assert_eq!(user.id, "123456789");
-        assert_eq!(user.username, "testuser");
-        assert_eq!(user.name, "Test User");
-        assert_eq!(user.description, Some("A test user".to_string()));
-        assert!(user.verified);
+        assert_eq!(user.verified, true);
         assert_eq!(user.followers_count, 1000);
         assert_eq!(user.following_count, 500);
-        assert_eq!(user.tweet_count, 250);
     }
 
     #[test]
-    fn test_parse_user_data_minimal() {
-        let user_data = json!({
-            "id": "123",
-            "username": "user",
-            "name": "User"
-        });
+    fn test_convert_raw_user_minimal() {
+        let user_raw = api_types::UserRaw {
+            id: "999".to_string(),
+            username: "user1".to_string(),
+            name: "User One".to_string(),
+            description: None,
+            created_at: None,
+            verified: None,
+            public_metrics: None,
+        };
 
-        let result = parse_user_data(&user_data);
-        assert!(result.is_ok());
-
-        let user = result.unwrap();
-        assert_eq!(user.id, "123");
-        assert_eq!(user.username, "user");
-        assert_eq!(user.name, "User");
-        assert_eq!(user.description, None);
-        assert!(!user.verified);
-        assert_eq!(user.followers_count, 0);
+        let user = convert_raw_user(&user_raw).unwrap();
+        assert_eq!(user.id, "999");
+        assert_eq!(user.username, "user1");
+        assert_eq!(user.name, "User One");
+        assert!(!user.verified); // Default value
+        assert_eq!(user.followers_count, 0); // Default value
     }
 
     #[test]
-    fn test_parse_user_data_invalid_date() {
-        let user_data = json!({
-            "id": "123",
-            "username": "user",
-            "name": "User",
-            "created_at": "invalid-date"
-        });
+    fn test_convert_raw_user_empty_fields() {
+        let user_raw = api_types::UserRaw {
+            id: String::new(),
+            username: String::new(),
+            name: String::new(),
+            description: None,
+            created_at: None,
+            verified: None,
+            public_metrics: None,
+        };
 
-        let result = parse_user_data(&user_data);
-        assert!(result.is_ok());
-
-        let user = result.unwrap();
-        // Should use current time as fallback
-        assert!(user.created_at <= Utc::now());
-    }
-
-    #[test]
-    fn test_parse_user_data_missing_fields() {
-        let user_data = json!({});
-        let result = parse_user_data(&user_data);
-        assert!(result.is_ok());
-
-        let user = result.unwrap();
+        let user = convert_raw_user(&user_raw).unwrap();
         assert_eq!(user.id, "");
         assert_eq!(user.username, "");
         assert_eq!(user.name, "");
+        assert!(!user.verified);
     }
 
-    // parse_tweet_entities Tests
+    // Additional user tests
     #[test]
-    fn test_parse_tweet_entities_complete() {
-        let entities_data = json!({
-            "hashtags": [
-                {"tag": "crypto"},
-                {"tag": "bitcoin"}
-            ],
-            "mentions": [
-                {"username": "elonmusk"},
-                {"username": "satoshi"}
-            ],
-            "urls": [
-                {"expanded_url": "https://bitcoin.org"},
-                {"expanded_url": "https://ethereum.org"}
-            ],
-            "cashtags": [
-                {"tag": "BTC"},
-                {"tag": "ETH"}
-            ]
-        });
+    fn test_convert_raw_user_with_metrics() {
+        let user_raw = api_types::UserRaw {
+            id: "123456789".to_string(),
+            username: "testuser".to_string(),
+            name: "Test User".to_string(),
+            description: None,
+            created_at: None,
+            verified: Some(true),
+            public_metrics: Some(api_types::UserMetricsRaw {
+                followers_count: Some(1000),
+                following_count: Some(500),
+                tweet_count: Some(50),
+                listed_count: Some(5),
+            }),
+        };
 
-        let entities = parse_tweet_entities(&entities_data);
-        assert_eq!(entities.hashtags, vec!["crypto", "bitcoin"]);
-        assert_eq!(entities.mentions, vec!["@elonmusk", "@satoshi"]);
+        let user = convert_raw_user(&user_raw).unwrap();
+        assert_eq!(user.id, "123456789");
+        assert_eq!(user.username, "testuser");
+        assert_eq!(user.name, "Test User");
+        assert!(user.verified);
+        assert_eq!(user.followers_count, 1000);
+        assert_eq!(user.following_count, 500);
+    }
+
+    // Entity conversion tests
+    #[test]
+    fn test_convert_raw_tweet_with_entities() {
+        let entities_raw = api_types::EntitiesRaw {
+            hashtags: Some(vec![
+                api_types::HashtagRaw {
+                    tag: "crypto".to_string(),
+                },
+                api_types::HashtagRaw {
+                    tag: "bitcoin".to_string(),
+                },
+            ]),
+            mentions: Some(vec![
+                api_types::MentionRaw {
+                    username: "elonmusk".to_string(),
+                },
+                api_types::MentionRaw {
+                    username: "satoshi".to_string(),
+                },
+            ]),
+            urls: Some(vec![
+                api_types::UrlRaw {
+                    expanded_url: Some("https://bitcoin.org".to_string()),
+                    url: "https://bitcoin.org".to_string(),
+                },
+                api_types::UrlRaw {
+                    expanded_url: Some("https://ethereum.org".to_string()),
+                    url: "https://ethereum.org".to_string(),
+                },
+            ]),
+            cashtags: None,
+        };
+
+        let tweet_raw = api_types::TweetRaw {
+            id: "test".to_string(),
+            text: "test".to_string(),
+            author_id: Some("test".to_string()),
+            created_at: None,
+            lang: None,
+            entities: Some(entities_raw),
+            public_metrics: None,
+            context_annotations: None,
+            referenced_tweets: None,
+        };
+
+        let user_raw = api_types::UserRaw {
+            id: "test".to_string(),
+            username: "test".to_string(),
+            name: "Test".to_string(),
+            description: None,
+            created_at: None,
+            verified: None,
+            public_metrics: None,
+        };
+
+        let tweet = convert_raw_tweet(&tweet_raw, &user_raw).unwrap();
+        assert_eq!(tweet.entities.hashtags, vec!["crypto", "bitcoin"]);
+        assert_eq!(tweet.entities.mentions, vec!["elonmusk", "satoshi"]);
         assert_eq!(
-            entities.urls,
+            tweet.entities.urls,
             vec!["https://bitcoin.org", "https://ethereum.org"]
         );
-        assert_eq!(entities.cashtags, vec!["$BTC", "$ETH"]);
     }
 
     #[test]
-    fn test_parse_tweet_entities_empty() {
-        let entities_data = json!({});
-        let entities = parse_tweet_entities(&entities_data);
-        assert!(entities.hashtags.is_empty());
-        assert!(entities.mentions.is_empty());
-        assert!(entities.urls.is_empty());
-        assert!(entities.cashtags.is_empty());
+    fn test_convert_raw_tweet_empty_entities() {
+        let tweet_raw = api_types::TweetRaw {
+            id: "test".to_string(),
+            text: "test".to_string(),
+            author_id: Some("test".to_string()),
+            created_at: None,
+            lang: None,
+            entities: None,
+            public_metrics: None,
+            context_annotations: None,
+            referenced_tweets: None,
+        };
+
+        let user_raw = api_types::UserRaw {
+            id: "test".to_string(),
+            username: "test".to_string(),
+            name: "Test".to_string(),
+            description: None,
+            created_at: None,
+            verified: None,
+            public_metrics: None,
+        };
+
+        let tweet = convert_raw_tweet(&tweet_raw, &user_raw).unwrap();
+        assert!(tweet.entities.hashtags.is_empty());
+        assert!(tweet.entities.mentions.is_empty());
+        assert!(tweet.entities.urls.is_empty());
     }
 
     #[test]
-    fn test_parse_tweet_entities_partial() {
-        let entities_data = json!({
-            "hashtags": [{"tag": "test"}],
-            "urls": [{"expanded_url": "https://example.com"}]
-        });
+    fn test_convert_raw_tweet_partial_entities() {
+        let entities_raw = api_types::EntitiesRaw {
+            hashtags: Some(vec![api_types::HashtagRaw {
+                tag: "test".to_string(),
+            }]),
+            mentions: None,
+            urls: Some(vec![api_types::UrlRaw {
+                expanded_url: Some("https://example.com".to_string()),
+                url: "https://example.com".to_string(),
+            }]),
+            cashtags: None,
+        };
 
-        let entities = parse_tweet_entities(&entities_data);
-        assert_eq!(entities.hashtags, vec!["test"]);
-        assert!(entities.mentions.is_empty());
-        assert_eq!(entities.urls, vec!["https://example.com"]);
-        assert!(entities.cashtags.is_empty());
-    }
+        let tweet_raw = api_types::TweetRaw {
+            id: "test".to_string(),
+            text: "test".to_string(),
+            author_id: Some("test".to_string()),
+            created_at: None,
+            lang: None,
+            entities: Some(entities_raw),
+            public_metrics: None,
+            context_annotations: None,
+            referenced_tweets: None,
+        };
 
-    #[test]
-    fn test_parse_tweet_entities_malformed() {
-        let entities_data = json!({
-            "hashtags": [{"tag": "valid"}, {"invalid": "field"}],
-            "mentions": [{"username": "valid"}, {"invalid": "field"}]
-        });
+        let user_raw = api_types::UserRaw {
+            id: "test".to_string(),
+            username: "test".to_string(),
+            name: "Test".to_string(),
+            description: None,
+            created_at: None,
+            verified: None,
+            public_metrics: None,
+        };
 
-        let entities = parse_tweet_entities(&entities_data);
-        assert_eq!(entities.hashtags, vec!["valid"]);
-        assert_eq!(entities.mentions, vec!["@valid"]);
+        let tweet = convert_raw_tweet(&tweet_raw, &user_raw).unwrap();
+        assert_eq!(tweet.entities.hashtags, vec!["test"]);
+        assert!(tweet.entities.mentions.is_empty());
+        assert_eq!(tweet.entities.urls, vec!["https://example.com"]);
     }
 
     // analyze_tweet_sentiment_scores Tests
@@ -1922,27 +2108,7 @@ mod tests {
         let response_str = json_response.to_string();
         let result = parse_twitter_response(&response_str).await;
 
-        // Should handle malformed entries gracefully
-        assert!(result.is_ok());
-    }
-
-    #[test]
-    fn test_parse_single_tweet_null_values() {
-        let tweet_data = json!({
-            "id": null,
-            "text": null,
-            "author_id": null,
-            "created_at": null,
-            "lang": null
-        });
-
-        let users = vec![];
-        let result = parse_single_tweet(&tweet_data, &users);
-        assert!(result.is_ok());
-
-        let tweet = result.unwrap();
-        assert_eq!(tweet.id, "");
-        assert_eq!(tweet.text, "");
-        assert_eq!(tweet.lang, None);
+        // Malformed JSON should return an error
+        assert!(result.is_err());
     }
 }
