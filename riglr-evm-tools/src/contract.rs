@@ -221,8 +221,11 @@ pub async fn call_contract_write(
     // Sign and send transaction with retry logic using unified retry helper
     let tx_hash = riglr_core::retry::retry_async(
         || async {
+            let tx_json = serde_json::to_value(&tx).map_err(|e| {
+                EvmToolError::Generic(format!("Failed to serialize transaction: {}", e))
+            })?;
             signer
-                .sign_and_send_transaction(tx.clone())
+                .sign_and_send_transaction(tx_json)
                 .await
                 .map_err(|e| EvmToolError::Generic(format!("Failed to send transaction: {}", e)))
         },

@@ -11,7 +11,7 @@ use tracing::{debug, info};
 /// 1. Uses the explicit chain_id parameter if provided
 /// 2. Falls back to the chain_id from the active EVM SignerContext if available
 /// 3. Defaults to Ethereum mainnet (chain_id 1) as a final fallback
-pub async fn get_block_number_with_context(
+pub(crate) async fn get_block_number_with_context(
     chain_id: Option<u64>,
     app_context: &ApplicationContext,
 ) -> Result<u64, ToolError> {
@@ -71,7 +71,7 @@ pub async fn get_block_number(
 /// 1. Uses the explicit chain_id parameter if provided
 /// 2. Falls back to the chain_id from the active EVM SignerContext if available
 /// 3. Defaults to Ethereum mainnet (chain_id 1) as a final fallback
-pub async fn get_gas_price_with_context(
+pub(crate) async fn get_gas_price_with_context(
     chain_id: Option<u64>,
     app_context: &ApplicationContext,
 ) -> Result<String, ToolError> {

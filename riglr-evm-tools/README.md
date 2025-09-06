@@ -25,13 +25,46 @@ riglr-evm-tools = "0.1.0"
 
 ## Quick Start
 
+### Using LocalEvmSigner
+
+The `LocalEvmSigner` is the primary concrete implementation for EVM transaction signing:
+
+```rust
+use riglr_evm_tools::LocalEvmSigner;
+use riglr_config::EvmNetworkConfig;
+use riglr_core::{ApplicationContext, UnifiedSigner};
+use std::sync::Arc;
+
+// Create network config
+let config = EvmNetworkConfig::new(
+    "mainnet",
+    1,
+    "https://eth-mainnet.g.alchemy.com/v2/your-key".to_string()
+);
+
+// Create signer from private key
+let signer = LocalEvmSigner::new(
+    "0xYOUR_PRIVATE_KEY_HEX",
+    config
+)?;
+
+// Set up application context
+let app_context = ApplicationContext::new()?;
+let unified_signer: Arc<dyn UnifiedSigner> = Arc::new(signer);
+app_context.set_signer(unified_signer).await?;
+
+// Now you can use any EVM tool
+use riglr_evm_tools::transaction::send_eth;
+let tx_hash = send_eth("0xRECIPIENT_ADDRESS", U256::from(1_000_000_000_000_000_000u64)).await?;
+```
+
 ### Read Operations with ApplicationContext
 
 Read-only operations (like checking balances) use the ApplicationContext pattern:
 
 ```rust
 use riglr_core::provider::ApplicationContext;
-use riglr_evm_tools::balance::{get_eth_balance_with_context, get_erc20_balance_with_context};
+use riglr_evm_tools::balance::{get_eth_balance, get_erc20_balance};
 use alloy::providers::{Provider, ProviderBuilder};
 use std::sync::Arc;
 
@@ -47,7 +80,7 @@ async fn main() -> anyhow::Result<()> {
     app_context.add_extension(Arc::new(provider) as Arc<dyn Provider>);
     
     // Check ETH balance
-    let balance = get_eth_balance_with_context(
+    let balance = get_eth_balance(
         "0x742d35Cc6634C0532925a3b844Bc9e7595f0eA4B".to_string(),
         Some(1), // Ethereum mainnet
         &app_context
@@ -230,7 +263,7 @@ let provider = /* create provider */;
 app_context.add_extension(Arc::new(provider) as Arc<dyn Provider>);
 
 // Tools use the provider from context
-let balance = get_eth_balance_with_context(address, chain_id, &app_context).await?;
+let balance = get_eth_balance(address, chain_id, &app_context).await?;
 ```
 
 ### SignerContext for Write Operations
@@ -282,9 +315,9 @@ All tools use the `ToolError` pattern to distinguish between retriable and perma
 
 ```rust
 use riglr_core::ToolError;
-use riglr_evm_tools::balance::get_eth_balance_with_context;
+use riglr_evm_tools::balance::get_eth_balance;
 
-match get_eth_balance_with_context(address, chain_id, &app_context).await {
+match get_eth_balance(address, chain_id, &app_context).await {
     Ok(balance) => println!("Success: {}", balance.balance_formatted),
     Err(e) => match e {
         ToolError::Permanent { message, .. } => {

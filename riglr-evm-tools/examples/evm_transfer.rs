@@ -11,10 +11,10 @@ use anyhow::Result;
 use riglr_config::Config;
 use riglr_core::{
     provider::ApplicationContext,
-    signer::{LocalEvmSigner, SignerContext, SignerError, UnifiedSigner},
+    signer::{SignerContext, SignerError, UnifiedSigner},
     util::{ensure_key_directory, load_private_key_with_fallback},
 };
-use riglr_evm_tools::transaction::send_eth;
+use riglr_evm_tools::{transaction::send_eth, LocalEvmSigner};
 use std::{str::FromStr, sync::Arc};
 
 // Environment variable constants
@@ -64,14 +64,14 @@ async fn main() -> Result<()> {
             .map_err(|e| SignerError::Configuration(format!("Invalid address: {}", e)))?;
 
         // Amount to send (0.001 ETH)
-        let amount_eth = "0.001";
+        let amount_eth = 0.001;
 
         println!("Sending {} ETH to {}", amount_eth, to_address);
 
-        // Execute the transfer (send_eth expects: to: String, amount: String, chain_id: Option<u64>, context: &ApplicationContext)
+        // Execute the transfer (send_eth expects: to: String, amount_eth: f64, chain_id: Option<u64>, context: &ApplicationContext)
         let tx_hash = send_eth(
             to_address.to_string(),
-            amount_eth.to_string(),
+            amount_eth,
             Some(chain_id),
             &app_context,
         )
