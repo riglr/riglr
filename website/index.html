@@ -103,6 +103,41 @@
             color: var(--primary);
         }
 
+        /* Mobile Menu Toggle */
+        .mobile-menu-toggle {
+            display: none;
+            flex-direction: column;
+            justify-content: space-between;
+            width: 30px;
+            height: 24px;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            padding: 0;
+            z-index: 1001;
+        }
+
+        .mobile-menu-toggle span {
+            display: block;
+            width: 100%;
+            height: 3px;
+            background: var(--text-primary);
+            border-radius: 2px;
+            transition: all 0.3s ease;
+        }
+
+        .mobile-menu-toggle.active span:nth-child(1) {
+            transform: rotate(45deg) translate(8px, 8px);
+        }
+
+        .mobile-menu-toggle.active span:nth-child(2) {
+            opacity: 0;
+        }
+
+        .mobile-menu-toggle.active span:nth-child(3) {
+            transform: rotate(-45deg) translate(7px, -7px);
+        }
+
         /* Hero Section */
         .hero {
             min-height: 100vh;
@@ -260,6 +295,7 @@
         pre {
             overflow-x: auto;
             margin: 0;
+            max-width: 100%;
         }
 
         pre code {
@@ -435,6 +471,7 @@
             border-radius: 1rem;
             border: 1px solid var(--border);
             transition: all 0.3s ease;
+            overflow: hidden;
         }
 
         .why-item:hover {
@@ -473,6 +510,7 @@
             background: rgba(80, 250, 123, 0.1);
             padding: 0.1rem 0.3rem;
             border-radius: 0.25rem;
+            word-break: break-word;
         }
 
         /* Code Comparison */
@@ -543,27 +581,375 @@
             color: var(--primary);
         }
 
-        /* Responsive */
+        /* Responsive Styles */
+        @media (max-width: 1024px) {
+            .features-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .tools-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
         @media (max-width: 768px) {
+            /* Navigation Mobile */
+            .mobile-menu-toggle {
+                display: flex;
+            }
+
             .nav-links {
                 display: none;
+                position: fixed;
+                top: 60px;
+                right: 0;
+                background: var(--bg-darker);
+                width: 100%;
+                flex-direction: column;
+                padding: 2rem;
+                border-top: 1px solid var(--border);
+                box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
             }
 
-            .architecture-content {
-                grid-template-columns: 1fr;
+            .nav-links.active {
+                display: flex;
             }
 
-            .code-comparison {
-                grid-template-columns: 1fr;
+            .nav-links a {
+                padding: 0.75rem 0;
+                font-size: 1.1rem;
             }
 
+            /* Hero Section Mobile */
+            .hero {
+                padding: 5rem 1rem 3rem;
+                min-height: auto;
+            }
+
+            .hero h1 {
+                font-size: 2rem;
+            }
+
+            .hero .subtitle {
+                font-size: 1rem;
+            }
+
+            /* Buttons Mobile */
             .cta-buttons {
                 flex-direction: column;
+                align-items: stretch;
             }
 
             .btn {
                 width: 100%;
                 justify-content: center;
+            }
+
+            /* Status Badges Mobile */
+            .hero-content > div[style*="display: flex"] {
+                flex-direction: row;
+                align-items: center;
+            }
+
+            /* Code Showcase Mobile */
+            .code-showcase {
+                padding: 1rem;
+                font-size: 0.8rem;
+            }
+
+            .code-showcase pre {
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+
+            .code-showcase pre code {
+                font-size: 0.75rem;
+            }
+
+            /* Section Headers Mobile */
+            .section-header h2 {
+                font-size: 1.8rem;
+            }
+
+            .section-header p {
+                font-size: 1rem;
+            }
+
+            /* Features Grid Mobile */
+            .features-grid {
+                grid-template-columns: 1fr;
+                gap: 1.5rem;
+            }
+
+            /* Why Items Mobile */
+            .why-item {
+                grid-template-columns: 1fr !important;
+                padding: 1.5rem;
+                gap: 1rem !important;
+            }
+
+            .why-item .why-content {
+                width: 100%;
+            }
+
+            .why-item > div[style*="background: var(--bg-darker)"] {
+                font-size: 0.75rem !important;
+            }
+
+            .why-item pre {
+                font-size: 0.7rem !important;
+                overflow-x: auto !important;
+                max-width: 100%;
+            }
+
+            .why-code-block {
+                overflow-x: auto !important;
+                max-width: 100%;
+            }
+
+            .why-code-block pre {
+                margin: 0 !important;
+                white-space: pre;
+                overflow-x: auto !important;
+            }
+
+            .why-number {
+                margin-bottom: 1rem;
+                flex-shrink: 0;
+            }
+
+            /* Architecture Mobile */
+            .architecture-content {
+                grid-template-columns: 1fr;
+                gap: 2rem;
+            }
+
+            /* Code Comparison Mobile */
+            .code-comparison {
+                grid-template-columns: 1fr;
+            }
+
+            .code-block pre {
+                font-size: 0.75rem;
+                padding: 1rem;
+            }
+
+            /* Tools Grid Mobile */
+            .tools-grid {
+                grid-template-columns: 1fr;
+            }
+
+            /* Steps Mobile */
+            .step {
+                grid-template-columns: 1fr;
+            }
+
+            .step-number {
+                margin-bottom: 1rem;
+            }
+
+            /* Section Padding Mobile */
+            section {
+                padding: 3rem 1rem;
+            }
+
+            /* Systems Section Mobile */
+            .systems-grid > div {
+                padding: 1.5rem;
+            }
+
+            .system-content {
+                grid-template-columns: 1fr !important;
+                gap: 1.5rem !important;
+            }
+
+            .system-content > div:first-child ul {
+                font-size: 0.9rem;
+            }
+
+            .system-content pre {
+                font-size: 0.65rem !important;
+                padding: 0.75rem !important;
+            }
+
+            .system-content pre code {
+                font-size: 0.65rem !important;
+                line-height: 1.4 !important;
+            }
+
+            /* Footer Mobile */
+            footer {
+                padding: 2rem 1rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            /* Why Section on Small Screens */
+            .why-grid {
+                gap: 1.5rem;
+            }
+
+            .why-item {
+                padding: 1rem !important;
+                display: flex !important;
+                flex-direction: column !important;
+                align-items: flex-start !important;
+            }
+
+            .why-content {
+                width: 100% !important;
+            }
+
+            .why-content h3 {
+                font-size: 1.2rem;
+                word-wrap: break-word;
+            }
+
+            .why-content p {
+                font-size: 0.9rem;
+                word-wrap: break-word;
+            }
+
+            .why-code-block {
+                width: 100% !important;
+                box-sizing: border-box !important;
+            }
+
+            .why-code-block pre code {
+                font-size: 0.6rem !important;
+                line-height: 1.3 !important;
+            }
+
+            /* Systems Grid on Small Screens */
+            .systems-grid {
+                gap: 1rem !important;
+            }
+
+            .systems-grid > div {
+                padding: 1rem !important;
+            }
+
+            .systems-grid h3 {
+                font-size: 1.1rem !important;
+            }
+
+            .systems-grid p,
+            .systems-grid li {
+                font-size: 0.85rem !important;
+            }
+
+
+            /* Touch Improvements */
+            .btn {
+                min-height: 44px;
+                touch-action: manipulation;
+            }
+
+            .nav-links a {
+                min-height: 44px;
+                display: flex;
+                align-items: center;
+            }
+
+            /* Extra Small Screens */
+            .hero h1 {
+                font-size: 1.75rem;
+            }
+
+            .hero .subtitle {
+                font-size: 0.9rem;
+            }
+
+            .section-header h2 {
+                font-size: 1.5rem;
+            }
+
+            .feature-card {
+                padding: 1.5rem;
+            }
+
+            .tool-card {
+                padding: 1rem;
+            }
+
+            /* Token Address Mobile */
+            .token-address {
+                font-size: 0.65rem !important;
+                padding: 0.4rem 0.6rem !important;
+                flex-direction: column;
+                text-align: center;
+            }
+
+            .token-address span {
+                word-break: break-all;
+            }
+
+            /* Production Metrics Mobile */
+            .metric-badge {
+                font-size: 0.75rem !important;
+                padding: 0.35rem 0.5rem !important;
+            }
+
+            /* Code blocks in cards mobile */
+            .why-code-block {
+                padding: 0.5rem !important;
+                margin: 0.75rem 0 !important;
+            }
+
+            .system-code-block {
+                padding: 0.5rem !important;
+            }
+
+            /* System cards mobile */
+            .system-card {
+                padding: 1rem !important;
+            }
+
+            /* Status Badges Mobile */
+            .hero-content img[src*="shields.io"] {
+                height: 18px;
+            }
+        }
+
+        /* Utility Classes for Mobile */
+        @media (max-width: 768px) {
+            .hide-mobile {
+                display: none !important;
+            }
+
+            .show-mobile {
+                display: block !important;
+            }
+
+            /* Horizontal Scroll Prevention */
+            body {
+                overflow-x: hidden;
+            }
+
+            pre {
+                max-width: 100%;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+
+            /* Ensure why-item content doesn't overflow */
+            .why-item * {
+                max-width: 100%;
+            }
+
+            /* Hide emoji on very small screens if needed */
+            @media (max-width: 360px) {
+                .why-icon {
+                    display: none;
+                }
+                
+                .why-content h3 {
+                    font-size: 1.1rem !important;
+                }
+                
+                .why-code-block pre code {
+                    font-size: 0.55rem !important;
+                }
             }
         }
 
@@ -700,7 +1086,12 @@
             <a href="#home" class="logo">
                 <img src="logo-h.png" alt="riglr">
             </a>
-            <ul class="nav-links">
+            <button class="mobile-menu-toggle" id="mobileMenuToggle" aria-label="Toggle mobile menu">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+            <ul class="nav-links" id="navLinks">
                 <li><a href="#home">Home</a></li>
                 <li><a href="#why">Patterns</a></li>
                 <li><a href="#systems">Systems</a></li>
@@ -718,24 +1109,24 @@
             <h1>Production-Ready AI Agents<br>for Blockchain at Scale</h1>
             
             <!-- Token Address -->
-            <div style="display: flex; gap: 1rem; justify-content: center; margin-bottom: 1.5rem; flex-wrap: wrap;">
-                <span style="background: rgba(80, 250, 123, 0.1); border: 1px solid var(--primary); padding: 0.75rem 1.5rem; border-radius: 0.5rem; font-weight: 600; font-family: monospace;">
-                    <i class="fas fa-coins"></i> Token: 9kAkspoCESxcK6MMVwRyDfxZcfa5MCit2GrX9yCYpump
+            <div class="token-address-container" style="display: flex; gap: 1rem; justify-content: center; margin-bottom: 1.5rem; flex-wrap: wrap;">
+                <span class="token-address" style="background: rgba(80, 250, 123, 0.1); border: 1px solid var(--primary); padding: 0.75rem 1.5rem; border-radius: 0.5rem; font-weight: 600; font-family: monospace; display: inline-flex; align-items: center; gap: 0.5rem; word-break: break-all; max-width: 100%;">
+                    <i class="fas fa-coins"></i> <span>Token: 9kAkspoCESxcK6MMVwRyDfxZcfa5MCit2GrX9yCYpump</span>
                 </span>
             </div>
             
             <!-- Production Metrics -->
-            <div style="display: flex; gap: 1rem; justify-content: center; margin-bottom: 1.5rem; flex-wrap: wrap;">
-                <span style="background: rgba(80, 250, 123, 0.1); border: 1px solid var(--primary); padding: 0.5rem 1rem; border-radius: 0.5rem; font-weight: 600;">
+            <div class="metrics-container" style="display: flex; gap: 1rem; justify-content: center; margin-bottom: 1.5rem; flex-wrap: wrap;">
+                <span class="metric-badge" style="background: rgba(80, 250, 123, 0.1); border: 1px solid var(--primary); padding: 0.5rem 1rem; border-radius: 0.5rem; font-weight: 600; white-space: nowrap;">
                     <i class="fas fa-bolt"></i> 10,000+ events/sec
                 </span>
-                <span style="background: rgba(80, 250, 123, 0.1); border: 1px solid var(--primary); padding: 0.5rem 1rem; border-radius: 0.5rem; font-weight: 600;">
+                <span class="metric-badge" style="background: rgba(80, 250, 123, 0.1); border: 1px solid var(--primary); padding: 0.5rem 1rem; border-radius: 0.5rem; font-weight: 600; white-space: nowrap;">
                     <i class="fas fa-lock"></i> Thread-Local Signing
                 </span>
-                <span style="background: rgba(80, 250, 123, 0.1); border: 1px solid var(--primary); padding: 0.5rem 1rem; border-radius: 0.5rem; font-weight: 600;">
+                <span class="metric-badge" style="background: rgba(80, 250, 123, 0.1); border: 1px solid var(--primary); padding: 0.5rem 1rem; border-radius: 0.5rem; font-weight: 600; white-space: nowrap;">
                     <i class="fas fa-code"></i> 30 Lines → 1 Line
                 </span>
-                <span style="background: rgba(80, 250, 123, 0.1); border: 1px solid var(--primary); padding: 0.5rem 1rem; border-radius: 0.5rem; font-weight: 600;">
+                <span class="metric-badge" style="background: rgba(80, 250, 123, 0.1); border: 1px solid var(--primary); padding: 0.5rem 1rem; border-radius: 0.5rem; font-weight: 600; white-space: nowrap;">
                     <i class="fas fa-users"></i> Multi-Tenant Ready
                 </span>
             </div>
@@ -841,9 +1232,9 @@ SignerContext::with_signer(unified_signer, async {
             <div class="why-item">
                 <div class="why-number">1</div>
                 <div class="why-content">
-                    <h3>🔐 SignerContext: Thread-Local Transaction Signing</h3>
+                    <h3><span class="why-icon">🔐</span> SignerContext: Thread-Local Transaction Signing</h3>
                     <p class="tagline">Keys NEVER exposed to LLM • Complete multi-tenant isolation</p>
-                    <div style="background: var(--bg-darker); border-radius: 0.5rem; padding: 1rem; margin: 1rem 0;">
+                    <div class="why-code-block" style="background: var(--bg-darker); border-radius: 0.5rem; padding: 1rem; margin: 1rem 0;">
                         <pre style="margin: 0;"><code class="language-rust">// Each user request gets completely isolated signer context
 SignerContext::with_signer(user_signer, async {
     // Keys NEVER exposed to LLM reasoning loop
@@ -859,9 +1250,9 @@ SignerContext::with_signer(user_signer, async {
             <div class="why-item">
                 <div class="why-number">2</div>
                 <div class="why-content">
-                    <h3>🎯 ApplicationContext: Clean Dependency Injection</h3>
+                    <h3><span class="why-icon">🎯</span> ApplicationContext: Clean Dependency Injection</h3>
                     <p class="tagline">Modular architecture • Mock-friendly testing • Zero circular dependencies</p>
-                    <div style="background: var(--bg-darker); border-radius: 0.5rem; padding: 1rem; margin: 1rem 0;">
+                    <div class="why-code-block" style="background: var(--bg-darker); border-radius: 0.5rem; padding: 1rem; margin: 1rem 0;">
                         <pre style="margin: 0;"><code class="language-rust">// Application injects dependencies once
 context.set_extension(Arc::new(solana_client));
 context.set_extension(Arc::new(evm_provider));
@@ -880,9 +1271,9 @@ async fn get_balance(address: String) -> Result<f64, ToolError> {
             <div class="why-item">
                 <div class="why-number">3</div>
                 <div class="why-content">
-                    <h3>🔄 Two-Level Error Handling with Auto-Retry</h3>
+                    <h3><span class="why-icon">🔄</span> Two-Level Error Handling with Auto-Retry</h3>
                     <p class="tagline">Behavioral classification • Exponential backoff • Chain-specific details</p>
-                    <div style="background: var(--bg-darker); border-radius: 0.5rem; padding: 1rem; margin: 1rem 0;">
+                    <div class="why-code-block" style="background: var(--bg-darker); border-radius: 0.5rem; padding: 1rem; margin: 1rem 0;">
                         <pre style="margin: 0;"><code class="language-rust">// High-level behavioral classification
 match error {
     ToolError::Retriable(_) => // Automatic exponential backoff
@@ -910,13 +1301,13 @@ if let Some(solana_error) = error.downcast::<SolanaToolError>() {
             <p>riglr extends rig's single-agent model into comprehensive systems for real-world deployment</p>
         </div>
         
-        <div style="display: grid; gap: 2rem; margin-bottom: 3rem;">
+        <div class="systems-grid" style="display: grid; gap: 2rem; margin-bottom: 3rem;">
             <!-- Multi-Agent Coordination -->
-            <div style="background: var(--bg-card); border: 1px solid var(--primary); border-radius: 1rem; padding: 2rem;">
+            <div class="system-card" style="background: var(--bg-card); border: 1px solid var(--primary); border-radius: 1rem; padding: 2rem;">
                 <h3 style="color: var(--primary); margin-bottom: 1.5rem;">
                     <i class="fas fa-users"></i> Multi-Agent Coordination (riglr-agents)
                 </h3>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; align-items: center;">
+                <div class="system-content" style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; align-items: center;">
                     <div>
                         <p style="color: var(--text-secondary); margin-bottom: 1rem;">
                             Create "swarms" of specialized agents that collaborate on complex tasks:
@@ -928,7 +1319,7 @@ if let Some(solana_error) = error.downcast::<SolanaToolError>() {
                             <li style="margin-bottom: 0.5rem;"><i class="fas fa-check" style="color: var(--primary); margin-right: 0.5rem;"></i><strong>Inter-Agent Communication:</strong> Built-in messaging</li>
                         </ul>
                     </div>
-                    <div style="background: var(--bg-darker); border-radius: 0.5rem; padding: 1rem;">
+                    <div class="system-code-block" style="background: var(--bg-darker); border-radius: 0.5rem; padding: 1rem;">
                         <pre><code class="language-rust">// Complex workflow with specialized agents
 let research_task = Task::new(
     TaskType::Research, 
@@ -954,11 +1345,11 @@ if risk.is_approved() {
             </div>
 
             <!-- Real-Time Event Streaming -->
-            <div style="background: var(--bg-card); border: 1px solid var(--secondary); border-radius: 1rem; padding: 2rem;">
+            <div class="system-card" style="background: var(--bg-card); border: 1px solid var(--secondary); border-radius: 1rem; padding: 2rem;">
                 <h3 style="color: var(--secondary); margin-bottom: 1.5rem;">
                     <i class="fas fa-stream"></i> Real-Time Event Streaming (riglr-streams)
                 </h3>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; align-items: center;">
+                <div class="system-content" style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; align-items: center;">
                     <div>
                         <p style="color: var(--text-secondary); margin-bottom: 1rem;">
                             Make agents <strong>proactive</strong> rather than reactive:
@@ -970,7 +1361,7 @@ if risk.is_approved() {
                             <li style="margin-bottom: 0.5rem;"><i class="fas fa-check" style="color: var(--primary); margin-right: 0.5rem;"></i><strong>Event-Triggered:</strong> Auto-execute on conditions</li>
                         </ul>
                     </div>
-                    <div style="background: var(--bg-darker); border-radius: 0.5rem; padding: 1rem;">
+                    <div class="system-code-block" style="background: var(--bg-darker); border-radius: 0.5rem; padding: 1rem;">
                         <pre><code class="language-rust">// Complex pipeline with fluent API
 let solana_stream = SolanaGeyserStream::new(...);
 let processed = solana_stream
@@ -990,11 +1381,11 @@ processed.subscribe(|batch| async {
             </div>
 
             <!-- Production-Grade Indexing -->
-            <div style="background: var(--bg-card); border: 1px solid var(--accent); border-radius: 1rem; padding: 2rem;">
+            <div class="system-card" style="background: var(--bg-card); border: 1px solid var(--accent); border-radius: 1rem; padding: 2rem;">
                 <h3 style="color: var(--accent); margin-bottom: 1.5rem;">
                     <i class="fas fa-database"></i> Production-Grade Indexing (riglr-indexer)
                 </h3>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; align-items: center;">
+                <div class="system-content" style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; align-items: center;">
                     <div>
                         <p style="color: var(--text-secondary); margin-bottom: 1rem;">
                             Give agents historical context and analytics:
@@ -1006,7 +1397,7 @@ processed.subscribe(|batch| async {
                             <li style="margin-bottom: 0.5rem;"><i class="fas fa-check" style="color: var(--primary); margin-right: 0.5rem;"></i><strong>Real-Time API:</strong> REST + WebSocket endpoints</li>
                         </ul>
                     </div>
-                    <div style="background: var(--bg-darker); border-radius: 0.5rem; padding: 1rem;">
+                    <div class="system-code-block" style="background: var(--bg-darker); border-radius: 0.5rem; padding: 1rem;">
                         <pre><code class="language-rust">// Agent queries historical data
 let historical = indexer
     .query_swaps()
@@ -1344,6 +1735,31 @@ riglr-solana-tools = "0.2.0"  # Or riglr-evm-tools, riglr-web-tools, etc.</code>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-toml.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
     <script>
+        // Mobile menu toggle
+        const mobileMenuToggle = document.getElementById('mobileMenuToggle');
+        const navLinks = document.getElementById('navLinks');
+
+        mobileMenuToggle.addEventListener('click', function() {
+            this.classList.toggle('active');
+            navLinks.classList.toggle('active');
+        });
+
+        // Close mobile menu when clicking a link
+        document.querySelectorAll('.nav-links a').forEach(link => {
+            link.addEventListener('click', () => {
+                mobileMenuToggle.classList.remove('active');
+                navLinks.classList.remove('active');
+            });
+        });
+
+        // Close mobile menu when clicking outside
+        document.addEventListener('click', function(event) {
+            if (!event.target.closest('.nav-container')) {
+                mobileMenuToggle.classList.remove('active');
+                navLinks.classList.remove('active');
+            }
+        });
+
         // Navbar scroll effect
         window.addEventListener('scroll', function() {
             const navbar = document.getElementById('navbar');
