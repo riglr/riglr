@@ -17,7 +17,6 @@ use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 use tracing::{debug, info, warn};
 
-
 /// Trait for pluggable sentiment analysis
 #[async_trait]
 pub trait SentimentAnalyzer: Send + Sync {
@@ -192,10 +191,16 @@ impl LexiconSentimentAnalyzer {
     fn calculate_emotions(&self, text_lower: &str) -> EmotionalIndicators {
         let fear_words = ["fear", "panic", "crash", "crisis", "collapse"];
         let greed_words = ["moon", "rally", "surge", "bullish", "fomo"];
-        
-        let fear_count = fear_words.iter().filter(|w| text_lower.contains(*w)).count();
-        let greed_count = greed_words.iter().filter(|w| text_lower.contains(*w)).count();
-        
+
+        let fear_count = fear_words
+            .iter()
+            .filter(|w| text_lower.contains(*w))
+            .count();
+        let greed_count = greed_words
+            .iter()
+            .filter(|w| text_lower.contains(*w))
+            .count();
+
         EmotionalIndicators {
             fear: (fear_count as f64 / 5.0).min(1.0),
             greed: (greed_count as f64 / 5.0).min(1.0),
@@ -219,17 +224,23 @@ impl LexiconSentimentAnalyzer {
 
     fn extract_key_phrases(&self, full_text: &str) -> Vec<SentimentPhrase> {
         let mut key_phrases = Vec::new();
-        
+
         // Look for specific phrase patterns
         let phrase_patterns = [
-            (r"(?i)(bullish|positive|optimistic) (?:on|about|for) (\w+)", 0.5),
-            (r"(?i)(bearish|negative|pessimistic) (?:on|about|for) (\w+)", -0.5),
+            (
+                r"(?i)(bullish|positive|optimistic) (?:on|about|for) (\w+)",
+                0.5,
+            ),
+            (
+                r"(?i)(bearish|negative|pessimistic) (?:on|about|for) (\w+)",
+                -0.5,
+            ),
             (r"(?i)all.time.high", 0.6),
             (r"(?i)all.time.low", -0.6),
             (r"(?i)break(?:ing|s)?\s+(?:through|above)", 0.4),
             (r"(?i)break(?:ing|s)?\s+(?:below|down)", -0.4),
         ];
-        
+
         for (pattern, contribution) in &phrase_patterns {
             if let Ok(re) = Regex::new(pattern) {
                 for matched in re.find_iter(full_text) {
@@ -241,14 +252,25 @@ impl LexiconSentimentAnalyzer {
                 }
             }
         }
-        
+
         key_phrases
     }
 
-    fn calculate_topic_sentiments(&self, text_lower: &str, overall_score: f64) -> HashMap<String, f64> {
+    fn calculate_topic_sentiments(
+        &self,
+        text_lower: &str,
+        overall_score: f64,
+    ) -> HashMap<String, f64> {
         let mut topic_sentiments = HashMap::new();
-        let topics = ["bitcoin", "ethereum", "defi", "nft", "regulation", "adoption"];
-        
+        let topics = [
+            "bitcoin",
+            "ethereum",
+            "defi",
+            "nft",
+            "regulation",
+            "adoption",
+        ];
+
         for topic in &topics {
             if text_lower.contains(topic) {
                 // Calculate sentiment specific to this topic's context
@@ -266,7 +288,7 @@ impl LexiconSentimentAnalyzer {
                 topic_sentiments.insert(topic.to_string(), topic_score);
             }
         }
-        
+
         topic_sentiments
     }
 }
@@ -612,8 +634,18 @@ impl NewsConfig {
     /// Create NewsConfig from ApplicationContext
     fn from_context(context: &ApplicationContext) -> Self {
         Self {
-            newsapi_key: context.config.providers.newsapi_key.clone().unwrap_or_default(),
-            cryptopanic_key: context.config.providers.cryptopanic_key.clone().unwrap_or_default(),
+            newsapi_key: context
+                .config
+                .providers
+                .newsapi_key
+                .clone()
+                .unwrap_or_default(),
+            cryptopanic_key: context
+                .config
+                .providers
+                .cryptopanic_key
+                .clone()
+                .unwrap_or_default(),
             base_url: "https://newsapi.org/v2".to_string(),
             max_articles: 50,
             freshness_hours: 24,
@@ -1627,11 +1659,7 @@ fn analyze_sentiment(
 ) -> NewsSentiment {
     // Use the default analyzer for now
     let analyzer = LexiconSentimentAnalyzer::default();
-    analyzer.analyze_sentiment_impl(
-        title,
-        description.as_deref(),
-        content.as_deref(),
-    )
+    analyzer.analyze_sentiment_impl(title, description.as_deref(), content.as_deref())
 }
 
 /// Calculate market impact using heuristic rules based on sentiment and source credibility

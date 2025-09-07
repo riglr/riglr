@@ -41,11 +41,17 @@ impl Default for TweetScoutConfig {
 
 /// Helper function to get TweetScout API key from ApplicationContext
 fn get_api_key_from_context(context: &ApplicationContext) -> Result<String, WebToolError> {
-    context.config.providers.tweetscout_api_key
+    context
+        .config
+        .providers
+        .tweetscout_api_key
         .clone()
-        .ok_or_else(|| WebToolError::Config(
-            "TweetScout API key not configured. Set TWEETSCOUT_API_KEY in your environment.".to_string()
-        ))
+        .ok_or_else(|| {
+            WebToolError::Config(
+                "TweetScout API key not configured. Set TWEETSCOUT_API_KEY in your environment."
+                    .to_string(),
+            )
+        })
 }
 
 /// Account information response from TweetScout

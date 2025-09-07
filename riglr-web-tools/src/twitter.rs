@@ -765,22 +765,17 @@ fn convert_raw_tweet(
                 .hashtags
                 .as_ref()
                 .map_or_else(Vec::new, |h| h.iter().map(|tag| tag.tag.clone()).collect()),
-            mentions: e
-                .mentions
-                .as_ref()
-                .map_or_else(Vec::new, |m| m.iter().map(|mention| mention.username.clone()).collect()),
-            urls: e
-                .urls
-                .as_ref()
-                .map_or_else(Vec::new, |u| {
-                    u.iter()
-                        .map(|url| url.expanded_url.as_ref().unwrap_or(&url.url).clone())
-                        .collect()
-                }),
-            cashtags: e
-                .cashtags
-                .as_ref()
-                .map_or_else(Vec::new, |c| c.iter().map(|cash| cash.tag.clone()).collect()),
+            mentions: e.mentions.as_ref().map_or_else(Vec::new, |m| {
+                m.iter().map(|mention| mention.username.clone()).collect()
+            }),
+            urls: e.urls.as_ref().map_or_else(Vec::new, |u| {
+                u.iter()
+                    .map(|url| url.expanded_url.as_ref().unwrap_or(&url.url).clone())
+                    .collect()
+            }),
+            cashtags: e.cashtags.as_ref().map_or_else(Vec::new, |c| {
+                c.iter().map(|cash| cash.tag.clone()).collect()
+            }),
         }
     } else {
         TweetEntities {
@@ -792,20 +787,21 @@ fn convert_raw_tweet(
     };
 
     // Convert context annotations
-    let context_annotations = tweet
-        .context_annotations
-        .as_ref()
-        .map_or_else(Vec::new, |annotations| {
-            annotations
-                .iter()
-                .map(|a| ContextAnnotation {
-                    domain_id: a.domain.id.clone(),
-                    domain_name: a.domain.name.clone().unwrap_or_default(),
-                    entity_id: a.entity.id.clone(),
-                    entity_name: a.entity.name.clone().unwrap_or_default(),
-                })
-                .collect()
-        });
+    let context_annotations =
+        tweet
+            .context_annotations
+            .as_ref()
+            .map_or_else(Vec::new, |annotations| {
+                annotations
+                    .iter()
+                    .map(|a| ContextAnnotation {
+                        domain_id: a.domain.id.clone(),
+                        domain_name: a.domain.name.clone().unwrap_or_default(),
+                        entity_id: a.entity.id.clone(),
+                        entity_name: a.entity.name.clone().unwrap_or_default(),
+                    })
+                    .collect()
+            });
 
     // Check if reply or retweet
     let is_reply = tweet

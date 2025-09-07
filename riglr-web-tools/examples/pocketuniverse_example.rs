@@ -134,13 +134,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         RiskTolerance::High,
     ] {
         println!("\n  Risk Tolerance: {:?}", tolerance);
-        match is_token_safe(
-            &context,
-            token_address.to_string(),
-            Some(tolerance),
-        )
-        .await
-        {
+        match is_token_safe(&context, token_address.to_string(), Some(tolerance)).await {
             Ok(safety) => {
                 println!("    Is Safe: {}", safety.is_safe);
                 println!("    Risk Level: {:?}", safety.risk_level);

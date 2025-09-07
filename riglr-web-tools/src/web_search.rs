@@ -290,7 +290,12 @@ impl WebSearchConfig {
     #[allow(dead_code)]
     fn from_context(context: &riglr_core::provider::ApplicationContext) -> Self {
         Self {
-            exa_api_key: context.config.providers.exa_api_key.clone().unwrap_or_else(String::default),
+            exa_api_key: context
+                .config
+                .providers
+                .exa_api_key
+                .clone()
+                .unwrap_or_else(String::default),
             exa_base_url: "https://api.exa.ai".to_string(),
             max_results: 20,
             timeout_seconds: 30,
@@ -317,10 +322,16 @@ pub async fn search_web_with_context(
     );
 
     // Get EXA_API_KEY from ApplicationContext
-    let exa_api_key = app_context.config.providers.exa_api_key.clone()
-        .ok_or_else(|| WebToolError::Config(
-            "EXA_API_KEY not configured. Set EXA_API_KEY in your environment.".to_string(),
-        ))?;
+    let exa_api_key = app_context
+        .config
+        .providers
+        .exa_api_key
+        .clone()
+        .ok_or_else(|| {
+            WebToolError::Config(
+                "EXA_API_KEY not configured. Set EXA_API_KEY in your environment.".to_string(),
+            )
+        })?;
 
     let config = WebSearchConfig::default();
     let client = WebClient::default().with_exa_key(exa_api_key.clone());
@@ -444,10 +455,16 @@ pub async fn find_similar_pages(
     debug!("Finding pages similar to: {}", source_url);
 
     // Get EXA_API_KEY from ApplicationContext
-    let exa_api_key = context.config.providers.exa_api_key.clone()
-        .ok_or_else(|| WebToolError::Config(
-            "EXA_API_KEY not configured. Set EXA_API_KEY in your environment.".to_string(),
-        ))?;
+    let exa_api_key = context
+        .config
+        .providers
+        .exa_api_key
+        .clone()
+        .ok_or_else(|| {
+            WebToolError::Config(
+                "EXA_API_KEY not configured. Set EXA_API_KEY in your environment.".to_string(),
+            )
+        })?;
 
     let client = WebClient::default().with_exa_key(exa_api_key.clone());
 
@@ -582,10 +599,16 @@ pub async fn search_recent_news(
     );
 
     // Get EXA_API_KEY from ApplicationContext
-    let exa_api_key = context.config.providers.exa_api_key.clone()
-        .ok_or_else(|| WebToolError::Config(
-            "EXA_API_KEY not configured. Set EXA_API_KEY in your environment.".to_string(),
-        ))?;
+    let exa_api_key = context
+        .config
+        .providers
+        .exa_api_key
+        .clone()
+        .ok_or_else(|| {
+            WebToolError::Config(
+                "EXA_API_KEY not configured. Set EXA_API_KEY in your environment.".to_string(),
+            )
+        })?;
 
     let client = WebClient::default().with_exa_key(exa_api_key.clone());
 

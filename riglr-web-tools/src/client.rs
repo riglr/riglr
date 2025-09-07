@@ -430,12 +430,17 @@ impl WebClient {
                         // Immediately return a rate limit error for 429
                         let error_text = response.text().await.unwrap_or_default();
                         return Err(WebToolError::RateLimit(format!(
-                            "HTTP 429 from {}: {}", url, error_text
+                            "HTTP 429 from {}: {}",
+                            url, error_text
                         )));
-                    } else if [reqwest::StatusCode::BAD_GATEWAY, 
-                               reqwest::StatusCode::SERVICE_UNAVAILABLE, 
-                               reqwest::StatusCode::GATEWAY_TIMEOUT].contains(&status) 
-                               && attempts < self.http_config.max_retries {
+                    } else if [
+                        reqwest::StatusCode::BAD_GATEWAY,
+                        reqwest::StatusCode::SERVICE_UNAVAILABLE,
+                        reqwest::StatusCode::GATEWAY_TIMEOUT,
+                    ]
+                    .contains(&status)
+                        && attempts < self.http_config.max_retries
+                    {
                         // Retry only on specific server errors (502, 503, 504)
                         warn!(
                             "Server error {} from {}, attempt {}/{}",
@@ -514,12 +519,17 @@ impl WebClient {
                         // Immediately return a rate limit error for 429
                         let error_text = response.text().await.unwrap_or_default();
                         return Err(WebToolError::RateLimit(format!(
-                            "HTTP 429 from {}: {}", url, error_text
+                            "HTTP 429 from {}: {}",
+                            url, error_text
                         )));
-                    } else if [reqwest::StatusCode::BAD_GATEWAY, 
-                               reqwest::StatusCode::SERVICE_UNAVAILABLE, 
-                               reqwest::StatusCode::GATEWAY_TIMEOUT].contains(&status) 
-                               && attempts < self.http_config.max_retries {
+                    } else if [
+                        reqwest::StatusCode::BAD_GATEWAY,
+                        reqwest::StatusCode::SERVICE_UNAVAILABLE,
+                        reqwest::StatusCode::GATEWAY_TIMEOUT,
+                    ]
+                    .contains(&status)
+                        && attempts < self.http_config.max_retries
+                    {
                         // Retry only on specific server errors (502, 503, 504)
                         warn!(
                             "Server error {} from {}, attempt {}/{}",
