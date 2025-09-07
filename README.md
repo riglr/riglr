@@ -7,6 +7,8 @@
   [![Crates.io](https://img.shields.io/crates/v/riglr-core.svg)](https://crates.io/crates/riglr-core)
   [![Documentation](https://docs.rs/riglr-core/badge.svg)](https://docs.rs/riglr-core)
   [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+  
+  **Token Address:** `EEmm3orvPXt61Z1yMN9xenE1Rfpj3FEU5WcG1H8mpump`
 </div>
 
 > ⚠️ **UNDER HEAVY DEVELOPMENT**: This project is being actively developed with frequent updates. APIs may change and things will probably break. Use with caution in production environments.
