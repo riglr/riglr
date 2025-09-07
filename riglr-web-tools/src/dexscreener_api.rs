@@ -143,6 +143,121 @@ pub struct TokenRaw {
     pub symbol: String,
 }
 
+// ==================== New API Types (from OpenAPI spec) ====================
+
+/// Token profile information (new v1 endpoint)
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct TokenProfile {
+    /// URL to the token profile page
+    pub url: String,
+    /// Chain identifier
+    #[serde(rename = "chainId")]
+    pub chain_id: String,
+    /// Token address
+    #[serde(rename = "tokenAddress")]
+    pub token_address: String,
+    /// Token icon URL
+    pub icon: String,
+    /// Header image URL (optional)
+    pub header: Option<String>,
+    /// Token description (optional)
+    pub description: Option<String>,
+    /// Social and website links (optional)
+    pub links: Option<Vec<TokenLink>>,
+}
+
+/// Token link information
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct TokenLink {
+    /// Link type (e.g., "website", "twitter", "telegram")
+    #[serde(rename = "type")]
+    pub link_type: Option<String>,
+    /// Link label
+    pub label: Option<String>,
+    /// Link URL
+    pub url: String,
+}
+
+/// Boosted token response (new v1 endpoint)
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct BoostsResponse {
+    /// URL to the token page
+    pub url: String,
+    /// Chain identifier
+    #[serde(rename = "chainId")]
+    pub chain_id: String,
+    /// Token address
+    #[serde(rename = "tokenAddress")]
+    pub token_address: String,
+    /// Current boost amount
+    pub amount: f64,
+    /// Total boost amount
+    #[serde(rename = "totalAmount")]
+    pub total_amount: f64,
+    /// Token icon URL (optional)
+    pub icon: Option<String>,
+    /// Header image URL (optional)
+    pub header: Option<String>,
+    /// Token description (optional)
+    pub description: Option<String>,
+    /// Social and website links (optional)
+    pub links: Option<Vec<TokenLink>>,
+}
+
+/// Orders response for a token (new v1 endpoint)
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct OrdersResponse {
+    /// List of orders
+    pub orders: Vec<Order>,
+}
+
+/// Individual order information
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct Order {
+    /// Order type
+    #[serde(rename = "type")]
+    pub order_type: OrderType,
+    /// Order status
+    pub status: OrderStatus,
+    /// Payment timestamp
+    #[serde(rename = "paymentTimestamp")]
+    pub payment_timestamp: Option<f64>,
+}
+
+/// Order type enum
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub enum OrderType {
+    /// Token profile order type
+    TokenProfile,
+    /// Community takeover order type
+    CommunityTakeover,
+    /// Token advertisement order type
+    TokenAd,
+    /// Trending bar advertisement order type
+    TrendingBarAd,
+}
+
+/// Order status enum
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "kebab-case")]
+pub enum OrderStatus {
+    /// Order is currently being processed
+    Processing,
+    /// Order has been cancelled
+    Cancelled,
+    /// Order is on hold
+    #[serde(rename = "on-hold")]
+    OnHold,
+    /// Order has been approved
+    Approved,
+    /// Order has been rejected
+    Rejected,
+}
+
 /// Search for tokens or pairs on DexScreener
 pub async fn search_ticker(ticker: String) -> Result<DexScreenerResponseRaw> {
     let client = Client::new();
@@ -168,12 +283,15 @@ pub async fn search_ticker(ticker: String) -> Result<DexScreenerResponseRaw> {
     Ok(dex_response)
 }
 
-/// Get token pairs by token address
-pub async fn get_pairs_by_token(token_address: &str) -> Result<DexScreenerResponseRaw> {
+/// Get token pairs by token address (requires chainId in new API)
+pub async fn get_pairs_by_token_v1(
+    chain_id: &str,
+    token_address: &str,
+) -> Result<DexScreenerResponseRaw> {
     let client = Client::new();
     let url = format!(
-        "https://api.dexscreener.com/latest/dex/tokens/{}",
-        token_address
+        "https://api.dexscreener.com/tokens/v1/{}/{}",
+        chain_id, token_address
     );
 
     let response = client.get(&url).send().await?;
@@ -189,12 +307,12 @@ pub async fn get_pairs_by_token(token_address: &str) -> Result<DexScreenerRespon
     Ok(dex_response)
 }
 
-/// Get pairs by pair address
-pub async fn get_pair_by_address(pair_address: &str) -> Result<PairInfoRaw> {
+/// Get pairs by pair address (requires chainId in new API)
+pub async fn get_pair_by_address_v1(chain_id: &str, pair_address: &str) -> Result<PairInfoRaw> {
     let client = Client::new();
     let url = format!(
-        "https://api.dexscreener.com/latest/dex/pairs/{}",
-        pair_address
+        "https://api.dexscreener.com/latest/dex/pairs/{}/{}",
+        chain_id, pair_address
     );
 
     let response = client.get(&url).send().await?;
@@ -214,28 +332,156 @@ pub async fn get_pair_by_address(pair_address: &str) -> Result<PairInfoRaw> {
         .ok_or_else(|| anyhow::anyhow!("No pair found for address: {}", pair_address))
 }
 
+/// Legacy: Get token pairs by token address (without chainId)
+/// Deprecated: Use get_pairs_by_token_v1 instead
+pub async fn get_pairs_by_token(token_address: &str) -> Result<DexScreenerResponseRaw> {
+    // Default to Ethereum for backwards compatibility
+    get_pairs_by_token_v1("ethereum", token_address).await
+}
+
+/// Legacy: Get pairs by pair address (without chainId)
+/// Deprecated: Use get_pair_by_address_v1 instead
+pub async fn get_pair_by_address(pair_address: &str) -> Result<PairInfoRaw> {
+    // Try to infer chain from pair address format or default to ethereum
+    let chain_id = if pair_address.starts_with("solana_") {
+        "solana"
+    } else if pair_address.starts_with("bsc_") {
+        "bsc"
+    } else {
+        "ethereum"
+    };
+    get_pair_by_address_v1(chain_id, pair_address).await
+}
+
+/// Get the pools of a given token address (new v1 endpoint)
+pub async fn get_token_pairs_v1(
+    chain_id: &str,
+    token_address: &str,
+) -> Result<DexScreenerResponseRaw> {
+    let client = Client::new();
+    let url = format!(
+        "https://api.dexscreener.com/token-pairs/v1/{}/{}",
+        chain_id, token_address
+    );
+
+    let response = client.get(&url).send().await?;
+
+    if !response.status().is_success() {
+        let res = response.text().await?;
+        return Err(anyhow::anyhow!("Failed to fetch token pairs: {}", res));
+    }
+
+    let data: serde_json::Value = response.json().await?;
+    let dex_response: DexScreenerResponseRaw = serde_json::from_value(data)?;
+
+    Ok(dex_response)
+}
+
+// ==================== New V1 Endpoint Functions ====================
+
+/// Get the latest token profiles (rate-limit 60 requests per minute)
+pub async fn get_latest_token_profiles() -> Result<Vec<TokenProfile>> {
+    let client = Client::new();
+    let url = "https://api.dexscreener.com/token-profiles/latest/v1";
+
+    let response = client.get(url).send().await?;
+
+    if !response.status().is_success() {
+        let res = response.text().await?;
+        return Err(anyhow::anyhow!("Failed to fetch token profiles: {}", res));
+    }
+
+    let profiles: Vec<TokenProfile> = response.json().await?;
+    Ok(profiles)
+}
+
+/// Get the latest boosted tokens (rate-limit 60 requests per minute)
+pub async fn get_latest_token_boosts() -> Result<Vec<BoostsResponse>> {
+    let client = Client::new();
+    let url = "https://api.dexscreener.com/token-boosts/latest/v1";
+
+    let response = client.get(url).send().await?;
+
+    if !response.status().is_success() {
+        let res = response.text().await?;
+        return Err(anyhow::anyhow!("Failed to fetch latest boosts: {}", res));
+    }
+
+    let boosts: Vec<BoostsResponse> = response.json().await?;
+    Ok(boosts)
+}
+
+/// Get the tokens with most active boosts (rate-limit 60 requests per minute)
+pub async fn get_top_token_boosts() -> Result<Vec<BoostsResponse>> {
+    let client = Client::new();
+    let url = "https://api.dexscreener.com/token-boosts/top/v1";
+
+    let response = client.get(url).send().await?;
+
+    if !response.status().is_success() {
+        let res = response.text().await?;
+        return Err(anyhow::anyhow!("Failed to fetch top boosts: {}", res));
+    }
+
+    let boosts: Vec<BoostsResponse> = response.json().await?;
+    Ok(boosts)
+}
+
+/// Check orders paid for a token (rate-limit 60 requests per minute)
+pub async fn get_token_orders(chain_id: &str, token_address: &str) -> Result<Vec<Order>> {
+    let client = Client::new();
+    let url = format!(
+        "https://api.dexscreener.com/orders/v1/{}/{}",
+        chain_id, token_address
+    );
+
+    let response = client.get(&url).send().await?;
+
+    if !response.status().is_success() {
+        let res = response.text().await?;
+        return Err(anyhow::anyhow!("Failed to fetch token orders: {}", res));
+    }
+
+    let orders: Vec<Order> = response.json().await?;
+    Ok(orders)
+}
+
 /// Find the best liquidity pair for a token
-pub fn find_best_liquidity_pair(pairs: Vec<PairInfoRaw>) -> Option<PairInfoRaw> {
-    pairs.into_iter().max_by_key(|p| {
-        p.liquidity
-            .as_ref()
-            .and_then(|l| l.usd)
-            .map_or(0, |usd| (usd * 1000.0) as u64)
-    })
+pub fn find_best_liquidity_pair(mut pairs: Vec<PairInfoRaw>) -> Option<PairInfoRaw> {
+    if pairs.is_empty() {
+        return None;
+    }
+
+    // Sort by liquidity (descending), maintaining original order for equal values
+    pairs.sort_by(|a, b| {
+        let a_liq = a.liquidity.as_ref().and_then(|l| l.usd).unwrap_or(0.0);
+        let b_liq = b.liquidity.as_ref().and_then(|l| l.usd).unwrap_or(0.0);
+        b_liq
+            .partial_cmp(&a_liq)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+
+    pairs.into_iter().next()
 }
 
 /// Extract token price from the best pair
 pub fn get_token_price(pairs: &[PairInfoRaw], token_address: &str) -> Option<String> {
-    pairs
+    // Filter pairs for the token
+    let mut matching_pairs: Vec<_> = pairs
         .iter()
         .filter(|p| p.base_token.address.eq_ignore_ascii_case(token_address))
-        .max_by_key(|p| {
-            p.liquidity
-                .as_ref()
-                .and_then(|l| l.usd)
-                .map_or(0, |usd| (usd * 1000.0) as u64)
-        })
-        .and_then(|p| p.price_usd.clone())
+        .collect();
+
+    // Sort by liquidity (descending), maintaining original order for equal values
+    matching_pairs.sort_by(|a, b| {
+        let a_liq = a.liquidity.as_ref().and_then(|l| l.usd).unwrap_or(0.0);
+        let b_liq = b.liquidity.as_ref().and_then(|l| l.usd).unwrap_or(0.0);
+        b_liq
+            .partial_cmp(&a_liq)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+
+    matching_pairs.first().and_then(|p| p.price_usd.clone())
 }
 
 // ==================== Clean Public Types ====================
@@ -545,20 +791,45 @@ fn convert_to_token_pair(pair: &PairInfo) -> crate::dexscreener::TokenPair {
         fdv: pair.fdv,
         created_at: None,
         last_trade_at: chrono::Utc::now(),
-        txns_24h: crate::dexscreener::TransactionStats {
-            buys: pair
+        txns_24h: {
+            let buys = pair
                 .txns
                 .as_ref()
                 .and_then(|t| t.h24.as_ref())
-                .and_then(|h| h.buys.map(|b| b as u32)),
-            sells: pair
+                .and_then(|h| h.buys.map(|b| b as u32));
+            let sells = pair
                 .txns
                 .as_ref()
                 .and_then(|t| t.h24.as_ref())
-                .and_then(|h| h.sells.map(|s| s as u32)),
-            total: None,
-            buy_volume_usd: None,
-            sell_volume_usd: None,
+                .and_then(|h| h.sells.map(|s| s as u32));
+            let total = match (buys, sells) {
+                (Some(b), Some(s)) => Some(b + s),
+                _ => None,
+            };
+
+            // Calculate volume estimates if we have volume and transaction data
+            let (buy_volume_usd, sell_volume_usd) = if let (Some(volume), Some(b), Some(s)) =
+                (pair.volume.as_ref().and_then(|v| v.h24), buys, sells)
+            {
+                let total_txns = (b + s) as f64;
+                if total_txns > 0.0 {
+                    let buy_ratio = b as f64 / total_txns;
+                    let sell_ratio = s as f64 / total_txns;
+                    (Some(volume * buy_ratio), Some(volume * sell_ratio))
+                } else {
+                    (None, None)
+                }
+            } else {
+                (None, None)
+            };
+
+            crate::dexscreener::TransactionStats {
+                buys,
+                sells,
+                total,
+                buy_volume_usd,
+                sell_volume_usd,
+            }
         },
         url: pair.url.clone(),
     }

@@ -1,0 +1,238 @@
+openapi: 3.0.0
+info:
+  title: Trench Bundle API
+  version: v1
+  description: API for retrieving bundle information from Trench.bot
+servers:
+  - url: https://trench.bot/api
+    description: Production Server
+paths:
+  /bundle/bundle_advanced/{token}:
+    get:
+      summary: Get Advanced Bundle Information
+      description: Retrieves detailed information about a specific bundle.
+      parameters:
+        - in: path
+          name: token
+          required: true
+          schema:
+            type: string
+          description: The unique identifier of the bundle.
+      responses:
+        '200':
+          description: Successful response with bundle details.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BundleResponse'
+        '404':
+          description: Bundle not found.
+
+components:
+  schemas:
+    BundleResponse:
+      type: object
+      description: The overall response structure for a bundle query.
+      properties:
+        bonded:
+          type: boolean
+          description: Indicates if the bundle is bonded.
+        bundles:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/BundleDetails'
+          description: A collection of bundles, keyed by bundle ID.
+        creator_analysis:
+          $ref: '#/components/schemas/CreatorAnalysis'
+          description: Analysis of the bundle creator.
+        distributed_amount:
+          type: integer
+          format: int64
+          description: The total amount of tokens distributed.
+        distributed_percentage:
+          type: number
+          format: double
+          description: The percentage of total tokens distributed.
+        distributed_wallets:
+          type: integer
+          description: The number of wallets the token has been distributed to.
+        ticker:
+          type: string
+          description: The ticker symbol of the token.
+        total_bundles:
+          type: integer
+          description: The total number of bundles created for this token.
+        total_holding_amount:
+          type: integer
+          format: int64
+          description: The total amount of tokens held in bundles.
+        total_holding_percentage:
+          type: number
+          format: double
+          description: The percentage of the total token supply held in bundles.
+        total_percentage_bundled:
+          type: number
+          format: double
+          description: The total percentage of tokens that are bundled.
+        total_sol_spent:
+          type: number
+          format: double
+          description: The total SOL spent on creating the bundles.
+        total_tokens_bundled:
+          type: integer
+          format: int64
+          description: The total number of tokens included in bundles.
+
+    BundleDetails:
+      type: object
+      description: Details about a specific bundle.
+      properties:
+        bundle_analysis:
+          $ref: '#/components/schemas/BundleAnalysis'
+          description: Analysis of the bundle.
+        holding_amount:
+          type: integer
+          format: int64
+          description: The amount of tokens held within the bundle.
+        holding_percentage:
+          type: number
+          format: double
+          description: The percentage of total tokens held within the bundle.
+        token_percentage:
+          type: number
+          format: double
+          description: The percentage of the total token supply within the bundle.
+        total_sol:
+          type: number
+          format: double
+          description: The total SOL value of the bundle.
+        total_tokens:
+          type: integer
+          format: int64
+          description: The total number of tokens within the bundle.
+        unique_wallets:
+          type: integer
+          description: The number of unique wallets interacting with the bundle.
+        wallet_categories:
+          type: object
+          additionalProperties:
+            type: string
+          description: Categories of wallets interacting with the bundle (e.g., "sniper", "regular"), keyed by wallet address.
+        wallet_info:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/WalletInfo'
+          description: Information about individual wallets interacting with the bundle, keyed by wallet address.
+
+    BundleAnalysis:
+      type: object
+      description: Analysis results for a bundle.
+      properties:
+        category_breakdown:
+          type: object
+          additionalProperties:
+            type: integer
+          description: Breakdown of wallet categories within the bundle.
+        is_likely_bundle:
+          type: boolean
+          description: Indicates if the interaction is likely part of a bundle.
+        primary_category:
+          type: string
+          description: The primary category of the bundle (e.g., "regular", "sniper").
+
+    WalletInfo:
+      type: object
+      description: Information about a specific wallet's interaction with a bundle.
+      properties:
+        sol:
+          type: number
+          format: double
+          description: The SOL balance of the wallet associated with this bundle.
+        sol_percentage:
+          type: number
+          format: double
+          description: The percentage of total SOL in the bundle represented by this wallet.
+        token_percentage:
+          type: number
+          format: double
+          description: The percentage of total tokens in the bundle held by this wallet.
+        tokens:
+          type: integer
+          format: int64
+          description: The number of tokens held by this wallet within the bundle.
+
+    CreatorAnalysis:
+      type: object
+      description: Analysis of the token creator.
+      properties:
+        address:
+          type: string
+          description: The wallet address of the token creator.
+        current_holdings:
+          type: integer
+          format: int64
+          description: The creator's current holdings of the token.
+        history:
+          type: object
+          description: Historical data on the creator's activity.
+          properties:
+            average_market_cap:
+              type: integer
+              format: int64
+              description: Average market cap of tokens created by this creator.
+            high_risk:
+              type: boolean
+              description: Indicates if the creator is considered high risk.
+            previous_coins:
+              type: array
+              description: List of previously created coins.
+              items:
+                type: object
+                properties:
+                  created_at:
+                    type: integer
+                    format: int64
+                    description: Timestamp of when the coin was created.
+                  is_rug:
+                    type: boolean
+                    description: Indicates if the coin was a rug pull.
+                  market_cap:
+                    type: integer
+                    format: int64
+                    description: Market cap of the coin.
+                  mint:
+                    type: string
+                    description: Mint address of the coin.
+                  symbol:
+                    type: string
+                    description: Symbol of the coin.
+            recent_rugs:
+              type: integer
+              format: int64
+              description: Number of recent rug pulls by the creator.
+            rug_count:
+              type: integer
+              format: int64
+              description: Total number of rug pulls by the creator.
+            rug_percentage:
+              type: number
+              format: double
+              description: Percentage of the creator's tokens that were rug pulls.
+            total_coins_created:
+              type: integer
+              format: int64
+              description: Total number of coins created by this creator.
+        holding_percentage:
+          type: number
+          format: double
+          description: The percentage of the token supply currently held by the creator.
+        risk_level:
+          type: string
+          enum: [LOW, MEDIUM, HIGH]
+          description: The assessed risk level of the creator.
+        warning_flags:
+          type: array
+          items:
+             type: string
+             nullable: true
+          description:  Any warning flags associated with this creator.

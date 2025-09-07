@@ -1,0 +1,596 @@
+{
+    "schemes": [
+        "https"
+    ],
+    "swagger": "2.0",
+    "info": {
+        "description": "API for retrieving Solana token reports from RugCheck.",
+        "title": "RugCheck API - Token Report",
+        "contact": {},
+        "license": {},
+        "version": "1.0"
+    },
+    "host": "api.rugcheck.xyz",
+    "basePath": "/v1",
+    "paths": {
+        "/tokens/{mint}/report": {
+            "get": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Tokens"
+                ],
+                "summary": "Get token report summary",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Token mint",
+                        "name": "mint",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "A detailed report for the specified token mint.",
+                        "schema": {
+                            "$ref": "#/definitions/rugcheck_api.TokenCheck"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "rugcheck_api.Account": {
+            "type": "object",
+            "properties": {
+                "address": {
+                    "type": "string"
+                },
+                "sent": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/rugcheck_api.Transfer"
+                    }
+                }
+            }
+        },
+        "rugcheck_api.FileMetadata": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "image": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "symbol": {
+                    "type": "string"
+                }
+            }
+        },
+        "rugcheck_api.GraphDetectedData": {
+            "type": "object",
+            "properties": {
+                "blacklisted": {
+                    "type": "boolean"
+                },
+                "rawGraphData": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/rugcheck_api.Account"
+                    }
+                },
+                "receivers": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/rugcheck_api.InsiderDetectedData"
+                    }
+                },
+                "senders": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/rugcheck_api.InsiderDetectedData"
+                    }
+                },
+                "totalSent": {
+                    "type": "integer"
+                }
+            }
+        },
+        "rugcheck_api.InsiderDetectedData": {
+            "type": "object",
+            "properties": {
+                "address": {
+                    "type": "string"
+                },
+                "amount": {
+                    "type": "integer"
+                }
+            }
+        },
+        "rugcheck_api.KnownAccount": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "rugcheck_api.Locker": {
+            "type": "object",
+            "properties": {
+                "owner": {
+                    "type": "string"
+                },
+                "programID": {
+                    "type": "string"
+                },
+                "tokenAccount": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                },
+                "unlockDate": {
+                    "type": "integer"
+                },
+                "uri": {
+                    "type": "string"
+                },
+                "usdcLocked": {
+                    "type": "number"
+                }
+            }
+        },
+        "rugcheck_api.Market": {
+            "type": "object",
+            "properties": {
+                "liquidityA": {
+                    "type": "string"
+                },
+                "liquidityAAccount": {
+                    "type": "string"
+                },
+                "liquidityB": {
+                    "type": "string"
+                },
+                "liquidityBAccount": {
+                    "type": "string"
+                },
+                "lp": {
+                    "$ref": "#/definitions/rugcheck_api.MarketLP"
+                },
+                "marketType": {
+                    "type": "string"
+                },
+                "mintA": {
+                    "type": "string"
+                },
+                "mintAAccount": {
+                    "type": "string"
+                },
+                "mintB": {
+                    "type": "string"
+                },
+                "mintBAccount": {
+                    "type": "string"
+                },
+                "mintLP": {
+                    "type": "string"
+                },
+                "mintLPAccount": {
+                    "type": "string"
+                },
+                "pubkey": {
+                    "type": "string"
+                }
+            }
+        },
+        "rugcheck_api.MarketLP": {
+            "type": "object",
+            "properties": {
+                "base": {
+                    "type": "number"
+                },
+                "baseMint": {
+                    "type": "string"
+                },
+                "basePrice": {
+                    "type": "number"
+                },
+                "baseUSD": {
+                    "type": "number"
+                },
+                "currentSupply": {
+                    "type": "integer"
+                },
+                "holders": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/rugcheck_api.TokenHolder"
+                    }
+                },
+                "lpCurrentSupply": {
+                    "type": "integer"
+                },
+                "lpLocked": {
+                    "type": "integer"
+                },
+                "lpLockedPct": {
+                    "type": "number"
+                },
+                "lpLockedUSD": {
+                    "type": "number"
+                },
+                "lpMaxSupply": {
+                    "type": "integer"
+                },
+                "lpMint": {
+                    "type": "string"
+                },
+                "lpTotalSupply": {
+                    "type": "integer"
+                },
+                "lpUnlocked": {
+                    "type": "integer"
+                },
+                "pctReserve": {
+                    "type": "number"
+                },
+                "pctSupply": {
+                    "type": "number"
+                },
+                "quote": {
+                    "type": "number"
+                },
+                "quoteMint": {
+                    "type": "string"
+                },
+                "quotePrice": {
+                    "type": "number"
+                },
+                "quoteUSD": {
+                    "type": "number"
+                },
+                "reserveSupply": {
+                    "type": "integer"
+                },
+                "tokenSupply": {
+                    "type": "integer"
+                },
+                "totalTokensUnlocked": {
+                    "type": "integer"
+                }
+            }
+        },
+        "rugcheck_api.Receiver": {
+            "type": "object",
+            "properties": {
+                "address": {
+                    "type": "string"
+                }
+            }
+        },
+        "rugcheck_api.Risk": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "level": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "score": {
+                    "type": "integer"
+                },
+                "value": {
+                    "type": "string"
+                }
+            }
+        },
+        "rugcheck_api.TokenCheck": {
+            "type": "object",
+            "properties": {
+                "creator": {
+                    "type": "string"
+                },
+                "detectedAt": {
+                    "type": "string",
+                    "format": "date-time"
+                },
+                "events": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/rugcheck_api.TokenEvent"
+                    }
+                },
+                "fileMeta": {
+                    "$ref": "#/definitions/rugcheck_api.FileMetadata"
+                },
+                "freezeAuthority": {
+                    "type": "string",
+                    "nullable": true
+                },
+                "graphInsiderReport": { 
+                    "$ref": "#/definitions/rugcheck_api.GraphDetectedData"
+                },
+                "graphInsidersDetected": {
+                    "type": "integer"
+                },
+                "insiderNetworks": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "id": {"type": "string"},
+                            "size": {"type": "integer"},
+                            "type": {"type": "string"},
+                            "tokenAmount": {"type": "integer", "format": "int64"},
+                            "activeAccounts": {"type": "integer"}
+                        }
+                    }
+                },
+                "knownAccounts": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/rugcheck_api.KnownAccount"
+                    }
+                },
+                "lockerOwners": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "boolean"
+                    }
+                },
+                "lockers": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/rugcheck_api.Locker"
+                    }
+                },
+                "lpLockers": {
+                    "description": "Structure for lpLockers based on example having 'lockers'. Assuming it's similar or needs more definition if distinct from 'lockers'. For now, using 'any' as per original or a simple map if it's just key-value.",
+                    "type": "object", 
+                    "additionalProperties": {
+                        "$ref": "#/definitions/rugcheck_api.Locker" 
+                    }
+                },
+                "markets": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/rugcheck_api.Market"
+                    }
+                },
+                "mint": {
+                    "type": "string"
+                },
+                "mintAuthority": {
+                    "type": "string",
+                    "nullable": true
+                },
+                "price": {
+                    "type": "number",
+                    "format": "double"
+                },
+                "risks": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/rugcheck_api.Risk"
+                    }
+                },
+                "rugged": {
+                    "type": "boolean"
+                },
+                "score": {
+                    "type": "integer"
+                },
+                "score_normalised": {
+                     "type": "integer"
+                },
+                "token": {
+                     "description": "Simplified token object from example",
+                     "type": "object",
+                     "properties": {
+                        "mintAuthority": {"type": "string", "nullable": true},
+                        "supply": {"type": "integer", "format": "int64"},
+                        "decimals": {"type": "integer"},
+                        "isInitialized": {"type": "boolean"},
+                        "freezeAuthority": {"type": "string", "nullable": true}
+                     }
+                },
+                "tokenMeta": {
+                    "$ref": "#/definitions/rugcheck_api.TokenMetadata"
+                },
+                "tokenProgram": {
+                    "type": "string"
+                },
+                "tokenType": {
+                    "type": "string"
+                },
+                "token_extensions": {
+                    "type": ["string", "null"]
+                },
+                "creatorTokens": {
+                    "type": ["string", "null"],
+                    "description": "Assuming this is a string or null based on example"
+                },
+                "creatorBalance": {
+                    "type": "integer"
+                },
+                "topHolders": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/rugcheck_api.TokenHolder"
+                    }
+                },
+                "totalHolders": {
+                    "type": "integer"
+                },
+                "totalLPProviders": {
+                    "type": "integer"
+                },
+                "totalMarketLiquidity": {
+                    "type": "number",
+                    "format": "double"
+                },
+                "transferFee": {
+                    "type": "object",
+                    "properties": {
+                        "authority": {
+                            "type": "string"
+                        },
+                        "maxAmount": {
+                            "type": "number"
+                        },
+                        "pct": {
+                            "type": "number"
+                        }
+                    }
+                },
+                "verification": {
+                    "$ref": "#/definitions/rugcheck_api.VerifiedToken",
+                    "nullable": true
+                }
+            }
+        },
+        "rugcheck_api.TokenEvent": {
+            "type": "object",
+            "properties": {
+                "createdAt": {
+                    "type": "string",
+                    "format": "date-time"
+                },
+                "event": {
+                    "type": "integer"
+                },
+                "newValue": {
+                    "type": "string"
+                },
+                "oldValue": {
+                    "type": "string"
+                }
+            }
+        },
+        "rugcheck_api.TokenHolder": {
+            "type": "object",
+            "properties": {
+                "address": {
+                    "type": "string"
+                },
+                "amount": {
+                    "type": "integer",
+                    "format": "int64"
+                },
+                "decimals": {
+                    "type": "integer"
+                },
+                "insider": {
+                    "type": "boolean"
+                },
+                "owner": {
+                    "type": "string"
+                },
+                "pct": {
+                    "type": "number",
+                    "format": "double"
+                },
+                "uiAmount": {
+                    "type": "number",
+                    "format": "double"
+                },
+                "uiAmountString": {
+                    "type": "string"
+                }
+            }
+        },
+        "rugcheck_api.TokenMetadata": {
+            "type": "object",
+            "properties": {
+                "mutable": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "symbol": {
+                    "type": "string"
+                },
+                "updateAuthority": {
+                    "type": "string"
+                },
+                "uri": {
+                    "type": "string"
+                }
+            }
+        },
+        "rugcheck_api.Transfer": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "type": "integer"
+                },
+                "mint": {
+                    "type": "string"
+                },
+                "receiver": {
+                    "$ref": "#/definitions/rugcheck_api.Receiver"
+                }
+            }
+        },
+        "rugcheck_api.VerifiedToken": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "jup_verified": {
+                    "type": "boolean"
+                },
+                "links": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/rugcheck_api.VerifiedTokenLinks"
+                    }
+                },
+                "mint": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "payer": {
+                    "type": "string"
+                },
+                "symbol": {
+                    "type": "string"
+                }
+            }
+        },
+        "rugcheck_api.VerifiedTokenLinks": {
+            "type": "object",
+            "properties": {
+                "provider": {
+                    "type": "string"
+                },
+                "value": {
+                    "type": "string"
+                }
+            }
+        }
+    }
+}

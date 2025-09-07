@@ -6,6 +6,7 @@
 
 use crate::{client::WebClient, error::WebToolError};
 use chrono::{DateTime, Utc};
+use riglr_core::provider::ApplicationContext;
 use riglr_macros::tool;
 use schemars::JsonSchema;
 
@@ -457,31 +458,22 @@ fn convert_raw_trend_point(raw: &api_types::TrendPointRaw) -> HolderTrendPoint {
 /// # Returns
 /// A configured WebClient instance for Faster100x API calls
 ///
+/// Helper function to get Faster100x API key from ApplicationContext
+fn get_api_key_from_context(context: &ApplicationContext) -> Result<String, WebToolError> {
+    context.config.providers.faster100x_api_key
+        .clone()
+        .ok_or_else(|| WebToolError::Config(
+            "Faster100x API key not configured. Set FASTER100X_API_KEY in your environment.".to_string()
+        ))
+}
+
 /// # Errors
-/// Returns WebToolError::Config if the FASTER100X_API_KEY is not found in context or environment
+/// Returns WebToolError::Config if the FASTER100X_API_KEY is not found in context
 async fn create_faster100x_client_with_context(
-    context: &riglr_core::provider::ApplicationContext,
+    context: &ApplicationContext,
 ) -> Result<WebClient, WebToolError> {
-    // Try to get API key from ApplicationContext extensions first, fall back to env var
-    let api_key = context
-        .get_extension::<String>()
-        .and_then(|s| {
-            if s.contains("faster100x") {
-                Some(s.as_ref().clone())
-            } else {
-                None
-            }
-        })
-        .unwrap_or_else(|| std::env::var(FASTER100X_API_KEY).unwrap_or_else(|_| String::default()));
-
-    if api_key.is_empty() {
-        return Err(WebToolError::Config(
-            "FASTER100X_API_KEY not found in context or environment".to_string(),
-        ));
-    }
-
+    let api_key = get_api_key_from_context(context)?;
     let client = WebClient::default().with_api_key("faster100x", api_key);
-
     Ok(client)
 }
 
@@ -551,7 +543,7 @@ fn normalize_token_address(address: &str) -> Result<String, WebToolError> {
 /// # Returns
 /// Detailed holder analysis including distribution metrics and risk assessment
 pub async fn analyze_token_holders(
-    context: &riglr_core::provider::ApplicationContext,
+    context: &ApplicationContext,
     token_address: String,
     chain: Option<String>,
 ) -> Result<TokenHolderAnalysis, WebToolError> {
@@ -677,7 +669,7 @@ pub async fn analyze_token_holders(
 /// # Returns
 /// Whale activity analysis with transaction details and flow metrics
 pub async fn get_whale_activity(
-    context: &riglr_core::provider::ApplicationContext,
+    context: &ApplicationContext,
     token_address: String,
     timeframe: Option<String>,
     min_usd_value: Option<f64>,
@@ -765,7 +757,7 @@ pub async fn get_whale_activity(
 /// # Returns
 /// Time series analysis of holder trends with insights and correlations
 pub async fn get_holder_trends(
-    context: &riglr_core::provider::ApplicationContext,
+    context: &ApplicationContext,
     token_address: String,
     period: Option<String>,
     data_points: Option<u32>,

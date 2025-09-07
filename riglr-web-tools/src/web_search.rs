@@ -275,7 +275,22 @@ pub struct SimilarityMetadata {
 impl Default for WebSearchConfig {
     fn default() -> Self {
         Self {
-            exa_api_key: std::env::var(EXA_API_KEY).unwrap_or_else(|_| String::default()),
+            exa_api_key: String::default(),
+            exa_base_url: "https://api.exa.ai".to_string(),
+            max_results: 20,
+            timeout_seconds: 30,
+            include_content: true,
+            content_limit: 5000,
+        }
+    }
+}
+
+impl WebSearchConfig {
+    /// Create WebSearchConfig from ApplicationContext
+    #[allow(dead_code)]
+    fn from_context(context: &riglr_core::provider::ApplicationContext) -> Self {
+        Self {
+            exa_api_key: context.config.providers.exa_api_key.clone().unwrap_or_else(String::default),
             exa_base_url: "https://api.exa.ai".to_string(),
             max_results: 20,
             timeout_seconds: 30,
@@ -301,29 +316,17 @@ pub async fn search_web_with_context(
         max_results.unwrap_or(20)
     );
 
-    // Try to get EXA_API_KEY from ApplicationContext extensions first, fall back to env var
-    let exa_api_key = app_context
-        .get_extension::<String>()
-        .and_then(|s| {
-            if s.starts_with("exa_") {
-                Some(s.as_ref().clone())
-            } else {
-                None
-            }
-        })
-        .unwrap_or_else(|| std::env::var(EXA_API_KEY).unwrap_or_else(|_| String::default()));
-
-    if exa_api_key.is_empty() {
-        return Err(WebToolError::Config(
-            "EXA_API_KEY not found in context or environment".to_string(),
-        ));
-    }
+    // Get EXA_API_KEY from ApplicationContext
+    let exa_api_key = app_context.config.providers.exa_api_key.clone()
+        .ok_or_else(|| WebToolError::Config(
+            "EXA_API_KEY not configured. Set EXA_API_KEY in your environment.".to_string(),
+        ))?;
 
     let config = WebSearchConfig::default();
     let client = WebClient::default().with_exa_key(exa_api_key.clone());
 
     // Build search parameters
-    let mut params = HashMap::new();
+    let mut params = HashMap::default();
     params.insert("query".to_string(), query.clone());
     params.insert(
         "num_results".to_string(),
@@ -349,7 +352,7 @@ pub async fn search_web_with_context(
 
     // Make API request to Exa with API key header
     let url = format!("{}/search", config.exa_base_url);
-    let mut headers = HashMap::new();
+    let mut headers = HashMap::default();
     headers.insert("x-api-key".to_string(), exa_api_key.clone());
     headers.insert("accept".to_string(), "application/json".to_string());
     let response = client
@@ -440,28 +443,16 @@ pub async fn find_similar_pages(
 ) -> crate::error::Result<SimilarPagesResult> {
     debug!("Finding pages similar to: {}", source_url);
 
-    // Try to get EXA_API_KEY from ApplicationContext extensions first, fall back to env var
-    let exa_api_key = context
-        .get_extension::<String>()
-        .and_then(|s| {
-            if s.starts_with("exa_") {
-                Some(s.as_ref().clone())
-            } else {
-                None
-            }
-        })
-        .unwrap_or_else(|| std::env::var(EXA_API_KEY).unwrap_or_else(|_| String::default()));
-
-    if exa_api_key.is_empty() {
-        return Err(WebToolError::Config(
-            "EXA_API_KEY not found in context or environment".to_string(),
-        ));
-    }
+    // Get EXA_API_KEY from ApplicationContext
+    let exa_api_key = context.config.providers.exa_api_key.clone()
+        .ok_or_else(|| WebToolError::Config(
+            "EXA_API_KEY not configured. Set EXA_API_KEY in your environment.".to_string(),
+        ))?;
 
     let client = WebClient::default().with_exa_key(exa_api_key.clone());
 
     // Build similarity search parameters
-    let mut params = HashMap::new();
+    let mut params = HashMap::default();
     params.insert("url".to_string(), source_url.clone());
     params.insert(
         "num_results".to_string(),
@@ -479,7 +470,7 @@ pub async fn find_similar_pages(
     // Make API request with API key header
     let config = WebSearchConfig::default();
     let url = format!("{}/find_similar", config.exa_base_url);
-    let mut headers = HashMap::new();
+    let mut headers = HashMap::default();
     headers.insert("x-api-key".to_string(), exa_api_key.clone());
     headers.insert("accept".to_string(), "application/json".to_string());
     let response = client
@@ -590,28 +581,16 @@ pub async fn search_recent_news(
         time_window.as_deref().unwrap_or("week")
     );
 
-    // Try to get EXA_API_KEY from ApplicationContext extensions first, fall back to env var
-    let exa_api_key = context
-        .get_extension::<String>()
-        .and_then(|s| {
-            if s.starts_with("exa_") {
-                Some(s.as_ref().clone())
-            } else {
-                None
-            }
-        })
-        .unwrap_or_else(|| std::env::var(EXA_API_KEY).unwrap_or_else(|_| String::default()));
-
-    if exa_api_key.is_empty() {
-        return Err(WebToolError::Config(
-            "EXA_API_KEY not found in context or environment".to_string(),
-        ));
-    }
+    // Get EXA_API_KEY from ApplicationContext
+    let exa_api_key = context.config.providers.exa_api_key.clone()
+        .ok_or_else(|| WebToolError::Config(
+            "EXA_API_KEY not configured. Set EXA_API_KEY in your environment.".to_string(),
+        ))?;
 
     let client = WebClient::default().with_exa_key(exa_api_key.clone());
 
     // Build news-specific search parameters
-    let mut params = HashMap::new();
+    let mut params = HashMap::default();
     params.insert("query".to_string(), topic.clone());
     params.insert("search_type".to_string(), "news".to_string());
     params.insert(
@@ -636,7 +615,7 @@ pub async fn search_recent_news(
 
     let config = WebSearchConfig::default();
     let url = format!("{}/search", config.exa_base_url);
-    let mut headers = HashMap::new();
+    let mut headers = HashMap::default();
     headers.insert("x-api-key".to_string(), exa_api_key.clone());
     headers.insert("accept".to_string(), "application/json".to_string());
     let response = client
@@ -669,10 +648,10 @@ pub async fn search_recent_news(
     } else {
         SearchInsights {
             common_topics: vec![],
-            date_distribution: HashMap::new(),
-            content_types: HashMap::new(),
+            date_distribution: HashMap::default(),
+            content_types: HashMap::default(),
             avg_quality_score: None,
-            languages: HashMap::new(),
+            languages: HashMap::default(),
             sentiment: None,
         }
     };
@@ -1080,7 +1059,7 @@ fn rank_sentences(
     topics: &std::collections::HashSet<String>,
     headings: &[String],
 ) -> Vec<(String, f64)> {
-    let mut tf: HashMap<String, f64> = HashMap::new();
+    let mut tf: HashMap<String, f64> = HashMap::default();
     for w in full_text.split(|c: char| !c.is_alphanumeric()) {
         let w = w.to_lowercase();
         if w.len() < 3 {
@@ -1176,9 +1155,9 @@ fn select_diverse(scored: &[(String, f64)], k: usize, max_sim: f64) -> Vec<Strin
 
 /// Analyze search results to extract insights
 async fn analyze_search_results(results: &[SearchResult]) -> crate::error::Result<SearchInsights> {
-    let mut content_types = HashMap::new();
-    let mut languages = HashMap::new();
-    let mut date_distribution = HashMap::new();
+    let mut content_types = HashMap::default();
+    let mut languages = HashMap::default();
+    let mut date_distribution = HashMap::default();
     let mut topics = Vec::new();
 
     for result in results {
@@ -1276,7 +1255,7 @@ async fn generate_related_queries(query: &str) -> crate::error::Result<Vec<Strin
 
 /// Extract top domains from search results
 fn extract_top_domains(results: &[SearchResult]) -> Vec<String> {
-    let mut domain_counts: HashMap<String, u32> = HashMap::new();
+    let mut domain_counts: HashMap<String, u32> = HashMap::default();
 
     for result in results {
         *domain_counts.entry(result.domain.name.clone()).or_insert(0) += 1;
@@ -1314,7 +1293,7 @@ fn extract_topics_from_text(text: &str) -> Vec<String> {
         "over", "more", "than", "when", "what", "how", "why", "where", "then", "them", "they",
         "their", "its", "it's", "as", "of", "in", "on", "to", "by", "at", "or", "an", "be",
     ];
-    let mut counts: HashMap<String, u32> = HashMap::new();
+    let mut counts: HashMap<String, u32> = HashMap::default();
     for w in text.split(|c: char| !c.is_alphanumeric()) {
         let w = w.to_lowercase();
         if w.len() < 4 {

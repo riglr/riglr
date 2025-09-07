@@ -51,6 +51,10 @@
 //! - [`news`] - Cryptocurrency news aggregation
 //! - [`lunarcrush`] - LunarCrush social analytics and sentiment tracking
 //! - [`faster100x`] - Token holder analysis and whale activity tracking
+//! - [`rugcheck`] - Solana token security analysis and rug pull detection
+//! - [`trenchbot`] - Solana token bundle analysis and sniper detection
+//! - [`pocketuniverse`] - Solana token rug pull detection based on wallet history
+//! - [`tweetscout`] - Twitter/X account credibility scoring and social network analysis
 
 pub mod client;
 pub mod dexscreener;
@@ -59,7 +63,11 @@ pub mod error;
 pub mod faster100x;
 pub mod lunarcrush;
 pub mod news;
+pub mod pocketuniverse;
 pub mod price;
+pub mod rugcheck;
+pub mod trenchbot;
+pub mod tweetscout;
 pub mod twitter;
 pub mod web_search;
 
@@ -73,7 +81,7 @@ pub use dexscreener::{
 // From news
 pub use news::{
     analyze_market_sentiment, get_crypto_news, get_trending_news, monitor_breaking_news,
-    NewsAggregationResult, NewsArticle, NewsSource,
+    LexiconSentimentAnalyzer, NewsAggregationResult, NewsArticle, NewsSource, SentimentAnalyzer,
 };
 
 // From twitter
@@ -102,6 +110,31 @@ pub use faster100x::{
 
 // From price
 pub use price::{get_token_price, get_token_prices_batch, TokenPriceResult};
+
+// From rugcheck
+pub use rugcheck::{
+    analyze_token_risks, check_if_rugged, get_token_report, RiskAnalysis, RiskLevel,
+    RugCheckResult, TokenCheck, TokenHolder as RugCheckTokenHolder,
+};
+
+// From trenchbot
+pub use trenchbot::{
+    analyze_creator_risk, analyze_token_bundles, check_bundle_risk, get_bundle_info,
+    BundleAnalysisResult, BundleResponse, BundleRiskCheck, CreatorAnalysisResult,
+};
+
+// From pocketuniverse
+pub use pocketuniverse::{
+    analyze_rug_risk, check_rug_pull, check_rug_pull_raw, is_token_safe, DetailedRugAnalysis,
+    RugApiResponse, RugCheckResult as PocketUniverseRugCheck, SafetyCheck,
+};
+
+// From tweetscout
+pub use tweetscout::{
+    analyze_account, analyze_social_network, get_account_info, get_account_score,
+    get_top_followers, get_top_friends, is_account_credible, AccountAnalysis, AccountInfo,
+    CredibilityCheck, SocialNetworkAnalysis,
+};
 
 // Re-export client and error types
 pub use client::WebClient;
@@ -268,14 +301,64 @@ mod tests {
     }
 
     #[test]
+    fn test_rugcheck_re_exports_are_accessible() {
+        // Test rugcheck re-exports
+        use crate::{RiskAnalysis, RiskLevel, RugCheckResult, RugCheckTokenHolder, TokenCheck};
+
+        let _risk_analysis_type = std::marker::PhantomData::<RiskAnalysis>;
+        let _risk_level_type = std::marker::PhantomData::<RiskLevel>;
+        let _rugcheck_result_type = std::marker::PhantomData::<RugCheckResult>;
+        let _token_check_type = std::marker::PhantomData::<TokenCheck>;
+        let _rugcheck_token_holder_type = std::marker::PhantomData::<RugCheckTokenHolder>;
+    }
+
+    #[test]
+    fn test_trenchbot_re_exports_are_accessible() {
+        // Test trenchbot re-exports
+        use crate::{BundleAnalysisResult, BundleResponse, BundleRiskCheck, CreatorAnalysisResult};
+
+        let _bundle_analysis_result_type = std::marker::PhantomData::<BundleAnalysisResult>;
+        let _bundle_response_type = std::marker::PhantomData::<BundleResponse>;
+        let _bundle_risk_check_type = std::marker::PhantomData::<BundleRiskCheck>;
+        let _creator_analysis_result_type = std::marker::PhantomData::<CreatorAnalysisResult>;
+    }
+
+    #[test]
+    fn test_pocketuniverse_re_exports_are_accessible() {
+        // Test pocketuniverse re-exports
+        use crate::{DetailedRugAnalysis, PocketUniverseRugCheck, RugApiResponse, SafetyCheck};
+
+        let _detailed_rug_analysis_type = std::marker::PhantomData::<DetailedRugAnalysis>;
+        let _pocket_universe_rug_check_type = std::marker::PhantomData::<PocketUniverseRugCheck>;
+        let _rug_api_response_type = std::marker::PhantomData::<RugApiResponse>;
+        let _safety_check_type = std::marker::PhantomData::<SafetyCheck>;
+    }
+
+    #[test]
+    fn test_tweetscout_re_exports_are_accessible() {
+        // Test tweetscout re-exports
+        use crate::{AccountAnalysis, AccountInfo, CredibilityCheck, SocialNetworkAnalysis};
+
+        let _account_analysis_type = std::marker::PhantomData::<AccountAnalysis>;
+        let _account_info_type = std::marker::PhantomData::<AccountInfo>;
+        let _credibility_check_type = std::marker::PhantomData::<CredibilityCheck>;
+        let _social_network_analysis_type = std::marker::PhantomData::<SocialNetworkAnalysis>;
+    }
+
+    #[test]
     fn test_all_function_re_exports_are_accessible() {
         // Test that function re-exports are accessible (compile-time check)
         use crate::{
-            analyze_crypto_sentiment, analyze_market_sentiment, analyze_token_holders,
-            analyze_token_market, find_similar_pages, get_crypto_news, get_holder_trends,
-            get_influencer_mentions, get_social_sentiment, get_token_info, get_token_price,
-            get_token_prices_batch, get_top_pairs, get_trending_cryptos, get_trending_news,
-            get_trending_tokens, get_user_tweets, get_whale_activity, monitor_breaking_news,
+            analyze_account, analyze_creator_risk, analyze_crypto_sentiment,
+            analyze_market_sentiment, analyze_rug_risk, analyze_social_network,
+            analyze_token_bundles, analyze_token_holders, analyze_token_market,
+            analyze_token_risks, check_bundle_risk, check_if_rugged, check_rug_pull,
+            check_rug_pull_raw, find_similar_pages, get_account_info, get_account_score,
+            get_bundle_info, get_crypto_news, get_holder_trends, get_influencer_mentions,
+            get_social_sentiment, get_token_info, get_token_price, get_token_prices_batch,
+            get_token_report, get_top_followers, get_top_friends, get_top_pairs,
+            get_trending_cryptos, get_trending_news, get_trending_tokens, get_user_tweets,
+            get_whale_activity, is_account_credible, is_token_safe, monitor_breaking_news,
             search_recent_news, search_tokens, search_tweets, search_web, summarize_web_content,
         };
 
@@ -311,6 +394,28 @@ mod tests {
 
         let _get_token_price = get_token_price;
         let _get_token_prices_batch = get_token_prices_batch;
+
+        let _analyze_token_risks = analyze_token_risks;
+        let _check_if_rugged = check_if_rugged;
+        let _get_token_report = get_token_report;
+
+        let _analyze_creator_risk = analyze_creator_risk;
+        let _analyze_token_bundles = analyze_token_bundles;
+        let _check_bundle_risk = check_bundle_risk;
+        let _get_bundle_info = get_bundle_info;
+
+        let _analyze_rug_risk = analyze_rug_risk;
+        let _check_rug_pull = check_rug_pull;
+        let _check_rug_pull_raw = check_rug_pull_raw;
+        let _is_token_safe = is_token_safe;
+
+        let _analyze_account = analyze_account;
+        let _analyze_social_network = analyze_social_network;
+        let _get_account_info = get_account_info;
+        let _get_account_score = get_account_score;
+        let _get_top_followers = get_top_followers;
+        let _get_top_friends = get_top_friends;
+        let _is_account_credible = is_account_credible;
     }
 
     #[test]
@@ -333,7 +438,11 @@ mod tests {
         let _faster100x_mod = crate::faster100x::analyze_token_holders;
         let _lunarcrush_mod = crate::lunarcrush::get_social_sentiment;
         let _news_mod = crate::news::get_crypto_news;
+        let _pocketuniverse_mod = crate::pocketuniverse::check_rug_pull;
         let _price_mod = crate::price::get_token_price;
+        let _rugcheck_mod = crate::rugcheck::get_token_report;
+        let _trenchbot_mod = crate::trenchbot::get_bundle_info;
+        let _tweetscout_mod = crate::tweetscout::get_account_info;
         let _twitter_mod = crate::twitter::search_tweets;
         let _web_search_mod = crate::web_search::search_web;
     }

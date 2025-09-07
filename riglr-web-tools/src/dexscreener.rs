@@ -316,7 +316,7 @@ pub struct SearchMetadata {
 impl Default for DexScreenerConfig {
     fn default() -> Self {
         Self {
-            base_url: "https://api.dexscreener.com/latest".to_string(),
+            base_url: "https://api.dexscreener.com".to_string(),
             rate_limit_per_minute: 300,
             request_timeout: 30,
         }
@@ -344,14 +344,14 @@ pub async fn get_token_info(
     let config = DexScreenerConfig::default();
     let client = WebClient::default();
 
-    // Build API endpoint
+    // Build API endpoint using new v1 endpoint with chainId
     let chain = chain_id.unwrap_or_else(|| "ethereum".to_string());
     let url = if include_pairs.unwrap_or(true) {
-        format!("{}/dex/tokens/{}", config.base_url, token_address)
+        format!("{}/tokens/v1/{}/{}", config.base_url, chain, token_address)
     } else {
         format!(
-            "{}/dex/tokens/{}?fields=basic",
-            config.base_url, token_address
+            "{}/tokens/v1/{}/{}?fields=basic",
+            config.base_url, chain, token_address
         )
     };
 
@@ -634,6 +634,113 @@ pub async fn get_top_pairs(
     info!("Retrieved {} top trading pairs", pairs.len());
 
     Ok(pairs)
+}
+
+/// Get latest token profiles from DexScreener
+///
+/// This tool retrieves the latest token profiles with social links
+/// and metadata from the DexScreener platform.
+#[tool]
+pub async fn get_latest_token_profiles(
+    _context: &riglr_core::provider::ApplicationContext,
+    limit: Option<u32>,
+) -> crate::error::Result<Vec<crate::dexscreener_api::TokenProfile>> {
+    debug!("Fetching latest token profiles");
+
+    let profiles = crate::dexscreener_api::get_latest_token_profiles()
+        .await
+        .map_err(|e| WebToolError::Api(format!("Failed to fetch token profiles: {}", e)))?;
+
+    let limited_profiles = if let Some(limit) = limit {
+        profiles.into_iter().take(limit as usize).collect()
+    } else {
+        profiles
+    };
+
+    info!("Retrieved {} token profiles", limited_profiles.len());
+
+    Ok(limited_profiles)
+}
+
+/// Get latest boosted tokens from DexScreener
+///
+/// This tool retrieves tokens that have been recently boosted
+/// on the DexScreener platform.
+#[tool]
+pub async fn get_latest_boosted_tokens(
+    _context: &riglr_core::provider::ApplicationContext,
+    limit: Option<u32>,
+) -> crate::error::Result<Vec<crate::dexscreener_api::BoostsResponse>> {
+    debug!("Fetching latest boosted tokens");
+
+    let boosts = crate::dexscreener_api::get_latest_token_boosts()
+        .await
+        .map_err(|e| WebToolError::Api(format!("Failed to fetch latest boosts: {}", e)))?;
+
+    let limited_boosts = if let Some(limit) = limit {
+        boosts.into_iter().take(limit as usize).collect()
+    } else {
+        boosts
+    };
+
+    info!("Retrieved {} boosted tokens", limited_boosts.len());
+
+    Ok(limited_boosts)
+}
+
+/// Get top boosted tokens from DexScreener
+///
+/// This tool retrieves tokens with the most active boosts
+/// on the DexScreener platform.
+#[tool]
+pub async fn get_top_boosted_tokens(
+    _context: &riglr_core::provider::ApplicationContext,
+    limit: Option<u32>,
+) -> crate::error::Result<Vec<crate::dexscreener_api::BoostsResponse>> {
+    debug!("Fetching top boosted tokens");
+
+    let boosts = crate::dexscreener_api::get_top_token_boosts()
+        .await
+        .map_err(|e| WebToolError::Api(format!("Failed to fetch top boosts: {}", e)))?;
+
+    let limited_boosts = if let Some(limit) = limit {
+        boosts.into_iter().take(limit as usize).collect()
+    } else {
+        boosts
+    };
+
+    info!("Retrieved {} top boosted tokens", limited_boosts.len());
+
+    Ok(limited_boosts)
+}
+
+/// Check orders for a specific token
+///
+/// This tool retrieves paid orders for a token including
+/// token profiles, community takeovers, and ads.
+#[tool]
+pub async fn check_token_orders(
+    _context: &riglr_core::provider::ApplicationContext,
+    chain_id: String,
+    token_address: String,
+) -> crate::error::Result<Vec<crate::dexscreener_api::Order>> {
+    debug!(
+        "Checking orders for token {} on chain {}",
+        token_address, chain_id
+    );
+
+    let orders = crate::dexscreener_api::get_token_orders(&chain_id, &token_address)
+        .await
+        .map_err(|e| WebToolError::Api(format!("Failed to fetch token orders: {}", e)))?;
+
+    info!(
+        "Retrieved {} orders for token {} on {}",
+        orders.len(),
+        token_address,
+        chain_id
+    );
+
+    Ok(orders)
 }
 
 async fn parse_token_response(
@@ -1097,7 +1204,7 @@ mod tests {
     #[test]
     fn test_dexscreener_config_default() {
         let config = DexScreenerConfig::default();
-        assert_eq!(config.base_url, "https://api.dexscreener.com/latest");
+        assert_eq!(config.base_url, "https://api.dexscreener.com");
         assert_eq!(config.rate_limit_per_minute, 300);
     }
 
@@ -1644,26 +1751,28 @@ mod tests {
     // Helper functions for parse_token_response tests
     fn create_valid_dexscreener_response() -> String {
         r#"{
+            "schemaVersion": "1.0.0",
             "pairs": [{
-                "base_token": {
+                "chainId": "ethereum",
+                "baseToken": {
                     "address": "0x123",
                     "name": "Test Token",
                     "symbol": "TEST"
                 },
-                "quote_token": {
+                "quoteToken": {
                     "address": "0x456",
                     "name": "USD Coin",
                     "symbol": "USDC"
                 },
-                "pair_address": "0xabc",
-                "dex_id": "uniswap",
+                "pairAddress": "0xabc",
+                "dexId": "uniswap",
                 "url": "https://example.com",
-                "price_usd": "1.5",
-                "price_native": "1.5",
-                "market_cap": 1000000.0,
+                "priceUsd": "1.5",
+                "priceNative": "1.5",
+                "marketCap": 1000000.0,
                 "liquidity": {"usd": 500000.0},
                 "volume": {"h24": 50000.0},
-                "price_change": {"h24": 5.0, "h1": 1.0, "m5": 0.5},
+                "priceChange": {"h24": 5.0, "h1": 1.0, "m5": 0.5},
                 "fdv": 2000000.0
             }]
         }"#
@@ -1672,46 +1781,49 @@ mod tests {
 
     fn create_dexscreener_response_with_multiple_pairs() -> String {
         r#"{
+            "schemaVersion": "1.0.0",
             "pairs": [{
-                "base_token": {
+                "chainId": "ethereum",
+                "baseToken": {
                     "address": "0x123",
                     "name": "Test Token",
                     "symbol": "TEST"
                 },
-                "quote_token": {
+                "quoteToken": {
                     "address": "0x456",
                     "name": "USD Coin",
                     "symbol": "USDC"
                 },
-                "pair_address": "0xabc",
-                "dex_id": "uniswap",
+                "pairAddress": "0xabc",
+                "dexId": "uniswap",
                 "url": "https://example.com",
-                "price_usd": "1.0",
-                "price_native": "1.0",
-                "market_cap": 1000000.0,
+                "priceUsd": "1.0",
+                "priceNative": "1.0",
+                "marketCap": 1000000.0,
                 "liquidity": {"usd": 300000.0},
                 "volume": {"h24": 30000.0},
-                "price_change": {"h24": 3.0}
+                "priceChange": {"h24": 3.0}
             }, {
-                "base_token": {
+                "chainId": "ethereum",
+                "baseToken": {
                     "address": "0x123",
                     "name": "Test Token",
                     "symbol": "TEST"
                 },
-                "quote_token": {
+                "quoteToken": {
                     "address": "0x789",
                     "name": "Ethereum",
                     "symbol": "ETH"
                 },
-                "pair_address": "0xdef",
-                "dex_id": "sushiswap",
+                "pairAddress": "0xdef",
+                "dexId": "sushiswap",
                 "url": "https://sushi.example.com",
-                "price_usd": "2.0",
-                "price_native": "2.0",
-                "market_cap": 1500000.0,
+                "priceUsd": "2.0",
+                "priceNative": "2.0",
+                "marketCap": 1500000.0,
                 "liquidity": {"usd": 800000.0},
                 "volume": {"h24": 80000.0},
-                "price_change": {"h24": 8.0}
+                "priceChange": {"h24": 8.0}
             }]
         }"#
         .to_string()
@@ -1719,22 +1831,24 @@ mod tests {
 
     fn create_dexscreener_response_without_liquidity() -> String {
         r#"{
+            "schemaVersion": "1.0.0",
             "pairs": [{
-                "base_token": {
+                "chainId": "ethereum",
+                "baseToken": {
                     "address": "0x123",
                     "name": "Test Token",
                     "symbol": "TEST"
                 },
-                "quote_token": {
+                "quoteToken": {
                     "address": "0x456",
                     "name": "USD Coin",
                     "symbol": "USDC"
                 },
-                "pair_address": "0xabc",
-                "dex_id": "uniswap",
+                "pairAddress": "0xabc",
+                "dexId": "uniswap",
                 "url": "https://example.com",
-                "price_usd": "1.5",
-                "price_native": "1.5"
+                "priceUsd": "1.5",
+                "priceNative": "1.5"
             }]
         }"#
         .to_string()
@@ -1742,22 +1856,24 @@ mod tests {
 
     fn create_dexscreener_response_with_transaction_data() -> String {
         r#"{
+            "schemaVersion": "1.0.0",
             "pairs": [{
-                "base_token": {
+                "chainId": "ethereum",
+                "baseToken": {
                     "address": "0x123",
                     "name": "Test Token",
                     "symbol": "TEST"
                 },
-                "quote_token": {
+                "quoteToken": {
                     "address": "0x456",
                     "name": "USD Coin",
                     "symbol": "USDC"
                 },
-                "pair_address": "0xabc",
-                "dex_id": "uniswap",
+                "pairAddress": "0xabc",
+                "dexId": "uniswap",
                 "url": "https://example.com",
-                "price_usd": "1.5",
-                "price_native": "1.5",
+                "priceUsd": "1.5",
+                "priceNative": "1.5",
                 "volume": {"h24": 60000.0},
                 "txns": {
                     "h24": {
@@ -1772,22 +1888,24 @@ mod tests {
 
     fn create_dexscreener_response_with_invalid_price() -> String {
         r#"{
+            "schemaVersion": "1.0.0",
             "pairs": [{
-                "base_token": {
+                "chainId": "ethereum",
+                "baseToken": {
                     "address": "0x123",
                     "name": "Test Token",
                     "symbol": "TEST"
                 },
-                "quote_token": {
+                "quoteToken": {
                     "address": "0x456",
                     "name": "USD Coin",
                     "symbol": "USDC"
                 },
-                "pair_address": "0xabc",
-                "dex_id": "uniswap",
+                "pairAddress": "0xabc",
+                "dexId": "uniswap",
                 "url": "https://example.com",
-                "price_usd": "invalid_price",
-                "price_native": "invalid_price"
+                "priceUsd": "invalid_price",
+                "priceNative": "invalid_price"
             }]
         }"#
         .to_string()

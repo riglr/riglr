@@ -54,7 +54,8 @@ riglr-web-tools = "0.1.0"
 
 ### Setting up API Keys
 
-Configure your environment variables:
+All API keys are now centrally managed through the `ApplicationContext` provided by `riglr-core`. 
+Set the following environment variables, and they will be automatically loaded into the configuration:
 
 ```bash
 # Twitter/X API access
@@ -62,6 +63,16 @@ export TWITTER_BEARER_TOKEN=your_twitter_bearer_token
 
 # Exa web search API
 export EXA_API_KEY=your_exa_api_key
+
+# Security analysis tools
+export POCKET_UNIVERSE_API_KEY=your_pocket_universe_key
+export TWEETSCOUT_API_KEY=your_tweetscout_key
+export RUGCHECK_API_KEY=your_rugcheck_key
+export TRENCHBOT_API_KEY=your_trenchbot_key
+
+# Market analytics
+export FASTER100X_API_KEY=your_faster100x_key
+export LUNARCRUSH_API_KEY=your_lunarcrush_key
 
 # Optional: DexScreener (no auth required by default)
 export DEXSCREENER_BASE_URL=https://api.dexscreener.com/latest
@@ -71,15 +82,22 @@ export NEWS_API_URL=https://api.yournewsprovider.com
 export NEWS_API_KEY=your_news_api_key
 ```
 
+**Note**: API keys are no longer passed as function parameters. They are automatically retrieved from the `ApplicationContext`.
+
 ### Basic Usage
 
 ```rust
+use riglr_core::provider::ApplicationContext;
 use riglr_web_tools::{search_tweets, get_token_info, search_web};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    // Create ApplicationContext (loads API keys from environment)
+    let context = ApplicationContext::default();
+    
     // Search Twitter for crypto sentiment
     let tweets = search_tweets(
+        &context,
         "$SOL OR Solana".to_string(),
         Some(100),        // Max results
         Some(true),       // Include sentiment analysis
@@ -92,6 +110,7 @@ async fn main() -> anyhow::Result<()> {
     
     // Get token information from DexScreener
     let token = get_token_info(
+        &context,
         "So11111111111111111111111111111111111112".to_string(), // SOL address
         Some("solana".to_string()), // Chain ID
         None,  // Include pairs (defaults to true)
@@ -102,6 +121,7 @@ async fn main() -> anyhow::Result<()> {
     
     // Search the web for market analysis
     let search_results = search_web(
+        &context,
         "Solana ecosystem growth 2024".to_string(),
         Some(10),         // Max results
         Some(true),       // Include content
@@ -126,6 +146,7 @@ Search for tweets with advanced filtering and sentiment analysis.
 
 ```rust
 let result = search_tweets(
+    &context,
     "Bitcoin halving".to_string(),
     Some(200),              // Max results
     Some(true),             // Include sentiment
@@ -143,6 +164,7 @@ Fetch recent tweets from a specific user.
 
 ```rust
 let tweets = get_user_tweets(
+    &context,
     "VitalikButerin".to_string(),
     Some(50),    // Max results
     Some(false), // Exclude replies
@@ -156,6 +178,7 @@ Comprehensive sentiment analysis for cryptocurrency tokens.
 
 ```rust
 let sentiment = analyze_crypto_sentiment(
+    &context,
     "ETH".to_string(),
     Some(24),   // Time window in hours
     Some(100),  // Minimum engagement threshold

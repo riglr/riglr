@@ -4,17 +4,272 @@
 //! and market impact assessment for AI agents to stay informed about market developments.
 
 use crate::{client::WebClient, error::WebToolError};
+use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use regex::Regex;
+use riglr_core::provider::ApplicationContext;
+use riglr_core::sentiment::SentimentAnalyzerMarker;
 use riglr_macros::tool;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
+use std::sync::Arc;
 use tracing::{debug, info, warn};
 
-const NEWSAPI_KEY: &str = "NEWSAPI_KEY";
-const CRYPTOPANIC_KEY: &str = "CRYPTOPANIC_KEY";
+
+/// Trait for pluggable sentiment analysis
+#[async_trait]
+pub trait SentimentAnalyzer: Send + Sync {
+    /// Analyze sentiment from text components
+    async fn analyze(
+        &self,
+        title: &str,
+        description: Option<&str>,
+        content: Option<&str>,
+    ) -> Result<NewsSentiment, WebToolError>;
+}
+
+/// Default lexicon-based sentiment analyzer
+pub struct LexiconSentimentAnalyzer {
+    /// Positive words with their weights
+    positive_words: Vec<(&'static str, f64)>,
+    /// Negative words with their weights
+    negative_words: Vec<(&'static str, f64)>,
+}
+
+impl Default for LexiconSentimentAnalyzer {
+    fn default() -> Self {
+        Self {
+            positive_words: vec![
+                ("bullish", 0.8),
+                ("surge", 0.7),
+                ("rally", 0.7),
+                ("breakthrough", 0.8),
+                ("adoption", 0.6),
+                ("partnership", 0.6),
+                ("growth", 0.5),
+                ("success", 0.6),
+                ("innovative", 0.5),
+                ("leading", 0.4),
+                ("strong", 0.5),
+                ("positive", 0.5),
+                ("gains", 0.6),
+                ("rise", 0.5),
+                ("increase", 0.4),
+                ("improve", 0.5),
+                ("upgrade", 0.6),
+                ("expand", 0.5),
+                ("launch", 0.4),
+                ("milestone", 0.6),
+            ],
+            negative_words: vec![
+                ("bearish", -0.8),
+                ("crash", -0.9),
+                ("plunge", -0.8),
+                ("collapse", -0.9),
+                ("hack", -0.9),
+                ("exploit", -0.9),
+                ("scam", -0.9),
+                ("fraud", -0.9),
+                ("decline", -0.6),
+                ("fall", -0.5),
+                ("drop", -0.5),
+                ("loss", -0.6),
+                ("failure", -0.7),
+                ("risk", -0.4),
+                ("concern", -0.4),
+                ("warning", -0.5),
+                ("threat", -0.6),
+                ("vulnerable", -0.6),
+                ("weak", -0.5),
+                ("crisis", -0.8),
+                ("panic", -0.7),
+                ("fear", -0.6),
+                ("uncertainty", -0.5),
+                ("volatile", -0.4),
+                ("dump", -0.7),
+                ("rug", -0.9),
+                ("regulatory", -0.3),
+                ("lawsuit", -0.6),
+                ("investigation", -0.5),
+                ("ban", -0.7),
+            ],
+        }
+    }
+}
+
+#[async_trait]
+impl SentimentAnalyzer for LexiconSentimentAnalyzer {
+    async fn analyze(
+        &self,
+        title: &str,
+        description: Option<&str>,
+        content: Option<&str>,
+    ) -> Result<NewsSentiment, WebToolError> {
+        // Call the existing analyze_sentiment_impl function with the lexicon
+        Ok(self.analyze_sentiment_impl(title, description, content))
+    }
+}
+
+// Implement the marker trait to allow storage in ApplicationContext
+impl SentimentAnalyzerMarker for LexiconSentimentAnalyzer {}
+
+impl LexiconSentimentAnalyzer {
+    /// Implementation of lexicon-based sentiment analysis
+    fn analyze_sentiment_impl(
+        &self,
+        title: &str,
+        description: Option<&str>,
+        content: Option<&str>,
+    ) -> NewsSentiment {
+        let full_text = format!(
+            "{} {} {}",
+            title,
+            description.unwrap_or(""),
+            content.unwrap_or("")
+        );
+
+        let text_lower = full_text.to_lowercase();
+
+        // Calculate overall sentiment score
+        let mut sentiment_score = 0.0;
+        let mut word_count = 0;
+
+        for (word, weight) in &self.positive_words {
+            let count = text_lower.matches(word).count();
+            sentiment_score += count as f64 * weight;
+            word_count += count;
+        }
+
+        for (word, weight) in &self.negative_words {
+            let count = text_lower.matches(word).count();
+            sentiment_score += count as f64 * weight;
+            word_count += count;
+        }
+
+        // Normalize sentiment score
+        let overall_score = if word_count > 0 {
+            (sentiment_score / word_count as f64).clamp(-1.0, 1.0)
+        } else {
+            0.0
+        };
+
+        // Calculate confidence based on word count and text length
+        let confidence = ((word_count as f64 / 10.0).min(1.0) * 0.5
+            + (full_text.len() as f64 / 500.0).min(1.0) * 0.5)
+            .clamp(0.3, 0.95);
+
+        // Determine classification
+        let classification = if overall_score > 0.2 {
+            "Bullish"
+        } else if overall_score < -0.2 {
+            "Bearish"
+        } else {
+            "Neutral"
+        }
+        .to_string();
+
+        // Calculate emotional indicators
+        let emotions = self.calculate_emotions(&text_lower);
+
+        // Extract key phrases that contribute to sentiment
+        let key_phrases = self.extract_key_phrases(&full_text);
+
+        // Topic-specific sentiments
+        let topic_sentiments = self.calculate_topic_sentiments(&text_lower, overall_score);
+
+        NewsSentiment {
+            overall_score,
+            confidence,
+            classification,
+            topic_sentiments,
+            emotions,
+            key_phrases,
+        }
+    }
+
+    fn calculate_emotions(&self, text_lower: &str) -> EmotionalIndicators {
+        let fear_words = ["fear", "panic", "crash", "crisis", "collapse"];
+        let greed_words = ["moon", "rally", "surge", "bullish", "fomo"];
+        
+        let fear_count = fear_words.iter().filter(|w| text_lower.contains(*w)).count();
+        let greed_count = greed_words.iter().filter(|w| text_lower.contains(*w)).count();
+        
+        EmotionalIndicators {
+            fear: (fear_count as f64 / 5.0).min(1.0),
+            greed: (greed_count as f64 / 5.0).min(1.0),
+            excitement: if text_lower.contains("exciting") || text_lower.contains("breakthrough") {
+                0.5
+            } else {
+                0.0
+            },
+            uncertainty: if text_lower.contains("uncertain") || text_lower.contains("volatile") {
+                0.5
+            } else {
+                0.0
+            },
+            urgency: if text_lower.contains("urgent") || text_lower.contains("immediate") {
+                0.5
+            } else {
+                0.0
+            },
+        }
+    }
+
+    fn extract_key_phrases(&self, full_text: &str) -> Vec<SentimentPhrase> {
+        let mut key_phrases = Vec::new();
+        
+        // Look for specific phrase patterns
+        let phrase_patterns = [
+            (r"(?i)(bullish|positive|optimistic) (?:on|about|for) (\w+)", 0.5),
+            (r"(?i)(bearish|negative|pessimistic) (?:on|about|for) (\w+)", -0.5),
+            (r"(?i)all.time.high", 0.6),
+            (r"(?i)all.time.low", -0.6),
+            (r"(?i)break(?:ing|s)?\s+(?:through|above)", 0.4),
+            (r"(?i)break(?:ing|s)?\s+(?:below|down)", -0.4),
+        ];
+        
+        for (pattern, contribution) in &phrase_patterns {
+            if let Ok(re) = Regex::new(pattern) {
+                for matched in re.find_iter(full_text) {
+                    key_phrases.push(SentimentPhrase {
+                        phrase: matched.as_str().to_string(),
+                        sentiment_contribution: *contribution,
+                        confidence: 0.7,
+                    });
+                }
+            }
+        }
+        
+        key_phrases
+    }
+
+    fn calculate_topic_sentiments(&self, text_lower: &str, overall_score: f64) -> HashMap<String, f64> {
+        let mut topic_sentiments = HashMap::new();
+        let topics = ["bitcoin", "ethereum", "defi", "nft", "regulation", "adoption"];
+        
+        for topic in &topics {
+            if text_lower.contains(topic) {
+                // Calculate sentiment specific to this topic's context
+                let topic_score = if text_lower.contains(&format!("{} surge", topic))
+                    || text_lower.contains(&format!("{} rally", topic))
+                {
+                    0.5
+                } else if text_lower.contains(&format!("{} crash", topic))
+                    || text_lower.contains(&format!("{} plunge", topic))
+                {
+                    -0.5
+                } else {
+                    overall_score * 0.7 // Slightly dampened overall sentiment
+                };
+                topic_sentiments.insert(topic.to_string(), topic_score);
+            }
+        }
+        
+        topic_sentiments
+    }
+}
 
 /// Configuration for news aggregation services
 #[derive(Debug, Clone)]
@@ -343,8 +598,22 @@ pub struct BreakingNewsAlert {
 impl Default for NewsConfig {
     fn default() -> Self {
         Self {
-            newsapi_key: std::env::var(NEWSAPI_KEY).unwrap_or_default(),
-            cryptopanic_key: std::env::var(CRYPTOPANIC_KEY).unwrap_or_default(),
+            newsapi_key: String::default(),
+            cryptopanic_key: String::default(),
+            base_url: "https://newsapi.org/v2".to_string(),
+            max_articles: 50,
+            freshness_hours: 24,
+            min_credibility_score: 60,
+        }
+    }
+}
+
+impl NewsConfig {
+    /// Create NewsConfig from ApplicationContext
+    fn from_context(context: &ApplicationContext) -> Self {
+        Self {
+            newsapi_key: context.config.providers.newsapi_key.clone().unwrap_or_default(),
+            cryptopanic_key: context.config.providers.cryptopanic_key.clone().unwrap_or_default(),
             base_url: "https://newsapi.org/v2".to_string(),
             max_articles: 50,
             freshness_hours: 24,
@@ -359,7 +628,7 @@ impl Default for NewsConfig {
 /// and assesses market impact for cryptocurrency-related topics.
 #[tool]
 pub async fn get_crypto_news(
-    _context: &riglr_core::provider::ApplicationContext,
+    context: &riglr_core::provider::ApplicationContext,
     topic: String,
     time_window: Option<String>,       // "1h", "6h", "24h", "week"
     source_types: Option<Vec<String>>, // "mainstream", "crypto", "analysis"
@@ -372,7 +641,7 @@ pub async fn get_crypto_news(
         time_window.as_deref().unwrap_or("24h")
     );
 
-    let config = NewsConfig::default();
+    let config = NewsConfig::from_context(context);
     if config.newsapi_key.is_empty() && config.cryptopanic_key.is_empty() {
         return Err(WebToolError::Auth(
             "No news API keys configured".to_string(),
@@ -473,7 +742,7 @@ pub async fn get_crypto_news(
 /// useful for staying updated on breaking developments and market movements.
 #[tool]
 pub async fn get_trending_news(
-    _context: &riglr_core::provider::ApplicationContext,
+    context: &riglr_core::provider::ApplicationContext,
     time_window: Option<String>,     // "1h", "6h", "24h"
     categories: Option<Vec<String>>, // "defi", "nft", "regulation", "tech"
     min_impact_score: Option<u32>,
@@ -484,7 +753,7 @@ pub async fn get_trending_news(
         time_window.as_deref().unwrap_or("6h")
     );
 
-    let config = NewsConfig::default();
+    let config = NewsConfig::from_context(context);
     let client = WebClient::default();
 
     // Get trending articles from multiple sources
@@ -536,7 +805,7 @@ pub async fn get_trending_news(
 /// and generates alerts based on severity and market impact criteria.
 #[tool]
 pub async fn monitor_breaking_news(
-    _context: &riglr_core::provider::ApplicationContext,
+    context: &riglr_core::provider::ApplicationContext,
     keywords: Vec<String>,
     severity_threshold: Option<String>, // "Critical", "High", "Medium"
     impact_threshold: Option<u32>,      // 0-100
@@ -544,7 +813,7 @@ pub async fn monitor_breaking_news(
 ) -> crate::error::Result<Vec<BreakingNewsAlert>> {
     debug!("Monitoring breaking news for keywords: {:?}", keywords);
 
-    let config = NewsConfig::default();
+    let config = NewsConfig::from_context(context);
     let client = WebClient::default();
 
     let mut alerts = Vec::new();
@@ -595,7 +864,7 @@ pub async fn analyze_market_sentiment(
         time_window.as_deref().unwrap_or("24h")
     );
 
-    let _config = NewsConfig::default();
+    let _config = NewsConfig::from_context(context);
     let _client = WebClient::default();
 
     // Gather recent news for sentiment analysis
@@ -1342,235 +1611,27 @@ fn is_above_severity_threshold(current_severity: &str, threshold: &str) -> bool 
     current_index >= threshold_index
 }
 
-/// Perform lexicon-based sentiment analysis on text using keyword matching
-///
-/// This is a heuristic approach that counts positive and negative keywords.
-/// For production use, consider integrating with a proper NLP sentiment model.
+/// Get sentiment analyzer from ApplicationContext or create default
+#[allow(dead_code)]
+fn get_sentiment_analyzer(_context: &ApplicationContext) -> Arc<LexiconSentimentAnalyzer> {
+    // For now, always return the default analyzer
+    // In the future, this can be extended to get from context extensions
+    Arc::new(LexiconSentimentAnalyzer::default())
+}
+
+/// Helper function for backward compatibility
 fn analyze_sentiment(
     title: &str,
     description: &Option<String>,
     content: &Option<String>,
 ) -> NewsSentiment {
-    let full_text = format!(
-        "{} {} {}",
+    // Use the default analyzer for now
+    let analyzer = LexiconSentimentAnalyzer::default();
+    analyzer.analyze_sentiment_impl(
         title,
-        description.as_deref().unwrap_or(""),
-        content.as_deref().unwrap_or("")
-    );
-
-    // Sentiment keywords with weights
-    let positive_words = [
-        ("bullish", 0.8),
-        ("surge", 0.7),
-        ("rally", 0.7),
-        ("breakthrough", 0.8),
-        ("adoption", 0.6),
-        ("partnership", 0.6),
-        ("growth", 0.5),
-        ("success", 0.6),
-        ("innovative", 0.5),
-        ("leading", 0.4),
-        ("strong", 0.5),
-        ("positive", 0.5),
-        ("gains", 0.6),
-        ("rise", 0.5),
-        ("increase", 0.4),
-        ("improve", 0.5),
-        ("upgrade", 0.6),
-        ("expand", 0.5),
-        ("launch", 0.4),
-        ("milestone", 0.6),
-    ];
-
-    let negative_words = [
-        ("bearish", -0.8),
-        ("crash", -0.9),
-        ("plunge", -0.8),
-        ("collapse", -0.9),
-        ("hack", -0.9),
-        ("exploit", -0.9),
-        ("scam", -0.9),
-        ("fraud", -0.9),
-        ("decline", -0.6),
-        ("drop", -0.6),
-        ("fall", -0.5),
-        ("loss", -0.6),
-        ("concern", -0.4),
-        ("risk", -0.5),
-        ("threat", -0.6),
-        ("vulnerable", -0.7),
-        ("lawsuit", -0.7),
-        ("investigation", -0.6),
-        ("ban", -0.8),
-        ("restrict", -0.6),
-    ];
-
-    let fear_words = [
-        "crash", "collapse", "panic", "fear", "scared", "worried", "concern", "threat",
-    ];
-    let greed_words = [
-        "moon",
-        "lambo",
-        "rich",
-        "profit",
-        "gains",
-        "millionaire",
-        "explosive",
-        "massive",
-    ];
-    let uncertainty_words = [
-        "maybe",
-        "perhaps",
-        "unclear",
-        "uncertain",
-        "volatile",
-        "unpredictable",
-        "risky",
-    ];
-    let excitement_words = [
-        "amazing",
-        "incredible",
-        "wow",
-        "breakthrough",
-        "revolutionary",
-        "game-changer",
-    ];
-    let urgency_words = [
-        "now",
-        "immediately",
-        "urgent",
-        "breaking",
-        "alert",
-        "warning",
-        "critical",
-    ];
-
-    let text_lower = full_text.to_lowercase();
-
-    // Calculate overall sentiment score
-    let mut sentiment_score = 0.0;
-    let mut word_count = 0;
-
-    for (word, weight) in &positive_words {
-        let count = text_lower.matches(word).count();
-        sentiment_score += count as f64 * weight;
-        word_count += count;
-    }
-
-    for (word, weight) in &negative_words {
-        let count = text_lower.matches(word).count();
-        sentiment_score += count as f64 * weight;
-        word_count += count;
-    }
-
-    // Normalize sentiment score
-    let overall_score = if word_count > 0 {
-        (sentiment_score / word_count as f64).clamp(-1.0, 1.0)
-    } else {
-        0.0
-    };
-
-    // Calculate confidence based on word count and text length
-    let confidence = ((word_count as f64 / 10.0).min(1.0) * 0.5
-        + (full_text.len() as f64 / 500.0).min(1.0) * 0.5)
-        .clamp(0.3, 0.95);
-
-    // Determine classification
-    let classification = if overall_score > 0.3 {
-        "Bullish"
-    } else if overall_score > 0.1 {
-        "Slightly Bullish"
-    } else if overall_score < -0.3 {
-        "Bearish"
-    } else if overall_score < -0.1 {
-        "Slightly Bearish"
-    } else {
-        "Neutral"
-    }
-    .to_string();
-
-    // Calculate emotional indicators
-    let calc_emotion = |words: &[&str]| -> f64 {
-        let count: usize = words.iter().map(|w| text_lower.matches(w).count()).sum();
-        (count as f64 / 20.0).min(1.0)
-    };
-
-    let emotions = EmotionalIndicators {
-        fear: calc_emotion(&fear_words),
-        greed: calc_emotion(&greed_words),
-        excitement: calc_emotion(&excitement_words),
-        uncertainty: calc_emotion(&uncertainty_words),
-        urgency: calc_emotion(&urgency_words),
-    };
-
-    // Extract key phrases that contribute to sentiment
-    let mut key_phrases = Vec::new();
-
-    // Look for specific phrase patterns
-    let phrase_patterns = [
-        (
-            r"(?i)(bullish|positive|optimistic) (?:on|about|for) (\w+)",
-            0.5,
-        ),
-        (
-            r"(?i)(bearish|negative|pessimistic) (?:on|about|for) (\w+)",
-            -0.5,
-        ),
-        (r"(?i)(?:surge|rally|jump) (?:in|of) \d+%", 0.6),
-        (r"(?i)(?:drop|fall|decline) (?:in|of) \d+%", -0.6),
-    ];
-
-    for (pattern, contribution) in &phrase_patterns {
-        if let Ok(re) = Regex::new(pattern) {
-            for cap in re.captures_iter(&text_lower) {
-                if let Some(matched) = cap.get(0) {
-                    key_phrases.push(SentimentPhrase {
-                        phrase: matched.as_str().to_string(),
-                        sentiment_contribution: *contribution,
-                        confidence: 0.7,
-                    });
-                }
-            }
-        }
-    }
-
-    // Topic-specific sentiments
-    let mut topic_sentiments = HashMap::new();
-    let topics = [
-        "bitcoin",
-        "ethereum",
-        "defi",
-        "nft",
-        "regulation",
-        "adoption",
-    ];
-
-    for topic in &topics {
-        if text_lower.contains(topic) {
-            // Calculate sentiment specific to this topic's context
-            let topic_score = if text_lower.contains(&format!("{} surge", topic))
-                || text_lower.contains(&format!("{} rally", topic))
-            {
-                0.5
-            } else if text_lower.contains(&format!("{} crash", topic))
-                || text_lower.contains(&format!("{} plunge", topic))
-            {
-                -0.5
-            } else {
-                overall_score * 0.7 // Slightly dampened overall sentiment
-            };
-            topic_sentiments.insert(topic.to_string(), topic_score);
-        }
-    }
-
-    NewsSentiment {
-        overall_score,
-        confidence,
-        classification,
-        topic_sentiments,
-        emotions,
-        key_phrases,
-    }
+        description.as_deref(),
+        content.as_deref(),
+    )
 }
 
 /// Calculate market impact using heuristic rules based on sentiment and source credibility

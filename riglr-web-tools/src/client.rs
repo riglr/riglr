@@ -426,8 +426,17 @@ impl WebClient {
 
                         info!("Successfully fetched {} bytes from {}", text.len(), url);
                         return Ok(text);
-                    } else if status.is_server_error() && attempts < self.http_config.max_retries {
-                        // Retry on server errors
+                    } else if status == reqwest::StatusCode::TOO_MANY_REQUESTS {
+                        // Immediately return a rate limit error for 429
+                        let error_text = response.text().await.unwrap_or_default();
+                        return Err(WebToolError::RateLimit(format!(
+                            "HTTP 429 from {}: {}", url, error_text
+                        )));
+                    } else if [reqwest::StatusCode::BAD_GATEWAY, 
+                               reqwest::StatusCode::SERVICE_UNAVAILABLE, 
+                               reqwest::StatusCode::GATEWAY_TIMEOUT].contains(&status) 
+                               && attempts < self.http_config.max_retries {
+                        // Retry only on specific server errors (502, 503, 504)
                         warn!(
                             "Server error {} from {}, attempt {}/{}",
                             status, url, attempts, self.http_config.max_retries
@@ -438,7 +447,7 @@ impl WebClient {
                         debug!("Retrying after {:?}", delay);
                         tokio::time::sleep(delay).await;
                     } else {
-                        // Don't retry on client errors
+                        // All other errors (e.g., 4xx) are permanent API errors
                         let error_text = response.text().await.unwrap_or_default();
                         return Err(WebToolError::Api(format!(
                             "HTTP {} from {}: {}",
@@ -501,7 +510,17 @@ impl WebClient {
 
                         info!("Successfully posted to {}", url);
                         return Ok(json);
-                    } else if status.is_server_error() && attempts < self.http_config.max_retries {
+                    } else if status == reqwest::StatusCode::TOO_MANY_REQUESTS {
+                        // Immediately return a rate limit error for 429
+                        let error_text = response.text().await.unwrap_or_default();
+                        return Err(WebToolError::RateLimit(format!(
+                            "HTTP 429 from {}: {}", url, error_text
+                        )));
+                    } else if [reqwest::StatusCode::BAD_GATEWAY, 
+                               reqwest::StatusCode::SERVICE_UNAVAILABLE, 
+                               reqwest::StatusCode::GATEWAY_TIMEOUT].contains(&status) 
+                               && attempts < self.http_config.max_retries {
+                        // Retry only on specific server errors (502, 503, 504)
                         warn!(
                             "Server error {} from {}, attempt {}/{}",
                             status, url, attempts, self.http_config.max_retries
@@ -512,6 +531,7 @@ impl WebClient {
                         debug!("Retrying after {:?}", delay);
                         tokio::time::sleep(delay).await;
                     } else {
+                        // All other errors (e.g., 4xx) are permanent API errors
                         let error_text = response.text().await.unwrap_or_default();
                         return Err(WebToolError::Api(format!(
                             "HTTP {} from {}: {}",

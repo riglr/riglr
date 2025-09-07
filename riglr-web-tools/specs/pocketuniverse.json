@@ -1,0 +1,128 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "routes",
+    "description": "Pocket Universe Rug Check",
+    "license": { "name": "" },
+    "version": "0.1.0"
+  },
+  "servers": [{ "url": "https://api.pocketuniverse.app" }],
+  "paths": {
+    "/rug_check/{api_key}": {
+      "get": {
+        "tags": ["crate"],
+        "operationId": "rug_check",
+        "parameters": [
+          {
+            "name": "api_key",
+            "in": "path",
+            "description": "API key for authentication",
+            "required": true,
+            "schema": { "type": "string" },
+            "example": "sk_test_demo"
+          },
+          {
+            "name": "address",
+            "in": "query",
+            "description": "Solana token address or pool address",
+            "required": true,
+            "schema": { "type": "string" },
+            "example": "Ci6FSXsfctsnXKcPqZxWkMahnApqkgwGroVjU5YPcgJ9"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Rug check result",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/RugApiResponse" },
+                "examples": {
+                  "Token Not Processed": {
+                    "value": {
+                      "status": "not_processed",
+                      "message": "Token has not been processed. This typically is due to the token not having enough trades."
+                    }
+                  },
+                  "Token Processed": {
+                    "value": {
+                      "status": "processed",
+                      "message": "88% of volume is from past rug pullers",
+                      "is_scam": true,
+                      "rug_percent": 0.8847474315775891,
+                      "fresh_percent": 0.11182295987215211
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ErrorDetail": {
+        "type": "object",
+        "required": ["type", "message"],
+        "properties": {
+          "message": { "type": "string" },
+          "type": { "type": "string" }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "required": ["error"],
+        "properties": {
+          "error": { "$ref": "#/components/schemas/ErrorDetail" }
+        }
+      },
+      "RugApiResponse": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": ["message", "status"],
+            "properties": {
+              "message": { "type": "string" },
+              "status": { "type": "string", "enum": ["not_processed"] }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "message",
+              "is_scam",
+              "rug_percent",
+              "fresh_percent",
+              "status"
+            ],
+            "properties": {
+              "fresh_percent": { "type": "number", "format": "double" },
+              "is_scam": { "type": "boolean" },
+              "message": { "type": "string" },
+              "rug_percent": { "type": "number", "format": "double" },
+              "status": { "type": "string", "enum": ["processed"] }
+            }
+          }
+        ],
+        "discriminator": { "propertyName": "status" }
+      }
+    }
+  }
+}

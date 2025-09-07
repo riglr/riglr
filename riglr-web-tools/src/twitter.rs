@@ -3,6 +3,8 @@
 //! This module provides production-grade tools for accessing Twitter/X data,
 //! analyzing social sentiment, and tracking crypto-related discussions.
 
+#![allow(clippy::new_without_default)]
+
 use crate::{client::WebClient, error::WebToolError};
 use chrono::{DateTime, Utc};
 use riglr_core::util::get_env_or_default;
@@ -695,12 +697,11 @@ async fn parse_twitter_response(response: &str) -> crate::error::Result<Vec<Twit
             .includes
             .as_ref()
             .and_then(|i| i.users.as_ref())
-            .map(|u| u.as_slice())
-            .unwrap_or(&[]);
+            .map_or([].as_slice(), |u| u.as_slice());
 
         for tweet_raw in data {
             // Find corresponding user
-            let default_id = String::new();
+            let default_id = String::default();
             let author_id = tweet_raw.author_id.as_ref().unwrap_or(&default_id);
             let user_raw = users.iter().find(|u| u.id == *author_id);
 
@@ -742,8 +743,7 @@ fn convert_raw_tweet(
         .created_at
         .as_ref()
         .and_then(|s| DateTime::parse_from_rfc3339(s).ok())
-        .map(|dt| dt.with_timezone(&Utc))
-        .unwrap_or_else(Utc::now);
+        .map_or_else(Utc::now, |dt| dt.with_timezone(&Utc));
 
     // Convert metrics
     let metrics = if let Some(m) = &tweet.public_metrics {
@@ -764,27 +764,23 @@ fn convert_raw_tweet(
             hashtags: e
                 .hashtags
                 .as_ref()
-                .map(|h| h.iter().map(|tag| tag.tag.clone()).collect())
-                .unwrap_or_default(),
+                .map_or_else(Vec::new, |h| h.iter().map(|tag| tag.tag.clone()).collect()),
             mentions: e
                 .mentions
                 .as_ref()
-                .map(|m| m.iter().map(|mention| mention.username.clone()).collect())
-                .unwrap_or_default(),
+                .map_or_else(Vec::new, |m| m.iter().map(|mention| mention.username.clone()).collect()),
             urls: e
                 .urls
                 .as_ref()
-                .map(|u| {
+                .map_or_else(Vec::new, |u| {
                     u.iter()
                         .map(|url| url.expanded_url.as_ref().unwrap_or(&url.url).clone())
                         .collect()
-                })
-                .unwrap_or_default(),
+                }),
             cashtags: e
                 .cashtags
                 .as_ref()
-                .map(|c| c.iter().map(|cash| cash.tag.clone()).collect())
-                .unwrap_or_default(),
+                .map_or_else(Vec::new, |c| c.iter().map(|cash| cash.tag.clone()).collect()),
         }
     } else {
         TweetEntities {
@@ -799,7 +795,7 @@ fn convert_raw_tweet(
     let context_annotations = tweet
         .context_annotations
         .as_ref()
-        .map(|annotations| {
+        .map_or_else(Vec::new, |annotations| {
             annotations
                 .iter()
                 .map(|a| ContextAnnotation {
@@ -809,21 +805,18 @@ fn convert_raw_tweet(
                     entity_name: a.entity.name.clone().unwrap_or_default(),
                 })
                 .collect()
-        })
-        .unwrap_or_default();
+        });
 
     // Check if reply or retweet
     let is_reply = tweet
         .referenced_tweets
         .as_ref()
-        .map(|refs| refs.iter().any(|r| r.r#type == "replied_to"))
-        .unwrap_or(false);
+        .is_some_and(|refs| refs.iter().any(|r| r.r#type == "replied_to"));
 
     let is_retweet = tweet
         .referenced_tweets
         .as_ref()
-        .map(|refs| refs.iter().any(|r| r.r#type == "retweeted"))
-        .unwrap_or(false)
+        .is_some_and(|refs| refs.iter().any(|r| r.r#type == "retweeted"))
         || tweet.text.starts_with("RT @");
 
     // Convert user
@@ -849,8 +842,7 @@ fn convert_raw_user(user: &api_types::UserRaw) -> crate::error::Result<TwitterUs
         .created_at
         .as_ref()
         .and_then(|s| DateTime::parse_from_rfc3339(s).ok())
-        .map(|dt| dt.with_timezone(&Utc))
-        .unwrap_or_else(Utc::now);
+        .map_or_else(Utc::now, |dt| dt.with_timezone(&Utc));
 
     let metrics = user.public_metrics.as_ref();
 
@@ -859,9 +851,9 @@ fn convert_raw_user(user: &api_types::UserRaw) -> crate::error::Result<TwitterUs
         username: user.username.clone(),
         name: user.name.clone(),
         description: user.description.clone(),
-        followers_count: metrics.and_then(|m| m.followers_count).unwrap_or(0),
-        following_count: metrics.and_then(|m| m.following_count).unwrap_or(0),
-        tweet_count: metrics.and_then(|m| m.tweet_count).unwrap_or(0),
+        followers_count: metrics.map_or(0, |m| m.followers_count.unwrap_or(0)),
+        following_count: metrics.map_or(0, |m| m.following_count.unwrap_or(0)),
+        tweet_count: metrics.map_or(0, |m| m.tweet_count.unwrap_or(0)),
         verified: user.verified.unwrap_or(false),
         created_at,
     })
@@ -1635,8 +1627,8 @@ mod tests {
     #[test]
     fn test_convert_raw_tweet_missing_fields() {
         let tweet_raw = api_types::TweetRaw {
-            id: String::new(),
-            text: String::new(),
+            id: String::default(),
+            text: String::default(),
             author_id: None,
             created_at: None,
             lang: None,
@@ -1647,9 +1639,9 @@ mod tests {
         };
 
         let user_raw = api_types::UserRaw {
-            id: String::new(),
-            username: String::new(),
-            name: String::new(),
+            id: String::default(),
+            username: String::default(),
+            name: String::default(),
             description: None,
             created_at: None,
             verified: None,
@@ -1684,7 +1676,7 @@ mod tests {
         assert_eq!(user.id, "456");
         assert_eq!(user.username, "user2");
         assert_eq!(user.name, "User Two");
-        assert_eq!(user.verified, true);
+        assert!(user.verified);
         assert_eq!(user.followers_count, 1000);
         assert_eq!(user.following_count, 500);
     }
@@ -1712,9 +1704,9 @@ mod tests {
     #[test]
     fn test_convert_raw_user_empty_fields() {
         let user_raw = api_types::UserRaw {
-            id: String::new(),
-            username: String::new(),
-            name: String::new(),
+            id: String::default(),
+            username: String::default(),
+            name: String::default(),
             description: None,
             created_at: None,
             verified: None,

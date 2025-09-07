@@ -6,6 +6,7 @@
 
 use crate::{client::WebClient, error::WebToolError};
 use chrono::{DateTime, Utc};
+use riglr_core::provider::ApplicationContext;
 use riglr_macros::tool;
 use schemars::JsonSchema;
 
@@ -135,30 +136,21 @@ pub struct InfluencerMentionsResult {
     pub avg_sentiment: f64,
 }
 
+/// Helper function to get LunarCrush API key from ApplicationContext
+fn get_api_key_from_context(context: &ApplicationContext) -> Result<String, WebToolError> {
+    context.config.providers.lunarcrush_api_key
+        .clone()
+        .ok_or_else(|| WebToolError::Config(
+            "LunarCrush API key not configured. Set LUNARCRUSH_API_KEY in your environment.".to_string()
+        ))
+}
+
 /// Creates a LunarCrush API client with context
 async fn create_lunarcrush_client_with_context(
-    context: &riglr_core::provider::ApplicationContext,
+    context: &ApplicationContext,
 ) -> Result<WebClient, WebToolError> {
-    // Try to get API key from ApplicationContext extensions first, fall back to env var
-    let api_key = context
-        .get_extension::<String>()
-        .and_then(|s| {
-            if s.contains("lunarcrush") {
-                Some(s.as_ref().clone())
-            } else {
-                None
-            }
-        })
-        .unwrap_or_else(|| std::env::var(LUNARCRUSH_API_KEY).unwrap_or_else(|_| String::default()));
-
-    if api_key.is_empty() {
-        return Err(WebToolError::Config(
-            "LUNARCRUSH_API_KEY not found in context or environment".to_string(),
-        ));
-    }
-
+    let api_key = get_api_key_from_context(context)?;
     let client = WebClient::default().with_api_key("lunarcrush", api_key);
-
     Ok(client)
 }
 
@@ -191,7 +183,7 @@ async fn create_lunarcrush_client() -> Result<WebClient, WebToolError> {
 /// # Returns
 /// Detailed sentiment analysis including scores, volume metrics, and trending keywords
 pub async fn get_social_sentiment(
-    context: &riglr_core::provider::ApplicationContext,
+    context: &ApplicationContext,
     symbol: String,
     timeframe: Option<String>,
 ) -> Result<SentimentData, WebToolError> {
@@ -322,7 +314,7 @@ pub async fn get_social_sentiment(
 /// # Returns
 /// List of trending cryptocurrencies with social and market metrics
 pub async fn get_trending_cryptos(
-    context: &riglr_core::provider::ApplicationContext,
+    context: &ApplicationContext,
     limit: Option<u32>,
     sort_by: Option<String>,
 ) -> Result<Vec<TrendingCrypto>, WebToolError> {
@@ -452,7 +444,7 @@ pub async fn get_trending_cryptos(
 /// # Returns
 /// Collection of influencer mentions with engagement metrics and sentiment analysis
 pub async fn get_influencer_mentions(
-    context: &riglr_core::provider::ApplicationContext,
+    context: &ApplicationContext,
     token_symbol: String,
     limit: Option<u32>,
     timeframe: Option<String>,

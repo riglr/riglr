@@ -1,0 +1,411 @@
+openapi: 3.0.3
+
+info:
+  title: DEX Screener API
+  version: 1.0.0
+
+servers:
+  - url: https://api.dexscreener.com
+
+paths:
+  /token-profiles/latest/v1:
+    get:
+      tags:
+        - Token Profiles
+      summary: Get the latest token profiles (rate-limit 60 requests per minute)
+      responses:
+        '200':
+          description: Ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenProfile'
+
+  /token-boosts/latest/v1:
+    get:
+      tags:
+        - Token Boosts
+      summary: Get the latest boosted tokens (rate-limit 60 requests per minute)
+      responses:
+        '200':
+          description: Ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BoostsResponse'
+
+  /token-boosts/top/v1:
+    get:
+      tags:
+        - Token Boosts
+      summary: Get the tokens with most active boosts (rate-limit 60 requests per minute)
+      responses:
+        '200':
+          description: Ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BoostsResponse'
+
+  /orders/v1/{chainId}/{tokenAddress}:
+    get:
+      tags:
+        - Orders
+      summary: Check orders paid for of token (rate-limit 60 requests per minute)
+      parameters:
+        - name: chainId
+          in: path
+          required: true
+          schema:
+            type: string
+          example: 'solana'
+        - name: tokenAddress
+          in: path
+          required: true
+          schema:
+            type: string
+          example: 'A55XjvzRU4KtR3Lrys8PpLZQvPojPqvnv5bJVHMYy3Jv'
+      responses:
+        '200':
+          description: Ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrdersResponse'
+
+  /latest/dex/pairs/{chainId}/{pairId}:
+    get:
+      tags:
+        - Pairs
+      summary: Get one or multiple pairs by chain and pair address (rate-limit 300 requests per minute)
+      parameters:
+        - name: chainId
+          in: path
+          required: true
+          schema:
+            type: string
+          example: solana
+        - name: pairId
+          in: path
+          required: true
+          schema:
+            type: string
+          example: JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN
+      responses:
+        '200':
+          description: Ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PairsResponse'
+
+  /tokens/v1/{chainId}/{tokenAddresses}:
+    get:
+      tags:
+        - Tokens
+      summary: Get one or multiple pairs by token address (rate-limit 300 requests per minute)
+      parameters:
+        - name: chainId
+          in: path
+          required: true
+          schema:
+            type: string
+          example: solana
+        - name: tokenAddresses
+          in: path
+          required: true
+          schema:
+            type: string
+            description: One or multiple, comma-separated token addresses (up to 30 addresses)
+            example: So11111111111111111111111111111111111111112,EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v
+      responses:
+        '200':
+          description: Ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokensResponse'
+
+  /token-pairs/v1/{chainId}/{tokenAddress}:
+    get:
+      tags:
+        - Tokens Pairs
+      summary: Get the pools of a given token address (rate-limit 300 requests per minute)
+      parameters:
+        - name: chainId
+          in: path
+          required: true
+          schema:
+            type: string
+            example: solana
+        - name: tokenAddress
+          in: path
+          required: true
+          schema:
+            type: string
+            description: A token addresses
+            example: 'JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN'
+      responses:
+        '200':
+          description: Ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokensPairsResponse'
+
+  /latest/dex/search:
+    get:
+      summary: Search for pairs matching query (rate-limit 300 requests per minute)
+      tags:
+        - Search
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+          example: 'SOL/USDC'
+      responses:
+        '200':
+          description: Ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchResponse'
+
+components:
+  schemas:
+    TokenProfile:
+      type: object
+      properties:
+        url:
+          type: string
+          format: uri
+        chainId:
+          type: string
+        tokenAddress:
+          type: string
+        icon:
+          type: string
+          format: uri
+        header:
+          type: string
+          format: uri
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        links:
+          type: array
+          items:
+            type: object
+            properties:
+              type:
+                type: string
+                nullable: true
+              label:
+                type: string
+                nullable: true
+              url:
+                type: string
+                format: uri
+          nullable: true
+
+    BoostsResponse:
+      type: object
+      properties:
+        url:
+          type: string
+          format: uri
+        chainId:
+          type: string
+        tokenAddress:
+          type: string
+        amount:
+          type: number
+        totalAmount:
+          type: number
+        icon:
+          type: string
+          format: uri
+          nullable: true
+        header:
+          type: string
+          format: uri
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        links:
+          type: array
+          items:
+            type: object
+            properties:
+              type:
+                type: string
+                nullable: true
+              label:
+                type: string
+                nullable: true
+              url:
+                type: string
+                format: uri
+          nullable: true
+
+    OrdersResponse:
+      type: array
+      items:
+        type: object
+        properties:
+          type:
+            type: string
+            enum: ['tokenProfile', 'communityTakeover', 'tokenAd', 'trendingBarAd']
+          status:
+            type: string
+            enum: ['processing', 'cancelled', 'on-hold', 'approved', 'rejected']
+          paymentTimestamp:
+            type: number
+
+    PairsResponse:
+      type: object
+      properties:
+        schemaVersion:
+          type: string
+        pairs:
+          type: array
+          items:
+            $ref: '#/components/schemas/Pair'
+          nullable: true
+
+    TokensResponse:
+      type: array
+      items:
+        $ref: '#/components/schemas/Pair'
+
+    TokensPairsResponse:
+      type: array
+      items:
+        $ref: '#/components/schemas/Pair'
+
+    SearchResponse:
+      type: object
+      properties:
+        schemaVersion:
+          type: string
+        pairs:
+          type: array
+          items:
+            $ref: '#/components/schemas/Pair'
+
+    Pair:
+      type: object
+      properties:
+        chainId:
+          type: string
+        dexId:
+          type: string
+        url:
+          type: string
+          format: uri
+        pairAddress:
+          type: string
+        labels:
+          type: array
+          items:
+            type: string
+          nullable: true
+        baseToken:
+          type: object
+          properties:
+            address:
+              type: string
+            name:
+              type: string
+            symbol:
+              type: string
+        quoteToken:
+          type: object
+          properties:
+            address:
+              type: string
+              nullable: true
+            name:
+              type: string
+              nullable: true
+            symbol:
+              type: string
+              nullable: true
+        priceNative:
+          type: string
+        priceUsd:
+          type: string
+          nullable: true
+        txns:
+          type: object
+          additionalProperties:
+            type: object
+            properties:
+              buys:
+                type: integer
+              sells:
+                type: integer
+        volume:
+          type: object
+          additionalProperties:
+            type: number
+        priceChange:
+          type: object
+          additionalProperties:
+            type: number
+          nullable: true
+        liquidity:
+          type: object
+          properties:
+            usd:
+              type: number
+              nullable: true
+            base:
+              type: number
+            quote:
+              type: number
+          nullable: true
+        fdv:
+          type: number
+          nullable: true
+        marketCap:
+          type: number
+          nullable: true
+        pairCreatedAt:
+          type: integer
+          nullable: true
+        info:
+          type: object
+          properties:
+            imageUrl:
+              type: string
+              format: uri
+              nullable: true
+            websites:
+              type: array
+              items:
+                type: object
+                properties:
+                  url:
+                    type: string
+                    format: uri
+              nullable: true
+            socials:
+              type: array
+              items:
+                type: object
+                properties:
+                  platform:
+                    type: string
+                  handle:
+                    type: string
+              nullable: true
+        boosts:
+          type: object
+          properties:
+            active:
+              type: integer
