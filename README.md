@@ -11,53 +11,20 @@
 
 > ⚠️ **UNDER HEAVY DEVELOPMENT**: This project is being actively developed with frequent updates. APIs may change and things will probably break. Use with caution in production environments.
 
-## 🎯 What Makes riglr Different?
+## What Makes riglr Different?
 
 **riglr** transforms the powerful `rig` LLM framework into a **production-grade platform** for blockchain AI agents. While `rig` provides the "brain" (LLM-to-tool connections), riglr adds the complete "body and nervous system" with battle-tested patterns from real deployments:
 
-### 🚀 Production Performance
-- **10,000+ events/second** throughput with parallel processing
-- **Multi-tenant isolation** with zero cross-contamination risk
-- **Horizontal scaling** with distributed job queues
-- **Circuit breakers & retry logic** for resilient operations
+- **10,000+ events/second** throughput with parallel processing and backpressure handling
+- **Thread-local transaction signing** (`SignerContext`) that never exposes keys to the LLM
+- **Multi-tenant isolation** with zero cross-contamination risk between concurrent users
+- **`#[tool]` macro** eliminates 30+ lines of boilerplate - just one line to create a tool
+- **Two-level error handling** with automatic retry logic and exponential backoff
+- **Clean dependency injection** (`ApplicationContext`) for modular, testable code
+- **Production resilience** with circuit breakers, idempotency stores, and health checks
+- **Zero-code chain additions** - add new EVM chains via environment variables
 
-### 🔐 Enterprise Security
-- **`SignerContext` pattern**: Thread-local transaction signing that never exposes keys to the LLM
-- **Type-safe chain handles**: Compile-time guarantees for blockchain operations
-- **Pluggable authentication**: Official integrations with Privy, Web3Auth, Magic.link
-- **Idempotency store**: Safe retries in distributed systems
-
-### ⚡ Developer Experience
-- **`#[tool]` macro**: Turn any async function into a tool with **one line** (30+ lines of boilerplate eliminated)
-- **Zero-code chain additions**: Add new EVM chains via environment variables
-- **Mock-friendly architecture**: Test without real blockchain connections
-- **Convention over configuration**: Smart defaults with override capability
-
-### 🏗️ Clean Architecture
-- **`ApplicationContext` pattern**: Dependency injection for modular, testable code
-- **Two-level error handling**: Behavioral classification + chain-specific details
-- **Chain-agnostic core**: Zero blockchain SDK dependencies in core
-- **Unidirectional dependencies**: Clean compilation boundaries
-
-## 📊 riglr vs. Other Frameworks
-
-| Feature | riglr | Other Frameworks |
-|---------|-------|------------------|
-| **Transaction Security** | Thread-local `SignerContext` isolation | Keys passed as parameters |
-| **Multi-tenancy** | Built-in tenant isolation | Manual implementation required |
-| **Error Handling** | Two-level with auto-retry | Simple error returns |
-| **Tool Creation** | 1-line `#[tool]` macro | 30+ lines boilerplate |
-| **Event Processing** | 10k+ events/sec with backpressure | Basic WebSocket connections |
-| **Production Patterns** | Circuit breakers, idempotency, retry logic | DIY implementation |
-| **Testing** | Mock-friendly, mainnet forking | Requires real connections |
-| **Multi-agent** | Built-in coordination & dispatch | Single agent only |
-| **Chain Support** | Dynamic via env vars | Hardcoded chains |
-
-## 🗺️ Quick Navigation
-
-> **New to riglr?** Check out our comprehensive [Documentation](https://riglr.com/docs) for detailed guides, tutorials, and API references.
-
-## 🏆 Key Production Patterns
+## Key Production Patterns
 
 These battle-tested patterns differentiate riglr from other frameworks:
 
@@ -142,35 +109,9 @@ let processed_stream = solana_stream
     .batch(50, Duration::from_secs(60));
 ```
 
-### 7. **Production Resilience Patterns**
-- **Circuit Breakers**: Prevent cascading failures
-- **Idempotency Store**: Safe retries in distributed systems
-- **Resource Limits**: Configurable timeouts and memory limits
-- **Health Checks & Metrics**: Prometheus-compatible monitoring
-- **Graceful Shutdown**: Clean resource cleanup
 
-## 🏗️ What is riglr?
 
-riglr is a **modular, production-ready framework** for building blockchain AI agents that scale from simple bots to sophisticated multi-agent systems:
-
-### Core Foundation (Zero Blockchain Dependencies)
-- **`riglr-core`**: SignerContext, ApplicationContext, ToolWorker patterns
-- **`riglr-macros`**: Zero-boilerplate tool generation with `#[tool]`
-- **`riglr-config`**: Unified configuration with fail-fast validation
-
-### Blockchain Integration (50+ Pre-built Tools)
-- **`riglr-solana-tools`**: Balance queries, swaps, Pump.fun, Jupiter
-- **`riglr-evm-tools`**: Uniswap, contract interactions, multi-chain support
-- **`riglr-cross-chain-tools`**: Li.Fi bridge integration
-
-### Production Systems
-- **`riglr-agents`**: Multi-agent coordination with dispatch patterns
-- **`riglr-streams`**: 10k+ events/sec processing with backpressure
-- **`riglr-indexer`**: High-throughput blockchain data indexing
-- **`riglr-server`**: Turnkey HTTP server with auth & metrics
-- **`riglr-auth`**: Privy, Web3Auth, Magic.link integrations
-
-## 🚀 Quick Example
+## Quick Example
 
 ```rust
 // 1. Define a tool with ZERO boilerplate
@@ -195,26 +136,13 @@ SignerContext::with_signer(user_signer, async {
 }).await?;
 ```
 
-## 🏗️ Architecture
+## Architecture
 
-riglr uses a multi-crate architecture with clear separation of concerns:
-
-### Core Foundation
-- **`riglr-config`**: Unified configuration management for all crates
-- **`riglr-core`**: Core abstractions, ToolWorker, SignerContext, and ApplicationContext patterns
-- **`riglr-macros`**: Code generation with the `#[tool]` macro
-
-### Blockchain Integration
-- **`riglr-solana-tools`**: Solana-specific tools (balance queries, swaps, Pump.fun)
-- **`riglr-evm-tools`**: EVM-specific tools (balance queries, Uniswap, contract interactions)
-- **`riglr-cross-chain-tools`**: Cross-chain bridging and multi-chain operations
-
-### Application Layer
-- **`riglr-agents`**: Multi-agent coordination and communication
-- **`riglr-streams`**: Real-time event processing and data pipelines
-- **`riglr-indexer`**: Production blockchain data indexing
-- **`riglr-web-tools`**: External API integrations (price feeds, news, social)
-- **`riglr-auth`**: Authentication providers (Privy, Web3Auth, Magic)
+riglr uses a modular, multi-crate architecture with clear separation of concerns. The framework is organized into specialized crates:
+- **Core Layer**: Foundation (`riglr-core`), code generation (`riglr-macros`), and unified configuration (`riglr-config`).
+- **Blockchain Layer**: Tools for Solana (`riglr-solana-tools`), EVM chains (`riglr-evm-tools`), and cross-chain operations (`riglr-cross-chain-tools`).
+- **Data & Coordination Layer**: Real-time event streaming (`riglr-streams`), data indexing (`riglr-indexer`), multi-agent systems (`riglr-agents`), and external web APIs (`riglr-web-tools`).
+- **Application Layer**: Production server (`riglr-server`), pre-built agents (`riglr-showcase`), and authentication (`riglr-auth`).
 
 ### Dual-Pattern Architecture
 
@@ -253,7 +181,7 @@ SignerContext::with_signer(signer, async {
 }).await?;
 ```
 
-## 🔄 Two-Level Error Handling Pattern
+## Two-Level Error Handling Pattern
 
 riglr uses a sophisticated two-level error handling pattern for robust blockchain interactions:
 
@@ -304,7 +232,7 @@ match result {
 
 This pattern provides both simplicity for common cases and power for advanced scenarios.
 
-## 📚 Documentation
+## Documentation
 
 The riglr documentation is available at [riglr.com/docs](https://riglr.com/docs) and includes:
 
@@ -329,7 +257,7 @@ mdbook build
 mdbook serve --open
 ```
 
-## 🔧 Quick Start with `create-riglr-app`
+## Quick Start with `create-riglr-app`
 
 The easiest way to start is with our official project generator.
 
@@ -352,29 +280,29 @@ cp .env.example .env
 cargo run
 ```
 
-## 📦 Crates Overview
+## Crates Overview
 
 | Crate | Description | Version |
 |-------|-------------|---------|
-| [riglr-core](./riglr-core) | Core framework, job processing, idempotency, signer traits. | 0.1.0 |
-| [riglr-config](./riglr-config) | Unified, hierarchical configuration management. | 0.1.0 |
-| [riglr-macros](./riglr-macros) | Procedural macros (`#[tool]`) for rapid tool generation. | 0.1.0 |
-| [riglr-agents](./riglr-agents) | Multi-agent coordination system with dispatch and registry. | 0.1.0 |
-| [riglr-streams](./riglr-streams) | Real-time event streaming from multiple on-chain and off-chain sources. | 0.1.0 |
-| [riglr-indexer](./riglr-indexer) | Production-grade blockchain indexing service. | 0.1.0 |
-| [riglr-events-core](./riglr-events-core) | Core event processing abstractions and traits. | 0.1.0 |
-| [riglr-solana-events](./riglr-solana-events) | High-performance Solana event parsing for multiple protocols. | 0.1.0 |
-| [riglr-solana-tools](./riglr-solana-tools) | Tools for interacting with the Solana blockchain. | 0.1.0 |
-| [riglr-evm-tools](./riglr-evm-tools) | Tools for EVM-compatible chains (Ethereum, Polygon, etc.). | 0.1.0 |
-| [riglr-web-tools](./riglr-web-tools) | Tools for web APIs (DexScreener, Twitter, News). | 0.1.0 |
-| [riglr-auth](./riglr-auth) | Authentication and signer factories (Privy, Web3Auth). | 0.1.0 |
-| [riglr-graph-memory](./riglr-graph-memory) | Graph-based memory system with Neo4j. | 0.1.0 |
-| [riglr-cross-chain-tools](./riglr-cross-chain-tools) | Cross-chain bridge integration via Li.Fi. | 0.1.0 |
-| [riglr-hyperliquid-tools](./riglr-hyperliquid-tools) | Tools for the Hyperliquid perpetuals DEX. | 0.1.0 |
-| [riglr-server](./riglr-server) | Turnkey, production-ready HTTP server for agents. | 0.1.0 |
-| [riglr-showcase](./riglr-showcase) | Example agents and demonstrations. | 0.1.0 |
+| [riglr-core](./riglr-core) | Core framework, job processing, idempotency, signer traits. | 0.3.0 |
+| [riglr-config](./riglr-config) | Unified, hierarchical configuration management. | 0.3.0 |
+| [riglr-macros](./riglr-macros) | Procedural macros (`#[tool]`) for rapid tool generation. | 0.2.0 |
+| [riglr-agents](./riglr-agents) | Multi-agent coordination system with dispatch and registry. | 0.3.0 |
+| [riglr-streams](./riglr-streams) | Real-time event streaming from multiple on-chain and off-chain sources. | 0.2.0 |
+| [riglr-indexer](./riglr-indexer) | Production-grade blockchain indexing service. | 0.3.0 |
+| [riglr-events-core](./riglr-events-core) | Core event processing abstractions and traits. | 0.3.0 |
+| [riglr-solana-events](./riglr-solana-events) | High-performance Solana event parsing for multiple protocols. | 0.3.0 |
+| [riglr-solana-tools](./riglr-solana-tools) | Tools for interacting with the Solana blockchain. | 0.3.0 |
+| [riglr-evm-tools](./riglr-evm-tools) | Tools for EVM-compatible chains (Ethereum, Polygon, etc.). | 0.3.0 |
+| [riglr-web-tools](./riglr-web-tools) | Tools for web APIs (DexScreener, Twitter, News). | 0.3.0 |
+| [riglr-auth](./riglr-auth) | Authentication and signer factories (Privy, Web3Auth). | 0.2.0 |
+| [riglr-graph-memory](./riglr-graph-memory) | Graph-based memory system with Neo4j. | 0.3.0 |
+| [riglr-cross-chain-tools](./riglr-cross-chain-tools) | Cross-chain bridge integration via Li.Fi. | 0.3.0 |
+| [riglr-hyperliquid-tools](./riglr-hyperliquid-tools) | Tools for the Hyperliquid perpetuals DEX. | 0.3.0 |
+| [riglr-server](./riglr-server) | Turnkey, production-ready HTTP server for agents. | 0.2.0 |
+| [riglr-showcase](./riglr-showcase) | Example agents and demonstrations. | 0.3.0 |
 
-## 🗺️ Project Roadmap: Powering the Next Generation of Blockchain AI Agents
+## Project Roadmap
 
 This roadmap outlines the strategic vision for `riglr`, a professional-grade Rust framework for building the entire spectrum of AI agents that interact with blockchains. From simple, reactive bots to sophisticated, proactive multi-agent systems, `riglr` will provide a modular, high-performance, and secure foundation that scales with developer ambition.
 
@@ -453,7 +381,7 @@ By executing on these pillars, `riglr` will establish itself as the premier fram
 - **The Most Powerful Capabilities:** Unmatched, specialized tools for event parsing and graph memory, alongside components for building proactive, event-driven systems.
 - **The Strongest Ecosystem:** A flourishing community built around a shared registry of tools and a collaborative spirit.
 
-## 🧪 Testing Strategy
+## Testing Strategy
 
 A comprehensive unit and integration testing strategy is crucial for ensuring the reliability and robustness of the `riglr` codebase. Our approach will focus on creating an isolated, deterministic, and realistic testing environment.
 
