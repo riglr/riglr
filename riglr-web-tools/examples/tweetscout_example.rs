@@ -6,10 +6,7 @@ use riglr_web_tools::tweetscout::{
     get_top_followers, get_top_friends, is_account_credible,
 };
 
-async fn analyze_basic_account_info(
-    context: &ApplicationContext,
-    username: &str,
-) {
+async fn analyze_basic_account_info(context: &ApplicationContext, username: &str) {
     println!("\n📊 Account Information:");
     match get_account_info(context, username.to_string()).await {
         Ok(info) => {
@@ -30,10 +27,7 @@ async fn analyze_basic_account_info(
     }
 }
 
-async fn analyze_credibility_score(
-    context: &ApplicationContext,
-    username: &str,
-) {
+async fn analyze_credibility_score(context: &ApplicationContext, username: &str) {
     println!("\n🎯 Credibility Score:");
     match get_account_score(context, username.to_string()).await {
         Ok(score_resp) => {
@@ -51,10 +45,7 @@ async fn analyze_credibility_score(
     }
 }
 
-async fn perform_quick_credibility_check(
-    context: &ApplicationContext,
-    username: &str,
-) {
+async fn perform_quick_credibility_check(context: &ApplicationContext, username: &str) {
     println!("\n✅ Quick Credibility Check:");
     match is_account_credible(
         context,
@@ -73,10 +64,7 @@ async fn perform_quick_credibility_check(
     }
 }
 
-async fn perform_comprehensive_analysis(
-    context: &ApplicationContext,
-    username: &str,
-) {
+async fn perform_comprehensive_analysis(context: &ApplicationContext, username: &str) {
     println!("\n🔬 Comprehensive Account Analysis:");
     match analyze_account(context, username.to_string()).await {
         Ok(analysis) => {
@@ -112,10 +100,7 @@ async fn perform_comprehensive_analysis(
     }
 }
 
-async fn display_top_followers(
-    context: &ApplicationContext,
-    username: &str,
-) {
+async fn display_top_followers(context: &ApplicationContext, username: &str) {
     println!("\n👥 Top Followers (first 5):");
     match get_top_followers(context, username.to_string()).await {
         Ok(followers) => {
@@ -136,10 +121,7 @@ async fn display_top_followers(
     }
 }
 
-async fn display_top_friends(
-    context: &ApplicationContext,
-    username: &str,
-) {
+async fn display_top_friends(context: &ApplicationContext, username: &str) {
     println!("\n👥 Top Friends/Following (first 5):");
     match get_top_friends(context, username.to_string()).await {
         Ok(friends) => {
@@ -160,10 +142,7 @@ async fn display_top_friends(
     }
 }
 
-async fn perform_social_network_analysis(
-    context: &ApplicationContext,
-    username: &str,
-) {
+async fn perform_social_network_analysis(context: &ApplicationContext, username: &str) {
     println!("\n🌐 Social Network Analysis:");
     match analyze_social_network(context, username.to_string()).await {
         Ok(network) => {

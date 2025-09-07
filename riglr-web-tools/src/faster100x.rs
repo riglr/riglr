@@ -460,11 +460,17 @@ fn convert_raw_trend_point(raw: &api_types::TrendPointRaw) -> HolderTrendPoint {
 ///
 /// Helper function to get Faster100x API key from ApplicationContext
 fn get_api_key_from_context(context: &ApplicationContext) -> Result<String, WebToolError> {
-    context.config.providers.faster100x_api_key
+    context
+        .config
+        .providers
+        .faster100x_api_key
         .clone()
-        .ok_or_else(|| WebToolError::Config(
-            "Faster100x API key not configured. Set FASTER100X_API_KEY in your environment.".to_string()
-        ))
+        .ok_or_else(|| {
+            WebToolError::Config(
+                "Faster100x API key not configured. Set FASTER100X_API_KEY in your environment."
+                    .to_string(),
+            )
+        })
 }
 
 /// # Errors

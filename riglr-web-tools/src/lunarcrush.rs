@@ -138,11 +138,17 @@ pub struct InfluencerMentionsResult {
 
 /// Helper function to get LunarCrush API key from ApplicationContext
 fn get_api_key_from_context(context: &ApplicationContext) -> Result<String, WebToolError> {
-    context.config.providers.lunarcrush_api_key
+    context
+        .config
+        .providers
+        .lunarcrush_api_key
         .clone()
-        .ok_or_else(|| WebToolError::Config(
-            "LunarCrush API key not configured. Set LUNARCRUSH_API_KEY in your environment.".to_string()
-        ))
+        .ok_or_else(|| {
+            WebToolError::Config(
+                "LunarCrush API key not configured. Set LUNARCRUSH_API_KEY in your environment."
+                    .to_string(),
+            )
+        })
 }
 
 /// Creates a LunarCrush API client with context
