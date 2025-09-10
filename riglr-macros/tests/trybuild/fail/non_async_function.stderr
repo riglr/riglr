@@ -1,0 +1,16 @@
+error: `#[tool]` functions must be async
+ --> tests/trybuild/fail/non_async_function.rs:5:1
+  |
+5 | / fn non_async_tool(
+6 | |     context: &ApplicationContext,
+7 | |     name: String,
+8 | | ) -> Result<String, String> {
+  | |___________________________^
+
+warning: unused import: `riglr_core::provider::ApplicationContext`
+ --> tests/trybuild/fail/non_async_function.rs:2:5
+  |
+2 | use riglr_core::provider::ApplicationContext;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default

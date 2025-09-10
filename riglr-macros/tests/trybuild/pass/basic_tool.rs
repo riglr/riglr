@@ -1,12 +1,13 @@
 use riglr_macros::tool;
 use riglr_core::provider::ApplicationContext;
+use riglr_core::ToolError;
 
 #[tool]
 async fn basic_tool(
-    context: &ApplicationContext,
+    _context: &ApplicationContext,
     name: String,
     age: u32,
-) -> Result<String, String> {
+) -> Result<String, ToolError> {
     Ok(format!("Hello {}, age {}", name, age))
 }
 

@@ -49,3 +49,4 @@ solana-sdk = { workspace = true }
 
 [dev-dependencies]
 reqwest = { workspace = true, features = ["json"] }
+solana-client = { workspace = true }

@@ -73,6 +73,11 @@ async fn main() -> anyhow::Result<()> {
 }
 ```
 
+## Configuration
+
+For comprehensive server configuration documentation, please see:
+[Server Configuration in Deployment Guides](../docs/src/deployment/index.md#server-configuration)
+
 ## Features
 
 - axum (default)
