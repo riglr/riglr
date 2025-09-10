@@ -3,11 +3,12 @@
 //! This library provides functionality for scaffolding RIGLR-powered blockchain AI agents.
 
 pub mod config;
+pub mod dependencies;
 pub mod generator;
 pub mod templates;
 pub mod validation;
 
-pub use config::{ProjectConfig, ServerFramework, Template, TemplateInfo};
+pub use config::{Chain, Feature, ProjectConfig, ServerFramework, Template, TemplateInfo};
 pub use generator::ProjectGenerator;
 pub use templates::TemplateManager;
 pub use validation::{validate_email, validate_port, validate_project_name, validate_url};
@@ -33,9 +34,9 @@ mod tests {
         let config = ProjectConfig {
             name: "test_project".to_string(),
             template: Template::Custom,
-            chains: vec!["solana".to_string()],
+            chains: vec![Chain::Solana],
             server_framework: Some(ServerFramework::Axum),
-            features: vec!["logging".to_string()],
+            features: vec![Feature::Logging],
             author_name: "Test Author".to_string(),
             author_email: "test@example.com".to_string(),
             description: "Test project".to_string(),
@@ -52,7 +53,7 @@ mod tests {
         let config = ProjectConfig {
             name: "test_project".to_string(),
             template: Template::Custom,
-            chains: vec!["solana".to_string()],
+            chains: vec![Chain::Solana],
             server_framework: None,
             features: vec![],
             author_name: "Test Author".to_string(),
@@ -109,17 +110,7 @@ mod tests {
             Template::ApiServiceBackend,
             Template::DataAnalyticsBot,
             Template::EventDrivenTradingEngine,
-            Template::TradingBot,
-            Template::MarketAnalyst,
-            Template::NewsMonitor,
-            Template::DexArbitrageBot,
-            Template::PortfolioTracker,
-            Template::BridgeMonitor,
-            Template::MevProtectionAgent,
-            Template::DaoGovernanceBot,
-            Template::NftTradingBot,
-            Template::YieldOptimizer,
-            Template::SocialTradingCopier,
+            Template::MinimalApi,
             Template::Custom,
         ];
 
@@ -188,24 +179,14 @@ mod tests {
     #[test]
     fn test_template_string_conversion() {
         // Test Template Display implementation through re-export
-        assert_eq!(Template::Custom.to_string(), "custom");
         assert_eq!(Template::ApiServiceBackend.to_string(), "api-service");
         assert_eq!(Template::DataAnalyticsBot.to_string(), "data-analytics");
         assert_eq!(
             Template::EventDrivenTradingEngine.to_string(),
             "event-driven"
         );
-        assert_eq!(Template::TradingBot.to_string(), "trading-bot");
-        assert_eq!(Template::MarketAnalyst.to_string(), "market-analyst");
-        assert_eq!(Template::NewsMonitor.to_string(), "news-monitor");
-        assert_eq!(Template::DexArbitrageBot.to_string(), "dex-arbitrage");
-        assert_eq!(Template::PortfolioTracker.to_string(), "portfolio-tracker");
-        assert_eq!(Template::BridgeMonitor.to_string(), "bridge-monitor");
-        assert_eq!(Template::MevProtectionAgent.to_string(), "mev-protection");
-        assert_eq!(Template::DaoGovernanceBot.to_string(), "dao-governance");
-        assert_eq!(Template::NftTradingBot.to_string(), "nft-trading");
-        assert_eq!(Template::YieldOptimizer.to_string(), "yield-optimizer");
-        assert_eq!(Template::SocialTradingCopier.to_string(), "social-trading");
+        assert_eq!(Template::MinimalApi.to_string(), "minimal-api");
+        assert_eq!(Template::Custom.to_string(), "custom");
     }
 
     #[test]
@@ -258,48 +239,12 @@ mod tests {
             "Event-driven automated trading with complex strategies"
         );
         assert_eq!(
-            Template::TradingBot.description(),
-            "Advanced trading bot with risk management"
+            Template::MinimalApi.description(),
+            "A barebones API service with a health check and a single agent endpoint"
         );
         assert_eq!(
-            Template::MarketAnalyst.description(),
-            "Comprehensive market analysis and reporting"
-        );
-        assert_eq!(
-            Template::NewsMonitor.description(),
-            "Real-time news aggregation and sentiment analysis"
-        );
-        assert_eq!(
-            Template::DexArbitrageBot.description(),
-            "Cross-DEX arbitrage opportunity finder"
-        );
-        assert_eq!(
-            Template::PortfolioTracker.description(),
-            "Multi-chain portfolio management and tracking"
-        );
-        assert_eq!(
-            Template::BridgeMonitor.description(),
-            "Cross-chain bridge activity monitoring"
-        );
-        assert_eq!(
-            Template::MevProtectionAgent.description(),
-            "MEV protection and sandwich attack defense"
-        );
-        assert_eq!(
-            Template::DaoGovernanceBot.description(),
-            "Automated DAO participation and voting"
-        );
-        assert_eq!(
-            Template::NftTradingBot.description(),
-            "NFT market making and sniping bot"
-        );
-        assert_eq!(
-            Template::YieldOptimizer.description(),
-            "Yield farming strategy automation"
-        );
-        assert_eq!(
-            Template::SocialTradingCopier.description(),
-            "Copy trading from successful wallets"
+            Template::Custom.description(),
+            "Minimal template with basic structure"
         );
     }
 
@@ -307,36 +252,34 @@ mod tests {
     fn test_template_default_features_functionality() {
         // Test Template default_features method through re-export
         let api_features = Template::ApiServiceBackend.default_features();
-        assert!(api_features.contains(&"web_tools".to_string()));
-        assert!(api_features.contains(&"auth".to_string()));
-        assert!(api_features.contains(&"redis".to_string()));
-        assert!(api_features.contains(&"database".to_string()));
-        assert!(api_features.contains(&"api_docs".to_string()));
-        assert!(api_features.contains(&"logging".to_string()));
+        assert!(api_features.contains(&Feature::WebTools));
+        assert!(api_features.contains(&Feature::Auth));
+        assert!(api_features.contains(&Feature::Redis));
+        assert!(api_features.contains(&Feature::Database));
+        assert!(api_features.contains(&Feature::ApiDocs));
+        assert!(api_features.contains(&Feature::Logging));
 
         let analytics_features = Template::DataAnalyticsBot.default_features();
-        assert!(analytics_features.contains(&"web_tools".to_string()));
-        assert!(analytics_features.contains(&"graph_memory".to_string()));
-        assert!(analytics_features.contains(&"streaming".to_string()));
-        assert!(analytics_features.contains(&"database".to_string()));
-        assert!(analytics_features.contains(&"redis".to_string()));
-        assert!(analytics_features.contains(&"logging".to_string()));
+        assert!(analytics_features.contains(&Feature::WebTools));
+        assert!(analytics_features.contains(&Feature::GraphMemory));
+        assert!(analytics_features.contains(&Feature::Streaming));
+        assert!(analytics_features.contains(&Feature::Database));
+        assert!(analytics_features.contains(&Feature::Redis));
+        assert!(analytics_features.contains(&Feature::Logging));
 
         let event_features = Template::EventDrivenTradingEngine.default_features();
-        assert!(event_features.contains(&"web_tools".to_string()));
-        assert!(event_features.contains(&"streaming".to_string()));
-        assert!(event_features.contains(&"redis".to_string()));
-        assert!(event_features.contains(&"database".to_string()));
-        assert!(event_features.contains(&"logging".to_string()));
+        assert!(event_features.contains(&Feature::WebTools));
+        assert!(event_features.contains(&Feature::Streaming));
+        assert!(event_features.contains(&Feature::Redis));
+        assert!(event_features.contains(&Feature::Database));
+        assert!(event_features.contains(&Feature::Logging));
 
-        let trading_features = Template::TradingBot.default_features();
-        assert!(trading_features.contains(&"web_tools".to_string()));
-        assert!(trading_features.contains(&"redis".to_string()));
-        assert!(trading_features.contains(&"logging".to_string()));
+        // Test MinimalApi and Custom templates get basic logging feature
+        let minimal_features = Template::MinimalApi.default_features();
+        assert_eq!(minimal_features, vec![Feature::Logging]);
 
-        // Test other templates get basic logging feature
         let custom_features = Template::Custom.default_features();
-        assert_eq!(custom_features, vec!["logging".to_string()]);
+        assert_eq!(custom_features, vec![Feature::Logging]);
     }
 
     #[test]

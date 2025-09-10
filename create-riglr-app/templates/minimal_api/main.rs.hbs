@@ -1,0 +1,101 @@
+//! {{project_name}} - Minimal API Service
+//! A barebones API service with health check and a single agent endpoint
+
+use anyhow::Result;
+use axum::{
+    extract::State,
+    http::StatusCode,
+    response::Json,
+    routing::{get, post},
+    Router,
+};
+use serde::{Deserialize, Serialize};
+use std::net::SocketAddr;
+use std::sync::Arc;
+use tracing::{info, warn};
+
+#[derive(Clone)]
+struct AppState {
+    // Add any shared state here
+}
+
+#[derive(Deserialize)]
+struct QueryRequest {
+    query: String,
+}
+
+#[derive(Serialize)]
+struct QueryResponse {
+    result: String,
+    timestamp: String,
+}
+
+#[derive(Serialize)]
+struct HealthResponse {
+    status: String,
+    service: String,
+    version: String,
+}
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    // Initialize logging
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            std::env::var("RUST_LOG")
+                .unwrap_or_else(|_| "{{name}}=info,tower_http=debug".to_string()),
+        )
+        .init();
+
+    info!("Starting {{project_name}} Minimal API Service");
+
+    // Read configuration from environment
+    let host = std::env::var("HOST").unwrap_or_else(|_| "0.0.0.0".to_string());
+    let port = std::env::var("PORT")
+        .unwrap_or_else(|_| "8080".to_string())
+        .parse::<u16>()?;
+
+    // Initialize application state
+    let state = Arc::new(AppState {});
+
+    // Build the router
+    let app = Router::new()
+        .route("/health", get(health_check))
+        .route("/api/v1/query", post(handle_query))
+        .with_state(state);
+
+    // Start the server
+    let addr = SocketAddr::from(([0, 0, 0, 0], port));
+    info!("Server listening on http://{}:{}", host, port);
+    
+    let listener = tokio::net::TcpListener::bind(addr).await?;
+    axum::serve(listener, app).await?;
+
+    Ok(())
+}
+
+/// Health check endpoint
+async fn health_check() -> Json<HealthResponse> {
+    Json(HealthResponse {
+        status: "healthy".to_string(),
+        service: "{{name}}".to_string(),
+        version: env!("CARGO_PKG_VERSION").to_string(),
+    })
+}
+
+/// Simple agent query endpoint
+async fn handle_query(
+    State(_state): State<Arc<AppState>>,
+    Json(payload): Json<QueryRequest>,
+) -> Result<Json<QueryResponse>, StatusCode> {
+    info!("Received query: {}", payload.query);
+
+    // TODO: Implement your agent logic here
+    // For now, return a simple echo response
+    let response = QueryResponse {
+        result: format!("Processed query: {}", payload.query),
+        timestamp: chrono::Utc::now().to_rfc3339(),
+    };
+
+    Ok(Json(response))
+}

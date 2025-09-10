@@ -2,12 +2,48 @@
 
 use anyhow::Result;
 use handlebars::Handlebars;
-use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 
-use crate::config::{ProjectConfig, ServerFramework, Template};
+use crate::config::{Chain, Feature, ProjectConfig, ServerFramework, Template};
+use crate::dependencies::get_dependency_version;
 use crate::templates::TemplateManager;
+
+/// Template context for Handlebars rendering
+#[derive(serde::Serialize)]
+struct TemplateContext {
+    project_name: String,
+    description: String,
+    author_name: String,
+    author_email: String,
+    template: String,
+    template_description: String,
+    has_solana: bool,
+    has_evm: bool,
+    has_server: bool,
+    server_framework: String,
+    // Feature flags
+    has_web_tools: bool,
+    has_graph_memory: bool,
+    has_cross_chain: bool,
+    has_auth: bool,
+    has_streaming: bool,
+    has_database: bool,
+    has_redis: bool,
+    has_api_docs: bool,
+    has_cicd: bool,
+    has_docker: bool,
+    has_tests: bool,
+    has_examples: bool,
+    has_docs: bool,
+    has_logging: bool,
+    // Additional flags
+    include_examples: bool,
+    include_tests: bool,
+    include_docs: bool,
+    // Chain list for iteration in templates
+    chains: Vec<String>,
+}
 
 /// Project generator for creating new RIGLR projects
 pub struct ProjectGenerator {
@@ -64,7 +100,7 @@ impl ProjectGenerator {
             fs::create_dir_all(output_dir.join("docs"))?;
         }
 
-        if self.config.features.contains(&"database".to_string()) {
+        if self.config.features.contains(&Feature::Database) {
             fs::create_dir_all(output_dir.join("migrations"))?;
         }
 
@@ -93,8 +129,8 @@ impl ProjectGenerator {
 
         // Generate additional files
         for (path, template) in template_content.additional_files {
-            let content = self.handlebars.render_template(template, &data)?;
-            let file_path = output_dir.join(path);
+            let content = self.handlebars.render_template(&template, &data)?;
+            let file_path = output_dir.join(&path);
             if let Some(parent) = file_path.parent() {
                 fs::create_dir_all(parent)?;
             }
@@ -116,10 +152,11 @@ impl ProjectGenerator {
 
         let data = self.prepare_template_data();
 
-        // Generate Cargo.toml
-        let cargo_content = self
+        // Generate Cargo.toml programmatically
+        let cargo_base = self
             .handlebars
             .render_template(&template_content.cargo_toml, &data)?;
+        let cargo_content = self.build_cargo_toml(cargo_base)?;
         fs::write(output_dir.join("Cargo.toml"), cargo_content)?;
 
         // Generate .env.example
@@ -133,11 +170,11 @@ impl ProjectGenerator {
         fs::write(output_dir.join(".gitignore"), gitignore_content)?;
 
         // Generate additional config files
-        if self.config.features.contains(&"cicd".to_string()) {
+        if self.config.features.contains(&Feature::CiCd) {
             self.generate_cicd_config(output_dir)?;
         }
 
-        if self.config.features.contains(&"docker".to_string()) {
+        if self.config.features.contains(&Feature::Docker) {
             self.generate_docker_files(output_dir)?;
         }
 
@@ -150,9 +187,6 @@ impl ProjectGenerator {
         match &self.config.template {
             Template::ApiServiceBackend => {
                 self.generate_api_examples(output_dir)?;
-            }
-            Template::TradingBot => {
-                self.generate_trading_examples(output_dir)?;
             }
             _ => {
                 self.generate_basic_example(output_dir)?;
@@ -173,67 +207,47 @@ impl ProjectGenerator {
     }
 
     /// Prepare template data for Handlebars
-    fn prepare_template_data(&self) -> HashMap<String, serde_json::Value> {
-        use serde_json::json;
+    fn prepare_template_data(&self) -> TemplateContext {
+        let chain_strings: Vec<String> = self.config.chains.iter().map(|c| c.to_string()).collect();
 
-        let mut data = HashMap::new();
-
-        // Basic project info
-        data.insert("project_name".to_string(), json!(self.config.name));
-        data.insert("description".to_string(), json!(self.config.description));
-        data.insert("author_name".to_string(), json!(self.config.author_name));
-        data.insert("author_email".to_string(), json!(self.config.author_email));
-
-        // Template info
-        data.insert(
-            "template".to_string(),
-            json!(self.config.template.to_string()),
-        );
-        data.insert(
-            "template_description".to_string(),
-            json!(self.config.template.description()),
-        );
-
-        // Blockchain configuration
-        data.insert("chains".to_string(), json!(self.config.chains));
-        data.insert(
-            "has_solana".to_string(),
-            json!(self.config.chains.contains(&"solana".to_string())),
-        );
-        data.insert(
-            "has_evm".to_string(),
-            json!(self.config.chains.iter().any(|c| c != "solana")),
-        );
-
-        // Server configuration
-        data.insert(
-            "has_server".to_string(),
-            json!(self.config.server_framework.is_some()),
-        );
-        if let Some(framework) = &self.config.server_framework {
-            data.insert(
-                "server_framework".to_string(),
-                json!(format!("{:?}", framework).to_lowercase()),
-            );
+        TemplateContext {
+            project_name: self.config.name.clone(),
+            description: self.config.description.clone(),
+            author_name: self.config.author_name.clone(),
+            author_email: self.config.author_email.clone(),
+            template: self.config.template.to_string(),
+            template_description: self.config.template.description().to_string(),
+            has_solana: self.config.chains.contains(&Chain::Solana),
+            has_evm: self.config.chains.iter().any(|c| *c != Chain::Solana),
+            has_server: self.config.server_framework.is_some(),
+            server_framework: self
+                .config
+                .server_framework
+                .as_ref()
+                .map(|f| format!("{:?}", f).to_lowercase())
+                .unwrap_or_default(),
+            // Feature flags
+            has_web_tools: self.config.features.contains(&Feature::WebTools),
+            has_graph_memory: self.config.features.contains(&Feature::GraphMemory),
+            has_cross_chain: self.config.features.contains(&Feature::CrossChain),
+            has_auth: self.config.features.contains(&Feature::Auth),
+            has_streaming: self.config.features.contains(&Feature::Streaming),
+            has_database: self.config.features.contains(&Feature::Database),
+            has_redis: self.config.features.contains(&Feature::Redis),
+            has_api_docs: self.config.features.contains(&Feature::ApiDocs),
+            has_cicd: self.config.features.contains(&Feature::CiCd),
+            has_docker: self.config.features.contains(&Feature::Docker),
+            has_tests: self.config.features.contains(&Feature::Tests),
+            has_examples: self.config.features.contains(&Feature::Examples),
+            has_docs: self.config.features.contains(&Feature::Docs),
+            has_logging: self.config.features.contains(&Feature::Logging),
+            // Additional flags
+            include_examples: self.config.include_examples,
+            include_tests: self.config.include_tests,
+            include_docs: self.config.include_docs,
+            // Chain list for iteration in templates
+            chains: chain_strings,
         }
-
-        // Features
-        for feature in &self.config.features {
-            data.insert(format!("has_{}", feature), json!(true));
-        }
-
-        // Additional flags
-        data.insert(
-            "include_examples".to_string(),
-            json!(self.config.include_examples),
-        );
-        data.insert(
-            "include_tests".to_string(),
-            json!(self.config.include_tests),
-        );
-        data.insert("include_docs".to_string(), json!(self.config.include_docs));
-
-        data
     }
 
     /// Generate server-specific files
@@ -320,22 +334,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 "#;
         fs::write(output_dir.join("examples/api_client.rs"), example)?;
-        Ok(())
-    }
-
-    fn generate_trading_examples(&self, output_dir: &Path) -> Result<()> {
-        let example = r#"//! Example trading strategy
-
-use riglr_core::Job;
-
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("Trading example");
-    // Add trading-specific example code
-    Ok(())
-}
-"#;
-        fs::write(output_dir.join("examples/trading_strategy.rs"), example)?;
         Ok(())
     }
 
@@ -456,12 +454,146 @@ Dockerfile
 
         Ok(())
     }
+
+    /// Programmatically build Cargo.toml with dynamic dependencies
+    fn build_cargo_toml(&self, base_toml: String) -> Result<String> {
+        use toml_edit::{Array, DocumentMut, InlineTable};
+
+        // Parse the base template
+        let mut doc: DocumentMut = base_toml.parse()?;
+
+        // Get the dependencies table
+        let deps = doc["dependencies"]
+            .as_table_mut()
+            .ok_or_else(|| anyhow::anyhow!("No dependencies table found"))?;
+
+        // Add chain-specific dependencies
+        if self.config.chains.contains(&Chain::Solana) {
+            let mut workspace_table = InlineTable::new();
+            workspace_table.insert("workspace", true.into());
+            deps.insert(
+                "riglr-solana-tools",
+                toml_edit::Item::Value(workspace_table.into()),
+            );
+            let solana_client_version = get_dependency_version("solana-client");
+            let solana_sdk_version = get_dependency_version("solana-sdk");
+            deps.insert(
+                "solana-client",
+                toml_edit::Item::Value(solana_client_version.into()),
+            );
+            deps.insert(
+                "solana-sdk",
+                toml_edit::Item::Value(solana_sdk_version.into()),
+            );
+        }
+
+        if self.config.chains.contains(&Chain::Ethereum)
+            || self.config.chains.contains(&Chain::Polygon)
+            || self.config.chains.contains(&Chain::Arbitrum)
+            || self.config.chains.contains(&Chain::Base)
+            || self.config.chains.contains(&Chain::Bsc)
+            || self.config.chains.contains(&Chain::Avalanche)
+        {
+            let mut workspace_table = InlineTable::new();
+            workspace_table.insert("workspace", true.into());
+            deps.insert(
+                "riglr-evm-tools",
+                toml_edit::Item::Value(workspace_table.into()),
+            );
+
+            let alloy_version = get_dependency_version("alloy");
+            let mut alloy_table = InlineTable::new();
+            alloy_table.insert("version", alloy_version.into());
+            let mut features = Array::new();
+            features.push("full");
+            alloy_table.insert("features", features.into());
+            deps.insert("alloy", toml_edit::Item::Value(alloy_table.into()));
+        }
+
+        // Add feature-specific dependencies
+        if self.config.features.contains(&Feature::WebTools) {
+            let mut workspace_table = InlineTable::new();
+            workspace_table.insert("workspace", true.into());
+            deps.insert(
+                "riglr-web-tools",
+                toml_edit::Item::Value(workspace_table.into()),
+            );
+        }
+
+        if self.config.features.contains(&Feature::Redis) {
+            let redis_version = get_dependency_version("redis");
+            let mut redis_table = InlineTable::new();
+            redis_table.insert("version", redis_version.into());
+            let mut features = Array::new();
+            features.push("aio");
+            features.push("tokio-comp");
+            redis_table.insert("features", features.into());
+            deps.insert("redis", toml_edit::Item::Value(redis_table.into()));
+        }
+
+        if self.config.features.contains(&Feature::Database) {
+            let sqlx_version = get_dependency_version("sqlx");
+            let mut sqlx_table = InlineTable::new();
+            sqlx_table.insert("version", sqlx_version.into());
+            let mut features = Array::new();
+            features.push("runtime-tokio");
+            features.push("postgres");
+            sqlx_table.insert("features", features.into());
+            deps.insert("sqlx", toml_edit::Item::Value(sqlx_table.into()));
+        }
+
+        // Add server framework dependencies
+        if let Some(framework) = &self.config.server_framework {
+            match framework {
+                ServerFramework::Actix => {
+                    let actix_version = get_dependency_version("actix-web");
+                    let actix_cors_version = get_dependency_version("actix-cors");
+                    deps.insert("actix-web", toml_edit::Item::Value(actix_version.into()));
+                    deps.insert(
+                        "actix-cors",
+                        toml_edit::Item::Value(actix_cors_version.into()),
+                    );
+                }
+                ServerFramework::Axum => {
+                    let axum_version = get_dependency_version("axum");
+                    let tower_version = get_dependency_version("tower");
+                    let tower_http_version = get_dependency_version("tower-http");
+                    deps.insert("axum", toml_edit::Item::Value(axum_version.into()));
+                    deps.insert("tower", toml_edit::Item::Value(tower_version.into()));
+                    let mut tower_http_table = InlineTable::new();
+                    tower_http_table.insert("version", tower_http_version.into());
+                    let mut features = Array::new();
+                    features.push("cors");
+                    tower_http_table.insert("features", features.into());
+                    deps.insert(
+                        "tower-http",
+                        toml_edit::Item::Value(tower_http_table.into()),
+                    );
+                }
+                ServerFramework::Warp => {
+                    let warp_version = get_dependency_version("warp");
+                    deps.insert("warp", toml_edit::Item::Value(warp_version.into()));
+                }
+                ServerFramework::Rocket => {
+                    let rocket_version = get_dependency_version("rocket");
+                    let rocket_cors_version = get_dependency_version("rocket_cors");
+                    deps.insert("rocket", toml_edit::Item::Value(rocket_version.into()));
+                    deps.insert(
+                        "rocket_cors",
+                        toml_edit::Item::Value(rocket_cors_version.into()),
+                    );
+                }
+            }
+        }
+
+        Ok(doc.to_string())
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::{ProjectConfig, ServerFramework, Template};
+    use crate::config::{Chain, Feature, ProjectConfig, ServerFramework, Template};
     use std::fs;
     use std::path::PathBuf;
     use tempfile::TempDir;
@@ -473,12 +605,8 @@ mod tests {
             author_name: "Test Author".to_string(),
             author_email: "test@example.com".to_string(),
             template: Template::Custom,
-            chains: vec!["solana".to_string()],
-            features: vec![
-                "database".to_string(),
-                "cicd".to_string(),
-                "docker".to_string(),
-            ],
+            chains: vec![Chain::Solana],
+            features: vec![Feature::Database, Feature::CiCd, Feature::Docker],
             server_framework: Some(ServerFramework::Axum),
             include_tests: true,
             include_examples: true,
@@ -660,22 +788,10 @@ mod tests {
 
         let data = generator.prepare_template_data();
 
-        assert_eq!(
-            data.get("project_name").unwrap(),
-            &serde_json::json!("test_project")
-        );
-        assert_eq!(
-            data.get("description").unwrap(),
-            &serde_json::json!("A test project")
-        );
-        assert_eq!(
-            data.get("author_name").unwrap(),
-            &serde_json::json!("Test Author")
-        );
-        assert_eq!(
-            data.get("author_email").unwrap(),
-            &serde_json::json!("test@example.com")
-        );
+        assert_eq!(data.project_name, "test_project");
+        assert_eq!(data.description, "A test project");
+        assert_eq!(data.author_name, "Test Author");
+        assert_eq!(data.author_email, "test@example.com");
     }
 
     #[test]
@@ -685,8 +801,8 @@ mod tests {
 
         let data = generator.prepare_template_data();
 
-        assert_eq!(data.get("template").unwrap(), &serde_json::json!("custom"));
-        assert!(data.contains_key("template_description"));
+        assert_eq!(data.template, "custom");
+        assert!(!data.template_description.is_empty());
     }
 
     #[test]
@@ -696,36 +812,33 @@ mod tests {
 
         let data = generator.prepare_template_data();
 
-        assert_eq!(
-            data.get("chains").unwrap(),
-            &serde_json::json!(vec!["solana"])
-        );
-        assert_eq!(data.get("has_solana").unwrap(), &serde_json::json!(true));
-        assert_eq!(data.get("has_evm").unwrap(), &serde_json::json!(false));
+        assert_eq!(data.chains, vec!["solana"]);
+        assert!(data.has_solana);
+        assert!(!data.has_evm);
     }
 
     #[test]
     fn test_prepare_template_data_when_evm_chains_should_set_has_evm_true() {
         let mut config = create_test_config();
-        config.chains = vec!["ethereum".to_string(), "polygon".to_string()];
+        config.chains = vec![Chain::Ethereum, Chain::Polygon];
         let generator = ProjectGenerator::new(config);
 
         let data = generator.prepare_template_data();
 
-        assert_eq!(data.get("has_evm").unwrap(), &serde_json::json!(true));
-        assert_eq!(data.get("has_solana").unwrap(), &serde_json::json!(false));
+        assert!(data.has_evm);
+        assert!(!data.has_solana);
     }
 
     #[test]
     fn test_prepare_template_data_when_mixed_chains_should_set_both_true() {
         let mut config = create_test_config();
-        config.chains = vec!["solana".to_string(), "ethereum".to_string()];
+        config.chains = vec![Chain::Solana, Chain::Ethereum];
         let generator = ProjectGenerator::new(config);
 
         let data = generator.prepare_template_data();
 
-        assert_eq!(data.get("has_evm").unwrap(), &serde_json::json!(true));
-        assert_eq!(data.get("has_solana").unwrap(), &serde_json::json!(true));
+        assert!(data.has_evm);
+        assert!(data.has_solana);
     }
 
     #[test]
@@ -735,11 +848,8 @@ mod tests {
 
         let data = generator.prepare_template_data();
 
-        assert_eq!(data.get("has_server").unwrap(), &serde_json::json!(true));
-        assert_eq!(
-            data.get("server_framework").unwrap(),
-            &serde_json::json!("axum")
-        );
+        assert!(data.has_server);
+        assert_eq!(data.server_framework, "axum");
     }
 
     #[test]
@@ -749,8 +859,8 @@ mod tests {
 
         let data = generator.prepare_template_data();
 
-        assert_eq!(data.get("has_server").unwrap(), &serde_json::json!(false));
-        assert!(!data.contains_key("server_framework"));
+        assert!(!data.has_server);
+        assert!(data.server_framework.is_empty());
     }
 
     #[test]
@@ -760,9 +870,9 @@ mod tests {
 
         let data = generator.prepare_template_data();
 
-        assert_eq!(data.get("has_database").unwrap(), &serde_json::json!(true));
-        assert_eq!(data.get("has_cicd").unwrap(), &serde_json::json!(true));
-        assert_eq!(data.get("has_docker").unwrap(), &serde_json::json!(true));
+        assert!(data.has_database);
+        assert!(data.has_cicd);
+        assert!(data.has_docker);
     }
 
     #[test]
@@ -772,12 +882,9 @@ mod tests {
 
         let data = generator.prepare_template_data();
 
-        assert_eq!(
-            data.get("include_examples").unwrap(),
-            &serde_json::json!(true)
-        );
-        assert_eq!(data.get("include_tests").unwrap(), &serde_json::json!(true));
-        assert_eq!(data.get("include_docs").unwrap(), &serde_json::json!(true));
+        assert!(data.include_examples);
+        assert!(data.include_tests);
+        assert!(data.include_docs);
     }
 
     #[test]
@@ -809,25 +916,6 @@ mod tests {
         assert!(output_path.join("examples/api_client.rs").exists());
         let content = fs::read_to_string(output_path.join("examples/api_client.rs"))?;
         assert!(content.contains("Example API client"));
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_generate_examples_when_trading_bot_should_call_trading_examples() -> Result<()> {
-        let mut config = create_test_config();
-        config.template = Template::TradingBot;
-        let generator = ProjectGenerator::new(config);
-        let temp_dir = TempDir::new()?;
-        let output_path = temp_dir.path();
-
-        fs::create_dir_all(output_path.join("examples"))?;
-
-        generator.generate_examples(output_path)?;
-
-        assert!(output_path.join("examples/trading_strategy.rs").exists());
-        let content = fs::read_to_string(output_path.join("examples/trading_strategy.rs"))?;
-        assert!(content.contains("Example trading strategy"));
 
         Ok(())
     }
@@ -866,25 +954,6 @@ mod tests {
         assert!(content.contains("reqwest::Client"));
         assert!(content.contains("health"));
         assert!(content.contains("agent/query"));
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_generate_trading_examples_should_create_trading_strategy_file() -> Result<()> {
-        let config = create_test_config();
-        let generator = ProjectGenerator::new(config);
-        let temp_dir = TempDir::new()?;
-        let output_path = temp_dir.path();
-
-        fs::create_dir_all(output_path.join("examples"))?;
-
-        generator.generate_trading_examples(output_path)?;
-
-        assert!(output_path.join("examples/trading_strategy.rs").exists());
-        let content = fs::read_to_string(output_path.join("examples/trading_strategy.rs"))?;
-        assert!(content.contains("riglr_core::Job"));
-        assert!(content.contains("Trading example"));
 
         Ok(())
     }

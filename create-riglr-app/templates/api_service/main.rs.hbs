@@ -3,16 +3,22 @@
 //! API Service Backend powered by RIGLR framework
 
 use anyhow::Result;
-use tracing::{info, error};
 use std::sync::Arc;
+use tracing::{info, error};
+use riglr_config::Config;
+use riglr_core::provider::ApplicationContext;
+use riglr_agents::{
+    agents::tool_calling::{ToolCallingAgentBuilder, DebuggableCompletionModel},
+    toolset::Toolset,
+    registry::LocalAgentRegistry,
+    dispatcher::AgentDispatcher,
+    Agent,
+};
+use rig::client::CompletionClient;
+use rig::providers::anthropic::Client as AnthropicClient;
 
-mod config;
 mod routes;
 mod middleware;
-mod server;
-
-use crate::config::Config;
-use crate::server::create_server;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -26,122 +32,173 @@ async fn main() -> Result<()> {
 
     info!("Starting {{project_name}} API Service");
 
-    // Load configuration
+    // Load configuration using riglr-config
     dotenvy::dotenv().ok();
-    let config = Config::from_env()?;
+    let config = Config::from_env();
     config.validate()?;
     
     info!("Configuration loaded and validated");
 
-    // Initialize RIGLR components
+    // Set up ApplicationContext for dependency injection
+    let app_context = Arc::new(ApplicationContext::from_config(&config));
+
+    // Inject necessary clients as extensions
     {{#if has_solana}}
-    let solana_config = riglr_core::config::SolanaNetworkConfig {
-        name: "mainnet".to_string(),
-        rpc_url: config.solana_rpc_url.clone(),
-        explorer_url: None,
-    };
-    {{/if}}
-    
-    {{#if has_evm}}
-    let evm_config = riglr_core::config::EvmNetworkConfig {
-        chain_id: 1,
-        name: "ethereum".to_string(),
-        rpc_url: config.ethereum_rpc_url.clone(),
-        explorer_url: None,
-    };
+    // Create and inject Solana RPC client
+    let solana_client = Arc::new(solana_client::rpc_client::RpcClient::new(
+        config.network.solana_rpc_url.clone().unwrap_or_else(|| "https://api.mainnet-beta.solana.com".to_string())
+    ));
+    app_context.set_extension(solana_client);
+    info!("Solana RPC client initialized");
     {{/if}}
 
-    // Initialize Redis connection pool
+    {{#if has_evm}}
+    // Create and inject EVM Provider
+    use alloy::providers::ProviderBuilder;
+    if let Some(rpc_url) = config.network.get_rpc_url("1") {
+        let provider = ProviderBuilder::new()
+            .on_http(rpc_url.parse()?)
+            .boxed();
+        app_context.set_extension(provider);
+        info!("EVM provider initialized");
+    }
+    {{/if}}
+
+    {{#if has_web_tools}}
+    // Create and inject API clients for web tools
+    let api_clients = riglr_web_tools::client::ApiClients::from_config(&config.providers);
+    app_context.set_extension(Arc::new(api_clients));
+    info!("Web tools API clients initialized");
+    {{/if}}
+
     {{#if has_redis}}
-    let redis_client = redis::Client::open(config.redis_url.as_str())?;
-    let redis_pool = Arc::new(redis_client);
+    // Initialize Redis connection pool
+    let redis_url = std::env::var("REDIS_URL").unwrap_or_else(|_| "redis://localhost:6379".to_string());
+    let redis_client = redis::Client::open(redis_url)?;
+    app_context.set_extension(Arc::new(redis_client));
     info!("Redis connection established");
     {{/if}}
 
-    // Initialize database connection
     {{#if has_database}}
+    // Initialize database connection
+    let database_url = std::env::var("DATABASE_URL")?;
     let db_pool = sqlx::postgres::PgPoolOptions::new()
         .max_connections(5)
-        .connect(&config.database_url)
+        .connect(&database_url)
         .await?;
+    app_context.set_extension(Arc::new(db_pool));
     info!("Database connection established");
     {{/if}}
 
-    // Create AI agent
-    let agent = create_agent(&config).await?;
-    let agent = Arc::new(agent);
+    // Create AI agent using the new architecture
+    let agent = create_agent(app_context.clone()).await?;
     info!("AI agent initialized");
 
+    // Set up agent registry and dispatcher
+    let registry = Arc::new(LocalAgentRegistry::new());
+    registry.register_agent(agent).await?;
+    let dispatcher = Arc::new(AgentDispatcher::new(registry));
+    info!("Agent dispatcher initialized");
+
+    // Create app state for the web server
+    let app_state = AppState {
+        config: app_context.config.clone(),
+        app_context: app_context.clone(),
+        dispatcher,
+    };
+
     // Start server
-    let server_config = crate::server::ServerConfig {
-        host: config.server_host.clone(),
-        port: config.server_port,
-        {{#if has_auth}}
-        enable_auth: true,
-        {{/if}}
-        {{#if has_streaming}}
-        enable_websocket: true,
-        {{/if}}
-        {{#if has_api_docs}}
-        enable_swagger: true,
-        {{/if}}
-    };
+    let host = std::env::var("HOST").unwrap_or_else(|_| "0.0.0.0".to_string());
+    let port: u16 = std::env::var("PORT")
+        .unwrap_or_else(|_| "8080".to_string())
+        .parse()?;
 
-    let app_state = crate::server::AppState {
-        config: Arc::new(config),
-        agent,
-        {{#if has_redis}}
-        redis: redis_pool,
-        {{/if}}
-        {{#if has_database}}
-        db: Arc::new(db_pool),
-        {{/if}}
-    };
+    info!("Starting server on http://{}:{}", host, port);
 
-    let server = create_server(server_config, app_state).await?;
+    {{#if (eq server_framework "axum")}}
+    use axum::Router;
+    use std::net::SocketAddr;
     
-    info!("Server starting on http://{}:{}", 
-        server_config.host, server_config.port);
+    let app = Router::new()
+        .nest("/api/v1", routes::create_routes())
+        .with_state(Arc::new(app_state));
+
+    let addr: SocketAddr = format!("{}:{}", host, port).parse()?;
+    let listener = tokio::net::TcpListener::bind(&addr).await?;
     
-    server.await?;
+    axum::serve(listener, app).await?;
+    {{/if}}
+
+    {{#if (eq server_framework "actix")}}
+    use actix_web::{web, App, HttpServer};
+    
+    HttpServer::new(move || {
+        App::new()
+            .app_data(web::Data::new(app_state.clone()))
+            .service(web::scope("/api/v1").configure(routes::configure))
+    })
+    .bind(format!("{}:{}", host, port))?
+    .run()
+    .await?;
+    {{/if}}
+
+    {{#if (eq server_framework "warp")}}
+    use warp::Filter;
+    
+    let routes = routes::create_routes(Arc::new(app_state));
+    warp::serve(routes)
+        .run(([0, 0, 0, 0], port))
+        .await;
+    {{/if}}
+
+    {{#if (eq server_framework "rocket")}}
+    use rocket::State;
+    
+    rocket::build()
+        .manage(Arc::new(app_state))
+        .mount("/api/v1", routes::create_routes())
+        .launch()
+        .await?;
+    {{/if}}
 
     Ok(())
 }
 
-async fn create_agent(config: &Config) -> Result<rig_core::Agent<rig_core::providers::anthropic::Client>> {
-    use rig_core::providers::anthropic;
+async fn create_agent(app_context: Arc<ApplicationContext>) -> Result<Arc<dyn Agent>> {
+    // 1. Discover all available tools
+    let mut toolset = Toolset::default();
     
-    let client = anthropic::ClientBuilder::new(&config.anthropic_api_key).build();
-    
-    let mut agent = client
-        .agent("claude-3-5-sonnet-20241022")
-        .preamble("You are an AI assistant helping with blockchain operations and analysis.")
-        .temperature(0.7);
-
-    // Add tools based on configuration
     {{#if has_solana}}
-    use riglr_solana_tools::*;
-    agent = agent
-        .tool(get_sol_balance())
-        .tool(get_spl_token_balance())
-        .tool(transfer_sol());
+    toolset = toolset.with_solana_tools();
     {{/if}}
-
+    
     {{#if has_evm}}
-    use riglr_evm_tools::*;
-    agent = agent
-        .tool(get_eth_balance())
-        .tool(get_erc20_balance())
-        .tool(transfer_eth());
+    toolset = toolset.with_evm_tools();
     {{/if}}
-
+    
     {{#if has_web_tools}}
-    use riglr_web_tools::*;
-    agent = agent
-        .tool(dexscreener::get_token_info())
-        .tool(twitter::search_tweets())
-        .tool(news::get_crypto_news());
+    toolset = toolset.with_web_tools();
     {{/if}}
 
-    Ok(agent.build())
+    // 2. Create the LLM "brain"
+    let anthropic_client = AnthropicClient::new(
+        app_context.config.providers.anthropic_api_key.as_ref()
+            .expect("ANTHROPIC_API_KEY must be set")
+    );
+    let model = anthropic_client.completion_model("claude-3-5-sonnet-20240620");
+    let debuggable_model = DebuggableCompletionModel::new(model);
+
+    // 3. Build the agent
+    let agent = ToolCallingAgentBuilder::new(toolset, app_context)
+        .build(debuggable_model)
+        .await?;
+
+    Ok(agent)
+}
+
+#[derive(Clone)]
+struct AppState {
+    config: Arc<riglr_config::Config>,
+    app_context: Arc<ApplicationContext>,
+    dispatcher: Arc<AgentDispatcher>,
 }

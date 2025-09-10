@@ -1,11 +1,12 @@
 [package]
-name = "{{name}}"
+name = "{{project_name}}"
 version = "0.1.0"
 edition = "2021"
 authors = ["{{author_name}} <{{author_email}}>"]
 description = "{{description}}"
 
 [dependencies]
+# Core dependencies
 tokio = { version = "1", features = ["full"] }
 anyhow = "1"
 tracing = "0.1"
@@ -13,47 +14,10 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 dotenvy = "0.15"
+chrono = "0.4"
 
-# RIGLR dependencies
-riglr-core = { version = "0.1" }
-rig-core = { version = "0.5" }
-
-{{#if has_solana}}
-riglr-solana-tools = { version = "0.1" }
-{{/if}}
-
-{{#if has_evm}}
-riglr-evm-tools = { version = "0.1" }
-{{/if}}
-
-{{#if has_web_tools}}
-riglr-web-tools = { version = "0.1" }
-{{/if}}
-
-{{#if has_redis}}
-redis = { version = "0.27", features = ["aio", "tokio-comp"] }
-{{/if}}
-
-{{#if has_database}}
-sqlx = { version = "0.8", features = ["runtime-tokio", "postgres"] }
-{{/if}}
-
-{{#if (eq server_framework "actix")}}
-actix-web = "4"
-actix-cors = "0.7"
-{{/if}}
-
-{{#if (eq server_framework "axum")}}
-axum = "0.7"
-tower = "0.5"
-tower-http = { version = "0.6", features = ["cors"] }
-{{/if}}
-
-{{#if (eq server_framework "warp")}}
-warp = "0.3"
-{{/if}}
-
-{{#if (eq server_framework "rocket")}}
-rocket = "0.5"
-rocket_cors = "0.6"
-{{/if}}
+# RIGLR core dependencies
+riglr-core = { workspace = true }
+riglr-agents = { workspace = true }
+riglr-config = { workspace = true }
+rig-core = { workspace = true }

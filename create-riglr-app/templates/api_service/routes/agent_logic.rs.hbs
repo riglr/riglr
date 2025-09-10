@@ -1,0 +1,47 @@
+//! Agent API route logic (framework-agnostic)
+
+use anyhow::Result;
+use serde::{Deserialize, Serialize};
+use serde_json::json;
+use riglr_agents::{dispatcher::AgentDispatcher, types::{Task, TaskType}};
+use std::sync::Arc;
+
+#[derive(Debug, Deserialize)]
+pub struct QueryRequest {
+    pub prompt: String,
+    #[serde(default)]
+    pub context: Option<serde_json::Value>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct QueryResponse {
+    pub success: bool,
+    pub result: Option<serde_json::Value>,
+    pub error: Option<String>,
+}
+
+pub async fn handle_query_logic(
+    dispatcher: Arc<AgentDispatcher>,
+    request: QueryRequest,
+) -> Result<QueryResponse> {
+    let task = Task::new(
+        TaskType::Custom("tool_calling".to_string()),
+        json!({
+            "prompt": request.prompt,
+            "context": request.context
+        }),
+    );
+
+    match dispatcher.dispatch_task(task).await {
+        Ok(result) => Ok(QueryResponse {
+            success: true,
+            result: Some(result.data()),
+            error: None,
+        }),
+        Err(e) => Ok(QueryResponse {
+            success: false,
+            result: None,
+            error: Some(e.to_string()),
+        }),
+    }
+}

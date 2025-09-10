@@ -114,8 +114,7 @@ curl http://localhost:8080/health
 curl -X POST http://localhost:8080/api/v1/agent/query \
   -H "Content-Type: application/json" \
   -d '{
-    "prompt": "What is the current SOL price?",
-    "chain": "solana"
+    "prompt": "What is the current SOL price?"
   }'
 ```
 {{/if}}
@@ -139,11 +138,10 @@ cargo tarpaulin --out Html
 ├── src/
 │   ├── main.rs              # Application entry point
 {{#if has_server}}
-│   ├── server.rs            # Server configuration
 │   ├── routes/              # API routes
 │   ├── middleware/          # HTTP middleware
 {{/if}}
-│   ├── config.rs            # Configuration management
+│   ├── lib.rs               # Library exports
 │   └── ...
 ├── Cargo.toml               # Dependencies
 ├── .env.example             # Environment variables template
@@ -152,16 +150,16 @@ cargo tarpaulin --out Html
 
 ## 🔧 Configuration
 
-All configuration is managed through environment variables. See `.env.example` for available options.
+All configuration is managed through environment variables using the `riglr-config` crate. See `.env.example` for available options.
 
 ### Required Variables
 
 - `ANTHROPIC_API_KEY`: Your Anthropic API key for Claude
 {{#if has_solana}}
-- `SOLANA_RPC_URL`: Solana RPC endpoint
+- `RPC_URL_SOLANA`: Solana RPC endpoint
 {{/if}}
 {{#if has_evm}}
-- `ETHEREUM_RPC_URL`: Ethereum RPC endpoint
+- `RPC_URL_1`: Ethereum RPC endpoint (chain ID 1)
 {{/if}}
 {{#if has_redis}}
 - `REDIS_URL`: Redis connection URL
@@ -169,6 +167,60 @@ All configuration is managed through environment variables. See `.env.example` f
 {{#if has_database}}
 - `DATABASE_URL`: PostgreSQL connection string
 {{/if}}
+
+## 🔒 Security Best Practices
+
+**⚠️ CRITICAL: Never store private keys or secrets in `.env` files in production!**
+
+The `.env` file is intended for **development use only**. Storing sensitive credentials like private keys, API keys, and database passwords in plain text files poses serious security risks:
+
+- **Risk of accidental commits**: `.env` files can be accidentally committed to version control
+- **Exposure on shared systems**: Plain text files are readable by anyone with system access
+- **No audit trail**: No logging of who accessed the secrets or when
+- **No rotation mechanism**: Difficult to rotate credentials systematically
+
+### Recommended Production Alternatives
+
+For production deployments, use one of these secure methods:
+
+#### 1. **OS Keychains** (Desktop/Development)
+   - Use the `keyring` crate to store secrets in the OS keychain
+   - Provides encrypted storage with user authentication
+   - Example: macOS Keychain, Windows Credential Manager, Linux Secret Service
+
+#### 2. **Cloud Secret Managers** (Recommended for Production)
+   - **AWS Secrets Manager**: Integrated with AWS services, automatic rotation
+   - **HashiCorp Vault**: Enterprise-grade secret management with fine-grained access control
+   - **Azure Key Vault**: Microsoft's cloud-based secret management
+   - **Google Secret Manager**: GCP's native secret storage solution
+
+#### 3. **Hardware Security Modules (HSMs)** (High Security)
+   - Physical computing devices for safeguarding cryptographic keys
+   - Provides tamper-resistant hardware-based key storage
+   - Required for certain compliance standards (FIPS 140-2, Common Criteria)
+
+#### 4. **Environment Variables** (Container/Kubernetes)
+   - Inject secrets at runtime through your deployment platform
+   - Use Kubernetes Secrets with proper RBAC
+   - Leverage Docker Swarm secrets for containerized deployments
+
+### Implementation Example
+
+For implementation examples and best practices, see:
+- `riglr-core/src/util/secure_keys.rs` - Secure key management utilities
+- [RIGLR Security Documentation](https://github.com/riglr/riglr/docs/security)
+
+### Security Checklist
+
+Before deploying to production:
+- [ ] Remove all secrets from `.env` files
+- [ ] Configure proper secret management solution
+- [ ] Enable audit logging for secret access
+- [ ] Set up secret rotation policies
+- [ ] Use different secrets for each environment (dev/staging/prod)
+- [ ] Implement proper access controls (principle of least privilege)
+- [ ] Never log or output secrets in error messages
+- [ ] Use TLS/SSL for all network communications
 
 ## 🚀 Deployment
 

@@ -1,1 +1,118 @@
-// Agent routes
+//! Agent API routes
+
+use super::agent_logic::{handle_query_logic, QueryRequest, QueryResponse};
+
+{{#if (eq server_framework "axum")}}
+use axum::{
+    extract::State,
+    response::Json,
+    Router,
+    routing::post,
+};
+use std::sync::Arc;
+
+pub fn create_routes() -> Router<Arc<crate::AppState>> {
+    Router::new()
+        .route("/query", post(handle_query))
+}
+
+async fn handle_query(
+    State(state): State<Arc<crate::AppState>>,
+    Json(request): Json<QueryRequest>,
+) -> Json<QueryResponse> {
+    match handle_query_logic(state.dispatcher.clone(), request).await {
+        Ok(response) => Json(response),
+        Err(e) => Json(QueryResponse {
+            success: false,
+            result: None,
+            error: Some(e.to_string()),
+        }),
+    }
+}
+{{/if}}
+
+{{#if (eq server_framework "actix")}}
+use actix_web::{web, HttpResponse, Result as ActixResult};
+use std::sync::Arc;
+
+pub fn configure(cfg: &mut web::ServiceConfig) {
+    cfg.route("/query", web::post().to(handle_query));
+}
+
+async fn handle_query(
+    state: web::Data<Arc<crate::AppState>>,
+    request: web::Json<QueryRequest>,
+) -> ActixResult<HttpResponse> {
+    match handle_query_logic(state.dispatcher.clone(), request.into_inner()).await {
+        Ok(response) => {
+            if response.success {
+                Ok(HttpResponse::Ok().json(response))
+            } else {
+                Ok(HttpResponse::InternalServerError().json(response))
+            }
+        },
+        Err(e) => Ok(HttpResponse::InternalServerError().json(QueryResponse {
+            success: false,
+            result: None,
+            error: Some(e.to_string()),
+        })),
+    }
+}
+{{/if}}
+
+{{#if (eq server_framework "warp")}}
+use warp::{Filter, Reply, Rejection};
+use std::sync::Arc;
+
+pub fn routes(state: Arc<crate::AppState>) -> impl Filter<Extract = impl Reply, Error = Rejection> + Clone {
+    let query = warp::path!("query")
+        .and(warp::post())
+        .and(warp::body::json())
+        .and(with_state(state.clone()))
+        .and_then(handle_query);
+    
+    query
+}
+
+fn with_state(state: Arc<crate::AppState>) -> impl Filter<Extract = (Arc<crate::AppState>,), Error = std::convert::Infallible> + Clone {
+    warp::any().map(move || state.clone())
+}
+
+async fn handle_query(
+    request: QueryRequest,
+    state: Arc<crate::AppState>,
+) -> Result<impl Reply, Rejection> {
+    match handle_query_logic(state.dispatcher.clone(), request).await {
+        Ok(response) => Ok(warp::reply::json(&response)),
+        Err(e) => Ok(warp::reply::json(&QueryResponse {
+            success: false,
+            result: None,
+            error: Some(e.to_string()),
+        })),
+    }
+}
+{{/if}}
+
+{{#if (eq server_framework "rocket")}}
+use rocket::{serde::json::Json, State};
+use std::sync::Arc;
+
+#[rocket::post("/query", data = "<request>")]
+pub async fn handle_query(
+    state: &State<Arc<crate::AppState>>,
+    request: Json<QueryRequest>,
+) -> Json<QueryResponse> {
+    match handle_query_logic(state.dispatcher.clone(), request.into_inner()).await {
+        Ok(response) => Json(response),
+        Err(e) => Json(QueryResponse {
+            success: false,
+            result: None,
+            error: Some(e.to_string()),
+        }),
+    }
+}
+
+pub fn routes() -> Vec<rocket::Route> {
+    rocket::routes![handle_query]
+}
+{{/if}}

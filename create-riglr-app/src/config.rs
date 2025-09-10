@@ -12,11 +12,11 @@ pub struct ProjectConfig {
     /// The template to use for project scaffolding
     pub template: Template,
     /// List of blockchain networks to support
-    pub chains: Vec<String>,
+    pub chains: Vec<Chain>,
     /// Optional web server framework to include
     pub server_framework: Option<ServerFramework>,
     /// List of features to enable in the project
-    pub features: Vec<String>,
+    pub features: Vec<Feature>,
     /// Author's name for project metadata
     pub author_name: String,
     /// Author's email for project metadata
@@ -34,41 +34,14 @@ pub struct ProjectConfig {
 /// Available project templates
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum Template {
-    // New templates
     /// RESTful API service template with blockchain integration
     ApiServiceBackend,
     /// Real-time blockchain data analysis template
     DataAnalyticsBot,
     /// Event-driven automated trading engine template
     EventDrivenTradingEngine,
-
-    // Existing templates
-    /// Advanced trading bot template with risk management
-    TradingBot,
-    /// Comprehensive market analysis template
-    MarketAnalyst,
-    /// Real-time news aggregation template
-    NewsMonitor,
-    /// Cross-DEX arbitrage bot template
-    DexArbitrageBot,
-    /// Multi-chain portfolio tracking template
-    PortfolioTracker,
-
-    // Additional templates
-    /// Cross-chain bridge monitoring template
-    BridgeMonitor,
-    /// MEV protection agent template
-    MevProtectionAgent,
-    /// DAO governance automation template
-    DaoGovernanceBot,
-    /// NFT trading bot template
-    NftTradingBot,
-    /// Yield farming optimization template
-    YieldOptimizer,
-    /// Social copy trading template
-    SocialTradingCopier,
-
-    // Basic template
+    /// Minimal API service with health check and single endpoint
+    MinimalApi,
     /// Minimal custom template
     Custom,
 }
@@ -80,18 +53,8 @@ impl Template {
             "api-service" | "api" => Ok(Template::ApiServiceBackend),
             "analytics" | "data-analytics" => Ok(Template::DataAnalyticsBot),
             "event-driven" | "trading-engine" => Ok(Template::EventDrivenTradingEngine),
-            "trading-bot" | "trader" => Ok(Template::TradingBot),
-            "market-analyst" | "analyst" => Ok(Template::MarketAnalyst),
-            "news-monitor" | "news" => Ok(Template::NewsMonitor),
-            "dex-arbitrage" | "arbitrage" => Ok(Template::DexArbitrageBot),
-            "portfolio" | "portfolio-tracker" => Ok(Template::PortfolioTracker),
-            "bridge-monitor" | "bridge" => Ok(Template::BridgeMonitor),
-            "mev-protection" | "mev" => Ok(Template::MevProtectionAgent),
-            "dao-governance" | "dao" => Ok(Template::DaoGovernanceBot),
-            "nft-trading" | "nft" => Ok(Template::NftTradingBot),
-            "yield-optimizer" | "yield" => Ok(Template::YieldOptimizer),
-            "social-trading" | "copier" => Ok(Template::SocialTradingCopier),
-            "custom" | "minimal" => Ok(Template::Custom),
+            "minimal-api" | "minimal" => Ok(Template::MinimalApi),
+            "custom" => Ok(Template::Custom),
             _ => Err(anyhow!("Unknown template: {}", s)),
         }
     }
@@ -108,54 +71,42 @@ impl Template {
             Template::EventDrivenTradingEngine => {
                 "Event-driven automated trading with complex strategies"
             }
-            Template::TradingBot => "Advanced trading bot with risk management",
-            Template::MarketAnalyst => "Comprehensive market analysis and reporting",
-            Template::NewsMonitor => "Real-time news aggregation and sentiment analysis",
-            Template::DexArbitrageBot => "Cross-DEX arbitrage opportunity finder",
-            Template::PortfolioTracker => "Multi-chain portfolio management and tracking",
-            Template::BridgeMonitor => "Cross-chain bridge activity monitoring",
-            Template::MevProtectionAgent => "MEV protection and sandwich attack defense",
-            Template::DaoGovernanceBot => "Automated DAO participation and voting",
-            Template::NftTradingBot => "NFT market making and sniping bot",
-            Template::YieldOptimizer => "Yield farming strategy automation",
-            Template::SocialTradingCopier => "Copy trading from successful wallets",
+            Template::MinimalApi => {
+                "A barebones API service with a health check and a single agent endpoint"
+            }
             Template::Custom => "Minimal template with basic structure",
         }
     }
 
     #[allow(dead_code)]
     /// Get the default features for this template
-    pub fn default_features(&self) -> Vec<String> {
+    pub fn default_features(&self) -> Vec<Feature> {
         match self {
             Template::ApiServiceBackend => vec![
-                "web_tools".to_string(),
-                "auth".to_string(),
-                "redis".to_string(),
-                "database".to_string(),
-                "api_docs".to_string(),
-                "logging".to_string(),
+                Feature::WebTools,
+                Feature::Auth,
+                Feature::Redis,
+                Feature::Database,
+                Feature::ApiDocs,
+                Feature::Logging,
             ],
             Template::DataAnalyticsBot => vec![
-                "web_tools".to_string(),
-                "graph_memory".to_string(),
-                "streaming".to_string(),
-                "database".to_string(),
-                "redis".to_string(),
-                "logging".to_string(),
+                Feature::WebTools,
+                Feature::GraphMemory,
+                Feature::Streaming,
+                Feature::Database,
+                Feature::Redis,
+                Feature::Logging,
             ],
             Template::EventDrivenTradingEngine => vec![
-                "web_tools".to_string(),
-                "streaming".to_string(),
-                "redis".to_string(),
-                "database".to_string(),
-                "logging".to_string(),
+                Feature::WebTools,
+                Feature::Streaming,
+                Feature::Redis,
+                Feature::Database,
+                Feature::Logging,
             ],
-            Template::TradingBot => vec![
-                "web_tools".to_string(),
-                "redis".to_string(),
-                "logging".to_string(),
-            ],
-            _ => vec!["logging".to_string()],
+            Template::MinimalApi => vec![Feature::Logging],
+            Template::Custom => vec![Feature::Logging],
         }
     }
 }
@@ -166,17 +117,7 @@ impl fmt::Display for Template {
             Template::ApiServiceBackend => "api-service",
             Template::DataAnalyticsBot => "data-analytics",
             Template::EventDrivenTradingEngine => "event-driven",
-            Template::TradingBot => "trading-bot",
-            Template::MarketAnalyst => "market-analyst",
-            Template::NewsMonitor => "news-monitor",
-            Template::DexArbitrageBot => "dex-arbitrage",
-            Template::PortfolioTracker => "portfolio-tracker",
-            Template::BridgeMonitor => "bridge-monitor",
-            Template::MevProtectionAgent => "mev-protection",
-            Template::DaoGovernanceBot => "dao-governance",
-            Template::NftTradingBot => "nft-trading",
-            Template::YieldOptimizer => "yield-optimizer",
-            Template::SocialTradingCopier => "social-trading",
+            Template::MinimalApi => "minimal-api",
             Template::Custom => "custom",
         };
         write!(f, "{}", s)
@@ -210,6 +151,142 @@ impl ServerFramework {
             ServerFramework::Warp => vec![("warp", "0.3"), ("tokio-stream", "0.1")],
             ServerFramework::Rocket => vec![("rocket", "0.5"), ("rocket_cors", "0.6")],
         }
+    }
+}
+
+/// Supported blockchain networks
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum Chain {
+    /// Solana blockchain
+    Solana,
+    /// Ethereum blockchain
+    Ethereum,
+    /// Polygon blockchain
+    Polygon,
+    /// Arbitrum blockchain
+    Arbitrum,
+    /// Base blockchain
+    Base,
+    /// Binance Smart Chain
+    Bsc,
+    /// Avalanche blockchain
+    Avalanche,
+}
+
+impl Chain {
+    /// Parse a chain from a string identifier
+    pub fn parse(s: &str) -> Result<Self> {
+        match s.to_lowercase().as_str() {
+            "solana" | "sol" => Ok(Chain::Solana),
+            "ethereum" | "eth" => Ok(Chain::Ethereum),
+            "polygon" | "matic" => Ok(Chain::Polygon),
+            "arbitrum" | "arb" => Ok(Chain::Arbitrum),
+            "base" => Ok(Chain::Base),
+            "bsc" | "binance" => Ok(Chain::Bsc),
+            "avalanche" | "avax" => Ok(Chain::Avalanche),
+            _ => Err(anyhow!("Unknown chain: {}", s)),
+        }
+    }
+
+    /// Get the string representation of the chain
+    pub fn as_str(&self) -> &str {
+        match self {
+            Chain::Solana => "solana",
+            Chain::Ethereum => "ethereum",
+            Chain::Polygon => "polygon",
+            Chain::Arbitrum => "arbitrum",
+            Chain::Base => "base",
+            Chain::Bsc => "bsc",
+            Chain::Avalanche => "avalanche",
+        }
+    }
+}
+
+impl fmt::Display for Chain {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.as_str())
+    }
+}
+
+/// Available features for projects
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum Feature {
+    /// Web interaction tools
+    WebTools,
+    /// Graph-based memory system
+    GraphMemory,
+    /// Cross-chain functionality
+    CrossChain,
+    /// Authentication system
+    Auth,
+    /// Real-time streaming capabilities
+    Streaming,
+    /// Database integration
+    Database,
+    /// Redis caching system
+    Redis,
+    /// API documentation generation
+    ApiDocs,
+    /// Continuous integration/deployment
+    CiCd,
+    /// Docker containerization
+    Docker,
+    /// Test framework integration
+    Tests,
+    /// Example code generation
+    Examples,
+    /// Documentation generation
+    Docs,
+    /// Logging and observability
+    Logging,
+}
+
+impl Feature {
+    /// Parse a feature from a string identifier
+    pub fn parse(s: &str) -> Result<Self> {
+        match s.to_lowercase().replace("_", "-").as_str() {
+            "web-tools" | "web" => Ok(Feature::WebTools),
+            "graph-memory" | "graph" => Ok(Feature::GraphMemory),
+            "cross-chain" | "crosschain" => Ok(Feature::CrossChain),
+            "auth" | "authentication" => Ok(Feature::Auth),
+            "streaming" | "stream" => Ok(Feature::Streaming),
+            "database" | "db" => Ok(Feature::Database),
+            "redis" | "cache" => Ok(Feature::Redis),
+            "api-docs" | "apidocs" | "openapi" => Ok(Feature::ApiDocs),
+            "ci-cd" | "cicd" | "ci" => Ok(Feature::CiCd),
+            "docker" | "container" => Ok(Feature::Docker),
+            "tests" | "test" => Ok(Feature::Tests),
+            "examples" | "example" => Ok(Feature::Examples),
+            "docs" | "documentation" => Ok(Feature::Docs),
+            "logging" | "logs" => Ok(Feature::Logging),
+            _ => Err(anyhow!("Unknown feature: {}", s)),
+        }
+    }
+
+    /// Get the string representation of the feature
+    pub fn as_str(&self) -> &str {
+        match self {
+            Feature::WebTools => "web_tools",
+            Feature::GraphMemory => "graph_memory",
+            Feature::CrossChain => "cross_chain",
+            Feature::Auth => "auth",
+            Feature::Streaming => "streaming",
+            Feature::Database => "database",
+            Feature::Redis => "redis",
+            Feature::ApiDocs => "api_docs",
+            Feature::CiCd => "cicd",
+            Feature::Docker => "docker",
+            Feature::Tests => "tests",
+            Feature::Examples => "examples",
+            Feature::Docs => "docs",
+            Feature::Logging => "logging",
+        }
+    }
+}
+
+impl fmt::Display for Feature {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.as_str())
     }
 }
 
@@ -330,120 +407,17 @@ mod tests {
     }
 
     #[test]
-    fn test_template_from_str_when_trading_bot_aliases_should_return_trading_bot() {
-        assert_eq!(
-            Template::parse("trading-bot").unwrap(),
-            Template::TradingBot
-        );
-        assert_eq!(Template::parse("trader").unwrap(), Template::TradingBot);
-    }
-
-    #[test]
-    fn test_template_from_str_when_market_analyst_aliases_should_return_market_analyst() {
-        assert_eq!(
-            Template::parse("market-analyst").unwrap(),
-            Template::MarketAnalyst
-        );
-        assert_eq!(Template::parse("analyst").unwrap(), Template::MarketAnalyst);
-    }
-
-    #[test]
-    fn test_template_from_str_when_news_monitor_aliases_should_return_news_monitor() {
-        assert_eq!(
-            Template::parse("news-monitor").unwrap(),
-            Template::NewsMonitor
-        );
-        assert_eq!(Template::parse("news").unwrap(), Template::NewsMonitor);
-    }
-
-    #[test]
-    fn test_template_from_str_when_dex_arbitrage_aliases_should_return_dex_arbitrage_bot() {
-        assert_eq!(
-            Template::parse("dex-arbitrage").unwrap(),
-            Template::DexArbitrageBot
-        );
-        assert_eq!(
-            Template::parse("arbitrage").unwrap(),
-            Template::DexArbitrageBot
-        );
-    }
-
-    #[test]
-    fn test_template_from_str_when_portfolio_aliases_should_return_portfolio_tracker() {
-        assert_eq!(
-            Template::parse("portfolio").unwrap(),
-            Template::PortfolioTracker
-        );
-        assert_eq!(
-            Template::parse("portfolio-tracker").unwrap(),
-            Template::PortfolioTracker
-        );
-    }
-
-    #[test]
-    fn test_template_from_str_when_bridge_monitor_aliases_should_return_bridge_monitor() {
-        assert_eq!(
-            Template::parse("bridge-monitor").unwrap(),
-            Template::BridgeMonitor
-        );
-        assert_eq!(Template::parse("bridge").unwrap(), Template::BridgeMonitor);
-    }
-
-    #[test]
-    fn test_template_from_str_when_mev_protection_aliases_should_return_mev_protection_agent() {
-        assert_eq!(
-            Template::parse("mev-protection").unwrap(),
-            Template::MevProtectionAgent
-        );
-        assert_eq!(
-            Template::parse("mev").unwrap(),
-            Template::MevProtectionAgent
-        );
-    }
-
-    #[test]
-    fn test_template_from_str_when_dao_governance_aliases_should_return_dao_governance_bot() {
-        assert_eq!(
-            Template::parse("dao-governance").unwrap(),
-            Template::DaoGovernanceBot
-        );
-        assert_eq!(Template::parse("dao").unwrap(), Template::DaoGovernanceBot);
-    }
-
-    #[test]
-    fn test_template_from_str_when_nft_trading_aliases_should_return_nft_trading_bot() {
-        assert_eq!(
-            Template::parse("nft-trading").unwrap(),
-            Template::NftTradingBot
-        );
-        assert_eq!(Template::parse("nft").unwrap(), Template::NftTradingBot);
-    }
-
-    #[test]
-    fn test_template_from_str_when_yield_optimizer_aliases_should_return_yield_optimizer() {
-        assert_eq!(
-            Template::parse("yield-optimizer").unwrap(),
-            Template::YieldOptimizer
-        );
-        assert_eq!(Template::parse("yield").unwrap(), Template::YieldOptimizer);
-    }
-
-    #[test]
-    fn test_template_from_str_when_social_trading_aliases_should_return_social_trading_copier() {
-        assert_eq!(
-            Template::parse("social-trading").unwrap(),
-            Template::SocialTradingCopier
-        );
-        assert_eq!(
-            Template::parse("copier").unwrap(),
-            Template::SocialTradingCopier
-        );
-    }
-
-    #[test]
-    fn test_template_from_str_when_custom_aliases_should_return_custom() {
+    fn test_template_from_str_when_custom_should_return_custom() {
         assert_eq!(Template::parse("custom").unwrap(), Template::Custom);
-        assert_eq!(Template::parse("minimal").unwrap(), Template::Custom);
+    }
+
+    #[test]
+    fn test_template_from_str_when_minimal_api_aliases_should_return_minimal_api() {
+        assert_eq!(
+            Template::parse("minimal-api").unwrap(),
+            Template::MinimalApi
+        );
+        assert_eq!(Template::parse("minimal").unwrap(), Template::MinimalApi);
     }
 
     #[test]
@@ -488,48 +462,8 @@ mod tests {
             "Event-driven automated trading with complex strategies"
         );
         assert_eq!(
-            Template::TradingBot.description(),
-            "Advanced trading bot with risk management"
-        );
-        assert_eq!(
-            Template::MarketAnalyst.description(),
-            "Comprehensive market analysis and reporting"
-        );
-        assert_eq!(
-            Template::NewsMonitor.description(),
-            "Real-time news aggregation and sentiment analysis"
-        );
-        assert_eq!(
-            Template::DexArbitrageBot.description(),
-            "Cross-DEX arbitrage opportunity finder"
-        );
-        assert_eq!(
-            Template::PortfolioTracker.description(),
-            "Multi-chain portfolio management and tracking"
-        );
-        assert_eq!(
-            Template::BridgeMonitor.description(),
-            "Cross-chain bridge activity monitoring"
-        );
-        assert_eq!(
-            Template::MevProtectionAgent.description(),
-            "MEV protection and sandwich attack defense"
-        );
-        assert_eq!(
-            Template::DaoGovernanceBot.description(),
-            "Automated DAO participation and voting"
-        );
-        assert_eq!(
-            Template::NftTradingBot.description(),
-            "NFT market making and sniping bot"
-        );
-        assert_eq!(
-            Template::YieldOptimizer.description(),
-            "Yield farming strategy automation"
-        );
-        assert_eq!(
-            Template::SocialTradingCopier.description(),
-            "Copy trading from successful wallets"
+            Template::MinimalApi.description(),
+            "A barebones API service with a health check and a single agent endpoint"
         );
         assert_eq!(
             Template::Custom.description(),
@@ -541,12 +475,12 @@ mod tests {
     fn test_template_default_features_api_service_backend() {
         let features = Template::ApiServiceBackend.default_features();
         let expected = vec![
-            "web_tools".to_string(),
-            "auth".to_string(),
-            "redis".to_string(),
-            "database".to_string(),
-            "api_docs".to_string(),
-            "logging".to_string(),
+            Feature::WebTools,
+            Feature::Auth,
+            Feature::Redis,
+            Feature::Database,
+            Feature::ApiDocs,
+            Feature::Logging,
         ];
         assert_eq!(features, expected);
     }
@@ -555,12 +489,12 @@ mod tests {
     fn test_template_default_features_data_analytics_bot() {
         let features = Template::DataAnalyticsBot.default_features();
         let expected = vec![
-            "web_tools".to_string(),
-            "graph_memory".to_string(),
-            "streaming".to_string(),
-            "database".to_string(),
-            "redis".to_string(),
-            "logging".to_string(),
+            Feature::WebTools,
+            Feature::GraphMemory,
+            Feature::Streaming,
+            Feature::Database,
+            Feature::Redis,
+            Feature::Logging,
         ];
         assert_eq!(features, expected);
     }
@@ -569,33 +503,26 @@ mod tests {
     fn test_template_default_features_event_driven_trading_engine() {
         let features = Template::EventDrivenTradingEngine.default_features();
         let expected = vec![
-            "web_tools".to_string(),
-            "streaming".to_string(),
-            "redis".to_string(),
-            "database".to_string(),
-            "logging".to_string(),
+            Feature::WebTools,
+            Feature::Streaming,
+            Feature::Redis,
+            Feature::Database,
+            Feature::Logging,
         ];
         assert_eq!(features, expected);
     }
 
     #[test]
-    fn test_template_default_features_trading_bot() {
-        let features = Template::TradingBot.default_features();
-        let expected = vec![
-            "web_tools".to_string(),
-            "redis".to_string(),
-            "logging".to_string(),
-        ];
+    fn test_template_default_features_minimal_api() {
+        let features = Template::MinimalApi.default_features();
+        let expected = vec![Feature::Logging];
         assert_eq!(features, expected);
     }
 
     #[test]
-    fn test_template_default_features_fallback() {
-        let features = Template::MarketAnalyst.default_features();
-        let expected = vec!["logging".to_string()];
-        assert_eq!(features, expected);
-
+    fn test_template_default_features_custom() {
         let features = Template::Custom.default_features();
+        let expected = vec![Feature::Logging];
         assert_eq!(features, expected);
     }
 
@@ -607,17 +534,7 @@ mod tests {
             Template::EventDrivenTradingEngine.to_string(),
             "event-driven"
         );
-        assert_eq!(Template::TradingBot.to_string(), "trading-bot");
-        assert_eq!(Template::MarketAnalyst.to_string(), "market-analyst");
-        assert_eq!(Template::NewsMonitor.to_string(), "news-monitor");
-        assert_eq!(Template::DexArbitrageBot.to_string(), "dex-arbitrage");
-        assert_eq!(Template::PortfolioTracker.to_string(), "portfolio-tracker");
-        assert_eq!(Template::BridgeMonitor.to_string(), "bridge-monitor");
-        assert_eq!(Template::MevProtectionAgent.to_string(), "mev-protection");
-        assert_eq!(Template::DaoGovernanceBot.to_string(), "dao-governance");
-        assert_eq!(Template::NftTradingBot.to_string(), "nft-trading");
-        assert_eq!(Template::YieldOptimizer.to_string(), "yield-optimizer");
-        assert_eq!(Template::SocialTradingCopier.to_string(), "social-trading");
+        assert_eq!(Template::MinimalApi.to_string(), "minimal-api");
         assert_eq!(Template::Custom.to_string(), "custom");
     }
 
@@ -754,28 +671,13 @@ mod tests {
     }
 
     #[test]
-    fn test_template_info_from_template_fallback() {
-        let template = Template::TradingBot;
-        let info = TemplateInfo::from_template(&template);
-
-        assert_eq!(info.name, "trading-bot");
-        assert_eq!(
-            info.description,
-            "Advanced trading bot with risk management"
-        );
-        assert_eq!(info.features, Vec::<String>::new());
-        assert_eq!(info.default_chains, Vec::<String>::new());
-        assert_eq!(info.included_tools, Vec::<String>::new());
-    }
-
-    #[test]
     fn test_project_config_serialization() {
         let config = ProjectConfig {
             name: "test-project".to_string(),
             template: Template::ApiServiceBackend,
-            chains: vec!["solana".to_string(), "ethereum".to_string()],
+            chains: vec![Chain::Solana, Chain::Ethereum],
             server_framework: Some(ServerFramework::Axum),
-            features: vec!["auth".to_string(), "redis".to_string()],
+            features: vec![Feature::Auth, Feature::Redis],
             author_name: "Test Author".to_string(),
             author_email: "test@example.com".to_string(),
             description: "A test project".to_string(),
@@ -915,9 +817,9 @@ mod tests {
         let config = ProjectConfig {
             name: "test".to_string(),
             template: Template::Custom,
-            chains: vec!["solana".to_string()],
+            chains: vec![Chain::Solana],
             server_framework: Some(ServerFramework::Axum),
-            features: vec!["auth".to_string()],
+            features: vec![Feature::Auth],
             author_name: "Author".to_string(),
             author_email: "email@test.com".to_string(),
             description: "Description".to_string(),

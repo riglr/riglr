@@ -2,6 +2,7 @@
 
 pub mod health;
 pub mod agent;
+pub mod agent_logic;
 
 {{#if (eq server_framework "actix")}}
 use actix_web::web;
@@ -17,10 +18,11 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
 
 {{#if (eq server_framework "axum")}}
 use axum::Router;
+use std::sync::Arc;
 
-pub fn router() -> Router {
+pub fn create_routes() -> Router<Arc<crate::AppState>> {
     Router::new()
-        .nest("/api/v1/health", health::router())
-        .nest("/api/v1/agent", agent::router())
+        .nest("/health", health::create_routes())
+        .nest("/agent", agent::create_routes())
 }
 {{/if}}

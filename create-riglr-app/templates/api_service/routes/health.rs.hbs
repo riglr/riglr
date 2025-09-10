@@ -1,1 +1,83 @@
-// Health check
+//! Health check routes
+
+use serde::Serialize;
+
+#[derive(Debug, Serialize)]
+pub struct HealthResponse {
+    pub status: String,
+    pub version: String,
+    pub timestamp: i64,
+}
+
+{{#if (eq server_framework "axum")}}
+use axum::{
+    response::Json,
+    Router,
+    routing::get,
+};
+use std::sync::Arc;
+
+pub fn create_routes() -> Router<Arc<crate::AppState>> {
+    Router::new()
+        .route("/", get(health_check))
+}
+
+async fn health_check() -> Json<HealthResponse> {
+    Json(HealthResponse {
+        status: "ok".to_string(),
+        version: env!("CARGO_PKG_VERSION").to_string(),
+        timestamp: chrono::Utc::now().timestamp(),
+    })
+}
+{{/if}}
+
+{{#if (eq server_framework "actix")}}
+use actix_web::{web, HttpResponse, Result};
+
+pub fn configure(cfg: &mut web::ServiceConfig) {
+    cfg.route("/", web::get().to(health_check));
+}
+
+async fn health_check() -> Result<HttpResponse> {
+    Ok(HttpResponse::Ok().json(HealthResponse {
+        status: "ok".to_string(),
+        version: env!("CARGO_PKG_VERSION").to_string(),
+        timestamp: chrono::Utc::now().timestamp(),
+    }))
+}
+{{/if}}
+
+{{#if (eq server_framework "warp")}}
+use warp::{Filter, Reply, Rejection};
+
+pub fn routes() -> impl Filter<Extract = impl Reply, Error = Rejection> + Clone {
+    warp::path::end()
+        .and(warp::get())
+        .map(health_check)
+}
+
+fn health_check() -> impl Reply {
+    warp::reply::json(&HealthResponse {
+        status: "ok".to_string(),
+        version: env!("CARGO_PKG_VERSION").to_string(),
+        timestamp: chrono::Utc::now().timestamp(),
+    })
+}
+{{/if}}
+
+{{#if (eq server_framework "rocket")}}
+use rocket::serde::json::Json;
+
+#[rocket::get("/")]
+pub fn health_check() -> Json<HealthResponse> {
+    Json(HealthResponse {
+        status: "ok".to_string(),
+        version: env!("CARGO_PKG_VERSION").to_string(),
+        timestamp: chrono::Utc::now().timestamp(),
+    })
+}
+
+pub fn routes() -> Vec<rocket::Route> {
+    rocket::routes![health_check]
+}
+{{/if}}

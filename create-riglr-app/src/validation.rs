@@ -64,7 +64,18 @@ pub fn validate_email(email: &str) -> Result<(), String> {
 #[allow(dead_code)]
 pub fn validate_url(url: &str) -> Result<(), String> {
     if url.starts_with("http://") || url.starts_with("https://") {
-        Ok(())
+        // Check if there's actual content after the protocol
+        let after_protocol = if url.starts_with("https://") {
+            &url[8..]
+        } else {
+            &url[7..]
+        };
+
+        if after_protocol.is_empty() {
+            Err("URL must contain a host after the protocol".to_string())
+        } else {
+            Ok(())
+        }
     } else {
         Err("URL must start with http:// or https://".to_string())
     }

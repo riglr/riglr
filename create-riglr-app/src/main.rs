@@ -5,17 +5,18 @@ use clap::{Parser, Subcommand};
 use console::style;
 use dialoguer::{theme::ColorfulTheme, Confirm, Input, MultiSelect, Select};
 use indicatif::{ProgressBar, ProgressStyle};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 
+mod commands;
 mod config;
+mod dependencies;
 mod generator;
 mod templates;
 mod validation;
 
-use crate::config::{ProjectConfig, ServerFramework, Template};
+use crate::config::{Chain, Feature, ProjectConfig, ServerFramework, Template};
 use crate::generator::ProjectGenerator;
-use crate::templates::TemplateManager;
 
 /// Create RIGLR App - Interactive scaffolding for blockchain AI agents
 #[derive(Parser, Debug)]
@@ -61,7 +62,15 @@ enum Commands {
     },
 
     /// Update templates from remote repository
-    Update,
+    Update {
+        /// Custom template repository URL
+        #[arg(short, long)]
+        url: Option<String>,
+
+        /// Branch to checkout
+        #[arg(short, long)]
+        branch: Option<String>,
+    },
 
     /// Show template details
     Info {
@@ -84,16 +93,16 @@ async fn main() -> Result<()> {
 
     match cli.command {
         Some(Commands::List) => {
-            list_templates().await?;
+            commands::list_templates().await?;
         }
         Some(Commands::New { template, name }) => {
-            create_from_template(&template, &name, cli.output).await?;
+            commands::create_from_template(&template, &name, cli.output).await?;
         }
-        Some(Commands::Update) => {
-            update_templates().await?;
+        Some(Commands::Update { url, branch }) => {
+            commands::update::run_with_options(url, branch).await?;
         }
         Some(Commands::Info { template }) => {
-            show_template_info(&template).await?;
+            commands::show_template_info(&template).await?;
         }
         Option::None => {
             // Interactive mode
@@ -110,6 +119,7 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
+/// Prints the RIGLR banner to the console
 fn print_banner() {
     println!(
         "{}",
@@ -137,6 +147,7 @@ fn print_banner() {
 }
 
 // Helper functions for interactive setup
+/// Prompts the user for a project name or returns the provided name
 fn prompt_project_name(theme: &ColorfulTheme, project_name: Option<String>) -> Result<String> {
     if let Some(name) = project_name {
         Ok(name)
@@ -149,22 +160,13 @@ fn prompt_project_name(theme: &ColorfulTheme, project_name: Option<String>) -> R
     }
 }
 
+/// Prompts the user to select a project template
 fn prompt_template(theme: &ColorfulTheme) -> Result<Template> {
     let templates = vec![
         "🏦 API Service Backend - RESTful API with blockchain integration",
         "📊 Data Analytics Bot - Real-time market analysis and insights",
         "⚡ Event-Driven Trading Engine - Automated trading with event processing",
-        "🤖 Trading Bot - Advanced automated trading with risk management",
-        "📈 Market Analyst - Comprehensive market analysis and reporting",
-        "📰 News Monitor - Real-time news aggregation and sentiment analysis",
-        "🔄 DEX Arbitrage Bot - Cross-DEX arbitrage opportunity finder",
-        "💼 Portfolio Tracker - Multi-chain portfolio management",
-        "🌉 Bridge Monitor - Cross-chain bridge activity tracker",
-        "🎯 MEV Protection Agent - MEV protection and sandwich defense",
-        "🏛️ DAO Governance Bot - Automated DAO participation",
-        "🖼️ NFT Trading Bot - NFT market making and sniping",
-        "🌾 Yield Optimizer - Yield farming strategy automation",
-        "📱 Social Trading Copier - Copy trading from successful wallets",
+        "🚀 Minimal API Service - Barebones API with health check and single endpoint",
         "🎨 Custom - Start with a minimal template",
     ];
 
@@ -178,28 +180,17 @@ fn prompt_template(theme: &ColorfulTheme) -> Result<Template> {
         0 => Template::ApiServiceBackend,
         1 => Template::DataAnalyticsBot,
         2 => Template::EventDrivenTradingEngine,
-        3 => Template::TradingBot,
-        4 => Template::MarketAnalyst,
-        5 => Template::NewsMonitor,
-        6 => Template::DexArbitrageBot,
-        7 => Template::PortfolioTracker,
-        8 => Template::BridgeMonitor,
-        9 => Template::MevProtectionAgent,
-        10 => Template::DaoGovernanceBot,
-        11 => Template::NftTradingBot,
-        12 => Template::YieldOptimizer,
-        13 => Template::SocialTradingCopier,
-        14 => Template::Custom,
+        3 => Template::MinimalApi,
         _ => Template::Custom,
     })
 }
 
-fn prompt_blockchains(theme: &ColorfulTheme) -> Result<Vec<String>> {
+/// Prompts the user to select blockchain networks to support
+fn prompt_blockchains(theme: &ColorfulTheme) -> Result<Vec<Chain>> {
     let blockchains = vec![
         "⛓️ Solana",
         "Ξ Ethereum",
         "🔷 Arbitrum",
-        "🔴 Optimism",
         "🟣 Polygon",
         "🔵 Base",
         "⚡ BSC",
@@ -209,26 +200,26 @@ fn prompt_blockchains(theme: &ColorfulTheme) -> Result<Vec<String>> {
     let selected_chains = MultiSelect::with_theme(theme)
         .with_prompt("Select blockchain(s) to support")
         .items(&blockchains)
-        .defaults(&[true, false, false, false, false, false, false, false])
+        .defaults(&[true, false, false, false, false, false, false])
         .interact()?;
 
-    let chain_names = [
-        "solana",
-        "ethereum",
-        "arbitrum",
-        "optimism",
-        "polygon",
-        "base",
-        "bsc",
-        "avalanche",
+    let chain_enums = [
+        Chain::Solana,
+        Chain::Ethereum,
+        Chain::Arbitrum,
+        Chain::Polygon,
+        Chain::Base,
+        Chain::Bsc,
+        Chain::Avalanche,
     ];
 
     Ok(selected_chains
         .into_iter()
-        .filter_map(|idx| chain_names.get(idx).map(|s| s.to_string()))
+        .filter_map(|idx| chain_enums.get(idx).cloned())
         .collect())
 }
 
+/// Prompts the user to select a server framework
 fn prompt_server_framework(theme: &ColorfulTheme) -> Result<Option<ServerFramework>> {
     let include_server = Confirm::with_theme(theme)
         .with_prompt("Include a pre-configured HTTP server?")
@@ -262,53 +253,60 @@ fn prompt_server_framework(theme: &ColorfulTheme) -> Result<Option<ServerFramewo
     })
 }
 
-fn prompt_features(theme: &ColorfulTheme) -> Result<(Vec<String>, Vec<usize>)> {
+/// Prompts the user to select project features
+fn prompt_features(theme: &ColorfulTheme) -> Result<(Vec<Feature>, Vec<usize>)> {
     let features = vec![
         "🔍 Web Data Tools (Twitter, DexScreener, News)",
         "🧠 Graph Memory (Neo4j knowledge graph)",
         "🌉 Cross-Chain Tools (LI.FI integration)",
-        "📊 Analytics Dashboard (Web UI)",
         "🔐 Authentication (Privy, Web3Auth, Magic)",
         "📈 Real-time Data Streaming (WebSocket)",
         "🗄️ Database Integration (PostgreSQL/MongoDB)",
         "📦 Redis Caching",
-        "📝 Comprehensive Logging",
-        "🧪 Testing Framework",
-        "🚀 CI/CD Pipeline (GitHub Actions)",
         "📚 API Documentation (OpenAPI/Swagger)",
+        "🚀 CI/CD Pipeline (GitHub Actions)",
+        "🐳 Docker Support",
+        "🧪 Testing Framework",
+        "📖 Example Code",
+        "📝 Documentation",
+        "📝 Comprehensive Logging",
     ];
 
     let selected_features = MultiSelect::with_theme(theme)
         .with_prompt("Select additional features")
         .items(&features)
         .defaults(&[
-            true, false, false, false, true, false, false, true, true, true, false, false,
+            true, false, false, true, false, false, true, false, false, false, true, true, false,
+            true,
         ])
         .interact()?;
 
-    let feature_names = [
-        "web_tools",
-        "graph_memory",
-        "cross_chain",
-        "dashboard",
-        "auth",
-        "streaming",
-        "database",
-        "redis",
-        "logging",
-        "testing",
-        "cicd",
-        "api_docs",
+    let feature_enums = [
+        Feature::WebTools,
+        Feature::GraphMemory,
+        Feature::CrossChain,
+        Feature::Auth,
+        Feature::Streaming,
+        Feature::Database,
+        Feature::Redis,
+        Feature::ApiDocs,
+        Feature::CiCd,
+        Feature::Docker,
+        Feature::Tests,
+        Feature::Examples,
+        Feature::Docs,
+        Feature::Logging,
     ];
 
     let enabled_features = selected_features
         .iter()
-        .filter_map(|&idx| feature_names.get(idx).map(|s| s.to_string()))
+        .filter_map(|&idx| feature_enums.get(idx).cloned())
         .collect();
 
     Ok((enabled_features, selected_features))
 }
 
+/// Prompts the user for author information (name and email)
 fn prompt_author_info(theme: &ColorfulTheme) -> Result<(String, String)> {
     let author_name = Input::<String>::with_theme(theme)
         .with_prompt("Author name")
@@ -323,6 +321,7 @@ fn prompt_author_info(theme: &ColorfulTheme) -> Result<(String, String)> {
     Ok((author_name, author_email))
 }
 
+/// Runs the interactive setup process to collect project configuration
 fn interactive_setup(project_name: Option<String>) -> Result<ProjectConfig> {
     let theme = ColorfulTheme::default();
 
@@ -363,19 +362,16 @@ fn interactive_setup(project_name: Option<String>) -> Result<ProjectConfig> {
     })
 }
 
+/// Creates a default project configuration for non-interactive mode
 fn create_default_config(project_name: Option<String>) -> Result<ProjectConfig> {
     let name = project_name.unwrap_or_else(|| "my-riglr-agent".to_string());
 
     Ok(ProjectConfig {
         name: name.clone(),
         template: Template::ApiServiceBackend,
-        chains: vec!["solana".to_string()],
+        chains: vec![Chain::Solana],
         server_framework: Some(ServerFramework::Actix),
-        features: vec![
-            "web_tools".to_string(),
-            "redis".to_string(),
-            "logging".to_string(),
-        ],
+        features: vec![Feature::WebTools, Feature::Redis, Feature::Logging],
         author_name: whoami::realname(),
         author_email: format!("{}@example.com", whoami::username()),
         description: "AI-powered blockchain agent built with RIGLR".to_string(),
@@ -385,7 +381,11 @@ fn create_default_config(project_name: Option<String>) -> Result<ProjectConfig> 
     })
 }
 
-async fn generate_project(config: ProjectConfig, output: Option<PathBuf>) -> Result<()> {
+/// Generates a new RIGLR project based on the provided configuration
+pub async fn generate_project(config: ProjectConfig, output: Option<PathBuf>) -> Result<()> {
+    use fs_extra::dir::{move_dir, CopyOptions};
+    use tempfile::TempDir;
+
     println!();
     println!("{}", style("Generating your project...").cyan().bold());
 
@@ -396,57 +396,87 @@ async fn generate_project(config: ProjectConfig, output: Option<PathBuf>) -> Res
             .progress_chars("##-"),
     );
 
-    let output_dir = output.unwrap_or_else(|| PathBuf::from(&config.name));
+    let final_output_dir = output.unwrap_or_else(|| PathBuf::from(&config.name));
 
     // Check if directory exists
-    if output_dir.exists() {
-        let overwrite = Confirm::new()
-            .with_prompt(format!(
-                "Directory {} already exists. Overwrite?",
-                output_dir.display()
-            ))
-            .default(false)
-            .interact()?;
+    if final_output_dir.exists() {
+        // In non-interactive mode (CI/tests), just remove the directory
+        static CI: &str = "CI";
 
-        if !overwrite {
-            println!("{}", style("Aborting...").red());
-            return Ok(());
+        if std::env::var(CI).is_ok() || !atty::is(atty::Stream::Stdin) {
+            std::fs::remove_dir_all(&final_output_dir)?;
+        } else {
+            let overwrite = Confirm::new()
+                .with_prompt(format!(
+                    "Directory {} already exists. Overwrite?",
+                    final_output_dir.display()
+                ))
+                .default(false)
+                .interact()?;
+
+            if !overwrite {
+                println!("{}", style("Aborting...").red());
+                return Ok(());
+            }
+
+            std::fs::remove_dir_all(&final_output_dir)?;
         }
-
-        std::fs::remove_dir_all(&output_dir)?;
     }
 
+    // Create a temporary directory in the same parent directory as the final output
+    // This ensures atomic moves are possible on the same filesystem
+    let parent_dir = final_output_dir.parent().unwrap_or_else(|| Path::new("."));
+    let temp_dir = TempDir::new_in(parent_dir)?;
+    let temp_path = temp_dir.path();
+
+    // Generate project in temporary directory
     pb.set_message("Creating project structure...");
     pb.set_position(10);
 
     let generator = ProjectGenerator::new(config.clone());
-    generator.create_structure(&output_dir)?;
+    generator.create_structure(temp_path)?;
 
     pb.set_message("Generating source files...");
     pb.set_position(30);
     tokio::time::sleep(Duration::from_millis(200)).await;
 
-    generator.generate_source_files(&output_dir)?;
+    generator.generate_source_files(temp_path)?;
 
     pb.set_message("Setting up configuration...");
     pb.set_position(50);
     tokio::time::sleep(Duration::from_millis(200)).await;
 
-    generator.generate_config_files(&output_dir)?;
+    generator.generate_config_files(temp_path)?;
 
     pb.set_message("Creating examples...");
     pb.set_position(70);
     tokio::time::sleep(Duration::from_millis(200)).await;
 
     if config.include_examples {
-        generator.generate_examples(&output_dir)?;
+        generator.generate_examples(temp_path)?;
     }
 
     pb.set_message("Finalizing...");
     pb.set_position(90);
     tokio::time::sleep(Duration::from_millis(200)).await;
 
-    generator.generate_readme(&output_dir)?;
+    generator.generate_readme(temp_path)?;
+
+    // Move the completed project from temp directory to final location
+    pb.set_message("Moving to final location...");
+    pb.set_position(95);
+
+    // Use fs_extra to move directory with all contents
+    let options = CopyOptions {
+        overwrite: true,
+        skip_exist: false,
+        buffer_size: 64000,
+        copy_inside: false,
+        content_only: false,
+        depth: 0,
+    };
+
+    move_dir(temp_path, &final_output_dir, &options)?;
 
     pb.set_position(100);
     pb.finish_with_message("Done!");
@@ -459,7 +489,7 @@ async fn generate_project(config: ProjectConfig, output: Option<PathBuf>) -> Res
     println!();
     println!(
         "📁 Project location: {}",
-        style(output_dir.display()).cyan()
+        style(final_output_dir.display()).cyan()
     );
     println!();
     println!("{}", style("Next steps:").yellow().bold());
@@ -474,105 +504,16 @@ async fn generate_project(config: ProjectConfig, output: Option<PathBuf>) -> Res
         println!("{}", style("Server endpoints:").yellow().bold());
         println!("  • Health: http://localhost:8080/health");
         println!("  • API: http://localhost:8080/api/v1");
-        if config.features.contains(&"streaming".to_string()) {
+        if config.features.contains(&Feature::Streaming) {
             println!("  • WebSocket: ws://localhost:8080/ws");
         }
-        if config.features.contains(&"api_docs".to_string()) {
+        if config.features.contains(&Feature::ApiDocs) {
             println!("  • Docs: http://localhost:8080/docs");
         }
         println!();
     }
 
     println!("{}", style("Happy building! 🚀").magenta().bold());
-
-    Ok(())
-}
-
-async fn list_templates() -> Result<()> {
-    let manager = TemplateManager::default();
-    let templates = manager.list_templates()?;
-
-    println!("{}", style("Available Templates:").cyan().bold());
-    println!();
-
-    for template in templates {
-        println!(
-            "  {} {} - {}",
-            style("•").green(),
-            style(&template.name).yellow().bold(),
-            template.description
-        );
-    }
-
-    println!();
-    println!(
-        "Use {} to create a project with a specific template",
-        style("create-riglr-app new <template> <name>").cyan()
-    );
-
-    Ok(())
-}
-
-async fn create_from_template(template: &str, name: &str, output: Option<PathBuf>) -> Result<()> {
-    let _manager = TemplateManager::default();
-    let template_enum = Template::parse(template)?;
-
-    let config = ProjectConfig {
-        name: name.to_string(),
-        template: template_enum,
-        chains: vec!["solana".to_string()],
-        server_framework: Some(ServerFramework::Actix),
-        features: vec!["web_tools".to_string(), "redis".to_string()],
-        author_name: whoami::realname(),
-        author_email: format!("{}@example.com", whoami::username()),
-        description: format!("{} built with RIGLR", name),
-        include_examples: true,
-        include_tests: true,
-        include_docs: false,
-    };
-
-    generate_project(config, output).await
-}
-
-async fn update_templates() -> Result<()> {
-    println!("{}", style("Updating templates...").cyan());
-
-    let pb = ProgressBar::new_spinner();
-    pb.set_style(ProgressStyle::default_spinner());
-    pb.set_message("Fetching latest templates...");
-
-    let manager = TemplateManager::default();
-    manager.update_templates().await?;
-
-    pb.finish_with_message("Templates updated successfully!");
-
-    Ok(())
-}
-
-async fn show_template_info(template: &str) -> Result<()> {
-    let manager = TemplateManager::default();
-    let info = manager.get_template_info(template)?;
-
-    println!("{}", style(&info.name).cyan().bold());
-    println!("{}", style("─".repeat(40)).dim());
-    println!();
-    println!("{}", style("Description:").yellow());
-    println!("  {}", info.description);
-    println!();
-    println!("{}", style("Features:").yellow());
-    for feature in &info.features {
-        println!("  • {}", feature);
-    }
-    println!();
-    println!("{}", style("Default chains:").yellow());
-    for chain in &info.default_chains {
-        println!("  • {}", chain);
-    }
-    println!();
-    println!("{}", style("Included tools:").yellow());
-    for tool in &info.included_tools {
-        println!("  • {}", tool);
-    }
 
     Ok(())
 }
@@ -607,18 +548,8 @@ mod tests {
             (0, Template::ApiServiceBackend),
             (1, Template::DataAnalyticsBot),
             (2, Template::EventDrivenTradingEngine),
-            (3, Template::TradingBot),
-            (4, Template::MarketAnalyst),
-            (5, Template::NewsMonitor),
-            (6, Template::DexArbitrageBot),
-            (7, Template::PortfolioTracker),
-            (8, Template::BridgeMonitor),
-            (9, Template::MevProtectionAgent),
-            (10, Template::DaoGovernanceBot),
-            (11, Template::NftTradingBot),
-            (12, Template::YieldOptimizer),
-            (13, Template::SocialTradingCopier),
-            (14, Template::Custom),
+            (3, Template::MinimalApi),
+            (4, Template::Custom),
             (999, Template::Custom), // Test default case
         ];
 
@@ -627,18 +558,7 @@ mod tests {
                 0 => Template::ApiServiceBackend,
                 1 => Template::DataAnalyticsBot,
                 2 => Template::EventDrivenTradingEngine,
-                3 => Template::TradingBot,
-                4 => Template::MarketAnalyst,
-                5 => Template::NewsMonitor,
-                6 => Template::DexArbitrageBot,
-                7 => Template::PortfolioTracker,
-                8 => Template::BridgeMonitor,
-                9 => Template::MevProtectionAgent,
-                10 => Template::DaoGovernanceBot,
-                11 => Template::NftTradingBot,
-                12 => Template::YieldOptimizer,
-                13 => Template::SocialTradingCopier,
-                14 => Template::Custom,
+                3 => Template::MinimalApi,
                 _ => Template::Custom,
             };
             assert_eq!(result, expected_template);
@@ -654,11 +574,11 @@ mod tests {
         let config = result.unwrap();
         assert_eq!(config.name, "my-riglr-agent");
         assert_eq!(config.template, Template::ApiServiceBackend);
-        assert_eq!(config.chains, vec!["solana".to_string()]);
+        assert_eq!(config.chains, vec![Chain::Solana]);
         assert_eq!(config.server_framework, Some(ServerFramework::Actix));
-        assert!(config.features.contains(&"web_tools".to_string()));
-        assert!(config.features.contains(&"redis".to_string()));
-        assert!(config.features.contains(&"logging".to_string()));
+        assert!(config.features.contains(&Feature::WebTools));
+        assert!(config.features.contains(&Feature::Redis));
+        assert!(config.features.contains(&Feature::Logging));
         assert!(config.include_examples);
         assert!(config.include_tests);
         assert!(!config.include_docs);
@@ -674,7 +594,7 @@ mod tests {
         let config = result.unwrap();
         assert_eq!(config.name, "custom-project");
         assert_eq!(config.template, Template::ApiServiceBackend);
-        assert_eq!(config.chains, vec!["solana".to_string()]);
+        assert_eq!(config.chains, vec![Chain::Solana]);
         assert_eq!(config.server_framework, Some(ServerFramework::Actix));
         assert_eq!(config.author_name, whoami::realname());
         assert_eq!(
@@ -695,9 +615,9 @@ mod tests {
 
         let config = result.unwrap();
         assert_eq!(config.features.len(), 3);
-        assert!(config.features.contains(&"web_tools".to_string()));
-        assert!(config.features.contains(&"redis".to_string()));
-        assert!(config.features.contains(&"logging".to_string()));
+        assert!(config.features.contains(&Feature::WebTools));
+        assert!(config.features.contains(&Feature::Redis));
+        assert!(config.features.contains(&Feature::Logging));
     }
 
     #[test]
@@ -820,7 +740,10 @@ mod tests {
         assert!(debug_str.contains("api"));
         assert!(debug_str.contains("test"));
 
-        let update_cmd = Commands::Update;
+        let update_cmd = Commands::Update {
+            url: None,
+            branch: None,
+        };
         let debug_str = format!("{:?}", update_cmd);
         assert!(debug_str.contains("Update"));
 
