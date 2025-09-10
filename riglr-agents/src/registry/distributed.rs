@@ -22,19 +22,20 @@
 //! the `DistributedAgentRegistry` trait for better abstraction:
 //!
 //! ```rust,no_run
-//! // Old usage (deprecated)
-//! // use riglr_agents::registry::DistributedAgentRegistry;
-//!
+//! # use riglr_agents::registry::RedisAgentRegistry;
+//! # use riglr_agents::registry::DistributedAgentRegistry;
+//! # use std::sync::Arc;
+//! # #[tokio::main]
+//! # async fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! // New usage (concrete type)
-//! use riglr_agents::registry::RedisAgentRegistry;
 //! let registry = RedisAgentRegistry::new("redis://localhost".to_string()).await?;
 //!
 //! // Better usage (trait abstraction)
-//! use riglr_agents::registry::{DistributedAgentRegistry, RedisAgentRegistry};
-//! use std::sync::Arc;
 //! let registry: Arc<dyn DistributedAgentRegistry> = Arc::new(
 //!     RedisAgentRegistry::new("redis://localhost".to_string()).await?
 //! );
+//! # Ok(())
+//! # }
 //! ```
 
 use crate::{

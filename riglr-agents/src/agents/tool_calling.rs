@@ -41,8 +41,9 @@ enum Either<L, R> {
 /// - You're writing tests with mock models that don't implement `Debug`
 ///
 /// # Example
-/// ```rust
+/// ```rust,no_run
 /// use rig::providers::openai;
+/// use rig::client::{ProviderClient, CompletionClient};
 /// use riglr_agents::agents::tool_calling::DebuggableCompletionModel;
 ///
 /// let openai_client = openai::Client::from_env();
@@ -284,7 +285,7 @@ impl<
                     match job_result {
                         riglr_core::JobResult::Success { value, tx_hash } => {
                             info!("Tool call {} succeeded with result: {}", i, value);
-                            all_values.push(value);
+                            all_values.extend(vec![value]);
                             if let Some(hash) = tx_hash {
                                 all_tx_hashes.push(hash);
                             }
@@ -293,31 +294,37 @@ impl<
                             tracing::warn!("Tool call {} failed: {}", i, error);
 
                             // Check if the error is retriable for better handling
-                            let error_info = if error.is_retriable() {
+                            let error_message = error.to_string();
+                            let is_retriable = error.is_retriable();
+                            let retry_after_secs = error.retry_after().map(|d| d.as_secs());
+
+                            let error_info = if is_retriable {
                                 serde_json::json!({
-                                    "error": error.to_string(),
+                                    "error": error_message,
                                     "retriable": true,
-                                    "retry_after": error.retry_after().map(|d| d.as_secs()),
+                                    "retry_after": retry_after_secs,
                                     "tool_index": i
                                 })
                             } else {
                                 serde_json::json!({
-                                    "error": error.to_string(),
+                                    "error": error_message,
                                     "retriable": false,
                                     "tool_index": i
                                 })
                             };
-                            all_values.push(error_info);
+                            all_values.extend(vec![error_info]);
                         }
                     }
                 }
                 Err(e) => {
                     // Log the error but continue with other results
                     tracing::warn!("Tool call {} failed with error: {}", i, e);
-                    all_values.push(serde_json::json!({
-                        "error": e.to_string(),
+                    let error_message = e.to_string();
+                    let error_json = serde_json::json!({
+                        "error": error_message,
                         "tool_index": i
-                    }));
+                    });
+                    all_values.extend(vec![error_json]);
                 }
             }
         }
@@ -515,7 +522,7 @@ impl<S: riglr_core::idempotency::IdempotencyStore + std::fmt::Debug + 'static>
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rig::completion::{CompletionModel, CompletionRequest};
+    use rig::completion::{CompletionModel, CompletionRequest, Message};
     use std::sync::Arc;
     use std::time::{Duration, Instant};
     use tokio::time::sleep;
@@ -611,11 +618,14 @@ mod tests {
             let index = self
                 .response_index
                 .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-            let response = self
-                .responses
-                .get(index % self.responses.len())
-                .cloned()
-                .unwrap_or_else(|| "Default response".to_string());
+            let response = if self.responses.is_empty() {
+                "Default response".to_string()
+            } else {
+                self.responses
+                    .get(index % self.responses.len())
+                    .cloned()
+                    .unwrap_or_else(|| "Default response".to_string())
+            };
             let should_fail = self.should_fail;
             let delay = self.delay;
             let fail_on_call = self.fail_on_call;
@@ -733,7 +743,7 @@ mod tests {
 
         let request = CompletionRequest {
             preamble: None,
-            chat_history: rig::OneOrMany::many(vec![]).unwrap(),
+            chat_history: rig::OneOrMany::one(Message::user("test".to_string())),
             documents: vec![],
             max_tokens: None,
             temperature: None,
@@ -765,7 +775,7 @@ mod tests {
 
         let request1 = CompletionRequest {
             preamble: None,
-            chat_history: rig::OneOrMany::many(vec![]).unwrap(),
+            chat_history: rig::OneOrMany::one(Message::user("test".to_string())),
             documents: vec![],
             max_tokens: None,
             temperature: None,
@@ -777,7 +787,7 @@ mod tests {
 
         let request2 = CompletionRequest {
             preamble: None,
-            chat_history: rig::OneOrMany::many(vec![]).unwrap(),
+            chat_history: rig::OneOrMany::one(Message::user("test".to_string())),
             documents: vec![],
             max_tokens: None,
             temperature: None,
@@ -789,7 +799,7 @@ mod tests {
 
         let request3 = CompletionRequest {
             preamble: None,
-            chat_history: rig::OneOrMany::many(vec![]).unwrap(),
+            chat_history: rig::OneOrMany::one(Message::user("test".to_string())),
             documents: vec![],
             max_tokens: None,
             temperature: None,
@@ -807,7 +817,7 @@ mod tests {
 
         let request = CompletionRequest {
             preamble: None,
-            chat_history: rig::OneOrMany::many(vec![]).unwrap(),
+            chat_history: rig::OneOrMany::one(Message::user("test".to_string())),
             documents: vec![],
             max_tokens: None,
             temperature: None,
@@ -826,7 +836,7 @@ mod tests {
 
         let request = CompletionRequest {
             preamble: None,
-            chat_history: rig::OneOrMany::many(vec![]).unwrap(),
+            chat_history: rig::OneOrMany::one(Message::user("test".to_string())),
             documents: vec![],
             max_tokens: None,
             temperature: None,
@@ -853,7 +863,7 @@ mod tests {
 
         let request = CompletionRequest {
             preamble: None,
-            chat_history: rig::OneOrMany::many(vec![]).unwrap(),
+            chat_history: rig::OneOrMany::one(Message::user("test".to_string())),
             documents: vec![],
             max_tokens: None,
             temperature: None,
@@ -894,7 +904,7 @@ mod tests {
                 tokio::spawn(async move {
                     let request = CompletionRequest {
                         preamble: None,
-                        chat_history: rig::OneOrMany::many(vec![]).unwrap(),
+                        chat_history: rig::OneOrMany::one(Message::user("test".to_string())),
                         documents: vec![],
                         max_tokens: None,
                         temperature: None,
@@ -931,7 +941,7 @@ mod tests {
         let start = Instant::now();
         let request = CompletionRequest {
             preamble: None,
-            chat_history: rig::OneOrMany::many(vec![]).unwrap(),
+            chat_history: rig::OneOrMany::one(Message::user("test".to_string())),
             documents: vec![],
             max_tokens: None,
             temperature: None,
@@ -986,7 +996,7 @@ mod tests {
         for i in 0..5 {
             let request = CompletionRequest {
                 preamble: None,
-                chat_history: rig::OneOrMany::many(vec![]).unwrap(),
+                chat_history: rig::OneOrMany::one(Message::user("test".to_string())),
                 documents: vec![],
                 max_tokens: None,
                 temperature: None,
@@ -1092,7 +1102,7 @@ mod tests {
 
         let request = CompletionRequest {
             preamble: None,
-            chat_history: rig::OneOrMany::many(vec![]).unwrap(),
+            chat_history: rig::OneOrMany::one(Message::user("test".to_string())),
             documents: vec![],
             max_tokens: None,
             temperature: None,
@@ -1147,7 +1157,7 @@ mod tests {
         for _ in 0..NUM_CALLS {
             let request = CompletionRequest {
                 preamble: None,
-                chat_history: rig::OneOrMany::many(vec![]).unwrap(),
+                chat_history: rig::OneOrMany::one(Message::user("test".to_string())),
                 documents: vec![],
                 max_tokens: None,
                 temperature: None,
@@ -1168,7 +1178,7 @@ mod tests {
         for _ in 0..NUM_CALLS {
             let request = CompletionRequest {
                 preamble: None,
-                chat_history: rig::OneOrMany::many(vec![]).unwrap(),
+                chat_history: rig::OneOrMany::one(Message::user("test".to_string())),
                 documents: vec![],
                 max_tokens: None,
                 temperature: None,
@@ -1209,7 +1219,7 @@ mod tests {
         for (i, model) in models.iter().enumerate() {
             let request = CompletionRequest {
                 preamble: None,
-                chat_history: rig::OneOrMany::many(vec![]).unwrap(),
+                chat_history: rig::OneOrMany::one(Message::user("test".to_string())),
                 documents: vec![],
                 max_tokens: None,
                 temperature: None,

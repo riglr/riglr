@@ -21,19 +21,23 @@
 //! agents. They implement the [`Agent`] trait and internally use `rig_core::Agent`
 //! for LLM operations:
 //!
-//! ```rust
+//! ```rust,no_run
 //! use riglr_agents::{Agent, Task, TaskResult, AgentId, CapabilityType};
-//! use rig_core::{completion::Prompt, providers};
+//! use rig::{completion::Prompt, providers};
+//! use rig::client::CompletionClient;
 //! use async_trait::async_trait;
 //! use std::sync::Arc;
 //!
+//! #[derive(Debug)]
 //! struct TradingAgent {
 //!     id: AgentId,
-//!     rig_agent: rig_core::Agent<providers::openai::completion::CompletionModel>,
+//!     // Use Box<dyn Any> or similar to wrap the rig agent since it doesn't implement Debug
+//!     rig_agent: Box<dyn std::any::Any + Send + Sync>,
 //! }
 //!
 //! impl TradingAgent {
 //!     fn new(id: &str, client: &providers::openai::Client) -> Self {
+//!         // Build the rig agent using the client
 //!         let rig_agent = client
 //!             .agent("gpt-4")
 //!             .preamble("You are a trading agent. Execute trades based on market conditions.")
@@ -41,7 +45,7 @@
 //!         
 //!         Self {
 //!             id: AgentId::new(id),
-//!             rig_agent,
+//!             rig_agent: Box::new(rig_agent),
 //!         }
 //!     }
 //! }
@@ -49,9 +53,9 @@
 //! #[async_trait]
 //! impl Agent for TradingAgent {
 //!     async fn execute_task(&self, task: Task) -> riglr_agents::Result<TaskResult> {
-//!         // Use rig-core for intelligent processing
+//!         // Use rig for intelligent processing
+//!         // In practice, you would downcast and use the rig agent here
 //!         let prompt = format!("Execute trade with parameters: {}", task.parameters);
-//!         let llm_response = self.rig_agent.prompt(&prompt).await.ok();
 //!         
 //!         // Execute trading logic using SignerContext::current()
 //!         todo!("Implement trading logic")
