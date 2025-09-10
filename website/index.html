@@ -3,1099 +3,106 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>riglr - Build Blazing-Fast, Secure Blockchain-Enabled AI Agents in Rust</title>
+    <title>riglr - Production-Ready AI Agents for Blockchain</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
         :root {
-            --primary: #50fa7b;
-            --primary-dark: #3dd660;
-            --primary-light: #7ffc9a;
-            --primary-glow: rgba(80, 250, 123, 0.4);
-            --secondary: #00ff88;
-            --accent: #40e0d0;
-            --bg-dark: #0a0a0b;
-            --bg-darker: #050506;
-            --bg-card: #16161a;
-            --text-primary: #f9fafb;
-            --text-secondary: #9ca3af;
-            --text-muted: #6b7280;
-            --border: #2d2d30;
-            --success: #50fa7b;
-            --warning: #f59e0b;
-            --error: #ef4444;
-        }
-
-        body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            background: var(--bg-dark);
-            color: var(--text-primary);
-            line-height: 1.6;
-            overflow-x: hidden;
-        }
-
-        /* Smooth Scrolling */
-        html {
-            scroll-behavior: smooth;
-        }
-
-        /* Navigation */
-        nav {
-            position: fixed;
-            top: 0;
-            width: 100%;
-            background: rgba(10, 10, 11, 0.8);
-            backdrop-filter: blur(20px);
-            z-index: 1000;
-            padding: 1rem 0;
-            transition: all 0.3s ease;
-            border-bottom: 1px solid var(--border);
-        }
-
-        nav.scrolled {
-            padding: 0.75rem 0;
-            background: rgba(10, 10, 11, 0.95);
-        }
-
-        .nav-container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 0 2rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .logo {
-            display: flex;
-            align-items: center;
-            text-decoration: none;
-        }
-
-        .logo img {
-            height: 32px;
-            width: auto;
-        }
-
-        .nav-links {
-            display: flex;
-            gap: 2rem;
-            list-style: none;
-        }
-
-        .nav-links a {
-            color: var(--text-secondary);
-            text-decoration: none;
-            transition: color 0.3s ease;
-            font-weight: 500;
-        }
-
-        .nav-links a:hover {
-            color: var(--primary);
-        }
-
-        /* Mobile Menu Toggle */
-        .mobile-menu-toggle {
-            display: none;
-            flex-direction: column;
-            justify-content: space-between;
-            width: 30px;
-            height: 24px;
-            background: transparent;
-            border: none;
-            cursor: pointer;
-            padding: 0;
-            z-index: 1001;
-        }
-
-        .mobile-menu-toggle span {
-            display: block;
-            width: 100%;
-            height: 3px;
-            background: var(--text-primary);
-            border-radius: 2px;
-            transition: all 0.3s ease;
-        }
-
-        .mobile-menu-toggle.active span:nth-child(1) {
-            transform: rotate(45deg) translate(8px, 8px);
-        }
-
-        .mobile-menu-toggle.active span:nth-child(2) {
-            opacity: 0;
-        }
-
-        .mobile-menu-toggle.active span:nth-child(3) {
-            transform: rotate(-45deg) translate(7px, -7px);
-        }
-
-        /* Hero Section */
-        .hero {
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 6rem 2rem 4rem;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .hero::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: radial-gradient(circle at 20% 50%, rgba(80, 250, 123, 0.1) 0%, transparent 50%),
-                        radial-gradient(circle at 80% 80%, rgba(0, 255, 136, 0.1) 0%, transparent 50%),
-                        radial-gradient(circle at 40% 20%, rgba(64, 224, 208, 0.05) 0%, transparent 50%);
-            animation: float 20s ease-in-out infinite;
-        }
-
-        @keyframes float {
-            0%, 100% { transform: translate(0, 0) rotate(0deg); }
-            33% { transform: translate(-20px, -20px) rotate(1deg); }
-            66% { transform: translate(20px, -10px) rotate(-1deg); }
-        }
-
-        .hero-content {
-            max-width: 1200px;
-            width: 100%;
-            z-index: 1;
-            position: relative;
-        }
-
-
-        .hero h1 {
-            font-size: clamp(2.5rem, 5vw, 4rem);
-            font-weight: 900;
-            margin-bottom: 1.5rem;
-            line-height: 1.1;
-            background: linear-gradient(135deg, var(--text-primary) 0%, var(--primary) 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            animation: fadeInUp 0.8s ease;
-        }
-
-        .hero .subtitle {
-            font-size: 1.3rem;
-            color: var(--text-secondary);
-            margin-bottom: 2rem;
-            animation: fadeInUp 0.8s ease 0.2s both;
-        }
-
-        .hero .subtitle code {
-            color: var(--primary);
-            background: rgba(80, 250, 123, 0.1);
-            padding: 0.2rem 0.4rem;
-            border-radius: 0.25rem;
-            font-weight: 600;
-        }
-
-        @keyframes fadeInUp {
-            from {
-                opacity: 0;
-                transform: translateY(30px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .cta-buttons {
-            display: flex;
-            gap: 1rem;
-            margin-bottom: 3rem;
-            animation: fadeInUp 0.8s ease 0.4s both;
-        }
-
-        .btn {
-            padding: 0.875rem 2rem;
-            border-radius: 0.5rem;
-            font-weight: 600;
-            text-decoration: none;
-            transition: all 0.3s ease;
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            cursor: pointer;
-            border: none;
-            font-size: 1rem;
-        }
-
-        .btn-primary {
-            background: var(--primary);
-            color: var(--bg-dark);
-            box-shadow: 0 4px 20px var(--primary-glow);
-        }
-
-        .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 30px var(--primary-glow);
-            background: var(--primary-light);
-        }
-
-        .btn-secondary {
-            background: transparent;
-            color: var(--text-primary);
-            border: 2px solid var(--primary);
-        }
-
-        .btn-secondary:hover {
-            background: rgba(80, 250, 123, 0.1);
-            border-color: var(--primary-light);
-            color: var(--primary);
-        }
-
-        /* Code Showcase */
-        .code-showcase {
-            background: var(--bg-card);
-            border-radius: 1rem;
-            padding: 1.5rem;
-            border: 1px solid var(--border);
-            animation: fadeInUp 0.8s ease 0.6s both;
-            position: relative;
-            overflow: hidden;
-            box-shadow: 0 0 40px rgba(80, 250, 123, 0.05);
-        }
-
-        .code-showcase:hover {
-            border-color: var(--primary);
-            box-shadow: 0 0 60px rgba(80, 250, 123, 0.1);
-        }
-
-        .code-header {
-            display: flex;
-            gap: 0.5rem;
-            margin-bottom: 1rem;
-        }
-
-        .code-dot {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-        }
-
-        .code-dot:nth-child(1) { background: #ef4444; }
-        .code-dot:nth-child(2) { background: #f59e0b; }
-        .code-dot:nth-child(3) { background: var(--primary); }
-
-        pre {
-            overflow-x: auto;
-            margin: 0;
-            max-width: 100%;
-        }
-
-        pre code {
-            font-family: 'Fira Code', 'Consolas', monospace;
-            font-size: 0.9rem;
-            line-height: 1.6;
-        }
-
-        /* Typing Animation for Code */
-        .typing-code {
-            display: inline-block;
-            border-right: 3px solid var(--primary);
-            animation: blink 1s infinite;
-        }
-
-        @keyframes blink {
-            0%, 50% { border-right-color: var(--primary); }
-            51%, 100% { border-right-color: transparent; }
-        }
-
-        /* Section Styles */
-        section {
-            padding: 5rem 2rem;
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-
-        .section-header {
-            text-align: center;
-            margin-bottom: 4rem;
-        }
-
-        .section-header h2 {
-            font-size: clamp(2rem, 4vw, 3rem);
-            font-weight: 800;
-            margin-bottom: 1rem;
-            background: linear-gradient(135deg, var(--text-primary), var(--primary));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-
-        .section-header p {
-            font-size: 1.2rem;
-            color: var(--text-secondary);
-            max-width: 600px;
-            margin: 0 auto;
-        }
-
-        /* Feature Cards */
-        .features-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 2rem;
-            margin-top: 3rem;
-        }
-
-        .feature-card {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 1rem;
-            padding: 2rem;
-            transition: all 0.3s ease;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .feature-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 3px;
-            background: linear-gradient(90deg, var(--primary), var(--secondary));
-            transform: translateX(-100%);
-            transition: transform 0.3s ease;
-        }
-
-        .feature-card:hover {
-            transform: translateY(-5px);
-            border-color: var(--primary);
-            box-shadow: 0 10px 40px rgba(80, 250, 123, 0.1);
-        }
-
-        .feature-card:hover::before {
-            transform: translateX(0);
-        }
-
-        .feature-icon {
-            width: 48px;
-            height: 48px;
-            background: linear-gradient(135deg, var(--primary), var(--secondary));
-            border-radius: 0.75rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-bottom: 1.5rem;
-            font-size: 1.5rem;
-            color: var(--bg-dark);
-        }
-
-        .feature-card h3 {
-            font-size: 1.3rem;
-            margin-bottom: 1rem;
-            color: var(--text-primary);
-        }
-
-        .feature-card p {
-            color: var(--text-secondary);
-            line-height: 1.8;
-        }
-
-        /* Architecture Section */
-        .architecture-content {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 3rem;
-            align-items: center;
-        }
-
-        .architecture-text h3 {
-            font-size: 1.5rem;
-            margin-bottom: 1rem;
-            color: var(--primary);
-        }
-
-        .architecture-text p {
-            color: var(--text-secondary);
-            margin-bottom: 1.5rem;
-            line-height: 1.8;
-        }
-
-        .architecture-diagram {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 1rem;
-            padding: 2rem;
-            height: 100%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            position: relative;
-        }
-
-        .architecture-diagram::after {
-            content: '';
-            position: absolute;
-            inset: -1px;
-            border-radius: 1rem;
-            padding: 1px;
-            background: linear-gradient(135deg, var(--primary), transparent, var(--secondary));
-            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-            -webkit-mask-composite: xor;
-            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-            mask-composite: exclude;
-            opacity: 0.5;
-        }
-
-        /* Why Section */
-        .why-grid {
-            display: grid;
-            gap: 3rem;
-        }
-
-        .why-item {
-            display: grid;
-            grid-template-columns: auto 1fr;
-            gap: 2rem;
-            align-items: start;
-            padding: 2rem;
-            background: var(--bg-card);
-            border-radius: 1rem;
-            border: 1px solid var(--border);
-            transition: all 0.3s ease;
-            overflow: hidden;
-        }
-
-        .why-item:hover {
-            border-color: var(--primary);
-            transform: translateX(5px);
-            box-shadow: 0 5px 20px rgba(80, 250, 123, 0.1);
-        }
-
-        .why-number {
-            width: 48px;
-            height: 48px;
-            background: var(--primary);
-            color: var(--bg-dark);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.5rem;
-            font-weight: bold;
-        }
-
-        .why-content h3 {
-            font-size: 1.5rem;
-            margin-bottom: 0.5rem;
-            color: var(--text-primary);
-        }
-
-        .why-content .tagline {
-            color: var(--primary);
-            font-style: italic;
-            margin-bottom: 1rem;
-        }
-
-        .why-content code {
-            color: var(--primary);
-            background: rgba(80, 250, 123, 0.1);
-            padding: 0.1rem 0.3rem;
-            border-radius: 0.25rem;
-            word-break: break-word;
-        }
-
-        /* Code Comparison */
-        .code-comparison {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 2rem;
-            margin-top: 2rem;
-        }
-
-        .code-block {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 1rem;
-            overflow: hidden;
-        }
-
-        .code-block-header {
-            padding: 1rem 1.5rem;
-            background: var(--bg-darker);
-            border-bottom: 1px solid var(--border);
-            font-weight: 600;
-        }
-
-        .code-block.before .code-block-header {
-            color: var(--error);
-        }
-
-        .code-block.after .code-block-header {
-            color: var(--primary);
-        }
-
-        .code-block pre {
-            padding: 1.5rem;
-            margin: 0;
-            max-height: 400px;
-            overflow-y: auto;
-        }
-
-        /* Footer */
-        footer {
-            background: var(--bg-darker);
-            border-top: 1px solid var(--border);
-            padding: 3rem 2rem;
-            text-align: center;
-        }
-
-        .footer-content {
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-
-
-        .social-links {
-            display: flex;
-            justify-content: center;
-            gap: 2rem;
-            margin-bottom: 2rem;
-        }
-
-        .social-links a {
-            color: var(--text-secondary);
-            font-size: 1.5rem;
-            transition: color 0.3s ease;
-        }
-
-        .social-links a:hover {
-            color: var(--primary);
-        }
-
-        /* Responsive Styles */
-        @media (max-width: 1024px) {
-            .features-grid {
-                grid-template-columns: repeat(2, 1fr);
-            }
-
-            .tools-grid {
-                grid-template-columns: repeat(2, 1fr);
-            }
-        }
-
+            --primary: #50fa7b; --primary-dark: #3dd660; --primary-light: #7ffc9a; --primary-glow: rgba(80, 250, 123, 0.4);
+            --secondary: #00ff88; --accent: #40e0d0; --bg-dark: #0a0a0b; --bg-darker: #050506; --bg-card: #16161a;
+            --text-primary: #f9fafb; --text-secondary: #9ca3af; --text-muted: #6b7280; --border: #2d2d30;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+        body { font-family: 'Inter', sans-serif; background: var(--bg-dark); color: var(--text-primary); line-height: 1.6; overflow-x: hidden; }
+        nav { position: fixed; top: 0; width: 100%; background: rgba(10, 10, 11, 0.8); backdrop-filter: blur(20px); z-index: 1000; padding: 1rem 2rem; transition: all 0.3s ease; border-bottom: 1px solid var(--border); }
+        nav.scrolled { padding: 0.75rem 2rem; background: rgba(10, 10, 11, 0.95); }
+        .nav-container { max-width: 1200px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; }
+        .logo img { height: 32px; }
+        .nav-links { display: flex; gap: 2rem; list-style: none; }
+        .nav-links a { color: var(--text-secondary); text-decoration: none; transition: color 0.3s ease; font-weight: 500; }
+        .nav-links a:hover { color: var(--primary); }
+        .mobile-menu-toggle { display: none; flex-direction: column; justify-content: space-between; width: 30px; height: 24px; background: transparent; border: none; cursor: pointer; z-index: 1001; }
+        .mobile-menu-toggle span { display: block; width: 100%; height: 3px; background: var(--text-primary); border-radius: 2px; transition: all 0.3s ease; }
+        .hero { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 8rem 2rem 4rem; text-align: center; position: relative; overflow: hidden; }
+        .hero::before { content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: radial-gradient(circle at 20% 50%, rgba(80, 250, 123, 0.1) 0%, transparent 50%), radial-gradient(circle at 80% 80%, rgba(0, 255, 136, 0.1) 0%, transparent 50%); animation: float 20s ease-in-out infinite; }
+        @keyframes float { 0%, 100% { transform: translate(0, 0); } 50% { transform: translate(-20px, 10px); } }
+        .hero-content { max-width: 900px; z-index: 1; }
+        .hero h1 { font-size: clamp(2.8rem, 6vw, 4.5rem); font-weight: 900; margin-bottom: 1.5rem; line-height: 1.1; background: linear-gradient(135deg, var(--text-primary) 0%, var(--primary) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: fadeInUp 0.8s ease; }
+        .hero .subtitle { font-size: 1.25rem; color: var(--text-secondary); margin: 0 auto 2.5rem; max-width: 700px; animation: fadeInUp 0.8s ease 0.2s both; }
+        .hero .subtitle code { color: var(--primary); background: rgba(80, 250, 123, 0.1); padding: 0.2rem 0.4rem; border-radius: 4px; font-weight: 600; }
+        @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        .cta-buttons { display: flex; gap: 1rem; justify-content: center; animation: fadeInUp 0.8s ease 0.4s both; }
+        .btn { padding: 0.875rem 2rem; border-radius: 0.5rem; font-weight: 600; text-decoration: none; transition: all 0.3s ease; display: inline-flex; align-items: center; gap: 0.5rem; border: none; font-size: 1rem; }
+        .btn-primary { background: var(--primary); color: var(--bg-dark); box-shadow: 0 4px 20px var(--primary-glow); }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 6px 30px var(--primary-glow); background: var(--primary-light); }
+        .btn-secondary { background: transparent; color: var(--text-primary); border: 2px solid var(--primary); }
+        .btn-secondary:hover { background: rgba(80, 250, 123, 0.1); }
+        section { padding: 6rem 2rem; max-width: 1200px; margin: 0 auto; }
+        .section-header { text-align: center; margin-bottom: 4rem; }
+        .section-header h2 { font-size: clamp(2rem, 4vw, 3rem); font-weight: 800; margin-bottom: 1rem; }
+        .section-header p { font-size: 1.2rem; color: var(--text-secondary); max-width: 700px; margin: 0 auto; }
+        .patterns-grid { display: grid; grid-template-columns: 1fr; gap: 2rem; }
+        .pattern-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 1rem; padding: 2.5rem; transition: all 0.3s ease; }
+        .pattern-card:hover { transform: translateY(-5px); border-color: var(--primary); box-shadow: 0 10px 40px rgba(80, 250, 123, 0.1); }
+        .pattern-header { text-align: center; margin-bottom: 2rem; }
+        .pattern-header .icon { font-size: 2.5rem; color: var(--primary); margin-bottom: 1rem; }
+        .pattern-header h3 { font-size: 1.75rem; margin-bottom: 0.5rem; }
+        .pattern-header .tagline { color: var(--text-secondary); font-style: italic; }
+        .code-comparison { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; }
+        .code-block { background: var(--bg-darker); border: 1px solid var(--border); border-radius: 0.75rem; overflow: hidden; }
+        .code-block-header { padding: 0.75rem 1.25rem; border-bottom: 1px solid var(--border); font-weight: 600; }
+        .code-block.before .code-block-header { color: #ef4444; }
+        .code-block.after .code-block-header { color: var(--primary); }
+        .code-block pre { padding: 1.25rem; margin: 0; }
+        pre { overflow-x: auto; }
+        pre code { font-family: 'Fira Code', 'Consolas', monospace; font-size: 0.85rem; line-height: 1.6; }
+        .context-split { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-top: 2rem; }
+        .context-col h4 { color: var(--primary); border-bottom: 1px solid var(--primary); padding-bottom: 0.5rem; margin-bottom: 1rem; }
+        .context-col ul { list-style: none; padding-left: 0; color: var(--text-secondary); }
+        .context-col li { margin-bottom: 0.5rem; padding-left: 1.5rem; position: relative; }
+        .context-col li::before { content: '✓'; position: absolute; left: 0; color: var(--primary); }
+        .systems-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 2rem; }
+        .system-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 1rem; padding: 2rem; }
+        .system-card .icon { font-size: 2rem; color: var(--primary); margin-bottom: 1rem; }
+        .system-card h3 { font-size: 1.25rem; margin-bottom: 0.5rem; }
+        .system-card p { color: var(--text-secondary); font-size: 0.95rem; }
+        .steps { display: grid; gap: 2rem; margin-top: 3rem; }
+        .step { display: grid; grid-template-columns: auto 1fr; gap: 1.5rem; align-items: start; }
+        .step-number { width: 40px; height: 40px; background: var(--primary); color: var(--bg-dark); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.2rem; }
+        .step-content h4 { margin-bottom: 0.75rem; }
+        .step-content pre { background: var(--bg-darker); border: 1px solid var(--border); border-radius: 0.5rem; padding: 1rem; margin-top: 0.75rem; }
+        footer { background: var(--bg-darker); border-top: 1px solid var(--border); padding: 3rem 2rem; text-align: center; }
+        .social-links { display: flex; justify-content: center; gap: 2rem; margin-bottom: 2rem; }
+        .social-links a { color: var(--text-secondary); font-size: 1.5rem; transition: color 0.3s ease; }
+        .social-links a:hover { color: var(--primary); }
+        .reveal { opacity: 0; transform: translateY(30px); transition: all 0.8s ease; }
+        .reveal.active { opacity: 1; transform: translateY(0); }
+        .animated-gradient { background: linear-gradient(-45deg, var(--primary), var(--secondary), var(--accent), var(--primary)); background-size: 300% 300%; -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: gradient 6s ease infinite; }
+        @keyframes gradient { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
         @media (max-width: 768px) {
-            /* Navigation Mobile */
-            .mobile-menu-toggle {
-                display: flex;
-            }
-
-            .nav-links {
-                display: none;
-                position: fixed;
-                top: 60px;
-                right: 0;
-                background: var(--bg-darker);
-                width: 100%;
-                flex-direction: column;
-                padding: 2rem;
-                border-top: 1px solid var(--border);
-                box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
-            }
-
-            .nav-links.active {
-                display: flex;
-            }
-
-            .nav-links a {
-                padding: 0.75rem 0;
-                font-size: 1.1rem;
-            }
-
-            /* Hero Section Mobile */
-            .hero {
-                padding: 5rem 1rem 3rem;
-                min-height: auto;
-            }
-
-            .hero h1 {
-                font-size: 2rem;
-            }
-
-            .hero .subtitle {
-                font-size: 1rem;
-            }
-
-            /* Buttons Mobile */
-            .cta-buttons {
-                flex-direction: column;
-                align-items: stretch;
-            }
-
-            .btn {
-                width: 100%;
-                justify-content: center;
-            }
-
-            /* Status Badges Mobile */
-            .hero-content > div[style*="display: flex"] {
-                flex-direction: row;
-                align-items: center;
-            }
-
-            /* Code Showcase Mobile */
-            .code-showcase {
-                padding: 1rem;
-                font-size: 0.8rem;
-            }
-
-            .code-showcase pre {
-                overflow-x: auto;
-                -webkit-overflow-scrolling: touch;
-            }
-
-            .code-showcase pre code {
-                font-size: 0.75rem;
-            }
-
-            /* Section Headers Mobile */
-            .section-header h2 {
-                font-size: 1.8rem;
-            }
-
-            .section-header p {
-                font-size: 1rem;
-            }
-
-            /* Features Grid Mobile */
-            .features-grid {
-                grid-template-columns: 1fr;
-                gap: 1.5rem;
-            }
-
-            /* Why Items Mobile */
-            .why-item {
-                grid-template-columns: 1fr !important;
-                padding: 1.5rem;
-                gap: 1rem !important;
-            }
-
-            .why-item .why-content {
-                width: 100%;
-            }
-
-            .why-item > div[style*="background: var(--bg-darker)"] {
-                font-size: 0.75rem !important;
-            }
-
-            .why-item pre {
-                font-size: 0.7rem !important;
-                overflow-x: auto !important;
-                max-width: 100%;
-            }
-
-            .why-code-block {
-                overflow-x: auto !important;
-                max-width: 100%;
-            }
-
-            .why-code-block pre {
-                margin: 0 !important;
-                white-space: pre;
-                overflow-x: auto !important;
-            }
-
-            .why-number {
-                margin-bottom: 1rem;
-                flex-shrink: 0;
-            }
-
-            /* Architecture Mobile */
-            .architecture-content {
-                grid-template-columns: 1fr;
-                gap: 2rem;
-            }
-
-            /* Code Comparison Mobile */
-            .code-comparison {
-                grid-template-columns: 1fr;
-            }
-
-            .code-block pre {
-                font-size: 0.75rem;
-                padding: 1rem;
-            }
-
-            /* Tools Grid Mobile */
-            .tools-grid {
-                grid-template-columns: 1fr;
-            }
-
-            /* Steps Mobile */
-            .step {
-                grid-template-columns: 1fr;
-            }
-
-            .step-number {
-                margin-bottom: 1rem;
-            }
-
-            /* Section Padding Mobile */
-            section {
-                padding: 3rem 1rem;
-            }
-
-            /* Systems Section Mobile */
-            .systems-grid > div {
-                padding: 1.5rem;
-            }
-
-            .system-content {
-                grid-template-columns: 1fr !important;
-                gap: 1.5rem !important;
-            }
-
-            .system-content > div:first-child ul {
-                font-size: 0.9rem;
-            }
-
-            .system-content pre {
-                font-size: 0.65rem !important;
-                padding: 0.75rem !important;
-            }
-
-            .system-content pre code {
-                font-size: 0.65rem !important;
-                line-height: 1.4 !important;
-            }
-
-            /* Footer Mobile */
-            footer {
-                padding: 2rem 1rem;
-            }
-        }
-
-        @media (max-width: 480px) {
-            /* Why Section on Small Screens */
-            .why-grid {
-                gap: 1.5rem;
-            }
-
-            .why-item {
-                padding: 1rem !important;
-                display: flex !important;
-                flex-direction: column !important;
-                align-items: flex-start !important;
-            }
-
-            .why-content {
-                width: 100% !important;
-            }
-
-            .why-content h3 {
-                font-size: 1.2rem;
-                word-wrap: break-word;
-            }
-
-            .why-content p {
-                font-size: 0.9rem;
-                word-wrap: break-word;
-            }
-
-            .why-code-block {
-                width: 100% !important;
-                box-sizing: border-box !important;
-            }
-
-            .why-code-block pre code {
-                font-size: 0.6rem !important;
-                line-height: 1.3 !important;
-            }
-
-            /* Systems Grid on Small Screens */
-            .systems-grid {
-                gap: 1rem !important;
-            }
-
-            .systems-grid > div {
-                padding: 1rem !important;
-            }
-
-            .systems-grid h3 {
-                font-size: 1.1rem !important;
-            }
-
-            .systems-grid p,
-            .systems-grid li {
-                font-size: 0.85rem !important;
-            }
-
-
-            /* Touch Improvements */
-            .btn {
-                min-height: 44px;
-                touch-action: manipulation;
-            }
-
-            .nav-links a {
-                min-height: 44px;
-                display: flex;
-                align-items: center;
-            }
-
-            /* Extra Small Screens */
-            .hero h1 {
-                font-size: 1.75rem;
-            }
-
-            .hero .subtitle {
-                font-size: 0.9rem;
-            }
-
-            .section-header h2 {
-                font-size: 1.5rem;
-            }
-
-            .feature-card {
-                padding: 1.5rem;
-            }
-
-            .tool-card {
-                padding: 1rem;
-            }
-
-            /* Token Address Mobile */
-            .token-address {
-                font-size: 0.65rem !important;
-                padding: 0.4rem 0.6rem !important;
-                flex-direction: column;
-                text-align: center;
-            }
-
-            .token-address span {
-                word-break: break-all;
-            }
-
-            /* Production Metrics Mobile */
-            .metric-badge {
-                font-size: 0.75rem !important;
-                padding: 0.35rem 0.5rem !important;
-            }
-
-            /* Code blocks in cards mobile */
-            .why-code-block {
-                padding: 0.5rem !important;
-                margin: 0.75rem 0 !important;
-            }
-
-            .system-code-block {
-                padding: 0.5rem !important;
-            }
-
-            /* System cards mobile */
-            .system-card {
-                padding: 1rem !important;
-            }
-
-            /* Status Badges Mobile */
-            .hero-content img[src*="shields.io"] {
-                height: 18px;
-            }
-        }
-
-        /* Utility Classes for Mobile */
-        @media (max-width: 768px) {
-            .hide-mobile {
-                display: none !important;
-            }
-
-            .show-mobile {
-                display: block !important;
-            }
-
-            /* Horizontal Scroll Prevention */
-            body {
-                overflow-x: hidden;
-            }
-
-            pre {
-                max-width: 100%;
-                overflow-x: auto;
-                -webkit-overflow-scrolling: touch;
-            }
-
-            /* Ensure why-item content doesn't overflow */
-            .why-item * {
-                max-width: 100%;
-            }
-
-            /* Hide emoji on very small screens if needed */
-            @media (max-width: 360px) {
-                .why-icon {
-                    display: none;
-                }
-                
-                .why-content h3 {
-                    font-size: 1.1rem !important;
-                }
-                
-                .why-code-block pre code {
-                    font-size: 0.55rem !important;
-                }
-            }
-        }
-
-        /* Scroll Reveal Animation */
-        .reveal {
-            opacity: 0;
-            transform: translateY(30px);
-            transition: all 0.8s ease;
-        }
-
-        .reveal.active {
-            opacity: 1;
-            transform: translateY(0);
-        }
-
-        /* Gradient Text Animation */
-        @keyframes gradient {
-            0% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
-            100% { background-position: 0% 50%; }
-        }
-
-        .animated-gradient {
-            background: linear-gradient(-45deg, var(--primary), var(--secondary), var(--accent), var(--primary));
-            background-size: 300% 300%;
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            animation: gradient 6s ease infinite;
-        }
-
-        /* Tool Cards */
-        .tools-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 1.5rem;
-            margin-top: 3rem;
-        }
-
-        .tool-card {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 0.75rem;
-            padding: 1.5rem;
-            transition: all 0.3s ease;
-        }
-
-        .tool-card:hover {
-            border-color: var(--primary);
-            transform: translateY(-3px);
-            box-shadow: 0 5px 20px rgba(80, 250, 123, 0.1);
-        }
-
-        .tool-card h4 {
-            color: var(--primary);
-            margin-bottom: 0.75rem;
-            font-size: 1.1rem;
-        }
-
-        .tool-list {
-            list-style: none;
-            color: var(--text-secondary);
-        }
-
-        .tool-list li {
-            padding: 0.25rem 0;
-            padding-left: 1.5rem;
-            position: relative;
-        }
-
-        .tool-list li::before {
-            content: '→';
-            position: absolute;
-            left: 0;
-            color: var(--primary);
-        }
-
-        /* Getting Started Steps */
-        .steps {
-            display: grid;
-            gap: 2rem;
-            margin-top: 3rem;
-        }
-
-        .step {
-            display: grid;
-            grid-template-columns: auto 1fr;
-            gap: 1.5rem;
-            align-items: start;
-        }
-
-        .step-number {
-            width: 40px;
-            height: 40px;
-            background: var(--primary);
-            color: var(--bg-dark);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: bold;
-            font-size: 1.2rem;
-        }
-
-        .step-content h4 {
-            margin-bottom: 0.75rem;
-            color: var(--text-primary);
-        }
-
-        .step-content pre {
-            background: var(--bg-darker);
-            border: 1px solid var(--border);
-            border-radius: 0.5rem;
-            padding: 1rem;
-            margin-top: 0.75rem;
-        }
-
-        /* Network Animation */
-        .network-bg {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            opacity: 0.05;
-            pointer-events: none;
+            .mobile-menu-toggle { display: flex; }
+            .nav-links { display: none; position: fixed; top: 60px; right: 0; background: var(--bg-darker); width: 100%; flex-direction: column; padding: 2rem; border-top: 1px solid var(--border); }
+            .nav-links.active { display: flex; }
+            .hero { padding: 6rem 1rem 3rem; }
+            .cta-buttons { flex-direction: column; align-items: stretch; }
+            .code-comparison, .context-split { grid-template-columns: 1fr; }
+            section { padding: 4rem 1rem; }
         }
     </style>
 </head>
 <body>
-    <!-- Navigation -->
     <nav id="navbar">
         <div class="nav-container">
-            <a href="#home" class="logo">
-                <img src="logo-h.png" alt="riglr">
-            </a>
-            <button class="mobile-menu-toggle" id="mobileMenuToggle" aria-label="Toggle mobile menu">
-                <span></span>
-                <span></span>
-                <span></span>
-            </button>
+            <a href="#home" class="logo"><img src="logo-h.png" alt="riglr"></a>
+            <button class="mobile-menu-toggle" id="mobileMenuToggle" aria-label="Toggle mobile menu"><span></span><span></span><span></span></button>
             <ul class="nav-links" id="navLinks">
                 <li><a href="#home">Home</a></li>
-                <li><a href="#why">Patterns</a></li>
-                <li><a href="#systems">Systems</a></li>
-                <li><a href="#features">Tools</a></li>
+                <li><a href="#why-riglr">The riglr Difference</a></li>
+                <li><a href="#systems">Production Systems</a></li>
                 <li><a href="#getting-started">Get Started</a></li>
                 <li><a href="https://riglr.com/docs"><i class="fas fa-book"></i> Docs</a></li>
                 <li><a href="https://github.com/riglr/riglr" target="_blank"><i class="fab fa-github"></i> GitHub</a></li>
@@ -1103,742 +110,204 @@
         </div>
     </nav>
 
-    <!-- Hero Section -->
-    <section class="hero" id="home">
-        <div class="hero-content">
-            <h1>Production-Ready AI Agents<br>for Blockchain at Scale</h1>
-            
-            <!-- Token Address -->
-            <div class="token-address-container" style="display: flex; gap: 1rem; justify-content: center; margin-bottom: 1.5rem; flex-wrap: wrap;">
-                <span class="token-address" style="background: rgba(80, 250, 123, 0.1); border: 1px solid var(--primary); padding: 0.75rem 1.5rem; border-radius: 0.5rem; font-weight: 600; font-family: monospace; display: inline-flex; align-items: center; gap: 0.5rem; word-break: break-all; max-width: 100%;">
-                    <i class="fas fa-coins"></i> <span>Token: 9kAkspoCESxcK6MMVwRyDfxZcfa5MCit2GrX9yCYpump</span>
-                </span>
-            </div>
-            
-            <!-- Production Metrics -->
-            <div class="metrics-container" style="display: flex; gap: 1rem; justify-content: center; margin-bottom: 1.5rem; flex-wrap: wrap;">
-                <span class="metric-badge" style="background: rgba(80, 250, 123, 0.1); border: 1px solid var(--primary); padding: 0.5rem 1rem; border-radius: 0.5rem; font-weight: 600; white-space: nowrap;">
-                    <i class="fas fa-bolt"></i> 10,000+ events/sec
-                </span>
-                <span class="metric-badge" style="background: rgba(80, 250, 123, 0.1); border: 1px solid var(--primary); padding: 0.5rem 1rem; border-radius: 0.5rem; font-weight: 600; white-space: nowrap;">
-                    <i class="fas fa-lock"></i> Thread-Local Signing
-                </span>
-                <span class="metric-badge" style="background: rgba(80, 250, 123, 0.1); border: 1px solid var(--primary); padding: 0.5rem 1rem; border-radius: 0.5rem; font-weight: 600; white-space: nowrap;">
-                    <i class="fas fa-code"></i> 30 Lines → 1 Line
-                </span>
-                <span class="metric-badge" style="background: rgba(80, 250, 123, 0.1); border: 1px solid var(--primary); padding: 0.5rem 1rem; border-radius: 0.5rem; font-weight: 600; white-space: nowrap;">
-                    <i class="fas fa-users"></i> Multi-Tenant Ready
-                </span>
-            </div>
-            
-            <!-- Status Badges -->
-            <div style="display: flex; gap: 0.5rem; justify-content: center; margin-bottom: 1.5rem; flex-wrap: wrap;">
-                <img src="https://img.shields.io/badge/version-0.2.0-50fa7b?style=flat-square" alt="Version">
-                <img src="https://img.shields.io/badge/rust-1.82%2B-orange?style=flat-square" alt="Rust">
-                <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="License">
-                <img src="https://img.shields.io/badge/crates-19-purple?style=flat-square" alt="Crates">
-                <img src="https://img.shields.io/badge/tools-50%2B-green?style=flat-square" alt="Tools">
-            </div>
-            <p class="subtitle">
-                <code>riglr</code> transforms <code>rig</code>'s LLM framework into a <strong>production-grade platform</strong> with battle-tested patterns:
-                <code>SignerContext</code> for secure multi-tenant transactions, <code>ApplicationContext</code> for clean dependency injection,
-                <code>#[tool]</code> macro eliminating 30+ lines of boilerplate, and enterprise resilience with circuit breakers & retry logic.
-            </p>
-            
-            <div class="cta-buttons">
-                <a href="#getting-started" class="btn btn-primary">
-                    <i class="fas fa-rocket"></i> Get Started
-                </a>
-                <a href="https://github.com/riglr/riglr" class="btn btn-secondary" target="_blank">
-                    <i class="fab fa-github"></i> View on GitHub
-                </a>
-            </div>
-            
-            <!-- Active Development Notice -->
-            <div style="background: rgba(245, 158, 11, 0.1); border: 1px solid #f59e0b; border-radius: 0.5rem; padding: 0.75rem 1.5rem; margin-bottom: 2rem; text-align: center;">
-                <i class="fas fa-exclamation-triangle" style="color: #f59e0b; margin-right: 0.5rem;"></i>
-                <span style="color: var(--text-secondary);">
-                    <strong>Active Development:</strong> This project is under heavy development with frequent updates. 
-                    APIs may change. Watch the repo for updates!
-                </span>
-            </div>
-
-            <div class="code-showcase">
-                <div class="code-header">
-                    <div class="code-dot"></div>
-                    <div class="code-dot"></div>
-                    <div class="code-dot"></div>
+    <main>
+        <section class="hero" id="home">
+            <div class="hero-content">
+                <h1>Production-Ready AI Agents for Blockchain</h1>
+                <p class="subtitle">
+                    <code>riglr</code> provides the architectural patterns—like the strict separation of <code>ApplicationContext</code> and <code>SignerContext</code>—that turn AI prototypes into secure, scalable, and maintainable production systems.
+                </p>
+                <div class="cta-buttons">
+                    <a href="#getting-started" class="btn btn-primary"><i class="fas fa-rocket"></i> Get Started in 60 Seconds</a>
+                    <a href="https://riglr.com/docs" class="btn btn-secondary"><i class="fas fa-book"></i> Read the Docs</a>
                 </div>
-                <pre><code class="language-rust">use riglr_agents::agents::tool_calling::ToolCallingAgentBuilder;
-use riglr_agents::toolset::Toolset;
-use riglr_agents::*;
-use riglr_core::provider::ApplicationContext;
-use riglr_core::signer::{SignerContext, UnifiedSigner};
-use riglr_solana_tools::signer::LocalSolanaSigner;
-use serde_json::json;
-use solana_sdk::signature::{Keypair, Signer};
-use std::sync::Arc;
-
-// 1. Load environment and setup context
-let app_context = ApplicationContext::from_env();
-app_context.set_extension(Arc::new(
-    solana_client::rpc_client::RpcClient::new(devnet_rpc)
-));
-
-// 2. Discover all available tools with one line
-let toolset = Toolset::new().with_solana_tools();
-
-// 3. Build the entire agent with one clean, fluent call
-let openai_client = rig::providers::openai::Client::new(&openai_api_key);
-let live_agent = ToolCallingAgentBuilder::new(toolset, app_context)
-    .build(openai_client.agent("gpt-4o"))
-    .await?;
-
-// 4. Setup signer and execute operations
-let solana_signer = LocalSolanaSigner::new(signer_keypair, devnet_rpc);
-let unified_signer: Arc<dyn UnifiedSigner> = Arc::new(solana_signer);
-
-SignerContext::with_signer(unified_signer, async {
-    let registry = LocalAgentRegistry::new();
-    registry.register_agent(live_agent).await.unwrap();
-    let dispatcher = AgentDispatcher::new(Arc::new(registry));
-    
-    // READ: Query on-chain data  
-    let read_task = Task::new(
-        TaskType::Custom("tool_calling".to_string()),
-        json!({ "prompt": "What is the SOL balance of alice.sol?" })
-    );
-    let result = dispatcher.dispatch_task(read_task).await?;
-    
-    // WRITE: Execute transactions
-    let write_task = Task::new(
-        TaskType::Custom("tool_calling".to_string()),
-        json!({ "prompt": "Send 0.001 SOL to bob.sol" })
-    );
-    let tx_result = dispatcher.dispatch_task(write_task).await?;
-}).await?;</code></pre>
             </div>
-        </div>
-    </section>
+        </section>
 
-    <!-- Core Production Patterns Section -->
-    <section id="why" class="reveal">
-        <div class="section-header">
-            <h2>Production Patterns That Make the Difference</h2>
-            <p>Battle-tested architectural patterns from real deployments that solve the hardest problems<br>in blockchain AI agent development.</p>
-        </div>
-
-        <div class="why-grid">
-            <div class="why-item">
-                <div class="why-number">1</div>
-                <div class="why-content">
-                    <h3><span class="why-icon">🔐</span> SignerContext: Thread-Local Transaction Signing</h3>
-                    <p class="tagline">Keys NEVER exposed to LLM • Complete multi-tenant isolation</p>
-                    <div class="why-code-block" style="background: var(--bg-darker); border-radius: 0.5rem; padding: 1rem; margin: 1rem 0;">
-                        <pre style="margin: 0;"><code class="language-rust">// Each user request gets completely isolated signer context
-SignerContext::with_signer(user_signer, async {
-    // Keys NEVER exposed to LLM reasoning loop
-    // Automatic cleanup when scope exits
-    // Zero cross-tenant contamination risk
-    agent.execute("Send 0.1 SOL to alice.sol").await
-}).await</code></pre>
+        <section id="why-riglr" class="reveal">
+            <div class="section-header">
+                <h2 class="animated-gradient">The riglr Difference: From Prototype to Production</h2>
+                <p>While other frameworks connect an LLM to tools, riglr provides the battle-tested architecture to run them securely at scale.</p>
+            </div>
+            <div class="patterns-grid">
+                <div class="pattern-card">
+                    <div class="pattern-header">
+                        <div class="icon"><i class="fas fa-code"></i></div>
+                        <h3>Zero Boilerplate Developer Experience</h3>
+                        <p class="tagline">The <code>#[tool]</code> macro: from 30 lines to 1.</p>
                     </div>
-                    <p><strong>Why It Matters:</strong> In production, multiple users make concurrent requests. Each gets their own isolated signer context with automatic cleanup. Keys are never passed as parameters, preventing exposure to the LLM.</p>
-                </div>
-            </div>
-
-            <div class="why-item">
-                <div class="why-number">2</div>
-                <div class="why-content">
-                    <h3><span class="why-icon">🎯</span> ApplicationContext: Clean Dependency Injection</h3>
-                    <p class="tagline">Modular architecture • Mock-friendly testing • Zero circular dependencies</p>
-                    <div class="why-code-block" style="background: var(--bg-darker); border-radius: 0.5rem; padding: 1rem; margin: 1rem 0;">
-                        <pre style="margin: 0;"><code class="language-rust">// Application injects dependencies once
-context.set_extension(Arc::new(solana_client));
-context.set_extension(Arc::new(evm_provider));
-
-// Tools retrieve what they need - no hardcoding
-#[tool]
-async fn get_balance(address: String) -> Result<f64, ToolError> {
-    let client = context.get_extension::<SolanaClient>()?;
-    // Use client...
-}</code></pre>
-                    </div>
-                    <p><strong>Why It Matters:</strong> Decouples tools from implementations, enables mock testing without code changes, supports multiple chains without circular dependencies.</p>
-                </div>
-            </div>
-
-            <div class="why-item">
-                <div class="why-number">3</div>
-                <div class="why-content">
-                    <h3><span class="why-icon">🔄</span> Two-Level Error Handling with Auto-Retry</h3>
-                    <p class="tagline">Behavioral classification • Exponential backoff • Chain-specific details</p>
-                    <div class="why-code-block" style="background: var(--bg-darker); border-radius: 0.5rem; padding: 1rem; margin: 1rem 0;">
-                        <pre style="margin: 0;"><code class="language-rust">// High-level behavioral classification
-match error {
-    ToolError::Retriable(_) => // Automatic exponential backoff
-    ToolError::RateLimited(_) => // Respect rate limits
-    ToolError::Permanent(_) => // Don't retry
-}
-
-// Low-level chain-specific details preserved
-if let Some(solana_error) = error.downcast::<SolanaToolError>() {
-    match solana_error {
-        SolanaToolError::BlockhashExpired => // Handle specifically
-    }
-}</code></pre>
-                    </div>
-                    <p><strong>Why It Matters:</strong> Automatic retry logic for transient failures, intelligent rate limit handling, detailed error context for debugging.</p>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Beyond rig: Advanced Systems Section -->
-    <section id="systems" class="reveal">
-        <div class="section-header">
-            <h2>Beyond Single Agents: Production Systems</h2>
-            <p>riglr extends rig's single-agent model into comprehensive systems for real-world deployment</p>
-        </div>
-        
-        <div class="systems-grid" style="display: grid; gap: 2rem; margin-bottom: 3rem;">
-            <!-- Multi-Agent Coordination -->
-            <div class="system-card" style="background: var(--bg-card); border: 1px solid var(--primary); border-radius: 1rem; padding: 2rem;">
-                <h3 style="color: var(--primary); margin-bottom: 1.5rem;">
-                    <i class="fas fa-users"></i> Multi-Agent Coordination (riglr-agents)
-                </h3>
-                <div class="system-content" style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; align-items: center;">
-                    <div>
-                        <p style="color: var(--text-secondary); margin-bottom: 1rem;">
-                            Create "swarms" of specialized agents that collaborate on complex tasks:
-                        </p>
-                        <ul style="color: var(--text-secondary); list-style: none; padding-left: 0;">
-                            <li style="margin-bottom: 0.5rem;"><i class="fas fa-check" style="color: var(--primary); margin-right: 0.5rem;"></i><strong>Agent Specialization:</strong> ResearchAgent, RiskAgent, ExecutionAgent</li>
-                            <li style="margin-bottom: 0.5rem;"><i class="fas fa-check" style="color: var(--primary); margin-right: 0.5rem;"></i><strong>Registry System:</strong> Local or Redis-based discovery</li>
-                            <li style="margin-bottom: 0.5rem;"><i class="fas fa-check" style="color: var(--primary); margin-right: 0.5rem;"></i><strong>Smart Dispatcher:</strong> Capability, LeastLoaded, RoundRobin</li>
-                            <li style="margin-bottom: 0.5rem;"><i class="fas fa-check" style="color: var(--primary); margin-right: 0.5rem;"></i><strong>Inter-Agent Communication:</strong> Built-in messaging</li>
-                        </ul>
-                    </div>
-                    <div class="system-code-block" style="background: var(--bg-darker); border-radius: 0.5rem; padding: 1rem;">
-                        <pre><code class="language-rust">// Complex workflow with specialized agents
-let research_task = Task::new(
-    TaskType::Research, 
-    json!({ "query": "Analyze SOL price trends" })
-);
-let research = dispatcher.dispatch_task(research_task).await?;
-
-let risk_task = Task::new(
-    TaskType::RiskAnalysis, 
-    research.data()
-);
-let risk = dispatcher.dispatch_task(risk_task).await?;
-
-if risk.is_approved() {
-    let execution_task = Task::new(
-        TaskType::Trading,
-        json!({ "action": "buy", "amount": 100 })
-    );
-    dispatcher.dispatch_task(execution_task).await?;
-}</code></pre>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Real-Time Event Streaming -->
-            <div class="system-card" style="background: var(--bg-card); border: 1px solid var(--secondary); border-radius: 1rem; padding: 2rem;">
-                <h3 style="color: var(--secondary); margin-bottom: 1.5rem;">
-                    <i class="fas fa-stream"></i> Real-Time Event Streaming (riglr-streams)
-                </h3>
-                <div class="system-content" style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; align-items: center;">
-                    <div>
-                        <p style="color: var(--text-secondary); margin-bottom: 1rem;">
-                            Make agents <strong>proactive</strong> rather than reactive:
-                        </p>
-                        <ul style="color: var(--text-secondary); list-style: none; padding-left: 0;">
-                            <li style="margin-bottom: 0.5rem;"><i class="fas fa-check" style="color: var(--primary); margin-right: 0.5rem;"></i><strong>Multi-Source:</strong> Solana Geyser, EVM WebSockets, Binance</li>
-                            <li style="margin-bottom: 0.5rem;"><i class="fas fa-check" style="color: var(--primary); margin-right: 0.5rem;"></i><strong>Resilient:</strong> Auto-reconnect, circuit breakers, backoff</li>
-                            <li style="margin-bottom: 0.5rem;"><i class="fas fa-check" style="color: var(--primary); margin-right: 0.5rem;"></i><strong>Composable:</strong> map, filter, throttle, debounce, batch</li>
-                            <li style="margin-bottom: 0.5rem;"><i class="fas fa-check" style="color: var(--primary); margin-right: 0.5rem;"></i><strong>Event-Triggered:</strong> Auto-execute on conditions</li>
-                        </ul>
-                    </div>
-                    <div class="system-code-block" style="background: var(--bg-darker); border-radius: 0.5rem; padding: 1rem;">
-                        <pre><code class="language-rust">// Complex pipeline with fluent API
-let solana_stream = SolanaGeyserStream::new(...);
-let processed = solana_stream
-    .filter(|e| matches!(e.kind(), EventKind::Swap))
-    .map(extract_swap_metrics)
-    .throttle(Duration::from_secs(10))
-    .batch(50, Duration::from_secs(60));
-
-// React to real-time events
-processed.subscribe(|batch| async {
-    if batch.volume > threshold {
-        agent.execute_strategy(batch).await?;
-    }
-}).await;</code></pre>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Production-Grade Indexing -->
-            <div class="system-card" style="background: var(--bg-card); border: 1px solid var(--accent); border-radius: 1rem; padding: 2rem;">
-                <h3 style="color: var(--accent); margin-bottom: 1.5rem;">
-                    <i class="fas fa-database"></i> Production-Grade Indexing (riglr-indexer)
-                </h3>
-                <div class="system-content" style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; align-items: center;">
-                    <div>
-                        <p style="color: var(--text-secondary); margin-bottom: 1rem;">
-                            Give agents historical context and analytics:
-                        </p>
-                        <ul style="color: var(--text-secondary); list-style: none; padding-left: 0;">
-                            <li style="margin-bottom: 0.5rem;"><i class="fas fa-check" style="color: var(--primary); margin-right: 0.5rem;"></i><strong>High-Performance:</strong> Built for high-throughput streams</li>
-                            <li style="margin-bottom: 0.5rem;"><i class="fas fa-check" style="color: var(--primary); margin-right: 0.5rem;"></i><strong>Robust Storage:</strong> PostgreSQL + Redis caching</li>
-                            <li style="margin-bottom: 0.5rem;"><i class="fas fa-check" style="color: var(--primary); margin-right: 0.5rem;"></i><strong>Pluggable Pipeline:</strong> Ingestion, processing, validation</li>
-                            <li style="margin-bottom: 0.5rem;"><i class="fas fa-check" style="color: var(--primary); margin-right: 0.5rem;"></i><strong>Real-Time API:</strong> REST + WebSocket endpoints</li>
-                        </ul>
-                    </div>
-                    <div class="system-code-block" style="background: var(--bg-darker); border-radius: 0.5rem; padding: 1rem;">
-                        <pre><code class="language-rust">// Agent queries historical data
-let historical = indexer
-    .query_swaps()
-    .wallet("alice.sol")
-    .token("BONK")
-    .time_range(last_24h)
-    .execute()
-    .await?;
-
-// Make informed decisions
-let avg_price = historical.average_price();
-let volume_trend = historical.volume_trend();
-agent.analyze_and_decide(avg_price, volume_trend).await?;</code></pre>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Production Infrastructure Section -->
-    <section id="infrastructure" class="reveal">
-        <div class="section-header">
-            <h2>Production Infrastructure</h2>
-            <p>Built-in patterns for reliability, performance, and scale</p>
-        </div>
-
-        <div class="features-grid">
-            <div class="feature-card">
-                <div class="feature-icon">
-                    <i class="fas fa-bolt"></i>
-                </div>
-                <h3>10,000+ Events/Second</h3>
-                <p>High-throughput processing with parallel workers and backpressure handling.</p>
-            </div>
-
-            <div class="feature-card">
-                <div class="feature-icon">
-                    <i class="fas fa-shield-alt"></i>
-                </div>
-                <h3>Circuit Breakers</h3>
-                <p>Prevent cascading failures with automatic circuit breakers and graceful degradation.</p>
-            </div>
-
-            <div class="feature-card">
-                <div class="feature-icon">
-                    <i class="fas fa-redo"></i>
-                </div>
-                <h3>Idempotency Store</h3>
-                <p>Safe retries in distributed systems with Redis-backed deduplication.</p>
-            </div>
-
-            <div class="feature-card">
-                <div class="feature-icon">
-                    <i class="fas fa-chart-line"></i>
-                </div>
-                <h3>Prometheus Metrics</h3>
-                <p>Built-in instrumentation for monitoring performance and business metrics.</p>
-            </div>
-
-            <div class="feature-card">
-                <div class="feature-icon">
-                    <i class="fas fa-heartbeat"></i>
-                </div>
-                <h3>Health Checks</h3>
-                <p>Kubernetes-ready health and readiness probes with dependency monitoring.</p>
-            </div>
-
-            <div class="feature-card">
-                <div class="feature-icon">
-                    <i class="fas fa-expand-arrows-alt"></i>
-                </div>
-                <h3>Horizontal Scaling</h3>
-                <p>Distributed job queues with consistent hashing and load balancing.</p>
-            </div>
-        </div>
-    </section>
-
-    <!-- Features Section -->
-
-    <!-- Features Section -->
-    <section id="features" class="reveal">
-        <div class="section-header">
-            <h2>A Comprehensive Toolkit for Blockchain Operations</h2>
-            <p>riglr provides 50+ production-ready tools across multiple blockchains, with new integrations added weekly.</p>
-        </div>
-
-        <div class="tools-grid">
-            <div class="tool-card">
-                <h4><i class="fas fa-coins"></i> riglr-solana-tools</h4>
-                <ul class="tool-list">
-                    <li><strong>AMMs:</strong> Jupiter, Raydium, Meteora, Orca</li>
-                    <li><strong>Launchpads:</strong> Pump.fun, Moonshot, BonkBot</li>
-                    <li><strong>Trading:</strong> Swaps, Quotes, Liquidity</li>
-                    <li>SOL & SPL Token Transfers</li>
-                    <li>Balance & Portfolio Queries</li>
-                </ul>
-            </div>
-
-            <div class="tool-card">
-                <h4><i class="fab fa-ethereum"></i> riglr-evm-tools</h4>
-                <ul class="tool-list">
-                    <li>Uniswap V3 Swaps & Quotes</li>
-                    <li>ETH & ERC20 Transfers</li>
-                    <li>Multi-Chain Support</li>
-                    <li>Gas Estimation & Nonce Management</li>
-                </ul>
-            </div>
-
-            <div class="tool-card">
-                <h4><i class="fas fa-globe"></i> riglr-web-tools</h4>
-                <ul class="tool-list">
-                    <li>DexScreener Market Data</li>
-                    <li>Twitter/X Sentiment Analysis</li>
-                    <li>Exa Semantic Web Search</li>
-                    <li>Crypto News Aggregation</li>
-                </ul>
-            </div>
-
-            <div class="tool-card">
-                <h4><i class="fas fa-bridge"></i> riglr-cross-chain</h4>
-                <ul class="tool-list">
-                    <li>Li.fi Bridge Aggregation</li>
-                    <li>Cross-Chain Route Discovery</li>
-                    <li>Fee & Time Estimation</li>
-                    <li>Secure Transaction Execution</li>
-                </ul>
-            </div>
-
-            <div class="tool-card">
-                <h4><i class="fas fa-brain"></i> riglr-graph-memory</h4>
-                <ul class="tool-list">
-                    <li>Neo4j Knowledge Graph Backend</li>
-                    <li>Hybrid Vector + Graph Search</li>
-                    <li>Blockchain Entity Extraction</li>
-                    <li>rig::VectorStore Implementation</li>
-                </ul>
-            </div>
-
-            <div class="tool-card">
-                <h4><i class="fas fa-chart-line"></i> riglr-hyperliquid-tools</h4>
-                <ul class="tool-list">
-                    <li>Perpetuals Trading on Hyperliquid</li>
-                    <li>Market Orders & Limit Orders</li>
-                    <li>Position Management</li>
-                    <li>Account Info & Portfolio Tracking</li>
-                </ul>
-            </div>
-
-        </div>
-    </section>
-
-    <!-- Developer Experience Section -->
-    <section class="reveal">
-        <div class="section-header">
-            <h2>Developer Experience: The #[tool] Macro</h2>
-            <p>Eliminate boilerplate and focus on what makes your application unique.</p>
-        </div>
-
-        <div class="code-comparison">
-            <div class="code-block before">
-                <div class="code-block-header">❌ Without riglr: 30+ Lines of Boilerplate</div>
-                <pre><code class="language-rust">pub struct GetSolBalance;
-
+                    <div class="code-comparison">
+                        <div class="code-block before">
+                            <div class="code-block-header">❌ Without riglr</div>
+                            <pre><code class="language-rust">pub struct GetSolBalance;
 #[async_trait]
 impl Tool for GetSolBalance {
-    fn name(&self) -> &str { "get_sol_balance" }
-    fn description(&self) -> &str { 
-        "Get the SOL balance for a wallet." 
-    }
-    
-    fn parameters(&self) -> serde_json::Value {
-        json!({
-            "type": "object",
-            "properties": {
-                "address": {
-                    "type": "string",
-                    "description": "The wallet address."
-                }
-            },
-            "required": ["address"]
-        })
-    }
-
-    async fn call(&self, params: serde_json::Value) 
-        -> Result&lt;serde_json::Value, ToolError&gt; {
-        // Manual parameter extraction
-        // Manual error conversion
-        // Manual result serialization
+    fn name(&self) -> &str { "..." }
+    fn description(&self) -> &str { "..." }
+    fn parameters(&self) -> Value { /* ... */ }
+    async fn call(&self, params: Value) 
+        -> Result<Value, ToolError> {
+        // Manual everything...
     }
 }</code></pre>
-            </div>
-
-            <div class="code-block after">
-                <div class="code-block-header">✅ With riglr: Just 1 Line</div>
-                <pre><code class="language-rust">/// Get the SOL balance for a given wallet address.
+                        </div>
+                        <div class="code-block after">
+                            <div class="code-block-header">✅ With riglr</div>
+                            <pre><code class="language-rust">/// Get the SOL balance.
 #[tool]
 async fn get_sol_balance(
-    /// The Solana wallet address (base58 encoded).
     address: String,
-) -> Result&lt;f64, ToolError&gt; {
-    let client = get_client_from_context()?;
-    let lamports = client.get_balance(&address).await?;
-    Ok(lamports as f64 / 1_000_000_000.0)
+    context: &ApplicationContext,
+) -> Result<f64, ToolError> {
+    // ... logic ...
 }</code></pre>
-            </div>
-        </div>
-        
-        <div style="text-align: center; margin-top: 2rem; color: var(--text-secondary);">
-            <p><strong>The macro automatically generates:</strong> Parameter struct • JSON schema • Tool trait implementation • Error conversion • Documentation extraction</p>
-        </div>
-    </section>
+                        </div>
+                    </div>
+                </div>
 
-
-    <!-- Getting Started Section -->
-    <section id="getting-started" class="reveal">
-        <div class="section-header">
-            <h2 class="animated-gradient">Get Started in 60 Seconds</h2>
-            <p>Use our official CLI to scaffold a production-ready riglr agent instantly.</p>
-        </div>
-
-        <div class="steps">
-            <div class="step">
-                <div class="step-number">1</div>
-                <div class="step-content">
-                    <h4>Install create-riglr-app</h4>
-                    <p style="color: var(--text-secondary); margin-bottom: 1rem;">Our official project generator helps you start with best practices from day one.</p>
-                    <pre><code class="language-bash">cargo install create-riglr-app</code></pre>
+                <div class="pattern-card">
+                    <div class="pattern-header">
+                        <div class="icon"><i class="fas fa-lock"></i></div>
+                        <h3>Clean Architecture & Uncompromising Security</h3>
+                        <p class="tagline">The strict separation of read-only and write-only contexts.</p>
+                    </div>
+                    <div class="context-split">
+                        <div class="context-col">
+                            <h4><i class="fas fa-cloud"></i> ApplicationContext</h4>
+                            <ul>
+                                <li>For Shared, Read-Only Dependencies</li>
+                                <li>Holds RPC clients, API keys, configs</li>
+                                <li>Enables testability & modularity</li>
+                                <li>Passed explicitly to tools</li>
+                            </ul>
+                        </div>
+                        <div class="context-col">
+                            <h4><i class="fas fa-signature"></i> SignerContext</h4>
+                            <ul>
+                                <li>For Secure, Isolated Write Operations</li>
+                                <li>Holds cryptographic signers</li>
+                                <li>Ensures multi-tenant security</li>
+                                <li>Accessed implicitly via task-local</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="code-block" style="margin-top: 2rem;">
+                        <pre><code class="language-rust">#[tool]
+async fn transfer_sol(
+    context: &ApplicationContext, // Passed explicitly for READS
+    to: String,
+    amount: f64,
+) -> Result<String, ToolError> {
+    // Accessed implicitly and securely for WRITES
+    let signer = SignerContext::current_as_solana().await?;
+    let rpc_client = context.solana_client()?;
+    
+    // Keys are never exposed to the LLM reasoning loop.
+    // ... sign and send transaction ...
+}</code></pre>
+                    </div>
                 </div>
             </div>
+        </section>
 
-            <div class="step">
-                <div class="step-number">2</div>
-                <div class="step-content">
-                    <h4>Create Your Project</h4>
-                    <p style="color: var(--text-secondary); margin-bottom: 1rem;">Interactive CLI guides you through selecting templates, blockchains, and features.</p>
-                    <pre><code class="language-bash"># Create a new trading bot, web API server, or custom agent
-create-riglr-app my-agent
-
-# Or use a specific template directly
-create-riglr-app my-bot --template trading-bot</code></pre>
+        <section id="systems" class="reveal">
+            <div class="section-header">
+                <h2>Full-Stack Systems, Not Just a Framework</h2>
+                <p>Go beyond simple tool-calling with built-in production infrastructure.</p>
+            </div>
+            <div class="systems-grid">
+                <div class="system-card">
+                    <div class="icon"><i class="fas fa-users-cog"></i></div>
+                    <h3>Multi-Agent Coordination</h3>
+                    <p>Build "swarms" of specialized agents (Research, Risk, Execution) that collaborate on complex workflows using a capability-based dispatcher and a distributed agent registry.</p>
+                </div>
+                <div class="system-card">
+                    <div class="icon"><i class="fas fa-stream"></i></div>
+                    <h3>Real-Time Event Streaming</h3>
+                    <p>Make agents proactive. Ingest and process >10,000 events/sec from Solana Geyser, EVM WebSockets, and CEX APIs with a resilient, composable streaming engine.</p>
+                </div>
+                <div class="system-card">
+                    <div class="icon"><i class="fas fa-database"></i></div>
+                    <h3>Production-Grade Indexing</h3>
+                    <p>Give agents historical context. A high-performance pipeline ingests, processes, and stores on-chain data in PostgreSQL with Redis caching for real-time analytics.</p>
                 </div>
             </div>
+        </section>
 
-            <div class="step">
-                <div class="step-number">3</div>
-                <div class="step-content">
-                    <h4>Configure & Run</h4>
-                    <p style="color: var(--text-secondary); margin-bottom: 1rem;">Set your API keys and you're ready to go!</p>
-                    <pre><code class="language-bash">cd my-agent
+        <section id="getting-started" class="reveal">
+            <div class="section-header">
+                <h2>Get Started in 60 Seconds</h2>
+                <p>Use our official CLI to scaffold a production-ready riglr agent instantly.</p>
+            </div>
+            <div class="steps">
+                <div class="step">
+                    <div class="step-number">1</div>
+                    <div class="step-content">
+                        <h4>Install the Generator</h4>
+                        <p style="color: var(--text-secondary);">Get the official project generator with a single command.</p>
+                        <pre><code class="language-bash">cargo install create-riglr-app</code></pre>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-number">2</div>
+                    <div class="step-content">
+                        <h4>Create Your Agent</h4>
+                        <p style="color: var(--text-secondary);">The interactive CLI guides you through creating a new agent.</p>
+                        <pre><code class="language-bash">create-riglr-app my-trading-bot</code></pre>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-number">3</div>
+                    <div class="step-content">
+                        <h4>Configure & Run</h4>
+                        <p style="color: var(--text-secondary);">Add your API keys and launch your agent.</p>
+                        <pre><code class="language-bash">cd my-trading-bot
 cp .env.example .env
-# Edit .env with your API keys and RPC URLs
-cargo run</code></pre>
+# Edit .env with your API keys
+cargo run -- --interactive</code></pre>
+                    </div>
                 </div>
             </div>
-        </div>
+        </section>
+    </main>
 
-        <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 1rem; padding: 2rem; margin-top: 3rem;">
-            <h3 style="color: var(--primary); margin-bottom: 1.5rem; text-align: center;">What You Get Out of the Box</h3>
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; text-align: center;">
-                <div>
-                    <div style="color: var(--primary); font-size: 2rem; margin-bottom: 0.5rem;">🏗️</div>
-                    <h4 style="margin-bottom: 0.5rem;">Project Structure</h4>
-                    <p style="color: var(--text-secondary); font-size: 0.9rem;">Production-ready layout with proper separation of concerns</p>
-                </div>
-                <div>
-                    <div style="color: var(--primary); font-size: 2rem; margin-bottom: 0.5rem;">🔧</div>
-                    <h4 style="margin-bottom: 0.5rem;">Pre-configured Tools</h4>
-                    <p style="color: var(--text-secondary); font-size: 0.9rem;">Blockchain tools ready to use based on your selection</p>
-                </div>
-                <div>
-                    <div style="color: var(--primary); font-size: 2rem; margin-bottom: 0.5rem;">🔐</div>
-                    <h4 style="margin-bottom: 0.5rem;">Security Best Practices</h4>
-                    <p style="color: var(--text-secondary); font-size: 0.9rem;">SignerContext pattern and secure key management built-in</p>
-                </div>
-                <div>
-                    <div style="color: var(--primary); font-size: 2rem; margin-bottom: 0.5rem;">📝</div>
-                    <h4 style="margin-bottom: 0.5rem;">Example Code</h4>
-                    <p style="color: var(--text-secondary); font-size: 0.9rem;">Working examples showing how to use riglr effectively</p>
-                </div>
-            </div>
-        </div>
-
-        <div class="section-header" style="margin-top: 4rem;">
-            <h3>Manual Setup (Advanced)</h3>
-            <p>Want more control? You can also add riglr to an existing project:</p>
-        </div>
-
-        <div class="code-showcase" style="max-width: 800px; margin: 2rem auto;">
-            <div class="code-header">
-                <div class="code-dot"></div>
-                <div class="code-dot"></div>
-                <div class="code-dot"></div>
-            </div>
-            <pre><code class="language-toml"># Add to your Cargo.toml
-[dependencies]
-rig-core = "0.17.1"
-riglr-core = "0.2.0"
-riglr-macros = "0.2.0"
-riglr-solana-tools = "0.2.0"  # Or riglr-evm-tools, riglr-web-tools, etc.</code></pre>
-        </div>
-    </section>
-
-    <!-- Resources Section -->
-    <section class="reveal">
-        <div class="section-header">
-            <h2>Start Building Today</h2>
-            <p>Everything you need to create powerful blockchain-enabled AI agents with riglr.</p>
-        </div>
-
-        <div class="cta-buttons" style="justify-content: center; margin-top: 3rem;">
-            <a href="https://riglr.com/docs" class="btn btn-primary">
-                <i class="fas fa-book"></i> Read the Docs
-            </a>
-            <a href="https://github.com/riglr/riglr" class="btn btn-secondary" target="_blank">
-                <i class="fab fa-github"></i> View Source Code
-            </a>
-        </div>
-    </section>
-
-    <!-- Footer -->
     <footer>
         <div class="footer-content">
             <div class="social-links">
-                <a href="https://github.com/riglr" target="_blank"><i class="fab fa-github"></i></a>
+                <a href="https://github.com/riglr/riglr" target="_blank" aria-label="GitHub"><i class="fab fa-github"></i></a>
             </div>
-            <p style="color: var(--text-muted);">
-                © 2025 riglr Project. Open source under MIT License.
-            </p>
+            <p style="color: var(--text-muted);">&copy; 2024 riglr Project. Open source under MIT License.</p>
         </div>
     </footer>
 
-    <!-- Scripts -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-rust.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-toml.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
     <script>
         // Mobile menu toggle
         const mobileMenuToggle = document.getElementById('mobileMenuToggle');
         const navLinks = document.getElementById('navLinks');
-
-        mobileMenuToggle.addEventListener('click', function() {
-            this.classList.toggle('active');
+        mobileMenuToggle.addEventListener('click', () => {
+            mobileMenuToggle.classList.toggle('active');
             navLinks.classList.toggle('active');
         });
-
-        // Close mobile menu when clicking a link
         document.querySelectorAll('.nav-links a').forEach(link => {
             link.addEventListener('click', () => {
                 mobileMenuToggle.classList.remove('active');
                 navLinks.classList.remove('active');
             });
         });
-
-        // Close mobile menu when clicking outside
-        document.addEventListener('click', function(event) {
-            if (!event.target.closest('.nav-container')) {
-                mobileMenuToggle.classList.remove('active');
-                navLinks.classList.remove('active');
-            }
-        });
-
         // Navbar scroll effect
-        window.addEventListener('scroll', function() {
-            const navbar = document.getElementById('navbar');
-            if (window.scrollY > 50) {
-                navbar.classList.add('scrolled');
-            } else {
-                navbar.classList.remove('scrolled');
-            }
-        });
-
-        // Scroll reveal animation
-        function reveal() {
-            const reveals = document.querySelectorAll('.reveal');
-            
-            for (let i = 0; i < reveals.length; i++) {
-                const windowHeight = window.innerHeight;
-                const elementTop = reveals[i].getBoundingClientRect().top;
-                const elementVisible = 150;
-                
-                if (elementTop < windowHeight - elementVisible) {
-                    reveals[i].classList.add('active');
-                }
-            }
-        }
-
-        window.addEventListener('scroll', reveal);
-        reveal(); // Check on load
-
-        // Smooth scroll for navigation links
-        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-            anchor.addEventListener('click', function (e) {
-                e.preventDefault();
-                const target = document.querySelector(this.getAttribute('href'));
-                if (target) {
-                    target.scrollIntoView({
-                        behavior: 'smooth',
-                        block: 'start'
-                    });
-                }
-            });
-        });
-
-        // Add typing animation to code showcase
-        const codeElement = document.querySelector('.code-showcase pre code');
-        if (codeElement) {
-            const originalText = codeElement.textContent;
-            codeElement.textContent = '';
-            let index = 0;
-            
-            function typeCode() {
-                if (index < originalText.length) {
-                    codeElement.textContent += originalText.charAt(index);
-                    index++;
-                    setTimeout(typeCode, 10);
-                }
-            }
-            
-            // Start typing animation when element is in view
-            const observer = new IntersectionObserver((entries) => {
-                entries.forEach(entry => {
-                    if (entry.isIntersecting) {
-                        typeCode();
-                        observer.unobserve(entry.target);
-                    }
-                });
-            });
-            
-            observer.observe(codeElement);
-        }
-
-        // Parallax effect for hero background
         window.addEventListener('scroll', () => {
-            const scrolled = window.pageYOffset;
-            const hero = document.querySelector('.hero::before');
-            if (hero) {
-                const speed = scrolled * -0.5;
-                hero.style.transform = `translateY(${speed}px)`;
-            }
+            document.getElementById('navbar').classList.toggle('scrolled', window.scrollY > 50);
         });
+        // Scroll reveal animation
+        const reveal = () => {
+            document.querySelectorAll('.reveal').forEach(el => {
+                if (el.getBoundingClientRect().top < window.innerHeight - 100) {
+                    el.classList.add('active');
+                }
+            });
+        };
+        window.addEventListener('scroll', reveal);
+        reveal();
     </script>
 </body>
 </html>
