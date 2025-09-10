@@ -10,6 +10,8 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use riglr_config::Config;
+use riglr_core::provider::ApplicationContext;
+use std::sync::Arc;
 use tracing::info;
 
 mod commands;
@@ -88,40 +90,80 @@ async fn main() -> Result<()> {
     // Initialize logging
     init_logging(cli.verbose);
 
-    // Load configuration
-    dotenvy::from_filename(&cli.config).ok();
-
     tracing::info!("🚀 Initializing riglr-showcase with production-ready configuration...");
 
-    // Load and validate all configuration at startup
-    let config = Config::from_env();
+    // Phase 1.1: Centralize Configuration Loading
+    // Load configuration once at application startup using Config::from_env()
+    // This handles environment variables and .env files automatically
+    let config = Arc::new(Config::from_env());
 
     tracing::info!("✅ Configuration loaded and validated successfully");
 
+    // Phase 1.2: Establish and Inject ApplicationContext
+    // Create the ApplicationContext from the loaded configuration
+    let context = Arc::new(ApplicationContext::from_config(&config));
+
+    // Initialize and inject all required clients into the context
+    // 1. Solana RPC Client
+    let solana_client = Arc::new(solana_client::rpc_client::RpcClient::new(
+        config.network.solana_rpc_url.clone(),
+    ));
+    context.set_extension(solana_client);
+
+    // 2. EVM Provider from alloy
+    // Check if we have any EVM RPC URLs configured
+    if let Some(evm_rpc_url) = config
+        .network
+        .get_rpc_url(&config.network.default_chain_id.to_string())
+    {
+        use alloy::providers::ProviderBuilder;
+
+        let evm_provider = ProviderBuilder::new().connect_http(evm_rpc_url.parse()?);
+        context.set_extension(Arc::new(evm_provider));
+    }
+
+    // 3. Solana API Clients
+    let api_clients = Arc::new(riglr_solana_tools::clients::ApiClients::new(
+        &config.providers,
+    ));
+    context.set_extension(api_clients);
+
+    // 4. Web Client
+    use riglr_web_tools::client::HttpConfig;
+    let web_client = Arc::new(riglr_web_tools::client::WebClient::with_config(
+        HttpConfig::default(),
+    )?);
+    context.set_extension(web_client);
+
+    // 5. Sentiment Analyzer implementation
+    // TODO: LexiconSentimentAnalyzer::new() does not exist, needs to be fixed in Phase 2
+    // let sentiment_analyzer = Arc::new(riglr_web_tools::news::LexiconSentimentAnalyzer::new());
+    // context.set_extension(sentiment_analyzer);
+
     info!("Starting riglr-showcase v{}", env!("CARGO_PKG_VERSION"));
 
-    // Run the appropriate command
+    // Run the appropriate command, passing the ApplicationContext instead of Config
     match cli.command {
         Commands::Solana { address } => {
-            commands::solana::run_demo(config, address).await?;
+            commands::solana::run_demo(context, address).await?;
         }
         Commands::Evm { address, chain_id } => {
-            commands::evm::run_demo(config, address, chain_id).await?;
+            commands::evm::run_demo(context, address, chain_id).await?;
         }
         Commands::Web { query } => {
-            commands::web::run_demo(config, query).await?;
+            commands::web::run_demo(context, query).await?;
         }
         Commands::Graph { init, query } => {
-            commands::graph::run_demo(config, init, query).await?;
+            commands::graph::run_demo(context, init, query).await?;
         }
         Commands::CrossChain { token } => {
-            commands::cross_chain::run_demo(config, token).await?;
+            commands::cross_chain::run_demo(context, token).await?;
         }
         Commands::Agents { scenario } => {
-            commands::agents::run_demo(config, scenario).await?;
+            commands::agents::run_demo(context, scenario).await?;
         }
         Commands::Interactive => {
-            commands::interactive::run_chat(config).await?;
+            commands::interactive::run_chat(context).await?;
         }
     }
 

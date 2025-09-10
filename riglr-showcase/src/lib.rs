@@ -2,6 +2,23 @@
 //!
 //! This library exposes common functionality used by the riglr-showcase binary
 //! and its tests.
+//!
+//! ## Architecture
+//!
+//! The showcase demonstrates modern architectural patterns:
+//! - **ApplicationContext**: Centralized dependency injection for shared resources
+//! - **ToolCallingAgentBuilder**: Builder pattern for agent creation with integrated tools
+//! - **StreamManagerBuilder**: Builder pattern for stream processing setup
+//! - **SignerContext**: Secure, multi-tenant blockchain operations
+//! - **Task Objects**: Structured task representation for agent operations
+//!
+//! ## Modules
+//!
+//! - `agents`: Pre-built agents demonstrating various use cases
+//! - `auth`: Web3 authentication integration examples
+//! - `commands`: Interactive CLI commands for blockchain operations
+//! - `processors`: Event and data processing implementations
+//! - `config`: Configuration management (re-exported from riglr-config)
 
 pub mod agents;
 pub mod auth;

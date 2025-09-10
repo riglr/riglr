@@ -14,9 +14,11 @@ use riglr_agents::AgentCommunication;
 use riglr_agents::{
     Agent, AgentId, AgentMessage, ChannelCommunication, Task, TaskResult, TaskType,
 };
-use riglr_config::Config;
 #[cfg(test)]
-use riglr_config::{AppConfig, DatabaseConfig, FeaturesConfig, NetworkConfig, ProvidersConfig};
+use riglr_config::{
+    AppConfig, Config, DatabaseConfig, FeaturesConfig, NetworkConfig, ProvidersConfig,
+};
+use riglr_core::provider::ApplicationContext;
 #[allow(unused_imports)]
 use riglr_core::SignerContext;
 use serde_json::json;
@@ -24,16 +26,17 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::time::sleep;
 
-/// Create a test configuration for demos and tests
+/// Create a test application context for demos and tests
 #[cfg(test)]
-fn create_test_config() -> Config {
-    Config {
+fn create_test_context() -> ApplicationContext {
+    let config = Config {
         app: AppConfig::default(),
         database: DatabaseConfig::default(),
         network: NetworkConfig::default(),
         providers: ProvidersConfig::default(),
         features: FeaturesConfig::default(),
-    }
+    };
+    ApplicationContext::from_config(&config)
 }
 
 /// A simple risk assessment agent that evaluates trade risk based on amount thresholds.
@@ -274,7 +277,7 @@ impl Agent for WorkerAgent {
 /// - `"basic"`: Fundamental multi-agent communication and workflow patterns
 ///
 /// # Arguments
-/// * `config` - Shared configuration for all agents and blockchain operations
+/// * `context` - Shared application context containing configuration and resources for all agents
 /// * `scenario` - The demonstration scenario to execute
 ///
 /// # Returns
@@ -282,24 +285,27 @@ impl Agent for WorkerAgent {
 /// is unknown or the demonstration fails.
 ///
 /// # Examples
-/// ```
+/// ```rust,ignore
 /// use std::sync::Arc;
+/// use riglr_core::provider::ApplicationContext;
 /// use riglr_config::Config;
+/// use riglr_showcase::commands::agents::run_demo;
 ///
 /// # async fn example() -> anyhow::Result<()> {
-/// let config = Arc::new(create_test_config());
-/// run_demo(config, "basic".to_string()).await?;
+/// let config = Config::default();
+/// let context = Arc::new(ApplicationContext::from_config(&config));
+/// run_demo(context, "basic".to_string()).await?;
 /// # Ok(())
 /// # }
 /// ```
-pub async fn run_demo(config: Arc<Config>, scenario: String) -> Result<()> {
+pub async fn run_demo(context: Arc<ApplicationContext>, scenario: String) -> Result<()> {
     println!("🤖 Starting Multi-Agent Coordination Demo");
     println!("📋 Scenario: {}", scenario);
 
     match scenario.as_str() {
-        "trading" => run_trading_coordination_demo(config).await,
-        "risk" => run_risk_management_demo(config).await,
-        "basic" => run_basic_coordination_demo(config).await,
+        "trading" => run_trading_coordination_demo(context).await,
+        "risk" => run_risk_management_demo(context).await,
+        "basic" => run_basic_coordination_demo(context).await,
         _ => {
             println!("❌ Unknown scenario: {}", scenario);
             println!("Available scenarios: trading, risk, basic");
@@ -308,7 +314,7 @@ pub async fn run_demo(config: Arc<Config>, scenario: String) -> Result<()> {
     }
 }
 
-async fn run_trading_coordination_demo(_config: Arc<Config>) -> Result<()> {
+async fn run_trading_coordination_demo(_context: Arc<ApplicationContext>) -> Result<()> {
     println!("\n🔄 Running Real-World Trading Coordination Demo");
     println!("This demo shows agents working together for actual blockchain operations");
 
@@ -329,7 +335,7 @@ async fn run_trading_coordination_demo(_config: Arc<Config>) -> Result<()> {
     Ok(())
 }
 
-async fn run_risk_management_demo(_config: Arc<Config>) -> Result<()> {
+async fn run_risk_management_demo(_context: Arc<ApplicationContext>) -> Result<()> {
     println!("\n⚖️ Running Risk Management System Demo");
     println!("This demo shows coordinated risk assessment across multiple agents");
 
@@ -407,7 +413,7 @@ async fn run_risk_management_demo(_config: Arc<Config>) -> Result<()> {
     Ok(())
 }
 
-async fn run_basic_coordination_demo(_config: Arc<Config>) -> Result<()> {
+async fn run_basic_coordination_demo(_context: Arc<ApplicationContext>) -> Result<()> {
     println!("\n🔄 Running Basic Agent Coordination Demo");
     println!("This demo shows fundamental multi-agent communication patterns");
 
@@ -530,75 +536,75 @@ mod tests {
 
     #[test]
     fn test_run_demo_when_trading_scenario_should_call_trading_demo() {
-        let config = Arc::new(create_test_config());
+        let context = Arc::new(create_test_context());
         let rt = tokio::runtime::Runtime::new().unwrap();
 
-        let result = rt.block_on(run_demo(config, "trading".to_string()));
+        let result = rt.block_on(run_demo(context, "trading".to_string()));
         assert!(result.is_ok());
     }
 
     #[test]
     fn test_run_demo_when_risk_scenario_should_call_risk_demo() {
-        let config = Arc::new(create_test_config());
+        let context = Arc::new(create_test_context());
         let rt = tokio::runtime::Runtime::new().unwrap();
 
-        let result = rt.block_on(run_demo(config, "risk".to_string()));
+        let result = rt.block_on(run_demo(context, "risk".to_string()));
         assert!(result.is_ok());
     }
 
     #[test]
     fn test_run_demo_when_basic_scenario_should_call_basic_demo() {
-        let config = Arc::new(create_test_config());
+        let context = Arc::new(create_test_context());
         let rt = tokio::runtime::Runtime::new().unwrap();
 
-        let result = rt.block_on(run_demo(config, "basic".to_string()));
+        let result = rt.block_on(run_demo(context, "basic".to_string()));
         assert!(result.is_ok());
     }
 
     #[test]
     fn test_run_demo_when_unknown_scenario_should_return_error() {
-        let config = Arc::new(create_test_config());
+        let context = Arc::new(create_test_context());
         let rt = tokio::runtime::Runtime::new().unwrap();
 
-        let result = rt.block_on(run_demo(config, "unknown".to_string()));
+        let result = rt.block_on(run_demo(context, "unknown".to_string()));
         assert!(result.is_err());
         assert_eq!(result.unwrap_err().to_string(), "Unknown scenario: unknown");
     }
 
     #[test]
     fn test_run_demo_when_empty_scenario_should_return_error() {
-        let config = Arc::new(create_test_config());
+        let context = Arc::new(create_test_context());
         let rt = tokio::runtime::Runtime::new().unwrap();
 
-        let result = rt.block_on(run_demo(config, "".to_string()));
+        let result = rt.block_on(run_demo(context, "".to_string()));
         assert!(result.is_err());
         assert_eq!(result.unwrap_err().to_string(), "Unknown scenario: ");
     }
 
     #[test]
     fn test_run_trading_coordination_demo_should_return_ok() {
-        let config = Arc::new(create_test_config());
+        let context = Arc::new(create_test_context());
         let rt = tokio::runtime::Runtime::new().unwrap();
 
-        let result = rt.block_on(run_trading_coordination_demo(config));
+        let result = rt.block_on(run_trading_coordination_demo(context));
         assert!(result.is_ok());
     }
 
     #[test]
     fn test_run_risk_management_demo_should_return_ok() {
-        let config = Arc::new(create_test_config());
+        let context = Arc::new(create_test_context());
         let rt = tokio::runtime::Runtime::new().unwrap();
 
-        let result = rt.block_on(run_risk_management_demo(config));
+        let result = rt.block_on(run_risk_management_demo(context));
         assert!(result.is_ok());
     }
 
     #[test]
     fn test_run_basic_coordination_demo_should_return_ok() {
-        let config = Arc::new(create_test_config());
+        let context = Arc::new(create_test_context());
         let rt = tokio::runtime::Runtime::new().unwrap();
 
-        let result = rt.block_on(run_basic_coordination_demo(config));
+        let result = rt.block_on(run_basic_coordination_demo(context));
         assert!(result.is_ok());
     }
 
@@ -885,20 +891,20 @@ mod tests {
 
     #[test]
     fn test_run_demo_when_case_sensitive_scenario_should_return_error() {
-        let config = Arc::new(create_test_config());
+        let context = Arc::new(create_test_context());
         let rt = tokio::runtime::Runtime::new().unwrap();
 
-        let result = rt.block_on(run_demo(config, "TRADING".to_string()));
+        let result = rt.block_on(run_demo(context, "TRADING".to_string()));
         assert!(result.is_err());
         assert_eq!(result.unwrap_err().to_string(), "Unknown scenario: TRADING");
     }
 
     #[test]
     fn test_run_demo_when_whitespace_scenario_should_return_error() {
-        let config = Arc::new(create_test_config());
+        let context = Arc::new(create_test_context());
         let rt = tokio::runtime::Runtime::new().unwrap();
 
-        let result = rt.block_on(run_demo(config, " trading ".to_string()));
+        let result = rt.block_on(run_demo(context, " trading ".to_string()));
         assert!(result.is_err());
         assert_eq!(
             result.unwrap_err().to_string(),

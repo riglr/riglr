@@ -4,7 +4,7 @@ use anyhow::Result;
 use colored::Colorize;
 use dialoguer::{Input, Select};
 use indicatif::{ProgressBar, ProgressStyle};
-use riglr_config::Config;
+use riglr_core::provider::ApplicationContext;
 use std::{collections::HashMap, sync::Arc};
 // Temporarily disabled due to compilation issues
 // use riglr_core::{Agent, ModelBuilder};
@@ -42,7 +42,7 @@ impl ChatContext {
 }
 
 /// Run interactive chat mode.
-pub async fn run_chat(config: Arc<Config>) -> Result<()> {
+pub async fn run_chat(context: Arc<ApplicationContext>) -> Result<()> {
     println!("{}", "🤖 Interactive Riglr Agent Chat".bright_blue().bold());
     println!("{}", "=".repeat(50).blue());
 
@@ -60,7 +60,7 @@ pub async fn run_chat(config: Arc<Config>) -> Result<()> {
     );
 
     // Initialize chat context
-    let mut context = ChatContext::default();
+    let mut chat_context = ChatContext::default();
 
     // Setup agent with tools
     println!(
@@ -77,7 +77,7 @@ pub async fn run_chat(config: Arc<Config>) -> Result<()> {
     pb.set_message("Initializing agent...");
 
     // Create a mock agent for demonstration (in real implementation, this would use rig-core)
-    let _agent_description = create_agent_description(&config);
+    let _agent_description = create_agent_description(&context);
 
     pb.finish_and_clear();
 
@@ -118,12 +118,12 @@ pub async fn run_chat(config: Arc<Config>) -> Result<()> {
 
         // Check for context commands
         if user_input.trim().to_lowercase() == "context" {
-            show_context(&context);
+            show_context(&chat_context);
             continue;
         }
 
         if user_input.trim().to_lowercase() == "clear" {
-            context.conversation_history.clear();
+            chat_context.conversation_history.clear();
             println!("{}", "🧹 Conversation history cleared!".yellow());
             continue;
         }
@@ -132,7 +132,7 @@ pub async fn run_chat(config: Arc<Config>) -> Result<()> {
         pb.set_message("Agent is thinking...");
         pb.reset();
 
-        let agent_response = process_user_input(&config, &user_input, &mut context).await?;
+        let agent_response = process_user_input(&context, &user_input, &mut chat_context).await?;
 
         pb.finish_and_clear();
 
@@ -140,52 +140,55 @@ pub async fn run_chat(config: Arc<Config>) -> Result<()> {
         println!("{}: {}", "Agent".bright_green().bold(), agent_response);
 
         // Add to conversation history
-        context.add_exchange(user_input, agent_response);
+        chat_context.add_exchange(user_input, agent_response);
 
         // Offer quick actions
-        if should_offer_quick_actions(&context) {
-            offer_quick_actions(&config, &mut context).await?;
+        if should_offer_quick_actions(&chat_context) {
+            offer_quick_actions(&context, &mut chat_context).await?;
         }
     }
 
     // Chat summary
     println!("\n{}", "📊 Chat Session Summary".blue().bold());
-    println!("   Session ID: {}", context.session_id.dimmed());
-    println!("   Exchanges: {}", context.conversation_history.len());
-    println!("   Preferences set: {}", context.user_preferences.len());
+    println!("   Session ID: {}", chat_context.session_id.dimmed());
+    println!("   Exchanges: {}", chat_context.conversation_history.len());
+    println!(
+        "   Preferences set: {}",
+        chat_context.user_preferences.len()
+    );
 
     Ok(())
 }
 
 async fn process_user_input(
-    config: &Config,
+    context: &ApplicationContext,
     input: &str,
-    context: &mut ChatContext,
+    chat_context: &mut ChatContext,
 ) -> Result<String> {
     let input_lower = input.to_lowercase();
 
     // Intent detection and routing
     if input_lower.contains("balance") || input_lower.contains("wallet") {
-        return handle_balance_query(config, input).await;
+        return handle_balance_query(context, input).await;
     } else if input_lower.contains("swap") || input_lower.contains("trade") {
-        return handle_swap_query(config, input).await;
+        return handle_swap_query(context, input).await;
     } else if input_lower.contains("news") || input_lower.contains("latest") {
-        return handle_news_query(config, input).await;
+        return handle_news_query(context, input).await;
     } else if input_lower.contains("twitter") || input_lower.contains("sentiment") {
-        return handle_social_query(config, input).await;
+        return handle_social_query(context, input).await;
     } else if input_lower.contains("token")
         && (input_lower.contains("info") || input_lower.contains("price"))
     {
-        return handle_token_info_query(config, input).await;
+        return handle_token_info_query(context, input).await;
     } else if input_lower.contains("cross") && input_lower.contains("chain") {
-        return handle_cross_chain_query(config, input).await;
+        return handle_cross_chain_query(context, input).await;
     }
 
     // General conversational response
-    Ok(generate_conversational_response(input, context))
+    Ok(generate_conversational_response(input, chat_context))
 }
 
-async fn handle_balance_query(_config: &Config, input: &str) -> Result<String> {
+async fn handle_balance_query(_context: &ApplicationContext, input: &str) -> Result<String> {
     // Extract wallet address from input (simplified extraction)
     let words: Vec<&str> = input.split_whitespace().collect();
     let mut wallet_address = None;
@@ -224,7 +227,7 @@ async fn handle_balance_query(_config: &Config, input: &str) -> Result<String> {
     }
 }
 
-async fn handle_swap_query(_config: &Config, _input: &str) -> Result<String> {
+async fn handle_swap_query(_context: &ApplicationContext, _input: &str) -> Result<String> {
     Ok("🔄 I can help you with swap information!\n\n\
         I can provide quotes for:\n\
         • 🌟 Solana: Jupiter DEX quotes\n\
@@ -234,7 +237,7 @@ async fn handle_swap_query(_config: &Config, _input: &str) -> Result<String> {
         .to_string())
 }
 
-async fn handle_news_query(_config: &Config, input: &str) -> Result<String> {
+async fn handle_news_query(_context: &ApplicationContext, input: &str) -> Result<String> {
     let mut response = String::default();
     response.push_str("📰 Fetching latest crypto news...\n\n");
 
@@ -261,8 +264,8 @@ async fn handle_news_query(_config: &Config, input: &str) -> Result<String> {
     Ok(response)
 }
 
-async fn handle_social_query(config: &Config, _input: &str) -> Result<String> {
-    if config.providers.twitter_bearer_token.is_some() {
+async fn handle_social_query(context: &ApplicationContext, _input: &str) -> Result<String> {
+    if context.config.providers.twitter_bearer_token.is_some() {
         Ok("🐦 Social Sentiment Analysis Available!\n\n\
             I can analyze Twitter sentiment for:\n\
             • Specific cryptocurrencies\n\
@@ -280,21 +283,34 @@ async fn handle_social_query(config: &Config, _input: &str) -> Result<String> {
     }
 }
 
-async fn handle_token_info_query(_config: &Config, input: &str) -> Result<String> {
+async fn handle_token_info_query(_context: &ApplicationContext, input: &str) -> Result<String> {
     // Extract token symbol
     let words: Vec<&str> = input.split_whitespace().collect();
     let mut token_symbol = None;
 
     for (i, word) in words.iter().enumerate() {
+        // Look for patterns like "SOL token" or "about SOL" but not generic words after "token"
         if (word.to_lowercase() == "token" || word.to_lowercase() == "coin") && i + 1 < words.len()
         {
-            token_symbol = Some(words[i + 1]);
-            break;
+            let next_word = words[i + 1];
+            // Only consider it a token if it looks like a token symbol (short, alphanumeric, uppercase)
+            if next_word.len() <= 6
+                && next_word.chars().all(|c| c.is_alphanumeric())
+                && (next_word.to_uppercase() == next_word
+                    || next_word.chars().all(|c| c.is_uppercase()))
+                && !next_word.eq_ignore_ascii_case("information")
+                && !next_word.eq_ignore_ascii_case("details")
+            {
+                token_symbol = Some(next_word);
+                break;
+            }
         }
-        // Look for common token patterns
+        // Look for common token patterns - all caps, short, alphabetic
         if word.len() <= 6
             && word.chars().all(|c| c.is_alphabetic())
             && word.to_uppercase() == *word
+            && word.len() >= 2
+        // Minimum 2 characters for token symbols
         {
             token_symbol = Some(word);
             break;
@@ -321,7 +337,7 @@ async fn handle_token_info_query(_config: &Config, input: &str) -> Result<String
     }
 }
 
-async fn handle_cross_chain_query(_config: &Config, _input: &str) -> Result<String> {
+async fn handle_cross_chain_query(_context: &ApplicationContext, _input: &str) -> Result<String> {
     Ok("🌐 Cross-Chain Analysis Available!\n\n\
         I can analyze:\n\
         ⛓️ Multi-chain token presence\n\
@@ -415,7 +431,10 @@ fn should_offer_quick_actions(context: &ChatContext) -> bool {
     context.conversation_history.len() % 3 == 2
 }
 
-async fn offer_quick_actions(_config: &Config, _context: &mut ChatContext) -> Result<()> {
+async fn offer_quick_actions(
+    _context: &ApplicationContext,
+    _chat_context: &mut ChatContext,
+) -> Result<()> {
     println!("\n{}", "⚡ Quick Actions".yellow().bold());
 
     let options = vec![
@@ -460,18 +479,18 @@ async fn offer_quick_actions(_config: &Config, _context: &mut ChatContext) -> Re
     Ok(())
 }
 
-fn create_agent_description(config: &Config) -> String {
+fn create_agent_description(context: &ApplicationContext) -> String {
     let mut capabilities = Vec::new();
 
     capabilities.push("🌟 Solana blockchain queries".to_string());
     capabilities.push("⚡ EVM-compatible chains (Ethereum, Polygon, etc.)".to_string());
     capabilities.push("🌐 Web intelligence and market data".to_string());
 
-    if config.providers.twitter_bearer_token.is_some() {
+    if context.config.providers.twitter_bearer_token.is_some() {
         capabilities.push("🐦 Twitter sentiment analysis".to_string());
     }
 
-    if config.providers.exa_api_key.is_some() {
+    if context.config.providers.exa_api_key.is_some() {
         capabilities.push("🔍 Advanced web search".to_string());
     }
 
@@ -486,18 +505,19 @@ fn create_agent_description(config: &Config) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use riglr_config::Config;
 
-    fn create_test_config() -> Config {
+    fn create_test_context() -> ApplicationContext {
         use riglr_config::*;
 
-        Config {
+        let config = Config {
             app: AppConfig::default(),
             database: DatabaseConfig::default(),
             network: NetworkConfig::default(),
             providers: ProvidersConfig::default(),
             features: FeaturesConfig::default(),
-        }
+        };
+
+        ApplicationContext::from_config(&config)
     }
 
     #[test]
@@ -536,10 +556,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_handle_balance_query_with_ethereum_address() {
-        let config = create_test_config();
+        let context = create_test_context();
         let input = "Check balance for 0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045";
 
-        let result = handle_balance_query(&config, input).await.unwrap();
+        let result = handle_balance_query(&context, input).await.unwrap();
 
         assert!(result.contains("0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"));
         assert!(result.contains("⚡ Ethereum"));
@@ -548,10 +568,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_handle_balance_query_with_solana_address() {
-        let config = create_test_config();
+        let context = create_test_context();
         let input = "Check balance for 9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM";
 
-        let result = handle_balance_query(&config, input).await.unwrap();
+        let result = handle_balance_query(&context, input).await.unwrap();
 
         assert!(result.contains("9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM"));
         assert!(result.contains("🌟 Solana"));
@@ -560,10 +580,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_handle_balance_query_no_address() {
-        let config = create_test_config();
+        let context = create_test_context();
         let input = "Check my balance";
 
-        let result = handle_balance_query(&config, input).await.unwrap();
+        let result = handle_balance_query(&context, input).await.unwrap();
 
         assert!(result.contains("Please provide a wallet address"));
         assert!(result.contains("For example"));
@@ -571,10 +591,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_handle_swap_query() {
-        let config = create_test_config();
+        let context = create_test_context();
         let input = "Get quote for 1 SOL to USDC";
 
-        let result = handle_swap_query(&config, input).await.unwrap();
+        let result = handle_swap_query(&context, input).await.unwrap();
 
         assert!(result.contains("🔄 I can help you with swap information"));
         assert!(result.contains("Jupiter DEX"));
@@ -583,10 +603,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_handle_news_query_general() {
-        let config = create_test_config();
+        let context = create_test_context();
         let input = "Latest news";
 
-        let result = handle_news_query(&config, input).await.unwrap();
+        let result = handle_news_query(&context, input).await.unwrap();
 
         assert!(result.contains("📰 Fetching latest crypto news"));
         assert!(result.contains("Bitcoin reaches new all-time high"));
@@ -595,10 +615,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_handle_news_query_with_search_term() {
-        let config = create_test_config();
+        let context = create_test_context();
         let input = "Latest news about Bitcoin";
 
-        let result = handle_news_query(&config, input).await.unwrap();
+        let result = handle_news_query(&context, input).await.unwrap();
 
         assert!(result.contains("🔍 Searching news about: Bitcoin"));
         assert!(result.contains("📰 Fetching latest crypto news"));
@@ -606,11 +626,11 @@ mod tests {
 
     #[tokio::test]
     async fn test_handle_social_query_with_twitter_token() {
-        let mut config = create_test_config();
-        config.providers.twitter_bearer_token = Some("test_token".to_string());
+        let mut context = create_test_context();
+        context.config.providers.twitter_bearer_token = Some("test_token".to_string());
         let input = "What's the sentiment around Solana?";
 
-        let result = handle_social_query(&config, input).await.unwrap();
+        let result = handle_social_query(&context, input).await.unwrap();
 
         assert!(result.contains("🐦 Social Sentiment Analysis Available"));
         assert!(result.contains("Twitter sentiment"));
@@ -618,10 +638,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_handle_social_query_without_twitter_token() {
-        let config = create_test_config();
+        let context = create_test_context();
         let input = "What's the sentiment around Solana?";
 
-        let result = handle_social_query(&config, input).await.unwrap();
+        let result = handle_social_query(&context, input).await.unwrap();
 
         assert!(result.contains("requires Twitter API configuration"));
         assert!(result.contains("TWITTER_BEARER_TOKEN"));
@@ -629,10 +649,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_handle_token_info_query_with_token() {
-        let config = create_test_config();
+        let context = create_test_context();
         let input = "Tell me about SOL token";
 
-        let result = handle_token_info_query(&config, input).await.unwrap();
+        let result = handle_token_info_query(&context, input).await.unwrap();
 
         assert!(result.contains("🪙 Token Analysis for SOL"));
         assert!(result.contains("📊 Market Data"));
@@ -641,20 +661,20 @@ mod tests {
 
     #[tokio::test]
     async fn test_handle_token_info_query_with_uppercase_token() {
-        let config = create_test_config();
+        let context = create_test_context();
         let input = "What's the USDC price?";
 
-        let result = handle_token_info_query(&config, input).await.unwrap();
+        let result = handle_token_info_query(&context, input).await.unwrap();
 
         assert!(result.contains("🪙 Token Analysis for USDC"));
     }
 
     #[tokio::test]
     async fn test_handle_token_info_query_no_token() {
-        let config = create_test_config();
+        let context = create_test_context();
         let input = "Tell me about token information";
 
-        let result = handle_token_info_query(&config, input).await.unwrap();
+        let result = handle_token_info_query(&context, input).await.unwrap();
 
         assert!(result.contains("Please specify a token symbol"));
         assert!(result.contains("For example"));
@@ -662,10 +682,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_handle_cross_chain_query() {
-        let config = create_test_config();
+        let context = create_test_context();
         let input = "Compare liquidity across chains";
 
-        let result = handle_cross_chain_query(&config, input).await.unwrap();
+        let result = handle_cross_chain_query(&context, input).await.unwrap();
 
         assert!(result.contains("🌐 Cross-Chain Analysis Available"));
         assert!(result.contains("Multi-chain token presence"));
@@ -675,11 +695,11 @@ mod tests {
 
     #[tokio::test]
     async fn test_process_user_input_balance_intent() {
-        let config = create_test_config();
-        let mut context = ChatContext::default();
+        let app_context = create_test_context();
+        let mut chat_context = ChatContext::default();
         let input = "Check my wallet balance";
 
-        let result = process_user_input(&config, input, &mut context)
+        let result = process_user_input(&app_context, input, &mut chat_context)
             .await
             .unwrap();
 
@@ -688,11 +708,11 @@ mod tests {
 
     #[tokio::test]
     async fn test_process_user_input_swap_intent() {
-        let config = create_test_config();
-        let mut context = ChatContext::default();
+        let app_context = create_test_context();
+        let mut chat_context = ChatContext::default();
         let input = "I want to swap some tokens";
 
-        let result = process_user_input(&config, input, &mut context)
+        let result = process_user_input(&app_context, input, &mut chat_context)
             .await
             .unwrap();
 
@@ -701,11 +721,11 @@ mod tests {
 
     #[tokio::test]
     async fn test_process_user_input_news_intent() {
-        let config = create_test_config();
-        let mut context = ChatContext::default();
+        let app_context = create_test_context();
+        let mut chat_context = ChatContext::default();
         let input = "Show me the latest crypto news";
 
-        let result = process_user_input(&config, input, &mut context)
+        let result = process_user_input(&app_context, input, &mut chat_context)
             .await
             .unwrap();
 
@@ -714,11 +734,11 @@ mod tests {
 
     #[tokio::test]
     async fn test_process_user_input_twitter_intent() {
-        let config = create_test_config();
-        let mut context = ChatContext::default();
+        let app_context = create_test_context();
+        let mut chat_context = ChatContext::default();
         let input = "What's the Twitter sentiment about Bitcoin?";
 
-        let result = process_user_input(&config, input, &mut context)
+        let result = process_user_input(&app_context, input, &mut chat_context)
             .await
             .unwrap();
 
@@ -727,11 +747,11 @@ mod tests {
 
     #[tokio::test]
     async fn test_process_user_input_token_info_intent() {
-        let config = create_test_config();
-        let mut context = ChatContext::default();
+        let app_context = create_test_context();
+        let mut chat_context = ChatContext::default();
         let input = "Give me token info for SOL";
 
-        let result = process_user_input(&config, input, &mut context)
+        let result = process_user_input(&app_context, input, &mut chat_context)
             .await
             .unwrap();
 
@@ -740,11 +760,11 @@ mod tests {
 
     #[tokio::test]
     async fn test_process_user_input_cross_chain_intent() {
-        let config = create_test_config();
-        let mut context = ChatContext::default();
+        let app_context = create_test_context();
+        let mut chat_context = ChatContext::default();
         let input = "Show me cross chain opportunities";
 
-        let result = process_user_input(&config, input, &mut context)
+        let result = process_user_input(&app_context, input, &mut chat_context)
             .await
             .unwrap();
 
@@ -753,11 +773,11 @@ mod tests {
 
     #[tokio::test]
     async fn test_process_user_input_general_conversation() {
-        let config = create_test_config();
-        let mut context = ChatContext::default();
+        let app_context = create_test_context();
+        let mut chat_context = ChatContext::default();
         let input = "Hello, how are you?";
 
-        let result = process_user_input(&config, input, &mut context)
+        let result = process_user_input(&app_context, input, &mut chat_context)
             .await
             .unwrap();
 
@@ -806,9 +826,9 @@ mod tests {
 
     #[test]
     fn test_create_agent_description_basic() {
-        let config = create_test_config();
+        let context = create_test_context();
 
-        let description = create_agent_description(&config);
+        let description = create_agent_description(&context);
 
         assert!(description.contains("Multi-chain AI agent"));
         assert!(description.contains("🌟 Solana blockchain queries"));
@@ -821,31 +841,31 @@ mod tests {
 
     #[test]
     fn test_create_agent_description_with_twitter() {
-        let mut config = create_test_config();
-        config.providers.twitter_bearer_token = Some("test_token".to_string());
+        let mut context = create_test_context();
+        context.config.providers.twitter_bearer_token = Some("test_token".to_string());
 
-        let description = create_agent_description(&config);
+        let description = create_agent_description(&context);
 
         assert!(description.contains("🐦 Twitter sentiment analysis"));
     }
 
     #[test]
     fn test_create_agent_description_with_exa() {
-        let mut config = create_test_config();
-        config.providers.exa_api_key = Some("test_key".to_string());
+        let mut context = create_test_context();
+        context.config.providers.exa_api_key = Some("test_key".to_string());
 
-        let description = create_agent_description(&config);
+        let description = create_agent_description(&context);
 
         assert!(description.contains("🔍 Advanced web search"));
     }
 
     #[test]
     fn test_create_agent_description_with_all_providers() {
-        let mut config = create_test_config();
-        config.providers.twitter_bearer_token = Some("test_token".to_string());
-        config.providers.exa_api_key = Some("test_key".to_string());
+        let mut context = create_test_context();
+        context.config.providers.twitter_bearer_token = Some("test_token".to_string());
+        context.config.providers.exa_api_key = Some("test_key".to_string());
 
-        let description = create_agent_description(&config);
+        let description = create_agent_description(&context);
 
         assert!(description.contains("🐦 Twitter sentiment analysis"));
         assert!(description.contains("🔍 Advanced web search"));

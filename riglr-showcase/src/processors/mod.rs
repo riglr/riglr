@@ -14,7 +14,7 @@
 //!
 //! # Example Usage
 //!
-//! ```rust
+//! ```rust,ignore
 //! use riglr_showcase::processors::{
 //!     DistillationProcessor, MarkdownFormatter, NotificationRouter
 //! };

@@ -12,8 +12,8 @@
 use anyhow::Result;
 use dashmap::DashMap;
 use riglr_events_core::prelude::*;
-use riglr_showcase::config::{Config, ConfigBuilder};
-use riglr_streams::core::{WindowManager, WindowType};
+use riglr_events_core::GenericEvent;
+use riglr_streams::core::{HandlerExecutionMode, StreamManagerBuilder, WindowManager, WindowType};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -737,13 +737,21 @@ async fn main() -> Result<()> {
 
     info!("🌾 Starting DeFi Yield Farming Monitor");
 
-    // Load configuration (relaxed: use defaults if env isn't set)
-    if std::env::var(ENV_REDIS_URL).is_ok() {
-        let _ = Config::from_env();
-    } else {
-        info!("ℹ️ No REDIS_URL in env; using default Config for example");
-        let _ = ConfigBuilder::default().build();
-    }
+    // Build StreamManager using StreamManagerBuilder for yield monitoring
+    let stream_manager = StreamManagerBuilder::default()
+        .with_execution_mode(HandlerExecutionMode::Concurrent)
+        .with_metrics(true)
+        .from_env()
+        .map_err(|e| anyhow::anyhow!("Failed to load stream config: {}", e))?
+        .build()
+        .await
+        .map_err(|e| anyhow::anyhow!("Failed to build stream manager: {}", e))?;
+
+    info!("✅ StreamManager initialized for yield monitoring");
+
+    // Start the stream manager
+    stream_manager.start_all().await?;
+    info!("🚀 Stream manager started");
 
     // Create yield monitor with custom configuration
     let monitor_config = YieldMonitorConfig {

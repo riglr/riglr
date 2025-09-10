@@ -10,7 +10,8 @@
 use anyhow::Result;
 use riglr_core::{ToolError, ToolResult};
 use riglr_events_core::prelude::*;
-use riglr_showcase::config::Config;
+use riglr_config::Config;
+use riglr_streams::core::{StreamManagerBuilder, HandlerExecutionMode};
 use riglr_streams::prelude::*;
 use riglr_solana_events::prelude::*;
 use std::sync::Arc;
@@ -28,72 +29,65 @@ async fn main() -> Result<()> {
 
     // Load configuration
     let config = Config::from_env();
-    config.validate()?;
-
-    // Create optimized streaming configuration for real-time processing
-    let stream_config = StreamClientConfig::low_latency();
-    info!("📊 Stream config: {:?}", stream_config);
-
-    // Create connection manager with auto-reconnection
-    let connection_config = stream_config.connection.clone();
-    let connection_manager = ConnectionManager::new(connection_config);
-
-    // Connect to Solana RPC
-    let rpc_url = config.network.solana_rpc_url.clone();
-    info!("🔗 Connecting to Solana RPC: {}", rpc_url);
-
-    connection_manager.connect({
-        let rpc_url = rpc_url.clone();
-        move || create_solana_connection(rpc_url.clone())
-    }).await?;
-
-    let health = connection_manager.health().await;
-    info!("✅ Connection established: {:?}", health);
+    
+    // Build StreamManager using StreamManagerBuilder
+    let stream_manager = StreamManagerBuilder::default()
+        .with_execution_mode(HandlerExecutionMode::Concurrent)
+        .with_metrics(true)
+        .from_env()
+        .map_err(|e| anyhow::anyhow!("Failed to load stream config: {}", e))?
+        .build()
+        .await
+        .map_err(|e| anyhow::anyhow!("Failed to build stream manager: {}", e))?;
+    
+    info!("✅ StreamManager initialized with builder pattern");
+    
+    // Start the stream manager
+    stream_manager.start_all().await?;
+    info!("🚀 Stream manager started");
 
     // Create event stream with enhanced capabilities
     let mut event_count = 0u64;
     let start_time = std::time::Instant::now();
 
-    // Simulate streaming with periodic health checks
-    let mut health_check_interval = tokio::time::interval(Duration::from_secs(10));
+    // Create event handler
+    let handler = UnifiedEventHandler::new();
+    
+    // Simulate streaming with periodic stats
     let mut stats_interval = tokio::time::interval(Duration::from_secs(30));
+    let mut event_interval = tokio::time::interval(Duration::from_millis(500));
 
     loop {
         tokio::select! {
-            _ = health_check_interval.tick() => {
-                let health = connection_manager.health().await;
-                match health.state {
-                    ConnectionState::Connected => {
-                        debug!("🟢 Connection healthy - last activity: {:?}", health.last_activity);
-                    }
-                    ConnectionState::Reconnecting => {
-                        warn!("🟡 Connection reconnecting - attempt #{}", health.total_reconnects);
-                    }
-                    ConnectionState::Failed => {
-                        error!("🔴 Connection failed after {} attempts", health.consecutive_failures);
-                        // In a real implementation, you might want to exit or implement backoff
-                        break;
-                    }
-                    _ => {
-                        debug!("Connection state: {:?}", health.state);
-                    }
-                }
-            }
-
             _ = stats_interval.tick() => {
                 let elapsed = start_time.elapsed();
                 let rate = event_count as f64 / elapsed.as_secs_f64();
                 info!("📈 Processed {} events in {:?} ({:.2} events/sec)",
                      event_count, elapsed, rate);
+                
+                // Check stream manager metrics if available
+                if let Ok(metrics) = stream_manager.get_metrics().await {
+                    info!("📊 Stream metrics: {:?}", metrics);
+                }
             }
 
-            // Simulate processing events
-            _ = sleep(Duration::from_millis(100)) => {
-                if let Ok(connection) = connection_manager.with_connection(|conn| {
-                    // Simulate processing a batch of events
-                    process_event_batch(conn)
-                }).await {
-                    event_count += connection;
+            // Simulate processing events using the stream manager
+            _ = event_interval.tick() => {
+                // In a real implementation, events would come from the stream
+                // For now, simulate event generation
+                let mock_event = GenericEvent::new(
+                    format!("event-{}", event_count),
+                    EventKind::Transaction,
+                    serde_json::json!({
+                        "slot": 123456789 + event_count,
+                        "signature": format!("sig_{}", event_count),
+                        "amount": fastrand::u64(100..=10000)
+                    }),
+                );
+                
+                // Process event through handler
+                if let Ok(_) = handler.handle_event(Box::new(mock_event)).await {
+                    event_count += 1;
                 }
             }
         }
@@ -106,44 +100,16 @@ async fn main() -> Result<()> {
     }
 
     // Graceful shutdown
-    info!("🛑 Shutting down stream...");
-    connection_manager.disconnect().await;
-
-    let final_health = connection_manager.health().await;
-    info!("📊 Final connection state: {:?}", final_health);
+    info!("🛑 Shutting down stream manager...");
+    stream_manager.stop().await?;
+    
+    info!("📊 Final event count: {} events processed", handler.get_processed_count());
 
     Ok(())
 }
 
-// Mock connection creation for demonstration
-async fn create_solana_connection(rpc_url: String) -> StreamResult<SolanaConnection> {
-    debug!("🔌 Creating connection to: {}", rpc_url);
-
-    // Simulate connection establishment
-    sleep(Duration::from_millis(100)).await;
-
-    Ok(SolanaConnection {
-        rpc_url,
-        connected_at: std::time::Instant::now(),
-    })
-}
-
-// Mock connection type
-#[derive(Clone, Debug)]
-struct SolanaConnection {
-    rpc_url: String,
-    connected_at: std::time::Instant,
-}
-
-// Simulate event processing
-fn process_event_batch(connection: &SolanaConnection) -> u64 {
-    // Simulate processing time and batch size
-    let batch_size = fastrand::u64(1..=10);
-
-    debug!("🔄 Processing batch of {} events on {}", batch_size, connection.rpc_url);
-
-    batch_size
-}
+// Additional imports for the example
+use riglr_events_core::GenericEvent;
 
 /// Event handler that processes different types of blockchain events
 struct UnifiedEventHandler {
@@ -262,31 +228,40 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_connection_manager() {
-        let config = ConnectionConfig::default();
-        let manager = ConnectionManager::new(config);
-
-        // Test connection
-        let result = manager.connect(|| async {
-            Ok(SolanaConnection {
-                rpc_url: "ws://localhost:8900".into(),
-                connected_at: std::time::Instant::now(),
-            })
-        }).await;
-
-        assert!(result.is_ok());
-
-        let health = manager.health().await;
-        assert_eq!(health.state, ConnectionState::Connected);
-        assert!(health.connected_at.is_some());
+    async fn test_stream_manager_builder() {
+        // Test StreamManagerBuilder configuration
+        let result = StreamManagerBuilder::default()
+            .with_execution_mode(HandlerExecutionMode::Sequential)
+            .with_metrics(false)
+            .build();
+        
+        // Note: This would fail without proper environment setup
+        // In a real test, you'd mock the dependencies
+        assert!(result.await.is_err()); // Expected to fail without config
     }
-
-    #[test]
-    fn test_stream_config_validation() {
-        let config = StreamClientConfig::low_latency();
-        assert!(config.validate().is_ok());
-
-        let config = StreamClientConfig::high_performance();
-        assert!(config.validate().is_ok());
+    
+    #[tokio::test]
+    async fn test_event_processing() {
+        let handler = UnifiedEventHandler::new();
+        
+        // Test with multiple event types
+        let events = vec![
+            (EventKind::Transaction, json!({"tx": "data"})),
+            (EventKind::Block, json!({"block": "data"})),
+            (EventKind::Custom, json!({"custom": "data"})),
+        ];
+        
+        for (kind, data) in events {
+            let event = GenericEvent::new(
+                format!("test-{:?}", kind),
+                kind,
+                data,
+            );
+            
+            let result = handler.handle_event(Box::new(event)).await;
+            assert!(result.is_ok());
+        }
+        
+        assert_eq!(handler.get_processed_count(), 3);
     }
 }

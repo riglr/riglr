@@ -10,8 +10,10 @@
 use anyhow::Result;
 use riglr_core::ToolResult;
 use riglr_events_core::prelude::*;
-use riglr_showcase::config::Config;
+use riglr_config::Config;
+use riglr_streams::core::{StreamManagerBuilder, HandlerExecutionMode};
 use riglr_streams::prelude::*;
+use riglr_events_core::GenericEvent;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -278,9 +280,24 @@ async fn main() -> Result<()> {
 
     info!("🎯 Starting Filtered Events Example");
 
-    // Load configuration
+    // Load configuration and build StreamManager
     let config = Config::from_env();
-    config.validate()?;
+    
+    // Build StreamManager using StreamManagerBuilder
+    let stream_manager = StreamManagerBuilder::default()
+        .with_execution_mode(HandlerExecutionMode::Concurrent)
+        .with_metrics(true)
+        .from_env()
+        .map_err(|e| anyhow::anyhow!("Failed to load stream config: {}", e))?
+        .build()
+        .await
+        .map_err(|e| anyhow::anyhow!("Failed to build stream manager: {}", e))?;
+    
+    info!("✅ StreamManager initialized with builder pattern");
+    
+    // Start the stream manager
+    stream_manager.start_all().await?;
+    info!("🚀 Stream manager started");
 
     // Create event router with custom filters
     let mut event_router = EventRouter::new();
@@ -380,6 +397,10 @@ async fn main() -> Result<()> {
     let elapsed = start_time.elapsed();
     info!("⏱️  Processing completed in {:?} ({:.2} events/sec)",
          elapsed, event_count as f64 / elapsed.as_secs_f64());
+    
+    // Graceful shutdown
+    info!("🛑 Shutting down stream manager...");
+    stream_manager.stop().await?;
 
     Ok(())
 }

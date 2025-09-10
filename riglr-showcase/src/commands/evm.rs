@@ -4,7 +4,6 @@ use anyhow::Result;
 use colored::Colorize;
 use dialoguer::{Input, Select};
 use indicatif::{ProgressBar, ProgressStyle};
-use riglr_config::Config;
 use riglr_core::provider::ApplicationContext;
 use std::sync::Arc;
 // EVM tools with new client-first API
@@ -167,18 +166,11 @@ async fn display_uniswap_quote(pb: &ProgressBar, context: &ApplicationContext) -
             println!("   Pool Fee: {}", quote.fee_tier);
             println!("   Min Output: {}", quote.amount_out_minimum);
         }
-        Err(_) => {
+        Err(e) => {
             println!(
                 "\n{}",
-                "🔄 Uniswap Quote (1 WETH → USDC) - Simulated"
-                    .green()
-                    .bold()
+                format!("⚠️  Error fetching Uniswap quote: {}", e).yellow()
             );
-            println!("   Input: 1.0 WETH");
-            println!("   Output: ~{} USDC", "2891.45".bright_green());
-            println!("   Pool Fee: 0.3%");
-            println!("   Route: WETH → USDC");
-            println!("   Price Impact: 0.01%");
         }
     }
     Ok(())
@@ -188,7 +180,7 @@ async fn display_uniswap_quote(pb: &ProgressBar, context: &ApplicationContext) -
 async fn handle_menu_selection(
     selection: usize,
     chain_id: u64,
-    config: Arc<Config>,
+    context: Arc<ApplicationContext>,
     wallet_address: String,
 ) -> Result<bool> {
     match selection {
@@ -197,7 +189,7 @@ async fn handle_menu_selection(
             let new_address: String = Input::new()
                 .with_prompt("Enter wallet address")
                 .interact_text()?;
-            Box::pin(run_demo(config, Some(new_address), chain_id)).await?;
+            Box::pin(run_demo(context, Some(new_address), chain_id)).await?;
             Ok(true)
         }
         1 => {
@@ -255,7 +247,7 @@ async fn handle_menu_selection(
                 .interact()?;
 
             let new_chain_id = chains[chain_selection].1;
-            Box::pin(run_demo(config, Some(wallet_address), new_chain_id)).await?;
+            Box::pin(run_demo(context, Some(wallet_address), new_chain_id)).await?;
             Ok(true)
         }
         _ => Ok(false),
@@ -263,12 +255,13 @@ async fn handle_menu_selection(
 }
 
 /// Run the EVM tools demo.
-pub async fn run_demo(config: Arc<Config>, address: Option<String>, chain_id: u64) -> Result<()> {
+pub async fn run_demo(
+    context: Arc<ApplicationContext>,
+    address: Option<String>,
+    chain_id: u64,
+) -> Result<()> {
     println!("{}", "⚡ EVM Tools Demo".bright_blue().bold());
     println!("{}", "=".repeat(50).blue());
-
-    // Create application context
-    let context = ApplicationContext::from_config(&config);
 
     // Get chain info
     let chain_info = get_chain_info(chain_id);
@@ -326,7 +319,7 @@ pub async fn run_demo(config: Arc<Config>, address: Option<String>, chain_id: u6
         .default(options.len() - 1)
         .interact()?;
 
-    let should_return = handle_menu_selection(selection, chain_id, config, wallet_address).await?;
+    let should_return = handle_menu_selection(selection, chain_id, context, wallet_address).await?;
 
     if should_return {
         return Ok(());

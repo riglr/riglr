@@ -4,7 +4,7 @@ use anyhow::Result;
 use colored::Colorize;
 use dialoguer::{Input, Select};
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
-use riglr_config::Config;
+use riglr_core::provider::ApplicationContext;
 // Note: SolanaClient has been removed in v0.2.0 - use SignerContext pattern instead
 use std::sync::Arc;
 // Temporarily using mock functionality due to dependency conflicts
@@ -32,7 +32,7 @@ use std::collections::HashMap;
 use tokio::time::{sleep, Duration};
 
 /// Run the cross-chain analysis demo.
-pub async fn run_demo(config: Arc<Config>, token: String) -> Result<()> {
+pub async fn run_demo(context: Arc<ApplicationContext>, token: String) -> Result<()> {
     println!("{}", "🌐 Cross-Chain Analysis Demo".bright_blue().bold());
     println!("{}", "=".repeat(50).blue());
 
@@ -186,7 +186,7 @@ pub async fn run_demo(config: Arc<Config>, token: String) -> Result<()> {
             let new_token: String = Input::new()
                 .with_prompt("Enter token symbol or name")
                 .interact_text()?;
-            return Box::pin(run_demo(config, new_token)).await;
+            return Box::pin(run_demo(context, new_token)).await;
         }
         1 => {
             println!("\n{}", "⛓️ Chain-Specific Analysis".cyan());
@@ -417,8 +417,8 @@ fn get_erc20_contracts() -> HashMap<String, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use riglr_config::Config;
     use std::sync::Arc;
-
     fn create_test_config() -> Arc<Config> {
         Arc::new(Config {
             app: riglr_config::AppConfig::default(),

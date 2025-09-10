@@ -4,7 +4,7 @@ use anyhow::Result;
 use colored::Colorize;
 use dialoguer::{Input, Select};
 use indicatif::{ProgressBar, ProgressStyle};
-use riglr_config::Config;
+use riglr_core::provider::ApplicationContext;
 use std::sync::Arc;
 // Temporarily using mock functionality due to compilation issues
 // use riglr_web_tools::{
@@ -26,7 +26,7 @@ impl WebClient {
 // use tracing::{info, warn}; // Temporarily disabled
 
 /// Run the web tools demo.
-pub async fn run_demo(config: Arc<Config>, query: String) -> Result<()> {
+pub async fn run_demo(context: Arc<ApplicationContext>, query: String) -> Result<()> {
     println!("{}", "🌐 Web Tools Demo".bright_blue().bold());
     println!("{}", "=".repeat(50).blue());
 
@@ -196,7 +196,7 @@ pub async fn run_demo(config: Arc<Config>, query: String) -> Result<()> {
         0 => {
             println!("\n{}", "Enter a new search query:".cyan());
             let new_query: String = Input::new().with_prompt("Search query").interact_text()?;
-            return Box::pin(run_demo(config, new_query)).await;
+            return Box::pin(run_demo(context, new_query)).await;
         }
         1 => {
             println!("\n{}", "🚀 Trending Tokens (Simulated)".cyan());

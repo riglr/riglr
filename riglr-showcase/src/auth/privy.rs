@@ -303,12 +303,13 @@ pub mod privy_impl {
             self.address.clone()
         }
 
-        async fn sign_and_send_transaction(
-            &self,
-            tx: &mut Transaction,
-        ) -> Result<String, SignerError> {
+        async fn sign_and_send_transaction(&self, tx: &mut Vec<u8>) -> Result<String, SignerError> {
+            // Deserialize the transaction from bytes
+            let mut transaction: Transaction = bincode::deserialize(tx)
+                .map_err(|e| SignerError::Signing(format!("Failed to deserialize tx: {}", e)))?;
+
             // Serialize and base64 encode the transaction
-            let tx_bytes = bincode::serialize(tx)
+            let tx_bytes = bincode::serialize(&transaction)
                 .map_err(|e| SignerError::Signing(format!("Failed to serialize tx: {}", e)))?;
             let tx_base64 = STANDARD.encode(&tx_bytes);
 
@@ -369,8 +370,8 @@ pub mod privy_impl {
             Ok(parsed.data.hash)
         }
 
-        fn client(&self) -> Arc<RpcClient> {
-            self.rpc.clone()
+        fn client(&self) -> Arc<dyn std::any::Any + Send + Sync> {
+            self.rpc.clone() as Arc<dyn std::any::Any + Send + Sync>
         }
     }
 
@@ -438,8 +439,12 @@ pub mod privy_impl {
 
         async fn sign_and_send_transaction(
             &self,
-            tx: TransactionRequest,
+            tx: serde_json::Value,
         ) -> Result<String, SignerError> {
+            // Convert JSON to TransactionRequest
+            let tx_request: TransactionRequest = serde_json::from_value(tx).map_err(|e| {
+                SignerError::Signing(format!("Failed to parse transaction request: {}", e))
+            })?;
             #[derive(Serialize)]
             struct ReqTx {
                 from: String,
@@ -475,19 +480,19 @@ pub mod privy_impl {
                 hash: String,
             }
 
-            let from = tx
+            let from = tx_request
                 .from
                 .map(|a| format!("0x{:x}", a))
                 .unwrap_or_else(|| self.address.clone());
-            let to = if let Some(_kind) = tx.to {
+            let to = if let Some(_kind) = tx_request.to {
                 // TxKind should have Call(Address) or Create variants
                 // Since we can't access the variants directly, let's convert the whole tx to string
                 "0x0000000000000000000000000000000000000000".to_string()
             } else {
                 "0x0000000000000000000000000000000000000000".to_string()
             };
-            let value = tx.value.map(|v| format!("0x{:x}", v));
-            let data = tx
+            let value = tx_request.value.map(|v| format!("0x{:x}", v));
+            let data = tx_request
                 .input
                 .data
                 .as_ref()

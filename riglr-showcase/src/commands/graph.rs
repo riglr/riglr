@@ -4,14 +4,16 @@ use anyhow::Result;
 use colored::Colorize;
 use dialoguer::{Input, Select};
 use indicatif::{ProgressBar, ProgressStyle};
-use riglr_config::Config;
+use riglr_core::provider::ApplicationContext;
 use riglr_graph_memory::document::RawTextDocument;
 use std::sync::Arc;
 use std::time::Duration;
 // use tracing::warn;
 
 #[cfg(test)]
-use riglr_config::{AppConfig, DatabaseConfig, FeaturesConfig, NetworkConfig, ProvidersConfig};
+use riglr_config::{
+    AppConfig, Config, DatabaseConfig, FeaturesConfig, NetworkConfig, ProvidersConfig,
+};
 
 /// Create a test configuration for demos and tests
 #[cfg(test)]
@@ -26,7 +28,11 @@ fn create_test_config() -> Config {
 }
 
 /// Run the graph memory demo.
-pub async fn run_demo(_config: Arc<Config>, init: bool, query: Option<String>) -> Result<()> {
+pub async fn run_demo(
+    _context: Arc<ApplicationContext>,
+    init: bool,
+    query: Option<String>,
+) -> Result<()> {
     println!("{}", "🧠 Graph Memory Demo".bright_blue().bold());
     println!("{}", "=".repeat(50).blue());
 

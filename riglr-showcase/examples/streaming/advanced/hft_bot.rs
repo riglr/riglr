@@ -11,8 +11,10 @@
 use anyhow::Result;
 use riglr_core::{ToolError, ToolResult};
 use riglr_events_core::prelude::*;
-use riglr_showcase::config::Config;
+use riglr_config::Config;
+use riglr_streams::core::{StreamManagerBuilder, HandlerExecutionMode};
 use riglr_streams::prelude::*;
+use riglr_events_core::GenericEvent;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::{RwLock, Mutex};
@@ -525,9 +527,24 @@ async fn main() -> Result<()> {
 
     info!("🚀 Starting High-Frequency Trading Bot");
 
-    // Load configuration
+    // Load configuration and build StreamManager
     let config = Config::from_env();
-    config.validate()?;
+    
+    // Build StreamManager using StreamManagerBuilder for high-frequency processing
+    let stream_manager = StreamManagerBuilder::default()
+        .with_execution_mode(HandlerExecutionMode::Sequential) // Sequential for HFT to maintain order
+        .with_metrics(true)
+        .from_env()
+        .map_err(|e| anyhow::anyhow!("Failed to load stream config: {}", e))?
+        .build()
+        .await
+        .map_err(|e| anyhow::anyhow!("Failed to build stream manager: {}", e))?;
+    
+    info!("✅ StreamManager initialized for HFT operations");
+    
+    // Start the stream manager
+    stream_manager.start_all().await?;
+    info!("🚀 Stream manager started");
 
     // Create HFT bot configuration
     let hft_config = HFTConfig {

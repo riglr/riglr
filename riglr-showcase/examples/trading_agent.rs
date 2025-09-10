@@ -26,11 +26,12 @@
 //! - Educational showcase of trading agent patterns in Riglr
 //! - Risk management best practices for automated trading
 
+use anyhow::Result;
+use riglr_agents::{Task, TaskType};
+use riglr_config::Config;
 use riglr_core::signer::{SignerContext, UnifiedSigner};
 use riglr_solana_tools::LocalSolanaSigner;
-// TODO: Re-enable when rig tools are updated
-// use riglr_solana_tools::{get_sol_balance, get_spl_token_balance};
-use anyhow::Result;
+use serde_json::json;
 use solana_sdk::signature::Keypair;
 use solana_sdk::signer::Signer;
 use std::sync::Arc;
@@ -53,41 +54,56 @@ async fn main() -> Result<()> {
         "https://api.devnet.solana.com".to_string(),
     )) as Arc<dyn UnifiedSigner>;
 
+    // Load configuration
+    let config = Arc::new(Config::from_env());
+
     // Build trading agent with comprehensive tool suite
-    // TODO: Re-enable when rig provider API is updated
-    // let agent = AgentBuilder::new("gpt-4")
-    //     .preamble(
-    //         "You are a sophisticated Solana trading agent specialized in DeFi operations. \
-    //          You have access to balance checking, token swaps via Jupiter, and risk analysis capabilities. \
-    //          \n\nKey responsibilities:\
-    //          \n- Analyze token opportunities with risk assessment\
-    //          \n- Execute swaps with appropriate slippage protection\
-    //          \n- Maintain portfolio balance and risk management\
-    //          \n- Provide clear explanations of trading decisions\
-    //          \n\nAlways consider:\
-    //          \n- Market volatility and slippage\
-    //          \n- Portfolio diversification\
-    //          \n- Risk-reward ratios\
-    //          \n- Gas fees and transaction costs"
-    //     )
-    //     .tool(get_sol_balance)      // Check SOL balance
-    //     .tool(get_spl_token_balance)    // Check SPL token balances
-    //     .max_tokens(3000)
-    //     .build();
+    // Note: In a real implementation, you'd use actual agent builder patterns here
+    // let openai_client = rig::providers::openai::Client::from_env();
+    // let model = openai_client.completion_model("gpt-4o");
+
+    // For demo purposes, we'll simulate the agent response
+    println!("\n🤖 Initializing Trading Agent...");
+    println!("   - Would load Solana tools: balance checking, token analysis");
+    println!("   - Configuration: {:?}", config.app.environment);
+
+    // Create the agent dispatcher (commented for demo)
+    // In real usage, you would build and register agents here
 
     // Execute trading operations within signer context
     SignerContext::with_signer(signer.clone(), async {
         println!("\n💬 Interacting with trading agent...");
 
-        // Example trading conversation (simulated for demo)
-        println!("🔍 Executing: Check SOL balance and suggest trading strategy...");
+        // Create tasks using the new Task object pattern
+        let task1 = Task::new(
+            TaskType::Custom("tool_calling".to_string()),
+            json!({
+                "prompt": "Check my SOL balance and suggest a trading strategy suitable for beginners"
+            })
+        );
+
+        println!("🔍 Executing Task: {:?}", task1.task_type);
+
+        // In a real implementation, you would dispatch the task:
+        // let result = dispatcher.dispatch_task("trading_agent".to_string(), task1).await?;
+
+        // For demo, simulate the response
         let response = "SOL Balance Analysis: Your current balance is 2.5 SOL (~$85 USD). For a beginner-friendly trading strategy, consider: 1) Keep 1 SOL for transaction fees and emergencies, 2) Allocate 0.75 SOL to blue-chip tokens like USDC or USDT for stability, 3) Use remaining 0.75 SOL for educational micro-trades on established tokens. Key risks: price volatility, slippage on small trades, and transaction fees eating into profits. Start small and focus on learning market dynamics.";
 
         println!("\n🤖 Agent Response:");
         println!("{}", response);
 
-        // Multi-turn conversation for complex trading strategies
-        println!("\n🔄 Follow-up question...");
+        // Multi-turn conversation with Task objects
+        println!("\n🔄 Creating follow-up task...");
+        let _task2 = Task::new(
+            TaskType::Custom("tool_calling".to_string()),
+            json!({
+                "prompt": "Provide a detailed diversification strategy for my portfolio"
+            })
+        );
+
+        // let follow_up_result = dispatcher.dispatch_task("trading_agent".to_string(), _task2).await?;
+
         let follow_up = "Diversification Strategy Recommendation: Based on current Solana ecosystem strength: 40% stable assets (USDC/USDT), 25% SOL staking (via Marinade mSOL), 20% established DeFi tokens (RAY, SRM), 10% emerging projects (research-based), 5% experimental allocation. This maintains stability while allowing growth exposure. Monitor positions weekly and rebalance monthly. Consider dollar-cost averaging for entries.";
 
         println!("\n🤖 Agent Follow-up:");

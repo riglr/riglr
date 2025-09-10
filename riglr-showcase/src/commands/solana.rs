@@ -4,7 +4,6 @@ use anyhow::Result;
 use colored::Colorize;
 use dialoguer::{Input, Select};
 use indicatif::{ProgressBar, ProgressStyle};
-use riglr_config::Config;
 use riglr_core::provider::ApplicationContext;
 use riglr_solana_tools::{balance::get_sol_balance, swap::get_jupiter_quote};
 // Note: SolanaClient has been removed in v0.2.0 - use SignerContext pattern instead
@@ -13,21 +12,18 @@ use std::sync::Arc;
 use tracing::warn;
 
 /// Run the Solana tools demo.
-pub async fn run_demo(config: Arc<Config>, address: Option<String>) -> Result<()> {
-    run_demo_with_options(config, address, false).await
+pub async fn run_demo(context: Arc<ApplicationContext>, address: Option<String>) -> Result<()> {
+    run_demo_with_options(context, address, false).await
 }
 
 /// Run the Solana tools demo with options for testing.
 pub async fn run_demo_with_options(
-    config: Arc<Config>,
+    context: Arc<ApplicationContext>,
     address: Option<String>,
     skip_interactive: bool,
 ) -> Result<()> {
     println!("{}", "🌟 Solana Tools Demo".bright_blue().bold());
     println!("{}", "=".repeat(50).blue());
-
-    // Create application context
-    let context = ApplicationContext::from_config(&config);
 
     // Get or prompt for wallet address
     let wallet_address = match address {
@@ -193,7 +189,7 @@ pub async fn run_demo_with_options(
                 .with_prompt("Enter wallet address")
                 .interact_text()?;
             return Box::pin(run_demo_with_options(
-                config,
+                context,
                 Some(new_address),
                 skip_interactive,
             ))
@@ -260,8 +256,8 @@ mod tests {
     use std::sync::Arc;
     use tokio;
 
-    fn create_test_config() -> Arc<Config> {
-        Arc::new(Config {
+    fn create_test_context() -> Arc<ApplicationContext> {
+        let config = Config {
             app: AppConfig::default(),
             database: DatabaseConfig::default(),
             network: NetworkConfig {
@@ -270,16 +266,17 @@ mod tests {
             },
             providers: ProvidersConfig::default(),
             features: FeaturesConfig::default(),
-        })
+        };
+        Arc::new(ApplicationContext::from_config(&config))
     }
 
     #[tokio::test]
     async fn test_run_demo_when_address_provided_should_use_provided_address() {
-        let config = create_test_config();
+        let context = create_test_context();
         let test_address = "So11111111111111111111111111111111111111112".to_string();
 
         // Use the new function with skip_interactive = true to avoid hanging on prompts
-        let result = run_demo_with_options(config, Some(test_address), true).await;
+        let result = run_demo_with_options(context, Some(test_address), true).await;
 
         // The function should handle network errors gracefully
         // and not panic, returning Ok even if external calls fail
@@ -288,23 +285,23 @@ mod tests {
 
     #[tokio::test]
     async fn test_run_demo_when_no_address_provided_should_handle_default() {
-        let config = create_test_config();
+        let context = create_test_context();
 
         // Test with skip_interactive = true to use default address without prompts
-        let result = run_demo_with_options(config.clone(), None, true).await;
+        let result = run_demo_with_options(context.clone(), None, true).await;
 
         // The function should handle network errors gracefully
         assert!(result.is_ok() || result.is_err());
 
         // We can also verify the config creation works
-        assert!(!config.network.solana_rpc_url.is_empty());
+        assert!(!context.config.network.solana_rpc_url.is_empty());
     }
 
     #[test]
     fn test_solana_config_creation() {
-        let config = create_test_config();
+        let context = create_test_context();
         let solana_config = SolanaConfig {
-            rpc_url: config.network.solana_rpc_url.clone(),
+            rpc_url: context.config.network.solana_rpc_url.clone(),
             commitment: "confirmed".to_string(),
             timeout_seconds: 30,
         };
@@ -362,7 +359,7 @@ mod tests {
         let sol_mint = "So11111111111111111111111111111111111111112";
         let usdc_mint = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
 
-        assert_eq!(sol_mint.len(), 44); // Solana addresses are 44 characters
+        assert_eq!(sol_mint.len(), 43); // Solana addresses are 43 characters
         assert_eq!(usdc_mint.len(), 44);
 
         // Verify these are valid base58 strings (basic check)
@@ -414,21 +411,26 @@ mod tests {
     #[test]
     fn test_default_wallet_address() {
         let default_address = "So11111111111111111111111111111111111111112";
-        assert_eq!(default_address.len(), 44);
+        assert_eq!(default_address.len(), 43);
         assert!(default_address.chars().all(|c| c.is_ascii_alphanumeric()));
     }
 
     #[test]
     fn test_config_network_solana_rpc_url() {
-        let config = create_test_config();
-        assert!(!config.network.solana_rpc_url.is_empty());
-        assert!(config.network.solana_rpc_url.starts_with("https://"));
+        let context = create_test_context();
+        assert!(!context.config.network.solana_rpc_url.is_empty());
+        assert!(context
+            .config
+            .network
+            .solana_rpc_url
+            .starts_with("https://"));
     }
 
     #[test]
     fn test_spinner_tick_chars() {
         let tick_chars = "⠁⠂⠄⡀⢀⠠⠐⠈ ";
-        assert_eq!(tick_chars.len(), 9); // 8 spinner chars + 1 space
+        assert_eq!(tick_chars.len(), 25); // Unicode spinner chars (3 bytes each) + 1 space
+        assert_eq!(tick_chars.chars().count(), 9); // 8 spinner chars + 1 space
         assert!(tick_chars.ends_with(' '));
     }
 
