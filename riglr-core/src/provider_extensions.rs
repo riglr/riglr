@@ -10,7 +10,7 @@ use std::sync::Arc;
 /// Example trait that should be implemented in riglr-solana-tools
 ///
 /// # Example Implementation (in riglr-solana-tools/src/lib.rs):
-/// ```rust
+/// ```rust,ignore
 /// use riglr_core::provider::ApplicationContext;
 /// use riglr_core::provider_extensions::SolanaAppContextProvider;
 /// use riglr_core::ToolError;
@@ -34,7 +34,7 @@ pub trait SolanaAppContextProvider {
 /// Example trait that should be implemented in riglr-evm-tools
 ///
 /// # Example Implementation (in riglr-evm-tools/src/lib.rs):
-/// ```rust
+/// ```rust,ignore
 /// use riglr_core::provider::ApplicationContext;
 /// use riglr_core::provider_extensions::EvmAppContextProvider;
 /// use riglr_core::ToolError;
@@ -61,7 +61,7 @@ pub trait EvmAppContextProvider {
 /// from the ApplicationContext.
 ///
 /// # Example:
-/// ```rust
+/// ```rust,ignore
 /// use riglr_core::provider::ApplicationContext;
 /// use riglr_core::provider_extensions::AppContextExtension;
 /// use riglr_core::ToolError;

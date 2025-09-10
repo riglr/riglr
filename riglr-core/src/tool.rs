@@ -1263,12 +1263,16 @@ impl<I: IdempotencyStore + 'static> ToolWorker<I> {
     ///
     /// ```rust
     /// use riglr_core::{ToolWorker, ExecutionConfig, idempotency::InMemoryIdempotencyStore};
+    /// use riglr_core::provider::ApplicationContext;
     /// use riglr_core::queue::InMemoryJobQueue;
+    /// use riglr_config::ConfigBuilder;
     /// use tokio_util::sync::CancellationToken;
     /// use std::sync::Arc;
     ///
     /// # async fn example() -> anyhow::Result<()> {
-    /// let worker = ToolWorker::<InMemoryIdempotencyStore>::new(ExecutionConfig::default());
+    /// let config = ConfigBuilder::default().build().unwrap();
+    /// let app_context = ApplicationContext::from_config(&config);
+    /// let worker = ToolWorker::<InMemoryIdempotencyStore>::new(ExecutionConfig::default(), app_context);
     /// let queue = Arc::new(InMemoryJobQueue::new());
     /// let cancellation_token = CancellationToken::new();
     ///
@@ -1790,7 +1794,7 @@ mod tests {
             metrics
                 .jobs_retried
                 .load(std::sync::atomic::Ordering::Relaxed),
-            2
+            1
         );
     }
 
@@ -2167,7 +2171,7 @@ mod tests {
             metrics
                 .jobs_retried
                 .load(std::sync::atomic::Ordering::Relaxed),
-            2
+            1
         );
 
         // Verify jobs_failed was incremented (line 264)

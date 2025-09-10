@@ -236,14 +236,14 @@ pub mod provider_extensions;
 pub mod queue;
 /// Retry logic with exponential backoff for resilient operations.
 pub mod retry;
+/// Sentiment analysis abstraction for news and social media content.
+pub mod sentiment;
 /// Thread-safe signer context and transaction signing abstractions.
 pub mod signer;
 /// Task spawning utilities that preserve signer context across async boundaries.
 pub mod spawn;
 /// Core tool trait and execution infrastructure.
 pub mod tool;
-/// Cross-chain transaction building and signing utilities.
-pub mod transactions;
 /// Internal utility functions and helpers.
 pub mod util;
 

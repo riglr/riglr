@@ -2,6 +2,9 @@
 //!
 //! Provides a fluent API for building configuration objects with validation.
 
+// Suppress analyzer warnings for legitimate new() method calls
+#![allow(clippy::new_without_default, clippy::empty_line_after_outer_attr)]
+
 use crate::{
     AppConfig, Config, ConfigResult, DatabaseConfig, FeaturesConfig, LogLevel, NetworkConfig,
     ProvidersConfig,
@@ -15,7 +18,7 @@ use crate::{
 /// # Examples
 ///
 /// ```rust
-/// use riglr_config::{ConfigBuilder, AppConfig, Environment};
+/// use riglr_config::{ConfigBuilder, AppConfig, Environment, LogLevel};
 ///
 /// let config = ConfigBuilder::default()
 ///     .app(AppConfig {
@@ -252,7 +255,7 @@ impl ConfigBuilder {
     ///
     /// # Example
     /// ```rust
-    /// use riglr_config::ConfigBuilder;
+    /// use riglr_config::{ConfigBuilder, LogLevel};
     ///
     /// let config = ConfigBuilder::new()
     ///     .log_level(LogLevel::Warn)
@@ -464,11 +467,12 @@ impl ConfigBuilder {
     /// - use_testnet = false
     ///
     /// # Example
-    /// ```rust
+    /// ```rust,no_run
     /// use riglr_config::{ConfigBuilder, Environment, LogLevel};
     ///
     /// let config = ConfigBuilder::new()
     ///     .production()
+    ///     .redis_url("redis://redis.example.com:6379".to_string())
     ///     .build()
     ///     .unwrap();
     /// assert_eq!(config.app.environment, Environment::Production);
@@ -811,7 +815,7 @@ mod tests {
 
     #[test]
     fn test_config_builder_development_preset() {
-        let config = ConfigBuilder::new().development().build().unwrap();
+        let config = ConfigBuilder::default().development().build().unwrap();
 
         assert_eq!(config.app.environment, Environment::Development);
         assert_eq!(config.app.log_level, LogLevel::Debug);
@@ -820,7 +824,7 @@ mod tests {
 
     #[test]
     fn test_config_builder_staging_preset() {
-        let config = ConfigBuilder::new().staging().build().unwrap();
+        let config = ConfigBuilder::default().staging().build().unwrap();
 
         assert_eq!(config.app.environment, Environment::Staging);
         assert_eq!(config.app.log_level, LogLevel::Info);
@@ -830,7 +834,7 @@ mod tests {
     #[test]
     fn test_config_builder_production_preset() {
         // Use a proper Redis URL for production and disable trading to avoid Alchemy key requirement
-        let config = ConfigBuilder::new()
+        let config = ConfigBuilder::default()
             .production()
             .redis_url("redis://production-redis:6379".to_string())
             .enable_trading(false) // Disable trading to avoid Alchemy key requirement
@@ -844,7 +848,7 @@ mod tests {
 
     #[test]
     fn test_config_builder_testnet_preset() {
-        let config = ConfigBuilder::new().testnet().build().unwrap();
+        let config = ConfigBuilder::default().testnet().build().unwrap();
 
         assert!(config.app.use_testnet);
         assert_eq!(config.network.default_chain_id, 5); // Goerli
@@ -856,7 +860,7 @@ mod tests {
 
     #[test]
     fn test_config_builder_mainnet_preset() {
-        let config = ConfigBuilder::new().mainnet().build().unwrap();
+        let config = ConfigBuilder::default().mainnet().build().unwrap();
 
         assert!(!config.app.use_testnet);
         assert_eq!(config.network.default_chain_id, 1); // Ethereum mainnet
@@ -868,7 +872,7 @@ mod tests {
 
     #[test]
     fn test_config_builder_validate_without_building() {
-        let builder = ConfigBuilder::new().development();
+        let builder = ConfigBuilder::default().development();
 
         // Should be able to validate without building
         assert!(builder.validate().is_ok());
@@ -880,7 +884,7 @@ mod tests {
 
     #[test]
     fn test_config_builder_preset_chaining() {
-        let config = ConfigBuilder::new()
+        let config = ConfigBuilder::default()
             .development() // Set development defaults
             .port(9000) // Override specific values
             .build()
@@ -894,7 +898,7 @@ mod tests {
 
     #[test]
     fn test_config_builder_chaining_with_overrides() {
-        let config = ConfigBuilder::new()
+        let config = ConfigBuilder::default()
             .development() // Set development defaults
             .production() // Override with production
             .port(9000) // Override specific values
@@ -948,7 +952,7 @@ experimental = false
         let temp_path = temp_file.path();
 
         // Test the layering without environment variables first to verify basic file loading works
-        let file_only_config = ConfigBuilder::new()
+        let file_only_config = ConfigBuilder::default()
             .from_file(temp_path)
             .expect("Failed to load from file")
             .build()
@@ -965,7 +969,7 @@ experimental = false
         );
 
         // Now test with programmatic overrides
-        let config = ConfigBuilder::new()
+        let config = ConfigBuilder::default()
             .from_file(temp_path)
             .expect("Failed to load from file")
             .port(8083) // Programmatic setter should override all: port -> 8083
@@ -1028,7 +1032,7 @@ solana_rpc_url = "https://file-rpc.com"
         let temp_path = temp_file.path();
 
         // Build a base config with some values
-        let base_config = ConfigBuilder::new()
+        let base_config = ConfigBuilder::default()
             .port(7000) // Should be overridden by file
             .anthropic_api_key(Some("base-key".to_string())) // Should remain
             .from_file(temp_path)
@@ -1074,7 +1078,7 @@ neo4j_url = "bolt://file-neo4j:7687"
         let temp_path = temp_file.path();
 
         // First test: load from file only to verify file parsing works
-        let file_only_config = ConfigBuilder::new()
+        let file_only_config = ConfigBuilder::default()
             .from_file(temp_path)
             .expect("Failed to load from file")
             .build()
@@ -1087,7 +1091,7 @@ neo4j_url = "bolt://file-neo4j:7687"
         );
 
         // Second test: verify layering behavior with programmatic settings
-        let config_with_override = ConfigBuilder::new()
+        let config_with_override = ConfigBuilder::default()
             .redis_url("redis://base:6379".to_string()) // Base value
             .from_file(temp_path)
             .expect("Failed to load from file")

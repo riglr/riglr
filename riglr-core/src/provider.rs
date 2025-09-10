@@ -46,15 +46,26 @@ use crate::util::RateLimiter;
 /// riglr-core (which defines the interfaces) and chain-specific crates
 /// (which provide the implementations).
 ///
+/// ## Accessing Chain-Specific Clients
+///
+/// To maintain its chain-agnostic nature, `riglr-core` does not have direct methods
+/// like `solana_client()` on the `ApplicationContext`. Instead, these ergonomic
+/// accessors are provided via extension traits in chain-specific crates.
+///
+/// For example, `riglr-solana-tools` provides the `SolanaAppContextProvider` trait,
+/// which adds the `.solana_client()` method to `ApplicationContext`.
+///
+/// See the [`riglr_core::provider_extensions`] module for more details on this pattern.
+///
 /// # Examples
 ///
 /// ```rust,no_run
 /// use riglr_core::provider::ApplicationContext;
-/// use riglr_config::Config;
+/// use riglr_config::ConfigBuilder;
 /// use std::sync::Arc;
 ///
 /// // Application layer creates context and injects dependencies
-/// let config = Config::default();
+/// let config = ConfigBuilder::default().build().unwrap();
 /// let context = ApplicationContext::from_config(&config);
 ///
 /// // Inject Solana RPC client (in real code, from riglr-solana-tools)
@@ -133,10 +144,11 @@ impl ApplicationContext {
     ///
     /// ```rust,no_run
     /// use riglr_core::provider::ApplicationContext;
-    /// use riglr_config::Config;
+    /// use riglr_config::ConfigBuilder;
     /// use std::sync::Arc;
     ///
-    /// let context = ApplicationContext::from_config(&Config::default());
+    /// let config = ConfigBuilder::default().build().unwrap();
+    /// let context = ApplicationContext::from_config(&config);
     ///
     /// // Add blockchain RPC clients as extensions
     /// // Example: Add Solana RPC client
@@ -159,10 +171,11 @@ impl ApplicationContext {
     ///
     /// ```rust,no_run
     /// use riglr_core::provider::ApplicationContext;
-    /// use riglr_config::Config;
+    /// use riglr_config::ConfigBuilder;
     /// use std::sync::Arc;
     ///
-    /// let context = ApplicationContext::from_config(&Config::default());
+    /// let config = ConfigBuilder::default().build().unwrap();
+    /// let context = ApplicationContext::from_config(&config);
     /// // Add a typed extension (e.g., an RPC client)
     /// // let client = Arc::new(MyRpcClient::new(...));
     /// // context.set_extension(client.clone());

@@ -489,7 +489,7 @@ impl Job {
 /// ### Creating Failure Results
 ///
 /// ```rust
-/// use riglr_core::JobResult;
+/// use riglr_core::{JobResult, ToolError};
 ///
 /// // Retriable failure using new ToolError structure
 /// let network_error = JobResult::Failure {
@@ -1452,4 +1452,38 @@ mod tests {
         assert!(failure_debug.contains("Debug error message"));
         assert!(failure_debug.contains("Permanent")); // Permanent error variant
     }
+}
+
+/// Transaction status tracking for job lifecycle
+///
+/// This enum represents the various states a transaction can be in during
+/// its execution lifecycle, from initial submission through final confirmation.
+#[derive(Debug, Clone)]
+pub enum TransactionStatus {
+    /// Transaction is pending submission
+    Pending,
+    /// Transaction has been submitted to the network
+    Submitted {
+        /// Transaction hash from the network
+        hash: String,
+    },
+    /// Transaction is being confirmed
+    Confirming {
+        /// Transaction hash from the network
+        hash: String,
+        /// Current number of confirmations received
+        confirmations: u64,
+    },
+    /// Transaction has been confirmed
+    Confirmed {
+        /// Transaction hash from the network
+        hash: String,
+        /// Block number where the transaction was included
+        block: u64,
+    },
+    /// Transaction failed
+    Failed {
+        /// Reason why the transaction failed
+        reason: String,
+    },
 }

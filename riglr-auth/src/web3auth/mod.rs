@@ -95,11 +95,13 @@ impl Web3AuthProvider {
     pub fn new(config: Web3AuthConfig) -> Self {
         let client = reqwest::Client::builder()
             .timeout(std::time::Duration::from_secs(30))
-            .default_headers({
-                let mut headers = reqwest::header::HeaderMap::new();
-                headers.insert("Content-Type", "application/json".parse().unwrap());
-                headers
-            })
+            .default_headers(
+                std::iter::once((
+                    reqwest::header::CONTENT_TYPE,
+                    reqwest::header::HeaderValue::from_static("application/json"),
+                ))
+                .collect(),
+            )
             .build()
             .expect("Failed to build Web3Auth HTTP client");
 
@@ -272,7 +274,7 @@ impl Web3AuthProvider {
         use std::collections::hash_map::DefaultHasher;
         use std::hash::{Hash, Hasher};
 
-        let mut hasher = DefaultHasher::new();
+        let mut hasher = DefaultHasher::default();
         sub.hash(&mut hasher);
         verifier.hash(&mut hasher);
         verifier_id.hash(&mut hasher);

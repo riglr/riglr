@@ -99,6 +99,31 @@ pub struct ProvidersConfig {
     /// API key for NewsAPI
     #[serde(default)]
     pub newsapi_key: Option<String>,
+
+    /// API key for CryptoPanic
+    #[serde(default)]
+    pub cryptopanic_key: Option<String>,
+
+    // Security and Risk Analysis Tools
+    /// API key for PocketUniverse
+    #[serde(default)]
+    pub pocket_universe_api_key: Option<String>,
+
+    /// API key for TrenchBot
+    #[serde(default)]
+    pub trenchbot_api_key: Option<String>,
+
+    /// API key for RugCheck
+    #[serde(default)]
+    pub rugcheck_api_key: Option<String>,
+
+    /// API key for TweetScout
+    #[serde(default)]
+    pub tweetscout_api_key: Option<String>,
+
+    /// API key for Faster100x
+    #[serde(default)]
+    pub faster100x_api_key: Option<String>,
 }
 
 impl ProvidersConfig {
@@ -245,6 +270,11 @@ mod tests {
         assert!(config.serper_api_key.is_none());
         assert!(config.lunarcrush_api_key.is_none());
         assert!(config.newsapi_key.is_none());
+        assert!(config.pocket_universe_api_key.is_none());
+        assert!(config.trenchbot_api_key.is_none());
+        assert!(config.rugcheck_api_key.is_none());
+        assert!(config.tweetscout_api_key.is_none());
+        assert!(config.faster100x_api_key.is_none());
     }
 
     #[test]

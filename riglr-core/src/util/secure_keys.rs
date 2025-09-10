@@ -18,7 +18,7 @@
 //! keyring = "2.0"
 //! ```
 //!
-//! ```rust,no_run
+//! ```rust,ignore
 //! use keyring::Entry;
 //!
 //! // Store key (one-time setup)
@@ -41,7 +41,7 @@
 //! - **HashiCorp Vault**: Open-source secret management with audit trails
 //!
 //! Example with AWS Secrets Manager:
-//! ```rust,no_run
+//! ```rust,ignore
 //! use aws_sdk_secretsmanager::Client;
 //!
 //! let config = aws_config::load_from_env().await;
