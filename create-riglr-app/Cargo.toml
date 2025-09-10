@@ -1,6 +1,6 @@
 [package]
 name = "create-riglr-app"
-version = "0.2.0"
+version.workspace = true
 edition = "2021"
 authors = ["RIGLR Team"]
 description = "Interactive CLI for scaffolding RIGLR-powered blockchain AI agents"

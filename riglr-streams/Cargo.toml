@@ -1,6 +1,6 @@
 [package]
 name = "riglr-streams"
-version = "0.2.0"
+version.workspace = true
 edition = "2021"
 authors = ["RIGLR Contributors"]
 description = "Event-driven streaming capabilities for the RIGLR blockchain agent framework"

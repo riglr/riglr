@@ -1,6 +1,6 @@
 [package]
 name = "riglr-core"
-version = "0.3.0"
+version.workspace = true
 edition = "2021"
 license = "MIT"
 description = "Core abstractions and job execution engine for riglr - building resilient AI agents."

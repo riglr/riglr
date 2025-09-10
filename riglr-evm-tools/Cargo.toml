@@ -1,6 +1,6 @@
 [package]
 name = "riglr-evm-tools"
-version = "0.3.0"
+version.workspace = true
 edition = "2021"
 authors = ["Riglr Contributors"]
 license = "MIT OR Apache-2.0"

@@ -1,6 +1,6 @@
 [package]
 name = "riglr-events-core"
-version = "0.3.0"
+version.workspace = true
 edition = "2021"
 authors = ["riglr project contributors"]
 description = "Core event processing abstractions and traits for riglr blockchain agents"

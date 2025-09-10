@@ -1,6 +1,6 @@
 [package]
 name = "riglr-auth"
-version = "0.2.0"
+version.workspace = true
 edition = "2021"
 description = "Authentication and signer factory implementations for RIGLR"
 authors = ["RIGLR Team"]

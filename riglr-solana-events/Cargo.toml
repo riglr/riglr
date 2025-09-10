@@ -1,6 +1,6 @@
 [package]
 name = "riglr-solana-events"
-version = "0.3.0"
+version.workspace = true
 authors = ["riglr project contributors"]
 edition = "2021"
 description = "Standalone, high-performance Solana event parsing library used by riglr and other projects."

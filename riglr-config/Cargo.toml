@@ -1,6 +1,6 @@
 [package]
 name = "riglr-config"
-version = "0.3.0"
+version.workspace = true
 edition = "2021"
 authors = ["RIGLR Contributors"]
 description = "Unified configuration management for RIGLR applications"

@@ -23,8 +23,8 @@ print_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
-# Default version from workspace
-DEFAULT_VERSION="0.3.0"
+# Get version from workspace
+DEFAULT_VERSION=$(grep '^version = ' Cargo.toml | head -1 | cut -d'"' -f2)
 
 # Parse arguments
 ACTION="prepare"  # prepare or restore
