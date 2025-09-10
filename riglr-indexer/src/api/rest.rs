@@ -69,9 +69,9 @@ pub struct EventsQueryParams {
     /// End time for filtering
     pub end_time: Option<DateTime<Utc>>,
     /// Minimum block height
-    pub min_block: Option<u64>,
+    pub min_block: Option<i64>,
     /// Maximum block height
-    pub max_block: Option<u64>,
+    pub max_block: Option<i64>,
     /// Transaction hash
     pub tx_hash: Option<String>,
     /// Number of results to return
@@ -559,7 +559,7 @@ mod tests {
             source: source.to_string(),
             data: json!({"test": "data"}),
             timestamp: Utc::now(),
-            block_height: Some(12345),
+            block_height: Some(12345i64),
             transaction_hash: Some("0x123abc".to_string()),
         }
     }

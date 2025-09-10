@@ -48,9 +48,7 @@ sqlx = { version = "0.8.6", features = [
     "postgres",
     "chrono",
     "uuid",
-    "json",
-    "macros",
-    "migrate"
+    "json"
 ] }
 clickhouse = "0.13.3"
 

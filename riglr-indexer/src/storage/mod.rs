@@ -16,7 +16,7 @@ pub mod schema;
 pub use postgres::PostgresStore;
 
 /// Stored event data structure
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
 pub struct StoredEvent {
     /// Unique event identifier
     pub id: String,
@@ -29,7 +29,7 @@ pub struct StoredEvent {
     /// Event timestamp
     pub timestamp: DateTime<Utc>,
     /// Block height (if applicable)
-    pub block_height: Option<u64>,
+    pub block_height: Option<i64>,
     /// Transaction hash (if applicable)
     pub transaction_hash: Option<String>,
 }
@@ -44,7 +44,7 @@ pub struct EventFilter {
     /// Filter by time range
     pub time_range: Option<(DateTime<Utc>, DateTime<Utc>)>,
     /// Filter by block height range
-    pub block_height_range: Option<(u64, u64)>,
+    pub block_height_range: Option<(i64, i64)>,
     /// Filter by transaction hash
     pub transaction_hash: Option<String>,
     /// Additional custom filters
@@ -431,7 +431,7 @@ mod tests {
             source: source.to_string(),
             data: serde_json::json!({"test": "data"}),
             timestamp: Utc::now(),
-            block_height: Some(12345),
+            block_height: Some(12345i64),
             transaction_hash: Some("0xabc123".to_string()),
         }
     }

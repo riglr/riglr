@@ -279,7 +279,7 @@ impl EventProcessor {
                 .metadata()
                 .custom
                 .get("block_height")
-                .and_then(|v| v.as_u64()),
+                .and_then(|v| v.as_i64()),
             transaction_hash: event
                 .metadata()
                 .custom
