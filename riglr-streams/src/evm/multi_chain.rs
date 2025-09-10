@@ -146,6 +146,10 @@ mod tests {
     use super::*;
     use std::env;
 
+    // Environment variable name constants for testing
+    const TEST_RPC_USER_ENV: &str = "TEST_RPC_USER";
+    const TEST_RPC_PASS_ENV: &str = "TEST_RPC_PASS";
+
     fn setup_test_env() {
         env::set_var("RPC_URL_1", "https://eth.example.com");
         env::set_var("RPC_URL_137", "https://polygon.example.com");
@@ -451,8 +455,8 @@ mod tests {
         assert_eq!(result.unwrap(), "ws://localhost:8545");
 
         // Test URL with authentication using environment variables
-        let test_user = std::env::var("TEST_RPC_USER").unwrap_or_else(|_| "u".to_string());
-        let test_pass = std::env::var("TEST_RPC_PASS").unwrap_or_else(|_| "p".to_string());
+        let test_user = std::env::var(TEST_RPC_USER_ENV).unwrap_or_else(|_| "u".to_string());
+        let test_pass = std::env::var(TEST_RPC_PASS_ENV).unwrap_or_else(|_| "p".to_string());
         let test_url = format!("https://{}:{}@example.com:443/rpc", test_user, test_pass);
         env::set_var("RPC_URL_1", &test_url);
         let result = manager.get_websocket_url(ChainId::Ethereum);

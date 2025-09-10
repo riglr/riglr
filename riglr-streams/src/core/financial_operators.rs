@@ -30,7 +30,7 @@ where
     /// * `window_size` - Number of values to include in the moving average calculation
     ///
     /// # Example
-    /// ```
+    /// ```rust,ignore
     /// use riglr_streams::core::financial_operators::MovingAverageStream;
     /// let ma_stream = MovingAverageStream::new(base_stream, 20);
     /// ```
@@ -134,7 +134,7 @@ where
     /// * `time_window` - Duration for which price-volume pairs are considered valid
     ///
     /// # Example
-    /// ```
+    /// ```rust,ignore
     /// use std::time::Duration;
     /// use riglr_streams::core::financial_operators::VWAPStream;
     /// let vwap_stream = VWAPStream::new(base_stream, Duration::from_secs(300)); // 5 minutes
