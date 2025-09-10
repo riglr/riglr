@@ -438,6 +438,6 @@ docker run -m 4g riglr-agent:latest
 
 ## Next Steps
 
-- Deploy to orchestration platform: [Kubernetes](kubernetes.md)
-- Deploy globally: [Fly.io](fly-io.md)
 - Review [Deployment Overview](index.md) for more options
+- Deploy to orchestration platform: Kubernetes *(Coming Soon)*
+- Deploy globally: Fly.io *(Coming Soon)*

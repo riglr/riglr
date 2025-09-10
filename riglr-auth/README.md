@@ -44,7 +44,7 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-riglr-auth = { version = "0.1", features = ["privy", "web3auth", "magic"] }
+riglr-auth = { version = "0.3.0", features = ["privy", "web3auth", "magic"] }
 ```
 
 ## Quick Start

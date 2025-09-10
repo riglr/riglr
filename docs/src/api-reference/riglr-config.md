@@ -1,1283 +1,298 @@
-# riglr-config API Reference
+# riglr-config
 
-Comprehensive API documentation for the `riglr-config` crate.
+{{#include ../../../riglr-config/README.md}}
 
-## Table of Contents
+## API Reference
 
-### Enums
+## Key Components
 
-- [`AiProvider`](#aiprovider)
-- [`BlockchainProvider`](#blockchainprovider)
-- [`ConfigError`](#configerror)
-- [`DataProvider`](#dataprovider)
-- [`Environment`](#environment)
-- [`EnvironmentSource`](#environmentsource)
-- [`Feature`](#feature)
+> The most important types and functions in this crate.
 
-### Functions (environment)
+### `Config`
 
-- [`exists`](#exists)
-- [`extract_by_prefix`](#extract_by_prefix)
-- [`extract_chain_rpc_urls`](#extract_chain_rpc_urls)
-- [`extract_contract_overrides`](#extract_contract_overrides)
-- [`get`](#get)
-- [`get_or`](#get_or)
-- [`require`](#require)
+Main configuration structure that aggregates all subsystems
 
-### Functions (error)
+[→ Full documentation](#structs)
 
-- [`generic`](#generic)
-- [`io`](#io)
-- [`parse`](#parse)
-- [`validation`](#validation)
+### `ConfigBuilder`
 
-### Traits
+Builder for creating Config instances programmatically
 
-- [`Validator`](#validator)
+[→ Full documentation](#structs)
 
-### Functions (validation)
+---
 
-- [`validate_api_key`](#validate_api_key)
-- [`validate_email`](#validate_email)
-- [`validate_eth_address`](#validate_eth_address)
-- [`validate_percentage`](#validate_percentage)
-- [`validate_port`](#validate_port)
-- [`validate_positive`](#validate_positive)
-- [`validate_range`](#validate_range)
-- [`validate_solana_address`](#validate_solana_address)
-- [`validate_url`](#validate_url)
+### Contents
+
+- [Structs](#structs)
+- [Enums](#enums)
+- [Traits](#traits)
+- [Type Aliases](#type-aliases)
 
 ### Structs
 
-- [`AppConfig`](#appconfig)
-- [`ChainConfig`](#chainconfig)
-- [`ChainContract`](#chaincontract)
-- [`Config`](#config)
-- [`ConfigBuilder`](#configbuilder)
-- [`DatabaseConfig`](#databaseconfig)
-- [`FeaturesConfig`](#featuresconfig)
-- [`NetworkConfig`](#networkconfig)
-- [`NetworkTimeouts`](#networktimeouts)
-- [`PoolConfig`](#poolconfig)
-- [`ProvidersConfig`](#providersconfig)
-- [`RetryConfig`](#retryconfig)
-- [`TransactionConfig`](#transactionconfig)
+> Core data structures and types.
 
-### Functions (app)
-
-- [`validate`](#validate)
-- [`validate`](#validate)
-
-### Functions (features)
-
-- [`disable`](#disable)
-- [`enable`](#enable)
-- [`is_custom_enabled`](#is_custom_enabled)
-- [`is_enabled`](#is_enabled)
-- [`validate`](#validate)
-
-### Functions (database)
-
-- [`validate`](#validate)
-- [`validate`](#validate)
-
-### Functions (network)
-
-- [`extract_rpc_urls`](#extract_rpc_urls)
-- [`get_chain`](#get_chain)
-- [`get_rpc_url`](#get_rpc_url)
-- [`get_supported_chains`](#get_supported_chains)
-- [`load_chain_contracts`](#load_chain_contracts)
-- [`validate`](#validate)
-
-### Functions (providers)
-
-- [`get_ai_key`](#get_ai_key)
-- [`get_blockchain_key`](#get_blockchain_key)
-- [`has_ai_provider`](#has_ai_provider)
-- [`has_blockchain_provider`](#has_blockchain_provider)
-- [`has_data_provider`](#has_data_provider)
-- [`validate`](#validate)
-
-### Functions (lib)
-
-- [`app`](#app)
-- [`build`](#build)
-- [`builder`](#builder)
-- [`database`](#database)
-- [`features`](#features)
-- [`from_env`](#from_env)
-- [`global`](#global)
-- [`network`](#network)
-- [`new`](#new)
-- [`providers`](#providers)
-- [`try_global`](#try_global)
-- [`validate`](#validate)
-
-## Enums
-
-### AiProvider
-
-**Source**: `src/providers.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-```
-
-```rust
-pub enum AiProvider { /// Anthropic Claude AI provider Anthropic, /// OpenAI provider OpenAI, /// Groq provider Groq, /// Perplexity AI provider Perplexity, }
-```
-
-AI provider enumeration
-
-**Variants**:
-
-- `Anthropic`
-- `OpenAI`
-- `Groq`
-- `Perplexity`
-
----
-
-### BlockchainProvider
-
-**Source**: `src/providers.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-```
-
-```rust
-pub enum BlockchainProvider { /// Alchemy blockchain data provider Alchemy, /// Infura blockchain infrastructure provider Infura, /// QuickNode blockchain infrastructure provider QuickNode, /// Moralis Web3 development platform Moralis, }
-```
-
-Blockchain data provider enumeration
-
-**Variants**:
-
-- `Alchemy`
-- `Infura`
-- `QuickNode`
-- `Moralis`
-
----
-
-### ConfigError
-
-**Source**: `src/error.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Error)]
-```
-
-```rust
-pub enum ConfigError { /// Environment variable not found #[error("Missing environment variable: {0}")] MissingEnvVar(String), /// Invalid configuration value #[error("Invalid configuration: {0}")] ValidationError(String), /// Failed to parse configuration #[error("Failed to parse configuration: {0}")] ParseError(String), /// IO error #[error("IO error: {0}")] IoError(String), /// Chain not supported #[error("Chain {0} is not supported")] ChainNotSupported(u64), /// Provider not configured #[error("Provider {0} is not configured")] ProviderNotConfigured(String), /// Generic error #[error("{0}")] Generic(String), }
-```
-
-Configuration errors
-
-**Variants**:
-
-- `MissingEnvVar(String)`
-- `ValidationError(String)`
-- `ParseError(String)`
-- `IoError(String)`
-- `ChainNotSupported(u64)`
-- `ProviderNotConfigured(String)`
-- `Generic(String)`
-
----
-
-### DataProvider
-
-**Source**: `src/providers.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-```
-
-```rust
-pub enum DataProvider { /// DexScreener DEX analytics provider DexScreener, /// CoinGecko cryptocurrency data provider CoinGecko, /// CoinMarketCap cryptocurrency market data provider CoinMarketCap, /// Twitter social media data provider Twitter, /// LunarCrush social analytics provider LunarCrush, }
-```
-
-Data provider enumeration
-
-**Variants**:
-
-- `DexScreener`
-- `CoinGecko`
-- `CoinMarketCap`
-- `Twitter`
-- `LunarCrush`
-
----
-
-### Environment
-
-**Source**: `src/app.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
-#[serde(rename_all = "lowercase")]
-```
-
-```rust
-pub enum Environment { /// Development environment for local testing and debugging Development, /// Staging environment for pre-production testing Staging, /// Production environment for live deployment Production, }
-```
-
-Application environment
-
-**Variants**:
-
-- `Development`
-- `Staging`
-- `Production`
-
----
-
-### EnvironmentSource
-
-**Source**: `src/environment.rs`
-
-```rust
-pub enum EnvironmentSource { /// Load from system environment System, /// Load from .env file DotEnv(String), /// Load from custom source Custom(Box<CustomEnvSource>), }
-```
-
-Source for loading environment variables
-
-**Variants**:
-
-- `System`
-- `DotEnv(String)`
-- `Custom(Box<CustomEnvSource>)`
-
----
-
-### Feature
-
-**Source**: `src/features.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-```
-
-```rust
-pub enum Feature { /// Enable trading functionality Trading, /// Enable cross-chain bridging Bridging, /// Enable social media monitoring SocialMonitoring, /// Enable graph-based memory GraphMemory, /// Enable real-time streaming Streaming, /// Enable webhook notifications Webhooks, /// Enable analytics collection Analytics, /// Enable debug mode Debug, /// Enable experimental features Experimental, }
-```
-
-Feature enumeration
-
-**Variants**:
-
-- `Trading`
-- `Bridging`
-- `SocialMonitoring`
-- `GraphMemory`
-- `Streaming`
-- `Webhooks`
-- `Analytics`
-- `Debug`
-- `Experimental`
-
----
-
-## Functions (environment)
-
-### exists
-
-**Source**: `src/environment.rs`
-
-```rust
-pub fn exists(&self, key: &str) -> bool
-```
-
-Check if an environment variable exists
-
----
-
-### extract_by_prefix
-
-**Source**: `src/environment.rs`
-
-**Attributes**:
-```rust
-#[allow(dead_code)]
-```
-
-```rust
-pub fn extract_by_prefix(prefix: &str) -> Vec<(String, String)>
-```
-
-Helper to extract values by prefix
-
----
-
-### extract_chain_rpc_urls
-
-**Source**: `src/environment.rs`
-
-**Attributes**:
-```rust
-#[allow(dead_code)]
-```
-
-```rust
-pub fn extract_chain_rpc_urls() -> Vec<(u64, String)>
-```
-
-Helper to extract and parse chain IDs from RPC_URL_{CHAIN_ID} pattern
-
----
-
-### extract_contract_overrides
-
-**Source**: `src/environment.rs`
-
-**Attributes**:
-```rust
-#[allow(dead_code)]
-```
-
-```rust
-pub fn extract_contract_overrides(chain_id: u64) -> Vec<(String, String)>
-```
-
-Helper to extract and parse contract addresses
-
----
-
-### get
-
-**Source**: `src/environment.rs`
-
-```rust
-pub fn get(&self, key: &str) -> Option<String>
-```
-
-Get an environment variable
-
----
-
-### get_or
-
-**Source**: `src/environment.rs`
-
-```rust
-pub fn get_or(&self, key: &str, default: String) -> String
-```
-
-Get an optional environment variable with default
-
----
-
-### require
-
-**Source**: `src/environment.rs`
-
-```rust
-pub fn require(&self, key: &str) -> ConfigResult<String>
-```
-
-Get a required environment variable
-
----
-
-## Functions (error)
-
-### generic
-
-**Source**: `src/error.rs`
-
-```rust
-pub fn generic<S: Into<String>>(msg: S) -> Self
-```
-
-Create a generic error
-
----
-
-### io
-
-**Source**: `src/error.rs`
-
-```rust
-pub fn io<S: Into<String>>(msg: S) -> Self
-```
-
-Create an IO error
-
----
-
-### parse
-
-**Source**: `src/error.rs`
-
-```rust
-pub fn parse<S: Into<String>>(msg: S) -> Self
-```
-
-Create a parse error
-
----
-
-### validation
-
-**Source**: `src/error.rs`
-
-```rust
-pub fn validation<S: Into<String>>(msg: S) -> Self
-```
-
-Create a validation error
-
----
-
-## Traits
-
-### Validator
-
-**Source**: `src/validation.rs`
-
-```rust
-pub trait Validator { ... }
-```
-
-Trait for validatable configuration
-
-**Methods**:
-
-#### `validate`
-
-```rust
-fn validate(&self) -> ConfigResult<()>;
-```
-
----
-
-## Functions (validation)
-
-### validate_api_key
-
-**Source**: `src/validation.rs`
-
-**Attributes**:
-```rust
-#[allow(dead_code)]
-```
-
-```rust
-pub fn validate_api_key(key: &str, name: &str) -> ConfigResult<()>
-```
-
-Validate an API key format
-
----
-
-### validate_email
-
-**Source**: `src/validation.rs`
-
-**Attributes**:
-```rust
-#[allow(dead_code)]
-```
-
-```rust
-pub fn validate_email(email: &str) -> ConfigResult<()>
-```
-
-Validate an email address
-
----
-
-### validate_eth_address
-
-**Source**: `src/validation.rs`
-
-**Attributes**:
-```rust
-#[allow(dead_code)]
-```
-
-```rust
-pub fn validate_eth_address(address: &str) -> ConfigResult<()>
-```
-
-Validate an Ethereum address
-
----
-
-### validate_percentage
-
-**Source**: `src/validation.rs`
-
-**Attributes**:
-```rust
-#[allow(dead_code)]
-```
-
-```rust
-pub fn validate_percentage(value: f64, name: &str) -> ConfigResult<()>
-```
-
-Validate a percentage value (0-100)
-
----
-
-### validate_port
-
-**Source**: `src/validation.rs`
-
-**Attributes**:
-```rust
-#[allow(dead_code)]
-```
-
-```rust
-pub fn validate_port(port: u16) -> ConfigResult<()>
-```
-
-Validate a port number
-
----
-
-### validate_positive
-
-**Source**: `src/validation.rs`
-
-**Attributes**:
-```rust
-#[allow(dead_code)]
-```
-
-```rust
-pub fn validate_positive<T: PartialOrd + Default + std::fmt::Display>( value: T, name: &str, ) -> ConfigResult<()>
-```
-
-Validate a positive number
-
----
-
-### validate_range
-
-**Source**: `src/validation.rs`
-
-**Attributes**:
-```rust
-#[allow(dead_code)]
-```
-
-```rust
-pub fn validate_range<T: PartialOrd + std::fmt::Display>( value: T, min: T, max: T, name: &str, ) -> ConfigResult<()>
-```
-
-Validate a range
-
----
-
-### validate_solana_address
-
-**Source**: `src/validation.rs`
-
-**Attributes**:
-```rust
-#[allow(dead_code)]
-```
-
-```rust
-pub fn validate_solana_address(address: &str) -> ConfigResult<()>
-```
-
-Validate a Solana address
-
----
-
-### validate_url
-
-**Source**: `src/validation.rs`
-
-**Attributes**:
-```rust
-#[allow(dead_code)]
-```
-
-```rust
-pub fn validate_url(url: &str) -> ConfigResult<()>
-```
-
-Validate a URL
-
----
-
-## Structs
-
-### AppConfig
-
-**Source**: `src/app.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Deserialize, Serialize)]
-```
-
-```rust
-pub struct AppConfig { /// Server port #[serde(default = "default_port")]
-```
+#### `AppConfig`
 
 Application configuration
 
 ---
 
-### ChainConfig
-
-**Source**: `src/network.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Deserialize, Serialize)]
-```
-
-```rust
-pub struct ChainConfig { /// Chain ID pub id: u64, /// Human-readable chain name pub name: String, /// RPC URL (overrides global RPC_URL_{CHAIN_ID} if set)
-```
+#### `ChainConfig`
 
 Chain-specific configuration
 
 ---
 
-### ChainContract
-
-**Source**: `src/network.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Default, Deserialize, Serialize)]
-```
-
-```rust
-pub struct ChainContract { /// Uniswap V3 router address #[serde(default)]
-```
+#### `ChainContract`
 
 Contract addresses for a chain
 
 ---
 
-### Config
-
-**Source**: `src/lib.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Deserialize, Serialize)]
-```
-
-```rust
-pub struct Config { /// Application-level configuration #[serde(flatten)]
-```
-
-Main configuration structure that aggregates all subsystems
-
----
-
-### ConfigBuilder
-
-**Source**: `src/lib.rs`
-
-**Attributes**:
-```rust
-#[derive(Default)]
-```
-
-```rust
-pub struct ConfigBuilder { app: AppConfig, database: DatabaseConfig, network: NetworkConfig, providers: ProvidersConfig, features: FeaturesConfig, }
-```
-
-Builder for constructing configuration programmatically
-
----
-
-### DatabaseConfig
-
-**Source**: `src/database.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Deserialize, Serialize)]
-```
-
-```rust
-pub struct DatabaseConfig { /// Redis connection URL pub redis_url: String, /// Neo4j connection URL (optional, for graph memory)
-```
+#### `DatabaseConfig`
 
 Database configuration
 
 ---
 
-### FeaturesConfig
+#### `EvmNetworkConfig`
 
-**Source**: `src/features.rs`
+EVM-specific network configuration
 
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Deserialize, Serialize)]
-```
+---
 
-```rust
-pub struct FeaturesConfig { /// Enable trading functionality #[serde(default = "default_true")]
-```
+#### `FeaturesConfig`
 
 Feature flags configuration
 
 ---
 
-### NetworkConfig
-
-**Source**: `src/network.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Deserialize, Serialize)]
-```
-
-```rust
-pub struct NetworkConfig { /// Solana RPC URL pub solana_rpc_url: String, /// Solana WebSocket URL (optional)
-```
+#### `NetworkConfig`
 
 Network configuration
 
 ---
 
-### NetworkTimeouts
-
-**Source**: `src/network.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Deserialize, Serialize)]
-```
-
-```rust
-pub struct NetworkTimeouts { /// RPC request timeout in seconds #[serde(default = "default_rpc_timeout")]
-```
+#### `NetworkTimeouts`
 
 Network timeout configuration
 
 ---
 
-### PoolConfig
-
-**Source**: `src/database.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Deserialize, Serialize)]
-```
-
-```rust
-pub struct PoolConfig { /// Maximum number of connections in the pool #[serde(default = "default_max_connections")]
-```
+#### `PoolConfig`
 
 Database connection pool configuration
 
 ---
 
-### ProvidersConfig
-
-**Source**: `src/providers.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Default, Deserialize, Serialize)]
-```
-
-```rust
-pub struct ProvidersConfig { // AI Providers /// API key for Anthropic Claude #[serde(default)]
-```
+#### `ProvidersConfig`
 
 External API providers configuration
 
 ---
 
-### RetryConfig
-
-**Source**: `src/app.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Deserialize, Serialize)]
-```
-
-```rust
-pub struct RetryConfig { /// Maximum number of retry attempts #[serde(default = "default_max_retries")]
-```
+#### `RetryConfig`
 
 Retry configuration
 
 ---
 
-### TransactionConfig
+#### `SolanaNetworkConfig`
 
-**Source**: `src/app.rs`
+Solana-specific network configuration
 
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Deserialize, Serialize)]
-```
+---
 
-```rust
-pub struct TransactionConfig { /// Maximum gas price in gwei #[serde(default = "default_max_gas_price")]
-```
+#### `TransactionConfig`
 
 Transaction configuration
 
 ---
 
-## Functions (app)
+### Enums
 
-### validate
+> Enumeration types for representing variants.
 
-**Source**: `src/app.rs`
+#### `AiProvider`
 
-```rust
-pub fn validate(&self) -> ConfigResult<()>
-```
+AI provider enumeration
 
-Validates the application configuration for correctness
+**Variants:**
 
----
-
-### validate
-
-**Source**: `src/app.rs`
-
-```rust
-pub fn validate(&self) -> ConfigResult<()>
-```
-
-Validates the retry configuration for correctness
+- `Anthropic`
+  - Anthropic Claude AI provider
+- `OpenAI`
+  - OpenAI provider
+- `Groq`
+  - Groq provider
+- `Perplexity`
+  - Perplexity AI provider
 
 ---
 
-## Functions (features)
+#### `BlockchainProvider`
 
-### disable
+Blockchain data provider enumeration
 
-**Source**: `src/features.rs`
+**Variants:**
 
-```rust
-pub fn disable(&mut self, feature: Feature)
-```
-
-Disable a feature
-
----
-
-### enable
-
-**Source**: `src/features.rs`
-
-```rust
-pub fn enable(&mut self, feature: Feature)
-```
-
-Enable a feature
+- `Alchemy`
+  - Alchemy blockchain data provider
+- `Infura`
+  - Infura blockchain infrastructure provider
+- `QuickNode`
+  - QuickNode blockchain infrastructure provider
+- `Moralis`
+  - Moralis Web3 development platform
 
 ---
 
-### is_custom_enabled
+#### `ConfigError`
 
-**Source**: `src/features.rs`
+Configuration errors
 
-```rust
-pub fn is_custom_enabled(&self, name: &str) -> bool
-```
+**Variants:**
 
-Check if a custom feature is enabled
-
----
-
-### is_enabled
-
-**Source**: `src/features.rs`
-
-```rust
-pub fn is_enabled(&self, feature: Feature) -> bool
-```
-
-Check if a feature is enabled
-
----
-
-### validate
-
-**Source**: `src/features.rs`
-
-```rust
-pub fn validate(&self) -> ConfigResult<()>
-```
-
-Validate the features configuration for consistency and warnings
+- `MissingEnvVar`
+  - Environment variable not found
+- `EnvParse`
+  - Failed to parse environment variables
+- `ValidationError`
+  - Invalid configuration value
+- `ParseError`
+  - Failed to parse configuration
+- `IoError`
+  - IO error
+- `ChainNotSupported`
+  - Chain not supported
+- `ProviderNotConfigured`
+  - Provider not configured
+- `ConfigLocked`
+  - Configuration already locked
+- `Generic`
+  - Generic error
 
 ---
 
-## Functions (database)
+#### `DataProvider`
 
-### validate
+Data provider enumeration
 
-**Source**: `src/database.rs`
+**Variants:**
 
-```rust
-pub fn validate(&self) -> ConfigResult<()>
-```
-
-Validates all database configuration settings
-
-This method validates:
-- Redis URL format and connectivity
-- Neo4j URL format (if provided)
-- ClickHouse URL format (if provided)
-- PostgreSQL URL format (if provided)
-- Connection pool configuration
-
-# Errors
-
-Returns `ConfigError` if any validation fails
+- `DexScreener`
+  - DexScreener DEX analytics provider
+- `CoinGecko`
+  - CoinGecko cryptocurrency data provider
+- `CoinMarketCap`
+  - CoinMarketCap cryptocurrency market data provider
+- `Twitter`
+  - Twitter social media data provider
+- `LunarCrush`
+  - LunarCrush social analytics provider
 
 ---
 
-### validate
+#### `Environment`
 
-**Source**: `src/database.rs`
+Application environment
 
-```rust
-pub fn validate(&self) -> ConfigResult<()>
-```
+**Variants:**
 
-Validates connection pool configuration settings
-
-This method validates:
-- Maximum connections is greater than 0
-- Minimum connections doesn't exceed maximum connections
-- Connection timeout is greater than 0
-
-# Errors
-
-Returns `ConfigError` if any validation fails
+- `Development`
+  - Development environment for local testing and debugging
+- `Staging`
+  - Staging environment for pre-production testing
+- `Production`
+  - Production environment for live deployment
 
 ---
 
-## Functions (network)
+#### `EnvironmentSource`
 
-### extract_rpc_urls
+Source of environment variables (for testing and custom providers)
 
-**Source**: `src/network.rs`
+**Variants:**
 
-```rust
-pub fn extract_rpc_urls(&mut self)
-```
-
-Extract RPC URLs from environment using RPC_URL_{CHAIN_ID} convention
-
----
-
-### get_chain
-
-**Source**: `src/network.rs`
-
-```rust
-pub fn get_chain(&self, chain_id: u64) -> Option<&ChainConfig>
-```
-
-Get chain configuration
+- `System`
+  - Use system environment variables
+- `Custom`
+  - Use custom environment provider (for testing)
 
 ---
 
-### get_rpc_url
+#### `Feature`
 
-**Source**: `src/network.rs`
+Feature enumeration
 
-```rust
-pub fn get_rpc_url(&self, chain_id: u64) -> Option<String>
-```
+**Variants:**
 
-Get RPC URL for a specific chain ID
-
----
-
-### get_supported_chains
-
-**Source**: `src/network.rs`
-
-```rust
-pub fn get_supported_chains(&self) -> Vec<u64>
-```
-
-Get all supported chain IDs
-
----
-
-### load_chain_contracts
-
-**Source**: `src/network.rs`
-
-```rust
-pub fn load_chain_contracts(&mut self) -> ConfigResult<()>
-```
-
-Load chain contracts from chains.toml file
+- `Trading`
+  - Enable trading functionality
+- `Bridging`
+  - Enable cross-chain bridging
+- `SocialMonitoring`
+  - Enable social media monitoring
+- `GraphMemory`
+  - Enable graph-based memory
+- `Streaming`
+  - Enable real-time streaming
+- `Webhooks`
+  - Enable webhook notifications
+- `Analytics`
+  - Enable analytics collection
+- `Debug`
+  - Enable debug mode
+- `Experimental`
+  - Enable experimental features
 
 ---
 
-### validate
+#### `LogLevel`
 
-**Source**: `src/network.rs`
+Log level configuration
 
-```rust
-pub fn validate(&self) -> ConfigResult<()>
-```
+**Variants:**
 
-Validates the network configuration
-
-Checks that all URLs are properly formatted and contract addresses are valid
-
----
-
-## Functions (providers)
-
-### get_ai_key
-
-**Source**: `src/providers.rs`
-
-```rust
-pub fn get_ai_key(&self, provider: AiProvider) -> Option<&str>
-```
-
-Get the API key for an AI provider
+- `Trace`
+  - Trace level - most verbose
+- `Debug`
+  - Debug level - detailed debugging
+- `Info`
+  - Info level - general information
+- `Warn`
+  - Warning level - warnings
+- `Error`
+  - Error level - only errors
 
 ---
 
-### get_blockchain_key
+### Traits
 
-**Source**: `src/providers.rs`
+> Trait definitions for implementing common behaviors.
 
-```rust
-pub fn get_blockchain_key(&self, provider: BlockchainProvider) -> Option<&str>
-```
+#### `AddressValidator`
 
-Get the API key for a blockchain provider
+Trait for validating blockchain addresses
 
----
+This trait allows different blockchain address validation logic to be plugged into
+the configuration system without creating tight coupling to specific blockchain crates.
 
-### has_ai_provider
+**Methods:**
 
-**Source**: `src/providers.rs`
-
-```rust
-pub fn has_ai_provider(&self, provider: AiProvider) -> bool
-```
-
-Check if a specific AI provider is configured
+- `validate()`
+  - Validate an address string
 
 ---
 
-### has_blockchain_provider
+### Type Aliases
 
-**Source**: `src/providers.rs`
+#### `ConfigResult`
 
-```rust
-pub fn has_blockchain_provider(&self, provider: BlockchainProvider) -> bool
-```
+Configuration result type
 
-Check if a blockchain provider is configured
+**Type:** `<T, >`
 
 ---
-
-### has_data_provider
-
-**Source**: `src/providers.rs`
-
-```rust
-pub fn has_data_provider(&self, provider: DataProvider) -> bool
-```
-
-Check if a data provider is configured
-
----
-
-### validate
-
-**Source**: `src/providers.rs`
-
-```rust
-pub fn validate(&self) -> ConfigResult<()>
-```
-
-Validate API key formats and configurations
-
----
-
-## Functions (lib)
-
-### app
-
-**Source**: `src/lib.rs`
-
-```rust
-pub fn app(mut self, config: AppConfig) -> Self
-```
-
-Set application configuration
-
----
-
-### build
-
-**Source**: `src/lib.rs`
-
-```rust
-pub fn build(self) -> ConfigResult<Config>
-```
-
-Build the configuration
-
----
-
-### builder
-
-**Source**: `src/lib.rs`
-
-```rust
-pub fn builder() -> ConfigBuilder
-```
-
-Create a builder for constructing configuration programmatically
-
----
-
-### database
-
-**Source**: `src/lib.rs`
-
-```rust
-pub fn database(mut self, config: DatabaseConfig) -> Self
-```
-
-Set database configuration
-
----
-
-### features
-
-**Source**: `src/lib.rs`
-
-```rust
-pub fn features(mut self, config: FeaturesConfig) -> Self
-```
-
-Set features configuration
-
----
-
-### from_env
-
-**Source**: `src/lib.rs`
-
-```rust
-pub fn from_env() -> Arc<Self>
-```
-
-Load configuration from environment variables (fail-fast)
-
-This will:
-1. Load .env file if present
-2. Parse environment variables
-3. Apply convention-based patterns (RPC_URL_{CHAIN_ID})
-4. Load chains.toml if specified
-5. Validate all configuration
-
----
-
-### global
-
-**Source**: `src/lib.rs`
-
-```rust
-pub fn global() -> Arc<Self>
-```
-
-Get the global configuration instance
-
-Panics if configuration hasn't been loaded via from_env()
-
----
-
-### network
-
-**Source**: `src/lib.rs`
-
-```rust
-pub fn network(mut self, config: NetworkConfig) -> Self
-```
-
-Set network configuration
-
----
-
-### new
-
-**Source**: `src/lib.rs`
-
-```rust
-pub fn new() -> Self
-```
-
-Create a new configuration builder with defaults
-
----
-
-### providers
-
-**Source**: `src/lib.rs`
-
-```rust
-pub fn providers(mut self, config: ProvidersConfig) -> Self
-```
-
-Set providers configuration
-
----
-
-### try_global
-
-**Source**: `src/lib.rs`
-
-```rust
-pub fn try_global() -> Option<Arc<Self>>
-```
-
-Try to get the global configuration instance
-
----
-
-### validate
-
-**Source**: `src/lib.rs`
-
-```rust
-pub fn validate(&self) -> ConfigResult<()>
-```
-
-Validate the entire configuration
-
----
-
-
----
-
-*This documentation was automatically generated from the source code.*

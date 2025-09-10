@@ -56,11 +56,10 @@ Each tutorial follows a consistent structure:
 All tutorials use the same development setup:
 
 ```bash
-# Clone the tutorial repository
-git clone https://github.com/riglr/tutorials
-cd tutorials
+# Navigate to the showcase directory within the riglr repo
+cd riglr-showcase
 
-# Install dependencies
+# Install dependencies for the examples
 cargo build
 
 # Set up environment

@@ -39,3 +39,10 @@ Whether you're building a sophisticated DeFi trading bot, a market analysis agen
 - **Researchers** exploring on-chain agent behavior and autonomous systems.
 
 This documentation will guide you through setting up your first agent, understanding core concepts, and deploying your application to production.
+
+## Where to Start
+
+- **[Architecture Overview](concepts/architecture/index.md)** - Understand the system design and how components work together
+- **[Core Patterns](concepts/architecture/core-patterns.md)** - Learn about SignerContext, ApplicationContext, and other essential patterns
+- **[Configuration](concepts/configuration.md)** - Set up your environment and configuration
+- **[Quick Start](quick-start.md)** - Build your first agent in minutes

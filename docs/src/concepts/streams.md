@@ -2,6 +2,12 @@
 
 The `riglr-streams` crate provides a powerful stream processing framework for handling real-time blockchain events, market data, and other high-throughput data sources.
 
+> **Related Documentation:**
+> - [Event Parsing](./event-parsing.md) - How events are parsed from streams
+> - [Indexer](./indexer.md) - How streams integrate with the indexer
+> - [Agents](./agents.md) - How agents consume stream data
+> - [API Reference: riglr-streams](../api-reference/riglr-streams.md) - Complete API documentation
+
 ## StreamManager
 
 The StreamManager is the central hub for all streaming operations, providing unified access to multiple data sources and powerful stream transformation capabilities.
@@ -367,6 +373,44 @@ println!("Error rate: {:.2}%", stats.error_rate * 100.0);
 println!("Throughput: {} events/sec", stats.throughput);
 ```
 
+## Architecture Overview
+
+The riglr streaming ecosystem provides:
+- **Enhanced Client Configuration**: Advanced backpressure handling, connection management, and performance tuning
+- **Connection Resilience**: Automatic reconnection with circuit breaker patterns and health monitoring
+- **Advanced Processing**: Time-based windowing, stateful processing, and complex event processing (CEP)
+- **Flow Control**: Adaptive backpressure management and performance optimization
+- **Multi-chain Support**: Seamless integration across Solana, Ethereum, and other blockchains
+
+## Configuration Presets
+
+### High-Frequency Trading Configuration
+```rust
+let config = StreamClientConfig::high_performance();
+// - 500 event batch size
+// - 2ms batch timeout
+// - Adaptive backpressure with 10k channel size
+// - Detailed latency tracking
+```
+
+### Low-Latency Real-Time Processing
+```rust
+let config = StreamClientConfig::low_latency();
+// - No batching (immediate processing)
+// - 100 channel size
+// - Block backpressure strategy
+// - Sub-millisecond latency tracking
+```
+
+### Reliable Data Processing
+```rust
+let config = StreamClientConfig::reliable();
+// - 50 event batch size with 10ms timeout
+// - Retry backpressure with exponential backoff
+// - 5k channel size with guaranteed delivery
+// - Comprehensive error recovery
+```
+
 ## Best Practices
 
 1. **Buffer Appropriately**: Set buffer sizes based on expected throughput and processing capacity
@@ -374,6 +418,9 @@ println!("Throughput: {} events/sec", stats.throughput);
 3. **Monitor Lag**: Track processing lag to detect performance issues early
 4. **Use Batching**: Process events in batches for better efficiency
 5. **Implement Checkpointing**: Save progress for recovery from failures
+6. **Error Handling**: Always distinguish between retriable and permanent errors
+7. **Security**: Never log private keys or sensitive information
+8. **Zero-Copy Processing**: Use zero-copy processing where possible for performance
 
 ## Performance Tuning
 
@@ -406,6 +453,74 @@ let compressed = stream
     .keep_alive(Duration::from_secs(30))
     .collect();
 ```
+
+## Performance Benchmarks
+
+### Throughput Benchmarks
+- **Simple Event Processing**: 50,000+ events/second
+- **Complex Pattern Matching**: 25,000+ events/second
+- **Multi-Window Aggregation**: 15,000+ events/second
+- **Cross-Chain Correlation**: 10,000+ events/second
+
+### Latency Benchmarks
+- **Event Ingestion**: <0.1ms p99
+- **Simple Processing**: <0.5ms p99
+- **Complex Analysis**: <2.0ms p99
+- **Database Persistence**: <5.0ms p99
+
+### Memory Usage
+- **Baseline Streaming**: ~50MB resident memory
+- **HFT Bot with 10k positions**: ~200MB resident memory
+- **Multi-protocol monitoring**: ~100MB resident memory
+- **Large window operations**: ~500MB peak memory
+
+## Production Goals
+
+The riglr streaming infrastructure targets production-grade performance:
+- **Latency**: Sub-millisecond processing for critical paths
+- **Throughput**: 10,000+ events/second sustained processing
+- **Reliability**: 99.9% uptime with automatic recovery
+- **Resource Efficiency**: Minimal memory footprint and CPU usage
+- **Scalability**: Horizontal scaling support for high-load scenarios
+
+## Troubleshooting
+
+### Common Issues
+
+#### Connection Problems
+```bash
+# Check RPC endpoint connectivity
+curl -X POST -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"getHealth"}' \
+  $SOLANA_RPC_HTTP_URL
+```
+
+#### Performance Issues
+```bash
+# Enable detailed logging
+RUST_LOG=riglr_streams=trace,riglr_core=debug cargo run --example hft_bot
+
+# Check system resources
+htop
+iostat -x 1
+```
+
+#### Memory Leaks
+```bash
+# Run with memory debugging
+RUST_BACKTRACE=1 cargo run --example yield_monitor
+
+# Use memory profiler
+cargo install cargo-profiler
+cargo profiler heap --example hft_bot
+```
+
+### Debugging Tips
+1. Start with the simple examples before moving to advanced ones
+2. Use the development configuration for detailed debugging
+3. Monitor system resources during high-throughput testing
+4. Check network connectivity and RPC endpoint status
+5. Verify environment variable configuration
 
 ## Next Steps
 

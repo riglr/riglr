@@ -29,10 +29,10 @@ cp .env.example .env
 
 Now, open the `.env` file and add your API keys and blockchain RPC endpoints. At a minimum, you'll need:
 
-* `ANTHROPIC_API_KEY` or `OPENAI_API_KEY`
-* `SOLANA_RPC_URL` for Solana
-* `RPC_URL_1` for Ethereum (or other `RPC_URL_{CHAIN_ID}` for EVM chains)
-* `REDIS_URL` for the job queue
+* `REDIS_URL` - Required for the job queue and caching (e.g., `redis://localhost:6379`)
+* `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` - For AI model access
+* `SOLANA_RPC_URL` - For Solana blockchain access
+* `RPC_URL_1` - For Ethereum mainnet (or other `RPC_URL_{CHAIN_ID}` for EVM chains)
 
 ### 4. Start Required Services
 

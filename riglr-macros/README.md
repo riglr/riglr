@@ -883,8 +883,8 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-riglr-macros = "0.2.0"
-riglr-core = "0.2.0"
+riglr-macros = "0.3.0"
+riglr-core = "0.3.0"
 tokio = { version = "1.0", features = ["full"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"

@@ -173,17 +173,92 @@ factory.register_parser(
 
 ## Event Metadata
 
-Every event includes rich metadata for context:
+Every event includes rich metadata for context. The metadata system uses a wrapper pattern to separate chain-specific data from core metadata:
+
+### Core EventMetadata
+
+The base metadata structure from `riglr-events-core`:
 
 ```rust
 pub struct EventMetadata {
-    pub transaction_signature: String,
+    pub id: String,                    // Unique identifier
+    pub kind: EventKind,                // Event classification
+    pub timestamp: DateTime<Utc>,      // Event timestamp
+    pub received_at: DateTime<Utc>,    // When received by system
+    pub source: String,                 // Data source
+    pub chain_data: Option<ChainData>, // Optional chain-specific data
+    pub custom: HashMap<String, Value>, // Custom fields
+}
+```
+
+### Solana-Specific Metadata
+
+Solana events use an explicit wrapper pattern to add chain-specific fields:
+
+```rust
+pub struct SolanaEventMetadata {
+    // Solana-specific fields
+    pub signature: String,
     pub slot: u64,
-    pub block_time: i64,
-    pub program_id: Pubkey,
-    pub instruction_index: usize,
-    pub inner_instruction_index: Option<usize>,
-    pub event_id: String,  // Unique identifier
+    pub event_type: EventType,
+    pub protocol_type: ProtocolType,
+    pub index: String,
+    pub program_received_time_ms: i64,
+    
+    // Wrapped core metadata
+    pub core: EventMetadata,
+}
+
+// Deref implementation for ergonomic field access
+impl Deref for SolanaEventMetadata {
+    type Target = EventMetadata;
+    fn deref(&self) -> &Self::Target {
+        &self.core
+    }
+}
+```
+
+### Design Rationale
+
+This wrapper pattern was chosen after careful architectural consideration:
+
+1. **No Ambiguity**: Clear distinction between `SolanaEventMetadata` and core `EventMetadata`
+2. **Ergonomic Access**: With `Deref`, you can access core fields directly: `solana_meta.id`
+3. **Single Source of Truth**: Solana-specific data lives only on the wrapper
+4. **Type Safety**: The compiler enforces correct usage
+5. **No Data Duplication**: Avoids storing the same data in both wrapper and `core.chain_data`
+
+### Usage Example
+
+```rust
+// Creating Solana event metadata
+let core = create_core_metadata(
+    id,
+    kind,
+    source,
+    block_time,
+);
+
+let solana_metadata = SolanaEventMetadata::new(
+    signature,
+    slot,
+    event_type,
+    protocol_type,
+    index,
+    received_time_ms,
+    core,
+);
+
+// Accessing fields
+let slot = solana_meta.slot;           // Solana-specific field
+let id = solana_meta.id;               // Core field via Deref
+let signature = &solana_meta.signature; // Solana-specific field
+
+// For Event trait implementation
+impl Event for CustomEvent {
+    fn metadata(&self) -> &EventMetadata {
+        &self.metadata.core  // Return the core metadata
+    }
 }
 ```
 

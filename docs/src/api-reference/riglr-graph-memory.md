@@ -1,270 +1,77 @@
-# riglr-graph-memory API Reference
+# riglr-graph-memory
 
-Comprehensive API documentation for the `riglr-graph-memory` crate.
+{{#include ../../../riglr-graph-memory/README.md}}
 
-## Table of Contents
+## API Reference
+
+### Contents
+
+- [Structs](#structs)
+- [Enums](#enums)
+- [Traits](#traits)
+- [Type Aliases](#type-aliases)
+- [Constants](#constants)
 
 ### Structs
 
-- [`AmountMention`](#amountmention)
-- [`DocumentMetadata`](#documentmetadata)
-- [`EntityExtractor`](#entityextractor)
-- [`EntityMention`](#entitymention)
-- [`ExtractedEntities`](#extractedentities)
-- [`GraphDocument`](#graphdocument)
-- [`GraphMemory`](#graphmemory)
-- [`GraphMemoryConfig`](#graphmemoryconfig)
-- [`GraphMemoryStats`](#graphmemorystats)
-- [`GraphRetriever`](#graphretriever)
-- [`GraphRetrieverConfig`](#graphretrieverconfig)
-- [`GraphSearchResult`](#graphsearchresult)
-- [`GraphVectorStore`](#graphvectorstore)
-- [`Neo4jClient`](#neo4jclient)
-- [`RawTextDocument`](#rawtextdocument)
-- [`RelationshipMention`](#relationshipmention)
-- [`RigDocument`](#rigdocument)
-- [`SearchMetrics`](#searchmetrics)
+> Core data structures and types.
 
-### Functions (client)
-
-- [`create_indexes`](#create_indexes)
-- [`execute_query`](#execute_query)
-- [`get_stats`](#get_stats)
-- [`new`](#new)
-- [`simple_query`](#simple_query)
-
-### Enums
-
-- [`AmountType`](#amounttype)
-- [`DocumentSource`](#documentsource)
-- [`EntityType`](#entitytype)
-- [`GraphMemoryError`](#graphmemoryerror)
-- [`RelationshipType`](#relationshiptype)
-
-### Functions (rig_vector_store)
-
-- [`add_documents`](#add_documents)
-- [`delete_documents`](#delete_documents)
-- [`get_documents`](#get_documents)
-- [`new`](#new)
-- [`search`](#search)
-- [`with_dimension`](#with_dimension)
-
-### Traits
-
-- [`VectorStore`](#vectorstore)
-
-### Constants
-
-- [`VERSION`](#version)
-
-### Functions (vector_store)
-
-- [`add_documents`](#add_documents)
-- [`broad_context`](#broad_context)
-- [`high_precision`](#high_precision)
-- [`new`](#new)
-- [`new_default`](#new_default)
-- [`search_with_graph_context`](#search_with_graph_context)
-- [`top_n_ids`](#top_n_ids)
-
-### Functions (extractor)
-
-- [`extract`](#extract)
-
-### Functions (document)
-
-- [`add_protocol`](#add_protocol)
-- [`add_tag`](#add_tag)
-- [`add_token`](#add_token)
-- [`add_wallet`](#add_wallet)
-- [`char_count`](#char_count)
-- [`from_transaction`](#from_transaction)
-- [`is_processed`](#is_processed)
-- [`new`](#new)
-- [`with_metadata`](#with_metadata)
-- [`with_source`](#with_source)
-- [`word_count`](#word_count)
-
-### Functions (graph)
-
-- [`add_documents`](#add_documents)
-- [`client`](#client)
-- [`extractor`](#extractor)
-- [`get_stats`](#get_stats)
-- [`new`](#new)
-- [`retriever`](#retriever)
-- [`search`](#search)
-- [`with_defaults`](#with_defaults)
-
-## Structs
-
-### AmountMention
-
-**Source**: `src/document.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub struct AmountMention { /// Raw text of the amount pub text: String, /// Parsed numerical value pub value: f64, /// Associated unit (ETH, USDC, USD, etc.)
-```
+#### `AmountMention`
 
 A numerical amount mentioned in the document
 
 ---
 
-### DocumentMetadata
-
-**Source**: `src/document.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, Default)]
-```
-
-```rust
-pub struct DocumentMetadata { /// Title or summary of the document pub title: Option<String>, /// Tags or categories pub tags: Vec<String>, /// Blockchain network if relevant (e.g., "ethereum", "solana")
-```
+#### `DocumentMetadata`
 
 Metadata associated with a document
 
 ---
 
-### EntityExtractor
-
-**Source**: `src/extractor.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug)]
-```
-
-```rust
-pub struct EntityExtractor { /// Known protocol names for recognition protocol_patterns: HashMap<String, Vec<String>>, /// Token symbol patterns token_patterns: HashMap<String, Vec<String>>, /// Blockchain network patterns chain_patterns: HashMap<String, Vec<String>>, /// Compiled regex patterns for performance #[allow(dead_code)]
-```
+#### `EntityExtractor`
 
 Production-grade entity extractor for blockchain text analysis
 
 ---
 
-### EntityMention
-
-**Source**: `src/document.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub struct EntityMention { /// The entity text as it appears in the document pub text: String, /// Normalized/canonical form (e.g., lowercase address)
-```
+#### `EntityMention`
 
 An entity mention in the document
 
 ---
 
-### ExtractedEntities
-
-**Source**: `src/document.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub struct ExtractedEntities { /// Wallet addresses found in the document pub wallets: Vec<EntityMention>, /// Token contracts and symbols pub tokens: Vec<EntityMention>, /// DeFi protocols and applications pub protocols: Vec<EntityMention>, /// Blockchain networks mentioned pub chains: Vec<EntityMention>, /// Numerical amounts (prices, balances, etc.)
-```
+#### `ExtractedEntities`
 
 Extracted entities from a document
 
 ---
 
-### GraphDocument
-
-**Source**: `src/vector_store.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize)]
-```
-
-```rust
-pub struct GraphDocument { /// Document unique identifier pub id: String, /// Document content pub content: String, /// Vector embedding pub embedding: Vec<f32>, /// Metadata extracted from the document pub metadata: HashMap<String, Value>, /// Entities extracted from this document pub entities: Vec<String>, /// Graph relationships pub relationships: Vec<String>, /// Similarity score (populated during search)
-```
+#### `GraphDocument`
 
 A document stored in the graph with vector embeddings
 
 ---
 
-### GraphMemory
-
-**Source**: `src/graph.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug)]
-```
-
-```rust
-pub struct GraphMemory { /// Neo4j database client client: Arc<Neo4jClient>, /// Entity extractor for processing documents extractor: EntityExtractor, /// Graph-based vector retriever retriever: Arc<GraphRetriever>, /// Configuration settings config: GraphMemoryConfig, /// OpenAI client for real embeddings (optional)
-```
+#### `GraphMemory`
 
 The main graph memory system that provides comprehensive document storage,
 entity extraction, and hybrid vector + graph search capabilities.
 
 ---
 
-### GraphMemoryConfig
-
-**Source**: `src/graph.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone)]
-```
-
-```rust
-pub struct GraphMemoryConfig { /// Neo4j connection URL pub neo4j_url: String, /// Database username pub username: Option<String>, /// Database password pub password: Option<String>, /// Database name (default: "neo4j")
-```
+#### `GraphMemoryConfig`
 
 Configuration for the graph memory system
 
 ---
 
-### GraphMemoryStats
-
-**Source**: `src/graph.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone)]
-```
-
-```rust
-pub struct GraphMemoryStats { /// Total number of documents pub document_count: u64, /// Total number of entity nodes pub entity_count: u64, /// Total number of relationships pub relationship_count: u64, /// Total number of wallets tracked pub wallet_count: u64, /// Total number of tokens tracked pub token_count: u64, /// Total number of protocols tracked pub protocol_count: u64, /// Average entities per document pub avg_entities_per_doc: f64, /// Storage size in bytes (approximate)
-```
+#### `GraphMemoryStats`
 
 Statistics about the graph memory system
 
 ---
 
-### GraphRetriever
-
-**Source**: `src/vector_store.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug)]
-```
-
-```rust
-pub struct GraphRetriever { /// Neo4j client for database operations client: Arc<Neo4jClient>, /// Vector index name in Neo4j index_name: String, /// Minimum similarity threshold for vector search similarity_threshold: f32, /// Maximum number of graph hops for relationship traversal max_graph_hops: u32, /// Embedding dimension (default 1536 for OpenAI)
-```
+#### `GraphRetriever`
 
 A retriever that combines graph and vector search for enhanced context.
 
@@ -274,47 +81,19 @@ for agent queries.
 
 ---
 
-### GraphRetrieverConfig
-
-**Source**: `src/vector_store.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone)]
-```
-
-```rust
-pub struct GraphRetrieverConfig { /// Minimum similarity threshold (0.0 to 1.0)
-```
+#### `GraphRetrieverConfig`
 
 Configuration for graph-based vector retrieval
 
 ---
 
-### GraphSearchResult
-
-**Source**: `src/vector_store.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone)]
-```
-
-```rust
-pub struct GraphSearchResult { /// Retrieved documents pub documents: Vec<GraphDocument>, /// Related entities found through graph traversal pub related_entities: Vec<String>, /// Query performance metrics pub metrics: SearchMetrics, }
-```
+#### `GraphSearchResult`
 
 Search result from graph vector store
 
 ---
 
-### GraphVectorStore
-
-**Source**: `src/rig_vector_store.rs`
-
-```rust
-pub struct GraphVectorStore { client: Arc<Neo4jClient>, index_name: String, embedding_dimension: usize, }
-```
+#### `GraphVectorStore`
 
 Graph-based vector store implementation for rig
 
@@ -323,18 +102,7 @@ to provide enhanced contextual search for rig agents.
 
 ---
 
-### Neo4jClient
-
-**Source**: `src/client.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone)]
-```
-
-```rust
-pub struct Neo4jClient { /// HTTP client for API requests client: Client, /// Base URL for Neo4j HTTP API (e.g., http://localhost:7474)
-```
+#### `Neo4jClient`
 
 Neo4j database client using HTTP REST API.
 
@@ -343,18 +111,7 @@ with proper error handling, authentication, and query optimization.
 
 ---
 
-### RawTextDocument
-
-**Source**: `src/document.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub struct RawTextDocument { /// Unique document identifier pub id: String, /// Raw text content to be processed pub content: String, /// Optional document metadata pub metadata: Option<DocumentMetadata>, /// Vector embedding (populated during processing)
-```
+#### `RawTextDocument`
 
 A raw text document that can be added to the graph memory system.
 
@@ -363,746 +120,173 @@ entity extraction to populate the knowledge graph.
 
 ---
 
-### RelationshipMention
-
-**Source**: `src/document.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub struct RelationshipMention { /// Source entity pub from_entity: String, /// Target entity pub to_entity: String, /// Relationship type pub relationship_type: RelationshipType, /// Confidence score pub confidence: f32, /// Supporting text snippet pub context: String, }
-```
+#### `RelationshipMention`
 
 A relationship between entities
 
 ---
 
-### RigDocument
-
-**Source**: `src/rig_vector_store.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize)]
-```
-
-```rust
-pub struct RigDocument { /// Unique document identifier pub id: String, /// Main text content of the document pub content: String, /// Vector embedding representation of the document pub embedding: Vec<f32>, /// Additional metadata key-value pairs for the document pub metadata: HashMap<String, Value>, }
-```
+#### `RigDocument`
 
 Document type that bridges between rig and our graph memory system
 
 ---
 
-### SearchMetrics
-
-**Source**: `src/vector_store.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone)]
-```
-
-```rust
-pub struct SearchMetrics { /// Vector search time in milliseconds pub vector_search_time_ms: u64, /// Graph traversal time in milliseconds pub graph_traversal_time_ms: u64, /// Total query time in milliseconds pub total_time_ms: u64, /// Number of nodes examined pub nodes_examined: u32, /// Number of relationships traversed pub relationships_traversed: u32, }
-```
+#### `SearchMetrics`
 
 Performance metrics for graph search operations
 
 ---
 
-## Functions (client)
+### Enums
 
-### create_indexes
+> Enumeration types for representing variants.
 
-**Source**: `src/client.rs`
-
-```rust
-pub async fn create_indexes(&self) -> Result<()>
-```
-
-Create database indexes for optimal performance
-
----
-
-### execute_query
-
-**Source**: `src/client.rs`
-
-```rust
-pub async fn execute_query( &self, query: &str, parameters: Option<HashMap<String, Value>>, ) -> Result<Value>
-```
-
-Execute a Cypher query with optional parameters.
-
-# Arguments
-
-* `query` - Cypher query string
-* `parameters` - Optional query parameters
-
-# Returns
-
-Raw JSON response from Neo4j
-
----
-
-### get_stats
-
-**Source**: `src/client.rs`
-
-```rust
-pub async fn get_stats(&self) -> Result<HashMap<String, Value>>
-```
-
-Get database statistics
-
----
-
-### new
-
-**Source**: `src/client.rs`
-
-```rust
-pub async fn new( base_url: impl Into<String>, username: Option<String>, password: Option<String>, database: Option<String>, ) -> Result<Self>
-```
-
-Create a new Neo4j client with HTTP endpoint.
-
-# Arguments
-
-* `base_url` - Neo4j HTTP endpoint (e.g., "http://localhost:7474")
-* `username` - Database username (optional)
-* `password` - Database password (optional)
-* `database` - Database name (optional, defaults to "neo4j")
-
----
-
-### simple_query
-
-**Source**: `src/client.rs`
-
-```rust
-pub async fn simple_query(&self, query: &str) -> Result<Vec<Value>>
-```
-
-Execute a simple read query and return the first column of results
-
----
-
-## Enums
-
-### AmountType
-
-**Source**: `src/document.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub enum AmountType { /// Account or wallet balance Balance, /// Token or asset price Price, /// Transaction or gas fee Fee, /// Trading volume Volume, /// Market capitalization MarketCap, /// Other amount type Other(String), }
-```
+#### `AmountType`
 
 Type of amount
 
-**Variants**:
+**Variants:**
 
 - `Balance`
+  - Account or wallet balance
 - `Price`
+  - Token or asset price
 - `Fee`
+  - Transaction or gas fee
 - `Volume`
+  - Trading volume
 - `MarketCap`
-- `Other(String)`
+  - Market capitalization
+- `Other`
+  - Other amount type
 
 ---
 
-### DocumentSource
-
-**Source**: `src/document.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub enum DocumentSource { /// User-provided text input UserInput, /// On-chain transaction data OnChain { /// Blockchain network name (e.g., "ethereum", "solana") chain: String, /// Transaction hash or ID transaction_hash: String, }, /// Social media post (Twitter, Discord, etc.) Social { /// Social media platform name platform: String, /// Post or message ID post_id: String, /// Author username or handle author: Option<String>, }, /// News article or blog post News { /// Article URL url: String, /// Publication or website name publication: Option<String>, }, /// API response or structured data ApiResponse { /// API endpoint URL or identifier endpoint: String, /// When the data was retrieved timestamp: chrono::DateTime<chrono::Utc>, }, /// Other sources Other(String), }
-```
+#### `DocumentSource`
 
 Source of the document
 
-**Variants**:
+**Variants:**
 
 - `UserInput`
+  - User-provided text input
 - `OnChain`
-- `chain`
-- `transaction_hash`
+  - On-chain transaction data
 - `Social`
-- `platform`
-- `post_id`
-- `author`
+  - Social media post (Twitter, Discord, etc.)
 - `News`
-- `url`
-- `publication`
+  - News article or blog post
 - `ApiResponse`
-- `endpoint`
-- `timestamp`
-- `Other(String)`
+  - API response or structured data
+- `Other`
+  - Other sources
 
 ---
 
-### EntityType
-
-**Source**: `src/document.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub enum EntityType { /// Cryptocurrency wallet address Wallet, /// Token contract or symbol Token, /// DeFi protocol or dApp Protocol, /// Blockchain network Chain, /// Other entity type Other(String), }
-```
+#### `EntityType`
 
 Type of entity
 
-**Variants**:
+**Variants:**
 
 - `Wallet`
+  - Cryptocurrency wallet address
 - `Token`
+  - Token contract or symbol
 - `Protocol`
+  - DeFi protocol or dApp
 - `Chain`
-- `Other(String)`
+  - Blockchain network
+- `Other`
+  - Other entity type
 
 ---
 
-### GraphMemoryError
-
-**Source**: `src/error.rs`
-
-**Attributes**:
-```rust
-#[derive(Error, Debug)]
-```
-
-```rust
-pub enum GraphMemoryError { /// Database connection error #[error("Database error: {0}")] Database(String), /// Query execution failed #[error("Query error: {0}")] Query(String), /// Entity extraction failed #[error("Entity extraction error: {0}")] EntityExtraction(String), /// Vector embedding failed #[error("Embedding error: {0}")] Embedding(String), /// HTTP request error #[error("HTTP error: {0}")] Http(#[from] reqwest::Error), /// Serialization error #[error("Serialization error: {0}")] Serialization(#[from] serde_json::Error), /// Core riglr error #[error("Core error: {0}")] Core(#[from] riglr_core::CoreError), /// Generic error #[error("Graph memory error: {0}")] Generic(String), }
-```
+#### `GraphMemoryError`
 
 Main error type for graph memory operations.
 
-**Variants**:
+**Variants:**
 
-- `Database(String)`
-- `Query(String)`
-- `EntityExtraction(String)`
-- `Embedding(String)`
-- `Http(#[from] reqwest::Error)`
-- `Serialization(#[from] serde_json::Error)`
-- `Core(#[from] riglr_core::CoreError)`
-- `Generic(String)`
+- `Database`
+  - Database connection error
+- `Query`
+  - Query execution failed
+- `EntityExtraction`
+  - Entity extraction failed
+- `Embedding`
+  - Vector embedding failed
+- `Http`
+  - HTTP request error
+- `Serialization`
+  - Serialization error
+- `Core`
+  - Core riglr error
+- `Generic`
+  - Generic error
 
 ---
 
-### RelationshipType
-
-**Source**: `src/document.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub enum RelationshipType { /// One wallet transferred to another Transferred, /// Wallet interacted with protocol Interacted, /// Entity holds or owns another entity Holds, /// Token is part of protocol PartOf, /// Protocol deployed on chain DeployedOn, /// Generic relationship Related, }
-```
+#### `RelationshipType`
 
 Type of relationship
 
-**Variants**:
+**Variants:**
 
 - `Transferred`
+  - One wallet transferred to another
 - `Interacted`
+  - Wallet interacted with protocol
 - `Holds`
+  - Entity holds or owns another entity
 - `PartOf`
+  - Token is part of protocol
 - `DeployedOn`
+  - Protocol deployed on chain
 - `Related`
+  - Generic relationship
 
 ---
 
-## Functions (rig_vector_store)
+### Traits
 
-### add_documents
+> Trait definitions for implementing common behaviors.
 
-**Source**: `src/rig_vector_store.rs`
-
-```rust
-pub async fn add_documents(&self, documents: Vec<RigDocument>) -> Result<Vec<String>>
-```
-
-Add documents to the graph vector store (direct implementation)
-
----
-
-### delete_documents
-
-**Source**: `src/rig_vector_store.rs`
-
-```rust
-pub async fn delete_documents(&self, ids: Vec<String>) -> Result<Vec<String>>
-```
-
-Delete documents by their IDs
-
----
-
-### get_documents
-
-**Source**: `src/rig_vector_store.rs`
-
-```rust
-pub async fn get_documents(&self, ids: Vec<String>) -> Result<Vec<RigDocument>>
-```
-
-Get documents by their IDs
-
----
-
-### new
-
-**Source**: `src/rig_vector_store.rs`
-
-```rust
-pub fn new(client: Arc<Neo4jClient>, index_name: String) -> Self
-```
-
-Create a new GraphVectorStore with Neo4j client
-
----
-
-### search
-
-**Source**: `src/rig_vector_store.rs`
-
-```rust
-pub async fn search( &self, query_embedding: Vec<f32>, limit: usize, ) -> Result<Vec<(RigDocument, f32)>>
-```
-
-Search for similar documents using vector similarity
-
----
-
-### with_dimension
-
-**Source**: `src/rig_vector_store.rs`
-
-```rust
-pub fn with_dimension(client: Arc<Neo4jClient>, index_name: String, dimension: usize) -> Self
-```
-
-Create GraphVectorStore with custom embedding dimension
-
----
-
-## Traits
-
-### VectorStore
-
-**Source**: `src/rig_vector_store.rs`
-
-**Attributes**:
-```rust
-#[cfg(feature = "rig")]
-#[async_trait]
-```
-
-```rust
-pub trait VectorStore: Send + Sync { ... }
-```
+#### `VectorStore`
 
 Trait for vector stores that can be used with rig agents
 This trait defines the interface for storing and retrieving documents with embeddings
 
-**Methods**:
+**Methods:**
 
-#### `add_documents`
-
-```rust
-async fn add_documents( &self, documents: Vec<Self::Document>, ) -> std::result::Result<Vec<String>, Self::Error>;
-```
-
-#### `search`
-
-```rust
-async fn search( &self, query_embedding: Vec<f32>, limit: usize, ) -> std::result::Result<Vec<(Self::Document, f32)>, Self::Error>;
-```
-
-#### `get_documents`
-
-```rust
-async fn get_documents( &self, ids: Vec<String>, ) -> std::result::Result<Vec<Self::Document>, Self::Error>;
-```
-
-#### `delete_documents`
-
-```rust
-async fn delete_documents( &self, ids: Vec<String>, ) -> std::result::Result<Vec<String>, Self::Error>;
-```
+- `add_documents()`
+  - Add documents to the vector store
+- `search()`
+  - Search for similar documents using vector similarity
+- `get_documents()`
+  - Get documents by their IDs
+- `delete_documents()`
+  - Delete documents by their IDs
 
 ---
 
-## Constants
+### Type Aliases
 
-### VERSION
+#### `Result`
 
-**Source**: `src/lib.rs`
+Result type alias for graph memory operations.
 
-```rust
-const VERSION: &str
-```
+**Type:** `<T, >`
+
+---
+
+### Constants
+
+#### `VERSION`
 
 Current version of riglr-graph-memory
 
----
-
-## Functions (vector_store)
-
-### add_documents
-
-**Source**: `src/vector_store.rs`
-
-```rust
-pub async fn add_documents(&self, documents: Vec<RawTextDocument>) -> Result<Vec<String>>
-```
-
-Add documents to the graph vector store
-This is the core functionality that would be exposed through rig::VectorStore
+**Type:** `&str`
 
 ---
-
-### broad_context
-
-**Source**: `src/vector_store.rs`
-
-```rust
-pub fn broad_context() -> Self
-```
-
-Create configuration for broad contextual search
-
----
-
-### high_precision
-
-**Source**: `src/vector_store.rs`
-
-```rust
-pub fn high_precision() -> Self
-```
-
-Create configuration for high-precision search
-
----
-
-### new
-
-**Source**: `src/vector_store.rs`
-
-```rust
-pub async fn new( client: Arc<Neo4jClient>, config: Option<GraphRetrieverConfig>, ) -> Result<Self>
-```
-
-Create a new graph retriever with Neo4j client
-
----
-
-### new_default
-
-**Source**: `src/vector_store.rs`
-
-```rust
-pub fn new_default() -> Self
-```
-
-Create default configuration
-
----
-
-### search_with_graph_context
-
-**Source**: `src/vector_store.rs`
-
-```rust
-pub async fn search_with_graph_context( &self, query_embedding: &[f32], limit: usize, ) -> Result<GraphSearchResult>
-```
-
-Perform hybrid vector + graph search
-
----
-
-### top_n_ids
-
-**Source**: `src/vector_store.rs`
-
-```rust
-pub async fn top_n_ids(&self, query_embedding: &[f32], n: usize) -> Result<Vec<String>>
-```
-
-Get top N document IDs for a query embedding
-
----
-
-## Functions (extractor)
-
-### extract
-
-**Source**: `src/extractor.rs`
-
-```rust
-pub fn extract(&self, text: &str) -> ExtractedEntities
-```
-
-Extract all entities and relationships from a text document
-
----
-
-## Functions (document)
-
-### add_protocol
-
-**Source**: `src/document.rs`
-
-```rust
-pub fn add_protocol(&mut self, name: impl Into<String>)
-```
-
-Add a protocol name mention
-
----
-
-### add_tag
-
-**Source**: `src/document.rs`
-
-```rust
-pub fn add_tag(&mut self, tag: impl Into<String>)
-```
-
-Add a tag to the document
-
----
-
-### add_token
-
-**Source**: `src/document.rs`
-
-```rust
-pub fn add_token(&mut self, address: impl Into<String>)
-```
-
-Add a token address mention
-
----
-
-### add_wallet
-
-**Source**: `src/document.rs`
-
-```rust
-pub fn add_wallet(&mut self, address: impl Into<String>)
-```
-
-Add a wallet address mention
-
----
-
-### char_count
-
-**Source**: `src/document.rs`
-
-```rust
-pub fn char_count(&self) -> usize
-```
-
-Get character count
-
----
-
-### from_transaction
-
-**Source**: `src/document.rs`
-
-```rust
-pub fn from_transaction( content: impl Into<String>, chain: impl Into<String>, tx_hash: impl Into<String>, ) -> Self
-```
-
-Create a document for on-chain transaction data.
-
----
-
-### is_processed
-
-**Source**: `src/document.rs`
-
-```rust
-pub fn is_processed(&self) -> bool
-```
-
-Check if document has been processed (has embedding)
-
----
-
-### new
-
-**Source**: `src/document.rs`
-
-```rust
-pub fn new(content: impl Into<String>) -> Self
-```
-
-Create a new raw text document with automatic ID generation.
-
----
-
-### with_metadata
-
-**Source**: `src/document.rs`
-
-```rust
-pub fn with_metadata(content: impl Into<String>, metadata: DocumentMetadata) -> Self
-```
-
-Create a document with metadata.
-
----
-
-### with_source
-
-**Source**: `src/document.rs`
-
-```rust
-pub fn with_source(content: impl Into<String>, source: DocumentSource) -> Self
-```
-
-Create a document with a specific source.
-
----
-
-### word_count
-
-**Source**: `src/document.rs`
-
-```rust
-pub fn word_count(&self) -> usize
-```
-
-Get document word count
-
----
-
-## Functions (graph)
-
-### add_documents
-
-**Source**: `src/graph.rs`
-
-```rust
-pub async fn add_documents(&self, documents: Vec<RawTextDocument>) -> Result<Vec<String>>
-```
-
-Add documents to the graph with full processing pipeline.
-
----
-
-### client
-
-**Source**: `src/graph.rs`
-
-```rust
-pub fn client(&self) -> &Neo4jClient
-```
-
-Get the underlying Neo4j client for direct queries
-
----
-
-### extractor
-
-**Source**: `src/graph.rs`
-
-```rust
-pub fn extractor(&self) -> &EntityExtractor
-```
-
-Get the entity extractor
-
----
-
-### get_stats
-
-**Source**: `src/graph.rs`
-
-```rust
-pub async fn get_stats(&self) -> Result<GraphMemoryStats>
-```
-
-Get comprehensive statistics about the graph
-
----
-
-### new
-
-**Source**: `src/graph.rs`
-
-```rust
-pub async fn new(config: GraphMemoryConfig) -> Result<Self>
-```
-
-Create a new graph memory instance with configuration.
-
----
-
-### retriever
-
-**Source**: `src/graph.rs`
-
-```rust
-pub fn retriever(&self) -> &GraphRetriever
-```
-
-Get the underlying graph retriever for advanced operations
-
----
-
-### search
-
-**Source**: `src/graph.rs`
-
-```rust
-pub async fn search( &self, query_embedding: &[f32], limit: usize, ) -> Result<crate::vector_store::GraphSearchResult>
-```
-
-Search for documents using hybrid vector + graph search
-
----
-
-### with_defaults
-
-**Source**: `src/graph.rs`
-
-```rust
-pub async fn with_defaults(neo4j_url: impl Into<String>) -> Result<Self>
-```
-
-Create a new instance with default configuration.
-
----
-
-
----
-
-*This documentation was automatically generated from the source code.*

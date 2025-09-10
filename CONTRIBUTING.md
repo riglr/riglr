@@ -221,6 +221,74 @@ async fn test_job_queue_integration() {
 }
 ```
 
+## 📋 Test Requirements and Known Issues
+
+### Build and Compilation Notes
+
+Some tests may have longer compilation times due to dependencies:
+- **riglr-agents**: Many dependencies, longer compilation time
+- **riglr-events-core**: Heavy async test setup
+- **riglr-evm-tools**: Requires actual RPC endpoints for network tests
+
+### Required Test Environment
+
+For integration tests to pass, you may need:
+- **API Keys**: `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `ALCHEMY_API_KEY`
+- **Local Services**: Redis (localhost:6379), PostgreSQL, Neo4j
+- **Network Access**: For blockchain RPC calls and API providers
+- **Test Wallets**: Pre-funded wallets on testnets (never use mainnet keys!)
+
+### Known Test Issues
+
+- **Timeouts**: Some blockchain RPC tests may timeout on slow connections
+- **Rate Limiting**: Free tier API keys may hit limits during full test suite
+- **Ignored Tests**: Tests marked `#[ignore]` may require specific setup or paid services
+- **CI Environments**: Some tests may fail in CI without proper secrets setup
+
+### System Requirements
+
+- **Rust**: 1.75+ with cargo
+- **Memory**: 8GB+ RAM for parallel test execution
+- **Disk**: ~5GB for build artifacts
+- **OS**: Linux/macOS/WSL2 recommended
+
+## 🧪 End-to-End Integration Tests
+
+The riglr project includes a comprehensive E2E test suite that validates the entire ecosystem in realistic scenarios.
+
+**📚 For detailed E2E testing documentation, see [tests/E2E_TESTS_README.md](tests/E2E_TESTS_README.md)**
+
+### Quick Start
+
+```bash
+# Run all E2E tests
+./scripts/run_e2e_tests.sh
+
+# Run specific suite
+./scripts/run_e2e_tests.sh --suite 1
+
+# Keep services running after tests
+./scripts/run_e2e_tests.sh --keep-running
+```
+
+### Test Suites Overview
+
+1. **Core Agent Workflow** (`riglr-agents`): Tests fundamental agent operations with blockchain tools
+2. **Multi-Agent Coordination** (`riglr-agents`): Tests agent collaboration patterns
+3. **Real-time Data Pipeline** (`riglr-streams`): Tests streaming data ingestion
+4. **Web Service & Authentication** (`riglr-server`): Tests HTTP API layer
+5. **Agent Memory & Knowledge Graph** (`riglr-graph-memory`): Tests persistent agent memory
+6. **Application Scaffolding** (`create-riglr-app`): Tests project generation
+
+### Prerequisites
+
+- Docker & Docker Compose for test infrastructure
+- Rust & Cargo for building and running tests
+- Test wallets on public testnets (Solana Devnet, Ethereum Sepolia)
+- API keys (Gemini for LLM operations)
+
+For detailed setup instructions, test descriptions, troubleshooting, and CI/CD integration, please refer to the [E2E Tests Documentation](tests/E2E_TESTS_README.md).
+
 ## 🎨 Crate Structure
 
 When adding new functionality:
@@ -253,6 +321,94 @@ All contributors will be:
 - **Listed in CONTRIBUTORS.md**
 - **Mentioned in release notes** for significant contributions
 - **Invited to join** the riglr organization (for regular contributors)
+
+## 🔧 CI Integration Tests Setup
+
+### Required Secrets
+
+The integration tests require the following secrets to be configured in your GitHub repository settings:
+
+#### Blockchain Test Keys
+
+These should be test-only private keys with minimal funds on testnets:
+
+- `SOLANA_TEST_PRIVATE_KEY`: Base58-encoded Solana private key for devnet testing
+- `EVM_TEST_PRIVATE_KEY`: Hex-encoded Ethereum private key for Sepolia testnet
+- `HYPERLIQUID_TEST_PRIVATE_KEY`: Private key for Hyperliquid testnet (if applicable)
+
+#### API Keys
+
+These are for external service integrations:
+
+- `DEXSCREENER_API_KEY`: API key for DexScreener service
+- `LUNARCRUSH_API_KEY`: API key for LunarCrush social analytics
+- `CROSS_CHAIN_TEST_KEYS`: JSON object with bridge service API keys
+
+### Setting Up Secrets
+
+1. Go to your repository's Settings → Secrets and variables → Actions
+2. Click "New repository secret"
+3. Add each secret with the appropriate name and value
+4. Ensure test keys only have minimal testnet funds
+
+### Test Workflow
+
+The integration tests run in several scenarios:
+
+1. **Scheduled**: Daily at 2 AM UTC to catch external API changes
+2. **Manual Trigger**: Via workflow_dispatch for debugging
+3. **Push to main/develop**: For repository owners only
+4. **Pull Requests**: From the main repository (not forks)
+
+For pull requests from forks, mock integration tests run instead to ensure code quality without exposing secrets.
+
+### Local Testing
+
+To run integration tests locally:
+
+```bash
+# Set up environment variables
+export SOLANA_TEST_PRIVATE_KEY="your-test-key"
+export EVM_TEST_PRIVATE_KEY="your-test-key"
+export SOLANA_RPC_URL="https://api.devnet.solana.com"
+export ETHEREUM_RPC_URL="https://ethereum-sepolia-rpc.publicnode.com"
+
+# Run specific integration tests
+cargo test --package riglr-solana-tools --test integration
+cargo test --package riglr-evm-tools --test integration
+cargo test --package riglr-showcase --test showcase_e2e
+```
+
+### Security Considerations
+
+- **Never use production keys**: All keys should be for testnets only
+- **Minimal funds**: Test accounts should have only enough funds for testing
+- **Rotate regularly**: Change test keys periodically for security
+- **Monitor usage**: Check test account activity regularly
+- **Fork safety**: Integration tests with real services don't run on fork PRs
+
+### Troubleshooting
+
+#### Tests Failing Due to Rate Limits
+
+If tests fail due to rate limiting:
+1. Reduce test frequency
+2. Implement retry logic with exponential backoff
+3. Consider using mock services for most tests
+
+#### Network Issues
+
+For network-related failures:
+1. Check if the RPC endpoints are operational
+2. Verify network connectivity in CI environment
+3. Consider using fallback RPC endpoints
+
+#### Secret Not Available
+
+If secrets aren't available:
+1. Verify secret names match exactly
+2. Check repository settings for secret visibility
+3. Ensure workflow has permission to access secrets
 
 ## 📄 License
 

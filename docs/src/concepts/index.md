@@ -4,8 +4,8 @@ These guides dive deep into the core concepts and design patterns that power rig
 
 ## Core Concepts
 
-### [Core Architecture](architecture.md)
-Learn about riglr's modular architecture, how it extends the `rig` framework, and the design decisions that make it production-ready.
+### [Architecture Overview](architecture/index.md)
+Learn about riglr's modular architecture, how it extends the `rig` framework, and the design decisions that make it production-ready. Includes detailed guides on [Core Patterns](architecture/core-patterns.md) and the complete [Request Lifecycle](architecture/request-lifecycle.md).
 
 ### [The SignerContext Pattern](signer-context.md)
 Understand how riglr securely manages cryptographic signers in concurrent environments without passing them through every function call.

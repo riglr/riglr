@@ -7,12 +7,6 @@ Learn how to deploy your riglr agents to production environments with proper sec
 ### [Docker](docker.md)
 Containerize your agent for consistent deployment across environments. Docker provides isolation, reproducibility, and easy scaling.
 
-### [Fly.io](fly-io.md)
-Deploy globally distributed agents with automatic SSL, load balancing, and edge computing capabilities.
-
-### [Kubernetes](kubernetes.md)
-Enterprise-grade deployment with horizontal scaling, rolling updates, and comprehensive orchestration.
-
 ## Pre-Deployment Checklist
 
 Before deploying to production, ensure:
@@ -68,6 +62,7 @@ NEO4J_PASSWORD=secure-password
 
 # Monitoring
 LOG_LEVEL=info
+RUST_LOG=info  # For tracing_subscriber
 SENTRY_DSN=https://your-sentry-dsn
 METRICS_PORT=9090
 
@@ -75,6 +70,37 @@ METRICS_PORT=9090
 USE_KMS=true
 KMS_KEY_ID=your-kms-key
 ```
+
+### Server Configuration
+
+The riglr-server is designed to be production-ready with pluggable auth and telemetry.
+
+#### Authentication Headers
+
+When making requests to the server, use these headers:
+
+- **Authorization**: `Bearer TOKEN` - For authentication
+- **X-Network**: `mainnet` | `devnet` | `testnet` - Optional, specifies which blockchain network to use
+
+#### Server Middleware
+
+Configure your server with appropriate middleware for production:
+
+```rust
+// Example: Axum with rate limiting and timeouts
+let app = Router::new()
+    .route("/v1/stream", post(sse_handler::<A>))
+    .route("/v1/completion", post(completion_handler::<A>))
+    .layer(tower::timeout::TimeoutLayer::new(Duration::from_secs(30)))
+    .layer(tower::limit::ConcurrencyLimitLayer::new(512));
+```
+
+#### Security Tips
+
+- Always validate tokens server side
+- Restrict RPC URLs for mainnet vs testnet using `RpcConfig`
+- Enable TLS and reverse-proxy best practices in deployment
+- Provide a `SignerFactory` implementation or compose multiple via `CompositeSignerFactory`
 
 ### Configuration Management
 
@@ -294,8 +320,6 @@ ORDER BY total_cost DESC;
 ## Next Steps
 
 Choose your deployment platform:
-- [Docker](docker.md) - Best for containerized deployments
-- [Fly.io](fly-io.md) - Best for global distribution
-- [Kubernetes](kubernetes.md) - Best for enterprise scale
+- [Docker](docker.md) - Best for containerized deployments with comprehensive examples and best practices
 
-Each guide includes platform-specific configurations, best practices, and example deployments.
+The Docker guide includes comprehensive configurations, security best practices, monitoring setup, and production-ready examples.

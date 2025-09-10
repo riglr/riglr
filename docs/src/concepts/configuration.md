@@ -1,596 +1,491 @@
-# Unified Configuration
+# Configuration
 
-The `riglr-config` crate provides a unified, fail-fast configuration system that ensures your applications are configured correctly before they start. It standardizes configuration across all riglr components while maintaining flexibility for custom needs.
+The `riglr-config` crate provides a unified, environment-driven configuration system that ensures your applications are configured correctly before they start. It follows a hierarchical structure with fail-fast validation.
 
 ## Core Principles
 
-1. **Fail-Fast**: Configuration errors are caught at startup, not runtime
-2. **Type-Safe**: Strongly typed configuration with compile-time guarantees
-3. **Environment-Aware**: Seamless transition from development to production
-4. **Standardized**: Consistent patterns across all riglr crates
+1. **Environment-Driven**: Configuration loaded from environment variables
+2. **Fail-Fast**: Configuration errors crash at startup, not runtime
+3. **Type-Safe**: Strongly typed configuration with compile-time guarantees
+4. **Hierarchical**: Organized into logical sections for clarity
+5. **Convention-Based**: Uses patterns like `RPC_URL_{CHAIN_ID}` for flexibility
+6. **Chain-Agnostic**: Core configuration is independent of blockchain SDKs
 
-## Configuration Sources
+## The Config Structure
 
-Configuration is loaded from multiple sources in priority order:
-
-```
-1. Command-line arguments (highest priority)
-2. Environment variables
-3. Configuration files (TOML/YAML/JSON)
-4. Default values (lowest priority)
-```
-
-## Basic Usage
-
-### Loading Configuration
+riglr uses a hierarchical configuration structure:
 
 ```rust
-use riglr_config::{Config, ConfigBuilder};
+Config (root)
+├── app: ApplicationConfig
+│   ├── Server settings (port, environment)
+│   ├── Transaction settings (gas, slippage)
+│   └── Retry configuration
+├── database: DatabaseConfig
+│   ├── Redis (required)
+│   ├── Neo4j (optional)
+│   └── ClickHouse (optional)
+├── network: NetworkConfig
+│   ├── Solana RPC URLs
+│   ├── EVM RPC URLs (dynamic)
+│   └── Chain contracts (from chains.toml)
+├── providers: ProvidersConfig
+│   ├── AI providers
+│   ├── Blockchain data providers
+│   └── Market data providers
+└── features: FeaturesConfig
+    └── Feature flags
+```
 
-#[derive(Config)]
-struct AppConfig {
-    #[config(env = "DATABASE_URL")]
-    database_url: String,
-    
-    #[config(env = "PORT", default = 8080)]
-    port: u16,
-    
-    #[config(env = "LOG_LEVEL", default = "info")]
-    log_level: String,
+## Loading Configuration
+
+Configuration is loaded from environment variables using `Config::from_env()`:
+
+```rust
+use riglr_config::Config;
+
+// Load configuration from environment (fail-fast)
+let config = Config::from_env();
+
+// Access configuration values
+println!("Redis URL: {}", config.database.redis_url);
+println!("Environment: {:?}", config.app.environment);
+
+// Get RPC URL for a specific chain using chain ID
+if let Some(rpc_url) = config.network.get_rpc_url("1") {
+    println!("Ethereum RPC: {}", rpc_url);
 }
 
-#[tokio::main]
-async fn main() -> Result<()> {
-    // Load configuration
-    let config = AppConfig::load()?;
-    
-    // Use configuration
-    println!("Starting on port {}", config.port);
-    
-    Ok(())
+// Or using network name
+if let Some(rpc_url) = config.network.get_rpc_url("ethereum") {
+    println!("Ethereum RPC: {}", rpc_url);
+}
+
+// For backward compatibility with numeric chain IDs
+if let Some(rpc_url) = config.network.get_rpc_url_by_id(137) {
+    println!("Polygon RPC: {}", rpc_url);
 }
 ```
 
-### Configuration Files
+### Library Usage
 
-Create a `riglr.toml` file in your project root:
+For library usage where you want to handle configuration errors gracefully:
 
-```toml
-# riglr.toml
-[app]
-name = "my-trading-bot"
-version = "1.0.0"
+```rust
+use riglr_config::Config;
+use std::sync::Arc;
 
-[chains]
-# Ethereum Mainnet
-[chains.1]
-name = "ethereum"
-rpc_url = "${RPC_URL_1}"
-chain_id = 1
-
-# Arbitrum
-[chains.42161]
-name = "arbitrum"
-rpc_url = "${RPC_URL_42161}"
-chain_id = 42161
-
-[solana]
-rpc_url = "${SOLANA_RPC_URL}"
-ws_url = "${SOLANA_WS_URL}"
-commitment = "confirmed"
-
-[redis]
-url = "${REDIS_URL}"
-max_connections = 100
-
-[api_keys]
-anthropic = "${ANTHROPIC_API_KEY}"
-openai = "${OPENAI_API_KEY}"
-coingecko = "${COINGECKO_API_KEY}"
+// Use try_from_env() for Result-based error handling
+match Config::try_from_env() {
+    Ok(config) => {
+        // Config loaded successfully as Arc<Config>
+        println!("Redis URL: {}", config.database.redis_url);
+    }
+    Err(e) => {
+        // Handle configuration error gracefully
+        eprintln!("Failed to load config: {}", e);
+        // Use defaults or alternative configuration
+    }
+}
 ```
 
-## Chain Configuration
+## Address Validation
 
-### RPC URL Convention
+Starting in v0.3.0, address validation has been decoupled from the core configuration system to maintain architectural purity. This is a **breaking change**.
 
-riglr uses a standardized convention for EVM chain RPC URLs:
+### Why Decoupled?
+
+1. **Dependency Inversion**: Config defines the interface, not implementations
+2. **Chain Agnosticism**: No blockchain SDK dependencies in core config
+3. **Extensibility**: New chains supported by implementing `AddressValidator`
+4. **Optional Validation**: Off-chain tools don't need blockchain dependencies
+
+### Usage
+
+```rust
+use riglr_config::{Config, AddressValidator};
+
+let config = Config::from_env();
+
+// Explicit validation is now required for address validation
+#[cfg(feature = "evm")]
+{
+    use riglr_evm_common::validation::EvmAddressValidator;
+    config.network.validate_config(Some(&EvmAddressValidator))
+        .expect("Invalid EVM addresses in configuration");
+}
+
+// Or skip validation entirely for off-chain tools
+#[cfg(not(feature = "evm"))]
+{
+    config.network.validate_config(None)
+        .expect("Configuration validation failed");
+}
+```
+
+## Environment Variable Convention
+
+### Required Variables
 
 ```bash
-# Environment variables
-RPC_URL_1=https://eth-mainnet.example.com     # Ethereum
-RPC_URL_56=https://bsc.example.com            # BSC
-RPC_URL_137=https://polygon.example.com       # Polygon
-RPC_URL_42161=https://arbitrum.example.com    # Arbitrum
+# Database (Redis is required)
+REDIS_URL=redis://localhost:6379
+
+# Network
+SOLANA_RPC_URL=https://api.mainnet-beta.solana.com
+
+# At least one EVM RPC
+RPC_URL_1=https://eth-mainnet.alchemyapi.io/v2/your-key
 ```
 
-### chains.toml
-
-Define all your chains in a centralized `chains.toml` file:
-
-```toml
-# chains.toml
-[ethereum]
-chain_id = 1
-name = "Ethereum Mainnet"
-rpc_url = "${RPC_URL_1}"
-explorer = "https://etherscan.io"
-native_token = "ETH"
-decimals = 18
-
-[bsc]
-chain_id = 56
-name = "BNB Smart Chain"
-rpc_url = "${RPC_URL_56}"
-explorer = "https://bscscan.com"
-native_token = "BNB"
-decimals = 18
-
-[polygon]
-chain_id = 137
-name = "Polygon"
-rpc_url = "${RPC_URL_137}"
-explorer = "https://polygonscan.com"
-native_token = "MATIC"
-decimals = 18
-
-[arbitrum]
-chain_id = 42161
-name = "Arbitrum One"
-rpc_url = "${RPC_URL_42161}"
-explorer = "https://arbiscan.io"
-native_token = "ETH"
-decimals = 18
-
-[solana]
-name = "Solana"
-rpc_url = "${SOLANA_RPC_URL}"
-ws_url = "${SOLANA_WS_URL}"
-explorer = "https://solscan.io"
-native_token = "SOL"
-decimals = 9
-```
-
-### Accessing Chain Configuration
-
-```rust
-use riglr_config::{ChainConfig, load_chains};
-
-// Load all chains
-let chains = load_chains()?;
-
-// Get specific chain
-let ethereum = chains.get_chain(1)?;
-println!("Ethereum RPC: {}", ethereum.rpc_url);
-
-// Get by name
-let polygon = chains.get_by_name("polygon")?;
-
-// Iterate all chains
-for chain in chains.all() {
-    println!("{}: {}", chain.name, chain.rpc_url);
-}
-```
-
-## Environment-Based Configuration
-
-### Development vs Production
-
-Use different configuration files for different environments:
-
-```rust
-use riglr_config::{Config, Environment};
-
-let config = Config::builder()
-    .environment(Environment::from_env()?)
-    .build()?;
-
-// Automatically loads:
-// - riglr.toml (base config)
-// - riglr.development.toml (in development)
-// - riglr.production.toml (in production)
-```
-
-### Environment Variables
-
-Override any configuration value with environment variables:
-
-```toml
-# riglr.toml
-[database]
-host = "localhost"  # Can be overridden by DATABASE_HOST
-port = 5432        # Can be overridden by DATABASE_PORT
-```
+### Application Configuration
 
 ```bash
-# Override in production
-export DATABASE_HOST=prod-db.example.com
-export DATABASE_PORT=5433
+# Server settings
+PORT=8080
+ENVIRONMENT=production  # or development, staging
+LOG_LEVEL=info
+
+# Transaction settings
+MAX_GAS_PRICE_GWEI=100
+PRIORITY_FEE_GWEI=2
+SLIPPAGE_TOLERANCE_PERCENT=0.5
+
+# Retry settings
+MAX_RETRY_ATTEMPTS=3
+RETRY_DELAY_MS=1000
+RETRY_BACKOFF_MULTIPLIER=2.0
 ```
 
-## Validation
-
-### Fail-Fast Validation
-
-Configuration is validated at startup:
-
-```rust
-#[derive(Config, Validate)]
-struct ApiConfig {
-    #[validate(url)]
-    endpoint: String,
-    
-    #[validate(range(min = 1, max = 65535))]
-    port: u16,
-    
-    #[validate(email)]
-    admin_email: String,
-    
-    #[validate(length(min = 32))]
-    api_key: String,
-}
-
-// Validation happens automatically
-let config = ApiConfig::load()?; // Fails if validation fails
-```
-
-### Custom Validators
-
-Implement custom validation logic:
-
-```rust
-use riglr_config::{Config, Validator};
-
-#[derive(Config)]
-struct TradingConfig {
-    #[validate(custom = "validate_slippage")]
-    max_slippage: f64,
-    
-    #[validate(custom = "validate_gas_price")]
-    max_gas_price: u64,
-}
-
-fn validate_slippage(value: &f64) -> Result<(), String> {
-    if *value < 0.0 || *value > 0.5 {
-        return Err("Slippage must be between 0 and 50%".into());
-    }
-    Ok(())
-}
-
-fn validate_gas_price(value: &u64) -> Result<(), String> {
-    if *value > 1000 * 10u64.pow(9) { // 1000 gwei
-        return Err("Gas price too high".into());
-    }
-    Ok(())
-}
-```
-
-## Secrets Management
-
-### Environment Variables
-
-Store secrets in environment variables:
+### Database Configuration
 
 ```bash
-# .env file (never commit this!)
-PRIVATE_KEY=0x1234567890abcdef...
-API_KEY=sk-1234567890abcdef...
-DATABASE_PASSWORD=super-secret-password
+# Required
+REDIS_URL=redis://localhost:6379
+
+# Optional databases
+NEO4J_URL=neo4j://localhost:7687
+NEO4J_USER=neo4j
+NEO4J_PASSWORD=password
+
+CLICKHOUSE_URL=http://localhost:8123
+CLICKHOUSE_USER=default
+CLICKHOUSE_PASSWORD=password
 ```
 
-### Secret Providers
+### Network Configuration
 
-Integrate with secret management services:
+```bash
+# Solana
+SOLANA_RPC_URL=https://api.mainnet-beta.solana.com
+SOLANA_WS_URL=wss://api.mainnet-beta.solana.com
 
-```rust
-use riglr_config::{Config, SecretProvider};
+# EVM Chains - Two formats supported:
 
-// AWS Secrets Manager
-let provider = AwsSecretsProvider::new("us-east-1");
+# 1. Using Chain IDs
+RPC_URL_1=https://eth-mainnet.alchemyapi.io/v2/your-key      # Ethereum
+RPC_URL_56=https://bsc-dataseed.binance.org                  # BSC
+RPC_URL_137=https://polygon-rpc.com                          # Polygon
+RPC_URL_42161=https://arb1.arbitrum.io/rpc                   # Arbitrum
 
-// HashiCorp Vault
-let provider = VaultProvider::new("https://vault.example.com");
-
-// Load config with secrets
-let config = Config::builder()
-    .secret_provider(provider)
-    .build()?;
+# 2. Using Network Names (more readable)
+RPC_URL_ETHEREUM=https://eth-mainnet.alchemyapi.io/v2/your-key
+RPC_URL_POLYGON=https://polygon-mainnet.alchemyapi.io/v2/your-key
+RPC_URL_ARBITRUM=https://arb1.arbitrum.io/rpc
+RPC_URL_OPTIMISM=https://mainnet.optimism.io
 ```
 
-### Secure Defaults
+### Supported Network Aliases
 
-Never include secrets in default values:
+Common network names are automatically resolved to their chain IDs:
+- **Ethereum**: ethereum, mainnet, eth → 1
+- **Polygon**: polygon, matic → 137
+- **Arbitrum**: arbitrum, arb → 42161
+- **Optimism**: optimism, op → 10
+- **Base**: base → 8453
+- **BSC**: bsc, binance, bnb → 56
+- **Avalanche**: avalanche, avax → 43114
 
-```rust
-#[derive(Config)]
-struct SecureConfig {
-    // ❌ Bad: Default private key
-    #[config(default = "0x1234...")]
-    private_key: String,
-    
-    // ✅ Good: Required without default
-    #[config(env = "PRIVATE_KEY")]
-    private_key: String,
-    
-    // ✅ Good: Safe default for non-secret
-    #[config(default = "mainnet")]
-    network: String,
-}
-```
+### Provider Configuration
 
-## Advanced Configuration
+```bash
+# AI Providers
+ANTHROPIC_API_KEY=sk-ant-...
+OPENAI_API_KEY=sk-...
 
-### Nested Configuration
+# Blockchain Data Providers
+ALCHEMY_API_KEY=...
+INFURA_API_KEY=...
+LIFI_API_KEY=...
 
-Support complex nested structures:
+# Market Data Providers
+COINGECKO_API_KEY=...
+DEXSCREENER_API_KEY=...
 
-```rust
-#[derive(Config)]
-struct AppConfig {
-    server: ServerConfig,
-    database: DatabaseConfig,
-    chains: HashMap<u32, ChainConfig>,
-    features: FeatureFlags,
-}
-
-#[derive(Config)]
-struct ServerConfig {
-    host: String,
-    port: u16,
-    workers: usize,
-}
-
-#[derive(Config)]
-struct DatabaseConfig {
-    url: String,
-    max_connections: u32,
-    timeout: Duration,
-}
-```
-
-### Dynamic Reloading
-
-Support configuration hot-reloading:
-
-```rust
-use riglr_config::{Config, Watcher};
-
-let (config, mut watcher) = Config::load_watched()?;
-
-// Listen for changes
-tokio::spawn(async move {
-    while let Some(event) = watcher.next().await {
-        match event {
-            ConfigEvent::Updated(new_config) => {
-                println!("Configuration updated");
-                // Apply new configuration
-            }
-            ConfigEvent::Error(e) => {
-                eprintln!("Configuration error: {}", e);
-            }
-        }
-    }
-});
+# Social/Web APIs
+TWITTER_BEARER_TOKEN=...
+EXA_API_KEY=...
 ```
 
 ### Feature Flags
 
-Manage feature toggles:
+```bash
+# Feature toggles
+ENABLE_TRADING=true
+ENABLE_BRIDGING=true
+ENABLE_SOCIAL_MONITORING=false
+ENABLE_GRAPH_MEMORY=false
+```
+
+## Chain Configuration
+
+Place a `chains.toml` file in your project root (or set `RIGLR_CHAINS_CONFIG` to its path):
 
 ```toml
-# riglr.toml
-[features]
-enable_trading = true
-enable_analytics = false
-max_position_size = 1000.0
-allowed_tokens = ["SOL", "ETH", "USDC"]
+[chains.ethereum]
+id = 1
+name = "Ethereum Mainnet"
+router = "0xE592427A0AEce92De3Edee1F18E0157C05861564"
+quoter = "0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6"
+factory = "0x1F98431c8aD98523631AE4a59f267346ea31F984"
+
+[chains.polygon]
+id = 137
+name = "Polygon"
+router = "0xE592427A0AEce92De3Edee1F18E0157C05861564"
+quoter = "0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6"
+factory = "0x1F98431c8aD98523631AE4a59f267346ea31F984"
 ```
+
+## Dynamic Chain Support
+
+Add support for new chains without code changes:
+
+```bash
+# Add Optimism support using chain ID
+export RPC_URL_10=https://optimism-mainnet.alchemyapi.io/v2/your-key
+
+# OR using network name (more readable)
+export RPC_URL_OPTIMISM=https://optimism-mainnet.alchemyapi.io/v2/your-key
+
+# Override contract addresses
+export ROUTER_10=0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45
+export QUOTER_10=0x61fFE014bA17989E743c5F6cB21bF9697530B21e
+```
+
+## Migrating from Other Configurations
+
+### From riglr-showcase
 
 ```rust
-#[derive(Config)]
-struct FeatureFlags {
-    enable_trading: bool,
-    enable_analytics: bool,
-    max_position_size: f64,
-    allowed_tokens: Vec<String>,
+// Old
+use crate::config::{Config, ConfigError};
+let config = Config::from_env()?;
+config.validate()?;
+
+// New
+use riglr_config::Config;
+let config = Config::from_env(); // Validation is automatic
+```
+
+### Field Access Changes
+
+```rust
+// Before
+config.redis_url
+
+// After
+config.database.redis_url
+
+// Before
+config.enable_trading
+
+// After
+config.features.enable_trading
+```
+
+## Security Best Practices
+
+### Never Commit Secrets
+
+Use `.env` files for local development (add to `.gitignore`):
+
+```bash
+# .env (local development only - never commit!)
+PRIVATE_KEY=0x1234567890abcdef...
+ANTHROPIC_API_KEY=sk-ant-...
+DATABASE_PASSWORD=super-secret
+```
+
+Load with dotenv in development:
+
+```rust
+#[cfg(debug_assertions)]
+fn load_dev_env() {
+    dotenv::dotenv().ok();
 }
 
-// Use in code
-if config.features.enable_trading {
-    execute_trade().await?;
+fn main() {
+    #[cfg(debug_assertions)]
+    load_dev_env();
+    
+    let config = Config::from_env(); // Panics on error
 }
 ```
 
-## Testing Configuration
+### Production Deployment
 
-### Test Configurations
+In production, use proper secret management:
 
-Create test-specific configurations:
+```yaml
+# Kubernetes Secret
+apiVersion: v1
+kind: Secret
+metadata:
+  name: riglr-secrets
+type: Opaque
+data:
+  PRIVATE_KEY: <base64-encoded>
+  ANTHROPIC_API_KEY: <base64-encoded>
+```
+
+```bash
+# Docker Compose with env file
+docker run --env-file .env.production riglr-bot
+
+# Systemd with environment file
+[Service]
+EnvironmentFile=/etc/riglr/env
+ExecStart=/usr/bin/riglr-bot
+```
+
+## Testing with Configuration
+
+### Mock Configuration for Tests
 
 ```rust
 #[cfg(test)]
 mod tests {
-    use riglr_config::TestConfig;
+    use riglr_config::Config;
+    use std::env;
+    
+    fn setup_test_env() {
+        env::set_var("REDIS_URL", "redis://localhost:6379");
+        env::set_var("SOLANA_RPC_URL", "https://api.testnet.solana.com");
+    }
     
     #[test]
-    fn test_with_config() {
-        let config = TestConfig::builder()
-            .set("database.url", "sqlite::memory:")
-            .set("redis.url", "redis://localhost:6379/1")
-            .build();
+    fn test_config_loading() {
+        setup_test_env();
         
-        // Test with mock configuration
-        run_app(config);
+        let config = Config::from_env();
+        assert!(config.database.redis_url.contains("redis"));
     }
 }
 ```
 
-### Configuration Fixtures
+## Common Patterns
 
-Load configuration from fixtures:
+### Centralized Configuration
+
+Create a configuration module in your application:
 
 ```rust
-#[test]
-fn test_production_config() {
-    let config = Config::from_file("fixtures/production.toml")?;
-    
-    // Validate production configuration
-    assert!(config.validate().is_ok());
-    assert_eq!(config.chains.len(), 5);
+// src/config.rs
+use riglr_config::Config;
+use once_cell::sync::Lazy;
+use std::sync::Arc;
+
+pub static CONFIG: Lazy<Arc<Config>> = Lazy::new(|| {
+    Config::from_env() // Returns Arc<Config>
+});
+
+// Usage anywhere in your app
+use crate::config::CONFIG;
+
+fn some_function() {
+    if CONFIG.features.enable_trading {
+        // Trading logic
+    }
 }
 ```
 
-## Deployment Patterns
+### Configuration with ApplicationContext
 
-### Docker
+Integrate with ApplicationContext pattern:
 
-Configure via environment variables in Docker:
-
-```dockerfile
-# Dockerfile
-FROM rust:1.75
-WORKDIR /app
-COPY . .
-RUN cargo build --release
-
-# Use environment variables for configuration
-ENV RUST_LOG=info
-ENV DATABASE_URL=postgresql://user:pass@db:5432/app
-ENV REDIS_URL=redis://redis:6379
-
-CMD ["./target/release/app"]
-```
-
-```yaml
-# docker-compose.yml
-version: '3.8'
-services:
-  app:
-    build: .
-    env_file: .env
-    environment:
-      - DATABASE_URL=postgresql://user:pass@db:5432/app
-      - REDIS_URL=redis://redis:6379
-```
-
-### Kubernetes
-
-Use ConfigMaps and Secrets:
-
-```yaml
-# configmap.yaml
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: app-config
-data:
-  riglr.toml: |
-    [server]
-    port = 8080
-    
-    [features]
-    enable_trading = true
-
----
-# secret.yaml
-apiVersion: v1
-kind: Secret
-metadata:
-  name: app-secrets
-type: Opaque
-data:
-  private-key: <base64-encoded-key>
-  api-key: <base64-encoded-key>
-
----
-# deployment.yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: trading-bot
-spec:
-  template:
-    spec:
-      containers:
-      - name: app
-        image: trading-bot:latest
-        volumeMounts:
-        - name: config
-          mountPath: /config
-        envFrom:
-        - secretRef:
-            name: app-secrets
-      volumes:
-      - name: config
-        configMap:
-          name: app-config
-```
-
-## Best Practices
-
-1. **Never Commit Secrets**: Use `.env` files locally and secret managers in production
-2. **Validate Early**: Use fail-fast validation to catch errors at startup
-3. **Use Defaults Wisely**: Provide sensible defaults for non-critical settings
-4. **Environment Parity**: Keep development and production configs as similar as possible
-5. **Document Configuration**: Include example configuration files in your repository
-
-## Migration Guide
-
-### From Manual Configuration
-
-Before (manual):
 ```rust
-let rpc_url = std::env::var("RPC_URL").expect("RPC_URL not set");
-let port = std::env::var("PORT")
-    .unwrap_or_else(|_| "8080".to_string())
-    .parse()
-    .expect("Invalid port");
-```
+use riglr_config::Config;
+use riglr_core::provider::ApplicationContext;
 
-After (riglr-config):
-```rust
-#[derive(Config)]
-struct AppConfig {
-    #[config(env = "RPC_URL")]
-    rpc_url: String,
+async fn setup_application() -> Result<ApplicationContext, Box<dyn std::error::Error>> {
+    // Load configuration (returns Arc<Config>)
+    let config = Config::from_env();
     
-    #[config(env = "PORT", default = 8080)]
-    port: u16,
+    // Build ApplicationContext from config
+    let context = ApplicationContext::builder()
+        .with_redis(&config.database.redis_url)?
+        .with_solana_rpc(&config.network.solana_rpc_url)?
+        .build()?;
+    
+    Ok(context)
 }
-
-let config = AppConfig::load()?; // Automatic validation
 ```
 
 ## Troubleshooting
 
 ### Common Issues
 
-**Missing Environment Variable**
+**Missing Required Environment Variable**
 ```
-Error: Configuration error: Missing required field 'database_url'
-Hint: Set the DATABASE_URL environment variable
-```
-
-**Invalid Configuration Value**
-```
-Error: Validation failed for 'max_slippage': Value 1.5 exceeds maximum of 0.5
+thread 'main' panicked at 'Failed to load config: Environment variable REDIS_URL not found'
+Solution: export REDIS_URL="redis://localhost:6379"
 ```
 
-**File Not Found**
+**No RPC URL for Chain**
 ```
-Error: Configuration file not found: riglr.toml
-Hint: Create a riglr.toml file or set CONFIG_PATH
+No RPC URL configured for chain ethereum
+Solution: export RPC_URL_ETHEREUM="https://eth-mainnet.g.alchemy.com/v2/your-key"
 ```
 
-### Debug Mode
+### Debug Configuration Loading
 
-Enable debug logging for configuration:
+Enable debug logging:
 
 ```bash
 RUST_LOG=riglr_config=debug cargo run
 ```
 
-## Next Steps
+Print loaded configuration (development only):
 
-- Explore [Agent Coordination](agents.md) for multi-agent configuration
-- Learn about [Real-Time Streaming](streams.md) for stream configuration
-- Understand the [Indexer](indexer.md) for indexer configuration
+```rust
+#[cfg(debug_assertions)]
+fn debug_config(config: &Config) {
+    println!("Loaded configuration:");
+    println!("  Redis: {}", config.database.redis_url);
+    println!("  Environment: {:?}", config.app.environment);
+    // ... print other values
+}
+```
+
+## Best Practices
+
+1. **Load Once**: Load configuration at application startup and pass it down
+2. **Fail Fast**: Let the application crash early if configuration is invalid
+3. **Use Arc**: Config is Arc-wrapped for efficient multi-threaded sharing
+4. **Validate Addresses**: Explicitly validate blockchain addresses when needed
+5. **Document Variables**: Maintain a `.env.example` file with all variables
+6. **Separate Secrets**: Keep secrets in secure storage, not in code
+
+## Summary
+
+The riglr configuration system provides:
+- Simple environment-based configuration with `Config::from_env()`
+- Arc-wrapped configs for efficient sharing across threads
+- Standardized RPC URL convention (`RPC_URL_{CHAIN_ID}` or `RPC_URL_{NAME}`)
+- Hierarchical structure for organization
+- Type safety and fail-fast validation
+- Decoupled address validation for architectural purity
+- Production-ready patterns for deployment
+
+This approach ensures configuration is explicit, validated, and secure across all environments.

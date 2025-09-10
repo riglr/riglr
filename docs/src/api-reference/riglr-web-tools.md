@@ -1,192 +1,1128 @@
-# riglr-web-tools API Reference
+# riglr-web-tools
 
-Comprehensive API documentation for the `riglr-web-tools` crate.
+{{#include ../../../riglr-web-tools/README.md}}
 
-## Table of Contents
+## API Reference
 
-### Enums
+### Contents
 
-- [`WebToolError`](#webtoolerror)
-
-### Constants
-
-- [`VERSION`](#version)
+- [Structs](#structs)
+- [Enums](#enums)
+- [Traits](#traits)
+- [Functions](#functions)
+- [Type Aliases](#type-aliases)
+- [Constants](#constants)
 
 ### Structs
 
-- [`AggregationMetadata`](#aggregationmetadata)
-- [`ApiKeys`](#apikeys)
-- [`BaseUrls`](#baseurls)
-- [`BreakingNewsAlert`](#breakingnewsalert)
-- [`ChainInfo`](#chaininfo)
-- [`ClientConfig`](#clientconfig)
-- [`ConcentrationRisk`](#concentrationrisk)
-- [`ContentEntity`](#contententity)
-- [`ContentSummary`](#contentsummary)
-- [`ContentType`](#contenttype)
-- [`ContextAnnotation`](#contextannotation)
-- [`DexInfo`](#dexinfo)
-- [`DexScreenerConfig`](#dexscreenerconfig)
-- [`DexScreenerResponse`](#dexscreenerresponse)
-- [`DomainInfo`](#domaininfo)
-- [`EmotionalIndicators`](#emotionalindicators)
-- [`EntityMention`](#entitymention)
-- [`EntityMention`](#entitymention)
-- [`Faster100xConfig`](#faster100xconfig)
-- [`HolderActivity`](#holderactivity)
-- [`HolderDistribution`](#holderdistribution)
-- [`HolderTrendPoint`](#holdertrendpoint)
-- [`HolderTrends`](#holdertrends)
-- [`HttpConfig`](#httpconfig)
-- [`InfluencerMention`](#influencermention)
-- [`InfluencerMentionsResult`](#influencermentionsresult)
-- [`Liquidity`](#liquidity)
-- [`LiquidityAnalysis`](#liquidityanalysis)
-- [`LunarCrushConfig`](#lunarcrushconfig)
-- [`MarketAnalysis`](#marketanalysis)
-- [`MarketImpact`](#marketimpact)
-- [`NewsAggregationResult`](#newsaggregationresult)
-- [`NewsArticle`](#newsarticle)
-- [`NewsCategory`](#newscategory)
-- [`NewsConfig`](#newsconfig)
-- [`NewsEntity`](#newsentity)
-- [`NewsInsights`](#newsinsights)
-- [`NewsSentiment`](#newssentiment)
-- [`NewsSource`](#newssource)
-- [`PageMetadata`](#pagemetadata)
-- [`PairInfo`](#pairinfo)
-- [`PairToken`](#pairtoken)
-- [`PriceChange`](#pricechange)
-- [`PriceLevelAnalysis`](#pricelevelanalysis)
-- [`QualityMetrics`](#qualitymetrics)
-- [`RateLimitInfo`](#ratelimitinfo)
-- [`RateLimits`](#ratelimits)
-- [`RiskAssessment`](#riskassessment)
-- [`RiskFactor`](#riskfactor)
-- [`SearchInsights`](#searchinsights)
-- [`SearchMetadata`](#searchmetadata)
-- [`SearchMetadata`](#searchmetadata)
-- [`SearchResult`](#searchresult)
-- [`SearchSentiment`](#searchsentiment)
-- [`SecurityInfo`](#securityinfo)
-- [`SentimentAnalysis`](#sentimentanalysis)
-- [`SentimentBreakdown`](#sentimentbreakdown)
-- [`SentimentData`](#sentimentdata)
-- [`SentimentDistribution`](#sentimentdistribution)
-- [`SentimentPhrase`](#sentimentphrase)
-- [`SeoMetadata`](#seometadata)
-- [`SimilarPagesResult`](#similarpagesresult)
-- [`SimilarityMetadata`](#similaritymetadata)
-- [`SocialLink`](#sociallink)
-- [`SocialMetadata`](#socialmetadata)
-- [`SocialMetrics`](#socialmetrics)
-- [`SourceDiversity`](#sourcediversity)
-- [`Token`](#token)
-- [`TokenHolderAnalysis`](#tokenholderanalysis)
-- [`TokenInfo`](#tokeninfo)
-- [`TokenPair`](#tokenpair)
-- [`TokenPriceResult`](#tokenpriceresult)
-- [`TokenSearchResult`](#tokensearchresult)
-- [`TransactionStats`](#transactionstats)
-- [`TransactionStats`](#transactionstats)
-- [`Transactions`](#transactions)
-- [`TrendAnalysis`](#trendanalysis)
-- [`TrendingCrypto`](#trendingcrypto)
-- [`TrendingTopic`](#trendingtopic)
-- [`TweetEntities`](#tweetentities)
-- [`TweetMetrics`](#tweetmetrics)
-- [`TwitterConfig`](#twitterconfig)
-- [`TwitterPost`](#twitterpost)
-- [`TwitterSearchResult`](#twittersearchresult)
-- [`TwitterUser`](#twitteruser)
-- [`Volume`](#volume)
-- [`VolumeAnalysis`](#volumeanalysis)
-- [`WalletHolding`](#walletholding)
-- [`WebClient`](#webclient)
-- [`WebSearchConfig`](#websearchconfig)
-- [`WebSearchMetadata`](#websearchmetadata)
-- [`WebSearchResult`](#websearchresult)
-- [`WhaleActivity`](#whaleactivity)
-- [`WhaleTransaction`](#whaletransaction)
+> Core data structures and types.
 
-### Tools
+#### `Account`
 
-- [`analyze_crypto_sentiment`](#analyze_crypto_sentiment)
-- [`analyze_market_sentiment`](#analyze_market_sentiment)
-- [`analyze_token_holders`](#analyze_token_holders)
-- [`analyze_token_market`](#analyze_token_market)
-- [`find_similar_pages`](#find_similar_pages)
-- [`get_crypto_news`](#get_crypto_news)
-- [`get_holder_trends`](#get_holder_trends)
-- [`get_influencer_mentions`](#get_influencer_mentions)
-- [`get_social_sentiment`](#get_social_sentiment)
-- [`get_token_info`](#get_token_info)
-- [`get_token_price`](#get_token_price)
-- [`get_token_prices_batch`](#get_token_prices_batch)
-- [`get_top_pairs`](#get_top_pairs)
-- [`get_trending_cryptos`](#get_trending_cryptos)
-- [`get_trending_news`](#get_trending_news)
-- [`get_trending_tokens`](#get_trending_tokens)
-- [`get_user_tweets`](#get_user_tweets)
-- [`get_whale_activity`](#get_whale_activity)
-- [`monitor_breaking_news`](#monitor_breaking_news)
-- [`search_recent_news`](#search_recent_news)
-- [`search_tokens`](#search_tokens)
-- [`search_tweets`](#search_tweets)
-- [`search_web`](#search_web)
-- [`summarize_web_content`](#summarize_web_content)
+Account information for followers/friends lists
 
-### Functions (dexscreener_api)
+---
 
-- [`find_best_liquidity_pair`](#find_best_liquidity_pair)
-- [`get_pair_by_address`](#get_pair_by_address)
-- [`get_pairs_by_token`](#get_pairs_by_token)
-- [`get_token_price`](#get_token_price)
-- [`search_ticker`](#search_ticker)
+#### `AccountAnalysis`
 
-### Functions (client)
+Comprehensive account analysis result
 
-- [`contains_key`](#contains_key)
-- [`delete`](#delete)
-- [`get`](#get)
-- [`get`](#get)
-- [`get`](#get)
-- [`get_api_key`](#get_api_key)
-- [`get_config`](#get_config)
-- [`get_with_headers`](#get_with_headers)
-- [`get_with_params`](#get_with_params)
-- [`get_with_params_and_headers`](#get_with_params_and_headers)
-- [`insert`](#insert)
-- [`insert`](#insert)
-- [`is_empty`](#is_empty)
-- [`is_empty`](#is_empty)
-- [`len`](#len)
-- [`len`](#len)
-- [`new`](#new)
-- [`post`](#post)
-- [`post_with_headers`](#post_with_headers)
-- [`set_config`](#set_config)
-- [`with_api_key`](#with_api_key)
-- [`with_config`](#with_config)
-- [`with_dexscreener_key`](#with_dexscreener_key)
-- [`with_exa_key`](#with_exa_key)
-- [`with_news_api_key`](#with_news_api_key)
-- [`with_twitter_token`](#with_twitter_token)
+---
 
-## Enums
+#### `AccountInfo`
 
-### WebToolError
+Account information response from TweetScout
 
-**Source**: `src/error.rs`
+---
 
-**Attributes**:
-```rust
-#[derive(Error, Debug, IntoToolError)]
-```
+#### `AggregationMetadata`
 
-```rust
-pub enum WebToolError { /// Network error (includes HTTP) - automatically retriable #[error("Network error: {0}")] Network(String), /// HTTP request error - automatically retriable (converted to Network) #[error("HTTP error: {0}")] Http(#[from] reqwest::Error), /// API error (includes general API issues) - automatically retriable #[error("API error: {0}")] Api(String), /// API rate limit exceeded - automatically handled as rate_limited #[error("Rate limit exceeded: {0}")] #[tool_error(rate_limited)] RateLimit(String), /// API authentication failed - permanent #[error("Authentication error: {0}")] #[tool_error(permanent)] Auth(String), /// Parsing error (includes JSON and response parsing) - permanent #[error("Parsing error: {0}")] #[tool_error(permanent)] Parsing(String), /// Serialization error - automatically permanent #[error("Serialization error: {0}")] Serialization(#[from] serde_json::Error), /// URL parsing error - permanent #[error("URL error: {0}")] #[tool_error(permanent)] Url(#[from] url::ParseError), /// Configuration error - permanent #[error("Configuration error: {0}")] #[tool_error(permanent)] Config(String), /// Client creation error - permanent #[error("Client error: {0}")] #[tool_error(permanent)] Client(String), /// Invalid input provided - permanent #[error("Invalid input: {0}")] #[tool_error(permanent)] InvalidInput(String), /// Core riglr error #[error("Core error: {0}")] #[tool_error(permanent)] Core(#[from] riglr_core::CoreError), }
-```
+Metadata about the news aggregation process
+
+---
+
+#### `ApiKeys`
+
+Type-safe API keys configuration
+
+---
+
+#### `Args`
+
+Arguments structure for the tool
+
+---
+
+#### `BaseUrls`
+
+Base URL configuration for various services
+
+---
+
+#### `BoostsResponse`
+
+Boosted token response (new v1 endpoint)
+
+---
+
+#### `BreakingNewsAlert`
+
+Breaking news alert
+
+---
+
+#### `BundleAnalysis`
+
+Analysis results for a bundle
+
+---
+
+#### `BundleAnalysisResult`
+
+Simplified bundle analysis result
+
+---
+
+#### `BundleDetails`
+
+Details about a specific bundle
+
+---
+
+#### `BundleResponse`
+
+Main bundle response from TrenchBot
+
+---
+
+#### `BundleRiskCheck`
+
+Simple bundle risk check result
+
+---
+
+#### `ChainInfo`
+
+Blockchain/chain information
+
+---
+
+#### `ClientConfig`
+
+Type-safe client configuration
+
+---
+
+#### `ConcentrationAnalysis`
+
+Holder concentration analysis
+
+---
+
+#### `ConcentrationRisk`
+
+Concentration risk analysis
+
+---
+
+#### `ContentEntity`
+
+Entity found in content
+
+---
+
+#### `ContentSummary`
+
+Content summary with key points
+
+---
+
+#### `ContentType`
+
+Content type and format information
+
+---
+
+#### `ContextAnnotation`
+
+Context annotation for tweet topics
+
+---
+
+#### `CreatorAnalysis`
+
+Analysis of the token creator
+
+---
+
+#### `CreatorAnalysisResult`
+
+Creator analysis result
+
+---
+
+#### `CreatorHistory`
+
+Historical data on the creator's activity
+
+---
+
+#### `CreatorRiskAssessment`
+
+Creator risk assessment
+
+---
+
+#### `CredibilityCheck`
+
+Simple credibility check result
+
+---
+
+#### `DetailedRugAnalysis`
+
+Detailed analysis result with additional insights
+
+---
+
+#### `DexInfo`
+
+DEX platform information
+
+---
+
+#### `DexScreenerConfig`
+
+Configuration for DexScreener API access
+
+---
+
+#### `DexScreenerResponse`
+
+Clean response from DexScreener API
+
+---
+
+#### `DexScreenerResponseRaw`
+
+Raw response from DexScreener API containing token pair information
+
+---
+
+#### `DomainInfo`
+
+Domain information for a search result
+
+---
+
+#### `EmotionalIndicators`
+
+Emotional indicators in news content
+
+---
+
+#### `EngagementMetrics`
+
+Engagement metrics for an account
+
+---
+
+#### `EntityMention`
+
+Entity mention statistics
+
+---
+
+#### `ErrorDetail`
+
+Error detail structure
+
+---
+
+#### `ErrorResponse`
+
+Error response from TweetScout API
+
+---
+
+#### `Faster100xConfig`
+
+Faster100x API configuration
+
+---
+
+#### `FileMetadata`
+
+File metadata associated with the token
+
+---
+
+#### `GraphDetectedData`
+
+Graph-based insider detection data
+
+---
+
+#### `HolderActivity`
+
+Recent holder activity metrics
+
+---
+
+#### `HolderDistribution`
+
+Holder distribution breakdown
+
+---
+
+#### `HolderTrendPoint`
+
+Individual holder trend data point
+
+---
+
+#### `HolderTrends`
+
+Holder trends over time
+
+---
+
+#### `HttpConfig`
+
+Configuration for HTTP client
+
+---
+
+#### `InfluencerMention`
+
+Influencer mention data
+
+---
+
+#### `InfluencerMentionsResult`
+
+Result containing multiple influencer mentions
+
+---
+
+#### `InsiderAnalysis`
+
+Insider trading analysis
+
+---
+
+#### `InsiderDetectedData`
+
+Insider detection data
+
+---
+
+#### `InsiderNetwork`
+
+Insider network information
+
+---
+
+#### `KnownAccount`
+
+Known account information
+
+---
+
+#### `LexiconSentimentAnalyzer`
+
+Default lexicon-based sentiment analyzer
+
+---
+
+#### `Liquidity`
+
+Clean liquidity information
+
+---
+
+#### `LiquidityAnalysis`
+
+Liquidity analysis
+
+---
+
+#### `LiquidityRaw`
+
+Raw liquidity information for a trading pair
+
+---
+
+#### `Locker`
+
+Token locker information
+
+---
+
+#### `LunarCrushConfig`
+
+LunarCrush API configuration
+
+---
+
+#### `Market`
+
+Market trading pair information
+
+---
+
+#### `MarketAnalysis`
+
+Market analysis result
+
+---
+
+#### `MarketImpact`
+
+Market impact assessment for news
+
+---
+
+#### `MarketLP`
+
+Market LP token information
+
+---
+
+#### `NewsAggregationResult`
+
+Comprehensive news aggregation result
+
+---
+
+#### `NewsArticle`
+
+Comprehensive news article with metadata and analysis
+
+---
+
+#### `NewsCategory`
+
+News category and classification
+
+---
+
+#### `NewsConfig`
+
+Configuration for news aggregation services
+
+---
+
+#### `NewsEntity`
+
+Entities mentioned in news (people, companies, assets)
+
+---
+
+#### `NewsInsights`
+
+Insights extracted from news aggregation
+
+---
+
+#### `NewsSentiment`
+
+Sentiment analysis for news article
+
+---
+
+#### `NewsSource`
+
+News source information and credibility
+
+---
+
+#### `Order`
+
+Individual order information
+
+---
+
+#### `OrdersResponse`
+
+Orders response for a token (new v1 endpoint)
+
+---
+
+#### `PageMetadata`
+
+Page metadata extracted from HTML
+
+---
+
+#### `PairInfo`
+
+Clean pair information
+
+---
+
+#### `PairInfoRaw`
+
+Raw information about a trading pair from DexScreener
+
+---
+
+#### `PairToken`
+
+Token information within a pair
+
+---
+
+#### `PocketUniverseConfig`
+
+Configuration for PocketUniverse API access
+
+---
+
+#### `PreviousCoin`
+
+Information about a previously created coin
+
+---
+
+#### `PriceChange`
+
+Clean price change statistics
+
+---
+
+#### `PriceChangeRaw`
+
+Raw price change statistics over different time periods
+
+---
+
+#### `PriceLevelAnalysis`
+
+Price level analysis
+
+---
+
+#### `QualityMetrics`
+
+Article quality assessment metrics
+
+---
+
+#### `RateLimitInfo`
+
+Rate limit information
+
+---
+
+#### `RateLimits`
+
+Rate limiting configuration
+
+---
+
+#### `Receiver`
+
+Transfer receiver
+
+---
+
+#### `Risk`
+
+Risk factor information
+
+---
+
+#### `RiskAnalysis`
+
+Risk analysis summary
+
+---
+
+#### `RiskAssessment`
+
+Comprehensive risk assessment including liquidity, volatility, and contract risks
+
+---
+
+#### `RiskFactor`
+
+Individual risk factor
+
+---
+
+#### `RugCheckConfig`
+
+Configuration for RugCheck API access
+
+---
+
+#### `RugCheckResult`
+
+Simple rug check result
+
+---
+
+#### `SafetyCheck`
+
+Simple safety check result
+
+---
+
+#### `ScamDetection`
+
+Scam detection results
+
+---
+
+#### `ScoreResponse`
+
+Score response from TweetScout
+
+---
+
+#### `ScoredAccount`
+
+Account with score for network analysis
+
+---
+
+#### `SearchInsights`
+
+Aggregated insights from search results
+
+---
+
+#### `SearchMetadata`
+
+Metadata for search results
+
+---
+
+#### `SearchResult`
+
+Comprehensive search result with content and metadata
+
+---
+
+#### `SearchSentiment`
+
+Sentiment analysis of search results
+
+---
+
+#### `SecurityInfo`
+
+Token security and verification information
+
+---
+
+#### `SentimentAnalysis`
+
+Sentiment analysis result for tweets
+
+---
+
+#### `SentimentBreakdown`
+
+Breakdown of sentiment scores
+
+---
+
+#### `SentimentData`
+
+Social sentiment data for a cryptocurrency
+
+---
+
+#### `SentimentDistribution`
+
+Distribution of sentiment across results
+
+---
+
+#### `SentimentPhrase`
+
+Key phrases contributing to sentiment
+
+---
+
+#### `SeoMetadata`
+
+SEO-related metadata
+
+---
+
+#### `SimilarPagesResult`
+
+Similar page search result
+
+---
+
+#### `SimilarityMetadata`
+
+Metadata about similarity analysis
+
+---
+
+#### `SocialLink`
+
+Social media and community links
+
+---
+
+#### `SocialMetadata`
+
+Social media metadata (Open Graph, Twitter Cards)
+
+---
+
+#### `SocialMetrics`
+
+Social media engagement metrics
+
+---
+
+#### `SocialNetworkAnalysis`
+
+Social network analysis result
+
+---
+
+#### `SourceDiversity`
+
+Source diversity analysis
+
+---
+
+#### `Token`
+
+Clean token information
+
+---
+
+#### `TokenCheck`
+
+Main token check report from RugCheck
+
+---
+
+#### `TokenEvent`
+
+Token event in history
+
+---
+
+#### `TokenHolder`
+
+Token holder information
+
+---
+
+#### `TokenHolderAnalysis`
+
+Token holder analysis data
+
+---
+
+#### `TokenInfo`
+
+Comprehensive token information including price, volume, and market data
+
+---
+
+#### `TokenLink`
+
+Token link information
+
+---
+
+#### `TokenMetadata`
+
+Token metadata
+
+---
+
+#### `TokenPair`
+
+Trading pair information
+
+---
+
+#### `TokenPriceResult`
+
+Price result with additional metadata
+
+---
+
+#### `TokenProfile`
+
+Token profile information (new v1 endpoint)
+
+---
+
+#### `TokenRaw`
+
+Raw token information
+
+---
+
+#### `TokenSearchResult`
+
+Token search results with metadata and execution information
+
+---
+
+#### `Tool`
+
+Tool implementation structure
+
+---
+
+#### `TransactionStats`
+
+Clean transaction stats
+
+---
+
+#### `TransactionStatsRaw`
+
+Raw buy and sell transaction statistics
+
+---
+
+#### `Transactions`
+
+Clean transaction statistics
+
+---
+
+#### `TransactionsRaw`
+
+Raw transaction statistics over different time periods
+
+---
+
+#### `Transfer`
+
+Transfer information
+
+---
+
+#### `TransferFee`
+
+Transfer fee configuration
+
+---
+
+#### `TrenchBotConfig`
+
+Configuration for TrenchBot API access
+
+---
+
+#### `TrendAnalysis`
+
+Market trend analysis including direction, momentum, and key price levels
+
+---
+
+#### `TrendingCrypto`
+
+Trending cryptocurrency with social metrics
+
+---
+
+#### `TrendingTopic`
+
+Trending topic analysis
+
+---
+
+#### `TweetEntities`
+
+Entities extracted from tweet text
+
+---
+
+#### `TweetMetrics`
+
+Tweet engagement metrics
+
+---
+
+#### `TweetScoutConfig`
+
+Configuration for TweetScout API access
+
+---
+
+#### `TwitterConfig`
+
+Configuration for Twitter API access
+
+---
+
+#### `TwitterPost`
+
+A Twitter/X post with metadata
+
+---
+
+#### `TwitterSearchResult`
+
+Result of Twitter search operation
+
+---
+
+#### `TwitterTool`
+
+Twitter tool for social sentiment analysis
+
+---
+
+#### `TwitterUser`
+
+Twitter user information
+
+---
+
+#### `VerifiedToken`
+
+Verified token information
+
+---
+
+#### `VerifiedTokenLinks`
+
+Verified token links
+
+---
+
+#### `Volume`
+
+Clean volume statistics
+
+---
+
+#### `VolumeAnalysis`
+
+Volume analysis including trends, ratios, and trading activity metrics
+
+---
+
+#### `VolumeRaw`
+
+Raw trading volume statistics over different time periods
+
+---
+
+#### `WalletCategoryBreakdown`
+
+Wallet category breakdown
+
+---
+
+#### `WalletHolding`
+
+Individual wallet holding information
+
+---
+
+#### `WalletInfo`
+
+Information about a specific wallet's interaction with a bundle
+
+---
+
+#### `WebClient`
+
+A client for interacting with various web APIs and services
+
+---
+
+#### `WebSearchConfig`
+
+Configuration for web search services
+
+---
+
+#### `WebSearchMetadata`
+
+Metadata about the search operation
+
+---
+
+#### `WebSearchResult`
+
+Complete search operation result
+
+---
+
+#### `WhaleActivity`
+
+Whale activity tracking data
+
+---
+
+#### `WhaleTransaction`
+
+Individual whale transaction
+
+---
+
+### Enums
+
+> Enumeration types for representing variants.
+
+#### `NetworkQuality`
+
+Network quality assessment
+
+**Variants:**
+
+- `High`
+  - High quality network
+- `Medium`
+  - Medium quality network
+- `Low`
+  - Low quality network
+- `Suspicious`
+  - Suspicious network
+
+---
+
+#### `OrderStatus`
+
+Order status enum
+
+**Variants:**
+
+- `Processing`
+  - Order is currently being processed
+- `Cancelled`
+  - Order has been cancelled
+- `OnHold`
+  - Order is on hold
+- `Approved`
+  - Order has been approved
+- `Rejected`
+  - Order has been rejected
+
+---
+
+#### `OrderType`
+
+Order type enum
+
+**Variants:**
+
+- `TokenProfile`
+  - Token profile order type
+- `CommunityTakeover`
+  - Community takeover order type
+- `TokenAd`
+  - Token advertisement order type
+- `TrendingBarAd`
+  - Trending bar advertisement order type
+
+---
+
+#### `ProcessingStatus`
+
+Processing status of the token
+
+**Variants:**
+
+- `Processed`
+  - Token has been fully processed
+- `NotProcessed`
+  - Token not yet processed (insufficient data)
+- `Error`
+  - Error occurred during processing
+
+---
+
+#### `RiskLevel`
+
+Risk level enumeration
+
+**Variants:**
+
+- `Low`
+  - Low risk - Creator has good track record
+- `Medium`
+  - Medium risk - Some concerning patterns
+- `High`
+  - High risk - Multiple red flags detected
+
+---
+
+#### `RiskTolerance`
+
+Risk tolerance levels for safety checks
+
+**Variants:**
+
+- `Low`
+  - Only accept low risk tokens
+- `Medium`
+  - Accept low and medium risk tokens
+- `High`
+  - Accept all except extreme risk tokens
+
+---
+
+#### `RugApiResponse`
+
+Main rug check API response from PocketUniverse
+
+**Variants:**
+
+- `NotProcessed`
+  - Token has not been processed yet
+- `Processed`
+  - Token has been processed and analyzed
+
+---
+
+#### `ScoreLevel`
+
+Credibility score level classification
+
+**Variants:**
+
+- `Excellent`
+  - Excellent credibility (80-100)
+- `Good`
+  - Good credibility (60-80)
+- `Fair`
+  - Fair credibility (40-60)
+- `Poor`
+  - Poor credibility (20-40)
+- `VeryPoor`
+  - Very poor credibility (0-20)
+
+---
+
+#### `VolumeConcentration`
+
+Volume concentration level
+
+**Variants:**
+
+- `Distributed`
+  - Volume well distributed
+- `Moderate`
+  - Moderate concentration
+- `Concentrated`
+  - High concentration in few wallets
+- `Extreme`
+  - Extreme concentration (potential manipulation)
+
+---
+
+#### `WebToolError`
 
 Main error type for web tool operations.
 
@@ -194,1651 +1130,87 @@ The IntoToolError derive macro automatically classifies errors:
 - Retriable: Network (includes HTTP), Api (includes request errors), RateLimit
 - Permanent: Auth, Parsing (includes JSON), Config, Client, InvalidInput
 
-**Variants**:
+**Variants:**
 
-- `Network(String)`
-- `Http(#[from] reqwest::Error)`
-- `Api(String)`
-- `RateLimit(String)`
-- `Auth(String)`
-- `Parsing(String)`
-- `Serialization(#[from] serde_json::Error)`
-- `Url(#[from] url::ParseError)`
-- `Config(String)`
-- `Client(String)`
-- `InvalidInput(String)`
-- `Core(#[from] riglr_core::CoreError)`
+- `Network`
+  - Network error (includes HTTP) - automatically retriable
+- `Http`
+  - HTTP request error - automatically retriable (converted to Network)
+- `Api`
+  - API error (includes general API issues) - automatically retriable
+- `RateLimit`
+  - API rate limit exceeded - automatically handled as rate_limited
+- `Auth`
+  - API authentication failed - permanent
+- `Parsing`
+  - Parsing error (includes JSON and response parsing) - permanent
+- `Serialization`
+  - Serialization error - automatically permanent
+- `Url`
+  - URL parsing error - permanent
+- `Config`
+  - Configuration error - permanent
+- `Client`
+  - Client creation error - permanent
+- `InvalidInput`
+  - Invalid input provided - permanent
+- `Core`
+  - Core riglr error
 
 ---
 
-## Constants
+### Traits
 
-### VERSION
+> Trait definitions for implementing common behaviors.
 
-**Source**: `src/lib.rs`
+#### `SentimentAnalyzer`
 
-```rust
-const VERSION: &str
-```
+Trait for pluggable sentiment analysis
 
-Current version of riglr-web-tools
+**Methods:**
 
----
-
-## Structs
-
-### AggregationMetadata
-
-**Source**: `src/news.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub struct AggregationMetadata { /// Total articles found across all sources pub total_articles: u32, /// Articles returned after filtering pub returned_articles: u32, /// Sources queried pub sources_queried: Vec<String>, /// Average credibility of returned articles pub avg_credibility: f64, /// Time range covered pub time_range_hours: u32, /// Duplicate articles removed pub duplicates_removed: u32, }
-```
-
-Metadata about the news aggregation process
-
----
-
-### ApiKeys
-
-**Source**: `src/client.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Default)]
-```
-
-```rust
-pub struct ApiKeys { /// Twitter/X Bearer Token pub twitter: Option<String>, /// Exa API key pub exa: Option<String>, /// DexScreener API key (optional)
-```
-
-Type-safe API keys configuration
-
----
-
-### BaseUrls
-
-**Source**: `src/client.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone)]
-```
-
-```rust
-pub struct BaseUrls { /// DexScreener API base URL pub dexscreener: String, /// Exa API base URL pub exa: String, /// News API base URL pub newsapi: String, /// CryptoPanic API base URL pub cryptopanic: String, /// LunarCrush API base URL pub lunarcrush: String, /// Twitter API base URL pub twitter: String, }
-```
-
-Base URL configuration for various services
-
----
-
-### BreakingNewsAlert
-
-**Source**: `src/news.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub struct BreakingNewsAlert { /// Alert ID pub id: String, /// Alert severity (Critical, High, Medium, Low)
-```
-
-Breaking news alert
-
----
-
-### ChainInfo
-
-**Source**: `src/dexscreener.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub struct ChainInfo { /// Chain identifier (e.g., "ethereum", "bsc", "polygon")
-```
-
-Blockchain/chain information
-
----
-
-### ClientConfig
-
-**Source**: `src/client.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Default)]
-```
-
-```rust
-pub struct ClientConfig { /// Base URL overrides for testing pub base_urls: BaseUrls, /// Rate limiting settings pub rate_limits: RateLimits, }
-```
-
-Type-safe client configuration
-
----
-
-### ConcentrationRisk
-
-**Source**: `src/faster100x.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub struct ConcentrationRisk { /// Risk level (Low, Medium, High, Critical)
-```
-
-Concentration risk analysis
-
----
-
-### ContentEntity
-
-**Source**: `src/web_search.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub struct ContentEntity { /// Entity name pub name: String, /// Entity type (Person, Organization, Location, etc.)
-```
-
-Entity found in content
-
----
-
-### ContentSummary
-
-**Source**: `src/web_search.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub struct ContentSummary { /// URL of the page pub url: String, /// Page title pub title: String, /// Executive summary (2-3 sentences)
-```
-
-Content summary with key points
-
----
-
-### ContentType
-
-**Source**: `src/web_search.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub struct ContentType { /// Primary content type (Article, Blog, News, Academic, etc.)
-```
-
-Content type and format information
-
----
-
-### ContextAnnotation
-
-**Source**: `src/twitter.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub struct ContextAnnotation { /// Domain ID pub domain_id: String, /// Domain name pub domain_name: String, /// Entity ID pub entity_id: String, /// Entity name pub entity_name: String, }
-```
-
-Context annotation for tweet topics
-
----
-
-### DexInfo
-
-**Source**: `src/dexscreener.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub struct DexInfo { /// DEX identifier pub id: String, /// DEX name pub name: String, /// DEX URL pub url: Option<String>, /// DEX logo URL pub logo: Option<String>, }
-```
-
-DEX platform information
-
----
-
-### DexScreenerConfig
-
-**Source**: `src/dexscreener.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone)]
-```
-
-```rust
-pub struct DexScreenerConfig { /// API base URL (default: https://api.dexscreener.com/latest)
-```
-
-Configuration for DexScreener API access
-
----
-
-### DexScreenerResponse
-
-**Source**: `src/dexscreener_api.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Serialize, Deserialize, Clone)]
-```
-
-```rust
-pub struct DexScreenerResponse { /// Schema version of the API response #[serde(rename = "schemaVersion")]
-```
-
-Response from DexScreener API containing token pair information
-
----
-
-### DomainInfo
-
-**Source**: `src/web_search.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub struct DomainInfo { /// Domain name (e.g., "techcrunch.com")
-```
-
-Domain information for a search result
-
----
-
-### EmotionalIndicators
-
-**Source**: `src/news.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub struct EmotionalIndicators { /// Fear level (0.0 to 1.0)
-```
-
-Emotional indicators in news content
-
----
-
-### EntityMention
-
-**Source**: `src/twitter.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub struct EntityMention { /// Entity name (e.g., "Bitcoin", "Ethereum")
-```
-
-Entity mention in sentiment analysis
-
----
-
-### EntityMention
-
-**Source**: `src/news.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub struct EntityMention { /// Entity name pub name: String, /// Number of mentions across articles pub mention_count: u32, /// Average sentiment towards entity pub avg_sentiment: f64, /// Entity type pub entity_type: String, /// Trending status pub is_trending: bool, }
-```
-
-Entity mention statistics
-
----
-
-### Faster100xConfig
-
-**Source**: `src/faster100x.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone)]
-```
-
-```rust
-pub struct Faster100xConfig { /// API key for authentication with Faster100x service pub api_key: String, /// API base URL (default: https://api.faster100x.com/v1)
-```
-
-Faster100x API configuration
-
----
-
-### HolderActivity
-
-**Source**: `src/faster100x.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub struct HolderActivity { /// New holders in last 24h pub new_holders_24h: u64, /// Holders who sold in last 24h pub exited_holders_24h: u64, /// Net holder change in 24h pub net_holder_change_24h: i64, /// Average buy size in last 24h (USD)
-```
-
-Recent holder activity metrics
-
----
-
-### HolderDistribution
-
-**Source**: `src/faster100x.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub struct HolderDistribution { /// Percentage held by top 1% of holders pub top_1_percent: f64, /// Percentage held by top 5% of holders pub top_5_percent: f64, /// Percentage held by top 10% of holders pub top_10_percent: f64, /// Percentage held by whale wallets (>1% of supply)
-```
-
-Holder distribution breakdown
-
----
-
-### HolderTrendPoint
-
-**Source**: `src/faster100x.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub struct HolderTrendPoint { /// Data point timestamp pub timestamp: DateTime<Utc>, /// Total holders at this time pub total_holders: u64, /// Holder change from previous point pub holder_change: i64, /// Token price at this time pub token_price: f64, /// Whale percentage at this time pub whale_percentage: f64, /// Trading volume at this time pub volume_24h: f64, }
-```
-
-Individual holder trend data point
-
----
-
-### HolderTrends
-
-**Source**: `src/faster100x.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub struct HolderTrends { /// Token address pub token_address: String, /// Time series data points pub data_points: Vec<HolderTrendPoint>, /// Overall trend direction pub trend_direction: String, // "increasing", "decreasing", "stable" /// Trend strength (0-100)
-```
-
-Holder trends over time
-
----
-
-### HttpConfig
-
-**Source**: `src/client.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone)]
-```
-
-```rust
-pub struct HttpConfig { /// Request timeout pub timeout: Duration, /// Maximum retries pub max_retries: u32, /// Retry delay pub retry_delay: Duration, /// User agent pub user_agent: String, /// Enable exponential backoff pub exponential_backoff: bool, /// Jitter for retry delays (0.0 to 1.0)
-```
-
-Configuration for HTTP client
-
----
-
-### InfluencerMention
-
-**Source**: `src/lunarcrush.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub struct InfluencerMention { /// Unique mention ID pub id: String, /// Influencer username pub influencer_username: String, /// Influencer display name pub influencer_name: String, /// Number of followers pub followers: u64, /// Post content/text pub text: String, /// Post timestamp pub timestamp: DateTime<Utc>, /// Platform (Twitter, Reddit, etc.)
-```
-
-Influencer mention data
-
----
-
-### InfluencerMentionsResult
-
-**Source**: `src/lunarcrush.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub struct InfluencerMentionsResult { /// Token symbol that was searched pub symbol: String, /// List of influencer mentions pub mentions: Vec<InfluencerMention>, /// Total number of mentions found pub total_mentions: u64, /// Timeframe of the search pub timeframe: String, /// Average sentiment across all mentions pub avg_sentiment: f64, }
-```
-
-Result containing multiple influencer mentions
-
----
-
-### Liquidity
-
-**Source**: `src/dexscreener_api.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Serialize, Deserialize, Clone)]
-```
-
-```rust
-pub struct Liquidity { /// Total liquidity in USD pub usd: Option<f64>, /// Liquidity of the base token pub base: Option<f64>, /// Liquidity of the quote token pub quote: Option<f64>, }
-```
-
-Liquidity information for a trading pair
-
----
-
-### LiquidityAnalysis
-
-**Source**: `src/dexscreener.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub struct LiquidityAnalysis { /// Total liquidity across all pairs pub total_liquidity_usd: f64, /// Liquidity distribution across DEXs pub dex_distribution: HashMap<String, f64>, /// Price impact for different trade sizes pub price_impact: HashMap<String, f64>, // "1k", "10k", "100k" -> impact % /// Liquidity depth score (1-100)
-```
-
-Liquidity analysis including depth, distribution, and price impact calculations
-
----
-
-### LunarCrushConfig
-
-**Source**: `src/lunarcrush.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone)]
-```
-
-```rust
-pub struct LunarCrushConfig { /// LunarCrush API key pub api_key: String, /// API base URL (default: https://api.lunarcrush.com/v2)
-```
-
-LunarCrush API configuration
-
----
-
-### MarketAnalysis
-
-**Source**: `src/dexscreener.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub struct MarketAnalysis { /// Token being analyzed pub token: TokenInfo, /// Market trend analysis pub trend_analysis: TrendAnalysis, /// Volume analysis pub volume_analysis: VolumeAnalysis, /// Liquidity analysis pub liquidity_analysis: LiquidityAnalysis, /// Price level analysis pub price_levels: PriceLevelAnalysis, /// Risk assessment pub risk_assessment: RiskAssessment, /// Analysis timestamp pub analyzed_at: DateTime<Utc>, }
-```
-
-Market analysis result
-
----
-
-### MarketImpact
-
-**Source**: `src/news.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub struct MarketImpact { /// Predicted impact level (High, Medium, Low, Negligible)
-```
-
-Market impact assessment for news
-
----
-
-### NewsAggregationResult
-
-**Source**: `src/news.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub struct NewsAggregationResult { /// Search query or topic pub topic: String, /// Found news articles pub articles: Vec<NewsArticle>, /// Aggregation metadata pub metadata: AggregationMetadata, /// Market insights from the news pub insights: NewsInsights, /// Trending topics extracted pub trending_topics: Vec<TrendingTopic>, /// Aggregation timestamp pub aggregated_at: DateTime<Utc>, }
-```
-
-Comprehensive news aggregation result
-
----
-
-### NewsArticle
-
-**Source**: `src/news.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub struct NewsArticle { /// Unique article identifier pub id: String, /// Article title pub title: String, /// Article URL pub url: String, /// Article description/summary pub description: Option<String>, /// Full article content (if extracted)
-```
-
-Comprehensive news article with metadata and analysis
-
----
-
-### NewsCategory
-
-**Source**: `src/news.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub struct NewsCategory { /// Primary category (Breaking, Analysis, Opinion, etc.)
-```
-
-News category and classification
-
----
-
-### NewsConfig
-
-**Source**: `src/news.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone)]
-```
-
-```rust
-pub struct NewsConfig { /// NewsAPI.org API key pub newsapi_key: String, /// CryptoPanic API key pub cryptopanic_key: String, /// Base URL for news aggregation service pub base_url: String, /// Maximum articles per request (default: 50)
-```
-
-Configuration for news aggregation services
-
----
-
-### NewsEntity
-
-**Source**: `src/news.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub struct NewsEntity { /// Entity name pub name: String, /// Entity type (Person, Company, Cryptocurrency, etc.)
-```
-
-Entities mentioned in news (people, companies, assets)
-
----
-
-### NewsInsights
-
-**Source**: `src/news.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub struct NewsInsights { /// Overall market sentiment from news pub overall_sentiment: f64, /// Sentiment trend over time pub sentiment_trend: String, // "Improving", "Declining", "Stable" /// Most mentioned entities pub top_entities: Vec<EntityMention>, /// Dominant themes/topics pub dominant_themes: Vec<String>, /// Geographical distribution of news pub geographic_distribution: HashMap<String, u32>, /// Source diversity metrics pub source_diversity: SourceDiversity, /// Market impact distribution pub impact_distribution: HashMap<String, u32>, }
-```
-
-Insights extracted from news aggregation
-
----
-
-### NewsSentiment
-
-**Source**: `src/news.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub struct NewsSentiment { /// Overall sentiment score (-1.0 to 1.0)
-```
-
-Sentiment analysis for news article
-
----
-
-### NewsSource
-
-**Source**: `src/news.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub struct NewsSource { /// Source identifier pub id: String, /// Source name (e.g., "CoinDesk", "Reuters")
-```
-
-News source information and credibility
-
----
-
-### PageMetadata
-
-**Source**: `src/web_search.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub struct PageMetadata { /// Author name(s)
-```
-
-Page metadata extracted from HTML
-
----
-
-### PairInfo
-
-**Source**: `src/dexscreener_api.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Serialize, Deserialize, Clone)]
-```
-
-```rust
-pub struct PairInfo { /// Blockchain network identifier #[serde(rename = "chainId")]
-```
-
-Information about a trading pair from DexScreener
-
----
-
-### PairToken
-
-**Source**: `src/dexscreener.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub struct PairToken { /// Token contract address pub address: String, /// Token name pub name: String, /// Token symbol pub symbol: String, }
-```
-
-Token information within a pair
-
----
-
-### PriceChange
-
-**Source**: `src/dexscreener_api.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Serialize, Deserialize, Clone)]
-```
-
-```rust
-pub struct PriceChange { /// Price change percentage in the last 24 hours #[serde(default)]
-```
-
-Price change statistics over different time periods
-
----
-
-### PriceLevelAnalysis
-
-**Source**: `src/dexscreener.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub struct PriceLevelAnalysis { /// All-time high price pub ath: Option<f64>, /// All-time low price pub atl: Option<f64>, /// Distance from ATH (percentage)
-```
-
-Price level analysis
-
----
-
-### QualityMetrics
-
-**Source**: `src/news.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub struct QualityMetrics { /// Overall quality score (0-100)
-```
-
-Article quality assessment metrics
-
----
-
-### RateLimitInfo
-
-**Source**: `src/twitter.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub struct RateLimitInfo { /// Requests remaining in current window pub remaining: u32, /// Total requests allowed per window pub limit: u32, /// When the rate limit resets (Unix timestamp)
-```
-
-Rate limit information
-
----
-
-### RateLimits
-
-**Source**: `src/client.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone)]
-```
-
-```rust
-pub struct RateLimits { /// DexScreener requests per minute limit pub dexscreener_per_minute: u32, /// Twitter requests per minute limit pub twitter_per_minute: u32, /// News API requests per minute limit pub newsapi_per_minute: u32, /// Exa API requests per minute limit pub exa_per_minute: u32, }
-```
-
-Rate limiting configuration
-
----
-
-### RiskAssessment
-
-**Source**: `src/dexscreener.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub struct RiskAssessment { /// Overall risk level (Low, Medium, High, Extreme)
-```
-
-Comprehensive risk assessment including liquidity, volatility, and contract risks
-
----
-
-### RiskFactor
-
-**Source**: `src/dexscreener.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub struct RiskFactor { /// Risk category pub category: String, /// Risk description pub description: String, /// Severity (Low, Medium, High)
-```
-
-Individual risk factor
-
----
-
-### SearchInsights
-
-**Source**: `src/web_search.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub struct SearchInsights { /// Most common topics/themes found pub common_topics: Vec<String>, /// Publication date distribution pub date_distribution: HashMap<String, u32>, // "last_week", "last_month", etc. /// Content type distribution pub content_types: HashMap<String, u32>, /// Average content quality score pub avg_quality_score: Option<f64>, /// Language distribution pub languages: HashMap<String, u32>, /// Sentiment analysis (if performed)
-```
-
-Aggregated insights from search results
-
----
-
-### SearchMetadata
-
-**Source**: `src/dexscreener.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub struct SearchMetadata { /// Number of results found pub result_count: u32, /// Search execution time (ms)
-```
-
-Metadata for search results
-
----
-
-### SearchMetadata
-
-**Source**: `src/twitter.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub struct SearchMetadata { /// Total number of tweets found pub result_count: u32, /// Search query used pub query: String, /// Token for pagination to fetch next set of results pub next_token: Option<String>, /// Search timestamp pub searched_at: DateTime<Utc>, }
-```
-
-Metadata for Twitter search results
-
----
-
-### SearchResult
-
-**Source**: `src/web_search.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub struct SearchResult { /// Unique result identifier pub id: String, /// Page title pub title: String, /// Page URL pub url: String, /// Page description/snippet pub description: Option<String>, /// Extracted text content pub content: Option<String>, /// Content summary (if processed)
-```
-
-Comprehensive search result with content and metadata
-
----
-
-### SearchSentiment
-
-**Source**: `src/web_search.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub struct SearchSentiment { /// Overall sentiment score (-1.0 to 1.0)
-```
-
-Sentiment analysis of search results
-
----
-
-### SecurityInfo
-
-**Source**: `src/dexscreener.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
+- `analyze()`
+  - Analyze sentiment from text components
 
-```rust
-pub struct SecurityInfo { /// Whether the token contract is verified pub is_verified: bool, /// Whether liquidity is locked pub liquidity_locked: Option<bool>, /// Contract audit status pub audit_status: Option<String>, /// Honeypot detection result pub honeypot_status: Option<String>, /// Contract ownership status pub ownership_status: Option<String>, /// Risk score (0-100, lower is better)
-```
-
-Token security and verification information
-
----
-
-### SentimentAnalysis
-
-**Source**: `src/twitter.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub struct SentimentAnalysis { /// Overall sentiment score (-1.0 to 1.0)
-```
-
-Sentiment analysis result for tweets
-
----
-
-### SentimentBreakdown
-
-**Source**: `src/twitter.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub struct SentimentBreakdown { /// Percentage of positive tweets pub positive_pct: f64, /// Percentage of neutral tweets pub neutral_pct: f64, /// Percentage of negative tweets pub negative_pct: f64, /// Average engagement for positive tweets pub positive_avg_engagement: f64, /// Average engagement for negative tweets pub negative_avg_engagement: f64, }
-```
-
-Breakdown of sentiment scores
-
----
-
-### SentimentData
-
-**Source**: `src/lunarcrush.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub struct SentimentData { /// Cryptocurrency symbol (e.g., "BTC", "ETH")
-```
-
-Social sentiment data for a cryptocurrency
-
----
-
-### SentimentDistribution
-
-**Source**: `src/web_search.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub struct SentimentDistribution { /// Percentage of positive results pub positive_pct: f64, /// Percentage of neutral results pub neutral_pct: f64, /// Percentage of negative results pub negative_pct: f64, }
-```
-
-Distribution of sentiment across results
-
----
-
-### SentimentPhrase
-
-**Source**: `src/news.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub struct SentimentPhrase { /// The phrase text pub phrase: String, /// Sentiment contribution (-1.0 to 1.0)
-```
-
-Key phrases contributing to sentiment
-
----
-
-### SeoMetadata
-
-**Source**: `src/web_search.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub struct SeoMetadata { /// Meta description pub meta_description: Option<String>, /// Meta keywords pub meta_keywords: Vec<String>, /// Page robots directive pub robots: Option<String>, /// Schema.org structured data types found pub schema_types: Vec<String>, }
-```
-
-SEO-related metadata
-
----
-
-### SimilarPagesResult
-
-**Source**: `src/web_search.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub struct SimilarPagesResult { /// Source URL used for similarity search pub source_url: String, /// Similar pages found pub similar_pages: Vec<SearchResult>, /// Similarity scores and metadata pub similarity_metadata: SimilarityMetadata, /// Search timestamp pub searched_at: DateTime<Utc>, }
-```
-
-Similar page search result
-
----
-
-### SimilarityMetadata
-
-**Source**: `src/web_search.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub struct SimilarityMetadata { /// Average similarity score pub avg_similarity: f64, /// Similarity calculation method used pub method: String, /// Common themes between source and similar pages pub common_themes: Vec<String>, /// Content overlap analysis pub content_overlap: f64, }
-```
-
-Metadata about similarity analysis
-
----
-
-### SocialLink
-
-**Source**: `src/dexscreener.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub struct SocialLink { /// Platform name (e.g., "twitter", "telegram", "discord")
-```
-
-Social media and community links
-
----
-
-### SocialMetadata
-
-**Source**: `src/web_search.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub struct SocialMetadata { /// Open Graph title pub og_title: Option<String>, /// Open Graph description pub og_description: Option<String>, /// Open Graph image URL pub og_image: Option<String>, /// Twitter card type pub twitter_card: Option<String>, /// Twitter handle pub twitter_site: Option<String>, }
-```
-
-Social media metadata (Open Graph, Twitter Cards)
-
----
-
-### SocialMetrics
-
-**Source**: `src/news.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub struct SocialMetrics { /// Total social shares pub total_shares: u32, /// Twitter mentions/shares pub twitter_shares: u32, /// Reddit discussions pub reddit_mentions: u32, /// LinkedIn shares pub linkedin_shares: u32, /// Social sentiment (different from article sentiment)
-```
-
-Social media engagement metrics
-
----
-
-### SourceDiversity
-
-**Source**: `src/news.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub struct SourceDiversity { /// Number of unique sources pub unique_sources: u32, /// Source type distribution pub source_types: HashMap<String, u32>, /// Geographic source distribution pub geographic_sources: HashMap<String, u32>, /// Credibility distribution pub credibility_distribution: HashMap<String, u32>, // "High", "Medium", "Low" }
-```
-
-Source diversity analysis
-
----
-
-### Token
-
-**Source**: `src/dexscreener_api.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Serialize, Deserialize, Clone)]
-```
-
-```rust
-pub struct Token { /// Token contract address pub address: String, /// Full name of the token pub name: String, /// Token symbol/ticker pub symbol: String, }
-```
-
-Token information
-
----
-
-### TokenHolderAnalysis
-
-**Source**: `src/faster100x.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub struct TokenHolderAnalysis { /// Token contract address pub token_address: String, /// Token symbol pub token_symbol: String, /// Token name pub token_name: String, /// Total number of holders pub total_holders: u64, /// Number of unique holders pub unique_holders: u64, /// Holder distribution metrics pub distribution: HolderDistribution, /// Top holder wallets (anonymized)
-```
-
-Token holder analysis data
-
----
-
-### TokenInfo
-
-**Source**: `src/dexscreener.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub struct TokenInfo { /// Token contract address pub address: String, /// Token name pub name: String, /// Token symbol pub symbol: String, /// Token decimals pub decimals: u32, /// Current price in USD pub price_usd: Option<f64>, /// Market capitalization in USD pub market_cap: Option<f64>, /// 24h trading volume in USD pub volume_24h: Option<f64>, /// Price change percentage (24h)
-```
-
-Comprehensive token information including price, volume, and market data
-
----
-
-### TokenPair
-
-**Source**: `src/dexscreener.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub struct TokenPair { /// Unique pair identifier pub pair_id: String, /// DEX name (e.g., "Uniswap V3", "PancakeSwap")
-```
-
-Trading pair information
-
----
-
-### TokenPriceResult
-
-**Source**: `src/price.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub struct TokenPriceResult { /// Token address that was queried pub token_address: String, /// Token symbol pub token_symbol: Option<String>, /// Current price in USD pub price_usd: String, /// DEX where price was sourced pub source_dex: Option<String>, /// Pair address used for pricing pub source_pair: Option<String>, /// Liquidity in USD of the source pair pub source_liquidity_usd: Option<f64>, /// Chain name where token exists pub chain: Option<String>, /// Timestamp of price fetch pub fetched_at: chrono::DateTime<chrono::Utc>, }
-```
-
-Price result with additional metadata
-
----
-
-### TokenSearchResult
-
-**Source**: `src/dexscreener.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub struct TokenSearchResult { /// Search query used pub query: String, /// List of tokens found in search pub tokens: Vec<TokenInfo>, /// Search metadata pub metadata: SearchMetadata, /// Search timestamp pub searched_at: DateTime<Utc>, }
-```
-
-Token search results with metadata and execution information
-
 ---
 
-### TransactionStats
+### Functions
 
-**Source**: `src/dexscreener_api.rs`
+> Standalone functions and utilities.
 
-**Attributes**:
-```rust
-#[derive(Debug, Serialize, Deserialize, Clone)]
-```
+#### `aggregate_token_info`
 
-```rust
-pub struct TransactionStats { /// Number of buy transactions pub buys: Option<u64>, /// Number of sell transactions pub sells: Option<u64>, }
-```
+Helper function to aggregate data from multiple pairs into a single TokenInfo
 
-Buy and sell transaction statistics
-
----
-
-### TransactionStats
-
-**Source**: `src/dexscreener.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub struct TransactionStats { /// Number of buy transactions (24h)
-```
-
-Transaction statistics for a trading pair
-
----
-
-### Transactions
-
-**Source**: `src/dexscreener_api.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Serialize, Deserialize, Clone)]
-```
-
-```rust
-pub struct Transactions { /// Transaction statistics for the last 24 hours #[serde(default)]
-```
-
-Transaction statistics over different time periods
-
----
-
-### TrendAnalysis
-
-**Source**: `src/dexscreener.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub struct TrendAnalysis { /// Overall trend direction (Bullish, Bearish, Neutral)
-```
-
-Market trend analysis including direction, momentum, and key price levels
-
----
-
-### TrendingCrypto
-
-**Source**: `src/lunarcrush.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub struct TrendingCrypto { /// Cryptocurrency symbol pub symbol: String, /// Full name of the cryptocurrency pub name: String, /// Current market rank pub market_rank: u32, /// Galaxy score (LunarCrush proprietary metric)
-```
-
-Trending cryptocurrency with social metrics
-
----
-
-### TrendingTopic
-
-**Source**: `src/news.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub struct TrendingTopic { /// Topic name pub topic: String, /// Number of articles mentioning this topic pub article_count: u32, /// Trend velocity (mentions per hour)
-```
-
-Trending topic analysis
-
----
-
-### TweetEntities
-
-**Source**: `src/twitter.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub struct TweetEntities { /// Hashtags mentioned pub hashtags: Vec<String>, /// User mentions pub mentions: Vec<String>, /// URLs shared pub urls: Vec<String>, /// Cashtags ($SYMBOL)
-```
-
-Entities extracted from tweet text
-
----
-
-### TweetMetrics
-
-**Source**: `src/twitter.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, Default)]
-```
-
-```rust
-pub struct TweetMetrics { /// Number of retweets pub retweet_count: u32, /// Number of likes pub like_count: u32, /// Number of replies pub reply_count: u32, /// Number of quotes pub quote_count: u32, /// Number of impressions (if available)
-```
-
-Tweet engagement metrics
-
----
-
-### TwitterConfig
-
-**Source**: `src/twitter.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone)]
-```
-
-```rust
-pub struct TwitterConfig { /// Twitter API Bearer Token for authentication pub bearer_token: String, /// API base URL (default: https://api.twitter.com/2)
-```
-
-Configuration for Twitter API access
-
----
-
-### TwitterPost
-
-**Source**: `src/twitter.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub struct TwitterPost { /// Tweet ID pub id: String, /// Tweet content/text pub text: String, /// Tweet author information pub author: TwitterUser, /// Tweet creation timestamp pub created_at: DateTime<Utc>, /// Engagement metrics pub metrics: TweetMetrics, /// Entities mentioned in the tweet pub entities: TweetEntities, /// Tweet language code pub lang: Option<String>, /// Whether this is a reply pub is_reply: bool, /// Whether this is a retweet pub is_retweet: bool, /// Context annotations (topics, entities)
-```
-
-A Twitter/X post with metadata
-
 ---
 
-### TwitterSearchResult
+#### `analyze_account`
 
-**Source**: `src/twitter.rs`
+Perform comprehensive analysis of a Twitter/X account including credibility scoring.
+Combines account info and score into a detailed assessment.
 
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub struct TwitterSearchResult { /// Found tweets pub tweets: Vec<TwitterPost>, /// Search metadata pub meta: SearchMetadata, /// Rate limit information pub rate_limit_info: RateLimitInfo, }
-```
-
-Result of Twitter search operation
-
----
-
-### TwitterUser
-
-**Source**: `src/twitter.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub struct TwitterUser { /// User ID pub id: String, /// Username (handle)
-```
-
-Twitter user information
-
----
-
-### Volume
-
-**Source**: `src/dexscreener_api.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Serialize, Deserialize, Clone, Default)]
-```
-
-```rust
-pub struct Volume { /// Trading volume in the last 24 hours #[serde(default)]
-```
-
-Trading volume statistics over different time periods
-
----
-
-### VolumeAnalysis
-
-**Source**: `src/dexscreener.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub struct VolumeAnalysis { /// Volume rank among all tokens pub volume_rank: Option<u32>, /// Volume trend (Increasing, Decreasing, Stable)
-```
-
-Volume analysis including trends, ratios, and trading activity metrics
-
----
-
-### WalletHolding
-
-**Source**: `src/faster100x.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub struct WalletHolding { /// Wallet address (potentially anonymized)
-```
-
-Individual wallet holding information
-
----
-
-### WebClient
-
-**Source**: `src/client.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone)]
-```
-
-```rust
-pub struct WebClient { /// HTTP client for making requests pub http_client: Client, /// Type-safe API keys pub api_keys: ApiKeys, /// Type-safe configuration pub config: ClientConfig, /// HTTP configuration pub http_config: HttpConfig, }
-```
-
-A client for interacting with various web APIs and services
-
----
-
-### WebSearchConfig
-
-**Source**: `src/web_search.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone)]
-```
-
-```rust
-pub struct WebSearchConfig { /// Exa API key for intelligent search pub exa_api_key: String, /// Exa API base URL (default: https://api.exa.ai)
-```
-
-Configuration for web search services
-
----
-
-### WebSearchMetadata
-
-**Source**: `src/web_search.rs`
-
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub struct WebSearchMetadata { /// Total results found pub total_results: u32, /// Results returned in this response pub returned_results: u32, /// Search execution time (ms)
-```
-
-Metadata about the search operation
-
 ---
 
-### WebSearchResult
+#### `analyze_account_tool`
 
-**Source**: `src/web_search.rs`
+Factory function to create a new instance of the tool
 
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
-
-```rust
-pub struct WebSearchResult { /// Search query used pub query: String, /// Search type performed pub search_type: String, /// Found results pub results: Vec<SearchResult>, /// Search metadata pub metadata: WebSearchMetadata, /// Aggregated insights from results pub insights: SearchInsights, /// Search timestamp pub searched_at: DateTime<Utc>, }
-```
-
-Complete search operation result
-
 ---
-
-### WhaleActivity
 
-**Source**: `src/faster100x.rs`
+#### `analyze_creator_risk`
 
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
+Analyze the creator of a Solana token for historical rug pull activity.
+Provides detailed creator risk assessment based on their track record.
 
-```rust
-pub struct WhaleActivity { /// Token being analyzed pub token_address: String, /// Whale transactions in the specified timeframe pub whale_transactions: Vec<WhaleTransaction>, /// Total whale buy volume pub total_whale_buys: f64, /// Total whale sell volume pub total_whale_sells: f64, /// Net whale flow (buys - sells)
-```
-
-Whale activity tracking data
-
 ---
-
-### WhaleTransaction
-
-**Source**: `src/faster100x.rs`
 
-**Attributes**:
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-```
+#### `analyze_creator_risk_tool`
 
-```rust
-pub struct WhaleTransaction { /// Transaction hash pub tx_hash: String, /// Whale wallet address pub wallet_address: String, /// Transaction type (buy/sell)
-```
+Factory function to create a new instance of the tool
 
-Individual whale transaction
-
 ---
-
-## Tools
-
-### analyze_crypto_sentiment
-
-**Source**: `src/twitter.rs`
-
-**Attributes**:
-```rust
-#[tool]
-```
 
-```rust
-pub async fn analyze_crypto_sentiment( token_symbol: String, time_window_hours: Option<u32>, min_engagement: Option<u32>, ) -> crate::error::Result<SentimentAnalysis>
-```
+#### `analyze_crypto_sentiment`
 
 Analyze sentiment of cryptocurrency-related tweets
 
@@ -1847,18 +1219,13 @@ providing insights into market mood and social trends.
 
 ---
 
-### analyze_market_sentiment
+#### `analyze_crypto_sentiment_tool`
 
-**Source**: `src/news.rs`
+Factory function to create a new instance of the tool
 
-**Attributes**:
-```rust
-#[tool]
-```
+---
 
-```rust
-pub async fn analyze_market_sentiment( time_window: Option<String>, // "1h", "6h", "24h", "week" asset_filter: Option<Vec<String>>, // Specific cryptocurrencies to focus on _source_weights: Option<HashMap<String, f64>>, // Weight different sources _include_social: Option<bool>, ) -> crate::error::Result<NewsInsights>
-```
+#### `analyze_market_sentiment`
 
 Analyze market sentiment from recent news
 
@@ -1867,18 +1234,52 @@ helping to gauge overall market mood and potential price impact.
 
 ---
 
-### analyze_token_holders
+#### `analyze_market_sentiment_tool`
 
-**Source**: `src/faster100x.rs`
+Factory function to create a new instance of the tool
 
-**Attributes**:
-```rust
-#[tool]
-```
+---
 
-```rust
-pub async fn analyze_token_holders( token_address: String, chain: Option<String>, ) -> Result<TokenHolderAnalysis, WebToolError>
-```
+#### `analyze_rug_risk`
+
+Perform detailed analysis of a token's rug pull risk with comprehensive insights.
+Provides volume breakdown, risk factors, and actionable recommendations.
+
+---
+
+#### `analyze_rug_risk_tool`
+
+Factory function to create a new instance of the tool
+
+---
+
+#### `analyze_social_network`
+
+Analyze the social network of a Twitter/X account including followers and friends.
+Provides insights into the quality and influence of an account's network.
+
+---
+
+#### `analyze_social_network_tool`
+
+Factory function to create a new instance of the tool
+
+---
+
+#### `analyze_token_bundles`
+
+Analyze a Solana token for bundling patterns and provide risk assessment.
+This tool provides a simplified analysis based on TrenchBot data.
+
+---
+
+#### `analyze_token_bundles_tool`
+
+Factory function to create a new instance of the tool
+
+---
+
+#### `analyze_token_holders`
 
 Analyze token holder distribution and concentration risks
 
@@ -1894,18 +1295,13 @@ Detailed holder analysis including distribution metrics and risk assessment
 
 ---
 
-### analyze_token_market
+#### `analyze_token_holders_tool`
 
-**Source**: `src/dexscreener.rs`
+Factory function to create a new instance of the tool
 
-**Attributes**:
-```rust
-#[tool]
-```
+---
 
-```rust
-pub async fn analyze_token_market( token_address: String, chain_id: Option<String>, _include_technical: Option<bool>, include_risk: Option<bool>, ) -> crate::error::Result<MarketAnalysis>
-```
+#### `analyze_token_market`
 
 Analyze token market data using heuristic-based calculations
 
@@ -1920,18 +1316,99 @@ machine learning models. All calculations are rule-based heuristics.
 
 ---
 
-### find_similar_pages
+#### `analyze_token_market_tool`
 
-**Source**: `src/web_search.rs`
+Factory function to create a new instance of the tool
 
-**Attributes**:
-```rust
-#[tool]
-```
+---
 
-```rust
-pub async fn find_similar_pages( source_url: String, max_results: Option<u32>, include_content: Option<bool>, similarity_threshold: Option<f64>, ) -> crate::error::Result<SimilarPagesResult>
-```
+#### `analyze_token_risks`
+
+Analyze a Solana token's security risks and provide a comprehensive risk assessment.
+This tool provides a simplified risk analysis based on RugCheck data.
+
+---
+
+#### `analyze_token_risks_tool`
+
+Factory function to create a new instance of the tool
+
+---
+
+#### `check_bundle_risk`
+
+Check if a Solana token shows signs of bundling manipulation.
+Returns a simple assessment of bundling risk.
+
+---
+
+#### `check_bundle_risk_tool`
+
+Factory function to create a new instance of the tool
+
+---
+
+#### `check_if_rugged`
+
+Check if a Solana token has been rugged or shows signs of a rug pull.
+Returns a simple boolean result with basic risk information.
+
+---
+
+#### `check_if_rugged_tool`
+
+Factory function to create a new instance of the tool
+
+---
+
+#### `check_rug_pull`
+
+Check a Solana token or pool for rug pull risk with simplified results.
+Provides an easy-to-use risk assessment based on PocketUniverse data.
+
+---
+
+#### `check_rug_pull_raw`
+
+Check a Solana token or pool for rug pull risk using PocketUniverse.
+This is the raw API call that returns the direct response.
+
+---
+
+#### `check_rug_pull_raw_tool`
+
+Factory function to create a new instance of the tool
+
+---
+
+#### `check_rug_pull_tool`
+
+Factory function to create a new instance of the tool
+
+---
+
+#### `check_token_orders`
+
+Check orders for a specific token
+
+This tool retrieves paid orders for a token including
+token profiles, community takeovers, and ads.
+
+---
+
+#### `check_token_orders_tool`
+
+Factory function to create a new instance of the tool
+
+---
+
+#### `find_best_liquidity_pair`
+
+Find the best liquidity pair for a token
+
+---
+
+#### `find_similar_pages`
 
 Search for pages similar to a given URL
 
@@ -1940,18 +1417,63 @@ useful for finding related information or alternative perspectives.
 
 ---
 
-### get_crypto_news
+#### `find_similar_pages_tool`
 
-**Source**: `src/news.rs`
+Factory function to create a new instance of the tool
 
-**Attributes**:
-```rust
-#[tool]
-```
+---
 
-```rust
-pub async fn get_crypto_news( topic: String, time_window: Option<String>, // "1h", "6h", "24h", "week" source_types: Option<Vec<String>>, // "mainstream", "crypto", "analysis" min_credibility: Option<u32>, include_analysis: Option<bool>, ) -> crate::error::Result<NewsAggregationResult>
-```
+#### `format_chain_name`
+
+Format a chain ID into a human-readable display name
+
+---
+
+#### `format_dex_name`
+
+Format a DEX ID into a human-readable display name
+
+---
+
+#### `get_account_info`
+
+Get basic information about a Twitter/X account.
+
+---
+
+#### `get_account_info_tool`
+
+Factory function to create a new instance of the tool
+
+---
+
+#### `get_account_score`
+
+Get the credibility score for a Twitter/X account.
+Returns a score from 0-100 indicating account trustworthiness.
+
+---
+
+#### `get_account_score_tool`
+
+Factory function to create a new instance of the tool
+
+---
+
+#### `get_bundle_info`
+
+Get comprehensive bundle information for a Solana token from TrenchBot.
+This tool analyzes token distribution patterns to detect bundling and assess risk.
+
+---
+
+#### `get_bundle_info_tool`
+
+Factory function to create a new instance of the tool
+
+---
+
+#### `get_crypto_news`
 
 Get comprehensive cryptocurrency news for a specific topic
 
@@ -1960,18 +1482,13 @@ and assesses market impact for cryptocurrency-related topics.
 
 ---
 
-### get_holder_trends
+#### `get_crypto_news_tool`
 
-**Source**: `src/faster100x.rs`
+Factory function to create a new instance of the tool
 
-**Attributes**:
-```rust
-#[tool]
-```
+---
 
-```rust
-pub async fn get_holder_trends( token_address: String, period: Option<String>, data_points: Option<u32>, ) -> Result<HolderTrends, WebToolError>
-```
+#### `get_holder_trends`
 
 Get holder trends over time for a token
 
@@ -1988,18 +1505,13 @@ Time series analysis of holder trends with insights and correlations
 
 ---
 
-### get_influencer_mentions
+#### `get_holder_trends_tool`
 
-**Source**: `src/lunarcrush.rs`
+Factory function to create a new instance of the tool
 
-**Attributes**:
-```rust
-#[tool]
-```
+---
 
-```rust
-pub async fn get_influencer_mentions( token_symbol: String, limit: Option<u32>, timeframe: Option<String>, ) -> Result<InfluencerMentionsResult, WebToolError>
-```
+#### `get_influencer_mentions`
 
 Get influencer mentions for a specific token from LunarCrush
 
@@ -2016,18 +1528,78 @@ Collection of influencer mentions with engagement metrics and sentiment analysis
 
 ---
 
-### get_social_sentiment
+#### `get_influencer_mentions_tool`
 
-**Source**: `src/lunarcrush.rs`
+Factory function to create a new instance of the tool
 
-**Attributes**:
-```rust
-#[tool]
-```
+---
 
-```rust
-pub async fn get_social_sentiment( symbol: String, timeframe: Option<String>, ) -> Result<SentimentData, WebToolError>
-```
+#### `get_latest_boosted_tokens`
+
+Get latest boosted tokens from DexScreener
+
+This tool retrieves tokens that have been recently boosted
+on the DexScreener platform.
+
+---
+
+#### `get_latest_boosted_tokens_tool`
+
+Factory function to create a new instance of the tool
+
+---
+
+#### `get_latest_token_boosts`
+
+Get the latest boosted tokens (rate-limit 60 requests per minute)
+
+---
+
+#### `get_latest_token_profiles`
+
+Get the latest token profiles (rate-limit 60 requests per minute)
+
+---
+
+#### `get_latest_token_profiles_tool`
+
+Factory function to create a new instance of the tool
+
+---
+
+#### `get_native_token`
+
+Get the native token symbol for a given blockchain
+
+---
+
+#### `get_pair_by_address`
+
+Legacy: Get pairs by pair address (without chainId)
+Deprecated: Use get_pair_by_address_v1 instead
+
+---
+
+#### `get_pair_by_address_v1`
+
+Get pairs by pair address (requires chainId in new API)
+
+---
+
+#### `get_pairs_by_token`
+
+Legacy: Get token pairs by token address (without chainId)
+Deprecated: Use get_pairs_by_token_v1 instead
+
+---
+
+#### `get_pairs_by_token_v1`
+
+Get token pairs by token address (requires chainId in new API)
+
+---
+
+#### `get_social_sentiment`
 
 Get social sentiment data for a cryptocurrency from LunarCrush
 
@@ -2043,18 +1615,13 @@ Detailed sentiment analysis including scores, volume metrics, and trending keywo
 
 ---
 
-### get_token_info
+#### `get_social_sentiment_tool`
 
-**Source**: `src/dexscreener.rs`
+Factory function to create a new instance of the tool
 
-**Attributes**:
-```rust
-#[tool]
-```
+---
 
-```rust
-pub async fn get_token_info( token_address: String, chain_id: Option<String>, include_pairs: Option<bool>, include_security: Option<bool>, ) -> crate::error::Result<TokenInfo>
-```
+#### `get_token_info`
 
 Get comprehensive token information from DexScreener
 
@@ -2063,82 +1630,37 @@ market cap, trading pairs, and security analysis.
 
 ---
 
-### get_token_price
+#### `get_token_info_tool`
 
-**Source**: `src/price.rs`
-
-**Attributes**:
-```rust
-#[tool]
-```
-
-```rust
-pub async fn get_token_price( token_address: String, chain: Option<String>, ) -> Result<TokenPriceResult, ToolError>
-```
-
-Get token price from DexScreener with highest liquidity pair
-
-This tool fetches the most reliable token price by finding the trading pair
-with the highest liquidity on DexScreener. Using the highest liquidity pair
-ensures the most accurate and stable price data.
-
-# Arguments
-
-* `token_address` - Token contract address to get price for
-* `chain` - Optional chain name (e.g., "ethereum", "bsc", "polygon", "solana")
-
-# Returns
-
-Returns `TokenPriceResult` containing:
-- `token_address`: The queried token address
-- `token_symbol`: Token symbol if available
-- `price_usd`: Current price in USD as string
-- `source_dex`: DEX where price was sourced from
-- `source_pair`: Trading pair address used
-- `source_liquidity_usd`: Liquidity of the source pair
-- `chain`: Chain name
-- `fetched_at`: Timestamp when price was fetched
-
-# Errors
-
-* `ToolError::InvalidInput` - When token address format is invalid
-* `ToolError::Retriable` - When DexScreener API request fails
-* `ToolError::Permanent` - When no trading pairs found for token
-
-# Examples
-
-```rust,ignore
-use riglr_web_tools::price::get_token_price;
-
-# async fn example() -> Result<(), Box<dyn std::error::Error>> {
-// Get USDC price on Ethereum
-let price = get_token_price(
-"0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48".to_string(),
-Some("ethereum".to_string()),
-).await?;
-
-println!("USDC price: ${}", price.price_usd);
-println!("Source: {} (${:.2} liquidity)",
-price.source_dex.unwrap_or_default(),
-price.source_liquidity_usd.unwrap_or(0.0));
-# Ok(())
-# }
-```
+Factory function to create a new instance of the tool
 
 ---
 
-### get_token_prices_batch
+#### `get_token_orders`
 
-**Source**: `src/price.rs`
+Check orders paid for a token (rate-limit 60 requests per minute)
 
-**Attributes**:
-```rust
-#[tool]
-```
+---
 
-```rust
-pub async fn get_token_prices_batch( token_addresses: Vec<String>, chain: Option<String>, ) -> Result<Vec<TokenPriceResult>, ToolError>
-```
+#### `get_token_pairs_v1`
+
+Get the pools of a given token address (new v1 endpoint)
+
+---
+
+#### `get_token_price`
+
+Extract token price from the best pair
+
+---
+
+#### `get_token_price_tool`
+
+Factory function to create a new instance of the tool
+
+---
+
+#### `get_token_prices_batch`
 
 Get multiple token prices in a batch request
 
@@ -2167,14 +1689,14 @@ use riglr_web_tools::price::get_token_prices_batch;
 
 # async fn example() -> Result<(), Box<dyn std::error::Error>> {
 let tokens = vec![
-"0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48".to_string(), // USDC
-"0xdAC17F958D2ee523a2206206994597C13D831ec7".to_string(), // USDT
+    "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48".to_string(), // USDC
+    "0xdAC17F958D2ee523a2206206994597C13D831ec7".to_string(), // USDT
 ];
 
 let prices = get_token_prices_batch(tokens, Some("ethereum".to_string())).await?;
 
 for price in prices {
-println!("{}: ${}", price.token_symbol.unwrap_or_default(), price.price_usd);
+    println!("{}: ${}", price.token_symbol.unwrap_or_default(), price.price_usd);
 }
 # Ok(())
 # }
@@ -2182,18 +1704,65 @@ println!("{}: ${}", price.token_symbol.unwrap_or_default(), price.price_usd);
 
 ---
 
-### get_top_pairs
+#### `get_token_prices_batch_tool`
 
-**Source**: `src/dexscreener.rs`
+Factory function to create a new instance of the tool
 
-**Attributes**:
-```rust
-#[tool]
-```
+---
 
-```rust
-pub async fn get_top_pairs( time_window: Option<String>, // "5m", "1h", "24h" chain_filter: Option<String>, dex_filter: Option<String>, min_liquidity: Option<f64>, limit: Option<u32>, ) -> crate::error::Result<Vec<TokenPair>>
-```
+#### `get_token_report`
+
+Get a comprehensive security report for a Solana token from RugCheck.
+This tool analyzes tokens for rug pull risks, insider trading, and other security concerns.
+
+---
+
+#### `get_token_report_tool`
+
+Factory function to create a new instance of the tool
+
+---
+
+#### `get_top_boosted_tokens`
+
+Get top boosted tokens from DexScreener
+
+This tool retrieves tokens with the most active boosts
+on the DexScreener platform.
+
+---
+
+#### `get_top_boosted_tokens_tool`
+
+Factory function to create a new instance of the tool
+
+---
+
+#### `get_top_followers`
+
+Get the top 20 followers of a Twitter/X account with their scores.
+
+---
+
+#### `get_top_followers_tool`
+
+Factory function to create a new instance of the tool
+
+---
+
+#### `get_top_friends`
+
+Get the top 20 friends (accounts being followed) of a Twitter/X account with their scores.
+
+---
+
+#### `get_top_friends_tool`
+
+Factory function to create a new instance of the tool
+
+---
+
+#### `get_top_pairs`
 
 Get top DEX pairs by volume across all chains
 
@@ -2202,18 +1771,19 @@ useful for identifying active markets and arbitrage opportunities.
 
 ---
 
-### get_trending_cryptos
+#### `get_top_pairs_tool`
 
-**Source**: `src/lunarcrush.rs`
+Factory function to create a new instance of the tool
 
-**Attributes**:
-```rust
-#[tool]
-```
+---
 
-```rust
-pub async fn get_trending_cryptos( limit: Option<u32>, sort_by: Option<String>, ) -> Result<Vec<TrendingCrypto>, WebToolError>
-```
+#### `get_top_token_boosts`
+
+Get the tokens with most active boosts (rate-limit 60 requests per minute)
+
+---
+
+#### `get_trending_cryptos`
 
 Get trending cryptocurrencies by social metrics from LunarCrush
 
@@ -2229,18 +1799,13 @@ List of trending cryptocurrencies with social and market metrics
 
 ---
 
-### get_trending_news
+#### `get_trending_cryptos_tool`
 
-**Source**: `src/news.rs`
+Factory function to create a new instance of the tool
 
-**Attributes**:
-```rust
-#[tool]
-```
+---
 
-```rust
-pub async fn get_trending_news( time_window: Option<String>, // "1h", "6h", "24h" categories: Option<Vec<String>>, // "defi", "nft", "regulation", "tech" min_impact_score: Option<u32>, limit: Option<u32>, ) -> crate::error::Result<NewsAggregationResult>
-```
+#### `get_trending_news`
 
 Get trending cryptocurrency news across all topics
 
@@ -2249,18 +1814,13 @@ useful for staying updated on breaking developments and market movements.
 
 ---
 
-### get_trending_tokens
+#### `get_trending_news_tool`
 
-**Source**: `src/dexscreener.rs`
+Factory function to create a new instance of the tool
 
-**Attributes**:
-```rust
-#[tool]
-```
+---
 
-```rust
-pub async fn get_trending_tokens( time_window: Option<String>, // "5m", "1h", "24h" chain_filter: Option<String>, min_volume: Option<f64>, limit: Option<u32>, ) -> crate::error::Result<Vec<TokenInfo>>
-```
+#### `get_trending_tokens`
 
 Get trending tokens from DexScreener
 
@@ -2269,18 +1829,13 @@ price changes, and social activity.
 
 ---
 
-### get_user_tweets
+#### `get_trending_tokens_tool`
 
-**Source**: `src/twitter.rs`
+Factory function to create a new instance of the tool
 
-**Attributes**:
-```rust
-#[tool]
-```
+---
 
-```rust
-pub async fn get_user_tweets( username: String, max_results: Option<u32>, include_replies: Option<bool>, include_retweets: Option<bool>, ) -> crate::error::Result<Vec<TwitterPost>>
-```
+#### `get_user_tweets`
 
 Get recent tweets from a specific user
 
@@ -2288,18 +1843,13 @@ This tool fetches recent tweets from a specified Twitter/X user account.
 
 ---
 
-### get_whale_activity
+#### `get_user_tweets_tool`
 
-**Source**: `src/faster100x.rs`
+Factory function to create a new instance of the tool
 
-**Attributes**:
-```rust
-#[tool]
-```
+---
 
-```rust
-pub async fn get_whale_activity( token_address: String, timeframe: Option<String>, min_usd_value: Option<f64>, ) -> Result<WhaleActivity, WebToolError>
-```
+#### `get_whale_activity`
 
 Get whale activity for a specific token
 
@@ -2316,18 +1866,39 @@ Whale activity analysis with transaction details and flow metrics
 
 ---
 
-### monitor_breaking_news
+#### `get_whale_activity_tool`
 
-**Source**: `src/news.rs`
+Factory function to create a new instance of the tool
 
-**Attributes**:
-```rust
-#[tool]
-```
+---
 
-```rust
-pub async fn monitor_breaking_news( keywords: Vec<String>, severity_threshold: Option<String>, // "Critical", "High", "Medium" impact_threshold: Option<u32>, // 0-100 _alert_channels: Option<Vec<String>>, // "webhook", "email", "slack" ) -> crate::error::Result<Vec<BreakingNewsAlert>>
-```
+#### `is_account_credible`
+
+Quick credibility check for a Twitter/X account.
+Returns a simple assessment of whether an account is trustworthy.
+
+---
+
+#### `is_account_credible_tool`
+
+Factory function to create a new instance of the tool
+
+---
+
+#### `is_token_safe`
+
+Quick safety check for a Solana token - returns a simple safe/unsafe verdict.
+Best for quick filtering of tokens before deeper analysis.
+
+---
+
+#### `is_token_safe_tool`
+
+Factory function to create a new instance of the tool
+
+---
+
+#### `monitor_breaking_news`
 
 Monitor for breaking news and generate real-time alerts
 
@@ -2336,18 +1907,13 @@ and generates alerts based on severity and market impact criteria.
 
 ---
 
-### search_recent_news
+#### `monitor_breaking_news_tool`
 
-**Source**: `src/web_search.rs`
+Factory function to create a new instance of the tool
 
-**Attributes**:
-```rust
-#[tool]
-```
+---
 
-```rust
-pub async fn search_recent_news( topic: String, time_window: Option<String>, // "24h", "week", "month" source_types: Option<Vec<String>>, // "news", "blog", "social" max_results: Option<u32>, include_analysis: Option<bool>, ) -> crate::error::Result<WebSearchResult>
-```
+#### `search_recent_news`
 
 Search for recent news and articles on a topic
 
@@ -2356,18 +1922,19 @@ optimized for finding current information and trending discussions.
 
 ---
 
-### search_tokens
+#### `search_recent_news_tool`
 
-**Source**: `src/dexscreener.rs`
+Factory function to create a new instance of the tool
 
-**Attributes**:
-```rust
-#[tool]
-```
+---
 
-```rust
-pub async fn search_tokens( query: String, chain_filter: Option<String>, min_market_cap: Option<f64>, min_liquidity: Option<f64>, limit: Option<u32>, ) -> crate::error::Result<TokenSearchResult>
-```
+#### `search_ticker`
+
+Search for tokens or pairs on DexScreener
+
+---
+
+#### `search_tokens`
 
 Search for tokens on DexScreener
 
@@ -2376,18 +1943,13 @@ with support for filtering by chain and market cap.
 
 ---
 
-### search_tweets
+#### `search_tokens_tool`
 
-**Source**: `src/twitter.rs`
+Factory function to create a new instance of the tool
 
-**Attributes**:
-```rust
-#[tool]
-```
+---
 
-```rust
-pub async fn search_tweets( query: String, max_results: Option<u32>, include_sentiment: Option<bool>, language: Option<String>, start_time: Option<String>, end_time: Option<String>, ) -> crate::error::Result<TwitterSearchResult>
-```
+#### `search_tweets`
 
 Search for tweets matching a query with comprehensive filtering
 
@@ -2396,18 +1958,13 @@ with support for advanced filters and sentiment analysis.
 
 ---
 
-### search_web
+#### `search_tweets_tool`
 
-**Source**: `src/web_search.rs`
+Factory function to create a new instance of the tool
 
-**Attributes**:
-```rust
-#[tool]
-```
+---
 
-```rust
-pub async fn search_web( query: String, max_results: Option<u32>, include_content: Option<bool>, domain_filter: Option<Vec<String>>, date_filter: Option<String>, // "day", "week", "month", "year" content_type_filter: Option<String>, // "news", "academic", "blog" ) -> crate::error::Result<WebSearchResult>
-```
+#### `search_web`
 
 Perform web search with content extraction
 
@@ -2416,18 +1973,19 @@ Uses traditional search APIs rather than semantic understanding.
 
 ---
 
-### summarize_web_content
+#### `search_web_tool`
 
-**Source**: `src/web_search.rs`
+Factory function to create a new instance of the tool
 
-**Attributes**:
-```rust
-#[tool]
-```
+---
 
-```rust
-pub async fn summarize_web_content( urls: Vec<String>, summary_length: Option<String>, // "brief", "detailed", "comprehensive" focus_topics: Option<Vec<String>>, _include_quotes: Option<bool>, ) -> crate::error::Result<Vec<ContentSummary>>
-```
+#### `search_web_with_context`
+
+Internal function to perform web search with ApplicationContext
+
+---
+
+#### `summarize_web_content`
 
 Summarize content from multiple web pages
 
@@ -2436,383 +1994,28 @@ creating a comprehensive overview of a topic from multiple sources.
 
 ---
 
-## Functions (dexscreener_api)
+#### `summarize_web_content_tool`
 
-### find_best_liquidity_pair
-
-**Source**: `src/dexscreener_api.rs`
-
-```rust
-pub fn find_best_liquidity_pair(pairs: Vec<PairInfo>) -> Option<PairInfo>
-```
-
-Find the best liquidity pair for a token
+Factory function to create a new instance of the tool
 
 ---
 
-### get_pair_by_address
+### Type Aliases
 
-**Source**: `src/dexscreener_api.rs`
+#### `Result`
 
-```rust
-pub async fn get_pair_by_address(pair_address: &str) -> Result<PairInfo>
-```
+Result type alias for web tool operations.
 
-Get pairs by pair address
+**Type:** `<T, >`
 
 ---
 
-### get_pairs_by_token
+### Constants
 
-**Source**: `src/dexscreener_api.rs`
+#### `VERSION`
 
-```rust
-pub async fn get_pairs_by_token(token_address: &str) -> Result<DexScreenerResponse>
-```
+Current version of riglr-web-tools
 
-Get token pairs by token address
+**Type:** `&str`
 
 ---
-
-### get_token_price
-
-**Source**: `src/dexscreener_api.rs`
-
-```rust
-pub fn get_token_price(pairs: &[PairInfo], token_address: &str) -> Option<String>
-```
-
-Extract token price from the best pair
-
----
-
-### search_ticker
-
-**Source**: `src/dexscreener_api.rs`
-
-```rust
-pub async fn search_ticker(ticker: String) -> Result<DexScreenerResponse>
-```
-
-Search for tokens or pairs on DexScreener
-
----
-
-## Functions (client)
-
-### contains_key
-
-**Source**: `src/client.rs`
-
-```rust
-pub fn contains_key(&self, key: &str) -> bool
-```
-
-Check if an API key exists
-
----
-
-### delete
-
-**Source**: `src/client.rs`
-
-```rust
-pub async fn delete(&self, url: &str) -> Result<()>
-```
-
-Make a DELETE request
-
----
-
-### get
-
-**Source**: `src/client.rs`
-
-```rust
-pub fn get(&self, key: &str) -> Option<&String>
-```
-
-Get an API key by name
-
----
-
-### get
-
-**Source**: `src/client.rs`
-
-```rust
-pub fn get(&self, key: &str) -> Option<String>
-```
-
-Get a configuration value by key
-
----
-
-### get
-
-**Source**: `src/client.rs`
-
-```rust
-pub async fn get(&self, url: &str) -> Result<String>
-```
-
-Make a GET request with retry logic
-
----
-
-### get_api_key
-
-**Source**: `src/client.rs`
-
-```rust
-pub fn get_api_key(&self, service: &str) -> Option<&String>
-```
-
-Get API key for a service
-
----
-
-### get_config
-
-**Source**: `src/client.rs`
-
-```rust
-pub fn get_config(&self, key: &str) -> Option<String>
-```
-
-Get config value (for backwards compatibility)
-
----
-
-### get_with_headers
-
-**Source**: `src/client.rs`
-
-```rust
-pub async fn get_with_headers( &self, url: &str, headers: HashMap<String, String>, ) -> Result<String>
-```
-
-Make a GET request with headers and retry logic
-
----
-
-### get_with_params
-
-**Source**: `src/client.rs`
-
-```rust
-pub async fn get_with_params( &self, url: &str, params: &HashMap<String, String>, ) -> Result<String>
-```
-
-Make GET request with query parameters
-
----
-
-### get_with_params_and_headers
-
-**Source**: `src/client.rs`
-
-```rust
-pub async fn get_with_params_and_headers( &self, url: &str, params: &HashMap<String, String>, headers: HashMap<String, String>, ) -> Result<String>
-```
-
-Make GET request with query parameters and headers
-
----
-
-### insert
-
-**Source**: `src/client.rs`
-
-```rust
-pub fn insert(&mut self, key: String, value: String)
-```
-
-Insert a new API key
-
----
-
-### insert
-
-**Source**: `src/client.rs`
-
-```rust
-pub fn insert(&mut self, key: String, value: String)
-```
-
-Insert a configuration value
-
----
-
-### is_empty
-
-**Source**: `src/client.rs`
-
-```rust
-pub fn is_empty(&self) -> bool
-```
-
-Check if all API keys are empty
-
----
-
-### is_empty
-
-**Source**: `src/client.rs`
-
-```rust
-pub fn is_empty(&self) -> bool
-```
-
-Check if the config is empty
-
----
-
-### len
-
-**Source**: `src/client.rs`
-
-```rust
-pub fn len(&self) -> usize
-```
-
-Get the number of configured API keys
-
----
-
-### len
-
-**Source**: `src/client.rs`
-
-```rust
-pub fn len(&self) -> usize
-```
-
-Get the number of configuration entries
-
----
-
-### new
-
-**Source**: `src/client.rs`
-
-```rust
-pub fn new() -> Result<Self>
-```
-
-Create a new web client
-
----
-
-### post
-
-**Source**: `src/client.rs`
-
-```rust
-pub async fn post<T: Serialize>(&self, url: &str, body: &T) -> Result<serde_json::Value>
-```
-
-Make a POST request with JSON body
-
----
-
-### post_with_headers
-
-**Source**: `src/client.rs`
-
-```rust
-pub async fn post_with_headers<T: Serialize>( &self, url: &str, body: &T, headers: HashMap<String, String>, ) -> Result<serde_json::Value>
-```
-
-Make a POST request with JSON body and headers
-
----
-
-### set_config
-
-**Source**: `src/client.rs`
-
-```rust
-pub fn set_config<S: Into<String>>(&mut self, key: S, value: S)
-```
-
-Set configuration option (for backwards compatibility)
-
----
-
-### with_api_key
-
-**Source**: `src/client.rs`
-
-```rust
-pub fn with_api_key<S1: Into<String>, S2: Into<String>>( mut self, service: S1, api_key: S2, ) -> Self
-```
-
-Set API key for a service (for backwards compatibility)
-
----
-
-### with_config
-
-**Source**: `src/client.rs`
-
-```rust
-pub fn with_config(http_config: HttpConfig) -> Result<Self>
-```
-
-Create with custom HTTP configuration
-
----
-
-### with_dexscreener_key
-
-**Source**: `src/client.rs`
-
-```rust
-pub fn with_dexscreener_key<S: Into<String>>(mut self, key: S) -> Self
-```
-
-Set DexScreener API key (if required)
-
----
-
-### with_exa_key
-
-**Source**: `src/client.rs`
-
-```rust
-pub fn with_exa_key<S: Into<String>>(mut self, key: S) -> Self
-```
-
-Set Exa API key
-
----
-
-### with_news_api_key
-
-**Source**: `src/client.rs`
-
-```rust
-pub fn with_news_api_key<S: Into<String>>(mut self, key: S) -> Self
-```
-
-Set News API key
-
----
-
-### with_twitter_token
-
-**Source**: `src/client.rs`
-
-```rust
-pub fn with_twitter_token<S: Into<String>>(mut self, token: S) -> Self
-```
-
-Set Twitter/X Bearer Token
-
----
-
-
----
-
-*This documentation was automatically generated from the source code.*
