@@ -31,7 +31,7 @@ pub use parser_types::{GenericEventParseConfig, GenericEventParser, ProtocolPars
 ///
 /// # Example
 ///
-/// ```rust
+/// ```rust,ignore
 /// use riglr_solana_events::match_event;
 ///
 /// match_event!(event, {

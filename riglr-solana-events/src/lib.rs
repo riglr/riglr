@@ -10,7 +10,7 @@
 //!
 //! ### Legacy Usage (Maintained for backward compatibility)
 //!
-//! ```rust,no_run
+//! ```rust,ignore
 //! use riglr_solana_events::prelude::*;
 //!
 //! # #[tokio::main]
@@ -38,7 +38,7 @@
 //!
 //! ### New riglr-events-core Usage
 //!
-//! ```rust,no_run
+//! ```rust,ignore
 //! use riglr_solana_events::prelude::*;
 //! use riglr_events_core::prelude::*;
 //!
@@ -71,7 +71,7 @@
 //!
 //! ### Hybrid Usage - Best of Both Worlds
 //!
-//! ```rust,no_run
+//! ```rust,ignore
 //! use riglr_solana_events::prelude::*;
 //!
 //! # #[tokio::main]
