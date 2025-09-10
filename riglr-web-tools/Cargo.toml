@@ -18,9 +18,9 @@ workspace = true
 [dependencies]
 # Core riglr and rig dependencies
 rig-core = { workspace = true }
-riglr-core = { version = "0.3.0" }
-riglr-config = { version = "0.3.0" }
-riglr-macros = { version = "0.3.0" }
+riglr-core = { workspace = true }
+riglr-config = { workspace = true }
+riglr-macros = { workspace = true }
 
 # Async and Error Handling
 tokio = { workspace = true }
