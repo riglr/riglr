@@ -7,7 +7,7 @@ description = "Core abstractions and job execution engine for riglr - building r
 repository = "https://github.com/riglr/riglr"
 readme = "README.md"
 keywords = ["rig", "ai", "agent", "job-queue", "blockchain"]
-categories = ["asynchronous", "web-programming::api-bindings"]
+categories = ["asynchronous", "web-programming"]
 documentation = "https://docs.rs/riglr-core"
 
 [lints]
@@ -27,7 +27,7 @@ tracing = { workspace = true }
 dotenv = { workspace = true }
 
 # Configuration
-riglr-config = { path = "../riglr-config" }
+riglr-config = { workspace = true  }
 
 # Retry utilities
 rand = { workspace = true }
@@ -56,9 +56,9 @@ bincode = "1.3"
 
 # For testing
 [dev-dependencies]
-riglr-config = { path = "../riglr-config" }
-riglr-solana-tools = { path = "../riglr-solana-tools" }
-riglr-evm-tools = { path = "../riglr-evm-tools" }
+riglr-config = { workspace = true  }
+riglr-solana-tools = { workspace = true  }
+riglr-evm-tools = { workspace = true  }
 tokio-test = { workspace = true }
 criterion = { workspace = true }
 testcontainers = "0.24.0"

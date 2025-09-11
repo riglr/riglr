@@ -90,6 +90,7 @@ impl IdempotencyStore for InMemoryIdempotencyStore {
 
 /// Redis-based idempotency store for production use
 #[cfg(feature = "redis")]
+#[derive(Debug)]
 pub struct RedisIdempotencyStore {
     client: redis::Client,
     key_prefix: String,
@@ -478,8 +479,8 @@ mod tests {
 
         // Values should be different (second should have overwritten first)
         assert_ne!(
-            serde_json::to_string(&retrieved1).unwrap(),
-            serde_json::to_string(&retrieved2).unwrap()
+            serde_json::to_string(&*retrieved1).unwrap(),
+            serde_json::to_string(&*retrieved2).unwrap()
         );
     }
 

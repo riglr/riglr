@@ -51,6 +51,7 @@ pub mod templates {
 }
 
 /// Helper struct for building test URLs
+#[derive(Debug)]
 pub struct TestUrlBuilder {
     template: String,
 }
@@ -199,6 +200,7 @@ pub mod test_urls {
 }
 
 #[cfg(test)]
+#[allow(clippy::missing_safety_doc, clippy::undocumented_unsafe_blocks, unsafe_code)] // Test helper functions have proper inline SAFETY documentation for test environment variable operations - unsafe blocks are required for Rust 2024 compatibility with std::env functions in test contexts
 mod tests {
     use super::*;
 
@@ -217,51 +219,81 @@ mod tests {
 
     #[test]
     fn test_postgres_url() {
-        std::env::set_var(env_vars::TEST_DB_USER, "u");
-        std::env::set_var(env_vars::TEST_DB_PASS, "p");
+        // SAFETY: Test environment variable manipulation is safe in controlled test environment
+        unsafe {
+            std::env::set_var(env_vars::TEST_DB_USER, "u");
+            std::env::set_var(env_vars::TEST_DB_PASS, "p");
+        }
         let url = test_urls::postgres();
         assert_eq!(url, "postgresql://u:p@localhost:5432/testdb");
-        std::env::remove_var(env_vars::TEST_DB_USER);
-        std::env::remove_var(env_vars::TEST_DB_PASS);
+        // SAFETY: Test cleanup of environment variables is safe in controlled test environment
+        unsafe {
+            std::env::remove_var(env_vars::TEST_DB_USER);
+            std::env::remove_var(env_vars::TEST_DB_PASS);
+        }
     }
 
     #[test]
     fn test_mysql_url() {
-        std::env::set_var(env_vars::TEST_DB_USER, "u");
-        std::env::set_var(env_vars::TEST_DB_PASS, "p");
+        // SAFETY: Test environment variable manipulation is safe in controlled test environment
+        unsafe {
+            std::env::set_var(env_vars::TEST_DB_USER, "u");
+            std::env::set_var(env_vars::TEST_DB_PASS, "p");
+        }
         let url = test_urls::mysql();
         assert_eq!(url, "mysql://u:p@localhost:3306/testdb");
-        std::env::remove_var(env_vars::TEST_DB_USER);
-        std::env::remove_var(env_vars::TEST_DB_PASS);
+        // SAFETY: Test cleanup of environment variables is safe in controlled test environment
+        unsafe {
+            std::env::remove_var(env_vars::TEST_DB_USER);
+            std::env::remove_var(env_vars::TEST_DB_PASS);
+        }
     }
 
     #[test]
     fn test_mongodb_url() {
-        std::env::set_var(env_vars::TEST_DB_USER, "u");
-        std::env::set_var(env_vars::TEST_DB_PASS, "p");
+        // SAFETY: Test environment variable manipulation is safe in controlled test environment
+        unsafe {
+            std::env::set_var(env_vars::TEST_DB_USER, "u");
+            std::env::set_var(env_vars::TEST_DB_PASS, "p");
+        }
         let url = test_urls::mongodb();
         assert_eq!(url, "mongodb://u:p@localhost:27017/testdb");
-        std::env::remove_var(env_vars::TEST_DB_USER);
-        std::env::remove_var(env_vars::TEST_DB_PASS);
+        // SAFETY: Test cleanup of environment variables is safe in controlled test environment
+        unsafe {
+            std::env::remove_var(env_vars::TEST_DB_USER);
+            std::env::remove_var(env_vars::TEST_DB_PASS);
+        }
     }
 
     #[test]
     fn test_redis_url() {
-        std::env::set_var(env_vars::TEST_DB_USER, "u");
-        std::env::set_var(env_vars::TEST_DB_PASS, "p");
+        // SAFETY: Test environment variable manipulation is safe in controlled test environment
+        unsafe {
+            std::env::set_var(env_vars::TEST_DB_USER, "u");
+            std::env::set_var(env_vars::TEST_DB_PASS, "p");
+        }
         let url = test_urls::redis();
         assert_eq!(url, "redis://u:p@localhost:6379/0");
-        std::env::remove_var(env_vars::TEST_DB_USER);
-        std::env::remove_var(env_vars::TEST_DB_PASS);
+        // SAFETY: Test cleanup of environment variables is safe in controlled test environment
+        unsafe {
+            std::env::remove_var(env_vars::TEST_DB_USER);
+            std::env::remove_var(env_vars::TEST_DB_PASS);
+        }
     }
 
     #[test]
     fn test_websocket_url() {
-        std::env::set_var(env_vars::TEST_WS_USER, "u");
-        std::env::set_var(env_vars::TEST_WS_PASS, "p");
+        // SAFETY: Test environment variable manipulation is safe in controlled test environment
+        unsafe {
+            std::env::set_var(env_vars::TEST_WS_USER, "u");
+            std::env::set_var(env_vars::TEST_WS_PASS, "p");
+        }
         let url = test_urls::websocket();
         assert_eq!(url, "wss://u:p@example.com:443/path");
-        std::env::remove_var(env_vars::TEST_WS_USER);
-        std::env::remove_var(env_vars::TEST_WS_PASS);
+        // SAFETY: Test cleanup of environment variables is safe in controlled test environment
+        unsafe {
+            std::env::remove_var(env_vars::TEST_WS_USER);
+            std::env::remove_var(env_vars::TEST_WS_PASS);
+        }
     }
 }

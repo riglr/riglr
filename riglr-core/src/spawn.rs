@@ -58,7 +58,8 @@ where
     T: Send + 'static,
 {
     // Try to get the current signer from the context
-    if let Ok(signer) = SignerContext::current().await {
+    let current_signer = SignerContext::current().await;
+    if let Ok(signer) = current_signer {
         // We have a signer context - propagate it to the spawned task
         tokio::task::spawn(async move { SignerContext::with_signer(signer, future).await })
     } else {

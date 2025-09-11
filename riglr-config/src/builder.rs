@@ -29,7 +29,7 @@ use crate::{
 ///     .build()
 ///     .expect("Failed to build config");
 /// ```
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct ConfigBuilder {
     app: AppConfig,
     database: DatabaseConfig,

@@ -11,7 +11,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Make some requests
     for i in 1..=7 {
-        match token_limiter.check_rate_limit("user1") {
+        let result = token_limiter.check_rate_limit("user1");
+        match result {
             Ok(()) => println!("Request {} allowed", i),
             Err(e) => println!("Request {} blocked: {}", i, e),
         }
@@ -26,7 +27,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .build();
 
     for i in 1..=5 {
-        match fixed_limiter.check_rate_limit("user2") {
+        let result = fixed_limiter.check_rate_limit("user2");
+        match result {
             Ok(()) => println!("Request {} allowed", i),
             Err(e) => println!("Request {} blocked: {}", i, e),
         }
@@ -43,7 +45,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Burst requests
     for i in 1..=20 {
-        match burst_limiter.check_rate_limit("user3") {
+        let result = burst_limiter.check_rate_limit("user3");
+        match result {
             Ok(()) => println!("Burst request {} allowed", i),
             Err(e) => println!("Burst request {} blocked: {}", i, e),
         }
@@ -51,9 +54,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Show strategy names
     println!("\nStrategy names:");
-    println!("Token limiter: {}", token_limiter.strategy_name());
-    println!("Fixed limiter: {}", fixed_limiter.strategy_name());
-    println!("Burst limiter: {}", burst_limiter.strategy_name());
+    let token_strategy = token_limiter.strategy_name();
+    let fixed_strategy = fixed_limiter.strategy_name();
+    let burst_strategy = burst_limiter.strategy_name();
+    println!("Token limiter: {}", token_strategy);
+    println!("Fixed limiter: {}", fixed_strategy);
+    println!("Burst limiter: {}", burst_strategy);
 
     Ok(())
 }

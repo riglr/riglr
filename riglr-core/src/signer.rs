@@ -158,6 +158,7 @@ task_local! {
 /// - **Validate user permissions**: Check that users own the addresses they're operating on
 /// - **Audit all operations**: Log all signer usage for security auditing
 /// - **Use environment-specific endpoints**: Different signers for mainnet/testnet
+#[derive(Debug)]
 pub struct SignerContext;
 
 /// A handle to the current Solana signer, providing type-safe access.
@@ -187,6 +188,7 @@ pub struct SignerContext;
 ///     Ok(())
 /// }
 /// ```
+#[derive(Debug)]
 pub struct SolanaSignerHandle(Arc<dyn UnifiedSigner>);
 
 impl std::ops::Deref for SolanaSignerHandle {
@@ -230,6 +232,7 @@ impl std::ops::Deref for SolanaSignerHandle {
 ///     Ok(())
 /// }
 /// ```
+#[derive(Debug)]
 pub struct EvmSignerHandle(Arc<dyn UnifiedSigner>);
 
 impl std::ops::Deref for EvmSignerHandle {

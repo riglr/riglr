@@ -26,7 +26,8 @@ const RIGLR_CHAINS_CONFIG: &str = "RIGLR_CHAINS_CONFIG";
 
 // Test environment variable constants
 #[cfg(test)]
-mod test_env_vars {
+#[allow(clippy::missing_safety_doc, clippy::undocumented_unsafe_blocks, unsafe_code)] // Helper functions have proper inline SAFETY documentation for test environment variable operations - unsafe blocks are required for Rust 2024 compatibility with std::env functions in test contexts
+pub mod test_env_vars {
     pub const RPC_URL_1: &str = "RPC_URL_1";
     pub const RPC_URL_137: &str = "RPC_URL_137";
     pub const RPC_URL_INVALID: &str = "RPC_URL_INVALID";
@@ -37,12 +38,20 @@ mod test_env_vars {
 
     /// Helper function to set environment variables in tests without using string literals
     pub fn set_test_env_var(key: &'static str, value: &str) {
-        std::env::set_var(key, value);
+        // SAFETY: This is a test-only function used in isolated test environments
+        // where we control the threading and environment variable access patterns.
+        unsafe {
+            std::env::set_var(key, value);
+        }
     }
 
     /// Helper function to remove environment variables in tests without using string literals  
     pub fn remove_test_env_var(key: &'static str) {
-        std::env::remove_var(key);
+        // SAFETY: This is a test-only function used in isolated test environments
+        // where we control the threading and environment variable access patterns.
+        unsafe {
+            std::env::remove_var(key);
+        }
     }
 }
 
@@ -1352,8 +1361,9 @@ is_testnet = false
     #[test]
     #[serial]
     fn test_load_chain_contracts_file_not_exists() {
+        use test_env_vars::*;
         // Test with non-existent file (should not error)
-        std::env::set_var(RIGLR_CHAINS_CONFIG, "/non/existent/path/chains.toml");
+        set_test_env_var(RIGLR_CHAINS_CONFIG, "/non/existent/path/chains.toml");
 
         let mut config = NetworkConfig::default();
         let result = config.load_chain_contracts();
@@ -1361,13 +1371,14 @@ is_testnet = false
         assert!(result.is_ok());
         assert!(config.chains.is_empty());
 
-        std::env::remove_var(RIGLR_CHAINS_CONFIG);
+        remove_test_env_var(RIGLR_CHAINS_CONFIG);
     }
 
     #[test]
     fn test_load_chain_contracts_default_path_not_exists() {
+        use test_env_vars::*;
         // Test with default path when environment variable is not set
-        std::env::remove_var(RIGLR_CHAINS_CONFIG);
+        remove_test_env_var(RIGLR_CHAINS_CONFIG);
 
         let mut config = NetworkConfig::default();
         let result = config.load_chain_contracts();
@@ -1379,13 +1390,14 @@ is_testnet = false
     #[test]
     #[serial]
     fn test_load_chain_contracts_valid_file() {
+        use test_env_vars::*;
         let temp_dir = create_temp_dir();
         let chains_path = temp_dir.path().join("chains.toml");
 
         // Write test chains.toml
         fs::write(&chains_path, create_test_chains_toml()).unwrap();
 
-        std::env::set_var(RIGLR_CHAINS_CONFIG, chains_path.to_str().unwrap());
+        set_test_env_var(RIGLR_CHAINS_CONFIG, chains_path.to_str().unwrap());
 
         let mut config = NetworkConfig::default();
         let result = config.load_chain_contracts();
@@ -1411,7 +1423,7 @@ is_testnet = false
         assert_eq!(polygon_chain.contracts.quoter, None); // Not specified in TOML
         assert!(!polygon_chain.is_testnet);
 
-        std::env::remove_var(RIGLR_CHAINS_CONFIG);
+        remove_test_env_var(RIGLR_CHAINS_CONFIG);
     }
 
     #[test]
@@ -1423,7 +1435,8 @@ is_testnet = false
         // Write invalid TOML
         fs::write(&chains_path, "invalid toml content [[[").unwrap();
 
-        std::env::set_var(RIGLR_CHAINS_CONFIG, chains_path.to_str().unwrap());
+        use test_env_vars::*;
+        set_test_env_var(RIGLR_CHAINS_CONFIG, chains_path.to_str().unwrap());
 
         let mut config = NetworkConfig::default();
         let result = config.load_chain_contracts();
@@ -1434,7 +1447,7 @@ is_testnet = false
             .to_string()
             .contains("Failed to parse chains.toml"));
 
-        std::env::remove_var(RIGLR_CHAINS_CONFIG);
+        remove_test_env_var(RIGLR_CHAINS_CONFIG);
     }
 
     #[test]
@@ -1452,7 +1465,7 @@ is_testnet = false
         set_test_env_var(QUOTER_1, "0x2222222222222222222222222222222222222222");
         set_test_env_var(FACTORY_137, "0x3333333333333333333333333333333333333333");
 
-        std::env::set_var(RIGLR_CHAINS_CONFIG, chains_path.to_str().unwrap());
+        set_test_env_var(RIGLR_CHAINS_CONFIG, chains_path.to_str().unwrap());
 
         let mut config = NetworkConfig::default();
         let result = config.load_chain_contracts();
@@ -1490,7 +1503,7 @@ is_testnet = false
         remove_test_env_var(ROUTER_1);
         remove_test_env_var(QUOTER_1);
         remove_test_env_var(FACTORY_137);
-        std::env::remove_var(RIGLR_CHAINS_CONFIG);
+        remove_test_env_var(RIGLR_CHAINS_CONFIG);
     }
 
     #[test]
@@ -1501,7 +1514,8 @@ is_testnet = false
         let chains_path = temp_dir.path().join("chains_dir");
         fs::create_dir(&chains_path).unwrap();
 
-        std::env::set_var(RIGLR_CHAINS_CONFIG, chains_path.to_str().unwrap());
+        use test_env_vars::*;
+        set_test_env_var(RIGLR_CHAINS_CONFIG, chains_path.to_str().unwrap());
 
         let mut config = NetworkConfig::default();
         let result = config.load_chain_contracts();
@@ -1512,6 +1526,6 @@ is_testnet = false
             .to_string()
             .contains("Failed to read chains config"));
 
-        std::env::remove_var(RIGLR_CHAINS_CONFIG);
+        remove_test_env_var(RIGLR_CHAINS_CONFIG);
     }
 }

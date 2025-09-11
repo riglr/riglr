@@ -34,6 +34,7 @@ pub trait JobQueue: Send + Sync {
 }
 
 /// In-memory job queue implementation for testing and development
+#[derive(Debug)]
 pub struct InMemoryJobQueue {
     queue: tokio::sync::Mutex<std::collections::VecDeque<Job>>,
     notify: tokio::sync::Notify,
@@ -103,6 +104,7 @@ impl JobQueue for InMemoryJobQueue {
 
 /// Redis-based job queue implementation for production use
 #[cfg(feature = "redis")]
+#[derive(Debug)]
 pub struct RedisJobQueue {
     client: redis::Client,
     queue_key: String,

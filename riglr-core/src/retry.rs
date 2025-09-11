@@ -160,7 +160,8 @@ where
         attempts += 1;
         debug!("Attempt {} for '{}'", attempts, operation_name);
 
-        match operation().await {
+        let result = operation().await;
+        match result {
             Ok(result) => {
                 if attempts > 1 {
                     debug!(

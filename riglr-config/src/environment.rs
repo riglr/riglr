@@ -60,6 +60,7 @@ impl EnvironmentSource {
 mod tests {
     use super::*;
     use std::collections::HashMap;
+    use crate::network::test_env_vars::{set_test_env_var, remove_test_env_var};
 
     // Constants for environment variable names used in tests
     const TEST_VAR_EXISTS: &str = "TEST_VAR_EXISTS";
@@ -77,7 +78,7 @@ mod tests {
     #[test]
     fn test_environment_source_system_get_when_var_exists_should_return_some() {
         // Set a test environment variable
-        env::set_var(TEST_VAR_EXISTS, "test_value");
+        set_test_env_var(TEST_VAR_EXISTS, "test_value");
 
         let source = EnvironmentSource::System;
         let result = source.get(TEST_VAR_EXISTS);
@@ -85,7 +86,7 @@ mod tests {
         assert_eq!(result, Some("test_value".to_string()));
 
         // Clean up
-        env::remove_var(TEST_VAR_EXISTS);
+        remove_test_env_var(TEST_VAR_EXISTS);
     }
 
     #[test]

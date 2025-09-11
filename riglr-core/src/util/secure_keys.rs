@@ -262,6 +262,7 @@ pub fn ensure_key_directory() -> Result<PathBuf, ToolError> {
 }
 
 #[cfg(test)]
+#[allow(unsafe_code)] // Test functions use unsafe std::env operations for Rust 2024 compatibility with proper safety documentation
 mod tests {
     use super::*;
     use std::io::Write;
@@ -281,14 +282,22 @@ mod tests {
     #[test]
     fn test_load_private_key_with_fallback() {
         // Test fallback to environment variable
-        std::env::set_var(TEST_PRIVATE_KEY_ENV, "env-key-content");
+        // SAFETY: This is a test function and we're only setting a test environment variable
+        // temporarily for the duration of this test. The variable is cleaned up afterwards.
+        unsafe {
+            std::env::set_var(TEST_PRIVATE_KEY_ENV, "env-key-content");
+        }
 
         let key = load_private_key_with_fallback("/nonexistent/path/to/key", TEST_PRIVATE_KEY_ENV)
             .unwrap();
 
         assert_eq!(key, "env-key-content");
 
-        std::env::remove_var(TEST_PRIVATE_KEY_ENV);
+        // SAFETY: This is a test cleanup operation, removing the test environment variable
+        // that was set earlier in this same test function.
+        unsafe {
+            std::env::remove_var(TEST_PRIVATE_KEY_ENV);
+        }
     }
 
     #[test]

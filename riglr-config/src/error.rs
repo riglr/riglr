@@ -86,6 +86,7 @@ impl From<envy::Error> for ConfigError {
 }
 
 #[cfg(test)]
+#[allow(unsafe_code)] // Test functions use unsafe std::env operations for Rust 2024 compatibility with proper safety documentation
 mod tests {
     use super::*;
     use std::io;
@@ -241,7 +242,12 @@ mod tests {
         // Create an envy error by trying to deserialize an empty environment
         const TEST_REQUIRED_VAR: &str = "TEST_REQUIRED_VAR";
         #[allow(clippy::disallowed_methods)]
-        std::env::remove_var(TEST_REQUIRED_VAR);
+        // SAFETY: This is a test function and we're only removing a test environment variable
+        // temporarily for the duration of this test. This ensures the test runs in a clean
+        // environment without the required variable, allowing us to test error handling.
+        unsafe {
+            std::env::remove_var(TEST_REQUIRED_VAR);
+        }
 
         #[derive(Debug, serde::Deserialize)]
         #[allow(dead_code)]

@@ -59,10 +59,10 @@ pub type EnvResult<T> = Result<T, EnvError>;
 /// ```rust
 /// use riglr_core::util::{get_required_env, DOCTEST_API_KEY};
 ///
-/// # std::env::set_var(DOCTEST_API_KEY, "secret123");
+/// # unsafe { std::env::set_var(DOCTEST_API_KEY, "secret123"); }
 /// let api_key = get_required_env(DOCTEST_API_KEY).expect("MY_API_KEY must be set");
 /// assert_eq!(api_key, "secret123");
-/// # std::env::remove_var(DOCTEST_API_KEY);
+/// # unsafe { std::env::remove_var(DOCTEST_API_KEY); }
 /// ```
 ///
 /// # Errors
@@ -79,7 +79,7 @@ pub fn get_required_env(key: &str) -> EnvResult<String> {
 /// ```rust
 /// use riglr_core::util::{get_env_or_default, DOCTEST_OPTIONAL_SETTING};
 ///
-/// # std::env::remove_var(DOCTEST_OPTIONAL_SETTING);
+/// # unsafe { std::env::remove_var(DOCTEST_OPTIONAL_SETTING); }
 /// let setting = get_env_or_default(DOCTEST_OPTIONAL_SETTING, "default_value");
 /// assert_eq!(setting, "default_value");
 /// ```
@@ -97,12 +97,12 @@ pub fn get_env_or_default(key: &str, default: &str) -> String {
 /// ```rust
 /// use riglr_core::util::{validate_required_env, DOCTEST_API_KEY_VALIDATE, DOCTEST_DATABASE_URL};
 ///
-/// # std::env::set_var(DOCTEST_API_KEY_VALIDATE, "value1");
-/// # std::env::set_var(DOCTEST_DATABASE_URL, "value2");
+/// # unsafe { std::env::set_var(DOCTEST_API_KEY_VALIDATE, "value1"); }
+/// # unsafe { std::env::set_var(DOCTEST_DATABASE_URL, "value2"); }
 /// let required = vec![DOCTEST_API_KEY_VALIDATE, DOCTEST_DATABASE_URL];
 /// validate_required_env(&required).expect("Missing required environment variables");
-/// # std::env::remove_var(DOCTEST_API_KEY_VALIDATE);
-/// # std::env::remove_var(DOCTEST_DATABASE_URL);
+/// # unsafe { std::env::remove_var(DOCTEST_API_KEY_VALIDATE); }
+/// # unsafe { std::env::remove_var(DOCTEST_DATABASE_URL); }
 /// ```
 ///
 /// # Errors
@@ -123,13 +123,13 @@ pub fn validate_required_env(keys: &[&str]) -> EnvResult<()> {
 /// use riglr_core::util::{get_env_vars, DOCTEST_VAR1, DOCTEST_VAR2, DOCTEST_VAR3};
 /// use std::collections::HashMap;
 ///
-/// # std::env::set_var(DOCTEST_VAR1, "value1");
-/// # std::env::set_var(DOCTEST_VAR2, "value2");
+/// # unsafe { std::env::set_var(DOCTEST_VAR1, "value1"); }
+/// # unsafe { std::env::set_var(DOCTEST_VAR2, "value2"); }
 /// let vars = get_env_vars(&[DOCTEST_VAR1, DOCTEST_VAR2, DOCTEST_VAR3]);
 /// assert_eq!(vars.get(DOCTEST_VAR1), Some(&"value1".to_string()));
 /// assert_eq!(vars.get(DOCTEST_VAR3), None);
-/// # std::env::remove_var(DOCTEST_VAR1);
-/// # std::env::remove_var(DOCTEST_VAR2);
+/// # unsafe { std::env::remove_var(DOCTEST_VAR1); }
+/// # unsafe { std::env::remove_var(DOCTEST_VAR2); }
 /// ```
 pub fn get_env_vars(keys: &[&str]) -> std::collections::HashMap<String, String> {
     keys.iter()
@@ -159,6 +159,7 @@ pub fn init_env_from_file(path: &str) -> std::io::Result<()> {
 }
 
 #[cfg(test)]
+#[allow(clippy::missing_safety_doc, clippy::undocumented_unsafe_blocks, unsafe_code)] // Test functions have proper inline SAFETY documentation for test environment variable operations - unsafe blocks are required for Rust 2024 compatibility with std::env functions in test contexts
 mod tests {
     use super::*;
     use std::env;
@@ -184,30 +185,36 @@ mod tests {
 
     #[test]
     fn test_get_env_or_default_with_existing_var() {
-        env::set_var(TEST_VAR_EXISTS, "test_value");
+        // SAFETY: Setting test environment variables in test context is safe
+        unsafe { env::set_var(TEST_VAR_EXISTS, "test_value"); }
         let result = get_env_or_default(TEST_VAR_EXISTS, "default");
         assert_eq!(result, "test_value");
-        env::remove_var(TEST_VAR_EXISTS);
+        // SAFETY: Removing test environment variables in test context is safe
+        unsafe { env::remove_var(TEST_VAR_EXISTS); }
     }
 
     #[test]
     fn test_get_env_or_default_with_missing_var() {
-        env::remove_var(TEST_VAR_MISSING);
+        // SAFETY: Removing test environment variables in test context is safe
+        unsafe { env::remove_var(TEST_VAR_MISSING); }
         let result = get_env_or_default(TEST_VAR_MISSING, "default_value");
         assert_eq!(result, "default_value");
     }
 
     #[test]
     fn test_get_required_env_with_existing_var() {
-        env::set_var(TEST_REQUIRED_VAR, "required_value");
+        // SAFETY: Setting test environment variables in test context is safe
+        unsafe { env::set_var(TEST_REQUIRED_VAR, "required_value"); }
         let result = get_required_env(TEST_REQUIRED_VAR).unwrap();
         assert_eq!(result, "required_value");
-        env::remove_var(TEST_REQUIRED_VAR);
+        // SAFETY: Removing test environment variables in test context is safe
+        unsafe { env::remove_var(TEST_REQUIRED_VAR); }
     }
 
     #[test]
     fn test_get_required_env_with_missing_var() {
-        env::remove_var(TEST_MISSING_REQUIRED);
+        // SAFETY: Removing test environment variables in test context is safe
+        unsafe { env::remove_var(TEST_MISSING_REQUIRED); }
         let result = get_required_env(TEST_MISSING_REQUIRED);
         assert!(result.is_err());
         match result {
@@ -220,33 +227,46 @@ mod tests {
 
     #[test]
     fn test_validate_required_env_all_present() {
-        env::set_var(TEST_VALIDATE_VAR1, "value1");
-        env::set_var(TEST_VALIDATE_VAR2, "value2");
+        // SAFETY: Setting test environment variables in test context is safe
+        unsafe {
+            env::set_var(TEST_VALIDATE_VAR1, "value1");
+            env::set_var(TEST_VALIDATE_VAR2, "value2");
+        }
 
         let result = validate_required_env(&[TEST_VALIDATE_VAR1, TEST_VALIDATE_VAR2]);
         assert!(result.is_ok());
 
-        env::remove_var(TEST_VALIDATE_VAR1);
-        env::remove_var(TEST_VALIDATE_VAR2);
+        // SAFETY: Removing test environment variables in test context is safe
+        unsafe {
+            env::remove_var(TEST_VALIDATE_VAR1);
+            env::remove_var(TEST_VALIDATE_VAR2);
+        }
     }
 
     #[test]
     fn test_validate_required_env_missing_one() {
-        env::set_var(TEST_VALIDATE_MISSING_VAR1, "value1");
-        env::remove_var(TEST_VALIDATE_MISSING_VAR2);
+        // SAFETY: Setting and removing test environment variables in test context is safe
+        unsafe {
+            env::set_var(TEST_VALIDATE_MISSING_VAR1, "value1");
+            env::remove_var(TEST_VALIDATE_MISSING_VAR2);
+        }
 
         let result =
             validate_required_env(&[TEST_VALIDATE_MISSING_VAR1, TEST_VALIDATE_MISSING_VAR2]);
         assert!(result.is_err());
 
-        env::remove_var(TEST_VALIDATE_MISSING_VAR1);
+        // SAFETY: Removing test environment variables in test context is safe
+        unsafe { env::remove_var(TEST_VALIDATE_MISSING_VAR1); }
     }
 
     #[test]
     fn test_get_env_vars() {
-        env::set_var(TEST_MULTI_1, "value1");
-        env::set_var(TEST_MULTI_2, "value2");
-        env::remove_var(TEST_MULTI_3);
+        // SAFETY: Setting and removing test environment variables in test context is safe
+        unsafe {
+            env::set_var(TEST_MULTI_1, "value1");
+            env::set_var(TEST_MULTI_2, "value2");
+            env::remove_var(TEST_MULTI_3);
+        }
 
         let vars = get_env_vars(&[TEST_MULTI_1, TEST_MULTI_2, TEST_MULTI_3]);
 
@@ -254,8 +274,11 @@ mod tests {
         assert_eq!(vars.get(TEST_MULTI_2), Some(&"value2".to_string()));
         assert_eq!(vars.get(TEST_MULTI_3), None);
 
-        env::remove_var(TEST_MULTI_1);
-        env::remove_var(TEST_MULTI_2);
+        // SAFETY: Removing test environment variables in test context is safe
+        unsafe {
+            env::remove_var(TEST_MULTI_1);
+            env::remove_var(TEST_MULTI_2);
+        }
     }
 
     #[test]
@@ -324,7 +347,8 @@ mod tests {
 
         // Clean up
         fs::remove_file(temp_file).ok();
-        env::remove_var(DOCTEST_ENV_FILE_VAR);
+        // SAFETY: Removing test environment variables in test context is safe
+        unsafe { env::remove_var(DOCTEST_ENV_FILE_VAR); }
     }
 
     #[test]
@@ -350,31 +374,39 @@ mod tests {
 
     #[test]
     fn test_get_env_or_default_with_empty_string_default() {
-        env::remove_var(TEST_NONEXISTENT_VAR);
+        // SAFETY: Removing test environment variables in test context is safe
+        unsafe { env::remove_var(TEST_NONEXISTENT_VAR); }
         let result = get_env_or_default(TEST_NONEXISTENT_VAR, "");
         assert_eq!(result, "");
     }
 
     #[test]
     fn test_get_env_or_default_with_empty_string_value() {
-        env::set_var(TEST_EMPTY_VALUE, "");
+        // SAFETY: Setting test environment variables in test context is safe
+        unsafe { env::set_var(TEST_EMPTY_VALUE, ""); }
         let result = get_env_or_default(TEST_EMPTY_VALUE, "default");
         assert_eq!(result, "");
-        env::remove_var(TEST_EMPTY_VALUE);
+        // SAFETY: Removing test environment variables in test context is safe
+        unsafe { env::remove_var(TEST_EMPTY_VALUE); }
     }
 
     #[test]
     fn test_get_required_env_with_empty_string_value() {
-        env::set_var(TEST_EMPTY_REQUIRED, "");
+        // SAFETY: Setting test environment variables in test context is safe
+        unsafe { env::set_var(TEST_EMPTY_REQUIRED, ""); }
         let result = get_required_env(TEST_EMPTY_REQUIRED).unwrap();
         assert_eq!(result, "");
-        env::remove_var(TEST_EMPTY_REQUIRED);
+        // SAFETY: Removing test environment variables in test context is safe
+        unsafe { env::remove_var(TEST_EMPTY_REQUIRED); }
     }
 
     #[test]
     fn test_validate_required_env_fails_on_first_missing() {
-        env::remove_var(TEST_FIRST_MISSING);
-        env::set_var(TEST_SECOND_EXISTS, "value");
+        // SAFETY: Setting and removing test environment variables in test context is safe
+        unsafe {
+            env::remove_var(TEST_FIRST_MISSING);
+            env::set_var(TEST_SECOND_EXISTS, "value");
+        }
 
         let result = validate_required_env(&[TEST_FIRST_MISSING, TEST_SECOND_EXISTS]);
         assert!(result.is_err());
@@ -386,12 +418,14 @@ mod tests {
             _ => panic!("Expected MissingRequired error for first missing variable"),
         }
 
-        env::remove_var(TEST_SECOND_EXISTS);
+        // SAFETY: Removing test environment variables in test context is safe
+        unsafe { env::remove_var(TEST_SECOND_EXISTS); }
     }
 
     #[test]
     fn test_get_env_vars_with_special_characters() {
-        env::set_var(TEST_SPECIAL_CHARS, "value with spaces & symbols!");
+        // SAFETY: Setting test environment variables in test context is safe
+        unsafe { env::set_var(TEST_SPECIAL_CHARS, "value with spaces & symbols!"); }
 
         let vars = get_env_vars(&[TEST_SPECIAL_CHARS]);
         assert_eq!(
@@ -399,6 +433,7 @@ mod tests {
             Some(&"value with spaces & symbols!".to_string())
         );
 
-        env::remove_var(TEST_SPECIAL_CHARS);
+        // SAFETY: Removing test environment variables in test context is safe
+        unsafe { env::remove_var(TEST_SPECIAL_CHARS); }
     }
 }
