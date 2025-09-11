@@ -139,7 +139,10 @@
 
 use async_trait::async_trait;
 use dashmap::DashMap;
+use serde::de::DeserializeOwned;
+use serde::Serialize;
 use std::collections::HashMap;
+use std::error::Error as StdError;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
@@ -298,159 +301,27 @@ use crate::signer::SignerContext;
 /// ```
 #[async_trait]
 pub trait Tool: Send + Sync {
-    /// Execute the tool with the given parameters.
-    ///
-    /// This method performs the core work of the tool. It receives parameters
-    /// as a JSON value and should return a [`JobResult`] indicating success or failure.
-    ///
-    /// # Parameters
-    /// * `params` - JSON parameters passed to the tool. Tools should validate
-    ///              and extract required parameters, returning appropriate errors
-    ///              for missing or invalid data.
-    ///
-    /// # Returns
-    /// * `Ok(JobResult::Success)` - Tool executed successfully with result data
-    /// * `Ok(JobResult::Failure { retriable: true })` - Tool failed but can be retried
-    /// * `Ok(JobResult::Failure { retriable: false })` - Tool failed permanently
-    /// * `Err(Box<dyn Error>)` - Unexpected system error occurred
-    ///
-    /// # Error Classification Guidelines
-    ///
-    /// Return retriable failures (`JobResult::Failure { error: ToolError::retriable_string(...) }`) for:
-    /// - Network timeouts or connection errors
-    /// - Rate limiting (HTTP 429, RPC rate limits) - use `ToolError::rate_limited_string` for these
-    /// - Temporary service unavailability (HTTP 503)
-    /// - Blockchain congestion or temporary RPC failures
-    ///
-    /// Return permanent failures (`JobResult::Failure { error: ToolError::permanent_string(...) }`) for:
-    /// - Invalid parameters or malformed requests - use `ToolError::invalid_input_string` for these
-    /// - Authentication/authorization failures
-    /// - Insufficient funds or balance
-    /// - Invalid blockchain addresses or transaction data
-    ///
-    /// # Examples
-    ///
-    /// ```ignore
-    /// use riglr_core::{Tool, JobResult};
-    /// use async_trait::async_trait;
-    /// use serde_json::Value;
-    ///
-    /// struct WeatherTool;
-    ///
-    /// #[async_trait]
-    /// impl Tool for WeatherTool {
-    ///     async fn execute(&self, params: Value, _context: &ApplicationContext) -> Result<JobResult, ToolError> {
-    ///         // Validate parameters
-    ///         let city = params["city"].as_str()
-    ///             .ok_or("Missing required parameter: city")?;
-    ///
-    ///         if city.is_empty() {
-    ///             return Ok(JobResult::Failure {
-    ///                 error: ToolError::invalid_input_string("City name cannot be empty")
-    ///             });
-    ///         }
-    ///
-    ///         // Simulate API call with mock weather service
-    ///         let weather_data = if city == "InvalidCity" {
-    ///             return Ok(JobResult::Failure {
-    ///                 error: ToolError::permanent_string(format!("City not found: {}", city))
-    ///             });
-    ///         } else if city == "TimeoutCity" {
-    ///             return Ok(JobResult::Failure {
-    ///                 error: ToolError::retriable_string("Network timeout")
-    ///             });
-    ///         } else {
-    ///             serde_json::json!({
-    ///                 "city": city,
-    ///                 "temperature": 22,
-    ///                 "condition": "sunny"
-    ///             })
-    ///         };
-    ///
-    ///         Ok(JobResult::success(&weather_data)?)
-    ///     }
-    ///
-    ///     fn name(&self) -> &str {
-    ///         "weather"
-    ///     }
-    /// }
-    /// ```
-    async fn execute(
-        &self,
-        params: serde_json::Value,
-        context: &crate::provider::ApplicationContext,
-    ) -> Result<JobResult, ToolError>;
+    /// The type for this tool's arguments, which must be deserializable from JSON.
+    type Args: DeserializeOwned + Send + Sync;
 
-    /// Get the name of this tool.
-    ///
-    /// The tool name is used for:
-    /// - Tool registration and lookup in the worker
-    /// - Job identification and logging
-    /// - Resource limit mapping (based on name prefixes)
-    /// - Metrics and monitoring
-    ///
-    /// # Naming Conventions
-    ///
-    /// Tool names should follow these patterns for automatic resource management:
-    ///
-    /// - `solana_*` - Uses "solana_rpc" resource pool (e.g., "solana_balance", "solana_transfer")
-    /// - `evm_*` - Uses "evm_rpc" resource pool (e.g., "evm_balance", "evm_swap")
-    /// - `web_*` - Uses "http_api" resource pool (e.g., "web_fetch", "web_scrape")
-    /// - Others - Use default resource pool
-    ///
-    /// # Returns
-    /// A string identifier for this tool that must be unique within a worker.
-    ///
-    /// # Examples
-    ///
-    /// ```ignore
-    /// use riglr_core::Tool;
-    /// # use async_trait::async_trait;
-    /// # use riglr_core::JobResult;
-    ///
-    /// struct BitcoinPriceChecker;
-    ///
-    /// # #[async_trait]
-    /// # impl Tool for BitcoinPriceChecker {
-    /// #     async fn execute(&self, _: serde_json::Value, _: &crate::provider::ApplicationContext) -> Result<JobResult, ToolError> {
-    /// #         Ok(JobResult::success(&42)?)
-    /// #     }
-    /// #
-    /// fn name(&self) -> &str {
-    ///     "web_bitcoin_price"  // Will use "http_api" resource pool
-    /// }
-    /// # }
-    /// ```
-    fn name(&self) -> &str;
+    /// The type for this tool's output. We will use `JobResult` to maintain our structured output.
+    type Output: Serialize + Send + Sync;
 
-    /// A concise, AI-friendly description of this tool's purpose.
-    ///
-    /// This should be a short, human-readable sentence that explains
-    /// what the tool does and when to use it. It's intended for AI models
-    /// and end-user UIs, and is separate from developer-facing rustdoc.
-    ///
-    /// When using the `#[tool]` macro from `riglr-macros`, this value is:
-    /// - Taken from the explicit `#[tool(description = "...")]` attribute when provided
-    /// - Otherwise derived from the item's doc comments
-    /// - Falls back to an empty string if neither is present
-    fn description(&self) -> &str;
+    /// The error type for this tool, which must be convertible into our `ToolError`.
+    type Error: StdError + Send + Sync + 'static;
 
-    /// Returns the JSON schema for this tool's parameters.
-    ///
-    /// This schema is used by AI models to understand what parameters
-    /// the tool accepts and their types. It should be a valid JSON Schema
-    /// object describing the parameters structure.
-    ///
-    /// The default implementation returns a generic object schema that
-    /// accepts any properties, which may not work well with all AI providers.
-    /// Tools should override this to provide their actual parameter schema.
-    fn schema(&self) -> serde_json::Value {
-        // Default to a generic object schema
-        serde_json::json!({
-            "type": "object",
-            "additionalProperties": true
-        })
-    }
+    /// Returns the unique name of the tool.
+    fn name(&self) -> &'static str;
+
+    /// Returns a description of the tool for the AI.
+    fn description(&self) -> &'static str;
+
+    /// Returns the JSON schema for the tool's arguments.
+    fn schema(&self) -> serde_json::Value;
+
+    /// Executes the tool's logic.
+    /// The ApplicationContext is no longer passed here; it will be a field on the struct.
+    async fn call(&self, args: Self::Args) -> Result<Self::Output, Self::Error>;
 }
 
 /// Configuration for tool execution behavior.
@@ -775,7 +646,12 @@ impl Default for ResourceLimits {
 /// ```
 pub struct ToolWorker<I: IdempotencyStore + 'static> {
     /// Registered tools, indexed by name for fast lookup
-    tools: Arc<DashMap<String, Arc<dyn Tool>>>,
+    tools: Arc<
+        DashMap<
+            String,
+            Arc<dyn Tool<Args = serde_json::Value, Output = JobResult, Error = ToolError>>,
+        >,
+    >,
 
     /// Default semaphore for general concurrency control
     default_semaphore: Arc<Semaphore>,
@@ -999,7 +875,10 @@ impl<I: IdempotencyStore + 'static> ToolWorker<I> {
     /// worker.register_tool(Arc::new(CalculatorTool)).await;
     /// # }
     /// ```
-    pub async fn register_tool(&self, tool: Arc<dyn Tool>) {
+    pub async fn register_tool(
+        &self,
+        tool: Arc<dyn Tool<Args = serde_json::Value, Output = JobResult, Error = ToolError>>,
+    ) {
         self.tools.insert(tool.name().to_string(), tool);
     }
 
@@ -1109,7 +988,13 @@ impl<I: IdempotencyStore + 'static> ToolWorker<I> {
     }
 
     /// Get a tool from the registry
-    async fn get_tool(&self, tool_name: &str) -> Result<Arc<dyn Tool>, WorkerError> {
+    async fn get_tool(
+        &self,
+        tool_name: &str,
+    ) -> Result<
+        Arc<dyn Tool<Args = serde_json::Value, Output = JobResult, Error = ToolError>>,
+        WorkerError,
+    > {
         self.tools
             .get(tool_name)
             .ok_or_else(|| WorkerError::ToolNotFound {
@@ -1121,7 +1006,7 @@ impl<I: IdempotencyStore + 'static> ToolWorker<I> {
     /// Execute a tool with retry logic using unified retry helper
     async fn execute_with_retries(
         &self,
-        tool: Arc<dyn Tool>,
+        tool: Arc<dyn Tool<Args = serde_json::Value, Output = JobResult, Error = ToolError>>,
         job: &mut Job,
     ) -> Result<JobResult, WorkerError> {
         use crate::retry::{retry_async, ErrorClass, RetryConfig};
@@ -1177,15 +1062,18 @@ impl<I: IdempotencyStore + 'static> ToolWorker<I> {
     /// Execute a single attempt of a tool
     async fn execute_single_attempt(
         &self,
-        tool: &Arc<dyn Tool>,
+        tool: &Arc<dyn Tool<Args = serde_json::Value, Output = JobResult, Error = ToolError>>,
         params: &serde_json::Value,
     ) -> Result<JobResult, ToolError> {
+        // Deserialize params to the tool's Args type
+        let args = serde_json::from_value(params.clone()).map_err(|e| ToolError::InvalidInput {
+            context: format!("Failed to parse parameters: {}", e),
+            source_message: e.to_string(),
+            source: Some(std::sync::Arc::new(e)),
+        })?;
+
         // Execute with timeout
-        let result = tokio::time::timeout(
-            self.config.default_timeout,
-            tool.execute(params.clone(), &self.app_context),
-        )
-        .await;
+        let result = tokio::time::timeout(self.config.default_timeout, tool.call(args)).await;
 
         match result {
             Ok(Ok(job_result)) => Ok(job_result),
@@ -1395,11 +1283,27 @@ mod tests {
 
     #[async_trait]
     impl Tool for MockTool {
-        async fn execute(
-            &self,
-            _params: serde_json::Value,
-            _context: &crate::provider::ApplicationContext,
-        ) -> Result<JobResult, ToolError> {
+        type Args = serde_json::Value;
+        type Output = JobResult;
+        type Error = ToolError;
+
+        fn name(&self) -> &'static str {
+            // For tests, we leak the string to get a 'static lifetime
+            Box::leak(self.name.clone().into_boxed_str())
+        }
+
+        fn description(&self) -> &'static str {
+            ""
+        }
+
+        fn schema(&self) -> serde_json::Value {
+            serde_json::json!({
+                "type": "object",
+                "additionalProperties": true
+            })
+        }
+
+        async fn call(&self, _args: Self::Args) -> Result<Self::Output, Self::Error> {
             if self.should_fail {
                 Err(ToolError::permanent_string("Mock failure"))
             } else {
@@ -1409,38 +1313,20 @@ mod tests {
                 })
             }
         }
-
-        fn name(&self) -> &str {
-            &self.name
-        }
-
-        fn description(&self) -> &str {
-            ""
-        }
-
-        fn schema(&self) -> serde_json::Value {
-            serde_json::json!({
-                "type": "object",
-                "additionalProperties": true
-            })
-        }
     }
 
     #[async_trait]
     impl Tool for RetriableMockTool {
-        async fn execute(
-            &self,
-            _params: serde_json::Value,
-            _context: &crate::provider::ApplicationContext,
-        ) -> Result<JobResult, ToolError> {
-            Err(ToolError::retriable_string("Mock retriable failure"))
+        type Args = serde_json::Value;
+        type Output = JobResult;
+        type Error = ToolError;
+
+        fn name(&self) -> &'static str {
+            // For tests, we leak the string to get a 'static lifetime
+            Box::leak(self.name.clone().into_boxed_str())
         }
 
-        fn name(&self) -> &str {
-            &self.name
-        }
-
-        fn description(&self) -> &str {
+        fn description(&self) -> &'static str {
             ""
         }
 
@@ -1449,6 +1335,10 @@ mod tests {
                 "type": "object",
                 "additionalProperties": true
             })
+        }
+
+        async fn call(&self, _args: Self::Args) -> Result<Self::Output, Self::Error> {
+            Err(ToolError::retriable_string("Mock retriable failure"))
         }
     }
 
@@ -2812,23 +2702,16 @@ mod tests {
 
     #[async_trait]
     impl Tool for SlowMockTool {
-        async fn execute(
-            &self,
-            _params: serde_json::Value,
-            _context: &crate::provider::ApplicationContext,
-        ) -> Result<JobResult, ToolError> {
-            tokio::time::sleep(self.delay).await;
-            Ok(JobResult::Success {
-                value: serde_json::json!({"result": "slow_success"}),
-                tx_hash: None,
-            })
+        type Args = serde_json::Value;
+        type Output = JobResult;
+        type Error = ToolError;
+
+        fn name(&self) -> &'static str {
+            // For tests, we leak the string to get a 'static lifetime
+            Box::leak(self.name.clone().into_boxed_str())
         }
 
-        fn name(&self) -> &str {
-            &self.name
-        }
-
-        fn description(&self) -> &str {
+        fn description(&self) -> &'static str {
             ""
         }
 
@@ -2836,6 +2719,14 @@ mod tests {
             serde_json::json!({
                 "type": "object",
                 "additionalProperties": true
+            })
+        }
+
+        async fn call(&self, _args: Self::Args) -> Result<Self::Output, Self::Error> {
+            tokio::time::sleep(self.delay).await;
+            Ok(JobResult::Success {
+                value: serde_json::json!({"result": "slow_success"}),
+                tx_hash: None,
             })
         }
     }

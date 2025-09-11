@@ -925,6 +925,7 @@ fn extract_error_type(return_type: &syn::ReturnType) -> Option<syn::Type> {
 }
 
 /// Generate error conversion code based on the error type
+#[allow(dead_code)]
 fn generate_error_conversion(error_type: &Option<syn::Type>) -> proc_macro2::TokenStream {
     let Some(_err_type) = error_type else {
         // No error type specified - use standard Into conversion
@@ -1072,11 +1073,14 @@ fn handle_function(function: ItemFn, tool_attrs: ToolAttr) -> proc_macro2::Token
     }
 
     // Generate the struct names
+    let args_struct_name = syn::Ident::new(
+        &format!("{}Args", fn_name.to_string().to_pascal_case()),
+        fn_name.span(),
+    );
     let tool_struct_name = syn::Ident::new(
         &format!("{}Tool", fn_name.to_string().to_pascal_case()),
         fn_name.span(),
     );
-    let _args_struct_name = syn::Ident::new(&format!("{}Args", tool_struct_name), fn_name.span());
     let tool_fn_name = syn::Ident::new(&format!("{}_tool", fn_name), fn_name.span());
 
     // Check if function is async
@@ -1092,12 +1096,12 @@ fn handle_function(function: ItemFn, tool_attrs: ToolAttr) -> proc_macro2::Token
     for input in function.sig.inputs.iter() {
         if let FnArg::Typed(PatType { pat, ty, .. }) = input {
             if is_context_param(ty) {
-                // If it's the context param, pass the context from the execute signature
-                call_args.extend(quote! { context, });
+                // If it's the context param, pass the context from the closure
+                call_args.extend(quote! { &context, });
             } else if let syn::Pat::Ident(ident) = pat.as_ref() {
                 // If it's a user param, pass it from the deserialized 'args' struct
                 let param_name = &ident.ident;
-                call_args.extend(quote! { args.#param_name.clone(), });
+                call_args.extend(quote! { args.#param_name, });
             }
         }
     }
@@ -1107,13 +1111,7 @@ fn handle_function(function: ItemFn, tool_attrs: ToolAttr) -> proc_macro2::Token
     let module_name = syn::Ident::new(&format!("__riglr_tool_{}", fn_name), fn_name.span());
 
     // Extract the error type from the function's Result<T, E>
-    let error_type = extract_error_type(&function.sig.output);
-
-    // Generate the error conversion code based on the error type
-    let error_conversion = generate_error_conversion(&error_type);
-
-    // Generate the error handling match arms
-    let error_match_arms = generate_tool_error_match_arms();
+    let _error_type = extract_error_type(&function.sig.output);
 
     // Generate the tool implementation with namespace
     quote! {
@@ -1124,107 +1122,86 @@ fn handle_function(function: ItemFn, tool_attrs: ToolAttr) -> proc_macro2::Token
         #[doc = "Generated tool module containing implementation details"]
         #fn_vis mod #module_name {
             use super::*;
+            use rig::tool::{Tool as RigTool, ToolError as RigToolError};
+            use rig::completion::ToolDefinition;
+            use riglr_core::provider::ApplicationContext;
+            use riglr_core::{JobResult, ToolError as RiglrToolError};
+            use schemars::JsonSchema;
+            use serde::{Deserialize, Serialize};
+            use std::sync::Arc;
 
             // Generate the args struct if there are parameters
             #[doc = "Arguments structure for the tool"]
-            #[derive(serde::Serialize, serde::Deserialize, schemars::JsonSchema, Debug, Clone)]
-            pub struct Args {
+            #[derive(Deserialize, Serialize, JsonSchema)]
+            pub struct #args_struct_name {
                 #(#param_fields),*
             }
 
-            // Generate the tool struct
+            // Generate the tool struct that holds ApplicationContext
             #[doc = "Tool implementation structure"]
             #[derive(Clone)]
-            pub struct Tool;
-
-            impl Tool {
-                /// Create a new instance of this tool
-                pub fn new() -> Self {
-                    Self
-                }
+            pub struct #tool_struct_name {
+                pub context: Arc<ApplicationContext>,
             }
 
-            impl Default for Tool {
-                fn default() -> Self {
-                    Self::new()
+            // Implement the rig::tool::Tool trait
+            impl RigTool for #tool_struct_name {
+                const NAME: &'static str = stringify!(#fn_name);
+
+                type Error = RigToolError;
+                type Args = #args_struct_name;
+                type Output = JobResult;
+
+                fn name(&self) -> String {
+                    Self::NAME.to_string()
                 }
-            }
 
-            // Implement the riglr_core::Tool trait
-            #[async_trait::async_trait]
-            impl riglr_core::Tool for Tool {
-                /// Execute the tool with the provided parameters
-                async fn execute(&self, params: serde_json::Value, context: &riglr_core::provider::ApplicationContext) -> Result<riglr_core::JobResult, riglr_core::ToolError> {
-                    // Parse the parameters; convert parse errors to ToolError::InvalidInput
-                    let args: Args = match serde_json::from_value(params) {
-                        Ok(v) => v,
-                        Err(e) => {
-                            // Convert parameter parsing error to ToolError and use standard error handling
-                            let tool_error = riglr_core::ToolError::invalid_input_with_source(
-                                e,
-                                "Failed to parse tool parameters"
-                            );
-                            return match tool_error {
-                                #error_match_arms
-                            };
-                        }
-                    };
+                fn definition(&self, _prompt: String) -> impl std::future::Future<Output = ToolDefinition> + Send + Sync {
+                    let name = self.name();
+                    let description = #selected_description.to_string();
+                    let schema = schemars::schema_for!(#args_struct_name);
+                    let parameters = serde_json::to_value(schema).unwrap_or_else(|_| serde_json::json!({}));
 
-                    // Call the original function with reconstructed arguments
-                    let result = super::#fn_name(#call_args)#await_token;
-
-                    // Convert the result to JobResult
-                    match result {
-                        Ok(value) => {
-                            let json_value = serde_json::to_value(value)
-                                .map_err(|e| riglr_core::ToolError::permanent_with_source(e, "Failed to serialize result"))?;
-                            Ok(riglr_core::JobResult::Success {
-                                value: json_value,
-                                tx_hash: None,
-                            })
-                        }
-                        Err(error) => {
-                            // Convert error to ToolError using automatic mapping for known types
-                            let tool_error: riglr_core::ToolError = #error_conversion;
-                            match tool_error {
-                                #error_match_arms
-                            }
+                    async move {
+                        ToolDefinition {
+                            name,
+                            description,
+                            parameters,
                         }
                     }
                 }
 
-                fn name(&self) -> &str {
-                    stringify!(#fn_name)
-                }
+                fn call(&self, args: Self::Args) -> impl std::future::Future<Output = Result<Self::Output, Self::Error>> + Send {
+                    let context = self.context.clone();
 
-                fn description(&self) -> &str {
-                    #selected_description
+                    async move {
+                        let result = super::#fn_name(#call_args)#await_token;
+
+                        match result {
+                            Ok(value) => JobResult::success(&value)
+                                .map_err(|e| RigToolError::ToolCallError(e.to_string().into())),
+                            Err(user_error) => {
+                                let riglr_error: RiglrToolError = user_error.into();
+                                let error_message = match riglr_error {
+                                    RiglrToolError::Retriable { context, .. } => format!("Tool failed with a retriable error: {}. You can try calling this tool again.", context),
+                                    RiglrToolError::RateLimited { context, retry_after, .. } => {
+                                        let guidance = retry_after.map_or("".to_string(), |d| format!(" Please wait {} seconds.", d.as_secs()));
+                                        format!("Tool failed due to rate limiting: {}.{}", context, guidance)
+                                    },
+                                    _ => format!("Tool failed with a permanent error: {}. Do not retry.", riglr_error),
+                                };
+                                Err(RigToolError::ToolCallError(error_message.into()))
+                            }
+                        }
+                    }
                 }
             }
-
-            impl Tool {
-                /// Get the JSON schema for this tool's parameters
-                fn schema(&self) -> serde_json::Value {
-                    // Generate the schema for the Args struct
-                    let schema = schemars::schema_for!(Args);
-                    serde_json::to_value(schema).unwrap_or_else(|_| {
-                        // Fallback to a generic object schema if serialization fails
-                        serde_json::json!({
-                            "type": "object",
-                            "additionalProperties": true
-                        })
-                    })
-                }
-            }
-
-            // NOTE: rig::tool::Tool compatibility is handled by RigToolAdapter in riglr-agents
-            // The adapter pattern allows us to bridge the incompatible interfaces
         }
 
-        // Create a convenience function to create an Arc<dyn Tool> using the namespaced type
+        // Create a convenience function to create a new instance of the tool
         /// Factory function to create a new instance of the tool
-        #fn_vis fn #tool_fn_name() -> std::sync::Arc<dyn riglr_core::Tool> {
-            std::sync::Arc::new(#module_name::Tool::new())
+        #fn_vis fn #tool_fn_name(context: std::sync::Arc<riglr_core::provider::ApplicationContext>) -> #module_name::#tool_struct_name {
+            #module_name::#tool_struct_name { context }
         }
     }
 }

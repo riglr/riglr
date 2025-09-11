@@ -20,11 +20,30 @@ struct WalletTool;
 
 #[async_trait]
 impl Tool for WalletTool {
-    async fn execute(
-        &self,
-        params: serde_json::Value,
-        _app_context: &ApplicationContext,
-    ) -> Result<JobResult, ToolError> {
+    type Args = serde_json::Value;
+    type Output = JobResult;
+    type Error = ToolError;
+
+    fn name(&self) -> &'static str {
+        "wallet"
+    }
+
+    fn description(&self) -> &'static str {
+        "Wallet operations that are automatically scoped to the current user's signer context"
+    }
+
+    fn schema(&self) -> serde_json::Value {
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "operation": {"type": "string"},
+                "amount": {"type": "number"},
+                "to_user": {"type": "string"}
+            }
+        })
+    }
+
+    async fn call(&self, params: Self::Args) -> Result<Self::Output, Self::Error> {
         let operation = params["operation"].as_str().unwrap_or("info");
 
         // Get the current signer from context
@@ -93,14 +112,6 @@ impl Tool for WalletTool {
                 operation
             ))),
         }
-    }
-
-    fn name(&self) -> &str {
-        "wallet"
-    }
-
-    fn description(&self) -> &str {
-        "Wallet operations that are automatically scoped to the current user's signer context"
     }
 }
 

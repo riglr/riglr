@@ -222,14 +222,14 @@ static NETWORK_NAME_MAP: Lazy<HashMap<&'static str, u64>> = Lazy::new(|| {
     map.insert("mainnet", 1);
     map.insert("eth", 1);
     map.insert("goerli", 5);
-    map.insert("sepolia", 11155111);
+    map.insert("sepolia", 11_155_111);
 
     // Layer 2 networks
     map.insert("optimism", 10);
     map.insert("op", 10);
     map.insert("arbitrum", 42161);
     map.insert("arb", 42161);
-    map.insert("arbitrum_goerli", 421613);
+    map.insert("arbitrum_goerli", 421_613);
     map.insert("base", 8453);
     map.insert("base_goerli", 84531);
 
@@ -254,13 +254,13 @@ static NETWORK_NAME_MAP: Lazy<HashMap<&'static str, u64>> = Lazy::new(|| {
     map.insert("celo", 42220);
     map.insert("moonbeam", 1284);
     map.insert("moonriver", 1285);
-    map.insert("aurora", 1313161554);
-    map.insert("harmony", 1666600000);
+    map.insert("aurora", 1_313_161_554);
+    map.insert("harmony", 1_666_600_000);
     map.insert("metis", 1088);
     map.insert("cronos", 25);
     map.insert("kava", 2222);
-    map.insert("scroll", 534352);
-    map.insert("scroll_sepolia", 534351);
+    map.insert("scroll", 534_352);
+    map.insert("scroll_sepolia", 534_351);
     map.insert("zksync", 324);
     map.insert("zksync_era", 324);
     map.insert("zksync_testnet", 280);

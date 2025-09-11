@@ -24,11 +24,29 @@ struct AnalyticsTool;
 
 #[async_trait]
 impl Tool for AnalyticsTool {
-    async fn execute(
-        &self,
-        params: serde_json::Value,
-        _app_context: &ApplicationContext,
-    ) -> Result<JobResult, ToolError> {
+    type Args = serde_json::Value;
+    type Output = JobResult;
+    type Error = ToolError;
+
+    fn name(&self) -> &'static str {
+        "analytics"
+    }
+
+    fn description(&self) -> &'static str {
+        "Performs data analytics with simulated processing time"
+    }
+
+    fn schema(&self) -> serde_json::Value {
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "data_size": {"type": "integer"},
+                "type": {"type": "string"}
+            }
+        })
+    }
+
+    async fn call(&self, params: Self::Args) -> Result<Self::Output, Self::Error> {
         let data_size = params["data_size"].as_u64().unwrap_or(100);
         let analysis_type = params["type"].as_str().unwrap_or("basic");
 
@@ -55,14 +73,6 @@ impl Tool for AnalyticsTool {
 
         Ok(JobResult::success(&result).map_err(|e| ToolError::permanent_string(e.to_string()))?)
     }
-
-    fn name(&self) -> &str {
-        "analytics"
-    }
-
-    fn description(&self) -> &str {
-        "Performs data analytics with simulated processing time"
-    }
 }
 
 /// Example notification tool
@@ -71,11 +81,30 @@ struct NotificationTool;
 
 #[async_trait]
 impl Tool for NotificationTool {
-    async fn execute(
-        &self,
-        params: serde_json::Value,
-        _app_context: &ApplicationContext,
-    ) -> Result<JobResult, ToolError> {
+    type Args = serde_json::Value;
+    type Output = JobResult;
+    type Error = ToolError;
+
+    fn name(&self) -> &'static str {
+        "notify"
+    }
+
+    fn description(&self) -> &'static str {
+        "Sends notifications to users"
+    }
+
+    fn schema(&self) -> serde_json::Value {
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "recipient": {"type": "string"},
+                "message": {"type": "string"},
+                "priority": {"type": "string"}
+            }
+        })
+    }
+
+    async fn call(&self, params: Self::Args) -> Result<Self::Output, Self::Error> {
         let recipient = params["recipient"].as_str().unwrap_or("admin");
         let message = params["message"].as_str().unwrap_or("Notification");
         let priority = params["priority"].as_str().unwrap_or("normal");
@@ -98,14 +127,6 @@ impl Tool for NotificationTool {
 
         Ok(JobResult::success(&result).map_err(|e| ToolError::permanent_string(e.to_string()))?)
     }
-
-    fn name(&self) -> &str {
-        "notify"
-    }
-
-    fn description(&self) -> &str {
-        "Sends notifications to users"
-    }
 }
 
 /// Example report generation tool
@@ -114,11 +135,29 @@ struct ReportTool;
 
 #[async_trait]
 impl Tool for ReportTool {
-    async fn execute(
-        &self,
-        params: serde_json::Value,
-        _app_context: &ApplicationContext,
-    ) -> Result<JobResult, ToolError> {
+    type Args = serde_json::Value;
+    type Output = JobResult;
+    type Error = ToolError;
+
+    fn name(&self) -> &'static str {
+        "report"
+    }
+
+    fn description(&self) -> &'static str {
+        "Generates various types of reports"
+    }
+
+    fn schema(&self) -> serde_json::Value {
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "report_type": {"type": "string"},
+                "period": {"type": "string"}
+            }
+        })
+    }
+
+    async fn call(&self, params: Self::Args) -> Result<Self::Output, Self::Error> {
         let report_type = params["report_type"].as_str().unwrap_or("summary");
         let period = params["period"].as_str().unwrap_or("daily");
 
@@ -141,14 +180,6 @@ impl Tool for ReportTool {
         });
 
         Ok(JobResult::success(&result).map_err(|e| ToolError::permanent_string(e.to_string()))?)
-    }
-
-    fn name(&self) -> &str {
-        "report"
-    }
-
-    fn description(&self) -> &str {
-        "Generates various types of reports"
     }
 }
 

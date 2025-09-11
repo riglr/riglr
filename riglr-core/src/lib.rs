@@ -276,11 +276,29 @@ mod tests {
 
     #[async_trait::async_trait]
     impl Tool for MockTool {
-        async fn execute(
-            &self,
-            params: serde_json::Value,
-            _context: &crate::provider::ApplicationContext,
-        ) -> Result<JobResult, ToolError> {
+        type Args = serde_json::Value;
+        type Output = JobResult;
+        type Error = ToolError;
+
+        fn name(&self) -> &'static str {
+            // For tests, we leak the string to get a 'static lifetime
+            Box::leak(self.name.clone().into_boxed_str())
+        }
+
+        fn description(&self) -> &'static str {
+            ""
+        }
+
+        fn schema(&self) -> serde_json::Value {
+            serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "message": {"type": "string"}
+                }
+            })
+        }
+
+        async fn call(&self, params: Self::Args) -> Result<Self::Output, Self::Error> {
             if self.should_fail {
                 return Err(ToolError::permanent_string("Mock tool failure"));
             }
@@ -288,13 +306,16 @@ mod tests {
             let message = params["message"].as_str().unwrap_or("Hello");
             Ok(JobResult::success(&format!("{}: {}", self.name, message))?)
         }
+    }
 
-        fn name(&self) -> &str {
-            &self.name
-        }
-
-        fn description(&self) -> &str {
-            ""
+    // Extension to provide execute method for backward compatibility with tests
+    impl MockTool {
+        pub async fn execute(
+            &self,
+            params: serde_json::Value,
+            _context: &provider::ApplicationContext,
+        ) -> Result<JobResult, ToolError> {
+            self.call(params).await
         }
     }
 

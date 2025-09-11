@@ -22,11 +22,28 @@ struct GreetingTool;
 
 #[async_trait]
 impl Tool for GreetingTool {
-    async fn execute(
-        &self,
-        params: serde_json::Value,
-        _app_context: &ApplicationContext,
-    ) -> Result<JobResult, ToolError> {
+    type Args = serde_json::Value;
+    type Output = JobResult;
+    type Error = ToolError;
+
+    fn name(&self) -> &'static str {
+        "greeting"
+    }
+
+    fn description(&self) -> &'static str {
+        "Greets a user by name, with enhanced greeting if signer context is available"
+    }
+
+    fn schema(&self) -> serde_json::Value {
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "name": {"type": "string"}
+            }
+        })
+    }
+
+    async fn call(&self, params: Self::Args) -> Result<Self::Output, Self::Error> {
         let name = params["name"].as_str().unwrap_or("World");
 
         // Check if we have a signer context for enhanced greeting
@@ -44,14 +61,6 @@ impl Tool for GreetingTool {
         Ok(JobResult::success(&format!("Hello, {}!", name))
             .map_err(|e| ToolError::permanent_string(e.to_string()))?)
     }
-
-    fn name(&self) -> &str {
-        "greeting"
-    }
-
-    fn description(&self) -> &str {
-        "Greets a user by name, with enhanced greeting if signer context is available"
-    }
 }
 
 /// A tool that demonstrates error classification for retry logic
@@ -60,11 +69,28 @@ struct NetworkTool;
 
 #[async_trait]
 impl Tool for NetworkTool {
-    async fn execute(
-        &self,
-        params: serde_json::Value,
-        _app_context: &ApplicationContext,
-    ) -> Result<JobResult, ToolError> {
+    type Args = serde_json::Value;
+    type Output = JobResult;
+    type Error = ToolError;
+
+    fn name(&self) -> &'static str {
+        "network"
+    }
+
+    fn description(&self) -> &'static str {
+        "Demonstrates network operations with different error types for retry logic"
+    }
+
+    fn schema(&self) -> serde_json::Value {
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "operation": {"type": "string"}
+            }
+        })
+    }
+
+    async fn call(&self, params: Self::Args) -> Result<Self::Output, Self::Error> {
         let operation = params["operation"].as_str().unwrap_or("ping");
 
         match operation {
@@ -100,14 +126,6 @@ impl Tool for NetworkTool {
                 operation
             ))),
         }
-    }
-
-    fn name(&self) -> &str {
-        "network"
-    }
-
-    fn description(&self) -> &str {
-        "Demonstrates network operations with different error types for retry logic"
     }
 }
 
