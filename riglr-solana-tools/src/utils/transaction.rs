@@ -145,7 +145,8 @@ pub async fn send_transaction_with_retry(
                 let mut tx_bytes = bincode::serialize(&tx).map_err(|e| {
                     SignerError::Signing(format!("Failed to serialize transaction: {}", e))
                 })?;
-                signer.sign_and_send_transaction(&mut tx_bytes).await
+                let result = signer.sign_and_send_transaction(&mut tx_bytes).await;
+                result
             }
         },
         classify_signer_error_for_retry,
@@ -298,10 +299,8 @@ where
             e
         )))
     })?;
-    signer
-        .sign_and_send_transaction(&mut tx_bytes)
-        .await
-        .map_err(SolanaToolError::SignerError)
+    let result = signer.sign_and_send_transaction(&mut tx_bytes).await;
+    result.map_err(SolanaToolError::SignerError)
 }
 
 /// Creates properly signed Solana transaction with mint keypair
@@ -368,10 +367,8 @@ pub async fn create_token_with_mint_keypair(
             e
         )))
     })?;
-    let signature = signer
-        .sign_and_send_transaction(&mut tx_bytes)
-        .await
-        .map_err(SolanaToolError::SignerError)?;
+    let result = signer.sign_and_send_transaction(&mut tx_bytes).await;
+    let signature = result.map_err(SolanaToolError::SignerError)?;
 
     Ok(signature)
 }

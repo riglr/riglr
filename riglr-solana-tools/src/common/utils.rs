@@ -78,6 +78,7 @@ pub fn format_balance(lamports: u64) -> String {
 }
 
 #[cfg(test)]
+#[allow(unsafe_code)] // Test functions use unsafe std::env operations for Rust 2024 compatibility with proper safety documentation
 mod tests {
     use super::*;
     use std::env;
@@ -173,9 +174,12 @@ mod tests {
     #[test]
     fn test_default_solana_config_when_no_env_vars_should_use_defaults() {
         // Clear environment variables to test defaults
-        env::remove_var(SOLANA_RPC_URL);
-        env::remove_var(SOLANA_COMMITMENT);
-        env::remove_var(SOLANA_TIMEOUT);
+        // SAFETY: Only modifying test environment variables in isolated test
+        unsafe {
+            env::remove_var(SOLANA_RPC_URL);
+            env::remove_var(SOLANA_COMMITMENT);
+            env::remove_var(SOLANA_TIMEOUT);
+        }
 
         let config = default_solana_config();
         assert_eq!(config.rpc_url, "https://api.mainnet-beta.solana.com");
@@ -186,9 +190,12 @@ mod tests {
     #[test]
     fn test_default_solana_config_when_env_vars_set_should_use_env_values() {
         // Set environment variables
-        env::set_var(SOLANA_RPC_URL, "https://custom-rpc.com");
-        env::set_var(SOLANA_COMMITMENT, "finalized");
-        env::set_var(SOLANA_TIMEOUT, "60");
+        // SAFETY: Only modifying test environment variables in isolated test
+        unsafe {
+            env::set_var(SOLANA_RPC_URL, "https://custom-rpc.com");
+            env::set_var(SOLANA_COMMITMENT, "finalized");
+            env::set_var(SOLANA_TIMEOUT, "60");
+        }
 
         let config = default_solana_config();
         assert_eq!(config.rpc_url, "https://custom-rpc.com");
@@ -196,19 +203,28 @@ mod tests {
         assert_eq!(config.timeout_seconds, 60);
 
         // Clean up
-        env::remove_var(SOLANA_RPC_URL);
-        env::remove_var(SOLANA_COMMITMENT);
-        env::remove_var(SOLANA_TIMEOUT);
+        // SAFETY: Only modifying test environment variables in isolated test
+        unsafe {
+            env::remove_var(SOLANA_RPC_URL);
+            env::remove_var(SOLANA_COMMITMENT);
+            env::remove_var(SOLANA_TIMEOUT);
+        }
     }
 
     #[test]
     fn test_default_solana_config_when_invalid_timeout_should_use_default() {
-        env::set_var(SOLANA_TIMEOUT, "invalid_number");
+        // SAFETY: Only modifying test environment variables in isolated test
+        unsafe {
+            env::set_var(SOLANA_TIMEOUT, "invalid_number");
+        }
 
         let config = default_solana_config();
         assert_eq!(config.timeout_seconds, 30); // Should fall back to default
 
-        env::remove_var(SOLANA_TIMEOUT);
+        // SAFETY: Only modifying test environment variables in isolated test
+        unsafe {
+            env::remove_var(SOLANA_TIMEOUT);
+        }
     }
 
     #[test]

@@ -201,7 +201,7 @@ impl SolanaToolError {
 
             // RPC and HTTP errors are often retriable
             SolanaToolError::Rpc(_) => true,
-            SolanaToolError::Http(ref http_err) => !matches!(
+            SolanaToolError::Http(http_err) => !matches!(
                 http_err.status(),
                 Some(
                     reqwest::StatusCode::BAD_REQUEST
@@ -211,9 +211,10 @@ impl SolanaToolError {
             ),
 
             // Client errors need classification
-            SolanaToolError::SolanaClient(ref client_err) => {
+            SolanaToolError::SolanaClient(client_err) => {
                 let error_type = classify_transaction_error(client_err);
-                error_type.is_retryable()
+                let is_retryable = error_type.is_retryable();
+                is_retryable
             }
 
             // Address/key validation errors are permanent
@@ -246,12 +247,13 @@ impl SolanaToolError {
                     || msg.contains("rate limit")
                     || msg.contains("too many requests")
             }
-            SolanaToolError::Http(ref http_err) => {
+            SolanaToolError::Http(http_err) => {
                 http_err.status() == Some(reqwest::StatusCode::TOO_MANY_REQUESTS)
             }
-            SolanaToolError::SolanaClient(ref client_err) => {
+            SolanaToolError::SolanaClient(client_err) => {
                 let error_type = classify_transaction_error(client_err);
-                error_type.is_rate_limited()
+                let is_rate_limited = error_type.is_rate_limited();
+                is_rate_limited
             }
             _ => false,
         }
@@ -343,7 +345,7 @@ impl TransactionErrorType {
 /// It handles the most common error scenarios and provides appropriate
 /// retry guidance.
 pub fn classify_transaction_error(error: &ClientError) -> TransactionErrorType {
-    match &*error.kind {
+    match &error.kind {
         ClientErrorKind::RpcError(rpc_error) => classify_rpc_error(rpc_error),
         ClientErrorKind::SerdeJson(_) => {
             TransactionErrorType::Permanent(PermanentError::InvalidTransaction)
@@ -380,10 +382,10 @@ pub fn classify_transaction_error(error: &ClientError) -> TransactionErrorType {
 
 /// Classify RPC-specific errors
 fn classify_rpc_error(rpc_error: &RpcError) -> TransactionErrorType {
-    use solana_client::rpc_request::RpcError::*;
+    use solana_client::rpc_request::RpcError;
 
     match rpc_error {
-        RpcRequestError(msg) => {
+        RpcError::RpcRequestError(msg) => {
             if msg.contains("rate limit")
                 || msg.contains("429")
                 || msg.contains("too many requests")
@@ -393,7 +395,7 @@ fn classify_rpc_error(rpc_error: &RpcError) -> TransactionErrorType {
                 TransactionErrorType::Retryable(RetryableError::TemporaryRpcFailure)
             }
         }
-        RpcResponseError { code, message, .. } => {
+        RpcError::RpcResponseError { code, message, .. } => {
             // Standard JSON-RPC error codes
             match *code {
                 429 => TransactionErrorType::RateLimited(RateLimitError::RpcRateLimit),
@@ -411,13 +413,14 @@ fn classify_rpc_error(rpc_error: &RpcError) -> TransactionErrorType {
                     } else if message.contains("Instruction") && message.contains("error") {
                         TransactionErrorType::Permanent(PermanentError::InstructionError)
                     } else {
-                        TransactionErrorType::Unknown(format!("RPC Error {}: {}", code, message))
+                        let error_msg = format!("RPC Error {}: {}", code, message);
+                        TransactionErrorType::Unknown(error_msg)
                     }
                 }
             }
         }
-        ParseError(_msg) => TransactionErrorType::Permanent(PermanentError::InvalidTransaction),
-        ForUser(msg) => TransactionErrorType::Unknown(msg.clone()),
+        RpcError::ParseError(_msg) => TransactionErrorType::Permanent(PermanentError::InvalidTransaction),
+        RpcError::ForUser(msg) => TransactionErrorType::Unknown(msg.clone()),
     }
 }
 
@@ -469,7 +472,8 @@ mod tests {
         let tool_err = ToolError::permanent_string("test error");
         let solana_err = SolanaToolError::ToolError(tool_err.clone());
 
-        match solana_err.classify() {
+        let classification = solana_err.classify();
+        match classification {
             ErrorClassification::ToolErrorPassthrough(e) => {
                 assert_eq!(e.to_string(), tool_err.to_string());
             }
@@ -530,7 +534,8 @@ mod tests {
         ];
 
         for error in test_cases {
-            match error.classify() {
+            let classification = error.classify();
+            match classification {
                 ErrorClassification::RateLimited { delay } => {
                     assert!(delay.is_some(), "Expected delay for rate limited error");
                 }

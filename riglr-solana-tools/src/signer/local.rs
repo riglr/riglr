@@ -63,15 +63,16 @@ impl BlockhashCache {
     async fn get_blockhash(&mut self) -> Result<solana_sdk::hash::Hash, SignerError> {
         // Cache blockhash for 30 seconds
         if self.timestamp.elapsed() > Duration::from_secs(30) {
-            self.blockhash = tokio::task::spawn_blocking({
+            let spawn_result = tokio::task::spawn_blocking({
                 let client = self.client.clone();
                 move || client.get_latest_blockhash()
             })
-            .await
-            .map_err(|e| SignerError::BlockhashError(format!("Failed to fetch blockhash: {}", e)))?
-            .map_err(|e| {
-                SignerError::BlockhashError(format!("RPC error fetching blockhash: {}", e))
-            })?;
+            .await;
+            self.blockhash = spawn_result
+                .map_err(|e| SignerError::BlockhashError(format!("Failed to fetch blockhash: {}", e)))?
+                .map_err(|e| {
+                    SignerError::BlockhashError(format!("RPC error fetching blockhash: {}", e))
+                })?;
 
             self.timestamp = Instant::now();
         }
@@ -175,7 +176,8 @@ impl LocalSolanaSigner {
     /// Get a recent blockhash (cached for performance)
     async fn get_recent_blockhash(&self) -> Result<solana_sdk::hash::Hash, SignerError> {
         let mut cache = self.blockhash_cache.write().await;
-        cache.get_blockhash().await
+        let result = cache.get_blockhash().await;
+        result
     }
 
     /// Create a new LocalSolanaSigner from a seed phrase (for compatibility with existing code)
@@ -340,14 +342,15 @@ impl SolanaSigner for LocalSolanaSigner {
             .map_err(|e| SignerError::Signing(format!("Failed to serialize transaction: {}", e)))?;
 
         // Send the transaction
-        let signature = tokio::task::spawn_blocking({
+        let spawn_result = tokio::task::spawn_blocking({
             let client = self.client.clone();
             let tx_clone = tx.clone();
             move || client.send_and_confirm_transaction(&tx_clone)
         })
-        .await
-        .map_err(|e| SignerError::TransactionFailed(format!("Failed to send transaction: {}", e)))?
-        .map_err(|e| SignerError::TransactionFailed(format!("RPC error: {}", e)))?;
+        .await;
+        let signature = spawn_result
+            .map_err(|e| SignerError::TransactionFailed(format!("Failed to send transaction: {}", e)))?
+            .map_err(|e| SignerError::TransactionFailed(format!("RPC error: {}", e)))?;
 
         Ok(signature.to_string())
     }
@@ -376,13 +379,14 @@ impl SolanaClient for SolanaClientImpl {
         use std::str::FromStr;
         let pubkey = Pubkey::from_str(pubkey_str)
             .map_err(|e| SignerError::InvalidPrivateKey(format!("Invalid pubkey: {}", e)))?;
-        let balance = tokio::task::spawn_blocking({
+        let spawn_result = tokio::task::spawn_blocking({
             let client = self.client.clone();
             move || client.get_balance(&pubkey)
         })
-        .await
-        .map_err(|e| SignerError::ProviderError(format!("Failed to get balance: {}", e)))?
-        .map_err(|e| SignerError::ProviderError(format!("RPC error getting balance: {}", e)))?;
+        .await;
+        let balance = spawn_result
+            .map_err(|e| SignerError::ProviderError(format!("Failed to get balance: {}", e)))?
+            .map_err(|e| SignerError::ProviderError(format!("RPC error getting balance: {}", e)))?;
 
         Ok(balance)
     }
@@ -392,16 +396,17 @@ impl SolanaClient for SolanaClientImpl {
         let tx: Transaction = deserialize(tx_bytes).map_err(|e| {
             SignerError::Signing(format!("Failed to deserialize transaction: {}", e))
         })?;
-        let signature = tokio::task::spawn_blocking({
+        let spawn_result = tokio::task::spawn_blocking({
             let client = self.client.clone();
             let tx = tx.clone();
             move || client.send_and_confirm_transaction(&tx)
         })
-        .await
-        .map_err(|e| SignerError::TransactionFailed(format!("Failed to send transaction: {}", e)))?
-        .map_err(|e| {
-            SignerError::TransactionFailed(format!("RPC error sending transaction: {}", e))
-        })?;
+        .await;
+        let signature = spawn_result
+            .map_err(|e| SignerError::TransactionFailed(format!("Failed to send transaction: {}", e)))?
+            .map_err(|e| {
+                SignerError::TransactionFailed(format!("RPC error sending transaction: {}", e))
+            })?;
 
         Ok(signature.to_string())
     }

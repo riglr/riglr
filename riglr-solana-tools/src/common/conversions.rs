@@ -255,3 +255,30 @@ pub fn mint_to_v3(
         data: spl_instruction.data,
     })
 }
+
+/// System transfer instruction using solana-sdk v3 directly
+pub fn system_transfer_v3(
+    from_pubkey: &Pubkey,
+    to_pubkey: &Pubkey,
+    lamports: u64,
+) -> solana_sdk::instruction::Instruction {
+    solana_sdk::system_instruction::transfer(from_pubkey, to_pubkey, lamports)
+}
+
+/// System create account instruction using solana-sdk v3 directly
+pub fn system_create_account_v3(
+    from_pubkey: &Pubkey,
+    to_pubkey: &Pubkey,
+    lamports: u64,
+    space: u64,
+    owner: &Pubkey,
+) -> solana_sdk::instruction::Instruction {
+    solana_sdk::system_instruction::create_account(
+        from_pubkey,
+        to_pubkey,
+        lamports,
+        space,
+        owner,
+    )
+}
+

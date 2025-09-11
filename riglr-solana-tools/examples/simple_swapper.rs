@@ -168,7 +168,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let key_dir = ensure_key_directory().expect("Failed to create key directory");
     let key_path = key_dir.join("solana.key");
 
-    if let Ok(private_key) = load_private_key_with_fallback(&key_path, SOLANA_PRIVATE_KEY_ENV) {
+    let private_key_result = load_private_key_with_fallback(&key_path, SOLANA_PRIVATE_KEY_ENV);
+    if let Ok(private_key) = private_key_result {
         println!("Private key loaded. Initializing signer...");
         println!(
             "(Loaded from file: {}, or env var fallback)",

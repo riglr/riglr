@@ -9,7 +9,7 @@ homepage.workspace = true
 description = "A suite of rig-compatible tools for interacting with the Solana blockchain"
 readme = "README.md"
 keywords = ["solana", "ai", "agent", "blockchain", "rig"]
-categories = ["cryptography::cryptocurrencies", "web-programming::api-bindings"]
+categories = ["cryptography::cryptocurrencies", "web-programming"]
 documentation = "https://docs.rs/riglr-solana-tools"
 
 [lints]
@@ -18,9 +18,9 @@ workspace = true
 [dependencies]
 # Core riglr and rig dependencies
 rig-core = { workspace = true }
-riglr-core = { workspace = true }
-riglr-config = { workspace = true }
-riglr-macros = { workspace = true }
+riglr-core = { workspace = true  }
+riglr-config = { workspace = true  }
+riglr-macros = { workspace = true  }
 
 # Async and Error Handling
 tokio = { workspace = true }

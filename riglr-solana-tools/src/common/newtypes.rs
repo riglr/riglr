@@ -4,7 +4,6 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::signature::Signature;
-use std::borrow::Cow;
 use std::fmt;
 use std::ops::Deref;
 use std::str::FromStr;
@@ -15,13 +14,13 @@ use std::str::FromStr;
 pub struct SolanaAddress(Pubkey);
 
 impl JsonSchema for SolanaAddress {
-    fn schema_name() -> Cow<'static, str> {
-        Cow::Borrowed("SolanaAddress")
+    fn schema_name() -> String {
+        "SolanaAddress".to_string()
     }
 
-    fn json_schema(gen: &mut schemars::SchemaGenerator) -> schemars::Schema {
+    fn json_schema(schema_gen: &mut schemars::SchemaGenerator) -> schemars::schema::Schema {
         // Schema for a base58-encoded Solana address string
-        gen.subschema_for::<String>()
+        schema_gen.subschema_for::<String>()
     }
 }
 
@@ -93,13 +92,13 @@ impl From<SolanaAddress> for Pubkey {
 pub struct SolanaSignature(Signature);
 
 impl JsonSchema for SolanaSignature {
-    fn schema_name() -> Cow<'static, str> {
-        Cow::Borrowed("SolanaSignature")
+    fn schema_name() -> String {
+        "SolanaSignature".to_string()
     }
 
-    fn json_schema(gen: &mut schemars::SchemaGenerator) -> schemars::Schema {
+    fn json_schema(schema_gen: &mut schemars::SchemaGenerator) -> schemars::schema::Schema {
         // Schema for a base58-encoded Solana signature string
-        gen.subschema_for::<String>()
+        schema_gen.subschema_for::<String>()
     }
 }
 

@@ -6,6 +6,7 @@
 use crate::common::{
     create_associated_token_account_idempotent_v3, from_spl_token_pubkey,
     get_associated_token_address_v3, initialize_mint2_v3, mint_to_v3, spl_token_transfer_v3,
+    system_create_account_v3, system_transfer_v3,
 };
 use crate::utils::send_transaction;
 use riglr_core::{SignerContext, ToolError};
@@ -21,7 +22,6 @@ use solana_sdk::{
     pubkey::Pubkey,
     transaction::Transaction,
 };
-use solana_system_interface::instruction as system_instruction;
 use spl_token;
 use std::str::FromStr;
 use std::sync::Arc;
@@ -113,7 +113,7 @@ pub async fn transfer_sol(
         .map_err(|e| ToolError::permanent_string(format!("Invalid signer pubkey: {}", e)))?;
 
     // Create transfer instruction
-    let mut instructions = vec![system_instruction::transfer(
+    let mut instructions = vec![system_transfer_v3(
         &from_pubkey,
         &to_pubkey,
         lamports,
@@ -400,7 +400,7 @@ pub async fn create_spl_token_mint(
 
     // Create the mint account
     let spl_token_id = from_spl_token_pubkey(&spl_token::id());
-    instructions.push(system_instruction::create_account(
+    instructions.push(system_create_account_v3(
         &payer_pubkey,
         &mint_pubkey,
         rent,
