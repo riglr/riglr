@@ -30,7 +30,7 @@ thiserror = { workspace = true }
 # Serialization and Schema
 serde = { workspace = true }
 serde_json = { workspace = true }
-schemars = { workspace = true, features = ["chrono04"] }
+schemars = { workspace = true, features = ["chrono"] }
 
 # Graph database (temporarily commented out for initial build)
 # neo4rs = "0.7"

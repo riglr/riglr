@@ -32,7 +32,7 @@ futures = "0.3"
 # Serialization and Schema
 serde = { workspace = true }
 serde_json = { workspace = true }
-schemars = { workspace = true, features = ["chrono04"] }
+schemars = { workspace = true, features = ["chrono"] }
 
 # HTTP client
 reqwest = { workspace = true }
